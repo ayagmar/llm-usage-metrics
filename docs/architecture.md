@@ -96,6 +96,10 @@ flowchart TD
 - `usage-report-row.ts`: output row types.
 - `normalization.ts`: shared normalization helpers.
 
+### `src/config`
+
+- `runtime-overrides.ts`: environment-variable runtime knobs with bounds and defaults.
+
 ### `src/pricing`
 
 - `types.ts`: pricing interfaces.

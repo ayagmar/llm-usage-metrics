@@ -43,6 +43,23 @@ To force-skip startup update checks:
 LLM_USAGE_SKIP_UPDATE_CHECK=1 llm-usage daily
 ```
 
+### Runtime environment overrides
+
+You can tune runtime behavior with environment variables:
+
+- `LLM_USAGE_SKIP_UPDATE_CHECK`: skip startup update check when set to `1`
+- `LLM_USAGE_UPDATE_CACHE_TTL_MS`: update-check cache TTL in milliseconds (clamped: `60000..2592000000`)
+- `LLM_USAGE_UPDATE_FETCH_TIMEOUT_MS`: update-check network timeout in milliseconds (clamped: `200..30000`)
+- `LLM_USAGE_PRICING_CACHE_TTL_MS`: pricing cache TTL in milliseconds (clamped: `60000..2592000000`)
+- `LLM_USAGE_PRICING_FETCH_TIMEOUT_MS`: pricing fetch timeout in milliseconds (clamped: `200..30000`)
+- `LLM_USAGE_PARSE_MAX_PARALLEL`: max concurrent file parses per source adapter (clamped: `1..64`)
+
+Example:
+
+```bash
+LLM_USAGE_PARSE_MAX_PARALLEL=16 LLM_USAGE_PRICING_FETCH_TIMEOUT_MS=8000 llm-usage monthly
+```
+
 ## Usage
 
 ### Daily report (default terminal table)

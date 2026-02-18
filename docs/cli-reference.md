@@ -55,6 +55,17 @@ Disable the startup check with:
 LLM_USAGE_SKIP_UPDATE_CHECK=1 llm-usage daily
 ```
 
+## Environment variables
+
+Operational runtime knobs:
+
+- `LLM_USAGE_SKIP_UPDATE_CHECK`: skip startup update check when set to `1`
+- `LLM_USAGE_UPDATE_CACHE_TTL_MS`: update-check cache TTL in milliseconds (clamped `60000..2592000000`)
+- `LLM_USAGE_UPDATE_FETCH_TIMEOUT_MS`: update-check fetch timeout in milliseconds (clamped `200..30000`)
+- `LLM_USAGE_PRICING_CACHE_TTL_MS`: pricing cache TTL in milliseconds (clamped `60000..2592000000`)
+- `LLM_USAGE_PRICING_FETCH_TIMEOUT_MS`: pricing fetch timeout in milliseconds (clamped `200..30000`)
+- `LLM_USAGE_PARSE_MAX_PARALLEL`: max parallel file parsing per source adapter (clamped `1..64`)
+
 ## Examples
 
 Daily report:

@@ -24,6 +24,19 @@ bun run format:check
 
 `bun run test` includes coverage by default.
 
+## Runtime configuration in development
+
+The CLI reads runtime knobs directly from environment variables (no `.env` auto-loading in runtime).
+
+Common variables:
+
+- `LLM_USAGE_SKIP_UPDATE_CHECK=1`
+- `LLM_USAGE_UPDATE_CACHE_TTL_MS=...`
+- `LLM_USAGE_UPDATE_FETCH_TIMEOUT_MS=...`
+- `LLM_USAGE_PRICING_CACHE_TTL_MS=...`
+- `LLM_USAGE_PRICING_FETCH_TIMEOUT_MS=...`
+- `LLM_USAGE_PARSE_MAX_PARALLEL=...`
+
 ## Build and packaging
 
 Build CLI bundle:
