@@ -1,4 +1,9 @@
 import { aggregateUsage } from '../aggregate/aggregate-usage.js';
+import {
+  getParsingRuntimeConfig,
+  getPricingFetcherRuntimeConfig,
+  type PricingFetcherRuntimeConfig,
+} from '../config/runtime-overrides.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { applyPricingToEvents } from '../pricing/cost-engine.js';
 import { LiteLLMPricingFetcher } from '../pricing/litellm-pricing-fetcher.js';
@@ -10,8 +15,6 @@ import { CodexSourceAdapter } from '../sources/codex/codex-source-adapter.js';
 import { PiSourceAdapter } from '../sources/pi/pi-source-adapter.js';
 import type { SourceAdapter } from '../sources/source-adapter.js';
 import { getPeriodKey, type ReportGranularity } from '../utils/time-buckets.js';
-
-const MAX_PARALLEL_FILE_PARSING = 8;
 
 export type ReportCommandOptions = {
   piDir?: string;
@@ -106,7 +109,10 @@ function matchesProvider(
   return provider?.toLowerCase().includes(providerFilter) ?? false;
 }
 
-async function parseAdapterEvents(adapter: SourceAdapter): Promise<UsageEvent[]> {
+async function parseAdapterEvents(
+  adapter: SourceAdapter,
+  maxParallelFileParsing: number,
+): Promise<UsageEvent[]> {
   const files = await adapter.discoverFiles();
 
   if (files.length === 0) {
@@ -114,7 +120,7 @@ async function parseAdapterEvents(adapter: SourceAdapter): Promise<UsageEvent[]>
   }
 
   const parsedByFile: UsageEvent[][] = Array.from({ length: files.length }, () => []);
-  const workerCount = Math.min(MAX_PARALLEL_FILE_PARSING, files.length);
+  const workerCount = Math.min(maxParallelFileParsing, files.length);
   let nextFileIndex = 0;
 
   const workers = Array.from({ length: workerCount }, async () => {
@@ -174,11 +180,16 @@ function validatePricingUrl(pricingUrl: string | undefined): void {
   }
 }
 
-async function resolvePricingSource(options: ReportCommandOptions): Promise<PricingSource> {
+async function resolvePricingSource(
+  options: ReportCommandOptions,
+  runtimeConfig: PricingFetcherRuntimeConfig,
+): Promise<PricingSource> {
   const fallbackPricingSource = createDefaultOpenAiPricingSource();
   const litellmPricingFetcher = new LiteLLMPricingFetcher({
     sourceUrl: options.pricingUrl,
     offline: options.pricingOffline,
+    cacheTtlMs: runtimeConfig.cacheTtlMs,
+    fetchTimeoutMs: runtimeConfig.fetchTimeoutMs,
   });
 
   try {
@@ -243,6 +254,9 @@ export async function buildUsageReport(
   const sourceFilter = normalizeSourceFilter(options.source);
   const effectiveProviderFilter = providerFilter ?? 'openai';
 
+  const parsingRuntimeConfig = getParsingRuntimeConfig();
+  const pricingRuntimeConfig = getPricingFetcherRuntimeConfig();
+
   const adapters: SourceAdapter[] = [
     new PiSourceAdapter({
       sessionsDir: options.piDir,
@@ -261,7 +275,9 @@ export async function buildUsageReport(
     : adapters;
 
   const parsedEventsByAdapter = await Promise.all(
-    adaptersToParse.map((adapter) => parseAdapterEvents(adapter)),
+    adaptersToParse.map((adapter) =>
+      parseAdapterEvents(adapter, parsingRuntimeConfig.maxParallelFileParsing),
+    ),
   );
   const providerFilteredEvents = parsedEventsByAdapter
     .flat()
@@ -275,7 +291,10 @@ export async function buildUsageReport(
   );
 
   const pricedEvents = shouldLoadPricingSource(options, dateFilteredEvents)
-    ? applyPricingToEvents(dateFilteredEvents, await resolvePricingSource(options))
+    ? applyPricingToEvents(
+        dateFilteredEvents,
+        await resolvePricingSource(options, pricingRuntimeConfig),
+      )
     : dateFilteredEvents;
 
   const rows = aggregateUsage(pricedEvents, {
