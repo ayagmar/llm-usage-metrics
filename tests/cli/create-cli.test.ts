@@ -66,10 +66,15 @@ describe('createCli', () => {
   it('renders help output with command and npx examples', () => {
     const cli = createCli();
     const help = cli.helpInformation();
+    const dailyCommandHelp = cli.commands
+      .find((command) => command.name() === 'daily')
+      ?.helpInformation();
+    const compactDailyCommandHelp = dailyCommandHelp?.replace(/\s+/gu, ' ');
 
     expect(help).toContain('Show daily usage report');
     expect(help).toContain('llm-usage <command> --help');
     expect(help).toContain('npx --yes llm-usage-metrics daily');
+    expect(compactDailyCommandHelp).toContain('after source/provider/date filters');
   });
 
   it('supports --version output', async () => {

@@ -34,7 +34,7 @@ Commands:
 - `--until <YYYY-MM-DD>`: inclusive end date (local to selected timezone)
 - `--timezone <iana>`: IANA timezone for bucket boundaries
 - `--provider <name>`: provider filter (substring match, case-insensitive)
-- `--model <name>`: model filter (repeatable or comma-separated, case-insensitive; exact when an exact model exists, otherwise substring)
+- `--model <name>`: model filter (repeatable or comma-separated, case-insensitive; exact when an exact model exists after source/provider/date filters, otherwise substring)
 - `--pricing-url <url>`: use custom LiteLLM pricing JSON source
 - `--pricing-offline`: use cache only (no network)
 - `--markdown`: render markdown table
@@ -54,7 +54,7 @@ Commands:
 
 When installed globally, the CLI checks npm for newer versions using a cached lookup (1-hour default TTL).
 
-- cache path: `~/.cache/llm-usage-metrics/update-check.json`
+- cache path: `<platform-cache-root>/llm-usage-metrics/update-check.json` (Linux default: `~/.cache/llm-usage-metrics/update-check.json` when `XDG_CACHE_HOME` is unset)
 - check is skipped for `--help`, `help`, `--version`, and `version` invocations
 - check is skipped when the CLI appears to run via `npx`
 - interactive TTY sessions can prompt to install + restart
@@ -199,7 +199,7 @@ llm-usage monthly --source pi --source codex
 llm-usage monthly --source pi,codex
 ```
 
-Model filtering (exact-when-exact-available, otherwise substring):
+Model filtering (exact-when-exact-available after source/provider/date filtering, otherwise substring):
 
 ```bash
 llm-usage monthly --model claude

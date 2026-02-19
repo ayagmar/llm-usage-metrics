@@ -535,7 +535,7 @@ describe('buildUsageData', () => {
     });
   });
 
-  it('keeps exact model matching even when exact model exists outside the selected date range', async () => {
+  it('falls back to substring model matching when exact model exists only outside selected date range', async () => {
     const result = await buildUsageData(
       'daily',
       {
@@ -567,23 +567,13 @@ describe('buildUsageData', () => {
       },
     );
 
-    expect(result.rows.some((row) => row.rowType === 'period_source')).toBe(false);
-    expect(result.rows).toEqual([
-      {
-        rowType: 'grand_total',
-        periodKey: 'ALL',
-        source: 'combined',
-        models: [],
-        modelBreakdown: [],
-        inputTokens: 0,
-        outputTokens: 0,
-        reasoningTokens: 0,
-        cacheReadTokens: 0,
-        cacheWriteTokens: 0,
-        totalTokens: 0,
-        costUsd: 0,
-      },
-    ]);
+    const periodRow = result.rows.find((row) => row.rowType === 'period_source');
+
+    expect(periodRow).toMatchObject({
+      source: 'pi',
+      models: ['claude-sonnet-4.5-v2'],
+      totalTokens: 30,
+    });
   });
 
   it('fails fast on malformed --source-dir values', async () => {

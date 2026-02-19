@@ -1,7 +1,7 @@
 {
   "name": "llm-usage-metrics",
   "version": "0.1.8",
-  "description": "CLI for aggregating local LLM usage metrics from pi and codex sessions",
+  "description": "CLI for aggregating local LLM usage metrics from pi, codex, and opencode sessions",
   "type": "module",
   "engines": {
     "node": ">=24"
@@ -34,7 +34,8 @@
     "usage",
     "cli",
     "pi",
-    "codex"
+    "codex",
+    "opencode"
   ],
   "license": "MIT",
   "repository": {

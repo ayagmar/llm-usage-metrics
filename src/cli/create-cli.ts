@@ -44,7 +44,7 @@ function addSharedOptions(command: Command): Command {
     .option('--provider <name>', 'Provider filter (substring match, optional)')
     .option(
       '--model <name>',
-      'Filter by model (repeatable or comma-separated, exact when exact match exists; otherwise substring)',
+      'Filter by model (repeatable/comma-separated; exact when exact match exists after source/provider/date filters, otherwise substring)',
       collectSourceOption,
       [],
     )

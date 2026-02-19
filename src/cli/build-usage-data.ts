@@ -504,7 +504,7 @@ export async function buildUsageData(
     options.until,
   );
 
-  const modelFilterRules = resolveModelFilterRules(providerFilteredEvents, modelFilter);
+  const modelFilterRules = resolveModelFilterRules(providerAndDateFilteredEvents, modelFilter);
   const filteredEvents = providerAndDateFilteredEvents.filter((event) =>
     matchesModel(event.model, modelFilterRules),
   );

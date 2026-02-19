@@ -60,6 +60,7 @@ jobs:
         run: bun run test
 
       - name: Upload coverage to Codecov
+        if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork }}
         uses: codecov/codecov-action@v5
         with:
           use_oidc: true
