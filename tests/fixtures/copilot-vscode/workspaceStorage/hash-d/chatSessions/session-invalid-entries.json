@@ -1,0 +1,27 @@
+{
+  "requests": [
+    null,
+    {
+      "timestamp": "not-number",
+      "modelId": "gpt-4.1",
+      "response": [
+        {
+          "baseUri": {
+            "path": "/workspace/invalid"
+          }
+        }
+      ]
+    },
+    {
+      "timestamp": 1730000003000,
+      "modelId": "gpt-4.1",
+      "response": [
+        {
+          "baseUri": {
+            "path": "/workspace/valid"
+          }
+        }
+      ]
+    }
+  ]
+}

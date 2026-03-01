@@ -1,0 +1,21 @@
+{
+  "sessionId": "vscode-multi-001",
+  "requests": [
+    {
+      "timestamp": 1730000001000,
+      "modelId": "gpt-4o",
+      "response": [
+        {
+          "baseUri": {
+            "path": "/workspace/multi"
+          }
+        }
+      ]
+    },
+    {
+      "timestamp": 1730000002000,
+      "modelId": "claude-3.7-sonnet",
+      "response": []
+    }
+  ]
+}

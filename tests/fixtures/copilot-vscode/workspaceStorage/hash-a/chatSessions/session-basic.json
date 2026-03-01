@@ -1,0 +1,16 @@
+{
+  "sessionId": "vscode-basic-001",
+  "requests": [
+    {
+      "timestamp": 1730000000000,
+      "modelId": "gpt-4.1",
+      "response": [
+        {
+          "baseUri": {
+            "path": "/workspace/basic"
+          }
+        }
+      ]
+    }
+  ]
+}
