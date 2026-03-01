@@ -99,4 +99,40 @@ describe('parseCopilotVscodeSession', () => {
     expect(result.skippedRows).toBe(1);
     expect(result.skippedRowReasons).toEqual([{ reason: 'invalid_requests_array', count: 1 }]);
   });
+
+  it('estimates non-zero tokens from message and response value text', () => {
+    const content = JSON.stringify({
+      sessionId: 'with-text',
+      requests: [
+        {
+          timestamp: 1730000000000,
+          modelId: 'copilot/claude-sonnet-4.5',
+          message: {
+            text: 'Please refactor this function to be pure.',
+          },
+          response: [
+            {
+              kind: 'thinking',
+              value: 'I should inspect the function and remove side effects first.',
+            },
+            {
+              value: 'I refactored it into a pure function and added tests.',
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = parseCopilotVscodeSession('/tmp/with-text.json', content);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0]?.inputTokens).toBeGreaterThan(0);
+    expect(result.events[0]?.outputTokens).toBeGreaterThan(0);
+    expect(result.events[0]?.reasoningTokens).toBeGreaterThan(0);
+    expect(result.events[0]?.totalTokens).toBe(
+      (result.events[0]?.inputTokens ?? 0) +
+        (result.events[0]?.outputTokens ?? 0) +
+        (result.events[0]?.reasoningTokens ?? 0),
+    );
+  });
 });

@@ -7,6 +7,8 @@ import { asTrimmedText } from '../parsing-utils.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
 import type { SourceParseFileDiagnostics } from '../source-adapter.js';
 
+const COPILOT_VSCODE_ESTIMATED_CHARS_PER_TOKEN = 4;
+
 function resolveSessionId(filePath: string, sessionData: Record<string, unknown>): string {
   return asTrimmedText(sessionData.sessionId) ?? path.basename(filePath, '.json');
 }
@@ -66,6 +68,96 @@ function resolveSessionLevelRepoRootFallback(requests: unknown[]): string | unde
   return undefined;
 }
 
+function estimateTokensFromText(text: string | undefined): number {
+  if (!text) {
+    return 0;
+  }
+
+  const normalized = text.trim();
+
+  if (!normalized) {
+    return 0;
+  }
+
+  return Math.max(1, Math.ceil(normalized.length / COPILOT_VSCODE_ESTIMATED_CHARS_PER_TOKEN));
+}
+
+function extractRequestMessageText(request: Record<string, unknown>): string | undefined {
+  const message = asRecord(request.message);
+
+  if (!message) {
+    return undefined;
+  }
+
+  const directText = asTrimmedText(message.text);
+
+  if (directText) {
+    return directText;
+  }
+
+  if (!Array.isArray(message.parts)) {
+    return undefined;
+  }
+
+  const partTexts: string[] = [];
+
+  for (const partRaw of message.parts) {
+    const part = asRecord(partRaw);
+    const partText = asTrimmedText(part?.text);
+
+    if (partText) {
+      partTexts.push(partText);
+    }
+  }
+
+  return partTexts.length > 0 ? partTexts.join('\n') : undefined;
+}
+
+function extractResponseValueText(response: unknown): {
+  outputText: string | undefined;
+  reasoningText: string | undefined;
+} {
+  if (!Array.isArray(response)) {
+    return {
+      outputText: undefined,
+      reasoningText: undefined,
+    };
+  }
+
+  const outputParts: string[] = [];
+  const reasoningParts: string[] = [];
+
+  for (const responseEntryRaw of response) {
+    const responseEntry = asRecord(responseEntryRaw);
+
+    if (!responseEntry) {
+      continue;
+    }
+
+    const valueText = asTrimmedText(responseEntry.value);
+
+    if (!valueText) {
+      continue;
+    }
+
+    const kind = asTrimmedText(responseEntry.kind);
+
+    if (kind === 'thinking') {
+      reasoningParts.push(valueText);
+      continue;
+    }
+
+    if (!kind) {
+      outputParts.push(valueText);
+    }
+  }
+
+  return {
+    outputText: outputParts.length > 0 ? outputParts.join('\n') : undefined,
+    reasoningText: reasoningParts.length > 0 ? reasoningParts.join('\n') : undefined,
+  };
+}
+
 export function parseCopilotVscodeSession(
   filePath: string,
   content: string,
@@ -121,6 +213,10 @@ export function parseCopilotVscodeSession(
     const model = asTrimmedText(request.modelId);
     const requestRepoRoot = extractFirstBaseUriPathFromResponse(request.response);
     const repoRoot = requestRepoRoot ?? sessionLevelRepoRoot;
+    const inputTokens = estimateTokensFromText(extractRequestMessageText(request));
+    const { outputText, reasoningText } = extractResponseValueText(request.response);
+    const outputTokens = estimateTokensFromText(outputText);
+    const reasoningTokens = estimateTokensFromText(reasoningText);
 
     try {
       events.push(
@@ -131,12 +227,12 @@ export function parseCopilotVscodeSession(
           repoRoot,
           provider: 'github',
           model,
-          inputTokens: 0,
-          outputTokens: 0,
-          reasoningTokens: 0,
+          inputTokens,
+          outputTokens,
+          reasoningTokens,
           cacheReadTokens: 0,
           cacheWriteTokens: 0,
-          totalTokens: 0,
+          totalTokens: inputTokens + outputTokens + reasoningTokens,
           costMode: 'estimated',
         }),
       );
