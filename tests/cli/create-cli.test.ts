@@ -133,7 +133,7 @@ describe('createCli', () => {
       '--source copilot-vscode --copilot-vscode-dir ~/.config/Code/User/workspaceStorage',
     );
     expect(compactHelp).toContain(
-      'llm-usage daily --pi-dir /tmp/pi-sessions --gemini-dir /tmp/.gemini --droid-dir /tmp/droid-sessions --copilot-cli-dir /tmp/copilot/session-state',
+      'llm-usage daily --pi-dir /tmp/pi-sessions --gemini-dir /tmp/.gemini --droid-dir /tmp/droid-sessions --copilot-cli-dir /tmp/copilot/session-state --copilot-vscode-dir /tmp/workspaceStorage',
     );
     expect(compactHelp).toContain('llm-usage efficiency weekly --repo-dir /path/to/repo --json');
     expect(compactHelp).toContain(

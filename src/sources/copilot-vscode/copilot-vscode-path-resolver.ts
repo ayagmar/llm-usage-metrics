@@ -35,7 +35,7 @@ function getMacWorkspaceStorageRoots(homeDir: string): string[] {
   ];
 }
 
-function getWindowsWorkspaceStorageRoots(homeDir: string, env: NodeJS.ProcessEnv): string[] {
+function getWindowsWorkspaceStorageRoots(env: NodeJS.ProcessEnv): string[] {
   const roamingBase =
     env.APPDATA ??
     env.LOCALAPPDATA ??
@@ -48,7 +48,7 @@ function getWindowsWorkspaceStorageRoots(homeDir: string, env: NodeJS.ProcessEnv
       ]
     : [];
 
-  return [...roamingRoots, ...getLinuxWorkspaceStorageRoots(homeDir)];
+  return roamingRoots;
 }
 
 export function getDefaultCopilotVscodeWorkspaceStorageRoots(
@@ -60,7 +60,7 @@ export function getDefaultCopilotVscodeWorkspaceStorageRoots(
 
   switch (platform) {
     case 'win32':
-      return deduplicatePaths(getWindowsWorkspaceStorageRoots(homeDir, env));
+      return deduplicatePaths(getWindowsWorkspaceStorageRoots(env));
     case 'darwin':
       return deduplicatePaths(getMacWorkspaceStorageRoots(homeDir));
     default:
@@ -68,13 +68,13 @@ export function getDefaultCopilotVscodeWorkspaceStorageRoots(
   }
 }
 
-function isNotFoundError(error: unknown): boolean {
-  return Boolean(
-    error &&
-    typeof error === 'object' &&
-    'code' in error &&
-    (error as { code?: unknown }).code === 'ENOENT',
-  );
+function isSkippableDirectoryReadError(error: unknown): boolean {
+  if (!error || typeof error !== 'object' || !('code' in error)) {
+    return false;
+  }
+
+  const code = (error as { code?: unknown }).code;
+  return code === 'ENOENT' || code === 'EACCES' || code === 'EPERM';
 }
 
 async function discoverChatSessionFilesInRoot(workspaceStorageRoot: string): Promise<string[]> {
@@ -86,14 +86,12 @@ async function discoverChatSessionFilesInRoot(workspaceStorageRoot: string): Pro
       encoding: 'utf8',
     });
   } catch (error) {
-    if (isNotFoundError(error)) {
+    if (isSkippableDirectoryReadError(error)) {
       return [];
     }
 
-    return [];
+    throw error;
   }
-
-  workspaceEntries.sort((left, right) => compareByCodePoint(left.name, right.name));
 
   const files: string[] = [];
 
@@ -115,11 +113,13 @@ async function discoverChatSessionFilesInRoot(workspaceStorageRoot: string): Pro
         withFileTypes: true,
         encoding: 'utf8',
       });
-    } catch {
-      continue;
-    }
+    } catch (error) {
+      if (isSkippableDirectoryReadError(error)) {
+        continue;
+      }
 
-    chatSessionEntries.sort((left, right) => compareByCodePoint(left.name, right.name));
+      throw error;
+    }
 
     for (const chatSessionEntry of chatSessionEntries) {
       if (!chatSessionEntry.isFile() || !chatSessionEntry.name.toLowerCase().endsWith('.json')) {

@@ -14,13 +14,13 @@ export type CopilotCliPathResolverOptions = {
   requireSessionsDir?: boolean;
 };
 
-function isNotFoundError(error: unknown): boolean {
-  return Boolean(
-    error &&
-    typeof error === 'object' &&
-    'code' in error &&
-    (error as { code?: unknown }).code === 'ENOENT',
-  );
+function isSkippableDirectoryReadError(error: unknown): boolean {
+  if (!error || typeof error !== 'object' || !('code' in error)) {
+    return false;
+  }
+
+  const code = (error as { code?: unknown }).code;
+  return code === 'ENOENT' || code === 'EACCES' || code === 'EPERM';
 }
 
 export async function discoverCopilotCliSessionFiles(
@@ -51,26 +51,18 @@ export async function discoverCopilotCliSessionFiles(
       encoding: 'utf8',
     });
   } catch (error) {
-    if (!requireSessionsDir && isNotFoundError(error)) {
-      return [];
-    }
-
-    if (!requireSessionsDir) {
+    if (!requireSessionsDir && isSkippableDirectoryReadError(error)) {
       return [];
     }
 
     throw error;
   }
 
-  entries.sort((left, right) => compareByCodePoint(left.name, right.name));
-
   const files: string[] = [];
 
   for (const entry of entries) {
-    const entryPath = path.join(normalizedDir, entry.name);
-
     if (entry.isFile() && entry.name.toLowerCase().endsWith('.jsonl')) {
-      files.push(entryPath);
+      files.push(path.join(normalizedDir, entry.name));
       continue;
     }
 
@@ -78,7 +70,7 @@ export async function discoverCopilotCliSessionFiles(
       continue;
     }
 
-    const eventsPath = path.join(entryPath, 'events.jsonl');
+    const eventsPath = path.join(normalizedDir, entry.name, 'events.jsonl');
 
     if (await pathIsFile(eventsPath)) {
       files.push(eventsPath);

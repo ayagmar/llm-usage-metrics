@@ -205,7 +205,7 @@ function generateMarkdown(version, options) {
     'llm-usage monthly --source copilot-cli --copilot-cli-dir /path/to/.copilot/session-state',
     'llm-usage monthly --source copilot-vscode --copilot-vscode-dir /path/to/workspaceStorage',
     'llm-usage monthly --source opencode --opencode-db /path/to/opencode.db',
-    'llm-usage daily --source-dir pi=/tmp/pi-sessions --source-dir gemini=/tmp/.gemini --source-dir droid=/tmp/droid-sessions --source-dir copilot-cli=/tmp/copilot/session-state',
+    'llm-usage daily --source-dir pi=/tmp/pi-sessions --source-dir gemini=/tmp/.gemini --source-dir droid=/tmp/droid-sessions --source-dir copilot-cli=/tmp/copilot/session-state --source-dir copilot-vscode=/tmp/workspaceStorage',
     'llm-usage daily --json',
     'llm-usage daily --markdown',
     'llm-usage efficiency weekly --repo-dir /path/to/repo --json',

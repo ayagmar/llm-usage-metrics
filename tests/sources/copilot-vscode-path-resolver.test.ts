@@ -46,8 +46,6 @@ describe('copilot-vscode-path-resolver', () => {
     expect(windows).toEqual([
       'C:\\Users\\test\\AppData\\Roaming/Code/User/workspaceStorage',
       'C:\\Users\\test\\AppData\\Roaming/Code - Insiders/User/workspaceStorage',
-      'C:\\Users\\test/.config/Code/User/workspaceStorage',
-      'C:\\Users\\test/.config/Code - Insiders/User/workspaceStorage',
     ]);
   });
 
