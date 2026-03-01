@@ -1,0 +1,5 @@
+{"type":"session.start","timestamp":"2026-02-23T09:00:00.000Z","data":{"sessionId":"session-from-event","context":{"cwd":"/workspace/from-event"}}}
+{"type":"session.model_change","timestamp":"2026-02-23T09:00:01.000Z","data":{"model":"gpt-4.1"}}
+{"type":"session.truncation","timestamp":"2026-02-23T09:00:02.000Z","data":{"snapshot":{}}}
+{"type":"user.message","timestamp":"2026-02-23T09:00:03.000Z"}
+{"type":"assistant.turn_end","timestamp":"2026-02-23T09:00:04.000Z"}

@@ -1,0 +1,3 @@
+{"type":"session.start","timestamp":"2026-02-24T09:00:00.000Z","data":{"sessionId":"orphan-session","context":{"cwd":"/workspace/orphan"}}}
+{"type":"session.model_change","timestamp":"2026-02-24T09:00:01.000Z","data":{"model":"gpt-4o-mini"}}
+{"type":"assistant.turn_end","timestamp":"2026-02-24T09:00:02.000Z"}

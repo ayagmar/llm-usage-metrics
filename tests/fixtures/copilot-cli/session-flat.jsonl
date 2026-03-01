@@ -1,0 +1,6 @@
+{"type":"session.start","timestamp":"2026-02-20T10:00:00.000Z","data":{"sessionId":"cli-flat-001","context":{"cwd":"/workspace/flat"}}}
+{"type":"session.model_change","timestamp":"2026-02-20T10:00:01.000Z","data":{"model":"gpt-4o"}}
+{"type":"user.message","timestamp":"2026-02-20T10:00:02.000Z"}
+{"type":"user.message","timestamp":"2026-02-20T10:00:03.000Z"}
+{"type":"assistant.turn_end","timestamp":"2026-02-20T10:00:04.000Z"}
+{"type":"assistant.turn_end","timestamp":"2026-02-20T10:00:05.000Z"}
