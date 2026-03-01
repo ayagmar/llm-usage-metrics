@@ -1,0 +1,24 @@
+---
+title: copilot-cli Source
+---
+
+## Default location
+
+- `~/.copilot/session-state`
+- direct child `*.jsonl`
+- directory child `*/events.jsonl`
+
+## Override
+
+```bash
+llm-usage daily --copilot-cli-dir /path/to/.copilot/session-state
+# or
+llm-usage daily --source-dir copilot-cli=/path/to/.copilot/session-state
+```
+
+## Parsing notes
+
+- one usage event is emitted per `assistant.turn_end`
+- user timestamps are paired FIFO from prior `user.message` rows
+- `session.truncation` rows are skipped (diagnostics only)
+- emitted events are `provider: github`, zero-token, `costMode: estimated`

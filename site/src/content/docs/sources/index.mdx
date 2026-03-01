@@ -2,12 +2,14 @@
 title: Data Sources
 ---
 
-`llm-usage-metrics` supports five built-in sources:
+`llm-usage-metrics` supports seven built-in sources:
 
 - `pi`
 - `codex`
 - `gemini`
 - `droid`
+- `copilot-cli`
+- `copilot-vscode`
 - `opencode`
 
 Each source is parsed by a dedicated adapter and normalized into the same `UsageEvent` schema before pricing/aggregation.
@@ -17,15 +19,19 @@ Each source is parsed by a dedicated adapter and normalized into the same `Usage
 - `pi` and `codex`: recursive JSONL discovery in their session directories
 - `gemini`: JSON session discovery under `~/.gemini/tmp/*/chats/*.json` (or `--gemini-dir`)
 - `droid`: session settings discovery under `~/.factory/sessions/**/*.settings.json` (or `--droid-dir`)
+- `copilot-cli`: `~/.copilot/session-state` discovery for direct `*.jsonl` and `*/events.jsonl` (or `--copilot-cli-dir`)
+- `copilot-vscode`: VS Code `workspaceStorage/*/chatSessions/*.json` discovery (or `--copilot-vscode-dir`)
 - `opencode`: single SQLite DB (auto-discovered or explicit `--opencode-db`)
 
 ## Source filtering
 
 ```bash
 llm-usage monthly --source pi
-llm-usage monthly --source pi,codex,gemini,droid
+llm-usage monthly --source pi,codex,gemini,droid,copilot-cli,copilot-vscode
 llm-usage monthly --source gemini --gemini-dir /path/to/.gemini
 llm-usage monthly --source droid --droid-dir /path/to/.factory/sessions
+llm-usage monthly --source copilot-cli --copilot-cli-dir ~/.copilot/session-state
+llm-usage monthly --source copilot-vscode --copilot-vscode-dir ~/.config/Code/User/workspaceStorage
 llm-usage monthly --source opencode --opencode-db /path/to/opencode.db
 ```
 

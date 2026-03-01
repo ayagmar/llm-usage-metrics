@@ -37,7 +37,7 @@ flowchart LR
     Q --> R[renderEfficiencyReport]
     R --> L
 
-    E --> F[Source adapters\npi/codex/gemini/droid/opencode]
+    E --> F[Source adapters\npi/codex/gemini/droid/copilot-cli/copilot-vscode/opencode]
     F --> G[UsageEvent list]
     G --> H[Pricing resolver\nLiteLLM cache/network]
     H --> I[Aggregator\nperiod/source totals]

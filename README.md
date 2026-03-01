@@ -21,11 +21,11 @@
 
 ---
 
-Aggregate token usage and costs from your local coding agent sessions. Supports **pi**, **codex**, **Gemini CLI**, **Droid CLI**, and **OpenCode** with zero configuration required.
+Aggregate token usage and costs from your local coding agent sessions. Supports **pi**, **codex**, **Gemini CLI**, **Droid CLI**, **Copilot CLI**, **Copilot VS Code**, and **OpenCode** with zero configuration required.
 
 ## ✨ Features
 
-- **Zero-Config Discovery** — Automatically finds `.pi`, `.codex`, `.gemini`, `.factory`, and OpenCode session data
+- **Zero-Config Discovery** — Automatically finds `.pi`, `.codex`, `.gemini`, `.factory`, `.copilot`, VS Code workspace storage, and OpenCode session data
 - **LiteLLM Pricing** — Real-time pricing sync with offline caching support
 - **Flexible Reports** — Daily, weekly, and monthly aggregations
 - **Efficiency Reports** — Correlate cost/tokens with repository commit outcomes
@@ -60,6 +60,8 @@ llm-usage daily
 | **codex**      | `~/.codex/sessions/**/*.jsonl`           | Automatic                        |
 | **Gemini CLI** | `~/.gemini/tmp/*/chats/*.json`           | Automatic                        |
 | **Droid CLI**  | `~/.factory/sessions/**/*.settings.json` | Automatic                        |
+| **Copilot CLI** | `~/.copilot/session-state` (`*.jsonl`, `*/events.jsonl`) | Automatic |
+| **Copilot VS Code** | VS Code `workspaceStorage/*/chatSessions/*.json` | Automatic |
 | **OpenCode**   | `~/.opencode/opencode.db`                | Auto or explicit `--opencode-db` |
 
 OpenCode source support requires Node.js 24+ runtime with built-in `node:sqlite`.
@@ -130,10 +132,12 @@ llm-usage efficiency monthly --repo-dir /path/to/repo --source pi
 llm-usage efficiency monthly --repo-dir /path/to/repo --source codex
 llm-usage efficiency monthly --repo-dir /path/to/repo --source gemini
 llm-usage efficiency monthly --repo-dir /path/to/repo --source droid
+llm-usage efficiency monthly --repo-dir /path/to/repo --source copilot-cli
+llm-usage efficiency monthly --repo-dir /path/to/repo --source copilot-vscode
 llm-usage efficiency monthly --repo-dir /path/to/repo --source opencode
 ```
 
-Note: usage filters (`--source`, `--provider`, `--model`, `--pi-dir`, `--codex-dir`, `--gemini-dir`, `--droid-dir`, `--opencode-db`, `--source-dir`) also constrain commit attribution: only commit days with matching repo-attributed usage events are counted.
+Note: usage filters (`--source`, `--provider`, `--model`, `--pi-dir`, `--codex-dir`, `--gemini-dir`, `--droid-dir`, `--copilot-cli-dir`, `--copilot-vscode-dir`, `--opencode-db`, `--source-dir`) also constrain commit attribution: only commit days with matching repo-attributed usage events are counted.
 
 ### Optimize Reports
 
@@ -151,7 +155,7 @@ llm-usage optimize weekly --provider openai --candidate-model gpt-4.1,gpt-5-code
 
 ```bash
 # By source
-llm-usage monthly --source pi,codex,gemini,droid
+llm-usage monthly --source pi,codex,gemini,droid,copilot-cli,copilot-vscode
 
 # By provider
 llm-usage monthly --provider openai
@@ -161,6 +165,8 @@ llm-usage monthly --model claude
 
 # Combined filters
 llm-usage monthly --source opencode --provider openai --model gpt-4.1
+llm-usage monthly --source copilot-cli --copilot-cli-dir ~/.copilot/session-state
+llm-usage monthly --source copilot-vscode --copilot-vscode-dir ~/.config/Code/User/workspaceStorage
 ```
 
 Use `--source` to scope where events came from (`pi`, `codex`, `gemini`, `droid`, `opencode`), and `--provider` to scope the billing entity behind those events.
@@ -169,11 +175,13 @@ Use `--source` to scope where events came from (`pi`, `codex`, `gemini`, `droid`
 
 ```bash
 # Custom directories
-llm-usage daily --source-dir pi=/path/to/pi --source-dir codex=/path/to/codex --source-dir gemini=/path/to/.gemini --source-dir droid=/path/to/.factory/sessions
+llm-usage daily --source-dir pi=/path/to/pi --source-dir codex=/path/to/codex --source-dir gemini=/path/to/.gemini --source-dir droid=/path/to/.factory/sessions --source-dir copilot-cli=/path/to/.copilot/session-state --source-dir copilot-vscode=/path/to/workspaceStorage
 
-# Explicit Gemini/Droid/OpenCode paths
+# Explicit source paths
 llm-usage daily --gemini-dir /path/to/.gemini
 llm-usage daily --droid-dir /path/to/.factory/sessions
+llm-usage daily --copilot-cli-dir /path/to/.copilot/session-state
+llm-usage daily --copilot-vscode-dir /path/to/workspaceStorage
 llm-usage daily --opencode-db /path/to/opencode.db
 ```
 

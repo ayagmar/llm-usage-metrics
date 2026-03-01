@@ -1,0 +1,28 @@
+---
+title: copilot-vscode Source
+---
+
+## Default locations
+
+The adapter scans existing VS Code workspace storage roots for the current platform:
+
+- Linux: `~/.config/Code/User/workspaceStorage`, `~/.config/Code - Insiders/User/workspaceStorage`
+- macOS: `~/Library/Application Support/Code/User/workspaceStorage`, `~/Library/Application Support/Code - Insiders/User/workspaceStorage`
+- Windows: `%APPDATA%/Code/User/workspaceStorage`, `%APPDATA%/Code - Insiders/User/workspaceStorage`
+
+Discovery scope is strict: `*/chatSessions/*.json` only.
+
+## Override
+
+```bash
+llm-usage daily --copilot-vscode-dir /path/to/workspaceStorage
+# or
+llm-usage daily --source-dir copilot-vscode=/path/to/workspaceStorage
+```
+
+## Parsing notes
+
+- one usage event is emitted per valid `requests[]` item
+- top-level `sessionId` is used when present, else filename fallback
+- `repoRoot` is resolved from request `response[].baseUri.path` with session fallback
+- emitted events are `provider: github`, zero-token, `costMode: estimated`

@@ -30,6 +30,8 @@ Generated from root + command help output.
 | --- | --- | --- | --- |
 | `--candidate-model` | - | `<name>` | Candidate model for counterfactual pricing (repeatable or comma-separated) (default: []) (optimize only) |
 | `--codex-dir` | - | `<path>` | Path to .codex sessions directory |
+| `--copilot-cli-dir` | - | `<path>` | Path to Copilot CLI session-state directory |
+| `--copilot-vscode-dir` | - | `<path>` | Path to VS Code workspaceStorage directory for Copilot Chat sessions |
 | `--droid-dir` | - | `<path>` | Path to Droid sessions directory |
 | `--gemini-dir` | - | `<path>` | Path to .gemini directory |
 | `--ignore-pricing-failures` | - | - | Continue without estimated costs when pricing cannot be loaded |
@@ -45,7 +47,7 @@ Generated from root + command help output.
 | `--provider` | - | `<name>` | Billing-provider filter (substring match, optional; e.g. openai, anthropic, google) |
 | `--repo-dir` | - | `<path>` | Path to repository for Git outcome metrics (efficiency only) |
 | `--since` | - | `<YYYY-MM-DD>` | Inclusive start date filter |
-| `--source` | - | `<name>` | Filter by source id (repeatable or comma-separated, supported sources (5): pi, codex, gemini, droid, opencode) (default: []) |
+| `--source` | - | `<name>` | Filter by source id (repeatable or comma-separated, supported sources (7): pi, codex, gemini, droid, copilot-cli, copilot-vscode, opencode) (default: []) |
 | `--source-dir` | - | `<source-id=path>` | Override source directory for directory-backed sources (repeatable) (default: []) |
 | `--timezone` | - | `<iana>` | Timezone for bucketing (default: local system timezone) |
 | `--top` | - | `<n>` | Show only the top N cheapest candidates (positive integer) (optimize only) |
@@ -61,8 +63,10 @@ llm-usage weekly --timezone Europe/Paris
 llm-usage monthly --since 2026-01-01 --until 2026-01-31
 llm-usage monthly --source gemini --gemini-dir /path/to/.gemini
 llm-usage monthly --source droid --droid-dir /path/to/.factory/sessions
+llm-usage monthly --source copilot-cli --copilot-cli-dir /path/to/.copilot/session-state
+llm-usage monthly --source copilot-vscode --copilot-vscode-dir /path/to/workspaceStorage
 llm-usage monthly --source opencode --opencode-db /path/to/opencode.db
-llm-usage daily --source-dir pi=/tmp/pi-sessions --source-dir gemini=/tmp/.gemini --source-dir droid=/tmp/droid-sessions
+llm-usage daily --source-dir pi=/tmp/pi-sessions --source-dir gemini=/tmp/.gemini --source-dir droid=/tmp/droid-sessions --source-dir copilot-cli=/tmp/copilot/session-state
 llm-usage daily --json
 llm-usage daily --markdown
 llm-usage efficiency weekly --repo-dir /path/to/repo --json
