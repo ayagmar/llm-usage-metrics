@@ -43,6 +43,11 @@ function addSharedOptions(
     .option('--codex-dir <path>', 'Path to .codex sessions directory')
     .option('--gemini-dir <path>', 'Path to .gemini directory')
     .option('--droid-dir <path>', 'Path to Droid sessions directory')
+    .option('--copilot-cli-dir <path>', 'Path to Copilot CLI session-state directory')
+    .option(
+      '--copilot-vscode-dir <path>',
+      'Path to VS Code workspaceStorage directory for Copilot Chat sessions',
+    )
     .option('--opencode-db <path>', 'Path to OpenCode SQLite DB')
     .option(
       '--source-dir <source-id=path>',
@@ -172,9 +177,11 @@ function rootDescription(): string {
     '  $ llm-usage weekly --timezone Europe/Paris',
     '  $ llm-usage monthly --since 2026-01-01 --until 2026-01-31 --source pi,codex --json',
     '  $ llm-usage monthly --source opencode --opencode-db /path/to/opencode.db --json',
+    '  $ llm-usage monthly --source copilot-cli --copilot-cli-dir ~/.copilot/session-state --json',
+    '  $ llm-usage monthly --source copilot-vscode --copilot-vscode-dir ~/.config/Code/User/workspaceStorage --json',
     '  $ llm-usage monthly --model claude --per-model-columns',
-    '  $ llm-usage daily --source-dir pi=/tmp/pi-sessions --source-dir gemini=/tmp/.gemini --source-dir droid=/tmp/droid-sessions',
-    '  $ llm-usage daily --pi-dir /tmp/pi-sessions --gemini-dir /tmp/.gemini --droid-dir /tmp/droid-sessions',
+    '  $ llm-usage daily --source-dir pi=/tmp/pi-sessions --source-dir gemini=/tmp/.gemini --source-dir droid=/tmp/droid-sessions --source-dir copilot-cli=/tmp/copilot/session-state',
+    '  $ llm-usage daily --pi-dir /tmp/pi-sessions --gemini-dir /tmp/.gemini --droid-dir /tmp/droid-sessions --copilot-cli-dir /tmp/copilot/session-state',
     '  $ llm-usage efficiency weekly --repo-dir /path/to/repo --json',
     '  $ llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candidate-model gpt-5-codex --json',
     '  $ npx --yes llm-usage-metrics@latest daily',

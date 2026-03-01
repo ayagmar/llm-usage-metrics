@@ -252,6 +252,8 @@ describe('buildEfficiencyData', () => {
       'monthly',
       {
         piDir: '/tmp/pi',
+        copilotCliDir: '/tmp/copilot-cli',
+        copilotVscodeDir: '/tmp/copilot-vscode',
         sourceDir: ['codex=/tmp/codex'],
       },
       {
@@ -277,6 +279,8 @@ describe('buildEfficiencyData', () => {
     );
 
     expect(result.diagnostics.scopeNote).toContain('--pi-dir');
+    expect(result.diagnostics.scopeNote).toContain('--copilot-cli-dir');
+    expect(result.diagnostics.scopeNote).toContain('--copilot-vscode-dir');
     expect(result.diagnostics.scopeNote).toContain('--source-dir');
   });
 

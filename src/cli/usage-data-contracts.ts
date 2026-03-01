@@ -15,6 +15,8 @@ export type ReportCommandOptions = {
   codexDir?: string;
   geminiDir?: string;
   droidDir?: string;
+  copilotCliDir?: string;
+  copilotVscodeDir?: string;
   opencodeDb?: string;
   sourceDir?: string[];
   source?: string | string[];

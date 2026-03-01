@@ -44,6 +44,8 @@ describe('createCli', () => {
       expect(command.options.some((option) => option.long === '--opencode-db')).toBe(true);
       expect(command.options.some((option) => option.long === '--gemini-dir')).toBe(true);
       expect(command.options.some((option) => option.long === '--droid-dir')).toBe(true);
+      expect(command.options.some((option) => option.long === '--copilot-cli-dir')).toBe(true);
+      expect(command.options.some((option) => option.long === '--copilot-vscode-dir')).toBe(true);
       expect(command.options.some((option) => option.long === '--source')).toBe(true);
       expect(command.options.some((option) => option.long === '--source-dir')).toBe(true);
       expect(command.options.some((option) => option.long === '--model')).toBe(true);
@@ -118,12 +120,20 @@ describe('createCli', () => {
       ?.helpInformation();
     const compactDailyCommandHelp = dailyCommandHelp?.replace(/\s+/gu, ' ');
 
-    expect(compactHelp).toContain('Supported sources (5): pi, codex, gemini, droid, opencode');
+    expect(compactHelp).toContain(
+      'Supported sources (7): pi, codex, gemini, droid, copilot-cli, copilot-vscode, opencode',
+    );
     expect(compactHelp).toContain('Show daily usage report');
     expect(compactHelp).toContain('llm-usage <command> --help');
     expect(compactHelp).toContain('--source opencode --opencode-db /path/to/opencode.db');
     expect(compactHelp).toContain(
-      'llm-usage daily --pi-dir /tmp/pi-sessions --gemini-dir /tmp/.gemini --droid-dir /tmp/droid-sessions',
+      '--source copilot-cli --copilot-cli-dir ~/.copilot/session-state',
+    );
+    expect(compactHelp).toContain(
+      '--source copilot-vscode --copilot-vscode-dir ~/.config/Code/User/workspaceStorage',
+    );
+    expect(compactHelp).toContain(
+      'llm-usage daily --pi-dir /tmp/pi-sessions --gemini-dir /tmp/.gemini --droid-dir /tmp/droid-sessions --copilot-cli-dir /tmp/copilot/session-state',
     );
     expect(compactHelp).toContain('llm-usage efficiency weekly --repo-dir /path/to/repo --json');
     expect(compactHelp).toContain(

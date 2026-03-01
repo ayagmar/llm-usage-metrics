@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { normalizeBuildUsageInputs } from '../../src/cli/build-usage-data-inputs.js';
+import {
+  normalizeBuildUsageInputs,
+  resolveExplicitSourceIds,
+} from '../../src/cli/build-usage-data-inputs.js';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -26,5 +29,18 @@ describe('build-usage-data-inputs', () => {
     });
 
     expect(inputs.providerFilter).toBe('openai');
+  });
+
+  it('includes copilot explicit source ids when directory flags are set', () => {
+    const explicitSourceIds = resolveExplicitSourceIds(
+      {
+        copilotCliDir: '/tmp/copilot-cli',
+        copilotVscodeDir: '/tmp/copilot-vscode',
+      },
+      undefined,
+    );
+
+    expect(explicitSourceIds.has('copilot-cli')).toBe(true);
+    expect(explicitSourceIds.has('copilot-vscode')).toBe(true);
   });
 });

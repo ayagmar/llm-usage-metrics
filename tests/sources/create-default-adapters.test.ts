@@ -22,6 +22,8 @@ describe('createDefaultAdapters', () => {
       'codex',
       'gemini',
       'droid',
+      'copilot-cli',
+      'copilot-vscode',
       'opencode',
     ]);
   });
@@ -33,7 +35,20 @@ describe('createDefaultAdapters', () => {
       path.join(os.tmpdir(), 'usage-adapters-gemini-source-dir-'),
     );
     const droidTempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-adapters-droid-source-dir-'));
-    tempDirs.push(piTempDir, codexTempDir, geminiTempDir, droidTempDir);
+    const copilotCliTempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'usage-adapters-copilot-cli-source-dir-'),
+    );
+    const copilotVscodeTempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'usage-adapters-copilot-vscode-source-dir-'),
+    );
+    tempDirs.push(
+      piTempDir,
+      codexTempDir,
+      geminiTempDir,
+      droidTempDir,
+      copilotCliTempDir,
+      copilotVscodeTempDir,
+    );
 
     const piFile = path.join(piTempDir, 'pi-session.jsonl');
     const codexFile = path.join(codexTempDir, 'codex-session.jsonl');
@@ -41,11 +56,21 @@ describe('createDefaultAdapters', () => {
     await mkdir(geminiChatsDir, { recursive: true });
     const geminiFile = path.join(geminiChatsDir, 'session.json');
     const droidFile = path.join(droidTempDir, 'droid-session.settings.json');
+    const copilotCliFile = path.join(copilotCliTempDir, 'copilot-cli-session.jsonl');
+    const copilotVscodeFile = path.join(
+      copilotVscodeTempDir,
+      'hash-a',
+      'chatSessions',
+      'session.json',
+    );
 
     await writeFile(piFile, '{}\n', 'utf8');
     await writeFile(codexFile, '{}\n', 'utf8');
     await writeFile(geminiFile, '{}', 'utf8');
     await writeFile(droidFile, '{}', 'utf8');
+    await writeFile(copilotCliFile, '{}\n', 'utf8');
+    await mkdir(path.dirname(copilotVscodeFile), { recursive: true });
+    await writeFile(copilotVscodeFile, '{}', 'utf8');
 
     const adapters = createDefaultAdapters({
       sourceDir: [
@@ -53,6 +78,8 @@ describe('createDefaultAdapters', () => {
         `codex=${codexTempDir}`,
         `gemini=${geminiTempDir}`,
         `droid=${droidTempDir}`,
+        `copilot-cli=${copilotCliTempDir}`,
+        `copilot-vscode=${copilotVscodeTempDir}`,
       ],
     });
 
@@ -60,6 +87,8 @@ describe('createDefaultAdapters', () => {
     await expect(adapters[1].discoverFiles()).resolves.toEqual([codexFile]);
     await expect(adapters[2].discoverFiles()).resolves.toEqual([geminiFile]);
     await expect(adapters[3].discoverFiles()).resolves.toEqual([droidFile]);
+    await expect(adapters[4].discoverFiles()).resolves.toEqual([copilotCliFile]);
+    await expect(adapters[5].discoverFiles()).resolves.toEqual([copilotVscodeFile]);
   });
 
   it('throws on invalid source directory override entries', () => {
@@ -122,6 +151,18 @@ describe('createDefaultAdapters', () => {
     );
   });
 
+  it('throws when --copilot-cli-dir is blank', () => {
+    expect(() => createDefaultAdapters({ copilotCliDir: '   ' })).toThrow(
+      '--copilot-cli-dir must be a non-empty path',
+    );
+  });
+
+  it('throws when --copilot-vscode-dir is blank', () => {
+    expect(() => createDefaultAdapters({ copilotVscodeDir: '   ' })).toThrow(
+      '--copilot-vscode-dir must be a non-empty path',
+    );
+  });
+
   it('fails gemini discovery when an explicitly configured directory is missing', async () => {
     const adapters = createDefaultAdapters({
       geminiDir: path.join(os.tmpdir(), `missing-gemini-${Date.now()}`),
@@ -173,6 +214,62 @@ describe('createDefaultAdapters', () => {
 
     await expect(droidAdapter?.discoverFiles()).rejects.toThrow(
       `Droid sessions directory is not a directory: ${droidFilePath}`,
+    );
+  });
+
+  it('fails copilot-cli discovery when an explicitly configured directory is missing', async () => {
+    const adapters = createDefaultAdapters({
+      copilotCliDir: path.join(os.tmpdir(), `missing-copilot-cli-${Date.now()}`),
+    });
+    const copilotCliAdapter = adapters.find((adapter) => adapter.id === 'copilot-cli');
+
+    await expect(copilotCliAdapter?.discoverFiles()).rejects.toThrow(
+      'Copilot CLI sessions directory is missing or unreadable',
+    );
+  });
+
+  it('fails copilot-cli discovery when an explicitly configured path is a file', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-adapters-copilot-cli-file-path-'));
+    tempDirs.push(tempDir);
+    const copilotCliFilePath = path.join(tempDir, 'copilot-cli.jsonl');
+    await writeFile(copilotCliFilePath, '{}\n', 'utf8');
+
+    const adapters = createDefaultAdapters({
+      copilotCliDir: copilotCliFilePath,
+    });
+    const copilotCliAdapter = adapters.find((adapter) => adapter.id === 'copilot-cli');
+
+    await expect(copilotCliAdapter?.discoverFiles()).rejects.toThrow(
+      `Copilot CLI sessions directory is not a directory: ${copilotCliFilePath}`,
+    );
+  });
+
+  it('fails copilot-vscode discovery when an explicitly configured directory is missing', async () => {
+    const adapters = createDefaultAdapters({
+      copilotVscodeDir: path.join(os.tmpdir(), `missing-copilot-vscode-${Date.now()}`),
+    });
+    const copilotVscodeAdapter = adapters.find((adapter) => adapter.id === 'copilot-vscode');
+
+    await expect(copilotVscodeAdapter?.discoverFiles()).rejects.toThrow(
+      'Copilot VS Code workspaceStorage directory is missing or unreadable',
+    );
+  });
+
+  it('fails copilot-vscode discovery when an explicitly configured path is a file', async () => {
+    const tempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'usage-adapters-copilot-vscode-file-path-'),
+    );
+    tempDirs.push(tempDir);
+    const copilotVscodeFilePath = path.join(tempDir, 'copilot-vscode.json');
+    await writeFile(copilotVscodeFilePath, '{}', 'utf8');
+
+    const adapters = createDefaultAdapters({
+      copilotVscodeDir: copilotVscodeFilePath,
+    });
+    const copilotVscodeAdapter = adapters.find((adapter) => adapter.id === 'copilot-vscode');
+
+    await expect(copilotVscodeAdapter?.discoverFiles()).rejects.toThrow(
+      `Copilot VS Code workspaceStorage directory is not a directory: ${copilotVscodeFilePath}`,
     );
   });
 

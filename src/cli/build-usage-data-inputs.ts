@@ -198,6 +198,14 @@ export function resolveExplicitSourceIds(
     explicitSourceIds.add('droid');
   }
 
+  if (options.copilotCliDir) {
+    explicitSourceIds.add('copilot-cli');
+  }
+
+  if (options.copilotVscodeDir) {
+    explicitSourceIds.add('copilot-vscode');
+  }
+
   if (options.opencodeDb) {
     explicitSourceIds.add('opencode');
   }

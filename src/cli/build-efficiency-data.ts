@@ -59,6 +59,14 @@ function resolveScopeNote(options: EfficiencyCommandOptions): string | undefined
     activeFilters.push('--droid-dir');
   }
 
+  if (hasActiveTextOption(options.copilotCliDir)) {
+    activeFilters.push('--copilot-cli-dir');
+  }
+
+  if (hasActiveTextOption(options.copilotVscodeDir)) {
+    activeFilters.push('--copilot-vscode-dir');
+  }
+
   if (hasActiveTextOption(options.opencodeDb)) {
     activeFilters.push('--opencode-db');
   }

@@ -642,6 +642,78 @@ describe('buildUsageData', () => {
     ).rejects.toThrow('Failed to parse explicitly requested source(s): droid: permission denied');
   });
 
+  it('fails when --copilot-cli-dir is set and copilot-cli parsing fails', async () => {
+    await expect(
+      buildUsageData(
+        'daily',
+        {
+          timezone: 'UTC',
+          copilotCliDir: '/tmp/explicit-copilot-cli',
+        },
+        {
+          ...withDeterministicRuntimeDeps(),
+          createAdapters: () => [createFailingAdapter('copilot-cli', 'permission denied')],
+        },
+      ),
+    ).rejects.toThrow(
+      'Failed to parse explicitly requested source(s): copilot-cli: permission denied',
+    );
+  });
+
+  it('fails when --copilot-vscode-dir is set and copilot-vscode parsing fails', async () => {
+    await expect(
+      buildUsageData(
+        'daily',
+        {
+          timezone: 'UTC',
+          copilotVscodeDir: '/tmp/explicit-copilot-vscode',
+        },
+        {
+          ...withDeterministicRuntimeDeps(),
+          createAdapters: () => [createFailingAdapter('copilot-vscode', 'permission denied')],
+        },
+      ),
+    ).rejects.toThrow(
+      'Failed to parse explicitly requested source(s): copilot-vscode: permission denied',
+    );
+  });
+
+  it('fails when --source-dir copilot-cli override is set and parsing fails', async () => {
+    await expect(
+      buildUsageData(
+        'daily',
+        {
+          timezone: 'UTC',
+          sourceDir: ['copilot-cli=/tmp/copilot-cli'],
+        },
+        {
+          ...withDeterministicRuntimeDeps(),
+          createAdapters: () => [createFailingAdapter('copilot-cli', 'permission denied')],
+        },
+      ),
+    ).rejects.toThrow(
+      'Failed to parse explicitly requested source(s): copilot-cli: permission denied',
+    );
+  });
+
+  it('fails when --source-dir copilot-vscode override is set and parsing fails', async () => {
+    await expect(
+      buildUsageData(
+        'daily',
+        {
+          timezone: 'UTC',
+          sourceDir: ['copilot-vscode=/tmp/copilot-vscode'],
+        },
+        {
+          ...withDeterministicRuntimeDeps(),
+          createAdapters: () => [createFailingAdapter('copilot-vscode', 'permission denied')],
+        },
+      ),
+    ).rejects.toThrow(
+      'Failed to parse explicitly requested source(s): copilot-vscode: permission denied',
+    );
+  });
+
   it('guards against non-positive parsing concurrency from injected deps', async () => {
     const result = await buildUsageData(
       'daily',

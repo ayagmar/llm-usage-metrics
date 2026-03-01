@@ -9,6 +9,8 @@ import { buildUsageReport, runUsageReport } from '../../src/cli/run-usage-report
 const tempDirs: string[] = [];
 const originalParseMaxParallel = process.env.LLM_USAGE_PARSE_MAX_PARALLEL;
 const directoryBackedSources = 'pi,codex';
+const copilotCliFixturesDir = path.resolve('tests/fixtures/copilot-cli');
+const copilotVscodeFixturesDir = path.resolve('tests/fixtures/copilot-vscode/workspaceStorage');
 
 function overrideStdoutProperty<Key extends 'isTTY' | 'columns'>(
   property: Key,
@@ -130,6 +132,65 @@ describe('buildUsageReport', () => {
     expect(report).not.toMatch(/\|\s+\d{4}-\d{2}-\d{2}\s+\|\s+combined\s+\|/u);
     expect(report).toMatch(/\|\s+ALL\s+\|\s+TOTAL\s+\|/u);
     expect(report).not.toContain('Σ TOTAL');
+  });
+
+  it('aggregates copilot-cli source rows with zero tokens without pricing fetches', async () => {
+    const fetchSpy = vi.fn(async () => {
+      throw new Error('fetch should not be called for zero-token copilot-cli events');
+    });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    try {
+      const report = await buildUsageReport('daily', {
+        source: 'copilot-cli',
+        copilotCliDir: copilotCliFixturesDir,
+        timezone: 'UTC',
+        json: true,
+      });
+
+      const parsed = JSON.parse(report) as {
+        rowType: string;
+        source: string;
+        totalTokens: number;
+      }[];
+
+      expect(parsed.some((row) => row.rowType === 'period_source' && row.source === 'copilot-cli'))
+        .toBe(true);
+      expect(parsed.every((row) => row.totalTokens === 0)).toBe(true);
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('aggregates copilot-vscode source rows with zero tokens without pricing fetches', async () => {
+    const fetchSpy = vi.fn(async () => {
+      throw new Error('fetch should not be called for zero-token copilot-vscode events');
+    });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    try {
+      const report = await buildUsageReport('daily', {
+        source: 'copilot-vscode',
+        copilotVscodeDir: copilotVscodeFixturesDir,
+        timezone: 'UTC',
+        json: true,
+      });
+
+      const parsed = JSON.parse(report) as {
+        rowType: string;
+        source: string;
+        totalTokens: number;
+      }[];
+
+      expect(
+        parsed.some((row) => row.rowType === 'period_source' && row.source === 'copilot-vscode'),
+      ).toBe(true);
+      expect(parsed.every((row) => row.totalTokens === 0)).toBe(true);
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('builds markdown report with per-model column layout when requested', async () => {
@@ -440,7 +501,7 @@ describe('buildUsageReport', () => {
         source: 'claude',
       }),
     ).rejects.toThrow(
-      'Unknown --source value(s): claude. Allowed values: codex, droid, gemini, opencode, pi',
+      'Unknown --source value(s): claude. Allowed values: codex, copilot-cli, copilot-vscode, droid, gemini, opencode, pi',
     );
 
     await expect(

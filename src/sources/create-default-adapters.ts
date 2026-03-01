@@ -1,4 +1,6 @@
 import { CodexSourceAdapter } from './codex/codex-source-adapter.js';
+import { CopilotCliSourceAdapter } from './copilot-cli/copilot-cli-source-adapter.js';
+import { CopilotVscodeSourceAdapter } from './copilot-vscode/copilot-vscode-source-adapter.js';
 import { DroidSourceAdapter } from './droid/droid-source-adapter.js';
 import { GeminiSourceAdapter } from './gemini/gemini-source-adapter.js';
 import { OpenCodeSourceAdapter } from './opencode/opencode-source-adapter.js';
@@ -20,6 +22,8 @@ export type CreateDefaultAdaptersOptions = {
   codexDir?: string;
   geminiDir?: string;
   droidDir?: string;
+  copilotCliDir?: string;
+  copilotVscodeDir?: string;
   opencodeDb?: string;
   sourceDir?: string[];
 };
@@ -117,6 +121,38 @@ const sourceRegistrations: readonly SourceRegistration[] = [
     },
   },
   {
+    id: 'copilot-cli',
+    sourceDirOverride: { kind: 'directory' },
+    create: (options, sourceDirectoryOverrides) => {
+      const directoryConfig = resolveDirectoryConfig(
+        'copilot-cli',
+        options.copilotCliDir,
+        sourceDirectoryOverrides,
+      );
+
+      return new CopilotCliSourceAdapter({
+        sessionsDir: directoryConfig.path,
+        requireSessionsDir: directoryConfig.requireExistingPath,
+      });
+    },
+  },
+  {
+    id: 'copilot-vscode',
+    sourceDirOverride: { kind: 'directory' },
+    create: (options, sourceDirectoryOverrides) => {
+      const directoryConfig = resolveDirectoryConfig(
+        'copilot-vscode',
+        options.copilotVscodeDir,
+        sourceDirectoryOverrides,
+      );
+
+      return new CopilotVscodeSourceAdapter({
+        workspaceStorageDir: directoryConfig.path,
+        requireWorkspaceStorageDir: directoryConfig.requireExistingPath,
+      });
+    },
+  },
+  {
     id: 'opencode',
     sourceDirOverride: { kind: 'unsupported', flag: '--opencode-db' },
     create: (options) =>
@@ -187,7 +223,13 @@ function validateOpencodeOverride(opencodeDb: string | undefined): void {
 }
 
 function validateDirectoryOverride(
-  optionName: '--pi-dir' | '--codex-dir' | '--gemini-dir' | '--droid-dir',
+  optionName:
+    | '--pi-dir'
+    | '--codex-dir'
+    | '--gemini-dir'
+    | '--droid-dir'
+    | '--copilot-cli-dir'
+    | '--copilot-vscode-dir',
   value: string | undefined,
 ): void {
   if (value === undefined) {
@@ -239,6 +281,8 @@ export function createDefaultAdapters(options: CreateDefaultAdaptersOptions): So
   validateDirectoryOverride('--codex-dir', options.codexDir);
   validateDirectoryOverride('--gemini-dir', options.geminiDir);
   validateDirectoryOverride('--droid-dir', options.droidDir);
+  validateDirectoryOverride('--copilot-cli-dir', options.copilotCliDir);
+  validateDirectoryOverride('--copilot-vscode-dir', options.copilotVscodeDir);
 
   const sourceDirectoryOverrides = parseSourceDirectoryOverrides(options.sourceDir);
   validateSourceDirectoryOverrideIds(sourceDirectoryOverrides);
