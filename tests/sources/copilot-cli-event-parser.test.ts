@@ -124,6 +124,22 @@ describe('parseCopilotCliEvents', () => {
     ]);
   });
 
+  it('reports invalid_record and invalid_timestamp skip reasons', () => {
+    const content = [
+      '{"type":"user.message","type":null,"timestamp":"2026-02-25T10:00:00.000Z"}',
+      '{"type":"user.message","timestamp":"not-a-timestamp"}',
+    ].join('\n');
+
+    const result = parseCopilotCliEvents('/tmp/invalid-records.jsonl', content);
+
+    expect(result.events).toHaveLength(0);
+    expect(result.skippedRows).toBe(2);
+    expect(result.skippedRowReasons).toEqual([
+      { reason: 'invalid_record', count: 1 },
+      { reason: 'invalid_timestamp', count: 1 },
+    ]);
+  });
+
   it('keeps FIFO pairing for large queues without shift-based dequeues', () => {
     const eventCount = 1400;
     const lines: string[] = [];

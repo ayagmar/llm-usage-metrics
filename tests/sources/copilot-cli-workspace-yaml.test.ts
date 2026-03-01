@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import * as fsPromises from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -12,7 +12,9 @@ import {
 const tempDirs: string[] = [];
 
 afterEach(async () => {
-  await Promise.all(tempDirs.map((tempDir) => rm(tempDir, { recursive: true, force: true })));
+  await Promise.all(
+    tempDirs.map((tempDir) => fsPromises.rm(tempDir, { recursive: true, force: true })),
+  );
   tempDirs.length = 0;
 });
 
@@ -37,13 +39,13 @@ describe('copilot-cli-workspace-yaml', () => {
   });
 
   it('loads workspace metadata for events.jsonl files only', async () => {
-    const sessionDir = await mkdtemp(path.join(os.tmpdir(), 'copilot-cli-workspace-'));
+    const sessionDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'copilot-cli-workspace-'));
     tempDirs.push(sessionDir);
 
     const eventsPath = path.join(sessionDir, 'events.jsonl');
     const yamlPath = path.join(sessionDir, 'workspace.yaml');
-    await writeFile(eventsPath, '{}\n', 'utf8');
-    await writeFile(yamlPath, 'id: from-workspace\ncwd: /workspace/from-yaml\n', 'utf8');
+    await fsPromises.writeFile(eventsPath, '{}\n', 'utf8');
+    await fsPromises.writeFile(yamlPath, 'id: from-workspace\ncwd: /workspace/from-yaml\n', 'utf8');
 
     await expect(loadCopilotCliWorkspaceMetadata(eventsPath)).resolves.toEqual({
       id: 'from-workspace',
@@ -56,22 +58,38 @@ describe('copilot-cli-workspace-yaml', () => {
   });
 
   it('returns empty metadata when workspace.yaml is missing or unreadable', async () => {
-    const missingDir = await mkdtemp(path.join(os.tmpdir(), 'copilot-cli-workspace-missing-'));
+    const missingDir = await fsPromises.mkdtemp(
+      path.join(os.tmpdir(), 'copilot-cli-workspace-missing-'),
+    );
     tempDirs.push(missingDir);
     const missingEventsPath = path.join(missingDir, 'events.jsonl');
-    await writeFile(missingEventsPath, '{}\n', 'utf8');
+    await fsPromises.writeFile(missingEventsPath, '{}\n', 'utf8');
 
     await expect(loadCopilotCliWorkspaceMetadata(missingEventsPath)).resolves.toEqual({});
 
-    const unreadableDir = await mkdtemp(
+    const unreadableDir = await fsPromises.mkdtemp(
       path.join(os.tmpdir(), 'copilot-cli-workspace-unreadable-'),
     );
     tempDirs.push(unreadableDir);
     const unreadableEventsPath = path.join(unreadableDir, 'events.jsonl');
     const workspacePath = path.join(unreadableDir, 'workspace.yaml');
-    await writeFile(unreadableEventsPath, '{}\n', 'utf8');
-    await mkdir(workspacePath);
+    await fsPromises.writeFile(unreadableEventsPath, '{}\n', 'utf8');
+    await fsPromises.writeFile(workspacePath, 'id: blocked\ncwd: /workspace/blocked\n', 'utf8');
 
-    await expect(loadCopilotCliWorkspaceMetadata(unreadableEventsPath)).resolves.toEqual({});
+    if (process.platform === 'win32') {
+      await expect(loadCopilotCliWorkspaceMetadata(unreadableEventsPath)).resolves.toEqual({
+        id: 'blocked',
+        cwd: '/workspace/blocked',
+      });
+      return;
+    }
+
+    await fsPromises.chmod(workspacePath, 0o000);
+
+    try {
+      await expect(loadCopilotCliWorkspaceMetadata(unreadableEventsPath)).resolves.toEqual({});
+    } finally {
+      await fsPromises.chmod(workspacePath, 0o600);
+    }
   });
 });

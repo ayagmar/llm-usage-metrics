@@ -52,6 +52,28 @@ describe('copilot-cli-path-resolver', () => {
     expect(files).toEqual([]);
   });
 
+  it('rethrows non-skippable read errors when not required', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'copilot-cli-enotdir-'));
+    tempDirs.push(tempDir);
+
+    const filePath = path.join(tempDir, 'not-a-directory.jsonl');
+    await writeFile(filePath, '{}\n', 'utf8');
+
+    try {
+      await discoverCopilotCliSessionFiles({
+        sessionsDir: filePath,
+        requireSessionsDir: false,
+      });
+      throw new Error('Expected discoverCopilotCliSessionFiles to reject');
+    } catch (error) {
+      const code = (error as { code?: unknown }).code;
+      expect(typeof code).toBe('string');
+      expect(code).not.toBe('ENOENT');
+      expect(code).not.toBe('EACCES');
+      expect(code).not.toBe('EPERM');
+    }
+  });
+
   it('throws for blank explicit sessionsDir', async () => {
     await expect(discoverCopilotCliSessionFiles({ sessionsDir: '   ' })).rejects.toThrow(
       'Copilot CLI sessions directory must be a non-empty path',
