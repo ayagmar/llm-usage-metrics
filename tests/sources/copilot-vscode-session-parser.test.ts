@@ -75,4 +75,28 @@ describe('parseCopilotVscodeSession', () => {
     expect(result.events).toHaveLength(1);
     expect(result.events[0]?.sessionId).toBe('session-invalid-entries');
   });
+
+  it('reports json_parse_error for invalid json payload', () => {
+    const result = parseCopilotVscodeSession('/tmp/session.json', '{invalid');
+
+    expect(result.events).toEqual([]);
+    expect(result.skippedRows).toBe(1);
+    expect(result.skippedRowReasons).toEqual([{ reason: 'json_parse_error', count: 1 }]);
+  });
+
+  it('reports invalid_session_data when top-level payload is not an object', () => {
+    const result = parseCopilotVscodeSession('/tmp/session.json', '["not-an-object"]');
+
+    expect(result.events).toEqual([]);
+    expect(result.skippedRows).toBe(1);
+    expect(result.skippedRowReasons).toEqual([{ reason: 'invalid_session_data', count: 1 }]);
+  });
+
+  it('reports invalid_requests_array when requests is missing', () => {
+    const result = parseCopilotVscodeSession('/tmp/session.json', '{"sessionId":"x"}');
+
+    expect(result.events).toEqual([]);
+    expect(result.skippedRows).toBe(1);
+    expect(result.skippedRowReasons).toEqual([{ reason: 'invalid_requests_array', count: 1 }]);
+  });
 });

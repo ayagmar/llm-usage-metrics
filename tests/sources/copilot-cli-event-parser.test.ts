@@ -123,4 +123,22 @@ describe('parseCopilotCliEvents', () => {
       { reason: 'missing_timestamp', count: 1 },
     ]);
   });
+
+  it('keeps FIFO pairing for large queues without shift-based dequeues', () => {
+    const eventCount = 1400;
+    const lines: string[] = [];
+
+    for (let index = 0; index < eventCount; index++) {
+      const userTs = new Date(Date.UTC(2026, 1, 25, 10, 0, index)).toISOString();
+      const assistantTs = new Date(Date.UTC(2026, 1, 25, 10, 1, index)).toISOString();
+      lines.push(`{"type":"user.message","timestamp":"${userTs}"}`);
+      lines.push(`{"type":"assistant.turn_end","timestamp":"${assistantTs}"}`);
+    }
+
+    const result = parseCopilotCliEvents('/tmp/large-queue.jsonl', lines.join('\n'));
+
+    expect(result.events).toHaveLength(eventCount);
+    expect(result.events[0]?.timestamp).toBe('2026-02-25T10:00:00.000Z');
+    expect(result.events[eventCount - 1]?.timestamp).toBe('2026-02-25T10:23:19.000Z');
+  });
 });

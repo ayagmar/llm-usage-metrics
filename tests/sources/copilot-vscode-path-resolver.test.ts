@@ -113,4 +113,33 @@ describe('copilot-vscode-path-resolver', () => {
 
     expect(files).toEqual([explicitSession]);
   });
+
+  it('returns empty files for explicit missing workspaceStorageDir when not required', async () => {
+    const files = await discoverCopilotVscodeSessionFiles({
+      workspaceStorageDir: path.join(os.tmpdir(), `missing-vscode-explicit-${Date.now()}`),
+      platform: 'linux',
+      homeDir: '/nonexistent-home',
+      env: {},
+    });
+
+    expect(files).toEqual([]);
+  });
+
+  it('throws for blank explicit workspaceStorageDir', async () => {
+    await expect(
+      discoverCopilotVscodeSessionFiles({
+        workspaceStorageDir: '   ',
+      }),
+    ).rejects.toThrow('Copilot VS Code workspaceStorage directory must be a non-empty path');
+  });
+
+  it('returns no default windows roots when no roaming base env vars are present', () => {
+    const roots = getDefaultCopilotVscodeWorkspaceStorageRoots({
+      platform: 'win32',
+      homeDir: 'C:\\Users\\test',
+      env: {},
+    });
+
+    expect(roots).toEqual([]);
+  });
 });

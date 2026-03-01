@@ -16,7 +16,30 @@ type CopilotCliParserState = {
   repoRoot?: string;
   model?: string;
   pendingUserTimestamps: string[];
+  pendingUserTimestampIndex: number;
 };
+
+function dequeuePendingUserTimestamp(state: CopilotCliParserState): string | undefined {
+  if (state.pendingUserTimestampIndex >= state.pendingUserTimestamps.length) {
+    return undefined;
+  }
+
+  const timestamp = state.pendingUserTimestamps[state.pendingUserTimestampIndex];
+  state.pendingUserTimestampIndex++;
+
+  // Compact consumed prefix periodically to avoid unbounded array growth.
+  if (
+    state.pendingUserTimestampIndex >= 1024 &&
+    state.pendingUserTimestampIndex * 2 >= state.pendingUserTimestamps.length
+  ) {
+    state.pendingUserTimestamps = state.pendingUserTimestamps.slice(
+      state.pendingUserTimestampIndex,
+    );
+    state.pendingUserTimestampIndex = 0;
+  }
+
+  return timestamp;
+}
 
 function shouldParseCopilotCliLine(lineText: string): boolean {
   return COPILOT_CLI_EVENT_LINE_PATTERN.test(lineText);
@@ -72,6 +95,7 @@ export function parseCopilotCliEvents(
     sessionId: resolveInitialSessionId(filePath, workspaceMetadata),
     repoRoot: resolveInitialRepoRoot(workspaceMetadata),
     pendingUserTimestamps: [],
+    pendingUserTimestampIndex: 0,
   };
 
   for (const rawLine of content.split(/\r?\n/u)) {
@@ -147,7 +171,7 @@ export function parseCopilotCliEvents(
       continue;
     }
 
-    const queuedTimestamp = state.pendingUserTimestamps.shift();
+    const queuedTimestamp = dequeuePendingUserTimestamp(state);
     const assistantTimestamp = normalizeTimestampCandidate(line.timestamp);
     const timestamp = queuedTimestamp ?? assistantTimestamp;
 
