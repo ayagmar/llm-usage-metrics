@@ -75,12 +75,20 @@ describe('parseCopilotCliEvents', () => {
     expect(fallbackResult.events[0]?.sessionId).toBe('workspace-session-id');
     expect(fallbackResult.events[0]?.repoRoot).toBe('/workspace/from-yaml');
 
-    const eventPreferredFilePath = path.join(fixturesDir, 'session-with-truncation', 'events.jsonl');
+    const eventPreferredFilePath = path.join(
+      fixturesDir,
+      'session-with-truncation',
+      'events.jsonl',
+    );
     const eventPreferredContent = await readFile(eventPreferredFilePath, 'utf8');
-    const eventPreferredResult = parseCopilotCliEvents(eventPreferredFilePath, eventPreferredContent, {
-      id: 'workspace-fallback-id',
-      cwd: '/workspace/from-workspace',
-    });
+    const eventPreferredResult = parseCopilotCliEvents(
+      eventPreferredFilePath,
+      eventPreferredContent,
+      {
+        id: 'workspace-fallback-id',
+        cwd: '/workspace/from-workspace',
+      },
+    );
 
     expect(eventPreferredResult.events).toHaveLength(1);
     expect(eventPreferredResult.events[0]?.sessionId).toBe('session-from-event');

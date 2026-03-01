@@ -54,15 +54,15 @@ llm-usage daily
 
 ## 📋 Supported Sources
 
-| Source         | Pattern                                  | Discovery                        |
-| -------------- | ---------------------------------------- | -------------------------------- |
-| **pi**         | `~/.pi/agent/sessions/**/*.jsonl`        | Automatic                        |
-| **codex**      | `~/.codex/sessions/**/*.jsonl`           | Automatic                        |
-| **Gemini CLI** | `~/.gemini/tmp/*/chats/*.json`           | Automatic                        |
-| **Droid CLI**  | `~/.factory/sessions/**/*.settings.json` | Automatic                        |
-| **Copilot CLI** | `~/.copilot/session-state` (`*.jsonl`, `*/events.jsonl`) | Automatic |
-| **Copilot VS Code** | VS Code `workspaceStorage/*/chatSessions/*.json` | Automatic |
-| **OpenCode**   | `~/.opencode/opencode.db`                | Auto or explicit `--opencode-db` |
+| Source              | Pattern                                                  | Discovery                        |
+| ------------------- | -------------------------------------------------------- | -------------------------------- |
+| **pi**              | `~/.pi/agent/sessions/**/*.jsonl`                        | Automatic                        |
+| **codex**           | `~/.codex/sessions/**/*.jsonl`                           | Automatic                        |
+| **Gemini CLI**      | `~/.gemini/tmp/*/chats/*.json`                           | Automatic                        |
+| **Droid CLI**       | `~/.factory/sessions/**/*.settings.json`                 | Automatic                        |
+| **Copilot CLI**     | `~/.copilot/session-state` (`*.jsonl`, `*/events.jsonl`) | Automatic                        |
+| **Copilot VS Code** | VS Code `workspaceStorage/*/chatSessions/*.json`         | Automatic                        |
+| **OpenCode**        | `~/.opencode/opencode.db`                                | Auto or explicit `--opencode-db` |
 
 OpenCode source support requires Node.js 24+ runtime with built-in `node:sqlite`.
 

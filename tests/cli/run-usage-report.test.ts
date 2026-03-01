@@ -154,8 +154,9 @@ describe('buildUsageReport', () => {
         totalTokens: number;
       }[];
 
-      expect(parsed.some((row) => row.rowType === 'period_source' && row.source === 'copilot-cli'))
-        .toBe(true);
+      expect(
+        parsed.some((row) => row.rowType === 'period_source' && row.source === 'copilot-cli'),
+      ).toBe(true);
       expect(parsed.every((row) => row.totalTokens === 0)).toBe(true);
       expect(fetchSpy).not.toHaveBeenCalled();
     } finally {

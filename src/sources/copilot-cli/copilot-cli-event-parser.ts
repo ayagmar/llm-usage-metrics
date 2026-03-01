@@ -50,19 +50,20 @@ function resolveInitialSessionId(
   filePath: string,
   workspaceMetadata: CopilotCliWorkspaceMetadata,
 ): string {
-  return workspaceMetadata.id?.trim() || getFallbackSessionId(filePath);
+  return asTrimmedText(workspaceMetadata.id) ?? getFallbackSessionId(filePath);
 }
 
-function resolveInitialRepoRoot(workspaceMetadata: CopilotCliWorkspaceMetadata): string | undefined {
-  const cwd = workspaceMetadata.cwd?.trim();
-  return cwd || undefined;
+function resolveInitialRepoRoot(
+  workspaceMetadata: CopilotCliWorkspaceMetadata,
+): string | undefined {
+  return asTrimmedText(workspaceMetadata.cwd);
 }
 
 export function parseCopilotCliEvents(
   filePath: string,
   content: string,
   workspaceMetadata: CopilotCliWorkspaceMetadata = {},
-): SourceParseFileDiagnostics<UsageEvent> {
+): SourceParseFileDiagnostics {
   const events: UsageEvent[] = [];
   let skippedRows = 0;
   const skippedRowReasons = new Map<string, number>();

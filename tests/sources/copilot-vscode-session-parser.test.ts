@@ -32,7 +32,12 @@ describe('parseCopilotVscodeSession', () => {
   });
 
   it('skips invalid request entries and records diagnostics', async () => {
-    const filePath = path.join(fixturesDir, 'hash-d', 'chatSessions', 'session-invalid-entries.json');
+    const filePath = path.join(
+      fixturesDir,
+      'hash-d',
+      'chatSessions',
+      'session-invalid-entries.json',
+    );
     const content = await readFile(filePath, 'utf8');
 
     const result = parseCopilotVscodeSession(filePath, content);
@@ -57,7 +62,12 @@ describe('parseCopilotVscodeSession', () => {
   });
 
   it('falls back to file basename when top-level sessionId is missing', async () => {
-    const filePath = path.join(fixturesDir, 'hash-d', 'chatSessions', 'session-invalid-entries.json');
+    const filePath = path.join(
+      fixturesDir,
+      'hash-d',
+      'chatSessions',
+      'session-invalid-entries.json',
+    );
     const content = await readFile(filePath, 'utf8');
 
     const result = parseCopilotVscodeSession(filePath, content);

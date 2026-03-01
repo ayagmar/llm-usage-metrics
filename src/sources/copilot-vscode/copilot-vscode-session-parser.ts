@@ -69,7 +69,7 @@ function resolveSessionLevelRepoRootFallback(requests: unknown[]): string | unde
 export function parseCopilotVscodeSession(
   filePath: string,
   content: string,
-): SourceParseFileDiagnostics<UsageEvent> {
+): SourceParseFileDiagnostics {
   const events: UsageEvent[] = [];
   let skippedRows = 0;
   const skippedRowReasons = new Map<string, number>();

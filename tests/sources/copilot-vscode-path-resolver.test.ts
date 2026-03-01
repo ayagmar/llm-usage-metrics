@@ -64,7 +64,9 @@ describe('copilot-vscode-path-resolver', () => {
       homeDir: 'C:\\Users\\test',
       env: { USERPROFILE: 'C:\\Users\\test' },
     });
-    expect(userProfileFallback[0]).toBe('C:\\Users\\test/AppData/Roaming/Code/User/workspaceStorage');
+    expect(userProfileFallback[0]).toBe(
+      'C:\\Users\\test/AppData/Roaming/Code/User/workspaceStorage',
+    );
   });
 
   it('merges files from multiple existing default roots', async () => {

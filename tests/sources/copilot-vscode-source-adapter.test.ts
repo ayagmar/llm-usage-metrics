@@ -8,7 +8,13 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { CopilotVscodeSourceAdapter } from '../../src/sources/copilot-vscode/copilot-vscode-source-adapter.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const fixturesRootDir = path.join(__dirname, '..', 'fixtures', 'copilot-vscode', 'workspaceStorage');
+const fixturesRootDir = path.join(
+  __dirname,
+  '..',
+  'fixtures',
+  'copilot-vscode',
+  'workspaceStorage',
+);
 
 const tempDirs: string[] = [];
 
@@ -96,7 +102,12 @@ describe('CopilotVscodeSourceAdapter', () => {
 
   it('parses one event per valid request with zero-token estimated payload', async () => {
     const adapter = new CopilotVscodeSourceAdapter();
-    const filePath = path.join(fixturesRootDir, 'hash-b', 'chatSessions', 'session-multi-model.json');
+    const filePath = path.join(
+      fixturesRootDir,
+      'hash-b',
+      'chatSessions',
+      'session-multi-model.json',
+    );
 
     const events = await adapter.parseFile(filePath);
 
