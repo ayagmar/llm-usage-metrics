@@ -5,7 +5,9 @@ import { escapeSvg, formatUsd, shareTheme } from './share-svg-theme.js';
 
 const W = 1500;
 const H = 780;
-const pad = { top: 180, right: 70, bottom: 60, left: 260 };
+const ACCENT_H = 4;
+const FOOTER_H = 36;
+const pad = { top: 180, right: 70, bottom: 60 + FOOTER_H, left: 260 };
 
 function formatPercent(value: number | undefined): string {
   if (value === undefined) return '-';
@@ -138,11 +140,18 @@ export function renderOptimizeMonthlyShareSvg(optimizeData: OptimizeDataResult):
       : '';
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+<defs>
+  <linearGradient id="accent-grad" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%" stop-color="#10b981"/>
+    <stop offset="100%" stop-color="#06b6d4"/>
+  </linearGradient>
+</defs>
 <rect width="${W}" height="${H}" fill="${shareTheme.bg}"/>
+<rect width="${W}" height="${ACCENT_H}" fill="url(#accent-grad)"/>
 <text x="${pad.left}" y="52" font-size="32" font-weight="700" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">Monthly Optimize</text>
 <text x="${pad.left}" y="78" font-size="15" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}">Savings % heatmap by candidate and month</text>
-<rect x="${badgeX.toFixed(0)}" y="30" width="${badgeW.toFixed(0)}" height="34" rx="8" fill="${shareTheme.cardBg}" stroke="${shareTheme.cardBorder}"/>
-<text x="${(badgeX + badgeW / 2).toFixed(0)}" y="52" text-anchor="middle" font-size="14" fill="${shareTheme.textSecondary}" font-family="${shareTheme.mono}">${escapeSvg(commandText)}</text>
+<rect x="${badgeX.toFixed(0)}" y="30" width="${badgeW.toFixed(0)}" height="34" rx="17" fill="none" stroke="${shareTheme.cardBorder}"/>
+<text x="${(badgeX + badgeW / 2).toFixed(0)}" y="52" text-anchor="middle" font-size="14" fill="${shareTheme.textMuted}" font-family="${shareTheme.mono}">${escapeSvg(commandText)}</text>
 <text x="${pad.left}" y="112" font-size="15" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">Provider: <tspan font-weight="700">${escapeSvg(provider)}</tspan></text>
 <text x="${pad.left + 280}" y="112" font-size="14" fill="#22c55e" font-family="${shareTheme.font}">● positive = savings</text>
 <text x="${pad.left + 480}" y="112" font-size="14" fill="#ef4444" font-family="${shareTheme.font}">● negative = higher cost</text>
@@ -153,5 +162,7 @@ ${gridCells.join('\n')}
 ${colLabels.join('\n')}
 ${rowLabels.join('\n')}
 ${noData}
+<line x1="0" y1="${H - FOOTER_H + 1}" x2="${W}" y2="${H - FOOTER_H + 1}" stroke="${shareTheme.gridLine}" stroke-width="1"/>
+<text x="60" y="${H - FOOTER_H / 2 + 5}" fill="${shareTheme.textMuted}" font-family="${shareTheme.mono}" font-size="13">llm-usage-metrics</text>
 </svg>`;
 }

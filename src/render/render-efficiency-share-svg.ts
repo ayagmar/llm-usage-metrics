@@ -13,7 +13,9 @@ import {
 
 const W = 1500;
 const H = 640;
-const pad = { top: 160, right: 110, bottom: 70, left: 110 };
+const ACCENT_H = 4;
+const FOOTER_H = 36;
+const pad = { top: 160, right: 110, bottom: 70 + FOOTER_H, left: 110 };
 
 function toMonthlyRows(rows: EfficiencyRow[]): EfficiencyRow[] {
   return rows
@@ -162,10 +164,17 @@ export function renderEfficiencyMonthlyShareSvg(efficiencyData: EfficiencyDataRe
   const badgeX = W - pad.right - badgeW;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+<defs>
+  <linearGradient id="accent-grad" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%" stop-color="#10b981"/>
+    <stop offset="100%" stop-color="#06b6d4"/>
+  </linearGradient>
+</defs>
 <rect width="${W}" height="${H}" fill="${shareTheme.bg}"/>
+<rect width="${W}" height="${ACCENT_H}" fill="url(#accent-grad)"/>
 <text x="${pad.left}" y="52" font-size="32" font-weight="700" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">Monthly Efficiency</text>
-<rect x="${badgeX.toFixed(0)}" y="30" width="${badgeW.toFixed(0)}" height="34" rx="8" fill="${shareTheme.cardBg}" stroke="${shareTheme.cardBorder}"/>
-<text x="${(badgeX + badgeW / 2).toFixed(0)}" y="52" text-anchor="middle" font-size="14" fill="${shareTheme.textSecondary}" font-family="${shareTheme.mono}">${escapeSvg(commandText)}</text>
+<rect x="${badgeX.toFixed(0)}" y="30" width="${badgeW.toFixed(0)}" height="34" rx="17" fill="none" stroke="${shareTheme.cardBorder}"/>
+<text x="${(badgeX + badgeW / 2).toFixed(0)}" y="52" text-anchor="middle" font-size="14" fill="${shareTheme.textMuted}" font-family="${shareTheme.mono}">${escapeSvg(commandText)}</text>
 ${renderSummaryStats(allRow, vcenter)}
 ${renderEfficiencyLegend(pad.left, vcenter + 50)}
 <line x1="${chartLeft}" y1="${chartBottom}" x2="${chartRight}" y2="${chartBottom}" stroke="${shareTheme.gridLine}" stroke-width="1"/>
@@ -179,5 +188,7 @@ ${usdDots}
 ${nonCacheDots}
 ${monthLabels}
 ${noData}
+<line x1="0" y1="${H - FOOTER_H + 1}" x2="${W}" y2="${H - FOOTER_H + 1}" stroke="${shareTheme.gridLine}" stroke-width="1"/>
+<text x="60" y="${H - FOOTER_H / 2 + 5}" fill="${shareTheme.textMuted}" font-family="${shareTheme.mono}" font-size="13">llm-usage-metrics</text>
 </svg>`;
 }

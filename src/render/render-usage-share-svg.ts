@@ -15,7 +15,9 @@ import {
 
 const W = 1500;
 const H = 560;
-const pad = { top: 130, right: 60, bottom: 60, left: 60 };
+const ACCENT_H = 4;
+const FOOTER_H = 36;
+const pad = { top: 140, right: 80, bottom: 60 + FOOTER_H, left: 200 };
 
 type SourceSeries = {
   source: string;
@@ -54,10 +56,6 @@ function buildSourceSeries(
   }));
 }
 
-function getCommandText(granularity: ReportGranularity): string {
-  return `llm-usage ${granularity} --share`;
-}
-
 function buildStackedValues(series: SourceSeries[]): number[][] {
   if (series.length === 0) return [];
 
@@ -77,6 +75,74 @@ function buildStackedValues(series: SourceSeries[]): number[][] {
   return stacked;
 }
 
+/** Thin gradient accent strip at the SVG top edge. */
+function renderAccentBar(): string {
+  return [
+    `<defs><linearGradient id="accent-grad" x1="0" y1="0" x2="1" y2="0">`,
+    `  <stop offset="0%" stop-color="#10b981"/>`,
+    `  <stop offset="100%" stop-color="#06b6d4"/>`,
+    `</linearGradient></defs>`,
+    `<rect width="${W}" height="${ACCENT_H}" fill="url(#accent-grad)"/>`,
+  ].join('\n');
+}
+
+/** Left-side stat column: big token count + cost. */
+function renderStatColumn(
+  totalTokens: number,
+  costUsd: number | undefined,
+  sourceCount: number,
+): string {
+  const x = 60;
+  const baseY = ACCENT_H + 48;
+  let svg = '';
+
+  svg += `<text x="${x}" y="${baseY}" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}" font-size="52" font-weight="800">${escapeSvg(formatCompact(totalTokens))}</text>\n`;
+  svg += `<text x="${x}" y="${baseY + 22}" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}" font-size="14" letter-spacing="3" font-weight="600">TOKENS</text>\n`;
+
+  if (costUsd !== undefined) {
+    svg += `<text x="${x}" y="${baseY + 50}" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}" font-size="22" font-weight="600">${escapeSvg(formatUsd(costUsd))}</text>\n`;
+  }
+
+  svg += `<text x="${x}" y="${baseY + 74}" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}" font-size="13">${sourceCount} source${sourceCount !== 1 ? 's' : ''}</text>\n`;
+
+  return svg;
+}
+
+/** Source pills: rounded pill badges across the top-right. */
+function renderSourcePills(series: SourceSeries[]): string {
+  let svg = '';
+  let cx = pad.left + 10;
+  const pillY = ACCENT_H + 30;
+
+  for (const s of series) {
+    const label = `${s.source}  ${formatCompact(s.total)}`;
+    const textW = label.length * 8.5;
+    const pillW = textW + 28;
+    const pillH = 30;
+
+    svg += `<rect x="${cx}" y="${pillY}" width="${pillW.toFixed(0)}" height="${pillH}" rx="${pillH / 2}" fill="${s.color}" fill-opacity="0.15" stroke="${s.color}" stroke-opacity="0.4" stroke-width="1"/>\n`;
+    svg += `<circle cx="${cx + 14}" cy="${pillY + pillH / 2}" r="4" fill="${s.color}"/>\n`;
+    svg += `<text x="${cx + 24}" y="${pillY + pillH / 2 + 5}" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}" font-size="14">${escapeSvg(label)}</text>\n`;
+    cx += pillW + 10;
+  }
+
+  return svg;
+}
+
+/** Command badge positioned in the top-right corner. */
+function renderCommandBadge(command: string): string {
+  const textW = command.length * 9;
+  const badgeW = textW + 28;
+  const badgeH = 30;
+  const x = W - 60 - badgeW;
+  const y = ACCENT_H + 30;
+
+  return [
+    `<rect x="${x}" y="${y}" width="${badgeW}" height="${badgeH}" rx="${badgeH / 2}" fill="none" stroke="${shareTheme.cardBorder}" stroke-width="1"/>`,
+    `<text x="${x + badgeW / 2}" y="${y + badgeH / 2 + 5}" text-anchor="middle" font-size="13" fill="${shareTheme.textMuted}" font-family="${shareTheme.mono}">${escapeSvg(command)}</text>`,
+  ].join('\n');
+}
+
 function renderGridLines(
   chartLeft: number,
   chartRight: number,
@@ -91,11 +157,23 @@ function renderGridLines(
     const val = (maxY / gridCount) * i;
     const y = chartTop + chartH - (i / gridCount) * chartH;
 
-    svg += `<line x1="${chartLeft}" y1="${y.toFixed(2)}" x2="${chartRight}" y2="${y.toFixed(2)}" stroke="${shareTheme.gridLine}" stroke-width="1"/>\n`;
-    svg += `<text x="${(chartRight + 8).toFixed(0)}" y="${(y + 4).toFixed(0)}" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}" font-size="11">${escapeSvg(formatCompact(val))}</text>\n`;
+    svg += `<line x1="${chartLeft}" y1="${y.toFixed(2)}" x2="${chartRight}" y2="${y.toFixed(2)}" stroke="${shareTheme.gridLine}" stroke-width="1" stroke-dasharray="4 4"/>\n`;
+    svg += `<text x="${(chartLeft - 12).toFixed(0)}" y="${(y + 4).toFixed(0)}" text-anchor="end" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}" font-size="11">${escapeSvg(formatCompact(val))}</text>\n`;
   }
 
   return svg;
+}
+
+function renderGradientDefs(series: SourceSeries[]): string {
+  return series
+    .map(
+      (s, i) =>
+        `<linearGradient id="area-grad-${i}" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="0%" stop-color="${s.color}" stop-opacity="0.6"/>
+  <stop offset="100%" stop-color="${s.color}" stop-opacity="0.15"/>
+</linearGradient>`,
+    )
+    .join('\n');
 }
 
 function renderStackedAreas(
@@ -129,15 +207,21 @@ function renderStackedAreas(
       botPath = catmullRom(botPoints, 0.3, chartBottom).replace('M', 'L');
     }
 
-    svg += `<path d="${topPath} ${botPath} Z" fill="${series[s].color}" opacity="0.55" clip-path="url(#chart-clip)"/>\n`;
+    svg += `<path d="${topPath} ${botPath} Z" fill="url(#area-grad-${s})" clip-path="url(#chart-clip)"/>\n`;
   }
 
-  // Outline for the total stack
+  // Top-line stroke with glow
   const totalPoints: Point[] = Array.from({ length: periodCount }, (_, p) => ({
     x: toX(p),
     y: toChartY(stacked[stacked.length - 1][p]),
   }));
-  svg += `<path d="${catmullRom(totalPoints, 0.3, chartBottom)}" fill="none" stroke="${shareTheme.textPrimary}" stroke-width="1.5" stroke-opacity="0.4" stroke-linejoin="round" stroke-linecap="round" clip-path="url(#chart-clip)"/>\n`;
+  const topLinePath = catmullRom(totalPoints, 0.3, chartBottom);
+  svg += `<path d="${topLinePath}" fill="none" stroke="${shareTheme.textPrimary}" stroke-width="2" stroke-opacity="0.5" stroke-linejoin="round" stroke-linecap="round" clip-path="url(#chart-clip)"/>\n`;
+
+  // Dot markers on the top line
+  for (const pt of totalPoints) {
+    svg += `<circle cx="${pt.x.toFixed(2)}" cy="${pt.y.toFixed(2)}" r="3" fill="${shareTheme.textPrimary}" fill-opacity="0.6" clip-path="url(#chart-clip)"/>\n`;
+  }
 
   return svg;
 }
@@ -158,7 +242,7 @@ function renderSinglePeriodBars(
     const yTop = toChartY(stacked[s][0]);
     const yBot = s === 0 ? chartBottom : toChartY(stacked[s - 1][0]);
     if (yBot - yTop > 0) {
-      svg += `<rect x="${(xCenter - barWidth / 2).toFixed(2)}" y="${yTop.toFixed(2)}" width="${barWidth.toFixed(2)}" height="${(yBot - yTop).toFixed(2)}" fill="${series[s].color}" opacity="0.55" rx="4"/>\n`;
+      svg += `<rect x="${(xCenter - barWidth / 2).toFixed(2)}" y="${yTop.toFixed(2)}" width="${barWidth.toFixed(2)}" height="${(yBot - yTop).toFixed(2)}" fill="url(#area-grad-${s})" rx="4"/>\n`;
     }
   }
 
@@ -176,58 +260,25 @@ function renderPeriodLabels(
   let svg = '';
 
   for (let p = 0; p < periodCount; p += labelStep) {
-    svg += `<text x="${toX(p).toFixed(2)}" y="${(chartBottom + 28).toFixed(0)}" text-anchor="middle" font-size="13" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">${escapeSvg(periods[p])}</text>\n`;
+    svg += `<text x="${toX(p).toFixed(2)}" y="${(chartBottom + 24).toFixed(0)}" text-anchor="middle" font-size="13" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">${escapeSvg(periods[p])}</text>\n`;
   }
 
   return svg;
 }
 
-function renderLegend(series: SourceSeries[], vcenter: number): string {
-  const legendItemW = 145;
-  const legendStartX = pad.left + 8;
-  let svg = '';
-
-  for (let i = 0; i < series.length; i++) {
-    const x = legendStartX + i * legendItemW;
-    const s = series[i];
-
-    svg += `<rect x="${x}" y="${(vcenter - 14).toFixed(0)}" width="14" height="14" rx="3" fill="${s.color}" opacity="0.8"/>`;
-    svg += `<text x="${x + 20}" y="${vcenter.toFixed(0)}" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}" font-size="17">${escapeSvg(s.source)}</text>`;
-    svg += `<text x="${x + 20}" y="${(vcenter + 18).toFixed(0)}" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}" font-size="15">${escapeSvg(formatCompact(s.total))}</text>\n`;
-  }
-
-  return svg;
-}
-
-function renderCommandBadge(
-  command: string,
-  legendEndX: number,
-  totalStartX: number,
-  vcenter: number,
-): string {
-  const midX = (legendEndX + totalStartX) / 2;
-  const textWidth = command.length * 10;
-  const badgeW = textWidth + 28;
-  const badgeH = 34;
+/** Footer strip with branding and period range. */
+function renderFooter(periods: string[]): string {
+  const y = H - FOOTER_H;
+  const lineY = y + 1;
+  const textY = y + FOOTER_H / 2 + 5;
+  const range =
+    periods.length >= 2 ? `${periods[0]} → ${periods[periods.length - 1]}` : (periods[0] ?? '');
 
   return [
-    `<rect x="${(midX - badgeW / 2).toFixed(0)}" y="${(vcenter - badgeH / 2 - 2).toFixed(0)}" width="${badgeW.toFixed(0)}" height="${badgeH.toFixed(0)}" rx="8" fill="${shareTheme.cardBg}" stroke="${shareTheme.cardBorder}"/>`,
-    `<text x="${midX.toFixed(0)}" y="${(vcenter + 5).toFixed(0)}" text-anchor="middle" font-size="15" fill="${shareTheme.textSecondary}" font-family="${shareTheme.mono}">${escapeSvg(command)}</text>`,
+    `<line x1="0" y1="${lineY}" x2="${W}" y2="${lineY}" stroke="${shareTheme.gridLine}" stroke-width="1"/>`,
+    `<text x="60" y="${textY}" fill="${shareTheme.textMuted}" font-family="${shareTheme.mono}" font-size="13">llm-usage-metrics</text>`,
+    `<text x="${W - 60}" y="${textY}" text-anchor="end" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}" font-size="13">${escapeSvg(range)}</text>`,
   ].join('\n');
-}
-
-function renderTotals(totalTokens: number, costUsd: number | undefined, vcenter: number): string {
-  let svg = '';
-  const xRight = W - pad.right;
-
-  svg += `<text x="${xRight}" y="${(vcenter + 6).toFixed(0)}" text-anchor="end" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}" font-size="48" font-weight="800">${escapeSvg(formatCompact(totalTokens))}</text>\n`;
-  svg += `<text x="${xRight}" y="${(vcenter + 26).toFixed(0)}" text-anchor="end" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}" font-size="16" letter-spacing="2" font-weight="600">TOKENS</text>\n`;
-
-  if (costUsd !== undefined) {
-    svg += `<text x="${xRight}" y="${(vcenter + 48).toFixed(0)}" text-anchor="end" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}" font-size="18">${escapeSvg(formatUsd(costUsd))}</text>\n`;
-  }
-
-  return svg;
 }
 
 export function renderUsageShareSvg(
@@ -261,10 +312,7 @@ export function renderUsageShareSvg(
     chartLeft + (periodCount <= 1 ? chartW / 2 : (p / (periodCount - 1)) * chartW);
   const toChartY = (val: number): number => scaleY(val, maxY, chartTop, chartBottom);
 
-  const vcenter = pad.top / 2;
-  const legendItemW = 145;
-  const legendEndX = pad.left + 8 + activeSeries.length * legendItemW;
-  const totalStartX = W - pad.right - 160;
+  const commandText = `llm-usage ${granularity} --share`;
 
   let chartContent: string;
   if (periodCount === 0) {
@@ -294,13 +342,16 @@ export function renderUsageShareSvg(
   <clipPath id="chart-clip">
     <rect x="${chartLeft}" y="${chartTop - 4}" width="${chartW}" height="${chartH + 8}"/>
   </clipPath>
+  ${renderGradientDefs(activeSeries)}
 </defs>
 <rect width="${W}" height="${H}" fill="${shareTheme.bg}"/>
-${renderTotals(totalTokens, totalCost, vcenter)}
-${renderCommandBadge(getCommandText(granularity), legendEndX, totalStartX, vcenter)}
-${renderLegend(activeSeries, vcenter)}
+${renderAccentBar()}
+${renderStatColumn(totalTokens, totalCost, activeSeries.length)}
+${renderSourcePills(activeSeries)}
+${renderCommandBadge(commandText)}
 ${renderGridLines(chartLeft, chartRight, chartTop, chartH, maxY)}
 ${chartContent}
 ${renderPeriodLabels(periods, toX, chartBottom)}
+${renderFooter(periods)}
 </svg>`;
 }
