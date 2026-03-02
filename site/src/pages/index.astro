@@ -8,691 +8,845 @@ const rootPkg = JSON.parse(
 );
 const pkgVersion = rootPkg.version ?? '0.0.0';
 
-const basePath = import.meta.env.BASE_URL.endsWith('/')
+const base = import.meta.env.BASE_URL.endsWith('/')
   ? import.meta.env.BASE_URL
   : `${import.meta.env.BASE_URL}/`;
-const docsPath = `${basePath}getting-started/`;
-const efficiencyPath = `${basePath}efficiency/`;
-const benchmarksPath = `${basePath}benchmarks/`;
+
+const link = (slug: string) => `${base}${slug}`;
+const ghUrl = 'https://github.com/ayagmar/llm-usage-metrics';
+const npmUrl = 'https://www.npmjs.com/package/llm-usage-metrics';
 ---
 
 <StarlightPage frontmatter={{ title: 'Overview', template: 'splash' }}>
   <div class="grid-bg" aria-hidden="true"></div>
+  <div class="hero-glow" aria-hidden="true"></div>
 
-  <!-- Version Pill (Floating Top Right) -->
-  <a href="https://github.com/ayagmar/llm-usage-metrics/releases" class="version-pill-floating font-mono fade-in" target="_blank" rel="noopener noreferrer">
-    <span class="pulse-dot"></span> v{pkgVersion}
-  </a>
+  <!-- ─── Hero ─── -->
+  <section class="hero fade-up">
+    <a
+      href={`${ghUrl}/releases`}
+      class="version-pill font-mono"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <span class="dot"></span>v{pkgVersion}
+    </a>
 
-  <!-- Hero Section -->
-  <section class="hero">
-    <div class="hero-inner">
-      <div class="hero-content fade-in">
-        <h1 class="title">
-          Know exactly what your<br/> <span class="text-dim-accent">AI coding costs.</span>
-        </h1>
-        <p class="desc">
-          High-performance local usage metrics for pi, Codex, Gemini CLI, Droid, and OpenCode. Parse tokens, apply real pricing, and correlate spend with Git outcomes. Sub-second reports. Zero telemetry.
+    <h1 class="headline">
+      Know what your<br />
+      <span class="dim">AI coding costs.</span>
+    </h1>
+
+    <p class="subtitle">
+      Local-first usage metrics for every AI coding agent.
+      Token counts, real pricing, Git&#8209;correlated ROI — sub&#8209;second reports.
+    </p>
+
+    <div class="actions">
+      <div
+        class="install-box"
+        role="button"
+        tabindex="0"
+        aria-label="Copy install command"
+      >
+        <span class="prompt text-dim">$</span>
+        <code class="cmd font-mono">npm i -g llm-usage-metrics</code>
+        <span class="copy-icon" aria-hidden="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        </span>
+      </div>
+
+      <div class="btn-row">
+        <a href={link('getting-started/')} class="btn btn-primary">Get started</a>
+        <a href={ghUrl} class="btn btn-secondary" target="_blank" rel="noopener noreferrer">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+          GitHub
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Terminal preview ─── -->
+  <section class="terminal-section reveal">
+    <div class="terminal">
+      <div class="terminal-bar">
+        <div class="terminal-dots">
+          <span class="td" style="background:#f87171"></span>
+          <span class="td" style="background:#fbbf24"></span>
+          <span class="td" style="background:#4ade80"></span>
+        </div>
+        <span class="terminal-title font-mono">llm-usage daily</span>
+      </div>
+      <pre class="terminal-body font-mono"><code><span class="t-dim">$</span> llm-usage daily
+
+<span class="t-head">  Period      Source   Models              Input    Output   Total      Cost</span>
+<span class="t-sep">  ──────────  ───────  ──────────────────  ───────  ───────  ───────  ──────</span>
+  <span class="t-date">2026-03-02</span>  <span class="t-source">pi</span>       <span class="t-model">• claude-sonnet-4</span>   <span class="t-num">142,319</span>   <span class="t-num">38,104</span>  <span class="t-num">180,423</span>  <span class="t-cost">$1.57</span>
+  <span class="t-date">2026-03-02</span>  <span class="t-source">codex</span>    <span class="t-model">• claude-sonnet-4</span>    <span class="t-num">98,712</span>   <span class="t-num">21,401</span>  <span class="t-num">120,113</span>  <span class="t-cost">$1.02</span>
+  <span class="t-date">2026-03-02</span>  <span class="t-source">gemini</span>   <span class="t-model">• gemini-2.5-pro</span>     <span class="t-num">67,241</span>   <span class="t-num">15,832</span>   <span class="t-num">83,073</span>  <span class="t-cost">$0.44</span>
+  <span class="t-date">2026-03-02</span>  <span class="t-source">codex</span>    <span class="t-model">• o3</span>                 <span class="t-num">31,049</span>    <span class="t-num">8,198</span>   <span class="t-num">39,247</span>  <span class="t-cost">$0.41</span>
+<span class="t-sep">  ──────────  ───────  ──────────────────  ───────  ───────  ───────  ──────</span>
+  <span class="t-total">ALL         TOTAL    4 models            339,321   83,535  422,856  <span class="t-cost-total">$3.44</span></span></code></pre>
+    </div>
+  </section>
+
+  <!-- ─── Speed comparison ─── -->
+  <section class="speed-section reveal">
+    <h2 class="section-title">Blazing fast.</h2>
+    <p class="section-desc">
+      Benchmarked against ccusage on real production data.
+    </p>
+
+    <div class="speed-grid">
+      <div class="speed-card">
+        <div class="speed-number font-mono">4.6<span class="speed-x">×</span></div>
+        <div class="speed-label">faster cold start</div>
+        <div class="speed-detail font-mono">3.6s vs 16.8s</div>
+      </div>
+      <div class="speed-card speed-highlight">
+        <div class="speed-number font-mono">22<span class="speed-x">×</span></div>
+        <div class="speed-label">faster with cache</div>
+        <div class="speed-detail font-mono">0.7s vs 17.0s</div>
+      </div>
+      <div class="speed-card">
+        <div class="speed-number font-mono">&lt;1<span class="speed-x">s</span></div>
+        <div class="speed-label">cached reports</div>
+        <div class="speed-detail font-mono">sub-second</div>
+      </div>
+    </div>
+
+    <a href={link('benchmarks/')} class="section-link">View full benchmarks →</a>
+  </section>
+
+  <!-- ─── Commands ─── -->
+  <section class="commands-section reveal">
+    <h2 class="section-title">Three commands. Full visibility.</h2>
+    <p class="section-desc">
+      Daily/weekly/monthly reports, Git-correlated efficiency, and model cost optimization.
+    </p>
+
+    <div class="cmd-grid">
+      <div class="cmd-card">
+        <div class="cmd-icon">📊</div>
+        <h3 class="cmd-name">Usage reports</h3>
+        <p class="cmd-desc">
+          Aggregate token counts and costs across all agents.
+          Daily, weekly, or monthly.
         </p>
+        <pre class="cmd-code font-mono"><code>llm-usage daily --provider openai</code></pre>
+      </div>
 
-        <div class="actions">
-          <div
-            class="install-box"
-            role="button"
-            tabindex="0"
-            aria-label="Copy install command: npm install -g llm-usage-metrics"
-          >
-            <span class="prompt text-dim">$</span>
-            <span class="cmd font-mono">npm install -g llm-usage-metrics</span>
-            <span class="copy-icon">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-            </span>
-          </div>
-          <div class="btn-group">
-            <a href={docsPath} class="btn btn-primary">Documentation</a>
-            <a href="https://github.com/ayagmar/llm-usage-metrics" class="btn btn-secondary" target="_blank" rel="noopener noreferrer">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
-              GitHub
-            </a>
-          </div>
-        </div>
+      <div class="cmd-card">
+        <div class="cmd-icon">⚡</div>
+        <h3 class="cmd-name">Efficiency</h3>
+        <p class="cmd-desc">
+          Correlate LLM spend with Git outcomes.
+          $/commit, $/1k lines, tokens per commit.
+        </p>
+        <pre class="cmd-code font-mono"><code>llm-usage efficiency monthly \
+  --repo-dir .</code></pre>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-icon">🔬</div>
+        <h3 class="cmd-name">Optimize</h3>
+        <p class="cmd-desc">
+          Replay your token mix against candidate models.
+          Find cheaper alternatives instantly.
+        </p>
+        <pre class="cmd-code font-mono"><code>llm-usage optimize monthly \
+  --candidate-model gpt-4.1</code></pre>
       </div>
     </div>
   </section>
 
-  <!-- Metrics Bar -->
-  <section class="metrics-bar fade-in" style="animation-delay: 100ms">
-    <div class="metrics-inner">
+  <!-- ─── Sources ─── -->
+  <section class="sources-section reveal">
+    <h2 class="section-title">Every agent. Zero config.</h2>
+    <p class="section-desc">
+      Auto-discovers session data from five AI coding tools.
+    </p>
+
+    <div class="source-strip">
+      <a href={link('sources/pi/')} class="source-chip">
+        <span class="source-dot" style="background:#10b981"></span>pi
+      </a>
+      <a href={link('sources/codex/')} class="source-chip">
+        <span class="source-dot" style="background:#38bdf8"></span>codex
+      </a>
+      <a href={link('sources/gemini/')} class="source-chip">
+        <span class="source-dot" style="background:#818cf8"></span>gemini
+      </a>
+      <a href={link('sources/droid/')} class="source-chip">
+        <span class="source-dot" style="background:#fb923c"></span>droid
+      </a>
+      <a href={link('sources/opencode/')} class="source-chip">
+        <span class="source-dot" style="background:#f472b6"></span>opencode
+      </a>
+    </div>
+  </section>
+
+  <!-- ─── Metrics bar ─── -->
+  <section class="metrics-section reveal">
+    <div class="metrics-bar">
       <div class="metric">
-        <div class="metric-val font-mono">5</div>
-        <div class="metric-label">Supported Agents</div>
+        <span class="metric-val font-mono">100%</span>
+        <span class="metric-label">local-first</span>
       </div>
+      <div class="metric-sep"></div>
       <div class="metric">
-        <div class="metric-val font-mono">100<span class="text-dim">%</span></div>
-        <div class="metric-label">Local-First</div>
+        <span class="metric-val font-mono">0</span>
+        <span class="metric-label">telemetry</span>
       </div>
+      <div class="metric-sep"></div>
       <div class="metric">
-        <div class="metric-val font-mono">0</div>
-        <div class="metric-label">Telemetry</div>
+        <span class="metric-val font-mono">3</span>
+        <span class="metric-label">output formats</span>
       </div>
+      <div class="metric-sep"></div>
       <div class="metric">
-        <div class="metric-val font-mono"><span class="text-dim">O(</span>1<span class="text-dim">)</span></div>
-        <div class="metric-label">Parse Cache</div>
+        <span class="metric-val font-mono">O(1)</span>
+        <span class="metric-label">parse cache</span>
       </div>
     </div>
   </section>
 
-  <!-- Bento Features -->
-  <section class="features fade-in" style="animation-delay: 200ms">
-    <div class="section-head">
-      <h2 class="section-title">Built for engineers.</h2>
-      <p class="section-desc">Signal over noise. Sub-second performance. CLI-first design.</p>
-    </div>
-    
-    <div class="bento-grid">
-      <!-- 1: Efficiency -->
-      <div class="bento-cell span-2">
-        <div class="cell-content">
-          <div class="cell-header">
-            <h3 class="cell-title">Efficiency ROI</h3>
-            <p class="cell-desc">The first CLI to join your local Git outcomes with LLM costs. View your true $/commit and $/1k lines metrics directly in your terminal or export to JSON.</p>
-          </div>
-          <div class="cell-footer mt-auto">
-            <pre class="code-block font-mono"><code>$ llm-usage efficiency monthly --repo-dir .</code></pre>
-            <a href={efficiencyPath} class="cell-link">Read efficiency docs &rarr;</a>
-          </div>
-        </div>
-      </div>
-
-      <!-- 2: Parsers -->
-      <div class="bento-cell">
-        <div class="cell-content">
-          <div class="cell-header">
-            <h3 class="cell-title">Universal Parsers</h3>
-            <p class="cell-desc">Zero-config discovery for <code>.pi</code>, <code>.codex</code>, <code>.gemini</code>, Droid <code>.factory/sessions</code>, and OpenCode SQLite databases. Automatic adapter routing.</p>
-          </div>
-          <div class="cell-visual tags-visual mt-auto">
-            <span class="agent-tag">.pi</span>
-            <span class="agent-tag">.codex</span>
-            <span class="agent-tag">.gemini</span>
-            <span class="agent-tag">droid</span>
-            <span class="agent-tag">sqlite</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 3: Caching -->
-      <div class="bento-cell">
-        <div class="cell-content">
-          <div class="cell-header">
-            <h3 class="cell-title">Parse Cache</h3>
-            <p class="cell-desc">Session files are parsed once and cached locally. Subsequent runs skip unchanged files for instant, deterministic reporting.</p>
-          </div>
-          <div class="cell-visual cache-visual mt-auto">
-            <div class="cache-line"><span class="text-dim">✔ cache hit:</span> 0ms</div>
-            <div class="cache-line"><span class="text-dim">✔ cache hit:</span> 0ms</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 4: Formats -->
-      <div class="bento-cell span-2 split-cell">
-        <div class="cell-content">
-          <div class="cell-header">
-            <h3 class="cell-title">JSON, Markdown & ANSI</h3>
-            <p class="cell-desc">Pipe <code>--json</code> into jq. Paste <code>--markdown</code> into GitHub PRs. Or read perfectly aligned ANSI tables in your terminal.</p>
-          </div>
-        </div>
-        <div class="cell-visual">
-          <pre class="code-block font-mono" style="margin-bottom: 0; width: 100%;"><code>$ llm-usage daily --json | jq '.totals.cost'</code></pre>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Footer -->
+  <!-- ─── Footer ─── -->
   <footer class="footer">
-    <div class="footer-inner">
-      <div class="brand">
-        <svg width="16" height="16" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect width="32" height="32" rx="8" fill="currentColor"/>
-          <path d="M8 12h16M8 16h12M8 20h8" stroke="var(--color-bg)" stroke-width="2" stroke-linecap="round"/>
+    <div class="footer-top">
+      <div class="footer-brand">
+        <svg width="20" height="20" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="32" height="32" rx="8" fill="#10b981"/>
+          <path d="M8 12h16M8 16h12M8 20h8" stroke="#09090b" stroke-width="2" stroke-linecap="round"/>
         </svg>
-        <span class="font-mono">llm-usage-metrics</span>
+        <span class="font-mono footer-name">llm-usage-metrics</span>
       </div>
-      <div class="links">
-        <a href={docsPath}>Docs</a>
-        <a href={benchmarksPath}>Benchmarks</a>
-        <a href="https://github.com/ayagmar/llm-usage-metrics" target="_blank" rel="noopener noreferrer">GitHub</a>
-      </div>
+
+      <nav class="footer-nav">
+        <a href={link('getting-started/')}>Docs</a>
+        <a href={link('cli-reference/')}>CLI</a>
+        <a href={link('benchmarks/')}>Benchmarks</a>
+        <a href={ghUrl} target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href={npmUrl} target="_blank" rel="noopener noreferrer">npm</a>
+      </nav>
+    </div>
+
+    <div class="footer-bottom">
+      <span class="text-dim">
+        Built for engineers who want to know what their AI coding actually costs.
+      </span>
     </div>
   </footer>
 
+  <!-- Scripts -->
   <script is:inline>
+    // Copy install command
     const box = document.querySelector('.install-box');
     box?.addEventListener('click', () => {
-      if(!navigator.clipboard?.writeText) return;
-      navigator.clipboard.writeText('npm install -g llm-usage-metrics').then(() => {
+      if (!navigator.clipboard?.writeText) return;
+      navigator.clipboard.writeText('npm i -g llm-usage-metrics').then(() => {
         const icon = box.querySelector('.copy-icon');
         if (!icon) return;
-
         icon.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
         setTimeout(() => {
-          icon.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+          icon.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
         }, 2000);
-      }).catch(() => {
-        // no-op: clipboard may be unavailable due browser permissions/context.
-      });
+      }).catch(() => {});
     });
     box?.addEventListener('keydown', (e) => {
-      if(e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        box.click();
-      }
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); box.click(); }
     });
+
+    // Scroll reveal animation
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.15, rootMargin: '0px 0px -40px 0px' }
+    );
+    document.querySelectorAll('.reveal').forEach((el) => observer.observe(el));
   </script>
 </StarlightPage>
 
 <style>
-  /* Override Starlight Defaults for Splash Page */
+  /* ── Starlight splash overrides ── */
   :global(main > .content-panel:has(h1#_top)) { display: none !important; }
   :global(main > .content-panel) { padding: 0 !important; max-width: 100% !important; border: none !important; }
   :global(.sl-container) { max-width: 100% !important; margin: 0 !important; }
   :global(starlight-menu-button) { display: none !important; }
 
-  /* Animations */
-  @keyframes fade-in-up {
-    from {
-      opacity: 0;
-      transform: translateY(12px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .fade-in {
-    animation: fade-in-up var(--transition-slow) forwards;
-    opacity: 0;
-  }
-
-  /* Grid Background Overlay */
+  /* ── Grid background ── */
   .grid-bg {
     position: fixed;
     inset: 0;
     z-index: -1;
     pointer-events: none;
-    background-image: 
+    background-image:
       linear-gradient(to right, var(--border-default) 1px, transparent 1px),
       linear-gradient(to bottom, var(--border-default) 1px, transparent 1px);
-    background-size: 4rem 4rem;
-    mask-image: radial-gradient(circle at top, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 80%);
-    -webkit-mask-image: radial-gradient(circle at top, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 80%);
+    background-size: 3rem 3rem;
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, black 0%, transparent 100%);
+    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, black 0%, transparent 100%);
   }
-  :root[data-theme='light'] .grid-bg {
-    opacity: 0.3;
+  :root[data-theme='light'] .grid-bg { opacity: 0.2; }
+
+  /* ── Hero glow ── */
+  .hero-glow {
+    position: fixed;
+    top: -20%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 800px;
+    height: 600px;
+    background: radial-gradient(ellipse at center, rgba(16, 185, 129, 0.06) 0%, transparent 70%);
+    z-index: -1;
+    pointer-events: none;
+  }
+  :root[data-theme='light'] .hero-glow {
+    background: radial-gradient(ellipse at center, rgba(16, 185, 129, 0.04) 0%, transparent 70%);
   }
 
-  /* Shared Container */
-  .hero-inner, .features, .footer-inner {
+  /* ── Animations ── */
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .fade-up {
+    animation: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .reveal {
+    opacity: 0;
+    transform: translateY(32px);
+    transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ── Section container (centered) ── */
+  section, footer {
     max-width: var(--max-w-container);
-    margin: 0 auto;
-    padding: 0 var(--space-6);
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: var(--space-6);
+    padding-right: var(--space-6);
   }
 
-  /* Hero Section */
-  .hero {
-    padding: var(--space-24) 0 var(--space-20);
+  .section-title {
+    font-size: var(--text-2xl);
+    font-weight: 600;
+    letter-spacing: var(--tracking-tighter);
+    margin-bottom: var(--space-2);
+    text-align: center;
   }
-  .hero-inner {
+  .section-desc {
+    color: var(--color-text-muted);
+    font-size: var(--text-base);
+    text-align: center;
+    margin-bottom: var(--space-10);
+    max-width: 48ch;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .section-link {
+    display: block;
+    text-align: center;
+    margin-top: var(--space-8);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--color-text-muted);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+  }
+  .section-link:hover { color: var(--color-text); }
+
+  @media (min-width: 768px) {
+    .section-title { font-size: var(--text-3xl); }
+  }
+
+  /* ═══════════════════════════════
+     HERO
+     ═══════════════════════════════ */
+  .hero {
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
+    padding-top: var(--space-12);
+    padding-bottom: var(--space-12);
   }
-  .hero-content {
-    max-width: 800px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+  @media (min-width: 768px) {
+    .hero { padding-top: var(--space-16); padding-bottom: var(--space-16); }
+  }
+  @media (min-width: 1024px) {
+    .hero { padding-top: var(--space-20); padding-bottom: var(--space-16); }
   }
 
-  .version-pill-floating {
-    position: absolute;
-    top: calc(var(--sl-nav-height, 3.5rem) + var(--space-3));
-    right: var(--space-6);
+  .version-pill {
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);
-    padding: var(--space-2) var(--space-3);
+    padding: var(--space-1) var(--space-3);
     font-size: var(--text-xs);
-    font-weight: 600;
+    font-weight: 500;
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-full);
-    background: rgba(15, 23, 42, 0.8);
-    color: var(--color-text);
+    color: var(--color-text-muted);
     text-decoration: none;
     transition: all var(--transition-fast);
-    z-index: var(--z-fixed);
-    backdrop-filter: blur(8px);
-    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.25);
+    margin-bottom: var(--space-6);
   }
-  :root[data-theme='light'] .version-pill-floating {
-    background: rgba(255, 255, 255, 0.9);
-    color: var(--color-text-secondary);
-  }
-  .version-pill-floating:hover {
-    border-color: var(--color-text-muted);
+  .version-pill:hover {
+    border-color: var(--color-text-dim);
     color: var(--color-text);
-    transform: translateY(-1px);
-    background: var(--color-bg-code);
   }
-  .pulse-dot {
-    width: 6px;
-    height: 6px;
+  .dot {
+    width: 6px; height: 6px;
     border-radius: 50%;
-    background: var(--color-text-dim);
-    box-shadow: 0 0 0 rgba(255,255,255,0.4);
-    animation: pulse 2s infinite;
+    background: #10b981;
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+  @keyframes pulse-dot {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+    50% { box-shadow: 0 0 0 4px rgba(16, 185, 129, 0); }
   }
 
-  @keyframes pulse {
-    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(113, 113, 122, 0.7); }
-    70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(113, 113, 122, 0); }
-    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(113, 113, 122, 0); }
-  }
-
-  .title {
-    font-size: clamp(2.5rem, 6vw, 4.5rem);
-    font-weight: 600;
+  .headline {
+    font-size: clamp(2.25rem, 7vw, 5rem);
+    font-weight: 700;
     line-height: 1.05;
     letter-spacing: var(--tracking-tighter);
-    margin-bottom: var(--space-6);
+    margin-bottom: var(--space-4);
     text-wrap: balance;
-    color: var(--color-text);
   }
-  
-  .text-dim-accent {
-    color: var(--color-text-dim);
-    font-weight: 500;
-  }
+  .dim { color: var(--color-text-dim); font-weight: 500; }
 
-  .desc {
-    font-size: var(--text-lg);
-    color: var(--color-text-secondary);
+  .subtitle {
+    font-size: var(--text-base);
+    color: var(--color-text-muted);
     line-height: var(--leading-relaxed);
-    margin-bottom: var(--space-10);
-    max-width: 65ch;
+    max-width: 52ch;
+    margin-bottom: var(--space-8);
     text-wrap: balance;
-  }
-
-  .actions {
-    --action-height: 2.75rem;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-    align-items: stretch;
-    width: 100%;
-    max-width: 100%;
-    justify-content: center;
   }
   @media (min-width: 768px) {
+    .subtitle { font-size: var(--text-lg); max-width: 60ch; }
+  }
+
+  /* ── Actions (centered) ── */
+  .actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    width: 100%;
+    max-width: 480px;
+    align-items: center;
+  }
+  @media (min-width: 640px) {
     .actions {
       flex-direction: row;
-      align-items: center;
       justify-content: center;
+      max-width: none;
       gap: var(--space-3);
-      flex-wrap: nowrap;
     }
   }
 
   .install-box {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     gap: var(--space-3);
     padding: 0 var(--space-4);
-    min-height: var(--action-height);
-    height: var(--action-height);
+    height: 2.75rem;
     background: var(--color-bg-code);
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-md);
     cursor: pointer;
     transition: all var(--transition-fast);
-    box-sizing: border-box;
-    margin: 0;
-    white-space: nowrap;
-    line-height: 1;
-    justify-content: space-between;
     width: 100%;
-    flex: 0 0 auto;
+    box-sizing: border-box;
   }
-  @media (min-width: 768px) {
-    .install-box {
-      width: auto;
-      min-width: 24rem;
-    }
+  @media (min-width: 640px) {
+    .install-box { width: auto; flex-shrink: 0; }
   }
   .install-box:hover {
+    border-color: var(--color-text-dim);
     background: var(--color-bg-elevated);
-    border-color: var(--color-text-muted);
     transform: translateY(-1px);
   }
-  .install-box .cmd {
+  .prompt { color: var(--color-text-dim); }
+  .cmd {
     font-size: var(--text-sm);
     color: var(--color-text-secondary);
-    line-height: 1;
-    display: inline-flex;
-    align-items: center;
+    flex: 1;
+    text-align: left;
     white-space: nowrap;
   }
-  .prompt {
-    line-height: 1;
-    display: flex;
-    align-items: center;
-  }
-  .copy-icon {
-    color: var(--color-text-dim);
-    display: flex;
-    align-items: center;
-    margin-left: var(--space-1);
-  }
-  .copy-icon svg {
-    display: block;
-  }
+  .copy-icon { color: var(--color-text-dim); display: flex; margin-left: auto; }
 
-  .btn-group {
+  .btn-row {
     display: flex;
     gap: var(--space-3);
-    align-items: stretch;
-    min-height: var(--action-height);
-    height: var(--action-height);
-    line-height: 1;
     width: 100%;
-    flex: 0 0 auto;
   }
-  @media (min-width: 768px) {
-    .btn-group {
-      width: auto;
-    }
+  @media (min-width: 640px) {
+    .btn-row { width: auto; }
   }
-  
-  .btn {
-    height: var(--action-height);
-    min-height: var(--action-height);
-    border-radius: var(--radius-md);
-    padding: 0 var(--space-5);
-    font-weight: 500;
+  .btn-row .btn {
     flex: 1;
-    box-sizing: border-box;
-    margin: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 1;
-    white-space: nowrap;
+    height: 2.75rem;
   }
-  .btn svg {
-    display: block;
-  }
-  @media (min-width: 768px) {
-    .btn {
-      flex: none;
-    }
+  @media (min-width: 640px) {
+    .btn-row .btn { flex: none; }
   }
 
-  /* Metrics Bar */
-  .metrics-bar {
-    border-top: 1px solid var(--border-subtle);
-    border-bottom: 1px solid var(--border-subtle);
-    background: linear-gradient(to right, transparent, var(--color-bg-elevated), transparent);
-    margin-bottom: var(--space-16);
+  /* ═══════════════════════════════
+     TERMINAL PREVIEW
+     ═══════════════════════════════ */
+  .terminal-section {
+    padding-bottom: var(--space-16);
   }
-  .metrics-inner {
-    max-width: var(--max-w-container);
+
+  .terminal {
+    background: #0c0c0e;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.03),
+      0 20px 60px rgba(0, 0, 0, 0.4),
+      0 0 80px rgba(16, 185, 129, 0.04);
+    max-width: 860px;
     margin: 0 auto;
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: var(--space-4);
-    padding: 0 var(--space-6);
-    align-items: stretch;
+  }
+  :root[data-theme='light'] .terminal {
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.06),
+      0 20px 60px rgba(0, 0, 0, 0.1);
+  }
+
+  .terminal-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .terminal-dots {
+    display: flex;
+    gap: 6px;
+  }
+  .td {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    opacity: 0.8;
+  }
+  .terminal-title {
+    font-size: var(--text-xs);
+    color: #71717a;
+    margin-left: var(--space-2);
+  }
+
+  .terminal-body {
+    padding: var(--space-5) var(--space-6);
+    font-size: 12px;
+    line-height: 1.7;
+    color: #e4e4e7;
+    overflow-x: auto;
+    margin: 0;
+  }
+  .terminal-body code {
+    font-family: inherit;
+    font-size: inherit;
+    background: none;
+    border: none;
+    padding: 0;
+    color: inherit;
   }
   @media (min-width: 768px) {
-    .metrics-inner {
-      grid-template-columns: repeat(4, 1fr);
-    }
+    .terminal-body { font-size: 13px; }
   }
-  .metric {
-    padding: var(--space-10) 0;
+
+  .t-dim { color: #52525b; }
+  .t-head { color: #71717a; font-weight: 600; }
+  .t-sep { color: #3f3f46; }
+  .t-date { color: #a1a1aa; }
+  .t-source { color: #10b981; }
+  .t-model { color: #a1a1aa; }
+  .t-num { color: #a1a1aa; }
+  .t-cost { color: #fafafa; font-weight: 500; }
+  .t-total { font-weight: 600; color: #fafafa; }
+  .t-cost-total { color: #10b981; font-weight: 700; }
+
+  /* ═══════════════════════════════
+     SPEED COMPARISON
+     ═══════════════════════════════ */
+  .speed-section {
+    padding-bottom: var(--space-16);
+  }
+
+  .speed-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+  @media (min-width: 640px) {
+    .speed-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  .speed-card {
     text-align: center;
+    padding: var(--space-8) var(--space-6);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-xl);
+    background: var(--color-bg-card);
+    transition: all var(--transition-base);
+  }
+  .speed-card:hover {
+    border-color: var(--border-strong);
+    transform: translateY(-4px);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.15);
+  }
+
+  .speed-highlight {
+    border-color: var(--border-strong);
+    background: var(--color-bg-elevated);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  }
+
+  .speed-number {
+    font-size: clamp(2.5rem, 5vw, 4rem);
+    font-weight: 700;
+    letter-spacing: var(--tracking-tighter);
+    color: var(--color-text);
+    line-height: 1;
+    margin-bottom: var(--space-3);
+  }
+  .speed-x {
+    font-size: 0.5em;
+    color: var(--color-text-dim);
+    font-weight: 400;
+  }
+  .speed-label {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-2);
+  }
+  .speed-detail {
+    font-size: var(--text-xs);
+    color: var(--color-text-dim);
+  }
+
+  /* ═══════════════════════════════
+     COMMANDS
+     ═══════════════════════════════ */
+  .commands-section {
+    padding-bottom: var(--space-16);
+  }
+
+  .cmd-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+  @media (min-width: 768px) {
+    .cmd-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  .cmd-card {
+    padding: var(--space-6) var(--space-6) var(--space-5);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-xl);
+    background: var(--color-bg-card);
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 9rem;
+    transition: all var(--transition-base);
   }
-  .metric-val {
-    font-size: var(--text-3xl);
-    font-weight: 500;
-    color: var(--color-text);
-    margin-bottom: var(--space-2);
-    letter-spacing: var(--tracking-tighter);
+  .cmd-card:hover {
+    border-color: var(--border-strong);
+    transform: translateY(-4px);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.15);
+  }
+
+  .cmd-icon {
+    font-size: 1.5rem;
+    margin-bottom: var(--space-4);
     line-height: 1;
-    display: flex;
-    align-items: baseline;
-    justify-content: center;
-    height: 40px;
   }
-  .metric-val .text-dim {
-    font-size: 0.85em;
+  .cmd-name {
+    font-size: var(--text-lg);
+    font-weight: 600;
+    letter-spacing: var(--tracking-tight);
+    margin-bottom: var(--space-2);
+  }
+  .cmd-desc {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    line-height: var(--leading-relaxed);
+    margin-bottom: auto;
+    padding-bottom: var(--space-5);
+  }
+  .cmd-code {
+    background: var(--color-bg-code);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    overflow-x: auto;
+    white-space: pre-wrap;
+    margin: 0;
+  }
+
+  /* ═══════════════════════════════
+     SOURCES
+     ═══════════════════════════════ */
+  .sources-section {
+    padding-bottom: var(--space-16);
+  }
+
+  .source-strip {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-3);
+  }
+
+  .source-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-full);
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    transition: all var(--transition-fast);
+  }
+  .source-chip:hover {
+    border-color: var(--border-strong);
+    color: var(--color-text);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  }
+  .source-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ═══════════════════════════════
+     METRICS BAR
+     ═══════════════════════════════ */
+  .metrics-section {
+    padding-bottom: var(--space-12);
+  }
+
+  .metrics-bar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: var(--space-8);
+    padding: var(--space-8) var(--space-4);
+    border-top: 1px solid var(--border-subtle);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  @media (min-width: 640px) {
+    .metrics-bar { gap: var(--space-10); flex-wrap: nowrap; }
+  }
+
+  .metric { text-align: center; flex-shrink: 0; }
+  .metric-val {
+    font-size: var(--text-2xl);
+    font-weight: 600;
+    letter-spacing: var(--tracking-tighter);
+    color: var(--color-text);
+    line-height: 1;
+    margin-bottom: var(--space-1);
   }
   .metric-label {
     font-size: var(--text-xs);
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
     color: var(--color-text-dim);
-    line-height: 1;
   }
 
-  /* Features Bento */
-  .features {
-    padding: var(--space-16) var(--space-6);
+  .metric-sep {
+    width: 1px;
+    height: 2.5rem;
+    background: var(--border-default);
+    flex-shrink: 0;
+    display: none;
   }
-  .section-head {
-    margin-bottom: var(--space-12);
-    text-align: center;
-  }
-  .section-title {
-    font-size: var(--text-3xl);
-    font-weight: 600;
-    letter-spacing: var(--tracking-tighter);
-    margin-bottom: var(--space-3);
-  }
-  .section-desc {
-    color: var(--color-text-muted);
-    font-size: var(--text-lg);
+  @media (min-width: 640px) {
+    .metric-sep { display: block; }
   }
 
-  .bento-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: var(--space-6);
-    align-items: stretch;
-  }
-  @media (min-width: 768px) {
-    .bento-grid {
-      grid-template-columns: repeat(3, 1fr);
-    }
+  /* ═══════════════════════════════
+     FOOTER
+     ═══════════════════════════════ */
+  .footer {
+    padding-top: var(--space-10);
+    padding-bottom: var(--space-8);
+    border-top: 1px solid var(--border-subtle);
   }
 
-  .bento-cell {
-    background: var(--color-bg-card);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-lg);
-    padding: var(--space-8);
+  .footer-top {
     display: flex;
     flex-direction: column;
-    transition: all var(--transition-base);
-    position: relative;
-    overflow: hidden;
+    align-items: center;
+    gap: var(--space-5);
+    margin-bottom: var(--space-6);
   }
-  .bento-cell:hover {
-    border-color: var(--color-text-muted);
-    background: var(--color-bg-elevated);
-    box-shadow: var(--shadow-elevated), var(--glow-accent);
-    transform: translateY(-2px);
-  }
-  .cell-content {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    z-index: 1;
-  }
-  .cell-header {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-  }
-  .span-2 {
-    grid-column: span 1;
-  }
-  @media (min-width: 768px) {
-    .span-2 {
-      grid-column: span 2;
-    }
-  }
-
-  .split-cell {
-    flex-direction: column;
-  }
-  @media (min-width: 768px) {
-    .split-cell {
+  @media (min-width: 640px) {
+    .footer-top {
       flex-direction: row;
-      align-items: stretch;
-      gap: var(--space-8);
-    }
-    .split-cell .cell-content {
-      flex: 1;
-      justify-content: center;
-    }
-    .split-cell .cell-visual {
-      flex: 1.2;
-      width: 100%;
-      display: flex;
-      align-items: center;
+      justify-content: space-between;
     }
   }
 
-  .cell-title {
-    font-size: var(--text-xl);
-    font-weight: 600;
-    margin: 0 0 var(--space-2);
-    letter-spacing: var(--tracking-tight);
+  .footer-brand {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
   }
-  .cell-desc {
-    color: var(--color-text-secondary);
+  .footer-name {
     font-size: var(--text-sm);
-    line-height: 1.6;
-    margin: 0 0 var(--space-6);
+    font-weight: 500;
+    color: var(--color-text);
   }
-  .cell-footer.mt-auto {
-    margin-top: auto;
-    padding-top: var(--space-4);
-  }
-  .tags-visual {
+
+  .footer-nav {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-2);
-  }
-  .agent-tag {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    padding: var(--space-1) var(--space-3);
-    background: var(--color-bg-elevated);
-    border: 1px solid var(--border-default);
-    border-radius: var(--radius-sm);
-    color: var(--color-text-secondary);
-  }
-  .cache-visual {
-    background: var(--color-bg-code);
-    border: 1px solid var(--border-subtle);
-    padding: var(--space-4);
-    border-radius: var(--radius-md);
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-  }
-  .cache-line {
-    color: var(--color-text-secondary);
-  }
-  .code-block {
-    background: var(--color-bg-code);
-    border: 1px solid var(--border-default);
-    padding: var(--space-4);
-    border-radius: var(--radius-md);
-    font-size: var(--text-xs);
-    color: var(--color-text-secondary);
-    overflow-x: auto;
-    margin-bottom: var(--space-4);
-    white-space: pre-wrap;
-    word-break: break-all;
-  }
-  .cell-link {
-    font-size: var(--text-sm);
-    font-weight: 500;
-    color: var(--color-text);
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-    transition: all var(--transition-fast);
-  }
-  .cell-link:hover {
-    gap: var(--space-3);
-    text-decoration: none;
-    color: var(--color-cyan);
-  }
-
-
-  /* Footer */
-  .footer {
-    border-top: 1px solid var(--border-subtle);
-    padding: var(--space-12) 0;
-    margin-top: var(--space-16);
-  }
-  .footer-inner {
-    display: flex;
-    flex-direction: column;
+    justify-content: center;
     gap: var(--space-6);
-    align-items: center;
-    justify-content: space-between;
   }
-  @media (min-width: 600px) {
-    .footer-inner {
-      flex-direction: row;
-    }
-  }
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
+  .footer-nav a {
     font-size: var(--text-sm);
-    font-weight: 500;
-    color: var(--color-text);
-  }
-  .links {
-    display: flex;
-    gap: var(--space-8);
-  }
-  .links a {
     color: var(--color-text-dim);
-    font-size: var(--text-sm);
     text-decoration: none;
     transition: color var(--transition-fast);
   }
-  .links a:hover {
-    color: var(--color-text);
+  .footer-nav a:hover { color: var(--color-text); }
+
+  .footer-bottom {
+    text-align: center;
+    font-size: var(--text-xs);
+  }
+  @media (min-width: 640px) {
+    .footer-bottom { text-align: left; }
   }
 </style>
