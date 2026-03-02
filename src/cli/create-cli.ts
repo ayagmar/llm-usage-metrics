@@ -88,6 +88,10 @@ function addSharedOptions(
   );
 }
 
+function addShareOption(command: Command): Command {
+  return command.option('--share', 'Write a share SVG image to the current directory');
+}
+
 function commandDescription(granularity: ReportGranularity): string {
   switch (granularity) {
     case 'daily':
@@ -102,7 +106,7 @@ function commandDescription(granularity: ReportGranularity): string {
 function createCommand(granularity: ReportGranularity): Command {
   const command = new Command(granularity);
 
-  addSharedOptions(command)
+  addShareOption(addSharedOptions(command))
     .description(commandDescription(granularity))
     .action(async (options: ReportCommandOptions) => {
       await runUsageReport(granularity, options);
@@ -124,7 +128,7 @@ function parseGranularityArgument(value: string): ReportGranularity {
 function createEfficiencyCommand(): Command {
   const command = new Command('efficiency');
 
-  addSharedOptions(command, { includePerModelColumns: false })
+  addShareOption(addSharedOptions(command, { includePerModelColumns: false }))
     .argument('<granularity>', 'Granularity: daily | weekly | monthly', parseGranularityArgument)
     .option('--repo-dir <path>', 'Path to repository for Git outcome metrics')
     .option('--include-merge-commits', 'Include merge commits in Git outcome metrics')
@@ -139,7 +143,7 @@ function createEfficiencyCommand(): Command {
 function createOptimizeCommand(): Command {
   const command = new Command('optimize');
 
-  addSharedOptions(command, { includePerModelColumns: false })
+  addShareOption(addSharedOptions(command, { includePerModelColumns: false }))
     .argument('<granularity>', 'Granularity: daily | weekly | monthly', parseGranularityArgument)
     .option(
       '--candidate-model <name>',

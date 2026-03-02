@@ -29,6 +29,7 @@ export type ReportCommandOptions = {
   pricingUrl?: string;
   pricingOffline?: boolean;
   ignorePricingFailures?: boolean;
+  share?: boolean;
 };
 
 export type EfficiencyCommandOptions = Omit<ReportCommandOptions, 'perModelColumns'> & {
