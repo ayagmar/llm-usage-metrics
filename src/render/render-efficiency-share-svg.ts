@@ -48,11 +48,17 @@ function renderSummaryStats(allRow: EfficiencyRow | undefined, vcenter: number):
     .join('\n');
 }
 
+const chartColors = {
+  commits: '#8b949e',
+  usdPerCommit: '#f97316',
+  tokensPerCommit: '#22c55e',
+} as const;
+
 function renderEfficiencyLegend(x: number, y: number): string {
   const items = [
-    { label: 'Commits', color: '#8b949e', shape: 'rect' as const },
-    { label: '$ / Commit', color: '#f97316', shape: 'line' as const },
-    { label: 'Non-Cache Tok / Commit', color: '#22c55e', shape: 'line' as const },
+    { label: 'Commits', color: chartColors.commits, shape: 'rect' as const },
+    { label: '$ / Commit', color: chartColors.usdPerCommit, shape: 'line' as const },
+    { label: 'Non-Cache Tok / Commit', color: chartColors.tokensPerCommit, shape: 'line' as const },
   ];
 
   return items
@@ -93,7 +99,7 @@ export function renderEfficiencyMonthlyShareSvg(efficiencyData: EfficiencyDataRe
     .map((row, i) => {
       const x = chartLeft + i * stepX;
       const yTop = scaleY(row.commitCount, maxCommits, chartTop, chartBottom);
-      return `<rect x="${(x - barWidth / 2).toFixed(2)}" y="${yTop.toFixed(2)}" width="${barWidth.toFixed(2)}" height="${(chartBottom - yTop).toFixed(2)}" rx="4" fill="#8b949e" fill-opacity="0.35"/>`;
+      return `<rect x="${(x - barWidth / 2).toFixed(2)}" y="${yTop.toFixed(2)}" width="${barWidth.toFixed(2)}" height="${(chartBottom - yTop).toFixed(2)}" rx="4" fill="${chartColors.commits}" fill-opacity="0.35"/>`;
     })
     .join('\n');
 
@@ -109,20 +115,26 @@ export function renderEfficiencyMonthlyShareSvg(efficiencyData: EfficiencyDataRe
 
   const usdLine =
     usdPoints.length >= 2
-      ? `<path d="${catmullRom(usdPoints, 0.3, chartBottom)}" fill="none" stroke="#f97316" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`
+      ? `<path d="${catmullRom(usdPoints, 0.3, chartBottom)}" fill="none" stroke="${chartColors.usdPerCommit}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`
       : '';
 
   const nonCacheLine =
     nonCachePoints.length >= 2
-      ? `<path d="${catmullRom(nonCachePoints, 0.3, chartBottom)}" fill="none" stroke="#22c55e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`
+      ? `<path d="${catmullRom(nonCachePoints, 0.3, chartBottom)}" fill="none" stroke="${chartColors.tokensPerCommit}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`
       : '';
 
   const usdDots = usdPoints
-    .map((p) => `<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="4.5" fill="#f97316"/>`)
+    .map(
+      (p) =>
+        `<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="4.5" fill="${chartColors.usdPerCommit}"/>`,
+    )
     .join('\n');
 
   const nonCacheDots = nonCachePoints
-    .map((p) => `<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="4.5" fill="#22c55e"/>`)
+    .map(
+      (p) =>
+        `<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="4.5" fill="${chartColors.tokensPerCommit}"/>`,
+    )
     .join('\n');
 
   const monthLabels = monthlyRows
@@ -135,8 +147,8 @@ export function renderEfficiencyMonthlyShareSvg(efficiencyData: EfficiencyDataRe
   const axisLabels = [
     `<text x="${(chartLeft - 12).toFixed(0)}" y="${(chartTop + 5).toFixed(0)}" text-anchor="end" font-size="12" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">${escapeSvg(formatInteger(maxCommits))}</text>`,
     `<text x="${(chartLeft - 12).toFixed(0)}" y="${(chartBottom + 5).toFixed(0)}" text-anchor="end" font-size="12" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">0</text>`,
-    `<text x="${(chartRight + 12).toFixed(0)}" y="${(chartTop + 5).toFixed(0)}" font-size="11" fill="#f97316" font-family="${shareTheme.font}">$/c max ${escapeSvg(formatUsd(maxUsd))}</text>`,
-    `<text x="${(chartRight + 12).toFixed(0)}" y="${(chartTop + 22).toFixed(0)}" font-size="11" fill="#22c55e" font-family="${shareTheme.font}">tok/c max ${escapeSvg(formatDecimal(maxNonCache))}</text>`,
+    `<text x="${(chartRight + 12).toFixed(0)}" y="${(chartTop + 5).toFixed(0)}" font-size="11" fill="${chartColors.usdPerCommit}" font-family="${shareTheme.font}">$/c max ${escapeSvg(formatUsd(maxUsd))}</text>`,
+    `<text x="${(chartRight + 12).toFixed(0)}" y="${(chartTop + 22).toFixed(0)}" font-size="11" fill="${chartColors.tokensPerCommit}" font-family="${shareTheme.font}">tok/c max ${escapeSvg(formatDecimal(maxNonCache))}</text>`,
   ].join('\n');
 
   const noData =

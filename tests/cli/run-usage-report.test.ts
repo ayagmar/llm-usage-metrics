@@ -692,6 +692,9 @@ describe('buildUsageReport', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
+    let stderrLines: string[];
+    let logCallCount: number;
+
     try {
       await runUsageReport('monthly', {
         piDir: emptyDir,
@@ -700,18 +703,22 @@ describe('buildUsageReport', () => {
         timezone: 'UTC',
         share: true,
       });
+
+      stderrLines = errorSpy.mock.calls.map((call) => String(call[0]));
+      logCallCount = logSpy.mock.calls.length;
     } finally {
       process.chdir(previousCwd);
+      logSpy.mockRestore();
+      errorSpy.mockRestore();
     }
 
     const svgPath = path.join(shareDir, 'usage-monthly-share.svg');
     const svgContent = await readFile(svgPath, 'utf8');
-    const stderrLines = errorSpy.mock.calls.map((call) => String(call[0]));
 
     expect(svgContent).toContain('<svg');
     expect(svgContent).toContain('TOKENS');
     expect(svgContent).toContain('llm-usage monthly --share');
     expect(stderrLines.some((line) => line.includes('Wrote usage share SVG'))).toBe(true);
-    expect(logSpy).toHaveBeenCalledTimes(1);
+    expect(logCallCount).toBe(1);
   });
 });

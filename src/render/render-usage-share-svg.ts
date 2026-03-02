@@ -238,7 +238,7 @@ export function renderUsageShareSvg(
   const grandTotal = extractGrandTotal(usageData.rows);
 
   const periods = [...new Set(sourceRows.map((r) => r.periodKey))].sort(compareByCodePoint);
-  const sources = [...new Set(sourceRows.map((r) => r.source))];
+  const sources = [...new Set(sourceRows.map((r) => r.source))].sort(compareByCodePoint);
   const allSeries = buildSourceSeries(sourceRows, periods, sources);
   const activeSeries = allSeries.filter((s) => s.total > 0);
 
