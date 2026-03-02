@@ -24,6 +24,13 @@ llm-usage optimize weekly \
   --candidate-model gpt-4.1,gpt-5-codex \
   --top 1 \
   --json
+
+# Generate a monthly share artifact
+llm-usage optimize monthly \
+  --provider openai \
+  --candidate-model gpt-4.1 \
+  --candidate-model gpt-5-codex \
+  --share
 ```
 
 ## Command behavior
@@ -47,4 +54,5 @@ llm-usage optimize weekly \
 - `--json` emits optimize rows only.
 - `--markdown` emits a Markdown table.
 - Default terminal output renders a titled table.
+- `--share` is monthly-only and writes `optimize-monthly-share.svg` to the current working directory.
 - Diagnostics and warnings always go to `stderr`.

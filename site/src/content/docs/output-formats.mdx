@@ -32,11 +32,37 @@ llm-usage daily --markdown
 
 Use for docs, changelogs, and issue/PR reporting.
 
+## Share SVG
+
+Generate a dark-themed share image:
+
+```bash
+# Usage reports (daily, weekly, or monthly)
+llm-usage monthly --share
+llm-usage daily --share
+llm-usage weekly --share
+
+# Efficiency (monthly only)
+llm-usage efficiency monthly --repo-dir /path/to/repo --share
+
+# Optimize (monthly only)
+llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --share
+```
+
+`--share` writes an SVG file to the current directory:
+
+- Usage reports: `usage-{granularity}-share.svg` (stacked area chart by source)
+- Efficiency: `efficiency-monthly-share.svg` (commit bars + $/commit and tokens/commit lines)
+- Optimize: `optimize-monthly-share.svg` (savings % heatmap)
+
+All share images use a dark theme designed for social media sharing.
+
 ## Efficiency reports
 
 ```bash
 llm-usage efficiency daily
 llm-usage efficiency weekly --repo-dir /path/to/repo --json
+llm-usage efficiency monthly --repo-dir /path/to/repo --share
 ```
 
 Efficiency outputs include usage totals, Git outcomes (`Commits`, `+Lines`, `-Lines`, `ΔLines`), and derived ratios.
@@ -62,11 +88,14 @@ Usage filters (`--source`, `--provider`, `--model`, source-path overrides) also 
 
 For deeper semantics (repo attribution, scope behavior, and interpretation guidance), see the [Efficiency](/efficiency/) page.
 
+`--share` is monthly-only for efficiency (see [Share SVG](#share-svg) above).
+
 ## Optimize reports
 
 ```bash
 llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candidate-model gpt-5-codex
 llm-usage optimize weekly --provider openai --candidate-model gpt-4.1,gpt-5-codex --top 1 --json
+llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candidate-model gpt-5-codex --share
 ```
 
 Optimize output contains baseline and candidate rows per period:
@@ -75,6 +104,8 @@ Optimize output contains baseline and candidate rows per period:
 - candidate rows: hypothetical cost on each candidate model, savings delta, and notes for missing pricing/incomplete baselines
 
 For JSON and Markdown, `stdout` includes only the report body; diagnostics and warnings remain on `stderr`.
+
+`--share` is monthly-only for optimize (see [Share SVG](#share-svg) above).
 
 ## Per-model columns
 

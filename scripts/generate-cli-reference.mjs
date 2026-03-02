@@ -58,13 +58,16 @@ function normalizeDescription(text, optionLong) {
       ? text.replace(/\(default:\s*"[^"]+"\)/g, '(default: local system timezone)')
       : text;
 
-  const normalizedDescription = timezoneNormalizedText
-    .replace(/\bmarkdown\b/giu, 'Markdown')
-    .replace(/\s+\(efficiency only\)/gu, '')
-    .replace(/\s+\(usage reports only\)/gu, '')
-    .replace(/\s+\(optimize only\)/gu, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  const normalizedDescription =
+    optionLong === '--share'
+      ? 'Write a share SVG image to the current directory'
+      : timezoneNormalizedText
+          .replace(/\bmarkdown\b/giu, 'Markdown')
+          .replace(/\s+\(efficiency only\)/gu, '')
+          .replace(/\s+\(usage reports only\)/gu, '')
+          .replace(/\s+\(optimize only\)/gu, '')
+          .replace(/\s+/g, ' ')
+          .trim();
 
   if (efficiencyOnlyOptions.has(optionLong)) {
     return appendScopeSuffix(normalizedDescription, '(efficiency only)');
@@ -206,8 +209,11 @@ function generateMarkdown(version, options) {
     'llm-usage daily --source-dir pi=/tmp/pi-sessions --source-dir gemini=/tmp/.gemini --source-dir droid=/tmp/droid-sessions',
     'llm-usage daily --json',
     'llm-usage daily --markdown',
+    'llm-usage monthly --share',
     'llm-usage efficiency weekly --repo-dir /path/to/repo --json',
+    'llm-usage efficiency monthly --share',
     'llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candidate-model gpt-5-codex --json',
+    'llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candidate-model gpt-5-codex --share',
     '```',
   );
 

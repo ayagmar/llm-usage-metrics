@@ -92,6 +92,9 @@ llm-usage daily --markdown
 
 # Detailed per-model breakdown
 llm-usage monthly --per-model-columns
+
+# Write a share SVG image
+llm-usage monthly --share
 ```
 
 ### Efficiency Reports
@@ -105,6 +108,9 @@ llm-usage efficiency weekly --repo-dir /path/to/repo
 
 # Include merge commits and export JSON
 llm-usage efficiency monthly --include-merge-commits --json
+
+# Write a monthly share SVG
+llm-usage efficiency monthly --share
 ```
 
 Efficiency reports are repo-attributed: usage events are mapped to a Git repository root using source metadata (`cwd`/path info), and only events attributed to the selected repo are included in efficiency totals.
@@ -143,6 +149,9 @@ llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candida
 
 # Keep only the cheapest candidate in JSON output
 llm-usage optimize weekly --provider openai --candidate-model gpt-4.1,gpt-5-codex --top 1 --json
+
+# Write a monthly share SVG
+llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candidate-model gpt-5-codex --share
 ```
 
 `--provider` filters by billing entity. Provider aliases are normalized to billing roots (for example, `openai-codex` is treated as `openai`).

@@ -44,6 +44,7 @@ Generated from root + command help output.
 | `--pricing-url` | - | `<url>` | Override LiteLLM pricing source URL |
 | `--provider` | - | `<name>` | Billing-provider filter (substring match, optional; e.g. openai, anthropic, google) |
 | `--repo-dir` | - | `<path>` | Path to repository for Git outcome metrics (efficiency only) |
+| `--share` | - | - | Write a share SVG image to the current directory |
 | `--since` | - | `<YYYY-MM-DD>` | Inclusive start date filter |
 | `--source` | - | `<name>` | Filter by source id (repeatable or comma-separated, supported sources (5): pi, codex, gemini, droid, opencode) (default: []) |
 | `--source-dir` | - | `<source-id=path>` | Override source directory for directory-backed sources (repeatable) (default: []) |
@@ -65,6 +66,9 @@ llm-usage monthly --source opencode --opencode-db /path/to/opencode.db
 llm-usage daily --source-dir pi=/tmp/pi-sessions --source-dir gemini=/tmp/.gemini --source-dir droid=/tmp/droid-sessions
 llm-usage daily --json
 llm-usage daily --markdown
+llm-usage monthly --share
 llm-usage efficiency weekly --repo-dir /path/to/repo --json
+llm-usage efficiency monthly --share
 llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candidate-model gpt-5-codex --json
+llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candidate-model gpt-5-codex --share
 ```
