@@ -116,7 +116,8 @@ export function renderEfficiencyMonthlyShareSvg(efficiencyData: EfficiencyDataRe
   const stepX = count === 1 ? 0 : chartW / (count - 1);
 
   const maxCommits = Math.max(1, ...monthlyRows.map((r) => r.commitCount));
-  const maxUsd = Math.max(0.01, ...monthlyRows.map((r) => Math.max(0, r.usdPerCommit ?? 0)));
+  const actualMaxUsd = Math.max(0, ...monthlyRows.map((r) => Math.max(0, r.usdPerCommit ?? 0)));
+  const scaleMaxUsd = Math.max(0.01, actualMaxUsd);
 
   const barWidth = Math.min(48, Math.max(18, chartW / (count * 2.2)));
 
@@ -130,7 +131,7 @@ export function renderEfficiencyMonthlyShareSvg(efficiencyData: EfficiencyDataRe
 
   const usdPoints: Point[] = monthlyRows.map((row, i) => ({
     x: chartLeft + i * stepX,
-    y: scaleY(row.usdPerCommit ?? 0, maxUsd, chartTop, chartBottom),
+    y: scaleY(row.usdPerCommit ?? 0, scaleMaxUsd, chartTop, chartBottom),
   }));
 
   const usdLine =
@@ -159,7 +160,7 @@ export function renderEfficiencyMonthlyShareSvg(efficiencyData: EfficiencyDataRe
     `<text x="${(chartLeft - 12).toFixed(0)}" y="${(chartTop + 5).toFixed(0)}" text-anchor="end" font-size="11" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">${escapeSvg(formatInteger(maxCommits))}</text>`,
     `<text x="${(chartLeft - 12).toFixed(0)}" y="${(chartBottom + 5).toFixed(0)}" text-anchor="end" font-size="11" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">0</text>`,
     `<text x="${(chartRight + 12).toFixed(0)}" y="${(chartTop - 10).toFixed(0)}" font-size="12" font-weight="600" fill="${chartColors.usdPerCommit}" font-family="${shareTheme.font}">$/Commit</text>`,
-    `<text x="${(chartRight + 12).toFixed(0)}" y="${(chartTop + 5).toFixed(0)}" font-size="11" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">${escapeSvg(formatUsd(maxUsd))}</text>`,
+    `<text x="${(chartRight + 12).toFixed(0)}" y="${(chartTop + 5).toFixed(0)}" font-size="11" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">${escapeSvg(formatUsd(actualMaxUsd))}</text>`,
     `<text x="${(chartRight + 12).toFixed(0)}" y="${(chartBottom + 5).toFixed(0)}" font-size="11" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">$0.00</text>`,
   ].join('\n');
 
