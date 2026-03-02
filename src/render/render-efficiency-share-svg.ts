@@ -15,7 +15,12 @@ const W = 1500;
 const H = 640;
 const ACCENT_H = 4;
 const FOOTER_H = 36;
-const pad = { top: 160, right: 110, bottom: 70 + FOOTER_H, left: 110 };
+const pad = { top: 160, right: 130, bottom: 70 + FOOTER_H, left: 110 };
+
+const chartColors = {
+  commits: '#8b949e',
+  usdPerCommit: '#f97316',
+} as const;
 
 function toMonthlyRows(rows: EfficiencyRow[]): EfficiencyRow[] {
   return rows
@@ -50,27 +55,49 @@ function renderSummaryStats(allRow: EfficiencyRow | undefined, vcenter: number):
     .join('\n');
 }
 
-const chartColors = {
-  commits: '#8b949e',
-  usdPerCommit: '#f97316',
-  tokensPerCommit: '#22c55e',
-} as const;
-
-function renderEfficiencyLegend(x: number, y: number): string {
+function renderLegend(x: number, y: number): string {
   const items = [
     { label: 'Commits', color: chartColors.commits, shape: 'rect' as const },
     { label: '$ / Commit', color: chartColors.usdPerCommit, shape: 'line' as const },
-    { label: 'Tok / Commit', color: chartColors.tokensPerCommit, shape: 'line' as const },
   ];
 
   return items
     .map((item, i) => {
-      const ix = x + i * 200;
+      const ix = x + i * 180;
       const shape =
         item.shape === 'rect'
           ? `<rect x="${ix}" y="${y - 6}" width="14" height="14" rx="3" fill="${item.color}" opacity="0.5"/>`
           : `<line x1="${ix}" y1="${y + 1}" x2="${ix + 14}" y2="${y + 1}" stroke="${item.color}" stroke-width="3" stroke-linecap="round"/>`;
       return `${shape}<text x="${ix + 20}" y="${y + 5}" font-size="13" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}">${escapeSvg(item.label)}</text>`;
+    })
+    .join('\n');
+}
+
+function renderCommitBarLabels(
+  monthlyRows: EfficiencyRow[],
+  chartLeft: number,
+  stepX: number,
+  maxCommits: number,
+  chartTop: number,
+  chartBottom: number,
+): string {
+  return monthlyRows
+    .map((row, i) => {
+      const x = chartLeft + i * stepX;
+      const yTop = scaleY(row.commitCount, maxCommits, chartTop, chartBottom);
+      return `<text x="${x.toFixed(2)}" y="${(yTop - 8).toFixed(0)}" text-anchor="middle" font-size="12" font-weight="600" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}">${formatInteger(row.commitCount)}</text>`;
+    })
+    .join('\n');
+}
+
+function renderUsdDataLabels(monthlyRows: EfficiencyRow[], usdPoints: Point[]): string {
+  return monthlyRows
+    .map((row, i) => {
+      const p = usdPoints[i];
+      const val = row.usdPerCommit;
+      if (val === undefined) return '';
+      const labelY = p.y - 14;
+      return `<text x="${p.x.toFixed(2)}" y="${labelY.toFixed(0)}" text-anchor="middle" font-size="12" font-weight="600" fill="${chartColors.usdPerCommit}" font-family="${shareTheme.font}">${escapeSvg(formatUsd(val))}</text>`;
     })
     .join('\n');
 }
@@ -89,10 +116,9 @@ export function renderEfficiencyMonthlyShareSvg(efficiencyData: EfficiencyDataRe
   const stepX = count === 1 ? 0 : chartW / (count - 1);
 
   const maxCommits = Math.max(1, ...monthlyRows.map((r) => r.commitCount));
-  const maxUsd = Math.max(1, ...monthlyRows.map((r) => Math.max(0, r.usdPerCommit ?? 0)));
-  const maxNonCache = Math.max(1, ...monthlyRows.map((r) => Math.max(0, r.tokensPerCommit ?? 0)));
+  const maxUsd = Math.max(0.01, ...monthlyRows.map((r) => Math.max(0, r.usdPerCommit ?? 0)));
 
-  const barWidth = Math.min(42, Math.max(14, chartW / (count * 2.4)));
+  const barWidth = Math.min(48, Math.max(18, chartW / (count * 2.2)));
 
   const commitBars = monthlyRows
     .map((row, i) => {
@@ -107,32 +133,16 @@ export function renderEfficiencyMonthlyShareSvg(efficiencyData: EfficiencyDataRe
     y: scaleY(row.usdPerCommit ?? 0, maxUsd, chartTop, chartBottom),
   }));
 
-  const nonCachePoints: Point[] = monthlyRows.map((row, i) => ({
-    x: chartLeft + i * stepX,
-    y: scaleY(row.tokensPerCommit ?? 0, maxNonCache, chartTop, chartBottom),
-  }));
-
   const usdLine =
     usdPoints.length >= 2
       ? `<path d="${catmullRom(usdPoints, 0.3, chartBottom)}" fill="none" stroke="${chartColors.usdPerCommit}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`
       : '';
 
-  const nonCacheLine =
-    nonCachePoints.length >= 2
-      ? `<path d="${catmullRom(nonCachePoints, 0.3, chartBottom)}" fill="none" stroke="${chartColors.tokensPerCommit}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`
-      : '';
-
+  const dotRadius = count <= 4 ? 6 : 4.5;
   const usdDots = usdPoints
     .map(
       (p) =>
-        `<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="4.5" fill="${chartColors.usdPerCommit}"/>`,
-    )
-    .join('\n');
-
-  const nonCacheDots = nonCachePoints
-    .map(
-      (p) =>
-        `<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="4.5" fill="${chartColors.tokensPerCommit}"/>`,
+        `<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="${dotRadius}" fill="${chartColors.usdPerCommit}"/>`,
     )
     .join('\n');
 
@@ -143,11 +153,14 @@ export function renderEfficiencyMonthlyShareSvg(efficiencyData: EfficiencyDataRe
     })
     .join('\n');
 
+  // Dual-axis labels: "Commits" on left, "$/Commit" on right
   const axisLabels = [
-    `<text x="${(chartLeft - 12).toFixed(0)}" y="${(chartTop + 5).toFixed(0)}" text-anchor="end" font-size="12" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">${escapeSvg(formatInteger(maxCommits))}</text>`,
-    `<text x="${(chartLeft - 12).toFixed(0)}" y="${(chartBottom + 5).toFixed(0)}" text-anchor="end" font-size="12" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">0</text>`,
-    `<text x="${(chartRight + 12).toFixed(0)}" y="${(chartTop + 5).toFixed(0)}" font-size="11" fill="${chartColors.usdPerCommit}" font-family="${shareTheme.font}">$/c max ${escapeSvg(formatUsd(maxUsd))}</text>`,
-    `<text x="${(chartRight + 12).toFixed(0)}" y="${(chartTop + 22).toFixed(0)}" font-size="11" fill="${chartColors.tokensPerCommit}" font-family="${shareTheme.font}">tok/c max ${escapeSvg(formatDecimal(maxNonCache))}</text>`,
+    `<text x="${(chartLeft - 12).toFixed(0)}" y="${(chartTop - 10).toFixed(0)}" text-anchor="end" font-size="12" font-weight="600" fill="${chartColors.commits}" font-family="${shareTheme.font}">Commits</text>`,
+    `<text x="${(chartLeft - 12).toFixed(0)}" y="${(chartTop + 5).toFixed(0)}" text-anchor="end" font-size="11" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">${escapeSvg(formatInteger(maxCommits))}</text>`,
+    `<text x="${(chartLeft - 12).toFixed(0)}" y="${(chartBottom + 5).toFixed(0)}" text-anchor="end" font-size="11" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">0</text>`,
+    `<text x="${(chartRight + 12).toFixed(0)}" y="${(chartTop - 10).toFixed(0)}" font-size="12" font-weight="600" fill="${chartColors.usdPerCommit}" font-family="${shareTheme.font}">$/Commit</text>`,
+    `<text x="${(chartRight + 12).toFixed(0)}" y="${(chartTop + 5).toFixed(0)}" font-size="11" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">${escapeSvg(formatUsd(maxUsd))}</text>`,
+    `<text x="${(chartRight + 12).toFixed(0)}" y="${(chartBottom + 5).toFixed(0)}" font-size="11" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">$0.00</text>`,
   ].join('\n');
 
   const noData =
@@ -173,16 +186,16 @@ export function renderEfficiencyMonthlyShareSvg(efficiencyData: EfficiencyDataRe
 <rect x="${badgeX.toFixed(0)}" y="30" width="${badgeW.toFixed(0)}" height="34" rx="17" fill="none" stroke="${shareTheme.cardBorder}"/>
 <text x="${(badgeX + badgeW / 2).toFixed(0)}" y="52" text-anchor="middle" font-size="14" fill="${shareTheme.textMuted}" font-family="${shareTheme.mono}">${escapeSvg(commandText)}</text>
 ${renderSummaryStats(allRow, vcenter)}
-${renderEfficiencyLegend(pad.left, vcenter + 50)}
+${renderLegend(pad.left, vcenter + 50)}
 <line x1="${chartLeft}" y1="${chartBottom}" x2="${chartRight}" y2="${chartBottom}" stroke="${shareTheme.gridLine}" stroke-width="1"/>
 <line x1="${chartLeft}" y1="${chartTop}" x2="${chartLeft}" y2="${chartBottom}" stroke="${shareTheme.gridLine}" stroke-width="1"/>
 <line x1="${chartRight}" y1="${chartTop}" x2="${chartRight}" y2="${chartBottom}" stroke="${shareTheme.gridLine}" stroke-width="1"/>
 ${axisLabels}
 ${commitBars}
+${renderCommitBarLabels(monthlyRows, chartLeft, stepX, maxCommits, chartTop, chartBottom)}
 ${usdLine}
-${nonCacheLine}
 ${usdDots}
-${nonCacheDots}
+${renderUsdDataLabels(monthlyRows, usdPoints)}
 ${monthLabels}
 ${noData}
 <line x1="0" y1="${H - FOOTER_H + 1}" x2="${W}" y2="${H - FOOTER_H + 1}" stroke="${shareTheme.gridLine}" stroke-width="1"/>
