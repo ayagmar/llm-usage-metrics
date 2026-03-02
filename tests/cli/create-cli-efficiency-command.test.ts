@@ -16,9 +16,12 @@ describe('createCli efficiency command parsing', () => {
     const cli = createCli();
     const runEfficiencyReportMock = vi.mocked(runEfficiencyReport);
 
-    await cli.parseAsync(['efficiency', ' monthly ', '--json', '--repo-dir', '/tmp/repo'], {
-      from: 'user',
-    });
+    await cli.parseAsync(
+      ['efficiency', ' monthly ', '--json', '--repo-dir', '/tmp/repo', '--share'],
+      {
+        from: 'user',
+      },
+    );
 
     expect(runEfficiencyReportMock).toHaveBeenCalledTimes(1);
     expect(runEfficiencyReportMock).toHaveBeenCalledWith(
@@ -26,6 +29,7 @@ describe('createCli efficiency command parsing', () => {
       expect.objectContaining({
         json: true,
         repoDir: '/tmp/repo',
+        share: true,
       }),
     );
   });

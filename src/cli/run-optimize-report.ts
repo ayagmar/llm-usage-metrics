@@ -1,5 +1,6 @@
 import { logger } from '../utils/logger.js';
 import type { ReportGranularity } from '../utils/time-buckets.js';
+import { renderOptimizeMonthlyShareSvg } from '../render/render-optimize-share-svg.js';
 import {
   renderOptimizeReport,
   type OptimizeReportFormat,
@@ -7,6 +8,7 @@ import {
 import { buildOptimizeData } from './build-optimize-data.js';
 import { emitDiagnostics } from './emit-diagnostics.js';
 import { emitEnvVarOverrides } from './emit-env-var-overrides.js';
+import { writeShareSvgFile } from './share-artifact.js';
 import { warnIfTerminalTableOverflows } from './terminal-overflow-warning.js';
 import type { OptimizeCommandOptions, OptimizeDiagnostics } from './usage-data-contracts.js';
 
@@ -15,6 +17,7 @@ type PreparedOptimizeReport = {
   output: string;
   diagnostics: OptimizeDiagnostics;
   candidateCount: number;
+  shareSvg?: string;
 };
 
 function validateOutputFormatOptions(options: OptimizeCommandOptions): void {
@@ -35,11 +38,25 @@ function resolveReportFormat(options: OptimizeCommandOptions): OptimizeReportFor
   return 'terminal';
 }
 
+function validateShareOption(
+  granularity: ReportGranularity,
+  options: OptimizeCommandOptions,
+): void {
+  if (!options.share) {
+    return;
+  }
+
+  if (granularity !== 'monthly') {
+    throw new Error('--share is only supported for optimize monthly');
+  }
+}
+
 async function prepareOptimizeReport(
   granularity: ReportGranularity,
   options: OptimizeCommandOptions,
 ): Promise<PreparedOptimizeReport> {
   validateOutputFormatOptions(options);
+  validateShareOption(granularity, options);
 
   const optimizeData = await buildOptimizeData(granularity, options);
   const format = resolveReportFormat(options);
@@ -50,6 +67,7 @@ async function prepareOptimizeReport(
     candidateCount: optimizeData.rows.filter(
       (row) => row.rowType === 'candidate' && row.periodKey === 'ALL',
     ).length,
+    shareSvg: options.share ? renderOptimizeMonthlyShareSvg(optimizeData) : undefined,
     output: renderOptimizeReport(optimizeData, format, {
       granularity,
     }),
@@ -91,6 +109,14 @@ export async function runOptimizeReport(
     warnIfTerminalTableOverflows(preparedReport.output, (message) => {
       logger.warn(message);
     });
+  }
+
+  if (preparedReport.shareSvg) {
+    const outputPath = await writeShareSvgFile(
+      'optimize-monthly-share.svg',
+      preparedReport.shareSvg,
+    );
+    logger.info(`Wrote optimize share SVG: ${outputPath}`);
   }
 
   console.log(preparedReport.output);

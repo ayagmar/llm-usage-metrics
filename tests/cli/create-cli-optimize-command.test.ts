@@ -21,7 +21,7 @@ describe('createCli optimize command parsing', () => {
     const runOptimizeReportMock = vi.mocked(runOptimizeReport);
 
     await cli.parseAsync(
-      ['optimize', ' monthly ', '--candidate-model', 'gpt-4.1', '--json', '--top', '1'],
+      ['optimize', ' monthly ', '--candidate-model', 'gpt-4.1', '--json', '--top', '1', '--share'],
       {
         from: 'user',
       },
@@ -34,6 +34,7 @@ describe('createCli optimize command parsing', () => {
         candidateModel: ['gpt-4.1'],
         json: true,
         top: '1',
+        share: true,
       }),
     );
   });

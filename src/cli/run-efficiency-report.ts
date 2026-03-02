@@ -1,6 +1,8 @@
+import { renderEfficiencyMonthlyShareSvg } from '../render/render-efficiency-share-svg.js';
 import { buildEfficiencyData } from './build-efficiency-data.js';
 import { emitDiagnostics } from './emit-diagnostics.js';
 import { emitEnvVarOverrides } from './emit-env-var-overrides.js';
+import { writeShareSvgFile } from './share-artifact.js';
 import { warnIfTerminalTableOverflows } from './terminal-overflow-warning.js';
 import type { EfficiencyCommandOptions, EfficiencyDiagnostics } from './usage-data-contracts.js';
 import {
@@ -14,6 +16,7 @@ type PreparedEfficiencyReport = {
   format: EfficiencyReportFormat;
   output: string;
   diagnostics: EfficiencyDiagnostics;
+  shareSvg?: string;
 };
 
 function validateOutputFormatOptions(options: EfficiencyCommandOptions): void {
@@ -34,11 +37,25 @@ function resolveReportFormat(options: EfficiencyCommandOptions): EfficiencyRepor
   return 'terminal';
 }
 
+function validateShareOption(
+  granularity: ReportGranularity,
+  options: EfficiencyCommandOptions,
+): void {
+  if (!options.share) {
+    return;
+  }
+
+  if (granularity !== 'monthly') {
+    throw new Error('--share is only supported for efficiency monthly');
+  }
+}
+
 async function prepareEfficiencyReport(
   granularity: ReportGranularity,
   options: EfficiencyCommandOptions,
 ): Promise<PreparedEfficiencyReport> {
   validateOutputFormatOptions(options);
+  validateShareOption(granularity, options);
 
   const efficiencyData = await buildEfficiencyData(granularity, options);
   const format = resolveReportFormat(options);
@@ -46,6 +63,7 @@ async function prepareEfficiencyReport(
   return {
     format,
     diagnostics: efficiencyData.diagnostics,
+    shareSvg: options.share ? renderEfficiencyMonthlyShareSvg(efficiencyData) : undefined,
     output: renderEfficiencyReport(efficiencyData, format, {
       granularity,
     }),
@@ -87,6 +105,14 @@ export async function runEfficiencyReport(
     warnIfTerminalTableOverflows(preparedReport.output, (message) => {
       logger.warn(message);
     });
+  }
+
+  if (preparedReport.shareSvg) {
+    const outputPath = await writeShareSvgFile(
+      'efficiency-monthly-share.svg',
+      preparedReport.shareSvg,
+    );
+    logger.info(`Wrote efficiency share SVG: ${outputPath}`);
   }
 
   console.log(preparedReport.output);

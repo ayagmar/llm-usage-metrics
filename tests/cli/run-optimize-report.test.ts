@@ -1,3 +1,7 @@
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../src/cli/build-optimize-data.js', () => ({
@@ -72,7 +76,11 @@ import { buildOptimizeData } from '../../src/cli/build-optimize-data.js';
 import { buildOptimizeReport, runOptimizeReport } from '../../src/cli/run-optimize-report.js';
 
 describe('run-optimize-report', () => {
-  afterEach(() => {
+  const tempDirs: string[] = [];
+
+  afterEach(async () => {
+    await Promise.all(tempDirs.map((tempDir) => rm(tempDir, { recursive: true, force: true })));
+    tempDirs.length = 0;
     vi.restoreAllMocks();
   });
 
@@ -208,5 +216,42 @@ describe('run-optimize-report', () => {
     expect(stderrLines.some((line) => line.includes('Report table is wider than terminal'))).toBe(
       true,
     );
+  });
+
+  it('writes monthly optimize share svg when --share is enabled', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'optimize-share-'));
+    tempDirs.push(tempDir);
+    const previousCwd = process.cwd();
+    process.chdir(tempDir);
+
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    try {
+      await runOptimizeReport('monthly', {
+        candidateModel: ['gpt-4.1'],
+        share: true,
+      });
+    } finally {
+      process.chdir(previousCwd);
+    }
+
+    const svgPath = path.join(tempDir, 'optimize-monthly-share.svg');
+    const svgContent = await readFile(svgPath, 'utf8');
+    const stderrLines = consoleErrorSpy.mock.calls.map((call) => String(call[0]));
+
+    expect(svgContent).toContain('<svg');
+    expect(svgContent).toContain('Monthly Optimize');
+    expect(stderrLines.some((line) => line.includes('Wrote optimize share SVG'))).toBe(true);
+    expect(consoleLogSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects --share for non-monthly optimize reports', async () => {
+    await expect(
+      buildOptimizeReport('weekly', {
+        candidateModel: ['gpt-4.1'],
+        share: true,
+      }),
+    ).rejects.toThrow('--share is only supported for optimize monthly');
   });
 });

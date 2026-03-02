@@ -59,6 +59,7 @@ describe('createCli', () => {
       true,
     );
     expect(optimizeCommand?.options.some((option) => option.long === '--top')).toBe(true);
+    expect(optimizeCommand?.options.some((option) => option.long === '--share')).toBe(true);
     expect(optimizeCommand?.options.some((option) => option.long === '--repo-dir')).toBe(false);
     expect(optimizeCommand?.options.some((option) => option.long === '--per-model-columns')).toBe(
       false,
@@ -74,6 +75,7 @@ describe('createCli', () => {
     expect(
       efficiencyCommand?.options.some((option) => option.long === '--include-merge-commits'),
     ).toBe(true);
+    expect(efficiencyCommand?.options.some((option) => option.long === '--share')).toBe(true);
     expect(
       efficiencyCommand?.options.some((option) => option.long === '--ignore-pricing-failures'),
     ).toBe(true);

@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -679,5 +679,39 @@ describe('buildUsageReport', () => {
       errorSpy.mockRestore();
       logSpy.mockRestore();
     }
+  });
+
+  it('writes usage share SVG when --share is enabled', async () => {
+    const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'usage-share-sessions-'));
+    const shareDir = await mkdtemp(path.join(os.tmpdir(), 'usage-share-output-'));
+    tempDirs.push(emptyDir, shareDir);
+
+    const previousCwd = process.cwd();
+    process.chdir(shareDir);
+
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    try {
+      await runUsageReport('monthly', {
+        piDir: emptyDir,
+        codexDir: emptyDir,
+        source: directoryBackedSources,
+        timezone: 'UTC',
+        share: true,
+      });
+    } finally {
+      process.chdir(previousCwd);
+    }
+
+    const svgPath = path.join(shareDir, 'usage-monthly-share.svg');
+    const svgContent = await readFile(svgPath, 'utf8');
+    const stderrLines = errorSpy.mock.calls.map((call) => String(call[0]));
+
+    expect(svgContent).toContain('<svg');
+    expect(svgContent).toContain('TOKENS');
+    expect(svgContent).toContain('llm-usage monthly --share');
+    expect(stderrLines.some((line) => line.includes('Wrote usage share SVG'))).toBe(true);
+    expect(logSpy).toHaveBeenCalledTimes(1);
   });
 });
