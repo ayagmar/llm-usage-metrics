@@ -73,8 +73,7 @@ Columns:
 
 - `Input`, `Output`, `Reasoning`, `Cache Read`, `Cache Write`, `Total`, `Cost` come from repo-attributed usage events.
 - `Commits`, `+Lines`, `-Lines`, `ΔLines` come from local Git shortstat outcomes for the configured Git author.
-- `All Tokens/Commit` = `Total / Commits` (includes cache read/write tokens).
-- `Non-Cache/Commit` = `(Input + Output + Reasoning) / Commits` (excludes cache read/write tokens).
+- `Tokens/Commit` = `(Input + Output + Reasoning) / Commits` (excludes cache read/write tokens).
 - `$/Commit` = `Cost / Commits`.
 - `$/1k Lines` = `Cost / (ΔLines / 1000)`.
 - `Commits/$` = `Commits / Cost` (only when `Cost > 0`).

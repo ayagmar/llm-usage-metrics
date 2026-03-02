@@ -15,8 +15,7 @@ export const efficiencyTableHeaders = [
   'Cost',
   '$/Commit',
   '$/1k Lines',
-  'All Tokens/Commit',
-  'Non-Cache/Commit',
+  'Tokens/Commit',
   'Commits/$',
 ] as const;
 
@@ -86,7 +85,6 @@ export function toEfficiencyTableCells(rows: EfficiencyRow[]): string[][] {
     formatUsdRate(row.usdPerCommit, { approximate: row.costIncomplete }),
     formatUsdRate(row.usdPer1kLinesChanged, { approximate: row.costIncomplete }),
     formatDecimal(row.tokensPerCommit),
-    formatDecimal(row.nonCacheTokensPerCommit),
     formatDecimal(row.commitsPerUsd, { approximate: row.costIncomplete }),
   ]);
 }

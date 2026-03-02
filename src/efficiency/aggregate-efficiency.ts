@@ -131,8 +131,6 @@ function computeDerivedMetrics(
         ? costUsd / (outcomes.linesChanged / 1_000)
         : undefined,
     tokensPerCommit:
-      outcomes.commitCount > 0 ? usage.totalTokens / outcomes.commitCount : undefined,
-    nonCacheTokensPerCommit:
       outcomes.commitCount > 0 ? nonCacheTotalTokens / outcomes.commitCount : undefined,
     commitsPerUsd:
       costUsd !== undefined && costUsd > 0 ? outcomes.commitCount / costUsd : undefined,

@@ -104,7 +104,6 @@ describe('aggregateEfficiency', () => {
       linesChanged: 100,
       usdPerCommit: 1.5,
       tokensPerCommit: 150,
-      nonCacheTokensPerCommit: 150,
       commitsPerUsd: 2 / 3,
     });
     expect(rows[1]).toMatchObject({
@@ -116,7 +115,6 @@ describe('aggregateEfficiency', () => {
       commitCount: 2,
       linesChanged: 100,
       tokensPerCommit: 150,
-      nonCacheTokensPerCommit: 150,
     });
   });
 
@@ -153,7 +151,6 @@ describe('aggregateEfficiency', () => {
         usdPerCommit: undefined,
         usdPer1kLinesChanged: undefined,
         tokensPerCommit: undefined,
-        nonCacheTokensPerCommit: undefined,
         commitsPerUsd: undefined,
       },
     ]);
@@ -258,7 +255,6 @@ describe('aggregateEfficiency', () => {
       usdPer1kLinesChanged: undefined,
       commitsPerUsd: undefined,
       tokensPerCommit: 50,
-      nonCacheTokensPerCommit: 50,
     });
 
     expect(rows[1]).toMatchObject({
@@ -269,7 +265,6 @@ describe('aggregateEfficiency', () => {
       usdPer1kLinesChanged: undefined,
       commitsPerUsd: undefined,
       tokensPerCommit: 50,
-      nonCacheTokensPerCommit: 50,
     });
   });
 
@@ -322,7 +317,6 @@ describe('aggregateEfficiency', () => {
       commitCount: 2,
       usdPerCommit: 2.125,
       tokensPerCommit: 0,
-      nonCacheTokensPerCommit: 0,
     });
     expect(rows[1]).toMatchObject({
       rowType: 'grand_total',
@@ -380,7 +374,6 @@ describe('aggregateEfficiency', () => {
       costUsd: 0,
       usdPerCommit: 0,
       tokensPerCommit: 40,
-      nonCacheTokensPerCommit: 40,
       commitsPerUsd: undefined,
     });
   });
@@ -466,7 +459,6 @@ describe('aggregateEfficiency', () => {
       commitCount: 3,
       linesChanged: 40,
       tokensPerCommit: 50,
-      nonCacheTokensPerCommit: 50,
       usdPerCommit: 2 / 3,
       usdPer1kLinesChanged: 50,
       commitsPerUsd: 1.5,
@@ -518,8 +510,7 @@ describe('aggregateEfficiency', () => {
     expect(rows[0]).toMatchObject({
       rowType: 'period',
       periodKey: '2026-02-01',
-      tokensPerCommit: 90,
-      nonCacheTokensPerCommit: 85,
+      tokensPerCommit: 85,
     });
   });
 });

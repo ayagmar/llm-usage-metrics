@@ -20,7 +20,6 @@ export type EfficiencyDerivedMetrics = {
   usdPerCommit?: number;
   usdPer1kLinesChanged?: number;
   tokensPerCommit?: number;
-  nonCacheTokensPerCommit?: number;
   commitsPerUsd?: number;
 };
 

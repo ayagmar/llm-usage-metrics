@@ -71,7 +71,6 @@ function createEfficiencyDataResult(
         usdPerCommit: 0,
         usdPer1kLinesChanged: 0,
         tokensPerCommit: 0,
-        nonCacheTokensPerCommit: 0,
         commitsPerUsd: undefined,
       },
       {
@@ -92,7 +91,6 @@ function createEfficiencyDataResult(
         usdPerCommit: 1.25,
         usdPer1kLinesChanged: 89.28571428571429,
         tokensPerCommit: 62.5,
-        nonCacheTokensPerCommit: 62.5,
         commitsPerUsd: 0.8,
       },
     ],
@@ -135,8 +133,7 @@ describe('renderEfficiencyReport', () => {
     expect(output).toContain('| Period');
     expect(output).toContain('| Commits');
     expect(output).toContain('| $/Commit');
-    expect(output).toContain('| All Tokens/Commit');
-    expect(output).toContain('| Non-Cache/Commit');
+    expect(output).toContain('| Tokens/Commit');
     expect(output).toContain('| 2026-02-10');
     expect(output).toContain('| ALL');
     expect(output).toContain('|         - |');
@@ -227,6 +224,5 @@ describe('renderEfficiencyReport', () => {
 
     expect(parsed[0]?.commitsPerUsd).toBeUndefined();
     expect(parsed[1]?.tokensPerCommit).toBe(62.5);
-    expect(parsed[1]?.nonCacheTokensPerCommit).toBe(62.5);
   });
 });

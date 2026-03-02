@@ -22,7 +22,6 @@ describe('efficiency-row-cells', () => {
         usdPerCommit: undefined,
         usdPer1kLinesChanged: undefined,
         tokensPerCommit: undefined,
-        nonCacheTokensPerCommit: undefined,
         commitsPerUsd: undefined,
       },
     ]);
@@ -51,14 +50,13 @@ describe('efficiency-row-cells', () => {
         linesChanged: 25,
         usdPerCommit: 1.25,
         usdPer1kLinesChanged: 100,
-        tokensPerCommit: 87.5,
-        nonCacheTokensPerCommit: 80,
+        tokensPerCommit: 80,
         commitsPerUsd: 0.8,
       },
     ]);
 
     expect(cells[0]?.[11]).toBe('~$2.50');
     expect(cells[0]?.[12]).toBe('~$1.2500');
-    expect(cells[0]?.[16]).toBe('~0.80');
+    expect(cells[0]?.[15]).toBe('~0.80');
   });
 });

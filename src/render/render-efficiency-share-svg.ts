@@ -60,7 +60,7 @@ function renderEfficiencyLegend(x: number, y: number): string {
   const items = [
     { label: 'Commits', color: chartColors.commits, shape: 'rect' as const },
     { label: '$ / Commit', color: chartColors.usdPerCommit, shape: 'line' as const },
-    { label: 'Non-Cache Tok / Commit', color: chartColors.tokensPerCommit, shape: 'line' as const },
+    { label: 'Tok / Commit', color: chartColors.tokensPerCommit, shape: 'line' as const },
   ];
 
   return items
@@ -90,10 +90,7 @@ export function renderEfficiencyMonthlyShareSvg(efficiencyData: EfficiencyDataRe
 
   const maxCommits = Math.max(1, ...monthlyRows.map((r) => r.commitCount));
   const maxUsd = Math.max(1, ...monthlyRows.map((r) => Math.max(0, r.usdPerCommit ?? 0)));
-  const maxNonCache = Math.max(
-    1,
-    ...monthlyRows.map((r) => Math.max(0, r.nonCacheTokensPerCommit ?? 0)),
-  );
+  const maxNonCache = Math.max(1, ...monthlyRows.map((r) => Math.max(0, r.tokensPerCommit ?? 0)));
 
   const barWidth = Math.min(42, Math.max(14, chartW / (count * 2.4)));
 
@@ -112,7 +109,7 @@ export function renderEfficiencyMonthlyShareSvg(efficiencyData: EfficiencyDataRe
 
   const nonCachePoints: Point[] = monthlyRows.map((row, i) => ({
     x: chartLeft + i * stepX,
-    y: scaleY(row.nonCacheTokensPerCommit ?? 0, maxNonCache, chartTop, chartBottom),
+    y: scaleY(row.tokensPerCommit ?? 0, maxNonCache, chartTop, chartBottom),
   }));
 
   const usdLine =
