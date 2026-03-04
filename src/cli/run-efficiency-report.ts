@@ -2,7 +2,7 @@ import { renderEfficiencyMonthlyShareSvg } from '../render/render-efficiency-sha
 import { buildEfficiencyData } from './build-efficiency-data.js';
 import { emitDiagnostics } from './emit-diagnostics.js';
 import { emitEnvVarOverrides } from './emit-env-var-overrides.js';
-import { writeShareSvgFile } from './share-artifact.js';
+import { openShareSvgFile, writeShareSvgFile } from './share-artifact.js';
 import { warnIfTerminalTableOverflows } from './terminal-overflow-warning.js';
 import type { EfficiencyCommandOptions, EfficiencyDiagnostics } from './usage-data-contracts.js';
 import {
@@ -48,6 +48,14 @@ function validateShareOption(
   if (granularity !== 'monthly') {
     throw new Error('--share is only supported for efficiency monthly');
   }
+}
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
 }
 
 async function prepareEfficiencyReport(
@@ -113,6 +121,13 @@ export async function runEfficiencyReport(
       preparedReport.shareSvg,
     );
     logger.info(`Wrote efficiency share SVG: ${outputPath}`);
+
+    try {
+      await openShareSvgFile(outputPath);
+      logger.info(`Opened efficiency share SVG: ${outputPath}`);
+    } catch (error) {
+      logger.warn(`Could not open efficiency share SVG: ${outputPath} (${errorMessage(error)})`);
+    }
   }
 
   console.log(preparedReport.output);

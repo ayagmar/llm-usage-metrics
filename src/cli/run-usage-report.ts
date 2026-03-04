@@ -1,7 +1,7 @@
 import { buildUsageData } from './build-usage-data.js';
 import { emitDiagnostics } from './emit-diagnostics.js';
 import { emitEnvVarOverrides } from './emit-env-var-overrides.js';
-import { writeShareSvgFile } from './share-artifact.js';
+import { openShareSvgFile, writeShareSvgFile } from './share-artifact.js';
 import type { ReportCommandOptions, UsageDiagnostics } from './usage-data-contracts.js';
 import { warnIfTerminalTableOverflows } from './terminal-overflow-warning.js';
 import { renderUsageReport, type UsageReportFormat } from '../render/render-usage-report.js';
@@ -41,6 +41,14 @@ function resolveTableLayout(options: ReportCommandOptions): UsageTableLayout {
 
 function resolveShareFileName(granularity: ReportGranularity): string {
   return `usage-${granularity}-share.svg`;
+}
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
 }
 
 async function prepareUsageReport(
@@ -91,6 +99,13 @@ export async function runUsageReport(
       preparedReport.shareSvg,
     );
     logger.info(`Wrote usage share SVG: ${outputPath}`);
+
+    try {
+      await openShareSvgFile(outputPath);
+      logger.info(`Opened usage share SVG: ${outputPath}`);
+    } catch (error) {
+      logger.warn(`Could not open usage share SVG: ${outputPath} (${errorMessage(error)})`);
+    }
   }
 
   console.log(preparedReport.output);
