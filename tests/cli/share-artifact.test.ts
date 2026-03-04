@@ -82,5 +82,22 @@ describe('share-artifact', () => {
         openErrorMessage: 'open failed',
       });
     });
+
+    it('stringifies non-Error open failures', async () => {
+      const writeShareSvgFileFn = vi.fn(async () => '/tmp/share.svg');
+      const nonErrorRejection = 'open failed as string' as unknown as Error;
+      const openShareSvgFileFn = vi.fn(() => Promise.reject(nonErrorRejection));
+
+      const result = await writeAndOpenShareSvgFile('usage-monthly-share.svg', '<svg/>', {
+        writeShareSvgFileFn,
+        openShareSvgFileFn,
+      });
+
+      expect(result).toEqual({
+        outputPath: '/tmp/share.svg',
+        opened: false,
+        openErrorMessage: 'open failed as string',
+      });
+    });
   });
 });

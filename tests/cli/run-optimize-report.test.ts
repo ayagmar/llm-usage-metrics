@@ -256,6 +256,34 @@ describe('run-optimize-report', () => {
     expect(consoleLogSpy).toHaveBeenCalledTimes(1);
   });
 
+  it('warns when optimize share SVG cannot be opened after writing', async () => {
+    vi.mocked(shareArtifact.writeAndOpenShareSvgFile).mockResolvedValueOnce({
+      outputPath: '/tmp/optimize-monthly-share.svg',
+      opened: false,
+      openErrorMessage: 'open failed',
+    });
+
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    let stderrLines!: string[];
+
+    try {
+      await runOptimizeReport('monthly', {
+        candidateModel: ['gpt-4.1'],
+        share: true,
+      });
+      stderrLines = consoleErrorSpy.mock.calls.map((call) => String(call[0]));
+    } finally {
+      consoleLogSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
+    }
+
+    expect(stderrLines.some((line) => line.includes('Wrote optimize share SVG'))).toBe(true);
+    expect(stderrLines.some((line) => line.includes('Could not open optimize share SVG'))).toBe(
+      true,
+    );
+  });
+
   it('rejects --share for non-monthly optimize reports', async () => {
     await expect(
       buildOptimizeReport('weekly', {

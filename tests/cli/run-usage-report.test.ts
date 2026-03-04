@@ -728,4 +728,36 @@ describe('buildUsageReport', () => {
     expect(stderrLines.some((line) => line.includes('Wrote usage share SVG'))).toBe(true);
     expect(logCallCount).toBe(1);
   });
+
+  it('warns when usage share SVG cannot be opened after writing', async () => {
+    const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'usage-share-open-failure-sessions-'));
+    tempDirs.push(emptyDir);
+
+    vi.mocked(shareArtifact.writeAndOpenShareSvgFile).mockResolvedValueOnce({
+      outputPath: '/tmp/usage-monthly-share.svg',
+      opened: false,
+      openErrorMessage: 'open failed',
+    });
+
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    let stderrLines!: string[];
+
+    try {
+      await runUsageReport('monthly', {
+        piDir: emptyDir,
+        codexDir: emptyDir,
+        source: directoryBackedSources,
+        timezone: 'UTC',
+        share: true,
+      });
+      stderrLines = errorSpy.mock.calls.map((call) => String(call[0]));
+    } finally {
+      logSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
+
+    expect(stderrLines.some((line) => line.includes('Wrote usage share SVG'))).toBe(true);
+    expect(stderrLines.some((line) => line.includes('Could not open usage share SVG'))).toBe(true);
+  });
 });
