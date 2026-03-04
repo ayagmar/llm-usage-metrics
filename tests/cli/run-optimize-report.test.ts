@@ -2,7 +2,8 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import * as shareArtifact from '../../src/cli/share-artifact.js';
 
 vi.mock('../../src/cli/build-optimize-data.js', () => ({
   buildOptimizeData: vi.fn(async () => ({
@@ -77,6 +78,10 @@ import { buildOptimizeReport, runOptimizeReport } from '../../src/cli/run-optimi
 
 describe('run-optimize-report', () => {
   const tempDirs: string[] = [];
+
+  beforeEach(() => {
+    vi.spyOn(shareArtifact, 'openShareSvgFile').mockResolvedValue(undefined);
+  });
 
   afterEach(async () => {
     await Promise.all(tempDirs.map((tempDir) => rm(tempDir, { recursive: true, force: true })));

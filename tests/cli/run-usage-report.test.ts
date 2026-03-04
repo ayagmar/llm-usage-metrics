@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import * as shareArtifact from '../../src/cli/share-artifact.js';
 
 import { buildUsageReport, runUsageReport } from '../../src/cli/run-usage-report.js';
 
@@ -53,6 +54,7 @@ function restoreParseMaxParallel(): void {
 
 beforeEach(() => {
   restoreParseMaxParallel();
+  vi.spyOn(shareArtifact, 'openShareSvgFile').mockResolvedValue(undefined);
 });
 
 afterEach(async () => {

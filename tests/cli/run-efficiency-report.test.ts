@@ -4,7 +4,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import * as shareArtifact from '../../src/cli/share-artifact.js';
 
 import { buildEfficiencyReport, runEfficiencyReport } from '../../src/cli/run-efficiency-report.js';
 
@@ -71,6 +72,10 @@ async function createGitRepoWithCommit(commitIsoTimestamp: string): Promise<stri
 
   return repoDir;
 }
+
+beforeEach(() => {
+  vi.spyOn(shareArtifact, 'openShareSvgFile').mockResolvedValue(undefined);
+});
 
 afterEach(async () => {
   await Promise.all(tempDirs.map((tempDir) => rm(tempDir, { recursive: true, force: true })));
