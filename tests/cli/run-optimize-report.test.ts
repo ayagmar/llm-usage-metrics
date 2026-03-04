@@ -80,7 +80,12 @@ describe('run-optimize-report', () => {
   const tempDirs: string[] = [];
 
   beforeEach(() => {
-    vi.spyOn(shareArtifact, 'openShareSvgFile').mockResolvedValue(undefined);
+    vi.spyOn(shareArtifact, 'writeAndOpenShareSvgFile').mockImplementation(
+      async (fileName, svgContent) => ({
+        outputPath: await shareArtifact.writeShareSvgFile(fileName, svgContent),
+        opened: true,
+      }),
+    );
   });
 
   afterEach(async () => {

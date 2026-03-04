@@ -74,7 +74,12 @@ async function createGitRepoWithCommit(commitIsoTimestamp: string): Promise<stri
 }
 
 beforeEach(() => {
-  vi.spyOn(shareArtifact, 'openShareSvgFile').mockResolvedValue(undefined);
+  vi.spyOn(shareArtifact, 'writeAndOpenShareSvgFile').mockImplementation(
+    async (fileName, svgContent) => ({
+      outputPath: await shareArtifact.writeShareSvgFile(fileName, svgContent),
+      opened: true,
+    }),
+  );
 });
 
 afterEach(async () => {
