@@ -36,53 +36,14 @@ describe('share-artifact', () => {
 
   describe('openShareSvgFile', () => {
     it('delegates to injected detached opener with resolved command', async () => {
-      const previousVitest = process.env.VITEST;
-      const previousNodeEnv = process.env.NODE_ENV;
-      delete process.env.VITEST;
-      delete process.env.NODE_ENV;
       const spawnDetached = vi.fn(async () => undefined);
 
-      try {
-        await openShareSvgFile('/tmp/share.svg', {
-          platform: 'darwin',
-          spawnDetached,
-        });
-      } finally {
-        if (previousVitest === undefined) {
-          delete process.env.VITEST;
-        } else {
-          process.env.VITEST = previousVitest;
-        }
-
-        if (previousNodeEnv === undefined) {
-          delete process.env.NODE_ENV;
-        } else {
-          process.env.NODE_ENV = previousNodeEnv;
-        }
-      }
+      await openShareSvgFile('/tmp/share.svg', {
+        platform: 'darwin',
+        spawnDetached,
+      });
 
       expect(spawnDetached).toHaveBeenCalledWith('open', ['/tmp/share.svg']);
-    });
-
-    it('no-ops in automated test environment', async () => {
-      const previousVitest = process.env.VITEST;
-      process.env.VITEST = 'true';
-
-      const spawnDetached = vi.fn(async () => undefined);
-      try {
-        await openShareSvgFile('/tmp/share.svg', {
-          platform: 'darwin',
-          spawnDetached,
-        });
-      } finally {
-        if (previousVitest === undefined) {
-          delete process.env.VITEST;
-        } else {
-          process.env.VITEST = previousVitest;
-        }
-      }
-
-      expect(spawnDetached).not.toHaveBeenCalled();
     });
   });
 

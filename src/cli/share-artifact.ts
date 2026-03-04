@@ -63,18 +63,10 @@ async function spawnDetached(command: string, args: string[]): Promise<void> {
   });
 }
 
-function isAutomatedTestEnvironment(env: NodeJS.ProcessEnv): boolean {
-  return env.VITEST === 'true' || env.NODE_ENV === 'test';
-}
-
 export async function openShareSvgFile(
   filePath: string,
   deps: OpenShareSvgFileDeps = {},
 ): Promise<void> {
-  if (isAutomatedTestEnvironment(process.env)) {
-    return;
-  }
-
   const platform = deps.platform ?? process.platform;
   const runDetached = deps.spawnDetached ?? spawnDetached;
   const { command, args } = resolveOpenCommand(filePath, platform);
