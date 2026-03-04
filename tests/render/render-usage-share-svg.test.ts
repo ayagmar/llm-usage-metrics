@@ -267,9 +267,10 @@ describe('renderUsageShareSvg', () => {
 
   it('offsets source pills to avoid overlapping wide stat totals', () => {
     const svg = renderUsageShareSvg(createLargeTotalData(), 'monthly');
-    const firstPillRectMatch = svg.match(
-      /<rect x="([0-9.]+)" y="34" width="[0-9.]+" height="30" rx="15" fill="[^"]+" fill-opacity="0.15"/,
-    );
+    const firstPillRectMatch =
+      /<rect x="([0-9.]+)" y="34" width="[0-9.]+" height="30" rx="15" fill="[^"]+" fill-opacity="0.15"/.exec(
+        svg,
+      );
     expect(firstPillRectMatch).toBeTruthy();
 
     const firstPillX = Number(firstPillRectMatch?.[1]);
