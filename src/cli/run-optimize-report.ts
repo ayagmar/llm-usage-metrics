@@ -8,7 +8,7 @@ import {
 import { buildOptimizeData } from './build-optimize-data.js';
 import { emitDiagnostics } from './emit-diagnostics.js';
 import { emitEnvVarOverrides } from './emit-env-var-overrides.js';
-import { openShareSvgFile, writeShareSvgFile } from './share-artifact.js';
+import { writeAndOpenShareSvgFile } from './share-artifact.js';
 import { warnIfTerminalTableOverflows } from './terminal-overflow-warning.js';
 import type { OptimizeCommandOptions, OptimizeDiagnostics } from './usage-data-contracts.js';
 
@@ -49,14 +49,6 @@ function validateShareOption(
   if (granularity !== 'monthly') {
     throw new Error('--share is only supported for optimize monthly');
   }
-}
-
-function errorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return String(error);
 }
 
 async function prepareOptimizeReport(
@@ -120,17 +112,18 @@ export async function runOptimizeReport(
   }
 
   if (preparedReport.shareSvg) {
-    const outputPath = await writeShareSvgFile(
+    const shareResult = await writeAndOpenShareSvgFile(
       'optimize-monthly-share.svg',
       preparedReport.shareSvg,
     );
-    logger.info(`Wrote optimize share SVG: ${outputPath}`);
+    logger.info(`Wrote optimize share SVG: ${shareResult.outputPath}`);
 
-    try {
-      await openShareSvgFile(outputPath);
-      logger.info(`Opened optimize share SVG: ${outputPath}`);
-    } catch (error) {
-      logger.warn(`Could not open optimize share SVG: ${outputPath} (${errorMessage(error)})`);
+    if (shareResult.opened) {
+      logger.info(`Opened optimize share SVG: ${shareResult.outputPath}`);
+    } else {
+      logger.warn(
+        `Could not open optimize share SVG: ${shareResult.outputPath} (${shareResult.openErrorMessage})`,
+      );
     }
   }
 

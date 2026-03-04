@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { openShareSvgFile, resolveOpenCommand } from '../../src/cli/share-artifact.js';
+import {
+  openShareSvgFile,
+  resolveOpenCommand,
+  writeAndOpenShareSvgFile,
+} from '../../src/cli/share-artifact.js';
 
 describe('share-artifact', () => {
   describe('resolveOpenCommand', () => {
@@ -40,6 +44,43 @@ describe('share-artifact', () => {
       });
 
       expect(spawnDetached).toHaveBeenCalledWith('open', ['/tmp/share.svg']);
+    });
+  });
+
+  describe('writeAndOpenShareSvgFile', () => {
+    it('writes then opens and reports success', async () => {
+      const writeShareSvgFileFn = vi.fn(async () => '/tmp/share.svg');
+      const openShareSvgFileFn = vi.fn(async () => undefined);
+
+      const result = await writeAndOpenShareSvgFile('usage-monthly-share.svg', '<svg/>', {
+        writeShareSvgFileFn,
+        openShareSvgFileFn,
+      });
+
+      expect(writeShareSvgFileFn).toHaveBeenCalledWith('usage-monthly-share.svg', '<svg/>');
+      expect(openShareSvgFileFn).toHaveBeenCalledWith('/tmp/share.svg');
+      expect(result).toEqual({
+        outputPath: '/tmp/share.svg',
+        opened: true,
+      });
+    });
+
+    it('returns non-fatal open failure details', async () => {
+      const writeShareSvgFileFn = vi.fn(async () => '/tmp/share.svg');
+      const openShareSvgFileFn = vi.fn(async () => {
+        throw new Error('open failed');
+      });
+
+      const result = await writeAndOpenShareSvgFile('usage-monthly-share.svg', '<svg/>', {
+        writeShareSvgFileFn,
+        openShareSvgFileFn,
+      });
+
+      expect(result).toEqual({
+        outputPath: '/tmp/share.svg',
+        opened: false,
+        openErrorMessage: 'open failed',
+      });
     });
   });
 });

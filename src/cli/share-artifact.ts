@@ -8,6 +8,14 @@ export async function writeShareSvgFile(fileName: string, svgContent: string): P
   return outputPath;
 }
 
+function stringifyError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
+}
+
 type OpenShareSvgFileDeps = {
   platform?: NodeJS.Platform;
   spawnDetached?: (command: string, args: string[]) => Promise<void>;
@@ -63,4 +71,40 @@ export async function openShareSvgFile(
   const runDetached = deps.spawnDetached ?? spawnDetached;
   const { command, args } = resolveOpenCommand(filePath, platform);
   await runDetached(command, args);
+}
+
+type WriteAndOpenShareSvgFileDeps = {
+  writeShareSvgFileFn?: (fileName: string, svgContent: string) => Promise<string>;
+  openShareSvgFileFn?: (filePath: string) => Promise<void>;
+};
+
+export type ShareSvgArtifactResult = {
+  outputPath: string;
+  opened: boolean;
+  openErrorMessage?: string;
+};
+
+export async function writeAndOpenShareSvgFile(
+  fileName: string,
+  svgContent: string,
+  deps: WriteAndOpenShareSvgFileDeps = {},
+): Promise<ShareSvgArtifactResult> {
+  const writeShareSvg = deps.writeShareSvgFileFn ?? writeShareSvgFile;
+  const openShareSvg = deps.openShareSvgFileFn ?? openShareSvgFile;
+
+  const outputPath = await writeShareSvg(fileName, svgContent);
+
+  try {
+    await openShareSvg(outputPath);
+    return {
+      outputPath,
+      opened: true,
+    };
+  } catch (error) {
+    return {
+      outputPath,
+      opened: false,
+      openErrorMessage: stringifyError(error),
+    };
+  }
 }
