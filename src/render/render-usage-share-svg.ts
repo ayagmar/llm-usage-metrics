@@ -18,6 +18,11 @@ const H = 560;
 const ACCENT_H = 4;
 const FOOTER_H = 36;
 const pad = { top: 140, right: 80, bottom: 60 + FOOTER_H, left: 200 };
+const STAT_X = 60;
+const STAT_VALUE_FONT_SIZE = 52;
+const STAT_VALUE_WIDTH_FACTOR = 0.6;
+const SOURCE_PILLS_MIN_X = pad.left + 10;
+const SOURCE_PILLS_STAT_GAP = 24;
 
 type SourceSeries = {
   source: string;
@@ -86,7 +91,7 @@ function renderStatColumn(
   costUsd: number | undefined,
   sourceCount: number,
 ): string {
-  const x = 60;
+  const x = STAT_X;
   const baseY = ACCENT_H + 48;
   let svg = '';
 
@@ -103,9 +108,9 @@ function renderStatColumn(
 }
 
 /** Source pills: rounded pill badges across the top-right. */
-function renderSourcePills(series: SourceSeries[]): string {
+function renderSourcePills(series: SourceSeries[], startX: number): string {
   let svg = '';
-  let cx = pad.left + 10;
+  let cx = Math.max(SOURCE_PILLS_MIN_X, startX);
   const pillY = ACCENT_H + 30;
 
   for (const s of series) {
@@ -121,6 +126,11 @@ function renderSourcePills(series: SourceSeries[]): string {
   }
 
   return svg;
+}
+
+function estimateStatValueRightEdge(totalTokens: number): number {
+  const value = formatCompact(totalTokens);
+  return STAT_X + value.length * STAT_VALUE_FONT_SIZE * STAT_VALUE_WIDTH_FACTOR;
 }
 
 /** Command badge positioned in the top-right corner. */
@@ -307,6 +317,7 @@ export function renderUsageShareSvg(
   const toChartY = (val: number): number => scaleY(val, maxY, chartTop, chartBottom);
 
   const commandText = `llm-usage ${granularity} --share`;
+  const sourcePillsStartX = estimateStatValueRightEdge(totalTokens) + SOURCE_PILLS_STAT_GAP;
 
   let chartContent: string;
   if (periodCount === 0) {
@@ -345,7 +356,7 @@ export function renderUsageShareSvg(
 <rect width="${W}" height="${H}" fill="${shareTheme.bg}"/>
 ${renderAccentBar()}
 ${renderStatColumn(totalTokens, totalCost, activeSeries.length)}
-${renderSourcePills(activeSeries)}
+${renderSourcePills(activeSeries, sourcePillsStartX)}
 ${renderCommandBadge(commandText)}
 ${renderGridLines(chartLeft, chartRight, chartTop, chartH, maxY)}
 ${chartContent}

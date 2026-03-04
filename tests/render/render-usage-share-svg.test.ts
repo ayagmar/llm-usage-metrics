@@ -152,6 +152,64 @@ function createEmptyData(): UsageDataResult {
   };
 }
 
+function createLargeTotalData(): UsageDataResult {
+  return {
+    events: [],
+    rows: [
+      {
+        rowType: 'period_source',
+        periodKey: '2026-02',
+        source: 'codex',
+        models: ['gpt-4.1'],
+        modelBreakdown: [],
+        inputTokens: 0,
+        outputTokens: 0,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 296_700_000,
+        costUsd: 109.98,
+      },
+      {
+        rowType: 'period_source',
+        periodKey: '2026-02',
+        source: 'pi',
+        models: ['claude-4-sonnet'],
+        modelBreakdown: [],
+        inputTokens: 0,
+        outputTokens: 0,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 58_700,
+        costUsd: 0,
+      },
+      {
+        rowType: 'grand_total',
+        periodKey: 'ALL',
+        source: 'combined',
+        models: ['gpt-4.1', 'claude-4-sonnet'],
+        modelBreakdown: [],
+        inputTokens: 0,
+        outputTokens: 0,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 296_800_000,
+        costUsd: 109.98,
+      },
+    ],
+    diagnostics: {
+      sessionStats: [],
+      sourceFailures: [],
+      skippedRows: [],
+      pricingOrigin: 'none',
+      activeEnvOverrides: [],
+      timezone: 'UTC',
+    },
+  };
+}
+
 describe('renderUsageShareSvg', () => {
   it('renders a stacked area SVG with source legend and period labels', () => {
     const svg = renderUsageShareSvg(createMultiSourceData(), 'monthly');
@@ -205,5 +263,16 @@ describe('renderUsageShareSvg', () => {
 
     expect(svg).toContain('<rect');
     expect(svg).not.toContain('clip-path="url(#chart-clip)"');
+  });
+
+  it('offsets source pills to avoid overlapping wide stat totals', () => {
+    const svg = renderUsageShareSvg(createLargeTotalData(), 'monthly');
+    const firstPillRectMatch = svg.match(
+      /<rect x="([0-9.]+)" y="34" width="[0-9.]+" height="30" rx="15" fill="[^"]+" fill-opacity="0.15"/,
+    );
+    expect(firstPillRectMatch).toBeTruthy();
+
+    const firstPillX = Number(firstPillRectMatch?.[1]);
+    expect(firstPillX).toBeGreaterThan(270);
   });
 });
