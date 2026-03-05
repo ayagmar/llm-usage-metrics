@@ -76,16 +76,8 @@ describe('share-artifact spawn integration', () => {
     });
     expect(unrefSpy).toHaveBeenCalledTimes(1);
     expect(removeListenerSpy).toHaveBeenCalledTimes(2);
-    expect(removeListenerSpy).toHaveBeenNthCalledWith(
-      1,
-      'error',
-      expect.any(Function),
-    );
-    expect(removeListenerSpy).toHaveBeenNthCalledWith(
-      2,
-      'close',
-      expect.any(Function),
-    );
+    expect(removeListenerSpy).toHaveBeenNthCalledWith(1, 'error', expect.any(Function));
+    expect(removeListenerSpy).toHaveBeenNthCalledWith(2, 'close', expect.any(Function));
   });
 
   it('rejects when spawn emits error', async () => {
