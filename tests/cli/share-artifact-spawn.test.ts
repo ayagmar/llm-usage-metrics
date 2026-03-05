@@ -58,7 +58,7 @@ function createMockChildProcess(): {
 }
 
 describe('share-artifact spawn integration', () => {
-  it('resolves only when opener exits successfully', async () => {
+  it('resolves as soon as the opener process spawns successfully', async () => {
     const { child, emit, unrefSpy, removeListenerSpy } = createMockChildProcess();
     spawnMock.mockReturnValueOnce(child);
 
@@ -66,7 +66,6 @@ describe('share-artifact spawn integration', () => {
       platform: 'darwin',
     });
     emit('spawn');
-    emit('close', 0);
     await openPromise;
 
     expect(spawnMock).toHaveBeenCalledWith('open', ['/tmp/share.svg'], {
@@ -77,7 +76,7 @@ describe('share-artifact spawn integration', () => {
     expect(unrefSpy).toHaveBeenCalledTimes(1);
     expect(removeListenerSpy).toHaveBeenCalledTimes(2);
     expect(removeListenerSpy).toHaveBeenNthCalledWith(1, 'error', expect.any(Function));
-    expect(removeListenerSpy).toHaveBeenNthCalledWith(2, 'close', expect.any(Function));
+    expect(removeListenerSpy).toHaveBeenNthCalledWith(2, 'spawn', expect.any(Function));
   });
 
   it('rejects when spawn emits error', async () => {
@@ -93,7 +92,7 @@ describe('share-artifact spawn integration', () => {
     expect(removeListenerSpy).toHaveBeenCalledTimes(2);
   });
 
-  it('rejects when opener exits with non-zero code', async () => {
+  it('ignores close after a successful spawn because the process is detached', async () => {
     const { child, emit, removeListenerSpy } = createMockChildProcess();
     spawnMock.mockReturnValueOnce(child);
 
@@ -103,7 +102,7 @@ describe('share-artifact spawn integration', () => {
     emit('spawn');
     emit('close', 3);
 
-    await expect(openPromise).rejects.toThrow('Failed to open SVG with "xdg-open" (exit code: 3)');
+    await expect(openPromise).resolves.toBeUndefined();
     expect(removeListenerSpy).toHaveBeenCalledTimes(2);
   });
 });

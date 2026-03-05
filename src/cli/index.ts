@@ -7,10 +7,9 @@ import { loadPackageMetadataFromRuntime } from './package-metadata.js';
 
 const { packageName, packageVersion } = loadPackageMetadataFromRuntime();
 const updateRuntimeConfig = getUpdateNotifierRuntimeConfig();
-
 const cli = createCli({ version: packageVersion });
 
-try {
+async function main(): Promise<void> {
   const updateResult = await checkForUpdatesAndMaybeRestart({
     packageName,
     currentVersion: packageVersion,
@@ -23,8 +22,10 @@ try {
   } else {
     await cli.parseAsync(process.argv);
   }
-} catch (error) {
+}
+
+main().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
   console.error(message);
   process.exitCode = 1;
-}
+});

@@ -57,7 +57,7 @@ async function spawnDetached(command: string, args: string[]): Promise<void> {
 
     const cleanup = (): void => {
       child.removeListener('error', onError);
-      child.removeListener('close', onClose);
+      child.removeListener('spawn', onSpawn);
     };
 
     const onError = (error: Error): void => {
@@ -65,22 +65,14 @@ async function spawnDetached(command: string, args: string[]): Promise<void> {
       reject(error);
     };
 
-    const onClose = (code: number | null): void => {
+    const onSpawn = (): void => {
       cleanup();
-      if (code === 0) {
-        resolve();
-        return;
-      }
-
-      const exitCode = code === null ? 'null' : String(code);
-      reject(new Error(`Failed to open SVG with "${command}" (exit code: ${exitCode})`));
+      child.unref();
+      resolve();
     };
 
     child.once('error', onError);
-    child.once('close', onClose);
-    child.once('spawn', () => {
-      child.unref();
-    });
+    child.once('spawn', onSpawn);
   });
 }
 
