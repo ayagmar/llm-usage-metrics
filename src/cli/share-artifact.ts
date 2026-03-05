@@ -55,10 +55,31 @@ async function spawnDetached(command: string, args: string[]): Promise<void> {
       windowsHide: true,
     });
 
-    child.once('error', reject);
+    const cleanup = (): void => {
+      child.removeListener('error', onError);
+      child.removeListener('close', onClose);
+    };
+
+    const onError = (error: Error): void => {
+      cleanup();
+      reject(error);
+    };
+
+    const onClose = (code: number | null): void => {
+      cleanup();
+      if (code === 0) {
+        resolve();
+        return;
+      }
+
+      const exitCode = code === null ? 'null' : String(code);
+      reject(new Error(`Failed to open SVG with "${command}" (exit code: ${exitCode})`));
+    };
+
+    child.once('error', onError);
+    child.once('close', onClose);
     child.once('spawn', () => {
       child.unref();
-      resolve();
     });
   });
 }
