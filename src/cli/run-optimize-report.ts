@@ -10,6 +10,7 @@ import { emitDiagnostics } from './emit-diagnostics.js';
 import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
 import type { OptimizeCommandOptions, OptimizeDiagnostics } from './usage-data-contracts.js';
+import type { BuildOptimizeDataDeps } from './build-optimize-data.js';
 
 const optimizeReportFormats = [
   'terminal',
@@ -37,7 +38,7 @@ function validateShareOption(
 async function prepareOptimizeReport(
   granularity: ReportGranularity,
   options: OptimizeCommandOptions,
-  deps: Parameters<typeof buildOptimizeData>[2] = {},
+  deps: BuildOptimizeDataDeps = {},
 ) {
   return prepareReport({
     commandOptions: options,

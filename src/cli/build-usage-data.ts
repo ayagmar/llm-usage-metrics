@@ -17,10 +17,8 @@ export async function buildUsageData(
   options: ReportCommandOptions,
   deps: BuildUsageDataDeps = {},
 ): Promise<UsageDataResult> {
-  const dataset = await measureRuntimeProfileStage(
-    deps.runtimeProfile,
-    'usage.dataset.total',
-    async () => await buildUsageEventDataset(options, deps),
+  const dataset = await measureRuntimeProfileStage(deps.runtimeProfile, 'usage.dataset.total', () =>
+    buildUsageEventDataset(options, deps),
   );
   const { pricedEvents, pricingOrigin, pricingWarning } = await applyPricingToUsageEventDataset(
     dataset,

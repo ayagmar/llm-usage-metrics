@@ -521,6 +521,7 @@ export class ParseFileCache {
     try {
       await writeFile(temporaryPath, payloadText, 'utf8');
       await rename(temporaryPath, this.cacheFilePath);
+      this.replaceEntries(keptEntries);
       this.dirty = false;
     } catch (error) {
       await rm(temporaryPath, { force: true }).catch(() => undefined);
@@ -543,6 +544,14 @@ export class ParseFileCache {
         },
       })),
     };
+  }
+
+  private replaceEntries(entries: ParseFileCacheEntry[]): void {
+    this.entriesByKey.clear();
+
+    for (const entry of entries) {
+      this.entriesByKey.set(createCacheKey(entry.source, entry.filePath), entry);
+    }
   }
 
   private async loadFromDisk(): Promise<void> {

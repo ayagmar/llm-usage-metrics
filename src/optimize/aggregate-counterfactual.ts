@@ -1,6 +1,6 @@
 import type { UsageReportRow } from '../domain/usage-report-row.js';
 import { hasBillableTokenBuckets, type UsageEvent } from '../domain/usage-event.js';
-import { calculateEstimatedCostUsd } from '../pricing/cost-engine.js';
+import { calculateEstimatedCostUsd, canEstimateUsageCost } from '../pricing/cost-engine.js';
 import type { PricingSource } from '../pricing/types.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import type { OptimizeBaselineRow, OptimizeCandidateRow, OptimizeRow } from './optimize-row.js';
@@ -141,6 +141,7 @@ function evaluateCandidateForPeriod(
     ? pricingSource.resolveModelAlias(candidateModel)
     : candidateModel;
   const pricing = pricingSource ? pricingSource.getPricing(candidateResolvedModel) : undefined;
+  const syntheticEvent = createSyntheticEvent(period);
 
   let hypotheticalCostUsd: number | undefined;
   let hypotheticalCostIncomplete = false;
@@ -157,10 +158,12 @@ function evaluateCandidateForPeriod(
     hypotheticalCostUsd = undefined;
     hypotheticalCostIncomplete = true;
     notes.add('missing_pricing');
+  } else if (!canEstimateUsageCost(syntheticEvent, pricing)) {
+    hypotheticalCostUsd = undefined;
+    hypotheticalCostIncomplete = true;
+    notes.add('usage_buckets_missing');
   } else {
-    hypotheticalCostUsd = roundUsd(
-      calculateEstimatedCostUsd(createSyntheticEvent(period), pricing),
-    );
+    hypotheticalCostUsd = roundUsd(calculateEstimatedCostUsd(syntheticEvent, pricing));
   }
 
   let savingsUsd: number | undefined;

@@ -155,6 +155,45 @@ describe('ParseFileCache', () => {
     expect(payload.entries).toHaveLength(0);
   });
 
+  it('drops entries evicted during persist from in-memory reads too', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'parse-file-cache-persist-eviction-'));
+    tempDirs.push(tempDir);
+    const cacheFilePath = path.join(tempDir, 'parse-file-cache.json');
+    let nowMs = 1_000;
+    const now = () => nowMs;
+
+    const cache = await ParseFileCache.load({
+      cacheFilePath,
+      limits: { ttlMs: 60_000, maxEntries: 1, maxBytes: 1024 * 1024 },
+      now,
+    });
+
+    cache.set(
+      'codex',
+      '/tmp/older.jsonl',
+      { size: 10, mtimeMs: 20 },
+      { events: [createEvent({ sessionId: 'older' })], skippedRows: 0 },
+    );
+
+    nowMs += 1;
+
+    cache.set(
+      'codex',
+      '/tmp/newer.jsonl',
+      { size: 11, mtimeMs: 21 },
+      { events: [createEvent({ sessionId: 'newer' })], skippedRows: 0 },
+    );
+
+    await cache.persist();
+
+    expect(cache.get('codex', '/tmp/older.jsonl', { size: 10, mtimeMs: 20 })).toBeUndefined();
+    expect(cache.get('codex', '/tmp/newer.jsonl', { size: 11, mtimeMs: 21 })).toEqual({
+      events: [createEvent({ sessionId: 'newer' })],
+      skippedRows: 0,
+      skippedRowReasons: [],
+    });
+  });
+
   it('normalizes source IDs in set/get keys and keeps lookups stable after reload', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'parse-file-cache-source-key-'));
     tempDirs.push(tempDir);

@@ -118,14 +118,13 @@ export async function buildEfficiencyData(
   const dataset = await measureRuntimeProfileStage(
     deps.runtimeProfile,
     'efficiency.dataset.total',
-    async () => await buildDataset(options, deps),
+    () => buildDataset(options, deps),
   );
   const { pricedEvents, pricingOrigin, pricingWarning } = await applyPricing(dataset, deps, 'auto');
   const attribution = await measureRuntimeProfileStage(
     deps.runtimeProfile,
     'efficiency.attribute_repo',
-    async () =>
-      await attributeUsageEventsToRepo(pricedEvents, repoDir ?? process.cwd(), resolveRepoRoot),
+    () => attributeUsageEventsToRepo(pricedEvents, repoDir ?? process.cwd(), resolveRepoRoot),
   );
   const matchedEventsWithSignal = attribution.matchedEvents.filter((event) =>
     hasMeaningfulEfficiencyUsageSignal(event),
@@ -138,8 +137,8 @@ export async function buildEfficiencyData(
   const gitOutcomes = await measureRuntimeProfileStage(
     deps.runtimeProfile,
     'efficiency.collect_git_outcomes',
-    async () =>
-      await collectOutcomes({
+    () =>
+      collectOutcomes({
         repoDir,
         granularity,
         timezone: dataset.normalizedInputs.timezone,

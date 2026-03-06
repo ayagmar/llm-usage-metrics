@@ -186,8 +186,8 @@ export async function buildTrendsData(
   const dataset = await measureRuntimeProfileStage(
     deps.runtimeProfile,
     'trends.dataset.total',
-    async () =>
-      await buildUsageEventDataset(
+    () =>
+      buildUsageEventDataset(
         {
           ...options,
           timezone,

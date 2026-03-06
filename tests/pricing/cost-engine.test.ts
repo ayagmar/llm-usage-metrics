@@ -165,6 +165,60 @@ describe('cost engine', () => {
     expect(pricedEvent.costUsd).toBeUndefined();
   });
 
+  it('does not synthesize estimated zero cost from reasoning-only usage when reasoning is included in output', () => {
+    const source = new StaticPricingSource({
+      pricingByModel: {
+        'gpt-5.2': {
+          inputPer1MUsd: 1,
+          outputPer1MUsd: 2,
+        },
+      },
+    });
+
+    const event = createUsageEvent({
+      source: 'opencode',
+      sessionId: 'session-reasoning-only',
+      timestamp: '2026-02-16T10:00:00Z',
+      model: 'gpt-5.2',
+      reasoningTokens: 42,
+      totalTokens: 42,
+      costMode: 'estimated',
+    });
+
+    const [pricedEvent] = applyPricingToEvents([event], source);
+
+    expect(pricedEvent.costMode).toBe('estimated');
+    expect(pricedEvent.costUsd).toBeUndefined();
+  });
+
+  it('can estimate reasoning-only usage when reasoning is billed separately', () => {
+    const source = new StaticPricingSource({
+      pricingByModel: {
+        'gpt-5-codex': {
+          inputPer1MUsd: 1,
+          outputPer1MUsd: 2,
+          reasoningPer1MUsd: 3,
+          reasoningBilling: 'separate',
+        },
+      },
+    });
+
+    const event = createUsageEvent({
+      source: 'codex',
+      sessionId: 'session-reasoning-only-separate',
+      timestamp: '2026-02-16T10:00:00Z',
+      model: 'gpt-5-codex',
+      reasoningTokens: 50,
+      totalTokens: 50,
+      costMode: 'estimated',
+    });
+
+    const [pricedEvent] = applyPricingToEvents([event], source);
+
+    expect(pricedEvent.costMode).toBe('estimated');
+    expect(pricedEvent.costUsd).toBeCloseTo(0.00015, 10);
+  });
+
   it('resolves pricing once per distinct model when pricing multiple events', () => {
     const getPricing = vi.fn((model: string) => {
       if (model === 'gpt-5-codex' || model === 'gpt-4.1') {

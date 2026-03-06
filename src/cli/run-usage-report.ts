@@ -2,7 +2,11 @@ import { buildUsageData } from './build-usage-data.js';
 import { emitDiagnostics } from './emit-diagnostics.js';
 import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
-import type { ReportCommandOptions, UsageDiagnostics } from './usage-data-contracts.js';
+import type {
+  BuildUsageDataDeps,
+  ReportCommandOptions,
+  UsageDiagnostics,
+} from './usage-data-contracts.js';
 import { renderUsageReport, type UsageReportFormat } from '../render/render-usage-report.js';
 import { renderUsageShareSvg } from '../render/render-usage-share-svg.js';
 import type { UsageTableLayout } from '../render/row-cells.js';
@@ -25,7 +29,7 @@ function resolveShareFileName(granularity: ReportGranularity): string {
 async function prepareUsageReport(
   granularity: ReportGranularity,
   options: ReportCommandOptions,
-  deps: Parameters<typeof buildUsageData>[2] = {},
+  deps: BuildUsageDataDeps = {},
 ) {
   const tableLayout = resolveTableLayout(options);
 

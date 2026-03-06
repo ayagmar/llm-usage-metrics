@@ -309,7 +309,7 @@ export async function parseSelectedAdapters(
   const parseResults = await Promise.allSettled(
     adaptersToParse.map((adapter) =>
       options.runtimeProfile
-        ? options.runtimeProfile.measure(`parse.adapter.${adapter.id}`, async () =>
+        ? options.runtimeProfile.measure(`parse.adapter.${adapter.id}`, () =>
             parseAdapterEvents(
               adapter,
               maxParallelFileParsing,

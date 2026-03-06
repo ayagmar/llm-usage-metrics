@@ -1,4 +1,8 @@
-import { isPriceableEvent, type UsageEvent } from '../domain/usage-event.js';
+import {
+  isPriceableEvent,
+  type BillableTokenUsage,
+  type UsageEvent,
+} from '../domain/usage-event.js';
 import type { ModelPricing, PricingSource } from './types.js';
 
 const ONE_MILLION = 1_000_000;
@@ -27,6 +31,23 @@ export function calculateEstimatedCostUsd(event: UsageEvent, pricing: ModelPrici
   return inputCost + outputCost + cacheReadCost + cacheWriteCost + reasoningCost;
 }
 
+function hasNonReasoningPricedBuckets(usage: BillableTokenUsage): boolean {
+  return (
+    usage.inputTokens > 0 ||
+    usage.outputTokens > 0 ||
+    usage.cacheReadTokens > 0 ||
+    usage.cacheWriteTokens > 0
+  );
+}
+
+export function canEstimateUsageCost(usage: BillableTokenUsage, pricing: ModelPricing): boolean {
+  if (hasNonReasoningPricedBuckets(usage)) {
+    return true;
+  }
+
+  return usage.reasoningTokens > 0 && pricing.reasoningBilling === 'separate';
+}
+
 export function applyPricingToEvent(event: UsageEvent, pricingSource: PricingSource): UsageEvent {
   const pricing =
     event.model && isPriceableEvent(event) ? pricingSource.getPricing(event.model) : undefined;
@@ -53,6 +74,14 @@ function applyResolvedPricingToEvent(
   }
 
   if (!pricing) {
+    if (shouldRepriceExplicitZero) {
+      return event;
+    }
+
+    return { ...event, costMode: 'estimated' };
+  }
+
+  if (!canEstimateUsageCost(event, pricing)) {
     if (shouldRepriceExplicitZero) {
       return event;
     }

@@ -202,6 +202,67 @@ describe('aggregate-counterfactual', () => {
     });
   });
 
+  it('treats reasoning-only periods as usage-bucket incomplete when reasoning is included in output pricing', () => {
+    const pricing = new StaticPricingSource({
+      pricingByModel: {
+        'gpt-5.2': {
+          inputPer1MUsd: 1,
+          outputPer1MUsd: 2,
+        },
+      },
+    });
+
+    const usageRows: UsageReportRow[] = [
+      {
+        rowType: 'period_source',
+        periodKey: '2026-02-10',
+        source: 'pi',
+        models: ['gpt-5.2'],
+        modelBreakdown: [],
+        inputTokens: 0,
+        outputTokens: 0,
+        reasoningTokens: 40,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 40,
+        costUsd: undefined,
+        costIncomplete: true,
+      },
+      {
+        rowType: 'grand_total',
+        periodKey: 'ALL',
+        source: 'combined',
+        models: ['gpt-5.2'],
+        modelBreakdown: [],
+        inputTokens: 0,
+        outputTokens: 0,
+        reasoningTokens: 40,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 40,
+        costUsd: undefined,
+        costIncomplete: true,
+      },
+    ];
+
+    const result = buildCounterfactualRows({
+      usageRows,
+      provider: 'openai',
+      candidateModels: ['gpt-5.2'],
+      pricingSource: pricing,
+    });
+
+    const candidateRow = result.rows.find(
+      (row) => row.rowType === 'candidate' && row.periodKey === 'ALL',
+    );
+
+    expect(candidateRow).toMatchObject({
+      hypotheticalCostUsd: undefined,
+      hypotheticalCostIncomplete: true,
+      notes: ['baseline_incomplete', 'usage_buckets_missing'],
+    });
+  });
+
   it('keeps hypothetical cost at zero when a period has no billable buckets and no usage signal', () => {
     const usageRows: UsageReportRow[] = [
       {

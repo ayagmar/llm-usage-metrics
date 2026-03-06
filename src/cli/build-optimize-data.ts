@@ -77,7 +77,7 @@ export async function buildOptimizeData(
   const dataset = await measureRuntimeProfileStage(
     deps.runtimeProfile,
     'optimize.dataset.total',
-    async () => await buildUsageEventDataset(options, deps),
+    () => buildUsageEventDataset(options, deps),
   );
   const detectedProviders = new Set(
     dataset.filteredEvents
