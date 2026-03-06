@@ -92,6 +92,41 @@ describe('cost engine', () => {
     expect(pricedEvent.costUsd).toBeCloseTo(0.00215, 10);
   });
 
+  it('resolves model aliases before single-event pricing lookups', () => {
+    const resolveModelAlias = vi.fn((model: string) =>
+      model === 'gpt-5.3-codex' ? 'gpt-5-codex' : model,
+    );
+    const getPricing = vi.fn((model: string) =>
+      model === 'gpt-5-codex'
+        ? {
+            inputPer1MUsd: 1,
+            outputPer1MUsd: 2,
+          }
+        : undefined,
+    );
+    const pricingSource: PricingSource = {
+      resolveModelAlias,
+      getPricing,
+    };
+
+    const pricedEvent = applyPricingToEvent(
+      createUsageEvent({
+        source: 'codex',
+        sessionId: 'alias-single-event',
+        timestamp: '2026-02-16T10:00:00Z',
+        model: 'gpt-5.3-codex',
+        inputTokens: 100,
+        outputTokens: 50,
+        costMode: 'estimated',
+      }),
+      pricingSource,
+    );
+
+    expect(resolveModelAlias).toHaveBeenCalledWith('gpt-5.3-codex');
+    expect(getPricing).toHaveBeenCalledWith('gpt-5-codex');
+    expect(pricedEvent.costUsd).toBeCloseTo(0.0002, 10);
+  });
+
   it('can charge reasoning tokens separately when configured', () => {
     const event = createUsageEvent({
       source: 'codex',
@@ -217,6 +252,58 @@ describe('cost engine', () => {
 
     expect(pricedEvent.costMode).toBe('estimated');
     expect(pricedEvent.costUsd).toBeCloseTo(0.00015, 10);
+  });
+
+  it('does not synthesize estimated zero cost when cache read pricing is missing', () => {
+    const source = new StaticPricingSource({
+      pricingByModel: {
+        'gpt-5-codex': {
+          inputPer1MUsd: 1,
+          outputPer1MUsd: 2,
+        },
+      },
+    });
+
+    const event = createUsageEvent({
+      source: 'codex',
+      sessionId: 'session-cache-read-only',
+      timestamp: '2026-02-16T10:00:00Z',
+      model: 'gpt-5-codex',
+      cacheReadTokens: 100,
+      totalTokens: 100,
+      costMode: 'estimated',
+    });
+
+    const [pricedEvent] = applyPricingToEvents([event], source);
+
+    expect(pricedEvent.costMode).toBe('estimated');
+    expect(pricedEvent.costUsd).toBeUndefined();
+  });
+
+  it('does not synthesize estimated zero cost when cache write pricing is missing', () => {
+    const source = new StaticPricingSource({
+      pricingByModel: {
+        'gpt-5-codex': {
+          inputPer1MUsd: 1,
+          outputPer1MUsd: 2,
+        },
+      },
+    });
+
+    const event = createUsageEvent({
+      source: 'codex',
+      sessionId: 'session-cache-write-only',
+      timestamp: '2026-02-16T10:00:00Z',
+      model: 'gpt-5-codex',
+      cacheWriteTokens: 50,
+      totalTokens: 50,
+      costMode: 'estimated',
+    });
+
+    const [pricedEvent] = applyPricingToEvents([event], source);
+
+    expect(pricedEvent.costMode).toBe('estimated');
+    expect(pricedEvent.costUsd).toBeUndefined();
   });
 
   it('resolves pricing once per distinct model when pricing multiple events', () => {

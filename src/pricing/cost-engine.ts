@@ -40,17 +40,47 @@ function hasNonReasoningPricedBuckets(usage: BillableTokenUsage): boolean {
   );
 }
 
+function hasDefinedRate(rate: number | undefined): boolean {
+  return rate !== undefined;
+}
+
 export function canEstimateUsageCost(usage: BillableTokenUsage, pricing: ModelPricing): boolean {
-  if (hasNonReasoningPricedBuckets(usage)) {
-    return true;
+  if (usage.inputTokens > 0 && !hasDefinedRate(pricing.inputPer1MUsd)) {
+    return false;
   }
 
-  return usage.reasoningTokens > 0 && pricing.reasoningBilling === 'separate';
+  if (usage.outputTokens > 0 && !hasDefinedRate(pricing.outputPer1MUsd)) {
+    return false;
+  }
+
+  if (usage.cacheReadTokens > 0 && !hasDefinedRate(pricing.cacheReadPer1MUsd)) {
+    return false;
+  }
+
+  if (usage.cacheWriteTokens > 0 && !hasDefinedRate(pricing.cacheWritePer1MUsd)) {
+    return false;
+  }
+
+  const reasoningBilling = pricing.reasoningBilling ?? 'included-in-output';
+
+  if (usage.reasoningTokens > 0) {
+    if (reasoningBilling === 'separate') {
+      return hasDefinedRate(pricing.reasoningPer1MUsd);
+    }
+
+    if (usage.outputTokens === 0) {
+      return false;
+    }
+  }
+
+  return hasNonReasoningPricedBuckets(usage);
 }
 
 export function applyPricingToEvent(event: UsageEvent, pricingSource: PricingSource): UsageEvent {
   const pricing =
-    event.model && isPriceableEvent(event) ? pricingSource.getPricing(event.model) : undefined;
+    event.model && isPriceableEvent(event)
+      ? pricingSource.getPricing(pricingSource.resolveModelAlias(event.model))
+      : undefined;
 
   return applyResolvedPricingToEvent(event, pricing);
 }

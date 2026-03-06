@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   filterUsageEvents,
@@ -6,6 +6,7 @@ import {
 } from '../../src/cli/build-usage-data-parsing.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import type { SourceAdapter } from '../../src/sources/source-adapter.js';
+import { ParseFileCache } from '../../src/cli/parse-file-cache.js';
 
 function createDelayedAdapter(
   id: string,
@@ -71,6 +72,12 @@ describe('build-usage-data-parsing', () => {
   });
 
   it('stringifies non-Error parse failures and deduplicates cache loads by source id', async () => {
+    const parseFileCache = {
+      get: vi.fn(),
+      set: vi.fn(),
+      persist: vi.fn(async () => undefined),
+    } as unknown as ParseFileCache;
+    const loadSpy = vi.spyOn(ParseFileCache, 'load').mockResolvedValue(parseFileCache);
     const failingAdapter: SourceAdapter = {
       id: 'codex',
       discoverFiles: () => rejectWithUnknown('plain failure') as Promise<string[]>,
@@ -92,6 +99,7 @@ describe('build-usage-data-parsing', () => {
       parseCacheFilePath: '/tmp/parse-selected-adapters-test-cache.json',
     });
 
+    expect(loadSpy).toHaveBeenCalledTimes(1);
     expect(result.sourceFailures).toEqual([{ source: 'codex', reason: 'plain failure' }]);
     expect(result.successfulParseResults).toHaveLength(1);
   });

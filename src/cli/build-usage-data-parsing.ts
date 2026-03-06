@@ -285,15 +285,10 @@ export async function parseSelectedAdapters(
       maxBytes: options.parseCache.maxBytes,
     };
     const cacheFilePath = options.parseCacheFilePath ?? getDefaultParseFileCachePath();
+    const sourceIds = [...new Set(adaptersToParse.map((adapter) => adapter.id.toLowerCase()))];
 
     await Promise.all(
-      adaptersToParse.map(async (adapter) => {
-        const sourceId = adapter.id.toLowerCase();
-
-        if (parseCacheBySource.has(sourceId)) {
-          return;
-        }
-
+      sourceIds.map(async (sourceId) => {
         parseCacheBySource.set(
           sourceId,
           await ParseFileCache.load({
