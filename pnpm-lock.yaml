@@ -53,6 +53,15 @@ importers:
       typescript-eslint:
         specifier: ^8.56.0
         version: 8.56.0(eslint@10.0.1(jiti@2.6.1))(typescript@5.9.3)
+      unist-util-is:
+        specifier: 6.0.1
+        version: 6.0.1
+      unist-util-visit:
+        specifier: 5.1.0
+        version: 5.1.0
+      unist-util-visit-parents:
+        specifier: 6.0.2
+        version: 6.0.2
       vitest:
         specifier: ^4.0.18
         version: 4.0.18(@types/node@25.3.0)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
