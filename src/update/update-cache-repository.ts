@@ -5,8 +5,8 @@ import { asRecord } from '../utils/as-record.js';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
 import { parseVersion } from './version-utils.js';
 
-const DEFAULT_CACHE_TTL_MS = 60 * 60 * 1000;
-const DEFAULT_FETCH_TIMEOUT_MS = 1000;
+export const DEFAULT_UPDATE_CHECK_CACHE_TTL_MS = 60 * 60 * 1000;
+export const DEFAULT_UPDATE_CHECK_FETCH_TIMEOUT_MS = 1000;
 const DEFAULT_FETCH_RETRY_COUNT = 2;
 const DEFAULT_FETCH_RETRY_DELAY_MS = 200;
 
@@ -270,8 +270,8 @@ export async function resolveLatestVersion(
   options: ResolveLatestVersionOptions,
 ): Promise<string | undefined> {
   const cacheFilePath = options.cacheFilePath ?? getDefaultUpdateCheckCachePath();
-  const cacheTtlMs = options.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS;
-  const fetchTimeoutMs = options.fetchTimeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS;
+  const cacheTtlMs = options.cacheTtlMs ?? DEFAULT_UPDATE_CHECK_CACHE_TTL_MS;
+  const fetchTimeoutMs = options.fetchTimeoutMs ?? DEFAULT_UPDATE_CHECK_FETCH_TIMEOUT_MS;
   const fetchRetryCount = options.fetchRetryCount ?? DEFAULT_FETCH_RETRY_COUNT;
   const fetchRetryDelayMs = options.fetchRetryDelayMs ?? DEFAULT_FETCH_RETRY_DELAY_MS;
   const fetchImpl = options.fetchImpl ?? fetch;

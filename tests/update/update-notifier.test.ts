@@ -10,9 +10,11 @@ import {
   isCacheFresh,
   isLikelyNpxExecution,
   isLikelySourceExecution,
+  refreshUpdateCheckCache,
   resolveLatestVersion,
   shouldOfferUpdate,
   shouldSkipUpdateCheckForArgv,
+  UPDATE_CHECK_REFRESH_ENV_VAR,
   type CommandRunner,
 } from '../../src/update/update-notifier.js';
 
@@ -207,7 +209,7 @@ describe('update-notifier', () => {
     const baseNow = 5_000_000;
     const now = () => baseNow;
 
-    await checkForUpdatesAndMaybeRestart({
+    await refreshUpdateCheckCache({
       packageName: 'llm-usage-metrics',
       currentVersion: '0.1.0',
       cacheFilePath,
@@ -217,12 +219,9 @@ describe('update-notifier', () => {
       },
       now,
       fetchImpl: fetchSpy,
-      stdinIsTTY: false,
-      stdoutIsTTY: false,
-      notify: vi.fn(),
     });
 
-    await checkForUpdatesAndMaybeRestart({
+    await refreshUpdateCheckCache({
       packageName: 'llm-usage-metrics',
       currentVersion: '0.1.0',
       cacheFilePath,
@@ -232,9 +231,6 @@ describe('update-notifier', () => {
       },
       now,
       fetchImpl: fetchSpy,
-      stdinIsTTY: false,
-      stdoutIsTTY: false,
-      notify: vi.fn(),
     });
 
     const parsedCachePath = path.parse(cacheFilePath);
@@ -260,7 +256,7 @@ describe('update-notifier', () => {
     const cacheFilePath = await createTempCachePath('update-cache-session-blank-key-');
     const nowValue = 6_000_000;
 
-    await checkForUpdatesAndMaybeRestart({
+    await refreshUpdateCheckCache({
       packageName: 'llm-usage-metrics',
       currentVersion: '0.1.0',
       cacheFilePath,
@@ -272,9 +268,6 @@ describe('update-notifier', () => {
       fetchImpl: vi.fn(
         async () => new Response(JSON.stringify({ version: '0.2.0' }), { status: 200 }),
       ),
-      stdinIsTTY: false,
-      stdoutIsTTY: false,
-      notify: vi.fn(),
     });
 
     const parsedCachePath = path.parse(cacheFilePath);
@@ -438,6 +431,124 @@ describe('update-notifier', () => {
     expect(notify).not.toHaveBeenCalled();
   });
 
+  it('uses a fresh cached update immediately without scheduling background refresh', async () => {
+    const cacheFilePath = await createTempCachePath('update-fresh-cache-hit-');
+    const nowValue = 7_000_000;
+    const notify = vi.fn();
+    const spawnDetachedCommand = vi.fn();
+    const fetchSpy = vi.fn(async () => {
+      throw new Error('fetch should not be called for fresh cache');
+    });
+
+    await writeFile(
+      cacheFilePath,
+      JSON.stringify({
+        checkedAt: nowValue - 500,
+        latestVersion: '0.2.0',
+      }),
+      'utf8',
+    );
+
+    const result = await checkForUpdatesAndMaybeRestart({
+      packageName: 'llm-usage-metrics',
+      currentVersion: '0.1.0',
+      cacheFilePath,
+      cacheTtlMs: 5_000,
+      now: () => nowValue,
+      fetchImpl: fetchSpy,
+      stdinIsTTY: false,
+      stdoutIsTTY: false,
+      env: { PATH: '/usr/bin' },
+      argv: ['/usr/bin/node', '/app/dist/index.js', 'daily'],
+      execPath: '/usr/bin/node',
+      notify,
+      spawnDetachedCommand,
+    });
+
+    expect(result).toEqual({ continueExecution: true });
+    expect(notify).toHaveBeenCalledOnce();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(spawnDetachedCommand).not.toHaveBeenCalled();
+  });
+
+  it('schedules a detached refresh instead of blocking when no cache is available', async () => {
+    const notify = vi.fn();
+    const spawnDetachedCommand = vi.fn();
+    const fetchSpy = vi.fn(async () => {
+      throw new Error('fetch should not be called on the foreground path');
+    });
+
+    const result = await checkForUpdatesAndMaybeRestart({
+      packageName: 'llm-usage-metrics',
+      currentVersion: '0.1.0',
+      cacheFilePath: '/tmp/update-check.json',
+      fetchImpl: fetchSpy,
+      stdinIsTTY: false,
+      stdoutIsTTY: false,
+      env: { PATH: '/usr/bin' },
+      argv: ['/usr/bin/node', '/app/dist/index.js', 'daily', '--json'],
+      execPath: '/usr/bin/node',
+      notify,
+      spawnDetachedCommand,
+    });
+
+    expect(result).toEqual({ continueExecution: true });
+    expect(notify).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(spawnDetachedCommand).toHaveBeenCalledOnce();
+    expect(spawnDetachedCommand).toHaveBeenCalledWith(
+      '/usr/bin/node',
+      ['/app/dist/index.js', 'daily', '--json'],
+      {
+        env: {
+          PATH: '/usr/bin',
+          [UPDATE_CHECK_REFRESH_ENV_VAR]: '1',
+        },
+        stdio: 'ignore',
+      },
+    );
+  });
+
+  it('does not notify from stale cache and schedules a detached refresh instead', async () => {
+    const cacheFilePath = await createTempCachePath('update-stale-background-refresh-');
+    const nowValue = 8_000_000;
+    const notify = vi.fn();
+    const spawnDetachedCommand = vi.fn();
+    const fetchSpy = vi.fn(async () => {
+      throw new Error('fetch should not be called on the foreground path');
+    });
+
+    await writeFile(
+      cacheFilePath,
+      JSON.stringify({
+        checkedAt: nowValue - 10_000,
+        latestVersion: '0.2.0',
+      }),
+      'utf8',
+    );
+
+    const result = await checkForUpdatesAndMaybeRestart({
+      packageName: 'llm-usage-metrics',
+      currentVersion: '0.1.0',
+      cacheFilePath,
+      cacheTtlMs: 1_000,
+      now: () => nowValue,
+      fetchImpl: fetchSpy,
+      stdinIsTTY: false,
+      stdoutIsTTY: false,
+      env: { PATH: '/usr/bin' },
+      argv: ['/usr/bin/node', '/app/dist/index.js', 'daily'],
+      execPath: '/usr/bin/node',
+      notify,
+      spawnDetachedCommand,
+    });
+
+    expect(result).toEqual({ continueExecution: true });
+    expect(notify).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(spawnDetachedCommand).toHaveBeenCalledOnce();
+  });
+
   it('swallows unexpected notifier errors and continues execution', async () => {
     const result = await checkForUpdatesAndMaybeRestart({
       packageName: 'llm-usage-metrics',
@@ -459,13 +570,25 @@ describe('update-notifier', () => {
     const cacheFilePath = await createTempCachePath('update-prompt-no-');
     const confirmInstall = vi.fn(async () => false);
     const runCommand = vi.fn<CommandRunner>();
+    const nowValue = 9_000_000;
+
+    await writeFile(
+      cacheFilePath,
+      JSON.stringify({
+        checkedAt: nowValue - 100,
+        latestVersion: '0.2.0',
+      }),
+      'utf8',
+    );
 
     const result = await checkForUpdatesAndMaybeRestart({
       packageName: 'llm-usage-metrics',
       currentVersion: '0.1.0',
       cacheFilePath,
+      cacheTtlMs: 5_000,
+      now: () => nowValue,
       fetchImpl: vi.fn(async () => {
-        return new Response(JSON.stringify({ version: '0.2.0' }), { status: 200 });
+        throw new Error('fetch should not be called for fresh cache');
       }),
       stdinIsTTY: true,
       stdoutIsTTY: true,
@@ -484,13 +607,25 @@ describe('update-notifier', () => {
     const confirmInstall = vi.fn(async () => true);
     const notify = vi.fn();
     const runCommand = vi.fn<CommandRunner>().mockResolvedValueOnce(1);
+    const nowValue = 10_000_000;
+
+    await writeFile(
+      cacheFilePath,
+      JSON.stringify({
+        checkedAt: nowValue - 100,
+        latestVersion: '0.2.0',
+      }),
+      'utf8',
+    );
 
     const result = await checkForUpdatesAndMaybeRestart({
       packageName: 'llm-usage-metrics',
       currentVersion: '0.1.0',
       cacheFilePath,
+      cacheTtlMs: 5_000,
+      now: () => nowValue,
       fetchImpl: vi.fn(async () => {
-        return new Response(JSON.stringify({ version: '0.2.0' }), { status: 200 });
+        throw new Error('fetch should not be called for fresh cache');
       }),
       stdinIsTTY: true,
       stdoutIsTTY: true,
@@ -510,11 +645,21 @@ describe('update-notifier', () => {
   it('restarts with original argv and skip-update env flag after successful install', async () => {
     const cacheFilePath = await createTempCachePath('update-restart-');
     const confirmInstall = vi.fn(async () => true);
+    const nowValue = 11_000_000;
     const commandCalls: Array<{
       command: string;
       args: string[];
       options?: { env?: NodeJS.ProcessEnv; stdio?: 'inherit' };
     }> = [];
+
+    await writeFile(
+      cacheFilePath,
+      JSON.stringify({
+        checkedAt: nowValue - 100,
+        latestVersion: '0.2.0',
+      }),
+      'utf8',
+    );
 
     const runCommand: CommandRunner = async (command, args, commandOptions) => {
       commandCalls.push({
@@ -530,8 +675,10 @@ describe('update-notifier', () => {
       packageName: 'llm-usage-metrics',
       currentVersion: '0.1.0',
       cacheFilePath,
+      cacheTtlMs: 5_000,
+      now: () => nowValue,
       fetchImpl: vi.fn(async () => {
-        return new Response(JSON.stringify({ version: '0.2.0' }), { status: 200 });
+        throw new Error('fetch should not be called for fresh cache');
       }),
       stdinIsTTY: true,
       stdoutIsTTY: true,
@@ -563,17 +710,29 @@ describe('update-notifier', () => {
     const confirmInstall = vi.fn(async () => true);
     const notify = vi.fn();
     let runCommandCalled = false;
+    const nowValue = 12_000_000;
     const runCommand: CommandRunner = async () => {
       runCommandCalled = true;
       return 0;
     };
 
+    await writeFile(
+      cacheFilePath,
+      JSON.stringify({
+        checkedAt: nowValue - 100,
+        latestVersion: '0.2.0',
+      }),
+      'utf8',
+    );
+
     const result = await checkForUpdatesAndMaybeRestart({
       packageName: 'llm-usage-metrics',
       currentVersion: '0.1.0',
       cacheFilePath,
+      cacheTtlMs: 5_000,
+      now: () => nowValue,
       fetchImpl: vi.fn(async () => {
-        return new Response(JSON.stringify({ version: '0.2.0' }), { status: 200 });
+        throw new Error('fetch should not be called for fresh cache');
       }),
       stdinIsTTY: false,
       stdoutIsTTY: false,

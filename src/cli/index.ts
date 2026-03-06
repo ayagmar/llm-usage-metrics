@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 
 import { getUpdateNotifierRuntimeConfig } from '../config/runtime-overrides.js';
-import { checkForUpdatesAndMaybeRestart } from '../update/update-notifier.js';
+import {
+  checkForUpdatesAndMaybeRestart,
+  refreshUpdateCheckCache,
+  UPDATE_CHECK_REFRESH_ENV_VAR,
+} from '../update/update-notifier.js';
 import { createCli } from './create-cli.js';
 import { loadPackageMetadataFromRuntime } from './package-metadata.js';
 
@@ -10,6 +14,16 @@ const updateRuntimeConfig = getUpdateNotifierRuntimeConfig();
 const cli = createCli({ version: packageVersion });
 
 async function main(): Promise<void> {
+  if (process.env[UPDATE_CHECK_REFRESH_ENV_VAR] === '1') {
+    await refreshUpdateCheckCache({
+      packageName,
+      currentVersion: packageVersion,
+      cacheTtlMs: updateRuntimeConfig.cacheTtlMs,
+      fetchTimeoutMs: updateRuntimeConfig.fetchTimeoutMs,
+    });
+    return;
+  }
+
   const updateResult = await checkForUpdatesAndMaybeRestart({
     packageName,
     currentVersion: packageVersion,
