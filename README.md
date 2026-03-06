@@ -291,12 +291,14 @@ pnpm run perf:production-benchmark -- \
 
 ### Environment Variables
 
-| Variable                         | Description                       |
-| -------------------------------- | --------------------------------- |
-| `LLM_USAGE_SKIP_UPDATE_CHECK`    | Skip update check (`1`)           |
-| `LLM_USAGE_PRICING_CACHE_TTL_MS` | Pricing cache duration            |
-| `LLM_USAGE_PARSE_MAX_PARALLEL`   | Max parallel file parses (`1-64`) |
-| `LLM_USAGE_PARSE_CACHE_ENABLED`  | Enable parse cache (`1/0`)        |
+| Variable                         | Description                        |
+| -------------------------------- | ---------------------------------- |
+| `LLM_USAGE_SKIP_UPDATE_CHECK`    | Skip update check (`1`)            |
+| `LLM_USAGE_UPDATE_CACHE_SCOPE`   | Update cache scope                 |
+| `LLM_USAGE_PRICING_CACHE_TTL_MS` | Pricing cache duration             |
+| `LLM_USAGE_PARSE_MAX_PARALLEL`   | Max parallel file parses (`1-64`)  |
+| `LLM_USAGE_PARSE_CACHE_ENABLED`  | Enable parse cache (`1/0`)         |
+| `LLM_USAGE_PROFILE_RUNTIME`      | Emit runtime profiling diagnostics |
 
 Parse cache is source-sharded on disk (`parse-file-cache.<source>.json`) so source-scoped runs avoid loading unrelated cache blobs.
 
@@ -307,6 +309,8 @@ See full environment variable reference in the [documentation](https://ayagmar.g
 The CLI performs lightweight update checks with smart defaults:
 
 - 1-hour cache TTL
+- Fresh cached update results are used immediately
+- Stale or missing cache refreshes in the background instead of blocking report execution
 - Skipped for `--help`, `--version`, and `npx` runs
 - Prompts only in interactive TTY sessions
 

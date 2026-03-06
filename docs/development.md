@@ -13,7 +13,7 @@ pnpm install
 
 ## Local quality checks
 
-Run these before opening a PR:
+Minimum project checks:
 
 ```bash
 pnpm run lint
@@ -23,6 +23,32 @@ pnpm run format:check
 ```
 
 `pnpm run test` includes coverage by default.
+
+## CI-parity validation
+
+The GitHub Actions workflow does more than the four core checks above. Before opening a PR, run the relevant subset for the area you changed. For a full CI-parity pass, use:
+
+```bash
+pnpm run lint
+pnpm run typecheck
+pnpm run test
+pnpm run format:check
+pnpm run docs:mermaid:validate
+pnpm run build
+pnpm run smoke:dist-opencode
+pnpm run pack:check
+pnpm --filter llm-usage-metrics-site run format:check
+pnpm run site:check
+pnpm run site:docs:generate -- --rebuild
+git diff --exit-code -- site/src/content/docs/cli-reference.mdx
+pnpm run site:build
+```
+
+Notes:
+
+- CI installs with `pnpm install --frozen-lockfile`.
+- The main test job rebuilds `dist` before `pnpm run smoke:dist-opencode` and `pnpm run test`.
+- Site CI also regenerates `site/src/content/docs/cli-reference.mdx` and fails if the generated file is out of date.
 
 ## Reporting pipeline performance baseline
 

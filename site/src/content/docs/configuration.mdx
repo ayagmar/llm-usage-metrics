@@ -72,6 +72,7 @@ See [Caching](/caching/) for cache-layer behavior details. This section explains
 | `LLM_USAGE_PARSE_CACHE_TTL_MS` | `604800000` (7d) | Parse-cache TTL for unchanged files | Lower if you want more frequent full reparsing |
 | `LLM_USAGE_PARSE_CACHE_MAX_ENTRIES` | `2000` | Upper bound for parse-cache entry count | Raise for very large history sets; lower to cap disk usage |
 | `LLM_USAGE_PARSE_CACHE_MAX_BYTES` | `33554432` (32 MiB) | Upper bound for parse-cache file size | Raise when cache churn is high; lower for tighter disk budgets |
+| `LLM_USAGE_PROFILE_RUNTIME` | unset (`false`) | Emits source pruning, parse-cache, parse-count, and stage-timing diagnostics on `stderr` | Enable when profiling discovery/parsing/runtime behavior locally |
 
 Example:
 

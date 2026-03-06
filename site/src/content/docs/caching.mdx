@@ -26,7 +26,7 @@ On Linux with no `XDG_CACHE_HOME`, `<platform-cache-root>` defaults to `~/.cache
 ### 1) Update-check cache
 
 - read cached npm version if still fresh
-- otherwise fetch latest npm version
+- otherwise continue immediately and refresh the cache in a detached background process
 - on fetch failure, fallback to previous cached version when available
 - optional session-scoped mode creates a per-shell cache file
 
@@ -55,9 +55,10 @@ Relevant options/env:
 ### 3) Parse-file cache
 
 - key is `(source, file path)`
-- cache validity requires matching file fingerprint (`size`, `mtimeMs`) and TTL
+- cache validity requires matching dependency fingerprints and TTL
 - stores parse diagnostics and normalized events
 - cache files are sharded by source id, so source-scoped runs load only relevant shards
+- dependency fingerprints include the primary file and any adapter-declared sidecar inputs
 - persisted as best-effort JSON, bounded by max entries and max byte size
 
 Relevant env vars:
