@@ -155,4 +155,13 @@ describe('runtime-profile', () => {
     expect(diagnosticsLogger.info).not.toHaveBeenCalled();
     expect(diagnosticsLogger.dim).not.toHaveBeenCalled();
   });
+
+  it('ignores invalid stage durations', () => {
+    const profile = new RuntimeProfileCollector();
+    profile.recordStageDuration('', 1);
+    profile.recordStageDuration('bad', Number.NaN);
+    profile.recordStageDuration('bad', -1);
+
+    expect(profile.snapshot().stageTimings).toEqual([]);
+  });
 });

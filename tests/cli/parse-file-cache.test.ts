@@ -341,6 +341,108 @@ describe('ParseFileCache', () => {
     ).toBeUndefined();
   });
 
+  it('round-trips missing dependency fingerprints and rejects malformed runtime fingerprints', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'parse-file-cache-missing-dependency-'));
+    tempDirs.push(tempDir);
+    const cacheFilePath = path.join(tempDir, 'parse-file-cache.json');
+
+    const cache = await ParseFileCache.load({
+      cacheFilePath,
+      limits: { ttlMs: 60_000, maxEntries: 100, maxBytes: 1024 * 1024 },
+      now: () => 1_000,
+    });
+
+    cache.set(
+      'codex',
+      '/tmp/ok.jsonl',
+      {
+        dependencies: [
+          { path: '/tmp/missing-sidecar.json', exists: false },
+          { path: '/tmp/ok.jsonl', exists: true, size: 12, mtimeMs: 34 },
+        ],
+      },
+      { events: [createEvent()], skippedRows: 0 },
+    );
+
+    expect(
+      cache.get('codex', '/tmp/ok.jsonl', {
+        dependencies: [
+          { path: '/tmp/missing-sidecar.json', exists: false },
+          { path: '/tmp/ok.jsonl', exists: true, size: 12, mtimeMs: 34 },
+        ],
+      }),
+    ).toEqual({
+      events: [createEvent()],
+      skippedRows: 0,
+      skippedRowReasons: [],
+    });
+
+    expect(
+      cache.get('codex', '/tmp/ok.jsonl', {
+        dependencies: [{ path: '/tmp/ok.jsonl', exists: true, mtimeMs: 34 }],
+      }),
+    ).toBeUndefined();
+  });
+
+  it('drops stale and oversized loaded entries on persist', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'parse-file-cache-load-cleanup-'));
+    tempDirs.push(tempDir);
+    const cacheFilePath = path.join(tempDir, 'parse-file-cache.json');
+
+    await writeFile(
+      cacheFilePath,
+      JSON.stringify({
+        version: 5,
+        entries: [
+          {
+            source: 'codex',
+            filePath: '/tmp/stale.jsonl',
+            fingerprint: { size: 1, mtimeMs: 1 },
+            cachedAt: 0,
+            diagnostics: { events: [createEvent()], skippedRows: 0, skippedRowReasons: [] },
+          },
+          {
+            source: 'codex',
+            filePath: '/tmp/fresh-a.jsonl',
+            fingerprint: { size: 2, mtimeMs: 2 },
+            cachedAt: 100,
+            diagnostics: {
+              events: [createEvent({ sessionId: 'a' })],
+              skippedRows: 0,
+              skippedRowReasons: [],
+            },
+          },
+          {
+            source: 'codex',
+            filePath: '/tmp/fresh-b.jsonl',
+            fingerprint: { size: 3, mtimeMs: 3 },
+            cachedAt: 101,
+            diagnostics: {
+              events: [createEvent({ sessionId: 'b' })],
+              skippedRows: 0,
+              skippedRowReasons: [],
+            },
+          },
+        ],
+      }),
+      'utf8',
+    );
+
+    const cache = await ParseFileCache.load({
+      cacheFilePath,
+      limits: { ttlMs: 50, maxEntries: 1, maxBytes: 1024 * 1024 },
+      now: () => 120,
+    });
+
+    await cache.persist();
+    const persisted = JSON.parse(await readFile(cacheFilePath, 'utf8')) as {
+      entries: Array<{ filePath: string }>;
+    };
+
+    expect(persisted.entries).toHaveLength(1);
+    expect(persisted.entries[0]?.filePath).toBe('/tmp/fresh-b.jsonl');
+  });
+
   it('recovers from malformed cache JSON and rewrites a valid payload', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'parse-file-cache-malformed-'));
     tempDirs.push(tempDir);

@@ -202,6 +202,38 @@ describe('aggregate-counterfactual', () => {
     });
   });
 
+  it('keeps hypothetical cost at zero when a period has no billable buckets and no usage signal', () => {
+    const usageRows: UsageReportRow[] = [
+      {
+        rowType: 'grand_total',
+        periodKey: 'ALL',
+        source: 'combined',
+        models: ['gpt-5.2'],
+        modelBreakdown: [],
+        inputTokens: 0,
+        outputTokens: 0,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 0,
+        costUsd: 0,
+        costIncomplete: false,
+      },
+    ];
+
+    const result = buildCounterfactualRows({
+      usageRows,
+      provider: 'openai',
+      candidateModels: ['gpt-5.2'],
+      pricingSource: createDefaultOpenAiPricingSource(),
+    });
+
+    expect(result.rows.find((row) => row.rowType === 'candidate')).toMatchObject({
+      hypotheticalCostUsd: 0,
+      hypotheticalCostIncomplete: false,
+    });
+  });
+
   it('applies --top using ALL-period ranking consistently across periods', () => {
     const usageRows: UsageReportRow[] = [
       {

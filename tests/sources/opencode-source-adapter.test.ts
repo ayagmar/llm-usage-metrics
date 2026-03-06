@@ -102,6 +102,22 @@ describe('OpenCodeSourceAdapter', () => {
     await expect(adapter.discoverFiles()).rejects.toThrow('--opencode-db must be a non-empty path');
   });
 
+  it('reports parse dependencies for configured and blank db paths', async () => {
+    const configuredAdapter = new OpenCodeSourceAdapter({
+      dbPath: '/tmp/opencode.db',
+    });
+    const blankAdapter = new OpenCodeSourceAdapter({
+      dbPath: '   ',
+    });
+
+    await expect(configuredAdapter.getParseDependencies('/tmp/opencode.db')).resolves.toEqual([
+      '/tmp/opencode.db-wal',
+      '/tmp/opencode.db-shm',
+      '/tmp/opencode.db-journal',
+    ]);
+    await expect(blankAdapter.getParseDependencies('   ')).resolves.toEqual([]);
+  });
+
   it('fails discovery when explicit --opencode-db path is missing or unreadable', async () => {
     const adapter = new OpenCodeSourceAdapter({
       dbPath: '/tmp/missing-opencode.db',

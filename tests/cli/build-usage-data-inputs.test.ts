@@ -3,7 +3,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   normalizeBuildUsageInputs,
   selectAdaptersForParsing,
+  throwOnExplicitSourceScopeConflicts,
 } from '../../src/cli/build-usage-data-inputs.js';
+import { RuntimeProfileCollector } from '../../src/cli/runtime-profile.js';
 import type { SourceAdapter } from '../../src/sources/source-adapter.js';
 
 afterEach(() => {
@@ -98,5 +100,56 @@ describe('build-usage-data-inputs', () => {
     });
 
     expect(selectedAdapters.map((adapter) => adapter.id)).toEqual(['pi', 'codex']);
+  });
+
+  it('records source selection with candidate provider roots in the runtime profile', () => {
+    const adapters: SourceAdapter[] = [
+      {
+        id: 'pi',
+        discoverFiles: async () => [],
+        parseFile: async () => [],
+      },
+      {
+        id: 'gemini',
+        capabilities: { fixedProviderRoots: ['google'] },
+        discoverFiles: async () => [],
+        parseFile: async () => [],
+      },
+    ];
+    const runtimeProfile = new RuntimeProfileCollector();
+
+    selectAdaptersForParsing(adapters, {
+      sourceFilter: undefined,
+      candidateProviderRoots: ['google'],
+      runtimeProfile,
+    });
+
+    expect(runtimeProfile.snapshot().sourceSelection).toEqual({
+      availableSourceIds: ['pi', 'gemini'],
+      selectedSourceIds: ['pi', 'gemini'],
+      candidateProviderRoots: ['google'],
+    });
+  });
+
+  it('uses provider/model wording when explicit source conflicts are raised without active flags', () => {
+    const adapters: SourceAdapter[] = [
+      {
+        id: 'gemini',
+        capabilities: { fixedProviderRoots: ['google'] },
+        discoverFiles: async () => [],
+        parseFile: async () => [],
+      },
+    ];
+
+    expect(() => {
+      throwOnExplicitSourceScopeConflicts(adapters, [], {
+        explicitSourceIds: new Set(['gemini']),
+        candidateProviderRoots: ['openai'],
+        providerFilter: undefined,
+        modelFilter: undefined,
+      });
+    }).toThrow(
+      'Explicitly requested source(s) are incompatible with the requested provider/model scope: gemini.',
+    );
   });
 });

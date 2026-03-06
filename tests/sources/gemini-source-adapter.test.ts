@@ -174,6 +174,14 @@ describe('GeminiSourceAdapter', () => {
       await expect(adapter.getParseDependencies()).resolves.toEqual([]);
     });
 
+    it('returns projects.json as a parse dependency when geminiDir is configured', async () => {
+      const adapter = new GeminiSourceAdapter({ geminiDir: fixturesDir });
+
+      await expect(adapter.getParseDependencies()).resolves.toEqual([
+        path.join(fixturesDir, 'projects.json'),
+      ]);
+    });
+
     it('reloads projects.json between parses on the same adapter instance', async () => {
       const tempDir = await mkdtemp(path.join(os.tmpdir(), 'gemini-project-mapping-'));
       tempDirs.push(tempDir);
@@ -265,6 +273,26 @@ describe('GeminiSourceAdapter', () => {
 
       expect(result.events).toHaveLength(0);
       expect(result.skippedRowReasons).toEqual([{ reason: 'invalid_timestamp', count: 1 }]);
+    });
+
+    it('reports invalid message rows', async () => {
+      const tempDir = await mkdtemp(path.join(os.tmpdir(), 'gemini-invalid-message-'));
+      tempDirs.push(tempDir);
+      const filePath = path.join(tempDir, 'invalid-message.json');
+      await writeFile(
+        filePath,
+        JSON.stringify({
+          sessionId: 'session-invalid-message',
+          messages: [null],
+        }),
+        'utf8',
+      );
+
+      const adapter = new GeminiSourceAdapter({ geminiDir: fixturesDir });
+      const result = await adapter.parseFileWithDiagnostics(filePath);
+
+      expect(result.events).toHaveLength(0);
+      expect(result.skippedRowReasons).toEqual([{ reason: 'invalid_message', count: 1 }]);
     });
 
     it('reports event creation failures when fallback sessionId is invalid', async () => {

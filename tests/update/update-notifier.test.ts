@@ -73,6 +73,12 @@ describe('update-notifier', () => {
     expect(shouldOfferUpdate('1.2.3-beta.1', '1.2.3')).toBe(true);
   });
 
+  it('does not treat blank npm command env as an npx execution signal', () => {
+    expect(
+      isLikelyNpxExecution(['/usr/bin/node', '/app/dist/index.js'], { npm_command: '   ' }),
+    ).toBe(false);
+  });
+
   it('detects argv shapes where update check should be skipped', () => {
     expect(shouldSkipUpdateCheckForArgv(['node', '/app/dist/index.js'])).toBe(false);
     expect(shouldSkipUpdateCheckForArgv(['node', '/app/dist/index.js', '--help'])).toBe(true);
@@ -599,6 +605,37 @@ describe('update-notifier', () => {
     expect(childProcessMock.childProcess.on).toHaveBeenCalledWith('error', expect.any(Function));
     expect(childProcessMock.childProcess.unref).toHaveBeenCalledOnce();
     expect(() => childProcessMock.getErrorHandler()?.(new Error('ENOENT'))).not.toThrow();
+  });
+
+  it('returns early when fresh cached version does not offer an update', async () => {
+    const cacheFilePath = await createTempCachePath('update-fresh-no-offer-');
+
+    await writeFile(
+      cacheFilePath,
+      JSON.stringify({
+        checkedAt: 1_000,
+        latestVersion: '0.1.0',
+      }),
+      'utf8',
+    );
+
+    const notify = vi.fn();
+
+    const result = await checkForUpdatesAndMaybeRestart({
+      packageName: 'llm-usage-metrics',
+      currentVersion: '0.1.0',
+      cacheFilePath,
+      cacheTtlMs: 5_000,
+      now: () => 2_000,
+      stdinIsTTY: false,
+      stdoutIsTTY: false,
+      env: { PATH: '/usr/bin' },
+      argv: ['/usr/bin/node', '/app/dist/index.js', 'daily'],
+      notify,
+    });
+
+    expect(result).toEqual({ continueExecution: true });
+    expect(notify).not.toHaveBeenCalled();
   });
 
   it('swallows unexpected notifier errors and continues execution', async () => {
