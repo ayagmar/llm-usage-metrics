@@ -116,6 +116,68 @@ describe('renderOptimizeReport', () => {
     expect(output).toContain('Missing candidate pricing: gpt-4.1-mini');
   });
 
+  it('reports unavailable ALL candidate summaries when savings cannot be computed', () => {
+    const data = createOptimizeDataResult();
+    data.rows = data.rows.map((row) =>
+      row.rowType === 'candidate' && row.periodKey === 'ALL'
+        ? {
+            ...row,
+            savingsUsd: undefined,
+            savingsPct: undefined,
+          }
+        : row,
+    );
+
+    const output = renderOptimizeReport(data, 'terminal', {
+      granularity: 'daily',
+      useColor: false,
+    });
+
+    expect(output).toContain(
+      'ALL best candidate: unavailable (missing baseline or candidate pricing)',
+    );
+  });
+
+  it('reports ALL candidate cost increases when the best candidate is more expensive', () => {
+    const data = createOptimizeDataResult();
+    data.rows = data.rows.map((row) =>
+      row.rowType === 'candidate' && row.periodKey === 'ALL'
+        ? {
+            ...row,
+            savingsUsd: -0.25,
+            savingsPct: -0.2,
+          }
+        : row,
+    );
+
+    const output = renderOptimizeReport(data, 'terminal', {
+      granularity: 'daily',
+      useColor: false,
+    });
+
+    expect(output).toContain('ALL best candidate: gpt-4.1 increases cost by $0.25 (-20.00%)');
+  });
+
+  it('reports ALL candidate cost matches when savings are neutral', () => {
+    const data = createOptimizeDataResult();
+    data.rows = data.rows.map((row) =>
+      row.rowType === 'candidate' && row.periodKey === 'ALL'
+        ? {
+            ...row,
+            savingsUsd: 0,
+            savingsPct: 0,
+          }
+        : row,
+    );
+
+    const output = renderOptimizeReport(data, 'terminal', {
+      granularity: 'daily',
+      useColor: false,
+    });
+
+    expect(output).toContain('ALL best candidate: gpt-4.1 matches baseline cost');
+  });
+
   it('hides notes column when no candidate notes are present', () => {
     const data = createOptimizeDataResult();
     data.rows = data.rows.map((row) =>
@@ -184,5 +246,16 @@ describe('renderOptimizeReport', () => {
     expect(parsed).toHaveLength(4);
     expect(parsed[0]).toMatchObject({ rowType: 'baseline', periodKey: '2026-02-10' });
     expect(parsed[3]).toMatchObject({ rowType: 'candidate', periodKey: 'ALL' });
+  });
+
+  it('renders colored terminal output without changing visible optimize context', () => {
+    const output = renderOptimizeReport(createOptimizeDataResult(), 'terminal', {
+      granularity: 'monthly',
+      useColor: true,
+    });
+
+    expect(output).toContain('Monthly Optimize Report');
+    expect(output).toContain('Provider scope: openai');
+    expect(output).toContain('ALL best candidate: gpt-4.1 saves $0.15 (12.00%)');
   });
 });

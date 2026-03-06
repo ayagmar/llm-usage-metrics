@@ -150,6 +150,17 @@ describe('renderEfficiencyReport', () => {
     expect(output).toContain('│ ALL');
   });
 
+  it('renders colored terminal rows for styled summary metrics', () => {
+    const output = renderEfficiencyReport(createEfficiencyDataResult(), 'terminal', {
+      granularity: 'daily',
+      useColor: true,
+    });
+
+    expect(output).toContain('Daily Efficiency Report');
+    expect(output).toContain('ALL');
+    expect(output).toContain('2026-02-10');
+  });
+
   it('renders monthly terminal title without embedding diagnostics', () => {
     const output = renderEfficiencyReport(
       createEfficiencyDataResult({
