@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { buildEfficiencyData } from '../../src/cli/build-efficiency-data.js';
+import { RuntimeProfileCollector } from '../../src/cli/runtime-profile.js';
 import type {
   UsageEventDataset,
   UsageEventDatasetPricingResult,
@@ -97,6 +98,7 @@ function createUsageEventDataset(options: Record<string, unknown> = {}): UsageEv
     normalizedInputs: {
       timezone: 'Europe/Paris',
       providerFilter: undefined,
+      candidateProviderRoots: undefined,
       sourceFilter: undefined,
       modelFilter: undefined,
       explicitSourceIds: new Set(),
@@ -506,5 +508,52 @@ describe('buildEfficiencyData', () => {
 
     expect(buildUsageEventDatasetMock).not.toHaveBeenCalled();
     expect(collectGitOutcomesMock).not.toHaveBeenCalled();
+  });
+
+  it('captures efficiency-specific runtime stages in usage diagnostics when profiling is enabled', async () => {
+    let nowTick = 0;
+    const runtimeProfile = new RuntimeProfileCollector(() => {
+      nowTick += 1;
+      return nowTick;
+    });
+
+    const result = await buildEfficiencyData(
+      'daily',
+      {},
+      {
+        runtimeProfile,
+        buildUsageEventDataset: async (options) => createUsageEventDataset(options),
+        applyPricingToUsageEventDataset: async () => createPricingResult(),
+        collectGitOutcomes: async () => ({
+          periodOutcomes: new Map(),
+          totalOutcomes: {
+            commitCount: 0,
+            linesAdded: 0,
+            linesDeleted: 0,
+            linesChanged: 0,
+          },
+          diagnostics: {
+            repoDir: '/tmp/repo',
+            includeMergeCommits: false,
+            commitsCollected: 0,
+            linesAdded: 0,
+            linesDeleted: 0,
+          },
+        }),
+        resolveRepoRoot: async () => '/tmp/repo',
+      },
+    );
+
+    expect(
+      result.diagnostics.usage.runtimeProfile?.stageTimings.map((timing) => timing.name),
+    ).toEqual(
+      expect.arrayContaining([
+        'efficiency.dataset.total',
+        'efficiency.attribute_repo',
+        'efficiency.collect_git_outcomes',
+        'efficiency.aggregate_usage',
+        'efficiency.aggregate',
+      ]),
+    );
   });
 });

@@ -159,6 +159,73 @@ describe('run-optimize-report', () => {
     ).toBe(true);
   });
 
+  it('emits runtime profile diagnostics on stderr when enabled', async () => {
+    const previousProfile = process.env.LLM_USAGE_PROFILE_RUNTIME;
+    process.env.LLM_USAGE_PROFILE_RUNTIME = '1';
+    vi.mocked(buildOptimizeData).mockResolvedValueOnce({
+      rows: [],
+      diagnostics: {
+        usage: {
+          sessionStats: [],
+          sourceFailures: [],
+          skippedRows: [],
+          pricingOrigin: 'none',
+          activeEnvOverrides: [],
+          timezone: 'UTC',
+          runtimeProfile: {
+            sourceSelection: {
+              availableSourceIds: ['pi', 'codex'],
+              selectedSourceIds: ['codex'],
+              candidateProviderRoots: ['openai'],
+            },
+            parseCache: {
+              hits: 1,
+              misses: 0,
+            },
+            parseTotals: {
+              filesFound: 1,
+              eventsParsed: 2,
+            },
+            sourceStats: [
+              {
+                source: 'codex',
+                filesFound: 1,
+                eventsParsed: 2,
+                cacheHits: 1,
+                cacheMisses: 0,
+              },
+            ],
+            stageTimings: [{ name: 'optimize.dataset.total', durationMs: 1.23 }],
+          },
+        },
+        provider: 'openai',
+        baselineCostIncomplete: false,
+        candidatesWithMissingPricing: [],
+      },
+    });
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    try {
+      await runOptimizeReport('daily', {
+        candidateModel: ['gpt-4.1'],
+        json: true,
+      });
+
+      expect(consoleLogSpy).toHaveBeenCalledTimes(1);
+      const stderrLines = consoleErrorSpy.mock.calls.map((call) => String(call[0]));
+      expect(stderrLines.some((line) => line.includes('Runtime profile:'))).toBe(true);
+      expect(stderrLines.some((line) => line.includes('source selection:'))).toBe(true);
+      expect(stderrLines.some((line) => line.includes('stage timings:'))).toBe(true);
+    } finally {
+      if (previousProfile === undefined) {
+        delete process.env.LLM_USAGE_PROFILE_RUNTIME;
+      } else {
+        process.env.LLM_USAGE_PROFILE_RUNTIME = previousProfile;
+      }
+    }
+  });
+
   it('emits optimize warning diagnostics when provided by data builder', async () => {
     const buildOptimizeDataMock = vi.mocked(buildOptimizeData);
     buildOptimizeDataMock.mockResolvedValueOnce({

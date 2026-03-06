@@ -8,6 +8,7 @@ import type { ReportGranularity } from '../utils/time-buckets.js';
 import { buildEfficiencyData } from './build-efficiency-data.js';
 import { emitDiagnostics } from './emit-diagnostics.js';
 import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
+import { createRuntimeProfileCollector } from './runtime-profile.js';
 import type { EfficiencyCommandOptions, EfficiencyDiagnostics } from './usage-data-contracts.js';
 
 const efficiencyReportFormats = [
@@ -32,6 +33,7 @@ function validateShareOption(
 async function prepareEfficiencyReport(
   granularity: ReportGranularity,
   options: EfficiencyCommandOptions,
+  deps: Parameters<typeof buildEfficiencyData>[2] = {},
 ) {
   return prepareReport({
     commandOptions: options,
@@ -39,8 +41,9 @@ async function prepareEfficiencyReport(
     validate: () => {
       validateShareOption(granularity, options);
     },
-    buildData: () => buildEfficiencyData(granularity, options),
+    buildData: () => buildEfficiencyData(granularity, options, deps),
     getDiagnostics: (efficiencyData) => efficiencyData.diagnostics,
+    runtimeProfile: deps.runtimeProfile,
     createShareArtifact: options.share
       ? (efficiencyData) => ({
           fileName: 'efficiency-monthly-share.svg',
@@ -84,7 +87,8 @@ export async function runEfficiencyReport(
   granularity: ReportGranularity,
   options: EfficiencyCommandOptions,
 ): Promise<void> {
-  const preparedReport = await prepareEfficiencyReport(granularity, options);
+  const runtimeProfile = createRuntimeProfileCollector();
+  const preparedReport = await prepareEfficiencyReport(granularity, options, { runtimeProfile });
 
   await runPreparedReport<EfficiencyDiagnostics, EfficiencyReportFormat>({
     preparedReport,
@@ -93,6 +97,7 @@ export async function runEfficiencyReport(
     },
     getEnvVarOverrides: (diagnostics) => diagnostics.usage.activeEnvOverrides,
     emitReportDiagnostics: emitEfficiencyReportDiagnostics,
+    getRuntimeProfile: (diagnostics) => diagnostics.usage.runtimeProfile,
     warnOnTerminalOverflow: true,
   });
 }

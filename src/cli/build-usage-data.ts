@@ -5,6 +5,7 @@ import {
   applyPricingToUsageEventDataset,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
+import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 import type {
   BuildUsageDataDeps,
   ReportCommandOptions,
@@ -16,18 +17,24 @@ export async function buildUsageData(
   options: ReportCommandOptions,
   deps: BuildUsageDataDeps = {},
 ): Promise<UsageDataResult> {
-  const dataset = await buildUsageEventDataset(options, deps);
+  const dataset = await measureRuntimeProfileStage(
+    deps.runtimeProfile,
+    'usage.dataset.total',
+    async () => await buildUsageEventDataset(options, deps),
+  );
   const { pricedEvents, pricingOrigin, pricingWarning } = await applyPricingToUsageEventDataset(
     dataset,
     deps,
     'auto',
   );
 
-  const rows = aggregateUsage(pricedEvents, {
-    granularity,
-    timezone: dataset.normalizedInputs.timezone,
-    sourceOrder: dataset.adaptersToParse.map((adapter) => adapter.id),
-  });
+  const rows = measureRuntimeProfileStageSync(deps.runtimeProfile, 'usage.aggregate', () =>
+    aggregateUsage(pricedEvents, {
+      granularity,
+      timezone: dataset.normalizedInputs.timezone,
+      sourceOrder: dataset.adaptersToParse.map((adapter) => adapter.id),
+    }),
+  );
 
   const diagnostics = buildUsageDiagnostics({
     adaptersToParse: dataset.adaptersToParse,
@@ -37,6 +44,7 @@ export async function buildUsageData(
     pricingWarning,
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     timezone: dataset.normalizedInputs.timezone,
+    runtimeProfile: deps.runtimeProfile?.snapshot(),
   });
 
   return assembleUsageDataResult(pricedEvents, rows, diagnostics);

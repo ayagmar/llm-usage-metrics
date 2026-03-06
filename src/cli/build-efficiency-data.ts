@@ -18,6 +18,7 @@ import type {
   EfficiencyCommandOptions,
   EfficiencyDataResult,
 } from './usage-data-contracts.js';
+import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 
 export type BuildEfficiencyDataDeps = BuildUsageDataDeps & {
   buildUsageEventDataset?: typeof buildUsageEventDataset;
@@ -114,8 +115,57 @@ export async function buildEfficiencyData(
     throw new Error('--repo-dir must be a non-empty path');
   }
 
-  const dataset = await buildDataset(options, deps);
+  const dataset = await measureRuntimeProfileStage(
+    deps.runtimeProfile,
+    'efficiency.dataset.total',
+    async () => await buildDataset(options, deps),
+  );
   const { pricedEvents, pricingOrigin, pricingWarning } = await applyPricing(dataset, deps, 'auto');
+  const attribution = await measureRuntimeProfileStage(
+    deps.runtimeProfile,
+    'efficiency.attribute_repo',
+    async () =>
+      await attributeUsageEventsToRepo(pricedEvents, repoDir ?? process.cwd(), resolveRepoRoot),
+  );
+  const matchedEventsWithSignal = attribution.matchedEvents.filter((event) =>
+    hasMeaningfulEfficiencyUsageSignal(event),
+  );
+  const activeUsageDays = new Set(
+    matchedEventsWithSignal.map((event) =>
+      getPeriodKey(event.timestamp, 'daily', dataset.normalizedInputs.timezone),
+    ),
+  );
+  const gitOutcomes = await measureRuntimeProfileStage(
+    deps.runtimeProfile,
+    'efficiency.collect_git_outcomes',
+    async () =>
+      await collectOutcomes({
+        repoDir,
+        granularity,
+        timezone: dataset.normalizedInputs.timezone,
+        since: options.since,
+        until: options.until,
+        includeMergeCommits: options.includeMergeCommits,
+        activeUsageDays,
+      }),
+  );
+  const repoScopedUsageRows = measureRuntimeProfileStageSync(
+    deps.runtimeProfile,
+    'efficiency.aggregate_usage',
+    () =>
+      aggregateUsage(matchedEventsWithSignal, {
+        granularity,
+        timezone: dataset.normalizedInputs.timezone,
+        includeModelBreakdown: false,
+      }),
+  );
+
+  const rows = measureRuntimeProfileStageSync(deps.runtimeProfile, 'efficiency.aggregate', () =>
+    aggregateEfficiency({
+      usageRows: repoScopedUsageRows,
+      periodOutcomes: gitOutcomes.periodOutcomes,
+    }),
+  );
   const usageDiagnostics = buildUsageDiagnostics({
     adaptersToParse: dataset.adaptersToParse,
     successfulParseResults: dataset.successfulParseResults,
@@ -124,38 +174,7 @@ export async function buildEfficiencyData(
     pricingWarning,
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     timezone: dataset.normalizedInputs.timezone,
-  });
-  const attribution = await attributeUsageEventsToRepo(
-    pricedEvents,
-    repoDir ?? process.cwd(),
-    resolveRepoRoot,
-  );
-  const matchedEventsWithSignal = attribution.matchedEvents.filter((event) =>
-    hasMeaningfulEfficiencyUsageSignal(event),
-  );
-  const activeUsageDays = new Set(
-    matchedEventsWithSignal.map((event) =>
-      getPeriodKey(event.timestamp, 'daily', usageDiagnostics.timezone),
-    ),
-  );
-  const gitOutcomes = await collectOutcomes({
-    repoDir,
-    granularity,
-    timezone: usageDiagnostics.timezone,
-    since: options.since,
-    until: options.until,
-    includeMergeCommits: options.includeMergeCommits,
-    activeUsageDays,
-  });
-  const repoScopedUsageRows = aggregateUsage(matchedEventsWithSignal, {
-    granularity,
-    timezone: usageDiagnostics.timezone,
-    includeModelBreakdown: false,
-  });
-
-  const rows = aggregateEfficiency({
-    usageRows: repoScopedUsageRows,
-    periodOutcomes: gitOutcomes.periodOutcomes,
+    runtimeProfile: deps.runtimeProfile?.snapshot(),
   });
 
   return {

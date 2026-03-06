@@ -20,6 +20,7 @@ const ENV_VARS_TO_DISPLAY: Array<{ name: string; description: string }> = [
   { name: 'LLM_USAGE_PARSE_CACHE_TTL_MS', description: 'file parse cache TTL' },
   { name: 'LLM_USAGE_PARSE_CACHE_MAX_ENTRIES', description: 'file parse cache max entries' },
   { name: 'LLM_USAGE_PARSE_CACHE_MAX_BYTES', description: 'file parse cache max bytes' },
+  { name: 'LLM_USAGE_PROFILE_RUNTIME', description: 'emit runtime profiling diagnostics' },
 ];
 
 export function getActiveEnvVarOverrides(): EnvVarOverride[] {

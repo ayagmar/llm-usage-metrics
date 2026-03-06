@@ -10,6 +10,7 @@ import type { OptimizeRow } from '../optimize/optimize-row.js';
 import type { PricingSource } from '../pricing/types.js';
 import type { SourceAdapter } from '../sources/source-adapter.js';
 import type { TrendSeries, TrendsMetric } from '../trends/trends-series.js';
+import type { RuntimeProfileCollector, RuntimeProfileSnapshot } from './runtime-profile.js';
 
 export type ReportCommandOptions = {
   piDir?: string;
@@ -84,6 +85,7 @@ export type UsageDiagnostics = {
   pricingWarning?: string;
   activeEnvOverrides: EnvVarOverride[];
   timezone: string;
+  runtimeProfile?: RuntimeProfileSnapshot;
 };
 
 export type UsageDataResult = {
@@ -148,6 +150,7 @@ export type BuildUsageDataDeps = {
     runtimeConfig: PricingFetcherRuntimeConfig,
   ) => Promise<PricingLoadResult>;
   getActiveEnvVarOverrides?: () => EnvVarOverride[];
+  runtimeProfile?: RuntimeProfileCollector;
 };
 
 export type BuildTrendsDataDeps = BuildUsageDataDeps & {

@@ -1,6 +1,14 @@
 import { logger } from '../../utils/logger.js';
 import type { EnvVarOverride } from '../../config/env-var-display.js';
 import { emitEnvVarOverrides } from '../emit-env-var-overrides.js';
+import {
+  emitRuntimeProfile,
+  mergeRuntimeProfiles,
+  measureRuntimeProfileStage,
+  measureRuntimeProfileStageSync,
+  type RuntimeProfileCollector,
+  type RuntimeProfileSnapshot,
+} from '../runtime-profile.js';
 import { writeAndOpenShareSvgFile } from '../share-artifact.js';
 import { warnIfTerminalTableOverflows } from '../terminal-overflow-warning.js';
 
@@ -22,6 +30,7 @@ type PreparedReport<Format extends string, Diagnostics> = {
   output: string;
   diagnostics: Diagnostics;
   shareArtifact?: ShareArtifact;
+  runtimeProfile?: RuntimeProfileCollector;
 };
 
 type PrepareReportOptions<Data, Diagnostics, Format extends StandardReportFormat> = {
@@ -32,6 +41,7 @@ type PrepareReportOptions<Data, Diagnostics, Format extends StandardReportFormat
   render: (data: Data, format: Format) => string;
   getDiagnostics: (data: Data) => Diagnostics;
   createShareArtifact?: (data: Data) => ShareArtifact | undefined;
+  runtimeProfile?: RuntimeProfileCollector;
 };
 
 type RunPreparedReportOptions<Diagnostics, Format extends string> = {
@@ -39,6 +49,7 @@ type RunPreparedReportOptions<Diagnostics, Format extends string> = {
   emitCommonDiagnostics?: (diagnostics: Diagnostics) => void;
   getEnvVarOverrides?: (diagnostics: Diagnostics) => EnvVarOverride[];
   emitReportDiagnostics?: (diagnostics: Diagnostics) => void;
+  getRuntimeProfile?: (diagnostics: Diagnostics) => RuntimeProfileSnapshot | undefined;
   warnOnTerminalOverflow?: boolean;
 };
 
@@ -74,13 +85,23 @@ export async function prepareReport<Data, Diagnostics, Format extends StandardRe
   options.validate?.();
   const format = resolveReportFormat(options.commandOptions, options.supportedFormats);
 
-  const data = await options.buildData();
+  const data = await measureRuntimeProfileStage(
+    options.runtimeProfile,
+    'report.prepare.build_data',
+    async () => await options.buildData(),
+  );
+  const output = measureRuntimeProfileStageSync(
+    options.runtimeProfile,
+    'report.prepare.render',
+    () => options.render(data, format),
+  );
 
   return {
     format,
     diagnostics: options.getDiagnostics(data),
-    output: options.render(data, format),
+    output,
     shareArtifact: options.createShareArtifact?.(data),
+    runtimeProfile: options.runtimeProfile,
   };
 }
 
@@ -106,6 +127,13 @@ export async function runPreparedReport<Diagnostics, Format extends string>(
   const envVarOverrides = options.getEnvVarOverrides?.(options.preparedReport.diagnostics) ?? [];
   emitEnvVarOverrides(envVarOverrides, logger);
   options.emitReportDiagnostics?.(options.preparedReport.diagnostics);
+  emitRuntimeProfile(
+    mergeRuntimeProfiles(
+      options.preparedReport.runtimeProfile?.snapshot(),
+      options.getRuntimeProfile?.(options.preparedReport.diagnostics),
+    ),
+    logger,
+  );
 
   if (options.warnOnTerminalOverflow && options.preparedReport.format === 'terminal') {
     warnIfTerminalTableOverflows(options.preparedReport.output, (message) => {

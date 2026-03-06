@@ -8,6 +8,7 @@ import type { ReportGranularity } from '../utils/time-buckets.js';
 import { buildOptimizeData } from './build-optimize-data.js';
 import { emitDiagnostics } from './emit-diagnostics.js';
 import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
+import { createRuntimeProfileCollector } from './runtime-profile.js';
 import type { OptimizeCommandOptions, OptimizeDiagnostics } from './usage-data-contracts.js';
 
 const optimizeReportFormats = [
@@ -36,6 +37,7 @@ function validateShareOption(
 async function prepareOptimizeReport(
   granularity: ReportGranularity,
   options: OptimizeCommandOptions,
+  deps: Parameters<typeof buildOptimizeData>[2] = {},
 ) {
   return prepareReport({
     commandOptions: options,
@@ -44,7 +46,7 @@ async function prepareOptimizeReport(
       validateShareOption(granularity, options);
     },
     buildData: async () => {
-      const optimizeData = await buildOptimizeData(granularity, options);
+      const optimizeData = await buildOptimizeData(granularity, options, deps);
 
       return {
         optimizeData,
@@ -57,6 +59,7 @@ async function prepareOptimizeReport(
       ...bundle.optimizeData.diagnostics,
       candidateCount: bundle.candidateCount,
     }),
+    runtimeProfile: deps.runtimeProfile,
     createShareArtifact: options.share
       ? (bundle) => ({
           fileName: 'optimize-monthly-share.svg',
@@ -99,7 +102,8 @@ export async function runOptimizeReport(
   granularity: ReportGranularity,
   options: OptimizeCommandOptions,
 ): Promise<void> {
-  const preparedReport = await prepareOptimizeReport(granularity, options);
+  const runtimeProfile = createRuntimeProfileCollector();
+  const preparedReport = await prepareOptimizeReport(granularity, options, { runtimeProfile });
 
   await runPreparedReport<OptimizePreparedDiagnostics, OptimizeReportFormat>({
     preparedReport,
@@ -108,6 +112,7 @@ export async function runOptimizeReport(
     },
     getEnvVarOverrides: (diagnostics) => diagnostics.usage.activeEnvOverrides,
     emitReportDiagnostics: emitOptimizeReportDiagnostics,
+    getRuntimeProfile: (diagnostics) => diagnostics.usage.runtimeProfile,
     warnOnTerminalOverflow: true,
   });
 }

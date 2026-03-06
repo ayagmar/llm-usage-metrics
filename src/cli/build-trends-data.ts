@@ -14,6 +14,7 @@ import type {
   TrendsDataResult,
 } from './usage-data-contracts.js';
 import type { TrendsMetric } from '../trends/trends-series.js';
+import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 
 type ResolvedDateRange = {
   from: string;
@@ -182,14 +183,19 @@ export async function buildTrendsData(
   const timezone = options.timezone?.trim() ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   validateTimezone(timezone);
   const resolved = resolveTrendsOptions(options, timezone, now);
-  const dataset = await buildUsageEventDataset(
-    {
-      ...options,
-      timezone,
-      since: resolved.fetchDateRange?.from ?? options.since,
-      until: resolved.fetchDateRange?.to ?? options.until,
-    },
-    deps,
+  const dataset = await measureRuntimeProfileStage(
+    deps.runtimeProfile,
+    'trends.dataset.total',
+    async () =>
+      await buildUsageEventDataset(
+        {
+          ...options,
+          timezone,
+          since: resolved.fetchDateRange?.from ?? options.since,
+          until: resolved.fetchDateRange?.to ?? options.until,
+        },
+        deps,
+      ),
   );
   const pricingResult =
     resolved.metric === 'cost'
@@ -199,12 +205,17 @@ export async function buildTrendsData(
           pricingOrigin: 'none' as const,
           pricingWarning: undefined,
         };
-  const dailyRows = aggregateUsage(pricingResult.pricedEvents, {
-    granularity: 'daily',
-    timezone: dataset.normalizedInputs.timezone,
-    sourceOrder: dataset.adaptersToParse.map((adapter) => adapter.id),
-    includeModelBreakdown: false,
-  });
+  const dailyRows = measureRuntimeProfileStageSync(
+    deps.runtimeProfile,
+    'trends.aggregate_usage',
+    () =>
+      aggregateUsage(pricingResult.pricedEvents, {
+        granularity: 'daily',
+        timezone: dataset.normalizedInputs.timezone,
+        sourceOrder: dataset.adaptersToParse.map((adapter) => adapter.id),
+        includeModelBreakdown: false,
+      }),
+  );
   const observedDates = dailyRows
     .filter((row) => row.rowType !== 'grand_total')
     .map((row) => row.periodKey)
@@ -212,12 +223,14 @@ export async function buildTrendsData(
   const outputDateRange = resolveOutputDateRange(options, resolved.today, resolved.days, [
     ...new Set(observedDates),
   ]);
-  const trends = aggregateTrends(filterRowsToDateRange(dailyRows, outputDateRange), {
-    dateRange: outputDateRange,
-    metric: resolved.metric,
-    bySource: options.bySource === true,
-    sourceOrder: dataset.adaptersToParse.map((adapter) => adapter.id),
-  });
+  const trends = measureRuntimeProfileStageSync(deps.runtimeProfile, 'trends.aggregate', () =>
+    aggregateTrends(filterRowsToDateRange(dailyRows, outputDateRange), {
+      dateRange: outputDateRange,
+      metric: resolved.metric,
+      bySource: options.bySource === true,
+      sourceOrder: dataset.adaptersToParse.map((adapter) => adapter.id),
+    }),
+  );
   const diagnostics = buildUsageDiagnostics({
     adaptersToParse: dataset.adaptersToParse,
     successfulParseResults: dataset.successfulParseResults,
@@ -226,6 +239,7 @@ export async function buildTrendsData(
     pricingWarning: pricingResult.pricingWarning,
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     timezone: dataset.normalizedInputs.timezone,
+    runtimeProfile: deps.runtimeProfile?.snapshot(),
   });
 
   return {

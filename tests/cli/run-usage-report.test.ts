@@ -509,6 +509,40 @@ describe('buildUsageReport', () => {
     }
   });
 
+  it('emits runtime profile diagnostics to stderr when enabled', async () => {
+    const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'usage-run-runtime-profile-'));
+    tempDirs.push(emptyDir);
+    const previousProfile = process.env.LLM_USAGE_PROFILE_RUNTIME;
+    process.env.LLM_USAGE_PROFILE_RUNTIME = '1';
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    try {
+      await runUsageReport('daily', {
+        piDir: emptyDir,
+        codexDir: emptyDir,
+        source: directoryBackedSources,
+        timezone: 'UTC',
+      });
+
+      expect(logSpy).toHaveBeenCalledTimes(1);
+      const stderrLines = errorSpy.mock.calls.map((call) => String(call[0]));
+      expect(stderrLines.some((line) => line.includes('Runtime profile:'))).toBe(true);
+      expect(stderrLines.some((line) => line.includes('source selection:'))).toBe(true);
+      expect(stderrLines.some((line) => line.includes('parse cache:'))).toBe(true);
+      expect(stderrLines.some((line) => line.includes('stage timings:'))).toBe(true);
+    } finally {
+      if (previousProfile === undefined) {
+        delete process.env.LLM_USAGE_PROFILE_RUNTIME;
+      } else {
+        process.env.LLM_USAGE_PROFILE_RUNTIME = previousProfile;
+      }
+      errorSpy.mockRestore();
+      logSpy.mockRestore();
+    }
+  });
+
   it('emits a fullscreen hint only when terminal width cannot fit the table', async () => {
     const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'usage-run-overflow-hint-'));
     tempDirs.push(emptyDir);

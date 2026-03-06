@@ -1,6 +1,7 @@
 import { buildUsageData } from './build-usage-data.js';
 import { emitDiagnostics } from './emit-diagnostics.js';
 import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
+import { createRuntimeProfileCollector } from './runtime-profile.js';
 import type { ReportCommandOptions, UsageDiagnostics } from './usage-data-contracts.js';
 import { renderUsageReport, type UsageReportFormat } from '../render/render-usage-report.js';
 import { renderUsageShareSvg } from '../render/render-usage-share-svg.js';
@@ -21,14 +22,19 @@ function resolveShareFileName(granularity: ReportGranularity): string {
   return `usage-${granularity}-share.svg`;
 }
 
-async function prepareUsageReport(granularity: ReportGranularity, options: ReportCommandOptions) {
+async function prepareUsageReport(
+  granularity: ReportGranularity,
+  options: ReportCommandOptions,
+  deps: Parameters<typeof buildUsageData>[2] = {},
+) {
   const tableLayout = resolveTableLayout(options);
 
   return prepareReport({
     commandOptions: options,
     supportedFormats: usageReportFormats,
-    buildData: () => buildUsageData(granularity, options),
+    buildData: () => buildUsageData(granularity, options, deps),
     getDiagnostics: (usageData) => usageData.diagnostics,
+    runtimeProfile: deps.runtimeProfile,
     createShareArtifact: options.share
       ? (usageData) => ({
           fileName: resolveShareFileName(granularity),
@@ -56,12 +62,14 @@ export async function runUsageReport(
   granularity: ReportGranularity,
   options: ReportCommandOptions,
 ): Promise<void> {
-  const preparedReport = await prepareUsageReport(granularity, options);
+  const runtimeProfile = createRuntimeProfileCollector();
+  const preparedReport = await prepareUsageReport(granularity, options, { runtimeProfile });
 
   await runPreparedReport<UsageDiagnostics, UsageReportFormat>({
     preparedReport,
     emitCommonDiagnostics: emitDiagnostics,
     getEnvVarOverrides: (diagnostics) => diagnostics.activeEnvOverrides,
+    getRuntimeProfile: (diagnostics) => diagnostics.runtimeProfile,
     warnOnTerminalOverflow: true,
   });
 }
