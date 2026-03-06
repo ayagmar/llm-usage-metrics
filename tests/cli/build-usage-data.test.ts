@@ -797,6 +797,50 @@ describe('buildUsageData', () => {
     ).rejects.toThrow('Failed to parse explicitly requested source(s): codex: codex parse failed');
   });
 
+  it('fails when an explicitly selected fixed-provider source is incompatible with --provider', async () => {
+    await expect(
+      buildUsageData(
+        'daily',
+        {
+          timezone: 'UTC',
+          source: 'gemini',
+          provider: 'openai',
+        },
+        {
+          ...withDeterministicRuntimeDeps(),
+          createAdapters: () => [
+            createAdapter('gemini', {}, { fixedProviderRoots: ['google'] }),
+            createAdapter('codex', {}, { fixedProviderRoots: ['openai'] }),
+          ],
+        },
+      ),
+    ).rejects.toThrow(
+      'Explicitly requested source(s) are incompatible with the requested --provider scope: gemini.',
+    );
+  });
+
+  it('fails when an explicit source override is incompatible with inferred model provider scope', async () => {
+    await expect(
+      buildUsageData(
+        'daily',
+        {
+          timezone: 'UTC',
+          geminiDir: '/tmp/explicit-gemini',
+          model: 'gpt-5.2',
+        },
+        {
+          ...withDeterministicRuntimeDeps(),
+          createAdapters: () => [
+            createAdapter('gemini', {}, { fixedProviderRoots: ['google'] }),
+            createAdapter('codex', {}, { fixedProviderRoots: ['openai'] }),
+          ],
+        },
+      ),
+    ).rejects.toThrow(
+      'Explicitly requested source(s) are incompatible with the requested --model scope: gemini.',
+    );
+  });
+
   it('fails when a source with an explicit override flag cannot be parsed', async () => {
     await expect(
       buildUsageData(

@@ -5,7 +5,11 @@ import {
 } from '../config/runtime-overrides.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { createDefaultAdapters } from '../sources/create-default-adapters.js';
-import { normalizeBuildUsageInputs, selectAdaptersForParsing } from './build-usage-data-inputs.js';
+import {
+  normalizeBuildUsageInputs,
+  selectAdaptersForParsing,
+  throwOnExplicitSourceScopeConflicts,
+} from './build-usage-data-inputs.js';
 import {
   filterParsedAdapterEvents,
   parseSelectedAdapters,
@@ -89,6 +93,12 @@ export async function buildUsageEventDataset(
         runtimeProfile,
       }),
   );
+  throwOnExplicitSourceScopeConflicts(adapters, adaptersToParse, {
+    explicitSourceIds: normalizedInputs.explicitSourceIds,
+    candidateProviderRoots: normalizedInputs.candidateProviderRoots,
+    providerFilter: normalizedInputs.providerFilter,
+    modelFilter: normalizedInputs.modelFilter,
+  });
 
   const { successfulParseResults, sourceFailures } = await measureRuntimeProfileStage(
     runtimeProfile,

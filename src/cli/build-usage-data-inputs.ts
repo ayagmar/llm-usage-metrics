@@ -276,3 +276,62 @@ export function selectAdaptersForParsing(
 
   return selectedAdapters;
 }
+
+function describeExplicitScopeConstraint(options: {
+  providerFilter: string | undefined;
+  modelFilter: string[] | undefined;
+}): string {
+  const activeFlags: string[] = [];
+
+  if (options.providerFilter) {
+    activeFlags.push('--provider');
+  }
+
+  if (options.modelFilter && options.modelFilter.length > 0) {
+    activeFlags.push('--model');
+  }
+
+  if (activeFlags.length === 0) {
+    return 'provider/model';
+  }
+
+  return activeFlags.join('/');
+}
+
+export function throwOnExplicitSourceScopeConflicts(
+  adapters: SourceAdapter[],
+  selectedAdapters: SourceAdapter[],
+  options: {
+    explicitSourceIds: ReadonlySet<string>;
+    candidateProviderRoots: string[] | undefined;
+    providerFilter: string | undefined;
+    modelFilter: string[] | undefined;
+  },
+): void {
+  if (!options.candidateProviderRoots || options.explicitSourceIds.size === 0) {
+    return;
+  }
+
+  const selectedSourceIds = new Set(selectedAdapters.map((adapter) => adapter.id.toLowerCase()));
+  const incompatibleExplicitSources = adapters
+    .filter((adapter) => {
+      const sourceId = adapter.id.toLowerCase();
+
+      if (!options.explicitSourceIds.has(sourceId) || selectedSourceIds.has(sourceId)) {
+        return false;
+      }
+
+      const fixedProviderRoots = adapter.capabilities?.fixedProviderRoots;
+      return Boolean(fixedProviderRoots && fixedProviderRoots.length > 0);
+    })
+    .map((adapter) => adapter.id)
+    .sort(compareByCodePoint);
+
+  if (incompatibleExplicitSources.length === 0) {
+    return;
+  }
+
+  throw new Error(
+    `Explicitly requested source(s) are incompatible with the requested ${describeExplicitScopeConstraint(options)} scope: ${incompatibleExplicitSources.join(', ')}.`,
+  );
+}
