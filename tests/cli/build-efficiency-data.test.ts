@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { buildEfficiencyData } from '../../src/cli/build-efficiency-data.js';
-import type { UsageDataResult } from '../../src/cli/usage-data-contracts.js';
+import type {
+  UsageEventDataset,
+  UsageEventDatasetPricingResult,
+} from '../../src/cli/build-usage-event-dataset.js';
+import type { UsageEvent } from '../../src/domain/usage-event.js';
+import type { SourceAdapter } from '../../src/sources/source-adapter.js';
 
 type CollectGitOutcomesFn = (options: { activeUsageDays?: ReadonlySet<string> }) => Promise<{
   periodOutcomes: Map<
@@ -23,105 +28,132 @@ type CollectGitOutcomesFn = (options: { activeUsageDays?: ReadonlySet<string> })
   };
 }>;
 
-function createUsageDataResult(): UsageDataResult {
+function createAdapter(id: SourceAdapter['id']): SourceAdapter {
   return {
-    // Intentionally includes multiple repo-scoped events so buildEfficiencyData
-    // is forced to re-aggregate from attributed events (not trust incoming rows).
-    events: [
+    id,
+    discoverFiles: async () => [],
+    parseFile: async () => [],
+  };
+}
+
+function createPricedEvents(): [UsageEvent, UsageEvent, UsageEvent] {
+  return [
+    {
+      source: 'pi',
+      sessionId: 'pi-session-1',
+      timestamp: '2026-02-11T12:00:00.000Z',
+      repoRoot: '/workspace/repo-a/app',
+      provider: 'openai',
+      model: 'gpt-4.1',
+      inputTokens: 120,
+      outputTokens: 80,
+      reasoningTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      totalTokens: 200,
+      costUsd: 2,
+      costMode: 'explicit',
+    },
+    {
+      source: 'opencode',
+      sessionId: 'opencode-session-1',
+      timestamp: '2026-02-11T12:05:00.000Z',
+      repoRoot: '/workspace/repo-b',
+      provider: 'github-copilot',
+      model: 'claude-opus-4.6',
+      inputTokens: 100,
+      outputTokens: 50,
+      reasoningTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      totalTokens: 150,
+      costUsd: 1.5,
+      costMode: 'explicit',
+    },
+    {
+      source: 'codex',
+      sessionId: 'codex-session-1',
+      timestamp: '2026-02-11T12:10:00.000Z',
+      provider: 'openai',
+      model: 'gpt-5.3-codex',
+      inputTokens: 60,
+      outputTokens: 40,
+      reasoningTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      totalTokens: 100,
+      costUsd: 1,
+      costMode: 'explicit',
+    },
+  ];
+}
+
+function createUsageEventDataset(options: Record<string, unknown> = {}): UsageEventDataset {
+  const pricedEvents = createPricedEvents();
+  const [piEvent, opencodeEvent, codexEvent] = pricedEvents;
+
+  return {
+    options,
+    normalizedInputs: {
+      timezone: 'Europe/Paris',
+      providerFilter: undefined,
+      sourceFilter: undefined,
+      modelFilter: undefined,
+      explicitSourceIds: new Set(),
+      pricingUrl: undefined,
+    },
+    adaptersToParse: [createAdapter('pi'), createAdapter('opencode'), createAdapter('codex')],
+    successfulParseResults: [
       {
         source: 'pi',
-        sessionId: 'pi-session-1',
-        timestamp: '2026-02-11T12:00:00.000Z',
-        repoRoot: '/workspace/repo-a/app',
-        provider: 'openai',
-        model: 'gpt-4.1',
-        inputTokens: 120,
-        outputTokens: 80,
-        reasoningTokens: 0,
-        cacheReadTokens: 0,
-        cacheWriteTokens: 0,
-        totalTokens: 200,
-        costUsd: 2,
-        costMode: 'explicit',
+        events: [piEvent],
+        filesFound: 1,
+        skippedRows: 0,
+        skippedRowReasons: [],
       },
       {
         source: 'opencode',
-        sessionId: 'opencode-session-1',
-        timestamp: '2026-02-11T12:05:00.000Z',
-        repoRoot: '/workspace/repo-b',
-        provider: 'github-copilot',
-        model: 'claude-opus-4.6',
-        inputTokens: 100,
-        outputTokens: 50,
-        reasoningTokens: 0,
-        cacheReadTokens: 0,
-        cacheWriteTokens: 0,
-        totalTokens: 150,
-        costUsd: 1.5,
-        costMode: 'explicit',
+        events: [opencodeEvent],
+        filesFound: 1,
+        skippedRows: 0,
+        skippedRowReasons: [],
       },
       {
         source: 'codex',
-        sessionId: 'codex-session-1',
-        timestamp: '2026-02-11T12:10:00.000Z',
-        provider: 'openai',
-        model: 'gpt-5.3-codex',
-        inputTokens: 60,
-        outputTokens: 40,
-        reasoningTokens: 0,
-        cacheReadTokens: 0,
-        cacheWriteTokens: 0,
-        totalTokens: 100,
-        costUsd: 1,
-        costMode: 'explicit',
+        events: [codexEvent],
+        filesFound: 1,
+        skippedRows: 0,
+        skippedRowReasons: [],
       },
     ],
-    // Intentionally only mirrors the pi slice so tests verify rows are rebuilt
-    // from attribution, not reused from this precomputed usage summary.
-    rows: [
-      {
-        rowType: 'period_source',
-        periodKey: '2026-02-11',
-        source: 'pi',
-        models: [],
-        modelBreakdown: [],
-        inputTokens: 120,
-        outputTokens: 80,
-        reasoningTokens: 0,
-        cacheReadTokens: 0,
-        cacheWriteTokens: 0,
-        totalTokens: 200,
-        costUsd: 2,
-      },
-      {
-        rowType: 'grand_total',
-        periodKey: 'ALL',
-        source: 'combined',
-        models: [],
-        modelBreakdown: [],
-        inputTokens: 120,
-        outputTokens: 80,
-        reasoningTokens: 0,
-        cacheReadTokens: 0,
-        cacheWriteTokens: 0,
-        totalTokens: 200,
-        costUsd: 2,
-      },
-    ],
-    diagnostics: {
-      sessionStats: [{ source: 'pi', filesFound: 1, eventsParsed: 1 }],
-      sourceFailures: [],
-      skippedRows: [],
-      pricingOrigin: 'cache',
-      activeEnvOverrides: [],
-      timezone: 'Europe/Paris',
+    sourceFailures: [],
+    filteredEvents: pricedEvents,
+    pricingRuntimeConfig: {
+      cacheTtlMs: 1_000,
+      fetchTimeoutMs: 1_000,
     },
+    readEnvVarOverrides: () => [],
+  };
+}
+
+function createPricingResult(
+  pricedEvents: UsageEvent[] = createPricedEvents(),
+): UsageEventDatasetPricingResult {
+  return {
+    pricedEvents,
+    pricingOrigin: 'cache',
+    pricingWarning: undefined,
   };
 }
 
 describe('buildEfficiencyData', () => {
   it('builds efficiency rows and propagates scope diagnostics', async () => {
-    const buildUsageDataMock = vi.fn(async () => createUsageDataResult());
+    const buildUsageEventDatasetMock = vi.fn(async (options: Record<string, unknown>) =>
+      createUsageEventDataset(options),
+    );
+    const applyPricingToUsageEventDatasetMock = vi.fn<
+      (...args: unknown[]) => Promise<UsageEventDatasetPricingResult>
+    >(async () => createPricingResult());
     const collectGitOutcomesMock = vi.fn(async () => ({
       periodOutcomes: new Map([
         [
@@ -157,7 +189,8 @@ describe('buildEfficiencyData', () => {
         model: 'gpt-4.1',
       },
       {
-        buildUsageData: buildUsageDataMock,
+        buildUsageEventDataset: buildUsageEventDatasetMock,
+        applyPricingToUsageEventDataset: applyPricingToUsageEventDatasetMock,
         collectGitOutcomes: collectGitOutcomesMock,
         resolveRepoRoot: async (pathHint) => {
           if (pathHint === process.cwd()) {
@@ -177,11 +210,12 @@ describe('buildEfficiencyData', () => {
       },
     );
 
-    expect(buildUsageDataMock).toHaveBeenCalledWith('daily', {
+    expect(buildUsageEventDatasetMock.mock.calls[0]?.[0]).toEqual({
       source: 'pi',
       provider: 'openai',
       model: 'gpt-4.1',
     });
+    expect(applyPricingToUsageEventDatasetMock.mock.calls[0]?.[2]).toBe('auto');
 
     expect(collectGitOutcomesMock).toHaveBeenCalledWith({
       repoDir: undefined,
@@ -212,6 +246,10 @@ describe('buildEfficiencyData', () => {
       repoExcludedUsageEvents: 1,
       repoUnattributedUsageEvents: 1,
     });
+    expect(result.diagnostics.usage).toMatchObject({
+      pricingOrigin: 'cache',
+      timezone: 'Europe/Paris',
+    });
     expect(result.diagnostics.scopeNote).toContain(
       'Usage filters (--source, --provider, --model) affect commit attribution too',
     );
@@ -222,7 +260,8 @@ describe('buildEfficiencyData', () => {
       'weekly',
       {},
       {
-        buildUsageData: async () => createUsageDataResult(),
+        buildUsageEventDataset: async (options) => createUsageEventDataset(options),
+        applyPricingToUsageEventDataset: async () => createPricingResult(),
         collectGitOutcomes: async () => ({
           periodOutcomes: new Map(),
           totalOutcomes: {
@@ -255,7 +294,8 @@ describe('buildEfficiencyData', () => {
         sourceDir: ['codex=/tmp/codex'],
       },
       {
-        buildUsageData: async () => createUsageDataResult(),
+        buildUsageEventDataset: async (options) => createUsageEventDataset(options),
+        applyPricingToUsageEventDataset: async () => createPricingResult(),
         collectGitOutcomes: async () => ({
           periodOutcomes: new Map(),
           totalOutcomes: {
@@ -288,7 +328,8 @@ describe('buildEfficiencyData', () => {
         droidDir: '/tmp/droid-sessions',
       },
       {
-        buildUsageData: async () => createUsageDataResult(),
+        buildUsageEventDataset: async (options) => createUsageEventDataset(options),
+        applyPricingToUsageEventDataset: async () => createPricingResult(),
         collectGitOutcomes: async () => ({
           periodOutcomes: new Map(),
           totalOutcomes: {
@@ -320,7 +361,8 @@ describe('buildEfficiencyData', () => {
         opencodeDb: '/tmp/opencode.db',
       },
       {
-        buildUsageData: async () => createUsageDataResult(),
+        buildUsageEventDataset: async (options) => createUsageEventDataset(options),
+        applyPricingToUsageEventDataset: async () => createPricingResult(),
         collectGitOutcomes: async () => ({
           periodOutcomes: new Map(),
           totalOutcomes: {
@@ -366,7 +408,8 @@ describe('buildEfficiencyData', () => {
       'daily',
       { repoDir: '/tmp/repo' },
       {
-        buildUsageData: async () => createUsageDataResult(),
+        buildUsageEventDataset: async (options) => createUsageEventDataset(options),
+        applyPricingToUsageEventDataset: async () => createPricingResult(),
         collectGitOutcomes: collectGitOutcomesMock,
         resolveRepoRoot: async () => undefined,
       },
@@ -401,17 +444,9 @@ describe('buildEfficiencyData', () => {
       'daily',
       { repoDir: '/tmp/repo' },
       {
-        buildUsageData: async () => ({
-          rows: [],
-          diagnostics: {
-            sessionStats: [],
-            sourceFailures: [],
-            skippedRows: [],
-            pricingOrigin: 'none',
-            activeEnvOverrides: [],
-            timezone: 'UTC',
-          },
-          events: [
+        buildUsageEventDataset: async (options) => createUsageEventDataset(options),
+        applyPricingToUsageEventDataset: async () =>
+          createPricingResult([
             {
               source: 'pi',
               sessionId: 'session-zero',
@@ -439,8 +474,7 @@ describe('buildEfficiencyData', () => {
               totalTokens: 25,
               costMode: 'estimated',
             },
-          ],
-        }),
+          ]),
         collectGitOutcomes: collectGitOutcomesMock,
         resolveRepoRoot: async () => '/tmp/repo',
       },
@@ -453,7 +487,10 @@ describe('buildEfficiencyData', () => {
     expect(options?.activeUsageDays).toEqual(new Set(['2026-02-11']));
   });
 
-  it('rejects blank --repo-dir values before running attribution and git outcomes', async () => {
+  it('rejects blank --repo-dir values before building usage or running git outcomes', async () => {
+    const buildUsageEventDatasetMock = vi.fn(async (options: Record<string, unknown>) =>
+      createUsageEventDataset(options),
+    );
     const collectGitOutcomesMock = vi.fn();
 
     await expect(
@@ -461,12 +498,13 @@ describe('buildEfficiencyData', () => {
         'daily',
         { repoDir: '   ' },
         {
-          buildUsageData: async () => createUsageDataResult(),
+          buildUsageEventDataset: buildUsageEventDatasetMock,
           collectGitOutcomes: collectGitOutcomesMock,
         },
       ),
     ).rejects.toThrow('--repo-dir must be a non-empty path');
 
+    expect(buildUsageEventDatasetMock).not.toHaveBeenCalled();
     expect(collectGitOutcomesMock).not.toHaveBeenCalled();
   });
 });

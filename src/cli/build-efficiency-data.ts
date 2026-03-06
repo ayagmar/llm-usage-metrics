@@ -8,11 +8,20 @@ import {
 } from '../efficiency/repo-attribution.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { getPeriodKey, type ReportGranularity } from '../utils/time-buckets.js';
-import { buildUsageData } from './build-usage-data.js';
-import type { EfficiencyCommandOptions, EfficiencyDataResult } from './usage-data-contracts.js';
+import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
+import {
+  applyPricingToUsageEventDataset,
+  buildUsageEventDataset,
+} from './build-usage-event-dataset.js';
+import type {
+  BuildUsageDataDeps,
+  EfficiencyCommandOptions,
+  EfficiencyDataResult,
+} from './usage-data-contracts.js';
 
-export type BuildEfficiencyDataDeps = {
-  buildUsageData?: typeof buildUsageData;
+export type BuildEfficiencyDataDeps = BuildUsageDataDeps & {
+  buildUsageEventDataset?: typeof buildUsageEventDataset;
+  applyPricingToUsageEventDataset?: typeof applyPricingToUsageEventDataset;
   collectGitOutcomes?: typeof collectGitOutcomes;
   resolveRepoRoot?: RepoRootResolver;
 };
@@ -95,7 +104,8 @@ export async function buildEfficiencyData(
   options: EfficiencyCommandOptions,
   deps: BuildEfficiencyDataDeps = {},
 ): Promise<EfficiencyDataResult> {
-  const buildUsage = deps.buildUsageData ?? buildUsageData;
+  const buildDataset = deps.buildUsageEventDataset ?? buildUsageEventDataset;
+  const applyPricing = deps.applyPricingToUsageEventDataset ?? applyPricingToUsageEventDataset;
   const collectOutcomes = deps.collectGitOutcomes ?? collectGitOutcomes;
   const resolveRepoRoot = deps.resolveRepoRoot ?? resolveRepoRootFromPathHint;
   const repoDir = options.repoDir?.trim();
@@ -104,9 +114,19 @@ export async function buildEfficiencyData(
     throw new Error('--repo-dir must be a non-empty path');
   }
 
-  const usageData = await buildUsage(granularity, options);
+  const dataset = await buildDataset(options, deps);
+  const { pricedEvents, pricingOrigin, pricingWarning } = await applyPricing(dataset, deps, 'auto');
+  const usageDiagnostics = buildUsageDiagnostics({
+    adaptersToParse: dataset.adaptersToParse,
+    successfulParseResults: dataset.successfulParseResults,
+    sourceFailures: dataset.sourceFailures,
+    pricingOrigin,
+    pricingWarning,
+    activeEnvOverrides: dataset.readEnvVarOverrides(),
+    timezone: dataset.normalizedInputs.timezone,
+  });
   const attribution = await attributeUsageEventsToRepo(
-    usageData.events,
+    pricedEvents,
     repoDir ?? process.cwd(),
     resolveRepoRoot,
   );
@@ -115,13 +135,13 @@ export async function buildEfficiencyData(
   );
   const activeUsageDays = new Set(
     matchedEventsWithSignal.map((event) =>
-      getPeriodKey(event.timestamp, 'daily', usageData.diagnostics.timezone),
+      getPeriodKey(event.timestamp, 'daily', usageDiagnostics.timezone),
     ),
   );
   const gitOutcomes = await collectOutcomes({
     repoDir,
     granularity,
-    timezone: usageData.diagnostics.timezone,
+    timezone: usageDiagnostics.timezone,
     since: options.since,
     until: options.until,
     includeMergeCommits: options.includeMergeCommits,
@@ -129,7 +149,7 @@ export async function buildEfficiencyData(
   });
   const repoScopedUsageRows = aggregateUsage(matchedEventsWithSignal, {
     granularity,
-    timezone: usageData.diagnostics.timezone,
+    timezone: usageDiagnostics.timezone,
     includeModelBreakdown: false,
   });
 
@@ -141,7 +161,7 @@ export async function buildEfficiencyData(
   return {
     rows,
     diagnostics: {
-      usage: usageData.diagnostics,
+      usage: usageDiagnostics,
       repoDir: gitOutcomes.diagnostics.repoDir,
       includeMergeCommits: gitOutcomes.diagnostics.includeMergeCommits,
       gitCommitCount: gitOutcomes.diagnostics.commitsCollected,
