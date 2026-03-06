@@ -55,6 +55,12 @@ function resolveTrailingDateRange(today: string, days: number): ResolvedDateRang
   };
 }
 
+function assertUntilDefined(until: string | undefined): asserts until is string {
+  if (until === undefined) {
+    throw new Error('--until is required when resolving an until-only trends range');
+  }
+}
+
 function resolveFetchDateRange(
   options: TrendsCommandOptions,
   today: string,
@@ -114,14 +120,12 @@ function resolveOutputDateRange(
   }
 
   const earliestObservedDate = observedDates.at(0);
-
-  if (!options.until) {
-    throw new Error('--until is required when resolving an until-only trends range');
-  }
+  const { until } = options;
+  assertUntilDefined(until);
 
   return {
-    from: earliestObservedDate ?? options.until,
-    to: options.until,
+    from: earliestObservedDate ?? until,
+    to: until,
   };
 }
 

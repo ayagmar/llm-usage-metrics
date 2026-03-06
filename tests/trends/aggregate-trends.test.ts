@@ -47,6 +47,7 @@ describe('aggregateTrends', () => {
       { date: '2026-03-05', value: 0, observed: false },
       { date: '2026-03-06', value: 20, observed: true, incomplete: undefined },
     ]);
+    expect(result.sourceSeries).toBeUndefined();
     expect(result.totalSeries.summary.observedDayCount).toBe(2);
   });
 
@@ -85,6 +86,23 @@ describe('aggregateTrends', () => {
     });
   });
 
+  it('returns an empty bucket list when the requested date range is reversed', () => {
+    const result = aggregateTrends([], {
+      dateRange: { from: '2026-03-06', to: '2026-03-04' },
+      metric: 'tokens',
+      bySource: false,
+      sourceOrder: ['pi'],
+    });
+
+    expect(result.totalSeries.buckets).toEqual([]);
+    expect(result.totalSeries.summary).toMatchObject({
+      total: 0,
+      average: 0,
+      peak: { date: '', value: 0 },
+      observedDayCount: 0,
+    });
+  });
+
   it('chooses the peak date from observed buckets when gap buckets tie at zero', () => {
     const result = aggregateTrends(
       [createUsageRow({ periodKey: '2026-03-06', totalTokens: 0, costUsd: 0 })],
@@ -100,6 +118,60 @@ describe('aggregateTrends', () => {
     expect(result.totalSeries.summary.peak).toEqual({
       date: '2026-03-06',
       value: 0,
+    });
+  });
+
+  it('keeps known sources ahead of unknown ones and sorts unknown sources deterministically', () => {
+    const result = aggregateTrends(
+      [
+        createUsageRow({ periodKey: '2026-03-04', source: 'beta', totalTokens: 5 }),
+        createUsageRow({ periodKey: '2026-03-04', source: 'pi', totalTokens: 10 }),
+        createUsageRow({ periodKey: '2026-03-04', source: 'alpha', totalTokens: 15 }),
+      ],
+      {
+        dateRange: { from: '2026-03-04', to: '2026-03-04' },
+        metric: 'tokens',
+        bySource: true,
+        sourceOrder: ['pi'],
+      },
+    );
+
+    expect(result.sourceSeries?.map((series) => series.source)).toEqual(['pi', 'alpha', 'beta']);
+  });
+
+  it('marks cost series as incomplete when observed rows are missing resolved pricing', () => {
+    const result = aggregateTrends(
+      [
+        createUsageRow({
+          periodKey: '2026-03-04',
+          costUsd: undefined,
+          costIncomplete: true,
+        }),
+        createUsageRow({
+          rowType: 'grand_total',
+          periodKey: 'ALL',
+          source: 'combined',
+          costUsd: 99,
+          totalTokens: 999,
+        }),
+      ],
+      {
+        dateRange: { from: '2026-03-04', to: '2026-03-04' },
+        metric: 'cost',
+        bySource: false,
+        sourceOrder: ['pi'],
+      },
+    );
+
+    expect(result.totalSeries.buckets).toEqual([
+      { date: '2026-03-04', value: 0, observed: true, incomplete: true },
+    ]);
+    expect(result.totalSeries.summary).toMatchObject({
+      total: 0,
+      average: 0,
+      peak: { date: '2026-03-04', value: 0 },
+      incomplete: true,
+      observedDayCount: 1,
     });
   });
 });

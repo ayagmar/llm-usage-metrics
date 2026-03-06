@@ -115,6 +115,30 @@ describe('buildTrendsData', () => {
     expect(result.diagnostics.pricingOrigin).toBe('none');
   });
 
+  it('uses explicit trailing day ranges when --days is provided', async () => {
+    const result = await buildTrendsData(
+      {
+        metric: 'tokens',
+        days: '3',
+      },
+      runtimeDeps({
+        now: () => new Date('2026-03-06T12:00:00.000Z'),
+        adapters: [
+          createAdapter('pi', {
+            '/tmp/a.jsonl': [createBaseEvent({ timestamp: '2026-03-05T10:00:00.000Z' })],
+          }),
+        ],
+      }),
+    );
+
+    expect(result.dateRange).toEqual({ from: '2026-03-04', to: '2026-03-06' });
+    expect(result.totalSeries.buckets.map((bucket) => bucket.date)).toEqual([
+      '2026-03-04',
+      '2026-03-05',
+      '2026-03-06',
+    ]);
+  });
+
   it('rejects --days when combined with explicit date flags', async () => {
     await expect(
       buildTrendsData(
@@ -125,6 +149,36 @@ describe('buildTrendsData', () => {
         runtimeDeps(),
       ),
     ).rejects.toThrow('--days cannot be combined with --since or --until');
+  });
+
+  it('rejects invalid days, metric, and date ordering inputs', async () => {
+    await expect(
+      buildTrendsData(
+        {
+          days: '0',
+        },
+        runtimeDeps(),
+      ),
+    ).rejects.toThrow('--days must be a positive integer');
+
+    await expect(
+      buildTrendsData(
+        {
+          metric: 'latency',
+        } as never,
+        runtimeDeps(),
+      ),
+    ).rejects.toThrow('--metric must be one of: cost, tokens');
+
+    await expect(
+      buildTrendsData(
+        {
+          since: '2026-03-07',
+          until: '2026-03-06',
+        },
+        runtimeDeps(),
+      ),
+    ).rejects.toThrow('--since must be less than or equal to --until');
   });
 
   it('resolves --until-only ranges from the earliest observed local day', async () => {
@@ -152,5 +206,94 @@ describe('buildTrendsData', () => {
       '2026-03-05',
       '2026-03-06',
     ]);
+  });
+
+  it('uses the current day as the upper bound for past --since-only ranges', async () => {
+    const result = await buildTrendsData(
+      {
+        since: '2026-03-04',
+        metric: 'tokens',
+      },
+      runtimeDeps({
+        now: () => new Date('2026-03-06T12:00:00.000Z'),
+        adapters: [
+          createAdapter('pi', {
+            '/tmp/a.jsonl': [createBaseEvent({ timestamp: '2026-03-05T10:00:00.000Z' })],
+          }),
+        ],
+      }),
+    );
+
+    expect(result.dateRange).toEqual({ from: '2026-03-04', to: '2026-03-06' });
+  });
+
+  it('keeps future --since-only ranges pinned to the requested day', async () => {
+    const result = await buildTrendsData(
+      {
+        since: '2026-03-08',
+        metric: 'tokens',
+      },
+      runtimeDeps({
+        now: () => new Date('2026-03-06T12:00:00.000Z'),
+        adapters: [
+          createAdapter('pi', {
+            '/tmp/a.jsonl': [createBaseEvent({ timestamp: '2026-03-05T10:00:00.000Z' })],
+          }),
+        ],
+      }),
+    );
+
+    expect(result.dateRange).toEqual({ from: '2026-03-08', to: '2026-03-08' });
+    expect(result.totalSeries.buckets).toEqual([{ date: '2026-03-08', value: 0, observed: false }]);
+  });
+
+  it('falls back to the requested --until day when no observations exist', async () => {
+    const result = await buildTrendsData(
+      {
+        until: '2026-03-06',
+        metric: 'tokens',
+      },
+      runtimeDeps({
+        now: () => new Date('2026-03-06T12:00:00.000Z'),
+        adapters: [createAdapter('pi', {})],
+      }),
+    );
+
+    expect(result.dateRange).toEqual({ from: '2026-03-06', to: '2026-03-06' });
+    expect(result.totalSeries.buckets).toEqual([{ date: '2026-03-06', value: 0, observed: false }]);
+  });
+
+  it('returns ordered per-source trend series when --by-source is enabled', async () => {
+    const result = await buildTrendsData(
+      {
+        metric: 'tokens',
+        bySource: true,
+        since: '2026-03-04',
+        until: '2026-03-05',
+      },
+      runtimeDeps({
+        now: () => new Date('2026-03-06T12:00:00.000Z'),
+        adapters: [
+          createAdapter('pi', {
+            '/tmp/pi.jsonl': [
+              createBaseEvent({ source: 'pi', timestamp: '2026-03-05T10:00:00.000Z' }),
+            ],
+          }),
+          createAdapter('codex', {
+            '/tmp/codex.jsonl': [
+              createBaseEvent({
+                source: 'codex',
+                sessionId: 'session-2',
+                timestamp: '2026-03-04T10:00:00.000Z',
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(result.sourceSeries?.map((series) => series.source)).toEqual(['pi', 'codex']);
+    expect(result.sourceSeries?.[0]?.buckets.map((bucket) => bucket.value)).toEqual([0, 15]);
+    expect(result.sourceSeries?.[1]?.buckets.map((bucket) => bucket.value)).toEqual([15, 0]);
   });
 });

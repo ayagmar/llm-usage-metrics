@@ -60,16 +60,21 @@ describe('run-trends-report', () => {
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
-    await runTrendsReport({
-      json: true,
-    });
+    try {
+      await runTrendsReport({
+        json: true,
+      });
 
-    expect(consoleLogSpy).toHaveBeenCalledTimes(1);
-    const stdoutBody = String(consoleLogSpy.mock.calls[0]?.[0]);
-    const parsed = JSON.parse(stdoutBody) as Record<string, unknown>;
-    expect(parsed.metric).toBe('tokens');
+      expect(consoleLogSpy).toHaveBeenCalledTimes(1);
+      const stdoutBody = String(consoleLogSpy.mock.calls[0]?.[0]);
+      const parsed = JSON.parse(stdoutBody) as Record<string, unknown>;
+      expect(parsed.metric).toBe('tokens');
 
-    expect(consoleErrorSpy.mock.calls.length).toBeGreaterThan(0);
+      expect(consoleErrorSpy.mock.calls.length).toBeGreaterThan(0);
+    } finally {
+      consoleLogSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it('delegates to buildTrendsData', async () => {

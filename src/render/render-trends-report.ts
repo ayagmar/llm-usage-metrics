@@ -88,17 +88,38 @@ function downsampleBuckets(buckets: TrendBucket[], maxColumns: number): TrendBuc
   });
 }
 
+function isApproximatePeak(series: TrendSeries, metric: TrendsMetric): boolean {
+  if (metric !== 'cost' || series.summary.observedDayCount === 0) {
+    return false;
+  }
+
+  return (
+    series.buckets.find((bucket) => bucket.observed && bucket.date === series.summary.peak.date)
+      ?.incomplete === true
+  );
+}
+
+function shouldShowNoResolvedCostDataNote(trendsData: TrendsDataResult): boolean {
+  return (
+    trendsData.metric === 'cost' &&
+    trendsData.totalSeries.summary.observedDayCount > 0 &&
+    trendsData.totalSeries.buckets
+      .filter((bucket) => bucket.observed)
+      .every((bucket) => bucket.incomplete === true && bucket.value === 0)
+  );
+}
+
 function renderSummary(series: TrendSeries, metric: TrendsMetric): string {
-  const approximate = metric === 'cost' && series.summary.incomplete;
+  const summaryApproximate = metric === 'cost' && series.summary.incomplete;
   const items = [
-    `Total: ${formatMetricValue(series.summary.total, metric, approximate)}`,
-    `Avg: ${formatMetricValue(series.summary.average, metric, approximate)}/day`,
+    `Total: ${formatMetricValue(series.summary.total, metric, summaryApproximate)}`,
+    `Avg: ${formatMetricValue(series.summary.average, metric, summaryApproximate)}/day`,
   ];
 
   if (series.summary.observedDayCount > 0) {
     const peakDateLabel = formatDateLabel(series.summary.peak.date);
     items.push(
-      `Peak: ${formatMetricValue(series.summary.peak.value, metric, approximate)} (${peakDateLabel})`,
+      `Peak: ${formatMetricValue(series.summary.peak.value, metric, isApproximatePeak(series, metric))} (${peakDateLabel})`,
     );
   }
 
@@ -124,6 +145,13 @@ function renderSummaryOnly(
 
   if (trendsData.totalSeries.summary.observedDayCount === 0) {
     lines.push('No usage data found for the selected date range.');
+    lines.push('');
+  }
+
+  if (shouldShowNoResolvedCostDataNote(trendsData)) {
+    lines.push(
+      'No resolved cost data for the selected range; use pricing or switch to --metric tokens.',
+    );
     lines.push('');
   }
 
@@ -244,7 +272,10 @@ function renderSourceLines(
           return ' ';
         }
 
-        const level = Math.max(1, Math.min(8, Math.round((bucket.value / maxValue) * 8)));
+        const level =
+          bucket.value > 0
+            ? Math.max(1, Math.min(8, Math.round((bucket.value / maxValue) * 8)))
+            : 0;
         return sparklineBlocks[level];
       })
       .join('');
@@ -279,13 +310,7 @@ function renderTerminalTrendsReport(
     lines.push('');
   }
 
-  if (
-    trendsData.metric === 'cost' &&
-    trendsData.totalSeries.summary.observedDayCount > 0 &&
-    trendsData.totalSeries.buckets
-      .filter((bucket) => bucket.observed)
-      .every((bucket) => bucket.incomplete === true && bucket.value === 0)
-  ) {
+  if (shouldShowNoResolvedCostDataNote(trendsData)) {
     lines.push(
       'No resolved cost data for the selected range; use pricing or switch to --metric tokens.',
     );

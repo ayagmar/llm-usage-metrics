@@ -5,6 +5,10 @@ import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createCli } from '../../src/cli/create-cli.js';
+import {
+  getCliReferenceExamples,
+  getReportDefinitionMetas,
+} from '../../src/cli/report-definitions/report-definitions.js';
 
 const tempDirs: string[] = [];
 
@@ -164,6 +168,21 @@ describe('createCli', () => {
     expect(optimizeHelp).toBeDefined();
     expect(dailyHelp).not.toContain('(default: [])');
     expect(optimizeHelp).not.toContain('(default: [])');
+  });
+
+  it('exports shared report metadata and CLI reference examples', () => {
+    expect(getReportDefinitionMetas().map((meta) => meta.commandName)).toEqual([
+      'daily',
+      'weekly',
+      'monthly',
+      'efficiency',
+      'optimize',
+      'trends',
+    ]);
+    expect(getCliReferenceExamples()).toContain('llm-usage trends');
+    expect(getCliReferenceExamples()).toContain(
+      'llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candidate-model gpt-5-codex --json',
+    );
   });
 
   it('supports --version output', async () => {
