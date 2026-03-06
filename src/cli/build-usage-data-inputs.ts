@@ -1,12 +1,20 @@
 import type { SourceAdapter } from '../sources/source-adapter.js';
-import { normalizeProviderToBillingEntity } from '../domain/provider-normalization.js';
+import {
+  inferCanonicalProviderRootsFromModels,
+  intersectCanonicalProviderRoots,
+  normalizeProviderToBillingEntity,
+  resolveExplicitProviderRoots,
+} from '../domain/provider-normalization.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { parseSourceDirectoryOverrides } from '../utils/source-directory-overrides.js';
+import type { RuntimeProfileCollector } from './runtime-profile.js';
 
 import type { ReportCommandOptions } from './usage-data-contracts.js';
 
 export type NormalizedBuildUsageInputs = {
   timezone: string;
   providerFilter: string | undefined;
+  candidateProviderRoots: string[] | undefined;
   sourceFilter: Set<string> | undefined;
   modelFilter: string[] | undefined;
   explicitSourceIds: Set<string>;
@@ -142,30 +150,6 @@ export function validateBuildOptions(options: ReportCommandOptions): {
   };
 }
 
-function parseSourceDirOverrideIds(sourceDirEntries: string[] | undefined): Set<string> {
-  const overrideIds = new Set<string>();
-
-  if (!sourceDirEntries || sourceDirEntries.length === 0) {
-    return overrideIds;
-  }
-
-  for (const entry of sourceDirEntries) {
-    const separatorIndex = entry.indexOf('=');
-
-    if (separatorIndex <= 0) {
-      continue;
-    }
-
-    const sourceId = entry.slice(0, separatorIndex).trim().toLowerCase();
-
-    if (sourceId.length > 0) {
-      overrideIds.add(sourceId);
-    }
-  }
-
-  return overrideIds;
-}
-
 export function resolveExplicitSourceIds(
   options: ReportCommandOptions,
   sourceFilter: Set<string> | undefined,
@@ -178,7 +162,7 @@ export function resolveExplicitSourceIds(
     }
   }
 
-  for (const sourceId of parseSourceDirOverrideIds(options.sourceDir)) {
+  for (const sourceId of parseSourceDirectoryOverrides(options.sourceDir).keys()) {
     explicitSourceIds.add(sourceId);
   }
 
@@ -231,11 +215,16 @@ export function normalizeBuildUsageInputs(
   const providerFilter = normalizeProviderFilter(options.provider);
   const sourceFilter = normalizeSourceFilter(options.source);
   const modelFilter = normalizeModelFilter(options.model);
+  const candidateProviderRoots = intersectCanonicalProviderRoots(
+    resolveExplicitProviderRoots(providerFilter),
+    inferCanonicalProviderRootsFromModels(modelFilter),
+  );
   const explicitSourceIds = resolveExplicitSourceIds(options, sourceFilter);
 
   return {
     timezone,
     providerFilter,
+    candidateProviderRoots,
     sourceFilter,
     modelFilter,
     explicitSourceIds,
@@ -245,12 +234,45 @@ export function normalizeBuildUsageInputs(
 
 export function selectAdaptersForParsing(
   adapters: SourceAdapter[],
-  sourceFilter: Set<string> | undefined,
+  options: {
+    sourceFilter: Set<string> | undefined;
+    candidateProviderRoots: string[] | undefined;
+    runtimeProfile?: RuntimeProfileCollector;
+  },
 ): SourceAdapter[] {
   const availableSourceIds = new Set(adapters.map((adapter) => adapter.id.toLowerCase()));
-  validateSourceFilterValues(sourceFilter, availableSourceIds);
+  validateSourceFilterValues(options.sourceFilter, availableSourceIds);
 
-  return sourceFilter
+  const sourceFilter = options.sourceFilter;
+  const selectedBySource = sourceFilter
     ? adapters.filter((adapter) => sourceFilter.has(adapter.id.toLowerCase()))
     : adapters;
+
+  if (!options.candidateProviderRoots) {
+    options.runtimeProfile?.recordSourceSelection({
+      availableSourceIds: adapters.map((adapter) => adapter.id),
+      selectedSourceIds: selectedBySource.map((adapter) => adapter.id),
+    });
+    return selectedBySource;
+  }
+
+  const candidateProviderRootSet = new Set(options.candidateProviderRoots);
+
+  const selectedAdapters = selectedBySource.filter((adapter) => {
+    const fixedProviderRoots = adapter.capabilities?.fixedProviderRoots;
+
+    if (!fixedProviderRoots || fixedProviderRoots.length === 0) {
+      return true;
+    }
+
+    return fixedProviderRoots.some((providerRoot) => candidateProviderRootSet.has(providerRoot));
+  });
+
+  options.runtimeProfile?.recordSourceSelection({
+    availableSourceIds: adapters.map((adapter) => adapter.id),
+    selectedSourceIds: selectedAdapters.map((adapter) => adapter.id),
+    candidateProviderRoots: options.candidateProviderRoots,
+  });
+
+  return selectedAdapters;
 }

@@ -13,8 +13,6 @@ import type { SourceAdapter } from '../source-adapter.js';
 
 const defaultSessionsDir = path.join(os.homedir(), '.pi', 'agent', 'sessions');
 
-type ProviderFilter = (provider: string | undefined) => boolean;
-
 type PiSessionState = {
   sessionId?: string;
   sessionTimestamp?: string;
@@ -35,7 +33,6 @@ type PiUsageExtract = {
 
 export type PiSourceAdapterOptions = {
   sessionsDir?: string;
-  providerFilter?: ProviderFilter;
   requireSessionsDir?: boolean;
 };
 
@@ -50,8 +47,6 @@ function shouldParsePiJsonlLine(lineText: string): boolean {
     PI_MODEL_CHANGE_LINE_PATTERN.test(lineText)
   );
 }
-
-const allowAllProviders: ProviderFilter = () => true;
 
 const UNIX_SECONDS_ABS_CUTOFF = 10_000_000_000;
 
@@ -195,12 +190,10 @@ export class PiSourceAdapter implements SourceAdapter {
   public readonly id = 'pi' as const;
 
   private readonly sessionsDir: string;
-  private readonly providerFilter: ProviderFilter;
   private readonly requireSessionsDir: boolean;
 
   public constructor(options: PiSourceAdapterOptions = {}) {
     this.sessionsDir = options.sessionsDir ?? defaultSessionsDir;
-    this.providerFilter = options.providerFilter ?? allowAllProviders;
     this.requireSessionsDir = options.requireSessionsDir ?? false;
   }
 
@@ -256,10 +249,6 @@ export class PiSourceAdapter implements SourceAdapter {
 
       const provider =
         asTrimmedText(line.provider) ?? asTrimmedText(message?.provider) ?? state.provider;
-
-      if (!this.providerFilter(provider)) {
-        continue;
-      }
 
       const timestamp = resolveTimestamp(line, message, state);
 

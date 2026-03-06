@@ -26,6 +26,17 @@ describe('createDefaultAdapters', () => {
     ]);
   });
 
+  it('exposes fixed-provider capabilities for codex and gemini', () => {
+    const adapters = createDefaultAdapters({});
+
+    expect(adapters.find((adapter) => adapter.id === 'codex')?.capabilities).toEqual({
+      fixedProviderRoots: ['openai'],
+    });
+    expect(adapters.find((adapter) => adapter.id === 'gemini')?.capabilities).toEqual({
+      fixedProviderRoots: ['google'],
+    });
+  });
+
   it('supports generic source directory overrides', async () => {
     const piTempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-adapters-pi-source-dir-'));
     const codexTempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-adapters-codex-source-dir-'));

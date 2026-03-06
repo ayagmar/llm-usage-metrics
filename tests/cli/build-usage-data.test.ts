@@ -39,11 +39,13 @@ afterEach(async () => {
 function createAdapter(
   id: SourceAdapter['id'],
   eventsByFile: Record<string, ReturnType<typeof createUsageEvent>[]>,
+  capabilities?: SourceAdapter['capabilities'],
 ): SourceAdapter {
   const files = Object.keys(eventsByFile);
 
   return {
     id,
+    capabilities,
     discoverFiles: async () => files,
     parseFile: async (filePath) => eventsByFile[filePath] ?? [],
   };
@@ -133,10 +135,29 @@ describe('build-usage-data helper modules', () => {
 
     const selectedAdapters = selectAdaptersForParsing(
       [createAdapter('pi', {}), createAdapter('codex', {}), createAdapter('opencode', {})],
-      sourceFilter,
+      {
+        sourceFilter,
+        candidateProviderRoots: undefined,
+      },
     );
 
     expect(sourceFilter ? [...sourceFilter] : []).toEqual(['codex', 'pi']);
+    expect(selectedAdapters.map((adapter) => adapter.id)).toEqual(['pi', 'codex']);
+  });
+
+  it('prunes fixed-provider sources during selection when provider roots make them impossible', () => {
+    const selectedAdapters = selectAdaptersForParsing(
+      [
+        createAdapter('pi', {}),
+        createAdapter('codex', {}, { fixedProviderRoots: ['openai'] }),
+        createAdapter('gemini', {}, { fixedProviderRoots: ['google'] }),
+      ],
+      {
+        sourceFilter: undefined,
+        candidateProviderRoots: ['openai'],
+      },
+    );
+
     expect(selectedAdapters.map((adapter) => adapter.id)).toEqual(['pi', 'codex']);
   });
 
@@ -244,6 +265,20 @@ describe('build-usage-data helper modules', () => {
       shouldLoadPricingSource([
         createEvent({
           model: undefined,
+          costMode: 'estimated',
+          costUsd: undefined,
+        }),
+      ]),
+    ).toBe(false);
+    expect(
+      shouldLoadPricingSource([
+        createEvent({
+          inputTokens: 0,
+          outputTokens: 0,
+          reasoningTokens: 0,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+          totalTokens: 42,
           costMode: 'estimated',
           costUsd: undefined,
         }),
@@ -442,6 +477,100 @@ describe('buildUsageData', () => {
     expect(result.diagnostics.pricingOrigin).toBe('none');
   });
 
+  it('leaves total-only usage cost-incomplete instead of estimating $0', async () => {
+    const pricingLoaderSpy = vi.fn(async (): Promise<PricingLoadResult> => {
+      throw new Error('pricing should not be loaded for total-only usage');
+    });
+
+    const result = await buildUsageData(
+      'daily',
+      {
+        timezone: 'UTC',
+      },
+      {
+        ...withDeterministicRuntimeDeps(),
+        createAdapters: () => [
+          createAdapter('pi', {
+            '/tmp/pi-total-only.jsonl': [
+              createEvent({
+                model: 'gpt-5.2',
+                inputTokens: 0,
+                outputTokens: 0,
+                reasoningTokens: 0,
+                cacheReadTokens: 0,
+                cacheWriteTokens: 0,
+                totalTokens: 42,
+                costMode: 'estimated',
+                costUsd: undefined,
+              }),
+            ],
+          }),
+        ],
+        resolvePricingSource: pricingLoaderSpy,
+      },
+    );
+
+    expect(pricingLoaderSpy).not.toHaveBeenCalled();
+    expect(result.diagnostics.pricingOrigin).toBe('none');
+    expect(result.events[0]).toMatchObject({
+      totalTokens: 42,
+      costUsd: undefined,
+      costMode: 'estimated',
+    });
+    expect(result.rows).toEqual([
+      {
+        rowType: 'period_source',
+        periodKey: '2026-02-14',
+        source: 'pi',
+        models: ['gpt-5.2'],
+        modelBreakdown: [
+          {
+            model: 'gpt-5.2',
+            inputTokens: 0,
+            outputTokens: 0,
+            reasoningTokens: 0,
+            cacheReadTokens: 0,
+            cacheWriteTokens: 0,
+            totalTokens: 42,
+            costIncomplete: true,
+          },
+        ],
+        inputTokens: 0,
+        outputTokens: 0,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 42,
+        costIncomplete: true,
+      },
+      {
+        rowType: 'grand_total',
+        periodKey: 'ALL',
+        source: 'combined',
+        models: ['gpt-5.2'],
+        modelBreakdown: [
+          {
+            model: 'gpt-5.2',
+            inputTokens: 0,
+            outputTokens: 0,
+            reasoningTokens: 0,
+            cacheReadTokens: 0,
+            cacheWriteTokens: 0,
+            totalTokens: 42,
+            costIncomplete: true,
+          },
+        ],
+        inputTokens: 0,
+        outputTokens: 0,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 42,
+        costIncomplete: true,
+      },
+    ]);
+  });
+
   it('supports source filtering and preserves adapter order in session diagnostics', async () => {
     const result = await buildUsageData(
       'daily',
@@ -476,6 +605,85 @@ describe('buildUsageData', () => {
     expect(sourceRows).toHaveLength(1);
     expect(sourceRows[0].source).toBe('codex');
     expect(result.rows.some((row) => row.rowType === 'period_combined')).toBe(false);
+  });
+
+  it('prunes fixed-provider gemini before discovery when --provider openai is supplied', async () => {
+    const result = await buildUsageData(
+      'daily',
+      {
+        timezone: 'UTC',
+        provider: 'openai',
+      },
+      {
+        ...withDeterministicRuntimeDeps(),
+        createAdapters: () => [
+          {
+            id: 'gemini',
+            capabilities: { fixedProviderRoots: ['google'] },
+            discoverFiles: async () => {
+              throw new Error('gemini should have been pruned');
+            },
+            parseFile: async () => [],
+          },
+          createAdapter(
+            'codex',
+            {
+              '/tmp/codex-openai.jsonl': [
+                createEvent({ source: 'codex', provider: 'openai', sessionId: 'codex-openai' }),
+              ],
+            },
+            { fixedProviderRoots: ['openai'] },
+          ),
+        ],
+      },
+    );
+
+    expect(result.diagnostics.sourceFailures).toEqual([]);
+    expect(result.diagnostics.sessionStats).toEqual([
+      { source: 'codex', filesFound: 1, eventsParsed: 1 },
+    ]);
+  });
+
+  it('prunes fixed-provider gemini before discovery when explicit model filters infer openai', async () => {
+    const result = await buildUsageData(
+      'daily',
+      {
+        timezone: 'UTC',
+        model: 'gpt-5.2',
+      },
+      {
+        ...withDeterministicRuntimeDeps(),
+        createAdapters: () => [
+          {
+            id: 'gemini',
+            capabilities: { fixedProviderRoots: ['google'] },
+            discoverFiles: async () => {
+              throw new Error('gemini should have been pruned');
+            },
+            parseFile: async () => [],
+          },
+          createAdapter(
+            'codex',
+            {
+              '/tmp/codex-gpt52.jsonl': [
+                createEvent({
+                  source: 'codex',
+                  provider: 'openai',
+                  model: 'gpt-5.2',
+                  sessionId: 'codex-gpt52',
+                }),
+              ],
+            },
+            { fixedProviderRoots: ['openai'] },
+          ),
+        ],
+      },
+    );
+
+    expect(result.diagnostics.sourceFailures).toEqual([]);
+    expect(result.diagnostics.sessionStats).toEqual([
+      { source: 'codex', filesFound: 1, eventsParsed: 1 },
+    ]);
   });
 
   it('records non-explicit source failures in diagnostics and continues with healthy sources', async () => {

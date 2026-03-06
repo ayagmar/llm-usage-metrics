@@ -26,6 +26,7 @@ import type {
 import type { SourceAdapter } from '../sources/source-adapter.js';
 import type { EnvVarOverride } from '../config/env-var-display.js';
 import type { PricingSource } from '../pricing/types.js';
+import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 
 function withNormalizedPricingUrl(
   options: ReportCommandOptions,
@@ -64,6 +65,7 @@ export async function buildUsageEventDataset(
   deps: BuildUsageDataDeps = {},
 ): Promise<UsageEventDataset> {
   const normalizedInputs = normalizeBuildUsageInputs(options);
+  const runtimeProfile = deps.runtimeProfile;
 
   const readParsingRuntimeConfig = deps.getParsingRuntimeConfig ?? getParsingRuntimeConfig;
   const readPricingRuntimeConfig =
@@ -72,31 +74,51 @@ export async function buildUsageEventDataset(
   const parsingRuntimeConfig = readParsingRuntimeConfig();
   const pricingRuntimeConfig = readPricingRuntimeConfig();
 
-  const adapters = makeAdapters(options);
-  const adaptersToParse = selectAdaptersForParsing(adapters, normalizedInputs.sourceFilter);
+  const adapters = measureRuntimeProfileStageSync(
+    runtimeProfile,
+    'usage.dataset.create_adapters',
+    () => makeAdapters(options),
+  );
+  const adaptersToParse = measureRuntimeProfileStageSync(
+    runtimeProfile,
+    'usage.dataset.select_adapters',
+    () =>
+      selectAdaptersForParsing(adapters, {
+        sourceFilter: normalizedInputs.sourceFilter,
+        candidateProviderRoots: normalizedInputs.candidateProviderRoots,
+        runtimeProfile,
+      }),
+  );
 
-  const { successfulParseResults, sourceFailures } = await parseSelectedAdapters(
-    adaptersToParse,
-    parsingRuntimeConfig.maxParallelFileParsing,
-    {
-      parseCache: {
-        enabled: parsingRuntimeConfig.parseCacheEnabled,
-        ttlMs: parsingRuntimeConfig.parseCacheTtlMs,
-        maxEntries: parsingRuntimeConfig.parseCacheMaxEntries,
-        maxBytes: parsingRuntimeConfig.parseCacheMaxBytes,
-      },
-    },
+  const { successfulParseResults, sourceFailures } = await measureRuntimeProfileStage(
+    runtimeProfile,
+    'usage.dataset.parse_adapters',
+    async () =>
+      await parseSelectedAdapters(adaptersToParse, parsingRuntimeConfig.maxParallelFileParsing, {
+        parseCache: {
+          enabled: parsingRuntimeConfig.parseCacheEnabled,
+          ttlMs: parsingRuntimeConfig.parseCacheTtlMs,
+          maxEntries: parsingRuntimeConfig.parseCacheMaxEntries,
+          maxBytes: parsingRuntimeConfig.parseCacheMaxBytes,
+        },
+        runtimeProfile,
+      }),
   );
 
   throwOnExplicitSourceFailures(sourceFailures, normalizedInputs.explicitSourceIds);
 
-  const filteredEvents = filterParsedAdapterEvents(successfulParseResults, {
-    timezone: normalizedInputs.timezone,
-    since: options.since,
-    until: options.until,
-    providerFilter: normalizedInputs.providerFilter,
-    modelFilter: normalizedInputs.modelFilter,
-  });
+  const filteredEvents = measureRuntimeProfileStageSync(
+    runtimeProfile,
+    'usage.dataset.filter_events',
+    () =>
+      filterParsedAdapterEvents(successfulParseResults, {
+        timezone: normalizedInputs.timezone,
+        since: options.since,
+        until: options.until,
+        providerFilter: normalizedInputs.providerFilter,
+        modelFilter: normalizedInputs.modelFilter,
+      }),
+  );
 
   return {
     options,
@@ -121,11 +143,16 @@ export async function applyPricingToUsageEventDataset(
     dataset.normalizedInputs.pricingUrl,
   );
 
-  return resolveAndApplyPricingToEvents(
-    dataset.filteredEvents,
-    pricingOptions,
-    dataset.pricingRuntimeConfig,
-    loadPricingSource,
-    pricingLoadMode,
+  return await measureRuntimeProfileStage(
+    deps.runtimeProfile,
+    'usage.pricing.apply',
+    async () =>
+      await resolveAndApplyPricingToEvents(
+        dataset.filteredEvents,
+        pricingOptions,
+        dataset.pricingRuntimeConfig,
+        loadPricingSource,
+        pricingLoadMode,
+      ),
   );
 }

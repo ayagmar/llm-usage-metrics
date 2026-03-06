@@ -160,6 +160,9 @@ function resolveRepoRootFromPayload(
 
 export class CodexSourceAdapter implements SourceAdapter {
   public readonly id = 'codex' as const;
+  public readonly capabilities = {
+    fixedProviderRoots: ['openai'],
+  } as const;
 
   private readonly sessionsDir: string;
   private readonly requireSessionsDir: boolean;
