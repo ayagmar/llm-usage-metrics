@@ -208,6 +208,42 @@ describe('opencode row parser', () => {
     });
   });
 
+  it('preserves total-only usage without inventing billable buckets', () => {
+    const parseDiagnostics = parseOpenCodeMessageRows(
+      [
+        {
+          row_id: 'msg-total-only',
+          row_session_id: 'session-total-only',
+          row_time: 1_737_000_025_000,
+          data_json: JSON.stringify({
+            role: 'assistant',
+            providerID: 'openai',
+            modelID: 'gpt-5.2',
+            tokens: { total: 21 },
+          }),
+        },
+      ],
+      'opencode',
+    );
+
+    expect(parseDiagnostics.skippedRows).toBe(0);
+    expect(parseDiagnostics.skippedRowReasons).toEqual([]);
+    expect(parseDiagnostics.events).toHaveLength(1);
+    expect(parseDiagnostics.events[0]).toMatchObject({
+      sessionId: 'session-total-only',
+      provider: 'openai',
+      model: 'gpt-5.2',
+      inputTokens: 0,
+      outputTokens: 0,
+      reasoningTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      totalTokens: 21,
+      costUsd: undefined,
+      costMode: 'estimated',
+    });
+  });
+
   it('treats blank string cost as absent instead of explicit zero', () => {
     const parseDiagnostics = parseOpenCodeMessageRows(
       [

@@ -150,6 +150,58 @@ describe('aggregate-counterfactual', () => {
     });
   });
 
+  it('treats total-only periods as usage-bucket incomplete instead of hypothetical $0', () => {
+    const usageRows: UsageReportRow[] = [
+      {
+        rowType: 'period_source',
+        periodKey: '2026-02-10',
+        source: 'pi',
+        models: ['gpt-5.2'],
+        modelBreakdown: [],
+        inputTokens: 0,
+        outputTokens: 0,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 40,
+        costUsd: undefined,
+        costIncomplete: true,
+      },
+      {
+        rowType: 'grand_total',
+        periodKey: 'ALL',
+        source: 'combined',
+        models: ['gpt-5.2'],
+        modelBreakdown: [],
+        inputTokens: 0,
+        outputTokens: 0,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 40,
+        costUsd: undefined,
+        costIncomplete: true,
+      },
+    ];
+
+    const result = buildCounterfactualRows({
+      usageRows,
+      provider: 'openai',
+      candidateModels: ['gpt-5.2'],
+      pricingSource: createDefaultOpenAiPricingSource(),
+    });
+
+    const candidateRow = result.rows.find(
+      (row) => row.rowType === 'candidate' && row.periodKey === 'ALL',
+    );
+
+    expect(candidateRow).toMatchObject({
+      hypotheticalCostUsd: undefined,
+      hypotheticalCostIncomplete: true,
+      notes: ['baseline_incomplete', 'usage_buckets_missing'],
+    });
+  });
+
   it('applies --top using ALL-period ranking consistently across periods', () => {
     const usageRows: UsageReportRow[] = [
       {

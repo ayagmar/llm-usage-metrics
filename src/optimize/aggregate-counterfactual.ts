@@ -1,5 +1,5 @@
 import type { UsageReportRow } from '../domain/usage-report-row.js';
-import type { UsageEvent } from '../domain/usage-event.js';
+import { hasBillableTokenBuckets, type UsageEvent } from '../domain/usage-event.js';
 import { calculateEstimatedCostUsd } from '../pricing/cost-engine.js';
 import type { PricingSource } from '../pricing/types.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
@@ -44,19 +44,9 @@ export function roundUsd(value: number): number {
   return Math.round(value * USD_PRECISION_SCALE) / USD_PRECISION_SCALE;
 }
 
-function hasZeroBillableTokenBuckets(totals: {
-  inputTokens: number;
-  outputTokens: number;
-  reasoningTokens: number;
-  cacheReadTokens: number;
-  cacheWriteTokens: number;
-}): boolean {
+function hasAnyUsageSignal(period: BaselinePeriodTotals): boolean {
   return (
-    totals.inputTokens === 0 &&
-    totals.outputTokens === 0 &&
-    totals.reasoningTokens === 0 &&
-    totals.cacheReadTokens === 0 &&
-    totals.cacheWriteTokens === 0
+    period.totalTokens > 0 || period.baselineCostIncomplete || (period.baselineCostUsd ?? 0) > 0
   );
 }
 
@@ -145,7 +135,7 @@ function evaluateCandidateForPeriod(
   pricingSource: PricingSource | undefined,
 ): CandidateEvaluation {
   const notes = new Set<string>();
-  const zeroBillableTokens = hasZeroBillableTokenBuckets(period);
+  const hasBillableUsage = hasBillableTokenBuckets(period);
 
   const candidateResolvedModel = pricingSource
     ? pricingSource.resolveModelAlias(candidateModel)
@@ -155,14 +145,18 @@ function evaluateCandidateForPeriod(
   let hypotheticalCostUsd: number | undefined;
   let hypotheticalCostIncomplete = false;
 
-  if (!pricing) {
-    if (zeroBillableTokens) {
+  if (!hasBillableUsage) {
+    if (!hasAnyUsageSignal(period)) {
       hypotheticalCostUsd = 0;
     } else {
       hypotheticalCostUsd = undefined;
       hypotheticalCostIncomplete = true;
-      notes.add('missing_pricing');
+      notes.add('usage_buckets_missing');
     }
+  } else if (!pricing) {
+    hypotheticalCostUsd = undefined;
+    hypotheticalCostIncomplete = true;
+    notes.add('missing_pricing');
   } else {
     hypotheticalCostUsd = roundUsd(
       calculateEstimatedCostUsd(createSyntheticEvent(period), pricing),
@@ -175,7 +169,7 @@ function evaluateCandidateForPeriod(
 
   if (period.baselineCostIncomplete || period.baselineCostUsd === undefined) {
     notes.add('baseline_incomplete');
-  } else if (zeroBillableTokens && period.baselineCostUsd > 0) {
+  } else if (!hasBillableUsage && period.baselineCostUsd > 0) {
     notes.add('baseline_tokens_missing');
     hasBaselineTokenMismatch = true;
   } else if (hypotheticalCostUsd !== undefined) {

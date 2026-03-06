@@ -1,4 +1,4 @@
-import type { UsageEvent } from '../domain/usage-event.js';
+import { isPriceableEvent, type UsageEvent } from '../domain/usage-event.js';
 import type { ModelPricing, PricingSource } from './types.js';
 
 const ONE_MILLION = 1_000_000;
@@ -28,18 +28,29 @@ export function calculateEstimatedCostUsd(event: UsageEvent, pricing: ModelPrici
 }
 
 export function applyPricingToEvent(event: UsageEvent, pricingSource: PricingSource): UsageEvent {
+  const pricing =
+    event.model && isPriceableEvent(event) ? pricingSource.getPricing(event.model) : undefined;
+
+  return applyResolvedPricingToEvent(event, pricing);
+}
+
+function applyResolvedPricingToEvent(
+  event: UsageEvent,
+  pricing: ModelPricing | undefined,
+): UsageEvent {
   const shouldRepriceExplicitZero =
-    event.costMode === 'explicit' && event.costUsd === 0 && event.model !== undefined;
+    event.costMode === 'explicit' &&
+    event.costUsd === 0 &&
+    event.model !== undefined &&
+    isPriceableEvent(event);
 
   if (event.costMode === 'explicit' && event.costUsd !== undefined && !shouldRepriceExplicitZero) {
     return event;
   }
 
-  if (!event.model) {
+  if (!event.model || !isPriceableEvent(event)) {
     return { ...event, costMode: 'estimated' };
   }
-
-  const pricing = pricingSource.getPricing(event.model);
 
   if (!pricing) {
     if (shouldRepriceExplicitZero) {
@@ -60,5 +71,21 @@ export function applyPricingToEvents(
   events: UsageEvent[],
   pricingSource: PricingSource,
 ): UsageEvent[] {
-  return events.map((event) => applyPricingToEvent(event, pricingSource));
+  const pricingByModel = new Map<string, ModelPricing | undefined>();
+
+  return events.map((event) => {
+    const model = event.model;
+    let pricing: ModelPricing | undefined;
+
+    if (model && isPriceableEvent(event)) {
+      pricing = pricingByModel.get(model);
+
+      if (!pricingByModel.has(model)) {
+        pricing = pricingSource.getPricing(model);
+        pricingByModel.set(model, pricing);
+      }
+    }
+
+    return applyResolvedPricingToEvent(event, pricing);
+  });
 }

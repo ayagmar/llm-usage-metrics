@@ -112,6 +112,37 @@ describe('buildOptimizeData', () => {
     expect(result.diagnostics.provider).toBe('openai');
   });
 
+  it('rejects mixed canonical providers deterministically across adapters', async () => {
+    const pricingLoaderSpy = vi.fn(async () => ({
+      source: createDefaultOpenAiPricingSource(),
+      origin: 'cache' as const,
+    }));
+
+    await expect(
+      buildOptimizeData(
+        'daily',
+        {
+          candidateModel: ['gpt-4.1'],
+        },
+        runtimeDeps({
+          adapters: [
+            createAdapter('gemini', {
+              '/tmp/gemini.json': [createBaseEvent({ source: 'gemini', provider: 'google' })],
+            }),
+            createAdapter('codex', {
+              '/tmp/codex.jsonl': [createBaseEvent({ source: 'codex', provider: 'openai' })],
+            }),
+          ],
+          resolvePricingSource: pricingLoaderSpy,
+        }),
+      ),
+    ).rejects.toThrow(
+      'Optimize requires a single provider; found providers: google, openai. Narrow with --provider.',
+    );
+
+    expect(pricingLoaderSpy).not.toHaveBeenCalled();
+  });
+
   it('returns zero baseline and candidate costs for empty usage sets without pricing load', async () => {
     const pricingLoaderSpy = vi.fn(async () => ({
       source: createDefaultOpenAiPricingSource(),
@@ -185,6 +216,51 @@ describe('buildOptimizeData', () => {
     });
   });
 
+  it('treats total-only usage as cost-incomplete for optimize and skips pricing load', async () => {
+    const pricingLoaderSpy = vi.fn(async () => ({
+      source: createDefaultOpenAiPricingSource(),
+      origin: 'cache' as const,
+    }));
+
+    const result = await buildOptimizeData(
+      'daily',
+      {
+        candidateModel: ['gpt-5.2'],
+      },
+      runtimeDeps({
+        adapters: [
+          createAdapter('pi', {
+            '/tmp/total-only.jsonl': [
+              createBaseEvent({
+                model: 'gpt-5.2',
+                inputTokens: 0,
+                outputTokens: 0,
+                reasoningTokens: 0,
+                cacheReadTokens: 0,
+                cacheWriteTokens: 0,
+                totalTokens: 75,
+              }),
+            ],
+          }),
+        ],
+        resolvePricingSource: pricingLoaderSpy,
+      }),
+    );
+
+    expect(pricingLoaderSpy).not.toHaveBeenCalled();
+    expect(result.diagnostics.baselineCostIncomplete).toBe(true);
+
+    const candidateAll = result.rows.find(
+      (row) => row.rowType === 'candidate' && row.periodKey === 'ALL',
+    );
+
+    expect(candidateAll).toMatchObject({
+      hypotheticalCostUsd: undefined,
+      hypotheticalCostIncomplete: true,
+      notes: ['baseline_incomplete', 'usage_buckets_missing'],
+    });
+  });
+
   it('omits savings and emits warning when baseline has cost but all token buckets are zero', async () => {
     const result = await buildOptimizeData(
       'daily',
@@ -218,7 +294,7 @@ describe('buildOptimizeData', () => {
     expect(candidateAll).toMatchObject({
       savingsUsd: undefined,
       savingsPct: undefined,
-      notes: ['baseline_tokens_missing'],
+      notes: ['baseline_tokens_missing', 'usage_buckets_missing'],
     });
     expect(result.diagnostics.warning).toContain('Baseline cost exists for zero-token periods');
   });
@@ -261,6 +337,28 @@ describe('buildOptimizeData', () => {
       ),
     ).rejects.toThrow(
       'Optimize matched multiple providers for --provider "vendor": vendor-alpha, vendor-beta. Supply a more specific --provider value.',
+    );
+  });
+
+  it('rejects mixed providers when an exact provider match is still ambiguous by substring', async () => {
+    await expect(
+      buildOptimizeData(
+        'daily',
+        {
+          candidateModel: ['gpt-4.1'],
+          provider: 'openai',
+        },
+        runtimeDeps({
+          adapters: [
+            createAdapter('pi', {
+              '/tmp/a.jsonl': [createBaseEvent({ provider: 'openai' })],
+              '/tmp/b.jsonl': [createBaseEvent({ provider: 'vendor-openai' })],
+            }),
+          ],
+        }),
+      ),
+    ).rejects.toThrow(
+      'Optimize matched multiple providers for --provider "openai": openai, vendor-openai. Supply a more specific --provider value.',
     );
   });
 });

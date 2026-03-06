@@ -31,7 +31,7 @@ describe('PiSourceAdapter', () => {
     await writeFile(second, '{}\n', 'utf8');
     await writeFile(first, '{}\n', 'utf8');
 
-    const adapter = new PiSourceAdapter({ sessionsDir: root, providerFilter: () => true });
+    const adapter = new PiSourceAdapter({ sessionsDir: root });
 
     await expect(adapter.discoverFiles()).resolves.toEqual([first, second]);
   });
@@ -83,18 +83,6 @@ describe('PiSourceAdapter', () => {
     });
 
     expect(events[2]?.timestamp).toBe('2026-02-12T20:01:00.000Z');
-  });
-
-  it('supports provider filter override for targeted parsing', async () => {
-    const fixturePath = path.resolve('tests/fixtures/pi/session-mixed.jsonl');
-    const adapter = new PiSourceAdapter({
-      providerFilter: (provider) => provider?.toLowerCase().includes('openai') ?? false,
-    });
-
-    const events = await adapter.parseFile(fixturePath);
-
-    expect(events).toHaveLength(2);
-    expect(events.some((event) => event.provider === 'anthropic')).toBe(false);
   });
 
   it('falls back to message.usage when line-level usage is malformed or empty', async () => {
@@ -226,6 +214,50 @@ describe('PiSourceAdapter', () => {
 
     expect(events).toHaveLength(1);
     expect(events[0]?.timestamp).toBe('2024-02-12T20:00:00.000Z');
+  });
+
+  it('preserves total-only usage without inventing billable buckets', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-total-only-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'pi-total-only',
+        }),
+        JSON.stringify({
+          type: 'message',
+          timestamp: '2026-02-12T20:01:00.000Z',
+          provider: 'openai',
+          model: 'gpt-5.2',
+          usage: {
+            totalTokens: 33,
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new PiSourceAdapter({ sessionsDir: root });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      provider: 'openai',
+      model: 'gpt-5.2',
+      inputTokens: 0,
+      outputTokens: 0,
+      reasoningTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      totalTokens: 33,
+      costUsd: undefined,
+      costMode: 'estimated',
+    });
   });
 
   it('treats millisecond timestamps as milliseconds (without multiplying by 1000)', async () => {

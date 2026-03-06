@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import {
@@ -6,6 +6,7 @@ import {
   applyPricingToEvents,
   calculateEstimatedCostUsd,
 } from '../../src/pricing/cost-engine.js';
+import type { PricingSource } from '../../src/pricing/types.js';
 import { StaticPricingSource } from '../helpers/static-pricing-source.js';
 
 describe('cost engine', () => {
@@ -137,5 +138,94 @@ describe('cost engine', () => {
 
     expect(pricedEvent.costMode).toBe('estimated');
     expect(pricedEvent.costUsd).toBeUndefined();
+  });
+
+  it('does not synthesize estimated zero cost from total-only usage', () => {
+    const source = new StaticPricingSource({
+      pricingByModel: {
+        'gpt-5.2': {
+          inputPer1MUsd: 1,
+          outputPer1MUsd: 2,
+        },
+      },
+    });
+
+    const event = createUsageEvent({
+      source: 'opencode',
+      sessionId: 'session-total-only',
+      timestamp: '2026-02-16T10:00:00Z',
+      model: 'gpt-5.2',
+      totalTokens: 42,
+      costMode: 'estimated',
+    });
+
+    const [pricedEvent] = applyPricingToEvents([event], source);
+
+    expect(pricedEvent.costMode).toBe('estimated');
+    expect(pricedEvent.costUsd).toBeUndefined();
+  });
+
+  it('resolves pricing once per distinct model when pricing multiple events', () => {
+    const getPricing = vi.fn((model: string) => {
+      if (model === 'gpt-5-codex' || model === 'gpt-4.1') {
+        return {
+          inputPer1MUsd: 1,
+          outputPer1MUsd: 2,
+        };
+      }
+
+      return undefined;
+    });
+
+    const pricingSource: PricingSource = {
+      resolveModelAlias: (model) => model,
+      getPricing,
+    };
+
+    const events = [
+      createUsageEvent({
+        source: 'codex',
+        sessionId: 'session-a',
+        timestamp: '2026-02-16T10:00:00Z',
+        model: 'gpt-5-codex',
+        inputTokens: 100,
+        outputTokens: 50,
+        costMode: 'estimated',
+      }),
+      createUsageEvent({
+        source: 'codex',
+        sessionId: 'session-b',
+        timestamp: '2026-02-16T10:01:00Z',
+        model: 'gpt-5-codex',
+        inputTokens: 200,
+        outputTokens: 100,
+        costMode: 'estimated',
+      }),
+      createUsageEvent({
+        source: 'codex',
+        sessionId: 'session-c',
+        timestamp: '2026-02-16T10:02:00Z',
+        model: 'gpt-4.1',
+        inputTokens: 300,
+        outputTokens: 150,
+        costMode: 'estimated',
+      }),
+      createUsageEvent({
+        source: 'codex',
+        sessionId: 'session-d',
+        timestamp: '2026-02-16T10:03:00Z',
+        model: 'gpt-4.1',
+        inputTokens: 400,
+        outputTokens: 200,
+        costMode: 'estimated',
+      }),
+    ];
+
+    const pricedEvents = applyPricingToEvents(events, pricingSource);
+
+    expect(pricedEvents).toHaveLength(4);
+    expect(getPricing).toHaveBeenCalledTimes(2);
+    expect(getPricing).toHaveBeenCalledWith('gpt-5-codex');
+    expect(getPricing).toHaveBeenCalledWith('gpt-4.1');
   });
 });

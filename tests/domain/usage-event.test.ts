@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { createUsageEvent } from '../../src/domain/usage-event.js';
+import {
+  createUsageEvent,
+  hasBillableTokenBuckets,
+  isPriceableEvent,
+} from '../../src/domain/usage-event.js';
 
 describe('createUsageEvent', () => {
   it('normalizes counters and trusts declared total tokens when provided', () => {
@@ -134,5 +138,29 @@ describe('createUsageEvent', () => {
     });
 
     expect(event.repoRoot).toBe('/workspace/repo');
+  });
+
+  it('treats total-only usage as non-priceable until billable buckets exist', () => {
+    const totalOnlyEvent = createUsageEvent({
+      source: 'pi',
+      sessionId: 'session-total-only',
+      timestamp: '2026-02-12T10:00:00Z',
+      model: 'gpt-5.2',
+      totalTokens: 42,
+    });
+
+    const billableEvent = createUsageEvent({
+      source: 'pi',
+      sessionId: 'session-billable',
+      timestamp: '2026-02-12T10:00:00Z',
+      model: 'gpt-5.2',
+      inputTokens: 21,
+      totalTokens: 42,
+    });
+
+    expect(hasBillableTokenBuckets(totalOnlyEvent)).toBe(false);
+    expect(isPriceableEvent(totalOnlyEvent)).toBe(false);
+    expect(hasBillableTokenBuckets(billableEvent)).toBe(true);
+    expect(isPriceableEvent(billableEvent)).toBe(true);
   });
 });

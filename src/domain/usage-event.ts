@@ -29,6 +29,11 @@ export type UsageEvent = {
   costMode: CostMode;
 };
 
+export type BillableTokenUsage = Pick<
+  UsageEvent,
+  'inputTokens' | 'outputTokens' | 'reasoningTokens' | 'cacheReadTokens' | 'cacheWriteTokens'
+>;
+
 export type UsageEventInput = {
   source: SourceId;
   sessionId: string;
@@ -142,4 +147,18 @@ export function createUsageEvent(input: UsageEventInput): UsageEvent {
     costUsd,
     costMode,
   };
+}
+
+export function hasBillableTokenBuckets(usage: BillableTokenUsage): boolean {
+  return (
+    usage.inputTokens > 0 ||
+    usage.outputTokens > 0 ||
+    usage.reasoningTokens > 0 ||
+    usage.cacheReadTokens > 0 ||
+    usage.cacheWriteTokens > 0
+  );
+}
+
+export function isPriceableEvent(event: UsageEvent): boolean {
+  return hasBillableTokenBuckets(event);
 }

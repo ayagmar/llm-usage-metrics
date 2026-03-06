@@ -1,4 +1,4 @@
-import type { UsageEvent } from '../domain/usage-event.js';
+import { isPriceableEvent, type UsageEvent } from '../domain/usage-event.js';
 import {
   getPricingFetcherRuntimeConfig,
   type PricingFetcherRuntimeConfig,
@@ -56,7 +56,7 @@ export function eventNeedsPricingLookup(event: UsageEvent): boolean {
     return false;
   }
 
-  if (event.totalTokens <= 0) {
+  if (!isPriceableEvent(event)) {
     return false;
   }
 
@@ -71,17 +71,6 @@ export function shouldLoadPricingSource(events: UsageEvent[]): boolean {
   return events.some((event) => eventNeedsPricingLookup(event));
 }
 
-function hasAnyBillableTokenBuckets(events: UsageEvent[]): boolean {
-  return events.some(
-    (event) =>
-      event.inputTokens > 0 ||
-      event.outputTokens > 0 ||
-      event.reasoningTokens > 0 ||
-      event.cacheReadTokens > 0 ||
-      event.cacheWriteTokens > 0,
-  );
-}
-
 export type PricingLoadMode = 'auto' | 'force';
 
 function shouldLoadPricingSourceForMode(
@@ -89,7 +78,7 @@ function shouldLoadPricingSourceForMode(
   pricingLoadMode: PricingLoadMode,
 ): boolean {
   if (pricingLoadMode === 'force') {
-    return hasAnyBillableTokenBuckets(events);
+    return events.some((event) => isPriceableEvent(event));
   }
 
   return shouldLoadPricingSource(events);
