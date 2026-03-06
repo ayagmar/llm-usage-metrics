@@ -30,6 +30,7 @@ Aggregate token usage and costs from your local coding agent sessions. Supports 
 - **Flexible Reports** — Daily, weekly, and monthly aggregations
 - **Efficiency Reports** — Correlate cost/tokens with repository commit outcomes
 - **Optimize Reports** — Counterfactual candidate-model pricing against observed token mix
+- **Trends Reports** — Daily cost or token trend views with combined or per-source output
 - **Multiple Outputs** — Terminal tables, JSON, or Markdown
 - **Smart Filtering** — By source, billing provider, model, and date ranges
 
@@ -96,6 +97,21 @@ llm-usage monthly --per-model-columns
 # Write a share SVG image
 llm-usage monthly --share
 ```
+
+### Trends
+
+```bash
+# Last 30 local days of cost by default
+llm-usage trends
+
+# Token trends for the last 7 days
+llm-usage trends --metric tokens --days 7
+
+# Per-source trends in JSON
+llm-usage trends --by-source --json
+```
+
+Trends is terminal-first and supports `--json`. It does not support `--markdown` or `--share`.
 
 ### Efficiency Reports
 

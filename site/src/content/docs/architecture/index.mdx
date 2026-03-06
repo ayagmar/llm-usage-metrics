@@ -3,55 +3,72 @@ title: Architecture
 description: High-level runtime architecture and data flow.
 ---
 
-`llm-usage-metrics` is organized as a reporting pipeline:
+`llm-usage-metrics` is organized around a small report-command architecture:
 
-1. parse source data (`pi`, `codex`, `gemini`, `droid`, `opencode`)
-2. normalize events into shared domain objects
-3. resolve pricing and estimate unresolved costs
-4. aggregate by period/source/model
-5. render (`terminal`, `json`, `markdown`)
+1. report definitions describe command identity, shared option profile, and examples
+2. builders parse and normalize local usage data
+3. feature aggregators reshape that data into report-specific totals or series
+4. renderers emit terminal, JSON, Markdown, or share artifacts
+5. a shared report runtime handles output-format resolution, diagnostics, and stdout/stderr behavior
 
-`efficiency` reporting reuses usage aggregation, attributes usage events to a repository root, then joins repo-scoped usage with local Git commit outcomes per period.
-`optimize` reporting reuses usage parsing/filtering and evaluates candidate-model counterfactual pricing on observed token totals.
+## Report definitions and runtime
 
-Provider fields are normalized to billing-entity identifiers at event normalization time (for example, `openai-codex` normalizes to `openai`).
+- `src/cli/report-definitions`
+  Canonical metadata for `daily`, `weekly`, `monthly`, `efficiency`, `optimize`, and `trends`
+- `src/cli/report-runtime`
+  Shared prepare/run lifecycle for format validation, share handling, terminal overflow warnings, and stdout emission
 
-Repo attribution details:
+This same metadata is reused for:
 
-- usage events are matched to the selected repository root through source metadata path hints (`repoRoot`/`cwd`-style hints)
-- paths are normalized before comparison (so equivalent paths can match)
-- events that cannot be resolved to a repository root are counted as unattributed and excluded from efficiency totals
-- when usage filters are active (`--source`, `--provider`, `--model`, source-path overrides), only commit days with matching repo-attributed usage are included in Git outcomes
+- Commander command registration
+- generated CLI docs
+- root help examples
 
-## Runtime flow
+That keeps command/docs drift low without duplicating option descriptions outside Commander help.
 
-1. `CLI entrypoint` → `Update notifier`
-2. `Update notifier` → `Command parser`
-3. `Command parser` → `buildUsageData`
-4. `buildUsageData` → `Source adapters`
-5. `Source adapters` → `Normalized UsageEvent stream`
-6. `Normalized UsageEvent stream` → `Pricing resolution`
-7. `Pricing resolution` → `Aggregation`
-8. `Aggregation` → `renderUsageReport`
-9. `renderUsageReport` → `stdout report`
-10. `buildUsageData` → `emitDiagnostics` → `stderr diagnostics`
-11. `efficiency` path: `buildUsageData` + `collectGitOutcomes` + repo attribution → `aggregateEfficiency` → `renderEfficiencyReport`
-12. `optimize` path: `buildUsageData` + counterfactual engine → `renderOptimizeReport`
+## Report flows
+
+### Usage
+
+`buildUsageData(...)` parses source events, applies pricing, aggregates by period/source/model, then `renderUsageReport(...)` formats the report.
+
+### Efficiency
+
+`buildEfficiencyData(...)` reuses usage parsing, attributes events to a repository root, joins them with local Git outcomes, then `renderEfficiencyReport(...)` formats the result.
+
+### Optimize
+
+`buildOptimizeData(...)` reuses usage parsing and pricing, aggregates baseline token totals, computes candidate-model counterfactual costs, then `renderOptimizeReport(...)` formats the result.
+
+### Trends
+
+`buildTrendsData(...)` reuses usage parsing, loads pricing only for cost mode, aggregates to daily totals, projects those totals into daily trend series, then `renderTrendsReport(...)` formats terminal charts or JSON.
+
+## Aggregation and rendering details
+
+- `aggregateUsage(...)` supports an `includeModelBreakdown` profile
+  Usage keeps per-model breakdowns; efficiency, optimize, and trends skip them.
+- `render/unicode-table.ts` is driven by explicit row metadata (`periodKey`, `rowKind`)
+  This keeps sorting and separators deterministic without coupling the generic table renderer to usage-row domain types.
 
 ## Module boundaries
 
-- `src/cli`: orchestration, option handling, diagnostics emission
-- `src/sources`: source adapters + discovery/parsing concerns
-- `src/domain`: normalized contracts and constructors
-- `src/pricing`: pricing loader + cost engine
-- `src/aggregate`: period/source bucketing and totals
+- `src/cli`: command creation, report builders, diagnostics emission
+- `src/cli/report-definitions`: command metadata and shared option profiles
+- `src/cli/report-runtime`: shared report lifecycle
+- `src/sources`: adapter discovery and parsing
+- `src/domain`: canonical normalized contracts
+- `src/pricing`: LiteLLM pricing loader/cache/cost engine
+- `src/aggregate`: period/source usage aggregation
+- `src/efficiency`: repo attribution and Git outcome joins
+- `src/optimize`: counterfactual pricing aggregation
+- `src/trends`: daily trend-series aggregation
 - `src/render`: output formatters
-- `src/efficiency`: repo attribution + Git outcome collection + efficiency aggregation
-- `src/optimize`: candidate-model counterfactual computation + optimize row contracts
 
-## Design principles
+## Invariants
 
-- source-specific parsing is isolated per adapter
-- stdout remains data-only for JSON/Markdown modes
-- diagnostics are emitted to stderr
-- sorting and aggregation are deterministic
+- deterministic ordering for periods, sources, candidates, and models
+- diagnostics on `stderr`, report body on `stdout`
+- JSON/Markdown stay data-only on `stdout`
+- provider identifiers are normalized at the domain boundary
+- incomplete pricing remains explicit in output (`~`, warnings, or incomplete flags)

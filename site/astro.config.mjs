@@ -60,6 +60,10 @@ export default defineConfig({
           link: '/optimize',
         },
         {
+          label: 'Trends',
+          link: '/trends',
+        },
+        {
           label: 'Data Sources',
           items: [
             { label: 'Overview', link: '/sources/' },

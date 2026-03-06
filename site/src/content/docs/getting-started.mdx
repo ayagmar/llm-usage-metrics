@@ -36,6 +36,7 @@ Useful next commands:
 ```bash
 llm-usage weekly --timezone Europe/Paris
 llm-usage monthly --since 2026-01-01 --until 2026-01-31
+llm-usage trends --metric tokens --days 14
 ```
 
 ## Common filters
@@ -63,6 +64,16 @@ llm-usage efficiency monthly --repo-dir /path/to/repo --json
 ```
 
 See [Efficiency](/efficiency/) for full metric semantics and interpretation rules.
+
+## Trends quick start
+
+```bash
+llm-usage trends
+llm-usage trends --metric tokens --days 7
+llm-usage trends --by-source --json
+```
+
+See [Trends](/trends/) for range rules, metric semantics, and JSON shape.
 
 ## Gemini explicit path
 

@@ -2,134 +2,154 @@
 
 ## High-level design
 
-`llm-usage-metrics` is built as a deterministic reporting pipeline with explicit boundaries:
+`llm-usage-metrics` is a deterministic reporting pipeline with explicit seams:
 
-1. **CLI orchestration** parses user intent.
-2. **Source adapters** discover and parse source-native data.
-3. **Domain normalization** enforces canonical event contracts.
-4. **Pricing** resolves explicit/estimated cost values.
-5. **Aggregation** buckets events by period and source.
-6. **Rendering** formats rows for terminal/markdown/json.
-7. **Diagnostics emission** reports operational context on `stderr`.
+1. **Report definitions** describe command identity, shared option profile, examples, and runtime binding.
+2. **CLI builders** load and normalize local usage data for one report.
+3. **Feature aggregators** reshape normalized usage into report-specific data.
+4. **Renderers** emit terminal, JSON, Markdown, or share artifacts.
+5. **Shared report runtime** keeps diagnostics on `stderr`, report bodies on `stdout`, and centralizes format/share lifecycle behavior.
 
-This keeps source-specific complexity isolated and report output deterministic.
+This keeps source-specific parsing, pricing, aggregation, rendering, and command wiring separate.
 
-`efficiency` reports reuse the usage pipeline, attribute usage events to a repository root, then join repo-scoped usage totals with local Git outcome totals.
-`optimize` reports reuse the same usage parsing/filtering pipeline, then compute counterfactual candidate-model pricing over observed token totals.
+## Report command architecture
 
-## Runtime flow (flowchart)
+### Report definitions
 
-```mermaid
-flowchart LR
-    A[CLI entrypoint\nsrc/cli/index.ts] --> B[Update notifier\nsrc/update]
-    B --> C[Command parser\nsrc/cli/create-cli.ts]
-    C --> D[runUsageReport]
-    D --> E[buildUsageData]
-    C --> O[runEfficiencyReport]
-    C --> T[runOptimizeReport]
-    O --> E
-    T --> E
-    O --> P[collectGitOutcomes]
-    O --> S[attributeUsageEventsToRepo]
-    E --> S
-    P --> Q[aggregateEfficiency]
-    S --> Q
-    Q --> R[renderEfficiencyReport]
-    R --> L
+- `src/cli/report-definitions/report-definitions.ts`
+  Owns the canonical registry for `daily`, `weekly`, `monthly`, `efficiency`, `optimize`, and `trends`.
+- `src/cli/report-definitions/shared-report-options.ts`
+  Registers the shared option surface by profile (`usage`, `specialized`, `trends`).
 
-    E --> F[Source adapters\npi/codex/gemini/droid/opencode]
-    F --> G[UsageEvent list]
-    G --> H[Pricing resolver\nLiteLLM cache/network]
-    H --> I[Aggregator\nperiod/source totals]
-    I --> J[UsageDataResult]
-    J --> U[Counterfactual engine\ncandidate ranking + deltas]
-    U --> V[renderOptimizeReport]
-    V --> L
+This metadata is reused by:
 
-    J --> K[renderUsageReport]
-    K --> L[stdout report body]
+- `src/cli/create-cli.ts` to register Commander commands
+- `scripts/generate-cli-reference.mjs` to generate the site CLI reference
+- root help examples, so CLI help and generated docs do not drift
 
-    D --> M[emitDiagnostics]
-    M --> N[stderr diagnostics]
-    O --> M
-    T --> M
-```
+Commander help text remains the source of truth for option descriptions.
 
-## End-to-end sequence
+### Shared report runtime
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant Entry as CLI entrypoint
-    participant Update as Update notifier
-    participant Run as CommandRunner
-    participant Build as buildUsageData
-    participant Adapter as Source adapters
-    participant Pricing as Pricing resolver
-    participant Agg as Aggregator
-    participant Render as renderUsageReport
-    participant Emit as emitDiagnostics
-    participant Git as collectGitOutcomes
-    participant Cfx as counterfactual engine
+- `src/cli/report-runtime/report-lifecycle.ts`
+  Centralizes:
+  - `--markdown` / `--json` validation
+  - output-format resolution
+  - report preparation
+  - share artifact write/open/log handling
+  - optional terminal overflow warnings
+  - final stdout emission
 
-    User->>Entry: llm-usage monthly --source pi,codex
-    Entry->>Update: checkForUpdatesAndMaybeRestart()
-    Update-->>Entry: continueExecution=true
-    Entry->>Run: execute command
-    Run->>Build: buildUsageData(granularity, options)
-    Build->>Adapter: discoverFiles() + parseFile()
-    Adapter-->>Build: UsageEvent list
-    Build->>Pricing: resolvePricingSource(...)
-    Pricing-->>Build: pricing source + origin
-    Build->>Agg: aggregateUsage(events)
-    Agg-->>Build: UsageReportRow list
-    Build-->>Run: UsageDataResult
-    Run->>Render: renderUsageReport(data, format)
-    Render-->>Run: report string
-    Run->>Emit: emitDiagnostics(data.diagnostics)
-    Run-->>User: stderr diagnostics + stdout report
+Each report wrapper still owns its policy:
 
-    User->>Entry: llm-usage efficiency weekly --repo-dir /repo
-    Entry->>Run: runEfficiencyReport(...)
-    Run->>Build: buildUsageData(...)
-    Run->>Git: collectGitOutcomes(...)
-    Build-->>Run: usage events + rows + diagnostics
-    Git-->>Run: outcome totals
-    Run->>Run: attribute usage events to repo root
-    Run->>Run: aggregateEfficiency(...)
-    Run->>Render: renderEfficiencyReport(data, format)
-    Render-->>Run: report string
-    Run->>Emit: emitDiagnostics(data.diagnostics.usage)
-    Run-->>User: stderr diagnostics + stdout efficiency report
+- data builder
+- renderer
+- report-specific diagnostics
+- share eligibility rules
 
-    User->>Entry: llm-usage optimize monthly --candidate-model gpt-4.1
-    Entry->>Run: runOptimizeReport(...)
-    Run->>Build: buildUsageData(...)
-    Build-->>Run: usage events + rows + diagnostics
-    Run->>Cfx: evaluate candidate pricing on baseline token totals
-    Cfx-->>Run: baseline + candidate rows
-    Run->>Run: renderOptimizeReport(data, format)
-    Run->>Emit: emitDiagnostics(data.diagnostics.usage)
-    Run-->>User: stderr diagnostics + stdout optimize report
-```
+The public entry points remain stable:
+
+- `buildUsageReport`, `runUsageReport`
+- `buildEfficiencyReport`, `runEfficiencyReport`
+- `buildOptimizeReport`, `runOptimizeReport`
+
+## Runtime flows
+
+### Usage
+
+`runUsageReport(granularity, options)`
+
+1. `buildUsageData(...)`
+2. `aggregateUsage(..., { includeModelBreakdown: true })`
+3. `renderUsageReport(...)`
+4. shared report runtime emits diagnostics, optional share SVG, and stdout body
+
+### Efficiency
+
+`runEfficiencyReport(granularity, options)`
+
+1. `buildUsageData(...)`
+2. repo attribution (`src/efficiency/repo-attribution.ts`)
+3. Git outcomes (`src/efficiency/git-outcome-collector.ts`)
+4. `aggregateUsage(..., { includeModelBreakdown: false })`
+5. `aggregateEfficiency(...)`
+6. `renderEfficiencyReport(...)`
+7. shared report runtime emits diagnostics, optional share SVG, and stdout body
+
+### Optimize
+
+`runOptimizeReport(granularity, options)`
+
+1. `buildUsageEventDataset(...)`
+2. pricing load and application
+3. `aggregateUsage(..., { includeModelBreakdown: false })`
+4. `buildCounterfactualRows(...)`
+5. `renderOptimizeReport(...)`
+6. shared report runtime emits diagnostics, optional share SVG, and stdout body
+
+### Trends
+
+`runTrendsReport(options)`
+
+1. `buildUsageEventDataset(...)`
+2. optional pricing load (cost mode only)
+3. `aggregateUsage(..., { granularity: 'daily', includeModelBreakdown: false })`
+4. `aggregateTrends(...)`
+5. `renderTrendsReport(...)`
+6. shared report runtime emits diagnostics and stdout body
+
+## Aggregation profiles
+
+`src/aggregate/aggregate-usage.ts` supports `includeModelBreakdown`.
+
+- usage reports keep model breakdowns
+- efficiency, optimize, and trends skip model breakdown computation
+
+This removes unnecessary work and avoids leaking usage-table-specific model metadata into reports that do not need it.
+
+## Generic table rendering
+
+`src/render/unicode-table.ts` is now driven by explicit table row metadata:
+
+- `periodKey`
+- `rowKind` (`detail`, `combined`, `total`)
+
+That keeps sorting and separator behavior deterministic without coupling the generic table renderer to `UsageReportRow`.
 
 ## Module map
 
-- `src/cli`: command creation, validation, orchestration, diagnostics contracts
-- `src/sources`: adapter contract + source-specific parsers
-- `src/domain`: normalized contracts and constructors
-- `src/pricing`: LiteLLM loader/cache + cost engine
-- `src/aggregate`: daily/weekly/monthly bucketing and totals
-- `src/render`: terminal/markdown/json formatting
-- `src/efficiency`: git-outcome collection and efficiency aggregation
-- `src/optimize`: counterfactual candidate-model computation and row contracts
-- `src/update`: startup update check
+- `src/cli`
+  Command creation, shared runtime, builders, diagnostics emission
+- `src/cli/report-definitions`
+  Canonical report metadata and option profiles
+- `src/cli/report-runtime`
+  Shared report execution lifecycle
+- `src/sources`
+  Source adapters, discovery, parsing
+- `src/domain`
+  Canonical usage contracts and normalization
+- `src/pricing`
+  LiteLLM pricing loader, cache, cost engine
+- `src/aggregate`
+  Period/source usage aggregation
+- `src/efficiency`
+  Repo attribution, Git outcomes, efficiency aggregation
+- `src/optimize`
+  Counterfactual pricing aggregation
+- `src/trends`
+  Trend series contracts and daily trend aggregation
+- `src/render`
+  Terminal/JSON/Markdown/share rendering
+- `src/update`
+  Startup update check
 
 ## Core invariants
 
-- deterministic ordering (period/source/model)
-- source parsing isolated behind adapter contract
-- provider values are normalized to billing-entity identifiers at domain boundaries
-- diagnostics on `stderr`, report data on `stdout`
-- OpenCode runtime parsing is read-only (`node:sqlite`)
-- unresolved cost values are surfaced explicitly (`-` / `~$...` semantics)
+- deterministic ordering for periods, sources, candidates, and models
+- source-specific parsing stays behind adapter contracts
+- provider values are normalized to billing entities at the domain boundary
+- diagnostics stay on `stderr`
+- report bodies stay on `stdout`
+- JSON/Markdown output remains data-only on `stdout`
+- OpenCode parsing is read-only through built-in `node:sqlite`
+- incomplete pricing is surfaced explicitly (`~$...`, warnings, or incomplete flags)

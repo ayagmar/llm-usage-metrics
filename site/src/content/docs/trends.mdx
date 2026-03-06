@@ -1,0 +1,98 @@
+---
+title: Trends
+description: Daily cost or token trends in terminal or JSON form.
+---
+
+`trends` shows daily movement over time instead of a tabular aggregate.
+
+```bash
+llm-usage trends [options]
+```
+
+## Examples
+
+```bash
+# Default: last 30 local calendar days of cost
+llm-usage trends
+
+# Last 7 days of token usage
+llm-usage trends --metric tokens --days 7
+
+# Combined date window
+llm-usage trends --since 2026-02-01 --until 2026-02-29
+
+# Per-source JSON output
+llm-usage trends --by-source --json
+```
+
+## Options
+
+- `--days <n>`: trailing local calendar days to chart
+- `--metric <name>`: `cost` or `tokens`
+- `--by-source`: render one sparkline row per source
+- shared filters still apply: `--source`, `--provider`, `--model`, `--since`, `--until`, `--timezone`, source-path overrides, and pricing flags
+
+`trends` supports terminal output and `--json`. It does not support `--markdown` or `--share`.
+
+## `--days` vs `--since` / `--until`
+
+- If you pass `--days`, the range is `today - (days - 1)` through local today.
+- If you pass neither `--days` nor explicit date flags, the command defaults to the last 30 local calendar days.
+- `--days` cannot be combined with `--since` or `--until`.
+- `--until` without `--since` expands back to the earliest observed day after filtering.
+
+## Metric semantics
+
+### `--metric cost`
+
+- Reuses the same pricing pipeline as usage reports.
+- Incomplete pricing is carried into the trend output.
+- Approximate totals and peaks use the existing `~` convention.
+
+### `--metric tokens`
+
+- Uses daily `totalTokens`.
+- Skips pricing loads entirely.
+- Pricing flags are accepted but have no effect in this mode.
+
+## `--by-source`
+
+`--by-source` renders one sparkline row per source instead of a single combined chart.
+
+- source order follows the adapter/source order
+- missing days are zero-filled
+- sources with no observed data in the selected range are omitted
+
+## Reading approximate cost output
+
+When any bucket in the selected range has incomplete pricing:
+
+- the affected series summary is marked approximate with `~`
+- JSON includes `incomplete: true` on affected buckets and summaries
+
+If no observed bucket in the selected range has resolved cost, the terminal output adds a note suggesting `--metric tokens` or working pricing.
+
+## JSON shape
+
+```json
+{
+  "metric": "cost",
+  "dateRange": { "from": "2026-02-06", "to": "2026-03-06" },
+  "totalSeries": {
+    "source": "combined",
+    "buckets": [
+      { "date": "2026-02-06", "value": 1.57, "observed": true },
+      { "date": "2026-02-07", "value": 0, "observed": false }
+    ],
+    "summary": {
+      "total": 87.4,
+      "average": 2.91,
+      "peak": { "date": "2026-02-28", "value": 5.12 },
+      "incomplete": true,
+      "observedDayCount": 12
+    }
+  }
+}
+```
+
+Diagnostics are never included in the JSON body; they remain on `stderr`.

@@ -106,6 +106,19 @@ For JSON and Markdown, `stdout` includes only the report body; diagnostics and w
 
 `--share` is monthly-only for optimize (see [Share SVG](#share-svg) above).
 
+## Trends reports
+
+```bash
+llm-usage trends
+llm-usage trends --metric tokens --days 7
+llm-usage trends --by-source --json
+```
+
+- Default terminal output renders a daily trend chart.
+- `--json` emits structured trend series (`metric`, `dateRange`, `totalSeries`, optional `sourceSeries`).
+- Diagnostics stay on `stderr`.
+- Markdown is not supported for this command.
+
 ## Per-model columns
 
 Detailed multiline metrics per model:

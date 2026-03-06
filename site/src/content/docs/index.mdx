@@ -27,6 +27,11 @@ Welcome to the `llm-usage-metrics` documentation. This high-performance CLI tool
     href="/llm-usage-metrics/optimize/"
   />
   <LinkCard
+    title="Trends"
+    description="See daily cost or token movement over time, combined or by source."
+    href="/llm-usage-metrics/trends/"
+  />
+  <LinkCard
     title="Benchmarks"
     description="See how our optimized engine delivers up to 20x faster reporting."
     href="/llm-usage-metrics/benchmarks/"
@@ -78,4 +83,7 @@ llm-usage efficiency monthly --repo-dir ./my-project
 
 # Counterfactual model pricing
 llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candidate-model gpt-5-codex
+
+# Daily trend view
+llm-usage trends --metric tokens --days 14
 ```

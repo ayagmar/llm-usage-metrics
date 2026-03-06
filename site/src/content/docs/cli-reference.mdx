@@ -21,6 +21,7 @@ Commands:
 - `monthly`
 - `efficiency <daily|weekly|monthly>`
 - `optimize <daily|weekly|monthly>`
+- `trends`
 
 ## Options
 
@@ -28,15 +29,18 @@ Generated from root + command help output.
 
 | Option | Short | Argument | Description |
 | --- | --- | --- | --- |
-| `--candidate-model` | - | `<name>` | Candidate model for counterfactual pricing (repeatable or comma-separated) (default: []) (optimize only) |
+| `--by-source` | - | - | Render one sparkline row per source instead of a single combined chart (trends only) |
+| `--candidate-model` | - | `<name>` | Candidate model for counterfactual pricing (repeatable or comma-separated) (optimize only) |
 | `--codex-dir` | - | `<path>` | Path to .codex sessions directory |
+| `--days` | - | `<n>` | Trailing local calendar days to chart; defaults to 30 when no date flags are provided (trends only) |
 | `--droid-dir` | - | `<path>` | Path to Droid sessions directory |
 | `--gemini-dir` | - | `<path>` | Path to .gemini directory |
 | `--ignore-pricing-failures` | - | - | Continue without estimated costs when pricing cannot be loaded |
 | `--include-merge-commits` | - | - | Include merge commits in Git outcome metrics (efficiency only) |
 | `--json` | - | - | Render output as JSON |
-| `--markdown` | - | - | Render output as Markdown table |
-| `--model` | - | `<name>` | Filter by model (repeatable/comma-separated; exact when exact match exists after source/provider/date filters, otherwise substring) (default: []) |
+| `--markdown` | - | - | Render output as Markdown table (daily, weekly, monthly, efficiency, optimize only) |
+| `--metric` | - | `<name>` | Trend metric: cost \| tokens (default: "cost") (trends only) |
+| `--model` | - | `<name>` | Filter by model (repeatable/comma-separated; exact when exact match exists after source/provider/date filters, otherwise substring) |
 | `--opencode-db` | - | `<path>` | Path to OpenCode SQLite DB |
 | `--per-model-columns` | - | - | Render per-model metrics as multiline aligned table columns (terminal/Markdown) (usage reports only) |
 | `--pi-dir` | - | `<path>` | Path to .pi sessions directory |
@@ -44,10 +48,10 @@ Generated from root + command help output.
 | `--pricing-url` | - | `<url>` | Override LiteLLM pricing source URL |
 | `--provider` | - | `<name>` | Billing-provider filter (substring match, optional; e.g. openai, anthropic, google) |
 | `--repo-dir` | - | `<path>` | Path to repository for Git outcome metrics (efficiency only) |
-| `--share` | - | - | Write a share SVG image to the current directory |
+| `--share` | - | - | Write a share SVG image to the current directory (daily, weekly, monthly, efficiency, optimize only) |
 | `--since` | - | `<YYYY-MM-DD>` | Inclusive start date filter |
-| `--source` | - | `<name>` | Filter by source id (repeatable or comma-separated, supported sources (5): pi, codex, gemini, droid, opencode) (default: []) |
-| `--source-dir` | - | `<source-id=path>` | Override source directory for directory-backed sources (repeatable) (default: []) |
+| `--source` | - | `<name>` | Filter by source id (repeatable or comma-separated, supported sources (5): pi, codex, gemini, droid, opencode) |
+| `--source-dir` | - | `<source-id=path>` | Override source directory for directory-backed sources (repeatable) |
 | `--timezone` | - | `<iana>` | Timezone for bucketing (default: local system timezone) |
 | `--top` | - | `<n>` | Show only the top N cheapest candidates (positive integer) (optimize only) |
 | `--until` | - | `<YYYY-MM-DD>` | Inclusive end date filter |
@@ -58,17 +62,20 @@ Generated from root + command help output.
 
 ```bash
 llm-usage daily
-llm-usage weekly --timezone Europe/Paris
-llm-usage monthly --since 2026-01-01 --until 2026-01-31
-llm-usage monthly --source gemini --gemini-dir /path/to/.gemini
-llm-usage monthly --source droid --droid-dir /path/to/.factory/sessions
-llm-usage monthly --source opencode --opencode-db /path/to/opencode.db
 llm-usage daily --source-dir pi=/tmp/pi-sessions --source-dir gemini=/tmp/.gemini --source-dir droid=/tmp/droid-sessions
 llm-usage daily --json
 llm-usage daily --markdown
+llm-usage weekly --timezone Europe/Paris
+llm-usage monthly --since 2026-01-01 --until 2026-01-31
+llm-usage monthly --source opencode --opencode-db /path/to/opencode.db --json
+llm-usage monthly --source gemini --gemini-dir /path/to/.gemini
+llm-usage monthly --source droid --droid-dir /path/to/.factory/sessions
 llm-usage monthly --share
 llm-usage efficiency weekly --repo-dir /path/to/repo --json
 llm-usage efficiency monthly --share
 llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candidate-model gpt-5-codex --json
 llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candidate-model gpt-5-codex --share
+llm-usage trends
+llm-usage trends --metric tokens --days 7
+llm-usage trends --by-source --json
 ```
