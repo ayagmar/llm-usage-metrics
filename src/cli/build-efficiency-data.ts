@@ -130,6 +130,7 @@ export async function buildEfficiencyData(
   const repoScopedUsageRows = aggregateUsage(matchedEventsWithSignal, {
     granularity,
     timezone: usageData.diagnostics.timezone,
+    includeModelBreakdown: false,
   });
 
   const rows = aggregateEfficiency({

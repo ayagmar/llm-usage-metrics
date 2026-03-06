@@ -1,42 +1,24 @@
-import { logger } from '../utils/logger.js';
-import type { ReportGranularity } from '../utils/time-buckets.js';
-import { renderOptimizeMonthlyShareSvg } from '../render/render-optimize-share-svg.js';
 import {
   renderOptimizeReport,
   type OptimizeReportFormat,
 } from '../render/render-optimize-report.js';
+import { renderOptimizeMonthlyShareSvg } from '../render/render-optimize-share-svg.js';
+import { logger } from '../utils/logger.js';
+import type { ReportGranularity } from '../utils/time-buckets.js';
 import { buildOptimizeData } from './build-optimize-data.js';
 import { emitDiagnostics } from './emit-diagnostics.js';
-import { emitEnvVarOverrides } from './emit-env-var-overrides.js';
-import { writeAndOpenShareSvgFile } from './share-artifact.js';
-import { warnIfTerminalTableOverflows } from './terminal-overflow-warning.js';
+import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
 import type { OptimizeCommandOptions, OptimizeDiagnostics } from './usage-data-contracts.js';
 
-type PreparedOptimizeReport = {
-  format: OptimizeReportFormat;
-  output: string;
-  diagnostics: OptimizeDiagnostics;
+const optimizeReportFormats = [
+  'terminal',
+  'markdown',
+  'json',
+] as const satisfies readonly OptimizeReportFormat[];
+
+type OptimizePreparedDiagnostics = OptimizeDiagnostics & {
   candidateCount: number;
-  shareSvg?: string;
 };
-
-function validateOutputFormatOptions(options: OptimizeCommandOptions): void {
-  if (options.markdown && options.json) {
-    throw new Error('Choose either --markdown or --json, not both');
-  }
-}
-
-function resolveReportFormat(options: OptimizeCommandOptions): OptimizeReportFormat {
-  if (options.json) {
-    return 'json';
-  }
-
-  if (options.markdown) {
-    return 'markdown';
-  }
-
-  return 'terminal';
-}
 
 function validateShareOption(
   granularity: ReportGranularity,
@@ -54,24 +36,55 @@ function validateShareOption(
 async function prepareOptimizeReport(
   granularity: ReportGranularity,
   options: OptimizeCommandOptions,
-): Promise<PreparedOptimizeReport> {
-  validateOutputFormatOptions(options);
-  validateShareOption(granularity, options);
+) {
+  return prepareReport({
+    commandOptions: options,
+    supportedFormats: optimizeReportFormats,
+    validate: () => {
+      validateShareOption(granularity, options);
+    },
+    buildData: async () => {
+      const optimizeData = await buildOptimizeData(granularity, options);
 
-  const optimizeData = await buildOptimizeData(granularity, options);
-  const format = resolveReportFormat(options);
-
-  return {
-    format,
-    diagnostics: optimizeData.diagnostics,
-    candidateCount: optimizeData.rows.filter(
-      (row) => row.rowType === 'candidate' && row.periodKey === 'ALL',
-    ).length,
-    shareSvg: options.share ? renderOptimizeMonthlyShareSvg(optimizeData) : undefined,
-    output: renderOptimizeReport(optimizeData, format, {
-      granularity,
+      return {
+        optimizeData,
+        candidateCount: optimizeData.rows.filter(
+          (row) => row.rowType === 'candidate' && row.periodKey === 'ALL',
+        ).length,
+      };
+    },
+    getDiagnostics: (bundle): OptimizePreparedDiagnostics => ({
+      ...bundle.optimizeData.diagnostics,
+      candidateCount: bundle.candidateCount,
     }),
-  };
+    createShareArtifact: options.share
+      ? (bundle) => ({
+          fileName: 'optimize-monthly-share.svg',
+          svg: renderOptimizeMonthlyShareSvg(bundle.optimizeData),
+          logLabel: 'optimize',
+        })
+      : undefined,
+    render: (bundle, format) =>
+      renderOptimizeReport(bundle.optimizeData, format, {
+        granularity,
+      }),
+  });
+}
+
+function emitOptimizeReportDiagnostics(diagnostics: OptimizePreparedDiagnostics): void {
+  logger.info(
+    `Optimize provider scope: ${diagnostics.provider}; candidate(s): ${diagnostics.candidateCount}`,
+  );
+
+  if (diagnostics.candidatesWithMissingPricing.length > 0) {
+    logger.warn(
+      `Missing pricing for candidate model(s): ${diagnostics.candidatesWithMissingPricing.join(', ')}`,
+    );
+  }
+
+  if (diagnostics.warning) {
+    logger.warn(diagnostics.warning);
+  }
 }
 
 export async function buildOptimizeReport(
@@ -88,44 +101,13 @@ export async function runOptimizeReport(
 ): Promise<void> {
   const preparedReport = await prepareOptimizeReport(granularity, options);
 
-  emitDiagnostics(preparedReport.diagnostics.usage, logger);
-  emitEnvVarOverrides(preparedReport.diagnostics.usage.activeEnvOverrides, logger);
-
-  logger.info(
-    `Optimize provider scope: ${preparedReport.diagnostics.provider}; candidate(s): ${preparedReport.candidateCount}`,
-  );
-
-  if (preparedReport.diagnostics.candidatesWithMissingPricing.length > 0) {
-    logger.warn(
-      `Missing pricing for candidate model(s): ${preparedReport.diagnostics.candidatesWithMissingPricing.join(', ')}`,
-    );
-  }
-
-  if (preparedReport.diagnostics.warning) {
-    logger.warn(preparedReport.diagnostics.warning);
-  }
-
-  if (preparedReport.format === 'terminal') {
-    warnIfTerminalTableOverflows(preparedReport.output, (message) => {
-      logger.warn(message);
-    });
-  }
-
-  if (preparedReport.shareSvg) {
-    const shareResult = await writeAndOpenShareSvgFile(
-      'optimize-monthly-share.svg',
-      preparedReport.shareSvg,
-    );
-    logger.info(`Wrote optimize share SVG: ${shareResult.outputPath}`);
-
-    if (shareResult.opened) {
-      logger.info(`Opened optimize share SVG: ${shareResult.outputPath}`);
-    } else {
-      logger.warn(
-        `Could not open optimize share SVG: ${shareResult.outputPath} (${shareResult.openErrorMessage})`,
-      );
-    }
-  }
-
-  console.log(preparedReport.output);
+  await runPreparedReport<OptimizePreparedDiagnostics, OptimizeReportFormat>({
+    preparedReport,
+    emitCommonDiagnostics: (diagnostics) => {
+      emitDiagnostics(diagnostics.usage);
+    },
+    getEnvVarOverrides: (diagnostics) => diagnostics.usage.activeEnvOverrides,
+    emitReportDiagnostics: emitOptimizeReportDiagnostics,
+    warnOnTerminalOverflow: true,
+  });
 }

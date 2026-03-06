@@ -4,7 +4,7 @@ import type { UsageReportRow } from '../domain/usage-report-row.js';
 import { colorizeUsageBodyRows } from './terminal-style-policy.js';
 import { toUsageTableCells, type UsageTableLayout, usageTableHeaders } from './row-cells.js';
 import { resolveTtyColumns, visibleWidth, wrapTableColumn } from './table-text-layout.js';
-import { renderUnicodeTable } from './unicode-table.js';
+import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
 
 const modelsColumnIndex = 2;
 const defaultModelsColumnWidth = 32;
@@ -70,16 +70,26 @@ function renderTableWithModelsWidth(
     width: modelsColumnWidth,
   });
   const bodyRows = colorizeUsageBodyRows(wrappedBodyRows, rows, { useColor });
+  const rowMetas: TableRowMeta[] = rows.map((row) => ({
+    periodKey: row.periodKey,
+    periodGroup: row.rowType === 'grand_total' ? 'summary' : 'normal',
+    rowKind:
+      row.rowType === 'grand_total'
+        ? 'total'
+        : row.rowType === 'period_combined'
+          ? 'combined'
+          : 'detail',
+  }));
 
   return renderUnicodeTable({
     headerCells: colorizeHeader(useColor),
     bodyRows,
     measureHeaderCells: usageTableHeaders,
     measureBodyRows: wrappedBodyRows,
-    usageRows: rows,
-    tableLayout,
-    modelsColumnIndex,
-    modelsColumnWidth,
+    rowMetas,
+    layout: tableLayout === 'per_model_columns' ? 'top_aligned' : 'compact',
+    multilineColumnIndex: modelsColumnIndex,
+    multilineColumnWidth: modelsColumnWidth,
   });
 }
 

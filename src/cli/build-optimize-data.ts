@@ -92,6 +92,7 @@ export async function buildOptimizeData(
     granularity,
     timezone: dataset.normalizedInputs.timezone,
     sourceOrder: dataset.adaptersToParse.map((adapter) => adapter.id),
+    includeModelBreakdown: false,
   });
 
   const counterfactual = buildCounterfactualRows({

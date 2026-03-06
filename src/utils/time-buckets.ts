@@ -54,6 +54,28 @@ function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
 }
 
+function formatLocalDateParts(localDate: LocalDateParts): string {
+  return `${localDate.year}-${String(localDate.month).padStart(2, '0')}-${String(localDate.day).padStart(2, '0')}`;
+}
+
+function parseLocalDateKey(value: string): LocalDateParts {
+  if (!/^\d{4}-\d{2}-\d{2}$/u.test(value)) {
+    throw new Error(`Invalid local date key: ${value}`);
+  }
+
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) {
+    throw new Error(`Invalid local date key: ${value}`);
+  }
+
+  return {
+    year: parsed.getUTCFullYear(),
+    month: parsed.getUTCMonth() + 1,
+    day: parsed.getUTCDate(),
+  };
+}
+
 function toIsoDayOfWeek(date: Date): number {
   const utcDay = date.getUTCDay();
   return utcDay === 0 ? 7 : utcDay;
@@ -85,7 +107,7 @@ export function getPeriodKey(
   const localDate = extractLocalDateParts(timestampIso, timezone);
 
   if (granularity === 'daily') {
-    return `${localDate.year}-${String(localDate.month).padStart(2, '0')}-${String(localDate.day).padStart(2, '0')}`;
+    return formatLocalDateParts(localDate);
   }
 
   if (granularity === 'monthly') {
@@ -94,4 +116,37 @@ export function getPeriodKey(
 
   const isoWeek = getIsoWeekParts(localDate);
   return `${isoWeek.weekYear}-W${String(isoWeek.weekNumber).padStart(2, '0')}`;
+}
+
+export function getLocalDateKey(timestampIso: string, timezone: string): string {
+  return formatLocalDateParts(extractLocalDateParts(timestampIso, timezone));
+}
+
+export function getCurrentLocalDateKey(timezone: string, now: Date = new Date()): string {
+  return formatLocalDateParts(extractLocalDateParts(now.toISOString(), timezone));
+}
+
+export function shiftLocalDateKey(localDateKey: string, days: number): string {
+  return formatLocalDateParts(
+    extractLocalDateParts(
+      addDays(createUtcDate(parseLocalDateKey(localDateKey)), days).toISOString(),
+      'UTC',
+    ),
+  );
+}
+
+export function getLocalDateKeyRange(from: string, to: string): string[] {
+  if (from > to) {
+    return [];
+  }
+
+  const range: string[] = [];
+  let current = from;
+
+  while (current <= to) {
+    range.push(current);
+    current = shiftLocalDateKey(current, 1);
+  }
+
+  return range;
 }

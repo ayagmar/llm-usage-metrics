@@ -1,7 +1,6 @@
 import { markdownTable } from 'markdown-table';
 import pc from 'picocolors';
 
-import type { UsageReportRow } from '../domain/usage-report-row.js';
 import type { EfficiencyDataResult } from '../cli/usage-data-contracts.js';
 import type { EfficiencyRow } from '../efficiency/efficiency-row.js';
 import type { ReportGranularity } from '../utils/time-buckets.js';
@@ -14,7 +13,7 @@ import {
   wrapTableColumn,
 } from './table-text-layout.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
-import { renderUnicodeTable } from './unicode-table.js';
+import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
 
 export type EfficiencyReportFormat = 'terminal' | 'markdown' | 'json';
 
@@ -51,39 +50,11 @@ function getReportTitle(granularity: ReportGranularity): string {
   }
 }
 
-function toTableSortRow(row: EfficiencyRow): UsageReportRow {
-  if (row.rowType === 'grand_total') {
-    return {
-      rowType: 'grand_total',
-      periodKey: 'ALL',
-      source: 'combined',
-      models: [],
-      modelBreakdown: [],
-      inputTokens: row.inputTokens,
-      outputTokens: row.outputTokens,
-      reasoningTokens: row.reasoningTokens,
-      cacheReadTokens: row.cacheReadTokens,
-      cacheWriteTokens: row.cacheWriteTokens,
-      totalTokens: row.totalTokens,
-      costUsd: row.costUsd,
-      costIncomplete: row.costIncomplete,
-    };
-  }
-
+function toTableRowMeta(row: EfficiencyRow): TableRowMeta {
   return {
-    rowType: 'period_source',
     periodKey: row.periodKey,
-    source: 'combined',
-    models: [],
-    modelBreakdown: [],
-    inputTokens: row.inputTokens,
-    outputTokens: row.outputTokens,
-    reasoningTokens: row.reasoningTokens,
-    cacheReadTokens: row.cacheReadTokens,
-    cacheWriteTokens: row.cacheWriteTokens,
-    totalTokens: row.totalTokens,
-    costUsd: row.costUsd,
-    costIncomplete: row.costIncomplete,
+    periodGroup: row.rowType === 'grand_total' ? 'summary' : 'normal',
+    rowKind: row.rowType === 'grand_total' ? 'total' : 'detail',
   };
 }
 
@@ -305,7 +276,7 @@ function renderTerminalEfficiencyTable(
 ): string {
   const headerCells = Array.from(efficiencyTableHeaders);
   const bodyRows = styleEfficiencyTerminalRows(rows, toEfficiencyTableCells(rows), options);
-  const tableSortRows = rows.map((row) => toTableSortRow(row));
+  const rowMetas = rows.map((row) => toTableRowMeta(row));
   const fittedCells = fitTableCellsToTerminal(headerCells, bodyRows);
 
   return renderUnicodeTable({
@@ -313,10 +284,10 @@ function renderTerminalEfficiencyTable(
     bodyRows: fittedCells.bodyRows,
     measureHeaderCells: fittedCells.headerCells,
     measureBodyRows: fittedCells.bodyRows,
-    usageRows: tableSortRows,
-    tableLayout: 'compact',
-    modelsColumnIndex: periodColumnIndex,
-    modelsColumnWidth:
+    rowMetas,
+    layout: 'compact',
+    multilineColumnIndex: periodColumnIndex,
+    multilineColumnWidth:
       fittedCells.widths[periodColumnIndex] ?? efficiencyTableHeaders[periodColumnIndex].length,
   });
 }

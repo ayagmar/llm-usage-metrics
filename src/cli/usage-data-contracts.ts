@@ -9,6 +9,7 @@ import type { EfficiencyRow } from '../efficiency/efficiency-row.js';
 import type { OptimizeRow } from '../optimize/optimize-row.js';
 import type { PricingSource } from '../pricing/types.js';
 import type { SourceAdapter } from '../sources/source-adapter.js';
+import type { TrendSeries, TrendsMetric } from '../trends/trends-series.js';
 
 export type ReportCommandOptions = {
   piDir?: string;
@@ -40,6 +41,15 @@ export type EfficiencyCommandOptions = Omit<ReportCommandOptions, 'perModelColum
 export type OptimizeCommandOptions = Omit<ReportCommandOptions, 'perModelColumns'> & {
   candidateModel?: string | string[];
   top?: string;
+};
+
+export type TrendsCommandOptions = Omit<
+  ReportCommandOptions,
+  'markdown' | 'perModelColumns' | 'share'
+> & {
+  days?: string;
+  metric?: string;
+  bySource?: boolean;
 };
 
 export type UsageSessionStats = {
@@ -113,6 +123,17 @@ export type OptimizeDataResult = {
   diagnostics: OptimizeDiagnostics;
 };
 
+export type TrendsDataResult = {
+  metric: TrendsMetric;
+  dateRange: {
+    from: string;
+    to: string;
+  };
+  totalSeries: TrendSeries;
+  sourceSeries?: TrendSeries[];
+  diagnostics: UsageDiagnostics;
+};
+
 export type PricingLoadResult = {
   source: PricingSource;
   origin: Exclude<UsagePricingOrigin, 'none'>;
@@ -127,4 +148,8 @@ export type BuildUsageDataDeps = {
     runtimeConfig: PricingFetcherRuntimeConfig,
   ) => Promise<PricingLoadResult>;
   getActiveEnvVarOverrides?: () => EnvVarOverride[];
+};
+
+export type BuildTrendsDataDeps = BuildUsageDataDeps & {
+  now?: () => Date;
 };

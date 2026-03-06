@@ -6,42 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as shareArtifact from '../../src/cli/share-artifact.js';
 
 import { buildUsageReport, runUsageReport } from '../../src/cli/run-usage-report.js';
+import { overrideStdoutTty } from '../helpers/stdout.js';
 
 const tempDirs: string[] = [];
 const originalParseMaxParallel = process.env.LLM_USAGE_PARSE_MAX_PARALLEL;
 const directoryBackedSources = 'pi,codex';
-
-function overrideStdoutProperty<Key extends 'isTTY' | 'columns'>(
-  property: Key,
-  value: NodeJS.WriteStream[Key],
-): () => void {
-  const stdout = process.stdout as NodeJS.WriteStream;
-  const previousDescriptor = Object.getOwnPropertyDescriptor(stdout, property);
-
-  Object.defineProperty(stdout, property, {
-    configurable: true,
-    value,
-  });
-
-  return () => {
-    if (previousDescriptor) {
-      Object.defineProperty(stdout, property, previousDescriptor);
-      return;
-    }
-
-    Reflect.deleteProperty(stdout, property);
-  };
-}
-
-function overrideStdoutTty(columns: number): () => void {
-  const restoreIsTTY = overrideStdoutProperty('isTTY', true);
-  const restoreColumns = overrideStdoutProperty('columns', columns);
-
-  return () => {
-    restoreColumns();
-    restoreIsTTY();
-  };
-}
 
 function restoreParseMaxParallel(): void {
   if (originalParseMaxParallel === undefined) {

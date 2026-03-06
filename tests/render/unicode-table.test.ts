@@ -1,24 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import type { UsageReportRow } from '../../src/domain/usage-report-row.js';
-import { renderUnicodeTable } from '../../src/render/unicode-table.js';
+import { renderUnicodeTable, type TableRowMeta } from '../../src/render/unicode-table.js';
 
-function createUsageRow(overrides: Partial<UsageReportRow> = {}): UsageReportRow {
+function createRowMeta(overrides: Partial<TableRowMeta> = {}): TableRowMeta {
   return {
-    rowType: 'period_source',
     periodKey: '2026-02-22',
-    source: 'pi',
-    models: ['gpt-4.1'],
-    modelBreakdown: [],
-    inputTokens: 1,
-    outputTokens: 1,
-    reasoningTokens: 0,
-    cacheReadTokens: 0,
-    cacheWriteTokens: 0,
-    totalTokens: 2,
-    costUsd: 0.01,
+    periodGroup: 'normal',
+    rowKind: 'detail',
     ...overrides,
-  } as UsageReportRow;
+  };
 }
 
 describe('renderUnicodeTable', () => {
@@ -28,10 +18,10 @@ describe('renderUnicodeTable', () => {
       bodyRows: [],
       measureHeaderCells: ['Period', 'Source'],
       measureBodyRows: [],
-      usageRows: [createUsageRow()],
-      tableLayout: 'compact',
-      modelsColumnIndex: 1,
-      modelsColumnWidth: 12,
+      rowMetas: [createRowMeta()],
+      layout: 'compact',
+      multilineColumnIndex: 1,
+      multilineColumnWidth: 12,
     });
 
     expect(rendered).toContain('╭');
@@ -44,10 +34,10 @@ describe('renderUnicodeTable', () => {
       bodyRows: [['2026-02-22']],
       measureHeaderCells: ['Period', 'Source'],
       measureBodyRows: [['2026-02-22']],
-      usageRows: [createUsageRow()],
-      tableLayout: 'compact',
-      modelsColumnIndex: 1,
-      modelsColumnWidth: 12,
+      rowMetas: [createRowMeta()],
+      layout: 'compact',
+      multilineColumnIndex: 1,
+      multilineColumnWidth: 12,
     });
 
     expect(rendered).toContain('2026-02-22');
@@ -65,10 +55,10 @@ describe('renderUnicodeTable', () => {
         ['2026-02-22', 'pi'],
         ['2026-02-22', 'opencode', 'extra-cell'],
       ],
-      usageRows: [createUsageRow(), createUsageRow({ source: 'opencode' })],
-      tableLayout: 'compact',
-      modelsColumnIndex: 1,
-      modelsColumnWidth: 12,
+      rowMetas: [createRowMeta(), createRowMeta()],
+      layout: 'compact',
+      multilineColumnIndex: 1,
+      multilineColumnWidth: 12,
     });
 
     expect(rendered).toContain('extra-cell');
@@ -80,10 +70,10 @@ describe('renderUnicodeTable', () => {
       bodyRows: [['2026-02-22', 'opencode', 'extra']],
       measureHeaderCells: ['Period', 'Source'],
       measureBodyRows: [['2026-02-22', 'opencode']],
-      usageRows: [createUsageRow({ source: 'opencode' })],
-      tableLayout: 'compact',
-      modelsColumnIndex: 1,
-      modelsColumnWidth: 12,
+      rowMetas: [createRowMeta()],
+      layout: 'compact',
+      multilineColumnIndex: 1,
+      multilineColumnWidth: 12,
     });
     const topBorder = rendered.split('\n')[0] ?? '';
 

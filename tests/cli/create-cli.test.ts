@@ -14,7 +14,7 @@ afterEach(async () => {
 });
 
 describe('createCli', () => {
-  it('registers daily, weekly, monthly, efficiency, and optimize commands', () => {
+  it('registers daily, weekly, monthly, efficiency, optimize, and trends commands', () => {
     const cli = createCli();
 
     expect(cli.name()).toBe('llm-usage');
@@ -24,13 +24,14 @@ describe('createCli', () => {
       'monthly',
       'efficiency',
       'optimize',
+      'trends',
     ]);
   });
 
   it('includes output, pricing, and source filter flags on report commands', () => {
     const cli = createCli();
-    const reportCommands = cli.commands.filter(
-      (command) => command.name() !== 'efficiency' && command.name() !== 'optimize',
+    const reportCommands = cli.commands.filter((command) =>
+      ['daily', 'weekly', 'monthly'].includes(command.name()),
     );
 
     for (const command of reportCommands) {
@@ -62,6 +63,22 @@ describe('createCli', () => {
     expect(optimizeCommand?.options.some((option) => option.long === '--share')).toBe(true);
     expect(optimizeCommand?.options.some((option) => option.long === '--repo-dir')).toBe(false);
     expect(optimizeCommand?.options.some((option) => option.long === '--per-model-columns')).toBe(
+      false,
+    );
+  });
+
+  it('configures trends command without markdown, share, or per-model columns', () => {
+    const cli = createCli();
+    const trendsCommand = cli.commands.find((command) => command.name() === 'trends');
+
+    expect(trendsCommand).toBeDefined();
+    expect(trendsCommand?.options.some((option) => option.long === '--days')).toBe(true);
+    expect(trendsCommand?.options.some((option) => option.long === '--metric')).toBe(true);
+    expect(trendsCommand?.options.some((option) => option.long === '--by-source')).toBe(true);
+    expect(trendsCommand?.options.some((option) => option.long === '--json')).toBe(true);
+    expect(trendsCommand?.options.some((option) => option.long === '--markdown')).toBe(false);
+    expect(trendsCommand?.options.some((option) => option.long === '--share')).toBe(false);
+    expect(trendsCommand?.options.some((option) => option.long === '--per-model-columns')).toBe(
       false,
     );
   });
@@ -131,8 +148,22 @@ describe('createCli', () => {
     expect(compactHelp).toContain(
       'llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candidate-model gpt-5-codex --json',
     );
+    expect(compactHelp).toContain('llm-usage trends');
     expect(compactHelp).toContain('npx --yes llm-usage-metrics@latest daily');
     expect(compactDailyCommandHelp).toContain('after source/provider/date filters');
+  });
+
+  it('does not leak empty-array defaults for repeatable options in command help', () => {
+    const cli = createCli();
+    const dailyHelp = cli.commands.find((command) => command.name() === 'daily')?.helpInformation();
+    const optimizeHelp = cli.commands
+      .find((command) => command.name() === 'optimize')
+      ?.helpInformation();
+
+    expect(dailyHelp).toBeDefined();
+    expect(optimizeHelp).toBeDefined();
+    expect(dailyHelp).not.toContain('(default: [])');
+    expect(optimizeHelp).not.toContain('(default: [])');
   });
 
   it('supports --version output', async () => {

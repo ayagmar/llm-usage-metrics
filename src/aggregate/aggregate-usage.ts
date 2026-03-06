@@ -15,11 +15,12 @@ export type AggregateUsageOptions = {
   granularity: ReportGranularity;
   timezone: string;
   sourceOrder?: string[];
+  includeModelBreakdown?: boolean;
 };
 
 type RowAccumulator = {
   totals: UsageTotals;
-  modelTotals: Map<string, UsageTotals>;
+  modelTotals?: Map<string, UsageTotals>;
 };
 
 const USD_PRECISION_SCALE = 1_000_000_000_000;
@@ -39,10 +40,10 @@ function createEmptyTotals(): UsageTotals {
   };
 }
 
-function createRowAccumulator(): RowAccumulator {
+function createRowAccumulator(includeModelBreakdown: boolean): RowAccumulator {
   return {
     totals: createEmptyTotals(),
-    modelTotals: new Map<string, UsageTotals>(),
+    modelTotals: includeModelBreakdown ? new Map<string, UsageTotals>() : undefined,
   };
 }
 
@@ -71,8 +72,20 @@ function normalizeModelKey(model: string | undefined): string | undefined {
   return normalized || undefined;
 }
 
-function addEventToAccumulator(accumulator: RowAccumulator, event: UsageEvent): void {
+function addEventToAccumulator(
+  accumulator: RowAccumulator,
+  event: UsageEvent,
+  includeModelBreakdown: boolean,
+): void {
   addEventToTotals(accumulator.totals, event);
+
+  if (!includeModelBreakdown) {
+    return;
+  }
+
+  if (!accumulator.modelTotals) {
+    return;
+  }
 
   const normalizedModel = normalizeModelKey(event.model);
 
@@ -147,6 +160,7 @@ export function aggregateUsage(
   events: UsageEvent[],
   options: AggregateUsageOptions,
 ): UsageReportRow[] {
+  const includeModelBreakdown = options.includeModelBreakdown ?? true;
   const sourceWeightMap = new Map<string, number>();
 
   for (const [index, source] of (options.sourceOrder ?? []).entries()) {
@@ -160,10 +174,11 @@ export function aggregateUsage(
     const periodSources = periodMap.get(periodKey) ?? new Map<string, RowAccumulator>();
     periodMap.set(periodKey, periodSources);
 
-    const rowAccumulator = periodSources.get(event.source) ?? createRowAccumulator();
+    const rowAccumulator =
+      periodSources.get(event.source) ?? createRowAccumulator(includeModelBreakdown);
     periodSources.set(event.source, rowAccumulator);
 
-    addEventToAccumulator(rowAccumulator, event);
+    addEventToAccumulator(rowAccumulator, event, includeModelBreakdown);
   }
 
   const sortedPeriodKeys = [...periodMap.keys()].sort(compareByCodePoint);
@@ -196,8 +211,14 @@ export function aggregateUsage(
         rowType: 'period_source',
         periodKey,
         source,
-        models: normalizeModelList(accumulator.modelTotals.keys()),
-        modelBreakdown: toModelUsageBreakdown(accumulator.modelTotals),
+        models:
+          includeModelBreakdown && accumulator.modelTotals
+            ? normalizeModelList(accumulator.modelTotals.keys())
+            : [],
+        modelBreakdown:
+          includeModelBreakdown && accumulator.modelTotals
+            ? toModelUsageBreakdown(accumulator.modelTotals)
+            : [],
         ...accumulator.totals,
       };
 
@@ -205,8 +226,10 @@ export function aggregateUsage(
 
       addTotals(periodCombinedTotals, accumulator.totals);
       addTotals(grandTotals, accumulator.totals);
-      mergeModelTotals(periodCombinedModelTotals, accumulator.modelTotals);
-      mergeModelTotals(grandModelTotals, accumulator.modelTotals);
+      if (includeModelBreakdown && accumulator.modelTotals) {
+        mergeModelTotals(periodCombinedModelTotals, accumulator.modelTotals);
+        mergeModelTotals(grandModelTotals, accumulator.modelTotals);
+      }
     }
 
     if (sortedSources.length > 1) {
@@ -214,8 +237,10 @@ export function aggregateUsage(
         rowType: 'period_combined',
         periodKey,
         source: 'combined',
-        models: normalizeModelList(periodCombinedModelTotals.keys()),
-        modelBreakdown: toModelUsageBreakdown(periodCombinedModelTotals),
+        models: includeModelBreakdown ? normalizeModelList(periodCombinedModelTotals.keys()) : [],
+        modelBreakdown: includeModelBreakdown
+          ? toModelUsageBreakdown(periodCombinedModelTotals)
+          : [],
         ...periodCombinedTotals,
       };
 
@@ -232,8 +257,8 @@ export function aggregateUsage(
     rowType: 'grand_total',
     periodKey: 'ALL',
     source: 'combined',
-    models: normalizeModelList(grandModelTotals.keys()),
-    modelBreakdown: toModelUsageBreakdown(grandModelTotals),
+    models: includeModelBreakdown ? normalizeModelList(grandModelTotals.keys()) : [],
+    modelBreakdown: includeModelBreakdown ? toModelUsageBreakdown(grandModelTotals) : [],
     ...finalizedGrandTotals,
   };
 

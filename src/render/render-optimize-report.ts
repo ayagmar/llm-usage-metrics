@@ -2,13 +2,12 @@ import { markdownTable } from 'markdown-table';
 import pc from 'picocolors';
 
 import type { OptimizeDataResult } from '../cli/usage-data-contracts.js';
-import type { UsageReportRow } from '../domain/usage-report-row.js';
 import type { OptimizeBaselineRow, OptimizeCandidateRow } from '../optimize/optimize-row.js';
 import type { ReportGranularity } from '../utils/time-buckets.js';
 import { visibleWidth } from './table-text-layout.js';
 import { renderReportHeader } from './report-header.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
-import { renderUnicodeTable } from './unicode-table.js';
+import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
 
 export type OptimizeReportFormat = 'terminal' | 'markdown' | 'json';
 
@@ -243,25 +242,12 @@ function toMarkdownSafeCell(value: string): string {
   return value.replace(/\r?\n/gu, '<br>');
 }
 
-function toSortingUsageRows(optimizeData: OptimizeDataResult): UsageReportRow[] {
-  return optimizeData.rows.map((row) => {
-    return {
-      rowType: 'period_source',
-      periodKey: row.periodKey,
-      source: 'combined',
-      models: [],
-      modelBreakdown: [],
-      inputTokens: row.inputTokens,
-      outputTokens: row.outputTokens,
-      reasoningTokens: row.reasoningTokens,
-      cacheReadTokens: row.cacheReadTokens,
-      cacheWriteTokens: row.cacheWriteTokens,
-      totalTokens: row.totalTokens,
-      costUsd: row.rowType === 'baseline' ? row.baselineCostUsd : row.hypotheticalCostUsd,
-      costIncomplete:
-        row.rowType === 'baseline' ? row.baselineCostIncomplete : row.hypotheticalCostIncomplete,
-    };
-  });
+function toTableRowMeta(row: OptimizeDataResult['rows'][number]): TableRowMeta {
+  return {
+    periodKey: row.periodKey,
+    periodGroup: 'normal',
+    rowKind: 'detail',
+  };
 }
 
 function resolveCandidateColumnWidth(tableCells: string[][]): number {
@@ -306,10 +292,10 @@ function renderTerminalOptimizeReport(
       bodyRows: tableCells,
       measureHeaderCells: headerCells,
       measureBodyRows: tableCells,
-      usageRows: toSortingUsageRows(optimizeData),
-      tableLayout: 'compact',
-      modelsColumnIndex: 1,
-      modelsColumnWidth: candidateColumnWidth,
+      rowMetas: optimizeData.rows.map((row) => toTableRowMeta(row)),
+      layout: 'compact',
+      multilineColumnIndex: 1,
+      multilineColumnWidth: candidateColumnWidth,
     }),
   );
 

@@ -199,6 +199,60 @@ describe('aggregateUsage', () => {
     });
   });
 
+  it('can skip model breakdown work for reports that only need totals', () => {
+    const events = [
+      createUsageEvent({
+        source: 'pi',
+        sessionId: 's1',
+        timestamp: '2026-02-10T10:00:00Z',
+        model: 'gpt-4.1',
+        inputTokens: 10,
+        outputTokens: 5,
+        totalTokens: 15,
+        costUsd: 1,
+        costMode: 'explicit',
+      }),
+      createUsageEvent({
+        source: 'codex',
+        sessionId: 's2',
+        timestamp: '2026-02-10T11:00:00Z',
+        model: 'gpt-5-codex',
+        inputTokens: 20,
+        outputTokens: 10,
+        totalTokens: 30,
+        costUsd: 2,
+        costMode: 'explicit',
+      }),
+    ];
+
+    const rows = aggregateUsage(events, {
+      granularity: 'daily',
+      timezone: 'UTC',
+      includeModelBreakdown: false,
+    });
+
+    expect(
+      rows.find((row) => row.rowType === 'period_source' && row.source === 'pi'),
+    ).toMatchObject({
+      rowType: 'period_source',
+      totalTokens: 15,
+      models: [],
+      modelBreakdown: [],
+    });
+    expect(rows.find((row) => row.rowType === 'period_combined')).toMatchObject({
+      rowType: 'period_combined',
+      totalTokens: 45,
+      models: [],
+      modelBreakdown: [],
+    });
+    expect(rows.at(-1)).toMatchObject({
+      rowType: 'grand_total',
+      totalTokens: 45,
+      models: [],
+      modelBreakdown: [],
+    });
+  });
+
   it('keeps usd totals numerically stable for many small costs', () => {
     const events = Array.from({ length: 10_000 }, (_, index) => {
       const second = index % 60;

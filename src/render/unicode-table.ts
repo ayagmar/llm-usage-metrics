@@ -1,19 +1,25 @@
-import type { UsageReportRow } from '../domain/usage-report-row.js';
 import { splitCellLines, visibleWidth } from './table-text-layout.js';
-import type { UsageTableLayout } from './row-cells.js';
 
 type TableAlignment = 'left' | 'right';
 type TableVerticalAlignment = 'top' | 'middle';
+
+export type UnicodeTableLayout = 'compact' | 'top_aligned';
+
+export type TableRowMeta = {
+  periodKey: string;
+  periodGroup?: 'normal' | 'summary';
+  rowKind: 'detail' | 'combined' | 'total';
+};
 
 type RenderUnicodeTableOptions = {
   headerCells: readonly string[];
   bodyRows: string[][];
   measureHeaderCells: readonly string[];
   measureBodyRows: string[][];
-  usageRows: UsageReportRow[];
-  tableLayout: UsageTableLayout;
-  modelsColumnIndex: number;
-  modelsColumnWidth: number;
+  rowMetas: TableRowMeta[];
+  layout: UnicodeTableLayout;
+  multilineColumnIndex: number;
+  multilineColumnWidth: number;
 };
 
 type BorderChars = {
@@ -22,17 +28,15 @@ type BorderChars = {
   right: string;
 };
 
-type RowType = UsageReportRow['rowType'];
-
-type RenderableUsageRow = {
-  usageRow: UsageReportRow;
+type RenderableTableRow = {
+  rowMeta: TableRowMeta;
   bodyRow: string[];
   measureBodyRow: string[];
   originalIndex: number;
 };
 
-function getColumnAlignment(columnIndex: number, modelsColumnIndex: number): TableAlignment {
-  if (columnIndex <= modelsColumnIndex) {
+function getColumnAlignment(columnIndex: number, multilineColumnIndex: number): TableAlignment {
+  if (columnIndex <= multilineColumnIndex) {
     return 'left';
   }
 
@@ -41,14 +45,14 @@ function getColumnAlignment(columnIndex: number, modelsColumnIndex: number): Tab
 
 function getVerticalAlignment(
   columnIndex: number,
-  tableLayout: UsageTableLayout,
-  modelsColumnIndex: number,
+  layout: UnicodeTableLayout,
+  multilineColumnIndex: number,
 ): TableVerticalAlignment {
-  if (columnIndex === modelsColumnIndex) {
+  if (columnIndex === multilineColumnIndex) {
     return 'top';
   }
 
-  return tableLayout === 'per_model_columns' ? 'top' : 'middle';
+  return layout === 'top_aligned' ? 'top' : 'middle';
 }
 
 function alignCellLine(value: string, width: number, alignment: TableAlignment): string {
@@ -90,8 +94,8 @@ function toRenderableRowLines(
   row: readonly string[],
   options: {
     widths: number[];
-    tableLayout: UsageTableLayout;
-    modelsColumnIndex: number;
+    layout: UnicodeTableLayout;
+    multilineColumnIndex: number;
   },
 ): string[] {
   const cellLines = row.map((cell) => splitCellLines(cell));
@@ -100,11 +104,11 @@ function toRenderableRowLines(
   const paddedAlignedColumns = cellLines.map((lines, columnIndex) => {
     const verticalAlignment = getVerticalAlignment(
       columnIndex,
-      options.tableLayout,
-      options.modelsColumnIndex,
+      options.layout,
+      options.multilineColumnIndex,
     );
     const alignedLines = padCellLines(lines, rowHeight, verticalAlignment);
-    const horizontalAlignment = getColumnAlignment(columnIndex, options.modelsColumnIndex);
+    const horizontalAlignment = getColumnAlignment(columnIndex, options.multilineColumnIndex);
 
     return alignedLines.map((line) =>
       alignCellLine(line, options.widths[columnIndex], horizontalAlignment),
@@ -122,43 +126,37 @@ function buildBorderLine(widths: number[], chars: BorderChars): string {
   return `${chars.left}${segments.join(chars.join)}${chars.right}`;
 }
 
-function shouldDrawBodySeparator(index: number, usageRows: UsageReportRow[]): boolean {
-  if (index < 0 || index >= usageRows.length - 1) {
+function shouldDrawBodySeparator(index: number, rowMetas: TableRowMeta[]): boolean {
+  if (index < 0 || index >= rowMetas.length - 1) {
     return false;
   }
 
-  const previousRow = usageRows[index];
-  const nextRow = usageRows[index + 1];
+  const previousRow = rowMetas[index];
+  const nextRow = rowMetas[index + 1];
 
   return (
-    previousRow.rowType === 'period_combined' ||
-    nextRow.rowType === 'grand_total' ||
+    previousRow.rowKind === 'combined' ||
+    nextRow.rowKind === 'total' ||
     previousRow.periodKey !== nextRow.periodKey
   );
 }
 
-function getRowTypeWeight(rowType: RowType): number {
-  switch (rowType) {
-    case 'period_source':
+function getRowKindWeight(rowKind: TableRowMeta['rowKind']): number {
+  switch (rowKind) {
+    case 'detail':
       return 0;
-    case 'period_combined':
+    case 'combined':
       return 1;
-    case 'grand_total':
+    case 'total':
       return 2;
   }
 }
 
-function getPeriodSortTuple(periodKey: string): [number, string] {
-  if (periodKey === 'ALL') {
-    return [1, periodKey];
-  }
-
-  return [0, periodKey];
-}
-
-function compareUsageRows(left: UsageReportRow, right: UsageReportRow): number {
-  const [leftPeriodGroup, leftPeriodKey] = getPeriodSortTuple(left.periodKey);
-  const [rightPeriodGroup, rightPeriodKey] = getPeriodSortTuple(right.periodKey);
+function compareRowMetas(left: TableRowMeta, right: TableRowMeta): number {
+  const leftPeriodGroup = left.periodGroup === 'summary' ? 1 : 0;
+  const rightPeriodGroup = right.periodGroup === 'summary' ? 1 : 0;
+  const leftPeriodKey = left.periodKey;
+  const rightPeriodKey = right.periodKey;
 
   if (leftPeriodGroup !== rightPeriodGroup) {
     return leftPeriodGroup - rightPeriodGroup;
@@ -168,7 +166,7 @@ function compareUsageRows(left: UsageReportRow, right: UsageReportRow): number {
     return leftPeriodKey < rightPeriodKey ? -1 : 1;
   }
 
-  return getRowTypeWeight(left.rowType) - getRowTypeWeight(right.rowType);
+  return getRowKindWeight(left.rowKind) - getRowKindWeight(right.rowKind);
 }
 
 function padRowToColumnCount(row: string[] | undefined, columnCount: number): string[] {
@@ -194,46 +192,41 @@ function getMaxRowColumnCount(
   );
 }
 
-function normalizeRenderableUsageRows(options: {
-  usageRows: UsageReportRow[];
+function normalizeRenderableRows(options: {
+  rowMetas: TableRowMeta[];
   bodyRows: string[][];
   measureBodyRows: string[][];
   columnCount: number;
-}): RenderableUsageRow[] {
+}): RenderableTableRow[] {
   const hasAlignedRowCounts =
-    options.usageRows.length === options.bodyRows.length &&
-    options.usageRows.length === options.measureBodyRows.length;
+    options.rowMetas.length === options.bodyRows.length &&
+    options.rowMetas.length === options.measureBodyRows.length;
+
+  const rows = options.rowMetas.map((rowMeta, index) => ({
+    rowMeta,
+    bodyRow: padRowToColumnCount(options.bodyRows[index], options.columnCount),
+    measureBodyRow: padRowToColumnCount(options.measureBodyRows[index], options.columnCount),
+    originalIndex: index,
+  }));
 
   if (!hasAlignedRowCounts) {
-    return options.usageRows.map((usageRow, index) => ({
-      usageRow,
-      bodyRow: padRowToColumnCount(options.bodyRows[index], options.columnCount),
-      measureBodyRow: padRowToColumnCount(options.measureBodyRows[index], options.columnCount),
-      originalIndex: index,
-    }));
+    return rows;
   }
 
-  return options.usageRows
-    .map((usageRow, index) => ({
-      usageRow,
-      bodyRow: padRowToColumnCount(options.bodyRows[index], options.columnCount),
-      measureBodyRow: padRowToColumnCount(options.measureBodyRows[index], options.columnCount),
-      originalIndex: index,
-    }))
-    .sort((left, right) => {
-      const comparison = compareUsageRows(left.usageRow, right.usageRow);
+  return rows.sort((left, right) => {
+    const comparison = compareRowMetas(left.rowMeta, right.rowMeta);
 
-      if (comparison !== 0) {
-        return comparison;
-      }
+    if (comparison !== 0) {
+      return comparison;
+    }
 
-      return left.originalIndex - right.originalIndex;
-    });
+    return left.originalIndex - right.originalIndex;
+  });
 }
 
 function computeColumnWidths(
   measureRows: readonly (readonly string[])[],
-  options: { modelsColumnIndex: number; modelsColumnWidth: number },
+  options: { multilineColumnIndex: number; multilineColumnWidth: number },
 ): number[] {
   const columnCount = measureRows.reduce(
     (maxColumnCount, row) => Math.max(maxColumnCount, row.length),
@@ -249,7 +242,7 @@ function computeColumnWidths(
     }
   }
 
-  widths[options.modelsColumnIndex] = options.modelsColumnWidth;
+  widths[options.multilineColumnIndex] = options.multilineColumnWidth;
 
   return widths;
 }
@@ -260,43 +253,48 @@ export function renderUnicodeTable(options: RenderUnicodeTableOptions): string {
     options.measureBodyRows,
     options.measureHeaderCells.length,
   );
-  const sharedColumnCount = Math.max(bodyColumnCount, measureColumnCount);
-  const normalizedHeaderCells = padRowToColumnCount([...options.headerCells], sharedColumnCount);
-  const normalizedMeasureHeaderCells = padRowToColumnCount(
-    [...options.measureHeaderCells],
-    sharedColumnCount,
+  const columnCount = Math.max(
+    options.headerCells.length,
+    options.measureHeaderCells.length,
+    bodyColumnCount,
+    measureColumnCount,
   );
-  const normalizedRenderableRows = normalizeRenderableUsageRows({
-    usageRows: options.usageRows,
+  const renderableRows = normalizeRenderableRows({
+    rowMetas: options.rowMetas,
     bodyRows: options.bodyRows,
     measureBodyRows: options.measureBodyRows,
-    columnCount: sharedColumnCount,
+    columnCount,
   });
-  const normalizedBodyRows = normalizedRenderableRows.map((row) => row.bodyRow);
-  const normalizedMeasureBodyRows = normalizedRenderableRows.map((row) => row.measureBodyRow);
-  const normalizedUsageRows = normalizedRenderableRows.map((row) => row.usageRow);
-  const measureRows = [normalizedMeasureHeaderCells, ...normalizedMeasureBodyRows];
+  const normalizedHeaderRow = padRowToColumnCount([...options.headerCells], columnCount);
+  const normalizedMeasureHeaderRow = padRowToColumnCount(
+    [...options.measureHeaderCells],
+    columnCount,
+  );
+  const measureRows = [
+    normalizedMeasureHeaderRow,
+    ...renderableRows.map((row) => row.measureBodyRow),
+  ];
   const widths = computeColumnWidths(measureRows, {
-    modelsColumnIndex: options.modelsColumnIndex,
-    modelsColumnWidth: options.modelsColumnWidth,
+    multilineColumnIndex: options.multilineColumnIndex,
+    multilineColumnWidth: options.multilineColumnWidth,
   });
-  const renderedLines: string[] = [];
+  const outputLines: string[] = [];
 
-  renderedLines.push(
+  outputLines.push(
     buildBorderLine(widths, {
       left: '╭',
       join: '┬',
       right: '╮',
     }),
   );
-  renderedLines.push(
-    ...toRenderableRowLines(normalizedHeaderCells, {
+  outputLines.push(
+    ...toRenderableRowLines(normalizedHeaderRow, {
       widths,
-      tableLayout: 'per_model_columns',
-      modelsColumnIndex: options.modelsColumnIndex,
+      layout: options.layout,
+      multilineColumnIndex: options.multilineColumnIndex,
     }),
   );
-  renderedLines.push(
+  outputLines.push(
     buildBorderLine(widths, {
       left: '├',
       join: '┼',
@@ -304,20 +302,20 @@ export function renderUnicodeTable(options: RenderUnicodeTableOptions): string {
     }),
   );
 
+  const normalizedBodyRows = renderableRows.map((row) => row.bodyRow);
+  const normalizedRowMetas = renderableRows.map((row) => row.rowMeta);
+
   normalizedBodyRows.forEach((row, rowIndex) => {
-    renderedLines.push(
+    outputLines.push(
       ...toRenderableRowLines(row, {
         widths,
-        tableLayout: options.tableLayout,
-        modelsColumnIndex: options.modelsColumnIndex,
+        layout: options.layout,
+        multilineColumnIndex: options.multilineColumnIndex,
       }),
     );
 
-    if (
-      rowIndex < normalizedBodyRows.length - 1 &&
-      shouldDrawBodySeparator(rowIndex, normalizedUsageRows)
-    ) {
-      renderedLines.push(
+    if (shouldDrawBodySeparator(rowIndex, normalizedRowMetas)) {
+      outputLines.push(
         buildBorderLine(widths, {
           left: '├',
           join: '┼',
@@ -327,7 +325,7 @@ export function renderUnicodeTable(options: RenderUnicodeTableOptions): string {
     }
   });
 
-  renderedLines.push(
+  outputLines.push(
     buildBorderLine(widths, {
       left: '╰',
       join: '┴',
@@ -335,5 +333,5 @@ export function renderUnicodeTable(options: RenderUnicodeTableOptions): string {
     }),
   );
 
-  return `${renderedLines.join('\n')}\n`;
+  return outputLines.join('\n');
 }

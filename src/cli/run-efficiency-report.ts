@@ -1,41 +1,20 @@
 import { renderEfficiencyMonthlyShareSvg } from '../render/render-efficiency-share-svg.js';
-import { buildEfficiencyData } from './build-efficiency-data.js';
-import { emitDiagnostics } from './emit-diagnostics.js';
-import { emitEnvVarOverrides } from './emit-env-var-overrides.js';
-import { writeAndOpenShareSvgFile } from './share-artifact.js';
-import { warnIfTerminalTableOverflows } from './terminal-overflow-warning.js';
-import type { EfficiencyCommandOptions, EfficiencyDiagnostics } from './usage-data-contracts.js';
 import {
   renderEfficiencyReport,
   type EfficiencyReportFormat,
 } from '../render/render-efficiency-report.js';
 import { logger } from '../utils/logger.js';
 import type { ReportGranularity } from '../utils/time-buckets.js';
+import { buildEfficiencyData } from './build-efficiency-data.js';
+import { emitDiagnostics } from './emit-diagnostics.js';
+import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
+import type { EfficiencyCommandOptions, EfficiencyDiagnostics } from './usage-data-contracts.js';
 
-type PreparedEfficiencyReport = {
-  format: EfficiencyReportFormat;
-  output: string;
-  diagnostics: EfficiencyDiagnostics;
-  shareSvg?: string;
-};
-
-function validateOutputFormatOptions(options: EfficiencyCommandOptions): void {
-  if (options.markdown && options.json) {
-    throw new Error('Choose either --markdown or --json, not both');
-  }
-}
-
-function resolveReportFormat(options: EfficiencyCommandOptions): EfficiencyReportFormat {
-  if (options.json) {
-    return 'json';
-  }
-
-  if (options.markdown) {
-    return 'markdown';
-  }
-
-  return 'terminal';
-}
+const efficiencyReportFormats = [
+  'terminal',
+  'markdown',
+  'json',
+] as const satisfies readonly EfficiencyReportFormat[];
 
 function validateShareOption(
   granularity: ReportGranularity,
@@ -53,21 +32,44 @@ function validateShareOption(
 async function prepareEfficiencyReport(
   granularity: ReportGranularity,
   options: EfficiencyCommandOptions,
-): Promise<PreparedEfficiencyReport> {
-  validateOutputFormatOptions(options);
-  validateShareOption(granularity, options);
+) {
+  return prepareReport({
+    commandOptions: options,
+    supportedFormats: efficiencyReportFormats,
+    validate: () => {
+      validateShareOption(granularity, options);
+    },
+    buildData: () => buildEfficiencyData(granularity, options),
+    getDiagnostics: (efficiencyData) => efficiencyData.diagnostics,
+    createShareArtifact: options.share
+      ? (efficiencyData) => ({
+          fileName: 'efficiency-monthly-share.svg',
+          svg: renderEfficiencyMonthlyShareSvg(efficiencyData),
+          logLabel: 'efficiency',
+        })
+      : undefined,
+    render: (efficiencyData, format) =>
+      renderEfficiencyReport(efficiencyData, format, {
+        granularity,
+      }),
+  });
+}
 
-  const efficiencyData = await buildEfficiencyData(granularity, options);
-  const format = resolveReportFormat(options);
+function emitEfficiencyReportDiagnostics(diagnostics: EfficiencyDiagnostics): void {
+  const mergeModeLabel = diagnostics.includeMergeCommits
+    ? 'including merge commits'
+    : 'excluding merge commits';
 
-  return {
-    format,
-    diagnostics: efficiencyData.diagnostics,
-    shareSvg: options.share ? renderEfficiencyMonthlyShareSvg(efficiencyData) : undefined,
-    output: renderEfficiencyReport(efficiencyData, format, {
-      granularity,
-    }),
-  };
+  logger.info(
+    `Git outcomes (${mergeModeLabel}): ${diagnostics.gitCommitCount} commit(s), +${diagnostics.gitLinesAdded}/-${diagnostics.gitLinesDeleted} lines (${diagnostics.repoDir})`,
+  );
+  logger.info(
+    `Repo-attributed usage events: ${diagnostics.repoMatchedUsageEvents} matched, ${diagnostics.repoExcludedUsageEvents} excluded, ${diagnostics.repoUnattributedUsageEvents} unattributed`,
+  );
+
+  if (diagnostics.scopeNote) {
+    logger.warn(diagnostics.scopeNote);
+  }
 }
 
 export async function buildEfficiencyReport(
@@ -84,44 +86,13 @@ export async function runEfficiencyReport(
 ): Promise<void> {
   const preparedReport = await prepareEfficiencyReport(granularity, options);
 
-  emitDiagnostics(preparedReport.diagnostics.usage, logger);
-  emitEnvVarOverrides(preparedReport.diagnostics.usage.activeEnvOverrides, logger);
-
-  const mergeModeLabel = preparedReport.diagnostics.includeMergeCommits
-    ? 'including merge commits'
-    : 'excluding merge commits';
-  logger.info(
-    `Git outcomes (${mergeModeLabel}): ${preparedReport.diagnostics.gitCommitCount} commit(s), +${preparedReport.diagnostics.gitLinesAdded}/-${preparedReport.diagnostics.gitLinesDeleted} lines (${preparedReport.diagnostics.repoDir})`,
-  );
-  logger.info(
-    `Repo-attributed usage events: ${preparedReport.diagnostics.repoMatchedUsageEvents} matched, ${preparedReport.diagnostics.repoExcludedUsageEvents} excluded, ${preparedReport.diagnostics.repoUnattributedUsageEvents} unattributed`,
-  );
-
-  if (preparedReport.diagnostics.scopeNote) {
-    logger.warn(preparedReport.diagnostics.scopeNote);
-  }
-
-  if (preparedReport.format === 'terminal') {
-    warnIfTerminalTableOverflows(preparedReport.output, (message) => {
-      logger.warn(message);
-    });
-  }
-
-  if (preparedReport.shareSvg) {
-    const shareResult = await writeAndOpenShareSvgFile(
-      'efficiency-monthly-share.svg',
-      preparedReport.shareSvg,
-    );
-    logger.info(`Wrote efficiency share SVG: ${shareResult.outputPath}`);
-
-    if (shareResult.opened) {
-      logger.info(`Opened efficiency share SVG: ${shareResult.outputPath}`);
-    } else {
-      logger.warn(
-        `Could not open efficiency share SVG: ${shareResult.outputPath} (${shareResult.openErrorMessage})`,
-      );
-    }
-  }
-
-  console.log(preparedReport.output);
+  await runPreparedReport<EfficiencyDiagnostics, EfficiencyReportFormat>({
+    preparedReport,
+    emitCommonDiagnostics: (diagnostics) => {
+      emitDiagnostics(diagnostics.usage);
+    },
+    getEnvVarOverrides: (diagnostics) => diagnostics.usage.activeEnvOverrides,
+    emitReportDiagnostics: emitEfficiencyReportDiagnostics,
+    warnOnTerminalOverflow: true,
+  });
 }
