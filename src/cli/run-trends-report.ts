@@ -3,14 +3,15 @@ import { buildTrendsData } from './build-trends-data.js';
 import { emitDiagnostics } from './emit-diagnostics.js';
 import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
-import type { TrendsCommandOptions, UsageDiagnostics } from './usage-data-contracts.js';
+import type {
+  BuildTrendsDataDeps,
+  TrendsCommandOptions,
+  UsageDiagnostics,
+} from './usage-data-contracts.js';
 
 const trendsReportFormats = ['terminal', 'json'] as const satisfies readonly TrendsReportFormat[];
 
-async function prepareTrendsReport(
-  options: TrendsCommandOptions,
-  deps: Parameters<typeof buildTrendsData>[1] = {},
-) {
+async function prepareTrendsReport(options: TrendsCommandOptions, deps: BuildTrendsDataDeps = {}) {
   return prepareReport({
     commandOptions: options,
     supportedFormats: trendsReportFormats,

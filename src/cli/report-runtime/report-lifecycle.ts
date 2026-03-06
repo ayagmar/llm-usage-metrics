@@ -88,7 +88,7 @@ export async function prepareReport<Data, Diagnostics, Format extends StandardRe
   const data = await measureRuntimeProfileStage(
     options.runtimeProfile,
     'report.prepare.build_data',
-    async () => await options.buildData(),
+    options.buildData,
   );
   const output = measureRuntimeProfileStageSync(
     options.runtimeProfile,

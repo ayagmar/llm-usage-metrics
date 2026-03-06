@@ -228,4 +228,53 @@ describe('cost engine', () => {
     expect(getPricing).toHaveBeenCalledWith('gpt-5-codex');
     expect(getPricing).toHaveBeenCalledWith('gpt-4.1');
   });
+
+  it('reuses cached pricing across alias variants that resolve to one canonical model', () => {
+    const resolveModelAlias = vi.fn((model: string) =>
+      model.startsWith('gpt-5.3') ? 'gpt-5-codex' : model,
+    );
+    const getPricing = vi.fn((model: string) => {
+      if (model === 'gpt-5-codex') {
+        return {
+          inputPer1MUsd: 1,
+          outputPer1MUsd: 2,
+        };
+      }
+
+      return undefined;
+    });
+    const pricingSource: PricingSource = {
+      resolveModelAlias,
+      getPricing,
+    };
+
+    const pricedEvents = applyPricingToEvents(
+      [
+        createUsageEvent({
+          source: 'codex',
+          sessionId: 'session-a',
+          timestamp: '2026-02-16T10:00:00Z',
+          model: 'gpt-5.3-codex',
+          inputTokens: 100,
+          outputTokens: 50,
+          costMode: 'estimated',
+        }),
+        createUsageEvent({
+          source: 'codex',
+          sessionId: 'session-b',
+          timestamp: '2026-02-16T10:01:00Z',
+          model: 'gpt-5.3-codex-preview',
+          inputTokens: 200,
+          outputTokens: 100,
+          costMode: 'estimated',
+        }),
+      ],
+      pricingSource,
+    );
+
+    expect(pricedEvents).toHaveLength(2);
+    expect(resolveModelAlias).toHaveBeenCalledTimes(2);
+    expect(getPricing).toHaveBeenCalledTimes(1);
+    expect(getPricing).toHaveBeenCalledWith('gpt-5-codex');
+  });
 });

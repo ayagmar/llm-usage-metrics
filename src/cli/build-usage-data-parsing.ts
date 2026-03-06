@@ -61,13 +61,8 @@ function normalizeSkippedRowsCount(value: unknown): number {
   return Math.max(0, Math.trunc(value));
 }
 
-function isMissingPathError(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    (error as { code?: unknown }).code === 'ENOENT'
-  );
+function isMissingPathError(error: unknown): error is NodeJS.ErrnoException {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT';
 }
 
 async function createParseDependencyFingerprint(

@@ -4,6 +4,37 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+const childProcessMock = vi.hoisted(() => {
+  let errorHandler: ((error: Error) => void) | undefined;
+  const childProcess = {
+    on: vi.fn((event: string, handler: (error: Error) => void) => {
+      if (event === 'error') {
+        errorHandler = handler;
+      }
+
+      return childProcess;
+    }),
+    unref: vi.fn(),
+  };
+  const spawn = vi.fn(() => childProcess);
+
+  return {
+    childProcess,
+    spawn,
+    getErrorHandler: () => errorHandler,
+    reset: () => {
+      errorHandler = undefined;
+      childProcess.on.mockClear();
+      childProcess.unref.mockClear();
+      spawn.mockClear();
+    },
+  };
+});
+
+vi.mock('node:child_process', () => ({
+  spawn: childProcessMock.spawn,
+}));
+
 import {
   checkForUpdatesAndMaybeRestart,
   compareVersions,
@@ -23,6 +54,7 @@ const tempDirs: string[] = [];
 afterEach(async () => {
   await Promise.all(tempDirs.map((tempDir) => rm(tempDir, { recursive: true, force: true })));
   tempDirs.length = 0;
+  childProcessMock.reset();
   vi.restoreAllMocks();
 });
 
@@ -547,6 +579,26 @@ describe('update-notifier', () => {
     expect(notify).not.toHaveBeenCalled();
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(spawnDetachedCommand).toHaveBeenCalledOnce();
+  });
+
+  it('attaches a safe error handler to detached refresh spawns', async () => {
+    const cacheFilePath = await createTempCachePath('update-detached-spawn-error-');
+    const result = await checkForUpdatesAndMaybeRestart({
+      packageName: 'llm-usage-metrics',
+      currentVersion: '0.1.0',
+      cacheFilePath,
+      stdinIsTTY: false,
+      stdoutIsTTY: false,
+      env: { PATH: '/usr/bin' },
+      argv: ['/usr/bin/node', '/app/dist/index.js', 'daily'],
+      execPath: '/usr/bin/node',
+    });
+
+    expect(result).toEqual({ continueExecution: true });
+    expect(childProcessMock.spawn).toHaveBeenCalledOnce();
+    expect(childProcessMock.childProcess.on).toHaveBeenCalledWith('error', expect.any(Function));
+    expect(childProcessMock.childProcess.unref).toHaveBeenCalledOnce();
+    expect(() => childProcessMock.getErrorHandler()?.(new Error('ENOENT'))).not.toThrow();
   });
 
   it('swallows unexpected notifier errors and continues execution', async () => {

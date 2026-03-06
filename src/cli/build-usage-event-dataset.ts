@@ -103,8 +103,8 @@ export async function buildUsageEventDataset(
   const { successfulParseResults, sourceFailures } = await measureRuntimeProfileStage(
     runtimeProfile,
     'usage.dataset.parse_adapters',
-    async () =>
-      await parseSelectedAdapters(adaptersToParse, parsingRuntimeConfig.maxParallelFileParsing, {
+    () =>
+      parseSelectedAdapters(adaptersToParse, parsingRuntimeConfig.maxParallelFileParsing, {
         parseCache: {
           enabled: parsingRuntimeConfig.parseCacheEnabled,
           ttlMs: parsingRuntimeConfig.parseCacheTtlMs,
@@ -153,16 +153,13 @@ export async function applyPricingToUsageEventDataset(
     dataset.normalizedInputs.pricingUrl,
   );
 
-  return await measureRuntimeProfileStage(
-    deps.runtimeProfile,
-    'usage.pricing.apply',
-    async () =>
-      await resolveAndApplyPricingToEvents(
-        dataset.filteredEvents,
-        pricingOptions,
-        dataset.pricingRuntimeConfig,
-        loadPricingSource,
-        pricingLoadMode,
-      ),
+  return await measureRuntimeProfileStage(deps.runtimeProfile, 'usage.pricing.apply', () =>
+    resolveAndApplyPricingToEvents(
+      dataset.filteredEvents,
+      pricingOptions,
+      dataset.pricingRuntimeConfig,
+      loadPricingSource,
+      pricingLoadMode,
+    ),
   );
 }

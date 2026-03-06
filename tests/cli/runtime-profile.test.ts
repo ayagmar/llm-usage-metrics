@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  createRuntimeProfileCollector,
   emitRuntimeProfile,
+  isRuntimeProfileEnabled,
+  measureRuntimeProfileStage,
+  measureRuntimeProfileStageSync,
   mergeRuntimeProfiles,
   RuntimeProfileCollector,
   type RuntimeProfileLogger,
@@ -120,5 +124,35 @@ describe('runtime-profile', () => {
         { name: 'report.prepare.render', durationMs: 1.23 },
       ],
     });
+  });
+
+  it('supports disabled profiling and direct stage helpers without a collector', async () => {
+    expect(isRuntimeProfileEnabled({ LLM_USAGE_PROFILE_RUNTIME: '   ' })).toBe(false);
+    expect(createRuntimeProfileCollector({ LLM_USAGE_PROFILE_RUNTIME: '1' })).toBeInstanceOf(
+      RuntimeProfileCollector,
+    );
+    expect(createRuntimeProfileCollector({})).toBeUndefined();
+
+    await expect(measureRuntimeProfileStage(undefined, 'unused', async () => 'ok')).resolves.toBe(
+      'ok',
+    );
+    expect(measureRuntimeProfileStageSync(undefined, 'unused', () => 'sync')).toBe('sync');
+  });
+
+  it('returns whichever runtime profile snapshot is available and skips empty emission', () => {
+    const snapshot = {
+      parseCache: { hits: 0, misses: 0 },
+      parseTotals: { filesFound: 0, eventsParsed: 0 },
+      sourceStats: [],
+      stageTimings: [],
+    };
+
+    expect(mergeRuntimeProfiles(snapshot, undefined)).toBe(snapshot);
+    expect(mergeRuntimeProfiles(undefined, snapshot)).toBe(snapshot);
+
+    const diagnosticsLogger = createLoggerSpy();
+    emitRuntimeProfile(undefined, diagnosticsLogger);
+    expect(diagnosticsLogger.info).not.toHaveBeenCalled();
+    expect(diagnosticsLogger.dim).not.toHaveBeenCalled();
   });
 });

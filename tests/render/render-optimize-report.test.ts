@@ -1,8 +1,14 @@
+import { stripVTControlCharacters } from 'node:util';
+
 import { describe, expect, it } from 'vitest';
 
 import type { OptimizeDataResult } from '../../src/cli/usage-data-contracts.js';
 import { renderOptimizeReport } from '../../src/render/render-optimize-report.js';
 import { visibleWidth } from '../../src/render/table-text-layout.js';
+
+function stripAnsi(value: string): string {
+  return stripVTControlCharacters(value);
+}
 
 function createOptimizeDataResult(): OptimizeDataResult {
   return {
@@ -253,9 +259,10 @@ describe('renderOptimizeReport', () => {
       granularity: 'monthly',
       useColor: true,
     });
+    const strippedOutput = stripAnsi(output);
 
-    expect(output).toContain('Monthly Optimize Report');
-    expect(output).toContain('Provider scope: openai');
-    expect(output).toContain('ALL best candidate: gpt-4.1 saves $0.15 (12.00%)');
+    expect(strippedOutput).toContain('Monthly Optimize Report');
+    expect(strippedOutput).toContain('Provider scope: openai');
+    expect(strippedOutput).toContain('ALL best candidate: gpt-4.1 saves $0.15 (12.00%)');
   });
 });

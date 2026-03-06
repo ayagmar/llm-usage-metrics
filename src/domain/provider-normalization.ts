@@ -49,12 +49,19 @@ export function matchesCanonicalProviderFilter(
   provider: string | undefined,
   providerFilter: string | undefined,
 ): boolean {
-  if (!providerFilter) {
+  const normalizedFilter = normalizeProviderToBillingEntity(providerFilter);
+
+  if (!normalizedFilter) {
     return true;
   }
 
   const normalizedProvider = normalizeProviderToBillingEntity(provider);
-  return normalizedProvider?.includes(providerFilter) ?? false;
+
+  if (!normalizedProvider) {
+    return false;
+  }
+
+  return normalizedProvider.includes(normalizedFilter);
 }
 
 export function collectCanonicalProviderRoots(providers: Iterable<string | undefined>): string[] {

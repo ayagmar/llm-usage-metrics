@@ -78,11 +78,12 @@ export function applyPricingToEvents(
     let pricing: ModelPricing | undefined;
 
     if (model && isPriceableEvent(event)) {
-      pricing = pricingByModel.get(model);
+      const resolvedModel = pricingSource.resolveModelAlias(model);
+      pricing = pricingByModel.get(resolvedModel);
 
-      if (!pricingByModel.has(model)) {
-        pricing = pricingSource.getPricing(model);
-        pricingByModel.set(model, pricing);
+      if (!pricingByModel.has(resolvedModel)) {
+        pricing = pricingSource.getPricing(resolvedModel);
+        pricingByModel.set(resolvedModel, pricing);
       }
     }
 

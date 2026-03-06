@@ -297,6 +297,50 @@ describe('ParseFileCache', () => {
     expect(persisted.entries).toHaveLength(1);
   });
 
+  it('rejects disk cache entries with malformed dependency fingerprints', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'parse-file-cache-bad-dependency-'));
+    tempDirs.push(tempDir);
+    const cacheFilePath = path.join(tempDir, 'parse-file-cache.json');
+
+    await writeFile(
+      cacheFilePath,
+      JSON.stringify({
+        version: 5,
+        entries: [
+          {
+            source: 'codex',
+            filePath: '/tmp/ok.jsonl',
+            fingerprint: {
+              dependencies: [
+                { path: '/tmp/ok.jsonl', exists: true, size: 12, mtimeMs: 34 },
+                { path: '   ', exists: true, size: 1, mtimeMs: 2 },
+              ],
+            },
+            cachedAt: 42,
+            diagnostics: {
+              events: [createEvent()],
+              skippedRows: 0,
+              skippedRowReasons: [],
+            },
+          },
+        ],
+      }),
+      'utf8',
+    );
+
+    const cache = await ParseFileCache.load({
+      cacheFilePath,
+      limits: { ttlMs: 60_000, maxEntries: 100, maxBytes: 1024 * 1024 },
+      now: () => 1_000,
+    });
+
+    expect(
+      cache.get('codex', '/tmp/ok.jsonl', {
+        dependencies: [{ path: '/tmp/ok.jsonl', exists: true, size: 12, mtimeMs: 34 }],
+      }),
+    ).toBeUndefined();
+  });
+
   it('recovers from malformed cache JSON and rewrites a valid payload', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'parse-file-cache-malformed-'));
     tempDirs.push(tempDir);

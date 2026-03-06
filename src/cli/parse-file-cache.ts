@@ -7,6 +7,7 @@ import type {
   SourceParseFileDiagnostics,
   SourceSkippedRowReasonStat,
 } from '../sources/source-adapter.js';
+import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { normalizeSkippedRowReasons } from './normalize-skipped-row-reasons.js';
 import { asRecord } from '../utils/as-record.js';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
@@ -249,7 +250,7 @@ function compareDependencyFingerprint(
   right: ParseDependencyFingerprint,
 ): number {
   if (left.path !== right.path) {
-    return left.path.localeCompare(right.path);
+    return compareByCodePoint(left.path, right.path);
   }
 
   if (left.exists !== right.exists) {
@@ -274,14 +275,23 @@ function normalizeRuntimeFingerprint(
   }
 
   if (Array.isArray(fingerprintRecord.dependencies)) {
-    const normalizedDependencies = fingerprintRecord.dependencies
-      .map((dependency) => normalizeParseDependencyFingerprint(dependency))
-      .filter((dependency): dependency is ParseDependencyFingerprint => dependency !== undefined)
-      .sort(compareDependencyFingerprint);
+    const normalizedDependencies: ParseDependencyFingerprint[] = [];
+
+    for (const dependency of fingerprintRecord.dependencies) {
+      const normalizedDependency = normalizeParseDependencyFingerprint(dependency);
+
+      if (!normalizedDependency) {
+        return undefined;
+      }
+
+      normalizedDependencies.push(normalizedDependency);
+    }
 
     if (normalizedDependencies.length === 0) {
       return undefined;
     }
+
+    normalizedDependencies.sort(compareDependencyFingerprint);
 
     return {
       dependencies: normalizedDependencies,

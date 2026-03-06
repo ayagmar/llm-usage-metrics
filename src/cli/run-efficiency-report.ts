@@ -10,6 +10,7 @@ import { emitDiagnostics } from './emit-diagnostics.js';
 import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
 import type { EfficiencyCommandOptions, EfficiencyDiagnostics } from './usage-data-contracts.js';
+import type { BuildEfficiencyDataDeps } from './build-efficiency-data.js';
 
 const efficiencyReportFormats = [
   'terminal',
@@ -33,7 +34,7 @@ function validateShareOption(
 async function prepareEfficiencyReport(
   granularity: ReportGranularity,
   options: EfficiencyCommandOptions,
-  deps: Parameters<typeof buildEfficiencyData>[2] = {},
+  deps: BuildEfficiencyDataDeps = {},
 ) {
   return prepareReport({
     commandOptions: options,

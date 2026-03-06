@@ -69,8 +69,12 @@ async function discoverSessionFiles(geminiDir: string): Promise<string[]> {
 
   try {
     projectEntries = await readdir(tmpDir, { withFileTypes: true, encoding: 'utf8' });
-  } catch {
-    return [];
+  } catch (error) {
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT') {
+      return [];
+    }
+
+    throw error;
   }
 
   const allSessionFiles: string[] = [];
@@ -236,6 +240,10 @@ export class GeminiSourceAdapter implements SourceAdapter {
   }
 
   public async getParseDependencies(): Promise<string[]> {
+    if (isBlankText(this.geminiDir)) {
+      return [];
+    }
+
     return [getProjectsJsonPath(this.getNormalizedGeminiDir())];
   }
 

@@ -177,6 +177,7 @@ function runDetachedCommandWithSpawn(
     detached: true,
   });
 
+  child.on('error', () => undefined);
   child.unref();
 }
 

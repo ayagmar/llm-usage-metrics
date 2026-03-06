@@ -46,6 +46,16 @@ describe('GeminiSourceAdapter', () => {
       await expect(adapter.discoverFiles()).resolves.toEqual([]);
     });
 
+    it('rethrows non-missing tmp directory errors', async () => {
+      const tempDir = await mkdtemp(path.join(os.tmpdir(), 'gemini-bad-tmp-'));
+      tempDirs.push(tempDir);
+      await writeFile(path.join(tempDir, 'tmp'), 'not-a-directory', 'utf8');
+
+      const adapter = new GeminiSourceAdapter({ geminiDir: tempDir });
+
+      await expect(adapter.discoverFiles()).rejects.toThrow();
+    });
+
     it('validates explicit directory options', async () => {
       const blankDirAdapter = new GeminiSourceAdapter({ geminiDir: '   ' });
       await expect(blankDirAdapter.discoverFiles()).rejects.toThrow(
@@ -156,6 +166,12 @@ describe('GeminiSourceAdapter', () => {
 
       expect(events).toHaveLength(2);
       expect(events[0].repoRoot).toBeUndefined();
+    });
+
+    it('returns no parse dependencies when geminiDir is blank', async () => {
+      const adapter = new GeminiSourceAdapter({ geminiDir: '   ' });
+
+      await expect(adapter.getParseDependencies()).resolves.toEqual([]);
     });
 
     it('reloads projects.json between parses on the same adapter instance', async () => {
