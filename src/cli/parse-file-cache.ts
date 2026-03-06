@@ -11,12 +11,20 @@ import { normalizeSkippedRowReasons } from './normalize-skipped-row-reasons.js';
 import { asRecord } from '../utils/as-record.js';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
 
-const PARSE_FILE_CACHE_VERSION = 4;
+const PARSE_FILE_CACHE_VERSION = 5;
 const CACHE_KEY_SEPARATOR = '\u0000';
 
+export type ParseDependencyFingerprint = {
+  path: string;
+  exists: boolean;
+  size?: number;
+  mtimeMs?: number;
+};
+
 export type ParseFileFingerprint = {
-  size: number;
-  mtimeMs: number;
+  size?: number;
+  mtimeMs?: number;
+  dependencies?: ParseDependencyFingerprint[];
 };
 
 export type ParseFileCacheLimits = {
@@ -28,7 +36,7 @@ export type ParseFileCacheLimits = {
 type ParseFileCacheEntry = {
   source: string;
   filePath: string;
-  fingerprint: ParseFileFingerprint;
+  fingerprint: NormalizedParseFileFingerprint;
   cachedAt: number;
   diagnostics: SourceParseFileDiagnostics;
 };
@@ -36,6 +44,10 @@ type ParseFileCacheEntry = {
 type ParseFileCachePayload = {
   version: number;
   entries: ParseFileCacheEntry[];
+};
+
+type NormalizedParseFileFingerprint = {
+  dependencies: ParseDependencyFingerprint[];
 };
 
 function createCacheKey(source: string, filePath: string): string {
@@ -185,6 +197,116 @@ function normalizeCachedEvents(value: unknown): UsageEvent[] | undefined {
   return normalizedEvents;
 }
 
+function normalizeFingerprintPath(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const normalized = value.trim();
+  return normalized || undefined;
+}
+
+function normalizeParseDependencyFingerprint(
+  value: unknown,
+): ParseDependencyFingerprint | undefined {
+  const record = asRecord(value);
+
+  if (!record) {
+    return undefined;
+  }
+
+  const dependencyPath = normalizeFingerprintPath(record.path);
+  const exists = typeof record.exists === 'boolean' ? record.exists : undefined;
+
+  if (!dependencyPath || exists === undefined) {
+    return undefined;
+  }
+
+  if (!exists) {
+    return {
+      path: dependencyPath,
+      exists: false,
+    };
+  }
+
+  const size = toNonNegativeInteger(record.size);
+  const mtimeMs = toNonNegativeNumber(record.mtimeMs);
+
+  if (size === undefined || mtimeMs === undefined) {
+    return undefined;
+  }
+
+  return {
+    path: dependencyPath,
+    exists: true,
+    size,
+    mtimeMs,
+  };
+}
+
+function compareDependencyFingerprint(
+  left: ParseDependencyFingerprint,
+  right: ParseDependencyFingerprint,
+): number {
+  if (left.path !== right.path) {
+    return left.path.localeCompare(right.path);
+  }
+
+  if (left.exists !== right.exists) {
+    return left.exists ? 1 : -1;
+  }
+
+  if ((left.size ?? -1) !== (right.size ?? -1)) {
+    return (left.size ?? -1) - (right.size ?? -1);
+  }
+
+  return (left.mtimeMs ?? -1) - (right.mtimeMs ?? -1);
+}
+
+function normalizeRuntimeFingerprint(
+  filePath: string,
+  fingerprint: unknown,
+): NormalizedParseFileFingerprint | undefined {
+  const fingerprintRecord = asRecord(fingerprint);
+
+  if (!fingerprintRecord) {
+    return undefined;
+  }
+
+  if (Array.isArray(fingerprintRecord.dependencies)) {
+    const normalizedDependencies = fingerprintRecord.dependencies
+      .map((dependency) => normalizeParseDependencyFingerprint(dependency))
+      .filter((dependency): dependency is ParseDependencyFingerprint => dependency !== undefined)
+      .sort(compareDependencyFingerprint);
+
+    if (normalizedDependencies.length === 0) {
+      return undefined;
+    }
+
+    return {
+      dependencies: normalizedDependencies,
+    };
+  }
+
+  const size = toNonNegativeInteger(fingerprintRecord.size);
+  const mtimeMs = toNonNegativeNumber(fingerprintRecord.mtimeMs);
+
+  if (size === undefined || mtimeMs === undefined) {
+    return undefined;
+  }
+
+  return {
+    dependencies: [
+      {
+        path: filePath,
+        exists: true,
+        size,
+        mtimeMs,
+      },
+    ],
+  };
+}
+
 function normalizeCacheEntry(value: unknown): ParseFileCacheEntry | undefined {
   const record = asRecord(value);
 
@@ -195,20 +317,12 @@ function normalizeCacheEntry(value: unknown): ParseFileCacheEntry | undefined {
   const source = normalizeSourceId(record.source)?.toLowerCase() ?? '';
   const filePath = typeof record.filePath === 'string' ? record.filePath.trim() : '';
   const cachedAt = toNonNegativeInteger(record.cachedAt);
-  const fingerprint = asRecord(record.fingerprint);
+  const fingerprint = normalizeRuntimeFingerprint(filePath, record.fingerprint);
   const diagnostics = asRecord(record.diagnostics);
-  const size = toNonNegativeInteger(fingerprint?.size);
-  const mtimeMs = toNonNegativeNumber(fingerprint?.mtimeMs);
   const skippedRows = toNonNegativeInteger(diagnostics?.skippedRows) ?? 0;
   const events = normalizeCachedEvents(diagnostics?.events);
 
-  if (
-    !source ||
-    !filePath ||
-    size === undefined ||
-    mtimeMs === undefined ||
-    cachedAt === undefined
-  ) {
+  if (!source || !filePath || !fingerprint || cachedAt === undefined) {
     return undefined;
   }
 
@@ -219,7 +333,7 @@ function normalizeCacheEntry(value: unknown): ParseFileCacheEntry | undefined {
   return {
     source,
     filePath,
-    fingerprint: { size, mtimeMs },
+    fingerprint,
     cachedAt,
     diagnostics: {
       events,
@@ -297,9 +411,24 @@ export class ParseFileCache {
       return undefined;
     }
 
+    const normalizedFingerprint = normalizeRuntimeFingerprint(filePath, fingerprint);
+
+    if (!normalizedFingerprint) {
+      return undefined;
+    }
+
     if (
-      entry.fingerprint.size !== fingerprint.size ||
-      entry.fingerprint.mtimeMs !== fingerprint.mtimeMs
+      entry.fingerprint.dependencies.length !== normalizedFingerprint.dependencies.length ||
+      entry.fingerprint.dependencies.some((dependency, index) => {
+        const candidate = normalizedFingerprint.dependencies[index];
+
+        return (
+          dependency.path !== candidate.path ||
+          dependency.exists !== candidate.exists ||
+          dependency.size !== candidate.size ||
+          dependency.mtimeMs !== candidate.mtimeMs
+        );
+      })
     ) {
       this.entriesByKey.delete(cacheKey);
       this.dirty = true;
@@ -320,13 +449,16 @@ export class ParseFileCache {
     diagnostics: SourceParseFileDiagnostics,
   ): void {
     const normalizedSource = normalizeCacheSource(source);
+    const normalizedFingerprint = normalizeRuntimeFingerprint(filePath, fingerprint);
+
+    if (!normalizedFingerprint) {
+      return;
+    }
+
     this.entriesByKey.set(createCacheKey(normalizedSource, filePath), {
       source: normalizedSource,
       filePath,
-      fingerprint: {
-        size: fingerprint.size,
-        mtimeMs: fingerprint.mtimeMs,
-      },
+      fingerprint: normalizedFingerprint,
       cachedAt: this.now(),
       diagnostics: {
         events: cloneUsageEvents(diagnostics.events),

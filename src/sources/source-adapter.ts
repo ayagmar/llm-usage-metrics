@@ -6,6 +6,10 @@ export type SourceSkippedRowReasonStat = {
   count: number;
 };
 
+export type SourceCapabilities = {
+  fixedProviderRoots?: readonly string[];
+};
+
 export type SourceParseFileDiagnostics<Event extends UsageEvent = UsageEvent> = {
   events: Event[];
   skippedRows: number;
@@ -14,9 +18,11 @@ export type SourceParseFileDiagnostics<Event extends UsageEvent = UsageEvent> = 
 
 export interface SourceAdapter<Event extends UsageEvent = UsageEvent> {
   readonly id: SourceId;
+  readonly capabilities?: SourceCapabilities;
   discoverFiles(): Promise<string[]>;
   parseFile(filePath: string): Promise<Event[]>;
   parseFileWithDiagnostics?(filePath: string): Promise<SourceParseFileDiagnostics<Event>>;
+  getParseDependencies?(filePath: string): Promise<string[]>;
 }
 
 export function isSourceAdapter(candidate: unknown): candidate is SourceAdapter {

@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -42,6 +42,42 @@ class CountingJsonlAdapter implements SourceAdapter {
         sessionId: path.basename(filePath, '.jsonl'),
         timestamp: '2026-02-01T00:00:00.000Z',
         totalTokens: lines.length || 1,
+      }),
+    ];
+  }
+}
+
+class AuxiliaryDependencyAdapter implements SourceAdapter {
+  public constructor(
+    public readonly id: string,
+    private readonly files: string[],
+    private readonly parseCallCounter: { count: number },
+    private readonly getDependencyPath: (filePath: string) => string,
+  ) {}
+
+  public async discoverFiles(): Promise<string[]> {
+    return this.files;
+  }
+
+  public async getParseDependencies(filePath: string): Promise<string[]> {
+    return [this.getDependencyPath(filePath)];
+  }
+
+  public async parseFile(filePath: string) {
+    this.parseCallCounter.count += 1;
+
+    const dependencyPath = this.getDependencyPath(filePath);
+    const dependencyContent = await readFile(dependencyPath, 'utf8');
+
+    return [
+      createUsageEvent({
+        source: this.id,
+        sessionId: path.basename(filePath),
+        timestamp: '2026-02-01T00:00:00.000Z',
+        totalTokens: dependencyContent
+          .split('\n')
+          .map((line) => line.trim())
+          .filter((line) => line.length > 0).length,
       }),
     ];
   }
@@ -264,26 +300,107 @@ describe('parseSelectedAdapters file cache', () => {
 
     const cacheFilePath = path.join(tempDir, 'parse-cache.json');
     const codexFile = path.join(tempDir, 'codex.jsonl');
-    const droidFile = path.join(tempDir, 'droid.settings.json');
+    const piFile = path.join(tempDir, 'pi.jsonl');
 
     await writeFile(codexFile, '{"line":1}\n', 'utf8');
-    await writeFile(droidFile, '{"line":1}\n', 'utf8');
+    await writeFile(piFile, '{"line":1}\n', 'utf8');
 
     const codexCalls = { count: 0 };
-    const droidCalls = { count: 0 };
+    const piCalls = { count: 0 };
     const codexAdapter = new CountingJsonlAdapter('codex', [codexFile], codexCalls);
-    const droidAdapter = new CountingJsonlAdapter('droid', [droidFile], droidCalls);
+    const piAdapter = new CountingJsonlAdapter('pi', [piFile], piCalls);
 
-    await parseSelectedAdapters([codexAdapter, droidAdapter], 8, {
+    await parseSelectedAdapters([codexAdapter, piAdapter], 8, {
       ...parseCacheOptions,
       parseCacheFilePath: cacheFilePath,
     });
 
     const codexShard = getCacheShardPath(cacheFilePath, 'codex');
-    const droidShard = getCacheShardPath(cacheFilePath, 'droid');
+    const piShard = getCacheShardPath(cacheFilePath, 'pi');
 
     await expect(readFile(codexShard, 'utf8')).resolves.toContain('"source":"codex"');
-    await expect(readFile(droidShard, 'utf8')).resolves.toContain('"source":"droid"');
+    await expect(readFile(piShard, 'utf8')).resolves.toContain('"source":"pi"');
     await expect(readFile(cacheFilePath, 'utf8')).rejects.toThrow();
   });
+
+  it.each([
+    {
+      source: 'droid',
+      primaryFileName: 'session.settings.json',
+      dependencyFileName: 'session.jsonl',
+      getDependencyPath: (primaryFilePath: string) =>
+        primaryFilePath.replace(/\.settings\.json$/u, '.jsonl'),
+    },
+    {
+      source: 'gemini',
+      primaryFileName: path.join('tmp', 'project-a', 'chats', 'session.json'),
+      dependencyFileName: 'projects.json',
+      getDependencyPath: (primaryFilePath: string) =>
+        path.resolve(path.dirname(primaryFilePath), '..', '..', '..', 'projects.json'),
+    },
+    {
+      source: 'opencode',
+      primaryFileName: 'usage.db',
+      dependencyFileName: 'usage.db-wal',
+      getDependencyPath: (primaryFilePath: string) => `${primaryFilePath}-wal`,
+    },
+  ])(
+    'reuses safe cache entries for %s and invalidates them when an auxiliary dependency changes',
+    async ({ source, primaryFileName, dependencyFileName, getDependencyPath }) => {
+      const tempDir = await mkdtemp(path.join(os.tmpdir(), `parse-cache-${source}-dependency-`));
+      tempDirs.push(tempDir);
+
+      const primaryFilePath = path.join(tempDir, primaryFileName);
+      const dependencyFilePath = path.join(tempDir, dependencyFileName);
+      const cacheFilePath = path.join(tempDir, 'parse-cache.json');
+
+      await mkdir(path.dirname(primaryFilePath), { recursive: true });
+      await mkdir(path.dirname(dependencyFilePath), { recursive: true });
+      await writeFile(primaryFilePath, '{"primary":true}\n', 'utf8');
+      await writeFile(dependencyFilePath, 'line-1\n', 'utf8');
+
+      const parseCalls = { count: 0 };
+      const adapter = new AuxiliaryDependencyAdapter(
+        source,
+        [primaryFilePath],
+        parseCalls,
+        getDependencyPath,
+      );
+
+      const firstRun = await parseSelectedAdapters([adapter], 8, {
+        ...parseCacheOptions,
+        parseCacheFilePath: cacheFilePath,
+      });
+
+      expect(firstRun.sourceFailures).toEqual([]);
+      expect(firstRun.successfulParseResults[0]?.events[0]?.totalTokens).toBe(1);
+      expect(parseCalls.count).toBe(1);
+      await expect(readFile(getCacheShardPath(cacheFilePath, source), 'utf8')).resolves.toContain(
+        `"source":"${source}"`,
+      );
+
+      const cachedRun = await parseSelectedAdapters([adapter], 8, {
+        ...parseCacheOptions,
+        parseCacheFilePath: cacheFilePath,
+      });
+
+      expect(cachedRun.sourceFailures).toEqual([]);
+      expect(cachedRun.successfulParseResults[0]?.events[0]?.totalTokens).toBe(1);
+      expect(parseCalls.count).toBe(1);
+
+      await writeFile(dependencyFilePath, 'line-1\nline-2\n', 'utf8');
+
+      const invalidatedRun = await parseSelectedAdapters([adapter], 8, {
+        ...parseCacheOptions,
+        parseCacheFilePath: cacheFilePath,
+      });
+
+      expect(invalidatedRun.sourceFailures).toEqual([]);
+      expect(invalidatedRun.successfulParseResults[0]?.events[0]?.totalTokens).toBe(2);
+      expect(parseCalls.count).toBe(2);
+      await expect(readFile(getCacheShardPath(cacheFilePath, source), 'utf8')).resolves.toContain(
+        `"source":"${source}"`,
+      );
+    },
+  );
 });

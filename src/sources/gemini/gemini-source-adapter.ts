@@ -1,10 +1,12 @@
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import type { Dirent } from 'node:fs';
 
 import { createUsageEvent } from '../../domain/usage-event.js';
 import type { UsageEvent } from '../../domain/usage-event.js';
 import { asRecord } from '../../utils/as-record.js';
+import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
 import { discoverFiles } from '../../utils/discover-files.js';
 import { pathIsDirectory, pathReadable } from '../../utils/fs-helpers.js';
 import { asTrimmedText, isBlankText } from '../parsing-utils.js';
@@ -17,6 +19,10 @@ export type GeminiSourceAdapterOptions = {
   geminiDir?: string;
   requireGeminiDir?: boolean;
 };
+
+function getProjectsJsonPath(geminiDir: string): string {
+  return path.join(geminiDir, 'projects.json');
+}
 
 function parseProjectsJson(data: unknown): Map<string, string> {
   const mapping = new Map<string, string>();
@@ -45,7 +51,7 @@ function parseProjectsJson(data: unknown): Map<string, string> {
 }
 
 async function loadProjectsJson(geminiDir: string): Promise<Map<string, string>> {
-  const projectsPath = path.join(geminiDir, 'projects.json');
+  const projectsPath = getProjectsJsonPath(geminiDir);
 
   try {
     const content = await readFile(projectsPath, 'utf8');
@@ -59,18 +65,29 @@ async function loadProjectsJson(geminiDir: string): Promise<Map<string, string>>
 
 async function discoverSessionFiles(geminiDir: string): Promise<string[]> {
   const tmpDir = path.join(geminiDir, 'tmp');
-  const allSessionFiles: string[] = [];
-  const discoveredFiles = await discoverFiles(tmpDir, { extension: '.json' });
+  let projectEntries: Dirent[];
 
-  for (const filePath of discoveredFiles) {
-    const parentDir = path.basename(path.dirname(filePath));
-
-    if (parentDir.toLowerCase() === 'chats') {
-      allSessionFiles.push(filePath);
-    }
+  try {
+    projectEntries = await readdir(tmpDir, { withFileTypes: true, encoding: 'utf8' });
+  } catch {
+    return [];
   }
 
-  return allSessionFiles;
+  const allSessionFiles: string[] = [];
+
+  for (const projectEntry of projectEntries.sort((left, right) =>
+    compareByCodePoint(left.name, right.name),
+  )) {
+    if (!projectEntry.isDirectory()) {
+      continue;
+    }
+
+    const chatsDir = path.join(tmpDir, projectEntry.name, 'chats');
+    const discoveredChatFiles = await discoverFiles(chatsDir, { extension: '.json' });
+    allSessionFiles.push(...discoveredChatFiles);
+  }
+
+  return allSessionFiles.sort(compareByCodePoint);
 }
 
 function resolveRepoRoot(
@@ -176,10 +193,12 @@ function normalizeTimestamp(candidate: unknown): string | undefined {
 
 export class GeminiSourceAdapter implements SourceAdapter {
   public readonly id = 'gemini' as const;
+  public readonly capabilities = {
+    fixedProviderRoots: ['google'],
+  } as const;
 
   private readonly geminiDir: string;
   private readonly requireGeminiDir: boolean;
-  private projectMapping: Map<string, string> | null = null;
 
   public constructor(options: GeminiSourceAdapterOptions = {}) {
     this.geminiDir = options.geminiDir ?? defaultGeminiDir;
@@ -194,26 +213,12 @@ export class GeminiSourceAdapter implements SourceAdapter {
     return this.geminiDir.trim();
   }
 
-  private async getProjectMapping(normalizedGeminiDir: string): Promise<Map<string, string>> {
-    if (this.projectMapping) {
-      return this.projectMapping;
-    }
-
-    this.projectMapping = await loadProjectsJson(normalizedGeminiDir);
-    return this.projectMapping;
-  }
-
   private async getProjectMappingForParse(): Promise<Map<string, string>> {
-    if (this.projectMapping) {
-      return this.projectMapping;
-    }
-
     if (isBlankText(this.geminiDir)) {
       return new Map();
     }
 
-    this.projectMapping = await loadProjectsJson(this.geminiDir.trim());
-    return this.projectMapping;
+    return await loadProjectsJson(this.geminiDir.trim());
   }
 
   public async discoverFiles(): Promise<string[]> {
@@ -227,9 +232,11 @@ export class GeminiSourceAdapter implements SourceAdapter {
       throw new Error(`Gemini directory is not a directory: ${normalizedDir}`);
     }
 
-    await this.getProjectMapping(normalizedDir);
-
     return discoverSessionFiles(normalizedDir);
+  }
+
+  public async getParseDependencies(): Promise<string[]> {
+    return [getProjectsJsonPath(this.getNormalizedGeminiDir())];
   }
 
   public async parseFile(filePath: string): Promise<UsageEvent[]> {

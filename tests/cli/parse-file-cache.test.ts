@@ -218,7 +218,7 @@ describe('ParseFileCache', () => {
     await writeFile(
       cacheFilePath,
       JSON.stringify({
-        version: 4,
+        version: 5,
         entries: [
           {
             source: 'CODEX',
@@ -314,7 +314,7 @@ describe('ParseFileCache', () => {
       version: number;
       entries: unknown[];
     };
-    expect(persisted).toEqual({ version: 4, entries: [] });
+    expect(persisted).toEqual({ version: 5, entries: [] });
   });
 
   it('handles unsupported cache versions by resetting payload on persist', async () => {
@@ -338,7 +338,7 @@ describe('ParseFileCache', () => {
       version: number;
       entries: unknown[];
     };
-    expect(persisted).toEqual({ version: 4, entries: [] });
+    expect(persisted).toEqual({ version: 5, entries: [] });
   });
 
   it('bounds persisted payload by max entries and max bytes', async () => {
@@ -408,7 +408,7 @@ describe('ParseFileCache', () => {
     await writeFile(
       cacheFilePath,
       JSON.stringify({
-        version: 4,
+        version: 5,
         entries: [
           {
             source: 'codex',

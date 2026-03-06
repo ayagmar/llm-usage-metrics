@@ -109,6 +109,10 @@ export class DroidSourceAdapter implements SourceAdapter {
     return discoverFiles(normalizedDir, { extension: '.settings.json' });
   }
 
+  public async getParseDependencies(filePath: string): Promise<string[]> {
+    return [getSiblingJsonlPath(filePath)];
+  }
+
   public async parseFile(filePath: string): Promise<UsageEvent[]> {
     const { events } = await this.parseFileWithDiagnostics(filePath);
     return events;

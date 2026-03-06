@@ -34,6 +34,10 @@ async function sleep(delayMs: number): Promise<void> {
   });
 }
 
+function getOpenCodeParseDependencies(dbPath: string): string[] {
+  return [`${dbPath}-wal`, `${dbPath}-shm`, `${dbPath}-journal`];
+}
+
 export class OpenCodeSourceAdapter implements SourceAdapter {
   public readonly id = 'opencode' as const;
 
@@ -106,6 +110,14 @@ export class OpenCodeSourceAdapter implements SourceAdapter {
   public async parseFile(dbPath: string): Promise<UsageEvent[]> {
     const parseDiagnostics = await this.parseFileWithDiagnostics(dbPath);
     return parseDiagnostics.events;
+  }
+
+  public async getParseDependencies(dbPath: string): Promise<string[]> {
+    if (isBlankText(dbPath)) {
+      return [];
+    }
+
+    return getOpenCodeParseDependencies(dbPath.trim());
   }
 
   public async parseFileWithDiagnostics(dbPath: string): Promise<SourceParseFileDiagnostics> {

@@ -1,6 +1,7 @@
 import { stat } from 'node:fs/promises';
 
 import type { UsageEvent } from '../domain/usage-event.js';
+import { matchesCanonicalProviderFilter } from '../domain/provider-normalization.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import type {
   SourceAdapter,
@@ -12,8 +13,10 @@ import { getPeriodKey } from '../utils/time-buckets.js';
 import {
   getDefaultParseFileCachePath,
   getSourceShardedParseFileCachePath,
+  type ParseDependencyFingerprint,
   ParseFileCache,
 } from './parse-file-cache.js';
+import type { RuntimeProfileCollector } from './runtime-profile.js';
 
 import type { UsageSourceFailure } from './usage-data-contracts.js';
 
@@ -41,7 +44,10 @@ export type ParseSelectedAdaptersOptions = {
   parseCache?: ParseCacheRuntimeConfig;
   parseCacheFilePath?: string;
   now?: () => number;
+  runtimeProfile?: RuntimeProfileCollector;
 };
+
+type RunWithParseBudget = <T>(task: () => Promise<T>) => Promise<T>;
 
 function getDefaultParseFileDiagnostics(events: UsageEvent[]): SourceParseFileDiagnostics {
   return { events, skippedRows: 0, skippedRowReasons: [] };
@@ -55,10 +61,124 @@ function normalizeSkippedRowsCount(value: unknown): number {
   return Math.max(0, Math.trunc(value));
 }
 
+function isMissingPathError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === 'ENOENT'
+  );
+}
+
+async function createParseDependencyFingerprint(
+  filePath: string,
+  options: { allowMissing: boolean },
+): Promise<ParseDependencyFingerprint | undefined> {
+  try {
+    const fileStat = await stat(filePath);
+
+    return {
+      path: filePath,
+      exists: true,
+      size: fileStat.size,
+      mtimeMs: fileStat.mtimeMs,
+    };
+  } catch (error) {
+    if (options.allowMissing && isMissingPathError(error)) {
+      return {
+        path: filePath,
+        exists: false,
+      };
+    }
+
+    return undefined;
+  }
+}
+
+async function getParseFileFingerprint(
+  adapter: SourceAdapter,
+  filePath: string,
+): Promise<{ dependencies: ParseDependencyFingerprint[] } | undefined> {
+  const primaryFingerprint = await createParseDependencyFingerprint(filePath, {
+    allowMissing: false,
+  });
+
+  if (!primaryFingerprint) {
+    return undefined;
+  }
+
+  const additionalDependencyPaths = adapter.getParseDependencies
+    ? await adapter.getParseDependencies(filePath)
+    : [];
+  const uniqueAdditionalDependencyPaths = [...new Set(additionalDependencyPaths)]
+    .filter((dependencyPath) => dependencyPath !== filePath)
+    .sort(compareByCodePoint);
+  const dependencyFingerprints: ParseDependencyFingerprint[] = [primaryFingerprint];
+
+  for (const dependencyPath of uniqueAdditionalDependencyPaths) {
+    const dependencyFingerprint = await createParseDependencyFingerprint(dependencyPath, {
+      allowMissing: true,
+    });
+
+    if (!dependencyFingerprint) {
+      return undefined;
+    }
+
+    dependencyFingerprints.push(dependencyFingerprint);
+  }
+
+  return {
+    dependencies: dependencyFingerprints,
+  };
+}
+
+function createParseBudget(maxParallelFileParsing: number): RunWithParseBudget {
+  const safeMaxParallelFileParsing =
+    Number.isFinite(maxParallelFileParsing) && maxParallelFileParsing > 0
+      ? Math.max(1, Math.floor(maxParallelFileParsing))
+      : 1;
+  let availablePermits = safeMaxParallelFileParsing;
+  const waitingResolvers: Array<() => void> = [];
+
+  async function acquire(): Promise<void> {
+    if (availablePermits > 0) {
+      availablePermits -= 1;
+      return;
+    }
+
+    await new Promise<void>((resolve) => {
+      waitingResolvers.push(resolve);
+    });
+  }
+
+  function release(): void {
+    const nextResolver = waitingResolvers.shift();
+
+    if (nextResolver) {
+      nextResolver();
+      return;
+    }
+
+    availablePermits += 1;
+  }
+
+  return async <T>(task: () => Promise<T>): Promise<T> => {
+    await acquire();
+
+    try {
+      return await task();
+    } finally {
+      release();
+    }
+  };
+}
+
 export async function parseAdapterEvents(
   adapter: SourceAdapter,
   maxParallelFileParsing: number,
+  runWithParseBudget: RunWithParseBudget = async <T>(task: () => Promise<T>) => task(),
   parseFileCache?: ParseFileCache,
+  runtimeProfile?: RuntimeProfileCollector,
 ): Promise<AdapterParseResult> {
   const files = await adapter.discoverFiles();
 
@@ -87,51 +207,49 @@ export async function parseAdapterEvents(
       const fileIndex = nextFileIndex;
       nextFileIndex += 1;
 
-      const filePath = files[fileIndex];
-      let fileFingerprint:
-        | {
-            size: number;
-            mtimeMs: number;
+      await runWithParseBudget(async () => {
+        const filePath = files[fileIndex];
+        let fileFingerprint: { dependencies: ParseDependencyFingerprint[] } | undefined;
+        let parseFileDiagnostics: SourceParseFileDiagnostics | undefined;
+
+        if (parseFileCache) {
+          fileFingerprint = await getParseFileFingerprint(adapter, filePath);
+
+          if (fileFingerprint) {
+            parseFileDiagnostics = parseFileCache.get(adapter.id, filePath, fileFingerprint);
+            runtimeProfile?.recordParseCacheResult(
+              adapter.id,
+              parseFileDiagnostics ? 'hit' : 'miss',
+            );
           }
-        | undefined;
-      let parseFileDiagnostics: SourceParseFileDiagnostics | undefined;
-
-      if (parseFileCache) {
-        try {
-          const fileStat = await stat(filePath);
-          fileFingerprint = {
-            size: fileStat.size,
-            mtimeMs: fileStat.mtimeMs,
-          };
-          parseFileDiagnostics = parseFileCache.get(adapter.id, filePath, fileFingerprint);
-        } catch {
-          // Some adapters may return virtual/non-file identifiers. In that case, bypass cache.
         }
-      }
 
-      if (!parseFileDiagnostics) {
-        parseFileDiagnostics = adapter.parseFileWithDiagnostics
-          ? await adapter.parseFileWithDiagnostics(filePath)
-          : getDefaultParseFileDiagnostics(await adapter.parseFile(filePath));
-        if (parseFileCache && fileFingerprint) {
-          parseFileCache.set(adapter.id, filePath, fileFingerprint, parseFileDiagnostics);
+        if (!parseFileDiagnostics) {
+          parseFileDiagnostics = adapter.parseFileWithDiagnostics
+            ? await adapter.parseFileWithDiagnostics(filePath)
+            : getDefaultParseFileDiagnostics(await adapter.parseFile(filePath));
+          if (parseFileCache && fileFingerprint) {
+            parseFileCache.set(adapter.id, filePath, fileFingerprint, parseFileDiagnostics);
+          }
         }
-      }
 
-      parsedByFile[fileIndex] = parseFileDiagnostics.events;
-      skippedRowsByFile[fileIndex] = normalizeSkippedRowsCount(parseFileDiagnostics.skippedRows);
-      for (const reasonStat of normalizeSkippedRowReasons(parseFileDiagnostics.skippedRowReasons)) {
-        skippedRowReasons.set(
-          reasonStat.reason,
-          (skippedRowReasons.get(reasonStat.reason) ?? 0) + reasonStat.count,
-        );
-      }
+        parsedByFile[fileIndex] = parseFileDiagnostics.events;
+        skippedRowsByFile[fileIndex] = normalizeSkippedRowsCount(parseFileDiagnostics.skippedRows);
+        for (const reasonStat of normalizeSkippedRowReasons(
+          parseFileDiagnostics.skippedRowReasons,
+        )) {
+          skippedRowReasons.set(
+            reasonStat.reason,
+            (skippedRowReasons.get(reasonStat.reason) ?? 0) + reasonStat.count,
+          );
+        }
+      });
     }
   });
 
   await Promise.all(workers);
 
-  return {
+  const result = {
     source: adapter.id,
     events: parsedByFile.flat(),
     filesFound: files.length,
@@ -140,6 +258,13 @@ export async function parseAdapterEvents(
       .map(([reason, count]) => ({ reason, count }))
       .sort((left, right) => compareByCodePoint(left.reason, right.reason)),
   };
+
+  runtimeProfile?.recordParseResult(adapter.id, {
+    filesFound: result.filesFound,
+    eventsParsed: result.events.length,
+  });
+
+  return result;
 }
 
 function getErrorReason(error: unknown): string {
@@ -155,6 +280,7 @@ export async function parseSelectedAdapters(
   maxParallelFileParsing: number,
   options: ParseSelectedAdaptersOptions = {},
 ): Promise<ParsedAdaptersResult> {
+  const runWithParseBudget = createParseBudget(maxParallelFileParsing);
   const parseCacheBySource = new Map<string, ParseFileCache>();
 
   if (options.parseCache?.enabled) {
@@ -187,11 +313,22 @@ export async function parseSelectedAdapters(
 
   const parseResults = await Promise.allSettled(
     adaptersToParse.map((adapter) =>
-      parseAdapterEvents(
-        adapter,
-        maxParallelFileParsing,
-        parseCacheBySource.get(adapter.id.toLowerCase()),
-      ),
+      options.runtimeProfile
+        ? options.runtimeProfile.measure(`parse.adapter.${adapter.id}`, async () =>
+            parseAdapterEvents(
+              adapter,
+              maxParallelFileParsing,
+              runWithParseBudget,
+              parseCacheBySource.get(adapter.id.toLowerCase()),
+              options.runtimeProfile,
+            ),
+          )
+        : parseAdapterEvents(
+            adapter,
+            maxParallelFileParsing,
+            runWithParseBudget,
+            parseCacheBySource.get(adapter.id.toLowerCase()),
+          ),
     ),
   );
 
@@ -238,17 +375,6 @@ export function throwOnExplicitSourceFailures(
     .join('; ');
 
   throw new Error(`Failed to parse explicitly requested source(s): ${details}`);
-}
-
-function matchesProvider(
-  provider: string | undefined,
-  providerFilter: string | undefined,
-): boolean {
-  if (!providerFilter) {
-    return true;
-  }
-
-  return provider?.toLowerCase().includes(providerFilter) ?? false;
 }
 
 function isEventWithinDateRange(
@@ -328,36 +454,15 @@ function filterByModelRules(events: UsageEvent[], modelFilter: string[] | undefi
   return events.filter((event) => matchesModel(event.model, modelFilterRules));
 }
 
-export function filterUsageEvents(
-  events: UsageEvent[],
+function collectProviderAndDateFilteredEvents(
+  eventGroups: Iterable<readonly UsageEvent[]>,
   options: UsageEventFilterOptions,
 ): UsageEvent[] {
-  const providerAndDateFilteredEvents: UsageEvent[] = [];
+  const filteredEvents: UsageEvent[] = [];
 
-  for (const event of events) {
-    if (!matchesProvider(event.provider, options.providerFilter)) {
-      continue;
-    }
-
-    if (!isEventWithinDateRange(event, options.timezone, options.since, options.until)) {
-      continue;
-    }
-
-    providerAndDateFilteredEvents.push(event);
-  }
-
-  return filterByModelRules(providerAndDateFilteredEvents, options.modelFilter);
-}
-
-export function filterParsedAdapterEvents(
-  parseResults: AdapterParseResult[],
-  options: UsageEventFilterOptions,
-): UsageEvent[] {
-  const providerAndDateFilteredEvents: UsageEvent[] = [];
-
-  for (const result of parseResults) {
-    for (const event of result.events) {
-      if (!matchesProvider(event.provider, options.providerFilter)) {
+  for (const events of eventGroups) {
+    for (const event of events) {
+      if (!matchesCanonicalProviderFilter(event.provider, options.providerFilter)) {
         continue;
       }
 
@@ -365,9 +470,28 @@ export function filterParsedAdapterEvents(
         continue;
       }
 
-      providerAndDateFilteredEvents.push(event);
+      filteredEvents.push(event);
     }
   }
 
+  return filteredEvents;
+}
+
+export function filterUsageEvents(
+  events: UsageEvent[],
+  options: UsageEventFilterOptions,
+): UsageEvent[] {
+  const providerAndDateFilteredEvents = collectProviderAndDateFilteredEvents([events], options);
+  return filterByModelRules(providerAndDateFilteredEvents, options.modelFilter);
+}
+
+export function filterParsedAdapterEvents(
+  parseResults: AdapterParseResult[],
+  options: UsageEventFilterOptions,
+): UsageEvent[] {
+  const providerAndDateFilteredEvents = collectProviderAndDateFilteredEvents(
+    parseResults.map((result) => result.events),
+    options,
+  );
   return filterByModelRules(providerAndDateFilteredEvents, options.modelFilter);
 }

@@ -1,7 +1,9 @@
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   GeminiSourceAdapter,
@@ -10,6 +12,12 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturesDir = path.join(__dirname, '..', 'fixtures', 'gemini');
+const tempDirs: string[] = [];
+
+afterEach(async () => {
+  await Promise.all(tempDirs.map((tempDir) => rm(tempDir, { recursive: true, force: true })));
+  tempDirs.length = 0;
+});
 
 describe('GeminiSourceAdapter', () => {
   it('exposes stable source id and default directory', () => {
@@ -148,6 +156,50 @@ describe('GeminiSourceAdapter', () => {
 
       expect(events).toHaveLength(2);
       expect(events[0].repoRoot).toBeUndefined();
+    });
+
+    it('reloads projects.json between parses on the same adapter instance', async () => {
+      const tempDir = await mkdtemp(path.join(os.tmpdir(), 'gemini-project-mapping-'));
+      tempDirs.push(tempDir);
+
+      const sessionFilePath = path.join(tempDir, 'session-with-usage.json');
+      await writeFile(
+        sessionFilePath,
+        await readFile(path.join(fixturesDir, 'session-with-usage.json'), 'utf8'),
+        'utf8',
+      );
+
+      const adapter = new GeminiSourceAdapter({ geminiDir: tempDir });
+
+      await writeFile(
+        path.join(tempDir, 'projects.json'),
+        JSON.stringify({
+          projects: {
+            abc123: {
+              absolutePath: '/tmp/first-repo',
+            },
+          },
+        }),
+        'utf8',
+      );
+
+      const firstParse = await adapter.parseFile(sessionFilePath);
+      expect(firstParse[0]?.repoRoot).toBe('/tmp/first-repo');
+
+      await writeFile(
+        path.join(tempDir, 'projects.json'),
+        JSON.stringify({
+          projects: {
+            abc123: {
+              absolutePath: '/tmp/second-repo',
+            },
+          },
+        }),
+        'utf8',
+      );
+
+      const secondParse = await adapter.parseFile(sessionFilePath);
+      expect(secondParse[0]?.repoRoot).toBe('/tmp/second-repo');
     });
   });
 
