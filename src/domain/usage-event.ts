@@ -126,7 +126,7 @@ export function createUsageEvent(input: UsageEventInput): UsageEvent {
   const declaredTotalTokens = normalizeNonNegativeInteger(input.totalTokens);
   const componentTotalTokens =
     inputTokens + outputTokens + reasoningTokens + cacheReadTokens + cacheWriteTokens;
-  const totalTokens = declaredTotalTokens > 0 ? declaredTotalTokens : componentTotalTokens;
+  const totalTokens = input.totalTokens === undefined ? componentTotalTokens : declaredTotalTokens;
 
   const costUsd = normalizeUsdCost(input.costUsd);
   const costMode = resolveCostMode(input.costMode, costUsd);

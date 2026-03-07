@@ -246,7 +246,7 @@ describe('DroidSourceAdapter', () => {
         reasoningTokens: 10,
         cacheReadTokens: 0,
         cacheWriteTokens: 0,
-        totalTokens: 10,
+        totalTokens: 0,
       });
     });
   });

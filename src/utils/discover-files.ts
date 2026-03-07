@@ -52,6 +52,26 @@ async function walkDirectory(
   options: Required<DiscoverFilesOptions>,
   ancestryRealPaths: ReadonlySet<string>,
 ): Promise<void> {
+  let resolvedRootDir: string;
+
+  try {
+    resolvedRootDir = await realpath(rootDir);
+  } catch (error) {
+    if (getNodeErrorCode(error) === 'ENOENT') {
+      return;
+    }
+
+    if (options.allowPermissionSkip && isSkippableDirectoryReadError(error)) {
+      return;
+    }
+
+    throw error;
+  }
+
+  if (ancestryRealPaths.has(resolvedRootDir)) {
+    return;
+  }
+
   let entries: Dirent[];
 
   try {
@@ -66,24 +86,6 @@ async function walkDirectory(
     }
 
     throw error;
-  }
-
-  let resolvedRootDir: string;
-
-  try {
-    resolvedRootDir = await realpath(rootDir);
-  } catch (error) {
-    if (getNodeErrorCode(error) === 'ENOENT') {
-      resolvedRootDir = rootDir;
-    } else if (options.allowPermissionSkip && isSkippableDirectoryReadError(error)) {
-      return;
-    } else {
-      throw error;
-    }
-  }
-
-  if (ancestryRealPaths.has(resolvedRootDir)) {
-    return;
   }
 
   const nextAncestryRealPaths = new Set(ancestryRealPaths);
@@ -139,6 +141,45 @@ async function walkDirectory(
   }
 }
 
+async function toCanonicalFiles(
+  files: readonly string[],
+  options: Required<DiscoverFilesOptions>,
+): Promise<string[]> {
+  const canonicalFiles: string[] = [];
+  const seenRealPaths = new Set<string>();
+
+  for (const filePath of files) {
+    let resolvedFilePath: string;
+
+    try {
+      resolvedFilePath = await realpath(filePath);
+    } catch (error) {
+      if (getNodeErrorCode(error) === 'ENOENT') {
+        continue;
+      }
+
+      if (options.allowPermissionSkip && isSkippableDirectoryReadError(error)) {
+        continue;
+      }
+
+      throw error;
+    }
+
+    if (seenRealPaths.has(resolvedFilePath)) {
+      continue;
+    }
+
+    seenRealPaths.add(resolvedFilePath);
+    canonicalFiles.push(resolvedFilePath);
+  }
+
+  if (options.sort) {
+    canonicalFiles.sort(compareByCodePoint);
+  }
+
+  return canonicalFiles;
+}
+
 /**
  * Recursively discover files matching the given extension.
  * Returns empty array if rootDir doesn't exist.
@@ -158,5 +199,5 @@ export async function discoverFiles(
 
   await walkDirectory(rootDir, files, resolvedOptions, new Set());
 
-  return files;
+  return toCanonicalFiles(files, resolvedOptions);
 }

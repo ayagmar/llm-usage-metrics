@@ -7,12 +7,17 @@ const { readdirMock } = vi.hoisted(() => ({
   readdirMock: vi.fn(),
 }));
 
+const { realpathMock } = vi.hoisted(() => ({
+  realpathMock: vi.fn(),
+}));
+
 vi.mock('node:fs/promises', async () => {
   const actual = await vi.importActual('node:fs/promises');
 
   return {
     ...actual,
     readdir: readdirMock,
+    realpath: realpathMock,
   };
 });
 
@@ -33,6 +38,7 @@ function createDirent(name: string, kind: 'file' | 'directory'): Dirent {
 
 afterEach(() => {
   readdirMock.mockReset();
+  realpathMock.mockReset();
 });
 
 describe('discoverFiles ENOENT handling', () => {
@@ -57,6 +63,7 @@ describe('discoverFiles ENOENT handling', () => {
 
       throw new Error(`Unexpected readdir path in test: ${String(targetPath)}`);
     }) as never);
+    realpathMock.mockImplementation((async (targetPath: PathLike) => String(targetPath)) as never);
 
     await expect(discoverFiles(rootDir, { extension: '.json' })).resolves.toEqual([
       path.join(rootDir, 'a.json'),

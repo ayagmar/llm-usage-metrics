@@ -301,7 +301,6 @@ export class CodexSourceAdapter implements SourceAdapter {
           state.previousLastUsageOnlyKey = undefined;
         }
 
-        state.previousTotalUsage = latestTotalUsage ?? state.previousTotalUsage;
         continue;
       }
 

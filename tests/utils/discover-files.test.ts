@@ -80,7 +80,7 @@ describe('discoverFiles', () => {
   const itIfSymlinksSupported = process.platform === 'win32' ? it.skip : it;
 
   itIfSymlinksSupported(
-    'discovers matching files through symlinked files and directories',
+    'discovers matching files through symlinked files and directories as canonical paths',
     async () => {
       const rootDir = await mkdtemp(path.join(os.tmpdir(), 'discover-files-symlink-root-'));
       tempDirs.push(rootDir);
@@ -101,15 +101,14 @@ describe('discoverFiles', () => {
       await symlink(targetDir, linkedDirPath);
 
       await expect(discoverFiles(rootDir, { extension: '.json' })).resolves.toEqual([
-        linkedFilePath,
-        path.join(linkedDirPath, 'linked.json'),
-        path.join(linkedDirPath, 'nested', 'nested.json'),
+        targetFile,
+        targetNestedFile,
       ]);
     },
   );
 
   itIfSymlinksSupported(
-    'keeps both real and symlinked directory path families when they point at the same target',
+    'deduplicates real and symlinked directory path families that share a target',
     async () => {
       const rootDir = await mkdtemp(path.join(os.tmpdir(), 'discover-files-real-and-link-'));
       tempDirs.push(rootDir);
@@ -124,8 +123,6 @@ describe('discoverFiles', () => {
       await symlink(realDir, linkedDir);
 
       await expect(discoverFiles(rootDir, { extension: '.json' })).resolves.toEqual([
-        path.join(linkedDir, 'nested', 'child.json'),
-        path.join(linkedDir, 'root.json'),
         path.join(realDir, 'nested', 'child.json'),
         path.join(realDir, 'root.json'),
       ]);
@@ -133,7 +130,7 @@ describe('discoverFiles', () => {
   );
 
   itIfSymlinksSupported(
-    'matches symlinked files by the target extension when the alias name has no extension',
+    'matches symlinked files by the target extension and returns the canonical file',
     async () => {
       const rootDir = await mkdtemp(path.join(os.tmpdir(), 'discover-files-extensionless-link-'));
       tempDirs.push(rootDir);
@@ -144,10 +141,7 @@ describe('discoverFiles', () => {
       await writeFile(targetFile, '{}', 'utf8');
       await symlink(targetFile, linkedFile);
 
-      await expect(discoverFiles(rootDir, { extension: '.json' })).resolves.toEqual([
-        linkedFile,
-        targetFile,
-      ]);
+      await expect(discoverFiles(rootDir, { extension: '.json' })).resolves.toEqual([targetFile]);
     },
   );
 

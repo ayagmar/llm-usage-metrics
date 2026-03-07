@@ -482,7 +482,7 @@ describe('CodexSourceAdapter', () => {
     expect(events[0]?.totalTokens).toBe(19);
   });
 
-  it('skips non-token events and advances totals when a token event is missing timestamp', async () => {
+  it('skips non-token events and ignores token rows without usage info', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'codex-source-skip-cases-'));
     tempDirs.push(root);
     const filePath = path.join(root, 'session.jsonl');
@@ -561,11 +561,101 @@ describe('CodexSourceAdapter', () => {
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
       source: 'codex',
-      totalTokens: 20,
-      inputTokens: 10,
-      outputTokens: 10,
-      cacheReadTokens: 0,
+      totalTokens: 45,
+      inputTokens: 25,
+      outputTokens: 15,
+      cacheReadTokens: 5,
       model: LEGACY_CODEX_MODEL_FALLBACK,
+    });
+  });
+
+  it('does not advance cumulative totals when a token row has an invalid timestamp', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'codex-source-invalid-timestamp-'));
+    tempDirs.push(root);
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          timestamp: '2026-02-14T10:00:00.000Z',
+          type: 'session_meta',
+          payload: {
+            id: 'codex-invalid-timestamp',
+            model_provider: 'openai',
+          },
+        }),
+        JSON.stringify({
+          timestamp: '2026-02-14T10:00:01.000Z',
+          type: 'turn_context',
+          payload: { model: 'gpt-5.2-codex' },
+        }),
+        JSON.stringify({
+          timestamp: '2026-02-14T10:00:02.000Z',
+          type: 'event_msg',
+          payload: {
+            type: 'token_count',
+            info: {
+              total_token_usage: {
+                input_tokens: 20,
+                cached_input_tokens: 5,
+                output_tokens: 10,
+                reasoning_output_tokens: 1,
+              },
+            },
+          },
+        }),
+        JSON.stringify({
+          timestamp: 'invalid-timestamp',
+          type: 'event_msg',
+          payload: {
+            type: 'token_count',
+            info: {
+              total_token_usage: {
+                input_tokens: 40,
+                cached_input_tokens: 5,
+                output_tokens: 15,
+                reasoning_output_tokens: 2,
+              },
+            },
+          },
+        }),
+        JSON.stringify({
+          timestamp: '2026-02-14T10:00:04.000Z',
+          type: 'event_msg',
+          payload: {
+            type: 'token_count',
+            info: {
+              total_token_usage: {
+                input_tokens: 60,
+                cached_input_tokens: 10,
+                output_tokens: 25,
+                reasoning_output_tokens: 4,
+              },
+            },
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new CodexSourceAdapter({ sessionsDir: root });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toHaveLength(2);
+    expect(events[0]).toMatchObject({
+      inputTokens: 15,
+      cacheReadTokens: 5,
+      outputTokens: 10,
+      reasoningTokens: 1,
+      totalTokens: 30,
+    });
+    expect(events[1]).toMatchObject({
+      inputTokens: 35,
+      cacheReadTokens: 5,
+      outputTokens: 15,
+      reasoningTokens: 3,
+      totalTokens: 55,
     });
   });
 });

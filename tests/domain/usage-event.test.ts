@@ -49,6 +49,19 @@ describe('createUsageEvent', () => {
     expect(event.totalTokens).toBe(42);
   });
 
+  it('preserves an explicit zero total token value', () => {
+    const event = createUsageEvent({
+      source: 'droid',
+      sessionId: 'session-zero-total',
+      timestamp: '2026-02-12T10:00:00Z',
+      reasoningTokens: 5,
+      totalTokens: 0,
+    });
+
+    expect(event.totalTokens).toBe(0);
+    expect(event.reasoningTokens).toBe(5);
+  });
+
   it('defaults to estimated mode when cost is missing', () => {
     const event = createUsageEvent({
       source: 'codex',

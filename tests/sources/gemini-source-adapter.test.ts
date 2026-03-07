@@ -126,9 +126,7 @@ describe('GeminiSourceAdapter', () => {
 
         const adapter = new GeminiSourceAdapter({ geminiDir });
 
-        await expect(adapter.discoverFiles()).resolves.toEqual([
-          path.join(linkedProjectDir, 'chats', 'session.json'),
-        ]);
+        await expect(adapter.discoverFiles()).resolves.toEqual([sessionFilePath]);
       },
     );
   });
@@ -309,6 +307,69 @@ describe('GeminiSourceAdapter', () => {
       expect(events).toHaveLength(1);
       expect(events[0].repoRoot).toBe('/home/user/projects/legacy');
     });
+
+    const parseItIfSymlinksSupported = process.platform === 'win32' ? it.skip : it;
+
+    parseItIfSymlinksSupported(
+      'resolves repoRoot from the real tmp directory identifier for symlinked projects',
+      async () => {
+        const geminiDir = await mkdtemp(path.join(os.tmpdir(), 'gemini-symlink-parse-'));
+        tempDirs.push(geminiDir);
+
+        const externalProjectDir = await mkdtemp(
+          path.join(os.tmpdir(), 'gemini-real-project-identifier-'),
+        );
+        tempDirs.push(externalProjectDir);
+
+        const linkedProjectDir = path.join(geminiDir, 'tmp', 'project-link');
+        const chatsDir = path.join(externalProjectDir, 'chats');
+        const sessionFilePath = path.join(chatsDir, 'nested-session.json');
+
+        await mkdir(path.join(geminiDir, 'tmp'), { recursive: true });
+        await mkdir(chatsDir, { recursive: true });
+        await symlink(externalProjectDir, linkedProjectDir);
+        await writeFile(
+          path.join(geminiDir, 'projects.json'),
+          JSON.stringify({
+            projects: {
+              [path.basename(externalProjectDir)]: {
+                absolutePath: '/tmp/real-symlinked-repo',
+              },
+            },
+          }),
+          'utf8',
+        );
+        await writeFile(
+          sessionFilePath,
+          JSON.stringify({
+            sessionId: 'gemini-symlinked-session',
+            messages: [
+              {
+                type: 'gemini',
+                model: 'gemini-3-flash-preview',
+                timestamp: '2026-02-24T10:00:00.000Z',
+                tokens: {
+                  input: 2,
+                  output: 1,
+                  thoughts: 0,
+                  cached: 0,
+                  total: 3,
+                },
+              },
+            ],
+          }),
+          'utf8',
+        );
+
+        const adapter = new GeminiSourceAdapter({ geminiDir });
+        const [discoveredFilePath] = await adapter.discoverFiles();
+        const events = await adapter.parseFile(discoveredFilePath);
+
+        expect(discoveredFilePath).toBe(sessionFilePath);
+        expect(events).toHaveLength(1);
+        expect(events[0]?.repoRoot).toBe('/tmp/real-symlinked-repo');
+      },
+    );
 
     it('skips messages without billable token usage', async () => {
       const adapter = new GeminiSourceAdapter({ geminiDir: fixturesDir });
