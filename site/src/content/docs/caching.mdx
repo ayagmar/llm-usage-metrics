@@ -29,6 +29,7 @@ On Linux with no `XDG_CACHE_HOME`, `<platform-cache-root>` defaults to `~/.cache
 - otherwise continue immediately and refresh the cache in a detached background process
 - on fetch failure, fallback to previous cached version when available
 - optional session-scoped mode creates a per-shell cache file
+- skipped entirely for `--help`, `--version`, `npx`, and direct source/development runs
 
 Relevant env vars:
 

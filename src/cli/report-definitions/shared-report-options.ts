@@ -71,7 +71,7 @@ export function registerSharedReportOptions(
     .option('--timezone <iana>', 'Timezone for bucketing', defaultTimezone)
     .option(
       '--provider <name>',
-      'Billing-provider filter (substring match, optional; e.g. openai, anthropic, google)',
+      'Billing-provider filter (normalized to billing entity; e.g. openai, anthropic, google)',
     )
     .option(
       '--model <name>',

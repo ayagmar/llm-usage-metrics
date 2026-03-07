@@ -135,8 +135,7 @@ Efficiency reports are repo-attributed: usage events are mapped to a Git reposit
 
 - `Commits`, `+Lines`, `-Lines`, `ΔLines` come from local Git shortstat outcomes (for your configured Git author).
 - `Input`, `Output`, `Reasoning`, `Cache Read`, `Cache Write`, `Total`, and `Cost` come from repo-attributed usage events.
-- `All Tokens/Commit` uses `Total / Commits` and includes cache read/write tokens.
-- `Non-Cache/Commit` uses `(Input + Output + Reasoning) / Commits` and excludes cache read/write tokens.
+- `Tokens/Commit` uses `(Input + Output + Reasoning) / Commits` and excludes cache read/write tokens.
 - `$/Commit` uses `Cost / Commits`.
 - `$/1k Lines` uses `Cost / (ΔLines / 1000)`.
 - `Commits/$` uses `Commits / Cost` (shown only when `Cost > 0`).
@@ -311,7 +310,7 @@ The CLI performs lightweight update checks with smart defaults:
 - 1-hour cache TTL
 - Fresh cached update results are used immediately
 - Stale or missing cache refreshes in the background instead of blocking report execution
-- Skipped for `--help`, `--version`, and `npx` runs
+- Skipped for `--help`, `--version`, `npx`, and direct source/development runs
 - Prompts only in interactive TTY sessions
 
 Disable with:
