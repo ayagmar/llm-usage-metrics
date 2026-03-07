@@ -177,6 +177,33 @@ describe('aggregateTrends', () => {
     ]);
   });
 
+  it('ignores combined and grand-total rows when building source series', () => {
+    const result = aggregateTrends(
+      [
+        createUsageRow({
+          rowType: 'period_combined',
+          source: 'combined',
+          periodKey: '2026-03-04',
+          totalTokens: 25,
+        }),
+        createUsageRow({
+          rowType: 'grand_total',
+          source: 'combined',
+          periodKey: 'ALL',
+          totalTokens: 99,
+        }),
+      ],
+      {
+        dateRange: { from: '2026-03-04', to: '2026-03-04' },
+        metric: 'tokens',
+        bySource: true,
+        sourceOrder: ['pi'],
+      },
+    );
+
+    expect(result.sourceSeries).toEqual([]);
+  });
+
   it('rounds merged cost totals for combined source-only rows', () => {
     const result = aggregateTrends(
       [

@@ -71,6 +71,37 @@ describe('GeminiSourceAdapter', () => {
       );
     });
 
+    it('discovers sessions even when projects.json is not a record', async () => {
+      const geminiDir = await mkdtemp(path.join(os.tmpdir(), 'gemini-invalid-projects-root-'));
+      tempDirs.push(geminiDir);
+
+      await mkdir(path.join(geminiDir, 'tmp', 'project-a', 'chats'), { recursive: true });
+      await writeFile(path.join(geminiDir, 'projects.json'), '[]', 'utf8');
+      await writeFile(
+        path.join(geminiDir, 'tmp', 'project-a', 'chats', 'session.json'),
+        '{"sessionId":"session-001","messages":[]}',
+        'utf8',
+      );
+
+      const adapter = new GeminiSourceAdapter({ geminiDir });
+
+      await expect(adapter.discoverFiles()).resolves.toEqual([
+        path.join(geminiDir, 'tmp', 'project-a', 'chats', 'session.json'),
+      ]);
+    });
+
+    it('ignores non-directory tmp entries during discovery', async () => {
+      const geminiDir = await mkdtemp(path.join(os.tmpdir(), 'gemini-tmp-file-entry-'));
+      tempDirs.push(geminiDir);
+
+      await mkdir(path.join(geminiDir, 'tmp'), { recursive: true });
+      await writeFile(path.join(geminiDir, 'tmp', 'not-a-project'), 'x', 'utf8');
+
+      const adapter = new GeminiSourceAdapter({ geminiDir });
+
+      await expect(adapter.discoverFiles()).resolves.toEqual([]);
+    });
+
     const itIfSymlinksSupported = process.platform === 'win32' ? it.skip : it;
 
     itIfSymlinksSupported(
@@ -183,6 +214,85 @@ describe('GeminiSourceAdapter', () => {
       const events = await adapter.parseFile(filePath);
 
       expect(events[0].repoRoot).toBeUndefined();
+    });
+
+    it('ignores missing projects payloads and malformed numeric token strings', async () => {
+      const geminiDir = await mkdtemp(path.join(os.tmpdir(), 'gemini-missing-projects-key-'));
+      tempDirs.push(geminiDir);
+
+      const filePath = path.join(geminiDir, 'session.json');
+      await writeFile(path.join(geminiDir, 'projects.json'), '{}', 'utf8');
+      await writeFile(
+        filePath,
+        JSON.stringify({
+          sessionId: 'gemini-invalid-projects',
+          messages: [
+            {
+              type: 'gemini',
+              model: 'gemini-3-flash-preview',
+              timestamp: '2026-02-24T10:00:00.000Z',
+              tokens: {
+                input: '   ',
+                tool: '2',
+                output: '1e309',
+                thoughts: '3',
+                cached: '4',
+                total: ' ',
+              },
+            },
+          ],
+        }),
+        'utf8',
+      );
+
+      const adapter = new GeminiSourceAdapter({ geminiDir });
+      const events = await adapter.parseFile(filePath);
+
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({
+        repoRoot: undefined,
+        inputTokens: 2,
+        outputTokens: 0,
+        reasoningTokens: 3,
+        cacheReadTokens: 4,
+        totalTokens: 9,
+      });
+    });
+
+    it('ignores non-record projects.json payloads during parse', async () => {
+      const geminiDir = await mkdtemp(path.join(os.tmpdir(), 'gemini-invalid-projects-parse-'));
+      tempDirs.push(geminiDir);
+
+      const filePath = path.join(geminiDir, 'session.json');
+      await writeFile(path.join(geminiDir, 'projects.json'), '[]', 'utf8');
+      await writeFile(
+        filePath,
+        JSON.stringify({
+          sessionId: 'gemini-invalid-projects-root',
+          projectHash: 'abc123',
+          messages: [
+            {
+              type: 'gemini',
+              model: 'gemini-3-flash-preview',
+              timestamp: '2026-02-24T10:00:00.000Z',
+              tokens: {
+                input: 1,
+                output: 2,
+                thoughts: 0,
+                cached: 0,
+                total: 3,
+              },
+            },
+          ],
+        }),
+        'utf8',
+      );
+
+      const adapter = new GeminiSourceAdapter({ geminiDir });
+      const events = await adapter.parseFile(filePath);
+
+      expect(events).toHaveLength(1);
+      expect(events[0]?.repoRoot).toBeUndefined();
     });
 
     it('resolves repoRoot from tmp directory identifier when present in projects.json', async () => {

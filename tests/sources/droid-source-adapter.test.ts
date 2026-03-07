@@ -280,6 +280,35 @@ describe('DroidSourceAdapter', () => {
       expect(missingUsage.skippedRowReasons).toEqual([{ reason: 'no_token_usage', count: 1 }]);
     });
 
+    it('reports explicit zero token usage as no_token_usage', async () => {
+      const adapter = new DroidSourceAdapter({ sessionsDir: fixturesDir });
+      const tempDir = await mkdtemp(path.join(os.tmpdir(), 'droid-zero-usage-'));
+      tempDirs.push(tempDir);
+      const settingsPath = path.join(tempDir, 'zero-usage.settings.json');
+
+      await writeFile(
+        settingsPath,
+        JSON.stringify({
+          providerLock: 'openai',
+          model: 'gpt-4.1',
+          providerLockTimestamp: '2026-02-24T10:00:00.000Z',
+          tokenUsage: {
+            inputTokens: 0,
+            outputTokens: 0,
+            thinkingTokens: 0,
+            cacheReadTokens: 0,
+            cacheCreationTokens: 0,
+          },
+        }),
+        'utf8',
+      );
+
+      const result = await adapter.parseFileWithDiagnostics(settingsPath);
+
+      expect(result.events).toHaveLength(0);
+      expect(result.skippedRowReasons).toEqual([{ reason: 'no_token_usage', count: 1 }]);
+    });
+
     it('reports invalid timestamp rows when neither primary nor fallback are valid', async () => {
       const adapter = new DroidSourceAdapter({ sessionsDir: fixturesDir });
       const result = await adapter.parseFileWithDiagnostics(

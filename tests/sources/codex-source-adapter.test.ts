@@ -18,6 +18,14 @@ afterEach(async () => {
 });
 
 describe('CodexSourceAdapter', () => {
+  it('rejects blank sessions directories before discovery', async () => {
+    const adapter = new CodexSourceAdapter({ sessionsDir: '   ' });
+
+    await expect(adapter.discoverFiles()).rejects.toThrow(
+      'Codex sessions directory must be a non-empty path',
+    );
+  });
+
   it('discovers jsonl files recursively in deterministic order', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'codex-source-adapter-'));
     tempDirs.push(root);

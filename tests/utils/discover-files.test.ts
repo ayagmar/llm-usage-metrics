@@ -150,4 +150,33 @@ describe('discoverFiles', () => {
       ]);
     },
   );
+
+  itIfSymlinksSupported('skips broken symlinks without failing discovery', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'discover-files-broken-link-'));
+    tempDirs.push(rootDir);
+
+    const existingFile = path.join(rootDir, 'good.json');
+    const brokenLink = path.join(rootDir, 'broken.json');
+
+    await writeFile(existingFile, '{}', 'utf8');
+    await symlink(path.join(rootDir, 'missing.json'), brokenLink);
+
+    await expect(discoverFiles(rootDir, { extension: '.json' })).resolves.toEqual([existingFile]);
+  });
+
+  itIfSymlinksSupported('avoids infinite recursion for symlink cycles', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'discover-files-loop-'));
+    tempDirs.push(rootDir);
+
+    const nestedDir = path.join(rootDir, 'nested');
+    const loopPath = path.join(nestedDir, 'loop');
+
+    await mkdir(nestedDir, { recursive: true });
+    await writeFile(path.join(rootDir, 'root.json'), '{}', 'utf8');
+    await symlink(rootDir, loopPath);
+
+    await expect(discoverFiles(rootDir, { extension: '.json' })).resolves.toEqual([
+      path.join(rootDir, 'root.json'),
+    ]);
+  });
 });

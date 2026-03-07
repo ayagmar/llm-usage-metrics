@@ -83,4 +83,17 @@ describe('getDefaultOpenCodeDbPathCandidates', () => {
       path.join('C:\\Users\\test-user', '.opencode', 'db.sqlite'),
     ]);
   });
+
+  it('falls back to home-directory candidates when no Windows roaming base is available', () => {
+    const candidates = getDefaultOpenCodeDbPathCandidates({
+      platform: 'win32',
+      homeDir: 'C:\\Users\\test-user',
+      env: {},
+    });
+
+    expect(candidates).toEqual([
+      path.join('C:\\Users\\test-user', '.opencode', 'opencode.db'),
+      path.join('C:\\Users\\test-user', '.opencode', 'db.sqlite'),
+    ]);
+  });
 });

@@ -45,4 +45,8 @@ describe('source parsing helpers', () => {
     expect(normalizeTimestampCandidate('20260214')).toBeUndefined();
     expect(normalizeTimestampCandidate('1e3')).toBeUndefined();
   });
+
+  it('rejects invalid Date instances', () => {
+    expect(normalizeTimestampCandidate(new Date(Number.NaN))).toBeUndefined();
+  });
 });

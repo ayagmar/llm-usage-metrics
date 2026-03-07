@@ -100,6 +100,67 @@ describe('aggregate-counterfactual', () => {
     });
   });
 
+  it('prefers period_combined rows over source rows when both are present', () => {
+    const usageRows: UsageReportRow[] = [
+      {
+        rowType: 'period_source',
+        periodKey: '2026-02-10',
+        source: 'pi',
+        models: ['gpt-4.1'],
+        modelBreakdown: [],
+        inputTokens: 100,
+        outputTokens: 50,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 150,
+        costUsd: 2,
+      },
+      {
+        rowType: 'period_combined',
+        periodKey: '2026-02-10',
+        source: 'combined',
+        models: ['gpt-4.1'],
+        modelBreakdown: [],
+        inputTokens: 200,
+        outputTokens: 60,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 260,
+        costUsd: 3,
+      },
+      {
+        rowType: 'grand_total',
+        periodKey: 'ALL',
+        source: 'combined',
+        models: ['gpt-4.1'],
+        modelBreakdown: [],
+        inputTokens: 200,
+        outputTokens: 60,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 260,
+        costUsd: 3,
+      },
+    ];
+
+    const result = buildCounterfactualRows({
+      usageRows,
+      provider: 'openai',
+      candidateModels: ['gpt-4.1'],
+      pricingSource: createDefaultOpenAiPricingSource(),
+    });
+
+    expect(
+      result.rows.find((row) => row.rowType === 'baseline' && row.periodKey === '2026-02-10'),
+    ).toMatchObject({
+      totalTokens: 260,
+      baselineCostUsd: 3,
+    });
+  });
+
   it('sums source-only baseline rows when no period_combined row exists', () => {
     const usageRows: UsageReportRow[] = [
       {
@@ -168,6 +229,109 @@ describe('aggregate-counterfactual', () => {
       hypotheticalCostUsd: 3.75,
       savingsUsd: 0.45,
     });
+  });
+
+  it('preserves prior source costs when merged rows omit later cost fields', () => {
+    const usageRows: UsageReportRow[] = [
+      {
+        rowType: 'period_source',
+        periodKey: '2026-02-10',
+        source: 'pi',
+        models: ['gpt-4.1'],
+        modelBreakdown: [],
+        inputTokens: 1_000_000,
+        outputTokens: 100_000,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 1_100_000,
+        costUsd: 2.8,
+      },
+      {
+        rowType: 'period_source',
+        periodKey: '2026-02-10',
+        source: 'codex',
+        models: ['gpt-4.1'],
+        modelBreakdown: [],
+        inputTokens: 500_000,
+        outputTokens: 50_000,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 550_000,
+        costIncomplete: true,
+      },
+      {
+        rowType: 'grand_total',
+        periodKey: 'ALL',
+        source: 'combined',
+        models: ['gpt-4.1'],
+        modelBreakdown: [],
+        inputTokens: 1_500_000,
+        outputTokens: 150_000,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 1_650_000,
+        costUsd: 4.2,
+        costIncomplete: true,
+      },
+    ];
+
+    const result = buildCounterfactualRows({
+      usageRows,
+      provider: 'openai',
+      candidateModels: ['gpt-5-codex'],
+      pricingSource: createDefaultOpenAiPricingSource(),
+    });
+
+    expect(
+      result.rows.find((row) => row.rowType === 'baseline' && row.periodKey === '2026-02-10'),
+    ).toMatchObject({
+      baselineCostUsd: 2.8,
+      baselineCostIncomplete: true,
+      totalTokens: 1_650_000,
+    });
+  });
+
+  it('creates a zeroed ALL baseline row when usage rows are empty', () => {
+    const result = buildCounterfactualRows({
+      usageRows: [],
+      provider: 'openai',
+      candidateModels: ['gpt-4.1'],
+      pricingSource: createDefaultOpenAiPricingSource(),
+    });
+
+    expect(result.rows[0]).toMatchObject({
+      rowType: 'baseline',
+      periodKey: 'ALL',
+      baselineCostUsd: 0,
+      baselineCostIncomplete: false,
+      totalTokens: 0,
+    });
+  });
+
+  it('sorts tied hypothetical costs by candidate model name', () => {
+    const pricing = new StaticPricingSource({
+      pricingByModel: {
+        alpha: { inputPer1MUsd: 2, outputPer1MUsd: 8 },
+        beta: { inputPer1MUsd: 2, outputPer1MUsd: 8 },
+      },
+    });
+
+    const result = buildCounterfactualRows({
+      usageRows: createUsageRows(),
+      provider: 'openai',
+      candidateModels: ['beta', 'alpha'],
+      pricingSource: pricing,
+    });
+
+    const allCandidates = result.rows.filter(
+      (row): row is Extract<(typeof result.rows)[number], { rowType: 'candidate' }> =>
+        row.rowType === 'candidate' && row.periodKey === 'ALL',
+    );
+
+    expect(allCandidates.map((row) => row.candidateModel)).toEqual(['alpha', 'beta']);
   });
 
   it('sorts missing pricing candidates last and reports missing coverage', () => {
