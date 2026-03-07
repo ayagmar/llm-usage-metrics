@@ -9,7 +9,7 @@ import { asRecord } from '../../utils/as-record.js';
 import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
 import { discoverFiles } from '../../utils/discover-files.js';
 import { pathIsDirectory, pathReadable } from '../../utils/fs-helpers.js';
-import { asTrimmedText, isBlankText } from '../parsing-utils.js';
+import { asTrimmedText, isBlankText, normalizeTimestampCandidate } from '../parsing-utils.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
 import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
 
@@ -86,7 +86,7 @@ async function discoverSessionFiles(geminiDir: string): Promise<string[]> {
   for (const projectEntry of projectEntries.sort((left, right) =>
     compareByCodePoint(left.name, right.name),
   )) {
-    if (!projectEntry.isDirectory()) {
+    if (!projectEntry.isDirectory() && !projectEntry.isSymbolicLink()) {
       continue;
     }
 
@@ -184,20 +184,6 @@ function extractTokenUsage(tokens: Record<string, unknown> | undefined): {
 }
 
 // diagnostics helpers live in ../parse-diagnostics.ts
-
-function normalizeTimestamp(candidate: unknown): string | undefined {
-  if (typeof candidate !== 'string' || isBlankText(candidate)) {
-    return undefined;
-  }
-
-  const date = new Date(candidate.trim());
-
-  if (Number.isNaN(date.getTime())) {
-    return undefined;
-  }
-
-  return date.toISOString();
-}
 
 export class GeminiSourceAdapter implements SourceAdapter {
   public readonly id = 'gemini' as const;
@@ -323,7 +309,7 @@ export class GeminiSourceAdapter implements SourceAdapter {
         continue;
       }
 
-      const timestamp = normalizeTimestamp(message.timestamp);
+      const timestamp = normalizeTimestampCandidate(message.timestamp);
 
       if (!timestamp) {
         skippedRows++;

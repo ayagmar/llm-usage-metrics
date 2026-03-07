@@ -1,4 +1,4 @@
-import { readdir } from 'node:fs/promises';
+import { readdir, realpath, stat } from 'node:fs/promises';
 import type { Dirent } from 'node:fs';
 import path from 'node:path';
 
@@ -50,6 +50,7 @@ async function walkDirectory(
   rootDir: string,
   acc: string[],
   options: Required<DiscoverFilesOptions>,
+  ancestryRealPaths: ReadonlySet<string>,
 ): Promise<void> {
   let entries: Dirent[];
 
@@ -67,6 +68,27 @@ async function walkDirectory(
     throw error;
   }
 
+  let resolvedRootDir: string;
+
+  try {
+    resolvedRootDir = await realpath(rootDir);
+  } catch (error) {
+    if (getNodeErrorCode(error) === 'ENOENT') {
+      resolvedRootDir = rootDir;
+    } else if (options.allowPermissionSkip && isSkippableDirectoryReadError(error)) {
+      return;
+    } else {
+      throw error;
+    }
+  }
+
+  if (ancestryRealPaths.has(resolvedRootDir)) {
+    return;
+  }
+
+  const nextAncestryRealPaths = new Set(ancestryRealPaths);
+  nextAncestryRealPaths.add(resolvedRootDir);
+
   if (options.sort) {
     entries.sort((left, right) => compareByCodePoint(left.name, right.name));
   }
@@ -74,8 +96,40 @@ async function walkDirectory(
   for (const entry of entries) {
     const entryPath = path.join(rootDir, entry.name);
 
+    if (entry.isSymbolicLink()) {
+      try {
+        const entryStats = await stat(entryPath);
+        const resolvedEntryPath = await realpath(entryPath);
+
+        if (entryStats.isDirectory() && options.recursive) {
+          await walkDirectory(entryPath, acc, options, nextAncestryRealPaths);
+          continue;
+        }
+
+        if (
+          entryStats.isFile() &&
+          (matchesExtension(entry.name, options.extension) ||
+            matchesExtension(path.basename(resolvedEntryPath), options.extension))
+        ) {
+          acc.push(entryPath);
+        }
+      } catch (error) {
+        if (getNodeErrorCode(error) === 'ENOENT') {
+          continue;
+        }
+
+        if (options.allowPermissionSkip && isSkippableDirectoryReadError(error)) {
+          continue;
+        }
+
+        throw error;
+      }
+
+      continue;
+    }
+
     if (entry.isDirectory() && options.recursive) {
-      await walkDirectory(entryPath, acc, options);
+      await walkDirectory(entryPath, acc, options, nextAncestryRealPaths);
       continue;
     }
 
@@ -102,7 +156,7 @@ export async function discoverFiles(
     sort: options.sort ?? true,
   };
 
-  await walkDirectory(rootDir, files, resolvedOptions);
+  await walkDirectory(rootDir, files, resolvedOptions, new Set());
 
   return files;
 }

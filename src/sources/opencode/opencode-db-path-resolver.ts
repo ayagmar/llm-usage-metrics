@@ -11,8 +11,17 @@ function deduplicate(paths: string[]): string[] {
   return [...new Set(paths)];
 }
 
+function normalizeEnvPath(value: string | undefined): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const normalized = value.trim();
+  return normalized || undefined;
+}
+
 function getLinuxLikeCandidates(homeDir: string, env: NodeJS.ProcessEnv): string[] {
-  const xdgDataHome = env.XDG_DATA_HOME ?? path.join(homeDir, '.local', 'share');
+  const xdgDataHome = normalizeEnvPath(env.XDG_DATA_HOME) ?? path.join(homeDir, '.local', 'share');
 
   return [
     path.join(xdgDataHome, 'opencode', 'opencode.db'),
@@ -34,10 +43,11 @@ function getMacOsCandidates(homeDir: string): string[] {
 }
 
 function getWindowsCandidates(homeDir: string, env: NodeJS.ProcessEnv): string[] {
+  const userProfile = normalizeEnvPath(env.USERPROFILE);
   const roamingBase =
-    env.APPDATA ??
-    env.LOCALAPPDATA ??
-    (env.USERPROFILE ? path.join(env.USERPROFILE, 'AppData', 'Roaming') : undefined);
+    normalizeEnvPath(env.APPDATA) ??
+    normalizeEnvPath(env.LOCALAPPDATA) ??
+    (userProfile ? path.join(userProfile, 'AppData', 'Roaming') : undefined);
 
   const roamingCandidates = roamingBase
     ? [

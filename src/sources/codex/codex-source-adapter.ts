@@ -8,7 +8,12 @@ import { asRecord } from '../../utils/as-record.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import { pathStat } from '../../utils/fs-helpers.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
-import { asTrimmedText, isBlankText, toNumberLike } from '../parsing-utils.js';
+import {
+  asTrimmedText,
+  isBlankText,
+  normalizeTimestampCandidate,
+  toNumberLike,
+} from '../parsing-utils.js';
 import type { SourceAdapter } from '../source-adapter.js';
 
 const defaultSessionsDir = path.join(os.homedir(), '.codex', 'sessions');
@@ -29,6 +34,7 @@ type CodexSessionState = {
   provider?: string;
   model?: string;
   previousTotalUsage?: CodexUsage;
+  previousLastUsageOnlyKey?: string;
 };
 
 export type CodexSourceAdapterOptions = {
@@ -104,14 +110,39 @@ function hasUsageSignal(usage: CodexUsage): boolean {
   );
 }
 
+function hasUsageRollback(current: CodexUsage, previous: CodexUsage): boolean {
+  return (
+    current.inputTokens < previous.inputTokens ||
+    current.cacheReadTokens < previous.cacheReadTokens ||
+    current.outputTokens < previous.outputTokens ||
+    current.reasoningTokens < previous.reasoningTokens ||
+    current.totalTokens < previous.totalTokens
+  );
+}
+
 function deriveDeltaUsage(
   info: Record<string, unknown>,
   previousTotalUsage: CodexUsage | undefined,
-): { deltaUsage?: CodexUsage; latestTotalUsage?: CodexUsage } {
+): {
+  deltaUsage?: CodexUsage;
+  latestTotalUsage?: CodexUsage;
+  fromLastUsageOnly?: boolean;
+} {
   const totalUsage = toUsage(info.total_token_usage);
   const lastUsage = toUsage(info.last_token_usage);
 
   if (totalUsage && previousTotalUsage) {
+    if (hasUsageRollback(totalUsage, previousTotalUsage)) {
+      if (lastUsage && hasUsageSignal(lastUsage)) {
+        return { deltaUsage: lastUsage, latestTotalUsage: totalUsage };
+      }
+
+      return {
+        deltaUsage: hasUsageSignal(totalUsage) ? totalUsage : undefined,
+        latestTotalUsage: totalUsage,
+      };
+    }
+
     const deltaFromTotals = subtractUsage(totalUsage, previousTotalUsage);
 
     if (hasUsageSignal(deltaFromTotals)) {
@@ -124,7 +155,7 @@ function deriveDeltaUsage(
   }
 
   if (lastUsage) {
-    return { deltaUsage: lastUsage, latestTotalUsage: totalUsage };
+    return { deltaUsage: lastUsage, latestTotalUsage: totalUsage, fromLastUsageOnly: true };
   }
 
   if (!totalUsage) {
@@ -136,6 +167,17 @@ function deriveDeltaUsage(
     : totalUsage;
 
   return { deltaUsage, latestTotalUsage: totalUsage };
+}
+
+function createLastUsageOnlyKey(timestamp: string, usage: CodexUsage): string {
+  return [
+    timestamp,
+    usage.inputTokens,
+    usage.cacheReadTokens,
+    usage.outputTokens,
+    usage.reasoningTokens,
+    usage.totalTokens,
+  ].join(':');
 }
 
 function getFallbackSessionId(filePath: string): string {
@@ -238,18 +280,41 @@ export class CodexSourceAdapter implements SourceAdapter {
         continue;
       }
 
-      const { deltaUsage, latestTotalUsage } = deriveDeltaUsage(info, state.previousTotalUsage);
+      const { deltaUsage, latestTotalUsage, fromLastUsageOnly } = deriveDeltaUsage(
+        info,
+        state.previousTotalUsage,
+      );
 
       if (!deltaUsage || !hasUsageSignal(deltaUsage)) {
+        if (!fromLastUsageOnly) {
+          state.previousLastUsageOnlyKey = undefined;
+        }
+
         state.previousTotalUsage = latestTotalUsage ?? state.previousTotalUsage;
         continue;
       }
 
-      const timestamp = asTrimmedText(line.timestamp);
+      const timestamp = normalizeTimestampCandidate(line.timestamp);
 
       if (!timestamp) {
+        if (!fromLastUsageOnly) {
+          state.previousLastUsageOnlyKey = undefined;
+        }
+
         state.previousTotalUsage = latestTotalUsage ?? state.previousTotalUsage;
         continue;
+      }
+
+      if (fromLastUsageOnly) {
+        const currentLastUsageOnlyKey = createLastUsageOnlyKey(timestamp, deltaUsage);
+
+        if (state.previousLastUsageOnlyKey === currentLastUsageOnlyKey) {
+          continue;
+        }
+
+        state.previousLastUsageOnlyKey = currentLastUsageOnlyKey;
+      } else {
+        state.previousLastUsageOnlyKey = undefined;
       }
 
       const model = state.model ?? LEGACY_CODEX_MODEL_FALLBACK;

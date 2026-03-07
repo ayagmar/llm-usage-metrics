@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -70,6 +70,36 @@ describe('GeminiSourceAdapter', () => {
         'Gemini directory is missing or unreadable',
       );
     });
+
+    const itIfSymlinksSupported = process.platform === 'win32' ? it.skip : it;
+
+    itIfSymlinksSupported(
+      'discovers session files inside symlinked tmp project directories',
+      async () => {
+        const geminiDir = await mkdtemp(path.join(os.tmpdir(), 'gemini-symlink-project-'));
+        tempDirs.push(geminiDir);
+
+        const externalProjectDir = await mkdtemp(
+          path.join(os.tmpdir(), 'gemini-external-project-'),
+        );
+        tempDirs.push(externalProjectDir);
+
+        const linkedProjectDir = path.join(geminiDir, 'tmp', 'project-link');
+        const chatsDir = path.join(externalProjectDir, 'chats');
+        const sessionFilePath = path.join(chatsDir, 'session.json');
+
+        await mkdir(path.join(geminiDir, 'tmp'), { recursive: true });
+        await mkdir(chatsDir, { recursive: true });
+        await writeFile(sessionFilePath, '{"sessionId":"session-001","messages":[]}', 'utf8');
+        await symlink(externalProjectDir, linkedProjectDir);
+
+        const adapter = new GeminiSourceAdapter({ geminiDir });
+
+        await expect(adapter.discoverFiles()).resolves.toEqual([
+          path.join(linkedProjectDir, 'chats', 'session.json'),
+        ]);
+      },
+    );
   });
 
   describe('parseFile', () => {
@@ -111,6 +141,40 @@ describe('GeminiSourceAdapter', () => {
 
       expect(events).toHaveLength(1);
       expect(events[0].totalTokens).toBe(80);
+    });
+
+    it('accepts numeric-string epoch timestamps in message payloads', async () => {
+      const tempDir = await mkdtemp(path.join(os.tmpdir(), 'gemini-epoch-string-'));
+      tempDirs.push(tempDir);
+      const filePath = path.join(tempDir, 'epoch-string.json');
+
+      await writeFile(
+        filePath,
+        JSON.stringify({
+          sessionId: 'gemini-epoch-string',
+          messages: [
+            {
+              type: 'gemini',
+              model: 'gemini-3-flash-preview',
+              timestamp: '1707768000',
+              tokens: {
+                input: 10,
+                output: 5,
+                thoughts: 2,
+                cached: 1,
+                total: 18,
+              },
+            },
+          ],
+        }),
+        'utf8',
+      );
+
+      const adapter = new GeminiSourceAdapter({ geminiDir: tempDir });
+      const events = await adapter.parseFile(filePath);
+
+      expect(events).toHaveLength(1);
+      expect(events[0]?.timestamp).toBe('2024-02-12T20:00:00.000Z');
     });
 
     it('does not fabricate repoRoot when project mapping is unavailable', async () => {

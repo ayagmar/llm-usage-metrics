@@ -115,6 +115,35 @@ describe('DroidSourceAdapter', () => {
       expect(events[0]?.repoRoot).toBe('/home/user/projects/fallback-repo');
     });
 
+    it('accepts numeric-string epoch timestamps from settings metadata', async () => {
+      const adapter = new DroidSourceAdapter({ sessionsDir: fixturesDir });
+      const tempDir = await mkdtemp(path.join(os.tmpdir(), 'droid-epoch-string-'));
+      tempDirs.push(tempDir);
+      const settingsPath = path.join(tempDir, 'epoch-string.settings.json');
+
+      await writeFile(
+        settingsPath,
+        JSON.stringify({
+          providerLock: 'openai',
+          model: 'gpt-4.1',
+          providerLockTimestamp: '1707768000',
+          tokenUsage: {
+            inputTokens: 1,
+            outputTokens: 1,
+            thinkingTokens: 0,
+            cacheReadTokens: 0,
+            cacheCreationTokens: 0,
+          },
+        }),
+        'utf8',
+      );
+
+      const events = await adapter.parseFile(settingsPath);
+
+      expect(events).toHaveLength(1);
+      expect(events[0]?.timestamp).toBe('2024-02-12T20:00:00.000Z');
+    });
+
     it('skips invalid fallback message timestamps and keeps scanning for a valid one', async () => {
       const adapter = new DroidSourceAdapter({ sessionsDir: fixturesDir });
       const tempDir = await mkdtemp(path.join(os.tmpdir(), 'droid-fallback-scan-'));
@@ -203,6 +232,23 @@ describe('DroidSourceAdapter', () => {
       expect(events).toHaveLength(1);
       expect(events[0]?.repoRoot).toBeUndefined();
     });
+
+    it('keeps reasoning-only sessions even when billable totals are zero', async () => {
+      const adapter = new DroidSourceAdapter({ sessionsDir: fixturesDir });
+      const events = await adapter.parseFile(
+        path.join(fixturesDir, 'parsing', 'reasoning-only.settings.json'),
+      );
+
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({
+        inputTokens: 0,
+        outputTokens: 0,
+        reasoningTokens: 10,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 10,
+      });
+    });
   });
 
   describe('parseFileWithDiagnostics', () => {
@@ -232,12 +278,6 @@ describe('DroidSourceAdapter', () => {
       );
       expect(missingUsage.events).toHaveLength(0);
       expect(missingUsage.skippedRowReasons).toEqual([{ reason: 'no_token_usage', count: 1 }]);
-
-      const reasoningOnly = await adapter.parseFileWithDiagnostics(
-        path.join(fixturesDir, 'parsing', 'reasoning-only.settings.json'),
-      );
-      expect(reasoningOnly.events).toHaveLength(0);
-      expect(reasoningOnly.skippedRowReasons).toEqual([{ reason: 'no_token_usage', count: 1 }]);
     });
 
     it('reports invalid timestamp rows when neither primary nor fallback are valid', async () => {

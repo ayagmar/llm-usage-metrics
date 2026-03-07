@@ -2,11 +2,9 @@ import { createUsageEvent } from '../../domain/usage-event.js';
 import type { UsageEvent } from '../../domain/usage-event.js';
 import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
 import { asRecord } from '../../utils/as-record.js';
-import { asTrimmedText, toNumberLike } from '../parsing-utils.js';
+import { asTrimmedText, normalizeTimestampCandidate, toNumberLike } from '../parsing-utils.js';
 import type { SourceParseFileDiagnostics } from '../source-adapter.js';
 import type { OpenCodeSqliteRow } from './opencode-sqlite-query.js';
-
-const UNIX_SECONDS_ABS_CUTOFF = 10_000_000_000;
 
 type SkippedRowReason =
   | 'missing_data_json'
@@ -15,44 +13,6 @@ type SkippedRowReason =
   | 'missing_session_id'
   | 'missing_usage_signal'
   | 'invalid_usage_event';
-
-function normalizeTimestampCandidate(candidate: unknown): string | undefined {
-  if (typeof candidate === 'number' && Number.isFinite(candidate)) {
-    const timestampMs =
-      Math.abs(candidate) <= UNIX_SECONDS_ABS_CUTOFF ? candidate * 1000 : candidate;
-    const date = new Date(timestampMs);
-
-    if (Number.isNaN(date.getTime())) {
-      return undefined;
-    }
-
-    return date.toISOString();
-  }
-
-  if (typeof candidate === 'string') {
-    const trimmed = candidate.trim();
-
-    if (!trimmed) {
-      return undefined;
-    }
-
-    const numericTimestamp = Number(trimmed);
-
-    if (Number.isFinite(numericTimestamp)) {
-      return normalizeTimestampCandidate(numericTimestamp);
-    }
-
-    const date = new Date(trimmed);
-
-    if (Number.isNaN(date.getTime())) {
-      return undefined;
-    }
-
-    return date.toISOString();
-  }
-
-  return undefined;
-}
 
 function resolveTimestamp(
   rowTimestamp: unknown,

@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -76,4 +76,78 @@ describe('discoverFiles', () => {
       'discoverFiles extension must start with "."',
     );
   });
+
+  const itIfSymlinksSupported = process.platform === 'win32' ? it.skip : it;
+
+  itIfSymlinksSupported(
+    'discovers matching files through symlinked files and directories',
+    async () => {
+      const rootDir = await mkdtemp(path.join(os.tmpdir(), 'discover-files-symlink-root-'));
+      tempDirs.push(rootDir);
+
+      const targetDir = await mkdtemp(path.join(os.tmpdir(), 'discover-files-symlink-target-'));
+      tempDirs.push(targetDir);
+
+      const targetNestedDir = path.join(targetDir, 'nested');
+      const targetFile = path.join(targetDir, 'linked.json');
+      const targetNestedFile = path.join(targetNestedDir, 'nested.json');
+      const linkedFilePath = path.join(rootDir, 'alias.json');
+      const linkedDirPath = path.join(rootDir, 'linked-dir');
+
+      await mkdir(targetNestedDir, { recursive: true });
+      await writeFile(targetFile, '{}', 'utf8');
+      await writeFile(targetNestedFile, '{}', 'utf8');
+      await symlink(targetFile, linkedFilePath);
+      await symlink(targetDir, linkedDirPath);
+
+      await expect(discoverFiles(rootDir, { extension: '.json' })).resolves.toEqual([
+        linkedFilePath,
+        path.join(linkedDirPath, 'linked.json'),
+        path.join(linkedDirPath, 'nested', 'nested.json'),
+      ]);
+    },
+  );
+
+  itIfSymlinksSupported(
+    'keeps both real and symlinked directory path families when they point at the same target',
+    async () => {
+      const rootDir = await mkdtemp(path.join(os.tmpdir(), 'discover-files-real-and-link-'));
+      tempDirs.push(rootDir);
+
+      const realDir = path.join(rootDir, 'real');
+      const linkedDir = path.join(rootDir, 'alias');
+      const nestedDir = path.join(realDir, 'nested');
+
+      await mkdir(nestedDir, { recursive: true });
+      await writeFile(path.join(realDir, 'root.json'), '{}', 'utf8');
+      await writeFile(path.join(nestedDir, 'child.json'), '{}', 'utf8');
+      await symlink(realDir, linkedDir);
+
+      await expect(discoverFiles(rootDir, { extension: '.json' })).resolves.toEqual([
+        path.join(linkedDir, 'nested', 'child.json'),
+        path.join(linkedDir, 'root.json'),
+        path.join(realDir, 'nested', 'child.json'),
+        path.join(realDir, 'root.json'),
+      ]);
+    },
+  );
+
+  itIfSymlinksSupported(
+    'matches symlinked files by the target extension when the alias name has no extension',
+    async () => {
+      const rootDir = await mkdtemp(path.join(os.tmpdir(), 'discover-files-extensionless-link-'));
+      tempDirs.push(rootDir);
+
+      const targetFile = path.join(rootDir, 'target.json');
+      const linkedFile = path.join(rootDir, 'alias');
+
+      await writeFile(targetFile, '{}', 'utf8');
+      await symlink(targetFile, linkedFile);
+
+      await expect(discoverFiles(rootDir, { extension: '.json' })).resolves.toEqual([
+        linkedFile,
+        targetFile,
+      ]);
+    },
+  );
 });

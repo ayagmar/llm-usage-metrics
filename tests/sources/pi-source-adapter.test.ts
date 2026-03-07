@@ -216,6 +216,40 @@ describe('PiSourceAdapter', () => {
     expect(events[0]?.timestamp).toBe('2024-02-12T20:00:00.000Z');
   });
 
+  it('supports numeric-string epoch timestamps in message events', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-epoch-string-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'pi-epoch-string',
+        }),
+        JSON.stringify({
+          type: 'message',
+          timestamp: '1707768000',
+          provider: 'openai',
+          usage: {
+            input: 1,
+            output: 2,
+            totalTokens: 3,
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new PiSourceAdapter({ sessionsDir: root });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toHaveLength(1);
+    expect(events[0]?.timestamp).toBe('2024-02-12T20:00:00.000Z');
+  });
+
   it('preserves total-only usage without inventing billable buckets', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-total-only-'));
     tempDirs.push(root);

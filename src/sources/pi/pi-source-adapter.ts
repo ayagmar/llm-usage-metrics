@@ -8,7 +8,12 @@ import { asRecord } from '../../utils/as-record.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import { pathIsDirectory, pathReadable } from '../../utils/fs-helpers.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
-import { asTrimmedText, isBlankText, toNumberLike } from '../parsing-utils.js';
+import {
+  asTrimmedText,
+  isBlankText,
+  normalizeTimestampCandidate,
+  toNumberLike,
+} from '../parsing-utils.js';
 import type { SourceAdapter } from '../source-adapter.js';
 
 const defaultSessionsDir = path.join(os.homedir(), '.pi', 'agent', 'sessions');
@@ -46,32 +51,6 @@ function shouldParsePiJsonlLine(lineText: string): boolean {
     PI_SESSION_LINE_PATTERN.test(lineText) ||
     PI_MODEL_CHANGE_LINE_PATTERN.test(lineText)
   );
-}
-
-const UNIX_SECONDS_ABS_CUTOFF = 10_000_000_000;
-
-function normalizeTimestampCandidate(candidate: unknown): string | undefined {
-  let date: Date | undefined;
-
-  if (typeof candidate === 'number' && Number.isFinite(candidate)) {
-    const timestampMs =
-      Math.abs(candidate) <= UNIX_SECONDS_ABS_CUTOFF ? candidate * 1000 : candidate;
-    date = new Date(timestampMs);
-  } else {
-    const normalizedText = asTrimmedText(candidate);
-
-    if (!normalizedText) {
-      return undefined;
-    }
-
-    date = new Date(normalizedText);
-  }
-
-  if (Number.isNaN(date.getTime())) {
-    return undefined;
-  }
-
-  return date.toISOString();
 }
 
 function resolveTimestamp(

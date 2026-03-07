@@ -43,7 +43,7 @@ describe('CodexSourceAdapter', () => {
 
     const events = await adapter.parseFile(fixturePath);
 
-    expect(events).toHaveLength(2);
+    expect(events).toHaveLength(3);
 
     expect(events[0]).toMatchObject({
       source: 'codex',
@@ -68,6 +68,19 @@ describe('CodexSourceAdapter', () => {
       outputTokens: 15,
       reasoningTokens: 5,
       totalTokens: 65,
+      costMode: 'estimated',
+    });
+
+    expect(events[2]).toMatchObject({
+      source: 'codex',
+      sessionId: 'codex-session-1',
+      provider: 'openai',
+      model: 'gpt-5.1-codex',
+      inputTokens: 98,
+      cacheReadTokens: 22,
+      outputTokens: 60,
+      reasoningTokens: 12,
+      totalTokens: 180,
       costMode: 'estimated',
     });
 
@@ -160,6 +173,77 @@ describe('CodexSourceAdapter', () => {
     expect(events.every((event) => event.repoRoot === '/tmp/codex-repo')).toBe(true);
   });
 
+  it('deduplicates repeated last_token_usage-only rows', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'codex-source-dedup-last-only-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          timestamp: '2026-02-14T10:00:00.000Z',
+          type: 'session_meta',
+          payload: {
+            id: 'codex-last-only-dedup',
+            model_provider: 'openai',
+          },
+        }),
+        JSON.stringify({
+          timestamp: '2026-02-14T10:00:01.000Z',
+          type: 'turn_context',
+          payload: { model: 'gpt-5.2-codex' },
+        }),
+        JSON.stringify({
+          timestamp: '2026-02-14T10:00:02.000Z',
+          type: 'event_msg',
+          payload: {
+            type: 'token_count',
+            info: {
+              last_token_usage: {
+                input_tokens: 10,
+                cached_input_tokens: 2,
+                output_tokens: 5,
+                reasoning_output_tokens: 1,
+                total_tokens: 15,
+              },
+            },
+          },
+        }),
+        JSON.stringify({
+          timestamp: '2026-02-14T10:00:02.000Z',
+          type: 'event_msg',
+          payload: {
+            type: 'token_count',
+            info: {
+              last_token_usage: {
+                input_tokens: 10,
+                cached_input_tokens: 2,
+                output_tokens: 5,
+                reasoning_output_tokens: 1,
+                total_tokens: 15,
+              },
+            },
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new CodexSourceAdapter({ sessionsDir: root });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      inputTokens: 8,
+      cacheReadTokens: 2,
+      outputTokens: 5,
+      reasoningTokens: 1,
+      totalTokens: 15,
+    });
+  });
+
   it('does not double count duplicated token_count lines when totals do not advance', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'codex-source-dedup-last-usage-'));
     tempDirs.push(root);
@@ -248,6 +332,133 @@ describe('CodexSourceAdapter', () => {
       totalTokens: 130,
       costMode: 'estimated',
     });
+  });
+
+  it('keeps usage after Codex cumulative counters reset mid-session', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'codex-source-counter-reset-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          timestamp: '2026-02-14T10:00:00.000Z',
+          type: 'session_meta',
+          payload: {
+            id: 'codex-reset',
+            model_provider: 'openai',
+          },
+        }),
+        JSON.stringify({
+          timestamp: '2026-02-14T10:00:01.000Z',
+          type: 'turn_context',
+          payload: { model: 'gpt-5.2-codex' },
+        }),
+        JSON.stringify({
+          timestamp: '2026-02-14T10:00:02.000Z',
+          type: 'event_msg',
+          payload: {
+            type: 'token_count',
+            info: {
+              total_token_usage: {
+                input_tokens: 100,
+                cached_input_tokens: 20,
+                output_tokens: 30,
+                reasoning_output_tokens: 5,
+                total_tokens: 130,
+              },
+            },
+          },
+        }),
+        JSON.stringify({
+          timestamp: '2026-02-14T10:00:03.000Z',
+          type: 'event_msg',
+          payload: {
+            type: 'token_count',
+            info: {
+              total_token_usage: {
+                input_tokens: 24,
+                cached_input_tokens: 4,
+                output_tokens: 8,
+                reasoning_output_tokens: 2,
+                total_tokens: 32,
+              },
+              last_token_usage: {
+                input_tokens: 24,
+                cached_input_tokens: 4,
+                output_tokens: 8,
+                reasoning_output_tokens: 2,
+                total_tokens: 32,
+              },
+            },
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new CodexSourceAdapter({ sessionsDir: root });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toHaveLength(2);
+    expect(events[1]).toMatchObject({
+      inputTokens: 20,
+      cacheReadTokens: 4,
+      outputTokens: 8,
+      reasoningTokens: 2,
+      totalTokens: 32,
+    });
+  });
+
+  it('accepts numeric-string epoch timestamps in token_count rows', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'codex-source-epoch-string-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          timestamp: '1707768000',
+          type: 'session_meta',
+          payload: {
+            id: 'codex-epoch-string',
+            model_provider: 'openai',
+          },
+        }),
+        JSON.stringify({
+          timestamp: '1707768001',
+          type: 'turn_context',
+          payload: { model: 'gpt-5.2-codex' },
+        }),
+        JSON.stringify({
+          timestamp: '1707768002',
+          type: 'event_msg',
+          payload: {
+            type: 'token_count',
+            info: {
+              total_token_usage: {
+                input_tokens: 20,
+                cached_input_tokens: 5,
+                output_tokens: 10,
+                reasoning_output_tokens: 1,
+                total_tokens: 30,
+              },
+            },
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new CodexSourceAdapter({ sessionsDir: root });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toHaveLength(1);
+    expect(events[0]?.timestamp).toBe('2024-02-12T20:00:02.000Z');
   });
 
   it('uses legacy model fallback when no model metadata exists', async () => {
