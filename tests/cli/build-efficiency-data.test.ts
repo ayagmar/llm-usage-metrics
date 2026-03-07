@@ -257,6 +257,76 @@ describe('buildEfficiencyData', () => {
     );
   });
 
+  it('counts billable bucket usage days even when totalTokens is zero', async () => {
+    const bucketOnlyEvent: UsageEvent = {
+      source: 'codex',
+      sessionId: 'reasoning-only-day',
+      timestamp: '2026-02-11T12:10:00.000Z',
+      repoRoot: '/workspace/repo-a/app',
+      provider: 'openai',
+      model: 'gpt-5.3-codex',
+      inputTokens: 0,
+      outputTokens: 0,
+      reasoningTokens: 40,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      totalTokens: 0,
+      costUsd: undefined,
+      costMode: 'estimated',
+    };
+    const buildUsageEventDatasetMock = vi.fn(async (options: Record<string, unknown>) => {
+      const dataset = createUsageEventDataset(options);
+      dataset.filteredEvents = [bucketOnlyEvent];
+      return dataset;
+    });
+    const applyPricingToUsageEventDatasetMock = vi.fn<
+      (...args: unknown[]) => Promise<UsageEventDatasetPricingResult>
+    >(async () => createPricingResult([bucketOnlyEvent]));
+    const collectGitOutcomesMock = vi.fn(async () => ({
+      periodOutcomes: new Map([
+        [
+          '2026-02-11',
+          {
+            commitCount: 1,
+            linesAdded: 10,
+            linesDeleted: 0,
+            linesChanged: 10,
+          },
+        ],
+      ]),
+      totalOutcomes: {
+        commitCount: 1,
+        linesAdded: 10,
+        linesDeleted: 0,
+        linesChanged: 10,
+      },
+      diagnostics: {
+        repoDir: '/tmp/repo',
+        includeMergeCommits: false,
+        commitsCollected: 1,
+        linesAdded: 10,
+        linesDeleted: 0,
+      },
+    }));
+
+    await buildEfficiencyData(
+      'daily',
+      {},
+      {
+        buildUsageEventDataset: buildUsageEventDatasetMock,
+        applyPricingToUsageEventDataset: applyPricingToUsageEventDatasetMock,
+        collectGitOutcomes: collectGitOutcomesMock,
+        resolveRepoRoot: async () => '/tmp/repo',
+      },
+    );
+
+    expect(collectGitOutcomesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        activeUsageDays: new Set(['2026-02-11']),
+      }),
+    );
+  });
+
   it('omits scope note when no usage-only filters are active', async () => {
     const result = await buildEfficiencyData(
       'weekly',
@@ -424,7 +494,7 @@ describe('buildEfficiencyData', () => {
     expect(options?.activeUsageDays?.size).toBe(0);
   });
 
-  it('ignores matched zero-signal events when deriving active usage days', async () => {
+  it('keeps explicit zero-cost usage days when deriving active usage days', async () => {
     const collectGitOutcomesMock = vi.fn<CollectGitOutcomesFn>(async () => ({
       periodOutcomes: new Map(),
       totalOutcomes: {
@@ -486,7 +556,7 @@ describe('buildEfficiencyData', () => {
       | { activeUsageDays?: ReadonlySet<string> }
       | undefined;
 
-    expect(options?.activeUsageDays).toEqual(new Set(['2026-02-11']));
+    expect(options?.activeUsageDays).toEqual(new Set(['2026-02-10', '2026-02-11']));
   });
 
   it('rejects blank --repo-dir values before building usage or running git outcomes', async () => {

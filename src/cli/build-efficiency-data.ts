@@ -6,7 +6,7 @@ import {
   resolveRepoRootFromPathHint,
   type RepoRootResolver,
 } from '../efficiency/repo-attribution.js';
-import type { UsageEvent } from '../domain/usage-event.js';
+import { hasBillableTokenBuckets, type UsageEvent } from '../domain/usage-event.js';
 import { getPeriodKey, type ReportGranularity } from '../utils/time-buckets.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import {
@@ -97,7 +97,7 @@ function resolveScopeNote(options: EfficiencyCommandOptions): string | undefined
 }
 
 function hasMeaningfulEfficiencyUsageSignal(event: UsageEvent): boolean {
-  return event.totalTokens > 0 || (event.costUsd !== undefined && event.costUsd > 0);
+  return event.totalTokens > 0 || hasBillableTokenBuckets(event) || event.costUsd !== undefined;
 }
 
 export async function buildEfficiencyData(

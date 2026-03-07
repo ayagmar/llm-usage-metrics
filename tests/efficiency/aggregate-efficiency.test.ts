@@ -513,4 +513,90 @@ describe('aggregateEfficiency', () => {
       tokensPerCommit: 85,
     });
   });
+
+  it('keeps periods with bucketed usage even when totalTokens is zero', () => {
+    const rows = aggregateEfficiency({
+      usageRows: [
+        createUsageRow({
+          rowType: 'period_source',
+          periodKey: '2026-02-01',
+          source: 'codex',
+          reasoningTokens: 30,
+          totalTokens: 0,
+          costUsd: undefined,
+        }),
+        createUsageRow({
+          rowType: 'grand_total',
+          periodKey: 'ALL',
+          source: 'combined',
+          reasoningTokens: 30,
+          totalTokens: 0,
+          costUsd: undefined,
+        }),
+      ],
+      periodOutcomes: new Map([
+        [
+          '2026-02-01',
+          {
+            commitCount: 2,
+            linesAdded: 12,
+            linesDeleted: 2,
+            linesChanged: 14,
+          },
+        ],
+      ]),
+    });
+
+    expect(rows[0]).toMatchObject({
+      rowType: 'period',
+      periodKey: '2026-02-01',
+      reasoningTokens: 30,
+      totalTokens: 0,
+      commitCount: 2,
+      tokensPerCommit: 15,
+    });
+  });
+
+  it('preserves explicit zero cost for real usage rows when totals omit billable buckets', () => {
+    const rows = aggregateEfficiency({
+      usageRows: [
+        createUsageRow({
+          rowType: 'period_source',
+          periodKey: '2026-02-01',
+          source: 'codex',
+          cacheReadTokens: 25,
+          totalTokens: 0,
+          costUsd: 0,
+        }),
+        createUsageRow({
+          rowType: 'grand_total',
+          periodKey: 'ALL',
+          source: 'combined',
+          cacheReadTokens: 25,
+          totalTokens: 0,
+          costUsd: 0,
+        }),
+      ],
+      periodOutcomes: new Map([
+        [
+          '2026-02-01',
+          {
+            commitCount: 1,
+            linesAdded: 8,
+            linesDeleted: 2,
+            linesChanged: 10,
+          },
+        ],
+      ]),
+    });
+
+    expect(rows[0]).toMatchObject({
+      rowType: 'period',
+      cacheReadTokens: 25,
+      totalTokens: 0,
+      costUsd: 0,
+      commitCount: 1,
+      commitsPerUsd: undefined,
+    });
+  });
 });

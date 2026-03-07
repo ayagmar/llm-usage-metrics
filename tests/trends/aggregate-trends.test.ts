@@ -139,6 +139,73 @@ describe('aggregateTrends', () => {
     expect(result.sourceSeries?.map((series) => series.source)).toEqual(['pi', 'alpha', 'beta']);
   });
 
+  it('sums source-only rows into the combined series when no period_combined row exists', () => {
+    const result = aggregateTrends(
+      [
+        createUsageRow({ periodKey: '2026-03-04', source: 'pi', totalTokens: 10 }),
+        createUsageRow({ periodKey: '2026-03-04', source: 'codex', totalTokens: 15 }),
+      ],
+      {
+        dateRange: { from: '2026-03-04', to: '2026-03-04' },
+        metric: 'tokens',
+        bySource: false,
+        sourceOrder: ['pi', 'codex'],
+      },
+    );
+
+    expect(result.totalSeries.buckets).toEqual([
+      { date: '2026-03-04', value: 25, observed: true, incomplete: undefined },
+    ]);
+  });
+
+  it('merges duplicate rows for the same source and day in source series', () => {
+    const result = aggregateTrends(
+      [
+        createUsageRow({ periodKey: '2026-03-04', source: 'pi', totalTokens: 10 }),
+        createUsageRow({ periodKey: '2026-03-04', source: 'pi', totalTokens: 15 }),
+      ],
+      {
+        dateRange: { from: '2026-03-04', to: '2026-03-04' },
+        metric: 'tokens',
+        bySource: true,
+        sourceOrder: ['pi'],
+      },
+    );
+
+    expect(result.sourceSeries?.[0]?.buckets).toEqual([
+      { date: '2026-03-04', value: 25, observed: true, incomplete: undefined },
+    ]);
+  });
+
+  it('rounds merged cost totals for combined source-only rows', () => {
+    const result = aggregateTrends(
+      [
+        createUsageRow({ periodKey: '2026-03-04', source: 'pi', totalTokens: 10, costUsd: 0.1 }),
+        createUsageRow({
+          periodKey: '2026-03-04',
+          source: 'codex',
+          totalTokens: 15,
+          costUsd: 0.2,
+        }),
+      ],
+      {
+        dateRange: { from: '2026-03-04', to: '2026-03-04' },
+        metric: 'cost',
+        bySource: false,
+        sourceOrder: ['pi', 'codex'],
+      },
+    );
+
+    expect(result.totalSeries.buckets).toEqual([
+      { date: '2026-03-04', value: 0.3, observed: true, incomplete: undefined },
+    ]);
+    expect(result.totalSeries.summary).toMatchObject({
+      total: 0.3,
+      average: 0.3,
+      peak: { date: '2026-03-04', value: 0.3 },
+    });
+  });
+
   it('marks cost series as incomplete when observed rows are missing resolved pricing', () => {
     const result = aggregateTrends(
       [

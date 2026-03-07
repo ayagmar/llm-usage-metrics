@@ -83,11 +83,20 @@ function addUsageTotals(
   left: EfficiencyUsageTotals,
   right: EfficiencyUsageTotals,
 ): EfficiencyUsageTotals {
+  const hasAnyBucketUsage = (value: EfficiencyUsageTotals): boolean =>
+    value.inputTokens > 0 ||
+    value.outputTokens > 0 ||
+    value.reasoningTokens > 0 ||
+    value.cacheReadTokens > 0 ||
+    value.cacheWriteTokens > 0;
   const hasUnknownCost =
     (left.costIncomplete === true && left.costUsd === undefined) ||
     (right.costIncomplete === true && right.costUsd === undefined);
   const isNeutralZeroCost = (value: EfficiencyUsageTotals): boolean =>
-    value.totalTokens === 0 && value.costUsd === 0 && value.costIncomplete !== true;
+    !hasAnyBucketUsage(value) &&
+    value.totalTokens === 0 &&
+    value.costUsd === 0 &&
+    value.costIncomplete !== true;
   const leftKnownCost =
     left.costUsd !== undefined && !isNeutralZeroCost(left) ? left.costUsd : undefined;
   const rightKnownCost =
@@ -112,6 +121,19 @@ function addUsageTotals(
     costUsd,
     costIncomplete: left.costIncomplete || right.costIncomplete ? true : undefined,
   };
+}
+
+function hasMeaningfulUsageSignal(usageTotals: EfficiencyUsageTotals): boolean {
+  return (
+    usageTotals.totalTokens > 0 ||
+    usageTotals.inputTokens > 0 ||
+    usageTotals.outputTokens > 0 ||
+    usageTotals.reasoningTokens > 0 ||
+    usageTotals.cacheReadTokens > 0 ||
+    usageTotals.cacheWriteTokens > 0 ||
+    usageTotals.costUsd !== undefined ||
+    usageTotals.costIncomplete === true
+  );
 }
 
 function computeDerivedMetrics(
@@ -152,11 +174,7 @@ export function aggregateEfficiency(options: AggregateEfficiencyOptions): Effici
     const outcomeTotals =
       options.periodOutcomes.get(periodKey) ?? createEmptyEfficiencyOutcomeTotals();
     const hasUsageRow = usageTotalsByPeriod.has(periodKey);
-    const hasUsageSignal =
-      hasUsageRow &&
-      (usageTotals.totalTokens > 0 ||
-        usageTotals.costUsd !== undefined ||
-        usageTotals.costIncomplete === true);
+    const hasUsageSignal = hasUsageRow && hasMeaningfulUsageSignal(usageTotals);
 
     if (outcomeTotals.commitCount === 0 || !hasUsageSignal) {
       continue;

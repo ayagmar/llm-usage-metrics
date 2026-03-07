@@ -100,6 +100,76 @@ describe('aggregate-counterfactual', () => {
     });
   });
 
+  it('sums source-only baseline rows when no period_combined row exists', () => {
+    const usageRows: UsageReportRow[] = [
+      {
+        rowType: 'period_source',
+        periodKey: '2026-02-10',
+        source: 'pi',
+        models: ['gpt-4.1'],
+        modelBreakdown: [],
+        inputTokens: 1_000_000,
+        outputTokens: 100_000,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 1_100_000,
+        costUsd: 2.8,
+      },
+      {
+        rowType: 'period_source',
+        periodKey: '2026-02-10',
+        source: 'codex',
+        models: ['gpt-4.1'],
+        modelBreakdown: [],
+        inputTokens: 500_000,
+        outputTokens: 50_000,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 550_000,
+        costUsd: 1.4,
+      },
+      {
+        rowType: 'grand_total',
+        periodKey: 'ALL',
+        source: 'combined',
+        models: ['gpt-4.1'],
+        modelBreakdown: [],
+        inputTokens: 1_500_000,
+        outputTokens: 150_000,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 1_650_000,
+        costUsd: 4.2,
+      },
+    ];
+
+    const result = buildCounterfactualRows({
+      usageRows,
+      provider: 'openai',
+      candidateModels: ['gpt-5-codex'],
+      pricingSource: createDefaultOpenAiPricingSource(),
+    });
+
+    const baselineRow = result.rows.find(
+      (row) => row.rowType === 'baseline' && row.periodKey === '2026-02-10',
+    );
+    const candidateRow = result.rows.find(
+      (row) => row.rowType === 'candidate' && row.periodKey === '2026-02-10',
+    );
+
+    expect(baselineRow).toMatchObject({
+      totalTokens: 1_650_000,
+      baselineCostUsd: 4.2,
+    });
+    expect(candidateRow).toMatchObject({
+      hypotheticalCostUsd: 3.75,
+      savingsUsd: 0.45,
+    });
+  });
+
   it('sorts missing pricing candidates last and reports missing coverage', () => {
     const pricing = new StaticPricingSource({
       pricingByModel: {

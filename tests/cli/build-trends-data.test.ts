@@ -263,6 +263,26 @@ describe('buildTrendsData', () => {
     expect(result.totalSeries.buckets).toEqual([{ date: '2026-03-06', value: 0, observed: false }]);
   });
 
+  it('ignores future-only observations when resolving an --until-only range', async () => {
+    const result = await buildTrendsData(
+      {
+        until: '2026-03-06',
+        metric: 'tokens',
+      },
+      runtimeDeps({
+        now: () => new Date('2026-03-10T12:00:00.000Z'),
+        adapters: [
+          createAdapter('pi', {
+            '/tmp/a.jsonl': [createBaseEvent({ timestamp: '2026-03-08T10:00:00.000Z' })],
+          }),
+        ],
+      }),
+    );
+
+    expect(result.dateRange).toEqual({ from: '2026-03-06', to: '2026-03-06' });
+    expect(result.totalSeries.buckets).toEqual([{ date: '2026-03-06', value: 0, observed: false }]);
+  });
+
   it('returns ordered per-source trend series when --by-source is enabled', async () => {
     const result = await buildTrendsData(
       {

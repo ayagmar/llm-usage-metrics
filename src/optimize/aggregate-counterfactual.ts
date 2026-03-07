@@ -48,6 +48,10 @@ export function roundUsd(value: number): number {
   return Math.round(value * USD_PRECISION_SCALE) / USD_PRECISION_SCALE;
 }
 
+function addUsd(left: number, right: number): number {
+  return roundUsd(left + right);
+}
+
 function hasAnyUsageSignal(period: BaselinePeriodTotals): boolean {
   return (
     period.totalTokens > 0 || period.baselineCostIncomplete || (period.baselineCostUsd ?? 0) > 0
@@ -248,9 +252,28 @@ function resolveBaselinePeriods(usageRows: UsageReportRow[]): BaselinePeriodTota
       continue;
     }
 
-    if (!periodRows.has(row.periodKey)) {
+    const existingRow = periodRows.get(row.periodKey);
+
+    if (!existingRow) {
       periodRows.set(row.periodKey, row);
+      continue;
     }
+
+    periodRows.set(row.periodKey, {
+      ...existingRow,
+      inputTokens: existingRow.inputTokens + row.inputTokens,
+      outputTokens: existingRow.outputTokens + row.outputTokens,
+      reasoningTokens: existingRow.reasoningTokens + row.reasoningTokens,
+      cacheReadTokens: existingRow.cacheReadTokens + row.cacheReadTokens,
+      cacheWriteTokens: existingRow.cacheWriteTokens + row.cacheWriteTokens,
+      totalTokens: existingRow.totalTokens + row.totalTokens,
+      costUsd:
+        row.costUsd !== undefined
+          ? addUsd(existingRow.costUsd ?? 0, row.costUsd)
+          : existingRow.costUsd,
+      costIncomplete:
+        existingRow.costIncomplete === true || row.costIncomplete === true ? true : undefined,
+    });
   }
 
   const sortedPeriodKeys = [...periodRows.keys()].sort(compareByCodePoint);
