@@ -298,4 +298,33 @@ describe('renderTrendsReport', () => {
 
     expect(output).toContain('Mar 16');
   });
+
+  it('keeps non-zero early activity visible when a later spike dominates the chart scale', () => {
+    const data = createTrendsDataResult();
+    data.metric = 'tokens';
+    data.totalSeries.buckets = Array.from({ length: 30 }, (_, index) => ({
+      date: `2026-01-${String(index + 1).padStart(2, '0')}`,
+      value: index === 2 ? 50 : index === 14 ? 80 : index === 29 ? 1_000 : 0,
+      observed: true,
+    }));
+    data.totalSeries.summary = {
+      total: 1_130,
+      average: 1_130 / 30,
+      peak: { date: '2026-01-30', value: 1_000 },
+      incomplete: false,
+      observedDayCount: 30,
+    };
+
+    const output = renderTrendsReport(data, 'terminal', {
+      useColor: false,
+      terminalWidth: 40,
+    });
+    const chartLines = output
+      .split('\n')
+      .filter((line) => line.includes('┤') || line.includes('┼'));
+    const bottomDataRow = chartLines.at(-2) ?? '';
+
+    expect(bottomDataRow).toContain('▂');
+    expect(bottomDataRow.trimEnd().endsWith('█')).toBe(true);
+  });
 });

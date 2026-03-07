@@ -77,15 +77,30 @@ function downsampleBuckets(buckets: TrendBucket[], maxColumns: number): TrendBuc
     const startIndex = Math.floor((columnIndex * buckets.length) / maxColumns);
     const endIndex = Math.floor(((columnIndex + 1) * buckets.length) / maxColumns);
     const slice = buckets.slice(startIndex, Math.max(startIndex + 1, endIndex));
-    const total = slice.reduce((sum, bucket) => sum + bucket.value, 0);
+    const peakValue = slice.reduce((maxValue, bucket) => Math.max(maxValue, bucket.value), 0);
 
     return {
       date: slice[0]?.date ?? '',
-      value: total / slice.length,
+      value: peakValue,
       observed: slice.some((bucket) => bucket.observed),
       incomplete: slice.some((bucket) => bucket.incomplete === true) || undefined,
     };
   });
+}
+
+function getBarLevel(value: number, maxValue: number, rowCount: number): number {
+  if (value <= 0 || maxValue <= 0 || rowCount <= 0) {
+    return 0;
+  }
+
+  return Math.max(1, Math.min(rowCount * 8, Math.round((value / maxValue) * rowCount * 8)));
+}
+
+function renderCombinedChartCell(barLevel: number, rowIndex: number, rowCount: number): string {
+  const rowBaseLevel = (rowCount - rowIndex - 1) * 8;
+  const cellLevel = Math.max(0, Math.min(8, barLevel - rowBaseLevel));
+
+  return sparklineBlocks[cellLevel];
 }
 
 function isApproximatePeak(series: TrendSeries, metric: TrendsMetric): boolean {
@@ -167,14 +182,16 @@ function renderCombinedChart(
   const buckets = downsampleBuckets(series.buckets, plotWidth);
   const maxValue = Math.max(...buckets.map((bucket) => bucket.value), 0);
   const lines: string[] = [];
-  const tickValues = Array.from({ length: 5 }, (_, index) => {
-    const inverseIndex = 4 - index;
-    return maxValue === 0 ? 0 : (maxValue * inverseIndex) / 4;
+  const chartRowCount = 4;
+  const tickValues = Array.from({ length: chartRowCount + 1 }, (_, index) => {
+    const inverseIndex = chartRowCount - index;
+    return maxValue === 0 ? 0 : (maxValue * inverseIndex) / chartRowCount;
   });
   const labelWidth = tickValues.reduce(
     (maxWidth, value) => Math.max(maxWidth, visibleWidth(formatAxisValue(value, metric))),
     0,
   );
+  const barLevels = buckets.map((bucket) => getBarLevel(bucket.value, maxValue, chartRowCount));
 
   tickValues.forEach((tickValue, tickIndex) => {
     if (tickIndex === tickValues.length - 1) {
@@ -184,22 +201,8 @@ function renderCombinedChart(
       return;
     }
 
-    const threshold = tickValue;
-    const glyphs = buckets
-      .map((bucket) => {
-        if (maxValue === 0) {
-          return ' ';
-        }
-
-        const ratio = bucket.value / maxValue;
-        const level = Math.max(0, Math.min(8, Math.round(ratio * 8)));
-
-        if (bucket.value >= threshold && level > 0) {
-          return sparklineBlocks[level];
-        }
-
-        return ' ';
-      })
+    const glyphs = barLevels
+      .map((barLevel) => renderCombinedChartCell(barLevel, tickIndex, chartRowCount))
       .join('');
 
     lines.push(`${formatAxisValue(tickValue, metric).padStart(labelWidth)} ┤${glyphs}`);
