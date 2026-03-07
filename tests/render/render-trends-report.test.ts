@@ -327,4 +327,37 @@ describe('renderTrendsReport', () => {
     expect(bottomDataRow).toContain('▂');
     expect(bottomDataRow.trimEnd().endsWith('█')).toBe(true);
   });
+
+  it('compresses long empty edges while keeping the full requested range explicit', () => {
+    const data = createTrendsDataResult();
+    data.metric = 'tokens';
+    data.dateRange = {
+      from: '2026-03-01',
+      to: '2026-03-30',
+    };
+    data.totalSeries.buckets = Array.from({ length: 30 }, (_, index) => ({
+      date: `2026-03-${String(index + 1).padStart(2, '0')}`,
+      value: index >= 10 && index < 25 ? index - 9 : 0,
+      observed: index >= 10 && index < 25,
+    }));
+    data.totalSeries.summary = {
+      total: data.totalSeries.buckets.reduce((sum, bucket) => sum + bucket.value, 0),
+      average:
+        data.totalSeries.buckets.reduce((sum, bucket) => sum + bucket.value, 0) /
+        data.totalSeries.buckets.length,
+      peak: { date: '2026-03-25', value: 15 },
+      incomplete: false,
+      observedDayCount: 15,
+    };
+
+    const output = renderTrendsReport(data, 'terminal', {
+      useColor: false,
+      terminalWidth: 80,
+    });
+
+    expect(output).toContain('Daily Token Usage Trend (30 days)');
+    expect(output).toContain('Compressed 10 empty day(s) before first activity (Mar 01-Mar 10).');
+    expect(output).toContain('Mar 11');
+    expect(output).toContain('Mar 25');
+  });
 });

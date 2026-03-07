@@ -26,6 +26,7 @@ const compactNumberFormatter = new Intl.NumberFormat('en-US', {
 });
 
 const sparklineBlocks = [' ', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'] as const;
+const minimumCompressedEmptyEdgeDays = 7;
 
 function resolveTerminalWidth(override: number | undefined): number | undefined {
   if (typeof override === 'number' && Number.isFinite(override) && override > 0) {
@@ -172,6 +173,109 @@ function renderSummaryOnly(
 
   lines.push(renderSummary(trendsData.totalSeries, trendsData.metric));
   return lines.join('\n');
+}
+
+function isInactiveEdgeBucket(bucket: TrendBucket): boolean {
+  return !bucket.observed && bucket.value === 0 && bucket.incomplete !== true;
+}
+
+function findLeadingInactiveBucketCount(buckets: readonly TrendBucket[]): number {
+  let count = 0;
+
+  while (count < buckets.length && isInactiveEdgeBucket(buckets[count])) {
+    count += 1;
+  }
+
+  return count;
+}
+
+function findTrailingInactiveBucketCount(buckets: readonly TrendBucket[]): number {
+  let count = 0;
+
+  while (count < buckets.length && isInactiveEdgeBucket(buckets[buckets.length - 1 - count])) {
+    count += 1;
+  }
+
+  return count;
+}
+
+function formatCompressedEdgeNote(
+  count: number,
+  startDate: string,
+  endDate: string,
+  position: 'before' | 'after',
+): string {
+  const rangeLabel =
+    startDate === endDate
+      ? formatDateLabel(startDate)
+      : `${formatDateLabel(startDate)}-${formatDateLabel(endDate)}`;
+  const activityLabel = position === 'before' ? 'before first activity' : 'after last activity';
+
+  return `Compressed ${count} empty day(s) ${activityLabel} (${rangeLabel}).`;
+}
+
+function getCombinedChartView(series: TrendSeries): {
+  chartSeries: TrendSeries;
+  notes: string[];
+} {
+  if (series.buckets.length === 0) {
+    return {
+      chartSeries: series,
+      notes: [],
+    };
+  }
+
+  const leadingInactiveBucketCount = findLeadingInactiveBucketCount(series.buckets);
+  const trailingInactiveBucketCount = findTrailingInactiveBucketCount(series.buckets);
+  const notes: string[] = [];
+  let startIndex = 0;
+  let endIndex = series.buckets.length - 1;
+
+  if (
+    leadingInactiveBucketCount >= minimumCompressedEmptyEdgeDays &&
+    leadingInactiveBucketCount < series.buckets.length
+  ) {
+    const firstCompressedBucket = series.buckets[0];
+    const lastCompressedBucket = series.buckets[leadingInactiveBucketCount - 1];
+    notes.push(
+      formatCompressedEdgeNote(
+        leadingInactiveBucketCount,
+        firstCompressedBucket.date,
+        lastCompressedBucket.date,
+        'before',
+      ),
+    );
+    startIndex = leadingInactiveBucketCount;
+  }
+
+  if (
+    trailingInactiveBucketCount >= minimumCompressedEmptyEdgeDays &&
+    trailingInactiveBucketCount < series.buckets.length - startIndex
+  ) {
+    const firstCompressedBucket =
+      series.buckets[series.buckets.length - trailingInactiveBucketCount];
+    const lastCompressedBucket = series.buckets[series.buckets.length - 1];
+    notes.push(
+      formatCompressedEdgeNote(
+        trailingInactiveBucketCount,
+        firstCompressedBucket.date,
+        lastCompressedBucket.date,
+        'after',
+      ),
+    );
+    endIndex = series.buckets.length - trailingInactiveBucketCount - 1;
+  }
+
+  return {
+    chartSeries:
+      notes.length === 0
+        ? series
+        : {
+            ...series,
+            buckets: series.buckets.slice(startIndex, endIndex + 1),
+          },
+    notes,
+  };
 }
 
 function renderCombinedChart(
@@ -325,12 +429,14 @@ function renderTerminalTrendsReport(
       ...renderSourceLines(trendsData.sourceSeries, trendsData.metric, terminalWidth ?? 80),
     );
   } else {
+    const chartView = getCombinedChartView(trendsData.totalSeries);
+    if (chartView.notes.length > 0) {
+      lines.push(...chartView.notes);
+    }
     const plotWidth = Math.max(16, (terminalWidth ?? 80) - 14);
-    const chartLines = renderCombinedChart(
-      trendsData.totalSeries,
-      trendsData.metric,
-      plotWidth,
-    ).map((line) => (useColor ? accent(line) : line));
+    const chartLines = renderCombinedChart(chartView.chartSeries, trendsData.metric, plotWidth).map(
+      (line) => (useColor ? accent(line) : line),
+    );
     lines.push(...chartLines);
   }
 
