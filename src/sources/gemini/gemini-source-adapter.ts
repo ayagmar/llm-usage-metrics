@@ -58,8 +58,12 @@ async function loadProjectsJson(geminiDir: string): Promise<Map<string, string>>
     const parsed = JSON.parse(content) as unknown;
 
     return parseProjectsJson(parsed);
-  } catch {
-    return new Map();
+  } catch (error) {
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT') {
+      return new Map();
+    }
+
+    throw error;
   }
 }
 

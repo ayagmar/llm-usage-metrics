@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -224,6 +224,23 @@ describe('GeminiSourceAdapter', () => {
 
       const secondParse = await adapter.parseFile(sessionFilePath);
       expect(secondParse[0]?.repoRoot).toBe('/tmp/second-repo');
+    });
+
+    it('rethrows non-missing projects.json errors', async () => {
+      const tempDir = await mkdtemp(path.join(os.tmpdir(), 'gemini-project-errors-'));
+      tempDirs.push(tempDir);
+
+      const sessionFilePath = path.join(tempDir, 'session-with-usage.json');
+      await writeFile(
+        sessionFilePath,
+        await readFile(path.join(fixturesDir, 'session-with-usage.json'), 'utf8'),
+        'utf8',
+      );
+      await mkdir(path.join(tempDir, 'projects.json'));
+
+      const adapter = new GeminiSourceAdapter({ geminiDir: tempDir });
+
+      await expect(adapter.parseFile(sessionFilePath)).rejects.toThrow();
     });
   });
 

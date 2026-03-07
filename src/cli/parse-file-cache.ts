@@ -627,6 +627,11 @@ export class ParseFileCache {
     }
 
     if (this.entriesByKey.size > this.limits.maxEntries) {
+      const keptEntries = [...this.entriesByKey.values()]
+        .sort((left, right) => right.cachedAt - left.cachedAt)
+        .slice(0, this.limits.maxEntries);
+
+      this.replaceEntries(keptEntries);
       this.dirty = true;
     }
   }

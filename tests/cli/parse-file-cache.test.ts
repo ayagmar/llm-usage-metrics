@@ -481,6 +481,23 @@ describe('ParseFileCache', () => {
       now: () => 120,
     });
 
+    expect(
+      cache.get('codex', '/tmp/fresh-a.jsonl', {
+        size: 2,
+        mtimeMs: 2,
+      }),
+    ).toBeUndefined();
+    expect(
+      cache.get('codex', '/tmp/fresh-b.jsonl', {
+        size: 3,
+        mtimeMs: 3,
+      }),
+    ).toEqual({
+      events: [createEvent({ sessionId: 'b' })],
+      skippedRows: 0,
+      skippedRowReasons: [],
+    });
+
     await cache.persist();
     const persisted = JSON.parse(await readFile(cacheFilePath, 'utf8')) as {
       entries: Array<{ filePath: string }>;
