@@ -403,8 +403,16 @@ describe('ParseFileCache', () => {
       { events: [createEvent()], skippedRows: 0 },
     );
 
+    await cache.persist();
+
+    const reloaded = await ParseFileCache.load({
+      cacheFilePath,
+      limits: { ttlMs: 60_000, maxEntries: 100, maxBytes: 1024 * 1024 },
+      now: () => 1_001,
+    });
+
     expect(
-      cache.get('codex', '/tmp/ok.jsonl', {
+      reloaded.get('codex', '/tmp/ok.jsonl', {
         dependencies: [
           { path: '/tmp/missing-sidecar.json', exists: false },
           { path: '/tmp/ok.jsonl', exists: true, size: 12, mtimeMs: 34 },
@@ -417,7 +425,7 @@ describe('ParseFileCache', () => {
     });
 
     expect(
-      cache.get('codex', '/tmp/ok.jsonl', {
+      reloaded.get('codex', '/tmp/ok.jsonl', {
         dependencies: [{ path: '/tmp/ok.jsonl', exists: true, mtimeMs: 34 }],
       }),
     ).toBeUndefined();

@@ -44,20 +44,37 @@ function hasDefinedRate(rate: number | undefined): boolean {
   return rate !== undefined;
 }
 
-export function canEstimateUsageCost(usage: BillableTokenUsage, pricing: ModelPricing): boolean {
+export function hasUsedBucketWithUndefinedRate(
+  usage: BillableTokenUsage,
+  pricing: ModelPricing,
+): boolean {
   if (usage.inputTokens > 0 && !hasDefinedRate(pricing.inputPer1MUsd)) {
-    return false;
+    return true;
   }
 
   if (usage.outputTokens > 0 && !hasDefinedRate(pricing.outputPer1MUsd)) {
-    return false;
+    return true;
   }
 
   if (usage.cacheReadTokens > 0 && !hasDefinedRate(pricing.cacheReadPer1MUsd)) {
-    return false;
+    return true;
   }
 
   if (usage.cacheWriteTokens > 0 && !hasDefinedRate(pricing.cacheWritePer1MUsd)) {
+    return true;
+  }
+
+  const reasoningBilling = pricing.reasoningBilling ?? 'included-in-output';
+
+  return (
+    usage.reasoningTokens > 0 &&
+    reasoningBilling === 'separate' &&
+    !hasDefinedRate(pricing.reasoningPer1MUsd)
+  );
+}
+
+export function canEstimateUsageCost(usage: BillableTokenUsage, pricing: ModelPricing): boolean {
+  if (hasUsedBucketWithUndefinedRate(usage, pricing)) {
     return false;
   }
 
@@ -65,7 +82,7 @@ export function canEstimateUsageCost(usage: BillableTokenUsage, pricing: ModelPr
 
   if (usage.reasoningTokens > 0) {
     if (reasoningBilling === 'separate') {
-      return hasDefinedRate(pricing.reasoningPer1MUsd);
+      return true;
     }
 
     if (usage.outputTokens === 0) {

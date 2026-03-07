@@ -263,7 +263,7 @@ describe('aggregate-counterfactual', () => {
     });
   });
 
-  it('treats cache-read-only periods as usage-bucket incomplete when cache read pricing is missing', () => {
+  it('treats cache-read-only periods as missing pricing when cache read pricing is missing', () => {
     const pricing = new StaticPricingSource({
       pricingByModel: {
         'gpt-5.2': {
@@ -320,7 +320,7 @@ describe('aggregate-counterfactual', () => {
     expect(candidateRow).toMatchObject({
       hypotheticalCostUsd: undefined,
       hypotheticalCostIncomplete: true,
-      notes: ['baseline_incomplete', 'usage_buckets_missing'],
+      notes: ['baseline_incomplete', 'missing_pricing'],
     });
   });
 

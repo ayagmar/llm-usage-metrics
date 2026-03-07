@@ -190,10 +190,10 @@ export async function measureRuntimeProfileStage<T>(
   task: () => Promise<T>,
 ): Promise<T> {
   if (!runtimeProfile) {
-    return await task();
+    return task();
   }
 
-  return await runtimeProfile.measure(name, task);
+  return runtimeProfile.measure(name, task);
 }
 
 export function measureRuntimeProfileStageSync<T>(

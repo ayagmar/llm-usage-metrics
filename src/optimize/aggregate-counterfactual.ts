@@ -1,6 +1,10 @@
 import type { UsageReportRow } from '../domain/usage-report-row.js';
 import { hasBillableTokenBuckets, type UsageEvent } from '../domain/usage-event.js';
-import { calculateEstimatedCostUsd, canEstimateUsageCost } from '../pricing/cost-engine.js';
+import {
+  calculateEstimatedCostUsd,
+  canEstimateUsageCost,
+  hasUsedBucketWithUndefinedRate,
+} from '../pricing/cost-engine.js';
 import type { PricingSource } from '../pricing/types.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import type { OptimizeBaselineRow, OptimizeCandidateRow, OptimizeRow } from './optimize-row.js';
@@ -155,6 +159,10 @@ function evaluateCandidateForPeriod(
       notes.add('usage_buckets_missing');
     }
   } else if (!pricing) {
+    hypotheticalCostUsd = undefined;
+    hypotheticalCostIncomplete = true;
+    notes.add('missing_pricing');
+  } else if (hasUsedBucketWithUndefinedRate(syntheticEvent, pricing)) {
     hypotheticalCostUsd = undefined;
     hypotheticalCostIncomplete = true;
     notes.add('missing_pricing');

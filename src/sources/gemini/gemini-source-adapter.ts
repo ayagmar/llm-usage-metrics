@@ -222,7 +222,7 @@ export class GeminiSourceAdapter implements SourceAdapter {
       return new Map();
     }
 
-    return await loadProjectsJson(this.geminiDir.trim());
+    return loadProjectsJson(this.geminiDir.trim());
   }
 
   public async discoverFiles(): Promise<string[]> {

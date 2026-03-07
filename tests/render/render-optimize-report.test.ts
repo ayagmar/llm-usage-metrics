@@ -1,5 +1,6 @@
 import { stripVTControlCharacters } from 'node:util';
 
+import pc from 'picocolors';
 import { describe, expect, it } from 'vitest';
 
 import type { OptimizeDataResult } from '../../src/cli/usage-data-contracts.js';
@@ -261,6 +262,9 @@ describe('renderOptimizeReport', () => {
     });
     const strippedOutput = stripAnsi(output);
 
+    if (pc.isColorSupported) {
+      expect(output).not.toBe(strippedOutput);
+    }
     expect(strippedOutput).toContain('Monthly Optimize Report');
     expect(strippedOutput).toContain('Provider scope: openai');
     expect(strippedOutput).toContain('ALL best candidate: gpt-4.1 saves $0.15 (12.00%)');

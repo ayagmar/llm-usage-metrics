@@ -40,18 +40,9 @@ function createDelayedAdapter(
 }
 
 function rejectWithUnknown(reason: unknown): Promise<never> {
-  const rejected = {
-    then: (
-      _onFulfilled: ((value: never) => unknown) | undefined,
-      onRejected: ((reason: unknown) => unknown) | undefined,
-    ) => Promise.resolve(onRejected?.(reason)),
-    catch: (onRejected: ((value: unknown) => unknown) | undefined) =>
-      Promise.resolve(onRejected?.(reason)),
-    finally: (onFinally: (() => void) | undefined) => Promise.resolve(onFinally?.()),
-    [Symbol.toStringTag]: 'Promise',
-  };
-
-  return rejected as unknown as Promise<never>;
+  return (async () => {
+    throw reason;
+  })();
 }
 
 describe('build-usage-data-parsing', () => {

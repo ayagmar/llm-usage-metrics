@@ -123,7 +123,9 @@ describe('cost engine', () => {
     );
 
     expect(resolveModelAlias).toHaveBeenCalledWith('gpt-5.3-codex');
+    expect(getPricing).toHaveBeenCalledTimes(1);
     expect(getPricing).toHaveBeenCalledWith('gpt-5-codex');
+    expect(getPricing).not.toHaveBeenCalledWith('gpt-5.3-codex');
     expect(pricedEvent.costUsd).toBeCloseTo(0.0002, 10);
   });
 

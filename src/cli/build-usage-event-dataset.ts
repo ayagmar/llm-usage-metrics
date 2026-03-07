@@ -153,7 +153,7 @@ export async function applyPricingToUsageEventDataset(
     dataset.normalizedInputs.pricingUrl,
   );
 
-  return await measureRuntimeProfileStage(deps.runtimeProfile, 'usage.pricing.apply', () =>
+  return measureRuntimeProfileStage(deps.runtimeProfile, 'usage.pricing.apply', () =>
     resolveAndApplyPricingToEvents(
       dataset.filteredEvents,
       pricingOptions,
