@@ -380,6 +380,54 @@ describe('ParseFileCache', () => {
     ).toBeUndefined();
   });
 
+  it('rejects disk cache entries when dependencies is present but not an array', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'parse-file-cache-invalid-dependencies-'));
+    tempDirs.push(tempDir);
+    const cacheFilePath = path.join(tempDir, 'parse-file-cache.json');
+
+    await writeFile(
+      cacheFilePath,
+      JSON.stringify({
+        version: 5,
+        entries: [
+          {
+            source: 'codex',
+            filePath: '/tmp/ok.jsonl',
+            fingerprint: {
+              dependencies: {
+                path: '/tmp/ok.jsonl',
+                exists: true,
+                size: 12,
+                mtimeMs: 34,
+              },
+              size: 12,
+              mtimeMs: 34,
+            },
+            cachedAt: 42,
+            diagnostics: {
+              events: [createEvent()],
+              skippedRows: 0,
+              skippedRowReasons: [],
+            },
+          },
+        ],
+      }),
+      'utf8',
+    );
+
+    const cache = await ParseFileCache.load({
+      cacheFilePath,
+      limits: { ttlMs: 60_000, maxEntries: 100, maxBytes: 1024 * 1024 },
+      now: () => 1_000,
+    });
+
+    expect(
+      cache.get('codex', '/tmp/ok.jsonl', {
+        dependencies: [{ path: '/tmp/ok.jsonl', exists: true, size: 12, mtimeMs: 34 }],
+      }),
+    ).toBeUndefined();
+  });
+
   it('round-trips missing dependency fingerprints and rejects malformed runtime fingerprints', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'parse-file-cache-missing-dependency-'));
     tempDirs.push(tempDir);

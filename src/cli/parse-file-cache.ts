@@ -274,6 +274,10 @@ function normalizeRuntimeFingerprint(
     return undefined;
   }
 
+  if ('dependencies' in fingerprintRecord && !Array.isArray(fingerprintRecord.dependencies)) {
+    return undefined;
+  }
+
   if (Array.isArray(fingerprintRecord.dependencies)) {
     const normalizedDependencies: ParseDependencyFingerprint[] = [];
 
