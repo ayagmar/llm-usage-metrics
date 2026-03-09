@@ -3,12 +3,18 @@ import pc from 'picocolors';
 import type { UsageReportRow } from '../domain/usage-report-row.js';
 import { colorizeUsageBodyRows } from './terminal-style-policy.js';
 import { toUsageTableCells, type UsageTableLayout, usageTableHeaders } from './row-cells.js';
-import { resolveTtyColumns, visibleWidth, wrapTableColumn } from './table-text-layout.js';
+import {
+  resolveTtyColumns,
+  splitCellLines,
+  visibleWidth,
+  wrapTableColumn,
+} from './table-text-layout.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
 
 const modelsColumnIndex = 2;
 const defaultModelsColumnWidth = 32;
 const minimumModelsColumnWidth = 12;
+const compactModelsColumnGap = 2;
 
 type TerminalRenderOptions = {
   useColor?: boolean;
@@ -58,17 +64,168 @@ function measureTableWidth(tableOutput: string): number {
     .reduce((maxWidth, line) => Math.max(maxWidth, visibleWidth(line)), 0);
 }
 
+function padVisibleEnd(value: string, width: number): string {
+  return `${value}${' '.repeat(Math.max(0, width - visibleWidth(value)))}`;
+}
+
+function formatCompactModelsCell(value: string, width: number): string {
+  const modelLines = splitCellLines(value);
+
+  if (modelLines.length < 2) {
+    return value;
+  }
+
+  const longestLineWidth = modelLines.reduce(
+    (maxWidth, line) => Math.max(maxWidth, visibleWidth(line)),
+    0,
+  );
+  const maxColumnCount = Math.floor(
+    (width + compactModelsColumnGap) / (longestLineWidth + compactModelsColumnGap),
+  );
+
+  if (maxColumnCount <= 1) {
+    return value;
+  }
+
+  const columnCount = Math.min(modelLines.length, maxColumnCount);
+  const rowCount = Math.ceil(modelLines.length / columnCount);
+  const compactLines: string[] = [];
+
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+    const rowStart = rowIndex * columnCount;
+    const cells = modelLines.slice(rowStart, rowStart + columnCount);
+
+    compactLines.push(
+      cells
+        .map((cell, columnIndex) =>
+          columnIndex === cells.length - 1 ? cell : padVisibleEnd(cell, longestLineWidth),
+        )
+        .join(' '.repeat(compactModelsColumnGap)),
+    );
+  }
+
+  return compactLines.join('\n');
+}
+
+function layoutModelsColumn(
+  bodyRows: string[][],
+  tableLayout: UsageTableLayout,
+  modelsColumnWidth: number,
+): string[][] {
+  if (tableLayout !== 'compact' || modelsColumnWidth <= defaultModelsColumnWidth) {
+    return bodyRows.map((row) => [...row]);
+  }
+
+  return bodyRows.map((row) => {
+    const nextRow = [...row];
+    nextRow[modelsColumnIndex] = formatCompactModelsCell(
+      nextRow[modelsColumnIndex],
+      modelsColumnWidth,
+    );
+
+    return nextRow;
+  });
+}
+
+function prepareWrappedBodyRows(
+  bodyRows: string[][],
+  tableLayout: UsageTableLayout,
+  modelsColumnWidth: number,
+): string[][] {
+  const laidOutRows = layoutModelsColumn(bodyRows, tableLayout, modelsColumnWidth);
+
+  return wrapTableColumn(laidOutRows, {
+    columnIndex: modelsColumnIndex,
+    width: modelsColumnWidth,
+  });
+}
+
+function measureCompactBodyHeight(bodyRows: string[][], modelsColumnWidth: number): number {
+  return prepareWrappedBodyRows(bodyRows, 'compact', modelsColumnWidth).reduce(
+    (totalHeight, row) => totalHeight + splitCellLines(row[modelsColumnIndex] ?? '').length,
+    0,
+  );
+}
+
+function resolveExpandedModelsColumnWidth(
+  bodyRows: string[][],
+  tableLayout: UsageTableLayout,
+  currentWidth: number,
+  maximumWidth: number,
+): number {
+  if (maximumWidth <= currentWidth) {
+    return currentWidth;
+  }
+
+  if (tableLayout === 'per_model_columns') {
+    const longestModelLineWidth = bodyRows.reduce((maxWidth, row) => {
+      const cellMaxWidth = splitCellLines(row[modelsColumnIndex] ?? '').reduce(
+        (lineMaxWidth, line) => Math.max(lineMaxWidth, visibleWidth(line)),
+        0,
+      );
+
+      return Math.max(maxWidth, cellMaxWidth);
+    }, currentWidth);
+    const preferredWidth = Math.max(
+      currentWidth,
+      defaultModelsColumnWidth + 16,
+      longestModelLineWidth,
+    );
+
+    return Math.min(maximumWidth, preferredWidth);
+  }
+
+  const candidateWidths = new Set<number>([currentWidth]);
+
+  for (const row of bodyRows) {
+    const modelLines = splitCellLines(row[modelsColumnIndex] ?? '');
+
+    if (modelLines.length < 2) {
+      continue;
+    }
+
+    const longestLineWidth = modelLines.reduce(
+      (maxLineWidth, line) => Math.max(maxLineWidth, visibleWidth(line)),
+      0,
+    );
+
+    for (let columnCount = 2; columnCount <= modelLines.length; columnCount += 1) {
+      const candidateWidth =
+        columnCount * longestLineWidth + (columnCount - 1) * compactModelsColumnGap;
+
+      if (candidateWidth > maximumWidth) {
+        break;
+      }
+
+      if (candidateWidth > currentWidth) {
+        candidateWidths.add(candidateWidth);
+      }
+    }
+  }
+
+  let bestWidth = currentWidth;
+  let bestHeight = measureCompactBodyHeight(bodyRows, currentWidth);
+
+  for (const candidateWidth of Array.from(candidateWidths).sort((left, right) => left - right)) {
+    const candidateHeight = measureCompactBodyHeight(bodyRows, candidateWidth);
+
+    if (candidateHeight < bestHeight) {
+      bestHeight = candidateHeight;
+      bestWidth = candidateWidth;
+    }
+  }
+
+  return bestWidth;
+}
+
 function renderTableWithModelsWidth(
   rows: UsageReportRow[],
+  uncoloredBodyRows: string[][],
   tableLayout: UsageTableLayout,
   useColor: boolean,
   modelsColumnWidth: number,
 ): string {
-  const uncoloredBodyRows = toUsageTableCells(rows, { layout: tableLayout });
-  const wrappedBodyRows = wrapTableColumn(uncoloredBodyRows, {
-    columnIndex: modelsColumnIndex,
-    width: modelsColumnWidth,
-  });
+  const wrappedBodyRows = prepareWrappedBodyRows(uncoloredBodyRows, tableLayout, modelsColumnWidth);
   const bodyRows = colorizeUsageBodyRows(wrappedBodyRows, rows, { useColor });
   const rowMetas: TableRowMeta[] = rows.map((row) => ({
     periodKey: row.periodKey,
@@ -101,8 +258,15 @@ export function renderTerminalTable(
   const tableLayout = options.tableLayout ?? 'compact';
   const hasExplicitTerminalWidth = isValidTerminalWidth(options.terminalWidth);
   const terminalWidth = resolveTerminalWidth(options.terminalWidth);
+  const uncoloredBodyRows = toUsageTableCells(rows, { layout: tableLayout });
   let modelsColumnWidth = defaultModelsColumnWidth;
-  let renderedTable = renderTableWithModelsWidth(rows, tableLayout, useColor, modelsColumnWidth);
+  let renderedTable = renderTableWithModelsWidth(
+    rows,
+    uncoloredBodyRows,
+    tableLayout,
+    useColor,
+    modelsColumnWidth,
+  );
 
   if (terminalWidth !== undefined) {
     let renderedTableWidth = measureTableWidth(renderedTable);
@@ -119,8 +283,36 @@ export function renderTerminalTable(
       }
 
       modelsColumnWidth = nextModelsColumnWidth;
-      renderedTable = renderTableWithModelsWidth(rows, tableLayout, useColor, modelsColumnWidth);
+      renderedTable = renderTableWithModelsWidth(
+        rows,
+        uncoloredBodyRows,
+        tableLayout,
+        useColor,
+        modelsColumnWidth,
+      );
       renderedTableWidth = measureTableWidth(renderedTable);
+    }
+
+    if (renderedTableWidth < terminalWidth) {
+      const maximumWidth = modelsColumnWidth + (terminalWidth - renderedTableWidth);
+      const expandedWidth = resolveExpandedModelsColumnWidth(
+        uncoloredBodyRows,
+        tableLayout,
+        modelsColumnWidth,
+        maximumWidth,
+      );
+
+      if (expandedWidth > modelsColumnWidth) {
+        modelsColumnWidth = expandedWidth;
+        renderedTable = renderTableWithModelsWidth(
+          rows,
+          uncoloredBodyRows,
+          tableLayout,
+          useColor,
+          modelsColumnWidth,
+        );
+        renderedTableWidth = measureTableWidth(renderedTable);
+      }
     }
 
     if (hasExplicitTerminalWidth && renderedTableWidth > terminalWidth) {

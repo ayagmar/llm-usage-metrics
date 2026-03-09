@@ -156,6 +156,7 @@ describe('renderTerminalTable', () => {
       │ Period     │ Source   │ Models                           │ Input │ Output │ Reasoning │ Cache Read │ Cache Write │ Total │  Cost │
       ├────────────┼──────────┼──────────────────────────────────┼───────┼────────┼───────────┼────────────┼─────────────┼───────┼───────┤
       │ 2026-02-10 │ pi       │ • gpt-4.1                        │ 1,234 │    321 │         0 │         30 │           0 │ 1,585 │ $1.25 │
+      ├────────────┼──────────┼──────────────────────────────────┼───────┼────────┼───────────┼────────────┼─────────────┼───────┼───────┤
       │ 2026-02-10 │ combined │ • gpt-4.1                        │ 2,000 │    500 │       120 │        100 │           0 │ 2,720 │ $2.75 │
       │            │          │ • gpt-5-codex                    │       │        │           │            │             │       │       │
       ├────────────┼──────────┼──────────────────────────────────┼───────┼────────┼───────────┼────────────┼─────────────┼───────┼───────┤
@@ -179,6 +180,7 @@ describe('renderTerminalTable', () => {
       │ Period     │ Source   │ Models                           │ Input │ Output │ Reasoning │ Cache Read │ Cache Write │ Total │  Cost │
       ├────────────┼──────────┼──────────────────────────────────┼───────┼────────┼───────────┼────────────┼─────────────┼───────┼───────┤
       │ 2026-02-10 │ pi       │ • gpt-4.1                        │ 1,234 │    321 │         0 │         30 │           0 │ 1,585 │ $1.25 │
+      ├────────────┼──────────┼──────────────────────────────────┼───────┼────────┼───────────┼────────────┼─────────────┼───────┼───────┤
       │ 2026-02-10 │ combined │ • gpt-4.1                        │ 1,234 │    321 │         0 │         30 │           0 │ 1,585 │ $1.25 │
       │            │          │ • gpt-5-codex                    │   766 │    179 │       120 │         70 │           0 │ 1,135 │ $1.50 │
       │            │          │ Σ TOTAL                          │ 2,000 │    500 │       120 │        100 │           0 │ 2,720 │ $2.75 │
@@ -192,7 +194,7 @@ describe('renderTerminalTable', () => {
     expect(rendered).toContain('│   766 │    179 │       120 │         70 │');
   });
 
-  it('keeps compact-layout numeric columns vertically centered on odd model line counts', () => {
+  it('top-aligns period/source while keeping compact numeric columns vertically centered', () => {
     const rendered = renderTerminalTable(
       [
         {
@@ -228,10 +230,10 @@ describe('renderTerminalTable', () => {
     );
 
     expect(rendered).toContain(
-      '│            │        │ • a                              │       │',
+      '│ 2026-01-01 │ pi     │ • a                              │       │',
     );
     expect(rendered).toContain(
-      '│ 2026-01-01 │ pi     │ • b                              │   100 │',
+      '│            │        │ • b                              │   100 │',
     );
     expect(rendered).toContain(
       '│            │        │ • c                              │       │',
@@ -530,7 +532,7 @@ describe('renderTerminalTable', () => {
     expect(rendered).toContain(' x-model ');
   });
 
-  it('does not add extra separators when period_source ids are combined/TOTAL', () => {
+  it('draws separators between same-period source rows, even for combined/TOTAL literals', () => {
     const rendered = renderTerminalTable(
       [
         {
@@ -581,7 +583,75 @@ describe('renderTerminalTable', () => {
 
     const separatorLines = rendered.split('\n').filter((line) => line.startsWith('├'));
 
-    expect(separatorLines).toHaveLength(2);
+    expect(separatorLines).toHaveLength(3);
+  });
+
+  it('draws separators between same-period source detail rows for clearer grouping', () => {
+    const rendered = renderTerminalTable(
+      [
+        {
+          rowType: 'period_source',
+          periodKey: '2026-02-10',
+          source: 'pi',
+          models: ['gpt-4.1'],
+          modelBreakdown: [],
+          inputTokens: 1,
+          outputTokens: 1,
+          reasoningTokens: 0,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+          totalTokens: 2,
+          costUsd: 0.01,
+        },
+        {
+          rowType: 'period_source',
+          periodKey: '2026-02-10',
+          source: 'opencode',
+          models: ['gpt-5.2'],
+          modelBreakdown: [],
+          inputTokens: 2,
+          outputTokens: 2,
+          reasoningTokens: 0,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+          totalTokens: 4,
+          costUsd: 0.02,
+        },
+        {
+          rowType: 'period_combined',
+          periodKey: '2026-02-10',
+          source: 'combined',
+          models: ['gpt-4.1', 'gpt-5.2'],
+          modelBreakdown: [],
+          inputTokens: 3,
+          outputTokens: 3,
+          reasoningTokens: 0,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+          totalTokens: 6,
+          costUsd: 0.03,
+        },
+        {
+          rowType: 'grand_total',
+          periodKey: 'ALL',
+          source: 'combined',
+          models: ['gpt-4.1', 'gpt-5.2'],
+          modelBreakdown: [],
+          inputTokens: 3,
+          outputTokens: 3,
+          reasoningTokens: 0,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+          totalTokens: 6,
+          costUsd: 0.03,
+        },
+      ],
+      { useColor: false },
+    );
+
+    const separatorLines = rendered.split('\n').filter((line) => line.startsWith('├'));
+
+    expect(separatorLines).toHaveLength(4);
   });
 
   it('normalizes row grouping before separator decisions when input rows are out of order', () => {
@@ -646,7 +716,7 @@ describe('renderTerminalTable', () => {
     expect(grandTotalLineIndex).toBeGreaterThan(-1);
     expect(periodSourceLineIndex).toBeLessThan(periodCombinedLineIndex);
     expect(periodCombinedLineIndex).toBeLessThan(grandTotalLineIndex);
-    expect(separatorLines).toHaveLength(2);
+    expect(separatorLines).toHaveLength(3);
   });
 
   it('renders unknown cost values as "-" instead of NaN', () => {
@@ -693,12 +763,9 @@ describe('renderTerminalTable', () => {
     overrideStdoutProperty('columns', 0);
 
     const withInvalidColumns = renderTerminalTable(sampleRows, { useColor: false });
-    const withExplicitWidth = renderTerminalTable(sampleRows, {
-      useColor: false,
-      terminalWidth: 200,
-    });
+    const unconstrained = renderTerminalTable(sampleRows, { useColor: false });
 
-    expect(withInvalidColumns).toBe(withExplicitWidth);
+    expect(withInvalidColumns).toBe(unconstrained);
   });
 
   it('shrinks models column when terminal width is constrained', () => {
@@ -722,6 +789,105 @@ describe('renderTerminalTable', () => {
 
     expect(constrainedWidth).toBeLessThan(unconstrainedWidth);
     expect(constrainedWidth).toBeLessThanOrEqual(118);
+  });
+
+  it('uses spare width to pack compact model lists into fewer lines', () => {
+    const denseRows: UsageReportRow[] = [
+      {
+        rowType: 'period_source',
+        periodKey: '2026-03',
+        source: 'combined',
+        models: [
+          'antigravity-gemini-3-flash',
+          'antigravity-gemini-3-pro',
+          'antigravity-gemini-3-pro-high',
+          'claude-haiku-4.5',
+          'claude-opus-4.5',
+          'claude-opus-4.6',
+          'claude-sonnet-4.5',
+          'claude-sonnet-4.6',
+        ],
+        modelBreakdown: [],
+        inputTokens: 100,
+        outputTokens: 20,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 120,
+        costUsd: 1.23,
+      },
+      {
+        rowType: 'grand_total',
+        periodKey: 'ALL',
+        source: 'combined',
+        models: [
+          'antigravity-gemini-3-flash',
+          'antigravity-gemini-3-pro',
+          'antigravity-gemini-3-pro-high',
+          'claude-haiku-4.5',
+          'claude-opus-4.5',
+          'claude-opus-4.6',
+          'claude-sonnet-4.5',
+          'claude-sonnet-4.6',
+        ],
+        modelBreakdown: [],
+        inputTokens: 100,
+        outputTokens: 20,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 120,
+        costUsd: 1.23,
+      },
+    ];
+
+    const defaultRendered = renderTerminalTable(denseRows, { useColor: false });
+    const expandedRendered = renderTerminalTable(denseRows, {
+      useColor: false,
+      terminalWidth: 180,
+    });
+
+    const defaultWidth = defaultRendered
+      .trimEnd()
+      .split('\n')
+      .reduce((maxWidth, line) => Math.max(maxWidth, visibleWidth(line)), 0);
+    const expandedWidth = expandedRendered
+      .trimEnd()
+      .split('\n')
+      .reduce((maxWidth, line) => Math.max(maxWidth, visibleWidth(line)), 0);
+    const defaultLineCount = defaultRendered.trimEnd().split('\n').length;
+    const expandedLineCount = expandedRendered.trimEnd().split('\n').length;
+
+    expect(expandedWidth).toBeGreaterThanOrEqual(defaultWidth);
+    expect(expandedWidth).toBeLessThan(180);
+    expect(expandedLineCount).toBeLessThan(defaultLineCount);
+    expect(expandedRendered).toMatch(
+      /• antigravity-gemini-3-flash\s{2,}• antigravity-gemini-3-pro/u,
+    );
+  });
+
+  it('expands per-model tables modestly instead of filling the full terminal width', () => {
+    const defaultRendered = renderTerminalTable(sampleRows, {
+      useColor: false,
+      tableLayout: 'per_model_columns',
+    });
+    const expandedRendered = renderTerminalTable(sampleRows, {
+      useColor: false,
+      tableLayout: 'per_model_columns',
+      terminalWidth: 180,
+    });
+
+    const defaultWidth = defaultRendered
+      .trimEnd()
+      .split('\n')
+      .reduce((maxWidth, line) => Math.max(maxWidth, visibleWidth(line)), 0);
+    const expandedWidth = expandedRendered
+      .trimEnd()
+      .split('\n')
+      .reduce((maxWidth, line) => Math.max(maxWidth, visibleWidth(line)), 0);
+
+    expect(expandedWidth).toBeGreaterThan(defaultWidth);
+    expect(expandedWidth).toBeLessThan(180);
   });
 
   it('throws when explicit terminal width override is too narrow to render table', () => {

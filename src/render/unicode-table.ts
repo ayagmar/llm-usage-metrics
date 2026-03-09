@@ -48,7 +48,7 @@ function getVerticalAlignment(
   layout: UnicodeTableLayout,
   multilineColumnIndex: number,
 ): TableVerticalAlignment {
-  if (columnIndex === multilineColumnIndex) {
+  if (columnIndex <= multilineColumnIndex) {
     return 'top';
   }
 
@@ -135,6 +135,9 @@ function shouldDrawBodySeparator(index: number, rowMetas: TableRowMeta[]): boole
   const nextRow = rowMetas[index + 1];
 
   return (
+    (previousRow.rowKind === 'detail' &&
+      (nextRow.rowKind === 'detail' || nextRow.rowKind === 'combined') &&
+      previousRow.periodKey === nextRow.periodKey) ||
     previousRow.rowKind === 'combined' ||
     nextRow.rowKind === 'total' ||
     previousRow.periodKey !== nextRow.periodKey
