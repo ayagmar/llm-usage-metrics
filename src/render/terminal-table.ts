@@ -200,15 +200,18 @@ function resolveExpandedModelsColumnWidth(
 
   for (const row of bodyRows) {
     const modelLines = splitCellLines(row[modelsColumnIndex] ?? '');
-
-    if (modelLines.length < 2) {
-      continue;
-    }
-
     const longestLineWidth = modelLines.reduce(
       (maxLineWidth, line) => Math.max(maxLineWidth, visibleWidth(line)),
       0,
     );
+
+    if (longestLineWidth > currentWidth && longestLineWidth <= maximumWidth) {
+      candidateWidths.add(longestLineWidth);
+    }
+
+    if (modelLines.length < 2) {
+      continue;
+    }
 
     for (let columnCount = 2; columnCount <= modelLines.length; columnCount += 1) {
       const candidateWidth =

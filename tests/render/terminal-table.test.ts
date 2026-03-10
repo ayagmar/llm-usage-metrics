@@ -764,6 +764,7 @@ describe('renderTerminalTable', () => {
     overrideStdoutProperty('columns', 0);
 
     const withInvalidColumns = renderTerminalTable(sampleRows, { useColor: false });
+    overrideStdoutProperty('columns', undefined as unknown as NodeJS.WriteStream['columns']);
     const unconstrained = renderTerminalTable(sampleRows, { useColor: false });
 
     expect(withInvalidColumns).toBe(unconstrained);
@@ -842,7 +843,10 @@ describe('renderTerminalTable', () => {
       },
     ];
 
-    const defaultRendered = renderTerminalTable(denseRows, { useColor: false });
+    const defaultRendered = renderTerminalTable(denseRows, {
+      useColor: false,
+      terminalWidth: 132,
+    });
     const expandedRendered = renderTerminalTable(denseRows, {
       useColor: false,
       terminalWidth: 180,
@@ -864,6 +868,55 @@ describe('renderTerminalTable', () => {
     expect(expandedLineCount).toBeLessThan(defaultLineCount);
     expect(expandedRendered).toMatch(
       /• antigravity-gemini-3-flash\s{2,}• antigravity-gemini-3-pro/u,
+    );
+  });
+
+  it('widens compact tables to avoid wrapping single packed model columns when space allows', () => {
+    const longModelRows: UsageReportRow[] = [
+      {
+        rowType: 'period_source',
+        periodKey: '2026-03',
+        source: 'pi',
+        models: ['primary-model-name-with-extra-suffix', 'secondary-model-name-with-suffix'],
+        modelBreakdown: [],
+        inputTokens: 100,
+        outputTokens: 20,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 120,
+        costUsd: 1.23,
+      },
+      {
+        rowType: 'grand_total',
+        periodKey: 'ALL',
+        source: 'combined',
+        models: ['primary-model-name-with-extra-suffix', 'secondary-model-name-with-suffix'],
+        modelBreakdown: [],
+        inputTokens: 100,
+        outputTokens: 20,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 120,
+        costUsd: 1.23,
+      },
+    ];
+
+    const constrainedRendered = renderTerminalTable(longModelRows, {
+      useColor: false,
+      terminalWidth: 128,
+    });
+    const expandedRendered = renderTerminalTable(longModelRows, {
+      useColor: false,
+      terminalWidth: 138,
+    });
+
+    expect(constrainedRendered).toContain('primary-model-name-with-extra-s');
+    expect(expandedRendered).toContain('• primary-model-name-with-extra-suffix');
+    expect(expandedRendered).toContain('• secondary-model-name-with-suffix');
+    expect(expandedRendered.trimEnd().split('\n').length).toBeLessThan(
+      constrainedRendered.trimEnd().split('\n').length,
     );
   });
 

@@ -32,6 +32,7 @@ const periodColumnIndex = 0;
 const sourceColumnIndex = 1;
 const modelsColumnIndex = 2;
 const totalColumnIndex = 8;
+const packedModelStartPattern = /(^| {2,})(?=• )/gu;
 
 function styleCellLines(cell: string, styler: TextStyler): string {
   return splitCellLines(cell)
@@ -54,8 +55,15 @@ function styleModelsCell(
   const secondaryStyler = options.secondaryStyler ?? passthroughStyler;
   const totalStyler = options.totalStyler ?? ((text) => palette.bold(palette.green(text)));
   const lines = splitCellLines(cell);
-  const nonEmptyLines = lines.filter((line) => line.length > 0);
-  const shouldEmphasizePrimary = emphasizePrimaryWhenSingleLine || nonEmptyLines.length > 1;
+  const modelEntryCount = lines.reduce((count, line) => {
+    if (line === 'Σ TOTAL') {
+      return count;
+    }
+
+    const segmentStarts = [...line.matchAll(packedModelStartPattern)];
+    return count + segmentStarts.length;
+  }, 0);
+  const shouldEmphasizePrimary = emphasizePrimaryWhenSingleLine || modelEntryCount > 1;
   let currentStyler = shouldEmphasizePrimary ? primaryStyler : passthroughStyler;
   let modelLineCount = 0;
 
@@ -70,13 +78,27 @@ function styleModelsCell(
         return totalStyler(line);
       }
 
-      if (line.startsWith('• ')) {
-        currentStyler =
-          modelLineCount === 0 && shouldEmphasizePrimary ? primaryStyler : secondaryStyler;
-        modelLineCount += 1;
+      const segmentStarts = [...line.matchAll(packedModelStartPattern)].map((match) => match.index);
+
+      if (segmentStarts.length === 0) {
+        return currentStyler(line);
       }
 
-      return currentStyler(line);
+      const prefix = segmentStarts[0] > 0 ? currentStyler(line.slice(0, segmentStarts[0])) : '';
+
+      return (
+        prefix +
+        segmentStarts
+          .map((segmentStart, segmentIndex) => {
+            currentStyler =
+              modelLineCount === 0 && shouldEmphasizePrimary ? primaryStyler : secondaryStyler;
+            modelLineCount += 1;
+
+            const segmentEnd = segmentStarts[segmentIndex + 1] ?? line.length;
+            return currentStyler(line.slice(segmentStart, segmentEnd));
+          })
+          .join('')
+      );
     })
     .join('\n');
 }

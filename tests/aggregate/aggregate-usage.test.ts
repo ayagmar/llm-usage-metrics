@@ -364,6 +364,68 @@ describe('aggregateUsage', () => {
     expect(periodSourceRows.map((row) => row.source)).toEqual(['z-source', 'ä-source']);
   });
 
+  it('sorts model breakdown ties by cost, then input tokens, then code-point order', () => {
+    const rows = aggregateUsage(
+      [
+        createUsageEvent({
+          source: 'pi',
+          sessionId: 'b-model',
+          timestamp: '2026-02-10T10:00:00Z',
+          model: 'b-model',
+          inputTokens: 2,
+          outputTokens: 8,
+          totalTokens: 10,
+          costUsd: 2,
+          costMode: 'explicit',
+        }),
+        createUsageEvent({
+          source: 'pi',
+          sessionId: 'a-model',
+          timestamp: '2026-02-10T10:05:00Z',
+          model: 'a-model',
+          inputTokens: 1,
+          outputTokens: 9,
+          totalTokens: 10,
+          costUsd: 2,
+          costMode: 'explicit',
+        }),
+        createUsageEvent({
+          source: 'pi',
+          sessionId: 'z-model',
+          timestamp: '2026-02-10T10:10:00Z',
+          model: 'z-model',
+          inputTokens: 1,
+          outputTokens: 9,
+          totalTokens: 10,
+          costUsd: 1,
+          costMode: 'explicit',
+        }),
+        createUsageEvent({
+          source: 'pi',
+          sessionId: 'umlaut-model',
+          timestamp: '2026-02-10T10:15:00Z',
+          model: 'ä-model',
+          inputTokens: 1,
+          outputTokens: 9,
+          totalTokens: 10,
+          costUsd: 1,
+          costMode: 'explicit',
+        }),
+      ],
+      { granularity: 'daily', timezone: 'UTC' },
+    );
+
+    const periodSourceRow = rows.find((row) => row.rowType === 'period_source');
+
+    expect(periodSourceRow?.models).toEqual(['b-model', 'a-model', 'z-model', 'ä-model']);
+    expect(periodSourceRow?.modelBreakdown.map((modelUsage) => modelUsage.model)).toEqual([
+      'b-model',
+      'a-model',
+      'z-model',
+      'ä-model',
+    ]);
+  });
+
   it('keeps grand-total cost at zero when there are no events', () => {
     const rows = aggregateUsage([], { granularity: 'daily', timezone: 'UTC' });
 

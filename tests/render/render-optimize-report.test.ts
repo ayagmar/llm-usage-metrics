@@ -233,6 +233,28 @@ describe('renderOptimizeReport', () => {
     expect(renderedWidths).toHaveLength(1);
   });
 
+  it('top-aligns period cells with multiline candidate rows in compact terminal output', () => {
+    const data = createOptimizeDataResult();
+    data.rows = data.rows.map((row) =>
+      row.rowType === 'candidate'
+        ? {
+            ...row,
+            candidateModel: 'gpt-4.1\ngpt-4.1-mini',
+          }
+        : row,
+    );
+
+    const output = renderOptimizeReport(data, 'terminal', {
+      granularity: 'daily',
+      useColor: false,
+    });
+
+    expect(output).toContain('│ 2026-02-10 │ gpt-4.1');
+    expect(output).toContain('│            │ gpt-4.1-mini');
+    expect(output).toContain('│ ALL        │ gpt-4.1');
+    expect(output).toContain('│            │ gpt-4.1-mini');
+  });
+
   it('renders markdown output with candidate column', () => {
     const output = renderOptimizeReport(createOptimizeDataResult(), 'markdown', {
       granularity: 'daily',

@@ -101,6 +101,16 @@ describe('terminal-style-policy', () => {
     );
   });
 
+  it('styles packed compact model entries independently on the same physical line', () => {
+    const styled = applyRowTypeStyle(
+      'period_source',
+      ['period', 'pi', '• primary-model  • secondary-model', '1', '2', '3', '4', '5', '6', '$7'],
+      testPalette,
+    );
+
+    expect(styled[2]).toBe('<bold>• primary-model</bold><dim>  • secondary-model</dim>');
+  });
+
   it('returns plain body rows when color is disabled', () => {
     const bodyRows = [['period', 'pi', 'model', '$1']];
     const rows: UsageReportRow[] = [
