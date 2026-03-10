@@ -23,6 +23,8 @@ describe('terminal-style-policy', () => {
   it('resolves source stylers for known sources and fallback', () => {
     expect(resolveSourceStyler('pi', testPalette)('pi')).toBe('<cyan>pi</cyan>');
     expect(resolveSourceStyler('codex', testPalette)('codex')).toBe('<magenta>codex</magenta>');
+    expect(resolveSourceStyler('gemini', testPalette)('gemini')).toBe('<yellow>gemini</yellow>');
+    expect(resolveSourceStyler('droid', testPalette)('droid')).toBe('<green>droid</green>');
     expect(resolveSourceStyler('opencode', testPalette)('opencode')).toBe('<blue>opencode</blue>');
     expect(resolveSourceStyler('combined', testPalette)('combined')).toBe('combined');
     expect(resolveSourceStyler('TOTAL', testPalette)('TOTAL')).toBe('TOTAL');
@@ -45,8 +47,8 @@ describe('terminal-style-policy', () => {
       '3',
       '4',
       '5',
-      '6',
-      '<yellow>$7</yellow>',
+      '<green>6</green>',
+      '<bold><yellow>$7</yellow></bold>',
     ]);
   });
 
@@ -58,10 +60,10 @@ describe('terminal-style-policy', () => {
     );
 
     expect(styled).toEqual([
-      '<dim>period</dim>',
+      '<white>period</white>',
       '<bold><yellow>combined</yellow></bold>',
-      '<dim>model</dim>',
-      '<dim>1</dim>',
+      'model',
+      '<bold><yellow>1</yellow></bold>',
     ]);
   });
 
@@ -71,9 +73,32 @@ describe('terminal-style-policy', () => {
     expect(styled).toEqual([
       '<bold><white>ALL</white></bold>',
       '<bold><green>TOTAL</green></bold>',
-      '<bold>model</bold>',
-      '<bold>1</bold>',
+      '<bold><white>model</white></bold>',
+      '<bold><yellow>1</yellow></bold>',
     ]);
+  });
+
+  it('keeps wrapped model continuation lines styled with their owning model entry', () => {
+    const styled = applyRowTypeStyle(
+      'period_source',
+      [
+        'period',
+        'pi',
+        '• primary-model-part-1\nprimary-model-part-2\n• secondary-model-part-1\nsecondary-model-part-2',
+        '1',
+        '2',
+        '3',
+        '4',
+        '5',
+        '6',
+        '$7',
+      ],
+      testPalette,
+    );
+
+    expect(styled[2]).toBe(
+      '<bold>• primary-model-part-1</bold>\n<bold>primary-model-part-2</bold>\n<dim>• secondary-model-part-1</dim>\n<dim>secondary-model-part-2</dim>',
+    );
   });
 
   it('returns plain body rows when color is disabled', () => {
@@ -142,8 +167,29 @@ describe('terminal-style-policy', () => {
     ];
 
     expect(colorizeUsageBodyRows(bodyRows, rows, { useColor: true, palette: testPalette })).toEqual(
-      [['<yellow>$1</yellow>']],
+      [['<bold><yellow>$1</yellow></bold>']],
     );
+  });
+
+  it('handles missing body rows without throwing', () => {
+    const rows: UsageReportRow[] = [
+      {
+        rowType: 'period_source',
+        periodKey: 'period',
+        source: 'pi',
+        models: ['model'],
+        modelBreakdown: [],
+        inputTokens: 1,
+        outputTokens: 1,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 2,
+        costUsd: 1,
+      },
+    ];
+
+    expect(colorizeUsageBodyRows([], rows, { useColor: true, palette: testPalette })).toEqual([[]]);
   });
 
   it('keeps unknown source labels unchanged while still applying row-type policy', () => {
@@ -185,7 +231,7 @@ describe('terminal-style-policy', () => {
       '<white>period</white>',
       'other',
       'model',
-      '<yellow>$1</yellow>',
+      '<bold><yellow>$1</yellow></bold>',
     ]);
   });
 

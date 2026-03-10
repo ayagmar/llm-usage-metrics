@@ -1,6 +1,7 @@
 import pc from 'picocolors';
 
 import type { UsageReportRow } from '../domain/usage-report-row.js';
+import { splitCellLines } from './table-text-layout.js';
 
 export type TextStyler = (text: string) => string;
 
@@ -27,12 +28,67 @@ export const defaultTerminalStylePalette: TerminalStylePalette = {
 };
 
 const passthroughStyler: TextStyler = (text) => text;
+const periodColumnIndex = 0;
+const sourceColumnIndex = 1;
+const modelsColumnIndex = 2;
+const totalColumnIndex = 8;
 
 function styleCellLines(cell: string, styler: TextStyler): string {
-  return cell
-    .split('\n')
+  return splitCellLines(cell)
     .map((line) => (line.length === 0 ? '' : styler(line)))
     .join('\n');
+}
+
+function styleModelsCell(
+  cell: string,
+  palette: TerminalStylePalette,
+  options: {
+    emphasizePrimaryWhenSingleLine?: boolean;
+    primaryStyler?: TextStyler;
+    secondaryStyler?: TextStyler;
+    totalStyler?: TextStyler;
+  } = {},
+): string {
+  const emphasizePrimaryWhenSingleLine = options.emphasizePrimaryWhenSingleLine ?? false;
+  const primaryStyler = options.primaryStyler ?? palette.bold;
+  const secondaryStyler = options.secondaryStyler ?? passthroughStyler;
+  const totalStyler = options.totalStyler ?? ((text) => palette.bold(palette.green(text)));
+  const lines = splitCellLines(cell);
+  const nonEmptyLines = lines.filter((line) => line.length > 0);
+  const shouldEmphasizePrimary = emphasizePrimaryWhenSingleLine || nonEmptyLines.length > 1;
+  let currentStyler = shouldEmphasizePrimary ? primaryStyler : passthroughStyler;
+  let modelLineCount = 0;
+
+  return lines
+    .map((line) => {
+      if (line.length === 0) {
+        return '';
+      }
+
+      if (line === 'Σ TOTAL') {
+        currentStyler = totalStyler;
+        return totalStyler(line);
+      }
+
+      if (line.startsWith('• ')) {
+        currentStyler =
+          modelLineCount === 0 && shouldEmphasizePrimary ? primaryStyler : secondaryStyler;
+        modelLineCount += 1;
+      }
+
+      return currentStyler(line);
+    })
+    .join('\n');
+}
+
+function styleCellAtIndex(cells: string[], index: number, styler: TextStyler): string[] {
+  if (index < 0 || index >= cells.length) {
+    return cells;
+  }
+
+  const styledCells = [...cells];
+  styledCells[index] = styleCellLines(styledCells[index], styler);
+  return styledCells;
 }
 
 type SourceStylePolicy = (palette: TerminalStylePalette) => TextStyler;
@@ -40,6 +96,8 @@ type SourceStylePolicy = (palette: TerminalStylePalette) => TextStyler;
 const sourceStylePolicies = new Map<string, SourceStylePolicy>([
   ['pi', (palette) => palette.cyan],
   ['codex', (palette) => palette.magenta],
+  ['gemini', (palette) => palette.yellow],
+  ['droid', (palette) => palette.green],
   ['opencode', (palette) => palette.blue],
 ]);
 
@@ -58,35 +116,104 @@ export function resolveSourceStyler(
 
 type RowTypeStylePolicy = (cells: string[], palette: TerminalStylePalette) => string[];
 
+function getTrailingColumnIndex(cells: string[]): number | undefined {
+  return cells.length === 0 ? undefined : cells.length - 1;
+}
+
 const rowTypeStylePolicies: Record<UsageReportRow['rowType'], RowTypeStylePolicy> = {
   period_source: (cells, palette) => {
-    const styledCells = [...cells];
-    const costColumnIndex = styledCells.length - 1;
+    let styledCells = [...cells];
+    const trailingColumnIndex = getTrailingColumnIndex(styledCells);
 
-    styledCells[costColumnIndex] = styleCellLines(styledCells[costColumnIndex], palette.yellow);
+    if (modelsColumnIndex < styledCells.length) {
+      styledCells[modelsColumnIndex] = styleModelsCell(styledCells[modelsColumnIndex], palette, {
+        secondaryStyler: palette.dim,
+      });
+    }
+
+    styledCells = styleCellAtIndex(styledCells, totalColumnIndex, palette.green);
+
+    if (trailingColumnIndex !== undefined) {
+      styledCells = styleCellAtIndex(styledCells, trailingColumnIndex, (line) =>
+        palette.bold(palette.yellow(line)),
+      );
+    }
 
     return styledCells;
   },
-  period_combined: (cells, palette) =>
-    cells.map((cell, cellIndex) => {
-      if (cellIndex === 1) {
-        return styleCellLines(cell, (line) => palette.bold(palette.yellow(line)));
-      }
+  period_combined: (cells, palette) => {
+    let styledCells = [...cells];
+    const trailingColumnIndex = getTrailingColumnIndex(styledCells);
 
-      return styleCellLines(cell, palette.dim);
-    }),
-  grand_total: (cells, palette) =>
-    cells.map((cell, cellIndex) => {
-      if (cellIndex === 0) {
-        return styleCellLines(cell, (line) => palette.bold(palette.white(line)));
-      }
+    styledCells = styleCellAtIndex(styledCells, periodColumnIndex, palette.white);
+    styledCells = styleCellAtIndex(styledCells, sourceColumnIndex, (line) =>
+      palette.bold(palette.yellow(line)),
+    );
 
-      if (cellIndex === 1) {
-        return styleCellLines(cell, (line) => palette.bold(palette.green(line)));
+    if (modelsColumnIndex < styledCells.length) {
+      styledCells[modelsColumnIndex] = styleModelsCell(styledCells[modelsColumnIndex], palette, {
+        secondaryStyler: palette.dim,
+      });
+    }
+
+    styledCells = styleCellAtIndex(styledCells, totalColumnIndex, (line) =>
+      palette.bold(palette.green(line)),
+    );
+
+    if (trailingColumnIndex !== undefined) {
+      styledCells = styleCellAtIndex(styledCells, trailingColumnIndex, (line) =>
+        palette.bold(palette.yellow(line)),
+      );
+    }
+
+    return styledCells;
+  },
+  grand_total: (cells, palette) => {
+    const styledCells = cells.map((cell, cellIndex) => {
+      if (cellIndex === modelsColumnIndex) {
+        return cell;
       }
 
       return styleCellLines(cell, palette.bold);
-    }),
+    });
+
+    if (periodColumnIndex < styledCells.length) {
+      styledCells[periodColumnIndex] = styleCellLines(cells[periodColumnIndex], (line) =>
+        palette.bold(palette.white(line)),
+      );
+    }
+
+    if (sourceColumnIndex < styledCells.length) {
+      styledCells[sourceColumnIndex] = styleCellLines(cells[sourceColumnIndex], (line) =>
+        palette.bold(palette.green(line)),
+      );
+    }
+
+    if (modelsColumnIndex < styledCells.length) {
+      styledCells[modelsColumnIndex] = styleModelsCell(styledCells[modelsColumnIndex], palette, {
+        emphasizePrimaryWhenSingleLine: true,
+        primaryStyler: (line) => palette.bold(palette.white(line)),
+        secondaryStyler: palette.dim,
+        totalStyler: (line) => palette.bold(palette.green(line)),
+      });
+    }
+
+    if (totalColumnIndex < styledCells.length) {
+      styledCells[totalColumnIndex] = styleCellLines(cells[totalColumnIndex], (line) =>
+        palette.bold(palette.green(line)),
+      );
+    }
+
+    const trailingColumnIndex = getTrailingColumnIndex(styledCells);
+
+    if (trailingColumnIndex !== undefined) {
+      styledCells[trailingColumnIndex] = styleCellLines(cells[trailingColumnIndex], (line) =>
+        palette.bold(palette.yellow(line)),
+      );
+    }
+
+    return styledCells;
+  },
 };
 
 export function applyRowTypeStyle(
@@ -129,11 +256,15 @@ export function colorizeUsageBodyRows(
   const palette = options.palette ?? defaultTerminalStylePalette;
 
   return rows.map((row, index) => {
+    const bodyRow = bodyRows[index] ?? [];
     const sourceStyler =
       row.rowType === 'period_source'
         ? resolveSourceStyler(String(row.source), palette)
         : passthroughStyler;
-    const baseStyledCells = applyBaseCellStyle(bodyRows[index], palette, sourceStyler);
+    const baseStyledCells =
+      row.rowType === 'period_source'
+        ? applyBaseCellStyle(bodyRow, palette, sourceStyler)
+        : [...bodyRow];
 
     return applyRowTypeStyle(row.rowType, baseStyledCells, palette);
   });

@@ -104,7 +104,7 @@ describe('buildUsageReport', () => {
     expect(report).toMatch(/\|\s+\d{4}-\d{2}-\d{2}\s+\|\s+pi\s+\|/u);
     expect(report).toMatch(/\|\s+\d{4}-\d{2}-\d{2}\s+\|\s+codex\s+\|/u);
     expect(report).not.toMatch(/\|\s+\d{4}-\d{2}-\d{2}\s+\|\s+combined\s+\|/u);
-    expect(report).toMatch(/\|\s+ALL\s+\|\s+TOTAL\s+\|/u);
+    expect(report).toMatch(/\|\s+\*\*ALL\*\*\s+\|\s+\*\*TOTAL\*\*\s+\|/u);
     expect(report).not.toContain('Σ TOTAL');
   });
 

@@ -367,63 +367,64 @@ describe('renderTerminalTable', () => {
   });
 
   it('normalizes CRLF content so terminal output does not contain carriage returns', () => {
-    const rendered = renderTerminalTable(
-      [
-        {
-          rowType: 'period_source',
-          periodKey: '2026-01-01',
-          source: 'pi',
-          models: ['model-a'],
-          modelBreakdown: [
-            {
-              model: 'gpt-4.1\r\ngpt-4.1-mini',
-              inputTokens: 10,
-              outputTokens: 5,
-              reasoningTokens: 0,
-              cacheReadTokens: 0,
-              cacheWriteTokens: 0,
-              totalTokens: 15,
-              costUsd: 0.02,
-            },
-          ],
-          inputTokens: 10,
-          outputTokens: 5,
-          reasoningTokens: 0,
-          cacheReadTokens: 0,
-          cacheWriteTokens: 0,
-          totalTokens: 15,
-          costUsd: 0.02,
-        },
-        {
-          rowType: 'grand_total',
-          periodKey: 'ALL',
-          source: 'combined',
-          models: ['model-a'],
-          modelBreakdown: [
-            {
-              model: 'gpt-4.1\r\ngpt-4.1-mini',
-              inputTokens: 10,
-              outputTokens: 5,
-              reasoningTokens: 0,
-              cacheReadTokens: 0,
-              cacheWriteTokens: 0,
-              totalTokens: 15,
-              costUsd: 0.02,
-            },
-          ],
-          inputTokens: 10,
-          outputTokens: 5,
-          reasoningTokens: 0,
-          cacheReadTokens: 0,
-          cacheWriteTokens: 0,
-          totalTokens: 15,
-          costUsd: 0.02,
-        },
-      ],
-      { useColor: false },
-    );
+    const rows: UsageReportRow[] = [
+      {
+        rowType: 'period_source',
+        periodKey: '2026-01-01',
+        source: 'pi',
+        models: ['model-a'],
+        modelBreakdown: [
+          {
+            model: 'gpt-4.1\r\ngpt-4.1-mini',
+            inputTokens: 10,
+            outputTokens: 5,
+            reasoningTokens: 0,
+            cacheReadTokens: 0,
+            cacheWriteTokens: 0,
+            totalTokens: 15,
+            costUsd: 0.02,
+          },
+        ],
+        inputTokens: 10,
+        outputTokens: 5,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 15,
+        costUsd: 0.02,
+      },
+      {
+        rowType: 'grand_total',
+        periodKey: 'ALL',
+        source: 'combined',
+        models: ['model-a'],
+        modelBreakdown: [
+          {
+            model: 'gpt-4.1\r\ngpt-4.1-mini',
+            inputTokens: 10,
+            outputTokens: 5,
+            reasoningTokens: 0,
+            cacheReadTokens: 0,
+            cacheWriteTokens: 0,
+            totalTokens: 15,
+            costUsd: 0.02,
+          },
+        ],
+        inputTokens: 10,
+        outputTokens: 5,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 15,
+        costUsd: 0.02,
+      },
+    ];
 
-    expect(rendered).not.toContain('\r');
+    const uncolored = renderTerminalTable(rows, { useColor: false });
+    const colored = renderTerminalTable(rows, { useColor: true });
+
+    expect(uncolored).not.toContain('\r');
+    expect(colored).not.toContain('\r');
   });
 
   it('keeps structural separators stable when color is enabled', () => {

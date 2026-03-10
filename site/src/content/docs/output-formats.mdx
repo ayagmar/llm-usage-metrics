@@ -12,7 +12,8 @@ llm-usage daily
 Terminal output includes:
 
 - boxed report header
-- source-aware row styling
+- semantic header colors and source-aware row styling
+- summary-row emphasis for combined and grand totals
 - diagnostics on `stderr`
 - data table on `stdout`
 
@@ -31,6 +32,8 @@ llm-usage daily --markdown
 ```
 
 Use for docs, changelogs, and issue/PR reporting.
+
+Usage report tables rank per-period models by total tokens so the dominant models appear first in both terminal and Markdown output.
 
 ## Share SVG
 
@@ -127,6 +130,8 @@ Detailed multiline metrics per model:
 llm-usage monthly --per-model-columns
 llm-usage monthly --markdown --per-model-columns
 ```
+
+When model breakdowns are present, rows are ordered by descending total tokens before the final `Σ TOTAL` line.
 
 ## stdout/stderr behavior
 

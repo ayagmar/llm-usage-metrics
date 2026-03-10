@@ -98,6 +98,8 @@ llm-usage monthly --per-model-columns
 llm-usage monthly --share
 ```
 
+Usage tables rank per-period model breakdowns by total tokens so the dominant models appear first in terminal and Markdown output.
+
 ### Trends
 
 ```bash

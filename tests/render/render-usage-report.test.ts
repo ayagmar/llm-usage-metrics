@@ -146,7 +146,7 @@ describe('renderUsageReport', () => {
     const rendered = renderUsageReport(sampleUsageData, 'markdown', { granularity: 'daily' });
 
     expect(rendered).toContain('| Period');
-    expect(rendered).toContain('• gpt-4.1<br>• gpt-5-codex');
+    expect(rendered).toContain('**• gpt-4.1**<br>• gpt-5-codex');
     expect(rendered).not.toContain('tok, $');
     expect(rendered).not.toContain('Σ TOTAL');
   });
@@ -157,9 +157,9 @@ describe('renderUsageReport', () => {
       tableLayout: 'per_model_columns',
     });
 
-    expect(rendered).toContain('• gpt-4.1<br>• gpt-5-codex<br>Σ TOTAL');
+    expect(rendered).toContain('**• gpt-4.1**<br>• gpt-5-codex<br>**Σ TOTAL**');
     expect(rendered).toContain('1,234<br>766<br>2,000');
-    expect(rendered).toContain('$1.25<br>$1.50<br>$2.75');
+    expect(rendered).toContain('$1.25<br>$1.50<br>**$2.75**');
   });
 
   it('renders JSON output as pretty-printed row payload only', () => {

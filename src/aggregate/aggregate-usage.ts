@@ -7,7 +7,6 @@ import type {
   UsageReportRow,
   UsageTotals,
 } from '../domain/usage-report-row.js';
-import { normalizeModelList } from '../domain/normalization.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { getPeriodKey, type ReportGranularity } from '../utils/time-buckets.js';
 
@@ -21,6 +20,11 @@ export type AggregateUsageOptions = {
 type RowAccumulator = {
   totals: UsageTotals;
   modelTotals?: Map<string, UsageTotals>;
+};
+
+type RankedModelUsage = {
+  models: string[];
+  modelBreakdown: ModelUsageBreakdown[];
 };
 
 const USD_PRECISION_SCALE = 1_000_000_000_000;
@@ -126,19 +130,37 @@ function mergeModelTotals(
   }
 }
 
-function toModelUsageBreakdown(
-  modelTotals: ReadonlyMap<string, UsageTotals>,
-): ModelUsageBreakdown[] {
-  const sortedModels = normalizeModelList(modelTotals.keys());
+function compareModelUsageBreakdown(left: ModelUsageBreakdown, right: ModelUsageBreakdown): number {
+  if (left.totalTokens !== right.totalTokens) {
+    return right.totalTokens - left.totalTokens;
+  }
 
-  return sortedModels.map((model) => {
-    const totals = modelTotals.get(model) ?? createEmptyTotals();
+  const leftCost = left.costUsd ?? Number.NEGATIVE_INFINITY;
+  const rightCost = right.costUsd ?? Number.NEGATIVE_INFINITY;
 
-    return {
+  if (leftCost !== rightCost) {
+    return rightCost - leftCost;
+  }
+
+  if (left.inputTokens !== right.inputTokens) {
+    return right.inputTokens - left.inputTokens;
+  }
+
+  return compareByCodePoint(left.model, right.model);
+}
+
+function toRankedModelUsage(modelTotals: ReadonlyMap<string, UsageTotals>): RankedModelUsage {
+  const modelBreakdown = [...modelTotals.entries()]
+    .map(([model, totals]) => ({
       model,
       ...totals,
-    };
-  });
+    }))
+    .sort(compareModelUsageBreakdown);
+
+  return {
+    models: modelBreakdown.map((modelUsage) => modelUsage.model),
+    modelBreakdown,
+  };
 }
 
 function sourceSortComparator(
@@ -207,18 +229,17 @@ export function aggregateUsage(
         continue;
       }
 
+      const rankedModelUsage =
+        includeModelBreakdown && accumulator.modelTotals
+          ? toRankedModelUsage(accumulator.modelTotals)
+          : { models: [], modelBreakdown: [] };
+
       const sourceRow: PeriodSourceRow = {
         rowType: 'period_source',
         periodKey,
         source,
-        models:
-          includeModelBreakdown && accumulator.modelTotals
-            ? normalizeModelList(accumulator.modelTotals.keys())
-            : [],
-        modelBreakdown:
-          includeModelBreakdown && accumulator.modelTotals
-            ? toModelUsageBreakdown(accumulator.modelTotals)
-            : [],
+        models: rankedModelUsage.models,
+        modelBreakdown: rankedModelUsage.modelBreakdown,
         ...accumulator.totals,
       };
 
@@ -233,14 +254,15 @@ export function aggregateUsage(
     }
 
     if (sortedSources.length > 1) {
+      const rankedCombinedModels = includeModelBreakdown
+        ? toRankedModelUsage(periodCombinedModelTotals)
+        : { models: [], modelBreakdown: [] };
       const combinedRow: PeriodCombinedRow = {
         rowType: 'period_combined',
         periodKey,
         source: 'combined',
-        models: includeModelBreakdown ? normalizeModelList(periodCombinedModelTotals.keys()) : [],
-        modelBreakdown: includeModelBreakdown
-          ? toModelUsageBreakdown(periodCombinedModelTotals)
-          : [],
+        models: rankedCombinedModels.models,
+        modelBreakdown: rankedCombinedModels.modelBreakdown,
         ...periodCombinedTotals,
       };
 
@@ -253,12 +275,15 @@ export function aggregateUsage(
       ? { ...grandTotals, costUsd: 0 }
       : grandTotals;
 
+  const rankedGrandModels = includeModelBreakdown
+    ? toRankedModelUsage(grandModelTotals)
+    : { models: [], modelBreakdown: [] };
   const grandTotalRow: GrandTotalRow = {
     rowType: 'grand_total',
     periodKey: 'ALL',
     source: 'combined',
-    models: includeModelBreakdown ? normalizeModelList(grandModelTotals.keys()) : [],
-    modelBreakdown: includeModelBreakdown ? toModelUsageBreakdown(grandModelTotals) : [],
+    models: rankedGrandModels.models,
+    modelBreakdown: rankedGrandModels.modelBreakdown,
     ...finalizedGrandTotals,
   };
 

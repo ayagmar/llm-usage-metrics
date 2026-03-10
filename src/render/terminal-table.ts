@@ -42,7 +42,28 @@ function colorizeHeader(useColor: boolean): string[] {
     return headerCells;
   }
 
-  return headerCells.map((header) => pc.bold(pc.white(header)));
+  return headerCells.map((header, index) => {
+    switch (index) {
+      case 1:
+        return pc.bold(pc.cyan(header));
+      case 2:
+        return pc.bold(pc.magenta(header));
+      case 3:
+      case 6:
+        return pc.bold(pc.blue(header));
+      case 4:
+      case 7:
+        return pc.bold(pc.cyan(header));
+      case 5:
+        return pc.bold(pc.magenta(header));
+      case 8:
+        return pc.bold(pc.green(header));
+      case 9:
+        return pc.bold(pc.yellow(header));
+      default:
+        return pc.bold(pc.white(header));
+    }
+  });
 }
 
 function isValidTerminalWidth(width: unknown): width is number {

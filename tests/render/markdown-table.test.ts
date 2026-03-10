@@ -106,11 +106,11 @@ describe('renderMarkdownTable', () => {
     const rendered = renderMarkdownTable(sampleRows);
 
     expect(rendered).toMatchInlineSnapshot(`
-      "| Period     | Source   | Models                     | Input | Output | Reasoning | Cache Read | Cache Write | Total |  Cost |
-      | :--------- | :------- | :------------------------- | ----: | -----: | --------: | ---------: | ----------: | ----: | ----: |
-      | 2026-02-10 | pi       | • gpt-4.1                  | 1,234 |    321 |         0 |         30 |           0 | 1,585 | $1.25 |
-      | 2026-02-10 | combined | • gpt-4.1<br>• gpt-5-codex | 2,000 |    500 |       120 |        100 |           0 | 2,720 | $2.75 |
-      | ALL        | TOTAL    | • gpt-4.1<br>• gpt-5-codex | 2,000 |    500 |       120 |        100 |           0 | 2,720 | $2.75 |"
+      "| Period     | Source       | Models                         | Input | Output | Reasoning | Cache Read | Cache Write |     Total |      Cost |
+      | :--------- | :----------- | :----------------------------- | ----: | -----: | --------: | ---------: | ----------: | --------: | --------: |
+      | 2026-02-10 | pi           | • gpt-4.1                      | 1,234 |    321 |         0 |         30 |           0 |     1,585 |     $1.25 |
+      | 2026-02-10 | **combined** | **• gpt-4.1**<br>• gpt-5-codex | 2,000 |    500 |       120 |        100 |           0 | **2,720** | **$2.75** |
+      | **ALL**    | **TOTAL**    | **• gpt-4.1**<br>• gpt-5-codex | 2,000 |    500 |       120 |        100 |           0 | **2,720** | **$2.75** |"
     `);
     expect(rendered).toContain('<br>');
     expect(rendered).not.toContain('tok, $');
@@ -120,15 +120,15 @@ describe('renderMarkdownTable', () => {
     const rendered = renderMarkdownTable(sampleRows, { tableLayout: 'per_model_columns' });
 
     expect(rendered).toMatchInlineSnapshot(`
-      "| Period     | Source   | Models                                |                 Input |            Output |       Reasoning |      Cache Read | Cache Write |                   Total |                    Cost |
-      | :--------- | :------- | :------------------------------------ | --------------------: | ----------------: | --------------: | --------------: | ----------: | ----------------------: | ----------------------: |
-      | 2026-02-10 | pi       | • gpt-4.1                             |                 1,234 |               321 |               0 |              30 |           0 |                   1,585 |                   $1.25 |
-      | 2026-02-10 | combined | • gpt-4.1<br>• gpt-5-codex<br>Σ TOTAL | 1,234<br>766<br>2,000 | 321<br>179<br>500 | 0<br>120<br>120 | 30<br>70<br>100 | 0<br>0<br>0 | 1,585<br>1,135<br>2,720 | $1.25<br>$1.50<br>$2.75 |
-      | ALL        | TOTAL    | • gpt-4.1<br>• gpt-5-codex<br>Σ TOTAL | 1,234<br>766<br>2,000 | 321<br>179<br>500 | 0<br>120<br>120 | 30<br>70<br>100 | 0<br>0<br>0 | 1,585<br>1,135<br>2,720 | $1.25<br>$1.50<br>$2.75 |"
+      "| Period     | Source       | Models                                        |                 Input |            Output |       Reasoning |      Cache Read | Cache Write |                       Total |                        Cost |
+      | :--------- | :----------- | :-------------------------------------------- | --------------------: | ----------------: | --------------: | --------------: | ----------: | --------------------------: | --------------------------: |
+      | 2026-02-10 | pi           | • gpt-4.1                                     |                 1,234 |               321 |               0 |              30 |           0 |                       1,585 |                       $1.25 |
+      | 2026-02-10 | **combined** | **• gpt-4.1**<br>• gpt-5-codex<br>**Σ TOTAL** | 1,234<br>766<br>2,000 | 321<br>179<br>500 | 0<br>120<br>120 | 30<br>70<br>100 | 0<br>0<br>0 | 1,585<br>1,135<br>**2,720** | $1.25<br>$1.50<br>**$2.75** |
+      | **ALL**    | **TOTAL**    | **• gpt-4.1**<br>• gpt-5-codex<br>**Σ TOTAL** | 1,234<br>766<br>2,000 | 321<br>179<br>500 | 0<br>120<br>120 | 30<br>70<br>100 | 0<br>0<br>0 | 1,585<br>1,135<br>**2,720** | $1.25<br>$1.50<br>**$2.75** |"
     `);
-    expect(rendered).toContain('Σ TOTAL');
+    expect(rendered).toContain('**Σ TOTAL**');
     expect(rendered).toContain('1,234<br>766<br>2,000');
-    expect(rendered).toContain('$1.25<br>$1.50<br>$2.75');
+    expect(rendered).toContain('$1.25<br>$1.50<br>**$2.75**');
   });
 
   it('normalizes CRLF newlines in cell values', () => {
@@ -223,7 +223,72 @@ describe('renderMarkdownTable', () => {
 
     expect(rendered).toContain('2026-02-10');
     expect(rendered).toContain('• gpt-4.1');
-    expect(rendered).toContain('|    - |');
+    expect(rendered).toMatch(/\|\s+-\s+\|/u);
     expect(rendered).not.toContain('NaN');
+  });
+
+  it('escapes pipe characters in markdown cell content', () => {
+    const rendered = renderMarkdownTable([
+      {
+        rowType: 'period_source',
+        periodKey: '2026-02-10',
+        source: 'pi',
+        models: ['gpt|4.1'],
+        modelBreakdown: [
+          {
+            model: 'gpt|4.1',
+            inputTokens: 10,
+            outputTokens: 5,
+            reasoningTokens: 0,
+            cacheReadTokens: 0,
+            cacheWriteTokens: 0,
+            totalTokens: 15,
+            costUsd: 0.02,
+          },
+        ],
+        inputTokens: 10,
+        outputTokens: 5,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 15,
+        costUsd: 0.02,
+      },
+    ]);
+
+    expect(rendered).toContain('gpt\\|4.1');
+  });
+
+  it('escapes HTML-like cell content instead of rendering it as raw markup', () => {
+    const rendered = renderMarkdownTable([
+      {
+        rowType: 'period_source',
+        periodKey: '2026-02-10',
+        source: 'pi',
+        models: ['<gpt>&4.1'],
+        modelBreakdown: [
+          {
+            model: '<gpt>&4.1',
+            inputTokens: 10,
+            outputTokens: 5,
+            reasoningTokens: 0,
+            cacheReadTokens: 0,
+            cacheWriteTokens: 0,
+            totalTokens: 15,
+            costUsd: 0.02,
+          },
+        ],
+        inputTokens: 10,
+        outputTokens: 5,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 15,
+        costUsd: 0.02,
+      },
+    ]);
+
+    expect(rendered).toContain('&lt;gpt&gt;&amp;4.1');
+    expect(rendered).not.toContain('<gpt>&4.1');
   });
 });

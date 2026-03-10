@@ -78,17 +78,17 @@ describe('aggregateUsage', () => {
       source: 'combined',
       totalTokens: 53,
       costUsd: 1.5,
-      models: ['gpt-4.1', 'gpt-5-codex'],
+      models: ['gpt-5-codex', 'gpt-4.1'],
       modelBreakdown: [
-        {
-          model: 'gpt-4.1',
-          totalTokens: 16,
-          costUsd: 1,
-        },
         {
           model: 'gpt-5-codex',
           totalTokens: 37,
           costUsd: 0.5,
+        },
+        {
+          model: 'gpt-4.1',
+          totalTokens: 16,
+          costUsd: 1,
         },
       ],
     });
@@ -104,20 +104,21 @@ describe('aggregateUsage', () => {
     expect(rows[4]).toMatchObject({
       rowType: 'grand_total',
       periodKey: 'ALL',
+      models: ['gpt-5-codex', 'gpt-4.1'],
       totalTokens: 58,
       costUsd: 1.5,
       costIncomplete: true,
       modelBreakdown: [
         {
+          model: 'gpt-5-codex',
+          totalTokens: 37,
+          costUsd: 0.5,
+        },
+        {
           model: 'gpt-4.1',
           totalTokens: 21,
           costUsd: 1,
           costIncomplete: true,
-        },
-        {
-          model: 'gpt-5-codex',
-          totalTokens: 37,
-          costUsd: 0.5,
         },
       ],
     });
