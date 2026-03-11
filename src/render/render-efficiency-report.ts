@@ -4,6 +4,7 @@ import pc from 'picocolors';
 import type { EfficiencyDataResult } from '../cli/usage-data-contracts.js';
 import type { EfficiencyRow } from '../efficiency/efficiency-row.js';
 import type { ReportGranularity } from '../utils/time-buckets.js';
+import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { renderReportHeader } from './report-header.js';
 import { efficiencyTableHeaders, toEfficiencyTableCells } from './efficiency-row-cells.js';
 import {
@@ -290,10 +291,6 @@ function renderTerminalEfficiencyTable(
     multilineColumnWidth:
       fittedCells.widths[periodColumnIndex] ?? efficiencyTableHeaders[periodColumnIndex].length,
   });
-}
-
-function toMarkdownSafeCell(value: string): string {
-  return value.replace(/\r?\n/gu, '<br>');
 }
 
 function renderMarkdownEfficiencyTable(rows: EfficiencyRow[]): string {

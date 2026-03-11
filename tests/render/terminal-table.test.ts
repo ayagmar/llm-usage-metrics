@@ -920,10 +920,61 @@ describe('renderTerminalTable', () => {
     );
   });
 
+  it('keeps single-model rows unchanged when compact tables widen for other rows', () => {
+    const mixedRows: UsageReportRow[] = [
+      {
+        rowType: 'period_source',
+        periodKey: '2026-03',
+        source: 'pi',
+        models: ['only-model'],
+        modelBreakdown: [],
+        inputTokens: 100,
+        outputTokens: 20,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 120,
+        costUsd: 1.23,
+      },
+      {
+        rowType: 'grand_total',
+        periodKey: 'ALL',
+        source: 'combined',
+        models: [
+          'antigravity-gemini-3-flash',
+          'antigravity-gemini-3-pro',
+          'antigravity-gemini-3-pro-high',
+          'claude-haiku-4.5',
+          'claude-opus-4.5',
+          'claude-opus-4.6',
+          'claude-sonnet-4.5',
+          'claude-sonnet-4.6',
+        ],
+        modelBreakdown: [],
+        inputTokens: 100,
+        outputTokens: 20,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 120,
+        costUsd: 1.23,
+      },
+    ];
+
+    const rendered = renderTerminalTable(mixedRows, {
+      useColor: false,
+      terminalWidth: 180,
+    });
+
+    expect(rendered).toContain('│ 2026-03 │ pi     │ • only-model');
+    expect(rendered).toMatch(/• antigravity-gemini-3-flash\s{2,}• antigravity-gemini-3-pro/u);
+  });
+
   it('expands per-model tables modestly instead of filling the full terminal width', () => {
     const defaultRendered = renderTerminalTable(sampleRows, {
       useColor: false,
       tableLayout: 'per_model_columns',
+      terminalWidth: 132,
     });
     const expandedRendered = renderTerminalTable(sampleRows, {
       useColor: false,

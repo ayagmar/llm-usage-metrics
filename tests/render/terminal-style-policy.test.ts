@@ -111,6 +111,52 @@ describe('terminal-style-policy', () => {
     expect(styled[2]).toBe('<bold>• primary-model</bold><dim>  • secondary-model</dim>');
   });
 
+  it('keeps continuation prefixes with the current model when a later packed segment starts', () => {
+    const styled = applyRowTypeStyle(
+      'period_source',
+      [
+        'period',
+        'pi',
+        '• primary-model-part-1\nprimary-model-part-2  • secondary-model-part-1\nsecondary-model-part-2',
+        '1',
+        '2',
+        '3',
+        '4',
+        '5',
+        '6',
+        '$7',
+      ],
+      testPalette,
+    );
+
+    expect(styled[2]).toBe(
+      '<bold>• primary-model-part-1</bold>\n<bold>primary-model-part-2</bold><dim>  • secondary-model-part-1</dim>\n<dim>secondary-model-part-2</dim>',
+    );
+  });
+
+  it('preserves blank lines and styles Σ TOTAL with the total styler', () => {
+    const styled = applyRowTypeStyle(
+      'period_source',
+      [
+        'period',
+        'pi',
+        '• primary-model\n\nΣ TOTAL\nsummary-continuation',
+        '1',
+        '2',
+        '3',
+        '4',
+        '5',
+        '6',
+        '$7',
+      ],
+      testPalette,
+    );
+
+    expect(styled[2]).toBe(
+      '<dim>• primary-model</dim>\n\n<bold><green>Σ TOTAL</green></bold>\n<bold><green>summary-continuation</green></bold>',
+    );
+  });
+
   it('returns plain body rows when color is disabled', () => {
     const bodyRows = [['period', 'pi', 'model', '$1']];
     const rows: UsageReportRow[] = [

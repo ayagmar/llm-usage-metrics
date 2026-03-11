@@ -4,6 +4,7 @@ import pc from 'picocolors';
 import type { OptimizeDataResult } from '../cli/usage-data-contracts.js';
 import type { OptimizeBaselineRow, OptimizeCandidateRow } from '../optimize/optimize-row.js';
 import type { ReportGranularity } from '../utils/time-buckets.js';
+import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { visibleWidth } from './table-text-layout.js';
 import { renderReportHeader } from './report-header.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
@@ -236,10 +237,6 @@ function toTableCells(
       ? [...candidateCells, styleNotesCell(row.notes, notesCell, options.useColor)]
       : candidateCells;
   });
-}
-
-function toMarkdownSafeCell(value: string): string {
-  return value.replace(/\r?\n/gu, '<br>');
 }
 
 function toTableRowMeta(row: OptimizeDataResult['rows'][number]): TableRowMeta {

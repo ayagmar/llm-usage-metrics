@@ -250,9 +250,8 @@ describe('renderOptimizeReport', () => {
     });
 
     expect(output).toContain('│ 2026-02-10 │ gpt-4.1');
-    expect(output).toContain('│            │ gpt-4.1-mini');
     expect(output).toContain('│ ALL        │ gpt-4.1');
-    expect(output).toContain('│            │ gpt-4.1-mini');
+    expect(output.match(/│\s+│ gpt-4\.1-mini/gu)).toHaveLength(2);
   });
 
   it('renders markdown output with candidate column', () => {
@@ -263,6 +262,28 @@ describe('renderOptimizeReport', () => {
     expect(output).toContain('| Candidate');
     expect(output).toContain('| BASELINE');
     expect(output).toContain('| gpt-4.1');
+  });
+
+  it('escapes markdown and HTML syntax in markdown optimize cells', () => {
+    const data = createOptimizeDataResult();
+    data.rows = data.rows.map((row) =>
+      row.rowType === 'candidate'
+        ? {
+            ...row,
+            candidateModel: '[gpt-4.1](https://example.test)',
+            notes: ['*note*', '<unsafe>'],
+          }
+        : row,
+    );
+
+    const output = renderOptimizeReport(data, 'markdown', {
+      granularity: 'daily',
+    });
+
+    expect(output).toContain('\\[gpt-4.1\\]\\(https://example.test\\)');
+    expect(output).toContain('\\*note\\*, &lt;unsafe&gt;');
+    expect(output).not.toContain('[gpt-4.1](https://example.test)');
+    expect(output).not.toContain('<unsafe>');
   });
 
   it('renders JSON output as rows only', () => {

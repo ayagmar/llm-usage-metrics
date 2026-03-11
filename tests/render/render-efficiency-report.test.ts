@@ -132,11 +132,31 @@ describe('renderEfficiencyReport', () => {
 
     expect(output).toContain('| Period');
     expect(output).toContain('| Commits');
-    expect(output).toContain('| $/Commit');
+    expect(output).toMatch(/\|\s+\$\/Commit\s+\|/u);
     expect(output).toContain('| Tokens/Commit');
     expect(output).toContain('| 2026-02-10');
     expect(output).toContain('| ALL');
     expect(output).toContain('|         - |');
+  });
+
+  it('escapes markdown and HTML syntax in markdown efficiency cells', () => {
+    const data = createEfficiencyDataResult();
+    data.rows = data.rows.map((row) =>
+      row.rowType === 'period'
+        ? {
+            ...row,
+            periodKey: '[2026-02-10](https://example.test)\n<unsafe>',
+          }
+        : row,
+    );
+
+    const output = renderEfficiencyReport(data, 'markdown', {
+      granularity: 'daily',
+    });
+
+    expect(output).toContain('\\[2026-02-10\\]\\(https://example.test\\)<br>&lt;unsafe&gt;');
+    expect(output).not.toContain('[2026-02-10](https://example.test)');
+    expect(output).not.toContain('<unsafe>');
   });
 
   it('renders terminal output with title', () => {

@@ -85,20 +85,21 @@ function styleModelsCell(
       }
 
       const prefix = segmentStarts[0] > 0 ? currentStyler(line.slice(0, segmentStarts[0])) : '';
+      let nextContinuationStyler = currentStyler;
+      const renderedSegments = segmentStarts
+        .map((segmentStart, segmentIndex) => {
+          const segmentStyler =
+            modelLineCount === 0 && shouldEmphasizePrimary ? primaryStyler : secondaryStyler;
+          modelLineCount += 1;
+          nextContinuationStyler = segmentStyler;
 
-      return (
-        prefix +
-        segmentStarts
-          .map((segmentStart, segmentIndex) => {
-            currentStyler =
-              modelLineCount === 0 && shouldEmphasizePrimary ? primaryStyler : secondaryStyler;
-            modelLineCount += 1;
+          const segmentEnd = segmentStarts[segmentIndex + 1] ?? line.length;
+          return segmentStyler(line.slice(segmentStart, segmentEnd));
+        })
+        .join('');
 
-            const segmentEnd = segmentStarts[segmentIndex + 1] ?? line.length;
-            return currentStyler(line.slice(segmentStart, segmentEnd));
-          })
-          .join('')
-      );
+      currentStyler = nextContinuationStyler;
+      return prefix + renderedSegments;
     })
     .join('\n');
 }

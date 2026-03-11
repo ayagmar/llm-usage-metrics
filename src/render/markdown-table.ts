@@ -1,6 +1,7 @@
 import { markdownTable } from 'markdown-table';
 
 import type { UsageReportRow } from '../domain/usage-report-row.js';
+import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { toUsageTableCells, type UsageTableLayout, usageTableHeaders } from './row-cells.js';
 import { splitCellLines } from './table-text-layout.js';
 
@@ -11,7 +12,8 @@ type MarkdownRenderOptions = {
 };
 
 function boldMarkdownText(value: string): string {
-  return value.length === 0 ? value : `**${value}**`;
+  const safeValue = toMarkdownSafeCell(value);
+  return safeValue.length === 0 ? safeValue : `**${safeValue}**`;
 }
 
 function emphasizeMarkdownModelsCell(value: string): string {
@@ -31,9 +33,9 @@ function emphasizeMarkdownModelsCell(value: string): string {
         return boldMarkdownText(line);
       }
 
-      return line;
+      return toMarkdownSafeCell(line);
     })
-    .join('\n');
+    .join('<br>');
 }
 
 function emphasizeMarkdownSummaryMetricCell(value: string): string {
@@ -44,54 +46,46 @@ function emphasizeMarkdownSummaryMetricCell(value: string): string {
   }
 
   return lines
-    .map((line, index) => (index === lines.length - 1 ? boldMarkdownText(line) : line))
-    .join('\n');
+    .map((line, index) =>
+      index === lines.length - 1 ? boldMarkdownText(line) : toMarkdownSafeCell(line),
+    )
+    .join('<br>');
 }
 
 function emphasizeMarkdownRow(row: UsageReportRow, cells: string[]): string[] {
-  const styledCells = [...cells];
+  const styledCells = cells.map((cell) => toMarkdownSafeCell(cell));
 
   if (styledCells.length > 2) {
-    styledCells[2] = emphasizeMarkdownModelsCell(styledCells[2]);
+    styledCells[2] = emphasizeMarkdownModelsCell(cells[2]);
   }
 
   if (row.rowType !== 'period_source') {
     if (styledCells.length > 1) {
-      styledCells[1] = boldMarkdownText(styledCells[1]);
+      styledCells[1] = boldMarkdownText(cells[1]);
     }
 
     if (styledCells.length > 8) {
-      styledCells[8] = emphasizeMarkdownSummaryMetricCell(styledCells[8]);
+      styledCells[8] = emphasizeMarkdownSummaryMetricCell(cells[8]);
     }
 
     if (styledCells.length > 9) {
-      styledCells[9] = emphasizeMarkdownSummaryMetricCell(styledCells[9]);
+      styledCells[9] = emphasizeMarkdownSummaryMetricCell(cells[9]);
     }
   }
 
   if (row.rowType === 'grand_total' && styledCells.length > 0) {
-    styledCells[0] = boldMarkdownText(styledCells[0]);
+    styledCells[0] = boldMarkdownText(cells[0]);
   }
 
   return styledCells;
 }
-
-function toMarkdownSafeCell(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('|', '\\|')
-    .replace(/\r?\n/gu, '<br>');
-}
-
 export function renderMarkdownTable(
   rows: UsageReportRow[],
   options: MarkdownRenderOptions = {},
 ): string {
   const tableLayout = options.tableLayout ?? 'compact';
   const bodyRows = toUsageTableCells(rows, { layout: tableLayout }).map((cells, index) =>
-    emphasizeMarkdownRow(rows[index], cells).map((cell) => toMarkdownSafeCell(cell)),
+    emphasizeMarkdownRow(rows[index], cells),
   );
   const tableRows = [Array.from(usageTableHeaders), ...bodyRows];
 

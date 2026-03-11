@@ -291,4 +291,91 @@ describe('renderMarkdownTable', () => {
     expect(rendered).toContain('&lt;gpt&gt;&amp;4.1');
     expect(rendered).not.toContain('<gpt>&4.1');
   });
+
+  it('escapes inline markdown control characters before applying emphasis', () => {
+    const rendered = renderMarkdownTable([
+      {
+        rowType: 'period_combined',
+        periodKey: '2026-02-10',
+        source: 'combined',
+        models: ['[gpt-4.1](https://example.test)', 'gpt-5-codex'],
+        modelBreakdown: [
+          {
+            model: '[gpt-4.1](https://example.test)',
+            inputTokens: 10,
+            outputTokens: 5,
+            reasoningTokens: 0,
+            cacheReadTokens: 0,
+            cacheWriteTokens: 0,
+            totalTokens: 15,
+            costUsd: 0.02,
+          },
+          {
+            model: 'gpt-5-codex',
+            inputTokens: 0,
+            outputTokens: 0,
+            reasoningTokens: 0,
+            cacheReadTokens: 0,
+            cacheWriteTokens: 0,
+            totalTokens: 0,
+            costUsd: 0,
+          },
+        ],
+        inputTokens: 10,
+        outputTokens: 5,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 15,
+        costUsd: 0.02,
+      },
+    ]);
+
+    expect(rendered).toContain('**• \\[gpt-4.1\\]\\(https://example.test\\)**');
+    expect(rendered).not.toContain('[gpt-4.1](https://example.test)');
+  });
+
+  it('preserves blank model lines while escaping multiline emphasized markdown cells', () => {
+    const rendered = renderMarkdownTable([
+      {
+        rowType: 'period_combined',
+        periodKey: '2026-02-10',
+        source: 'combined',
+        models: ['gpt-4.1', 'gpt-5-codex'],
+        modelBreakdown: [
+          {
+            model: 'gpt-4.1\n\n[gpt-4.1-mini](https://example.test)',
+            inputTokens: 10,
+            outputTokens: 5,
+            reasoningTokens: 0,
+            cacheReadTokens: 0,
+            cacheWriteTokens: 0,
+            totalTokens: 15,
+            costUsd: 0.02,
+          },
+          {
+            model: 'gpt-5-codex',
+            inputTokens: 0,
+            outputTokens: 0,
+            reasoningTokens: 0,
+            cacheReadTokens: 0,
+            cacheWriteTokens: 0,
+            totalTokens: 0,
+            costUsd: 0,
+          },
+        ],
+        inputTokens: 10,
+        outputTokens: 5,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 15,
+        costUsd: 0.02,
+      },
+    ]);
+
+    expect(rendered).toContain(
+      '**• gpt-4.1**<br><br>\\[gpt-4.1-mini\\]\\(https://example.test\\)<br>• gpt-5-codex',
+    );
+  });
 });
