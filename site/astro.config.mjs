@@ -79,6 +79,10 @@ export default defineConfig({
           link: '/configuration',
         },
         {
+          label: 'Security',
+          link: '/security',
+        },
+        {
           label: 'Caching',
           link: '/caching',
         },

@@ -50,6 +50,18 @@ Notes:
 - The main test job rebuilds `dist` before `pnpm run smoke:dist-opencode` and `pnpm run test`.
 - Site CI also regenerates `site/src/content/docs/cli-reference.mdx` and fails if the generated file is out of date.
 
+## Security and dependency hygiene
+
+See [Security Guide](./security.md) for the current repo controls and contributor expectations.
+Highlights:
+
+- the committed `pnpm-lock.yaml` is the effective dependency pin for installs
+- lockfile entries include `integrity: sha512-...` hashes
+- GitHub Actions are pinned to full commit SHAs
+- Dependabot manages npm and GitHub Actions update PRs
+- security scanning includes `pnpm audit`, Dependency Review on PRs, and CodeQL
+- npm publishing uses OIDC trusted publishing
+
 ## Reporting pipeline performance baseline
 
 Capture local timing snapshots for daily/weekly/monthly report generation and efficiency reporting on representative fixtures:

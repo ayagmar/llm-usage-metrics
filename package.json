@@ -57,6 +57,12 @@
     "url": "https://github.com/ayagmar/llm-usage-metrics/issues"
   },
   "homepage": "https://ayagmar.github.io/llm-usage-metrics/",
+  "pnpm": {
+    "overrides": {
+      "basic-ftp": "5.2.0",
+      "lodash": "4.17.23"
+    }
+  },
   "dependencies": {
     "commander": "^14.0.3",
     "markdown-table": "^3.0.4",
@@ -65,16 +71,16 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@release-it/conventional-changelog": "^10.0.5",
-    "@types/node": "^25.3.0",
+    "@types/node": "^25.4.0",
     "@vitest/coverage-v8": "^4.0.18",
-    "eslint": "^10.0.1",
+    "eslint": "^10.0.3",
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.8.1",
     "release-it": "^19.2.4",
     "tsup": "^8.5.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.56.0",
+    "typescript-eslint": "^8.57.0",
     "unist-util-is": "6.0.1",
     "unist-util-visit": "5.1.0",
     "unist-util-visit-parents": "6.0.2",

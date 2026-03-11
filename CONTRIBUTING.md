@@ -94,6 +94,22 @@ llm-usage daily --source <new-source-id>
 - Keep estimation logic deterministic.
 - Add tests for missing pricing, aliasing, and edge values.
 
+## Security and dependency changes
+
+When changing dependencies, workflows, or release configuration:
+
+- verify the target version from an authoritative source first
+- keep the change narrow and intentional
+- run `pnpm install` and commit the matching `pnpm-lock.yaml` changes
+- review the lockfile diff and confirm only intended packages changed
+- preserve lockfile `integrity: sha512-...` entries
+- preserve `pnpm install --frozen-lockfile` in workflows
+- keep GitHub Actions pinned to full commit SHAs
+- keep the trailing release comments on action refs (for example `# v4.3.1`) so Dependabot can update them cleanly
+- run `pnpm audit --audit-level=moderate` when changing dependencies
+
+See [docs/security.md](./docs/security.md) for the full security guide.
+
 ## Commit guidance
 
 Use concise Conventional Commit subjects, for example:

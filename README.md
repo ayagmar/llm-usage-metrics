@@ -348,8 +348,14 @@ pnpm cli daily
 - **[Optimize](https://ayagmar.github.io/llm-usage-metrics/optimize/)** — Counterfactual candidate-model pricing semantics
 - **[Data Sources](https://ayagmar.github.io/llm-usage-metrics/sources/)** — Source configuration
 - **[Configuration](https://ayagmar.github.io/llm-usage-metrics/configuration/)** — Environment variables
+- **[Security](https://ayagmar.github.io/llm-usage-metrics/security/)** — Current security controls, dependency hygiene, and contributor steps
 - **[Benchmarks](https://ayagmar.github.io/llm-usage-metrics/benchmarks/)** — Production benchmark methodology and results
 - **[Architecture](https://ayagmar.github.io/llm-usage-metrics/architecture/)** — Technical overview
+
+## 🔐 Security
+
+Current repo protections include frozen-lockfile installs in CI, committed lockfile integrity hashes, SHA-pinned GitHub Actions, Dependabot for dependency and workflow updates, dedicated security workflows (`pnpm audit`, Dependency Review, and CodeQL), and OIDC-based npm trusted publishing.
+See the full security guide: **[Security](https://ayagmar.github.io/llm-usage-metrics/security/)**.
 
 ## 🤝 Contributing
 
