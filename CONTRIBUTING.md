@@ -106,6 +106,7 @@ When changing dependencies, workflows, or release configuration:
 - preserve `pnpm install --frozen-lockfile` in workflows
 - keep GitHub Actions pinned to full commit SHAs
 - keep the trailing release comments on action refs (for example `# v4.3.1`) so Dependabot can update them cleanly
+- keep direct dependency versions exact in `package.json` files
 - run `pnpm audit --audit-level=moderate` when changing dependencies
 
 See [docs/security.md](./docs/security.md) for the full security guide.

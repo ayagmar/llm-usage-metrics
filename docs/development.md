@@ -55,6 +55,7 @@ Notes:
 See [Security Guide](./security.md) for the current repo controls and contributor expectations.
 Highlights:
 
+- direct dependencies are pinned to exact versions and `.npmrc` enforces `save-exact=true`
 - the committed `pnpm-lock.yaml` is the effective dependency pin for installs
 - lockfile entries include `integrity: sha512-...` hashes
 - GitHub Actions are pinned to full commit SHAs

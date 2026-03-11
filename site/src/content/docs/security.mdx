@@ -17,7 +17,8 @@ This page documents the security controls that are now configured in `llm-usage-
 
 ### Dependency pinning and SHA-based integrity
 
-- `package.json` and `site/package.json` mostly use semver ranges.
+- `package.json` and `site/package.json` pin direct dependencies to exact versions.
+- `.npmrc` sets `save-exact=true` so future additions stay exact by default.
 - The committed `pnpm-lock.yaml` is the source of truth for reproducible installs.
 - `pnpm-lock.yaml` includes `integrity: sha512-...` entries for package tarballs.
 - GitHub Actions workflows are pinned to full commit SHAs.

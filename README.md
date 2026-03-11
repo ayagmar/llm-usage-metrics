@@ -354,7 +354,7 @@ pnpm cli daily
 
 ## 🔐 Security
 
-Current repo protections include frozen-lockfile installs in CI, committed lockfile integrity hashes, SHA-pinned GitHub Actions, Dependabot for dependency and workflow updates, dedicated security workflows (`pnpm audit`, Dependency Review, and CodeQL), and OIDC-based npm trusted publishing.
+Current repo protections include exact direct dependency pins, frozen-lockfile installs in CI, committed lockfile integrity hashes, SHA-pinned GitHub Actions, Dependabot for dependency and workflow updates, dedicated security workflows (`pnpm audit`, Dependency Review, and CodeQL), and OIDC-based npm trusted publishing.
 See the full security guide: **[Security](https://ayagmar.github.io/llm-usage-metrics/security/)**.
 
 ## 🤝 Contributing

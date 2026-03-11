@@ -15,7 +15,8 @@ This page documents the security controls and contributor steps that are now con
 
 ### Dependency pinning and integrity
 
-- Dependency ranges in `package.json` and `site/package.json` are mostly semver ranges.
+- Direct dependencies in `package.json` and `site/package.json` are pinned to exact versions.
+- `.npmrc` sets `save-exact=true` so future additions stay exact by default.
 - The committed `pnpm-lock.yaml` is the real installation pin for this repo.
 - `pnpm-lock.yaml` records `integrity: sha512-...` hashes for downloaded package tarballs.
 - GitHub Actions workflows are pinned to full commit SHAs, with trailing version comments so automated updaters can keep them current.
