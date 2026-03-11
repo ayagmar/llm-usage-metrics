@@ -34,7 +34,7 @@
     "site:build": "pnpm --filter llm-usage-metrics-site build",
     "site:preview": "pnpm --filter llm-usage-metrics-site preview",
     "site:check": "pnpm --filter llm-usage-metrics-site check",
-    "site:docs:generate": "node scripts/generate-cli-reference.mjs",
+    "site:docs:generate": "node scripts/generate-cli-reference.mjs && node scripts/generate-site-security-doc.mjs",
     "docs:mermaid:validate": "node scripts/validate-mermaid.mjs"
   },
   "keywords": [

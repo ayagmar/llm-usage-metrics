@@ -113,7 +113,7 @@ For manual upgrades:
 
 ```bash
 pnpm outdated
-pnpm up <package-name>
+pnpm up --latest <package-name>
 pnpm install
 ```
 

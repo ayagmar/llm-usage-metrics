@@ -220,7 +220,7 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm run site:docs:generate -- --rebuild
-      - run: git diff --exit-code -- site/src/content/docs/cli-reference.mdx
+      - run: git diff --exit-code -- site/src/content/docs/cli-reference.mdx site/src/content/docs/security.mdx
       - run: pnpm run site:build
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:

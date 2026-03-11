@@ -40,7 +40,7 @@ pnpm run pack:check
 pnpm --filter llm-usage-metrics-site run format:check
 pnpm run site:check
 pnpm run site:docs:generate -- --rebuild
-git diff --exit-code -- site/src/content/docs/cli-reference.mdx
+git diff --exit-code -- site/src/content/docs/cli-reference.mdx site/src/content/docs/security.mdx
 pnpm run site:build
 ```
 
@@ -48,7 +48,7 @@ Notes:
 
 - CI installs with `pnpm install --frozen-lockfile`.
 - The main test job rebuilds `dist` before `pnpm run smoke:dist-opencode` and `pnpm run test`.
-- Site CI also regenerates `site/src/content/docs/cli-reference.mdx` and fails if the generated file is out of date.
+- Site CI also regenerates `site/src/content/docs/cli-reference.mdx` and `site/src/content/docs/security.mdx` and fails if either generated file is out of date.
 
 ## Security and dependency hygiene
 
@@ -184,7 +184,7 @@ Release configuration lives in `.release-it.json`.
 
 For trusted publishing, `npm.skipChecks` is enabled because release-it's normal npm auth checks are not compatible with OIDC-only publishing.
 
-During release, `release-it` runs `pnpm run site:docs:generate` in an `after:bump` hook, so the release commit automatically includes an updated `site/src/content/docs/cli-reference.mdx` (including the new version banner).
+During release, `release-it` runs `pnpm run site:docs:generate` in an `after:bump` hook, so the release commit automatically includes updated generated site docs such as `site/src/content/docs/cli-reference.mdx` and `site/src/content/docs/security.mdx`.
 
 ### GitHub workflow
 

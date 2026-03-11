@@ -3,45 +3,49 @@ title: Security
 description: Security scans, dependency update flow, SHA pinning, and contributor security steps for this repo.
 ---
 
-This page documents the security controls that are now configured in `llm-usage-metrics` and the contributor steps expected when changing dependencies, workflows, or release settings.
+:::note[Auto-generated]
+Generated from `docs/security.md`. Edit the canonical contributor doc instead of this file.
+:::
 
-## What the repo does now
+This page documents the security controls and contributor steps that are now configured in this repository.
 
-### Locked installs and pinned tooling
+## Current security-related controls
 
-- GitHub Actions workflows use `pnpm install --frozen-lockfile` where dependencies are installed.
-- The root package sets `"packageManager": "pnpm@10.17.1"`.
-- CI/workflows use explicit tool versions:
+### Locked installs and reproducible tool versions
+
+- CI, Pages, release, performance, and security workflows install dependencies with `pnpm install --frozen-lockfile` where dependencies are needed.
+- The root package declares `"packageManager": "pnpm@10.17.1"` in `package.json`.
+- GitHub Actions workflows use explicit runtime/tool versions:
   - Node.js `24.13.1`
   - pnpm `10.17.1`
+- OpenCode support requires Node.js 24+ because it uses built-in `node:sqlite`.
 
-### Dependency pinning and SHA-based integrity
+### Dependency pinning and integrity
 
-- `package.json` and `site/package.json` pin direct dependencies to exact versions.
+- Direct dependencies in `package.json` and `site/package.json` are pinned to exact versions.
 - `.npmrc` sets `save-exact=true` so future additions stay exact by default.
-- The committed `pnpm-lock.yaml` is the source of truth for reproducible installs.
-- `pnpm-lock.yaml` includes `integrity: sha512-...` entries for package tarballs.
-- GitHub Actions workflows are pinned to full commit SHAs.
-- Pinned action refs keep trailing version comments so Dependabot can update them cleanly.
-- The root `package.json` uses `pnpm.overrides` to force `basic-ftp@5.2.0` and `lodash@4.17.23` for vulnerable transitive dependency paths in the current graph.
+- The committed `pnpm-lock.yaml` is the real installation pin for this repo.
+- `pnpm-lock.yaml` records `integrity: sha512-...` hashes for downloaded package tarballs.
+- GitHub Actions workflows are pinned to full commit SHAs, with trailing version comments so automated updaters can keep them current.
+- The root `package.json` also uses `pnpm.overrides` to force `basic-ftp@5.2.0` and `lodash@4.17.23`, patching vulnerable transitive versions in the current dependency graph.
 
 ### Automated dependency upgrades
 
-Dependabot is configured in `.github/dependabot.yml` to open weekly update PRs for:
+- `.github/dependabot.yml` enables weekly update PRs for:
+  - root npm dependencies
+  - `site/` npm dependencies
+  - GitHub Actions workflow dependencies
+- Dependabot labels those PRs with `dependencies` and `security`.
 
-- root npm dependencies
-- `site/` npm dependencies
-- GitHub Actions workflow dependencies
+### Security scans currently in use
 
-### Security scans currently configured
-
-Dedicated security scanning is configured in `.github/workflows/security.yml`:
+Dedicated security workflows are configured in `.github/workflows/security.yml`:
 
 - **`pnpm audit --audit-level=moderate`** on pushes, pull requests, manual runs, and the weekly security schedule
-- **Dependency Review** on pull requests, failing on moderate-or-higher dependency findings
+- **Dependency Review** on pull requests, failing on moderate-or-higher findings in dependency changes
 - **CodeQL** analysis for JavaScript/TypeScript on pushes, pull requests, and a weekly schedule
 
-The regular CI workflow still enforces the normal quality gates:
+The regular CI workflow in `.github/workflows/ci.yml` still enforces the normal quality gates:
 
 - lint
 - typecheck
@@ -50,26 +54,25 @@ The regular CI workflow still enforces the normal quality gates:
 - pack check
 - site check/build
 
-### Limited network behavior
+### Network and runtime behavior
 
-The CLI is local-first. The network-sensitive runtime features in the current codebase are:
+- The CLI is local-first: it parses local session files and local Git history.
+- Startup update checks only query the npm registry for the latest package version and are cached/skippable with `LLM_USAGE_SKIP_UPDATE_CHECK=1`.
+- Pricing refreshes only fetch the LiteLLM pricing JSON and can run from cache with `--pricing-offline`.
+- OpenCode parsing opens the SQLite database in read-only mode.
 
-- startup npm update checks, which are cached and can be disabled with `LLM_USAGE_SKIP_UPDATE_CHECK=1`
-- LiteLLM pricing fetches, which can run from cache with `--pricing-offline`
+### Publishing and CI identity
 
-OpenCode parsing uses `node:sqlite` and opens the SQLite database in read-only mode.
+- npm publishing is configured for **trusted publishing (OIDC)** in `.github/workflows/release.yml`.
+- The release workflow does not require a long-lived npm publish token.
+- Codecov uploads in CI use OIDC as well.
+- Workflow permissions are declared explicitly where elevated access is needed (for example release publishing, Pages deploy, PR coverage comments, and CodeQL security events upload).
 
-### OIDC instead of long-lived publish tokens
+## Contributor checklist
 
-- npm publishing is configured for **trusted publishing (OIDC)** in the release workflow.
-- CI Codecov upload also uses OIDC.
-- Workflow permissions are declared explicitly where elevated access is needed.
+### For any change
 
-## Contributor steps
-
-### Baseline checks
-
-Run the normal project checks before opening a PR:
+Run the standard verification commands:
 
 ```bash
 pnpm run lint
@@ -78,18 +81,18 @@ pnpm run test
 pnpm run format:check
 ```
 
-### If you change dependencies, workflows, or release configuration
+### For dependency, workflow, or release-related changes
 
-1. Verify the target version from an authoritative source first.
-2. Keep the change narrow and intentional.
-3. Run `pnpm install` so the lockfile stays in sync.
-4. Review the `pnpm-lock.yaml` diff and confirm only intended packages changed.
-5. Keep lockfile `integrity: sha512-...` entries intact.
+1. Verify the target version from authoritative sources first (official changelog/docs, npm registry, or the action's release page).
+2. Make the smallest necessary change.
+3. Run `pnpm install` so `pnpm-lock.yaml` stays in sync.
+4. Review the lockfile diff and confirm only intended packages changed.
+5. Keep `integrity: sha512-...` entries intact in the lockfile.
 6. Preserve `pnpm install --frozen-lockfile` in workflows.
 7. Keep GitHub Actions pinned to full commit SHAs.
-8. Keep the trailing action-version comments (for example `# v4.3.1`).
+8. Keep the trailing action-version comments (for example `# v4.3.1`) so Dependabot can update pinned refs cleanly.
 
-Recommended validation for dependency/workflow changes:
+Recommended validation for dependency or workflow changes:
 
 ```bash
 pnpm run lint
@@ -104,31 +107,38 @@ pnpm run site:check
 pnpm run site:build
 ```
 
-## Dependency upgrade flow
+## Dependency upgrade process
 
 ### Automated path
 
-Prefer the existing Dependabot flow for routine upgrades and review its PRs carefully.
+Prefer the existing Dependabot flow for routine upgrades.
+Review its PRs carefully, especially lockfile and workflow changes.
 
 ### Manual path
 
+For manual upgrades:
+
 ```bash
 pnpm outdated
-pnpm up <package-name>
+pnpm up --latest <package-name>
 pnpm install
 ```
 
-Then review:
+Then:
 
-- `package.json` and/or `site/package.json`
-- `pnpm-lock.yaml`
-- workflow files if GitHub Actions changed
+- review `package.json` and/or `site/package.json`
+- review `pnpm-lock.yaml`
+- review any workflow diff if GitHub Actions changed
+- run the validation commands above
+- mention noteworthy toolchain or security-related changes in the PR
 
-## Release guidance
+## Release-specific guidance
 
-Use the GitHub Actions release workflow for real publishes and keep OIDC trusted publishing in place.
-The current setup is designed so the repo does not need a long-lived npm publish token.
+- Use the GitHub Actions release workflow for real publishes.
+- Keep OIDC trusted publishing in place; do not replace it with a long-lived npm token unless the repo is intentionally changing publishing strategy.
+- If you modify `.github/workflows/release.yml`, keep the required Node/npm expectations aligned with `docs/development.md`.
 
-## Safe issue reporting
+## Reporting issues safely
 
-If you include logs in an issue, redact secrets and sensitive local paths first.
+When opening issues, redact secrets and sensitive local paths from logs before posting them.
+The bug report template already asks contributors to redact secrets/paths where needed.
