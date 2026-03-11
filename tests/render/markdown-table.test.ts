@@ -331,7 +331,7 @@ describe('renderMarkdownTable', () => {
       },
     ]);
 
-    expect(rendered).toContain('**• \\[gpt-4.1\\]\\(https://example.test\\)**');
+    expect(rendered).toContain('**• \\[gpt-4.1\\]\\(https\\://example.test\\)**');
     expect(rendered).not.toContain('[gpt-4.1](https://example.test)');
   });
 
@@ -375,7 +375,7 @@ describe('renderMarkdownTable', () => {
     ]);
 
     expect(rendered).toContain(
-      '**• gpt-4.1**<br><br>\\[gpt-4.1-mini\\]\\(https://example.test\\)<br>• gpt-5-codex',
+      '**• gpt-4.1**<br><br>\\[gpt-4.1-mini\\]\\(https\\://example.test\\)<br>• gpt-5-codex',
     );
   });
 });

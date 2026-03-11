@@ -154,7 +154,7 @@ describe('renderEfficiencyReport', () => {
       granularity: 'daily',
     });
 
-    expect(output).toContain('\\[2026-02-10\\]\\(https://example.test\\)<br>&lt;unsafe&gt;');
+    expect(output).toContain('\\[2026-02-10\\]\\(https\\://example.test\\)<br>&lt;unsafe&gt;');
     expect(output).not.toContain('[2026-02-10](https://example.test)');
     expect(output).not.toContain('<unsafe>');
   });

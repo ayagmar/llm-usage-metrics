@@ -280,7 +280,7 @@ describe('renderOptimizeReport', () => {
       granularity: 'daily',
     });
 
-    expect(output).toContain('\\[gpt-4.1\\]\\(https://example.test\\)');
+    expect(output).toContain('\\[gpt-4.1\\]\\(https\\://example.test\\)');
     expect(output).toContain('\\*note\\*, &lt;unsafe&gt;');
     expect(output).not.toContain('[gpt-4.1](https://example.test)');
     expect(output).not.toContain('<unsafe>');
