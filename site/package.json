@@ -14,8 +14,8 @@
     "format:write": "prettier --write ."
   },
   "dependencies": {
-    "@astrojs/starlight": "0.37.7",
-    "astro": "5.18.1",
+    "@astrojs/starlight": "0.38.0",
+    "astro": "6.0.2",
     "sharp": "0.34.5"
   },
   "devDependencies": {
