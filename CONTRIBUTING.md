@@ -9,6 +9,14 @@ Requirements:
 - Node.js 24+
 - pnpm
 
+Recommended setup with `nvm`:
+
+```bash
+nvm use
+```
+
+The repository includes a root `.nvmrc` pinned to the Node version used in CI.
+
 Install dependencies:
 
 ```bash
