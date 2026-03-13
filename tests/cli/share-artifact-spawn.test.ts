@@ -68,7 +68,7 @@ describe('share-artifact spawn integration', () => {
     emit('spawn');
     await openPromise;
 
-    expect(spawnMock).toHaveBeenCalledWith('open', ['/tmp/share.svg'], {
+    expect(spawnMock).toHaveBeenCalledWith('/usr/bin/open', ['/tmp/share.svg'], {
       detached: true,
       stdio: 'ignore',
       windowsHide: true,

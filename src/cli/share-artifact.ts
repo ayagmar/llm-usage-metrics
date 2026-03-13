@@ -26,23 +26,27 @@ type OpenCommand = {
   args: string[];
 };
 
+const WINDOWS_OPEN_COMMAND = 'C:\\Windows\\System32\\rundll32.exe';
+const DARWIN_OPEN_COMMAND = '/usr/bin/open';
+const UNIX_OPEN_COMMAND = '/usr/bin/xdg-open';
+
 export function resolveOpenCommand(filePath: string, platform: NodeJS.Platform): OpenCommand {
   if (platform === 'win32') {
     return {
-      command: 'cmd',
-      args: ['/c', 'start', '', filePath],
+      command: WINDOWS_OPEN_COMMAND,
+      args: ['shell32.dll,ShellExec_RunDLL', filePath],
     };
   }
 
   if (platform === 'darwin') {
     return {
-      command: 'open',
+      command: DARWIN_OPEN_COMMAND,
       args: [filePath],
     };
   }
 
   return {
-    command: 'xdg-open',
+    command: UNIX_OPEN_COMMAND,
     args: [filePath],
   };
 }

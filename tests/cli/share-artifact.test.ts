@@ -8,27 +8,27 @@ import {
 
 describe('share-artifact', () => {
   describe('resolveOpenCommand', () => {
-    it('uses open on macOS', () => {
+    it('uses the system open binary on macOS', () => {
       expect(resolveOpenCommand('/tmp/share.svg', 'darwin')).toEqual({
-        command: 'open',
+        command: '/usr/bin/open',
         args: ['/tmp/share.svg'],
       });
     });
 
-    it('uses cmd start on Windows', () => {
+    it('uses rundll32 ShellExec on Windows', () => {
       expect(resolveOpenCommand('C:\\temp\\share.svg', 'win32')).toEqual({
-        command: 'cmd',
-        args: ['/c', 'start', '', 'C:\\temp\\share.svg'],
+        command: 'C:\\Windows\\System32\\rundll32.exe',
+        args: ['shell32.dll,ShellExec_RunDLL', 'C:\\temp\\share.svg'],
       });
     });
 
-    it('uses xdg-open on Linux and other Unix-like platforms', () => {
+    it('uses the system xdg-open binary on Linux and other Unix-like platforms', () => {
       expect(resolveOpenCommand('/tmp/share.svg', 'linux')).toEqual({
-        command: 'xdg-open',
+        command: '/usr/bin/xdg-open',
         args: ['/tmp/share.svg'],
       });
       expect(resolveOpenCommand('/tmp/share.svg', 'freebsd')).toEqual({
-        command: 'xdg-open',
+        command: '/usr/bin/xdg-open',
         args: ['/tmp/share.svg'],
       });
     });
@@ -43,7 +43,21 @@ describe('share-artifact', () => {
         spawnDetached,
       });
 
-      expect(spawnDetached).toHaveBeenCalledWith('open', ['/tmp/share.svg']);
+      expect(spawnDetached).toHaveBeenCalledWith('/usr/bin/open', ['/tmp/share.svg']);
+    });
+
+    it('uses the non-shell Windows opener when requested', async () => {
+      const spawnDetached = vi.fn(async () => undefined);
+
+      await openShareSvgFile('C:\\temp\\share.svg', {
+        platform: 'win32',
+        spawnDetached,
+      });
+
+      expect(spawnDetached).toHaveBeenCalledWith('C:\\Windows\\System32\\rundll32.exe', [
+        'shell32.dll,ShellExec_RunDLL',
+        'C:\\temp\\share.svg',
+      ]);
     });
   });
 

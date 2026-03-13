@@ -180,7 +180,8 @@ function deduplicateAndNormalizeOptions(rootOptions, commandOptionsByCommand, re
   return sortOptions([...byLong.values()]);
 }
 
-function generateMarkdown(version, reportMetas, options, examples) {
+function generateMarkdown(version, reportMetas, options, examples, cellFormatters) {
+  const { toHtmlSafeCodeCell, toMarkdownSafeCell } = cellFormatters;
   const lines = [
     '---',
     'title: CLI Reference',
@@ -211,11 +212,12 @@ function generateMarkdown(version, reportMetas, options, examples) {
   ];
 
   for (const option of options) {
-    const short = option.short ? `\`${option.short}\`` : '-';
-    const arg = option.arg ? `\`${option.arg.replace(/\|/g, '\\|')}\`` : '-';
-    const desc = option.description.replace(/\|/g, '\\|');
+    const long = toHtmlSafeCodeCell(option.long);
+    const short = option.short ? toHtmlSafeCodeCell(option.short) : '-';
+    const arg = option.arg ? toHtmlSafeCodeCell(option.arg) : '-';
+    const desc = toMarkdownSafeCell(option.description);
 
-    lines.push(`| \`${option.long}\` | ${short} | ${arg} | ${desc} |`);
+    lines.push(`| ${long} | ${short} | ${arg} | ${desc} |`);
   }
 
   lines.push('', '## Examples', '', '```bash', ...examples, '```');
@@ -232,6 +234,28 @@ function loadPackageVersion() {
   }
 
   return parsed.version.trim();
+}
+
+async function loadMarkdownCellFormatters() {
+  const markdownSafeCellPath = join(rootDir, 'src', 'render', 'markdown-safe-cell.ts');
+  const markdownSafeCellModule = await tsImport(markdownSafeCellPath, {
+    parentURL: import.meta.url,
+  });
+  const toHtmlSafeCodeCell = markdownSafeCellModule?.toHtmlSafeCodeCell;
+  const toMarkdownSafeCell = markdownSafeCellModule?.toMarkdownSafeCell;
+
+  if (typeof toHtmlSafeCodeCell !== 'function') {
+    throw new Error(`Failed to load toHtmlSafeCodeCell() from ${markdownSafeCellPath}`);
+  }
+
+  if (typeof toMarkdownSafeCell !== 'function') {
+    throw new Error(`Failed to load toMarkdownSafeCell() from ${markdownSafeCellPath}`);
+  }
+
+  return {
+    toHtmlSafeCodeCell,
+    toMarkdownSafeCell,
+  };
 }
 
 async function loadCliMetadata() {
@@ -288,6 +312,7 @@ async function main() {
   ensureDistBuild({ skipRebuild });
 
   const version = loadPackageVersion();
+  const cellFormatters = await loadMarkdownCellFormatters();
   const { reportMetas, examples } = await loadCliMetadata();
   const helpTexts = await loadCliHelpTexts(version, reportMetas);
   const options = deduplicateAndNormalizeOptions(
@@ -300,7 +325,7 @@ async function main() {
     ),
     reportMetas,
   );
-  const markdown = generateMarkdown(version, reportMetas, options, examples);
+  const markdown = generateMarkdown(version, reportMetas, options, examples, cellFormatters);
 
   writeFileSync(outputPath, markdown, 'utf8');
   console.log(`CLI reference generated at ${outputPath}`);

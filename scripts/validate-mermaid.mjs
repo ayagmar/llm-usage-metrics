@@ -88,7 +88,7 @@ function validateMermaidSyntax(code) {
   } else if (diagramType.startsWith('sequencediagram')) {
     // Sequence diagram validations
     const hasParticipants = /participant\s+\w+/i.test(code);
-    const hasArrows = /(->|-->|->>|-->>)/.test(code);
+    const hasArrows = ['->', '-->', '->>', '-->>'].some((arrowToken) => code.includes(arrowToken));
 
     if (!hasParticipants) {
       errors.push('Sequence diagram: No participants declared');

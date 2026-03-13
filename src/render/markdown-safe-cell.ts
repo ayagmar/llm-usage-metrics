@@ -15,14 +15,27 @@ function escapeBareAutolinks(value: string): string {
   );
 }
 
+function escapeHtmlText(value: string): string {
+  return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+}
+
 function escapeMarkdownText(value: string): string {
-  const escapedMarkdownText = value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replace(markdownSpecialCharacterPattern, '\\$&');
+  const escapedMarkdownText = escapeHtmlText(value).replace(
+    markdownSpecialCharacterPattern,
+    '\\$&',
+  );
 
   return escapeBareAutolinks(escapedMarkdownText);
+}
+
+export function toHtmlSafeText(value: string): string {
+  return splitCellLines(value)
+    .map((line) => escapeHtmlText(line))
+    .join('<br>');
+}
+
+export function toHtmlSafeCodeCell(value: string): string {
+  return `<code>${toHtmlSafeText(value)}</code>`;
 }
 
 export function toMarkdownSafeCell(value: string): string {
