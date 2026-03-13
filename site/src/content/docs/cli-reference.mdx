@@ -29,34 +29,34 @@ Generated from root + command help output.
 
 | Option | Short | Argument | Description |
 | --- | --- | --- | --- |
-| `--by-source` | - | - | Render one sparkline row per source instead of a single combined chart (trends only) |
-| `--candidate-model` | - | `<name>` | Candidate model for counterfactual pricing (repeatable or comma-separated) (optimize only) |
-| `--codex-dir` | - | `<path>` | Path to .codex sessions directory |
-| `--days` | - | `<n>` | Trailing local calendar days to chart; defaults to 30 when no date flags are provided (trends only) |
-| `--droid-dir` | - | `<path>` | Path to Droid sessions directory |
-| `--gemini-dir` | - | `<path>` | Path to .gemini directory |
-| `--ignore-pricing-failures` | - | - | Continue without estimated costs when pricing cannot be loaded |
-| `--include-merge-commits` | - | - | Include merge commits in Git outcome metrics (efficiency only) |
-| `--json` | - | - | Render output as JSON |
-| `--markdown` | - | - | Render output as Markdown table (daily, weekly, monthly, efficiency, optimize only) |
-| `--metric` | - | `<name>` | Trend metric: cost \| tokens (default: "cost") (trends only) |
-| `--model` | - | `<name>` | Filter by model (repeatable/comma-separated; exact when exact match exists after source/provider/date filters, otherwise substring) |
-| `--opencode-db` | - | `<path>` | Path to OpenCode SQLite DB |
-| `--per-model-columns` | - | - | Render per-model metrics as multiline aligned table columns (terminal/Markdown) (usage reports only) |
-| `--pi-dir` | - | `<path>` | Path to .pi sessions directory |
-| `--pricing-offline` | - | - | Use cached LiteLLM pricing only (no network fetch) |
-| `--pricing-url` | - | `<url>` | Override LiteLLM pricing source URL |
-| `--provider` | - | `<name>` | Billing-provider filter (normalized to billing entity; e.g. openai, anthropic, google) |
-| `--repo-dir` | - | `<path>` | Path to repository for Git outcome metrics (efficiency only) |
-| `--share` | - | - | Write a share SVG image to the current directory (daily, weekly, monthly, efficiency, optimize only) |
-| `--since` | - | `<YYYY-MM-DD>` | Inclusive start date filter |
-| `--source` | - | `<name>` | Filter by source id (repeatable or comma-separated, supported sources (5): pi, codex, gemini, droid, opencode) |
-| `--source-dir` | - | `<source-id=path>` | Override source directory for directory-backed sources (repeatable) |
-| `--timezone` | - | `<iana>` | Timezone for bucketing (default: local system timezone) |
-| `--top` | - | `<n>` | Show only the top N cheapest candidates (positive integer) (optimize only) |
-| `--until` | - | `<YYYY-MM-DD>` | Inclusive end date filter |
-| `--help` | `-h` | - | display help for command |
-| `--version` | `-V` | - | output the version number |
+| <code>--by-source</code> | - | - | Render one sparkline row per source instead of a single combined chart \(trends only\) |
+| <code>--candidate-model</code> | - | <code>&lt;name&gt;</code> | Candidate model for counterfactual pricing \(repeatable or comma-separated\) \(optimize only\) |
+| <code>--codex-dir</code> | - | <code>&lt;path&gt;</code> | Path to .codex sessions directory |
+| <code>--days</code> | - | <code>&lt;n&gt;</code> | Trailing local calendar days to chart; defaults to 30 when no date flags are provided \(trends only\) |
+| <code>--droid-dir</code> | - | <code>&lt;path&gt;</code> | Path to Droid sessions directory |
+| <code>--gemini-dir</code> | - | <code>&lt;path&gt;</code> | Path to .gemini directory |
+| <code>--ignore-pricing-failures</code> | - | - | Continue without estimated costs when pricing cannot be loaded |
+| <code>--include-merge-commits</code> | - | - | Include merge commits in Git outcome metrics \(efficiency only\) |
+| <code>--json</code> | - | - | Render output as JSON |
+| <code>--markdown</code> | - | - | Render output as Markdown table \(daily, weekly, monthly, efficiency, optimize only\) |
+| <code>--metric</code> | - | <code>&lt;name&gt;</code> | Trend metric: cost \| tokens \(default: "cost"\) \(trends only\) |
+| <code>--model</code> | - | <code>&lt;name&gt;</code> | Filter by model \(repeatable/comma-separated; exact when exact match exists after source/provider/date filters, otherwise substring\) |
+| <code>--opencode-db</code> | - | <code>&lt;path&gt;</code> | Path to OpenCode SQLite DB |
+| <code>--per-model-columns</code> | - | - | Render per-model metrics as multiline aligned table columns \(terminal/Markdown\) \(usage reports only\) |
+| <code>--pi-dir</code> | - | <code>&lt;path&gt;</code> | Path to .pi sessions directory |
+| <code>--pricing-offline</code> | - | - | Use cached LiteLLM pricing only \(no network fetch\) |
+| <code>--pricing-url</code> | - | <code>&lt;url&gt;</code> | Override LiteLLM pricing source URL |
+| <code>--provider</code> | - | <code>&lt;name&gt;</code> | Billing-provider filter \(normalized to billing entity; e.g. openai, anthropic, google\) |
+| <code>--repo-dir</code> | - | <code>&lt;path&gt;</code> | Path to repository for Git outcome metrics \(efficiency only\) |
+| <code>--share</code> | - | - | Write a share SVG image to the current directory \(daily, weekly, monthly, efficiency, optimize only\) |
+| <code>--since</code> | - | <code>&lt;YYYY-MM-DD&gt;</code> | Inclusive start date filter |
+| <code>--source</code> | - | <code>&lt;name&gt;</code> | Filter by source id \(repeatable or comma-separated, supported sources \(5\): pi, codex, gemini, droid, opencode\) |
+| <code>--source-dir</code> | - | <code>&lt;source-id=path&gt;</code> | Override source directory for directory-backed sources \(repeatable\) |
+| <code>--timezone</code> | - | <code>&lt;iana&gt;</code> | Timezone for bucketing \(default: local system timezone\) |
+| <code>--top</code> | - | <code>&lt;n&gt;</code> | Show only the top N cheapest candidates \(positive integer\) \(optimize only\) |
+| <code>--until</code> | - | <code>&lt;YYYY-MM-DD&gt;</code> | Inclusive end date filter |
+| <code>--help</code> | <code>-h</code> | - | display help for command |
+| <code>--version</code> | <code>-V</code> | - | output the version number |
 
 ## Examples
 
