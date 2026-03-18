@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
+import { access } from 'node:fs/promises';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { spawnMock } = vi.hoisted(() => ({
   spawnMock: vi.fn(),
@@ -6,6 +7,11 @@ const { spawnMock } = vi.hoisted(() => ({
 
 vi.mock('node:child_process', () => ({
   spawn: spawnMock,
+}));
+
+vi.mock('node:fs/promises', () => ({
+  access: vi.fn(),
+  writeFile: vi.fn(),
 }));
 
 import { openShareSvgFile } from '../../src/cli/share-artifact.js';
@@ -58,17 +64,27 @@ function createMockChildProcess(): {
 }
 
 describe('share-artifact spawn integration', () => {
+  beforeEach(() => {
+    spawnMock.mockReset();
+    vi.mocked(access).mockReset();
+  });
+
   it('resolves as soon as the opener process spawns successfully', async () => {
+    vi.mocked(access).mockResolvedValue(undefined);
     const { child, emit, unrefSpy, removeListenerSpy } = createMockChildProcess();
     spawnMock.mockReturnValueOnce(child);
 
     const openPromise = openShareSvgFile('/tmp/share.svg', {
-      platform: 'darwin',
+      platform: 'linux',
     });
+    await vi.waitFor(() => {
+      expect(spawnMock).toHaveBeenCalledTimes(1);
+    });
+    await Promise.resolve();
     emit('spawn');
     await openPromise;
 
-    expect(spawnMock).toHaveBeenCalledWith('/usr/bin/open', ['/tmp/share.svg'], {
+    expect(spawnMock).toHaveBeenCalledWith('/usr/bin/xdg-open', ['/tmp/share.svg'], {
       detached: true,
       stdio: 'ignore',
       windowsHide: true,
@@ -80,12 +96,17 @@ describe('share-artifact spawn integration', () => {
   });
 
   it('rejects when spawn emits error', async () => {
+    vi.mocked(access).mockResolvedValue(undefined);
     const { child, emit, removeListenerSpy } = createMockChildProcess();
     spawnMock.mockReturnValueOnce(child);
 
     const openPromise = openShareSvgFile('/tmp/share.svg', {
       platform: 'linux',
     });
+    await vi.waitFor(() => {
+      expect(spawnMock).toHaveBeenCalledTimes(1);
+    });
+    await Promise.resolve();
     emit('error', new Error('spawn failed'));
 
     await expect(openPromise).rejects.toThrow('spawn failed');
@@ -93,12 +114,17 @@ describe('share-artifact spawn integration', () => {
   });
 
   it('ignores close after a successful spawn because the process is detached', async () => {
+    vi.mocked(access).mockResolvedValue(undefined);
     const { child, emit, removeListenerSpy } = createMockChildProcess();
     spawnMock.mockReturnValueOnce(child);
 
     const openPromise = openShareSvgFile('/tmp/share.svg', {
       platform: 'linux',
     });
+    await vi.waitFor(() => {
+      expect(spawnMock).toHaveBeenCalledTimes(1);
+    });
+    await Promise.resolve();
     emit('spawn');
     emit('close', 3);
 

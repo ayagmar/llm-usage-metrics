@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
-import { writeFile } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { access, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 export async function writeShareSvgFile(fileName: string, svgContent: string): Promise<string> {
@@ -30,23 +31,79 @@ const WINDOWS_OPEN_COMMAND = 'C:\\Windows\\System32\\rundll32.exe';
 const DARWIN_OPEN_COMMAND = '/usr/bin/open';
 const UNIX_OPEN_COMMAND = '/usr/bin/xdg-open';
 
-export function resolveOpenCommand(filePath: string, platform: NodeJS.Platform): OpenCommand {
+const WINDOWS_FALLBACK_COMMANDS = ['rundll32.exe'];
+const DARWIN_FALLBACK_COMMANDS = ['open'];
+const UNIX_FALLBACK_COMMANDS = ['xdg-open'];
+
+async function fileExists(filePath: string): Promise<boolean> {
+  try {
+    await access(filePath, constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function resolveBinaryPath(
+  primaryPath: string,
+  fallbackNames: string[],
+): Promise<string | undefined> {
+  if (await fileExists(primaryPath)) {
+    return primaryPath;
+  }
+
+  const pathDirs = (process.env.PATH ?? '').split(path.delimiter).filter(Boolean);
+
+  for (const fallbackName of fallbackNames) {
+    for (const dir of pathDirs) {
+      const candidate = path.join(dir, fallbackName);
+      if (await fileExists(candidate)) {
+        return candidate;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+export async function resolveOpenCommand(
+  filePath: string,
+  platform: NodeJS.Platform,
+): Promise<OpenCommand> {
   if (platform === 'win32') {
+    const resolvedPath = await resolveBinaryPath(WINDOWS_OPEN_COMMAND, WINDOWS_FALLBACK_COMMANDS);
+    if (!resolvedPath) {
+      throw new Error(
+        'Could not find rundll32.exe. Please ensure Windows System32 is accessible or rundll32.exe is available on PATH.',
+      );
+    }
     return {
-      command: WINDOWS_OPEN_COMMAND,
+      command: resolvedPath,
       args: ['shell32.dll,ShellExec_RunDLL', filePath],
     };
   }
 
   if (platform === 'darwin') {
+    const resolvedPath = await resolveBinaryPath(DARWIN_OPEN_COMMAND, DARWIN_FALLBACK_COMMANDS);
+    if (!resolvedPath) {
+      throw new Error(
+        'Could not find open command. Please ensure macOS is properly configured or open is available on PATH.',
+      );
+    }
     return {
-      command: DARWIN_OPEN_COMMAND,
+      command: resolvedPath,
       args: [filePath],
     };
   }
 
+  const resolvedPath = await resolveBinaryPath(UNIX_OPEN_COMMAND, UNIX_FALLBACK_COMMANDS);
+  if (!resolvedPath) {
+    throw new Error(
+      'Could not find xdg-open. Please install xdg-utils or ensure it is in your PATH.',
+    );
+  }
   return {
-    command: UNIX_OPEN_COMMAND,
+    command: resolvedPath,
     args: [filePath],
   };
 }
@@ -86,7 +143,7 @@ export async function openShareSvgFile(
 ): Promise<void> {
   const platform = deps.platform ?? process.platform;
   const runDetached = deps.spawnDetached ?? spawnDetached;
-  const { command, args } = resolveOpenCommand(filePath, platform);
+  const { command, args } = await resolveOpenCommand(filePath, platform);
   await runDetached(command, args);
 }
 

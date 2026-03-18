@@ -28,14 +28,21 @@ function escapeMarkdownText(value: string): string {
   return escapeBareAutolinks(escapedMarkdownText);
 }
 
-export function toHtmlSafeText(value: string): string {
-  return splitCellLines(value)
-    .map((line) => escapeHtmlText(line))
-    .join('<br>');
+function toMarkdownCodeSpan(value: string): string {
+  const longestBacktickRun = Math.max(
+    ...[...value.matchAll(/`+/gu)].map((match) => match[0].length),
+    0,
+  );
+  const fence = '`'.repeat(longestBacktickRun + 1);
+  const escapedValue = value.replaceAll('|', '\\|');
+
+  return `${fence}${escapedValue}${fence}`;
 }
 
-export function toHtmlSafeCodeCell(value: string): string {
-  return `<code>${toHtmlSafeText(value)}</code>`;
+export function toMarkdownSafeCodeCell(value: string): string {
+  return splitCellLines(value)
+    .map((line) => toMarkdownCodeSpan(line))
+    .join('<br>');
 }
 
 export function toMarkdownSafeCell(value: string): string {

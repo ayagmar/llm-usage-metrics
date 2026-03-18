@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  toHtmlSafeCodeCell,
-  toHtmlSafeText,
-  toMarkdownSafeCell,
-} from '../../src/render/markdown-safe-cell.js';
+import { toMarkdownSafeCell, toMarkdownSafeCodeCell } from '../../src/render/markdown-safe-cell.js';
 
 describe('markdown-safe-cell', () => {
   it('escapes bare URLs and email addresses so markdown stays data-only', () => {
@@ -18,16 +14,22 @@ describe('markdown-safe-cell', () => {
     expect(output).not.toContain('user@example.com');
   });
 
-  it('escapes HTML syntax without adding markdown escape characters', () => {
-    const output = toHtmlSafeText('flag <value> | & more');
+  it('escapes HTML syntax for normal markdown text cells', () => {
+    const output = toMarkdownSafeCell('flag <value> | & more');
 
-    expect(output).toBe('flag &lt;value&gt; | &amp; more');
+    expect(output).toBe('flag &lt;value&gt; \\| &amp; more');
   });
 
-  it('wraps HTML-escaped code cell content in code tags', () => {
-    const output = toHtmlSafeCodeCell('--filter <value>|literal`tick`');
+  it('wraps code cell content in markdown code spans and escapes table pipes', () => {
+    const output = toMarkdownSafeCodeCell('--filter <value>|literal');
 
-    expect(output).toBe('<code>--filter &lt;value&gt;|literal`tick`</code>');
-    expect(output).not.toContain('\\|');
+    expect(output).toBe('`--filter <value>\\|literal`');
+    expect(output).not.toContain('<code>');
+  });
+
+  it('uses a longer markdown fence when code content already contains backticks', () => {
+    const output = toMarkdownSafeCodeCell('literal`tick`|pipe');
+
+    expect(output).toBe('``literal`tick`\\|pipe``');
   });
 });

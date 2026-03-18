@@ -181,7 +181,7 @@ function deduplicateAndNormalizeOptions(rootOptions, commandOptionsByCommand, re
 }
 
 function generateMarkdown(version, reportMetas, options, examples, cellFormatters) {
-  const { toHtmlSafeCodeCell, toMarkdownSafeCell } = cellFormatters;
+  const { toMarkdownSafeCodeCell, toMarkdownSafeCell } = cellFormatters;
   const lines = [
     '---',
     'title: CLI Reference',
@@ -212,9 +212,9 @@ function generateMarkdown(version, reportMetas, options, examples, cellFormatter
   ];
 
   for (const option of options) {
-    const long = toHtmlSafeCodeCell(option.long);
-    const short = option.short ? toHtmlSafeCodeCell(option.short) : '-';
-    const arg = option.arg ? toHtmlSafeCodeCell(option.arg) : '-';
+    const long = toMarkdownSafeCodeCell(option.long);
+    const short = option.short ? toMarkdownSafeCodeCell(option.short) : '-';
+    const arg = option.arg ? toMarkdownSafeCodeCell(option.arg) : '-';
     const desc = toMarkdownSafeCell(option.description);
 
     lines.push(`| ${long} | ${short} | ${arg} | ${desc} |`);
@@ -241,11 +241,11 @@ async function loadMarkdownCellFormatters() {
   const markdownSafeCellModule = await tsImport(markdownSafeCellPath, {
     parentURL: import.meta.url,
   });
-  const toHtmlSafeCodeCell = markdownSafeCellModule?.toHtmlSafeCodeCell;
+  const toMarkdownSafeCodeCell = markdownSafeCellModule?.toMarkdownSafeCodeCell;
   const toMarkdownSafeCell = markdownSafeCellModule?.toMarkdownSafeCell;
 
-  if (typeof toHtmlSafeCodeCell !== 'function') {
-    throw new Error(`Failed to load toHtmlSafeCodeCell() from ${markdownSafeCellPath}`);
+  if (typeof toMarkdownSafeCodeCell !== 'function') {
+    throw new Error(`Failed to load toMarkdownSafeCodeCell() from ${markdownSafeCellPath}`);
   }
 
   if (typeof toMarkdownSafeCell !== 'function') {
@@ -253,7 +253,7 @@ async function loadMarkdownCellFormatters() {
   }
 
   return {
-    toHtmlSafeCodeCell,
+    toMarkdownSafeCodeCell,
     toMarkdownSafeCell,
   };
 }
