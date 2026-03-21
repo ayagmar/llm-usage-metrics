@@ -32,4 +32,10 @@ describe('markdown-safe-cell', () => {
 
     expect(output).toBe('``literal`tick`\\|pipe``');
   });
+
+  it('pads markdown code fences when content starts or ends with backticks or whitespace', () => {
+    expect(toMarkdownSafeCodeCell('`code`')).toBe('`` `code` ``');
+    expect(toMarkdownSafeCodeCell(' leading')).toBe('`  leading `');
+    expect(toMarkdownSafeCodeCell('trailing ')).toBe('` trailing  `');
+  });
 });

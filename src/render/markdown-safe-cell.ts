@@ -35,6 +35,11 @@ function toMarkdownCodeSpan(value: string): string {
   );
   const fence = '`'.repeat(longestBacktickRun + 1);
   const escapedValue = value.replaceAll('|', '\\|');
+  const needsFencePadding = /^[`\s]/u.test(value) || /[`\s]$/u.test(value);
+
+  if (needsFencePadding) {
+    return `${fence} ${escapedValue} ${fence}`;
+  }
 
   return `${fence}${escapedValue}${fence}`;
 }

@@ -168,9 +168,14 @@ describe('share-artifact', () => {
     it('returns pre-flight error when opener binary is not found', async () => {
       vi.mocked(access).mockRejectedValue(new Error('not found'));
       const writeShareSvgFileFn = vi.fn(async () => '/tmp/share.svg');
+      const openShareSvgFileFn = (filePath: string) =>
+        openShareSvgFile(filePath, {
+          platform: 'linux',
+        });
 
       const result = await writeAndOpenShareSvgFile('usage-monthly-share.svg', '<svg/>', {
         writeShareSvgFileFn,
+        openShareSvgFileFn,
       });
 
       expect(result.outputPath).toBe('/tmp/share.svg');
