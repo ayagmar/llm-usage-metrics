@@ -60,7 +60,10 @@
   "pnpm": {
     "overrides": {
       "basic-ftp": "5.2.0",
-      "lodash": "4.17.23"
+      "flatted": "3.4.2",
+      "h3": "1.15.9",
+      "lodash": "4.17.23",
+      "undici": "6.24.1"
     }
   },
   "dependencies": {

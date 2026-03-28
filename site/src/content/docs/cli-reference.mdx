@@ -29,31 +29,31 @@ Generated from root + command help output.
 
 | Option | Short | Argument | Description |
 | --- | --- | --- | --- |
-| `--by-source` | - | - | Render one sparkline row per source instead of a single combined chart (trends only) |
-| `--candidate-model` | - | `<name>` | Candidate model for counterfactual pricing (repeatable or comma-separated) (optimize only) |
+| `--by-source` | - | - | Render one sparkline row per source instead of a single combined chart \(trends only\) |
+| `--candidate-model` | - | `<name>` | Candidate model for counterfactual pricing \(repeatable or comma-separated\) \(optimize only\) |
 | `--codex-dir` | - | `<path>` | Path to .codex sessions directory |
-| `--days` | - | `<n>` | Trailing local calendar days to chart; defaults to 30 when no date flags are provided (trends only) |
+| `--days` | - | `<n>` | Trailing local calendar days to chart; defaults to 30 when no date flags are provided \(trends only\) |
 | `--droid-dir` | - | `<path>` | Path to Droid sessions directory |
 | `--gemini-dir` | - | `<path>` | Path to .gemini directory |
 | `--ignore-pricing-failures` | - | - | Continue without estimated costs when pricing cannot be loaded |
-| `--include-merge-commits` | - | - | Include merge commits in Git outcome metrics (efficiency only) |
+| `--include-merge-commits` | - | - | Include merge commits in Git outcome metrics \(efficiency only\) |
 | `--json` | - | - | Render output as JSON |
-| `--markdown` | - | - | Render output as Markdown table (daily, weekly, monthly, efficiency, optimize only) |
-| `--metric` | - | `<name>` | Trend metric: cost \| tokens (default: "cost") (trends only) |
-| `--model` | - | `<name>` | Filter by model (repeatable/comma-separated; exact when exact match exists after source/provider/date filters, otherwise substring) |
+| `--markdown` | - | - | Render output as Markdown table \(daily, weekly, monthly, efficiency, optimize only\) |
+| `--metric` | - | `<name>` | Trend metric: cost \| tokens \(default: "cost"\) \(trends only\) |
+| `--model` | - | `<name>` | Filter by model \(repeatable/comma-separated; exact when exact match exists after source/provider/date filters, otherwise substring\) |
 | `--opencode-db` | - | `<path>` | Path to OpenCode SQLite DB |
-| `--per-model-columns` | - | - | Render per-model metrics as multiline aligned table columns (terminal/Markdown) (usage reports only) |
+| `--per-model-columns` | - | - | Render per-model metrics as multiline aligned table columns \(terminal/Markdown\) \(usage reports only\) |
 | `--pi-dir` | - | `<path>` | Path to .pi sessions directory |
-| `--pricing-offline` | - | - | Use cached LiteLLM pricing only (no network fetch) |
+| `--pricing-offline` | - | - | Use cached LiteLLM pricing only \(no network fetch\) |
 | `--pricing-url` | - | `<url>` | Override LiteLLM pricing source URL |
-| `--provider` | - | `<name>` | Billing-provider filter (normalized to billing entity; e.g. openai, anthropic, google) |
-| `--repo-dir` | - | `<path>` | Path to repository for Git outcome metrics (efficiency only) |
-| `--share` | - | - | Write a share SVG image to the current directory (daily, weekly, monthly, efficiency, optimize only) |
+| `--provider` | - | `<name>` | Billing-provider filter \(normalized to billing entity; e.g. openai, anthropic, google\) |
+| `--repo-dir` | - | `<path>` | Path to repository for Git outcome metrics \(efficiency only\) |
+| `--share` | - | - | Write a share SVG image to the current directory \(daily, weekly, monthly, efficiency, optimize only\) |
 | `--since` | - | `<YYYY-MM-DD>` | Inclusive start date filter |
-| `--source` | - | `<name>` | Filter by source id (repeatable or comma-separated, supported sources (5): pi, codex, gemini, droid, opencode) |
-| `--source-dir` | - | `<source-id=path>` | Override source directory for directory-backed sources (repeatable) |
-| `--timezone` | - | `<iana>` | Timezone for bucketing (default: local system timezone) |
-| `--top` | - | `<n>` | Show only the top N cheapest candidates (positive integer) (optimize only) |
+| `--source` | - | `<name>` | Filter by source id \(repeatable or comma-separated, supported sources \(5\): pi, codex, gemini, droid, opencode\) |
+| `--source-dir` | - | `<source-id=path>` | Override source directory for directory-backed sources \(repeatable\) |
+| `--timezone` | - | `<iana>` | Timezone for bucketing \(default: local system timezone\) |
+| `--top` | - | `<n>` | Show only the top N cheapest candidates \(positive integer\) \(optimize only\) |
 | `--until` | - | `<YYYY-MM-DD>` | Inclusive end date filter |
 | `--help` | `-h` | - | display help for command |
 | `--version` | `-V` | - | output the version number |

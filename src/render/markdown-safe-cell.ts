@@ -15,14 +15,39 @@ function escapeBareAutolinks(value: string): string {
   );
 }
 
+function escapeHtmlText(value: string): string {
+  return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+}
+
 function escapeMarkdownText(value: string): string {
-  const escapedMarkdownText = value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replace(markdownSpecialCharacterPattern, '\\$&');
+  const escapedMarkdownText = escapeHtmlText(value).replace(
+    markdownSpecialCharacterPattern,
+    '\\$&',
+  );
 
   return escapeBareAutolinks(escapedMarkdownText);
+}
+
+function toMarkdownCodeSpan(value: string): string {
+  const longestBacktickRun = Math.max(
+    ...[...value.matchAll(/`+/gu)].map((match) => match[0].length),
+    0,
+  );
+  const fence = '`'.repeat(longestBacktickRun + 1);
+  const escapedValue = value.replaceAll('|', '\\|');
+  const needsFencePadding = /^[`\s]/u.test(value) || /[`\s]$/u.test(value);
+
+  if (needsFencePadding) {
+    return `${fence} ${escapedValue} ${fence}`;
+  }
+
+  return `${fence}${escapedValue}${fence}`;
+}
+
+export function toMarkdownSafeCodeCell(value: string): string {
+  return splitCellLines(value)
+    .map((line) => toMarkdownCodeSpan(line))
+    .join('<br>');
 }
 
 export function toMarkdownSafeCell(value: string): string {
