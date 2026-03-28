@@ -164,7 +164,7 @@ function resolveTerminalContextLines(
           )
         : undefined;
 
-    if (!bestRow || bestRow.savingsUsd === undefined) {
+    if (bestRow?.savingsUsd === undefined) {
       lines.push('ALL best candidate: unavailable (missing baseline or candidate pricing)');
     } else if (bestRow.savingsUsd > 0) {
       lines.push(
