@@ -59,11 +59,17 @@
   "homepage": "https://ayagmar.github.io/llm-usage-metrics/",
   "pnpm": {
     "overrides": {
+      "anymatch>picomatch": "2.3.2",
       "basic-ftp": "5.2.0",
+      "brace-expansion": "5.0.5",
       "flatted": "3.4.2",
       "h3": "1.15.9",
+      "handlebars": "4.7.9",
       "lodash": "4.17.23",
-      "undici": "6.24.1"
+      "picomatch": "4.0.4",
+      "smol-toml": "1.6.1",
+      "undici": "6.24.1",
+      "yaml": "2.8.3"
     }
   },
   "dependencies": {
