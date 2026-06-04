@@ -73,7 +73,7 @@
     }
   },
   "dependencies": {
-    "commander": "14.0.3",
+    "commander": "15.0.0",
     "markdown-table": "3.0.4",
     "picocolors": "1.1.1"
   },
