@@ -49,6 +49,10 @@ describe('createCli', () => {
       expect(command.options.some((option) => option.long === '--opencode-db')).toBe(true);
       expect(command.options.some((option) => option.long === '--gemini-dir')).toBe(true);
       expect(command.options.some((option) => option.long === '--droid-dir')).toBe(true);
+      expect(command.options.some((option) => option.long === '--claude-dir')).toBe(true);
+      expect(command.options.some((option) => option.long === '--anthropic-admin-key-env')).toBe(
+        true,
+      );
       expect(command.options.some((option) => option.long === '--source')).toBe(true);
       expect(command.options.some((option) => option.long === '--source-dir')).toBe(true);
       expect(command.options.some((option) => option.long === '--model')).toBe(true);
@@ -141,7 +145,9 @@ describe('createCli', () => {
       ?.helpInformation();
     const compactDailyCommandHelp = dailyCommandHelp?.replace(/\s+/gu, ' ');
 
-    expect(compactHelp).toContain('Supported sources (5): pi, codex, gemini, droid, opencode');
+    expect(compactHelp).toContain(
+      'Supported sources (7): pi, codex, gemini, droid, opencode, claude, anthropic-api',
+    );
     expect(compactHelp).toContain('Show daily usage report');
     expect(compactHelp).toContain('llm-usage <command> --help');
     expect(compactHelp).toContain('--source opencode --opencode-db /path/to/opencode.db');

@@ -26,6 +26,10 @@ describe('terminal-style-policy', () => {
     expect(resolveSourceStyler('gemini', testPalette)('gemini')).toBe('<yellow>gemini</yellow>');
     expect(resolveSourceStyler('droid', testPalette)('droid')).toBe('<green>droid</green>');
     expect(resolveSourceStyler('opencode', testPalette)('opencode')).toBe('<blue>opencode</blue>');
+    expect(resolveSourceStyler('claude', testPalette)('claude')).toBe('<cyan>claude</cyan>');
+    expect(resolveSourceStyler('anthropic-api', testPalette)('anthropic-api')).toBe(
+      '<yellow>anthropic-api</yellow>',
+    );
     expect(resolveSourceStyler('combined', testPalette)('combined')).toBe('combined');
     expect(resolveSourceStyler('TOTAL', testPalette)('TOTAL')).toBe('TOTAL');
     expect(resolveSourceStyler('other', testPalette)('other')).toBe('other');

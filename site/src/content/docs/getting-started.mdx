@@ -24,6 +24,8 @@ npx --yes llm-usage-metrics@latest daily
   - `.gemini` sessions (`~/.gemini/tmp/*/chats/*.json`)
   - Droid sessions (`~/.factory/sessions/**/*.settings.json`)
   - OpenCode SQLite DB (auto-discovered or explicit `--opencode-db`, requires built-in `node:sqlite` support)
+  - Claude Code projects (`~/.claude/projects/**/*.jsonl`)
+  - Anthropic Admin API usage (`--source anthropic-api`, explicit-only)
 
 ## First report
 
@@ -42,7 +44,7 @@ llm-usage trends --metric tokens --days 14
 ## Common filters
 
 ```bash
-llm-usage monthly --source pi,codex,gemini,droid
+llm-usage monthly --source pi,codex,gemini,droid,claude
 llm-usage monthly --provider openai
 llm-usage monthly --model claude
 ```
@@ -93,4 +95,16 @@ If no default OpenCode DB is found and no explicit path is given, OpenCode is tr
 
 ```bash
 llm-usage monthly --source droid --droid-dir /path/to/.factory/sessions
+```
+
+## Claude explicit path
+
+```bash
+llm-usage monthly --source claude --claude-dir /path/to/.claude/projects
+```
+
+## Anthropic API usage
+
+```bash
+ANTHROPIC_ADMIN_KEY=... llm-usage monthly --source anthropic-api
 ```

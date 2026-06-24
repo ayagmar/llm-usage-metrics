@@ -19,6 +19,8 @@ describe('share-svg-theme', () => {
       expect(getSourceColor('gemini', 2)).toBe('#eab308');
       expect(getSourceColor('droid', 3)).toBe('#3b82f6');
       expect(getSourceColor('opencode', 4)).toBe('#a855f7');
+      expect(getSourceColor('claude', 5)).toBe('#d97757');
+      expect(getSourceColor('anthropic-api', 6)).toBe('#f97316');
     });
 
     it('returns fallback color for unknown sources', () => {

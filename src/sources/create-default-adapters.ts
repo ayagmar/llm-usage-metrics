@@ -1,3 +1,5 @@
+import { AnthropicApiSourceAdapter } from './anthropic-api/anthropic-api-source-adapter.js';
+import { ClaudeSourceAdapter } from './claude/claude-source-adapter.js';
 import { CodexSourceAdapter } from './codex/codex-source-adapter.js';
 import { DroidSourceAdapter } from './droid/droid-source-adapter.js';
 import { GeminiSourceAdapter } from './gemini/gemini-source-adapter.js';
@@ -21,7 +23,11 @@ export type CreateDefaultAdaptersOptions = {
   codexDir?: string;
   geminiDir?: string;
   droidDir?: string;
+  claudeDir?: string;
   opencodeDb?: string;
+  anthropicAdminKeyEnv?: string;
+  since?: string;
+  until?: string;
   sourceDir?: string[];
 };
 
@@ -94,6 +100,32 @@ const sourceRegistrations: readonly SourceRegistration[] = [
         dbPath: options.opencodeDb,
       }),
   },
+  {
+    id: 'claude',
+    sourceDirOverride: { kind: 'directory' },
+    create: (options, sourceDirectoryOverrides) => {
+      const directoryConfig = resolveDirectoryConfig(
+        'claude',
+        options.claudeDir,
+        sourceDirectoryOverrides,
+      );
+
+      return new ClaudeSourceAdapter({
+        projectsDir: directoryConfig.path,
+        requireProjectsDir: directoryConfig.requireExistingPath,
+      });
+    },
+  },
+  {
+    id: 'anthropic-api',
+    sourceDirOverride: { kind: 'unsupported', flag: '--source anthropic-api' },
+    create: (options) =>
+      new AnthropicApiSourceAdapter({
+        adminKeyEnv: options.anthropicAdminKeyEnv,
+        since: options.since,
+        until: options.until,
+      }),
+  },
 ];
 
 const sourceDirUnsupportedFlags = new Map(
@@ -157,7 +189,7 @@ function validateOpencodeOverride(opencodeDb: string | undefined): void {
 }
 
 function validateDirectoryOverride(
-  optionName: '--pi-dir' | '--codex-dir' | '--gemini-dir' | '--droid-dir',
+  optionName: '--pi-dir' | '--codex-dir' | '--gemini-dir' | '--droid-dir' | '--claude-dir',
   value: string | undefined,
 ): void {
   if (value === undefined) {
@@ -209,6 +241,7 @@ export function createDefaultAdapters(options: CreateDefaultAdaptersOptions): So
   validateDirectoryOverride('--codex-dir', options.codexDir);
   validateDirectoryOverride('--gemini-dir', options.geminiDir);
   validateDirectoryOverride('--droid-dir', options.droidDir);
+  validateDirectoryOverride('--claude-dir', options.claudeDir);
 
   const sourceDirectoryOverrides = parseSourceDirectoryOverrides(options.sourceDir);
   validateSourceDirectoryOverrideIds(sourceDirectoryOverrides);

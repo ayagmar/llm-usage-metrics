@@ -61,10 +61,10 @@ describe('build-usage-data-inputs', () => {
 
   it('treats source-dir overrides as explicit source selections', () => {
     const inputs = normalizeBuildUsageInputs({
-      sourceDir: ['pi=/tmp/pi-sessions', 'codex=/tmp/codex-sessions'],
+      sourceDir: ['pi=/tmp/pi-sessions', 'codex=/tmp/codex-sessions', 'claude=/tmp/claude'],
     });
 
-    expect([...inputs.explicitSourceIds]).toEqual(['pi', 'codex']);
+    expect([...inputs.explicitSourceIds]).toEqual(['pi', 'codex', 'claude']);
   });
 
   it('validates malformed source-dir entries through the shared parser', () => {
@@ -92,6 +92,12 @@ describe('build-usage-data-inputs', () => {
         discoverFiles: async () => [],
         parseFile: async () => [],
       },
+      {
+        id: 'anthropic-api',
+        capabilities: { requiresExplicitSelection: true },
+        discoverFiles: async () => [],
+        parseFile: async () => [],
+      },
     ];
 
     const selectedAdapters = selectAdaptersForParsing(adapters, {
@@ -100,6 +106,36 @@ describe('build-usage-data-inputs', () => {
     });
 
     expect(selectedAdapters.map((adapter) => adapter.id)).toEqual(['pi', 'codex']);
+  });
+
+  it('selects explicit-only sources only when requested', () => {
+    const adapters: SourceAdapter[] = [
+      {
+        id: 'claude',
+        discoverFiles: async () => [],
+        parseFile: async () => [],
+      },
+      {
+        id: 'anthropic-api',
+        capabilities: { requiresExplicitSelection: true },
+        discoverFiles: async () => [],
+        parseFile: async () => [],
+      },
+    ];
+
+    expect(
+      selectAdaptersForParsing(adapters, {
+        sourceFilter: undefined,
+        candidateProviderRoots: undefined,
+      }).map((adapter) => adapter.id),
+    ).toEqual(['claude']);
+
+    expect(
+      selectAdaptersForParsing(adapters, {
+        sourceFilter: new Set(['anthropic-api']),
+        candidateProviderRoots: undefined,
+      }).map((adapter) => adapter.id),
+    ).toEqual(['anthropic-api']);
   });
 
   it('records source selection with candidate provider roots in the runtime profile', () => {

@@ -20,6 +20,8 @@ const knownSourceColors: Readonly<Record<string, string>> = {
   gemini: '#eab308',
   droid: '#3b82f6',
   opencode: '#a855f7',
+  claude: '#d97757',
+  'anthropic-api': '#f97316',
 };
 
 const fallbackColors: readonly string[] = ['#f97316', '#06b6d4', '#ef4444', '#84cc16', '#f43f5e'];
