@@ -175,6 +175,24 @@ export async function parseAdapterEvents(
   parseFileCache?: ParseFileCache,
   runtimeProfile?: RuntimeProfileCollector,
 ): Promise<AdapterParseResult> {
+  if (adapter.parseSourceWithDiagnostics) {
+    const parseDiagnostics = await adapter.parseSourceWithDiagnostics();
+    const result = {
+      source: adapter.id,
+      events: parseDiagnostics.events,
+      filesFound: parseDiagnostics.sourceItemsFound ?? parseDiagnostics.events.length,
+      skippedRows: normalizeSkippedRowsCount(parseDiagnostics.skippedRows),
+      skippedRowReasons: normalizeSkippedRowReasons(parseDiagnostics.skippedRowReasons),
+    };
+
+    runtimeProfile?.recordParseResult(adapter.id, {
+      filesFound: result.filesFound,
+      eventsParsed: result.events.length,
+    });
+
+    return result;
+  }
+
   const files = await adapter.discoverFiles();
 
   if (files.length === 0) {
@@ -223,6 +241,7 @@ export async function parseAdapterEvents(
           parseFileDiagnostics = adapter.parseFileWithDiagnostics
             ? await adapter.parseFileWithDiagnostics(filePath)
             : getDefaultParseFileDiagnostics(await adapter.parseFile(filePath));
+
           if (parseFileCache && fileFingerprint) {
             parseFileCache.set(adapter.id, filePath, fileFingerprint, parseFileDiagnostics);
           }

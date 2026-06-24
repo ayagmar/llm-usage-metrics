@@ -1,0 +1,24 @@
+---
+title: anthropic-api Source
+---
+
+## Activation
+
+`anthropic-api` is explicit-only and is not fetched during default local reports.
+
+```bash
+ANTHROPIC_ADMIN_KEY=... llm-usage daily --source anthropic-api
+```
+
+Use a different key environment variable when needed:
+
+```bash
+MY_ADMIN_KEY=... llm-usage daily --source anthropic-api --anthropic-admin-key-env MY_ADMIN_KEY
+```
+
+## Parsing notes
+
+The adapter calls Anthropic's Admin API message usage report, groups daily buckets by model, and maps usage into the shared token buckets.
+Costs are estimated through the existing LiteLLM pricing flow.
+
+When no date flags are provided, the source fetches the trailing 31 local calendar days.

@@ -182,6 +182,10 @@ export function resolveExplicitSourceIds(
     explicitSourceIds.add('droid');
   }
 
+  if (options.claudeDir) {
+    explicitSourceIds.add('claude');
+  }
+
   if (options.opencodeDb) {
     explicitSourceIds.add('opencode');
   }
@@ -246,7 +250,7 @@ export function selectAdaptersForParsing(
   const sourceFilter = options.sourceFilter;
   const selectedBySource = sourceFilter
     ? adapters.filter((adapter) => sourceFilter.has(adapter.id.toLowerCase()))
-    : adapters;
+    : adapters.filter((adapter) => adapter.capabilities?.requiresExplicitSelection !== true);
 
   if (!options.candidateProviderRoots) {
     options.runtimeProfile?.recordSourceSelection({

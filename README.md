@@ -55,13 +55,15 @@ llm-usage daily
 
 ## 📋 Supported Sources
 
-| Source         | Pattern                                  | Discovery                        |
-| -------------- | ---------------------------------------- | -------------------------------- |
-| **pi**         | `~/.pi/agent/sessions/**/*.jsonl`        | Automatic                        |
-| **codex**      | `~/.codex/sessions/**/*.jsonl`           | Automatic                        |
-| **Gemini CLI** | `~/.gemini/tmp/*/chats/*.json`           | Automatic                        |
-| **Droid CLI**  | `~/.factory/sessions/**/*.settings.json` | Automatic                        |
-| **OpenCode**   | `~/.opencode/opencode.db`                | Auto or explicit `--opencode-db` |
+| Source            | Pattern                                  | Discovery                              |
+| ----------------- | ---------------------------------------- | -------------------------------------- |
+| **pi**            | `~/.pi/agent/sessions/**/*.jsonl`        | Automatic                              |
+| **codex**         | `~/.codex/sessions/**/*.jsonl`           | Automatic                              |
+| **Gemini CLI**    | `~/.gemini/tmp/*/chats/*.json`           | Automatic                              |
+| **Droid CLI**     | `~/.factory/sessions/**/*.settings.json` | Automatic                              |
+| **OpenCode**      | `~/.opencode/opencode.db`                | Auto or explicit `--opencode-db`       |
+| **Claude Code**   | `~/.claude/projects/**/*.jsonl`          | Automatic                              |
+| **Anthropic API** | Admin API usage report                   | Explicit `--source anthropic-api` only |
 
 OpenCode source support requires Node.js 24+ runtime with built-in `node:sqlite`.
 
@@ -154,9 +156,10 @@ llm-usage efficiency monthly --repo-dir /path/to/repo --source codex
 llm-usage efficiency monthly --repo-dir /path/to/repo --source gemini
 llm-usage efficiency monthly --repo-dir /path/to/repo --source droid
 llm-usage efficiency monthly --repo-dir /path/to/repo --source opencode
+llm-usage efficiency monthly --repo-dir /path/to/repo --source claude
 ```
 
-Note: usage filters (`--source`, `--provider`, `--model`, `--pi-dir`, `--codex-dir`, `--gemini-dir`, `--droid-dir`, `--opencode-db`, `--source-dir`) also constrain commit attribution: only commit days with matching repo-attributed usage events are counted.
+Note: usage filters (`--source`, `--provider`, `--model`, `--pi-dir`, `--codex-dir`, `--gemini-dir`, `--droid-dir`, `--claude-dir`, `--opencode-db`, `--source-dir`) also constrain commit attribution: only commit days with matching repo-attributed usage events are counted.
 
 ### Optimize Reports
 
@@ -177,7 +180,7 @@ llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candida
 
 ```bash
 # By source
-llm-usage monthly --source pi,codex,gemini,droid
+llm-usage monthly --source pi,codex,gemini,droid,claude
 
 # By provider
 llm-usage monthly --provider openai
@@ -189,18 +192,22 @@ llm-usage monthly --model claude
 llm-usage monthly --source opencode --provider openai --model gpt-4.1
 ```
 
-Use `--source` to scope where events came from (`pi`, `codex`, `gemini`, `droid`, `opencode`), and `--provider` to scope the billing entity behind those events.
+Use `--source` to scope where events came from (`pi`, `codex`, `gemini`, `droid`, `opencode`, `claude`, `anthropic-api`), and `--provider` to scope the billing entity behind those events.
 
 ### Custom Paths
 
 ```bash
 # Custom directories
-llm-usage daily --source-dir pi=/path/to/pi --source-dir codex=/path/to/codex --source-dir gemini=/path/to/.gemini --source-dir droid=/path/to/.factory/sessions
+llm-usage daily --source-dir pi=/path/to/pi --source-dir codex=/path/to/codex --source-dir gemini=/path/to/.gemini --source-dir droid=/path/to/.factory/sessions --source-dir claude=/path/to/.claude/projects
 
-# Explicit Gemini/Droid/OpenCode paths
+# Explicit Gemini/Droid/Claude/OpenCode paths
 llm-usage daily --gemini-dir /path/to/.gemini
 llm-usage daily --droid-dir /path/to/.factory/sessions
+llm-usage daily --claude-dir /path/to/.claude/projects
 llm-usage daily --opencode-db /path/to/opencode.db
+
+# Explicit Anthropic Admin API usage
+ANTHROPIC_ADMIN_KEY=... llm-usage daily --source anthropic-api
 ```
 
 ### Offline Mode

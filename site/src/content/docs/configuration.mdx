@@ -10,13 +10,13 @@ description: CLI options, source path overrides, and runtime environment variabl
 Directory-backed sources:
 
 ```bash
-llm-usage daily --pi-dir /path/to/pi --codex-dir /path/to/codex --gemini-dir /path/to/.gemini --droid-dir /path/to/.factory/sessions
+llm-usage daily --pi-dir /path/to/pi --codex-dir /path/to/codex --gemini-dir /path/to/.gemini --droid-dir /path/to/.factory/sessions --claude-dir /path/to/.claude/projects
 ```
 
 Generic directory override syntax:
 
 ```bash
-llm-usage daily --source-dir pi=/path/to/pi --source-dir codex=/path/to/codex --source-dir gemini=/path/to/.gemini --source-dir droid=/path/to/.factory/sessions
+llm-usage daily --source-dir pi=/path/to/pi --source-dir codex=/path/to/codex --source-dir gemini=/path/to/.gemini --source-dir droid=/path/to/.factory/sessions --source-dir claude=/path/to/.claude/projects
 ```
 
 OpenCode uses a dedicated DB override flag:
@@ -27,8 +27,9 @@ llm-usage daily --opencode-db /path/to/opencode.db
 
 Notes:
 
-- `--source-dir` supports directory-backed sources (`pi`, `codex`, `gemini`, `droid`).
+- `--source-dir` supports directory-backed sources (`pi`, `codex`, `gemini`, `droid`, `claude`).
 - `--source-dir opencode=...` is rejected; use `--opencode-db`.
+- `anthropic-api` is explicit-only and uses `ANTHROPIC_ADMIN_KEY` by default.
 - OpenCode path precedence is:
   1. `--opencode-db`
   2. deterministic OS-specific default DB candidates
@@ -40,6 +41,8 @@ llm-usage monthly --source pi
 llm-usage monthly --source pi,codex
 llm-usage monthly --source droid --droid-dir /path/to/.factory/sessions
 llm-usage monthly --source opencode --opencode-db /path/to/opencode.db
+llm-usage monthly --source claude --claude-dir /path/to/.claude/projects
+ANTHROPIC_ADMIN_KEY=... llm-usage monthly --source anthropic-api
 ```
 
 ## Runtime environment variables

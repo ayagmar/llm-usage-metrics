@@ -69,6 +69,10 @@ function resolveScopeNote(options: EfficiencyCommandOptions): string | undefined
     activeFilters.push('--droid-dir');
   }
 
+  if (hasActiveTextOption(options.claudeDir)) {
+    activeFilters.push('--claude-dir');
+  }
+
   if (hasActiveTextOption(options.opencodeDb)) {
     activeFilters.push('--opencode-db');
   }

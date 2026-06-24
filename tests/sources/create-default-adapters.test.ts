@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -23,10 +23,12 @@ describe('createDefaultAdapters', () => {
       'gemini',
       'droid',
       'opencode',
+      'claude',
+      'anthropic-api',
     ]);
   });
 
-  it('exposes fixed-provider capabilities for codex and gemini', () => {
+  it('exposes source capabilities for provider pruning and explicit-only sources', () => {
     const adapters = createDefaultAdapters({});
 
     expect(adapters.find((adapter) => adapter.id === 'codex')?.capabilities).toEqual({
@@ -34,6 +36,9 @@ describe('createDefaultAdapters', () => {
     });
     expect(adapters.find((adapter) => adapter.id === 'gemini')?.capabilities).toEqual({
       fixedProviderRoots: ['google'],
+    });
+    expect(adapters.find((adapter) => adapter.id === 'anthropic-api')?.capabilities).toEqual({
+      requiresExplicitSelection: true,
     });
   });
 
@@ -44,7 +49,10 @@ describe('createDefaultAdapters', () => {
       path.join(os.tmpdir(), 'usage-adapters-gemini-source-dir-'),
     );
     const droidTempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-adapters-droid-source-dir-'));
-    tempDirs.push(piTempDir, codexTempDir, geminiTempDir, droidTempDir);
+    const claudeTempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'usage-adapters-claude-source-dir-'),
+    );
+    tempDirs.push(piTempDir, codexTempDir, geminiTempDir, droidTempDir, claudeTempDir);
 
     const piFile = path.join(piTempDir, 'pi-session.jsonl');
     const codexFile = path.join(codexTempDir, 'codex-session.jsonl');
@@ -52,11 +60,13 @@ describe('createDefaultAdapters', () => {
     await mkdir(geminiChatsDir, { recursive: true });
     const geminiFile = path.join(geminiChatsDir, 'session.json');
     const droidFile = path.join(droidTempDir, 'droid-session.settings.json');
+    const claudeFile = path.join(claudeTempDir, 'claude-session.jsonl');
 
     await writeFile(piFile, '{}\n', 'utf8');
     await writeFile(codexFile, '{}\n', 'utf8');
     await writeFile(geminiFile, '{}', 'utf8');
     await writeFile(droidFile, '{}', 'utf8');
+    await writeFile(claudeFile, '{}\n', 'utf8');
 
     const adapters = createDefaultAdapters({
       sourceDir: [
@@ -64,13 +74,15 @@ describe('createDefaultAdapters', () => {
         `codex=${codexTempDir}`,
         `gemini=${geminiTempDir}`,
         `droid=${droidTempDir}`,
+        `claude=${claudeTempDir}`,
       ],
     });
 
-    await expect(adapters[0].discoverFiles()).resolves.toEqual([piFile]);
-    await expect(adapters[1].discoverFiles()).resolves.toEqual([codexFile]);
-    await expect(adapters[2].discoverFiles()).resolves.toEqual([geminiFile]);
-    await expect(adapters[3].discoverFiles()).resolves.toEqual([droidFile]);
+    await expect(adapters[0].discoverFiles()).resolves.toEqual([await realpath(piFile)]);
+    await expect(adapters[1].discoverFiles()).resolves.toEqual([await realpath(codexFile)]);
+    await expect(adapters[2].discoverFiles()).resolves.toEqual([await realpath(geminiFile)]);
+    await expect(adapters[3].discoverFiles()).resolves.toEqual([await realpath(droidFile)]);
+    await expect(adapters[5].discoverFiles()).resolves.toEqual([await realpath(claudeFile)]);
   });
 
   it('throws on invalid source directory override entries', () => {
@@ -130,6 +142,12 @@ describe('createDefaultAdapters', () => {
   it('throws when --droid-dir is blank', () => {
     expect(() => createDefaultAdapters({ droidDir: '   ' })).toThrow(
       '--droid-dir must be a non-empty path',
+    );
+  });
+
+  it('throws when --claude-dir is blank', () => {
+    expect(() => createDefaultAdapters({ claudeDir: '   ' })).toThrow(
+      '--claude-dir must be a non-empty path',
     );
   });
 
@@ -238,6 +256,17 @@ describe('createDefaultAdapters', () => {
 
     await expect(codexAdapter?.discoverFiles()).rejects.toThrow(
       `Codex sessions directory is not a directory: ${codexFilePath}`,
+    );
+  });
+
+  it('fails claude discovery when an explicitly configured directory is missing', async () => {
+    const adapters = createDefaultAdapters({
+      claudeDir: path.join(os.tmpdir(), `missing-claude-${Date.now()}`),
+    });
+    const claudeAdapter = adapters.find((adapter) => adapter.id === 'claude');
+
+    await expect(claudeAdapter?.discoverFiles()).rejects.toThrow(
+      'Claude projects directory is missing or unreadable',
     );
   });
 });

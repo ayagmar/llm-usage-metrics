@@ -1,0 +1,22 @@
+---
+title: claude Source
+---
+
+## Default location
+
+- `~/.claude/projects/**/*.jsonl`
+
+## Override
+
+```bash
+llm-usage daily --claude-dir /path/to/.claude/projects
+# or
+llm-usage daily --source-dir claude=/path/to/.claude/projects
+```
+
+## Parsing notes
+
+The adapter reads Claude Code assistant transcript rows with `message.usage`, including nested subagent transcripts.
+Streaming/update rows are de-duplicated by message id and only the final observed usage row is counted.
+
+Claude model rows default to provider `anthropic`; rows that declare another provider keep that provider.
