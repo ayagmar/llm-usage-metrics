@@ -4,48 +4,16 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const childProcessMock = vi.hoisted(() => {
-  let errorHandler: ((error: Error) => void) | undefined;
-  const childProcess = {
-    on: vi.fn((event: string, handler: (error: Error) => void) => {
-      if (event === 'error') {
-        errorHandler = handler;
-      }
-
-      return childProcess;
-    }),
-    unref: vi.fn(),
-  };
-  const spawn = vi.fn(() => childProcess);
-
-  return {
-    childProcess,
-    spawn,
-    getErrorHandler: () => errorHandler,
-    reset: () => {
-      errorHandler = undefined;
-      childProcess.on.mockClear();
-      childProcess.unref.mockClear();
-      spawn.mockClear();
-    },
-  };
-});
-
-vi.mock('node:child_process', () => ({
-  spawn: childProcessMock.spawn,
-}));
-
 import {
   checkForUpdatesAndMaybeRestart,
   compareVersions,
+  getSessionScopedCachePath,
   isCacheFresh,
   isLikelyNpxExecution,
   isLikelySourceExecution,
-  refreshUpdateCheckCache,
   resolveLatestVersion,
   shouldOfferUpdate,
   shouldSkipUpdateCheckForArgv,
-  UPDATE_CHECK_REFRESH_ENV_VAR,
   type CommandRunner,
 } from '../../src/update/update-notifier.js';
 
@@ -54,7 +22,6 @@ const tempDirs: string[] = [];
 afterEach(async () => {
   await Promise.all(tempDirs.map((tempDir) => rm(tempDir, { recursive: true, force: true })));
   tempDirs.length = 0;
-  childProcessMock.reset();
   vi.restoreAllMocks();
 });
 
@@ -246,38 +213,27 @@ describe('update-notifier', () => {
 
     const baseNow = 5_000_000;
     const now = () => baseNow;
+    const sessionEnv = {
+      LLM_USAGE_UPDATE_CACHE_SCOPE: 'session',
+      LLM_USAGE_UPDATE_CACHE_SESSION_KEY: 'kitty/tab-1',
+    };
+    const scopedCachePath = getSessionScopedCachePath(cacheFilePath, sessionEnv);
 
-    await refreshUpdateCheckCache({
+    await resolveLatestVersion({
       packageName: 'llm-usage-metrics',
-      currentVersion: '0.1.0',
-      cacheFilePath,
-      env: {
-        LLM_USAGE_UPDATE_CACHE_SCOPE: 'session',
-        LLM_USAGE_UPDATE_CACHE_SESSION_KEY: 'kitty/tab-1',
-      },
+      cacheFilePath: scopedCachePath,
       now,
       fetchImpl: fetchSpy,
     });
 
-    await refreshUpdateCheckCache({
+    await resolveLatestVersion({
       packageName: 'llm-usage-metrics',
-      currentVersion: '0.1.0',
-      cacheFilePath,
-      env: {
-        LLM_USAGE_UPDATE_CACHE_SCOPE: 'session',
-        LLM_USAGE_UPDATE_CACHE_SESSION_KEY: 'kitty/tab-1',
-      },
+      cacheFilePath: scopedCachePath,
       now,
       fetchImpl: fetchSpy,
     });
 
-    const parsedCachePath = path.parse(cacheFilePath);
-    const sessionScopedCachePath = path.join(
-      parsedCachePath.dir,
-      `${parsedCachePath.name}.kitty_tab-1${parsedCachePath.ext}`,
-    );
-
-    const sessionCachePayload = JSON.parse(await readFile(sessionScopedCachePath, 'utf8')) as {
+    const sessionCachePayload = JSON.parse(await readFile(scopedCachePath, 'utf8')) as {
       checkedAt: number;
       latestVersion: string;
     };
@@ -293,28 +249,21 @@ describe('update-notifier', () => {
   it('falls back to parent pid session key when custom env session key is blank', async () => {
     const cacheFilePath = await createTempCachePath('update-cache-session-blank-key-');
     const nowValue = 6_000_000;
+    const scopedCachePath = getSessionScopedCachePath(cacheFilePath, {
+      LLM_USAGE_UPDATE_CACHE_SCOPE: 'session',
+      LLM_USAGE_UPDATE_CACHE_SESSION_KEY: '   ',
+    });
 
-    await refreshUpdateCheckCache({
+    await resolveLatestVersion({
       packageName: 'llm-usage-metrics',
-      currentVersion: '0.1.0',
-      cacheFilePath,
-      env: {
-        LLM_USAGE_UPDATE_CACHE_SCOPE: 'session',
-        LLM_USAGE_UPDATE_CACHE_SESSION_KEY: '   ',
-      },
+      cacheFilePath: scopedCachePath,
       now: () => nowValue,
       fetchImpl: vi.fn(
         async () => new Response(JSON.stringify({ version: '0.2.0' }), { status: 200 }),
       ),
     });
 
-    const parsedCachePath = path.parse(cacheFilePath);
-    const sessionScopedCachePath = path.join(
-      parsedCachePath.dir,
-      `${parsedCachePath.name}.ppid-${process.ppid}${parsedCachePath.ext}`,
-    );
-
-    const sessionCachePayload = JSON.parse(await readFile(sessionScopedCachePath, 'utf8')) as {
+    const sessionCachePayload = JSON.parse(await readFile(scopedCachePath, 'utf8')) as {
       checkedAt: number;
       latestVersion: string;
     };
@@ -469,11 +418,10 @@ describe('update-notifier', () => {
     expect(notify).not.toHaveBeenCalled();
   });
 
-  it('uses a fresh cached update immediately without scheduling background refresh', async () => {
+  it('uses a fresh cached update immediately without fetching', async () => {
     const cacheFilePath = await createTempCachePath('update-fresh-cache-hit-');
     const nowValue = 7_000_000;
     const notify = vi.fn();
-    const spawnDetachedCommand = vi.fn();
     const fetchSpy = vi.fn(async () => {
       throw new Error('fetch should not be called for fresh cache');
     });
@@ -498,63 +446,46 @@ describe('update-notifier', () => {
       stdoutIsTTY: false,
       env: { PATH: '/usr/bin' },
       argv: ['/usr/bin/node', '/app/dist/index.js', 'daily'],
-      execPath: '/usr/bin/node',
       notify,
-      spawnDetachedCommand,
     });
 
     expect(result).toEqual({ continueExecution: true });
     expect(notify).toHaveBeenCalledOnce();
     expect(fetchSpy).not.toHaveBeenCalled();
-    expect(spawnDetachedCommand).not.toHaveBeenCalled();
   });
 
-  it('schedules a detached refresh instead of blocking when no cache is available', async () => {
+  it('notifies from a missing cache by fetching the latest version', async () => {
+    const cacheFilePath = await createTempCachePath('update-missing-cache-fetch-');
     const notify = vi.fn();
-    const spawnDetachedCommand = vi.fn();
-    const fetchSpy = vi.fn(async () => {
-      throw new Error('fetch should not be called on the foreground path');
-    });
+    const fetchSpy = vi.fn(
+      async () => new Response(JSON.stringify({ version: '0.2.0' }), { status: 200 }),
+    );
 
     const result = await checkForUpdatesAndMaybeRestart({
       packageName: 'llm-usage-metrics',
       currentVersion: '0.1.0',
-      cacheFilePath: '/tmp/update-check.json',
+      cacheFilePath,
       fetchImpl: fetchSpy,
       stdinIsTTY: false,
       stdoutIsTTY: false,
       env: { PATH: '/usr/bin' },
       argv: ['/usr/bin/node', '/app/dist/index.js', 'daily', '--json'],
-      execPath: '/usr/bin/node',
       notify,
-      spawnDetachedCommand,
     });
 
     expect(result).toEqual({ continueExecution: true });
-    expect(notify).not.toHaveBeenCalled();
-    expect(fetchSpy).not.toHaveBeenCalled();
-    expect(spawnDetachedCommand).toHaveBeenCalledOnce();
-    expect(spawnDetachedCommand).toHaveBeenCalledWith(
-      '/usr/bin/node',
-      ['/app/dist/index.js', 'daily', '--json'],
-      {
-        env: {
-          PATH: '/usr/bin',
-          [UPDATE_CHECK_REFRESH_ENV_VAR]: '1',
-        },
-        stdio: 'ignore',
-      },
-    );
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    expect(notify).toHaveBeenCalledOnce();
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining('0.1.0 → 0.2.0'));
   });
 
-  it('does not notify from stale cache and schedules a detached refresh instead', async () => {
-    const cacheFilePath = await createTempCachePath('update-stale-background-refresh-');
+  it('notifies from a stale cache by refreshing the latest version', async () => {
+    const cacheFilePath = await createTempCachePath('update-stale-refresh-');
     const nowValue = 8_000_000;
     const notify = vi.fn();
-    const spawnDetachedCommand = vi.fn();
-    const fetchSpy = vi.fn(async () => {
-      throw new Error('fetch should not be called on the foreground path');
-    });
+    const fetchSpy = vi.fn(
+      async () => new Response(JSON.stringify({ version: '0.3.0' }), { status: 200 }),
+    );
 
     await writeFile(
       cacheFilePath,
@@ -576,35 +507,13 @@ describe('update-notifier', () => {
       stdoutIsTTY: false,
       env: { PATH: '/usr/bin' },
       argv: ['/usr/bin/node', '/app/dist/index.js', 'daily'],
-      execPath: '/usr/bin/node',
       notify,
-      spawnDetachedCommand,
     });
 
     expect(result).toEqual({ continueExecution: true });
-    expect(notify).not.toHaveBeenCalled();
-    expect(fetchSpy).not.toHaveBeenCalled();
-    expect(spawnDetachedCommand).toHaveBeenCalledOnce();
-  });
-
-  it('attaches a safe error handler to detached refresh spawns', async () => {
-    const cacheFilePath = await createTempCachePath('update-detached-spawn-error-');
-    const result = await checkForUpdatesAndMaybeRestart({
-      packageName: 'llm-usage-metrics',
-      currentVersion: '0.1.0',
-      cacheFilePath,
-      stdinIsTTY: false,
-      stdoutIsTTY: false,
-      env: { PATH: '/usr/bin' },
-      argv: ['/usr/bin/node', '/app/dist/index.js', 'daily'],
-      execPath: '/usr/bin/node',
-    });
-
-    expect(result).toEqual({ continueExecution: true });
-    expect(childProcessMock.spawn).toHaveBeenCalledOnce();
-    expect(childProcessMock.childProcess.on).toHaveBeenCalledWith('error', expect.any(Function));
-    expect(childProcessMock.childProcess.unref).toHaveBeenCalledOnce();
-    expect(() => childProcessMock.getErrorHandler()?.(new Error('ENOENT'))).not.toThrow();
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    expect(notify).toHaveBeenCalledOnce();
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining('0.1.0 → 0.3.0'));
   });
 
   it('returns early when fresh cached version does not offer an update', async () => {

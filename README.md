@@ -313,8 +313,8 @@ See full environment variable reference in the [documentation](https://ayagmar.g
 The CLI performs lightweight update checks with smart defaults:
 
 - 1-hour cache TTL
-- Fresh cached update results are used immediately
-- Stale or missing cache refreshes in the background instead of blocking report execution
+- Fresh cached update results are used immediately without any network call
+- Stale or missing cache triggers a bounded fetch (default 1s timeout) so the update prompt stays consistent across commands, instead of silently skipping the run that refreshes the cache
 - Skipped for `--help`, `--version`, `npx`, and direct source/development runs
 - Prompts only in interactive TTY sessions
 

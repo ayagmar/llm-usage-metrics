@@ -1,11 +1,6 @@
-import { spawn } from 'node:child_process';
-
 import {
-  DEFAULT_UPDATE_CHECK_CACHE_TTL_MS,
   getDefaultUpdateCheckCachePath,
   getSessionScopedCachePath,
-  isCacheFresh,
-  readUpdateCheckCachePayload,
   resolveLatestVersion,
   type ResolveLatestVersionOptions,
 } from './update-cache-repository.js';
@@ -50,18 +45,6 @@ export {
 } from './update-install-runner.js';
 
 export const UPDATE_CHECK_SKIP_ENV_VAR = 'LLM_USAGE_SKIP_UPDATE_CHECK';
-export const UPDATE_CHECK_REFRESH_ENV_VAR = 'LLM_USAGE_REFRESH_UPDATE_CHECK';
-
-type DetachedCommandOptions = {
-  env?: NodeJS.ProcessEnv;
-  stdio?: 'ignore';
-};
-
-export type DetachedCommandRunner = (
-  command: string,
-  args: string[],
-  options?: DetachedCommandOptions,
-) => void;
 
 export type UpdateNotifierOptions = {
   packageName: string;
@@ -79,7 +62,6 @@ export type UpdateNotifierOptions = {
   confirmInstall?: ConfirmInstall;
   runCommand?: CommandRunner;
   notify?: Notify;
-  spawnDetachedCommand?: DetachedCommandRunner;
 };
 
 export type UpdateNotifierResult = {
@@ -166,46 +148,6 @@ function toResolveLatestVersionOptions(
   };
 }
 
-function runDetachedCommandWithSpawn(
-  command: string,
-  args: string[],
-  options: DetachedCommandOptions = {},
-): void {
-  const child = spawn(command, args, {
-    env: options.env,
-    stdio: options.stdio ?? 'ignore',
-    detached: true,
-  });
-
-  child.on('error', () => undefined);
-  child.unref();
-}
-
-function scheduleBackgroundUpdateRefresh(
-  options: UpdateNotifierOptions,
-  env: NodeJS.ProcessEnv,
-  argv: string[],
-): void {
-  const spawnDetachedCommand = options.spawnDetachedCommand ?? runDetachedCommandWithSpawn;
-
-  spawnDetachedCommand(options.execPath ?? process.execPath, argv.slice(1), {
-    env: {
-      ...env,
-      [UPDATE_CHECK_REFRESH_ENV_VAR]: '1',
-    },
-    stdio: 'ignore',
-  });
-}
-
-export async function refreshUpdateCheckCache(options: UpdateNotifierOptions): Promise<void> {
-  try {
-    const env = options.env ?? process.env;
-    await resolveLatestVersion(toResolveLatestVersionOptions(options, env));
-  } catch {
-    // Best-effort refresh only.
-  }
-}
-
 export async function checkForUpdatesAndMaybeRestart(
   options: UpdateNotifierOptions,
 ): Promise<UpdateNotifierResult> {
@@ -229,23 +171,12 @@ export async function checkForUpdatesAndMaybeRestart(
   }
 
   try {
-    const resolveOptions = toResolveLatestVersionOptions(options, env);
-    const cacheFilePath = resolveOptions.cacheFilePath ?? getDefaultUpdateCheckCachePath();
-    const cachePayload = await readUpdateCheckCachePayload(cacheFilePath);
-    const cacheTtlMs = resolveOptions.cacheTtlMs ?? DEFAULT_UPDATE_CHECK_CACHE_TTL_MS;
-    const now = resolveOptions.now ?? Date.now;
-
-    if (!cachePayload || !isCacheFresh(cachePayload, cacheTtlMs, now)) {
-      try {
-        scheduleBackgroundUpdateRefresh(options, env, argv);
-      } catch {
-        // Best-effort detached refresh only.
-      }
-
-      return { continueExecution: true };
-    }
-
-    const latestVersion = cachePayload.latestVersion;
+    // resolveLatestVersion serves a fresh cache hit without any network call,
+    // and only performs a bounded fetch (fetchTimeoutMs, default 1s) when the
+    // cache is missing or stale. Doing this on every run keeps the update
+    // prompt consistent across commands: a stale cache no longer silently
+    // skips the prompt for the run that triggers the refresh.
+    const latestVersion = await resolveLatestVersion(toResolveLatestVersionOptions(options, env));
 
     if (!latestVersion || !shouldOfferUpdate(options.currentVersion, latestVersion)) {
       return { continueExecution: true };
