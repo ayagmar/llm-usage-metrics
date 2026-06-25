@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.1](https://github.com/ayagmar/llm-usage-metrics/compare/v0.7.0...v0.7.1) (2026-06-25)
+
+### Features
+
+* **pricing:** per-model pricing overrides and claude dedup hardening ([191fe0d](https://github.com/ayagmar/llm-usage-metrics/commit/191fe0dd3eaa4026158a779087342d6fb599d635))
+
+### Bug Fixes
+
+* **pricing:** report bad --pricing-overrides path accurately ([ace9184](https://github.com/ayagmar/llm-usage-metrics/commit/ace9184dd9a8a531359659e0a565d6b3760b1da5))
+* **security:** bump vite override to 8.1.0 for astro 7 ([b13ef53](https://github.com/ayagmar/llm-usage-metrics/commit/b13ef53ede00b53c4d463fda0edb655ebaf7a55e))
+* **update:** prompt consistently on stale cache across commands ([8557946](https://github.com/ayagmar/llm-usage-metrics/commit/8557946b18c6a824d94fd8f8a70b23c657a0631a))
+
 ## [0.7.0](https://github.com/ayagmar/llm-usage-metrics/compare/v0.6.0...v0.7.0) (2026-06-25)
 
 ### Features
