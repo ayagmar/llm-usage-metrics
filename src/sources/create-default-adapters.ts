@@ -1,4 +1,3 @@
-import { AnthropicApiSourceAdapter } from './anthropic-api/anthropic-api-source-adapter.js';
 import { ClaudeSourceAdapter } from './claude/claude-source-adapter.js';
 import { CodexSourceAdapter } from './codex/codex-source-adapter.js';
 import { DroidSourceAdapter } from './droid/droid-source-adapter.js';
@@ -25,9 +24,6 @@ export type CreateDefaultAdaptersOptions = {
   droidDir?: string;
   claudeDir?: string;
   opencodeDb?: string;
-  anthropicAdminKeyEnv?: string;
-  since?: string;
-  until?: string;
   sourceDir?: string[];
 };
 
@@ -115,16 +111,6 @@ const sourceRegistrations: readonly SourceRegistration[] = [
         requireProjectsDir: directoryConfig.requireExistingPath,
       });
     },
-  },
-  {
-    id: 'anthropic-api',
-    sourceDirOverride: { kind: 'unsupported', flag: '--source anthropic-api' },
-    create: (options) =>
-      new AnthropicApiSourceAdapter({
-        adminKeyEnv: options.anthropicAdminKeyEnv,
-        since: options.since,
-        until: options.until,
-      }),
   },
 ];
 

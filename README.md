@@ -55,15 +55,14 @@ llm-usage daily
 
 ## 📋 Supported Sources
 
-| Source            | Pattern                                  | Discovery                              |
-| ----------------- | ---------------------------------------- | -------------------------------------- |
-| **pi**            | `~/.pi/agent/sessions/**/*.jsonl`        | Automatic                              |
-| **codex**         | `~/.codex/sessions/**/*.jsonl`           | Automatic                              |
-| **Gemini CLI**    | `~/.gemini/tmp/*/chats/*.json`           | Automatic                              |
-| **Droid CLI**     | `~/.factory/sessions/**/*.settings.json` | Automatic                              |
-| **OpenCode**      | `~/.opencode/opencode.db`                | Auto or explicit `--opencode-db`       |
-| **Claude Code**   | `~/.claude/projects/**/*.jsonl`          | Automatic                              |
-| **Anthropic API** | Admin API usage report                   | Explicit `--source anthropic-api` only |
+| Source          | Pattern                                  | Discovery                        |
+| --------------- | ---------------------------------------- | -------------------------------- |
+| **pi**          | `~/.pi/agent/sessions/**/*.jsonl`        | Automatic                        |
+| **codex**       | `~/.codex/sessions/**/*.jsonl`           | Automatic                        |
+| **Gemini CLI**  | `~/.gemini/tmp/*/chats/*.json`           | Automatic                        |
+| **Droid CLI**   | `~/.factory/sessions/**/*.settings.json` | Automatic                        |
+| **OpenCode**    | `~/.opencode/opencode.db`                | Auto or explicit `--opencode-db` |
+| **Claude Code** | `~/.claude/projects/**/*.jsonl`          | Automatic                        |
 
 OpenCode source support requires Node.js 24+ runtime with built-in `node:sqlite`.
 
@@ -192,7 +191,7 @@ llm-usage monthly --model claude
 llm-usage monthly --source opencode --provider openai --model gpt-4.1
 ```
 
-Use `--source` to scope where events came from (`pi`, `codex`, `gemini`, `droid`, `opencode`, `claude`, `anthropic-api`), and `--provider` to scope the billing entity behind those events.
+Use `--source` to scope where events came from (`pi`, `codex`, `gemini`, `droid`, `opencode`, `claude`), and `--provider` to scope the billing entity behind those events.
 
 ### Custom Paths
 
@@ -205,9 +204,6 @@ llm-usage daily --gemini-dir /path/to/.gemini
 llm-usage daily --droid-dir /path/to/.factory/sessions
 llm-usage daily --claude-dir /path/to/.claude/projects
 llm-usage daily --opencode-db /path/to/opencode.db
-
-# Explicit Anthropic Admin API usage
-ANTHROPIC_ADMIN_KEY=... llm-usage daily --source anthropic-api
 ```
 
 ### Offline Mode

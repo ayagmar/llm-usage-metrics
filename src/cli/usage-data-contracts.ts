@@ -19,7 +19,6 @@ export type ReportCommandOptions = {
   droidDir?: string;
   claudeDir?: string;
   opencodeDb?: string;
-  anthropicAdminKeyEnv?: string;
   sourceDir?: string[];
   source?: string | string[];
   since?: string;

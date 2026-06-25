@@ -31,7 +31,6 @@ OpenCode parsing requires Node.js 24+ runtime with built-in `node:sqlite`.
 - `--source-dir` supports only `pi`, `codex`, `gemini`, `droid`, and `claude`.
 - `--pi-dir`, `--codex-dir`, `--gemini-dir`, `--droid-dir`, and `--claude-dir` must point to valid directories.
 - For OpenCode, use `--opencode-db`.
-- For Anthropic Admin API usage, select `--source anthropic-api` and set `ANTHROPIC_ADMIN_KEY`.
 
 Correct examples:
 
@@ -39,7 +38,6 @@ Correct examples:
 llm-usage daily --source-dir pi=/path/to/pi --source-dir codex=/path/to/codex --source-dir gemini=/path/to/.gemini --source-dir droid=/path/to/.factory/sessions --source-dir claude=/path/to/.claude/projects
 llm-usage daily --pi-dir /path/to/pi --codex-dir /path/to/codex --gemini-dir /path/to/.gemini --droid-dir /path/to/.factory/sessions --claude-dir /path/to/.claude/projects
 llm-usage daily --opencode-db /path/to/opencode.db
-ANTHROPIC_ADMIN_KEY=... llm-usage daily --source anthropic-api
 ```
 
 ## Pricing load failures

@@ -2,7 +2,7 @@
 title: Data Sources
 ---
 
-`llm-usage-metrics` supports seven built-in sources:
+`llm-usage-metrics` supports six built-in sources:
 
 - `pi`
 - `codex`
@@ -10,7 +10,6 @@ title: Data Sources
 - `droid`
 - `opencode`
 - `claude`
-- `anthropic-api`
 
 Each source is parsed by a dedicated adapter and normalized into the same `UsageEvent` schema before pricing/aggregation.
 
@@ -21,7 +20,6 @@ Each source is parsed by a dedicated adapter and normalized into the same `Usage
 - `droid`: session settings discovery under `~/.factory/sessions/**/*.settings.json` (or `--droid-dir`)
 - `opencode`: single SQLite DB (auto-discovered or explicit `--opencode-db`)
 - `claude`: recursive JSONL discovery under `~/.claude/projects/**/*.jsonl` (or `--claude-dir`)
-- `anthropic-api`: Anthropic Admin API usage reports, explicit-only with `--source anthropic-api`
 
 ## Source filtering
 
@@ -32,7 +30,6 @@ llm-usage monthly --source gemini --gemini-dir /path/to/.gemini
 llm-usage monthly --source droid --droid-dir /path/to/.factory/sessions
 llm-usage monthly --source opencode --opencode-db /path/to/opencode.db
 llm-usage monthly --source claude --claude-dir /path/to/.claude/projects
-ANTHROPIC_ADMIN_KEY=... llm-usage monthly --source anthropic-api
 ```
 
 See per-source pages for details.

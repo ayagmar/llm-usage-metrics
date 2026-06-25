@@ -24,11 +24,10 @@ describe('createDefaultAdapters', () => {
       'droid',
       'opencode',
       'claude',
-      'anthropic-api',
     ]);
   });
 
-  it('exposes source capabilities for provider pruning and explicit-only sources', () => {
+  it('exposes source capabilities for provider pruning', () => {
     const adapters = createDefaultAdapters({});
 
     expect(adapters.find((adapter) => adapter.id === 'codex')?.capabilities).toEqual({
@@ -36,9 +35,6 @@ describe('createDefaultAdapters', () => {
     });
     expect(adapters.find((adapter) => adapter.id === 'gemini')?.capabilities).toEqual({
       fixedProviderRoots: ['google'],
-    });
-    expect(adapters.find((adapter) => adapter.id === 'anthropic-api')?.capabilities).toEqual({
-      requiresExplicitSelection: true,
     });
   });
 
