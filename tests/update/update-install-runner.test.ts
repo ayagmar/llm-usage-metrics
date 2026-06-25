@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  defaultConfirmInstall,
   defaultNotify,
   isInteractiveSession,
   runInteractiveInstallAndRestart,
@@ -8,48 +9,21 @@ import {
   type CommandRunner,
 } from '../../src/update/update-install-runner.js';
 
+// Hoisted mock fns so the hoisted vi.mock factory can reference them safely.
+const { question, close } = vi.hoisted(() => ({
+  question: vi.fn(),
+  close: vi.fn(),
+}));
+
+vi.mock('node:readline/promises', () => ({
+  createInterface: vi.fn(() => ({ question, close })),
+}));
+
 afterEach(() => {
-  vi.doUnmock('node:readline/promises');
-  vi.resetModules();
+  question.mockReset();
+  close.mockReset();
   vi.restoreAllMocks();
 });
-
-async function loadDefaultConfirmInstallWithMock(options: {
-  answer?: string;
-  error?: Error;
-}): Promise<{
-  close: ReturnType<typeof vi.fn>;
-  defaultConfirmInstall: (prompt: string) => Promise<boolean>;
-  question: ReturnType<typeof vi.fn>;
-}> {
-  const close = vi.fn();
-  let question: ReturnType<typeof vi.fn>;
-
-  if (options.error) {
-    const thrownError = options.error;
-    question = vi.fn(async () => {
-      throw thrownError;
-    });
-  } else {
-    question = vi.fn(async () => options.answer ?? '');
-  }
-
-  vi.doMock('node:readline/promises', () => ({
-    createInterface: vi.fn(() => ({
-      question,
-      close,
-    })),
-  }));
-
-  // eslint-disable-next-line no-restricted-syntax
-  const module = await import('../../src/update/update-install-runner.js');
-
-  return {
-    close,
-    defaultConfirmInstall: module.defaultConfirmInstall,
-    question,
-  };
-}
 
 describe('update-install-runner', () => {
   it('detects interactive sessions only when both TTYs are present and CI is not truthy', () => {
@@ -69,9 +43,7 @@ describe('update-install-runner', () => {
   });
 
   it('normalizes default confirm answers and always closes the readline interface', async () => {
-    const { defaultConfirmInstall, question, close } = await loadDefaultConfirmInstallWithMock({
-      answer: ' YeS ',
-    });
+    question.mockResolvedValue(' YeS ');
 
     await expect(defaultConfirmInstall('Install now? ')).resolves.toBe(true);
     expect(question).toHaveBeenCalledWith('Install now? ');
@@ -79,9 +51,7 @@ describe('update-install-runner', () => {
   });
 
   it('closes the readline interface when default confirm rejects', async () => {
-    const { defaultConfirmInstall, close } = await loadDefaultConfirmInstallWithMock({
-      error: new Error('read failed'),
-    });
+    question.mockRejectedValue(new Error('read failed'));
 
     await expect(defaultConfirmInstall('Install now? ')).rejects.toThrow('read failed');
     expect(close).toHaveBeenCalledOnce();
@@ -159,7 +129,7 @@ describe('update-install-runner', () => {
     expect(result).toEqual({ continueExecution: false, exitCode: 17 });
     expect(commandCalls).toHaveLength(2);
 
-    expect(commandCalls[0].command).toMatch(/npm(?:\\.cmd)?$/u);
+    expect(commandCalls[0].command).toMatch(/npm(?:\.cmd)?$/u);
     expect(commandCalls[0].args).toEqual(['install', '-g', 'llm-usage-metrics@latest']);
     expect(commandCalls[0].options?.stdio).toBe('inherit');
 
@@ -198,9 +168,7 @@ describe('update-install-runner', () => {
   });
 
   it('treats non-yes default confirm answers as declines', async () => {
-    const { defaultConfirmInstall, close } = await loadDefaultConfirmInstallWithMock({
-      answer: 'n',
-    });
+    question.mockResolvedValue('n');
 
     await expect(defaultConfirmInstall('Install now? ')).resolves.toBe(false);
     expect(close).toHaveBeenCalledOnce();
