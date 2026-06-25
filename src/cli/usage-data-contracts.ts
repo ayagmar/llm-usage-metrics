@@ -30,6 +30,7 @@ export type ReportCommandOptions = {
   json?: boolean;
   perModelColumns?: boolean;
   pricingUrl?: string;
+  pricingOverrides?: string;
   pricingOffline?: boolean;
   ignorePricingFailures?: boolean;
   share?: boolean;

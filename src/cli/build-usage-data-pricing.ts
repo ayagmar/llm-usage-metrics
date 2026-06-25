@@ -4,6 +4,7 @@ import {
   type PricingFetcherRuntimeConfig,
 } from '../config/runtime-overrides.js';
 import { applyPricingToEvents } from '../pricing/cost-engine.js';
+import { PricingOverrideSource, loadPricingOverrides } from '../pricing/pricing-override-source.js';
 import type { PricingSource } from '../pricing/types.js';
 import { LiteLLMPricingFetcher } from '../pricing/litellm-pricing-fetcher.js';
 
@@ -12,6 +13,19 @@ import type {
   ReportCommandOptions,
   UsagePricingOrigin,
 } from './usage-data-contracts.js';
+
+async function applyPricingOverrides(
+  overrideFilePath: string | undefined,
+  delegate: PricingSource,
+): Promise<PricingSource> {
+  if (!overrideFilePath) {
+    return delegate;
+  }
+
+  const overrides = await loadPricingOverrides(overrideFilePath);
+
+  return new PricingOverrideSource(overrides, delegate);
+}
 
 export async function resolvePricingSource(
   options: ReportCommandOptions,
@@ -26,12 +40,13 @@ export async function resolvePricingSource(
 
   try {
     const fromCache = await litellmPricingFetcher.load();
+    const source = await applyPricingOverrides(options.pricingOverrides, litellmPricingFetcher);
 
     if (options.pricingOffline) {
-      return { source: litellmPricingFetcher, origin: 'offline-cache' };
+      return { source, origin: 'offline-cache' };
     }
 
-    return { source: litellmPricingFetcher, origin: fromCache ? 'cache' : 'network' };
+    return { source, origin: fromCache ? 'cache' : 'network' };
   } catch (error) {
     if (options.pricingOffline) {
       throw new Error('Offline pricing mode enabled but cached pricing is unavailable', {

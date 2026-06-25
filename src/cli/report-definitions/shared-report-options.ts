@@ -80,6 +80,10 @@ export function registerSharedReportOptions(
       collectRepeatedOption,
     )
     .option('--pricing-url <url>', 'Override LiteLLM pricing source URL')
+    .option(
+      '--pricing-overrides <path>',
+      'Path to a JSON file of per-model pricing overrides (takes precedence over LiteLLM)',
+    )
     .option('--pricing-offline', 'Use cached LiteLLM pricing only (no network fetch)')
     .option(
       '--ignore-pricing-failures',

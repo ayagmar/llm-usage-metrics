@@ -98,7 +98,9 @@ function createDedupKey(
   filePath: string,
   line: Record<string, unknown>,
   message: Record<string, unknown>,
-): string | undefined {
+  timestamp: string,
+  model: string | undefined,
+): string {
   const messageId = asTrimmedText(message.id);
 
   if (messageId) {
@@ -106,7 +108,16 @@ function createDedupKey(
   }
 
   const uuid = asTrimmedText(line.uuid);
-  return uuid ? `${filePath}\0${uuid}` : undefined;
+
+  if (uuid) {
+    return `${filePath}\0${uuid}`;
+  }
+
+  // Some Claude transcripts omit both message.id and uuid (e.g. synthetic or
+  // stripped logs). A real usage row always has a timestamp at this point (we
+  // skip invalid timestamps earlier), so fall back to a content-based key so
+  // genuine usage is never dropped merely for lacking identifiers.
+  return `${filePath}\0${timestamp}\0${model ?? ''}`;
 }
 
 function comparePendingEvents(left: ClaudePendingEvent, right: ClaudePendingEvent): number {
@@ -202,13 +213,7 @@ export class ClaudeSourceAdapter implements SourceAdapter {
         continue;
       }
 
-      const dedupKey = createDedupKey(filePath, line, message);
-
-      if (!dedupKey) {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'missing_message_id');
-        continue;
-      }
+      const dedupKey = createDedupKey(filePath, line, message, timestamp, model);
 
       const sessionId = asTrimmedText(line.sessionId) ?? getFallbackSessionId(filePath);
       const repoRoot = asTrimmedText(line.cwd);
