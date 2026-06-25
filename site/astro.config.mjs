@@ -72,6 +72,7 @@ export default defineConfig({
             { label: 'gemini', link: '/sources/gemini/' },
             { label: 'droid', link: '/sources/droid/' },
             { label: 'opencode', link: '/sources/opencode/' },
+            { label: 'claude', link: '/sources/claude/' },
           ],
         },
         {

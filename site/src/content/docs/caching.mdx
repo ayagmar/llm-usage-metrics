@@ -26,7 +26,7 @@ On Linux with no `XDG_CACHE_HOME`, `<platform-cache-root>` defaults to `~/.cache
 ### 1) Update-check cache
 
 - read cached npm version if still fresh
-- otherwise continue immediately and refresh the cache in a detached background process
+- otherwise perform a bounded fetch (default 1s timeout) for the latest version so the update prompt stays consistent across commands
 - on fetch failure, fallback to previous cached version when available
 - optional session-scoped mode creates a per-shell cache file
 - skipped entirely for `--help`, `--version`, `npx`, and direct source/development runs
