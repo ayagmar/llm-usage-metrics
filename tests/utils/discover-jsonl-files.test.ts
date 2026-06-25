@@ -52,11 +52,6 @@ describe('discoverJsonlFiles', () => {
 
     const discoveredFiles = await discoverJsonlFiles(rootDir);
 
-    if (discoveredFiles.length === 1) {
-      expect(path.basename(discoveredFiles[0]).toLowerCase()).toBe('a.jsonl');
-      return;
-    }
-
     expect(discoveredFiles).toEqual([upperFile, lowerFile]);
   });
 
