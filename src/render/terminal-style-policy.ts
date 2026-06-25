@@ -123,7 +123,6 @@ const sourceStylePolicies = new Map<string, SourceStylePolicy>([
   ['droid', (palette) => palette.green],
   ['opencode', (palette) => palette.blue],
   ['claude', (palette) => palette.cyan],
-  ['anthropic-api', (palette) => palette.yellow],
 ]);
 
 export function resolveSourceStyler(

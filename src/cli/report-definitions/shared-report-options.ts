@@ -58,10 +58,6 @@ export function registerSharedReportOptions(
     .option('--claude-dir <path>', 'Path to Claude projects directory')
     .option('--opencode-db <path>', 'Path to OpenCode SQLite DB')
     .option(
-      '--anthropic-admin-key-env <name>',
-      'Environment variable containing Anthropic Admin API key',
-    )
-    .option(
       '--source-dir <source-id=path>',
       'Override source directory for directory-backed sources (repeatable)',
       collectRepeatedOption,

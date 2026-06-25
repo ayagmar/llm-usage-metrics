@@ -250,7 +250,7 @@ export function selectAdaptersForParsing(
   const sourceFilter = options.sourceFilter;
   const selectedBySource = sourceFilter
     ? adapters.filter((adapter) => sourceFilter.has(adapter.id.toLowerCase()))
-    : adapters.filter((adapter) => adapter.capabilities?.requiresExplicitSelection !== true);
+    : adapters;
 
   if (!options.candidateProviderRoots) {
     options.runtimeProfile?.recordSourceSelection({

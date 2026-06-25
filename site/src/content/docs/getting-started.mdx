@@ -25,7 +25,6 @@ npx --yes llm-usage-metrics@latest daily
   - Droid sessions (`~/.factory/sessions/**/*.settings.json`)
   - OpenCode SQLite DB (auto-discovered or explicit `--opencode-db`, requires built-in `node:sqlite` support)
   - Claude Code projects (`~/.claude/projects/**/*.jsonl`)
-  - Anthropic Admin API usage (`--source anthropic-api`, explicit-only)
 
 ## First report
 
@@ -101,10 +100,4 @@ llm-usage monthly --source droid --droid-dir /path/to/.factory/sessions
 
 ```bash
 llm-usage monthly --source claude --claude-dir /path/to/.claude/projects
-```
-
-## Anthropic API usage
-
-```bash
-ANTHROPIC_ADMIN_KEY=... llm-usage monthly --source anthropic-api
 ```

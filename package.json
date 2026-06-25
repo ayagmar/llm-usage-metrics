@@ -1,7 +1,7 @@
 {
   "name": "llm-usage-metrics",
   "version": "0.6.0",
-  "description": "CLI for aggregating LLM usage metrics from pi, codex, gemini, droid, opencode, claude, and Anthropic API sources",
+  "description": "CLI for aggregating local LLM usage metrics from pi, codex, gemini, droid, opencode, and claude sessions",
   "type": "module",
   "packageManager": "pnpm@10.17.1",
   "engines": {
@@ -47,8 +47,7 @@
     "droid",
     "factory",
     "opencode",
-    "claude",
-    "anthropic"
+    "claude"
   ],
   "license": "MIT",
   "repository": {
