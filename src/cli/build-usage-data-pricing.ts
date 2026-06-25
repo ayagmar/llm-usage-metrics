@@ -5,7 +5,7 @@ import {
 } from '../config/runtime-overrides.js';
 import { applyPricingToEvents } from '../pricing/cost-engine.js';
 import { PricingOverrideSource, loadPricingOverrides } from '../pricing/pricing-override-source.js';
-import type { PricingSource } from '../pricing/types.js';
+import type { ModelPricing, PricingSource } from '../pricing/types.js';
 import { LiteLLMPricingFetcher } from '../pricing/litellm-pricing-fetcher.js';
 
 import type {
@@ -14,15 +14,13 @@ import type {
   UsagePricingOrigin,
 } from './usage-data-contracts.js';
 
-async function applyPricingOverrides(
-  overrideFilePath: string | undefined,
+function wrapWithPricingOverrides(
+  overrides: Map<string, ModelPricing> | undefined,
   delegate: PricingSource,
-): Promise<PricingSource> {
-  if (!overrideFilePath) {
+): PricingSource {
+  if (!overrides || overrides.size === 0) {
     return delegate;
   }
-
-  const overrides = await loadPricingOverrides(overrideFilePath);
 
   return new PricingOverrideSource(overrides, delegate);
 }
@@ -31,6 +29,25 @@ export async function resolvePricingSource(
   options: ReportCommandOptions,
   runtimeConfig: PricingFetcherRuntimeConfig,
 ): Promise<PricingLoadResult> {
+  // Load the overrides file before touching LiteLLM so a bad --pricing-overrides
+  // path fails fast with an accurate message and is never misreported as a
+  // LiteLLM/cache/URL failure.
+  let pricingOverrides: Map<string, ModelPricing> | undefined;
+
+  if (options.pricingOverrides) {
+    try {
+      pricingOverrides = await loadPricingOverrides(options.pricingOverrides);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Could not load --pricing-overrides from ${options.pricingOverrides}: ${reason}`,
+        {
+          cause: error,
+        },
+      );
+    }
+  }
+
   const litellmPricingFetcher = new LiteLLMPricingFetcher({
     sourceUrl: options.pricingUrl,
     offline: options.pricingOffline,
@@ -40,7 +57,7 @@ export async function resolvePricingSource(
 
   try {
     const fromCache = await litellmPricingFetcher.load();
-    const source = await applyPricingOverrides(options.pricingOverrides, litellmPricingFetcher);
+    const source = wrapWithPricingOverrides(pricingOverrides, litellmPricingFetcher);
 
     if (options.pricingOffline) {
       return { source, origin: 'offline-cache' };

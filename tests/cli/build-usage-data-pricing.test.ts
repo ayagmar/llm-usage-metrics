@@ -98,4 +98,18 @@ describe('resolvePricingSource — pricing overrides wiring', () => {
     });
     expect(result.origin).toBe('offline-cache');
   });
+
+  it('reports a bad --pricing-overrides path as an overrides error, not a LiteLLM/cache failure', async () => {
+    primePricing({ 'gpt-4.1': { inputPer1MUsd: 2, outputPer1MUsd: 8 } });
+    mockLoadedFromCache = true;
+
+    const badPath = path.join(os.tmpdir(), `missing-overrides-${Date.now()}.json`);
+
+    await expect(
+      resolvePricingSource(
+        { pricingOffline: true, pricingOverrides: badPath },
+        { cacheTtlMs: 60_000, fetchTimeoutMs: 1000 },
+      ),
+    ).rejects.toThrow(/Could not load --pricing-overrides from/);
+  });
 });
