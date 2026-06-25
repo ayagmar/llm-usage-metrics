@@ -28,25 +28,39 @@ function assistantRow(
     uuid?: string;
   } = {},
 ): string {
-  return JSON.stringify({
+  const message: Record<string, unknown> = {
+    role: 'assistant',
+    model: overrides.model ?? 'claude-opus-4-8',
+    provider: overrides.provider,
+    usage: overrides.usage ?? {
+      input_tokens: 10,
+      cache_creation_input_tokens: 2,
+      cache_read_input_tokens: 3,
+      output_tokens: 4,
+    },
+  };
+
+  if (overrides.messageId !== undefined) {
+    message.id = overrides.messageId;
+  } else {
+    message.id = 'msg_1';
+  }
+
+  const row: Record<string, unknown> = {
     type: 'assistant',
     timestamp: overrides.timestamp ?? '2026-06-23T10:00:00.000Z',
     sessionId: overrides.sessionId ?? 'claude-session-1',
     cwd: overrides.cwd ?? '/tmp/repo',
-    uuid: overrides.uuid ?? 'row-uuid-1',
-    message: {
-      id: overrides.messageId ?? 'msg_1',
-      role: 'assistant',
-      model: overrides.model ?? 'claude-opus-4-8',
-      provider: overrides.provider,
-      usage: overrides.usage ?? {
-        input_tokens: 10,
-        cache_creation_input_tokens: 2,
-        cache_read_input_tokens: 3,
-        output_tokens: 4,
-      },
-    },
-  });
+    message,
+  };
+
+  if (overrides.uuid !== undefined) {
+    row.uuid = overrides.uuid;
+  } else {
+    row.uuid = 'row-uuid-1';
+  }
+
+  return JSON.stringify(row);
 }
 
 describe('ClaudeSourceAdapter', () => {
@@ -193,6 +207,87 @@ describe('ClaudeSourceAdapter', () => {
       { reason: 'no_token_usage', count: 1 },
       { reason: 'synthetic_message', count: 1 },
     ]);
+  });
+
+  it('counts id-less usage rows via a content-based fallback dedup key', async () => {
+    const projectsDir = await mkdtemp(path.join(os.tmpdir(), 'claude-idless-'));
+    tempDirs.push(projectsDir);
+    const filePath = path.join(projectsDir, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        // No message.id and no uuid: previously dropped as missing_message_id.
+        assistantRow({
+          messageId: '',
+          uuid: '',
+          timestamp: '2026-06-23T10:00:00.000Z',
+          usage: { input_tokens: 9, output_tokens: 1 },
+        }),
+        // Same timestamp + model collapses to the same fallback key, so the
+        // second row replaces the first (last-row-wins), not double-counted.
+        assistantRow({
+          messageId: '',
+          uuid: '',
+          timestamp: '2026-06-23T10:00:00.000Z',
+          usage: { input_tokens: 9, output_tokens: 4 },
+        }),
+        // Different timestamp -> distinct fallback key -> separate event.
+        assistantRow({
+          messageId: '',
+          uuid: '',
+          timestamp: '2026-06-23T11:00:00.000Z',
+          model: 'claude-sonnet-4-5',
+          usage: { input_tokens: 5, output_tokens: 2 },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new ClaudeSourceAdapter({ projectsDir });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toHaveLength(2);
+    expect(events[0]).toMatchObject({
+      model: 'claude-opus-4-8',
+      outputTokens: 4,
+      totalTokens: 13,
+    });
+    expect(events[1]).toMatchObject({
+      model: 'claude-sonnet-4-5',
+      totalTokens: 7,
+    });
+  });
+
+  it('deduplicates by uuid when message id is absent', async () => {
+    const projectsDir = await mkdtemp(path.join(os.tmpdir(), 'claude-uuid-dedup-'));
+    tempDirs.push(projectsDir);
+    const filePath = path.join(projectsDir, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        assistantRow({
+          messageId: '',
+          uuid: 'row-uuid-shared',
+          timestamp: '2026-06-23T10:00:00.000Z',
+          usage: { input_tokens: 10, output_tokens: 1 },
+        }),
+        assistantRow({
+          messageId: '',
+          uuid: 'row-uuid-shared',
+          timestamp: '2026-06-23T10:00:01.000Z',
+          usage: { input_tokens: 10, output_tokens: 8 },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new ClaudeSourceAdapter({ projectsDir });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ outputTokens: 8, totalTokens: 18 });
   });
 
   it('validates explicit directory overrides', async () => {

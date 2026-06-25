@@ -39,3 +39,29 @@ Explicit `costUsd: 0` events are re-priced from LiteLLM when model pricing exist
 ```bash
 llm-usage monthly --pricing-url https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json
 ```
+
+## Per-model pricing overrides
+
+A JSON file of per-model rates takes precedence over LiteLLM pricing. Use it for internal/custom models, negotiated rates, or values you want to correct.
+
+```bash
+llm-usage monthly --pricing-overrides ./pricing-overrides.json
+```
+
+File shape:
+
+```json
+{
+  "models": {
+    "my-internal-model": { "inputPer1MUsd": 1, "outputPer1MUsd": 2 },
+    "claude-opus-4-8": {
+      "inputPer1MUsd": 12,
+      "outputPer1MUsd": 60,
+      "cacheReadPer1MUsd": 1.2,
+      "cacheWritePer1MUsd": 18.75
+    }
+  }
+}
+```
+
+Only `inputPer1MUsd` and `outputPer1MUsd` are required; `cacheReadPer1MUsd`, `cacheWritePer1MUsd`, `reasoningPer1MUsd`, and `reasoningBilling` (`included-in-output` or `separate`) are optional. Model names match case-insensitively. Entries missing required rates are ignored.

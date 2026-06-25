@@ -214,6 +214,9 @@ llm-usage monthly --pricing-offline
 
 # Continue even if pricing fetch fails
 llm-usage monthly --ignore-pricing-failures
+
+# Override per-model pricing from a local JSON file
+llm-usage monthly --pricing-overrides ./pricing-overrides.json
 ```
 
 ## 🧪 Production Benchmarks
