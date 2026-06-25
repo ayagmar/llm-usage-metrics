@@ -92,6 +92,17 @@ describe('PricingOverrideSource', () => {
       reasoningBilling: 'included-in-output',
     });
   });
+
+  it('delegates alias resolution for models without an override', () => {
+    const override = new Map<string, ModelPricing>();
+    const delegate: PricingSource = {
+      resolveModelAlias: (model) => `resolved-${model}`,
+      getPricing: () => undefined,
+    };
+    const source = new PricingOverrideSource(override, delegate);
+
+    expect(source.resolveModelAlias('gpt-4.1')).toBe('resolved-gpt-4.1');
+  });
 });
 
 describe('loadPricingOverrides', () => {
@@ -130,8 +141,8 @@ describe('loadPricingOverrides', () => {
     });
   });
 
-  it('drops entries missing required input/output rates', async () => {
-    const dir = await mkdtemp(path.join(os.tmpdir(), 'pricing-overrides-invalid-'));
+  it('drops entries with blank or non-numeric required rates', async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'pricing-overrides-blank-'));
     tempDirs.push(dir);
     const filePath = path.join(dir, 'overrides.json');
 
@@ -139,7 +150,8 @@ describe('loadPricingOverrides', () => {
       filePath,
       JSON.stringify({
         models: {
-          'incomplete-model': { inputPer1MUsd: 5 },
+          'blank-rate-model': { inputPer1MUsd: '   ', outputPer1MUsd: 2 },
+          'non-numeric-model': { inputPer1MUsd: 'free', outputPer1MUsd: 2 },
           'good-model': { inputPer1MUsd: 1, outputPer1MUsd: 2 },
         },
       }),
@@ -149,8 +161,36 @@ describe('loadPricingOverrides', () => {
     const overrides = await loadPricingOverrides(filePath);
 
     expect(overrides.size).toBe(1);
-    expect(overrides.has('incomplete-model')).toBe(false);
+    expect(overrides.has('blank-rate-model')).toBe(false);
+    expect(overrides.has('non-numeric-model')).toBe(false);
     expect(overrides.get('good-model')).toEqual({ inputPer1MUsd: 1, outputPer1MUsd: 2 });
+  });
+
+  it('ignores invalid reasoningBilling values', async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'pricing-overrides-billing-'));
+    tempDirs.push(dir);
+    const filePath = path.join(dir, 'overrides.json');
+
+    await writeFile(
+      filePath,
+      JSON.stringify({
+        models: {
+          'with-bad-billing': {
+            inputPer1MUsd: 1,
+            outputPer1MUsd: 2,
+            reasoningBilling: 'not-a-mode',
+          },
+        },
+      }),
+      'utf8',
+    );
+
+    const overrides = await loadPricingOverrides(filePath);
+
+    expect(overrides.get('with-bad-billing')).toEqual({
+      inputPer1MUsd: 1,
+      outputPer1MUsd: 2,
+    });
   });
 
   it('returns an empty map for a file with no models object', async () => {
