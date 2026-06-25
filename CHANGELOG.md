@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.7.0](https://github.com/ayagmar/llm-usage-metrics/compare/v0.6.0...v0.7.0) (2026-06-25)
+
+### Features
+
+* enhance CLI reference generation and improve Mermaid validation logic ([fdb3947](https://github.com/ayagmar/llm-usage-metrics/commit/fdb3947938a42d9f67bf7f3a221bde6a4d1a8b20))
+* integrate claude ([d77ed4d](https://github.com/ayagmar/llm-usage-metrics/commit/d77ed4d0ccab2c325537ac7e32d13b63564bdefa))
+* update CLI reference formatting for improved readability ([f410c4d](https://github.com/ayagmar/llm-usage-metrics/commit/f410c4d1b670d8b984e14d88c649f986f7745503))
+
+### Bug Fixes
+
+* **cli:** harden opener resolution and CLI reference escaping ([1e8184f](https://github.com/ayagmar/llm-usage-metrics/commit/1e8184f26e6d4db4ec2ef3e07c4fbd6810e57b0e))
+* **repo:** patch audit issues and harden markdown output ([9f19fdc](https://github.com/ayagmar/llm-usage-metrics/commit/9f19fdc0901b77044aec24b1d477c51a6f82f416))
+* **security:** patch transitive dev-dependency vulnerabilities ([99053d6](https://github.com/ayagmar/llm-usage-metrics/commit/99053d64d504ba254bc4ac79efd2e1e182105182))
+
 ## [0.6.0](https://github.com/ayagmar/llm-usage-metrics/compare/v0.5.2...v0.6.0) (2026-03-11)
 
 ### Bug Fixes
