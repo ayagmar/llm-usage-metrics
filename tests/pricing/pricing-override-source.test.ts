@@ -193,6 +193,58 @@ describe('loadPricingOverrides', () => {
     });
   });
 
+  it('preserves a valid reasoningBilling value', async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'pricing-overrides-good-billing-'));
+    tempDirs.push(dir);
+    const filePath = path.join(dir, 'overrides.json');
+
+    await writeFile(
+      filePath,
+      JSON.stringify({
+        models: {
+          'with-separate-billing': {
+            inputPer1MUsd: 1,
+            outputPer1MUsd: 2,
+            reasoningPer1MUsd: 3,
+            reasoningBilling: 'separate',
+          },
+        },
+      }),
+      'utf8',
+    );
+
+    const overrides = await loadPricingOverrides(filePath);
+
+    expect(overrides.get('with-separate-billing')).toEqual({
+      inputPer1MUsd: 1,
+      outputPer1MUsd: 2,
+      reasoningPer1MUsd: 3,
+      reasoningBilling: 'separate',
+    });
+  });
+
+  it('skips entries whose model name is blank', async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'pricing-overrides-blank-key-'));
+    tempDirs.push(dir);
+    const filePath = path.join(dir, 'overrides.json');
+
+    await writeFile(
+      filePath,
+      JSON.stringify({
+        models: {
+          '   ': { inputPer1MUsd: 1, outputPer1MUsd: 2 },
+          'good-model': { inputPer1MUsd: 3, outputPer1MUsd: 4 },
+        },
+      }),
+      'utf8',
+    );
+
+    const overrides = await loadPricingOverrides(filePath);
+
+    expect(overrides.size).toBe(1);
+    expect(overrides.get('good-model')).toEqual({ inputPer1MUsd: 3, outputPer1MUsd: 4 });
+  });
+
   it('returns an empty map for a file with no models object', async () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), 'pricing-overrides-empty-'));
     tempDirs.push(dir);
