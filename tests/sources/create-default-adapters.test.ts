@@ -23,6 +23,7 @@ describe('createDefaultAdapters', () => {
       'gemini',
       'droid',
       'opencode',
+      'openclaw',
       'claude',
     ]);
   });
@@ -48,7 +49,17 @@ describe('createDefaultAdapters', () => {
     const claudeTempDir = await mkdtemp(
       path.join(os.tmpdir(), 'usage-adapters-claude-source-dir-'),
     );
-    tempDirs.push(piTempDir, codexTempDir, geminiTempDir, droidTempDir, claudeTempDir);
+    const openclawTempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'usage-adapters-openclaw-source-dir-'),
+    );
+    tempDirs.push(
+      piTempDir,
+      codexTempDir,
+      geminiTempDir,
+      droidTempDir,
+      claudeTempDir,
+      openclawTempDir,
+    );
 
     const piFile = path.join(piTempDir, 'pi-session.jsonl');
     const codexFile = path.join(codexTempDir, 'codex-session.jsonl');
@@ -57,12 +68,14 @@ describe('createDefaultAdapters', () => {
     const geminiFile = path.join(geminiChatsDir, 'session.json');
     const droidFile = path.join(droidTempDir, 'droid-session.settings.json');
     const claudeFile = path.join(claudeTempDir, 'claude-session.jsonl');
+    const openclawFile = path.join(openclawTempDir, 'openclaw-session.jsonl');
 
     await writeFile(piFile, '{}\n', 'utf8');
     await writeFile(codexFile, '{}\n', 'utf8');
     await writeFile(geminiFile, '{}', 'utf8');
     await writeFile(droidFile, '{}', 'utf8');
     await writeFile(claudeFile, '{}\n', 'utf8');
+    await writeFile(openclawFile, '{}\n', 'utf8');
 
     const adapters = createDefaultAdapters({
       sourceDir: [
@@ -71,6 +84,7 @@ describe('createDefaultAdapters', () => {
         `gemini=${geminiTempDir}`,
         `droid=${droidTempDir}`,
         `claude=${claudeTempDir}`,
+        `openclaw=${openclawTempDir}`,
       ],
     });
 
@@ -78,7 +92,8 @@ describe('createDefaultAdapters', () => {
     await expect(adapters[1].discoverFiles()).resolves.toEqual([await realpath(codexFile)]);
     await expect(adapters[2].discoverFiles()).resolves.toEqual([await realpath(geminiFile)]);
     await expect(adapters[3].discoverFiles()).resolves.toEqual([await realpath(droidFile)]);
-    await expect(adapters[5].discoverFiles()).resolves.toEqual([await realpath(claudeFile)]);
+    await expect(adapters[5].discoverFiles()).resolves.toEqual([await realpath(openclawFile)]);
+    await expect(adapters[6].discoverFiles()).resolves.toEqual([await realpath(claudeFile)]);
   });
 
   it('throws on invalid source directory override entries', () => {
@@ -263,6 +278,17 @@ describe('createDefaultAdapters', () => {
 
     await expect(claudeAdapter?.discoverFiles()).rejects.toThrow(
       'Claude projects directory is missing or unreadable',
+    );
+  });
+
+  it('fails openclaw discovery when an explicitly configured directory is missing', async () => {
+    const adapters = createDefaultAdapters({
+      sourceDir: [`openclaw=${path.join(os.tmpdir(), `missing-openclaw-${Date.now()}`)}`],
+    });
+    const openclawAdapter = adapters.find((adapter) => adapter.id === 'openclaw');
+
+    await expect(openclawAdapter?.discoverFiles()).rejects.toThrow(
+      'OpenClaw agents directory is missing or unreadable',
     );
   });
 });

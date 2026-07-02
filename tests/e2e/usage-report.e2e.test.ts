@@ -6,6 +6,7 @@ import { buildUsageReport } from '../../src/cli/run-usage-report.js';
 
 const piDir = path.resolve('tests/fixtures/e2e/pi');
 const codexDir = path.resolve('tests/fixtures/e2e/codex');
+const openclawDir = path.resolve('tests/fixtures/e2e/openclaw');
 
 describe('usage report e2e', () => {
   it('renders daily report with mixed pi + codex data', async () => {
@@ -54,5 +55,17 @@ describe('usage report e2e', () => {
     expect(rows.some((row) => row.periodKey === '2026-01')).toBe(true);
     expect(rows.some((row) => row.periodKey === '2026-02')).toBe(true);
     expect(rows.at(-1)).toMatchObject({ periodKey: 'ALL', rowType: 'grand_total' });
+  });
+
+  it('renders daily report from openclaw source-dir override', async () => {
+    const report = await buildUsageReport('daily', {
+      source: 'openclaw',
+      sourceDir: [`openclaw=${openclawDir}`],
+      timezone: 'UTC',
+    });
+
+    expect(report).toContain('2026-05-01');
+    expect(report).toContain('openclaw');
+    expect(report).toContain('TOTAL');
   });
 });

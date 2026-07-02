@@ -61,7 +61,7 @@ function createUsageReportDefinition(granularity: ReportGranularity): ReportRunt
       },
       {
         command:
-          'llm-usage daily --source-dir pi=/tmp/pi-sessions --source-dir gemini=/tmp/.gemini --source-dir droid=/tmp/droid-sessions',
+          'llm-usage daily --source-dir pi=/tmp/pi-sessions --source-dir gemini=/tmp/.gemini --source-dir droid=/tmp/droid-sessions --source-dir openclaw=/tmp/openclaw-agents',
         includeInRootHelp: true,
         includeInCliReference: true,
       },

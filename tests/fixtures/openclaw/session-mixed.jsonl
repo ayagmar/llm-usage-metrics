@@ -1,0 +1,10 @@
+{"type":"session","id":"openclaw-session-1","cwd":"/tmp/openclaw-repo","timestamp":"2026-04-01T10:00:00.000Z","provider":"anthropic","model":"claude-sonnet-4-6"}
+{"type":"message","id":"u1","parentId":"root","role":"user","timestamp":"2026-04-01T10:00:10.000Z","message":{"role":"user","content":"hello"}}
+{"type":"message","id":"a1","parentId":"u1","role":"assistant","timestamp":"2026-04-01T10:00:20.000Z","usage":{"input":100,"output":20,"reasoning":5,"cacheRead":10,"cacheWrite":3,"total":133,"cost":{"total":0.0123}}}
+{"type":"model_change","provider":"openai","model":"gpt-5.3-codex","cwd":"/tmp/openclaw-repo-2"}
+{"type":"message","id":"a2","parentId":"u1","message":{"role":"assistant","timestamp":"2026-04-01T10:01:00.000Z","usage":{"input_tokens":7,"output_tokens":11,"reasoning_output_tokens":2,"cached_input_tokens":5,"total_tokens":25,"cost_usd":0.0042}}}
+{"type":"message","id":"mirror","role":"assistant","timestamp":"2026-04-01T10:01:30.000Z","provider":"openclaw","model":"delivery-mirror","usage":{"input":999,"output":999,"total":1998,"cost":{"total":9.99}}}
+{"type":"custom","id":"state","provider":"google","model":"gemini-3-pro"}
+{"type":"message","id":"a3","role":"assistant","usage":{"input":3,"output":4,"total":7}}
+{"type":"message","id":"a4","role":"assistant","timestamp":"2026-04-01T10:02:00.000Z"}
+{"type":"message","id":"tool","role":"toolResult","timestamp":"2026-04-01T10:02:10.000Z","usage":{"input":1,"output":1,"total":2}}
