@@ -6,7 +6,7 @@ tableOfContents: false
 
 import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 
-Welcome to the `llm-usage-metrics` documentation. This high-performance CLI tool provides deep visibility into your local AI development costs by aggregating usage across pi, codex, Gemini CLI, Droid CLI, OpenCode, and Claude Code sessions.
+Welcome to the `llm-usage-metrics` documentation. This high-performance CLI tool provides deep visibility into your local AI development costs by aggregating usage across pi, codex, Gemini CLI, Droid CLI, OpenCode, OpenClaw, and Claude Code sessions.
 
 ## Quick Navigation
 
@@ -43,7 +43,7 @@ Welcome to the `llm-usage-metrics` documentation. This high-performance CLI tool
   />
   <LinkCard
     title="Data Sources"
-    description="Technical details on pi, codex, Gemini CLI, Droid CLI, OpenCode, and Claude Code adapters."
+    description="Technical details on pi, codex, Gemini CLI, Droid CLI, OpenCode, OpenClaw, and Claude Code adapters."
     href="/llm-usage-metrics/sources/"
   />
   <LinkCard
@@ -62,7 +62,7 @@ Welcome to the `llm-usage-metrics` documentation. This high-performance CLI tool
 
 `llm-usage-metrics` is built for engineers who need precise, local-first auditing of their AI workflows:
 
-- **Universal Parsing**: Autonomously discovers and parses `.pi`, `.codex`, `.gemini`, `.factory`, OpenCode, and `.claude` session data.
+- **Universal Parsing**: Autonomously discovers and parses `.pi`, `.codex`, `.gemini`, `.factory`, OpenCode, OpenClaw, and `.claude` session data.
   OpenCode parsing requires Node.js 24+ with built-in `node:sqlite`.
 - **LiteLLM Integration**: Applies real-time pricing models to local events for accurate USD estimation.
 - **Git Attribution**: Optionally joins usage with local Git history to derive true ROI metrics (Cost per Commit, Tokens per Line).

@@ -21,11 +21,11 @@
 
 ---
 
-Aggregate token usage and costs from your local coding agent sessions. Supports **pi**, **codex**, **Gemini CLI**, **Droid CLI**, and **OpenCode** with zero configuration required.
+Aggregate token usage and costs from your local coding agent sessions. Supports **pi**, **codex**, **Gemini CLI**, **Droid CLI**, **OpenCode**, **OpenClaw**, and **Claude Code** with zero configuration required.
 
 ## ✨ Features
 
-- **Zero-Config Discovery** — Automatically finds `.pi`, `.codex`, `.gemini`, `.factory`, and OpenCode session data
+- **Zero-Config Discovery** — Automatically finds `.pi`, `.codex`, `.gemini`, `.factory`, OpenCode, OpenClaw, and Claude session data
 - **LiteLLM Pricing** — Real-time pricing sync with offline caching support
 - **Flexible Reports** — Daily, weekly, and monthly aggregations
 - **Efficiency Reports** — Correlate cost/tokens with repository commit outcomes
@@ -62,6 +62,7 @@ llm-usage daily
 | **Gemini CLI**  | `~/.gemini/tmp/*/chats/*.json`           | Automatic                        |
 | **Droid CLI**   | `~/.factory/sessions/**/*.settings.json` | Automatic                        |
 | **OpenCode**    | `~/.opencode/opencode.db`                | Auto or explicit `--opencode-db` |
+| **OpenClaw**    | `~/.openclaw/agents/**/*.jsonl`          | Automatic                        |
 | **Claude Code** | `~/.claude/projects/**/*.jsonl`          | Automatic                        |
 
 OpenCode source support requires Node.js 24+ runtime with built-in `node:sqlite`.
@@ -155,6 +156,7 @@ llm-usage efficiency monthly --repo-dir /path/to/repo --source codex
 llm-usage efficiency monthly --repo-dir /path/to/repo --source gemini
 llm-usage efficiency monthly --repo-dir /path/to/repo --source droid
 llm-usage efficiency monthly --repo-dir /path/to/repo --source opencode
+llm-usage efficiency monthly --repo-dir /path/to/repo --source openclaw
 llm-usage efficiency monthly --repo-dir /path/to/repo --source claude
 ```
 
@@ -179,7 +181,7 @@ llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candida
 
 ```bash
 # By source
-llm-usage monthly --source pi,codex,gemini,droid,claude
+llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude
 
 # By provider
 llm-usage monthly --provider openai
@@ -191,13 +193,13 @@ llm-usage monthly --model claude
 llm-usage monthly --source opencode --provider openai --model gpt-4.1
 ```
 
-Use `--source` to scope where events came from (`pi`, `codex`, `gemini`, `droid`, `opencode`, `claude`), and `--provider` to scope the billing entity behind those events.
+Use `--source` to scope where events came from (`pi`, `codex`, `gemini`, `droid`, `opencode`, `openclaw`, `claude`), and `--provider` to scope the billing entity behind those events.
 
 ### Custom Paths
 
 ```bash
 # Custom directories
-llm-usage daily --source-dir pi=/path/to/pi --source-dir codex=/path/to/codex --source-dir gemini=/path/to/.gemini --source-dir droid=/path/to/.factory/sessions --source-dir claude=/path/to/.claude/projects
+llm-usage daily --source-dir pi=/path/to/pi --source-dir codex=/path/to/codex --source-dir gemini=/path/to/.gemini --source-dir droid=/path/to/.factory/sessions --source-dir openclaw=/path/to/.openclaw/agents --source-dir claude=/path/to/.claude/projects
 
 # Explicit Gemini/Droid/Claude/OpenCode paths
 llm-usage daily --gemini-dir /path/to/.gemini

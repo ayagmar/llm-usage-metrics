@@ -52,7 +52,7 @@ Generated from root + command help output.
 | `--repo-dir` | - | `<path>` | Path to repository for Git outcome metrics \(efficiency only\) |
 | `--share` | - | - | Write a share SVG image to the current directory \(daily, weekly, monthly, efficiency, optimize only\) |
 | `--since` | - | `<YYYY-MM-DD>` | Inclusive start date filter |
-| `--source` | - | `<name>` | Filter by source id \(repeatable or comma-separated, supported sources \(6\): pi, codex, gemini, droid, opencode, claude\) |
+| `--source` | - | `<name>` | Filter by source id \(repeatable or comma-separated, supported sources \(7\): pi, codex, gemini, droid, opencode, openclaw, claude\) |
 | `--source-dir` | - | `<source-id=path>` | Override source directory for directory-backed sources \(repeatable\) |
 | `--timezone` | - | `<iana>` | Timezone for bucketing \(default: local system timezone\) |
 | `--top` | - | `<n>` | Show only the top N cheapest candidates \(positive integer\) \(optimize only\) |
@@ -64,7 +64,7 @@ Generated from root + command help output.
 
 ```bash
 llm-usage daily
-llm-usage daily --source-dir pi=/tmp/pi-sessions --source-dir gemini=/tmp/.gemini --source-dir droid=/tmp/droid-sessions
+llm-usage daily --source-dir pi=/tmp/pi-sessions --source-dir gemini=/tmp/.gemini --source-dir droid=/tmp/droid-sessions --source-dir openclaw=/tmp/openclaw-agents
 llm-usage daily --json
 llm-usage daily --markdown
 llm-usage weekly --timezone Europe/Paris

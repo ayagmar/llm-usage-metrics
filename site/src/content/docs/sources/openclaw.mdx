@@ -1,0 +1,22 @@
+---
+title: openclaw Source
+---
+
+The `openclaw` adapter reads OpenClaw agent transcripts:
+
+- `~/.openclaw/agents/**/*.jsonl`
+
+```bash
+llm-usage daily --source openclaw
+llm-usage daily --source-dir openclaw=/path/to/.openclaw/agents
+```
+
+## Parsing behavior
+
+- Reads transcript JSONL rows recursively in deterministic path order.
+- Uses `session` rows for `sessionId`, timestamp, and `cwd`.
+- Tracks provider/model changes as later transcript rows update runtime state.
+- Emits only assistant messages with usage.
+- Preserves explicit `usage.cost` values when present.
+- Falls back to file mtime when an assistant usage row has no message timestamp.
+- Ignores non-usage user/system/tool rows and OpenClaw delivery-mirror assistant rows.

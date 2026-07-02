@@ -24,6 +24,7 @@ npx --yes llm-usage-metrics@latest daily
   - `.gemini` sessions (`~/.gemini/tmp/*/chats/*.json`)
   - Droid sessions (`~/.factory/sessions/**/*.settings.json`)
   - OpenCode SQLite DB (auto-discovered or explicit `--opencode-db`, requires built-in `node:sqlite` support)
+  - OpenClaw transcripts (`~/.openclaw/agents/**/*.jsonl`)
   - Claude Code projects (`~/.claude/projects/**/*.jsonl`)
 
 ## First report
@@ -43,7 +44,7 @@ llm-usage trends --metric tokens --days 14
 ## Common filters
 
 ```bash
-llm-usage monthly --source pi,codex,gemini,droid,claude
+llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude
 llm-usage monthly --provider openai
 llm-usage monthly --model claude
 ```
