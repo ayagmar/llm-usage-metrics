@@ -9,7 +9,7 @@ export default defineConfig({
     starlight({
       title: 'llm-usage-metrics',
       description:
-        'CLI for aggregating local LLM usage metrics from pi, codex, gemini, droid, and opencode sessions',
+        'CLI for aggregating local LLM usage metrics from pi, codex, gemini, droid, opencode, openclaw, and claude sessions',
       favicon: '/favicon.svg',
       logo: {
         src: './src/assets/logo.svg',
@@ -72,6 +72,7 @@ export default defineConfig({
             { label: 'gemini', link: '/sources/gemini/' },
             { label: 'droid', link: '/sources/droid/' },
             { label: 'opencode', link: '/sources/opencode/' },
+            { label: 'openclaw', link: '/sources/openclaw/' },
             { label: 'claude', link: '/sources/claude/' },
           ],
         },

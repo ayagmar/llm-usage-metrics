@@ -143,7 +143,7 @@ describe('createCli', () => {
     const compactDailyCommandHelp = dailyCommandHelp?.replace(/\s+/gu, ' ');
 
     expect(compactHelp).toContain(
-      'Supported sources (6): pi, codex, gemini, droid, opencode, claude',
+      'Supported sources (7): pi, codex, gemini, droid, opencode, openclaw, claude',
     );
     expect(compactHelp).toContain('Show daily usage report');
     expect(compactHelp).toContain('llm-usage <command> --help');

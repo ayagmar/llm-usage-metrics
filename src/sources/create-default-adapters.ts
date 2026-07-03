@@ -3,6 +3,7 @@ import { CodexSourceAdapter } from './codex/codex-source-adapter.js';
 import { DroidSourceAdapter } from './droid/droid-source-adapter.js';
 import { GeminiSourceAdapter } from './gemini/gemini-source-adapter.js';
 import { OpenCodeSourceAdapter } from './opencode/opencode-source-adapter.js';
+import { OpenClawSourceAdapter } from './openclaw/openclaw-source-adapter.js';
 import { PiSourceAdapter } from './pi/pi-source-adapter.js';
 import type { SourceAdapter } from './source-adapter.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
@@ -95,6 +96,22 @@ const sourceRegistrations: readonly SourceRegistration[] = [
       new OpenCodeSourceAdapter({
         dbPath: options.opencodeDb,
       }),
+  },
+  {
+    id: 'openclaw',
+    sourceDirOverride: { kind: 'directory' },
+    create: (_options, sourceDirectoryOverrides) => {
+      const directoryConfig = resolveDirectoryConfig(
+        'openclaw',
+        undefined,
+        sourceDirectoryOverrides,
+      );
+
+      return new OpenClawSourceAdapter({
+        agentsDir: directoryConfig.path,
+        requireAgentsDir: directoryConfig.requireExistingPath,
+      });
+    },
   },
   {
     id: 'claude',

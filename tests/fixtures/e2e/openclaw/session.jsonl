@@ -1,0 +1,2 @@
+{"type":"session","id":"openclaw-e2e","cwd":"/tmp/openclaw-e2e","timestamp":"2026-05-01T00:00:00.000Z","provider":"anthropic","model":"claude-sonnet-4-6"}
+{"type":"message","id":"a1","role":"assistant","timestamp":"2026-05-01T12:00:00.000Z","usage":{"input":10,"output":5,"total":15,"cost":{"total":0.001}}}
