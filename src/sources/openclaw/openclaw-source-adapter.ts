@@ -260,11 +260,23 @@ function updateRuntimeStateFromRecord(
   nested: Record<string, unknown> | undefined,
 ): void {
   state.provider =
-    firstText(record.provider, record.modelProvider, record.model_provider, nested?.provider) ??
-    state.provider;
+    firstText(
+      record.provider,
+      record.modelProvider,
+      record.model_provider,
+      nested?.provider,
+      nested?.modelProvider,
+      nested?.model_provider,
+    ) ?? state.provider;
   state.model =
-    firstText(record.model, record.modelId, record.model_id, nested?.model, nested?.modelId) ??
-    state.model;
+    firstText(
+      record.model,
+      record.modelId,
+      record.model_id,
+      nested?.model,
+      nested?.modelId,
+      nested?.model_id,
+    ) ?? state.model;
   state.repoRoot =
     resolveRepoRootFromRecord(record) ?? resolveRepoRootFromRecord(nested) ?? state.repoRoot;
 }

@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, realpath, rm, utimes, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, realpath, rm, utimes, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -40,7 +40,12 @@ describe('OpenClawSourceAdapter', () => {
   });
 
   it('parses assistant usage while tracking provider and model changes', async () => {
-    const fixturePath = path.resolve('tests/fixtures/openclaw/session-mixed.jsonl');
+    const root = await mkdtemp(path.join(os.tmpdir(), 'openclaw-session-mixed-'));
+    tempDirs.push(root);
+
+    // Copy the fixture so the mtime tweak never touches the checked-in file.
+    const fixturePath = path.join(root, 'session-mixed.jsonl');
+    await copyFile(path.resolve('tests/fixtures/openclaw/session-mixed.jsonl'), fixturePath);
     const fileMtime = new Date('2026-04-01T10:03:00.000Z');
     await utimes(fixturePath, fileMtime, fileMtime);
 
@@ -213,6 +218,22 @@ describe('OpenClawSourceAdapter', () => {
           model_id: 'gpt-5.3-codex',
           usage: { input: 10, output: 5, total: 15 },
         }),
+        JSON.stringify({
+          type: 'message',
+          timestamp: '2026-04-06T20:02:00.000Z',
+          message: {
+            role: 'assistant',
+            model_provider: 'google',
+            model_id: 'gemini-3-pro',
+            usage: { input: 6, output: 2, total: 8 },
+          },
+        }),
+        JSON.stringify({
+          type: 'message',
+          role: 'assistant',
+          timestamp: '2026-04-06T20:03:00.000Z',
+          usage: { input: 3, output: 1, total: 4 },
+        }),
       ].join('\n'),
       'utf8',
     );
@@ -220,10 +241,19 @@ describe('OpenClawSourceAdapter', () => {
     const adapter = new OpenClawSourceAdapter({ agentsDir: root });
     const events = await adapter.parseFile(filePath);
 
-    expect(events).toHaveLength(1);
+    expect(events).toHaveLength(3);
     expect(events[0]).toMatchObject({
       provider: 'openai',
       model: 'gpt-5.3-codex',
+    });
+    expect(events[1]).toMatchObject({
+      provider: 'google',
+      model: 'gemini-3-pro',
+    });
+    // The bare row inherits the nested snake_case aliases through runtime state.
+    expect(events[2]).toMatchObject({
+      provider: 'google',
+      model: 'gemini-3-pro',
     });
   });
 
