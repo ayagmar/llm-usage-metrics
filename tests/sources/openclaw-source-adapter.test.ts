@@ -189,6 +189,81 @@ describe('OpenClawSourceAdapter', () => {
     });
   });
 
+  it('attributes snake_case model_provider/model_id aliases to the row itself', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'openclaw-snake-aliases-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'openclaw-snake-aliases',
+          timestamp: '2026-04-06T20:00:00.000Z',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-6',
+        }),
+        JSON.stringify({
+          type: 'message',
+          role: 'assistant',
+          timestamp: '2026-04-06T20:01:00.000Z',
+          model_provider: 'openai',
+          model_id: 'gpt-5.3-codex',
+          usage: { input: 10, output: 5, total: 15 },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new OpenClawSourceAdapter({ agentsDir: root });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      provider: 'openai',
+      model: 'gpt-5.3-codex',
+    });
+  });
+
+  it('keeps real usage when the session provider is openclaw', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'openclaw-gateway-provider-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'openclaw-gateway-provider',
+          timestamp: '2026-04-07T20:00:00.000Z',
+          provider: 'openclaw',
+          model: 'claude-sonnet-4-6',
+        }),
+        JSON.stringify({
+          type: 'message',
+          role: 'assistant',
+          timestamp: '2026-04-07T20:01:00.000Z',
+          usage: { input: 10, output: 5, total: 15 },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new OpenClawSourceAdapter({ agentsDir: root });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      provider: 'openclaw',
+      model: 'claude-sonnet-4-6',
+      totalTokens: 15,
+    });
+  });
+
   it('merges line-level tokens with nested message cost', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'openclaw-merged-usage-'));
     tempDirs.push(root);

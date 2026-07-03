@@ -341,19 +341,35 @@ export class OpenClawSourceAdapter implements SourceAdapter {
         continue;
       }
 
-      const provider =
-        firstText(line.provider, message.provider, line.modelProvider, message.modelProvider) ??
-        state.provider;
-      const model =
-        firstText(line.model, message.model, line.modelId, message.modelId) ?? state.model;
+      const rowProvider = firstText(
+        line.provider,
+        message.provider,
+        line.modelProvider,
+        message.modelProvider,
+        line.model_provider,
+        message.model_provider,
+      );
+      const rowModel = firstText(
+        line.model,
+        message.model,
+        line.modelId,
+        message.modelId,
+        line.model_id,
+        message.model_id,
+      );
 
-      // Delivery-mirror rows carry their own openclaw/delivery-mirror markers; skip
-      // them before touching runtime state so they never overwrite the real provider/model.
-      if (isDeliveryMirror(provider, model, message)) {
+      // Delivery-mirror rows carry their own openclaw/delivery-mirror markers, so
+      // detect them from row-local values only (state-inherited values would both
+      // miss real usage after a mirror row and drop real usage in openclaw-provider
+      // sessions), and skip them before touching runtime state.
+      if (isDeliveryMirror(rowProvider, rowModel, message)) {
         continue;
       }
 
       updateRuntimeStateFromRecord(state, line, message);
+
+      const provider = rowProvider ?? state.provider;
+      const model = rowModel ?? state.model;
 
       const usage = extractUsage(line, message);
 
