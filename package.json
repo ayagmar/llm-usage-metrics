@@ -1,6 +1,6 @@
 {
   "name": "llm-usage-metrics",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "CLI for aggregating local LLM usage metrics from pi, codex, gemini, droid, opencode, openclaw, and claude sessions",
   "type": "module",
   "packageManager": "pnpm@10.17.1",

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.2](https://github.com/ayagmar/llm-usage-metrics/compare/v0.7.1...v0.7.2) (2026-07-03)
+
+### Features
+
+* **source:** add OpenClaw adapter ([#123](https://github.com/ayagmar/llm-usage-metrics/issues/123)) ([6fd69cb](https://github.com/ayagmar/llm-usage-metrics/commit/6fd69cb9c9c5542fda86a965380440314d987d70))
+
 ## [0.7.1](https://github.com/ayagmar/llm-usage-metrics/compare/v0.7.0...v0.7.1) (2026-06-25)
 
 ### Features
