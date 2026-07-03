@@ -140,6 +140,55 @@ describe('OpenClawSourceAdapter', () => {
     });
   });
 
+  it('keeps assistant usage that inherits state after a delivery-mirror row', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'openclaw-mirror-state-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'openclaw-mirror-state',
+          timestamp: '2026-04-05T20:00:00.000Z',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-6',
+        }),
+        JSON.stringify({
+          type: 'message',
+          id: 'mirror',
+          role: 'assistant',
+          timestamp: '2026-04-05T20:01:00.000Z',
+          provider: 'openclaw',
+          model: 'delivery-mirror',
+          usage: { input: 999, output: 999, total: 1998, cost: { total: 9.99 } },
+        }),
+        JSON.stringify({
+          type: 'message',
+          id: 'real',
+          role: 'assistant',
+          timestamp: '2026-04-05T20:02:00.000Z',
+          usage: { input: 10, output: 5, total: 15 },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new OpenClawSourceAdapter({ agentsDir: root });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      provider: 'anthropic',
+      model: 'claude-sonnet-4-6',
+      inputTokens: 10,
+      outputTokens: 5,
+      totalTokens: 15,
+    });
+  });
+
   it('merges line-level tokens with nested message cost', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'openclaw-merged-usage-'));
     tempDirs.push(root);

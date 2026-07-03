@@ -5,10 +5,10 @@ import { createUsageEvent } from '../../domain/usage-event.js';
 import type { UsageEvent } from '../../domain/usage-event.js';
 import type { NumberLike } from '../../domain/normalization.js';
 import { asRecord } from '../../utils/as-record.js';
-import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import { pathStat } from '../../utils/fs-helpers.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
+import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
   isBlankText,
@@ -36,8 +36,6 @@ type OpenClawUsageExtract = {
   totalTokens?: NumberLike;
   costUsd?: NumberLike;
 };
-
-type SkippedRowReason = 'invalid_usage_event';
 
 export type OpenClawSourceAdapterOptions = {
   agentsDir?: string;
@@ -313,11 +311,7 @@ export class OpenClawSourceAdapter implements SourceAdapter {
   public async parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
     const events: UsageEvent[] = [];
     let skippedRows = 0;
-    const skippedRowReasons = new Map<SkippedRowReason, number>();
-    const recordSkippedRow = (reason: SkippedRowReason): void => {
-      skippedRows += 1;
-      skippedRowReasons.set(reason, (skippedRowReasons.get(reason) ?? 0) + 1);
-    };
+    const skippedRowReasons = new Map<string, number>();
     const fileStats = await pathStat(filePath);
     const fallbackTimestamp = fileStats?.mtime.toISOString();
     const state: OpenClawSessionState = {
@@ -342,15 +336,8 @@ export class OpenClawSourceAdapter implements SourceAdapter {
         continue;
       }
 
-      updateRuntimeStateFromRecord(state, line, message);
-
       if (line.type !== 'message' || !isAssistantMessage(line, message)) {
-        continue;
-      }
-
-      const usage = extractUsage(line, message);
-
-      if (!usage) {
+        updateRuntimeStateFromRecord(state, line, message);
         continue;
       }
 
@@ -360,7 +347,17 @@ export class OpenClawSourceAdapter implements SourceAdapter {
       const model =
         firstText(line.model, message.model, line.modelId, message.modelId) ?? state.model;
 
+      // Delivery-mirror rows carry their own openclaw/delivery-mirror markers; skip
+      // them before touching runtime state so they never overwrite the real provider/model.
       if (isDeliveryMirror(provider, model, message)) {
+        continue;
+      }
+
+      updateRuntimeStateFromRecord(state, line, message);
+
+      const usage = extractUsage(line, message);
+
+      if (!usage) {
         continue;
       }
 
@@ -383,18 +380,13 @@ export class OpenClawSourceAdapter implements SourceAdapter {
           }),
         );
       } catch {
-        recordSkippedRow('invalid_usage_event');
+        skippedRows += 1;
+        incrementSkippedReason(skippedRowReasons, 'invalid_usage_event');
         continue;
       }
     }
 
-    return {
-      events,
-      skippedRows,
-      skippedRowReasons: [...skippedRowReasons.entries()]
-        .map(([reason, count]) => ({ reason, count }))
-        .sort((left, right) => compareByCodePoint(left.reason, right.reason)),
-    };
+    return toParseDiagnostics(events, skippedRows, skippedRowReasons);
   }
 }
 
