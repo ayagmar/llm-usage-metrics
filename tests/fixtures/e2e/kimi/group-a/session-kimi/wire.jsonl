@@ -1,0 +1,1 @@
+{"type":"event","timestamp":1781526300,"message":{"type":"StatusUpdate","payload":{"message_id":"kimi-e2e-message","token_usage":{"input_other":40,"output":20,"input_cache_read":5,"input_cache_creation":5,"total":70}}}}
