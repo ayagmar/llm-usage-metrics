@@ -54,10 +54,11 @@ Generated from root + command help output.
 | `--pricing-overrides` | - | `<path>` | Path to a JSON file of per-model pricing overrides \(takes precedence over LiteLLM\) \(daily, weekly, monthly, efficiency, optimize, trends only\) |
 | `--pricing-url` | - | `<url>` | Override LiteLLM pricing source URL \(daily, weekly, monthly, efficiency, optimize, trends only\) |
 | `--provider` | - | `<name>` | Billing-provider filter \(normalized to billing entity; e.g. openai, anthropic, google\) \(daily, weekly, monthly, efficiency, optimize, trends only\) |
+| `--qwen-dir` | - | `<path>` | Path to Qwen projects directory |
 | `--repo-dir` | - | `<path>` | Path to repository for Git outcome metrics \(efficiency only\) |
 | `--share` | - | - | Write a share SVG image to the current directory \(daily, weekly, monthly, efficiency, optimize, trends only\) |
 | `--since` | - | `<YYYY-MM-DD>` | Inclusive start date filter \(daily, weekly, monthly, efficiency, optimize, trends only\) |
-| `--source` | - | `<name>` | Filter by source id \(repeatable or comma-separated, supported sources \(10\): pi, codex, gemini, droid, opencode, openclaw, claude, copilot, goose, amp\) |
+| `--source` | - | `<name>` | Filter by source id \(repeatable or comma-separated, supported sources \(11\): pi, codex, gemini, droid, opencode, openclaw, claude, copilot, goose, amp, qwen\) |
 | `--source-dir` | - | `<source-id=path>` | Override source directory for directory-backed sources \(repeatable\) |
 | `--timezone` | - | `<iana>` | Timezone for bucketing \(default: local system timezone\) \(daily, weekly, monthly, efficiency, optimize, trends only\) |
 | `--top` | - | `<n>` | Show only the top N cheapest candidates \(positive integer\) \(optimize only\) |

@@ -2,7 +2,7 @@
 title: Data Sources
 ---
 
-`llm-usage-metrics` supports ten built-in sources:
+`llm-usage-metrics` supports eleven built-in sources:
 
 - `pi`
 - `codex`
@@ -14,6 +14,7 @@ title: Data Sources
 - `copilot`
 - `goose`
 - `amp`
+- `qwen`
 
 Each source is parsed by a dedicated adapter and normalized into the same `UsageEvent` schema before pricing/aggregation.
 
@@ -28,12 +29,13 @@ Each source is parsed by a dedicated adapter and normalized into the same `Usage
 - `copilot`: GitHub Copilot CLI OTEL JSONL discovery under `~/.copilot/otel/*.jsonl` (or `--copilot-dir`)
 - `goose`: SQLite session DB discovery under `~/.local/share/goose/sessions/sessions.db` or `$GOOSE_PATH_ROOT/data/sessions/sessions.db` (or `--goose-db`)
 - `amp`: JSON thread discovery under `~/.local/share/amp/threads/*.json` (or `--amp-dir`)
+- `qwen`: recursive JSONL discovery under `~/.qwen/projects/**/*.jsonl` (or `--qwen-dir`)
 
 ## Source filtering
 
 ```bash
 llm-usage monthly --source pi
-llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude,copilot,goose,amp
+llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude,copilot,goose,amp,qwen
 llm-usage monthly --source gemini --gemini-dir /path/to/.gemini
 llm-usage monthly --source droid --droid-dir /path/to/.factory/sessions
 llm-usage monthly --source opencode --opencode-db /path/to/opencode.db
@@ -42,6 +44,7 @@ llm-usage monthly --source claude --claude-dir /path/to/.claude/projects
 llm-usage monthly --source copilot --copilot-dir /path/to/.copilot/otel
 llm-usage monthly --source goose --goose-db /path/to/goose/sessions.db
 llm-usage monthly --source amp --amp-dir /path/to/amp/threads
+llm-usage monthly --source qwen --qwen-dir /path/to/.qwen/projects
 ```
 
 See per-source pages for details.
