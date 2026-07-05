@@ -21,7 +21,7 @@ value; ideas #4 and #8 are being implemented on `feat/improvements` (2026-07).
 | #   | Idea                                                                            | Status                                       | Confidence | Why deferred                                                        |
 | --- | ------------------------------------------------------------------------------- | -------------------------------------------- | ---------- | ------------------------------------------------------------------- |
 | 1   | [Local usage event store (SQLite)](./idea-event-store.md)                       | Not started                                  | 80%        | Multi-day architectural refactor; needs its own design effort       |
-| 7   | [Simplify interactive update install](./idea-update-install-simplification.md)  | Not started                                  | 70%        | Removes a documented feature; requires maintainer product decision  |
+| 7   | [Simplify interactive update install](./idea-update-install-simplification.md)  | Approved & implemented on `feat/improvements` (2026-07) | 70%        | Maintainer approved the product change on 2026-07-05                |
 | 8   | [E2E multi-source fixture harness](./idea-e2e-fixture-harness.md)               | In progress on `feat/improvements` (2026-07) | 75%        | Medium-large scope; `tests/e2e/` already has 4 e2e tests            |
 | 4   | [`llm-usage doctor` diagnostic command](./idea-doctor-command.md)               | In progress on `feat/improvements` (2026-07) | 85%        | Small and high-value; deferred only to keep PR #119 focused         |
 
@@ -40,12 +40,10 @@ codebase's weakest parts (plan doc deleted; these are the surviving items):
   `src/pricing/litellm-model-map.json`.
 - **Parse-cache incremental persistence** — any change rewrites the whole
   per-source shard (`src/cli/parse-file-cache.ts:486-534`).
-- **Update-check latency** — `src/cli/index.ts` awaits the update check before
-  running the report; tied to the idea #7 product decision.
-
 Completed from that plan (DONE, fixed in code): parse-cache
-auxiliary-dependency invalidation, global parse budget, and gemini discovery
-scoping.
+auxiliary-dependency invalidation, global parse budget, gemini discovery
+scoping, and update-check latency (the check now runs concurrently with the
+report and prints a stderr hint afterwards; resolved with idea #7).
 
 ## Rejected ideas (not tracked here)
 
@@ -63,5 +61,5 @@ If tackling these, the recommended order is:
 
 1. **`llm-usage doctor` (#4)** — smallest, isolated, immediate user value
 2. **E2E fixture harness (#8)** — de-risks the other refactors
-3. **Update install simplification (#7)** — needs product sign-off first
+3. **Update install simplification (#7)** — DONE on `feat/improvements` (2026-07)
 4. **Local event store (#1)** — largest payoff, largest effort; do last

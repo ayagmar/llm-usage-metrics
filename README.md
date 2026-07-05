@@ -344,9 +344,10 @@ The CLI performs lightweight update checks with smart defaults:
 
 - 1-hour cache TTL
 - Fresh cached update results are used immediately without any network call
-- Stale or missing cache triggers a bounded fetch (default 1s timeout) so the update prompt stays consistent across commands, instead of silently skipping the run that refreshes the cache
+- Stale or missing cache triggers a bounded fetch (default 1s timeout) so the update hint stays consistent across commands, instead of silently skipping the run that refreshes the cache
+- Runs concurrently with the report, so it never delays your output
+- When an update is available, prints a one-line hint to stderr after the report with the `npm install -g` command — it never prompts, installs, or restarts
 - Skipped for `--help`, `--version`, `npx`, and direct source/development runs
-- Prompts only in interactive TTY sessions
 
 Disable with:
 
