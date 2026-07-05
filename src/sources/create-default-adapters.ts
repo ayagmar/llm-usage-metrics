@@ -24,6 +24,7 @@ export type CreateDefaultAdaptersOptions = {
   geminiDir?: string;
   droidDir?: string;
   claudeDir?: string;
+  openclawDir?: string;
   opencodeDb?: string;
   sourceDir?: string[];
 };
@@ -100,10 +101,10 @@ const sourceRegistrations: readonly SourceRegistration[] = [
   {
     id: 'openclaw',
     sourceDirOverride: { kind: 'directory' },
-    create: (_options, sourceDirectoryOverrides) => {
+    create: (options, sourceDirectoryOverrides) => {
       const directoryConfig = resolveDirectoryConfig(
         'openclaw',
-        undefined,
+        options.openclawDir,
         sourceDirectoryOverrides,
       );
 
@@ -192,7 +193,13 @@ function validateOpencodeOverride(opencodeDb: string | undefined): void {
 }
 
 function validateDirectoryOverride(
-  optionName: '--pi-dir' | '--codex-dir' | '--gemini-dir' | '--droid-dir' | '--claude-dir',
+  optionName:
+    | '--pi-dir'
+    | '--codex-dir'
+    | '--gemini-dir'
+    | '--droid-dir'
+    | '--claude-dir'
+    | '--openclaw-dir',
   value: string | undefined,
 ): void {
   if (value === undefined) {
@@ -245,6 +252,7 @@ export function createDefaultAdapters(options: CreateDefaultAdaptersOptions): So
   validateDirectoryOverride('--gemini-dir', options.geminiDir);
   validateDirectoryOverride('--droid-dir', options.droidDir);
   validateDirectoryOverride('--claude-dir', options.claudeDir);
+  validateDirectoryOverride('--openclaw-dir', options.openclawDir);
 
   const sourceDirectoryOverrides = parseSourceDirectoryOverrides(options.sourceDir);
   validateSourceDirectoryOverrideIds(sourceDirectoryOverrides);

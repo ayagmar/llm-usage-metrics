@@ -61,10 +61,23 @@ describe('build-usage-data-inputs', () => {
 
   it('treats source-dir overrides as explicit source selections', () => {
     const inputs = normalizeBuildUsageInputs({
-      sourceDir: ['pi=/tmp/pi-sessions', 'codex=/tmp/codex-sessions', 'claude=/tmp/claude'],
+      sourceDir: [
+        'pi=/tmp/pi-sessions',
+        'codex=/tmp/codex-sessions',
+        'openclaw=/tmp/openclaw',
+        'claude=/tmp/claude',
+      ],
     });
 
-    expect([...inputs.explicitSourceIds]).toEqual(['pi', 'codex', 'claude']);
+    expect([...inputs.explicitSourceIds]).toEqual(['pi', 'codex', 'openclaw', 'claude']);
+  });
+
+  it('treats openclaw directory overrides as explicit source selections', () => {
+    const inputs = normalizeBuildUsageInputs({
+      openclawDir: '/tmp/openclaw',
+    });
+
+    expect([...inputs.explicitSourceIds]).toEqual(['openclaw']);
   });
 
   it('validates malformed source-dir entries through the shared parser', () => {

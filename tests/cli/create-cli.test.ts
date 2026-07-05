@@ -50,6 +50,7 @@ describe('createCli', () => {
       expect(command.options.some((option) => option.long === '--gemini-dir')).toBe(true);
       expect(command.options.some((option) => option.long === '--droid-dir')).toBe(true);
       expect(command.options.some((option) => option.long === '--claude-dir')).toBe(true);
+      expect(command.options.some((option) => option.long === '--openclaw-dir')).toBe(true);
       expect(command.options.some((option) => option.long === '--source')).toBe(true);
       expect(command.options.some((option) => option.long === '--source-dir')).toBe(true);
       expect(command.options.some((option) => option.long === '--model')).toBe(true);
@@ -120,8 +121,10 @@ describe('createCli', () => {
         emptySessionsDir,
         '--codex-dir',
         emptySessionsDir,
+        '--openclaw-dir',
+        emptySessionsDir,
         '--source',
-        'pi,codex',
+        'pi,codex,openclaw',
         '--timezone',
         'UTC',
       ],

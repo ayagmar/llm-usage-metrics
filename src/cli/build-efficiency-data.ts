@@ -73,6 +73,10 @@ function resolveScopeNote(options: EfficiencyCommandOptions): string | undefined
     activeFilters.push('--claude-dir');
   }
 
+  if (hasActiveTextOption(options.openclawDir)) {
+    activeFilters.push('--openclaw-dir');
+  }
+
   if (hasActiveTextOption(options.opencodeDb)) {
     activeFilters.push('--opencode-db');
   }

@@ -160,7 +160,7 @@ llm-usage efficiency monthly --repo-dir /path/to/repo --source openclaw
 llm-usage efficiency monthly --repo-dir /path/to/repo --source claude
 ```
 
-Note: usage filters (`--source`, `--provider`, `--model`, `--pi-dir`, `--codex-dir`, `--gemini-dir`, `--droid-dir`, `--claude-dir`, `--opencode-db`, `--source-dir`) also constrain commit attribution: only commit days with matching repo-attributed usage events are counted.
+Note: usage filters (`--source`, `--provider`, `--model`, `--pi-dir`, `--codex-dir`, `--gemini-dir`, `--droid-dir`, `--claude-dir`, `--openclaw-dir`, `--opencode-db`, `--source-dir`) also constrain commit attribution: only commit days with matching repo-attributed usage events are counted.
 
 ### Optimize Reports
 
@@ -201,10 +201,11 @@ Use `--source` to scope where events came from (`pi`, `codex`, `gemini`, `droid`
 # Custom directories
 llm-usage daily --source-dir pi=/path/to/pi --source-dir codex=/path/to/codex --source-dir gemini=/path/to/.gemini --source-dir droid=/path/to/.factory/sessions --source-dir openclaw=/path/to/.openclaw/agents --source-dir claude=/path/to/.claude/projects
 
-# Explicit Gemini/Droid/Claude/OpenCode paths
+# Explicit Gemini/Droid/Claude/OpenClaw/OpenCode paths
 llm-usage daily --gemini-dir /path/to/.gemini
 llm-usage daily --droid-dir /path/to/.factory/sessions
 llm-usage daily --claude-dir /path/to/.claude/projects
+llm-usage daily --openclaw-dir /path/to/.openclaw/agents
 llm-usage daily --opencode-db /path/to/opencode.db
 ```
 

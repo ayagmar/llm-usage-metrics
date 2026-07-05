@@ -392,13 +392,14 @@ describe('buildEfficiencyData', () => {
     expect(result.diagnostics.scopeNote).toContain('--source-dir');
   });
 
-  it('includes --gemini-dir, --droid-dir, and --claude-dir in scope note when configured', async () => {
+  it('includes dedicated source directory flags in scope note when configured', async () => {
     const result = await buildEfficiencyData(
       'monthly',
       {
         geminiDir: '/tmp/.gemini',
         droidDir: '/tmp/droid-sessions',
         claudeDir: '/tmp/.claude/projects',
+        openclawDir: '/tmp/.openclaw/agents',
       },
       {
         buildUsageEventDataset: async (options) => createUsageEventDataset(options),
@@ -426,6 +427,7 @@ describe('buildEfficiencyData', () => {
     expect(result.diagnostics.scopeNote).toContain('--gemini-dir');
     expect(result.diagnostics.scopeNote).toContain('--droid-dir');
     expect(result.diagnostics.scopeNote).toContain('--claude-dir');
+    expect(result.diagnostics.scopeNote).toContain('--openclaw-dir');
   });
 
   it('includes --opencode-db in scope note when configured', async () => {

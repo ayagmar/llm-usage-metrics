@@ -56,6 +56,7 @@ export function registerSharedReportOptions(
     .option('--gemini-dir <path>', 'Path to .gemini directory')
     .option('--droid-dir <path>', 'Path to Droid sessions directory')
     .option('--claude-dir <path>', 'Path to Claude projects directory')
+    .option('--openclaw-dir <path>', 'Path to OpenClaw agents directory')
     .option('--opencode-db <path>', 'Path to OpenCode SQLite DB')
     .option(
       '--source-dir <source-id=path>',

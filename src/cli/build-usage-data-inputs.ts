@@ -186,6 +186,10 @@ export function resolveExplicitSourceIds(
     explicitSourceIds.add('claude');
   }
 
+  if (options.openclawDir) {
+    explicitSourceIds.add('openclaw');
+  }
+
   if (options.opencodeDb) {
     explicitSourceIds.add('opencode');
   }

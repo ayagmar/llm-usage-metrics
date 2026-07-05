@@ -18,6 +18,7 @@ export type ReportCommandOptions = {
   geminiDir?: string;
   droidDir?: string;
   claudeDir?: string;
+  openclawDir?: string;
   opencodeDb?: string;
   sourceDir?: string[];
   source?: string | string[];

@@ -162,6 +162,46 @@ describe('createDefaultAdapters', () => {
     );
   });
 
+  it('throws when --openclaw-dir is blank', () => {
+    expect(() => createDefaultAdapters({ openclawDir: '   ' })).toThrow(
+      '--openclaw-dir must be a non-empty path',
+    );
+  });
+
+  it('wires --openclaw-dir into the OpenClaw adapter discovery path', async () => {
+    const openclawTempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-adapters-openclaw-dir-'));
+    tempDirs.push(openclawTempDir);
+    const openclawFile = path.join(openclawTempDir, 'openclaw-session.jsonl');
+    await writeFile(openclawFile, '{}\n', 'utf8');
+
+    const adapters = createDefaultAdapters({ openclawDir: openclawTempDir });
+    const openclawAdapter = adapters.find((adapter) => adapter.id === 'openclaw');
+
+    await expect(openclawAdapter?.discoverFiles()).resolves.toEqual([await realpath(openclawFile)]);
+  });
+
+  it('prefers --openclaw-dir over generic openclaw source directory overrides', async () => {
+    const explicitTempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'usage-adapters-openclaw-explicit-dir-'),
+    );
+    const sourceDirTempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'usage-adapters-openclaw-source-dir-precedence-'),
+    );
+    tempDirs.push(explicitTempDir, sourceDirTempDir);
+    const explicitFile = path.join(explicitTempDir, 'explicit-openclaw-session.jsonl');
+    const sourceDirFile = path.join(sourceDirTempDir, 'source-dir-openclaw-session.jsonl');
+    await writeFile(explicitFile, '{}\n', 'utf8');
+    await writeFile(sourceDirFile, '{}\n', 'utf8');
+
+    const adapters = createDefaultAdapters({
+      openclawDir: explicitTempDir,
+      sourceDir: [`openclaw=${sourceDirTempDir}`],
+    });
+    const openclawAdapter = adapters.find((adapter) => adapter.id === 'openclaw');
+
+    await expect(openclawAdapter?.discoverFiles()).resolves.toEqual([await realpath(explicitFile)]);
+  });
+
   it('fails gemini discovery when an explicitly configured directory is missing', async () => {
     const adapters = createDefaultAdapters({
       geminiDir: path.join(os.tmpdir(), `missing-gemini-${Date.now()}`),
@@ -283,7 +323,7 @@ describe('createDefaultAdapters', () => {
 
   it('fails openclaw discovery when an explicitly configured directory is missing', async () => {
     const adapters = createDefaultAdapters({
-      sourceDir: [`openclaw=${path.join(os.tmpdir(), `missing-openclaw-${Date.now()}`)}`],
+      openclawDir: path.join(os.tmpdir(), `missing-openclaw-${Date.now()}`),
     });
     const openclawAdapter = adapters.find((adapter) => adapter.id === 'openclaw');
 
