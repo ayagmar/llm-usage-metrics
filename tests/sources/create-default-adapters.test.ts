@@ -27,6 +27,7 @@ describe('createDefaultAdapters', () => {
       'claude',
       'copilot',
       'goose',
+      'amp',
     ]);
   });
 
@@ -57,6 +58,7 @@ describe('createDefaultAdapters', () => {
     const openclawTempDir = await mkdtemp(
       path.join(os.tmpdir(), 'usage-adapters-openclaw-source-dir-'),
     );
+    const ampTempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-adapters-amp-source-dir-'));
     tempDirs.push(
       piTempDir,
       codexTempDir,
@@ -65,6 +67,7 @@ describe('createDefaultAdapters', () => {
       claudeTempDir,
       copilotTempDir,
       openclawTempDir,
+      ampTempDir,
     );
 
     const piFile = path.join(piTempDir, 'pi-session.jsonl');
@@ -76,6 +79,7 @@ describe('createDefaultAdapters', () => {
     const claudeFile = path.join(claudeTempDir, 'claude-session.jsonl');
     const copilotFile = path.join(copilotTempDir, 'copilot-session.jsonl');
     const openclawFile = path.join(openclawTempDir, 'openclaw-session.jsonl');
+    const ampFile = path.join(ampTempDir, 'amp-thread.json');
 
     await writeFile(piFile, '{}\n', 'utf8');
     await writeFile(codexFile, '{}\n', 'utf8');
@@ -84,6 +88,7 @@ describe('createDefaultAdapters', () => {
     await writeFile(claudeFile, '{}\n', 'utf8');
     await writeFile(copilotFile, '{}\n', 'utf8');
     await writeFile(openclawFile, '{}\n', 'utf8');
+    await writeFile(ampFile, '{}', 'utf8');
 
     const adapters = createDefaultAdapters({
       sourceDir: [
@@ -94,6 +99,7 @@ describe('createDefaultAdapters', () => {
         `claude=${claudeTempDir}`,
         `copilot=${copilotTempDir}`,
         `openclaw=${openclawTempDir}`,
+        `amp=${ampTempDir}`,
       ],
     });
 
@@ -104,6 +110,7 @@ describe('createDefaultAdapters', () => {
     await expect(adapters[5].discoverFiles()).resolves.toEqual([await realpath(openclawFile)]);
     await expect(adapters[6].discoverFiles()).resolves.toEqual([await realpath(claudeFile)]);
     await expect(adapters[7].discoverFiles()).resolves.toEqual([await realpath(copilotFile)]);
+    await expect(adapters[9].discoverFiles()).resolves.toEqual([await realpath(ampFile)]);
   });
 
   it('throws on invalid source directory override entries', () => {
@@ -205,6 +212,12 @@ describe('createDefaultAdapters', () => {
     );
   });
 
+  it('throws when --amp-dir is blank', () => {
+    expect(() => createDefaultAdapters({ ampDir: '   ' })).toThrow(
+      '--amp-dir must be a non-empty path',
+    );
+  });
+
   it('wires --openclaw-dir into the OpenClaw adapter discovery path', async () => {
     const openclawTempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-adapters-openclaw-dir-'));
     tempDirs.push(openclawTempDir);
@@ -271,6 +284,40 @@ describe('createDefaultAdapters', () => {
     const copilotAdapter = adapters.find((adapter) => adapter.id === 'copilot');
 
     await expect(copilotAdapter?.discoverFiles()).resolves.toEqual([await realpath(explicitFile)]);
+  });
+
+  it('wires --amp-dir into the Amp adapter discovery path', async () => {
+    const ampTempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-adapters-amp-dir-'));
+    tempDirs.push(ampTempDir);
+    const ampFile = path.join(ampTempDir, 'amp-thread.json');
+    await writeFile(ampFile, '{}', 'utf8');
+
+    const adapters = createDefaultAdapters({ ampDir: ampTempDir });
+    const ampAdapter = adapters.find((adapter) => adapter.id === 'amp');
+
+    await expect(ampAdapter?.discoverFiles()).resolves.toEqual([await realpath(ampFile)]);
+  });
+
+  it('prefers --amp-dir over generic amp source directory overrides', async () => {
+    const explicitTempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'usage-adapters-amp-explicit-dir-'),
+    );
+    const sourceDirTempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'usage-adapters-amp-source-dir-precedence-'),
+    );
+    tempDirs.push(explicitTempDir, sourceDirTempDir);
+    const explicitFile = path.join(explicitTempDir, 'explicit-amp-thread.json');
+    const sourceDirFile = path.join(sourceDirTempDir, 'source-dir-amp-thread.json');
+    await writeFile(explicitFile, '{}', 'utf8');
+    await writeFile(sourceDirFile, '{}', 'utf8');
+
+    const adapters = createDefaultAdapters({
+      ampDir: explicitTempDir,
+      sourceDir: [`amp=${sourceDirTempDir}`],
+    });
+    const ampAdapter = adapters.find((adapter) => adapter.id === 'amp');
+
+    await expect(ampAdapter?.discoverFiles()).resolves.toEqual([await realpath(explicitFile)]);
   });
 
   it('fails gemini discovery when an explicitly configured directory is missing', async () => {
@@ -411,6 +458,17 @@ describe('createDefaultAdapters', () => {
 
     await expect(openclawAdapter?.discoverFiles()).rejects.toThrow(
       'OpenClaw agents directory is missing or unreadable',
+    );
+  });
+
+  it('fails amp discovery when an explicitly configured directory is missing', async () => {
+    const adapters = createDefaultAdapters({
+      ampDir: path.join(os.tmpdir(), `missing-amp-${Date.now()}`),
+    });
+    const ampAdapter = adapters.find((adapter) => adapter.id === 'amp');
+
+    await expect(ampAdapter?.discoverFiles()).rejects.toThrow(
+      'Amp threads directory is missing or unreadable',
     );
   });
 });

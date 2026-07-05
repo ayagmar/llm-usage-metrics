@@ -32,6 +32,7 @@ async function createDoctorFixtureOptions(): Promise<DoctorCommandOptions> {
   const openclawDir = path.join(rootDir, 'openclaw');
   const opencodeDb = path.join(rootDir, 'opencode.db');
   const gooseDb = path.join(rootDir, 'goose.db');
+  const ampDir = path.join(rootDir, 'amp');
 
   await mkdir(path.join(geminiDir, 'tmp', 'project', 'chats'), { recursive: true });
   await mkdir(path.join(claudeDir, 'project'), { recursive: true });
@@ -40,6 +41,7 @@ async function createDoctorFixtureOptions(): Promise<DoctorCommandOptions> {
   await mkdir(copilotDir, { recursive: true });
   await mkdir(droidDir, { recursive: true });
   await mkdir(openclawDir, { recursive: true });
+  await mkdir(ampDir, { recursive: true });
 
   await writeFile(path.join(piDir, 'session.jsonl'), '{}\n', 'utf8');
   await writeFile(path.join(codexDir, 'session.jsonl'), '{}\n', 'utf8');
@@ -50,6 +52,7 @@ async function createDoctorFixtureOptions(): Promise<DoctorCommandOptions> {
   await writeFile(path.join(openclawDir, 'session.jsonl'), '{}\n', 'utf8');
   await writeFile(opencodeDb, '', 'utf8');
   await writeFile(gooseDb, '', 'utf8');
+  await writeFile(path.join(ampDir, 'thread.json'), '{}', 'utf8');
 
   return {
     piDir,
@@ -61,6 +64,7 @@ async function createDoctorFixtureOptions(): Promise<DoctorCommandOptions> {
     openclawDir,
     opencodeDb,
     gooseDb,
+    ampDir,
   };
 }
 
@@ -102,6 +106,7 @@ describe('run-doctor-report', () => {
       { id: 'claude', status: 'ok', itemsFound: 1 },
       { id: 'copilot', status: 'ok', itemsFound: 1 },
       { id: 'goose', status: 'ok', itemsFound: 1 },
+      { id: 'amp', status: 'ok', itemsFound: 1 },
     ]);
   });
 
@@ -174,7 +179,7 @@ describe('run-doctor-report', () => {
     expect(stdout.getOutput()).toContain('claude');
     expect(stdout.getOutput()).toContain('error');
     expect(stdout.getOutput()).toContain(missingClaudeDir);
-    expect(stdout.getOutput()).toContain('8/9 sources healthy');
+    expect(stdout.getOutput()).toContain('9/10 sources healthy');
   });
 
   it('prints JSON output to stdout', async () => {

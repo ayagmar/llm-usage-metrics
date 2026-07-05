@@ -401,6 +401,7 @@ describe('buildEfficiencyData', () => {
         copilotDir: '/tmp/.copilot/otel',
         claudeDir: '/tmp/.claude/projects',
         openclawDir: '/tmp/.openclaw/agents',
+        ampDir: '/tmp/amp/threads',
       },
       {
         buildUsageEventDataset: async (options) => createUsageEventDataset(options),
@@ -430,6 +431,7 @@ describe('buildEfficiencyData', () => {
     expect(result.diagnostics.scopeNote).toContain('--copilot-dir');
     expect(result.diagnostics.scopeNote).toContain('--claude-dir');
     expect(result.diagnostics.scopeNote).toContain('--openclaw-dir');
+    expect(result.diagnostics.scopeNote).toContain('--amp-dir');
   });
 
   it('includes DB source override flags in scope note when configured', async () => {

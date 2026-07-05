@@ -67,10 +67,18 @@ describe('build-usage-data-inputs', () => {
         'copilot=/tmp/copilot-otel',
         'openclaw=/tmp/openclaw',
         'claude=/tmp/claude',
+        'amp=/tmp/amp/threads',
       ],
     });
 
-    expect([...inputs.explicitSourceIds]).toEqual(['pi', 'codex', 'copilot', 'openclaw', 'claude']);
+    expect([...inputs.explicitSourceIds]).toEqual([
+      'pi',
+      'codex',
+      'copilot',
+      'openclaw',
+      'claude',
+      'amp',
+    ]);
   });
 
   it('treats openclaw directory overrides as explicit source selections', () => {
@@ -95,6 +103,14 @@ describe('build-usage-data-inputs', () => {
     });
 
     expect([...inputs.explicitSourceIds]).toEqual(['goose']);
+  });
+
+  it('treats amp directory overrides as explicit source selections', () => {
+    const inputs = normalizeBuildUsageInputs({
+      ampDir: '/tmp/amp/threads',
+    });
+
+    expect([...inputs.explicitSourceIds]).toEqual(['amp']);
   });
 
   it('validates malformed source-dir entries through the shared parser', () => {

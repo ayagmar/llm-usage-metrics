@@ -1,3 +1,4 @@
+import { AmpSourceAdapter } from './amp/amp-source-adapter.js';
 import { ClaudeSourceAdapter } from './claude/claude-source-adapter.js';
 import { CodexSourceAdapter } from './codex/codex-source-adapter.js';
 import { CopilotSourceAdapter } from './copilot/copilot-source-adapter.js';
@@ -30,6 +31,7 @@ export type CreateDefaultAdaptersOptions = {
   openclawDir?: string;
   opencodeDb?: string;
   gooseDb?: string;
+  ampDir?: string;
   sourceDir?: string[];
 };
 
@@ -158,6 +160,22 @@ const sourceRegistrations: readonly SourceRegistration[] = [
         dbPath: options.gooseDb,
       }),
   },
+  {
+    id: 'amp',
+    sourceDirOverride: { kind: 'directory' },
+    create: (options, sourceDirectoryOverrides) => {
+      const directoryConfig = resolveDirectoryConfig(
+        'amp',
+        options.ampDir,
+        sourceDirectoryOverrides,
+      );
+
+      return new AmpSourceAdapter({
+        threadsDir: directoryConfig.path,
+        requireThreadsDir: directoryConfig.requireExistingPath,
+      });
+    },
+  },
 ];
 
 const sourceDirUnsupportedFlags = new Map(
@@ -231,7 +249,8 @@ function validateDirectoryOverride(
     | '--gemini-dir'
     | '--droid-dir'
     | '--claude-dir'
-    | '--openclaw-dir',
+    | '--openclaw-dir'
+    | '--amp-dir',
   value: string | undefined,
 ): void {
   if (value === undefined) {
@@ -287,6 +306,7 @@ export function createDefaultAdapters(options: CreateDefaultAdaptersOptions): So
   validateDirectoryOverride('--droid-dir', options.droidDir);
   validateDirectoryOverride('--claude-dir', options.claudeDir);
   validateDirectoryOverride('--openclaw-dir', options.openclawDir);
+  validateDirectoryOverride('--amp-dir', options.ampDir);
 
   const sourceDirectoryOverrides = parseSourceDirectoryOverrides(options.sourceDir);
   validateSourceDirectoryOverrideIds(sourceDirectoryOverrides);

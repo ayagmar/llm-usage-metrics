@@ -89,6 +89,10 @@ function resolveScopeNote(options: EfficiencyCommandOptions): string | undefined
     activeFilters.push('--goose-db');
   }
 
+  if (hasActiveTextOption(options.ampDir)) {
+    activeFilters.push('--amp-dir');
+  }
+
   if (hasActiveRepeatedFilter(options.sourceDir)) {
     activeFilters.push('--source-dir');
   }

@@ -202,6 +202,10 @@ export function resolveExplicitSourceIds(
     explicitSourceIds.add('goose');
   }
 
+  if (options.ampDir) {
+    explicitSourceIds.add('amp');
+  }
+
   return explicitSourceIds;
 }
 
