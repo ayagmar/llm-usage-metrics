@@ -18,7 +18,12 @@ const defaultGeminiDir = path.join(os.homedir(), '.gemini');
 export type GeminiSourceAdapterOptions = {
   geminiDir?: string;
   requireGeminiDir?: boolean;
+  env?: NodeJS.ProcessEnv;
 };
+
+function resolveDefaultGeminiDir(env: NodeJS.ProcessEnv): string {
+  return asTrimmedText(env.GEMINI_CLI_HOME) ?? defaultGeminiDir;
+}
 
 function getProjectsJsonPath(geminiDir: string): string {
   return path.join(geminiDir, 'projects.json');
@@ -195,7 +200,7 @@ export class GeminiSourceAdapter implements SourceAdapter {
   private readonly requireGeminiDir: boolean;
 
   public constructor(options: GeminiSourceAdapterOptions = {}) {
-    this.geminiDir = options.geminiDir ?? defaultGeminiDir;
+    this.geminiDir = options.geminiDir ?? resolveDefaultGeminiDir(options.env ?? process.env);
     this.requireGeminiDir = options.requireGeminiDir ?? false;
   }
 

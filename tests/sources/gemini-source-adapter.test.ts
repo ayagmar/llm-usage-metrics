@@ -56,6 +56,41 @@ describe('GeminiSourceAdapter', () => {
       await expect(adapter.discoverFiles()).rejects.toThrow();
     });
 
+    it('honors GEMINI_CLI_HOME for the default directory', async () => {
+      const geminiHome = await mkdtemp(path.join(os.tmpdir(), 'gemini-cli-home-'));
+      tempDirs.push(geminiHome);
+      const chatsDir = path.join(geminiHome, 'tmp', 'project-a', 'chats');
+      await mkdir(chatsDir, { recursive: true });
+      const sessionFile = path.join(chatsDir, 'session.json');
+      await writeFile(sessionFile, '{}', 'utf8');
+
+      const adapter = new GeminiSourceAdapter({ env: { GEMINI_CLI_HOME: geminiHome } });
+
+      await expect(adapter.discoverFiles()).resolves.toEqual([sessionFile]);
+      await expect(adapter.getParseDependencies()).resolves.toEqual([
+        path.join(geminiHome, 'projects.json'),
+      ]);
+    });
+
+    it('prefers an explicit geminiDir over GEMINI_CLI_HOME', async () => {
+      const adapter = new GeminiSourceAdapter({
+        geminiDir: '/tmp/explicit-gemini',
+        env: { GEMINI_CLI_HOME: '/tmp/env-gemini' },
+      });
+
+      await expect(adapter.getParseDependencies()).resolves.toEqual([
+        path.join('/tmp/explicit-gemini', 'projects.json'),
+      ]);
+    });
+
+    it('ignores blank GEMINI_CLI_HOME values', async () => {
+      const adapter = new GeminiSourceAdapter({ env: { GEMINI_CLI_HOME: '   ' } });
+
+      await expect(adapter.getParseDependencies()).resolves.toEqual([
+        path.join(getDefaultGeminiDir(), 'projects.json'),
+      ]);
+    });
+
     it('validates explicit directory options', async () => {
       const blankDirAdapter = new GeminiSourceAdapter({ geminiDir: '   ' });
       await expect(blankDirAdapter.discoverFiles()).rejects.toThrow(
