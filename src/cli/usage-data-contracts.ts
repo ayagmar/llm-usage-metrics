@@ -47,10 +47,7 @@ export type OptimizeCommandOptions = Omit<ReportCommandOptions, 'perModelColumns
   top?: string;
 };
 
-export type TrendsCommandOptions = Omit<
-  ReportCommandOptions,
-  'markdown' | 'perModelColumns' | 'share'
-> & {
+export type TrendsCommandOptions = Omit<ReportCommandOptions, 'markdown' | 'perModelColumns'> & {
   days?: string;
   metric?: string;
   bySource?: boolean;
