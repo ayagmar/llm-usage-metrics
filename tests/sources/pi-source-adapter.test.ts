@@ -398,6 +398,110 @@ describe('PiSourceAdapter', () => {
     expect(events).toEqual([]);
   });
 
+  it('counts a skip when a usage record exists but carries no positive signal', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-skip-no-usage-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'pi-skip-no-usage',
+        }),
+        JSON.stringify({
+          type: 'message',
+          timestamp: '2026-02-12T20:01:00.000Z',
+          provider: 'openai',
+          usage: {
+            input: 0,
+            output: 0,
+            totalTokens: 0,
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new PiSourceAdapter({ sessionsDir: root });
+    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+
+    expect(diagnostics.events).toEqual([]);
+    expect(diagnostics.skippedRows).toBe(1);
+    expect(diagnostics.skippedRowReasons).toEqual([{ reason: 'no_token_usage', count: 1 }]);
+  });
+
+  it('counts a skip when usage is valid but no timestamp can be resolved', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-skip-invalid-ts-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'pi-skip-invalid-ts',
+        }),
+        JSON.stringify({
+          type: 'message',
+          timestamp: 'not-a-date',
+          provider: 'openai',
+          usage: {
+            input: 1,
+            output: 2,
+            totalTokens: 3,
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new PiSourceAdapter({ sessionsDir: root });
+    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+
+    expect(diagnostics.events).toEqual([]);
+    expect(diagnostics.skippedRows).toBe(1);
+    expect(diagnostics.skippedRowReasons).toEqual([{ reason: 'invalid_timestamp', count: 1 }]);
+  });
+
+  it('does not count user messages without any usage record as skips', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-no-skip-user-message-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'pi-user-message',
+          timestamp: '2026-02-12T20:00:00.000Z',
+        }),
+        JSON.stringify({
+          type: 'message',
+          timestamp: '2026-02-12T20:01:00.000Z',
+          message: {
+            role: 'user',
+            content: 'hello there',
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new PiSourceAdapter({ sessionsDir: root });
+    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+
+    expect(diagnostics.events).toEqual([]);
+    expect(diagnostics.skippedRows).toBe(0);
+    expect(diagnostics.skippedRowReasons).toEqual([]);
+  });
+
   it('keeps cost-only usage entries when explicit non-zero cost exists', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-cost-only-'));
     tempDirs.push(root);

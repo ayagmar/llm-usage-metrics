@@ -8,13 +8,14 @@ import { asRecord } from '../../utils/as-record.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import { pathIsDirectory, pathReadable } from '../../utils/fs-helpers.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
+import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
   isBlankText,
   normalizeTimestampCandidate,
   toNumberLike,
 } from '../parsing-utils.js';
-import type { SourceAdapter } from '../source-adapter.js';
+import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
 
 const defaultSessionsDir = path.join(os.homedir(), '.pi', 'agent', 'sessions');
 
@@ -195,7 +196,14 @@ export class PiSourceAdapter implements SourceAdapter {
   }
 
   public async parseFile(filePath: string): Promise<UsageEvent[]> {
+    const { events } = await this.parseFileWithDiagnostics(filePath);
+    return events;
+  }
+
+  public async parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
     const events: UsageEvent[] = [];
+    let skippedRows = 0;
+    const skippedRowReasons = new Map<string, number>();
     const state: PiSessionState = { sessionId: getFallbackSessionId(filePath) };
 
     for await (const line of readJsonlObjects(filePath, {
@@ -223,6 +231,13 @@ export class PiSourceAdapter implements SourceAdapter {
       const usage = extractUsage(line, message);
 
       if (!usage) {
+        const hasUsageRecord = Boolean(asRecord(line.usage) ?? asRecord(message?.usage));
+
+        if (hasUsageRecord) {
+          skippedRows++;
+          incrementSkippedReason(skippedRowReasons, 'no_token_usage');
+        }
+
         continue;
       }
 
@@ -232,6 +247,8 @@ export class PiSourceAdapter implements SourceAdapter {
       const timestamp = resolveTimestamp(line, message, state);
 
       if (!timestamp || !state.sessionId) {
+        skippedRows++;
+        incrementSkippedReason(skippedRowReasons, 'invalid_timestamp');
         continue;
       }
 
@@ -256,11 +273,13 @@ export class PiSourceAdapter implements SourceAdapter {
           }),
         );
       } catch {
+        skippedRows++;
+        incrementSkippedReason(skippedRowReasons, 'event_creation_failed');
         continue;
       }
     }
 
-    return events;
+    return toParseDiagnostics(events, skippedRows, skippedRowReasons);
   }
 }
 
