@@ -18,7 +18,7 @@ afterEach(async () => {
 });
 
 describe('createCli', () => {
-  it('registers daily, weekly, monthly, efficiency, optimize, and trends commands', () => {
+  it('registers daily, weekly, monthly, efficiency, optimize, trends, and doctor commands', () => {
     const cli = createCli();
 
     expect(cli.name()).toBe('llm-usage');
@@ -29,6 +29,7 @@ describe('createCli', () => {
       'efficiency',
       'optimize',
       'trends',
+      'doctor',
     ]);
   });
 
@@ -107,6 +108,26 @@ describe('createCli', () => {
     );
   });
 
+  it('configures doctor command with only discovery and JSON shared flags', () => {
+    const cli = createCli();
+    const doctorCommand = cli.commands.find((command) => command.name() === 'doctor');
+
+    expect(doctorCommand).toBeDefined();
+    expect(doctorCommand?.options.some((option) => option.long === '--json')).toBe(true);
+    expect(doctorCommand?.options.some((option) => option.long === '--source')).toBe(true);
+    expect(doctorCommand?.options.some((option) => option.long === '--source-dir')).toBe(true);
+    expect(doctorCommand?.options.some((option) => option.long === '--pi-dir')).toBe(true);
+    expect(doctorCommand?.options.some((option) => option.long === '--openclaw-dir')).toBe(true);
+    expect(doctorCommand?.options.some((option) => option.long === '--opencode-db')).toBe(true);
+    expect(doctorCommand?.options.some((option) => option.long === '--markdown')).toBe(false);
+    expect(doctorCommand?.options.some((option) => option.long === '--since')).toBe(false);
+    expect(doctorCommand?.options.some((option) => option.long === '--timezone')).toBe(false);
+    expect(doctorCommand?.options.some((option) => option.long === '--provider')).toBe(false);
+    expect(doctorCommand?.options.some((option) => option.long === '--model')).toBe(false);
+    expect(doctorCommand?.options.some((option) => option.long === '--pricing-url')).toBe(false);
+    expect(doctorCommand?.options.some((option) => option.long === '--share')).toBe(false);
+  });
+
   it('runs daily command and prints terminal table output', async () => {
     const emptySessionsDir = await mkdtemp(path.join(os.tmpdir(), 'usage-cli-empty-'));
     tempDirs.push(emptySessionsDir);
@@ -159,6 +180,7 @@ describe('createCli', () => {
       'llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candidate-model gpt-5-codex --json',
     );
     expect(compactHelp).toContain('llm-usage trends');
+    expect(compactHelp).toContain('llm-usage doctor');
     expect(compactHelp).toContain('npx --yes llm-usage-metrics@latest daily');
     expect(compactDailyCommandHelp).toContain('after source/provider/date filters');
   });
@@ -184,8 +206,10 @@ describe('createCli', () => {
       'efficiency',
       'optimize',
       'trends',
+      'doctor',
     ]);
     expect(getCliReferenceExamples()).toContain('llm-usage trends');
+    expect(getCliReferenceExamples()).toContain('llm-usage doctor --json');
     expect(getCliReferenceExamples()).toContain(
       'llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candidate-model gpt-5-codex --json',
     );

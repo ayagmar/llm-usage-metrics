@@ -1,7 +1,4 @@
-import {
-  createDefaultAdapters,
-  getDefaultSourceIds,
-} from '../sources/create-default-adapters.js';
+import { createDefaultAdapters, getDefaultSourceIds } from '../sources/create-default-adapters.js';
 import type { SourceAdapter } from '../sources/source-adapter.js';
 import { normalizeSourceFilter, validateSourceFilterValues } from './build-usage-data-inputs.js';
 import type { DoctorCommandOptions } from './usage-data-contracts.js';
