@@ -114,6 +114,32 @@ describe('createUsageEvent', () => {
     ).toThrow('source');
   });
 
+  it('strips control characters from session-derived strings', () => {
+    const event = createUsageEvent({
+      source: 'pi',
+      sessionId: 'abc\u0007def',
+      timestamp: '2026-02-12T10:00:00Z',
+      repoRoot: '/x\u009B/y',
+      model: 'GPT\u001B[2J-4',
+      inputTokens: 1,
+      outputTokens: 1,
+    });
+
+    expect(event.sessionId).toBe('abcdef');
+    expect(event.repoRoot).toBe('/x/y');
+    expect(event.model).toBe('gpt[2j-4');
+  });
+
+  it('throws when session id contains only control characters', () => {
+    expect(() =>
+      createUsageEvent({
+        source: 'pi',
+        sessionId: '\u001B\u0007',
+        timestamp: '2026-02-12T10:00:00Z',
+      }),
+    ).toThrow('sessionId');
+  });
+
   it('normalizes model identifiers to lowercase', () => {
     const event = createUsageEvent({
       source: 'pi',

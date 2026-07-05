@@ -5,6 +5,7 @@ import {
   normalizeNonNegativeInteger,
   normalizeTimestamp,
   normalizeUsdCost,
+  stripControlCharacters,
 } from '../../src/domain/normalization.js';
 
 describe('normalizeNonNegativeInteger', () => {
@@ -45,6 +46,24 @@ describe('normalizeTimestamp', () => {
   });
 });
 
+describe('stripControlCharacters', () => {
+  it('removes the ESC byte from ANSI escape sequences', () => {
+    expect(stripControlCharacters('a\u001B[31mb')).toBe('a[31mb');
+  });
+
+  it('removes C0 controls, DEL and C1 controls', () => {
+    expect(stripControlCharacters('a\u0007b')).toBe('ab');
+    expect(stripControlCharacters('a\u007Fb')).toBe('ab');
+    expect(stripControlCharacters('a\u009Bb')).toBe('ab');
+    expect(stripControlCharacters('a\nb')).toBe('ab');
+    expect(stripControlCharacters('a\tb')).toBe('ab');
+  });
+
+  it('leaves normal unicode intact', () => {
+    expect(stripControlCharacters('café 東京')).toBe('café 東京');
+  });
+});
+
 describe('normalizeModelList', () => {
   it('deduplicates, trims and sorts model ids', () => {
     expect(normalizeModelList([' gpt-4o ', 'gpt-4.1', undefined, 'gpt-4o', ''])).toEqual([
@@ -55,5 +74,9 @@ describe('normalizeModelList', () => {
 
   it('uses deterministic code-point ordering regardless of locale', () => {
     expect(normalizeModelList(['ä-model', 'z-model'])).toEqual(['z-model', 'ä-model']);
+  });
+
+  it('drops model names consisting only of control characters', () => {
+    expect(normalizeModelList(['\u001B\u0007', 'gpt-4o'])).toEqual(['gpt-4o']);
   });
 });
