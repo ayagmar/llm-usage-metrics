@@ -14,6 +14,16 @@ type OpenCodeMessageFixture = {
   data: string;
 };
 
+type GooseSessionFixture = {
+  id: string;
+  modelConfigJson: string;
+  providerName: string;
+  createdAt: string;
+  totalTokens: number;
+  inputTokens: number;
+  outputTokens: number;
+};
+
 type FixtureDatabaseSync = new (filePath: string) => {
   exec: (sql: string) => void;
   prepare: (sql: string) => { run: (...args: unknown[]) => void };
@@ -35,8 +45,8 @@ const droidDir = path.resolve('tests/fixtures/e2e/droid');
 const claudeDir = path.resolve('tests/fixtures/e2e/claude');
 const openclawDir = path.resolve('tests/fixtures/e2e/openclaw');
 const copilotDir = path.resolve('tests/fixtures/e2e/copilot');
-const allSources = 'pi,codex,gemini,droid,opencode,openclaw,claude,copilot';
-const expectedAllSourceTokens = 1_500;
+const allSources = 'pi,codex,gemini,droid,opencode,openclaw,claude,copilot,goose';
+const expectedAllSourceTokens = 1_680;
 const expectedGeminiClaudeTokens = 415;
 
 function loadDatabaseSync(): FixtureDatabaseSync | undefined {
@@ -90,6 +100,62 @@ function createOpenCodeFixtureDb(dbPath: string, messages: OpenCodeMessageFixtur
   }
 }
 
+function createGooseFixtureDb(dbPath: string, sessions: GooseSessionFixture[]): void {
+  const DatabaseSync = loadDatabaseSync();
+
+  if (!DatabaseSync) {
+    throw new Error('Goose e2e fixtures require node:sqlite DatabaseSync support.');
+  }
+
+  const database = new DatabaseSync(dbPath);
+
+  try {
+    database.exec(`
+      CREATE TABLE sessions (
+        id TEXT PRIMARY KEY,
+        model_config_json TEXT,
+        provider_name TEXT,
+        created_at TEXT,
+        total_tokens INTEGER,
+        input_tokens INTEGER,
+        output_tokens INTEGER,
+        accumulated_total_tokens INTEGER,
+        accumulated_input_tokens INTEGER,
+        accumulated_output_tokens INTEGER
+      );
+    `);
+
+    const insertSession = database.prepare(`
+      INSERT INTO sessions (
+        id,
+        model_config_json,
+        provider_name,
+        created_at,
+        total_tokens,
+        input_tokens,
+        output_tokens,
+        accumulated_total_tokens,
+        accumulated_input_tokens,
+        accumulated_output_tokens
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL)
+    `);
+
+    for (const session of sessions) {
+      insertSession.run(
+        session.id,
+        session.modelConfigJson,
+        session.providerName,
+        session.createdAt,
+        session.totalTokens,
+        session.inputTokens,
+        session.outputTokens,
+      );
+    }
+  } finally {
+    database.close();
+  }
+}
+
 function getPeriodSourceRows(rows: UsageJsonRow[]): UsageJsonRow[] {
   return rows.filter((row) => row.rowType === 'period_source');
 }
@@ -103,10 +169,12 @@ const DatabaseSync = loadDatabaseSync();
 describe.skipIf(!DatabaseSync)('multi-source usage report e2e', () => {
   let tempDir: string;
   let opencodeDbPath: string;
+  let gooseDbPath: string;
 
   beforeAll(async () => {
     tempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-multi-source-e2e-'));
     opencodeDbPath = path.join(tempDir, 'opencode.db');
+    gooseDbPath = path.join(tempDir, 'goose.db');
 
     createOpenCodeFixtureDb(opencodeDbPath, [
       {
@@ -144,6 +212,18 @@ describe.skipIf(!DatabaseSync)('multi-source usage report e2e', () => {
         }),
       },
     ]);
+
+    createGooseFixtureDb(gooseDbPath, [
+      {
+        id: 'goose-e2e-session',
+        modelConfigJson: JSON.stringify({ model_name: 'gpt-goose-e2e' }),
+        providerName: 'openai',
+        createdAt: '2026-06-15T12:15:00.000Z',
+        totalTokens: 180,
+        inputTokens: 100,
+        outputTokens: 50,
+      },
+    ]);
   });
 
   afterAll(async () => {
@@ -162,6 +242,7 @@ describe.skipIf(!DatabaseSync)('multi-source usage report e2e', () => {
       opencodeDb: opencodeDbPath,
       openclawDir,
       copilotDir,
+      gooseDb: gooseDbPath,
       source: allSources,
       timezone: 'UTC',
       json: true,
@@ -194,6 +275,7 @@ describe.skipIf(!DatabaseSync)('multi-source usage report e2e', () => {
       opencodeDb: opencodeDbPath,
       openclawDir,
       copilotDir,
+      gooseDb: gooseDbPath,
       source: 'gemini,claude',
       timezone: 'UTC',
       json: true,
