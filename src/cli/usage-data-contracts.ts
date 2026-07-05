@@ -56,6 +56,20 @@ export type TrendsCommandOptions = Omit<
   bySource?: boolean;
 };
 
+export type DoctorCommandOptions = Pick<
+  ReportCommandOptions,
+  | 'piDir'
+  | 'codexDir'
+  | 'geminiDir'
+  | 'droidDir'
+  | 'claudeDir'
+  | 'openclawDir'
+  | 'opencodeDb'
+  | 'sourceDir'
+  | 'source'
+  | 'json'
+>;
+
 export type UsageSessionStats = {
   source: string;
   filesFound: number;

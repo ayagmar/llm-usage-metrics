@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 
 import type {
+  DoctorCommandOptions,
   EfficiencyCommandOptions,
   OptimizeCommandOptions,
   ReportCommandOptions,
@@ -10,6 +11,7 @@ import { runEfficiencyReport } from '../run-efficiency-report.js';
 import { runOptimizeReport } from '../run-optimize-report.js';
 import { runTrendsReport } from '../run-trends-report.js';
 import { runUsageReport } from '../run-usage-report.js';
+import { runDoctorReport } from '../run-doctor-report.js';
 import type { ReportGranularity } from '../../utils/time-buckets.js';
 import {
   collectRepeatedOption,
@@ -252,6 +254,32 @@ const trendsReportDefinition: ReportRuntimeDefinition = {
   },
 };
 
+const doctorReportDefinition: ReportRuntimeDefinition = {
+  meta: {
+    commandName: 'doctor',
+    docsLabel: 'doctor',
+    kind: 'specialized',
+    description: 'Check source discovery health and runtime configuration',
+    sharedOptionProfile: 'doctor',
+    helpExamples: [
+      {
+        command: 'llm-usage doctor',
+        includeInRootHelp: true,
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage doctor --json',
+        includeInCliReference: true,
+      },
+    ],
+  },
+  register(command) {
+    command.action((options: DoctorCommandOptions) => runDoctorReport(options));
+
+    return command;
+  },
+};
+
 const reportDefinitions = [
   createUsageReportDefinition('daily'),
   createUsageReportDefinition('weekly'),
@@ -259,6 +287,7 @@ const reportDefinitions = [
   efficiencyReportDefinition,
   optimizeReportDefinition,
   trendsReportDefinition,
+  doctorReportDefinition,
 ] as const satisfies readonly ReportRuntimeDefinition[];
 
 function getReportRuntimeDefinitions(): ReportRuntimeDefinition[] {

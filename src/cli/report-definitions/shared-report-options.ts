@@ -6,25 +6,45 @@ import type { SharedOptionProfile } from './report-definition-types.js';
 const defaultTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
 type SharedOptionProfileConfig = {
+  includeDateAndTimezone: boolean;
   includeMarkdown: boolean;
   includePerModelColumns: boolean;
+  includePricing: boolean;
+  includeProviderModelFilters: boolean;
   includeShare: boolean;
 };
 
 const sharedOptionProfileConfig: Record<SharedOptionProfile, SharedOptionProfileConfig> = {
   usage: {
+    includeDateAndTimezone: true,
     includeMarkdown: true,
     includePerModelColumns: true,
+    includePricing: true,
+    includeProviderModelFilters: true,
     includeShare: true,
   },
   specialized: {
+    includeDateAndTimezone: true,
     includeMarkdown: true,
     includePerModelColumns: false,
+    includePricing: true,
+    includeProviderModelFilters: true,
     includeShare: true,
   },
   trends: {
+    includeDateAndTimezone: true,
     includeMarkdown: false,
     includePerModelColumns: false,
+    includePricing: true,
+    includeProviderModelFilters: true,
+    includeShare: false,
+  },
+  doctor: {
+    includeDateAndTimezone: false,
+    includeMarkdown: false,
+    includePerModelColumns: false,
+    includePricing: false,
+    includeProviderModelFilters: false,
     includeShare: false,
   },
 };
@@ -68,29 +88,41 @@ export function registerSharedReportOptions(
       `Filter by source id (repeatable or comma-separated, supported sources ${supportedSourcesSummary})`,
       collectRepeatedOption,
     )
-    .option('--since <YYYY-MM-DD>', 'Inclusive start date filter')
-    .option('--until <YYYY-MM-DD>', 'Inclusive end date filter')
-    .option('--timezone <iana>', 'Timezone for bucketing', defaultTimezone)
-    .option(
-      '--provider <name>',
-      'Billing-provider filter (normalized to billing entity; e.g. openai, anthropic, google)',
-    )
-    .option(
-      '--model <name>',
-      'Filter by model (repeatable/comma-separated; exact when exact match exists after source/provider/date filters, otherwise substring)',
-      collectRepeatedOption,
-    )
-    .option('--pricing-url <url>', 'Override LiteLLM pricing source URL')
-    .option(
-      '--pricing-overrides <path>',
-      'Path to a JSON file of per-model pricing overrides (takes precedence over LiteLLM)',
-    )
-    .option('--pricing-offline', 'Use cached LiteLLM pricing only (no network fetch)')
-    .option(
-      '--ignore-pricing-failures',
-      'Continue without estimated costs when pricing cannot be loaded',
-    )
     .option('--json', 'Render output as JSON');
+
+  if (profileConfig.includeDateAndTimezone) {
+    configuredCommand
+      .option('--since <YYYY-MM-DD>', 'Inclusive start date filter')
+      .option('--until <YYYY-MM-DD>', 'Inclusive end date filter')
+      .option('--timezone <iana>', 'Timezone for bucketing', defaultTimezone);
+  }
+
+  if (profileConfig.includeProviderModelFilters) {
+    configuredCommand
+      .option(
+        '--provider <name>',
+        'Billing-provider filter (normalized to billing entity; e.g. openai, anthropic, google)',
+      )
+      .option(
+        '--model <name>',
+        'Filter by model (repeatable/comma-separated; exact when exact match exists after source/provider/date filters, otherwise substring)',
+        collectRepeatedOption,
+      );
+  }
+
+  if (profileConfig.includePricing) {
+    configuredCommand
+      .option('--pricing-url <url>', 'Override LiteLLM pricing source URL')
+      .option(
+        '--pricing-overrides <path>',
+        'Path to a JSON file of per-model pricing overrides (takes precedence over LiteLLM)',
+      )
+      .option('--pricing-offline', 'Use cached LiteLLM pricing only (no network fetch)')
+      .option(
+        '--ignore-pricing-failures',
+        'Continue without estimated costs when pricing cannot be loaded',
+      );
+  }
 
   if (profileConfig.includeMarkdown) {
     configuredCommand.option('--markdown', 'Render output as markdown table');
