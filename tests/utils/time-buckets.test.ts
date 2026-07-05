@@ -14,9 +14,27 @@ describe('time bucket helpers', () => {
     expect(getPeriodKey('2026-01-05T12:00:00Z', 'weekly', 'UTC')).toBe('2026-W02');
   });
 
+  it('uses ISO week-years at calendar-year boundaries', () => {
+    expect(getPeriodKey('2025-12-29T12:00:00Z', 'weekly', 'UTC')).toBe('2026-W01');
+    expect(getPeriodKey('2026-01-01T12:00:00Z', 'weekly', 'UTC')).toBe('2026-W01');
+    expect(getPeriodKey('2026-12-31T12:00:00Z', 'weekly', 'UTC')).toBe('2026-W53');
+    expect(getPeriodKey('2027-01-01T12:00:00Z', 'weekly', 'UTC')).toBe('2026-W53');
+    expect(getPeriodKey('2027-01-03T12:00:00Z', 'weekly', 'UTC')).toBe('2026-W53');
+    expect(getPeriodKey('2027-01-04T12:00:00Z', 'weekly', 'UTC')).toBe('2027-W01');
+  });
+
+  it('applies timezone before week-year bucketing', () => {
+    expect(getPeriodKey('2026-12-31T23:30:00Z', 'weekly', 'UTC')).toBe('2026-W53');
+    expect(getPeriodKey('2026-12-31T23:30:00Z', 'weekly', 'Pacific/Auckland')).toBe('2026-W53');
+  });
+
   it('applies timezone when generating daily keys', () => {
     expect(getPeriodKey('2026-01-04T23:30:00Z', 'daily', 'UTC')).toBe('2026-01-04');
     expect(getPeriodKey('2026-01-04T23:30:00Z', 'daily', 'Asia/Tokyo')).toBe('2026-01-05');
+    expect(getPeriodKey('2026-12-31T23:30:00Z', 'daily', 'UTC')).toBe('2026-12-31');
+    expect(getPeriodKey('2026-12-31T23:30:00Z', 'daily', 'Pacific/Auckland')).toBe(
+      '2027-01-01',
+    );
   });
 
   it('formats monthly keys as YYYY-MM', () => {
