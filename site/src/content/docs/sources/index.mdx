@@ -2,7 +2,7 @@
 title: Data Sources
 ---
 
-`llm-usage-metrics` supports seven built-in sources:
+`llm-usage-metrics` supports eight built-in sources:
 
 - `pi`
 - `codex`
@@ -11,6 +11,7 @@ title: Data Sources
 - `opencode`
 - `openclaw`
 - `claude`
+- `copilot`
 
 Each source is parsed by a dedicated adapter and normalized into the same `UsageEvent` schema before pricing/aggregation.
 
@@ -22,17 +23,19 @@ Each source is parsed by a dedicated adapter and normalized into the same `Usage
 - `opencode`: single SQLite DB (auto-discovered, including `opencode-<channel>.db` variants, or explicit `--opencode-db`)
 - `openclaw`: recursive JSONL discovery under `~/.openclaw/agents/**/*.jsonl` (plus legacy `~/.clawdbot`/`~/.moltbot`/`~/.moldbot` homes)
 - `claude`: recursive JSONL discovery under `~/.claude/{projects,transcripts}/**/*.jsonl` (or `--claude-dir`)
+- `copilot`: GitHub Copilot CLI OTEL JSONL discovery under `~/.copilot/otel/*.jsonl` (or `--copilot-dir`)
 
 ## Source filtering
 
 ```bash
 llm-usage monthly --source pi
-llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude
+llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude,copilot
 llm-usage monthly --source gemini --gemini-dir /path/to/.gemini
 llm-usage monthly --source droid --droid-dir /path/to/.factory/sessions
 llm-usage monthly --source opencode --opencode-db /path/to/opencode.db
 llm-usage monthly --source openclaw --source-dir openclaw=/path/to/.openclaw/agents
 llm-usage monthly --source claude --claude-dir /path/to/.claude/projects
+llm-usage monthly --source copilot --copilot-dir /path/to/.copilot/otel
 ```
 
 See per-source pages for details.

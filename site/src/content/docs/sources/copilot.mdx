@@ -1,0 +1,20 @@
+---
+title: copilot Source
+---
+
+## Default location
+
+- `~/.copilot/otel/*.jsonl`
+- `$COPILOT_OTEL_FILE_EXPORTER_PATH` when it points at a readable exporter file
+
+## Override
+
+```bash
+llm-usage daily --copilot-dir /path/to/.copilot/otel
+# or
+llm-usage daily --source-dir copilot=/path/to/.copilot/otel
+```
+
+## Parsing notes
+
+The adapter reads GitHub Copilot CLI OTEL JSONL records, strips cache-read tokens from reported input tokens, and de-duplicates lower-priority inference/agent records that repeat a higher-priority chat span.

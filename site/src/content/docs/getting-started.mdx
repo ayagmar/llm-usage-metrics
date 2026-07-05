@@ -26,6 +26,7 @@ npx --yes llm-usage-metrics@latest daily
   - OpenCode SQLite DB (auto-discovered or explicit `--opencode-db`, requires built-in `node:sqlite` support)
   - OpenClaw transcripts (`~/.openclaw/agents/**/*.jsonl`)
   - Claude Code projects (`~/.claude/projects/**/*.jsonl`)
+  - GitHub Copilot CLI OTEL exports (`~/.copilot/otel/*.jsonl`)
 
 ## First report
 
@@ -44,7 +45,7 @@ llm-usage trends --metric tokens --days 14
 ## Common filters
 
 ```bash
-llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude
+llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude,copilot
 llm-usage monthly --provider openai
 llm-usage monthly --model claude
 ```
@@ -101,4 +102,10 @@ llm-usage monthly --source droid --droid-dir /path/to/.factory/sessions
 
 ```bash
 llm-usage monthly --source claude --claude-dir /path/to/.claude/projects
+```
+
+## Copilot explicit path
+
+```bash
+llm-usage monthly --source copilot --copilot-dir /path/to/.copilot/otel
 ```

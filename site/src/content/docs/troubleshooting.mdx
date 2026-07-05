@@ -15,6 +15,7 @@ llm-usage daily --source droid
 llm-usage daily --source opencode
 llm-usage daily --source openclaw
 llm-usage daily --source claude
+llm-usage daily --source copilot
 ```
 
 If OpenCode is expected, provide an explicit DB path:
@@ -29,15 +30,15 @@ OpenCode parsing requires Node.js 24+ runtime with built-in `node:sqlite`.
 
 ## Path override errors
 
-- `--source-dir` supports only `pi`, `codex`, `gemini`, `droid`, `openclaw`, and `claude`.
-- `--pi-dir`, `--codex-dir`, `--gemini-dir`, `--droid-dir`, and `--claude-dir` must point to valid directories.
+- `--source-dir` supports only `pi`, `codex`, `gemini`, `droid`, `openclaw`, `claude`, and `copilot`.
+- `--pi-dir`, `--codex-dir`, `--gemini-dir`, `--droid-dir`, `--claude-dir`, and `--copilot-dir` must point to valid directories.
 - For OpenCode, use `--opencode-db`.
 
 Correct examples:
 
 ```bash
-llm-usage daily --source-dir pi=/path/to/pi --source-dir codex=/path/to/codex --source-dir gemini=/path/to/.gemini --source-dir droid=/path/to/.factory/sessions --source-dir openclaw=/path/to/.openclaw/agents --source-dir claude=/path/to/.claude/projects
-llm-usage daily --pi-dir /path/to/pi --codex-dir /path/to/codex --gemini-dir /path/to/.gemini --droid-dir /path/to/.factory/sessions --claude-dir /path/to/.claude/projects
+llm-usage daily --source-dir pi=/path/to/pi --source-dir codex=/path/to/codex --source-dir gemini=/path/to/.gemini --source-dir droid=/path/to/.factory/sessions --source-dir openclaw=/path/to/.openclaw/agents --source-dir claude=/path/to/.claude/projects --source-dir copilot=/path/to/.copilot/otel
+llm-usage daily --pi-dir /path/to/pi --codex-dir /path/to/codex --gemini-dir /path/to/.gemini --droid-dir /path/to/.factory/sessions --claude-dir /path/to/.claude/projects --copilot-dir /path/to/.copilot/otel
 llm-usage daily --opencode-db /path/to/opencode.db
 ```
 

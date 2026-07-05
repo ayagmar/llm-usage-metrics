@@ -69,7 +69,7 @@ Usage filters apply before efficiency aggregation:
 - `--source`
 - `--provider`
 - `--model`
-- source path overrides (`--pi-dir`, `--codex-dir`, `--gemini-dir`, `--droid-dir`, `--claude-dir`, `--opencode-db`, `--source-dir`)
+- source path overrides (`--pi-dir`, `--codex-dir`, `--copilot-dir`, `--gemini-dir`, `--droid-dir`, `--claude-dir`, `--opencode-db`, `--source-dir`)
 
 Important: these filters also affect commit attribution. Only commit days with matching repo-attributed usage events are counted in efficiency outcomes.
 
@@ -88,6 +88,7 @@ llm-usage efficiency monthly --repo-dir /path/to/repo --source droid
 llm-usage efficiency monthly --repo-dir /path/to/repo --source opencode
 llm-usage efficiency monthly --repo-dir /path/to/repo --source openclaw
 llm-usage efficiency monthly --repo-dir /path/to/repo --source claude
+llm-usage efficiency monthly --repo-dir /path/to/repo --source copilot
 ```
 
 ## Recommended review workflow

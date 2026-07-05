@@ -21,11 +21,11 @@
 
 ---
 
-Aggregate token usage and costs from your local coding agent sessions. Supports **pi**, **codex**, **Gemini CLI**, **Droid CLI**, **OpenCode**, **OpenClaw**, and **Claude Code** with zero configuration required.
+Aggregate token usage and costs from your local coding agent sessions. Supports **pi**, **codex**, **Gemini CLI**, **Droid CLI**, **OpenCode**, **OpenClaw**, **Claude Code**, and **GitHub Copilot CLI** with zero configuration required.
 
 ## ✨ Features
 
-- **Zero-Config Discovery** — Automatically finds `.pi`, `.codex`, `.gemini`, `.factory`, OpenCode, OpenClaw, and Claude session data
+- **Zero-Config Discovery** — Automatically finds `.pi`, `.codex`, `.gemini`, `.factory`, OpenCode, OpenClaw, Claude, and Copilot session data
 - **LiteLLM Pricing** — Real-time pricing sync with offline caching support
 - **Flexible Reports** — Daily, weekly, and monthly aggregations
 - **Efficiency Reports** — Correlate cost/tokens with repository commit outcomes
@@ -65,6 +65,7 @@ llm-usage daily
 | **OpenCode**    | `~/.local/share/opencode/opencode*.db`                                                   | Auto or explicit `--opencode-db` |
 | **OpenClaw**    | `~/.openclaw/agents/**/*.jsonl` (+ legacy `~/.clawdbot`/`~/.moltbot`/`~/.moldbot` homes) | Automatic                        |
 | **Claude Code** | `~/.claude/{projects,transcripts}/**/*.jsonl`                                            | Automatic                        |
+| **Copilot CLI** | `~/.copilot/otel/*.jsonl` (+ `$COPILOT_OTEL_FILE_EXPORTER_PATH` file when set)           | Automatic                        |
 
 OpenCode source support requires Node.js 24+ runtime with built-in `node:sqlite`.
 
@@ -138,7 +139,7 @@ Doctor prints one line per source and exits 0 even when a source is unhealthy.
 pi        ok     12 file(s)
 opencode  error  OpenCode database is missing or unreadable: /path/to/opencode.db
 
-6/7 sources healthy
+7/8 sources healthy
 ```
 
 ### Efficiency Reports
@@ -182,9 +183,10 @@ llm-usage efficiency monthly --repo-dir /path/to/repo --source droid
 llm-usage efficiency monthly --repo-dir /path/to/repo --source opencode
 llm-usage efficiency monthly --repo-dir /path/to/repo --source openclaw
 llm-usage efficiency monthly --repo-dir /path/to/repo --source claude
+llm-usage efficiency monthly --repo-dir /path/to/repo --source copilot
 ```
 
-Note: usage filters (`--source`, `--provider`, `--model`, `--pi-dir`, `--codex-dir`, `--gemini-dir`, `--droid-dir`, `--claude-dir`, `--openclaw-dir`, `--opencode-db`, `--source-dir`) also constrain commit attribution: only commit days with matching repo-attributed usage events are counted.
+Note: usage filters (`--source`, `--provider`, `--model`, `--pi-dir`, `--codex-dir`, `--copilot-dir`, `--gemini-dir`, `--droid-dir`, `--claude-dir`, `--openclaw-dir`, `--opencode-db`, `--source-dir`) also constrain commit attribution: only commit days with matching repo-attributed usage events are counted.
 
 ### Optimize Reports
 
@@ -205,7 +207,7 @@ llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candida
 
 ```bash
 # By source
-llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude
+llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude,copilot
 
 # By provider
 llm-usage monthly --provider openai
@@ -217,19 +219,20 @@ llm-usage monthly --model claude
 llm-usage monthly --source opencode --provider openai --model gpt-4.1
 ```
 
-Use `--source` to scope where events came from (`pi`, `codex`, `gemini`, `droid`, `opencode`, `openclaw`, `claude`), and `--provider` to scope the billing entity behind those events.
+Use `--source` to scope where events came from (`pi`, `codex`, `gemini`, `droid`, `opencode`, `openclaw`, `claude`, `copilot`), and `--provider` to scope the billing entity behind those events.
 
 ### Custom Paths
 
 ```bash
 # Custom directories
-llm-usage daily --source-dir pi=/path/to/pi --source-dir codex=/path/to/codex --source-dir gemini=/path/to/.gemini --source-dir droid=/path/to/.factory/sessions --source-dir openclaw=/path/to/.openclaw/agents --source-dir claude=/path/to/.claude/projects
+llm-usage daily --source-dir pi=/path/to/pi --source-dir codex=/path/to/codex --source-dir gemini=/path/to/.gemini --source-dir droid=/path/to/.factory/sessions --source-dir openclaw=/path/to/.openclaw/agents --source-dir claude=/path/to/.claude/projects --source-dir copilot=/path/to/.copilot/otel
 
-# Explicit Gemini/Droid/Claude/OpenClaw/OpenCode paths
+# Explicit Gemini/Droid/Claude/OpenClaw/Copilot/OpenCode paths
 llm-usage daily --gemini-dir /path/to/.gemini
 llm-usage daily --droid-dir /path/to/.factory/sessions
 llm-usage daily --claude-dir /path/to/.claude/projects
 llm-usage daily --openclaw-dir /path/to/.openclaw/agents
+llm-usage daily --copilot-dir /path/to/.copilot/otel
 llm-usage daily --opencode-db /path/to/opencode.db
 ```
 
