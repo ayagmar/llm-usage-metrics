@@ -196,6 +196,8 @@ export async function parseAdapterEvents(
   const skippedRowReasons = new Map<string, number>();
   const workerCount = Math.min(safeMaxParallelFileParsing, files.length);
   let nextFileIndex = 0;
+  let failedFiles = 0;
+  let lastErrorMessage = '';
 
   const workers = Array.from({ length: workerCount }, async () => {
     while (nextFileIndex < files.length) {
@@ -204,38 +206,51 @@ export async function parseAdapterEvents(
 
       await runWithParseBudget(async () => {
         const filePath = files[fileIndex];
-        let fileFingerprint: { dependencies: ParseDependencyFingerprint[] } | undefined;
-        let parseFileDiagnostics: SourceParseFileDiagnostics | undefined;
 
-        if (parseFileCache) {
-          fileFingerprint = await getParseFileFingerprint(adapter, filePath);
+        try {
+          let fileFingerprint: { dependencies: ParseDependencyFingerprint[] } | undefined;
+          let parseFileDiagnostics: SourceParseFileDiagnostics | undefined;
 
-          if (fileFingerprint) {
-            parseFileDiagnostics = parseFileCache.get(adapter.id, filePath, fileFingerprint);
-            runtimeProfile?.recordParseCacheResult(
-              adapter.id,
-              parseFileDiagnostics ? 'hit' : 'miss',
+          if (parseFileCache) {
+            fileFingerprint = await getParseFileFingerprint(adapter, filePath);
+
+            if (fileFingerprint) {
+              parseFileDiagnostics = parseFileCache.get(adapter.id, filePath, fileFingerprint);
+              runtimeProfile?.recordParseCacheResult(
+                adapter.id,
+                parseFileDiagnostics ? 'hit' : 'miss',
+              );
+            }
+          }
+
+          if (!parseFileDiagnostics) {
+            parseFileDiagnostics = adapter.parseFileWithDiagnostics
+              ? await adapter.parseFileWithDiagnostics(filePath)
+              : getDefaultParseFileDiagnostics(await adapter.parseFile(filePath));
+            if (parseFileCache && fileFingerprint) {
+              parseFileCache.set(adapter.id, filePath, fileFingerprint, parseFileDiagnostics);
+            }
+          }
+
+          parsedByFile[fileIndex] = parseFileDiagnostics.events;
+          skippedRowsByFile[fileIndex] = normalizeSkippedRowsCount(
+            parseFileDiagnostics.skippedRows,
+          );
+          for (const reasonStat of normalizeSkippedRowReasons(
+            parseFileDiagnostics.skippedRowReasons,
+          )) {
+            skippedRowReasons.set(
+              reasonStat.reason,
+              (skippedRowReasons.get(reasonStat.reason) ?? 0) + reasonStat.count,
             );
           }
-        }
-
-        if (!parseFileDiagnostics) {
-          parseFileDiagnostics = adapter.parseFileWithDiagnostics
-            ? await adapter.parseFileWithDiagnostics(filePath)
-            : getDefaultParseFileDiagnostics(await adapter.parseFile(filePath));
-          if (parseFileCache && fileFingerprint) {
-            parseFileCache.set(adapter.id, filePath, fileFingerprint, parseFileDiagnostics);
-          }
-        }
-
-        parsedByFile[fileIndex] = parseFileDiagnostics.events;
-        skippedRowsByFile[fileIndex] = normalizeSkippedRowsCount(parseFileDiagnostics.skippedRows);
-        for (const reasonStat of normalizeSkippedRowReasons(
-          parseFileDiagnostics.skippedRowReasons,
-        )) {
+        } catch (error) {
+          failedFiles += 1;
+          lastErrorMessage = getErrorReason(error);
+          skippedRowsByFile[fileIndex] = 1;
           skippedRowReasons.set(
-            reasonStat.reason,
-            (skippedRowReasons.get(reasonStat.reason) ?? 0) + reasonStat.count,
+            'file_parse_failed',
+            (skippedRowReasons.get('file_parse_failed') ?? 0) + 1,
           );
         }
       });
@@ -243,6 +258,12 @@ export async function parseAdapterEvents(
   });
 
   await Promise.all(workers);
+
+  if (failedFiles === files.length) {
+    throw new Error(
+      `All ${files.length} file(s) failed to parse for source ${adapter.id}: ${lastErrorMessage}`,
+    );
+  }
 
   const result = {
     source: adapter.id,

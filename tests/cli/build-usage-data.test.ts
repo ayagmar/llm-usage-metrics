@@ -708,7 +708,10 @@ describe('buildUsageData', () => {
       { source: 'codex', filesFound: 0, eventsParsed: 0 },
     ]);
     expect(result.diagnostics.sourceFailures).toEqual([
-      { source: 'codex', reason: 'codex parse failed' },
+      {
+        source: 'codex',
+        reason: 'All 1 file(s) failed to parse for source codex: codex parse failed',
+      },
     ]);
     expect(result.diagnostics.skippedRows).toEqual([]);
 
@@ -794,7 +797,9 @@ describe('buildUsageData', () => {
           createAdapters: () => [createFailingAdapter('codex', 'codex parse failed')],
         },
       ),
-    ).rejects.toThrow('Failed to parse explicitly requested source(s): codex: codex parse failed');
+    ).rejects.toThrow(
+      'Failed to parse explicitly requested source(s): codex: All 1 file(s) failed to parse for source codex: codex parse failed',
+    );
   });
 
   it('fails when an explicitly selected fixed-provider source is incompatible with --provider', async () => {
@@ -859,7 +864,9 @@ describe('buildUsageData', () => {
           ],
         },
       ),
-    ).rejects.toThrow('Failed to parse explicitly requested source(s): codex: permission denied');
+    ).rejects.toThrow(
+      'Failed to parse explicitly requested source(s): codex: All 1 file(s) failed to parse for source codex: permission denied',
+    );
   });
 
   it('fails when --gemini-dir is set and gemini parsing fails', async () => {
@@ -875,7 +882,9 @@ describe('buildUsageData', () => {
           createAdapters: () => [createFailingAdapter('gemini', 'permission denied')],
         },
       ),
-    ).rejects.toThrow('Failed to parse explicitly requested source(s): gemini: permission denied');
+    ).rejects.toThrow(
+      'Failed to parse explicitly requested source(s): gemini: All 1 file(s) failed to parse for source gemini: permission denied',
+    );
   });
 
   it('fails when --droid-dir is set and droid parsing fails', async () => {
@@ -891,7 +900,9 @@ describe('buildUsageData', () => {
           createAdapters: () => [createFailingAdapter('droid', 'permission denied')],
         },
       ),
-    ).rejects.toThrow('Failed to parse explicitly requested source(s): droid: permission denied');
+    ).rejects.toThrow(
+      'Failed to parse explicitly requested source(s): droid: All 1 file(s) failed to parse for source droid: permission denied',
+    );
   });
 
   it('guards against non-positive parsing concurrency from injected deps', async () => {

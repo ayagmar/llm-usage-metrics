@@ -110,6 +110,61 @@ describe('build-usage-data-parsing', () => {
     expect(result.successfulParseResults).toHaveLength(1);
   });
 
+  it('keeps events from healthy files when a single file fails to parse', async () => {
+    const adapter: SourceAdapter = {
+      id: 'pi',
+      discoverFiles: async () => ['/tmp/a.jsonl', '/tmp/b.jsonl', '/tmp/c.jsonl'],
+      parseFile: async (filePath) => {
+        if (filePath === '/tmp/b.jsonl') {
+          throw new Error('file vanished mid-run');
+        }
+
+        return [
+          createUsageEvent({
+            source: 'pi',
+            sessionId: path.basename(filePath, '.jsonl'),
+            timestamp: '2026-02-01T00:00:00.000Z',
+            inputTokens: 1,
+            totalTokens: 1,
+          }),
+        ];
+      },
+    };
+
+    const result = await parseSelectedAdapters([adapter], 1);
+
+    expect(result.sourceFailures).toEqual([]);
+    expect(result.successfulParseResults).toHaveLength(1);
+    expect(result.successfulParseResults[0].events.map((event) => event.sessionId)).toEqual([
+      'a',
+      'c',
+    ]);
+    expect(result.successfulParseResults[0].skippedRows).toBe(1);
+    expect(result.successfulParseResults[0].skippedRowReasons).toEqual([
+      { reason: 'file_parse_failed', count: 1 },
+    ]);
+  });
+
+  it('reports a source failure when every file fails to parse', async () => {
+    const adapter: SourceAdapter = {
+      id: 'pi',
+      discoverFiles: async () => ['/tmp/a.jsonl', '/tmp/b.jsonl'],
+      parseFile: async () => {
+        throw new Error('permission denied');
+      },
+    };
+
+    const result = await parseSelectedAdapters([adapter], 1);
+
+    expect(result.successfulParseResults).toEqual([]);
+    expect(result.sourceFailures).toEqual([
+      {
+        source: 'pi',
+        reason: 'All 2 file(s) failed to parse for source pi: permission denied',
+      },
+    ]);
+  });
+
   it('filters out events without model data when a model filter is active', () => {
     const filtered = filterUsageEvents(
       [
