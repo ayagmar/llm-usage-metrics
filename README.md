@@ -56,15 +56,15 @@ llm-usage daily
 
 ## 📋 Supported Sources
 
-| Source          | Pattern                                  | Discovery                        |
-| --------------- | ---------------------------------------- | -------------------------------- |
-| **pi**          | `~/.pi/agent/sessions/**/*.jsonl`        | Automatic                        |
-| **codex**       | `~/.codex/sessions/**/*.jsonl`           | Automatic                        |
-| **Gemini CLI**  | `~/.gemini/tmp/*/chats/*.json`           | Automatic                        |
-| **Droid CLI**   | `~/.factory/sessions/**/*.settings.json` | Automatic                        |
-| **OpenCode**    | `~/.opencode/opencode.db`                | Auto or explicit `--opencode-db` |
-| **OpenClaw**    | `~/.openclaw/agents/**/*.jsonl`          | Automatic                        |
-| **Claude Code** | `~/.claude/projects/**/*.jsonl`          | Automatic                        |
+| Source          | Pattern                                                                                  | Discovery                        |
+| --------------- | ---------------------------------------------------------------------------------------- | -------------------------------- |
+| **pi**          | `~/.pi/agent/sessions/**/*.jsonl` (+ `~/.omp/agent/sessions`)                            | Automatic                        |
+| **codex**       | `~/.codex/sessions/**/*.jsonl`                                                           | Automatic                        |
+| **Gemini CLI**  | `~/.gemini/tmp/*/chats/*.json` (or `$GEMINI_CLI_HOME` when set)                          | Automatic                        |
+| **Droid CLI**   | `~/.factory/sessions/**/*.settings.json`                                                 | Automatic                        |
+| **OpenCode**    | `~/.local/share/opencode/opencode*.db`                                                   | Auto or explicit `--opencode-db` |
+| **OpenClaw**    | `~/.openclaw/agents/**/*.jsonl` (+ legacy `~/.clawdbot`/`~/.moltbot`/`~/.moldbot` homes) | Automatic                        |
+| **Claude Code** | `~/.claude/{projects,transcripts}/**/*.jsonl`                                            | Automatic                        |
 
 OpenCode source support requires Node.js 24+ runtime with built-in `node:sqlite`.
 

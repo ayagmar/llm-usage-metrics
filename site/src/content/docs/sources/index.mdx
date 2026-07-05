@@ -16,12 +16,12 @@ Each source is parsed by a dedicated adapter and normalized into the same `Usage
 
 ## Discovery model
 
-- `pi` and `codex`: recursive JSONL discovery in their session directories
-- `gemini`: JSON session discovery under `~/.gemini/tmp/*/chats/*.json` (or `--gemini-dir`)
+- `pi` and `codex`: recursive JSONL discovery in their session directories (`pi` also scans the Oh-My-Pi home `~/.omp/agent/sessions`)
+- `gemini`: JSON session discovery under `~/.gemini/tmp/*/chats/*.json` (or `$GEMINI_CLI_HOME`, or `--gemini-dir`)
 - `droid`: session settings discovery under `~/.factory/sessions/**/*.settings.json` (or `--droid-dir`)
-- `opencode`: single SQLite DB (auto-discovered or explicit `--opencode-db`)
-- `openclaw`: recursive JSONL discovery under `~/.openclaw/agents/**/*.jsonl`
-- `claude`: recursive JSONL discovery under `~/.claude/projects/**/*.jsonl` (or `--claude-dir`)
+- `opencode`: single SQLite DB (auto-discovered, including `opencode-<channel>.db` variants, or explicit `--opencode-db`)
+- `openclaw`: recursive JSONL discovery under `~/.openclaw/agents/**/*.jsonl` (plus legacy `~/.clawdbot`/`~/.moltbot`/`~/.moldbot` homes)
+- `claude`: recursive JSONL discovery under `~/.claude/{projects,transcripts}/**/*.jsonl` (or `--claude-dir`)
 
 ## Source filtering
 
