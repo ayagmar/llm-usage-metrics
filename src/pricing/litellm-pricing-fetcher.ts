@@ -12,6 +12,7 @@ const DEFAULT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_FETCH_TIMEOUT_MS = 4000;
 const DEFAULT_FETCH_RETRY_COUNT = 2;
 const DEFAULT_FETCH_RETRY_DELAY_MS = 200;
+const MAX_PRICING_RESPONSE_BYTES = 33_554_432;
 
 export const DEFAULT_LITELLM_PRICING_URL =
   'https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json';
@@ -29,6 +30,7 @@ export type LiteLLMPricingFetcherOptions = {
   fetchTimeoutMs?: number;
   fetchRetryCount?: number;
   fetchRetryDelayMs?: number;
+  maxResponseBytes?: number;
   offline?: boolean;
   fetchImpl?: typeof fetch;
   now?: () => number;
@@ -335,6 +337,7 @@ export class LiteLLMPricingFetcher implements PricingSource {
   private readonly fetchTimeoutMs: number;
   private readonly fetchRetryCount: number;
   private readonly fetchRetryDelayMs: number;
+  private readonly maxResponseBytes: number;
   private readonly offline: boolean;
   private readonly fetchImpl: typeof fetch;
   private readonly now: () => number;
@@ -356,6 +359,7 @@ export class LiteLLMPricingFetcher implements PricingSource {
       Number.isFinite(options.fetchRetryDelayMs) && (options.fetchRetryDelayMs ?? 0) > 0
         ? Math.trunc(options.fetchRetryDelayMs ?? DEFAULT_FETCH_RETRY_DELAY_MS)
         : DEFAULT_FETCH_RETRY_DELAY_MS;
+    this.maxResponseBytes = options.maxResponseBytes ?? MAX_PRICING_RESPONSE_BYTES;
     this.offline = options.offline ?? false;
     this.fetchImpl = options.fetchImpl ?? fetch;
     this.now = options.now ?? Date.now;
@@ -653,9 +657,44 @@ export class LiteLLMPricingFetcher implements PricingSource {
     throw new Error('Failed to fetch LiteLLM pricing after retries');
   }
 
+  private async readPayloadWithByteLimit(response: Response): Promise<unknown> {
+    const contentLength = Number(response.headers.get('content-length'));
+
+    if (Number.isFinite(contentLength) && contentLength > this.maxResponseBytes) {
+      throw new Error(
+        `LiteLLM pricing response exceeds ${this.maxResponseBytes} bytes (content-length ${contentLength})`,
+      );
+    }
+
+    if (!response.body) {
+      const text = await response.text();
+
+      if (Buffer.byteLength(text, 'utf8') > this.maxResponseBytes) {
+        throw new Error(`LiteLLM pricing response exceeds ${this.maxResponseBytes} bytes`);
+      }
+
+      return JSON.parse(text) as unknown;
+    }
+
+    const chunks: Uint8Array[] = [];
+    let receivedBytes = 0;
+
+    for await (const chunk of response.body) {
+      receivedBytes += chunk.byteLength;
+
+      if (receivedBytes > this.maxResponseBytes) {
+        throw new Error(`LiteLLM pricing response exceeds ${this.maxResponseBytes} bytes`);
+      }
+
+      chunks.push(chunk);
+    }
+
+    return JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown;
+  }
+
   private async loadFromRemote(): Promise<void> {
     const response = await this.fetchRemotePricingResponseWithRetry();
-    const payload = (await response.json()) as unknown;
+    const payload = await this.readPayloadWithByteLimit(response);
     const normalizedPricing = normalizeLitellmPricingPayload(payload);
 
     this.pricingByModel = normalizedPricing;

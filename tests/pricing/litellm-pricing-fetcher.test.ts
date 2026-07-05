@@ -440,6 +440,130 @@ describe('LiteLLMPricingFetcher', () => {
     expect(fetcher.getPricing('gpt-5.2-codex')?.inputPer1MUsd).toBeCloseTo(1.5, 10);
   });
 
+  it('falls back to stale cache when content-length exceeds the response byte limit', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-content-length-cap-'));
+    tempDirs.push(rootDir);
+
+    const cacheFilePath = path.join(rootDir, 'cache.json');
+    const nowValue = 1_000_000;
+
+    await writeFile(
+      cacheFilePath,
+      JSON.stringify({
+        fetchedAt: nowValue - 10_000,
+        sourceUrl: 'https://example.test/litellm-pricing.json',
+        pricingByModel: {
+          'gpt-5.2-codex': {
+            inputPer1MUsd: 1.5,
+            outputPer1MUsd: 10,
+          },
+        },
+      }),
+      'utf8',
+    );
+
+    const fetchSpy = vi.fn(async () => {
+      return new Response(
+        JSON.stringify({
+          'gpt-5.2-codex': {
+            input_cost_per_token: 0.000003,
+            output_cost_per_token: 0.00001,
+          },
+        }),
+        { status: 200, headers: { 'content-length': '4096' } },
+      );
+    });
+
+    const fetcher = createFetcher({
+      cacheFilePath,
+      cacheTtlMs: 100,
+      now: () => nowValue,
+      fetchImpl: fetchSpy,
+      maxResponseBytes: 1024,
+      fetchRetryCount: 0,
+    });
+
+    const loadedFromCache = await fetcher.load();
+
+    expect(loadedFromCache).toBe(true);
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    expect(fetcher.getPricing('gpt-5.2-codex')?.inputPer1MUsd).toBeCloseTo(1.5, 10);
+  });
+
+  it('rejects streamed bodies exceeding the byte limit when content-length is absent', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-stream-cap-'));
+    tempDirs.push(rootDir);
+
+    const oversizedPayload = JSON.stringify({
+      'gpt-5.2-codex': {
+        input_cost_per_token: 0.0000015,
+        output_cost_per_token: 0.00001,
+      },
+      padding: 'x'.repeat(2048),
+    });
+
+    const fetcher = createFetcher({
+      cacheFilePath: path.join(rootDir, 'cache.json'),
+      fetchImpl: vi.fn(async () => new Response(oversizedPayload, { status: 200 })),
+      maxResponseBytes: 1024,
+      fetchRetryCount: 0,
+    });
+
+    await expect(fetcher.load()).rejects.toThrow(
+      'Could not load LiteLLM pricing from network or cache',
+    );
+  });
+
+  it('does not retry when the response exceeds the byte limit', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-cap-no-retry-'));
+    tempDirs.push(rootDir);
+
+    const sleepSpy = vi.fn(async () => undefined);
+    const fetchSpy = vi.fn(async () => {
+      return new Response('x'.repeat(2048), { status: 200 });
+    });
+
+    const fetcher = createFetcher({
+      cacheFilePath: path.join(rootDir, 'cache.json'),
+      fetchImpl: fetchSpy,
+      maxResponseBytes: 1024,
+      fetchRetryCount: 2,
+      sleep: sleepSpy,
+    });
+
+    await expect(fetcher.load()).rejects.toThrow(
+      'Could not load LiteLLM pricing from network or cache',
+    );
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    expect(sleepSpy).not.toHaveBeenCalled();
+  });
+
+  it('parses payloads under a custom byte limit', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-under-cap-'));
+    tempDirs.push(rootDir);
+
+    const fetcher = createFetcher({
+      cacheFilePath: path.join(rootDir, 'cache.json'),
+      fetchImpl: vi.fn(async () => {
+        return new Response(
+          JSON.stringify({
+            'gpt-5.2-codex': {
+              input_cost_per_token: 0.0000015,
+              output_cost_per_token: 0.00001,
+            },
+          }),
+          { status: 200 },
+        );
+      }),
+      maxResponseBytes: 1024,
+    });
+
+    const loadedFromCache = await fetcher.load();
+
+    expect(loadedFromCache).toBe(false);
+    expect(fetcher.getPricing('gpt-5.2-codex')?.inputPer1MUsd).toBeCloseTo(1.5, 10);
+  });
+
   it('ignores malformed cached pricing entries and keeps valid normalized entries', async () => {
     const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-cache-normalize-'));
     tempDirs.push(rootDir);
