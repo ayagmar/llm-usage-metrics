@@ -26,6 +26,7 @@ function assistantRow(
     provider?: string;
     usage?: Record<string, unknown>;
     uuid?: string;
+    requestId?: string;
   } = {},
 ): string {
   const message: Record<string, unknown> = {
@@ -58,6 +59,10 @@ function assistantRow(
     row.uuid = overrides.uuid;
   } else {
     row.uuid = 'row-uuid-1';
+  }
+
+  if (overrides.requestId !== undefined) {
+    row.requestId = overrides.requestId;
   }
 
   return JSON.stringify(row);
@@ -257,6 +262,73 @@ describe('ClaudeSourceAdapter', () => {
       model: 'claude-sonnet-4-5',
       totalTokens: 7,
     });
+  });
+
+  it('still deduplicates streamed rows sharing message id and request id', async () => {
+    const projectsDir = await mkdtemp(path.join(os.tmpdir(), 'claude-request-dedup-'));
+    tempDirs.push(projectsDir);
+    const filePath = path.join(projectsDir, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        assistantRow({
+          timestamp: '2026-06-23T10:00:00.000Z',
+          messageId: 'msg_streamed',
+          requestId: 'req_1',
+          usage: { input_tokens: 10, output_tokens: 1 },
+          uuid: 'row-1',
+        }),
+        assistantRow({
+          timestamp: '2026-06-23T10:00:01.000Z',
+          messageId: 'msg_streamed',
+          requestId: 'req_1',
+          usage: { input_tokens: 10, output_tokens: 6 },
+          uuid: 'row-2',
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new ClaudeSourceAdapter({ projectsDir });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ outputTokens: 6, totalTokens: 16 });
+  });
+
+  it('counts retries with the same message id but different request ids separately', async () => {
+    const projectsDir = await mkdtemp(path.join(os.tmpdir(), 'claude-retry-dedup-'));
+    tempDirs.push(projectsDir);
+    const filePath = path.join(projectsDir, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        assistantRow({
+          timestamp: '2026-06-23T10:00:00.000Z',
+          messageId: 'msg_retried',
+          requestId: 'req_1',
+          usage: { input_tokens: 10, output_tokens: 1 },
+          uuid: 'row-1',
+        }),
+        assistantRow({
+          timestamp: '2026-06-23T10:00:01.000Z',
+          messageId: 'msg_retried',
+          requestId: 'req_2',
+          usage: { input_tokens: 10, output_tokens: 6 },
+          uuid: 'row-2',
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new ClaudeSourceAdapter({ projectsDir });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toHaveLength(2);
+    expect(events[0]).toMatchObject({ outputTokens: 1, totalTokens: 11 });
+    expect(events[1]).toMatchObject({ outputTokens: 6, totalTokens: 16 });
   });
 
   it('deduplicates by uuid when message id is absent', async () => {

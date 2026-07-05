@@ -104,7 +104,11 @@ function createDedupKey(
   const messageId = asTrimmedText(message.id);
 
   if (messageId) {
-    return `${filePath}\0${messageId}`;
+    // Retries reuse the message id under a fresh requestId, so key on both:
+    // streamed duplicates (same messageId + requestId) still collapse while
+    // retried requests count separately.
+    const requestId = asTrimmedText(line.requestId) ?? asTrimmedText(line.request_id) ?? '';
+    return `${filePath}\0${messageId}\0${requestId}`;
   }
 
   const uuid = asTrimmedText(line.uuid);
