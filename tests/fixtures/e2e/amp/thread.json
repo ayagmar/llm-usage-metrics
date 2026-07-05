@@ -1,0 +1,18 @@
+{
+  "id": "amp-e2e-thread",
+  "created": 1781539200000,
+  "messages": [
+    {
+      "id": "amp-e2e-message",
+      "role": "assistant",
+      "timestamp": "2026-06-15T12:20:00.000Z",
+      "usage": {
+        "model": "claude-amp-e2e",
+        "inputTokens": 80,
+        "outputTokens": 30,
+        "cacheReadInputTokens": 10,
+        "totalTokens": 120
+      }
+    }
+  ]
+}
