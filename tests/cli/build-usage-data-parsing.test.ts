@@ -11,10 +11,14 @@ import {
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import type { SourceAdapter } from '../../src/sources/source-adapter.js';
 import { ParseFileCache } from '../../src/cli/parse-file-cache.js';
+import { getPeriodKey } from '../../src/utils/time-buckets.js';
+
+vi.mock('../../src/utils/time-buckets.js', { spy: true });
 
 const tempDirs: string[] = [];
 
 afterEach(async () => {
+  vi.mocked(getPeriodKey).mockClear();
   await Promise.all(tempDirs.map((tempDir) => rm(tempDir, { recursive: true, force: true })));
   tempDirs.length = 0;
 });
@@ -163,6 +167,65 @@ describe('build-usage-data-parsing', () => {
         reason: 'All 2 file(s) failed to parse for source pi: permission denied',
       },
     ]);
+  });
+
+  it('does not compute date buckets when no date filters are set', () => {
+    const events = [
+      createUsageEvent({
+        source: 'pi',
+        sessionId: 'early',
+        timestamp: '2026-01-01T00:00:00.000Z',
+        totalTokens: 1,
+      }),
+      createUsageEvent({
+        source: 'pi',
+        sessionId: 'late',
+        timestamp: '2026-01-02T00:00:00.000Z',
+        totalTokens: 1,
+      }),
+    ];
+
+    const filtered = filterUsageEvents(events, { timezone: 'UTC' });
+
+    expect(filtered).toEqual(events);
+    expect(vi.mocked(getPeriodKey)).not.toHaveBeenCalled();
+  });
+
+  it('memoizes date buckets by timestamp when date filters are set', () => {
+    const events = [
+      createUsageEvent({
+        source: 'pi',
+        sessionId: 'before-a',
+        timestamp: '2026-01-01T00:00:00.000Z',
+        totalTokens: 1,
+      }),
+      createUsageEvent({
+        source: 'pi',
+        sessionId: 'on-start-a',
+        timestamp: '2026-01-02T00:00:00.000Z',
+        totalTokens: 1,
+      }),
+      createUsageEvent({
+        source: 'pi',
+        sessionId: 'on-start-b',
+        timestamp: '2026-01-02T00:00:00.000Z',
+        totalTokens: 1,
+      }),
+      createUsageEvent({
+        source: 'pi',
+        sessionId: 'before-b',
+        timestamp: '2026-01-01T00:00:00.000Z',
+        totalTokens: 1,
+      }),
+    ];
+
+    const filtered = filterUsageEvents(events, {
+      timezone: 'UTC',
+      since: '2026-01-02',
+    });
+
+    expect(filtered.map((event) => event.sessionId)).toEqual(['on-start-a', 'on-start-b']);
+    expect(vi.mocked(getPeriodKey)).toHaveBeenCalledTimes(2);
   });
 
   it('filters out events without model data when a model filter is active', () => {

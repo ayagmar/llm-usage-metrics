@@ -389,13 +389,10 @@ export function throwOnExplicitSourceFailures(
 }
 
 function isEventWithinDateRange(
-  event: UsageEvent,
-  timezone: string,
+  eventDate: string,
   since: string | undefined,
   until: string | undefined,
 ): boolean {
-  const eventDate = getPeriodKey(event.timestamp, 'daily', timezone);
-
   if (since && eventDate < since) {
     return false;
   }
@@ -470,6 +467,8 @@ function collectProviderAndDateFilteredEvents(
   options: UsageEventFilterOptions,
 ): UsageEvent[] {
   const filteredEvents: UsageEvent[] = [];
+  const hasDateRange = Boolean(options.since ?? options.until);
+  const dateByTimestamp = new Map<string, string>();
 
   for (const events of eventGroups) {
     for (const event of events) {
@@ -477,8 +476,17 @@ function collectProviderAndDateFilteredEvents(
         continue;
       }
 
-      if (!isEventWithinDateRange(event, options.timezone, options.since, options.until)) {
-        continue;
+      if (hasDateRange) {
+        let eventDate = dateByTimestamp.get(event.timestamp);
+
+        if (!eventDate) {
+          eventDate = getPeriodKey(event.timestamp, 'daily', options.timezone);
+          dateByTimestamp.set(event.timestamp, eventDate);
+        }
+
+        if (!isEventWithinDateRange(eventDate, options.since, options.until)) {
+          continue;
+        }
       }
 
       filteredEvents.push(event);
