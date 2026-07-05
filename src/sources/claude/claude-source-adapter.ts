@@ -19,6 +19,10 @@ import {
 import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
 
 const defaultClaudeProjectsDir = path.join(os.homedir(), '.claude', 'projects');
+const defaultClaudeRootDirs = [
+  defaultClaudeProjectsDir,
+  path.join(os.homedir(), '.claude', 'transcripts'),
+];
 const CLAUDE_ASSISTANT_LINE_PATTERN = /"type"\s*:\s*"assistant"/u;
 const CLAUDE_USAGE_LINE_PATTERN = /"usage"\s*:/u;
 
@@ -44,6 +48,8 @@ type ClaudePendingEvent = {
 export type ClaudeSourceAdapterOptions = {
   projectsDir?: string;
   requireProjectsDir?: boolean;
+  /** Test seam: default roots scanned when no projectsDir override is given. */
+  defaultRootDirs?: string[];
 };
 
 function shouldParseClaudeJsonlLine(lineText: string): boolean {
@@ -135,36 +141,43 @@ function comparePendingEvents(left: ClaudePendingEvent, right: ClaudePendingEven
 export class ClaudeSourceAdapter implements SourceAdapter {
   public readonly id = 'claude' as const;
 
-  private readonly projectsDir: string;
+  private readonly rootDirs: readonly string[];
   private readonly requireProjectsDir: boolean;
 
   public constructor(options: ClaudeSourceAdapterOptions = {}) {
-    this.projectsDir = options.projectsDir ?? defaultClaudeProjectsDir;
+    this.rootDirs =
+      options.projectsDir !== undefined
+        ? [options.projectsDir]
+        : (options.defaultRootDirs ?? defaultClaudeRootDirs);
     this.requireProjectsDir = options.requireProjectsDir ?? false;
   }
 
-  private getNormalizedProjectsDir(): string {
-    if (isBlankText(this.projectsDir)) {
+  public async discoverFiles(): Promise<string[]> {
+    const discoveredFiles: string[] = [];
+
+    for (const rootDir of this.rootDirs) {
+      discoveredFiles.push(...(await this.discoverFilesInRoot(rootDir)));
+    }
+
+    return discoveredFiles;
+  }
+
+  private async discoverFilesInRoot(rootDir: string): Promise<string[]> {
+    if (isBlankText(rootDir)) {
       throw new Error('Claude projects directory must be a non-empty path');
     }
 
-    return this.projectsDir.trim();
-  }
+    const normalizedRootDir = rootDir.trim();
 
-  public async discoverFiles(): Promise<string[]> {
-    const normalizedProjectsDir = this.getNormalizedProjectsDir();
-
-    if (this.requireProjectsDir && !(await pathReadable(normalizedProjectsDir))) {
-      throw new Error(
-        `Claude projects directory is missing or unreadable: ${normalizedProjectsDir}`,
-      );
+    if (this.requireProjectsDir && !(await pathReadable(normalizedRootDir))) {
+      throw new Error(`Claude projects directory is missing or unreadable: ${normalizedRootDir}`);
     }
 
-    if (this.requireProjectsDir && !(await pathIsDirectory(normalizedProjectsDir))) {
-      throw new Error(`Claude projects directory is not a directory: ${normalizedProjectsDir}`);
+    if (this.requireProjectsDir && !(await pathIsDirectory(normalizedRootDir))) {
+      throw new Error(`Claude projects directory is not a directory: ${normalizedRootDir}`);
     }
 
-    return discoverFiles(normalizedProjectsDir, { extension: '.jsonl' });
+    return discoverFiles(normalizedRootDir, { extension: '.jsonl' });
   }
 
   public async parseFile(filePath: string): Promise<UsageEvent[]> {

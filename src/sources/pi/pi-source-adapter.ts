@@ -18,6 +18,10 @@ import {
 import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
 
 const defaultSessionsDir = path.join(os.homedir(), '.pi', 'agent', 'sessions');
+const defaultPiRootDirs = [
+  defaultSessionsDir,
+  path.join(os.homedir(), '.omp', 'agent', 'sessions'),
+];
 
 type PiSessionState = {
   sessionId?: string;
@@ -40,6 +44,8 @@ type PiUsageExtract = {
 export type PiSourceAdapterOptions = {
   sessionsDir?: string;
   requireSessionsDir?: boolean;
+  /** Test seam: default roots scanned when no sessionsDir override is given. */
+  defaultRootDirs?: string[];
 };
 
 const PI_MESSAGE_LINE_PATTERN = /"type"\s*:\s*"message"/u;
@@ -169,30 +175,43 @@ function resolveRepoRootFromRecord(
 export class PiSourceAdapter implements SourceAdapter {
   public readonly id = 'pi' as const;
 
-  private readonly sessionsDir: string;
+  private readonly rootDirs: readonly string[];
   private readonly requireSessionsDir: boolean;
 
   public constructor(options: PiSourceAdapterOptions = {}) {
-    this.sessionsDir = options.sessionsDir ?? defaultSessionsDir;
+    this.rootDirs =
+      options.sessionsDir !== undefined
+        ? [options.sessionsDir]
+        : (options.defaultRootDirs ?? defaultPiRootDirs);
     this.requireSessionsDir = options.requireSessionsDir ?? false;
   }
 
   public async discoverFiles(): Promise<string[]> {
-    if (isBlankText(this.sessionsDir)) {
+    const discoveredFiles: string[] = [];
+
+    for (const rootDir of this.rootDirs) {
+      discoveredFiles.push(...(await this.discoverFilesInRoot(rootDir)));
+    }
+
+    return discoveredFiles;
+  }
+
+  private async discoverFilesInRoot(rootDir: string): Promise<string[]> {
+    if (isBlankText(rootDir)) {
       throw new Error('PI sessions directory must be a non-empty path');
     }
 
-    const normalizedSessionsDir = this.sessionsDir.trim();
+    const normalizedRootDir = rootDir.trim();
 
-    if (this.requireSessionsDir && !(await pathReadable(normalizedSessionsDir))) {
-      throw new Error(`PI sessions directory is missing or unreadable: ${normalizedSessionsDir}`);
+    if (this.requireSessionsDir && !(await pathReadable(normalizedRootDir))) {
+      throw new Error(`PI sessions directory is missing or unreadable: ${normalizedRootDir}`);
     }
 
-    if (this.requireSessionsDir && !(await pathIsDirectory(normalizedSessionsDir))) {
-      throw new Error(`PI sessions directory is not a directory: ${normalizedSessionsDir}`);
+    if (this.requireSessionsDir && !(await pathIsDirectory(normalizedRootDir))) {
+      throw new Error(`PI sessions directory is not a directory: ${normalizedRootDir}`);
     }
 
-    return discoverJsonlFiles(normalizedSessionsDir);
+    return discoverJsonlFiles(normalizedRootDir);
   }
 
   public async parseFile(filePath: string): Promise<UsageEvent[]> {

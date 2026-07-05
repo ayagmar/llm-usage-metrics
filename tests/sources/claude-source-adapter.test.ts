@@ -99,6 +99,46 @@ describe('ClaudeSourceAdapter', () => {
     ]);
   });
 
+  it('scans all default roots and silently skips missing ones', async () => {
+    const projectsRoot = await mkdtemp(path.join(os.tmpdir(), 'claude-root-projects-'));
+    const transcriptsRoot = await mkdtemp(path.join(os.tmpdir(), 'claude-root-transcripts-'));
+    tempDirs.push(projectsRoot, transcriptsRoot);
+
+    const projectFile = path.join(projectsRoot, 'session-a.jsonl');
+    const transcriptFile = path.join(transcriptsRoot, 'session-b.jsonl');
+    await writeFile(projectFile, assistantRow({ messageId: 'msg_a' }), 'utf8');
+    await writeFile(transcriptFile, assistantRow({ messageId: 'msg_b' }), 'utf8');
+    const missingRoot = path.join(transcriptsRoot, 'missing');
+
+    const adapter = new ClaudeSourceAdapter({
+      defaultRootDirs: [projectsRoot, transcriptsRoot, missingRoot],
+    });
+
+    await expect(adapter.discoverFiles()).resolves.toEqual([
+      await realpath(projectFile),
+      await realpath(transcriptFile),
+    ]);
+    await expect(adapter.parseFile(projectFile)).resolves.toHaveLength(1);
+    await expect(adapter.parseFile(transcriptFile)).resolves.toHaveLength(1);
+  });
+
+  it('scans only the explicit directory when a dir override is provided', async () => {
+    const projectsRoot = await mkdtemp(path.join(os.tmpdir(), 'claude-explicit-projects-'));
+    const transcriptsRoot = await mkdtemp(path.join(os.tmpdir(), 'claude-explicit-transcripts-'));
+    tempDirs.push(projectsRoot, transcriptsRoot);
+
+    const projectFile = path.join(projectsRoot, 'session-a.jsonl');
+    await writeFile(projectFile, assistantRow({ messageId: 'msg_a' }), 'utf8');
+    await writeFile(path.join(transcriptsRoot, 'session-b.jsonl'), assistantRow(), 'utf8');
+
+    const adapter = new ClaudeSourceAdapter({
+      projectsDir: projectsRoot,
+      defaultRootDirs: [projectsRoot, transcriptsRoot],
+    });
+
+    await expect(adapter.discoverFiles()).resolves.toEqual([await realpath(projectFile)]);
+  });
+
   it('keeps only the final row per message id and maps token buckets', async () => {
     const projectsDir = await mkdtemp(path.join(os.tmpdir(), 'claude-final-row-'));
     tempDirs.push(projectsDir);

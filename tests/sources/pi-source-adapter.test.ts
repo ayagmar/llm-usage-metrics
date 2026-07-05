@@ -36,6 +36,55 @@ describe('PiSourceAdapter', () => {
     await expect(adapter.discoverFiles()).resolves.toEqual([first, second]);
   });
 
+  it('scans all default roots and silently skips missing ones', async () => {
+    const piRoot = await mkdtemp(path.join(os.tmpdir(), 'pi-default-root-'));
+    const ompRoot = await mkdtemp(path.join(os.tmpdir(), 'omp-default-root-'));
+    tempDirs.push(piRoot, ompRoot);
+
+    const piFile = path.join(piRoot, 'a.jsonl');
+    const ompFile = path.join(ompRoot, 'b.jsonl');
+    const messageRow = JSON.stringify({
+      type: 'message',
+      timestamp: '2026-02-12T20:01:00.000Z',
+      usage: { input: 4, output: 6, totalTokens: 10 },
+    });
+    await writeFile(piFile, messageRow, 'utf8');
+    await writeFile(ompFile, messageRow, 'utf8');
+    const missingRoot = path.join(ompRoot, 'missing');
+
+    const adapter = new PiSourceAdapter({ defaultRootDirs: [piRoot, ompRoot, missingRoot] });
+
+    await expect(adapter.discoverFiles()).resolves.toEqual([piFile, ompFile]);
+    await expect(adapter.parseFile(piFile)).resolves.toHaveLength(1);
+    await expect(adapter.parseFile(ompFile)).resolves.toHaveLength(1);
+  });
+
+  it('scans only the explicit directory and errors when it is required but missing', async () => {
+    const piRoot = await mkdtemp(path.join(os.tmpdir(), 'pi-explicit-root-'));
+    const ompRoot = await mkdtemp(path.join(os.tmpdir(), 'omp-explicit-root-'));
+    tempDirs.push(piRoot, ompRoot);
+
+    const piFile = path.join(piRoot, 'a.jsonl');
+    await writeFile(piFile, '{}\n', 'utf8');
+    await writeFile(path.join(ompRoot, 'b.jsonl'), '{}\n', 'utf8');
+
+    const adapter = new PiSourceAdapter({
+      sessionsDir: piRoot,
+      defaultRootDirs: [piRoot, ompRoot],
+    });
+
+    await expect(adapter.discoverFiles()).resolves.toEqual([piFile]);
+
+    const missingAdapter = new PiSourceAdapter({
+      sessionsDir: path.join(ompRoot, 'missing'),
+      requireSessionsDir: true,
+    });
+
+    await expect(missingAdapter.discoverFiles()).rejects.toThrow(
+      'PI sessions directory is missing or unreadable',
+    );
+  });
+
   it('parses usage events without provider filtering by default', async () => {
     const fixturePath = path.resolve('tests/fixtures/pi/session-mixed.jsonl');
     const adapter = new PiSourceAdapter();

@@ -18,6 +18,12 @@ import {
 import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
 
 const defaultAgentsDir = path.join(os.homedir(), '.openclaw', 'agents');
+const defaultOpenClawRootDirs = [
+  defaultAgentsDir,
+  path.join(os.homedir(), '.clawdbot', 'agents'),
+  path.join(os.homedir(), '.moltbot', 'agents'),
+  path.join(os.homedir(), '.moldbot', 'agents'),
+];
 
 type OpenClawSessionState = {
   sessionId: string;
@@ -40,6 +46,8 @@ type OpenClawUsageExtract = {
 export type OpenClawSourceAdapterOptions = {
   agentsDir?: string;
   requireAgentsDir?: boolean;
+  /** Test seam: default roots scanned when no agentsDir override is given. */
+  defaultRootDirs?: string[];
 };
 
 const SESSION_LINE_PATTERN = /"type"\s*:\s*"session"/u;
@@ -284,36 +292,47 @@ function updateRuntimeStateFromRecord(
 export class OpenClawSourceAdapter implements SourceAdapter {
   public readonly id = 'openclaw' as const;
 
-  private readonly agentsDir: string;
+  private readonly rootDirs: readonly string[];
   private readonly requireAgentsDir: boolean;
 
   public constructor(options: OpenClawSourceAdapterOptions = {}) {
-    this.agentsDir = options.agentsDir ?? defaultAgentsDir;
+    this.rootDirs =
+      options.agentsDir !== undefined
+        ? [options.agentsDir]
+        : (options.defaultRootDirs ?? defaultOpenClawRootDirs);
     this.requireAgentsDir = options.requireAgentsDir ?? false;
   }
 
   public async discoverFiles(): Promise<string[]> {
-    if (isBlankText(this.agentsDir)) {
+    const discoveredFiles: string[] = [];
+
+    for (const rootDir of this.rootDirs) {
+      discoveredFiles.push(...(await this.discoverFilesInRoot(rootDir)));
+    }
+
+    return discoveredFiles;
+  }
+
+  private async discoverFilesInRoot(rootDir: string): Promise<string[]> {
+    if (isBlankText(rootDir)) {
       throw new Error('OpenClaw agents directory must be a non-empty path');
     }
 
-    const normalizedAgentsDir = this.agentsDir.trim();
+    const normalizedRootDir = rootDir.trim();
 
     if (this.requireAgentsDir) {
-      const agentsDirStats = await pathStat(normalizedAgentsDir);
+      const agentsDirStats = await pathStat(normalizedRootDir);
 
       if (!agentsDirStats) {
-        throw new Error(
-          `OpenClaw agents directory is missing or unreadable: ${normalizedAgentsDir}`,
-        );
+        throw new Error(`OpenClaw agents directory is missing or unreadable: ${normalizedRootDir}`);
       }
 
       if (!agentsDirStats.isDirectory()) {
-        throw new Error(`OpenClaw agents directory is not a directory: ${normalizedAgentsDir}`);
+        throw new Error(`OpenClaw agents directory is not a directory: ${normalizedRootDir}`);
       }
     }
 
-    return discoverJsonlFiles(normalizedAgentsDir);
+    return discoverJsonlFiles(normalizedRootDir);
   }
 
   public async parseFile(filePath: string): Promise<UsageEvent[]> {
