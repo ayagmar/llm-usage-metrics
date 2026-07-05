@@ -92,6 +92,46 @@ describe('getDefaultClineTaskRootCandidates', () => {
       path.join('/roaming', 'Code', 'User', 'globalStorage', CLINE_EXTENSION_IDS.cline, 'tasks'),
     );
   });
+
+  it('uses source-specific extension ids in default roots', () => {
+    expect(
+      getDefaultClineTaskRootCandidates({
+        extensionId: CLINE_EXTENSION_IDS.roocode,
+        platform: 'linux',
+        homeDir: '/home/tester',
+        env: {},
+      })[0],
+    ).toBe(
+      path.join(
+        '/home/tester',
+        '.config',
+        'Code',
+        'User',
+        'globalStorage',
+        CLINE_EXTENSION_IDS.roocode,
+        'tasks',
+      ),
+    );
+
+    expect(
+      getDefaultClineTaskRootCandidates({
+        extensionId: CLINE_EXTENSION_IDS.kilocode,
+        platform: 'linux',
+        homeDir: '/home/tester',
+        env: {},
+      })[0],
+    ).toBe(
+      path.join(
+        '/home/tester',
+        '.config',
+        'Code',
+        'User',
+        'globalStorage',
+        CLINE_EXTENSION_IDS.kilocode,
+        'tasks',
+      ),
+    );
+  });
 });
 
 describe('ClineFamilyAdapter', () => {

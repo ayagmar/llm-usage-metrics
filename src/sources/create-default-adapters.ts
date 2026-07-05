@@ -38,6 +38,8 @@ export type CreateDefaultAdaptersOptions = {
   qwenDir?: string;
   kimiDir?: string;
   clineDir?: string;
+  roocodeDir?: string;
+  kilocodeDir?: string;
   sourceDir?: string[];
 };
 
@@ -232,6 +234,42 @@ const sourceRegistrations: readonly SourceRegistration[] = [
       });
     },
   },
+  {
+    id: 'roocode',
+    sourceDirOverride: { kind: 'directory' },
+    create: (options, sourceDirectoryOverrides) => {
+      const directoryConfig = resolveDirectoryConfig(
+        'roocode',
+        options.roocodeDir,
+        sourceDirectoryOverrides,
+      );
+
+      return createClineFamilyAdapter({
+        id: 'roocode',
+        extensionId: CLINE_EXTENSION_IDS.roocode,
+        tasksDir: directoryConfig.path,
+        requireTasksDir: directoryConfig.requireExistingPath,
+      });
+    },
+  },
+  {
+    id: 'kilocode',
+    sourceDirOverride: { kind: 'directory' },
+    create: (options, sourceDirectoryOverrides) => {
+      const directoryConfig = resolveDirectoryConfig(
+        'kilocode',
+        options.kilocodeDir,
+        sourceDirectoryOverrides,
+      );
+
+      return createClineFamilyAdapter({
+        id: 'kilocode',
+        extensionId: CLINE_EXTENSION_IDS.kilocode,
+        tasksDir: directoryConfig.path,
+        requireTasksDir: directoryConfig.requireExistingPath,
+      });
+    },
+  },
 ];
 
 const sourceDirUnsupportedFlags = new Map(
@@ -309,7 +347,9 @@ function validateDirectoryOverride(
     | '--amp-dir'
     | '--qwen-dir'
     | '--kimi-dir'
-    | '--cline-dir',
+    | '--cline-dir'
+    | '--roocode-dir'
+    | '--kilocode-dir',
   value: string | undefined,
 ): void {
   if (value === undefined) {
@@ -369,6 +409,8 @@ export function createDefaultAdapters(options: CreateDefaultAdaptersOptions): So
   validateDirectoryOverride('--qwen-dir', options.qwenDir);
   validateDirectoryOverride('--kimi-dir', options.kimiDir);
   validateDirectoryOverride('--cline-dir', options.clineDir);
+  validateDirectoryOverride('--roocode-dir', options.roocodeDir);
+  validateDirectoryOverride('--kilocode-dir', options.kilocodeDir);
 
   const sourceDirectoryOverrides = parseSourceDirectoryOverrides(options.sourceDir);
   validateSourceDirectoryOverrideIds(sourceDirectoryOverrides);

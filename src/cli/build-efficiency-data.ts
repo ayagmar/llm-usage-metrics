@@ -105,6 +105,14 @@ function resolveScopeNote(options: EfficiencyCommandOptions): string | undefined
     activeFilters.push('--cline-dir');
   }
 
+  if (hasActiveTextOption(options.roocodeDir)) {
+    activeFilters.push('--roocode-dir');
+  }
+
+  if (hasActiveTextOption(options.kilocodeDir)) {
+    activeFilters.push('--kilocode-dir');
+  }
+
   if (hasActiveRepeatedFilter(options.sourceDir)) {
     activeFilters.push('--source-dir');
   }

@@ -71,6 +71,8 @@ describe('build-usage-data-inputs', () => {
         'qwen=/tmp/qwen/projects',
         'kimi=/tmp/kimi/sessions',
         'cline=/tmp/cline/tasks',
+        'roocode=/tmp/roocode/tasks',
+        'kilocode=/tmp/kilocode/tasks',
       ],
     });
 
@@ -84,6 +86,8 @@ describe('build-usage-data-inputs', () => {
       'qwen',
       'kimi',
       'cline',
+      'roocode',
+      'kilocode',
     ]);
   });
 
@@ -141,6 +145,22 @@ describe('build-usage-data-inputs', () => {
     });
 
     expect([...inputs.explicitSourceIds]).toEqual(['cline']);
+  });
+
+  it('treats roocode directory overrides as explicit source selections', () => {
+    const inputs = normalizeBuildUsageInputs({
+      roocodeDir: '/tmp/roocode/tasks',
+    });
+
+    expect([...inputs.explicitSourceIds]).toEqual(['roocode']);
+  });
+
+  it('treats kilocode directory overrides as explicit source selections', () => {
+    const inputs = normalizeBuildUsageInputs({
+      kilocodeDir: '/tmp/kilocode/tasks',
+    });
+
+    expect([...inputs.explicitSourceIds]).toEqual(['kilocode']);
   });
 
   it('validates malformed source-dir entries through the shared parser', () => {

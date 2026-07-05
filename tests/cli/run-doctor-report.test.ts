@@ -36,11 +36,15 @@ async function createDoctorFixtureOptions(): Promise<DoctorCommandOptions> {
   const qwenDir = path.join(rootDir, 'qwen');
   const kimiDir = path.join(rootDir, 'kimi');
   const clineDir = path.join(rootDir, 'cline');
+  const roocodeDir = path.join(rootDir, 'roocode');
+  const kilocodeDir = path.join(rootDir, 'kilocode');
 
   await mkdir(path.join(geminiDir, 'tmp', 'project', 'chats'), { recursive: true });
   await mkdir(path.join(qwenDir, 'project', 'chats'), { recursive: true });
   await mkdir(path.join(kimiDir, 'group-a', 'session-a'), { recursive: true });
   await mkdir(path.join(clineDir, 'task-a'), { recursive: true });
+  await mkdir(path.join(roocodeDir, 'task-a'), { recursive: true });
+  await mkdir(path.join(kilocodeDir, 'task-a'), { recursive: true });
   await mkdir(path.join(claudeDir, 'project'), { recursive: true });
   await mkdir(piDir, { recursive: true });
   await mkdir(codexDir, { recursive: true });
@@ -62,6 +66,8 @@ async function createDoctorFixtureOptions(): Promise<DoctorCommandOptions> {
   await writeFile(path.join(qwenDir, 'project', 'chats', 'session.jsonl'), '{}\n', 'utf8');
   await writeFile(path.join(kimiDir, 'group-a', 'session-a', 'wire.jsonl'), '{}\n', 'utf8');
   await writeFile(path.join(clineDir, 'task-a', 'ui_messages.json'), '[]', 'utf8');
+  await writeFile(path.join(roocodeDir, 'task-a', 'ui_messages.json'), '[]', 'utf8');
+  await writeFile(path.join(kilocodeDir, 'task-a', 'ui_messages.json'), '[]', 'utf8');
 
   return {
     piDir,
@@ -77,6 +83,8 @@ async function createDoctorFixtureOptions(): Promise<DoctorCommandOptions> {
     qwenDir,
     kimiDir,
     clineDir,
+    roocodeDir,
+    kilocodeDir,
   };
 }
 
@@ -122,6 +130,8 @@ describe('run-doctor-report', () => {
       { id: 'qwen', status: 'ok', itemsFound: 1 },
       { id: 'kimi', status: 'ok', itemsFound: 1 },
       { id: 'cline', status: 'ok', itemsFound: 1 },
+      { id: 'roocode', status: 'ok', itemsFound: 1 },
+      { id: 'kilocode', status: 'ok', itemsFound: 1 },
     ]);
   });
 
@@ -194,7 +204,7 @@ describe('run-doctor-report', () => {
     expect(stdout.getOutput()).toContain('claude');
     expect(stdout.getOutput()).toContain('error');
     expect(stdout.getOutput()).toContain(missingClaudeDir);
-    expect(stdout.getOutput()).toContain('12/13 sources healthy');
+    expect(stdout.getOutput()).toContain('14/15 sources healthy');
   });
 
   it('prints JSON output to stdout', async () => {

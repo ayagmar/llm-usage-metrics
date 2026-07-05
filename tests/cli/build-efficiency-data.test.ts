@@ -405,6 +405,8 @@ describe('buildEfficiencyData', () => {
         qwenDir: '/tmp/qwen/projects',
         kimiDir: '/tmp/kimi/sessions',
         clineDir: '/tmp/cline/tasks',
+        roocodeDir: '/tmp/roocode/tasks',
+        kilocodeDir: '/tmp/kilocode/tasks',
       },
       {
         buildUsageEventDataset: async (options) => createUsageEventDataset(options),
@@ -438,6 +440,8 @@ describe('buildEfficiencyData', () => {
     expect(result.diagnostics.scopeNote).toContain('--qwen-dir');
     expect(result.diagnostics.scopeNote).toContain('--kimi-dir');
     expect(result.diagnostics.scopeNote).toContain('--cline-dir');
+    expect(result.diagnostics.scopeNote).toContain('--roocode-dir');
+    expect(result.diagnostics.scopeNote).toContain('--kilocode-dir');
   });
 
   it('includes DB source override flags in scope note when configured', async () => {

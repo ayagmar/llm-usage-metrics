@@ -26,6 +26,8 @@ export type ReportCommandOptions = {
   qwenDir?: string;
   kimiDir?: string;
   clineDir?: string;
+  roocodeDir?: string;
+  kilocodeDir?: string;
   sourceDir?: string[];
   source?: string | string[];
   since?: string;
@@ -74,6 +76,8 @@ export type DoctorCommandOptions = Pick<
   | 'qwenDir'
   | 'kimiDir'
   | 'clineDir'
+  | 'roocodeDir'
+  | 'kilocodeDir'
   | 'sourceDir'
   | 'source'
   | 'json'

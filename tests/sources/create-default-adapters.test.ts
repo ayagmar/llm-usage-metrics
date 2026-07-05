@@ -31,6 +31,8 @@ describe('createDefaultAdapters', () => {
       'qwen',
       'kimi',
       'cline',
+      'roocode',
+      'kilocode',
     ]);
   });
 
@@ -65,6 +67,12 @@ describe('createDefaultAdapters', () => {
     const qwenTempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-adapters-qwen-source-dir-'));
     const kimiTempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-adapters-kimi-source-dir-'));
     const clineTempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-adapters-cline-source-dir-'));
+    const roocodeTempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'usage-adapters-roocode-source-dir-'),
+    );
+    const kilocodeTempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'usage-adapters-kilocode-source-dir-'),
+    );
     tempDirs.push(
       piTempDir,
       codexTempDir,
@@ -77,6 +85,8 @@ describe('createDefaultAdapters', () => {
       qwenTempDir,
       kimiTempDir,
       clineTempDir,
+      roocodeTempDir,
+      kilocodeTempDir,
     );
 
     const piFile = path.join(piTempDir, 'pi-session.jsonl');
@@ -92,9 +102,13 @@ describe('createDefaultAdapters', () => {
     const qwenFile = path.join(qwenTempDir, 'demo', 'chats', 'qwen-session.jsonl');
     const kimiFile = path.join(kimiTempDir, 'group-a', 'session-a', 'wire.jsonl');
     const clineFile = path.join(clineTempDir, 'task-a', 'ui_messages.json');
+    const roocodeFile = path.join(roocodeTempDir, 'task-a', 'ui_messages.json');
+    const kilocodeFile = path.join(kilocodeTempDir, 'task-a', 'ui_messages.json');
     await mkdir(path.dirname(qwenFile), { recursive: true });
     await mkdir(path.dirname(kimiFile), { recursive: true });
     await mkdir(path.dirname(clineFile), { recursive: true });
+    await mkdir(path.dirname(roocodeFile), { recursive: true });
+    await mkdir(path.dirname(kilocodeFile), { recursive: true });
 
     await writeFile(piFile, '{}\n', 'utf8');
     await writeFile(codexFile, '{}\n', 'utf8');
@@ -107,6 +121,8 @@ describe('createDefaultAdapters', () => {
     await writeFile(qwenFile, '{}\n', 'utf8');
     await writeFile(kimiFile, '{}\n', 'utf8');
     await writeFile(clineFile, '[]', 'utf8');
+    await writeFile(roocodeFile, '[]', 'utf8');
+    await writeFile(kilocodeFile, '[]', 'utf8');
 
     const adapters = createDefaultAdapters({
       sourceDir: [
@@ -121,6 +137,8 @@ describe('createDefaultAdapters', () => {
         `qwen=${qwenTempDir}`,
         `kimi=${kimiTempDir}`,
         `cline=${clineTempDir}`,
+        `roocode=${roocodeTempDir}`,
+        `kilocode=${kilocodeTempDir}`,
       ],
     });
 
@@ -135,6 +153,8 @@ describe('createDefaultAdapters', () => {
     await expect(adapters[10].discoverFiles()).resolves.toEqual([await realpath(qwenFile)]);
     await expect(adapters[11].discoverFiles()).resolves.toEqual([await realpath(kimiFile)]);
     await expect(adapters[12].discoverFiles()).resolves.toEqual([await realpath(clineFile)]);
+    await expect(adapters[13].discoverFiles()).resolves.toEqual([await realpath(roocodeFile)]);
+    await expect(adapters[14].discoverFiles()).resolves.toEqual([await realpath(kilocodeFile)]);
   });
 
   it('throws on invalid source directory override entries', () => {
@@ -257,6 +277,18 @@ describe('createDefaultAdapters', () => {
   it('throws when --cline-dir is blank', () => {
     expect(() => createDefaultAdapters({ clineDir: '   ' })).toThrow(
       '--cline-dir must be a non-empty path',
+    );
+  });
+
+  it('throws when --roocode-dir is blank', () => {
+    expect(() => createDefaultAdapters({ roocodeDir: '   ' })).toThrow(
+      '--roocode-dir must be a non-empty path',
+    );
+  });
+
+  it('throws when --kilocode-dir is blank', () => {
+    expect(() => createDefaultAdapters({ kilocodeDir: '   ' })).toThrow(
+      '--kilocode-dir must be a non-empty path',
     );
   });
 
@@ -478,6 +510,80 @@ describe('createDefaultAdapters', () => {
     await expect(clineAdapter?.discoverFiles()).resolves.toEqual([await realpath(explicitFile)]);
   });
 
+  it('wires --roocode-dir into the RooCode adapter discovery path', async () => {
+    const roocodeTempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-adapters-roocode-dir-'));
+    tempDirs.push(roocodeTempDir);
+    const roocodeFile = path.join(roocodeTempDir, 'task-a', 'ui_messages.json');
+    await mkdir(path.dirname(roocodeFile), { recursive: true });
+    await writeFile(roocodeFile, '[]', 'utf8');
+
+    const adapters = createDefaultAdapters({ roocodeDir: roocodeTempDir });
+    const roocodeAdapter = adapters.find((adapter) => adapter.id === 'roocode');
+
+    await expect(roocodeAdapter?.discoverFiles()).resolves.toEqual([await realpath(roocodeFile)]);
+  });
+
+  it('prefers --roocode-dir over generic roocode source directory overrides', async () => {
+    const explicitTempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'usage-adapters-roocode-explicit-dir-'),
+    );
+    const sourceDirTempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'usage-adapters-roocode-source-dir-precedence-'),
+    );
+    tempDirs.push(explicitTempDir, sourceDirTempDir);
+    const explicitFile = path.join(explicitTempDir, 'task-a', 'ui_messages.json');
+    const sourceDirFile = path.join(sourceDirTempDir, 'task-b', 'ui_messages.json');
+    await mkdir(path.dirname(explicitFile), { recursive: true });
+    await mkdir(path.dirname(sourceDirFile), { recursive: true });
+    await writeFile(explicitFile, '[]', 'utf8');
+    await writeFile(sourceDirFile, '[]', 'utf8');
+
+    const adapters = createDefaultAdapters({
+      roocodeDir: explicitTempDir,
+      sourceDir: [`roocode=${sourceDirTempDir}`],
+    });
+    const roocodeAdapter = adapters.find((adapter) => adapter.id === 'roocode');
+
+    await expect(roocodeAdapter?.discoverFiles()).resolves.toEqual([await realpath(explicitFile)]);
+  });
+
+  it('wires --kilocode-dir into the KiloCode adapter discovery path', async () => {
+    const kilocodeTempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-adapters-kilocode-dir-'));
+    tempDirs.push(kilocodeTempDir);
+    const kilocodeFile = path.join(kilocodeTempDir, 'task-a', 'ui_messages.json');
+    await mkdir(path.dirname(kilocodeFile), { recursive: true });
+    await writeFile(kilocodeFile, '[]', 'utf8');
+
+    const adapters = createDefaultAdapters({ kilocodeDir: kilocodeTempDir });
+    const kilocodeAdapter = adapters.find((adapter) => adapter.id === 'kilocode');
+
+    await expect(kilocodeAdapter?.discoverFiles()).resolves.toEqual([await realpath(kilocodeFile)]);
+  });
+
+  it('prefers --kilocode-dir over generic kilocode source directory overrides', async () => {
+    const explicitTempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'usage-adapters-kilocode-explicit-dir-'),
+    );
+    const sourceDirTempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'usage-adapters-kilocode-source-dir-precedence-'),
+    );
+    tempDirs.push(explicitTempDir, sourceDirTempDir);
+    const explicitFile = path.join(explicitTempDir, 'task-a', 'ui_messages.json');
+    const sourceDirFile = path.join(sourceDirTempDir, 'task-b', 'ui_messages.json');
+    await mkdir(path.dirname(explicitFile), { recursive: true });
+    await mkdir(path.dirname(sourceDirFile), { recursive: true });
+    await writeFile(explicitFile, '[]', 'utf8');
+    await writeFile(sourceDirFile, '[]', 'utf8');
+
+    const adapters = createDefaultAdapters({
+      kilocodeDir: explicitTempDir,
+      sourceDir: [`kilocode=${sourceDirTempDir}`],
+    });
+    const kilocodeAdapter = adapters.find((adapter) => adapter.id === 'kilocode');
+
+    await expect(kilocodeAdapter?.discoverFiles()).resolves.toEqual([await realpath(explicitFile)]);
+  });
+
   it('fails gemini discovery when an explicitly configured directory is missing', async () => {
     const adapters = createDefaultAdapters({
       geminiDir: path.join(os.tmpdir(), `missing-gemini-${Date.now()}`),
@@ -660,6 +766,28 @@ describe('createDefaultAdapters', () => {
 
     await expect(clineAdapter?.discoverFiles()).rejects.toThrow(
       'cline tasks directory is missing or unreadable',
+    );
+  });
+
+  it('fails roocode discovery when an explicitly configured directory is missing', async () => {
+    const adapters = createDefaultAdapters({
+      roocodeDir: path.join(os.tmpdir(), `missing-roocode-${Date.now()}`),
+    });
+    const roocodeAdapter = adapters.find((adapter) => adapter.id === 'roocode');
+
+    await expect(roocodeAdapter?.discoverFiles()).rejects.toThrow(
+      'roocode tasks directory is missing or unreadable',
+    );
+  });
+
+  it('fails kilocode discovery when an explicitly configured directory is missing', async () => {
+    const adapters = createDefaultAdapters({
+      kilocodeDir: path.join(os.tmpdir(), `missing-kilocode-${Date.now()}`),
+    });
+    const kilocodeAdapter = adapters.find((adapter) => adapter.id === 'kilocode');
+
+    await expect(kilocodeAdapter?.discoverFiles()).rejects.toThrow(
+      'kilocode tasks directory is missing or unreadable',
     );
   });
 });

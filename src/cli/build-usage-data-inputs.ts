@@ -218,6 +218,14 @@ export function resolveExplicitSourceIds(
     explicitSourceIds.add('cline');
   }
 
+  if (options.roocodeDir) {
+    explicitSourceIds.add('roocode');
+  }
+
+  if (options.kilocodeDir) {
+    explicitSourceIds.add('kilocode');
+  }
+
   return explicitSourceIds;
 }
 

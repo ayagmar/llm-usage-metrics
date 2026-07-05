@@ -84,6 +84,8 @@ export function registerSharedReportOptions(
     .option('--qwen-dir <path>', 'Path to Qwen projects directory')
     .option('--kimi-dir <path>', 'Path to Kimi sessions directory')
     .option('--cline-dir <path>', 'Path to Cline tasks directory')
+    .option('--roocode-dir <path>', 'Path to RooCode tasks directory')
+    .option('--kilocode-dir <path>', 'Path to KiloCode tasks directory')
     .option(
       '--source-dir <source-id=path>',
       'Override source directory for directory-backed sources (repeatable)',
