@@ -1,13 +1,19 @@
 import type { OptimizeDataResult } from '../cli/usage-data-contracts.js';
 import type { OptimizeCandidateRow } from '../optimize/optimize-row.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
-import { escapeSvg, formatUsd, shareTheme } from './share-svg-theme.js';
+import {
+  escapeSvg,
+  formatUsd,
+  renderShareAccentBar,
+  renderShareFooter,
+  SHARE_SVG_FOOTER_HEIGHT,
+  SHARE_SVG_WIDTH,
+  shareTheme,
+} from './share-svg-theme.js';
 
-const W = 1500;
+const W = SHARE_SVG_WIDTH;
 const H = 780;
-const ACCENT_H = 4;
-const FOOTER_H = 36;
-const pad = { top: 180, right: 70, bottom: 60 + FOOTER_H, left: 260 };
+const pad = { top: 180, right: 70, bottom: 60 + SHARE_SVG_FOOTER_HEIGHT, left: 260 };
 
 function formatPercent(value: number | undefined): string {
   if (value === undefined) return '-';
@@ -147,7 +153,7 @@ export function renderOptimizeMonthlyShareSvg(optimizeData: OptimizeDataResult):
   </linearGradient>
 </defs>
 <rect width="${W}" height="${H}" fill="${shareTheme.bg}"/>
-<rect width="${W}" height="${ACCENT_H}" fill="url(#accent-grad)"/>
+${renderShareAccentBar()}
 <text x="${pad.left}" y="52" font-size="32" font-weight="700" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">Monthly Optimize</text>
 <text x="${pad.left}" y="78" font-size="15" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}">Savings % heatmap by candidate and month</text>
 <rect x="${badgeX.toFixed(0)}" y="30" width="${badgeW.toFixed(0)}" height="34" rx="17" fill="none" stroke="${shareTheme.cardBorder}"/>
@@ -162,7 +168,6 @@ ${gridCells.join('\n')}
 ${colLabels.join('\n')}
 ${rowLabels.join('\n')}
 ${noData}
-<line x1="0" y1="${H - FOOTER_H + 1}" x2="${W}" y2="${H - FOOTER_H + 1}" stroke="${shareTheme.gridLine}" stroke-width="1"/>
-<text x="60" y="${H - FOOTER_H / 2 + 5}" fill="${shareTheme.textMuted}" font-family="${shareTheme.mono}" font-size="13">llm-usage-metrics</text>
+${renderShareFooter({ height: H })}
 </svg>`;
 }

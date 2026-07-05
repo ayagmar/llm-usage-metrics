@@ -6,16 +6,18 @@ import {
   formatDecimal,
   formatInteger,
   formatUsd,
+  renderShareAccentBar,
+  renderShareFooter,
   scaleY,
+  SHARE_SVG_FOOTER_HEIGHT,
+  SHARE_SVG_WIDTH,
   shareTheme,
   type Point,
 } from './share-svg-theme.js';
 
-const W = 1500;
+const W = SHARE_SVG_WIDTH;
 const H = 640;
-const ACCENT_H = 4;
-const FOOTER_H = 36;
-const pad = { top: 160, right: 130, bottom: 70 + FOOTER_H, left: 110 };
+const pad = { top: 160, right: 130, bottom: 70 + SHARE_SVG_FOOTER_HEIGHT, left: 110 };
 
 const chartColors = {
   commits: '#8b949e',
@@ -182,7 +184,7 @@ export function renderEfficiencyMonthlyShareSvg(efficiencyData: EfficiencyDataRe
   </linearGradient>
 </defs>
 <rect width="${W}" height="${H}" fill="${shareTheme.bg}"/>
-<rect width="${W}" height="${ACCENT_H}" fill="url(#accent-grad)"/>
+${renderShareAccentBar()}
 <text x="${pad.left}" y="52" font-size="32" font-weight="700" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">Monthly Efficiency</text>
 <rect x="${badgeX.toFixed(0)}" y="30" width="${badgeW.toFixed(0)}" height="34" rx="17" fill="none" stroke="${shareTheme.cardBorder}"/>
 <text x="${(badgeX + badgeW / 2).toFixed(0)}" y="52" text-anchor="middle" font-size="14" fill="${shareTheme.textMuted}" font-family="${shareTheme.mono}">${escapeSvg(commandText)}</text>
@@ -199,7 +201,6 @@ ${usdDots}
 ${renderUsdDataLabels(monthlyRows, usdPoints)}
 ${monthLabels}
 ${noData}
-<line x1="0" y1="${H - FOOTER_H + 1}" x2="${W}" y2="${H - FOOTER_H + 1}" stroke="${shareTheme.gridLine}" stroke-width="1"/>
-<text x="60" y="${H - FOOTER_H / 2 + 5}" fill="${shareTheme.textMuted}" font-family="${shareTheme.mono}" font-size="13">llm-usage-metrics</text>
+${renderShareFooter({ height: H })}
 </svg>`;
 }

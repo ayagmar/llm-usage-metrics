@@ -8,16 +8,19 @@ import {
   formatCompact,
   formatUsd,
   getSourceColor,
+  renderShareAccentBar,
+  renderShareFooter,
   scaleY,
+  SHARE_SVG_ACCENT_HEIGHT,
+  SHARE_SVG_FOOTER_HEIGHT,
+  SHARE_SVG_WIDTH,
   shareTheme,
   type Point,
 } from './share-svg-theme.js';
 
-const W = 1500;
+const W = SHARE_SVG_WIDTH;
 const H = 560;
-const ACCENT_H = 4;
-const FOOTER_H = 36;
-const pad = { top: 140, right: 80, bottom: 60 + FOOTER_H, left: 200 };
+const pad = { top: 140, right: 80, bottom: 60 + SHARE_SVG_FOOTER_HEIGHT, left: 200 };
 const STAT_X = 60;
 const STAT_VALUE_FONT_SIZE = 52;
 const STAT_VALUE_WIDTH_FACTOR = 0.6;
@@ -80,11 +83,6 @@ function buildStackedValues(series: SourceSeries[]): number[][] {
   return stacked;
 }
 
-/** Thin gradient accent strip at the SVG top edge (gradient defined in main defs). */
-function renderAccentBar(): string {
-  return `<rect width="${W}" height="${ACCENT_H}" fill="url(#accent-grad)"/>`;
-}
-
 /** Left-side stat column: big token count + cost. */
 function renderStatColumn(
   totalTokens: number,
@@ -92,7 +90,7 @@ function renderStatColumn(
   sourceCount: number,
 ): string {
   const x = STAT_X;
-  const baseY = ACCENT_H + 48;
+  const baseY = SHARE_SVG_ACCENT_HEIGHT + 48;
   let svg = '';
 
   svg += `<text x="${x}" y="${baseY}" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}" font-size="52" font-weight="800">${escapeSvg(formatCompact(totalTokens))}</text>\n`;
@@ -111,7 +109,7 @@ function renderStatColumn(
 function renderSourcePills(series: SourceSeries[], startX: number): string {
   let svg = '';
   let cx = Math.max(SOURCE_PILLS_MIN_X, startX);
-  const pillY = ACCENT_H + 30;
+  const pillY = SHARE_SVG_ACCENT_HEIGHT + 30;
 
   for (const s of series) {
     const label = `${s.source}  ${formatCompact(s.total)}`;
@@ -139,7 +137,7 @@ function renderCommandBadge(command: string): string {
   const badgeW = textW + 28;
   const badgeH = 30;
   const x = W - 60 - badgeW;
-  const y = ACCENT_H + 30;
+  const y = SHARE_SVG_ACCENT_HEIGHT + 30;
 
   return [
     `<rect x="${x}" y="${y}" width="${badgeW}" height="${badgeH}" rx="${badgeH / 2}" fill="none" stroke="${shareTheme.cardBorder}" stroke-width="1"/>`,
@@ -270,19 +268,10 @@ function renderPeriodLabels(
   return svg;
 }
 
-/** Footer strip with branding and period range. */
-function renderFooter(periods: string[]): string {
-  const y = H - FOOTER_H;
-  const lineY = y + 1;
-  const textY = y + FOOTER_H / 2 + 5;
-  const range =
-    periods.length >= 2 ? `${periods[0]} → ${periods[periods.length - 1]}` : (periods[0] ?? '');
-
-  return [
-    `<line x1="0" y1="${lineY}" x2="${W}" y2="${lineY}" stroke="${shareTheme.gridLine}" stroke-width="1"/>`,
-    `<text x="60" y="${textY}" fill="${shareTheme.textMuted}" font-family="${shareTheme.mono}" font-size="13">llm-usage-metrics</text>`,
-    `<text x="${W - 60}" y="${textY}" text-anchor="end" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}" font-size="13">${escapeSvg(range)}</text>`,
-  ].join('\n');
+function formatFooterRange(periods: string[]): string {
+  return periods.length >= 2
+    ? `${periods[0]} → ${periods[periods.length - 1]}`
+    : (periods[0] ?? '');
 }
 
 export function renderUsageShareSvg(
@@ -354,13 +343,13 @@ export function renderUsageShareSvg(
   ${renderGradientDefs(activeSeries)}
 </defs>
 <rect width="${W}" height="${H}" fill="${shareTheme.bg}"/>
-${renderAccentBar()}
+${renderShareAccentBar()}
 ${renderStatColumn(totalTokens, totalCost, activeSeries.length)}
 ${renderSourcePills(activeSeries, sourcePillsStartX)}
 ${renderCommandBadge(commandText)}
 ${renderGridLines(chartLeft, chartRight, chartTop, chartH, maxY)}
 ${chartContent}
 ${renderPeriodLabels(periods, toX, chartBottom)}
-${renderFooter(periods)}
+${renderShareFooter({ height: H, rightText: formatFooterRange(periods) })}
 </svg>`;
 }
