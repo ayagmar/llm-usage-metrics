@@ -1,0 +1,208 @@
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import os from 'node:os';
+import path from 'node:path';
+
+import { buildUsageReport } from '../../src/cli/run-usage-report.js';
+import { withSuppressedSqliteExperimentalWarning } from '../../src/sources/opencode/sqlite-warning-suppression.js';
+
+type OpenCodeMessageFixture = {
+  id: string;
+  sessionId: string;
+  timeCreated: number;
+  data: string;
+};
+
+type FixtureDatabaseSync = new (filePath: string) => {
+  exec: (sql: string) => void;
+  prepare: (sql: string) => { run: (...args: unknown[]) => void };
+  close: () => void;
+};
+
+type UsageJsonRow = {
+  rowType: string;
+  periodKey: string;
+  source: string;
+  totalTokens: number;
+};
+
+const require = createRequire(import.meta.url);
+const piDir = path.resolve('tests/fixtures/e2e/pi');
+const codexDir = path.resolve('tests/fixtures/e2e/codex');
+const geminiDir = path.resolve('tests/fixtures/e2e/gemini');
+const droidDir = path.resolve('tests/fixtures/e2e/droid');
+const claudeDir = path.resolve('tests/fixtures/e2e/claude');
+const openclawDir = path.resolve('tests/fixtures/e2e/openclaw');
+const allSources = 'pi,codex,gemini,droid,opencode,openclaw,claude';
+const expectedAllSourceTokens = 1_400;
+const expectedGeminiClaudeTokens = 415;
+
+function loadDatabaseSync(): FixtureDatabaseSync | undefined {
+  let sqliteModule: unknown;
+
+  try {
+    sqliteModule = withSuppressedSqliteExperimentalWarning(() => require('node:sqlite') as unknown);
+  } catch {
+    return undefined;
+  }
+
+  const moduleRecord = sqliteModule as { DatabaseSync?: unknown } | undefined;
+
+  if (typeof moduleRecord?.DatabaseSync !== 'function') {
+    return undefined;
+  }
+
+  return moduleRecord.DatabaseSync as FixtureDatabaseSync;
+}
+
+function createOpenCodeFixtureDb(dbPath: string, messages: OpenCodeMessageFixture[]): void {
+  const DatabaseSync = loadDatabaseSync();
+
+  if (!DatabaseSync) {
+    throw new Error('OpenCode e2e fixtures require node:sqlite DatabaseSync support.');
+  }
+
+  const database = new DatabaseSync(dbPath);
+
+  try {
+    database.exec(`
+      CREATE TABLE session (id TEXT PRIMARY KEY);
+      CREATE TABLE part (id TEXT PRIMARY KEY);
+      CREATE TABLE message (
+        id TEXT PRIMARY KEY,
+        session_id TEXT,
+        time_created INTEGER NOT NULL,
+        data TEXT NOT NULL
+      );
+    `);
+
+    const insertMessage = database.prepare(
+      'INSERT INTO message (id, session_id, time_created, data) VALUES (?, ?, ?, ?)',
+    );
+
+    for (const message of messages) {
+      insertMessage.run(message.id, message.sessionId, message.timeCreated, message.data);
+    }
+  } finally {
+    database.close();
+  }
+}
+
+function getPeriodSourceRows(rows: UsageJsonRow[]): UsageJsonRow[] {
+  return rows.filter((row) => row.rowType === 'period_source');
+}
+
+function getGrandTotalRows(rows: UsageJsonRow[]): UsageJsonRow[] {
+  return rows.filter((row) => row.rowType === 'grand_total' && row.periodKey === 'ALL');
+}
+
+const DatabaseSync = loadDatabaseSync();
+
+describe.skipIf(!DatabaseSync)('multi-source usage report e2e', () => {
+  let tempDir: string;
+  let opencodeDbPath: string;
+
+  beforeAll(async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-multi-source-e2e-'));
+    opencodeDbPath = path.join(tempDir, 'opencode.db');
+
+    createOpenCodeFixtureDb(opencodeDbPath, [
+      {
+        id: 'opencode-e2e-message-1',
+        sessionId: 'opencode-e2e-session',
+        timeCreated: Date.parse('2026-06-15T12:00:00.000Z'),
+        data: JSON.stringify({
+          role: 'assistant',
+          providerID: 'openai',
+          modelID: 'gpt-4.1-opencode',
+          tokens: {
+            input: 90,
+            output: 40,
+            reasoning: 0,
+            cache: { read: 10, write: 0 },
+            total: 140,
+          },
+        }),
+      },
+      {
+        id: 'opencode-e2e-message-2',
+        sessionId: 'opencode-e2e-session',
+        timeCreated: Date.parse('2026-06-15T12:05:00.000Z'),
+        data: JSON.stringify({
+          role: 'assistant',
+          providerID: 'openai',
+          modelID: 'gpt-4.1-opencode',
+          tokens: {
+            input: 35,
+            output: 20,
+            reasoning: 0,
+            cache: { read: 5, write: 0 },
+            total: 60,
+          },
+        }),
+      },
+    ]);
+  });
+
+  afterAll(async () => {
+    if (tempDir) {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it('renders a combined monthly report across every source', async () => {
+    const report = await buildUsageReport('monthly', {
+      piDir,
+      codexDir,
+      geminiDir,
+      droidDir,
+      claudeDir,
+      opencodeDb: opencodeDbPath,
+      openclawDir,
+      source: allSources,
+      timezone: 'UTC',
+      json: true,
+    });
+
+    const rows = JSON.parse(report) as UsageJsonRow[];
+    const sourceRows = getPeriodSourceRows(rows);
+    const sourceIds = new Set(sourceRows.map((row) => row.source));
+    const grandTotalRows = getGrandTotalRows(rows);
+
+    for (const sourceId of allSources.split(',')) {
+      expect(sourceIds.has(sourceId)).toBe(true);
+    }
+
+    expect(grandTotalRows).toHaveLength(1);
+    expect(grandTotalRows[0]).toMatchObject({
+      periodKey: 'ALL',
+      rowType: 'grand_total',
+      totalTokens: expectedAllSourceTokens,
+    });
+  });
+
+  it('filters the full adapter set down to selected sources', async () => {
+    const report = await buildUsageReport('monthly', {
+      piDir,
+      codexDir,
+      geminiDir,
+      droidDir,
+      claudeDir,
+      opencodeDb: opencodeDbPath,
+      openclawDir,
+      source: 'gemini,claude',
+      timezone: 'UTC',
+      json: true,
+    });
+
+    const rows = JSON.parse(report) as UsageJsonRow[];
+    const sourceRows = getPeriodSourceRows(rows);
+    const sourceIds = [...new Set(sourceRows.map((row) => row.source))].sort();
+    const grandTotalRows = getGrandTotalRows(rows);
+
+    expect(sourceIds).toEqual(['claude', 'gemini']);
+    expect(grandTotalRows).toHaveLength(1);
+    expect(grandTotalRows[0]?.totalTokens).toBe(expectedGeminiClaudeTokens);
+  });
+});
