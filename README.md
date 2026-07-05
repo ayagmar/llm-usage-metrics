@@ -31,6 +31,7 @@ Aggregate token usage and costs from your local coding agent sessions. Supports 
 - **Efficiency Reports** — Correlate cost/tokens with repository commit outcomes
 - **Optimize Reports** — Counterfactual candidate-model pricing against observed token mix
 - **Trends Reports** — Daily cost or token trend views with combined or per-source output
+- **Doctor Command** — Check source discovery health when reports show no sessions
 - **Multiple Outputs** — Terminal tables, JSON, or Markdown
 - **Smart Filtering** — By source, billing provider, model, and date ranges
 
@@ -116,6 +117,25 @@ llm-usage trends --by-source --json
 ```
 
 Trends is terminal-first and supports `--json`. It does not support `--markdown` or `--share`.
+
+### Doctor
+
+```bash
+# Check source discovery health without parsing sessions
+llm-usage doctor
+
+# JSON for support/debugging pipelines
+llm-usage doctor --json
+```
+
+Doctor prints one line per source and exits 0 even when a source is unhealthy.
+
+```text
+pi        ok     12 file(s)
+opencode  error  OpenCode database is missing or unreadable: /path/to/opencode.db
+
+6/7 sources healthy
+```
 
 ### Efficiency Reports
 
