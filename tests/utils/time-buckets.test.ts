@@ -32,9 +32,7 @@ describe('time bucket helpers', () => {
     expect(getPeriodKey('2026-01-04T23:30:00Z', 'daily', 'UTC')).toBe('2026-01-04');
     expect(getPeriodKey('2026-01-04T23:30:00Z', 'daily', 'Asia/Tokyo')).toBe('2026-01-05');
     expect(getPeriodKey('2026-12-31T23:30:00Z', 'daily', 'UTC')).toBe('2026-12-31');
-    expect(getPeriodKey('2026-12-31T23:30:00Z', 'daily', 'Pacific/Auckland')).toBe(
-      '2027-01-01',
-    );
+    expect(getPeriodKey('2026-12-31T23:30:00Z', 'daily', 'Pacific/Auckland')).toBe('2027-01-01');
   });
 
   it('formats monthly keys as YYYY-MM', () => {
