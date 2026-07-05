@@ -74,13 +74,13 @@ Register the adapter in `src/sources/create-default-adapters.ts`.
 If the source should be selectable from CLI source filtering/help text, ensure its id is included via
 `getDefaultSourceIds()` (same file).
 
-When adding a **directory-backed** source, wire `--source-dir` support and add CLI docs/examples:
+When adding a **directory-backed** source, add a dedicated `--<source>-dir` flag AND wire the generic `--source-dir <source-id=path>` override, then add CLI docs/examples:
 
 ```bash
 llm-usage daily --source-dir <new-source-id>=/path/to/sessions
 ```
 
-For file/DB-backed sources, add a dedicated flag (for example `--opencode-db`) instead of extending `--source-dir`.
+For file/DB-backed sources, add only a dedicated flag (for example `--opencode-db`); `--source-dir` rejects them with an actionable error.
 
 ### 3) Add tests
 

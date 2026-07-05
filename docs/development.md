@@ -232,8 +232,8 @@ Optional but recommended:
 4. Add fixture tests under `tests/sources`
 5. Register adapter in `src/sources/create-default-adapters.ts`
 6. Wire source-specific override semantics:
-   - directory-backed sources use `--source-dir <source-id=path>` (for example `pi`, `codex`, `gemini`, `droid`)
-   - file/DB-backed sources use dedicated flags (for example `--opencode-db`)
+   - directory-backed sources get a dedicated `--<source>-dir` flag AND participate in the generic `--source-dir <source-id=path>` override
+   - file/DB-backed sources get only a dedicated flag (for example `--opencode-db`) and are rejected by `--source-dir` with an actionable error
 7. Verify CLI filtering with `--source <name>`
 
 Keep parsing logic isolated to the adapter. Do not spread source-specific assumptions across aggregation or rendering.

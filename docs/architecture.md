@@ -124,6 +124,8 @@ That keeps sorting and separator behavior deterministic without coupling the gen
   Canonical report metadata and option profiles
 - `src/cli/report-runtime`
   Shared report execution lifecycle
+- `src/config`
+  Runtime override/env-var resolution
 - `src/sources`
   Source adapters, discovery, parsing
 - `src/domain`
@@ -142,6 +144,8 @@ That keeps sorting and separator behavior deterministic without coupling the gen
   Terminal/JSON/Markdown/share rendering
 - `src/update`
   Startup update check
+- `src/utils`
+  Shared fs/discovery/time/logging helpers
 
 ## Core invariants
 
