@@ -10,13 +10,13 @@ description: CLI options, source path overrides, and runtime environment variabl
 Directory-backed sources:
 
 ```bash
-llm-usage daily --pi-dir /path/to/pi --codex-dir /path/to/codex --gemini-dir /path/to/.gemini --droid-dir /path/to/.factory/sessions --claude-dir /path/to/.claude/projects --copilot-dir /path/to/.copilot/otel
+llm-usage daily --pi-dir /path/to/pi --codex-dir /path/to/codex --gemini-dir /path/to/.gemini --droid-dir /path/to/.factory/sessions --claude-dir /path/to/.claude/projects --copilot-dir /path/to/.copilot/otel --amp-dir /path/to/amp/threads
 ```
 
 Generic directory override syntax:
 
 ```bash
-llm-usage daily --source-dir pi=/path/to/pi --source-dir codex=/path/to/codex --source-dir gemini=/path/to/.gemini --source-dir droid=/path/to/.factory/sessions --source-dir openclaw=/path/to/.openclaw/agents --source-dir claude=/path/to/.claude/projects --source-dir copilot=/path/to/.copilot/otel
+llm-usage daily --source-dir pi=/path/to/pi --source-dir codex=/path/to/codex --source-dir gemini=/path/to/.gemini --source-dir droid=/path/to/.factory/sessions --source-dir openclaw=/path/to/.openclaw/agents --source-dir claude=/path/to/.claude/projects --source-dir copilot=/path/to/.copilot/otel --source-dir amp=/path/to/amp/threads
 ```
 
 OpenCode and Goose use dedicated DB override flags:
@@ -28,7 +28,7 @@ llm-usage daily --goose-db /path/to/goose/sessions.db
 
 Notes:
 
-- `--source-dir` supports directory-backed sources (`pi`, `codex`, `gemini`, `droid`, `openclaw`, `claude`, `copilot`).
+- `--source-dir` supports directory-backed sources (`pi`, `codex`, `gemini`, `droid`, `openclaw`, `claude`, `copilot`, `amp`).
 - `--source-dir opencode=...` is rejected; use `--opencode-db`.
 - `--source-dir goose=...` is rejected; use `--goose-db`.
 - OpenCode path precedence is:
@@ -50,6 +50,7 @@ llm-usage monthly --source openclaw --source-dir openclaw=/path/to/.openclaw/age
 llm-usage monthly --source claude --claude-dir /path/to/.claude/projects
 llm-usage monthly --source copilot --copilot-dir /path/to/.copilot/otel
 llm-usage monthly --source goose --goose-db /path/to/goose/sessions.db
+llm-usage monthly --source amp --amp-dir /path/to/amp/threads
 ```
 
 ## Runtime environment variables

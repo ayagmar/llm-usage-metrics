@@ -28,6 +28,7 @@ npx --yes llm-usage-metrics@latest daily
   - Claude Code projects (`~/.claude/projects/**/*.jsonl`)
   - GitHub Copilot CLI OTEL exports (`~/.copilot/otel/*.jsonl`)
   - Goose SQLite DB (`~/.local/share/goose/sessions/sessions.db`)
+  - Amp thread files (`~/.local/share/amp/threads/*.json`)
 
 ## First report
 
@@ -46,7 +47,7 @@ llm-usage trends --metric tokens --days 14
 ## Common filters
 
 ```bash
-llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude,copilot,goose
+llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude,copilot,goose,amp
 llm-usage monthly --provider openai
 llm-usage monthly --model claude
 ```
@@ -115,4 +116,10 @@ llm-usage monthly --source copilot --copilot-dir /path/to/.copilot/otel
 
 ```bash
 llm-usage monthly --source goose --goose-db /path/to/goose/sessions.db
+```
+
+## Amp explicit path
+
+```bash
+llm-usage monthly --source amp --amp-dir /path/to/amp/threads
 ```
