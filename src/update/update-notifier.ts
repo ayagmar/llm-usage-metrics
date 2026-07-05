@@ -4,13 +4,6 @@ import {
   resolveLatestVersion,
   type ResolveLatestVersionOptions,
 } from './update-cache-repository.js';
-import {
-  isInteractiveSession,
-  runInteractiveInstallAndRestart,
-  type CommandRunner,
-  type ConfirmInstall,
-  type Notify,
-} from './update-install-runner.js';
 import { shouldOfferUpdate } from './version-utils.js';
 
 export {
@@ -31,18 +24,6 @@ export {
   shouldOfferUpdate,
   type ParsedVersion,
 } from './version-utils.js';
-export {
-  defaultConfirmInstall,
-  defaultNotify,
-  isInteractiveSession,
-  runCommandWithSpawn,
-  runInteractiveInstallAndRestart,
-  type CommandRunner,
-  type ConfirmInstall,
-  type Notify,
-  type RunInteractiveInstallAndRestartOptions,
-  type UpdateInstallRestartResult,
-} from './update-install-runner.js';
 
 export const UPDATE_CHECK_SKIP_ENV_VAR = 'LLM_USAGE_SKIP_UPDATE_CHECK';
 
@@ -56,17 +37,6 @@ export type UpdateNotifierOptions = {
   now?: () => number;
   env?: NodeJS.ProcessEnv;
   argv?: string[];
-  execPath?: string;
-  stdinIsTTY?: boolean;
-  stdoutIsTTY?: boolean;
-  confirmInstall?: ConfirmInstall;
-  runCommand?: CommandRunner;
-  notify?: Notify;
-};
-
-export type UpdateNotifierResult = {
-  continueExecution: boolean;
-  exitCode?: number;
 };
 
 function isTruthyEnvFlag(value: string | undefined): boolean {
@@ -148,63 +118,40 @@ function toResolveLatestVersionOptions(
   };
 }
 
-export async function checkForUpdatesAndMaybeRestart(
-  options: UpdateNotifierOptions,
-): Promise<UpdateNotifierResult> {
+export async function checkForUpdates(options: UpdateNotifierOptions): Promise<string | undefined> {
   const env = options.env ?? process.env;
   const argv = options.argv ?? process.argv;
 
   if (isTruthyEnvFlag(env[UPDATE_CHECK_SKIP_ENV_VAR])) {
-    return { continueExecution: true };
+    return undefined;
   }
 
   if (shouldSkipUpdateCheckForArgv(argv)) {
-    return { continueExecution: true };
+    return undefined;
   }
 
   if (isLikelyNpxExecution(argv, env)) {
-    return { continueExecution: true };
+    return undefined;
   }
 
   if (isLikelySourceExecution(argv)) {
-    return { continueExecution: true };
+    return undefined;
   }
 
   try {
     // resolveLatestVersion serves a fresh cache hit without any network call,
     // and only performs a bounded fetch (fetchTimeoutMs, default 1s) when the
     // cache is missing or stale. Doing this on every run keeps the update
-    // prompt consistent across commands: a stale cache no longer silently
-    // skips the prompt for the run that triggers the refresh.
+    // hint consistent across commands: a stale cache no longer silently
+    // skips the hint for the run that triggers the refresh.
     const latestVersion = await resolveLatestVersion(toResolveLatestVersionOptions(options, env));
 
     if (!latestVersion || !shouldOfferUpdate(options.currentVersion, latestVersion)) {
-      return { continueExecution: true };
+      return undefined;
     }
 
-    const updateMessage = `Update available for ${options.packageName}: ${options.currentVersion} → ${latestVersion}.`;
-    const stdinIsTTY = options.stdinIsTTY ?? process.stdin.isTTY;
-    const stdoutIsTTY = options.stdoutIsTTY ?? process.stdout.isTTY;
-
-    if (!isInteractiveSession({ env, stdinIsTTY, stdoutIsTTY })) {
-      (options.notify ?? console.error)(
-        `${updateMessage} Run "npm install -g ${options.packageName}@latest" to update.`,
-      );
-      return { continueExecution: true };
-    }
-
-    return await runInteractiveInstallAndRestart({
-      packageName: options.packageName,
-      updateMessage,
-      env,
-      argv,
-      execPath: options.execPath,
-      skipUpdateCheckEnvVar: UPDATE_CHECK_SKIP_ENV_VAR,
-      confirmInstall: options.confirmInstall,
-      runCommand: options.runCommand,
-      notify: options.notify,
-    });
+    return `Update available for ${options.packageName}: ${options.currentVersion} → ${latestVersion}. Run "npm install -g ${options.packageName}@latest" to update.`;
   } catch {
-    return { continueExecution: true };
+    return undefined;
   }
 }

@@ -5,7 +5,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
-  checkForUpdatesAndMaybeRestart,
+  checkForUpdates,
   compareVersions,
   getSessionScopedCachePath,
   isCacheFresh,
@@ -14,7 +14,6 @@ import {
   resolveLatestVersion,
   shouldOfferUpdate,
   shouldSkipUpdateCheckForArgv,
-  type CommandRunner,
 } from '../../src/update/update-notifier.js';
 
 const tempDirs: string[] = [];
@@ -279,20 +278,17 @@ describe('update-notifier', () => {
     const fetchSpy = vi.fn(async () => {
       throw new Error('fetch should not be called for npx execution');
     });
-    const notify = vi.fn();
 
-    const result = await checkForUpdatesAndMaybeRestart({
+    const result = await checkForUpdates({
       packageName: 'llm-usage-metrics',
       currentVersion: '0.1.0',
       argv: ['/usr/bin/node', '/tmp/_npx/123/node_modules/llm-usage/dist/index.js', 'daily'],
       env: {},
       fetchImpl: fetchSpy,
-      notify,
     });
 
-    expect(result).toEqual({ continueExecution: true });
+    expect(result).toBeUndefined();
     expect(fetchSpy).not.toHaveBeenCalled();
-    expect(notify).not.toHaveBeenCalled();
   });
 
   it('detects npx execution from npm_execpath hints', () => {
@@ -326,20 +322,17 @@ describe('update-notifier', () => {
     const fetchSpy = vi.fn(async () => {
       throw new Error('fetch should not be called for local source execution');
     });
-    const notify = vi.fn();
 
-    const result = await checkForUpdatesAndMaybeRestart({
+    const result = await checkForUpdates({
       packageName: 'llm-usage-metrics',
       currentVersion: '0.1.11',
       argv: ['/usr/bin/pnpm', '/app/src/cli/index.ts', 'monthly'],
       env: {},
       fetchImpl: fetchSpy,
-      notify,
     });
 
-    expect(result).toEqual({ continueExecution: true });
+    expect(result).toBeUndefined();
     expect(fetchSpy).not.toHaveBeenCalled();
-    expect(notify).not.toHaveBeenCalled();
   });
 
   it('skips update checks for help/version invocations', async () => {
@@ -347,15 +340,14 @@ describe('update-notifier', () => {
       throw new Error('fetch should not be called when check is skipped');
     });
 
-    const result = await checkForUpdatesAndMaybeRestart({
+    const result = await checkForUpdates({
       packageName: 'llm-usage-metrics',
       currentVersion: '0.1.0',
       argv: ['/usr/bin/node', '/app/dist/index.js', '--help'],
       fetchImpl: fetchSpy,
-      notify: vi.fn(),
     });
 
-    expect(result).toEqual({ continueExecution: true });
+    expect(result).toBeUndefined();
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
@@ -364,17 +356,16 @@ describe('update-notifier', () => {
       throw new Error('fetch should not be called when env skip flag is set');
     });
 
-    const result = await checkForUpdatesAndMaybeRestart({
+    const result = await checkForUpdates({
       packageName: 'llm-usage-metrics',
       currentVersion: '0.1.0',
       env: {
         LLM_USAGE_SKIP_UPDATE_CHECK: '1',
       },
       fetchImpl: fetchSpy,
-      notify: vi.fn(),
     });
 
-    expect(result).toEqual({ continueExecution: true });
+    expect(result).toBeUndefined();
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
@@ -383,45 +374,39 @@ describe('update-notifier', () => {
       throw new Error('fetch should not be called when env skip flag is set');
     });
 
-    const result = await checkForUpdatesAndMaybeRestart({
+    const result = await checkForUpdates({
       packageName: 'llm-usage-metrics',
       currentVersion: '0.1.0',
       env: {
         LLM_USAGE_SKIP_UPDATE_CHECK: 'true',
       },
       fetchImpl: fetchSpy,
-      notify: vi.fn(),
     });
 
-    expect(result).toEqual({ continueExecution: true });
+    expect(result).toBeUndefined();
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it('continues without notifying when the latest version is not newer', async () => {
+  it('returns undefined when the latest version is not newer', async () => {
     const cacheFilePath = await createTempCachePath('update-non-newer-');
-    const notify = vi.fn();
 
-    const result = await checkForUpdatesAndMaybeRestart({
+    const result = await checkForUpdates({
       packageName: 'llm-usage-metrics',
       currentVersion: '0.2.0',
       cacheFilePath,
       fetchImpl: vi.fn(
         async () => new Response(JSON.stringify({ version: '0.2.0' }), { status: 200 }),
       ),
-      stdinIsTTY: false,
-      stdoutIsTTY: false,
       env: {},
-      notify,
+      argv: ['/usr/bin/node', '/app/dist/index.js', 'daily'],
     });
 
-    expect(result).toEqual({ continueExecution: true });
-    expect(notify).not.toHaveBeenCalled();
+    expect(result).toBeUndefined();
   });
 
-  it('uses a fresh cached update immediately without fetching', async () => {
+  it('returns the hint from a fresh cached update without fetching', async () => {
     const cacheFilePath = await createTempCachePath('update-fresh-cache-hit-');
     const nowValue = 7_000_000;
-    const notify = vi.fn();
     const fetchSpy = vi.fn(async () => {
       throw new Error('fetch should not be called for fresh cache');
     });
@@ -435,54 +420,47 @@ describe('update-notifier', () => {
       'utf8',
     );
 
-    const result = await checkForUpdatesAndMaybeRestart({
+    const result = await checkForUpdates({
       packageName: 'llm-usage-metrics',
       currentVersion: '0.1.0',
       cacheFilePath,
       cacheTtlMs: 5_000,
       now: () => nowValue,
       fetchImpl: fetchSpy,
-      stdinIsTTY: false,
-      stdoutIsTTY: false,
       env: { PATH: '/usr/bin' },
       argv: ['/usr/bin/node', '/app/dist/index.js', 'daily'],
-      notify,
     });
 
-    expect(result).toEqual({ continueExecution: true });
-    expect(notify).toHaveBeenCalledOnce();
+    expect(result).toBe(
+      'Update available for llm-usage-metrics: 0.1.0 → 0.2.0. Run "npm install -g llm-usage-metrics@latest" to update.',
+    );
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it('notifies from a missing cache by fetching the latest version', async () => {
+  it('returns the hint from a missing cache by fetching the latest version', async () => {
     const cacheFilePath = await createTempCachePath('update-missing-cache-fetch-');
-    const notify = vi.fn();
     const fetchSpy = vi.fn(
       async () => new Response(JSON.stringify({ version: '0.2.0' }), { status: 200 }),
     );
 
-    const result = await checkForUpdatesAndMaybeRestart({
+    const result = await checkForUpdates({
       packageName: 'llm-usage-metrics',
       currentVersion: '0.1.0',
       cacheFilePath,
       fetchImpl: fetchSpy,
-      stdinIsTTY: false,
-      stdoutIsTTY: false,
       env: { PATH: '/usr/bin' },
       argv: ['/usr/bin/node', '/app/dist/index.js', 'daily', '--json'],
-      notify,
     });
 
-    expect(result).toEqual({ continueExecution: true });
+    expect(result).toBe(
+      'Update available for llm-usage-metrics: 0.1.0 → 0.2.0. Run "npm install -g llm-usage-metrics@latest" to update.',
+    );
     expect(fetchSpy).toHaveBeenCalledOnce();
-    expect(notify).toHaveBeenCalledOnce();
-    expect(notify).toHaveBeenCalledWith(expect.stringContaining('0.1.0 → 0.2.0'));
   });
 
-  it('notifies from a stale cache by refreshing the latest version', async () => {
+  it('returns the hint from a stale cache by refreshing the latest version', async () => {
     const cacheFilePath = await createTempCachePath('update-stale-refresh-');
     const nowValue = 8_000_000;
-    const notify = vi.fn();
     const fetchSpy = vi.fn(
       async () => new Response(JSON.stringify({ version: '0.3.0' }), { status: 200 }),
     );
@@ -496,27 +474,24 @@ describe('update-notifier', () => {
       'utf8',
     );
 
-    const result = await checkForUpdatesAndMaybeRestart({
+    const result = await checkForUpdates({
       packageName: 'llm-usage-metrics',
       currentVersion: '0.1.0',
       cacheFilePath,
       cacheTtlMs: 1_000,
       now: () => nowValue,
       fetchImpl: fetchSpy,
-      stdinIsTTY: false,
-      stdoutIsTTY: false,
       env: { PATH: '/usr/bin' },
       argv: ['/usr/bin/node', '/app/dist/index.js', 'daily'],
-      notify,
     });
 
-    expect(result).toEqual({ continueExecution: true });
+    expect(result).toBe(
+      'Update available for llm-usage-metrics: 0.1.0 → 0.3.0. Run "npm install -g llm-usage-metrics@latest" to update.',
+    );
     expect(fetchSpy).toHaveBeenCalledOnce();
-    expect(notify).toHaveBeenCalledOnce();
-    expect(notify).toHaveBeenCalledWith(expect.stringContaining('0.1.0 → 0.3.0'));
   });
 
-  it('returns early when fresh cached version does not offer an update', async () => {
+  it('returns undefined when fresh cached version does not offer an update', async () => {
     const cacheFilePath = await createTempCachePath('update-fresh-no-offer-');
 
     await writeFile(
@@ -528,27 +503,40 @@ describe('update-notifier', () => {
       'utf8',
     );
 
-    const notify = vi.fn();
-
-    const result = await checkForUpdatesAndMaybeRestart({
+    const result = await checkForUpdates({
       packageName: 'llm-usage-metrics',
       currentVersion: '0.1.0',
       cacheFilePath,
       cacheTtlMs: 5_000,
       now: () => 2_000,
-      stdinIsTTY: false,
-      stdoutIsTTY: false,
       env: { PATH: '/usr/bin' },
       argv: ['/usr/bin/node', '/app/dist/index.js', 'daily'],
-      notify,
     });
 
-    expect(result).toEqual({ continueExecution: true });
-    expect(notify).not.toHaveBeenCalled();
+    expect(result).toBeUndefined();
   });
 
-  it('swallows unexpected notifier errors and continues execution', async () => {
-    const result = await checkForUpdatesAndMaybeRestart({
+  it('returns undefined when the version resolve fails and no cache exists', async () => {
+    const cacheFilePath = await createTempCachePath('update-resolve-failure-');
+    const fetchSpy = vi.fn(async () => {
+      throw new Error('registry down');
+    });
+
+    const result = await checkForUpdates({
+      packageName: 'llm-usage-metrics',
+      currentVersion: '0.1.0',
+      cacheFilePath,
+      fetchImpl: fetchSpy,
+      env: { PATH: '/usr/bin' },
+      argv: ['/usr/bin/node', '/app/dist/index.js', 'daily'],
+    });
+
+    expect(result).toBeUndefined();
+    expect(fetchSpy).toHaveBeenCalled();
+  });
+
+  it('swallows unexpected notifier errors and returns undefined', async () => {
+    const result = await checkForUpdates({
       packageName: 'llm-usage-metrics',
       currentVersion: '0.1.0',
       now: () => {
@@ -558,191 +546,9 @@ describe('update-notifier', () => {
         async () => new Response(JSON.stringify({ version: '0.2.0' }), { status: 200 }),
       ),
       env: {},
-      notify: vi.fn(),
+      argv: ['/usr/bin/node', '/app/dist/index.js', 'daily'],
     });
 
-    expect(result).toEqual({ continueExecution: true });
-  });
-
-  it('prompts in interactive mode and respects the no-install branch', async () => {
-    const cacheFilePath = await createTempCachePath('update-prompt-no-');
-    const confirmInstall = vi.fn(async () => false);
-    const runCommand = vi.fn<CommandRunner>();
-    const nowValue = 9_000_000;
-
-    await writeFile(
-      cacheFilePath,
-      JSON.stringify({
-        checkedAt: nowValue - 100,
-        latestVersion: '0.2.0',
-      }),
-      'utf8',
-    );
-
-    const result = await checkForUpdatesAndMaybeRestart({
-      packageName: 'llm-usage-metrics',
-      currentVersion: '0.1.0',
-      cacheFilePath,
-      cacheTtlMs: 5_000,
-      now: () => nowValue,
-      fetchImpl: vi.fn(async () => {
-        throw new Error('fetch should not be called for fresh cache');
-      }),
-      stdinIsTTY: true,
-      stdoutIsTTY: true,
-      env: {},
-      confirmInstall,
-      runCommand,
-    });
-
-    expect(result).toEqual({ continueExecution: true });
-    expect(confirmInstall).toHaveBeenCalledOnce();
-    expect(runCommand).not.toHaveBeenCalled();
-  });
-
-  it('stops restart flow when install command fails', async () => {
-    const cacheFilePath = await createTempCachePath('update-install-fail-');
-    const confirmInstall = vi.fn(async () => true);
-    const notify = vi.fn();
-    const runCommand = vi.fn<CommandRunner>().mockResolvedValueOnce(1);
-    const nowValue = 10_000_000;
-
-    await writeFile(
-      cacheFilePath,
-      JSON.stringify({
-        checkedAt: nowValue - 100,
-        latestVersion: '0.2.0',
-      }),
-      'utf8',
-    );
-
-    const result = await checkForUpdatesAndMaybeRestart({
-      packageName: 'llm-usage-metrics',
-      currentVersion: '0.1.0',
-      cacheFilePath,
-      cacheTtlMs: 5_000,
-      now: () => nowValue,
-      fetchImpl: vi.fn(async () => {
-        throw new Error('fetch should not be called for fresh cache');
-      }),
-      stdinIsTTY: true,
-      stdoutIsTTY: true,
-      env: {},
-      confirmInstall,
-      runCommand,
-      notify,
-    });
-
-    expect(result).toEqual({ continueExecution: true });
-    expect(runCommand).toHaveBeenCalledTimes(1);
-    expect(notify).toHaveBeenCalledWith(
-      expect.stringContaining('Failed to install llm-usage-metrics@latest'),
-    );
-  });
-
-  it('restarts with original argv and skip-update env flag after successful install', async () => {
-    const cacheFilePath = await createTempCachePath('update-restart-');
-    const confirmInstall = vi.fn(async () => true);
-    const nowValue = 11_000_000;
-    const commandCalls: Array<{
-      command: string;
-      args: string[];
-      options?: { env?: NodeJS.ProcessEnv; stdio?: 'inherit' };
-    }> = [];
-
-    await writeFile(
-      cacheFilePath,
-      JSON.stringify({
-        checkedAt: nowValue - 100,
-        latestVersion: '0.2.0',
-      }),
-      'utf8',
-    );
-
-    const runCommand: CommandRunner = async (command, args, commandOptions) => {
-      commandCalls.push({
-        command,
-        args,
-        options: commandOptions,
-      });
-
-      return commandCalls.length === 1 ? 0 : 23;
-    };
-
-    const result = await checkForUpdatesAndMaybeRestart({
-      packageName: 'llm-usage-metrics',
-      currentVersion: '0.1.0',
-      cacheFilePath,
-      cacheTtlMs: 5_000,
-      now: () => nowValue,
-      fetchImpl: vi.fn(async () => {
-        throw new Error('fetch should not be called for fresh cache');
-      }),
-      stdinIsTTY: true,
-      stdoutIsTTY: true,
-      env: { PATH: '/usr/bin' },
-      argv: ['/usr/bin/node', '/app/dist/index.js', 'daily', '--json'],
-      execPath: '/usr/bin/node',
-      confirmInstall,
-      runCommand,
-    });
-
-    expect(result).toEqual({ continueExecution: false, exitCode: 23 });
-
-    expect(commandCalls).toHaveLength(2);
-
-    const installCall = commandCalls[0];
-    expect(installCall.command).toMatch(/npm(?:\.cmd)?$/u);
-    expect(installCall.args).toEqual(['install', '-g', 'llm-usage-metrics@latest']);
-
-    const restartCall = commandCalls[1];
-    expect(restartCall.command).toBe('/usr/bin/node');
-    expect(restartCall.args).toEqual(['/app/dist/index.js', 'daily', '--json']);
-    expect(restartCall.options?.stdio).toBe('inherit');
-    expect(restartCall.options?.env?.PATH).toBe('/usr/bin');
-    expect(restartCall.options?.env?.LLM_USAGE_SKIP_UPDATE_CHECK).toBe('1');
-  });
-
-  it('does not prompt in non-interactive mode and only prints notice', async () => {
-    const cacheFilePath = await createTempCachePath('update-non-interactive-');
-    const confirmInstall = vi.fn(async () => true);
-    const notify = vi.fn();
-    let runCommandCalled = false;
-    const nowValue = 12_000_000;
-    const runCommand: CommandRunner = async () => {
-      runCommandCalled = true;
-      return 0;
-    };
-
-    await writeFile(
-      cacheFilePath,
-      JSON.stringify({
-        checkedAt: nowValue - 100,
-        latestVersion: '0.2.0',
-      }),
-      'utf8',
-    );
-
-    const result = await checkForUpdatesAndMaybeRestart({
-      packageName: 'llm-usage-metrics',
-      currentVersion: '0.1.0',
-      cacheFilePath,
-      cacheTtlMs: 5_000,
-      now: () => nowValue,
-      fetchImpl: vi.fn(async () => {
-        throw new Error('fetch should not be called for fresh cache');
-      }),
-      stdinIsTTY: false,
-      stdoutIsTTY: false,
-      env: {},
-      confirmInstall,
-      runCommand,
-      notify,
-    });
-
-    expect(result).toEqual({ continueExecution: true });
-    expect(confirmInstall).not.toHaveBeenCalled();
-    expect(runCommandCalled).toBe(false);
-    expect(notify).toHaveBeenCalledOnce();
+    expect(result).toBeUndefined();
   });
 });
