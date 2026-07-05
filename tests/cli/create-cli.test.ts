@@ -48,6 +48,7 @@ describe('createCli', () => {
         true,
       );
       expect(command.options.some((option) => option.long === '--opencode-db')).toBe(true);
+      expect(command.options.some((option) => option.long === '--copilot-dir')).toBe(true);
       expect(command.options.some((option) => option.long === '--gemini-dir')).toBe(true);
       expect(command.options.some((option) => option.long === '--droid-dir')).toBe(true);
       expect(command.options.some((option) => option.long === '--claude-dir')).toBe(true);
@@ -117,6 +118,7 @@ describe('createCli', () => {
     expect(doctorCommand?.options.some((option) => option.long === '--source')).toBe(true);
     expect(doctorCommand?.options.some((option) => option.long === '--source-dir')).toBe(true);
     expect(doctorCommand?.options.some((option) => option.long === '--pi-dir')).toBe(true);
+    expect(doctorCommand?.options.some((option) => option.long === '--copilot-dir')).toBe(true);
     expect(doctorCommand?.options.some((option) => option.long === '--openclaw-dir')).toBe(true);
     expect(doctorCommand?.options.some((option) => option.long === '--opencode-db')).toBe(true);
     expect(doctorCommand?.options.some((option) => option.long === '--markdown')).toBe(false);
@@ -167,7 +169,7 @@ describe('createCli', () => {
     const compactDailyCommandHelp = dailyCommandHelp?.replace(/\s+/gu, ' ');
 
     expect(compactHelp).toContain(
-      'Supported sources (7): pi, codex, gemini, droid, opencode, openclaw, claude',
+      'Supported sources (8): pi, codex, gemini, droid, opencode, openclaw, claude, copilot',
     );
     expect(compactHelp).toContain('Show daily usage report');
     expect(compactHelp).toContain('llm-usage <command> --help');

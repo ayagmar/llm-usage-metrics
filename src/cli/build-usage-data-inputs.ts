@@ -174,6 +174,10 @@ export function resolveExplicitSourceIds(
     explicitSourceIds.add('codex');
   }
 
+  if (options.copilotDir) {
+    explicitSourceIds.add('copilot');
+  }
+
   if (options.geminiDir) {
     explicitSourceIds.add('gemini');
   }

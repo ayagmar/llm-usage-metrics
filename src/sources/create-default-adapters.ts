@@ -1,5 +1,6 @@
 import { ClaudeSourceAdapter } from './claude/claude-source-adapter.js';
 import { CodexSourceAdapter } from './codex/codex-source-adapter.js';
+import { CopilotSourceAdapter } from './copilot/copilot-source-adapter.js';
 import { DroidSourceAdapter } from './droid/droid-source-adapter.js';
 import { GeminiSourceAdapter } from './gemini/gemini-source-adapter.js';
 import { OpenCodeSourceAdapter } from './opencode/opencode-source-adapter.js';
@@ -21,6 +22,7 @@ type SourceRegistration = {
 export type CreateDefaultAdaptersOptions = {
   piDir?: string;
   codexDir?: string;
+  copilotDir?: string;
   geminiDir?: string;
   droidDir?: string;
   claudeDir?: string;
@@ -130,6 +132,22 @@ const sourceRegistrations: readonly SourceRegistration[] = [
       });
     },
   },
+  {
+    id: 'copilot',
+    sourceDirOverride: { kind: 'directory' },
+    create: (options, sourceDirectoryOverrides) => {
+      const directoryConfig = resolveDirectoryConfig(
+        'copilot',
+        options.copilotDir,
+        sourceDirectoryOverrides,
+      );
+
+      return new CopilotSourceAdapter({
+        otelDir: directoryConfig.path,
+        requireOtelDir: directoryConfig.requireExistingPath,
+      });
+    },
+  },
 ];
 
 const sourceDirUnsupportedFlags = new Map(
@@ -196,6 +214,7 @@ function validateDirectoryOverride(
   optionName:
     | '--pi-dir'
     | '--codex-dir'
+    | '--copilot-dir'
     | '--gemini-dir'
     | '--droid-dir'
     | '--claude-dir'
@@ -249,6 +268,7 @@ export function createDefaultAdapters(options: CreateDefaultAdaptersOptions): So
   validateOpencodeOverride(options.opencodeDb);
   validateDirectoryOverride('--pi-dir', options.piDir);
   validateDirectoryOverride('--codex-dir', options.codexDir);
+  validateDirectoryOverride('--copilot-dir', options.copilotDir);
   validateDirectoryOverride('--gemini-dir', options.geminiDir);
   validateDirectoryOverride('--droid-dir', options.droidDir);
   validateDirectoryOverride('--claude-dir', options.claudeDir);

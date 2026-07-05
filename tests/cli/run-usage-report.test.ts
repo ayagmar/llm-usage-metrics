@@ -416,7 +416,7 @@ describe('buildUsageReport', () => {
         source: 'unknown-source',
       }),
     ).rejects.toThrow(
-      'Unknown --source value(s): unknown-source. Allowed values: claude, codex, droid, gemini, openclaw, opencode, pi',
+      'Unknown --source value(s): unknown-source. Allowed values: claude, codex, copilot, droid, gemini, openclaw, opencode, pi',
     );
 
     await expect(

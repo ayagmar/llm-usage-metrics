@@ -73,6 +73,7 @@ export function registerSharedReportOptions(
   const configuredCommand = command
     .option('--pi-dir <path>', 'Path to .pi sessions directory')
     .option('--codex-dir <path>', 'Path to .codex sessions directory')
+    .option('--copilot-dir <path>', 'Path to GitHub Copilot OTEL directory')
     .option('--gemini-dir <path>', 'Path to .gemini directory')
     .option('--droid-dir <path>', 'Path to Droid sessions directory')
     .option('--claude-dir <path>', 'Path to Claude projects directory')

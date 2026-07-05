@@ -25,6 +25,7 @@ async function createDoctorFixtureOptions(): Promise<DoctorCommandOptions> {
 
   const piDir = path.join(rootDir, 'pi');
   const codexDir = path.join(rootDir, 'codex');
+  const copilotDir = path.join(rootDir, 'copilot');
   const geminiDir = path.join(rootDir, 'gemini');
   const droidDir = path.join(rootDir, 'droid');
   const claudeDir = path.join(rootDir, 'claude');
@@ -35,11 +36,13 @@ async function createDoctorFixtureOptions(): Promise<DoctorCommandOptions> {
   await mkdir(path.join(claudeDir, 'project'), { recursive: true });
   await mkdir(piDir, { recursive: true });
   await mkdir(codexDir, { recursive: true });
+  await mkdir(copilotDir, { recursive: true });
   await mkdir(droidDir, { recursive: true });
   await mkdir(openclawDir, { recursive: true });
 
   await writeFile(path.join(piDir, 'session.jsonl'), '{}\n', 'utf8');
   await writeFile(path.join(codexDir, 'session.jsonl'), '{}\n', 'utf8');
+  await writeFile(path.join(copilotDir, 'otel.jsonl'), '{}\n', 'utf8');
   await writeFile(path.join(geminiDir, 'tmp', 'project', 'chats', 'session.json'), '{}', 'utf8');
   await writeFile(path.join(droidDir, 'session.settings.json'), '{}', 'utf8');
   await writeFile(path.join(claudeDir, 'project', 'session.jsonl'), '{}\n', 'utf8');
@@ -49,6 +52,7 @@ async function createDoctorFixtureOptions(): Promise<DoctorCommandOptions> {
   return {
     piDir,
     codexDir,
+    copilotDir,
     geminiDir,
     droidDir,
     claudeDir,
@@ -93,6 +97,7 @@ describe('run-doctor-report', () => {
       { id: 'opencode', status: 'ok', itemsFound: 1 },
       { id: 'openclaw', status: 'ok', itemsFound: 1 },
       { id: 'claude', status: 'ok', itemsFound: 1 },
+      { id: 'copilot', status: 'ok', itemsFound: 1 },
     ]);
   });
 
@@ -165,7 +170,7 @@ describe('run-doctor-report', () => {
     expect(stdout.getOutput()).toContain('claude');
     expect(stdout.getOutput()).toContain('error');
     expect(stdout.getOutput()).toContain(missingClaudeDir);
-    expect(stdout.getOutput()).toContain('6/7 sources healthy');
+    expect(stdout.getOutput()).toContain('7/8 sources healthy');
   });
 
   it('prints JSON output to stdout', async () => {

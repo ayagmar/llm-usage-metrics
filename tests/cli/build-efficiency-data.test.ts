@@ -398,6 +398,7 @@ describe('buildEfficiencyData', () => {
       {
         geminiDir: '/tmp/.gemini',
         droidDir: '/tmp/droid-sessions',
+        copilotDir: '/tmp/.copilot/otel',
         claudeDir: '/tmp/.claude/projects',
         openclawDir: '/tmp/.openclaw/agents',
       },
@@ -426,6 +427,7 @@ describe('buildEfficiencyData', () => {
 
     expect(result.diagnostics.scopeNote).toContain('--gemini-dir');
     expect(result.diagnostics.scopeNote).toContain('--droid-dir');
+    expect(result.diagnostics.scopeNote).toContain('--copilot-dir');
     expect(result.diagnostics.scopeNote).toContain('--claude-dir');
     expect(result.diagnostics.scopeNote).toContain('--openclaw-dir');
   });

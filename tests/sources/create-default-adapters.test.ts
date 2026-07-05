@@ -25,6 +25,7 @@ describe('createDefaultAdapters', () => {
       'opencode',
       'openclaw',
       'claude',
+      'copilot',
     ]);
   });
 
@@ -49,6 +50,9 @@ describe('createDefaultAdapters', () => {
     const claudeTempDir = await mkdtemp(
       path.join(os.tmpdir(), 'usage-adapters-claude-source-dir-'),
     );
+    const copilotTempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'usage-adapters-copilot-source-dir-'),
+    );
     const openclawTempDir = await mkdtemp(
       path.join(os.tmpdir(), 'usage-adapters-openclaw-source-dir-'),
     );
@@ -58,6 +62,7 @@ describe('createDefaultAdapters', () => {
       geminiTempDir,
       droidTempDir,
       claudeTempDir,
+      copilotTempDir,
       openclawTempDir,
     );
 
@@ -68,6 +73,7 @@ describe('createDefaultAdapters', () => {
     const geminiFile = path.join(geminiChatsDir, 'session.json');
     const droidFile = path.join(droidTempDir, 'droid-session.settings.json');
     const claudeFile = path.join(claudeTempDir, 'claude-session.jsonl');
+    const copilotFile = path.join(copilotTempDir, 'copilot-session.jsonl');
     const openclawFile = path.join(openclawTempDir, 'openclaw-session.jsonl');
 
     await writeFile(piFile, '{}\n', 'utf8');
@@ -75,6 +81,7 @@ describe('createDefaultAdapters', () => {
     await writeFile(geminiFile, '{}', 'utf8');
     await writeFile(droidFile, '{}', 'utf8');
     await writeFile(claudeFile, '{}\n', 'utf8');
+    await writeFile(copilotFile, '{}\n', 'utf8');
     await writeFile(openclawFile, '{}\n', 'utf8');
 
     const adapters = createDefaultAdapters({
@@ -84,6 +91,7 @@ describe('createDefaultAdapters', () => {
         `gemini=${geminiTempDir}`,
         `droid=${droidTempDir}`,
         `claude=${claudeTempDir}`,
+        `copilot=${copilotTempDir}`,
         `openclaw=${openclawTempDir}`,
       ],
     });
@@ -94,6 +102,7 @@ describe('createDefaultAdapters', () => {
     await expect(adapters[3].discoverFiles()).resolves.toEqual([await realpath(droidFile)]);
     await expect(adapters[5].discoverFiles()).resolves.toEqual([await realpath(openclawFile)]);
     await expect(adapters[6].discoverFiles()).resolves.toEqual([await realpath(claudeFile)]);
+    await expect(adapters[7].discoverFiles()).resolves.toEqual([await realpath(copilotFile)]);
   });
 
   it('throws on invalid source directory override entries', () => {
@@ -141,6 +150,12 @@ describe('createDefaultAdapters', () => {
   it('throws when --codex-dir is blank', () => {
     expect(() => createDefaultAdapters({ codexDir: '   ' })).toThrow(
       '--codex-dir must be a non-empty path',
+    );
+  });
+
+  it('throws when --copilot-dir is blank', () => {
+    expect(() => createDefaultAdapters({ copilotDir: '   ' })).toThrow(
+      '--copilot-dir must be a non-empty path',
     );
   });
 
@@ -200,6 +215,40 @@ describe('createDefaultAdapters', () => {
     const openclawAdapter = adapters.find((adapter) => adapter.id === 'openclaw');
 
     await expect(openclawAdapter?.discoverFiles()).resolves.toEqual([await realpath(explicitFile)]);
+  });
+
+  it('wires --copilot-dir into the Copilot adapter discovery path', async () => {
+    const copilotTempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-adapters-copilot-dir-'));
+    tempDirs.push(copilotTempDir);
+    const copilotFile = path.join(copilotTempDir, 'copilot-session.jsonl');
+    await writeFile(copilotFile, '{}\n', 'utf8');
+
+    const adapters = createDefaultAdapters({ copilotDir: copilotTempDir });
+    const copilotAdapter = adapters.find((adapter) => adapter.id === 'copilot');
+
+    await expect(copilotAdapter?.discoverFiles()).resolves.toEqual([await realpath(copilotFile)]);
+  });
+
+  it('prefers --copilot-dir over generic copilot source directory overrides', async () => {
+    const explicitTempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'usage-adapters-copilot-explicit-dir-'),
+    );
+    const sourceDirTempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'usage-adapters-copilot-source-dir-precedence-'),
+    );
+    tempDirs.push(explicitTempDir, sourceDirTempDir);
+    const explicitFile = path.join(explicitTempDir, 'explicit-copilot-session.jsonl');
+    const sourceDirFile = path.join(sourceDirTempDir, 'source-dir-copilot-session.jsonl');
+    await writeFile(explicitFile, '{}\n', 'utf8');
+    await writeFile(sourceDirFile, '{}\n', 'utf8');
+
+    const adapters = createDefaultAdapters({
+      copilotDir: explicitTempDir,
+      sourceDir: [`copilot=${sourceDirTempDir}`],
+    });
+    const copilotAdapter = adapters.find((adapter) => adapter.id === 'copilot');
+
+    await expect(copilotAdapter?.discoverFiles()).resolves.toEqual([await realpath(explicitFile)]);
   });
 
   it('fails gemini discovery when an explicitly configured directory is missing', async () => {
@@ -307,6 +356,17 @@ describe('createDefaultAdapters', () => {
 
     await expect(codexAdapter?.discoverFiles()).rejects.toThrow(
       `Codex sessions directory is not a directory: ${codexFilePath}`,
+    );
+  });
+
+  it('fails copilot discovery when an explicitly configured directory is missing', async () => {
+    const adapters = createDefaultAdapters({
+      copilotDir: path.join(os.tmpdir(), `missing-copilot-${Date.now()}`),
+    });
+    const copilotAdapter = adapters.find((adapter) => adapter.id === 'copilot');
+
+    await expect(copilotAdapter?.discoverFiles()).rejects.toThrow(
+      'Copilot OTEL directory is missing or unreadable',
     );
   });
 

@@ -61,6 +61,10 @@ function resolveScopeNote(options: EfficiencyCommandOptions): string | undefined
     activeFilters.push('--codex-dir');
   }
 
+  if (hasActiveTextOption(options.copilotDir)) {
+    activeFilters.push('--copilot-dir');
+  }
+
   if (hasActiveTextOption(options.geminiDir)) {
     activeFilters.push('--gemini-dir');
   }

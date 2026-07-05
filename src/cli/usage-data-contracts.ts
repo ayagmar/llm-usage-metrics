@@ -15,6 +15,7 @@ import type { RuntimeProfileCollector, RuntimeProfileSnapshot } from './runtime-
 export type ReportCommandOptions = {
   piDir?: string;
   codexDir?: string;
+  copilotDir?: string;
   geminiDir?: string;
   droidDir?: string;
   claudeDir?: string;
@@ -57,6 +58,7 @@ export type DoctorCommandOptions = Pick<
   ReportCommandOptions,
   | 'piDir'
   | 'codexDir'
+  | 'copilotDir'
   | 'geminiDir'
   | 'droidDir'
   | 'claudeDir'
