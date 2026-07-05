@@ -27,6 +27,7 @@ npx --yes llm-usage-metrics@latest daily
   - OpenClaw transcripts (`~/.openclaw/agents/**/*.jsonl`)
   - Claude Code projects (`~/.claude/projects/**/*.jsonl`)
   - GitHub Copilot CLI OTEL exports (`~/.copilot/otel/*.jsonl`)
+  - Goose SQLite DB (`~/.local/share/goose/sessions/sessions.db`)
 
 ## First report
 
@@ -45,7 +46,7 @@ llm-usage trends --metric tokens --days 14
 ## Common filters
 
 ```bash
-llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude,copilot
+llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude,copilot,goose
 llm-usage monthly --provider openai
 llm-usage monthly --model claude
 ```
@@ -108,4 +109,10 @@ llm-usage monthly --source claude --claude-dir /path/to/.claude/projects
 
 ```bash
 llm-usage monthly --source copilot --copilot-dir /path/to/.copilot/otel
+```
+
+## Goose explicit DB path
+
+```bash
+llm-usage monthly --source goose --goose-db /path/to/goose/sessions.db
 ```

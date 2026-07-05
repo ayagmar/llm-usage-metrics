@@ -16,12 +16,14 @@ llm-usage daily --source opencode
 llm-usage daily --source openclaw
 llm-usage daily --source claude
 llm-usage daily --source copilot
+llm-usage daily --source goose
 ```
 
-If OpenCode is expected, provide an explicit DB path:
+If OpenCode or Goose is expected, provide an explicit DB path:
 
 ```bash
 llm-usage daily --source opencode --opencode-db /path/to/opencode.db
+llm-usage daily --source goose --goose-db /path/to/goose/sessions.db
 ```
 
 ## Runtime requirements
@@ -33,6 +35,7 @@ OpenCode parsing requires Node.js 24+ runtime with built-in `node:sqlite`.
 - `--source-dir` supports only `pi`, `codex`, `gemini`, `droid`, `openclaw`, `claude`, and `copilot`.
 - `--pi-dir`, `--codex-dir`, `--gemini-dir`, `--droid-dir`, `--claude-dir`, and `--copilot-dir` must point to valid directories.
 - For OpenCode, use `--opencode-db`.
+- For Goose, use `--goose-db`.
 
 Correct examples:
 
@@ -40,6 +43,7 @@ Correct examples:
 llm-usage daily --source-dir pi=/path/to/pi --source-dir codex=/path/to/codex --source-dir gemini=/path/to/.gemini --source-dir droid=/path/to/.factory/sessions --source-dir openclaw=/path/to/.openclaw/agents --source-dir claude=/path/to/.claude/projects --source-dir copilot=/path/to/.copilot/otel
 llm-usage daily --pi-dir /path/to/pi --codex-dir /path/to/codex --gemini-dir /path/to/.gemini --droid-dir /path/to/.factory/sessions --claude-dir /path/to/.claude/projects --copilot-dir /path/to/.copilot/otel
 llm-usage daily --opencode-db /path/to/opencode.db
+llm-usage daily --goose-db /path/to/goose/sessions.db
 ```
 
 ## Pricing load failures
