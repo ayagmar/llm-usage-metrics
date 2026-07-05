@@ -658,6 +658,110 @@ describe('CodexSourceAdapter', () => {
       totalTokens: 55,
     });
   });
+  it('counts a skip when a fresh usage delta has an invalid timestamp', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'codex-source-skip-invalid-ts-'));
+    tempDirs.push(root);
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          timestamp: '2026-02-14T10:00:00.000Z',
+          type: 'session_meta',
+          payload: {
+            id: 'codex-skip-invalid-ts',
+            model_provider: 'openai',
+          },
+        }),
+        JSON.stringify({
+          timestamp: '2026-02-14T10:00:01.000Z',
+          type: 'turn_context',
+          payload: { model: 'gpt-5.2-codex' },
+        }),
+        JSON.stringify({
+          timestamp: 'invalid-timestamp',
+          type: 'event_msg',
+          payload: {
+            type: 'token_count',
+            info: {
+              total_token_usage: {
+                input_tokens: 20,
+                cached_input_tokens: 5,
+                output_tokens: 10,
+                reasoning_output_tokens: 1,
+              },
+            },
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new CodexSourceAdapter({ sessionsDir: root });
+    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+
+    expect(diagnostics.events).toEqual([]);
+    expect(diagnostics.skippedRows).toBe(1);
+    expect(diagnostics.skippedRowReasons).toEqual([{ reason: 'invalid_timestamp', count: 1 }]);
+  });
+
+  it('does not count no-delta token_count repeats as skips', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'codex-source-no-skip-no-delta-'));
+    tempDirs.push(root);
+    const filePath = path.join(root, 'session.jsonl');
+
+    const totalTokenUsage = {
+      input_tokens: 100,
+      cached_input_tokens: 20,
+      output_tokens: 30,
+      reasoning_output_tokens: 5,
+      total_tokens: 130,
+    };
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          timestamp: '2026-02-14T10:00:00.000Z',
+          type: 'session_meta',
+          payload: {
+            id: 'codex-no-delta',
+            model_provider: 'openai',
+          },
+        }),
+        JSON.stringify({
+          timestamp: '2026-02-14T10:00:01.000Z',
+          type: 'turn_context',
+          payload: { model: 'gpt-5.2-codex' },
+        }),
+        JSON.stringify({
+          timestamp: '2026-02-14T10:00:02.000Z',
+          type: 'event_msg',
+          payload: {
+            type: 'token_count',
+            info: { total_token_usage: totalTokenUsage },
+          },
+        }),
+        JSON.stringify({
+          timestamp: '2026-02-14T10:00:03.000Z',
+          type: 'event_msg',
+          payload: {
+            type: 'token_count',
+            info: { total_token_usage: totalTokenUsage },
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new CodexSourceAdapter({ sessionsDir: root });
+    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+
+    expect(diagnostics.events).toHaveLength(1);
+    expect(diagnostics.skippedRows).toBe(0);
+    expect(diagnostics.skippedRowReasons).toEqual([]);
+  });
 });
 
 describe('codex source helpers', () => {

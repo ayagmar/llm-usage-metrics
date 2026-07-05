@@ -8,13 +8,14 @@ import { asRecord } from '../../utils/as-record.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import { pathStat } from '../../utils/fs-helpers.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
+import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
   isBlankText,
   normalizeTimestampCandidate,
   toNumberLike,
 } from '../parsing-utils.js';
-import type { SourceAdapter } from '../source-adapter.js';
+import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
 
 const defaultSessionsDir = path.join(os.homedir(), '.codex', 'sessions');
 
@@ -239,7 +240,14 @@ export class CodexSourceAdapter implements SourceAdapter {
   }
 
   public async parseFile(filePath: string): Promise<UsageEvent[]> {
+    const { events } = await this.parseFileWithDiagnostics(filePath);
+    return events;
+  }
+
+  public async parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
     const events: UsageEvent[] = [];
+    let skippedRows = 0;
+    const skippedRowReasons = new Map<string, number>();
 
     const state: CodexSessionState = {
       sessionId: getFallbackSessionId(filePath),
@@ -301,6 +309,8 @@ export class CodexSourceAdapter implements SourceAdapter {
           state.previousLastUsageOnlyKey = undefined;
         }
 
+        skippedRows++;
+        incrementSkippedReason(skippedRowReasons, 'invalid_timestamp');
         continue;
       }
 
@@ -337,7 +347,8 @@ export class CodexSourceAdapter implements SourceAdapter {
           }),
         );
       } catch {
-        // no-op: malformed lines are ignored by design
+        skippedRows++;
+        incrementSkippedReason(skippedRowReasons, 'event_creation_failed');
       }
 
       if (latestTotalUsage) {
@@ -349,7 +360,7 @@ export class CodexSourceAdapter implements SourceAdapter {
       }
     }
 
-    return events;
+    return toParseDiagnostics(events, skippedRows, skippedRowReasons);
   }
 }
 
