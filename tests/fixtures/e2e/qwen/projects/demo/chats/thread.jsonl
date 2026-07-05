@@ -1,0 +1,1 @@
+{"type":"assistant","model":"qwen3-coder-e2e","timestamp":"2026-06-15T12:20:00.000Z","sessionId":"qwen-e2e-session","usageMetadata":{"promptTokenCount":60,"candidatesTokenCount":20,"thoughtsTokenCount":5,"cachedContentTokenCount":5,"totalTokenCount":90}}

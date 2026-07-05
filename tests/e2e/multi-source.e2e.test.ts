@@ -46,8 +46,9 @@ const claudeDir = path.resolve('tests/fixtures/e2e/claude');
 const openclawDir = path.resolve('tests/fixtures/e2e/openclaw');
 const copilotDir = path.resolve('tests/fixtures/e2e/copilot');
 const ampDir = path.resolve('tests/fixtures/e2e/amp');
-const allSources = 'pi,codex,gemini,droid,opencode,openclaw,claude,copilot,goose,amp';
-const expectedAllSourceTokens = 1_800;
+const qwenDir = path.resolve('tests/fixtures/e2e/qwen/projects');
+const allSources = 'pi,codex,gemini,droid,opencode,openclaw,claude,copilot,goose,amp,qwen';
+const expectedAllSourceTokens = 1_890;
 const expectedGeminiClaudeTokens = 415;
 
 function loadDatabaseSync(): FixtureDatabaseSync | undefined {
@@ -245,6 +246,7 @@ describe.skipIf(!DatabaseSync)('multi-source usage report e2e', () => {
       copilotDir,
       gooseDb: gooseDbPath,
       ampDir,
+      qwenDir,
       source: allSources,
       timezone: 'UTC',
       json: true,
@@ -279,6 +281,7 @@ describe.skipIf(!DatabaseSync)('multi-source usage report e2e', () => {
       copilotDir,
       gooseDb: gooseDbPath,
       ampDir,
+      qwenDir,
       source: 'gemini,claude',
       timezone: 'UTC',
       json: true,
