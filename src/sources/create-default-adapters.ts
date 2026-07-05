@@ -5,6 +5,7 @@ import { CopilotSourceAdapter } from './copilot/copilot-source-adapter.js';
 import { DroidSourceAdapter } from './droid/droid-source-adapter.js';
 import { GeminiSourceAdapter } from './gemini/gemini-source-adapter.js';
 import { GooseSourceAdapter } from './goose/goose-source-adapter.js';
+import { KimiSourceAdapter } from './kimi/kimi-source-adapter.js';
 import { OpenCodeSourceAdapter } from './opencode/opencode-source-adapter.js';
 import { OpenClawSourceAdapter } from './openclaw/openclaw-source-adapter.js';
 import { PiSourceAdapter } from './pi/pi-source-adapter.js';
@@ -34,6 +35,7 @@ export type CreateDefaultAdaptersOptions = {
   gooseDb?: string;
   ampDir?: string;
   qwenDir?: string;
+  kimiDir?: string;
   sourceDir?: string[];
 };
 
@@ -194,6 +196,22 @@ const sourceRegistrations: readonly SourceRegistration[] = [
       });
     },
   },
+  {
+    id: 'kimi',
+    sourceDirOverride: { kind: 'directory' },
+    create: (options, sourceDirectoryOverrides) => {
+      const directoryConfig = resolveDirectoryConfig(
+        'kimi',
+        options.kimiDir,
+        sourceDirectoryOverrides,
+      );
+
+      return new KimiSourceAdapter({
+        kimiDir: directoryConfig.path,
+        requireKimiDir: directoryConfig.requireExistingPath,
+      });
+    },
+  },
 ];
 
 const sourceDirUnsupportedFlags = new Map(
@@ -269,7 +287,8 @@ function validateDirectoryOverride(
     | '--claude-dir'
     | '--openclaw-dir'
     | '--amp-dir'
-    | '--qwen-dir',
+    | '--qwen-dir'
+    | '--kimi-dir',
   value: string | undefined,
 ): void {
   if (value === undefined) {
@@ -327,6 +346,7 @@ export function createDefaultAdapters(options: CreateDefaultAdaptersOptions): So
   validateDirectoryOverride('--openclaw-dir', options.openclawDir);
   validateDirectoryOverride('--amp-dir', options.ampDir);
   validateDirectoryOverride('--qwen-dir', options.qwenDir);
+  validateDirectoryOverride('--kimi-dir', options.kimiDir);
 
   const sourceDirectoryOverrides = parseSourceDirectoryOverrides(options.sourceDir);
   validateSourceDirectoryOverrideIds(sourceDirectoryOverrides);

@@ -29,6 +29,7 @@ describe('createDefaultAdapters', () => {
       'goose',
       'amp',
       'qwen',
+      'kimi',
     ]);
   });
 
@@ -61,6 +62,7 @@ describe('createDefaultAdapters', () => {
     );
     const ampTempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-adapters-amp-source-dir-'));
     const qwenTempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-adapters-qwen-source-dir-'));
+    const kimiTempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-adapters-kimi-source-dir-'));
     tempDirs.push(
       piTempDir,
       codexTempDir,
@@ -71,6 +73,7 @@ describe('createDefaultAdapters', () => {
       openclawTempDir,
       ampTempDir,
       qwenTempDir,
+      kimiTempDir,
     );
 
     const piFile = path.join(piTempDir, 'pi-session.jsonl');
@@ -84,7 +87,9 @@ describe('createDefaultAdapters', () => {
     const openclawFile = path.join(openclawTempDir, 'openclaw-session.jsonl');
     const ampFile = path.join(ampTempDir, 'amp-thread.json');
     const qwenFile = path.join(qwenTempDir, 'demo', 'chats', 'qwen-session.jsonl');
+    const kimiFile = path.join(kimiTempDir, 'group-a', 'session-a', 'wire.jsonl');
     await mkdir(path.dirname(qwenFile), { recursive: true });
+    await mkdir(path.dirname(kimiFile), { recursive: true });
 
     await writeFile(piFile, '{}\n', 'utf8');
     await writeFile(codexFile, '{}\n', 'utf8');
@@ -95,6 +100,7 @@ describe('createDefaultAdapters', () => {
     await writeFile(openclawFile, '{}\n', 'utf8');
     await writeFile(ampFile, '{}', 'utf8');
     await writeFile(qwenFile, '{}\n', 'utf8');
+    await writeFile(kimiFile, '{}\n', 'utf8');
 
     const adapters = createDefaultAdapters({
       sourceDir: [
@@ -107,6 +113,7 @@ describe('createDefaultAdapters', () => {
         `openclaw=${openclawTempDir}`,
         `amp=${ampTempDir}`,
         `qwen=${qwenTempDir}`,
+        `kimi=${kimiTempDir}`,
       ],
     });
 
@@ -119,6 +126,7 @@ describe('createDefaultAdapters', () => {
     await expect(adapters[7].discoverFiles()).resolves.toEqual([await realpath(copilotFile)]);
     await expect(adapters[9].discoverFiles()).resolves.toEqual([await realpath(ampFile)]);
     await expect(adapters[10].discoverFiles()).resolves.toEqual([await realpath(qwenFile)]);
+    await expect(adapters[11].discoverFiles()).resolves.toEqual([await realpath(kimiFile)]);
   });
 
   it('throws on invalid source directory override entries', () => {
@@ -229,6 +237,12 @@ describe('createDefaultAdapters', () => {
   it('throws when --qwen-dir is blank', () => {
     expect(() => createDefaultAdapters({ qwenDir: '   ' })).toThrow(
       '--qwen-dir must be a non-empty path',
+    );
+  });
+
+  it('throws when --kimi-dir is blank', () => {
+    expect(() => createDefaultAdapters({ kimiDir: '   ' })).toThrow(
+      '--kimi-dir must be a non-empty path',
     );
   });
 
@@ -374,6 +388,43 @@ describe('createDefaultAdapters', () => {
     const qwenAdapter = adapters.find((adapter) => adapter.id === 'qwen');
 
     await expect(qwenAdapter?.discoverFiles()).resolves.toEqual([await realpath(explicitFile)]);
+  });
+
+  it('wires --kimi-dir into the Kimi adapter discovery path', async () => {
+    const kimiTempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-adapters-kimi-dir-'));
+    tempDirs.push(kimiTempDir);
+    const kimiFile = path.join(kimiTempDir, 'group-a', 'session-a', 'wire.jsonl');
+    await mkdir(path.dirname(kimiFile), { recursive: true });
+    await writeFile(kimiFile, '{}\n', 'utf8');
+
+    const adapters = createDefaultAdapters({ kimiDir: kimiTempDir });
+    const kimiAdapter = adapters.find((adapter) => adapter.id === 'kimi');
+
+    await expect(kimiAdapter?.discoverFiles()).resolves.toEqual([await realpath(kimiFile)]);
+  });
+
+  it('prefers --kimi-dir over generic kimi source directory overrides', async () => {
+    const explicitTempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'usage-adapters-kimi-explicit-dir-'),
+    );
+    const sourceDirTempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'usage-adapters-kimi-source-dir-precedence-'),
+    );
+    tempDirs.push(explicitTempDir, sourceDirTempDir);
+    const explicitFile = path.join(explicitTempDir, 'group-a', 'session-a', 'wire.jsonl');
+    const sourceDirFile = path.join(sourceDirTempDir, 'group-b', 'session-b', 'wire.jsonl');
+    await mkdir(path.dirname(explicitFile), { recursive: true });
+    await mkdir(path.dirname(sourceDirFile), { recursive: true });
+    await writeFile(explicitFile, '{}\n', 'utf8');
+    await writeFile(sourceDirFile, '{}\n', 'utf8');
+
+    const adapters = createDefaultAdapters({
+      kimiDir: explicitTempDir,
+      sourceDir: [`kimi=${sourceDirTempDir}`],
+    });
+    const kimiAdapter = adapters.find((adapter) => adapter.id === 'kimi');
+
+    await expect(kimiAdapter?.discoverFiles()).resolves.toEqual([await realpath(explicitFile)]);
   });
 
   it('fails gemini discovery when an explicitly configured directory is missing', async () => {
@@ -536,6 +587,17 @@ describe('createDefaultAdapters', () => {
 
     await expect(qwenAdapter?.discoverFiles()).rejects.toThrow(
       'Qwen projects directory is missing or unreadable',
+    );
+  });
+
+  it('fails kimi discovery when an explicitly configured directory is missing', async () => {
+    const adapters = createDefaultAdapters({
+      kimiDir: path.join(os.tmpdir(), `missing-kimi-${Date.now()}`),
+    });
+    const kimiAdapter = adapters.find((adapter) => adapter.id === 'kimi');
+
+    await expect(kimiAdapter?.discoverFiles()).rejects.toThrow(
+      'Kimi sessions directory is missing or unreadable',
     );
   });
 });

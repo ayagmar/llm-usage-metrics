@@ -69,6 +69,7 @@ describe('build-usage-data-inputs', () => {
         'claude=/tmp/claude',
         'amp=/tmp/amp/threads',
         'qwen=/tmp/qwen/projects',
+        'kimi=/tmp/kimi/sessions',
       ],
     });
 
@@ -80,6 +81,7 @@ describe('build-usage-data-inputs', () => {
       'claude',
       'amp',
       'qwen',
+      'kimi',
     ]);
   });
 
@@ -121,6 +123,14 @@ describe('build-usage-data-inputs', () => {
     });
 
     expect([...inputs.explicitSourceIds]).toEqual(['qwen']);
+  });
+
+  it('treats kimi directory overrides as explicit source selections', () => {
+    const inputs = normalizeBuildUsageInputs({
+      kimiDir: '/tmp/kimi/sessions',
+    });
+
+    expect([...inputs.explicitSourceIds]).toEqual(['kimi']);
   });
 
   it('validates malformed source-dir entries through the shared parser', () => {

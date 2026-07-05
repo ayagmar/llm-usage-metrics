@@ -1,0 +1,5 @@
+{"type":"usage.record","model":"kimi-code/moonshot-v1-128k","usageScope":"turn","time":1772445660000,"usage":{"inputOther":11,"output":7,"inputCacheRead":2,"inputCacheCreation":3}}
+{"type":"usage.record","model":"kimi-code/moonshot-v1-128k","usageScope":"session","time":1772445661000,"usage":{"inputOther":999,"output":999,"inputCacheRead":0,"inputCacheCreation":0}}
+{"type":"usage.record","model":"kimi-code/moonshot-v1-128k","time":1772445662000,"usage":{"inputOther":999,"output":999,"inputCacheRead":0,"inputCacheCreation":0}}
+{"type":"usage.record","model":"kimi-code/moonshot-v1-128k","usageScope":"turn","time":1772445663000,"usage":{"inputOther":0,"output":0,"inputCacheRead":0,"inputCacheCreation":0}}
+{"type":"usage.record","model":"kimi-code/moonshot-v1-128k","usageScope":"turn","time":"not-a-date","usage":{"inputOther":1,"output":1,"inputCacheRead":0,"inputCacheCreation":0}}

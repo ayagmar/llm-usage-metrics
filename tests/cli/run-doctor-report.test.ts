@@ -34,9 +34,11 @@ async function createDoctorFixtureOptions(): Promise<DoctorCommandOptions> {
   const gooseDb = path.join(rootDir, 'goose.db');
   const ampDir = path.join(rootDir, 'amp');
   const qwenDir = path.join(rootDir, 'qwen');
+  const kimiDir = path.join(rootDir, 'kimi');
 
   await mkdir(path.join(geminiDir, 'tmp', 'project', 'chats'), { recursive: true });
   await mkdir(path.join(qwenDir, 'project', 'chats'), { recursive: true });
+  await mkdir(path.join(kimiDir, 'group-a', 'session-a'), { recursive: true });
   await mkdir(path.join(claudeDir, 'project'), { recursive: true });
   await mkdir(piDir, { recursive: true });
   await mkdir(codexDir, { recursive: true });
@@ -56,6 +58,7 @@ async function createDoctorFixtureOptions(): Promise<DoctorCommandOptions> {
   await writeFile(gooseDb, '', 'utf8');
   await writeFile(path.join(ampDir, 'thread.json'), '{}', 'utf8');
   await writeFile(path.join(qwenDir, 'project', 'chats', 'session.jsonl'), '{}\n', 'utf8');
+  await writeFile(path.join(kimiDir, 'group-a', 'session-a', 'wire.jsonl'), '{}\n', 'utf8');
 
   return {
     piDir,
@@ -69,6 +72,7 @@ async function createDoctorFixtureOptions(): Promise<DoctorCommandOptions> {
     gooseDb,
     ampDir,
     qwenDir,
+    kimiDir,
   };
 }
 
@@ -112,6 +116,7 @@ describe('run-doctor-report', () => {
       { id: 'goose', status: 'ok', itemsFound: 1 },
       { id: 'amp', status: 'ok', itemsFound: 1 },
       { id: 'qwen', status: 'ok', itemsFound: 1 },
+      { id: 'kimi', status: 'ok', itemsFound: 1 },
     ]);
   });
 
@@ -184,7 +189,7 @@ describe('run-doctor-report', () => {
     expect(stdout.getOutput()).toContain('claude');
     expect(stdout.getOutput()).toContain('error');
     expect(stdout.getOutput()).toContain(missingClaudeDir);
-    expect(stdout.getOutput()).toContain('10/11 sources healthy');
+    expect(stdout.getOutput()).toContain('11/12 sources healthy');
   });
 
   it('prints JSON output to stdout', async () => {

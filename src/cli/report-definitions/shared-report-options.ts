@@ -82,6 +82,7 @@ export function registerSharedReportOptions(
     .option('--goose-db <path>', 'Path to Goose SQLite DB')
     .option('--amp-dir <path>', 'Path to Amp threads directory')
     .option('--qwen-dir <path>', 'Path to Qwen projects directory')
+    .option('--kimi-dir <path>', 'Path to Kimi sessions directory')
     .option(
       '--source-dir <source-id=path>',
       'Override source directory for directory-backed sources (repeatable)',

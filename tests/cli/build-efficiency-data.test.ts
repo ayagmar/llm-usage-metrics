@@ -403,6 +403,7 @@ describe('buildEfficiencyData', () => {
         openclawDir: '/tmp/.openclaw/agents',
         ampDir: '/tmp/amp/threads',
         qwenDir: '/tmp/qwen/projects',
+        kimiDir: '/tmp/kimi/sessions',
       },
       {
         buildUsageEventDataset: async (options) => createUsageEventDataset(options),
@@ -434,6 +435,7 @@ describe('buildEfficiencyData', () => {
     expect(result.diagnostics.scopeNote).toContain('--openclaw-dir');
     expect(result.diagnostics.scopeNote).toContain('--amp-dir');
     expect(result.diagnostics.scopeNote).toContain('--qwen-dir');
+    expect(result.diagnostics.scopeNote).toContain('--kimi-dir');
   });
 
   it('includes DB source override flags in scope note when configured', async () => {

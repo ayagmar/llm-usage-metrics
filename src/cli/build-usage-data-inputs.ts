@@ -210,6 +210,10 @@ export function resolveExplicitSourceIds(
     explicitSourceIds.add('qwen');
   }
 
+  if (options.kimiDir) {
+    explicitSourceIds.add('kimi');
+  }
+
   return explicitSourceIds;
 }
 

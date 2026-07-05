@@ -1,0 +1,6 @@
+{"type":"metadata","timestamp":1772445600.5}
+{"type":"event","timestamp":1772445600.5,"message":{"type":"StatusUpdate","payload":{"message_id":"message-1","token_usage":{"input_other":20,"output":20,"input_cache_read":5,"input_cache_creation":5,"total":50}}}}
+{"type":"event","timestamp":1772445602,"message":{"type":"StatusUpdate","payload":{"message_id":"message-1","token_usage":{"input_other":35,"output":30,"input_cache_read":10,"input_cache_creation":5,"total":80}}}}
+{"type":"event","timestamp":1772445603,"message":{"type":"StatusUpdate","payload":{"message_id":"message-2","token_usage":{"input_other":12,"output":8,"input_cache_read":0,"input_cache_creation":0,"total":20}}}}
+{"type":"event","timestamp":1772445603,"message":{"type":"StatusUpdate","payload":{"message_id":"message-zero","token_usage":{"input_other":0,"output":0,"input_cache_read":0,"input_cache_creation":0,"total":0}}}}
+{"type":"event","timestamp":"not-a-date","message":{"type":"StatusUpdate","payload":{"message_id":"message-invalid","token_usage":{"input_other":1,"output":1,"input_cache_read":0,"input_cache_creation":0,"total":2}}}}

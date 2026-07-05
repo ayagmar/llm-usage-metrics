@@ -97,6 +97,10 @@ function resolveScopeNote(options: EfficiencyCommandOptions): string | undefined
     activeFilters.push('--qwen-dir');
   }
 
+  if (hasActiveTextOption(options.kimiDir)) {
+    activeFilters.push('--kimi-dir');
+  }
+
   if (hasActiveRepeatedFilter(options.sourceDir)) {
     activeFilters.push('--source-dir');
   }

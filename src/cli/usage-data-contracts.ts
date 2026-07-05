@@ -24,6 +24,7 @@ export type ReportCommandOptions = {
   gooseDb?: string;
   ampDir?: string;
   qwenDir?: string;
+  kimiDir?: string;
   sourceDir?: string[];
   source?: string | string[];
   since?: string;
@@ -70,6 +71,7 @@ export type DoctorCommandOptions = Pick<
   | 'gooseDb'
   | 'ampDir'
   | 'qwenDir'
+  | 'kimiDir'
   | 'sourceDir'
   | 'source'
   | 'json'
