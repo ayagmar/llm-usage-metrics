@@ -12,16 +12,40 @@ PR #119 shipped the two highest-confidence, smallest-scope fixes:
 - `--pricing-overrides` (per-model pricing override decorator)
 - Claude adapter dedup hardening (content-based fallback key)
 
-The four ideas below are listed in descending order of strategic value.
+The repo now ships 7 sources (pi, codex, gemini, droid, opencode, claude,
+openclaw). The four ideas below are listed in descending order of strategic
+value; ideas #4 and #8 are being implemented on `feat/improvements` (2026-07).
 
 ## Index
 
-| # | Idea | Status | Confidence | Why deferred |
-| --- | --- | --- | --- | --- |
-| 1 | [Local usage event store (SQLite)](./idea-event-store.md) | Not started | 80% | Multi-day architectural refactor; needs its own design effort |
-| 7 | [Simplify interactive update install](./idea-update-install-simplification.md) | Not started | 70% | Removes a documented feature; requires maintainer product decision |
-| 8 | [E2E multi-source fixture harness](./idea-e2e-fixture-harness.md) | Not started | 75% | Medium-large scope; `tests/e2e/` already has 4 e2e tests |
-| 4 | [`llm-usage doctor` diagnostic command](./idea-doctor-command.md) | Not started | 85% | Small and high-value; deferred only to keep PR #119 focused |
+| #   | Idea                                                                            | Status                                       | Confidence | Why deferred                                                        |
+| --- | ------------------------------------------------------------------------------- | -------------------------------------------- | ---------- | ------------------------------------------------------------------- |
+| 1   | [Local usage event store (SQLite)](./idea-event-store.md)                       | Not started                                  | 80%        | Multi-day architectural refactor; needs its own design effort       |
+| 7   | [Simplify interactive update install](./idea-update-install-simplification.md)  | Not started                                  | 70%        | Removes a documented feature; requires maintainer product decision  |
+| 8   | [E2E multi-source fixture harness](./idea-e2e-fixture-harness.md)               | In progress on `feat/improvements` (2026-07) | 75%        | Medium-large scope; `tests/e2e/` already has 4 e2e tests            |
+| 4   | [`llm-usage doctor` diagnostic command](./idea-doctor-command.md)               | In progress on `feat/improvements` (2026-07) | 85%        | Small and high-value; deferred only to keep PR #119 focused         |
+
+## Carried-forward remediation items
+
+Still-live items carried forward from the retired remediation plan for the
+codebase's weakest parts (plan doc deleted; these are the surviving items):
+
+- **Query planning / source pruning** — `--since/--until/--provider/--model`
+  filter events after a full parse
+  (`src/cli/build-usage-event-dataset.ts:103-131`); only codex/gemini declare
+  `fixedProviderRoots`, so filters reduce output rather than parse work.
+- **Model/provider identity consolidation** — three overlapping systems handle
+  identity: `src/domain/provider-normalization.ts`, fuzzy matching in
+  `src/pricing/litellm-pricing-fetcher.ts:241-330`, and
+  `src/pricing/litellm-model-map.json`.
+- **Parse-cache incremental persistence** — any change rewrites the whole
+  per-source shard (`src/cli/parse-file-cache.ts:486-534`).
+- **Update-check latency** — `src/cli/index.ts` awaits the update check before
+  running the report; tied to the idea #7 product decision.
+
+Completed from that plan (DONE, fixed in code): parse-cache
+auxiliary-dependency invalidation, global parse budget, and gemini discovery
+scoping.
 
 ## Rejected ideas (not tracked here)
 
