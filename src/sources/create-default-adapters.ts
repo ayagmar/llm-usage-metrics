@@ -8,6 +8,7 @@ import { GooseSourceAdapter } from './goose/goose-source-adapter.js';
 import { OpenCodeSourceAdapter } from './opencode/opencode-source-adapter.js';
 import { OpenClawSourceAdapter } from './openclaw/openclaw-source-adapter.js';
 import { PiSourceAdapter } from './pi/pi-source-adapter.js';
+import { QwenSourceAdapter } from './qwen/qwen-source-adapter.js';
 import type { SourceAdapter } from './source-adapter.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { parseSourceDirectoryOverrides } from '../utils/source-directory-overrides.js';
@@ -32,6 +33,7 @@ export type CreateDefaultAdaptersOptions = {
   opencodeDb?: string;
   gooseDb?: string;
   ampDir?: string;
+  qwenDir?: string;
   sourceDir?: string[];
 };
 
@@ -176,6 +178,22 @@ const sourceRegistrations: readonly SourceRegistration[] = [
       });
     },
   },
+  {
+    id: 'qwen',
+    sourceDirOverride: { kind: 'directory' },
+    create: (options, sourceDirectoryOverrides) => {
+      const directoryConfig = resolveDirectoryConfig(
+        'qwen',
+        options.qwenDir,
+        sourceDirectoryOverrides,
+      );
+
+      return new QwenSourceAdapter({
+        projectsDir: directoryConfig.path,
+        requireProjectsDir: directoryConfig.requireExistingPath,
+      });
+    },
+  },
 ];
 
 const sourceDirUnsupportedFlags = new Map(
@@ -250,7 +268,8 @@ function validateDirectoryOverride(
     | '--droid-dir'
     | '--claude-dir'
     | '--openclaw-dir'
-    | '--amp-dir',
+    | '--amp-dir'
+    | '--qwen-dir',
   value: string | undefined,
 ): void {
   if (value === undefined) {
@@ -307,6 +326,7 @@ export function createDefaultAdapters(options: CreateDefaultAdaptersOptions): So
   validateDirectoryOverride('--claude-dir', options.claudeDir);
   validateDirectoryOverride('--openclaw-dir', options.openclawDir);
   validateDirectoryOverride('--amp-dir', options.ampDir);
+  validateDirectoryOverride('--qwen-dir', options.qwenDir);
 
   const sourceDirectoryOverrides = parseSourceDirectoryOverrides(options.sourceDir);
   validateSourceDirectoryOverrideIds(sourceDirectoryOverrides);

@@ -23,6 +23,7 @@ export type ReportCommandOptions = {
   opencodeDb?: string;
   gooseDb?: string;
   ampDir?: string;
+  qwenDir?: string;
   sourceDir?: string[];
   source?: string | string[];
   since?: string;
@@ -68,6 +69,7 @@ export type DoctorCommandOptions = Pick<
   | 'opencodeDb'
   | 'gooseDb'
   | 'ampDir'
+  | 'qwenDir'
   | 'sourceDir'
   | 'source'
   | 'json'

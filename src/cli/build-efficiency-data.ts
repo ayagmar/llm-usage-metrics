@@ -93,6 +93,10 @@ function resolveScopeNote(options: EfficiencyCommandOptions): string | undefined
     activeFilters.push('--amp-dir');
   }
 
+  if (hasActiveTextOption(options.qwenDir)) {
+    activeFilters.push('--qwen-dir');
+  }
+
   if (hasActiveRepeatedFilter(options.sourceDir)) {
     activeFilters.push('--source-dir');
   }

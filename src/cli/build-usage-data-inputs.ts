@@ -206,6 +206,10 @@ export function resolveExplicitSourceIds(
     explicitSourceIds.add('amp');
   }
 
+  if (options.qwenDir) {
+    explicitSourceIds.add('qwen');
+  }
+
   return explicitSourceIds;
 }
 

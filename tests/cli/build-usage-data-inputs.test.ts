@@ -68,6 +68,7 @@ describe('build-usage-data-inputs', () => {
         'openclaw=/tmp/openclaw',
         'claude=/tmp/claude',
         'amp=/tmp/amp/threads',
+        'qwen=/tmp/qwen/projects',
       ],
     });
 
@@ -78,6 +79,7 @@ describe('build-usage-data-inputs', () => {
       'openclaw',
       'claude',
       'amp',
+      'qwen',
     ]);
   });
 
@@ -111,6 +113,14 @@ describe('build-usage-data-inputs', () => {
     });
 
     expect([...inputs.explicitSourceIds]).toEqual(['amp']);
+  });
+
+  it('treats qwen directory overrides as explicit source selections', () => {
+    const inputs = normalizeBuildUsageInputs({
+      qwenDir: '/tmp/qwen/projects',
+    });
+
+    expect([...inputs.explicitSourceIds]).toEqual(['qwen']);
   });
 
   it('validates malformed source-dir entries through the shared parser', () => {

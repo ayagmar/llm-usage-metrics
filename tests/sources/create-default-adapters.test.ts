@@ -28,6 +28,7 @@ describe('createDefaultAdapters', () => {
       'copilot',
       'goose',
       'amp',
+      'qwen',
     ]);
   });
 
@@ -59,6 +60,7 @@ describe('createDefaultAdapters', () => {
       path.join(os.tmpdir(), 'usage-adapters-openclaw-source-dir-'),
     );
     const ampTempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-adapters-amp-source-dir-'));
+    const qwenTempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-adapters-qwen-source-dir-'));
     tempDirs.push(
       piTempDir,
       codexTempDir,
@@ -68,6 +70,7 @@ describe('createDefaultAdapters', () => {
       copilotTempDir,
       openclawTempDir,
       ampTempDir,
+      qwenTempDir,
     );
 
     const piFile = path.join(piTempDir, 'pi-session.jsonl');
@@ -80,6 +83,8 @@ describe('createDefaultAdapters', () => {
     const copilotFile = path.join(copilotTempDir, 'copilot-session.jsonl');
     const openclawFile = path.join(openclawTempDir, 'openclaw-session.jsonl');
     const ampFile = path.join(ampTempDir, 'amp-thread.json');
+    const qwenFile = path.join(qwenTempDir, 'demo', 'chats', 'qwen-session.jsonl');
+    await mkdir(path.dirname(qwenFile), { recursive: true });
 
     await writeFile(piFile, '{}\n', 'utf8');
     await writeFile(codexFile, '{}\n', 'utf8');
@@ -89,6 +94,7 @@ describe('createDefaultAdapters', () => {
     await writeFile(copilotFile, '{}\n', 'utf8');
     await writeFile(openclawFile, '{}\n', 'utf8');
     await writeFile(ampFile, '{}', 'utf8');
+    await writeFile(qwenFile, '{}\n', 'utf8');
 
     const adapters = createDefaultAdapters({
       sourceDir: [
@@ -100,6 +106,7 @@ describe('createDefaultAdapters', () => {
         `copilot=${copilotTempDir}`,
         `openclaw=${openclawTempDir}`,
         `amp=${ampTempDir}`,
+        `qwen=${qwenTempDir}`,
       ],
     });
 
@@ -111,6 +118,7 @@ describe('createDefaultAdapters', () => {
     await expect(adapters[6].discoverFiles()).resolves.toEqual([await realpath(claudeFile)]);
     await expect(adapters[7].discoverFiles()).resolves.toEqual([await realpath(copilotFile)]);
     await expect(adapters[9].discoverFiles()).resolves.toEqual([await realpath(ampFile)]);
+    await expect(adapters[10].discoverFiles()).resolves.toEqual([await realpath(qwenFile)]);
   });
 
   it('throws on invalid source directory override entries', () => {
@@ -218,6 +226,12 @@ describe('createDefaultAdapters', () => {
     );
   });
 
+  it('throws when --qwen-dir is blank', () => {
+    expect(() => createDefaultAdapters({ qwenDir: '   ' })).toThrow(
+      '--qwen-dir must be a non-empty path',
+    );
+  });
+
   it('wires --openclaw-dir into the OpenClaw adapter discovery path', async () => {
     const openclawTempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-adapters-openclaw-dir-'));
     tempDirs.push(openclawTempDir);
@@ -318,6 +332,48 @@ describe('createDefaultAdapters', () => {
     const ampAdapter = adapters.find((adapter) => adapter.id === 'amp');
 
     await expect(ampAdapter?.discoverFiles()).resolves.toEqual([await realpath(explicitFile)]);
+  });
+
+  it('wires --qwen-dir into the Qwen adapter discovery path', async () => {
+    const qwenTempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-adapters-qwen-dir-'));
+    tempDirs.push(qwenTempDir);
+    const qwenFile = path.join(qwenTempDir, 'demo', 'chats', 'qwen-session.jsonl');
+    await mkdir(path.dirname(qwenFile), { recursive: true });
+    await writeFile(qwenFile, '{}\n', 'utf8');
+
+    const adapters = createDefaultAdapters({ qwenDir: qwenTempDir });
+    const qwenAdapter = adapters.find((adapter) => adapter.id === 'qwen');
+
+    await expect(qwenAdapter?.discoverFiles()).resolves.toEqual([await realpath(qwenFile)]);
+  });
+
+  it('prefers --qwen-dir over generic qwen source directory overrides', async () => {
+    const explicitTempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'usage-adapters-qwen-explicit-dir-'),
+    );
+    const sourceDirTempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'usage-adapters-qwen-source-dir-precedence-'),
+    );
+    tempDirs.push(explicitTempDir, sourceDirTempDir);
+    const explicitFile = path.join(explicitTempDir, 'demo', 'chats', 'explicit-qwen-session.jsonl');
+    const sourceDirFile = path.join(
+      sourceDirTempDir,
+      'demo',
+      'chats',
+      'source-dir-qwen-session.jsonl',
+    );
+    await mkdir(path.dirname(explicitFile), { recursive: true });
+    await mkdir(path.dirname(sourceDirFile), { recursive: true });
+    await writeFile(explicitFile, '{}\n', 'utf8');
+    await writeFile(sourceDirFile, '{}\n', 'utf8');
+
+    const adapters = createDefaultAdapters({
+      qwenDir: explicitTempDir,
+      sourceDir: [`qwen=${sourceDirTempDir}`],
+    });
+    const qwenAdapter = adapters.find((adapter) => adapter.id === 'qwen');
+
+    await expect(qwenAdapter?.discoverFiles()).resolves.toEqual([await realpath(explicitFile)]);
   });
 
   it('fails gemini discovery when an explicitly configured directory is missing', async () => {
@@ -469,6 +525,17 @@ describe('createDefaultAdapters', () => {
 
     await expect(ampAdapter?.discoverFiles()).rejects.toThrow(
       'Amp threads directory is missing or unreadable',
+    );
+  });
+
+  it('fails qwen discovery when an explicitly configured directory is missing', async () => {
+    const adapters = createDefaultAdapters({
+      qwenDir: path.join(os.tmpdir(), `missing-qwen-${Date.now()}`),
+    });
+    const qwenAdapter = adapters.find((adapter) => adapter.id === 'qwen');
+
+    await expect(qwenAdapter?.discoverFiles()).rejects.toThrow(
+      'Qwen projects directory is missing or unreadable',
     );
   });
 });
