@@ -85,6 +85,10 @@ function resolveScopeNote(options: EfficiencyCommandOptions): string | undefined
     activeFilters.push('--opencode-db');
   }
 
+  if (hasActiveTextOption(options.gooseDb)) {
+    activeFilters.push('--goose-db');
+  }
+
   if (hasActiveRepeatedFilter(options.sourceDir)) {
     activeFilters.push('--source-dir');
   }

@@ -89,6 +89,14 @@ describe('build-usage-data-inputs', () => {
     expect([...inputs.explicitSourceIds]).toEqual(['copilot']);
   });
 
+  it('treats goose DB overrides as explicit source selections', () => {
+    const inputs = normalizeBuildUsageInputs({
+      gooseDb: '/tmp/goose.db',
+    });
+
+    expect([...inputs.explicitSourceIds]).toEqual(['goose']);
+  });
+
   it('validates malformed source-dir entries through the shared parser', () => {
     expect(() => normalizeBuildUsageInputs({ sourceDir: ['invalid'] })).toThrow(
       '--source-dir must use format <source-id>=<path>',

@@ -3,6 +3,7 @@ import { CodexSourceAdapter } from './codex/codex-source-adapter.js';
 import { CopilotSourceAdapter } from './copilot/copilot-source-adapter.js';
 import { DroidSourceAdapter } from './droid/droid-source-adapter.js';
 import { GeminiSourceAdapter } from './gemini/gemini-source-adapter.js';
+import { GooseSourceAdapter } from './goose/goose-source-adapter.js';
 import { OpenCodeSourceAdapter } from './opencode/opencode-source-adapter.js';
 import { OpenClawSourceAdapter } from './openclaw/openclaw-source-adapter.js';
 import { PiSourceAdapter } from './pi/pi-source-adapter.js';
@@ -28,6 +29,7 @@ export type CreateDefaultAdaptersOptions = {
   claudeDir?: string;
   openclawDir?: string;
   opencodeDb?: string;
+  gooseDb?: string;
   sourceDir?: string[];
 };
 
@@ -148,6 +150,14 @@ const sourceRegistrations: readonly SourceRegistration[] = [
       });
     },
   },
+  {
+    id: 'goose',
+    sourceDirOverride: { kind: 'unsupported', flag: '--goose-db' },
+    create: (options) =>
+      new GooseSourceAdapter({
+        dbPath: options.gooseDb,
+      }),
+  },
 ];
 
 const sourceDirUnsupportedFlags = new Map(
@@ -200,13 +210,16 @@ function validateSourceDirectoryOverrideIds(
   );
 }
 
-function validateOpencodeOverride(opencodeDb: string | undefined): void {
-  if (opencodeDb === undefined) {
+function validateDbOverride(
+  optionName: '--opencode-db' | '--goose-db',
+  value: string | undefined,
+): void {
+  if (value === undefined) {
     return;
   }
 
-  if (opencodeDb.trim().length === 0) {
-    throw new Error('--opencode-db must be a non-empty path');
+  if (value.trim().length === 0) {
+    throw new Error(`${optionName} must be a non-empty path`);
   }
 }
 
@@ -265,7 +278,8 @@ export function getDefaultSourceIds(): string[] {
 }
 
 export function createDefaultAdapters(options: CreateDefaultAdaptersOptions): SourceAdapter[] {
-  validateOpencodeOverride(options.opencodeDb);
+  validateDbOverride('--opencode-db', options.opencodeDb);
+  validateDbOverride('--goose-db', options.gooseDb);
   validateDirectoryOverride('--pi-dir', options.piDir);
   validateDirectoryOverride('--codex-dir', options.codexDir);
   validateDirectoryOverride('--copilot-dir', options.copilotDir);

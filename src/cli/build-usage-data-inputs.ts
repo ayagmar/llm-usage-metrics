@@ -198,6 +198,10 @@ export function resolveExplicitSourceIds(
     explicitSourceIds.add('opencode');
   }
 
+  if (options.gooseDb) {
+    explicitSourceIds.add('goose');
+  }
+
   return explicitSourceIds;
 }
 

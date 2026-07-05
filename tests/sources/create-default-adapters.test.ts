@@ -26,6 +26,7 @@ describe('createDefaultAdapters', () => {
       'openclaw',
       'claude',
       'copilot',
+      'goose',
     ]);
   });
 
@@ -121,6 +122,9 @@ describe('createDefaultAdapters', () => {
     expect(() => createDefaultAdapters({ sourceDir: ['opencode=/tmp/opencode'] })).toThrow(
       '--source-dir does not support "opencode". Use --opencode-db instead.',
     );
+    expect(() => createDefaultAdapters({ sourceDir: ['goose=/tmp/goose'] })).toThrow(
+      '--source-dir does not support "goose". Use --goose-db instead.',
+    );
   });
 
   it('wires --opencode-db into the OpenCode adapter discovery path', async () => {
@@ -138,6 +142,24 @@ describe('createDefaultAdapters', () => {
   it('throws when --opencode-db is blank', () => {
     expect(() => createDefaultAdapters({ opencodeDb: '   ' })).toThrow(
       '--opencode-db must be a non-empty path',
+    );
+  });
+
+  it('wires --goose-db into the Goose adapter discovery path', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-adapters-goose-db-'));
+    tempDirs.push(tempDir);
+    const gooseDbPath = path.join(tempDir, 'sessions.db');
+    await writeFile(gooseDbPath, '', 'utf8');
+
+    const adapters = createDefaultAdapters({ gooseDb: gooseDbPath });
+    const gooseAdapter = adapters.find((adapter) => adapter.id === 'goose');
+
+    await expect(gooseAdapter?.discoverFiles()).resolves.toEqual([gooseDbPath]);
+  });
+
+  it('throws when --goose-db is blank', () => {
+    expect(() => createDefaultAdapters({ gooseDb: '   ' })).toThrow(
+      '--goose-db must be a non-empty path',
     );
   });
 

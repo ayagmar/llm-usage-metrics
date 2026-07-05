@@ -432,11 +432,12 @@ describe('buildEfficiencyData', () => {
     expect(result.diagnostics.scopeNote).toContain('--openclaw-dir');
   });
 
-  it('includes --opencode-db in scope note when configured', async () => {
+  it('includes DB source override flags in scope note when configured', async () => {
     const result = await buildEfficiencyData(
       'monthly',
       {
         opencodeDb: '/tmp/opencode.db',
+        gooseDb: '/tmp/goose.db',
       },
       {
         buildUsageEventDataset: async (options) => createUsageEventDataset(options),
@@ -462,6 +463,7 @@ describe('buildEfficiencyData', () => {
     );
 
     expect(result.diagnostics.scopeNote).toContain('--opencode-db');
+    expect(result.diagnostics.scopeNote).toContain('--goose-db');
   });
 
   it('passes an empty active-usage-day set when no events match the target repo', async () => {
