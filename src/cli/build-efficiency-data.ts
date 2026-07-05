@@ -101,6 +101,10 @@ function resolveScopeNote(options: EfficiencyCommandOptions): string | undefined
     activeFilters.push('--kimi-dir');
   }
 
+  if (hasActiveTextOption(options.clineDir)) {
+    activeFilters.push('--cline-dir');
+  }
+
   if (hasActiveRepeatedFilter(options.sourceDir)) {
     activeFilters.push('--source-dir');
   }

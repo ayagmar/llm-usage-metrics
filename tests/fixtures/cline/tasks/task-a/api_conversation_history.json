@@ -1,0 +1,10 @@
+[
+  {
+    "role": "user",
+    "content": "<environment_details><model>old-model</model></environment_details>"
+  },
+  {
+    "role": "user",
+    "content": "<environment_details>\n<model>claude-3.7-sonnet</model>\n</environment_details>"
+  }
+]

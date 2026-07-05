@@ -1,5 +1,6 @@
 import { AmpSourceAdapter } from './amp/amp-source-adapter.js';
 import { ClaudeSourceAdapter } from './claude/claude-source-adapter.js';
+import { CLINE_EXTENSION_IDS, createClineFamilyAdapter } from './cline/cline-family-adapter.js';
 import { CodexSourceAdapter } from './codex/codex-source-adapter.js';
 import { CopilotSourceAdapter } from './copilot/copilot-source-adapter.js';
 import { DroidSourceAdapter } from './droid/droid-source-adapter.js';
@@ -36,6 +37,7 @@ export type CreateDefaultAdaptersOptions = {
   ampDir?: string;
   qwenDir?: string;
   kimiDir?: string;
+  clineDir?: string;
   sourceDir?: string[];
 };
 
@@ -212,6 +214,24 @@ const sourceRegistrations: readonly SourceRegistration[] = [
       });
     },
   },
+  {
+    id: 'cline',
+    sourceDirOverride: { kind: 'directory' },
+    create: (options, sourceDirectoryOverrides) => {
+      const directoryConfig = resolveDirectoryConfig(
+        'cline',
+        options.clineDir,
+        sourceDirectoryOverrides,
+      );
+
+      return createClineFamilyAdapter({
+        id: 'cline',
+        extensionId: CLINE_EXTENSION_IDS.cline,
+        tasksDir: directoryConfig.path,
+        requireTasksDir: directoryConfig.requireExistingPath,
+      });
+    },
+  },
 ];
 
 const sourceDirUnsupportedFlags = new Map(
@@ -288,7 +308,8 @@ function validateDirectoryOverride(
     | '--openclaw-dir'
     | '--amp-dir'
     | '--qwen-dir'
-    | '--kimi-dir',
+    | '--kimi-dir'
+    | '--cline-dir',
   value: string | undefined,
 ): void {
   if (value === undefined) {
@@ -347,6 +368,7 @@ export function createDefaultAdapters(options: CreateDefaultAdaptersOptions): So
   validateDirectoryOverride('--amp-dir', options.ampDir);
   validateDirectoryOverride('--qwen-dir', options.qwenDir);
   validateDirectoryOverride('--kimi-dir', options.kimiDir);
+  validateDirectoryOverride('--cline-dir', options.clineDir);
 
   const sourceDirectoryOverrides = parseSourceDirectoryOverrides(options.sourceDir);
   validateSourceDirectoryOverrideIds(sourceDirectoryOverrides);

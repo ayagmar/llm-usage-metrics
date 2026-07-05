@@ -214,6 +214,10 @@ export function resolveExplicitSourceIds(
     explicitSourceIds.add('kimi');
   }
 
+  if (options.clineDir) {
+    explicitSourceIds.add('cline');
+  }
+
   return explicitSourceIds;
 }
 

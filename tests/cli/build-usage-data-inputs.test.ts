@@ -70,6 +70,7 @@ describe('build-usage-data-inputs', () => {
         'amp=/tmp/amp/threads',
         'qwen=/tmp/qwen/projects',
         'kimi=/tmp/kimi/sessions',
+        'cline=/tmp/cline/tasks',
       ],
     });
 
@@ -82,6 +83,7 @@ describe('build-usage-data-inputs', () => {
       'amp',
       'qwen',
       'kimi',
+      'cline',
     ]);
   });
 
@@ -131,6 +133,14 @@ describe('build-usage-data-inputs', () => {
     });
 
     expect([...inputs.explicitSourceIds]).toEqual(['kimi']);
+  });
+
+  it('treats cline directory overrides as explicit source selections', () => {
+    const inputs = normalizeBuildUsageInputs({
+      clineDir: '/tmp/cline/tasks',
+    });
+
+    expect([...inputs.explicitSourceIds]).toEqual(['cline']);
   });
 
   it('validates malformed source-dir entries through the shared parser', () => {

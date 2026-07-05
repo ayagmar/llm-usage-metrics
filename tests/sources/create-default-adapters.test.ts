@@ -30,6 +30,7 @@ describe('createDefaultAdapters', () => {
       'amp',
       'qwen',
       'kimi',
+      'cline',
     ]);
   });
 
@@ -63,6 +64,7 @@ describe('createDefaultAdapters', () => {
     const ampTempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-adapters-amp-source-dir-'));
     const qwenTempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-adapters-qwen-source-dir-'));
     const kimiTempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-adapters-kimi-source-dir-'));
+    const clineTempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-adapters-cline-source-dir-'));
     tempDirs.push(
       piTempDir,
       codexTempDir,
@@ -74,6 +76,7 @@ describe('createDefaultAdapters', () => {
       ampTempDir,
       qwenTempDir,
       kimiTempDir,
+      clineTempDir,
     );
 
     const piFile = path.join(piTempDir, 'pi-session.jsonl');
@@ -88,8 +91,10 @@ describe('createDefaultAdapters', () => {
     const ampFile = path.join(ampTempDir, 'amp-thread.json');
     const qwenFile = path.join(qwenTempDir, 'demo', 'chats', 'qwen-session.jsonl');
     const kimiFile = path.join(kimiTempDir, 'group-a', 'session-a', 'wire.jsonl');
+    const clineFile = path.join(clineTempDir, 'task-a', 'ui_messages.json');
     await mkdir(path.dirname(qwenFile), { recursive: true });
     await mkdir(path.dirname(kimiFile), { recursive: true });
+    await mkdir(path.dirname(clineFile), { recursive: true });
 
     await writeFile(piFile, '{}\n', 'utf8');
     await writeFile(codexFile, '{}\n', 'utf8');
@@ -101,6 +106,7 @@ describe('createDefaultAdapters', () => {
     await writeFile(ampFile, '{}', 'utf8');
     await writeFile(qwenFile, '{}\n', 'utf8');
     await writeFile(kimiFile, '{}\n', 'utf8');
+    await writeFile(clineFile, '[]', 'utf8');
 
     const adapters = createDefaultAdapters({
       sourceDir: [
@@ -114,6 +120,7 @@ describe('createDefaultAdapters', () => {
         `amp=${ampTempDir}`,
         `qwen=${qwenTempDir}`,
         `kimi=${kimiTempDir}`,
+        `cline=${clineTempDir}`,
       ],
     });
 
@@ -127,6 +134,7 @@ describe('createDefaultAdapters', () => {
     await expect(adapters[9].discoverFiles()).resolves.toEqual([await realpath(ampFile)]);
     await expect(adapters[10].discoverFiles()).resolves.toEqual([await realpath(qwenFile)]);
     await expect(adapters[11].discoverFiles()).resolves.toEqual([await realpath(kimiFile)]);
+    await expect(adapters[12].discoverFiles()).resolves.toEqual([await realpath(clineFile)]);
   });
 
   it('throws on invalid source directory override entries', () => {
@@ -243,6 +251,12 @@ describe('createDefaultAdapters', () => {
   it('throws when --kimi-dir is blank', () => {
     expect(() => createDefaultAdapters({ kimiDir: '   ' })).toThrow(
       '--kimi-dir must be a non-empty path',
+    );
+  });
+
+  it('throws when --cline-dir is blank', () => {
+    expect(() => createDefaultAdapters({ clineDir: '   ' })).toThrow(
+      '--cline-dir must be a non-empty path',
     );
   });
 
@@ -427,6 +441,43 @@ describe('createDefaultAdapters', () => {
     await expect(kimiAdapter?.discoverFiles()).resolves.toEqual([await realpath(explicitFile)]);
   });
 
+  it('wires --cline-dir into the Cline adapter discovery path', async () => {
+    const clineTempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-adapters-cline-dir-'));
+    tempDirs.push(clineTempDir);
+    const clineFile = path.join(clineTempDir, 'task-a', 'ui_messages.json');
+    await mkdir(path.dirname(clineFile), { recursive: true });
+    await writeFile(clineFile, '[]', 'utf8');
+
+    const adapters = createDefaultAdapters({ clineDir: clineTempDir });
+    const clineAdapter = adapters.find((adapter) => adapter.id === 'cline');
+
+    await expect(clineAdapter?.discoverFiles()).resolves.toEqual([await realpath(clineFile)]);
+  });
+
+  it('prefers --cline-dir over generic cline source directory overrides', async () => {
+    const explicitTempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'usage-adapters-cline-explicit-dir-'),
+    );
+    const sourceDirTempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'usage-adapters-cline-source-dir-precedence-'),
+    );
+    tempDirs.push(explicitTempDir, sourceDirTempDir);
+    const explicitFile = path.join(explicitTempDir, 'task-a', 'ui_messages.json');
+    const sourceDirFile = path.join(sourceDirTempDir, 'task-b', 'ui_messages.json');
+    await mkdir(path.dirname(explicitFile), { recursive: true });
+    await mkdir(path.dirname(sourceDirFile), { recursive: true });
+    await writeFile(explicitFile, '[]', 'utf8');
+    await writeFile(sourceDirFile, '[]', 'utf8');
+
+    const adapters = createDefaultAdapters({
+      clineDir: explicitTempDir,
+      sourceDir: [`cline=${sourceDirTempDir}`],
+    });
+    const clineAdapter = adapters.find((adapter) => adapter.id === 'cline');
+
+    await expect(clineAdapter?.discoverFiles()).resolves.toEqual([await realpath(explicitFile)]);
+  });
+
   it('fails gemini discovery when an explicitly configured directory is missing', async () => {
     const adapters = createDefaultAdapters({
       geminiDir: path.join(os.tmpdir(), `missing-gemini-${Date.now()}`),
@@ -598,6 +649,17 @@ describe('createDefaultAdapters', () => {
 
     await expect(kimiAdapter?.discoverFiles()).rejects.toThrow(
       'Kimi sessions directory is missing or unreadable',
+    );
+  });
+
+  it('fails cline discovery when an explicitly configured directory is missing', async () => {
+    const adapters = createDefaultAdapters({
+      clineDir: path.join(os.tmpdir(), `missing-cline-${Date.now()}`),
+    });
+    const clineAdapter = adapters.find((adapter) => adapter.id === 'cline');
+
+    await expect(clineAdapter?.discoverFiles()).rejects.toThrow(
+      'cline tasks directory is missing or unreadable',
     );
   });
 });
