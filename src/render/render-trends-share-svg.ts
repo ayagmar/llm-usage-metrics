@@ -188,7 +188,7 @@ export function renderTrendsShareSvg(data: TrendsDataResult): string {
   const badgeW = commandText.length * 9.5 + 28;
   const badgeX = W - pad.right - badgeW;
   const title = `Daily ${getMetricLabel(data.metric)} Trend`;
-  const subtitle = `${bucketCount} ${getDayLabel(bucketCount)} · ${getDateRangeLabel(data)}`;
+  const subtitle = `${bucketCount} ${getDayLabel(bucketCount)} - ${getDateRangeLabel(data)}`;
   const seriesLabel = `Series: ${data.totalSeries.source}`;
   const chartContent =
     bucketCount === 0

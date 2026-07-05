@@ -74,7 +74,7 @@ describe('createCli', () => {
     );
   });
 
-  it('configures trends command without markdown, share, or per-model columns', () => {
+  it('configures trends command with share but without markdown or per-model columns', () => {
     const cli = createCli();
     const trendsCommand = cli.commands.find((command) => command.name() === 'trends');
 
@@ -83,8 +83,8 @@ describe('createCli', () => {
     expect(trendsCommand?.options.some((option) => option.long === '--metric')).toBe(true);
     expect(trendsCommand?.options.some((option) => option.long === '--by-source')).toBe(true);
     expect(trendsCommand?.options.some((option) => option.long === '--json')).toBe(true);
+    expect(trendsCommand?.options.some((option) => option.long === '--share')).toBe(true);
     expect(trendsCommand?.options.some((option) => option.long === '--markdown')).toBe(false);
-    expect(trendsCommand?.options.some((option) => option.long === '--share')).toBe(false);
     expect(trendsCommand?.options.some((option) => option.long === '--per-model-columns')).toBe(
       false,
     );

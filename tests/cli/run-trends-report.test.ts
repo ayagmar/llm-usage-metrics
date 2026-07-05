@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../src/cli/build-trends-data.js', () => ({
   buildTrendsData: vi.fn(async () => ({
@@ -29,10 +29,23 @@ vi.mock('../../src/cli/build-trends-data.js', () => ({
   })),
 }));
 
+vi.mock('../../src/cli/share-artifact.js', () => ({
+  writeAndOpenShareSvgFile: vi.fn(async (fileName: string) => ({
+    outputPath: `/tmp/${fileName}`,
+    opened: false,
+    openErrorMessage: 'open disabled in tests',
+  })),
+}));
+
 import { buildTrendsData } from '../../src/cli/build-trends-data.js';
 import { buildTrendsReport, runTrendsReport } from '../../src/cli/run-trends-report.js';
+import { writeAndOpenShareSvgFile } from '../../src/cli/share-artifact.js';
 
 describe('run-trends-report', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('builds JSON output without diagnostics in the body', async () => {
     const report = await buildTrendsReport({
       json: true,
@@ -75,6 +88,42 @@ describe('run-trends-report', () => {
       consoleLogSpy.mockRestore();
       consoleErrorSpy.mockRestore();
     }
+  });
+
+  it('writes a share SVG while keeping the report body on stdout', async () => {
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    try {
+      await runTrendsReport({
+        share: true,
+      });
+
+      expect(writeAndOpenShareSvgFile).toHaveBeenCalledTimes(1);
+      const [fileName, svg] = vi.mocked(writeAndOpenShareSvgFile).mock.calls[0] ?? [];
+      expect(fileName).toBe('trends-share.svg');
+      expect(svg).toContain('Daily Token Usage Trend');
+
+      expect(consoleLogSpy).toHaveBeenCalledTimes(1);
+      expect(String(consoleLogSpy.mock.calls[0]?.[0])).toContain('Daily Token Usage Trend');
+      expect(consoleErrorSpy.mock.calls.flat().join('\n')).toContain('Wrote trends share SVG');
+    } finally {
+      consoleLogSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it('rejects by-source share before building trend data', async () => {
+    const buildCallsBefore = vi.mocked(buildTrendsData).mock.calls.length;
+
+    await expect(
+      buildTrendsReport({
+        bySource: true,
+        share: true,
+      }),
+    ).rejects.toThrow('--share does not support --by-source yet; run without --by-source');
+
+    expect(vi.mocked(buildTrendsData).mock.calls).toHaveLength(buildCallsBefore);
   });
 
   it('delegates to buildTrendsData', async () => {

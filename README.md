@@ -114,9 +114,13 @@ llm-usage trends --metric tokens --days 7
 
 # Per-source trends in JSON
 llm-usage trends --by-source --json
+
+# Write a combined trends share SVG
+llm-usage trends --share --days 7
 ```
 
-Trends is terminal-first and supports `--json`. It does not support `--markdown` or `--share`.
+Trends is terminal-first and supports `--json` and `--share`. It does not support `--markdown`.
+`--share` renders the combined trends view; run without `--by-source`.
 
 ### Doctor
 
