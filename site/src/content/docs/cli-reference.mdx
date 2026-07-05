@@ -43,6 +43,7 @@ Generated from root + command help output.
 | `--ignore-pricing-failures` | - | - | Continue without estimated costs when pricing cannot be loaded \(daily, weekly, monthly, efficiency, optimize, trends only\) |
 | `--include-merge-commits` | - | - | Include merge commits in Git outcome metrics \(efficiency only\) |
 | `--json` | - | - | Render output as JSON |
+| `--kimi-dir` | - | `<path>` | Path to Kimi sessions directory |
 | `--markdown` | - | - | Render output as Markdown table \(daily, weekly, monthly, efficiency, optimize only\) |
 | `--metric` | - | `<name>` | Trend metric: cost \| tokens \(default: "cost"\) \(trends only\) |
 | `--model` | - | `<name>` | Filter by model \(repeatable/comma-separated; exact when exact match exists after source/provider/date filters, otherwise substring\) \(daily, weekly, monthly, efficiency, optimize, trends only\) |
@@ -58,7 +59,7 @@ Generated from root + command help output.
 | `--repo-dir` | - | `<path>` | Path to repository for Git outcome metrics \(efficiency only\) |
 | `--share` | - | - | Write a share SVG image to the current directory \(daily, weekly, monthly, efficiency, optimize, trends only\) |
 | `--since` | - | `<YYYY-MM-DD>` | Inclusive start date filter \(daily, weekly, monthly, efficiency, optimize, trends only\) |
-| `--source` | - | `<name>` | Filter by source id \(repeatable or comma-separated, supported sources \(11\): pi, codex, gemini, droid, opencode, openclaw, claude, copilot, goose, amp, qwen\) |
+| `--source` | - | `<name>` | Filter by source id \(repeatable or comma-separated, supported sources \(12\): pi, codex, gemini, droid, opencode, openclaw, claude, copilot, goose, amp, qwen, kimi\) |
 | `--source-dir` | - | `<source-id=path>` | Override source directory for directory-backed sources \(repeatable\) |
 | `--timezone` | - | `<iana>` | Timezone for bucketing \(default: local system timezone\) \(daily, weekly, monthly, efficiency, optimize, trends only\) |
 | `--top` | - | `<n>` | Show only the top N cheapest candidates \(positive integer\) \(optimize only\) |

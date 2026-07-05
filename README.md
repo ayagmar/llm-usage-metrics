@@ -21,11 +21,11 @@
 
 ---
 
-Aggregate token usage and costs from your local coding agent sessions. Supports **pi**, **codex**, **Gemini CLI**, **Droid CLI**, **OpenCode**, **OpenClaw**, **Claude Code**, **GitHub Copilot CLI**, **Goose**, **Amp**, and **Qwen CLI** with zero configuration required.
+Aggregate token usage and costs from your local coding agent sessions. Supports **pi**, **codex**, **Gemini CLI**, **Droid CLI**, **OpenCode**, **OpenClaw**, **Claude Code**, **GitHub Copilot CLI**, **Goose**, **Amp**, **Qwen CLI**, and **Kimi CLI/Kimi Code** with zero configuration required.
 
 ## ✨ Features
 
-- **Zero-Config Discovery** — Automatically finds `.pi`, `.codex`, `.gemini`, `.factory`, OpenCode, OpenClaw, Claude, Copilot, Goose, Amp, and Qwen session data
+- **Zero-Config Discovery** — Automatically finds `.pi`, `.codex`, `.gemini`, `.factory`, OpenCode, OpenClaw, Claude, Copilot, Goose, Amp, Qwen, and Kimi session data
 - **LiteLLM Pricing** — Real-time pricing sync with offline caching support
 - **Flexible Reports** — Daily, weekly, and monthly aggregations
 - **Efficiency Reports** — Correlate cost/tokens with repository commit outcomes
@@ -69,6 +69,7 @@ llm-usage daily
 | **Goose**       | `~/.local/share/goose/sessions/sessions.db` (or `$GOOSE_PATH_ROOT/data/sessions`)        | Auto or explicit `--goose-db`    |
 | **Amp**         | `~/.local/share/amp/threads/*.json`                                                      | Auto or explicit `--amp-dir`     |
 | **Qwen CLI**    | `~/.qwen/projects/*/chats/*.jsonl`                                                       | Auto or explicit `--qwen-dir`    |
+| **Kimi**        | `~/.kimi/sessions/**/wire.jsonl` + `~/.kimi-code/sessions/**/wire.jsonl`                 | Auto or explicit `--kimi-dir`    |
 
 OpenCode source support requires Node.js 24+ runtime with built-in `node:sqlite`.
 
@@ -142,7 +143,7 @@ Doctor prints one line per source and exits 0 even when a source is unhealthy.
 pi        ok     12 file(s)
 opencode  error  OpenCode database is missing or unreadable: /path/to/opencode.db
 
-10/11 sources healthy
+11/12 sources healthy
 ```
 
 ### Efficiency Reports
@@ -190,9 +191,10 @@ llm-usage efficiency monthly --repo-dir /path/to/repo --source copilot
 llm-usage efficiency monthly --repo-dir /path/to/repo --source goose
 llm-usage efficiency monthly --repo-dir /path/to/repo --source amp
 llm-usage efficiency monthly --repo-dir /path/to/repo --source qwen
+llm-usage efficiency monthly --repo-dir /path/to/repo --source kimi
 ```
 
-Note: usage filters (`--source`, `--provider`, `--model`, `--pi-dir`, `--codex-dir`, `--copilot-dir`, `--gemini-dir`, `--droid-dir`, `--claude-dir`, `--openclaw-dir`, `--amp-dir`, `--qwen-dir`, `--opencode-db`, `--goose-db`, `--source-dir`) also constrain commit attribution: only commit days with matching repo-attributed usage events are counted.
+Note: usage filters (`--source`, `--provider`, `--model`, `--pi-dir`, `--codex-dir`, `--copilot-dir`, `--gemini-dir`, `--droid-dir`, `--claude-dir`, `--openclaw-dir`, `--amp-dir`, `--qwen-dir`, `--kimi-dir`, `--opencode-db`, `--goose-db`, `--source-dir`) also constrain commit attribution: only commit days with matching repo-attributed usage events are counted.
 
 ### Optimize Reports
 
@@ -213,7 +215,7 @@ llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candida
 
 ```bash
 # By source
-llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude,copilot,goose,amp,qwen
+llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude,copilot,goose,amp,qwen,kimi
 
 # By provider
 llm-usage monthly --provider openai
@@ -225,15 +227,15 @@ llm-usage monthly --model claude
 llm-usage monthly --source opencode --provider openai --model gpt-4.1
 ```
 
-Use `--source` to scope where events came from (`pi`, `codex`, `gemini`, `droid`, `opencode`, `openclaw`, `claude`, `copilot`, `goose`, `amp`, `qwen`), and `--provider` to scope the billing entity behind those events.
+Use `--source` to scope where events came from (`pi`, `codex`, `gemini`, `droid`, `opencode`, `openclaw`, `claude`, `copilot`, `goose`, `amp`, `qwen`, `kimi`), and `--provider` to scope the billing entity behind those events.
 
 ### Custom Paths
 
 ```bash
 # Custom directories
-llm-usage daily --source-dir pi=/path/to/pi --source-dir codex=/path/to/codex --source-dir gemini=/path/to/.gemini --source-dir droid=/path/to/.factory/sessions --source-dir openclaw=/path/to/.openclaw/agents --source-dir claude=/path/to/.claude/projects --source-dir copilot=/path/to/.copilot/otel --source-dir amp=/path/to/amp/threads --source-dir qwen=/path/to/.qwen/projects
+llm-usage daily --source-dir pi=/path/to/pi --source-dir codex=/path/to/codex --source-dir gemini=/path/to/.gemini --source-dir droid=/path/to/.factory/sessions --source-dir openclaw=/path/to/.openclaw/agents --source-dir claude=/path/to/.claude/projects --source-dir copilot=/path/to/.copilot/otel --source-dir amp=/path/to/amp/threads --source-dir qwen=/path/to/.qwen/projects --source-dir kimi=/path/to/kimi/sessions
 
-# Explicit Gemini/Droid/Claude/OpenClaw/Copilot/Amp/Qwen/OpenCode/Goose paths
+# Explicit Gemini/Droid/Claude/OpenClaw/Copilot/Amp/Qwen/Kimi/OpenCode/Goose paths
 llm-usage daily --gemini-dir /path/to/.gemini
 llm-usage daily --droid-dir /path/to/.factory/sessions
 llm-usage daily --claude-dir /path/to/.claude/projects
@@ -241,6 +243,7 @@ llm-usage daily --openclaw-dir /path/to/.openclaw/agents
 llm-usage daily --copilot-dir /path/to/.copilot/otel
 llm-usage daily --amp-dir /path/to/amp/threads
 llm-usage daily --qwen-dir /path/to/.qwen/projects
+llm-usage daily --kimi-dir /path/to/kimi/sessions
 llm-usage daily --opencode-db /path/to/opencode.db
 llm-usage daily --goose-db /path/to/goose/sessions.db
 ```

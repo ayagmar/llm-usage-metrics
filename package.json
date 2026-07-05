@@ -1,7 +1,7 @@
 {
   "name": "llm-usage-metrics",
   "version": "0.7.2",
-  "description": "CLI for aggregating local LLM usage metrics from pi, codex, gemini, droid, opencode, openclaw, claude, copilot, goose, amp, and qwen sessions",
+  "description": "CLI for aggregating local LLM usage metrics from pi, codex, gemini, droid, opencode, openclaw, claude, copilot, goose, amp, qwen, and kimi sessions",
   "type": "module",
   "packageManager": "pnpm@10.17.1",
   "engines": {
@@ -52,7 +52,8 @@
     "copilot",
     "goose",
     "amp",
-    "qwen"
+    "qwen",
+    "kimi"
   ],
   "license": "MIT",
   "repository": {

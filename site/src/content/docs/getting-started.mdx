@@ -30,6 +30,7 @@ npx --yes llm-usage-metrics@latest daily
   - Goose SQLite DB (`~/.local/share/goose/sessions/sessions.db`)
   - Amp thread files (`~/.local/share/amp/threads/*.json`)
   - Qwen CLI chats (`~/.qwen/projects/*/chats/*.jsonl`)
+  - Kimi CLI/Kimi Code wire files (`~/.kimi/sessions/**/wire.jsonl`, `~/.kimi-code/sessions/**/wire.jsonl`)
 
 ## First report
 
@@ -48,7 +49,7 @@ llm-usage trends --metric tokens --days 14
 ## Common filters
 
 ```bash
-llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude,copilot,goose,amp,qwen
+llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude,copilot,goose,amp,qwen,kimi
 llm-usage monthly --provider openai
 llm-usage monthly --model claude
 ```
@@ -129,4 +130,10 @@ llm-usage monthly --source amp --amp-dir /path/to/amp/threads
 
 ```bash
 llm-usage monthly --source qwen --qwen-dir /path/to/.qwen/projects
+```
+
+## Kimi explicit path
+
+```bash
+llm-usage monthly --source kimi --kimi-dir /path/to/kimi/sessions
 ```
