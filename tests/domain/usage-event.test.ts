@@ -4,6 +4,7 @@ import {
   createUsageEvent,
   hasBillableTokenBuckets,
   isPriceableEvent,
+  normalizeModelKey,
 } from '../../src/domain/usage-event.js';
 
 describe('createUsageEvent', () => {
@@ -151,6 +152,11 @@ describe('createUsageEvent', () => {
     });
 
     expect(event.model).toBe('gpt-4.1');
+  });
+
+  it('exports the model key normalizer used by event and cache paths', () => {
+    expect(normalizeModelKey(' GPT\u001B[2J-4.1 ')).toBe('gpt[2j-4.1');
+    expect(normalizeModelKey('\u0007')).toBe('');
   });
 
   it('normalizes provider identifiers to billing entities', () => {

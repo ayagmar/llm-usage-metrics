@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import { normalizeSourceId, type UsageEvent } from '../domain/usage-event.js';
+import { normalizeModelKey, normalizeSourceId, type UsageEvent } from '../domain/usage-event.js';
 import { normalizeProviderToBillingEntity } from '../domain/provider-normalization.js';
 import type {
   SourceParseFileDiagnostics,
@@ -139,7 +139,7 @@ function normalizeCachedUsageEvent(value: unknown): UsageEvent | undefined {
   const provider = normalizeProviderToBillingEntity(
     typeof record.provider === 'string' ? record.provider : undefined,
   );
-  const model = typeof record.model === 'string' ? record.model.trim().toLowerCase() : '';
+  const model = typeof record.model === 'string' ? normalizeModelKey(record.model) : '';
   const costUsd = toNonNegativeNumber(record.costUsd);
 
   if (costMode === 'explicit' && costUsd === undefined) {

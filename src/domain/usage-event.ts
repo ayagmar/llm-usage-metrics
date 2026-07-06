@@ -90,14 +90,17 @@ function normalizeOptionalPath(value: string | undefined): string | undefined {
   return normalizeOptionalText(value);
 }
 
-function normalizeOptionalModel(value: string | undefined): string | undefined {
-  const normalized = normalizeOptionalText(value);
+export function normalizeModelKey(value: string): string {
+  return stripControlCharacters(value).trim().toLowerCase();
+}
 
-  if (!normalized) {
+function normalizeOptionalModel(value: string | undefined): string | undefined {
+  if (!value) {
     return undefined;
   }
 
-  return normalized.toLowerCase();
+  const normalized = normalizeModelKey(value);
+  return normalized || undefined;
 }
 
 function resolveCostMode(costMode: CostMode | undefined, costUsd: number | undefined): CostMode {

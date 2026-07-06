@@ -244,7 +244,7 @@ describe('ParseFileCache', () => {
       sessionId: 'from-cache',
       timestamp: '2026-02-01T00:00:00.000Z',
       provider: ' OpenAI-Codex ',
-      model: ' GPT-4.1 ',
+      model: ' GPT\u001B[2J-4.1 ',
       inputTokens: 1,
       outputTokens: 2,
       reasoningTokens: 0,
@@ -325,7 +325,7 @@ describe('ParseFileCache', () => {
     ).toBeUndefined();
     expect(cache.get('codex', '/tmp/ok.jsonl', { size: 12, mtimeMs: 34 })).toEqual({
       events: [
-        { ...createEvent({ sessionId: 'from-cache', provider: 'openai', model: 'gpt-4.1' }) },
+        { ...createEvent({ sessionId: 'from-cache', provider: 'openai', model: 'gpt[2j-4.1' }) },
       ],
       skippedRows: 9,
       skippedRowReasons: [{ reason: 'truncated', count: 3 }],

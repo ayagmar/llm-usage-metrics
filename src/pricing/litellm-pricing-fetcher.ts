@@ -86,6 +86,7 @@ async function sleep(delayMs: number): Promise<void> {
 }
 
 function normalizeKey(value: string): string {
+  // Pricing payload keys are normalized separately from event/cache model keys.
   return value.trim().toLowerCase();
 }
 
