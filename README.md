@@ -32,6 +32,7 @@ Aggregate token usage and costs from your local coding agent sessions. Supports 
 - **Optimize Reports** — Counterfactual candidate-model pricing against observed token mix
 - **Trends Reports** — Daily cost or token trend views with combined or per-source output
 - **Session Reports** — Group usage by conversation session to find high-cost work
+- **Wrapped Recaps** — Yearly usage recap with a shareable SVG
 - **Doctor Command** — Check source discovery health when reports show no sessions
 - **Multiple Outputs** — Terminal tables, JSON, or Markdown
 - **Smart Filtering** — By source, billing provider, model, and date ranges
@@ -148,6 +149,22 @@ llm-usage session --markdown
 Session reports group events by source and session id, then sort sessions by total cost descending.
 Date, source, provider, and model filters apply to events before grouping, so a session spanning a boundary shows only the matching in-range usage.
 Session reports do not include a TOTAL row because the rows represent conversations rather than calendar periods.
+
+### Wrapped Recap
+
+```bash
+# Current-year recap in the report timezone
+llm-usage wrapped
+
+# Fixed-year recap as JSON
+llm-usage wrapped --year 2026 --json
+
+# Write the share SVG
+llm-usage wrapped --year 2026 --share
+```
+
+Wrapped computes yearly totals, active days, longest streak, top models, top sources, and a 12-month intensity strip.
+The share output is an offline SVG named `llm-usage-wrapped-<year>.svg`; PNG rendering and embedded logo/font assets are intentionally out of scope.
 
 ### Doctor
 
