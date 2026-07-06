@@ -291,6 +291,7 @@ async function discoverWireFiles(rootDir: string): Promise<string[]> {
 
 export class KimiSourceAdapter implements SourceAdapter {
   public readonly id = 'kimi' as const;
+  public readonly capabilities = { fixedProviderRoots: [KIMI_PROVIDER] };
 
   private readonly rootDirs: readonly string[];
   private readonly requireKimiDir: boolean;

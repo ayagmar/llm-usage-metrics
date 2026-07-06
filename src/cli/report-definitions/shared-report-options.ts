@@ -136,7 +136,7 @@ export function registerSharedReportOptions(
     configuredCommand
       .option(
         '--provider <name>',
-        'Billing-provider filter (normalized to billing entity; e.g. openai, anthropic, google)',
+        'Billing-provider filter (normalized to billing entity; e.g. openai, anthropic, google, moonshot)',
       )
       .option(
         '--model <name>',

@@ -10,7 +10,13 @@ const billingProviderPrefixAliases: Array<[prefix: string, billingProvider: stri
   ['openai/', 'openai'],
 ];
 
-const knownCanonicalProviderRoots = new Set(['anthropic', 'github', 'google', 'openai']);
+const knownCanonicalProviderRoots = new Set([
+  'anthropic',
+  'github',
+  'google',
+  'moonshot',
+  'openai',
+]);
 
 const explicitModelProviderRootPatterns: Array<[pattern: RegExp, providerRoot: string]> = [
   [/^gpt-/u, 'openai'],

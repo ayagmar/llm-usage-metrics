@@ -208,6 +208,44 @@ describe('build-usage-data-inputs', () => {
     expect(selectedAdapters.map((adapter) => adapter.id)).toEqual(['pi', 'codex']);
   });
 
+  it('prunes kimi for other explicit providers and keeps it for moonshot', () => {
+    const adapters: SourceAdapter[] = [
+      {
+        id: 'pi',
+        discoverFiles: async () => [],
+        parseFile: async () => [],
+      },
+      {
+        id: 'claude',
+        capabilities: { fixedProviderRoots: ['anthropic'] },
+        discoverFiles: async () => [],
+        parseFile: async () => [],
+      },
+      {
+        id: 'kimi',
+        capabilities: { fixedProviderRoots: ['moonshot'] },
+        discoverFiles: async () => [],
+        parseFile: async () => [],
+      },
+    ];
+
+    const anthropicInputs = normalizeBuildUsageInputs({ provider: 'anthropic' });
+    const moonshotInputs = normalizeBuildUsageInputs({ provider: 'moonshot' });
+
+    expect(
+      selectAdaptersForParsing(adapters, {
+        sourceFilter: undefined,
+        candidateProviderRoots: anthropicInputs.candidateProviderRoots,
+      }).map((adapter) => adapter.id),
+    ).toEqual(['pi', 'claude']);
+    expect(
+      selectAdaptersForParsing(adapters, {
+        sourceFilter: undefined,
+        candidateProviderRoots: moonshotInputs.candidateProviderRoots,
+      }).map((adapter) => adapter.id),
+    ).toEqual(['pi', 'kimi']);
+  });
+
   it('records source selection with candidate provider roots in the runtime profile', () => {
     const adapters: SourceAdapter[] = [
       {

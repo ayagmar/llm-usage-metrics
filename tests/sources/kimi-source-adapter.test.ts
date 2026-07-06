@@ -42,6 +42,7 @@ describe('KimiSourceAdapter', () => {
     const defaultDirs = getDefaultKimiSessionDirs();
 
     expect(adapter.id).toBe('kimi');
+    expect(adapter.capabilities).toEqual({ fixedProviderRoots: ['moonshot'] });
     expect(defaultDirs).toEqual([
       path.join(os.homedir(), '.kimi', 'sessions'),
       path.join(os.homedir(), '.kimi-code', 'sessions'),
