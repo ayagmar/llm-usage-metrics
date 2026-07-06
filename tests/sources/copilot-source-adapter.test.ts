@@ -103,6 +103,19 @@ describe('CopilotSourceAdapter', () => {
     });
   });
 
+  it('keeps same-priority chat spans sharing a trace while dropping lower-priority records', async () => {
+    const adapter = new CopilotSourceAdapter();
+    const filePath = path.resolve('tests/fixtures/copilot/otel-same-trace.jsonl');
+
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toHaveLength(2);
+    expect(events.map((event) => event.totalTokens)).toEqual([50, 20]);
+    expect(events.reduce((sum, event) => sum + event.totalTokens, 0)).toBe(70);
+    expect(events[0]).toMatchObject({ inputTokens: 40, outputTokens: 10 });
+    expect(events[1]).toMatchObject({ inputTokens: 15, outputTokens: 5 });
+  });
+
   it('falls back to the file stem when no session identifiers are present', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'copilot-fallback-session-'));
     tempDirs.push(root);

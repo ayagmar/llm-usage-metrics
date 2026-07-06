@@ -286,29 +286,46 @@ function extractCandidate(
 }
 
 function applyClassPriorityGuard(candidates: readonly CopilotCandidate[]): CopilotCandidate[] {
-  const sortedCandidates = [...candidates].sort((left, right) => left.priority - right.priority);
+  const candidatesByPriority = new Map<number, CopilotCandidate[]>();
+
+  for (const candidate of candidates) {
+    const group = candidatesByPriority.get(candidate.priority);
+
+    if (group) {
+      group.push(candidate);
+    } else {
+      candidatesByPriority.set(candidate.priority, [candidate]);
+    }
+  }
+
+  const ascendingPriorityGroups = [...candidatesByPriority.entries()]
+    .sort(([leftPriority], [rightPriority]) => leftPriority - rightPriority)
+    .map(([, group]) => group);
+
   const keptCandidates: CopilotCandidate[] = [];
-  const seenTraceIds = new Set<string>();
-  const seenResponseIds = new Set<string>();
+  const higherPriorityTraceIds = new Set<string>();
+  const higherPriorityResponseIds = new Set<string>();
 
-  for (const candidate of sortedCandidates) {
-    const hasTraceCollision =
-      candidate.traceId !== undefined && seenTraceIds.has(candidate.traceId);
-    const hasResponseCollision =
-      candidate.responseId !== undefined && seenResponseIds.has(candidate.responseId);
+  for (const group of ascendingPriorityGroups) {
+    const keptInGroup = group.filter((candidate) => {
+      const hasTraceCollision =
+        candidate.traceId !== undefined && higherPriorityTraceIds.has(candidate.traceId);
+      const hasResponseCollision =
+        candidate.responseId !== undefined && higherPriorityResponseIds.has(candidate.responseId);
 
-    if (hasTraceCollision || hasResponseCollision) {
-      continue;
-    }
+      return !hasTraceCollision && !hasResponseCollision;
+    });
 
-    keptCandidates.push(candidate);
+    for (const candidate of keptInGroup) {
+      keptCandidates.push(candidate);
 
-    if (candidate.traceId) {
-      seenTraceIds.add(candidate.traceId);
-    }
+      if (candidate.traceId) {
+        higherPriorityTraceIds.add(candidate.traceId);
+      }
 
-    if (candidate.responseId) {
-      seenResponseIds.add(candidate.responseId);
+      if (candidate.responseId) {
+        higherPriorityResponseIds.add(candidate.responseId);
+      }
     }
   }
 
