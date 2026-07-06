@@ -21,11 +21,11 @@
 
 ---
 
-Aggregate token usage and costs from your local coding agent sessions. Supports **pi**, **codex**, **Gemini CLI**, **Droid CLI**, **OpenCode**, **OpenClaw**, **Claude Code**, **GitHub Copilot CLI**, **Goose**, **Amp**, **Qwen CLI**, **Kimi CLI/Kimi Code**, **Cline**, **RooCode**, and **KiloCode** with zero configuration required.
+Aggregate token usage and costs from your local coding agent sessions. Supports **pi**, **codex**, **Gemini CLI**, **Droid CLI**, **OpenCode**, **OpenClaw**, **Claude Code**, **GitHub Copilot CLI**, **Goose**, **Amp**, **Qwen CLI**, **Kimi CLI/Kimi Code**, **Cline**, **RooCode**, **KiloCode**, and **Antigravity** with zero configuration required.
 
 ## ✨ Features
 
-- **Zero-Config Discovery** — Automatically finds `.pi`, `.codex`, `.gemini`, `.factory`, OpenCode, OpenClaw, Claude, Copilot, Goose, Amp, Qwen, Kimi, Cline, RooCode, and KiloCode session data
+- **Zero-Config Discovery** — Automatically finds `.pi`, `.codex`, `.gemini`, `.factory`, OpenCode, OpenClaw, Claude, Copilot, Goose, Amp, Qwen, Kimi, Cline, RooCode, KiloCode, and Antigravity session data
 - **LiteLLM Pricing** — Real-time pricing sync with offline caching support
 - **Flexible Reports** — Daily, weekly, and monthly aggregations
 - **Efficiency Reports** — Correlate cost/tokens with repository commit outcomes
