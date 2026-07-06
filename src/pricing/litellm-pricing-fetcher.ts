@@ -39,12 +39,14 @@ export type LiteLLMPricingFetcherOptions = {
 
 type LiteLLMModelMapPayload = {
   aliases?: unknown;
+  neverFuzzyMatch?: unknown;
   preferredPricingKeyByCanonicalModel?: unknown;
 };
 
 type LiteLLMModelMap = {
   aliasToCanonicalModel: Map<string, string>;
   canonicalizedAliasToCanonicalModel: Map<string, string>;
+  neverFuzzyMatch: Set<string>;
   preferredPricingKeyByCanonicalModel: Map<string, string>;
 };
 
@@ -93,6 +95,7 @@ function normalizeKey(value: string): string {
 function parseLiteLLMModelMap(payload: LiteLLMModelMapPayload): LiteLLMModelMap {
   const aliasToCanonicalModel = new Map<string, string>();
   const canonicalizedAliasToCanonicalModel = new Map<string, string>();
+  const neverFuzzyMatch = new Set<string>();
   const preferredPricingKeyByCanonicalModel = new Map<string, string>();
 
   const aliasesRecord = asRecord(payload.aliases);
@@ -114,6 +117,16 @@ function parseLiteLLMModelMap(payload: LiteLLMModelMapPayload): LiteLLMModelMap 
     }
   }
 
+  if (Array.isArray(payload.neverFuzzyMatch)) {
+    for (const model of payload.neverFuzzyMatch) {
+      if (typeof model !== 'string') {
+        continue;
+      }
+
+      neverFuzzyMatch.add(normalizeKey(model));
+    }
+  }
+
   const preferredPricingRecord = asRecord(payload.preferredPricingKeyByCanonicalModel);
 
   if (preferredPricingRecord) {
@@ -132,6 +145,7 @@ function parseLiteLLMModelMap(payload: LiteLLMModelMapPayload): LiteLLMModelMap 
   return {
     aliasToCanonicalModel,
     canonicalizedAliasToCanonicalModel,
+    neverFuzzyMatch,
     preferredPricingKeyByCanonicalModel,
   };
 }
@@ -438,7 +452,9 @@ export class LiteLLMPricingFetcher implements PricingSource {
       return prefixMatch;
     }
 
-    const fuzzyMatch = this.resolveFuzzyModelMatch(normalizedModel);
+    const fuzzyMatch = this.shouldSkipFuzzyModelMatch(normalizedModel)
+      ? undefined
+      : this.resolveFuzzyModelMatch(normalizedModel);
     const resolvedAlias = fuzzyMatch ?? normalizedModel;
     this.resolvedAliasCache.set(normalizedModel, resolvedAlias);
 
@@ -482,7 +498,9 @@ export class LiteLLMPricingFetcher implements PricingSource {
       return prefixCanonicalMatch;
     }
 
-    return this.resolveFuzzyModelMatch(canonicalModel);
+    return this.shouldSkipFuzzyModelMatch(canonicalModel)
+      ? undefined
+      : this.resolveFuzzyModelMatch(canonicalModel);
   }
 
   private resolveCanonicalModelName(normalizedModel: string): string | undefined {
@@ -576,6 +594,15 @@ export class LiteLLMPricingFetcher implements PricingSource {
     }
 
     return undefined;
+  }
+
+  private shouldSkipFuzzyModelMatch(normalizedModel: string): boolean {
+    const strippedModel = stripProviderPrefix(normalizedModel);
+
+    return (
+      litellmModelMap.neverFuzzyMatch.has(normalizedModel) ||
+      litellmModelMap.neverFuzzyMatch.has(strippedModel)
+    );
   }
 
   private resolveFuzzyModelMatch(normalizedModel: string): string | undefined {

@@ -35,6 +35,7 @@
     "anthropic/claude-sonnet-4.6": "claude-sonnet-4.6",
     "anthropic.claude-sonnet-4-6": "claude-sonnet-4.6"
   },
+  "neverFuzzyMatch": ["kimi-for-coding"],
   "notes": {
     "gpt-5.3-codex-spark": "Alias to gpt-5.3-codex because upstream publishes token pricing on the gpt-5.3-codex key",
     "gemini-3-flash-a": "Antigravity session data records gemini-3 models with an '-a' suffix (gemini-3-flash-a, gemini-3-pro-a); alias them to the canonical gemini-3 models",

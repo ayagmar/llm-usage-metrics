@@ -848,6 +848,40 @@ describe('LiteLLMPricingFetcher', () => {
     expect(fetcher.getPricing('kimi-for-coding')).toBeUndefined();
   });
 
+  it('lets the model map veto fuzzy matching for listed models', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-never-fuzzy-'));
+    tempDirs.push(rootDir);
+
+    const fetcher = createFetcher({
+      cacheFilePath: path.join(rootDir, 'cache.json'),
+      fetchImpl: vi.fn(async () => {
+        return new Response(
+          JSON.stringify({
+            'kimi-for-codings': {
+              input_cost_per_token: 0.0000001,
+              output_cost_per_token: 0.0000002,
+            },
+            'moonshot/kimi-k2.6': {
+              input_cost_per_token: 0.00000095,
+              output_cost_per_token: 0.000004,
+            },
+          }),
+          { status: 200 },
+        );
+      }),
+    });
+
+    await fetcher.load();
+
+    expect(fetcher.resolveModelAlias('kimi-for-coding')).toBe('kimi-for-coding');
+    expect(fetcher.resolveModelAlias('moonshot/kimi-for-coding')).toBe('moonshot/kimi-for-coding');
+    expect(fetcher.getPricing('kimi-for-coding')).toBeUndefined();
+    expect(fetcher.getPricing('moonshot/kimi-for-coding')).toBeUndefined();
+
+    expect(fetcher.resolveModelAlias('k2p6')).toBe('moonshot/kimi-k2.6');
+    expect(fetcher.getPricing('k2p6')?.outputPer1MUsd).toBeCloseTo(4, 10);
+  });
+
   it('resolves -a suffixed gemini-3 aliases to preferred gemini preview pricing keys', async () => {
     const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-gemini-a-suffix-'));
     tempDirs.push(rootDir);
