@@ -34,6 +34,7 @@ Generated from root + command help output.
 | --- | --- | --- | --- |
 | `--amp-dir` | - | `<path>` | Path to Amp threads directory |
 | `--antigravity-dir` | - | `<path>` | Path to Antigravity conversations directory |
+| `--by-repo` | - | - | Group usage by repository root instead of by session \(session only\) |
 | `--by-source` | - | - | Render one sparkline row per source instead of a single combined chart \(trends only\) |
 | `--candidate-model` | - | `<name>` | Candidate model for counterfactual pricing \(repeatable or comma-separated\) \(optimize only\) |
 | `--claude-dir` | - | `<path>` | Path to Claude projects directory |
@@ -44,6 +45,7 @@ Generated from root + command help output.
 | `--droid-dir` | - | `<path>` | Path to Droid sessions directory |
 | `--gemini-dir` | - | `<path>` | Path to .gemini directory |
 | `--goose-db` | - | `<path>` | Path to Goose SQLite DB |
+| `--id` | - | `<session-id>` | Show only sessions whose id contains the value \(case-insensitive; repeatable or comma-separated\) \(session only\) |
 | `--ignore-pricing-failures` | - | - | Continue without estimated costs when pricing cannot be loaded \(daily, weekly, monthly, efficiency, optimize, trends, session, wrapped only\) |
 | `--include-merge-commits` | - | - | Include merge commits in Git outcome metrics \(efficiency only\) |
 | `--json` | - | - | Render output as JSON |
@@ -68,7 +70,7 @@ Generated from root + command help output.
 | `--source` | - | `<name>` | Filter by source id \(repeatable or comma-separated, supported sources \(16\): pi, codex, gemini, droid, opencode, openclaw, claude, copilot, goose, amp, qwen, kimi, cline, roocode, kilocode, antigravity\) |
 | `--source-dir` | - | `<source-id=path>` | Override source directory for directory-backed sources \(repeatable\) |
 | `--timezone` | - | `<iana>` | Timezone for bucketing \(default: local system timezone\) \(daily, weekly, monthly, efficiency, optimize, trends, session, wrapped only\) |
-| `--top` | - | `<n>` | optimize: Show only the top N cheapest candidates \(positive integer\); session: Show only the top N sessions by cost \(positive integer\) |
+| `--top` | - | `<n>` | optimize: Show only the top N cheapest candidates \(positive integer\); session: Show only the top N rows by cost \(default 20; 0 shows all\) |
 | `--until` | - | `<YYYY-MM-DD>` | Inclusive end date filter \(daily, weekly, monthly, efficiency, optimize, trends, session only\) |
 | `--year` | - | `<YYYY>` | Year to recap \(2020-2100; defaults to current local year\) \(wrapped only\) |
 | `--help` | `-h` | - | display help for command |
@@ -96,6 +98,8 @@ llm-usage trends --metric tokens --days 7
 llm-usage trends --by-source --json
 llm-usage session
 llm-usage session --top 5 --json
+llm-usage session --id 486c
+llm-usage session --by-repo --top 5
 llm-usage session --markdown
 llm-usage wrapped
 llm-usage wrapped --year 2026 --share

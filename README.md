@@ -136,8 +136,17 @@ Trends is terminal-first and supports `--json` and `--share`. It does not suppor
 ### Session Reports
 
 ```bash
-# Group usage by conversation session
+# Group usage by conversation session (top 20 by cost by default)
 llm-usage session
+
+# Show every session
+llm-usage session --top 0
+
+# Look up sessions whose id contains a value (case-insensitive substring)
+llm-usage session --id 486c
+
+# Group usage by repository root instead of by session
+llm-usage session --by-repo --top 5
 
 # Keep only the highest-cost sessions in JSON output
 llm-usage session --top 5 --json
@@ -147,6 +156,10 @@ llm-usage session --markdown
 ```
 
 Session reports group events by source and session id, then sort sessions by total cost descending.
+By default only the top 20 rows are shown (in terminal, Markdown, and JSON output alike) and a stderr note reports how many rows were hidden; use `--top 0` to print everything.
+`--id` filters sessions by case-insensitive substring match on the full session id (repeatable or comma-separated), renders matching ids untruncated, and disables the default limit (an explicit `--top` still applies). It cannot be combined with `--by-repo`.
+`--by-repo` prints one row per repository root with distinct session counts and the contributing sources; events without a repository fall into a `(no repo)` bucket. The table shows the directory basename while JSON keeps the full path.
+The session table shows the repo, last activity, total tokens, cost, and up to two models per session; JSON output keeps all fields (event counts, cache buckets, the full model list, and full repository paths).
 Date, source, provider, and model filters apply to events before grouping, so a session spanning a boundary shows only the matching in-range usage.
 Session reports do not include a TOTAL row because the rows represent conversations rather than calendar periods.
 
