@@ -11,6 +11,7 @@ import type { PricingSource } from '../pricing/types.js';
 import type { SessionRow } from '../session/session-row.js';
 import type { SourceAdapter } from '../sources/source-adapter.js';
 import type { TrendSeries, TrendsMetric } from '../trends/trends-series.js';
+import type { WrappedRecap } from '../wrapped/wrapped-recap.js';
 import type { RuntimeProfileCollector, RuntimeProfileSnapshot } from './runtime-profile.js';
 
 export type ReportCommandOptions = {
@@ -65,6 +66,13 @@ export type TrendsCommandOptions = Omit<ReportCommandOptions, 'markdown' | 'perM
 
 export type SessionCommandOptions = Omit<ReportCommandOptions, 'perModelColumns' | 'share'> & {
   top?: string;
+};
+
+export type WrappedCommandOptions = Omit<
+  ReportCommandOptions,
+  'markdown' | 'perModelColumns' | 'provider' | 'model' | 'since' | 'until'
+> & {
+  year?: string;
 };
 
 export type DoctorCommandOptions = Pick<
@@ -178,6 +186,11 @@ export type SessionDataResult = {
   diagnostics: UsageDiagnostics;
 };
 
+export type WrappedDataResult = {
+  recap: WrappedRecap;
+  diagnostics: UsageDiagnostics;
+};
+
 export type PricingLoadResult = {
   source: PricingSource;
   origin: Exclude<UsagePricingOrigin, 'none'>;
@@ -200,3 +213,7 @@ export type BuildTrendsDataDeps = BuildUsageDataDeps & {
 };
 
 export type BuildSessionDataDeps = BuildUsageDataDeps;
+
+export type BuildWrappedDataDeps = BuildUsageDataDeps & {
+  now?: () => Date;
+};

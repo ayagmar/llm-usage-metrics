@@ -18,7 +18,7 @@ afterEach(async () => {
 });
 
 describe('createCli', () => {
-  it('registers daily, weekly, monthly, efficiency, optimize, trends, session, and doctor commands', () => {
+  it('registers daily, weekly, monthly, efficiency, optimize, trends, session, wrapped, and doctor commands', () => {
     const cli = createCli();
 
     expect(cli.name()).toBe('llm-usage');
@@ -30,6 +30,7 @@ describe('createCli', () => {
       'optimize',
       'trends',
       'session',
+      'wrapped',
       'doctor',
     ]);
   });
@@ -120,6 +121,27 @@ describe('createCli', () => {
       false,
     );
     expect(sessionCommand?.options.some((option) => option.long === '--repo-dir')).toBe(false);
+  });
+
+  it('configures wrapped command with year and share but without date or model filters', () => {
+    const cli = createCli();
+    const wrappedCommand = cli.commands.find((command) => command.name() === 'wrapped');
+
+    expect(wrappedCommand).toBeDefined();
+    expect(wrappedCommand?.options.some((option) => option.long === '--year')).toBe(true);
+    expect(wrappedCommand?.options.some((option) => option.long === '--json')).toBe(true);
+    expect(wrappedCommand?.options.some((option) => option.long === '--share')).toBe(true);
+    expect(wrappedCommand?.options.some((option) => option.long === '--source')).toBe(true);
+    expect(wrappedCommand?.options.some((option) => option.long === '--timezone')).toBe(true);
+    expect(wrappedCommand?.options.some((option) => option.long === '--pricing-url')).toBe(true);
+    expect(wrappedCommand?.options.some((option) => option.long === '--since')).toBe(false);
+    expect(wrappedCommand?.options.some((option) => option.long === '--until')).toBe(false);
+    expect(wrappedCommand?.options.some((option) => option.long === '--provider')).toBe(false);
+    expect(wrappedCommand?.options.some((option) => option.long === '--model')).toBe(false);
+    expect(wrappedCommand?.options.some((option) => option.long === '--markdown')).toBe(false);
+    expect(wrappedCommand?.options.some((option) => option.long === '--per-model-columns')).toBe(
+      false,
+    );
   });
 
   it('configures efficiency command with repository outcome flags', () => {
@@ -222,6 +244,7 @@ describe('createCli', () => {
     );
     expect(compactHelp).toContain('llm-usage trends');
     expect(compactHelp).toContain('llm-usage session');
+    expect(compactHelp).toContain('llm-usage wrapped');
     expect(compactHelp).toContain('llm-usage doctor');
     expect(compactHelp).toContain('npx --yes llm-usage-metrics@latest daily');
     expect(compactDailyCommandHelp).toContain('after source/provider/date filters');
@@ -249,10 +272,12 @@ describe('createCli', () => {
       'optimize',
       'trends',
       'session',
+      'wrapped',
       'doctor',
     ]);
     expect(getCliReferenceExamples()).toContain('llm-usage trends');
     expect(getCliReferenceExamples()).toContain('llm-usage session --top 5 --json');
+    expect(getCliReferenceExamples()).toContain('llm-usage wrapped --year 2026 --share');
     expect(getCliReferenceExamples()).toContain('llm-usage doctor --json');
     expect(getCliReferenceExamples()).toContain(
       'llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candidate-model gpt-5-codex --json',

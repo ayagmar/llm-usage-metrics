@@ -7,6 +7,7 @@ import type {
   ReportCommandOptions,
   SessionCommandOptions,
   TrendsCommandOptions,
+  WrappedCommandOptions,
 } from '../usage-data-contracts.js';
 import { runEfficiencyReport } from '../run-efficiency-report.js';
 import { runOptimizeReport } from '../run-optimize-report.js';
@@ -14,6 +15,7 @@ import { runSessionReport } from '../run-session-report.js';
 import { runTrendsReport } from '../run-trends-report.js';
 import { runUsageReport } from '../run-usage-report.js';
 import { runDoctorReport } from '../run-doctor-report.js';
+import { runWrappedReport } from '../run-wrapped-report.js';
 import type { ReportGranularity } from '../../utils/time-buckets.js';
 import {
   collectRepeatedOption,
@@ -288,6 +290,38 @@ const sessionReportDefinition: ReportRuntimeDefinition = {
   },
 };
 
+const wrappedReportDefinition: ReportRuntimeDefinition = {
+  meta: {
+    commandName: 'wrapped',
+    docsLabel: 'wrapped',
+    kind: 'specialized',
+    description: 'Show a yearly usage recap with optional share SVG',
+    sharedOptionProfile: 'wrapped',
+    helpExamples: [
+      {
+        command: 'llm-usage wrapped',
+        includeInRootHelp: true,
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage wrapped --year 2026 --share',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage wrapped --year 2026 --json',
+        includeInCliReference: true,
+      },
+    ],
+  },
+  register(command) {
+    command
+      .option('--year <YYYY>', 'Year to recap (2020-2100; defaults to current local year)')
+      .action((options: WrappedCommandOptions) => runWrappedReport(options));
+
+    return command;
+  },
+};
+
 const doctorReportDefinition: ReportRuntimeDefinition = {
   meta: {
     commandName: 'doctor',
@@ -322,6 +356,7 @@ const reportDefinitions = [
   optimizeReportDefinition,
   trendsReportDefinition,
   sessionReportDefinition,
+  wrappedReportDefinition,
   doctorReportDefinition,
 ] as const satisfies readonly ReportRuntimeDefinition[];
 

@@ -6,54 +6,69 @@ import type { SharedOptionProfile } from './report-definition-types.js';
 const defaultTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
 type SharedOptionProfileConfig = {
-  includeDateAndTimezone: boolean;
+  includeDateFilters: boolean;
   includeMarkdown: boolean;
   includePerModelColumns: boolean;
   includePricing: boolean;
   includeProviderModelFilters: boolean;
   includeShare: boolean;
+  includeTimezone: boolean;
 };
 
 const sharedOptionProfileConfig: Record<SharedOptionProfile, SharedOptionProfileConfig> = {
   usage: {
-    includeDateAndTimezone: true,
+    includeDateFilters: true,
     includeMarkdown: true,
     includePerModelColumns: true,
     includePricing: true,
     includeProviderModelFilters: true,
     includeShare: true,
+    includeTimezone: true,
   },
   specialized: {
-    includeDateAndTimezone: true,
+    includeDateFilters: true,
     includeMarkdown: true,
     includePerModelColumns: false,
     includePricing: true,
     includeProviderModelFilters: true,
     includeShare: true,
+    includeTimezone: true,
   },
   trends: {
-    includeDateAndTimezone: true,
+    includeDateFilters: true,
     includeMarkdown: false,
     includePerModelColumns: false,
     includePricing: true,
     includeProviderModelFilters: true,
     includeShare: true,
+    includeTimezone: true,
   },
   session: {
-    includeDateAndTimezone: true,
+    includeDateFilters: true,
     includeMarkdown: true,
     includePerModelColumns: false,
     includePricing: true,
     includeProviderModelFilters: true,
     includeShare: false,
+    includeTimezone: true,
+  },
+  wrapped: {
+    includeDateFilters: false,
+    includeMarkdown: false,
+    includePerModelColumns: false,
+    includePricing: true,
+    includeProviderModelFilters: false,
+    includeShare: true,
+    includeTimezone: true,
   },
   doctor: {
-    includeDateAndTimezone: false,
+    includeDateFilters: false,
     includeMarkdown: false,
     includePerModelColumns: false,
     includePricing: false,
     includeProviderModelFilters: false,
     includeShare: false,
+    includeTimezone: false,
   },
 };
 
@@ -107,11 +122,14 @@ export function registerSharedReportOptions(
     )
     .option('--json', 'Render output as JSON');
 
-  if (profileConfig.includeDateAndTimezone) {
+  if (profileConfig.includeDateFilters) {
     configuredCommand
       .option('--since <YYYY-MM-DD>', 'Inclusive start date filter')
-      .option('--until <YYYY-MM-DD>', 'Inclusive end date filter')
-      .option('--timezone <iana>', 'Timezone for bucketing', defaultTimezone);
+      .option('--until <YYYY-MM-DD>', 'Inclusive end date filter');
+  }
+
+  if (profileConfig.includeTimezone) {
+    configuredCommand.option('--timezone <iana>', 'Timezone for bucketing', defaultTimezone);
   }
 
   if (profileConfig.includeProviderModelFilters) {

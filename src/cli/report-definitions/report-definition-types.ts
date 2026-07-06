@@ -1,6 +1,12 @@
 import type { Command } from 'commander';
 
-export type SharedOptionProfile = 'usage' | 'specialized' | 'trends' | 'session' | 'doctor';
+export type SharedOptionProfile =
+  | 'usage'
+  | 'specialized'
+  | 'trends'
+  | 'session'
+  | 'wrapped'
+  | 'doctor';
 
 export type ReportHelpExample = {
   command: string;
