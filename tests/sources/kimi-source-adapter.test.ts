@@ -114,7 +114,7 @@ describe('KimiSourceAdapter', () => {
 
     const result = await adapter.parseFileWithDiagnostics(fixturePath);
 
-    expect(result.events).toHaveLength(2);
+    expect(result.events).toHaveLength(3);
     expect(result.events[0]).toMatchObject({
       source: 'kimi',
       sessionId: 'session-a',
@@ -137,6 +137,17 @@ describe('KimiSourceAdapter', () => {
       inputTokens: 12,
       outputTokens: 8,
       totalTokens: 20,
+    });
+
+    expect(result.events[2]).toMatchObject({
+      source: 'kimi',
+      sessionId: 'session-a',
+      timestamp: '2026-03-02T10:00:04.000Z',
+      inputTokens: 30,
+      outputTokens: 20,
+      cacheReadTokens: 5,
+      cacheWriteTokens: 5,
+      totalTokens: 60,
     });
 
     expect(result.skippedRows).toBe(2);

@@ -81,6 +81,21 @@ describe('aggregateWrapped', () => {
     expect(recap.longestStreak).toBe(1);
   });
 
+  it('counts consecutive days across a month boundary as one streak', () => {
+    const recap = aggregateWrapped(
+      [
+        baseEvent({ timestamp: '2026-01-30T10:00:00.000Z' }),
+        baseEvent({ timestamp: '2026-01-31T10:00:00.000Z' }),
+        baseEvent({ timestamp: '2026-02-01T10:00:00.000Z' }),
+        baseEvent({ timestamp: '2026-02-02T10:00:00.000Z' }),
+      ],
+      { year: 2026, timezone: 'UTC' },
+    );
+
+    expect(recap.activeDays).toBe(4);
+    expect(recap.longestStreak).toBe(4);
+  });
+
   it('sorts top models and sources by cost, then tokens, then name', () => {
     const recap = aggregateWrapped(
       [
