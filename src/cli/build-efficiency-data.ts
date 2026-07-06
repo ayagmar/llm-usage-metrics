@@ -113,6 +113,10 @@ function resolveScopeNote(options: EfficiencyCommandOptions): string | undefined
     activeFilters.push('--kilocode-dir');
   }
 
+  if (hasActiveTextOption(options.antigravityDir)) {
+    activeFilters.push('--antigravity-dir');
+  }
+
   if (hasActiveRepeatedFilter(options.sourceDir)) {
     activeFilters.push('--source-dir');
   }

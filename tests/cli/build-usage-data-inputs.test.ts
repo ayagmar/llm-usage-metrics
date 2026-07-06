@@ -73,6 +73,7 @@ describe('build-usage-data-inputs', () => {
         'cline=/tmp/cline/tasks',
         'roocode=/tmp/roocode/tasks',
         'kilocode=/tmp/kilocode/tasks',
+        'antigravity=/tmp/antigravity/conversations',
       ],
     });
 
@@ -88,6 +89,7 @@ describe('build-usage-data-inputs', () => {
       'cline',
       'roocode',
       'kilocode',
+      'antigravity',
     ]);
   });
 
@@ -161,6 +163,14 @@ describe('build-usage-data-inputs', () => {
     });
 
     expect([...inputs.explicitSourceIds]).toEqual(['kilocode']);
+  });
+
+  it('treats antigravity directory overrides as explicit source selections', () => {
+    const inputs = normalizeBuildUsageInputs({
+      antigravityDir: '/tmp/antigravity/conversations',
+    });
+
+    expect([...inputs.explicitSourceIds]).toEqual(['antigravity']);
   });
 
   it('validates malformed source-dir entries through the shared parser', () => {

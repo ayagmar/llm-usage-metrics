@@ -86,6 +86,7 @@ export function registerSharedReportOptions(
     .option('--cline-dir <path>', 'Path to Cline tasks directory')
     .option('--roocode-dir <path>', 'Path to RooCode tasks directory')
     .option('--kilocode-dir <path>', 'Path to KiloCode tasks directory')
+    .option('--antigravity-dir <path>', 'Path to Antigravity conversations directory')
     .option(
       '--source-dir <source-id=path>',
       'Override source directory for directory-backed sources (repeatable)',

@@ -33,6 +33,7 @@ describe('createDefaultAdapters', () => {
       'cline',
       'roocode',
       'kilocode',
+      'antigravity',
     ]);
   });
 
@@ -73,6 +74,9 @@ describe('createDefaultAdapters', () => {
     const kilocodeTempDir = await mkdtemp(
       path.join(os.tmpdir(), 'usage-adapters-kilocode-source-dir-'),
     );
+    const antigravityTempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'usage-adapters-antigravity-source-dir-'),
+    );
     tempDirs.push(
       piTempDir,
       codexTempDir,
@@ -87,6 +91,7 @@ describe('createDefaultAdapters', () => {
       clineTempDir,
       roocodeTempDir,
       kilocodeTempDir,
+      antigravityTempDir,
     );
 
     const piFile = path.join(piTempDir, 'pi-session.jsonl');
@@ -104,6 +109,7 @@ describe('createDefaultAdapters', () => {
     const clineFile = path.join(clineTempDir, 'task-a', 'ui_messages.json');
     const roocodeFile = path.join(roocodeTempDir, 'task-a', 'ui_messages.json');
     const kilocodeFile = path.join(kilocodeTempDir, 'task-a', 'ui_messages.json');
+    const antigravityFile = path.join(antigravityTempDir, 'conversation.db');
     await mkdir(path.dirname(qwenFile), { recursive: true });
     await mkdir(path.dirname(kimiFile), { recursive: true });
     await mkdir(path.dirname(clineFile), { recursive: true });
@@ -123,6 +129,7 @@ describe('createDefaultAdapters', () => {
     await writeFile(clineFile, '[]', 'utf8');
     await writeFile(roocodeFile, '[]', 'utf8');
     await writeFile(kilocodeFile, '[]', 'utf8');
+    await writeFile(antigravityFile, '', 'utf8');
 
     const adapters = createDefaultAdapters({
       sourceDir: [
@@ -139,6 +146,7 @@ describe('createDefaultAdapters', () => {
         `cline=${clineTempDir}`,
         `roocode=${roocodeTempDir}`,
         `kilocode=${kilocodeTempDir}`,
+        `antigravity=${antigravityTempDir}`,
       ],
     });
 
@@ -155,6 +163,7 @@ describe('createDefaultAdapters', () => {
     await expect(adapters[12].discoverFiles()).resolves.toEqual([await realpath(clineFile)]);
     await expect(adapters[13].discoverFiles()).resolves.toEqual([await realpath(roocodeFile)]);
     await expect(adapters[14].discoverFiles()).resolves.toEqual([await realpath(kilocodeFile)]);
+    await expect(adapters[15].discoverFiles()).resolves.toEqual([await realpath(antigravityFile)]);
   });
 
   it('throws on invalid source directory override entries', () => {
@@ -289,6 +298,12 @@ describe('createDefaultAdapters', () => {
   it('throws when --kilocode-dir is blank', () => {
     expect(() => createDefaultAdapters({ kilocodeDir: '   ' })).toThrow(
       '--kilocode-dir must be a non-empty path',
+    );
+  });
+
+  it('throws when --antigravity-dir is blank', () => {
+    expect(() => createDefaultAdapters({ antigravityDir: '   ' })).toThrow(
+      '--antigravity-dir must be a non-empty path',
     );
   });
 
@@ -584,6 +599,46 @@ describe('createDefaultAdapters', () => {
     await expect(kilocodeAdapter?.discoverFiles()).resolves.toEqual([await realpath(explicitFile)]);
   });
 
+  it('wires --antigravity-dir into the Antigravity adapter discovery path', async () => {
+    const antigravityTempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'usage-adapters-antigravity-dir-'),
+    );
+    tempDirs.push(antigravityTempDir);
+    const antigravityFile = path.join(antigravityTempDir, 'conversation.db');
+    await writeFile(antigravityFile, '', 'utf8');
+
+    const adapters = createDefaultAdapters({ antigravityDir: antigravityTempDir });
+    const antigravityAdapter = adapters.find((adapter) => adapter.id === 'antigravity');
+
+    await expect(antigravityAdapter?.discoverFiles()).resolves.toEqual([
+      await realpath(antigravityFile),
+    ]);
+  });
+
+  it('prefers --antigravity-dir over generic antigravity source directory overrides', async () => {
+    const explicitTempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'usage-adapters-antigravity-explicit-dir-'),
+    );
+    const sourceDirTempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'usage-adapters-antigravity-source-dir-precedence-'),
+    );
+    tempDirs.push(explicitTempDir, sourceDirTempDir);
+    const explicitFile = path.join(explicitTempDir, 'explicit-conversation.db');
+    const sourceDirFile = path.join(sourceDirTempDir, 'source-dir-conversation.db');
+    await writeFile(explicitFile, '', 'utf8');
+    await writeFile(sourceDirFile, '', 'utf8');
+
+    const adapters = createDefaultAdapters({
+      antigravityDir: explicitTempDir,
+      sourceDir: [`antigravity=${sourceDirTempDir}`],
+    });
+    const antigravityAdapter = adapters.find((adapter) => adapter.id === 'antigravity');
+
+    await expect(antigravityAdapter?.discoverFiles()).resolves.toEqual([
+      await realpath(explicitFile),
+    ]);
+  });
+
   it('fails gemini discovery when an explicitly configured directory is missing', async () => {
     const adapters = createDefaultAdapters({
       geminiDir: path.join(os.tmpdir(), `missing-gemini-${Date.now()}`),
@@ -788,6 +843,17 @@ describe('createDefaultAdapters', () => {
 
     await expect(kilocodeAdapter?.discoverFiles()).rejects.toThrow(
       'kilocode tasks directory is missing or unreadable',
+    );
+  });
+
+  it('fails antigravity discovery when an explicitly configured directory is missing', async () => {
+    const adapters = createDefaultAdapters({
+      antigravityDir: path.join(os.tmpdir(), `missing-antigravity-${Date.now()}`),
+    });
+    const antigravityAdapter = adapters.find((adapter) => adapter.id === 'antigravity');
+
+    await expect(antigravityAdapter?.discoverFiles()).rejects.toThrow(
+      'Antigravity conversations directory is missing or unreadable',
     );
   });
 });

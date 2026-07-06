@@ -1,4 +1,5 @@
 import { AmpSourceAdapter } from './amp/amp-source-adapter.js';
+import { AntigravitySourceAdapter } from './antigravity/antigravity-source-adapter.js';
 import { ClaudeSourceAdapter } from './claude/claude-source-adapter.js';
 import { CLINE_EXTENSION_IDS, createClineFamilyAdapter } from './cline/cline-family-adapter.js';
 import { CodexSourceAdapter } from './codex/codex-source-adapter.js';
@@ -40,6 +41,7 @@ export type CreateDefaultAdaptersOptions = {
   clineDir?: string;
   roocodeDir?: string;
   kilocodeDir?: string;
+  antigravityDir?: string;
   sourceDir?: string[];
 };
 
@@ -270,6 +272,22 @@ const sourceRegistrations: readonly SourceRegistration[] = [
       });
     },
   },
+  {
+    id: 'antigravity',
+    sourceDirOverride: { kind: 'directory' },
+    create: (options, sourceDirectoryOverrides) => {
+      const directoryConfig = resolveDirectoryConfig(
+        'antigravity',
+        options.antigravityDir,
+        sourceDirectoryOverrides,
+      );
+
+      return new AntigravitySourceAdapter({
+        conversationsDir: directoryConfig.path,
+        requireConversationsDir: directoryConfig.requireExistingPath,
+      });
+    },
+  },
 ];
 
 const sourceDirUnsupportedFlags = new Map(
@@ -349,7 +367,8 @@ function validateDirectoryOverride(
     | '--kimi-dir'
     | '--cline-dir'
     | '--roocode-dir'
-    | '--kilocode-dir',
+    | '--kilocode-dir'
+    | '--antigravity-dir',
   value: string | undefined,
 ): void {
   if (value === undefined) {
@@ -411,6 +430,7 @@ export function createDefaultAdapters(options: CreateDefaultAdaptersOptions): So
   validateDirectoryOverride('--cline-dir', options.clineDir);
   validateDirectoryOverride('--roocode-dir', options.roocodeDir);
   validateDirectoryOverride('--kilocode-dir', options.kilocodeDir);
+  validateDirectoryOverride('--antigravity-dir', options.antigravityDir);
 
   const sourceDirectoryOverrides = parseSourceDirectoryOverrides(options.sourceDir);
   validateSourceDirectoryOverrideIds(sourceDirectoryOverrides);

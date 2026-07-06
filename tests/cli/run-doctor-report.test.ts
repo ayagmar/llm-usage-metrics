@@ -38,6 +38,7 @@ async function createDoctorFixtureOptions(): Promise<DoctorCommandOptions> {
   const clineDir = path.join(rootDir, 'cline');
   const roocodeDir = path.join(rootDir, 'roocode');
   const kilocodeDir = path.join(rootDir, 'kilocode');
+  const antigravityDir = path.join(rootDir, 'antigravity');
 
   await mkdir(path.join(geminiDir, 'tmp', 'project', 'chats'), { recursive: true });
   await mkdir(path.join(qwenDir, 'project', 'chats'), { recursive: true });
@@ -45,6 +46,7 @@ async function createDoctorFixtureOptions(): Promise<DoctorCommandOptions> {
   await mkdir(path.join(clineDir, 'task-a'), { recursive: true });
   await mkdir(path.join(roocodeDir, 'task-a'), { recursive: true });
   await mkdir(path.join(kilocodeDir, 'task-a'), { recursive: true });
+  await mkdir(antigravityDir, { recursive: true });
   await mkdir(path.join(claudeDir, 'project'), { recursive: true });
   await mkdir(piDir, { recursive: true });
   await mkdir(codexDir, { recursive: true });
@@ -68,6 +70,7 @@ async function createDoctorFixtureOptions(): Promise<DoctorCommandOptions> {
   await writeFile(path.join(clineDir, 'task-a', 'ui_messages.json'), '[]', 'utf8');
   await writeFile(path.join(roocodeDir, 'task-a', 'ui_messages.json'), '[]', 'utf8');
   await writeFile(path.join(kilocodeDir, 'task-a', 'ui_messages.json'), '[]', 'utf8');
+  await writeFile(path.join(antigravityDir, 'conversation.db'), '', 'utf8');
 
   return {
     piDir,
@@ -85,6 +88,7 @@ async function createDoctorFixtureOptions(): Promise<DoctorCommandOptions> {
     clineDir,
     roocodeDir,
     kilocodeDir,
+    antigravityDir,
   };
 }
 
@@ -132,6 +136,7 @@ describe('run-doctor-report', () => {
       { id: 'cline', status: 'ok', itemsFound: 1 },
       { id: 'roocode', status: 'ok', itemsFound: 1 },
       { id: 'kilocode', status: 'ok', itemsFound: 1 },
+      { id: 'antigravity', status: 'ok', itemsFound: 1 },
     ]);
   });
 
@@ -204,7 +209,7 @@ describe('run-doctor-report', () => {
     expect(stdout.getOutput()).toContain('claude');
     expect(stdout.getOutput()).toContain('error');
     expect(stdout.getOutput()).toContain(missingClaudeDir);
-    expect(stdout.getOutput()).toContain('14/15 sources healthy');
+    expect(stdout.getOutput()).toContain('15/16 sources healthy');
   });
 
   it('prints JSON output to stdout', async () => {

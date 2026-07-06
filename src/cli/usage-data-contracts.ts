@@ -28,6 +28,7 @@ export type ReportCommandOptions = {
   clineDir?: string;
   roocodeDir?: string;
   kilocodeDir?: string;
+  antigravityDir?: string;
   sourceDir?: string[];
   source?: string | string[];
   since?: string;
@@ -78,6 +79,7 @@ export type DoctorCommandOptions = Pick<
   | 'clineDir'
   | 'roocodeDir'
   | 'kilocodeDir'
+  | 'antigravityDir'
   | 'sourceDir'
   | 'source'
   | 'json'

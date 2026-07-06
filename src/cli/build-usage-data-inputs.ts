@@ -226,6 +226,10 @@ export function resolveExplicitSourceIds(
     explicitSourceIds.add('kilocode');
   }
 
+  if (options.antigravityDir) {
+    explicitSourceIds.add('antigravity');
+  }
+
   return explicitSourceIds;
 }
 
