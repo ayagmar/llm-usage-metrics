@@ -5,10 +5,12 @@ import type {
   EfficiencyCommandOptions,
   OptimizeCommandOptions,
   ReportCommandOptions,
+  SessionCommandOptions,
   TrendsCommandOptions,
 } from '../usage-data-contracts.js';
 import { runEfficiencyReport } from '../run-efficiency-report.js';
 import { runOptimizeReport } from '../run-optimize-report.js';
+import { runSessionReport } from '../run-session-report.js';
 import { runTrendsReport } from '../run-trends-report.js';
 import { runUsageReport } from '../run-usage-report.js';
 import { runDoctorReport } from '../run-doctor-report.js';
@@ -254,6 +256,38 @@ const trendsReportDefinition: ReportRuntimeDefinition = {
   },
 };
 
+const sessionReportDefinition: ReportRuntimeDefinition = {
+  meta: {
+    commandName: 'session',
+    docsLabel: 'session',
+    kind: 'specialized',
+    description: 'Show usage grouped by conversation session',
+    sharedOptionProfile: 'session',
+    helpExamples: [
+      {
+        command: 'llm-usage session',
+        includeInRootHelp: true,
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage session --top 5 --json',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage session --markdown',
+        includeInCliReference: true,
+      },
+    ],
+  },
+  register(command) {
+    command
+      .option('--top <n>', 'Show only the top N sessions by cost (positive integer)')
+      .action((options: SessionCommandOptions) => runSessionReport(options));
+
+    return command;
+  },
+};
+
 const doctorReportDefinition: ReportRuntimeDefinition = {
   meta: {
     commandName: 'doctor',
@@ -287,6 +321,7 @@ const reportDefinitions = [
   efficiencyReportDefinition,
   optimizeReportDefinition,
   trendsReportDefinition,
+  sessionReportDefinition,
   doctorReportDefinition,
 ] as const satisfies readonly ReportRuntimeDefinition[];
 

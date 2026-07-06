@@ -8,6 +8,7 @@ import type { UsageEvent } from '../domain/usage-event.js';
 import type { EfficiencyRow } from '../efficiency/efficiency-row.js';
 import type { OptimizeRow } from '../optimize/optimize-row.js';
 import type { PricingSource } from '../pricing/types.js';
+import type { SessionRow } from '../session/session-row.js';
 import type { SourceAdapter } from '../sources/source-adapter.js';
 import type { TrendSeries, TrendsMetric } from '../trends/trends-series.js';
 import type { RuntimeProfileCollector, RuntimeProfileSnapshot } from './runtime-profile.js';
@@ -60,6 +61,10 @@ export type TrendsCommandOptions = Omit<ReportCommandOptions, 'markdown' | 'perM
   days?: string;
   metric?: string;
   bySource?: boolean;
+};
+
+export type SessionCommandOptions = Omit<ReportCommandOptions, 'perModelColumns' | 'share'> & {
+  top?: string;
 };
 
 export type DoctorCommandOptions = Pick<
@@ -168,6 +173,11 @@ export type TrendsDataResult = {
   diagnostics: UsageDiagnostics;
 };
 
+export type SessionDataResult = {
+  rows: SessionRow[];
+  diagnostics: UsageDiagnostics;
+};
+
 export type PricingLoadResult = {
   source: PricingSource;
   origin: Exclude<UsagePricingOrigin, 'none'>;
@@ -188,3 +198,5 @@ export type BuildUsageDataDeps = {
 export type BuildTrendsDataDeps = BuildUsageDataDeps & {
   now?: () => Date;
 };
+
+export type BuildSessionDataDeps = BuildUsageDataDeps;

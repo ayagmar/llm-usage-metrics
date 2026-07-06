@@ -39,6 +39,14 @@ const sharedOptionProfileConfig: Record<SharedOptionProfile, SharedOptionProfile
     includeProviderModelFilters: true,
     includeShare: true,
   },
+  session: {
+    includeDateAndTimezone: true,
+    includeMarkdown: true,
+    includePerModelColumns: false,
+    includePricing: true,
+    includeProviderModelFilters: true,
+    includeShare: false,
+  },
   doctor: {
     includeDateAndTimezone: false,
     includeMarkdown: false,
