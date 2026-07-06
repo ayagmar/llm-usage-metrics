@@ -26,6 +26,9 @@ beforeEach(() => {
 
 afterEach(() => {
   clearTestEnvVars();
+  // Restore the vitest-wide store-off default so later tests never hit the
+  // user's real events.db.
+  process.env.LLM_USAGE_EVENT_STORE = '0';
 });
 
 describe('env-var-display', () => {

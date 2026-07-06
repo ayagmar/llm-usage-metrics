@@ -15,14 +15,16 @@ import type { EventStore } from '../../src/persistence/event-store.js';
 const tempDirs: string[] = [];
 
 beforeEach(() => {
-  delete process.env.LLM_USAGE_EVENT_STORE;
+  // Keep the vitest-wide store-off default: deleting LLM_USAGE_EVENT_STORE
+  // would re-enable the default-on store against the user's real events.db.
+  process.env.LLM_USAGE_EVENT_STORE = '0';
   delete process.env.LLM_USAGE_EVENT_STORE_PATH;
 });
 
 afterEach(async () => {
   await Promise.all(tempDirs.map((tempDir) => rm(tempDir, { recursive: true, force: true })));
   tempDirs.length = 0;
-  delete process.env.LLM_USAGE_EVENT_STORE;
+  process.env.LLM_USAGE_EVENT_STORE = '0';
   delete process.env.LLM_USAGE_EVENT_STORE_PATH;
   vi.restoreAllMocks();
 });

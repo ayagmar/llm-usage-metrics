@@ -123,6 +123,10 @@ describe('runtime overrides', () => {
     });
   });
 
+  it('keeps the event store disabled for the test process (vitest env isolation)', () => {
+    expect(getEventStoreRuntimeConfig().enabled).toBe(false);
+  });
+
   it('accepts zero update cache ttl for per-run checks', () => {
     const env: NodeJS.ProcessEnv = {
       LLM_USAGE_UPDATE_CACHE_TTL_MS: '0',
