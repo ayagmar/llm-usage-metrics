@@ -31,6 +31,7 @@ Aggregate token usage and costs from your local coding agent sessions. Supports 
 - **Efficiency Reports** — Correlate cost/tokens with repository commit outcomes
 - **Optimize Reports** — Counterfactual candidate-model pricing against observed token mix
 - **Trends Reports** — Daily cost or token trend views with combined or per-source output
+- **Session Reports** — Group usage by conversation session to find high-cost work
 - **Doctor Command** — Check source discovery health when reports show no sessions
 - **Multiple Outputs** — Terminal tables, JSON, or Markdown
 - **Smart Filtering** — By source, billing provider, model, and date ranges
@@ -130,6 +131,23 @@ llm-usage trends --share --days 7
 
 Trends is terminal-first and supports `--json` and `--share`. It does not support `--markdown`.
 `--share` renders the combined trends view; run without `--by-source`.
+
+### Session Reports
+
+```bash
+# Group usage by conversation session
+llm-usage session
+
+# Keep only the highest-cost sessions in JSON output
+llm-usage session --top 5 --json
+
+# Markdown table for notes or docs
+llm-usage session --markdown
+```
+
+Session reports group events by source and session id, then sort sessions by total cost descending.
+Date, source, provider, and model filters apply to events before grouping, so a session spanning a boundary shows only the matching in-range usage.
+Session reports do not include a TOTAL row because the rows represent conversations rather than calendar periods.
 
 ### Doctor
 

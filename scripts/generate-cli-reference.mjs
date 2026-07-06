@@ -151,8 +151,48 @@ function resolveScopeSuffix(optionLong, commandNames, reportMetas) {
   return `(${matchingMetas.map((meta) => meta.commandName).join(', ')} only)`;
 }
 
+function collectCommandOptionDescriptions(commandOptionsByCommand) {
+  const descriptionsByOption = new Map();
+
+  for (const [commandName, options] of Object.entries(commandOptionsByCommand)) {
+    for (const option of options) {
+      const descriptions = descriptionsByOption.get(option.long) ?? new Map();
+      const normalizedDescription = option.description.replace(/\s+/g, ' ').trim();
+      const commandNames = descriptions.get(normalizedDescription) ?? new Set();
+      commandNames.add(commandName);
+      descriptions.set(normalizedDescription, commandNames);
+      descriptionsByOption.set(option.long, descriptions);
+    }
+  }
+
+  return descriptionsByOption;
+}
+
+function formatCommandList(commandNames) {
+  return [...commandNames].join(', ');
+}
+
+function resolveOptionDescription(option, commandOptionDescriptions) {
+  const descriptions = commandOptionDescriptions.get(option.long);
+
+  if (!descriptions || descriptions.size <= 1) {
+    return {
+      description: option.description,
+      hasCommandSpecificDescriptions: false,
+    };
+  }
+
+  return {
+    description: [...descriptions]
+      .map(([description, commandNames]) => `${formatCommandList(commandNames)}: ${description}`)
+      .join('; '),
+    hasCommandSpecificDescriptions: true,
+  };
+}
+
 function deduplicateAndNormalizeOptions(rootOptions, commandOptionsByCommand, reportMetas) {
   const optionCommandMap = new Map();
+  const commandOptionDescriptions = collectCommandOptionDescriptions(commandOptionsByCommand);
 
   for (const [commandName, options] of Object.entries(commandOptionsByCommand)) {
     for (const option of options) {
@@ -165,15 +205,21 @@ function deduplicateAndNormalizeOptions(rootOptions, commandOptionsByCommand, re
   const byLong = new Map();
 
   for (const option of [...rootOptions, ...Object.values(commandOptionsByCommand).flat()]) {
-    const scopeSuffix = resolveScopeSuffix(
-      option.long,
-      optionCommandMap.get(option.long) ?? new Set(),
-      reportMetas,
+    const { description, hasCommandSpecificDescriptions } = resolveOptionDescription(
+      option,
+      commandOptionDescriptions,
     );
+    const scopeSuffix = hasCommandSpecificDescriptions
+      ? ''
+      : resolveScopeSuffix(
+          option.long,
+          optionCommandMap.get(option.long) ?? new Set(),
+          reportMetas,
+        );
 
     byLong.set(option.long, {
       ...option,
-      description: normalizeDescription(option.description, option.long, scopeSuffix),
+      description: normalizeDescription(description, option.long, scopeSuffix),
     });
   }
 
