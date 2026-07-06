@@ -1,11 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 
 import { buildUsageReport } from '../../src/cli/run-usage-report.js';
 import { withSuppressedSqliteExperimentalWarning } from '../../src/sources/opencode/sqlite-warning-suppression.js';
+import { createAntigravityFixtureDb } from '../helpers/antigravity-fixtures.js';
 
 type OpenCodeMessageFixture = {
   id: string;
@@ -52,8 +53,8 @@ const clineDir = path.resolve('tests/fixtures/e2e/cline');
 const roocodeDir = path.resolve('tests/fixtures/e2e/roocode');
 const kilocodeDir = path.resolve('tests/fixtures/e2e/kilocode');
 const allSources =
-  'pi,codex,gemini,droid,opencode,openclaw,claude,copilot,goose,amp,qwen,kimi,cline,roocode,kilocode';
-const expectedAllSourceTokens = 2_110;
+  'pi,codex,gemini,droid,opencode,openclaw,claude,copilot,goose,amp,qwen,kimi,cline,roocode,kilocode,antigravity';
+const expectedAllSourceTokens = 2_180;
 const expectedGeminiClaudeTokens = 415;
 
 function loadDatabaseSync(): FixtureDatabaseSync | undefined {
@@ -177,11 +178,14 @@ describe.skipIf(!DatabaseSync)('multi-source usage report e2e', () => {
   let tempDir: string;
   let opencodeDbPath: string;
   let gooseDbPath: string;
+  let antigravityDir: string;
 
   beforeAll(async () => {
     tempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-multi-source-e2e-'));
     opencodeDbPath = path.join(tempDir, 'opencode.db');
     gooseDbPath = path.join(tempDir, 'goose.db');
+    antigravityDir = path.join(tempDir, 'antigravity');
+    await mkdir(antigravityDir);
 
     createOpenCodeFixtureDb(opencodeDbPath, [
       {
@@ -231,6 +235,23 @@ describe.skipIf(!DatabaseSync)('multi-source usage report e2e', () => {
         outputTokens: 50,
       },
     ]);
+
+    createAntigravityFixtureDb(path.join(antigravityDir, 'conversation.db'), {
+      turns: [
+        {
+          model: 'gemini-antigravity-e2e',
+          timestamp: { seconds: 1_781_510_400 },
+          usage: {
+            fixedInputTokens: 30,
+            inputTokens: 10,
+            cacheReadTokens: 5,
+            outputTokens: 20,
+            reasoningTokens: 5,
+            responseId: 'antigravity-e2e-response',
+          },
+        },
+      ],
+    });
   });
 
   afterAll(async () => {
@@ -256,6 +277,7 @@ describe.skipIf(!DatabaseSync)('multi-source usage report e2e', () => {
       clineDir,
       roocodeDir,
       kilocodeDir,
+      antigravityDir,
       source: allSources,
       timezone: 'UTC',
       json: true,
@@ -295,6 +317,7 @@ describe.skipIf(!DatabaseSync)('multi-source usage report e2e', () => {
       clineDir,
       roocodeDir,
       kilocodeDir,
+      antigravityDir,
       source: 'gemini,claude',
       timezone: 'UTC',
       json: true,
