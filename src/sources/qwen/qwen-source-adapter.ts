@@ -1,7 +1,6 @@
 import os from 'node:os';
 import path from 'node:path';
 
-import { normalizeNonNegativeInteger } from '../../domain/normalization.js';
 import { createUsageEvent } from '../../domain/usage-event.js';
 import type { UsageEvent } from '../../domain/usage-event.js';
 import { asRecord } from '../../utils/as-record.js';
@@ -13,7 +12,7 @@ import {
   asTrimmedText,
   isBlankText,
   normalizeTimestampCandidate,
-  toNumberLike,
+  toTokenCount,
 } from '../parsing-utils.js';
 import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
 
@@ -36,10 +35,6 @@ type QwenTokenUsage = {
 
 function shouldParseQwenJsonlLine(lineText: string): boolean {
   return lineText.includes(QWEN_USAGE_LINE_TEXT);
-}
-
-function toTokenCount(value: unknown): number {
-  return normalizeNonNegativeInteger(toNumberLike(value));
 }
 
 function extractTokenUsage(

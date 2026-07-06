@@ -2,7 +2,7 @@ import { createUsageEvent, type UsageEvent } from '../../domain/usage-event.js';
 import { asRecord } from '../../utils/as-record.js';
 import { pathExists, pathIsFile, pathReadable } from '../../utils/fs-helpers.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
-import { asTrimmedText, normalizeTimestampCandidate } from '../parsing-utils.js';
+import { asTrimmedText, isBlankText, normalizeTimestampCandidate } from '../parsing-utils.js';
 import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
 import { getDefaultGooseDbPathCandidates } from './goose-db-path-resolver.js';
 import { loadNodeSqliteModule, type SqliteModule } from '../opencode/node-sqlite-loader.js';
@@ -43,10 +43,6 @@ const gooseSessionsQuery = `
   FROM sessions
   WHERE model_config_json IS NOT NULL AND TRIM(model_config_json) != ''
 `;
-
-function isBlankText(value: string): boolean {
-  return value.trim().length === 0;
-}
 
 function toNonNegativeInteger(value: unknown): number | undefined {
   if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {

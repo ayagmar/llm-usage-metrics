@@ -2,7 +2,6 @@ import { readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { normalizeNonNegativeInteger } from '../../domain/normalization.js';
 import { createUsageEvent } from '../../domain/usage-event.js';
 import type { UsageEvent, UsageEventInput } from '../../domain/usage-event.js';
 import { asRecord } from '../../utils/as-record.js';
@@ -15,7 +14,7 @@ import {
   asTrimmedText,
   isBlankText,
   normalizeTimestampCandidate,
-  toNumberLike,
+  toTokenCount,
 } from '../parsing-utils.js';
 import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
 
@@ -69,10 +68,6 @@ function shouldParseKimiJsonlLine(lineText: string): boolean {
     lineText.includes(KIMI_STATUS_UPDATE_LINE_TEXT) ||
     lineText.includes(KIMI_USAGE_RECORD_LINE_TEXT)
   );
-}
-
-function toTokenCount(value: unknown): number {
-  return normalizeNonNegativeInteger(toNumberLike(value));
 }
 
 function createTokenUsage(fields: {

@@ -1,4 +1,4 @@
-import type { NumberLike } from '../domain/normalization.js';
+import { normalizeNonNegativeInteger, type NumberLike } from '../domain/normalization.js';
 
 const MIN_PLAUSIBLE_UNIX_SECONDS_ABS = 100_000_000;
 const UNIX_SECONDS_ABS_CUTOFF = 10_000_000_000;
@@ -27,6 +27,10 @@ export function toNumberLike(value: unknown): NumberLike {
   }
 
   return undefined;
+}
+
+export function toTokenCount(value: unknown): number {
+  return normalizeNonNegativeInteger(toNumberLike(value));
 }
 
 export function normalizeTimestampCandidate(candidate: unknown): string | undefined {

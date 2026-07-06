@@ -2,7 +2,6 @@ import { readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { normalizeNonNegativeInteger } from '../../domain/normalization.js';
 import { createUsageEvent } from '../../domain/usage-event.js';
 import type { UsageEvent } from '../../domain/usage-event.js';
 import { asRecord } from '../../utils/as-record.js';
@@ -12,7 +11,7 @@ import {
   asTrimmedText,
   isBlankText,
   normalizeTimestampCandidate,
-  toNumberLike,
+  toTokenCount,
 } from '../parsing-utils.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
 import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
@@ -71,13 +70,9 @@ function toIdentityText(value: unknown): string | undefined {
   return undefined;
 }
 
-function toNonNegativeInteger(value: unknown): number {
-  return normalizeNonNegativeInteger(toNumberLike(value));
-}
-
 function extractUsageFromTokenRecord(tokens: Record<string, unknown> | undefined): AmpTokenUsage {
-  const inputTokens = toNonNegativeInteger(tokens?.input);
-  const outputTokens = toNonNegativeInteger(tokens?.output);
+  const inputTokens = toTokenCount(tokens?.input);
+  const outputTokens = toTokenCount(tokens?.output);
 
   return {
     inputTokens,
@@ -85,16 +80,16 @@ function extractUsageFromTokenRecord(tokens: Record<string, unknown> | undefined
     reasoningTokens: 0,
     cacheReadTokens: 0,
     cacheWriteTokens: 0,
-    totalTokens: toNonNegativeInteger(tokens?.total),
+    totalTokens: toTokenCount(tokens?.total),
   };
 }
 
 function extractUsageFromMessageUsage(usage: Record<string, unknown>): AmpTokenUsage {
-  const inputTokens = toNonNegativeInteger(usage.inputTokens);
-  const outputTokens = toNonNegativeInteger(usage.outputTokens);
-  const cacheReadTokens = toNonNegativeInteger(usage.cacheReadInputTokens);
-  const cacheWriteTokens = toNonNegativeInteger(usage.cacheCreationInputTokens);
-  const declaredTotal = toNonNegativeInteger(usage.totalTokens);
+  const inputTokens = toTokenCount(usage.inputTokens);
+  const outputTokens = toTokenCount(usage.outputTokens);
+  const cacheReadTokens = toTokenCount(usage.cacheReadInputTokens);
+  const cacheWriteTokens = toTokenCount(usage.cacheCreationInputTokens);
+  const declaredTotal = toTokenCount(usage.totalTokens);
   const componentTotal = inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens;
   const totalTokens = declaredTotal > 0 ? declaredTotal : componentTotal;
 
@@ -170,8 +165,8 @@ function getMessageCacheUsageById(
     }
 
     cacheUsageByMessageId.set(messageId, {
-      cacheReadTokens: toNonNegativeInteger(usage.cacheReadInputTokens),
-      cacheWriteTokens: toNonNegativeInteger(usage.cacheCreationInputTokens),
+      cacheReadTokens: toTokenCount(usage.cacheReadInputTokens),
+      cacheWriteTokens: toTokenCount(usage.cacheCreationInputTokens),
     });
   }
 

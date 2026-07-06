@@ -1,12 +1,17 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import { normalizeNonNegativeInteger, normalizeUsdCost } from '../../domain/normalization.js';
+import { normalizeUsdCost } from '../../domain/normalization.js';
 import { createUsageEvent } from '../../domain/usage-event.js';
 import type { SourceId, UsageEvent, UsageEventInput } from '../../domain/usage-event.js';
 import { asRecord } from '../../utils/as-record.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
-import { asTrimmedText, normalizeTimestampCandidate, toNumberLike } from '../parsing-utils.js';
+import {
+  asTrimmedText,
+  normalizeTimestampCandidate,
+  toNumberLike,
+  toTokenCount,
+} from '../parsing-utils.js';
 import type { SourceParseFileDiagnostics } from '../source-adapter.js';
 
 type ClineParseContext = {
@@ -40,10 +45,6 @@ function getTaskId(filePath: string): string {
 
 export function getClineTaskHistoryPath(uiMessagesPath: string): string {
   return path.join(path.dirname(uiMessagesPath), 'api_conversation_history.json');
-}
-
-function toTokenCount(value: unknown): number {
-  return normalizeNonNegativeInteger(toNumberLike(value));
 }
 
 function extractUsage(payload: Record<string, unknown>): {
