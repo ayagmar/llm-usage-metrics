@@ -8,11 +8,10 @@ export type AggregateSessionsOptions = {
   timezone?: string;
   since?: string;
   until?: string;
-  top?: number;
   ids?: string[];
 };
 
-export type AggregateSessionsByRepoOptions = Omit<AggregateSessionsOptions, 'ids' | 'top'>;
+export type AggregateSessionsByRepoOptions = Omit<AggregateSessionsOptions, 'ids'>;
 
 type SessionAccumulator = UsageTotals & {
   source: string;
@@ -214,9 +213,7 @@ export function aggregateSessions(
     sessions.set(key, accumulator);
   }
 
-  const rows = [...sessions.values()].map(toSessionRow).sort(compareSessionRows);
-
-  return options.top === undefined ? rows : rows.slice(0, options.top);
+  return [...sessions.values()].map(toSessionRow).sort(compareSessionRows);
 }
 
 function createRepoAccumulator(event: UsageEvent): RepoAccumulator {

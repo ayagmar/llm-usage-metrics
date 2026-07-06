@@ -1,4 +1,5 @@
 import { renderSessionReport, type SessionReportFormat } from '../render/render-session-report.js';
+import { logger } from '../utils/logger.js';
 import { buildSessionData } from './build-session-data.js';
 import { emitDiagnostics } from './emit-diagnostics.js';
 import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
@@ -15,6 +16,10 @@ const sessionReportFormats = [
   'json',
 ] as const satisfies readonly SessionReportFormat[];
 
+type SessionPreparedDiagnostics = UsageDiagnostics & {
+  limitNote?: string;
+};
+
 async function prepareSessionReport(
   options: SessionCommandOptions,
   deps: BuildSessionDataDeps = {},
@@ -23,13 +28,23 @@ async function prepareSessionReport(
     commandOptions: options,
     supportedFormats: sessionReportFormats,
     buildData: () => buildSessionData(options, deps),
-    getDiagnostics: (sessionData) => sessionData.diagnostics,
+    getDiagnostics: (sessionData): SessionPreparedDiagnostics => ({
+      ...sessionData.diagnostics,
+      limitNote: sessionData.limitNote,
+    }),
     runtimeProfile: deps.runtimeProfile,
     render: (sessionData, format) =>
       renderSessionReport(sessionData, format, {
         timezone: sessionData.diagnostics.timezone,
+        truncateSessionIds: !options.id?.length,
       }),
   });
+}
+
+function emitSessionReportDiagnostics(diagnostics: SessionPreparedDiagnostics): void {
+  if (diagnostics.limitNote) {
+    logger.info(diagnostics.limitNote);
+  }
 }
 
 export async function buildSessionReport(options: SessionCommandOptions): Promise<string> {
@@ -41,10 +56,11 @@ export async function runSessionReport(options: SessionCommandOptions): Promise<
   const runtimeProfile = createRuntimeProfileCollector();
   const preparedReport = await prepareSessionReport(options, { runtimeProfile });
 
-  await runPreparedReport<UsageDiagnostics, SessionReportFormat>({
+  await runPreparedReport<SessionPreparedDiagnostics, SessionReportFormat>({
     preparedReport,
     emitCommonDiagnostics: emitDiagnostics,
     getEnvVarOverrides: (diagnostics) => diagnostics.activeEnvOverrides,
+    emitReportDiagnostics: emitSessionReportDiagnostics,
     getRuntimeProfile: (diagnostics) => diagnostics.runtimeProfile,
     warnOnTerminalOverflow: true,
   });

@@ -122,37 +122,6 @@ describe('aggregateSessions', () => {
     expect(rows.at(-1)?.costIncomplete).toBe(true);
   });
 
-  it('keeps only the requested top rows after sorting', () => {
-    const rows = aggregateSessions(
-      [
-        event({
-          source: 'codex',
-          sessionId: 'one',
-          timestamp: '2026-01-02T10:00:00.000Z',
-          inputTokens: 1,
-          costUsd: 1,
-        }),
-        event({
-          source: 'codex',
-          sessionId: 'two',
-          timestamp: '2026-01-02T10:00:00.000Z',
-          inputTokens: 1,
-          costUsd: 2,
-        }),
-        event({
-          source: 'codex',
-          sessionId: 'three',
-          timestamp: '2026-01-02T10:00:00.000Z',
-          inputTokens: 1,
-          costUsd: 3,
-        }),
-      ],
-      { top: 2 },
-    );
-
-    expect(rows.map((row) => row.sessionId)).toEqual(['three', 'two']);
-  });
-
   it('marks partially priced and unpriced sessions as cost incomplete', () => {
     const rows = aggregateSessions([
       event({

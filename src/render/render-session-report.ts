@@ -1,7 +1,9 @@
+import path from 'node:path';
+
 import { markdownTable } from 'markdown-table';
 
 import type { SessionDataResult } from '../cli/usage-data-contracts.js';
-import type { SessionRow } from '../session/session-row.js';
+import type { SessionRepoRow, SessionRow } from '../session/session-row.js';
 import { getPeriodKey } from '../utils/time-buckets.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { renderReportHeader } from './report-header.js';
@@ -13,20 +15,22 @@ export type SessionReportFormat = 'terminal' | 'markdown' | 'json';
 export type RenderSessionReportOptions = {
   timezone: string;
   useColor?: boolean;
+  truncateSessionIds?: boolean;
 };
 
 const sessionTableHeaders = [
   'Session',
   'Source',
+  'Repo',
   'Last Activity',
-  'Events',
-  'Input',
-  'Output',
-  'Cache R/W',
   'Total',
   'Cost',
   'Models',
 ] as const;
+
+const repoTableHeaders = ['Repo', 'Sessions', 'Last Activity', 'Total', 'Cost', 'Sources'] as const;
+
+const MAX_NAMED_MODELS = 2;
 
 const integerFormatter = new Intl.NumberFormat('en-US');
 
@@ -49,7 +53,7 @@ function formatInteger(value: number): string {
   return integerFormatter.format(value);
 }
 
-function formatCost(row: SessionRow): string {
+function formatCost(row: { costUsd?: number; costIncomplete?: boolean }): string {
   if (row.costUsd === undefined) {
     return '-';
   }
@@ -63,22 +67,69 @@ function formatModels(models: readonly string[]): string {
     return '-';
   }
 
-  return models.join('\n');
+  if (models.length <= MAX_NAMED_MODELS) {
+    return models.join('\n');
+  }
+
+  return [...models.slice(0, MAX_NAMED_MODELS), `+${models.length - MAX_NAMED_MODELS} more`].join(
+    '\n',
+  );
 }
 
-function toTableCells(row: SessionRow, timezone: string): string[] {
+function toSessionTableCells(
+  row: SessionRow,
+  options: { timezone: string; truncateSessionIds: boolean },
+): string[] {
   return [
-    truncateSessionId(row.sessionId),
+    options.truncateSessionIds ? truncateSessionId(row.sessionId) : row.sessionId,
     row.source,
-    getPeriodKey(row.lastActivity, 'daily', timezone),
-    formatInteger(row.eventCount),
-    formatInteger(row.inputTokens),
-    formatInteger(row.outputTokens),
-    `${formatInteger(row.cacheReadTokens)} / ${formatInteger(row.cacheWriteTokens)}`,
+    row.repoRoot ? path.basename(row.repoRoot) : '-',
+    getPeriodKey(row.lastActivity, 'daily', options.timezone),
     formatInteger(row.totalTokens),
     formatCost(row),
     formatModels(row.models),
   ];
+}
+
+function toRepoTableCells(row: SessionRepoRow, timezone: string): string[] {
+  return [
+    row.repoRoot ? path.basename(row.repoRoot) : '(no repo)',
+    formatInteger(row.sessionCount),
+    getPeriodKey(row.lastActivity, 'daily', timezone),
+    formatInteger(row.totalTokens),
+    formatCost(row),
+    row.sources.join(', '),
+  ];
+}
+
+type SessionTableCells = {
+  headers: string[];
+  bodyRows: string[][];
+  markdownAlign: ('l' | 'r')[];
+};
+
+function buildTableCells(
+  sessionData: SessionDataResult,
+  options: RenderSessionReportOptions,
+): SessionTableCells {
+  if (sessionData.grouping === 'repo') {
+    return {
+      headers: [...repoTableHeaders],
+      bodyRows: sessionData.rows.map((row) => toRepoTableCells(row, options.timezone)),
+      markdownAlign: ['l', 'r', 'l', 'r', 'r', 'l'],
+    };
+  }
+
+  return {
+    headers: [...sessionTableHeaders],
+    bodyRows: sessionData.rows.map((row) =>
+      toSessionTableCells(row, {
+        timezone: options.timezone,
+        truncateSessionIds: options.truncateSessionIds ?? true,
+      }),
+    ),
+    markdownAlign: ['l', 'l', 'l', 'l', 'r', 'r', 'l'],
+  };
 }
 
 function toRowMeta(): TableRowMeta {
@@ -93,7 +144,7 @@ function renderTerminalSessionReport(
   options: RenderSessionReportOptions,
 ): string {
   const useColor = options.useColor ?? shouldUseColorByDefault();
-  const bodyRows = sessionData.rows.map((row) => toTableCells(row, options.timezone));
+  const { headers, bodyRows } = buildTableCells(sessionData, options);
   const outputLines = [
     renderReportHeader({
       title: 'Session Usage Report',
@@ -109,13 +160,13 @@ function renderTerminalSessionReport(
 
   outputLines.push(
     renderUnicodeTable({
-      headerCells: [...sessionTableHeaders],
+      headerCells: headers,
       bodyRows,
-      measureHeaderCells: [...sessionTableHeaders],
+      measureHeaderCells: headers,
       measureBodyRows: bodyRows,
       rowMetas: bodyRows.map(() => toRowMeta()),
       layout: 'top_aligned',
-      multilineColumnIndex: sessionTableHeaders.length - 1,
+      multilineColumnIndex: headers.length - 1,
       multilineColumnWidth: 32,
     }),
   );
@@ -127,13 +178,11 @@ function renderMarkdownSessionReport(
   sessionData: SessionDataResult,
   options: RenderSessionReportOptions,
 ): string {
-  const bodyRows = sessionData.rows
-    .map((row) => toTableCells(row, options.timezone))
-    .map((row) => row.map((cell) => toMarkdownSafeCell(cell)));
-  const tableRows = [[...sessionTableHeaders], ...bodyRows];
+  const { headers, bodyRows, markdownAlign } = buildTableCells(sessionData, options);
+  const safeBodyRows = bodyRows.map((row) => row.map((cell) => toMarkdownSafeCell(cell)));
 
-  return markdownTable(tableRows, {
-    align: ['l', 'l', 'l', 'r', 'r', 'r', 'r', 'r', 'r', 'l'],
+  return markdownTable([headers, ...safeBodyRows], {
+    align: markdownAlign,
   });
 }
 

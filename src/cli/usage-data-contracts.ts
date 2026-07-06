@@ -8,7 +8,7 @@ import type { UsageEvent } from '../domain/usage-event.js';
 import type { EfficiencyRow } from '../efficiency/efficiency-row.js';
 import type { OptimizeRow } from '../optimize/optimize-row.js';
 import type { PricingSource } from '../pricing/types.js';
-import type { SessionRow } from '../session/session-row.js';
+import type { SessionRepoRow, SessionRow } from '../session/session-row.js';
 import type { SourceAdapter } from '../sources/source-adapter.js';
 import type { TrendSeries, TrendsMetric } from '../trends/trends-series.js';
 import type { WrappedRecap } from '../wrapped/wrapped-recap.js';
@@ -66,6 +66,8 @@ export type TrendsCommandOptions = Omit<ReportCommandOptions, 'markdown' | 'perM
 
 export type SessionCommandOptions = Omit<ReportCommandOptions, 'perModelColumns' | 'share'> & {
   top?: string;
+  id?: string[];
+  byRepo?: boolean;
 };
 
 export type WrappedCommandOptions = Omit<
@@ -181,10 +183,19 @@ export type TrendsDataResult = {
   diagnostics: UsageDiagnostics;
 };
 
-export type SessionDataResult = {
-  rows: SessionRow[];
-  diagnostics: UsageDiagnostics;
-};
+export type SessionDataResult =
+  | {
+      grouping: 'session';
+      rows: SessionRow[];
+      limitNote?: string;
+      diagnostics: UsageDiagnostics;
+    }
+  | {
+      grouping: 'repo';
+      rows: SessionRepoRow[];
+      limitNote?: string;
+      diagnostics: UsageDiagnostics;
+    };
 
 export type WrappedDataResult = {
   recap: WrappedRecap;

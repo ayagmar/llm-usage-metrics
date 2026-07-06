@@ -29,7 +29,19 @@ describe('createCli session command parsing', () => {
     const runSessionReportMock = vi.mocked(runSessionReport);
 
     await cli.parseAsync(
-      ['session', '--json', '--top', '2', '--markdown', '--source', 'pi,codex'],
+      [
+        'session',
+        '--json',
+        '--top',
+        '2',
+        '--markdown',
+        '--source',
+        'pi,codex',
+        '--id',
+        '486c',
+        '--id',
+        'abc,def',
+      ],
       { from: 'user' },
     );
 
@@ -40,6 +52,23 @@ describe('createCli session command parsing', () => {
         markdown: true,
         top: '2',
         source: ['pi,codex'],
+        id: ['486c', 'abc,def'],
+      }),
+    );
+  });
+
+  it('dispatches by-repo grouping to runSessionReport', async () => {
+    const cli = createCli();
+    const runSessionReportMock = vi.mocked(runSessionReport);
+    runSessionReportMock.mockClear();
+
+    await cli.parseAsync(['session', '--by-repo', '--top', '5'], { from: 'user' });
+
+    expect(runSessionReportMock).toHaveBeenCalledTimes(1);
+    expect(runSessionReportMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        byRepo: true,
+        top: '5',
       }),
     );
   });

@@ -276,6 +276,14 @@ const sessionReportDefinition: ReportRuntimeDefinition = {
         includeInCliReference: true,
       },
       {
+        command: 'llm-usage session --id 486c',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage session --by-repo --top 5',
+        includeInCliReference: true,
+      },
+      {
         command: 'llm-usage session --markdown',
         includeInCliReference: true,
       },
@@ -283,7 +291,13 @@ const sessionReportDefinition: ReportRuntimeDefinition = {
   },
   register(command) {
     command
-      .option('--top <n>', 'Show only the top N sessions by cost (positive integer)')
+      .option('--top <n>', 'Show only the top N rows by cost (default 20; 0 shows all)')
+      .option(
+        '--id <session-id>',
+        'Show only sessions whose id contains the value (case-insensitive; repeatable or comma-separated)',
+        collectRepeatedOption,
+      )
+      .option('--by-repo', 'Group usage by repository root instead of by session')
       .action((options: SessionCommandOptions) => runSessionReport(options));
 
     return command;

@@ -221,6 +221,14 @@ function toSessionKey(row: SessionRow): string {
   return `${row.source}:${row.sessionId}`;
 }
 
+function expectSessionRows(result: Awaited<ReturnType<typeof buildSessionData>>): SessionRow[] {
+  if (result.grouping !== 'session') {
+    throw new Error(`expected session grouping, got ${result.grouping}`);
+  }
+
+  return result.rows;
+}
+
 function assertRowsSortedByCostDesc(rows: readonly SessionRow[]): void {
   let previousCost = Number.POSITIVE_INFINITY;
   let sawUnpricedRow = false;
@@ -349,16 +357,24 @@ describe.skipIf(!DatabaseSync)('session report e2e', () => {
   }
 
   it('builds one session row per e2e fixture session sorted by cost descending', async () => {
-    const result = await buildSessionData(createAllSourceOptions(), {
-      resolvePricingSource: async () => ({
-        source: createE2ePricingSource(),
-        origin: 'cache',
-      }),
-    });
+    const result = await buildSessionData(
+      {
+        ...createAllSourceOptions(),
+        top: '0',
+      },
+      {
+        resolvePricingSource: async () => ({
+          source: createE2ePricingSource(),
+          origin: 'cache',
+        }),
+      },
+    );
+    const rows = expectSessionRows(result);
 
-    expect(result.rows.map((row) => toSessionKey(row)).sort()).toEqual(expectedSessionKeys);
-    assertRowsSortedByCostDesc(result.rows);
-    expect(result.rows[0]).toMatchObject({
+    expect(result.limitNote).toBeUndefined();
+    expect(rows.map((row) => toSessionKey(row)).sort()).toEqual(expectedSessionKeys);
+    assertRowsSortedByCostDesc(rows);
+    expect(rows[0]).toMatchObject({
       source: 'pi',
       sessionId: 'pi-e2e-session',
       costUsd: 0.6,
@@ -378,13 +394,15 @@ describe.skipIf(!DatabaseSync)('session report e2e', () => {
         }),
       },
     );
+    const rows = expectSessionRows(result);
 
-    expect(result.rows).toHaveLength(3);
-    assertRowsSortedByCostDesc(result.rows);
-    expect(result.rows.map((row) => toSessionKey(row))).toEqual([
+    expect(rows).toHaveLength(3);
+    assertRowsSortedByCostDesc(rows);
+    expect(rows.map((row) => toSessionKey(row))).toEqual([
       'pi:pi-e2e-session',
       'kilocode:task-kilocode',
       'roocode:task-roocode',
     ]);
+    expect(result.limitNote).toBe('Showing top 3 of 17 sessions by cost. Use --top 0 for all.');
   });
 });

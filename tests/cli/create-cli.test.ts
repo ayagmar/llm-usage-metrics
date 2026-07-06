@@ -107,6 +107,8 @@ describe('createCli', () => {
 
     expect(sessionCommand).toBeDefined();
     expect(sessionCommand?.options.some((option) => option.long === '--top')).toBe(true);
+    expect(sessionCommand?.options.some((option) => option.long === '--id')).toBe(true);
+    expect(sessionCommand?.options.some((option) => option.long === '--by-repo')).toBe(true);
     expect(sessionCommand?.options.some((option) => option.long === '--json')).toBe(true);
     expect(sessionCommand?.options.some((option) => option.long === '--markdown')).toBe(true);
     expect(sessionCommand?.options.some((option) => option.long === '--source')).toBe(true);
