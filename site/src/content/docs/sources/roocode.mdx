@@ -1,0 +1,24 @@
+---
+title: roocode Source
+---
+
+## Default location
+
+- VS Code global storage for extension `rooveterinaryinc.roo-cline`: `User/globalStorage/rooveterinaryinc.roo-cline/tasks/*/ui_messages.json`
+- Remote VS Code server storage: `~/.vscode-server/data/User/globalStorage/rooveterinaryinc.roo-cline/tasks/*/ui_messages.json`
+
+## Override
+
+```bash
+llm-usage daily --source roocode --roocode-dir /path/to/roocode/tasks
+```
+
+`roocode` is directory-backed, so generic source directory overrides also work:
+
+```bash
+llm-usage daily --source-dir roocode=/path/to/roocode/tasks
+```
+
+## Parsing notes
+
+RooCode shares the Cline task format. The adapter reads `ui_messages.json` usage payloads, keeps positive USD `cost` values as explicit cost, and reads the model from sibling `api_conversation_history.json`.

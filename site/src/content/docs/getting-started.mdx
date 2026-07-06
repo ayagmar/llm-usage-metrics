@@ -31,6 +31,7 @@ npx --yes llm-usage-metrics@latest daily
   - Amp thread files (`~/.local/share/amp/threads/*.json`)
   - Qwen CLI chats (`~/.qwen/projects/*/chats/*.jsonl`)
   - Kimi CLI/Kimi Code wire files (`~/.kimi/sessions/**/wire.jsonl`, `~/.kimi-code/sessions/**/wire.jsonl`)
+  - Cline/RooCode/KiloCode task files in VS Code global storage
 
 ## First report
 
@@ -49,7 +50,7 @@ llm-usage trends --metric tokens --days 14
 ## Common filters
 
 ```bash
-llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude,copilot,goose,amp,qwen,kimi
+llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude,copilot,goose,amp,qwen,kimi,cline,roocode,kilocode
 llm-usage monthly --provider openai
 llm-usage monthly --model claude
 ```
@@ -136,4 +137,12 @@ llm-usage monthly --source qwen --qwen-dir /path/to/.qwen/projects
 
 ```bash
 llm-usage monthly --source kimi --kimi-dir /path/to/kimi/sessions
+```
+
+## Cline family explicit paths
+
+```bash
+llm-usage monthly --source cline --cline-dir /path/to/cline/tasks
+llm-usage monthly --source roocode --roocode-dir /path/to/roocode/tasks
+llm-usage monthly --source kilocode --kilocode-dir /path/to/kilocode/tasks
 ```

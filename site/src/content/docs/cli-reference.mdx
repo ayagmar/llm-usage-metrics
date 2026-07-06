@@ -34,6 +34,7 @@ Generated from root + command help output.
 | `--by-source` | - | - | Render one sparkline row per source instead of a single combined chart \(trends only\) |
 | `--candidate-model` | - | `<name>` | Candidate model for counterfactual pricing \(repeatable or comma-separated\) \(optimize only\) |
 | `--claude-dir` | - | `<path>` | Path to Claude projects directory |
+| `--cline-dir` | - | `<path>` | Path to Cline tasks directory |
 | `--codex-dir` | - | `<path>` | Path to .codex sessions directory |
 | `--copilot-dir` | - | `<path>` | Path to GitHub Copilot OTEL directory |
 | `--days` | - | `<n>` | Trailing local calendar days to chart; defaults to 30 when no date flags are provided \(trends only\) |
@@ -43,6 +44,7 @@ Generated from root + command help output.
 | `--ignore-pricing-failures` | - | - | Continue without estimated costs when pricing cannot be loaded \(daily, weekly, monthly, efficiency, optimize, trends only\) |
 | `--include-merge-commits` | - | - | Include merge commits in Git outcome metrics \(efficiency only\) |
 | `--json` | - | - | Render output as JSON |
+| `--kilocode-dir` | - | `<path>` | Path to KiloCode tasks directory |
 | `--kimi-dir` | - | `<path>` | Path to Kimi sessions directory |
 | `--markdown` | - | - | Render output as Markdown table \(daily, weekly, monthly, efficiency, optimize only\) |
 | `--metric` | - | `<name>` | Trend metric: cost \| tokens \(default: "cost"\) \(trends only\) |
@@ -57,9 +59,10 @@ Generated from root + command help output.
 | `--provider` | - | `<name>` | Billing-provider filter \(normalized to billing entity; e.g. openai, anthropic, google\) \(daily, weekly, monthly, efficiency, optimize, trends only\) |
 | `--qwen-dir` | - | `<path>` | Path to Qwen projects directory |
 | `--repo-dir` | - | `<path>` | Path to repository for Git outcome metrics \(efficiency only\) |
+| `--roocode-dir` | - | `<path>` | Path to RooCode tasks directory |
 | `--share` | - | - | Write a share SVG image to the current directory \(daily, weekly, monthly, efficiency, optimize, trends only\) |
 | `--since` | - | `<YYYY-MM-DD>` | Inclusive start date filter \(daily, weekly, monthly, efficiency, optimize, trends only\) |
-| `--source` | - | `<name>` | Filter by source id \(repeatable or comma-separated, supported sources \(12\): pi, codex, gemini, droid, opencode, openclaw, claude, copilot, goose, amp, qwen, kimi\) |
+| `--source` | - | `<name>` | Filter by source id \(repeatable or comma-separated, supported sources \(15\): pi, codex, gemini, droid, opencode, openclaw, claude, copilot, goose, amp, qwen, kimi, cline, roocode, kilocode\) |
 | `--source-dir` | - | `<source-id=path>` | Override source directory for directory-backed sources \(repeatable\) |
 | `--timezone` | - | `<iana>` | Timezone for bucketing \(default: local system timezone\) \(daily, weekly, monthly, efficiency, optimize, trends only\) |
 | `--top` | - | `<n>` | Show only the top N cheapest candidates \(positive integer\) \(optimize only\) |

@@ -10,13 +10,13 @@ description: CLI options, source path overrides, and runtime environment variabl
 Directory-backed sources:
 
 ```bash
-llm-usage daily --pi-dir /path/to/pi --codex-dir /path/to/codex --gemini-dir /path/to/.gemini --droid-dir /path/to/.factory/sessions --claude-dir /path/to/.claude/projects --copilot-dir /path/to/.copilot/otel --amp-dir /path/to/amp/threads --qwen-dir /path/to/.qwen/projects --kimi-dir /path/to/kimi/sessions
+llm-usage daily --pi-dir /path/to/pi --codex-dir /path/to/codex --gemini-dir /path/to/.gemini --droid-dir /path/to/.factory/sessions --claude-dir /path/to/.claude/projects --copilot-dir /path/to/.copilot/otel --amp-dir /path/to/amp/threads --qwen-dir /path/to/.qwen/projects --kimi-dir /path/to/kimi/sessions --cline-dir /path/to/cline/tasks --roocode-dir /path/to/roocode/tasks --kilocode-dir /path/to/kilocode/tasks
 ```
 
 Generic directory override syntax:
 
 ```bash
-llm-usage daily --source-dir pi=/path/to/pi --source-dir codex=/path/to/codex --source-dir gemini=/path/to/.gemini --source-dir droid=/path/to/.factory/sessions --source-dir openclaw=/path/to/.openclaw/agents --source-dir claude=/path/to/.claude/projects --source-dir copilot=/path/to/.copilot/otel --source-dir amp=/path/to/amp/threads --source-dir qwen=/path/to/.qwen/projects --source-dir kimi=/path/to/kimi/sessions
+llm-usage daily --source-dir pi=/path/to/pi --source-dir codex=/path/to/codex --source-dir gemini=/path/to/.gemini --source-dir droid=/path/to/.factory/sessions --source-dir openclaw=/path/to/.openclaw/agents --source-dir claude=/path/to/.claude/projects --source-dir copilot=/path/to/.copilot/otel --source-dir amp=/path/to/amp/threads --source-dir qwen=/path/to/.qwen/projects --source-dir kimi=/path/to/kimi/sessions --source-dir cline=/path/to/cline/tasks --source-dir roocode=/path/to/roocode/tasks --source-dir kilocode=/path/to/kilocode/tasks
 ```
 
 OpenCode and Goose use dedicated DB override flags:
@@ -28,7 +28,7 @@ llm-usage daily --goose-db /path/to/goose/sessions.db
 
 Notes:
 
-- `--source-dir` supports directory-backed sources (`pi`, `codex`, `gemini`, `droid`, `openclaw`, `claude`, `copilot`, `amp`, `qwen`, `kimi`).
+- `--source-dir` supports directory-backed sources (`pi`, `codex`, `gemini`, `droid`, `openclaw`, `claude`, `copilot`, `amp`, `qwen`, `kimi`, `cline`, `roocode`, `kilocode`).
 - `--source-dir opencode=...` is rejected; use `--opencode-db`.
 - `--source-dir goose=...` is rejected; use `--goose-db`.
 - OpenCode path precedence is:
@@ -53,6 +53,9 @@ llm-usage monthly --source goose --goose-db /path/to/goose/sessions.db
 llm-usage monthly --source amp --amp-dir /path/to/amp/threads
 llm-usage monthly --source qwen --qwen-dir /path/to/.qwen/projects
 llm-usage monthly --source kimi --kimi-dir /path/to/kimi/sessions
+llm-usage monthly --source cline --cline-dir /path/to/cline/tasks
+llm-usage monthly --source roocode --roocode-dir /path/to/roocode/tasks
+llm-usage monthly --source kilocode --kilocode-dir /path/to/kilocode/tasks
 ```
 
 ## Runtime environment variables

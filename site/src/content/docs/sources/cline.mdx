@@ -1,0 +1,24 @@
+---
+title: cline Source
+---
+
+## Default location
+
+- VS Code global storage for extension `saoudrizwan.claude-dev`: `User/globalStorage/saoudrizwan.claude-dev/tasks/*/ui_messages.json`
+- Remote VS Code server storage: `~/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/tasks/*/ui_messages.json`
+
+## Override
+
+```bash
+llm-usage daily --source cline --cline-dir /path/to/cline/tasks
+```
+
+`cline` is directory-backed, so generic source directory overrides also work:
+
+```bash
+llm-usage daily --source-dir cline=/path/to/cline/tasks
+```
+
+## Parsing notes
+
+The adapter reads task `ui_messages.json` arrays and counts `say: "api_req_started"` entries. The nested JSON payload maps `tokensIn`, `tokensOut`, `cacheReads`, `cacheWrites`, and positive `cost` values into normalized usage. Model names are read from the sibling `api_conversation_history.json` file.
