@@ -20,7 +20,7 @@ value; ideas #4 and #8 are being implemented on `feat/improvements` (2026-07).
 
 | #   | Idea                                                                            | Status                                       | Confidence | Why deferred                                                        |
 | --- | ------------------------------------------------------------------------------- | -------------------------------------------- | ---------- | ------------------------------------------------------------------- |
-| 1   | [Local usage event store (SQLite)](./idea-event-store.md)                       | Not started                                  | 80%        | Multi-day architectural refactor; needs its own design effort       |
+| 1   | [Local usage event store (SQLite)](./idea-event-store.md)                       | Shipped v1 on `feat/improvements` (2026-07) | 80%        | History/retention ledger remains parked as v2                       |
 | 7   | [Simplify interactive update install](./idea-update-install-simplification.md)  | Approved & implemented on `feat/improvements` (2026-07) | 70%        | Maintainer approved the product change on 2026-07-05                |
 | 8   | [E2E multi-source fixture harness](./idea-e2e-fixture-harness.md)               | In progress on `feat/improvements` (2026-07) | 75%        | Medium-large scope; `tests/e2e/` already has 4 e2e tests            |
 | 4   | [`llm-usage doctor` diagnostic command](./idea-doctor-command.md)               | In progress on `feat/improvements` (2026-07) | 85%        | Small and high-value; deferred only to keep PR #119 focused         |
@@ -60,4 +60,4 @@ If tackling these, the recommended order is:
 1. **`llm-usage doctor` (#4)** — smallest, isolated, immediate user value
 2. **E2E fixture harness (#8)** — de-risks the other refactors
 3. **Update install simplification (#7)** — DONE on `feat/improvements` (2026-07)
-4. **Local event store (#1)** — largest payoff, largest effort; do last
+4. **Local event store (#1)** — DONE for v1; history/retention ledger remains parked

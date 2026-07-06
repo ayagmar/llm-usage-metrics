@@ -55,6 +55,7 @@ Relevant options/env:
 
 ### 3) Event store
 
+- enabled by default
 - key is `(source, file path)`
 - validity requires matching dependency fingerprints
 - stores parse diagnostics and normalized events
@@ -92,5 +93,5 @@ LLM_USAGE_PRICING_CACHE_TTL_MS=7200000 llm-usage monthly
 ## Troubleshooting cache behavior
 
 - When pricing fails in offline mode, run once without `--pricing-offline` to warm the cache.
-- For stale reports after source file changes, verify source files updated `mtime` and delete the event-store database to rebuild from scratch.
+- For stale reports after source file changes, verify source files updated `mtime` and delete `<platform-cache-root>/llm-usage-metrics/events.db` to rebuild from scratch.
 - To force update checks every run, set `LLM_USAGE_UPDATE_CACHE_TTL_MS=0`.

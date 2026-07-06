@@ -406,11 +406,23 @@ pnpm run perf:production-benchmark -- \
 | `LLM_USAGE_UPDATE_CACHE_SCOPE`   | Update cache scope                 |
 | `LLM_USAGE_PRICING_CACHE_TTL_MS` | Pricing cache duration             |
 | `LLM_USAGE_PARSE_MAX_PARALLEL`   | Max parallel file parses (`1-64`)  |
-| `LLM_USAGE_EVENT_STORE`          | Enable SQLite event store (`1/0`)  |
+| `LLM_USAGE_EVENT_STORE`          | SQLite event store (`0` disables)  |
 | `LLM_USAGE_EVENT_STORE_PATH`     | Override SQLite event store path   |
 | `LLM_USAGE_PROFILE_RUNTIME`      | Emit runtime profiling diagnostics |
 
-The SQLite event store keeps unchanged source files fast across runs. Older JSON cache shards from pre-store versions are no longer read and can be deleted manually.
+### SQLite Event Store
+
+`llm-usage` stores parsed file events in
+`<platform-cache-root>/llm-usage-metrics/events.db` so unchanged source files do
+not need to be reparsed on every run. On Linux with no `XDG_CACHE_HOME`, that is
+usually `~/.cache/llm-usage-metrics/events.db`.
+
+- Set `LLM_USAGE_EVENT_STORE=0` to disable the store for cold-run benchmarking
+  or debugging.
+- Set `LLM_USAGE_EVENT_STORE_PATH=/path/to/events.db` to use an isolated store.
+- Delete `events.db` to force a full rebuild on the next run.
+- Older JSON cache shards from pre-store versions are no longer read and can be
+  deleted manually.
 
 See full environment variable reference in the [documentation](https://ayagmar.github.io/llm-usage-metrics/configuration/).
 

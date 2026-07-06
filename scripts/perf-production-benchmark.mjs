@@ -367,7 +367,7 @@ async function main() {
         measureCommand('llm-usage', llmUsageNoCacheArgs, {
           env: {
             XDG_CACHE_HOME: llmUsageNoCacheRoot,
-            LLM_USAGE_PARSE_CACHE_ENABLED: '0',
+            LLM_USAGE_EVENT_STORE: '0',
             LLM_USAGE_SKIP_UPDATE_CHECK: '1',
           },
         }),
