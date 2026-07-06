@@ -350,40 +350,52 @@ describe('build-usage-data helper modules', () => {
 });
 
 describe('buildUsageData', () => {
-  it('keeps event-store runtime flags transparent in usage diagnostics', async () => {
+  it('reports event-store env overrides in usage diagnostics', async () => {
+    const eventStoreOverrides = [
+      {
+        name: 'LLM_USAGE_EVENT_STORE',
+        value: '1',
+        description: 'enable sqlite event store',
+      },
+      {
+        name: 'LLM_USAGE_EVENT_STORE_PATH',
+        value: '/tmp/events.db',
+        description: 'sqlite event store path',
+      },
+    ];
+
     const result = await buildUsageData(
       'daily',
       { source: 'pi', timezone: 'UTC' },
       {
         ...withDeterministicRuntimeDeps(),
         createAdapters: () => [createAdapter('pi', {})],
-        getActiveEnvVarOverrides: () => [
-          {
-            name: 'LLM_USAGE_SKIP_UPDATE_CHECK',
-            value: '1',
-            description: 'skip startup update check',
-          },
-          {
-            name: 'LLM_USAGE_EVENT_STORE',
-            value: '1',
-            description: 'enable sqlite event store',
-          },
-          {
-            name: 'LLM_USAGE_EVENT_STORE_PATH',
-            value: '/tmp/events.db',
-            description: 'sqlite event store path',
-          },
-        ],
+        getActiveEnvVarOverrides: () => eventStoreOverrides,
       },
     );
 
-    expect(result.diagnostics.activeEnvOverrides).toEqual([
+    expect(result.diagnostics.activeEnvOverrides).toEqual(eventStoreOverrides);
+  });
+
+  it('includes a real LLM_USAGE_EVENT_STORE=0 override under active overrides', async () => {
+    // The vitest-wide env sets LLM_USAGE_EVENT_STORE=0; without an injected
+    // reader the diagnostics must surface it.
+    const deps = { ...withDeterministicRuntimeDeps(), getActiveEnvVarOverrides: undefined };
+
+    const result = await buildUsageData(
+      'daily',
+      { source: 'pi', timezone: 'UTC' },
       {
-        name: 'LLM_USAGE_SKIP_UPDATE_CHECK',
-        value: '1',
-        description: 'skip startup update check',
+        ...deps,
+        createAdapters: () => [createAdapter('pi', {})],
       },
-    ]);
+    );
+
+    expect(result.diagnostics.activeEnvOverrides).toContainEqual({
+      name: 'LLM_USAGE_EVENT_STORE',
+      value: '0',
+      description: 'enable sqlite event store',
+    });
   });
 
   it('returns no-sessions diagnostics without loading pricing', async () => {
