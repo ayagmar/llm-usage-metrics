@@ -17,6 +17,8 @@ export type RuntimeProfileSourceStats = {
   eventsParsed: number;
   cacheHits: number;
   cacheMisses: number;
+  eventStoreHits: number;
+  eventStoreMisses: number;
 };
 
 export type RuntimeProfileStageTiming = {
@@ -27,6 +29,10 @@ export type RuntimeProfileStageTiming = {
 export type RuntimeProfileSnapshot = {
   sourceSelection?: RuntimeProfileSourceSelection;
   parseCache: {
+    hits: number;
+    misses: number;
+  };
+  eventStore: {
     hits: number;
     misses: number;
   };
@@ -114,6 +120,17 @@ export class RuntimeProfileCollector {
     sourceStats.cacheMisses += 1;
   }
 
+  public recordEventStoreResult(source: string, result: 'hit' | 'miss'): void {
+    const sourceStats = this.getOrCreateSourceStats(source);
+
+    if (result === 'hit') {
+      sourceStats.eventStoreHits += 1;
+      return;
+    }
+
+    sourceStats.eventStoreMisses += 1;
+  }
+
   public recordParseResult(
     source: string,
     result: {
@@ -144,6 +161,13 @@ export class RuntimeProfileCollector {
       }),
       { hits: 0, misses: 0 },
     );
+    const eventStore = sourceStats.reduce(
+      (totals, source) => ({
+        hits: totals.hits + source.eventStoreHits,
+        misses: totals.misses + source.eventStoreMisses,
+      }),
+      { hits: 0, misses: 0 },
+    );
     const stageTimings = [...this.stageDurations.entries()]
       .sort(([leftName], [rightName]) => compareByCodePoint(leftName, rightName))
       .map(([name, durationMs]) => ({ name, durationMs }));
@@ -159,6 +183,7 @@ export class RuntimeProfileCollector {
           }
         : undefined,
       parseCache,
+      eventStore,
       parseTotals,
       sourceStats: sourceStats.map((source) => ({ ...source })),
       stageTimings,
@@ -178,6 +203,8 @@ export class RuntimeProfileCollector {
       eventsParsed: 0,
       cacheHits: 0,
       cacheMisses: 0,
+      eventStoreHits: 0,
+      eventStoreMisses: 0,
     };
     this.sourceStats.set(source, created);
     return created;
@@ -230,6 +257,14 @@ function hasRecordedParseCache(snapshot: RuntimeProfileSnapshot): boolean {
   );
 }
 
+function hasRecordedEventStore(snapshot: RuntimeProfileSnapshot): boolean {
+  return (
+    snapshot.eventStore.hits > 0 ||
+    snapshot.eventStore.misses > 0 ||
+    hasRecordedSourceStats(snapshot)
+  );
+}
+
 function hasRecordedParseTotals(snapshot: RuntimeProfileSnapshot): boolean {
   return (
     snapshot.parseTotals.filesFound > 0 ||
@@ -261,6 +296,7 @@ export function mergeRuntimeProfiles(
   return {
     sourceSelection: primary.sourceSelection ?? fallback.sourceSelection,
     parseCache: hasRecordedParseCache(primary) ? primary.parseCache : fallback.parseCache,
+    eventStore: hasRecordedEventStore(primary) ? primary.eventStore : fallback.eventStore,
     parseTotals: hasRecordedParseTotals(primary) ? primary.parseTotals : fallback.parseTotals,
     sourceStats: primary.sourceStats.length > 0 ? primary.sourceStats : fallback.sourceStats,
     stageTimings: [...stageTimingsByName.values()].sort((left, right) =>
@@ -295,12 +331,15 @@ export function emitRuntimeProfile(
     `  parse cache: hits=${runtimeProfile.parseCache.hits}; misses=${runtimeProfile.parseCache.misses}`,
   );
   diagnosticsLogger.dim(
+    `  event store: hits=${runtimeProfile.eventStore.hits}; misses=${runtimeProfile.eventStore.misses}`,
+  );
+  diagnosticsLogger.dim(
     `  parse totals: files=${runtimeProfile.parseTotals.filesFound}; events=${runtimeProfile.parseTotals.eventsParsed}`,
   );
 
   for (const source of runtimeProfile.sourceStats) {
     diagnosticsLogger.dim(
-      `  source ${source.source}: files=${source.filesFound}; events=${source.eventsParsed}; cacheHits=${source.cacheHits}; cacheMisses=${source.cacheMisses}`,
+      `  source ${source.source}: files=${source.filesFound}; events=${source.eventsParsed}; cacheHits=${source.cacheHits}; cacheMisses=${source.cacheMisses}; eventStoreHits=${source.eventStoreHits}; eventStoreMisses=${source.eventStoreMisses}`,
     );
   }
 

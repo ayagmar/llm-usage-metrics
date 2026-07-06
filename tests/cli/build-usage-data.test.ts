@@ -354,6 +354,42 @@ describe('build-usage-data helper modules', () => {
 });
 
 describe('buildUsageData', () => {
+  it('keeps event-store runtime flags transparent in usage diagnostics', async () => {
+    const result = await buildUsageData(
+      'daily',
+      { source: 'pi', timezone: 'UTC' },
+      {
+        ...withDeterministicRuntimeDeps(),
+        createAdapters: () => [createAdapter('pi', {})],
+        getActiveEnvVarOverrides: () => [
+          {
+            name: 'LLM_USAGE_SKIP_UPDATE_CHECK',
+            value: '1',
+            description: 'skip startup update check',
+          },
+          {
+            name: 'LLM_USAGE_EVENT_STORE',
+            value: '1',
+            description: 'enable sqlite event store',
+          },
+          {
+            name: 'LLM_USAGE_EVENT_STORE_PATH',
+            value: '/tmp/events.db',
+            description: 'sqlite event store path',
+          },
+        ],
+      },
+    );
+
+    expect(result.diagnostics.activeEnvOverrides).toEqual([
+      {
+        name: 'LLM_USAGE_SKIP_UPDATE_CHECK',
+        value: '1',
+        description: 'skip startup update check',
+      },
+    ]);
+  });
+
   it('returns no-sessions diagnostics without loading pricing', async () => {
     const pricingLoaderSpy = vi.fn(async (): Promise<PricingLoadResult> => {
       throw new Error('pricing should not be loaded when there are no events');

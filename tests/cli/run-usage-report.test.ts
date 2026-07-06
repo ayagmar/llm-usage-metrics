@@ -531,6 +531,7 @@ describe('buildUsageReport', () => {
       expect(stderrLines.some((line) => line.includes('Runtime profile:'))).toBe(true);
       expect(stderrLines.some((line) => line.includes('source selection:'))).toBe(true);
       expect(stderrLines.some((line) => line.includes('parse cache:'))).toBe(true);
+      expect(stderrLines.some((line) => line.includes('event store:'))).toBe(true);
       expect(stderrLines.some((line) => line.includes('stage timings:'))).toBe(true);
     } finally {
       if (previousProfile === undefined) {

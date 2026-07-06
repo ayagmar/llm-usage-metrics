@@ -33,6 +33,8 @@ import type { EnvVarOverride } from '../config/env-var-display.js';
 import type { PricingSource } from '../pricing/types.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 
+const TRANSPARENT_USAGE_ENV_VARS = new Set(['LLM_USAGE_EVENT_STORE', 'LLM_USAGE_EVENT_STORE_PATH']);
+
 function withNormalizedPricingUrl(
   options: ReportCommandOptions,
   normalizedPricingUrl: string | undefined,
@@ -45,6 +47,10 @@ function withNormalizedPricingUrl(
     ...options,
     pricingUrl: normalizedPricingUrl,
   };
+}
+
+function readUsageEnvVarOverrides(readEnvVarOverrides: () => EnvVarOverride[]): EnvVarOverride[] {
+  return readEnvVarOverrides().filter((override) => !TRANSPARENT_USAGE_ENV_VARS.has(override.name));
 }
 
 export type UsageEventDataset = {
@@ -144,7 +150,8 @@ export async function buildUsageEventDataset(
     warnings,
     filteredEvents,
     pricingRuntimeConfig,
-    readEnvVarOverrides: deps.getActiveEnvVarOverrides ?? getActiveEnvVarOverrides,
+    readEnvVarOverrides: () =>
+      readUsageEnvVarOverrides(deps.getActiveEnvVarOverrides ?? getActiveEnvVarOverrides),
   };
 }
 

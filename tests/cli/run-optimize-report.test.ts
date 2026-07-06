@@ -182,6 +182,10 @@ describe('run-optimize-report', () => {
               hits: 1,
               misses: 0,
             },
+            eventStore: {
+              hits: 0,
+              misses: 0,
+            },
             parseTotals: {
               filesFound: 1,
               eventsParsed: 2,
@@ -193,6 +197,8 @@ describe('run-optimize-report', () => {
                 eventsParsed: 2,
                 cacheHits: 1,
                 cacheMisses: 0,
+                eventStoreHits: 0,
+                eventStoreMisses: 0,
               },
             ],
             stageTimings: [{ name: 'optimize.dataset.total', durationMs: 1.23 }],

@@ -1,4 +1,4 @@
-import { mkdtemp, rm, utimes, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, utimes, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -10,6 +10,8 @@ import {
 } from '../../src/cli/build-usage-data-parsing.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import {
+  closeEventStore,
+  openEventStore,
   serializeEventStoreFingerprint,
   type EventStore,
   type EventStoreFileEntry,
@@ -17,6 +19,7 @@ import {
 } from '../../src/persistence/event-store.js';
 import type { SourceAdapter } from '../../src/sources/source-adapter.js';
 import { ParseFileCache } from '../../src/cli/parse-file-cache.js';
+import { RuntimeProfileCollector } from '../../src/cli/runtime-profile.js';
 import { getPeriodKey } from '../../src/utils/time-buckets.js';
 
 vi.mock('../../src/utils/time-buckets.js', { spy: true });
@@ -81,6 +84,91 @@ function createStoreBackedAdapter(id: string, files: string[]): SourceAdapter {
         totalTokens: 1,
       }),
     ],
+  };
+}
+
+function createCountingJsonlAdapter(
+  id: string,
+  files: string[],
+  parseCallCounter: { count: number },
+): SourceAdapter {
+  return {
+    id,
+    discoverFiles: async () => files,
+    parseFile: async (filePath) => {
+      parseCallCounter.count += 1;
+      const content = await readFile(filePath, 'utf8');
+      const totalTokens =
+        content
+          .split('\n')
+          .map((line) => line.trim())
+          .filter((line) => line.length > 0).length || 1;
+
+      return [
+        createUsageEvent({
+          source: id,
+          sessionId: path.basename(filePath, '.jsonl'),
+          timestamp: '2026-02-01T00:00:00.000Z',
+          inputTokens: 1,
+          totalTokens,
+        }),
+      ];
+    },
+  };
+}
+
+function createAuxiliaryDependencyAdapter(
+  id: string,
+  files: string[],
+  parseCallCounter: { count: number },
+  getDependencyPath: (filePath: string) => string,
+): SourceAdapter {
+  return {
+    id,
+    discoverFiles: async () => files,
+    getParseDependencies: async (filePath) => [getDependencyPath(filePath)],
+    parseFile: async (filePath) => {
+      parseCallCounter.count += 1;
+      const dependencyPath = getDependencyPath(filePath);
+
+      try {
+        const content = await readFile(dependencyPath, 'utf8');
+        const totalTokens =
+          content
+            .split('\n')
+            .map((line) => line.trim())
+            .filter((line) => line.length > 0).length || 1;
+
+        return [
+          createUsageEvent({
+            source: id,
+            sessionId: path.basename(filePath),
+            timestamp: '2026-02-01T00:00:00.000Z',
+            inputTokens: 1,
+            totalTokens,
+          }),
+        ];
+      } catch (error) {
+        if (
+          typeof error === 'object' &&
+          error !== null &&
+          'code' in error &&
+          error.code === 'ENOENT'
+        ) {
+          return [
+            createUsageEvent({
+              source: id,
+              sessionId: path.basename(filePath),
+              timestamp: '2026-02-01T00:00:00.000Z',
+              inputTokens: 1,
+              totalTokens: 1,
+            }),
+          ];
+        }
+
+        throw error;
+      }
+    },
   };
 }
 
@@ -232,10 +320,14 @@ describe('build-usage-data-parsing', () => {
 
     const store = { filePath: path.join(tempDir, 'events.db') } as unknown as EventStore;
     const entries = new Map<string, EventStoreFileEntry>();
+    const eventsByFile = new Map<string, ReturnType<typeof createUsageEvent>[]>();
     const openEventStore = vi.fn(async () => store);
     const closeEventStore = vi.fn();
     const getFileEntry = vi.fn((_store: EventStore, _source: string, filePath: string) =>
       entries.get(filePath),
+    );
+    const readFileEvents = vi.fn((_store: EventStore, _source: string, filePath: string) =>
+      eventsByFile.get(filePath),
     );
     const replaceFileEvents = vi.fn((_store: EventStore, input: ReplaceFileEventsInput) => {
       entries.set(input.filePath, {
@@ -243,6 +335,7 @@ describe('build-usage-data-parsing', () => {
         skippedRows: input.skippedRows,
         skippedRowReasons: input.skippedRowReasons ?? [],
       });
+      eventsByFile.set(input.filePath, input.events);
     });
     const adapter = createStoreBackedAdapter('pi', [fileA, fileB]);
     const options = {
@@ -254,6 +347,7 @@ describe('build-usage-data-parsing', () => {
         openEventStore,
         closeEventStore,
         getFileEntry,
+        readFileEvents,
         replaceFileEvents,
       },
       now: () => 123,
@@ -311,6 +405,280 @@ describe('build-usage-data-parsing', () => {
     ]);
     expect(result.warnings).toEqual(['Event store disabled after failure: database locked']);
     expect(replaceFileEvents).not.toHaveBeenCalled();
+  });
+
+  it('serves unchanged files from the event store before adapter parsing or parse cache lookup', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-parse-hit-'));
+    tempDirs.push(tempDir);
+
+    const filePath = path.join(tempDir, 'session.jsonl');
+    const eventStorePath = path.join(tempDir, 'events.db');
+    await writeFingerprintFixture(filePath, '{"line":1}\n', 1_700_000_001);
+
+    const parseCalls = { count: 0 };
+    const adapter = createCountingJsonlAdapter('pi', [filePath], parseCalls);
+
+    await parseSelectedAdapters([adapter], 1, {
+      eventStore: {
+        enabled: true,
+        path: eventStorePath,
+      },
+      now: () => 123,
+    });
+
+    const cacheGet = vi.fn();
+    const cacheSet = vi.fn();
+    const parseFileCache = {
+      get: cacheGet,
+      set: cacheSet,
+      persist: vi.fn(async () => undefined),
+    } as unknown as ParseFileCache;
+    const loadSpy = vi.spyOn(ParseFileCache, 'load').mockResolvedValue(parseFileCache);
+    const runtimeProfile = new RuntimeProfileCollector(() => 100);
+
+    try {
+      const cachedRun = await parseSelectedAdapters([adapter], 1, {
+        parseCache: {
+          enabled: true,
+          ttlMs: 60_000,
+          maxEntries: 100,
+          maxBytes: 1024 * 1024,
+        },
+        parseCacheFilePath: path.join(tempDir, 'parse-cache.json'),
+        eventStore: {
+          enabled: true,
+          path: eventStorePath,
+        },
+        runtimeProfile,
+        now: () => 124,
+      });
+
+      expect(cachedRun.sourceFailures).toEqual([]);
+      expect(cachedRun.successfulParseResults[0]?.events[0]?.totalTokens).toBe(1);
+      expect(parseCalls.count).toBe(1);
+      expect(cacheGet).not.toHaveBeenCalled();
+      expect(cacheSet).not.toHaveBeenCalled();
+      expect(runtimeProfile.snapshot().eventStore).toEqual({ hits: 1, misses: 0 });
+    } finally {
+      loadSpy.mockRestore();
+    }
+  });
+
+  it('re-parses and re-ingests when a primary file fingerprint changes', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-primary-change-'));
+    tempDirs.push(tempDir);
+
+    const filePath = path.join(tempDir, 'session.jsonl');
+    const eventStorePath = path.join(tempDir, 'events.db');
+    await writeFingerprintFixture(filePath, '{"line":1}\n', 1_700_000_001);
+
+    const parseCalls = { count: 0 };
+    const adapter = createCountingJsonlAdapter('pi', [filePath], parseCalls);
+
+    const firstRun = await parseSelectedAdapters([adapter], 1, {
+      eventStore: {
+        enabled: true,
+        path: eventStorePath,
+      },
+    });
+    await writeFingerprintFixture(filePath, '{"line":1}\n{"line":2}\n', 1_700_000_002);
+    const secondRun = await parseSelectedAdapters([adapter], 1, {
+      eventStore: {
+        enabled: true,
+        path: eventStorePath,
+      },
+    });
+
+    expect(firstRun.successfulParseResults[0]?.events[0]?.totalTokens).toBe(1);
+    expect(secondRun.successfulParseResults[0]?.events[0]?.totalTokens).toBe(2);
+    expect(parseCalls.count).toBe(2);
+  });
+
+  it('re-parses when an auxiliary dependency changes', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-aux-change-'));
+    tempDirs.push(tempDir);
+
+    const filePath = path.join(tempDir, 'session.jsonl');
+    const dependencyPath = path.join(tempDir, 'session.jsonl-wal');
+    const eventStorePath = path.join(tempDir, 'events.db');
+    await writeFingerprintFixture(filePath, '{"primary":true}\n', 1_700_000_001);
+    await writeFingerprintFixture(dependencyPath, 'line-1\n', 1_700_000_001);
+
+    const parseCalls = { count: 0 };
+    const adapter = createAuxiliaryDependencyAdapter(
+      'opencode',
+      [filePath],
+      parseCalls,
+      () => dependencyPath,
+    );
+
+    await parseSelectedAdapters([adapter], 1, {
+      eventStore: {
+        enabled: true,
+        path: eventStorePath,
+      },
+    });
+    const cachedRun = await parseSelectedAdapters([adapter], 1, {
+      eventStore: {
+        enabled: true,
+        path: eventStorePath,
+      },
+    });
+    await writeFingerprintFixture(dependencyPath, 'line-1\nline-2\n', 1_700_000_002);
+    const invalidatedRun = await parseSelectedAdapters([adapter], 1, {
+      eventStore: {
+        enabled: true,
+        path: eventStorePath,
+      },
+    });
+
+    expect(cachedRun.successfulParseResults[0]?.events[0]?.totalTokens).toBe(1);
+    expect(invalidatedRun.successfulParseResults[0]?.events[0]?.totalTokens).toBe(2);
+    expect(parseCalls.count).toBe(2);
+  });
+
+  it('re-parses when an auxiliary dependency appears or disappears', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-aux-existence-'));
+    tempDirs.push(tempDir);
+
+    const filePath = path.join(tempDir, 'session.jsonl');
+    const dependencyPath = path.join(tempDir, 'sidecar.json');
+    const eventStorePath = path.join(tempDir, 'events.db');
+    await writeFingerprintFixture(filePath, '{"primary":true}\n', 1_700_000_001);
+
+    const parseCalls = { count: 0 };
+    const adapter = createAuxiliaryDependencyAdapter(
+      'gemini',
+      [filePath],
+      parseCalls,
+      () => dependencyPath,
+    );
+
+    const missingDependencyRun = await parseSelectedAdapters([adapter], 1, {
+      eventStore: {
+        enabled: true,
+        path: eventStorePath,
+      },
+    });
+    await writeFingerprintFixture(dependencyPath, 'line-1\nline-2\n', 1_700_000_002);
+    const appearedDependencyRun = await parseSelectedAdapters([adapter], 1, {
+      eventStore: {
+        enabled: true,
+        path: eventStorePath,
+      },
+    });
+    await rm(dependencyPath);
+    const disappearedDependencyRun = await parseSelectedAdapters([adapter], 1, {
+      eventStore: {
+        enabled: true,
+        path: eventStorePath,
+      },
+    });
+
+    expect(missingDependencyRun.successfulParseResults[0]?.events[0]?.totalTokens).toBe(1);
+    expect(appearedDependencyRun.successfulParseResults[0]?.events[0]?.totalTokens).toBe(2);
+    expect(disappearedDependencyRun.successfulParseResults[0]?.events[0]?.totalTokens).toBe(1);
+    expect(parseCalls.count).toBe(3);
+  });
+
+  it('falls back to parsing and re-ingests when a stored event row is corrupted', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-corrupt-row-'));
+    tempDirs.push(tempDir);
+
+    const filePath = path.join(tempDir, 'session.jsonl');
+    const eventStorePath = path.join(tempDir, 'events.db');
+    await writeFingerprintFixture(filePath, '{"line":1}\n', 1_700_000_001);
+
+    const parseCalls = { count: 0 };
+    const adapter = createCountingJsonlAdapter('codex', [filePath], parseCalls);
+
+    await parseSelectedAdapters([adapter], 1, {
+      eventStore: {
+        enabled: true,
+        path: eventStorePath,
+      },
+    });
+
+    const store = await openEventStore(eventStorePath);
+    try {
+      store.database
+        .prepare("UPDATE events SET cost_mode = 'broken' WHERE file_path = ?")
+        .run(filePath);
+    } finally {
+      closeEventStore(store);
+    }
+
+    const secondRun = await parseSelectedAdapters([adapter], 1, {
+      eventStore: {
+        enabled: true,
+        path: eventStorePath,
+      },
+    });
+
+    expect(secondRun.sourceFailures).toEqual([]);
+    expect(secondRun.warnings).toEqual([]);
+    expect(secondRun.successfulParseResults[0]?.events[0]?.totalTokens).toBe(1);
+    expect(parseCalls.count).toBe(2);
+  });
+
+  it('replays stored skipped-row diagnostics on an event store hit', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-diagnostics-replay-'));
+    tempDirs.push(tempDir);
+
+    const filePath = path.join(tempDir, 'session.jsonl');
+    const eventStorePath = path.join(tempDir, 'events.db');
+    await writeFingerprintFixture(filePath, '{"line":1}\n', 1_700_000_001);
+
+    let allowParse = true;
+    let parseCalls = 0;
+    const adapter: SourceAdapter = {
+      id: 'pi',
+      discoverFiles: async () => [filePath],
+      parseFile: async () => {
+        throw new Error('parseFile should not be used');
+      },
+      parseFileWithDiagnostics: async () => {
+        if (!allowParse) {
+          throw new Error('store hit should skip adapter parse');
+        }
+
+        parseCalls += 1;
+        return {
+          events: [
+            createUsageEvent({
+              source: 'pi',
+              sessionId: 'session',
+              timestamp: '2026-02-01T00:00:00.000Z',
+              inputTokens: 1,
+              totalTokens: 1,
+            }),
+          ],
+          skippedRows: 2,
+          skippedRowReasons: [{ reason: 'no_token_usage', count: 2 }],
+        };
+      },
+    };
+
+    await parseSelectedAdapters([adapter], 1, {
+      eventStore: {
+        enabled: true,
+        path: eventStorePath,
+      },
+    });
+    allowParse = false;
+    const cachedRun = await parseSelectedAdapters([adapter], 1, {
+      eventStore: {
+        enabled: true,
+        path: eventStorePath,
+      },
+    });
+
+    expect(parseCalls).toBe(1);
+    expect(cachedRun.sourceFailures).toEqual([]);
+    expect(cachedRun.successfulParseResults[0]?.skippedRows).toBe(2);
+    expect(cachedRun.successfulParseResults[0]?.skippedRowReasons).toEqual([
+      { reason: 'no_token_usage', count: 2 },
+    ]);
   });
 
   it('does not compute date buckets when no date filters are set', () => {

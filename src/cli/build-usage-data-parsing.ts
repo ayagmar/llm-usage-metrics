@@ -7,6 +7,7 @@ import {
   closeEventStore as closeDefaultEventStore,
   getFileEntry as getDefaultEventStoreFileEntry,
   openEventStore as openDefaultEventStore,
+  readFileEvents as readDefaultEventStoreFileEvents,
   replaceFileEvents as replaceDefaultFileEvents,
   serializeEventStoreFingerprint,
   type EventStore,
@@ -71,6 +72,11 @@ export type EventStoreParseDeps = {
     source: string,
     filePath: string,
   ) => EventStoreFileEntry | undefined;
+  readFileEvents?: (
+    store: EventStore,
+    source: string,
+    filePath: string,
+  ) => UsageEvent[] | undefined;
   replaceFileEvents?: typeof replaceDefaultFileEvents;
 };
 
@@ -86,6 +92,7 @@ type EventStoreParseContext = {
     source: string,
     filePath: string,
   ) => EventStoreFileEntry | undefined;
+  readFileEvents: (store: EventStore, source: string, filePath: string) => UsageEvent[] | undefined;
   replaceFileEvents: typeof replaceDefaultFileEvents;
   now: () => number;
   failureState: EventStoreFailureState;
@@ -176,6 +183,48 @@ function recordEventStoreFailure(state: EventStoreFailureState, error: unknown):
 
   state.disabled = true;
   state.warning = `Event store disabled after failure: ${getErrorReason(error)}`;
+}
+
+function readParsedFileFromEventStore(
+  context: EventStoreParseContext,
+  params: {
+    source: string;
+    filePath: string;
+    fingerprint: EventStoreFileFingerprint;
+    runtimeProfile?: RuntimeProfileCollector;
+  },
+): SourceParseFileDiagnostics | undefined {
+  if (context.failureState.disabled) {
+    return undefined;
+  }
+
+  try {
+    const fingerprint = serializeEventStoreFingerprint(params.fingerprint);
+    const storedEntry = context.getFileEntry(context.store, params.source, params.filePath);
+
+    if (storedEntry?.fingerprint !== fingerprint) {
+      params.runtimeProfile?.recordEventStoreResult(params.source, 'miss');
+      return undefined;
+    }
+
+    const events = context.readFileEvents(context.store, params.source, params.filePath);
+
+    if (!events) {
+      params.runtimeProfile?.recordEventStoreResult(params.source, 'miss');
+      return undefined;
+    }
+
+    params.runtimeProfile?.recordEventStoreResult(params.source, 'hit');
+
+    return {
+      events,
+      skippedRows: storedEntry.skippedRows,
+      skippedRowReasons: storedEntry.skippedRowReasons,
+    };
+  } catch (error) {
+    recordEventStoreFailure(context.failureState, error);
+    return undefined;
+  }
 }
 
 function writeParsedFileToEventStore(
@@ -299,12 +348,23 @@ export async function parseAdapterEvents(
         try {
           let fileFingerprint: { dependencies: ParseDependencyFingerprint[] } | undefined;
           let parseFileDiagnostics: SourceParseFileDiagnostics | undefined;
+          let servedFromEventStore = false;
 
           if (parseFileCache || eventStore) {
             fileFingerprint = await getParseFileFingerprint(adapter, filePath);
           }
 
-          if (parseFileCache && fileFingerprint) {
+          if (eventStore && fileFingerprint) {
+            parseFileDiagnostics = readParsedFileFromEventStore(eventStore, {
+              source: adapter.id,
+              filePath,
+              fingerprint: fileFingerprint,
+              runtimeProfile,
+            });
+            servedFromEventStore = parseFileDiagnostics !== undefined;
+          }
+
+          if (!parseFileDiagnostics && parseFileCache && fileFingerprint) {
             parseFileDiagnostics = parseFileCache.get(adapter.id, filePath, fileFingerprint);
             runtimeProfile?.recordParseCacheResult(
               adapter.id,
@@ -334,7 +394,7 @@ export async function parseAdapterEvents(
               (skippedRowReasons.get(reasonStat.reason) ?? 0) + reasonStat.count,
             );
           }
-          if (eventStore && fileFingerprint) {
+          if (eventStore && fileFingerprint && !servedFromEventStore) {
             writeParsedFileToEventStore(eventStore, {
               source: adapter.id,
               filePath,
@@ -430,6 +490,7 @@ export async function parseSelectedAdapters(
       eventStoreContext = {
         store: await openEventStore(options.eventStore.path),
         getFileEntry: options.eventStoreDeps?.getFileEntry ?? getDefaultEventStoreFileEntry,
+        readFileEvents: options.eventStoreDeps?.readFileEvents ?? readDefaultEventStoreFileEvents,
         replaceFileEvents: options.eventStoreDeps?.replaceFileEvents ?? replaceDefaultFileEvents,
         now: options.now ?? Date.now,
         failureState: eventStoreFailureState,
