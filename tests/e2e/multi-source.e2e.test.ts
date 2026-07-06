@@ -48,8 +48,12 @@ const copilotDir = path.resolve('tests/fixtures/e2e/copilot');
 const ampDir = path.resolve('tests/fixtures/e2e/amp');
 const qwenDir = path.resolve('tests/fixtures/e2e/qwen/projects');
 const kimiDir = path.resolve('tests/fixtures/e2e/kimi');
-const allSources = 'pi,codex,gemini,droid,opencode,openclaw,claude,copilot,goose,amp,qwen,kimi';
-const expectedAllSourceTokens = 1_960;
+const clineDir = path.resolve('tests/fixtures/e2e/cline');
+const roocodeDir = path.resolve('tests/fixtures/e2e/roocode');
+const kilocodeDir = path.resolve('tests/fixtures/e2e/kilocode');
+const allSources =
+  'pi,codex,gemini,droid,opencode,openclaw,claude,copilot,goose,amp,qwen,kimi,cline,roocode,kilocode';
+const expectedAllSourceTokens = 2_110;
 const expectedGeminiClaudeTokens = 415;
 
 function loadDatabaseSync(): FixtureDatabaseSync | undefined {
@@ -249,6 +253,9 @@ describe.skipIf(!DatabaseSync)('multi-source usage report e2e', () => {
       ampDir,
       qwenDir,
       kimiDir,
+      clineDir,
+      roocodeDir,
+      kilocodeDir,
       source: allSources,
       timezone: 'UTC',
       json: true,
@@ -285,6 +292,9 @@ describe.skipIf(!DatabaseSync)('multi-source usage report e2e', () => {
       ampDir,
       qwenDir,
       kimiDir,
+      clineDir,
+      roocodeDir,
+      kilocodeDir,
       source: 'gemini,claude',
       timezone: 'UTC',
       json: true,
