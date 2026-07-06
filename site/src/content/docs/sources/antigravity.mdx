@@ -1,0 +1,24 @@
+---
+title: antigravity Source
+---
+
+## Default location
+
+- `$GEMINI_CLI_HOME/antigravity-cli/conversations/*.db` when `GEMINI_CLI_HOME` is set
+- `~/.gemini/antigravity-cli/conversations/*.db`
+
+## Override
+
+```bash
+llm-usage daily --source antigravity --antigravity-dir /path/to/antigravity/conversations
+```
+
+`antigravity` is directory-backed, so generic source directory overrides also work:
+
+```bash
+llm-usage daily --source-dir antigravity=/path/to/antigravity/conversations
+```
+
+## Parsing notes
+
+The adapter reads Antigravity CLI SQLite conversation databases in read-only mode. Token usage is stored in protobuf blobs: fixed prompt and new input tokens are added together, cache reads and reasoning tokens are preserved, and repeated response ids are counted once.

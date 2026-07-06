@@ -56,25 +56,26 @@ llm-usage daily
 
 ## 📋 Supported Sources
 
-| Source          | Pattern                                                                                  | Discovery                         |
-| --------------- | ---------------------------------------------------------------------------------------- | --------------------------------- |
-| **pi**          | `~/.pi/agent/sessions/**/*.jsonl` (+ `~/.omp/agent/sessions`)                            | Automatic                         |
-| **codex**       | `~/.codex/sessions/**/*.jsonl`                                                           | Automatic                         |
-| **Gemini CLI**  | `~/.gemini/tmp/*/chats/*.json` (or `$GEMINI_CLI_HOME` when set)                          | Automatic                         |
-| **Droid CLI**   | `~/.factory/sessions/**/*.settings.json`                                                 | Automatic                         |
-| **OpenCode**    | `~/.local/share/opencode/opencode*.db`                                                   | Auto or explicit `--opencode-db`  |
-| **OpenClaw**    | `~/.openclaw/agents/**/*.jsonl` (+ legacy `~/.clawdbot`/`~/.moltbot`/`~/.moldbot` homes) | Automatic                         |
-| **Claude Code** | `~/.claude/{projects,transcripts}/**/*.jsonl`                                            | Automatic                         |
-| **Copilot CLI** | `~/.copilot/otel/*.jsonl` (+ `$COPILOT_OTEL_FILE_EXPORTER_PATH` file when set)           | Automatic                         |
-| **Goose**       | `~/.local/share/goose/sessions/sessions.db` (or `$GOOSE_PATH_ROOT/data/sessions`)        | Auto or explicit `--goose-db`     |
-| **Amp**         | `~/.local/share/amp/threads/*.json`                                                      | Auto or explicit `--amp-dir`      |
-| **Qwen CLI**    | `~/.qwen/projects/*/chats/*.jsonl`                                                       | Auto or explicit `--qwen-dir`     |
-| **Kimi**        | `~/.kimi/sessions/**/wire.jsonl` + `~/.kimi-code/sessions/**/wire.jsonl`                 | Auto or explicit `--kimi-dir`     |
-| **Cline**       | VS Code global storage `saoudrizwan.claude-dev/tasks/**/ui_messages.json`                | Auto or explicit `--cline-dir`    |
-| **RooCode**     | VS Code global storage `rooveterinaryinc.roo-cline/tasks/**/ui_messages.json`            | Auto or explicit `--roocode-dir`  |
-| **KiloCode**    | VS Code global storage `kilocode.kilo-code/tasks/**/ui_messages.json`                    | Auto or explicit `--kilocode-dir` |
+| Source          | Pattern                                                                                  | Discovery                            |
+| --------------- | ---------------------------------------------------------------------------------------- | ------------------------------------ |
+| **pi**          | `~/.pi/agent/sessions/**/*.jsonl` (+ `~/.omp/agent/sessions`)                            | Automatic                            |
+| **codex**       | `~/.codex/sessions/**/*.jsonl`                                                           | Automatic                            |
+| **Gemini CLI**  | `~/.gemini/tmp/*/chats/*.json` (or `$GEMINI_CLI_HOME` when set)                          | Automatic                            |
+| **Droid CLI**   | `~/.factory/sessions/**/*.settings.json`                                                 | Automatic                            |
+| **OpenCode**    | `~/.local/share/opencode/opencode*.db`                                                   | Auto or explicit `--opencode-db`     |
+| **OpenClaw**    | `~/.openclaw/agents/**/*.jsonl` (+ legacy `~/.clawdbot`/`~/.moltbot`/`~/.moldbot` homes) | Automatic                            |
+| **Claude Code** | `~/.claude/{projects,transcripts}/**/*.jsonl`                                            | Automatic                            |
+| **Copilot CLI** | `~/.copilot/otel/*.jsonl` (+ `$COPILOT_OTEL_FILE_EXPORTER_PATH` file when set)           | Automatic                            |
+| **Goose**       | `~/.local/share/goose/sessions/sessions.db` (or `$GOOSE_PATH_ROOT/data/sessions`)        | Auto or explicit `--goose-db`        |
+| **Amp**         | `~/.local/share/amp/threads/*.json`                                                      | Auto or explicit `--amp-dir`         |
+| **Qwen CLI**    | `~/.qwen/projects/*/chats/*.jsonl`                                                       | Auto or explicit `--qwen-dir`        |
+| **Kimi**        | `~/.kimi/sessions/**/wire.jsonl` + `~/.kimi-code/sessions/**/wire.jsonl`                 | Auto or explicit `--kimi-dir`        |
+| **Cline**       | VS Code global storage `saoudrizwan.claude-dev/tasks/**/ui_messages.json`                | Auto or explicit `--cline-dir`       |
+| **RooCode**     | VS Code global storage `rooveterinaryinc.roo-cline/tasks/**/ui_messages.json`            | Auto or explicit `--roocode-dir`     |
+| **KiloCode**    | VS Code global storage `kilocode.kilo-code/tasks/**/ui_messages.json`                    | Auto or explicit `--kilocode-dir`    |
+| **Antigravity** | `~/.gemini/antigravity-cli/conversations/*.db` (or `$GEMINI_CLI_HOME`)                   | Auto or explicit `--antigravity-dir` |
 
-OpenCode source support requires Node.js 24+ runtime with built-in `node:sqlite`.
+SQLite-backed sources (OpenCode, Goose, Antigravity) require Node.js 24+ runtime with built-in `node:sqlite`.
 
 For `droid`, `Input`, `Output`, `Reasoning`, `Cache Read`, and `Cache Write` come directly from session files, and `totalTokens` is billable raw tokens (`Input + Output + Cache Read + Cache Write`, excluding `Reasoning`). Factory dashboard totals may differ because Factory applies standard-token normalization/multipliers.
 
@@ -146,7 +147,7 @@ Doctor prints one line per source and exits 0 even when a source is unhealthy.
 pi        ok     12 file(s)
 opencode  error  OpenCode database is missing or unreadable: /path/to/opencode.db
 
-14/15 sources healthy
+15/16 sources healthy
 ```
 
 ### Efficiency Reports
@@ -198,9 +199,10 @@ llm-usage efficiency monthly --repo-dir /path/to/repo --source kimi
 llm-usage efficiency monthly --repo-dir /path/to/repo --source cline
 llm-usage efficiency monthly --repo-dir /path/to/repo --source roocode
 llm-usage efficiency monthly --repo-dir /path/to/repo --source kilocode
+llm-usage efficiency monthly --repo-dir /path/to/repo --source antigravity
 ```
 
-Note: usage filters (`--source`, `--provider`, `--model`, `--pi-dir`, `--codex-dir`, `--copilot-dir`, `--gemini-dir`, `--droid-dir`, `--claude-dir`, `--openclaw-dir`, `--amp-dir`, `--qwen-dir`, `--kimi-dir`, `--cline-dir`, `--roocode-dir`, `--kilocode-dir`, `--opencode-db`, `--goose-db`, `--source-dir`) also constrain commit attribution: only commit days with matching repo-attributed usage events are counted.
+Note: usage filters (`--source`, `--provider`, `--model`, `--pi-dir`, `--codex-dir`, `--copilot-dir`, `--gemini-dir`, `--droid-dir`, `--claude-dir`, `--openclaw-dir`, `--amp-dir`, `--qwen-dir`, `--kimi-dir`, `--cline-dir`, `--roocode-dir`, `--kilocode-dir`, `--antigravity-dir`, `--opencode-db`, `--goose-db`, `--source-dir`) also constrain commit attribution: only commit days with matching repo-attributed usage events are counted.
 
 ### Optimize Reports
 
@@ -221,7 +223,7 @@ llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candida
 
 ```bash
 # By source
-llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude,copilot,goose,amp,qwen,kimi,cline,roocode,kilocode
+llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude,copilot,goose,amp,qwen,kimi,cline,roocode,kilocode,antigravity
 
 # By provider
 llm-usage monthly --provider openai
@@ -233,15 +235,15 @@ llm-usage monthly --model claude
 llm-usage monthly --source opencode --provider openai --model gpt-4.1
 ```
 
-Use `--source` to scope where events came from (`pi`, `codex`, `gemini`, `droid`, `opencode`, `openclaw`, `claude`, `copilot`, `goose`, `amp`, `qwen`, `kimi`, `cline`, `roocode`, `kilocode`), and `--provider` to scope the billing entity behind those events.
+Use `--source` to scope where events came from (`pi`, `codex`, `gemini`, `droid`, `opencode`, `openclaw`, `claude`, `copilot`, `goose`, `amp`, `qwen`, `kimi`, `cline`, `roocode`, `kilocode`, `antigravity`), and `--provider` to scope the billing entity behind those events.
 
 ### Custom Paths
 
 ```bash
 # Custom directories
-llm-usage daily --source-dir pi=/path/to/pi --source-dir codex=/path/to/codex --source-dir gemini=/path/to/.gemini --source-dir droid=/path/to/.factory/sessions --source-dir openclaw=/path/to/.openclaw/agents --source-dir claude=/path/to/.claude/projects --source-dir copilot=/path/to/.copilot/otel --source-dir amp=/path/to/amp/threads --source-dir qwen=/path/to/.qwen/projects --source-dir kimi=/path/to/kimi/sessions --source-dir cline=/path/to/cline/tasks --source-dir roocode=/path/to/roocode/tasks --source-dir kilocode=/path/to/kilocode/tasks
+llm-usage daily --source-dir pi=/path/to/pi --source-dir codex=/path/to/codex --source-dir gemini=/path/to/.gemini --source-dir droid=/path/to/.factory/sessions --source-dir openclaw=/path/to/.openclaw/agents --source-dir claude=/path/to/.claude/projects --source-dir copilot=/path/to/.copilot/otel --source-dir amp=/path/to/amp/threads --source-dir qwen=/path/to/.qwen/projects --source-dir kimi=/path/to/kimi/sessions --source-dir cline=/path/to/cline/tasks --source-dir roocode=/path/to/roocode/tasks --source-dir kilocode=/path/to/kilocode/tasks --source-dir antigravity=/path/to/antigravity/conversations
 
-# Explicit Gemini/Droid/Claude/OpenClaw/Copilot/Amp/Qwen/Kimi/Cline/RooCode/KiloCode/OpenCode/Goose paths
+# Explicit Gemini/Droid/Claude/OpenClaw/Copilot/Amp/Qwen/Kimi/Cline/RooCode/KiloCode/Antigravity/OpenCode/Goose paths
 llm-usage daily --gemini-dir /path/to/.gemini
 llm-usage daily --droid-dir /path/to/.factory/sessions
 llm-usage daily --claude-dir /path/to/.claude/projects
@@ -253,6 +255,7 @@ llm-usage daily --kimi-dir /path/to/kimi/sessions
 llm-usage daily --cline-dir /path/to/cline/tasks
 llm-usage daily --roocode-dir /path/to/roocode/tasks
 llm-usage daily --kilocode-dir /path/to/kilocode/tasks
+llm-usage daily --antigravity-dir /path/to/antigravity/conversations
 llm-usage daily --opencode-db /path/to/opencode.db
 llm-usage daily --goose-db /path/to/goose/sessions.db
 ```

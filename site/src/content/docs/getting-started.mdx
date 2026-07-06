@@ -32,6 +32,7 @@ npx --yes llm-usage-metrics@latest daily
   - Qwen CLI chats (`~/.qwen/projects/*/chats/*.jsonl`)
   - Kimi CLI/Kimi Code wire files (`~/.kimi/sessions/**/wire.jsonl`, `~/.kimi-code/sessions/**/wire.jsonl`)
   - Cline/RooCode/KiloCode task files in VS Code global storage
+  - Antigravity CLI conversation DBs (`~/.gemini/antigravity-cli/conversations/*.db`)
 
 ## First report
 
@@ -50,7 +51,7 @@ llm-usage trends --metric tokens --days 14
 ## Common filters
 
 ```bash
-llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude,copilot,goose,amp,qwen,kimi,cline,roocode,kilocode
+llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude,copilot,goose,amp,qwen,kimi,cline,roocode,kilocode,antigravity
 llm-usage monthly --provider openai
 llm-usage monthly --model claude
 ```
@@ -145,4 +146,10 @@ llm-usage monthly --source kimi --kimi-dir /path/to/kimi/sessions
 llm-usage monthly --source cline --cline-dir /path/to/cline/tasks
 llm-usage monthly --source roocode --roocode-dir /path/to/roocode/tasks
 llm-usage monthly --source kilocode --kilocode-dir /path/to/kilocode/tasks
+```
+
+## Antigravity explicit path
+
+```bash
+llm-usage monthly --source antigravity --antigravity-dir /path/to/antigravity/conversations
 ```

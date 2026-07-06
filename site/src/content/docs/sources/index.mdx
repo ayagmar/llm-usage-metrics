@@ -2,7 +2,7 @@
 title: Data Sources
 ---
 
-`llm-usage-metrics` supports fifteen built-in sources:
+`llm-usage-metrics` supports sixteen built-in sources:
 
 - `pi`
 - `codex`
@@ -19,6 +19,7 @@ title: Data Sources
 - `cline`
 - `roocode`
 - `kilocode`
+- `antigravity`
 
 Each source is parsed by a dedicated adapter and normalized into the same `UsageEvent` schema before pricing/aggregation.
 
@@ -38,12 +39,13 @@ Each source is parsed by a dedicated adapter and normalized into the same `Usage
 - `cline`: VS Code global storage task discovery for `saoudrizwan.claude-dev` (or `--cline-dir`)
 - `roocode`: VS Code global storage task discovery for `rooveterinaryinc.roo-cline` (or `--roocode-dir`)
 - `kilocode`: VS Code global storage task discovery for `kilocode.kilo-code` (or `--kilocode-dir`)
+- `antigravity`: SQLite conversation DB discovery under `~/.gemini/antigravity-cli/conversations/*.db` or `$GEMINI_CLI_HOME/antigravity-cli/conversations/*.db` (or `--antigravity-dir`)
 
 ## Source filtering
 
 ```bash
 llm-usage monthly --source pi
-llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude,copilot,goose,amp,qwen,kimi,cline,roocode,kilocode
+llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude,copilot,goose,amp,qwen,kimi,cline,roocode,kilocode,antigravity
 llm-usage monthly --source gemini --gemini-dir /path/to/.gemini
 llm-usage monthly --source droid --droid-dir /path/to/.factory/sessions
 llm-usage monthly --source opencode --opencode-db /path/to/opencode.db
@@ -57,6 +59,7 @@ llm-usage monthly --source kimi --kimi-dir /path/to/kimi/sessions
 llm-usage monthly --source cline --cline-dir /path/to/cline/tasks
 llm-usage monthly --source roocode --roocode-dir /path/to/roocode/tasks
 llm-usage monthly --source kilocode --kilocode-dir /path/to/kilocode/tasks
+llm-usage monthly --source antigravity --antigravity-dir /path/to/antigravity/conversations
 ```
 
 See per-source pages for details.
