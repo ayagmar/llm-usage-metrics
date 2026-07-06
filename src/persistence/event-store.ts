@@ -14,7 +14,9 @@ import { asRecord } from '../utils/as-record.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
 
-const EVENT_STORE_SCHEMA_VERSION = '1';
+export const EVENT_STORE_SCHEMA_VERSION = '1';
+
+const EVENT_STORE_OPEN_TIMEOUT_MS = 2_000;
 
 type EventStoreStatement = {
   all: (...parameters: unknown[]) => Record<string, unknown>[];
@@ -360,13 +362,51 @@ export async function openEventStore(
     throw new Error('Event store requires a sqlite module with a DatabaseSync constructor');
   }
 
-  const database = new sqliteModule.DatabaseSync(filePath);
+  const database = new sqliteModule.DatabaseSync(filePath, {
+    timeout: EVENT_STORE_OPEN_TIMEOUT_MS,
+  });
+  database.exec('PRAGMA journal_mode=WAL');
   initializeSchema(database);
 
   return {
     database,
     filePath,
   };
+}
+
+export type EventStoreSummary = {
+  eventCount: number;
+  schemaVersion?: string;
+};
+
+export async function readEventStoreSummary(
+  filePath: string = getDefaultEventStorePath(),
+  loadSqliteModule: LoadEventStoreSqliteModule = loadNodeSqliteModule,
+): Promise<EventStoreSummary> {
+  const sqliteModule = await loadSqliteModule();
+
+  if (!isEventStoreSqliteModule(sqliteModule)) {
+    throw new Error('Event store requires a sqlite module with a DatabaseSync constructor');
+  }
+
+  const database = new sqliteModule.DatabaseSync(filePath, {
+    readOnly: true,
+    timeout: EVENT_STORE_OPEN_TIMEOUT_MS,
+  });
+
+  try {
+    const schemaVersionRow = database
+      .prepare("SELECT value FROM meta WHERE key = 'schemaVersion'")
+      .get();
+    const countRow = database.prepare('SELECT COUNT(*) AS count FROM events').get();
+
+    return {
+      eventCount: toNonNegativeInteger(countRow?.count) ?? 0,
+      schemaVersion: toText(schemaVersionRow?.value),
+    };
+  } finally {
+    database.close();
+  }
 }
 
 export function getFileEntry(

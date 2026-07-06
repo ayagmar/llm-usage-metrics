@@ -5,10 +5,9 @@ import {
   type EventStoreRuntimeConfig,
 } from '../config/runtime-overrides.js';
 import {
-  closeEventStore as closeDefaultEventStore,
-  countEvents as countDefaultEventStoreEvents,
-  openEventStore as openDefaultEventStore,
-  type EventStore,
+  EVENT_STORE_SCHEMA_VERSION,
+  readEventStoreSummary as readDefaultEventStoreSummary,
+  type EventStoreSummary,
 } from '../persistence/event-store.js';
 import { createDefaultAdapters, getDefaultSourceIds } from '../sources/create-default-adapters.js';
 import type { SourceAdapter } from '../sources/source-adapter.js';
@@ -25,9 +24,7 @@ export type DoctorSourceResult = {
 
 type DoctorDeps = {
   getEventStoreRuntimeConfig?: () => EventStoreRuntimeConfig;
-  openEventStore?: (filePath: string) => Promise<EventStore>;
-  closeEventStore?: (store: EventStore) => void;
-  countEvents?: (store: EventStore) => number;
+  readEventStoreSummary?: (filePath: string) => Promise<EventStoreSummary>;
 };
 
 function getErrorReason(error: unknown): string {
@@ -108,20 +105,20 @@ async function buildEventStoreDoctorResult(
     };
   }
 
-  const openEventStore = deps.openEventStore ?? openDefaultEventStore;
-  const closeEventStore = deps.closeEventStore ?? closeDefaultEventStore;
-  const countEvents = deps.countEvents ?? countDefaultEventStoreEvents;
-  let store: EventStore | undefined;
+  const readEventStoreSummary = deps.readEventStoreSummary ?? readDefaultEventStoreSummary;
 
   try {
-    store = await openEventStore(filePath);
-    const eventCount = countEvents(store);
+    const summary = await readEventStoreSummary(filePath);
+    const isStaleSchema =
+      summary.schemaVersion !== undefined && summary.schemaVersion !== EVENT_STORE_SCHEMA_VERSION;
 
     return {
       id: 'event-store',
       status: 'ok',
-      itemsFound: eventCount,
-      detail: `${eventCount} event(s)`,
+      itemsFound: summary.eventCount,
+      detail: isStaleSchema
+        ? `schema v${summary.schemaVersion} (will be rebuilt on next run)`
+        : `${summary.eventCount} event(s)`,
     };
   } catch (error) {
     return {
@@ -129,10 +126,6 @@ async function buildEventStoreDoctorResult(
       status: 'error',
       error: getErrorReason(error),
     };
-  } finally {
-    if (store) {
-      closeEventStore(store);
-    }
   }
 }
 

@@ -10,6 +10,7 @@ import {
   getDefaultEventStorePath,
   getFileEntry,
   openEventStore,
+  readEventStoreSummary,
   readFileEvents,
   replaceFileEvents,
   serializeEventStoreFingerprint,
@@ -47,6 +48,52 @@ function createEvent(overrides: Partial<Parameters<typeof createUsageEvent>[0]> 
     costMode: 'estimated',
     ...overrides,
   });
+}
+
+type FakeSqliteModule = {
+  DatabaseSync: new (
+    filePath: string,
+    options?: { readOnly?: boolean; timeout?: number },
+  ) => unknown;
+  constructorCalls: Array<{
+    filePath: string;
+    options?: { readOnly?: boolean; timeout?: number };
+  }>;
+  execCalls: string[];
+  closeCalls: number;
+};
+
+function createFakeSqliteModule(
+  rowsBySql: Record<string, Record<string, unknown> | undefined> = {},
+): FakeSqliteModule {
+  const fakeSqlite: FakeSqliteModule = {
+    DatabaseSync: class {
+      constructor(filePath: string, options?: { readOnly?: boolean; timeout?: number }) {
+        fakeSqlite.constructorCalls.push({ filePath, options });
+      }
+
+      exec(sql: string): void {
+        fakeSqlite.execCalls.push(sql);
+      }
+
+      prepare(sql: string) {
+        return {
+          all: () => [],
+          get: () => rowsBySql[sql],
+          run: () => undefined,
+        };
+      }
+
+      close(): void {
+        fakeSqlite.closeCalls += 1;
+      }
+    },
+    constructorCalls: [],
+    execCalls: [],
+    closeCalls: 0,
+  };
+
+  return fakeSqlite;
 }
 
 async function createTempStore(name: string): Promise<EventStore> {
@@ -268,6 +315,58 @@ describe('event-store', () => {
     } finally {
       closeEventStore(reopened);
     }
+  });
+
+  it('opens writable stores with a busy timeout and WAL journal mode', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-open-options-'));
+    tempDirs.push(tempDir);
+
+    const fakeSqlite = createFakeSqliteModule();
+    const store = await openEventStore(path.join(tempDir, 'events.db'), async () => fakeSqlite);
+
+    expect(fakeSqlite.constructorCalls).toEqual([
+      {
+        filePath: path.join(tempDir, 'events.db'),
+        options: { timeout: 2_000 },
+      },
+    ]);
+    expect(fakeSqlite.execCalls).toContain('PRAGMA journal_mode=WAL');
+    closeEventStore(store);
+  });
+
+  it('reads summaries through a read-only connection with a busy timeout', async () => {
+    const fakeSqlite = createFakeSqliteModule({
+      "SELECT value FROM meta WHERE key = 'schemaVersion'": { value: '1' },
+      'SELECT COUNT(*) AS count FROM events': { count: 5 },
+    });
+
+    await expect(readEventStoreSummary('/tmp/events.db', async () => fakeSqlite)).resolves.toEqual({
+      eventCount: 5,
+      schemaVersion: '1',
+    });
+    expect(fakeSqlite.constructorCalls).toEqual([
+      {
+        filePath: '/tmp/events.db',
+        options: { readOnly: true, timeout: 2_000 },
+      },
+    ]);
+    expect(fakeSqlite.closeCalls).toBe(1);
+  });
+
+  it('summarizes a real store without mutating it', async () => {
+    const store = await createTempStore('event-store-summary-');
+    const dbPath = store.filePath;
+
+    try {
+      replaceCodexFile(store);
+    } finally {
+      closeEventStore(store);
+    }
+
+    await expect(readEventStoreSummary(dbPath)).resolves.toEqual({
+      eventCount: 1,
+      schemaVersion: '1',
+    });
   });
 
   it('round-trips optional event fields', async () => {

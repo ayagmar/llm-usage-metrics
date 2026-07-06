@@ -10,7 +10,11 @@ import {
   type DoctorSourceResult,
 } from '../../src/cli/run-doctor-report.js';
 import type { DoctorCommandOptions } from '../../src/cli/usage-data-contracts.js';
-import type { EventStore } from '../../src/persistence/event-store.js';
+import {
+  closeEventStore,
+  openEventStore,
+  readEventStoreSummary,
+} from '../../src/persistence/event-store.js';
 
 const tempDirs: string[] = [];
 
@@ -257,9 +261,7 @@ describe('run-doctor-report', () => {
     const eventStorePath = path.join(rootDir, 'events.db');
     await writeFile(eventStorePath, '', 'utf8');
 
-    const store = { filePath: eventStorePath } as unknown as EventStore;
-    const openEventStore = vi.fn(async () => store);
-    const closeEventStore = vi.fn();
+    const readEventStoreSummarySpy = vi.fn(async () => ({ eventCount: 42, schemaVersion: '1' }));
 
     const results = await buildDoctorResults(
       {
@@ -271,14 +273,11 @@ describe('run-doctor-report', () => {
           enabled: true,
           path: eventStorePath,
         }),
-        openEventStore,
-        closeEventStore,
-        countEvents: () => 42,
+        readEventStoreSummary: readEventStoreSummarySpy,
       },
     );
 
-    expect(openEventStore).toHaveBeenCalledWith(eventStorePath);
-    expect(closeEventStore).toHaveBeenCalledWith(store);
+    expect(readEventStoreSummarySpy).toHaveBeenCalledWith(eventStorePath);
     expect(results).toEqual([
       { id: 'pi', status: 'ok', itemsFound: 1 },
       {
@@ -288,6 +287,45 @@ describe('run-doctor-report', () => {
         detail: '42 event(s)',
       },
     ]);
+  });
+
+  it('reports a stale event store schema as healthy without mutating it', async () => {
+    const options = await createDoctorFixtureOptions();
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-event-store-stale-'));
+    tempDirs.push(rootDir);
+
+    const eventStorePath = path.join(rootDir, 'events.db');
+    const store = await openEventStore(eventStorePath);
+    store.database.prepare("UPDATE meta SET value = '999' WHERE key = 'schemaVersion'").run();
+    closeEventStore(store);
+
+    const results = await buildDoctorResults(
+      {
+        ...options,
+        source: 'pi',
+      },
+      {
+        getEventStoreRuntimeConfig: () => ({
+          enabled: true,
+          path: eventStorePath,
+        }),
+      },
+    );
+
+    expect(results).toEqual([
+      { id: 'pi', status: 'ok', itemsFound: 1 },
+      {
+        id: 'event-store',
+        status: 'ok',
+        itemsFound: 0,
+        detail: 'schema v999 (will be rebuilt on next run)',
+      },
+    ]);
+    // The doctor check must be read-only: the stale version survives it.
+    await expect(readEventStoreSummary(eventStorePath)).resolves.toEqual({
+      eventCount: 0,
+      schemaVersion: '999',
+    });
   });
 
   it('reports an enabled event store open failure as an error', async () => {
@@ -308,7 +346,7 @@ describe('run-doctor-report', () => {
           enabled: true,
           path: eventStorePath,
         }),
-        openEventStore: async () => {
+        readEventStoreSummary: async () => {
           throw new Error('sqlite unavailable');
         },
       },
