@@ -7,6 +7,13 @@
     "moonshotai.kimi-k2.5": "kimi-k2.5",
     "moonshot/kimi-k2.5": "kimi-k2.5",
 
+    "k2p6": "kimi-k2.6",
+    "kimi-k2p6": "kimi-k2.6",
+    "kimi-k2.6": "kimi-k2.6",
+    "kimi-k2.6-free": "kimi-k2.6",
+    "moonshotai.kimi-k2.6": "kimi-k2.6",
+    "moonshot/kimi-k2.6": "kimi-k2.6",
+
     "gpt-5.3-codex-spark": "gpt-5.3-codex",
 
     "gemini-3-flash": "gemini-3-flash",
@@ -30,10 +37,12 @@
   },
   "notes": {
     "gpt-5.3-codex-spark": "Alias to gpt-5.3-codex because upstream publishes token pricing on the gpt-5.3-codex key",
-    "gemini-3-flash-a": "Antigravity session data records gemini-3 models with an '-a' suffix (gemini-3-flash-a, gemini-3-pro-a); alias them to the canonical gemini-3 models"
+    "gemini-3-flash-a": "Antigravity session data records gemini-3 models with an '-a' suffix (gemini-3-flash-a, gemini-3-pro-a); alias them to the canonical gemini-3 models",
+    "kimi-for-coding": "Deliberately NOT aliased: the managed kimi-for-coding endpoint maps to kimi-k2.5 or kimi-k2.6 depending on the event timestamp. The kimi adapter resolves that fallback itself; a config-provided kimi-for-coding model stays unpriced rather than mispriced"
   },
   "preferredPricingKeyByCanonicalModel": {
     "kimi-k2.5": "moonshot/kimi-k2.5",
+    "kimi-k2.6": "moonshot/kimi-k2.6",
     "gpt-5.3-codex": "gpt-5.3-codex",
     "gemini-3-flash": "gemini/gemini-3-flash-preview",
     "gemini-3-pro": "gemini/gemini-3-pro-preview",

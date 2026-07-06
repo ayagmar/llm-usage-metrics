@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -25,6 +26,13 @@ const KIMI_STATUS_UPDATE_LINE_TEXT = '"StatusUpdate"';
 const KIMI_USAGE_RECORD_LINE_TEXT = '"usage.record"';
 const KIMI_CODE_MODEL_PREFIX = 'kimi-code/';
 const KIMI_PROVIDER = 'moonshot';
+// kimi-cli StatusUpdate lines carry no model. When <kimiRoot>/config.json has no model either,
+// fall back by event timestamp: kimi-cli's managed "kimi-for-coding" endpoint switched from
+// kimi-k2.5 to kimi-k2.6 at 2026-04-20T15:28:10.072Z (ccusage KIMI_FOR_CODING_K2_6_CUTOFF_MS,
+// rust/crates/ccusage/src/adapter/kimi/parser.rs).
+const KIMI_K2_6_CUTOFF_MS = 1_776_698_890_072;
+const KIMI_K2_5_MODEL = 'kimi-k2.5';
+const KIMI_K2_6_MODEL = 'kimi-k2.6';
 
 export type KimiSourceAdapterOptions = {
   kimiDir?: string;
@@ -117,6 +125,30 @@ function incrementContextSkippedReason(context: KimiParseContext, reason: string
 
 function getCliSessionId(filePath: string): string {
   return path.basename(path.dirname(filePath));
+}
+
+// kimi-cli wire files live at <kimiRoot>/sessions/GROUP/UUID/wire.jsonl; config.json sits in <kimiRoot>.
+function getCliConfigPath(filePath: string): string {
+  const sessionsDir = path.dirname(path.dirname(path.dirname(filePath)));
+  return path.join(path.dirname(sessionsDir), 'config.json');
+}
+
+// Kimi Code wire files live under an agents dir: <root>/sessions/WORKSPACE/SESSION/agents/AGENT/wire.jsonl.
+function isCodeWireFile(filePath: string): boolean {
+  return path.basename(path.dirname(path.dirname(filePath))) === 'agents';
+}
+
+async function readCliConfigModel(filePath: string): Promise<string | undefined> {
+  try {
+    const content = await readFile(getCliConfigPath(filePath), 'utf8');
+    return asTrimmedText(asRecord(JSON.parse(content))?.model);
+  } catch {
+    return undefined;
+  }
+}
+
+function getCliFallbackModel(timestamp: string): string {
+  return Date.parse(timestamp) < KIMI_K2_6_CUTOFF_MS ? KIMI_K2_5_MODEL : KIMI_K2_6_MODEL;
 }
 
 function getCodeSessionId(filePath: string): string {
@@ -304,6 +336,10 @@ export class KimiSourceAdapter implements SourceAdapter {
     return discoverWireFiles(normalizedRootDir);
   }
 
+  public async getParseDependencies(filePath: string): Promise<string[]> {
+    return isCodeWireFile(filePath) ? [] : [getCliConfigPath(filePath)];
+  }
+
   public async parseFile(filePath: string): Promise<UsageEvent[]> {
     const { events } = await this.parseFileWithDiagnostics(filePath);
     return events;
@@ -324,12 +360,16 @@ export class KimiSourceAdapter implements SourceAdapter {
       parseUsageRecordLine(context, filePath, line);
     }
 
+    const configModel =
+      context.statusUpdates.size > 0 ? await readCliConfigModel(filePath) : undefined;
+
     for (const candidate of context.statusUpdates.values()) {
       pushUsageEvent(context, {
         source: this.id,
         sessionId: getCliSessionId(filePath),
         timestamp: candidate.timestamp,
         provider: KIMI_PROVIDER,
+        model: configModel ?? getCliFallbackModel(candidate.timestamp),
         costMode: 'estimated',
         ...candidate.usage,
       });

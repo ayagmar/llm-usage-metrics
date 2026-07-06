@@ -16,6 +16,26 @@ afterEach(async () => {
   tempDirs.length = 0;
 });
 
+function cliStatusUpdateLine(messageId: string, timestamp: number): string {
+  return JSON.stringify({
+    type: 'event',
+    timestamp,
+    message: {
+      type: 'StatusUpdate',
+      payload: {
+        message_id: messageId,
+        token_usage: {
+          input_other: 10,
+          output: 10,
+          input_cache_read: 0,
+          input_cache_creation: 0,
+          total: 20,
+        },
+      },
+    },
+  });
+}
+
 describe('KimiSourceAdapter', () => {
   it('exposes stable source id and default session directories', () => {
     const adapter = new KimiSourceAdapter();
@@ -120,6 +140,7 @@ describe('KimiSourceAdapter', () => {
       sessionId: 'session-a',
       timestamp: '2026-03-02T10:00:02.000Z',
       provider: 'moonshot',
+      model: 'kimi-k2.5',
       inputTokens: 35,
       outputTokens: 30,
       reasoningTokens: 0,
@@ -128,7 +149,6 @@ describe('KimiSourceAdapter', () => {
       totalTokens: 80,
       costMode: 'estimated',
     });
-    expect(result.events[0]?.model).toBeUndefined();
 
     expect(result.events[1]).toMatchObject({
       source: 'kimi',
@@ -214,6 +234,90 @@ describe('KimiSourceAdapter', () => {
       outputTokens: 12,
       totalTokens: 20,
     });
+  });
+
+  it('uses the config.json model for every CLI StatusUpdate event when present', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'kimi-config-model-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'sessions', 'group-a', 'session-a', 'wire.jsonl');
+    await mkdir(path.dirname(filePath), { recursive: true });
+    await writeFile(
+      path.join(root, 'config.json'),
+      JSON.stringify({ model: '  kimi-latest  ' }),
+      'utf8',
+    );
+    await writeFile(
+      filePath,
+      [
+        cliStatusUpdateLine('message-1', 1772445600),
+        cliStatusUpdateLine('message-2', 1776698891),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new KimiSourceAdapter({ kimiDir: path.join(root, 'sessions') });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events.map((event) => event.model)).toEqual(['kimi-latest', 'kimi-latest']);
+  });
+
+  it('falls back to the timestamp cutoff model when config.json is missing', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'kimi-missing-config-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'sessions', 'group-a', 'session-a', 'wire.jsonl');
+    await mkdir(path.dirname(filePath), { recursive: true });
+    await writeFile(
+      filePath,
+      [
+        // One event on each side of the 2026-04-20T15:28:10.072Z kimi-k2.6 cutoff.
+        cliStatusUpdateLine('message-1', 1776698889),
+        cliStatusUpdateLine('message-2', 1776698891),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new KimiSourceAdapter({ kimiDir: path.join(root, 'sessions') });
+    const result = await adapter.parseFileWithDiagnostics(filePath);
+
+    expect(result.events.map((event) => event.model)).toEqual(['kimi-k2.5', 'kimi-k2.6']);
+    expect(result.skippedRows).toBe(0);
+  });
+
+  it('falls back without extra skips when config.json is malformed', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'kimi-malformed-config-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'sessions', 'group-a', 'session-a', 'wire.jsonl');
+    await mkdir(path.dirname(filePath), { recursive: true });
+    await writeFile(path.join(root, 'config.json'), 'not-json{', 'utf8');
+    await writeFile(filePath, cliStatusUpdateLine('message-1', 1772445600), 'utf8');
+
+    const adapter = new KimiSourceAdapter({ kimiDir: path.join(root, 'sessions') });
+    const result = await adapter.parseFileWithDiagnostics(filePath);
+
+    expect(result.events.map((event) => event.model)).toEqual(['kimi-k2.5']);
+    expect(result.skippedRows).toBe(0);
+  });
+
+  it('declares the CLI config.json as a parse dependency for CLI wire files only', async () => {
+    const adapter = new KimiSourceAdapter();
+    const cliFile = path.join('/kimi-root', 'sessions', 'group-a', 'session-a', 'wire.jsonl');
+    const codeFile = path.join(
+      '/kimi-code-root',
+      'sessions',
+      'workspace-a',
+      'session-code',
+      'agents',
+      'agent-a',
+      'wire.jsonl',
+    );
+
+    await expect(adapter.getParseDependencies(cliFile)).resolves.toEqual([
+      path.join('/kimi-root', 'config.json'),
+    ]);
+    await expect(adapter.getParseDependencies(codeFile)).resolves.toEqual([]);
   });
 
   it('parses Kimi Code turn-scoped usage records and skips bookkeeping scopes', async () => {

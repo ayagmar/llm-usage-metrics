@@ -812,6 +812,42 @@ describe('LiteLLMPricingFetcher', () => {
     expect(fetcher.getPricing('claude sonnet 4.6')?.outputPer1MUsd).toBeCloseTo(15, 10);
   });
 
+  it('resolves kimi-k2.6 aliases to the preferred moonshot pricing key', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-kimi-k2-6-'));
+    tempDirs.push(rootDir);
+
+    const fetcher = createFetcher({
+      cacheFilePath: path.join(rootDir, 'cache.json'),
+      fetchImpl: vi.fn(async () => {
+        return new Response(
+          JSON.stringify({
+            'moonshot/kimi-k2.6': {
+              input_cost_per_token: 0.00000095,
+              output_cost_per_token: 0.000004,
+            },
+          }),
+          { status: 200 },
+        );
+      }),
+    });
+
+    await fetcher.load();
+
+    expect(fetcher.resolveModelAlias('kimi-k2.6')).toBe('moonshot/kimi-k2.6');
+    expect(fetcher.resolveModelAlias('k2p6')).toBe('moonshot/kimi-k2.6');
+    expect(fetcher.resolveModelAlias('kimi-k2p6')).toBe('moonshot/kimi-k2.6');
+    expect(fetcher.resolveModelAlias('kimi-k2.6-free')).toBe('moonshot/kimi-k2.6');
+    expect(fetcher.resolveModelAlias('moonshotai.kimi-k2.6')).toBe('moonshot/kimi-k2.6');
+
+    expect(fetcher.getPricing('kimi-k2.6')?.inputPer1MUsd).toBeCloseTo(0.95, 10);
+    expect(fetcher.getPricing('k2p6')?.outputPer1MUsd).toBeCloseTo(4, 10);
+
+    // kimi-for-coding is deliberately unaliased: the managed endpoint's underlying
+    // model is time-dependent, so the kimi adapter resolves it by timestamp instead.
+    expect(fetcher.resolveModelAlias('kimi-for-coding')).toBe('kimi-for-coding');
+    expect(fetcher.getPricing('kimi-for-coding')).toBeUndefined();
+  });
+
   it('resolves -a suffixed gemini-3 aliases to preferred gemini preview pricing keys', async () => {
     const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-gemini-a-suffix-'));
     tempDirs.push(rootDir);
