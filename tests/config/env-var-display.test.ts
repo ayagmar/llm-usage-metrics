@@ -14,10 +14,6 @@ function clearTestEnvVars(): void {
   delete process.env.LLM_USAGE_PRICING_CACHE_TTL_MS;
   delete process.env.LLM_USAGE_PRICING_FETCH_TIMEOUT_MS;
   delete process.env.LLM_USAGE_PARSE_MAX_PARALLEL;
-  delete process.env.LLM_USAGE_PARSE_CACHE_ENABLED;
-  delete process.env.LLM_USAGE_PARSE_CACHE_TTL_MS;
-  delete process.env.LLM_USAGE_PARSE_CACHE_MAX_ENTRIES;
-  delete process.env.LLM_USAGE_PARSE_CACHE_MAX_BYTES;
   delete process.env.LLM_USAGE_EVENT_STORE;
   delete process.env.LLM_USAGE_EVENT_STORE_PATH;
   delete process.env.LLM_USAGE_PROFILE_RUNTIME;

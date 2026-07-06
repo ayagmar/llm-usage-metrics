@@ -80,16 +80,14 @@ See [Caching](/caching/) for cache-layer behavior details. This section explains
 | `LLM_USAGE_PRICING_CACHE_TTL_MS` | `86400000` (24h) | Freshness window for LiteLLM pricing cache | Lower for fresher pricing, higher for stable/offline-heavy setups |
 | `LLM_USAGE_PRICING_FETCH_TIMEOUT_MS` | `4000` | HTTP timeout for pricing fetches | Increase if pricing fetches time out in your environment |
 
-### Parsing and parse-cache behavior
+### Parsing and event-store behavior
 
 | Variable | Default | What it controls | Why/when to change it |
 | --- | --- | --- | --- |
 | `LLM_USAGE_PARSE_MAX_PARALLEL` | `8` | Max parallel file parses (`1-64`) | Increase on fast CPUs/disks, lower on constrained systems |
-| `LLM_USAGE_PARSE_CACHE_ENABLED` | `1` (`true`) | Enables/disables parse-file cache | Disable for strict cold-run benchmarking/debugging |
-| `LLM_USAGE_PARSE_CACHE_TTL_MS` | `604800000` (7d) | Parse-cache TTL for unchanged files | Lower if you want more frequent full reparsing |
-| `LLM_USAGE_PARSE_CACHE_MAX_ENTRIES` | `2000` | Upper bound for parse-cache entry count | Raise for very large history sets; lower to cap disk usage |
-| `LLM_USAGE_PARSE_CACHE_MAX_BYTES` | `33554432` (32 MiB) | Upper bound for parse-cache file size | Raise when cache churn is high; lower for tighter disk budgets |
-| `LLM_USAGE_PROFILE_RUNTIME` | unset (`false`) | Emits source pruning, parse-cache, parse-count, and stage-timing diagnostics on `stderr` | Enable when profiling discovery/parsing/runtime behavior locally |
+| `LLM_USAGE_EVENT_STORE` | `1` (`true`) | Enables/disables SQLite event-store reuse | Set `0` for strict cold-run benchmarking/debugging |
+| `LLM_USAGE_EVENT_STORE_PATH` | platform cache `events.db` | SQLite event-store file path | Point at an isolated store for experiments or CI |
+| `LLM_USAGE_PROFILE_RUNTIME` | unset (`false`) | Emits source pruning, event-store, parse-count, and stage-timing diagnostics on `stderr` | Enable when profiling discovery/parsing/runtime behavior locally |
 
 Example:
 
@@ -101,6 +99,6 @@ Benchmarking-focused example (force near-cold parse behavior):
 
 ```bash
 LLM_USAGE_SKIP_UPDATE_CHECK=1 \
-LLM_USAGE_PARSE_CACHE_ENABLED=0 \
+LLM_USAGE_EVENT_STORE=0 \
 llm-usage monthly --provider openai --json
 ```

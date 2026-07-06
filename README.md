@@ -406,10 +406,11 @@ pnpm run perf:production-benchmark -- \
 | `LLM_USAGE_UPDATE_CACHE_SCOPE`   | Update cache scope                 |
 | `LLM_USAGE_PRICING_CACHE_TTL_MS` | Pricing cache duration             |
 | `LLM_USAGE_PARSE_MAX_PARALLEL`   | Max parallel file parses (`1-64`)  |
-| `LLM_USAGE_PARSE_CACHE_ENABLED`  | Enable parse cache (`1/0`)         |
+| `LLM_USAGE_EVENT_STORE`          | Enable SQLite event store (`1/0`)  |
+| `LLM_USAGE_EVENT_STORE_PATH`     | Override SQLite event store path   |
 | `LLM_USAGE_PROFILE_RUNTIME`      | Emit runtime profiling diagnostics |
 
-Parse cache is source-sharded on disk (`parse-file-cache.<source>.json`) so source-scoped runs avoid loading unrelated cache blobs.
+The SQLite event store keeps unchanged source files fast across runs. Older JSON cache shards from pre-store versions are no longer read and can be deleted manually.
 
 See full environment variable reference in the [documentation](https://ayagmar.github.io/llm-usage-metrics/configuration/).
 

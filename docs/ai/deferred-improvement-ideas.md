@@ -38,12 +38,10 @@ codebase's weakest parts (plan doc deleted; these are the surviving items):
   identity: `src/domain/provider-normalization.ts`, fuzzy matching in
   `src/pricing/litellm-pricing-fetcher.ts:241-330`, and
   `src/pricing/litellm-model-map.json`.
-- **Parse-cache incremental persistence** — any change rewrites the whole
-  per-source shard (`src/cli/parse-file-cache.ts:486-534`).
-Completed from that plan (DONE, fixed in code): parse-cache
-auxiliary-dependency invalidation, global parse budget, gemini discovery
-scoping, and update-check latency (the check now runs concurrently with the
-report and prints a stderr hint afterwards; resolved with idea #7).
+Completed from that plan (DONE, fixed in code): auxiliary-dependency
+invalidation, global parse budget, gemini discovery scoping, and update-check
+latency (the check now runs concurrently with the report and prints a stderr
+hint afterwards; resolved with idea #7).
 
 ## Rejected ideas (not tracked here)
 

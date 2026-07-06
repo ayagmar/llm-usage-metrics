@@ -8,7 +8,7 @@ description: Why caching exists, how each cache works, and how to tune it.
 ## Why caching exists
 
 - reduce repeated network calls (pricing + update checks)
-- avoid reparsing unchanged session files on every run
+- avoid reparsing unchanged source files on every run
 - keep deterministic behavior when the network is unavailable
 
 ## Cache layers
@@ -17,7 +17,7 @@ description: Why caching exists, how each cache works, and how to tune it.
 | --- | --- | --- | --- |
 | update-check cache | avoids querying npm on every startup | 1 hour | `<platform-cache-root>/llm-usage-metrics/update-check.json` |
 | pricing cache | stores normalized LiteLLM pricing data | 24 hours | `<platform-cache-root>/llm-usage-metrics/litellm-pricing-cache.json` |
-| parse-file cache | stores parsed file diagnostics/events keyed by file fingerprint | 7 days | `<platform-cache-root>/llm-usage-metrics/parse-file-cache.<source>.json` |
+| event store | stores parsed file diagnostics/events keyed by file fingerprint | no TTL | `<platform-cache-root>/llm-usage-metrics/events.db` |
 
 On Linux with no `XDG_CACHE_HOME`, `<platform-cache-root>` defaults to `~/.cache`.
 
@@ -53,21 +53,20 @@ Relevant options/env:
 - `LLM_USAGE_PRICING_CACHE_TTL_MS`
 - `LLM_USAGE_PRICING_FETCH_TIMEOUT_MS`
 
-### 3) Parse-file cache
+### 3) Event store
 
 - key is `(source, file path)`
-- cache validity requires matching dependency fingerprints and TTL
+- validity requires matching dependency fingerprints
 - stores parse diagnostics and normalized events
-- cache files are sharded by source id, so source-scoped runs load only relevant shards
 - dependency fingerprints include the primary file and any adapter-declared sidecar inputs
-- persisted as best-effort JSON, bounded by max entries and max byte size
+- persisted as SQLite with per-file replace-on-change writes
+- delete the database file to force a full rebuild on the next run
+- older JSON shards from pre-store versions are no longer read and can be deleted manually
 
 Relevant env vars:
 
-- `LLM_USAGE_PARSE_CACHE_ENABLED`
-- `LLM_USAGE_PARSE_CACHE_TTL_MS`
-- `LLM_USAGE_PARSE_CACHE_MAX_ENTRIES`
-- `LLM_USAGE_PARSE_CACHE_MAX_BYTES`
+- `LLM_USAGE_EVENT_STORE` (`0` disables it)
+- `LLM_USAGE_EVENT_STORE_PATH`
 - `LLM_USAGE_PARSE_MAX_PARALLEL`
 
 ## Tuning examples
@@ -78,7 +77,7 @@ Use pricing cache only (offline mode):
 llm-usage monthly --pricing-offline
 ```
 
-Increase parsing throughput and keep parse cache enabled:
+Increase parsing throughput:
 
 ```bash
 LLM_USAGE_PARSE_MAX_PARALLEL=16 llm-usage daily
@@ -93,5 +92,5 @@ LLM_USAGE_PRICING_CACHE_TTL_MS=7200000 llm-usage monthly
 ## Troubleshooting cache behavior
 
 - When pricing fails in offline mode, run once without `--pricing-offline` to warm the cache.
-- For stale reports after source file changes, verify source files updated `mtime` and cache TTL settings.
+- For stale reports after source file changes, verify source files updated `mtime` and delete the event-store database to rebuild from scratch.
 - To force update checks every run, set `LLM_USAGE_UPDATE_CACHE_TTL_MS=0`.

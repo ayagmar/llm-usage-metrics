@@ -15,8 +15,6 @@ export type RuntimeProfileSourceStats = {
   source: string;
   filesFound: number;
   eventsParsed: number;
-  cacheHits: number;
-  cacheMisses: number;
   eventStoreHits: number;
   eventStoreMisses: number;
 };
@@ -28,10 +26,6 @@ export type RuntimeProfileStageTiming = {
 
 export type RuntimeProfileSnapshot = {
   sourceSelection?: RuntimeProfileSourceSelection;
-  parseCache: {
-    hits: number;
-    misses: number;
-  };
   eventStore: {
     hits: number;
     misses: number;
@@ -109,17 +103,6 @@ export class RuntimeProfileCollector {
     };
   }
 
-  public recordParseCacheResult(source: string, result: 'hit' | 'miss'): void {
-    const sourceStats = this.getOrCreateSourceStats(source);
-
-    if (result === 'hit') {
-      sourceStats.cacheHits += 1;
-      return;
-    }
-
-    sourceStats.cacheMisses += 1;
-  }
-
   public recordEventStoreResult(source: string, result: 'hit' | 'miss'): void {
     const sourceStats = this.getOrCreateSourceStats(source);
 
@@ -154,13 +137,6 @@ export class RuntimeProfileCollector {
       }),
       { filesFound: 0, eventsParsed: 0 },
     );
-    const parseCache = sourceStats.reduce(
-      (totals, source) => ({
-        hits: totals.hits + source.cacheHits,
-        misses: totals.misses + source.cacheMisses,
-      }),
-      { hits: 0, misses: 0 },
-    );
     const eventStore = sourceStats.reduce(
       (totals, source) => ({
         hits: totals.hits + source.eventStoreHits,
@@ -182,7 +158,6 @@ export class RuntimeProfileCollector {
               : undefined,
           }
         : undefined,
-      parseCache,
       eventStore,
       parseTotals,
       sourceStats: sourceStats.map((source) => ({ ...source })),
@@ -201,8 +176,6 @@ export class RuntimeProfileCollector {
       source,
       filesFound: 0,
       eventsParsed: 0,
-      cacheHits: 0,
-      cacheMisses: 0,
       eventStoreHits: 0,
       eventStoreMisses: 0,
     };
@@ -249,14 +222,6 @@ function hasRecordedSourceStats(snapshot: RuntimeProfileSnapshot): boolean {
   return snapshot.sourceStats.length > 0;
 }
 
-function hasRecordedParseCache(snapshot: RuntimeProfileSnapshot): boolean {
-  return (
-    snapshot.parseCache.hits > 0 ||
-    snapshot.parseCache.misses > 0 ||
-    hasRecordedSourceStats(snapshot)
-  );
-}
-
 function hasRecordedEventStore(snapshot: RuntimeProfileSnapshot): boolean {
   return (
     snapshot.eventStore.hits > 0 ||
@@ -295,7 +260,6 @@ export function mergeRuntimeProfiles(
 
   return {
     sourceSelection: primary.sourceSelection ?? fallback.sourceSelection,
-    parseCache: hasRecordedParseCache(primary) ? primary.parseCache : fallback.parseCache,
     eventStore: hasRecordedEventStore(primary) ? primary.eventStore : fallback.eventStore,
     parseTotals: hasRecordedParseTotals(primary) ? primary.parseTotals : fallback.parseTotals,
     sourceStats: primary.sourceStats.length > 0 ? primary.sourceStats : fallback.sourceStats,
@@ -328,9 +292,6 @@ export function emitRuntimeProfile(
   }
 
   diagnosticsLogger.dim(
-    `  parse cache: hits=${runtimeProfile.parseCache.hits}; misses=${runtimeProfile.parseCache.misses}`,
-  );
-  diagnosticsLogger.dim(
     `  event store: hits=${runtimeProfile.eventStore.hits}; misses=${runtimeProfile.eventStore.misses}`,
   );
   diagnosticsLogger.dim(
@@ -339,7 +300,7 @@ export function emitRuntimeProfile(
 
   for (const source of runtimeProfile.sourceStats) {
     diagnosticsLogger.dim(
-      `  source ${source.source}: files=${source.filesFound}; events=${source.eventsParsed}; cacheHits=${source.cacheHits}; cacheMisses=${source.cacheMisses}; eventStoreHits=${source.eventStoreHits}; eventStoreMisses=${source.eventStoreMisses}`,
+      `  source ${source.source}: files=${source.filesFound}; events=${source.eventsParsed}; eventStoreHits=${source.eventStoreHits}; eventStoreMisses=${source.eventStoreMisses}`,
     );
   }
 

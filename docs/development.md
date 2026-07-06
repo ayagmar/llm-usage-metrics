@@ -117,10 +117,8 @@ Common variables:
 - `LLM_USAGE_PRICING_CACHE_TTL_MS=...`
 - `LLM_USAGE_PRICING_FETCH_TIMEOUT_MS=...`
 - `LLM_USAGE_PARSE_MAX_PARALLEL=...`
-- `LLM_USAGE_PARSE_CACHE_ENABLED=...`
-- `LLM_USAGE_PARSE_CACHE_TTL_MS=...`
-- `LLM_USAGE_PARSE_CACHE_MAX_ENTRIES=...`
-- `LLM_USAGE_PARSE_CACHE_MAX_BYTES=...`
+- `LLM_USAGE_EVENT_STORE=0` disables the SQLite event store
+- `LLM_USAGE_EVENT_STORE_PATH=...`
 - `LLM_USAGE_PROFILE_RUNTIME=1` enables runtime profiling diagnostics on `stderr` (default: unset/disabled)
 
 ## Build and packaging

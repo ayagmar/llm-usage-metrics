@@ -178,10 +178,6 @@ describe('run-optimize-report', () => {
               selectedSourceIds: ['codex'],
               candidateProviderRoots: ['openai'],
             },
-            parseCache: {
-              hits: 1,
-              misses: 0,
-            },
             eventStore: {
               hits: 0,
               misses: 0,
@@ -195,8 +191,6 @@ describe('run-optimize-report', () => {
                 source: 'codex',
                 filesFound: 1,
                 eventsParsed: 2,
-                cacheHits: 1,
-                cacheMisses: 0,
                 eventStoreHits: 0,
                 eventStoreMisses: 0,
               },

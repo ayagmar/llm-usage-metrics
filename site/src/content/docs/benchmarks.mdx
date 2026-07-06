@@ -71,11 +71,11 @@ pnpm run perf:production-benchmark -- \
 - `no cache`
   - fresh `XDG_CACHE_HOME` for each run
   - `ccusage-codex`: `--no-offline`
-  - `llm-usage`: `LLM_USAGE_PARSE_CACHE_ENABLED=0` and no `--pricing-offline`
+  - `llm-usage`: `LLM_USAGE_EVENT_STORE=0` and no `--pricing-offline`
 - `with cache`
   - dedicated warm cache directory
   - `ccusage-codex`: `--offline`
-  - `llm-usage`: `--pricing-offline` with warmed parse cache
+  - `llm-usage`: `--pricing-offline` with warmed event store
 
 For repeatability, `LLM_USAGE_SKIP_UPDATE_CHECK=1` was set for `llm-usage` benchmark runs.
 

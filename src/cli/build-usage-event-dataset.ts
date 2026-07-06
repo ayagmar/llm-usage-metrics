@@ -115,12 +115,6 @@ export async function buildUsageEventDataset(
     'usage.dataset.parse_adapters',
     () =>
       parseSelectedAdapters(adaptersToParse, parsingRuntimeConfig.maxParallelFileParsing, {
-        parseCache: {
-          enabled: parsingRuntimeConfig.parseCacheEnabled,
-          ttlMs: parsingRuntimeConfig.parseCacheTtlMs,
-          maxEntries: parsingRuntimeConfig.parseCacheMaxEntries,
-          maxBytes: parsingRuntimeConfig.parseCacheMaxBytes,
-        },
         eventStore: eventStoreRuntimeConfig,
         runtimeProfile,
       }),

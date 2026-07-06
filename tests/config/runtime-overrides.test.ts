@@ -22,13 +22,9 @@ describe('runtime overrides', () => {
     });
     expect(getParsingRuntimeConfig(env)).toEqual({
       maxParallelFileParsing: 8,
-      parseCacheEnabled: true,
-      parseCacheTtlMs: 7 * 24 * 60 * 60 * 1000,
-      parseCacheMaxEntries: 2_000,
-      parseCacheMaxBytes: 32 * 1024 * 1024,
     });
     expect(getEventStoreRuntimeConfig(env)).toEqual({
-      enabled: false,
+      enabled: true,
       path: getDefaultEventStorePath(),
     });
   });
@@ -40,10 +36,6 @@ describe('runtime overrides', () => {
       LLM_USAGE_PRICING_CACHE_TTL_MS: '1800000',
       LLM_USAGE_PRICING_FETCH_TIMEOUT_MS: '5000',
       LLM_USAGE_PARSE_MAX_PARALLEL: '16',
-      LLM_USAGE_PARSE_CACHE_ENABLED: 'false',
-      LLM_USAGE_PARSE_CACHE_TTL_MS: '7200000',
-      LLM_USAGE_PARSE_CACHE_MAX_ENTRIES: '2500',
-      LLM_USAGE_PARSE_CACHE_MAX_BYTES: '33554432',
       LLM_USAGE_EVENT_STORE: 'true',
       LLM_USAGE_EVENT_STORE_PATH: '/tmp/custom-events.db',
     };
@@ -58,10 +50,6 @@ describe('runtime overrides', () => {
     });
     expect(getParsingRuntimeConfig(env)).toEqual({
       maxParallelFileParsing: 16,
-      parseCacheEnabled: false,
-      parseCacheTtlMs: 7_200_000,
-      parseCacheMaxEntries: 2_500,
-      parseCacheMaxBytes: 33_554_432,
     });
     expect(getEventStoreRuntimeConfig(env)).toEqual({
       enabled: true,
@@ -76,9 +64,6 @@ describe('runtime overrides', () => {
       LLM_USAGE_PRICING_CACHE_TTL_MS: '-1',
       LLM_USAGE_PRICING_FETCH_TIMEOUT_MS: '1',
       LLM_USAGE_PARSE_MAX_PARALLEL: '0',
-      LLM_USAGE_PARSE_CACHE_TTL_MS: '-1',
-      LLM_USAGE_PARSE_CACHE_MAX_ENTRIES: '1',
-      LLM_USAGE_PARSE_CACHE_MAX_BYTES: '0',
     };
 
     expect(getUpdateNotifierRuntimeConfig(env)).toEqual({
@@ -91,10 +76,6 @@ describe('runtime overrides', () => {
     });
     expect(getParsingRuntimeConfig(env)).toEqual({
       maxParallelFileParsing: 1,
-      parseCacheEnabled: true,
-      parseCacheTtlMs: 60 * 60 * 1000,
-      parseCacheMaxEntries: 100,
-      parseCacheMaxBytes: 1024 * 1024,
     });
   });
 
@@ -105,10 +86,6 @@ describe('runtime overrides', () => {
       LLM_USAGE_PRICING_CACHE_TTL_MS: 'NaN',
       LLM_USAGE_PRICING_FETCH_TIMEOUT_MS: 'Infinity',
       LLM_USAGE_PARSE_MAX_PARALLEL: 'text',
-      LLM_USAGE_PARSE_CACHE_ENABLED: 'not-a-bool',
-      LLM_USAGE_PARSE_CACHE_TTL_MS: 'x',
-      LLM_USAGE_PARSE_CACHE_MAX_ENTRIES: 'x',
-      LLM_USAGE_PARSE_CACHE_MAX_BYTES: 'x',
     };
 
     expect(getUpdateNotifierRuntimeConfig(env)).toEqual({
@@ -121,10 +98,6 @@ describe('runtime overrides', () => {
     });
     expect(getParsingRuntimeConfig(env)).toEqual({
       maxParallelFileParsing: 8,
-      parseCacheEnabled: true,
-      parseCacheTtlMs: 7 * 24 * 60 * 60 * 1000,
-      parseCacheMaxEntries: 2_000,
-      parseCacheMaxBytes: 32 * 1024 * 1024,
     });
   });
 
@@ -135,9 +108,6 @@ describe('runtime overrides', () => {
       LLM_USAGE_PRICING_CACHE_TTL_MS: '0x100',
       LLM_USAGE_PRICING_FETCH_TIMEOUT_MS: '2_000',
       LLM_USAGE_PARSE_MAX_PARALLEL: '4.2',
-      LLM_USAGE_PARSE_CACHE_TTL_MS: '7d',
-      LLM_USAGE_PARSE_CACHE_MAX_ENTRIES: '2.5',
-      LLM_USAGE_PARSE_CACHE_MAX_BYTES: '64mb',
     };
 
     expect(getUpdateNotifierRuntimeConfig(env)).toEqual({
@@ -150,10 +120,6 @@ describe('runtime overrides', () => {
     });
     expect(getParsingRuntimeConfig(env)).toEqual({
       maxParallelFileParsing: 8,
-      parseCacheEnabled: true,
-      parseCacheTtlMs: 7 * 24 * 60 * 60 * 1000,
-      parseCacheMaxEntries: 2_000,
-      parseCacheMaxBytes: 32 * 1024 * 1024,
     });
   });
 

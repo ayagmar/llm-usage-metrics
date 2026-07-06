@@ -18,7 +18,6 @@ import {
   type ReplaceFileEventsInput,
 } from '../../src/persistence/event-store.js';
 import type { SourceAdapter } from '../../src/sources/source-adapter.js';
-import { ParseFileCache } from '../../src/cli/parse-file-cache.js';
 import { RuntimeProfileCollector } from '../../src/cli/runtime-profile.js';
 import { getPeriodKey } from '../../src/utils/time-buckets.js';
 
@@ -198,15 +197,7 @@ describe('build-usage-data-parsing', () => {
     expect(stats.max).toBe(1);
   });
 
-  it('stringifies non-Error parse failures and deduplicates cache loads by source id', async () => {
-    const parseFileCache = {
-      get: vi.fn(),
-      set: vi.fn(),
-      persist: vi.fn(async () => undefined),
-    } as unknown as ParseFileCache;
-    const loadSpy = vi.spyOn(ParseFileCache, 'load').mockResolvedValue(parseFileCache);
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'parse-selected-adapters-cache-'));
-    tempDirs.push(tempDir);
+  it('stringifies non-Error parse failures without stopping healthy sources', async () => {
     const failingAdapter: SourceAdapter = {
       id: 'CoDex',
       discoverFiles: () => rejectWithUnknown('plain failure') as Promise<string[]>,
@@ -218,17 +209,8 @@ describe('build-usage-data-parsing', () => {
       parseFile: async () => [],
     };
 
-    const result = await parseSelectedAdapters([failingAdapter, succeedingAdapter], 1, {
-      parseCache: {
-        enabled: true,
-        ttlMs: 60_000,
-        maxEntries: 100,
-        maxBytes: 1024 * 1024,
-      },
-      parseCacheFilePath: path.join(tempDir, 'parse-selected-adapters-test-cache.json'),
-    });
+    const result = await parseSelectedAdapters([failingAdapter, succeedingAdapter], 1);
 
-    expect(loadSpy).toHaveBeenCalledTimes(1);
     expect(result.sourceFailures).toEqual([{ source: 'CoDex', reason: 'plain failure' }]);
     expect(result.successfulParseResults).toHaveLength(1);
   });
@@ -407,7 +389,7 @@ describe('build-usage-data-parsing', () => {
     expect(replaceFileEvents).not.toHaveBeenCalled();
   });
 
-  it('serves unchanged files from the event store before adapter parsing or parse cache lookup', async () => {
+  it('serves unchanged files from the event store before adapter parsing', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-parse-hit-'));
     tempDirs.push(tempDir);
 
@@ -426,42 +408,21 @@ describe('build-usage-data-parsing', () => {
       now: () => 123,
     });
 
-    const cacheGet = vi.fn();
-    const cacheSet = vi.fn();
-    const parseFileCache = {
-      get: cacheGet,
-      set: cacheSet,
-      persist: vi.fn(async () => undefined),
-    } as unknown as ParseFileCache;
-    const loadSpy = vi.spyOn(ParseFileCache, 'load').mockResolvedValue(parseFileCache);
     const runtimeProfile = new RuntimeProfileCollector(() => 100);
 
-    try {
-      const cachedRun = await parseSelectedAdapters([adapter], 1, {
-        parseCache: {
-          enabled: true,
-          ttlMs: 60_000,
-          maxEntries: 100,
-          maxBytes: 1024 * 1024,
-        },
-        parseCacheFilePath: path.join(tempDir, 'parse-cache.json'),
-        eventStore: {
-          enabled: true,
-          path: eventStorePath,
-        },
-        runtimeProfile,
-        now: () => 124,
-      });
+    const cachedRun = await parseSelectedAdapters([adapter], 1, {
+      eventStore: {
+        enabled: true,
+        path: eventStorePath,
+      },
+      runtimeProfile,
+      now: () => 124,
+    });
 
-      expect(cachedRun.sourceFailures).toEqual([]);
-      expect(cachedRun.successfulParseResults[0]?.events[0]?.totalTokens).toBe(1);
-      expect(parseCalls.count).toBe(1);
-      expect(cacheGet).not.toHaveBeenCalled();
-      expect(cacheSet).not.toHaveBeenCalled();
-      expect(runtimeProfile.snapshot().eventStore).toEqual({ hits: 1, misses: 0 });
-    } finally {
-      loadSpy.mockRestore();
-    }
+    expect(cachedRun.sourceFailures).toEqual([]);
+    expect(cachedRun.successfulParseResults[0]?.events[0]?.totalTokens).toBe(1);
+    expect(parseCalls.count).toBe(1);
+    expect(runtimeProfile.snapshot().eventStore).toEqual({ hits: 1, misses: 0 });
   });
 
   it('re-parses and re-ingests when a primary file fingerprint changes', async () => {

@@ -11,6 +11,7 @@ import {
   replaceFileEvents as replaceDefaultFileEvents,
   serializeEventStoreFingerprint,
   type EventStore,
+  type EventStoreDependencyFingerprint,
   type EventStoreFileEntry,
   type EventStoreFileFingerprint,
 } from '../persistence/event-store.js';
@@ -22,12 +23,6 @@ import type {
 } from '../sources/source-adapter.js';
 import { normalizeSkippedRowReasons } from './normalize-skipped-row-reasons.js';
 import { getPeriodKey } from '../utils/time-buckets.js';
-import {
-  getDefaultParseFileCachePath,
-  getSourceShardedParseFileCachePath,
-  type ParseDependencyFingerprint,
-  ParseFileCache,
-} from './parse-file-cache.js';
 import type { RuntimeProfileCollector } from './runtime-profile.js';
 
 import type { UsageSourceFailure } from './usage-data-contracts.js';
@@ -46,16 +41,7 @@ export type ParsedAdaptersResult = {
   warnings: string[];
 };
 
-export type ParseCacheRuntimeConfig = {
-  enabled: boolean;
-  ttlMs: number;
-  maxEntries: number;
-  maxBytes: number;
-};
-
 export type ParseSelectedAdaptersOptions = {
-  parseCache?: ParseCacheRuntimeConfig;
-  parseCacheFilePath?: string;
   eventStore?: EventStoreRuntimeConfig;
   eventStoreDeps?: EventStoreParseDeps;
   now?: () => number;
@@ -63,6 +49,8 @@ export type ParseSelectedAdaptersOptions = {
 };
 
 type RunWithParseBudget = <T>(task: () => Promise<T>) => Promise<T>;
+
+type ParseDependencyFingerprint = EventStoreDependencyFingerprint;
 
 export type EventStoreParseDeps = {
   openEventStore?: (filePath: string) => Promise<EventStore>;
@@ -309,7 +297,6 @@ export async function parseAdapterEvents(
   adapter: SourceAdapter,
   maxParallelFileParsing: number,
   runWithParseBudget: RunWithParseBudget = async <T>(task: () => Promise<T>) => task(),
-  parseFileCache?: ParseFileCache,
   runtimeProfile?: RuntimeProfileCollector,
   eventStore?: EventStoreParseContext,
 ): Promise<AdapterParseResult> {
@@ -350,7 +337,7 @@ export async function parseAdapterEvents(
           let parseFileDiagnostics: SourceParseFileDiagnostics | undefined;
           let servedFromEventStore = false;
 
-          if (parseFileCache || eventStore) {
+          if (eventStore) {
             fileFingerprint = await getParseFileFingerprint(adapter, filePath);
           }
 
@@ -364,22 +351,9 @@ export async function parseAdapterEvents(
             servedFromEventStore = parseFileDiagnostics !== undefined;
           }
 
-          if (!parseFileDiagnostics && parseFileCache && fileFingerprint) {
-            parseFileDiagnostics = parseFileCache.get(adapter.id, filePath, fileFingerprint);
-            runtimeProfile?.recordParseCacheResult(
-              adapter.id,
-              parseFileDiagnostics ? 'hit' : 'miss',
-            );
-          }
-
-          if (!parseFileDiagnostics) {
-            parseFileDiagnostics = adapter.parseFileWithDiagnostics
-              ? await adapter.parseFileWithDiagnostics(filePath)
-              : getDefaultParseFileDiagnostics(await adapter.parseFile(filePath));
-            if (parseFileCache && fileFingerprint) {
-              parseFileCache.set(adapter.id, filePath, fileFingerprint, parseFileDiagnostics);
-            }
-          }
+          parseFileDiagnostics ??= adapter.parseFileWithDiagnostics
+            ? await adapter.parseFileWithDiagnostics(filePath)
+            : getDefaultParseFileDiagnostics(await adapter.parseFile(filePath));
 
           const skippedRows = normalizeSkippedRowsCount(parseFileDiagnostics.skippedRows);
           const normalizedSkippedRowReasons = normalizeSkippedRowReasons(
@@ -457,32 +431,8 @@ export async function parseSelectedAdapters(
   options: ParseSelectedAdaptersOptions = {},
 ): Promise<ParsedAdaptersResult> {
   const runWithParseBudget = createParseBudget(maxParallelFileParsing);
-  const parseCacheBySource = new Map<string, ParseFileCache>();
   const eventStoreFailureState: EventStoreFailureState = { disabled: false };
   let eventStoreContext: EventStoreParseContext | undefined;
-
-  if (options.parseCache?.enabled) {
-    const parseCacheLimits = {
-      ttlMs: options.parseCache.ttlMs,
-      maxEntries: options.parseCache.maxEntries,
-      maxBytes: options.parseCache.maxBytes,
-    };
-    const cacheFilePath = options.parseCacheFilePath ?? getDefaultParseFileCachePath();
-    const sourceIds = [...new Set(adaptersToParse.map((adapter) => adapter.id.toLowerCase()))];
-
-    await Promise.all(
-      sourceIds.map(async (sourceId) => {
-        parseCacheBySource.set(
-          sourceId,
-          await ParseFileCache.load({
-            cacheFilePath: getSourceShardedParseFileCachePath(cacheFilePath, sourceId),
-            limits: parseCacheLimits,
-            now: options.now,
-          }),
-        );
-      }),
-    );
-  }
 
   if (options.eventStore?.enabled) {
     try {
@@ -511,7 +461,6 @@ export async function parseSelectedAdapters(
                 adapter,
                 maxParallelFileParsing,
                 runWithParseBudget,
-                parseCacheBySource.get(adapter.id.toLowerCase()),
                 options.runtimeProfile,
                 eventStoreContext,
               ),
@@ -520,18 +469,11 @@ export async function parseSelectedAdapters(
               adapter,
               maxParallelFileParsing,
               runWithParseBudget,
-              parseCacheBySource.get(adapter.id.toLowerCase()),
               undefined,
               eventStoreContext,
             ),
       ),
     );
-
-    if (parseCacheBySource.size > 0) {
-      await Promise.allSettled(
-        [...parseCacheBySource.values()].map(async (parseCache) => parseCache.persist()),
-      );
-    }
   } finally {
     if (eventStoreContext) {
       try {

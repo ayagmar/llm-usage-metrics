@@ -30,7 +30,7 @@ function createSmokeEnv(): NodeJS.ProcessEnv {
   return {
     ...process.env,
     LLM_USAGE_SKIP_UPDATE_CHECK: '1',
-    LLM_USAGE_PARSE_CACHE_ENABLED: '0',
+    LLM_USAGE_EVENT_STORE: '0',
   };
 }
 

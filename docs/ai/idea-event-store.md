@@ -89,7 +89,7 @@ the pricing source, exactly as today.
 
 - **Scope.** This is a multi-day refactor: a new `src/persistence` layer, an
   ingestion seam in `buildUsageEventDataset`, a migration story for users with
-  existing parse caches, schema versioning, and a full test matrix. Too large to
+  older JSON caches, schema versioning, and a full test matrix. Too large to
   land well in one pass.
 - **Correctness risk.** A content-hash collision or a drift between the store and
   the live source files could silently skew reports. Needs an explicit

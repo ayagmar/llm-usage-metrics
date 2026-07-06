@@ -104,6 +104,17 @@ function sourceById(results: DoctorSourceResult[]): Map<string, DoctorSourceResu
   return new Map(results.map((result) => [result.id, result]));
 }
 
+function eventStoreDisabledDeps(): {
+  getEventStoreRuntimeConfig: () => { enabled: false; path: string };
+} {
+  return {
+    getEventStoreRuntimeConfig: () => ({
+      enabled: false,
+      path: '/tmp/events.db',
+    }),
+  };
+}
+
 function captureStdout(): {
   getOutput: () => string;
   restore: () => void;
@@ -126,7 +137,7 @@ describe('run-doctor-report', () => {
   it('discovers all sources in registration order', async () => {
     const options = await createDoctorFixtureOptions();
 
-    const results = await buildDoctorResults(options);
+    const results = await buildDoctorResults(options, eventStoreDisabledDeps());
 
     expect(results).toEqual([
       { id: 'pi', status: 'ok', itemsFound: 1 },
@@ -152,10 +163,13 @@ describe('run-doctor-report', () => {
     const options = await createDoctorFixtureOptions();
     const missingClaudeDir = path.join(os.tmpdir(), `missing-claude-${Date.now()}`);
 
-    const results = await buildDoctorResults({
-      ...options,
-      claudeDir: missingClaudeDir,
-    });
+    const results = await buildDoctorResults(
+      {
+        ...options,
+        claudeDir: missingClaudeDir,
+      },
+      eventStoreDisabledDeps(),
+    );
     const resultsBySource = sourceById(results);
     const claudeResult = resultsBySource.get('claude');
     const nonClaudeResults = results.filter((result) => result.id !== 'claude');
@@ -169,10 +183,13 @@ describe('run-doctor-report', () => {
   it('filters doctor results with comma-separated source filters', async () => {
     const options = await createDoctorFixtureOptions();
 
-    const results = await buildDoctorResults({
-      ...options,
-      source: 'gemini,claude',
-    });
+    const results = await buildDoctorResults(
+      {
+        ...options,
+        source: 'gemini,claude',
+      },
+      eventStoreDisabledDeps(),
+    );
 
     expect(results.map((result) => result.id)).toEqual(['gemini', 'claude']);
   });
@@ -310,10 +327,13 @@ describe('run-doctor-report', () => {
     const stdout = captureStdout();
 
     try {
-      await runDoctorReport({
-        ...options,
-        source: 'gemini',
-      });
+      await runDoctorReport(
+        {
+          ...options,
+          source: 'gemini',
+        },
+        eventStoreDisabledDeps(),
+      );
     } finally {
       stdout.restore();
     }
@@ -328,10 +348,13 @@ describe('run-doctor-report', () => {
     const stdout = captureStdout();
 
     try {
-      await runDoctorReport({
-        ...options,
-        claudeDir: missingClaudeDir,
-      });
+      await runDoctorReport(
+        {
+          ...options,
+          claudeDir: missingClaudeDir,
+        },
+        eventStoreDisabledDeps(),
+      );
     } finally {
       stdout.restore();
     }
@@ -347,11 +370,14 @@ describe('run-doctor-report', () => {
     const stdout = captureStdout();
 
     try {
-      await runDoctorReport({
-        ...options,
-        source: 'gemini',
-        json: true,
-      });
+      await runDoctorReport(
+        {
+          ...options,
+          source: 'gemini',
+          json: true,
+        },
+        eventStoreDisabledDeps(),
+      );
     } finally {
       stdout.restore();
     }
