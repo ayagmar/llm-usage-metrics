@@ -9,7 +9,10 @@
 
     "gpt-5.3-codex-spark": "gpt-5.3-codex",
 
+    "gemini-3-flash": "gemini-3-flash",
     "gemini-3-pro": "gemini-3-pro",
+    "gemini-3-flash-a": "gemini-3-flash",
+    "gemini-3-pro-a": "gemini-3-pro",
     "antigravity-gemini-3-flash": "gemini-3-flash",
     "antigravity-gemini-3-pro": "gemini-3-pro",
     "antigravity-gemini-3-pro-high": "gemini-3-pro",
@@ -26,7 +29,8 @@
     "anthropic.claude-sonnet-4-6": "claude-sonnet-4.6"
   },
   "notes": {
-    "gpt-5.3-codex-spark": "Alias to gpt-5.3-codex because upstream publishes token pricing on the gpt-5.3-codex key"
+    "gpt-5.3-codex-spark": "Alias to gpt-5.3-codex because upstream publishes token pricing on the gpt-5.3-codex key",
+    "gemini-3-flash-a": "Antigravity session data records gemini-3 models with an '-a' suffix (gemini-3-flash-a, gemini-3-pro-a); alias them to the canonical gemini-3 models"
   },
   "preferredPricingKeyByCanonicalModel": {
     "kimi-k2.5": "moonshot/kimi-k2.5",

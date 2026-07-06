@@ -812,6 +812,40 @@ describe('LiteLLMPricingFetcher', () => {
     expect(fetcher.getPricing('claude sonnet 4.6')?.outputPer1MUsd).toBeCloseTo(15, 10);
   });
 
+  it('resolves -a suffixed gemini-3 aliases to preferred gemini preview pricing keys', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-gemini-a-suffix-'));
+    tempDirs.push(rootDir);
+
+    const fetcher = createFetcher({
+      cacheFilePath: path.join(rootDir, 'cache.json'),
+      fetchImpl: vi.fn(async () => {
+        return new Response(
+          JSON.stringify({
+            'gemini/gemini-3-flash-preview': {
+              input_cost_per_token: 0.0000005,
+              output_cost_per_token: 0.000003,
+            },
+            'gemini/gemini-3-pro-preview': {
+              input_cost_per_token: 0.000002,
+              output_cost_per_token: 0.000012,
+            },
+          }),
+          { status: 200 },
+        );
+      }),
+    });
+
+    await fetcher.load();
+
+    expect(fetcher.resolveModelAlias('gemini-3-flash-a')).toBe('gemini/gemini-3-flash-preview');
+    expect(fetcher.resolveModelAlias('gemini-3-flash')).toBe('gemini/gemini-3-flash-preview');
+    expect(fetcher.resolveModelAlias('gemini-3-pro-a')).toBe('gemini/gemini-3-pro-preview');
+
+    expect(fetcher.getPricing('gemini-3-flash-a')?.inputPer1MUsd).toBeCloseTo(0.5, 10);
+    expect(fetcher.getPricing('gemini-3-flash')?.outputPer1MUsd).toBeCloseTo(3, 10);
+    expect(fetcher.getPricing('gemini-3-pro-a')?.outputPer1MUsd).toBeCloseTo(12, 10);
+  });
+
   it('uses direct gpt-5.3-codex pricing when available upstream', async () => {
     const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-codex-fallback-'));
     tempDirs.push(rootDir);
