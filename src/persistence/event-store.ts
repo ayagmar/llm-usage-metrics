@@ -42,6 +42,9 @@ type EventStoreSqliteModule = {
 
 export type LoadEventStoreSqliteModule = () => Promise<unknown>;
 
+const loadEventStoreSqliteModule: LoadEventStoreSqliteModule = () =>
+  loadNodeSqliteModule('Event store');
+
 export type EventStoreDependencyFingerprint = {
   path: string;
   exists: boolean;
@@ -352,7 +355,7 @@ export function getDefaultEventStorePath(): string {
 
 export async function openEventStore(
   filePath: string = getDefaultEventStorePath(),
-  loadSqliteModule: LoadEventStoreSqliteModule = loadNodeSqliteModule,
+  loadSqliteModule: LoadEventStoreSqliteModule = loadEventStoreSqliteModule,
 ): Promise<EventStore> {
   await mkdir(path.dirname(filePath), { recursive: true });
 
@@ -381,7 +384,7 @@ export type EventStoreSummary = {
 
 export async function readEventStoreSummary(
   filePath: string = getDefaultEventStorePath(),
-  loadSqliteModule: LoadEventStoreSqliteModule = loadNodeSqliteModule,
+  loadSqliteModule: LoadEventStoreSqliteModule = loadEventStoreSqliteModule,
 ): Promise<EventStoreSummary> {
   const sqliteModule = await loadSqliteModule();
 

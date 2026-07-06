@@ -90,7 +90,7 @@ function normalizeOptionalPath(value: string | undefined): string | undefined {
   return normalizeOptionalText(value);
 }
 
-export function normalizeModelKey(value: string): string {
+function normalizeModelKey(value: string): string {
   return stripControlCharacters(value).trim().toLowerCase();
 }
 

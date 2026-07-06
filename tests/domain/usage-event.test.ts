@@ -4,7 +4,6 @@ import {
   createUsageEvent,
   hasBillableTokenBuckets,
   isPriceableEvent,
-  normalizeModelKey,
 } from '../../src/domain/usage-event.js';
 
 describe('createUsageEvent', () => {
@@ -154,9 +153,26 @@ describe('createUsageEvent', () => {
     expect(event.model).toBe('gpt-4.1');
   });
 
-  it('exports the model key normalizer used by event and cache paths', () => {
-    expect(normalizeModelKey(' GPT\u001B[2J-4.1 ')).toBe('gpt[2j-4.1');
-    expect(normalizeModelKey('\u0007')).toBe('');
+  it('strips control characters when normalizing model keys', () => {
+    const event = createUsageEvent({
+      source: 'pi',
+      sessionId: 'session-model-control-chars',
+      timestamp: '2026-02-12T10:00:00Z',
+      model: ' GPT\u001B[2J-4.1 ',
+      inputTokens: 1,
+      outputTokens: 1,
+    });
+    const controlOnlyModelEvent = createUsageEvent({
+      source: 'pi',
+      sessionId: 'session-model-control-only',
+      timestamp: '2026-02-12T10:00:00Z',
+      model: '\u0007',
+      inputTokens: 1,
+      outputTokens: 1,
+    });
+
+    expect(event.model).toBe('gpt[2j-4.1');
+    expect(controlOnlyModelEvent.model).toBeUndefined();
   });
 
   it('normalizes provider identifiers to billing entities', () => {

@@ -230,14 +230,8 @@ function writeParsedFileToEventStore(
     return;
   }
 
+  // Only called after a store miss, so the stored fingerprint already differs.
   try {
-    const fingerprint = serializeEventStoreFingerprint(params.fingerprint);
-    const storedEntry = context.getFileEntry(context.store, params.source, params.filePath);
-
-    if (storedEntry?.fingerprint === fingerprint) {
-      return;
-    }
-
     context.replaceFileEvents(context.store, {
       source: params.source,
       filePath: params.filePath,
@@ -337,7 +331,7 @@ export async function parseAdapterEvents(
           let parseFileDiagnostics: SourceParseFileDiagnostics | undefined;
           let servedFromEventStore = false;
 
-          if (eventStore) {
+          if (eventStore && !eventStore.failureState.disabled) {
             fileFingerprint = await getParseFileFingerprint(adapter, filePath);
           }
 

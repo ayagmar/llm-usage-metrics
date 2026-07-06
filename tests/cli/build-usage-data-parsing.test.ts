@@ -389,6 +389,43 @@ describe('build-usage-data-parsing', () => {
     expect(replaceFileEvents).not.toHaveBeenCalled();
   });
 
+  it('skips fingerprint work for remaining files after the store is disabled', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-disabled-gate-'));
+    tempDirs.push(tempDir);
+
+    const fileA = path.join(tempDir, 'a.jsonl');
+    const fileB = path.join(tempDir, 'b.jsonl');
+    await writeFingerprintFixture(fileA, '{"line":1}\n', 1_700_000_001);
+    await writeFingerprintFixture(fileB, '{"line":1}\n', 1_700_000_001);
+
+    const store = { filePath: path.join(tempDir, 'events.db') } as unknown as EventStore;
+    const getParseDependencies = vi.fn(async () => []);
+    const adapter: SourceAdapter = {
+      ...createStoreBackedAdapter('pi', [fileA, fileB]),
+      getParseDependencies,
+    };
+
+    const result = await parseSelectedAdapters([adapter], 1, {
+      eventStore: {
+        enabled: true,
+        path: store.filePath,
+      },
+      eventStoreDeps: {
+        openEventStore: async () => store,
+        closeEventStore: vi.fn(),
+        getFileEntry: () => {
+          throw new Error('database locked');
+        },
+        replaceFileEvents: vi.fn(),
+      },
+    });
+
+    expect(result.warnings).toEqual(['Event store disabled after failure: database locked']);
+    // File A trips the failure; file B must not be fingerprinted at all.
+    expect(getParseDependencies).toHaveBeenCalledTimes(1);
+    expect(getParseDependencies).toHaveBeenCalledWith(fileA);
+  });
+
   it('serves unchanged files from the event store before adapter parsing', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-parse-hit-'));
     tempDirs.push(tempDir);
