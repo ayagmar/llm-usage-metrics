@@ -2,6 +2,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { normalizeNonNegativeInteger } from '../../domain/normalization.js';
+import { inferCanonicalProviderRootFromModel } from '../../domain/provider-normalization.js';
 import { createUsageEvent } from '../../domain/usage-event.js';
 import type { UsageEvent } from '../../domain/usage-event.js';
 import { asRecord } from '../../utils/as-record.js';
@@ -70,11 +71,7 @@ function resolveProvider(
     return explicitProvider;
   }
 
-  if (model?.toLowerCase().startsWith('claude-')) {
-    return 'anthropic';
-  }
-
-  return undefined;
+  return model ? inferCanonicalProviderRootFromModel(model) : undefined;
 }
 
 function parseUsage(usage: Record<string, unknown>): ClaudeUsage | undefined {

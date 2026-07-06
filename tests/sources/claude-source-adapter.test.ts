@@ -214,6 +214,28 @@ describe('ClaudeSourceAdapter', () => {
     });
   });
 
+  it('infers provider roots from model when provider is missing', async () => {
+    const projectsDir = await mkdtemp(path.join(os.tmpdir(), 'claude-provider-inference-'));
+    tempDirs.push(projectsDir);
+    const filePath = path.join(projectsDir, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        assistantRow({ messageId: 'msg_claude', model: 'claude-sonnet-4-5' }),
+        assistantRow({ messageId: 'msg_gpt', model: 'gpt-5.2' }),
+        assistantRow({ messageId: 'msg_gemini', model: 'gemini-3-flash' }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new ClaudeSourceAdapter({ projectsDir });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toHaveLength(3);
+    expect(events.map((event) => event.provider)).toEqual(['anthropic', 'openai', 'google']);
+  });
+
   it('reports skipped synthetic and invalid rows', async () => {
     const projectsDir = await mkdtemp(path.join(os.tmpdir(), 'claude-skipped-'));
     tempDirs.push(projectsDir);

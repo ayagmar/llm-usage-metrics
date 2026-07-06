@@ -94,7 +94,7 @@ export function resolveExplicitProviderRoots(
   return [normalizedProviderFilter];
 }
 
-function inferCanonicalProviderRootFromModel(model: string): string | undefined {
+export function inferCanonicalProviderRootFromModel(model: string): string | undefined {
   const normalizedModel = model.trim().toLowerCase();
 
   if (!normalizedModel) {
