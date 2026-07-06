@@ -1,5 +1,5 @@
 import { renderWrappedShareSvg } from '../render/render-wrapped-share-svg.js';
-import { formatInteger, formatUsd } from '../render/share-svg-theme.js';
+import { formatApproxUsd, formatInteger } from '../render/share-svg-theme.js';
 import type { WrappedRecap, WrappedTopItem } from '../wrapped/wrapped-recap.js';
 import { buildWrappedData, parseWrappedYearOption } from './build-wrapped-data.js';
 import { emitDiagnostics } from './emit-diagnostics.js';
@@ -14,11 +14,6 @@ import type {
 type WrappedReportFormat = 'terminal' | 'json';
 
 const wrappedReportFormats = ['terminal', 'json'] as const satisfies readonly WrappedReportFormat[];
-
-function formatApproxUsd(value: number | undefined, approximate: boolean | undefined): string {
-  const formatted = formatUsd(value);
-  return value !== undefined && approximate ? `~${formatted}` : formatted;
-}
 
 function formatTopItems(items: readonly WrappedTopItem[]): string[] {
   if (items.length === 0) {

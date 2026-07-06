@@ -66,4 +66,16 @@ describe('renderWrappedShareSvg', () => {
     expect(svg).not.toContain('gpt-4.1 <fast>');
     expect(svg).not.toContain('pi & codex');
   });
+
+  it('uses singular day label for a one-day streak and shows No data for empty lists', () => {
+    const svg = renderWrappedShareSvg({
+      ...createRecap(),
+      longestStreak: 1,
+      topModels: [],
+      topSources: [],
+    });
+
+    expect(svg).toContain('>day<');
+    expect(svg).toContain('No data');
+  });
 });

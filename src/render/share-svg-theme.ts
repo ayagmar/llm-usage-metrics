@@ -99,6 +99,14 @@ export function formatUsd(n: number | undefined): string {
   return n === undefined ? '-' : usdFmt.format(n);
 }
 
+export function formatApproxUsd(
+  value: number | undefined,
+  approximate: boolean | undefined,
+): string {
+  const formatted = formatUsd(value);
+  return value !== undefined && approximate ? `~${formatted}` : formatted;
+}
+
 export type Point = { x: number; y: number };
 
 /**

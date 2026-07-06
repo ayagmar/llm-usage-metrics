@@ -1,9 +1,9 @@
 import type { WrappedRecap, WrappedTopItem } from '../wrapped/wrapped-recap.js';
 import {
   escapeSvg,
+  formatApproxUsd,
   formatCompact,
   formatInteger,
-  formatUsd,
   renderShareAccentBar,
   renderShareFooter,
   SHARE_SVG_WIDTH,
@@ -21,11 +21,6 @@ const tileGap = 28;
 const listTop = 360;
 const monthTop = 700;
 const levelColors = ['#21262d', '#14532d', '#15803d', '#22c55e', '#86efac'] as const;
-
-function formatApproxUsd(value: number | undefined, approximate: boolean | undefined): string {
-  const formatted = formatUsd(value);
-  return value !== undefined && approximate ? `~${formatted}` : formatted;
-}
 
 function formatDayLabel(count: number): string {
   return count === 1 ? 'day' : 'days';

@@ -28,7 +28,7 @@ export function parseWrappedYearOption(year: string | undefined): number | undef
   return parsed;
 }
 
-export function getWrappedYearRange(year: number): { from: string; to: string } {
+function getWrappedYearRange(year: number): { from: string; to: string } {
   return {
     from: `${year}-01-01`,
     to: `${year}-12-31`,
