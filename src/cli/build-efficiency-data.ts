@@ -215,6 +215,7 @@ export async function buildEfficiencyData(
     sourceFailures: dataset.sourceFailures,
     pricingOrigin,
     pricingWarning,
+    warnings: dataset.warnings,
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     timezone: dataset.normalizedInputs.timezone,
     runtimeProfile: deps.runtimeProfile?.snapshot(),

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { getParsingRuntimeConfig } from '../../src/config/runtime-overrides.js';
+import {
+  getEventStoreRuntimeConfig,
+  getParsingRuntimeConfig,
+} from '../../src/config/runtime-overrides.js';
 
 describe('parsing runtime config', () => {
   it('accepts parse cache boolean aliases', () => {
@@ -23,5 +26,19 @@ describe('parsing runtime config', () => {
         LLM_USAGE_PARSE_CACHE_ENABLED: '   ',
       }),
     ).toMatchObject({ parseCacheEnabled: true });
+  });
+
+  it('accepts event store boolean aliases', () => {
+    expect(
+      getEventStoreRuntimeConfig({
+        LLM_USAGE_EVENT_STORE: '0',
+      }),
+    ).toMatchObject({ enabled: false });
+
+    expect(
+      getEventStoreRuntimeConfig({
+        LLM_USAGE_EVENT_STORE: 'yes',
+      }),
+    ).toMatchObject({ enabled: true });
   });
 });

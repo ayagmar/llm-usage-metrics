@@ -237,6 +237,7 @@ export async function buildTrendsData(
     sourceFailures: dataset.sourceFailures,
     pricingOrigin: pricingResult.pricingOrigin,
     pricingWarning: pricingResult.pricingWarning,
+    warnings: dataset.warnings,
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     timezone: dataset.normalizedInputs.timezone,
     runtimeProfile: deps.runtimeProfile?.snapshot(),

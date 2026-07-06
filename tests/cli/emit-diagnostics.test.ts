@@ -103,6 +103,22 @@ describe('emitDiagnostics', () => {
     );
   });
 
+  it('emits generic diagnostics warnings', () => {
+    const diagnosticsLogger = createLoggerSpy();
+
+    emitDiagnostics(
+      createDiagnostics({
+        sessionStats: [{ source: 'pi', filesFound: 1, eventsParsed: 1 }],
+        warnings: ['Event store disabled after failure: database locked'],
+      }),
+      diagnosticsLogger,
+    );
+
+    expect(diagnosticsLogger.warn).toHaveBeenCalledWith(
+      'Event store disabled after failure: database locked',
+    );
+  });
+
   it('emits source failure diagnostics when parsing failures are present', () => {
     const diagnosticsLogger = createLoggerSpy();
 

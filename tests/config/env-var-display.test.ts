@@ -18,6 +18,8 @@ function clearTestEnvVars(): void {
   delete process.env.LLM_USAGE_PARSE_CACHE_TTL_MS;
   delete process.env.LLM_USAGE_PARSE_CACHE_MAX_ENTRIES;
   delete process.env.LLM_USAGE_PARSE_CACHE_MAX_BYTES;
+  delete process.env.LLM_USAGE_EVENT_STORE;
+  delete process.env.LLM_USAGE_EVENT_STORE_PATH;
   delete process.env.LLM_USAGE_PROFILE_RUNTIME;
   delete process.env.UNRELATED_ENV;
 }
@@ -34,6 +36,8 @@ describe('env-var-display', () => {
   it('returns only active known env var overrides', () => {
     process.env.LLM_USAGE_SKIP_UPDATE_CHECK = '1';
     process.env.LLM_USAGE_PARSE_MAX_PARALLEL = '16';
+    process.env.LLM_USAGE_EVENT_STORE = '1';
+    process.env.LLM_USAGE_EVENT_STORE_PATH = '/tmp/events.db';
     process.env.LLM_USAGE_PROFILE_RUNTIME = '1';
     process.env.UNRELATED_ENV = 'ignored';
 
@@ -49,6 +53,16 @@ describe('env-var-display', () => {
         name: 'LLM_USAGE_PARSE_MAX_PARALLEL',
         value: '16',
         description: 'max parallel file parsing',
+      },
+      {
+        name: 'LLM_USAGE_EVENT_STORE',
+        value: '1',
+        description: 'enable sqlite event store',
+      },
+      {
+        name: 'LLM_USAGE_EVENT_STORE_PATH',
+        value: '/tmp/events.db',
+        description: 'sqlite event store path',
       },
       {
         name: 'LLM_USAGE_PROFILE_RUNTIME',

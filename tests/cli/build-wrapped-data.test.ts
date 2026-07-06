@@ -29,6 +29,7 @@ function runtimeDeps(overrides: { adapters?: SourceAdapter[]; now?: () => Date }
       parseCacheMaxBytes: 64 * 1024 * 1024,
     }),
     getPricingFetcherRuntimeConfig: () => ({ cacheTtlMs: 1_000, fetchTimeoutMs: 1_000 }),
+    getEventStoreRuntimeConfig: () => ({ enabled: false, path: '/tmp/events.db' }),
     getActiveEnvVarOverrides: () => [],
     createAdapters: () => overrides.adapters ?? [],
     resolvePricingSource: async (): Promise<PricingLoadResult> => ({

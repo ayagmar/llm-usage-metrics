@@ -1,5 +1,6 @@
 import { getActiveEnvVarOverrides } from '../config/env-var-display.js';
 import {
+  getEventStoreRuntimeConfig,
   getParsingRuntimeConfig,
   getPricingFetcherRuntimeConfig,
 } from '../config/runtime-overrides.js';
@@ -52,6 +53,7 @@ export type UsageEventDataset = {
   adaptersToParse: SourceAdapter[];
   successfulParseResults: AdapterParseResult[];
   sourceFailures: UsageSourceFailure[];
+  warnings: string[];
   filteredEvents: UsageEvent[];
   pricingRuntimeConfig: ReturnType<typeof getPricingFetcherRuntimeConfig>;
   readEnvVarOverrides: () => EnvVarOverride[];
@@ -74,9 +76,11 @@ export async function buildUsageEventDataset(
   const readParsingRuntimeConfig = deps.getParsingRuntimeConfig ?? getParsingRuntimeConfig;
   const readPricingRuntimeConfig =
     deps.getPricingFetcherRuntimeConfig ?? getPricingFetcherRuntimeConfig;
+  const readEventStoreRuntimeConfig = deps.getEventStoreRuntimeConfig ?? getEventStoreRuntimeConfig;
   const makeAdapters = deps.createAdapters ?? createDefaultAdapters;
   const parsingRuntimeConfig = readParsingRuntimeConfig();
   const pricingRuntimeConfig = readPricingRuntimeConfig();
+  const eventStoreRuntimeConfig = readEventStoreRuntimeConfig();
 
   const adapters = measureRuntimeProfileStageSync(
     runtimeProfile,
@@ -100,7 +104,7 @@ export async function buildUsageEventDataset(
     modelFilter: normalizedInputs.modelFilter,
   });
 
-  const { successfulParseResults, sourceFailures } = await measureRuntimeProfileStage(
+  const { successfulParseResults, sourceFailures, warnings } = await measureRuntimeProfileStage(
     runtimeProfile,
     'usage.dataset.parse_adapters',
     () =>
@@ -111,6 +115,7 @@ export async function buildUsageEventDataset(
           maxEntries: parsingRuntimeConfig.parseCacheMaxEntries,
           maxBytes: parsingRuntimeConfig.parseCacheMaxBytes,
         },
+        eventStore: eventStoreRuntimeConfig,
         runtimeProfile,
       }),
   );
@@ -136,6 +141,7 @@ export async function buildUsageEventDataset(
     adaptersToParse,
     successfulParseResults,
     sourceFailures,
+    warnings,
     filteredEvents,
     pricingRuntimeConfig,
     readEnvVarOverrides: deps.getActiveEnvVarOverrides ?? getActiveEnvVarOverrides,

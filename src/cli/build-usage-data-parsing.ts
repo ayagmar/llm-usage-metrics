@@ -1,7 +1,18 @@
 import { stat } from 'node:fs/promises';
 
+import type { EventStoreRuntimeConfig } from '../config/runtime-overrides.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { matchesCanonicalProviderFilter } from '../domain/provider-normalization.js';
+import {
+  closeEventStore as closeDefaultEventStore,
+  getFileEntry as getDefaultEventStoreFileEntry,
+  openEventStore as openDefaultEventStore,
+  replaceFileEvents as replaceDefaultFileEvents,
+  serializeEventStoreFingerprint,
+  type EventStore,
+  type EventStoreFileEntry,
+  type EventStoreFileFingerprint,
+} from '../persistence/event-store.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import type {
   SourceAdapter,
@@ -31,6 +42,7 @@ export type AdapterParseResult = {
 export type ParsedAdaptersResult = {
   successfulParseResults: AdapterParseResult[];
   sourceFailures: UsageSourceFailure[];
+  warnings: string[];
 };
 
 export type ParseCacheRuntimeConfig = {
@@ -43,11 +55,41 @@ export type ParseCacheRuntimeConfig = {
 export type ParseSelectedAdaptersOptions = {
   parseCache?: ParseCacheRuntimeConfig;
   parseCacheFilePath?: string;
+  eventStore?: EventStoreRuntimeConfig;
+  eventStoreDeps?: EventStoreParseDeps;
   now?: () => number;
   runtimeProfile?: RuntimeProfileCollector;
 };
 
 type RunWithParseBudget = <T>(task: () => Promise<T>) => Promise<T>;
+
+export type EventStoreParseDeps = {
+  openEventStore?: (filePath: string) => Promise<EventStore>;
+  closeEventStore?: (store: EventStore) => void;
+  getFileEntry?: (
+    store: EventStore,
+    source: string,
+    filePath: string,
+  ) => EventStoreFileEntry | undefined;
+  replaceFileEvents?: typeof replaceDefaultFileEvents;
+};
+
+type EventStoreFailureState = {
+  disabled: boolean;
+  warning?: string;
+};
+
+type EventStoreParseContext = {
+  store: EventStore;
+  getFileEntry: (
+    store: EventStore,
+    source: string,
+    filePath: string,
+  ) => EventStoreFileEntry | undefined;
+  replaceFileEvents: typeof replaceDefaultFileEvents;
+  now: () => number;
+  failureState: EventStoreFailureState;
+};
 
 function getDefaultParseFileDiagnostics(events: UsageEvent[]): SourceParseFileDiagnostics {
   return { events, skippedRows: 0, skippedRowReasons: [] };
@@ -127,6 +169,52 @@ async function getParseFileFingerprint(
   };
 }
 
+function recordEventStoreFailure(state: EventStoreFailureState, error: unknown): void {
+  if (state.disabled) {
+    return;
+  }
+
+  state.disabled = true;
+  state.warning = `Event store disabled after failure: ${getErrorReason(error)}`;
+}
+
+function writeParsedFileToEventStore(
+  context: EventStoreParseContext,
+  params: {
+    source: string;
+    filePath: string;
+    fingerprint: EventStoreFileFingerprint;
+    events: UsageEvent[];
+    skippedRows: number;
+    skippedRowReasons: SourceSkippedRowReasonStat[];
+  },
+): void {
+  if (context.failureState.disabled) {
+    return;
+  }
+
+  try {
+    const fingerprint = serializeEventStoreFingerprint(params.fingerprint);
+    const storedEntry = context.getFileEntry(context.store, params.source, params.filePath);
+
+    if (storedEntry?.fingerprint === fingerprint) {
+      return;
+    }
+
+    context.replaceFileEvents(context.store, {
+      source: params.source,
+      filePath: params.filePath,
+      fingerprint: params.fingerprint,
+      events: params.events,
+      skippedRows: params.skippedRows,
+      skippedRowReasons: params.skippedRowReasons,
+      now: context.now(),
+    });
+  } catch (error) {
+    recordEventStoreFailure(context.failureState, error);
+  }
+}
+
 function createParseBudget(maxParallelFileParsing: number): RunWithParseBudget {
   const safeMaxParallelFileParsing =
     Number.isFinite(maxParallelFileParsing) && maxParallelFileParsing > 0
@@ -174,6 +262,7 @@ export async function parseAdapterEvents(
   runWithParseBudget: RunWithParseBudget = async <T>(task: () => Promise<T>) => task(),
   parseFileCache?: ParseFileCache,
   runtimeProfile?: RuntimeProfileCollector,
+  eventStore?: EventStoreParseContext,
 ): Promise<AdapterParseResult> {
   const files = await adapter.discoverFiles();
 
@@ -211,16 +300,16 @@ export async function parseAdapterEvents(
           let fileFingerprint: { dependencies: ParseDependencyFingerprint[] } | undefined;
           let parseFileDiagnostics: SourceParseFileDiagnostics | undefined;
 
-          if (parseFileCache) {
+          if (parseFileCache || eventStore) {
             fileFingerprint = await getParseFileFingerprint(adapter, filePath);
+          }
 
-            if (fileFingerprint) {
-              parseFileDiagnostics = parseFileCache.get(adapter.id, filePath, fileFingerprint);
-              runtimeProfile?.recordParseCacheResult(
-                adapter.id,
-                parseFileDiagnostics ? 'hit' : 'miss',
-              );
-            }
+          if (parseFileCache && fileFingerprint) {
+            parseFileDiagnostics = parseFileCache.get(adapter.id, filePath, fileFingerprint);
+            runtimeProfile?.recordParseCacheResult(
+              adapter.id,
+              parseFileDiagnostics ? 'hit' : 'miss',
+            );
           }
 
           if (!parseFileDiagnostics) {
@@ -232,17 +321,28 @@ export async function parseAdapterEvents(
             }
           }
 
-          parsedByFile[fileIndex] = parseFileDiagnostics.events;
-          skippedRowsByFile[fileIndex] = normalizeSkippedRowsCount(
-            parseFileDiagnostics.skippedRows,
-          );
-          for (const reasonStat of normalizeSkippedRowReasons(
+          const skippedRows = normalizeSkippedRowsCount(parseFileDiagnostics.skippedRows);
+          const normalizedSkippedRowReasons = normalizeSkippedRowReasons(
             parseFileDiagnostics.skippedRowReasons,
-          )) {
+          );
+
+          parsedByFile[fileIndex] = parseFileDiagnostics.events;
+          skippedRowsByFile[fileIndex] = skippedRows;
+          for (const reasonStat of normalizedSkippedRowReasons) {
             skippedRowReasons.set(
               reasonStat.reason,
               (skippedRowReasons.get(reasonStat.reason) ?? 0) + reasonStat.count,
             );
+          }
+          if (eventStore && fileFingerprint) {
+            writeParsedFileToEventStore(eventStore, {
+              source: adapter.id,
+              filePath,
+              fingerprint: fileFingerprint,
+              events: parseFileDiagnostics.events,
+              skippedRows,
+              skippedRowReasons: normalizedSkippedRowReasons,
+            });
           }
         } catch (error) {
           failedFiles += 1;
@@ -298,6 +398,8 @@ export async function parseSelectedAdapters(
 ): Promise<ParsedAdaptersResult> {
   const runWithParseBudget = createParseBudget(maxParallelFileParsing);
   const parseCacheBySource = new Map<string, ParseFileCache>();
+  const eventStoreFailureState: EventStoreFailureState = { disabled: false };
+  let eventStoreContext: EventStoreParseContext | undefined;
 
   if (options.parseCache?.enabled) {
     const parseCacheLimits = {
@@ -322,31 +424,62 @@ export async function parseSelectedAdapters(
     );
   }
 
-  const parseResults = await Promise.allSettled(
-    adaptersToParse.map((adapter) =>
-      options.runtimeProfile
-        ? options.runtimeProfile.measure(`parse.adapter.${adapter.id}`, () =>
-            parseAdapterEvents(
+  if (options.eventStore?.enabled) {
+    try {
+      const openEventStore = options.eventStoreDeps?.openEventStore ?? openDefaultEventStore;
+      eventStoreContext = {
+        store: await openEventStore(options.eventStore.path),
+        getFileEntry: options.eventStoreDeps?.getFileEntry ?? getDefaultEventStoreFileEntry,
+        replaceFileEvents: options.eventStoreDeps?.replaceFileEvents ?? replaceDefaultFileEvents,
+        now: options.now ?? Date.now,
+        failureState: eventStoreFailureState,
+      };
+    } catch (error) {
+      recordEventStoreFailure(eventStoreFailureState, error);
+    }
+  }
+
+  let parseResults: Array<PromiseSettledResult<AdapterParseResult>>;
+
+  try {
+    parseResults = await Promise.allSettled(
+      adaptersToParse.map((adapter) =>
+        options.runtimeProfile
+          ? options.runtimeProfile.measure(`parse.adapter.${adapter.id}`, () =>
+              parseAdapterEvents(
+                adapter,
+                maxParallelFileParsing,
+                runWithParseBudget,
+                parseCacheBySource.get(adapter.id.toLowerCase()),
+                options.runtimeProfile,
+                eventStoreContext,
+              ),
+            )
+          : parseAdapterEvents(
               adapter,
               maxParallelFileParsing,
               runWithParseBudget,
               parseCacheBySource.get(adapter.id.toLowerCase()),
-              options.runtimeProfile,
+              undefined,
+              eventStoreContext,
             ),
-          )
-        : parseAdapterEvents(
-            adapter,
-            maxParallelFileParsing,
-            runWithParseBudget,
-            parseCacheBySource.get(adapter.id.toLowerCase()),
-          ),
-    ),
-  );
-
-  if (parseCacheBySource.size > 0) {
-    await Promise.allSettled(
-      [...parseCacheBySource.values()].map(async (parseCache) => parseCache.persist()),
+      ),
     );
+
+    if (parseCacheBySource.size > 0) {
+      await Promise.allSettled(
+        [...parseCacheBySource.values()].map(async (parseCache) => parseCache.persist()),
+      );
+    }
+  } finally {
+    if (eventStoreContext) {
+      try {
+        const closeEventStore = options.eventStoreDeps?.closeEventStore ?? closeDefaultEventStore;
+        closeEventStore(eventStoreContext.store);
+      } catch (error) {
+        recordEventStoreFailure(eventStoreFailureState, error);
+      }
+    }
   }
 
   const sourceFailures: UsageSourceFailure[] = [];
@@ -366,6 +499,7 @@ export async function parseSelectedAdapters(
   return {
     successfulParseResults,
     sourceFailures,
+    warnings: eventStoreFailureState.warning ? [eventStoreFailureState.warning] : [],
   };
 }
 

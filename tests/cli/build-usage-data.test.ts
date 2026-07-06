@@ -125,6 +125,7 @@ function withDeterministicRuntimeDeps() {
       parseCacheMaxBytes: 64 * 1024 * 1024,
     }),
     getPricingFetcherRuntimeConfig: () => ({ cacheTtlMs: 1_000, fetchTimeoutMs: 1_000 }),
+    getEventStoreRuntimeConfig: () => ({ enabled: false, path: '/tmp/events.db' }),
     getActiveEnvVarOverrides: () => [],
   };
 }
@@ -327,6 +328,7 @@ describe('build-usage-data helper modules', () => {
       ],
       sourceFailures: [{ source: 'pi', reason: 'pi parse failed' }],
       pricingOrigin: 'none',
+      warnings: ['Event store disabled after failure: database locked'],
       activeEnvOverrides: [],
       timezone: 'UTC',
     });
@@ -345,6 +347,7 @@ describe('build-usage-data helper modules', () => {
         },
       ],
       pricingOrigin: 'none',
+      warnings: ['Event store disabled after failure: database locked'],
       timezone: 'UTC',
     });
   });

@@ -1,3 +1,5 @@
+import { getDefaultEventStorePath } from '../persistence/event-store.js';
+
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -11,6 +13,7 @@ const PARSE_CACHE_ENABLED_DEFAULT = true;
 const PARSE_CACHE_TTL_DEFAULT_MS = 7 * DAY_MS;
 const PARSE_CACHE_MAX_ENTRIES_DEFAULT = 2_000;
 const PARSE_CACHE_MAX_BYTES_DEFAULT = 32 * 1024 * 1024;
+const EVENT_STORE_ENABLED_DEFAULT = false;
 
 function resolveBoundedEnvInteger(
   envValue: string | undefined,
@@ -87,6 +90,11 @@ export type ParsingRuntimeConfig = {
   parseCacheMaxBytes: number;
 };
 
+export type EventStoreRuntimeConfig = {
+  enabled: boolean;
+  path: string;
+};
+
 export function getUpdateNotifierRuntimeConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): UpdateNotifierRuntimeConfig {
@@ -149,5 +157,20 @@ export function getParsingRuntimeConfig(
       min: 1024 * 1024,
       max: 512 * 1024 * 1024,
     }),
+  };
+}
+
+export function getEventStoreRuntimeConfig(
+  env: NodeJS.ProcessEnv = process.env,
+): EventStoreRuntimeConfig {
+  const eventStorePathOverride = env.LLM_USAGE_EVENT_STORE_PATH?.trim();
+  const eventStorePath =
+    eventStorePathOverride === undefined || eventStorePathOverride.length === 0
+      ? getDefaultEventStorePath()
+      : eventStorePathOverride;
+
+  return {
+    enabled: resolveEnvBoolean(env.LLM_USAGE_EVENT_STORE, EVENT_STORE_ENABLED_DEFAULT),
+    path: eventStorePath,
   };
 }

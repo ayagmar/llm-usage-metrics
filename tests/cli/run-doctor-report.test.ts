@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   buildDoctorResults,
@@ -10,12 +10,20 @@ import {
   type DoctorSourceResult,
 } from '../../src/cli/run-doctor-report.js';
 import type { DoctorCommandOptions } from '../../src/cli/usage-data-contracts.js';
+import type { EventStore } from '../../src/persistence/event-store.js';
 
 const tempDirs: string[] = [];
+
+beforeEach(() => {
+  delete process.env.LLM_USAGE_EVENT_STORE;
+  delete process.env.LLM_USAGE_EVENT_STORE_PATH;
+});
 
 afterEach(async () => {
   await Promise.all(tempDirs.map((tempDir) => rm(tempDir, { recursive: true, force: true })));
   tempDirs.length = 0;
+  delete process.env.LLM_USAGE_EVENT_STORE;
+  delete process.env.LLM_USAGE_EVENT_STORE_PATH;
   vi.restoreAllMocks();
 });
 
@@ -173,6 +181,128 @@ describe('run-doctor-report', () => {
     await expect(buildDoctorResults({ source: 'unknown' })).rejects.toThrow(
       'Unknown --source value(s): unknown. Allowed values:',
     );
+  });
+
+  it('omits the event store doctor row when the runtime flag is disabled', async () => {
+    const options = await createDoctorFixtureOptions();
+
+    const results = await buildDoctorResults(
+      {
+        ...options,
+        source: 'pi',
+      },
+      {
+        getEventStoreRuntimeConfig: () => ({
+          enabled: false,
+          path: '/tmp/events.db',
+        }),
+      },
+    );
+
+    expect(results).toEqual([{ id: 'pi', status: 'ok', itemsFound: 1 }]);
+  });
+
+  it('reports an enabled event store that has not been created yet as healthy', async () => {
+    const options = await createDoctorFixtureOptions();
+    const eventStorePath = path.join(os.tmpdir(), `missing-events-${Date.now()}.db`);
+
+    const results = await buildDoctorResults(
+      {
+        ...options,
+        source: 'pi',
+      },
+      {
+        getEventStoreRuntimeConfig: () => ({
+          enabled: true,
+          path: eventStorePath,
+        }),
+      },
+    );
+
+    expect(results).toEqual([
+      { id: 'pi', status: 'ok', itemsFound: 1 },
+      {
+        id: 'event-store',
+        status: 'ok',
+        itemsFound: 0,
+        detail: 'not yet created',
+      },
+    ]);
+  });
+
+  it('counts events for an existing enabled event store', async () => {
+    const options = await createDoctorFixtureOptions();
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-event-store-'));
+    tempDirs.push(rootDir);
+
+    const eventStorePath = path.join(rootDir, 'events.db');
+    await writeFile(eventStorePath, '', 'utf8');
+
+    const store = { filePath: eventStorePath } as unknown as EventStore;
+    const openEventStore = vi.fn(async () => store);
+    const closeEventStore = vi.fn();
+
+    const results = await buildDoctorResults(
+      {
+        ...options,
+        source: 'pi',
+      },
+      {
+        getEventStoreRuntimeConfig: () => ({
+          enabled: true,
+          path: eventStorePath,
+        }),
+        openEventStore,
+        closeEventStore,
+        countEvents: () => 42,
+      },
+    );
+
+    expect(openEventStore).toHaveBeenCalledWith(eventStorePath);
+    expect(closeEventStore).toHaveBeenCalledWith(store);
+    expect(results).toEqual([
+      { id: 'pi', status: 'ok', itemsFound: 1 },
+      {
+        id: 'event-store',
+        status: 'ok',
+        itemsFound: 42,
+        detail: '42 event(s)',
+      },
+    ]);
+  });
+
+  it('reports an enabled event store open failure as an error', async () => {
+    const options = await createDoctorFixtureOptions();
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-event-store-error-'));
+    tempDirs.push(rootDir);
+
+    const eventStorePath = path.join(rootDir, 'events.db');
+    await writeFile(eventStorePath, '', 'utf8');
+
+    const results = await buildDoctorResults(
+      {
+        ...options,
+        source: 'pi',
+      },
+      {
+        getEventStoreRuntimeConfig: () => ({
+          enabled: true,
+          path: eventStorePath,
+        }),
+        openEventStore: async () => {
+          throw new Error('sqlite unavailable');
+        },
+      },
+    );
+
+    expect(results).toEqual([
+      { id: 'pi', status: 'ok', itemsFound: 1 },
+      {
+        id: 'event-store',
+        status: 'error',
+        error: 'sqlite unavailable',
+      },
+    ]);
   });
 
   it('prints plain text output to stdout', async () => {

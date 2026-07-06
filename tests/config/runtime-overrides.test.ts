@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  getEventStoreRuntimeConfig,
   getParsingRuntimeConfig,
   getPricingFetcherRuntimeConfig,
   getUpdateNotifierRuntimeConfig,
 } from '../../src/config/runtime-overrides.js';
+import { getDefaultEventStorePath } from '../../src/persistence/event-store.js';
 
 describe('runtime overrides', () => {
   it('uses defaults when env vars are missing', () => {
@@ -25,6 +27,10 @@ describe('runtime overrides', () => {
       parseCacheMaxEntries: 2_000,
       parseCacheMaxBytes: 32 * 1024 * 1024,
     });
+    expect(getEventStoreRuntimeConfig(env)).toEqual({
+      enabled: false,
+      path: getDefaultEventStorePath(),
+    });
   });
 
   it('reads valid numeric overrides from env', () => {
@@ -38,6 +44,8 @@ describe('runtime overrides', () => {
       LLM_USAGE_PARSE_CACHE_TTL_MS: '7200000',
       LLM_USAGE_PARSE_CACHE_MAX_ENTRIES: '2500',
       LLM_USAGE_PARSE_CACHE_MAX_BYTES: '33554432',
+      LLM_USAGE_EVENT_STORE: 'true',
+      LLM_USAGE_EVENT_STORE_PATH: '/tmp/custom-events.db',
     };
 
     expect(getUpdateNotifierRuntimeConfig(env)).toEqual({
@@ -54,6 +62,10 @@ describe('runtime overrides', () => {
       parseCacheTtlMs: 7_200_000,
       parseCacheMaxEntries: 2_500,
       parseCacheMaxBytes: 33_554_432,
+    });
+    expect(getEventStoreRuntimeConfig(env)).toEqual({
+      enabled: true,
+      path: '/tmp/custom-events.db',
     });
   });
 

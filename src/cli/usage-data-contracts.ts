@@ -1,5 +1,6 @@
 import type { EnvVarOverride } from '../config/env-var-display.js';
 import type {
+  EventStoreRuntimeConfig,
   ParsingRuntimeConfig,
   PricingFetcherRuntimeConfig,
 } from '../config/runtime-overrides.js';
@@ -130,6 +131,7 @@ export type UsageDiagnostics = {
   skippedRows: UsageSkippedRowsStat[];
   pricingOrigin: UsagePricingOrigin;
   pricingWarning?: string;
+  warnings?: string[];
   activeEnvOverrides: EnvVarOverride[];
   timezone: string;
   runtimeProfile?: RuntimeProfileSnapshot;
@@ -210,6 +212,7 @@ export type PricingLoadResult = {
 export type BuildUsageDataDeps = {
   getParsingRuntimeConfig?: () => ParsingRuntimeConfig;
   getPricingFetcherRuntimeConfig?: () => PricingFetcherRuntimeConfig;
+  getEventStoreRuntimeConfig?: () => EventStoreRuntimeConfig;
   createAdapters?: (options: ReportCommandOptions) => SourceAdapter[];
   resolvePricingSource?: (
     options: ReportCommandOptions,

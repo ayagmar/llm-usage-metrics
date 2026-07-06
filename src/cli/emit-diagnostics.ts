@@ -78,4 +78,8 @@ export function emitDiagnostics(
   if (diagnostics.pricingWarning) {
     diagnosticsLogger.warn(diagnostics.pricingWarning);
   }
+
+  for (const warning of diagnostics.warnings ?? []) {
+    diagnosticsLogger.warn(warning);
+  }
 }
