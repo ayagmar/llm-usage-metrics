@@ -5,8 +5,17 @@ export type SessionRow = UsageTotals & {
   rowType: 'session';
   source: SourceId;
   sessionId: string;
+  repoRoot?: string;
   firstActivity: string;
   lastActivity: string;
   eventCount: number;
   models: string[];
+};
+
+export type SessionRepoRow = UsageTotals & {
+  rowType: 'repo';
+  repoRoot?: string;
+  sessionCount: number;
+  lastActivity: string;
+  sources: string[];
 };

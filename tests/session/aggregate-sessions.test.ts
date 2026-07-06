@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import { createUsageEvent, type UsageEventInput } from '../../src/domain/usage-event.js';
-import { aggregateSessions } from '../../src/session/aggregate-sessions.js';
+import {
+  aggregateSessions,
+  aggregateSessionsByRepo,
+} from '../../src/session/aggregate-sessions.js';
 
 function event(input: UsageEventInput) {
   return createUsageEvent(input);
@@ -223,6 +226,231 @@ describe('aggregateSessions', () => {
       eventCount: 1,
       inputTokens: 10,
       costUsd: 0.1,
+    });
+  });
+
+  it('attributes the first seen repo root to the session row', () => {
+    const rows = aggregateSessions([
+      event({
+        source: 'codex',
+        sessionId: 'with-repo',
+        timestamp: '2026-01-02T10:00:00.000Z',
+        inputTokens: 1,
+        costUsd: 2,
+      }),
+      event({
+        source: 'codex',
+        sessionId: 'with-repo',
+        timestamp: '2026-01-02T10:01:00.000Z',
+        inputTokens: 1,
+        costUsd: 2,
+        repoRoot: '/home/user/project-a',
+      }),
+      event({
+        source: 'codex',
+        sessionId: 'with-repo',
+        timestamp: '2026-01-02T10:02:00.000Z',
+        inputTokens: 1,
+        costUsd: 2,
+        repoRoot: '/home/user/project-b',
+      }),
+      event({
+        source: 'codex',
+        sessionId: 'without-repo',
+        timestamp: '2026-01-02T10:03:00.000Z',
+        inputTokens: 1,
+        costUsd: 1,
+      }),
+    ]);
+
+    expect(rows.find((row) => row.sessionId === 'with-repo')?.repoRoot).toBe(
+      '/home/user/project-a',
+    );
+    expect(rows.find((row) => row.sessionId === 'without-repo')?.repoRoot).toBeUndefined();
+  });
+
+  it('filters sessions by case-insensitive id substrings before grouping', () => {
+    const events = [
+      event({
+        source: 'codex',
+        sessionId: 'Alpha-Session-486C',
+        timestamp: '2026-01-02T10:00:00.000Z',
+        inputTokens: 1,
+        costUsd: 1,
+      }),
+      event({
+        source: 'codex',
+        sessionId: 'beta-session',
+        timestamp: '2026-01-02T10:01:00.000Z',
+        inputTokens: 1,
+        costUsd: 2,
+      }),
+      event({
+        source: 'codex',
+        sessionId: 'gamma',
+        timestamp: '2026-01-02T10:02:00.000Z',
+        inputTokens: 1,
+        costUsd: 3,
+      }),
+    ];
+
+    expect(aggregateSessions(events, { ids: ['486c'] }).map((row) => row.sessionId)).toEqual([
+      'Alpha-Session-486C',
+    ]);
+    expect(
+      aggregateSessions(events, { ids: ['486C', 'BETA'] }).map((row) => row.sessionId),
+    ).toEqual(['beta-session', 'Alpha-Session-486C']);
+    expect(aggregateSessions(events, { ids: ['no-such-id'] })).toEqual([]);
+  });
+});
+
+describe('aggregateSessionsByRepo', () => {
+  it('groups events by repo root with a no-repo bucket and distinct session counts', () => {
+    const rows = aggregateSessionsByRepo([
+      event({
+        source: 'codex',
+        sessionId: 'shared-id',
+        timestamp: '2026-01-02T10:00:00.000Z',
+        model: 'gpt-5',
+        inputTokens: 10,
+        outputTokens: 5,
+        costUsd: 0.5,
+        repoRoot: '/home/user/project-a',
+      }),
+      event({
+        source: 'pi',
+        sessionId: 'shared-id',
+        timestamp: '2026-01-02T11:00:00.000Z',
+        inputTokens: 20,
+        outputTokens: 10,
+        costUsd: 0.25,
+        repoRoot: '/home/user/project-a',
+      }),
+      event({
+        source: 'pi',
+        sessionId: 'shared-id',
+        timestamp: '2026-01-02T12:00:00.000Z',
+        inputTokens: 5,
+        outputTokens: 5,
+        costUsd: 0.25,
+        repoRoot: '/home/user/project-a',
+      }),
+      event({
+        source: 'claude',
+        sessionId: 'orphan',
+        timestamp: '2026-01-02T09:00:00.000Z',
+        inputTokens: 3,
+        outputTokens: 1,
+      }),
+    ]);
+
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({
+      rowType: 'repo',
+      repoRoot: '/home/user/project-a',
+      sessionCount: 2,
+      lastActivity: '2026-01-02T12:00:00.000Z',
+      sources: ['codex', 'pi'],
+      inputTokens: 35,
+      outputTokens: 20,
+      totalTokens: 55,
+      costUsd: 1,
+    });
+    expect(rows[1]).toMatchObject({
+      rowType: 'repo',
+      repoRoot: undefined,
+      sessionCount: 1,
+      sources: ['claude'],
+      costUsd: undefined,
+      costIncomplete: true,
+    });
+  });
+
+  it('sorts repo rows by cost desc, undefined cost last, activity desc, then repo path', () => {
+    const rows = aggregateSessionsByRepo([
+      event({
+        source: 'codex',
+        sessionId: 'a',
+        timestamp: '2026-01-02T10:00:00.000Z',
+        inputTokens: 1,
+        costUsd: 1,
+        repoRoot: '/repo/cheap',
+      }),
+      event({
+        source: 'codex',
+        sessionId: 'b',
+        timestamp: '2026-01-02T10:00:00.000Z',
+        inputTokens: 1,
+        costUsd: 2,
+        repoRoot: '/repo/tie-b',
+      }),
+      event({
+        source: 'codex',
+        sessionId: 'c',
+        timestamp: '2026-01-02T10:00:00.000Z',
+        inputTokens: 1,
+        costUsd: 2,
+        repoRoot: '/repo/tie-a',
+      }),
+      event({
+        source: 'codex',
+        sessionId: 'd',
+        timestamp: '2026-01-02T11:00:00.000Z',
+        inputTokens: 1,
+        costUsd: 2,
+        repoRoot: '/repo/newer',
+      }),
+      event({
+        source: 'codex',
+        sessionId: 'e',
+        timestamp: '2026-01-02T12:00:00.000Z',
+        inputTokens: 1,
+        repoRoot: '/repo/unpriced',
+      }),
+    ]);
+
+    expect(rows.map((row) => row.repoRoot)).toEqual([
+      '/repo/newer',
+      '/repo/tie-a',
+      '/repo/tie-b',
+      '/repo/cheap',
+      '/repo/unpriced',
+    ]);
+  });
+
+  it('filters events by local date before repo grouping', () => {
+    const rows = aggregateSessionsByRepo(
+      [
+        event({
+          source: 'codex',
+          sessionId: 'in-range',
+          timestamp: '2026-01-02T10:00:00.000Z',
+          inputTokens: 10,
+          costUsd: 1,
+          repoRoot: '/repo/kept',
+        }),
+        event({
+          source: 'codex',
+          sessionId: 'out-of-range',
+          timestamp: '2026-01-03T10:00:00.000Z',
+          inputTokens: 100,
+          costUsd: 5,
+          repoRoot: '/repo/dropped',
+        }),
+      ],
+      {
+        timezone: 'UTC',
+        since: '2026-01-02',
+        until: '2026-01-02',
+      },
+    );
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      repoRoot: '/repo/kept',
+      sessionCount: 1,
+      inputTokens: 10,
+      costUsd: 1,
     });
   });
 });
