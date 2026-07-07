@@ -320,4 +320,13 @@ describe('runEfficiencyReport', () => {
       }),
     ).rejects.toThrow('--share is only supported for efficiency monthly');
   });
+
+  it('rejects --share with --by-source', async () => {
+    await expect(
+      buildEfficiencyReport('monthly', {
+        share: true,
+        bySource: true,
+      }),
+    ).rejects.toThrow('--share cannot be combined with --by-source');
+  });
 });

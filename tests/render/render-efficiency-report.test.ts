@@ -117,6 +117,44 @@ function createEfficiencyDataResult(
   };
 }
 
+function createBySourceEfficiencyDataResult(): EfficiencyDataResult {
+  const data = createEfficiencyDataResult();
+
+  return {
+    ...data,
+    grouping: 'source',
+    rows: [
+      {
+        rowType: 'period_source',
+        periodKey: '2026-02-10',
+        source: 'codex',
+        inputTokens: 60,
+        outputTokens: 10,
+        reasoningTokens: 5,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 75,
+        costUsd: 1.5,
+        costShare: 0.6,
+      },
+      {
+        rowType: 'period_source',
+        periodKey: '2026-02-10',
+        source: 'pi',
+        inputTokens: 40,
+        outputTokens: 10,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 50,
+        costUsd: 1,
+        costShare: 0.4,
+      },
+      ...data.rows,
+    ],
+  };
+}
+
 describe('renderEfficiencyReport', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -138,6 +176,20 @@ describe('renderEfficiencyReport', () => {
     expect(output).toContain('| 2026-02-10');
     expect(output).toContain('| ALL');
     expect(output).toContain('|         - |');
+  });
+
+  it('renders markdown by-source rows with usage cells and undefined outcome cells', () => {
+    const output = renderEfficiencyReport(createBySourceEfficiencyDataResult(), 'markdown', {
+      granularity: 'daily',
+    });
+
+    expect(output).toContain('|   codex');
+    expect(output).toMatch(/\|\s+pi\s+\|/u);
+    expect(output).toMatch(
+      /\|\s+codex\s+\|\s+-\s+\|\s+-\s+\|\s+-\s+\|\s+-\s+\|\s+60\s+\|\s+10\s+\|\s+5\s+\|/u,
+    );
+    expect(output).toContain('| 2026-02-10');
+    expect(output).toContain('| ALL');
   });
 
   it('escapes markdown and HTML syntax in markdown efficiency cells', () => {
@@ -168,6 +220,22 @@ describe('renderEfficiencyReport', () => {
 
     expect(output).toContain('Weekly Efficiency Report');
     expect(output).toContain('│ Period');
+    expect(output).toContain('│ ALL');
+  });
+
+  it('renders terminal by-source rows under the period subtotal', () => {
+    const output = renderEfficiencyReport(createBySourceEfficiencyDataResult(), 'terminal', {
+      granularity: 'monthly',
+      useColor: false,
+    });
+
+    expect(output).toContain('Monthly Efficiency Report');
+    expect(output).toContain('│   codex');
+    expect(output).toMatch(/│\s+pi\s+│/u);
+    expect(output).toMatch(
+      /│\s+codex\s+│\s+-\s+│\s+-\s+│\s+-\s+│\s+-\s+│\s+60\s+│\s+10\s+│\s+5\s+│/u,
+    );
+    expect(output).toContain('│ 2026-02-10');
     expect(output).toContain('│ ALL');
   });
 
@@ -256,5 +324,25 @@ describe('renderEfficiencyReport', () => {
 
     expect(parsed[0]?.commitsPerUsd).toBeUndefined();
     expect(parsed[1]?.tokensPerCommit).toBe(62.5);
+  });
+
+  it('renders by-source json with grouping metadata', () => {
+    const output = renderEfficiencyReport(createBySourceEfficiencyDataResult(), 'json', {
+      granularity: 'monthly',
+    });
+
+    const parsed = JSON.parse(output) as {
+      grouping?: unknown;
+      rows?: Array<Record<string, unknown>>;
+    };
+
+    expect(parsed.grouping).toBe('source');
+    expect(parsed.rows?.[0]).toMatchObject({
+      rowType: 'period_source',
+      periodKey: '2026-02-10',
+      source: 'codex',
+      totalTokens: 75,
+      costShare: 0.6,
+    });
   });
 });

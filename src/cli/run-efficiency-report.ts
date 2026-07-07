@@ -29,6 +29,10 @@ function validateShareOption(
   if (granularity !== 'monthly') {
     throw new Error('--share is only supported for efficiency monthly');
   }
+
+  if (options.bySource) {
+    throw new Error('--share cannot be combined with --by-source');
+  }
 }
 
 async function prepareEfficiencyReport(

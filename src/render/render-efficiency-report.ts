@@ -32,7 +32,7 @@ const linesChangedColumnIndex = 4;
 const costColumnIndex = 11;
 const usdPerCommitColumnIndex = 12;
 const usdPer1kLinesChangedColumnIndex = 13;
-const commitsPerUsdColumnIndex = 16;
+const commitsPerUsdColumnIndex = 15;
 
 type FittedEfficiencyTableCells = {
   headerCells: string[];
@@ -347,6 +347,17 @@ export function renderEfficiencyReport(
 ): string {
   switch (format) {
     case 'json':
+      if (efficiencyData.grouping === 'source') {
+        return JSON.stringify(
+          {
+            grouping: efficiencyData.grouping,
+            rows: efficiencyData.rows,
+          },
+          null,
+          2,
+        );
+      }
+
       return JSON.stringify(efficiencyData.rows, null, 2);
     case 'markdown':
       return renderMarkdownEfficiencyTable(efficiencyData.rows);
