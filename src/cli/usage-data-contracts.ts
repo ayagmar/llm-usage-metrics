@@ -77,6 +77,11 @@ export type SessionCommandOptions = Omit<ReportCommandOptions, 'perModelColumns'
   byRepo?: boolean;
 };
 
+export type CompareCommandOptions = Omit<ReportCommandOptions, 'perModelColumns' | 'share'> & {
+  vsSince?: string;
+  vsUntil?: string;
+};
+
 export type WrappedCommandOptions = Omit<
   ReportCommandOptions,
   'markdown' | 'perModelColumns' | 'provider' | 'model' | 'since' | 'until'
@@ -205,6 +210,73 @@ export type SessionDataResult =
       diagnostics: UsageDiagnostics;
     };
 
+export type CompareWindowRange = {
+  since: string;
+  until: string;
+  label: string;
+};
+
+export type CompareWindowTotals = {
+  inputTokens: number;
+  outputTokens: number;
+  reasoningTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  totalTokens: number;
+  costUsd?: number;
+  costIncomplete?: boolean;
+  events: number;
+  activeDays: number;
+};
+
+export type CompareMetricKey =
+  | 'inputTokens'
+  | 'outputTokens'
+  | 'reasoningTokens'
+  | 'cacheReadTokens'
+  | 'cacheWriteTokens'
+  | 'totalTokens'
+  | 'costUsd'
+  | 'events'
+  | 'activeDays';
+
+export type CompareMetricRow = {
+  key: CompareMetricKey;
+  label: string;
+  valueType: 'integer' | 'usd';
+  current: number | undefined;
+  baseline: number | undefined;
+  delta: number | undefined;
+  deltaPercent: number | undefined;
+  currentCostIncomplete?: boolean;
+  baselineCostIncomplete?: boolean;
+  deltaCostIncomplete?: boolean;
+};
+
+export type CompareMetricDeltaPercent = Partial<Record<CompareMetricKey, number | undefined>>;
+
+export type CompareSourceRow = {
+  source: string;
+  current: CompareWindowTotals;
+  baseline: CompareWindowTotals;
+  delta: CompareWindowTotals;
+  deltaPercent: CompareMetricDeltaPercent;
+};
+
+export type CompareDataResult = {
+  current: {
+    window: CompareWindowRange;
+    totals: CompareWindowTotals;
+  };
+  baseline: {
+    window: CompareWindowRange;
+    totals: CompareWindowTotals;
+  };
+  totals: CompareMetricRow[];
+  sources: CompareSourceRow[];
+  diagnostics: UsageDiagnostics;
+};
+
 export type WrappedDataResult = {
   recap: WrappedRecap;
   diagnostics: UsageDiagnostics;
@@ -236,5 +308,9 @@ export type BuildTrendsDataDeps = BuildUsageDataDeps & {
 export type BuildSessionDataDeps = BuildUsageDataDeps;
 
 export type BuildWrappedDataDeps = BuildUsageDataDeps & {
+  now?: () => Date;
+};
+
+export type BuildCompareDataDeps = BuildUsageDataDeps & {
   now?: () => Date;
 };

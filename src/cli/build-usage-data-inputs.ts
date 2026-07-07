@@ -21,7 +21,7 @@ export type NormalizedBuildUsageInputs = {
   pricingUrl: string | undefined;
 };
 
-export function validateDateInput(value: string, flagName: '--since' | '--until'): void {
+export function validateDateInput(value: string, flagName: string): void {
   if (!/^\d{4}-\d{2}-\d{2}$/u.test(value)) {
     throw new Error(`${flagName} must use format YYYY-MM-DD`);
   }
