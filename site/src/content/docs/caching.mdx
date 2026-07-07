@@ -17,7 +17,7 @@ description: Why caching exists, how each cache works, and how to tune it.
 | --- | --- | --- | --- |
 | update-check cache | avoids querying npm on every startup | 1 hour | `<platform-cache-root>/llm-usage-metrics/update-check.json` |
 | pricing cache | stores normalized LiteLLM pricing data | 24 hours | `<platform-cache-root>/llm-usage-metrics/litellm-pricing-cache.json` |
-| event store | stores parsed file diagnostics/events keyed by file fingerprint | no TTL | `<platform-cache-root>/llm-usage-metrics/events.db` |
+| event store | stores parsed file diagnostics/events and retained departed-file history | no TTL | `<platform-cache-root>/llm-usage-metrics/events.db` |
 
 On Linux with no `XDG_CACHE_HOME`, `<platform-cache-root>` defaults to `~/.cache`.
 
@@ -61,7 +61,10 @@ Relevant options/env:
 - stores parse diagnostics and normalized events
 - dependency fingerprints include the primary file and any adapter-declared sidecar inputs
 - persisted as SQLite with per-file replace-on-change writes
-- delete the database file to force a full rebuild on the next run
+- `--history` includes usage from files that no longer exist on disk
+- moved, renamed, and copied files are suppressed by content hash to avoid double counting
+- first run after a store schema upgrade migrates the database in place and may take a few seconds
+- deleting the database file deletes retained local history and starts a new ledger on the next run
 - older JSON shards from pre-store versions are no longer read and can be deleted manually
 
 Relevant env vars:
@@ -93,5 +96,5 @@ LLM_USAGE_PRICING_CACHE_TTL_MS=7200000 llm-usage monthly
 ## Troubleshooting cache behavior
 
 - When pricing fails in offline mode, run once without `--pricing-offline` to warm the cache.
-- For stale reports after source file changes, verify source files updated `mtime` and delete `<platform-cache-root>/llm-usage-metrics/events.db` to rebuild from scratch.
+- For stale reports after source file changes, verify source files updated `mtime`. Deleting `<platform-cache-root>/llm-usage-metrics/events.db` starts a fresh ledger, but it also deletes retained history used by `--history`.
 - To force update checks every run, set `LLM_USAGE_UPDATE_CACHE_TTL_MS=0`.

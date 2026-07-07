@@ -6,7 +6,9 @@ import {
 } from '../config/runtime-overrides.js';
 import {
   EVENT_STORE_SCHEMA_VERSION,
+  readEventStoreStoredFiles as readDefaultEventStoreStoredFiles,
   readEventStoreSummary as readDefaultEventStoreSummary,
+  type EventStoreStoredFile,
   type EventStoreSummary,
 } from '../persistence/event-store.js';
 import { createDefaultAdapters, getDefaultSourceIds } from '../sources/create-default-adapters.js';
@@ -24,8 +26,11 @@ export type DoctorSourceResult = {
 
 type DoctorDeps = {
   getEventStoreRuntimeConfig?: () => EventStoreRuntimeConfig;
+  readEventStoreStoredFiles?: (filePath: string) => Promise<EventStoreStoredFile[]>;
   readEventStoreSummary?: (filePath: string) => Promise<EventStoreSummary>;
 };
+
+type DiscoveredFilesBySource = Map<string, Set<string>>;
 
 function getErrorReason(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -55,10 +60,12 @@ export async function buildDoctorResults(
 ): Promise<DoctorSourceResult[]> {
   const adapters = selectDoctorAdapters(createDefaultAdapters(options), options.source);
   const results: DoctorSourceResult[] = [];
+  const discoveredFilesBySource: DiscoveredFilesBySource = new Map();
 
   for (const adapter of adapters) {
     try {
       const files = await adapter.discoverFiles();
+      discoveredFilesBySource.set(adapter.id.toLowerCase(), new Set(files));
       results.push({
         id: adapter.id,
         status: 'ok',
@@ -76,18 +83,69 @@ export async function buildDoctorResults(
   const eventStoreRuntimeConfig = (deps.getEventStoreRuntimeConfig ?? getEventStoreRuntimeConfig)();
 
   if (eventStoreRuntimeConfig.enabled) {
-    results.push(await buildEventStoreDoctorResult(eventStoreRuntimeConfig.path, deps));
+    results.push(
+      await buildEventStoreDoctorResult(
+        eventStoreRuntimeConfig.path,
+        discoveredFilesBySource,
+        deps,
+      ),
+    );
   }
 
   return results;
 }
 
+function formatByteSize(sizeBytes: number): string {
+  if (sizeBytes < 1024) {
+    return `${sizeBytes} B`;
+  }
+
+  if (sizeBytes < 1024 * 1024) {
+    return `${(sizeBytes / 1024).toFixed(1)} KiB`;
+  }
+
+  return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MiB`;
+}
+
+function isSupportedStoreSchemaVersion(schemaVersion: string | undefined): boolean {
+  return schemaVersion === '1' || schemaVersion === EVENT_STORE_SCHEMA_VERSION;
+}
+
+function getUnsupportedSchemaError(schemaVersion: string | undefined): string {
+  const versionLabel = schemaVersion ? `v${schemaVersion}` : 'unknown';
+  return `Event store schema ${versionLabel} is not supported by this llm-usage-metrics version (supports v${EVENT_STORE_SCHEMA_VERSION}); upgrade llm-usage-metrics or set LLM_USAGE_EVENT_STORE=0`;
+}
+
+function countDepartedFiles(
+  storedFiles: EventStoreStoredFile[],
+  discoveredFilesBySource: DiscoveredFilesBySource,
+): number {
+  let departedFileCount = 0;
+
+  for (const storedFile of storedFiles) {
+    const discoveredFiles = discoveredFilesBySource.get(storedFile.source.toLowerCase());
+
+    if (!discoveredFiles) {
+      continue;
+    }
+
+    if (!discoveredFiles.has(storedFile.filePath)) {
+      departedFileCount += 1;
+    }
+  }
+
+  return departedFileCount;
+}
+
 async function buildEventStoreDoctorResult(
   filePath: string,
+  discoveredFilesBySource: DiscoveredFilesBySource,
   deps: DoctorDeps,
 ): Promise<DoctorSourceResult> {
+  let fileStats: Awaited<ReturnType<typeof stat>>;
+
   try {
-    await stat(filePath);
+    fileStats = await stat(filePath);
   } catch (error) {
     if (isMissingPathError(error)) {
       return {
@@ -106,19 +164,33 @@ async function buildEventStoreDoctorResult(
   }
 
   const readEventStoreSummary = deps.readEventStoreSummary ?? readDefaultEventStoreSummary;
+  const readEventStoreStoredFiles =
+    deps.readEventStoreStoredFiles ?? readDefaultEventStoreStoredFiles;
 
   try {
     const summary = await readEventStoreSummary(filePath);
-    const isStaleSchema =
-      summary.schemaVersion !== undefined && summary.schemaVersion !== EVENT_STORE_SCHEMA_VERSION;
+
+    if (!isSupportedStoreSchemaVersion(summary.schemaVersion)) {
+      return {
+        id: 'event-store',
+        status: 'error',
+        error: getUnsupportedSchemaError(summary.schemaVersion),
+      };
+    }
+
+    const storedFiles = await readEventStoreStoredFiles(filePath);
+    const departedFileCount = countDepartedFiles(storedFiles, discoveredFilesBySource);
 
     return {
       id: 'event-store',
       status: 'ok',
       itemsFound: summary.eventCount,
-      detail: isStaleSchema
-        ? `schema v${summary.schemaVersion} (will be rebuilt on next run)`
-        : `${summary.eventCount} event(s)`,
+      detail: [
+        `${summary.eventCount} event(s)`,
+        `${departedFileCount} departed file(s)`,
+        `schema v${summary.schemaVersion ?? 'unknown'}`,
+        formatByteSize(fileStats.size),
+      ].join(', '),
     };
   } catch (error) {
     return {

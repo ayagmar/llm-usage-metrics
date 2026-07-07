@@ -14,7 +14,11 @@ import {
   closeEventStore,
   openEventStore,
   readEventStoreSummary,
+  replaceFileEvents,
+  type EventStore,
+  type EventStoreFileFingerprint,
 } from '../../src/persistence/event-store.js';
+import { createUsageEvent } from '../../src/domain/usage-event.js';
 
 const tempDirs: string[] = [];
 
@@ -108,6 +112,42 @@ async function createDoctorFixtureOptions(): Promise<DoctorCommandOptions> {
 
 function sourceById(results: DoctorSourceResult[]): Map<string, DoctorSourceResult> {
   return new Map(results.map((result) => [result.id, result]));
+}
+
+function createEvent(overrides: Partial<Parameters<typeof createUsageEvent>[0]> = {}) {
+  return createUsageEvent({
+    source: 'pi',
+    sessionId: 'session-1',
+    timestamp: '2026-02-14T10:00:00.000Z',
+    inputTokens: 1,
+    outputTokens: 2,
+    totalTokens: 3,
+    costMode: 'estimated',
+    ...overrides,
+  });
+}
+
+function createFingerprint(filePath: string): EventStoreFileFingerprint {
+  return {
+    dependencies: [{ path: filePath, exists: true, size: 10, mtimeMs: 20 }],
+  };
+}
+
+function writeStoredFile(
+  store: EventStore,
+  options: {
+    source?: string;
+    filePath: string;
+  },
+): void {
+  replaceFileEvents(store, {
+    source: options.source ?? 'pi',
+    filePath: options.filePath,
+    fingerprint: createFingerprint(options.filePath),
+    events: [createEvent({ source: options.source ?? 'pi' })],
+    skippedRows: 0,
+    now: 1_000,
+  });
 }
 
 function eventStoreDisabledDeps(): {
@@ -262,6 +302,7 @@ describe('run-doctor-report', () => {
     await writeFile(eventStorePath, '', 'utf8');
 
     const readEventStoreSummarySpy = vi.fn(async () => ({ eventCount: 42, schemaVersion: '2' }));
+    const readEventStoreStoredFilesSpy = vi.fn(async () => []);
 
     const results = await buildDoctorResults(
       {
@@ -274,22 +315,67 @@ describe('run-doctor-report', () => {
           path: eventStorePath,
         }),
         readEventStoreSummary: readEventStoreSummarySpy,
+        readEventStoreStoredFiles: readEventStoreStoredFilesSpy,
       },
     );
 
     expect(readEventStoreSummarySpy).toHaveBeenCalledWith(eventStorePath);
+    expect(readEventStoreStoredFilesSpy).toHaveBeenCalledWith(eventStorePath);
     expect(results).toEqual([
       { id: 'pi', status: 'ok', itemsFound: 1 },
       {
         id: 'event-store',
         status: 'ok',
         itemsFound: 42,
-        detail: '42 event(s)',
+        detail: '42 event(s), 0 departed file(s), schema v2, 0 B',
       },
     ]);
   });
 
-  it('reports a stale event store schema as healthy without mutating it', async () => {
+  it('counts departed files for selected sources without mutating the store', async () => {
+    const options = await createDoctorFixtureOptions();
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-event-store-departed-'));
+    tempDirs.push(rootDir);
+
+    const eventStorePath = path.join(rootDir, 'events.db');
+    const livePiFilePath = path.join(options.piDir ?? '', 'session.jsonl');
+    const store = await openEventStore(eventStorePath);
+
+    try {
+      writeStoredFile(store, { filePath: livePiFilePath });
+      writeStoredFile(store, { filePath: '/tmp/departed-pi.jsonl' });
+      writeStoredFile(store, { source: 'codex', filePath: '/tmp/departed-codex.jsonl' });
+    } finally {
+      closeEventStore(store);
+    }
+
+    const results = await buildDoctorResults(
+      {
+        ...options,
+        source: 'pi',
+      },
+      {
+        getEventStoreRuntimeConfig: () => ({
+          enabled: true,
+          path: eventStorePath,
+        }),
+      },
+    );
+    const eventStoreResult = results.find((result) => result.id === 'event-store');
+
+    expect(eventStoreResult).toMatchObject({
+      id: 'event-store',
+      status: 'ok',
+      itemsFound: 3,
+    });
+    expect(eventStoreResult?.detail).toMatch(/^3 event\(s\), 1 departed file\(s\), schema v2, .+$/);
+    await expect(readEventStoreSummary(eventStorePath)).resolves.toMatchObject({
+      eventCount: 3,
+      schemaVersion: '2',
+    });
+  });
+
+  it('reports a newer event store schema as an error without mutating it', async () => {
     const options = await createDoctorFixtureOptions();
     const rootDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-event-store-stale-'));
     tempDirs.push(rootDir);
@@ -316,12 +402,12 @@ describe('run-doctor-report', () => {
       { id: 'pi', status: 'ok', itemsFound: 1 },
       {
         id: 'event-store',
-        status: 'ok',
-        itemsFound: 0,
-        detail: 'schema v999 (will be rebuilt on next run)',
+        status: 'error',
+        error:
+          'Event store schema v999 is not supported by this llm-usage-metrics version (supports v2); upgrade llm-usage-metrics or set LLM_USAGE_EVENT_STORE=0',
       },
     ]);
-    // The doctor check must be read-only: the stale version survives it.
+    // The doctor check must be read-only: the newer version survives it.
     await expect(readEventStoreSummary(eventStorePath)).resolves.toEqual({
       eventCount: 0,
       schemaVersion: '999',

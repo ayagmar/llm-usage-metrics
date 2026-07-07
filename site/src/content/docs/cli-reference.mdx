@@ -45,6 +45,7 @@ Generated from root + command help output.
 | `--droid-dir` | - | `<path>` | Path to Droid sessions directory |
 | `--gemini-dir` | - | `<path>` | Path to .gemini directory |
 | `--goose-db` | - | `<path>` | Path to Goose SQLite DB |
+| `--history` | - | - | include usage from files that no longer exist on disk \(from the local event store\) \(daily, weekly, monthly, efficiency, optimize, trends, session, wrapped only\) |
 | `--id` | - | `<session-id>` | Show only sessions whose id contains the value \(case-insensitive; repeatable or comma-separated\) \(session only\) |
 | `--ignore-pricing-failures` | - | - | Continue without estimated costs when pricing cannot be loaded \(daily, weekly, monthly, efficiency, optimize, trends, session, wrapped only\) |
 | `--include-merge-commits` | - | - | Include merge commits in Git outcome metrics \(efficiency only\) |
@@ -87,6 +88,7 @@ llm-usage weekly --timezone Europe/Paris
 llm-usage monthly --since 2026-01-01 --until 2026-01-31
 llm-usage monthly --source opencode --opencode-db /path/to/opencode.db --json
 llm-usage monthly --source gemini --gemini-dir /path/to/.gemini
+llm-usage monthly --history --pricing-offline
 llm-usage monthly --source droid --droid-dir /path/to/.factory/sessions
 llm-usage monthly --share
 llm-usage efficiency weekly --repo-dir /path/to/repo --json

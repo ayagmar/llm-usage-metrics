@@ -89,6 +89,9 @@ See [Caching](/caching/) for cache-layer behavior details. This section explains
 | `LLM_USAGE_EVENT_STORE_PATH` | platform cache `events.db` | SQLite event-store file path | Point at an isolated store for experiments or CI |
 | `LLM_USAGE_PROFILE_RUNTIME` | unset (`false`) | Emits source pruning, event-store, parse-count, and stage-timing diagnostics on `stderr` | Enable when profiling discovery/parsing/runtime behavior locally |
 
+`--history` requires `LLM_USAGE_EVENT_STORE` to stay enabled. The store is a
+local ledger: deleting `events.db` also deletes retained departed-file history.
+
 Example:
 
 ```bash

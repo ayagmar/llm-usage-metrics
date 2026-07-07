@@ -493,6 +493,11 @@ export type EventStoreSummary = {
   schemaVersion?: string;
 };
 
+export type EventStoreStoredFile = {
+  source: string;
+  filePath: string;
+};
+
 export async function readEventStoreSummary(
   filePath: string = getDefaultEventStorePath(),
   loadSqliteModule: LoadEventStoreSqliteModule = loadEventStoreSqliteModule,
@@ -518,6 +523,46 @@ export async function readEventStoreSummary(
       eventCount: toNonNegativeInteger(countRow?.count) ?? 0,
       schemaVersion: toText(schemaVersionRow?.value),
     };
+  } finally {
+    database.close();
+  }
+}
+
+export async function readEventStoreStoredFiles(
+  filePath: string = getDefaultEventStorePath(),
+  loadSqliteModule: LoadEventStoreSqliteModule = loadEventStoreSqliteModule,
+): Promise<EventStoreStoredFile[]> {
+  const sqliteModule = await loadSqliteModule();
+
+  if (!isEventStoreSqliteModule(sqliteModule)) {
+    throw new Error('Event store requires a sqlite module with a DatabaseSync constructor');
+  }
+
+  const database = new sqliteModule.DatabaseSync(filePath, {
+    readOnly: true,
+    timeout: EVENT_STORE_OPEN_TIMEOUT_MS,
+  });
+
+  try {
+    const rows = database
+      .prepare(
+        ['SELECT source, file_path', 'FROM files', 'ORDER BY source ASC, file_path ASC'].join('\n'),
+      )
+      .all();
+    const files: EventStoreStoredFile[] = [];
+
+    for (const row of rows) {
+      const source = toText(row.source);
+      const filePath = toText(row.file_path);
+
+      if (!source || !filePath) {
+        continue;
+      }
+
+      files.push({ source, filePath });
+    }
+
+    return files;
   } finally {
     database.close();
   }

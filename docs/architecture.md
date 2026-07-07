@@ -98,6 +98,20 @@ The public entry points remain stable:
 5. `renderTrendsReport(...)`
 6. shared report runtime emits diagnostics and stdout body
 
+### Event Store History
+
+`src/persistence/event-store.ts` owns SQLite schema, migration, per-file ingest,
+and stored-event revalidation. The store is a local ledger: schema changes run
+as migrations, and unknown newer schemas disable store use instead of rebuilding
+tables.
+
+`src/persistence/event-store-history.ts` owns `--history` reads. It compares the
+current run's discovered `(source, file_path)` pairs with stored files, serves
+departed files for selected sources, and suppresses moved or copied files by
+content hash. Served history events are appended before the normal
+provider/model/date filters, pricing, and aggregation steps, so downstream
+report shapes stay unchanged.
+
 ## Aggregation profiles
 
 `src/aggregate/aggregate-usage.ts` supports `includeModelBreakdown`.
@@ -132,6 +146,8 @@ That keeps sorting and separator behavior deterministic without coupling the gen
   Canonical usage contracts and normalization
 - `src/pricing`
   LiteLLM pricing loader, cache, cost engine
+- `src/persistence`
+  SQLite event-store ledger, schema migrations, history suppression
 - `src/aggregate`
   Period/source usage aggregation
 - `src/efficiency`

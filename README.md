@@ -414,13 +414,24 @@ pnpm run perf:production-benchmark -- \
 
 `llm-usage` stores parsed file events in
 `<platform-cache-root>/llm-usage-metrics/events.db` so unchanged source files do
-not need to be reparsed on every run. On Linux with no `XDG_CACHE_HOME`, that is
-usually `~/.cache/llm-usage-metrics/events.db`.
+not need to be reparsed on every run. The store also retains departed-file rows
+for `--history` reports. On Linux with no `XDG_CACHE_HOME`, that is usually
+`~/.cache/llm-usage-metrics/events.db`.
+
+Use `--history` on report commands to include usage from files that no longer
+exist on disk. History follows the same source, provider, model, date, pricing,
+and aggregation behavior as live-file reports. If a file was moved, renamed, or
+copied, the store suppresses the departed copy by content hash so it is not
+double counted. History quality depends on how long the event store has been
+running on your machine.
 
 - Set `LLM_USAGE_EVENT_STORE=0` to disable the store for cold-run benchmarking
-  or debugging.
+  or debugging. `--history` requires the store to be enabled.
 - Set `LLM_USAGE_EVENT_STORE_PATH=/path/to/events.db` to use an isolated store.
-- Delete `events.db` to force a full rebuild on the next run.
+- Back up `events.db` if retained history matters. Deleting it deletes local
+  history and starts a new ledger from the next run.
+- The first run after upgrading the store schema migrates `events.db` in place
+  and may take a few seconds on large stores.
 - Older JSON cache shards from pre-store versions are no longer read and can be
   deleted manually.
 
