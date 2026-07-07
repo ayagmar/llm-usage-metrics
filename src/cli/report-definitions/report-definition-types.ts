@@ -3,6 +3,7 @@ import type { Command } from 'commander';
 export type SharedOptionProfile =
   | 'usage'
   | 'specialized'
+  | 'compare'
   | 'trends'
   | 'session'
   | 'wrapped'

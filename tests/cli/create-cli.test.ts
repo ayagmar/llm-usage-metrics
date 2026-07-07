@@ -18,7 +18,7 @@ afterEach(async () => {
 });
 
 describe('createCli', () => {
-  it('registers daily, weekly, monthly, efficiency, optimize, trends, session, wrapped, and doctor commands', () => {
+  it('registers daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, and doctor commands', () => {
     const cli = createCli();
 
     expect(cli.name()).toBe('llm-usage');
@@ -26,6 +26,7 @@ describe('createCli', () => {
       'daily',
       'weekly',
       'monthly',
+      'compare',
       'efficiency',
       'optimize',
       'trends',
@@ -127,6 +128,29 @@ describe('createCli', () => {
       false,
     );
     expect(sessionCommand?.options.some((option) => option.long === '--repo-dir')).toBe(false);
+  });
+
+  it('configures compare command with baseline flags and without share or per-model columns', () => {
+    const cli = createCli();
+    const compareCommand = cli.commands.find((command) => command.name() === 'compare');
+
+    expect(compareCommand).toBeDefined();
+    expect(compareCommand?.options.some((option) => option.long === '--vs-since')).toBe(true);
+    expect(compareCommand?.options.some((option) => option.long === '--vs-until')).toBe(true);
+    expect(compareCommand?.options.some((option) => option.long === '--json')).toBe(true);
+    expect(compareCommand?.options.some((option) => option.long === '--markdown')).toBe(true);
+    expect(compareCommand?.options.some((option) => option.long === '--source')).toBe(true);
+    expect(compareCommand?.options.some((option) => option.long === '--since')).toBe(true);
+    expect(compareCommand?.options.some((option) => option.long === '--until')).toBe(true);
+    expect(compareCommand?.options.some((option) => option.long === '--timezone')).toBe(true);
+    expect(compareCommand?.options.some((option) => option.long === '--provider')).toBe(true);
+    expect(compareCommand?.options.some((option) => option.long === '--model')).toBe(true);
+    expect(compareCommand?.options.some((option) => option.long === '--pricing-url')).toBe(true);
+    expect(compareCommand?.options.some((option) => option.long === '--history')).toBe(true);
+    expect(compareCommand?.options.some((option) => option.long === '--share')).toBe(false);
+    expect(compareCommand?.options.some((option) => option.long === '--per-model-columns')).toBe(
+      false,
+    );
   });
 
   it('configures wrapped command with year and share but without date or model filters', () => {
@@ -252,6 +276,7 @@ describe('createCli', () => {
     );
     expect(compactHelp).toContain('llm-usage trends');
     expect(compactHelp).toContain('llm-usage session');
+    expect(compactHelp).toContain('llm-usage compare');
     expect(compactHelp).toContain('llm-usage wrapped');
     expect(compactHelp).toContain('llm-usage doctor');
     expect(compactHelp).toContain('npx --yes llm-usage-metrics@latest daily');
@@ -276,6 +301,7 @@ describe('createCli', () => {
       'daily',
       'weekly',
       'monthly',
+      'compare',
       'efficiency',
       'optimize',
       'trends',
@@ -284,6 +310,10 @@ describe('createCli', () => {
       'doctor',
     ]);
     expect(getCliReferenceExamples()).toContain('llm-usage trends');
+    expect(getCliReferenceExamples()).toContain('llm-usage compare');
+    expect(getCliReferenceExamples()).toContain(
+      'llm-usage compare --since 2026-06-01 --until 2026-06-30 --vs-since 2026-05-01 --vs-until 2026-05-31',
+    );
     expect(getCliReferenceExamples()).toContain('llm-usage session --top 5 --json');
     expect(getCliReferenceExamples()).toContain('llm-usage monthly --history --pricing-offline');
     expect(getCliReferenceExamples()).toContain('llm-usage wrapped --year 2026 --share');

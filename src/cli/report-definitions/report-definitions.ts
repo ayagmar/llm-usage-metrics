@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 
 import type {
+  CompareCommandOptions,
   DoctorCommandOptions,
   EfficiencyCommandOptions,
   OptimizeCommandOptions,
@@ -9,6 +10,7 @@ import type {
   TrendsCommandOptions,
   WrappedCommandOptions,
 } from '../usage-data-contracts.js';
+import { runCompareReport } from '../run-compare-report.js';
 import { runEfficiencyReport } from '../run-efficiency-report.js';
 import { runOptimizeReport } from '../run-optimize-report.js';
 import { runSessionReport } from '../run-session-report.js';
@@ -179,6 +181,36 @@ const efficiencyReportDefinition: ReportRuntimeDefinition = {
       .action((granularity: ReportGranularity, options: EfficiencyCommandOptions) =>
         runEfficiencyReport(granularity, options),
       );
+
+    return command;
+  },
+};
+
+const compareReportDefinition: ReportRuntimeDefinition = {
+  meta: {
+    commandName: 'compare',
+    docsLabel: 'compare',
+    kind: 'specialized',
+    description: 'Compare usage and cost between two date windows',
+    sharedOptionProfile: 'compare',
+    helpExamples: [
+      {
+        command: 'llm-usage compare',
+        includeInRootHelp: true,
+        includeInCliReference: true,
+      },
+      {
+        command:
+          'llm-usage compare --since 2026-06-01 --until 2026-06-30 --vs-since 2026-05-01 --vs-until 2026-05-31',
+        includeInCliReference: true,
+      },
+    ],
+  },
+  register(command) {
+    command
+      .option('--vs-since <date>', 'Inclusive start date for the baseline comparison window')
+      .option('--vs-until <date>', 'Inclusive end date for the baseline comparison window')
+      .action((options: CompareCommandOptions) => runCompareReport(options));
 
     return command;
   },
@@ -370,6 +402,7 @@ const reportDefinitions = [
   createUsageReportDefinition('daily'),
   createUsageReportDefinition('weekly'),
   createUsageReportDefinition('monthly'),
+  compareReportDefinition,
   efficiencyReportDefinition,
   optimizeReportDefinition,
   trendsReportDefinition,

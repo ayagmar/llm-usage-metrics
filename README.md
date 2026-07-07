@@ -96,6 +96,18 @@ llm-usage weekly --timezone Europe/Paris
 llm-usage monthly --since 2026-01-01 --until 2026-01-31
 ```
 
+### Compare
+
+```bash
+# Compare the current local calendar month to the previous month
+llm-usage compare
+
+# Compare explicit windows
+llm-usage compare --since 2026-06-01 --until 2026-06-30 --vs-since 2026-05-01 --vs-until 2026-05-31
+```
+
+`compare` applies the same source, provider, model, pricing, timezone, and `--history` filters to both windows. When `--vs-since` and `--vs-until` are omitted, the baseline is the immediately preceding window.
+
 ### Output Formats
 
 ```bash

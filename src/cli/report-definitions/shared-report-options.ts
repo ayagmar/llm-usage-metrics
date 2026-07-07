@@ -37,6 +37,16 @@ const sharedOptionProfileConfig: Record<SharedOptionProfile, SharedOptionProfile
     includeShare: true,
     includeTimezone: true,
   },
+  compare: {
+    includeDateFilters: true,
+    includeMarkdown: true,
+    includePerModelColumns: false,
+    includePricing: true,
+    includeProviderModelFilters: true,
+    includeHistory: true,
+    includeShare: false,
+    includeTimezone: true,
+  },
   trends: {
     includeDateFilters: true,
     includeMarkdown: false,
