@@ -599,4 +599,199 @@ describe('aggregateEfficiency', () => {
       commitsPerUsd: undefined,
     });
   });
+
+  it('emits source rows that sum to the period row in by-source mode', () => {
+    const rows = aggregateEfficiency({
+      bySource: true,
+      usageRows: [
+        createUsageRow({
+          rowType: 'period_source',
+          periodKey: '2026-02-01',
+          source: 'pi',
+          inputTokens: 100,
+          outputTokens: 50,
+          totalTokens: 150,
+          costUsd: 1,
+        }),
+        createUsageRow({
+          rowType: 'period_source',
+          periodKey: '2026-02-01',
+          source: 'codex',
+          inputTokens: 200,
+          outputTokens: 100,
+          totalTokens: 300,
+          costUsd: 2,
+        }),
+        createUsageRow({
+          rowType: 'period_combined',
+          periodKey: '2026-02-01',
+          source: 'combined',
+          inputTokens: 300,
+          outputTokens: 150,
+          totalTokens: 450,
+          costUsd: 3,
+        }),
+      ],
+      periodOutcomes: new Map([
+        [
+          '2026-02-01',
+          {
+            commitCount: 3,
+            linesAdded: 20,
+            linesDeleted: 5,
+            linesChanged: 25,
+          },
+        ],
+      ]),
+    });
+
+    expect(rows).toHaveLength(4);
+    expect(rows[0]).toMatchObject({
+      rowType: 'period_source',
+      periodKey: '2026-02-01',
+      source: 'pi',
+      inputTokens: 100,
+      totalTokens: 150,
+      costUsd: 1,
+      costShare: 1 / 3,
+    });
+    expect(rows[1]).toMatchObject({
+      rowType: 'period_source',
+      periodKey: '2026-02-01',
+      source: 'codex',
+      inputTokens: 200,
+      totalTokens: 300,
+      costUsd: 2,
+      costShare: 2 / 3,
+    });
+    expect(rows[2]).toMatchObject({
+      rowType: 'period',
+      periodKey: '2026-02-01',
+      inputTokens: 300,
+      outputTokens: 150,
+      totalTokens: 450,
+      costUsd: 3,
+      commitCount: 3,
+    });
+  });
+
+  it('omits zero-signal source rows in by-source mode', () => {
+    const rows = aggregateEfficiency({
+      bySource: true,
+      usageRows: [
+        createUsageRow({
+          rowType: 'period_source',
+          periodKey: '2026-02-01',
+          source: 'pi',
+          inputTokens: 100,
+          totalTokens: 100,
+          costUsd: 1,
+        }),
+        createUsageRow({
+          rowType: 'period_source',
+          periodKey: '2026-02-01',
+          source: 'codex',
+          inputTokens: 0,
+          outputTokens: 0,
+          reasoningTokens: 0,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+          totalTokens: 0,
+          costUsd: undefined,
+        }),
+      ],
+      periodOutcomes: new Map([
+        [
+          '2026-02-01',
+          {
+            commitCount: 1,
+            linesAdded: 8,
+            linesDeleted: 2,
+            linesChanged: 10,
+          },
+        ],
+      ]),
+    });
+
+    expect(
+      rows.map((row) => (row.rowType === 'period_source' ? row.source : row.periodKey)),
+    ).toEqual(['pi', '2026-02-01', 'ALL']);
+  });
+
+  it('emits no source rows for periods skipped by the commit rule', () => {
+    const rows = aggregateEfficiency({
+      bySource: true,
+      usageRows: [
+        createUsageRow({
+          rowType: 'period_source',
+          periodKey: '2026-02-01',
+          source: 'pi',
+          inputTokens: 100,
+          totalTokens: 100,
+          costUsd: 1,
+        }),
+      ],
+      periodOutcomes: new Map([
+        [
+          '2026-02-01',
+          {
+            commitCount: 0,
+            linesAdded: 8,
+            linesDeleted: 2,
+            linesChanged: 10,
+          },
+        ],
+      ]),
+    });
+
+    expect(rows).toEqual([
+      {
+        rowType: 'grand_total',
+        periodKey: 'ALL',
+        inputTokens: 0,
+        outputTokens: 0,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 0,
+        costUsd: 0,
+        commitCount: 0,
+        linesAdded: 0,
+        linesDeleted: 0,
+        linesChanged: 0,
+        usdPerCommit: undefined,
+        usdPer1kLinesChanged: undefined,
+        tokensPerCommit: undefined,
+        commitsPerUsd: undefined,
+      },
+    ]);
+  });
+
+  it('keeps default mode identical when by-source is omitted or false', () => {
+    const usageRows: UsageReportRow[] = [
+      createUsageRow({
+        rowType: 'period_source',
+        periodKey: '2026-02-01',
+        source: 'pi',
+        inputTokens: 100,
+        totalTokens: 100,
+        costUsd: 1,
+      }),
+    ];
+    const periodOutcomes = new Map([
+      [
+        '2026-02-01',
+        {
+          commitCount: 1,
+          linesAdded: 8,
+          linesDeleted: 2,
+          linesChanged: 10,
+        },
+      ],
+    ]);
+
+    expect(aggregateEfficiency({ usageRows, periodOutcomes, bySource: false })).toEqual(
+      aggregateEfficiency({ usageRows, periodOutcomes }),
+    );
+  });
 });

@@ -178,6 +178,7 @@ const efficiencyReportDefinition: ReportRuntimeDefinition = {
       .argument('<granularity>', 'Granularity: daily | weekly | monthly', parseGranularityArgument)
       .option('--repo-dir <path>', 'Path to repository for Git outcome metrics')
       .option('--include-merge-commits', 'Include merge commits in Git outcome metrics')
+      .option('--by-source', 'Include per-source usage rows under each period')
       .action((granularity: ReportGranularity, options: EfficiencyCommandOptions) =>
         runEfficiencyReport(granularity, options),
       );

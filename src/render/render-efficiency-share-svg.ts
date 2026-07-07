@@ -1,5 +1,9 @@
 import type { EfficiencyDataResult } from '../cli/usage-data-contracts.js';
-import type { EfficiencyRow } from '../efficiency/efficiency-row.js';
+import type {
+  EfficiencyGrandTotalRow,
+  EfficiencyPeriodRow,
+  EfficiencyRow,
+} from '../efficiency/efficiency-row.js';
 import {
   catmullRom,
   escapeSvg,
@@ -24,17 +28,23 @@ const chartColors = {
   usdPerCommit: '#f97316',
 } as const;
 
-function toMonthlyRows(rows: EfficiencyRow[]): EfficiencyRow[] {
-  return rows
-    .filter((row) => row.rowType === 'period')
-    .sort((a, b) => a.periodKey.localeCompare(b.periodKey));
+function isPeriodRow(row: EfficiencyRow): row is EfficiencyPeriodRow {
+  return row.rowType === 'period';
 }
 
-function toAllRow(rows: EfficiencyRow[]): EfficiencyRow | undefined {
-  return rows.find((row) => row.periodKey === 'ALL');
+function isGrandTotalRow(row: EfficiencyRow): row is EfficiencyGrandTotalRow {
+  return row.rowType === 'grand_total';
 }
 
-function renderSummaryStats(allRow: EfficiencyRow | undefined, vcenter: number): string {
+function toMonthlyRows(rows: EfficiencyRow[]): EfficiencyPeriodRow[] {
+  return rows.filter(isPeriodRow).sort((a, b) => a.periodKey.localeCompare(b.periodKey));
+}
+
+function toAllRow(rows: EfficiencyRow[]): EfficiencyGrandTotalRow | undefined {
+  return rows.find(isGrandTotalRow);
+}
+
+function renderSummaryStats(allRow: EfficiencyGrandTotalRow | undefined, vcenter: number): string {
   const cost = formatUsd(allRow?.costUsd);
   const commits = formatInteger(allRow?.commitCount ?? 0);
   const usdPerCommit = formatUsd(allRow?.usdPerCommit);
@@ -76,7 +86,7 @@ function renderLegend(x: number, y: number): string {
 }
 
 function renderCommitBarLabels(
-  monthlyRows: EfficiencyRow[],
+  monthlyRows: EfficiencyPeriodRow[],
   chartLeft: number,
   stepX: number,
   maxCommits: number,
@@ -92,7 +102,7 @@ function renderCommitBarLabels(
     .join('\n');
 }
 
-function renderUsdDataLabels(monthlyRows: EfficiencyRow[], usdPoints: Point[]): string {
+function renderUsdDataLabels(monthlyRows: EfficiencyPeriodRow[], usdPoints: Point[]): string {
   return monthlyRows
     .map((row, i) => {
       const p = usdPoints[i];

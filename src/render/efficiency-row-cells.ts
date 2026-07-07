@@ -37,8 +37,8 @@ const usdRateFormatter = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 4,
 });
 
-function formatInteger(value: number): string {
-  return integerFormatter.format(value);
+function formatInteger(value: number | undefined): string {
+  return value === undefined ? '-' : integerFormatter.format(value);
 }
 
 function formatUsd(value: number | undefined, options: { approximate?: boolean } = {}): string {
@@ -70,11 +70,11 @@ function formatDecimal(value: number | undefined, options: { approximate?: boole
 
 export function toEfficiencyTableCells(rows: EfficiencyRow[]): string[][] {
   return rows.map((row) => [
-    row.periodKey,
-    formatInteger(row.commitCount),
-    formatInteger(row.linesAdded),
-    formatInteger(row.linesDeleted),
-    formatInteger(row.linesChanged),
+    row.rowType === 'period_source' ? `  ${row.source}` : row.periodKey,
+    formatInteger(row.rowType === 'period_source' ? undefined : row.commitCount),
+    formatInteger(row.rowType === 'period_source' ? undefined : row.linesAdded),
+    formatInteger(row.rowType === 'period_source' ? undefined : row.linesDeleted),
+    formatInteger(row.rowType === 'period_source' ? undefined : row.linesChanged),
     formatInteger(row.inputTokens),
     formatInteger(row.outputTokens),
     formatInteger(row.reasoningTokens),
@@ -82,9 +82,15 @@ export function toEfficiencyTableCells(rows: EfficiencyRow[]): string[][] {
     formatInteger(row.cacheWriteTokens),
     formatInteger(row.totalTokens),
     formatUsd(row.costUsd, { approximate: row.costIncomplete }),
-    formatUsdRate(row.usdPerCommit, { approximate: row.costIncomplete }),
-    formatUsdRate(row.usdPer1kLinesChanged, { approximate: row.costIncomplete }),
-    formatDecimal(row.tokensPerCommit),
-    formatDecimal(row.commitsPerUsd, { approximate: row.costIncomplete }),
+    formatUsdRate(row.rowType === 'period_source' ? undefined : row.usdPerCommit, {
+      approximate: row.costIncomplete,
+    }),
+    formatUsdRate(row.rowType === 'period_source' ? undefined : row.usdPer1kLinesChanged, {
+      approximate: row.costIncomplete,
+    }),
+    formatDecimal(row.rowType === 'period_source' ? undefined : row.tokensPerCommit),
+    formatDecimal(row.rowType === 'period_source' ? undefined : row.commitsPerUsd, {
+      approximate: row.costIncomplete,
+    }),
   ]);
 }

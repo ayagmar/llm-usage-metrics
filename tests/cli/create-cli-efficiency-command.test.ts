@@ -17,7 +17,7 @@ describe('createCli efficiency command parsing', () => {
     const runEfficiencyReportMock = vi.mocked(runEfficiencyReport);
 
     await cli.parseAsync(
-      ['efficiency', ' monthly ', '--json', '--repo-dir', '/tmp/repo', '--share'],
+      ['efficiency', ' monthly ', '--json', '--repo-dir', '/tmp/repo', '--share', '--by-source'],
       {
         from: 'user',
       },
@@ -30,6 +30,7 @@ describe('createCli efficiency command parsing', () => {
         json: true,
         repoDir: '/tmp/repo',
         share: true,
+        bySource: true,
       }),
     );
   });

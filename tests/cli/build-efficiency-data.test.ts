@@ -230,6 +230,7 @@ describe('buildEfficiencyData', () => {
       activeUsageDays: new Set(['2026-02-11']),
     });
 
+    expect(result.grouping).toBe('period');
     expect(result.rows).toHaveLength(2);
     expect(result.rows[0]).toMatchObject({
       rowType: 'period',
@@ -256,6 +257,67 @@ describe('buildEfficiencyData', () => {
     expect(result.diagnostics.scopeNote).toContain(
       'Usage filters (--source, --provider, --model) affect commit attribution too',
     );
+  });
+
+  it('builds per-source efficiency rows when bySource is enabled', async () => {
+    const result = await buildEfficiencyData(
+      'daily',
+      {
+        bySource: true,
+      },
+      {
+        buildUsageEventDataset: async (options) => createUsageEventDataset(options),
+        applyPricingToUsageEventDataset: async () => createPricingResult(),
+        collectGitOutcomes: async () => ({
+          periodOutcomes: new Map([
+            [
+              '2026-02-11',
+              {
+                commitCount: 3,
+                linesAdded: 60,
+                linesDeleted: 20,
+                linesChanged: 80,
+              },
+            ],
+          ]),
+          totalOutcomes: {
+            commitCount: 3,
+            linesAdded: 60,
+            linesDeleted: 20,
+            linesChanged: 80,
+          },
+          diagnostics: {
+            repoDir: '/tmp/repo',
+            includeMergeCommits: false,
+            commitsCollected: 3,
+            linesAdded: 60,
+            linesDeleted: 20,
+          },
+        }),
+        resolveRepoRoot: async () => '/tmp/repo',
+      },
+    );
+
+    expect(result.grouping).toBe('source');
+    expect(result.rows.map((row) => row.rowType)).toEqual([
+      'period_source',
+      'period_source',
+      'period',
+      'grand_total',
+    ]);
+    expect(result.rows[0]).toMatchObject({
+      rowType: 'period_source',
+      source: 'pi',
+      totalTokens: 200,
+      costUsd: 2,
+      costShare: 2 / 3.5,
+    });
+    expect(result.rows[2]).toMatchObject({
+      rowType: 'period',
+      totalTokens: 350,
+      costUsd: 3.5,
+      commitCount: 3,
+    });
   });
 
   it('counts billable bucket usage days even when totalTokens is zero', async () => {

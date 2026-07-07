@@ -55,7 +55,8 @@ function toTableRowMeta(row: EfficiencyRow): TableRowMeta {
   return {
     periodKey: row.periodKey,
     periodGroup: row.rowType === 'grand_total' ? 'summary' : 'normal',
-    rowKind: row.rowType === 'grand_total' ? 'total' : 'detail',
+    rowKind:
+      row.rowType === 'grand_total' ? 'total' : row.rowType === 'period' ? 'combined' : 'detail',
   };
 }
 
@@ -225,6 +226,17 @@ function styleEfficiencyTerminalRows(
     const row = rows[rowIndex];
     const styledCells = [...cells];
     const periodCell = styledCells[periodColumnIndex];
+
+    if (row.rowType === 'period_source') {
+      styledCells[periodColumnIndex] = pc.dim(periodCell);
+
+      const costValue = row.costUsd;
+      if (costValue !== undefined && costValue > 0) {
+        styledCells[costColumnIndex] = pc.yellow(styledCells[costColumnIndex]);
+      }
+
+      return styledCells;
+    }
 
     styledCells[periodColumnIndex] =
       row.rowType === 'grand_total' ? pc.bold(pc.cyan(periodCell)) : pc.bold(periodCell);

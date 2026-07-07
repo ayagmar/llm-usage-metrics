@@ -58,6 +58,7 @@ export type ReportCommandOptions = {
 export type EfficiencyCommandOptions = Omit<ReportCommandOptions, 'perModelColumns'> & {
   repoDir?: string;
   includeMergeCommits?: boolean;
+  bySource?: boolean;
 };
 
 export type OptimizeCommandOptions = Omit<ReportCommandOptions, 'perModelColumns'> & {
@@ -168,6 +169,7 @@ export type EfficiencyDiagnostics = {
 };
 
 export type EfficiencyDataResult = {
+  grouping: 'period' | 'source';
   rows: EfficiencyRow[];
   diagnostics: EfficiencyDiagnostics;
 };

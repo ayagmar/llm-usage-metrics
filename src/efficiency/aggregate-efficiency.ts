@@ -6,6 +6,7 @@ import {
   type EfficiencyDerivedMetrics,
   type EfficiencyOutcomeTotals,
   type EfficiencyRow,
+  type EfficiencySourceRow,
   type EfficiencyUsageTotals,
 } from './efficiency-row.js';
 
@@ -14,6 +15,12 @@ const USD_PRECISION_SCALE = 1_000_000_000_000;
 export type AggregateEfficiencyOptions = {
   usageRows: UsageReportRow[];
   periodOutcomes: ReadonlyMap<string, EfficiencyOutcomeTotals>;
+  bySource?: boolean;
+};
+
+type UsageTotalsByPeriod = {
+  combined: Map<string, EfficiencyUsageTotals>;
+  sources: Map<string, Map<string, EfficiencyUsageTotals>>;
 };
 
 function addUsd(left: number, right: number): number {
@@ -33,9 +40,9 @@ function toUsageTotals(row: UsageReportRow): EfficiencyUsageTotals {
   };
 }
 
-function buildUsageTotalsByPeriod(usageRows: UsageReportRow[]): Map<string, EfficiencyUsageTotals> {
+function buildUsageTotalsByPeriod(usageRows: UsageReportRow[]): UsageTotalsByPeriod {
   const combinedByPeriod = new Map<string, EfficiencyUsageTotals>();
-  const sourceByPeriod = new Map<string, EfficiencyUsageTotals>();
+  const sourceByPeriod = new Map<string, Map<string, EfficiencyUsageTotals>>();
 
   for (const row of usageRows) {
     if (row.rowType === 'grand_total') {
@@ -47,19 +54,50 @@ function buildUsageTotalsByPeriod(usageRows: UsageReportRow[]): Map<string, Effi
       continue;
     }
 
+    const periodSources =
+      sourceByPeriod.get(row.periodKey) ?? new Map<string, EfficiencyUsageTotals>();
+    sourceByPeriod.set(row.periodKey, periodSources);
     const existingSourceTotals =
-      sourceByPeriod.get(row.periodKey) ?? createEmptyEfficiencyUsageTotals();
-    sourceByPeriod.set(row.periodKey, addUsageTotals(existingSourceTotals, toUsageTotals(row)));
+      periodSources.get(row.source) ?? createEmptyEfficiencyUsageTotals();
+    periodSources.set(row.source, addUsageTotals(existingSourceTotals, toUsageTotals(row)));
   }
 
-  const periodKeys = new Set<string>([...combinedByPeriod.keys(), ...sourceByPeriod.keys()]);
+  return {
+    combined: combinedByPeriod,
+    sources: sourceByPeriod,
+  };
+}
+
+function sumSourceTotals(
+  sourceTotals: ReadonlyMap<string, EfficiencyUsageTotals> | undefined,
+): EfficiencyUsageTotals | undefined {
+  if (!sourceTotals) {
+    return undefined;
+  }
+
+  let totals = createEmptyEfficiencyUsageTotals();
+
+  for (const source of sourceTotals.values()) {
+    totals = addUsageTotals(totals, source);
+  }
+
+  return totals;
+}
+
+function resolveUsageTotalsByPeriod(
+  usageTotals: UsageTotalsByPeriod,
+): Map<string, EfficiencyUsageTotals> {
+  const periodKeys = new Set<string>([
+    ...usageTotals.combined.keys(),
+    ...usageTotals.sources.keys(),
+  ]);
   const usageTotalsByPeriod = new Map<string, EfficiencyUsageTotals>();
 
   for (const periodKey of periodKeys) {
     usageTotalsByPeriod.set(
       periodKey,
-      combinedByPeriod.get(periodKey) ??
-        sourceByPeriod.get(periodKey) ??
+      usageTotals.combined.get(periodKey) ??
+        sumSourceTotals(usageTotals.sources.get(periodKey)) ??
         createEmptyEfficiencyUsageTotals(),
     );
   }
@@ -159,8 +197,44 @@ function computeDerivedMetrics(
   };
 }
 
+function computeCostShare(
+  sourceTotals: EfficiencyUsageTotals,
+  periodTotals: EfficiencyUsageTotals,
+): number | undefined {
+  if (sourceTotals.costUsd === undefined || periodTotals.costUsd === undefined) {
+    return undefined;
+  }
+
+  if (periodTotals.costUsd === 0) {
+    return sourceTotals.costUsd === 0 ? 0 : undefined;
+  }
+
+  return sourceTotals.costUsd / periodTotals.costUsd;
+}
+
+function buildSourceRows(
+  periodKey: string,
+  sourceTotals: ReadonlyMap<string, EfficiencyUsageTotals> | undefined,
+  periodTotals: EfficiencyUsageTotals,
+): EfficiencySourceRow[] {
+  if (!sourceTotals) {
+    return [];
+  }
+
+  return [...sourceTotals.entries()]
+    .filter(([, totals]) => hasMeaningfulUsageSignal(totals))
+    .map(([source, totals]) => ({
+      rowType: 'period_source' as const,
+      periodKey,
+      source,
+      ...totals,
+      costShare: computeCostShare(totals, periodTotals),
+    }));
+}
+
 export function aggregateEfficiency(options: AggregateEfficiencyOptions): EfficiencyRow[] {
-  const usageTotalsByPeriod = buildUsageTotalsByPeriod(options.usageRows);
+  const usageTotalsBySource = buildUsageTotalsByPeriod(options.usageRows);
+  const usageTotalsByPeriod = resolveUsageTotalsByPeriod(usageTotalsBySource);
   const periodKeys = [
     ...new Set([...usageTotalsByPeriod.keys(), ...options.periodOutcomes.keys()]),
   ].sort(compareByCodePoint);
@@ -170,27 +244,38 @@ export function aggregateEfficiency(options: AggregateEfficiencyOptions): Effici
   let totalOutcomes = createEmptyEfficiencyOutcomeTotals();
 
   for (const periodKey of periodKeys) {
-    const usageTotals = usageTotalsByPeriod.get(periodKey) ?? createEmptyEfficiencyUsageTotals();
+    const periodUsageTotals =
+      usageTotalsByPeriod.get(periodKey) ?? createEmptyEfficiencyUsageTotals();
     const outcomeTotals =
       options.periodOutcomes.get(periodKey) ?? createEmptyEfficiencyOutcomeTotals();
     const hasUsageRow = usageTotalsByPeriod.has(periodKey);
-    const hasUsageSignal = hasUsageRow && hasMeaningfulUsageSignal(usageTotals);
+    const hasUsageSignal = hasUsageRow && hasMeaningfulUsageSignal(periodUsageTotals);
 
     if (outcomeTotals.commitCount === 0 || !hasUsageSignal) {
       continue;
     }
 
-    const derived = computeDerivedMetrics(usageTotals, outcomeTotals);
+    if (options.bySource) {
+      rows.push(
+        ...buildSourceRows(
+          periodKey,
+          usageTotalsBySource.sources.get(periodKey),
+          periodUsageTotals,
+        ),
+      );
+    }
+
+    const derived = computeDerivedMetrics(periodUsageTotals, outcomeTotals);
 
     rows.push({
       rowType: 'period',
       periodKey,
-      ...usageTotals,
+      ...periodUsageTotals,
       ...outcomeTotals,
       ...derived,
     });
 
-    totalUsage = addUsageTotals(totalUsage, usageTotals);
+    totalUsage = addUsageTotals(totalUsage, periodUsageTotals);
     totalOutcomes = addOutcomeTotals(totalOutcomes, outcomeTotals);
   }
 

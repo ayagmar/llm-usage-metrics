@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../src/cli/build-efficiency-data.js', () => ({
   buildEfficiencyData: vi.fn(async () => ({
+    grouping: 'period',
     rows: [],
     diagnostics: {
       usage: {

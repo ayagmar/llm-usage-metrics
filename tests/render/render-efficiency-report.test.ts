@@ -53,6 +53,7 @@ function createEfficiencyDataResult(
   overrides: Partial<EfficiencyDataResult['diagnostics']['usage']> = {},
 ): EfficiencyDataResult {
   return {
+    grouping: 'period',
     rows: [
       {
         rowType: 'period',

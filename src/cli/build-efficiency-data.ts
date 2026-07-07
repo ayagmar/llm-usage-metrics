@@ -199,6 +199,7 @@ export async function buildEfficiencyData(
       aggregateUsage(matchedEventsWithSignal, {
         granularity,
         timezone: dataset.normalizedInputs.timezone,
+        sourceOrder: dataset.adaptersToParse.map((adapter) => adapter.id),
         includeModelBreakdown: false,
       }),
   );
@@ -207,6 +208,7 @@ export async function buildEfficiencyData(
     aggregateEfficiency({
       usageRows: repoScopedUsageRows,
       periodOutcomes: gitOutcomes.periodOutcomes,
+      bySource: options.bySource === true,
     }),
   );
   const usageDiagnostics = buildUsageDiagnostics({
@@ -222,6 +224,7 @@ export async function buildEfficiencyData(
   });
 
   return {
+    grouping: options.bySource === true ? 'source' : 'period',
     rows,
     diagnostics: {
       usage: usageDiagnostics,
