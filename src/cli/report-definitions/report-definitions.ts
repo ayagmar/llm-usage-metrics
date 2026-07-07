@@ -111,6 +111,10 @@ function createUsageReportDefinition(granularity: ReportGranularity): ReportRunt
         includeInCliReference: true,
       },
       {
+        command: 'llm-usage monthly --history --pricing-offline',
+        includeInCliReference: true,
+      },
+      {
         command: 'llm-usage monthly --source droid --droid-dir /path/to/.factory/sessions',
         includeInCliReference: true,
       },

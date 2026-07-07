@@ -11,6 +11,7 @@ type SharedOptionProfileConfig = {
   includePerModelColumns: boolean;
   includePricing: boolean;
   includeProviderModelFilters: boolean;
+  includeHistory: boolean;
   includeShare: boolean;
   includeTimezone: boolean;
 };
@@ -22,6 +23,7 @@ const sharedOptionProfileConfig: Record<SharedOptionProfile, SharedOptionProfile
     includePerModelColumns: true,
     includePricing: true,
     includeProviderModelFilters: true,
+    includeHistory: true,
     includeShare: true,
     includeTimezone: true,
   },
@@ -31,6 +33,7 @@ const sharedOptionProfileConfig: Record<SharedOptionProfile, SharedOptionProfile
     includePerModelColumns: false,
     includePricing: true,
     includeProviderModelFilters: true,
+    includeHistory: true,
     includeShare: true,
     includeTimezone: true,
   },
@@ -40,6 +43,7 @@ const sharedOptionProfileConfig: Record<SharedOptionProfile, SharedOptionProfile
     includePerModelColumns: false,
     includePricing: true,
     includeProviderModelFilters: true,
+    includeHistory: true,
     includeShare: true,
     includeTimezone: true,
   },
@@ -49,6 +53,7 @@ const sharedOptionProfileConfig: Record<SharedOptionProfile, SharedOptionProfile
     includePerModelColumns: false,
     includePricing: true,
     includeProviderModelFilters: true,
+    includeHistory: true,
     includeShare: false,
     includeTimezone: true,
   },
@@ -58,6 +63,7 @@ const sharedOptionProfileConfig: Record<SharedOptionProfile, SharedOptionProfile
     includePerModelColumns: false,
     includePricing: true,
     includeProviderModelFilters: false,
+    includeHistory: true,
     includeShare: true,
     includeTimezone: true,
   },
@@ -67,6 +73,7 @@ const sharedOptionProfileConfig: Record<SharedOptionProfile, SharedOptionProfile
     includePerModelColumns: false,
     includePricing: false,
     includeProviderModelFilters: false,
+    includeHistory: false,
     includeShare: false,
     includeTimezone: false,
   },
@@ -157,6 +164,13 @@ export function registerSharedReportOptions(
         '--ignore-pricing-failures',
         'Continue without estimated costs when pricing cannot be loaded',
       );
+  }
+
+  if (profileConfig.includeHistory) {
+    configuredCommand.option(
+      '--history',
+      'include usage from files that no longer exist on disk (from the local event store)',
+    );
   }
 
   if (profileConfig.includeMarkdown) {

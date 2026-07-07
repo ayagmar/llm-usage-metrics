@@ -66,6 +66,7 @@ describe('createCli', () => {
       expect(command.options.some((option) => option.long === '--source')).toBe(true);
       expect(command.options.some((option) => option.long === '--source-dir')).toBe(true);
       expect(command.options.some((option) => option.long === '--model')).toBe(true);
+      expect(command.options.some((option) => option.long === '--history')).toBe(true);
     }
   });
 
@@ -79,6 +80,7 @@ describe('createCli', () => {
     );
     expect(optimizeCommand?.options.some((option) => option.long === '--top')).toBe(true);
     expect(optimizeCommand?.options.some((option) => option.long === '--share')).toBe(true);
+    expect(optimizeCommand?.options.some((option) => option.long === '--history')).toBe(true);
     expect(optimizeCommand?.options.some((option) => option.long === '--repo-dir')).toBe(false);
     expect(optimizeCommand?.options.some((option) => option.long === '--per-model-columns')).toBe(
       false,
@@ -95,6 +97,7 @@ describe('createCli', () => {
     expect(trendsCommand?.options.some((option) => option.long === '--by-source')).toBe(true);
     expect(trendsCommand?.options.some((option) => option.long === '--json')).toBe(true);
     expect(trendsCommand?.options.some((option) => option.long === '--share')).toBe(true);
+    expect(trendsCommand?.options.some((option) => option.long === '--history')).toBe(true);
     expect(trendsCommand?.options.some((option) => option.long === '--markdown')).toBe(false);
     expect(trendsCommand?.options.some((option) => option.long === '--per-model-columns')).toBe(
       false,
@@ -118,6 +121,7 @@ describe('createCli', () => {
     expect(sessionCommand?.options.some((option) => option.long === '--provider')).toBe(true);
     expect(sessionCommand?.options.some((option) => option.long === '--model')).toBe(true);
     expect(sessionCommand?.options.some((option) => option.long === '--pricing-url')).toBe(true);
+    expect(sessionCommand?.options.some((option) => option.long === '--history')).toBe(true);
     expect(sessionCommand?.options.some((option) => option.long === '--share')).toBe(false);
     expect(sessionCommand?.options.some((option) => option.long === '--per-model-columns')).toBe(
       false,
@@ -136,6 +140,7 @@ describe('createCli', () => {
     expect(wrappedCommand?.options.some((option) => option.long === '--source')).toBe(true);
     expect(wrappedCommand?.options.some((option) => option.long === '--timezone')).toBe(true);
     expect(wrappedCommand?.options.some((option) => option.long === '--pricing-url')).toBe(true);
+    expect(wrappedCommand?.options.some((option) => option.long === '--history')).toBe(true);
     expect(wrappedCommand?.options.some((option) => option.long === '--since')).toBe(false);
     expect(wrappedCommand?.options.some((option) => option.long === '--until')).toBe(false);
     expect(wrappedCommand?.options.some((option) => option.long === '--provider')).toBe(false);
@@ -190,6 +195,7 @@ describe('createCli', () => {
     expect(doctorCommand?.options.some((option) => option.long === '--provider')).toBe(false);
     expect(doctorCommand?.options.some((option) => option.long === '--model')).toBe(false);
     expect(doctorCommand?.options.some((option) => option.long === '--pricing-url')).toBe(false);
+    expect(doctorCommand?.options.some((option) => option.long === '--history')).toBe(false);
     expect(doctorCommand?.options.some((option) => option.long === '--share')).toBe(false);
   });
 
@@ -279,6 +285,7 @@ describe('createCli', () => {
     ]);
     expect(getCliReferenceExamples()).toContain('llm-usage trends');
     expect(getCliReferenceExamples()).toContain('llm-usage session --top 5 --json');
+    expect(getCliReferenceExamples()).toContain('llm-usage monthly --history --pricing-offline');
     expect(getCliReferenceExamples()).toContain('llm-usage wrapped --year 2026 --share');
     expect(getCliReferenceExamples()).toContain('llm-usage doctor --json');
     expect(getCliReferenceExamples()).toContain(

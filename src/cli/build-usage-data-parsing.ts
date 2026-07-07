@@ -35,8 +35,19 @@ export type AdapterParseResult = {
   skippedRowReasons: SourceSkippedRowReasonStat[];
 };
 
+export type DiscoveredSourceFile = {
+  source: string;
+  filePath: string;
+};
+
+type AdapterParseResultWithFiles = AdapterParseResult & {
+  filePaths: string[];
+};
+
 export type ParsedAdaptersResult = {
   successfulParseResults: AdapterParseResult[];
+  discoveredFiles: DiscoveredSourceFile[];
+  eventStoreAvailable: boolean;
   sourceFailures: UsageSourceFailure[];
   warnings: string[];
 };
@@ -293,17 +304,18 @@ export async function parseAdapterEvents(
   runWithParseBudget: RunWithParseBudget = async <T>(task: () => Promise<T>) => task(),
   runtimeProfile?: RuntimeProfileCollector,
   eventStore?: EventStoreParseContext,
-): Promise<AdapterParseResult> {
+): Promise<AdapterParseResultWithFiles> {
   const files = await adapter.discoverFiles();
 
   if (files.length === 0) {
     return {
       source: adapter.id,
       events: [],
+      filePaths: [],
       filesFound: 0,
       skippedRows: 0,
       skippedRowReasons: [],
-    };
+    } satisfies AdapterParseResultWithFiles;
   }
 
   const safeMaxParallelFileParsing =
@@ -396,12 +408,13 @@ export async function parseAdapterEvents(
   const result = {
     source: adapter.id,
     events: parsedByFile.flat(),
+    filePaths: files,
     filesFound: files.length,
     skippedRows: skippedRowsByFile.reduce((sum, skippedRowsCount) => sum + skippedRowsCount, 0),
     skippedRowReasons: [...skippedRowReasons.entries()]
       .map(([reason, count]) => ({ reason, count }))
       .sort((left, right) => compareByCodePoint(left.reason, right.reason)),
-  };
+  } satisfies AdapterParseResultWithFiles;
 
   runtimeProfile?.recordParseResult(adapter.id, {
     filesFound: result.filesFound,
@@ -444,7 +457,7 @@ export async function parseSelectedAdapters(
     }
   }
 
-  let parseResults: Array<PromiseSettledResult<AdapterParseResult>>;
+  let parseResults: Array<PromiseSettledResult<AdapterParseResultWithFiles>>;
 
   try {
     parseResults = await Promise.allSettled(
@@ -481,12 +494,20 @@ export async function parseSelectedAdapters(
 
   const sourceFailures: UsageSourceFailure[] = [];
   const successfulParseResults: AdapterParseResult[] = [];
+  const discoveredFiles: DiscoveredSourceFile[] = [];
 
   for (const [index, parseResult] of parseResults.entries()) {
     const source = adaptersToParse[index].id;
 
     if (parseResult.status === 'fulfilled') {
-      successfulParseResults.push(parseResult.value);
+      const { filePaths, ...parseResultWithoutFiles } = parseResult.value;
+      successfulParseResults.push(parseResultWithoutFiles);
+      discoveredFiles.push(
+        ...filePaths.map((filePath) => ({
+          source,
+          filePath,
+        })),
+      );
       continue;
     }
 
@@ -495,6 +516,8 @@ export async function parseSelectedAdapters(
 
   return {
     successfulParseResults,
+    discoveredFiles,
+    eventStoreAvailable: Boolean(options.eventStore?.enabled) && !eventStoreFailureState.disabled,
     sourceFailures,
     warnings: eventStoreFailureState.warning ? [eventStoreFailureState.warning] : [],
   };

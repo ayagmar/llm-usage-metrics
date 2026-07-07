@@ -9,6 +9,11 @@ import type { UsageEvent } from '../domain/usage-event.js';
 import type { EfficiencyRow } from '../efficiency/efficiency-row.js';
 import type { OptimizeRow } from '../optimize/optimize-row.js';
 import type { PricingSource } from '../pricing/types.js';
+import type {
+  EventStoreHistoryResult,
+  LoadHistoryEventsInput,
+} from '../persistence/event-store-history.js';
+import type { EventStore } from '../persistence/event-store.js';
 import type { SessionRepoRow, SessionRow } from '../session/session-row.js';
 import type { SourceAdapter } from '../sources/source-adapter.js';
 import type { TrendSeries, TrendsMetric } from '../trends/trends-series.js';
@@ -46,6 +51,7 @@ export type ReportCommandOptions = {
   pricingOverrides?: string;
   pricingOffline?: boolean;
   ignorePricingFailures?: boolean;
+  history?: boolean;
   share?: boolean;
 };
 
@@ -219,6 +225,7 @@ export type BuildUsageDataDeps = {
     runtimeConfig: PricingFetcherRuntimeConfig,
   ) => Promise<PricingLoadResult>;
   getActiveEnvVarOverrides?: () => EnvVarOverride[];
+  loadHistoryEvents?: (store: EventStore, input: LoadHistoryEventsInput) => EventStoreHistoryResult;
   runtimeProfile?: RuntimeProfileCollector;
 };
 
