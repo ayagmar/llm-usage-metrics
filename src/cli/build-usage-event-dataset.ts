@@ -191,7 +191,9 @@ export async function buildUsageEventDataset(
         () =>
           withEventStore(eventStoreRuntimeConfig.path, (store) =>
             loadHistoryEvents(store, {
-              selectedSources: adaptersToParse.map((adapter) => adapter.id),
+              // Only successfully parsed sources: a failed source has an empty
+              // discovered set, so all its stored files would look departed.
+              selectedSources: successfulParseResults.map((result) => result.source),
               discoveredFiles,
             }),
           ),

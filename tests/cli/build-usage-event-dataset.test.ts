@@ -12,6 +12,7 @@ import {
   replaceFileEvents,
   type EventStoreFileFingerprint,
 } from '../../src/persistence/event-store.js';
+import { loadHistoryEvents } from '../../src/persistence/event-store-history.js';
 import type { SourceAdapter } from '../../src/sources/source-adapter.js';
 
 const tempDirs: string[] = [];
@@ -79,6 +80,7 @@ async function createEventStorePath(): Promise<string> {
 async function writeStoredFile(
   eventStorePath: string,
   options: {
+    source?: string;
     filePath: string;
     events: ReturnType<typeof createEvent>[];
   },
@@ -87,7 +89,7 @@ async function writeStoredFile(
 
   try {
     replaceFileEvents(store, {
-      source: 'codex',
+      source: options.source ?? 'codex',
       filePath: options.filePath,
       fingerprint: createFingerprint(options.filePath),
       events: options.events,
@@ -142,6 +144,42 @@ describe('buildUsageEventDataset history', () => {
       },
     );
 
+    expect(dataset.filteredEvents).toEqual([]);
+    expect(dataset.warnings).toEqual([
+      'History: included 0 event(s) from 0 departed file(s) (0 suppressed as moved or duplicated).',
+    ]);
+  });
+
+  it('excludes sources whose parse failed from history loading', async () => {
+    const eventStorePath = await createEventStorePath();
+    await writeStoredFile(eventStorePath, {
+      source: 'pi',
+      filePath: '/tmp/pi-departed.jsonl',
+      events: [createEvent({ source: 'pi', sessionId: 'pi-departed' })],
+    });
+    const failingAdapter: SourceAdapter = {
+      id: 'pi',
+      discoverFiles: async () => {
+        throw new Error('pi discovery failed');
+      },
+      parseFile: async () => [],
+    };
+    const loadHistoryEventsSpy = vi.fn(loadHistoryEvents);
+
+    const dataset = await buildUsageEventDataset(
+      { history: true, timezone: 'UTC' },
+      {
+        ...createDatasetDeps(eventStorePath),
+        createAdapters: () => [createAdapter('codex', {}), failingAdapter],
+        loadHistoryEvents: loadHistoryEventsSpy,
+      },
+    );
+
+    expect(loadHistoryEventsSpy).toHaveBeenCalledWith(expect.anything(), {
+      selectedSources: ['codex'],
+      discoveredFiles: [],
+    });
+    expect(dataset.sourceFailures).toEqual([{ source: 'pi', reason: 'pi discovery failed' }]);
     expect(dataset.filteredEvents).toEqual([]);
     expect(dataset.warnings).toEqual([
       'History: included 0 event(s) from 0 departed file(s) (0 suppressed as moved or duplicated).',
