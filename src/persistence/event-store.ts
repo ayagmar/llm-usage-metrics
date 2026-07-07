@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -14,7 +15,7 @@ import { asRecord } from '../utils/as-record.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
 
-export const EVENT_STORE_SCHEMA_VERSION = '1';
+export const EVENT_STORE_SCHEMA_VERSION = '2';
 
 const EVENT_STORE_OPEN_TIMEOUT_MS = 2_000;
 
@@ -77,6 +78,19 @@ export type ReplaceFileEventsInput = {
   now: number;
 };
 
+export class EventStoreSchemaVersionError extends Error {
+  readonly schemaVersion: string | undefined;
+
+  constructor(schemaVersion: string | undefined) {
+    const versionLabel = schemaVersion ? `v${schemaVersion}` : 'an unknown schema version';
+    super(
+      `Event store uses ${versionLabel}, which is not supported by this version of llm-usage-metrics (supports v${EVENT_STORE_SCHEMA_VERSION}); leaving store untouched`,
+    );
+    this.name = 'EventStoreSchemaVersionError';
+    this.schemaVersion = schemaVersion;
+  }
+}
+
 function createSchemaSql(): string {
   return `
 CREATE TABLE IF NOT EXISTS meta (
@@ -108,18 +122,12 @@ CREATE TABLE IF NOT EXISTS events (
   cache_read_tokens INTEGER NOT NULL,
   cache_write_tokens INTEGER NOT NULL,
   total_tokens INTEGER NOT NULL,
+  content_hash TEXT,
   cost_usd REAL,
   cost_mode TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS events_file ON events(source, file_path, event_index);
-`;
-}
-
-function dropSchemaSql(): string {
-  return `
-DROP TABLE IF EXISTS events;
-DROP TABLE IF EXISTS files;
-DROP TABLE IF EXISTS meta;
+CREATE INDEX IF NOT EXISTS events_content_hash ON events(content_hash);
 `;
 }
 
@@ -308,22 +316,125 @@ function normalizeStoredEvent(row: Record<string, unknown>): UsageEvent | undefi
   }
 }
 
-function initializeSchema(database: EventStoreDatabase): void {
-  database.exec(createSchemaSql());
+function listUserTableNames(database: EventStoreDatabase): string[] {
+  return database
+    .prepare(
+      [
+        'SELECT name',
+        'FROM sqlite_master',
+        "WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
+        'ORDER BY name ASC',
+      ].join('\n'),
+    )
+    .all()
+    .map((row) => toText(row.name))
+    .filter((name): name is string => Boolean(name));
+}
+
+function readSchemaVersion(database: EventStoreDatabase): string | undefined {
+  const tableNames = new Set(listUserTableNames(database));
+
+  if (!tableNames.has('meta')) {
+    return undefined;
+  }
 
   const schemaVersionRow = database
     .prepare("SELECT value FROM meta WHERE key = 'schemaVersion'")
     .get();
-  const schemaVersion = toText(schemaVersionRow?.value);
+  return toText(schemaVersionRow?.value);
+}
 
-  if (schemaVersion && schemaVersion !== EVENT_STORE_SCHEMA_VERSION) {
-    database.exec(dropSchemaSql());
-    database.exec(createSchemaSql());
-  }
-
+function createFreshSchema(database: EventStoreDatabase): void {
+  database.exec(createSchemaSql());
   database
     .prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('schemaVersion', ?)")
     .run(EVENT_STORE_SCHEMA_VERSION);
+}
+
+function requireStoredEvent(row: Record<string, unknown>): UsageEvent {
+  const event = normalizeStoredEvent(row);
+
+  if (!event) {
+    throw new Error('Cannot migrate event store row with invalid event data');
+  }
+
+  return event;
+}
+
+export function computeEventContentHash(event: UsageEvent): string {
+  const fields = [
+    event.source,
+    event.timestamp,
+    event.model ?? '',
+    event.provider ?? '',
+    event.repoRoot ?? '',
+    event.inputTokens,
+    event.outputTokens,
+    event.reasoningTokens,
+    event.cacheReadTokens,
+    event.cacheWriteTokens,
+    event.totalTokens,
+    event.costMode,
+    event.costUsd ?? '',
+  ];
+
+  return createHash('sha256').update(fields.map(String).join('\x1f')).digest('hex').slice(0, 16);
+}
+
+function migrateSchemaV1ToV2(database: EventStoreDatabase): void {
+  runTransaction(database, () => {
+    database.exec('ALTER TABLE events ADD COLUMN content_hash TEXT');
+
+    const rows = database
+      .prepare(
+        [
+          'SELECT id, source, session_id, timestamp, model, provider, repo_root,',
+          '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
+          '  cache_write_tokens, total_tokens, cost_usd, cost_mode',
+          'FROM events',
+          'ORDER BY id ASC',
+        ].join('\n'),
+      )
+      .all();
+    const updateContentHash = database.prepare('UPDATE events SET content_hash = ? WHERE id = ?');
+
+    for (const row of rows) {
+      const id = toNonNegativeInteger(row.id);
+
+      if (id === undefined) {
+        throw new Error('Cannot migrate event store row without a valid row id');
+      }
+
+      updateContentHash.run(computeEventContentHash(requireStoredEvent(row)), id);
+    }
+
+    database.exec('CREATE INDEX events_content_hash ON events(content_hash)');
+    database
+      .prepare("UPDATE meta SET value = ? WHERE key = 'schemaVersion'")
+      .run(EVENT_STORE_SCHEMA_VERSION);
+  });
+}
+
+function initializeSchema(database: EventStoreDatabase): void {
+  const tableNames = listUserTableNames(database);
+
+  if (tableNames.length === 0) {
+    createFreshSchema(database);
+    return;
+  }
+
+  const schemaVersion = readSchemaVersion(database);
+
+  if (schemaVersion === EVENT_STORE_SCHEMA_VERSION) {
+    return;
+  }
+
+  if (schemaVersion === '1') {
+    migrateSchemaV1ToV2(database);
+    return;
+  }
+
+  throw new EventStoreSchemaVersionError(schemaVersion);
 }
 
 function runTransaction(database: EventStoreDatabase, task: () => void): void {
@@ -502,8 +613,8 @@ export function replaceFileEvents(store: EventStore, input: ReplaceFileEventsInp
         'INSERT INTO events (',
         '  source, file_path, event_index, session_id, timestamp, model, provider, repo_root,',
         '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
-        '  cache_write_tokens, total_tokens, cost_usd, cost_mode',
-        ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        '  cache_write_tokens, total_tokens, content_hash, cost_usd, cost_mode',
+        ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       ].join('\n'),
     );
 
@@ -523,6 +634,7 @@ export function replaceFileEvents(store: EventStore, input: ReplaceFileEventsInp
         event.cacheReadTokens,
         event.cacheWriteTokens,
         event.totalTokens,
+        computeEventContentHash(event),
         event.costUsd ?? null,
         event.costMode,
       );

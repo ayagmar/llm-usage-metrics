@@ -261,7 +261,7 @@ describe('run-doctor-report', () => {
     const eventStorePath = path.join(rootDir, 'events.db');
     await writeFile(eventStorePath, '', 'utf8');
 
-    const readEventStoreSummarySpy = vi.fn(async () => ({ eventCount: 42, schemaVersion: '1' }));
+    const readEventStoreSummarySpy = vi.fn(async () => ({ eventCount: 42, schemaVersion: '2' }));
 
     const results = await buildDoctorResults(
       {

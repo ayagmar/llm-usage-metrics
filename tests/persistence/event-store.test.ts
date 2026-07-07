@@ -5,8 +5,11 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  computeEventContentHash,
   closeEventStore,
   countEvents,
+  EVENT_STORE_SCHEMA_VERSION,
+  EventStoreSchemaVersionError,
   getDefaultEventStorePath,
   getFileEntry,
   openEventStore,
@@ -18,8 +21,52 @@ import {
   type EventStoreFileFingerprint,
 } from '../../src/persistence/event-store.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
+import { loadNodeSqliteModule } from '../../src/sources/opencode/node-sqlite-loader.js';
 
 const tempDirs: string[] = [];
+
+const V1_SCHEMA_SQL = `
+CREATE TABLE meta (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+CREATE TABLE files (
+  source TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  fingerprint TEXT NOT NULL,
+  skipped_rows INTEGER NOT NULL,
+  skipped_row_reasons TEXT,
+  ingested_at INTEGER NOT NULL,
+  PRIMARY KEY (source, file_path)
+);
+CREATE TABLE events (
+  id INTEGER PRIMARY KEY,
+  source TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  event_index INTEGER NOT NULL,
+  session_id TEXT NOT NULL,
+  timestamp TEXT NOT NULL,
+  model TEXT,
+  provider TEXT,
+  repo_root TEXT,
+  input_tokens INTEGER NOT NULL,
+  output_tokens INTEGER NOT NULL,
+  reasoning_tokens INTEGER NOT NULL,
+  cache_read_tokens INTEGER NOT NULL,
+  cache_write_tokens INTEGER NOT NULL,
+  total_tokens INTEGER NOT NULL,
+  cost_usd REAL,
+  cost_mode TEXT NOT NULL
+);
+CREATE INDEX events_file ON events(source, file_path, event_index);
+`;
+
+type TestSqliteModule = {
+  DatabaseSync: new (
+    filePath: string,
+    options?: { readOnly?: boolean; timeout?: number },
+  ) => EventStore['database'];
+};
 
 afterEach(async () => {
   await Promise.all(tempDirs.map((tempDir) => rm(tempDir, { recursive: true, force: true })));
@@ -48,6 +95,94 @@ function createEvent(overrides: Partial<Parameters<typeof createUsageEvent>[0]> 
     costMode: 'estimated',
     ...overrides,
   });
+}
+
+async function loadTestSqliteModule(): Promise<TestSqliteModule> {
+  const sqliteModule = await loadNodeSqliteModule('Event store test');
+  const testSqliteModule = sqliteModule as unknown as Partial<TestSqliteModule>;
+
+  if (typeof testSqliteModule.DatabaseSync !== 'function') {
+    throw new Error('Event store tests require node:sqlite DatabaseSync support.');
+  }
+
+  return testSqliteModule as TestSqliteModule;
+}
+
+async function openTestDatabase(filePath: string): Promise<EventStore['database']> {
+  const sqliteModule = await loadTestSqliteModule();
+  return new sqliteModule.DatabaseSync(filePath, { timeout: 2_000 });
+}
+
+async function writeV1Database(
+  filePath: string,
+  options: {
+    schemaVersion?: string;
+    filePath?: string;
+    events?: ReturnType<typeof createEvent>[];
+    createIndexNameConflict?: boolean;
+  } = {},
+): Promise<void> {
+  const database = await openTestDatabase(filePath);
+
+  try {
+    database.exec(V1_SCHEMA_SQL);
+    database
+      .prepare("INSERT INTO meta (key, value) VALUES ('schemaVersion', ?)")
+      .run(options.schemaVersion ?? '1');
+    database
+      .prepare(
+        [
+          'INSERT INTO files (',
+          '  source, file_path, fingerprint, skipped_rows, skipped_row_reasons, ingested_at',
+          ') VALUES (?, ?, ?, ?, ?, ?)',
+        ].join('\n'),
+      )
+      .run(
+        'codex',
+        options.filePath ?? '/tmp/session.jsonl',
+        serializeEventStoreFingerprint(createFingerprint()),
+        0,
+        null,
+        1_000,
+      );
+
+    const insertEvent = database.prepare(
+      [
+        'INSERT INTO events (',
+        '  source, file_path, event_index, session_id, timestamp, model, provider, repo_root,',
+        '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
+        '  cache_write_tokens, total_tokens, cost_usd, cost_mode',
+        ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      ].join('\n'),
+    );
+
+    (options.events ?? [createEvent()]).forEach((event, index) => {
+      insertEvent.run(
+        event.source,
+        options.filePath ?? '/tmp/session.jsonl',
+        index,
+        event.sessionId,
+        event.timestamp,
+        event.model ?? null,
+        event.provider ?? null,
+        event.repoRoot ?? null,
+        event.inputTokens,
+        event.outputTokens,
+        event.reasoningTokens,
+        event.cacheReadTokens,
+        event.cacheWriteTokens,
+        event.totalTokens,
+        event.costUsd ?? null,
+        event.costMode,
+      );
+    });
+
+    if (options.createIndexNameConflict) {
+      database.exec('CREATE TABLE events_content_hash (id INTEGER PRIMARY KEY)');
+    }
+  } finally {
+    database.close();
+  }
 }
 
 type FakeSqliteModule = {
@@ -137,10 +272,101 @@ describe('event-store', () => {
       expect(countEvents(store)).toBe(0);
       expect(
         store.database.prepare("SELECT value FROM meta WHERE key = 'schemaVersion'").get(),
-      ).toEqual({ value: '1' });
+      ).toEqual({ value: EVENT_STORE_SCHEMA_VERSION });
     } finally {
       closeEventStore(store);
     }
+  });
+
+  it('migrates a real v1 database to v2 without losing rows', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-v1-migrate-'));
+    tempDirs.push(tempDir);
+    const dbPath = path.join(tempDir, 'events.db');
+    const migratedEvent = createEvent({
+      sessionId: 'path-derived-session',
+      provider: 'OpenAI-Codex',
+      model: ' GPT-4.1 ',
+      repoRoot: '/workspace/repo',
+      inputTokens: 10,
+      outputTokens: 20,
+      reasoningTokens: 3,
+      cacheReadTokens: 4,
+      cacheWriteTokens: 5,
+      totalTokens: 42,
+      costUsd: 0.123,
+      costMode: 'explicit',
+    });
+    await writeV1Database(dbPath, { events: [migratedEvent] });
+
+    const store = await openEventStore(dbPath);
+
+    try {
+      expect(countEvents(store)).toBe(1);
+      expect(
+        store.database.prepare("SELECT value FROM meta WHERE key = 'schemaVersion'").get(),
+      ).toEqual({ value: EVENT_STORE_SCHEMA_VERSION });
+      expect(
+        store.database
+          .prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?")
+          .get('events_content_hash'),
+      ).toEqual({ name: 'events_content_hash' });
+      expect(store.database.prepare('SELECT content_hash FROM events').get()).toEqual({
+        content_hash: computeEventContentHash(migratedEvent),
+      });
+      expect(readFileEvents(store, 'codex', '/tmp/session.jsonl')).toEqual([migratedEvent]);
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  it('rolls back a failed v1 migration and leaves the v1 database valid', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-v1-rollback-'));
+    tempDirs.push(tempDir);
+    const dbPath = path.join(tempDir, 'events.db');
+    await writeV1Database(dbPath, { createIndexNameConflict: true });
+
+    await expect(openEventStore(dbPath)).rejects.toThrow('events_content_hash');
+
+    const database = await openTestDatabase(dbPath);
+
+    try {
+      expect(database.prepare("SELECT value FROM meta WHERE key = 'schemaVersion'").get()).toEqual({
+        value: '1',
+      });
+      expect(database.prepare('SELECT COUNT(*) AS count FROM events').get()).toEqual({
+        count: 1,
+      });
+      expect(
+        database
+          .prepare("PRAGMA table_info('events')")
+          .all()
+          .map((row) => row.name),
+      ).not.toContain('content_hash');
+    } finally {
+      database.close();
+    }
+  });
+
+  it('computes deterministic content hashes while excluding session identity', () => {
+    const baseline = createEvent({
+      sessionId: 'derived-from-old-path',
+      inputTokens: 10,
+      totalTokens: 12,
+    });
+    const movedPathEvent = createEvent({
+      sessionId: 'derived-from-new-path',
+      inputTokens: 10,
+      totalTokens: 12,
+    });
+    const changedUsage = createEvent({
+      sessionId: 'derived-from-old-path',
+      inputTokens: 11,
+      totalTokens: 13,
+    });
+
+    expect(computeEventContentHash(baseline)).toBe(computeEventContentHash(baseline));
+    expect(computeEventContentHash(movedPathEvent)).toBe(computeEventContentHash(baseline));
+    expect(computeEventContentHash(changedUsage)).not.toBe(computeEventContentHash(baseline));
   });
 
   it('rejects invalid sqlite loaders and store keys', async () => {
@@ -294,7 +520,7 @@ describe('event-store', () => {
     }
   });
 
-  it('recreates schema on version mismatch', async () => {
+  it('rejects unsupported schema versions without mutating stored rows', async () => {
     const store = await createTempStore('event-store-version-');
     const dbPath = store.filePath;
 
@@ -305,16 +531,11 @@ describe('event-store', () => {
       closeEventStore(store);
     }
 
-    const reopened = await openEventStore(dbPath);
-
-    try {
-      expect(countEvents(reopened)).toBe(0);
-      expect(
-        reopened.database.prepare("SELECT value FROM meta WHERE key = 'schemaVersion'").get(),
-      ).toEqual({ value: '1' });
-    } finally {
-      closeEventStore(reopened);
-    }
+    await expect(openEventStore(dbPath)).rejects.toBeInstanceOf(EventStoreSchemaVersionError);
+    await expect(readEventStoreSummary(dbPath)).resolves.toEqual({
+      eventCount: 1,
+      schemaVersion: '999',
+    });
   });
 
   it('opens writable stores with a busy timeout and WAL journal mode', async () => {
@@ -336,13 +557,13 @@ describe('event-store', () => {
 
   it('reads summaries through a read-only connection with a busy timeout', async () => {
     const fakeSqlite = createFakeSqliteModule({
-      "SELECT value FROM meta WHERE key = 'schemaVersion'": { value: '1' },
+      "SELECT value FROM meta WHERE key = 'schemaVersion'": { value: EVENT_STORE_SCHEMA_VERSION },
       'SELECT COUNT(*) AS count FROM events': { count: 5 },
     });
 
     await expect(readEventStoreSummary('/tmp/events.db', async () => fakeSqlite)).resolves.toEqual({
       eventCount: 5,
-      schemaVersion: '1',
+      schemaVersion: EVENT_STORE_SCHEMA_VERSION,
     });
     expect(fakeSqlite.constructorCalls).toEqual([
       {
@@ -365,7 +586,7 @@ describe('event-store', () => {
 
     await expect(readEventStoreSummary(dbPath)).resolves.toEqual({
       eventCount: 1,
-      schemaVersion: '1',
+      schemaVersion: EVENT_STORE_SCHEMA_VERSION,
     });
   });
 
