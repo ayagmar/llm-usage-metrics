@@ -12,6 +12,7 @@ import {
   EventStoreSchemaVersionError,
   getDefaultEventStorePath,
   getFileEntry,
+  migrateSchemaV1ToV2,
   openEventStore,
   readEventStoreSummary,
   readFileEvents,
@@ -314,6 +315,146 @@ describe('event-store', () => {
         content_hash: computeEventContentHash(migratedEvent),
       });
       expect(readFileEvents(store, 'codex', '/tmp/session.jsonl')).toEqual([migratedEvent]);
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  it('migrates a multi-row v1 database with distinct content hashes', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-v1-multi-row-'));
+    tempDirs.push(tempDir);
+    const dbPath = path.join(tempDir, 'events.db');
+    const firstEvent = createEvent({ sessionId: 'first' });
+    const secondEvent = createEvent({ sessionId: 'second', inputTokens: 20, totalTokens: 22 });
+    const thirdEvent = createEvent({ sessionId: 'third', inputTokens: 30, totalTokens: 32 });
+    await writeV1Database(dbPath, { events: [firstEvent, secondEvent, thirdEvent] });
+
+    const store = await openEventStore(dbPath);
+
+    try {
+      expect(
+        store.database.prepare("SELECT value FROM meta WHERE key = 'schemaVersion'").get(),
+      ).toEqual({ value: EVENT_STORE_SCHEMA_VERSION });
+      expect(readFileEvents(store, 'codex', '/tmp/session.jsonl')).toEqual([
+        firstEvent,
+        secondEvent,
+        thirdEvent,
+      ]);
+
+      const contentHashes = store.database
+        .prepare('SELECT content_hash FROM events ORDER BY id ASC')
+        .all()
+        .map((row) => row.content_hash);
+
+      expect(contentHashes).toEqual([
+        computeEventContentHash(firstEvent),
+        computeEventContentHash(secondEvent),
+        computeEventContentHash(thirdEvent),
+      ]);
+      expect(new Set(contentHashes).size).toBe(3);
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  it('migrates a zero-row v1 database cleanly', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-v1-zero-row-'));
+    tempDirs.push(tempDir);
+    const dbPath = path.join(tempDir, 'events.db');
+    await writeV1Database(dbPath, { events: [] });
+
+    const store = await openEventStore(dbPath);
+
+    try {
+      expect(countEvents(store)).toBe(0);
+      expect(
+        store.database.prepare("SELECT value FROM meta WHERE key = 'schemaVersion'").get(),
+      ).toEqual({ value: EVENT_STORE_SCHEMA_VERSION });
+      expect(
+        store.database
+          .prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?")
+          .get('events_content_hash'),
+      ).toEqual({ name: 'events_content_hash' });
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  it('completes a v1 migration despite a poisoned row, leaving its hash null', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-v1-poisoned-'));
+    tempDirs.push(tempDir);
+    const dbPath = path.join(tempDir, 'events.db');
+    const firstGoodEvent = createEvent({ sessionId: 'good-first' });
+    const poisonedEvent = createEvent({ sessionId: 'poisoned', inputTokens: 7, totalTokens: 9 });
+    const lastGoodEvent = createEvent({
+      sessionId: 'good-last',
+      inputTokens: 20,
+      totalTokens: 22,
+    });
+    await writeV1Database(dbPath, { events: [firstGoodEvent, poisonedEvent, lastGoodEvent] });
+
+    const rawDatabase = await openTestDatabase(dbPath);
+
+    try {
+      rawDatabase
+        .prepare("UPDATE events SET cost_mode = 'bogus' WHERE session_id = ?")
+        .run('poisoned');
+    } finally {
+      rawDatabase.close();
+    }
+
+    const store = await openEventStore(dbPath);
+
+    try {
+      expect(countEvents(store)).toBe(3);
+      expect(
+        store.database.prepare("SELECT value FROM meta WHERE key = 'schemaVersion'").get(),
+      ).toEqual({ value: EVENT_STORE_SCHEMA_VERSION });
+      expect(
+        store.database.prepare('SELECT session_id, content_hash FROM events ORDER BY id ASC').all(),
+      ).toEqual([
+        { session_id: 'good-first', content_hash: computeEventContentHash(firstGoodEvent) },
+        { session_id: 'poisoned', content_hash: null },
+        { session_id: 'good-last', content_hash: computeEventContentHash(lastGoodEvent) },
+      ]);
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  it('no-ops when the v1 migration runs against an already migrated database', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-v1-already-migrated-'));
+    tempDirs.push(tempDir);
+    const dbPath = path.join(tempDir, 'events.db');
+    const event = createEvent();
+    await writeV1Database(dbPath, { events: [event] });
+
+    const store = await openEventStore(dbPath);
+
+    try {
+      migrateSchemaV1ToV2(store.database);
+
+      expect(
+        store.database.prepare("SELECT value FROM meta WHERE key = 'schemaVersion'").get(),
+      ).toEqual({ value: EVENT_STORE_SCHEMA_VERSION });
+      expect(store.database.prepare('SELECT content_hash FROM events').get()).toEqual({
+        content_hash: computeEventContentHash(event),
+      });
+      expect(readFileEvents(store, 'codex', '/tmp/session.jsonl')).toEqual([event]);
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  it('stores a content hash for freshly ingested events', async () => {
+    const store = await createTempStore('event-store-ingest-hash-');
+
+    try {
+      replaceCodexFile(store);
+
+      expect(store.database.prepare('SELECT content_hash FROM events').get()).toEqual({
+        content_hash: computeEventContentHash(createEvent()),
+      });
     } finally {
       closeEventStore(store);
     }

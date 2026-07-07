@@ -255,6 +255,43 @@ describe('event-store history', () => {
     }
   });
 
+  it('serves the valid rows of a departed file without deleting the invalid row', async () => {
+    const store = await createTempStore();
+    const validEvent = createEvent({ sessionId: 'valid' });
+    const invalidEvent = createEvent({ sessionId: 'invalid' });
+
+    try {
+      writeStoredFile(store, {
+        filePath: '/tmp/departed.jsonl',
+        events: [validEvent, invalidEvent],
+      });
+      store.database
+        .prepare("UPDATE events SET cost_mode = 'bogus' WHERE session_id = ?")
+        .run('invalid');
+
+      const result = loadHistoryEvents(store, {
+        selectedSources: ['codex'],
+        discoveredFiles: [],
+      });
+
+      expect(result.events).toEqual([validEvent]);
+      expect(result).toMatchObject({
+        departedFileCount: 1,
+        servedFileCount: 1,
+        suppressedFileCount: 0,
+        servedEventCount: 1,
+      });
+      expect(store.database.prepare('SELECT COUNT(*) AS count FROM events').get()).toEqual({
+        count: 2,
+      });
+      expect(store.database.prepare('SELECT COUNT(*) AS count FROM files').get()).toEqual({
+        count: 1,
+      });
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
   it('serves a departed file with a null content hash instead of crashing', async () => {
     const store = await createTempStore();
     const deletedEvent = createEvent({ sessionId: 'deleted' });

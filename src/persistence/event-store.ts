@@ -351,19 +351,9 @@ function createFreshSchema(database: EventStoreDatabase): void {
     .run(EVENT_STORE_SCHEMA_VERSION);
 }
 
-function requireStoredEvent(row: Record<string, unknown>): UsageEvent {
-  const event = normalizeStoredEvent(row);
-
-  if (!event) {
-    throw new Error('Cannot migrate event store row with invalid event data');
-  }
-
-  return event;
-}
-
 export function computeEventContentHash(event: UsageEvent): string {
   const fields = [
-    event.source,
+    event.source.toLowerCase(),
     event.timestamp,
     event.model ?? '',
     event.provider ?? '',
@@ -381,8 +371,14 @@ export function computeEventContentHash(event: UsageEvent): string {
   return createHash('sha256').update(fields.map(String).join('\x1f')).digest('hex').slice(0, 16);
 }
 
-function migrateSchemaV1ToV2(database: EventStoreDatabase): void {
+export function migrateSchemaV1ToV2(database: EventStoreDatabase): void {
   runTransaction(database, () => {
+    // Re-check under the write lock: another process may have migrated while
+    // this one waited on BEGIN IMMEDIATE.
+    if (readSchemaVersion(database) !== '1') {
+      return;
+    }
+
     database.exec('ALTER TABLE events ADD COLUMN content_hash TEXT');
 
     const rows = database
@@ -405,10 +401,18 @@ function migrateSchemaV1ToV2(database: EventStoreDatabase): void {
         throw new Error('Cannot migrate event store row without a valid row id');
       }
 
-      updateContentHash.run(computeEventContentHash(requireStoredEvent(row)), id);
+      const event = normalizeStoredEvent(row);
+
+      // An un-normalizable row keeps a NULL hash instead of aborting the
+      // migration; the history read path never suppresses NULL-hash files.
+      if (!event) {
+        continue;
+      }
+
+      updateContentHash.run(computeEventContentHash(event), id);
     }
 
-    database.exec('CREATE INDEX events_content_hash ON events(content_hash)');
+    database.exec('CREATE INDEX IF NOT EXISTS events_content_hash ON events(content_hash)');
     database
       .prepare("UPDATE meta SET value = ? WHERE key = 'schemaVersion'")
       .run(EVENT_STORE_SCHEMA_VERSION);
@@ -604,14 +608,12 @@ export function getFileEntry(
   };
 }
 
-export function readFileEvents(
+function selectFileEventRows(
   store: EventStore,
   source: string,
   filePath: string,
-): UsageEvent[] | undefined {
-  const normalizedSource = normalizeStoreSource(source);
-  const normalizedFilePath = normalizeStoreFilePath(filePath);
-  const rows = store.database
+): Record<string, unknown>[] {
+  return store.database
     .prepare(
       [
         'SELECT source, session_id, timestamp, model, provider, repo_root,',
@@ -622,15 +624,48 @@ export function readFileEvents(
         'ORDER BY event_index ASC',
       ].join('\n'),
     )
-    .all(normalizedSource, normalizedFilePath);
+    .all(source, filePath);
+}
+
+export function readFileEvents(
+  store: EventStore,
+  source: string,
+  filePath: string,
+): UsageEvent[] | undefined {
+  const normalizedSource = normalizeStoreSource(source);
+  const normalizedFilePath = normalizeStoreFilePath(filePath);
   const events: UsageEvent[] = [];
 
-  for (const row of rows) {
+  for (const row of selectFileEventRows(store, normalizedSource, normalizedFilePath)) {
     const event = normalizeStoredEvent(row);
 
     if (!event) {
       deleteFileEntry(store, normalizedSource, normalizedFilePath);
       return undefined;
+    }
+
+    events.push(event);
+  }
+
+  return events;
+}
+
+export function readDepartedFileEvents(
+  store: EventStore,
+  source: string,
+  filePath: string,
+): UsageEvent[] {
+  const normalizedSource = normalizeStoreSource(source);
+  const normalizedFilePath = normalizeStoreFilePath(filePath);
+  const events: UsageEvent[] = [];
+
+  for (const row of selectFileEventRows(store, normalizedSource, normalizedFilePath)) {
+    const event = normalizeStoredEvent(row);
+
+    // A departed file has no source data left to re-parse, so an invalid row
+    // is skipped instead of deleting the ledger's only copy of the file.
+    if (!event) {
+      continue;
     }
 
     events.push(event);

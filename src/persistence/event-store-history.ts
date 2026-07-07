@@ -2,7 +2,7 @@ import type { UsageEvent } from '../domain/usage-event.js';
 import { normalizeSourceId } from '../domain/usage-event.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import type { EventStore } from './event-store.js';
-import { readFileEvents } from './event-store.js';
+import { readDepartedFileEvents } from './event-store.js';
 
 export type EventStoreHistoryDiscoveredFile = {
   source: string;
@@ -258,7 +258,7 @@ function loadServedFileEvents(store: EventStore, files: DepartedFile[]): UsageEv
   const events: UsageEvent[] = [];
 
   for (const file of files) {
-    events.push(...(readFileEvents(store, file.source, file.filePath) ?? []));
+    events.push(...readDepartedFileEvents(store, file.source, file.filePath));
   }
 
   return events;
