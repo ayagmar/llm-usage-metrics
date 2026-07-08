@@ -8,6 +8,7 @@ import {
   type UsageEvent,
   type UsageEventInput,
 } from '../domain/usage-event.js';
+import { normalizeProviderToBillingEntity } from '../domain/provider-normalization.js';
 import { normalizeSkippedRowReasons } from '../cli/normalize-skipped-row-reasons.js';
 import { loadNodeSqliteModule } from '../sources/opencode/node-sqlite-loader.js';
 import type { SourceSkippedRowReasonStat } from '../sources/source-adapter.js';
@@ -18,6 +19,10 @@ import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
 export const EVENT_STORE_SCHEMA_VERSION = '2';
 
 const EVENT_STORE_OPEN_TIMEOUT_MS = 2_000;
+const CONTROL_CHARACTERS_PATTERN = new RegExp(String.raw`[\u0000-\u001F\u007F-\u009F]`, 'u');
+const NORMALIZED_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
+const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const;
+const FAST_PATH_REJECT = Symbol('fast path reject');
 
 type EventStoreStatement = {
   all: (...parameters: unknown[]) => Record<string, unknown>[];
@@ -298,7 +303,13 @@ function stringifySkippedRowReasons(
   return normalizedReasons.length > 0 ? JSON.stringify(normalizedReasons) : null;
 }
 
-function normalizeStoredEvent(row: Record<string, unknown>): UsageEvent | undefined {
+type OptionalStoredText = string | undefined | typeof FAST_PATH_REJECT;
+
+export function normalizeStoredEvent(row: Record<string, unknown>): UsageEvent | undefined {
+  return fastMaterializeStoredEvent(row) ?? slowNormalizeStoredEvent(row);
+}
+
+function slowNormalizeStoredEvent(row: Record<string, unknown>): UsageEvent | undefined {
   const costMode =
     row.cost_mode === 'explicit' || row.cost_mode === 'estimated' ? row.cost_mode : undefined;
 
@@ -328,6 +339,152 @@ function normalizeStoredEvent(row: Record<string, unknown>): UsageEvent | undefi
   } catch {
     return undefined;
   }
+}
+
+function fastMaterializeStoredEvent(row: Record<string, unknown>): UsageEvent | undefined {
+  const costMode =
+    row.cost_mode === 'explicit' || row.cost_mode === 'estimated' ? row.cost_mode : undefined;
+
+  if (!costMode) {
+    return undefined;
+  }
+
+  const source = toStoredRequiredText(row.source);
+  const sessionId = toStoredRequiredText(row.session_id);
+  const timestamp = toStoredTimestamp(row.timestamp);
+  const repoRoot = toStoredOptionalText(row.repo_root);
+  const provider = toStoredOptionalText(row.provider);
+  const model = toStoredOptionalText(row.model);
+  const inputTokens = toStoredNonNegativeInteger(row.input_tokens);
+  const outputTokens = toStoredNonNegativeInteger(row.output_tokens);
+  const reasoningTokens = toStoredNonNegativeInteger(row.reasoning_tokens);
+  const cacheReadTokens = toStoredNonNegativeInteger(row.cache_read_tokens);
+  const cacheWriteTokens = toStoredNonNegativeInteger(row.cache_write_tokens);
+  const totalTokens = toStoredNonNegativeInteger(row.total_tokens);
+  const costUsd = toStoredCostUsd(row.cost_usd, costMode);
+
+  if (
+    !source ||
+    !sessionId ||
+    !timestamp ||
+    repoRoot === FAST_PATH_REJECT ||
+    provider === FAST_PATH_REJECT ||
+    model === FAST_PATH_REJECT ||
+    inputTokens === undefined ||
+    outputTokens === undefined ||
+    reasoningTokens === undefined ||
+    cacheReadTokens === undefined ||
+    cacheWriteTokens === undefined ||
+    totalTokens === undefined ||
+    costUsd === FAST_PATH_REJECT
+  ) {
+    return undefined;
+  }
+
+  if (provider && normalizeProviderToBillingEntity(provider) !== provider) {
+    return undefined;
+  }
+
+  if (model && model !== model.toLowerCase()) {
+    return undefined;
+  }
+
+  return {
+    source,
+    sessionId,
+    timestamp,
+    repoRoot,
+    provider,
+    model,
+    inputTokens,
+    outputTokens,
+    reasoningTokens,
+    cacheReadTokens,
+    cacheWriteTokens,
+    totalTokens,
+    costUsd,
+    costMode,
+  };
+}
+
+function toStoredRequiredText(value: unknown): string | undefined {
+  if (typeof value !== 'string' || value.length === 0) {
+    return undefined;
+  }
+
+  if (value !== value.trim() || CONTROL_CHARACTERS_PATTERN.test(value)) {
+    return undefined;
+  }
+
+  return value;
+}
+
+function toStoredOptionalText(value: unknown): OptionalStoredText {
+  if (value === null) {
+    return undefined;
+  }
+
+  return toStoredRequiredText(value) ?? FAST_PATH_REJECT;
+}
+
+function toStoredTimestamp(value: unknown): string | undefined {
+  if (typeof value !== 'string' || !NORMALIZED_TIMESTAMP_PATTERN.test(value)) {
+    return undefined;
+  }
+
+  if (!isValidNormalizedTimestamp(value)) {
+    return undefined;
+  }
+
+  return value;
+}
+
+function isValidNormalizedTimestamp(value: string): boolean {
+  const year = Number(value.slice(0, 4));
+  const month = Number(value.slice(5, 7));
+  const day = Number(value.slice(8, 10));
+  const hour = Number(value.slice(11, 13));
+  const minute = Number(value.slice(14, 16));
+  const second = Number(value.slice(17, 19));
+
+  if (month < 1 || month > 12 || day < 1 || hour > 23 || minute > 59 || second > 59) {
+    return false;
+  }
+
+  const maxDay = month === 2 && isLeapYear(year) ? 29 : DAYS_IN_MONTH[month - 1];
+  return day <= maxDay;
+}
+
+function isLeapYear(year: number): boolean {
+  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+}
+
+function toStoredNonNegativeInteger(value: unknown): number | undefined {
+  if (
+    typeof value !== 'number' ||
+    !Number.isFinite(value) ||
+    !Number.isInteger(value) ||
+    value < 0
+  ) {
+    return undefined;
+  }
+
+  return value;
+}
+
+function toStoredCostUsd(
+  value: unknown,
+  costMode: 'explicit' | 'estimated',
+): number | undefined | typeof FAST_PATH_REJECT {
+  if (value === null) {
+    return costMode === 'explicit' ? FAST_PATH_REJECT : undefined;
+  }
+
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    return FAST_PATH_REJECT;
+  }
+
+  return value;
 }
 
 function listUserTableNames(database: EventStoreDatabase): string[] {

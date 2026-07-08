@@ -14,6 +14,7 @@ import {
   getDefaultEventStorePath,
   getFileEntry,
   migrateSchemaV1ToV2,
+  normalizeStoredEvent,
   openEventStore,
   readEventStoreSummary,
   readFileEvents,
@@ -98,6 +99,81 @@ function createEvent(overrides: Partial<Parameters<typeof createUsageEvent>[0]> 
     costMode: 'estimated',
     ...overrides,
   });
+}
+
+function createStoredEventRow(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    source: 'codex',
+    session_id: 'session-1',
+    timestamp: '2026-02-01T00:00:00.000Z',
+    model: 'gpt-5-codex',
+    provider: 'openai',
+    repo_root: '/workspace/repo',
+    input_tokens: 1,
+    output_tokens: 2,
+    reasoning_tokens: 0,
+    cache_read_tokens: 3,
+    cache_write_tokens: 4,
+    total_tokens: 99,
+    cost_usd: null,
+    cost_mode: 'estimated',
+    ...overrides,
+  };
+}
+
+function slowNormalizeStoredEventFromRow(row: Record<string, unknown>) {
+  const costMode =
+    row.cost_mode === 'explicit' || row.cost_mode === 'estimated' ? row.cost_mode : undefined;
+
+  if (!costMode) {
+    return undefined;
+  }
+
+  try {
+    return createUsageEvent({
+      source: toOracleText(row.source) ?? '',
+      sessionId: toOracleText(row.session_id) ?? '',
+      timestamp: toOracleText(row.timestamp) ?? '',
+      repoRoot: toOracleText(row.repo_root),
+      provider: toOracleText(row.provider),
+      model: toOracleText(row.model),
+      inputTokens: toOracleNonNegativeInteger(row.input_tokens),
+      outputTokens: toOracleNonNegativeInteger(row.output_tokens),
+      reasoningTokens: toOracleNonNegativeInteger(row.reasoning_tokens),
+      cacheReadTokens: toOracleNonNegativeInteger(row.cache_read_tokens),
+      cacheWriteTokens: toOracleNonNegativeInteger(row.cache_write_tokens),
+      totalTokens: toOracleNonNegativeInteger(row.total_tokens),
+      costUsd: toOracleNonNegativeNumber(row.cost_usd),
+      costMode,
+    });
+  } catch {
+    return undefined;
+  }
+}
+
+function toOracleText(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const normalized = value.trim();
+  return normalized || undefined;
+}
+
+function toOracleNonNegativeInteger(value: unknown): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    return undefined;
+  }
+
+  return Math.trunc(value);
+}
+
+function toOracleNonNegativeNumber(value: unknown): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    return undefined;
+  }
+
+  return value;
 }
 
 async function loadTestSqliteModule(): Promise<TestSqliteModule> {
@@ -515,6 +591,54 @@ describe('event-store', () => {
     expect(computeEventContentHash(changedUsage)).not.toBe(computeEventContentHash(baseline));
   });
 
+  it('matches the slow stored-event normalization oracle', () => {
+    const rows = [
+      createStoredEventRow(),
+      createStoredEventRow({
+        model: null,
+        provider: null,
+        repo_root: null,
+      }),
+      createStoredEventRow({
+        cost_mode: 'explicit',
+        cost_usd: 1.25,
+      }),
+      createStoredEventRow({
+        input_tokens: 0,
+        output_tokens: 0,
+        reasoning_tokens: 0,
+        cache_read_tokens: 0,
+        cache_write_tokens: 0,
+        total_tokens: 0,
+        cost_usd: 0,
+      }),
+      createStoredEventRow({
+        input_tokens: 2_000_000,
+        output_tokens: 3_000_000,
+        reasoning_tokens: 4_000_000,
+        cache_read_tokens: 5_000_000,
+        cache_write_tokens: 6_000_000,
+        total_tokens: 7_000_000,
+      }),
+      createStoredEventRow({ session_id: 'bad\u0000session' }),
+      createStoredEventRow({ model: 'GPT-5-CODEX' }),
+      createStoredEventRow({ provider: 'OpenAI' }),
+      createStoredEventRow({ source: ' codex ' }),
+      createStoredEventRow({ session_id: '' }),
+      createStoredEventRow({ total_tokens: 123_456 }),
+      createStoredEventRow({ cost_mode: 'explicit', cost_usd: null }),
+      createStoredEventRow({ timestamp: '2026-02-30T10:00:00.000Z' }),
+      createStoredEventRow({ timestamp: '2026-02-01T00:00:00Z' }),
+      createStoredEventRow({ input_tokens: -1 }),
+      createStoredEventRow({ output_tokens: 2.8 }),
+      createStoredEventRow({ cost_mode: 'estimated', cost_usd: -0.5 }),
+    ];
+
+    for (const row of rows) {
+      expect(normalizeStoredEvent(row)).toEqual(slowNormalizeStoredEventFromRow(row));
+    }
+  });
+
   it('rejects invalid sqlite loaders and store keys', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-invalid-loader-'));
     tempDirs.push(tempDir);
@@ -854,6 +978,25 @@ describe('event-store', () => {
           costUsd: 0.12,
           costMode: 'explicit',
         }),
+      ]);
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  it('falls back to slow materialization for acceptable unnormalized stored rows', async () => {
+    const store = await createTempStore('event-store-slow-materialization-fallback-');
+
+    try {
+      replaceCodexFile(store, {
+        events: [createEvent({ model: 'gpt-4.1' })],
+      });
+      store.database
+        .prepare('UPDATE events SET model = ? WHERE file_path = ?')
+        .run('GPT-4.1', '/tmp/session.jsonl');
+
+      expect(readFileEvents(store, 'codex', '/tmp/session.jsonl')).toEqual([
+        createEvent({ model: 'gpt-4.1' }),
       ]);
     } finally {
       closeEventStore(store);
