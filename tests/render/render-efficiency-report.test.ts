@@ -1,8 +1,15 @@
+import { stripVTControlCharacters } from 'node:util';
+
+import pc from 'picocolors';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { renderEfficiencyReport } from '../../src/render/render-efficiency-report.js';
 import type { EfficiencyDataResult } from '../../src/cli/usage-data-contracts.js';
 import { visibleWidth } from '../../src/render/table-text-layout.js';
+
+function stripAnsi(value: string): string {
+  return stripVTControlCharacters(value);
+}
 
 const pendingStdoutRestores = new Set<() => void>();
 
@@ -248,6 +255,34 @@ describe('renderEfficiencyReport', () => {
     expect(output).toContain('Daily Efficiency Report');
     expect(output).toContain('ALL');
     expect(output).toContain('2026-02-10');
+  });
+
+  it('renders exactly 16 colored columns without a phantom Commits/$ column', () => {
+    const output = renderEfficiencyReport(createEfficiencyDataResult(), 'terminal', {
+      granularity: 'daily',
+      useColor: true,
+    });
+    const stripped = stripAnsi(output);
+
+    // Regression: commitsPerUsd once indexed a 17th column, styling
+    // `undefined` green whenever commitsPerUsd > 0.
+    expect(stripped).not.toContain('undefined');
+
+    // The one-column title box also uses `│`; table rows carry many more.
+    const tableRowLines = stripped.split('\n').filter((line) => line.split('│').length - 1 >= 3);
+    expect(tableRowLines.length).toBeGreaterThan(0);
+
+    for (const line of tableRowLines) {
+      // 16 columns render as 17 vertical separators.
+      expect(line.split('│').length - 1).toBe(17);
+    }
+
+    if (pc.isColorSupported) {
+      const grandTotalLine = output.split('\n').find((line) => stripAnsi(line).includes('ALL'));
+
+      // The Commits/$ cell (0.80 > 0) is styled green, not a stray column.
+      expect(grandTotalLine).toContain(pc.green('~0.80'));
+    }
   });
 
   it('renders monthly terminal title without embedding diagnostics', () => {

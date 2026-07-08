@@ -126,6 +126,70 @@ describe('resolveCompareWindows', () => {
       label: '2025-12',
     });
   });
+
+  it('anchors the equal-length baseline to day count, not the previous calendar month', () => {
+    const windows = resolveCompareWindows(
+      { since: '2026-03-01', until: '2026-03-31' },
+      'UTC',
+      new Date('2026-07-01T12:00:00.000Z'),
+    );
+
+    expect(windows.current).toEqual({
+      since: '2026-03-01',
+      until: '2026-03-31',
+      label: '2026-03',
+    });
+    // 31 days ending the day before March 1 — NOT February (which has 28).
+    expect(windows.baseline).toEqual({
+      since: '2026-01-29',
+      until: '2026-02-28',
+      label: '2026-01-29 to 2026-02-28',
+    });
+  });
+
+  it('keeps the equal-length baseline 31 days across a leap February', () => {
+    const windows = resolveCompareWindows(
+      { since: '2024-03-01', until: '2024-03-31' },
+      'UTC',
+      new Date('2024-07-01T12:00:00.000Z'),
+    );
+
+    expect(windows.baseline).toEqual({
+      since: '2024-01-30',
+      until: '2024-02-29',
+      label: '2024-01-30 to 2024-02-29',
+    });
+  });
+
+  it('rejects a one-sided current window', () => {
+    expect(() => resolveCompareWindows({ since: '2026-03-01' }, 'UTC', new Date())).toThrow(
+      'compare requires both --since and --until when setting a current window',
+    );
+    expect(() => resolveCompareWindows({ until: '2026-03-31' }, 'UTC', new Date())).toThrow(
+      'compare requires both --since and --until when setting a current window',
+    );
+  });
+
+  it('rejects a one-sided baseline window', () => {
+    expect(() => resolveCompareWindows({ vsSince: '2026-02-01' }, 'UTC', new Date())).toThrow(
+      '--vs-since and --vs-until must be provided together',
+    );
+    expect(() => resolveCompareWindows({ vsUntil: '2026-02-28' }, 'UTC', new Date())).toThrow(
+      '--vs-since and --vs-until must be provided together',
+    );
+  });
+
+  it('rejects an inverted current window', () => {
+    expect(() =>
+      resolveCompareWindows({ since: '2026-03-31', until: '2026-03-01' }, 'UTC', new Date()),
+    ).toThrow('--since must be less than or equal to --until');
+  });
+
+  it('rejects an inverted baseline window', () => {
+    expect(() =>
+      resolveCompareWindows({ vsSince: '2026-02-28', vsUntil: '2026-02-01' }, 'UTC', new Date()),
+    ).toThrow('--vs-since must be less than or equal to --vs-until');
+  });
 });
 
 describe('buildCompareData', () => {

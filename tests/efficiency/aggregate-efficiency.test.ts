@@ -675,6 +675,84 @@ describe('aggregateEfficiency', () => {
     });
   });
 
+  it('sums source rows to the period subtotal across every token bucket and cost', () => {
+    const rows = aggregateEfficiency({
+      bySource: true,
+      usageRows: [
+        createUsageRow({
+          rowType: 'period_source',
+          periodKey: '2026-02-01',
+          source: 'pi',
+          inputTokens: 100,
+          outputTokens: 40,
+          reasoningTokens: 7,
+          cacheReadTokens: 12,
+          cacheWriteTokens: 3,
+          totalTokens: 162,
+          costUsd: 1,
+        }),
+        createUsageRow({
+          rowType: 'period_source',
+          periodKey: '2026-02-01',
+          source: 'codex',
+          inputTokens: 200,
+          outputTokens: 60,
+          reasoningTokens: 13,
+          cacheReadTokens: 8,
+          cacheWriteTokens: 5,
+          totalTokens: 286,
+          costUsd: 2,
+        }),
+        createUsageRow({
+          rowType: 'period_combined',
+          periodKey: '2026-02-01',
+          source: 'combined',
+          inputTokens: 300,
+          outputTokens: 100,
+          reasoningTokens: 20,
+          cacheReadTokens: 20,
+          cacheWriteTokens: 8,
+          totalTokens: 448,
+          costUsd: 3,
+        }),
+      ],
+      periodOutcomes: new Map([
+        [
+          '2026-02-01',
+          {
+            commitCount: 3,
+            linesAdded: 20,
+            linesDeleted: 5,
+            linesChanged: 25,
+          },
+        ],
+      ]),
+    });
+
+    const sourceRows = rows.filter((row) => row.rowType === 'period_source');
+    const periodRow = rows.find((row) => row.rowType === 'period');
+
+    expect(sourceRows).toHaveLength(2);
+    expect(periodRow).toBeDefined();
+
+    const tokenBuckets = [
+      'inputTokens',
+      'outputTokens',
+      'reasoningTokens',
+      'cacheReadTokens',
+      'cacheWriteTokens',
+      'totalTokens',
+    ] as const;
+
+    for (const bucket of tokenBuckets) {
+      const sourceSum = sourceRows.reduce((sum, row) => sum + row[bucket], 0);
+      expect(sourceSum).toBe(periodRow?.[bucket]);
+    }
+
+    const costSum = sourceRows.reduce((sum, row) => sum + (row.costUsd ?? 0), 0);
+    expect(costSum).toBe(periodRow?.costUsd);
+  });
+
   it('omits zero-signal source rows in by-source mode', () => {
     const rows = aggregateEfficiency({
       bySource: true,
