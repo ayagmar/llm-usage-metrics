@@ -26,6 +26,16 @@ type DepartedFile = {
   source: string;
   filePath: string;
   ingestedAt: number;
+  eventCount: number;
+  newestTimestamp?: string;
+};
+
+export type ClassifiedDepartedFile = {
+  source: string;
+  filePath: string;
+  eventCount: number;
+  newestTimestamp?: string;
+  suppressed: boolean;
 };
 
 type FileContentHashMultiset = {
@@ -169,14 +179,19 @@ function readDepartedFiles(store: EventStore): DepartedFile[] {
   const rows = store.database
     .prepare(
       [
-        'SELECT files.source, files.file_path, files.ingested_at',
+        'SELECT files.source, files.file_path, files.ingested_at,',
+        '  COUNT(events.id) AS event_count, MAX(events.timestamp) AS newest_timestamp',
         'FROM files',
         'JOIN history_selected_sources AS selected',
         '  ON files.source = selected.source',
         'LEFT JOIN history_discovered_files AS discovered',
         '  ON files.source = discovered.source',
         '  AND files.file_path = discovered.file_path',
+        'LEFT JOIN events',
+        '  ON files.source = events.source',
+        '  AND files.file_path = events.file_path',
         'WHERE discovered.file_path IS NULL',
+        'GROUP BY files.source, files.file_path, files.ingested_at',
       ].join('\n'),
     )
     .all();
@@ -186,12 +201,14 @@ function readDepartedFiles(store: EventStore): DepartedFile[] {
     const source = toText(row.source);
     const filePath = toText(row.file_path);
     const ingestedAt = toNonNegativeInteger(row.ingested_at);
+    const eventCount = toNonNegativeInteger(row.event_count);
+    const newestTimestamp = toText(row.newest_timestamp);
 
-    if (!source || !filePath || ingestedAt === undefined) {
+    if (!source || !filePath || ingestedAt === undefined || eventCount === undefined) {
       continue;
     }
 
-    departedFiles.push({ source, filePath, ingestedAt });
+    departedFiles.push({ source, filePath, ingestedAt, eventCount, newestTimestamp });
   }
 
   return departedFiles.sort(compareDepartedFiles);
@@ -254,7 +271,10 @@ function addFileHashCounts(
   }
 }
 
-function loadServedFileEvents(store: EventStore, files: DepartedFile[]): UsageEvent[] {
+function loadServedFileEvents(
+  store: EventStore,
+  files: readonly EventStoreHistoryDiscoveredFile[],
+): UsageEvent[] {
   const events: UsageEvent[] = [];
 
   for (const file of files) {
@@ -264,43 +284,53 @@ function loadServedFileEvents(store: EventStore, files: DepartedFile[]): UsageEv
   return events;
 }
 
-export function loadHistoryEvents(
+export function classifyDepartedFiles(
   store: EventStore,
   input: LoadHistoryEventsInput,
-): EventStoreHistoryResult {
+): ClassifiedDepartedFile[] {
   createTempTables(store);
   const selectedSources = writeTempInputs(store, input);
 
   if (selectedSources.size === 0) {
-    return {
-      events: [],
-      departedFileCount: 0,
-      servedFileCount: 0,
-      suppressedFileCount: 0,
-      servedEventCount: 0,
-    };
+    return [];
   }
 
   const servedHashCounts = readLiveHashCounts(store);
   const departedFiles = readDepartedFiles(store);
-  const servedFiles: DepartedFile[] = [];
-  let suppressedFileCount = 0;
+  const classifiedFiles: ClassifiedDepartedFile[] = [];
 
   for (const departedFile of departedFiles) {
     const fileHashCounts = readFileContentHashMultiset(store, departedFile);
+    const suppressed = isSubsetOfServedData(fileHashCounts, servedHashCounts);
 
-    if (isSubsetOfServedData(fileHashCounts, servedHashCounts)) {
-      suppressedFileCount += 1;
+    classifiedFiles.push({
+      source: departedFile.source,
+      filePath: departedFile.filePath,
+      eventCount: departedFile.eventCount,
+      newestTimestamp: departedFile.newestTimestamp,
+      suppressed,
+    });
+
+    if (suppressed) {
       continue;
     }
 
     // Partial overlap is served whole: losing genuine deleted history is worse
     // than a rare content overlap between unrelated files.
-    servedFiles.push(departedFile);
     addFileHashCounts(servedHashCounts, fileHashCounts);
   }
 
+  return classifiedFiles;
+}
+
+export function loadHistoryEvents(
+  store: EventStore,
+  input: LoadHistoryEventsInput,
+): EventStoreHistoryResult {
+  const departedFiles = classifyDepartedFiles(store, input);
+  const servedFiles = departedFiles.filter((file) => !file.suppressed);
   const events = loadServedFileEvents(store, servedFiles);
+  const suppressedFileCount = departedFiles.length - servedFiles.length;
 
   return {
     events,

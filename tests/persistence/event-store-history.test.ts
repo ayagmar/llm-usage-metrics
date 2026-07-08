@@ -12,7 +12,10 @@ import {
   type EventStore,
   type EventStoreFileFingerprint,
 } from '../../src/persistence/event-store.js';
-import { loadHistoryEvents } from '../../src/persistence/event-store-history.js';
+import {
+  classifyDepartedFiles,
+  loadHistoryEvents,
+} from '../../src/persistence/event-store-history.js';
 
 const tempDirs: string[] = [];
 
@@ -183,6 +186,72 @@ describe('event-store history', () => {
         suppressedFileCount: 1,
         servedEventCount: 1,
       });
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  it('classifies departed files with suppression state and newest timestamps', async () => {
+    const store = await createTempStore();
+    const servedEvent = createEvent({
+      sessionId: 'served',
+      timestamp: '2026-02-14T10:00:00.000Z',
+    });
+    const servedNewestEvent = createEvent({
+      sessionId: 'served',
+      timestamp: '2026-02-15T11:00:00.000Z',
+      inputTokens: 20,
+      totalTokens: 25,
+    });
+    const oldPathEvent = createEvent({ sessionId: 'old-path-session' });
+    const livePathEvent = createEvent({ sessionId: 'live-path-session' });
+
+    try {
+      writeStoredFile(store, {
+        filePath: '/tmp/served.jsonl',
+        events: [servedEvent, servedNewestEvent],
+        now: 1_000,
+      });
+      writeStoredFile(store, {
+        filePath: '/tmp/old.jsonl',
+        events: [oldPathEvent],
+        now: 2_000,
+      });
+      writeStoredFile(store, {
+        filePath: '/tmp/live.jsonl',
+        events: [livePathEvent],
+        now: 3_000,
+      });
+
+      const input = {
+        selectedSources: ['codex'],
+        discoveredFiles: [{ source: 'codex', filePath: '/tmp/live.jsonl' }],
+      };
+      const classifiedFiles = classifyDepartedFiles(store, input);
+      const history = loadHistoryEvents(store, input);
+
+      expect(classifiedFiles).toEqual([
+        {
+          source: 'codex',
+          filePath: '/tmp/served.jsonl',
+          eventCount: 2,
+          newestTimestamp: '2026-02-15T11:00:00.000Z',
+          suppressed: false,
+        },
+        {
+          source: 'codex',
+          filePath: '/tmp/old.jsonl',
+          eventCount: 1,
+          newestTimestamp: '2026-02-14T10:00:00.000Z',
+          suppressed: true,
+        },
+      ]);
+      expect(history.servedFileCount).toBe(
+        classifiedFiles.filter((file) => !file.suppressed).length,
+      );
+      expect(history.suppressedFileCount).toBe(
+        classifiedFiles.filter((file) => file.suppressed).length,
+      );
     } finally {
       closeEventStore(store);
     }

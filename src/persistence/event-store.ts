@@ -78,6 +78,16 @@ export type ReplaceFileEventsInput = {
   now: number;
 };
 
+export type DeleteStoredFilesInput = {
+  source: string;
+  filePath: string;
+};
+
+export type DeleteStoredFilesResult = {
+  deletedFileCount: number;
+  deletedEventCount: number;
+};
+
 export class EventStoreSchemaVersionError extends Error {
   readonly schemaVersion: string | undefined;
 
@@ -454,14 +464,7 @@ function runTransaction(database: EventStoreDatabase, task: () => void): void {
 }
 
 function deleteFileEntry(store: EventStore, source: string, filePath: string): void {
-  runTransaction(store.database, () => {
-    store.database
-      .prepare('DELETE FROM events WHERE source = ? AND file_path = ?')
-      .run(source, filePath);
-    store.database
-      .prepare('DELETE FROM files WHERE source = ? AND file_path = ?')
-      .run(source, filePath);
-  });
+  deleteStoredFiles(store, [{ source, filePath }]);
 }
 
 export function getDefaultEventStorePath(): string {
@@ -672,6 +675,55 @@ export function readDepartedFileEvents(
   }
 
   return events;
+}
+
+function countMatchingRows(
+  store: EventStore,
+  tableName: 'events' | 'files',
+  source: string,
+  filePath: string,
+): number {
+  const row = store.database
+    .prepare(`SELECT COUNT(*) AS count FROM ${tableName} WHERE source = ? AND file_path = ?`)
+    .get(source, filePath);
+  return toNonNegativeInteger(row?.count) ?? 0;
+}
+
+export function deleteStoredFiles(
+  store: EventStore,
+  files: readonly DeleteStoredFilesInput[],
+): DeleteStoredFilesResult {
+  const normalizedFiles = files.map((file) => ({
+    source: normalizeStoreSource(file.source),
+    filePath: normalizeStoreFilePath(file.filePath),
+  }));
+  const result: DeleteStoredFilesResult = {
+    deletedFileCount: 0,
+    deletedEventCount: 0,
+  };
+
+  runTransaction(store.database, () => {
+    const deleteEvents = store.database.prepare(
+      'DELETE FROM events WHERE source = ? AND file_path = ?',
+    );
+    const deleteFile = store.database.prepare(
+      'DELETE FROM files WHERE source = ? AND file_path = ?',
+    );
+
+    for (const file of normalizedFiles) {
+      result.deletedEventCount += countMatchingRows(store, 'events', file.source, file.filePath);
+      result.deletedFileCount += countMatchingRows(store, 'files', file.source, file.filePath);
+      deleteEvents.run(file.source, file.filePath);
+      deleteFile.run(file.source, file.filePath);
+    }
+  });
+
+  return result;
+}
+
+export function vacuumEventStore(store: EventStore): void {
+  // SQLite requires VACUUM to run outside an explicit transaction.
+  store.database.exec('VACUUM');
 }
 
 export function replaceFileEvents(store: EventStore, input: ReplaceFileEventsInput): void {

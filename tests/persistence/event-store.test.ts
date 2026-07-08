@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -8,6 +8,7 @@ import {
   computeEventContentHash,
   closeEventStore,
   countEvents,
+  deleteStoredFiles,
   EVENT_STORE_SCHEMA_VERSION,
   EventStoreSchemaVersionError,
   getDefaultEventStorePath,
@@ -20,6 +21,7 @@ import {
   serializeEventStoreFingerprint,
   type EventStore,
   type EventStoreFileFingerprint,
+  vacuumEventStore,
 } from '../../src/persistence/event-store.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import { loadNodeSqliteModule } from '../../src/sources/opencode/node-sqlite-loader.js';
@@ -567,6 +569,72 @@ describe('event-store', () => {
       expect(readFileEvents(store, 'codex', '/tmp/session.jsonl')).toEqual([
         createEvent({ sessionId: 'new-only', inputTokens: 5, totalTokens: 7 }),
       ]);
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  it('deletes exactly the named stored files and their events', async () => {
+    const store = await createTempStore('event-store-delete-files-');
+    const firstDeletedEvent = createEvent({ sessionId: 'delete-1' });
+    const secondDeletedEvent = createEvent({
+      sessionId: 'delete-2',
+      timestamp: '2026-02-01T00:00:01.000Z',
+    });
+    const keptEvent = createEvent({ sessionId: 'keep' });
+
+    try {
+      replaceCodexFile(store, {
+        filePath: '/tmp/delete.jsonl',
+        events: [firstDeletedEvent, secondDeletedEvent],
+      });
+      replaceCodexFile(store, { filePath: '/tmp/keep.jsonl', events: [keptEvent] });
+
+      const result = deleteStoredFiles(store, [{ source: 'codex', filePath: '/tmp/delete.jsonl' }]);
+
+      expect(result).toEqual({ deletedFileCount: 1, deletedEventCount: 2 });
+      expect(countEvents(store)).toBe(1);
+      expect(readFileEvents(store, 'codex', '/tmp/delete.jsonl')).toEqual([]);
+      expect(readFileEvents(store, 'codex', '/tmp/keep.jsonl')).toEqual([keptEvent]);
+      expect(
+        store.database.prepare('SELECT source, file_path FROM files ORDER BY file_path').all(),
+      ).toEqual([{ source: 'codex', file_path: '/tmp/keep.jsonl' }]);
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  it('vacuums a temp database after bulk deletes', async () => {
+    const store = await createTempStore('event-store-vacuum-');
+
+    try {
+      const filesToDelete: Array<{ source: string; filePath: string }> = [];
+
+      for (let index = 0; index < 180; index += 1) {
+        const filePath = `/tmp/bulk-${index}.jsonl`;
+        filesToDelete.push({ source: 'codex', filePath });
+        replaceCodexFile(store, {
+          filePath,
+          events: [
+            createEvent({
+              sessionId: `session-${index}`,
+              repoRoot: `/workspace/${'nested/'.repeat(80)}${index}`,
+            }),
+          ],
+        });
+      }
+
+      store.database.exec('PRAGMA wal_checkpoint(TRUNCATE)');
+      const sizeBeforeDelete = (await stat(store.filePath)).size;
+      deleteStoredFiles(store, filesToDelete);
+      store.database.exec('PRAGMA wal_checkpoint(TRUNCATE)');
+      const sizeBeforeVacuum = (await stat(store.filePath)).size;
+
+      vacuumEventStore(store);
+      store.database.exec('PRAGMA wal_checkpoint(TRUNCATE)');
+
+      expect(sizeBeforeVacuum).toBeGreaterThanOrEqual(sizeBeforeDelete);
+      expect((await stat(store.filePath)).size).toBeLessThan(sizeBeforeVacuum);
     } finally {
       closeEventStore(store);
     }
