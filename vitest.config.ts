@@ -21,6 +21,7 @@ export default defineConfig({
         'src/optimize/optimize-row.ts',
         'src/pricing/types.ts',
         'src/trends/trends-series.ts',
+        'src/wrapped/wrapped-recap.ts',
       ],
       reporter: ['text', 'text-summary', 'json-summary', 'lcov'],
     },

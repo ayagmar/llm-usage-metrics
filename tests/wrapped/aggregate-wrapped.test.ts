@@ -130,8 +130,13 @@ describe('aggregateWrapped', () => {
       { year: 2026, timezone: 'UTC' },
     );
 
-    expect(recap.topModels.map((item) => item.name)).toEqual(['model-a', 'model-b', 'model-d']);
-    expect(recap.topSources.map((item) => item.name)).toEqual(['codex', 'pi', 'droid']);
+    expect(recap.topModels.map((item) => item.name)).toEqual([
+      'model-a',
+      'model-b',
+      'model-d',
+      'model-c',
+    ]);
+    expect(recap.topSources.map((item) => item.name)).toEqual(['codex', 'pi', 'droid', 'gemini']);
     expect(recap.costIncomplete).toBe(true);
   });
 
@@ -146,7 +151,37 @@ describe('aggregateWrapped', () => {
       { year: 2026, timezone: 'UTC' },
     );
 
-    expect(recap.topModels.map((item) => item.name)).toEqual(['large', 'middle', 'small']);
+    expect(recap.topModels.map((item) => item.name)).toEqual([
+      'large',
+      'middle',
+      'small',
+      'excluded',
+    ]);
+  });
+
+  it('caps top models and sources at five entries', () => {
+    const recap = aggregateWrapped(
+      Array.from({ length: 6 }, (_, index) =>
+        baseEvent({
+          source: `source-${index}`,
+          sessionId: `session-${index}`,
+          model: `model-${index}`,
+          totalTokens: (index + 1) * 100,
+          costUsd: index + 1,
+        }),
+      ),
+      { year: 2026, timezone: 'UTC' },
+    );
+
+    expect(recap.topModels).toHaveLength(5);
+    expect(recap.topSources).toHaveLength(5);
+    expect(recap.topModels.map((item) => item.name)).toEqual([
+      'model-5',
+      'model-4',
+      'model-3',
+      'model-2',
+      'model-1',
+    ]);
   });
 
   it('builds twelve all-zero monthly intensity buckets for an empty year', () => {

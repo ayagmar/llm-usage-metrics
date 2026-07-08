@@ -67,6 +67,19 @@ describe('renderWrappedShareSvg', () => {
     expect(svg).not.toContain('pi & codex');
   });
 
+  it('renders at most three rows per top list even when the recap carries five', () => {
+    const svg = renderWrappedShareSvg({
+      ...createRecap(),
+      topModels: Array.from({ length: 5 }, (_, index) => ({
+        name: `model-${index}`,
+        totalTokens: (5 - index) * 100,
+        costUsd: 5 - index,
+      })),
+    });
+
+    expect(svg.match(/data-top-item="Top Models-\d+"/g)).toHaveLength(3);
+  });
+
   it('uses singular day label for a one-day streak and shows No data for empty lists', () => {
     const svg = renderWrappedShareSvg({
       ...createRecap(),

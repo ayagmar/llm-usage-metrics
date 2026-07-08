@@ -84,8 +84,10 @@ function compareTopItems(left: WrappedTopItem, right: WrappedTopItem): number {
   return compareByCodePoint(left.name, right.name);
 }
 
+const TOP_ITEM_LIMIT = 5;
+
 function toTopItems(groups: Map<string, TotalsAccumulator>): WrappedTopItem[] {
-  return [...groups.entries()].map(toWrappedTopItem).sort(compareTopItems).slice(0, 3);
+  return [...groups.entries()].map(toWrappedTopItem).sort(compareTopItems).slice(0, TOP_ITEM_LIMIT);
 }
 
 function calculateLongestStreak(dateKeys: readonly string[]): number {

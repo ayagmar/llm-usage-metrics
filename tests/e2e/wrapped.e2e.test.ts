@@ -330,8 +330,16 @@ describe.skipIf(!DatabaseSync)('wrapped report e2e', () => {
       'gpt-4.1',
       'claude-kilocode-e2e',
       'gpt-roocode-e2e',
+      'claude-sonnet-cline-e2e',
+      'gpt-5.2-codex',
     ]);
-    expect(result.recap.topSources.map((item) => item.name)).toEqual(['pi', 'kilocode', 'roocode']);
+    expect(result.recap.topSources.map((item) => item.name)).toEqual([
+      'pi',
+      'kilocode',
+      'roocode',
+      'cline',
+      'codex',
+    ]);
     expect(result.recap.monthlyIntensity.map((month) => month.totalTokens)).toEqual([
       450, 120, 0, 0, 15, 1_595, 0, 0, 0, 0, 0, 0,
     ]);

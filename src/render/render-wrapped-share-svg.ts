@@ -38,13 +38,17 @@ function renderStatTile(index: number, label: string, value: string, sublabel: s
 </g>`;
 }
 
+// The card fits three rows; the recap carries up to five, so the SVG shows the top three.
+const TOP_LIST_ROWS = 3;
+
 function renderTopList(title: string, items: readonly WrappedTopItem[], x: number): string {
   const width = 640;
   const height = 260;
+  const visibleItems = items.slice(0, TOP_LIST_ROWS);
   const rows =
-    items.length === 0
+    visibleItems.length === 0
       ? `<text x="${x + 28}" y="${listTop + 100}" font-size="18" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">No data</text>`
-      : items
+      : visibleItems
           .map((item, index) => {
             const rowY = listTop + 78 + index * 56;
             const rank = String(index + 1).padStart(2, '0');
