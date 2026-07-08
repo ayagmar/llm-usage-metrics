@@ -13,6 +13,19 @@ afterEach(() => {
 });
 
 describe('build-usage-data-inputs', () => {
+  it('uses the detected runtime timezone when no timezone option is set', () => {
+    vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions').mockReturnValue({
+      locale: 'en-US',
+      calendar: 'gregory',
+      numberingSystem: 'latn',
+      timeZone: 'Africa/Casablanca',
+    });
+
+    const inputs = normalizeBuildUsageInputs({});
+
+    expect(inputs.timezone).toBe('Africa/Casablanca');
+  });
+
   it('falls back to UTC when runtime timezone detection is unavailable', () => {
     vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions').mockReturnValue({
       locale: 'en-US',

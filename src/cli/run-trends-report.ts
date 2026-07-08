@@ -56,6 +56,7 @@ export async function runTrendsReport(options: TrendsCommandOptions): Promise<vo
     preparedReport,
     emitCommonDiagnostics: emitDiagnostics,
     getEnvVarOverrides: (diagnostics) => diagnostics.activeEnvOverrides,
+    getActiveConfig: (diagnostics) => diagnostics.activeConfig,
     getRuntimeProfile: (diagnostics) => diagnostics.runtimeProfile,
   });
 }

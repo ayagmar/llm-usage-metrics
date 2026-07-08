@@ -1,4 +1,5 @@
 import { getActiveEnvVarOverrides } from '../config/env-var-display.js';
+import type { ActiveConfig } from '../config/active-config-display.js';
 import {
   getEventStoreRuntimeConfig,
   getParsingRuntimeConfig,
@@ -16,6 +17,11 @@ import {
   selectAdaptersForParsing,
   throwOnExplicitSourceScopeConflicts,
 } from './build-usage-data-inputs.js';
+import {
+  collectRuntimeConfigEntries,
+  mergeActiveConfigEntries,
+  resolveUserConfigForOptions,
+} from './apply-user-config.js';
 import {
   filterParsedAdapterEvents,
   parseSelectedAdapters,
@@ -110,6 +116,7 @@ async function withEventStore<T>(
 export type UsageEventDataset = {
   options: ReportCommandOptions;
   normalizedInputs: ReturnType<typeof normalizeBuildUsageInputs>;
+  activeConfig?: ActiveConfig;
   adaptersToParse: SourceAdapter[];
   successfulParseResults: AdapterParseResult[];
   sourceFailures: UsageSourceFailure[];
@@ -130,7 +137,9 @@ export async function buildUsageEventDataset(
   options: ReportCommandOptions,
   deps: BuildUsageDataDeps = {},
 ): Promise<UsageEventDataset> {
-  const normalizedInputs = normalizeBuildUsageInputs(options);
+  const userConfigResolution = await resolveUserConfigForOptions(options, deps);
+  const configuredOptions = userConfigResolution.options;
+  const normalizedInputs = normalizeBuildUsageInputs(configuredOptions);
   const runtimeProfile = deps.runtimeProfile;
 
   const readParsingRuntimeConfig = deps.getParsingRuntimeConfig ?? getParsingRuntimeConfig;
@@ -138,18 +147,23 @@ export async function buildUsageEventDataset(
     deps.getPricingFetcherRuntimeConfig ?? getPricingFetcherRuntimeConfig;
   const readEventStoreRuntimeConfig = deps.getEventStoreRuntimeConfig ?? getEventStoreRuntimeConfig;
   const makeAdapters = deps.createAdapters ?? createDefaultAdapters;
-  const parsingRuntimeConfig = readParsingRuntimeConfig();
-  const pricingRuntimeConfig = readPricingRuntimeConfig();
-  const eventStoreRuntimeConfig = readEventStoreRuntimeConfig();
+  const config = userConfigResolution.loadedConfig.config;
+  const parsingRuntimeConfig = readParsingRuntimeConfig(process.env, config);
+  const pricingRuntimeConfig = readPricingRuntimeConfig(process.env, config);
+  const eventStoreRuntimeConfig = readEventStoreRuntimeConfig(process.env, config);
+  const activeConfig = mergeActiveConfigEntries(userConfigResolution.loadedConfig, [
+    ...(userConfigResolution.activeConfig?.entries ?? []),
+    ...collectRuntimeConfigEntries(userConfigResolution.loadedConfig),
+  ]);
 
-  if (options.history && !eventStoreRuntimeConfig.enabled) {
+  if (configuredOptions.history && !eventStoreRuntimeConfig.enabled) {
     throw new Error('--history requires the event store (unset LLM_USAGE_EVENT_STORE=0)');
   }
 
   const adapters = measureRuntimeProfileStageSync(
     runtimeProfile,
     'usage.dataset.create_adapters',
-    () => makeAdapters(options),
+    () => makeAdapters(configuredOptions),
   );
   const adaptersToParse = measureRuntimeProfileStageSync(
     runtimeProfile,
@@ -181,7 +195,7 @@ export async function buildUsageEventDataset(
   let parseResultsForFiltering = successfulParseResults;
   const historyWarnings: string[] = [];
 
-  if (options.history && eventStoreAvailable) {
+  if (configuredOptions.history && eventStoreAvailable) {
     const loadHistoryEvents = deps.loadHistoryEvents ?? loadDefaultHistoryEvents;
 
     try {
@@ -214,20 +228,21 @@ export async function buildUsageEventDataset(
     () =>
       filterParsedAdapterEvents(parseResultsForFiltering, {
         timezone: normalizedInputs.timezone,
-        since: options.since,
-        until: options.until,
+        since: configuredOptions.since,
+        until: configuredOptions.until,
         providerFilter: normalizedInputs.providerFilter,
         modelFilter: normalizedInputs.modelFilter,
       }),
   );
 
   return {
-    options,
+    options: configuredOptions,
     normalizedInputs,
+    activeConfig,
     adaptersToParse,
     successfulParseResults: parseResultsForFiltering,
     sourceFailures,
-    warnings: [...warnings, ...historyWarnings],
+    warnings: [...userConfigResolution.loadedConfig.warnings, ...warnings, ...historyWarnings],
     filteredEvents,
     pricingRuntimeConfig,
     readEnvVarOverrides: deps.getActiveEnvVarOverrides ?? getActiveEnvVarOverrides,

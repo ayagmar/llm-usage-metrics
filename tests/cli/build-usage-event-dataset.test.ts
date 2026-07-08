@@ -102,6 +102,38 @@ async function writeStoredFile(
 }
 
 describe('buildUsageEventDataset history', () => {
+  it('applies source config below an explicit source flag', async () => {
+    const codexEvent = createEvent({ source: 'codex', sessionId: 'codex-config' });
+    const piEvent = createEvent({ source: 'pi', sessionId: 'pi-flag' });
+    const loadedConfig = {
+      config: {
+        sources: ['codex'],
+      },
+      path: '/tmp/config.json',
+      exists: true,
+      warnings: [],
+    };
+    const deps = {
+      ...createDatasetDeps('/tmp/events.db'),
+      createAdapters: () => [
+        createAdapter('pi', { '/tmp/pi.jsonl': [piEvent] }),
+        createAdapter('codex', { '/tmp/codex.jsonl': [codexEvent] }),
+      ],
+      loadUserConfig: async () => loadedConfig,
+    };
+
+    const configuredDataset = await buildUsageEventDataset({ timezone: 'UTC' }, deps);
+    const flagDataset = await buildUsageEventDataset({ source: 'pi', timezone: 'UTC' }, deps);
+
+    expect(configuredDataset.filteredEvents).toEqual([codexEvent]);
+    expect(configuredDataset.activeConfig).toEqual({
+      path: '/tmp/config.json',
+      entries: [{ key: 'sources', value: 'codex' }],
+    });
+    expect(flagDataset.filteredEvents).toEqual([piEvent]);
+    expect(flagDataset.activeConfig).toBeUndefined();
+  });
+
   it('does not call the history loader when --history is off', async () => {
     const eventStorePath = await createEventStorePath();
     const loadHistoryEvents = vi.fn();

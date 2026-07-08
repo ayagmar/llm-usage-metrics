@@ -3,8 +3,6 @@ import type { Command } from 'commander';
 import { getDefaultSourceIds } from '../../sources/create-default-adapters.js';
 import type { SharedOptionProfile } from './report-definition-types.js';
 
-const defaultTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-
 type SharedOptionProfileConfig = {
   includeDateFilters: boolean;
   includeMarkdown: boolean;
@@ -146,7 +144,7 @@ export function registerSharedReportOptions(
   }
 
   if (profileConfig.includeTimezone) {
-    configuredCommand.option('--timezone <iana>', 'Timezone for bucketing', defaultTimezone);
+    configuredCommand.option('--timezone <iana>', 'Timezone for bucketing');
   }
 
   if (profileConfig.includeProviderModelFilters) {

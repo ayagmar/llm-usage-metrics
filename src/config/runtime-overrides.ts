@@ -1,4 +1,5 @@
 import { getDefaultEventStorePath } from '../persistence/event-store.js';
+import type { UserConfig } from './user-config.js';
 
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -11,26 +12,29 @@ const PRICING_FETCH_TIMEOUT_DEFAULT_MS = 4_000;
 const PARSE_MAX_PARALLEL_DEFAULT = 8;
 const EVENT_STORE_ENABLED_DEFAULT = true;
 
-function resolveBoundedEnvInteger(
+function resolveBoundedInteger(
   envValue: string | undefined,
+  configValue: number | undefined,
   defaults: {
     fallback: number;
     min: number;
     max: number;
   },
 ): number {
+  const fallback = configValue ?? defaults.fallback;
+
   if (envValue === undefined) {
-    return defaults.fallback;
+    return fallback;
   }
 
   const trimmedValue = envValue.trim();
 
   if (trimmedValue.length === 0) {
-    return defaults.fallback;
+    return fallback;
   }
 
   if (!/^[+-]?\d+$/u.test(trimmedValue)) {
-    return defaults.fallback;
+    return fallback;
   }
 
   const parsedValue = Number.parseInt(trimmedValue, 10);
@@ -46,7 +50,7 @@ function resolveBoundedEnvInteger(
   return parsedValue;
 }
 
-function resolveEnvBoolean(envValue: string | undefined, fallback: boolean): boolean {
+function resolveBoolean(envValue: string | undefined, fallback: boolean): boolean {
   if (envValue === undefined) {
     return fallback;
   }
@@ -69,6 +73,7 @@ function resolveEnvBoolean(envValue: string | undefined, fallback: boolean): boo
 }
 
 export type UpdateNotifierRuntimeConfig = {
+  skipCheck: boolean;
   cacheTtlMs: number;
   fetchTimeoutMs: number;
 };
@@ -89,61 +94,89 @@ export type EventStoreRuntimeConfig = {
 
 export function getUpdateNotifierRuntimeConfig(
   env: NodeJS.ProcessEnv = process.env,
+  config: UserConfig = {},
 ): UpdateNotifierRuntimeConfig {
   return {
-    cacheTtlMs: resolveBoundedEnvInteger(env.LLM_USAGE_UPDATE_CACHE_TTL_MS, {
-      fallback: UPDATE_CACHE_TTL_DEFAULT_MS,
-      min: 0,
-      max: 30 * DAY_MS,
-    }),
-    fetchTimeoutMs: resolveBoundedEnvInteger(env.LLM_USAGE_UPDATE_FETCH_TIMEOUT_MS, {
-      fallback: UPDATE_FETCH_TIMEOUT_DEFAULT_MS,
-      min: 200,
-      max: 30_000,
-    }),
+    skipCheck: resolveBoolean(env.LLM_USAGE_SKIP_UPDATE_CHECK, config.update?.skipCheck ?? false),
+    cacheTtlMs: resolveBoundedInteger(
+      env.LLM_USAGE_UPDATE_CACHE_TTL_MS,
+      config.update?.cacheTtlMs,
+      {
+        fallback: UPDATE_CACHE_TTL_DEFAULT_MS,
+        min: 0,
+        max: 30 * DAY_MS,
+      },
+    ),
+    fetchTimeoutMs: resolveBoundedInteger(
+      env.LLM_USAGE_UPDATE_FETCH_TIMEOUT_MS,
+      config.update?.fetchTimeoutMs,
+      {
+        fallback: UPDATE_FETCH_TIMEOUT_DEFAULT_MS,
+        min: 200,
+        max: 30_000,
+      },
+    ),
   };
 }
 
 export function getPricingFetcherRuntimeConfig(
   env: NodeJS.ProcessEnv = process.env,
+  config: UserConfig = {},
 ): PricingFetcherRuntimeConfig {
   return {
-    cacheTtlMs: resolveBoundedEnvInteger(env.LLM_USAGE_PRICING_CACHE_TTL_MS, {
-      fallback: PRICING_CACHE_TTL_DEFAULT_MS,
-      min: MINUTE_MS,
-      max: 30 * DAY_MS,
-    }),
-    fetchTimeoutMs: resolveBoundedEnvInteger(env.LLM_USAGE_PRICING_FETCH_TIMEOUT_MS, {
-      fallback: PRICING_FETCH_TIMEOUT_DEFAULT_MS,
-      min: 200,
-      max: 30_000,
-    }),
+    cacheTtlMs: resolveBoundedInteger(
+      env.LLM_USAGE_PRICING_CACHE_TTL_MS,
+      config.pricing?.cacheTtlMs,
+      {
+        fallback: PRICING_CACHE_TTL_DEFAULT_MS,
+        min: MINUTE_MS,
+        max: 30 * DAY_MS,
+      },
+    ),
+    fetchTimeoutMs: resolveBoundedInteger(
+      env.LLM_USAGE_PRICING_FETCH_TIMEOUT_MS,
+      config.pricing?.fetchTimeoutMs,
+      {
+        fallback: PRICING_FETCH_TIMEOUT_DEFAULT_MS,
+        min: 200,
+        max: 30_000,
+      },
+    ),
   };
 }
 
 export function getParsingRuntimeConfig(
   env: NodeJS.ProcessEnv = process.env,
+  config: UserConfig = {},
 ): ParsingRuntimeConfig {
   return {
-    maxParallelFileParsing: resolveBoundedEnvInteger(env.LLM_USAGE_PARSE_MAX_PARALLEL, {
-      fallback: PARSE_MAX_PARALLEL_DEFAULT,
-      min: 1,
-      max: 64,
-    }),
+    maxParallelFileParsing: resolveBoundedInteger(
+      env.LLM_USAGE_PARSE_MAX_PARALLEL,
+      config.parseMaxParallel,
+      {
+        fallback: PARSE_MAX_PARALLEL_DEFAULT,
+        min: 1,
+        max: 64,
+      },
+    ),
   };
 }
 
 export function getEventStoreRuntimeConfig(
   env: NodeJS.ProcessEnv = process.env,
+  config: UserConfig = {},
 ): EventStoreRuntimeConfig {
   const eventStorePathOverride = env.LLM_USAGE_EVENT_STORE_PATH?.trim();
   const eventStorePath =
     eventStorePathOverride === undefined || eventStorePathOverride.length === 0
-      ? getDefaultEventStorePath()
+      ? (config.eventStore?.path ?? getDefaultEventStorePath())
       : eventStorePathOverride;
 
   return {
-    enabled: resolveEnvBoolean(env.LLM_USAGE_EVENT_STORE, EVENT_STORE_ENABLED_DEFAULT),
+    enabled: resolveBoolean(
+      env.LLM_USAGE_EVENT_STORE,
+      config.eventStore?.enabled ?? EVENT_STORE_ENABLED_DEFAULT,
+    ),
     path: eventStorePath,
   };
 }

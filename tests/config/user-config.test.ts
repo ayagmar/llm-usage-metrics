@@ -230,6 +230,14 @@ describe('loadUserConfig', () => {
 
     expect(result.config).toEqual({});
   });
+
+  it('uses the vitest config-path isolation default', async () => {
+    const result = await loadUserConfig(process.env, missingFileRead);
+
+    expect(result.config).toEqual({});
+    expect(result.exists).toBe(false);
+    expect(result.path).toBe('/tmp/llm-usage-metrics-test-missing-config.json');
+  });
 });
 
 describe('config schema', () => {

@@ -5,7 +5,10 @@ export default defineConfig({
     include: ['tests/**/*.test.ts'],
     // Keep in-process tests from writing fixture events into the user's real
     // events.db; tests that need the store on must set an explicit temp path.
-    env: { LLM_USAGE_EVENT_STORE: '0' },
+    env: {
+      LLM_USAGE_EVENT_STORE: '0',
+      LLM_USAGE_CONFIG_PATH: '/tmp/llm-usage-metrics-test-missing-config.json',
+    },
     coverage: {
       provider: 'v8',
       reportsDirectory: 'coverage',

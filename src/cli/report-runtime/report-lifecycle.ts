@@ -1,5 +1,7 @@
 import { logger } from '../../utils/logger.js';
+import type { ActiveConfig } from '../../config/active-config-display.js';
 import type { EnvVarOverride } from '../../config/env-var-display.js';
+import { emitActiveConfig } from '../emit-active-config.js';
 import { emitEnvVarOverrides } from '../emit-env-var-overrides.js';
 import {
   emitRuntimeProfile,
@@ -48,6 +50,7 @@ type RunPreparedReportOptions<Diagnostics, Format extends string> = {
   preparedReport: PreparedReport<Format, Diagnostics>;
   emitCommonDiagnostics?: (diagnostics: Diagnostics) => void;
   getEnvVarOverrides?: (diagnostics: Diagnostics) => EnvVarOverride[];
+  getActiveConfig?: (diagnostics: Diagnostics) => ActiveConfig | undefined;
   emitReportDiagnostics?: (diagnostics: Diagnostics) => void;
   getRuntimeProfile?: (diagnostics: Diagnostics) => RuntimeProfileSnapshot | undefined;
   warnOnTerminalOverflow?: boolean;
@@ -126,6 +129,7 @@ export async function runPreparedReport<Diagnostics, Format extends string>(
 
   const envVarOverrides = options.getEnvVarOverrides?.(options.preparedReport.diagnostics) ?? [];
   emitEnvVarOverrides(envVarOverrides, logger);
+  emitActiveConfig(options.getActiveConfig?.(options.preparedReport.diagnostics), logger);
   options.emitReportDiagnostics?.(options.preparedReport.diagnostics);
   emitRuntimeProfile(
     mergeRuntimeProfiles(

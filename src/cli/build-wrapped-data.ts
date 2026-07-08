@@ -6,6 +6,7 @@ import {
   applyPricingToUsageEventDataset,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
+import { resolveUserConfigForOptions } from './apply-user-config.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 import type {
   BuildWrappedDataDeps,
@@ -49,24 +50,31 @@ export async function buildWrappedData(
   options: WrappedCommandOptions,
   deps: BuildWrappedDataDeps = {},
 ): Promise<WrappedDataResult> {
+  const userConfigResolution = await resolveUserConfigForOptions(options, deps);
+  const configuredOptions = userConfigResolution.options as WrappedCommandOptions;
   const now = deps.now?.() ?? new Date();
-  const timezone = options.timezone?.trim() ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const timezone =
+    configuredOptions.timezone?.trim() ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   validateTimezone(timezone);
-  const year = resolveWrappedYear(options.year, timezone, now);
+  const year = resolveWrappedYear(configuredOptions.year, timezone, now);
   const range = getWrappedYearRange(year);
+  const datasetOptions = {
+    ...configuredOptions,
+    timezone,
+    since: range.from,
+    until: range.to,
+  };
   const dataset = await measureRuntimeProfileStage(
     deps.runtimeProfile,
     'wrapped.dataset.total',
     () =>
-      buildUsageEventDataset(
-        {
-          ...options,
-          timezone,
-          since: range.from,
-          until: range.to,
+      buildUsageEventDataset(datasetOptions, {
+        ...deps,
+        userConfigResolution: {
+          ...userConfigResolution,
+          options: datasetOptions,
         },
-        deps,
-      ),
+      }),
   );
   const { pricedEvents, pricingOrigin, pricingWarning } = await applyPricingToUsageEventDataset(
     dataset,
@@ -87,6 +95,7 @@ export async function buildWrappedData(
     pricingWarning,
     warnings: dataset.warnings,
     activeEnvOverrides: dataset.readEnvVarOverrides(),
+    activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,
     runtimeProfile: deps.runtimeProfile?.snapshot(),
   });

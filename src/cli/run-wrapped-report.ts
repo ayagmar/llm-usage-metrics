@@ -92,6 +92,7 @@ export async function runWrappedReport(options: WrappedCommandOptions): Promise<
     preparedReport,
     emitCommonDiagnostics: emitDiagnostics,
     getEnvVarOverrides: (diagnostics) => diagnostics.activeEnvOverrides,
+    getActiveConfig: (diagnostics) => diagnostics.activeConfig,
     getRuntimeProfile: (diagnostics) => diagnostics.runtimeProfile,
   });
 }

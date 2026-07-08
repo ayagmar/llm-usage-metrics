@@ -33,6 +33,7 @@ export type UpdateNotifierOptions = {
   cacheFilePath?: string;
   cacheTtlMs?: number;
   fetchTimeoutMs?: number;
+  skipCheck?: boolean;
   fetchImpl?: typeof fetch;
   now?: () => number;
   env?: NodeJS.ProcessEnv;
@@ -121,6 +122,10 @@ function toResolveLatestVersionOptions(
 export async function checkForUpdates(options: UpdateNotifierOptions): Promise<string | undefined> {
   const env = options.env ?? process.env;
   const argv = options.argv ?? process.argv;
+
+  if (options.skipCheck) {
+    return undefined;
+  }
 
   if (isTruthyEnvFlag(env[UPDATE_CHECK_SKIP_ENV_VAR])) {
     return undefined;

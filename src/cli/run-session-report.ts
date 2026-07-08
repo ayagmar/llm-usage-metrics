@@ -60,6 +60,7 @@ export async function runSessionReport(options: SessionCommandOptions): Promise<
     preparedReport,
     emitCommonDiagnostics: emitDiagnostics,
     getEnvVarOverrides: (diagnostics) => diagnostics.activeEnvOverrides,
+    getActiveConfig: (diagnostics) => diagnostics.activeConfig,
     emitReportDiagnostics: emitSessionReportDiagnostics,
     getRuntimeProfile: (diagnostics) => diagnostics.runtimeProfile,
     warnOnTerminalOverflow: true,

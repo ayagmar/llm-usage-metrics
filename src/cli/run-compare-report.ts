@@ -42,6 +42,7 @@ export async function runCompareReport(options: CompareCommandOptions): Promise<
     preparedReport,
     emitCommonDiagnostics: emitDiagnostics,
     getEnvVarOverrides: (diagnostics) => diagnostics.activeEnvOverrides,
+    getActiveConfig: (diagnostics) => diagnostics.activeConfig,
     getRuntimeProfile: (diagnostics) => diagnostics.runtimeProfile,
     warnOnTerminalOverflow: true,
   });

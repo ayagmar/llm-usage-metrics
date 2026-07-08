@@ -5,6 +5,7 @@ import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { getCurrentLocalDateKey, getPeriodKey, shiftLocalDateKey } from '../utils/time-buckets.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import { normalizeBuildUsageInputs, validateDateInput } from './build-usage-data-inputs.js';
+import { resolveUserConfigForOptions } from './apply-user-config.js';
 import {
   applyPricingToUsageEventDataset,
   buildUsageEventDataset,
@@ -439,25 +440,31 @@ export async function buildCompareData(
   options: CompareCommandOptions,
   deps: BuildCompareDataDeps = {},
 ): Promise<CompareDataResult> {
-  const normalizedInputs = normalizeBuildUsageInputs(options);
+  const userConfigResolution = await resolveUserConfigForOptions(options, deps);
+  const configuredOptions = userConfigResolution.options;
+  const normalizedInputs = normalizeBuildUsageInputs(configuredOptions);
   const windows = resolveCompareWindows(
-    options,
+    configuredOptions,
     normalizedInputs.timezone,
     deps.now?.() ?? new Date(),
   );
+  const datasetOptions = {
+    ...configuredOptions,
+    since: windows.combined.since,
+    until: windows.combined.until,
+    timezone: normalizedInputs.timezone,
+  };
   const dataset = await measureRuntimeProfileStage(
     deps.runtimeProfile,
     'compare.dataset.total',
     () =>
-      buildUsageEventDataset(
-        {
-          ...options,
-          since: windows.combined.since,
-          until: windows.combined.until,
-          timezone: normalizedInputs.timezone,
+      buildUsageEventDataset(datasetOptions, {
+        ...deps,
+        userConfigResolution: {
+          ...userConfigResolution,
+          options: datasetOptions,
         },
-        deps,
-      ),
+      }),
   );
   const { pricedEvents, pricingOrigin, pricingWarning } = await applyPricingToUsageEventDataset(
     dataset,
@@ -489,6 +496,7 @@ export async function buildCompareData(
     pricingWarning,
     warnings: dataset.warnings,
     activeEnvOverrides: dataset.readEnvVarOverrides(),
+    activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,
     runtimeProfile: deps.runtimeProfile?.snapshot(),
   });

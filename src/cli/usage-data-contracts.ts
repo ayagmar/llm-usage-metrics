@@ -1,9 +1,11 @@
 import type { EnvVarOverride } from '../config/env-var-display.js';
+import type { ActiveConfig } from '../config/active-config-display.js';
 import type {
   EventStoreRuntimeConfig,
   ParsingRuntimeConfig,
   PricingFetcherRuntimeConfig,
 } from '../config/runtime-overrides.js';
+import type { LoadedUserConfig } from '../config/user-config.js';
 import type { UsageReportRow } from '../domain/usage-report-row.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import type { EfficiencyRow } from '../efficiency/efficiency-row.js';
@@ -18,6 +20,7 @@ import type { SessionRepoRow, SessionRow } from '../session/session-row.js';
 import type { SourceAdapter } from '../sources/source-adapter.js';
 import type { TrendSeries, TrendsMetric } from '../trends/trends-series.js';
 import type { WrappedRecap } from '../wrapped/wrapped-recap.js';
+import type { UserConfigResolution } from './apply-user-config.js';
 import type { RuntimeProfileCollector, RuntimeProfileSnapshot } from './runtime-profile.js';
 
 export type ReportCommandOptions = {
@@ -145,6 +148,7 @@ export type UsageDiagnostics = {
   pricingWarning?: string;
   warnings?: string[];
   activeEnvOverrides: EnvVarOverride[];
+  activeConfig?: ActiveConfig;
   timezone: string;
   runtimeProfile?: RuntimeProfileSnapshot;
 };
@@ -290,9 +294,20 @@ export type PricingLoadResult = {
 };
 
 export type BuildUsageDataDeps = {
-  getParsingRuntimeConfig?: () => ParsingRuntimeConfig;
-  getPricingFetcherRuntimeConfig?: () => PricingFetcherRuntimeConfig;
-  getEventStoreRuntimeConfig?: () => EventStoreRuntimeConfig;
+  getParsingRuntimeConfig?: (
+    env?: NodeJS.ProcessEnv,
+    config?: LoadedUserConfig['config'],
+  ) => ParsingRuntimeConfig;
+  getPricingFetcherRuntimeConfig?: (
+    env?: NodeJS.ProcessEnv,
+    config?: LoadedUserConfig['config'],
+  ) => PricingFetcherRuntimeConfig;
+  getEventStoreRuntimeConfig?: (
+    env?: NodeJS.ProcessEnv,
+    config?: LoadedUserConfig['config'],
+  ) => EventStoreRuntimeConfig;
+  loadUserConfig?: () => Promise<LoadedUserConfig>;
+  userConfigResolution?: UserConfigResolution;
   createAdapters?: (options: ReportCommandOptions) => SourceAdapter[];
   resolvePricingSource?: (
     options: ReportCommandOptions,

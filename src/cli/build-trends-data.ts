@@ -2,6 +2,7 @@ import { aggregateUsage } from '../aggregate/aggregate-usage.js';
 import type { UsageReportRow } from '../domain/usage-report-row.js';
 import { aggregateTrends } from '../trends/aggregate-trends.js';
 import { getCurrentLocalDateKey, shiftLocalDateKey } from '../utils/time-buckets.js';
+import { resolveUserConfigForOptions } from './apply-user-config.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import { validateDateInput, validateTimezone } from './build-usage-data-inputs.js';
 import {
@@ -179,23 +180,30 @@ export async function buildTrendsData(
   options: TrendsCommandOptions,
   deps: BuildTrendsDataDeps = {},
 ): Promise<TrendsDataResult> {
+  const userConfigResolution = await resolveUserConfigForOptions(options, deps);
+  const configuredOptions = userConfigResolution.options as TrendsCommandOptions;
   const now = deps.now?.() ?? new Date();
-  const timezone = options.timezone?.trim() ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const timezone =
+    configuredOptions.timezone?.trim() ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   validateTimezone(timezone);
-  const resolved = resolveTrendsOptions(options, timezone, now);
+  const resolved = resolveTrendsOptions(configuredOptions, timezone, now);
+  const datasetOptions = {
+    ...configuredOptions,
+    timezone,
+    since: resolved.fetchDateRange?.from ?? configuredOptions.since,
+    until: resolved.fetchDateRange?.to ?? configuredOptions.until,
+  };
   const dataset = await measureRuntimeProfileStage(
     deps.runtimeProfile,
     'trends.dataset.total',
     () =>
-      buildUsageEventDataset(
-        {
-          ...options,
-          timezone,
-          since: resolved.fetchDateRange?.from ?? options.since,
-          until: resolved.fetchDateRange?.to ?? options.until,
+      buildUsageEventDataset(datasetOptions, {
+        ...deps,
+        userConfigResolution: {
+          ...userConfigResolution,
+          options: datasetOptions,
         },
-        deps,
-      ),
+      }),
   );
   const pricingResult =
     resolved.metric === 'cost'
@@ -239,6 +247,7 @@ export async function buildTrendsData(
     pricingWarning: pricingResult.pricingWarning,
     warnings: dataset.warnings,
     activeEnvOverrides: dataset.readEnvVarOverrides(),
+    activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,
     runtimeProfile: deps.runtimeProfile?.snapshot(),
   });

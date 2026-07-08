@@ -13,6 +13,7 @@ describe('runtime overrides', () => {
     const env: NodeJS.ProcessEnv = {};
 
     expect(getUpdateNotifierRuntimeConfig(env)).toEqual({
+      skipCheck: false,
       cacheTtlMs: 60 * 60 * 1000,
       fetchTimeoutMs: 1000,
     });
@@ -38,9 +39,11 @@ describe('runtime overrides', () => {
       LLM_USAGE_PARSE_MAX_PARALLEL: '16',
       LLM_USAGE_EVENT_STORE: 'true',
       LLM_USAGE_EVENT_STORE_PATH: '/tmp/custom-events.db',
+      LLM_USAGE_SKIP_UPDATE_CHECK: 'yes',
     };
 
     expect(getUpdateNotifierRuntimeConfig(env)).toEqual({
+      skipCheck: true,
       cacheTtlMs: 7_200_000,
       fetchTimeoutMs: 2500,
     });
@@ -67,6 +70,7 @@ describe('runtime overrides', () => {
     };
 
     expect(getUpdateNotifierRuntimeConfig(env)).toEqual({
+      skipCheck: false,
       cacheTtlMs: 0,
       fetchTimeoutMs: 30_000,
     });
@@ -89,6 +93,7 @@ describe('runtime overrides', () => {
     };
 
     expect(getUpdateNotifierRuntimeConfig(env)).toEqual({
+      skipCheck: false,
       cacheTtlMs: 60 * 60 * 1000,
       fetchTimeoutMs: 1000,
     });
@@ -111,6 +116,7 @@ describe('runtime overrides', () => {
     };
 
     expect(getUpdateNotifierRuntimeConfig(env)).toEqual({
+      skipCheck: false,
       cacheTtlMs: 60 * 60 * 1000,
       fetchTimeoutMs: 1000,
     });
@@ -133,8 +139,75 @@ describe('runtime overrides', () => {
     };
 
     expect(getUpdateNotifierRuntimeConfig(env)).toEqual({
+      skipCheck: false,
       cacheTtlMs: 0,
       fetchTimeoutMs: 1000,
+    });
+  });
+
+  it('uses config values below env vars and above defaults', () => {
+    expect(
+      getUpdateNotifierRuntimeConfig(
+        {
+          LLM_USAGE_UPDATE_CACHE_TTL_MS: '7200000',
+          LLM_USAGE_SKIP_UPDATE_CHECK: '0',
+        },
+        {
+          update: {
+            skipCheck: true,
+            cacheTtlMs: 2_000,
+            fetchTimeoutMs: 500,
+          },
+        },
+      ),
+    ).toEqual({
+      skipCheck: false,
+      cacheTtlMs: 7_200_000,
+      fetchTimeoutMs: 500,
+    });
+
+    expect(
+      getPricingFetcherRuntimeConfig(
+        { LLM_USAGE_PRICING_CACHE_TTL_MS: '1800000' },
+        {
+          pricing: {
+            cacheTtlMs: 60_000,
+            fetchTimeoutMs: 5_000,
+          },
+        },
+      ),
+    ).toEqual({
+      cacheTtlMs: 1_800_000,
+      fetchTimeoutMs: 5_000,
+    });
+
+    expect(
+      getParsingRuntimeConfig(
+        { LLM_USAGE_PARSE_MAX_PARALLEL: '4' },
+        {
+          parseMaxParallel: 12,
+        },
+      ),
+    ).toEqual({
+      maxParallelFileParsing: 4,
+    });
+
+    expect(
+      getEventStoreRuntimeConfig(
+        {
+          LLM_USAGE_EVENT_STORE: '1',
+          LLM_USAGE_EVENT_STORE_PATH: '/tmp/env-events.db',
+        },
+        {
+          eventStore: {
+            enabled: false,
+            path: '/tmp/config-events.db',
+          },
+        },
+      ),
+    ).toEqual({
+      enabled: true,
+      path: '/tmp/env-events.db',
     });
   });
 });
