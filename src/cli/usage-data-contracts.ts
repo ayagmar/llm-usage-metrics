@@ -88,7 +88,7 @@ export type CompareCommandOptions = Omit<ReportCommandOptions, 'perModelColumns'
 
 export type WrappedCommandOptions = Omit<
   ReportCommandOptions,
-  'markdown' | 'perModelColumns' | 'provider' | 'model' | 'since' | 'until'
+  'markdown' | 'perModelColumns' | 'since' | 'until'
 > & {
   year?: string;
 };

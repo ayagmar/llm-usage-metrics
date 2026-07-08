@@ -70,7 +70,7 @@ const sharedOptionProfileConfig: Record<SharedOptionProfile, SharedOptionProfile
     includeMarkdown: false,
     includePerModelColumns: false,
     includePricing: true,
-    includeProviderModelFilters: false,
+    includeProviderModelFilters: true,
     includeHistory: true,
     includeShare: true,
     includeTimezone: true,

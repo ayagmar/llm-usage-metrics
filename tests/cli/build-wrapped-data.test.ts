@@ -96,4 +96,39 @@ describe('buildWrappedData', () => {
     expect(result.recap.year).toBe(2025);
     expect(result.recap.totalTokens).toBe(1_000_000);
   });
+
+  it('applies a provider filter to the recap totals and top models', async () => {
+    const result = await buildWrappedData(
+      {
+        year: '2026',
+        timezone: 'UTC',
+        provider: 'anthropic',
+      },
+      runtimeDeps({
+        adapters: [
+          createAdapter('pi', {
+            '/tmp/pi.jsonl': [
+              createBaseEvent({
+                provider: 'openai',
+                model: 'gpt-4.1',
+                inputTokens: 1_000_000,
+                totalTokens: 1_000_000,
+              }),
+              createBaseEvent({
+                sessionId: 'session-2',
+                provider: 'anthropic',
+                model: 'claude-4-sonnet',
+                inputTokens: 400_000,
+                totalTokens: 400_000,
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(result.recap.totalTokens).toBe(400_000);
+    expect(result.recap.topModels.map((item) => item.name)).toEqual(['claude-4-sonnet']);
+    expect(result.recap.topSources.map((item) => item.name)).toEqual(['pi']);
+  });
 });

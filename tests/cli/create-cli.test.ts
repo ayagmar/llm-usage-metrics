@@ -154,7 +154,7 @@ describe('createCli', () => {
     );
   });
 
-  it('configures wrapped command with year and share but without date or model filters', () => {
+  it('configures wrapped command with year, share, and provider/model but without date filters', () => {
     const cli = createCli();
     const wrappedCommand = cli.commands.find((command) => command.name() === 'wrapped');
 
@@ -166,10 +166,10 @@ describe('createCli', () => {
     expect(wrappedCommand?.options.some((option) => option.long === '--timezone')).toBe(true);
     expect(wrappedCommand?.options.some((option) => option.long === '--pricing-url')).toBe(true);
     expect(wrappedCommand?.options.some((option) => option.long === '--history')).toBe(true);
+    expect(wrappedCommand?.options.some((option) => option.long === '--provider')).toBe(true);
+    expect(wrappedCommand?.options.some((option) => option.long === '--model')).toBe(true);
     expect(wrappedCommand?.options.some((option) => option.long === '--since')).toBe(false);
     expect(wrappedCommand?.options.some((option) => option.long === '--until')).toBe(false);
-    expect(wrappedCommand?.options.some((option) => option.long === '--provider')).toBe(false);
-    expect(wrappedCommand?.options.some((option) => option.long === '--model')).toBe(false);
     expect(wrappedCommand?.options.some((option) => option.long === '--markdown')).toBe(false);
     expect(wrappedCommand?.options.some((option) => option.long === '--per-model-columns')).toBe(
       false,
