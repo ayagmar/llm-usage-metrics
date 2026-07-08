@@ -66,6 +66,10 @@ export type EventStoreFileEntry = {
 export type EventStore = {
   database: EventStoreDatabase;
   filePath: string;
+  statements: {
+    getFileEntry?: EventStoreStatement;
+    selectFileEvents?: EventStoreStatement;
+  };
 };
 
 export type ReplaceFileEventsInput = {
@@ -492,6 +496,7 @@ export async function openEventStore(
   return {
     database,
     filePath,
+    statements: {},
   };
 }
 
@@ -582,15 +587,14 @@ export function getFileEntry(
 ): EventStoreFileEntry | undefined {
   const normalizedSource = normalizeStoreSource(source);
   const normalizedFilePath = normalizeStoreFilePath(filePath);
-  const row = store.database
-    .prepare(
-      [
-        'SELECT fingerprint, skipped_rows, skipped_row_reasons',
-        'FROM files',
-        'WHERE source = ? AND file_path = ?',
-      ].join('\n'),
-    )
-    .get(normalizedSource, normalizedFilePath);
+  const statement = (store.statements.getFileEntry ??= store.database.prepare(
+    [
+      'SELECT fingerprint, skipped_rows, skipped_row_reasons',
+      'FROM files',
+      'WHERE source = ? AND file_path = ?',
+    ].join('\n'),
+  ));
+  const row = statement.get(normalizedSource, normalizedFilePath);
 
   if (!row) {
     return undefined;
@@ -616,18 +620,17 @@ function selectFileEventRows(
   source: string,
   filePath: string,
 ): Record<string, unknown>[] {
-  return store.database
-    .prepare(
-      [
-        'SELECT source, session_id, timestamp, model, provider, repo_root,',
-        '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
-        '  cache_write_tokens, total_tokens, cost_usd, cost_mode',
-        'FROM events',
-        'WHERE source = ? AND file_path = ?',
-        'ORDER BY event_index ASC',
-      ].join('\n'),
-    )
-    .all(source, filePath);
+  const statement = (store.statements.selectFileEvents ??= store.database.prepare(
+    [
+      'SELECT source, session_id, timestamp, model, provider, repo_root,',
+      '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
+      '  cache_write_tokens, total_tokens, cost_usd, cost_mode',
+      'FROM events',
+      'WHERE source = ? AND file_path = ?',
+      'ORDER BY event_index ASC',
+    ].join('\n'),
+  ));
+  return statement.all(source, filePath);
 }
 
 export function readFileEvents(

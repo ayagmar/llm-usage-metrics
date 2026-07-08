@@ -198,6 +198,7 @@ type FakeSqliteModule = {
     options?: { readOnly?: boolean; timeout?: number };
   }>;
   execCalls: string[];
+  prepareCalls: string[];
   closeCalls: number;
 };
 
@@ -215,6 +216,7 @@ function createFakeSqliteModule(
       }
 
       prepare(sql: string) {
+        fakeSqlite.prepareCalls.push(sql);
         return {
           all: () => [],
           get: () => rowsBySql[sql],
@@ -228,6 +230,7 @@ function createFakeSqliteModule(
     },
     constructorCalls: [],
     execCalls: [],
+    prepareCalls: [],
     closeCalls: 0,
   };
 
@@ -761,6 +764,37 @@ describe('event-store', () => {
       },
     ]);
     expect(fakeSqlite.execCalls).toContain('PRAGMA journal_mode=WAL');
+    closeEventStore(store);
+  });
+
+  it('prepares hot read statements once per store connection', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-hot-statements-'));
+    tempDirs.push(tempDir);
+
+    const fakeSqlite = createFakeSqliteModule();
+    const store = await openEventStore(path.join(tempDir, 'events.db'), async () => fakeSqlite);
+
+    const getFileEntrySql = [
+      'SELECT fingerprint, skipped_rows, skipped_row_reasons',
+      'FROM files',
+      'WHERE source = ? AND file_path = ?',
+    ].join('\n');
+    const selectFileEventsSql = [
+      'SELECT source, session_id, timestamp, model, provider, repo_root,',
+      '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
+      '  cache_write_tokens, total_tokens, cost_usd, cost_mode',
+      'FROM events',
+      'WHERE source = ? AND file_path = ?',
+      'ORDER BY event_index ASC',
+    ].join('\n');
+
+    getFileEntry(store, 'codex', '/tmp/session.jsonl');
+    getFileEntry(store, 'codex', '/tmp/session.jsonl');
+    readFileEvents(store, 'codex', '/tmp/session.jsonl');
+    readFileEvents(store, 'codex', '/tmp/session.jsonl');
+
+    expect(fakeSqlite.prepareCalls.filter((sql) => sql === getFileEntrySql)).toHaveLength(1);
+    expect(fakeSqlite.prepareCalls.filter((sql) => sql === selectFileEventsSql)).toHaveLength(1);
     closeEventStore(store);
   });
 
