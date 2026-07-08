@@ -27,10 +27,10 @@ describe('share-svg-theme', () => {
       expect(getSourceColor('custom', 1)).toBe('#06b6d4');
     });
 
-    it('cycles fallback colors by index', () => {
-      const color0 = getSourceColor('x', 0);
-      const color5 = getSourceColor('y', 5);
-      expect(color0).toBe(color5);
+    it('gives 16 distinct fallback colors and cycles after that', () => {
+      const first16 = Array.from({ length: 16 }, (_, i) => getSourceColor(`s${i}`, i));
+      expect(new Set(first16).size).toBe(16);
+      expect(getSourceColor('wrap', 16)).toBe(getSourceColor('start', 0));
     });
   });
 

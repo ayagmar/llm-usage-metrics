@@ -27,7 +27,24 @@ const knownSourceColors: Readonly<Record<string, string>> = {
   claude: '#d97757',
 };
 
-const fallbackColors: readonly string[] = ['#f97316', '#06b6d4', '#ef4444', '#84cc16', '#f43f5e'];
+const fallbackColors: readonly string[] = [
+  '#f97316',
+  '#06b6d4',
+  '#ef4444',
+  '#84cc16',
+  '#f43f5e',
+  '#14b8a6',
+  '#8b5cf6',
+  '#f59e0b',
+  '#10b981',
+  '#6366f1',
+  '#d946ef',
+  '#0ea5e9',
+  '#f472b6',
+  '#a3e635',
+  '#fb923c',
+  '#c084fc',
+];
 
 export function getSourceColor(source: string, index: number): string {
   return knownSourceColors[source] ?? fallbackColors[index % fallbackColors.length];

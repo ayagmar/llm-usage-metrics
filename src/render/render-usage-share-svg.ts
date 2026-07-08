@@ -19,13 +19,21 @@ import {
 } from './share-svg-theme.js';
 
 const W = SHARE_SVG_WIDTH;
-const H = 560;
+const H_BASE = 560;
 const pad = { top: 140, right: 80, bottom: 60 + SHARE_SVG_FOOTER_HEIGHT, left: 200 };
 const STAT_X = 60;
 const STAT_VALUE_FONT_SIZE = 52;
 const STAT_VALUE_WIDTH_FACTOR = 0.6;
 const SOURCE_PILLS_MIN_X = pad.left + 10;
 const SOURCE_PILLS_STAT_GAP = 24;
+const SOURCE_PILLS_TOP = SHARE_SVG_ACCENT_HEIGHT + 30;
+const SOURCE_PILLS_RIGHT_MARGIN = 60;
+const SOURCE_PILLS_COMMAND_GAP = 20;
+const PILL_HEIGHT = 30;
+const PILL_ROW_HEIGHT = PILL_HEIGHT + 10;
+const PILL_GAP = 10;
+const PILL_PADDING = 28;
+const PILL_TEXT_WIDTH_FACTOR = 8.5;
 
 type SourceSeries = {
   source: string;
@@ -105,22 +113,61 @@ function renderStatColumn(
   return svg;
 }
 
-/** Source pills: rounded pill badges across the top-right. */
-function renderSourcePills(series: SourceSeries[], startX: number): string {
-  let svg = '';
-  let cx = Math.max(SOURCE_PILLS_MIN_X, startX);
-  const pillY = SHARE_SVG_ACCENT_HEIGHT + 30;
+type PillLayout = {
+  color: string;
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+};
+
+/**
+ * Wraps source pills into as many rows as needed. The first row starts right
+ * of the stat total and stops before the command badge; wrapped rows start at
+ * the left margin and span nearly the full canvas width.
+ */
+function layoutSourcePills(
+  series: SourceSeries[],
+  firstRowStartX: number,
+  firstRowRightEdge: number,
+): { pills: PillLayout[]; rowCount: number } {
+  const pills: PillLayout[] = [];
+  const wrappedRowRightEdge = W - SOURCE_PILLS_RIGHT_MARGIN;
+  let row = 0;
+  let cx = firstRowStartX;
 
   for (const s of series) {
     const label = `${s.source}  ${formatCompact(s.total)}`;
-    const textW = label.length * 8.5;
-    const pillW = textW + 28;
-    const pillH = 30;
+    const width = label.length * PILL_TEXT_WIDTH_FACTOR + PILL_PADDING;
+    const rowStartX = row === 0 ? firstRowStartX : SOURCE_PILLS_MIN_X;
+    const rowRightEdge = row === 0 ? firstRowRightEdge : wrappedRowRightEdge;
 
-    svg += `<rect x="${cx}" y="${pillY}" width="${pillW.toFixed(0)}" height="${pillH}" rx="${pillH / 2}" fill="${s.color}" fill-opacity="0.15" stroke="${s.color}" stroke-opacity="0.4" stroke-width="1"/>\n`;
-    svg += `<circle cx="${cx + 14}" cy="${pillY + pillH / 2}" r="4" fill="${s.color}"/>\n`;
-    svg += `<text x="${cx + 24}" y="${pillY + pillH / 2 + 5}" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}" font-size="14">${escapeSvg(label)}</text>\n`;
-    cx += pillW + 10;
+    if (cx > rowStartX && cx + width > rowRightEdge) {
+      row += 1;
+      cx = SOURCE_PILLS_MIN_X;
+    }
+
+    pills.push({
+      color: s.color,
+      label,
+      x: cx,
+      y: SOURCE_PILLS_TOP + row * PILL_ROW_HEIGHT,
+      width,
+    });
+    cx += width + PILL_GAP;
+  }
+
+  return { pills, rowCount: row + 1 };
+}
+
+/** Source pills: rounded pill badges wrapped across the top. */
+function renderSourcePills(pills: PillLayout[]): string {
+  let svg = '';
+
+  for (const pill of pills) {
+    svg += `<rect x="${pill.x}" y="${pill.y}" width="${pill.width.toFixed(0)}" height="${PILL_HEIGHT}" rx="${PILL_HEIGHT / 2}" fill="${pill.color}" fill-opacity="0.15" stroke="${pill.color}" stroke-opacity="0.4" stroke-width="1"/>\n`;
+    svg += `<circle cx="${pill.x + 14}" cy="${pill.y + PILL_HEIGHT / 2}" r="4" fill="${pill.color}"/>\n`;
+    svg += `<text x="${pill.x + 24}" y="${pill.y + PILL_HEIGHT / 2 + 5}" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}" font-size="14">${escapeSvg(pill.label)}</text>\n`;
   }
 
   return svg;
@@ -131,10 +178,13 @@ function estimateStatValueRightEdge(totalTokens: number): number {
   return STAT_X + value.length * STAT_VALUE_FONT_SIZE * STAT_VALUE_WIDTH_FACTOR;
 }
 
+function commandBadgeWidth(command: string): number {
+  return command.length * 9 + 28;
+}
+
 /** Command badge positioned in the top-right corner. */
 function renderCommandBadge(command: string): string {
-  const textW = command.length * 9;
-  const badgeW = textW + 28;
+  const badgeW = commandBadgeWidth(command);
   const badgeH = 30;
   const x = W - 60 - badgeW;
   const y = SHARE_SVG_ACCENT_HEIGHT + 30;
@@ -289,8 +339,18 @@ export function renderUsageShareSvg(
   const totalTokens = grandTotal?.totalTokens ?? 0;
   const totalCost = grandTotal?.costUsd;
 
+  const commandText = `llm-usage ${granularity} --share`;
+  const firstRowStartX = Math.max(
+    SOURCE_PILLS_MIN_X,
+    estimateStatValueRightEdge(totalTokens) + SOURCE_PILLS_STAT_GAP,
+  );
+  const firstRowRightEdge = W - 60 - commandBadgeWidth(commandText) - SOURCE_PILLS_COMMAND_GAP;
+  const { pills, rowCount } = layoutSourcePills(activeSeries, firstRowStartX, firstRowRightEdge);
+  const extraHeight = (rowCount - 1) * PILL_ROW_HEIGHT;
+  const H = H_BASE + extraHeight;
+
   const chartLeft = pad.left;
-  const chartTop = pad.top;
+  const chartTop = pad.top + extraHeight;
   const chartRight = W - pad.right;
   const chartBottom = H - pad.bottom;
   const chartW = chartRight - chartLeft;
@@ -304,9 +364,6 @@ export function renderUsageShareSvg(
   const toX = (p: number): number =>
     chartLeft + (periodCount <= 1 ? chartW / 2 : (p / (periodCount - 1)) * chartW);
   const toChartY = (val: number): number => scaleY(val, maxY, chartTop, chartBottom);
-
-  const commandText = `llm-usage ${granularity} --share`;
-  const sourcePillsStartX = estimateStatValueRightEdge(totalTokens) + SOURCE_PILLS_STAT_GAP;
 
   let chartContent: string;
   if (periodCount === 0) {
@@ -345,7 +402,7 @@ export function renderUsageShareSvg(
 <rect width="${W}" height="${H}" fill="${shareTheme.bg}"/>
 ${renderShareAccentBar()}
 ${renderStatColumn(totalTokens, totalCost, activeSeries.length)}
-${renderSourcePills(activeSeries, sourcePillsStartX)}
+${renderSourcePills(pills)}
 ${renderCommandBadge(commandText)}
 ${renderGridLines(chartLeft, chartRight, chartTop, chartH, maxY)}
 ${chartContent}
