@@ -498,7 +498,9 @@ Example:
     "enabled": true,
     "path": "/path/to/events.db"
   },
-  "parseMaxParallel": 8
+  "parseMaxParallel": 8,
+  "parseWorkers": "auto",
+  "parseWorkerMinBytes": 268435456
 }
 ```
 
@@ -520,6 +522,8 @@ overrides.
 | `LLM_USAGE_PRICING_CACHE_TTL_MS`     | `pricing.cacheTtlMs`          |
 | `LLM_USAGE_PRICING_FETCH_TIMEOUT_MS` | `pricing.fetchTimeoutMs`      |
 | `LLM_USAGE_PARSE_MAX_PARALLEL`       | `parseMaxParallel`            |
+| `LLM_USAGE_PARSE_WORKERS`            | `parseWorkers`                |
+| `LLM_USAGE_PARSE_WORKER_MIN_BYTES`   | `parseWorkerMinBytes`         |
 | `LLM_USAGE_EVENT_STORE`              | `eventStore.enabled`          |
 | `LLM_USAGE_EVENT_STORE_PATH`         | `eventStore.path`             |
 | `LLM_USAGE_UPDATE_CACHE_SCOPE`       | Update cache mode override    |

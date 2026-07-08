@@ -17,6 +17,8 @@ const ENV_VARS_TO_DISPLAY: Array<{ name: string; description: string }> = [
   { name: 'LLM_USAGE_PRICING_CACHE_TTL_MS', description: 'pricing cache TTL' },
   { name: 'LLM_USAGE_PRICING_FETCH_TIMEOUT_MS', description: 'pricing fetch timeout' },
   { name: 'LLM_USAGE_PARSE_MAX_PARALLEL', description: 'max parallel file parsing' },
+  { name: 'LLM_USAGE_PARSE_WORKERS', description: 'parse worker count' },
+  { name: 'LLM_USAGE_PARSE_WORKER_MIN_BYTES', description: 'parse worker byte threshold' },
   { name: 'LLM_USAGE_EVENT_STORE', description: 'enable sqlite event store' },
   { name: 'LLM_USAGE_EVENT_STORE_PATH', description: 'sqlite event store path' },
   { name: 'LLM_USAGE_PROFILE_RUNTIME', description: 'emit runtime profiling diagnostics' },

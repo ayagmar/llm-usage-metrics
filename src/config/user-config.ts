@@ -19,6 +19,10 @@ const UPDATE_FETCH_TIMEOUT_MIN_MS = 200;
 const UPDATE_FETCH_TIMEOUT_MAX_MS = 30_000;
 const PARSE_MAX_PARALLEL_MIN = 1;
 const PARSE_MAX_PARALLEL_MAX = 64;
+const PARSE_WORKERS_MIN = 0;
+const PARSE_WORKERS_MAX = 64;
+const PARSE_WORKER_MIN_BYTES_MIN = 0;
+const PARSE_WORKER_MIN_BYTES_MAX = Number.MAX_SAFE_INTEGER;
 
 const sourceDirKeys = [
   'pi',
@@ -43,6 +47,8 @@ const knownTopLevelKeys = [
   '$schema',
   'eventStore',
   'parseMaxParallel',
+  'parseWorkerMinBytes',
+  'parseWorkers',
   'pricing',
   'sourceDirs',
   'sources',
@@ -92,6 +98,8 @@ export type UserConfig = {
     path?: string;
   };
   parseMaxParallel?: number;
+  parseWorkers?: 'auto' | number;
+  parseWorkerMinBytes?: number;
   update?: {
     skipCheck?: boolean;
     cacheTtlMs?: number;
@@ -337,6 +345,14 @@ function readUpdateConfig(value: unknown): UserConfig['update'] | undefined {
   return Object.keys(update).length === 0 ? undefined : update;
 }
 
+function readParseWorkers(value: unknown): UserConfig['parseWorkers'] | undefined {
+  if (value === 'auto') {
+    return 'auto';
+  }
+
+  return clampInteger(value, PARSE_WORKERS_MIN, PARSE_WORKERS_MAX);
+}
+
 function readConfig(root: Record<string, unknown>): UserConfig {
   const config: UserConfig = {};
   const timezone = toNonBlankString(root.timezone);
@@ -348,6 +364,12 @@ function readConfig(root: Record<string, unknown>): UserConfig {
     root.parseMaxParallel,
     PARSE_MAX_PARALLEL_MIN,
     PARSE_MAX_PARALLEL_MAX,
+  );
+  const parseWorkers = readParseWorkers(root.parseWorkers);
+  const parseWorkerMinBytes = clampInteger(
+    root.parseWorkerMinBytes,
+    PARSE_WORKER_MIN_BYTES_MIN,
+    PARSE_WORKER_MIN_BYTES_MAX,
   );
   const update = readUpdateConfig(root.update);
 
@@ -373,6 +395,14 @@ function readConfig(root: Record<string, unknown>): UserConfig {
 
   if (parseMaxParallel !== undefined) {
     config.parseMaxParallel = parseMaxParallel;
+  }
+
+  if (parseWorkers !== undefined) {
+    config.parseWorkers = parseWorkers;
+  }
+
+  if (parseWorkerMinBytes !== undefined) {
+    config.parseWorkerMinBytes = parseWorkerMinBytes;
   }
 
   if (update !== undefined) {

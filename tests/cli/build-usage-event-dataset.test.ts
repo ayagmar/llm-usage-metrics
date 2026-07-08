@@ -64,6 +64,8 @@ function createDatasetDeps(eventStorePath: string) {
   return {
     getParsingRuntimeConfig: () => ({
       maxParallelFileParsing: 1,
+      parseWorkers: 0,
+      parseWorkerMinBytes: 268_435_456,
     }),
     getPricingFetcherRuntimeConfig: () => ({ cacheTtlMs: 1_000, fetchTimeoutMs: 1_000 }),
     getEventStoreRuntimeConfig: () => ({ enabled: true, path: eventStorePath }),

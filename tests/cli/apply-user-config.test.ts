@@ -92,17 +92,21 @@ describe('applyUserConfigToReportOptions', () => {
         path: '/tmp/config-events.db',
       },
       parseMaxParallel: 12,
+      parseWorkers: 4,
+      parseWorkerMinBytes: 1024,
     });
 
     expect(
       collectRuntimeConfigEntries(loadedConfig, {
         LLM_USAGE_PRICING_CACHE_TTL_MS: '1800000',
         LLM_USAGE_EVENT_STORE_PATH: '/tmp/env-events.db',
+        LLM_USAGE_PARSE_WORKERS: '2',
       }),
     ).toEqual([
       { key: 'pricing.fetchTimeoutMs', value: '5000' },
       { key: 'eventStore.enabled', value: 'true' },
       { key: 'parseMaxParallel', value: '12' },
+      { key: 'parseWorkerMinBytes', value: '1024' },
     ]);
   });
 

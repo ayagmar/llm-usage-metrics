@@ -19,6 +19,8 @@ function clearTestEnvVars(): void {
   delete process.env.LLM_USAGE_PRICING_CACHE_TTL_MS;
   delete process.env.LLM_USAGE_PRICING_FETCH_TIMEOUT_MS;
   delete process.env.LLM_USAGE_PARSE_MAX_PARALLEL;
+  delete process.env.LLM_USAGE_PARSE_WORKERS;
+  delete process.env.LLM_USAGE_PARSE_WORKER_MIN_BYTES;
   delete process.env.LLM_USAGE_EVENT_STORE;
   delete process.env.LLM_USAGE_EVENT_STORE_PATH;
   delete process.env.LLM_USAGE_PROFILE_RUNTIME;
@@ -41,6 +43,8 @@ describe('env-var-display', () => {
   it('returns only active known env var overrides', () => {
     process.env.LLM_USAGE_SKIP_UPDATE_CHECK = '1';
     process.env.LLM_USAGE_PARSE_MAX_PARALLEL = '16';
+    process.env.LLM_USAGE_PARSE_WORKERS = '2';
+    process.env.LLM_USAGE_PARSE_WORKER_MIN_BYTES = '1';
     process.env.LLM_USAGE_EVENT_STORE = '1';
     process.env.LLM_USAGE_EVENT_STORE_PATH = '/tmp/events.db';
     process.env.LLM_USAGE_PROFILE_RUNTIME = '1';
@@ -58,6 +62,16 @@ describe('env-var-display', () => {
         name: 'LLM_USAGE_PARSE_MAX_PARALLEL',
         value: '16',
         description: 'max parallel file parsing',
+      },
+      {
+        name: 'LLM_USAGE_PARSE_WORKERS',
+        value: '2',
+        description: 'parse worker count',
+      },
+      {
+        name: 'LLM_USAGE_PARSE_WORKER_MIN_BYTES',
+        value: '1',
+        description: 'parse worker byte threshold',
       },
       {
         name: 'LLM_USAGE_EVENT_STORE',

@@ -94,6 +94,8 @@ Relevant env vars:
 - `LLM_USAGE_EVENT_STORE` (`0` disables it)
 - `LLM_USAGE_EVENT_STORE_PATH`
 - `LLM_USAGE_PARSE_MAX_PARALLEL`
+- `LLM_USAGE_PARSE_WORKERS`
+- `LLM_USAGE_PARSE_WORKER_MIN_BYTES`
 
 ## Tuning examples
 
@@ -106,7 +108,7 @@ llm-usage monthly --pricing-offline
 Increase parsing throughput:
 
 ```bash
-LLM_USAGE_PARSE_MAX_PARALLEL=16 llm-usage daily
+LLM_USAGE_PARSE_MAX_PARALLEL=16 LLM_USAGE_PARSE_WORKERS=4 llm-usage daily
 ```
 
 Shorten pricing cache TTL to 2 hours:

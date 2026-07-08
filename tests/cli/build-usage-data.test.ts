@@ -119,6 +119,8 @@ function withDeterministicRuntimeDeps() {
   return {
     getParsingRuntimeConfig: () => ({
       maxParallelFileParsing: 2,
+      parseWorkers: 0,
+      parseWorkerMinBytes: 268_435_456,
     }),
     getPricingFetcherRuntimeConfig: () => ({ cacheTtlMs: 1_000, fetchTimeoutMs: 1_000 }),
     getEventStoreRuntimeConfig: () => ({ enabled: false, path: '/tmp/events.db' }),
@@ -962,6 +964,8 @@ describe('buildUsageData', () => {
         ...withDeterministicRuntimeDeps(),
         getParsingRuntimeConfig: () => ({
           maxParallelFileParsing: 0,
+          parseWorkers: 0,
+          parseWorkerMinBytes: 268_435_456,
         }),
         createAdapters: () => [
           createAdapter('pi', {
@@ -991,6 +995,8 @@ describe('buildUsageData', () => {
         ...withDeterministicRuntimeDeps(),
         getParsingRuntimeConfig: () => ({
           maxParallelFileParsing: 0.5,
+          parseWorkers: 0,
+          parseWorkerMinBytes: 268_435_456,
         }),
         createAdapters: () => [
           createAdapter('pi', {

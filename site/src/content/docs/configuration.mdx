@@ -47,6 +47,8 @@ Set `LLM_USAGE_CONFIG_PATH=/path/to/config.json` to point at a different config 
     "path": "/path/to/events.db"
   },
   "parseMaxParallel": 8,
+  "parseWorkers": "auto",
+  "parseWorkerMinBytes": 268435456,
   "update": {
     "skipCheck": false,
     "cacheTtlMs": 3600000,
@@ -99,6 +101,8 @@ Applied config values are printed on `stderr` as an `Active config:` block. Valu
 | `eventStore.enabled` | `LLM_USAGE_EVENT_STORE` | Enable SQLite event-store reuse |
 | `eventStore.path` | `LLM_USAGE_EVENT_STORE_PATH` | SQLite event-store path |
 | `parseMaxParallel` | `LLM_USAGE_PARSE_MAX_PARALLEL` | Max parallel file parses |
+| `parseWorkers` | `LLM_USAGE_PARSE_WORKERS` | Worker-thread parser count for large JSONL misses |
+| `parseWorkerMinBytes` | `LLM_USAGE_PARSE_WORKER_MIN_BYTES` | Missed-file byte threshold before workers engage |
 | `update.skipCheck` | `LLM_USAGE_SKIP_UPDATE_CHECK` | Skip startup update checks |
 | `update.cacheTtlMs` | `LLM_USAGE_UPDATE_CACHE_TTL_MS` | Update-check cache TTL |
 | `update.fetchTimeoutMs` | `LLM_USAGE_UPDATE_FETCH_TIMEOUT_MS` | Update-check fetch timeout |
@@ -124,6 +128,8 @@ Environment variables override the config file and are printed as an `Active env
 | `LLM_USAGE_PRICING_CACHE_TTL_MS` | `pricing.cacheTtlMs` | `86400000` | Clamps to `60000..2592000000` |
 | `LLM_USAGE_PRICING_FETCH_TIMEOUT_MS` | `pricing.fetchTimeoutMs` | `4000` | Clamps to `200..30000` |
 | `LLM_USAGE_PARSE_MAX_PARALLEL` | `parseMaxParallel` | `8` | Clamps to `1..64` |
+| `LLM_USAGE_PARSE_WORKERS` | `parseWorkers` | `auto` | `auto` or integer `0..64`; `0` disables workers |
+| `LLM_USAGE_PARSE_WORKER_MIN_BYTES` | `parseWorkerMinBytes` | `268435456` | Clamps to `0..9007199254740991` |
 | `LLM_USAGE_EVENT_STORE` | `eventStore.enabled` | `1` (`true`) | Set `0` to disable the store |
 | `LLM_USAGE_EVENT_STORE_PATH` | `eventStore.path` | platform cache `events.db` | Use an isolated store for experiments or CI |
 | `LLM_USAGE_PROFILE_RUNTIME` | n/a | unset (`false`) | Emits runtime profiling diagnostics |
@@ -133,7 +139,7 @@ Environment variables override the config file and are printed as an `Active env
 Example:
 
 ```bash
-LLM_USAGE_PARSE_MAX_PARALLEL=16 LLM_USAGE_PRICING_FETCH_TIMEOUT_MS=8000 llm-usage monthly
+LLM_USAGE_PARSE_MAX_PARALLEL=16 LLM_USAGE_PARSE_WORKERS=4 LLM_USAGE_PRICING_FETCH_TIMEOUT_MS=8000 llm-usage monthly
 ```
 
 Benchmarking-focused example:

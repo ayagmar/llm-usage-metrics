@@ -161,6 +161,28 @@
       "minimum": 1,
       "maximum": 64
     },
+    "parseWorkers": {
+      "description": "Worker-thread parser count for registered large JSONL sources; maps to LLM_USAGE_PARSE_WORKERS. Use \"auto\" to resolve from available CPU parallelism; integer values clamp to 0..64, where 0 disables workers.",
+      "oneOf": [
+        {
+          "const": "auto",
+          "description": "Use min(8, availableParallelism - 1)."
+        },
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        }
+      ],
+      "default": "auto"
+    },
+    "parseWorkerMinBytes": {
+      "description": "Minimum total bytes of event-store misses before worker-thread parsing engages; maps to LLM_USAGE_PARSE_WORKER_MIN_BYTES and clamps to 0..9007199254740991.",
+      "type": "integer",
+      "default": 268435456,
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
     "update": {
       "description": "Startup update-check runtime settings.",
       "type": "object",

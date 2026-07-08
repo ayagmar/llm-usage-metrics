@@ -180,6 +180,14 @@ export function collectRuntimeConfigEntries(
     'parseMaxParallel',
     config.parseMaxParallel,
   );
+  pushRuntimeEntry(entries, env, 'LLM_USAGE_PARSE_WORKERS', 'parseWorkers', config.parseWorkers);
+  pushRuntimeEntry(
+    entries,
+    env,
+    'LLM_USAGE_PARSE_WORKER_MIN_BYTES',
+    'parseWorkerMinBytes',
+    config.parseWorkerMinBytes,
+  );
   pushRuntimeEntry(
     entries,
     env,

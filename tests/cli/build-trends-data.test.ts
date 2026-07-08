@@ -29,6 +29,8 @@ function runtimeDeps(
   return {
     getParsingRuntimeConfig: () => ({
       maxParallelFileParsing: 2,
+      parseWorkers: 0,
+      parseWorkerMinBytes: 268_435_456,
     }),
     getPricingFetcherRuntimeConfig: () => ({ cacheTtlMs: 1_000, fetchTimeoutMs: 1_000 }),
     getEventStoreRuntimeConfig: () => ({ enabled: false, path: '/tmp/events.db' }),

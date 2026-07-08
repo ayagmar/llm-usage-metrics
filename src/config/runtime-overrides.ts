@@ -1,3 +1,5 @@
+import { availableParallelism } from 'node:os';
+
 import { getDefaultEventStorePath } from '../persistence/event-store.js';
 import type { UserConfig } from './user-config.js';
 
@@ -10,6 +12,8 @@ const UPDATE_FETCH_TIMEOUT_DEFAULT_MS = 1_000;
 const PRICING_CACHE_TTL_DEFAULT_MS = DAY_MS;
 const PRICING_FETCH_TIMEOUT_DEFAULT_MS = 4_000;
 const PARSE_MAX_PARALLEL_DEFAULT = 8;
+const PARSE_WORKER_MAX = 64;
+const PARSE_WORKER_MIN_BYTES_DEFAULT = 268_435_456;
 const EVENT_STORE_ENABLED_DEFAULT = true;
 
 function resolveBoundedInteger(
@@ -85,6 +89,8 @@ export type PricingFetcherRuntimeConfig = {
 
 export type ParsingRuntimeConfig = {
   maxParallelFileParsing: number;
+  parseWorkers: number;
+  parseWorkerMinBytes: number;
 };
 
 export type EventStoreRuntimeConfig = {
@@ -145,6 +151,33 @@ export function getPricingFetcherRuntimeConfig(
   };
 }
 
+function getAutoParseWorkerCount(): number {
+  return Math.max(0, Math.min(8, availableParallelism() - 1));
+}
+
+function resolveParseWorkers(
+  envValue: string | undefined,
+  configValue: UserConfig['parseWorkers'],
+): number {
+  if (envValue === undefined || envValue.trim().length === 0) {
+    return configValue === undefined || configValue === 'auto'
+      ? getAutoParseWorkerCount()
+      : configValue;
+  }
+
+  const trimmedValue = envValue.trim().toLowerCase();
+
+  if (trimmedValue === 'auto') {
+    return getAutoParseWorkerCount();
+  }
+
+  return resolveBoundedInteger(envValue, configValue === 'auto' ? undefined : configValue, {
+    fallback: getAutoParseWorkerCount(),
+    min: 0,
+    max: PARSE_WORKER_MAX,
+  });
+}
+
 export function getParsingRuntimeConfig(
   env: NodeJS.ProcessEnv = process.env,
   config: UserConfig = {},
@@ -157,6 +190,16 @@ export function getParsingRuntimeConfig(
         fallback: PARSE_MAX_PARALLEL_DEFAULT,
         min: 1,
         max: 64,
+      },
+    ),
+    parseWorkers: resolveParseWorkers(env.LLM_USAGE_PARSE_WORKERS, config.parseWorkers),
+    parseWorkerMinBytes: resolveBoundedInteger(
+      env.LLM_USAGE_PARSE_WORKER_MIN_BYTES,
+      config.parseWorkerMinBytes,
+      {
+        fallback: PARSE_WORKER_MIN_BYTES_DEFAULT,
+        min: 0,
+        max: Number.MAX_SAFE_INTEGER,
       },
     ),
   };

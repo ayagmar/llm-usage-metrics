@@ -134,6 +134,8 @@ describe('loadUserConfig', () => {
             path: '/tmp/events.db',
           },
           parseMaxParallel: 12,
+          parseWorkers: 'auto',
+          parseWorkerMinBytes: 1024,
           update: {
             skipCheck: true,
             cacheTtlMs: 2_000,
@@ -164,6 +166,8 @@ describe('loadUserConfig', () => {
         path: '/tmp/events.db',
       },
       parseMaxParallel: 12,
+      parseWorkers: 'auto',
+      parseWorkerMinBytes: 1024,
       update: {
         skipCheck: true,
         cacheTtlMs: 2_000,
@@ -187,6 +191,8 @@ describe('loadUserConfig', () => {
             fetchTimeoutMs: 1_000_000,
           },
           parseMaxParallel: 100,
+          parseWorkers: 100,
+          parseWorkerMinBytes: -1,
           update: {
             cacheTtlMs: -1,
             fetchTimeoutMs: 1,
@@ -201,6 +207,8 @@ describe('loadUserConfig', () => {
         fetchTimeoutMs: 30_000,
       },
       parseMaxParallel: 64,
+      parseWorkers: 64,
+      parseWorkerMinBytes: 0,
       update: {
         cacheTtlMs: 0,
         fetchTimeoutMs: 200,
@@ -224,6 +232,8 @@ describe('loadUserConfig', () => {
           eventStore: {
             path: '',
           },
+          parseWorkers: 'manual',
+          parseWorkerMinBytes: 1.5,
         }),
       ),
     );
