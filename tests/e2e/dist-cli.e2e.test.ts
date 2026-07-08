@@ -1,5 +1,7 @@
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
@@ -24,6 +26,7 @@ type UsageJsonRow = {
 
 type ExecFileFailure = Error & {
   code?: number | string;
+  stderr?: string;
 };
 
 function createSmokeEnv(): NodeJS.ProcessEnv {
@@ -75,6 +78,48 @@ describe.skipIf(!existsSync(distCliPath))('dist CLI e2e', () => {
     expect(grandTotalRow?.totalTokens).toBe(expectedDirectorySourceTokens);
     expect(stderr).toContain('Found');
     expect(stderr).toContain('session file(s)');
+  });
+
+  it('prints help even when the user config is malformed', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'dist-cli-bad-config-help-'));
+    const configPath = path.join(tempDir, 'config.json');
+    await writeFile(configPath, '{ not valid json', 'utf8');
+
+    try {
+      const { stdout } = await execFileAsync(process.execPath, [distCliPath, '--help'], {
+        encoding: 'utf8',
+        env: { ...createSmokeEnv(), LLM_USAGE_CONFIG_PATH: configPath },
+      });
+
+      expect(stdout).toContain('Usage:');
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it('fails a real command with an actionable malformed-config error', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'dist-cli-bad-config-run-'));
+    const configPath = path.join(tempDir, 'config.json');
+    await writeFile(configPath, '{ not valid json', 'utf8');
+
+    let exitCode: number | string | undefined;
+    let stderr = '';
+
+    try {
+      await execFileAsync(process.execPath, [distCliPath, 'monthly', '--pricing-offline'], {
+        encoding: 'utf8',
+        env: { ...createSmokeEnv(), LLM_USAGE_CONFIG_PATH: configPath },
+      });
+    } catch (error) {
+      exitCode = (error as ExecFileFailure).code;
+      stderr = (error as ExecFileFailure).stderr ?? '';
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+
+    expect(exitCode).toBeDefined();
+    expect(exitCode).not.toBe(0);
+    expect(stderr).toContain(`Failed to parse config file ${configPath}`);
   });
 
   it('exits nonzero for unknown options', async () => {

@@ -5,6 +5,7 @@ export type EnvVarOverride = {
 };
 
 const ENV_VARS_TO_DISPLAY: Array<{ name: string; description: string }> = [
+  { name: 'LLM_USAGE_CONFIG_PATH', description: 'user config file path' },
   { name: 'LLM_USAGE_SKIP_UPDATE_CHECK', description: 'skip startup update check' },
   {
     name: 'LLM_USAGE_UPDATE_CACHE_SCOPE',

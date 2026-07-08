@@ -580,6 +580,24 @@ describe('run-doctor-report', () => {
     expect(stdout.getOutput()).toContain('15/16 sources healthy');
   });
 
+  it('counts only source rows in the summary while still listing the event store', async () => {
+    const options = await createDoctorFixtureOptions();
+    const eventStorePath = path.join(os.tmpdir(), `missing-events-summary-${Date.now()}.db`);
+    const stdout = captureStdout();
+
+    try {
+      await runDoctorReport(options, {
+        getEventStoreRuntimeConfig: () => ({ enabled: true, path: eventStorePath }),
+      });
+    } finally {
+      stdout.restore();
+    }
+
+    const output = stdout.getOutput();
+    expect(output).toContain('event-store');
+    expect(output).toContain('16/16 sources healthy');
+  });
+
   it('prints JSON output to stdout', async () => {
     const options = await createDoctorFixtureOptions();
     const stdout = captureStdout();

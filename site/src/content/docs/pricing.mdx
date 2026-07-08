@@ -28,6 +28,11 @@ Run without `--pricing-offline` to refresh the cache from LiteLLM. Custom
 `--pricing-url` values do not fall back to the bundled default snapshot; they
 must load from their matching cache or network URL.
 
+When `pricing.offline: true` is set in the config file, there is no
+`--no-pricing-offline` flag; force a one-off online refresh by bypassing the
+config for that run (`LLM_USAGE_CONFIG_PATH=/nonexistent llm-usage monthly`) or
+edit the config.
+
 For cache lifecycle and tuning knobs, see [Caching](/caching/).
 
 ## Cost modes

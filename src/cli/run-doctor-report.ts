@@ -220,9 +220,10 @@ function renderDoctorText(results: DoctorSourceResult[]): string {
 
     return `${result.id.padEnd(idWidth)}  ${result.status.padEnd(statusWidth)}  ${detail}`;
   });
-  const healthyCount = results.filter((result) => result.status === 'ok').length;
+  const sourceResults = results.filter((result) => result.id !== 'event-store');
+  const healthyCount = sourceResults.filter((result) => result.status === 'ok').length;
 
-  return [...lines, '', `${healthyCount}/${results.length} sources healthy`].join('\n');
+  return [...lines, '', `${healthyCount}/${sourceResults.length} sources healthy`].join('\n');
 }
 
 export async function runDoctorReport(

@@ -144,7 +144,10 @@ export function registerSharedReportOptions(
   }
 
   if (profileConfig.includeTimezone) {
-    configuredCommand.option('--timezone <iana>', 'Timezone for bucketing');
+    configuredCommand.option(
+      '--timezone <iana>',
+      'Timezone for bucketing (default: system timezone)',
+    );
   }
 
   if (profileConfig.includeProviderModelFilters) {

@@ -103,6 +103,12 @@ Applied config values are printed on `stderr` as an `Active config:` block. Valu
 | `update.cacheTtlMs` | `LLM_USAGE_UPDATE_CACHE_TTL_MS` | Update-check cache TTL |
 | `update.fetchTimeoutMs` | `LLM_USAGE_UPDATE_FETCH_TIMEOUT_MS` | Update-check fetch timeout |
 
+There is no `--no-pricing-offline` flag. To force a one-off online pricing refresh while `pricing.offline: true` stays in the config, bypass the config for that run by pointing `LLM_USAGE_CONFIG_PATH` at a nonexistent file (a missing file loads an empty config) or edit the file:
+
+```bash
+LLM_USAGE_CONFIG_PATH=/nonexistent llm-usage monthly
+```
+
 ## Environment overrides
 
 Environment variables override the config file and are printed as an `Active environment overrides:` block when set.

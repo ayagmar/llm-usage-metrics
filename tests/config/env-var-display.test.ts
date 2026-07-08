@@ -5,7 +5,12 @@ import {
   getActiveEnvVarOverrides,
 } from '../../src/config/env-var-display.js';
 
+const originalConfigPath = process.env.LLM_USAGE_CONFIG_PATH;
+
 function clearTestEnvVars(): void {
+  // The vitest env sets LLM_USAGE_CONFIG_PATH; clear it so the base state has
+  // no active override and restore it after the suite.
+  delete process.env.LLM_USAGE_CONFIG_PATH;
   delete process.env.LLM_USAGE_SKIP_UPDATE_CHECK;
   delete process.env.LLM_USAGE_UPDATE_CACHE_SCOPE;
   delete process.env.LLM_USAGE_UPDATE_CACHE_SESSION_KEY;
@@ -29,6 +34,7 @@ afterEach(() => {
   // Restore the vitest-wide store-off default so later tests never hit the
   // user's real events.db.
   process.env.LLM_USAGE_EVENT_STORE = '0';
+  process.env.LLM_USAGE_CONFIG_PATH = originalConfigPath;
 });
 
 describe('env-var-display', () => {
@@ -67,6 +73,20 @@ describe('env-var-display', () => {
         name: 'LLM_USAGE_PROFILE_RUNTIME',
         value: '1',
         description: 'emit runtime profiling diagnostics',
+      },
+    ]);
+  });
+
+  it('surfaces LLM_USAGE_CONFIG_PATH as an override', () => {
+    process.env.LLM_USAGE_CONFIG_PATH = '/tmp/custom-config.json';
+
+    const overrides = getActiveEnvVarOverrides();
+
+    expect(overrides).toEqual([
+      {
+        name: 'LLM_USAGE_CONFIG_PATH',
+        value: '/tmp/custom-config.json',
+        description: 'user config file path',
       },
     ]);
   });
