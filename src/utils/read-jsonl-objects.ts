@@ -9,13 +9,16 @@ type ReadJsonlObjectsOptions = {
 
 const LINE_FEED = 0x0a;
 const CARRIAGE_RETURN = 0x0d;
+const STREAM_CHUNK_SIZE_BYTES = 1024 * 1024;
 const UTF8_BOM = [0xef, 0xbb, 0xbf] as const;
 
 export async function* readJsonlObjects(
   filePath: string,
   options: ReadJsonlObjectsOptions = {},
 ): AsyncGenerator<Record<string, unknown>, void, undefined> {
-  const stream = createReadStream(filePath);
+  const stream = createReadStream(filePath, {
+    highWaterMark: STREAM_CHUNK_SIZE_BYTES,
+  });
 
   let isFirstLine = true;
   let carriedChunks: Buffer[] = [];

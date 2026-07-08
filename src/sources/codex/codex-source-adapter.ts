@@ -43,17 +43,58 @@ export type CodexSourceAdapterOptions = {
   requireSessionsDir?: boolean;
 };
 
-const SESSION_META_LINE_PATTERN = /"type"\s*:\s*"session_meta"/u;
-const TURN_CONTEXT_LINE_PATTERN = /"type"\s*:\s*"turn_context"/u;
-const EVENT_MSG_LINE_PATTERN = /"type"\s*:\s*"event_msg"/u;
-const TOKEN_COUNT_LINE_PATTERN = /"type"\s*:\s*"token_count"/u;
+const SESSION_META_BYTES = Buffer.from('"session_meta"');
+const TURN_CONTEXT_BYTES = Buffer.from('"turn_context"');
+const EVENT_MSG_BYTES = Buffer.from('"event_msg"');
+const TOKEN_COUNT_BYTES = Buffer.from('"token_count"');
+const TYPE_FIELD_BYTES = Buffer.from('"type":"');
+const SESSION_META_TYPE_BYTES = Buffer.from('session_meta"');
+const TURN_CONTEXT_TYPE_BYTES = Buffer.from('turn_context"');
+const EVENT_MSG_TYPE_BYTES = Buffer.from('event_msg"');
 
-function shouldParseCodexJsonlLine(lineText: string): boolean {
-  if (SESSION_META_LINE_PATTERN.test(lineText) || TURN_CONTEXT_LINE_PATTERN.test(lineText)) {
+function shouldParseCodexJsonlLineBytes(lineBytes: Buffer): boolean {
+  const typeFieldIndex = lineBytes.indexOf(TYPE_FIELD_BYTES);
+
+  if (typeFieldIndex !== -1) {
+    const typeValueIndex = typeFieldIndex + TYPE_FIELD_BYTES.length;
+
+    if (
+      lineBytesIncludesAt(lineBytes, SESSION_META_TYPE_BYTES, typeValueIndex) ||
+      lineBytesIncludesAt(lineBytes, TURN_CONTEXT_TYPE_BYTES, typeValueIndex)
+    ) {
+      return true;
+    }
+
+    if (lineBytesIncludesAt(lineBytes, EVENT_MSG_TYPE_BYTES, typeValueIndex)) {
+      return lineBytes.includes(TOKEN_COUNT_BYTES, typeValueIndex);
+    }
+
+    return false;
+  }
+
+  if (lineBytes.includes(SESSION_META_BYTES) || lineBytes.includes(TURN_CONTEXT_BYTES)) {
     return true;
   }
 
-  return EVENT_MSG_LINE_PATTERN.test(lineText) && TOKEN_COUNT_LINE_PATTERN.test(lineText);
+  return lineBytes.includes(EVENT_MSG_BYTES) && lineBytes.includes(TOKEN_COUNT_BYTES);
+}
+
+function lineBytesIncludesAt(
+  lineBytes: Buffer,
+  expectedBytes: Buffer,
+  startIndex: number,
+): boolean {
+  if (startIndex + expectedBytes.length > lineBytes.length) {
+    return false;
+  }
+
+  for (let index = 0; index < expectedBytes.length; index += 1) {
+    if (lineBytes[startIndex + index] !== expectedBytes[index]) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function toUsage(value: unknown): CodexUsage | undefined {
@@ -255,7 +296,7 @@ export class CodexSourceAdapter implements SourceAdapter {
     };
 
     for await (const line of readJsonlObjects(filePath, {
-      shouldParseLine: shouldParseCodexJsonlLine,
+      shouldParseLineBytes: shouldParseCodexJsonlLineBytes,
     })) {
       if (line.type === 'session_meta') {
         const payload = asRecord(line.payload);

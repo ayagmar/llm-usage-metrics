@@ -24,8 +24,8 @@ const defaultClaudeRootDirs = [
   defaultClaudeProjectsDir,
   path.join(os.homedir(), '.claude', 'transcripts'),
 ];
-const CLAUDE_ASSISTANT_LINE_PATTERN = /"type"\s*:\s*"assistant"/u;
-const CLAUDE_USAGE_LINE_PATTERN = /"usage"\s*:/u;
+const CLAUDE_ASSISTANT_BYTES = Buffer.from('"assistant"');
+const CLAUDE_USAGE_BYTES = Buffer.from('"usage"');
 
 type ClaudeUsage = {
   inputTokens: number;
@@ -53,8 +53,8 @@ export type ClaudeSourceAdapterOptions = {
   defaultRootDirs?: string[];
 };
 
-function shouldParseClaudeJsonlLine(lineText: string): boolean {
-  return CLAUDE_ASSISTANT_LINE_PATTERN.test(lineText) && CLAUDE_USAGE_LINE_PATTERN.test(lineText);
+function shouldParseClaudeJsonlLineBytes(lineBytes: Buffer): boolean {
+  return lineBytes.includes(CLAUDE_ASSISTANT_BYTES) && lineBytes.includes(CLAUDE_USAGE_BYTES);
 }
 
 function getFallbackSessionId(filePath: string): string {
@@ -189,7 +189,7 @@ export class ClaudeSourceAdapter implements SourceAdapter {
     const skippedRowReasons = new Map<string, number>();
 
     for await (const line of readJsonlObjects(filePath, {
-      shouldParseLine: shouldParseClaudeJsonlLine,
+      shouldParseLineBytes: shouldParseClaudeJsonlLineBytes,
     })) {
       if (asTrimmedText(line.type) !== 'assistant') {
         continue;

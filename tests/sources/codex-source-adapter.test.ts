@@ -569,6 +569,45 @@ describe('CodexSourceAdapter', () => {
     });
   });
 
+  it('ignores response items whose text mentions token_count', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'codex-source-response-item-text-'));
+    tempDirs.push(root);
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          timestamp: '2026-02-14T10:00:00.000Z',
+          type: 'session_meta',
+          payload: {
+            id: 'codex-response-item-text',
+            model_provider: 'openai',
+          },
+        }),
+        JSON.stringify({
+          timestamp: '2026-02-14T10:00:01.000Z',
+          type: 'turn_context',
+          payload: { model: 'gpt-5.2-codex' },
+        }),
+        JSON.stringify({
+          timestamp: '2026-02-14T10:00:02.000Z',
+          type: 'event_msg',
+          payload: {
+            type: 'response_item',
+            text: 'The transcript mentioned "token_count" but this is not usage.',
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new CodexSourceAdapter({ sessionsDir: root });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toEqual([]);
+  });
+
   it('does not advance cumulative totals when a token row has an invalid timestamp', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'codex-source-invalid-timestamp-'));
     tempDirs.push(root);
