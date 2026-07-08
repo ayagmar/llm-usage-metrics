@@ -55,14 +55,24 @@ llm-usage daily --goose-db /path/to/goose/sessions.db
 
 ## Pricing load failures
 
-If pricing resolution fails:
+Default LiteLLM pricing works without a warm cache because the CLI includes a
+bundled LiteLLM snapshot. If you see this warning, the run succeeded from that
+snapshot:
 
-1. retry with network enabled
-2. or use a cache that already exists with `--pricing-offline`
+```text
+Pricing: using the bundled LiteLLM snapshot from 2026-07-08 (run online to refresh).
+```
+
+Run once without `--pricing-offline` to refresh the local cache from LiteLLM:
 
 ```bash
-llm-usage monthly --pricing-offline
+llm-usage monthly
 ```
+
+If pricing still fails, check for a custom `--pricing-url`, a bad
+`--pricing-overrides` file, or a network failure while using a custom pricing
+URL. Custom pricing URLs use their matching cache or network source and do not
+fall back to the bundled default snapshot.
 
 ## Schema drift / OpenCode parsing errors
 

@@ -26,7 +26,7 @@ Aggregate token usage and costs from your local coding agent sessions. Supports 
 ## ✨ Features
 
 - **Zero-Config Discovery** — Automatically finds `.pi`, `.codex`, `.gemini`, `.factory`, OpenCode, OpenClaw, Claude, Copilot, Goose, Amp, Qwen, Kimi, Cline, RooCode, KiloCode, and Antigravity session data
-- **LiteLLM Pricing** — Real-time pricing sync with offline caching support
+- **LiteLLM Pricing** — Real-time pricing sync with cache and bundled offline fallback support
 - **Flexible Reports** — Daily, weekly, and monthly aggregations
 - **Efficiency Reports** — Correlate cost/tokens with repository commit outcomes
 - **Optimize Reports** — Counterfactual candidate-model pricing against observed token mix
@@ -322,8 +322,13 @@ llm-usage daily --goose-db /path/to/goose/sessions.db
 
 ### Offline Mode
 
+Pricing uses LiteLLM rates. Online runs refresh the local pricing cache when
+needed; offline runs use a fresh or stale cache when present and fall back to
+the bundled LiteLLM snapshot when no cache exists. When the bundled snapshot is
+used, `stderr` shows its snapshot date and suggests running online to refresh.
+
 ```bash
-# Use cached pricing only
+# Avoid network pricing fetches
 llm-usage monthly --pricing-offline
 
 # Continue even if pricing fetch fails
@@ -332,6 +337,9 @@ llm-usage monthly --ignore-pricing-failures
 # Override per-model pricing from a local JSON file
 llm-usage monthly --pricing-overrides ./pricing-overrides.json
 ```
+
+Custom `--pricing-url` values use their matching cache or network source; they
+do not silently fall back to the bundled default LiteLLM snapshot.
 
 ## 🧪 Production Benchmarks
 

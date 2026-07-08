@@ -51,7 +51,7 @@ The regular CI workflow in `.github/workflows/ci.yml` still enforces the normal 
 
 - The CLI is local-first: it parses local session files and local Git history.
 - Startup update checks only query the npm registry for the latest package version and are cached/skippable with `LLM_USAGE_SKIP_UPDATE_CHECK=1`.
-- Pricing refreshes only fetch the LiteLLM pricing JSON and can run from cache with `--pricing-offline`.
+- Pricing refreshes only fetch the LiteLLM pricing JSON; `--pricing-offline` runs from cache or the bundled LiteLLM snapshot.
 - OpenCode parsing opens the SQLite database in read-only mode.
 
 ### Publishing and CI identity

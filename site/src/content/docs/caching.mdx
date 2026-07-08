@@ -44,7 +44,8 @@ Relevant env vars:
 - tries fresh cache first
 - if cache is stale and network is enabled, fetches LiteLLM pricing and rewrites cache
 - if network fails, falls back to stale cache when possible
-- with `--pricing-offline`, uses cache only and fails if no cache exists
+- for the default LiteLLM URL, falls back to the bundled snapshot when cache and network are unavailable
+- with `--pricing-offline`, skips network and uses fresh cache, stale cache, or the bundled snapshot
 
 Relevant options/env:
 
@@ -96,7 +97,7 @@ Relevant env vars:
 
 ## Tuning examples
 
-Use pricing cache only (offline mode):
+Avoid network pricing fetches:
 
 ```bash
 llm-usage monthly --pricing-offline
@@ -116,6 +117,7 @@ LLM_USAGE_PRICING_CACHE_TTL_MS=7200000 llm-usage monthly
 
 ## Troubleshooting cache behavior
 
-- When pricing fails in offline mode, run once without `--pricing-offline` to warm the cache.
+- When pricing uses the bundled snapshot, `stderr` shows its snapshot date; run once without `--pricing-offline` to refresh the cache.
+- Custom `--pricing-url` values use their matching cache or network source and do not fall back to the bundled default snapshot.
 - For stale reports after source file changes, verify source files updated `mtime`. Deleting `<platform-cache-root>/llm-usage-metrics/events.db` starts a fresh ledger, but it also deletes retained history used by `--history`.
 - To force update checks every run, set `LLM_USAGE_UPDATE_CACHE_TTL_MS=0`.

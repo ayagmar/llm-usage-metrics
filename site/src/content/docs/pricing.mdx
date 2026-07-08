@@ -8,14 +8,25 @@ description: How pricing is loaded and how row costs are computed.
 ## Pricing source
 
 - primary source: LiteLLM pricing JSON
-- cache: local pricing cache is used when available
-- offline mode: `--pricing-offline` uses cache only
+- cache: online runs use a fresh cache first, then refresh from LiteLLM when needed
+- fallback: stale cache is used when live refresh fails
+- bundled snapshot: the default LiteLLM pricing URL can fall back to a bundled snapshot
+- offline mode: `--pricing-offline` skips network and uses cache, stale cache, or the bundled snapshot
 
 ```bash
 llm-usage monthly --pricing-offline
 ```
 
-If pricing cannot be loaded (or offline cache is unavailable), report generation fails.
+When the bundled snapshot is used, `stderr` includes a warning with the snapshot
+date:
+
+```text
+Pricing: using the bundled LiteLLM snapshot from 2026-07-08 (run online to refresh).
+```
+
+Run without `--pricing-offline` to refresh the cache from LiteLLM. Custom
+`--pricing-url` values do not fall back to the bundled default snapshot; they
+must load from their matching cache or network URL.
 
 For cache lifecycle and tuning knobs, see [Caching](/caching/).
 

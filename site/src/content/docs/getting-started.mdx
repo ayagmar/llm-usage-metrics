@@ -40,6 +40,10 @@ npx --yes llm-usage-metrics@latest daily
 llm-usage daily
 ```
 
+Costs are estimated with LiteLLM pricing. First runs work offline from the
+bundled LiteLLM snapshot; online runs refresh the local pricing cache when
+needed. If the bundled snapshot is used, `stderr` shows its snapshot date.
+
 Useful next commands:
 
 ```bash
@@ -62,6 +66,7 @@ llm-usage monthly --model claude
 llm-usage daily --json
 llm-usage daily --markdown
 llm-usage monthly --per-model-columns
+llm-usage monthly --pricing-offline
 llm-usage monthly --ignore-pricing-failures
 ```
 
