@@ -410,17 +410,61 @@ pnpm run perf:production-benchmark -- \
 
 ## ⚙️ Configuration
 
-### Environment Variables
+`llm-usage-metrics` reads persistent defaults from a JSON config file:
 
-| Variable                         | Description                        |
-| -------------------------------- | ---------------------------------- |
-| `LLM_USAGE_SKIP_UPDATE_CHECK`    | Skip update check (`1`)            |
-| `LLM_USAGE_UPDATE_CACHE_SCOPE`   | Update cache scope                 |
-| `LLM_USAGE_PRICING_CACHE_TTL_MS` | Pricing cache duration             |
-| `LLM_USAGE_PARSE_MAX_PARALLEL`   | Max parallel file parses (`1-64`)  |
-| `LLM_USAGE_EVENT_STORE`          | SQLite event store (`0` disables)  |
-| `LLM_USAGE_EVENT_STORE_PATH`     | Override SQLite event store path   |
-| `LLM_USAGE_PROFILE_RUNTIME`      | Emit runtime profiling diagnostics |
+```text
+<config-root>/llm-usage-metrics/config.json
+```
+
+Set `LLM_USAGE_CONFIG_PATH=/path/to/config.json` to use a different file.
+Missing config files are ignored, malformed JSON fails with an actionable
+error, and unknown keys are reported on `stderr`.
+
+Example:
+
+```json
+{
+  "$schema": "https://ayagmar.github.io/llm-usage-metrics/config-schema.json",
+  "timezone": "Africa/Casablanca",
+  "sources": ["codex", "claude"],
+  "sourceDirs": {
+    "codex": "/path/to/.codex/sessions",
+    "claude": "/path/to/.claude/projects"
+  },
+  "pricing": {
+    "offline": true
+  },
+  "eventStore": {
+    "enabled": true,
+    "path": "/path/to/events.db"
+  },
+  "parseMaxParallel": 8
+}
+```
+
+Precedence is `CLI flags` → `environment variables` → `config file` →
+`built-in defaults`. Applied config values are shown on `stderr` as an
+`Active config:` block.
+
+### Environment Overrides
+
+Environment variables remain available for CI, scripts, and temporary runtime
+overrides.
+
+| Variable                             | Config key                    |
+| ------------------------------------ | ----------------------------- |
+| `LLM_USAGE_CONFIG_PATH`              | Selects the config file       |
+| `LLM_USAGE_SKIP_UPDATE_CHECK`        | `update.skipCheck`            |
+| `LLM_USAGE_UPDATE_CACHE_TTL_MS`      | `update.cacheTtlMs`           |
+| `LLM_USAGE_UPDATE_FETCH_TIMEOUT_MS`  | `update.fetchTimeoutMs`       |
+| `LLM_USAGE_PRICING_CACHE_TTL_MS`     | `pricing.cacheTtlMs`          |
+| `LLM_USAGE_PRICING_FETCH_TIMEOUT_MS` | `pricing.fetchTimeoutMs`      |
+| `LLM_USAGE_PARSE_MAX_PARALLEL`       | `parseMaxParallel`            |
+| `LLM_USAGE_EVENT_STORE`              | `eventStore.enabled`          |
+| `LLM_USAGE_EVENT_STORE_PATH`         | `eventStore.path`             |
+| `LLM_USAGE_UPDATE_CACHE_SCOPE`       | Update cache mode override    |
+| `LLM_USAGE_UPDATE_CACHE_SESSION_KEY` | Update cache session key      |
+| `LLM_USAGE_PROFILE_RUNTIME`          | Runtime profiling diagnostics |
 
 ### SQLite Event Store
 
@@ -447,7 +491,7 @@ running on your machine.
 - Older JSON cache shards from pre-store versions are no longer read and can be
   deleted manually.
 
-See full environment variable reference in the [documentation](https://ayagmar.github.io/llm-usage-metrics/configuration/).
+See the full config and environment override reference in the [documentation](https://ayagmar.github.io/llm-usage-metrics/configuration/).
 
 ### Update Checks
 
@@ -492,7 +536,7 @@ pnpm cli daily
 - **[Efficiency](https://ayagmar.github.io/llm-usage-metrics/efficiency/)** — Efficiency report semantics and interpretation
 - **[Optimize](https://ayagmar.github.io/llm-usage-metrics/optimize/)** — Counterfactual candidate-model pricing semantics
 - **[Data Sources](https://ayagmar.github.io/llm-usage-metrics/sources/)** — Source configuration
-- **[Configuration](https://ayagmar.github.io/llm-usage-metrics/configuration/)** — Environment variables
+- **[Configuration](https://ayagmar.github.io/llm-usage-metrics/configuration/)** — Config file and environment overrides
 - **[Security](https://ayagmar.github.io/llm-usage-metrics/security/)** — Current security controls, dependency hygiene, and contributor steps
 - **[Benchmarks](https://ayagmar.github.io/llm-usage-metrics/benchmarks/)** — Production benchmark methodology and results
 - **[Architecture](https://ayagmar.github.io/llm-usage-metrics/architecture/)** — Technical overview
