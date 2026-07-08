@@ -86,6 +86,26 @@ describe('emitDiagnostics', () => {
     expect(diagnosticsLogger.info).toHaveBeenCalledWith(message);
   });
 
+  it('emits the bundled snapshot warning without an extra info line', () => {
+    const diagnosticsLogger = createLoggerSpy();
+
+    emitDiagnostics(
+      createDiagnostics({
+        sessionStats: [{ source: 'pi', filesFound: 1, eventsParsed: 1 }],
+        pricingOrigin: 'bundled-snapshot',
+        pricingWarning:
+          'Pricing: using the bundled LiteLLM snapshot from 2026-07-08 (run online to refresh).',
+      }),
+      diagnosticsLogger,
+    );
+
+    expect(diagnosticsLogger.info).toHaveBeenCalledWith('Found 1 session file(s) with 1 event(s)');
+    expect(diagnosticsLogger.info).toHaveBeenCalledTimes(1);
+    expect(diagnosticsLogger.warn).toHaveBeenCalledWith(
+      'Pricing: using the bundled LiteLLM snapshot from 2026-07-08 (run online to refresh).',
+    );
+  });
+
   it('emits pricing warning when pricing is skipped after a pricing load failure', () => {
     const diagnosticsLogger = createLoggerSpy();
 

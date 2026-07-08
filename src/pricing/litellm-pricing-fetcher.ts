@@ -5,6 +5,7 @@ import { asRecord } from '../utils/as-record.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
 import litellmModelMapPayload from './litellm-model-map.json' with { type: 'json' };
+import litellmPricingSnapshotPayload from './litellm-pricing-snapshot.json' with { type: 'json' };
 import type { ModelPricing, PricingSource } from './types.js';
 
 const ONE_MILLION = 1_000_000;
@@ -22,6 +23,8 @@ export type LiteLLMCachePayload = {
   sourceUrl: string;
   pricingByModel: Record<string, ModelPricing>;
 };
+
+export type LiteLLMPricingLoadOrigin = 'cache' | 'network' | 'bundled-snapshot';
 
 export type LiteLLMPricingFetcherOptions = {
   sourceUrl?: string;
@@ -151,6 +154,7 @@ function parseLiteLLMModelMap(payload: LiteLLMModelMapPayload): LiteLLMModelMap 
 }
 
 const litellmModelMap = parseLiteLLMModelMap(litellmModelMapPayload);
+let bundledLiteLLMPricingSnapshot: LiteLLMCachePayload | undefined;
 
 function toNonNegativeNumber(value: unknown): number | undefined {
   if (typeof value === 'number') {
@@ -327,6 +331,26 @@ export function normalizeLiteLLMCachePayload(payload: unknown): LiteLLMCachePayl
   };
 }
 
+function getBundledLiteLLMPricingSnapshot(): LiteLLMCachePayload {
+  if (bundledLiteLLMPricingSnapshot) {
+    return bundledLiteLLMPricingSnapshot;
+  }
+
+  const snapshot = normalizeLiteLLMCachePayload(litellmPricingSnapshotPayload);
+
+  if (!snapshot || Object.keys(snapshot.pricingByModel).length === 0) {
+    throw new Error('Bundled LiteLLM pricing snapshot is not usable');
+  }
+
+  bundledLiteLLMPricingSnapshot = snapshot;
+  return snapshot;
+}
+
+function formatBundledSnapshotWarning(fetchedAt: number): string {
+  const fetchedDate = new Date(fetchedAt).toISOString().slice(0, 10);
+  return `Pricing: using the bundled LiteLLM snapshot from ${fetchedDate} (run online to refresh).`;
+}
+
 export function getDefaultLiteLLMPricingCachePath(): string {
   return path.join(getUserCacheRootDir(), 'llm-usage-metrics', 'litellm-pricing-cache.json');
 }
@@ -436,6 +460,8 @@ export class LiteLLMPricingFetcher implements PricingSource {
 
   private pricingByModel = new Map<string, ModelPricing>();
   private resolvedAliasCache = new Map<string, string>();
+  private loadOrigin: LiteLLMPricingLoadOrigin | undefined;
+  private pricingWarning: string | undefined;
 
   public constructor(options: LiteLLMPricingFetcherOptions = {}) {
     this.sourceUrl = options.sourceUrl ?? DEFAULT_LITELLM_PRICING_URL;
@@ -458,10 +484,13 @@ export class LiteLLMPricingFetcher implements PricingSource {
   }
 
   /**
-   * Loads pricing data from cache or remote.
-   * @returns Promise<boolean> True if loaded from cache, false if from network
+   * Loads pricing data from cache, remote, or the bundled default snapshot.
+   * @returns Promise<boolean> True if loaded without a network fetch, false if from network
    */
   public async load(): Promise<boolean> {
+    this.loadOrigin = undefined;
+    this.pricingWarning = undefined;
+
     const cacheLoaded = await this.loadFromCache({ allowStale: false });
 
     if (cacheLoaded) {
@@ -472,7 +501,15 @@ export class LiteLLMPricingFetcher implements PricingSource {
       const staleCacheLoaded = await this.loadFromCache({ allowStale: true });
 
       if (!staleCacheLoaded) {
-        throw new Error('Offline pricing mode enabled but no cached LiteLLM pricing is available');
+        const bundledSnapshotLoaded = this.loadFromBundledSnapshot();
+
+        if (!bundledSnapshotLoaded) {
+          throw new Error(
+            'Offline pricing mode enabled but no cached LiteLLM pricing is available',
+          );
+        }
+
+        return true;
       }
 
       return true;
@@ -485,11 +522,25 @@ export class LiteLLMPricingFetcher implements PricingSource {
       const staleCacheLoaded = await this.loadFromCache({ allowStale: true });
 
       if (!staleCacheLoaded) {
-        throw new Error('Could not load LiteLLM pricing from network or cache');
+        const bundledSnapshotLoaded = this.loadFromBundledSnapshot();
+
+        if (!bundledSnapshotLoaded) {
+          throw new Error('Could not load LiteLLM pricing from network or cache');
+        }
+
+        return true;
       }
 
       return true;
     }
+  }
+
+  public getLoadOrigin(): LiteLLMPricingLoadOrigin | undefined {
+    return this.loadOrigin;
+  }
+
+  public getPricingWarning(): string | undefined {
+    return this.pricingWarning;
   }
 
   public resolveModelAlias(model: string): string {
@@ -803,6 +854,8 @@ export class LiteLLMPricingFetcher implements PricingSource {
 
     this.pricingByModel = normalizedPricing;
     this.resolvedAliasCache.clear();
+    this.loadOrigin = 'network';
+    this.pricingWarning = undefined;
 
     try {
       await this.writeCache();
@@ -839,7 +892,41 @@ export class LiteLLMPricingFetcher implements PricingSource {
     );
     this.resolvedAliasCache.clear();
 
-    return this.pricingByModel.size > 0;
+    if (this.pricingByModel.size === 0) {
+      return false;
+    }
+
+    this.loadOrigin = 'cache';
+    this.pricingWarning = undefined;
+    return true;
+  }
+
+  private loadFromBundledSnapshot(): boolean {
+    if (this.sourceUrl !== DEFAULT_LITELLM_PRICING_URL) {
+      return false;
+    }
+
+    const snapshot = getBundledLiteLLMPricingSnapshot();
+
+    if (snapshot.sourceUrl !== this.sourceUrl) {
+      return false;
+    }
+
+    this.pricingByModel = new Map(
+      Object.entries(snapshot.pricingByModel).map(([modelName, pricing]) => [
+        normalizeKey(modelName),
+        pricing,
+      ]),
+    );
+    this.resolvedAliasCache.clear();
+
+    if (this.pricingByModel.size === 0) {
+      return false;
+    }
+
+    this.loadOrigin = 'bundled-snapshot';
+    this.pricingWarning = formatBundledSnapshotWarning(snapshot.fetchedAt);
+    return true;
   }
 
   private async readCachePayload(): Promise<LiteLLMCachePayload | undefined> {

@@ -293,7 +293,34 @@ describe('LiteLLMPricingFetcher', () => {
     const offlineLoadedFromCache = await offlineFetcher.load();
 
     expect(offlineLoadedFromCache).toBe(true);
+    expect(offlineFetcher.getLoadOrigin()).toBe('cache');
+    expect(offlineFetcher.getPricingWarning()).toBeUndefined();
     expect(offlineFetcher.getPricing('gpt-5.2-codex')).toBeDefined();
+  });
+
+  it('uses the bundled snapshot in offline mode when default cache is unavailable', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-offline-bundled-'));
+    tempDirs.push(rootDir);
+
+    const fetchSpy = vi.fn(async () => {
+      throw new Error('Offline fetch should not be called');
+    });
+
+    const fetcher = new LiteLLMPricingFetcher({
+      cacheFilePath: path.join(rootDir, 'cache.json'),
+      offline: true,
+      fetchImpl: fetchSpy,
+    });
+
+    const loadedWithoutNetwork = await fetcher.load();
+
+    expect(loadedWithoutNetwork).toBe(true);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(fetcher.getLoadOrigin()).toBe('bundled-snapshot');
+    expect(fetcher.getPricingWarning()).toMatch(
+      /^Pricing: using the bundled LiteLLM snapshot from \d{4}-\d{2}-\d{2} \(run online to refresh\)\.$/u,
+    );
+    expect(fetcher.getPricing('gpt-4.1')?.inputPer1MUsd).toBeGreaterThan(0);
   });
 
   it('does not reuse cache when source URL differs', async () => {
@@ -436,8 +463,33 @@ describe('LiteLLMPricingFetcher', () => {
     const loadedFromCache = await fetcher.load();
 
     expect(loadedFromCache).toBe(true);
+    expect(fetcher.getLoadOrigin()).toBe('cache');
+    expect(fetcher.getPricingWarning()).toBeUndefined();
     expect(fetchSpy).toHaveBeenCalledTimes(3);
     expect(fetcher.getPricing('gpt-5.2-codex')?.inputPer1MUsd).toBeCloseTo(1.5, 10);
+  });
+
+  it('uses the bundled snapshot after a live default-URL fetch failure with no cache', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-live-bundled-'));
+    tempDirs.push(rootDir);
+
+    const fetchSpy = vi.fn(async () => {
+      throw new Error('network timeout');
+    });
+
+    const fetcher = new LiteLLMPricingFetcher({
+      cacheFilePath: path.join(rootDir, 'cache.json'),
+      fetchImpl: fetchSpy,
+      fetchRetryCount: 0,
+    });
+
+    const loadedWithoutNetwork = await fetcher.load();
+
+    expect(loadedWithoutNetwork).toBe(true);
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    expect(fetcher.getLoadOrigin()).toBe('bundled-snapshot');
+    expect(fetcher.getPricingWarning()).toContain('Pricing: using the bundled LiteLLM snapshot');
+    expect(fetcher.getPricing('gpt-4.1')?.outputPer1MUsd).toBeGreaterThan(0);
   });
 
   it('falls back to stale cache when content-length exceeds the response byte limit', async () => {
@@ -1014,5 +1066,6 @@ describe('LiteLLMPricingFetcher', () => {
     });
 
     await expect(fetcher.load()).rejects.toThrow('Offline pricing mode enabled');
+    expect(fetcher.getLoadOrigin()).toBeUndefined();
   });
 });

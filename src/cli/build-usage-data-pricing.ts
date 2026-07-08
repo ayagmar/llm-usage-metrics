@@ -58,6 +58,15 @@ export async function resolvePricingSource(
   try {
     const fromCache = await litellmPricingFetcher.load();
     const source = wrapWithPricingOverrides(pricingOverrides, litellmPricingFetcher);
+    const loadOrigin = litellmPricingFetcher.getLoadOrigin();
+
+    if (loadOrigin === 'bundled-snapshot') {
+      return {
+        source,
+        origin: 'bundled-snapshot',
+        warning: litellmPricingFetcher.getPricingWarning(),
+      };
+    }
 
     if (options.pricingOffline) {
       return { source, origin: 'offline-cache' };
@@ -168,6 +177,7 @@ export async function resolveAndApplyPricingToEvents(
   return {
     pricedEvents: applyPricingToEvents(events, pricingResult.source),
     pricingOrigin,
+    pricingWarning: pricingResult.warning,
     pricingSource: pricingResult.source,
   };
 }

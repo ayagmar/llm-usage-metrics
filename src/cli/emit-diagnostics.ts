@@ -71,6 +71,8 @@ export function emitDiagnostics(
     case 'network':
       diagnosticsLogger.info('Fetched pricing from LiteLLM');
       break;
+    case 'bundled-snapshot':
+      break;
     case 'none':
       break;
   }

@@ -144,7 +144,12 @@ export type UsageSkippedRowsStat = {
   reasons?: UsageSkippedRowReasonStat[];
 };
 
-export type UsagePricingOrigin = 'cache' | 'network' | 'offline-cache' | 'none';
+export type UsagePricingOrigin =
+  | 'cache'
+  | 'network'
+  | 'offline-cache'
+  | 'bundled-snapshot'
+  | 'none';
 
 export type UsageDiagnostics = {
   sessionStats: UsageSessionStats[];
@@ -297,6 +302,7 @@ export type WrappedDataResult = {
 export type PricingLoadResult = {
   source: PricingSource;
   origin: Exclude<UsagePricingOrigin, 'none'>;
+  warning?: string;
 };
 
 export type BuildUsageDataDeps = {

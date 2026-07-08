@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -1365,8 +1365,8 @@ describe('buildUsageData', () => {
     expect(result.rows[0]?.costUsd).toBeGreaterThan(0);
   });
 
-  it('fails when LiteLLM network and cache are unavailable', async () => {
-    const cacheRoot = await mkdtemp(path.join(os.tmpdir(), 'usage-pricing-no-fallback-'));
+  it('uses bundled pricing when LiteLLM network and cache are unavailable', async () => {
+    const cacheRoot = await mkdtemp(path.join(os.tmpdir(), 'usage-pricing-bundled-fallback-'));
     tempDirs.push(cacheRoot);
     process.env.XDG_CACHE_HOME = cacheRoot;
 
@@ -1375,31 +1375,34 @@ describe('buildUsageData', () => {
     });
     vi.stubGlobal('fetch', fetchSpy);
 
-    await expect(
-      buildUsageData(
-        'daily',
-        {
-          timezone: 'UTC',
-        },
-        {
-          ...withDeterministicRuntimeDeps(),
-          createAdapters: () => [
-            createAdapter('pi', {
-              '/tmp/pi-1.jsonl': [
-                createEvent({
-                  source: 'pi',
-                  costMode: 'estimated',
-                  costUsd: undefined,
-                  model: 'gpt-4.1',
-                }),
-              ],
-            }),
-          ],
-        },
-      ),
-    ).rejects.toThrow('Could not load LiteLLM pricing');
+    const result = await buildUsageData(
+      'daily',
+      {
+        timezone: 'UTC',
+      },
+      {
+        ...withDeterministicRuntimeDeps(),
+        createAdapters: () => [
+          createAdapter('pi', {
+            '/tmp/pi-1.jsonl': [
+              createEvent({
+                source: 'pi',
+                costMode: 'estimated',
+                costUsd: undefined,
+                model: 'gpt-4.1',
+              }),
+            ],
+          }),
+        ],
+      },
+    );
 
     expect(fetchSpy).toHaveBeenCalledTimes(3);
+    expect(result.diagnostics.pricingOrigin).toBe('bundled-snapshot');
+    expect(result.diagnostics.pricingWarning).toMatch(
+      /^Pricing: using the bundled LiteLLM snapshot from \d{4}-\d{2}-\d{2} \(run online to refresh\)\.$/u,
+    );
+    expect(result.rows[0]?.costUsd).toBeGreaterThan(0);
   });
 
   it('continues without estimated pricing when --ignore-pricing-failures is enabled', async () => {
@@ -1416,6 +1419,7 @@ describe('buildUsageData', () => {
       'daily',
       {
         timezone: 'UTC',
+        pricingUrl: 'https://example.test/pricing.json',
         ignorePricingFailures: true,
       },
       {
@@ -1445,8 +1449,8 @@ describe('buildUsageData', () => {
     });
   });
 
-  it('fails pricing-offline mode when cache is unavailable', async () => {
-    const cacheRoot = await mkdtemp(path.join(os.tmpdir(), 'usage-pricing-offline-no-cache-'));
+  it('uses bundled pricing in pricing-offline mode when cache is unavailable', async () => {
+    const cacheRoot = await mkdtemp(path.join(os.tmpdir(), 'usage-pricing-offline-bundled-'));
     tempDirs.push(cacheRoot);
     process.env.XDG_CACHE_HOME = cacheRoot;
 
@@ -1455,30 +1459,86 @@ describe('buildUsageData', () => {
     });
     vi.stubGlobal('fetch', fetchSpy);
 
-    await expect(
-      buildUsageData(
-        'daily',
-        {
-          timezone: 'UTC',
-          pricingOffline: true,
-        },
-        {
-          ...withDeterministicRuntimeDeps(),
-          createAdapters: () => [
-            createAdapter('pi', {
-              '/tmp/pi-1.jsonl': [
-                createEvent({
-                  source: 'pi',
-                  costMode: 'estimated',
-                  costUsd: undefined,
-                }),
-              ],
-            }),
-          ],
-        },
-      ),
-    ).rejects.toThrow('Offline pricing mode enabled but cached pricing is unavailable');
+    const result = await buildUsageData(
+      'daily',
+      {
+        timezone: 'UTC',
+        pricingOffline: true,
+      },
+      {
+        ...withDeterministicRuntimeDeps(),
+        createAdapters: () => [
+          createAdapter('pi', {
+            '/tmp/pi-1.jsonl': [
+              createEvent({
+                source: 'pi',
+                costMode: 'estimated',
+                costUsd: undefined,
+              }),
+            ],
+          }),
+        ],
+      },
+    );
 
     expect(fetchSpy).not.toHaveBeenCalled();
+    expect(result.diagnostics.pricingOrigin).toBe('bundled-snapshot');
+    expect(result.diagnostics.pricingWarning).toContain(
+      'Pricing: using the bundled LiteLLM snapshot',
+    );
+    expect(result.rows[0]?.costUsd).toBeGreaterThan(0);
+  });
+
+  it('applies pricing overrides on top of bundled pricing', async () => {
+    const cacheRoot = await mkdtemp(path.join(os.tmpdir(), 'usage-pricing-bundled-overrides-'));
+    tempDirs.push(cacheRoot);
+    process.env.XDG_CACHE_HOME = cacheRoot;
+
+    const overridesPath = path.join(cacheRoot, 'pricing-overrides.json');
+    await writeFile(
+      overridesPath,
+      JSON.stringify({
+        models: {
+          'gpt-4.1': {
+            inputPer1MUsd: 1_000_000,
+            outputPer1MUsd: 2_000_000,
+          },
+        },
+      }),
+      'utf8',
+    );
+
+    const fetchSpy = vi.fn(async () => {
+      throw new Error('network should not be called in offline mode');
+    });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const result = await buildUsageData(
+      'daily',
+      {
+        timezone: 'UTC',
+        pricingOffline: true,
+        pricingOverrides: overridesPath,
+      },
+      {
+        ...withDeterministicRuntimeDeps(),
+        createAdapters: () => [
+          createAdapter('pi', {
+            '/tmp/pi-1.jsonl': [
+              createEvent({
+                source: 'pi',
+                costMode: 'estimated',
+                costUsd: undefined,
+                model: 'gpt-4.1',
+              }),
+            ],
+          }),
+        ],
+      },
+    );
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(result.diagnostics.pricingOrigin).toBe('bundled-snapshot');
+    expect(result.rows[0]?.costUsd).toBe(20);
   });
 });
