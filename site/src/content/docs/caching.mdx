@@ -67,7 +67,7 @@ Relevant options/env:
 - `llm-usage prune` previews or deletes departed-file rows explicitly
 - first run after a store schema upgrade migrates the database in place and may take a few seconds
 - deleting the database file deletes retained local history and starts a new ledger on the next run
-- older JSON shards from pre-store versions are no longer read and can be deleted manually
+- legacy JSON cache shards are ignored and safe to delete manually
 
 Prune is dry-run by default:
 

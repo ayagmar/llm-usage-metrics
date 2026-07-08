@@ -123,7 +123,7 @@ This removes unnecessary work and avoids leaking usage-table-specific model meta
 
 ## Generic table rendering
 
-`src/render/unicode-table.ts` is now driven by explicit table row metadata:
+`src/render/unicode-table.ts` is driven by explicit table row metadata:
 
 - `periodKey`
 - `rowKind` (`detail`, `combined`, `total`)

@@ -12,8 +12,7 @@ PR #119 shipped the two highest-confidence, smallest-scope fixes:
 - `--pricing-overrides` (per-model pricing override decorator)
 - Claude adapter dedup hardening (content-based fallback key)
 
-The repo now ships 7 sources (pi, codex, gemini, droid, opencode, claude,
-openclaw). The four ideas below are listed in descending order of strategic
+The repo now ships 16 sources. The four ideas below are listed in descending order of strategic
 value; ideas #4 and #8 are being implemented on `feat/improvements` (2026-07).
 
 ## Index

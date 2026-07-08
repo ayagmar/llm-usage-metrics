@@ -1,6 +1,6 @@
 # Security Guide
 
-This page documents the security controls and contributor steps that are now configured in this repository.
+This page documents the security controls and contributor steps configured in this repository.
 
 ## Current security-related controls
 
@@ -30,7 +30,7 @@ This page documents the security controls and contributor steps that are now con
   - GitHub Actions workflow dependencies
 - Dependabot labels those PRs with `dependencies` and `security`.
 
-### Security scans currently in use
+### Security scans in use
 
 Dedicated security workflows are configured in `.github/workflows/security.yml`:
 
@@ -38,7 +38,7 @@ Dedicated security workflows are configured in `.github/workflows/security.yml`:
 - **Dependency Review** on pull requests, failing on moderate-or-higher findings in dependency changes
 - **CodeQL** analysis for JavaScript/TypeScript on pushes, pull requests, and a weekly schedule
 
-The regular CI workflow in `.github/workflows/ci.yml` still enforces the normal quality gates:
+The regular CI workflow in `.github/workflows/ci.yml` enforces the normal quality gates:
 
 - lint
 - typecheck

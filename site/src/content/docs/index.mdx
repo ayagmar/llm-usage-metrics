@@ -64,8 +64,9 @@ Welcome to the `llm-usage-metrics` documentation. This high-performance CLI tool
 
 - **Universal Parsing**: Autonomously discovers and parses `.pi`, `.codex`, `.gemini`, `.factory`, OpenCode, OpenClaw, `.claude`, Copilot, Goose, Amp, Qwen, Kimi, Cline, RooCode, and KiloCode session data.
   OpenCode parsing requires Node.js 24+ with built-in `node:sqlite`.
-- **LiteLLM Integration**: Applies real-time pricing models to local events for accurate USD estimation.
+- **LiteLLM Integration**: Applies real-time pricing models to local events for accurate USD estimation, with a bundled snapshot for fully offline runs.
 - **Git Attribution**: Optionally joins usage with local Git history to derive true ROI metrics (Cost per Commit, Tokens per Line).
+- **Local Event Store**: Ingests parsed events into a private SQLite ledger for fast re-runs, and `--history` reports usage from session files that are no longer on disk.
 
 ## Quick Start
 

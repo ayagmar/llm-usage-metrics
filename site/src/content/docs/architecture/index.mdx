@@ -44,6 +44,12 @@ That keeps command/docs drift low without duplicating option descriptions outsid
 
 `buildTrendsData(...)` reuses usage parsing, loads pricing only for cost mode, aggregates to daily totals, projects those totals into daily trend series, then `renderTrendsReport(...)` formats terminal charts or JSON.
 
+### Event store and history
+
+`src/persistence/event-store.ts` owns a local SQLite ledger: schema, migrations, per-file ingest on parse, and stored-event revalidation. Schema changes run as migrations, and an unknown newer schema disables the store rather than rebuilding tables.
+
+`src/persistence/event-store-history.ts` serves `--history`. It compares the current run's discovered `(source, file)` pairs against stored files, replays departed files for the selected sources, and suppresses moved or copied files by content hash. History events join the pipeline before the provider/model/date filters, pricing, and aggregation, so report shapes stay unchanged. `prune` uses the same classification to delete departed-file rows and vacuum the ledger.
+
 ## Aggregation and rendering details
 
 - `aggregateUsage(...)` supports an `includeModelBreakdown` profile
@@ -56,9 +62,11 @@ That keeps command/docs drift low without duplicating option descriptions outsid
 - `src/cli`: command creation, report builders, diagnostics emission
 - `src/cli/report-definitions`: command metadata and shared option profiles
 - `src/cli/report-runtime`: shared report lifecycle
+- `src/config`: user-config loading and runtime override/env-var resolution
 - `src/sources`: adapter discovery and parsing
 - `src/domain`: canonical normalized contracts
 - `src/pricing`: LiteLLM pricing loader/cache/cost engine
+- `src/persistence`: SQLite event-store ledger, schema migrations, history suppression
 - `src/aggregate`: period/source usage aggregation
 - `src/efficiency`: repo attribution and Git outcome joins
 - `src/optimize`: counterfactual pricing aggregation

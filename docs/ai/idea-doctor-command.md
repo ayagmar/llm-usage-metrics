@@ -43,7 +43,7 @@ llm-usage doctor
   pricing   ✓  LiteLLM cache fresh (fetched 2h ago)
   env       ✓  LLM_USAGE_SKIP_UPDATE_CHECK unset
 
-  6/7 sources healthy. opencode skipped: runtime missing node:sqlite.
+  15/16 sources healthy. opencode skipped: runtime missing node:sqlite.
 ```
 
 ### `--json` shape

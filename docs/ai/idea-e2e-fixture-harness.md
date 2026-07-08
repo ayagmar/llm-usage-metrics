@@ -104,21 +104,21 @@ timestamps from "now") so snapshots are stable across runs and machines.
   real source formats; they need occasional refresh. This is unavoidable for
   any fixture-based parser test and the per-adapter unit tests already carry
   this cost.
-- **Scope.** A thorough matrix (7 sources × 5 commands × 3 modes) is
+- **Scope.** A thorough matrix (16 sources × 5 commands × 3 modes) is
   medium-large. A minimal v1 can be one command (`monthly --json`) across all
-  seven sources and grow from there.
+  16 sources and grow from there.
 
 ## Confidence
 
 **75%.** The value is real and the gap (cross-source, real-binary e2e) is
 genuine, but it is larger than the two ideas shipped in PR #119 and the existing
-e2e coverage is not zero. Recommend a minimal v1 (one command, all seven
+e2e coverage is not zero. Recommend a minimal v1 (one command, all 16
 sources, JSON snapshot) before expanding the matrix.
 
 ## Suggested first step
 
 Add `tests/e2e/fixtures/multi-source/` with one tiny file per source and a
 single `multi-source.e2e.test.ts` that runs `monthly --json --pricing-offline`
-over all seven and snapshots the source list + per-source totals. This is the
+over all 16 and snapshots the source list + per-source totals. This is the
 smallest version that proves the harness and catches registration/order
 regressions.

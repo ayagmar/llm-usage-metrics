@@ -9,7 +9,7 @@ export default defineConfig({
     starlight({
       title: 'llm-usage-metrics',
       description:
-        'CLI for aggregating local LLM usage metrics from pi, codex, gemini, droid, opencode, openclaw, and claude sessions',
+        'CLI for aggregating local LLM usage and cost metrics across 16 local coding agents, with pricing, trends, efficiency reports, and yearly recaps',
       favicon: '/favicon.svg',
       logo: {
         src: './src/assets/logo.svg',
@@ -67,13 +67,22 @@ export default defineConfig({
           label: 'Data Sources',
           items: [
             { label: 'Overview', link: '/sources/' },
-            { label: 'pi', link: '/sources/pi/' },
-            { label: 'codex', link: '/sources/codex/' },
-            { label: 'gemini', link: '/sources/gemini/' },
-            { label: 'droid', link: '/sources/droid/' },
-            { label: 'opencode', link: '/sources/opencode/' },
-            { label: 'openclaw', link: '/sources/openclaw/' },
+            { label: 'amp', link: '/sources/amp/' },
+            { label: 'antigravity', link: '/sources/antigravity/' },
             { label: 'claude', link: '/sources/claude/' },
+            { label: 'cline', link: '/sources/cline/' },
+            { label: 'codex', link: '/sources/codex/' },
+            { label: 'copilot', link: '/sources/copilot/' },
+            { label: 'droid', link: '/sources/droid/' },
+            { label: 'gemini', link: '/sources/gemini/' },
+            { label: 'goose', link: '/sources/goose/' },
+            { label: 'kilocode', link: '/sources/kilocode/' },
+            { label: 'kimi', link: '/sources/kimi/' },
+            { label: 'openclaw', link: '/sources/openclaw/' },
+            { label: 'opencode', link: '/sources/opencode/' },
+            { label: 'pi', link: '/sources/pi/' },
+            { label: 'qwen', link: '/sources/qwen/' },
+            { label: 'roocode', link: '/sources/roocode/' },
           ],
         },
         {
