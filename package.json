@@ -24,6 +24,7 @@
     "format:check": "prettier --check .",
     "format:write": "prettier --write .",
     "pack:check": "npm pack",
+    "pricing:snapshot": "node scripts/generate-pricing-snapshot.mjs",
     "smoke:dist-opencode": "node scripts/smoke-dist-opencode.mjs",
     "perf:report-baseline": "node --import tsx scripts/perf-report-baseline.mjs",
     "perf:production-benchmark": "node scripts/perf-production-benchmark.mjs",

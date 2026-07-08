@@ -12,12 +12,12 @@ const DEFAULT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_FETCH_TIMEOUT_MS = 4000;
 const DEFAULT_FETCH_RETRY_COUNT = 2;
 const DEFAULT_FETCH_RETRY_DELAY_MS = 200;
-const MAX_PRICING_RESPONSE_BYTES = 33_554_432;
+export const MAX_LITELLM_PRICING_RESPONSE_BYTES = 33_554_432;
 
 export const DEFAULT_LITELLM_PRICING_URL =
   'https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json';
 
-type LiteLLMCachePayload = {
+export type LiteLLMCachePayload = {
   fetchedAt: number;
   sourceUrl: string;
   pricingByModel: Record<string, ModelPricing>;
@@ -219,7 +219,7 @@ function normalizeModelPricing(rawModelPricing: Record<string, unknown>): ModelP
   return modelPricing;
 }
 
-function normalizeLitellmPricingPayload(payload: unknown): Map<string, ModelPricing> {
+export function normalizeLitellmPricingPayload(payload: unknown): Map<string, ModelPricing> {
   const payloadRecord = asRecord(payload);
 
   if (!payloadRecord) {
@@ -249,6 +249,82 @@ function normalizeLitellmPricingPayload(payload: unknown): Map<string, ModelPric
   }
 
   return normalizedPricing;
+}
+
+export function normalizeCachedPricing(rawPricing: unknown): ModelPricing | undefined {
+  const pricingRecord = asRecord(rawPricing);
+
+  if (!pricingRecord) {
+    return undefined;
+  }
+
+  const inputPer1MUsd = toNonNegativeNumber(pricingRecord.inputPer1MUsd);
+  const outputPer1MUsd = toNonNegativeNumber(pricingRecord.outputPer1MUsd);
+
+  if (inputPer1MUsd === undefined || outputPer1MUsd === undefined) {
+    return undefined;
+  }
+
+  const modelPricing: ModelPricing = {
+    inputPer1MUsd,
+    outputPer1MUsd,
+  };
+
+  const cacheReadPer1MUsd = toNonNegativeNumber(pricingRecord.cacheReadPer1MUsd);
+
+  if (cacheReadPer1MUsd !== undefined) {
+    modelPricing.cacheReadPer1MUsd = cacheReadPer1MUsd;
+  }
+
+  const cacheWritePer1MUsd = toNonNegativeNumber(pricingRecord.cacheWritePer1MUsd);
+
+  if (cacheWritePer1MUsd !== undefined) {
+    modelPricing.cacheWritePer1MUsd = cacheWritePer1MUsd;
+  }
+
+  const reasoningPer1MUsd = toNonNegativeNumber(pricingRecord.reasoningPer1MUsd);
+
+  if (reasoningPer1MUsd !== undefined) {
+    modelPricing.reasoningPer1MUsd = reasoningPer1MUsd;
+    modelPricing.reasoningBilling = 'separate';
+  }
+
+  return modelPricing;
+}
+
+export function normalizeLiteLLMCachePayload(payload: unknown): LiteLLMCachePayload | undefined {
+  const payloadRecord = asRecord(payload);
+
+  if (!payloadRecord) {
+    return undefined;
+  }
+
+  const fetchedAt = toNonNegativeNumber(payloadRecord.fetchedAt);
+  const sourceUrl =
+    typeof payloadRecord.sourceUrl === 'string' ? payloadRecord.sourceUrl : undefined;
+  const pricingByModelRecord = asRecord(payloadRecord.pricingByModel);
+
+  if (fetchedAt === undefined || !sourceUrl || !pricingByModelRecord) {
+    return undefined;
+  }
+
+  const pricingByModel: Record<string, ModelPricing> = {};
+
+  for (const [modelName, rawPricing] of Object.entries(pricingByModelRecord)) {
+    const pricing = normalizeCachedPricing(rawPricing);
+
+    if (!pricing) {
+      continue;
+    }
+
+    pricingByModel[modelName] = pricing;
+  }
+
+  return {
+    fetchedAt,
+    sourceUrl,
+    pricingByModel,
+  };
 }
 
 export function getDefaultLiteLLMPricingCachePath(): string {
@@ -374,7 +450,7 @@ export class LiteLLMPricingFetcher implements PricingSource {
       Number.isFinite(options.fetchRetryDelayMs) && (options.fetchRetryDelayMs ?? 0) > 0
         ? Math.trunc(options.fetchRetryDelayMs ?? DEFAULT_FETCH_RETRY_DELAY_MS)
         : DEFAULT_FETCH_RETRY_DELAY_MS;
-    this.maxResponseBytes = options.maxResponseBytes ?? MAX_PRICING_RESPONSE_BYTES;
+    this.maxResponseBytes = options.maxResponseBytes ?? MAX_LITELLM_PRICING_RESPONSE_BYTES;
     this.offline = options.offline ?? false;
     this.fetchImpl = options.fetchImpl ?? fetch;
     this.now = options.now ?? Date.now;
@@ -766,47 +842,6 @@ export class LiteLLMPricingFetcher implements PricingSource {
     return this.pricingByModel.size > 0;
   }
 
-  private normalizeCachedPricing(rawPricing: unknown): ModelPricing | undefined {
-    const pricingRecord = asRecord(rawPricing);
-
-    if (!pricingRecord) {
-      return undefined;
-    }
-
-    const inputPer1MUsd = toNonNegativeNumber(pricingRecord.inputPer1MUsd);
-    const outputPer1MUsd = toNonNegativeNumber(pricingRecord.outputPer1MUsd);
-
-    if (inputPer1MUsd === undefined || outputPer1MUsd === undefined) {
-      return undefined;
-    }
-
-    const modelPricing: ModelPricing = {
-      inputPer1MUsd,
-      outputPer1MUsd,
-    };
-
-    const cacheReadPer1MUsd = toNonNegativeNumber(pricingRecord.cacheReadPer1MUsd);
-
-    if (cacheReadPer1MUsd !== undefined) {
-      modelPricing.cacheReadPer1MUsd = cacheReadPer1MUsd;
-    }
-
-    const cacheWritePer1MUsd = toNonNegativeNumber(pricingRecord.cacheWritePer1MUsd);
-
-    if (cacheWritePer1MUsd !== undefined) {
-      modelPricing.cacheWritePer1MUsd = cacheWritePer1MUsd;
-    }
-
-    const reasoningPer1MUsd = toNonNegativeNumber(pricingRecord.reasoningPer1MUsd);
-
-    if (reasoningPer1MUsd !== undefined) {
-      modelPricing.reasoningPer1MUsd = reasoningPer1MUsd;
-      modelPricing.reasoningBilling = 'separate';
-    }
-
-    return modelPricing;
-  }
-
   private async readCachePayload(): Promise<LiteLLMCachePayload | undefined> {
     let content: string;
 
@@ -824,38 +859,7 @@ export class LiteLLMPricingFetcher implements PricingSource {
       return undefined;
     }
 
-    const payloadRecord = asRecord(parsedPayload);
-
-    if (!payloadRecord) {
-      return undefined;
-    }
-
-    const fetchedAt = toNonNegativeNumber(payloadRecord.fetchedAt);
-    const sourceUrl =
-      typeof payloadRecord.sourceUrl === 'string' ? payloadRecord.sourceUrl : undefined;
-    const pricingByModelRecord = asRecord(payloadRecord.pricingByModel);
-
-    if (fetchedAt === undefined || !sourceUrl || !pricingByModelRecord) {
-      return undefined;
-    }
-
-    const pricingByModel: Record<string, ModelPricing> = {};
-
-    for (const [modelName, rawPricing] of Object.entries(pricingByModelRecord)) {
-      const pricing = this.normalizeCachedPricing(rawPricing);
-
-      if (!pricing) {
-        continue;
-      }
-
-      pricingByModel[modelName] = pricing;
-    }
-
-    return {
-      fetchedAt,
-      sourceUrl,
-      pricingByModel,
-    };
+    return normalizeLiteLLMCachePayload(parsedPayload);
   }
 
   private async writeCache(): Promise<void> {
