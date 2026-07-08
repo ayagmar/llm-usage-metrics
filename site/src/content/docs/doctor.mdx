@@ -1,0 +1,67 @@
+---
+title: Doctor
+description: Check source discovery and event-store health without parsing sessions.
+---
+
+`llm-usage doctor` answers the question "why does a source show no usage?" It probes each source's discovery path and reports how many files (or events) it found, without parsing sessions or loading pricing.
+
+## Command structure
+
+```bash
+llm-usage doctor [options]
+```
+
+Examples:
+
+```bash
+llm-usage doctor
+llm-usage doctor --source pi --source codex
+llm-usage doctor --claude-dir /path/to/.claude/projects
+llm-usage doctor --json
+```
+
+## Options
+
+- `--source <name>`: probe only the named sources (repeatable or comma-separated)
+- source-path overrides (`--pi-dir`, `--codex-dir`, `--opencode-db`, `--source-dir`, …): probe a custom location
+- `--json`: emit the result as JSON
+
+`doctor` reads the same user config as the reports, so configured `sourceDirs` and `eventStore` paths are probed and its resolved config is printed on `stderr`.
+
+## Output
+
+Doctor prints one line per source, then a health summary, then the event store. It exits `0` even when a source is unhealthy, so it is safe to run in scripts.
+
+```text
+pi           ok     519 file(s)
+opencode     error  OpenCode database is missing or unreadable: /path/to/opencode.db
+event-store  ok     159266 event(s), 3 departed file(s), schema v2, 78.4 MiB
+
+15/16 sources healthy
+```
+
+The summary counts only source rows; the `event-store` row reports the ledger's event count, departed-file count, schema version, and on-disk size.
+
+## JSON shape
+
+`--json` returns a `sources` array (the `event-store` row is included with a `detail` string):
+
+```json
+{
+  "sources": [
+    { "id": "pi", "status": "ok", "itemsFound": 519 },
+    {
+      "id": "opencode",
+      "status": "error",
+      "itemsFound": 0,
+      "detail": "OpenCode database is missing or unreadable: /path/to/opencode.db"
+    },
+    {
+      "id": "event-store",
+      "status": "ok",
+      "itemsFound": 159266,
+      "detail": "159266 event(s), 3 departed file(s), schema v2, 78.4 MiB"
+    }
+  ]
+}
+```

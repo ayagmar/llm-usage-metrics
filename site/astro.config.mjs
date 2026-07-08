@@ -64,6 +64,18 @@ export default defineConfig({
           link: '/trends',
         },
         {
+          label: 'Session',
+          link: '/session',
+        },
+        {
+          label: 'Wrapped',
+          link: '/wrapped',
+        },
+        {
+          label: 'Doctor',
+          link: '/doctor',
+        },
+        {
           label: 'Data Sources',
           items: [
             { label: 'Overview', link: '/sources/' },

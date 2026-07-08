@@ -1,0 +1,71 @@
+---
+title: Session Report
+description: Per-conversation usage, cost, and repository attribution across sources.
+---
+
+`llm-usage session` lists usage per conversation (session) rather than per calendar period, so you can find your most expensive or most active sessions and where they ran.
+
+## Command structure
+
+```bash
+llm-usage session [options]
+```
+
+Examples:
+
+```bash
+llm-usage session
+llm-usage session --top 50
+llm-usage session --top 0
+llm-usage session --id 486c3261
+llm-usage session --by-repo
+llm-usage session --source codex --json
+llm-usage session --markdown
+```
+
+## Options
+
+- `--top <n>`: how many rows to show, ranked by cost (default 20; `--top 0` shows all)
+- `--id <substring>`: keep only sessions whose id contains the substring (case-insensitive, repeatable); cannot be combined with `--by-repo`
+- `--by-repo`: aggregate sessions into one row per repository root
+- shared filters apply: `--source`, `--provider`, `--model`, `--since`, `--until`, `--timezone`, source-path overrides, pricing flags, and `--history`
+
+`session` supports terminal, `--json`, and `--markdown` output. It does not support `--share`.
+
+## Output
+
+The terminal report is a boxed **Session Usage Report** table with `Session`, `Source`, `Repo`, `Last Activity`, `Total`, `Cost`, and `Models` columns, sorted by cost. Sessions have no `TOTAL` row because each row is a conversation, not a calendar period. When the list is truncated, a note is printed on `stderr`:
+
+```text
+Showing top 20 of 1653 sessions by cost. Use --top 0 for all.
+```
+
+`--by-repo` replaces the per-session rows with one row per repository (`Repo`, `Sessions`, `Last Activity`, `Sources`, `Total`, `Cost`). Sessions without a detectable repository are grouped under `(no repo)`.
+
+## JSON shape
+
+Default `--json` returns an array of session rows:
+
+```json
+[
+  {
+    "rowType": "session",
+    "source": "codex",
+    "sessionId": "486c3261-d87e-4971-8813-904c9e5a9009",
+    "repoRoot": "/path/to/repo",
+    "firstActivity": "2026-03-05T10:00:00.000Z",
+    "lastActivity": "2026-03-05T11:30:00.000Z",
+    "eventCount": 42,
+    "models": ["gpt-5.1"],
+    "inputTokens": 120000,
+    "outputTokens": 8000,
+    "reasoningTokens": 0,
+    "cacheReadTokens": 40000,
+    "cacheWriteTokens": 0,
+    "totalTokens": 168000,
+    "costUsd": 1.23
+  }
+]
+```
+
+`--by-repo --json` returns an array of repo rows (`rowType: "repo"`, `repoRoot`, `sessionCount`, `sources`, and the same token/cost totals).
