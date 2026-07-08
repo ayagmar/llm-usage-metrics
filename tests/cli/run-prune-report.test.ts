@@ -530,6 +530,38 @@ describe('run-prune-report', () => {
     expect(stdout.getOutput()).toContain('Would delete 0 file(s) / 0 event(s)');
   });
 
+  it('surfaces the Active config block and unknown-key warnings on prune', async () => {
+    const dbPath = await createTempDbPath('prune-config-');
+    await rm(dbPath, { force: true });
+
+    const configPath = path.join(path.dirname(dbPath), 'config.json');
+    await writeFile(configPath, JSON.stringify({ sources: ['codex'], mystery: true }), 'utf8');
+
+    const previousConfigPath = process.env.LLM_USAGE_CONFIG_PATH;
+    process.env.LLM_USAGE_CONFIG_PATH = configPath;
+    const stderrChunks: string[] = [];
+    const errorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation((message) => stderrChunks.push(String(message)));
+    const stdout = captureStdout();
+
+    try {
+      await runPruneReport(
+        { suppressed: true },
+        createDeps(dbPath, [createAdapter({ files: [] })]),
+      );
+    } finally {
+      stdout.restore();
+      errorSpy.mockRestore();
+      process.env.LLM_USAGE_CONFIG_PATH = previousConfigPath;
+    }
+
+    const stderr = stderrChunks.join('\n');
+    expect(stderr).toContain('Active config:');
+    expect(stderr).toContain('sources=codex');
+    expect(stderr).toContain('Unknown config key(s): mystery');
+  });
+
   it('keeps --history dataset output identical after applying --suppressed', async () => {
     const dbPath = await createTempDbPath('prune-history-invariant-');
     const tempRoot = path.dirname(dbPath);

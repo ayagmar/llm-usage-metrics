@@ -25,6 +25,8 @@ import {
   validateSourceFilterValues,
 } from './build-usage-data-inputs.js';
 import { resolveUserConfigForOptions, type UserConfigResolutionDeps } from './apply-user-config.js';
+import { emitUserConfigResolution } from './emit-active-config.js';
+import { logger } from '../utils/logger.js';
 import type { PruneCommandOptions } from './usage-data-contracts.js';
 
 type StatFile = typeof stat;
@@ -443,7 +445,10 @@ export async function runPruneReport(
   options: PruneCommandOptions,
   deps: PruneDeps = {},
 ): Promise<void> {
-  const result = await buildPruneReport(options, deps);
+  const userConfigResolution = await resolveUserConfigForOptions(options, deps);
+  const result = await buildPruneReport(options, { ...deps, userConfigResolution });
+
+  emitUserConfigResolution(userConfigResolution, logger);
 
   if (options.json) {
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);

@@ -1,9 +1,6 @@
 import { stat } from 'node:fs/promises';
 
-import {
-  getEventStoreRuntimeConfig,
-  type EventStoreRuntimeConfig,
-} from '../config/runtime-overrides.js';
+import { getEventStoreRuntimeConfig } from '../config/runtime-overrides.js';
 import {
   EVENT_STORE_SCHEMA_VERSION,
   readEventStoreStoredFiles as readDefaultEventStoreStoredFiles,
@@ -13,7 +10,10 @@ import {
 } from '../persistence/event-store.js';
 import { createDefaultAdapters, getDefaultSourceIds } from '../sources/create-default-adapters.js';
 import type { SourceAdapter } from '../sources/source-adapter.js';
+import { logger } from '../utils/logger.js';
 import { normalizeSourceFilter, validateSourceFilterValues } from './build-usage-data-inputs.js';
+import { resolveUserConfigForOptions, type UserConfigResolutionDeps } from './apply-user-config.js';
+import { emitUserConfigResolution } from './emit-active-config.js';
 import type { DoctorCommandOptions } from './usage-data-contracts.js';
 
 export type DoctorSourceResult = {
@@ -24,8 +24,8 @@ export type DoctorSourceResult = {
   error?: string;
 };
 
-type DoctorDeps = {
-  getEventStoreRuntimeConfig?: () => EventStoreRuntimeConfig;
+type DoctorDeps = UserConfigResolutionDeps & {
+  getEventStoreRuntimeConfig?: typeof getEventStoreRuntimeConfig;
   readEventStoreStoredFiles?: (filePath: string) => Promise<EventStoreStoredFile[]>;
   readEventStoreSummary?: (filePath: string) => Promise<EventStoreSummary>;
 };
@@ -58,7 +58,12 @@ export async function buildDoctorResults(
   options: DoctorCommandOptions,
   deps: DoctorDeps = {},
 ): Promise<DoctorSourceResult[]> {
-  const adapters = selectDoctorAdapters(createDefaultAdapters(options), options.source);
+  const userConfigResolution = await resolveUserConfigForOptions(options, deps);
+  const configuredOptions = userConfigResolution.options;
+  const adapters = selectDoctorAdapters(
+    createDefaultAdapters(configuredOptions),
+    configuredOptions.source,
+  );
   const results: DoctorSourceResult[] = [];
   const discoveredFilesBySource: DiscoveredFilesBySource = new Map();
 
@@ -80,7 +85,10 @@ export async function buildDoctorResults(
     }
   }
 
-  const eventStoreRuntimeConfig = (deps.getEventStoreRuntimeConfig ?? getEventStoreRuntimeConfig)();
+  const eventStoreRuntimeConfig = (deps.getEventStoreRuntimeConfig ?? getEventStoreRuntimeConfig)(
+    process.env,
+    userConfigResolution.loadedConfig.config,
+  );
 
   if (eventStoreRuntimeConfig.enabled) {
     results.push(
@@ -221,7 +229,10 @@ export async function runDoctorReport(
   options: DoctorCommandOptions,
   deps: DoctorDeps = {},
 ): Promise<void> {
-  const results = await buildDoctorResults(options, deps);
+  const userConfigResolution = await resolveUserConfigForOptions(options, deps);
+  const results = await buildDoctorResults(options, { ...deps, userConfigResolution });
+
+  emitUserConfigResolution(userConfigResolution, logger);
 
   if (options.json) {
     process.stdout.write(`${JSON.stringify({ sources: results }, null, 2)}\n`);

@@ -205,6 +205,95 @@ describe('run-doctor-report', () => {
     ]);
   });
 
+  it('probes the config sourceDirs override when no dir flag is set', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-config-dir-'));
+    tempDirs.push(rootDir);
+
+    const missingPiDir = path.join(rootDir, 'configured-pi');
+    const configPath = path.join(rootDir, 'config.json');
+    await writeFile(configPath, JSON.stringify({ sourceDirs: { pi: missingPiDir } }), 'utf8');
+
+    const previousConfigPath = process.env.LLM_USAGE_CONFIG_PATH;
+    process.env.LLM_USAGE_CONFIG_PATH = configPath;
+
+    try {
+      const results = await buildDoctorResults({ source: 'pi' }, eventStoreDisabledDeps());
+
+      expect(results[0]).toMatchObject({ id: 'pi', status: 'error' });
+      expect(results[0]?.error).toContain(missingPiDir);
+    } finally {
+      process.env.LLM_USAGE_CONFIG_PATH = previousConfigPath;
+    }
+  });
+
+  it('reads the event store from the config eventStore.path', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-config-store-'));
+    tempDirs.push(rootDir);
+
+    const eventStorePath = path.join(rootDir, 'configured-events.db');
+    const store = await openEventStore(eventStorePath);
+
+    try {
+      writeStoredFile(store, { filePath: '/tmp/departed-pi.jsonl' });
+    } finally {
+      closeEventStore(store);
+    }
+
+    const configPath = path.join(rootDir, 'config.json');
+    await writeFile(
+      configPath,
+      JSON.stringify({ eventStore: { enabled: true, path: eventStorePath } }),
+      'utf8',
+    );
+
+    const previousConfigPath = process.env.LLM_USAGE_CONFIG_PATH;
+    process.env.LLM_USAGE_CONFIG_PATH = configPath;
+    delete process.env.LLM_USAGE_EVENT_STORE;
+
+    try {
+      const results = await buildDoctorResults({ source: 'pi' });
+      const eventStoreResult = results.find((result) => result.id === 'event-store');
+
+      expect(eventStoreResult).toMatchObject({ id: 'event-store', status: 'ok', itemsFound: 1 });
+    } finally {
+      process.env.LLM_USAGE_CONFIG_PATH = previousConfigPath;
+      process.env.LLM_USAGE_EVENT_STORE = '0';
+    }
+  });
+
+  it('emits the Active config block and unknown-key warnings on doctor', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-config-emit-'));
+    tempDirs.push(rootDir);
+
+    const configPath = path.join(rootDir, 'config.json');
+    await writeFile(
+      configPath,
+      JSON.stringify({ sourceDirs: { pi: rootDir }, mystery: true }),
+      'utf8',
+    );
+
+    const previousConfigPath = process.env.LLM_USAGE_CONFIG_PATH;
+    process.env.LLM_USAGE_CONFIG_PATH = configPath;
+    const stderrChunks: string[] = [];
+    const errorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation((message) => stderrChunks.push(String(message)));
+    const stdout = captureStdout();
+
+    try {
+      await runDoctorReport({ source: 'pi' }, eventStoreDisabledDeps());
+    } finally {
+      stdout.restore();
+      errorSpy.mockRestore();
+      process.env.LLM_USAGE_CONFIG_PATH = previousConfigPath;
+    }
+
+    const stderr = stderrChunks.join('\n');
+    expect(stderr).toContain('Active config:');
+    expect(stderr).toContain(`sourceDirs.pi=${rootDir}`);
+    expect(stderr).toContain('Unknown config key(s): mystery');
+  });
+
   it('reports one source error without stopping other source checks', async () => {
     const options = await createDoctorFixtureOptions();
     const missingClaudeDir = path.join(os.tmpdir(), `missing-claude-${Date.now()}`);
