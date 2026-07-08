@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 
+import { isMainThread, workerData } from 'node:worker_threads';
+
 import { getUpdateNotifierRuntimeConfig } from '../config/runtime-overrides.js';
 import { loadUserConfig, type UserConfig } from '../config/user-config.js';
 import { checkForUpdates } from '../update/update-notifier.js';
 import { createCli } from './create-cli.js';
 import { loadPackageMetadataFromRuntime } from './package-metadata.js';
-
-const { packageName, packageVersion } = loadPackageMetadataFromRuntime();
-const cli = createCli({ version: packageVersion });
+import { isParseWorkerRequest, runParseWorker } from './parse-worker-pool.js';
 
 async function loadConfigForUpdateCheck(): Promise<UserConfig> {
   try {
@@ -20,7 +20,9 @@ async function loadConfigForUpdateCheck(): Promise<UserConfig> {
   }
 }
 
-async function main(): Promise<void> {
+async function runCli(): Promise<void> {
+  const { packageName, packageVersion } = loadPackageMetadataFromRuntime();
+  const cli = createCli({ version: packageVersion });
   const config = await loadConfigForUpdateCheck();
   const updateRuntimeConfig = getUpdateNotifierRuntimeConfig(process.env, config);
   const updateHintPromise = checkForUpdates({
@@ -42,7 +44,12 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((error: unknown) => {
+const currentWorkerData: unknown = workerData;
+
+const mainPromise =
+  !isMainThread && isParseWorkerRequest(currentWorkerData) ? runParseWorker() : runCli();
+
+mainPromise.catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
   console.error(message);
   process.exitCode = 1;
