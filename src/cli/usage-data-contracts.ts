@@ -116,6 +116,12 @@ export type DoctorCommandOptions = Pick<
   | 'json'
 >;
 
+export type PruneCommandOptions = DoctorCommandOptions & {
+  suppressed?: boolean;
+  departedBefore?: string;
+  apply?: boolean;
+};
+
 export type UsageSessionStats = {
   source: string;
   filesFound: number;

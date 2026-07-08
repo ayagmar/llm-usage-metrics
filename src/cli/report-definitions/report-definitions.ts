@@ -5,6 +5,7 @@ import type {
   DoctorCommandOptions,
   EfficiencyCommandOptions,
   OptimizeCommandOptions,
+  PruneCommandOptions,
   ReportCommandOptions,
   SessionCommandOptions,
   TrendsCommandOptions,
@@ -17,6 +18,7 @@ import { runSessionReport } from '../run-session-report.js';
 import { runTrendsReport } from '../run-trends-report.js';
 import { runUsageReport } from '../run-usage-report.js';
 import { runDoctorReport } from '../run-doctor-report.js';
+import { runPruneReport } from '../run-prune-report.js';
 import { runWrappedReport } from '../run-wrapped-report.js';
 import type { ReportGranularity } from '../../utils/time-buckets.js';
 import {
@@ -399,6 +401,39 @@ const doctorReportDefinition: ReportRuntimeDefinition = {
   },
 };
 
+const pruneReportDefinition: ReportRuntimeDefinition = {
+  meta: {
+    commandName: 'prune',
+    docsLabel: 'prune',
+    kind: 'specialized',
+    description: 'Preview or delete departed files from the local event store',
+    sharedOptionProfile: 'doctor',
+    helpExamples: [
+      {
+        command: 'llm-usage prune --suppressed',
+        includeInRootHelp: true,
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage prune --departed-before 2026-01-01 --apply',
+        includeInCliReference: true,
+      },
+    ],
+  },
+  register(command) {
+    command
+      .option('--suppressed', 'Select departed files that --history already suppresses')
+      .option(
+        '--departed-before <YYYY-MM-DD>',
+        'Select departed files whose newest event timestamp is strictly before this UTC date',
+      )
+      .option('--apply', 'Delete selected departed files and vacuum the event store')
+      .action((options: PruneCommandOptions) => runPruneReport(options));
+
+    return command;
+  },
+};
+
 const reportDefinitions = [
   createUsageReportDefinition('daily'),
   createUsageReportDefinition('weekly'),
@@ -410,6 +445,7 @@ const reportDefinitions = [
   sessionReportDefinition,
   wrappedReportDefinition,
   doctorReportDefinition,
+  pruneReportDefinition,
 ] as const satisfies readonly ReportRuntimeDefinition[];
 
 function getReportRuntimeDefinitions(): ReportRuntimeDefinition[] {

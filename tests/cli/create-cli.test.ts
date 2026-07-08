@@ -18,7 +18,7 @@ afterEach(async () => {
 });
 
 describe('createCli', () => {
-  it('registers daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, and doctor commands', () => {
+  it('registers daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, doctor, and prune commands', () => {
     const cli = createCli();
 
     expect(cli.name()).toBe('llm-usage');
@@ -33,6 +33,7 @@ describe('createCli', () => {
       'session',
       'wrapped',
       'doctor',
+      'prune',
     ]);
   });
 
@@ -223,6 +224,23 @@ describe('createCli', () => {
     expect(doctorCommand?.options.some((option) => option.long === '--share')).toBe(false);
   });
 
+  it('configures prune command with maintenance selectors and doctor-style shared flags', () => {
+    const cli = createCli();
+    const pruneCommand = cli.commands.find((command) => command.name() === 'prune');
+
+    expect(pruneCommand).toBeDefined();
+    expect(pruneCommand?.options.some((option) => option.long === '--suppressed')).toBe(true);
+    expect(pruneCommand?.options.some((option) => option.long === '--departed-before')).toBe(true);
+    expect(pruneCommand?.options.some((option) => option.long === '--apply')).toBe(true);
+    expect(pruneCommand?.options.some((option) => option.long === '--json')).toBe(true);
+    expect(pruneCommand?.options.some((option) => option.long === '--source')).toBe(true);
+    expect(pruneCommand?.options.some((option) => option.long === '--source-dir')).toBe(true);
+    expect(pruneCommand?.options.some((option) => option.long === '--history')).toBe(false);
+    expect(pruneCommand?.options.some((option) => option.long === '--since')).toBe(false);
+    expect(pruneCommand?.options.some((option) => option.long === '--timezone')).toBe(false);
+    expect(pruneCommand?.options.some((option) => option.long === '--pricing-url')).toBe(false);
+  });
+
   it('runs daily command and prints terminal table output', async () => {
     const emptySessionsDir = await mkdtemp(path.join(os.tmpdir(), 'usage-cli-empty-'));
     tempDirs.push(emptySessionsDir);
@@ -279,6 +297,7 @@ describe('createCli', () => {
     expect(compactHelp).toContain('llm-usage compare');
     expect(compactHelp).toContain('llm-usage wrapped');
     expect(compactHelp).toContain('llm-usage doctor');
+    expect(compactHelp).toContain('llm-usage prune --suppressed');
     expect(compactHelp).toContain('npx --yes llm-usage-metrics@latest daily');
     expect(compactDailyCommandHelp).toContain('after source/provider/date filters');
   });
@@ -308,6 +327,7 @@ describe('createCli', () => {
       'session',
       'wrapped',
       'doctor',
+      'prune',
     ]);
     expect(getCliReferenceExamples()).toContain('llm-usage trends');
     expect(getCliReferenceExamples()).toContain('llm-usage compare');
@@ -318,6 +338,10 @@ describe('createCli', () => {
     expect(getCliReferenceExamples()).toContain('llm-usage monthly --history --pricing-offline');
     expect(getCliReferenceExamples()).toContain('llm-usage wrapped --year 2026 --share');
     expect(getCliReferenceExamples()).toContain('llm-usage doctor --json');
+    expect(getCliReferenceExamples()).toContain('llm-usage prune --suppressed');
+    expect(getCliReferenceExamples()).toContain(
+      'llm-usage prune --departed-before 2026-01-01 --apply',
+    );
     expect(getCliReferenceExamples()).toContain(
       'llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candidate-model gpt-5-codex --json',
     );
