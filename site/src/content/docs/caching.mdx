@@ -63,9 +63,30 @@ Relevant options/env:
 - persisted as SQLite with per-file replace-on-change writes
 - `--history` includes usage from files that no longer exist on disk
 - moved, renamed, and copied files are suppressed by content hash to avoid double counting
+- `llm-usage prune` previews or deletes departed-file rows explicitly
 - first run after a store schema upgrade migrates the database in place and may take a few seconds
 - deleting the database file deletes retained local history and starts a new ledger on the next run
 - older JSON shards from pre-store versions are no longer read and can be deleted manually
+
+Prune is dry-run by default:
+
+```bash
+llm-usage prune --suppressed
+```
+
+Selectors:
+
+- `--suppressed` selects departed files that `--history` already suppresses as moved or duplicated. Applying this selector does not change report output.
+- `--departed-before YYYY-MM-DD` selects departed files whose newest event timestamp is strictly older than that UTC date. Applying this selector permanently deletes retained history for those files.
+
+Apply selected candidates:
+
+```bash
+llm-usage prune --suppressed --apply
+llm-usage prune --departed-before 2026-01-01 --apply
+```
+
+After an applying run, the CLI deletes selected rows, runs SQLite `VACUUM`, and reports reclaimed database/WAL bytes.
 
 Relevant env vars:
 

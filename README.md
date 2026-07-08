@@ -481,6 +481,18 @@ copied, the store suppresses the departed copy by content hash so it is not
 double counted. History quality depends on how long the event store has been
 running on your machine.
 
+Use `llm-usage prune` for explicit event-store maintenance. Prune is a dry-run
+by default: it prints the departed-file candidates and deletes nothing until
+`--apply` is present.
+
+- `llm-usage prune --suppressed` selects departed files already suppressed by
+  `--history`; applying it does not change report output.
+- `llm-usage prune --departed-before YYYY-MM-DD` selects departed files whose
+  newest event timestamp is strictly older than that UTC date. Applying it
+  permanently deletes retained history for those files.
+- `llm-usage prune ... --apply` deletes the selected rows, runs SQLite
+  `VACUUM`, and reports reclaimed database/WAL bytes.
+
 - Set `LLM_USAGE_EVENT_STORE=0` to disable the store for cold-run benchmarking
   or debugging. `--history` requires the store to be enabled.
 - Set `LLM_USAGE_EVENT_STORE_PATH=/path/to/events.db` to use an isolated store.

@@ -26,6 +26,7 @@ Commands:
 - `session`
 - `wrapped`
 - `doctor`
+- `prune`
 
 ## Options
 
@@ -35,6 +36,7 @@ Generated from root + command help output.
 | --- | --- | --- | --- |
 | `--amp-dir` | - | `<path>` | Path to Amp threads directory |
 | `--antigravity-dir` | - | `<path>` | Path to Antigravity conversations directory |
+| `--apply` | - | - | Delete selected departed files and vacuum the event store \(prune only\) |
 | `--by-repo` | - | - | Group usage by repository root instead of by session \(session only\) |
 | `--by-source` | - | - | efficiency: Include per-source usage rows under each period; trends: Render one sparkline row per source instead of a single combined chart |
 | `--candidate-model` | - | `<name>` | Candidate model for counterfactual pricing \(repeatable or comma-separated\) \(optimize only\) |
@@ -43,6 +45,7 @@ Generated from root + command help output.
 | `--codex-dir` | - | `<path>` | Path to .codex sessions directory |
 | `--copilot-dir` | - | `<path>` | Path to GitHub Copilot OTEL directory |
 | `--days` | - | `<n>` | Trailing local calendar days to chart; defaults to 30 when no date flags are provided \(trends only\) |
+| `--departed-before` | - | `<YYYY-MM-DD>` | Select departed files whose newest event timestamp is strictly before this UTC date \(prune only\) |
 | `--droid-dir` | - | `<path>` | Path to Droid sessions directory |
 | `--gemini-dir` | - | `<path>` | Path to .gemini directory |
 | `--goose-db` | - | `<path>` | Path to Goose SQLite DB |
@@ -71,6 +74,7 @@ Generated from root + command help output.
 | `--since` | - | `<YYYY-MM-DD>` | Inclusive start date filter \(daily, weekly, monthly, compare, efficiency, optimize, trends, session only\) |
 | `--source` | - | `<name>` | Filter by source id \(repeatable or comma-separated, supported sources \(16\): pi, codex, gemini, droid, opencode, openclaw, claude, copilot, goose, amp, qwen, kimi, cline, roocode, kilocode, antigravity\) |
 | `--source-dir` | - | `<source-id=path>` | Override source directory for directory-backed sources \(repeatable\) |
+| `--suppressed` | - | - | Select departed files that --history already suppresses \(prune only\) |
 | `--timezone` | - | `<iana>` | Timezone for bucketing \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped only\) |
 | `--top` | - | `<n>` | optimize: Show only the top N cheapest candidates \(positive integer\); session: Show only the top N rows by cost \(default 20; 0 shows all\) |
 | `--until` | - | `<YYYY-MM-DD>` | Inclusive end date filter \(daily, weekly, monthly, compare, efficiency, optimize, trends, session only\) |
@@ -113,4 +117,6 @@ llm-usage wrapped --year 2026 --share
 llm-usage wrapped --year 2026 --json
 llm-usage doctor
 llm-usage doctor --json
+llm-usage prune --suppressed
+llm-usage prune --departed-before 2026-01-01 --apply
 ```
