@@ -184,12 +184,64 @@ llm-usage wrapped
 # Fixed-year recap as JSON
 llm-usage wrapped --year 2026 --json
 
+# Scope the recap to a billing provider or model
+llm-usage wrapped --year 2026 --provider anthropic
+
 # Write the share SVG
 llm-usage wrapped --year 2026 --share
 ```
 
-Wrapped computes yearly totals, active days, longest streak, top models, top sources, and a 12-month intensity strip.
-The share output is an offline SVG named `llm-usage-wrapped-<year>.svg`; PNG rendering and embedded logo/font assets are intentionally out of scope.
+```text
+┌──────────────┐
+│ Wrapped 2026 │
+└──────────────┘
+2026-01-01 to 2026-12-31 (UTC)
+
+Tokens          48,200,000
+Cost            $214.90
+Active days     143
+Longest streak  21 days
+Events          8,640
+Sessions        512
+
+Monthly activity
+Jan ▂  Feb █  Mar █  Apr ▄  May ▂  Jun ▁  Jul ▁  Aug ·  Sep ▁  Oct ▂  Nov ▄  Dec █
+
+Top models
+╭───┬───────────────────┬────────────┬────────╮
+│ # │ Model             │     Tokens │   Cost │
+├───┼───────────────────┼────────────┼────────┤
+│ 1 │ gpt-5.1           │ 21,400,000 │ $96.20 │
+├───┼───────────────────┼────────────┼────────┤
+│ 2 │ claude-sonnet-4-6 │ 14,800,000 │ $72.50 │
+├───┼───────────────────┼────────────┼────────┤
+│ 3 │ gpt-5.1-codex     │  8,900,000 │ $31.70 │
+├───┼───────────────────┼────────────┼────────┤
+│ 4 │ gemini-3-pro      │  2,100,000 │  $9.80 │
+├───┼───────────────────┼────────────┼────────┤
+│ 5 │ claude-opus-4-8   │  1,000,000 │  $4.70 │
+╰───┴───────────────────┴────────────┴────────╯
+
+Top sources
+╭───┬──────────┬────────────┬─────────╮
+│ # │ Source   │     Tokens │    Cost │
+├───┼──────────┼────────────┼─────────┤
+│ 1 │ codex    │ 26,300,000 │ $121.40 │
+├───┼──────────┼────────────┼─────────┤
+│ 2 │ claude   │ 15,800,000 │  $77.20 │
+├───┼──────────┼────────────┼─────────┤
+│ 3 │ pi       │  4,000,000 │  $12.50 │
+├───┼──────────┼────────────┼─────────┤
+│ 4 │ gemini   │  1,600,000 │   $3.10 │
+├───┼──────────┼────────────┼─────────┤
+│ 5 │ opencode │    500,000 │   $0.70 │
+╰───┴──────────┴────────────┴─────────╯
+```
+
+Wrapped computes yearly totals, active days, longest streak, the top five models, the top five sources, and a 12-month intensity strip.
+`--provider` and `--model` scope the recap the same way they do on the other reports; `--year` owns the date range, so `--since`/`--until` are unavailable.
+The terminal report uses the shared boxed header, tables, and color policy — set `NO_COLOR` for plain text.
+The share output is an offline SVG named `llm-usage-wrapped-<year>.svg` (its top lists show three rows); PNG rendering and embedded logo/font assets are intentionally out of scope.
 
 ### Doctor
 

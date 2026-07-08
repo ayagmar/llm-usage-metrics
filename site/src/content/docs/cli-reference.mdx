@@ -58,7 +58,7 @@ Generated from root + command help output.
 | `--kimi-dir` | - | `<path>` | Path to Kimi sessions directory |
 | `--markdown` | - | - | Render output as Markdown table \(daily, weekly, monthly, compare, efficiency, optimize, session only\) |
 | `--metric` | - | `<name>` | Trend metric: cost \| tokens \(default: "cost"\) \(trends only\) |
-| `--model` | - | `<name>` | Filter by model \(repeatable/comma-separated; exact when exact match exists after source/provider/date filters, otherwise substring\) \(daily, weekly, monthly, compare, efficiency, optimize, trends, session only\) |
+| `--model` | - | `<name>` | Filter by model \(repeatable/comma-separated; exact when exact match exists after source/provider/date filters, otherwise substring\) \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped only\) |
 | `--openclaw-dir` | - | `<path>` | Path to OpenClaw agents directory |
 | `--opencode-db` | - | `<path>` | Path to OpenCode SQLite DB |
 | `--per-model-columns` | - | - | Render per-model metrics as multiline aligned table columns \(terminal/Markdown\) \(usage reports only\) |
@@ -66,7 +66,7 @@ Generated from root + command help output.
 | `--pricing-offline` | - | - | Use cached LiteLLM pricing only \(no network fetch\) \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped only\) |
 | `--pricing-overrides` | - | `<path>` | Path to a JSON file of per-model pricing overrides \(takes precedence over LiteLLM\) \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped only\) |
 | `--pricing-url` | - | `<url>` | Override LiteLLM pricing source URL \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped only\) |
-| `--provider` | - | `<name>` | Billing-provider filter \(normalized to billing entity; e.g. openai, anthropic, google, moonshot\) \(daily, weekly, monthly, compare, efficiency, optimize, trends, session only\) |
+| `--provider` | - | `<name>` | Billing-provider filter \(normalized to billing entity; e.g. openai, anthropic, google, moonshot\) \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped only\) |
 | `--qwen-dir` | - | `<path>` | Path to Qwen projects directory |
 | `--repo-dir` | - | `<path>` | Path to repository for Git outcome metrics \(efficiency only\) |
 | `--roocode-dir` | - | `<path>` | Path to RooCode tasks directory |
