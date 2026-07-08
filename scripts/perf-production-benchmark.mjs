@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -9,6 +10,24 @@ const repoRoot = path.resolve(scriptDir, '..');
 const llmEntryPath = path.join(repoRoot, 'dist', 'index.js');
 
 const SCENARIOS = ['claude', 'codex'];
+
+// Both tools are warmed with a LIVE run so pricing caches actually populate, then
+// their timed warm cells read those caches offline. Update-check suppression is
+// asymmetric and unavoidable: llm-usage gets LLM_USAGE_SKIP_UPDATE_CHECK=1 on every
+// invocation, but ccusage exposes no equivalent flag or env (verified via
+// `ccusage --help`) — it is a native binary with no npm-style launch-time update
+// check, so there is no knob to match.
+const METHODOLOGY_LINES = [
+  'Methodology:',
+  '  - Warm-up: each tool is warmed once with a LIVE (online) run so its pricing',
+  '    caches populate; timed warm cells then read those caches offline',
+  '    (ccusage --offline, llm-usage --pricing-offline).',
+  '  - Cold cells run against a fresh XDG_CACHE_HOME; llm-usage also sets',
+  '    LLM_USAGE_EVENT_STORE=0 so no prior parse state is reused.',
+  '  - Update-check suppression: llm-usage gets LLM_USAGE_SKIP_UPDATE_CHECK=1 on',
+  '    every invocation; ccusage exposes no equivalent flag or env, so none is',
+  '    applied (verified via `ccusage --help`).',
+];
 
 function printHelp() {
   console.log(`Usage: node scripts/perf-production-benchmark.mjs [options]
@@ -21,8 +40,13 @@ source in {claude, codex}. Each scenario times four cells over N runs:
   - llm-usage cold  daily --source <source> --json       (fresh cache home, event store off, live pricing)
   - llm-usage warm  daily --source <source> --pricing-offline --json (warmed cache home + event store)
 
+Each tool's warm cache home is populated by one live (online) warm-up run before
+sampling, so the timed warm cells read a genuinely warmed cache on both sides.
+
 llm-usage is measured via the freshly built dist (node dist/index.js), so it
 reflects the current checkout. Build first: pnpm run build.
+
+${METHODOLOGY_LINES.join('\n')}
 
 Options:
   --runs <count>             Number of timed runs per cell (default: 5)
@@ -154,6 +178,27 @@ function runCommand(command, commandArgs, options = {}) {
   }
 
   return (result.stdout ?? '').trim();
+}
+
+function assertCommandAvailable(command) {
+  try {
+    runCommand(command, ['--version']);
+  } catch (error) {
+    throw new Error(
+      `Required command '${command}' is not available. Install it before running this benchmark.`,
+      { cause: error },
+    );
+  }
+}
+
+// Fail early and name the missing piece rather than crash mid-run.
+function assertToolchainAvailable(cliArgs) {
+  if (!existsSync(llmEntryPath)) {
+    throw new Error(`Built CLI not found at ${llmEntryPath}. Run 'pnpm run build' first.`);
+  }
+
+  assertCommandAvailable(cliArgs.ccusageBin);
+  assertCommandAvailable('pnpm');
 }
 
 function measureCommand(command, commandArgs, options = {}) {
@@ -309,10 +354,12 @@ async function benchmarkSource(source, cliArgs, tempCacheRoot) {
   await mkdir(warmCcusageRoot, { recursive: true });
   await mkdir(warmLlmRoot, { recursive: true });
 
-  // Warm the shared caches once before sampling.
-  runCommand(ccusageBin, ccusageArgs(source, true), {
+  // Warm each tool's cache with one LIVE (online) run before sampling, so the
+  // timed warm cells read a genuinely populated cache on both sides.
+  runCommand(ccusageBin, ccusageArgs(source, false), {
     env: { XDG_CACHE_HOME: warmCcusageRoot },
   });
+  // ccusage has no update-check/telemetry env to suppress; llm-usage gets its own.
   runCommand(process.execPath, llmArgs(source, false), {
     env: { XDG_CACHE_HOME: warmLlmRoot, LLM_USAGE_SKIP_UPDATE_CHECK: '1' },
   });
@@ -369,9 +416,12 @@ async function benchmarkSource(source, cliArgs, tempCacheRoot) {
 
 async function main() {
   const cliArgs = parseCliArgs(process.argv.slice(2));
+  assertToolchainAvailable(cliArgs);
   const sources = cliArgs.scenario === 'all' ? SCENARIOS : [cliArgs.scenario];
   // Published tables always name the competitor "ccusage", not the resolved bin path.
   const ccusageBinLabel = 'ccusage';
+
+  console.log(METHODOLOGY_LINES.join('\n'));
 
   const tempCacheRoot = await mkdtemp(path.join(os.tmpdir(), 'llm-usage-prod-benchmark-'));
   const resultsBySource = [];
