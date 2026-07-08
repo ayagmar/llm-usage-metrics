@@ -40,7 +40,7 @@ Commander help text remains the source of truth for option descriptions.
   - optional terminal overflow warnings
   - final stdout emission
 
-Each report wrapper still owns its policy:
+Each report wrapper owns its policy:
 
 - data builder
 - renderer
