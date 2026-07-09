@@ -130,6 +130,7 @@ export default defineConfig({
           items: [
             { label: 'Overview', link: '/architecture/' },
             { label: 'Event Store', link: '/architecture/event-store/' },
+            { label: 'Parse Pipeline', link: '/architecture/parse-pipeline/' },
           ],
         },
       ],

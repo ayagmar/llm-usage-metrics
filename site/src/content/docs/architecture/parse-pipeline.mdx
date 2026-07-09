@@ -1,0 +1,52 @@
+---
+title: Parse Pipeline
+description: How source files are discovered, filtered, parsed, and parallelized.
+---
+
+The parse pipeline turns on-disk session files into normalized usage events. It is where the tool's performance work lives, and every mechanism on this page exists to keep a multi-GiB corpus parseable in seconds. A report run flows through it in order:
+
+1. Each selected adapter discovers its files.
+2. Discovered files split into event-store **hits** (served from the ledger) and **misses** — see [Event Store](/architecture/event-store/).
+3. Misses are parsed under a bounded parallelism budget, on worker threads when a large enough codex miss set justifies them.
+4. Parsed lines normalize into usage events (`createUsageEvent`, `src/domain/`).
+5. Freshly parsed files are ingested back into the ledger; events continue to filtering, pricing, and aggregation.
+
+## Discovery and adapters
+
+Each source implements the adapter contract (`src/sources/source-adapter.ts`): `discoverFiles()` returns the file list, `parseFile(filePath)` returns that file's events, and the optional `parseFileWithDiagnostics(filePath)` adds per-file skipped-row counters. Adapters that read sidecar inputs also declare them via `getParseDependencies(filePath)` so the event store can fingerprint them. Parsing stays inside the adapter; everything downstream sees only normalized usage events.
+
+Sources with multiple home directories (claude, pi, openclaw, kimi, the cline family, copilot) discover through the shared multi-root helper (`src/sources/multi-root-discovery.ts`): `resolveRootDirs` applies overrides over defaults, `discoverFilesAcrossRoots` walks each root with per-root validation, and `sortAcrossRoots` optionally re-sorts the combined list. Paths can be overridden per source via the `sourceDirs.*` config keys, the `--<source>-dir` flags, or `--source-dir <source>=<path>` (directory-backed sources only), with the usual flags → env → config precedence.
+
+## Reading JSONL fast
+
+`src/utils/read-jsonl-objects.ts` streams files in 1 MiB buffer chunks and splits lines at the byte level — line-feed scan, carriage-return trim, BOM and blank-line handling all happen on bytes, so a line is only decoded to a string when it survives filtering. Two optional predicates gate the expensive steps:
+
+- `shouldParseLineBytes` runs on the raw line bytes, **before** UTF-8 decoding. The codex adapter accepts `session_meta` and `turn_context` lines and takes `event_msg` lines only when `token_count` bytes appear; the claude adapter requires both `"assistant"` and `"usage"` byte sequences.
+- `shouldParseLine` runs on the decoded string, before `JSON.parse`. The pi, droid, openclaw, copilot, qwen, and kimi adapters filter here.
+
+In a 1.8 GiB codex corpus, most lines carry no usage data. Rejecting them before `JSON.parse` — and for the byte predicates, before even decoding — is the single biggest cold-run win; the [Benchmarks](/benchmarks/) page shows the measured effect.
+
+## Parallelism
+
+Two mechanisms bound and exploit parallelism:
+
+- **`parseMaxParallel`** (config key, default 8, clamped to 1–64) is a global semaphore over concurrent file parses. Adapters share one budget per run (`createParseBudget` in `src/cli/build-usage-data-parsing.ts`), so parsing many sources at once cannot multiply the concurrency.
+- **The worker-thread parse pool** (`src/cli/parse-worker-pool.ts`) moves large parse work off the main thread. Only sources registered for worker parsing are eligible — currently codex only. For an eligible source the pipeline first resolves event-store hits and collects the misses with their byte sizes; the pool engages only when the total missed bytes reach `parseWorkerMinBytes` (default 268435456, ≈256 MiB). It then spawns at most `parseWorkers` threads (config `"auto"` — the default, resolving to `min(8, cores − 1)` — or `0`–`64`, where `0` disables the pool) and parses the missed files on them. If workers cannot run, every task carries an inline-parse fallback, so the run completes on the main thread and the runtime profile records the pool as `fallback`. `LLM_USAGE_PARSE_WORKERS` and `LLM_USAGE_PARSE_WORKER_MIN_BYTES` override both knobs per run.
+
+In practice a warm run has few misses and the pool stays off; a cold codex run over a large corpus is what engages it.
+
+## Period bucketing
+
+Bucketing hundreds of thousands of events into local days would be slow if each event paid for `Intl` date math. `src/utils/time-buckets.ts` keeps a per-timezone cache of local-day windows: each window stores a `[startMs, endMs)` range with its precomputed local date parts, keyed by day index (derived from the timestamp plus its wall-clock offset). The hot path checks the most recently used window first, so consecutive events from the same local day resolve with two comparisons and no formatter call; `Intl.DateTimeFormat` instances are themselves cached per timezone for the misses.
+
+## Failure containment and diagnostics
+
+A file that fails to parse does not kill the run: the failure is recorded as a `file_parse_failed` skipped-row reason and parsing continues. Only when **every** file of a source fails does the source itself error (`All N file(s) failed to parse for source <id>: <reason>`) — and even then the report continues without that source unless it was explicitly selected, in which case the run aborts.
+
+Adapters count skipped rows with per-reason counters (`src/sources/parse-diagnostics.ts`), and the report surfaces them — files found, skipped rows and reasons, source failures — as diagnostics on `stderr`, never mixed into the report body on `stdout`. The `logLevel` config key and `--quiet` gate the informational lines.
+
+## Related pages
+
+- [Event Store](/architecture/event-store/) — the hit/miss split, fingerprints, and ingest.
+- [Configuration](/configuration/) — the `parseMaxParallel`, `parseWorkers`, and `parseWorkerMinBytes` keys.
+- [Benchmarks](/benchmarks/) — the measured effect of this pipeline on real data.
