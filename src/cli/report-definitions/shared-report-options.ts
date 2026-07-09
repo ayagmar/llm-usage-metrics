@@ -136,7 +136,7 @@ export function registerSharedReportOptions(
       collectRepeatedOption,
     )
     .option('--json', 'Render output as JSON')
-    .option('--quiet', 'suppress informational stderr output (warnings still print)');
+    .option('--quiet', 'Suppress informational stderr output (warnings still print)');
 
   if (profileConfig.includeDateFilters) {
     configuredCommand

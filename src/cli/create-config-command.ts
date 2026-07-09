@@ -14,6 +14,7 @@ import {
   UPDATE_FETCH_TIMEOUT_DEFAULT_MS,
 } from '../config/runtime-overrides.js';
 import { resolveUserConfigPath, USER_CONFIG_SOURCE_DIR_KEYS } from '../config/user-config.js';
+import { getDefaultEventStorePath } from '../persistence/event-store.js';
 import { DEFAULT_LITELLM_PRICING_URL } from '../pricing/litellm-pricing-fetcher.js';
 import { asRecord } from '../utils/as-record.js';
 import { logger } from '../utils/logger.js';
@@ -61,7 +62,7 @@ ${sourceDirTemplate}
 # Event store defaults.
 # [eventStore]
 # enabled = ${String(EVENT_STORE_ENABLED_DEFAULT)}
-# path = "~/.cache/llm-usage-metrics/events.db"
+# path = "${getDefaultEventStorePath()}"
 
 # Update-check defaults.
 # [update]
