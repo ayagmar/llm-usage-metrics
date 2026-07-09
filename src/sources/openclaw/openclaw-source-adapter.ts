@@ -8,11 +8,11 @@ import { asRecord } from '../../utils/as-record.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import { pathStat } from '../../utils/fs-helpers.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
+import { discoverFilesAcrossRoots, resolveRootDirs } from '../multi-root-discovery.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
   hasPositiveUsageOrCostSignal,
-  isBlankText,
   normalizeTimestampCandidate,
   toNumberLike,
 } from '../parsing-utils.js';
@@ -277,43 +277,20 @@ export class OpenClawSourceAdapter implements SourceAdapter {
   private readonly requireAgentsDir: boolean;
 
   public constructor(options: OpenClawSourceAdapterOptions = {}) {
-    this.rootDirs =
-      options.agentsDir !== undefined
-        ? [options.agentsDir]
-        : (options.defaultRootDirs ?? defaultOpenClawRootDirs);
+    this.rootDirs = resolveRootDirs(
+      options.agentsDir,
+      options.defaultRootDirs ?? defaultOpenClawRootDirs,
+    );
     this.requireAgentsDir = options.requireAgentsDir ?? false;
   }
 
   public async discoverFiles(): Promise<string[]> {
-    const discoveredFiles: string[] = [];
-
-    for (const rootDir of this.rootDirs) {
-      discoveredFiles.push(...(await this.discoverFilesInRoot(rootDir)));
-    }
-
-    return discoveredFiles;
-  }
-
-  private async discoverFilesInRoot(rootDir: string): Promise<string[]> {
-    if (isBlankText(rootDir)) {
-      throw new Error('OpenClaw agents directory must be a non-empty path');
-    }
-
-    const normalizedRootDir = rootDir.trim();
-
-    if (this.requireAgentsDir) {
-      const agentsDirStats = await pathStat(normalizedRootDir);
-
-      if (!agentsDirStats) {
-        throw new Error(`OpenClaw agents directory is missing or unreadable: ${normalizedRootDir}`);
-      }
-
-      if (!agentsDirStats.isDirectory()) {
-        throw new Error(`OpenClaw agents directory is not a directory: ${normalizedRootDir}`);
-      }
-    }
-
-    return discoverJsonlFiles(normalizedRootDir);
+    return discoverFilesAcrossRoots({
+      rootDirs: this.rootDirs,
+      requireDir: this.requireAgentsDir,
+      directoryLabel: 'OpenClaw agents directory',
+      discoverInRoot: (rootDir) => discoverJsonlFiles(rootDir),
+    });
   }
 
   public async parseFile(filePath: string): Promise<UsageEvent[]> {

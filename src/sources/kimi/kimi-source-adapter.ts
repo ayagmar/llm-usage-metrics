@@ -5,14 +5,12 @@ import path from 'node:path';
 import { createUsageEvent } from '../../domain/usage-event.js';
 import type { UsageEvent, UsageEventInput } from '../../domain/usage-event.js';
 import { asRecord } from '../../utils/as-record.js';
-import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
 import { discoverFiles } from '../../utils/discover-files.js';
-import { pathIsDirectory, pathReadable } from '../../utils/fs-helpers.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
+import { discoverFilesAcrossRoots, resolveRootDirs } from '../multi-root-discovery.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
-  isBlankText,
   normalizeTimestampCandidate,
   resolveTotalTokens,
   toTokenCount,
@@ -297,39 +295,18 @@ export class KimiSourceAdapter implements SourceAdapter {
   private readonly requireKimiDir: boolean;
 
   public constructor(options: KimiSourceAdapterOptions = {}) {
-    this.rootDirs =
-      options.kimiDir !== undefined
-        ? [options.kimiDir]
-        : (options.defaultRootDirs ?? defaultRootDirs);
+    this.rootDirs = resolveRootDirs(options.kimiDir, options.defaultRootDirs ?? defaultRootDirs);
     this.requireKimiDir = options.requireKimiDir ?? false;
   }
 
   public async discoverFiles(): Promise<string[]> {
-    const discoveredFiles: string[] = [];
-
-    for (const rootDir of this.rootDirs) {
-      discoveredFiles.push(...(await this.discoverFilesInRoot(rootDir)));
-    }
-
-    return discoveredFiles.sort(compareByCodePoint);
-  }
-
-  private async discoverFilesInRoot(rootDir: string): Promise<string[]> {
-    if (isBlankText(rootDir)) {
-      throw new Error('Kimi sessions directory must be a non-empty path');
-    }
-
-    const normalizedRootDir = rootDir.trim();
-
-    if (this.requireKimiDir && !(await pathReadable(normalizedRootDir))) {
-      throw new Error(`Kimi sessions directory is missing or unreadable: ${normalizedRootDir}`);
-    }
-
-    if (this.requireKimiDir && !(await pathIsDirectory(normalizedRootDir))) {
-      throw new Error(`Kimi sessions directory is not a directory: ${normalizedRootDir}`);
-    }
-
-    return discoverWireFiles(normalizedRootDir);
+    return discoverFilesAcrossRoots({
+      rootDirs: this.rootDirs,
+      requireDir: this.requireKimiDir,
+      directoryLabel: 'Kimi sessions directory',
+      discoverInRoot: (rootDir) => discoverWireFiles(rootDir),
+      sortAcrossRoots: true,
+    });
   }
 
   public async getParseDependencies(filePath: string): Promise<string[]> {

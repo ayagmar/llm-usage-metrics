@@ -6,13 +6,12 @@ import type { UsageEvent } from '../../domain/usage-event.js';
 import type { NumberLike } from '../../domain/normalization.js';
 import { asRecord } from '../../utils/as-record.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
-import { pathIsDirectory, pathReadable } from '../../utils/fs-helpers.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
+import { discoverFilesAcrossRoots, resolveRootDirs } from '../multi-root-discovery.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
   hasPositiveUsageOrCostSignal,
-  isBlankText,
   normalizeTimestampCandidate,
   toNumberLike,
 } from '../parsing-utils.js';
@@ -156,39 +155,20 @@ export class PiSourceAdapter implements SourceAdapter {
   private readonly requireSessionsDir: boolean;
 
   public constructor(options: PiSourceAdapterOptions = {}) {
-    this.rootDirs =
-      options.sessionsDir !== undefined
-        ? [options.sessionsDir]
-        : (options.defaultRootDirs ?? defaultPiRootDirs);
+    this.rootDirs = resolveRootDirs(
+      options.sessionsDir,
+      options.defaultRootDirs ?? defaultPiRootDirs,
+    );
     this.requireSessionsDir = options.requireSessionsDir ?? false;
   }
 
   public async discoverFiles(): Promise<string[]> {
-    const discoveredFiles: string[] = [];
-
-    for (const rootDir of this.rootDirs) {
-      discoveredFiles.push(...(await this.discoverFilesInRoot(rootDir)));
-    }
-
-    return discoveredFiles;
-  }
-
-  private async discoverFilesInRoot(rootDir: string): Promise<string[]> {
-    if (isBlankText(rootDir)) {
-      throw new Error('PI sessions directory must be a non-empty path');
-    }
-
-    const normalizedRootDir = rootDir.trim();
-
-    if (this.requireSessionsDir && !(await pathReadable(normalizedRootDir))) {
-      throw new Error(`PI sessions directory is missing or unreadable: ${normalizedRootDir}`);
-    }
-
-    if (this.requireSessionsDir && !(await pathIsDirectory(normalizedRootDir))) {
-      throw new Error(`PI sessions directory is not a directory: ${normalizedRootDir}`);
-    }
-
-    return discoverJsonlFiles(normalizedRootDir);
+    return discoverFilesAcrossRoots({
+      rootDirs: this.rootDirs,
+      requireDir: this.requireSessionsDir,
+      directoryLabel: 'PI sessions directory',
+      discoverInRoot: (rootDir) => discoverJsonlFiles(rootDir),
+    });
   }
 
   public async parseFile(filePath: string): Promise<UsageEvent[]> {
