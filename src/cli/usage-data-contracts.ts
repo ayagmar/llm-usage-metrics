@@ -21,9 +21,11 @@ import type { SourceAdapter } from '../sources/source-adapter.js';
 import type { TrendSeries, TrendsMetric } from '../trends/trends-series.js';
 import type { WrappedRecap } from '../wrapped/wrapped-recap.js';
 import type { UserConfigResolution } from './apply-user-config.js';
+import type { SharedOptionProfile } from './report-definitions/report-definition-types.js';
+import type { sharedOptionProfileConfig } from './report-definitions/shared-report-options.js';
 import type { RuntimeProfileCollector, RuntimeProfileSnapshot } from './runtime-profile.js';
 
-export type ReportCommandOptions = {
+type AlwaysOnCommandOptions = {
   piDir?: string;
   codexDir?: string;
   copilotDir?: string;
@@ -42,79 +44,94 @@ export type ReportCommandOptions = {
   antigravityDir?: string;
   sourceDir?: string[];
   source?: string | string[];
+  json?: boolean;
+};
+
+type DateFilterOptions = {
   since?: string;
   until?: string;
+};
+
+type TimezoneOption = {
   timezone?: string;
+};
+
+type ProviderModelOptions = {
   provider?: string;
   model?: string | string[];
+};
+
+type MarkdownOption = {
   markdown?: boolean;
-  json?: boolean;
+};
+
+type PerModelColumnsOption = {
   perModelColumns?: boolean;
+};
+
+type PricingOptions = {
   pricingUrl?: string;
   pricingOverrides?: string;
   pricingOffline?: boolean;
   ignorePricingFailures?: boolean;
+};
+
+type HistoryOption = {
   history?: boolean;
+};
+
+type ShareOption = {
   share?: boolean;
 };
 
-export type EfficiencyCommandOptions = Omit<ReportCommandOptions, 'perModelColumns'> & {
+type ProfileConfig = typeof sharedOptionProfileConfig;
+
+// Keep command option types derived from the same profile booleans that register the flags.
+type SharedOptionsForProfile<P extends SharedOptionProfile> = AlwaysOnCommandOptions &
+  (ProfileConfig[P]['includeDateFilters'] extends true ? DateFilterOptions : unknown) &
+  (ProfileConfig[P]['includeTimezone'] extends true ? TimezoneOption : unknown) &
+  (ProfileConfig[P]['includeProviderModelFilters'] extends true ? ProviderModelOptions : unknown) &
+  (ProfileConfig[P]['includePricing'] extends true ? PricingOptions : unknown) &
+  (ProfileConfig[P]['includeHistory'] extends true ? HistoryOption : unknown) &
+  (ProfileConfig[P]['includeMarkdown'] extends true ? MarkdownOption : unknown) &
+  (ProfileConfig[P]['includePerModelColumns'] extends true ? PerModelColumnsOption : unknown) &
+  (ProfileConfig[P]['includeShare'] extends true ? ShareOption : unknown);
+
+export type ReportCommandOptions = SharedOptionsForProfile<'usage'>;
+
+export type EfficiencyCommandOptions = SharedOptionsForProfile<'specialized'> & {
   repoDir?: string;
   includeMergeCommits?: boolean;
   bySource?: boolean;
 };
 
-export type OptimizeCommandOptions = Omit<ReportCommandOptions, 'perModelColumns'> & {
+export type OptimizeCommandOptions = SharedOptionsForProfile<'specialized'> & {
   candidateModel?: string | string[];
   top?: string;
 };
 
-export type TrendsCommandOptions = Omit<ReportCommandOptions, 'markdown' | 'perModelColumns'> & {
+export type TrendsCommandOptions = SharedOptionsForProfile<'trends'> & {
   days?: string;
   metric?: string;
   bySource?: boolean;
 };
 
-export type SessionCommandOptions = Omit<ReportCommandOptions, 'perModelColumns' | 'share'> & {
+export type SessionCommandOptions = SharedOptionsForProfile<'session'> & {
   top?: string;
   id?: string[];
   byRepo?: boolean;
 };
 
-export type CompareCommandOptions = Omit<ReportCommandOptions, 'perModelColumns' | 'share'> & {
+export type CompareCommandOptions = SharedOptionsForProfile<'compare'> & {
   vsSince?: string;
   vsUntil?: string;
 };
 
-export type WrappedCommandOptions = Omit<
-  ReportCommandOptions,
-  'markdown' | 'perModelColumns' | 'since' | 'until'
-> & {
+export type WrappedCommandOptions = SharedOptionsForProfile<'wrapped'> & {
   year?: string;
 };
 
-export type DoctorCommandOptions = Pick<
-  ReportCommandOptions,
-  | 'piDir'
-  | 'codexDir'
-  | 'copilotDir'
-  | 'geminiDir'
-  | 'droidDir'
-  | 'claudeDir'
-  | 'openclawDir'
-  | 'opencodeDb'
-  | 'gooseDb'
-  | 'ampDir'
-  | 'qwenDir'
-  | 'kimiDir'
-  | 'clineDir'
-  | 'roocodeDir'
-  | 'kilocodeDir'
-  | 'antigravityDir'
-  | 'sourceDir'
-  | 'source'
-  | 'json'
->;
+export type DoctorCommandOptions = SharedOptionsForProfile<'doctor'>;
 
 export type PruneCommandOptions = DoctorCommandOptions & {
   suppressed?: boolean;

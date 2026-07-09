@@ -3,7 +3,7 @@ import type { Command } from 'commander';
 import { getDefaultSourceIds } from '../../sources/create-default-adapters.js';
 import type { SharedOptionProfile } from './report-definition-types.js';
 
-type SharedOptionProfileConfig = {
+export type SharedOptionProfileConfig = {
   includeDateFilters: boolean;
   includeMarkdown: boolean;
   includePerModelColumns: boolean;
@@ -14,7 +14,7 @@ type SharedOptionProfileConfig = {
   includeTimezone: boolean;
 };
 
-const sharedOptionProfileConfig: Record<SharedOptionProfile, SharedOptionProfileConfig> = {
+export const sharedOptionProfileConfig = {
   usage: {
     includeDateFilters: true,
     includeMarkdown: true,
@@ -85,7 +85,7 @@ const sharedOptionProfileConfig: Record<SharedOptionProfile, SharedOptionProfile
     includeShare: false,
     includeTimezone: false,
   },
-};
+} as const satisfies Record<SharedOptionProfile, SharedOptionProfileConfig>;
 
 export function collectRepeatedOption(value: string, previous?: string[]): string[] {
   return [...(previous ?? []), value];
