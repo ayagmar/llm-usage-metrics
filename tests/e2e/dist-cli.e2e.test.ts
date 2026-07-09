@@ -11,6 +11,7 @@ const execFileAsync = promisify(execFile);
 const distCliPath = path.resolve('dist/index.js');
 const piDir = path.resolve('tests/fixtures/e2e/pi');
 const codexDir = path.resolve('tests/fixtures/e2e/codex');
+const largeCodexDir = path.resolve('tests/fixtures/e2e-large/codex');
 const geminiDir = path.resolve('tests/fixtures/e2e/gemini');
 const droidDir = path.resolve('tests/fixtures/e2e/droid');
 const claudeDir = path.resolve('tests/fixtures/e2e/claude');
@@ -96,6 +97,46 @@ describe.skipIf(!existsSync(distCliPath))('dist CLI e2e', () => {
       await rm(tempDir, { recursive: true, force: true });
     }
   });
+
+  it('matches built-binary codex output with worker parsing enabled', async () => {
+    const args = [
+      distCliPath,
+      'daily',
+      '--json',
+      '--timezone',
+      'UTC',
+      '--source',
+      'codex',
+      '--codex-dir',
+      largeCodexDir,
+      '--pricing-offline',
+    ];
+    const workersOn = await execFileAsync(process.execPath, args, {
+      encoding: 'utf8',
+      env: {
+        ...createSmokeEnv(),
+        LLM_USAGE_PARSE_WORKERS: '2',
+        LLM_USAGE_PARSE_WORKER_MIN_BYTES: '1',
+      },
+      maxBuffer: 1024 * 1024,
+      timeout: 10_000,
+    });
+    const workersOff = await execFileAsync(process.execPath, args, {
+      encoding: 'utf8',
+      env: {
+        ...createSmokeEnv(),
+        LLM_USAGE_PARSE_WORKERS: '0',
+        LLM_USAGE_PARSE_WORKER_MIN_BYTES: '1',
+      },
+      maxBuffer: 1024 * 1024,
+      timeout: 10_000,
+    });
+
+    expect(workersOn.stdout).toBe(workersOff.stdout);
+    expect(JSON.parse(workersOn.stdout)).toEqual(JSON.parse(workersOff.stdout));
+    expect(workersOn.stderr).toContain('LLM_USAGE_PARSE_WORKERS=2');
+    expect(workersOff.stderr).toContain('LLM_USAGE_PARSE_WORKERS=0');
+  }, 15_000);
 
   it('fails a real command with an actionable malformed-config error', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'dist-cli-bad-config-run-'));
