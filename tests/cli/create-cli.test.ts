@@ -18,7 +18,7 @@ afterEach(async () => {
 });
 
 describe('createCli', () => {
-  it('registers daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, doctor, and prune commands', () => {
+  it('registers daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, doctor, prune, and config commands', () => {
     const cli = createCli();
 
     expect(cli.name()).toBe('llm-usage');
@@ -34,6 +34,7 @@ describe('createCli', () => {
       'wrapped',
       'doctor',
       'prune',
+      'config',
     ]);
   });
 

@@ -26,7 +26,7 @@ const PARSE_WORKERS_MAX = 64;
 const PARSE_WORKER_MIN_BYTES_MIN = 0;
 const PARSE_WORKER_MIN_BYTES_MAX = Number.MAX_SAFE_INTEGER;
 
-const sourceDirKeys = [
+export const USER_CONFIG_SOURCE_DIR_KEYS = [
   'pi',
   'codex',
   'copilot',
@@ -73,19 +73,19 @@ export const USER_CONFIG_KNOWN_KEY_PATHS = [
   ...knownPricingKeys.map((key) => `pricing.${key}`),
   ...knownEventStoreKeys.map((key) => `eventStore.${key}`),
   ...knownUpdateKeys.map((key) => `update.${key}`),
-  ...sourceDirKeys.map((key) => `sourceDirs.${key}`),
+  ...USER_CONFIG_SOURCE_DIR_KEYS.map((key) => `sourceDirs.${key}`),
 ] as const;
 
 const knownTopLevelKeySet = new Set<string>(knownTopLevelKeys);
 const knownPricingKeySet = new Set<string>(knownPricingKeys);
 const knownEventStoreKeySet = new Set<string>(knownEventStoreKeys);
 const knownUpdateKeySet = new Set<string>(knownUpdateKeys);
-const sourceDirKeySet = new Set<string>(sourceDirKeys);
+const sourceDirKeySet = new Set<string>(USER_CONFIG_SOURCE_DIR_KEYS);
 
 export type UserConfig = {
   timezone?: string;
   sources?: string[];
-  sourceDirs?: Partial<Record<(typeof sourceDirKeys)[number], string>>;
+  sourceDirs?: Partial<Record<(typeof USER_CONFIG_SOURCE_DIR_KEYS)[number], string>>;
   pricing?: {
     offline?: boolean;
     url?: string;
@@ -257,7 +257,7 @@ function readSourceDirs(value: unknown): UserConfig['sourceDirs'] | undefined {
 
   const sourceDirs: UserConfig['sourceDirs'] = {};
 
-  for (const sourceId of sourceDirKeys) {
+  for (const sourceId of USER_CONFIG_SOURCE_DIR_KEYS) {
     const sourceDir = toNonBlankString(record[sourceId]);
 
     if (sourceDir !== undefined) {

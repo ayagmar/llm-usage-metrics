@@ -27,6 +27,7 @@ Commands:
 - `wrapped`
 - `doctor`
 - `prune`
+- `config <init>`
 
 ## Options
 
@@ -47,6 +48,7 @@ Generated from root + command help output.
 | `--days` | - | `<n>` | Trailing local calendar days to chart; defaults to 30 when no date flags are provided \(trends only\) |
 | `--departed-before` | - | `<YYYY-MM-DD>` | Select departed files whose newest event timestamp is strictly before this UTC date \(prune only\) |
 | `--droid-dir` | - | `<path>` | Path to Droid sessions directory |
+| `--force` | - | - | Overwrite an existing config file \(config only\) |
 | `--gemini-dir` | - | `<path>` | Path to .gemini directory |
 | `--goose-db` | - | `<path>` | Path to Goose SQLite DB |
 | `--history` | - | - | include usage from files that no longer exist on disk \(from the local event store\) \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped only\) |
