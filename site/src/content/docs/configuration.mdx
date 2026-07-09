@@ -3,14 +3,14 @@ title: Configuration
 description: Config file, CLI precedence, source path overrides, and runtime environment overrides.
 ---
 
-`llm-usage-metrics` uses a JSON config file for persistent defaults. CLI flags override it for one-off runs, and environment variables provide an override layer for scripts, CI, and debugging.
+`llm-usage-metrics` uses a TOML config file for persistent defaults. CLI flags override it for one-off runs, and environment variables provide an override layer for scripts, CI, and debugging.
 
 ## Config file
 
 Default path:
 
 ```text
-<config-root>/llm-usage-metrics/config.json
+<config-root>/llm-usage-metrics/config.toml
 ```
 
 Config root follows the platform:
@@ -19,42 +19,40 @@ Config root follows the platform:
 - `%APPDATA%` on Windows
 - `~/.config` otherwise
 
-Set `LLM_USAGE_CONFIG_PATH=/path/to/config.json` to point at a different config file. A missing config file is silent and uses built-in defaults. Malformed JSON is an error. Unknown keys are reported once on `stderr` and the run continues.
+Run `llm-usage config init` to write a commented template at the active config path. Set `LLM_USAGE_CONFIG_PATH=/path/to/config.toml` to point at a different config file. A missing config file is silent and uses built-in defaults. Malformed TOML is an error. Unknown keys are reported once on `stderr` and the run continues.
 
-[JSON Schema](/config-schema.json):
+TOML editors such as Taplo can validate the file through the `#:schema` directive. The schema is published at [config-schema.json](/config-schema.json):
 
-```json
-{
-  "$schema": "https://ayagmar.github.io/llm-usage-metrics/config-schema.json",
-  "timezone": "Africa/Casablanca",
-  "sources": ["codex", "claude"],
-  "sourceDirs": {
-    "codex": "/path/to/.codex/sessions",
-    "claude": "/path/to/.claude/projects",
-    "opencode": "/path/to/opencode.db",
-    "goose": "/path/to/goose/sessions.db"
-  },
-  "pricing": {
-    "offline": true,
-    "url": "https://example.com/model_prices_and_context_window.json",
-    "overridesPath": "/path/to/pricing-overrides.json",
-    "ignoreFailures": false,
-    "cacheTtlMs": 86400000,
-    "fetchTimeoutMs": 4000
-  },
-  "eventStore": {
-    "enabled": true,
-    "path": "/path/to/events.db"
-  },
-  "parseMaxParallel": 8,
-  "parseWorkers": "auto",
-  "parseWorkerMinBytes": 268435456,
-  "update": {
-    "skipCheck": false,
-    "cacheTtlMs": 3600000,
-    "fetchTimeoutMs": 1000
-  }
-}
+```toml
+#:schema https://ayagmar.github.io/llm-usage-metrics/config-schema.json
+timezone = "Africa/Casablanca"
+sources = ["codex", "claude"]
+parseMaxParallel = 8
+parseWorkers = "auto"
+parseWorkerMinBytes = 268435456
+
+[sourceDirs]
+codex = "/path/to/.codex/sessions"
+claude = "/path/to/.claude/projects"
+opencode = "/path/to/opencode.db"
+goose = "/path/to/goose/sessions.db"
+
+[pricing]
+offline = true
+url = "https://example.com/model_prices_and_context_window.json"
+overridesPath = "/path/to/pricing-overrides.json"
+ignoreFailures = false
+cacheTtlMs = 86400000
+fetchTimeoutMs = 4000
+
+[eventStore]
+enabled = true
+path = "/path/to/events.db"
+
+[update]
+skipCheck = false
+cacheTtlMs = 3600000
+fetchTimeoutMs = 1000
 ```
 
 ## Precedence
@@ -107,7 +105,7 @@ Applied config values are printed on `stderr` as an `Active config:` block. Valu
 | `update.cacheTtlMs` | `LLM_USAGE_UPDATE_CACHE_TTL_MS` | Update-check cache TTL |
 | `update.fetchTimeoutMs` | `LLM_USAGE_UPDATE_FETCH_TIMEOUT_MS` | Update-check fetch timeout |
 
-There is no `--no-pricing-offline` flag. To force a one-off online pricing refresh while `pricing.offline: true` stays in the config, bypass the config for that run by pointing `LLM_USAGE_CONFIG_PATH` at a nonexistent file (a missing file loads an empty config) or edit the file:
+There is no `--no-pricing-offline` flag. To force a one-off online pricing refresh while `pricing.offline = true` stays in the config, bypass the config for that run by pointing `LLM_USAGE_CONFIG_PATH` at a nonexistent file (a missing file loads an empty config) or edit the file:
 
 ```bash
 LLM_USAGE_CONFIG_PATH=/nonexistent llm-usage monthly
@@ -119,7 +117,7 @@ Environment variables override the config file and are printed as an `Active env
 
 | Variable | Config key | Default | Notes |
 | --- | --- | --- | --- |
-| `LLM_USAGE_CONFIG_PATH` | n/a | platform config path | Points at a config JSON file |
+| `LLM_USAGE_CONFIG_PATH` | n/a | platform config path | Points at a config TOML file |
 | `LLM_USAGE_SKIP_UPDATE_CHECK` | `update.skipCheck` | unset (`false`) | Truthy values: `1`, `true`, `yes`, `on` |
 | `LLM_USAGE_UPDATE_CACHE_SCOPE` | n/a | `global` | `session` isolates update-check cache by session |
 | `LLM_USAGE_UPDATE_CACHE_SESSION_KEY` | n/a | unset | Stable key for session-scoped update cache |

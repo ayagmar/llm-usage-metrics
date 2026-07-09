@@ -470,38 +470,37 @@ pnpm run perf:production-benchmark -- \
 
 ## ⚙️ Configuration
 
-`llm-usage-metrics` reads persistent defaults from a JSON config file:
+`llm-usage-metrics` reads persistent defaults from a TOML config file:
 
 ```text
-<config-root>/llm-usage-metrics/config.json
+<config-root>/llm-usage-metrics/config.toml
 ```
 
-Set `LLM_USAGE_CONFIG_PATH=/path/to/config.json` to use a different file.
-Missing config files are ignored, malformed JSON fails with an actionable
+Run `llm-usage config init` to write a commented template. Set
+`LLM_USAGE_CONFIG_PATH=/path/to/config.toml` to use a different file.
+Missing config files are ignored, malformed TOML fails with an actionable
 error, and unknown keys are reported on `stderr`.
 
 Example:
 
-```json
-{
-  "$schema": "https://ayagmar.github.io/llm-usage-metrics/config-schema.json",
-  "timezone": "Africa/Casablanca",
-  "sources": ["codex", "claude"],
-  "sourceDirs": {
-    "codex": "/path/to/.codex/sessions",
-    "claude": "/path/to/.claude/projects"
-  },
-  "pricing": {
-    "offline": true
-  },
-  "eventStore": {
-    "enabled": true,
-    "path": "/path/to/events.db"
-  },
-  "parseMaxParallel": 8,
-  "parseWorkers": "auto",
-  "parseWorkerMinBytes": 268435456
-}
+```toml
+#:schema https://ayagmar.github.io/llm-usage-metrics/config-schema.json
+timezone = "Africa/Casablanca"
+sources = ["codex", "claude"]
+parseMaxParallel = 8
+parseWorkers = "auto"
+parseWorkerMinBytes = 268435456
+
+[sourceDirs]
+codex = "/path/to/.codex/sessions"
+claude = "/path/to/.claude/projects"
+
+[pricing]
+offline = true
+
+[eventStore]
+enabled = true
+path = "/path/to/events.db"
 ```
 
 Precedence is `CLI flags` → `environment variables` → `config file` →
