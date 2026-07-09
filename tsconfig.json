@@ -6,6 +6,7 @@
     "strict": true,
     "declaration": true,
     "esModuleInterop": true,
+    "ignoreDeprecations": "6.0",
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "outDir": "dist",
