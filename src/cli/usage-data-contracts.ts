@@ -338,6 +338,8 @@ export type BuildUsageDataDeps = {
   loadUserConfig?: () => Promise<LoadedUserConfig>;
   userConfigResolution?: UserConfigResolution;
   createAdapters?: (options: ReportCommandOptions) => SourceAdapter[];
+  openEventStore?: (filePath: string) => Promise<EventStore>;
+  closeEventStore?: (store: EventStore) => void;
   resolvePricingSource?: (
     options: ReportCommandOptions,
     runtimeConfig: PricingFetcherRuntimeConfig,

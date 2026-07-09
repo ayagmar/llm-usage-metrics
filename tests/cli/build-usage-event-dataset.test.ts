@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -181,6 +181,55 @@ describe('buildUsageEventDataset history', () => {
     expect(dataset.filteredEvents).toEqual([]);
     expect(dataset.warnings).toEqual([
       'History: included 0 event(s) from 0 departed file(s) (0 suppressed as moved or duplicated).',
+    ]);
+  });
+
+  it('opens the event store once across parsing and history loading', async () => {
+    const eventStorePath = await createEventStorePath();
+    const openEventStoreSpy = vi.fn(openEventStore);
+    const closeEventStoreSpy = vi.fn(closeEventStore);
+
+    const dataset = await buildUsageEventDataset(
+      { history: true, source: 'codex', timezone: 'UTC' },
+      {
+        ...createDatasetDeps(eventStorePath),
+        createAdapters: () => [createAdapter('codex', {})],
+        openEventStore: openEventStoreSpy,
+        closeEventStore: closeEventStoreSpy,
+      },
+    );
+
+    expect(dataset.filteredEvents).toEqual([]);
+    expect(dataset.warnings).toEqual([
+      'History: included 0 event(s) from 0 departed file(s) (0 suppressed as moved or duplicated).',
+    ]);
+    expect(openEventStoreSpy).toHaveBeenCalledTimes(1);
+    expect(openEventStoreSpy).toHaveBeenCalledWith(eventStorePath);
+    expect(closeEventStoreSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips history and warns when the event store cannot be opened', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-event-dataset-open-failure-'));
+    tempDirs.push(tempDir);
+    const eventStoreParentPath = path.join(tempDir, 'not-a-dir');
+    await writeFile(eventStoreParentPath, 'not a directory', 'utf8');
+    const eventStorePath = path.join(eventStoreParentPath, 'events.db');
+    const event = createEvent();
+    const loadHistoryEventsSpy = vi.fn(loadHistoryEvents);
+
+    const dataset = await buildUsageEventDataset(
+      { history: true, source: 'codex', timezone: 'UTC' },
+      {
+        ...createDatasetDeps(eventStorePath),
+        createAdapters: () => [createAdapter('codex', { '/tmp/codex.jsonl': [event] })],
+        loadHistoryEvents: loadHistoryEventsSpy,
+      },
+    );
+
+    expect(loadHistoryEventsSpy).not.toHaveBeenCalled();
+    expect(dataset.filteredEvents).toEqual([event]);
+    expect(dataset.warnings).toEqual([
+      `Event store disabled after failure: EEXIST: file already exists, mkdir '${eventStoreParentPath}'`,
     ]);
   });
 

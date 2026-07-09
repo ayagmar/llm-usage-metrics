@@ -60,6 +60,7 @@ export type ParsedAdaptersResult = {
 export type ParseSelectedAdaptersOptions = {
   eventStore?: EventStoreRuntimeConfig;
   eventStoreDeps?: EventStoreParseDeps;
+  openedStore?: EventStore;
   now?: () => number;
   parseWorkers?: ParseWorkerRuntimeOptions;
   runtimeProfile?: RuntimeProfileCollector;
@@ -699,12 +700,15 @@ export async function parseSelectedAdapters(
   const runWithParseBudget = createParseBudget(maxParallelFileParsing);
   const eventStoreFailureState: EventStoreFailureState = { disabled: false };
   let eventStoreContext: EventStoreParseContext | undefined;
+  let ownsEventStore = false;
 
   if (options.eventStore?.enabled) {
     try {
       const openEventStore = options.eventStoreDeps?.openEventStore ?? openDefaultEventStore;
+      const store = options.openedStore ?? (await openEventStore(options.eventStore.path));
+      ownsEventStore = options.openedStore === undefined;
       eventStoreContext = {
-        store: await openEventStore(options.eventStore.path),
+        store,
         getFileEntry: options.eventStoreDeps?.getFileEntry ?? getDefaultEventStoreFileEntry,
         readFileEvents: options.eventStoreDeps?.readFileEvents ?? readDefaultEventStoreFileEvents,
         replaceFileEvents: options.eventStoreDeps?.replaceFileEvents ?? replaceDefaultFileEvents,
@@ -743,7 +747,7 @@ export async function parseSelectedAdapters(
       ),
     );
   } finally {
-    if (eventStoreContext) {
+    if (eventStoreContext && ownsEventStore) {
       try {
         const closeEventStore = options.eventStoreDeps?.closeEventStore ?? closeDefaultEventStore;
         closeEventStore(eventStoreContext.store);

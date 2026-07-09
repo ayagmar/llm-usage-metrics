@@ -100,19 +100,6 @@ function appendHistoryEvents(
   });
 }
 
-async function withEventStore<T>(
-  filePath: string,
-  task: (store: EventStore) => T | Promise<T>,
-): Promise<T> {
-  const store = await openEventStore(filePath);
-
-  try {
-    return await task(store);
-  } finally {
-    closeEventStore(store);
-  }
-}
-
 export type UsageEventDataset = {
   options: ReportCommandOptions;
   normalizedInputs: ReturnType<typeof normalizeBuildUsageInputs>;
@@ -182,75 +169,119 @@ export async function buildUsageEventDataset(
     modelFilter: normalizedInputs.modelFilter,
   });
 
-  const { successfulParseResults, discoveredFiles, eventStoreAvailable, sourceFailures, warnings } =
-    await measureRuntimeProfileStage(runtimeProfile, 'usage.dataset.parse_adapters', () =>
-      parseSelectedAdapters(adaptersToParse, parsingRuntimeConfig.maxParallelFileParsing, {
-        eventStore: eventStoreRuntimeConfig,
-        parseWorkers: {
-          workerCount: parsingRuntimeConfig.parseWorkers,
-          minBytes: parsingRuntimeConfig.parseWorkerMinBytes,
-        },
-        runtimeProfile,
-      }),
+  let openedEventStore: EventStore | undefined;
+  let dataset: UsageEventDataset | undefined;
+
+  try {
+    let eventStoreOpenWarning: string | undefined;
+    const {
+      successfulParseResults,
+      discoveredFiles,
+      eventStoreAvailable,
+      sourceFailures,
+      warnings,
+    } = await measureRuntimeProfileStage(
+      runtimeProfile,
+      'usage.dataset.parse_adapters',
+      async () => {
+        let parseEventStoreRuntimeConfig = eventStoreRuntimeConfig;
+
+        if (eventStoreRuntimeConfig.enabled) {
+          try {
+            const openStore = deps.openEventStore ?? openEventStore;
+            openedEventStore = await openStore(eventStoreRuntimeConfig.path);
+          } catch (error) {
+            eventStoreOpenWarning = `Event store disabled after failure: ${getErrorReason(error)}`;
+            parseEventStoreRuntimeConfig = { ...eventStoreRuntimeConfig, enabled: false };
+          }
+        }
+
+        return parseSelectedAdapters(adaptersToParse, parsingRuntimeConfig.maxParallelFileParsing, {
+          eventStore: parseEventStoreRuntimeConfig,
+          openedStore: openedEventStore,
+          parseWorkers: {
+            workerCount: parsingRuntimeConfig.parseWorkers,
+            minBytes: parsingRuntimeConfig.parseWorkerMinBytes,
+          },
+          runtimeProfile,
+        });
+      },
     );
+    const parseWarnings = eventStoreOpenWarning ? [eventStoreOpenWarning, ...warnings] : warnings;
 
-  throwOnExplicitSourceFailures(sourceFailures, normalizedInputs.explicitSourceIds);
+    throwOnExplicitSourceFailures(sourceFailures, normalizedInputs.explicitSourceIds);
 
-  let parseResultsForFiltering = successfulParseResults;
-  const historyWarnings: string[] = [];
+    let parseResultsForFiltering = successfulParseResults;
+    const historyWarnings: string[] = [];
 
-  if (configuredOptions.history && eventStoreAvailable) {
-    const loadHistoryEvents = deps.loadHistoryEvents ?? loadDefaultHistoryEvents;
+    const historyStore = openedEventStore;
 
-    try {
-      const historyResult = await measureRuntimeProfileStage(
-        runtimeProfile,
-        'usage.dataset.history',
-        () =>
-          withEventStore(eventStoreRuntimeConfig.path, (store) =>
-            loadHistoryEvents(store, {
+    if (configuredOptions.history && eventStoreAvailable && historyStore) {
+      const loadHistoryEvents = deps.loadHistoryEvents ?? loadDefaultHistoryEvents;
+
+      try {
+        const historyResult = await measureRuntimeProfileStage(
+          runtimeProfile,
+          'usage.dataset.history',
+          async () =>
+            loadHistoryEvents(historyStore, {
               // Only successfully parsed sources: a failed source has an empty
               // discovered set, so all its stored files would look departed.
               selectedSources: successfulParseResults.map((result) => result.source),
               discoveredFiles,
             }),
-          ),
-      );
-      parseResultsForFiltering = appendHistoryEvents(
-        parseResultsForFiltering,
-        historyResult.events,
-      );
-      historyWarnings.push(formatHistoryWarning(historyResult));
-    } catch (error) {
-      historyWarnings.push(`Event store disabled after failure: ${getErrorReason(error)}`);
+        );
+        parseResultsForFiltering = appendHistoryEvents(
+          parseResultsForFiltering,
+          historyResult.events,
+        );
+        historyWarnings.push(formatHistoryWarning(historyResult));
+      } catch (error) {
+        historyWarnings.push(`Event store disabled after failure: ${getErrorReason(error)}`);
+      }
+    }
+
+    const filteredEvents = measureRuntimeProfileStageSync(
+      runtimeProfile,
+      'usage.dataset.filter_events',
+      () =>
+        filterParsedAdapterEvents(parseResultsForFiltering, {
+          timezone: normalizedInputs.timezone,
+          since: configuredOptions.since,
+          until: configuredOptions.until,
+          providerFilter: normalizedInputs.providerFilter,
+          modelFilter: normalizedInputs.modelFilter,
+        }),
+    );
+
+    dataset = {
+      options: configuredOptions,
+      normalizedInputs,
+      activeConfig,
+      adaptersToParse,
+      successfulParseResults: parseResultsForFiltering,
+      sourceFailures,
+      warnings: [
+        ...userConfigResolution.loadedConfig.warnings,
+        ...parseWarnings,
+        ...historyWarnings,
+      ],
+      filteredEvents,
+      pricingRuntimeConfig,
+      readEnvVarOverrides: deps.getActiveEnvVarOverrides ?? getActiveEnvVarOverrides,
+    };
+
+    return dataset;
+  } finally {
+    if (openedEventStore) {
+      try {
+        const closeStore = deps.closeEventStore ?? closeEventStore;
+        closeStore(openedEventStore);
+      } catch (error) {
+        dataset?.warnings.push(`Event store disabled after failure: ${getErrorReason(error)}`);
+      }
     }
   }
-
-  const filteredEvents = measureRuntimeProfileStageSync(
-    runtimeProfile,
-    'usage.dataset.filter_events',
-    () =>
-      filterParsedAdapterEvents(parseResultsForFiltering, {
-        timezone: normalizedInputs.timezone,
-        since: configuredOptions.since,
-        until: configuredOptions.until,
-        providerFilter: normalizedInputs.providerFilter,
-        modelFilter: normalizedInputs.modelFilter,
-      }),
-  );
-
-  return {
-    options: configuredOptions,
-    normalizedInputs,
-    activeConfig,
-    adaptersToParse,
-    successfulParseResults: parseResultsForFiltering,
-    sourceFailures,
-    warnings: [...userConfigResolution.loadedConfig.warnings, ...warnings, ...historyWarnings],
-    filteredEvents,
-    pricingRuntimeConfig,
-    readEnvVarOverrides: deps.getActiveEnvVarOverrides ?? getActiveEnvVarOverrides,
-  };
 }
 
 export async function applyPricingToUsageEventDataset(
