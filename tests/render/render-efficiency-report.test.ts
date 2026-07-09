@@ -290,9 +290,9 @@ describe('renderEfficiencyReport', () => {
       createEfficiencyDataResult({
         activeEnvOverrides: [
           {
-            name: 'LLM_USAGE_PARSE_MAX_PARALLEL',
-            value: '8',
-            description: 'max parallel file parsing',
+            name: 'LLM_USAGE_PARSE_WORKERS',
+            value: '0',
+            description: 'parse worker count',
           },
         ],
       }),
@@ -304,7 +304,7 @@ describe('renderEfficiencyReport', () => {
     );
 
     expect(output).not.toContain('Active environment overrides:');
-    expect(output).not.toContain('LLM_USAGE_PARSE_MAX_PARALLEL=8');
+    expect(output).not.toContain('LLM_USAGE_PARSE_WORKERS=0');
     expect(output).toContain('Monthly Efficiency Report');
   });
 

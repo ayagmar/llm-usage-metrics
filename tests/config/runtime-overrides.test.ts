@@ -23,7 +23,7 @@ describe('runtime overrides', () => {
       cacheTtlMs: 60 * 60 * 1000,
       fetchTimeoutMs: 1000,
     });
-    expect(getPricingFetcherRuntimeConfig(env)).toEqual({
+    expect(getPricingFetcherRuntimeConfig()).toEqual({
       cacheTtlMs: 24 * 60 * 60 * 1000,
       fetchTimeoutMs: 4000,
     });
@@ -40,11 +40,6 @@ describe('runtime overrides', () => {
 
   it('reads valid numeric overrides from env', () => {
     const env: NodeJS.ProcessEnv = {
-      LLM_USAGE_UPDATE_CACHE_TTL_MS: '7200000',
-      LLM_USAGE_UPDATE_FETCH_TIMEOUT_MS: '2500',
-      LLM_USAGE_PRICING_CACHE_TTL_MS: '1800000',
-      LLM_USAGE_PRICING_FETCH_TIMEOUT_MS: '5000',
-      LLM_USAGE_PARSE_MAX_PARALLEL: '16',
       LLM_USAGE_PARSE_WORKERS: '6',
       LLM_USAGE_PARSE_WORKER_MIN_BYTES: '1024',
       LLM_USAGE_EVENT_STORE: 'true',
@@ -54,15 +49,15 @@ describe('runtime overrides', () => {
 
     expect(getUpdateNotifierRuntimeConfig(env)).toEqual({
       skipCheck: true,
-      cacheTtlMs: 7_200_000,
-      fetchTimeoutMs: 2500,
+      cacheTtlMs: 60 * 60 * 1000,
+      fetchTimeoutMs: 1000,
     });
-    expect(getPricingFetcherRuntimeConfig(env)).toEqual({
-      cacheTtlMs: 1_800_000,
-      fetchTimeoutMs: 5000,
+    expect(getPricingFetcherRuntimeConfig()).toEqual({
+      cacheTtlMs: 24 * 60 * 60 * 1000,
+      fetchTimeoutMs: 4000,
     });
     expect(getParsingRuntimeConfig(env)).toEqual({
-      maxParallelFileParsing: 16,
+      maxParallelFileParsing: 8,
       parseWorkers: 6,
       parseWorkerMinBytes: 1024,
     });
@@ -74,26 +69,21 @@ describe('runtime overrides', () => {
 
   it('clamps out-of-range env values to safe bounds', () => {
     const env: NodeJS.ProcessEnv = {
-      LLM_USAGE_UPDATE_CACHE_TTL_MS: '-1',
-      LLM_USAGE_UPDATE_FETCH_TIMEOUT_MS: '999999',
-      LLM_USAGE_PRICING_CACHE_TTL_MS: '-1',
-      LLM_USAGE_PRICING_FETCH_TIMEOUT_MS: '1',
-      LLM_USAGE_PARSE_MAX_PARALLEL: '0',
       LLM_USAGE_PARSE_WORKERS: '-1',
       LLM_USAGE_PARSE_WORKER_MIN_BYTES: '-1',
     };
 
     expect(getUpdateNotifierRuntimeConfig(env)).toEqual({
       skipCheck: false,
-      cacheTtlMs: 0,
-      fetchTimeoutMs: 30_000,
+      cacheTtlMs: 60 * 60 * 1000,
+      fetchTimeoutMs: 1000,
     });
-    expect(getPricingFetcherRuntimeConfig(env)).toEqual({
-      cacheTtlMs: 60_000,
-      fetchTimeoutMs: 200,
+    expect(getPricingFetcherRuntimeConfig()).toEqual({
+      cacheTtlMs: 24 * 60 * 60 * 1000,
+      fetchTimeoutMs: 4000,
     });
     expect(getParsingRuntimeConfig(env)).toEqual({
-      maxParallelFileParsing: 1,
+      maxParallelFileParsing: 8,
       parseWorkers: 0,
       parseWorkerMinBytes: 0,
     });
@@ -101,11 +91,6 @@ describe('runtime overrides', () => {
 
   it('falls back for invalid non-numeric env values', () => {
     const env: NodeJS.ProcessEnv = {
-      LLM_USAGE_UPDATE_CACHE_TTL_MS: 'abc',
-      LLM_USAGE_UPDATE_FETCH_TIMEOUT_MS: '',
-      LLM_USAGE_PRICING_CACHE_TTL_MS: 'NaN',
-      LLM_USAGE_PRICING_FETCH_TIMEOUT_MS: 'Infinity',
-      LLM_USAGE_PARSE_MAX_PARALLEL: 'text',
       LLM_USAGE_PARSE_WORKERS: 'text',
       LLM_USAGE_PARSE_WORKER_MIN_BYTES: 'text',
     };
@@ -115,7 +100,7 @@ describe('runtime overrides', () => {
       cacheTtlMs: 60 * 60 * 1000,
       fetchTimeoutMs: 1000,
     });
-    expect(getPricingFetcherRuntimeConfig(env)).toEqual({
+    expect(getPricingFetcherRuntimeConfig()).toEqual({
       cacheTtlMs: 24 * 60 * 60 * 1000,
       fetchTimeoutMs: 4000,
     });
@@ -128,11 +113,6 @@ describe('runtime overrides', () => {
 
   it('rejects non-integer formats and uses defaults', () => {
     const env: NodeJS.ProcessEnv = {
-      LLM_USAGE_UPDATE_CACHE_TTL_MS: '1e6',
-      LLM_USAGE_UPDATE_FETCH_TIMEOUT_MS: '1000.5',
-      LLM_USAGE_PRICING_CACHE_TTL_MS: '0x100',
-      LLM_USAGE_PRICING_FETCH_TIMEOUT_MS: '2_000',
-      LLM_USAGE_PARSE_MAX_PARALLEL: '4.2',
       LLM_USAGE_PARSE_WORKERS: '4.2',
       LLM_USAGE_PARSE_WORKER_MIN_BYTES: '1e6',
     };
@@ -142,7 +122,7 @@ describe('runtime overrides', () => {
       cacheTtlMs: 60 * 60 * 1000,
       fetchTimeoutMs: 1000,
     });
-    expect(getPricingFetcherRuntimeConfig(env)).toEqual({
+    expect(getPricingFetcherRuntimeConfig()).toEqual({
       cacheTtlMs: 24 * 60 * 60 * 1000,
       fetchTimeoutMs: 4000,
     });
@@ -157,12 +137,8 @@ describe('runtime overrides', () => {
     expect(getEventStoreRuntimeConfig().enabled).toBe(false);
   });
 
-  it('accepts zero update cache ttl for per-run checks', () => {
-    const env: NodeJS.ProcessEnv = {
-      LLM_USAGE_UPDATE_CACHE_TTL_MS: '0',
-    };
-
-    expect(getUpdateNotifierRuntimeConfig(env)).toEqual({
+  it('accepts zero update cache ttl from config for per-run checks', () => {
+    expect(getUpdateNotifierRuntimeConfig({}, { update: { cacheTtlMs: 0 } })).toEqual({
       skipCheck: false,
       cacheTtlMs: 0,
       fetchTimeoutMs: 1000,
@@ -173,7 +149,6 @@ describe('runtime overrides', () => {
     expect(
       getUpdateNotifierRuntimeConfig(
         {
-          LLM_USAGE_UPDATE_CACHE_TTL_MS: '7200000',
           LLM_USAGE_SKIP_UPDATE_CHECK: '0',
         },
         {
@@ -186,29 +161,25 @@ describe('runtime overrides', () => {
       ),
     ).toEqual({
       skipCheck: false,
-      cacheTtlMs: 7_200_000,
+      cacheTtlMs: 2_000,
       fetchTimeoutMs: 500,
     });
 
     expect(
-      getPricingFetcherRuntimeConfig(
-        { LLM_USAGE_PRICING_CACHE_TTL_MS: '1800000' },
-        {
-          pricing: {
-            cacheTtlMs: 60_000,
-            fetchTimeoutMs: 5_000,
-          },
+      getPricingFetcherRuntimeConfig({
+        pricing: {
+          cacheTtlMs: 60_000,
+          fetchTimeoutMs: 5_000,
         },
-      ),
+      }),
     ).toEqual({
-      cacheTtlMs: 1_800_000,
+      cacheTtlMs: 60_000,
       fetchTimeoutMs: 5_000,
     });
 
     expect(
       getParsingRuntimeConfig(
         {
-          LLM_USAGE_PARSE_MAX_PARALLEL: '4',
           LLM_USAGE_PARSE_WORKERS: '2',
           LLM_USAGE_PARSE_WORKER_MIN_BYTES: '4096',
         },
@@ -219,7 +190,7 @@ describe('runtime overrides', () => {
         },
       ),
     ).toEqual({
-      maxParallelFileParsing: 4,
+      maxParallelFileParsing: 12,
       parseWorkers: 2,
       parseWorkerMinBytes: 4096,
     });

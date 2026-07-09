@@ -134,6 +134,18 @@ function pushRuntimeEntry(
   entries.push({ key, value: formatConfigValue(value) });
 }
 
+function pushConfigEntry(
+  entries: ActiveConfigEntry[],
+  key: string,
+  value: boolean | number | string | undefined,
+): void {
+  if (value === undefined) {
+    return;
+  }
+
+  entries.push({ key, value: formatConfigValue(value) });
+}
+
 export function collectRuntimeConfigEntries(
   loadedConfig: LoadedUserConfig,
   env: NodeJS.ProcessEnv = process.env,
@@ -145,20 +157,8 @@ export function collectRuntimeConfigEntries(
   const config = loadedConfig.config;
   const entries: ActiveConfigEntry[] = [];
 
-  pushRuntimeEntry(
-    entries,
-    env,
-    'LLM_USAGE_PRICING_CACHE_TTL_MS',
-    'pricing.cacheTtlMs',
-    config.pricing?.cacheTtlMs,
-  );
-  pushRuntimeEntry(
-    entries,
-    env,
-    'LLM_USAGE_PRICING_FETCH_TIMEOUT_MS',
-    'pricing.fetchTimeoutMs',
-    config.pricing?.fetchTimeoutMs,
-  );
+  pushConfigEntry(entries, 'pricing.cacheTtlMs', config.pricing?.cacheTtlMs);
+  pushConfigEntry(entries, 'pricing.fetchTimeoutMs', config.pricing?.fetchTimeoutMs);
   pushRuntimeEntry(
     entries,
     env,
@@ -173,13 +173,7 @@ export function collectRuntimeConfigEntries(
     'eventStore.path',
     config.eventStore?.path,
   );
-  pushRuntimeEntry(
-    entries,
-    env,
-    'LLM_USAGE_PARSE_MAX_PARALLEL',
-    'parseMaxParallel',
-    config.parseMaxParallel,
-  );
+  pushConfigEntry(entries, 'parseMaxParallel', config.parseMaxParallel);
   pushRuntimeEntry(entries, env, 'LLM_USAGE_PARSE_WORKERS', 'parseWorkers', config.parseWorkers);
   pushRuntimeEntry(
     entries,
@@ -195,20 +189,8 @@ export function collectRuntimeConfigEntries(
     'update.skipCheck',
     config.update?.skipCheck,
   );
-  pushRuntimeEntry(
-    entries,
-    env,
-    'LLM_USAGE_UPDATE_CACHE_TTL_MS',
-    'update.cacheTtlMs',
-    config.update?.cacheTtlMs,
-  );
-  pushRuntimeEntry(
-    entries,
-    env,
-    'LLM_USAGE_UPDATE_FETCH_TIMEOUT_MS',
-    'update.fetchTimeoutMs',
-    config.update?.fetchTimeoutMs,
-  );
+  pushConfigEntry(entries, 'update.cacheTtlMs', config.update?.cacheTtlMs);
+  pushConfigEntry(entries, 'update.fetchTimeoutMs', config.update?.fetchTimeoutMs);
 
   return entries;
 }

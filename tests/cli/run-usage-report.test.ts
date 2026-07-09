@@ -9,20 +9,20 @@ import { buildUsageReport, runUsageReport } from '../../src/cli/run-usage-report
 import { overrideStdoutTty } from '../helpers/stdout.js';
 
 const tempDirs: string[] = [];
-const originalParseMaxParallel = process.env.LLM_USAGE_PARSE_MAX_PARALLEL;
+const originalParseWorkers = process.env.LLM_USAGE_PARSE_WORKERS;
 const directoryBackedSources = 'pi,codex';
 
-function restoreParseMaxParallel(): void {
-  if (originalParseMaxParallel === undefined) {
-    delete process.env.LLM_USAGE_PARSE_MAX_PARALLEL;
+function restoreParseWorkers(): void {
+  if (originalParseWorkers === undefined) {
+    delete process.env.LLM_USAGE_PARSE_WORKERS;
     return;
   }
 
-  process.env.LLM_USAGE_PARSE_MAX_PARALLEL = originalParseMaxParallel;
+  process.env.LLM_USAGE_PARSE_WORKERS = originalParseWorkers;
 }
 
 beforeEach(() => {
-  restoreParseMaxParallel();
+  restoreParseWorkers();
   vi.spyOn(shareArtifact, 'writeAndOpenShareSvgFile').mockImplementation(
     async (fileName, svgContent) => ({
       outputPath: await shareArtifact.writeShareSvgFile(fileName, svgContent),
@@ -35,7 +35,7 @@ afterEach(async () => {
   await Promise.all(tempDirs.map((tempDir) => rm(tempDir, { recursive: true, force: true })));
   tempDirs.length = 0;
 
-  restoreParseMaxParallel();
+  restoreParseWorkers();
   vi.unstubAllGlobals();
 });
 
@@ -284,7 +284,7 @@ describe('buildUsageReport', () => {
     const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'usage-terminal-output-'));
     tempDirs.push(emptyDir);
 
-    process.env.LLM_USAGE_PARSE_MAX_PARALLEL = '8';
+    process.env.LLM_USAGE_PARSE_WORKERS = '0';
 
     const report = await buildUsageReport('monthly', {
       piDir: emptyDir,
@@ -294,7 +294,7 @@ describe('buildUsageReport', () => {
     });
 
     expect(report).not.toContain('Active environment overrides:');
-    expect(report).not.toContain('LLM_USAGE_PARSE_MAX_PARALLEL=8');
+    expect(report).not.toContain('LLM_USAGE_PARSE_WORKERS=0');
     expect(report).toContain('Monthly Token Usage Report');
     expect(report).not.toContain('Timezone');
     expect(report).toContain('│ Period');
@@ -484,7 +484,7 @@ describe('buildUsageReport', () => {
   it('emits active environment overrides to stderr diagnostics in runUsageReport', async () => {
     const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'usage-run-env-overrides-'));
     tempDirs.push(emptyDir);
-    process.env.LLM_USAGE_PARSE_MAX_PARALLEL = '8';
+    process.env.LLM_USAGE_PARSE_WORKERS = '0';
 
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -500,9 +500,7 @@ describe('buildUsageReport', () => {
       expect(String(logSpy.mock.calls[0]?.[0])).not.toContain('Active environment overrides:');
       const stderrLines = errorSpy.mock.calls.map((call) => String(call[0]));
       expect(stderrLines.some((line) => line.includes('Active environment overrides:'))).toBe(true);
-      expect(stderrLines.some((line) => line.includes('LLM_USAGE_PARSE_MAX_PARALLEL=8'))).toBe(
-        true,
-      );
+      expect(stderrLines.some((line) => line.includes('LLM_USAGE_PARSE_WORKERS=0'))).toBe(true);
     } finally {
       errorSpy.mockRestore();
       logSpy.mockRestore();

@@ -112,9 +112,9 @@ const sampleUsageData: UsageDataResult = {
     pricingOrigin: 'cache',
     activeEnvOverrides: [
       {
-        name: 'LLM_USAGE_PARSE_MAX_PARALLEL',
-        value: '8',
-        description: 'max parallel file parsing',
+        name: 'LLM_USAGE_PARSE_WORKERS',
+        value: '0',
+        description: 'parse worker count',
       },
     ],
     timezone: 'UTC',
@@ -129,7 +129,7 @@ describe('renderUsageReport', () => {
     });
 
     expect(rendered).not.toContain('Active environment overrides:');
-    expect(rendered).not.toContain('LLM_USAGE_PARSE_MAX_PARALLEL=8');
+    expect(rendered).not.toContain('LLM_USAGE_PARSE_WORKERS=0');
     expect(rendered).toContain('Monthly Token Usage Report');
     expect(rendered).not.toContain('Timezone');
     expect(rendered).toContain('│ Period');

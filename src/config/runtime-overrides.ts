@@ -105,50 +105,33 @@ export function getUpdateNotifierRuntimeConfig(
 ): UpdateNotifierRuntimeConfig {
   return {
     skipCheck: resolveBoolean(env.LLM_USAGE_SKIP_UPDATE_CHECK, config.update?.skipCheck ?? false),
-    cacheTtlMs: resolveBoundedInteger(
-      env.LLM_USAGE_UPDATE_CACHE_TTL_MS,
-      config.update?.cacheTtlMs,
-      {
-        fallback: UPDATE_CACHE_TTL_DEFAULT_MS,
-        min: 0,
-        max: 30 * DAY_MS,
-      },
-    ),
-    fetchTimeoutMs: resolveBoundedInteger(
-      env.LLM_USAGE_UPDATE_FETCH_TIMEOUT_MS,
-      config.update?.fetchTimeoutMs,
-      {
-        fallback: UPDATE_FETCH_TIMEOUT_DEFAULT_MS,
-        min: 200,
-        max: 30_000,
-      },
-    ),
+    cacheTtlMs: resolveBoundedInteger(undefined, config.update?.cacheTtlMs, {
+      fallback: UPDATE_CACHE_TTL_DEFAULT_MS,
+      min: 0,
+      max: 30 * DAY_MS,
+    }),
+    fetchTimeoutMs: resolveBoundedInteger(undefined, config.update?.fetchTimeoutMs, {
+      fallback: UPDATE_FETCH_TIMEOUT_DEFAULT_MS,
+      min: 200,
+      max: 30_000,
+    }),
   };
 }
 
 export function getPricingFetcherRuntimeConfig(
-  env: NodeJS.ProcessEnv = process.env,
   config: UserConfig = {},
 ): PricingFetcherRuntimeConfig {
   return {
-    cacheTtlMs: resolveBoundedInteger(
-      env.LLM_USAGE_PRICING_CACHE_TTL_MS,
-      config.pricing?.cacheTtlMs,
-      {
-        fallback: PRICING_CACHE_TTL_DEFAULT_MS,
-        min: MINUTE_MS,
-        max: 30 * DAY_MS,
-      },
-    ),
-    fetchTimeoutMs: resolveBoundedInteger(
-      env.LLM_USAGE_PRICING_FETCH_TIMEOUT_MS,
-      config.pricing?.fetchTimeoutMs,
-      {
-        fallback: PRICING_FETCH_TIMEOUT_DEFAULT_MS,
-        min: 200,
-        max: 30_000,
-      },
-    ),
+    cacheTtlMs: resolveBoundedInteger(undefined, config.pricing?.cacheTtlMs, {
+      fallback: PRICING_CACHE_TTL_DEFAULT_MS,
+      min: MINUTE_MS,
+      max: 30 * DAY_MS,
+    }),
+    fetchTimeoutMs: resolveBoundedInteger(undefined, config.pricing?.fetchTimeoutMs, {
+      fallback: PRICING_FETCH_TIMEOUT_DEFAULT_MS,
+      min: 200,
+      max: 30_000,
+    }),
   };
 }
 
@@ -184,15 +167,11 @@ export function getParsingRuntimeConfig(
   config: UserConfig = {},
 ): ParsingRuntimeConfig {
   return {
-    maxParallelFileParsing: resolveBoundedInteger(
-      env.LLM_USAGE_PARSE_MAX_PARALLEL,
-      config.parseMaxParallel,
-      {
-        fallback: PARSE_MAX_PARALLEL_DEFAULT,
-        min: 1,
-        max: 64,
-      },
-    ),
+    maxParallelFileParsing: resolveBoundedInteger(undefined, config.parseMaxParallel, {
+      fallback: PARSE_MAX_PARALLEL_DEFAULT,
+      min: 1,
+      max: 64,
+    }),
     parseWorkers: resolveParseWorkers(env.LLM_USAGE_PARSE_WORKERS, config.parseWorkers),
     parseWorkerMinBytes: resolveBoundedInteger(
       env.LLM_USAGE_PARSE_WORKER_MIN_BYTES,

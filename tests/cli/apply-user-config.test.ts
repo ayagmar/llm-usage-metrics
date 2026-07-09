@@ -81,7 +81,7 @@ describe('applyUserConfigToReportOptions', () => {
     ]);
   });
 
-  it('omits active runtime config entries shadowed by env vars', () => {
+  it('omits active runtime config entries shadowed by kept env vars', () => {
     const loadedConfig = createLoadedConfig({
       pricing: {
         cacheTtlMs: 60_000,
@@ -94,19 +94,25 @@ describe('applyUserConfigToReportOptions', () => {
       parseMaxParallel: 12,
       parseWorkers: 4,
       parseWorkerMinBytes: 1024,
+      update: {
+        cacheTtlMs: 2_000,
+        fetchTimeoutMs: 500,
+      },
     });
 
     expect(
       collectRuntimeConfigEntries(loadedConfig, {
-        LLM_USAGE_PRICING_CACHE_TTL_MS: '1800000',
         LLM_USAGE_EVENT_STORE_PATH: '/tmp/env-events.db',
         LLM_USAGE_PARSE_WORKERS: '2',
       }),
     ).toEqual([
+      { key: 'pricing.cacheTtlMs', value: '60000' },
       { key: 'pricing.fetchTimeoutMs', value: '5000' },
       { key: 'eventStore.enabled', value: 'true' },
       { key: 'parseMaxParallel', value: '12' },
       { key: 'parseWorkerMinBytes', value: '1024' },
+      { key: 'update.cacheTtlMs', value: '2000' },
+      { key: 'update.fetchTimeoutMs', value: '500' },
     ]);
   });
 

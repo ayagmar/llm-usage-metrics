@@ -519,11 +519,6 @@ overrides.
 | ------------------------------------ | ----------------------------- |
 | `LLM_USAGE_CONFIG_PATH`              | Selects the config file       |
 | `LLM_USAGE_SKIP_UPDATE_CHECK`        | `update.skipCheck`            |
-| `LLM_USAGE_UPDATE_CACHE_TTL_MS`      | `update.cacheTtlMs`           |
-| `LLM_USAGE_UPDATE_FETCH_TIMEOUT_MS`  | `update.fetchTimeoutMs`       |
-| `LLM_USAGE_PRICING_CACHE_TTL_MS`     | `pricing.cacheTtlMs`          |
-| `LLM_USAGE_PRICING_FETCH_TIMEOUT_MS` | `pricing.fetchTimeoutMs`      |
-| `LLM_USAGE_PARSE_MAX_PARALLEL`       | `parseMaxParallel`            |
 | `LLM_USAGE_PARSE_WORKERS`            | `parseWorkers`                |
 | `LLM_USAGE_PARSE_WORKER_MIN_BYTES`   | `parseWorkerMinBytes`         |
 | `LLM_USAGE_EVENT_STORE`              | `eventStore.enabled`          |

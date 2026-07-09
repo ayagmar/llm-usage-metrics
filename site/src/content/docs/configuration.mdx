@@ -96,16 +96,16 @@ Applied config values are printed on `stderr` as an `Active config:` block. Valu
 | `pricing.url` | `--pricing-url` | LiteLLM pricing source URL |
 | `pricing.overridesPath` | `--pricing-overrides` | JSON pricing overrides path |
 | `pricing.ignoreFailures` | `--ignore-pricing-failures` | Continue without estimated costs when pricing cannot load |
-| `pricing.cacheTtlMs` | `LLM_USAGE_PRICING_CACHE_TTL_MS` | Pricing cache TTL |
-| `pricing.fetchTimeoutMs` | `LLM_USAGE_PRICING_FETCH_TIMEOUT_MS` | Pricing fetch timeout |
+| `pricing.cacheTtlMs` | Config only | Pricing cache TTL |
+| `pricing.fetchTimeoutMs` | Config only | Pricing fetch timeout |
 | `eventStore.enabled` | `LLM_USAGE_EVENT_STORE` | Enable SQLite event-store reuse |
 | `eventStore.path` | `LLM_USAGE_EVENT_STORE_PATH` | SQLite event-store path |
-| `parseMaxParallel` | `LLM_USAGE_PARSE_MAX_PARALLEL` | Max parallel file parses |
+| `parseMaxParallel` | Config only | Max parallel file parses |
 | `parseWorkers` | `LLM_USAGE_PARSE_WORKERS` | Worker-thread parser count for large JSONL misses |
 | `parseWorkerMinBytes` | `LLM_USAGE_PARSE_WORKER_MIN_BYTES` | Missed-file byte threshold before workers engage |
 | `update.skipCheck` | `LLM_USAGE_SKIP_UPDATE_CHECK` | Skip startup update checks |
-| `update.cacheTtlMs` | `LLM_USAGE_UPDATE_CACHE_TTL_MS` | Update-check cache TTL |
-| `update.fetchTimeoutMs` | `LLM_USAGE_UPDATE_FETCH_TIMEOUT_MS` | Update-check fetch timeout |
+| `update.cacheTtlMs` | Config only | Update-check cache TTL |
+| `update.fetchTimeoutMs` | Config only | Update-check fetch timeout |
 
 There is no `--no-pricing-offline` flag. To force a one-off online pricing refresh while `pricing.offline = true` stays in the config, bypass the config for that run by pointing `LLM_USAGE_CONFIG_PATH` at a nonexistent file (a missing file loads an empty config) or edit the file:
 
@@ -123,11 +123,6 @@ Environment variables override the config file and are printed as an `Active env
 | `LLM_USAGE_SKIP_UPDATE_CHECK` | `update.skipCheck` | unset (`false`) | Truthy values: `1`, `true`, `yes`, `on` |
 | `LLM_USAGE_UPDATE_CACHE_SCOPE` | n/a | `global` | `session` isolates update-check cache by session |
 | `LLM_USAGE_UPDATE_CACHE_SESSION_KEY` | n/a | unset | Stable key for session-scoped update cache |
-| `LLM_USAGE_UPDATE_CACHE_TTL_MS` | `update.cacheTtlMs` | `3600000` | Clamps to `0..2592000000` |
-| `LLM_USAGE_UPDATE_FETCH_TIMEOUT_MS` | `update.fetchTimeoutMs` | `1000` | Clamps to `200..30000` |
-| `LLM_USAGE_PRICING_CACHE_TTL_MS` | `pricing.cacheTtlMs` | `86400000` | Clamps to `60000..2592000000` |
-| `LLM_USAGE_PRICING_FETCH_TIMEOUT_MS` | `pricing.fetchTimeoutMs` | `4000` | Clamps to `200..30000` |
-| `LLM_USAGE_PARSE_MAX_PARALLEL` | `parseMaxParallel` | `8` | Clamps to `1..64` |
 | `LLM_USAGE_PARSE_WORKERS` | `parseWorkers` | `auto` | `auto` or integer `0..64`; `0` disables workers |
 | `LLM_USAGE_PARSE_WORKER_MIN_BYTES` | `parseWorkerMinBytes` | `268435456` | Clamps to `0..9007199254740991` |
 | `LLM_USAGE_EVENT_STORE` | `eventStore.enabled` | `1` (`true`) | Set `0` to disable the store |
@@ -139,7 +134,7 @@ Environment variables override the config file and are printed as an `Active env
 Example:
 
 ```bash
-LLM_USAGE_PARSE_MAX_PARALLEL=16 LLM_USAGE_PARSE_WORKERS=4 LLM_USAGE_PRICING_FETCH_TIMEOUT_MS=8000 llm-usage monthly
+LLM_USAGE_PARSE_WORKERS=4 LLM_USAGE_EVENT_STORE=0 llm-usage monthly
 ```
 
 Benchmarking-focused example:

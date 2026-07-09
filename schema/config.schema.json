@@ -123,14 +123,14 @@
           "default": false
         },
         "cacheTtlMs": {
-          "description": "Pricing cache TTL in milliseconds; maps to LLM_USAGE_PRICING_CACHE_TTL_MS and clamps to 60000..2592000000.",
+          "description": "Pricing cache TTL in milliseconds; clamps to 60000..2592000000.",
           "type": "integer",
           "default": 86400000,
           "minimum": 60000,
           "maximum": 2592000000
         },
         "fetchTimeoutMs": {
-          "description": "Pricing fetch timeout in milliseconds; maps to LLM_USAGE_PRICING_FETCH_TIMEOUT_MS and clamps to 200..30000.",
+          "description": "Pricing fetch timeout in milliseconds; clamps to 200..30000.",
           "type": "integer",
           "default": 4000,
           "minimum": 200,
@@ -155,7 +155,7 @@
       }
     },
     "parseMaxParallel": {
-      "description": "Maximum parallel file parsing; maps to LLM_USAGE_PARSE_MAX_PARALLEL and clamps to 1..64.",
+      "description": "Maximum parallel file parsing; clamps to 1..64.",
       "type": "integer",
       "default": 8,
       "minimum": 1,
@@ -194,14 +194,14 @@
           "default": false
         },
         "cacheTtlMs": {
-          "description": "Update-check cache TTL in milliseconds; maps to LLM_USAGE_UPDATE_CACHE_TTL_MS and clamps to 0..2592000000.",
+          "description": "Update-check cache TTL in milliseconds; clamps to 0..2592000000.",
           "type": "integer",
           "default": 3600000,
           "minimum": 0,
           "maximum": 2592000000
         },
         "fetchTimeoutMs": {
-          "description": "Update-check fetch timeout in milliseconds; maps to LLM_USAGE_UPDATE_FETCH_TIMEOUT_MS and clamps to 200..30000.",
+          "description": "Update-check fetch timeout in milliseconds; clamps to 200..30000.",
           "type": "integer",
           "default": 1000,
           "minimum": 200,

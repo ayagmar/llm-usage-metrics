@@ -105,18 +105,13 @@ pnpm run perf:production-benchmark -- \
 
 ## Runtime configuration in development
 
-The CLI reads runtime knobs directly from environment variables (no `.env` auto-loading in runtime).
+The CLI reads per-run seams from environment variables (no `.env` auto-loading in runtime). Persistent tuning lives in `config.toml`.
 
 Common variables:
 
 - `LLM_USAGE_SKIP_UPDATE_CHECK=1`
 - `LLM_USAGE_UPDATE_CACHE_SCOPE=session`
 - `LLM_USAGE_UPDATE_CACHE_SESSION_KEY=...`
-- `LLM_USAGE_UPDATE_CACHE_TTL_MS=...`
-- `LLM_USAGE_UPDATE_FETCH_TIMEOUT_MS=...`
-- `LLM_USAGE_PRICING_CACHE_TTL_MS=...`
-- `LLM_USAGE_PRICING_FETCH_TIMEOUT_MS=...`
-- `LLM_USAGE_PARSE_MAX_PARALLEL=...`
 - `LLM_USAGE_PARSE_WORKERS=...`
 - `LLM_USAGE_PARSE_WORKER_MIN_BYTES=...`
 - `LLM_USAGE_EVENT_STORE=0` disables the default-on SQLite event store

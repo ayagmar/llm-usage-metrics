@@ -206,8 +206,8 @@ describe('runEfficiencyReport', () => {
     const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'efficiency-env-overrides-sessions-'));
     tempDirs.push(emptyDir);
 
-    const previousEnvValue = process.env.LLM_USAGE_PARSE_MAX_PARALLEL;
-    process.env.LLM_USAGE_PARSE_MAX_PARALLEL = '8';
+    const previousEnvValue = process.env.LLM_USAGE_PARSE_WORKERS;
+    process.env.LLM_USAGE_PARSE_WORKERS = '0';
 
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -224,16 +224,16 @@ describe('runEfficiencyReport', () => {
       });
     } finally {
       if (previousEnvValue === undefined) {
-        delete process.env.LLM_USAGE_PARSE_MAX_PARALLEL;
+        delete process.env.LLM_USAGE_PARSE_WORKERS;
       } else {
-        process.env.LLM_USAGE_PARSE_MAX_PARALLEL = previousEnvValue;
+        process.env.LLM_USAGE_PARSE_WORKERS = previousEnvValue;
       }
     }
 
     expect(String(consoleLogSpy.mock.calls[0]?.[0])).not.toContain('Active environment overrides:');
     const stderrLines = consoleErrorSpy.mock.calls.map((call) => String(call[0]));
     expect(stderrLines.some((line) => line.includes('Active environment overrides:'))).toBe(true);
-    expect(stderrLines.some((line) => line.includes('LLM_USAGE_PARSE_MAX_PARALLEL=8'))).toBe(true);
+    expect(stderrLines.some((line) => line.includes('LLM_USAGE_PARSE_WORKERS=0'))).toBe(true);
   });
 
   it('writes monthly efficiency share svg when --share is enabled', async () => {

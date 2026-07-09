@@ -55,9 +55,9 @@ describe('report-lifecycle', () => {
           diagnostics: {
             activeEnvOverrides: [
               {
-                name: 'LLM_USAGE_PARSE_MAX_PARALLEL',
-                value: '4',
-                description: 'max parallel file parsing',
+                name: 'LLM_USAGE_PARSE_WORKERS',
+                value: '0',
+                description: 'parse worker count',
               },
             ],
             activeConfig: {
@@ -82,7 +82,7 @@ describe('report-lifecycle', () => {
       expect(configHeaderIndex).toBeGreaterThan(envHeaderIndex);
       expect(
         stderrLines.some((line) =>
-          line.includes('LLM_USAGE_PARSE_MAX_PARALLEL=4  (max parallel file parsing)'),
+          line.includes('LLM_USAGE_PARSE_WORKERS=0  (parse worker count)'),
         ),
       ).toBe(true);
       expect(stderrLines.some((line) => line.includes('sources=codex'))).toBe(true);

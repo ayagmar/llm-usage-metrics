@@ -329,7 +329,6 @@ export type BuildUsageDataDeps = {
     config?: LoadedUserConfig['config'],
   ) => ParsingRuntimeConfig;
   getPricingFetcherRuntimeConfig?: (
-    env?: NodeJS.ProcessEnv,
     config?: LoadedUserConfig['config'],
   ) => PricingFetcherRuntimeConfig;
   getEventStoreRuntimeConfig?: (
