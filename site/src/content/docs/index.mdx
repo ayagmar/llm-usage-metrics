@@ -6,7 +6,57 @@ tableOfContents: false
 
 import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 
-Welcome to the `llm-usage-metrics` documentation. This high-performance CLI tool provides deep visibility into your local AI development costs by aggregating usage across pi, codex, Gemini CLI, Droid CLI, OpenCode, OpenClaw, Claude Code, GitHub Copilot CLI, Goose, Amp, Qwen CLI, Kimi, Cline, RooCode, and KiloCode sessions.
+`llm-usage-metrics` is a local-first CLI that aggregates token usage and estimated cost across 16 coding agents with zero configuration. Everything runs on your machine: session files in, reports out. Pricing works fully offline from a bundled LiteLLM snapshot.
+
+## What it does
+
+- **16 sources, zero-config discovery** — Claude Code, codex, Gemini CLI, Copilot CLI, Cline, Goose, and more, each with an explicit path override.
+- **Reports** — `daily` / `weekly` / `monthly`, `compare` (period vs period), `trends`, `session` (per-conversation cost), `wrapped` (yearly recap), `efficiency` (git-attributed cost per commit), `optimize` (counterfactual model pricing), `doctor`, `prune`.
+- **SQLite event-store ledger** — warm re-runs skip reparsing, `--history` reports files that left the disk, content-hash move suppression, and explicit `prune` maintenance.
+- **TOML config** — `llm-usage config init` writes a commented-defaults template with a published JSON schema; precedence is flags → env → config → defaults, with `logLevel` and `--quiet`.
+- **Offline-first pricing** — LiteLLM pricing resolves cache → network → stale cache → bundled snapshot.
+- **Output** — terminal tables, JSON, Markdown, and share SVGs (usage, trends, wrapped, efficiency, optimize).
+- **Measured performance** — cold runs parse a 1.8 GiB codex corpus in ~1.7 s; warm runs return in ~0.26 s (claude) to ~1.0 s (codex) on the same data. See [Benchmarks](/benchmarks/) for methodology.
+
+## Quick Start
+
+```bash
+# Install globally (or run via: npx llm-usage-metrics@latest daily)
+npm install -g llm-usage-metrics
+
+# First report
+llm-usage daily
+
+# Persist defaults in a commented TOML template
+llm-usage config init
+
+# Dig deeper
+llm-usage session
+llm-usage compare
+```
+
+## Supported sources
+
+| Source      | Reads from                                                     |
+| ----------- | -------------------------------------------------------------- |
+| pi          | `~/.pi/agent/sessions` JSONL (+ `~/.omp/agent/sessions`)       |
+| codex       | `~/.codex/sessions` JSONL                                      |
+| Gemini CLI  | `~/.gemini/tmp/*/chats` JSON                                   |
+| Droid CLI   | `~/.factory/sessions` settings JSON                            |
+| OpenCode    | `~/.local/share/opencode` SQLite DB                            |
+| OpenClaw    | `~/.openclaw/agents` JSONL (+ legacy homes)                    |
+| Claude Code | `~/.claude/{projects,transcripts}` JSONL                       |
+| Copilot CLI | `~/.copilot/otel` OTEL JSONL                                   |
+| Goose       | `~/.local/share/goose/sessions` SQLite DB                      |
+| Amp         | `~/.local/share/amp/threads` JSON                              |
+| Qwen CLI    | `~/.qwen/projects/*/chats` JSONL                               |
+| Kimi        | `~/.kimi` / `~/.kimi-code` wire JSONL                          |
+| Cline       | VS Code global storage task files                              |
+| RooCode     | VS Code global storage task files                              |
+| KiloCode    | VS Code global storage task files                              |
+| Antigravity | `~/.gemini/antigravity-cli/conversations` SQLite DBs           |
+
+SQLite-backed sources (OpenCode, Goose, Antigravity) require Node.js 24+ with built-in `node:sqlite`.
 
 ## Quick Navigation
 
@@ -17,8 +67,23 @@ Welcome to the `llm-usage-metrics` documentation. This high-performance CLI tool
     href="/llm-usage-metrics/getting-started/"
   />
   <LinkCard
+    title="CLI Reference"
+    description="Complete command and option reference."
+    href="/llm-usage-metrics/cli-reference/"
+  />
+  <LinkCard
+    title="Data Sources"
+    description="Discovery details and override flags for all 16 source adapters."
+    href="/llm-usage-metrics/sources/"
+  />
+  <LinkCard
+    title="Configuration"
+    description="The TOML config file, llm-usage config init, and every key."
+    href="/llm-usage-metrics/configuration/"
+  />
+  <LinkCard
     title="Efficiency"
-    description="The industry's first tool to correlate Git outcomes with LLM costs."
+    description="Correlate Git outcomes with LLM costs in your repositories."
     href="/llm-usage-metrics/efficiency/"
   />
   <LinkCard
@@ -27,9 +92,14 @@ Welcome to the `llm-usage-metrics` documentation. This high-performance CLI tool
     href="/llm-usage-metrics/optimize/"
   />
   <LinkCard
-    title="Trends"
-    description="See daily cost or token movement over time, combined or by source."
-    href="/llm-usage-metrics/trends/"
+    title="Sessions"
+    description="Per-conversation cost, grouped by session or repository."
+    href="/llm-usage-metrics/session/"
+  />
+  <LinkCard
+    title="Wrapped"
+    description="A yearly usage recap with an optional share SVG."
+    href="/llm-usage-metrics/wrapped/"
   />
   <LinkCard
     title="Benchmarks"
@@ -37,19 +107,9 @@ Welcome to the `llm-usage-metrics` documentation. This high-performance CLI tool
     href="/llm-usage-metrics/benchmarks/"
   />
   <LinkCard
-    title="CLI Reference"
-    description="Complete command and option reference for power users."
-    href="/llm-usage-metrics/cli-reference/"
-  />
-  <LinkCard
-    title="Data Sources"
-    description="Technical details on pi, codex, Gemini CLI, Droid CLI, OpenCode, OpenClaw, Claude Code, Copilot, Goose, Amp, Qwen, Kimi, Cline, RooCode, and KiloCode adapters."
-    href="/llm-usage-metrics/sources/"
-  />
-  <LinkCard
-    title="Configuration"
-    description="Tune performance and caching for enterprise workloads."
-    href="/llm-usage-metrics/configuration/"
+    title="Architecture"
+    description="How parsing, pricing, and the event store fit together."
+    href="/llm-usage-metrics/architecture/"
   />
   <LinkCard
     title="Security"
@@ -58,38 +118,13 @@ Welcome to the `llm-usage-metrics` documentation. This high-performance CLI tool
   />
 </CardGrid>
 
-## Engine Overview
-
-`llm-usage-metrics` is built for engineers who need precise, local-first auditing of their AI workflows:
-
-- **Universal Parsing**: Autonomously discovers and parses `.pi`, `.codex`, `.gemini`, `.factory`, OpenCode, OpenClaw, `.claude`, Copilot, Goose, Amp, Qwen, Kimi, Cline, RooCode, KiloCode, and Antigravity session data.
-  OpenCode parsing requires Node.js 24+ with built-in `node:sqlite`.
-- **LiteLLM Integration**: Applies real-time pricing models to local events for accurate USD estimation, with a bundled snapshot for fully offline runs.
-- **Git Attribution**: Optionally joins usage with local Git history to derive true ROI metrics (Cost per Commit, Tokens per Line).
-- **Local Event Store**: Ingests parsed events into a private SQLite ledger for fast re-runs, and `--history` reports usage from session files that are no longer on disk.
-
-## Quick Start
-
-```bash
-# Install globally
-npm install -g llm-usage-metrics
-
-# Or run instantly via npx
-npx llm-usage-metrics@latest daily
-```
-
 ## Key Commands
 
 ```bash
-# Standard daily report
 llm-usage daily
-
-# Deep efficiency audit
+llm-usage compare
+llm-usage session --by-repo
+llm-usage wrapped --share
 llm-usage efficiency monthly --repo-dir ./my-project
-
-# Counterfactual model pricing
-llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candidate-model gpt-5-codex
-
-# Daily trend view
-llm-usage trends --metric tokens --days 14
+llm-usage optimize monthly --provider openai --candidate-model gpt-5-codex
 ```
