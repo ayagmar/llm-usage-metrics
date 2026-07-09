@@ -12,12 +12,11 @@
   },
   "files": [
     "dist/index.js",
-    "dist/index.d.ts",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsup src/cli/index.ts --format esm --dts --clean --sourcemap",
+    "build": "tsup src/cli/index.ts --format esm --clean --sourcemap",
     "cli": "tsx src/cli/index.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
