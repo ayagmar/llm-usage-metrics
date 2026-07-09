@@ -52,6 +52,14 @@ llm-usage monthly --since 2026-01-01 --until 2026-01-31
 llm-usage trends --metric tokens --days 14
 ```
 
+## Persist your defaults
+
+```bash
+llm-usage config init
+```
+
+The template ships every key commented out with its default value, and its `#:schema` line enables editor validation. See [Configuration](/configuration/) for all keys.
+
 ## Common filters
 
 ```bash
@@ -95,8 +103,9 @@ See [Trends](/trends/) for range rules, metric semantics, and JSON shape.
 llm-usage monthly --source gemini --gemini-dir /path/to/.gemini
 ```
 
-Use the JSON [config file](/configuration/) to persist source paths instead of
-repeating explicit path flags on every run.
+Use the TOML [config file](/configuration/) to persist source paths instead of
+repeating explicit path flags on every run — run `llm-usage config init` to
+write a commented template.
 
 ## OpenCode explicit DB path
 
