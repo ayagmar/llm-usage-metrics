@@ -17,6 +17,9 @@ export type RuntimeProfileSourceStats = {
   eventsParsed: number;
   eventStoreHits: number;
   eventStoreMisses: number;
+  parseWorkers?: 'engaged' | 'fallback' | 'off';
+  parseWorkerCount?: number;
+  parseWorkerMissedBytes?: number;
 };
 
 export type RuntimeProfileStageTiming = {
@@ -124,6 +127,20 @@ export class RuntimeProfileCollector {
     const sourceStats = this.getOrCreateSourceStats(source);
     sourceStats.filesFound += Math.max(0, Math.trunc(result.filesFound));
     sourceStats.eventsParsed += Math.max(0, Math.trunc(result.eventsParsed));
+  }
+
+  public recordParseWorkerResult(
+    source: string,
+    result: {
+      status: 'engaged' | 'fallback' | 'off';
+      workerCount: number;
+      missedBytes: number;
+    },
+  ): void {
+    const sourceStats = this.getOrCreateSourceStats(source);
+    sourceStats.parseWorkers = result.status;
+    sourceStats.parseWorkerCount = Math.max(0, Math.trunc(result.workerCount));
+    sourceStats.parseWorkerMissedBytes = Math.max(0, Math.trunc(result.missedBytes));
   }
 
   public snapshot(): RuntimeProfileSnapshot {
@@ -299,8 +316,12 @@ export function emitRuntimeProfile(
   );
 
   for (const source of runtimeProfile.sourceStats) {
+    const parseWorkerDetails = source.parseWorkers
+      ? `; parseWorkers=${source.parseWorkers}; parseWorkerCount=${source.parseWorkerCount ?? 0}; parseWorkerMissedBytes=${source.parseWorkerMissedBytes ?? 0}`
+      : '';
+
     diagnosticsLogger.dim(
-      `  source ${source.source}: files=${source.filesFound}; events=${source.eventsParsed}; eventStoreHits=${source.eventStoreHits}; eventStoreMisses=${source.eventStoreMisses}`,
+      `  source ${source.source}: files=${source.filesFound}; events=${source.eventsParsed}; eventStoreHits=${source.eventStoreHits}; eventStoreMisses=${source.eventStoreMisses}${parseWorkerDetails}`,
     );
   }
 

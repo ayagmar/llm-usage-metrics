@@ -24,6 +24,11 @@ import type {
 import { normalizeSkippedRowReasons } from './normalize-skipped-row-reasons.js';
 import { getPeriodKey } from '../utils/time-buckets.js';
 import type { RuntimeProfileCollector } from './runtime-profile.js';
+import {
+  canParseSourceOnWorker,
+  createParseWorkerPool,
+  type ParseWorkerPool,
+} from './parse-worker-pool.js';
 
 import type { UsageSourceFailure } from './usage-data-contracts.js';
 
@@ -56,12 +61,27 @@ export type ParseSelectedAdaptersOptions = {
   eventStore?: EventStoreRuntimeConfig;
   eventStoreDeps?: EventStoreParseDeps;
   now?: () => number;
+  parseWorkers?: ParseWorkerRuntimeOptions;
   runtimeProfile?: RuntimeProfileCollector;
 };
 
 type RunWithParseBudget = <T>(task: () => Promise<T>) => Promise<T>;
 
 type ParseDependencyFingerprint = EventStoreDependencyFingerprint;
+
+type ParseWorkerRuntimeOptions = {
+  workerCount: number;
+  minBytes: number;
+  entryUrl?: URL;
+  createPool?: typeof createParseWorkerPool;
+};
+
+type MissedParseFile = {
+  fileIndex: number;
+  filePath: string;
+  fileFingerprint?: EventStoreFileFingerprint;
+  byteSize: number;
+};
 
 export type EventStoreParseDeps = {
   openEventStore?: (filePath: string) => Promise<EventStore>;
@@ -298,12 +318,49 @@ function createParseBudget(maxParallelFileParsing: number): RunWithParseBudget {
   };
 }
 
+async function getFileByteSize(filePath: string): Promise<number> {
+  try {
+    return (await stat(filePath)).size;
+  } catch {
+    return 0;
+  }
+}
+
+function getPrimaryFingerprintByteSize(
+  fingerprint: EventStoreFileFingerprint | undefined,
+): number | undefined {
+  const primaryFingerprint = fingerprint?.dependencies[0];
+
+  if (!primaryFingerprint?.exists || primaryFingerprint.size === undefined) {
+    return undefined;
+  }
+
+  return Math.max(0, primaryFingerprint.size);
+}
+
+function getSafeWorkerCount(workerCount: number): number {
+  if (!Number.isFinite(workerCount) || workerCount <= 0) {
+    return 0;
+  }
+
+  return Math.floor(workerCount);
+}
+
+function getSafeWorkerMinBytes(minBytes: number): number {
+  if (!Number.isFinite(minBytes) || minBytes <= 0) {
+    return 0;
+  }
+
+  return Math.floor(minBytes);
+}
+
 export async function parseAdapterEvents(
   adapter: SourceAdapter,
   maxParallelFileParsing: number,
   runWithParseBudget: RunWithParseBudget = async <T>(task: () => Promise<T>) => task(),
   runtimeProfile?: RuntimeProfileCollector,
   eventStore?: EventStoreParseContext,
+  parseWorkerOptions?: ParseWorkerRuntimeOptions,
 ): Promise<AdapterParseResultWithFiles> {
   const files = await adapter.discoverFiles();
 
@@ -325,79 +382,281 @@ export async function parseAdapterEvents(
   const parsedByFile: UsageEvent[][] = Array.from({ length: files.length }, () => []);
   const skippedRowsByFile: number[] = Array.from({ length: files.length }, () => 0);
   const skippedRowReasons = new Map<string, number>();
-  const workerCount = Math.min(safeMaxParallelFileParsing, files.length);
-  let nextFileIndex = 0;
   let failedFiles = 0;
   let lastErrorMessage = '';
 
-  const workers = Array.from({ length: workerCount }, async () => {
-    while (nextFileIndex < files.length) {
-      const fileIndex = nextFileIndex;
-      nextFileIndex += 1;
+  function recordParseFailure(fileIndex: number, error: unknown): void {
+    failedFiles += 1;
+    lastErrorMessage = getErrorReason(error);
+    skippedRowsByFile[fileIndex] = 1;
+    skippedRowReasons.set(
+      'file_parse_failed',
+      (skippedRowReasons.get('file_parse_failed') ?? 0) + 1,
+    );
+  }
 
-      await runWithParseBudget(async () => {
-        const filePath = files[fileIndex];
+  async function parseFileInline(filePath: string): Promise<SourceParseFileDiagnostics> {
+    return adapter.parseFileWithDiagnostics
+      ? await adapter.parseFileWithDiagnostics(filePath)
+      : getDefaultParseFileDiagnostics(await adapter.parseFile(filePath));
+  }
 
-        try {
-          let fileFingerprint: { dependencies: ParseDependencyFingerprint[] } | undefined;
-          let parseFileDiagnostics: SourceParseFileDiagnostics | undefined;
-          let servedFromEventStore = false;
+  function recordParsedFile(params: {
+    fileIndex: number;
+    filePath: string;
+    fileFingerprint?: EventStoreFileFingerprint;
+    diagnostics: SourceParseFileDiagnostics;
+    servedFromEventStore: boolean;
+  }): void {
+    const skippedRows = normalizeSkippedRowsCount(params.diagnostics.skippedRows);
+    const normalizedSkippedRowReasons = normalizeSkippedRowReasons(
+      params.diagnostics.skippedRowReasons,
+    );
 
-          if (eventStore && !eventStore.failureState.disabled) {
-            fileFingerprint = await getParseFileFingerprint(adapter, filePath);
-          }
+    parsedByFile[params.fileIndex] = params.diagnostics.events;
+    skippedRowsByFile[params.fileIndex] = skippedRows;
 
-          if (eventStore && fileFingerprint) {
-            parseFileDiagnostics = readParsedFileFromEventStore(eventStore, {
-              source: adapter.id,
-              filePath,
-              fingerprint: fileFingerprint,
-              runtimeProfile,
-            });
-            servedFromEventStore = parseFileDiagnostics !== undefined;
-          }
+    for (const reasonStat of normalizedSkippedRowReasons) {
+      skippedRowReasons.set(
+        reasonStat.reason,
+        (skippedRowReasons.get(reasonStat.reason) ?? 0) + reasonStat.count,
+      );
+    }
 
-          parseFileDiagnostics ??= adapter.parseFileWithDiagnostics
-            ? await adapter.parseFileWithDiagnostics(filePath)
-            : getDefaultParseFileDiagnostics(await adapter.parseFile(filePath));
-
-          const skippedRows = normalizeSkippedRowsCount(parseFileDiagnostics.skippedRows);
-          const normalizedSkippedRowReasons = normalizeSkippedRowReasons(
-            parseFileDiagnostics.skippedRowReasons,
-          );
-
-          parsedByFile[fileIndex] = parseFileDiagnostics.events;
-          skippedRowsByFile[fileIndex] = skippedRows;
-          for (const reasonStat of normalizedSkippedRowReasons) {
-            skippedRowReasons.set(
-              reasonStat.reason,
-              (skippedRowReasons.get(reasonStat.reason) ?? 0) + reasonStat.count,
-            );
-          }
-          if (eventStore && fileFingerprint && !servedFromEventStore) {
-            writeParsedFileToEventStore(eventStore, {
-              source: adapter.id,
-              filePath,
-              fingerprint: fileFingerprint,
-              events: parseFileDiagnostics.events,
-              skippedRows,
-              skippedRowReasons: normalizedSkippedRowReasons,
-            });
-          }
-        } catch (error) {
-          failedFiles += 1;
-          lastErrorMessage = getErrorReason(error);
-          skippedRowsByFile[fileIndex] = 1;
-          skippedRowReasons.set(
-            'file_parse_failed',
-            (skippedRowReasons.get('file_parse_failed') ?? 0) + 1,
-          );
-        }
+    if (eventStore && params.fileFingerprint && !params.servedFromEventStore) {
+      writeParsedFileToEventStore(eventStore, {
+        source: adapter.id,
+        filePath: params.filePath,
+        fingerprint: params.fileFingerprint,
+        events: params.diagnostics.events,
+        skippedRows,
+        skippedRowReasons: normalizedSkippedRowReasons,
       });
     }
-  });
+  }
 
-  await Promise.all(workers);
+  async function runFileIndexLoop(
+    fileIndices: number[],
+    parseFileIndex: (fileIndex: number) => Promise<void>,
+  ): Promise<void> {
+    const workerCount = Math.min(safeMaxParallelFileParsing, fileIndices.length);
+    let nextFileIndex = 0;
+
+    const workers = Array.from({ length: workerCount }, async () => {
+      while (nextFileIndex < fileIndices.length) {
+        const fileIndex = fileIndices[nextFileIndex];
+        nextFileIndex += 1;
+
+        await runWithParseBudget(() => parseFileIndex(fileIndex));
+      }
+    });
+
+    await Promise.all(workers);
+  }
+
+  async function parseFileAtIndexInline(fileIndex: number): Promise<void> {
+    const filePath = files[fileIndex];
+
+    try {
+      let fileFingerprint: EventStoreFileFingerprint | undefined;
+      let parseFileDiagnostics: SourceParseFileDiagnostics | undefined;
+      let servedFromEventStore = false;
+
+      if (eventStore && !eventStore.failureState.disabled) {
+        fileFingerprint = await getParseFileFingerprint(adapter, filePath);
+      }
+
+      if (eventStore && fileFingerprint) {
+        parseFileDiagnostics = readParsedFileFromEventStore(eventStore, {
+          source: adapter.id,
+          filePath,
+          fingerprint: fileFingerprint,
+          runtimeProfile,
+        });
+        servedFromEventStore = parseFileDiagnostics !== undefined;
+      }
+
+      parseFileDiagnostics ??= await parseFileInline(filePath);
+
+      recordParsedFile({
+        fileIndex,
+        filePath,
+        fileFingerprint,
+        diagnostics: parseFileDiagnostics,
+        servedFromEventStore,
+      });
+    } catch (error) {
+      recordParseFailure(fileIndex, error);
+    }
+  }
+
+  async function resolveStoreHitOrWorkerMiss(
+    fileIndex: number,
+    missedFiles: MissedParseFile[],
+  ): Promise<void> {
+    const filePath = files[fileIndex];
+
+    try {
+      let fileFingerprint: EventStoreFileFingerprint | undefined;
+      let parseFileDiagnostics: SourceParseFileDiagnostics | undefined;
+
+      if (eventStore && !eventStore.failureState.disabled) {
+        fileFingerprint = await getParseFileFingerprint(adapter, filePath);
+      }
+
+      if (eventStore && fileFingerprint) {
+        parseFileDiagnostics = readParsedFileFromEventStore(eventStore, {
+          source: adapter.id,
+          filePath,
+          fingerprint: fileFingerprint,
+          runtimeProfile,
+        });
+      }
+
+      if (parseFileDiagnostics) {
+        recordParsedFile({
+          fileIndex,
+          filePath,
+          fileFingerprint,
+          diagnostics: parseFileDiagnostics,
+          servedFromEventStore: true,
+        });
+        return;
+      }
+
+      missedFiles.push({
+        fileIndex,
+        filePath,
+        fileFingerprint,
+        byteSize:
+          getPrimaryFingerprintByteSize(fileFingerprint) ?? (await getFileByteSize(filePath)),
+      });
+    } catch (error) {
+      recordParseFailure(fileIndex, error);
+    }
+  }
+
+  async function parseMissedFileInline(missedFile: MissedParseFile): Promise<void> {
+    try {
+      const diagnostics = await parseFileInline(missedFile.filePath);
+      recordParsedFile({
+        fileIndex: missedFile.fileIndex,
+        filePath: missedFile.filePath,
+        fileFingerprint: missedFile.fileFingerprint,
+        diagnostics,
+        servedFromEventStore: false,
+      });
+    } catch (error) {
+      recordParseFailure(missedFile.fileIndex, error);
+    }
+  }
+
+  async function parseMissedFileOnPool(
+    pool: ParseWorkerPool,
+    missedFile: MissedParseFile,
+  ): Promise<void> {
+    try {
+      const diagnostics = await pool.parse(
+        {
+          sourceId: adapter.id,
+          filePath: missedFile.filePath,
+        },
+        () => parseFileInline(missedFile.filePath),
+      );
+      recordParsedFile({
+        fileIndex: missedFile.fileIndex,
+        filePath: missedFile.filePath,
+        fileFingerprint: missedFile.fileFingerprint,
+        diagnostics,
+        servedFromEventStore: false,
+      });
+    } catch (error) {
+      recordParseFailure(missedFile.fileIndex, error);
+    }
+  }
+
+  async function parseWorkerEligibleFiles(fileIndices: number[]): Promise<void> {
+    const safeWorkerCount = getSafeWorkerCount(parseWorkerOptions?.workerCount ?? 0);
+    const minWorkerBytes = getSafeWorkerMinBytes(parseWorkerOptions?.minBytes ?? 0);
+
+    if (safeWorkerCount === 0) {
+      runtimeProfile?.recordParseWorkerResult(adapter.id, {
+        status: 'off',
+        workerCount: 0,
+        missedBytes: 0,
+      });
+      await runFileIndexLoop(fileIndices, parseFileAtIndexInline);
+      return;
+    }
+
+    const missedFiles: MissedParseFile[] = [];
+    await runFileIndexLoop(fileIndices, (fileIndex) =>
+      resolveStoreHitOrWorkerMiss(fileIndex, missedFiles),
+    );
+    missedFiles.sort((left, right) => left.fileIndex - right.fileIndex);
+
+    const missedBytes = missedFiles.reduce(
+      (sum, missedFile) => sum + Math.max(0, missedFile.byteSize),
+      0,
+    );
+
+    if (missedFiles.length === 0 || missedBytes < minWorkerBytes) {
+      runtimeProfile?.recordParseWorkerResult(adapter.id, {
+        status: 'off',
+        workerCount: safeWorkerCount,
+        missedBytes,
+      });
+      await runFileIndexLoop(
+        missedFiles.map((missedFile) => missedFile.fileIndex),
+        async (fileIndex) => {
+          const missedFile = missedFiles.find((candidate) => candidate.fileIndex === fileIndex);
+
+          if (missedFile) {
+            await parseMissedFileInline(missedFile);
+          }
+        },
+      );
+      return;
+    }
+
+    const workerCount = Math.min(safeWorkerCount, missedFiles.length);
+    const createPool = parseWorkerOptions?.createPool ?? createParseWorkerPool;
+    const pool = createPool({
+      entryUrl: parseWorkerOptions?.entryUrl ?? new URL(import.meta.url),
+      workerCount,
+    });
+    let status: 'engaged' | 'fallback' = pool.status() === 'fallback' ? 'fallback' : 'engaged';
+
+    try {
+      await runFileIndexLoop(
+        missedFiles.map((missedFile) => missedFile.fileIndex),
+        async (fileIndex) => {
+          const missedFile = missedFiles.find((candidate) => candidate.fileIndex === fileIndex);
+
+          if (missedFile) {
+            await parseMissedFileOnPool(pool, missedFile);
+          }
+        },
+      );
+      status = pool.status() === 'fallback' ? 'fallback' : status;
+    } finally {
+      await pool.terminate();
+    }
+
+    runtimeProfile?.recordParseWorkerResult(adapter.id, {
+      status,
+      workerCount,
+      missedBytes,
+    });
+  }
+
+  const fileIndices = files.map((_, index) => index);
+
+  if (canParseSourceOnWorker(adapter.id)) {
+    await parseWorkerEligibleFiles(fileIndices);
+  } else {
+    await runFileIndexLoop(fileIndices, parseFileAtIndexInline);
+  }
 
   if (failedFiles === files.length) {
     throw new Error(
@@ -470,6 +729,7 @@ export async function parseSelectedAdapters(
                 runWithParseBudget,
                 options.runtimeProfile,
                 eventStoreContext,
+                options.parseWorkers,
               ),
             )
           : parseAdapterEvents(
@@ -478,6 +738,7 @@ export async function parseSelectedAdapters(
               runWithParseBudget,
               undefined,
               eventStoreContext,
+              options.parseWorkers,
             ),
       ),
     );

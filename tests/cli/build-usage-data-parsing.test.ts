@@ -6,8 +6,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   filterUsageEvents,
+  parseAdapterEvents,
   parseSelectedAdapters,
 } from '../../src/cli/build-usage-data-parsing.js';
+import type { ParseWorkerPool } from '../../src/cli/parse-worker-pool.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import {
   closeEventStore,
@@ -17,7 +19,10 @@ import {
   type EventStoreFileEntry,
   type ReplaceFileEventsInput,
 } from '../../src/persistence/event-store.js';
-import type { SourceAdapter } from '../../src/sources/source-adapter.js';
+import type {
+  SourceAdapter,
+  SourceParseFileDiagnostics,
+} from '../../src/sources/source-adapter.js';
 import { RuntimeProfileCollector } from '../../src/cli/runtime-profile.js';
 import { getPeriodKey } from '../../src/utils/time-buckets.js';
 
@@ -171,6 +176,21 @@ function createAuxiliaryDependencyAdapter(
   };
 }
 
+function createAdapterWithDiagnostics(
+  id: SourceAdapter['id'],
+  parseDiagnosticsByFile: Partial<Record<string, SourceParseFileDiagnostics>>,
+): SourceAdapter {
+  const files = Object.keys(parseDiagnosticsByFile);
+
+  return {
+    id,
+    discoverFiles: async () => files,
+    parseFile: async (filePath) => parseDiagnosticsByFile[filePath]?.events ?? [],
+    parseFileWithDiagnostics: async (filePath) =>
+      parseDiagnosticsByFile[filePath] ?? { events: [], skippedRows: 0 },
+  };
+}
+
 async function writeFingerprintFixture(
   filePath: string,
   content: string,
@@ -178,6 +198,14 @@ async function writeFingerprintFixture(
 ): Promise<void> {
   await writeFile(filePath, content, 'utf8');
   await utimes(filePath, mtime, mtime);
+}
+
+function createInlineWorkerPool(status: 'ready' | 'fallback' = 'ready'): ParseWorkerPool {
+  return {
+    parse: async (_task, inlineParse) => inlineParse(),
+    status: () => status,
+    terminate: async () => undefined,
+  };
 }
 
 describe('build-usage-data-parsing', () => {
@@ -677,6 +705,182 @@ describe('build-usage-data-parsing', () => {
     expect(cachedRun.successfulParseResults[0]?.skippedRowReasons).toEqual([
       { reason: 'no_token_usage', count: 2 },
     ]);
+  });
+
+  it('does not create a worker pool when codex misses are below the byte threshold', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'worker-threshold-inline-'));
+    tempDirs.push(tempDir);
+
+    const filePath = path.join(tempDir, 'small.jsonl');
+    await writeFile(filePath, '{"line":1}\n', 'utf8');
+
+    const createPool = vi.fn(() => createInlineWorkerPool());
+    const adapter = createAdapterWithDiagnostics('codex', {
+      [filePath]: {
+        events: [
+          createUsageEvent({
+            source: 'codex',
+            sessionId: 'small',
+            timestamp: '2026-02-01T00:00:00.000Z',
+            totalTokens: 1,
+          }),
+        ],
+        skippedRows: 0,
+      },
+    });
+
+    const result = await parseAdapterEvents(adapter, 1, undefined, undefined, undefined, {
+      workerCount: 2,
+      minBytes: 1_000,
+      createPool,
+    });
+
+    expect(createPool).not.toHaveBeenCalled();
+    expect(result.events.map((event) => event.sessionId)).toEqual(['small']);
+  });
+
+  it('does not create a worker pool when parse workers are disabled', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'worker-disabled-inline-'));
+    tempDirs.push(tempDir);
+
+    const filePath = path.join(tempDir, 'session.jsonl');
+    await writeFile(filePath, '{"line":1}\n', 'utf8');
+
+    const createPool = vi.fn(() => createInlineWorkerPool());
+    const adapter = createAdapterWithDiagnostics('codex', {
+      [filePath]: {
+        events: [
+          createUsageEvent({
+            source: 'codex',
+            sessionId: 'disabled',
+            timestamp: '2026-02-01T00:00:00.000Z',
+            totalTokens: 1,
+          }),
+        ],
+        skippedRows: 0,
+      },
+    });
+
+    const result = await parseAdapterEvents(adapter, 1, undefined, undefined, undefined, {
+      workerCount: 0,
+      minBytes: 0,
+      createPool,
+    });
+
+    expect(createPool).not.toHaveBeenCalled();
+    expect(result.events.map((event) => event.sessionId)).toEqual(['disabled']);
+  });
+
+  it('excludes event-store hits from the worker engagement byte threshold', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'worker-threshold-store-hit-'));
+    tempDirs.push(tempDir);
+
+    const fileA = path.join(tempDir, 'a.jsonl');
+    const fileB = path.join(tempDir, 'b.jsonl');
+    await writeFingerprintFixture(fileA, '{"a":1}\n', 1_700_000_001);
+    await writeFingerprintFixture(fileB, '{"b":1}\n', 1_700_000_001);
+
+    const store = { filePath: path.join(tempDir, 'events.db') } as unknown as EventStore;
+    const entries = new Map<string, EventStoreFileEntry>();
+    const eventsByFile = new Map<string, ReturnType<typeof createUsageEvent>[]>();
+    const parseCalls = { count: 0 };
+    const createPool = vi.fn(() => createInlineWorkerPool());
+    const adapter = createCountingJsonlAdapter('codex', [fileA, fileB], parseCalls);
+    const options = {
+      eventStore: {
+        enabled: true,
+        path: store.filePath,
+      },
+      eventStoreDeps: {
+        openEventStore: async () => store,
+        closeEventStore: vi.fn(),
+        getFileEntry: (_store: EventStore, _source: string, filePath: string) =>
+          entries.get(filePath),
+        readFileEvents: (_store: EventStore, _source: string, filePath: string) =>
+          eventsByFile.get(filePath),
+        replaceFileEvents: (_store: EventStore, input: ReplaceFileEventsInput) => {
+          entries.set(input.filePath, {
+            fingerprint: serializeEventStoreFingerprint(input.fingerprint),
+            skippedRows: input.skippedRows,
+            skippedRowReasons: input.skippedRowReasons ?? [],
+          });
+          eventsByFile.set(input.filePath, input.events);
+        },
+      },
+      now: () => 123,
+    };
+
+    await parseSelectedAdapters([adapter], 1, {
+      ...options,
+      parseWorkers: {
+        workerCount: 0,
+        minBytes: 0,
+        createPool,
+      },
+    });
+    await writeFingerprintFixture(fileB, '{"b":1}\n{"b":2}\n', 1_700_000_002);
+    await parseSelectedAdapters([adapter], 1, {
+      ...options,
+      parseWorkers: {
+        workerCount: 2,
+        minBytes: 20,
+        createPool,
+      },
+    });
+
+    expect(createPool).not.toHaveBeenCalled();
+    expect(parseCalls.count).toBe(3);
+  });
+
+  it('keeps diagnostics identical between inline and worker-pool parsing', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'worker-diagnostics-parity-'));
+    tempDirs.push(tempDir);
+
+    const fileA = path.join(tempDir, 'a.jsonl');
+    const fileB = path.join(tempDir, 'b.jsonl');
+    await writeFile(fileA, '{"line":1}\n', 'utf8');
+    await writeFile(fileB, '{"line":2}\n', 'utf8');
+
+    const createPool = vi.fn(() => createInlineWorkerPool());
+    const adapter = createAdapterWithDiagnostics('codex', {
+      [fileA]: {
+        events: [
+          createUsageEvent({
+            source: 'codex',
+            sessionId: 'a',
+            timestamp: '2026-02-01T00:00:00.000Z',
+            totalTokens: 1,
+          }),
+        ],
+        skippedRows: 1,
+        skippedRowReasons: [{ reason: 'no_usage', count: 1 }],
+      },
+      [fileB]: {
+        events: [
+          createUsageEvent({
+            source: 'codex',
+            sessionId: 'b',
+            timestamp: '2026-02-01T00:00:00.000Z',
+            totalTokens: 1,
+          }),
+        ],
+        skippedRows: 2,
+        skippedRowReasons: [{ reason: 'invalid_timestamp', count: 2 }],
+      },
+    });
+
+    const inlineResult = await parseAdapterEvents(adapter, 1, undefined, undefined, undefined, {
+      workerCount: 0,
+      minBytes: 0,
+    });
+    const workerResult = await parseAdapterEvents(adapter, 1, undefined, undefined, undefined, {
+      workerCount: 2,
+      minBytes: 1,
+      createPool,
+    });
+
+    expect(createPool).toHaveBeenCalledTimes(1);
+    expect(workerResult).toEqual(inlineResult);
   });
 
   it('does not compute date buckets when no date filters are set', () => {

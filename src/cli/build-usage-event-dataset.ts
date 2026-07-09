@@ -186,6 +186,10 @@ export async function buildUsageEventDataset(
     await measureRuntimeProfileStage(runtimeProfile, 'usage.dataset.parse_adapters', () =>
       parseSelectedAdapters(adaptersToParse, parsingRuntimeConfig.maxParallelFileParsing, {
         eventStore: eventStoreRuntimeConfig,
+        parseWorkers: {
+          workerCount: parsingRuntimeConfig.parseWorkers,
+          minBytes: parsingRuntimeConfig.parseWorkerMinBytes,
+        },
         runtimeProfile,
       }),
     );
