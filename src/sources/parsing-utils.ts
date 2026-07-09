@@ -61,6 +61,14 @@ export function hasPositiveUsageOrCostSignal(
   return hasPositiveUsageSignal || hasPositiveCostSignal;
 }
 
+export function resolveTotalTokens(declaredTotal: number, componentTotal: number): number {
+  if (declaredTotal > 0) {
+    return declaredTotal;
+  }
+
+  return componentTotal;
+}
+
 export function toTokenCount(value: unknown): number {
   return normalizeNonNegativeInteger(toNumberLike(value));
 }

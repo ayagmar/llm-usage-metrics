@@ -11,6 +11,7 @@ import {
   asTrimmedText,
   isBlankText,
   normalizeTimestampCandidate,
+  resolveTotalTokens,
   toTokenCount,
 } from '../parsing-utils.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
@@ -91,7 +92,7 @@ function extractUsageFromMessageUsage(usage: Record<string, unknown>): AmpTokenU
   const cacheWriteTokens = toTokenCount(usage.cacheCreationInputTokens);
   const declaredTotal = toTokenCount(usage.totalTokens);
   const componentTotal = inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens;
-  const totalTokens = declaredTotal > 0 ? declaredTotal : componentTotal;
+  const totalTokens = resolveTotalTokens(declaredTotal, componentTotal);
 
   return {
     inputTokens,

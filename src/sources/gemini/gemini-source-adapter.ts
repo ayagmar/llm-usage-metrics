@@ -9,7 +9,12 @@ import { asRecord } from '../../utils/as-record.js';
 import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
 import { discoverFiles } from '../../utils/discover-files.js';
 import { pathIsDirectory, pathReadable } from '../../utils/fs-helpers.js';
-import { asTrimmedText, isBlankText, normalizeTimestampCandidate } from '../parsing-utils.js';
+import {
+  asTrimmedText,
+  isBlankText,
+  normalizeTimestampCandidate,
+  resolveTotalTokens,
+} from '../parsing-utils.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
 import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
 
@@ -173,7 +178,7 @@ function extractTokenUsage(tokens: Record<string, unknown> | undefined): {
 
   const declaredTotal = Math.max(0, toFiniteNumber(tokens.total) ?? 0);
   const componentTotal = inputTokens + outputTokens + reasoningTokens + cacheReadTokens;
-  const totalTokens = declaredTotal > 0 ? declaredTotal : componentTotal;
+  const totalTokens = resolveTotalTokens(declaredTotal, componentTotal);
 
   if (inputTokens === 0 && outputTokens === 0 && reasoningTokens === 0 && cached === 0) {
     return null;

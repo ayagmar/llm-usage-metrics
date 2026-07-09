@@ -5,6 +5,7 @@ import {
   hasPositiveUsageOrCostSignal,
   isBlankText,
   normalizeTimestampCandidate,
+  resolveTotalTokens,
   toFiniteNumber,
   toNumberLike,
 } from '../../src/sources/parsing-utils.js';
@@ -50,6 +51,12 @@ describe('source parsing helpers', () => {
     expect(hasPositiveUsageOrCostSignal([undefined], undefined)).toBe(false);
     expect(hasPositiveUsageOrCostSignal([-5, '-1'], -0.01)).toBe(false);
     expect(hasPositiveUsageOrCostSignal(['5'], 0)).toBe(true);
+  });
+
+  it('resolves declared or component total tokens', () => {
+    expect(resolveTotalTokens(10, 5)).toBe(10);
+    expect(resolveTotalTokens(0, 5)).toBe(5);
+    expect(resolveTotalTokens(0, 0)).toBe(0);
   });
 
   it('normalizes ISO, numeric, and numeric-string timestamps', () => {

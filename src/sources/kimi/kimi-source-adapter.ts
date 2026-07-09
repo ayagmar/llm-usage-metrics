@@ -14,6 +14,7 @@ import {
   asTrimmedText,
   isBlankText,
   normalizeTimestampCandidate,
+  resolveTotalTokens,
   toTokenCount,
 } from '../parsing-utils.js';
 import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
@@ -85,8 +86,7 @@ function createTokenUsage(fields: {
   const declaredTotalTokens = toTokenCount(fields.total);
   const componentTotalTokens =
     inputTokens + outputTokens + reasoningTokens + cacheReadTokens + cacheWriteTokens;
-  const comparableTotalTokens =
-    declaredTotalTokens > 0 ? declaredTotalTokens : componentTotalTokens;
+  const comparableTotalTokens = resolveTotalTokens(declaredTotalTokens, componentTotalTokens);
 
   if (comparableTotalTokens === 0) {
     return null;

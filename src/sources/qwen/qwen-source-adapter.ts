@@ -12,6 +12,7 @@ import {
   asTrimmedText,
   isBlankText,
   normalizeTimestampCandidate,
+  resolveTotalTokens,
   toTokenCount,
 } from '../parsing-utils.js';
 import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
@@ -54,7 +55,7 @@ function extractTokenUsage(
   const componentTotalTokens =
     inputTokens + outputTokens + reasoningTokens + cacheReadTokens + cacheWriteTokens;
 
-  if (componentTotalTokens === 0 && declaredTotalTokens === 0) {
+  if (resolveTotalTokens(declaredTotalTokens, componentTotalTokens) === 0) {
     return null;
   }
 
