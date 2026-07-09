@@ -7,7 +7,7 @@ export default defineConfig({
     // events.db; tests that need the store on must set an explicit temp path.
     env: {
       LLM_USAGE_EVENT_STORE: '0',
-      LLM_USAGE_CONFIG_PATH: '/tmp/llm-usage-metrics-test-missing-config.json',
+      LLM_USAGE_CONFIG_PATH: '/tmp/llm-usage-metrics-test-missing-config.toml',
     },
     coverage: {
       provider: 'v8',

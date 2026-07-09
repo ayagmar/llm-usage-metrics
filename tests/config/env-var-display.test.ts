@@ -92,14 +92,14 @@ describe('env-var-display', () => {
   });
 
   it('surfaces LLM_USAGE_CONFIG_PATH as an override', () => {
-    process.env.LLM_USAGE_CONFIG_PATH = '/tmp/custom-config.json';
+    process.env.LLM_USAGE_CONFIG_PATH = '/tmp/custom-config.toml';
 
     const overrides = getActiveEnvVarOverrides();
 
     expect(overrides).toEqual([
       {
         name: 'LLM_USAGE_CONFIG_PATH',
-        value: '/tmp/custom-config.json',
+        value: '/tmp/custom-config.toml',
         description: 'user config file path',
       },
     ]);

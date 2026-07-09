@@ -111,7 +111,7 @@ describe('buildUsageEventDataset history', () => {
       config: {
         sources: ['codex'],
       },
-      path: '/tmp/config.json',
+      path: '/tmp/config.toml',
       exists: true,
       warnings: [],
     };
@@ -129,7 +129,7 @@ describe('buildUsageEventDataset history', () => {
 
     expect(configuredDataset.filteredEvents).toEqual([codexEvent]);
     expect(configuredDataset.activeConfig).toEqual({
-      path: '/tmp/config.json',
+      path: '/tmp/config.toml',
       entries: [{ key: 'sources', value: 'codex' }],
     });
     expect(flagDataset.filteredEvents).toEqual([piEvent]);

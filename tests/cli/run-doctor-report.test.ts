@@ -210,8 +210,8 @@ describe('run-doctor-report', () => {
     tempDirs.push(rootDir);
 
     const missingPiDir = path.join(rootDir, 'configured-pi');
-    const configPath = path.join(rootDir, 'config.json');
-    await writeFile(configPath, JSON.stringify({ sourceDirs: { pi: missingPiDir } }), 'utf8');
+    const configPath = path.join(rootDir, 'config.toml');
+    await writeFile(configPath, `[sourceDirs]\npi = "${missingPiDir}"\n`, 'utf8');
 
     const previousConfigPath = process.env.LLM_USAGE_CONFIG_PATH;
     process.env.LLM_USAGE_CONFIG_PATH = configPath;
@@ -239,10 +239,10 @@ describe('run-doctor-report', () => {
       closeEventStore(store);
     }
 
-    const configPath = path.join(rootDir, 'config.json');
+    const configPath = path.join(rootDir, 'config.toml');
     await writeFile(
       configPath,
-      JSON.stringify({ eventStore: { enabled: true, path: eventStorePath } }),
+      `[eventStore]\nenabled = true\npath = "${eventStorePath}"\n`,
       'utf8',
     );
 
@@ -265,12 +265,8 @@ describe('run-doctor-report', () => {
     const rootDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-config-emit-'));
     tempDirs.push(rootDir);
 
-    const configPath = path.join(rootDir, 'config.json');
-    await writeFile(
-      configPath,
-      JSON.stringify({ sourceDirs: { pi: rootDir }, mystery: true }),
-      'utf8',
-    );
+    const configPath = path.join(rootDir, 'config.toml');
+    await writeFile(configPath, `mystery = true\n\n[sourceDirs]\npi = "${rootDir}"\n`, 'utf8');
 
     const previousConfigPath = process.env.LLM_USAGE_CONFIG_PATH;
     process.env.LLM_USAGE_CONFIG_PATH = configPath;

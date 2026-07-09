@@ -61,7 +61,7 @@ describe('report-lifecycle', () => {
               },
             ],
             activeConfig: {
-              path: '/tmp/config.json',
+              path: '/tmp/config.toml',
               entries: [{ key: 'sources', value: 'codex' }],
             },
           },
@@ -75,7 +75,7 @@ describe('report-lifecycle', () => {
         line.includes('Active environment overrides:'),
       );
       const configHeaderIndex = stderrLines.findIndex((line) =>
-        line.includes('Active config: /tmp/config.json'),
+        line.includes('Active config: /tmp/config.toml'),
       );
 
       expect(envHeaderIndex).toBeGreaterThanOrEqual(0);

@@ -2,6 +2,8 @@ import { readFile as readFileFromFs } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
+import { parse as parseToml } from 'smol-toml';
+
 import { asRecord } from '../utils/as-record.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { getUserConfigRootDir } from '../utils/config-root-dir.js';
@@ -44,7 +46,6 @@ const sourceDirKeys = [
 ] as const;
 
 const knownTopLevelKeys = [
-  '$schema',
   'eventStore',
   'parseMaxParallel',
   'parseWorkerMinBytes',
@@ -120,7 +121,7 @@ function getDefaultUserConfigPath(env: NodeJS.ProcessEnv): string {
   return path.join(
     getUserConfigRootDir(env, process.platform, os.homedir()),
     'llm-usage-metrics',
-    'config.json',
+    'config.toml',
   );
 }
 
@@ -136,6 +137,35 @@ export function resolveUserConfigPath(env: NodeJS.ProcessEnv = process.env): str
 
 function isMissingFileError(error: unknown): boolean {
   return asRecord(error)?.code === 'ENOENT';
+}
+
+function hasConfigPathOverride(env: NodeJS.ProcessEnv): boolean {
+  return Boolean(env.LLM_USAGE_CONFIG_PATH?.trim());
+}
+
+function getLegacyJsonConfigPath(configPath: string): string {
+  return path.join(path.dirname(configPath), 'config.json');
+}
+
+async function throwIfLegacyJsonConfigExists(
+  tomlPath: string,
+  readFile: ReadConfigFile,
+): Promise<void> {
+  const jsonPath = getLegacyJsonConfigPath(tomlPath);
+
+  try {
+    await readFile(jsonPath);
+  } catch (error) {
+    if (isMissingFileError(error)) {
+      return;
+    }
+
+    throw error;
+  }
+
+  throw new Error(
+    `Legacy JSON config found at ${jsonPath}. The config format is now TOML: create ${tomlPath} with the same settings (run \`llm-usage config init\` for a commented template), then remove the old file.`,
+  );
 }
 
 function collectUnknownKeys(
@@ -423,11 +453,11 @@ function collectUserConfigWarnings(root: Record<string, unknown>): string[] {
   return unknownKeyWarning === undefined ? [] : [unknownKeyWarning];
 }
 
-function parseUserConfig(filePath: string, content: string): UserConfig {
+function parseUserConfigRoot(filePath: string, content: string): Record<string, unknown> {
   let parsed: unknown;
 
   try {
-    parsed = JSON.parse(content) as unknown;
+    parsed = parseToml(content) as unknown;
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     throw new Error(`Failed to parse config file ${filePath}: ${reason}`, { cause: error });
@@ -436,10 +466,10 @@ function parseUserConfig(filePath: string, content: string): UserConfig {
   const root = asRecord(parsed);
 
   if (!root) {
-    throw new Error(`Config file ${filePath} must contain a JSON object`);
+    throw new Error(`Config file ${filePath} must contain a TOML table`);
   }
 
-  return readConfig(root);
+  return root;
 }
 
 export async function loadUserConfig(
@@ -454,6 +484,10 @@ export async function loadUserConfig(
     content = await readFile(configPath);
   } catch (error) {
     if (isMissingFileError(error)) {
+      if (!hasConfigPathOverride(env)) {
+        await throwIfLegacyJsonConfigExists(configPath, readFile);
+      }
+
       return {
         config: {},
         path: configPath,
@@ -465,23 +499,10 @@ export async function loadUserConfig(
     throw error;
   }
 
-  let parsed: unknown;
-
-  try {
-    parsed = JSON.parse(content) as unknown;
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to parse config file ${configPath}: ${reason}`, { cause: error });
-  }
-
-  const root = asRecord(parsed);
-
-  if (!root) {
-    throw new Error(`Config file ${configPath} must contain a JSON object`);
-  }
+  const root = parseUserConfigRoot(configPath, content);
 
   return {
-    config: parseUserConfig(configPath, content),
+    config: readConfig(root),
     path: configPath,
     exists: true,
     warnings: collectUserConfigWarnings(root),

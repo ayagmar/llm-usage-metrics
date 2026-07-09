@@ -6,12 +6,6 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "$schema": {
-      "description": "JSON Schema URL for editor validation.",
-      "type": "string",
-      "format": "uri",
-      "default": "https://ayagmar.github.io/llm-usage-metrics/config-schema.json"
-    },
     "timezone": {
       "description": "Default IANA timezone for report bucketing; maps to --timezone.",
       "type": "string",

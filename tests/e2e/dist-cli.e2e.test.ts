@@ -83,8 +83,8 @@ describe.skipIf(!existsSync(distCliPath))('dist CLI e2e', () => {
 
   it('prints help even when the user config is malformed', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'dist-cli-bad-config-help-'));
-    const configPath = path.join(tempDir, 'config.json');
-    await writeFile(configPath, '{ not valid json', 'utf8');
+    const configPath = path.join(tempDir, 'config.toml');
+    await writeFile(configPath, 'not == valid toml', 'utf8');
 
     try {
       const { stdout } = await execFileAsync(process.execPath, [distCliPath, '--help'], {
@@ -140,8 +140,8 @@ describe.skipIf(!existsSync(distCliPath))('dist CLI e2e', () => {
 
   it('fails a real command with an actionable malformed-config error', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'dist-cli-bad-config-run-'));
-    const configPath = path.join(tempDir, 'config.json');
-    await writeFile(configPath, '{ not valid json', 'utf8');
+    const configPath = path.join(tempDir, 'config.toml');
+    await writeFile(configPath, 'not == valid toml', 'utf8');
 
     let exitCode: number | string | undefined;
     let stderr = '';

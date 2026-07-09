@@ -534,8 +534,8 @@ describe('run-prune-report', () => {
     const dbPath = await createTempDbPath('prune-config-');
     await rm(dbPath, { force: true });
 
-    const configPath = path.join(path.dirname(dbPath), 'config.json');
-    await writeFile(configPath, JSON.stringify({ sources: ['codex'], mystery: true }), 'utf8');
+    const configPath = path.join(path.dirname(dbPath), 'config.toml');
+    await writeFile(configPath, 'sources = ["codex"]\nmystery = true\n', 'utf8');
 
     const previousConfigPath = process.env.LLM_USAGE_CONFIG_PATH;
     process.env.LLM_USAGE_CONFIG_PATH = configPath;

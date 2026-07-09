@@ -10,7 +10,7 @@ import { formatActiveConfig } from '../../src/config/active-config-display.js';
 function createLoadedConfig(config: LoadedUserConfig['config']): LoadedUserConfig {
   return {
     config,
-    path: '/tmp/config.json',
+    path: '/tmp/config.toml',
     exists: true,
     warnings: [],
   };
@@ -113,14 +113,14 @@ describe('applyUserConfigToReportOptions', () => {
   it('formats active config for stderr diagnostics', () => {
     expect(
       formatActiveConfig({
-        path: '/tmp/config.json',
+        path: '/tmp/config.toml',
         entries: [
           { key: 'sources', value: 'codex,claude' },
           { key: 'pricing.offline', value: 'true' },
         ],
       }),
     ).toEqual([
-      'Active config: /tmp/config.json',
+      'Active config: /tmp/config.toml',
       '  sources=codex,claude',
       '  pricing.offline=true',
     ]);
