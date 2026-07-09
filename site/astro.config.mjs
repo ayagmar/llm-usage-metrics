@@ -127,7 +127,10 @@ export default defineConfig({
         },
         {
           label: 'Architecture',
-          link: '/architecture',
+          items: [
+            { label: 'Overview', link: '/architecture/' },
+            { label: 'Event Store', link: '/architecture/event-store/' },
+          ],
         },
       ],
       customCss: ['./src/styles/tokens.css', './src/styles/custom.css'],

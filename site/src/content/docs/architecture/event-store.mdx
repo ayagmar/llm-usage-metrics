@@ -1,0 +1,54 @@
+---
+title: Event Store
+description: 'Design of the SQLite usage-event ledger: ingest, fingerprints, history, and prune.'
+---
+
+The event store (`src/persistence/event-store.ts`) is a local SQLite **ledger**, not a disposable cache. It solves three problems at once: warm runs skip reparsing files that have not changed, usage from files that later disappear stays reportable through `--history`, and a file that merely moved is recognized by content so it never double counts. Because the ledger retains rows for departed files, deleting `events.db` deletes that retained history — you get a fresh ledger, not just a slower next run.
+
+## Location and lifecycle
+
+- **Default path**: `getDefaultEventStorePath()` resolves to `llm-usage-metrics/events.db` under the platform cache root — `~/.cache/llm-usage-metrics/events.db` on Linux when `XDG_CACHE_HOME` is unset.
+- **Relocate**: the `eventStore.path` config key, or `LLM_USAGE_EVENT_STORE_PATH` (the env var wins over config).
+- **Disable**: `eventStore.enabled = false` in config, or `LLM_USAGE_EVENT_STORE=0`. Reports then parse everything live. With the store disabled, `--history` fails with `--history requires the event store (unset LLM_USAGE_EVENT_STORE=0)`, and `prune` fails with the matching message.
+- **Migrations**: the schema version lives in a `meta` table. A store written by an older schema migrates in place on first open — the v1→v2 migration adds the content-hash column and backfills a hash per event, which can take seconds on large stores. A store with an unknown **newer** schema version is left untouched: opening throws `EventStoreSchemaVersionError` and the run continues with the store disabled instead of rebuilding tables.
+- **Open failure**: if the store cannot be opened (or fails mid-run), the report still runs; the store is disabled for the rest of the run and a diagnostic is emitted on `stderr`: `Event store disabled after failure: <reason>`.
+
+## Ingest and validity
+
+The ledger keys one record set per `(source, file path)`: a row in `files` (fingerprint, skipped-row stats, ingest time) plus ordered rows in `events`. Ingest is replace-on-change: after a successful parse, the file's old event rows are deleted and the new ones inserted in a single transaction.
+
+Stored events are reused only when dependency fingerprints match exactly. A fingerprint is the serialized list of a file's dependencies — the primary file first, plus any sidecar inputs the adapter declares via `getParseDependencies(filePath)` — each recorded as `{path, exists, size, mtimeMs}` (a missing sidecar is recorded as `exists: false`). Any difference in the serialized fingerprint is a store miss: the file is reparsed and its rows replaced.
+
+Report runs open the store **once** and share the handle across the pipeline: `buildUsageEventDataset` opens it before parsing, passes it to the adapter parse phase, reuses it for `--history`, and closes it after both (`prune` opens its own handle).
+
+## Content hashes and move suppression
+
+Every stored event carries a 16-hex-character SHA-256 content hash over its identity fields: source, timestamp, model, provider, repo root, all five token counts plus total, cost mode, and cost. The hash deliberately excludes the file path — that is what makes move detection work.
+
+When `--history` classifies a departed file, it compares that file's multiset of content hashes against the data already being served (live discovered files, plus departed files already selected for replay). If every hash in the departed file is covered, the file's content lives on at another path — a move, rename, or copy — and the file is **suppressed** rather than replayed, so nothing double counts. Two deliberate asymmetries: rows whose hash is `NULL` (un-normalizable rows kept by the v1→v2 migration) never suppress a file, and a file with only *partial* overlap is served whole — losing genuine deleted history is worse than a rare content overlap between unrelated files.
+
+## `--history` reads
+
+`src/persistence/event-store-history.ts` serves `--history`:
+
+1. It takes the run's successfully parsed sources and their discovered `(source, file)` pairs. Only successfully parsed sources participate — a failed source has an empty discovered set, so all its stored files would otherwise look departed.
+2. Stored files for those sources that were **not** discovered this run are the departed set, classified oldest-ingested first with the move suppression above.
+3. Events from non-suppressed departed files are replayed and appended to their source's parse results **before** the provider/model/date filters, pricing, and aggregation — so report shapes are unchanged and history events flow through the exact same pipeline.
+
+History reads never mutate the ledger: the classification writes only connection-local SQLite `TEMP` tables. Each history run reports its outcome as a diagnostic: `History: included N event(s) from M departed file(s) (K suppressed as moved or duplicated).`
+
+## Prune
+
+`llm-usage prune` deletes departed-file rows from the ledger. It requires at least one selector and is a dry run by default — without `--apply` it prints the candidate table and `Would delete N file(s) / M event(s). Re-run with --apply.`
+
+- `--suppressed` selects departed files that history already suppresses as moved or duplicated — applying it never changes report output.
+- `--departed-before YYYY-MM-DD` selects departed files whose newest event timestamp is strictly older than that UTC date.
+- `--apply` deletes the selected files' rows in one transaction, runs `VACUUM`, truncates the WAL, and reports reclaimed bytes across the database, `-wal`, and `-shm` files.
+
+Prune shares its classification logic (`classifyDepartedFiles`) with the history read path, so "suppressed" means exactly the same thing in both.
+
+## Operational notes
+
+- The store runs in WAL journal mode, so `events.db-wal` and `events.db-shm` appear alongside `events.db`; opens use a 2-second busy timeout. To back up the ledger, copy all three files while no report is running.
+- `LLM_USAGE_EVENT_STORE=0` and `LLM_USAGE_EVENT_STORE_PATH` are the per-run env overrides; the persistent equivalents are the `eventStore.enabled` and `eventStore.path` config keys.
+- [Caching](/caching/) covers the user-facing tuning view of the store; [Configuration](/configuration/) documents the config keys.
