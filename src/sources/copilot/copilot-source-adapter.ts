@@ -6,10 +6,11 @@ import { createUsageEvent, type UsageEvent } from '../../domain/usage-event.js';
 import { asRecord } from '../../utils/as-record.js';
 import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
-import { pathIsDirectory, pathIsFile, pathReadable } from '../../utils/fs-helpers.js';
+import { pathIsFile, pathReadable } from '../../utils/fs-helpers.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
+import { discoverFilesAcrossRoots } from '../multi-root-discovery.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
-import { asTrimmedText, isBlankText, normalizeTimestampCandidate } from '../parsing-utils.js';
+import { asTrimmedText, normalizeTimestampCandidate } from '../parsing-utils.js';
 import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
 
 const defaultOtelDir = path.join(os.homedir(), '.copilot', 'otel');
@@ -387,11 +388,12 @@ export class CopilotSourceAdapter implements SourceAdapter {
   }
 
   public async discoverFiles(): Promise<string[]> {
-    const discoveredFiles: string[] = [];
-
-    for (const rootDir of this.rootDirs) {
-      discoveredFiles.push(...(await this.discoverFilesInRoot(rootDir)));
-    }
+    const discoveredFiles = await discoverFilesAcrossRoots({
+      rootDirs: this.rootDirs,
+      requireDir: this.requireOtelDir,
+      directoryLabel: 'Copilot OTEL directory',
+      discoverInRoot: (rootDir) => discoverJsonlFiles(rootDir),
+    });
 
     if (this.envFilePath) {
       const resolvedEnvFile = await this.resolveEnvFilePath(this.envFilePath);
@@ -402,24 +404,6 @@ export class CopilotSourceAdapter implements SourceAdapter {
     }
 
     return [...new Set(discoveredFiles)].sort(compareByCodePoint);
-  }
-
-  private async discoverFilesInRoot(rootDir: string): Promise<string[]> {
-    if (isBlankText(rootDir)) {
-      throw new Error('Copilot OTEL directory must be a non-empty path');
-    }
-
-    const normalizedRootDir = rootDir.trim();
-
-    if (this.requireOtelDir && !(await pathReadable(normalizedRootDir))) {
-      throw new Error(`Copilot OTEL directory is missing or unreadable: ${normalizedRootDir}`);
-    }
-
-    if (this.requireOtelDir && !(await pathIsDirectory(normalizedRootDir))) {
-      throw new Error(`Copilot OTEL directory is not a directory: ${normalizedRootDir}`);
-    }
-
-    return discoverJsonlFiles(normalizedRootDir);
   }
 
   private async resolveEnvFilePath(filePath: string): Promise<string | undefined> {

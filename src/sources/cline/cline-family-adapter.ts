@@ -2,10 +2,8 @@ import os from 'node:os';
 import path from 'node:path';
 
 import type { SourceId, UsageEvent } from '../../domain/usage-event.js';
-import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
 import { discoverFiles } from '../../utils/discover-files.js';
-import { pathIsDirectory, pathReadable } from '../../utils/fs-helpers.js';
-import { isBlankText } from '../parsing-utils.js';
+import { discoverFilesAcrossRoots, resolveRootDirs } from '../multi-root-discovery.js';
 import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
 import { getClineTaskHistoryPath, parseClineTaskFile } from './cline-task-parser.js';
 
@@ -99,40 +97,22 @@ export class ClineFamilyAdapter implements SourceAdapter {
 
   public constructor(options: ClineFamilyAdapterOptions) {
     this.id = options.id;
-    this.rootDirs =
-      options.tasksDir !== undefined
-        ? [options.tasksDir]
-        : (options.defaultRootDirs ??
-          getDefaultClineTaskRootCandidates({ extensionId: options.extensionId }));
+    this.rootDirs = resolveRootDirs(
+      options.tasksDir,
+      options.defaultRootDirs ??
+        getDefaultClineTaskRootCandidates({ extensionId: options.extensionId }),
+    );
     this.requireTasksDir = options.requireTasksDir ?? false;
   }
 
   public async discoverFiles(): Promise<string[]> {
-    const discoveredFiles: string[] = [];
-
-    for (const rootDir of this.rootDirs) {
-      discoveredFiles.push(...(await this.discoverFilesInRoot(rootDir)));
-    }
-
-    return discoveredFiles.sort(compareByCodePoint);
-  }
-
-  private async discoverFilesInRoot(rootDir: string): Promise<string[]> {
-    if (isBlankText(rootDir)) {
-      throw new Error(`${this.id} tasks directory must be a non-empty path`);
-    }
-
-    const normalizedRootDir = rootDir.trim();
-
-    if (this.requireTasksDir && !(await pathReadable(normalizedRootDir))) {
-      throw new Error(`${this.id} tasks directory is missing or unreadable: ${normalizedRootDir}`);
-    }
-
-    if (this.requireTasksDir && !(await pathIsDirectory(normalizedRootDir))) {
-      throw new Error(`${this.id} tasks directory is not a directory: ${normalizedRootDir}`);
-    }
-
-    return discoverUiMessageFiles(normalizedRootDir);
+    return discoverFilesAcrossRoots({
+      rootDirs: this.rootDirs,
+      requireDir: this.requireTasksDir,
+      directoryLabel: `${this.id} tasks directory`,
+      discoverInRoot: (rootDir) => discoverUiMessageFiles(rootDir),
+      sortAcrossRoots: true,
+    });
   }
 
   public async getParseDependencies(filePath: string): Promise<string[]> {
