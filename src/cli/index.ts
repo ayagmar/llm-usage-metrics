@@ -5,6 +5,7 @@ import { isMainThread, workerData } from 'node:worker_threads';
 import { getUpdateNotifierRuntimeConfig } from '../config/runtime-overrides.js';
 import { loadUserConfig, type UserConfig } from '../config/user-config.js';
 import { checkForUpdates } from '../update/update-notifier.js';
+import { logger, setLogLevel } from '../utils/logger.js';
 import { createCli } from './create-cli.js';
 import { loadPackageMetadataFromRuntime } from './package-metadata.js';
 import { isParseWorkerRequest, runParseWorker } from './parse-worker-pool.js';
@@ -24,6 +25,7 @@ async function runCli(): Promise<void> {
   const { packageName, packageVersion } = loadPackageMetadataFromRuntime();
   const cli = createCli({ version: packageVersion });
   const config = await loadConfigForUpdateCheck();
+  setLogLevel(config.logLevel ?? 'info');
   const updateRuntimeConfig = getUpdateNotifierRuntimeConfig(process.env, config);
   const updateHintPromise = checkForUpdates({
     packageName,
@@ -39,7 +41,7 @@ async function runCli(): Promise<void> {
     const updateHint = await updateHintPromise;
 
     if (updateHint) {
-      console.error(updateHint);
+      logger.info(updateHint);
     }
   }
 }

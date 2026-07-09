@@ -135,7 +135,8 @@ export function registerSharedReportOptions(
       `Filter by source id (repeatable or comma-separated, supported sources ${supportedSourcesSummary})`,
       collectRepeatedOption,
     )
-    .option('--json', 'Render output as JSON');
+    .option('--json', 'Render output as JSON')
+    .option('--quiet', 'suppress informational stderr output (warnings still print)');
 
   if (profileConfig.includeDateFilters) {
     configuredCommand

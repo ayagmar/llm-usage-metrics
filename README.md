@@ -486,6 +486,7 @@ Example:
 ```toml
 #:schema https://ayagmar.github.io/llm-usage-metrics/config-schema.json
 timezone = "Africa/Casablanca"
+logLevel = "info"
 sources = ["codex", "claude"]
 parseMaxParallel = 8
 parseWorkers = "auto"
@@ -505,7 +506,9 @@ path = "/path/to/events.db"
 
 Precedence is `CLI flags` → `environment variables` → `config file` →
 `built-in defaults`. Applied config values are shown on `stderr` as an
-`Active config:` block.
+`Active config:` block. Set `logLevel = "warn"` to suppress informational
+stderr by default, or pass `--quiet` to do the same for a single report
+command.
 
 ### Environment Overrides
 

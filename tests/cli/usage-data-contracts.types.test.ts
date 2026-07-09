@@ -38,6 +38,7 @@ type ReportCommandOptions_Old = {
   model?: string | string[];
   markdown?: boolean;
   json?: boolean;
+  quiet?: boolean;
   perModelColumns?: boolean;
   pricingUrl?: string;
   pricingOverrides?: string;
@@ -103,6 +104,7 @@ type LegacyDoctorCommandOptions = Pick<
   | 'sourceDir'
   | 'source'
   | 'json'
+  | 'quiet'
 >;
 
 type LegacyPruneCommandOptions = LegacyDoctorCommandOptions & {

@@ -45,6 +45,7 @@ type AlwaysOnCommandOptions = {
   sourceDir?: string[];
   source?: string | string[];
   json?: boolean;
+  quiet?: boolean;
 };
 
 type DateFilterOptions = {

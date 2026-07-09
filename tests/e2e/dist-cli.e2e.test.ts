@@ -81,6 +81,49 @@ describe.skipIf(!existsSync(distCliPath))('dist CLI e2e', () => {
     expect(stderr).toContain('session file(s)');
   });
 
+  it('suppresses informational stderr with --quiet without changing JSON output', async () => {
+    const args = [
+      distCliPath,
+      'daily',
+      '--json',
+      '--timezone',
+      'UTC',
+      '--source',
+      sourceList,
+      '--pi-dir',
+      piDir,
+      '--codex-dir',
+      codexDir,
+      '--gemini-dir',
+      geminiDir,
+      '--droid-dir',
+      droidDir,
+      '--claude-dir',
+      claudeDir,
+      '--openclaw-dir',
+      openclawDir,
+    ];
+    const plain = await execFileAsync(process.execPath, args, {
+      encoding: 'utf8',
+      env: createSmokeEnv(),
+      maxBuffer: 1024 * 1024,
+    });
+    const quiet = await execFileAsync(process.execPath, [...args, '--quiet'], {
+      encoding: 'utf8',
+      env: createSmokeEnv(),
+      maxBuffer: 1024 * 1024,
+    });
+
+    expect(quiet.stdout).toBe(plain.stdout);
+    expect(plain.stderr).toContain('ℹ');
+    expect(plain.stderr).toContain('•');
+    expect(quiet.stderr).not.toContain('ℹ');
+    expect(quiet.stderr).not.toContain('•');
+    expect(quiet.stderr.split('\n').filter((line) => line.includes('⚠'))).toEqual(
+      plain.stderr.split('\n').filter((line) => line.includes('⚠')),
+    );
+  });
+
   it('prints help even when the user config is malformed', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'dist-cli-bad-config-help-'));
     const configPath = path.join(tempDir, 'config.toml');

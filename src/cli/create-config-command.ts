@@ -34,6 +34,9 @@ export const USER_CONFIG_TEMPLATE = `${CONFIG_TEMPLATE_HEADER}
 # Default: system timezone.
 # timezone = ""
 
+# Stderr logging level: silent, warn, info, or debug.
+# logLevel = "info"
+
 # Default: all supported sources.
 # sources = []
 

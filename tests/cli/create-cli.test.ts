@@ -73,6 +73,15 @@ describe('createCli', () => {
     }
   });
 
+  it('includes quiet on every report command', () => {
+    const cli = createCli();
+    const reportCommands = cli.commands.filter((command) => command.name() !== 'config');
+
+    for (const command of reportCommands) {
+      expect(command.options.some((option) => option.long === '--quiet')).toBe(true);
+    }
+  });
+
   it('configures optimize command with candidate-model and top flags', () => {
     const cli = createCli();
     const optimizeCommand = cli.commands.find((command) => command.name() === 'optimize');

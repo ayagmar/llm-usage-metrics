@@ -11,6 +11,12 @@
       "type": "string",
       "examples": ["Africa/Casablanca", "UTC"]
     },
+    "logLevel": {
+      "description": "Stderr logging level; --quiet overrides this to warn for one command.",
+      "type": "string",
+      "enum": ["silent", "warn", "info", "debug"],
+      "default": "info"
+    },
     "sources": {
       "description": "Default source filter; maps to repeatable --source values.",
       "type": "array",

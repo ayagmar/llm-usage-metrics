@@ -26,6 +26,7 @@ TOML editors such as Taplo can validate the file through the `#:schema` directiv
 ```toml
 #:schema https://ayagmar.github.io/llm-usage-metrics/config-schema.json
 timezone = "Africa/Casablanca"
+logLevel = "info"
 sources = ["codex", "claude"]
 parseMaxParallel = 8
 parseWorkers = "auto"
@@ -66,13 +67,14 @@ Higher layers win:
 | Config file | Persistent personal defaults |
 | Built-in defaults | Zero-config behavior |
 
-Applied config values are printed on `stderr` as an `Active config:` block. Values shadowed by a flag or environment variable are not listed.
+Applied config values are printed on `stderr` as an `Active config:` block. Values shadowed by a flag or environment variable are not listed. Set `logLevel = "warn"` to suppress informational stderr by default, or pass `--quiet` to do the same for a single report command.
 
 ## Config keys
 
 | Config key | CLI flag or env override | What it controls |
 | --- | --- | --- |
 | `timezone` | `--timezone` | Default report timezone |
+| `logLevel` | `--quiet` | Stderr logging level: `silent`, `warn`, `info`, or `debug` |
 | `sources` | `--source` | Default source filter |
 | `sourceDirs.pi` | `--pi-dir` or `--source-dir pi=...` | Pi sessions path |
 | `sourceDirs.codex` | `--codex-dir` or `--source-dir codex=...` | Codex sessions path |

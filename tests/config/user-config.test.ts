@@ -127,6 +127,7 @@ describe('loadUserConfig', () => {
       },
       readContent(`
 timezone = "Africa/Casablanca"
+logLevel = "debug"
 sources = ["codex", "claude", "codex"]
 parseMaxParallel = 12
 parseWorkers = "auto"
@@ -160,6 +161,7 @@ fetchTimeoutMs = 500
     expect(result.exists).toBe(true);
     expect(result.config).toEqual({
       timezone: 'Africa/Casablanca',
+      logLevel: 'debug',
       sources: ['codex', 'claude'],
       sourceDirs: {
         claude: '/tmp/claude',
@@ -232,6 +234,7 @@ fetchTimeoutMs = 1
       },
       readContent(`
 timezone = " "
+logLevel = "verbose"
 sources = []
 parseWorkers = "manual"
 parseWorkerMinBytes = 1.5

@@ -7,6 +7,7 @@ import { parse as parseToml } from 'smol-toml';
 import { asRecord } from '../utils/as-record.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { getUserConfigRootDir } from '../utils/config-root-dir.js';
+import type { LogLevel } from '../utils/logger.js';
 
 const MINUTE_MS = 60_000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -47,6 +48,7 @@ export const USER_CONFIG_SOURCE_DIR_KEYS = [
 
 const knownTopLevelKeys = [
   'eventStore',
+  'logLevel',
   'parseMaxParallel',
   'parseWorkerMinBytes',
   'parseWorkers',
@@ -84,6 +86,7 @@ const sourceDirKeySet = new Set<string>(USER_CONFIG_SOURCE_DIR_KEYS);
 
 export type UserConfig = {
   timezone?: string;
+  logLevel?: LogLevel;
   sources?: string[];
   sourceDirs?: Partial<Record<(typeof USER_CONFIG_SOURCE_DIR_KEYS)[number], string>>;
   pricing?: {
@@ -229,6 +232,14 @@ function toNonBlankString(value: unknown): string | undefined {
 
 function toBoolean(value: unknown): boolean | undefined {
   return typeof value === 'boolean' ? value : undefined;
+}
+
+function readLogLevel(value: unknown): LogLevel | undefined {
+  if (value === 'silent' || value === 'warn' || value === 'info' || value === 'debug') {
+    return value;
+  }
+
+  return undefined;
 }
 
 function toSources(value: unknown): string[] | undefined {
@@ -386,6 +397,7 @@ function readParseWorkers(value: unknown): UserConfig['parseWorkers'] | undefine
 function readConfig(root: Record<string, unknown>): UserConfig {
   const config: UserConfig = {};
   const timezone = toNonBlankString(root.timezone);
+  const logLevel = readLogLevel(root.logLevel);
   const sources = toSources(root.sources);
   const sourceDirs = readSourceDirs(root.sourceDirs);
   const pricing = readPricingConfig(root.pricing);
@@ -405,6 +417,10 @@ function readConfig(root: Record<string, unknown>): UserConfig {
 
   if (timezone !== undefined) {
     config.timezone = timezone;
+  }
+
+  if (logLevel !== undefined) {
+    config.logLevel = logLevel;
   }
 
   if (sources !== undefined) {

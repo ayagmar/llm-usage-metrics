@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 
+import { setLogLevel } from '../utils/logger.js';
 import {
   createReportCommands,
   createRootDescription,
@@ -23,6 +24,12 @@ export function createCli(options: CreateCliOptions = {}): Command {
     program.addCommand(command);
   }
   program.addCommand(createConfigCommand());
+
+  program.hook('preAction', (_thisCommand, actionCommand) => {
+    if (actionCommand.opts().quiet === true) {
+      setLogLevel('warn');
+    }
+  });
 
   return program;
 }
