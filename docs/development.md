@@ -77,30 +77,30 @@ Use it to track report runtime over time while iterating locally.
 
 ## Production benchmark comparison
 
-Compare production runtime against `ccusage-codex` on your machine:
+Compare production runtime against `ccusage` on your machine. The script times the built `dist/index.js`, so build first:
 
 ```bash
-# direct source-to-source parity
-pnpm run perf:production-benchmark -- --runs 5 --llm-source codex
+pnpm run build
+npx -y ccusage@latest --version
+CCUSAGE_BIN=$(find ~/.npm/_npx -name ccusage -path '*/.bin/*' | head -1)
 
-# multi-source for one provider
-pnpm run perf:production-benchmark -- --runs 5 --llm-source pi,codex,gemini,opencode
+# one scenario at a time
+node scripts/perf-production-benchmark.mjs --runs 5 --scenario codex --ccusage-bin "$CCUSAGE_BIN"
+node scripts/perf-production-benchmark.mjs --runs 5 --scenario claude --ccusage-bin "$CCUSAGE_BIN"
+
+# or both scenarios in one run
+node scripts/perf-production-benchmark.mjs --runs 5 --scenario all --ccusage-bin "$CCUSAGE_BIN"
 ```
 
 Optional artifact outputs:
 
 ```bash
-pnpm run perf:production-benchmark -- \
+node scripts/perf-production-benchmark.mjs \
   --runs 5 \
-  --llm-source codex \
-  --json-output ./tmp/production-benchmark-openai-codex.json \
-  --markdown-output ./tmp/production-benchmark-openai-codex.md
-
-pnpm run perf:production-benchmark -- \
-  --runs 5 \
-  --llm-source pi,codex,gemini,opencode \
-  --json-output ./tmp/production-benchmark-openai-multi-source.json \
-  --markdown-output ./tmp/production-benchmark-openai-multi-source.md
+  --scenario codex \
+  --ccusage-bin "$CCUSAGE_BIN" \
+  --json-output ./tmp/production-benchmark-codex.json \
+  --markdown-output ./tmp/production-benchmark-codex.md
 ```
 
 ## Runtime configuration in development

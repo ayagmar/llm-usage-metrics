@@ -395,77 +395,36 @@ do not silently fall back to the bundled default LiteLLM snapshot.
 
 ## 🧪 Production Benchmarks
 
-Benchmarked on **February 27, 2026** on a local production machine:
+Absolute runtimes measured on 2026-07-09 on real local data, with `ccusage` (a native Rust binary) as context; full methodology lives on the [Benchmarks docs page](https://ayagmar.github.io/llm-usage-metrics/benchmarks/).
 
-- OS: CachyOS (Linux 6.19.2-2-cachyos)
-- CPU: Intel Core Ultra 9 185H (22 logical CPUs)
-- RAM: 62 GiB
-- Storage: NVMe SSD
+codex — `daily` (5 runs each):
 
-Compared scenarios:
+| Tool                                               | Cache | Median (s) | Mean (s) |
+| -------------------------------------------------- | ----- | ---------: | -------: |
+| `ccusage codex daily`                              | cold  |      0.516 |    0.515 |
+| `ccusage codex daily --offline`                    | warm  |      0.292 |    0.292 |
+| `llm-usage daily --source codex`                   | cold  |      1.655 |    1.670 |
+| `llm-usage daily --source codex --pricing-offline` | warm  |      0.996 |    1.005 |
 
-```bash
-# direct source-to-source parity (openai provider)
-ccusage-codex monthly
-llm-usage monthly --provider openai --source codex
+claude — `daily` (5 runs each):
 
-# multi-source comparison for one provider (openai)
-ccusage-codex monthly
-llm-usage monthly --provider openai --source pi,codex,gemini,opencode
-```
+| Tool                                                | Cache | Median (s) | Mean (s) |
+| --------------------------------------------------- | ----- | ---------: | -------: |
+| `ccusage claude daily`                              | cold  |      0.335 |    0.354 |
+| `ccusage claude daily --offline`                    | warm  |      0.478 |    0.474 |
+| `llm-usage daily --source claude`                   | cold  |      0.883 |    0.896 |
+| `llm-usage daily --source claude --pricing-offline` | warm  |      0.256 |    0.255 |
 
-Timed benchmark summary (5 runs per scenario).
+Cold runs favor ccusage (native Rust); warm claude favors llm-usage (~1.9x) thanks to the SQLite event store; warm codex is ~1.0 s.
 
-Direct source-to-source parity (`--source codex`):
-
-| Tool                                                                   | Cache mode | Median (s) | Mean (s) |
-| ---------------------------------------------------------------------- | ---------- | ---------: | -------: |
-| `ccusage-codex monthly`                                                | no cache   |     16.785 |   17.288 |
-| `ccusage-codex monthly --offline`                                      | with cache |     16.995 |   17.594 |
-| `llm-usage monthly --provider openai --source codex`                   | no cache   |      3.651 |    3.760 |
-| `llm-usage monthly --provider openai --source codex --pricing-offline` | with cache |      0.746 |    0.724 |
-
-Speedups (median): `4.60x` faster cold, `22.78x` faster cached.
-
-Multi-source OpenAI (`--source pi,codex,gemini,opencode`):
-
-| Tool                                                                                      | Cache mode | Median (s) | Mean (s) |
-| ----------------------------------------------------------------------------------------- | ---------- | ---------: | -------: |
-| `ccusage-codex monthly`                                                                   | no cache   |     17.297 |   17.463 |
-| `ccusage-codex monthly --offline`                                                         | with cache |     16.698 |   16.745 |
-| `llm-usage monthly --provider openai --source pi,codex,gemini,opencode`                   | no cache   |      4.767 |    4.864 |
-| `llm-usage monthly --provider openai --source pi,codex,gemini,opencode --pricing-offline` | with cache |      0.941 |    0.951 |
-
-Speedups (median): `3.63x` faster cold, `17.75x` faster cached.
-
-Full methodology, cache-mode definition, and scope caveats are documented in the Astro docs: [Benchmarks](https://ayagmar.github.io/llm-usage-metrics/benchmarks/).
-
-Re-run direct parity benchmark locally:
+Reproduce locally:
 
 ```bash
-pnpm run perf:production-benchmark -- --runs 5 --llm-source codex
-```
-
-Re-run multi-source OpenAI benchmark locally:
-
-```bash
-pnpm run perf:production-benchmark -- --runs 5 --llm-source pi,codex,gemini,opencode
-```
-
-Generate machine-readable artifacts:
-
-```bash
-pnpm run perf:production-benchmark -- \
-  --runs 5 \
-  --llm-source codex \
-  --json-output ./tmp/production-benchmark-openai-codex.json \
-  --markdown-output ./tmp/production-benchmark-openai-codex.md
-
-pnpm run perf:production-benchmark -- \
-  --runs 5 \
-  --llm-source pi,codex,gemini,opencode \
-  --json-output ./tmp/production-benchmark-openai-multi-source.json \
-  --markdown-output ./tmp/production-benchmark-openai-multi-source.md
+pnpm run build
+npx -y ccusage@latest --version
+CCUSAGE_BIN=$(find ~/.npm/_npx -name ccusage -path '*/.bin/*' | head -1)
+node scripts/perf-production-benchmark.mjs --runs 5 --scenario codex --ccusage-bin "$CCUSAGE_BIN"
+node scripts/perf-production-benchmark.mjs --runs 5 --scenario claude --ccusage-bin "$CCUSAGE_BIN"
 ```
 
 ## ⚙️ Configuration
