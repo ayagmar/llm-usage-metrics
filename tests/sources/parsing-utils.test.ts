@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   asTrimmedText,
+  hasPositiveUsageOrCostSignal,
   isBlankText,
   normalizeTimestampCandidate,
+  toFiniteNumber,
   toNumberLike,
 } from '../../src/sources/parsing-utils.js';
 
@@ -27,6 +29,27 @@ describe('source parsing helpers', () => {
     expect(toNumberLike(undefined)).toBeUndefined();
     expect(toNumberLike({ value: 42 })).toBeUndefined();
     expect(toNumberLike([42])).toBeUndefined();
+  });
+
+  it('converts NumberLike values to finite numbers', () => {
+    expect(toFiniteNumber(42)).toBe(42);
+    expect(toFiniteNumber('42')).toBe(42);
+    expect(toFiniteNumber('')).toBeUndefined();
+    expect(toFiniteNumber('   ')).toBeUndefined();
+    expect(toFiniteNumber('not-a-number')).toBeUndefined();
+    expect(toFiniteNumber(null)).toBeUndefined();
+    expect(toFiniteNumber(undefined)).toBeUndefined();
+    expect(toFiniteNumber(Number.POSITIVE_INFINITY)).toBeUndefined();
+    expect(toFiniteNumber(-5)).toBe(-5);
+  });
+
+  it('detects positive usage or cost signal', () => {
+    expect(hasPositiveUsageOrCostSignal([0, undefined, 5], 0)).toBe(true);
+    expect(hasPositiveUsageOrCostSignal([0, undefined], 0.01)).toBe(true);
+    expect(hasPositiveUsageOrCostSignal([0, undefined], 0)).toBe(false);
+    expect(hasPositiveUsageOrCostSignal([undefined], undefined)).toBe(false);
+    expect(hasPositiveUsageOrCostSignal([-5, '-1'], -0.01)).toBe(false);
+    expect(hasPositiveUsageOrCostSignal(['5'], 0)).toBe(true);
   });
 
   it('normalizes ISO, numeric, and numeric-string timestamps', () => {

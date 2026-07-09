@@ -29,6 +29,38 @@ export function toNumberLike(value: unknown): NumberLike {
   return undefined;
 }
 
+export function toFiniteNumber(value: NumberLike | undefined): number | undefined {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value === 'string' && value.trim().length === 0) {
+    return undefined;
+  }
+
+  const parsed = typeof value === 'number' ? value : Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    return undefined;
+  }
+
+  return parsed;
+}
+
+export function hasPositiveUsageOrCostSignal(
+  usageCandidates: ReadonlyArray<NumberLike | undefined>,
+  costUsd: NumberLike | undefined,
+): boolean {
+  const hasPositiveUsageSignal = usageCandidates.some((value) => {
+    const parsed = toFiniteNumber(value);
+    return parsed !== undefined && parsed > 0;
+  });
+  const explicitCost = toFiniteNumber(costUsd);
+  const hasPositiveCostSignal = explicitCost !== undefined && explicitCost > 0;
+
+  return hasPositiveUsageSignal || hasPositiveCostSignal;
+}
+
 export function toTokenCount(value: unknown): number {
   return normalizeNonNegativeInteger(toNumberLike(value));
 }

@@ -11,6 +11,7 @@ import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
+  hasPositiveUsageOrCostSignal,
   isBlankText,
   normalizeTimestampCandidate,
   toNumberLike,
@@ -93,24 +94,6 @@ function extractUsageFromRecord(usage: Record<string, unknown>): PiUsageExtract 
     costUsd: toNumberLike(cost?.total),
   };
 
-  const toFiniteNumber = (value: NumberLike | undefined): number | undefined => {
-    if (value === null || value === undefined) {
-      return undefined;
-    }
-
-    if (typeof value === 'string' && value.trim().length === 0) {
-      return undefined;
-    }
-
-    const parsed = typeof value === 'number' ? value : Number(value);
-
-    if (!Number.isFinite(parsed)) {
-      return undefined;
-    }
-
-    return parsed;
-  };
-
   const usageCandidates = [
     extracted.inputTokens,
     extracted.outputTokens,
@@ -119,14 +102,8 @@ function extractUsageFromRecord(usage: Record<string, unknown>): PiUsageExtract 
     extracted.cacheWriteTokens,
     extracted.totalTokens,
   ];
-  const hasPositiveUsageSignal = usageCandidates.some((value) => {
-    const parsed = toFiniteNumber(value);
-    return parsed !== undefined && parsed > 0;
-  });
-  const explicitCost = toFiniteNumber(extracted.costUsd);
-  const hasPositiveCostSignal = explicitCost !== undefined && explicitCost > 0;
 
-  return hasPositiveUsageSignal || hasPositiveCostSignal ? extracted : undefined;
+  return hasPositiveUsageOrCostSignal(usageCandidates, extracted.costUsd) ? extracted : undefined;
 }
 
 function extractUsage(line: Record<string, unknown>, message: Record<string, unknown> | undefined) {
