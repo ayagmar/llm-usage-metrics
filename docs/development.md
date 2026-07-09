@@ -20,9 +20,12 @@ pnpm run lint
 pnpm run typecheck
 pnpm run test
 pnpm run format:check
+node .github/scripts/check-coverage-threshold.mjs
 ```
 
-`pnpm run test` includes coverage by default.
+`pnpm run test` includes coverage by default; the coverage-threshold gate then enforces the global and per-file floors that CI enforces.
+
+Toolchain note: `pnpm run typecheck` runs `tsc --noEmit` through the native TypeScript 7 compiler (the `@typescript/native` devDependency, aliased to `npm:typescript@7.0.2`). The package named `typescript` is aliased to `npm:@typescript/typescript6@6.0.2` so typescript-eslint keeps resolving a TS6-named API until upstream supports the TS 7 API.
 
 ## CI-parity validation
 
@@ -32,6 +35,7 @@ The GitHub Actions workflow does more than the four core checks above. Before op
 pnpm run lint
 pnpm run typecheck
 pnpm run test
+node .github/scripts/check-coverage-threshold.mjs
 pnpm run format:check
 pnpm run docs:mermaid:validate
 pnpm run build
@@ -160,6 +164,7 @@ Checks:
 - built dist OpenCode smoke test
 - npm pack check
 - test + coverage (`pnpm run test`, Node 24)
+- coverage threshold gate (`node .github/scripts/check-coverage-threshold.mjs`)
 
 Runtime:
 
@@ -222,13 +227,22 @@ Optional but recommended:
 2. Implement `SourceAdapter`
    - required: `discoverFiles()` and `parseFile(filePath)`
    - optional: `parseFileWithDiagnostics(filePath)` when you need per-file skipped-row counters
-   - for JSONL sources, consider `readJsonlObjects(filePath, { shouldParseLine })` to skip irrelevant lines before `JSON.parse`
+   - optional: `getParseDependencies(filePath)` when parsing reads sidecar files (the event store fingerprints them)
+   - for JSONL sources, consider `readJsonlObjects(filePath, { shouldParseLine })` — or the faster byte-level `shouldParseLineBytes` — to skip irrelevant lines before `JSON.parse`
 3. Normalize output through `createUsageEvent`
 4. Add fixture tests under `tests/sources`
 5. Register adapter in `src/sources/create-default-adapters.ts`
 6. Wire source-specific override semantics:
    - directory-backed sources get a dedicated `--<source>-dir` flag AND participate in the generic `--source-dir <source-id=path>` override
    - file/DB-backed sources get only a dedicated flag (for example `--opencode-db`) and are rejected by `--source-dir` with an actionable error
-7. Verify CLI filtering with `--source <name>`
+7. Wire the config surface:
+   - add the source id to `USER_CONFIG_SOURCE_DIR_KEYS` in `src/config/user-config.ts` (the `config init` template derives its `[sourceDirs]` entries from that list automatically)
+   - add the matching `sourceDirs.<id>` property to `schema/config.schema.json` AND the published copy `site/public/config-schema.json` — unit tests fail if either copy drifts from the loader's known keys
+8. Update the docs surface:
+   - README Supported Sources table and source-list examples
+   - the site landing page (`site/src/content/docs/index.mdx`): source count and sources table
+   - a `site/src/content/docs/sources/<id>.mdx` page plus its Data Sources sidebar entry in `site/astro.config.mjs`
+9. Extend the e2e expectations: fixtures under `tests/fixtures/e2e/<id>/` and the all-sources list plus totals in `tests/e2e/multi-source.e2e.test.ts`
+10. Verify CLI filtering with `--source <name>`
 
 Keep parsing logic isolated to the adapter. Do not spread source-specific assumptions across aggregation or rendering.
