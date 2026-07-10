@@ -26,6 +26,7 @@ export {
 } from './version-utils.js';
 
 export const UPDATE_CHECK_SKIP_ENV_VAR = 'LLM_USAGE_SKIP_UPDATE_CHECK';
+export const UPDATE_HINT_EXIT_GRACE_MS = 50;
 
 export type UpdateNotifierOptions = {
   packageName: string;
@@ -36,6 +37,7 @@ export type UpdateNotifierOptions = {
   skipCheck?: boolean;
   fetchImpl?: typeof fetch;
   now?: () => number;
+  signal?: AbortSignal;
   env?: NodeJS.ProcessEnv;
   argv?: string[];
 };
@@ -116,7 +118,25 @@ function toResolveLatestVersionOptions(
     fetchTimeoutMs: options.fetchTimeoutMs,
     fetchImpl: options.fetchImpl,
     now: options.now,
+    signal: options.signal,
   };
+}
+
+export async function waitForUpdateHintBeforeExit(
+  updateHintPromise: Promise<string | undefined>,
+  abortController: AbortController,
+  graceMs = UPDATE_HINT_EXIT_GRACE_MS,
+): Promise<string | undefined> {
+  const timer = setTimeout(() => {
+    abortController.abort();
+  }, graceMs);
+  timer.unref();
+
+  try {
+    return await updateHintPromise;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function checkForUpdates(options: UpdateNotifierOptions): Promise<string | undefined> {

@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { setTimeout as sleepTimer } from 'node:timers/promises';
 
 import { asRecord } from '../utils/as-record.js';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
@@ -27,7 +28,8 @@ export type ResolveLatestVersionOptions = {
   fetchRetryDelayMs?: number;
   fetchImpl?: typeof fetch;
   now?: () => number;
-  sleep?: (delayMs: number) => Promise<void>;
+  signal?: AbortSignal;
+  sleep?: (delayMs: number, signal?: AbortSignal) => Promise<void>;
 };
 
 class RetryableFetchError extends Error {
@@ -61,10 +63,8 @@ function isRetryableFetchFailure(error: unknown): boolean {
   return /timeout|timed out|network|econn|enotfound|eai_again/iu.test(error.message);
 }
 
-async function sleep(delayMs: number): Promise<void> {
-  await new Promise<void>((resolve) => {
-    setTimeout(resolve, delayMs);
-  });
+async function sleep(delayMs: number, signal?: AbortSignal): Promise<void> {
+  await sleepTimer(delayMs, undefined, { signal });
 }
 
 export function getDefaultUpdateCheckCachePath(): string {
@@ -189,11 +189,14 @@ async function fetchLatestVersion(
   packageName: string,
   fetchImpl: typeof fetch,
   fetchTimeoutMs: number,
+  signal?: AbortSignal,
 ): Promise<string | undefined> {
+  const timeoutSignal = AbortSignal.timeout(fetchTimeoutMs);
+  const fetchSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
   const response = await fetchImpl(
     `https://registry.npmjs.org/${encodeURIComponent(packageName)}/latest`,
     {
-      signal: AbortSignal.timeout(fetchTimeoutMs),
+      signal: fetchSignal,
     },
   );
 
@@ -236,7 +239,8 @@ async function fetchLatestVersionWithRetry(
   fetchTimeoutMs: number,
   fetchRetryCount: number,
   fetchRetryDelayMs: number,
-  sleepFn: (delayMs: number) => Promise<void>,
+  sleepFn: (delayMs: number, signal?: AbortSignal) => Promise<void>,
+  signal?: AbortSignal,
 ): Promise<string | undefined> {
   const safeRetryCount =
     Number.isFinite(fetchRetryCount) && fetchRetryCount >= 0
@@ -249,9 +253,15 @@ async function fetchLatestVersionWithRetry(
   const maxAttempts = safeRetryCount + 1;
 
   for (let attemptIndex = 0; attemptIndex < maxAttempts; attemptIndex += 1) {
+    signal?.throwIfAborted();
+
     try {
-      return await fetchLatestVersion(packageName, fetchImpl, fetchTimeoutMs);
+      return await fetchLatestVersion(packageName, fetchImpl, fetchTimeoutMs, signal);
     } catch (error) {
+      if (signal?.aborted) {
+        throw error;
+      }
+
       const shouldRetry = isRetryableFetchFailure(error) && attemptIndex < maxAttempts - 1;
 
       if (!shouldRetry) {
@@ -260,7 +270,7 @@ async function fetchLatestVersionWithRetry(
     }
 
     const backoffDelay = safeRetryDelayMs * 2 ** attemptIndex;
-    await sleepFn(backoffDelay);
+    await sleepFn(backoffDelay, signal);
   }
 
   return undefined;
@@ -277,8 +287,13 @@ export async function resolveLatestVersion(
   const fetchImpl = options.fetchImpl ?? fetch;
   const now = options.now ?? Date.now;
   const sleepFn = options.sleep ?? sleep;
+  const signal = options.signal;
 
   const cachePayload = await readUpdateCheckCachePayload(cacheFilePath);
+
+  if (signal?.aborted) {
+    return undefined;
+  }
 
   if (cachePayload && isCacheFresh(cachePayload, cacheTtlMs, now)) {
     return cachePayload.latestVersion;
@@ -292,7 +307,12 @@ export async function resolveLatestVersion(
       fetchRetryCount,
       fetchRetryDelayMs,
       sleepFn,
+      signal,
     );
+
+    if (signal?.aborted) {
+      return undefined;
+    }
 
     if (!latestVersion) {
       return cachePayload?.latestVersion;
@@ -309,6 +329,10 @@ export async function resolveLatestVersion(
 
     return latestVersion;
   } catch {
+    if (signal?.aborted) {
+      return undefined;
+    }
+
     return cachePayload?.latestVersion;
   }
 }

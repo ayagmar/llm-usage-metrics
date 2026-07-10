@@ -14,6 +14,7 @@ import {
   resolveLatestVersion,
   shouldOfferUpdate,
   shouldSkipUpdateCheckForArgv,
+  waitForUpdateHintBeforeExit,
 } from '../../src/update/update-notifier.js';
 
 const tempDirs: string[] = [];
@@ -178,6 +179,69 @@ describe('update-notifier', () => {
       checkedAt: nowValue - 10_000,
       latestVersion: '9.9.9',
     });
+  });
+
+  it('cancels the update check without retrying when its external signal aborts', async () => {
+    const cacheFilePath = await createTempCachePath('update-cache-cancelled-');
+    const nowValue = 1_000_000;
+    const abortController = new AbortController();
+    let markFetchStarted: () => void = () => undefined;
+    const fetchStarted = new Promise<void>((resolve) => {
+      markFetchStarted = resolve;
+    });
+    const fetchSpy = vi.fn<typeof fetch>(async (_input, init) => {
+      markFetchStarted();
+      const signal = init?.signal;
+
+      if (!signal) {
+        throw new Error('update fetch did not receive an abort signal');
+      }
+
+      await new Promise<void>((_resolve, reject) => {
+        if (signal.aborted) {
+          reject(new Error('update fetch aborted', { cause: signal.reason }));
+          return;
+        }
+
+        signal.addEventListener(
+          'abort',
+          () => {
+            reject(new Error('update fetch aborted', { cause: signal.reason }));
+          },
+          { once: true },
+        );
+      });
+
+      throw new Error('unreachable');
+    });
+
+    await writeFile(
+      cacheFilePath,
+      JSON.stringify({
+        checkedAt: nowValue - 10_000,
+        latestVersion: '9.9.9',
+      }),
+      'utf8',
+    );
+
+    const updateHintPromise = checkForUpdates({
+      packageName: 'llm-usage-metrics',
+      currentVersion: '0.1.0',
+      cacheFilePath,
+      cacheTtlMs: 1_000,
+      fetchTimeoutMs: 20,
+      fetchImpl: fetchSpy,
+      now: () => nowValue,
+      signal: abortController.signal,
+      env: { PATH: '/usr/bin' },
+      argv: ['/usr/bin/node', '/app/dist/index.js', 'daily'],
+    });
+
+    await fetchStarted;
+    abortController.abort();
+
+    await expect(updateHintPromise).resolves.toBeUndefined();
+    expect(fetchSpy).toHaveBeenCalledOnce();
   });
 
   it('uses stale cache when npm registry responds without version payload', async () => {
@@ -435,6 +499,60 @@ describe('update-notifier', () => {
       'Update available for llm-usage-metrics: 0.1.0 → 0.2.0. Run "npm install -g llm-usage-metrics@latest" to update.',
     );
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('returns an already-resolved cached hint without aborting', async () => {
+    const cacheFilePath = await createTempCachePath('update-resolved-cache-hit-');
+    const nowValue = 7_000_000;
+    const fetchSpy = vi.fn(async () => {
+      throw new Error('fetch should not be called for fresh cache');
+    });
+
+    await writeFile(
+      cacheFilePath,
+      JSON.stringify({
+        checkedAt: nowValue - 500,
+        latestVersion: '0.2.0',
+      }),
+      'utf8',
+    );
+
+    const updateHintPromise = checkForUpdates({
+      packageName: 'llm-usage-metrics',
+      currentVersion: '0.1.0',
+      cacheFilePath,
+      cacheTtlMs: 5_000,
+      now: () => nowValue,
+      fetchImpl: fetchSpy,
+      env: { PATH: '/usr/bin' },
+      argv: ['/usr/bin/node', '/app/dist/index.js', 'daily'],
+    });
+    const expectedHint = await updateHintPromise;
+    const abortController = new AbortController();
+
+    const result = await waitForUpdateHintBeforeExit(updateHintPromise, abortController, 5);
+
+    expect(result).toBe(expectedHint);
+    expect(abortController.signal.aborted).toBe(false);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('aborts a hanging update check after the completion grace interval', async () => {
+    const abortController = new AbortController();
+    const updateHintPromise = new Promise<string | undefined>((resolve) => {
+      abortController.signal.addEventListener(
+        'abort',
+        () => {
+          resolve(undefined);
+        },
+        { once: true },
+      );
+    });
+
+    const result = await waitForUpdateHintBeforeExit(updateHintPromise, abortController, 5);
+
+    expect(result).toBeUndefined();
+    expect(abortController.signal.aborted).toBe(true);
   });
 
   it('returns the hint from a missing cache by fetching the latest version', async () => {

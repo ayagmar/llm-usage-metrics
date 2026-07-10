@@ -4,7 +4,7 @@ import { isMainThread, workerData } from 'node:worker_threads';
 
 import { getUpdateNotifierRuntimeConfig } from '../config/runtime-overrides.js';
 import { loadUserConfig, type UserConfig } from '../config/user-config.js';
-import { checkForUpdates } from '../update/update-notifier.js';
+import { checkForUpdates, waitForUpdateHintBeforeExit } from '../update/update-notifier.js';
 import { logger, setLogLevel } from '../utils/logger.js';
 import { createCli } from './create-cli.js';
 import { loadPackageMetadataFromRuntime } from './package-metadata.js';
@@ -27,18 +27,20 @@ async function runCli(): Promise<void> {
   const config = await loadConfigForUpdateCheck();
   setLogLevel(config.logLevel ?? 'info');
   const updateRuntimeConfig = getUpdateNotifierRuntimeConfig(process.env, config);
+  const updateAbortController = new AbortController();
   const updateHintPromise = checkForUpdates({
     packageName,
     currentVersion: packageVersion,
     skipCheck: updateRuntimeConfig.skipCheck,
     cacheTtlMs: updateRuntimeConfig.cacheTtlMs,
     fetchTimeoutMs: updateRuntimeConfig.fetchTimeoutMs,
+    signal: updateAbortController.signal,
   });
 
   try {
     await cli.parseAsync(process.argv);
   } finally {
-    const updateHint = await updateHintPromise;
+    const updateHint = await waitForUpdateHintBeforeExit(updateHintPromise, updateAbortController);
 
     if (updateHint) {
       logger.info(updateHint);
