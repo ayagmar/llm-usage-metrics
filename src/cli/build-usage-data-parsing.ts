@@ -436,19 +436,19 @@ export async function parseAdapterEvents(
     }
   }
 
-  async function runFileIndexLoop(
-    fileIndices: number[],
-    parseFileIndex: (fileIndex: number) => Promise<void>,
+  async function runTaskLoop<T>(
+    tasks: readonly T[],
+    runTask: (task: T) => Promise<void>,
   ): Promise<void> {
-    const workerCount = Math.min(safeMaxParallelFileParsing, fileIndices.length);
-    let nextFileIndex = 0;
+    const workerCount = Math.min(safeMaxParallelFileParsing, tasks.length);
+    let nextTaskIndex = 0;
 
     const workers = Array.from({ length: workerCount }, async () => {
-      while (nextFileIndex < fileIndices.length) {
-        const fileIndex = fileIndices[nextFileIndex];
-        nextFileIndex += 1;
+      while (nextTaskIndex < tasks.length) {
+        const task = tasks[nextTaskIndex];
+        nextTaskIndex += 1;
 
-        await runWithParseBudget(() => parseFileIndex(fileIndex));
+        await runWithParseBudget(() => runTask(task));
       }
     });
 
@@ -586,12 +586,12 @@ export async function parseAdapterEvents(
         workerCount: 0,
         missedBytes: 0,
       });
-      await runFileIndexLoop(fileIndices, parseFileAtIndexInline);
+      await runTaskLoop(fileIndices, parseFileAtIndexInline);
       return;
     }
 
     const missedFiles: MissedParseFile[] = [];
-    await runFileIndexLoop(fileIndices, (fileIndex) =>
+    await runTaskLoop(fileIndices, (fileIndex) =>
       resolveStoreHitOrWorkerMiss(fileIndex, missedFiles),
     );
     missedFiles.sort((left, right) => left.fileIndex - right.fileIndex);
@@ -607,16 +607,7 @@ export async function parseAdapterEvents(
         workerCount: safeWorkerCount,
         missedBytes,
       });
-      await runFileIndexLoop(
-        missedFiles.map((missedFile) => missedFile.fileIndex),
-        async (fileIndex) => {
-          const missedFile = missedFiles.find((candidate) => candidate.fileIndex === fileIndex);
-
-          if (missedFile) {
-            await parseMissedFileInline(missedFile);
-          }
-        },
-      );
+      await runTaskLoop(missedFiles, parseMissedFileInline);
       return;
     }
 
@@ -629,16 +620,7 @@ export async function parseAdapterEvents(
     let status: 'engaged' | 'fallback' = pool.status() === 'fallback' ? 'fallback' : 'engaged';
 
     try {
-      await runFileIndexLoop(
-        missedFiles.map((missedFile) => missedFile.fileIndex),
-        async (fileIndex) => {
-          const missedFile = missedFiles.find((candidate) => candidate.fileIndex === fileIndex);
-
-          if (missedFile) {
-            await parseMissedFileOnPool(pool, missedFile);
-          }
-        },
-      );
+      await runTaskLoop(missedFiles, (missedFile) => parseMissedFileOnPool(pool, missedFile));
       status = pool.status() === 'fallback' ? 'fallback' : status;
     } finally {
       await pool.terminate();
@@ -656,7 +638,7 @@ export async function parseAdapterEvents(
   if (canParseSourceOnWorker(adapter.id)) {
     await parseWorkerEligibleFiles(fileIndices);
   } else {
-    await runFileIndexLoop(fileIndices, parseFileAtIndexInline);
+    await runTaskLoop(fileIndices, parseFileAtIndexInline);
   }
 
   if (failedFiles === files.length) {

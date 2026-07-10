@@ -838,10 +838,32 @@ describe('build-usage-data-parsing', () => {
 
     const fileA = path.join(tempDir, 'a.jsonl');
     const fileB = path.join(tempDir, 'b.jsonl');
+    const fileC = path.join(tempDir, 'c.jsonl');
     await writeFile(fileA, '{"line":1}\n', 'utf8');
     await writeFile(fileB, '{"line":2}\n', 'utf8');
+    await writeFile(fileC, '{"line":3}\n', 'utf8');
 
-    const createPool = vi.fn(() => createInlineWorkerPool());
+    const dispatchedFiles: string[] = [];
+    const completedFiles: string[] = [];
+    const completionDelayByFile = new Map([
+      [fileA, 30],
+      [fileB, 15],
+      [fileC, 0],
+    ]);
+    const pool: ParseWorkerPool = {
+      parse: async (task, inlineParse) => {
+        dispatchedFiles.push(task.filePath);
+        await new Promise((resolve) => {
+          setTimeout(resolve, completionDelayByFile.get(task.filePath));
+        });
+        const diagnostics = await inlineParse();
+        completedFiles.push(task.filePath);
+        return diagnostics;
+      },
+      status: () => 'ready',
+      terminate: async () => undefined,
+    };
+    const createPool = vi.fn(() => pool);
     const adapter = createAdapterWithDiagnostics('codex', {
       [fileA]: {
         events: [
@@ -867,19 +889,34 @@ describe('build-usage-data-parsing', () => {
         skippedRows: 2,
         skippedRowReasons: [{ reason: 'invalid_timestamp', count: 2 }],
       },
+      [fileC]: {
+        events: [
+          createUsageEvent({
+            source: 'codex',
+            sessionId: 'c',
+            timestamp: '2026-02-01T00:00:00.000Z',
+            totalTokens: 1,
+          }),
+        ],
+        skippedRows: 3,
+        skippedRowReasons: [{ reason: 'no_usage', count: 3 }],
+      },
     });
 
-    const inlineResult = await parseAdapterEvents(adapter, 1, undefined, undefined, undefined, {
+    const inlineResult = await parseAdapterEvents(adapter, 3, undefined, undefined, undefined, {
       workerCount: 0,
       minBytes: 0,
     });
-    const workerResult = await parseAdapterEvents(adapter, 1, undefined, undefined, undefined, {
-      workerCount: 2,
+    const workerResult = await parseAdapterEvents(adapter, 3, undefined, undefined, undefined, {
+      workerCount: 3,
       minBytes: 1,
       createPool,
     });
 
     expect(createPool).toHaveBeenCalledTimes(1);
+    expect(dispatchedFiles).toEqual([fileA, fileB, fileC]);
+    expect(completedFiles).toEqual([fileC, fileB, fileA]);
+    expect(workerResult.events.map((event) => event.sessionId)).toEqual(['a', 'b', 'c']);
     expect(workerResult).toEqual(inlineResult);
   });
 
