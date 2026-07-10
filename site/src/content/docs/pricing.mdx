@@ -80,4 +80,4 @@ File shape:
 }
 ```
 
-Only `inputPer1MUsd` and `outputPer1MUsd` are required; `cacheReadPer1MUsd`, `cacheWritePer1MUsd`, `reasoningPer1MUsd`, and `reasoningBilling` (`included-in-output` or `separate`) are optional. Model names match case-insensitively. Entries missing required rates are ignored.
+Only `inputPer1MUsd` and `outputPer1MUsd` are required; `cacheReadPer1MUsd`, `cacheWritePer1MUsd`, `reasoningPer1MUsd`, and `reasoningBilling` (`included-in-output` or `separate`) are optional. Rates must be finite, non-negative numbers. Invalid required rates discard the entry, while invalid optional rates are ignored. Model names match case-insensitively.

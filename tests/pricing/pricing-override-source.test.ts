@@ -166,6 +166,74 @@ describe('loadPricingOverrides', () => {
     expect(overrides.get('good-model')).toEqual({ inputPer1MUsd: 1, outputPer1MUsd: 2 });
   });
 
+  it('drops entries with negative required rates', async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'pricing-overrides-negative-required-'));
+    tempDirs.push(dir);
+    const filePath = path.join(dir, 'overrides.json');
+
+    await writeFile(
+      filePath,
+      JSON.stringify({
+        models: {
+          'negative-input': { inputPer1MUsd: -1, outputPer1MUsd: 2 },
+          'negative-output': { inputPer1MUsd: 1, outputPer1MUsd: '-2' },
+          'good-model': { inputPer1MUsd: 1, outputPer1MUsd: 2 },
+        },
+      }),
+      'utf8',
+    );
+
+    const overrides = await loadPricingOverrides(filePath);
+
+    expect(overrides.size).toBe(1);
+    expect(overrides.has('negative-input')).toBe(false);
+    expect(overrides.has('negative-output')).toBe(false);
+    expect(overrides.get('good-model')).toEqual({ inputPer1MUsd: 1, outputPer1MUsd: 2 });
+  });
+
+  it('ignores negative optional rates and preserves zero rates', async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'pricing-overrides-optional-rates-'));
+    tempDirs.push(dir);
+    const filePath = path.join(dir, 'overrides.json');
+
+    await writeFile(
+      filePath,
+      JSON.stringify({
+        models: {
+          'negative-optional': {
+            inputPer1MUsd: 1,
+            outputPer1MUsd: 2,
+            cacheReadPer1MUsd: -1,
+            cacheWritePer1MUsd: '-2',
+            reasoningPer1MUsd: -3,
+          },
+          'zero-rates': {
+            inputPer1MUsd: 0,
+            outputPer1MUsd: '0',
+            cacheReadPer1MUsd: 0,
+            cacheWritePer1MUsd: '0',
+            reasoningPer1MUsd: 0,
+          },
+        },
+      }),
+      'utf8',
+    );
+
+    const overrides = await loadPricingOverrides(filePath);
+
+    expect(overrides.get('negative-optional')).toEqual({
+      inputPer1MUsd: 1,
+      outputPer1MUsd: 2,
+    });
+    expect(overrides.get('zero-rates')).toEqual({
+      inputPer1MUsd: 0,
+      outputPer1MUsd: 0,
+      cacheReadPer1MUsd: 0,
+      cacheWritePer1MUsd: 0,
+      reasoningPer1MUsd: 0,
+    });
+  });
+
   it('ignores invalid reasoningBilling values', async () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), 'pricing-overrides-billing-'));
     tempDirs.push(dir);
