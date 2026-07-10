@@ -210,6 +210,57 @@ function createLargeTotalData(): UsageDataResult {
   };
 }
 
+function createManySourcesData(sourceNames: string[]): UsageDataResult {
+  const sourceRows = sourceNames.map((source, i) => ({
+    rowType: 'period_source' as const,
+    periodKey: '2026-01',
+    source,
+    models: ['m'],
+    modelBreakdown: [],
+    inputTokens: 10_000 + i * 1_000,
+    outputTokens: 0,
+    reasoningTokens: 0,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+    totalTokens: 10_000 + i * 1_000,
+    costUsd: 1,
+  }));
+  const grandTotalTokens = sourceRows.reduce((sum, r) => sum + r.totalTokens, 0);
+
+  return {
+    events: [],
+    rows: [
+      ...sourceRows,
+      {
+        rowType: 'grand_total',
+        periodKey: 'ALL',
+        source: 'combined',
+        models: ['m'],
+        modelBreakdown: [],
+        inputTokens: grandTotalTokens,
+        outputTokens: 0,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: grandTotalTokens,
+        costUsd: sourceNames.length,
+      },
+    ],
+    diagnostics: {
+      sessionStats: [],
+      sourceFailures: [],
+      skippedRows: [],
+      pricingOrigin: 'none',
+      activeEnvOverrides: [],
+      timezone: 'UTC',
+    },
+  };
+}
+
+// Pill badges are the only rects with height="30" rx="15" fill-opacity="0.15".
+const pillRectPattern =
+  /<rect x="([0-9.]+)" y="([0-9.]+)" width="([0-9.]+)" height="30" rx="15" fill="([^"]+)" fill-opacity="0\.15"/g;
+
 describe('renderUsageShareSvg', () => {
   it('renders a stacked area SVG with source legend and period labels', () => {
     const svg = renderUsageShareSvg(createMultiSourceData(), 'monthly');
@@ -275,5 +326,53 @@ describe('renderUsageShareSvg', () => {
 
     const firstPillX = Number(firstPillRectMatch?.[1]);
     expect(firstPillX).toBeGreaterThan(270);
+  });
+
+  it('wraps many source pills across rows without clipping the canvas', () => {
+    const names = Array.from({ length: 14 }, (_, i) => `sourcelongname${i}`);
+    const svg = renderUsageShareSvg(createManySourcesData(names), 'monthly');
+    const pills = [...svg.matchAll(pillRectPattern)];
+
+    expect(pills).toHaveLength(14);
+    for (const pill of pills) {
+      const rightEdge = Number(pill[1]) + Number(pill[3]);
+      expect(rightEdge).toBeLessThanOrEqual(1500 - 40);
+    }
+
+    const distinctRows = new Set(pills.map((pill) => pill[2]));
+    expect(distinctRows.size).toBeGreaterThanOrEqual(2);
+  });
+
+  it('keeps a single row at the base height for a few sources', () => {
+    const svg = renderUsageShareSvg(createManySourcesData(['alpha', 'beta', 'gamma']), 'monthly');
+    const pills = [...svg.matchAll(pillRectPattern)];
+
+    expect(svg).toContain('height="560"');
+    expect(svg).toContain('viewBox="0 0 1500 560"');
+    expect(new Set(pills.map((pill) => pill[2]))).toEqual(new Set(['34']));
+  });
+
+  it('grows the canvas and shifts the chart and footer down per wrapped row', () => {
+    const names = Array.from({ length: 14 }, (_, i) => `sourcelongname${i}`);
+    const svg = renderUsageShareSvg(createManySourcesData(names), 'monthly');
+    const rowCount = new Set([...svg.matchAll(pillRectPattern)].map((pill) => pill[2])).size;
+    const extraHeight = (rowCount - 1) * 40;
+    const height = 560 + extraHeight;
+
+    expect(rowCount).toBeGreaterThanOrEqual(2);
+    expect(svg).toContain(`height="${height}"`);
+    expect(svg).toContain(`viewBox="0 0 1500 ${height}"`);
+    // Footer line sits at H - footerHeight + 1; the top grid line at chartTop.
+    expect(svg).toContain(`<line x1="0" y1="${height - 36 + 1}"`);
+    expect(svg).toContain(`y1="${(140 + extraHeight).toFixed(2)}"`);
+  });
+
+  it('gives each of 16 fallback sources a distinct pill color', () => {
+    const names = Array.from({ length: 16 }, (_, i) => `custom${String.fromCharCode(97 + i)}`);
+    const svg = renderUsageShareSvg(createManySourcesData(names), 'monthly');
+    const pills = [...svg.matchAll(pillRectPattern)];
+
+    expect(pills).toHaveLength(16);
+    expect(new Set(pills.map((pill) => pill[4])).size).toBe(16);
   });
 });

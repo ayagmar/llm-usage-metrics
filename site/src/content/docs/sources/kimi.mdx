@@ -1,0 +1,29 @@
+---
+title: kimi Source
+---
+
+## Default locations
+
+- Kimi CLI: `~/.kimi/sessions/*/*/wire.jsonl`
+- Kimi Code: `~/.kimi-code/sessions/*/*/agents/*/wire.jsonl`
+
+## Override
+
+```bash
+llm-usage daily --source kimi --kimi-dir /path/to/kimi/sessions
+```
+
+`kimi` is directory-backed, so generic source directory overrides also work:
+
+```bash
+llm-usage daily --source-dir kimi=/path/to/kimi/sessions
+```
+
+## Parsing notes
+
+The adapter supports two Kimi wire formats:
+
+- Kimi CLI `StatusUpdate` rows with `payload.token_usage`; repeated `message_id` rows are progressive, so the largest-total row is kept.
+- Kimi Code `usage.record` rows with `usageScope: "turn"`; session-scope bookkeeping records are ignored.
+
+Kimi CLI rows do not include a model, so model is left unset for those events. Kimi Code model values strip a leading `kimi-code/` prefix.

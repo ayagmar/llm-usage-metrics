@@ -17,7 +17,7 @@ This keeps source-specific parsing, pricing, aggregation, rendering, and command
 ### Report definitions
 
 - `src/cli/report-definitions/report-definitions.ts`
-  Owns the canonical registry for `daily`, `weekly`, `monthly`, `efficiency`, `optimize`, and `trends`.
+  Owns the canonical registry for `daily`, `weekly`, `monthly`, `compare`, `efficiency`, `optimize`, `trends`, `session`, `wrapped`, `doctor`, and `prune`. (`config init` is registered directly in `create-cli.ts`.)
 - `src/cli/report-definitions/shared-report-options.ts`
   Registers the shared option surface by profile (`usage`, `specialized`, `trends`).
 
@@ -40,18 +40,24 @@ Commander help text remains the source of truth for option descriptions.
   - optional terminal overflow warnings
   - final stdout emission
 
-Each report wrapper still owns its policy:
+Each report wrapper owns its policy:
 
 - data builder
 - renderer
 - report-specific diagnostics
 - share eligibility rules
 
-The public entry points remain stable:
+The public entry points remain stable, one `build*`/`run*` pair per command:
 
 - `buildUsageReport`, `runUsageReport`
+- `buildCompareReport`, `runCompareReport`
 - `buildEfficiencyReport`, `runEfficiencyReport`
 - `buildOptimizeReport`, `runOptimizeReport`
+- `buildTrendsReport`, `runTrendsReport`
+- `buildSessionReport`, `runSessionReport`
+- `buildWrappedReport`, `runWrappedReport`
+- `buildDoctorResults`, `runDoctorReport`
+- `buildPruneReport`, `runPruneReport`
 
 ## Runtime flows
 
@@ -98,6 +104,51 @@ The public entry points remain stable:
 5. `renderTrendsReport(...)`
 6. shared report runtime emits diagnostics and stdout body
 
+### Compare
+
+`runCompareReport(options)`
+
+1. `buildCompareData(...)` builds one priced dataset spanning both date windows
+2. per-window aggregation and delta computation
+3. `renderCompareReport(...)`
+4. shared report runtime emits diagnostics and stdout body
+
+### Session
+
+`runSessionReport(options)`
+
+1. `buildSessionData(...)` reuses the usage dataset and pricing
+2. per-session grouping (or per-repository with `--by-repo`) with a top-N row limit (`src/session`)
+3. `renderSessionReport(...)`
+4. shared report runtime emits diagnostics and stdout body
+
+### Wrapped
+
+`runWrappedReport(options)`
+
+1. `buildWrappedData(...)` builds the priced dataset for the recap year's range
+2. `aggregateWrapped(...)` (`src/wrapped`)
+3. `renderWrappedReport(...)`
+4. shared report runtime emits diagnostics, optional share SVG, and stdout body
+
+### Doctor and Prune
+
+Non-report commands with their own runners: `buildDoctorResults(...)` checks source discovery health and runtime configuration and `runDoctorReport` renders it; `buildPruneReport(...)` classifies departed event-store files through the shared history logic and `renderPruneReport` prints candidates and the apply summary.
+
+### Event Store History
+
+`src/persistence/event-store.ts` owns SQLite schema, migration, per-file ingest,
+and stored-event revalidation. The store is a local ledger: schema changes run
+as migrations, and unknown newer schemas disable store use instead of rebuilding
+tables.
+
+`src/persistence/event-store-history.ts` owns `--history` reads. It compares the
+current run's discovered `(source, file_path)` pairs with stored files, serves
+departed files for selected sources, and suppresses moved or copied files by
+content hash. Served history events are appended before the normal
+provider/model/date filters, pricing, and aggregation steps, so downstream
+report shapes stay unchanged.
+
 ## Aggregation profiles
 
 `src/aggregate/aggregate-usage.ts` supports `includeModelBreakdown`.
@@ -109,7 +160,7 @@ This removes unnecessary work and avoids leaking usage-table-specific model meta
 
 ## Generic table rendering
 
-`src/render/unicode-table.ts` is now driven by explicit table row metadata:
+`src/render/unicode-table.ts` is driven by explicit table row metadata:
 
 - `periodKey`
 - `rowKind` (`detail`, `combined`, `total`)
@@ -119,17 +170,21 @@ That keeps sorting and separator behavior deterministic without coupling the gen
 ## Module map
 
 - `src/cli`
-  Command creation, shared runtime, builders, diagnostics emission
+  Command creation, shared runtime, builders, diagnostics emission; `parse-worker-pool.ts` holds the worker-thread parse pool
 - `src/cli/report-definitions`
   Canonical report metadata and option profiles
 - `src/cli/report-runtime`
   Shared report execution lifecycle
+- `src/config`
+  TOML config loading (`user-config.ts`) and flag/env/config/default resolution (`runtime-overrides.ts`)
 - `src/sources`
   Source adapters, discovery, parsing
 - `src/domain`
   Canonical usage contracts and normalization
 - `src/pricing`
-  LiteLLM pricing loader, cache, cost engine
+  LiteLLM pricing loader, cache, model matching, cost engine
+- `src/persistence`
+  SQLite event-store ledger, schema migrations, history suppression
 - `src/aggregate`
   Period/source usage aggregation
 - `src/efficiency`
@@ -138,10 +193,25 @@ That keeps sorting and separator behavior deterministic without coupling the gen
   Counterfactual pricing aggregation
 - `src/trends`
   Trend series contracts and daily trend aggregation
+- `src/session`
+  Per-conversation and per-repository usage aggregation
+- `src/wrapped`
+  Yearly recap aggregation
 - `src/render`
   Terminal/JSON/Markdown/share rendering
 - `src/update`
   Startup update check
+- `src/utils`
+  Shared fs/discovery/time helpers and the leveled stderr logger (`logger.ts`)
+
+## Deep dives
+
+The published site documents the core subsystems in depth; keep the deep detail there and the file-level map here:
+
+- [Event Store](https://ayagmar.github.io/llm-usage-metrics/architecture/event-store/)
+- [Parse Pipeline](https://ayagmar.github.io/llm-usage-metrics/architecture/parse-pipeline/)
+- [Pricing Pipeline](https://ayagmar.github.io/llm-usage-metrics/architecture/pricing-pipeline/)
+- [Config & Logging](https://ayagmar.github.io/llm-usage-metrics/architecture/config-and-logging/)
 
 ## Core invariants
 

@@ -1,0 +1,213 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ayagmar.github.io/llm-usage-metrics/config-schema.json",
+  "title": "llm-usage-metrics configuration",
+  "description": "User configuration for llm-usage-metrics. Command-line flags override environment variables, environment variables override this file, and this file overrides built-in defaults.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "timezone": {
+      "description": "Default IANA timezone for report bucketing; maps to --timezone.",
+      "type": "string",
+      "examples": ["Africa/Casablanca", "UTC"]
+    },
+    "logLevel": {
+      "description": "Stderr logging level; --quiet overrides this to warn for one command.",
+      "type": "string",
+      "enum": ["silent", "warn", "info", "debug"],
+      "default": "info"
+    },
+    "sources": {
+      "description": "Default source filter; maps to repeatable --source values.",
+      "type": "array",
+      "items": {
+        "description": "Source id to include by default.",
+        "type": "string"
+      },
+      "uniqueItems": true,
+      "examples": [["codex", "claude"]]
+    },
+    "sourceDirs": {
+      "description": "Default source path overrides; maps to --<source>-dir, --<source>-db, or --source-dir.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "pi": {
+          "description": "Default path for Pi sessions; maps to --pi-dir.",
+          "type": "string"
+        },
+        "codex": {
+          "description": "Default path for Codex sessions; maps to --codex-dir.",
+          "type": "string"
+        },
+        "copilot": {
+          "description": "Default path for GitHub Copilot telemetry; maps to --copilot-dir.",
+          "type": "string"
+        },
+        "gemini": {
+          "description": "Default path for Gemini CLI data; maps to --gemini-dir.",
+          "type": "string"
+        },
+        "droid": {
+          "description": "Default path for Droid sessions; maps to --droid-dir.",
+          "type": "string"
+        },
+        "claude": {
+          "description": "Default path for Claude projects; maps to --claude-dir.",
+          "type": "string"
+        },
+        "openclaw": {
+          "description": "Default path for OpenClaw agents; maps to --openclaw-dir.",
+          "type": "string"
+        },
+        "opencode": {
+          "description": "Default OpenCode SQLite database path; maps to --opencode-db.",
+          "type": "string"
+        },
+        "goose": {
+          "description": "Default Goose SQLite database path; maps to --goose-db.",
+          "type": "string"
+        },
+        "amp": {
+          "description": "Default path for Amp threads; maps to --amp-dir.",
+          "type": "string"
+        },
+        "qwen": {
+          "description": "Default path for Qwen projects; maps to --qwen-dir.",
+          "type": "string"
+        },
+        "kimi": {
+          "description": "Default path for Kimi sessions; maps to --kimi-dir.",
+          "type": "string"
+        },
+        "cline": {
+          "description": "Default path for Cline tasks; maps to --cline-dir.",
+          "type": "string"
+        },
+        "roocode": {
+          "description": "Default path for RooCode tasks; maps to --roocode-dir.",
+          "type": "string"
+        },
+        "kilocode": {
+          "description": "Default path for KiloCode tasks; maps to --kilocode-dir.",
+          "type": "string"
+        },
+        "antigravity": {
+          "description": "Default path for Antigravity conversations; maps to --antigravity-dir.",
+          "type": "string"
+        }
+      }
+    },
+    "pricing": {
+      "description": "Pricing defaults and runtime settings.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "offline": {
+          "description": "Use cached LiteLLM pricing by default; maps to --pricing-offline.",
+          "type": "boolean",
+          "default": false
+        },
+        "url": {
+          "description": "Default LiteLLM pricing source URL; maps to --pricing-url.",
+          "type": "string",
+          "format": "uri"
+        },
+        "overridesPath": {
+          "description": "Default JSON pricing overrides path; maps to --pricing-overrides.",
+          "type": "string"
+        },
+        "ignoreFailures": {
+          "description": "Continue without estimated costs when pricing cannot be loaded; maps to --ignore-pricing-failures.",
+          "type": "boolean",
+          "default": false
+        },
+        "cacheTtlMs": {
+          "description": "Pricing cache TTL in milliseconds; clamps to 60000..2592000000.",
+          "type": "integer",
+          "default": 86400000,
+          "minimum": 60000,
+          "maximum": 2592000000
+        },
+        "fetchTimeoutMs": {
+          "description": "Pricing fetch timeout in milliseconds; clamps to 200..30000.",
+          "type": "integer",
+          "default": 4000,
+          "minimum": 200,
+          "maximum": 30000
+        }
+      }
+    },
+    "eventStore": {
+      "description": "SQLite event-store runtime settings.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "description": "Enable the SQLite event store; maps to LLM_USAGE_EVENT_STORE.",
+          "type": "boolean",
+          "default": true
+        },
+        "path": {
+          "description": "SQLite event-store file path; maps to LLM_USAGE_EVENT_STORE_PATH.",
+          "type": "string"
+        }
+      }
+    },
+    "parseMaxParallel": {
+      "description": "Maximum parallel file parsing; clamps to 1..64.",
+      "type": "integer",
+      "default": 8,
+      "minimum": 1,
+      "maximum": 64
+    },
+    "parseWorkers": {
+      "description": "Worker-thread parser count for registered large JSONL sources; maps to LLM_USAGE_PARSE_WORKERS. Use \"auto\" to resolve from available CPU parallelism; integer values clamp to 0..64, where 0 disables workers.",
+      "oneOf": [
+        {
+          "const": "auto",
+          "description": "Use min(8, availableParallelism - 1)."
+        },
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        }
+      ],
+      "default": "auto"
+    },
+    "parseWorkerMinBytes": {
+      "description": "Minimum total bytes of event-store misses before worker-thread parsing engages; maps to LLM_USAGE_PARSE_WORKER_MIN_BYTES and clamps to 0..9007199254740991.",
+      "type": "integer",
+      "default": 268435456,
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "update": {
+      "description": "Startup update-check runtime settings.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "skipCheck": {
+          "description": "Skip the startup update check; maps to LLM_USAGE_SKIP_UPDATE_CHECK.",
+          "type": "boolean",
+          "default": false
+        },
+        "cacheTtlMs": {
+          "description": "Update-check cache TTL in milliseconds; clamps to 0..2592000000.",
+          "type": "integer",
+          "default": 3600000,
+          "minimum": 0,
+          "maximum": 2592000000
+        },
+        "fetchTimeoutMs": {
+          "description": "Update-check fetch timeout in milliseconds; clamps to 200..30000.",
+          "type": "integer",
+          "default": 1000,
+          "minimum": 200,
+          "maximum": 30000
+        }
+      }
+    }
+  }
+}

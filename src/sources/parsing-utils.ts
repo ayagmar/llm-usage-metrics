@@ -1,4 +1,4 @@
-import type { NumberLike } from '../domain/normalization.js';
+import { normalizeNonNegativeInteger, type NumberLike } from '../domain/normalization.js';
 
 const MIN_PLAUSIBLE_UNIX_SECONDS_ABS = 100_000_000;
 const UNIX_SECONDS_ABS_CUTOFF = 10_000_000_000;
@@ -27,6 +27,50 @@ export function toNumberLike(value: unknown): NumberLike {
   }
 
   return undefined;
+}
+
+export function toFiniteNumber(value: NumberLike | undefined): number | undefined {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value === 'string' && value.trim().length === 0) {
+    return undefined;
+  }
+
+  const parsed = typeof value === 'number' ? value : Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    return undefined;
+  }
+
+  return parsed;
+}
+
+export function hasPositiveUsageOrCostSignal(
+  usageCandidates: ReadonlyArray<NumberLike | undefined>,
+  costUsd: NumberLike | undefined,
+): boolean {
+  const hasPositiveUsageSignal = usageCandidates.some((value) => {
+    const parsed = toFiniteNumber(value);
+    return parsed !== undefined && parsed > 0;
+  });
+  const explicitCost = toFiniteNumber(costUsd);
+  const hasPositiveCostSignal = explicitCost !== undefined && explicitCost > 0;
+
+  return hasPositiveUsageSignal || hasPositiveCostSignal;
+}
+
+export function resolveTotalTokens(declaredTotal: number, componentTotal: number): number {
+  if (declaredTotal > 0) {
+    return declaredTotal;
+  }
+
+  return componentTotal;
+}
+
+export function toTokenCount(value: unknown): number {
+  return normalizeNonNegativeInteger(toNumberLike(value));
 }
 
 export function normalizeTimestampCandidate(candidate: unknown): string | undefined {

@@ -1,0 +1,38 @@
+[
+  {
+    "type": "say",
+    "say": "text",
+    "ts": 1772445500000,
+    "text": "{\"cost\":0.1,\"tokensIn\":1,\"tokensOut\":1,\"apiProtocol\":\"anthropic\"}"
+  },
+  {
+    "type": "say",
+    "say": "api_req_started",
+    "ts": 1772445600000,
+    "text": "{\"cost\":0.25,\"tokensIn\":100,\"tokensOut\":50,\"cacheReads\":10,\"cacheWrites\":5,\"apiProtocol\":\"anthropic\"}"
+  },
+  {
+    "type": "say",
+    "say": "api_req_started",
+    "ts": "1772445660000",
+    "text": "{\"cost\":0,\"tokensIn\":20,\"tokensOut\":10,\"cacheReads\":0,\"cacheWrites\":0,\"apiProtocol\":\"openai\"}"
+  },
+  {
+    "type": "say",
+    "say": "api_req_started",
+    "ts": 1772445720000,
+    "text": "{bad"
+  },
+  {
+    "type": "say",
+    "say": "api_req_started",
+    "ts": 1772445780000,
+    "text": "{\"cost\":0,\"tokensIn\":0,\"tokensOut\":0,\"cacheReads\":0,\"cacheWrites\":0,\"apiProtocol\":\"anthropic\"}"
+  },
+  {
+    "type": "say",
+    "say": "api_req_started",
+    "ts": "not-a-date",
+    "text": "{\"tokensIn\":1,\"tokensOut\":1,\"apiProtocol\":\"anthropic\"}"
+  }
+]

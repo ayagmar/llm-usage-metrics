@@ -293,7 +293,34 @@ describe('LiteLLMPricingFetcher', () => {
     const offlineLoadedFromCache = await offlineFetcher.load();
 
     expect(offlineLoadedFromCache).toBe(true);
+    expect(offlineFetcher.getLoadOrigin()).toBe('cache');
+    expect(offlineFetcher.getPricingWarning()).toBeUndefined();
     expect(offlineFetcher.getPricing('gpt-5.2-codex')).toBeDefined();
+  });
+
+  it('uses the bundled snapshot in offline mode when default cache is unavailable', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-offline-bundled-'));
+    tempDirs.push(rootDir);
+
+    const fetchSpy = vi.fn(async () => {
+      throw new Error('Offline fetch should not be called');
+    });
+
+    const fetcher = new LiteLLMPricingFetcher({
+      cacheFilePath: path.join(rootDir, 'cache.json'),
+      offline: true,
+      fetchImpl: fetchSpy,
+    });
+
+    const loadedWithoutNetwork = await fetcher.load();
+
+    expect(loadedWithoutNetwork).toBe(true);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(fetcher.getLoadOrigin()).toBe('bundled-snapshot');
+    expect(fetcher.getPricingWarning()).toMatch(
+      /^Pricing: using the bundled LiteLLM snapshot from \d{4}-\d{2}-\d{2} \(run online to refresh\)\.$/u,
+    );
+    expect(fetcher.getPricing('gpt-4.1')?.inputPer1MUsd).toBeGreaterThan(0);
   });
 
   it('does not reuse cache when source URL differs', async () => {
@@ -436,7 +463,156 @@ describe('LiteLLMPricingFetcher', () => {
     const loadedFromCache = await fetcher.load();
 
     expect(loadedFromCache).toBe(true);
+    expect(fetcher.getLoadOrigin()).toBe('cache');
+    expect(fetcher.getPricingWarning()).toBeUndefined();
     expect(fetchSpy).toHaveBeenCalledTimes(3);
+    expect(fetcher.getPricing('gpt-5.2-codex')?.inputPer1MUsd).toBeCloseTo(1.5, 10);
+  });
+
+  it('uses the bundled snapshot after a live default-URL fetch failure with no cache', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-live-bundled-'));
+    tempDirs.push(rootDir);
+
+    const fetchSpy = vi.fn(async () => {
+      throw new Error('network timeout');
+    });
+
+    const fetcher = new LiteLLMPricingFetcher({
+      cacheFilePath: path.join(rootDir, 'cache.json'),
+      fetchImpl: fetchSpy,
+      fetchRetryCount: 0,
+    });
+
+    const loadedWithoutNetwork = await fetcher.load();
+
+    expect(loadedWithoutNetwork).toBe(true);
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    expect(fetcher.getLoadOrigin()).toBe('bundled-snapshot');
+    expect(fetcher.getPricingWarning()).toContain('Pricing: using the bundled LiteLLM snapshot');
+    expect(fetcher.getPricing('gpt-4.1')?.outputPer1MUsd).toBeGreaterThan(0);
+  });
+
+  it('falls back to stale cache when content-length exceeds the response byte limit', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-content-length-cap-'));
+    tempDirs.push(rootDir);
+
+    const cacheFilePath = path.join(rootDir, 'cache.json');
+    const nowValue = 1_000_000;
+
+    await writeFile(
+      cacheFilePath,
+      JSON.stringify({
+        fetchedAt: nowValue - 10_000,
+        sourceUrl: 'https://example.test/litellm-pricing.json',
+        pricingByModel: {
+          'gpt-5.2-codex': {
+            inputPer1MUsd: 1.5,
+            outputPer1MUsd: 10,
+          },
+        },
+      }),
+      'utf8',
+    );
+
+    const fetchSpy = vi.fn(async () => {
+      return new Response(
+        JSON.stringify({
+          'gpt-5.2-codex': {
+            input_cost_per_token: 0.000003,
+            output_cost_per_token: 0.00001,
+          },
+        }),
+        { status: 200, headers: { 'content-length': '4096' } },
+      );
+    });
+
+    const fetcher = createFetcher({
+      cacheFilePath,
+      cacheTtlMs: 100,
+      now: () => nowValue,
+      fetchImpl: fetchSpy,
+      maxResponseBytes: 1024,
+      fetchRetryCount: 0,
+    });
+
+    const loadedFromCache = await fetcher.load();
+
+    expect(loadedFromCache).toBe(true);
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    expect(fetcher.getPricing('gpt-5.2-codex')?.inputPer1MUsd).toBeCloseTo(1.5, 10);
+  });
+
+  it('rejects streamed bodies exceeding the byte limit when content-length is absent', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-stream-cap-'));
+    tempDirs.push(rootDir);
+
+    const oversizedPayload = JSON.stringify({
+      'gpt-5.2-codex': {
+        input_cost_per_token: 0.0000015,
+        output_cost_per_token: 0.00001,
+      },
+      padding: 'x'.repeat(2048),
+    });
+
+    const fetcher = createFetcher({
+      cacheFilePath: path.join(rootDir, 'cache.json'),
+      fetchImpl: vi.fn(async () => new Response(oversizedPayload, { status: 200 })),
+      maxResponseBytes: 1024,
+      fetchRetryCount: 0,
+    });
+
+    await expect(fetcher.load()).rejects.toThrow(
+      'Could not load LiteLLM pricing from network or cache',
+    );
+  });
+
+  it('does not retry when the response exceeds the byte limit', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-cap-no-retry-'));
+    tempDirs.push(rootDir);
+
+    const sleepSpy = vi.fn(async () => undefined);
+    const fetchSpy = vi.fn(async () => {
+      return new Response('x'.repeat(2048), { status: 200 });
+    });
+
+    const fetcher = createFetcher({
+      cacheFilePath: path.join(rootDir, 'cache.json'),
+      fetchImpl: fetchSpy,
+      maxResponseBytes: 1024,
+      fetchRetryCount: 2,
+      sleep: sleepSpy,
+    });
+
+    await expect(fetcher.load()).rejects.toThrow(
+      'Could not load LiteLLM pricing from network or cache',
+    );
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    expect(sleepSpy).not.toHaveBeenCalled();
+  });
+
+  it('parses payloads under a custom byte limit', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-under-cap-'));
+    tempDirs.push(rootDir);
+
+    const fetcher = createFetcher({
+      cacheFilePath: path.join(rootDir, 'cache.json'),
+      fetchImpl: vi.fn(async () => {
+        return new Response(
+          JSON.stringify({
+            'gpt-5.2-codex': {
+              input_cost_per_token: 0.0000015,
+              output_cost_per_token: 0.00001,
+            },
+          }),
+          { status: 200 },
+        );
+      }),
+      maxResponseBytes: 1024,
+    });
+
+    const loadedFromCache = await fetcher.load();
+
+    expect(loadedFromCache).toBe(false);
     expect(fetcher.getPricing('gpt-5.2-codex')?.inputPer1MUsd).toBeCloseTo(1.5, 10);
   });
 
@@ -688,6 +864,110 @@ describe('LiteLLMPricingFetcher', () => {
     expect(fetcher.getPricing('claude sonnet 4.6')?.outputPer1MUsd).toBeCloseTo(15, 10);
   });
 
+  it('resolves kimi-k2.6 aliases to the preferred moonshot pricing key', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-kimi-k2-6-'));
+    tempDirs.push(rootDir);
+
+    const fetcher = createFetcher({
+      cacheFilePath: path.join(rootDir, 'cache.json'),
+      fetchImpl: vi.fn(async () => {
+        return new Response(
+          JSON.stringify({
+            'moonshot/kimi-k2.6': {
+              input_cost_per_token: 0.00000095,
+              output_cost_per_token: 0.000004,
+            },
+          }),
+          { status: 200 },
+        );
+      }),
+    });
+
+    await fetcher.load();
+
+    expect(fetcher.resolveModelAlias('kimi-k2.6')).toBe('moonshot/kimi-k2.6');
+    expect(fetcher.resolveModelAlias('k2p6')).toBe('moonshot/kimi-k2.6');
+    expect(fetcher.resolveModelAlias('kimi-k2p6')).toBe('moonshot/kimi-k2.6');
+    expect(fetcher.resolveModelAlias('kimi-k2.6-free')).toBe('moonshot/kimi-k2.6');
+    expect(fetcher.resolveModelAlias('moonshotai.kimi-k2.6')).toBe('moonshot/kimi-k2.6');
+
+    expect(fetcher.getPricing('kimi-k2.6')?.inputPer1MUsd).toBeCloseTo(0.95, 10);
+    expect(fetcher.getPricing('k2p6')?.outputPer1MUsd).toBeCloseTo(4, 10);
+
+    // kimi-for-coding is deliberately unaliased: the managed endpoint's underlying
+    // model is time-dependent, so the kimi adapter resolves it by timestamp instead.
+    expect(fetcher.resolveModelAlias('kimi-for-coding')).toBe('kimi-for-coding');
+    expect(fetcher.getPricing('kimi-for-coding')).toBeUndefined();
+  });
+
+  it('lets the model map veto fuzzy matching for listed models', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-never-fuzzy-'));
+    tempDirs.push(rootDir);
+
+    const fetcher = createFetcher({
+      cacheFilePath: path.join(rootDir, 'cache.json'),
+      fetchImpl: vi.fn(async () => {
+        return new Response(
+          JSON.stringify({
+            'kimi-for-codings': {
+              input_cost_per_token: 0.0000001,
+              output_cost_per_token: 0.0000002,
+            },
+            'moonshot/kimi-k2.6': {
+              input_cost_per_token: 0.00000095,
+              output_cost_per_token: 0.000004,
+            },
+          }),
+          { status: 200 },
+        );
+      }),
+    });
+
+    await fetcher.load();
+
+    expect(fetcher.resolveModelAlias('kimi-for-coding')).toBe('kimi-for-coding');
+    expect(fetcher.resolveModelAlias('moonshot/kimi-for-coding')).toBe('moonshot/kimi-for-coding');
+    expect(fetcher.getPricing('kimi-for-coding')).toBeUndefined();
+    expect(fetcher.getPricing('moonshot/kimi-for-coding')).toBeUndefined();
+
+    expect(fetcher.resolveModelAlias('k2p6')).toBe('moonshot/kimi-k2.6');
+    expect(fetcher.getPricing('k2p6')?.outputPer1MUsd).toBeCloseTo(4, 10);
+  });
+
+  it('resolves -a suffixed gemini-3 aliases to preferred gemini preview pricing keys', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-gemini-a-suffix-'));
+    tempDirs.push(rootDir);
+
+    const fetcher = createFetcher({
+      cacheFilePath: path.join(rootDir, 'cache.json'),
+      fetchImpl: vi.fn(async () => {
+        return new Response(
+          JSON.stringify({
+            'gemini/gemini-3-flash-preview': {
+              input_cost_per_token: 0.0000005,
+              output_cost_per_token: 0.000003,
+            },
+            'gemini/gemini-3-pro-preview': {
+              input_cost_per_token: 0.000002,
+              output_cost_per_token: 0.000012,
+            },
+          }),
+          { status: 200 },
+        );
+      }),
+    });
+
+    await fetcher.load();
+
+    expect(fetcher.resolveModelAlias('gemini-3-flash-a')).toBe('gemini/gemini-3-flash-preview');
+    expect(fetcher.resolveModelAlias('gemini-3-flash')).toBe('gemini/gemini-3-flash-preview');
+    expect(fetcher.resolveModelAlias('gemini-3-pro-a')).toBe('gemini/gemini-3-pro-preview');
+
+    expect(fetcher.getPricing('gemini-3-flash-a')?.inputPer1MUsd).toBeCloseTo(0.5, 10);
+    expect(fetcher.getPricing('gemini-3-flash')?.outputPer1MUsd).toBeCloseTo(3, 10);
+    expect(fetcher.getPricing('gemini-3-pro-a')?.outputPer1MUsd).toBeCloseTo(12, 10);
+  });
+
   it('uses direct gpt-5.3-codex pricing when available upstream', async () => {
     const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-codex-fallback-'));
     tempDirs.push(rootDir);
@@ -786,5 +1066,6 @@ describe('LiteLLMPricingFetcher', () => {
     });
 
     await expect(fetcher.load()).rejects.toThrow('Offline pricing mode enabled');
+    expect(fetcher.getLoadOrigin()).toBeUndefined();
   });
 });

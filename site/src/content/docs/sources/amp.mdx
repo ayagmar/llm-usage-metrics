@@ -1,0 +1,26 @@
+---
+title: amp Source
+---
+
+## Default location
+
+- `$XDG_DATA_HOME/amp/threads/*.json` when `XDG_DATA_HOME` is set
+- `~/.local/share/amp/threads/*.json`
+
+## Override
+
+```bash
+llm-usage daily --source amp --amp-dir /path/to/amp/threads
+```
+
+`amp` is directory-backed, so generic source directory overrides also work:
+
+```bash
+llm-usage daily --source-dir amp=/path/to/amp/threads
+```
+
+The adapter does not read `AMP_DATA_DIR` in this release; use `--amp-dir` for non-default locations.
+
+## Parsing notes
+
+The adapter reads one JSON thread object per file. It prefers `usageLedger.events[]` when present, resolves cache tokens from the referenced message's `usage`, and falls back to assistant message `usage` blocks only when the ledger is missing or empty. Amp `credits` are not treated as USD cost.

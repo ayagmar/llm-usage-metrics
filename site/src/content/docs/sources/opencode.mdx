@@ -9,7 +9,7 @@ title: opencode Source
 ## Path selection
 
 1. explicit `--opencode-db`
-2. deterministic OS-specific default candidates
+2. deterministic OS-specific default candidates: per directory, `opencode.db` first, then `opencode-<channel>.db` variants sorted by name, then `db.sqlite`
 
 ```bash
 llm-usage daily --source opencode --opencode-db /path/to/opencode.db

@@ -37,12 +37,13 @@ llm-usage doctor
   gemini    ✓   3 chats found     (~/.gemini)
   droid     ✓   5 sessions found  (~/.factory/sessions)
   opencode  ✗  node:sqlite unavailable (requires Node 24+)
+  openclaw  ✓   4 sessions found  (~/.openclaw/agents)
   claude    ✓  27 projects found  (~/.claude/projects)
 
   pricing   ✓  LiteLLM cache fresh (fetched 2h ago)
   env       ✓  LLM_USAGE_SKIP_UPDATE_CHECK unset
 
-  5/6 sources healthy. opencode skipped: runtime missing node:sqlite.
+  15/16 sources healthy. opencode skipped: runtime missing node:sqlite.
 ```
 
 ### `--json` shape
@@ -51,7 +52,8 @@ llm-usage doctor
 {
   "sources": [
     { "id": "pi", "status": "ok", "itemsFound": 12, "discoveredPath": "~/.pi/agent/sessions" },
-    { "id": "opencode", "status": "error", "error": "node:sqlite unavailable (requires Node 24+)" }
+    { "id": "opencode", "status": "error", "error": "node:sqlite unavailable (requires Node 24+)" },
+    { "id": "openclaw", "status": "ok", "itemsFound": 4, "discoveredPath": "~/.openclaw/agents" }
   ],
   "pricing": { "status": "ok", "origin": "cache", "fetchedAt": "2026-06-25T08:00:00Z" },
   "env": { "LLM_USAGE_SKIP_UPDATE_CHECK": null }

@@ -1,37 +1,45 @@
+import { availableParallelism } from 'node:os';
+
+import { getDefaultEventStorePath } from '../persistence/event-store.js';
+import type { UserConfig } from './user-config.js';
+
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-const UPDATE_CACHE_TTL_DEFAULT_MS = HOUR_MS;
-const UPDATE_FETCH_TIMEOUT_DEFAULT_MS = 1_000;
-const PRICING_CACHE_TTL_DEFAULT_MS = DAY_MS;
-const PRICING_FETCH_TIMEOUT_DEFAULT_MS = 4_000;
-const PARSE_MAX_PARALLEL_DEFAULT = 8;
-const PARSE_CACHE_ENABLED_DEFAULT = true;
-const PARSE_CACHE_TTL_DEFAULT_MS = 7 * DAY_MS;
-const PARSE_CACHE_MAX_ENTRIES_DEFAULT = 2_000;
-const PARSE_CACHE_MAX_BYTES_DEFAULT = 32 * 1024 * 1024;
+export const UPDATE_CACHE_TTL_DEFAULT_MS = HOUR_MS;
+export const UPDATE_FETCH_TIMEOUT_DEFAULT_MS = 1_000;
+export const PRICING_CACHE_TTL_DEFAULT_MS = DAY_MS;
+export const PRICING_FETCH_TIMEOUT_DEFAULT_MS = 4_000;
+export const PARSE_MAX_PARALLEL_DEFAULT = 8;
+export const PARSE_WORKERS_CONFIG_DEFAULT = 'auto';
+const PARSE_WORKER_MAX = 64;
+export const PARSE_WORKER_MIN_BYTES_DEFAULT = 268_435_456;
+export const EVENT_STORE_ENABLED_DEFAULT = true;
 
-function resolveBoundedEnvInteger(
+function resolveBoundedInteger(
   envValue: string | undefined,
+  configValue: number | undefined,
   defaults: {
     fallback: number;
     min: number;
     max: number;
   },
 ): number {
+  const fallback = configValue ?? defaults.fallback;
+
   if (envValue === undefined) {
-    return defaults.fallback;
+    return fallback;
   }
 
   const trimmedValue = envValue.trim();
 
   if (trimmedValue.length === 0) {
-    return defaults.fallback;
+    return fallback;
   }
 
   if (!/^[+-]?\d+$/u.test(trimmedValue)) {
-    return defaults.fallback;
+    return fallback;
   }
 
   const parsedValue = Number.parseInt(trimmedValue, 10);
@@ -47,7 +55,7 @@ function resolveBoundedEnvInteger(
   return parsedValue;
 }
 
-function resolveEnvBoolean(envValue: string | undefined, fallback: boolean): boolean {
+function resolveBoolean(envValue: string | undefined, fallback: boolean): boolean {
   if (envValue === undefined) {
     return fallback;
   }
@@ -70,6 +78,7 @@ function resolveEnvBoolean(envValue: string | undefined, fallback: boolean): boo
 }
 
 export type UpdateNotifierRuntimeConfig = {
+  skipCheck: boolean;
   cacheTtlMs: number;
   fetchTimeoutMs: number;
 };
@@ -81,22 +90,27 @@ export type PricingFetcherRuntimeConfig = {
 
 export type ParsingRuntimeConfig = {
   maxParallelFileParsing: number;
-  parseCacheEnabled: boolean;
-  parseCacheTtlMs: number;
-  parseCacheMaxEntries: number;
-  parseCacheMaxBytes: number;
+  parseWorkers: number;
+  parseWorkerMinBytes: number;
+};
+
+export type EventStoreRuntimeConfig = {
+  enabled: boolean;
+  path: string;
 };
 
 export function getUpdateNotifierRuntimeConfig(
   env: NodeJS.ProcessEnv = process.env,
+  config: UserConfig = {},
 ): UpdateNotifierRuntimeConfig {
   return {
-    cacheTtlMs: resolveBoundedEnvInteger(env.LLM_USAGE_UPDATE_CACHE_TTL_MS, {
+    skipCheck: resolveBoolean(env.LLM_USAGE_SKIP_UPDATE_CHECK, config.update?.skipCheck ?? false),
+    cacheTtlMs: resolveBoundedInteger(undefined, config.update?.cacheTtlMs, {
       fallback: UPDATE_CACHE_TTL_DEFAULT_MS,
       min: 0,
       max: 30 * DAY_MS,
     }),
-    fetchTimeoutMs: resolveBoundedEnvInteger(env.LLM_USAGE_UPDATE_FETCH_TIMEOUT_MS, {
+    fetchTimeoutMs: resolveBoundedInteger(undefined, config.update?.fetchTimeoutMs, {
       fallback: UPDATE_FETCH_TIMEOUT_DEFAULT_MS,
       min: 200,
       max: 30_000,
@@ -105,15 +119,15 @@ export function getUpdateNotifierRuntimeConfig(
 }
 
 export function getPricingFetcherRuntimeConfig(
-  env: NodeJS.ProcessEnv = process.env,
+  config: UserConfig = {},
 ): PricingFetcherRuntimeConfig {
   return {
-    cacheTtlMs: resolveBoundedEnvInteger(env.LLM_USAGE_PRICING_CACHE_TTL_MS, {
+    cacheTtlMs: resolveBoundedInteger(undefined, config.pricing?.cacheTtlMs, {
       fallback: PRICING_CACHE_TTL_DEFAULT_MS,
       min: MINUTE_MS,
       max: 30 * DAY_MS,
     }),
-    fetchTimeoutMs: resolveBoundedEnvInteger(env.LLM_USAGE_PRICING_FETCH_TIMEOUT_MS, {
+    fetchTimeoutMs: resolveBoundedInteger(undefined, config.pricing?.fetchTimeoutMs, {
       fallback: PRICING_FETCH_TIMEOUT_DEFAULT_MS,
       min: 200,
       max: 30_000,
@@ -121,33 +135,71 @@ export function getPricingFetcherRuntimeConfig(
   };
 }
 
+function getAutoParseWorkerCount(): number {
+  return Math.max(0, Math.min(8, availableParallelism() - 1));
+}
+
+function resolveParseWorkers(
+  envValue: string | undefined,
+  configValue: UserConfig['parseWorkers'],
+): number {
+  if (envValue === undefined || envValue.trim().length === 0) {
+    return configValue === undefined || configValue === 'auto'
+      ? getAutoParseWorkerCount()
+      : configValue;
+  }
+
+  const trimmedValue = envValue.trim().toLowerCase();
+
+  if (trimmedValue === 'auto') {
+    return getAutoParseWorkerCount();
+  }
+
+  return resolveBoundedInteger(envValue, configValue === 'auto' ? undefined : configValue, {
+    fallback: getAutoParseWorkerCount(),
+    min: 0,
+    max: PARSE_WORKER_MAX,
+  });
+}
+
 export function getParsingRuntimeConfig(
   env: NodeJS.ProcessEnv = process.env,
+  config: UserConfig = {},
 ): ParsingRuntimeConfig {
   return {
-    maxParallelFileParsing: resolveBoundedEnvInteger(env.LLM_USAGE_PARSE_MAX_PARALLEL, {
+    maxParallelFileParsing: resolveBoundedInteger(undefined, config.parseMaxParallel, {
       fallback: PARSE_MAX_PARALLEL_DEFAULT,
       min: 1,
       max: 64,
     }),
-    parseCacheEnabled: resolveEnvBoolean(
-      env.LLM_USAGE_PARSE_CACHE_ENABLED,
-      PARSE_CACHE_ENABLED_DEFAULT,
+    parseWorkers: resolveParseWorkers(env.LLM_USAGE_PARSE_WORKERS, config.parseWorkers),
+    parseWorkerMinBytes: resolveBoundedInteger(
+      env.LLM_USAGE_PARSE_WORKER_MIN_BYTES,
+      config.parseWorkerMinBytes,
+      {
+        fallback: PARSE_WORKER_MIN_BYTES_DEFAULT,
+        min: 0,
+        max: Number.MAX_SAFE_INTEGER,
+      },
     ),
-    parseCacheTtlMs: resolveBoundedEnvInteger(env.LLM_USAGE_PARSE_CACHE_TTL_MS, {
-      fallback: PARSE_CACHE_TTL_DEFAULT_MS,
-      min: HOUR_MS,
-      max: 30 * DAY_MS,
-    }),
-    parseCacheMaxEntries: resolveBoundedEnvInteger(env.LLM_USAGE_PARSE_CACHE_MAX_ENTRIES, {
-      fallback: PARSE_CACHE_MAX_ENTRIES_DEFAULT,
-      min: 100,
-      max: 20_000,
-    }),
-    parseCacheMaxBytes: resolveBoundedEnvInteger(env.LLM_USAGE_PARSE_CACHE_MAX_BYTES, {
-      fallback: PARSE_CACHE_MAX_BYTES_DEFAULT,
-      min: 1024 * 1024,
-      max: 512 * 1024 * 1024,
-    }),
+  };
+}
+
+export function getEventStoreRuntimeConfig(
+  env: NodeJS.ProcessEnv = process.env,
+  config: UserConfig = {},
+): EventStoreRuntimeConfig {
+  const eventStorePathOverride = env.LLM_USAGE_EVENT_STORE_PATH?.trim();
+  const eventStorePath =
+    eventStorePathOverride === undefined || eventStorePathOverride.length === 0
+      ? (config.eventStore?.path ?? getDefaultEventStorePath())
+      : eventStorePathOverride;
+
+  return {
+    enabled: resolveBoolean(
+      env.LLM_USAGE_EVENT_STORE,
+      config.eventStore?.enabled ?? EVENT_STORE_ENABLED_DEFAULT,
+    ),
+    path: eventStorePath,
   };
 }

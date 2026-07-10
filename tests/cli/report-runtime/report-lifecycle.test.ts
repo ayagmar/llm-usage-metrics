@@ -42,4 +42,54 @@ describe('report-lifecycle', () => {
       consoleLogSpy.mockRestore();
     }
   });
+
+  it('emits active config after active environment overrides', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    try {
+      await runPreparedReport({
+        preparedReport: {
+          format: 'terminal',
+          output: 'report body',
+          diagnostics: {
+            activeEnvOverrides: [
+              {
+                name: 'LLM_USAGE_PARSE_WORKERS',
+                value: '0',
+                description: 'parse worker count',
+              },
+            ],
+            activeConfig: {
+              path: '/tmp/config.toml',
+              entries: [{ key: 'sources', value: 'codex' }],
+            },
+          },
+        },
+        getEnvVarOverrides: (diagnostics) => diagnostics.activeEnvOverrides,
+        getActiveConfig: (diagnostics) => diagnostics.activeConfig,
+      });
+
+      const stderrLines = consoleErrorSpy.mock.calls.map((call) => String(call[0]));
+      const envHeaderIndex = stderrLines.findIndex((line) =>
+        line.includes('Active environment overrides:'),
+      );
+      const configHeaderIndex = stderrLines.findIndex((line) =>
+        line.includes('Active config: /tmp/config.toml'),
+      );
+
+      expect(envHeaderIndex).toBeGreaterThanOrEqual(0);
+      expect(configHeaderIndex).toBeGreaterThan(envHeaderIndex);
+      expect(
+        stderrLines.some((line) =>
+          line.includes('LLM_USAGE_PARSE_WORKERS=0  (parse worker count)'),
+        ),
+      ).toBe(true);
+      expect(stderrLines.some((line) => line.includes('sources=codex'))).toBe(true);
+      expect(consoleLogSpy).toHaveBeenCalledWith('report body');
+    } finally {
+      consoleErrorSpy.mockRestore();
+      consoleLogSpy.mockRestore();
+    }
+  });
 });

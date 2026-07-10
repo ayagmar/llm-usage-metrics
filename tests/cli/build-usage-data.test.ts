@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -119,12 +119,11 @@ function withDeterministicRuntimeDeps() {
   return {
     getParsingRuntimeConfig: () => ({
       maxParallelFileParsing: 2,
-      parseCacheEnabled: false,
-      parseCacheTtlMs: 7 * 24 * 60 * 60 * 1000,
-      parseCacheMaxEntries: 2_000,
-      parseCacheMaxBytes: 64 * 1024 * 1024,
+      parseWorkers: 0,
+      parseWorkerMinBytes: 268_435_456,
     }),
     getPricingFetcherRuntimeConfig: () => ({ cacheTtlMs: 1_000, fetchTimeoutMs: 1_000 }),
+    getEventStoreRuntimeConfig: () => ({ enabled: false, path: '/tmp/events.db' }),
     getActiveEnvVarOverrides: () => [],
   };
 }
@@ -327,6 +326,7 @@ describe('build-usage-data helper modules', () => {
       ],
       sourceFailures: [{ source: 'pi', reason: 'pi parse failed' }],
       pricingOrigin: 'none',
+      warnings: ['Event store disabled after failure: database locked'],
       activeEnvOverrides: [],
       timezone: 'UTC',
     });
@@ -345,12 +345,61 @@ describe('build-usage-data helper modules', () => {
         },
       ],
       pricingOrigin: 'none',
+      warnings: ['Event store disabled after failure: database locked'],
       timezone: 'UTC',
     });
   });
 });
 
 describe('buildUsageData', () => {
+  it('reports event-store env overrides in usage diagnostics', async () => {
+    const eventStoreOverrides = [
+      {
+        name: 'LLM_USAGE_EVENT_STORE',
+        value: '1',
+        description: 'enable sqlite event store',
+      },
+      {
+        name: 'LLM_USAGE_EVENT_STORE_PATH',
+        value: '/tmp/events.db',
+        description: 'sqlite event store path',
+      },
+    ];
+
+    const result = await buildUsageData(
+      'daily',
+      { source: 'pi', timezone: 'UTC' },
+      {
+        ...withDeterministicRuntimeDeps(),
+        createAdapters: () => [createAdapter('pi', {})],
+        getActiveEnvVarOverrides: () => eventStoreOverrides,
+      },
+    );
+
+    expect(result.diagnostics.activeEnvOverrides).toEqual(eventStoreOverrides);
+  });
+
+  it('includes a real LLM_USAGE_EVENT_STORE=0 override under active overrides', async () => {
+    // The vitest-wide env sets LLM_USAGE_EVENT_STORE=0; without an injected
+    // reader the diagnostics must surface it.
+    const deps = { ...withDeterministicRuntimeDeps(), getActiveEnvVarOverrides: undefined };
+
+    const result = await buildUsageData(
+      'daily',
+      { source: 'pi', timezone: 'UTC' },
+      {
+        ...deps,
+        createAdapters: () => [createAdapter('pi', {})],
+      },
+    );
+
+    expect(result.diagnostics.activeEnvOverrides).toContainEqual({
+      name: 'LLM_USAGE_EVENT_STORE',
+      value: '0',
+      description: 'enable sqlite event store',
+    });
+  });
+
   it('returns no-sessions diagnostics without loading pricing', async () => {
     const pricingLoaderSpy = vi.fn(async (): Promise<PricingLoadResult> => {
       throw new Error('pricing should not be loaded when there are no events');
@@ -708,7 +757,10 @@ describe('buildUsageData', () => {
       { source: 'codex', filesFound: 0, eventsParsed: 0 },
     ]);
     expect(result.diagnostics.sourceFailures).toEqual([
-      { source: 'codex', reason: 'codex parse failed' },
+      {
+        source: 'codex',
+        reason: 'All 1 file(s) failed to parse for source codex: codex parse failed',
+      },
     ]);
     expect(result.diagnostics.skippedRows).toEqual([]);
 
@@ -794,7 +846,9 @@ describe('buildUsageData', () => {
           createAdapters: () => [createFailingAdapter('codex', 'codex parse failed')],
         },
       ),
-    ).rejects.toThrow('Failed to parse explicitly requested source(s): codex: codex parse failed');
+    ).rejects.toThrow(
+      'Failed to parse explicitly requested source(s): codex: All 1 file(s) failed to parse for source codex: codex parse failed',
+    );
   });
 
   it('fails when an explicitly selected fixed-provider source is incompatible with --provider', async () => {
@@ -859,7 +913,9 @@ describe('buildUsageData', () => {
           ],
         },
       ),
-    ).rejects.toThrow('Failed to parse explicitly requested source(s): codex: permission denied');
+    ).rejects.toThrow(
+      'Failed to parse explicitly requested source(s): codex: All 1 file(s) failed to parse for source codex: permission denied',
+    );
   });
 
   it('fails when --gemini-dir is set and gemini parsing fails', async () => {
@@ -875,7 +931,9 @@ describe('buildUsageData', () => {
           createAdapters: () => [createFailingAdapter('gemini', 'permission denied')],
         },
       ),
-    ).rejects.toThrow('Failed to parse explicitly requested source(s): gemini: permission denied');
+    ).rejects.toThrow(
+      'Failed to parse explicitly requested source(s): gemini: All 1 file(s) failed to parse for source gemini: permission denied',
+    );
   });
 
   it('fails when --droid-dir is set and droid parsing fails', async () => {
@@ -891,7 +949,9 @@ describe('buildUsageData', () => {
           createAdapters: () => [createFailingAdapter('droid', 'permission denied')],
         },
       ),
-    ).rejects.toThrow('Failed to parse explicitly requested source(s): droid: permission denied');
+    ).rejects.toThrow(
+      'Failed to parse explicitly requested source(s): droid: All 1 file(s) failed to parse for source droid: permission denied',
+    );
   });
 
   it('guards against non-positive parsing concurrency from injected deps', async () => {
@@ -904,10 +964,8 @@ describe('buildUsageData', () => {
         ...withDeterministicRuntimeDeps(),
         getParsingRuntimeConfig: () => ({
           maxParallelFileParsing: 0,
-          parseCacheEnabled: false,
-          parseCacheTtlMs: 7 * 24 * 60 * 60 * 1000,
-          parseCacheMaxEntries: 2_000,
-          parseCacheMaxBytes: 64 * 1024 * 1024,
+          parseWorkers: 0,
+          parseWorkerMinBytes: 268_435_456,
         }),
         createAdapters: () => [
           createAdapter('pi', {
@@ -937,10 +995,8 @@ describe('buildUsageData', () => {
         ...withDeterministicRuntimeDeps(),
         getParsingRuntimeConfig: () => ({
           maxParallelFileParsing: 0.5,
-          parseCacheEnabled: false,
-          parseCacheTtlMs: 7 * 24 * 60 * 60 * 1000,
-          parseCacheMaxEntries: 2_000,
-          parseCacheMaxBytes: 64 * 1024 * 1024,
+          parseWorkers: 0,
+          parseWorkerMinBytes: 268_435_456,
         }),
         createAdapters: () => [
           createAdapter('pi', {
@@ -1315,8 +1371,8 @@ describe('buildUsageData', () => {
     expect(result.rows[0]?.costUsd).toBeGreaterThan(0);
   });
 
-  it('fails when LiteLLM network and cache are unavailable', async () => {
-    const cacheRoot = await mkdtemp(path.join(os.tmpdir(), 'usage-pricing-no-fallback-'));
+  it('uses bundled pricing when LiteLLM network and cache are unavailable', async () => {
+    const cacheRoot = await mkdtemp(path.join(os.tmpdir(), 'usage-pricing-bundled-fallback-'));
     tempDirs.push(cacheRoot);
     process.env.XDG_CACHE_HOME = cacheRoot;
 
@@ -1325,31 +1381,34 @@ describe('buildUsageData', () => {
     });
     vi.stubGlobal('fetch', fetchSpy);
 
-    await expect(
-      buildUsageData(
-        'daily',
-        {
-          timezone: 'UTC',
-        },
-        {
-          ...withDeterministicRuntimeDeps(),
-          createAdapters: () => [
-            createAdapter('pi', {
-              '/tmp/pi-1.jsonl': [
-                createEvent({
-                  source: 'pi',
-                  costMode: 'estimated',
-                  costUsd: undefined,
-                  model: 'gpt-4.1',
-                }),
-              ],
-            }),
-          ],
-        },
-      ),
-    ).rejects.toThrow('Could not load LiteLLM pricing');
+    const result = await buildUsageData(
+      'daily',
+      {
+        timezone: 'UTC',
+      },
+      {
+        ...withDeterministicRuntimeDeps(),
+        createAdapters: () => [
+          createAdapter('pi', {
+            '/tmp/pi-1.jsonl': [
+              createEvent({
+                source: 'pi',
+                costMode: 'estimated',
+                costUsd: undefined,
+                model: 'gpt-4.1',
+              }),
+            ],
+          }),
+        ],
+      },
+    );
 
     expect(fetchSpy).toHaveBeenCalledTimes(3);
+    expect(result.diagnostics.pricingOrigin).toBe('bundled-snapshot');
+    expect(result.diagnostics.pricingWarning).toMatch(
+      /^Pricing: using the bundled LiteLLM snapshot from \d{4}-\d{2}-\d{2} \(run online to refresh\)\.$/u,
+    );
+    expect(result.rows[0]?.costUsd).toBeGreaterThan(0);
   });
 
   it('continues without estimated pricing when --ignore-pricing-failures is enabled', async () => {
@@ -1366,6 +1425,7 @@ describe('buildUsageData', () => {
       'daily',
       {
         timezone: 'UTC',
+        pricingUrl: 'https://example.test/pricing.json',
         ignorePricingFailures: true,
       },
       {
@@ -1395,8 +1455,8 @@ describe('buildUsageData', () => {
     });
   });
 
-  it('fails pricing-offline mode when cache is unavailable', async () => {
-    const cacheRoot = await mkdtemp(path.join(os.tmpdir(), 'usage-pricing-offline-no-cache-'));
+  it('uses bundled pricing in pricing-offline mode when cache is unavailable', async () => {
+    const cacheRoot = await mkdtemp(path.join(os.tmpdir(), 'usage-pricing-offline-bundled-'));
     tempDirs.push(cacheRoot);
     process.env.XDG_CACHE_HOME = cacheRoot;
 
@@ -1405,30 +1465,86 @@ describe('buildUsageData', () => {
     });
     vi.stubGlobal('fetch', fetchSpy);
 
-    await expect(
-      buildUsageData(
-        'daily',
-        {
-          timezone: 'UTC',
-          pricingOffline: true,
-        },
-        {
-          ...withDeterministicRuntimeDeps(),
-          createAdapters: () => [
-            createAdapter('pi', {
-              '/tmp/pi-1.jsonl': [
-                createEvent({
-                  source: 'pi',
-                  costMode: 'estimated',
-                  costUsd: undefined,
-                }),
-              ],
-            }),
-          ],
-        },
-      ),
-    ).rejects.toThrow('Offline pricing mode enabled but cached pricing is unavailable');
+    const result = await buildUsageData(
+      'daily',
+      {
+        timezone: 'UTC',
+        pricingOffline: true,
+      },
+      {
+        ...withDeterministicRuntimeDeps(),
+        createAdapters: () => [
+          createAdapter('pi', {
+            '/tmp/pi-1.jsonl': [
+              createEvent({
+                source: 'pi',
+                costMode: 'estimated',
+                costUsd: undefined,
+              }),
+            ],
+          }),
+        ],
+      },
+    );
 
     expect(fetchSpy).not.toHaveBeenCalled();
+    expect(result.diagnostics.pricingOrigin).toBe('bundled-snapshot');
+    expect(result.diagnostics.pricingWarning).toContain(
+      'Pricing: using the bundled LiteLLM snapshot',
+    );
+    expect(result.rows[0]?.costUsd).toBeGreaterThan(0);
+  });
+
+  it('applies pricing overrides on top of bundled pricing', async () => {
+    const cacheRoot = await mkdtemp(path.join(os.tmpdir(), 'usage-pricing-bundled-overrides-'));
+    tempDirs.push(cacheRoot);
+    process.env.XDG_CACHE_HOME = cacheRoot;
+
+    const overridesPath = path.join(cacheRoot, 'pricing-overrides.json');
+    await writeFile(
+      overridesPath,
+      JSON.stringify({
+        models: {
+          'gpt-4.1': {
+            inputPer1MUsd: 1_000_000,
+            outputPer1MUsd: 2_000_000,
+          },
+        },
+      }),
+      'utf8',
+    );
+
+    const fetchSpy = vi.fn(async () => {
+      throw new Error('network should not be called in offline mode');
+    });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const result = await buildUsageData(
+      'daily',
+      {
+        timezone: 'UTC',
+        pricingOffline: true,
+        pricingOverrides: overridesPath,
+      },
+      {
+        ...withDeterministicRuntimeDeps(),
+        createAdapters: () => [
+          createAdapter('pi', {
+            '/tmp/pi-1.jsonl': [
+              createEvent({
+                source: 'pi',
+                costMode: 'estimated',
+                costUsd: undefined,
+                model: 'gpt-4.1',
+              }),
+            ],
+          }),
+        ],
+      },
+    );
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(result.diagnostics.pricingOrigin).toBe('bundled-snapshot');
+    expect(result.rows[0]?.costUsd).toBe(20);
   });
 });

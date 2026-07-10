@@ -29,6 +29,12 @@ describe('isSqliteExperimentalWarning', () => {
   it('returns false for warnings that do not match sqlite experimental signature', () => {
     expect(isSqliteExperimentalWarning('some other warning', 'Warning')).toBe(false);
   });
+
+  it('returns false for non-error warning values without a warning type', () => {
+    expect(isSqliteExperimentalWarning({ message: sqliteExperimentalWarningText }, undefined)).toBe(
+      false,
+    );
+  });
 });
 
 describe('withSuppressedSqliteExperimentalWarning', () => {
@@ -52,5 +58,17 @@ describe('withSuppressedSqliteExperimentalWarning', () => {
     expect(seenWarnings.some((message) => message.includes(sqliteExperimentalWarningText))).toBe(
       false,
     );
+  });
+
+  it('detects sqlite warning type from warning options objects', () => {
+    const emitWarningSpy = vi.spyOn(process, 'emitWarning').mockImplementation(() => undefined);
+
+    withSuppressedSqliteExperimentalWarning(() => {
+      process.emitWarning(sqliteExperimentalWarningText, {
+        type: 'ExperimentalWarning',
+      });
+    });
+
+    expect(emitWarningSpy).not.toHaveBeenCalled();
   });
 });

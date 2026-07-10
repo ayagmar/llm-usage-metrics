@@ -40,6 +40,9 @@ describe('large jsonl fixture e2e', () => {
 
       const rows = JSON.parse(report) as JsonReportRow[];
       const periodRow = rows.find((row) => row.rowType === 'period_source' && row.source === 'pi');
+      const codexRow = rows.find(
+        (row) => row.rowType === 'period_source' && row.source === 'codex',
+      );
 
       expect(fetchSpy).not.toHaveBeenCalled();
       expect(periodRow).toMatchObject({
@@ -55,12 +58,24 @@ describe('large jsonl fixture e2e', () => {
         totalTokens: 50_000,
       });
       expect(periodRow?.costUsd ?? 0).toBeCloseTo(10, 10);
+      expect(codexRow).toMatchObject({
+        rowType: 'period_source',
+        periodKey: '2026-03-01',
+        source: 'codex',
+        models: ['gpt-5.2-codex'],
+        inputTokens: 300,
+        outputTokens: 200,
+        reasoningTokens: 50,
+        cacheReadTokens: 100,
+        cacheWriteTokens: 0,
+        totalTokens: 600,
+      });
       expect(rows.at(-1)).toMatchObject({
         rowType: 'grand_total',
         periodKey: 'ALL',
-        totalTokens: 50_000,
-        costUsd: 10,
+        totalTokens: 50_600,
       });
+      expect(rows.at(-1)?.costUsd ?? 0).toBeCloseTo(10.0033425, 10);
     } finally {
       vi.unstubAllGlobals();
     }

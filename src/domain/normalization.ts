@@ -2,6 +2,12 @@ import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 
 export type NumberLike = number | string | null | undefined;
 
+const CONTROL_CHARACTERS_PATTERN = new RegExp(String.raw`[\u0000-\u001F\u007F-\u009F]`, 'gu');
+
+export function stripControlCharacters(value: string): string {
+  return value.replace(CONTROL_CHARACTERS_PATTERN, '');
+}
+
 export function normalizeNonNegativeInteger(value: NumberLike): number {
   if (value === null || value === undefined) {
     return 0;
@@ -52,7 +58,7 @@ export function normalizeModelList(models: Iterable<string | null | undefined>):
       continue;
     }
 
-    const normalized = model.trim();
+    const normalized = stripControlCharacters(model).trim();
 
     if (!normalized) {
       continue;

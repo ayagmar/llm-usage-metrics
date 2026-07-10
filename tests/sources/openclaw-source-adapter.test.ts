@@ -39,6 +39,54 @@ describe('OpenClawSourceAdapter', () => {
     ]);
   });
 
+  it('scans all default roots and silently skips missing ones', async () => {
+    const openclawRoot = await mkdtemp(path.join(os.tmpdir(), 'openclaw-default-root-'));
+    const clawdbotRoot = await mkdtemp(path.join(os.tmpdir(), 'clawdbot-default-root-'));
+    tempDirs.push(openclawRoot, clawdbotRoot);
+
+    const openclawFile = path.join(openclawRoot, 'a.jsonl');
+    const clawdbotFile = path.join(clawdbotRoot, 'b.jsonl');
+    const messageRow = JSON.stringify({
+      type: 'message',
+      role: 'assistant',
+      timestamp: '2026-02-12T20:01:00.000Z',
+      provider: 'anthropic',
+      model: 'claude-opus-4-8',
+      usage: { input: 4, output: 6 },
+    });
+    await writeFile(openclawFile, messageRow, 'utf8');
+    await writeFile(clawdbotFile, messageRow, 'utf8');
+    const missingRoot = path.join(clawdbotRoot, 'missing');
+
+    const adapter = new OpenClawSourceAdapter({
+      defaultRootDirs: [openclawRoot, clawdbotRoot, missingRoot],
+    });
+
+    await expect(adapter.discoverFiles()).resolves.toEqual([
+      await realpath(openclawFile),
+      await realpath(clawdbotFile),
+    ]);
+    await expect(adapter.parseFile(openclawFile)).resolves.toHaveLength(1);
+    await expect(adapter.parseFile(clawdbotFile)).resolves.toHaveLength(1);
+  });
+
+  it('scans only the explicit directory when a dir override is provided', async () => {
+    const openclawRoot = await mkdtemp(path.join(os.tmpdir(), 'openclaw-explicit-root-'));
+    const clawdbotRoot = await mkdtemp(path.join(os.tmpdir(), 'clawdbot-explicit-root-'));
+    tempDirs.push(openclawRoot, clawdbotRoot);
+
+    const openclawFile = path.join(openclawRoot, 'a.jsonl');
+    await writeFile(openclawFile, '{}\n', 'utf8');
+    await writeFile(path.join(clawdbotRoot, 'b.jsonl'), '{}\n', 'utf8');
+
+    const adapter = new OpenClawSourceAdapter({
+      agentsDir: openclawRoot,
+      defaultRootDirs: [openclawRoot, clawdbotRoot],
+    });
+
+    await expect(adapter.discoverFiles()).resolves.toEqual([await realpath(openclawFile)]);
+  });
+
   it('parses assistant usage while tracking provider and model changes', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'openclaw-session-mixed-'));
     tempDirs.push(root);
@@ -342,6 +390,21 @@ describe('OpenClawSourceAdapter', () => {
       costUsd: 0.0025,
       costMode: 'explicit',
     });
+  });
+
+  it('reports malformed JSONL lines that pass its prefilter', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'openclaw-malformed-jsonl-'));
+    tempDirs.push(root);
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(filePath, '{"type":"message",', 'utf8');
+
+    const adapter = new OpenClawSourceAdapter({ agentsDir: root });
+    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+
+    expect(diagnostics.events).toEqual([]);
+    expect(diagnostics.skippedRows).toBe(1);
+    expect(diagnostics.skippedRowReasons).toEqual([{ reason: 'json_parse_error', count: 1 }]);
   });
 
   it('reports invalid usage events through parse diagnostics', async () => {

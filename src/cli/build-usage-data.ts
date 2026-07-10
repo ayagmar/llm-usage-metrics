@@ -40,7 +40,9 @@ export async function buildUsageData(
     sourceFailures: dataset.sourceFailures,
     pricingOrigin,
     pricingWarning,
+    warnings: dataset.warnings,
     activeEnvOverrides: dataset.readEnvVarOverrides(),
+    activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,
     runtimeProfile: deps.runtimeProfile?.snapshot(),
   });

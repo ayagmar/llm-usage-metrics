@@ -6,17 +6,22 @@ import type { UsageEvent } from '../../domain/usage-event.js';
 import type { NumberLike } from '../../domain/normalization.js';
 import { asRecord } from '../../utils/as-record.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
-import { pathIsDirectory, pathReadable } from '../../utils/fs-helpers.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
+import { discoverFilesAcrossRoots, resolveRootDirs } from '../multi-root-discovery.js';
+import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
-  isBlankText,
+  hasPositiveUsageOrCostSignal,
   normalizeTimestampCandidate,
   toNumberLike,
 } from '../parsing-utils.js';
-import type { SourceAdapter } from '../source-adapter.js';
+import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
 
 const defaultSessionsDir = path.join(os.homedir(), '.pi', 'agent', 'sessions');
+const defaultPiRootDirs = [
+  defaultSessionsDir,
+  path.join(os.homedir(), '.omp', 'agent', 'sessions'),
+];
 
 type PiSessionState = {
   sessionId?: string;
@@ -39,6 +44,8 @@ type PiUsageExtract = {
 export type PiSourceAdapterOptions = {
   sessionsDir?: string;
   requireSessionsDir?: boolean;
+  /** Test seam: default roots scanned when no sessionsDir override is given. */
+  defaultRootDirs?: string[];
 };
 
 const PI_MESSAGE_LINE_PATTERN = /"type"\s*:\s*"message"/u;
@@ -86,24 +93,6 @@ function extractUsageFromRecord(usage: Record<string, unknown>): PiUsageExtract 
     costUsd: toNumberLike(cost?.total),
   };
 
-  const toFiniteNumber = (value: NumberLike | undefined): number | undefined => {
-    if (value === null || value === undefined) {
-      return undefined;
-    }
-
-    if (typeof value === 'string' && value.trim().length === 0) {
-      return undefined;
-    }
-
-    const parsed = typeof value === 'number' ? value : Number(value);
-
-    if (!Number.isFinite(parsed)) {
-      return undefined;
-    }
-
-    return parsed;
-  };
-
   const usageCandidates = [
     extracted.inputTokens,
     extracted.outputTokens,
@@ -112,14 +101,8 @@ function extractUsageFromRecord(usage: Record<string, unknown>): PiUsageExtract 
     extracted.cacheWriteTokens,
     extracted.totalTokens,
   ];
-  const hasPositiveUsageSignal = usageCandidates.some((value) => {
-    const parsed = toFiniteNumber(value);
-    return parsed !== undefined && parsed > 0;
-  });
-  const explicitCost = toFiniteNumber(extracted.costUsd);
-  const hasPositiveCostSignal = explicitCost !== undefined && explicitCost > 0;
 
-  return hasPositiveUsageSignal || hasPositiveCostSignal ? extracted : undefined;
+  return hasPositiveUsageOrCostSignal(usageCandidates, extracted.costUsd) ? extracted : undefined;
 }
 
 function extractUsage(line: Record<string, unknown>, message: Record<string, unknown> | undefined) {
@@ -168,38 +151,43 @@ function resolveRepoRootFromRecord(
 export class PiSourceAdapter implements SourceAdapter {
   public readonly id = 'pi' as const;
 
-  private readonly sessionsDir: string;
+  private readonly rootDirs: readonly string[];
   private readonly requireSessionsDir: boolean;
 
   public constructor(options: PiSourceAdapterOptions = {}) {
-    this.sessionsDir = options.sessionsDir ?? defaultSessionsDir;
+    this.rootDirs = resolveRootDirs(
+      options.sessionsDir,
+      options.defaultRootDirs ?? defaultPiRootDirs,
+    );
     this.requireSessionsDir = options.requireSessionsDir ?? false;
   }
 
   public async discoverFiles(): Promise<string[]> {
-    if (isBlankText(this.sessionsDir)) {
-      throw new Error('PI sessions directory must be a non-empty path');
-    }
-
-    const normalizedSessionsDir = this.sessionsDir.trim();
-
-    if (this.requireSessionsDir && !(await pathReadable(normalizedSessionsDir))) {
-      throw new Error(`PI sessions directory is missing or unreadable: ${normalizedSessionsDir}`);
-    }
-
-    if (this.requireSessionsDir && !(await pathIsDirectory(normalizedSessionsDir))) {
-      throw new Error(`PI sessions directory is not a directory: ${normalizedSessionsDir}`);
-    }
-
-    return discoverJsonlFiles(normalizedSessionsDir);
+    return discoverFilesAcrossRoots({
+      rootDirs: this.rootDirs,
+      requireDir: this.requireSessionsDir,
+      directoryLabel: 'PI sessions directory',
+      discoverInRoot: (rootDir) => discoverJsonlFiles(rootDir),
+    });
   }
 
   public async parseFile(filePath: string): Promise<UsageEvent[]> {
+    const { events } = await this.parseFileWithDiagnostics(filePath);
+    return events;
+  }
+
+  public async parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
     const events: UsageEvent[] = [];
+    let skippedRows = 0;
+    const skippedRowReasons = new Map<string, number>();
     const state: PiSessionState = { sessionId: getFallbackSessionId(filePath) };
 
     for await (const line of readJsonlObjects(filePath, {
       shouldParseLine: shouldParsePiJsonlLine,
+      onMalformedLine: () => {
+        skippedRows++;
+        incrementSkippedReason(skippedRowReasons, 'json_parse_error');
+      },
     })) {
       if (line.type === 'session') {
         state.sessionId = asTrimmedText(line.id) ?? state.sessionId;
@@ -223,6 +211,13 @@ export class PiSourceAdapter implements SourceAdapter {
       const usage = extractUsage(line, message);
 
       if (!usage) {
+        const hasUsageRecord = Boolean(asRecord(line.usage) ?? asRecord(message?.usage));
+
+        if (hasUsageRecord) {
+          skippedRows++;
+          incrementSkippedReason(skippedRowReasons, 'no_token_usage');
+        }
+
         continue;
       }
 
@@ -232,6 +227,8 @@ export class PiSourceAdapter implements SourceAdapter {
       const timestamp = resolveTimestamp(line, message, state);
 
       if (!timestamp || !state.sessionId) {
+        skippedRows++;
+        incrementSkippedReason(skippedRowReasons, 'invalid_timestamp');
         continue;
       }
 
@@ -256,11 +253,13 @@ export class PiSourceAdapter implements SourceAdapter {
           }),
         );
       } catch {
+        skippedRows++;
+        incrementSkippedReason(skippedRowReasons, 'event_creation_failed');
         continue;
       }
     }
 
-    return events;
+    return toParseDiagnostics(events, skippedRows, skippedRowReasons);
   }
 }
 

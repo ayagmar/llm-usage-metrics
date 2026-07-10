@@ -27,10 +27,12 @@ llm-usage efficiency daily
 llm-usage efficiency weekly --repo-dir /path/to/repo
 llm-usage efficiency monthly --repo-dir /path/to/repo --json
 llm-usage efficiency monthly --repo-dir /path/to/repo --source codex
+llm-usage efficiency monthly --repo-dir /path/to/repo --by-source
 llm-usage efficiency monthly --repo-dir /path/to/repo --share
 ```
 
 `--share` is supported only for `monthly` and writes `efficiency-monthly-share.svg` to the current working directory.
+`--share` cannot be combined with `--by-source`.
 
 ## What is joined
 
@@ -54,6 +56,18 @@ Rendering rules:
 - if a denominator is zero, the derived value is `-` (terminal/markdown) or omitted in JSON
 - when pricing is incomplete, affected USD values are approximate (`~` prefix in terminal/markdown)
 
+## Per-source view
+
+Use `--by-source` to show repo-attributed usage rows under each period subtotal:
+
+```bash
+llm-usage efficiency monthly --repo-dir /path/to/repo --by-source
+```
+
+Source rows show usage and cost columns only. `Commits`, line deltas, and derived ratios render as `-` because Git outcomes are collected per period for the repository, not per source. The period subtotal keeps the normal efficiency metrics and is the row to use for commit-based ratios.
+
+JSON output for `--by-source` returns a payload with `grouping: "source"` and `rows`; default JSON output without `--by-source` remains the rows array.
+
 ## Scope and attribution semantics
 
 ### Repository root
@@ -69,7 +83,7 @@ Usage filters apply before efficiency aggregation:
 - `--source`
 - `--provider`
 - `--model`
-- source path overrides (`--pi-dir`, `--codex-dir`, `--gemini-dir`, `--droid-dir`, `--claude-dir`, `--opencode-db`, `--source-dir`)
+- source path overrides (`--pi-dir`, `--codex-dir`, `--copilot-dir`, `--gemini-dir`, `--droid-dir`, `--claude-dir`, `--amp-dir`, `--qwen-dir`, `--kimi-dir`, `--cline-dir`, `--roocode-dir`, `--kilocode-dir`, `--antigravity-dir`, `--opencode-db`, `--goose-db`, `--source-dir`)
 
 Important: these filters also affect commit attribution. Only commit days with matching repo-attributed usage events are counted in efficiency outcomes.
 
@@ -78,7 +92,7 @@ Important: these filters also affect commit attribution. Only commit days with m
 - `Tokens/Commit` excludes cache read/write tokens, showing only direct prompt/response/reasoning intensity per commit.
 - Compare `Tokens/Commit` with `$/Commit` to gauge cost-efficiency of your AI workflow.
 
-For source comparisons, run the same command per source:
+For filtered source comparisons, run the same command per source:
 
 ```bash
 llm-usage efficiency monthly --repo-dir /path/to/repo --source pi
@@ -88,6 +102,15 @@ llm-usage efficiency monthly --repo-dir /path/to/repo --source droid
 llm-usage efficiency monthly --repo-dir /path/to/repo --source opencode
 llm-usage efficiency monthly --repo-dir /path/to/repo --source openclaw
 llm-usage efficiency monthly --repo-dir /path/to/repo --source claude
+llm-usage efficiency monthly --repo-dir /path/to/repo --source copilot
+llm-usage efficiency monthly --repo-dir /path/to/repo --source goose
+llm-usage efficiency monthly --repo-dir /path/to/repo --source amp
+llm-usage efficiency monthly --repo-dir /path/to/repo --source qwen
+llm-usage efficiency monthly --repo-dir /path/to/repo --source kimi
+llm-usage efficiency monthly --repo-dir /path/to/repo --source cline
+llm-usage efficiency monthly --repo-dir /path/to/repo --source roocode
+llm-usage efficiency monthly --repo-dir /path/to/repo --source kilocode
+llm-usage efficiency monthly --repo-dir /path/to/repo --source antigravity
 ```
 
 ## Recommended review workflow

@@ -125,16 +125,28 @@ function sortOptions(options) {
   });
 }
 
-function resolveScopeSuffix(optionLong, commandNames, reportMetas) {
+function resolveScopeSuffix(optionLong, commandNames, commandMetas, reportMetas) {
   if (optionLong === '--help' || optionLong === '--version') {
     return '';
   }
 
-  if (commandNames.size === 0 || commandNames.size === reportMetas.length) {
+  if (commandNames.size === 0 || commandNames.size === commandMetas.length) {
     return '';
   }
 
-  const matchingMetas = reportMetas.filter((meta) => commandNames.has(meta.commandName));
+  const reportCommandNames = new Set(reportMetas.map((meta) => meta.commandName));
+  const appliesToAllReportCommands = reportMetas.every((meta) =>
+    commandNames.has(meta.commandName),
+  );
+  const appliesOnlyToReportCommands = [...commandNames].every((commandName) =>
+    reportCommandNames.has(commandName),
+  );
+
+  if (appliesToAllReportCommands && appliesOnlyToReportCommands) {
+    return '';
+  }
+
+  const matchingMetas = commandMetas.filter((meta) => commandNames.has(meta.commandName));
 
   if (matchingMetas.length === 0) {
     return '';
@@ -151,8 +163,53 @@ function resolveScopeSuffix(optionLong, commandNames, reportMetas) {
   return `(${matchingMetas.map((meta) => meta.commandName).join(', ')} only)`;
 }
 
-function deduplicateAndNormalizeOptions(rootOptions, commandOptionsByCommand, reportMetas) {
+function collectCommandOptionDescriptions(commandOptionsByCommand) {
+  const descriptionsByOption = new Map();
+
+  for (const [commandName, options] of Object.entries(commandOptionsByCommand)) {
+    for (const option of options) {
+      const descriptions = descriptionsByOption.get(option.long) ?? new Map();
+      const normalizedDescription = option.description.replace(/\s+/g, ' ').trim();
+      const commandNames = descriptions.get(normalizedDescription) ?? new Set();
+      commandNames.add(commandName);
+      descriptions.set(normalizedDescription, commandNames);
+      descriptionsByOption.set(option.long, descriptions);
+    }
+  }
+
+  return descriptionsByOption;
+}
+
+function formatCommandList(commandNames) {
+  return [...commandNames].join(', ');
+}
+
+function resolveOptionDescription(option, commandOptionDescriptions) {
+  const descriptions = commandOptionDescriptions.get(option.long);
+
+  if (!descriptions || descriptions.size <= 1) {
+    return {
+      description: option.description,
+      hasCommandSpecificDescriptions: false,
+    };
+  }
+
+  return {
+    description: [...descriptions]
+      .map(([description, commandNames]) => `${formatCommandList(commandNames)}: ${description}`)
+      .join('; '),
+    hasCommandSpecificDescriptions: true,
+  };
+}
+
+function deduplicateAndNormalizeOptions(
+  rootOptions,
+  commandOptionsByCommand,
+  commandMetas,
+  reportMetas,
+) {
   const optionCommandMap = new Map();
+  const commandOptionDescriptions = collectCommandOptionDescriptions(commandOptionsByCommand);
 
   for (const [commandName, options] of Object.entries(commandOptionsByCommand)) {
     for (const option of options) {
@@ -165,22 +222,29 @@ function deduplicateAndNormalizeOptions(rootOptions, commandOptionsByCommand, re
   const byLong = new Map();
 
   for (const option of [...rootOptions, ...Object.values(commandOptionsByCommand).flat()]) {
-    const scopeSuffix = resolveScopeSuffix(
-      option.long,
-      optionCommandMap.get(option.long) ?? new Set(),
-      reportMetas,
+    const { description, hasCommandSpecificDescriptions } = resolveOptionDescription(
+      option,
+      commandOptionDescriptions,
     );
+    const scopeSuffix = hasCommandSpecificDescriptions
+      ? ''
+      : resolveScopeSuffix(
+          option.long,
+          optionCommandMap.get(option.long) ?? new Set(),
+          commandMetas,
+          reportMetas,
+        );
 
     byLong.set(option.long, {
       ...option,
-      description: normalizeDescription(option.description, option.long, scopeSuffix),
+      description: normalizeDescription(description, option.long, scopeSuffix),
     });
   }
 
   return sortOptions([...byLong.values()]);
 }
 
-function generateMarkdown(version, reportMetas, options, examples, cellFormatters) {
+function generateMarkdown(version, commandMetas, options, examples, cellFormatters) {
   const { toMarkdownSafeCodeCell, toMarkdownSafeCell } = cellFormatters;
   const lines = [
     '---',
@@ -201,7 +265,7 @@ function generateMarkdown(version, reportMetas, options, examples, cellFormatter
     '',
     'Commands:',
     '',
-    ...reportMetas.map((meta) => `- \`${meta.docsLabel}\``),
+    ...commandMetas.map((meta) => `- \`${meta.docsLabel}\``),
     '',
     '## Options',
     '',
@@ -286,6 +350,25 @@ async function loadCliMetadata() {
   };
 }
 
+function createExtraCommandMeta(commandName) {
+  return {
+    commandName,
+    docsLabel: commandName === 'config' ? 'config <init>' : commandName,
+    kind: 'specialized',
+  };
+}
+
+function getCommandHelpText(cli, meta) {
+  const subCommand = cli.commands.find((candidate) => candidate.name() === meta.commandName);
+
+  if (meta.commandName === 'config') {
+    const initCommand = subCommand?.commands.find((candidate) => candidate.name() === 'init');
+    return initCommand?.helpInformation() ?? subCommand?.helpInformation() ?? '';
+  }
+
+  return subCommand?.helpInformation() ?? '';
+}
+
 async function loadCliHelpTexts(version, reportMetas) {
   const cliModulePath = join(rootDir, 'src', 'cli', 'create-cli.ts');
   const cliModule = await tsImport(cliModulePath, { parentURL: import.meta.url });
@@ -297,14 +380,18 @@ async function loadCliHelpTexts(version, reportMetas) {
 
   const cli = createCli({ version });
   const rootHelp = cli.helpInformation();
+  const reportCommandNames = new Set(reportMetas.map((meta) => meta.commandName));
+  const extraCommandMetas = cli.commands
+    .filter((command) => !reportCommandNames.has(command.name()))
+    .map((command) => createExtraCommandMeta(command.name()));
+  const commandMetas = [...reportMetas, ...extraCommandMetas];
   const commandHelps = Object.fromEntries(
-    reportMetas.map((meta) => {
-      const subCommand = cli.commands.find((candidate) => candidate.name() === meta.commandName);
-      return [meta.commandName, subCommand?.helpInformation() ?? ''];
+    commandMetas.map((meta) => {
+      return [meta.commandName, getCommandHelpText(cli, meta)];
     }),
   );
 
-  return { rootHelp, commandHelps };
+  return { rootHelp, commandHelps, commandMetas };
 }
 
 async function main() {
@@ -323,9 +410,16 @@ async function main() {
         parseOptions(helpText),
       ]),
     ),
+    helpTexts.commandMetas,
     reportMetas,
   );
-  const markdown = generateMarkdown(version, reportMetas, options, examples, cellFormatters);
+  const markdown = generateMarkdown(
+    version,
+    helpTexts.commandMetas,
+    options,
+    examples,
+    cellFormatters,
+  );
 
   writeFileSync(outputPath, markdown, 'utf8');
   console.log(`CLI reference generated at ${outputPath}`);

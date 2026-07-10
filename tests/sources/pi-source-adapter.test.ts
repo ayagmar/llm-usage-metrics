@@ -36,6 +36,55 @@ describe('PiSourceAdapter', () => {
     await expect(adapter.discoverFiles()).resolves.toEqual([first, second]);
   });
 
+  it('scans all default roots and silently skips missing ones', async () => {
+    const piRoot = await mkdtemp(path.join(os.tmpdir(), 'pi-default-root-'));
+    const ompRoot = await mkdtemp(path.join(os.tmpdir(), 'omp-default-root-'));
+    tempDirs.push(piRoot, ompRoot);
+
+    const piFile = path.join(piRoot, 'a.jsonl');
+    const ompFile = path.join(ompRoot, 'b.jsonl');
+    const messageRow = JSON.stringify({
+      type: 'message',
+      timestamp: '2026-02-12T20:01:00.000Z',
+      usage: { input: 4, output: 6, totalTokens: 10 },
+    });
+    await writeFile(piFile, messageRow, 'utf8');
+    await writeFile(ompFile, messageRow, 'utf8');
+    const missingRoot = path.join(ompRoot, 'missing');
+
+    const adapter = new PiSourceAdapter({ defaultRootDirs: [piRoot, ompRoot, missingRoot] });
+
+    await expect(adapter.discoverFiles()).resolves.toEqual([piFile, ompFile]);
+    await expect(adapter.parseFile(piFile)).resolves.toHaveLength(1);
+    await expect(adapter.parseFile(ompFile)).resolves.toHaveLength(1);
+  });
+
+  it('scans only the explicit directory and errors when it is required but missing', async () => {
+    const piRoot = await mkdtemp(path.join(os.tmpdir(), 'pi-explicit-root-'));
+    const ompRoot = await mkdtemp(path.join(os.tmpdir(), 'omp-explicit-root-'));
+    tempDirs.push(piRoot, ompRoot);
+
+    const piFile = path.join(piRoot, 'a.jsonl');
+    await writeFile(piFile, '{}\n', 'utf8');
+    await writeFile(path.join(ompRoot, 'b.jsonl'), '{}\n', 'utf8');
+
+    const adapter = new PiSourceAdapter({
+      sessionsDir: piRoot,
+      defaultRootDirs: [piRoot, ompRoot],
+    });
+
+    await expect(adapter.discoverFiles()).resolves.toEqual([piFile]);
+
+    const missingAdapter = new PiSourceAdapter({
+      sessionsDir: path.join(ompRoot, 'missing'),
+      requireSessionsDir: true,
+    });
+
+    await expect(missingAdapter.discoverFiles()).rejects.toThrow(
+      'PI sessions directory is missing or unreadable',
+    );
+  });
+
   it('parses usage events without provider filtering by default', async () => {
     const fixturePath = path.resolve('tests/fixtures/pi/session-mixed.jsonl');
     const adapter = new PiSourceAdapter();
@@ -396,6 +445,125 @@ describe('PiSourceAdapter', () => {
     const events = await adapter.parseFile(filePath);
 
     expect(events).toEqual([]);
+  });
+
+  it('counts a skip when a usage record exists but carries no positive signal', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-skip-no-usage-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'pi-skip-no-usage',
+        }),
+        JSON.stringify({
+          type: 'message',
+          timestamp: '2026-02-12T20:01:00.000Z',
+          provider: 'openai',
+          usage: {
+            input: 0,
+            output: 0,
+            totalTokens: 0,
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new PiSourceAdapter({ sessionsDir: root });
+    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+
+    expect(diagnostics.events).toEqual([]);
+    expect(diagnostics.skippedRows).toBe(1);
+    expect(diagnostics.skippedRowReasons).toEqual([{ reason: 'no_token_usage', count: 1 }]);
+  });
+
+  it('counts a skip when usage is valid but no timestamp can be resolved', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-skip-invalid-ts-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'pi-skip-invalid-ts',
+        }),
+        JSON.stringify({
+          type: 'message',
+          timestamp: 'not-a-date',
+          provider: 'openai',
+          usage: {
+            input: 1,
+            output: 2,
+            totalTokens: 3,
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new PiSourceAdapter({ sessionsDir: root });
+    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+
+    expect(diagnostics.events).toEqual([]);
+    expect(diagnostics.skippedRows).toBe(1);
+    expect(diagnostics.skippedRowReasons).toEqual([{ reason: 'invalid_timestamp', count: 1 }]);
+  });
+
+  it('does not count user messages without any usage record as skips', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-no-skip-user-message-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'pi-user-message',
+          timestamp: '2026-02-12T20:00:00.000Z',
+        }),
+        JSON.stringify({
+          type: 'message',
+          timestamp: '2026-02-12T20:01:00.000Z',
+          message: {
+            role: 'user',
+            content: 'hello there',
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new PiSourceAdapter({ sessionsDir: root });
+    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+
+    expect(diagnostics.events).toEqual([]);
+    expect(diagnostics.skippedRows).toBe(0);
+    expect(diagnostics.skippedRowReasons).toEqual([]);
+  });
+
+  it('reports malformed JSONL lines that pass its prefilter', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-malformed-jsonl-'));
+    tempDirs.push(root);
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(filePath, ['{"type":"message",', '{"type":"ignored",'].join('\n'), 'utf8');
+
+    const adapter = new PiSourceAdapter({ sessionsDir: root });
+    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+
+    expect(diagnostics.events).toEqual([]);
+    expect(diagnostics.skippedRows).toBe(1);
+    expect(diagnostics.skippedRowReasons).toEqual([{ reason: 'json_parse_error', count: 1 }]);
   });
 
   it('keeps cost-only usage entries when explicit non-zero cost exists', async () => {

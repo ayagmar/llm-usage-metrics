@@ -28,7 +28,10 @@ function isSqliteModule(value: unknown): value is SqliteModule {
   return typeof moduleRecord?.DatabaseSync === 'function';
 }
 
-export function loadNodeSqliteModuleFromRequire(requireFn: RequireFn): SqliteModule {
+export function loadNodeSqliteModuleFromRequire(
+  requireFn: RequireFn,
+  consumerLabel = 'OpenCode source',
+): SqliteModule {
   try {
     const moduleValue = withSuppressedSqliteExperimentalWarning(() => requireFn('node:sqlite'));
 
@@ -40,12 +43,12 @@ export function loadNodeSqliteModuleFromRequire(requireFn: RequireFn): SqliteMod
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     throw new Error(
-      `OpenCode source requires Node.js 24+ runtime with node:sqlite support: ${reason}`,
+      `${consumerLabel} requires Node.js 24+ runtime with node:sqlite support: ${reason}`,
       { cause: error },
     );
   }
 }
 
-export async function loadNodeSqliteModule(): Promise<SqliteModule> {
-  return loadNodeSqliteModuleFromRequire(require);
+export async function loadNodeSqliteModule(consumerLabel?: string): Promise<SqliteModule> {
+  return loadNodeSqliteModuleFromRequire(require, consumerLabel);
 }

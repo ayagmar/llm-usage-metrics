@@ -28,6 +28,7 @@ describe('provider-normalization', () => {
   it('resolves explicit provider roots only for canonical roots', () => {
     expect(resolveExplicitProviderRoots(undefined)).toBeUndefined();
     expect(resolveExplicitProviderRoots(' openai ')).toEqual(['openai']);
+    expect(resolveExplicitProviderRoots('moonshot')).toEqual(['moonshot']);
     expect(resolveExplicitProviderRoots(' vendor-openai ')).toBeUndefined();
   });
 

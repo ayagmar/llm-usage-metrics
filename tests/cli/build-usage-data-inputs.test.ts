@@ -13,6 +13,19 @@ afterEach(() => {
 });
 
 describe('build-usage-data-inputs', () => {
+  it('uses the detected runtime timezone when no timezone option is set', () => {
+    vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions').mockReturnValue({
+      locale: 'en-US',
+      calendar: 'gregory',
+      numberingSystem: 'latn',
+      timeZone: 'Africa/Casablanca',
+    });
+
+    const inputs = normalizeBuildUsageInputs({});
+
+    expect(inputs.timezone).toBe('Africa/Casablanca');
+  });
+
   it('falls back to UTC when runtime timezone detection is unavailable', () => {
     vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions').mockReturnValue({
       locale: 'en-US',
@@ -61,10 +74,116 @@ describe('build-usage-data-inputs', () => {
 
   it('treats source-dir overrides as explicit source selections', () => {
     const inputs = normalizeBuildUsageInputs({
-      sourceDir: ['pi=/tmp/pi-sessions', 'codex=/tmp/codex-sessions', 'claude=/tmp/claude'],
+      sourceDir: [
+        'pi=/tmp/pi-sessions',
+        'codex=/tmp/codex-sessions',
+        'copilot=/tmp/copilot-otel',
+        'openclaw=/tmp/openclaw',
+        'claude=/tmp/claude',
+        'amp=/tmp/amp/threads',
+        'qwen=/tmp/qwen/projects',
+        'kimi=/tmp/kimi/sessions',
+        'cline=/tmp/cline/tasks',
+        'roocode=/tmp/roocode/tasks',
+        'kilocode=/tmp/kilocode/tasks',
+        'antigravity=/tmp/antigravity/conversations',
+      ],
     });
 
-    expect([...inputs.explicitSourceIds]).toEqual(['pi', 'codex', 'claude']);
+    expect([...inputs.explicitSourceIds]).toEqual([
+      'pi',
+      'codex',
+      'copilot',
+      'openclaw',
+      'claude',
+      'amp',
+      'qwen',
+      'kimi',
+      'cline',
+      'roocode',
+      'kilocode',
+      'antigravity',
+    ]);
+  });
+
+  it('treats openclaw directory overrides as explicit source selections', () => {
+    const inputs = normalizeBuildUsageInputs({
+      openclawDir: '/tmp/openclaw',
+    });
+
+    expect([...inputs.explicitSourceIds]).toEqual(['openclaw']);
+  });
+
+  it('treats copilot directory overrides as explicit source selections', () => {
+    const inputs = normalizeBuildUsageInputs({
+      copilotDir: '/tmp/copilot-otel',
+    });
+
+    expect([...inputs.explicitSourceIds]).toEqual(['copilot']);
+  });
+
+  it('treats goose DB overrides as explicit source selections', () => {
+    const inputs = normalizeBuildUsageInputs({
+      gooseDb: '/tmp/goose.db',
+    });
+
+    expect([...inputs.explicitSourceIds]).toEqual(['goose']);
+  });
+
+  it('treats amp directory overrides as explicit source selections', () => {
+    const inputs = normalizeBuildUsageInputs({
+      ampDir: '/tmp/amp/threads',
+    });
+
+    expect([...inputs.explicitSourceIds]).toEqual(['amp']);
+  });
+
+  it('treats qwen directory overrides as explicit source selections', () => {
+    const inputs = normalizeBuildUsageInputs({
+      qwenDir: '/tmp/qwen/projects',
+    });
+
+    expect([...inputs.explicitSourceIds]).toEqual(['qwen']);
+  });
+
+  it('treats kimi directory overrides as explicit source selections', () => {
+    const inputs = normalizeBuildUsageInputs({
+      kimiDir: '/tmp/kimi/sessions',
+    });
+
+    expect([...inputs.explicitSourceIds]).toEqual(['kimi']);
+  });
+
+  it('treats cline directory overrides as explicit source selections', () => {
+    const inputs = normalizeBuildUsageInputs({
+      clineDir: '/tmp/cline/tasks',
+    });
+
+    expect([...inputs.explicitSourceIds]).toEqual(['cline']);
+  });
+
+  it('treats roocode directory overrides as explicit source selections', () => {
+    const inputs = normalizeBuildUsageInputs({
+      roocodeDir: '/tmp/roocode/tasks',
+    });
+
+    expect([...inputs.explicitSourceIds]).toEqual(['roocode']);
+  });
+
+  it('treats kilocode directory overrides as explicit source selections', () => {
+    const inputs = normalizeBuildUsageInputs({
+      kilocodeDir: '/tmp/kilocode/tasks',
+    });
+
+    expect([...inputs.explicitSourceIds]).toEqual(['kilocode']);
+  });
+
+  it('treats antigravity directory overrides as explicit source selections', () => {
+    const inputs = normalizeBuildUsageInputs({
+      antigravityDir: '/tmp/antigravity/conversations',
+    });
+
+    expect([...inputs.explicitSourceIds]).toEqual(['antigravity']);
   });
 
   it('validates malformed source-dir entries through the shared parser', () => {
@@ -100,6 +219,44 @@ describe('build-usage-data-inputs', () => {
     });
 
     expect(selectedAdapters.map((adapter) => adapter.id)).toEqual(['pi', 'codex']);
+  });
+
+  it('prunes kimi for other explicit providers and keeps it for moonshot', () => {
+    const adapters: SourceAdapter[] = [
+      {
+        id: 'pi',
+        discoverFiles: async () => [],
+        parseFile: async () => [],
+      },
+      {
+        id: 'claude',
+        capabilities: { fixedProviderRoots: ['anthropic'] },
+        discoverFiles: async () => [],
+        parseFile: async () => [],
+      },
+      {
+        id: 'kimi',
+        capabilities: { fixedProviderRoots: ['moonshot'] },
+        discoverFiles: async () => [],
+        parseFile: async () => [],
+      },
+    ];
+
+    const anthropicInputs = normalizeBuildUsageInputs({ provider: 'anthropic' });
+    const moonshotInputs = normalizeBuildUsageInputs({ provider: 'moonshot' });
+
+    expect(
+      selectAdaptersForParsing(adapters, {
+        sourceFilter: undefined,
+        candidateProviderRoots: anthropicInputs.candidateProviderRoots,
+      }).map((adapter) => adapter.id),
+    ).toEqual(['pi', 'claude']);
+    expect(
+      selectAdaptersForParsing(adapters, {
+        sourceFilter: undefined,
+        candidateProviderRoots: moonshotInputs.candidateProviderRoots,
+      }).map((adapter) => adapter.id),
+    ).toEqual(['pi', 'kimi']);
   });
 
   it('records source selection with candidate provider roots in the runtime profile', () => {

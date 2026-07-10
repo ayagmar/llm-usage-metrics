@@ -1,10 +1,17 @@
+import { AmpSourceAdapter } from './amp/amp-source-adapter.js';
+import { AntigravitySourceAdapter } from './antigravity/antigravity-source-adapter.js';
 import { ClaudeSourceAdapter } from './claude/claude-source-adapter.js';
+import { CLINE_EXTENSION_IDS, createClineFamilyAdapter } from './cline/cline-family-adapter.js';
 import { CodexSourceAdapter } from './codex/codex-source-adapter.js';
+import { CopilotSourceAdapter } from './copilot/copilot-source-adapter.js';
 import { DroidSourceAdapter } from './droid/droid-source-adapter.js';
 import { GeminiSourceAdapter } from './gemini/gemini-source-adapter.js';
+import { GooseSourceAdapter } from './goose/goose-source-adapter.js';
+import { KimiSourceAdapter } from './kimi/kimi-source-adapter.js';
 import { OpenCodeSourceAdapter } from './opencode/opencode-source-adapter.js';
 import { OpenClawSourceAdapter } from './openclaw/openclaw-source-adapter.js';
 import { PiSourceAdapter } from './pi/pi-source-adapter.js';
+import { QwenSourceAdapter } from './qwen/qwen-source-adapter.js';
 import type { SourceAdapter } from './source-adapter.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { parseSourceDirectoryOverrides } from '../utils/source-directory-overrides.js';
@@ -21,10 +28,20 @@ type SourceRegistration = {
 export type CreateDefaultAdaptersOptions = {
   piDir?: string;
   codexDir?: string;
+  copilotDir?: string;
   geminiDir?: string;
   droidDir?: string;
   claudeDir?: string;
+  openclawDir?: string;
   opencodeDb?: string;
+  gooseDb?: string;
+  ampDir?: string;
+  qwenDir?: string;
+  kimiDir?: string;
+  clineDir?: string;
+  roocodeDir?: string;
+  kilocodeDir?: string;
+  antigravityDir?: string;
   sourceDir?: string[];
 };
 
@@ -100,10 +117,10 @@ const sourceRegistrations: readonly SourceRegistration[] = [
   {
     id: 'openclaw',
     sourceDirOverride: { kind: 'directory' },
-    create: (_options, sourceDirectoryOverrides) => {
+    create: (options, sourceDirectoryOverrides) => {
       const directoryConfig = resolveDirectoryConfig(
         'openclaw',
-        undefined,
+        options.openclawDir,
         sourceDirectoryOverrides,
       );
 
@@ -126,6 +143,148 @@ const sourceRegistrations: readonly SourceRegistration[] = [
       return new ClaudeSourceAdapter({
         projectsDir: directoryConfig.path,
         requireProjectsDir: directoryConfig.requireExistingPath,
+      });
+    },
+  },
+  {
+    id: 'copilot',
+    sourceDirOverride: { kind: 'directory' },
+    create: (options, sourceDirectoryOverrides) => {
+      const directoryConfig = resolveDirectoryConfig(
+        'copilot',
+        options.copilotDir,
+        sourceDirectoryOverrides,
+      );
+
+      return new CopilotSourceAdapter({
+        otelDir: directoryConfig.path,
+        requireOtelDir: directoryConfig.requireExistingPath,
+      });
+    },
+  },
+  {
+    id: 'goose',
+    sourceDirOverride: { kind: 'unsupported', flag: '--goose-db' },
+    create: (options) =>
+      new GooseSourceAdapter({
+        dbPath: options.gooseDb,
+      }),
+  },
+  {
+    id: 'amp',
+    sourceDirOverride: { kind: 'directory' },
+    create: (options, sourceDirectoryOverrides) => {
+      const directoryConfig = resolveDirectoryConfig(
+        'amp',
+        options.ampDir,
+        sourceDirectoryOverrides,
+      );
+
+      return new AmpSourceAdapter({
+        threadsDir: directoryConfig.path,
+        requireThreadsDir: directoryConfig.requireExistingPath,
+      });
+    },
+  },
+  {
+    id: 'qwen',
+    sourceDirOverride: { kind: 'directory' },
+    create: (options, sourceDirectoryOverrides) => {
+      const directoryConfig = resolveDirectoryConfig(
+        'qwen',
+        options.qwenDir,
+        sourceDirectoryOverrides,
+      );
+
+      return new QwenSourceAdapter({
+        projectsDir: directoryConfig.path,
+        requireProjectsDir: directoryConfig.requireExistingPath,
+      });
+    },
+  },
+  {
+    id: 'kimi',
+    sourceDirOverride: { kind: 'directory' },
+    create: (options, sourceDirectoryOverrides) => {
+      const directoryConfig = resolveDirectoryConfig(
+        'kimi',
+        options.kimiDir,
+        sourceDirectoryOverrides,
+      );
+
+      return new KimiSourceAdapter({
+        kimiDir: directoryConfig.path,
+        requireKimiDir: directoryConfig.requireExistingPath,
+      });
+    },
+  },
+  {
+    id: 'cline',
+    sourceDirOverride: { kind: 'directory' },
+    create: (options, sourceDirectoryOverrides) => {
+      const directoryConfig = resolveDirectoryConfig(
+        'cline',
+        options.clineDir,
+        sourceDirectoryOverrides,
+      );
+
+      return createClineFamilyAdapter({
+        id: 'cline',
+        extensionId: CLINE_EXTENSION_IDS.cline,
+        tasksDir: directoryConfig.path,
+        requireTasksDir: directoryConfig.requireExistingPath,
+      });
+    },
+  },
+  {
+    id: 'roocode',
+    sourceDirOverride: { kind: 'directory' },
+    create: (options, sourceDirectoryOverrides) => {
+      const directoryConfig = resolveDirectoryConfig(
+        'roocode',
+        options.roocodeDir,
+        sourceDirectoryOverrides,
+      );
+
+      return createClineFamilyAdapter({
+        id: 'roocode',
+        extensionId: CLINE_EXTENSION_IDS.roocode,
+        tasksDir: directoryConfig.path,
+        requireTasksDir: directoryConfig.requireExistingPath,
+      });
+    },
+  },
+  {
+    id: 'kilocode',
+    sourceDirOverride: { kind: 'directory' },
+    create: (options, sourceDirectoryOverrides) => {
+      const directoryConfig = resolveDirectoryConfig(
+        'kilocode',
+        options.kilocodeDir,
+        sourceDirectoryOverrides,
+      );
+
+      return createClineFamilyAdapter({
+        id: 'kilocode',
+        extensionId: CLINE_EXTENSION_IDS.kilocode,
+        tasksDir: directoryConfig.path,
+        requireTasksDir: directoryConfig.requireExistingPath,
+      });
+    },
+  },
+  {
+    id: 'antigravity',
+    sourceDirOverride: { kind: 'directory' },
+    create: (options, sourceDirectoryOverrides) => {
+      const directoryConfig = resolveDirectoryConfig(
+        'antigravity',
+        options.antigravityDir,
+        sourceDirectoryOverrides,
+      );
+
+      return new AntigravitySourceAdapter({
+        conversationsDir: directoryConfig.path,
+        requireConversationsDir: directoryConfig.requireExistingPath,
       });
     },
   },
@@ -181,18 +340,35 @@ function validateSourceDirectoryOverrideIds(
   );
 }
 
-function validateOpencodeOverride(opencodeDb: string | undefined): void {
-  if (opencodeDb === undefined) {
+function validateDbOverride(
+  optionName: '--opencode-db' | '--goose-db',
+  value: string | undefined,
+): void {
+  if (value === undefined) {
     return;
   }
 
-  if (opencodeDb.trim().length === 0) {
-    throw new Error('--opencode-db must be a non-empty path');
+  if (value.trim().length === 0) {
+    throw new Error(`${optionName} must be a non-empty path`);
   }
 }
 
 function validateDirectoryOverride(
-  optionName: '--pi-dir' | '--codex-dir' | '--gemini-dir' | '--droid-dir' | '--claude-dir',
+  optionName:
+    | '--pi-dir'
+    | '--codex-dir'
+    | '--copilot-dir'
+    | '--gemini-dir'
+    | '--droid-dir'
+    | '--claude-dir'
+    | '--openclaw-dir'
+    | '--amp-dir'
+    | '--qwen-dir'
+    | '--kimi-dir'
+    | '--cline-dir'
+    | '--roocode-dir'
+    | '--kilocode-dir'
+    | '--antigravity-dir',
   value: string | undefined,
 ): void {
   if (value === undefined) {
@@ -239,12 +415,22 @@ export function getDefaultSourceIds(): string[] {
 }
 
 export function createDefaultAdapters(options: CreateDefaultAdaptersOptions): SourceAdapter[] {
-  validateOpencodeOverride(options.opencodeDb);
+  validateDbOverride('--opencode-db', options.opencodeDb);
+  validateDbOverride('--goose-db', options.gooseDb);
   validateDirectoryOverride('--pi-dir', options.piDir);
   validateDirectoryOverride('--codex-dir', options.codexDir);
+  validateDirectoryOverride('--copilot-dir', options.copilotDir);
   validateDirectoryOverride('--gemini-dir', options.geminiDir);
   validateDirectoryOverride('--droid-dir', options.droidDir);
   validateDirectoryOverride('--claude-dir', options.claudeDir);
+  validateDirectoryOverride('--openclaw-dir', options.openclawDir);
+  validateDirectoryOverride('--amp-dir', options.ampDir);
+  validateDirectoryOverride('--qwen-dir', options.qwenDir);
+  validateDirectoryOverride('--kimi-dir', options.kimiDir);
+  validateDirectoryOverride('--cline-dir', options.clineDir);
+  validateDirectoryOverride('--roocode-dir', options.roocodeDir);
+  validateDirectoryOverride('--kilocode-dir', options.kilocodeDir);
+  validateDirectoryOverride('--antigravity-dir', options.antigravityDir);
 
   const sourceDirectoryOverrides = parseSourceDirectoryOverrides(options.sourceDir);
   validateSourceDirectoryOverrideIds(sourceDirectoryOverrides);

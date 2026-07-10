@@ -1,145 +1,83 @@
 ---
 title: Benchmarks
-description: Production benchmark comparison of llm-usage-metrics and ccusage-codex.
+description: Measured cold and warm runtimes on real local data, with methodology and honest ccusage context.
 ---
 
-`llm-usage-metrics` is engineered for extreme throughput. In production environments, it consistently outperforms legacy tools by an order of magnitude, enabling real-time cost analysis even on massive datasets.
+This page publishes measured absolute runtimes for `llm-usage` on real local data, with `ccusage` numbers included as context. There are no cherry-picked speedup claims here: `ccusage` 20.x is a native Rust binary, it wins cold runs, and this page says so. All numbers were measured on 2026-07-09 with 5 timed runs per cell.
 
-## Performance Summary
+## Results
 
-- **Codex-only parity run:** `4.60x` faster cold and `22.78x` faster cached.
-- **Multi-source OpenAI run:** `3.63x` faster cold and `17.75x` faster cached.
-- **Sub-second cached reporting** in both scenarios (`0.746s` codex-only, `0.941s` multi-source).
+### codex — `daily` (5 runs each)
 
-## Production benchmark (February 27, 2026)
+| Tool                                               | Cache | Median (s) | Mean (s) | Min (s) | Max (s) |
+| -------------------------------------------------- | ----- | ---------: | -------: | ------: | ------: |
+| `ccusage codex daily`                              | cold  |      0.516 |    0.515 |   0.487 |   0.549 |
+| `ccusage codex daily --offline`                    | warm  |      0.292 |    0.292 |   0.281 |   0.306 |
+| `llm-usage daily --source codex`                   | cold  |      1.655 |    1.670 |   1.642 |   1.715 |
+| `llm-usage daily --source codex --pricing-offline` | warm  |      0.996 |    1.005 |   0.971 |   1.046 |
 
-This benchmark compares:
+Derived from median runtime: llm-usage vs ccusage cold `0.31x` (ccusage ~3.2x faster), warm `0.29x` (ccusage ~3.4x faster).
 
-- `ccusage-codex monthly` (Codex-only baseline)
-- `llm-usage monthly --provider openai --source codex` (direct source-to-source parity)
-- `llm-usage monthly --provider openai --source pi,codex,gemini,opencode` (multi-source OpenAI scope)
+### claude — `daily` (5 runs each)
 
-Both commands were executed on the same machine, against real local production data, with repeated timed runs.
+| Tool                                                | Cache | Median (s) | Mean (s) | Min (s) | Max (s) |
+| --------------------------------------------------- | ----- | ---------: | -------: | ------: | ------: |
+| `ccusage claude daily`                              | cold  |      0.335 |    0.354 |   0.317 |   0.437 |
+| `ccusage claude daily --offline`                    | warm  |      0.478 |    0.474 |   0.464 |   0.483 |
+| `llm-usage daily --source claude`                   | cold  |      0.883 |    0.896 |   0.833 |   1.010 |
+| `llm-usage daily --source claude --pricing-offline` | warm  |      0.256 |    0.255 |   0.227 |   0.287 |
 
-You can reproduce the **direct source-to-source** benchmark with:
+Derived from median runtime: llm-usage vs ccusage cold `0.38x` (ccusage ~2.6x faster), warm `1.87x` (llm-usage ~1.9x faster).
 
-```bash
-pnpm run perf:production-benchmark -- \
-  --runs 5 \
-  --llm-source codex
-```
+## Where each tool wins
 
-You can reproduce the **multi-source OpenAI** benchmark with:
-
-```bash
-pnpm run perf:production-benchmark -- \
-  --runs 5 \
-  --llm-source pi,codex,gemini,opencode
-```
-
-To export reusable artifacts:
-
-```bash
-pnpm run perf:production-benchmark -- \
-  --runs 5 \
-  --llm-source codex \
-  --json-output ./tmp/production-benchmark-openai-codex.json \
-  --markdown-output ./tmp/production-benchmark-openai-codex.md
-
-pnpm run perf:production-benchmark -- \
-  --runs 5 \
-  --llm-source pi,codex,gemini,opencode \
-  --json-output ./tmp/production-benchmark-openai-multi-source.json \
-  --markdown-output ./tmp/production-benchmark-openai-multi-source.md
-```
+- **Cold runs favor ccusage.** ccusage 20.x is a native Rust binary; llm-usage is TypeScript on Node. Cold runs are dominated by JSONL parsing, where native code wins: llm-usage parses the 1.8 GiB codex corpus cold in ~1.65 s (buffer reader + byte prefilters + a worker-thread parse pool), which is fast for a Node tool but ~3x behind the Rust binary.
+- **Warm claude favors llm-usage (~1.9x).** The SQLite event store serves already-parsed events, so llm-usage skips file parsing entirely and returns in ~0.26 s, while ccusage re-reads the corpus every run (~0.48 s).
+- **Warm codex does not flip.** The store skips parsing, but the warm path still materializes and aggregates every stored codex event in JS, and the codex ledger holds far more events than the claude one. That aggregation cost (~1.0 s) is the current warm-path bottleneck.
 
 ## Baseline machine
 
-| Spec | Value |
-| --- | --- |
-| OS | CachyOS (Linux 6.19.2-2-cachyos) |
-| CPU | Intel Core Ultra 9 185H (22 logical CPUs, up to 5.10 GHz) |
-| Memory | 62 GiB RAM + 62 GiB swap |
-| Storage | NVMe SSD (KXG8AZNV1T02 LA KIOXIA, 953.9 GiB) |
-| Node.js | v24.12.0 |
-| pnpm | 10.17.1 |
-| `ccusage-codex` | 18.0.8 |
-| `llm-usage` (`llm-usage-metrics`) | 0.3.4 |
+| Spec      | Value                                            |
+| --------- | ------------------------------------------------ |
+| OS        | Linux 6.18.33-2-cachyos-lts (x64)                |
+| CPU       | Intel(R) Core(TM) Ultra 9 185H (22 logical CPUs) |
+| Memory    | 62.2 GiB RAM                                     |
+| Node.js   | v24.12.0                                         |
+| pnpm      | 10.17.1                                          |
+| ccusage   | 20.0.14 (native binary)                          |
+| llm-usage | 0.7.2 (git `28f0aa3`, built dist)                |
 
-## Cache modes used
+## Dataset scope
 
-- `no cache`
-  - fresh `XDG_CACHE_HOME` for each run
-  - `ccusage-codex`: `--no-offline`
-  - `llm-usage`: `LLM_USAGE_PARSE_CACHE_ENABLED=0` and no `--pricing-offline`
-- `with cache`
-  - dedicated warm cache directory
-  - `ccusage-codex`: `--offline`
-  - `llm-usage`: `--pricing-offline` with warmed parse cache
+| Corpus | Files                                    | Size on disk |
+| ------ | ---------------------------------------- | ------------ |
+| codex  | 1,145 JSONL session files                | ≈ 1.8 GiB    |
+| claude | 201 JSONL files (projects + transcripts) | ≈ 115 MiB    |
 
-For repeatability, `LLM_USAGE_SKIP_UPDATE_CHECK=1` was set for `llm-usage` benchmark runs.
+## Methodology
 
-## Commands benchmarked
+- 5 timed runs per cell, on an otherwise-quiet machine (load average 1.30 / 22 logical CPUs before the run).
+- Cold cells use a fresh `XDG_CACHE_HOME` and `LLM_USAGE_EVENT_STORE=0`.
+- Each tool's warm cache is populated by one live warm-up run, then timed warm cells run offline (`--offline` for ccusage, `--pricing-offline` for llm-usage).
+- Asymmetry to disclose: llm-usage runs get `LLM_USAGE_SKIP_UPDATE_CHECK=1`; ccusage exposes no equivalent knob, so none is applied.
+
+## Engineering notes: the cold-codex path
+
+Before the parse-pipeline work, a cold codex run over this corpus took 8.7 s; it takes 1.65 s now. The mechanisms, in pipeline order:
+
+1. Byte prefilters and a buffer-based JSONL reader (`src/utils/read-jsonl-objects.ts`) skip irrelevant lines before any JSON parsing.
+2. A per-timezone local-date window cache for period bucketing (`src/utils/time-buckets.ts`) avoids repeated date math per event.
+3. An event-store warm read fast path serves already-parsed events from SQLite.
+4. A worker-thread parse pool (`src/cli/parse-worker-pool.ts`) parses large JSONL files in parallel.
+
+## Reproduce it
 
 ```bash
-# ccusage-codex
-ccusage-codex monthly --json
-ccusage-codex monthly --offline --json
-
-# llm-usage-metrics direct parity (codex only)
-llm-usage monthly --provider openai --source codex --json
-llm-usage monthly --provider openai --source codex --pricing-offline --json
-
-# llm-usage-metrics multi-source (openai provider)
-llm-usage monthly --provider openai --source pi,codex,gemini,opencode --json
-llm-usage monthly --provider openai --source pi,codex,gemini,opencode --pricing-offline --json
+pnpm run build
+npx -y ccusage@latest --version
+CCUSAGE_BIN=$(find ~/.npm/_npx -name ccusage -path '*/.bin/*' | head -1)
+node scripts/perf-production-benchmark.mjs --runs 5 --scenario codex --ccusage-bin "$CCUSAGE_BIN"
+node scripts/perf-production-benchmark.mjs --runs 5 --scenario claude --ccusage-bin "$CCUSAGE_BIN"
 ```
 
-## Runtime results (5 runs each): direct source-to-source (`--source codex`)
-
-| Tool | Cache mode | Median (s) | Mean (s) | Min (s) | Max (s) |
-| --- | --- | ---: | ---: | ---: | ---: |
-| `ccusage-codex monthly` | no cache | 16.785 | 17.288 | 16.35 | 19.363 |
-| `ccusage-codex monthly --offline` | with cache | 16.995 | 17.594 | 16.462 | 19.909 |
-| `llm-usage monthly --provider openai --source codex` | no cache | 3.651 | 3.76 | 3.526 | 4.411 |
-| `llm-usage monthly --provider openai --source codex --pricing-offline` | with cache | 0.746 | 0.724 | 0.618 | 0.81 |
-
-Derived from median runtime:
-
-- `llm-usage` vs `ccusage-codex` (no cache): `4.60x` faster
-- `llm-usage` vs `ccusage-codex` (with cache): `22.78x` faster
-- `llm-usage` cache effect: `4.89x` faster with cache
-- `ccusage-codex` cache effect: `0.99x` faster with cache
-
-## Runtime results (5 runs each): multi-source OpenAI (`--source pi,codex,gemini,opencode`)
-
-| Tool | Cache mode | Median (s) | Mean (s) | Min (s) | Max (s) |
-| --- | --- | ---: | ---: | ---: | ---: |
-| `ccusage-codex monthly` | no cache | 17.297 | 17.463 | 16.76 | 18.634 |
-| `ccusage-codex monthly --offline` | with cache | 16.698 | 16.745 | 16.204 | 17.17 |
-| `llm-usage monthly --provider openai --source pi,codex,gemini,opencode` | no cache | 4.767 | 4.864 | 4.544 | 5.229 |
-| `llm-usage monthly --provider openai --source pi,codex,gemini,opencode --pricing-offline` | with cache | 0.941 | 0.951 | 0.912 | 1.004 |
-
-Derived from median runtime:
-
-- `llm-usage` vs `ccusage-codex` (no cache): `3.63x` faster
-- `llm-usage` vs `ccusage-codex` (with cache): `17.75x` faster
-- `llm-usage` cache effect: `5.07x` faster with cache
-- `ccusage-codex` cache effect: `1.04x` faster with cache
-
-## Dataset scope observed during benchmark
-
-These commands do not cover identical scope, so compare runtime with that context.
-
-| Tool | Scope snapshot from benchmark run |
-| --- | --- |
-| `llm-usage monthly --provider openai --source codex` | Direct codex-only scope parity with `ccusage-codex monthly` |
-| `llm-usage monthly --provider openai --source pi,codex,gemini,opencode` | Multi-source OpenAI scope across four adapters |
-| `ccusage-codex monthly` | Codex-only report (`monthly` array plus `totals`) |
-
-## Interpretation
-
-- `llm-usage` remains substantially faster in both parity and multi-source comparisons.
-- `llm-usage` benefits strongly from parse + pricing cache in repeated runs.
-- `ccusage-codex` runtime remains similar between `--no-offline` and `--offline` on this dataset.
-- Results are production-real for this machine and data, not universal constants. Re-run on your own workload before making broad conclusions.
+The script also accepts `--json-output <path>` and `--markdown-output <path>` to export artifacts. Results are machine- and dataset-specific: re-run on your own workload before drawing conclusions.

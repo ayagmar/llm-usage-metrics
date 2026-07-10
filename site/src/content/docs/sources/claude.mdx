@@ -2,9 +2,10 @@
 title: claude Source
 ---
 
-## Default location
+## Default locations
 
 - `~/.claude/projects/**/*.jsonl`
+- `~/.claude/transcripts/**/*.jsonl`
 
 ## Override
 
@@ -17,6 +18,6 @@ llm-usage daily --source-dir claude=/path/to/.claude/projects
 ## Parsing notes
 
 The adapter reads Claude Code assistant transcript rows with `message.usage`, including nested subagent transcripts.
-Streaming/update rows are de-duplicated by message id and only the final observed usage row is counted.
+Streaming/update rows are de-duplicated by message id plus request id, so only the final observed usage row per request is counted while retries count separately.
 
 Claude model rows default to provider `anthropic`; rows that declare another provider keep that provider.

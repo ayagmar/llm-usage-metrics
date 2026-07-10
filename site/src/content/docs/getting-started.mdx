@@ -26,12 +26,23 @@ npx --yes llm-usage-metrics@latest daily
   - OpenCode SQLite DB (auto-discovered or explicit `--opencode-db`, requires built-in `node:sqlite` support)
   - OpenClaw transcripts (`~/.openclaw/agents/**/*.jsonl`)
   - Claude Code projects (`~/.claude/projects/**/*.jsonl`)
+  - GitHub Copilot CLI OTEL exports (`~/.copilot/otel/*.jsonl`)
+  - Goose SQLite DB (`~/.local/share/goose/sessions/sessions.db`)
+  - Amp thread files (`~/.local/share/amp/threads/*.json`)
+  - Qwen CLI chats (`~/.qwen/projects/*/chats/*.jsonl`)
+  - Kimi CLI/Kimi Code wire files (`~/.kimi/sessions/**/wire.jsonl`, `~/.kimi-code/sessions/**/wire.jsonl`)
+  - Cline/RooCode/KiloCode task files in VS Code global storage
+  - Antigravity CLI conversation DBs (`~/.gemini/antigravity-cli/conversations/*.db`)
 
 ## First report
 
 ```bash
 llm-usage daily
 ```
+
+Costs are estimated with LiteLLM pricing. First runs work offline from the
+bundled LiteLLM snapshot; online runs refresh the local pricing cache when
+needed. If the bundled snapshot is used, `stderr` shows its snapshot date.
 
 Useful next commands:
 
@@ -41,10 +52,18 @@ llm-usage monthly --since 2026-01-01 --until 2026-01-31
 llm-usage trends --metric tokens --days 14
 ```
 
+## Persist your defaults
+
+```bash
+llm-usage config init
+```
+
+The template ships every key commented out with its default value, and its `#:schema` line enables editor validation. See [Configuration](/configuration/) for all keys.
+
 ## Common filters
 
 ```bash
-llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude
+llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude,copilot,goose,amp,qwen,kimi,cline,roocode,kilocode,antigravity
 llm-usage monthly --provider openai
 llm-usage monthly --model claude
 ```
@@ -55,6 +74,7 @@ llm-usage monthly --model claude
 llm-usage daily --json
 llm-usage daily --markdown
 llm-usage monthly --per-model-columns
+llm-usage monthly --pricing-offline
 llm-usage monthly --ignore-pricing-failures
 ```
 
@@ -83,6 +103,10 @@ See [Trends](/trends/) for range rules, metric semantics, and JSON shape.
 llm-usage monthly --source gemini --gemini-dir /path/to/.gemini
 ```
 
+Use the TOML [config file](/configuration/) to persist source paths instead of
+repeating explicit path flags on every run — run `llm-usage config init` to
+write a commented template.
+
 ## OpenCode explicit DB path
 
 ```bash
@@ -101,4 +125,48 @@ llm-usage monthly --source droid --droid-dir /path/to/.factory/sessions
 
 ```bash
 llm-usage monthly --source claude --claude-dir /path/to/.claude/projects
+```
+
+## Copilot explicit path
+
+```bash
+llm-usage monthly --source copilot --copilot-dir /path/to/.copilot/otel
+```
+
+## Goose explicit DB path
+
+```bash
+llm-usage monthly --source goose --goose-db /path/to/goose/sessions.db
+```
+
+## Amp explicit path
+
+```bash
+llm-usage monthly --source amp --amp-dir /path/to/amp/threads
+```
+
+## Qwen explicit path
+
+```bash
+llm-usage monthly --source qwen --qwen-dir /path/to/.qwen/projects
+```
+
+## Kimi explicit path
+
+```bash
+llm-usage monthly --source kimi --kimi-dir /path/to/kimi/sessions
+```
+
+## Cline family explicit paths
+
+```bash
+llm-usage monthly --source cline --cline-dir /path/to/cline/tasks
+llm-usage monthly --source roocode --roocode-dir /path/to/roocode/tasks
+llm-usage monthly --source kilocode --kilocode-dir /path/to/kilocode/tasks
+```
+
+## Antigravity explicit path
+
+```bash
+llm-usage monthly --source antigravity --antigravity-dir /path/to/antigravity/conversations
 ```

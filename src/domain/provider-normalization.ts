@@ -10,7 +10,13 @@ const billingProviderPrefixAliases: Array<[prefix: string, billingProvider: stri
   ['openai/', 'openai'],
 ];
 
-const knownCanonicalProviderRoots = new Set(['anthropic', 'github', 'google', 'openai']);
+const knownCanonicalProviderRoots = new Set([
+  'anthropic',
+  'github',
+  'google',
+  'moonshot',
+  'openai',
+]);
 
 const explicitModelProviderRootPatterns: Array<[pattern: RegExp, providerRoot: string]> = [
   [/^gpt-/u, 'openai'],
@@ -94,7 +100,7 @@ export function resolveExplicitProviderRoots(
   return [normalizedProviderFilter];
 }
 
-function inferCanonicalProviderRootFromModel(model: string): string | undefined {
+export function inferCanonicalProviderRootFromModel(model: string): string | undefined {
   const normalizedModel = model.trim().toLowerCase();
 
   if (!normalizedModel) {

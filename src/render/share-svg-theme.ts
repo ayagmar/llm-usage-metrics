@@ -14,6 +14,10 @@ export const shareTheme = {
   mono: "ui-monospace, 'SF Mono', 'Fira Code', monospace",
 } as const;
 
+export const SHARE_SVG_WIDTH = 1500;
+export const SHARE_SVG_ACCENT_HEIGHT = 4;
+export const SHARE_SVG_FOOTER_HEIGHT = 36;
+
 const knownSourceColors: Readonly<Record<string, string>> = {
   pi: '#ec4899',
   codex: '#22c55e',
@@ -23,7 +27,24 @@ const knownSourceColors: Readonly<Record<string, string>> = {
   claude: '#d97757',
 };
 
-const fallbackColors: readonly string[] = ['#f97316', '#06b6d4', '#ef4444', '#84cc16', '#f43f5e'];
+const fallbackColors: readonly string[] = [
+  '#f97316',
+  '#06b6d4',
+  '#ef4444',
+  '#84cc16',
+  '#f43f5e',
+  '#14b8a6',
+  '#8b5cf6',
+  '#f59e0b',
+  '#10b981',
+  '#6366f1',
+  '#d946ef',
+  '#0ea5e9',
+  '#f472b6',
+  '#a3e635',
+  '#fb923c',
+  '#c084fc',
+];
 
 export function getSourceColor(source: string, index: number): string {
   return knownSourceColors[source] ?? fallbackColors[index % fallbackColors.length];
@@ -36,6 +57,32 @@ export function escapeSvg(value: string): string {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+export function renderShareAccentBar(width = SHARE_SVG_WIDTH): string {
+  return `<rect width="${width}" height="${SHARE_SVG_ACCENT_HEIGHT}" fill="url(#accent-grad)"/>`;
+}
+
+export function renderShareFooter(options: {
+  height: number;
+  width?: number;
+  rightText?: string;
+}): string {
+  const width = options.width ?? SHARE_SVG_WIDTH;
+  const footerTop = options.height - SHARE_SVG_FOOTER_HEIGHT;
+  const textY = footerTop + SHARE_SVG_FOOTER_HEIGHT / 2 + 5;
+  const lines = [
+    `<line x1="0" y1="${footerTop + 1}" x2="${width}" y2="${footerTop + 1}" stroke="${shareTheme.gridLine}" stroke-width="1"/>`,
+    `<text x="60" y="${textY}" fill="${shareTheme.textMuted}" font-family="${shareTheme.mono}" font-size="13">llm-usage-metrics</text>`,
+  ];
+
+  if (options.rightText !== undefined) {
+    lines.push(
+      `<text x="${width - 60}" y="${textY}" text-anchor="end" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}" font-size="13">${escapeSvg(options.rightText)}</text>`,
+    );
+  }
+
+  return lines.join('\n');
 }
 
 export function formatCompact(n: number): string {
@@ -67,6 +114,14 @@ export function formatDecimal(n: number | undefined): string {
 
 export function formatUsd(n: number | undefined): string {
   return n === undefined ? '-' : usdFmt.format(n);
+}
+
+export function formatApproxUsd(
+  value: number | undefined,
+  approximate: boolean | undefined,
+): string {
+  const formatted = formatUsd(value);
+  return value !== undefined && approximate ? `~${formatted}` : formatted;
 }
 
 export type Point = { x: number; y: number };

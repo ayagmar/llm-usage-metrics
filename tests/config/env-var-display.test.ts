@@ -5,19 +5,19 @@ import {
   getActiveEnvVarOverrides,
 } from '../../src/config/env-var-display.js';
 
+const originalConfigPath = process.env.LLM_USAGE_CONFIG_PATH;
+
 function clearTestEnvVars(): void {
+  // The vitest env sets LLM_USAGE_CONFIG_PATH; clear it so the base state has
+  // no active override and restore it after the suite.
+  delete process.env.LLM_USAGE_CONFIG_PATH;
   delete process.env.LLM_USAGE_SKIP_UPDATE_CHECK;
   delete process.env.LLM_USAGE_UPDATE_CACHE_SCOPE;
   delete process.env.LLM_USAGE_UPDATE_CACHE_SESSION_KEY;
-  delete process.env.LLM_USAGE_UPDATE_CACHE_TTL_MS;
-  delete process.env.LLM_USAGE_UPDATE_FETCH_TIMEOUT_MS;
-  delete process.env.LLM_USAGE_PRICING_CACHE_TTL_MS;
-  delete process.env.LLM_USAGE_PRICING_FETCH_TIMEOUT_MS;
-  delete process.env.LLM_USAGE_PARSE_MAX_PARALLEL;
-  delete process.env.LLM_USAGE_PARSE_CACHE_ENABLED;
-  delete process.env.LLM_USAGE_PARSE_CACHE_TTL_MS;
-  delete process.env.LLM_USAGE_PARSE_CACHE_MAX_ENTRIES;
-  delete process.env.LLM_USAGE_PARSE_CACHE_MAX_BYTES;
+  delete process.env.LLM_USAGE_PARSE_WORKERS;
+  delete process.env.LLM_USAGE_PARSE_WORKER_MIN_BYTES;
+  delete process.env.LLM_USAGE_EVENT_STORE;
+  delete process.env.LLM_USAGE_EVENT_STORE_PATH;
   delete process.env.LLM_USAGE_PROFILE_RUNTIME;
   delete process.env.UNRELATED_ENV;
 }
@@ -28,12 +28,19 @@ beforeEach(() => {
 
 afterEach(() => {
   clearTestEnvVars();
+  // Restore the vitest-wide store-off default so later tests never hit the
+  // user's real events.db.
+  process.env.LLM_USAGE_EVENT_STORE = '0';
+  process.env.LLM_USAGE_CONFIG_PATH = originalConfigPath;
 });
 
 describe('env-var-display', () => {
   it('returns only active known env var overrides', () => {
     process.env.LLM_USAGE_SKIP_UPDATE_CHECK = '1';
-    process.env.LLM_USAGE_PARSE_MAX_PARALLEL = '16';
+    process.env.LLM_USAGE_PARSE_WORKERS = '2';
+    process.env.LLM_USAGE_PARSE_WORKER_MIN_BYTES = '1';
+    process.env.LLM_USAGE_EVENT_STORE = '1';
+    process.env.LLM_USAGE_EVENT_STORE_PATH = '/tmp/events.db';
     process.env.LLM_USAGE_PROFILE_RUNTIME = '1';
     process.env.UNRELATED_ENV = 'ignored';
 
@@ -46,9 +53,24 @@ describe('env-var-display', () => {
         description: 'skip startup update check',
       },
       {
-        name: 'LLM_USAGE_PARSE_MAX_PARALLEL',
-        value: '16',
-        description: 'max parallel file parsing',
+        name: 'LLM_USAGE_PARSE_WORKERS',
+        value: '2',
+        description: 'parse worker count',
+      },
+      {
+        name: 'LLM_USAGE_PARSE_WORKER_MIN_BYTES',
+        value: '1',
+        description: 'parse worker byte threshold',
+      },
+      {
+        name: 'LLM_USAGE_EVENT_STORE',
+        value: '1',
+        description: 'enable sqlite event store',
+      },
+      {
+        name: 'LLM_USAGE_EVENT_STORE_PATH',
+        value: '/tmp/events.db',
+        description: 'sqlite event store path',
       },
       {
         name: 'LLM_USAGE_PROFILE_RUNTIME',
@@ -58,18 +80,32 @@ describe('env-var-display', () => {
     ]);
   });
 
+  it('surfaces LLM_USAGE_CONFIG_PATH as an override', () => {
+    process.env.LLM_USAGE_CONFIG_PATH = '/tmp/custom-config.toml';
+
+    const overrides = getActiveEnvVarOverrides();
+
+    expect(overrides).toEqual([
+      {
+        name: 'LLM_USAGE_CONFIG_PATH',
+        value: '/tmp/custom-config.toml',
+        description: 'user config file path',
+      },
+    ]);
+  });
+
   it('formats overrides without a leading blank line', () => {
     const formatted = formatEnvVarOverrides([
       {
-        name: 'LLM_USAGE_PRICING_FETCH_TIMEOUT_MS',
-        value: '8000',
-        description: 'pricing fetch timeout',
+        name: 'LLM_USAGE_PARSE_WORKERS',
+        value: '2',
+        description: 'parse worker count',
       },
     ]);
 
     expect(formatted).toEqual([
       'Active environment overrides:',
-      '  LLM_USAGE_PRICING_FETCH_TIMEOUT_MS=8000  (pricing fetch timeout)',
+      '  LLM_USAGE_PARSE_WORKERS=2  (parse worker count)',
     ]);
   });
 });

@@ -114,6 +114,32 @@ describe('createUsageEvent', () => {
     ).toThrow('source');
   });
 
+  it('strips control characters from session-derived strings', () => {
+    const event = createUsageEvent({
+      source: 'pi',
+      sessionId: 'abc\u0007def',
+      timestamp: '2026-02-12T10:00:00Z',
+      repoRoot: '/x\u009B/y',
+      model: 'GPT\u001B[2J-4',
+      inputTokens: 1,
+      outputTokens: 1,
+    });
+
+    expect(event.sessionId).toBe('abcdef');
+    expect(event.repoRoot).toBe('/x/y');
+    expect(event.model).toBe('gpt[2j-4');
+  });
+
+  it('throws when session id contains only control characters', () => {
+    expect(() =>
+      createUsageEvent({
+        source: 'pi',
+        sessionId: '\u001B\u0007',
+        timestamp: '2026-02-12T10:00:00Z',
+      }),
+    ).toThrow('sessionId');
+  });
+
   it('normalizes model identifiers to lowercase', () => {
     const event = createUsageEvent({
       source: 'pi',
@@ -125,6 +151,28 @@ describe('createUsageEvent', () => {
     });
 
     expect(event.model).toBe('gpt-4.1');
+  });
+
+  it('strips control characters when normalizing model keys', () => {
+    const event = createUsageEvent({
+      source: 'pi',
+      sessionId: 'session-model-control-chars',
+      timestamp: '2026-02-12T10:00:00Z',
+      model: ' GPT\u001B[2J-4.1 ',
+      inputTokens: 1,
+      outputTokens: 1,
+    });
+    const controlOnlyModelEvent = createUsageEvent({
+      source: 'pi',
+      sessionId: 'session-model-control-only',
+      timestamp: '2026-02-12T10:00:00Z',
+      model: '\u0007',
+      inputTokens: 1,
+      outputTokens: 1,
+    });
+
+    expect(event.model).toBe('gpt[2j-4.1');
+    expect(controlOnlyModelEvent.model).toBeUndefined();
   });
 
   it('normalizes provider identifiers to billing entities', () => {

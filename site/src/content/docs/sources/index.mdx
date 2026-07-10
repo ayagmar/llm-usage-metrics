@@ -2,7 +2,7 @@
 title: Data Sources
 ---
 
-`llm-usage-metrics` supports seven built-in sources:
+`llm-usage-metrics` supports sixteen built-in sources:
 
 - `pi`
 - `codex`
@@ -11,28 +11,55 @@ title: Data Sources
 - `opencode`
 - `openclaw`
 - `claude`
+- `copilot`
+- `goose`
+- `amp`
+- `qwen`
+- `kimi`
+- `cline`
+- `roocode`
+- `kilocode`
+- `antigravity`
 
 Each source is parsed by a dedicated adapter and normalized into the same `UsageEvent` schema before pricing/aggregation.
 
 ## Discovery model
 
-- `pi` and `codex`: recursive JSONL discovery in their session directories
-- `gemini`: JSON session discovery under `~/.gemini/tmp/*/chats/*.json` (or `--gemini-dir`)
+- `pi` and `codex`: recursive JSONL discovery in their session directories (`pi` also scans the Oh-My-Pi home `~/.omp/agent/sessions`)
+- `gemini`: JSON session discovery under `~/.gemini/tmp/*/chats/*.json` (or `$GEMINI_CLI_HOME`, or `--gemini-dir`)
 - `droid`: session settings discovery under `~/.factory/sessions/**/*.settings.json` (or `--droid-dir`)
-- `opencode`: single SQLite DB (auto-discovered or explicit `--opencode-db`)
-- `openclaw`: recursive JSONL discovery under `~/.openclaw/agents/**/*.jsonl`
-- `claude`: recursive JSONL discovery under `~/.claude/projects/**/*.jsonl` (or `--claude-dir`)
+- `opencode`: single SQLite DB (auto-discovered, including `opencode-<channel>.db` variants, or explicit `--opencode-db`)
+- `openclaw`: recursive JSONL discovery under `~/.openclaw/agents/**/*.jsonl` (plus legacy `~/.clawdbot`/`~/.moltbot`/`~/.moldbot` homes)
+- `claude`: recursive JSONL discovery under `~/.claude/{projects,transcripts}/**/*.jsonl` (or `--claude-dir`)
+- `copilot`: GitHub Copilot CLI OTEL JSONL discovery under `~/.copilot/otel/*.jsonl` (or `--copilot-dir`)
+- `goose`: SQLite session DB discovery under `~/.local/share/goose/sessions/sessions.db` or `$GOOSE_PATH_ROOT/data/sessions/sessions.db` (or `--goose-db`)
+- `amp`: JSON thread discovery under `~/.local/share/amp/threads/*.json` (or `--amp-dir`)
+- `qwen`: recursive JSONL discovery under `~/.qwen/projects/**/*.jsonl` (or `--qwen-dir`)
+- `kimi`: `wire.jsonl` discovery under `~/.kimi/sessions` and `~/.kimi-code/sessions` (or `--kimi-dir`)
+- `cline`: VS Code global storage task discovery for `saoudrizwan.claude-dev` (or `--cline-dir`)
+- `roocode`: VS Code global storage task discovery for `rooveterinaryinc.roo-cline` (or `--roocode-dir`)
+- `kilocode`: VS Code global storage task discovery for `kilocode.kilo-code` (or `--kilocode-dir`)
+- `antigravity`: SQLite conversation DB discovery under `~/.gemini/antigravity-cli/conversations/*.db` or `$GEMINI_CLI_HOME/antigravity-cli/conversations/*.db` (or `--antigravity-dir`)
 
 ## Source filtering
 
 ```bash
 llm-usage monthly --source pi
-llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude
+llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude,copilot,goose,amp,qwen,kimi,cline,roocode,kilocode,antigravity
 llm-usage monthly --source gemini --gemini-dir /path/to/.gemini
 llm-usage monthly --source droid --droid-dir /path/to/.factory/sessions
 llm-usage monthly --source opencode --opencode-db /path/to/opencode.db
 llm-usage monthly --source openclaw --source-dir openclaw=/path/to/.openclaw/agents
 llm-usage monthly --source claude --claude-dir /path/to/.claude/projects
+llm-usage monthly --source copilot --copilot-dir /path/to/.copilot/otel
+llm-usage monthly --source goose --goose-db /path/to/goose/sessions.db
+llm-usage monthly --source amp --amp-dir /path/to/amp/threads
+llm-usage monthly --source qwen --qwen-dir /path/to/.qwen/projects
+llm-usage monthly --source kimi --kimi-dir /path/to/kimi/sessions
+llm-usage monthly --source cline --cline-dir /path/to/cline/tasks
+llm-usage monthly --source roocode --roocode-dir /path/to/roocode/tasks
+llm-usage monthly --source kilocode --kilocode-dir /path/to/kilocode/tasks
+llm-usage monthly --source antigravity --antigravity-dir /path/to/antigravity/conversations
 ```
 
 See per-source pages for details.

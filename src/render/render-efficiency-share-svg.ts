@@ -1,38 +1,50 @@
 import type { EfficiencyDataResult } from '../cli/usage-data-contracts.js';
-import type { EfficiencyRow } from '../efficiency/efficiency-row.js';
+import type {
+  EfficiencyGrandTotalRow,
+  EfficiencyPeriodRow,
+  EfficiencyRow,
+} from '../efficiency/efficiency-row.js';
 import {
   catmullRom,
   escapeSvg,
   formatDecimal,
   formatInteger,
   formatUsd,
+  renderShareAccentBar,
+  renderShareFooter,
   scaleY,
+  SHARE_SVG_FOOTER_HEIGHT,
+  SHARE_SVG_WIDTH,
   shareTheme,
   type Point,
 } from './share-svg-theme.js';
 
-const W = 1500;
+const W = SHARE_SVG_WIDTH;
 const H = 640;
-const ACCENT_H = 4;
-const FOOTER_H = 36;
-const pad = { top: 160, right: 130, bottom: 70 + FOOTER_H, left: 110 };
+const pad = { top: 160, right: 130, bottom: 70 + SHARE_SVG_FOOTER_HEIGHT, left: 110 };
 
 const chartColors = {
   commits: '#8b949e',
   usdPerCommit: '#f97316',
 } as const;
 
-function toMonthlyRows(rows: EfficiencyRow[]): EfficiencyRow[] {
-  return rows
-    .filter((row) => row.rowType === 'period')
-    .sort((a, b) => a.periodKey.localeCompare(b.periodKey));
+function isPeriodRow(row: EfficiencyRow): row is EfficiencyPeriodRow {
+  return row.rowType === 'period';
 }
 
-function toAllRow(rows: EfficiencyRow[]): EfficiencyRow | undefined {
-  return rows.find((row) => row.periodKey === 'ALL');
+function isGrandTotalRow(row: EfficiencyRow): row is EfficiencyGrandTotalRow {
+  return row.rowType === 'grand_total';
 }
 
-function renderSummaryStats(allRow: EfficiencyRow | undefined, vcenter: number): string {
+function toMonthlyRows(rows: EfficiencyRow[]): EfficiencyPeriodRow[] {
+  return rows.filter(isPeriodRow).sort((a, b) => a.periodKey.localeCompare(b.periodKey));
+}
+
+function toAllRow(rows: EfficiencyRow[]): EfficiencyGrandTotalRow | undefined {
+  return rows.find(isGrandTotalRow);
+}
+
+function renderSummaryStats(allRow: EfficiencyGrandTotalRow | undefined, vcenter: number): string {
   const cost = formatUsd(allRow?.costUsd);
   const commits = formatInteger(allRow?.commitCount ?? 0);
   const usdPerCommit = formatUsd(allRow?.usdPerCommit);
@@ -74,7 +86,7 @@ function renderLegend(x: number, y: number): string {
 }
 
 function renderCommitBarLabels(
-  monthlyRows: EfficiencyRow[],
+  monthlyRows: EfficiencyPeriodRow[],
   chartLeft: number,
   stepX: number,
   maxCommits: number,
@@ -90,7 +102,7 @@ function renderCommitBarLabels(
     .join('\n');
 }
 
-function renderUsdDataLabels(monthlyRows: EfficiencyRow[], usdPoints: Point[]): string {
+function renderUsdDataLabels(monthlyRows: EfficiencyPeriodRow[], usdPoints: Point[]): string {
   return monthlyRows
     .map((row, i) => {
       const p = usdPoints[i];
@@ -182,7 +194,7 @@ export function renderEfficiencyMonthlyShareSvg(efficiencyData: EfficiencyDataRe
   </linearGradient>
 </defs>
 <rect width="${W}" height="${H}" fill="${shareTheme.bg}"/>
-<rect width="${W}" height="${ACCENT_H}" fill="url(#accent-grad)"/>
+${renderShareAccentBar()}
 <text x="${pad.left}" y="52" font-size="32" font-weight="700" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">Monthly Efficiency</text>
 <rect x="${badgeX.toFixed(0)}" y="30" width="${badgeW.toFixed(0)}" height="34" rx="17" fill="none" stroke="${shareTheme.cardBorder}"/>
 <text x="${(badgeX + badgeW / 2).toFixed(0)}" y="52" text-anchor="middle" font-size="14" fill="${shareTheme.textMuted}" font-family="${shareTheme.mono}">${escapeSvg(commandText)}</text>
@@ -199,7 +211,6 @@ ${usdDots}
 ${renderUsdDataLabels(monthlyRows, usdPoints)}
 ${monthLabels}
 ${noData}
-<line x1="0" y1="${H - FOOTER_H + 1}" x2="${W}" y2="${H - FOOTER_H + 1}" stroke="${shareTheme.gridLine}" stroke-width="1"/>
-<text x="60" y="${H - FOOTER_H / 2 + 5}" fill="${shareTheme.textMuted}" font-family="${shareTheme.mono}" font-size="13">llm-usage-metrics</text>
+${renderShareFooter({ height: H })}
 </svg>`;
 }

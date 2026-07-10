@@ -21,7 +21,7 @@ export type NormalizedBuildUsageInputs = {
   pricingUrl: string | undefined;
 };
 
-export function validateDateInput(value: string, flagName: '--since' | '--until'): void {
+export function validateDateInput(value: string, flagName: string): void {
   if (!/^\d{4}-\d{2}-\d{2}$/u.test(value)) {
     throw new Error(`${flagName} must use format YYYY-MM-DD`);
   }
@@ -174,6 +174,10 @@ export function resolveExplicitSourceIds(
     explicitSourceIds.add('codex');
   }
 
+  if (options.copilotDir) {
+    explicitSourceIds.add('copilot');
+  }
+
   if (options.geminiDir) {
     explicitSourceIds.add('gemini');
   }
@@ -186,8 +190,44 @@ export function resolveExplicitSourceIds(
     explicitSourceIds.add('claude');
   }
 
+  if (options.openclawDir) {
+    explicitSourceIds.add('openclaw');
+  }
+
   if (options.opencodeDb) {
     explicitSourceIds.add('opencode');
+  }
+
+  if (options.gooseDb) {
+    explicitSourceIds.add('goose');
+  }
+
+  if (options.ampDir) {
+    explicitSourceIds.add('amp');
+  }
+
+  if (options.qwenDir) {
+    explicitSourceIds.add('qwen');
+  }
+
+  if (options.kimiDir) {
+    explicitSourceIds.add('kimi');
+  }
+
+  if (options.clineDir) {
+    explicitSourceIds.add('cline');
+  }
+
+  if (options.roocodeDir) {
+    explicitSourceIds.add('roocode');
+  }
+
+  if (options.kilocodeDir) {
+    explicitSourceIds.add('kilocode');
+  }
+
+  if (options.antigravityDir) {
+    explicitSourceIds.add('antigravity');
   }
 
   return explicitSourceIds;

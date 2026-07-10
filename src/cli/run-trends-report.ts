@@ -1,4 +1,5 @@
 import { renderTrendsReport, type TrendsReportFormat } from '../render/render-trends-report.js';
+import { renderTrendsShareSvg } from '../render/render-trends-share-svg.js';
 import { buildTrendsData } from './build-trends-data.js';
 import { emitDiagnostics } from './emit-diagnostics.js';
 import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
@@ -11,13 +12,33 @@ import type {
 
 const trendsReportFormats = ['terminal', 'json'] as const satisfies readonly TrendsReportFormat[];
 
+function validateShareOption(options: TrendsCommandOptions): void {
+  if (!options.share) {
+    return;
+  }
+
+  if (options.bySource) {
+    throw new Error('--share does not support --by-source yet; run without --by-source');
+  }
+}
+
 async function prepareTrendsReport(options: TrendsCommandOptions, deps: BuildTrendsDataDeps = {}) {
   return prepareReport({
     commandOptions: options,
     supportedFormats: trendsReportFormats,
+    validate: () => {
+      validateShareOption(options);
+    },
     buildData: () => buildTrendsData(options, deps),
     getDiagnostics: (trendsData) => trendsData.diagnostics,
     runtimeProfile: deps.runtimeProfile,
+    createShareArtifact: options.share
+      ? (trendsData) => ({
+          fileName: 'trends-share.svg',
+          svg: renderTrendsShareSvg(trendsData),
+          logLabel: 'trends',
+        })
+      : undefined,
     render: (trendsData, format) => renderTrendsReport(trendsData, format),
   });
 }
@@ -35,6 +56,7 @@ export async function runTrendsReport(options: TrendsCommandOptions): Promise<vo
     preparedReport,
     emitCommonDiagnostics: emitDiagnostics,
     getEnvVarOverrides: (diagnostics) => diagnostics.activeEnvOverrides,
+    getActiveConfig: (diagnostics) => diagnostics.activeConfig,
     getRuntimeProfile: (diagnostics) => diagnostics.runtimeProfile,
   });
 }

@@ -101,4 +101,81 @@ describe('renderOptimizeMonthlyShareSvg', () => {
     expect(svg).toContain('20.0%');
     expect(svg).toContain('-10.0%');
   });
+
+  it('renders no-data, missing-pricing, and warning states', () => {
+    const data = createData();
+    data.rows = data.rows.filter((row) => row.rowType === 'baseline');
+    data.diagnostics.candidatesWithMissingPricing = ['gpt-4o'];
+    data.diagnostics.warning = 'Pricing unavailable for one candidate';
+
+    const svg = renderOptimizeMonthlyShareSvg(data);
+
+    expect(svg).toContain('No monthly optimize data available');
+    expect(svg).toContain('Missing pricing: gpt-4o');
+    expect(svg).toContain('Pricing unavailable for one candidate');
+  });
+
+  it('renders neutral and unknown candidate savings states', () => {
+    const data = createData();
+    data.rows.push(
+      {
+        rowType: 'candidate',
+        periodKey: 'ALL',
+        provider: 'openai',
+        inputTokens: 100,
+        outputTokens: 50,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 150,
+        candidateModel: 'gpt-4o',
+        candidateResolvedModel: 'gpt-4o',
+        hypotheticalCostUsd: 10,
+        hypotheticalCostIncomplete: false,
+        savingsUsd: 0,
+        savingsPct: 0,
+      },
+      {
+        rowType: 'candidate',
+        periodKey: '2026-03',
+        provider: 'openai',
+        inputTokens: 100,
+        outputTokens: 50,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 150,
+        candidateModel: 'gpt-4o',
+        candidateResolvedModel: 'gpt-4o',
+        hypotheticalCostUsd: 10,
+        hypotheticalCostIncomplete: false,
+        savingsUsd: 0,
+        savingsPct: 0,
+      },
+      {
+        rowType: 'candidate',
+        periodKey: '2026-03',
+        provider: 'openai',
+        inputTokens: 100,
+        outputTokens: 50,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 150,
+        candidateModel: 'o3',
+        candidateResolvedModel: 'o3',
+        hypotheticalCostUsd: undefined,
+        hypotheticalCostIncomplete: true,
+        savingsUsd: undefined,
+        savingsPct: undefined,
+      },
+    );
+
+    const svg = renderOptimizeMonthlyShareSvg(data);
+
+    expect(svg).toContain('0.0%');
+    expect(svg).toContain('ALL: $0.00');
+    expect(svg).toContain('>-</text>');
+    expect(svg).toContain('rgba(139,148,158,0.15)');
+  });
 });

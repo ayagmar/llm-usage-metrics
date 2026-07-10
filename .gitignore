@@ -143,3 +143,8 @@ vite.config.ts.timestamp-*
 
 # Site build output (preserved for reference)
 site/dist/
+
+# llm-usage-metrics: local working files
+/plans/
+/*-share.svg
+/llm-usage-wrapped-*.svg

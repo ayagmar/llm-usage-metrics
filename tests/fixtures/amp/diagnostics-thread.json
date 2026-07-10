@@ -1,0 +1,33 @@
+{
+  "id": "amp-diagnostics-thread",
+  "created": "not-a-date",
+  "messages": [],
+  "usageLedger": {
+    "events": [
+      {
+        "id": "zero-usage",
+        "timestamp": "2026-02-27T10:00:00.000Z",
+        "model": "zero-model",
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "total": 0
+        }
+      },
+      {
+        "id": "missing-model-and-tokens",
+        "timestamp": "2026-02-27T10:01:00.000Z"
+      },
+      {
+        "id": "bad-timestamp",
+        "timestamp": "not-a-date",
+        "model": "bad-timestamp-model",
+        "tokens": {
+          "input": 1,
+          "output": 1,
+          "total": 2
+        }
+      }
+    ]
+  }
+}

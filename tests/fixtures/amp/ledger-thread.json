@@ -1,0 +1,62 @@
+{
+  "id": "amp-ledger-thread",
+  "created": 1772020800000,
+  "messages": [
+    {
+      "id": "msg-cache-1",
+      "role": "assistant",
+      "usage": {
+        "cacheReadInputTokens": 30,
+        "cacheCreationInputTokens": 20
+      }
+    },
+    {
+      "id": 2,
+      "role": "assistant",
+      "usage": {
+        "cacheReadInputTokens": 3,
+        "cacheCreationInputTokens": 2
+      }
+    },
+    {
+      "id": "assistant-without-usage",
+      "role": "assistant"
+    }
+  ],
+  "usageLedger": {
+    "events": [
+      {
+        "id": "ledger-1",
+        "timestamp": "2026-02-25T12:05:00.000Z",
+        "model": "claude-sonnet-4",
+        "toMessageId": "msg-cache-1",
+        "credits": 42.5,
+        "tokens": {
+          "input": 100,
+          "output": 40,
+          "total": 190
+        }
+      },
+      {
+        "id": "ledger-2",
+        "timestamp": "2026-02-25T12:06:00.000Z",
+        "model": "gpt-5",
+        "toMessageId": 2,
+        "tokens": {
+          "input": "20",
+          "output": "10"
+        }
+      },
+      {
+        "id": "ledger-2",
+        "timestamp": "2026-02-25T12:07:00.000Z",
+        "model": "duplicate-ignored",
+        "tokens": {
+          "input": 999,
+          "output": 999,
+          "total": 1998
+        }
+      }
+    ]
+  }
+}

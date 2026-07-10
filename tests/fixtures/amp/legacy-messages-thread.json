@@ -1,0 +1,39 @@
+{
+  "id": "amp-legacy-thread",
+  "created": 1772028000000,
+  "messages": [
+    {
+      "id": "user-1",
+      "role": "user",
+      "content": "hello"
+    },
+    {
+      "id": "assistant-without-usage",
+      "role": "assistant"
+    },
+    {
+      "id": "assistant-1",
+      "role": "assistant",
+      "timestamp": "2026-02-25T14:05:00.000Z",
+      "model": "message-level-model",
+      "usage": {
+        "model": "claude-haiku-4",
+        "inputTokens": "70",
+        "outputTokens": 25,
+        "cacheReadInputTokens": 5,
+        "cacheCreationInputTokens": 4,
+        "totalTokens": 104
+      }
+    },
+    {
+      "id": "assistant-1",
+      "role": "assistant",
+      "timestamp": "2026-02-25T14:06:00.000Z",
+      "usage": {
+        "model": "duplicate-ignored",
+        "inputTokens": 999,
+        "outputTokens": 999
+      }
+    }
+  ]
+}

@@ -19,9 +19,15 @@ Commands:
 - `daily`
 - `weekly`
 - `monthly`
+- `compare`
 - `efficiency <daily|weekly|monthly>`
 - `optimize <daily|weekly|monthly>`
 - `trends`
+- `session`
+- `wrapped`
+- `doctor`
+- `prune`
+- `config <init>`
 
 ## Options
 
@@ -29,34 +35,55 @@ Generated from root + command help output.
 
 | Option | Short | Argument | Description |
 | --- | --- | --- | --- |
-| `--by-source` | - | - | Render one sparkline row per source instead of a single combined chart \(trends only\) |
+| `--amp-dir` | - | `<path>` | Path to Amp threads directory |
+| `--antigravity-dir` | - | `<path>` | Path to Antigravity conversations directory |
+| `--apply` | - | - | Delete selected departed files and vacuum the event store \(prune only\) |
+| `--by-repo` | - | - | Group usage by repository root instead of by session \(session only\) |
+| `--by-source` | - | - | efficiency: Include per-source usage rows under each period; trends: Render one sparkline row per source instead of a single combined chart |
 | `--candidate-model` | - | `<name>` | Candidate model for counterfactual pricing \(repeatable or comma-separated\) \(optimize only\) |
 | `--claude-dir` | - | `<path>` | Path to Claude projects directory |
+| `--cline-dir` | - | `<path>` | Path to Cline tasks directory |
 | `--codex-dir` | - | `<path>` | Path to .codex sessions directory |
+| `--copilot-dir` | - | `<path>` | Path to GitHub Copilot OTEL directory |
 | `--days` | - | `<n>` | Trailing local calendar days to chart; defaults to 30 when no date flags are provided \(trends only\) |
+| `--departed-before` | - | `<YYYY-MM-DD>` | Select departed files whose newest event timestamp is strictly before this UTC date \(prune only\) |
 | `--droid-dir` | - | `<path>` | Path to Droid sessions directory |
+| `--force` | - | - | Overwrite an existing config file \(config only\) |
 | `--gemini-dir` | - | `<path>` | Path to .gemini directory |
-| `--ignore-pricing-failures` | - | - | Continue without estimated costs when pricing cannot be loaded |
+| `--goose-db` | - | `<path>` | Path to Goose SQLite DB |
+| `--history` | - | - | include usage from files that no longer exist on disk \(from the local event store\) \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped only\) |
+| `--id` | - | `<session-id>` | Show only sessions whose id contains the value \(case-insensitive; repeatable or comma-separated\) \(session only\) |
+| `--ignore-pricing-failures` | - | - | Continue without estimated costs when pricing cannot be loaded \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped only\) |
 | `--include-merge-commits` | - | - | Include merge commits in Git outcome metrics \(efficiency only\) |
 | `--json` | - | - | Render output as JSON |
-| `--markdown` | - | - | Render output as Markdown table \(daily, weekly, monthly, efficiency, optimize only\) |
+| `--kilocode-dir` | - | `<path>` | Path to KiloCode tasks directory |
+| `--kimi-dir` | - | `<path>` | Path to Kimi sessions directory |
+| `--markdown` | - | - | Render output as Markdown table \(daily, weekly, monthly, compare, efficiency, optimize, session only\) |
 | `--metric` | - | `<name>` | Trend metric: cost \| tokens \(default: "cost"\) \(trends only\) |
-| `--model` | - | `<name>` | Filter by model \(repeatable/comma-separated; exact when exact match exists after source/provider/date filters, otherwise substring\) |
+| `--model` | - | `<name>` | Filter by model \(repeatable/comma-separated; exact when exact match exists after source/provider/date filters, otherwise substring\) \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped only\) |
+| `--openclaw-dir` | - | `<path>` | Path to OpenClaw agents directory |
 | `--opencode-db` | - | `<path>` | Path to OpenCode SQLite DB |
 | `--per-model-columns` | - | - | Render per-model metrics as multiline aligned table columns \(terminal/Markdown\) \(usage reports only\) |
 | `--pi-dir` | - | `<path>` | Path to .pi sessions directory |
-| `--pricing-offline` | - | - | Use cached LiteLLM pricing only \(no network fetch\) |
-| `--pricing-overrides` | - | `<path>` | Path to a JSON file of per-model pricing overrides \(takes precedence over LiteLLM\) |
-| `--pricing-url` | - | `<url>` | Override LiteLLM pricing source URL |
-| `--provider` | - | `<name>` | Billing-provider filter \(normalized to billing entity; e.g. openai, anthropic, google\) |
+| `--pricing-offline` | - | - | Use cached LiteLLM pricing only \(no network fetch\) \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped only\) |
+| `--pricing-overrides` | - | `<path>` | Path to a JSON file of per-model pricing overrides \(takes precedence over LiteLLM\) \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped only\) |
+| `--pricing-url` | - | `<url>` | Override LiteLLM pricing source URL \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped only\) |
+| `--provider` | - | `<name>` | Billing-provider filter \(normalized to billing entity; e.g. openai, anthropic, google, moonshot\) \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped only\) |
+| `--quiet` | - | - | Suppress informational stderr output \(warnings still print\) |
+| `--qwen-dir` | - | `<path>` | Path to Qwen projects directory |
 | `--repo-dir` | - | `<path>` | Path to repository for Git outcome metrics \(efficiency only\) |
-| `--share` | - | - | Write a share SVG image to the current directory \(daily, weekly, monthly, efficiency, optimize only\) |
-| `--since` | - | `<YYYY-MM-DD>` | Inclusive start date filter |
-| `--source` | - | `<name>` | Filter by source id \(repeatable or comma-separated, supported sources \(7\): pi, codex, gemini, droid, opencode, openclaw, claude\) |
+| `--roocode-dir` | - | `<path>` | Path to RooCode tasks directory |
+| `--share` | - | - | Write a share SVG image to the current directory \(daily, weekly, monthly, efficiency, optimize, trends, wrapped only\) |
+| `--since` | - | `<YYYY-MM-DD>` | Inclusive start date filter \(daily, weekly, monthly, compare, efficiency, optimize, trends, session only\) |
+| `--source` | - | `<name>` | Filter by source id \(repeatable or comma-separated, supported sources \(16\): pi, codex, gemini, droid, opencode, openclaw, claude, copilot, goose, amp, qwen, kimi, cline, roocode, kilocode, antigravity\) |
 | `--source-dir` | - | `<source-id=path>` | Override source directory for directory-backed sources \(repeatable\) |
-| `--timezone` | - | `<iana>` | Timezone for bucketing \(default: local system timezone\) |
-| `--top` | - | `<n>` | Show only the top N cheapest candidates \(positive integer\) \(optimize only\) |
-| `--until` | - | `<YYYY-MM-DD>` | Inclusive end date filter |
+| `--suppressed` | - | - | Select departed files that --history already suppresses \(prune only\) |
+| `--timezone` | - | `<iana>` | Timezone for bucketing \(default: system timezone\) \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped only\) |
+| `--top` | - | `<n>` | optimize: Show only the top N cheapest candidates \(positive integer\); session: Show only the top N rows by cost \(default 20; 0 shows all\) |
+| `--until` | - | `<YYYY-MM-DD>` | Inclusive end date filter \(daily, weekly, monthly, compare, efficiency, optimize, trends, session only\) |
+| `--vs-since` | - | `<date>` | Inclusive start date for the baseline comparison window \(compare only\) |
+| `--vs-until` | - | `<date>` | Inclusive end date for the baseline comparison window \(compare only\) |
+| `--year` | - | `<YYYY>` | Year to recap \(2020-2100; defaults to current local year\) \(wrapped only\) |
 | `--help` | `-h` | - | display help for command |
 | `--version` | `-V` | - | output the version number |
 
@@ -71,8 +98,11 @@ llm-usage weekly --timezone Europe/Paris
 llm-usage monthly --since 2026-01-01 --until 2026-01-31
 llm-usage monthly --source opencode --opencode-db /path/to/opencode.db --json
 llm-usage monthly --source gemini --gemini-dir /path/to/.gemini
+llm-usage monthly --history --pricing-offline
 llm-usage monthly --source droid --droid-dir /path/to/.factory/sessions
 llm-usage monthly --share
+llm-usage compare
+llm-usage compare --since 2026-06-01 --until 2026-06-30 --vs-since 2026-05-01 --vs-until 2026-05-31
 llm-usage efficiency weekly --repo-dir /path/to/repo --json
 llm-usage efficiency monthly --share
 llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candidate-model gpt-5-codex --json
@@ -80,4 +110,16 @@ llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candida
 llm-usage trends
 llm-usage trends --metric tokens --days 7
 llm-usage trends --by-source --json
+llm-usage session
+llm-usage session --top 5 --json
+llm-usage session --id 486c
+llm-usage session --by-repo --top 5
+llm-usage session --markdown
+llm-usage wrapped
+llm-usage wrapped --year 2026 --share
+llm-usage wrapped --year 2026 --json
+llm-usage doctor
+llm-usage doctor --json
+llm-usage prune --suppressed
+llm-usage prune --departed-before 2026-01-01 --apply
 ```

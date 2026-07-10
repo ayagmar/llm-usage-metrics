@@ -129,6 +129,7 @@ function createUsageEventDataset(options: Record<string, unknown> = {}): UsageEv
       },
     ],
     sourceFailures: [],
+    warnings: [],
     filteredEvents: pricedEvents,
     pricingRuntimeConfig: {
       cacheTtlMs: 1_000,
@@ -229,6 +230,7 @@ describe('buildEfficiencyData', () => {
       activeUsageDays: new Set(['2026-02-11']),
     });
 
+    expect(result.grouping).toBe('period');
     expect(result.rows).toHaveLength(2);
     expect(result.rows[0]).toMatchObject({
       rowType: 'period',
@@ -255,6 +257,67 @@ describe('buildEfficiencyData', () => {
     expect(result.diagnostics.scopeNote).toContain(
       'Usage filters (--source, --provider, --model) affect commit attribution too',
     );
+  });
+
+  it('builds per-source efficiency rows when bySource is enabled', async () => {
+    const result = await buildEfficiencyData(
+      'daily',
+      {
+        bySource: true,
+      },
+      {
+        buildUsageEventDataset: async (options) => createUsageEventDataset(options),
+        applyPricingToUsageEventDataset: async () => createPricingResult(),
+        collectGitOutcomes: async () => ({
+          periodOutcomes: new Map([
+            [
+              '2026-02-11',
+              {
+                commitCount: 3,
+                linesAdded: 60,
+                linesDeleted: 20,
+                linesChanged: 80,
+              },
+            ],
+          ]),
+          totalOutcomes: {
+            commitCount: 3,
+            linesAdded: 60,
+            linesDeleted: 20,
+            linesChanged: 80,
+          },
+          diagnostics: {
+            repoDir: '/tmp/repo',
+            includeMergeCommits: false,
+            commitsCollected: 3,
+            linesAdded: 60,
+            linesDeleted: 20,
+          },
+        }),
+        resolveRepoRoot: async () => '/tmp/repo',
+      },
+    );
+
+    expect(result.grouping).toBe('source');
+    expect(result.rows.map((row) => row.rowType)).toEqual([
+      'period_source',
+      'period_source',
+      'period',
+      'grand_total',
+    ]);
+    expect(result.rows[0]).toMatchObject({
+      rowType: 'period_source',
+      source: 'pi',
+      totalTokens: 200,
+      costUsd: 2,
+      costShare: 2 / 3.5,
+    });
+    expect(result.rows[2]).toMatchObject({
+      rowType: 'period',
+      totalTokens: 350,
+      costUsd: 3.5,
+      commitCount: 3,
+    });
   });
 
   it('counts billable bucket usage days even when totalTokens is zero', async () => {
@@ -392,13 +455,22 @@ describe('buildEfficiencyData', () => {
     expect(result.diagnostics.scopeNote).toContain('--source-dir');
   });
 
-  it('includes --gemini-dir, --droid-dir, and --claude-dir in scope note when configured', async () => {
+  it('includes dedicated source directory flags in scope note when configured', async () => {
     const result = await buildEfficiencyData(
       'monthly',
       {
         geminiDir: '/tmp/.gemini',
         droidDir: '/tmp/droid-sessions',
+        copilotDir: '/tmp/.copilot/otel',
         claudeDir: '/tmp/.claude/projects',
+        openclawDir: '/tmp/.openclaw/agents',
+        ampDir: '/tmp/amp/threads',
+        qwenDir: '/tmp/qwen/projects',
+        kimiDir: '/tmp/kimi/sessions',
+        clineDir: '/tmp/cline/tasks',
+        roocodeDir: '/tmp/roocode/tasks',
+        kilocodeDir: '/tmp/kilocode/tasks',
+        antigravityDir: '/tmp/antigravity/conversations',
       },
       {
         buildUsageEventDataset: async (options) => createUsageEventDataset(options),
@@ -425,14 +497,24 @@ describe('buildEfficiencyData', () => {
 
     expect(result.diagnostics.scopeNote).toContain('--gemini-dir');
     expect(result.diagnostics.scopeNote).toContain('--droid-dir');
+    expect(result.diagnostics.scopeNote).toContain('--copilot-dir');
     expect(result.diagnostics.scopeNote).toContain('--claude-dir');
+    expect(result.diagnostics.scopeNote).toContain('--openclaw-dir');
+    expect(result.diagnostics.scopeNote).toContain('--amp-dir');
+    expect(result.diagnostics.scopeNote).toContain('--qwen-dir');
+    expect(result.diagnostics.scopeNote).toContain('--kimi-dir');
+    expect(result.diagnostics.scopeNote).toContain('--cline-dir');
+    expect(result.diagnostics.scopeNote).toContain('--roocode-dir');
+    expect(result.diagnostics.scopeNote).toContain('--kilocode-dir');
+    expect(result.diagnostics.scopeNote).toContain('--antigravity-dir');
   });
 
-  it('includes --opencode-db in scope note when configured', async () => {
+  it('includes DB source override flags in scope note when configured', async () => {
     const result = await buildEfficiencyData(
       'monthly',
       {
         opencodeDb: '/tmp/opencode.db',
+        gooseDb: '/tmp/goose.db',
       },
       {
         buildUsageEventDataset: async (options) => createUsageEventDataset(options),
@@ -458,6 +540,7 @@ describe('buildEfficiencyData', () => {
     );
 
     expect(result.diagnostics.scopeNote).toContain('--opencode-db');
+    expect(result.diagnostics.scopeNote).toContain('--goose-db');
   });
 
   it('passes an empty active-usage-day set when no events match the target repo', async () => {

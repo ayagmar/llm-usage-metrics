@@ -319,6 +319,35 @@ describe('DroidSourceAdapter', () => {
       expect(result.skippedRowReasons).toEqual([{ reason: 'invalid_timestamp', count: 1 }]);
     });
 
+    it('reports malformed lines from the sibling JSONL file', async () => {
+      const tempDir = await mkdtemp(path.join(os.tmpdir(), 'droid-malformed-jsonl-'));
+      tempDirs.push(tempDir);
+      const settingsPath = path.join(tempDir, 'session.settings.json');
+      const jsonlPath = path.join(tempDir, 'session.jsonl');
+
+      await writeFile(
+        settingsPath,
+        JSON.stringify({
+          providerLock: 'openai',
+          model: 'gpt-4.1',
+          providerLockTimestamp: '2026-02-24T10:00:00.000Z',
+          tokenUsage: {
+            inputTokens: 1,
+            outputTokens: 1,
+          },
+        }),
+        'utf8',
+      );
+      await writeFile(jsonlPath, '{"type":"message",', 'utf8');
+
+      const adapter = new DroidSourceAdapter({ sessionsDir: tempDir });
+      const result = await adapter.parseFileWithDiagnostics(settingsPath);
+
+      expect(result.events).toHaveLength(1);
+      expect(result.skippedRows).toBe(1);
+      expect(result.skippedRowReasons).toEqual([{ reason: 'json_parse_error', count: 1 }]);
+    });
+
     it('reports event creation failures when sessionId is invalid', async () => {
       const adapter = new DroidSourceAdapter({ sessionsDir: fixturesDir });
       Object.defineProperty(adapter, 'id', { value: '   ' });

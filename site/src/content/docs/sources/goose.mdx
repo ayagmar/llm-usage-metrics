@@ -1,0 +1,22 @@
+---
+title: goose Source
+---
+
+## Default location
+
+- `$GOOSE_PATH_ROOT/data/sessions/sessions.db` when `GOOSE_PATH_ROOT` is set
+- `$XDG_DATA_HOME/goose/sessions/sessions.db` or `~/.local/share/goose/sessions/sessions.db`
+- macOS: `~/Library/Application Support/goose/sessions/sessions.db`
+- legacy: `~/.local/share/Block/goose/sessions/sessions.db`
+
+## Override
+
+```bash
+llm-usage daily --source goose --goose-db /path/to/goose/sessions.db
+```
+
+`goose` is DB-backed, so use `--goose-db`; `--source-dir goose=...` is rejected.
+
+## Parsing notes
+
+The adapter reads whole-session aggregate rows from Goose's SQLite `sessions` table, prefers accumulated token columns when present, and infers reasoning tokens from `total - input - output`.

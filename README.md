@@ -21,16 +21,19 @@
 
 ---
 
-Aggregate token usage and costs from your local coding agent sessions. Supports **pi**, **codex**, **Gemini CLI**, **Droid CLI**, **OpenCode**, **OpenClaw**, and **Claude Code** with zero configuration required.
+Aggregate token usage and costs from your local coding agent sessions. Supports **pi**, **codex**, **Gemini CLI**, **Droid CLI**, **OpenCode**, **OpenClaw**, **Claude Code**, **GitHub Copilot CLI**, **Goose**, **Amp**, **Qwen CLI**, **Kimi CLI/Kimi Code**, **Cline**, **RooCode**, **KiloCode**, and **Antigravity** with zero configuration required.
 
 ## ✨ Features
 
-- **Zero-Config Discovery** — Automatically finds `.pi`, `.codex`, `.gemini`, `.factory`, OpenCode, OpenClaw, and Claude session data
-- **LiteLLM Pricing** — Real-time pricing sync with offline caching support
+- **Zero-Config Discovery** — Automatically finds `.pi`, `.codex`, `.gemini`, `.factory`, OpenCode, OpenClaw, Claude, Copilot, Goose, Amp, Qwen, Kimi, Cline, RooCode, KiloCode, and Antigravity session data
+- **LiteLLM Pricing** — Real-time pricing sync with cache and bundled offline fallback support
 - **Flexible Reports** — Daily, weekly, and monthly aggregations
 - **Efficiency Reports** — Correlate cost/tokens with repository commit outcomes
 - **Optimize Reports** — Counterfactual candidate-model pricing against observed token mix
 - **Trends Reports** — Daily cost or token trend views with combined or per-source output
+- **Session Reports** — Group usage by conversation session to find high-cost work
+- **Wrapped Recaps** — Yearly usage recap with a shareable SVG
+- **Doctor Command** — Check source discovery health when reports show no sessions
 - **Multiple Outputs** — Terminal tables, JSON, or Markdown
 - **Smart Filtering** — By source, billing provider, model, and date ranges
 
@@ -55,17 +58,26 @@ llm-usage daily
 
 ## 📋 Supported Sources
 
-| Source          | Pattern                                  | Discovery                        |
-| --------------- | ---------------------------------------- | -------------------------------- |
-| **pi**          | `~/.pi/agent/sessions/**/*.jsonl`        | Automatic                        |
-| **codex**       | `~/.codex/sessions/**/*.jsonl`           | Automatic                        |
-| **Gemini CLI**  | `~/.gemini/tmp/*/chats/*.json`           | Automatic                        |
-| **Droid CLI**   | `~/.factory/sessions/**/*.settings.json` | Automatic                        |
-| **OpenCode**    | `~/.opencode/opencode.db`                | Auto or explicit `--opencode-db` |
-| **OpenClaw**    | `~/.openclaw/agents/**/*.jsonl`          | Automatic                        |
-| **Claude Code** | `~/.claude/projects/**/*.jsonl`          | Automatic                        |
+| Source          | Pattern                                                                                  | Discovery                            |
+| --------------- | ---------------------------------------------------------------------------------------- | ------------------------------------ |
+| **pi**          | `~/.pi/agent/sessions/**/*.jsonl` (+ `~/.omp/agent/sessions`)                            | Automatic                            |
+| **codex**       | `~/.codex/sessions/**/*.jsonl`                                                           | Automatic                            |
+| **Gemini CLI**  | `~/.gemini/tmp/*/chats/*.json` (or `$GEMINI_CLI_HOME` when set)                          | Automatic                            |
+| **Droid CLI**   | `~/.factory/sessions/**/*.settings.json`                                                 | Automatic                            |
+| **OpenCode**    | `~/.local/share/opencode/opencode*.db`                                                   | Auto or explicit `--opencode-db`     |
+| **OpenClaw**    | `~/.openclaw/agents/**/*.jsonl` (+ legacy `~/.clawdbot`/`~/.moltbot`/`~/.moldbot` homes) | Automatic                            |
+| **Claude Code** | `~/.claude/{projects,transcripts}/**/*.jsonl`                                            | Automatic                            |
+| **Copilot CLI** | `~/.copilot/otel/*.jsonl` (+ `$COPILOT_OTEL_FILE_EXPORTER_PATH` file when set)           | Automatic                            |
+| **Goose**       | `~/.local/share/goose/sessions/sessions.db` (or `$GOOSE_PATH_ROOT/data/sessions`)        | Auto or explicit `--goose-db`        |
+| **Amp**         | `~/.local/share/amp/threads/*.json`                                                      | Auto or explicit `--amp-dir`         |
+| **Qwen CLI**    | `~/.qwen/projects/*/chats/*.jsonl`                                                       | Auto or explicit `--qwen-dir`        |
+| **Kimi**        | `~/.kimi/sessions/**/wire.jsonl` + `~/.kimi-code/sessions/**/wire.jsonl`                 | Auto or explicit `--kimi-dir`        |
+| **Cline**       | VS Code global storage `saoudrizwan.claude-dev/tasks/**/ui_messages.json`                | Auto or explicit `--cline-dir`       |
+| **RooCode**     | VS Code global storage `rooveterinaryinc.roo-cline/tasks/**/ui_messages.json`            | Auto or explicit `--roocode-dir`     |
+| **KiloCode**    | VS Code global storage `kilocode.kilo-code/tasks/**/ui_messages.json`                    | Auto or explicit `--kilocode-dir`    |
+| **Antigravity** | `~/.gemini/antigravity-cli/conversations/*.db` (or `$GEMINI_CLI_HOME`)                   | Auto or explicit `--antigravity-dir` |
 
-OpenCode source support requires Node.js 24+ runtime with built-in `node:sqlite`.
+SQLite-backed sources (OpenCode, Goose, Antigravity) require Node.js 24+ runtime with built-in `node:sqlite`.
 
 For `droid`, `Input`, `Output`, `Reasoning`, `Cache Read`, and `Cache Write` come directly from session files, and `totalTokens` is billable raw tokens (`Input + Output + Cache Read + Cache Write`, excluding `Reasoning`). Factory dashboard totals may differ because Factory applies standard-token normalization/multipliers.
 
@@ -83,6 +95,18 @@ llm-usage weekly --timezone Europe/Paris
 # Monthly date range
 llm-usage monthly --since 2026-01-01 --until 2026-01-31
 ```
+
+### Compare
+
+```bash
+# Compare the current local calendar month to the previous month
+llm-usage compare
+
+# Compare explicit windows
+llm-usage compare --since 2026-06-01 --until 2026-06-30 --vs-since 2026-05-01 --vs-until 2026-05-31
+```
+
+`compare` applies the same source, provider, model, pricing, timezone, and `--history` filters to both windows. When `--vs-since` and `--vs-until` are omitted, the baseline is the immediately preceding window.
 
 ### Output Formats
 
@@ -113,9 +137,130 @@ llm-usage trends --metric tokens --days 7
 
 # Per-source trends in JSON
 llm-usage trends --by-source --json
+
+# Write a combined trends share SVG
+llm-usage trends --share --days 7
 ```
 
-Trends is terminal-first and supports `--json`. It does not support `--markdown` or `--share`.
+Trends is terminal-first and supports `--json` and `--share`. It does not support `--markdown`.
+`--share` renders the combined trends view; run without `--by-source`.
+
+### Session Reports
+
+```bash
+# Group usage by conversation session (top 20 by cost by default)
+llm-usage session
+
+# Show every session
+llm-usage session --top 0
+
+# Look up sessions whose id contains a value (case-insensitive substring)
+llm-usage session --id 486c
+
+# Group usage by repository root instead of by session
+llm-usage session --by-repo --top 5
+
+# Keep only the highest-cost sessions in JSON output
+llm-usage session --top 5 --json
+
+# Markdown table for notes or docs
+llm-usage session --markdown
+```
+
+Session reports group events by source and session id, then sort sessions by total cost descending.
+By default only the top 20 rows are shown (in terminal, Markdown, and JSON output alike) and a stderr note reports how many rows were hidden; use `--top 0` to print everything.
+`--id` filters sessions by case-insensitive substring match on the full session id (repeatable or comma-separated), renders matching ids untruncated, and disables the default limit (an explicit `--top` still applies). It cannot be combined with `--by-repo`.
+`--by-repo` prints one row per repository root with distinct session counts and the contributing sources; events without a repository fall into a `(no repo)` bucket. The table shows the directory basename while JSON keeps the full path.
+The session table shows the repo, last activity, total tokens, cost, and up to two models per session; JSON output keeps all fields (event counts, cache buckets, the full model list, and full repository paths).
+Date, source, provider, and model filters apply to events before grouping, so a session spanning a boundary shows only the matching in-range usage.
+Session reports do not include a TOTAL row because the rows represent conversations rather than calendar periods.
+
+### Wrapped Recap
+
+```bash
+# Current-year recap in the report timezone
+llm-usage wrapped
+
+# Fixed-year recap as JSON
+llm-usage wrapped --year 2026 --json
+
+# Scope the recap to a billing provider or model
+llm-usage wrapped --year 2026 --provider anthropic
+
+# Write the share SVG
+llm-usage wrapped --year 2026 --share
+```
+
+```text
+┌──────────────┐
+│ Wrapped 2026 │
+└──────────────┘
+2026-01-01 to 2026-12-31 (UTC)
+
+Tokens          48,200,000
+Cost            $214.90
+Active days     143
+Longest streak  21 days
+Events          8,640
+Sessions        512
+
+Monthly activity
+Jan ▂  Feb █  Mar █  Apr ▄  May ▂  Jun ▁  Jul ▁  Aug ·  Sep ▁  Oct ▂  Nov ▄  Dec █
+
+Top models
+╭───┬───────────────────┬────────────┬────────╮
+│ # │ Model             │     Tokens │   Cost │
+├───┼───────────────────┼────────────┼────────┤
+│ 1 │ gpt-5.1           │ 21,400,000 │ $96.20 │
+├───┼───────────────────┼────────────┼────────┤
+│ 2 │ claude-sonnet-4-6 │ 14,800,000 │ $72.50 │
+├───┼───────────────────┼────────────┼────────┤
+│ 3 │ gpt-5.1-codex     │  8,900,000 │ $31.70 │
+├───┼───────────────────┼────────────┼────────┤
+│ 4 │ gemini-3-pro      │  2,100,000 │  $9.80 │
+├───┼───────────────────┼────────────┼────────┤
+│ 5 │ claude-opus-4-8   │  1,000,000 │  $4.70 │
+╰───┴───────────────────┴────────────┴────────╯
+
+Top sources
+╭───┬──────────┬────────────┬─────────╮
+│ # │ Source   │     Tokens │    Cost │
+├───┼──────────┼────────────┼─────────┤
+│ 1 │ codex    │ 26,300,000 │ $121.40 │
+├───┼──────────┼────────────┼─────────┤
+│ 2 │ claude   │ 15,800,000 │  $77.20 │
+├───┼──────────┼────────────┼─────────┤
+│ 3 │ pi       │  4,000,000 │  $12.50 │
+├───┼──────────┼────────────┼─────────┤
+│ 4 │ gemini   │  1,600,000 │   $3.10 │
+├───┼──────────┼────────────┼─────────┤
+│ 5 │ opencode │    500,000 │   $0.70 │
+╰───┴──────────┴────────────┴─────────╯
+```
+
+Wrapped computes yearly totals, active days, longest streak, the top five models, the top five sources, and a 12-month intensity strip.
+`--provider` and `--model` scope the recap the same way they do on the other reports; `--year` owns the date range, so `--since`/`--until` are unavailable.
+The terminal report uses the shared boxed header, tables, and color policy — set `NO_COLOR` for plain text.
+The share output is an offline SVG named `llm-usage-wrapped-<year>.svg` (its top lists show three rows); PNG rendering and embedded logo/font assets are intentionally out of scope.
+
+### Doctor
+
+```bash
+# Check source discovery health without parsing sessions
+llm-usage doctor
+
+# JSON for support/debugging pipelines
+llm-usage doctor --json
+```
+
+Doctor prints one line per source and exits 0 even when a source is unhealthy.
+
+```text
+pi        ok     12 file(s)
+opencode  error  OpenCode database is missing or unreadable: /path/to/opencode.db
+
+15/16 sources healthy
+```
 
 ### Efficiency Reports
 
@@ -158,9 +303,18 @@ llm-usage efficiency monthly --repo-dir /path/to/repo --source droid
 llm-usage efficiency monthly --repo-dir /path/to/repo --source opencode
 llm-usage efficiency monthly --repo-dir /path/to/repo --source openclaw
 llm-usage efficiency monthly --repo-dir /path/to/repo --source claude
+llm-usage efficiency monthly --repo-dir /path/to/repo --source copilot
+llm-usage efficiency monthly --repo-dir /path/to/repo --source goose
+llm-usage efficiency monthly --repo-dir /path/to/repo --source amp
+llm-usage efficiency monthly --repo-dir /path/to/repo --source qwen
+llm-usage efficiency monthly --repo-dir /path/to/repo --source kimi
+llm-usage efficiency monthly --repo-dir /path/to/repo --source cline
+llm-usage efficiency monthly --repo-dir /path/to/repo --source roocode
+llm-usage efficiency monthly --repo-dir /path/to/repo --source kilocode
+llm-usage efficiency monthly --repo-dir /path/to/repo --source antigravity
 ```
 
-Note: usage filters (`--source`, `--provider`, `--model`, `--pi-dir`, `--codex-dir`, `--gemini-dir`, `--droid-dir`, `--claude-dir`, `--opencode-db`, `--source-dir`) also constrain commit attribution: only commit days with matching repo-attributed usage events are counted.
+Note: usage filters (`--source`, `--provider`, `--model`, `--pi-dir`, `--codex-dir`, `--copilot-dir`, `--gemini-dir`, `--droid-dir`, `--claude-dir`, `--openclaw-dir`, `--amp-dir`, `--qwen-dir`, `--kimi-dir`, `--cline-dir`, `--roocode-dir`, `--kilocode-dir`, `--antigravity-dir`, `--opencode-db`, `--goose-db`, `--source-dir`) also constrain commit attribution: only commit days with matching repo-attributed usage events are counted.
 
 ### Optimize Reports
 
@@ -181,7 +335,7 @@ llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candida
 
 ```bash
 # By source
-llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude
+llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude,copilot,goose,amp,qwen,kimi,cline,roocode,kilocode,antigravity
 
 # By provider
 llm-usage monthly --provider openai
@@ -193,25 +347,40 @@ llm-usage monthly --model claude
 llm-usage monthly --source opencode --provider openai --model gpt-4.1
 ```
 
-Use `--source` to scope where events came from (`pi`, `codex`, `gemini`, `droid`, `opencode`, `openclaw`, `claude`), and `--provider` to scope the billing entity behind those events.
+Use `--source` to scope where events came from (`pi`, `codex`, `gemini`, `droid`, `opencode`, `openclaw`, `claude`, `copilot`, `goose`, `amp`, `qwen`, `kimi`, `cline`, `roocode`, `kilocode`, `antigravity`), and `--provider` to scope the billing entity behind those events.
 
 ### Custom Paths
 
 ```bash
 # Custom directories
-llm-usage daily --source-dir pi=/path/to/pi --source-dir codex=/path/to/codex --source-dir gemini=/path/to/.gemini --source-dir droid=/path/to/.factory/sessions --source-dir openclaw=/path/to/.openclaw/agents --source-dir claude=/path/to/.claude/projects
+llm-usage daily --source-dir pi=/path/to/pi --source-dir codex=/path/to/codex --source-dir gemini=/path/to/.gemini --source-dir droid=/path/to/.factory/sessions --source-dir openclaw=/path/to/.openclaw/agents --source-dir claude=/path/to/.claude/projects --source-dir copilot=/path/to/.copilot/otel --source-dir amp=/path/to/amp/threads --source-dir qwen=/path/to/.qwen/projects --source-dir kimi=/path/to/kimi/sessions --source-dir cline=/path/to/cline/tasks --source-dir roocode=/path/to/roocode/tasks --source-dir kilocode=/path/to/kilocode/tasks --source-dir antigravity=/path/to/antigravity/conversations
 
-# Explicit Gemini/Droid/Claude/OpenCode paths
+# Explicit Gemini/Droid/Claude/OpenClaw/Copilot/Amp/Qwen/Kimi/Cline/RooCode/KiloCode/Antigravity/OpenCode/Goose paths
 llm-usage daily --gemini-dir /path/to/.gemini
 llm-usage daily --droid-dir /path/to/.factory/sessions
 llm-usage daily --claude-dir /path/to/.claude/projects
+llm-usage daily --openclaw-dir /path/to/.openclaw/agents
+llm-usage daily --copilot-dir /path/to/.copilot/otel
+llm-usage daily --amp-dir /path/to/amp/threads
+llm-usage daily --qwen-dir /path/to/.qwen/projects
+llm-usage daily --kimi-dir /path/to/kimi/sessions
+llm-usage daily --cline-dir /path/to/cline/tasks
+llm-usage daily --roocode-dir /path/to/roocode/tasks
+llm-usage daily --kilocode-dir /path/to/kilocode/tasks
+llm-usage daily --antigravity-dir /path/to/antigravity/conversations
 llm-usage daily --opencode-db /path/to/opencode.db
+llm-usage daily --goose-db /path/to/goose/sessions.db
 ```
 
 ### Offline Mode
 
+Pricing uses LiteLLM rates. Online runs refresh the local pricing cache when
+needed; offline runs use a fresh or stale cache when present and fall back to
+the bundled LiteLLM snapshot when no cache exists. When the bundled snapshot is
+used, `stderr` shows its snapshot date and suggests running online to refresh.
+
 ```bash
-# Use cached pricing only
+# Avoid network pricing fetches
 llm-usage monthly --pricing-offline
 
 # Continue even if pricing fetch fails
@@ -221,97 +390,140 @@ llm-usage monthly --ignore-pricing-failures
 llm-usage monthly --pricing-overrides ./pricing-overrides.json
 ```
 
+Custom `--pricing-url` values use their matching cache or network source; they
+do not silently fall back to the bundled default LiteLLM snapshot.
+
 ## 🧪 Production Benchmarks
 
-Benchmarked on **February 27, 2026** on a local production machine:
+Absolute runtimes measured on 2026-07-09 on real local data, with `ccusage` (a native Rust binary) as context; full methodology lives on the [Benchmarks docs page](https://ayagmar.github.io/llm-usage-metrics/benchmarks/).
 
-- OS: CachyOS (Linux 6.19.2-2-cachyos)
-- CPU: Intel Core Ultra 9 185H (22 logical CPUs)
-- RAM: 62 GiB
-- Storage: NVMe SSD
+codex — `daily` (5 runs each):
 
-Compared scenarios:
+| Tool                                               | Cache | Median (s) | Mean (s) |
+| -------------------------------------------------- | ----- | ---------: | -------: |
+| `ccusage codex daily`                              | cold  |      0.516 |    0.515 |
+| `ccusage codex daily --offline`                    | warm  |      0.292 |    0.292 |
+| `llm-usage daily --source codex`                   | cold  |      1.655 |    1.670 |
+| `llm-usage daily --source codex --pricing-offline` | warm  |      0.996 |    1.005 |
 
-```bash
-# direct source-to-source parity (openai provider)
-ccusage-codex monthly
-llm-usage monthly --provider openai --source codex
+claude — `daily` (5 runs each):
 
-# multi-source comparison for one provider (openai)
-ccusage-codex monthly
-llm-usage monthly --provider openai --source pi,codex,gemini,opencode
-```
+| Tool                                                | Cache | Median (s) | Mean (s) |
+| --------------------------------------------------- | ----- | ---------: | -------: |
+| `ccusage claude daily`                              | cold  |      0.335 |    0.354 |
+| `ccusage claude daily --offline`                    | warm  |      0.478 |    0.474 |
+| `llm-usage daily --source claude`                   | cold  |      0.883 |    0.896 |
+| `llm-usage daily --source claude --pricing-offline` | warm  |      0.256 |    0.255 |
 
-Timed benchmark summary (5 runs per scenario).
+Cold runs favor ccusage (native Rust); warm claude favors llm-usage (~1.9x) thanks to the SQLite event store; warm codex is ~1.0 s.
 
-Direct source-to-source parity (`--source codex`):
-
-| Tool                                                                   | Cache mode | Median (s) | Mean (s) |
-| ---------------------------------------------------------------------- | ---------- | ---------: | -------: |
-| `ccusage-codex monthly`                                                | no cache   |     16.785 |   17.288 |
-| `ccusage-codex monthly --offline`                                      | with cache |     16.995 |   17.594 |
-| `llm-usage monthly --provider openai --source codex`                   | no cache   |      3.651 |    3.760 |
-| `llm-usage monthly --provider openai --source codex --pricing-offline` | with cache |      0.746 |    0.724 |
-
-Speedups (median): `4.60x` faster cold, `22.78x` faster cached.
-
-Multi-source OpenAI (`--source pi,codex,gemini,opencode`):
-
-| Tool                                                                                      | Cache mode | Median (s) | Mean (s) |
-| ----------------------------------------------------------------------------------------- | ---------- | ---------: | -------: |
-| `ccusage-codex monthly`                                                                   | no cache   |     17.297 |   17.463 |
-| `ccusage-codex monthly --offline`                                                         | with cache |     16.698 |   16.745 |
-| `llm-usage monthly --provider openai --source pi,codex,gemini,opencode`                   | no cache   |      4.767 |    4.864 |
-| `llm-usage monthly --provider openai --source pi,codex,gemini,opencode --pricing-offline` | with cache |      0.941 |    0.951 |
-
-Speedups (median): `3.63x` faster cold, `17.75x` faster cached.
-
-Full methodology, cache-mode definition, and scope caveats are documented in the Astro docs: [Benchmarks](https://ayagmar.github.io/llm-usage-metrics/benchmarks/).
-
-Re-run direct parity benchmark locally:
+Reproduce locally:
 
 ```bash
-pnpm run perf:production-benchmark -- --runs 5 --llm-source codex
-```
-
-Re-run multi-source OpenAI benchmark locally:
-
-```bash
-pnpm run perf:production-benchmark -- --runs 5 --llm-source pi,codex,gemini,opencode
-```
-
-Generate machine-readable artifacts:
-
-```bash
-pnpm run perf:production-benchmark -- \
-  --runs 5 \
-  --llm-source codex \
-  --json-output ./tmp/production-benchmark-openai-codex.json \
-  --markdown-output ./tmp/production-benchmark-openai-codex.md
-
-pnpm run perf:production-benchmark -- \
-  --runs 5 \
-  --llm-source pi,codex,gemini,opencode \
-  --json-output ./tmp/production-benchmark-openai-multi-source.json \
-  --markdown-output ./tmp/production-benchmark-openai-multi-source.md
+pnpm run build
+npx -y ccusage@latest --version
+CCUSAGE_BIN=$(find ~/.npm/_npx -name ccusage -path '*/.bin/*' | head -1)
+node scripts/perf-production-benchmark.mjs --runs 5 --scenario codex --ccusage-bin "$CCUSAGE_BIN"
+node scripts/perf-production-benchmark.mjs --runs 5 --scenario claude --ccusage-bin "$CCUSAGE_BIN"
 ```
 
 ## ⚙️ Configuration
 
-### Environment Variables
+`llm-usage-metrics` reads persistent defaults from a TOML config file:
 
-| Variable                         | Description                        |
-| -------------------------------- | ---------------------------------- |
-| `LLM_USAGE_SKIP_UPDATE_CHECK`    | Skip update check (`1`)            |
-| `LLM_USAGE_UPDATE_CACHE_SCOPE`   | Update cache scope                 |
-| `LLM_USAGE_PRICING_CACHE_TTL_MS` | Pricing cache duration             |
-| `LLM_USAGE_PARSE_MAX_PARALLEL`   | Max parallel file parses (`1-64`)  |
-| `LLM_USAGE_PARSE_CACHE_ENABLED`  | Enable parse cache (`1/0`)         |
-| `LLM_USAGE_PROFILE_RUNTIME`      | Emit runtime profiling diagnostics |
+```text
+<config-root>/llm-usage-metrics/config.toml
+```
 
-Parse cache is source-sharded on disk (`parse-file-cache.<source>.json`) so source-scoped runs avoid loading unrelated cache blobs.
+Run `llm-usage config init` to write a commented template. Set
+`LLM_USAGE_CONFIG_PATH=/path/to/config.toml` to use a different file.
+Missing config files are ignored, malformed TOML fails with an actionable
+error, and unknown keys are reported on `stderr`.
 
-See full environment variable reference in the [documentation](https://ayagmar.github.io/llm-usage-metrics/configuration/).
+Example:
+
+```toml
+#:schema https://ayagmar.github.io/llm-usage-metrics/config-schema.json
+timezone = "Africa/Casablanca"
+logLevel = "info"
+sources = ["codex", "claude"]
+parseMaxParallel = 8
+parseWorkers = "auto"
+parseWorkerMinBytes = 268435456
+
+[sourceDirs]
+codex = "/path/to/.codex/sessions"
+claude = "/path/to/.claude/projects"
+
+[pricing]
+offline = true
+
+[eventStore]
+enabled = true
+path = "/path/to/events.db"
+```
+
+Precedence is `CLI flags` → `environment variables` → `config file` →
+`built-in defaults`. Applied config values are shown on `stderr` as an
+`Active config:` block. Set `logLevel = "warn"` to suppress informational
+stderr by default, or pass `--quiet` to do the same for a single report
+command.
+
+### Environment Overrides
+
+Environment variables remain available for CI, scripts, and temporary runtime
+overrides.
+
+| Variable                             | Config key                    |
+| ------------------------------------ | ----------------------------- |
+| `LLM_USAGE_CONFIG_PATH`              | Selects the config file       |
+| `LLM_USAGE_SKIP_UPDATE_CHECK`        | `update.skipCheck`            |
+| `LLM_USAGE_PARSE_WORKERS`            | `parseWorkers`                |
+| `LLM_USAGE_PARSE_WORKER_MIN_BYTES`   | `parseWorkerMinBytes`         |
+| `LLM_USAGE_EVENT_STORE`              | `eventStore.enabled`          |
+| `LLM_USAGE_EVENT_STORE_PATH`         | `eventStore.path`             |
+| `LLM_USAGE_UPDATE_CACHE_SCOPE`       | Update cache mode override    |
+| `LLM_USAGE_UPDATE_CACHE_SESSION_KEY` | Update cache session key      |
+| `LLM_USAGE_PROFILE_RUNTIME`          | Runtime profiling diagnostics |
+
+### SQLite Event Store
+
+`llm-usage` stores parsed file events in
+`<platform-cache-root>/llm-usage-metrics/events.db` so unchanged source files do
+not need to be reparsed on every run. The store also retains departed-file rows
+for `--history` reports. On Linux with no `XDG_CACHE_HOME`, that is usually
+`~/.cache/llm-usage-metrics/events.db`.
+
+Use `--history` on report commands to include usage from files that no longer
+exist on disk. History follows the same source, provider, model, date, pricing,
+and aggregation behavior as live-file reports. If a file was moved, renamed, or
+copied, the store suppresses the departed copy by content hash so it is not
+double counted. History quality depends on how long the event store has been
+running on your machine.
+
+Use `llm-usage prune` for explicit event-store maintenance. Prune is a dry-run
+by default: it prints the departed-file candidates and deletes nothing until
+`--apply` is present.
+
+- `llm-usage prune --suppressed` selects departed files already suppressed by
+  `--history`; applying it does not change report output.
+- `llm-usage prune --departed-before YYYY-MM-DD` selects departed files whose
+  newest event timestamp is strictly older than that UTC date. Applying it
+  permanently deletes retained history for those files.
+- `llm-usage prune ... --apply` deletes the selected rows, runs SQLite
+  `VACUUM`, and reports reclaimed database/WAL bytes.
+
+- Set `LLM_USAGE_EVENT_STORE=0` to disable the store for cold-run benchmarking
+  or debugging. `--history` requires the store to be enabled.
+- Set `LLM_USAGE_EVENT_STORE_PATH=/path/to/events.db` to use an isolated store.
+- Back up `events.db` if retained history matters. Deleting it deletes local
+  history and starts a new ledger from the next run.
+- The first run after upgrading the store schema migrates `events.db` in place
+  and may take a few seconds on large stores.
+- Older JSON cache shards from pre-store versions are no longer read and can be
+  deleted manually.
+
+See the full config and environment override reference in the [documentation](https://ayagmar.github.io/llm-usage-metrics/configuration/).
 
 ### Update Checks
 
@@ -319,9 +531,10 @@ The CLI performs lightweight update checks with smart defaults:
 
 - 1-hour cache TTL
 - Fresh cached update results are used immediately without any network call
-- Stale or missing cache triggers a bounded fetch (default 1s timeout) so the update prompt stays consistent across commands, instead of silently skipping the run that refreshes the cache
+- Stale or missing cache triggers a bounded fetch (default 1s timeout) so the update hint stays consistent across commands, instead of silently skipping the run that refreshes the cache
+- Runs concurrently with the report, so it never delays your output
+- When an update is available, prints a one-line hint to stderr after the report with the `npm install -g` command — it never prompts, installs, or restarts
 - Skipped for `--help`, `--version`, `npx`, and direct source/development runs
-- Prompts only in interactive TTY sessions
 
 Disable with:
 
@@ -355,7 +568,7 @@ pnpm cli daily
 - **[Efficiency](https://ayagmar.github.io/llm-usage-metrics/efficiency/)** — Efficiency report semantics and interpretation
 - **[Optimize](https://ayagmar.github.io/llm-usage-metrics/optimize/)** — Counterfactual candidate-model pricing semantics
 - **[Data Sources](https://ayagmar.github.io/llm-usage-metrics/sources/)** — Source configuration
-- **[Configuration](https://ayagmar.github.io/llm-usage-metrics/configuration/)** — Environment variables
+- **[Configuration](https://ayagmar.github.io/llm-usage-metrics/configuration/)** — Config file and environment overrides
 - **[Security](https://ayagmar.github.io/llm-usage-metrics/security/)** — Current security controls, dependency hygiene, and contributor steps
 - **[Benchmarks](https://ayagmar.github.io/llm-usage-metrics/benchmarks/)** — Production benchmark methodology and results
 - **[Architecture](https://ayagmar.github.io/llm-usage-metrics/architecture/)** — Technical overview

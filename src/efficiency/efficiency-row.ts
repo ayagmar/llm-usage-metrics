@@ -30,6 +30,13 @@ export type EfficiencyPeriodRow = EfficiencyUsageTotals &
     periodKey: string;
   };
 
+export type EfficiencySourceRow = EfficiencyUsageTotals & {
+  rowType: 'period_source';
+  periodKey: string;
+  source: string;
+  costShare?: number;
+};
+
 export type EfficiencyGrandTotalRow = EfficiencyUsageTotals &
   EfficiencyOutcomeTotals &
   EfficiencyDerivedMetrics & {
@@ -37,7 +44,7 @@ export type EfficiencyGrandTotalRow = EfficiencyUsageTotals &
     periodKey: 'ALL';
   };
 
-export type EfficiencyRow = EfficiencyPeriodRow | EfficiencyGrandTotalRow;
+export type EfficiencyRow = EfficiencyPeriodRow | EfficiencySourceRow | EfficiencyGrandTotalRow;
 
 export function createEmptyEfficiencyUsageTotals(): EfficiencyUsageTotals {
   return {

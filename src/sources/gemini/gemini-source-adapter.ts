@@ -9,7 +9,12 @@ import { asRecord } from '../../utils/as-record.js';
 import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
 import { discoverFiles } from '../../utils/discover-files.js';
 import { pathIsDirectory, pathReadable } from '../../utils/fs-helpers.js';
-import { asTrimmedText, isBlankText, normalizeTimestampCandidate } from '../parsing-utils.js';
+import {
+  asTrimmedText,
+  isBlankText,
+  normalizeTimestampCandidate,
+  resolveTotalTokens,
+} from '../parsing-utils.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
 import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
 
@@ -18,7 +23,12 @@ const defaultGeminiDir = path.join(os.homedir(), '.gemini');
 export type GeminiSourceAdapterOptions = {
   geminiDir?: string;
   requireGeminiDir?: boolean;
+  env?: NodeJS.ProcessEnv;
 };
+
+function resolveDefaultGeminiDir(env: NodeJS.ProcessEnv): string {
+  return asTrimmedText(env.GEMINI_CLI_HOME) ?? defaultGeminiDir;
+}
 
 function getProjectsJsonPath(geminiDir: string): string {
   return path.join(geminiDir, 'projects.json');
@@ -168,7 +178,7 @@ function extractTokenUsage(tokens: Record<string, unknown> | undefined): {
 
   const declaredTotal = Math.max(0, toFiniteNumber(tokens.total) ?? 0);
   const componentTotal = inputTokens + outputTokens + reasoningTokens + cacheReadTokens;
-  const totalTokens = declaredTotal > 0 ? declaredTotal : componentTotal;
+  const totalTokens = resolveTotalTokens(declaredTotal, componentTotal);
 
   if (inputTokens === 0 && outputTokens === 0 && reasoningTokens === 0 && cached === 0) {
     return null;
@@ -193,9 +203,10 @@ export class GeminiSourceAdapter implements SourceAdapter {
 
   private readonly geminiDir: string;
   private readonly requireGeminiDir: boolean;
+  private projectMappingPromise?: Promise<Map<string, string>>;
 
   public constructor(options: GeminiSourceAdapterOptions = {}) {
-    this.geminiDir = options.geminiDir ?? defaultGeminiDir;
+    this.geminiDir = options.geminiDir ?? resolveDefaultGeminiDir(options.env ?? process.env);
     this.requireGeminiDir = options.requireGeminiDir ?? false;
   }
 
@@ -212,7 +223,9 @@ export class GeminiSourceAdapter implements SourceAdapter {
       return new Map();
     }
 
-    return loadProjectsJson(this.geminiDir.trim());
+    this.projectMappingPromise ??= loadProjectsJson(this.geminiDir.trim());
+
+    return this.projectMappingPromise;
   }
 
   public async discoverFiles(): Promise<string[]> {

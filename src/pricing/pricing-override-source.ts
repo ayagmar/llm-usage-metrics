@@ -37,7 +37,7 @@ function toFiniteUsdRate(value: NumberLike): number | undefined {
 
   const parsed = typeof value === 'number' ? value : Number(value);
 
-  return Number.isFinite(parsed) ? parsed : undefined;
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
 function normalizeReasoningBilling(value: unknown): ReasoningBillingMode | undefined {

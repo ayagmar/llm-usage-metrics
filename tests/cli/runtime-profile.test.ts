@@ -20,17 +20,22 @@ function createLoggerSpy(): RuntimeProfileLogger {
 }
 
 describe('runtime-profile', () => {
-  it('emits source selection, parse cache, parse counts, and stage timings', async () => {
+  it('emits source selection, event store, parse counts, and stage timings', async () => {
     const profile = new RuntimeProfileCollector(() => 100);
     profile.recordSourceSelection({
       availableSourceIds: ['pi', 'codex', 'gemini'],
       selectedSourceIds: ['pi', 'codex'],
       candidateProviderRoots: ['openai'],
     });
-    profile.recordParseCacheResult('pi', 'hit');
-    profile.recordParseCacheResult('codex', 'miss');
+    profile.recordEventStoreResult('pi', 'hit');
+    profile.recordEventStoreResult('codex', 'miss');
     profile.recordParseResult('pi', { filesFound: 2, eventsParsed: 5 });
     profile.recordParseResult('codex', { filesFound: 1, eventsParsed: 3 });
+    profile.recordParseWorkerResult('codex', {
+      status: 'engaged',
+      workerCount: 2,
+      missedBytes: 1024,
+    });
     profile.recordStageDuration('usage.dataset.parse', 12.34);
     profile.recordStageDuration('usage.pricing.apply', 4.56);
 
@@ -41,13 +46,13 @@ describe('runtime-profile', () => {
     expect(diagnosticsLogger.dim).toHaveBeenCalledWith(
       '  source selection: available=pi,codex,gemini; selected=pi,codex; candidateProviderRoots=openai',
     );
-    expect(diagnosticsLogger.dim).toHaveBeenCalledWith('  parse cache: hits=1; misses=1');
+    expect(diagnosticsLogger.dim).toHaveBeenCalledWith('  event store: hits=1; misses=1');
     expect(diagnosticsLogger.dim).toHaveBeenCalledWith('  parse totals: files=3; events=8');
     expect(diagnosticsLogger.dim).toHaveBeenCalledWith(
-      '  source codex: files=1; events=3; cacheHits=0; cacheMisses=1',
+      '  source codex: files=1; events=3; eventStoreHits=0; eventStoreMisses=1; parseWorkers=engaged; parseWorkerCount=2; parseWorkerMissedBytes=1024',
     );
     expect(diagnosticsLogger.dim).toHaveBeenCalledWith(
-      '  source pi: files=2; events=5; cacheHits=1; cacheMisses=0',
+      '  source pi: files=2; events=5; eventStoreHits=1; eventStoreMisses=0',
     );
     expect(diagnosticsLogger.dim).toHaveBeenCalledWith('  stage timings:');
     expect(diagnosticsLogger.dim).toHaveBeenCalledWith('    usage.dataset.parse: 12.34ms');
@@ -58,7 +63,7 @@ describe('runtime-profile', () => {
   it('merges collector and diagnostics snapshots without dropping populated sections', () => {
     const merged = mergeRuntimeProfiles(
       {
-        parseCache: {
+        eventStore: {
           hits: 0,
           misses: 0,
         },
@@ -75,9 +80,9 @@ describe('runtime-profile', () => {
           selectedSourceIds: ['codex'],
           candidateProviderRoots: ['openai'],
         },
-        parseCache: {
-          hits: 1,
-          misses: 0,
+        eventStore: {
+          hits: 0,
+          misses: 1,
         },
         parseTotals: {
           filesFound: 1,
@@ -88,8 +93,8 @@ describe('runtime-profile', () => {
             source: 'codex',
             filesFound: 1,
             eventsParsed: 2,
-            cacheHits: 1,
-            cacheMisses: 0,
+            eventStoreHits: 0,
+            eventStoreMisses: 1,
           },
         ],
         stageTimings: [{ name: 'optimize.dataset.total', durationMs: 4.56 }],
@@ -102,9 +107,9 @@ describe('runtime-profile', () => {
         selectedSourceIds: ['codex'],
         candidateProviderRoots: ['openai'],
       },
-      parseCache: {
-        hits: 1,
-        misses: 0,
+      eventStore: {
+        hits: 0,
+        misses: 1,
       },
       parseTotals: {
         filesFound: 1,
@@ -115,8 +120,8 @@ describe('runtime-profile', () => {
           source: 'codex',
           filesFound: 1,
           eventsParsed: 2,
-          cacheHits: 1,
-          cacheMisses: 0,
+          eventStoreHits: 0,
+          eventStoreMisses: 1,
         },
       ],
       stageTimings: [
@@ -141,7 +146,7 @@ describe('runtime-profile', () => {
 
   it('returns whichever runtime profile snapshot is available and skips empty emission', () => {
     const snapshot = {
-      parseCache: { hits: 0, misses: 0 },
+      eventStore: { hits: 0, misses: 0 },
       parseTotals: { filesFound: 0, eventsParsed: 0 },
       sourceStats: [],
       stageTimings: [],

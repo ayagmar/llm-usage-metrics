@@ -1,0 +1,58 @@
+---
+title: Config & Logging
+description: How the TOML config resolves against flags and env vars, and how stderr logging is leveled.
+---
+
+Configuration answers "what settings apply to this run"; logging answers "what the run tells you about itself". Both are designed around one guarantee: the rest of the code only ever sees resolved values, and everything the tool says about itself goes to `stderr`. [Configuration](/configuration/) documents every key; this page documents the machinery.
+
+## Layers and precedence
+
+Four layers resolve, highest first: **flags → env vars → config file → built-in defaults.**
+
+- Flags shadow config in `src/cli/apply-user-config.ts`: a config value is copied onto a command option only when that option was not set on the command line.
+- Env vars shadow config in `src/config/runtime-overrides.ts`: each runtime config reader (event store, parsing, pricing, update) checks its env var first, then the config key, then the exported default constant.
+- Consumers never read raw layers — they call the runtime-config readers and get final values.
+
+A worked example with the event-store path: `LLM_USAGE_EVENT_STORE_PATH=/tmp/scratch.db` wins over `eventStore.path = "/data/events.db"` in `config.toml`, which wins over the default `events.db` under the platform cache root. Same shape for a flag-backed key: `--timezone Europe/Paris` wins over `timezone = "Africa/Casablanca"`.
+
+The default constants live in `runtime-overrides.ts` as exports, and the `config init` template interpolates them — so the template's documented defaults cannot drift from the real ones by construction.
+
+## Loading and validation
+
+`src/config/user-config.ts` loads the file once per run:
+
+- The default path is `<config-root>/llm-usage-metrics/config.toml`, where the config root is `XDG_CONFIG_HOME`, then `%APPDATA%` on Windows, then `~/.config` (`src/utils/config-root-dir.ts`). `LLM_USAGE_CONFIG_PATH` points at an alternate file.
+- A missing file is silent: the run proceeds with an empty config.
+- Malformed TOML fails with `Failed to parse config file <path>: <reason>`; a file whose root is not a TOML table fails with its own message.
+- Unknown keys (top-level and nested, including `[sourceDirs]`) produce **one** `stderr` warning listing the sorted key names; the run continues.
+- If the default TOML file is missing but a legacy `config.json` sits next to it, loading fails with an actionable migration error telling you the format is now TOML, to run `llm-usage config init` for a commented template, and to remove the old file. The probe is skipped when `LLM_USAGE_CONFIG_PATH` is set.
+
+## Transparency blocks
+
+Reports print what configuration actually applied, on `stderr`:
+
+- `Active config: <path>` lists the config-file values that took effect this run. The shadowing rule is load-bearing: a config value overridden by a flag or an env var is **not** listed, so the block never claims credit for a value that came from somewhere else.
+- `Active environment overrides:` separately lists every recognized `LLM_USAGE_*` env var that is set, with its value.
+
+## The template and the schema
+
+`llm-usage config init` (`src/cli/create-config-command.ts`) writes a fully commented template at the active config path, creating parent directories as needed. It refuses to overwrite an existing file (`Config file already exists: <path> (use --force to overwrite)`); `--force` replaces it. The template is documentation that cannot drift: every key ships commented out with its real default interpolated from the exported constants — including the machine's absolute default event-store path — and covers all keys, including all 16 `[sourceDirs]` entries.
+
+The first line is a `#:schema https://ayagmar.github.io/llm-usage-metrics/config-schema.json` directive, which TOML editors (e.g. Taplo) use for completion and validation. The schema is hand-maintained at `schema/config.schema.json`, and unit tests keep it honest: one test asserts the schema's key paths equal the loader's known-key set, and another asserts the published copy at `site/public/config-schema.json` is byte-identical to it.
+
+Adding a config key therefore touches: the known-key set in `user-config.ts`, both schema copies, the `config init` template, and the key tables in [Configuration](/configuration/) — the tests fail if the schema half of that list is forgotten.
+
+## Logging levels
+
+`src/utils/logger.ts` is a leveled `stderr` logger with a module-level `setLogLevel` and the ladder `silent < warn < info < debug`. The default level is `info`. Message kinds map to levels as follows: `warn` messages show at `warn` and above; `info` and `dim` messages show at `info` and above; `debug` messages only at `debug`.
+
+- Startup applies the `logLevel` config key (`setLogLevel(config.logLevel ?? 'info')` in `src/cli/index.ts`).
+- `--quiet` maps to `warn` for a single run via a Commander `preAction` hook in `create-cli.ts` — it wins over the configured level for that run.
+- **Report bodies on `stdout` are never gated.** Levels only control `stderr` diagnostics; `--json` output at `silent` is byte-identical to `--json` output at `debug`.
+- The fatal error handler in `src/cli/index.ts` is a raw `console.error` with exit code 1, outside the logger — failures always print, even at `silent`.
+
+## Related pages
+
+- [Configuration](/configuration/) — the key tables, source path overrides, and env vars.
+- [CLI Reference](/cli-reference/) — the `--quiet` flag and per-command options.
+- [Architecture overview](/architecture/) — where config and logging sit in the runtime.

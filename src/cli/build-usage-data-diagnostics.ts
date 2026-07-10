@@ -15,7 +15,9 @@ type BuildUsageDiagnosticsParams = {
   sourceFailures: UsageSourceFailure[];
   pricingOrigin: UsagePricingOrigin;
   pricingWarning?: string;
+  warnings?: string[];
   activeEnvOverrides: UsageDiagnostics['activeEnvOverrides'];
+  activeConfig?: UsageDiagnostics['activeConfig'];
   timezone: string;
   runtimeProfile?: UsageDiagnostics['runtimeProfile'];
 };
@@ -49,7 +51,9 @@ export function buildUsageDiagnostics(params: BuildUsageDiagnosticsParams): Usag
     skippedRows,
     pricingOrigin: params.pricingOrigin,
     pricingWarning: params.pricingWarning,
+    warnings: params.warnings,
     activeEnvOverrides: params.activeEnvOverrides,
+    activeConfig: params.activeConfig,
     timezone: params.timezone,
     runtimeProfile: params.runtimeProfile,
   };

@@ -1,0 +1,5 @@
+{"type":"assistant","model":"qwen3-coder","timestamp":"2026-03-01T10:00:00.000Z","sessionId":"qwen-session-1","usageMetadata":{"promptTokenCount":100,"candidatesTokenCount":40,"thoughtsTokenCount":15,"cachedContentTokenCount":5,"totalTokenCount":160}}
+{"type":"assistant","model":"qwen3-coder","timestamp":"2026-03-01T10:01:00.000Z","sessionId":"   ","usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":5}}
+{"type":"user","model":"qwen3-coder","timestamp":"2026-03-01T10:02:00.000Z","sessionId":"qwen-user","usageMetadata":{"promptTokenCount":999,"candidatesTokenCount":999,"totalTokenCount":1998}}
+{"type":"assistant","model":"qwen3-coder","timestamp":"2026-03-01T10:03:00.000Z","sessionId":"qwen-zero","usageMetadata":{"promptTokenCount":0,"candidatesTokenCount":0,"thoughtsTokenCount":0,"cachedContentTokenCount":0,"totalTokenCount":0}}
+{"type":"assistant","model":"qwen3-coder","timestamp":"not-a-date","sessionId":"qwen-invalid","usageMetadata":{"promptTokenCount":3,"candidatesTokenCount":2,"totalTokenCount":5}}

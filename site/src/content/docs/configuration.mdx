@@ -1,91 +1,146 @@
 ---
 title: Configuration
-description: CLI options, source path overrides, and runtime environment variables.
+description: Config file, CLI precedence, source path overrides, and runtime environment overrides.
 ---
 
-`llm-usage-metrics` is configured through CLI flags and environment variables.
+`llm-usage-metrics` uses a TOML config file for persistent defaults. CLI flags override it for one-off runs, and environment variables provide an override layer for scripts, CI, and debugging. For the design behind this — precedence machinery, validation, the template, and log levels — see the [Config & Logging](/architecture/config-and-logging/) deep dive.
 
-## Path overrides
+## Config file
 
-Directory-backed sources:
+Default path:
 
-```bash
-llm-usage daily --pi-dir /path/to/pi --codex-dir /path/to/codex --gemini-dir /path/to/.gemini --droid-dir /path/to/.factory/sessions --claude-dir /path/to/.claude/projects
+```text
+<config-root>/llm-usage-metrics/config.toml
 ```
 
-Generic directory override syntax:
+Config root follows the platform:
 
-```bash
-llm-usage daily --source-dir pi=/path/to/pi --source-dir codex=/path/to/codex --source-dir gemini=/path/to/.gemini --source-dir droid=/path/to/.factory/sessions --source-dir openclaw=/path/to/.openclaw/agents --source-dir claude=/path/to/.claude/projects
+- `XDG_CONFIG_HOME` when set
+- `%APPDATA%` on Windows
+- `~/.config` otherwise
+
+Run `llm-usage config init` to write a commented template at the active config path. Set `LLM_USAGE_CONFIG_PATH=/path/to/config.toml` to point at a different config file. A missing config file is silent and uses built-in defaults. Malformed TOML is an error. Unknown keys are reported once on `stderr` and the run continues.
+
+TOML editors such as Taplo can validate the file through the `#:schema` directive. The schema is published at [config-schema.json](/config-schema.json):
+
+```toml
+#:schema https://ayagmar.github.io/llm-usage-metrics/config-schema.json
+timezone = "Africa/Casablanca"
+logLevel = "info"
+sources = ["codex", "claude"]
+parseMaxParallel = 8
+parseWorkers = "auto"
+parseWorkerMinBytes = 268435456
+
+[sourceDirs]
+codex = "/path/to/.codex/sessions"
+claude = "/path/to/.claude/projects"
+opencode = "/path/to/opencode.db"
+goose = "/path/to/goose/sessions.db"
+
+[pricing]
+offline = true
+url = "https://example.com/model_prices_and_context_window.json"
+overridesPath = "/path/to/pricing-overrides.json"
+ignoreFailures = false
+cacheTtlMs = 86400000
+fetchTimeoutMs = 4000
+
+[eventStore]
+enabled = true
+path = "/path/to/events.db"
+
+[update]
+skipCheck = false
+cacheTtlMs = 3600000
+fetchTimeoutMs = 1000
 ```
 
-OpenCode uses a dedicated DB override flag:
+## Precedence
+
+Higher layers win:
+
+| Layer | Use case |
+| --- | --- |
+| CLI flags | One-off command overrides |
+| Environment variables | CI, scripts, temporary runtime overrides |
+| Config file | Persistent personal defaults |
+| Built-in defaults | Zero-config behavior |
+
+Applied config values are printed on `stderr` as an `Active config:` block. Values shadowed by a flag or environment variable are not listed. Set `logLevel = "warn"` to suppress informational stderr by default, or pass `--quiet` to do the same for a single report command.
+
+## Config keys
+
+| Config key | CLI flag or env override | What it controls |
+| --- | --- | --- |
+| `timezone` | `--timezone` | Default report timezone |
+| `logLevel` | `--quiet` | Stderr logging level: `silent`, `warn`, `info`, or `debug` |
+| `sources` | `--source` | Default source filter |
+| `sourceDirs.pi` | `--pi-dir` or `--source-dir pi=...` | Pi sessions path |
+| `sourceDirs.codex` | `--codex-dir` or `--source-dir codex=...` | Codex sessions path |
+| `sourceDirs.copilot` | `--copilot-dir` or `--source-dir copilot=...` | GitHub Copilot OTEL path |
+| `sourceDirs.gemini` | `--gemini-dir` or `--source-dir gemini=...` | Gemini CLI path |
+| `sourceDirs.droid` | `--droid-dir` or `--source-dir droid=...` | Droid sessions path |
+| `sourceDirs.claude` | `--claude-dir` or `--source-dir claude=...` | Claude projects path |
+| `sourceDirs.openclaw` | `--openclaw-dir` or `--source-dir openclaw=...` | OpenClaw agents path |
+| `sourceDirs.opencode` | `--opencode-db` | OpenCode SQLite DB |
+| `sourceDirs.goose` | `--goose-db` | Goose SQLite DB |
+| `sourceDirs.amp` | `--amp-dir` or `--source-dir amp=...` | Amp threads path |
+| `sourceDirs.qwen` | `--qwen-dir` or `--source-dir qwen=...` | Qwen projects path |
+| `sourceDirs.kimi` | `--kimi-dir` or `--source-dir kimi=...` | Kimi sessions path |
+| `sourceDirs.cline` | `--cline-dir` or `--source-dir cline=...` | Cline tasks path |
+| `sourceDirs.roocode` | `--roocode-dir` or `--source-dir roocode=...` | RooCode tasks path |
+| `sourceDirs.kilocode` | `--kilocode-dir` or `--source-dir kilocode=...` | KiloCode tasks path |
+| `sourceDirs.antigravity` | `--antigravity-dir` or `--source-dir antigravity=...` | Antigravity conversations path |
+| `pricing.offline` | `--pricing-offline` | Use cached LiteLLM pricing only |
+| `pricing.url` | `--pricing-url` | LiteLLM pricing source URL |
+| `pricing.overridesPath` | `--pricing-overrides` | JSON pricing overrides path |
+| `pricing.ignoreFailures` | `--ignore-pricing-failures` | Continue without estimated costs when pricing cannot load |
+| `pricing.cacheTtlMs` | Config only | Pricing cache TTL |
+| `pricing.fetchTimeoutMs` | Config only | Pricing fetch timeout |
+| `eventStore.enabled` | `LLM_USAGE_EVENT_STORE` | Enable SQLite event-store reuse |
+| `eventStore.path` | `LLM_USAGE_EVENT_STORE_PATH` | SQLite event-store path |
+| `parseMaxParallel` | Config only | Max parallel file parses |
+| `parseWorkers` | `LLM_USAGE_PARSE_WORKERS` | Worker-thread parser count for large JSONL misses |
+| `parseWorkerMinBytes` | `LLM_USAGE_PARSE_WORKER_MIN_BYTES` | Missed-file byte threshold before workers engage |
+| `update.skipCheck` | `LLM_USAGE_SKIP_UPDATE_CHECK` | Skip startup update checks |
+| `update.cacheTtlMs` | Config only | Update-check cache TTL |
+| `update.fetchTimeoutMs` | Config only | Update-check fetch timeout |
+
+There is no `--no-pricing-offline` flag. To force a one-off online pricing refresh while `pricing.offline = true` stays in the config, bypass the config for that run by pointing `LLM_USAGE_CONFIG_PATH` at a nonexistent file (a missing file loads an empty config) or edit the file:
 
 ```bash
-llm-usage daily --opencode-db /path/to/opencode.db
+LLM_USAGE_CONFIG_PATH=/nonexistent llm-usage monthly
 ```
 
-Notes:
+## Environment overrides
 
-- `--source-dir` supports directory-backed sources (`pi`, `codex`, `gemini`, `droid`, `openclaw`, `claude`).
-- `--source-dir opencode=...` is rejected; use `--opencode-db`.
-- OpenCode path precedence is:
-  1. `--opencode-db`
-  2. deterministic OS-specific default DB candidates
+Environment variables override the config file and are printed as an `Active environment overrides:` block when set.
 
-## Source selection
-
-```bash
-llm-usage monthly --source pi
-llm-usage monthly --source pi,codex
-llm-usage monthly --source droid --droid-dir /path/to/.factory/sessions
-llm-usage monthly --source opencode --opencode-db /path/to/opencode.db
-llm-usage monthly --source openclaw --source-dir openclaw=/path/to/.openclaw/agents
-llm-usage monthly --source claude --claude-dir /path/to/.claude/projects
-```
-
-## Runtime environment variables
-
-See [Caching](/caching/) for cache-layer behavior details. This section explains what each key does and why you would tune it.
-
-### Update-check behavior
-
-| Variable | Default | What it controls | Why/when to change it |
+| Variable | Config key | Default | Notes |
 | --- | --- | --- | --- |
-| `LLM_USAGE_SKIP_UPDATE_CHECK` | unset (`false`) | Skips startup npm update check when truthy (`1`, `true`, `yes`, `on`) | Set in CI/non-interactive pipelines to avoid extra startup work |
-| `LLM_USAGE_UPDATE_CACHE_SCOPE` | `global` | Update-check cache scope (`global` or `session`) | Use `session` to isolate cache by terminal/session |
-| `LLM_USAGE_UPDATE_CACHE_SESSION_KEY` | unset | Session cache key used when scope is `session` | Set explicit stable key for terminal tabs/workspaces |
-| `LLM_USAGE_UPDATE_CACHE_TTL_MS` | `3600000` (1h) | How long update-check cache is considered fresh | Lower for more frequent checks, higher for less network traffic |
-| `LLM_USAGE_UPDATE_FETCH_TIMEOUT_MS` | `1000` | HTTP timeout for update-check request | Increase on slow networks to reduce timeout-based misses |
+| `LLM_USAGE_CONFIG_PATH` | n/a | platform config path | Points at a config TOML file |
+| `LLM_USAGE_SKIP_UPDATE_CHECK` | `update.skipCheck` | unset (`false`) | Truthy values: `1`, `true`, `yes`, `on` |
+| `LLM_USAGE_UPDATE_CACHE_SCOPE` | n/a | `global` | `session` isolates update-check cache by session |
+| `LLM_USAGE_UPDATE_CACHE_SESSION_KEY` | n/a | unset | Stable key for session-scoped update cache |
+| `LLM_USAGE_PARSE_WORKERS` | `parseWorkers` | `auto` | `auto` or integer `0..64`; `0` disables workers |
+| `LLM_USAGE_PARSE_WORKER_MIN_BYTES` | `parseWorkerMinBytes` | `268435456` | Clamps to `0..9007199254740991` |
+| `LLM_USAGE_EVENT_STORE` | `eventStore.enabled` | `1` (`true`) | Set `0` to disable the store |
+| `LLM_USAGE_EVENT_STORE_PATH` | `eventStore.path` | platform cache `events.db` | Use an isolated store for experiments or CI |
+| `LLM_USAGE_PROFILE_RUNTIME` | n/a | unset (`false`) | Emits runtime profiling diagnostics |
 
-### Pricing behavior
-
-| Variable | Default | What it controls | Why/when to change it |
-| --- | --- | --- | --- |
-| `LLM_USAGE_PRICING_CACHE_TTL_MS` | `86400000` (24h) | Freshness window for LiteLLM pricing cache | Lower for fresher pricing, higher for stable/offline-heavy setups |
-| `LLM_USAGE_PRICING_FETCH_TIMEOUT_MS` | `4000` | HTTP timeout for pricing fetches | Increase if pricing fetches time out in your environment |
-
-### Parsing and parse-cache behavior
-
-| Variable | Default | What it controls | Why/when to change it |
-| --- | --- | --- | --- |
-| `LLM_USAGE_PARSE_MAX_PARALLEL` | `8` | Max parallel file parses (`1-64`) | Increase on fast CPUs/disks, lower on constrained systems |
-| `LLM_USAGE_PARSE_CACHE_ENABLED` | `1` (`true`) | Enables/disables parse-file cache | Disable for strict cold-run benchmarking/debugging |
-| `LLM_USAGE_PARSE_CACHE_TTL_MS` | `604800000` (7d) | Parse-cache TTL for unchanged files | Lower if you want more frequent full reparsing |
-| `LLM_USAGE_PARSE_CACHE_MAX_ENTRIES` | `2000` | Upper bound for parse-cache entry count | Raise for very large history sets; lower to cap disk usage |
-| `LLM_USAGE_PARSE_CACHE_MAX_BYTES` | `33554432` (32 MiB) | Upper bound for parse-cache file size | Raise when cache churn is high; lower for tighter disk budgets |
-| `LLM_USAGE_PROFILE_RUNTIME` | unset (`false`) | Emits source pruning, parse-cache, parse-count, and stage-timing diagnostics on `stderr` | Enable when profiling discovery/parsing/runtime behavior locally |
+`--history` requires the event store to stay enabled. Deleting `events.db` also deletes retained departed-file history.
 
 Example:
 
 ```bash
-LLM_USAGE_PARSE_MAX_PARALLEL=16 LLM_USAGE_PRICING_FETCH_TIMEOUT_MS=8000 llm-usage monthly
+LLM_USAGE_PARSE_WORKERS=4 LLM_USAGE_EVENT_STORE=0 llm-usage monthly
 ```
 
-Benchmarking-focused example (force near-cold parse behavior):
+Benchmarking-focused example:
 
 ```bash
 LLM_USAGE_SKIP_UPDATE_CHECK=1 \
-LLM_USAGE_PARSE_CACHE_ENABLED=0 \
+LLM_USAGE_EVENT_STORE=0 \
 llm-usage monthly --provider openai --json
 ```

@@ -32,7 +32,7 @@ const linesChangedColumnIndex = 4;
 const costColumnIndex = 11;
 const usdPerCommitColumnIndex = 12;
 const usdPer1kLinesChangedColumnIndex = 13;
-const commitsPerUsdColumnIndex = 16;
+const commitsPerUsdColumnIndex = 15;
 
 type FittedEfficiencyTableCells = {
   headerCells: string[];
@@ -55,7 +55,8 @@ function toTableRowMeta(row: EfficiencyRow): TableRowMeta {
   return {
     periodKey: row.periodKey,
     periodGroup: row.rowType === 'grand_total' ? 'summary' : 'normal',
-    rowKind: row.rowType === 'grand_total' ? 'total' : 'detail',
+    rowKind:
+      row.rowType === 'grand_total' ? 'total' : row.rowType === 'period' ? 'combined' : 'detail',
   };
 }
 
@@ -226,6 +227,17 @@ function styleEfficiencyTerminalRows(
     const styledCells = [...cells];
     const periodCell = styledCells[periodColumnIndex];
 
+    if (row.rowType === 'period_source') {
+      styledCells[periodColumnIndex] = pc.dim(periodCell);
+
+      const costValue = row.costUsd;
+      if (costValue !== undefined && costValue > 0) {
+        styledCells[costColumnIndex] = pc.yellow(styledCells[costColumnIndex]);
+      }
+
+      return styledCells;
+    }
+
     styledCells[periodColumnIndex] =
       row.rowType === 'grand_total' ? pc.bold(pc.cyan(periodCell)) : pc.bold(periodCell);
     styledCells[commitsColumnIndex] = pc.bold(styledCells[commitsColumnIndex]);
@@ -335,6 +347,17 @@ export function renderEfficiencyReport(
 ): string {
   switch (format) {
     case 'json':
+      if (efficiencyData.grouping === 'source') {
+        return JSON.stringify(
+          {
+            grouping: efficiencyData.grouping,
+            rows: efficiencyData.rows,
+          },
+          null,
+          2,
+        );
+      }
+
       return JSON.stringify(efficiencyData.rows, null, 2);
     case 'markdown':
       return renderMarkdownEfficiencyTable(efficiencyData.rows);

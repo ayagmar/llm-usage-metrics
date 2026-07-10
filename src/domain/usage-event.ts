@@ -2,6 +2,7 @@ import {
   normalizeNonNegativeInteger,
   normalizeTimestamp,
   normalizeUsdCost,
+  stripControlCharacters,
   type NumberLike,
 } from './normalization.js';
 import { normalizeProviderToBillingEntity } from './provider-normalization.js';
@@ -58,12 +59,12 @@ export function normalizeSourceId(value: unknown): SourceId | undefined {
     return undefined;
   }
 
-  const normalized = value.trim();
+  const normalized = stripControlCharacters(value).trim();
   return normalized || undefined;
 }
 
 function requireText(value: string, fieldName: string): string {
-  const normalized = value.trim();
+  const normalized = stripControlCharacters(value).trim();
 
   if (!normalized) {
     throw new Error(`UsageEvent ${fieldName} must be a non-empty string`);
@@ -77,26 +78,29 @@ function normalizeOptionalText(value: string | undefined): string | undefined {
     return undefined;
   }
 
-  const normalized = value.trim();
+  const normalized = stripControlCharacters(value).trim();
   return normalized || undefined;
 }
 
 function normalizeOptionalProvider(value: string | undefined): string | undefined {
-  return normalizeProviderToBillingEntity(value);
+  return normalizeProviderToBillingEntity(normalizeOptionalText(value));
 }
 
 function normalizeOptionalPath(value: string | undefined): string | undefined {
   return normalizeOptionalText(value);
 }
 
-function normalizeOptionalModel(value: string | undefined): string | undefined {
-  const normalized = normalizeOptionalText(value);
+function normalizeModelKey(value: string): string {
+  return stripControlCharacters(value).trim().toLowerCase();
+}
 
-  if (!normalized) {
+function normalizeOptionalModel(value: string | undefined): string | undefined {
+  if (!value) {
     return undefined;
   }
 
-  return normalized.toLowerCase();
+  const normalized = normalizeModelKey(value);
+  return normalized || undefined;
 }
 
 function resolveCostMode(costMode: CostMode | undefined, costUsd: number | undefined): CostMode {

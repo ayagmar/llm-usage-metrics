@@ -1,0 +1,25 @@
+---
+title: qwen Source
+---
+
+## Default location
+
+- `~/.qwen/projects/*/chats/*.jsonl`
+
+## Override
+
+```bash
+llm-usage daily --source qwen --qwen-dir /path/to/.qwen/projects
+```
+
+`qwen` is directory-backed, so generic source directory overrides also work:
+
+```bash
+llm-usage daily --source-dir qwen=/path/to/.qwen/projects
+```
+
+The adapter does not read `QWEN_DATA_DIR` in this release; use `--qwen-dir` for non-default locations.
+
+## Parsing notes
+
+The adapter reads Qwen CLI JSONL chat rows. Assistant rows with `usageMetadata` become usage events: `promptTokenCount` maps to input, `candidatesTokenCount` to output, `thoughtsTokenCount` to reasoning, `cachedContentTokenCount` to cache read, and `totalTokenCount` to the declared total when present.

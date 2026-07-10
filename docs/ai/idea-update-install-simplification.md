@@ -1,7 +1,10 @@
 # Idea #7: Simplify interactive update install
 
+> Status: **Approved & implemented on `feat/improvements` (2026-07)** — the
+> maintainer approved the product change on 2026-07-05; the CLI now prints a
+> non-blocking stderr hint and never prompts, installs, or restarts.
 > Confidence: **70%** — fixes the most fragile subsystem, but removes a
-> documented feature. **Requires maintainer product sign-off.** Not started.
+> documented feature.
 
 ## The problem this solves
 
@@ -9,12 +12,12 @@ The update subsystem (`src/update/`) is the **most complex, fragile code
 relative to its job** in the codebase. It just shipped a real cross-command
 consistency bug (PR #117: stale cache → background refresh → no prompt on one
 command, prompt on the next). Even after that fix, the core interactive path
-remains the single riskiest code in the tool:
+was the single riskiest code in the tool:
 
 ```ts
-// src/update/update-install-runner.ts
+// src/update/update-install-runner.ts (deleted when this idea shipped)
 export async function runInteractiveInstallAndRestart(options) {
-  const installAccepted = await confirmInstall('... Install now? [y/N] ');
+  const installAccepted = await confirmInstall(installPromptMessage); // readline [y/N]
   if (!installAccepted) return { continueExecution: true };
 
   // 1. Run a global install that mutates the user's environment:
@@ -91,10 +94,9 @@ What stays:
 ## Possible downsides
 
 - **It removes a documented feature.** The README "Update Checks" section
-  currently implies interactive prompting ("Prompts only in interactive TTY
-  sessions"). Removing it is a **product decision**, not a pure improvement —
-  some users may value the one-step install. This is why I did not implement it
-  unilaterally.
+  previously documented interactive prompting in TTY sessions. Removing it was
+  a **product decision**, not a pure improvement — some users may value the
+  one-step install. This is why I did not implement it unilaterally.
 - **Slightly worse UX for users who relied on the prompt.** They now see a hint
   and must run the install command themselves.
 - **Migration.** Needs a release-note line and a README update so the behavior

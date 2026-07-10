@@ -1,0 +1,85 @@
+---
+title: Wrapped Recap
+description: A yearly usage recap in the terminal and as a shareable SVG.
+---
+
+`llm-usage wrapped` condenses a full year of local usage into a single recap: totals, active days, the longest daily streak, the top models and sources, and a month-by-month intensity strip.
+
+## Command structure
+
+```bash
+llm-usage wrapped [options]
+```
+
+Examples:
+
+```bash
+llm-usage wrapped
+llm-usage wrapped --year 2026
+llm-usage wrapped --year 2026 --provider anthropic
+llm-usage wrapped --year 2026 --json
+llm-usage wrapped --year 2026 --share
+```
+
+## Options
+
+- `--year <YYYY>`: the year to recap (2020–2100; defaults to the current year in the report timezone)
+- `--provider <name>` / `--model <name>`: scope the recap the same way they scope the other reports
+- shared filters apply: `--source`, `--timezone`, source-path overrides, pricing flags, and `--history`
+
+`--year` owns the date range, so `--since` / `--until` are not available. `wrapped` supports terminal, `--json`, and `--share` output; it does not support `--markdown`.
+
+## Terminal output
+
+```text
+┌──────────────┐
+│ Wrapped 2026 │
+└──────────────┘
+2026-01-01 to 2026-12-31 (UTC)
+
+Tokens          48,200,000
+Cost            $214.90
+Active days     143
+Longest streak  21 days
+Events          8,640
+Sessions        512
+
+Monthly activity
+Jan ▂  Feb █  Mar █  Apr ▄  May ▂  Jun ▁  Jul ▁  Aug ·  Sep ▁  Oct ▂  Nov ▄  Dec █
+
+Top models
+╭───┬───────────────────┬────────────┬────────╮
+│ # │ Model             │     Tokens │   Cost │
+├───┼───────────────────┼────────────┼────────┤
+│ 1 │ gpt-5.1           │ 21,400,000 │ $96.20 │
+├───┼───────────────────┼────────────┼────────┤
+│ 2 │ claude-sonnet-4-6 │ 14,800,000 │ $72.50 │
+╰───┴───────────────────┴────────────┴────────╯
+```
+
+The report uses the shared boxed header, tables, and color policy; set `NO_COLOR` for plain text. The monthly strip renders each month's relative intensity with block glyphs (`·▁▂▄█`, scaled against the busiest month). Terminal and JSON list the top five models and sources.
+
+## Share SVG
+
+`--share` writes an offline SVG named `llm-usage-wrapped-<year>.svg` to the current working directory (its top lists show three rows). PNG rendering and embedded logo/font assets are intentionally out of scope.
+
+## JSON shape
+
+```json
+{
+  "year": 2026,
+  "timezone": "UTC",
+  "from": "2026-01-01",
+  "to": "2026-12-31",
+  "totalTokens": 48200000,
+  "totalCostUsd": 214.9,
+  "costIncomplete": false,
+  "activeDays": 143,
+  "longestStreak": 21,
+  "eventCount": 8640,
+  "sessionCount": 512,
+  "topModels": [{ "name": "gpt-5.1", "totalTokens": 21400000, "costUsd": 96.2 }],
+  "topSources": [{ "name": "codex", "totalTokens": 26300000, "costUsd": 121.4 }],
+  "monthlyIntensity": [{ "month": "2026-01", "totalTokens": 2000000, "level": 2 }]
+}
+```

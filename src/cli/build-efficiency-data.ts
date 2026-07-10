@@ -61,6 +61,10 @@ function resolveScopeNote(options: EfficiencyCommandOptions): string | undefined
     activeFilters.push('--codex-dir');
   }
 
+  if (hasActiveTextOption(options.copilotDir)) {
+    activeFilters.push('--copilot-dir');
+  }
+
   if (hasActiveTextOption(options.geminiDir)) {
     activeFilters.push('--gemini-dir');
   }
@@ -73,8 +77,44 @@ function resolveScopeNote(options: EfficiencyCommandOptions): string | undefined
     activeFilters.push('--claude-dir');
   }
 
+  if (hasActiveTextOption(options.openclawDir)) {
+    activeFilters.push('--openclaw-dir');
+  }
+
   if (hasActiveTextOption(options.opencodeDb)) {
     activeFilters.push('--opencode-db');
+  }
+
+  if (hasActiveTextOption(options.gooseDb)) {
+    activeFilters.push('--goose-db');
+  }
+
+  if (hasActiveTextOption(options.ampDir)) {
+    activeFilters.push('--amp-dir');
+  }
+
+  if (hasActiveTextOption(options.qwenDir)) {
+    activeFilters.push('--qwen-dir');
+  }
+
+  if (hasActiveTextOption(options.kimiDir)) {
+    activeFilters.push('--kimi-dir');
+  }
+
+  if (hasActiveTextOption(options.clineDir)) {
+    activeFilters.push('--cline-dir');
+  }
+
+  if (hasActiveTextOption(options.roocodeDir)) {
+    activeFilters.push('--roocode-dir');
+  }
+
+  if (hasActiveTextOption(options.kilocodeDir)) {
+    activeFilters.push('--kilocode-dir');
+  }
+
+  if (hasActiveTextOption(options.antigravityDir)) {
+    activeFilters.push('--antigravity-dir');
   }
 
   if (hasActiveRepeatedFilter(options.sourceDir)) {
@@ -159,6 +199,7 @@ export async function buildEfficiencyData(
       aggregateUsage(matchedEventsWithSignal, {
         granularity,
         timezone: dataset.normalizedInputs.timezone,
+        sourceOrder: dataset.adaptersToParse.map((adapter) => adapter.id),
         includeModelBreakdown: false,
       }),
   );
@@ -167,6 +208,7 @@ export async function buildEfficiencyData(
     aggregateEfficiency({
       usageRows: repoScopedUsageRows,
       periodOutcomes: gitOutcomes.periodOutcomes,
+      bySource: options.bySource === true,
     }),
   );
   const usageDiagnostics = buildUsageDiagnostics({
@@ -175,12 +217,15 @@ export async function buildEfficiencyData(
     sourceFailures: dataset.sourceFailures,
     pricingOrigin,
     pricingWarning,
+    warnings: dataset.warnings,
     activeEnvOverrides: dataset.readEnvVarOverrides(),
+    activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,
     runtimeProfile: deps.runtimeProfile?.snapshot(),
   });
 
   return {
+    grouping: options.bySource === true ? 'source' : 'period',
     rows,
     diagnostics: {
       usage: usageDiagnostics,

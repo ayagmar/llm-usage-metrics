@@ -5,6 +5,7 @@ import { renderEfficiencyMonthlyShareSvg } from '../../src/render/render-efficie
 
 function createData(): EfficiencyDataResult {
   return {
+    grouping: 'period',
     rows: [
       {
         rowType: 'period',

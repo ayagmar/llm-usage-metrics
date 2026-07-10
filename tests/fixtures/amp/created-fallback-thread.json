@@ -1,0 +1,27 @@
+{
+  "id": "amp-created-fallback-thread",
+  "created": 1772186400000,
+  "messages": [
+    {
+      "id": "message-cache",
+      "role": "assistant",
+      "usage": {
+        "cacheReadInputTokens": 4,
+        "cacheCreationInputTokens": 6
+      }
+    }
+  ],
+  "usageLedger": {
+    "events": [
+      {
+        "id": "fallback-ledger",
+        "model": "fallback-model",
+        "toMessageId": "message-cache",
+        "tokens": {
+          "input": 1,
+          "output": 2
+        }
+      }
+    ]
+  }
+}

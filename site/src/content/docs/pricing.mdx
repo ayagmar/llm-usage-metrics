@@ -3,19 +3,35 @@ title: Pricing
 description: How pricing is loaded and how row costs are computed.
 ---
 
-`llm-usage-metrics` uses LiteLLM pricing data to estimate costs when events do not include explicit cost.
+`llm-usage-metrics` uses LiteLLM pricing data to estimate costs when events do not include explicit cost. For the design behind these knobs — the fallback ladder, model-name matching, and the cost engine — see the [Pricing Pipeline](/architecture/pricing-pipeline/) deep dive.
 
 ## Pricing source
 
 - primary source: LiteLLM pricing JSON
-- cache: local pricing cache is used when available
-- offline mode: `--pricing-offline` uses cache only
+- cache: online runs use a fresh cache first, then refresh from LiteLLM when needed
+- fallback: stale cache is used when live refresh fails
+- bundled snapshot: the default LiteLLM pricing URL can fall back to a bundled snapshot
+- offline mode: `--pricing-offline` skips network and uses cache, stale cache, or the bundled snapshot
 
 ```bash
 llm-usage monthly --pricing-offline
 ```
 
-If pricing cannot be loaded (or offline cache is unavailable), report generation fails.
+When the bundled snapshot is used, `stderr` includes a warning with the snapshot
+date:
+
+```text
+Pricing: using the bundled LiteLLM snapshot from 2026-07-08 (run online to refresh).
+```
+
+Run without `--pricing-offline` to refresh the cache from LiteLLM. Custom
+`--pricing-url` values do not fall back to the bundled default snapshot; they
+must load from their matching cache or network URL.
+
+When `pricing.offline: true` is set in the config file, there is no
+`--no-pricing-offline` flag; force a one-off online refresh by bypassing the
+config for that run (`LLM_USAGE_CONFIG_PATH=/nonexistent llm-usage monthly`) or
+edit the config.
 
 For cache lifecycle and tuning knobs, see [Caching](/caching/).
 
@@ -64,4 +80,4 @@ File shape:
 }
 ```
 
-Only `inputPer1MUsd` and `outputPer1MUsd` are required; `cacheReadPer1MUsd`, `cacheWritePer1MUsd`, `reasoningPer1MUsd`, and `reasoningBilling` (`included-in-output` or `separate`) are optional. Model names match case-insensitively. Entries missing required rates are ignored.
+Only `inputPer1MUsd` and `outputPer1MUsd` are required; `cacheReadPer1MUsd`, `cacheWritePer1MUsd`, `reasoningPer1MUsd`, and `reasoningBilling` (`included-in-output` or `separate`) are optional. Rates must be finite, non-negative numbers. Invalid required rates discard the entry, while invalid optional rates are ignored. Model names match case-insensitively.

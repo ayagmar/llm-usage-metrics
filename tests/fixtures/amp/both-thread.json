@@ -1,0 +1,31 @@
+{
+  "id": "amp-both-thread",
+  "created": 1772098200000,
+  "messages": [
+    {
+      "id": "message-usage",
+      "role": "assistant",
+      "timestamp": "2026-02-26T09:31:00.000Z",
+      "usage": {
+        "model": "message-model-ignored",
+        "inputTokens": 999,
+        "outputTokens": 999,
+        "totalTokens": 1998
+      }
+    }
+  ],
+  "usageLedger": {
+    "events": [
+      {
+        "id": "ledger-only",
+        "timestamp": "2026-02-26T09:35:00.000Z",
+        "model": "ledger-model",
+        "tokens": {
+          "input": 12,
+          "output": 8,
+          "total": 20
+        }
+      }
+    ]
+  }
+}

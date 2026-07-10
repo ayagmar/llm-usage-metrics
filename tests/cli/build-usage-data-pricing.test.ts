@@ -9,13 +9,22 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // records whether load() read from cache.
 const mockPricingByModel = new Map<string, { inputPer1MUsd: number; outputPer1MUsd: number }>();
 let mockLoadedFromCache = false;
+let mockLoadOrigin: 'cache' | 'network' | 'bundled-snapshot' | undefined;
+let mockPricingWarning: string | undefined;
 
 vi.mock('../../src/pricing/litellm-pricing-fetcher.js', () => {
   return {
     DEFAULT_LITELLM_PRICING_URL: 'https://example.test/litellm.json',
     LiteLLMPricingFetcher: class {
       public async load() {
+        mockLoadOrigin = mockLoadOrigin ?? (mockLoadedFromCache ? 'cache' : 'network');
         return mockLoadedFromCache;
+      }
+      public getLoadOrigin() {
+        return mockLoadOrigin;
+      }
+      public getPricingWarning() {
+        return mockPricingWarning;
       }
       public resolveModelAlias(model: string) {
         return model.toLowerCase();
@@ -36,6 +45,8 @@ afterEach(async () => {
   tempDirs.length = 0;
   mockPricingByModel.clear();
   mockLoadedFromCache = false;
+  mockLoadOrigin = undefined;
+  mockPricingWarning = undefined;
   vi.clearAllMocks();
 });
 
@@ -97,6 +108,26 @@ describe('resolvePricingSource — pricing overrides wiring', () => {
       outputPer1MUsd: 8,
     });
     expect(result.origin).toBe('offline-cache');
+  });
+
+  it('returns bundled snapshot origin and warning when the fetcher uses the bundled snapshot', async () => {
+    primePricing({ 'gpt-4.1': { inputPer1MUsd: 2, outputPer1MUsd: 8 } });
+    mockLoadedFromCache = true;
+    mockLoadOrigin = 'bundled-snapshot';
+    mockPricingWarning =
+      'Pricing: using the bundled LiteLLM snapshot from 2026-07-08 (run online to refresh).';
+
+    const result = await resolvePricingSource(
+      { pricingOffline: true },
+      { cacheTtlMs: 60_000, fetchTimeoutMs: 1000 },
+    );
+
+    expect(result.origin).toBe('bundled-snapshot');
+    expect(result.warning).toBe(mockPricingWarning);
+    expect(result.source.getPricing('gpt-4.1')).toMatchObject({
+      inputPer1MUsd: 2,
+      outputPer1MUsd: 8,
+    });
   });
 
   it('reports a bad --pricing-overrides path as an overrides error, not a LiteLLM/cache failure', async () => {

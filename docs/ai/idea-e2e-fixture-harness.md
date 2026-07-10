@@ -5,10 +5,10 @@
 ## The problem this solves
 
 There are e2e tests today (`tests/e2e/`: `usage-report`, `trends`, `opencode`,
-`large-jsonl`), but they each set up a **single source** in isolation. There is
-no test that runs the **real built CLI binary** against a **committed,
-multi-source fixture tree** (pi + codex + gemini + droid + opencode + claude
-together) and asserts the end-to-end output.
+`large-jsonl`), and `usage-report` already covers a mixed pi + codex run and
+openclaw. But there is no test that runs the **real built CLI binary** against
+a **committed, multi-source fixture tree** (pi + codex + gemini + droid +
+opencode + openclaw + claude together) and asserts the end-to-end output.
 
 This matters because the riskiest regressions are **cross-source**:
 
@@ -43,6 +43,7 @@ tests/e2e/fixtures/multi-source/
   gemini/tmp/proj/chats/session.json
   factory/sessions/2026-06-01.settings.json
   opencode/opencode.db
+  openclaw/agents/session.jsonl
   claude/projects/-proj/session.jsonl
 ```
 
@@ -65,13 +66,14 @@ for (const command of ['daily', 'monthly', 'trends'] as const) {
       '--gemini-dir', `${fixtureRoot}/gemini`,
       '--droid-dir', `${fixtureRoot}/factory/sessions`,
       '--opencode-db', `${fixtureRoot}/opencode/opencode.db`,
+      '--source-dir', `openclaw=${fixtureRoot}/openclaw/agents`,
       '--claude-dir', `${fixtureRoot}/claude/projects`,
       '--pricing-offline',
       '--since', '2026-06-01', '--until', '2026-06-01',
     ]);
 
     const payload = JSON.parse(stdout);
-    expect(payload.sources).toEqual(['pi','codex','gemini','droid','opencode','claude']);
+    expect(payload.sources).toEqual(['pi','codex','gemini','droid','opencode','openclaw','claude']);
     // snapshot the stable shape, not volatile fields like absolute costs
     expect(stripVolatile(payload)).toMatchFileSnapshot(`./snapshots/${command}.json`);
   });
@@ -102,21 +104,21 @@ timestamps from "now") so snapshots are stable across runs and machines.
   real source formats; they need occasional refresh. This is unavoidable for
   any fixture-based parser test and the per-adapter unit tests already carry
   this cost.
-- **Scope.** A thorough matrix (6 sources × 5 commands × 3 modes) is
+- **Scope.** A thorough matrix (16 sources × 5 commands × 3 modes) is
   medium-large. A minimal v1 can be one command (`monthly --json`) across all
-  six sources and grow from there.
+  16 sources and grow from there.
 
 ## Confidence
 
 **75%.** The value is real and the gap (cross-source, real-binary e2e) is
 genuine, but it is larger than the two ideas shipped in PR #119 and the existing
-e2e coverage is not zero. Recommend a minimal v1 (one command, all six sources,
-JSON snapshot) before expanding the matrix.
+e2e coverage is not zero. Recommend a minimal v1 (one command, all 16
+sources, JSON snapshot) before expanding the matrix.
 
 ## Suggested first step
 
 Add `tests/e2e/fixtures/multi-source/` with one tiny file per source and a
 single `multi-source.e2e.test.ts` that runs `monthly --json --pricing-offline`
-over all six and snapshots the source list + per-source totals. This is the
+over all 16 and snapshots the source list + per-source totals. This is the
 smallest version that proves the harness and catches registration/order
 regressions.

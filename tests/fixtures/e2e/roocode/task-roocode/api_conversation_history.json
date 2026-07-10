@@ -1,0 +1,6 @@
+[
+  {
+    "role": "user",
+    "content": "<environment_details><model>gpt-roocode-e2e</model></environment_details>"
+  }
+]

@@ -1,15 +1,25 @@
 import { Command } from 'commander';
 
 import type {
+  CompareCommandOptions,
+  DoctorCommandOptions,
   EfficiencyCommandOptions,
   OptimizeCommandOptions,
+  PruneCommandOptions,
   ReportCommandOptions,
+  SessionCommandOptions,
   TrendsCommandOptions,
+  WrappedCommandOptions,
 } from '../usage-data-contracts.js';
+import { runCompareReport } from '../run-compare-report.js';
 import { runEfficiencyReport } from '../run-efficiency-report.js';
 import { runOptimizeReport } from '../run-optimize-report.js';
+import { runSessionReport } from '../run-session-report.js';
 import { runTrendsReport } from '../run-trends-report.js';
 import { runUsageReport } from '../run-usage-report.js';
+import { runDoctorReport } from '../run-doctor-report.js';
+import { runPruneReport } from '../run-prune-report.js';
+import { runWrappedReport } from '../run-wrapped-report.js';
 import type { ReportGranularity } from '../../utils/time-buckets.js';
 import {
   collectRepeatedOption,
@@ -105,6 +115,10 @@ function createUsageReportDefinition(granularity: ReportGranularity): ReportRunt
         includeInCliReference: true,
       },
       {
+        command: 'llm-usage monthly --history --pricing-offline',
+        includeInCliReference: true,
+      },
+      {
         command: 'llm-usage monthly --source droid --droid-dir /path/to/.factory/sessions',
         includeInCliReference: true,
       },
@@ -166,9 +180,40 @@ const efficiencyReportDefinition: ReportRuntimeDefinition = {
       .argument('<granularity>', 'Granularity: daily | weekly | monthly', parseGranularityArgument)
       .option('--repo-dir <path>', 'Path to repository for Git outcome metrics')
       .option('--include-merge-commits', 'Include merge commits in Git outcome metrics')
+      .option('--by-source', 'Include per-source usage rows under each period')
       .action((granularity: ReportGranularity, options: EfficiencyCommandOptions) =>
         runEfficiencyReport(granularity, options),
       );
+
+    return command;
+  },
+};
+
+const compareReportDefinition: ReportRuntimeDefinition = {
+  meta: {
+    commandName: 'compare',
+    docsLabel: 'compare',
+    kind: 'specialized',
+    description: 'Compare usage and cost between two date windows',
+    sharedOptionProfile: 'compare',
+    helpExamples: [
+      {
+        command: 'llm-usage compare',
+        includeInRootHelp: true,
+        includeInCliReference: true,
+      },
+      {
+        command:
+          'llm-usage compare --since 2026-06-01 --until 2026-06-30 --vs-since 2026-05-01 --vs-until 2026-05-31',
+        includeInCliReference: true,
+      },
+    ],
+  },
+  register(command) {
+    command
+      .option('--vs-since <date>', 'Inclusive start date for the baseline comparison window')
+      .option('--vs-until <date>', 'Inclusive end date for the baseline comparison window')
+      .action((options: CompareCommandOptions) => runCompareReport(options));
 
     return command;
   },
@@ -252,13 +297,155 @@ const trendsReportDefinition: ReportRuntimeDefinition = {
   },
 };
 
+const sessionReportDefinition: ReportRuntimeDefinition = {
+  meta: {
+    commandName: 'session',
+    docsLabel: 'session',
+    kind: 'specialized',
+    description: 'Show usage grouped by conversation session',
+    sharedOptionProfile: 'session',
+    helpExamples: [
+      {
+        command: 'llm-usage session',
+        includeInRootHelp: true,
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage session --top 5 --json',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage session --id 486c',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage session --by-repo --top 5',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage session --markdown',
+        includeInCliReference: true,
+      },
+    ],
+  },
+  register(command) {
+    command
+      .option('--top <n>', 'Show only the top N rows by cost (default 20; 0 shows all)')
+      .option(
+        '--id <session-id>',
+        'Show only sessions whose id contains the value (case-insensitive; repeatable or comma-separated)',
+        collectRepeatedOption,
+      )
+      .option('--by-repo', 'Group usage by repository root instead of by session')
+      .action((options: SessionCommandOptions) => runSessionReport(options));
+
+    return command;
+  },
+};
+
+const wrappedReportDefinition: ReportRuntimeDefinition = {
+  meta: {
+    commandName: 'wrapped',
+    docsLabel: 'wrapped',
+    kind: 'specialized',
+    description: 'Show a yearly usage recap with optional share SVG',
+    sharedOptionProfile: 'wrapped',
+    helpExamples: [
+      {
+        command: 'llm-usage wrapped',
+        includeInRootHelp: true,
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage wrapped --year 2026 --share',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage wrapped --year 2026 --json',
+        includeInCliReference: true,
+      },
+    ],
+  },
+  register(command) {
+    command
+      .option('--year <YYYY>', 'Year to recap (2020-2100; defaults to current local year)')
+      .action((options: WrappedCommandOptions) => runWrappedReport(options));
+
+    return command;
+  },
+};
+
+const doctorReportDefinition: ReportRuntimeDefinition = {
+  meta: {
+    commandName: 'doctor',
+    docsLabel: 'doctor',
+    kind: 'specialized',
+    description: 'Check source discovery health and runtime configuration',
+    sharedOptionProfile: 'doctor',
+    helpExamples: [
+      {
+        command: 'llm-usage doctor',
+        includeInRootHelp: true,
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage doctor --json',
+        includeInCliReference: true,
+      },
+    ],
+  },
+  register(command) {
+    command.action((options: DoctorCommandOptions) => runDoctorReport(options));
+
+    return command;
+  },
+};
+
+const pruneReportDefinition: ReportRuntimeDefinition = {
+  meta: {
+    commandName: 'prune',
+    docsLabel: 'prune',
+    kind: 'specialized',
+    description: 'Preview or delete departed files from the local event store',
+    sharedOptionProfile: 'doctor',
+    helpExamples: [
+      {
+        command: 'llm-usage prune --suppressed',
+        includeInRootHelp: true,
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage prune --departed-before 2026-01-01 --apply',
+        includeInCliReference: true,
+      },
+    ],
+  },
+  register(command) {
+    command
+      .option('--suppressed', 'Select departed files that --history already suppresses')
+      .option(
+        '--departed-before <YYYY-MM-DD>',
+        'Select departed files whose newest event timestamp is strictly before this UTC date',
+      )
+      .option('--apply', 'Delete selected departed files and vacuum the event store')
+      .action((options: PruneCommandOptions) => runPruneReport(options));
+
+    return command;
+  },
+};
+
 const reportDefinitions = [
   createUsageReportDefinition('daily'),
   createUsageReportDefinition('weekly'),
   createUsageReportDefinition('monthly'),
+  compareReportDefinition,
   efficiencyReportDefinition,
   optimizeReportDefinition,
   trendsReportDefinition,
+  sessionReportDefinition,
+  wrappedReportDefinition,
+  doctorReportDefinition,
+  pruneReportDefinition,
 ] as const satisfies readonly ReportRuntimeDefinition[];
 
 function getReportRuntimeDefinitions(): ReportRuntimeDefinition[] {

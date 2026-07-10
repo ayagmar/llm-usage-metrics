@@ -1,8 +1,15 @@
+import { stripVTControlCharacters } from 'node:util';
+
+import pc from 'picocolors';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { renderEfficiencyReport } from '../../src/render/render-efficiency-report.js';
 import type { EfficiencyDataResult } from '../../src/cli/usage-data-contracts.js';
 import { visibleWidth } from '../../src/render/table-text-layout.js';
+
+function stripAnsi(value: string): string {
+  return stripVTControlCharacters(value);
+}
 
 const pendingStdoutRestores = new Set<() => void>();
 
@@ -53,6 +60,7 @@ function createEfficiencyDataResult(
   overrides: Partial<EfficiencyDataResult['diagnostics']['usage']> = {},
 ): EfficiencyDataResult {
   return {
+    grouping: 'period',
     rows: [
       {
         rowType: 'period',
@@ -116,6 +124,44 @@ function createEfficiencyDataResult(
   };
 }
 
+function createBySourceEfficiencyDataResult(): EfficiencyDataResult {
+  const data = createEfficiencyDataResult();
+
+  return {
+    ...data,
+    grouping: 'source',
+    rows: [
+      {
+        rowType: 'period_source',
+        periodKey: '2026-02-10',
+        source: 'codex',
+        inputTokens: 60,
+        outputTokens: 10,
+        reasoningTokens: 5,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 75,
+        costUsd: 1.5,
+        costShare: 0.6,
+      },
+      {
+        rowType: 'period_source',
+        periodKey: '2026-02-10',
+        source: 'pi',
+        inputTokens: 40,
+        outputTokens: 10,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 50,
+        costUsd: 1,
+        costShare: 0.4,
+      },
+      ...data.rows,
+    ],
+  };
+}
+
 describe('renderEfficiencyReport', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -137,6 +183,20 @@ describe('renderEfficiencyReport', () => {
     expect(output).toContain('| 2026-02-10');
     expect(output).toContain('| ALL');
     expect(output).toContain('|         - |');
+  });
+
+  it('renders markdown by-source rows with usage cells and undefined outcome cells', () => {
+    const output = renderEfficiencyReport(createBySourceEfficiencyDataResult(), 'markdown', {
+      granularity: 'daily',
+    });
+
+    expect(output).toContain('|   codex');
+    expect(output).toMatch(/\|\s+pi\s+\|/u);
+    expect(output).toMatch(
+      /\|\s+codex\s+\|\s+-\s+\|\s+-\s+\|\s+-\s+\|\s+-\s+\|\s+60\s+\|\s+10\s+\|\s+5\s+\|/u,
+    );
+    expect(output).toContain('| 2026-02-10');
+    expect(output).toContain('| ALL');
   });
 
   it('escapes markdown and HTML syntax in markdown efficiency cells', () => {
@@ -170,6 +230,22 @@ describe('renderEfficiencyReport', () => {
     expect(output).toContain('│ ALL');
   });
 
+  it('renders terminal by-source rows under the period subtotal', () => {
+    const output = renderEfficiencyReport(createBySourceEfficiencyDataResult(), 'terminal', {
+      granularity: 'monthly',
+      useColor: false,
+    });
+
+    expect(output).toContain('Monthly Efficiency Report');
+    expect(output).toContain('│   codex');
+    expect(output).toMatch(/│\s+pi\s+│/u);
+    expect(output).toMatch(
+      /│\s+codex\s+│\s+-\s+│\s+-\s+│\s+-\s+│\s+-\s+│\s+60\s+│\s+10\s+│\s+5\s+│/u,
+    );
+    expect(output).toContain('│ 2026-02-10');
+    expect(output).toContain('│ ALL');
+  });
+
   it('renders colored terminal rows for styled summary metrics', () => {
     const output = renderEfficiencyReport(createEfficiencyDataResult(), 'terminal', {
       granularity: 'daily',
@@ -181,14 +257,42 @@ describe('renderEfficiencyReport', () => {
     expect(output).toContain('2026-02-10');
   });
 
+  it('renders exactly 16 colored columns without a phantom Commits/$ column', () => {
+    const output = renderEfficiencyReport(createEfficiencyDataResult(), 'terminal', {
+      granularity: 'daily',
+      useColor: true,
+    });
+    const stripped = stripAnsi(output);
+
+    // Regression: commitsPerUsd once indexed a 17th column, styling
+    // `undefined` green whenever commitsPerUsd > 0.
+    expect(stripped).not.toContain('undefined');
+
+    // The one-column title box also uses `│`; table rows carry many more.
+    const tableRowLines = stripped.split('\n').filter((line) => line.split('│').length - 1 >= 3);
+    expect(tableRowLines.length).toBeGreaterThan(0);
+
+    for (const line of tableRowLines) {
+      // 16 columns render as 17 vertical separators.
+      expect(line.split('│').length - 1).toBe(17);
+    }
+
+    if (pc.isColorSupported) {
+      const grandTotalLine = output.split('\n').find((line) => stripAnsi(line).includes('ALL'));
+
+      // The Commits/$ cell (0.80 > 0) is styled green, not a stray column.
+      expect(grandTotalLine).toContain(pc.green('~0.80'));
+    }
+  });
+
   it('renders monthly terminal title without embedding diagnostics', () => {
     const output = renderEfficiencyReport(
       createEfficiencyDataResult({
         activeEnvOverrides: [
           {
-            name: 'LLM_USAGE_PARSE_MAX_PARALLEL',
-            value: '8',
-            description: 'max parallel file parsing',
+            name: 'LLM_USAGE_PARSE_WORKERS',
+            value: '0',
+            description: 'parse worker count',
           },
         ],
       }),
@@ -200,7 +304,7 @@ describe('renderEfficiencyReport', () => {
     );
 
     expect(output).not.toContain('Active environment overrides:');
-    expect(output).not.toContain('LLM_USAGE_PARSE_MAX_PARALLEL=8');
+    expect(output).not.toContain('LLM_USAGE_PARSE_WORKERS=0');
     expect(output).toContain('Monthly Efficiency Report');
   });
 
@@ -255,5 +359,25 @@ describe('renderEfficiencyReport', () => {
 
     expect(parsed[0]?.commitsPerUsd).toBeUndefined();
     expect(parsed[1]?.tokensPerCommit).toBe(62.5);
+  });
+
+  it('renders by-source json with grouping metadata', () => {
+    const output = renderEfficiencyReport(createBySourceEfficiencyDataResult(), 'json', {
+      granularity: 'monthly',
+    });
+
+    const parsed = JSON.parse(output) as {
+      grouping?: unknown;
+      rows?: Array<Record<string, unknown>>;
+    };
+
+    expect(parsed.grouping).toBe('source');
+    expect(parsed.rows?.[0]).toMatchObject({
+      rowType: 'period_source',
+      periodKey: '2026-02-10',
+      source: 'codex',
+      totalTokens: 75,
+      costShare: 0.6,
+    });
   });
 });

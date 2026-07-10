@@ -112,6 +112,7 @@ export async function runOptimizeReport(
       emitDiagnostics(diagnostics.usage);
     },
     getEnvVarOverrides: (diagnostics) => diagnostics.usage.activeEnvOverrides,
+    getActiveConfig: (diagnostics) => diagnostics.usage.activeConfig,
     emitReportDiagnostics: emitOptimizeReportDiagnostics,
     getRuntimeProfile: (diagnostics) => diagnostics.usage.runtimeProfile,
     warnOnTerminalOverflow: true,
