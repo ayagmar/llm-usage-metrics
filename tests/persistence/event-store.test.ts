@@ -1,4 +1,4 @@
-import { mkdtemp, rm, stat } from 'node:fs/promises';
+import { chmod, mkdtemp, rm, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -28,6 +28,8 @@ import { createUsageEvent } from '../../src/domain/usage-event.js';
 import { loadNodeSqliteModule } from '../../src/sources/opencode/node-sqlite-loader.js';
 
 const tempDirs: string[] = [];
+const originalXdgCacheHome = process.env.XDG_CACHE_HOME;
+const itWhenPosix = process.platform === 'win32' ? it.skip : it;
 
 const V1_SCHEMA_SQL = `
 CREATE TABLE meta (
@@ -75,6 +77,12 @@ type TestSqliteModule = {
 afterEach(async () => {
   await Promise.all(tempDirs.map((tempDir) => rm(tempDir, { recursive: true, force: true })));
   tempDirs.length = 0;
+
+  if (originalXdgCacheHome === undefined) {
+    delete process.env.XDG_CACHE_HOME;
+  } else {
+    process.env.XDG_CACHE_HOME = originalXdgCacheHome;
+  }
 });
 
 function createFingerprint(
@@ -889,6 +897,93 @@ describe('event-store', () => {
     ]);
     expect(fakeSqlite.execCalls).toContain('PRAGMA journal_mode=WAL');
     closeEventStore(store);
+  });
+
+  itWhenPosix('creates the default event-store directory with mode 0700', async () => {
+    const cacheRoot = await mkdtemp(path.join(os.tmpdir(), 'event-store-default-permissions-'));
+    tempDirs.push(cacheRoot);
+    process.env.XDG_CACHE_HOME = cacheRoot;
+
+    const store = await openEventStore();
+
+    try {
+      expect(store.filePath).toBe(path.join(cacheRoot, 'llm-usage-metrics', 'events.db'));
+      expect((await stat(path.dirname(store.filePath))).mode & 0o777).toBe(0o700);
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  itWhenPosix('creates event-store databases with mode 0600', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-file-permissions-'));
+    tempDirs.push(tempDir);
+    await chmod(tempDir, 0o777);
+
+    const store = await openEventStore(path.join(tempDir, 'events.db'));
+
+    try {
+      expect((await stat(store.filePath)).mode & 0o777).toBe(0o600);
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  itWhenPosix('tightens an existing event-store database to mode 0600', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-existing-permissions-'));
+    tempDirs.push(tempDir);
+    const storePath = path.join(tempDir, 'events.db');
+    const firstStore = await openEventStore(storePath);
+    closeEventStore(firstStore);
+    await chmod(storePath, 0o666);
+
+    const reopenedStore = await openEventStore(storePath);
+
+    try {
+      expect((await stat(storePath)).mode & 0o777).toBe(0o600);
+    } finally {
+      closeEventStore(reopenedStore);
+    }
+  });
+
+  itWhenPosix('preserves permissions on an existing custom parent directory', async () => {
+    const customParent = await mkdtemp(path.join(os.tmpdir(), 'event-store-custom-parent-'));
+    tempDirs.push(customParent);
+    await chmod(customParent, 0o755);
+
+    const store = await openEventStore(path.join(customParent, 'events.db'));
+
+    try {
+      expect((await stat(customParent)).mode & 0o777).toBe(0o755);
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  itWhenPosix('restricts present WAL and SHM sidecars to mode 0600', async () => {
+    const store = await createTempStore('event-store-sidecar-permissions-');
+
+    try {
+      replaceCodexFile(store);
+
+      for (const sidecarPath of [`${store.filePath}-wal`, `${store.filePath}-shm`]) {
+        try {
+          expect((await stat(sidecarPath)).mode & 0o777).toBe(0o600);
+        } catch (error) {
+          if (
+            typeof error === 'object' &&
+            error !== null &&
+            'code' in error &&
+            error.code === 'ENOENT'
+          ) {
+            continue;
+          }
+
+          throw error;
+        }
+      }
+    } finally {
+      closeEventStore(store);
+    }
   });
 
   it('prepares hot read statements once per store connection', async () => {

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdir } from 'node:fs/promises';
+import { chmod, mkdir, open } from 'node:fs/promises';
 import path from 'node:path';
 
 import {
@@ -632,11 +632,47 @@ export function getDefaultEventStorePath(): string {
   return path.join(getUserCacheRootDir(), 'llm-usage-metrics', 'events.db');
 }
 
+async function prepareEventStoreFile(filePath: string): Promise<void> {
+  const fileHandle = await open(filePath, 'a', 0o600);
+
+  try {
+    await chmod(filePath, 0o600);
+  } finally {
+    await fileHandle.close();
+  }
+}
+
+async function restrictEventStoreFiles(filePath: string): Promise<void> {
+  await chmod(filePath, 0o600);
+
+  for (const sidecarPath of [`${filePath}-wal`, `${filePath}-shm`]) {
+    try {
+      await chmod(sidecarPath, 0o600);
+    } catch (error) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        error.code === 'ENOENT'
+      ) {
+        continue;
+      }
+
+      throw error;
+    }
+  }
+}
+
 export async function openEventStore(
   filePath: string = getDefaultEventStorePath(),
   loadSqliteModule: LoadEventStoreSqliteModule = loadEventStoreSqliteModule,
 ): Promise<EventStore> {
-  await mkdir(path.dirname(filePath), { recursive: true });
+  const parentDirectory = path.dirname(filePath);
+  await mkdir(parentDirectory, { recursive: true, mode: 0o700 });
+
+  if (filePath === getDefaultEventStorePath()) {
+    await chmod(parentDirectory, 0o700);
+  }
 
   const sqliteModule = await loadSqliteModule();
 
@@ -644,17 +680,26 @@ export async function openEventStore(
     throw new Error('Event store requires a sqlite module with a DatabaseSync constructor');
   }
 
+  await prepareEventStoreFile(filePath);
+
   const database = new sqliteModule.DatabaseSync(filePath, {
     timeout: EVENT_STORE_OPEN_TIMEOUT_MS,
   });
-  database.exec('PRAGMA journal_mode=WAL');
-  initializeSchema(database);
 
-  return {
-    database,
-    filePath,
-    statements: {},
-  };
+  try {
+    database.exec('PRAGMA journal_mode=WAL');
+    initializeSchema(database);
+    await restrictEventStoreFiles(filePath);
+
+    return {
+      database,
+      filePath,
+      statements: {},
+    };
+  } catch (error) {
+    database.close();
+    throw error;
+  }
 }
 
 export type EventStoreSummary = {
