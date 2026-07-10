@@ -452,7 +452,7 @@ describe('GeminiSourceAdapter', () => {
       ]);
     });
 
-    it('reloads projects.json between parses on the same adapter instance', async () => {
+    it('snapshots projects.json per adapter instance', async () => {
       const tempDir = await mkdtemp(path.join(os.tmpdir(), 'gemini-project-mapping-'));
       tempDirs.push(tempDir);
 
@@ -493,7 +493,11 @@ describe('GeminiSourceAdapter', () => {
       );
 
       const secondParse = await adapter.parseFile(sessionFilePath);
-      expect(secondParse[0]?.repoRoot).toBe('/tmp/second-repo');
+      expect(secondParse[0]?.repoRoot).toBe('/tmp/first-repo');
+
+      const nextAdapter = new GeminiSourceAdapter({ geminiDir: tempDir });
+      const nextAdapterParse = await nextAdapter.parseFile(sessionFilePath);
+      expect(nextAdapterParse[0]?.repoRoot).toBe('/tmp/second-repo');
     });
 
     it('rethrows non-missing projects.json errors', async () => {

@@ -203,6 +203,7 @@ export class GeminiSourceAdapter implements SourceAdapter {
 
   private readonly geminiDir: string;
   private readonly requireGeminiDir: boolean;
+  private projectMappingPromise?: Promise<Map<string, string>>;
 
   public constructor(options: GeminiSourceAdapterOptions = {}) {
     this.geminiDir = options.geminiDir ?? resolveDefaultGeminiDir(options.env ?? process.env);
@@ -222,7 +223,9 @@ export class GeminiSourceAdapter implements SourceAdapter {
       return new Map();
     }
 
-    return loadProjectsJson(this.geminiDir.trim());
+    this.projectMappingPromise ??= loadProjectsJson(this.geminiDir.trim());
+
+    return this.projectMappingPromise;
   }
 
   public async discoverFiles(): Promise<string[]> {
