@@ -23,7 +23,7 @@ Report runs open the store **once** and share the handle across the pipeline: `b
 
 ## Content hashes and move suppression
 
-Every stored event carries a 16-hex-character SHA-256 content hash over its identity fields: source, timestamp, model, provider, repo root, all five token counts plus total, cost mode, and cost. The hash deliberately excludes the file path — that is what makes move detection work.
+Every stored event carries a 16-hex-character SHA-256 content hash over its identity fields: source, timestamp, model, provider, repo root, all five token counts plus total, cost mode, and cost. The hash deliberately excludes the file path and the session id (several adapters derive session ids from file paths, so a rename would change them) — that is what makes move detection work.
 
 When `--history` classifies a departed file, it compares that file's multiset of content hashes against the data already being served (live discovered files, plus departed files already selected for replay). If every hash in the departed file is covered, the file's content lives on at another path — a move, rename, or copy — and the file is **suppressed** rather than replayed, so nothing double counts. Two deliberate asymmetries: rows whose hash is `NULL` (un-normalizable rows kept by the v1→v2 migration) never suppress a file, and a file with only *partial* overlap is served whole — losing genuine deleted history is worse than a rare content overlap between unrelated files.
 
