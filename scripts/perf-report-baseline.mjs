@@ -9,47 +9,51 @@ import { buildUsageReport } from '../src/cli/run-usage-report.ts';
 
 const piDir = path.resolve('tests/fixtures/e2e/pi');
 const codexDir = path.resolve('tests/fixtures/e2e/codex');
+const fixtureOptions = {
+  piDir,
+  codexDir,
+  source: 'pi,codex',
+  timezone: 'UTC',
+  pricingOffline: true,
+};
 
 const scenarios = [
   {
     name: 'daily-terminal',
     kind: 'usage',
     granularity: 'daily',
-    options: { piDir, codexDir, timezone: 'UTC' },
+    options: { ...fixtureOptions },
   },
   {
     name: 'daily-markdown',
     kind: 'usage',
     granularity: 'daily',
-    options: { piDir, codexDir, timezone: 'UTC', markdown: true },
+    options: { ...fixtureOptions, markdown: true },
   },
   {
     name: 'daily-json',
     kind: 'usage',
     granularity: 'daily',
-    options: { piDir, codexDir, timezone: 'UTC', json: true },
+    options: { ...fixtureOptions, json: true },
   },
   {
     name: 'weekly-json',
     kind: 'usage',
     granularity: 'weekly',
-    options: { piDir, codexDir, timezone: 'UTC', json: true },
+    options: { ...fixtureOptions, json: true },
   },
   {
     name: 'monthly-json',
     kind: 'usage',
     granularity: 'monthly',
-    options: { piDir, codexDir, timezone: 'UTC', json: true },
+    options: { ...fixtureOptions, json: true },
   },
   {
     name: 'efficiency-daily-json',
     kind: 'efficiency',
     granularity: 'daily',
     options: {
-      piDir,
-      codexDir,
-      timezone: 'UTC',
-      source: 'pi,codex',
+      ...fixtureOptions,
       since: '2026-02-14',
       until: '2026-02-14',
       json: true,
@@ -131,6 +135,14 @@ async function measureScenario(scenario, options) {
 async function main() {
   const warmupRuns = 1;
   const sampleRuns = 5;
+  const runtimeDir = await mkdtemp(path.join(os.tmpdir(), 'usage-metrics-report-perf-'));
+
+  process.env.LLM_USAGE_CONFIG_PATH = path.join(runtimeDir, 'missing-config.toml');
+  process.env.XDG_CACHE_HOME = path.join(runtimeDir, 'cache');
+  process.env.LLM_USAGE_EVENT_STORE = '0';
+  process.env.LLM_USAGE_SKIP_UPDATE_CHECK = '1';
+  process.env.LLM_USAGE_PARSE_WORKERS = '0';
+
   const efficiencyRepoDir = await createEfficiencyFixtureRepo();
 
   console.log('Usage report performance baseline');
@@ -158,7 +170,10 @@ async function main() {
       });
     }
   } finally {
-    await rm(efficiencyRepoDir, { recursive: true, force: true });
+    await Promise.all([
+      rm(runtimeDir, { recursive: true, force: true }),
+      rm(efficiencyRepoDir, { recursive: true, force: true }),
+    ]);
   }
 
   console.table(rows);
