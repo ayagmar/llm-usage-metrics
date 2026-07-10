@@ -654,19 +654,35 @@ describe('update-notifier', () => {
   });
 
   it('swallows unexpected notifier errors and returns undefined', async () => {
+    const cacheFilePath = await createTempCachePath('update-error-swallow-');
+
+    await writeFile(
+      cacheFilePath,
+      JSON.stringify({
+        checkedAt: 1_000,
+        latestVersion: '0.2.0',
+      }),
+      'utf8',
+    );
+
+    const fetchSpy = vi.fn(
+      async () => new Response(JSON.stringify({ version: '0.2.0' }), { status: 200 }),
+    );
+
     const result = await checkForUpdates({
       packageName: 'llm-usage-metrics',
       currentVersion: '0.1.0',
+      cacheFilePath,
+      cacheTtlMs: 5_000,
       now: () => {
         throw new Error('clock unavailable');
       },
-      fetchImpl: vi.fn(
-        async () => new Response(JSON.stringify({ version: '0.2.0' }), { status: 200 }),
-      ),
+      fetchImpl: fetchSpy,
       env: {},
       argv: ['/usr/bin/node', '/app/dist/index.js', 'daily'],
     });
 
     expect(result).toBeUndefined();
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });

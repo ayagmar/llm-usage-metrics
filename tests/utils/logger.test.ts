@@ -18,8 +18,10 @@ function logAllLevels(): void {
   logger.debug('debug message');
 }
 
+const ansiPattern = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'gu');
+
 function collectMessages(errorSpy: ReturnType<typeof spyOnStderr>): string[] {
-  return errorSpy.mock.calls.map((call) => String(call[0]));
+  return errorSpy.mock.calls.map((call) => String(call[0]).replaceAll(ansiPattern, ''));
 }
 
 describe('logger', () => {
