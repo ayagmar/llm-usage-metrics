@@ -5,6 +5,8 @@ import {
   escapeSvg,
   formatUsd,
   renderShareAccentBar,
+  renderShareAccentGradientDef,
+  renderShareCommandBadge,
   renderShareFooter,
   SHARE_SVG_FOOTER_HEIGHT,
   SHARE_SVG_WIDTH,
@@ -12,8 +14,11 @@ import {
 } from './share-svg-theme.js';
 
 const W = SHARE_SVG_WIDTH;
-const H = 780;
-const pad = { top: 180, right: 70, bottom: 60 + SHARE_SVG_FOOTER_HEIGHT, left: 260 };
+const pad = { top: 180, right: 80, bottom: 60 + SHARE_SVG_FOOTER_HEIGHT, left: 260 };
+const CELL_HEIGHT = 96;
+const CELL_MAX_WIDTH = 320;
+const CELL_GAP = 6;
+const MIN_GRID_HEIGHT = 200;
 
 function formatPercent(value: number | undefined): string {
   if (value === undefined) return '-';
@@ -64,17 +69,17 @@ export function renderOptimizeMonthlyShareSvg(optimizeData: OptimizeDataResult):
     if (row.periodKey === 'ALL') allByCandidate.set(row.candidateModel, row);
   }
 
-  const chartLeft = pad.left;
-  const chartTop = pad.top;
-  const chartRight = W - pad.right;
-  const chartBottom = H - pad.bottom;
-  const chartW = chartRight - chartLeft;
-  const chartH = chartBottom - chartTop;
-
   const rowCount = Math.max(1, candidateModels.length);
   const colCount = Math.max(1, periodKeys.length);
-  const cellW = chartW / colCount;
-  const cellH = chartH / rowCount;
+
+  const chartTop = pad.top;
+  const cellH = CELL_HEIGHT;
+  const chartH = Math.max(MIN_GRID_HEIGHT, rowCount * cellH);
+  const chartBottom = chartTop + chartH;
+  const H = chartBottom + pad.bottom;
+  const availableW = W - pad.left - pad.right;
+  const cellW = Math.min(CELL_MAX_WIDTH, availableW / colCount);
+  const chartLeft = pad.left;
 
   const gridCells: string[] = [];
   const colLabels: string[] = [];
@@ -125,7 +130,7 @@ export function renderOptimizeMonthlyShareSvg(optimizeData: OptimizeDataResult):
       const pct = row?.savingsPct;
 
       gridCells.push(
-        `<rect x="${(x + 2).toFixed(2)}" y="${(yTop + 2).toFixed(2)}" width="${Math.max(0, cellW - 4).toFixed(2)}" height="${Math.max(0, cellH - 4).toFixed(2)}" fill="${cellFill(pct)}" rx="6"/>`,
+        `<rect x="${(x + CELL_GAP / 2).toFixed(2)}" y="${(yTop + CELL_GAP / 2).toFixed(2)}" width="${Math.max(0, cellW - CELL_GAP).toFixed(2)}" height="${Math.max(0, cellH - CELL_GAP).toFixed(2)}" fill="${cellFill(pct)}" rx="8"/>`,
       );
       gridCells.push(
         `<text x="${(x + cellW / 2).toFixed(2)}" y="${(yTop + cellH / 2 + 5).toFixed(2)}" text-anchor="middle" font-size="13" font-weight="600" fill="${cellTextFill(pct)}" font-family="${shareTheme.font}">${escapeSvg(formatPercent(pct))}</text>`,
@@ -136,9 +141,6 @@ export function renderOptimizeMonthlyShareSvg(optimizeData: OptimizeDataResult):
   const provider = optimizeData.diagnostics.provider;
   const missing = optimizeData.diagnostics.candidatesWithMissingPricing;
   const warning = optimizeData.diagnostics.warning ?? '';
-  const commandText = 'llm-usage optimize monthly --share';
-  const badgeW = commandText.length * 9.5 + 28;
-  const badgeX = W - pad.right - badgeW;
 
   const noData =
     candidateModels.length === 0 || periodKeys.length === 0
@@ -147,23 +149,18 @@ export function renderOptimizeMonthlyShareSvg(optimizeData: OptimizeDataResult):
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
 <defs>
-  <linearGradient id="accent-grad" x1="0" y1="0" x2="1" y2="0">
-    <stop offset="0%" stop-color="#10b981"/>
-    <stop offset="100%" stop-color="#06b6d4"/>
-  </linearGradient>
+  ${renderShareAccentGradientDef()}
 </defs>
 <rect width="${W}" height="${H}" fill="${shareTheme.bg}"/>
 ${renderShareAccentBar()}
 <text x="${pad.left}" y="52" font-size="32" font-weight="700" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">Monthly Optimize</text>
 <text x="${pad.left}" y="78" font-size="15" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}">Savings % heatmap by candidate and month</text>
-<rect x="${badgeX.toFixed(0)}" y="30" width="${badgeW.toFixed(0)}" height="34" rx="17" fill="none" stroke="${shareTheme.cardBorder}"/>
-<text x="${(badgeX + badgeW / 2).toFixed(0)}" y="52" text-anchor="middle" font-size="14" fill="${shareTheme.textMuted}" font-family="${shareTheme.mono}">${escapeSvg(commandText)}</text>
+${renderShareCommandBadge('llm-usage optimize monthly --share')}
 <text x="${pad.left}" y="112" font-size="15" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">Provider: <tspan font-weight="700">${escapeSvg(provider)}</tspan></text>
 <text x="${pad.left + 280}" y="112" font-size="14" fill="#22c55e" font-family="${shareTheme.font}">● positive = savings</text>
 <text x="${pad.left + 480}" y="112" font-size="14" fill="#ef4444" font-family="${shareTheme.font}">● negative = higher cost</text>
 ${missing.length > 0 ? `<text x="${pad.left}" y="136" font-size="13" fill="#eab308" font-family="${shareTheme.font}">Missing pricing: ${escapeSvg(missing.join(', '))}</text>` : ''}
 ${warning ? `<text x="${pad.left}" y="158" font-size="13" fill="#eab308" font-family="${shareTheme.font}">${escapeSvg(warning)}</text>` : ''}
-<rect x="${chartLeft}" y="${chartTop}" width="${chartW}" height="${chartH}" fill="${shareTheme.cardBg}" rx="10"/>
 ${gridCells.join('\n')}
 ${colLabels.join('\n')}
 ${rowLabels.join('\n')}

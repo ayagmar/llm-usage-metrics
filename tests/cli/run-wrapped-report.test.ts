@@ -26,6 +26,10 @@ vi.mock('../../src/cli/build-wrapped-data.js', async (importOriginal) => {
           totalTokens: index * 10,
           level: index === 0 ? 0 : 1,
         })),
+        dailyIntensity: Array.from({ length: 365 }, (_, index) => {
+          const date = new Date(Date.UTC(2026, 0, 1 + index)).toISOString().slice(0, 10);
+          return { date, totalTokens: index % 5, level: (index % 5) as 0 | 1 | 2 | 3 | 4 };
+        }),
       },
       diagnostics: {
         sessionStats: [],
@@ -80,6 +84,10 @@ function createRecap(overrides: Partial<WrappedRecap> = {}): WrappedRecap {
       totalTokens: level * 100,
       level: level as 0 | 1 | 2 | 3 | 4,
     })),
+    dailyIntensity: Array.from({ length: 365 }, (_, index) => {
+      const date = new Date(Date.UTC(2026, 0, 1 + index)).toISOString().slice(0, 10);
+      return { date, totalTokens: index % 5, level: (index % 5) as 0 | 1 | 2 | 3 | 4 };
+    }),
     ...overrides,
   };
 }

@@ -8,7 +8,12 @@ import {
   type EventStoreStoredFile,
   type EventStoreSummary,
 } from '../persistence/event-store.js';
-import { createDefaultAdapters, getDefaultSourceIds } from '../sources/create-default-adapters.js';
+import {
+  createDefaultAdapters,
+  getDefaultSourceIds,
+  getSourceStorageFormat,
+  type SourceStorageFormat,
+} from '../sources/create-default-adapters.js';
 import type { SourceAdapter } from '../sources/source-adapter.js';
 import { logger } from '../utils/logger.js';
 import { normalizeSourceFilter, validateSourceFilterValues } from './build-usage-data-inputs.js';
@@ -18,6 +23,7 @@ import type { DoctorCommandOptions } from './usage-data-contracts.js';
 
 export type DoctorSourceResult = {
   id: string;
+  format: SourceStorageFormat;
   status: 'ok' | 'error';
   itemsFound?: number;
   detail?: string;
@@ -68,17 +74,21 @@ export async function buildDoctorResults(
   const discoveredFilesBySource: DiscoveredFilesBySource = new Map();
 
   for (const adapter of adapters) {
+    const format = getSourceStorageFormat(adapter.id.toLowerCase());
+
     try {
       const files = await adapter.discoverFiles();
       discoveredFilesBySource.set(adapter.id.toLowerCase(), new Set(files));
       results.push({
         id: adapter.id,
+        format,
         status: 'ok',
         itemsFound: files.length,
       });
     } catch (error) {
       results.push({
         id: adapter.id,
+        format,
         status: 'error',
         error: getErrorReason(error),
       });
@@ -158,6 +168,7 @@ async function buildEventStoreDoctorResult(
     if (isMissingPathError(error)) {
       return {
         id: 'event-store',
+        format: 'sqlite',
         status: 'ok',
         itemsFound: 0,
         detail: 'not yet created',
@@ -166,6 +177,7 @@ async function buildEventStoreDoctorResult(
 
     return {
       id: 'event-store',
+      format: 'sqlite',
       status: 'error',
       error: getErrorReason(error),
     };
@@ -181,6 +193,7 @@ async function buildEventStoreDoctorResult(
     if (!isSupportedStoreSchemaVersion(summary.schemaVersion)) {
       return {
         id: 'event-store',
+        format: 'sqlite',
         status: 'error',
         error: getUnsupportedSchemaError(summary.schemaVersion),
       };
@@ -191,6 +204,7 @@ async function buildEventStoreDoctorResult(
 
     return {
       id: 'event-store',
+      format: 'sqlite',
       status: 'ok',
       itemsFound: summary.eventCount,
       detail: [
@@ -203,22 +217,25 @@ async function buildEventStoreDoctorResult(
   } catch (error) {
     return {
       id: 'event-store',
+      format: 'sqlite',
       status: 'error',
       error: getErrorReason(error),
     };
   }
 }
 
+const doctorStatusGlyphs = { ok: '✔', error: '✖' } as const;
+
 function renderDoctorText(results: DoctorSourceResult[]): string {
   const idWidth = Math.max(...results.map((result) => result.id.length), 0);
-  const statusWidth = 5;
+  const formatWidth = Math.max(...results.map((result) => result.format.length), 0);
   const lines = results.map((result) => {
     const detail =
       result.status === 'ok'
         ? (result.detail ?? `${result.itemsFound ?? 0} file(s)`)
         : (result.error ?? 'Unknown');
 
-    return `${result.id.padEnd(idWidth)}  ${result.status.padEnd(statusWidth)}  ${detail}`;
+    return `${doctorStatusGlyphs[result.status]} ${result.id.padEnd(idWidth)}  ${result.format.padEnd(formatWidth)}  ${detail}`;
   });
   const sourceResults = results.filter((result) => result.id !== 'event-store');
   const healthyCount = sourceResults.filter((result) => result.status === 'ok').length;

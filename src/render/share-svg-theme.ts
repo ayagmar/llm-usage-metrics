@@ -63,6 +63,26 @@ export function renderShareAccentBar(width = SHARE_SVG_WIDTH): string {
   return `<rect width="${width}" height="${SHARE_SVG_ACCENT_HEIGHT}" fill="url(#accent-grad)"/>`;
 }
 
+/** The brand gradient behind the accent bar; identical across every share card. */
+export function renderShareAccentGradientDef(): string {
+  return `<linearGradient id="accent-grad" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%" stop-color="#f97316"/>
+    <stop offset="50%" stop-color="#22c55e"/>
+    <stop offset="100%" stop-color="#06b6d4"/>
+  </linearGradient>`;
+}
+
+/** Command badge pinned to the top-right corner, same spot on every share card. */
+export function renderShareCommandBadge(command: string): string {
+  const badgeW = command.length * 9.5 + 28;
+  const badgeX = SHARE_SVG_WIDTH - 80 - badgeW;
+
+  return [
+    `<rect x="${badgeX.toFixed(0)}" y="30" width="${badgeW.toFixed(0)}" height="34" rx="17" fill="none" stroke="${shareTheme.cardBorder}"/>`,
+    `<text x="${(badgeX + badgeW / 2).toFixed(0)}" y="52" text-anchor="middle" font-size="14" fill="${shareTheme.textMuted}" font-family="${shareTheme.mono}">${escapeSvg(command)}</text>`,
+  ].join('\n');
+}
+
 export function renderShareFooter(options: {
   height: number;
   width?: number;

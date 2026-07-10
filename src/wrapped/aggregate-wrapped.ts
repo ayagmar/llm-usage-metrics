@@ -1,7 +1,7 @@
 import type { UsageEvent } from '../domain/usage-event.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { getPeriodKey, shiftLocalDateKey } from '../utils/time-buckets.js';
-import type { WrappedMonth, WrappedRecap, WrappedTopItem } from './wrapped-recap.js';
+import type { WrappedDay, WrappedMonth, WrappedRecap, WrappedTopItem } from './wrapped-recap.js';
 
 export type AggregateWrappedOptions = {
   year: number;
@@ -154,6 +154,69 @@ function buildMonthlyIntensity(
   });
 }
 
+function createDateKeys(range: { from: string; to: string }): string[] {
+  const dateKeys: string[] = [];
+
+  for (let dateKey = range.from; dateKey <= range.to; dateKey = shiftLocalDateKey(dateKey, 1)) {
+    dateKeys.push(dateKey);
+  }
+
+  return dateKeys;
+}
+
+// Quartile banding over active days keeps the heatmap readable when one
+// outlier day dwarfs the rest; max-scaling would flatten everything to level 1.
+function toDailyLevelThresholds(activeDayTokens: number[]): [number, number, number] {
+  const sorted = [...activeDayTokens].sort((left, right) => left - right);
+  const quantile = (fraction: number) => sorted[Math.floor(fraction * (sorted.length - 1))] ?? 0;
+
+  return [quantile(0.25), quantile(0.5), quantile(0.75)];
+}
+
+function toDailyLevel(
+  totalTokens: number,
+  thresholds: readonly [number, number, number],
+): WrappedDay['level'] {
+  if (totalTokens <= 0) {
+    return 0;
+  }
+
+  if (totalTokens <= thresholds[0]) {
+    return 1;
+  }
+
+  if (totalTokens <= thresholds[1]) {
+    return 2;
+  }
+
+  if (totalTokens <= thresholds[2]) {
+    return 3;
+  }
+
+  return 4;
+}
+
+function buildDailyIntensity(
+  range: { from: string; to: string },
+  dailyTotals: Map<string, TotalsAccumulator>,
+): WrappedDay[] {
+  const dateKeys = createDateKeys(range);
+  const activeDayTokens = dateKeys
+    .map((dateKey) => dailyTotals.get(dateKey)?.totalTokens ?? 0)
+    .filter((totalTokens) => totalTokens > 0);
+  const thresholds = toDailyLevelThresholds(activeDayTokens);
+
+  return dateKeys.map((dateKey) => {
+    const totalTokens = dailyTotals.get(dateKey)?.totalTokens ?? 0;
+
+    return {
+      date: dateKey,
+      totalTokens,
+      level: toDailyLevel(totalTokens, thresholds),
+    };
+  });
+}
+
 function isInYearRange(dateKey: string, range: { from: string; to: string }): boolean {
   return dateKey >= range.from && dateKey <= range.to;
 }
@@ -173,6 +236,7 @@ export function aggregateWrapped(
   const modelGroups = new Map<string, TotalsAccumulator>();
   const sourceGroups = new Map<string, TotalsAccumulator>();
   const monthlyTotals = new Map<string, TotalsAccumulator>();
+  const dailyTotals = new Map<string, TotalsAccumulator>();
   const total: TotalsAccumulator = { totalTokens: 0 };
   let eventCount = 0;
 
@@ -189,6 +253,7 @@ export function aggregateWrapped(
     addEventTotals(total, event);
     addGroupedEvent(sourceGroups, event.source, event);
     addGroupedEvent(monthlyTotals, dateKey.slice(0, 7), event);
+    addGroupedEvent(dailyTotals, dateKey, event);
 
     if (event.model) {
       addGroupedEvent(modelGroups, event.model, event);
@@ -212,5 +277,6 @@ export function aggregateWrapped(
     topModels: toTopItems(modelGroups),
     topSources: toTopItems(sourceGroups),
     monthlyIntensity: buildMonthlyIntensity(monthKeys, monthlyTotals),
+    dailyIntensity: buildDailyIntensity(range, dailyTotals),
   };
 }

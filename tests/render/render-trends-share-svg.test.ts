@@ -55,8 +55,8 @@ describe('renderTrendsShareSvg', () => {
   it('escapes the rendered series label', () => {
     const svg = renderTrendsShareSvg(createData());
 
-    expect(svg).toContain('Series: combined &lt;all&gt;');
-    expect(svg).not.toContain('Series: combined <all>');
+    expect(svg).toContain('· combined &lt;all&gt;');
+    expect(svg).not.toContain('combined <all>');
   });
 
   it('renders a single-day cost trend as one marker', () => {

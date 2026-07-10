@@ -13,6 +13,12 @@ export type WrappedMonth = {
   level: 0 | 1 | 2 | 3 | 4;
 };
 
+export type WrappedDay = {
+  date: string;
+  totalTokens: number;
+  level: 0 | 1 | 2 | 3 | 4;
+};
+
 export type WrappedRecap = {
   year: number;
   timezone: string;
@@ -28,4 +34,5 @@ export type WrappedRecap = {
   topModels: WrappedTopItem[];
   topSources: WrappedTopItem[];
   monthlyIntensity: WrappedMonth[];
+  dailyIntensity: WrappedDay[];
 };

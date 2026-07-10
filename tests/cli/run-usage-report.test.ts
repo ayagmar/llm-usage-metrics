@@ -724,7 +724,7 @@ describe('buildUsageReport', () => {
     const svgContent = await readFile(svgPath, 'utf8');
 
     expect(svgContent).toContain('<svg');
-    expect(svgContent).toContain('TOKENS');
+    expect(svgContent).toContain('Tokens');
     expect(svgContent).toContain('llm-usage monthly --share');
     expect(stderrLines.some((line) => line.includes('Wrote usage share SVG'))).toBe(true);
     expect(logCallCount).toBe(1);
