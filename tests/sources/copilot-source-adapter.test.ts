@@ -142,6 +142,21 @@ describe('CopilotSourceAdapter', () => {
     expect(events[0]?.sessionId).toBe('fallback');
   });
 
+  it('reports malformed JSONL lines that pass its prefilter', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'copilot-malformed-jsonl-'));
+    tempDirs.push(root);
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(filePath, '{"attributes":', 'utf8');
+
+    const adapter = new CopilotSourceAdapter({ otelDir: root });
+    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+
+    expect(diagnostics.events).toEqual([]);
+    expect(diagnostics.skippedRows).toBe(1);
+    expect(diagnostics.skippedRowReasons).toEqual([{ reason: 'json_parse_error', count: 1 }]);
+  });
+
   it('returns the documented default OTEL directory', () => {
     expect(getDefaultCopilotOtelDir()).toBe(path.join(os.homedir(), '.copilot', 'otel'));
   });

@@ -427,6 +427,10 @@ export class CopilotSourceAdapter implements SourceAdapter {
 
     for await (const record of readJsonlObjects(filePath, {
       shouldParseLine: shouldParseCopilotJsonlLine,
+      onMalformedLine: () => {
+        skippedRows++;
+        incrementSkippedReason(skippedRowReasons, 'json_parse_error');
+      },
     })) {
       const candidate = extractCandidate(record, filePath, lineIndex);
       lineIndex++;

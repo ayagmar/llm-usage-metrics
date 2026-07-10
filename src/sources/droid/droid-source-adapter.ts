@@ -160,6 +160,10 @@ export class DroidSourceAdapter implements SourceAdapter {
     try {
       for await (const line of readJsonlObjects(jsonlPath, {
         shouldParseLine: shouldParseDroidJsonlLine,
+        onMalformedLine: () => {
+          skippedRows++;
+          incrementSkippedReason(skippedRowReasons, 'json_parse_error');
+        },
       })) {
         if (!repoRoot && isSessionStartRecord(line)) {
           repoRoot = resolveRepoRootFromSessionStart(line) ?? repoRoot;

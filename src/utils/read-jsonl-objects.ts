@@ -3,6 +3,7 @@ import { createReadStream } from 'node:fs';
 import { asRecord } from './as-record.js';
 
 type ReadJsonlObjectsOptions = {
+  onMalformedLine?: () => void;
   shouldParseLine?: (lineText: string) => boolean;
   shouldParseLineBytes?: (lineBytes: Buffer) => boolean;
 };
@@ -113,6 +114,7 @@ function parseJsonlLine(
   try {
     parsed = JSON.parse(lineText);
   } catch {
+    options.onMalformedLine?.();
     return undefined;
   }
 

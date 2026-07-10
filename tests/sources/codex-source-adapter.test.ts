@@ -745,6 +745,21 @@ describe('CodexSourceAdapter', () => {
     expect(diagnostics.skippedRowReasons).toEqual([{ reason: 'invalid_timestamp', count: 1 }]);
   });
 
+  it('reports malformed JSONL lines that pass its byte prefilter', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'codex-source-malformed-jsonl-'));
+    tempDirs.push(root);
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(filePath, '{"type":"session_meta",', 'utf8');
+
+    const adapter = new CodexSourceAdapter({ sessionsDir: root });
+    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+
+    expect(diagnostics.events).toEqual([]);
+    expect(diagnostics.skippedRows).toBe(1);
+    expect(diagnostics.skippedRowReasons).toEqual([{ reason: 'json_parse_error', count: 1 }]);
+  });
+
   it('does not count no-delta token_count repeats as skips', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'codex-source-no-skip-no-delta-'));
     tempDirs.push(root);

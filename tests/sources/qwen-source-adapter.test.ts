@@ -127,6 +127,21 @@ describe('QwenSourceAdapter', () => {
     ]);
   });
 
+  it('reports malformed JSONL lines that pass its prefilter', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'qwen-malformed-jsonl-'));
+    tempDirs.push(root);
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(filePath, '{"usageMetadata":', 'utf8');
+
+    const adapter = new QwenSourceAdapter({ projectsDir: root });
+    const result = await adapter.parseFileWithDiagnostics(filePath);
+
+    expect(result.events).toEqual([]);
+    expect(result.skippedRows).toBe(1);
+    expect(result.skippedRowReasons).toEqual([{ reason: 'json_parse_error', count: 1 }]);
+  });
+
   it('preserves total-only usage rows', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'qwen-total-only-'));
     tempDirs.push(root);

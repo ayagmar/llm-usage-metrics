@@ -44,6 +44,69 @@ describe('readJsonlObjects', () => {
     ]);
   });
 
+  it('notifies once for a nonblank malformed line without a prefilter', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'read-jsonl-malformed-'));
+    tempDirs.push(rootDir);
+    const filePath = path.join(rootDir, 'session.jsonl');
+    let malformedLines = 0;
+
+    await writeFile(filePath, ['not-json', '[1,2,3]', '   '].join('\n'), 'utf8');
+
+    const records: Array<Record<string, unknown>> = [];
+
+    for await (const record of readJsonlObjects(filePath, {
+      onMalformedLine: () => {
+        malformedLines++;
+      },
+    })) {
+      records.push(record);
+    }
+
+    expect(records).toEqual([]);
+    expect(malformedLines).toBe(1);
+  });
+
+  it('notifies only for malformed lines that pass the text prefilter', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'read-jsonl-malformed-text-filter-'));
+    tempDirs.push(rootDir);
+    const filePath = path.join(rootDir, 'session.jsonl');
+    let malformedLines = 0;
+
+    await writeFile(filePath, ['{"keep":', '{"skip":'].join('\n'), 'utf8');
+
+    for await (const record of readJsonlObjects(filePath, {
+      shouldParseLine: (lineText) => lineText.includes('"keep"'),
+      onMalformedLine: () => {
+        malformedLines++;
+      },
+    })) {
+      void record;
+    }
+
+    expect(malformedLines).toBe(1);
+  });
+
+  it('notifies only for malformed lines that pass the byte prefilter', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'read-jsonl-malformed-byte-filter-'));
+    tempDirs.push(rootDir);
+    const filePath = path.join(rootDir, 'session.jsonl');
+    const keepBytes = Buffer.from('"keep"');
+    let malformedLines = 0;
+
+    await writeFile(filePath, ['{"keep":', '{"skip":'].join('\n'), 'utf8');
+
+    for await (const record of readJsonlObjects(filePath, {
+      shouldParseLineBytes: (lineBytes) => lineBytes.includes(keepBytes),
+      onMalformedLine: () => {
+        malformedLines++;
+      },
+    })) {
+      void record;
+    }
+
+    expect(malformedLines).toBe(1);
+  });
+
   it('handles UTF-8 BOM on the first JSONL line', async () => {
     const rootDir = await mkdtemp(path.join(os.tmpdir(), 'read-jsonl-bom-'));
     tempDirs.push(rootDir);

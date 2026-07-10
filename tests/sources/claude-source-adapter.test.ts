@@ -424,6 +424,21 @@ describe('ClaudeSourceAdapter', () => {
     expect(events[0]).toMatchObject({ outputTokens: 8, totalTokens: 18 });
   });
 
+  it('reports malformed JSONL lines that pass its byte prefilter', async () => {
+    const projectsDir = await mkdtemp(path.join(os.tmpdir(), 'claude-malformed-jsonl-'));
+    tempDirs.push(projectsDir);
+    const filePath = path.join(projectsDir, 'session.jsonl');
+
+    await writeFile(filePath, '{"type":"assistant","usage":', 'utf8');
+
+    const adapter = new ClaudeSourceAdapter({ projectsDir });
+    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+
+    expect(diagnostics.events).toEqual([]);
+    expect(diagnostics.skippedRows).toBe(1);
+    expect(diagnostics.skippedRowReasons).toEqual([{ reason: 'json_parse_error', count: 1 }]);
+  });
+
   it('validates explicit directory overrides', async () => {
     const blankAdapter = new ClaudeSourceAdapter({ projectsDir: '   ' });
     await expect(blankAdapter.discoverFiles()).rejects.toThrow(

@@ -328,6 +328,9 @@ export class KimiSourceAdapter implements SourceAdapter {
 
     for await (const line of readJsonlObjects(filePath, {
       shouldParseLine: shouldParseKimiJsonlLine,
+      onMalformedLine: () => {
+        incrementContextSkippedReason(context, 'json_parse_error');
+      },
     })) {
       parseStatusUpdateLine(context, line);
       parseUsageRecordLine(context, filePath, line);

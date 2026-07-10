@@ -267,6 +267,10 @@ export async function parseOpenClawSessionFile(
 
   for await (const line of readJsonlObjects(filePath, {
     shouldParseLine: shouldParseOpenClawJsonlLine,
+    onMalformedLine: () => {
+      skippedRows += 1;
+      incrementSkippedReason(skippedRowReasons, 'json_parse_error');
+    },
   })) {
     const message = asRecord(line.message) ?? line;
 

@@ -184,6 +184,10 @@ export class PiSourceAdapter implements SourceAdapter {
 
     for await (const line of readJsonlObjects(filePath, {
       shouldParseLine: shouldParsePiJsonlLine,
+      onMalformedLine: () => {
+        skippedRows++;
+        incrementSkippedReason(skippedRowReasons, 'json_parse_error');
+      },
     })) {
       if (line.type === 'session') {
         state.sessionId = asTrimmedText(line.id) ?? state.sessionId;

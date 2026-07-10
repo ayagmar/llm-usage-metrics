@@ -302,6 +302,21 @@ describe('KimiSourceAdapter', () => {
     expect(result.skippedRows).toBe(0);
   });
 
+  it('reports malformed JSONL lines that pass its prefilter', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'kimi-malformed-jsonl-'));
+    tempDirs.push(root);
+    const filePath = path.join(root, 'sessions', 'group-a', 'session-a', 'wire.jsonl');
+    await mkdir(path.dirname(filePath), { recursive: true });
+    await writeFile(filePath, '{"type":"StatusUpdate",', 'utf8');
+
+    const adapter = new KimiSourceAdapter({ kimiDir: path.join(root, 'sessions') });
+    const result = await adapter.parseFileWithDiagnostics(filePath);
+
+    expect(result.events).toEqual([]);
+    expect(result.skippedRows).toBe(1);
+    expect(result.skippedRowReasons).toEqual([{ reason: 'json_parse_error', count: 1 }]);
+  });
+
   it('declares the CLI config.json as a parse dependency for CLI wire files only', async () => {
     const adapter = new KimiSourceAdapter();
     const cliFile = path.join('/kimi-root', 'sessions', 'group-a', 'session-a', 'wire.jsonl');

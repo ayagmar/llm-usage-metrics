@@ -551,6 +551,21 @@ describe('PiSourceAdapter', () => {
     expect(diagnostics.skippedRowReasons).toEqual([]);
   });
 
+  it('reports malformed JSONL lines that pass its prefilter', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-malformed-jsonl-'));
+    tempDirs.push(root);
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(filePath, ['{"type":"message",', '{"type":"ignored",'].join('\n'), 'utf8');
+
+    const adapter = new PiSourceAdapter({ sessionsDir: root });
+    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+
+    expect(diagnostics.events).toEqual([]);
+    expect(diagnostics.skippedRows).toBe(1);
+    expect(diagnostics.skippedRowReasons).toEqual([{ reason: 'json_parse_error', count: 1 }]);
+  });
+
   it('keeps cost-only usage entries when explicit non-zero cost exists', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-cost-only-'));
     tempDirs.push(root);

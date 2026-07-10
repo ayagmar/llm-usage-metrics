@@ -132,6 +132,10 @@ export class QwenSourceAdapter implements SourceAdapter {
 
     for await (const line of readJsonlObjects(filePath, {
       shouldParseLine: shouldParseQwenJsonlLine,
+      onMalformedLine: () => {
+        skippedRows++;
+        incrementSkippedReason(skippedRowReasons, 'json_parse_error');
+      },
     })) {
       if (line.type !== 'assistant') {
         continue;

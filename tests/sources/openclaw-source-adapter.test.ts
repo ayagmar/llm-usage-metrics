@@ -392,6 +392,21 @@ describe('OpenClawSourceAdapter', () => {
     });
   });
 
+  it('reports malformed JSONL lines that pass its prefilter', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'openclaw-malformed-jsonl-'));
+    tempDirs.push(root);
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(filePath, '{"type":"message",', 'utf8');
+
+    const adapter = new OpenClawSourceAdapter({ agentsDir: root });
+    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+
+    expect(diagnostics.events).toEqual([]);
+    expect(diagnostics.skippedRows).toBe(1);
+    expect(diagnostics.skippedRowReasons).toEqual([{ reason: 'json_parse_error', count: 1 }]);
+  });
+
   it('reports invalid usage events through parse diagnostics', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'openclaw-invalid-event-'));
     tempDirs.push(root);

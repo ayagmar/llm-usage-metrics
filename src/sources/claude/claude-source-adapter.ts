@@ -166,6 +166,10 @@ export class ClaudeSourceAdapter implements SourceAdapter {
 
     for await (const line of readJsonlObjects(filePath, {
       shouldParseLineBytes: shouldParseClaudeJsonlLineBytes,
+      onMalformedLine: () => {
+        skippedRows++;
+        incrementSkippedReason(skippedRowReasons, 'json_parse_error');
+      },
     })) {
       if (asTrimmedText(line.type) !== 'assistant') {
         continue;

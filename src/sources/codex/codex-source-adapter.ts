@@ -297,6 +297,10 @@ export class CodexSourceAdapter implements SourceAdapter {
 
     for await (const line of readJsonlObjects(filePath, {
       shouldParseLineBytes: shouldParseCodexJsonlLineBytes,
+      onMalformedLine: () => {
+        skippedRows++;
+        incrementSkippedReason(skippedRowReasons, 'json_parse_error');
+      },
     })) {
       if (line.type === 'session_meta') {
         const payload = asRecord(line.payload);
