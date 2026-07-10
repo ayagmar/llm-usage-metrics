@@ -20,7 +20,7 @@ This page documents the security controls and contributor steps configured in th
 - The committed `pnpm-lock.yaml` is the real installation pin for this repo.
 - `pnpm-lock.yaml` records `integrity: sha512-...` hashes for downloaded package tarballs.
 - GitHub Actions workflows are pinned to full commit SHAs, with trailing version comments so automated updaters can keep them current.
-- The root `package.json` also uses `pnpm.overrides` to force `basic-ftp@5.2.0` and `lodash@4.17.23`, patching vulnerable transitive versions in the current dependency graph.
+- The root `package.json` also uses `pnpm.overrides` to force `basic-ftp@5.3.1` and `lodash@4.18.1`, patching vulnerable transitive versions in the current dependency graph.
 
 ### Automated dependency upgrades
 
@@ -53,6 +53,7 @@ The regular CI workflow in `.github/workflows/ci.yml` enforces the normal qualit
 - Startup update checks only query the npm registry for the latest package version and are cached/skippable with `LLM_USAGE_SKIP_UPDATE_CHECK=1`.
 - Pricing refreshes only fetch the LiteLLM pricing JSON; `--pricing-offline` runs from cache or the bundled LiteLLM snapshot.
 - OpenCode parsing opens the SQLite database in read-only mode.
+- The event store retains usage, session, and repository metadata. On POSIX systems, the default directory uses mode `0700`, and the database plus present WAL/SHM files use mode `0600`. Custom store parent-directory permissions remain the user's responsibility. Deleting the ledger deletes its retained history.
 
 ### Publishing and CI identity
 
