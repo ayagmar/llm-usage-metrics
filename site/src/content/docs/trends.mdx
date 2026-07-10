@@ -1,6 +1,6 @@
 ---
 title: Trends
-description: Daily cost or token trends in terminal or JSON form.
+description: Chart daily cost or token usage in the terminal, JSON, or a share SVG.
 ---
 
 `trends` shows daily movement over time instead of a tabular aggregate.
@@ -23,6 +23,9 @@ llm-usage trends --since 2026-02-01 --until 2026-02-28
 
 # Per-source JSON output
 llm-usage trends --by-source --json
+
+# Write the combined series as an SVG
+llm-usage trends --days 14 --share
 ```
 
 ## Options
@@ -30,9 +33,10 @@ llm-usage trends --by-source --json
 - `--days <n>`: trailing local calendar days to chart
 - `--metric <name>`: `cost` or `tokens`
 - `--by-source`: render one sparkline row per source
-- shared filters apply: `--source`, `--provider`, `--model`, `--since`, `--until`, `--timezone`, source-path overrides, and pricing flags
+- `--share`: write the combined series to `trends-share.svg`
+- shared filters apply: `--source`, `--provider`, `--model`, `--since`, `--until`, `--timezone`, source-path overrides, pricing flags, and `--history`
 
-`trends` supports terminal output and `--json`. It does not support `--markdown` or `--share`.
+`trends` supports terminal output, `--json`, and `--share`. It does not support `--markdown`. The share renderer needs the combined series, so `--share` cannot be combined with `--by-source`.
 
 ## `--days` vs `--since` / `--until`
 

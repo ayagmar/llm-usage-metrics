@@ -1,130 +1,92 @@
 ---
 title: Documentation
-description: Complete documentation for llm-usage-metrics CLI.
+description: Understand local LLM usage, pricing, sessions, and reports.
 tableOfContents: false
 ---
 
 import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 
-`llm-usage-metrics` is a local-first CLI that aggregates token usage and estimated cost across 16 coding agents with zero configuration. Everything runs on your machine: session files in, reports out. Pricing works fully offline from a bundled LiteLLM snapshot.
+`llm-usage-metrics` reads session data created by 16 AI coding tools and converts it into one normalized usage history. You can review token volume, estimate cost, find expensive sessions, compare periods, and export the results. The CLI parses session content on your machine.
 
-## What it does
-
-- **16 sources, zero-config discovery** — Claude Code, codex, Gemini CLI, Copilot CLI, Cline, Goose, and more, each with an explicit path override.
-- **Reports** — `daily` / `weekly` / `monthly`, `compare` (period vs period), `trends`, `session` (per-conversation cost), `wrapped` (yearly recap), `efficiency` (git-attributed cost per commit), `optimize` (counterfactual model pricing), `doctor`, `prune`.
-- **SQLite event-store ledger** — warm re-runs skip reparsing, `--history` reports files that left the disk, content-hash move suppression, and explicit `prune` maintenance.
-- **TOML config** — `llm-usage config init` writes a commented-defaults template with a published JSON schema; precedence is flags → env → config → defaults, with `logLevel` and `--quiet`.
-- **Offline-first pricing** — LiteLLM pricing resolves cache → network → stale cache → bundled snapshot.
-- **Output** — terminal tables, JSON, Markdown, and share SVGs (usage, trends, wrapped, efficiency, optimize).
-- **Measured performance** — cold runs parse a 1.8 GiB codex corpus in ~1.7 s; warm runs return in ~0.26 s (claude) to ~1.0 s (codex) on the same data. See [Benchmarks](/benchmarks/) for methodology.
-
-## Quick Start
+## Run your first report
 
 ```bash
-# Install globally (or run via: npx llm-usage-metrics@latest daily)
-npm install -g llm-usage-metrics
-
-# First report
-llm-usage daily
-
-# Persist defaults in a commented TOML template
-llm-usage config init
-
-# Dig deeper
-llm-usage session
-llm-usage compare
+npx --yes llm-usage-metrics@latest daily
 ```
 
-## Supported sources
+The command discovers supported sources in their default locations. Use `llm-usage doctor` if the report finds no data, or create a config file when your sessions live elsewhere.
 
-| Source      | Reads from                                                     |
-| ----------- | -------------------------------------------------------------- |
-| pi          | `~/.pi/agent/sessions` JSONL (+ `~/.omp/agent/sessions`)       |
-| codex       | `~/.codex/sessions` JSONL                                      |
-| Gemini CLI  | `~/.gemini/tmp/*/chats` JSON                                   |
-| Droid CLI   | `~/.factory/sessions` settings JSON                            |
-| OpenCode    | `~/.local/share/opencode` SQLite DB                            |
-| OpenClaw    | `~/.openclaw/agents` JSONL (+ legacy homes)                    |
-| Claude Code | `~/.claude/{projects,transcripts}` JSONL                       |
-| Copilot CLI | `~/.copilot/otel` OTEL JSONL                                   |
-| Goose       | `~/.local/share/goose/sessions` SQLite DB                      |
-| Amp         | `~/.local/share/amp/threads` JSON                              |
-| Qwen CLI    | `~/.qwen/projects/*/chats` JSONL                               |
-| Kimi        | `~/.kimi` / `~/.kimi-code` wire JSONL                          |
-| Cline       | VS Code global storage task files                              |
-| RooCode     | VS Code global storage task files                              |
-| KiloCode    | VS Code global storage task files                              |
-| Antigravity | `~/.gemini/antigravity-cli/conversations` SQLite DBs           |
+```bash
+llm-usage doctor
+llm-usage config init
+```
 
-SQLite-backed sources (OpenCode, Goose, Antigravity) require Node.js 24+ with built-in `node:sqlite`.
+## Pick the report by question
 
-## Quick Navigation
+| Question | Command |
+| --- | --- |
+| How many tokens and dollars did I use? | `daily`, `weekly`, `monthly` |
+| How did this period change from the last one? | `compare` |
+| Which conversations or repositories used the most? | `session` |
+| How is usage moving day by day? | `trends` |
+| How does repo-attributed usage line up with Git activity? | `efficiency` |
+| What would the same token mix cost on another model? | `optimize` |
+| Which sources can the CLI see? | `doctor` |
+| Which departed files can I remove from the event ledger? | `prune` |
+| How did the year add up? | `wrapped` |
+
+## How the CLI handles your numbers
+
+Source adapters normalize input, output, reasoning, cache read, and cache write tokens at the file boundary. The pricing engine keeps an explicit source cost when one exists. Otherwise, it estimates cost from LiteLLM pricing.
+
+Reports show the difference:
+
+- `$12.34` means every contributing event has a resolved cost.
+- `~$12.34` means the known cost is partial.
+- `-` means the CLI could not price any contributing event.
+
+The bundled pricing snapshot lets the first report run offline. An online run may refresh the pricing cache from LiteLLM. Pricing requests never include session content.
+
+## What stays on your machine
+
+The CLI reads local session files and local Git history. It writes its event ledger and caches under your platform cache directory. Two optional network requests remain separate from your usage data:
+
+- a cached npm version check at startup
+- a LiteLLM pricing refresh when the pricing cache is stale
+
+Use `--pricing-offline` and `LLM_USAGE_SKIP_UPDATE_CHECK=1` when you want a report with no network requests.
+
+## Continue from here
 
 <CardGrid>
   <LinkCard
-    title="Getting Started"
-    description="Zero-config installation and your first report in seconds."
+    title="Getting started"
+    description="Install the CLI, read the first table, and choose the next useful report."
     href="/llm-usage-metrics/getting-started/"
   />
   <LinkCard
-    title="CLI Reference"
-    description="Complete command and option reference."
-    href="/llm-usage-metrics/cli-reference/"
-  />
-  <LinkCard
-    title="Data Sources"
-    description="Discovery details and override flags for all 16 source adapters."
+    title="Data sources"
+    description="Check default locations, file formats, and path overrides for all 16 adapters."
     href="/llm-usage-metrics/sources/"
   />
   <LinkCard
-    title="Configuration"
-    description="The TOML config file, llm-usage config init, and every key."
-    href="/llm-usage-metrics/configuration/"
+    title="CLI reference"
+    description="Use the generated command and option reference when you know the flag you need."
+    href="/llm-usage-metrics/cli-reference/"
   />
   <LinkCard
-    title="Efficiency"
-    description="Correlate Git outcomes with LLM costs in your repositories."
-    href="/llm-usage-metrics/efficiency/"
+    title="Pricing"
+    description="See where rates come from and how complete, partial, and missing cost render."
+    href="/llm-usage-metrics/pricing/"
   />
   <LinkCard
-    title="Optimize"
-    description="Replay your usage token mix against candidate model pricing."
-    href="/llm-usage-metrics/optimize/"
-  />
-  <LinkCard
-    title="Sessions"
-    description="Per-conversation cost, grouped by session or repository."
-    href="/llm-usage-metrics/session/"
-  />
-  <LinkCard
-    title="Wrapped"
-    description="A yearly usage recap with an optional share SVG."
-    href="/llm-usage-metrics/wrapped/"
-  />
-  <LinkCard
-    title="Benchmarks"
-    description="Measured cold and warm runtimes on real local data, with methodology."
-    href="/llm-usage-metrics/benchmarks/"
+    title="Output formats"
+    description="Choose terminal, JSON, Markdown, or a supported share SVG."
+    href="/llm-usage-metrics/output-formats/"
   />
   <LinkCard
     title="Architecture"
-    description="How parsing, pricing, and the event store fit together."
+    description="Follow discovery, parsing, pricing, aggregation, and rendering through the codebase."
     href="/llm-usage-metrics/architecture/"
   />
-  <LinkCard
-    title="Security"
-    description="See the repo's current security controls and contributor security steps."
-    href="/llm-usage-metrics/security/"
-  />
 </CardGrid>
-
-## Key Commands
-
-```bash
-llm-usage daily
-llm-usage compare
-llm-usage session --by-repo
-llm-usage wrapped --share
-llm-usage efficiency monthly --repo-dir ./my-project
-llm-usage optimize monthly --provider openai --candidate-model gpt-5-codex
-```

@@ -51,4 +51,4 @@ Prune shares its classification logic (`classifyDepartedFiles`) with the history
 
 - The store runs in WAL journal mode, so `events.db-wal` and `events.db-shm` appear alongside `events.db`; opens use a 2-second busy timeout. To back up the ledger, copy all three files while no report is running.
 - `LLM_USAGE_EVENT_STORE=0` and `LLM_USAGE_EVENT_STORE_PATH` are the per-run env overrides; the persistent equivalents are the `eventStore.enabled` and `eventStore.path` config keys.
-- [Caching](/caching/) covers the user-facing tuning view of the store; [Configuration](/configuration/) documents the config keys.
+- [Caching](/llm-usage-metrics/caching/) covers the user-facing tuning view of the store; [Configuration](/llm-usage-metrics/configuration/) documents the config keys.

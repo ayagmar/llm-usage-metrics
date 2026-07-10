@@ -1,172 +1,114 @@
 ---
 title: Getting Started
-description: Install llm-usage-metrics and run your first reports.
+description: Install the CLI, run a local report, and learn where to go next.
 ---
 
-## Install
+You need Node.js 24 or newer and session data from at least one [supported source](/llm-usage-metrics/sources/). The CLI discovers standard source locations, so most first runs need no configuration.
 
-```bash
-npm install -g llm-usage-metrics
-```
+## 1. Run the CLI
 
-Run without global install:
+Try it without installing:
 
 ```bash
 npx --yes llm-usage-metrics@latest daily
 ```
 
-## Requirements
-
-- Node.js 24+
-- At least one supported source:
-  - `.pi` sessions (`~/.pi/agent/sessions/**/*.jsonl`)
-  - `.codex` sessions (`~/.codex/sessions/**/*.jsonl`)
-  - `.gemini` sessions (`~/.gemini/tmp/*/chats/*.json`)
-  - Droid sessions (`~/.factory/sessions/**/*.settings.json`)
-  - OpenCode SQLite DB (auto-discovered or explicit `--opencode-db`, requires built-in `node:sqlite` support)
-  - OpenClaw transcripts (`~/.openclaw/agents/**/*.jsonl`)
-  - Claude Code projects (`~/.claude/projects/**/*.jsonl`)
-  - GitHub Copilot CLI OTEL exports (`~/.copilot/otel/*.jsonl`)
-  - Goose SQLite DB (`~/.local/share/goose/sessions/sessions.db`)
-  - Amp thread files (`~/.local/share/amp/threads/*.json`)
-  - Qwen CLI chats (`~/.qwen/projects/*/chats/*.jsonl`)
-  - Kimi CLI/Kimi Code wire files (`~/.kimi/sessions/**/wire.jsonl`, `~/.kimi-code/sessions/**/wire.jsonl`)
-  - Cline/RooCode/KiloCode task files in VS Code global storage
-  - Antigravity CLI conversation DBs (`~/.gemini/antigravity-cli/conversations/*.db`)
-
-## First report
+Or install the `llm-usage` command:
 
 ```bash
+npm install -g llm-usage-metrics
 llm-usage daily
 ```
 
-Costs are estimated with LiteLLM pricing. First runs work offline from the
-bundled LiteLLM snapshot; online runs refresh the local pricing cache when
-needed. If the bundled snapshot is used, `stderr` shows its snapshot date.
+The first run parses matching session files, stores normalized events in a local SQLite ledger, and loads pricing. Later runs can reuse unchanged files from the ledger.
 
-Useful next commands:
+## 2. Read the table
+
+Each period contains one row per source. A `combined` row appears when the period includes more than one source, and the final `ALL` row totals the full range.
+
+Token columns keep the buckets supplied by each source:
+
+- `Input`, `Output`, and `Reasoning`
+- `Cache Read` and `Cache Write`
+- `Total`, using the source adapter's normalized total
+
+Cost may come from the source or from LiteLLM pricing. A tilde, such as `~$4.82`, marks a partial estimate. A dash means the CLI could not resolve cost for that row. See [Pricing](/llm-usage-metrics/pricing/) for the full rules.
+
+## 3. Scope the result
+
+Use calendar ranges and filters to answer a narrower question:
 
 ```bash
-llm-usage weekly --timezone Europe/Paris
-llm-usage monthly --since 2026-01-01 --until 2026-01-31
-llm-usage trends --metric tokens --days 14
+# A calendar month in your reporting timezone
+llm-usage monthly --since 2026-06-01 --until 2026-06-30
+
+# Only Codex and Claude Code sessions
+llm-usage monthly --source codex,claude
+
+# Sessions billed through OpenAI
+llm-usage monthly --provider openai
+
+# A model name or substring
+llm-usage monthly --model codex
 ```
 
-## Persist your defaults
+`--source` describes where the event came from. `--provider` describes the billing entity behind the model. A Codex session can therefore have `source=codex` and `provider=openai`.
+
+## 4. Choose a closer view
+
+```bash
+# Compare the current local month with the previous month
+llm-usage compare
+
+# Rank conversations by cost
+llm-usage session --top 10
+
+# Chart the last 14 local days
+llm-usage trends --metric tokens --days 14
+
+# Group usage by repository
+llm-usage session --by-repo
+```
+
+Use [Compare](/llm-usage-metrics/compare/) for period changes, [Session](/llm-usage-metrics/session/) for conversation-level detail, and [Trends](/llm-usage-metrics/trends/) for a daily series.
+
+## 5. Save your defaults when you need them
 
 ```bash
 llm-usage config init
 ```
 
-The template ships every key commented out with its default value, and its `#:schema` line enables editor validation. See [Configuration](/configuration/) for all keys.
+The command writes a commented TOML file with the current defaults and a JSON Schema directive for editor validation. Common reasons to edit it include:
 
-## Common filters
+- your sessions live outside a tool's default directory
+- you want a fixed reporting timezone
+- you prefer offline pricing or quieter diagnostics
+
+CLI flags override environment variables, which override the config file. [Configuration](/llm-usage-metrics/configuration/) lists every key and its matching flag.
+
+## If the first report is empty
+
+Run the discovery probe:
 
 ```bash
-llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude,copilot,goose,amp,qwen,kimi,cline,roocode,kilocode,antigravity
-llm-usage monthly --provider openai
-llm-usage monthly --model claude
+llm-usage doctor
 ```
 
-## Output modes
+Doctor reports the location and health of each source without parsing sessions or loading pricing. Probe one source or give it an explicit path when needed:
+
+```bash
+llm-usage doctor --source codex
+llm-usage doctor --source claude --claude-dir /path/to/.claude/projects
+```
+
+The [Data Sources](/llm-usage-metrics/sources/) pages list default locations and override flags. [Troubleshooting](/llm-usage-metrics/troubleshooting/) covers parse failures, missing pricing, and event-store issues.
+
+## Export the result
 
 ```bash
 llm-usage daily --json
 llm-usage daily --markdown
-llm-usage monthly --per-model-columns
-llm-usage monthly --pricing-offline
-llm-usage monthly --ignore-pricing-failures
+llm-usage monthly --share
 ```
 
-## Efficiency quick start
-
-```bash
-llm-usage efficiency monthly
-llm-usage efficiency monthly --repo-dir /path/to/repo --json
-```
-
-See [Efficiency](/efficiency/) for full metric semantics and interpretation rules.
-
-## Trends quick start
-
-```bash
-llm-usage trends
-llm-usage trends --metric tokens --days 7
-llm-usage trends --by-source --json
-```
-
-See [Trends](/trends/) for range rules, metric semantics, and JSON shape.
-
-## Gemini explicit path
-
-```bash
-llm-usage monthly --source gemini --gemini-dir /path/to/.gemini
-```
-
-Use the TOML [config file](/configuration/) to persist source paths instead of
-repeating explicit path flags on every run — run `llm-usage config init` to
-write a commented template.
-
-## OpenCode explicit DB path
-
-```bash
-llm-usage monthly --source opencode --opencode-db /path/to/opencode.db
-```
-
-If no default OpenCode DB is found and no explicit path is given, OpenCode is treated as unavailable for that run.
-
-## Droid explicit path
-
-```bash
-llm-usage monthly --source droid --droid-dir /path/to/.factory/sessions
-```
-
-## Claude explicit path
-
-```bash
-llm-usage monthly --source claude --claude-dir /path/to/.claude/projects
-```
-
-## Copilot explicit path
-
-```bash
-llm-usage monthly --source copilot --copilot-dir /path/to/.copilot/otel
-```
-
-## Goose explicit DB path
-
-```bash
-llm-usage monthly --source goose --goose-db /path/to/goose/sessions.db
-```
-
-## Amp explicit path
-
-```bash
-llm-usage monthly --source amp --amp-dir /path/to/amp/threads
-```
-
-## Qwen explicit path
-
-```bash
-llm-usage monthly --source qwen --qwen-dir /path/to/.qwen/projects
-```
-
-## Kimi explicit path
-
-```bash
-llm-usage monthly --source kimi --kimi-dir /path/to/kimi/sessions
-```
-
-## Cline family explicit paths
-
-```bash
-llm-usage monthly --source cline --cline-dir /path/to/cline/tasks
-llm-usage monthly --source roocode --roocode-dir /path/to/roocode/tasks
-llm-usage monthly --source kilocode --kilocode-dir /path/to/kilocode/tasks
-```
-
-## Antigravity explicit path
-
-```bash
-llm-usage monthly --source antigravity --antigravity-dir /path/to/antigravity/conversations
-```
+Report data goes to `stdout`; diagnostics stay on `stderr`. This separation keeps JSON and Markdown safe to redirect into a file or pipeline. Share support varies by report, so check [Output Formats](/llm-usage-metrics/output-formats/) before adding `--share` to a specialized command.

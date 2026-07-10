@@ -1,139 +1,67 @@
 ---
 title: Output Formats
-description: Terminal, JSON, and Markdown output modes.
+description: Choose terminal, JSON, Markdown, or a supported share SVG.
 ---
 
-## Terminal (default)
+The CLI keeps report data on `stdout` and diagnostics on `stderr`. Redirecting JSON or Markdown therefore produces a clean data file while discovery and pricing notes remain visible in the terminal.
+
+## Terminal
 
 ```bash
 llm-usage daily
 ```
 
-Terminal output includes:
+The default renderer uses a boxed title and a Unicode table. `NO_COLOR=1` removes ANSI color without changing the content.
 
-- boxed report header
-- semantic header colors and source-aware row styling
-- summary-row emphasis for combined and grand totals
-- diagnostics on `stderr`
-- data table on `stdout`
+Very wide usage tables can emit an overflow warning on `stderr`. Use a wider terminal, filter the report, or switch to JSON when you need every column without terminal wrapping.
 
 ## JSON
 
 ```bash
-llm-usage daily --json
+llm-usage daily --json > usage.json
 ```
 
-Use for scripting and automation pipelines.
+Use JSON for scripts and pipelines. Specialized reports keep their own documented shape, so read the report page before depending on fields. Diagnostics never enter the JSON body.
 
 ## Markdown
 
 ```bash
-llm-usage daily --markdown
+llm-usage daily --markdown > usage.md
 ```
 
-Use for docs, changelogs, and issue/PR reporting.
+Markdown works for usage, compare, session, efficiency, and optimize reports. It does not work for trends, wrapped, doctor, or prune.
 
-Usage report tables rank per-period models by total tokens so the dominant models appear first in both terminal and Markdown output.
+Usage and session output keep the same ordering and row limits as the terminal renderer. `--per-model-columns` also works with Markdown usage reports.
 
 ## Share SVG
 
-Generate a dark-themed share image:
+Share output is an offline SVG written to the current directory. The command still prints the normal report to `stdout`.
 
-```bash
-# Usage reports (daily, weekly, or monthly)
-llm-usage monthly --share
-llm-usage daily --share
-llm-usage weekly --share
+| Report | Command | File |
+| --- | --- | --- |
+| Usage | `llm-usage monthly --share` | `usage-monthly-share.svg` |
+| Trends | `llm-usage trends --share` | `trends-share.svg` |
+| Wrapped | `llm-usage wrapped --year 2026 --share` | `llm-usage-wrapped-2026.svg` |
+| Efficiency | `llm-usage efficiency monthly --share` | `efficiency-monthly-share.svg` |
+| Optimize | `llm-usage optimize monthly --candidate-model gpt-4.1 --share` | `optimize-monthly-share.svg` |
 
-# Efficiency (monthly only)
-llm-usage efficiency monthly --repo-dir /path/to/repo --share
+Usage share works for daily, weekly, and monthly reports. Efficiency and optimize share work for monthly reports only. Trends share requires the combined view, so it cannot be paired with `--by-source`. Efficiency share cannot be paired with `--by-source` either.
 
-# Optimize (monthly only)
-llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --share
-```
-
-`--share` writes an SVG file to the current directory:
-
-- Usage reports: `usage-{granularity}-share.svg` (stacked area chart by source)
-- Efficiency: `efficiency-monthly-share.svg` (commit bars + $/commit line)
-- Optimize: `optimize-monthly-share.svg` (savings % heatmap)
-
-All share images use a dark theme designed for social media sharing.
-
-## Efficiency reports
-
-```bash
-llm-usage efficiency daily
-llm-usage efficiency weekly --repo-dir /path/to/repo --json
-llm-usage efficiency monthly --repo-dir /path/to/repo --share
-```
-
-Efficiency outputs include usage totals, Git outcomes (`Commits`, `+Lines`, `-Lines`, `ΔLines`), and derived ratios.
-
-Usage values are repo-attributed: only usage events mapped to the selected repository root are included.
-
-Columns:
-
-- `Input`, `Output`, `Reasoning`, `Cache Read`, `Cache Write`, `Total`, `Cost` come from repo-attributed usage events.
-- `Commits`, `+Lines`, `-Lines`, `ΔLines` come from local Git shortstat outcomes for the configured Git author.
-- `Tokens/Commit` = `(Input + Output + Reasoning) / Commits` (excludes cache read/write tokens).
-- `$/Commit` = `Cost / Commits`.
-- `$/1k Lines` = `Cost / (ΔLines / 1000)`.
-- `Commits/$` = `Commits / Cost` (only when `Cost > 0`).
-
-Efficiency period rows are emitted only when both Git outcomes and repo-attributed usage signal exist for that period.
-When a denominator is zero, derived values render as `-` in terminal/markdown and are omitted in JSON.
-When pricing is incomplete, affected USD values are prefixed with `~` in terminal/markdown.
-
-Usage filters (`--source`, `--provider`, `--model`, source-path overrides) also affect commit attribution: only commit days with matching repo-attributed usage events are counted.
-`--provider` scopes by billing entity (for example, `openai-codex` is normalized to `openai`).
-
-For deeper semantics (repo attribution, scope behavior, and interpretation guidance), see the [Efficiency](/efficiency/) page.
-
-`--share` is monthly-only for efficiency (see [Share SVG](#share-svg) above).
-
-## Optimize reports
-
-```bash
-llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candidate-model gpt-5-codex
-llm-usage optimize weekly --provider openai --candidate-model gpt-4.1,gpt-5-codex --top 1 --json
-llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candidate-model gpt-5-codex --share
-```
-
-Optimize output contains baseline and candidate rows per period:
-
-- baseline rows: observed token totals and baseline cost
-- candidate rows: hypothetical cost on each candidate model, savings delta, and notes for missing pricing/incomplete baselines
-
-For JSON and Markdown, `stdout` includes only the report body; diagnostics and warnings remain on `stderr`.
-
-`--share` is monthly-only for optimize (see [Share SVG](#share-svg) above).
-
-## Trends reports
-
-```bash
-llm-usage trends
-llm-usage trends --metric tokens --days 7
-llm-usage trends --by-source --json
-```
-
-- Default terminal output renders a daily trend chart.
-- `--json` emits structured trend series (`metric`, `dateRange`, `totalSeries`, optional `sourceSeries`).
-- Diagnostics stay on `stderr`.
-- Markdown is not supported for this command.
+Compare, session, doctor, and prune do not support `--share`.
 
 ## Per-model columns
-
-Detailed multiline metrics per model:
 
 ```bash
 llm-usage monthly --per-model-columns
 llm-usage monthly --markdown --per-model-columns
 ```
 
-When model breakdowns are present, rows are ordered by descending total tokens before the final `Σ TOTAL` line.
+This usage-report option expands token and cost values per model into aligned multiline cells. Models are ranked by total tokens inside each row.
 
-## stdout/stderr behavior
+## Keep diagnostics separate
 
-- `stdout`: report body (`terminal`, `json`, or `markdown`)
-- `stderr`: diagnostics (session summary, parse failures, skipped rows, pricing source)
+```bash
+llm-usage daily --json > usage.json 2> usage.log
+```
+
+`usage.json` contains report data. `usage.log` contains source discovery, skipped-row, pricing, config, and runtime notes. Pass `--quiet` when you want to suppress informational diagnostics while keeping warnings.

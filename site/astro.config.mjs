@@ -7,13 +7,13 @@ export default defineConfig({
 
   integrations: [
     starlight({
-      title: 'llm-usage-metrics',
+      title: 'LLM Usage Metrics',
       description:
-        'CLI for aggregating local LLM usage and cost metrics across 16 local coding agents, with pricing, trends, efficiency reports, and yearly recaps',
+        'Local-first usage reports for 16 AI coding tools, with pricing, session analysis, Git attribution, comparisons, and exports',
       favicon: '/favicon.svg',
       logo: {
         src: './src/assets/logo.svg',
-        replacesTitle: true,
+        replacesTitle: false,
       },
       social: [
         { icon: 'github', label: 'GitHub', href: 'https://github.com/ayagmar/llm-usage-metrics' },
@@ -41,39 +41,45 @@ export default defineConfig({
             href: 'https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap',
           },
         },
+        {
+          tag: 'meta',
+          attrs: {
+            name: 'theme-color',
+            content: '#11130f',
+          },
+        },
       ],
       sidebar: [
         {
-          label: 'Getting Started',
-          link: '/getting-started',
+          label: 'Start here',
+          items: [
+            { label: 'Getting started', link: '/getting-started/' },
+            { label: 'Data sources', link: '/sources/' },
+            { label: 'Configuration', link: '/configuration/' },
+          ],
         },
         {
-          label: 'CLI Reference',
-          link: '/cli-reference',
+          label: 'Reports',
+          items: [
+            { label: 'CLI reference', link: '/cli-reference/' },
+            { label: 'Compare periods', link: '/compare/' },
+            { label: 'Session usage', link: '/session/' },
+            { label: 'Trends', link: '/trends/' },
+            { label: 'Efficiency', link: '/efficiency/' },
+            { label: 'Optimize', link: '/optimize/' },
+            { label: 'Wrapped recap', link: '/wrapped/' },
+            { label: 'Output formats', link: '/output-formats/' },
+          ],
         },
         {
-          label: 'Efficiency',
-          link: '/efficiency',
-        },
-        {
-          label: 'Optimize',
-          link: '/optimize',
-        },
-        {
-          label: 'Trends',
-          link: '/trends',
-        },
-        {
-          label: 'Session',
-          link: '/session',
-        },
-        {
-          label: 'Wrapped',
-          link: '/wrapped',
-        },
-        {
-          label: 'Doctor',
-          link: '/doctor',
+          label: 'Operate',
+          items: [
+            { label: 'Pricing', link: '/pricing/' },
+            { label: 'Caching and history', link: '/caching/' },
+            { label: 'Doctor', link: '/doctor/' },
+            { label: 'Troubleshooting', link: '/troubleshooting/' },
+            { label: 'Security', link: '/security/' },
+          ],
         },
         {
           label: 'Data Sources',
@@ -98,32 +104,8 @@ export default defineConfig({
           ],
         },
         {
-          label: 'Configuration',
-          link: '/configuration',
-        },
-        {
-          label: 'Security',
-          link: '/security',
-        },
-        {
-          label: 'Caching',
-          link: '/caching',
-        },
-        {
-          label: 'Output Formats',
-          link: '/output-formats',
-        },
-        {
-          label: 'Benchmarks',
-          link: '/benchmarks',
-        },
-        {
-          label: 'Pricing',
-          link: '/pricing',
-        },
-        {
-          label: 'Troubleshooting',
-          link: '/troubleshooting',
+          label: 'Engineering',
+          items: [{ label: 'Benchmarks', link: '/benchmarks/' }],
         },
         {
           label: 'Architecture',

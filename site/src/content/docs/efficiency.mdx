@@ -1,121 +1,92 @@
 ---
 title: Efficiency
-description: How efficiency reports are computed, scoped, and interpreted.
+description: Join repo-attributed usage with local Git activity and interpret the ratios carefully.
 ---
 
-Efficiency reporting is the core value proposition of `llm-usage-metrics`. By correlating local Git outcomes with LLM costs, you can derive the true ROI of your AI-assisted development workflow.
+`llm-usage efficiency` places repo-attributed token usage and cost beside your local Git activity. The resulting ratios help with review, but they do not measure code quality, business value, or causal return on investment.
 
-## The ROI Equation
-
-`llm-usage efficiency` joins two high-signal datasets:
-
-1. **Repo-Attributed Usage**: Token counts and costs mapped to your project root.
-2. **Git Outcomes**: Local commit volume and line-delta metrics for your author.
-
-This join allows you to answer questions like: *How much does a commit actually cost in tokens?* and *What is my USD spend per 1k lines of code?*
-
-## Command structure
+## Run the report
 
 ```bash
 llm-usage efficiency <daily|weekly|monthly> [options]
 ```
 
-Examples:
+Start with a monthly view so the raw totals have enough volume to interpret:
 
 ```bash
-llm-usage efficiency daily
-llm-usage efficiency weekly --repo-dir /path/to/repo
-llm-usage efficiency monthly --repo-dir /path/to/repo --json
-llm-usage efficiency monthly --repo-dir /path/to/repo --source codex
+llm-usage efficiency monthly --repo-dir /path/to/repo
+```
+
+Other useful forms:
+
+```bash
+llm-usage efficiency weekly --repo-dir /path/to/repo --json
 llm-usage efficiency monthly --repo-dir /path/to/repo --by-source
 llm-usage efficiency monthly --repo-dir /path/to/repo --share
 ```
 
-`--share` is supported only for `monthly` and writes `efficiency-monthly-share.svg` to the current working directory.
-`--share` cannot be combined with `--by-source`.
+`--share` works for monthly reports and cannot be combined with `--by-source`.
 
-## What is joined
+## What the command joins
 
-Efficiency rows are built from two datasets per period:
+The command builds two datasets for each period:
 
-- repo-attributed usage totals (`Input`, `Output`, `Reasoning`, `Cache Read`, `Cache Write`, `Total`, `Cost`)
-- Git outcomes for your configured author (`Commits`, `+Lines`, `-Lines`, `ΔLines`)
+1. Usage events mapped to the selected repository root through source metadata such as a working directory or file path.
+2. Commits and line changes from local Git history for your configured author.
 
-Only usage events mapped to the selected repository root are included.
+Events without repository attribution stay out of the usage totals. Periods need both Git activity and attributed usage before the renderer emits a row.
 
 ## Column formulas
 
-- `Tokens/Commit` = `(Input + Output + Reasoning) / Commits`
-- `$/Commit` = `Cost / Commits`
-- `$/1k Lines` = `Cost / (ΔLines / 1000)`
-- `Commits/$` = `Commits / Cost` (only when `Cost > 0`)
+| Column | Formula |
+| --- | --- |
+| `Tokens/Commit` | `(Input + Output + Reasoning) / Commits` |
+| `$/Commit` | `Cost / Commits` |
+| `$/1k Lines` | `Cost / (ΔLines / 1000)` |
+| `Commits/$` | `Commits / Cost`, when cost is above zero |
 
-Rendering rules:
+`Tokens/Commit` excludes cache read and cache write tokens. The table keeps those buckets visible in the raw usage columns.
 
-- period rows are emitted only when both Git outcomes and repo-attributed usage signal exist
-- if a denominator is zero, the derived value is `-` (terminal/markdown) or omitted in JSON
-- when pricing is incomplete, affected USD values are approximate (`~` prefix in terminal/markdown)
+A zero denominator renders as `-` in terminal and Markdown output. JSON omits that derived value. Partial pricing adds a `~` prefix to affected USD metrics.
+
+## Read the denominators before the ratios
+
+Review `Commits`, `ΔLines`, and `Cost` first. A small denominator can make a ratio swing even when the underlying usage barely changed.
+
+The ratios also inherit the limits of Git activity:
+
+- A commit and a line delta describe repository activity, not correctness or customer value.
+- Source metadata determines repository attribution. Unattributed events cannot contribute.
+- Filters can change which commit days qualify, so two filtered runs may not share the same Git denominator.
+
+Use the report to spot periods worth investigating. Do not use one ratio as a developer score.
 
 ## Per-source view
-
-Use `--by-source` to show repo-attributed usage rows under each period subtotal:
 
 ```bash
 llm-usage efficiency monthly --repo-dir /path/to/repo --by-source
 ```
 
-Source rows show usage and cost columns only. `Commits`, line deltas, and derived ratios render as `-` because Git outcomes are collected per period for the repository, not per source. The period subtotal keeps the normal efficiency metrics and is the row to use for commit-based ratios.
+Source rows show usage and cost under each period subtotal. Git outcomes belong to the repository period, so source rows display `-` for commits, line changes, and derived ratios. The period subtotal carries those values.
 
-JSON output for `--by-source` returns a payload with `grouping: "source"` and `rows`; default JSON output without `--by-source` remains the rows array.
+JSON with `--by-source` returns `grouping: "source"` and a `rows` array. Default JSON returns the period rows directly.
 
-## Scope and attribution semantics
+## Filters and attribution
 
-### Repository root
-
-- default repo is current working directory
-- override with `--repo-dir`
-- usage events that cannot be mapped to a repo are counted as unattributed and excluded
-
-### Filters
-
-Usage filters apply before efficiency aggregation:
+Usage filters apply before aggregation:
 
 - `--source`
 - `--provider`
 - `--model`
-- source path overrides (`--pi-dir`, `--codex-dir`, `--copilot-dir`, `--gemini-dir`, `--droid-dir`, `--claude-dir`, `--amp-dir`, `--qwen-dir`, `--kimi-dir`, `--cline-dir`, `--roocode-dir`, `--kilocode-dir`, `--antigravity-dir`, `--opencode-db`, `--goose-db`, `--source-dir`)
+- source path overrides
 
-Important: these filters also affect commit attribution. Only commit days with matching repo-attributed usage events are counted in efficiency outcomes.
+These filters also constrain Git attribution. The command counts a commit day only when that day contains a matching repo-attributed usage event.
 
-## Reading results without being misled
-
-- `Tokens/Commit` excludes cache read/write tokens, showing only direct prompt/response/reasoning intensity per commit.
-- Compare `Tokens/Commit` with `$/Commit` to gauge cost-efficiency of your AI workflow.
-
-For filtered source comparisons, run the same command per source:
+For a source-specific comparison, run the same date range and repository with a different source filter:
 
 ```bash
-llm-usage efficiency monthly --repo-dir /path/to/repo --source pi
 llm-usage efficiency monthly --repo-dir /path/to/repo --source codex
-llm-usage efficiency monthly --repo-dir /path/to/repo --source gemini
-llm-usage efficiency monthly --repo-dir /path/to/repo --source droid
-llm-usage efficiency monthly --repo-dir /path/to/repo --source opencode
-llm-usage efficiency monthly --repo-dir /path/to/repo --source openclaw
 llm-usage efficiency monthly --repo-dir /path/to/repo --source claude
-llm-usage efficiency monthly --repo-dir /path/to/repo --source copilot
-llm-usage efficiency monthly --repo-dir /path/to/repo --source goose
-llm-usage efficiency monthly --repo-dir /path/to/repo --source amp
-llm-usage efficiency monthly --repo-dir /path/to/repo --source qwen
-llm-usage efficiency monthly --repo-dir /path/to/repo --source kimi
-llm-usage efficiency monthly --repo-dir /path/to/repo --source cline
-llm-usage efficiency monthly --repo-dir /path/to/repo --source roocode
-llm-usage efficiency monthly --repo-dir /path/to/repo --source kilocode
-llm-usage efficiency monthly --repo-dir /path/to/repo --source antigravity
 ```
 
-## Recommended review workflow
-
-1. Start with monthly for stability.
-2. Check `Commits`, `ΔLines`, and `Cost` first (raw denominators).
-3. Then interpret derived ratios (`$/Commit`, `$/1k Lines`, token/commit metrics).
-4. Drill into source/provider/model filters only after baseline sanity checks.
+Keep the raw denominators beside the ratios when you compare the results.
