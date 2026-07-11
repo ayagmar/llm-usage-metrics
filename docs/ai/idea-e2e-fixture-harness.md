@@ -1,6 +1,8 @@
 # Idea #8: E2E multi-source fixture harness
 
-> Confidence: **75%** — real value, medium-large scope. Not started.
+> Confidence: **75%** — real value, medium-large scope. Shipped on
+> `feat/improvements` (2026-07): a committed multi-source fixture tree now
+> lives under `tests/e2e/` alongside the harness that drives it.
 
 ## The problem this solves
 

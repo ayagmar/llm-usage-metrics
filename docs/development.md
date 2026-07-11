@@ -214,18 +214,28 @@ Optional but recommended:
    - for JSONL sources, consider `readJsonlObjects(filePath, { shouldParseLine })` — or the faster byte-level `shouldParseLineBytes` — to skip irrelevant lines before `JSON.parse`
 3. Normalize output through `createUsageEvent`
 4. Add fixture tests under `tests/sources`
-5. Register adapter in `src/sources/create-default-adapters.ts`
-6. Wire source-specific override semantics:
-   - directory-backed sources get a dedicated `--<source>-dir` flag AND participate in the generic `--source-dir <source-id=path>` override
-   - file/DB-backed sources get only a dedicated flag (for example `--opencode-db`) and are rejected by `--source-dir` with an actionable error
-7. Wire the config surface:
-   - add the source id to `USER_CONFIG_SOURCE_DIR_KEYS` in `src/config/user-config.ts` (the `config init` template derives its `[sourceDirs]` entries from that list automatically)
-   - add the matching `sourceDirs.<id>` property to `schema/config.schema.json` AND the published copy `site/public/config-schema.json` — unit tests fail if either copy drifts from the loader's known keys
-8. Update the docs surface:
+5. Add one entry to `sourceRegistrations` in `src/sources/create-default-adapters.ts`
+   (id, storage format, `supportsSourceDir`, the dedicated `option` metadata
+   `{ key, flag, help }`, and the constructor). That single entry drives the
+   dedicated `--<source>-dir`/`--<source>-db` flag and its help text, the
+   `--source-dir` participation (directory-backed) or rejection (db-backed), the
+   explicit-source detection in `resolveExplicitSourceIds`, blank-path validation,
+   and the config `sourceDirs.<id>` → option-key mapping. Add the id to
+   `dedicatedOptionOrderIds` only if you need it to appear in a specific `--help`
+   position (the default is registration order).
+6. Wire the config surface (each mirror is guarded by a manifest parity test that
+   fails if it drifts):
+   - add the source id to `USER_CONFIG_SOURCE_DIR_KEYS` in `src/config/user-config.ts`
+     (the `config init` template derives its `[sourceDirs]` entries from that list)
+     and to `sourceDirOptionByConfigKey` in `src/cli/apply-user-config.ts`
+   - add the matching `sourceDirs.<id>` property to `schema/config.schema.json` AND
+     the published copy `site/public/config-schema.json` — unit tests fail if either
+     copy drifts from the loader's known keys
+7. Update the docs surface:
    - README Supported Sources table and source-list examples
    - the site landing page (`site/src/content/docs/index.mdx`): source count and sources table
    - a `site/src/content/docs/sources/<id>.mdx` page plus its Data Sources sidebar entry in `site/astro.config.mjs`
-9. Extend the e2e expectations: fixtures under `tests/fixtures/e2e/<id>/` and the all-sources list plus totals in `tests/e2e/multi-source.e2e.test.ts`
-10. Verify CLI filtering with `--source <name>`
+8. Extend the e2e expectations: fixtures under `tests/fixtures/e2e/<id>/` and the all-sources list plus totals in `tests/e2e/multi-source.e2e.test.ts`
+9. Verify CLI filtering with `--source <name>`
 
 Keep parsing logic isolated to the adapter. Do not spread source-specific assumptions across aggregation or rendering.

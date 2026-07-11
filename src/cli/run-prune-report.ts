@@ -298,7 +298,11 @@ export async function buildPruneReport(
   );
 
   if (!eventStoreRuntimeConfig.enabled) {
-    throw new Error('prune requires the event store (unset LLM_USAGE_EVENT_STORE=0)');
+    throw new Error(
+      eventStoreRuntimeConfig.disabledBy === 'environment'
+        ? 'prune requires the event store (unset LLM_USAGE_EVENT_STORE=0)'
+        : 'prune requires the event store (set eventStore.enabled = true in config.toml)',
+    );
   }
 
   const makeAdapters = deps.createAdapters ?? createDefaultAdapters;

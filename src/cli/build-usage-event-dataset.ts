@@ -144,7 +144,11 @@ export async function buildUsageEventDataset(
   ]);
 
   if (configuredOptions.history && !eventStoreRuntimeConfig.enabled) {
-    throw new Error('--history requires the event store (unset LLM_USAGE_EVENT_STORE=0)');
+    throw new Error(
+      eventStoreRuntimeConfig.disabledBy === 'environment'
+        ? '--history requires the event store (unset LLM_USAGE_EVENT_STORE=0)'
+        : '--history requires the event store (set eventStore.enabled = true in config.toml)',
+    );
   }
 
   const adapters = measureRuntimeProfileStageSync(
@@ -192,7 +196,11 @@ export async function buildUsageEventDataset(
             openedEventStore = await openStore(eventStoreRuntimeConfig.path);
           } catch (error) {
             eventStoreOpenWarning = `Event store disabled after failure: ${getErrorReason(error)}`;
-            parseEventStoreRuntimeConfig = { ...eventStoreRuntimeConfig, enabled: false };
+            parseEventStoreRuntimeConfig = {
+              enabled: false,
+              path: eventStoreRuntimeConfig.path,
+              disabledBy: 'configuration',
+            };
           }
         }
 

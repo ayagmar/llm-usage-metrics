@@ -308,6 +308,7 @@ describe('build-usage-data-parsing', () => {
       eventStore: {
         enabled: false,
         path: '/tmp/events.db',
+        disabledBy: 'environment',
       },
       eventStoreDeps: {
         openEventStore,
@@ -350,7 +351,7 @@ describe('build-usage-data-parsing', () => {
     const adapter = createStoreBackedAdapter('pi', [fileA, fileB]);
     const options = {
       eventStore: {
-        enabled: true,
+        enabled: true as const,
         path: store.filePath,
       },
       eventStoreDeps: {
@@ -788,7 +789,7 @@ describe('build-usage-data-parsing', () => {
     const adapter = createCountingJsonlAdapter('codex', [fileA, fileB], parseCalls);
     const options = {
       eventStore: {
-        enabled: true,
+        enabled: true as const,
         path: store.filePath,
       },
       eventStoreDeps: {

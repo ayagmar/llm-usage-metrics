@@ -214,6 +214,59 @@ describe('runtime overrides', () => {
     });
   });
 
+  it('reports provenance when the event store is disabled', () => {
+    expect(getEventStoreRuntimeConfig({ LLM_USAGE_EVENT_STORE: '0' })).toEqual({
+      enabled: false,
+      path: getDefaultEventStorePath(),
+      disabledBy: 'environment',
+    });
+
+    expect(
+      getEventStoreRuntimeConfig({}, { eventStore: { enabled: false, path: '/tmp/events.db' } }),
+    ).toEqual({
+      enabled: false,
+      path: '/tmp/events.db',
+      disabledBy: 'configuration',
+    });
+
+    expect(
+      getEventStoreRuntimeConfig(
+        { LLM_USAGE_EVENT_STORE: '0' },
+        { eventStore: { enabled: false, path: '/tmp/events.db' } },
+      ),
+    ).toEqual({
+      enabled: false,
+      path: '/tmp/events.db',
+      disabledBy: 'environment',
+    });
+
+    expect(
+      getEventStoreRuntimeConfig(
+        { LLM_USAGE_EVENT_STORE: 'garbage' },
+        { eventStore: { enabled: false, path: '/tmp/events.db' } },
+      ),
+    ).toEqual({
+      enabled: false,
+      path: '/tmp/events.db',
+      disabledBy: 'configuration',
+    });
+
+    expect(
+      getEventStoreRuntimeConfig(
+        { LLM_USAGE_EVENT_STORE: '1' },
+        { eventStore: { enabled: false, path: '/tmp/events.db' } },
+      ),
+    ).toEqual({
+      enabled: true,
+      path: '/tmp/events.db',
+    });
+
+    expect(getEventStoreRuntimeConfig({})).toEqual({
+      enabled: true,
+      path: getDefaultEventStorePath(),
+    });
+  });
+
   it('resolves auto parse workers from config or env', () => {
     expect(getParsingRuntimeConfig({}, { parseWorkers: 'auto' }).parseWorkers).toBe(
       getExpectedAutoParseWorkerCount(),

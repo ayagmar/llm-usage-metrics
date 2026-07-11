@@ -151,12 +151,13 @@ function writeStoredFile(
 }
 
 function eventStoreDisabledDeps(): {
-  getEventStoreRuntimeConfig: () => { enabled: false; path: string };
+  getEventStoreRuntimeConfig: () => { enabled: false; path: string; disabledBy: 'environment' };
 } {
   return {
     getEventStoreRuntimeConfig: () => ({
       enabled: false,
       path: '/tmp/events.db',
+      disabledBy: 'environment',
     }),
   };
 }
@@ -343,6 +344,7 @@ describe('run-doctor-report', () => {
         getEventStoreRuntimeConfig: () => ({
           enabled: false,
           path: '/tmp/events.db',
+          disabledBy: 'environment',
         }),
       },
     );

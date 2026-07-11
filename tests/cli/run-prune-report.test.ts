@@ -105,7 +105,7 @@ function createDeps(dbPath: string, adapters: SourceAdapter[]) {
   return {
     createAdapters: () => adapters,
     getEventStoreRuntimeConfig: () => ({
-      enabled: true,
+      enabled: true as const,
       path: dbPath,
     }),
   };
@@ -410,7 +410,7 @@ describe('run-prune-report', () => {
       { suppressed: true, source: 'codex', codexDir: path.dirname(dbPath) },
       {
         getEventStoreRuntimeConfig: () => ({
-          enabled: true,
+          enabled: true as const,
           path: dbPath,
         }),
       },
@@ -441,10 +441,26 @@ describe('run-prune-report', () => {
           getEventStoreRuntimeConfig: () => ({
             enabled: false,
             path: dbPath,
+            disabledBy: 'environment',
           }),
         },
       ),
-    ).rejects.toThrow('prune requires the event store');
+    ).rejects.toThrow('prune requires the event store (unset LLM_USAGE_EVENT_STORE=0)');
+    await expect(
+      buildPruneReport(
+        { suppressed: true },
+        {
+          ...deps,
+          getEventStoreRuntimeConfig: () => ({
+            enabled: false,
+            path: dbPath,
+            disabledBy: 'configuration',
+          }),
+        },
+      ),
+    ).rejects.toThrow(
+      'prune requires the event store (set eventStore.enabled = true in config.toml)',
+    );
     await expect(
       buildPruneReport(
         { suppressed: true },
@@ -606,7 +622,7 @@ describe('run-prune-report', () => {
     const datasetDeps = {
       createAdapters: () => [adapter],
       getEventStoreRuntimeConfig: () => ({
-        enabled: true,
+        enabled: true as const,
         path: dbPath,
       }),
     };
@@ -626,5 +642,82 @@ describe('run-prune-report', () => {
     );
 
     expect(after.filteredEvents).toEqual(before.filteredEvents);
+  });
+
+  it('classifies a larger mixed fixture through prune (suppressed + aged + kept)', async () => {
+    const dbPath = await createTempDbPath('prune-mixed-batch-');
+    const tempRoot = path.dirname(dbPath);
+    const livePath = path.join(tempRoot, 'live.jsonl');
+    const store = await openEventStore(dbPath);
+
+    try {
+      // Discovered live file — its content seeds the served set.
+      writeStoredFile(store, {
+        filePath: livePath,
+        events: [createEvent({ sessionId: 'live' })],
+        now: 5_000,
+      });
+      // Exact copies of live content — suppressed.
+      for (let index = 0; index < 3; index += 1) {
+        writeStoredFile(store, {
+          filePath: path.join(tempRoot, `copy-${index}.jsonl`),
+          events: [createEvent({ sessionId: `copy-${index}` })],
+          now: 1_000 + index,
+        });
+      }
+      // Old, unique content — aged.
+      for (let index = 0; index < 3; index += 1) {
+        writeStoredFile(store, {
+          filePath: path.join(tempRoot, `aged-${index}.jsonl`),
+          events: [
+            createEvent({
+              sessionId: `aged-${index}`,
+              timestamp: '2025-12-30T10:00:00.000Z',
+              inputTokens: 200 + index,
+              totalTokens: 205 + index,
+            }),
+          ],
+          now: 2_000 + index,
+        });
+      }
+      // Recent, unique content — neither suppressed nor aged, so kept.
+      for (let index = 0; index < 2; index += 1) {
+        writeStoredFile(store, {
+          filePath: path.join(tempRoot, `keep-${index}.jsonl`),
+          events: [
+            createEvent({
+              sessionId: `keep-${index}`,
+              inputTokens: 400 + index,
+              totalTokens: 405 + index,
+            }),
+          ],
+          now: 3_000 + index,
+        });
+      }
+    } finally {
+      closeEventStore(store);
+    }
+
+    const result = await buildPruneReport(
+      { suppressed: true, departedBefore: '2026-01-01' },
+      createDeps(dbPath, [createAdapter({ files: [livePath] })]),
+    );
+
+    const reasonsByFile = Object.fromEntries(
+      result.candidates.map((candidate) => [path.basename(candidate.filePath), candidate.reasons]),
+    );
+    expect(reasonsByFile).toEqual({
+      'copy-0.jsonl': ['suppressed'],
+      'copy-1.jsonl': ['suppressed'],
+      'copy-2.jsonl': ['suppressed'],
+      'aged-0.jsonl': ['aged'],
+      'aged-1.jsonl': ['aged'],
+      'aged-2.jsonl': ['aged'],
+    });
+    expect(result.summary).toMatchObject({
+      applied: false,
+      candidateFileCount: 6,
+      candidateEventCount: 6,
+    });
   });
 });
