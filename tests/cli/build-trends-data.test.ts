@@ -33,7 +33,11 @@ function runtimeDeps(
       parseWorkerMinBytes: 268_435_456,
     }),
     getPricingFetcherRuntimeConfig: () => ({ cacheTtlMs: 1_000, fetchTimeoutMs: 1_000 }),
-    getEventStoreRuntimeConfig: () => ({ enabled: false, path: '/tmp/events.db' }),
+    getEventStoreRuntimeConfig: () => ({
+      enabled: false as const,
+      path: '/tmp/events.db',
+      disabledBy: 'environment' as const,
+    }),
     getActiveEnvVarOverrides: () => [],
     createAdapters: () => overrides.adapters ?? [],
     resolvePricingSource:

@@ -55,15 +55,15 @@ function resolveBoundedInteger(
   return parsedValue;
 }
 
-function resolveBoolean(envValue: string | undefined, fallback: boolean): boolean {
+function parseBooleanToken(envValue: string | undefined): boolean | undefined {
   if (envValue === undefined) {
-    return fallback;
+    return undefined;
   }
 
   const normalizedValue = envValue.trim().toLowerCase();
 
   if (normalizedValue.length === 0) {
-    return fallback;
+    return undefined;
   }
 
   if (['1', 'true', 'yes', 'on'].includes(normalizedValue)) {
@@ -74,7 +74,11 @@ function resolveBoolean(envValue: string | undefined, fallback: boolean): boolea
     return false;
   }
 
-  return fallback;
+  return undefined;
+}
+
+function resolveBoolean(envValue: string | undefined, fallback: boolean): boolean {
+  return parseBooleanToken(envValue) ?? fallback;
 }
 
 export type UpdateNotifierRuntimeConfig = {
@@ -94,10 +98,9 @@ export type ParsingRuntimeConfig = {
   parseWorkerMinBytes: number;
 };
 
-export type EventStoreRuntimeConfig = {
-  enabled: boolean;
-  path: string;
-};
+export type EventStoreRuntimeConfig =
+  | { enabled: true; path: string }
+  | { enabled: false; path: string; disabledBy: 'environment' | 'configuration' };
 
 export function getUpdateNotifierRuntimeConfig(
   env: NodeJS.ProcessEnv = process.env,
@@ -195,11 +198,16 @@ export function getEventStoreRuntimeConfig(
       ? (config.eventStore?.path ?? getDefaultEventStorePath())
       : eventStorePathOverride;
 
+  const envToken = parseBooleanToken(env.LLM_USAGE_EVENT_STORE);
+  const enabled = envToken ?? config.eventStore?.enabled ?? EVENT_STORE_ENABLED_DEFAULT;
+
+  if (enabled) {
+    return { enabled: true, path: eventStorePath };
+  }
+
   return {
-    enabled: resolveBoolean(
-      env.LLM_USAGE_EVENT_STORE,
-      config.eventStore?.enabled ?? EVENT_STORE_ENABLED_DEFAULT,
-    ),
+    enabled: false,
     path: eventStorePath,
+    disabledBy: envToken === false ? 'environment' : 'configuration',
   };
 }

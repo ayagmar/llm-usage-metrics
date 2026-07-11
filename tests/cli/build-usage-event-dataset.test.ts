@@ -68,7 +68,7 @@ function createDatasetDeps(eventStorePath: string) {
       parseWorkerMinBytes: 268_435_456,
     }),
     getPricingFetcherRuntimeConfig: () => ({ cacheTtlMs: 1_000, fetchTimeoutMs: 1_000 }),
-    getEventStoreRuntimeConfig: () => ({ enabled: true, path: eventStorePath }),
+    getEventStoreRuntimeConfig: () => ({ enabled: true as const, path: eventStorePath }),
     getActiveEnvVarOverrides: () => [],
   };
 }
@@ -160,11 +160,34 @@ describe('buildUsageEventDataset history', () => {
         { history: true, source: 'codex', timezone: 'UTC' },
         {
           ...createDatasetDeps('/tmp/events.db'),
-          getEventStoreRuntimeConfig: () => ({ enabled: false, path: '/tmp/events.db' }),
+          getEventStoreRuntimeConfig: () => ({
+            enabled: false,
+            path: '/tmp/events.db',
+            disabledBy: 'environment',
+          }),
           createAdapters: () => [createAdapter('codex', {})],
         },
       ),
     ).rejects.toThrow('--history requires the event store (unset LLM_USAGE_EVENT_STORE=0)');
+  });
+
+  it('rejects --history when the event store is disabled by config', async () => {
+    await expect(
+      buildUsageEventDataset(
+        { history: true, source: 'codex', timezone: 'UTC' },
+        {
+          ...createDatasetDeps('/tmp/events.db'),
+          getEventStoreRuntimeConfig: () => ({
+            enabled: false,
+            path: '/tmp/events.db',
+            disabledBy: 'configuration',
+          }),
+          createAdapters: () => [createAdapter('codex', {})],
+        },
+      ),
+    ).rejects.toThrow(
+      '--history requires the event store (set eventStore.enabled = true in config.toml)',
+    );
   });
 
   it('emits a zero history diagnostic when no departed files are found', async () => {

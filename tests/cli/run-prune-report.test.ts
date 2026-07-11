@@ -105,7 +105,7 @@ function createDeps(dbPath: string, adapters: SourceAdapter[]) {
   return {
     createAdapters: () => adapters,
     getEventStoreRuntimeConfig: () => ({
-      enabled: true,
+      enabled: true as const,
       path: dbPath,
     }),
   };
@@ -410,7 +410,7 @@ describe('run-prune-report', () => {
       { suppressed: true, source: 'codex', codexDir: path.dirname(dbPath) },
       {
         getEventStoreRuntimeConfig: () => ({
-          enabled: true,
+          enabled: true as const,
           path: dbPath,
         }),
       },
@@ -441,10 +441,26 @@ describe('run-prune-report', () => {
           getEventStoreRuntimeConfig: () => ({
             enabled: false,
             path: dbPath,
+            disabledBy: 'environment',
           }),
         },
       ),
-    ).rejects.toThrow('prune requires the event store');
+    ).rejects.toThrow('prune requires the event store (unset LLM_USAGE_EVENT_STORE=0)');
+    await expect(
+      buildPruneReport(
+        { suppressed: true },
+        {
+          ...deps,
+          getEventStoreRuntimeConfig: () => ({
+            enabled: false,
+            path: dbPath,
+            disabledBy: 'configuration',
+          }),
+        },
+      ),
+    ).rejects.toThrow(
+      'prune requires the event store (set eventStore.enabled = true in config.toml)',
+    );
     await expect(
       buildPruneReport(
         { suppressed: true },
@@ -606,7 +622,7 @@ describe('run-prune-report', () => {
     const datasetDeps = {
       createAdapters: () => [adapter],
       getEventStoreRuntimeConfig: () => ({
-        enabled: true,
+        enabled: true as const,
         path: dbPath,
       }),
     };
