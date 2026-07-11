@@ -13,6 +13,7 @@
   <a href="https://www.npmjs.com/package/llm-usage-metrics"><img src="https://img.shields.io/npm/dt/llm-usage-metrics.svg?style=flat-square&color=5f655b" alt="npm downloads"></a>
   <a href="https://github.com/ayagmar/llm-usage-metrics/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ayagmar/llm-usage-metrics/ci.yml?style=flat-square&label=CI" alt="CI status"></a>
   <a href="https://codecov.io/gh/ayagmar/llm-usage-metrics"><img src="https://img.shields.io/codecov/c/github/ayagmar/llm-usage-metrics?style=flat-square" alt="test coverage"></a>
+  <a href="https://deepwiki.com/ayagmar/llm-usage-metrics"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
 </p>
 
 <p align="center">

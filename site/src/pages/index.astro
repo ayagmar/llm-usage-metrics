@@ -21,6 +21,7 @@ const link = (slug: string) => `${base}${slug}`;
 
 const githubUrl = 'https://github.com/ayagmar/llm-usage-metrics';
 const npmUrl = 'https://www.npmjs.com/package/llm-usage-metrics';
+const deepWikiUrl = 'https://deepwiki.com/ayagmar/llm-usage-metrics';
 
 const reportGroups = [
   {
@@ -445,8 +446,9 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
   <footer class="landing-footer">
     <a class="footer-brand" href={base} aria-label="LLM Usage Metrics home">
       <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true">
-        <rect x="1" y="1" width="30" height="30" rx="8" fill="currentColor"></rect>
-        <path d="M8 10.5 12.5 16 8 21.5M16 21.5h8M17 10.5h7" fill="none" stroke="var(--color-bg)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+        <rect x="1" y="1" width="30" height="30" rx="7" fill="#20211e" stroke="#4b4d46"></rect>
+        <path d="M7 21h4V14H7v7Zm7 0h4V9h-4v12Zm7 0h4V5h-4v16Z" fill="currentColor"></path>
+        <path d="M7 25h11" fill="none" stroke="#e9e3d8" stroke-width="2" stroke-linecap="round"></path>
       </svg>
       <span>llm-usage-metrics</span>
     </a>
@@ -454,6 +456,7 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
       <a href={link('getting-started/')}>Docs</a>
       <a href={link('cli-reference/')}>CLI reference</a>
       <a href={githubUrl} target="_blank" rel="noopener noreferrer">GitHub</a>
+      <a href={deepWikiUrl} target="_blank" rel="noopener noreferrer">DeepWiki</a>
       <a href={npmUrl} target="_blank" rel="noopener noreferrer">npm</a>
     </nav>
     <p>Local-first usage reporting for AI coding tools. MIT licensed.</p>
