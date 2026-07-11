@@ -2,7 +2,7 @@ import type { UsageEvent } from '../domain/usage-event.js';
 import { normalizeSourceId } from '../domain/usage-event.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import type { EventStore } from './event-store.js';
-import { readDepartedFileEvents } from './event-store.js';
+import { normalizeStoredEvent } from './event-store.js';
 
 export type EventStoreHistoryDiscoveredFile = {
   source: string;
@@ -83,8 +83,21 @@ CREATE TEMP TABLE IF NOT EXISTS history_discovered_files (
   file_path TEXT NOT NULL,
   PRIMARY KEY (source, file_path)
 );
+CREATE TEMP TABLE IF NOT EXISTS history_departed_files (
+  source TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  PRIMARY KEY (source, file_path)
+);
+CREATE TEMP TABLE IF NOT EXISTS history_served_files (
+  source TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  ordinal INTEGER NOT NULL,
+  PRIMARY KEY (source, file_path)
+);
 DELETE FROM history_selected_sources;
 DELETE FROM history_discovered_files;
+DELETE FROM history_departed_files;
+DELETE FROM history_served_files;
 `);
 }
 
@@ -214,35 +227,75 @@ function readDepartedFiles(store: EventStore): DepartedFile[] {
   return departedFiles.sort(compareDepartedFiles);
 }
 
-function readFileContentHashMultiset(
-  store: EventStore,
-  file: DepartedFile,
-): FileContentHashMultiset {
+function fileKey(source: string, filePath: string): string {
+  return JSON.stringify([source, filePath]);
+}
+
+// One grouped read of every departed file's content-hash multiset. Populates
+// history_departed_files with the same anti-join readDepartedFiles uses (files
+// present for a selected source but not discovered live), then groups events by
+// (source, file_path, content_hash). A NULL content_hash group marks that file
+// unsuppressible; a departed file with zero event rows produces no row here and
+// is handed an empty multiset by the caller.
+function readDepartedHashMultisets(store: EventStore): Map<string, FileContentHashMultiset> {
+  store.database
+    .prepare(
+      [
+        'INSERT INTO history_departed_files (source, file_path)',
+        'SELECT files.source, files.file_path',
+        'FROM files',
+        'JOIN history_selected_sources AS selected',
+        '  ON files.source = selected.source',
+        'LEFT JOIN history_discovered_files AS discovered',
+        '  ON files.source = discovered.source',
+        '  AND files.file_path = discovered.file_path',
+        'WHERE discovered.file_path IS NULL',
+      ].join('\n'),
+    )
+    .run();
+
   const rows = store.database
     .prepare(
       [
-        'SELECT content_hash, COUNT(*) AS count',
+        'SELECT events.source AS source, events.file_path AS file_path,',
+        '  events.content_hash AS content_hash, COUNT(*) AS count',
         'FROM events',
-        'WHERE source = ? AND file_path = ?',
-        'GROUP BY content_hash',
+        'JOIN history_departed_files AS departed',
+        '  ON events.source = departed.source',
+        '  AND events.file_path = departed.file_path',
+        'GROUP BY events.source, events.file_path, events.content_hash',
       ].join('\n'),
     )
-    .all(file.source, file.filePath);
-  const counts = new Map<string, number>();
-  let hasNullHash = false;
+    .all();
+  const multisets = new Map<string, FileContentHashMultiset>();
 
   for (const row of rows) {
-    const hash = toText(row.content_hash);
+    const source = toText(row.source);
+    const filePath = toText(row.file_path);
 
-    if (!hash) {
-      hasNullHash = true;
+    if (!source || !filePath) {
       continue;
     }
 
-    addHashCount(counts, hash, toPositiveCount(row.count));
+    const key = fileKey(source, filePath);
+    let multiset = multisets.get(key);
+
+    if (!multiset) {
+      multiset = { counts: new Map(), hasNullHash: false };
+      multisets.set(key, multiset);
+    }
+
+    const hash = toText(row.content_hash);
+
+    if (!hash) {
+      multiset.hasNullHash = true;
+      continue;
+    }
+
+    addHashCount(multiset.counts, hash, toPositiveCount(row.count));
   }
 
-  return { counts, hasNullHash };
+  return multisets;
 }
 
 function isSubsetOfServedData(
@@ -271,14 +324,65 @@ function addFileHashCounts(
   }
 }
 
-function loadServedFileEvents(
+// One joined read of every served file's events, ordered by the classification
+// order (encoded as ordinal) then event_index — identical to concatenating each
+// served file's rows in classified order. An un-normalizable row is skipped, not
+// invalidated: a departed file has no source data left to re-parse.
+function loadServedEvents(
   store: EventStore,
-  files: readonly EventStoreHistoryDiscoveredFile[],
+  servedFiles: readonly ClassifiedDepartedFile[],
 ): UsageEvent[] {
+  if (servedFiles.length === 0) {
+    return [];
+  }
+
+  // Chunk the multi-row INSERT so it never approaches SQLite's bound-parameter
+  // limit (SQLITE_MAX_VARIABLE_NUMBER, 32766 on node:sqlite): 500 files * 3
+  // params = 1500 stays well under any build. Ordinal is the global
+  // classification index, so ordering is preserved across chunk boundaries.
+  const INSERT_CHUNK_FILES = 500;
+
+  for (let start = 0; start < servedFiles.length; start += INSERT_CHUNK_FILES) {
+    const chunk = servedFiles.slice(start, start + INSERT_CHUNK_FILES);
+    const placeholders = chunk.map(() => '(?, ?, ?)').join(', ');
+    const params: (string | number)[] = [];
+
+    chunk.forEach((file, index) => {
+      params.push(file.source, file.filePath, start + index);
+    });
+
+    store.database
+      .prepare(
+        `INSERT INTO history_served_files (source, file_path, ordinal) VALUES ${placeholders}`,
+      )
+      .run(...params);
+  }
+
+  const rows = store.database
+    .prepare(
+      [
+        'SELECT events.source, events.session_id, events.timestamp, events.model,',
+        '  events.provider, events.repo_root, events.input_tokens, events.output_tokens,',
+        '  events.reasoning_tokens, events.cache_read_tokens, events.cache_write_tokens,',
+        '  events.total_tokens, events.cost_usd, events.cost_mode',
+        'FROM events',
+        'JOIN history_served_files AS served',
+        '  ON events.source = served.source',
+        '  AND events.file_path = served.file_path',
+        'ORDER BY served.ordinal ASC, events.event_index ASC',
+      ].join('\n'),
+    )
+    .all();
   const events: UsageEvent[] = [];
 
-  for (const file of files) {
-    events.push(...readDepartedFileEvents(store, file.source, file.filePath));
+  for (const row of rows) {
+    const event = normalizeStoredEvent(row);
+
+    if (!event) {
+      continue;
+    }
+
+    events.push(event);
   }
 
   return events;
@@ -297,10 +401,15 @@ export function classifyDepartedFiles(
 
   const servedHashCounts = readLiveHashCounts(store);
   const departedFiles = readDepartedFiles(store);
+  const departedHashMultisets = readDepartedHashMultisets(store);
   const classifiedFiles: ClassifiedDepartedFile[] = [];
 
   for (const departedFile of departedFiles) {
-    const fileHashCounts = readFileContentHashMultiset(store, departedFile);
+    // A departed file with zero event rows has no grouped multiset, so it gets
+    // an empty one — the subset check then passes vacuously and suppresses it.
+    const fileHashCounts = departedHashMultisets.get(
+      fileKey(departedFile.source, departedFile.filePath),
+    ) ?? { counts: new Map<string, number>(), hasNullHash: false };
     const suppressed = isSubsetOfServedData(fileHashCounts, servedHashCounts);
 
     classifiedFiles.push({
@@ -329,7 +438,7 @@ export function loadHistoryEvents(
 ): EventStoreHistoryResult {
   const departedFiles = classifyDepartedFiles(store, input);
   const servedFiles = departedFiles.filter((file) => !file.suppressed);
-  const events = loadServedFileEvents(store, servedFiles);
+  const events = loadServedEvents(store, servedFiles);
   const suppressedFileCount = departedFiles.length - servedFiles.length;
 
   return {
