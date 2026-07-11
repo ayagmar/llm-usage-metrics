@@ -29,6 +29,7 @@
     "pricing:snapshot": "node scripts/generate-pricing-snapshot.mjs",
     "smoke:dist-opencode": "node scripts/smoke-dist-opencode.mjs",
     "perf:report-baseline": "node --import tsx scripts/perf-report-baseline.mjs",
+    "perf:warm-query": "node --import tsx scripts/perf-warm-query-benchmark.mjs",
     "perf:production-benchmark": "node scripts/perf-production-benchmark.mjs",
     "release": "release-it",
     "release:dry": "release-it --dry-run",
