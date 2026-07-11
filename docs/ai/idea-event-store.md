@@ -44,9 +44,14 @@ This design preserves byte-identical default report output between disabled,
 cold, and warm store runs while making repeat runs faster when source files are
 unchanged. History quality depends on how long the store has been running.
 
-## Parked follow-up work
+## Follow-up work — since shipped
 
-- prune/compaction tooling for intentionally deleting old retained history;
-- prepared-statement reuse if profiling shows event-store query overhead;
+All three follow-ups considered at the time this idea was written have since
+shipped:
+
+- prune/compaction tooling for intentionally deleting old retained
+  history — shipped as the `prune` command (plan 038);
+- prepared-statement reuse for event-store queries — shipped (plans 045/052),
+  see `store.statements.getFileEntry` in `src/persistence/event-store.ts`;
 - a `compare` command for month-over-month or period-over-period deltas on top
-  of the ledger.
+  of the ledger — shipped (plan 033).

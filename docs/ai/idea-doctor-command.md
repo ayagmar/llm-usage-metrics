@@ -1,7 +1,8 @@
 # Idea #4: `llm-usage doctor` diagnostic command
 
-> Confidence: **85%** — small, isolated, high immediate user value. Not started
-> only to keep PR #119 focused. **Best first pick** from the deferred set.
+> Confidence: **85%** — small, isolated, high immediate user value. Shipped
+> (plan 010, 2026-07); `llm-usage doctor` is a live command. **Best first
+> pick** from the deferred set.
 
 ## The problem this solves
 
