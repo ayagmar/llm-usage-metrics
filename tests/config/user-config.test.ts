@@ -8,6 +8,7 @@ import {
   resolveUserConfigPath,
   USER_CONFIG_KNOWN_KEY_PATHS,
 } from '../../src/config/user-config.js';
+import { getSourceOverrideOptions } from '../../src/sources/create-default-adapters.js';
 
 function missingFileRead(): Promise<string> {
   return Promise.reject(Object.assign(new Error('missing'), { code: 'ENOENT' }));
@@ -307,5 +308,18 @@ describe('config schema', () => {
     await expect(readFile('site/public/config-schema.json', 'utf8')).resolves.toBe(
       await readFile('schema/config.schema.json', 'utf8'),
     );
+  });
+
+  it('exposes sourceDirs.<id> for every manifest source in the schema and known key set', async () => {
+    const schema = JSON.parse(await readFile('schema/config.schema.json', 'utf8')) as Record<
+      string,
+      unknown
+    >;
+    const schemaKeyPaths = collectSchemaKeyPaths(schema);
+
+    for (const option of getSourceOverrideOptions()) {
+      expect(schemaKeyPaths).toContain(`sourceDirs.${option.id}`);
+      expect(USER_CONFIG_KNOWN_KEY_PATHS).toContain(`sourceDirs.${option.id}`);
+    }
   });
 });

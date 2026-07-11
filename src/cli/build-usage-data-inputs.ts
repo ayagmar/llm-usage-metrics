@@ -5,6 +5,7 @@ import {
   normalizeProviderToBillingEntity,
   resolveExplicitProviderRoots,
 } from '../domain/provider-normalization.js';
+import { getSourceOverrideOptions } from '../sources/create-default-adapters.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { parseSourceDirectoryOverrides } from '../utils/source-directory-overrides.js';
 import type { RuntimeProfileCollector } from './runtime-profile.js';
@@ -166,68 +167,10 @@ export function resolveExplicitSourceIds(
     explicitSourceIds.add(sourceId);
   }
 
-  if (options.piDir) {
-    explicitSourceIds.add('pi');
-  }
-
-  if (options.codexDir) {
-    explicitSourceIds.add('codex');
-  }
-
-  if (options.copilotDir) {
-    explicitSourceIds.add('copilot');
-  }
-
-  if (options.geminiDir) {
-    explicitSourceIds.add('gemini');
-  }
-
-  if (options.droidDir) {
-    explicitSourceIds.add('droid');
-  }
-
-  if (options.claudeDir) {
-    explicitSourceIds.add('claude');
-  }
-
-  if (options.openclawDir) {
-    explicitSourceIds.add('openclaw');
-  }
-
-  if (options.opencodeDb) {
-    explicitSourceIds.add('opencode');
-  }
-
-  if (options.gooseDb) {
-    explicitSourceIds.add('goose');
-  }
-
-  if (options.ampDir) {
-    explicitSourceIds.add('amp');
-  }
-
-  if (options.qwenDir) {
-    explicitSourceIds.add('qwen');
-  }
-
-  if (options.kimiDir) {
-    explicitSourceIds.add('kimi');
-  }
-
-  if (options.clineDir) {
-    explicitSourceIds.add('cline');
-  }
-
-  if (options.roocodeDir) {
-    explicitSourceIds.add('roocode');
-  }
-
-  if (options.kilocodeDir) {
-    explicitSourceIds.add('kilocode');
-  }
-
-  if (options.antigravityDir) {
-    explicitSourceIds.add('antigravity');
+  for (const overrideOption of getSourceOverrideOptions()) {
+    if (options[overrideOption.optionKey]) {
+      explicitSourceIds.add(overrideOption.id);
+    }
   }
 
   return explicitSourceIds;

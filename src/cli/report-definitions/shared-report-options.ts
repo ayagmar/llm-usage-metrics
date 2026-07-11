@@ -1,6 +1,9 @@
 import type { Command } from 'commander';
 
-import { getDefaultSourceIds } from '../../sources/create-default-adapters.js';
+import {
+  getDefaultSourceIds,
+  getSourceOverrideOptions,
+} from '../../sources/create-default-adapters.js';
 import type { SharedOptionProfile } from './report-definition-types.js';
 
 export type SharedOptionProfileConfig = {
@@ -108,23 +111,13 @@ export function registerSharedReportOptions(
   const supportedSourcesSummary = `(${supportedSourceIds.length}): ${allowedSourcesLabel}`;
   const profileConfig = sharedOptionProfileConfig[profile];
 
-  const configuredCommand = command
-    .option('--pi-dir <path>', 'Path to .pi sessions directory')
-    .option('--codex-dir <path>', 'Path to .codex sessions directory')
-    .option('--copilot-dir <path>', 'Path to GitHub Copilot OTEL directory')
-    .option('--gemini-dir <path>', 'Path to .gemini directory')
-    .option('--droid-dir <path>', 'Path to Droid sessions directory')
-    .option('--claude-dir <path>', 'Path to Claude projects directory')
-    .option('--openclaw-dir <path>', 'Path to OpenClaw agents directory')
-    .option('--opencode-db <path>', 'Path to OpenCode SQLite DB')
-    .option('--goose-db <path>', 'Path to Goose SQLite DB')
-    .option('--amp-dir <path>', 'Path to Amp threads directory')
-    .option('--qwen-dir <path>', 'Path to Qwen projects directory')
-    .option('--kimi-dir <path>', 'Path to Kimi sessions directory')
-    .option('--cline-dir <path>', 'Path to Cline tasks directory')
-    .option('--roocode-dir <path>', 'Path to RooCode tasks directory')
-    .option('--kilocode-dir <path>', 'Path to KiloCode tasks directory')
-    .option('--antigravity-dir <path>', 'Path to Antigravity conversations directory')
+  const configuredCommand = command;
+
+  for (const overrideOption of getSourceOverrideOptions()) {
+    configuredCommand.option(overrideOption.flag, overrideOption.help);
+  }
+
+  configuredCommand
     .option(
       '--source-dir <source-id=path>',
       'Override source directory for directory-backed sources (repeatable)',

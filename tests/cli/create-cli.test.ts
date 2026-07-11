@@ -9,6 +9,7 @@ import {
   getCliReferenceExamples,
   getReportDefinitionMetas,
 } from '../../src/cli/report-definitions/report-definitions.js';
+import { getSourceOverrideOptions } from '../../src/sources/create-default-adapters.js';
 
 const tempDirs: string[] = [];
 
@@ -71,6 +72,34 @@ describe('createCli', () => {
       expect(command.options.some((option) => option.long === '--model')).toBe(true);
       expect(command.options.some((option) => option.long === '--history')).toBe(true);
     }
+  });
+
+  it('registers dedicated source override flags in the frozen manifest order', () => {
+    const cli = createCli();
+    const dailyCommand = cli.commands.find((command) => command.name() === 'daily');
+    const expectedFlags = getSourceOverrideOptions().map((option) => option.flag.split(' ')[0]);
+    const registeredDedicatedFlags = (dailyCommand?.options ?? [])
+      .map((option) => option.long)
+      .filter((long): long is string => long !== undefined && expectedFlags.includes(long));
+
+    expect(registeredDedicatedFlags).toEqual([
+      '--pi-dir',
+      '--codex-dir',
+      '--copilot-dir',
+      '--gemini-dir',
+      '--droid-dir',
+      '--claude-dir',
+      '--openclaw-dir',
+      '--opencode-db',
+      '--goose-db',
+      '--amp-dir',
+      '--qwen-dir',
+      '--kimi-dir',
+      '--cline-dir',
+      '--roocode-dir',
+      '--kilocode-dir',
+      '--antigravity-dir',
+    ]);
   });
 
   it('includes quiet on every report command', () => {

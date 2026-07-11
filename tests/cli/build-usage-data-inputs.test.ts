@@ -6,6 +6,8 @@ import {
   throwOnExplicitSourceScopeConflicts,
 } from '../../src/cli/build-usage-data-inputs.js';
 import { RuntimeProfileCollector } from '../../src/cli/runtime-profile.js';
+import type { ReportCommandOptions } from '../../src/cli/usage-data-contracts.js';
+import { getSourceOverrideOptions } from '../../src/sources/create-default-adapters.js';
 import type { SourceAdapter } from '../../src/sources/source-adapter.js';
 
 afterEach(() => {
@@ -184,6 +186,15 @@ describe('build-usage-data-inputs', () => {
     });
 
     expect([...inputs.explicitSourceIds]).toEqual(['antigravity']);
+  });
+
+  it('treats every dedicated override option as an explicit source selection', () => {
+    for (const overrideOption of getSourceOverrideOptions()) {
+      const options = { [overrideOption.optionKey]: '/tmp/override' } as ReportCommandOptions;
+      const inputs = normalizeBuildUsageInputs(options);
+
+      expect([...inputs.explicitSourceIds]).toEqual([overrideOption.id]);
+    }
   });
 
   it('validates malformed source-dir entries through the shared parser', () => {
