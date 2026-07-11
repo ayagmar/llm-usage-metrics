@@ -3,7 +3,7 @@ title: Pricing Pipeline
 description: How LiteLLM pricing is fetched, cached, matched to local model names, and turned into costs.
 ---
 
-Pricing is the tool's second pipeline: rates come in (LiteLLM JSON or a local overrides file), locally observed model names resolve to pricing keys, and each event gets a cost. This page documents the design; [Pricing](/pricing/) covers the user-facing knobs, cost modes, and row rendering.
+Pricing is the tool's second pipeline: rates come in (LiteLLM JSON or a local overrides file), locally observed model names resolve to pricing keys, and each event gets a cost. This page documents the design; [Pricing](/llm-usage-metrics/pricing/) covers the user-facing knobs, cost modes, and row rendering.
 
 ## Loading rates
 
@@ -39,15 +39,15 @@ A name that survives no stage stays unresolved — its events keep their token c
 
 - Events are `explicit` (the source supplied a cost, which is kept) or `estimated` (computed from rates). One exception: an explicit `costUsd: 0` on a priceable event with a model is treated as suspect and repriced when resolvable pricing exists; if it cannot be repriced, the explicit zero stays.
 - Estimated cost sums four per-1M-token buckets: input, output, cache read, and cache write. Reasoning tokens bill according to the model's `reasoningBilling`: `included-in-output` (the default — reasoning adds nothing on top) or `separate` (a fifth bucket with its own rate).
-- Estimation refuses to guess: if any bucket the event actually used has no defined rate, no cost is computed and the event stays cost-less — surfaced downstream as partial (`~$`) or unresolved (`-`) figures, whose rendering semantics live on [Pricing](/pricing/).
+- Estimation refuses to guess: if any bucket the event actually used has no defined rate, no cost is computed and the event stays cost-less — surfaced downstream as partial (`~$`) or unresolved (`-`) figures, whose rendering semantics live on [Pricing](/llm-usage-metrics/pricing/).
 - Pricing lookups are memoized per resolved model for the duration of a run.
 
 ## Overrides
 
-`--pricing-overrides <file>` (`src/pricing/pricing-override-source.ts`) layers a local JSON per-model rate file over the LiteLLM source. Overrides match on the raw lowercased model name — when a model has an override, alias resolution is skipped entirely so the override wins unambiguously; all other models defer to the LiteLLM source. Entries missing either required rate (`inputPer1MUsd`, `outputPer1MUsd`) are ignored. The file shape is documented on [Pricing](/pricing/).
+`--pricing-overrides <file>` (`src/pricing/pricing-override-source.ts`) layers a local JSON per-model rate file over the LiteLLM source. Overrides match on the raw lowercased model name — when a model has an override, alias resolution is skipped entirely so the override wins unambiguously; all other models defer to the LiteLLM source. Entries missing either required rate (`inputPer1MUsd`, `outputPer1MUsd`) are ignored. The file shape is documented on [Pricing](/llm-usage-metrics/pricing/).
 
 ## Related pages
 
-- [Pricing](/pricing/) — user-facing knobs, cost modes, and row rendering.
-- [Caching](/caching/) — tuning the pricing cache.
-- [Configuration](/configuration/) — the `pricing.*` config keys.
+- [Pricing](/llm-usage-metrics/pricing/) — user-facing knobs, cost modes, and row rendering.
+- [Caching](/llm-usage-metrics/caching/) — tuning the pricing cache.
+- [Configuration](/llm-usage-metrics/configuration/) — the `pricing.*` config keys.

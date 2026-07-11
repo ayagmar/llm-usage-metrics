@@ -186,22 +186,22 @@ describe('run-doctor-report', () => {
     const results = await buildDoctorResults(options, eventStoreDisabledDeps());
 
     expect(results).toEqual([
-      { id: 'pi', status: 'ok', itemsFound: 1 },
-      { id: 'codex', status: 'ok', itemsFound: 1 },
-      { id: 'gemini', status: 'ok', itemsFound: 1 },
-      { id: 'droid', status: 'ok', itemsFound: 1 },
-      { id: 'opencode', status: 'ok', itemsFound: 1 },
-      { id: 'openclaw', status: 'ok', itemsFound: 1 },
-      { id: 'claude', status: 'ok', itemsFound: 1 },
-      { id: 'copilot', status: 'ok', itemsFound: 1 },
-      { id: 'goose', status: 'ok', itemsFound: 1 },
-      { id: 'amp', status: 'ok', itemsFound: 1 },
-      { id: 'qwen', status: 'ok', itemsFound: 1 },
-      { id: 'kimi', status: 'ok', itemsFound: 1 },
-      { id: 'cline', status: 'ok', itemsFound: 1 },
-      { id: 'roocode', status: 'ok', itemsFound: 1 },
-      { id: 'kilocode', status: 'ok', itemsFound: 1 },
-      { id: 'antigravity', status: 'ok', itemsFound: 1 },
+      { id: 'pi', format: 'jsonl', status: 'ok', itemsFound: 1 },
+      { id: 'codex', format: 'jsonl', status: 'ok', itemsFound: 1 },
+      { id: 'gemini', format: 'json', status: 'ok', itemsFound: 1 },
+      { id: 'droid', format: 'json', status: 'ok', itemsFound: 1 },
+      { id: 'opencode', format: 'sqlite', status: 'ok', itemsFound: 1 },
+      { id: 'openclaw', format: 'jsonl', status: 'ok', itemsFound: 1 },
+      { id: 'claude', format: 'jsonl', status: 'ok', itemsFound: 1 },
+      { id: 'copilot', format: 'jsonl', status: 'ok', itemsFound: 1 },
+      { id: 'goose', format: 'sqlite', status: 'ok', itemsFound: 1 },
+      { id: 'amp', format: 'json', status: 'ok', itemsFound: 1 },
+      { id: 'qwen', format: 'jsonl', status: 'ok', itemsFound: 1 },
+      { id: 'kimi', format: 'jsonl', status: 'ok', itemsFound: 1 },
+      { id: 'cline', format: 'json', status: 'ok', itemsFound: 1 },
+      { id: 'roocode', format: 'json', status: 'ok', itemsFound: 1 },
+      { id: 'kilocode', format: 'json', status: 'ok', itemsFound: 1 },
+      { id: 'antigravity', format: 'sqlite', status: 'ok', itemsFound: 1 },
     ]);
   });
 
@@ -347,7 +347,7 @@ describe('run-doctor-report', () => {
       },
     );
 
-    expect(results).toEqual([{ id: 'pi', status: 'ok', itemsFound: 1 }]);
+    expect(results).toEqual([{ id: 'pi', format: 'jsonl', status: 'ok', itemsFound: 1 }]);
   });
 
   it('reports an enabled event store that has not been created yet as healthy', async () => {
@@ -368,9 +368,10 @@ describe('run-doctor-report', () => {
     );
 
     expect(results).toEqual([
-      { id: 'pi', status: 'ok', itemsFound: 1 },
+      { id: 'pi', format: 'jsonl', status: 'ok', itemsFound: 1 },
       {
         id: 'event-store',
+        format: 'sqlite',
         status: 'ok',
         itemsFound: 0,
         detail: 'not yet created',
@@ -407,9 +408,10 @@ describe('run-doctor-report', () => {
     expect(readEventStoreSummarySpy).toHaveBeenCalledWith(eventStorePath);
     expect(readEventStoreStoredFilesSpy).toHaveBeenCalledWith(eventStorePath);
     expect(results).toEqual([
-      { id: 'pi', status: 'ok', itemsFound: 1 },
+      { id: 'pi', format: 'jsonl', status: 'ok', itemsFound: 1 },
       {
         id: 'event-store',
+        format: 'sqlite',
         status: 'ok',
         itemsFound: 42,
         detail: '42 event(s), 0 departed file(s), schema v2, 0 B',
@@ -484,9 +486,10 @@ describe('run-doctor-report', () => {
     );
 
     expect(results).toEqual([
-      { id: 'pi', status: 'ok', itemsFound: 1 },
+      { id: 'pi', format: 'jsonl', status: 'ok', itemsFound: 1 },
       {
         id: 'event-store',
+        format: 'sqlite',
         status: 'error',
         error:
           'Event store schema v999 is not supported by this llm-usage-metrics version (supports v2); upgrade llm-usage-metrics or set LLM_USAGE_EVENT_STORE=0',
@@ -524,9 +527,10 @@ describe('run-doctor-report', () => {
     );
 
     expect(results).toEqual([
-      { id: 'pi', status: 'ok', itemsFound: 1 },
+      { id: 'pi', format: 'jsonl', status: 'ok', itemsFound: 1 },
       {
         id: 'event-store',
+        format: 'sqlite',
         status: 'error',
         error: 'sqlite unavailable',
       },
@@ -549,7 +553,7 @@ describe('run-doctor-report', () => {
       stdout.restore();
     }
 
-    expect(stdout.getOutput()).toContain('gemini  ok');
+    expect(stdout.getOutput()).toContain('✔ gemini  json');
     expect(stdout.getOutput()).toContain('1/1 sources healthy');
   });
 
@@ -570,8 +574,7 @@ describe('run-doctor-report', () => {
       stdout.restore();
     }
 
-    expect(stdout.getOutput()).toContain('claude');
-    expect(stdout.getOutput()).toContain('error');
+    expect(stdout.getOutput()).toContain('✖ claude       jsonl');
     expect(stdout.getOutput()).toContain(missingClaudeDir);
     expect(stdout.getOutput()).toContain('15/16 sources healthy');
   });
@@ -612,7 +615,7 @@ describe('run-doctor-report', () => {
     }
 
     expect(JSON.parse(stdout.getOutput())).toEqual({
-      sources: [{ id: 'gemini', status: 'ok', itemsFound: 1 }],
+      sources: [{ id: 'gemini', format: 'json', status: 'ok', itemsFound: 1 }],
     });
   });
 });

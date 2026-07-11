@@ -30,12 +30,12 @@ llm-usage doctor --json
 
 ## Output
 
-Doctor prints one line per source, then a health summary, then the event store. It exits `0` even when a source is unhealthy, so it is safe to run in scripts.
+Doctor prints one line per source — a `✔`/`✖` health glyph, the source id, its storage format (`jsonl`, `json`, or `sqlite`), and what was found — then a health summary. It exits `0` even when a source is unhealthy, so it is safe to run in scripts.
 
 ```text
-pi           ok     519 file(s)
-opencode     error  OpenCode database is missing or unreadable: /path/to/opencode.db
-event-store  ok     159266 event(s), 3 departed file(s), schema v2, 78.4 MiB
+✔ pi           jsonl   519 file(s)
+✖ opencode     sqlite  OpenCode database is missing or unreadable: /path/to/opencode.db
+✔ event-store  sqlite  159266 event(s), 3 departed file(s), schema v2, 78.4 MiB
 
 15/16 sources healthy
 ```
@@ -44,20 +44,21 @@ The summary counts only source rows; the `event-store` row reports the ledger's 
 
 ## JSON shape
 
-`--json` returns a `sources` array (the `event-store` row is included with a `detail` string):
+`--json` returns a `sources` array. Healthy rows carry `itemsFound` (and the `event-store` row a `detail` string); unhealthy rows carry `error`:
 
 ```json
 {
   "sources": [
-    { "id": "pi", "status": "ok", "itemsFound": 519 },
+    { "id": "pi", "format": "jsonl", "status": "ok", "itemsFound": 519 },
     {
       "id": "opencode",
+      "format": "sqlite",
       "status": "error",
-      "itemsFound": 0,
-      "detail": "OpenCode database is missing or unreadable: /path/to/opencode.db"
+      "error": "OpenCode database is missing or unreadable: /path/to/opencode.db"
     },
     {
       "id": "event-store",
+      "format": "sqlite",
       "status": "ok",
       "itemsFound": 159266,
       "detail": "159266 event(s), 3 departed file(s), schema v2, 78.4 MiB"

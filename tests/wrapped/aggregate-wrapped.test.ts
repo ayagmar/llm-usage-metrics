@@ -204,6 +204,55 @@ describe('aggregateWrapped', () => {
     expect(recap.longestStreak).toBe(0);
   });
 
+  it('builds one all-zero daily intensity bucket per day for an empty year', () => {
+    const recap = aggregateWrapped([], { year: 2026, timezone: 'UTC' });
+
+    expect(recap.dailyIntensity).toHaveLength(365);
+    expect(recap.dailyIntensity[0]).toEqual({ date: '2026-01-01', totalTokens: 0, level: 0 });
+    expect(recap.dailyIntensity.at(-1)).toEqual({ date: '2026-12-31', totalTokens: 0, level: 0 });
+  });
+
+  it('covers leap years with 366 daily intensity buckets', () => {
+    const recap = aggregateWrapped([], { year: 2028, timezone: 'UTC' });
+
+    expect(recap.dailyIntensity).toHaveLength(366);
+    expect(recap.dailyIntensity[59]).toEqual({ date: '2028-02-29', totalTokens: 0, level: 0 });
+  });
+
+  it('bands daily intensity levels by quartile of the active days', () => {
+    const recap = aggregateWrapped(
+      [
+        baseEvent({ timestamp: '2026-01-01T10:00:00.000Z', totalTokens: 25 }),
+        baseEvent({ timestamp: '2026-01-02T10:00:00.000Z', totalTokens: 50 }),
+        baseEvent({ timestamp: '2026-01-03T10:00:00.000Z', totalTokens: 100 }),
+      ],
+      { year: 2026, timezone: 'UTC' },
+    );
+
+    expect(recap.dailyIntensity.slice(0, 4).map((day) => day.level)).toEqual([1, 2, 4, 0]);
+    expect(recap.dailyIntensity[2]).toEqual({ date: '2026-01-03', totalTokens: 100, level: 4 });
+  });
+
+  it('keeps quartile banding stable when one outlier day dwarfs the rest', () => {
+    const typicalDays = Array.from({ length: 8 }, (_, index) =>
+      baseEvent({
+        timestamp: `2026-01-0${index + 1}T10:00:00.000Z`,
+        totalTokens: 100 + index,
+      }),
+    );
+    const recap = aggregateWrapped(
+      [
+        ...typicalDays,
+        baseEvent({ timestamp: '2026-01-09T10:00:00.000Z', totalTokens: 1_000_000 }),
+      ],
+      { year: 2026, timezone: 'UTC' },
+    );
+    const levels = recap.dailyIntensity.slice(0, 9).map((day) => day.level);
+
+    expect(new Set(levels).size).toBeGreaterThan(2);
+    expect(levels.at(-1)).toBe(4);
+  });
+
   it('scales monthly intensity levels against the busiest month', () => {
     const recap = aggregateWrapped(
       [

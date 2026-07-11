@@ -3,7 +3,7 @@ title: Config & Logging
 description: How the TOML config resolves against flags and env vars, and how stderr logging is leveled.
 ---
 
-Configuration answers "what settings apply to this run"; logging answers "what the run tells you about itself". Both are designed around one guarantee: the rest of the code only ever sees resolved values, and everything the tool says about itself goes to `stderr`. [Configuration](/configuration/) documents every key; this page documents the machinery.
+Configuration answers "what settings apply to this run"; logging answers "what the run tells you about itself". Both are designed around one guarantee: the rest of the code only ever sees resolved values, and everything the tool says about itself goes to `stderr`. [Configuration](/llm-usage-metrics/configuration/) documents every key; this page documents the machinery.
 
 ## Layers and precedence
 
@@ -40,7 +40,7 @@ Reports print what configuration actually applied, on `stderr`:
 
 The first line is a `#:schema https://ayagmar.github.io/llm-usage-metrics/config-schema.json` directive, which TOML editors (e.g. Taplo) use for completion and validation. The schema is hand-maintained at `schema/config.schema.json`, and unit tests keep it honest: one test asserts the schema's key paths equal the loader's known-key set, and another asserts the published copy at `site/public/config-schema.json` is byte-identical to it.
 
-Adding a config key therefore touches: the known-key set in `user-config.ts`, both schema copies, the `config init` template, and the key tables in [Configuration](/configuration/) — the tests fail if the schema half of that list is forgotten.
+Adding a config key therefore touches: the known-key set in `user-config.ts`, both schema copies, the `config init` template, and the key tables in [Configuration](/llm-usage-metrics/configuration/) — the tests fail if the schema half of that list is forgotten.
 
 ## Logging levels
 
@@ -53,6 +53,6 @@ Adding a config key therefore touches: the known-key set in `user-config.ts`, bo
 
 ## Related pages
 
-- [Configuration](/configuration/) — the key tables, source path overrides, and env vars.
-- [CLI Reference](/cli-reference/) — the `--quiet` flag and per-command options.
-- [Architecture overview](/architecture/) — where config and logging sit in the runtime.
+- [Configuration](/llm-usage-metrics/configuration/) — the key tables, source path overrides, and env vars.
+- [CLI Reference](/llm-usage-metrics/cli-reference/) — the `--quiet` flag and per-command options.
+- [Architecture overview](/llm-usage-metrics/architecture/) — where config and logging sit in the runtime.

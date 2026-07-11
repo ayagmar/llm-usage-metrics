@@ -9,9 +9,10 @@ import {
   formatUsd,
   getSourceColor,
   renderShareAccentBar,
+  renderShareAccentGradientDef,
+  renderShareCommandBadge,
   renderShareFooter,
   scaleY,
-  SHARE_SVG_ACCENT_HEIGHT,
   SHARE_SVG_FOOTER_HEIGHT,
   SHARE_SVG_WIDTH,
   shareTheme,
@@ -19,21 +20,16 @@ import {
 } from './share-svg-theme.js';
 
 const W = SHARE_SVG_WIDTH;
-const H_BASE = 560;
-const pad = { top: 140, right: 80, bottom: 60 + SHARE_SVG_FOOTER_HEIGHT, left: 200 };
-const STAT_X = 60;
-const STAT_VALUE_FONT_SIZE = 52;
-const STAT_VALUE_WIDTH_FACTOR = 0.6;
-const SOURCE_PILLS_MIN_X = pad.left + 10;
-const SOURCE_PILLS_STAT_GAP = 24;
-const SOURCE_PILLS_TOP = SHARE_SVG_ACCENT_HEIGHT + 30;
-const SOURCE_PILLS_RIGHT_MARGIN = 60;
-const SOURCE_PILLS_COMMAND_GAP = 20;
-const PILL_HEIGHT = 30;
-const PILL_ROW_HEIGHT = PILL_HEIGHT + 10;
-const PILL_GAP = 10;
-const PILL_PADDING = 28;
-const PILL_TEXT_WIDTH_FACTOR = 8.5;
+const H_BASE = 620;
+const left = 80;
+const right = 80;
+const statTop = 96;
+const legendTop = 158;
+const LEGEND_ROW_HEIGHT = 30;
+const LEGEND_ITEM_GAP = 28;
+const LEGEND_TEXT_WIDTH_FACTOR = 8;
+const chartTopBase = 208;
+const pad = { bottom: 60 + SHARE_SVG_FOOTER_HEIGHT };
 
 type SourceSeries = {
   source: string;
@@ -91,108 +87,76 @@ function buildStackedValues(series: SourceSeries[]): number[][] {
   return stacked;
 }
 
-/** Left-side stat column: big token count + cost. */
-function renderStatColumn(
+function granularityTitle(granularity: ReportGranularity): string {
+  return `${granularity.charAt(0).toUpperCase()}${granularity.slice(1)} Usage`;
+}
+
+/** Stats row under the title: Tokens, Cost, Sources as label-over-value pairs. */
+function renderStatsRow(
   totalTokens: number,
   costUsd: number | undefined,
   sourceCount: number,
 ): string {
-  const x = STAT_X;
-  const baseY = SHARE_SVG_ACCENT_HEIGHT + 48;
-  let svg = '';
+  const stats = [
+    { label: 'Tokens', value: formatCompact(totalTokens), x: left },
+    { label: 'Cost', value: costUsd === undefined ? '-' : formatUsd(costUsd), x: left + 240 },
+    { label: 'Sources', value: String(sourceCount), x: left + 480 },
+  ];
 
-  svg += `<text x="${x}" y="${baseY}" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}" font-size="52" font-weight="800">${escapeSvg(formatCompact(totalTokens))}</text>\n`;
-  svg += `<text x="${x}" y="${baseY + 22}" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}" font-size="14" letter-spacing="3" font-weight="600">TOKENS</text>\n`;
-
-  if (costUsd !== undefined) {
-    svg += `<text x="${x}" y="${baseY + 50}" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}" font-size="22" font-weight="600">${escapeSvg(formatUsd(costUsd))}</text>\n`;
-  }
-
-  svg += `<text x="${x}" y="${baseY + 74}" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}" font-size="13">${sourceCount} source${sourceCount !== 1 ? 's' : ''}</text>\n`;
-
-  return svg;
+  return stats
+    .map(
+      (stat) =>
+        `<text x="${stat.x}" y="${statTop}" font-size="13" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">${escapeSvg(stat.label)}</text>` +
+        `<text x="${stat.x}" y="${statTop + 30}" font-size="26" font-weight="800" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">${escapeSvg(stat.value)}</text>`,
+    )
+    .join('\n');
 }
 
-type PillLayout = {
+type LegendItem = {
   color: string;
-  label: string;
+  source: string;
+  total: string;
   x: number;
   y: number;
-  width: number;
 };
 
-/**
- * Wraps source pills into as many rows as needed. The first row starts right
- * of the stat total and stops before the command badge; wrapped rows start at
- * the left margin and span nearly the full canvas width.
- */
-function layoutSourcePills(
-  series: SourceSeries[],
-  firstRowStartX: number,
-  firstRowRightEdge: number,
-): { pills: PillLayout[]; rowCount: number } {
-  const pills: PillLayout[] = [];
-  const wrappedRowRightEdge = W - SOURCE_PILLS_RIGHT_MARGIN;
+/** Wraps legend items (dot + source + total) into as many rows as needed. */
+function layoutLegend(series: SourceSeries[]): { items: LegendItem[]; rowCount: number } {
+  const items: LegendItem[] = [];
+  const rightEdge = W - right;
   let row = 0;
-  let cx = firstRowStartX;
+  let cx = left;
 
   for (const s of series) {
-    const label = `${s.source}  ${formatCompact(s.total)}`;
-    const width = label.length * PILL_TEXT_WIDTH_FACTOR + PILL_PADDING;
-    const rowStartX = row === 0 ? firstRowStartX : SOURCE_PILLS_MIN_X;
-    const rowRightEdge = row === 0 ? firstRowRightEdge : wrappedRowRightEdge;
+    const total = formatCompact(s.total);
+    const width = (s.source.length + total.length + 1) * LEGEND_TEXT_WIDTH_FACTOR + 18;
 
-    if (cx > rowStartX && cx + width > rowRightEdge) {
+    if (cx > left && cx + width > rightEdge) {
       row += 1;
-      cx = SOURCE_PILLS_MIN_X;
+      cx = left;
     }
 
-    pills.push({
+    items.push({
       color: s.color,
-      label,
+      source: s.source,
+      total,
       x: cx,
-      y: SOURCE_PILLS_TOP + row * PILL_ROW_HEIGHT,
-      width,
+      y: legendTop + row * LEGEND_ROW_HEIGHT,
     });
-    cx += width + PILL_GAP;
+    cx += width + LEGEND_ITEM_GAP;
   }
 
-  return { pills, rowCount: row + 1 };
+  return { items, rowCount: row + 1 };
 }
 
-/** Source pills: rounded pill badges wrapped across the top. */
-function renderSourcePills(pills: PillLayout[]): string {
-  let svg = '';
-
-  for (const pill of pills) {
-    svg += `<rect x="${pill.x}" y="${pill.y}" width="${pill.width.toFixed(0)}" height="${PILL_HEIGHT}" rx="${PILL_HEIGHT / 2}" fill="${pill.color}" fill-opacity="0.15" stroke="${pill.color}" stroke-opacity="0.4" stroke-width="1"/>\n`;
-    svg += `<circle cx="${pill.x + 14}" cy="${pill.y + PILL_HEIGHT / 2}" r="4" fill="${pill.color}"/>\n`;
-    svg += `<text x="${pill.x + 24}" y="${pill.y + PILL_HEIGHT / 2 + 5}" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}" font-size="14">${escapeSvg(pill.label)}</text>\n`;
-  }
-
-  return svg;
-}
-
-function estimateStatValueRightEdge(totalTokens: number): number {
-  const value = formatCompact(totalTokens);
-  return STAT_X + value.length * STAT_VALUE_FONT_SIZE * STAT_VALUE_WIDTH_FACTOR;
-}
-
-function commandBadgeWidth(command: string): number {
-  return command.length * 9 + 28;
-}
-
-/** Command badge positioned in the top-right corner. */
-function renderCommandBadge(command: string): string {
-  const badgeW = commandBadgeWidth(command);
-  const badgeH = 30;
-  const x = W - 60 - badgeW;
-  const y = SHARE_SVG_ACCENT_HEIGHT + 30;
-
-  return [
-    `<rect x="${x}" y="${y}" width="${badgeW}" height="${badgeH}" rx="${badgeH / 2}" fill="none" stroke="${shareTheme.cardBorder}" stroke-width="1"/>`,
-    `<text x="${x + badgeW / 2}" y="${y + badgeH / 2 + 5}" text-anchor="middle" font-size="13" fill="${shareTheme.textMuted}" font-family="${shareTheme.mono}">${escapeSvg(command)}</text>`,
-  ].join('\n');
+function renderLegend(items: LegendItem[]): string {
+  return items
+    .map(
+      (item) =>
+        `<circle data-legend="${escapeSvg(item.source)}" cx="${item.x + 5}" cy="${item.y}" r="5" fill="${item.color}"/>` +
+        `<text x="${item.x + 18}" y="${item.y + 5}" font-size="14" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}">${escapeSvg(item.source)} <tspan fill="${shareTheme.textMuted}">${escapeSvg(item.total)}</tspan></text>`,
+    )
+    .join('\n');
 }
 
 function renderGridLines(
@@ -340,18 +304,13 @@ export function renderUsageShareSvg(
   const totalCost = grandTotal?.costUsd;
 
   const commandText = `llm-usage ${granularity} --share`;
-  const firstRowStartX = Math.max(
-    SOURCE_PILLS_MIN_X,
-    estimateStatValueRightEdge(totalTokens) + SOURCE_PILLS_STAT_GAP,
-  );
-  const firstRowRightEdge = W - 60 - commandBadgeWidth(commandText) - SOURCE_PILLS_COMMAND_GAP;
-  const { pills, rowCount } = layoutSourcePills(activeSeries, firstRowStartX, firstRowRightEdge);
-  const extraHeight = (rowCount - 1) * PILL_ROW_HEIGHT;
+  const { items: legendItems, rowCount } = layoutLegend(activeSeries);
+  const extraHeight = (rowCount - 1) * LEGEND_ROW_HEIGHT;
   const H = H_BASE + extraHeight;
 
-  const chartLeft = pad.left;
-  const chartTop = pad.top + extraHeight;
-  const chartRight = W - pad.right;
+  const chartLeft = left + 40;
+  const chartTop = chartTopBase + extraHeight;
+  const chartRight = W - right;
   const chartBottom = H - pad.bottom;
   const chartW = chartRight - chartLeft;
   const chartH = chartBottom - chartTop;
@@ -390,10 +349,7 @@ export function renderUsageShareSvg(
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
 <defs>
-  <linearGradient id="accent-grad" x1="0" y1="0" x2="1" y2="0">
-    <stop offset="0%" stop-color="#10b981"/>
-    <stop offset="100%" stop-color="#06b6d4"/>
-  </linearGradient>
+  ${renderShareAccentGradientDef()}
   <clipPath id="chart-clip">
     <rect x="${chartLeft}" y="${chartTop - 4}" width="${chartW}" height="${chartH + 8}"/>
   </clipPath>
@@ -401,9 +357,11 @@ export function renderUsageShareSvg(
 </defs>
 <rect width="${W}" height="${H}" fill="${shareTheme.bg}"/>
 ${renderShareAccentBar()}
-${renderStatColumn(totalTokens, totalCost, activeSeries.length)}
-${renderSourcePills(pills)}
-${renderCommandBadge(commandText)}
+<text x="${left}" y="52" font-size="32" font-weight="700" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">${escapeSvg(granularityTitle(granularity))}</text>
+<text x="${left}" y="76" font-size="15" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}">Token usage by source over ${formatFooterRange(periods) || 'the selected window'}</text>
+${renderShareCommandBadge(commandText)}
+${renderStatsRow(totalTokens, totalCost, activeSeries.length)}
+${renderLegend(legendItems)}
 ${renderGridLines(chartLeft, chartRight, chartTop, chartH, maxY)}
 ${chartContent}
 ${renderPeriodLabels(periods, toX, chartBottom)}

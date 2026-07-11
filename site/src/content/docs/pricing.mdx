@@ -3,7 +3,7 @@ title: Pricing
 description: How pricing is loaded and how row costs are computed.
 ---
 
-`llm-usage-metrics` uses LiteLLM pricing data to estimate costs when events do not include explicit cost. For the design behind these knobs — the fallback ladder, model-name matching, and the cost engine — see the [Pricing Pipeline](/architecture/pricing-pipeline/) deep dive.
+`llm-usage-metrics` uses LiteLLM pricing data to estimate costs when events do not include explicit cost. For the design behind these knobs — the fallback ladder, model-name matching, and the cost engine — see the [Pricing Pipeline](/llm-usage-metrics/architecture/pricing-pipeline/) deep dive.
 
 ## Pricing source
 
@@ -33,7 +33,7 @@ When `pricing.offline: true` is set in the config file, there is no
 config for that run (`LLM_USAGE_CONFIG_PATH=/nonexistent llm-usage monthly`) or
 edit the config.
 
-For cache lifecycle and tuning knobs, see [Caching](/caching/).
+For cache lifecycle and tuning knobs, see [Caching](/llm-usage-metrics/caching/).
 
 ## Cost modes
 

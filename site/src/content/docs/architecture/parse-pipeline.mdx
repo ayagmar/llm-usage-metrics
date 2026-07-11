@@ -6,7 +6,7 @@ description: How source files are discovered, filtered, parsed, and parallelized
 The parse pipeline turns on-disk session files into normalized usage events. It is where the tool's performance work lives, and every mechanism on this page exists to keep a multi-GiB corpus parseable in seconds. A report run flows through it in order:
 
 1. Each selected adapter discovers its files.
-2. Discovered files split into event-store **hits** (served from the ledger) and **misses** — see [Event Store](/architecture/event-store/).
+2. Discovered files split into event-store **hits** (served from the ledger) and **misses** — see [Event Store](/llm-usage-metrics/architecture/event-store/).
 3. Misses are parsed under a bounded parallelism budget, on worker threads when a large enough codex miss set justifies them.
 4. Parsed lines normalize into usage events (`createUsageEvent`, `src/domain/`).
 5. Freshly parsed files are ingested back into the ledger; events continue to filtering, pricing, and aggregation.
@@ -24,7 +24,7 @@ Sources with multiple home directories (claude, pi, openclaw, kimi, the cline fa
 - `shouldParseLineBytes` runs on the raw line bytes, **before** UTF-8 decoding. The codex adapter accepts `session_meta` and `turn_context` lines and takes `event_msg` lines only when `token_count` bytes appear; the claude adapter requires both `"assistant"` and `"usage"` byte sequences.
 - `shouldParseLine` runs on the decoded string, before `JSON.parse`. The pi, droid, openclaw, copilot, qwen, and kimi adapters filter here.
 
-In a 1.8 GiB codex corpus, most lines carry no usage data. Rejecting them before `JSON.parse` — and for the byte predicates, before even decoding — is the single biggest cold-run win; the [Benchmarks](/benchmarks/) page shows the measured effect.
+In a 1.8 GiB codex corpus, most lines carry no usage data. Rejecting them before `JSON.parse` — and for the byte predicates, before even decoding — is the single biggest cold-run win; the [Benchmarks](/llm-usage-metrics/benchmarks/) page shows the measured effect.
 
 ## Parallelism
 
@@ -47,6 +47,6 @@ Adapters count skipped rows with per-reason counters (`src/sources/parse-diagnos
 
 ## Related pages
 
-- [Event Store](/architecture/event-store/) — the hit/miss split, fingerprints, and ingest.
-- [Configuration](/configuration/) — the `parseMaxParallel`, `parseWorkers`, and `parseWorkerMinBytes` keys.
-- [Benchmarks](/benchmarks/) — the measured effect of this pipeline on real data.
+- [Event Store](/llm-usage-metrics/architecture/event-store/) — the hit/miss split, fingerprints, and ingest.
+- [Configuration](/llm-usage-metrics/configuration/) — the `parseMaxParallel`, `parseWorkers`, and `parseWorkerMinBytes` keys.
+- [Benchmarks](/llm-usage-metrics/benchmarks/) — the measured effect of this pipeline on real data.

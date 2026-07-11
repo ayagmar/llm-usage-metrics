@@ -1,879 +1,1901 @@
 ---
-import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import '../styles/tokens.css';
 
-const rootPkg = JSON.parse(
-  readFileSync(resolve(process.cwd(), '..', 'package.json'), 'utf-8'),
-);
-const pkgVersion = rootPkg.version ?? '0.0.0';
+let packageVersion = '0.0.0';
+
+try {
+  const rootPackage = JSON.parse(
+    readFileSync(resolve(process.cwd(), '..', 'package.json'), 'utf-8'),
+  );
+  packageVersion = rootPackage.version ?? packageVersion;
+} catch (error) {
+  console.error('Unable to read the root package version; using 0.0.0.', error);
+}
 
 const base = import.meta.env.BASE_URL.endsWith('/')
   ? import.meta.env.BASE_URL
   : `${import.meta.env.BASE_URL}/`;
-
 const link = (slug: string) => `${base}${slug}`;
-const ghUrl = 'https://github.com/ayagmar/llm-usage-metrics';
+
+const githubUrl = 'https://github.com/ayagmar/llm-usage-metrics';
 const npmUrl = 'https://www.npmjs.com/package/llm-usage-metrics';
+
+const reportGroups = [
+  {
+    number: '01',
+    label: 'Usage',
+    doc: 'cli-reference/',
+    question: 'How much did I use?',
+    answer: 'Roll up tokens and estimated cost by day, week, or month. Compare two windows or chart a daily trend.',
+    commands: ['daily', 'weekly', 'monthly', 'compare', 'trends'],
+  },
+  {
+    number: '02',
+    label: 'Sessions',
+    doc: 'session/',
+    question: 'Which work used the most?',
+    answer: 'Rank conversations by cost, inspect a matching session ID, or group the same history by repository.',
+    commands: ['session', 'session --by-repo'],
+  },
+  {
+    number: '03',
+    label: 'Efficiency',
+    doc: 'efficiency/',
+    question: 'How does usage line up with Git?',
+    answer: 'Join repo-attributed usage with your commits and line changes. Use the ratios as review signals, with the raw denominators beside them.',
+    commands: ['efficiency monthly'],
+  },
+  {
+    number: '04',
+    label: 'Optimize',
+    doc: 'optimize/',
+    question: 'What would another model cost?',
+    answer: 'Replay the token mix you observed against candidate pricing without changing your source data.',
+    commands: ['optimize monthly'],
+  },
+  {
+    number: '05',
+    label: 'Health',
+    doc: 'doctor/',
+    question: 'Is my local data healthy?',
+    answer: 'Probe every discovery path, inspect the event ledger, and preview retained-history cleanup before deleting anything.',
+    commands: ['doctor', 'prune'],
+  },
+  {
+    number: '06',
+    label: 'Wrapped',
+    doc: 'wrapped/',
+    question: 'What did the year look like?',
+    answer: 'Summarize active days, streaks, models, sources, tokens, and estimated cost in one terminal recap or SVG.',
+    commands: ['wrapped'],
+  },
+];
+
+const doctorSources = [
+  { name: 'claude', format: 'jsonl' },
+  { name: 'codex', format: 'jsonl' },
+  { name: 'pi', format: 'jsonl' },
+  { name: 'openclaw', format: 'jsonl' },
+  { name: 'copilot', format: 'jsonl' },
+  { name: 'qwen', format: 'jsonl' },
+  { name: 'kimi', format: 'jsonl' },
+  { name: 'gemini', format: 'json' },
+  { name: 'droid', format: 'json' },
+  { name: 'amp', format: 'json' },
+  { name: 'cline', format: 'json' },
+  { name: 'roocode', format: 'json' },
+  { name: 'kilocode', format: 'json' },
+  { name: 'opencode', format: 'sqlite' },
+  { name: 'goose', format: 'sqlite' },
+  { name: 'antigravity', format: 'sqlite' },
+];
+
+const pipelineStages = [
+  {
+    name: 'discover',
+    detail: 'Find each tool’s local data in its default location, or the paths in your TOML config.',
+  },
+  {
+    name: 'normalize',
+    detail: 'Convert source-specific records into one deterministic usage-event shape.',
+  },
+  {
+    name: 'price',
+    detail: 'Keep explicit cost when a tool recorded it; estimate the rest from cached LiteLLM data.',
+  },
+  {
+    name: 'report',
+    detail: 'Aggregate once, then render terminal tables, JSON, Markdown, or SVG.',
+  },
+];
+
+// Deterministic pseudo-random activity levels for the illustrative year heatmap.
+const heatRand = (i: number) => {
+  const x = Math.sin(i * 12.9898 + 78.233) * 43758.5453;
+  return x - Math.floor(x);
+};
+const HEAT_WEEKS = 52;
+const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
+  const week = Math.floor(i / 7);
+  const day = i % 7;
+  const weekday = day < 5;
+  const r = heatRand(i);
+  const hotWeek = heatRand(week * 7.13) > 0.62;
+  let level = 0;
+  if (r > (weekday ? 0.38 : 0.72)) level = 1;
+  if (r > (weekday ? 0.6 : 0.86)) level = 2;
+  if (hotWeek && r > 0.5) level = 3;
+  if (hotWeek && r > 0.78) level = 4;
+  return level;
+});
 ---
 
-<StarlightPage frontmatter={{ title: 'Overview', template: 'splash' }}>
-  <div class="grid-bg" aria-hidden="true"></div>
-  <div class="hero-glow" aria-hidden="true"></div>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta
+      name="description"
+      content="Read local sessions from 16 coding tools, normalize usage and pricing, and report what happened without uploading session data."
+    />
+    <meta name="theme-color" content="#171815" data-theme-color />
+    <link rel="icon" type="image/svg+xml" href={`${base}favicon.svg`} />
+    <title>LLM Usage Metrics — Local reports for coding agents</title>
+    <script is:inline>
+      const storedTheme = localStorage.getItem('landing-theme');
+      document.documentElement.dataset.theme = storedTheme === 'light' ? 'light' : 'dark';
+    </script>
+  </head>
+  <body>
 
-  <!-- ─── Hero ─── -->
-  <section class="hero fade-up">
-    <a
-      href={`${ghUrl}/releases`}
-      class="version-pill font-mono"
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      <span class="dot"></span>v{pkgVersion}
-    </a>
-
-    <h1 class="headline">
-      Know what your<br />
-      <span class="dim">AI coding costs.</span>
-    </h1>
-
-    <p class="subtitle">
-      Local-first usage metrics for every AI coding agent.
-      Token counts, real pricing, Git&#8209;correlated ROI — sub&#8209;second reports.
-    </p>
-
-    <div class="actions">
-      <div
-        class="install-box"
-        role="button"
-        tabindex="0"
-        aria-label="Copy install command"
-      >
-        <span class="prompt text-dim">$</span>
-        <code class="cmd font-mono">npm i -g llm-usage-metrics</code>
-        <span class="copy-icon" aria-hidden="true">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-        </span>
-      </div>
-
-      <div class="btn-row">
-        <a href={link('getting-started/')} class="btn btn-primary">Get started</a>
-        <a href={ghUrl} class="btn btn-secondary" target="_blank" rel="noopener noreferrer">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
-          GitHub
-        </a>
-      </div>
-    </div>
-  </section>
-
-  <!-- ─── Terminal preview ─── -->
-  <section class="terminal-section reveal">
-    <div class="terminal">
-      <div class="terminal-bar">
-        <div class="terminal-dots">
-          <span class="td" style="background:#f87171"></span>
-          <span class="td" style="background:#fbbf24"></span>
-          <span class="td" style="background:#4ade80"></span>
-        </div>
-        <span class="terminal-title font-mono">llm-usage daily</span>
-      </div>
-      <pre class="terminal-body font-mono"><code><span class="t-dim">$</span> llm-usage daily
-
-<span class="t-head">  Period      Source   Models              Input    Output   Total      Cost</span>
-<span class="t-sep">  ──────────  ───────  ──────────────────  ───────  ───────  ───────  ──────</span>
-  <span class="t-date">2026-03-02</span>  <span class="t-source">pi</span>       <span class="t-model">• claude-sonnet-4</span>   <span class="t-num">142,319</span>   <span class="t-num">38,104</span>  <span class="t-num">180,423</span>  <span class="t-cost">$1.57</span>
-  <span class="t-date">2026-03-02</span>  <span class="t-source">codex</span>    <span class="t-model">• claude-sonnet-4</span>    <span class="t-num">98,712</span>   <span class="t-num">21,401</span>  <span class="t-num">120,113</span>  <span class="t-cost">$1.02</span>
-  <span class="t-date">2026-03-02</span>  <span class="t-source">gemini</span>   <span class="t-model">• gemini-2.5-pro</span>     <span class="t-num">67,241</span>   <span class="t-num">15,832</span>   <span class="t-num">83,073</span>  <span class="t-cost">$0.44</span>
-  <span class="t-date">2026-03-02</span>  <span class="t-source">codex</span>    <span class="t-model">• o3</span>                 <span class="t-num">31,049</span>    <span class="t-num">8,198</span>   <span class="t-num">39,247</span>  <span class="t-cost">$0.41</span>
-<span class="t-sep">  ──────────  ───────  ──────────────────  ───────  ───────  ───────  ──────</span>
-  <span class="t-total">ALL         TOTAL    4 models            339,321   83,535  422,856  <span class="t-cost-total">$3.44</span></span></code></pre>
-    </div>
-  </section>
-
-  <!-- ─── Speed comparison ─── -->
-  <section class="speed-section reveal">
-    <h2 class="section-title">Blazing fast.</h2>
-    <p class="section-desc">
-      Benchmarked against ccusage on real production data.
-    </p>
-
-    <div class="speed-grid">
-      <div class="speed-card">
-        <div class="speed-number font-mono">4.6<span class="speed-x">×</span></div>
-        <div class="speed-label">faster cold start</div>
-        <div class="speed-detail font-mono">3.6s vs 16.8s</div>
-      </div>
-      <div class="speed-card speed-highlight">
-        <div class="speed-number font-mono">22<span class="speed-x">×</span></div>
-        <div class="speed-label">faster with cache</div>
-        <div class="speed-detail font-mono">0.7s vs 17.0s</div>
-      </div>
-      <div class="speed-card">
-        <div class="speed-number font-mono">&lt;1<span class="speed-x">s</span></div>
-        <div class="speed-label">cached reports</div>
-        <div class="speed-detail font-mono">sub-second</div>
-      </div>
-    </div>
-
-    <a href={link('benchmarks/')} class="section-link">View full benchmarks →</a>
-  </section>
-
-  <!-- ─── Commands ─── -->
-  <section class="commands-section reveal">
-    <h2 class="section-title">Four commands. Full visibility.</h2>
-    <p class="section-desc">
-      Usage rollups, Git-correlated efficiency, pricing optimization, and daily trend visibility.
-    </p>
-
-    <div class="cmd-grid">
-      <div class="cmd-card">
-        <div class="cmd-icon">📊</div>
-        <h3 class="cmd-name">Usage reports</h3>
-        <p class="cmd-desc">
-          Aggregate token counts and costs across all agents.
-          Daily, weekly, or monthly.
-        </p>
-        <pre class="cmd-code font-mono"><code>llm-usage monthly \
-  --provider openai</code></pre>
-      </div>
-
-      <div class="cmd-card">
-        <div class="cmd-icon">⚡</div>
-        <h3 class="cmd-name">Efficiency</h3>
-        <p class="cmd-desc">
-          Correlate LLM spend with Git outcomes.
-          $/commit, $/1k lines, tokens per commit.
-        </p>
-        <pre class="cmd-code font-mono"><code>llm-usage efficiency monthly \
-  --repo-dir .</code></pre>
-      </div>
-
-      <div class="cmd-card">
-        <div class="cmd-icon">📈</div>
-        <h3 class="cmd-name">Trends</h3>
-        <p class="cmd-desc">
-          Track daily cost or token movement over time.
-          Combined view or source-by-source.
-        </p>
-        <pre class="cmd-code font-mono"><code>llm-usage trends \
-  --metric tokens</code></pre>
-      </div>
-
-      <div class="cmd-card">
-        <div class="cmd-icon">🔬</div>
-        <h3 class="cmd-name">Optimize</h3>
-        <p class="cmd-desc">
-          Replay your token mix against candidate models.
-          Find cheaper alternatives instantly.
-        </p>
-        <pre class="cmd-code font-mono"><code>llm-usage optimize monthly \
-  --candidate-model gpt-4.1</code></pre>
-      </div>
-    </div>
-  </section>
-
-  <!-- ─── Sources ─── -->
-  <section class="sources-section reveal">
-    <h2 class="section-title">Every agent. Zero config.</h2>
-    <p class="section-desc">
-      Auto-discovers session data from five AI coding tools.
-    </p>
-
-    <div class="source-strip">
-      <a href={link('sources/pi/')} class="source-chip">
-        <span class="source-dot" style="background:#10b981"></span>pi
+  <main class="landing">
+    <nav class="page-nav" aria-label="Landing page">
+      <a class="page-nav-brand" href={base}>
+        <span class="brand-prompt" aria-hidden="true">&gt;_</span>
+        <span>llm-usage</span>
       </a>
-      <a href={link('sources/codex/')} class="source-chip">
-        <span class="source-dot" style="background:#38bdf8"></span>codex
-      </a>
-      <a href={link('sources/gemini/')} class="source-chip">
-        <span class="source-dot" style="background:#818cf8"></span>gemini
-      </a>
-      <a href={link('sources/droid/')} class="source-chip">
-        <span class="source-dot" style="background:#fb923c"></span>droid
-      </a>
-      <a href={link('sources/opencode/')} class="source-chip">
-        <span class="source-dot" style="background:#f472b6"></span>opencode
-      </a>
-    </div>
-  </section>
-
-  <!-- ─── Metrics bar ─── -->
-  <section class="metrics-section reveal">
-    <div class="metrics-bar">
-      <div class="metric">
-        <span class="metric-val font-mono">100%</span>
-        <span class="metric-label">local-first</span>
-      </div>
-      <div class="metric-sep"></div>
-      <div class="metric">
-        <span class="metric-val font-mono">0</span>
-        <span class="metric-label">telemetry</span>
-      </div>
-      <div class="metric-sep"></div>
-      <div class="metric">
-        <span class="metric-val font-mono">3</span>
-        <span class="metric-label">output formats</span>
-      </div>
-      <div class="metric-sep"></div>
-      <div class="metric">
-        <span class="metric-val font-mono">O(1)</span>
-        <span class="metric-label">event store</span>
-      </div>
-    </div>
-  </section>
-
-  <!-- ─── Footer ─── -->
-  <footer class="footer">
-    <div class="footer-top">
-      <div class="footer-brand">
-        <svg width="20" height="20" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect width="32" height="32" rx="8" fill="#10b981"/>
-          <path d="M8 12h16M8 16h12M8 20h8" stroke="#09090b" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        <span class="font-mono footer-name">llm-usage-metrics</span>
-      </div>
-
-      <nav class="footer-nav">
+      <div class="page-nav-links">
+        <a href="#reports">Reports</a>
+        <a href="#sources">Sources</a>
         <a href={link('getting-started/')}>Docs</a>
-        <a href={link('cli-reference/')}>CLI</a>
-        <a href={link('benchmarks/')}>Benchmarks</a>
-        <a href={ghUrl} target="_blank" rel="noopener noreferrer">GitHub</a>
-        <a href={npmUrl} target="_blank" rel="noopener noreferrer">npm</a>
-      </nav>
+      </div>
+      <div class="page-nav-actions">
+        <button class="theme-toggle" type="button" aria-label="Use light theme" data-theme-toggle>
+          <svg class="theme-icon theme-icon-light" viewBox="0 0 20 20" aria-hidden="true">
+            <circle cx="10" cy="10" r="3.25"></circle>
+            <path d="M10 1.5v2M10 16.5v2M1.5 10h2M16.5 10h2M4 4l1.4 1.4M14.6 14.6 16 16M16 4l-1.4 1.4M5.4 14.6 4 16"></path>
+          </svg>
+          <svg class="theme-icon theme-icon-dark" viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M16.8 12.4A7 7 0 0 1 7.6 3.2a7 7 0 1 0 9.2 9.2Z"></path>
+          </svg>
+        </button>
+        <a class="page-nav-cta" href={link('getting-started/')}>Start locally <span aria-hidden="true">&#8599;</span></a>
+      </div>
+    </nav>
+
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <a
+          class="release-link label"
+          href={`${githubUrl}/releases`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <span class="release-mark" aria-hidden="true"></span>
+          Version {packageVersion}
+        </a>
+
+        <p class="eyebrow">~/.claude&ensp;·&ensp;~/.codex&ensp;·&ensp;~/.gemini&ensp;·&ensp;13 more</p>
+        <h1 id="hero-title">Your coding agents leave <span>receipts.</span></h1>
+        <p class="hero-summary">
+          Sixteen coding tools already write session logs to your disk. <strong>llm-usage</strong>{' '}
+          reads them in place, prices what it can — and marks what it can’t — then turns the
+          result into reports you can inspect, compare, and export. Nothing leaves your machine.
+        </p>
+
+        <div class="hero-actions">
+          <a class="button button-primary" href={link('getting-started/')}>Get your first report</a>
+          <a
+            class="button button-secondary"
+            href={githubUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            View source
+          </a>
+        </div>
+
+        <button
+          class="install-command"
+          type="button"
+          aria-label="Copy the npm install command"
+          data-install-command
+        >
+          <span class="prompt" aria-hidden="true">$</span>
+          <code>npm install -g llm-usage-metrics</code>
+          <span class="copy-label" data-copy-label>Copy</span>
+        </button>
+        <p class="sr-only" aria-live="polite" data-copy-status></p>
+      </div>
+
+      <div class="terminal-stage">
+        <div class="terminal" aria-label="Recording of a monthly usage report in a terminal">
+          <div class="terminal-bar">
+            <span class="terminal-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="terminal-title">~ llm-usage</span>
+            <span class="terminal-badge">local</span>
+          </div>
+          <pre class="terminal-body" aria-hidden="true"><span class="t-line t-cmd"><span class="t-prompt">❯ </span><span class="t-typed">llm-usage monthly --source codex,claude</span></span><span class="t-line t-dim" style="--d: 1.9s"><span class="t-cyan">ℹ</span> 1,354 session files · 105,232 events</span><span class="t-line t-dim" style="--d: 2.05s"><span class="t-cyan">ℹ</span> pricing loaded from cache</span><span class="t-line t-gap" style="--d: 2.15s"> </span><span class="t-line t-frame" style="--d: 2.25s">╭─────────┬────────┬────────┬─────────┬──────────╮</span><span class="t-line t-head" style="--d: 2.32s"><span class="t-frame">│</span> Period  <span class="t-frame">│</span> Source <span class="t-frame">│</span> Models <span class="t-frame">│</span>  Tokens <span class="t-frame">│</span>     Cost <span class="t-frame">│</span></span><span class="t-line t-frame" style="--d: 2.39s">├─────────┼────────┼────────┼─────────┼──────────┤</span><span class="t-line" style="--d: 2.46s"><span class="t-frame">│</span> 2026-01 <span class="t-frame">│</span> <span class="t-accent">codex</span>  <span class="t-frame">│</span> 2      <span class="t-frame">│</span>   91.4M <span class="t-frame">│</span>   $54.12 <span class="t-frame">│</span></span><span class="t-line" style="--d: 2.53s"><span class="t-frame">│</span> 2026-01 <span class="t-frame">│</span> <span class="t-accent">claude</span> <span class="t-frame">│</span> 2      <span class="t-frame">│</span>   51.4M <span class="t-frame">│</span>  <span class="t-yellow">~</span>$32.28 <span class="t-frame">│</span></span><span class="t-line t-frame" style="--d: 2.6s">├─────────┼────────┼────────┼─────────┼──────────┤</span><span class="t-line t-total" style="--d: 2.67s"><span class="t-frame">│</span> total   <span class="t-frame">│</span>        <span class="t-frame">│</span> 4      <span class="t-frame">│</span>  142.8M <span class="t-frame">│</span>  <span class="t-yellow">~</span>$86.40 <span class="t-frame">│</span></span><span class="t-line t-frame" style="--d: 2.74s">╰─────────┴────────┴────────┴─────────┴──────────╯</span><span class="t-line t-gap" style="--d: 2.8s"> </span><span class="t-line t-dim" style="--d: 2.9s"><span class="t-cyan">✔</span> 2 sources parsed · <span class="t-yellow">~</span> marks estimated pricing</span><span class="t-line" style="--d: 3.4s"><span class="t-prompt">❯ </span><span class="t-cursor"></span></span></pre>
+          <p class="sr-only">
+            Example: llm-usage monthly --source codex,claude reports 91.4M codex tokens for
+            $54.12 and 51.4M claude tokens for an estimated $32.28 — 142.8M tokens and an
+            estimated $86.40 combined. Estimates are marked with a tilde.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="statusline" aria-label="Product facts">
+      <span class="statusline-cell"><strong>16</strong> source adapters</span>
+      <span class="statusline-cell"><strong>4</strong> output families</span>
+      <span class="statusline-cell"><strong>offline</strong> pricing snapshot</span>
+      <span class="statusline-cell"><strong>0</strong> session uploads</span>
+      <span class="statusline-spark" aria-hidden="true">▁▂▄▃▆▂▇▅ tokens/day</span>
+    </section>
+
+    <div class="source-roster" aria-label="Supported tools">
+      <span class="source-roster-label">Reads local history from</span>
+      <div class="source-roster-list">
+        {doctorSources.map((source) => <span>{source.name}</span>)}
+      </div>
     </div>
 
-    <div class="footer-bottom">
-      <span class="text-dim">
-        Built for engineers who want to know what their AI coding actually costs.
-      </span>
-    </div>
+    <section id="reports" class="reports section" aria-labelledby="reports-title">
+      <div class="section-heading">
+        <p class="eyebrow"># 01 · reports</p>
+        <h2 id="reports-title">Ask the question first. There’s a table for it.</h2>
+        <p>
+          Start with a calendar rollup, then move to sessions, repositories, or candidate
+          pricing when you need a narrower answer.
+        </p>
+      </div>
+
+      <div class="report-list">
+        {reportGroups.map((report) => (
+          <a class="report-row" href={link(report.doc)} aria-label={`${report.question} Read the ${report.label} documentation`}>
+            <div class="report-identity">
+              <span class="report-number font-mono">{report.number}</span>
+              <span class="report-label">{report.label}</span>
+            </div>
+            <div class="report-copy">
+              <h3>{report.question}</h3>
+              <p>{report.answer}</p>
+            </div>
+            <div class="command-list">
+              <span class="command-label">Try it</span>
+              {report.commands.map((command) => (
+                <code><span aria-hidden="true">$</span> llm-usage {command}</code>
+              ))}
+            </div>
+            <span class="report-arrow" aria-hidden="true">&#8599;</span>
+          </a>
+        ))}
+      </div>
+
+      <a class="text-link" href={link('cli-reference/')}>Browse every command and option</a>
+    </section>
+
+    <section class="pipeline section" aria-labelledby="pipeline-title">
+      <div class="section-heading">
+        <p class="eyebrow"># 02 · pipeline</p>
+        <h2 id="pipeline-title">Four stages. One pipe.</h2>
+        <p>
+          The useful engineering sits between the files and the table. Every report runs the
+          same pipeline, so sixteen different log formats behave like one dataset.
+        </p>
+      </div>
+
+      <div class="pipe-line font-mono" aria-hidden="true">
+        {pipelineStages.map((stage, index) => (
+          <>
+            {index > 0 && <span class="pipe-char">|</span>}
+            <span class="pipe-word">{stage.name}</span>
+          </>
+        ))}
+      </div>
+
+      <ol class="pipe-stages">
+        {pipelineStages.map((stage, index) => (
+          <li>
+            <span class="flow-index font-mono">0{index + 1}</span>
+            <strong>{stage.name}</strong>
+            <p>{stage.detail}</p>
+          </li>
+        ))}
+      </ol>
+
+      <div class="pipeline-notes">
+        <article>
+          <span class="note-label label">Persistent ledger</span>
+          <h3>Unchanged files do not need another parse.</h3>
+          <p>
+            A local SQLite event store keeps normalized events and parse diagnostics. It also
+            powers optional history for session files that have left the disk.
+          </p>
+          <a href={link('architecture/event-store/')}>How the event store works</a>
+        </article>
+        <article>
+          <span class="note-label label">Honest pricing</span>
+          <h3>Unknown cost stays unknown.</h3>
+          <p>
+            Reports mark partial estimates with <code>~</code> and unresolved rows with
+            <code>-</code>. The cost engine does not invent a rate for a token bucket it cannot
+            price.
+          </p>
+          <a href={link('pricing/')}>Read the pricing rules</a>
+        </article>
+      </div>
+    </section>
+
+    <section id="sources" class="sources section" aria-labelledby="sources-title">
+      <div class="sources-copy">
+        <p class="eyebrow"># 03 · sources</p>
+        <h2 id="sources-title">Sixteen adapters. One event shape.</h2>
+        <p>
+          Each adapter discovers its tool’s local data — JSONL, JSON, or SQLite — and converts
+          it into the same usage event. Filters, pricing, aggregation, and exports work
+          identically after that boundary.
+        </p>
+        <a class="text-link" href={link('sources/')}>See discovery paths and overrides</a>
+      </div>
+
+      <div class="doctor-panel" role="list" aria-label="Supported sources">
+        <div class="doctor-command font-mono" aria-hidden="true">
+          <span class="t-prompt">❯ </span>llm-usage doctor
+        </div>
+        <ul class="doctor-grid">
+          {doctorSources.map((source) => (
+            <li role="listitem">
+              <span class="doctor-check" aria-hidden="true">✔</span>
+              <span class="doctor-name">{source.name}</span>
+              <span class={`doctor-format doctor-format-${source.format}`}>{source.format}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+
+    <section class="wrapped section" aria-labelledby="wrapped-title">
+      <div class="section-heading">
+        <p class="eyebrow"># 04 · wrapped</p>
+        <h2 id="wrapped-title">A year of sessions fits in one artifact.</h2>
+        <p>
+          <code>llm-usage wrapped</code> recaps active days, streaks, models, sources, tokens,
+          and estimated cost — in the terminal, or as an SVG you can share.
+        </p>
+      </div>
+
+      <figure class="heatmap-figure">
+        <div class="heatmap" aria-hidden="true">
+          {heatCells.map((level) => <i class={`heat-${level}`}></i>)}
+        </div>
+        <figcaption>
+          <span class="font-mono">llm-usage wrapped --share</span>
+          <span>illustrative activity — your recap uses your own sessions</span>
+        </figcaption>
+      </figure>
+    </section>
+
+    <section class="benchmark section" aria-labelledby="benchmark-title">
+      <div class="benchmark-copy">
+        <p class="eyebrow"># 05 · benchmarks</p>
+        <h2 id="benchmark-title">Performance numbers you can audit.</h2>
+        <p>
+          The benchmark records five-run medians on real local corpora and publishes the machine,
+          commands, cache state, and dataset size. Cold runs favor the native Rust comparison tool;
+          the warm Claude run favors the local event store.
+        </p>
+        <a class="text-link" href={link('benchmarks/')}>Read the benchmark and reproduce it</a>
+      </div>
+
+      <dl class="benchmark-data">
+        <div>
+          <dt>Largest measured corpus</dt>
+          <dd>1.8 GiB</dd>
+          <span>1,145 codex session files</span>
+        </div>
+        <div>
+          <dt>Warm Claude median</dt>
+          <dd>0.256 s</dd>
+          <span>201 files in the measured corpus</span>
+        </div>
+        <div>
+          <dt>Runs per cell</dt>
+          <dd>5</dd>
+          <span>median, mean, min, and max published</span>
+        </div>
+      </dl>
+    </section>
+
+    <section class="final-cta section" aria-labelledby="cta-title">
+      <p class="eyebrow"># 06 · start</p>
+      <h2 id="cta-title">The sessions are already on your disk. Ask them something.</h2>
+      <button
+        class="install-command install-command-large"
+        type="button"
+        aria-label="Copy the npm install command"
+        data-install-command
+      >
+        <span class="prompt" aria-hidden="true">$</span>
+        <code>npm install -g llm-usage-metrics</code>
+        <span class="copy-label" data-copy-label>Copy</span>
+      </button>
+      <div class="cta-actions">
+        <a class="button button-primary" href={link('getting-started/')}>Open the setup guide</a>
+        <a class="button button-secondary" href={npmUrl} target="_blank" rel="noopener noreferrer"
+          >View on npm</a
+        >
+      </div>
+    </section>
+  </main>
+
+  <footer class="landing-footer">
+    <a class="footer-brand" href={base} aria-label="LLM Usage Metrics home">
+      <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true">
+        <rect x="1" y="1" width="30" height="30" rx="8" fill="currentColor"></rect>
+        <path d="M8 10.5 12.5 16 8 21.5M16 21.5h8M17 10.5h7" fill="none" stroke="var(--color-bg)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+      </svg>
+      <span>llm-usage-metrics</span>
+    </a>
+    <nav aria-label="Footer">
+      <a href={link('getting-started/')}>Docs</a>
+      <a href={link('cli-reference/')}>CLI reference</a>
+      <a href={githubUrl} target="_blank" rel="noopener noreferrer">GitHub</a>
+      <a href={npmUrl} target="_blank" rel="noopener noreferrer">npm</a>
+    </nav>
+    <p>Local-first usage reporting for AI coding tools. MIT licensed.</p>
   </footer>
 
-  <!-- Scripts -->
   <script is:inline>
-    // Copy install command
-    const box = document.querySelector('.install-box');
-    box?.addEventListener('click', () => {
-      if (!navigator.clipboard?.writeText) return;
-      navigator.clipboard.writeText('npm i -g llm-usage-metrics').then(() => {
-        const icon = box.querySelector('.copy-icon');
-        if (!icon) return;
-        icon.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
-        setTimeout(() => {
-          icon.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
-        }, 2000);
-      }).catch(() => {});
-    });
-    box?.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); box.click(); }
+    const themeToggle = document.querySelector('[data-theme-toggle]');
+    const themeColor = document.querySelector('[data-theme-color]');
+
+    const updateThemeControl = () => {
+      const isDark = document.documentElement.dataset.theme === 'dark';
+      themeToggle?.setAttribute('aria-label', isDark ? 'Use light theme' : 'Use dark theme');
+      themeColor?.setAttribute('content', isDark ? '#171815' : '#e9e3d8');
+    };
+
+    themeToggle?.addEventListener('click', () => {
+      const nextTheme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+      document.documentElement.dataset.theme = nextTheme;
+      localStorage.setItem('landing-theme', nextTheme);
+      updateThemeControl();
     });
 
-    // Scroll reveal animation
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('visible');
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.15, rootMargin: '0px 0px -40px 0px' }
-    );
-    document.querySelectorAll('.reveal').forEach((el) => observer.observe(el));
+    updateThemeControl();
+
+    for (const button of document.querySelectorAll('[data-install-command]')) {
+      const copyLabel = button.querySelector('[data-copy-label]');
+      const copyStatus = document.querySelector('[data-copy-status]');
+      let resetLabelTimeout;
+
+      button.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText('npm install -g llm-usage-metrics');
+          if (copyLabel) copyLabel.textContent = 'Copied';
+          if (copyStatus) copyStatus.textContent = 'Install command copied.';
+        } catch {
+          if (copyLabel) copyLabel.textContent = 'Copy failed';
+          if (copyStatus) copyStatus.textContent = 'The install command could not be copied.';
+        }
+
+        window.clearTimeout(resetLabelTimeout);
+        resetLabelTimeout = window.setTimeout(() => {
+          if (copyLabel) copyLabel.textContent = 'Copy';
+        }, 2000);
+      });
+    }
   </script>
-</StarlightPage>
+  </body>
+</html>
 
 <style>
-  /* ── Starlight splash overrides ── */
-  :global(main > .content-panel:has(h1#_top)) { display: none !important; }
-  :global(main > .content-panel) { padding: 0 !important; max-width: 100% !important; border: none !important; }
-  :global(.sl-container) { max-width: 100% !important; margin: 0 !important; }
-  :global(starlight-menu-button) { display: none !important; }
-
-  /* ── Grid background ── */
-  .grid-bg {
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-    background-image:
-      linear-gradient(to right, var(--border-default) 1px, transparent 1px),
-      linear-gradient(to bottom, var(--border-default) 1px, transparent 1px);
-    background-size: 3rem 3rem;
-    mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, black 0%, transparent 100%);
-    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, black 0%, transparent 100%);
-  }
-  :root[data-theme='light'] .grid-bg { opacity: 0.2; }
-
-  /* ── Hero glow ── */
-  .hero-glow {
-    position: fixed;
-    top: -20%;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 800px;
-    height: 600px;
-    background: radial-gradient(ellipse at center, rgba(16, 185, 129, 0.06) 0%, transparent 70%);
-    z-index: -1;
-    pointer-events: none;
-  }
-  :root[data-theme='light'] .hero-glow {
-    background: radial-gradient(ellipse at center, rgba(16, 185, 129, 0.04) 0%, transparent 70%);
+  :global(html) {
+    scroll-behavior: smooth;
+    color-scheme: dark;
+    background: #171815;
   }
 
-  /* ── Animations ── */
-  @keyframes fade-up {
-    from { opacity: 0; transform: translateY(24px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  .fade-up {
-    animation: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  }
-
-  .reveal {
-    opacity: 0;
-    transform: translateY(32px);
-    transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
-                transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  .reveal.visible {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
-  /* ── Section container (centered) ── */
-  section, footer {
-    max-width: var(--max-w-container);
-    margin-left: auto;
-    margin-right: auto;
-    padding-left: var(--space-6);
-    padding-right: var(--space-6);
-  }
-
-  .section-title {
-    font-size: var(--text-2xl);
-    font-weight: 600;
-    letter-spacing: var(--tracking-tighter);
-    margin-bottom: var(--space-2);
-    text-align: center;
-  }
-  .section-desc {
-    color: var(--color-text-muted);
-    font-size: var(--text-base);
-    text-align: center;
-    margin-bottom: var(--space-10);
-    max-width: 48ch;
-    margin-left: auto;
-    margin-right: auto;
-  }
-  .section-link {
-    display: block;
-    text-align: center;
-    margin-top: var(--space-8);
-    font-size: var(--text-sm);
-    font-weight: 500;
-    color: var(--color-text-muted);
-    text-decoration: none;
-    transition: color var(--transition-fast);
-  }
-  .section-link:hover { color: var(--color-text); }
-
-  @media (min-width: 768px) {
-    .section-title { font-size: var(--text-3xl); }
-  }
-
-  /* ═══════════════════════════════
-     HERO
-     ═══════════════════════════════ */
-  .hero {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    padding-top: var(--space-12);
-    padding-bottom: var(--space-12);
-  }
-  @media (min-width: 768px) {
-    .hero { padding-top: var(--space-16); padding-bottom: var(--space-16); }
-  }
-  @media (min-width: 1024px) {
-    .hero { padding-top: var(--space-20); padding-bottom: var(--space-16); }
-  }
-
-  .version-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-1) var(--space-3);
-    font-size: var(--text-xs);
-    font-weight: 500;
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-full);
-    color: var(--color-text-muted);
-    text-decoration: none;
-    transition: all var(--transition-fast);
-    margin-bottom: var(--space-6);
-  }
-  .version-pill:hover {
-    border-color: var(--color-text-dim);
+  :global(body) {
+    --color-bg: #171815;
+    --color-bg-elevated: #20211d;
+    --color-bg-card: #1b1c19;
+    --color-bg-code: #121310;
+    --color-text: #eeeae0;
+    --color-text-secondary: #d7d2c7;
+    --color-text-muted: #aaa69c;
+    --color-text-dim: #777970;
+    --color-accent: #cf7453;
+    --color-accent-hover: #df8664;
+    --color-accent-ink: #21140f;
+    --color-accent-subtle: rgba(207, 116, 83, 0.12);
+    --color-cyan: #64a1a9;
+    --color-yellow: #c69e5a;
+    --border-subtle: rgba(238, 234, 224, 0.045);
+    --border-default: rgba(238, 234, 224, 0.1);
+    --border-strong: rgba(238, 234, 224, 0.2);
+    --shadow-color: rgba(4, 5, 3, 0.28);
+    --shadow-elevated: rgba(4, 5, 3, 0.48);
+    margin: 0;
+    background: var(--color-bg);
     color: var(--color-text);
-  }
-  .dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: #10b981;
-    animation: pulse-dot 2s ease-in-out infinite;
-  }
-  @keyframes pulse-dot {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
-    50% { box-shadow: 0 0 0 4px rgba(16, 185, 129, 0); }
+    font-family: var(--font-sans);
   }
 
-  .headline {
-    font-size: clamp(2.25rem, 7vw, 5rem);
-    font-weight: 700;
-    line-height: 1.05;
-    letter-spacing: var(--tracking-tighter);
-    margin-bottom: var(--space-4);
-    text-wrap: balance;
-  }
-  .dim { color: var(--color-text-dim); font-weight: 500; }
-
-  .subtitle {
-    font-size: var(--text-base);
-    color: var(--color-text-muted);
-    line-height: var(--leading-relaxed);
-    max-width: 52ch;
-    margin-bottom: var(--space-8);
-    text-wrap: balance;
-  }
-  @media (min-width: 768px) {
-    .subtitle { font-size: var(--text-lg); max-width: 60ch; }
+  :global(html[data-theme='light']) {
+    color-scheme: light;
+    background: #e9e3d8;
   }
 
-  /* ── Actions (centered) ── */
-  .actions {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-    width: 100%;
-    max-width: 480px;
-    align-items: center;
-  }
-  @media (min-width: 640px) {
-    .actions {
-      flex-direction: row;
-      justify-content: center;
-      max-width: none;
-      gap: var(--space-3);
-    }
+  :global(html[data-theme='light'] body) {
+    --color-bg: #e9e3d8;
+    --color-bg-elevated: #dfd7ca;
+    --color-bg-card: #f1ece3;
+    --color-bg-code: #dcd3c4;
+    --color-text: #292821;
+    --color-text-secondary: #3d3b32;
+    --color-text-muted: #69665b;
+    --color-text-dim: #898578;
+    --color-accent: #a9472b;
+    --color-accent-hover: #873721;
+    --color-accent-ink: #fffaf2;
+    --color-accent-subtle: rgba(169, 71, 43, 0.1);
+    --color-cyan: #367983;
+    --color-yellow: #8c682c;
+    --border-subtle: rgba(41, 40, 33, 0.05);
+    --border-default: rgba(41, 40, 33, 0.13);
+    --border-strong: rgba(41, 40, 33, 0.24);
+    --shadow-color: rgba(65, 54, 38, 0.08);
+    --shadow-elevated: rgba(38, 33, 25, 0.22);
   }
 
-  .install-box {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    padding: 0 var(--space-4);
-    height: 2.75rem;
-    background: var(--color-bg-code);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    width: 100%;
+  :global(*) {
     box-sizing: border-box;
   }
-  @media (min-width: 640px) {
-    .install-box { width: auto; flex-shrink: 0; }
+
+  :global(::selection) {
+    background: var(--color-accent-subtle);
   }
-  .install-box:hover {
+
+  :global(:focus-visible) {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+  }
+
+  .landing,
+  .landing-footer {
+    position: relative;
+    max-width: 1240px;
+    margin-inline: auto;
+    padding-inline: clamp(1.25rem, 4vw, 3rem);
+  }
+
+  .page-nav {
+    position: sticky;
+    top: 0;
+    z-index: var(--z-sticky);
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    width: 100%;
+    min-height: 4rem;
+    margin: 0 auto -4rem;
+    border-bottom: 1px solid var(--border-default);
+    background: color-mix(in srgb, var(--color-bg) 94%, transparent);
+    backdrop-filter: blur(8px);
+  }
+
+  .page-nav a {
+    text-decoration: none;
+  }
+
+  .page-nav-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: var(--color-text);
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    font-weight: 600;
+  }
+
+  .brand-prompt {
+    color: var(--color-accent);
+  }
+
+  .page-nav-links {
+    display: flex;
+    gap: 1.5rem;
+  }
+
+  .page-nav-links a {
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+    font-weight: 500;
+    transition: color var(--transition-fast);
+  }
+
+  .page-nav-links a:hover {
+    color: var(--color-text);
+  }
+
+  .page-nav-cta {
+    justify-self: end;
+    padding: 0.65rem 0.9rem;
+    border-radius: var(--radius-sm);
+    background: var(--color-accent);
+    color: var(--color-accent-ink);
+    font-size: 0.72rem;
+    font-weight: 700;
+    transition:
+      background var(--transition-fast),
+      transform var(--transition-fast);
+  }
+
+  .page-nav-cta:hover {
+    background: var(--color-accent-hover);
+  }
+
+  .page-nav-cta:active {
+    transform: scale(0.98);
+  }
+
+  .page-nav-actions {
+    display: flex;
+    align-items: center;
+    justify-self: end;
+    gap: 0.5rem;
+  }
+
+  .theme-toggle {
+    display: inline-grid;
+    width: 2.35rem;
+    height: 2.35rem;
+    padding: 0;
+    place-items: center;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition:
+      border-color var(--transition-fast),
+      color var(--transition-fast),
+      transform var(--transition-fast);
+  }
+
+  .theme-toggle:hover {
+    border-color: var(--border-strong);
+    color: var(--color-text);
+  }
+
+  .theme-toggle:active {
+    transform: scale(0.96);
+  }
+
+  .theme-icon {
+    width: 1rem;
+    height: 1rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.5;
+  }
+
+  .theme-icon-dark,
+  :global(html[data-theme='light']) .theme-icon-light {
+    display: none;
+  }
+
+  :global(html[data-theme='light']) .theme-icon-dark {
+    display: block;
+  }
+
+  .section {
+    padding-block: clamp(5rem, 10vw, 8.5rem);
+    border-top: 1px solid var(--border-default);
+  }
+
+  .eyebrow,
+  .label {
+    margin: 0;
+    color: var(--color-accent);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  h1,
+  h2,
+  h3,
+  p {
+    margin-top: 0;
+  }
+
+  h1,
+  h2,
+  h3 {
+    color: var(--color-text);
+    letter-spacing: var(--tracking-tighter);
+  }
+
+  h2 {
+    max-width: 20ch;
+    margin-bottom: 1.25rem;
+    font-size: clamp(2rem, 4vw, 3.25rem);
+    font-weight: 600;
+    line-height: 1.04;
+  }
+
+  /* ---------- hero ---------- */
+
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(30rem, 1fr);
+    gap: clamp(3rem, 6vw, 6rem);
+    align-items: center;
+    min-height: 100dvh;
+    padding-block: clamp(4rem, 10vw, 8rem);
+  }
+
+  .release-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin-bottom: 3.5rem;
+    color: var(--color-text-muted);
+    text-decoration: none;
+  }
+
+  .release-link:hover {
+    color: var(--color-text);
+  }
+
+  .release-mark {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: var(--color-accent);
+  }
+
+  .hero .eyebrow {
+    margin-bottom: 1.15rem;
+    text-transform: none;
+    letter-spacing: 0.02em;
+  }
+
+  .hero h1 {
+    max-width: 13ch;
+    margin-bottom: 1.5rem;
+    font-size: clamp(2.9rem, 5.6vw, 5rem);
+    font-weight: 600;
+    line-height: 0.98;
+  }
+
+  .hero h1 span {
+    position: relative;
+    color: var(--color-accent);
+  }
+
+  .hero h1 span::after {
+    position: absolute;
+    right: 0.03em;
+    bottom: -0.08em;
+    left: 0;
+    height: 0.08em;
+    border-radius: var(--radius-full);
+    background: currentColor;
+    content: '';
+    opacity: 0.45;
+    transform: rotate(-1.5deg);
+  }
+
+  .hero-summary {
+    max-width: 56ch;
+    margin-bottom: 2rem;
+    color: var(--color-text-muted);
+    font-size: clamp(1.05rem, 1.5vw, 1.18rem);
+    line-height: 1.65;
+  }
+
+  .hero-summary strong {
+    color: var(--color-text);
+    font-family: var(--font-mono);
+    font-size: 0.92em;
+    font-weight: 600;
+  }
+
+  .hero-actions,
+  .cta-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .button {
+    display: inline-flex;
+    min-height: 2.9rem;
+    align-items: center;
+    justify-content: center;
+    padding-inline: 1.1rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition:
+      color var(--transition-fast),
+      background var(--transition-fast),
+      border-color var(--transition-fast),
+      transform var(--transition-fast);
+  }
+
+  .button:active,
+  .install-command:active {
+    transform: translateY(1px);
+  }
+
+  .button-primary {
+    background: var(--color-accent);
+    color: var(--color-accent-ink);
+  }
+
+  .button-primary:hover {
+    background: var(--color-accent-hover);
+    color: var(--color-accent-ink);
+  }
+
+  .button-secondary {
+    border-color: var(--border-strong);
+    background: var(--color-bg-card);
+    color: var(--color-text);
+  }
+
+  .button-secondary:hover {
     border-color: var(--color-text-dim);
     background: var(--color-bg-elevated);
-    transform: translateY(-1px);
+    color: var(--color-text);
   }
-  .prompt { color: var(--color-text-dim); }
-  .cmd {
-    font-size: var(--text-sm);
+
+  .install-command {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 0.75rem;
+    align-items: center;
+    width: min(100%, 28rem);
+    min-height: 3rem;
+    margin-top: 1rem;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-code);
     color: var(--color-text-secondary);
-    flex: 1;
+    cursor: pointer;
     text-align: left;
+    transition:
+      border-color var(--transition-fast),
+      transform var(--transition-fast);
+  }
+
+  .install-command:hover {
+    border-color: var(--border-strong);
+  }
+
+  .install-command code {
+    overflow: hidden;
+    color: inherit;
+    font-size: 0.8rem;
+    text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .copy-icon { color: var(--color-text-dim); display: flex; margin-left: auto; }
 
-  .btn-row {
-    display: flex;
-    gap: var(--space-3);
-    width: 100%;
-  }
-  @media (min-width: 640px) {
-    .btn-row { width: auto; }
-  }
-  .btn-row .btn {
-    flex: 1;
-    height: 2.75rem;
-  }
-  @media (min-width: 640px) {
-    .btn-row .btn { flex: none; }
+  .prompt {
+    color: var(--color-accent);
+    font-family: var(--font-mono);
   }
 
-  /* ═══════════════════════════════
-     TERMINAL PREVIEW
-     ═══════════════════════════════ */
-  .terminal-section {
-    padding-bottom: var(--space-16);
+  .copy-label {
+    color: var(--color-text-dim);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  /* ---------- terminal ---------- */
+
+  .terminal-stage {
+    position: relative;
   }
 
   .terminal {
-    background: #0c0c0e;
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-xl);
+    /* A terminal is dark in both site themes. */
+    --term-bg: #0d0f0c;
+    --term-bar: #12140f;
+    --term-text: #e9e8df;
+    --term-dim: #83887b;
+    --term-frame: #4a4e44;
+    --term-border: rgba(241, 240, 233, 0.14);
+    --term-accent: #ef9067;
+    --term-cyan: #7cc3cd;
+    --term-yellow: #e0bc7c;
     overflow: hidden;
-    box-shadow:
-      0 0 0 1px rgba(255, 255, 255, 0.03),
-      0 20px 60px rgba(0, 0, 0, 0.4),
-      0 0 80px rgba(16, 185, 129, 0.04);
-    max-width: 860px;
-    margin: 0 auto;
-  }
-  :root[data-theme='light'] .terminal {
-    box-shadow:
-      0 0 0 1px rgba(0, 0, 0, 0.06),
-      0 20px 60px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--term-border);
+    border-radius: var(--radius-lg);
+    background: var(--term-bg);
+    box-shadow: 0.75rem 0.75rem 0 var(--border-default);
   }
 
   .terminal-bar {
     display: flex;
     align-items: center;
-    gap: var(--space-3);
-    padding: var(--space-3) var(--space-4);
-    background: rgba(255, 255, 255, 0.03);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    gap: 0.85rem;
+    padding: 0.8rem 1.1rem;
+    border-bottom: 1px solid var(--term-border);
+    background: var(--term-bar);
   }
+
   .terminal-dots {
-    display: flex;
-    gap: 6px;
+    display: inline-flex;
+    gap: 0.4rem;
   }
-  .td {
-    width: 12px; height: 12px;
+
+  .terminal-dots i {
+    width: 0.6rem;
+    height: 0.6rem;
     border-radius: 50%;
-    opacity: 0.8;
+    background: var(--term-frame);
   }
+
   .terminal-title {
-    font-size: var(--text-xs);
-    color: #71717a;
-    margin-left: var(--space-2);
+    color: var(--term-dim);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+  }
+
+  .terminal-badge {
+    margin-left: auto;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid color-mix(in srgb, var(--term-accent) 40%, transparent);
+    border-radius: var(--radius-sm);
+    color: var(--term-accent);
+    font-family: var(--font-mono);
+    font-size: 0.58rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
   }
 
   .terminal-body {
-    padding: var(--space-5) var(--space-6);
-    font-size: 12px;
-    line-height: 1.7;
-    color: #e4e4e7;
+    margin: 0;
+    padding: 1.2rem 1.3rem 1.35rem;
     overflow-x: auto;
-    margin: 0;
-  }
-  .terminal-body code {
-    font-family: inherit;
-    font-size: inherit;
-    background: none;
-    border: none;
-    padding: 0;
-    color: inherit;
-  }
-  @media (min-width: 768px) {
-    .terminal-body { font-size: 13px; }
+    background: transparent;
+    color: var(--term-text);
+    font-family: var(--font-mono);
+    font-size: clamp(0.62rem, 1.05vw, 0.78rem);
+    line-height: 1.6;
   }
 
-  .t-dim { color: #52525b; }
-  .t-head { color: #71717a; font-weight: 600; }
-  .t-sep { color: #3f3f46; }
-  .t-date { color: #a1a1aa; }
-  .t-source { color: #10b981; }
-  .t-model { color: #a1a1aa; }
-  .t-num { color: #a1a1aa; }
-  .t-cost { color: #fafafa; font-weight: 500; }
-  .t-total { font-weight: 600; color: #fafafa; }
-  .t-cost-total { color: #10b981; font-weight: 700; }
-
-  /* ═══════════════════════════════
-     SPEED COMPARISON
-     ═══════════════════════════════ */
-  .speed-section {
-    padding-bottom: var(--space-16);
+  .t-line {
+    display: block;
+    white-space: pre;
   }
 
-  .speed-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: var(--space-4);
-  }
-  @media (min-width: 640px) {
-    .speed-grid { grid-template-columns: repeat(3, 1fr); }
+  .t-cmd {
+    margin-bottom: 0.35rem;
   }
 
-  .speed-card {
-    text-align: center;
-    padding: var(--space-8) var(--space-6);
-    border: 1px solid var(--border-default);
-    border-radius: var(--radius-xl);
-    background: var(--color-bg-card);
-    transition: all var(--transition-base);
-  }
-  .speed-card:hover {
-    border-color: var(--border-strong);
-    transform: translateY(-4px);
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.15);
+  .t-typed {
+    display: inline-block;
+    overflow: hidden;
+    width: 39ch;
+    vertical-align: bottom;
+    white-space: nowrap;
   }
 
-  .speed-highlight {
-    border-color: var(--border-strong);
-    background: var(--color-bg-elevated);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  .t-prompt {
+    color: var(--term-accent);
   }
 
-  .speed-number {
-    font-size: clamp(2.5rem, 5vw, 4rem);
-    font-weight: 700;
-    letter-spacing: var(--tracking-tighter);
-    color: var(--color-text);
-    line-height: 1;
-    margin-bottom: var(--space-3);
-  }
-  .speed-x {
-    font-size: 0.5em;
-    color: var(--color-text-dim);
-    font-weight: 400;
-  }
-  .speed-label {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-    margin-bottom: var(--space-2);
-  }
-  .speed-detail {
-    font-size: var(--text-xs);
-    color: var(--color-text-dim);
+  .t-dim {
+    color: var(--term-dim);
   }
 
-  /* ═══════════════════════════════
-     COMMANDS
-     ═══════════════════════════════ */
-  .commands-section {
-    padding-bottom: var(--space-16);
+  .t-frame {
+    color: var(--term-frame);
   }
 
-  .cmd-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    align-items: start;
-    gap: var(--space-4);
-  }
-  @media (min-width: 640px) {
-    .cmd-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  }
-  @media (min-width: 768px) {
-    .cmd-grid { gap: var(--space-5); }
-  }
-  @media (min-width: 1200px) {
-    .cmd-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .t-head {
+    color: var(--term-dim);
   }
 
-  .cmd-card {
-    margin: 0;
-    padding: var(--space-6) var(--space-6) var(--space-5);
-    border: 1px solid var(--border-default);
-    border-radius: var(--radius-xl);
-    background: var(--color-bg-card);
+  .t-total {
+    color: var(--term-text);
+    font-weight: 600;
+  }
+
+  .t-accent {
+    color: var(--term-accent);
+  }
+
+  .t-cyan {
+    color: var(--term-cyan);
+  }
+
+  .t-yellow {
+    color: var(--term-yellow);
+  }
+
+  .t-gap {
+    line-height: 0.9;
+  }
+
+  .t-cursor {
+    display: inline-block;
+    width: 0.55em;
+    height: 1.15em;
+    vertical-align: text-bottom;
+    background: var(--term-accent);
+  }
+
+  /* ---------- statusline ---------- */
+
+  .statusline {
     display: flex;
-    flex-direction: column;
-    align-self: start;
-    transition: all var(--transition-base);
-  }
-  @media (min-width: 640px) {
-    .cmd-card { min-height: 22.5rem; }
-  }
-  .cmd-card:hover {
-    border-color: var(--border-strong);
-    transform: translateY(-4px);
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.15);
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0;
+    padding-block: 0.9rem;
+    border-block: 1px solid var(--border-default);
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
   }
 
-  .cmd-icon {
-    font-size: 1.5rem;
-    margin-bottom: var(--space-4);
-    line-height: 1;
+  .statusline-cell {
+    padding-inline: 1.25rem;
+    border-right: 1px solid var(--border-default);
   }
-  .cmd-name {
-    font-size: var(--text-lg);
+
+  .statusline-cell:first-child {
+    padding-left: 0;
+  }
+
+  .statusline-cell strong {
+    color: var(--color-accent);
+    font-weight: 600;
+  }
+
+  .statusline-spark {
+    margin-left: auto;
+    padding-left: 1.25rem;
+    color: var(--color-text-dim);
+    letter-spacing: 0.05em;
+  }
+
+  .source-roster {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 1.5rem;
+    padding-block: 1.25rem;
+    border-bottom: 1px solid var(--border-default);
+  }
+
+  .source-roster-label {
+    color: var(--color-text-dim);
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .source-roster-list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.55rem 1.4rem;
+  }
+
+  .source-roster-list span {
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+  }
+
+  /* ---------- section headings ---------- */
+
+  .section-heading {
+    display: grid;
+    grid-template-columns: minmax(12rem, 0.6fr) minmax(20rem, 1.4fr);
+    column-gap: 4rem;
+    margin-bottom: 4rem;
+  }
+
+  .section-heading .eyebrow {
+    grid-row: 1 / span 2;
+    text-transform: none;
+    letter-spacing: 0.04em;
+  }
+
+  .section-heading h2,
+  .section-heading > p:last-child {
+    grid-column: 2;
+  }
+
+  .section-heading > p:last-child,
+  .sources-copy > p:not(.eyebrow),
+  .benchmark-copy > p:not(.eyebrow) {
+    max-width: 62ch;
+    margin-bottom: 0;
+    color: var(--color-text-muted);
+    font-size: 1.05rem;
+    line-height: 1.65;
+  }
+
+  /* ---------- reports ---------- */
+
+  .report-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-top: 1px solid var(--border-strong);
+    border-left: 1px solid var(--border-default);
+    counter-reset: report;
+  }
+
+  .report-row {
+    position: relative;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    min-height: 22rem;
+    padding: clamp(1.5rem, 3vw, 2.25rem);
+    overflow: hidden;
+    border-right: 1px solid var(--border-default);
+    border-bottom: 1px solid var(--border-default);
+    background: color-mix(in srgb, var(--color-bg-card) 34%, transparent);
+    color: inherit;
+    text-decoration: none;
+    transition:
+      background var(--transition-base),
+      transform var(--transition-base);
+  }
+
+  .report-row::before {
+    position: absolute;
+    right: -3rem;
+    bottom: -4rem;
+    width: 11rem;
+    height: 11rem;
+    border: 1px solid var(--border-default);
+    border-radius: 50%;
+    content: '';
+    opacity: 0;
+    transform: scale(0.75);
+    transition:
+      opacity var(--transition-base),
+      transform var(--transition-slow);
+  }
+
+  .report-row:hover,
+  .report-row:focus-visible {
+    z-index: 1;
+    background: var(--color-bg-elevated);
+    transform: translateY(-0.25rem);
+  }
+
+  .report-row:hover::before,
+  .report-row:focus-visible::before {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .report-row:first-child {
+    grid-row: span 2;
+    min-height: 44rem;
+    background: var(--color-bg-code);
+  }
+
+  .report-row:first-child .report-copy {
+    align-self: center;
+  }
+
+  .report-row:first-child h3 {
+    max-width: 8ch;
+    font-size: clamp(2.4rem, 5vw, 4.5rem);
+  }
+
+  .report-identity {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .report-number {
+    display: inline-grid;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    border: 1px solid var(--border-default);
+    border-radius: 50%;
+    color: var(--color-text-muted);
+    font-size: 0.64rem;
+    transition: color var(--transition-fast);
+  }
+
+  .report-row:hover .report-number,
+  .report-row:focus-visible .report-number {
+    color: var(--color-accent);
+  }
+
+  .report-label,
+  .command-label {
+    color: var(--color-text-dim);
+    font-family: var(--font-mono);
+    font-size: 0.63rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .report-copy {
+    align-self: end;
+    padding-block: 2.5rem;
+  }
+
+  .report-copy h3 {
+    max-width: 15ch;
+    margin: 0 0 1rem;
+    font-size: clamp(1.6rem, 3vw, 2.35rem);
+    font-weight: 600;
+    line-height: 1.05;
+  }
+
+  .report-copy > p {
+    max-width: 52ch;
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+
+  .command-list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-default);
+  }
+
+  .command-list code {
+    padding: 0.42rem 0.6rem;
+    border: 0;
+    border-radius: var(--radius-full);
+    background: var(--color-bg);
+    color: var(--color-text-secondary);
+    font-size: 0.64rem;
+    white-space: nowrap;
+  }
+
+  .command-list code span {
+    color: var(--color-accent);
+  }
+
+  .report-arrow {
+    position: absolute;
+    top: 1.9rem;
+    right: 2rem;
+    color: var(--color-text-dim);
+    font-size: 1rem;
+    opacity: 0;
+    transform: translate(-0.35rem, 0.35rem);
+    transition:
+      color var(--transition-fast),
+      opacity var(--transition-fast),
+      transform var(--transition-fast);
+  }
+
+  .report-row:hover .report-arrow,
+  .report-row:focus-visible .report-arrow {
+    color: var(--color-accent);
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+
+  .text-link {
+    display: inline-flex;
+    margin-top: 2rem;
+    color: var(--color-text);
+    font-size: 0.88rem;
+    font-weight: 600;
+    text-underline-offset: 0.3rem;
+  }
+
+  .text-link:hover {
+    color: var(--color-accent);
+  }
+
+  /* ---------- pipeline ---------- */
+
+  .pipe-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.4em;
+    margin-bottom: 3.5rem;
+    color: var(--color-text);
+    font-size: clamp(1.4rem, 4.2vw, 3rem);
     font-weight: 600;
     letter-spacing: var(--tracking-tight);
-    margin-bottom: var(--space-2);
-  }
-  .cmd-desc {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-    line-height: var(--leading-relaxed);
-    margin-bottom: auto;
-    padding-bottom: var(--space-5);
-  }
-  .cmd-code {
-    background: var(--color-bg-code);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md);
-    padding: var(--space-3) var(--space-4);
-    font-size: 12px;
-    color: var(--color-text-secondary);
-    overflow-x: auto;
-    white-space: pre-wrap;
-    margin: 0;
-    min-height: 4.5rem;
-    display: flex;
-    align-items: center;
   }
 
-  /* ═══════════════════════════════
-     SOURCES
-     ═══════════════════════════════ */
-  .sources-section {
-    padding-bottom: var(--space-16);
+  .pipe-char {
+    color: var(--color-accent);
+    font-weight: 400;
   }
 
-  .source-strip {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: var(--space-3);
+  .pipe-stages {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 2rem;
+    margin: 0 0 4rem;
+    padding: 0;
+    list-style: none;
   }
 
-  .source-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-2) var(--space-4);
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    font-weight: 500;
-    border: 1px solid var(--border-default);
-    border-radius: var(--radius-full);
-    color: var(--color-text-secondary);
-    text-decoration: none;
-    transition: all var(--transition-fast);
+  .pipe-stages li {
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border-strong);
   }
-  .source-chip:hover {
-    border-color: var(--border-strong);
+
+  .flow-index {
+    display: block;
+    margin-bottom: 0.9rem;
+    color: var(--color-accent);
+    font-size: 0.68rem;
+  }
+
+  .pipe-stages strong {
     color: var(--color-text);
-    transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-  }
-  .source-dot {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
   }
 
-  /* ═══════════════════════════════
-     METRICS BAR
-     ═══════════════════════════════ */
-  .metrics-section {
-    padding-bottom: var(--space-12);
+  .pipe-stages p {
+    margin: 0.5rem 0 0;
+    color: var(--color-text-muted);
+    font-size: 0.88rem;
+    line-height: 1.55;
   }
 
-  .metrics-bar {
+  .pipeline-notes {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    background: var(--border-default);
+  }
+
+  .pipeline-notes article {
+    padding: clamp(2rem, 5vw, 3.25rem);
+    background: var(--color-bg-card);
+  }
+
+  .note-label {
+    color: var(--color-accent);
+  }
+
+  .pipeline-notes h3 {
+    max-width: 22ch;
+    margin: 1rem 0;
+    font-size: clamp(1.4rem, 2.4vw, 1.9rem);
+    font-weight: 600;
+    line-height: 1.1;
+  }
+
+  .pipeline-notes p {
+    max-width: 55ch;
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    line-height: 1.65;
+  }
+
+  .pipeline-notes a {
+    color: var(--color-text);
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-underline-offset: 0.25rem;
+  }
+
+  /* ---------- sources / doctor ---------- */
+
+  .sources {
+    display: grid;
+    grid-template-columns: minmax(20rem, 0.9fr) minmax(28rem, 1.1fr);
+    gap: clamp(4rem, 8vw, 8rem);
+    align-items: start;
+  }
+
+  .sources-copy .eyebrow,
+  .benchmark-copy .eyebrow {
+    margin-bottom: 1rem;
+    text-transform: none;
+    letter-spacing: 0.04em;
+  }
+
+  .sources-copy .text-link,
+  .benchmark-copy .text-link {
+    margin-top: 1.75rem;
+  }
+
+  .doctor-panel {
+    overflow: hidden;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-code);
+  }
+
+  .doctor-command {
+    padding: 1.1rem 1.4rem;
+    border-bottom: 1px solid var(--border-default);
+    color: var(--color-text-secondary);
+    font-size: 0.78rem;
+  }
+
+  .doctor-command .t-prompt {
+    color: var(--color-accent);
+  }
+
+  .doctor-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    margin: 0;
+    padding: 0.75rem 0;
+    list-style: none;
+  }
+
+  .doctor-grid li {
     display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
     align-items: center;
-    gap: var(--space-8);
-    padding: var(--space-8) var(--space-4);
-    border-top: 1px solid var(--border-subtle);
-    border-bottom: 1px solid var(--border-subtle);
-  }
-  @media (min-width: 640px) {
-    .metrics-bar { gap: var(--space-10); flex-wrap: nowrap; }
+    gap: 0.7rem;
+    padding: 0.5rem 1.4rem;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    transition: background var(--transition-fast);
   }
 
-  .metric { text-align: center; flex-shrink: 0; }
-  .metric-val {
-    font-size: var(--text-2xl);
+  .doctor-grid li:hover {
+    background: var(--color-bg-elevated);
+  }
+
+  .doctor-check {
+    color: var(--color-accent);
+  }
+
+  .doctor-name {
+    color: var(--color-text-secondary);
+  }
+
+  .doctor-format {
+    margin-left: auto;
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .doctor-format-jsonl {
+    color: var(--color-accent);
+  }
+
+  .doctor-format-json {
+    color: var(--color-cyan);
+  }
+
+  .doctor-format-sqlite {
+    color: var(--color-yellow);
+  }
+
+  /* ---------- wrapped / heatmap ---------- */
+
+  .heatmap-figure {
+    margin: 0;
+  }
+
+  .heatmap {
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-rows: repeat(7, auto);
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 3px;
+    padding: 1.25rem;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-card);
+  }
+
+  .heatmap i {
+    aspect-ratio: 1;
+    border-radius: 2px;
+    transition: transform var(--transition-fast);
+  }
+
+  .heatmap i:hover {
+    transform: scale(1.35);
+  }
+
+  .heat-0 {
+    background: var(--border-subtle);
+  }
+
+  .heat-1 {
+    background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+  }
+
+  .heat-2 {
+    background: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  }
+
+  .heat-3 {
+    background: color-mix(in srgb, var(--color-accent) 70%, transparent);
+  }
+
+  .heat-4 {
+    background: var(--color-accent);
+  }
+
+  .heatmap-figure figcaption {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 0.9rem;
+    color: var(--color-text-dim);
+    font-size: 0.72rem;
+  }
+
+  .heatmap-figure .font-mono {
+    color: var(--color-text-muted);
+  }
+
+  /* ---------- benchmark ---------- */
+
+  .benchmark {
+    display: grid;
+    grid-template-columns: minmax(22rem, 0.9fr) minmax(26rem, 1.1fr);
+    gap: clamp(4rem, 10vw, 9rem);
+    align-items: start;
+  }
+
+  .benchmark-data {
+    margin: 0;
+    border-top: 1px solid var(--border-strong);
+  }
+
+  .benchmark-data > div {
+    display: grid;
+    grid-template-columns: minmax(10rem, 1fr) auto;
+    column-gap: 1.5rem;
+    padding-block: 1.5rem;
+    border-bottom: 1px solid var(--border-default);
+  }
+
+  .benchmark-data dt {
+    color: var(--color-text-muted);
+    font-size: 0.82rem;
+  }
+
+  .benchmark-data dd {
+    grid-row: 1 / span 2;
+    grid-column: 2;
+    margin: 0;
+    color: var(--color-text);
+    font-family: var(--font-mono);
+    font-size: clamp(1.5rem, 3vw, 2.5rem);
     font-weight: 600;
     letter-spacing: var(--tracking-tighter);
-    color: var(--color-text);
-    line-height: 1;
-    margin-bottom: var(--space-1);
   }
-  .metric-label {
-    font-size: var(--text-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+
+  .benchmark-data span {
     color: var(--color-text-dim);
+    font-size: 0.72rem;
   }
 
-  .metric-sep {
-    width: 1px;
-    height: 2.5rem;
-    background: var(--border-default);
-    flex-shrink: 0;
-    display: none;
-  }
-  @media (min-width: 640px) {
-    .metric-sep { display: block; }
-  }
+  /* ---------- final cta ---------- */
 
-  /* ═══════════════════════════════
-     FOOTER
-     ═══════════════════════════════ */
-  .footer {
-    padding-top: var(--space-10);
-    padding-bottom: var(--space-8);
-    border-top: 1px solid var(--border-subtle);
-  }
-
-  .footer-top {
+  .final-cta {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: var(--space-5);
-    margin-bottom: var(--space-6);
+    text-align: center;
   }
-  @media (min-width: 640px) {
-    .footer-top {
-      flex-direction: row;
-      justify-content: space-between;
-    }
+
+  .final-cta .eyebrow {
+    margin-bottom: 1rem;
+    text-transform: none;
+    letter-spacing: 0.04em;
+  }
+
+  .final-cta h2 {
+    max-width: 24ch;
+    margin-bottom: 2.25rem;
+  }
+
+  .install-command-large {
+    width: min(100%, 30rem);
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+    border-color: var(--border-strong);
+  }
+
+  .final-cta .cta-actions {
+    justify-content: center;
+  }
+
+  /* ---------- footer ---------- */
+
+  .landing-footer {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 1.5rem 3rem;
+    align-items: center;
+    padding-block: 2.5rem;
+    border-top: 1px solid var(--border-default);
   }
 
   .footer-brand {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: var(--space-3);
+    gap: 0.75rem;
+    color: var(--color-accent);
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-decoration: none;
   }
-  .footer-name {
-    font-size: var(--text-sm);
-    font-weight: 500;
+
+  .landing-footer nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+  }
+
+  .landing-footer nav a {
+    color: var(--color-text-muted);
+    font-size: 0.8rem;
+    text-decoration: none;
+  }
+
+  .landing-footer nav a:hover {
     color: var(--color-text);
   }
 
-  .footer-nav {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: var(--space-6);
-  }
-  .footer-nav a {
-    font-size: var(--text-sm);
+  .landing-footer > p {
+    grid-column: 1 / -1;
+    margin: 0;
     color: var(--color-text-dim);
-    text-decoration: none;
-    transition: color var(--transition-fast);
+    font-size: 0.72rem;
   }
-  .footer-nav a:hover { color: var(--color-text); }
 
-  .footer-bottom {
-    text-align: center;
-    font-size: var(--text-xs);
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    clip-path: inset(50%);
   }
-  @media (min-width: 640px) {
-    .footer-bottom { text-align: left; }
+
+  /* ---------- responsive ---------- */
+
+  @media (max-width: 980px) {
+    .hero,
+    .sources,
+    .benchmark {
+      grid-template-columns: 1fr;
+    }
+
+    .hero {
+      min-height: auto;
+      padding-top: 8rem;
+    }
+
+    .terminal-stage {
+      max-width: 44rem;
+    }
+
+    .pipe-stages {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .pipeline-notes {
+      grid-template-columns: 1fr;
+    }
+
+    .report-row:first-child {
+      min-height: 38rem;
+    }
+
+    .benchmark {
+      gap: 3rem;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .landing,
+    .landing-footer {
+      padding-inline: 1.1rem;
+    }
+
+    .hero {
+      gap: 3rem;
+      padding-block: 7rem 5rem;
+    }
+
+    .page-nav {
+      top: 0;
+      grid-template-columns: 1fr auto;
+      width: calc(100% - 0.5rem);
+      margin-bottom: -5rem;
+    }
+
+    .page-nav-links {
+      display: none;
+    }
+
+    .page-nav-cta {
+      min-height: 2.5rem;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .release-link {
+      margin-bottom: 2.5rem;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.5rem, 13vw, 3.6rem);
+    }
+
+    .hero-actions,
+    .cta-actions {
+      flex-direction: column;
+      width: 100%;
+    }
+
+    .hero-actions .button,
+    .cta-actions .button {
+      width: 100%;
+    }
+
+    .statusline {
+      font-size: 0.68rem;
+    }
+
+    .statusline-cell {
+      padding-inline: 0.75rem;
+    }
+
+    .statusline-spark {
+      display: none;
+    }
+
+    .source-roster {
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+    }
+
+    .source-roster-list {
+      justify-content: flex-start;
+    }
+
+    .section-heading {
+      display: block;
+      margin-bottom: 3rem;
+    }
+
+    .section-heading .eyebrow {
+      margin-bottom: 1rem;
+    }
+
+    .report-list {
+      grid-template-columns: 1fr;
+    }
+
+    .report-row,
+    .report-row:first-child {
+      grid-row: auto;
+      min-height: 22rem;
+    }
+
+    .report-row:first-child .report-copy {
+      align-self: end;
+    }
+
+    .report-row:first-child h3 {
+      max-width: 12ch;
+      font-size: clamp(2rem, 10vw, 3rem);
+    }
+
+    .report-copy {
+      padding-block: 2rem;
+    }
+
+    .report-arrow {
+      display: none;
+    }
+
+    .pipe-stages {
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+
+    .sources {
+      gap: 3rem;
+    }
+
+    .doctor-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .heatmap {
+      gap: 2px;
+      padding: 0.9rem;
+    }
+
+    .heatmap-figure figcaption {
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .final-cta {
+      align-items: flex-start;
+      text-align: left;
+    }
+
+    .final-cta .cta-actions {
+      justify-content: flex-start;
+    }
+
+    .landing-footer {
+      grid-template-columns: 1fr;
+      align-items: start;
+    }
+
+    .landing-footer nav,
+    .landing-footer > p {
+      grid-column: 1;
+    }
+  }
+
+  @media (max-width: 430px) {
+    .terminal-body {
+      font-size: 0.58rem;
+    }
+
+    .statusline-cell {
+      width: 50%;
+      padding: 0.4rem 0;
+      border-right: 0;
+    }
   }
 </style>

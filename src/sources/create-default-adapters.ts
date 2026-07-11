@@ -16,8 +16,11 @@ import type { SourceAdapter } from './source-adapter.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { parseSourceDirectoryOverrides } from '../utils/source-directory-overrides.js';
 
+export type SourceStorageFormat = 'jsonl' | 'json' | 'sqlite';
+
 type SourceRegistration = {
   id: string;
+  format: SourceStorageFormat;
   sourceDirOverride: { kind: 'directory' } | { kind: 'unsupported'; flag: string };
   create: (
     options: CreateDefaultAdaptersOptions,
@@ -48,6 +51,7 @@ export type CreateDefaultAdaptersOptions = {
 const sourceRegistrations: readonly SourceRegistration[] = [
   {
     id: 'pi',
+    format: 'jsonl',
     sourceDirOverride: { kind: 'directory' },
     create: (options, sourceDirectoryOverrides) => {
       const directoryConfig = resolveDirectoryConfig('pi', options.piDir, sourceDirectoryOverrides);
@@ -60,6 +64,7 @@ const sourceRegistrations: readonly SourceRegistration[] = [
   },
   {
     id: 'codex',
+    format: 'jsonl',
     sourceDirOverride: { kind: 'directory' },
     create: (options, sourceDirectoryOverrides) => {
       const directoryConfig = resolveDirectoryConfig(
@@ -76,6 +81,7 @@ const sourceRegistrations: readonly SourceRegistration[] = [
   },
   {
     id: 'gemini',
+    format: 'json',
     sourceDirOverride: { kind: 'directory' },
     create: (options, sourceDirectoryOverrides) => {
       const directoryConfig = resolveDirectoryConfig(
@@ -92,6 +98,7 @@ const sourceRegistrations: readonly SourceRegistration[] = [
   },
   {
     id: 'droid',
+    format: 'json',
     sourceDirOverride: { kind: 'directory' },
     create: (options, sourceDirectoryOverrides) => {
       const directoryConfig = resolveDirectoryConfig(
@@ -108,6 +115,7 @@ const sourceRegistrations: readonly SourceRegistration[] = [
   },
   {
     id: 'opencode',
+    format: 'sqlite',
     sourceDirOverride: { kind: 'unsupported', flag: '--opencode-db' },
     create: (options) =>
       new OpenCodeSourceAdapter({
@@ -116,6 +124,7 @@ const sourceRegistrations: readonly SourceRegistration[] = [
   },
   {
     id: 'openclaw',
+    format: 'jsonl',
     sourceDirOverride: { kind: 'directory' },
     create: (options, sourceDirectoryOverrides) => {
       const directoryConfig = resolveDirectoryConfig(
@@ -132,6 +141,7 @@ const sourceRegistrations: readonly SourceRegistration[] = [
   },
   {
     id: 'claude',
+    format: 'jsonl',
     sourceDirOverride: { kind: 'directory' },
     create: (options, sourceDirectoryOverrides) => {
       const directoryConfig = resolveDirectoryConfig(
@@ -148,6 +158,7 @@ const sourceRegistrations: readonly SourceRegistration[] = [
   },
   {
     id: 'copilot',
+    format: 'jsonl',
     sourceDirOverride: { kind: 'directory' },
     create: (options, sourceDirectoryOverrides) => {
       const directoryConfig = resolveDirectoryConfig(
@@ -164,6 +175,7 @@ const sourceRegistrations: readonly SourceRegistration[] = [
   },
   {
     id: 'goose',
+    format: 'sqlite',
     sourceDirOverride: { kind: 'unsupported', flag: '--goose-db' },
     create: (options) =>
       new GooseSourceAdapter({
@@ -172,6 +184,7 @@ const sourceRegistrations: readonly SourceRegistration[] = [
   },
   {
     id: 'amp',
+    format: 'json',
     sourceDirOverride: { kind: 'directory' },
     create: (options, sourceDirectoryOverrides) => {
       const directoryConfig = resolveDirectoryConfig(
@@ -188,6 +201,7 @@ const sourceRegistrations: readonly SourceRegistration[] = [
   },
   {
     id: 'qwen',
+    format: 'jsonl',
     sourceDirOverride: { kind: 'directory' },
     create: (options, sourceDirectoryOverrides) => {
       const directoryConfig = resolveDirectoryConfig(
@@ -204,6 +218,7 @@ const sourceRegistrations: readonly SourceRegistration[] = [
   },
   {
     id: 'kimi',
+    format: 'jsonl',
     sourceDirOverride: { kind: 'directory' },
     create: (options, sourceDirectoryOverrides) => {
       const directoryConfig = resolveDirectoryConfig(
@@ -220,6 +235,7 @@ const sourceRegistrations: readonly SourceRegistration[] = [
   },
   {
     id: 'cline',
+    format: 'json',
     sourceDirOverride: { kind: 'directory' },
     create: (options, sourceDirectoryOverrides) => {
       const directoryConfig = resolveDirectoryConfig(
@@ -238,6 +254,7 @@ const sourceRegistrations: readonly SourceRegistration[] = [
   },
   {
     id: 'roocode',
+    format: 'json',
     sourceDirOverride: { kind: 'directory' },
     create: (options, sourceDirectoryOverrides) => {
       const directoryConfig = resolveDirectoryConfig(
@@ -256,6 +273,7 @@ const sourceRegistrations: readonly SourceRegistration[] = [
   },
   {
     id: 'kilocode',
+    format: 'json',
     sourceDirOverride: { kind: 'directory' },
     create: (options, sourceDirectoryOverrides) => {
       const directoryConfig = resolveDirectoryConfig(
@@ -274,6 +292,7 @@ const sourceRegistrations: readonly SourceRegistration[] = [
   },
   {
     id: 'antigravity',
+    format: 'sqlite',
     sourceDirOverride: { kind: 'directory' },
     create: (options, sourceDirectoryOverrides) => {
       const directoryConfig = resolveDirectoryConfig(
@@ -412,6 +431,16 @@ function resolveDirectoryConfig(
 
 export function getDefaultSourceIds(): string[] {
   return sourceRegistrations.map((source) => source.id);
+}
+
+export function getSourceStorageFormat(sourceId: string): SourceStorageFormat {
+  const registration = sourceRegistrations.find((source) => source.id === sourceId);
+
+  if (!registration) {
+    throw new Error(`Unknown source id: ${sourceId}`);
+  }
+
+  return registration.format;
 }
 
 export function createDefaultAdapters(options: CreateDefaultAdaptersOptions): SourceAdapter[] {

@@ -36,11 +36,15 @@ function createRecap(): WrappedRecap {
       totalTokens: index * 100,
       level: Math.min(4, index) as 0 | 1 | 2 | 3 | 4,
     })),
+    dailyIntensity: Array.from({ length: 365 }, (_, index) => {
+      const date = new Date(Date.UTC(2026, 0, 1 + index)).toISOString().slice(0, 10);
+      return { date, totalTokens: index % 5, level: (index % 5) as 0 | 1 | 2 | 3 | 4 };
+    }),
   };
 }
 
 describe('renderWrappedShareSvg', () => {
-  it('renders stat tiles, top lists, monthly intensity, command badge, and footer', () => {
+  it('renders stat tiles, top lists, daily heatmap, command badge, and footer', () => {
     const svg = renderWrappedShareSvg(createRecap());
 
     expect(svg).toContain('<svg');
@@ -52,10 +56,10 @@ describe('renderWrappedShareSvg', () => {
     expect(svg).toContain('~$123.45');
     expect(svg).toContain('Top Models');
     expect(svg).toContain('Top Sources');
-    expect(svg).toContain('Monthly intensity');
+    expect(svg).toContain('Daily activity');
     expect(svg).toContain('llm-usage wrapped --year 2026 --share');
     expect(svg).toContain('llm-usage-metrics');
-    expect(svg.match(/data-month="/g)).toHaveLength(12);
+    expect(svg.match(/data-date="/g)).toHaveLength(365);
   });
 
   it('escapes model and source names', () => {

@@ -6,6 +6,8 @@ import {
   formatCompact,
   formatUsd,
   renderShareAccentBar,
+  renderShareAccentGradientDef,
+  renderShareCommandBadge,
   renderShareFooter,
   scaleY,
   SHARE_SVG_FOOTER_HEIGHT,
@@ -15,8 +17,8 @@ import {
 } from './share-svg-theme.js';
 
 const W = SHARE_SVG_WIDTH;
-const H = 560;
-const pad = { top: 165, right: 110, bottom: 70 + SHARE_SVG_FOOTER_HEIGHT, left: 120 };
+const H = 580;
+const pad = { top: 180, right: 80, bottom: 70 + SHARE_SVG_FOOTER_HEIGHT, left: 120 };
 
 const chartColors: Record<TrendsMetric, string> = {
   cost: '#10b981',
@@ -63,28 +65,39 @@ function renderSummaryStats(data: TrendsDataResult): string {
     {
       label: 'Avg / Day',
       value: formatMetricValue(totalSeries.summary.average, metric, approximate),
-      x: 350,
+      x: pad.left + 260,
     },
     {
       label: 'Peak',
-      value: `${formatMetricValue(totalSeries.summary.peak.value, metric, approximate)} ${totalSeries.summary.peak.date}`,
-      x: 580,
+      value: formatMetricValue(totalSeries.summary.peak.value, metric, approximate),
+      date: totalSeries.summary.peak.date,
+      x: pad.left + 520,
     },
     {
       label: 'Min',
       value: minBucket
-        ? `${formatMetricValue(minBucket.value, metric, minBucket.incomplete === true)} ${minBucket.date}`
+        ? formatMetricValue(minBucket.value, metric, minBucket.incomplete === true)
         : '-',
-      x: 910,
+      date: minBucket?.date,
+      x: pad.left + 780,
     },
   ];
 
   return stats
-    .map(
-      (stat) =>
-        `<text x="${stat.x}" y="92" font-size="13" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">${escapeSvg(stat.label)}</text>` +
-        `<text x="${stat.x}" y="118" font-size="20" font-weight="700" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">${escapeSvg(stat.value)}</text>`,
-    )
+    .map((stat) => {
+      const lines = [
+        `<text x="${stat.x}" y="92" font-size="13" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">${escapeSvg(stat.label)}</text>`,
+        `<text x="${stat.x}" y="118" font-size="22" font-weight="700" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">${escapeSvg(stat.value)}</text>`,
+      ];
+
+      if (stat.date !== undefined) {
+        lines.push(
+          `<text x="${stat.x}" y="138" font-size="12" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">${escapeSvg(stat.date)}</text>`,
+        );
+      }
+
+      return lines.join('\n');
+    })
     .join('\n');
 }
 
@@ -185,11 +198,16 @@ export function renderTrendsShareSvg(data: TrendsDataResult): string {
     y: scaleY(bucket.value, scaleMax, chartTop, chartBottom),
   }));
   const commandText = 'llm-usage trends --share';
-  const badgeW = commandText.length * 9.5 + 28;
-  const badgeX = W - pad.right - badgeW;
   const title = `Daily ${getMetricLabel(data.metric)} Trend`;
-  const subtitle = `${bucketCount} ${getDayLabel(bucketCount)} - ${getDateRangeLabel(data)}`;
-  const seriesLabel = `Series: ${data.totalSeries.source}`;
+  const subtitle = `${bucketCount} ${getDayLabel(bucketCount)} - ${getDateRangeLabel(data)} · ${data.totalSeries.source}`;
+  const peakIndex = buckets.findIndex(
+    (bucket) => bucket.date === data.totalSeries.summary.peak.date,
+  );
+  const peakPoint = peakIndex >= 0 ? points[peakIndex] : undefined;
+  const peakMarker =
+    bucketCount > 1 && peakPoint
+      ? `<circle data-peak="${escapeSvg(data.totalSeries.summary.peak.date)}" cx="${peakPoint.x.toFixed(2)}" cy="${peakPoint.y.toFixed(2)}" r="9" fill="none" stroke="${color}" stroke-width="2" stroke-opacity="0.7"/>`
+      : '';
   const chartContent =
     bucketCount === 0
       ? `<text x="${(W / 2).toFixed(0)}" y="${(H / 2).toFixed(0)}" text-anchor="middle" font-size="20" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}">No trend data available</text>`
@@ -197,10 +215,7 @@ export function renderTrendsShareSvg(data: TrendsDataResult): string {
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
 <defs>
-  <linearGradient id="accent-grad" x1="0" y1="0" x2="1" y2="0">
-    <stop offset="0%" stop-color="#10b981"/>
-    <stop offset="100%" stop-color="#06b6d4"/>
-  </linearGradient>
+  ${renderShareAccentGradientDef()}
   <linearGradient id="trend-area-grad" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0%" stop-color="${color}" stop-opacity="0.42"/>
     <stop offset="100%" stop-color="${color}" stop-opacity="0.08"/>
@@ -213,12 +228,11 @@ export function renderTrendsShareSvg(data: TrendsDataResult): string {
 ${renderShareAccentBar()}
 <text x="${pad.left}" y="52" font-size="32" font-weight="700" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">${escapeSvg(title)}</text>
 <text x="${pad.left}" y="78" font-size="15" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}">${escapeSvg(subtitle)}</text>
-<rect x="${badgeX.toFixed(0)}" y="30" width="${badgeW.toFixed(0)}" height="34" rx="17" fill="none" stroke="${shareTheme.cardBorder}"/>
-<text x="${(badgeX + badgeW / 2).toFixed(0)}" y="52" text-anchor="middle" font-size="14" fill="${shareTheme.textMuted}" font-family="${shareTheme.mono}">${escapeSvg(commandText)}</text>
+${renderShareCommandBadge(commandText)}
 ${renderSummaryStats(data)}
-<text x="${chartLeft}" y="${(chartTop - 22).toFixed(0)}" font-size="13" fill="${color}" font-family="${shareTheme.font}">${escapeSvg(seriesLabel)}</text>
 ${renderGridLines(chartLeft, chartRight, chartTop, chartBottom, scaleMax, data.metric)}
 ${chartContent}
+${peakMarker}
 ${renderDateLabels(buckets, toX, chartBottom + 30)}
 ${renderShareFooter({ height: H, rightText: getDateRangeLabel(data) })}
 </svg>`;

@@ -1,65 +1,78 @@
 ---
 title: Data Sources
+description: Default locations, formats, and path overrides for all 16 source adapters.
 ---
 
-`llm-usage-metrics` supports sixteen built-in sources:
+Each adapter owns discovery and source-specific parsing. After parsing, every adapter returns the same normalized `UsageEvent` shape, so reports and filters behave the same across tools.
 
-- `pi`
-- `codex`
-- `gemini`
-- `droid`
-- `opencode`
-- `openclaw`
-- `claude`
-- `copilot`
-- `goose`
-- `amp`
-- `qwen`
-- `kimi`
-- `cline`
-- `roocode`
-- `kilocode`
-- `antigravity`
+## Supported sources
 
-Each source is parsed by a dedicated adapter and normalized into the same `UsageEvent` schema before pricing/aggregation.
+| Source | Local format | Default location |
+| --- | --- | --- |
+| pi | JSONL | `~/.pi/agent/sessions` and `~/.omp/agent/sessions` |
+| codex | JSONL | `~/.codex/sessions` |
+| Gemini CLI | JSON | `~/.gemini/tmp/*/chats` |
+| Droid CLI | settings JSON | `~/.factory/sessions` |
+| OpenCode | SQLite | platform data directory, including `opencode-<channel>.db` |
+| OpenClaw | JSONL | `~/.openclaw/agents` and supported legacy homes |
+| Claude Code | JSONL | `~/.claude/projects` and `~/.claude/transcripts` |
+| Copilot CLI | OTEL JSONL | `~/.copilot/otel` |
+| Goose | SQLite | platform Goose data directory |
+| Amp | JSON | `~/.local/share/amp/threads` |
+| Qwen CLI | JSONL | `~/.qwen/projects` |
+| Kimi | wire JSONL | `~/.kimi/sessions` and `~/.kimi-code/sessions` |
+| Cline | task JSON | VS Code global storage for `saoudrizwan.claude-dev` |
+| RooCode | task JSON | VS Code global storage for `rooveterinaryinc.roo-cline` |
+| KiloCode | task JSON | VS Code global storage for `kilocode.kilo-code` |
+| Antigravity | SQLite | `~/.gemini/antigravity-cli/conversations` |
 
-## Discovery model
+SQLite-backed sources use the built-in `node:sqlite` module and require Node.js 24 or newer.
 
-- `pi` and `codex`: recursive JSONL discovery in their session directories (`pi` also scans the Oh-My-Pi home `~/.omp/agent/sessions`)
-- `gemini`: JSON session discovery under `~/.gemini/tmp/*/chats/*.json` (or `$GEMINI_CLI_HOME`, or `--gemini-dir`)
-- `droid`: session settings discovery under `~/.factory/sessions/**/*.settings.json` (or `--droid-dir`)
-- `opencode`: single SQLite DB (auto-discovered, including `opencode-<channel>.db` variants, or explicit `--opencode-db`)
-- `openclaw`: recursive JSONL discovery under `~/.openclaw/agents/**/*.jsonl` (plus legacy `~/.clawdbot`/`~/.moltbot`/`~/.moldbot` homes)
-- `claude`: recursive JSONL discovery under `~/.claude/{projects,transcripts}/**/*.jsonl` (or `--claude-dir`)
-- `copilot`: GitHub Copilot CLI OTEL JSONL discovery under `~/.copilot/otel/*.jsonl` (or `--copilot-dir`)
-- `goose`: SQLite session DB discovery under `~/.local/share/goose/sessions/sessions.db` or `$GOOSE_PATH_ROOT/data/sessions/sessions.db` (or `--goose-db`)
-- `amp`: JSON thread discovery under `~/.local/share/amp/threads/*.json` (or `--amp-dir`)
-- `qwen`: recursive JSONL discovery under `~/.qwen/projects/**/*.jsonl` (or `--qwen-dir`)
-- `kimi`: `wire.jsonl` discovery under `~/.kimi/sessions` and `~/.kimi-code/sessions` (or `--kimi-dir`)
-- `cline`: VS Code global storage task discovery for `saoudrizwan.claude-dev` (or `--cline-dir`)
-- `roocode`: VS Code global storage task discovery for `rooveterinaryinc.roo-cline` (or `--roocode-dir`)
-- `kilocode`: VS Code global storage task discovery for `kilocode.kilo-code` (or `--kilocode-dir`)
-- `antigravity`: SQLite conversation DB discovery under `~/.gemini/antigravity-cli/conversations/*.db` or `$GEMINI_CLI_HOME/antigravity-cli/conversations/*.db` (or `--antigravity-dir`)
-
-## Source filtering
+## Check what the CLI can see
 
 ```bash
-llm-usage monthly --source pi
-llm-usage monthly --source pi,codex,gemini,droid,openclaw,claude,copilot,goose,amp,qwen,kimi,cline,roocode,kilocode,antigravity
-llm-usage monthly --source gemini --gemini-dir /path/to/.gemini
-llm-usage monthly --source droid --droid-dir /path/to/.factory/sessions
-llm-usage monthly --source opencode --opencode-db /path/to/opencode.db
-llm-usage monthly --source openclaw --source-dir openclaw=/path/to/.openclaw/agents
-llm-usage monthly --source claude --claude-dir /path/to/.claude/projects
-llm-usage monthly --source copilot --copilot-dir /path/to/.copilot/otel
-llm-usage monthly --source goose --goose-db /path/to/goose/sessions.db
-llm-usage monthly --source amp --amp-dir /path/to/amp/threads
-llm-usage monthly --source qwen --qwen-dir /path/to/.qwen/projects
-llm-usage monthly --source kimi --kimi-dir /path/to/kimi/sessions
-llm-usage monthly --source cline --cline-dir /path/to/cline/tasks
-llm-usage monthly --source roocode --roocode-dir /path/to/roocode/tasks
-llm-usage monthly --source kilocode --kilocode-dir /path/to/kilocode/tasks
-llm-usage monthly --source antigravity --antigravity-dir /path/to/antigravity/conversations
+llm-usage doctor
+llm-usage doctor --source codex,claude
 ```
 
-See per-source pages for details.
+Doctor checks discovery without parsing session contents or loading pricing. Use it before adding overrides: an empty report can also result from date, provider, or model filters.
+
+## Override a location
+
+Directory-backed sources accept a named flag and the generic repeatable form:
+
+```bash
+llm-usage monthly --codex-dir /path/to/codex/sessions
+llm-usage monthly --source-dir codex=/path/to/codex/sessions
+```
+
+SQLite sources use their database flags:
+
+```bash
+llm-usage monthly --opencode-db /path/to/opencode.db
+llm-usage monthly --goose-db /path/to/goose/sessions.db
+```
+
+Persist paths in the TOML config when you use them often:
+
+```toml
+[sourceDirs]
+codex = "/path/to/codex/sessions"
+claude = "/path/to/claude/projects"
+opencode = "/path/to/opencode.db"
+```
+
+CLI flags win over config values. [Configuration](/llm-usage-metrics/configuration/) documents the full precedence order.
+
+## Filter by source
+
+```bash
+llm-usage monthly --source codex
+llm-usage monthly --source codex,claude,opencode
+```
+
+The source identifies the tool that wrote the session. It does not identify the billing provider. Use `--provider openai`, for example, when you want events billed through OpenAI across multiple source tools.
+
+## Adapter details
+
+The pages in this section document each source's discovery roots, parsed record types, token semantics, repository attribution, and explicit path behavior. Those details matter when a source's own dashboard disagrees with a report because the two products may normalize tokens differently.

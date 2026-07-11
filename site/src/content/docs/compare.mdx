@@ -1,0 +1,69 @@
+---
+title: Compare Periods
+description: Compare tokens, cost, events, and active days between two date windows.
+---
+
+`llm-usage compare` summarizes two windows with the same source, provider, model, timezone, history, and pricing settings. It reports the current value, baseline value, absolute delta, and percentage change for each metric.
+
+## Default comparison
+
+```bash
+llm-usage compare
+```
+
+With no date flags, the current window is the current local calendar month and the baseline is the previous calendar month. The report timezone decides those boundaries.
+
+## Compare a chosen range
+
+```bash
+llm-usage compare \
+  --since 2026-06-01 \
+  --until 2026-06-30
+```
+
+An explicit current range needs both `--since` and `--until`. Without baseline flags, the CLI chooses the equal-length window immediately before the current range.
+
+The equal-length rule uses the number of days. A 31-day March range therefore compares with the 31 days ending on the last day of February, rather than with February alone.
+
+## Set both windows
+
+```bash
+llm-usage compare \
+  --since 2026-06-01 \
+  --until 2026-06-30 \
+  --vs-since 2026-04-01 \
+  --vs-until 2026-04-30
+```
+
+`--vs-since` and `--vs-until` must appear together. The two ranges may have different lengths, so check active days before interpreting a raw total change.
+
+## Metrics
+
+The totals section compares:
+
+- all five token buckets and total tokens
+- cost
+- event count
+- active days
+
+The source section compares cost by source. Cost keeps the shared pricing semantics: a tilde marks an incomplete amount, and a missing cost stays unresolved.
+
+A percentage delta is unavailable when the baseline value is zero and the current value is nonzero. Both zero values produce a `0%` change.
+
+## Filter both windows
+
+```bash
+llm-usage compare --source codex --model codex
+llm-usage compare --provider anthropic --history
+```
+
+Filters apply once to the combined dataset before the command separates events into the current and baseline windows. This keeps the scope consistent.
+
+## Export
+
+```bash
+llm-usage compare --json
+llm-usage compare --markdown
+```
+
+Compare supports terminal, JSON, and Markdown. It does not create a share SVG. Diagnostics stay on `stderr` in every format.
