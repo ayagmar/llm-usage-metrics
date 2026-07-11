@@ -23,6 +23,8 @@
     "test": "vitest run --coverage",
     "format:check": "prettier --check .",
     "format:write": "prettier --write .",
+    "verify": "pnpm run lint && pnpm run typecheck && pnpm run test && node .github/scripts/check-coverage-threshold.mjs && pnpm run format:check",
+    "verify:ci": "pnpm run verify && pnpm run docs:mermaid:validate && pnpm run build && pnpm run smoke:dist-opencode && pnpm run pack:check && pnpm --filter llm-usage-metrics-site run format:check && pnpm run site:check && pnpm run site:docs:generate -- --rebuild && git diff --exit-code -- site/src/content/docs/cli-reference.mdx site/src/content/docs/security.mdx && pnpm run site:build",
     "pack:check": "npm pack",
     "pricing:snapshot": "node scripts/generate-pricing-snapshot.mjs",
     "smoke:dist-opencode": "node scripts/smoke-dist-opencode.mjs",
@@ -112,9 +114,6 @@
     "tsx": "4.21.0",
     "typescript": "npm:@typescript/typescript6@6.0.2",
     "typescript-eslint": "8.57.2",
-    "unist-util-is": "6.0.1",
-    "unist-util-visit": "5.1.0",
-    "unist-util-visit-parents": "6.0.2",
     "vitest": "4.1.1"
   }
 }

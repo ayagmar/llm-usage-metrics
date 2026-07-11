@@ -19,9 +19,11 @@ Guidance for coding agents working in this repository.
 - Tests (with coverage): `pnpm run test`
 - Format check: `pnpm run format:check`
 - Build: `pnpm run build`
+- Standard verification: `pnpm run verify`
+- Full CI-parity verification: `pnpm run verify:ci`
 
 Before opening a PR, run:
-`pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run format:check`
+`pnpm run verify`
 
 ## Architecture Boundaries
 

@@ -16,11 +16,7 @@ pnpm install
 Minimum project checks:
 
 ```bash
-pnpm run lint
-pnpm run typecheck
-pnpm run test
-pnpm run format:check
-node .github/scripts/check-coverage-threshold.mjs
+pnpm run verify
 ```
 
 `pnpm run test` includes coverage by default; the coverage-threshold gate then enforces the global and per-file floors that CI enforces.
@@ -32,20 +28,7 @@ Toolchain note: `pnpm run typecheck` runs `tsc --noEmit` through the native Type
 The GitHub Actions workflow does more than the four core checks above. Before opening a PR, run the relevant subset for the area you changed. For a full CI-parity pass, use:
 
 ```bash
-pnpm run lint
-pnpm run typecheck
-pnpm run test
-node .github/scripts/check-coverage-threshold.mjs
-pnpm run format:check
-pnpm run docs:mermaid:validate
-pnpm run build
-pnpm run smoke:dist-opencode
-pnpm run pack:check
-pnpm --filter llm-usage-metrics-site run format:check
-pnpm run site:check
-pnpm run site:docs:generate -- --rebuild
-git diff --exit-code -- site/src/content/docs/cli-reference.mdx site/src/content/docs/security.mdx
-pnpm run site:build
+pnpm run verify:ci
 ```
 
 Notes:
