@@ -23,7 +23,7 @@
   --border-subtle: rgba(241, 240, 233, 0.045);
   --border-default: rgba(241, 240, 233, 0.09);
   --border-strong: rgba(241, 240, 233, 0.18);
-  --border-focus: #df7b52;
+  --border-focus: var(--color-accent);
 
   --shadow-color: rgba(5, 7, 4, 0.45);
   --shadow-elevated: rgba(5, 7, 4, 0.72);
@@ -52,7 +52,7 @@
   --border-subtle: rgba(32, 35, 29, 0.05);
   --border-default: rgba(32, 35, 29, 0.11);
   --border-strong: rgba(32, 35, 29, 0.2);
-  --border-focus: #b65331;
+  --border-focus: var(--color-accent);
 
   --shadow-color: rgba(43, 36, 27, 0.06);
   --shadow-elevated: rgba(43, 36, 27, 0.14);

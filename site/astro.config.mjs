@@ -4,6 +4,7 @@ import starlight from '@astrojs/starlight';
 export default defineConfig({
   site: 'https://ayagmar.github.io',
   base: '/llm-usage-metrics',
+  prefetch: false,
 
   integrations: [
     starlight({
