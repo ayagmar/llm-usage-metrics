@@ -24,6 +24,7 @@ const sessionTableHeaders = [
   'Source',
   'Repo',
   'Last Activity',
+  'Duration',
   'Total',
   'Cost',
   'Models',
@@ -63,6 +64,22 @@ function formatCost(row: { costUsd?: number; costIncomplete?: boolean }): string
   return row.costIncomplete ? `~${formatted}` : formatted;
 }
 
+function formatDuration(durationMs: number): string {
+  if (durationMs <= 0) {
+    return '-';
+  }
+
+  const totalMinutes = Math.round(durationMs / 60_000);
+
+  if (totalMinutes < 1) {
+    return '<1m';
+  }
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return hours === 0 ? `${minutes}m` : `${hours}h ${minutes}m`;
+}
+
 function formatModels(models: readonly string[]): string {
   if (models.length === 0) {
     return '-';
@@ -86,6 +103,7 @@ function toSessionTableCells(
     row.source,
     row.repoRoot ? path.basename(row.repoRoot) : '-',
     getPeriodKey(row.lastActivity, 'daily', options.timezone),
+    formatDuration(row.durationMs),
     formatInteger(row.totalTokens),
     formatCost(row),
     formatModels(row.models),
@@ -129,7 +147,7 @@ function buildTableCells(
         truncateSessionIds: options.truncateSessionIds ?? true,
       }),
     ),
-    markdownAlign: ['l', 'l', 'l', 'l', 'r', 'r', 'l'],
+    markdownAlign: ['l', 'l', 'l', 'l', 'r', 'r', 'r', 'l'],
   };
 }
 

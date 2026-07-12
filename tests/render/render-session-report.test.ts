@@ -25,6 +25,8 @@ function createSessionData(): SessionDataResult {
         repoRoot: '/home/user/project-alpha',
         firstActivity: '2026-01-02T01:00:00.000Z',
         lastActivity: '2026-01-02T02:00:00.000Z',
+        durationMs: 60 * 60 * 1000,
+        activeMs: 5 * 60 * 1000,
         eventCount: 2,
         models: ['gpt-4.1', 'gpt-5-codex'],
         inputTokens: 1_000,
@@ -49,6 +51,7 @@ function createRepoData(): SessionDataResult {
         rowType: 'repo',
         repoRoot: '/home/user/project-alpha',
         sessionCount: 3,
+        firstActivity: '2026-01-01T10:00:00.000Z',
         lastActivity: '2026-01-02T02:00:00.000Z',
         sources: ['codex', 'pi'],
         inputTokens: 1_000,
@@ -62,6 +65,7 @@ function createRepoData(): SessionDataResult {
       {
         rowType: 'repo',
         sessionCount: 1,
+        firstActivity: '2026-01-01T11:00:00.000Z',
         lastActivity: '2026-01-01T12:00:00.000Z',
         sources: ['claude'],
         inputTokens: 10,
@@ -126,6 +130,44 @@ describe('renderSessionReport', () => {
     expect(output).not.toContain('o4-mini');
   });
 
+  it('renders the Duration column with hour-minute formatting', () => {
+    const data = createSessionData();
+
+    if (data.grouping !== 'session') {
+      throw new Error('expected session grouping');
+    }
+
+    data.rows[0].durationMs = 134 * 60 * 1000;
+
+    const output = renderSessionReport(data, 'terminal', {
+      timezone: 'UTC',
+      useColor: false,
+    });
+
+    expect(output).toContain('Duration');
+    expect(output).toContain('2h 14m');
+  });
+
+  it('renders a dash duration for a single-event session', () => {
+    const data = createSessionData();
+
+    if (data.grouping !== 'session') {
+      throw new Error('expected session grouping');
+    }
+
+    data.rows[0].durationMs = 0;
+    data.rows[0].activeMs = 0;
+    data.rows[0].eventCount = 1;
+
+    const output = renderSessionReport(data, 'terminal', {
+      timezone: 'UTC',
+      useColor: false,
+    });
+
+    const durationColumnRow = output.split('\n').find((line) => line.includes('…abcdef123456'));
+    expect(durationColumnRow).toContain('│ - ');
+  });
+
   it('renders a dash for sessions without a repo root', () => {
     const data = createSessionData();
 
@@ -160,6 +202,8 @@ describe('renderSessionReport', () => {
     expect(output).toContain('| Session');
     expect(output).toContain('| Source');
     expect(output).toContain('| Repo');
+    expect(output).toContain('| Duration');
+    expect(output).toContain('1h 0m');
     expect(output).toContain('…abcdef123456');
     expect(output).toContain('\\[unsafe\\]\\(https\\://example.test\\)<br>&lt;tag&gt;');
     expect(output).not.toContain('[unsafe](https://example.test)');
@@ -180,6 +224,8 @@ describe('renderSessionReport', () => {
     expect(parsed.data[0]).toMatchObject({
       sessionId: 'session-abcdef123456',
       repoRoot: '/home/user/project-alpha',
+      durationMs: 60 * 60 * 1000,
+      activeMs: 5 * 60 * 1000,
       eventCount: 2,
       cacheReadTokens: 300,
       cacheWriteTokens: 40,
