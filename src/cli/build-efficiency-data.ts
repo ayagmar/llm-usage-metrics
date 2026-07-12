@@ -228,7 +228,7 @@ export async function buildEfficiencyData(
     grouping: options.bySource === true ? 'source' : 'period',
     rows,
     diagnostics: {
-      usage: usageDiagnostics,
+      ...usageDiagnostics,
       repoDir: gitOutcomes.diagnostics.repoDir,
       includeMergeCommits: gitOutcomes.diagnostics.includeMergeCommits,
       gitCommitCount: gitOutcomes.diagnostics.commitsCollected,

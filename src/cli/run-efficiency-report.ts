@@ -106,12 +106,12 @@ export async function runEfficiencyReport(
   await runPreparedReport<EfficiencyDiagnostics, EfficiencyReportFormat>({
     preparedReport,
     emitCommonDiagnostics: (diagnostics) => {
-      emitDiagnostics(diagnostics.usage);
+      emitDiagnostics(diagnostics);
     },
-    getEnvVarOverrides: (diagnostics) => diagnostics.usage.activeEnvOverrides,
-    getActiveConfig: (diagnostics) => diagnostics.usage.activeConfig,
+    getEnvVarOverrides: (diagnostics) => diagnostics.activeEnvOverrides,
+    getActiveConfig: (diagnostics) => diagnostics.activeConfig,
     emitReportDiagnostics: emitEfficiencyReportDiagnostics,
-    getRuntimeProfile: (diagnostics) => diagnostics.usage.runtimeProfile,
+    getRuntimeProfile: (diagnostics) => diagnostics.runtimeProfile,
     warnOnTerminalOverflow: true,
   });
 }

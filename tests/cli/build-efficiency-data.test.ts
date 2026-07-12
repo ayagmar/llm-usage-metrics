@@ -253,7 +253,7 @@ describe('buildEfficiencyData', () => {
       repoExcludedUsageEvents: 1,
       repoUnattributedUsageEvents: 1,
     });
-    expect(result.diagnostics.usage).toMatchObject({
+    expect(result.diagnostics).toMatchObject({
       pricingOrigin: 'cache',
       timezone: 'Europe/Paris',
     });
@@ -711,9 +711,7 @@ describe('buildEfficiencyData', () => {
       },
     );
 
-    expect(
-      result.diagnostics.usage.runtimeProfile?.stageTimings.map((timing) => timing.name),
-    ).toEqual(
+    expect(result.diagnostics.runtimeProfile?.stageTimings.map((timing) => timing.name)).toEqual(
       expect.arrayContaining([
         'efficiency.dataset.total',
         'efficiency.attribute_repo',

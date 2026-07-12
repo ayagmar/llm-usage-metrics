@@ -58,14 +58,12 @@ vi.mock('../../src/cli/build-optimize-data.js', () => ({
       },
     ],
     diagnostics: {
-      usage: {
-        sessionStats: [],
-        sourceFailures: [],
-        skippedRows: [],
-        pricingOrigin: 'none',
-        activeEnvOverrides: [],
-        timezone: 'UTC',
-      },
+      sessionStats: [],
+      sourceFailures: [],
+      skippedRows: [],
+      pricingOrigin: 'none',
+      activeEnvOverrides: [],
+      timezone: 'UTC',
       provider: 'openai',
       baselineCostIncomplete: false,
       candidatesWithMissingPricing: ['missing-model'],
@@ -165,38 +163,36 @@ describe('run-optimize-report', () => {
     vi.mocked(buildOptimizeData).mockResolvedValueOnce({
       rows: [],
       diagnostics: {
-        usage: {
-          sessionStats: [],
-          sourceFailures: [],
-          skippedRows: [],
-          pricingOrigin: 'none',
-          activeEnvOverrides: [],
-          timezone: 'UTC',
-          runtimeProfile: {
-            sourceSelection: {
-              availableSourceIds: ['pi', 'codex'],
-              selectedSourceIds: ['codex'],
-              candidateProviderRoots: ['openai'],
-            },
-            eventStore: {
-              hits: 0,
-              misses: 0,
-            },
-            parseTotals: {
+        sessionStats: [],
+        sourceFailures: [],
+        skippedRows: [],
+        pricingOrigin: 'none',
+        activeEnvOverrides: [],
+        timezone: 'UTC',
+        runtimeProfile: {
+          sourceSelection: {
+            availableSourceIds: ['pi', 'codex'],
+            selectedSourceIds: ['codex'],
+            candidateProviderRoots: ['openai'],
+          },
+          eventStore: {
+            hits: 0,
+            misses: 0,
+          },
+          parseTotals: {
+            filesFound: 1,
+            eventsParsed: 2,
+          },
+          sourceStats: [
+            {
+              source: 'codex',
               filesFound: 1,
               eventsParsed: 2,
+              eventStoreHits: 0,
+              eventStoreMisses: 0,
             },
-            sourceStats: [
-              {
-                source: 'codex',
-                filesFound: 1,
-                eventsParsed: 2,
-                eventStoreHits: 0,
-                eventStoreMisses: 0,
-              },
-            ],
-            stageTimings: [{ name: 'optimize.dataset.total', durationMs: 1.23 }],
-          },
+          ],
+          stageTimings: [{ name: 'optimize.dataset.total', durationMs: 1.23 }],
         },
         provider: 'openai',
         baselineCostIncomplete: false,
@@ -231,14 +227,12 @@ describe('run-optimize-report', () => {
     buildOptimizeDataMock.mockResolvedValueOnce({
       rows: [],
       diagnostics: {
-        usage: {
-          sessionStats: [],
-          sourceFailures: [],
-          skippedRows: [],
-          pricingOrigin: 'none',
-          activeEnvOverrides: [],
-          timezone: 'UTC',
-        },
+        sessionStats: [],
+        sourceFailures: [],
+        skippedRows: [],
+        pricingOrigin: 'none',
+        activeEnvOverrides: [],
+        timezone: 'UTC',
         provider: 'openai',
         baselineCostIncomplete: false,
         candidatesWithMissingPricing: [],

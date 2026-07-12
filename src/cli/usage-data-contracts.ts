@@ -188,8 +188,7 @@ export type UsageDataResult = {
   diagnostics: UsageDiagnostics;
 };
 
-export type EfficiencyDiagnostics = {
-  usage: UsageDiagnostics;
+export type EfficiencyDiagnostics = UsageDiagnostics & {
   repoDir: string;
   includeMergeCommits: boolean;
   gitCommitCount: number;
@@ -208,8 +207,7 @@ export type EfficiencyDataResult = {
   diagnostics: EfficiencyDiagnostics;
 };
 
-export type OptimizeDiagnostics = {
-  usage: UsageDiagnostics;
+export type OptimizeDiagnostics = UsageDiagnostics & {
   provider: string;
   baselineCostIncomplete: boolean;
   candidatesWithMissingPricing: string[];

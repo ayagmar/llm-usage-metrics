@@ -4,7 +4,7 @@ import pc from 'picocolors';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { renderEfficiencyReport } from '../../src/render/render-efficiency-report.js';
-import type { EfficiencyDataResult } from '../../src/cli/usage-data-contracts.js';
+import type { EfficiencyDataResult, UsageDiagnostics } from '../../src/cli/usage-data-contracts.js';
 import { visibleWidth } from '../../src/render/table-text-layout.js';
 
 function stripAnsi(value: string): string {
@@ -57,7 +57,7 @@ function overrideStdoutTty(columns: number): () => void {
 }
 
 function createEfficiencyDataResult(
-  overrides: Partial<EfficiencyDataResult['diagnostics']['usage']> = {},
+  overrides: Partial<UsageDiagnostics> = {},
 ): EfficiencyDataResult {
   return {
     grouping: 'period',
@@ -103,15 +103,13 @@ function createEfficiencyDataResult(
       },
     ],
     diagnostics: {
-      usage: {
-        sessionStats: [],
-        sourceFailures: [],
-        skippedRows: [],
-        pricingOrigin: 'none',
-        activeEnvOverrides: [],
-        timezone: 'UTC',
-        ...overrides,
-      },
+      sessionStats: [],
+      sourceFailures: [],
+      skippedRows: [],
+      pricingOrigin: 'none',
+      activeEnvOverrides: [],
+      timezone: 'UTC',
+      ...overrides,
       repoDir: '/tmp/repo',
       includeMergeCommits: false,
       gitCommitCount: 2,

@@ -134,7 +134,7 @@ export async function buildOptimizeData(
   return {
     rows: counterfactual.rows,
     diagnostics: {
-      usage: usageDiagnostics,
+      ...usageDiagnostics,
       provider,
       baselineCostIncomplete: counterfactual.baselineCostIncomplete,
       candidatesWithMissingPricing: counterfactual.candidatesWithMissingPricing,
