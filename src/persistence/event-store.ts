@@ -18,6 +18,10 @@ import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
 
 export const EVENT_STORE_SCHEMA_VERSION = '3';
 
+// Migration rehash pages through events with keyset pagination so a large
+// store never materializes every row in memory at once.
+export const MIGRATION_BATCH_SIZE = 5_000;
+
 const EVENT_STORE_OPEN_TIMEOUT_MS = 2_000;
 const CONTROL_CHARACTERS_PATTERN = new RegExp(String.raw`[\u0000-\u001F\u007F-\u009F]`, 'u');
 const NORMALIZED_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
@@ -553,35 +557,46 @@ export function migrateSchemaV1ToV2(database: EventStoreDatabase): void {
 
     database.exec('ALTER TABLE events ADD COLUMN content_hash TEXT');
 
-    const rows = database
-      .prepare(
-        [
-          'SELECT id, source, session_id, timestamp, model, provider, repo_root,',
-          '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
-          '  cache_write_tokens, total_tokens, cost_usd, cost_mode',
-          'FROM events',
-          'ORDER BY id ASC',
-        ].join('\n'),
-      )
-      .all();
+    const selectBatch = database.prepare(
+      [
+        'SELECT id, source, session_id, timestamp, model, provider, repo_root,',
+        '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
+        '  cache_write_tokens, total_tokens, cost_usd, cost_mode',
+        'FROM events',
+        'WHERE id > ?',
+        'ORDER BY id ASC',
+        'LIMIT ?',
+      ].join('\n'),
+    );
     const updateContentHash = database.prepare('UPDATE events SET content_hash = ? WHERE id = ?');
 
-    for (const row of rows) {
-      const id = toNonNegativeInteger(row.id);
+    let lastId = -1;
+    for (;;) {
+      const rows = selectBatch.all(lastId, MIGRATION_BATCH_SIZE);
 
-      if (id === undefined) {
-        throw new Error('Cannot migrate event store row without a valid row id');
+      if (rows.length === 0) {
+        break;
       }
 
-      const event = normalizeStoredEvent(row);
+      for (const row of rows) {
+        const id = toNonNegativeInteger(row.id);
 
-      // An un-normalizable row keeps a NULL hash instead of aborting the
-      // migration; the history read path never suppresses NULL-hash files.
-      if (!event) {
-        continue;
+        if (id === undefined) {
+          throw new Error('Cannot migrate event store row without a valid row id');
+        }
+
+        lastId = id;
+
+        const event = normalizeStoredEvent(row);
+
+        // An un-normalizable row keeps a NULL hash instead of aborting the
+        // migration; the history read path never suppresses NULL-hash files.
+        if (!event) {
+          continue;
+        }
+
+        updateContentHash.run(computeEventContentHash(event), id);
       }
-
-      updateContentHash.run(computeEventContentHash(event), id);
     }
 
     database.exec('CREATE INDEX IF NOT EXISTS events_content_hash ON events(content_hash)');
@@ -597,31 +612,42 @@ export function migrateSchemaV2ToV3(database: EventStoreDatabase): void {
       return;
     }
 
-    const rows = database
-      .prepare(
-        [
-          'SELECT id, source, session_id, timestamp, model, provider, repo_root,',
-          '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
-          '  cache_write_tokens, total_tokens, cost_usd, cost_mode',
-          'FROM events',
-          'ORDER BY id ASC',
-        ].join('\n'),
-      )
-      .all();
+    const selectBatch = database.prepare(
+      [
+        'SELECT id, source, session_id, timestamp, model, provider, repo_root,',
+        '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
+        '  cache_write_tokens, total_tokens, cost_usd, cost_mode',
+        'FROM events',
+        'WHERE id > ?',
+        'ORDER BY id ASC',
+        'LIMIT ?',
+      ].join('\n'),
+    );
     const updateContentHash = database.prepare('UPDATE events SET content_hash = ? WHERE id = ?');
 
-    for (const row of rows) {
-      const id = toNonNegativeInteger(row.id);
+    let lastId = -1;
+    for (;;) {
+      const rows = selectBatch.all(lastId, MIGRATION_BATCH_SIZE);
 
-      if (id === undefined) {
-        throw new Error('Cannot migrate event store row without a valid row id');
+      if (rows.length === 0) {
+        break;
       }
 
-      const event = normalizeStoredEvent(row);
+      for (const row of rows) {
+        const id = toNonNegativeInteger(row.id);
 
-      // An un-normalizable row gets a NULL hash instead of aborting the
-      // migration; the history read path never suppresses NULL-hash files.
-      updateContentHash.run(event ? computeEventContentHash(event) : null, id);
+        if (id === undefined) {
+          throw new Error('Cannot migrate event store row without a valid row id');
+        }
+
+        lastId = id;
+
+        const event = normalizeStoredEvent(row);
+
+        // An un-normalizable row gets a NULL hash instead of aborting the
+        // migration; the history read path never suppresses NULL-hash files.
+        updateContentHash.run(event ? computeEventContentHash(event) : null, id);
+      }
     }
 
     database.prepare("UPDATE meta SET value = ? WHERE key = 'schemaVersion'").run('3');

@@ -13,6 +13,7 @@ import {
   EventStoreSchemaVersionError,
   getDefaultEventStorePath,
   getFileEntry,
+  MIGRATION_BATCH_SIZE,
   migrateSchemaV1ToV2,
   migrateSchemaV2ToV3,
   normalizeStoredEvent,
@@ -645,6 +646,79 @@ describe('event-store', () => {
       ).toEqual([
         { session_id: 'good', content_hash: computeEventContentHash(goodEvent) },
         { session_id: 'poisoned', content_hash: null },
+      ]);
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  it('rehashes stores larger than one migration batch without skipping rows', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-v2-batched-'));
+    tempDirs.push(tempDir);
+    const dbPath = path.join(tempDir, 'events.db');
+    const poisonedEvent = createEvent({ sessionId: 'poisoned', inputTokens: 7, totalTokens: 9 });
+    await writeV2Database(dbPath, { events: [poisonedEvent] });
+
+    // MIGRATION_BATCH_SIZE + 3 rows in total forces at least two batches.
+    const extraEvents = Array.from({ length: MIGRATION_BATCH_SIZE + 2 }, (_, index) =>
+      createEvent({ sessionId: `batch-session-${index}` }),
+    );
+    const rawDatabase = await openTestDatabase(dbPath);
+
+    try {
+      // One transaction; per-row autocommit inserts would slow the test down.
+      rawDatabase.exec('BEGIN');
+      const insertEvent = rawDatabase.prepare(
+        [
+          'INSERT INTO events (',
+          '  source, file_path, event_index, session_id, timestamp, model, provider, repo_root,',
+          '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
+          '  cache_write_tokens, total_tokens, cost_usd, cost_mode',
+          ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        ].join('\n'),
+      );
+      extraEvents.forEach((event, index) => {
+        insertEvent.run(
+          event.source,
+          '/tmp/session.jsonl',
+          index + 1,
+          event.sessionId,
+          event.timestamp,
+          event.model ?? null,
+          event.provider ?? null,
+          event.repoRoot ?? null,
+          event.inputTokens,
+          event.outputTokens,
+          event.reasoningTokens,
+          event.cacheReadTokens,
+          event.cacheWriteTokens,
+          event.totalTokens,
+          event.costUsd ?? null,
+          event.costMode,
+        );
+      });
+      rawDatabase.exec('COMMIT');
+      rawDatabase
+        .prepare("UPDATE events SET cost_mode = 'bogus' WHERE session_id = ?")
+        .run('poisoned');
+    } finally {
+      rawDatabase.close();
+    }
+
+    const store = await openEventStore(dbPath);
+
+    try {
+      expect(
+        store.database.prepare("SELECT value FROM meta WHERE key = 'schemaVersion'").get(),
+      ).toEqual({ value: '3' });
+      expect(
+        store.database.prepare('SELECT session_id, content_hash FROM events ORDER BY id ASC').all(),
+      ).toEqual([
+        { session_id: 'poisoned', content_hash: null },
+        ...extraEvents.map((event) => ({
+          session_id: event.sessionId,
+          content_hash: computeEventContentHash(event),
+        })),
       ]);
     } finally {
       closeEventStore(store);
