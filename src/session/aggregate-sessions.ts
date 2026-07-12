@@ -1,3 +1,4 @@
+import { computeActiveMs } from '../domain/active-time.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import type { UsageTotals } from '../domain/usage-report-row.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
@@ -19,12 +20,14 @@ type SessionAccumulator = UsageTotals & {
   repoRoot: string | undefined;
   firstActivity: string;
   lastActivity: string;
+  timestampsMs: number[];
   eventCount: number;
   models: Set<string>;
 };
 
 type RepoAccumulator = UsageTotals & {
   repoRoot: string | undefined;
+  firstActivity: string;
   lastActivity: string;
   sessionKeys: Set<string>;
   sources: Set<string>;
@@ -43,6 +46,7 @@ function createAccumulator(event: UsageEvent): SessionAccumulator {
     repoRoot: undefined,
     firstActivity: event.timestamp,
     lastActivity: event.timestamp,
+    timestampsMs: [],
     eventCount: 0,
     models: new Set(),
     inputTokens: 0,
@@ -81,6 +85,7 @@ function addEventUsage(totals: UsageTotals, event: UsageEvent): void {
 function addEventToAccumulator(accumulator: SessionAccumulator, event: UsageEvent): void {
   accumulator.eventCount++;
   addEventUsage(accumulator, event);
+  accumulator.timestampsMs.push(Date.parse(event.timestamp));
 
   accumulator.repoRoot ??= event.repoRoot;
 
@@ -176,6 +181,8 @@ function toSessionRow(accumulator: SessionAccumulator): SessionRow {
     repoRoot: accumulator.repoRoot,
     firstActivity: accumulator.firstActivity,
     lastActivity: accumulator.lastActivity,
+    durationMs: Date.parse(accumulator.lastActivity) - Date.parse(accumulator.firstActivity),
+    activeMs: computeActiveMs(accumulator.timestampsMs),
     eventCount: accumulator.eventCount,
     models: [...accumulator.models].sort(compareByCodePoint),
     inputTokens: accumulator.inputTokens,
@@ -219,6 +226,7 @@ export function aggregateSessions(
 function createRepoAccumulator(event: UsageEvent): RepoAccumulator {
   return {
     repoRoot: event.repoRoot,
+    firstActivity: event.timestamp,
     lastActivity: event.timestamp,
     sessionKeys: new Set(),
     sources: new Set(),
@@ -236,6 +244,10 @@ function addEventToRepoAccumulator(accumulator: RepoAccumulator, event: UsageEve
   accumulator.sources.add(event.source);
   addEventUsage(accumulator, event);
 
+  if (event.timestamp < accumulator.firstActivity) {
+    accumulator.firstActivity = event.timestamp;
+  }
+
   if (event.timestamp > accumulator.lastActivity) {
     accumulator.lastActivity = event.timestamp;
   }
@@ -246,6 +258,7 @@ function toRepoRow(accumulator: RepoAccumulator): SessionRepoRow {
     rowType: 'repo',
     repoRoot: accumulator.repoRoot,
     sessionCount: accumulator.sessionKeys.size,
+    firstActivity: accumulator.firstActivity,
     lastActivity: accumulator.lastActivity,
     sources: [...accumulator.sources].sort(compareByCodePoint),
     inputTokens: accumulator.inputTokens,

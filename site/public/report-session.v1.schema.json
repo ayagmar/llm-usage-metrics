@@ -9,12 +9,21 @@
     }
   ],
   "properties": {
-    "report": { "const": "session" },
+    "report": {
+      "const": "session"
+    },
     "data": {
       "description": "Session or repo rows in render order.",
       "type": "array",
       "items": {
-        "oneOf": [{ "$ref": "#/$defs/sessionRow" }, { "$ref": "#/$defs/repoRow" }]
+        "oneOf": [
+          {
+            "$ref": "#/$defs/sessionRow"
+          },
+          {
+            "$ref": "#/$defs/repoRow"
+          }
+        ]
       }
     }
   },
@@ -27,9 +36,18 @@
         }
       ],
       "properties": {
-        "rowType": { "description": "Discriminator for session rows.", "const": "session" },
-        "source": { "description": "Source id the session came from.", "type": "string" },
-        "sessionId": { "description": "Normalized session identifier.", "type": "string" },
+        "rowType": {
+          "description": "Discriminator for session rows.",
+          "const": "session"
+        },
+        "source": {
+          "description": "Source id the session came from.",
+          "type": "string"
+        },
+        "sessionId": {
+          "description": "Normalized session identifier.",
+          "type": "string"
+        },
         "repoRoot": {
           "description": "Repository root attributed to the session; omitted when unknown.",
           "type": "string"
@@ -42,6 +60,16 @@
           "description": "ISO timestamp of the session's last event.",
           "type": "string"
         },
+        "durationMs": {
+          "description": "Raw span in milliseconds: lastActivity minus firstActivity.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "activeMs": {
+          "description": "Gap-capped active time in milliseconds: sum of inter-event gaps, each capped at 5 minutes; 0 for single-event sessions.",
+          "type": "integer",
+          "minimum": 0
+        },
         "eventCount": {
           "description": "Number of usage events in the session.",
           "type": "integer",
@@ -50,7 +78,9 @@
         "models": {
           "description": "Model identifiers active in the session.",
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         }
       },
       "required": [
@@ -59,6 +89,8 @@
         "sessionId",
         "firstActivity",
         "lastActivity",
+        "durationMs",
+        "activeMs",
         "eventCount",
         "models"
       ],
@@ -72,7 +104,10 @@
         }
       ],
       "properties": {
-        "rowType": { "description": "Discriminator for repo rows.", "const": "repo" },
+        "rowType": {
+          "description": "Discriminator for repo rows.",
+          "const": "repo"
+        },
         "repoRoot": {
           "description": "Repository root; omitted for the unattributed bucket.",
           "type": "string"
@@ -82,6 +117,10 @@
           "type": "integer",
           "minimum": 0
         },
+        "firstActivity": {
+          "description": "ISO timestamp of the repository's first event.",
+          "type": "string"
+        },
         "lastActivity": {
           "description": "ISO timestamp of the repository's last event.",
           "type": "string"
@@ -89,10 +128,12 @@
         "sources": {
           "description": "Source ids active in the repository.",
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         }
       },
-      "required": ["rowType", "sessionCount", "lastActivity", "sources"],
+      "required": ["rowType", "sessionCount", "firstActivity", "lastActivity", "sources"],
       "unevaluatedProperties": false
     }
   }

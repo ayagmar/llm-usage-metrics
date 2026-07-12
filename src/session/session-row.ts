@@ -8,6 +8,8 @@ export type SessionRow = UsageTotals & {
   repoRoot?: string;
   firstActivity: string;
   lastActivity: string;
+  durationMs: number;
+  activeMs: number;
   eventCount: number;
   models: string[];
 };
@@ -16,6 +18,7 @@ export type SessionRepoRow = UsageTotals & {
   rowType: 'repo';
   repoRoot?: string;
   sessionCount: number;
+  firstActivity: string;
   lastActivity: string;
   sources: string[];
 };
