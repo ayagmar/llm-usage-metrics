@@ -80,20 +80,24 @@ If no observed bucket in the selected range has resolved cost, the terminal outp
 
 ```json
 {
-  "metric": "cost",
-  "dateRange": { "from": "2026-02-06", "to": "2026-03-06" },
-  "totalSeries": {
-    "source": "combined",
-    "buckets": [
-      { "date": "2026-02-06", "value": 1.57, "observed": true },
-      { "date": "2026-02-07", "value": 0, "observed": false }
-    ],
-    "summary": {
-      "total": 87.4,
-      "average": 2.91,
-      "peak": { "date": "2026-02-28", "value": 5.12 },
-      "incomplete": true,
-      "observedDayCount": 12
+  "schemaVersion": 1,
+  "report": "trends",
+  "data": {
+    "metric": "cost",
+    "dateRange": { "from": "2026-02-06", "to": "2026-03-06" },
+    "totalSeries": {
+      "source": "combined",
+      "buckets": [
+        { "date": "2026-02-06", "value": 1.57, "observed": true },
+        { "date": "2026-02-07", "value": 0, "observed": false }
+      ],
+      "summary": {
+        "total": 87.4,
+        "average": 2.91,
+        "peak": { "date": "2026-02-28", "value": 5.12 },
+        "incomplete": true,
+        "observedDayCount": 12
+      }
     }
   }
 }

@@ -44,25 +44,29 @@ The summary counts only source rows; the `event-store` row reports the ledger's 
 
 ## JSON shape
 
-`--json` returns a `sources` array. Healthy rows carry `itemsFound` (and the `event-store` row a `detail` string); unhealthy rows carry `error`:
+`--json` returns a `sources` array under `data`. Healthy rows carry `itemsFound` (and the `event-store` row a `detail` string); unhealthy rows carry `error`:
 
 ```json
 {
-  "sources": [
-    { "id": "pi", "format": "jsonl", "status": "ok", "itemsFound": 519 },
-    {
-      "id": "opencode",
-      "format": "sqlite",
-      "status": "error",
-      "error": "OpenCode database is missing or unreadable: /path/to/opencode.db"
-    },
-    {
-      "id": "event-store",
-      "format": "sqlite",
-      "status": "ok",
-      "itemsFound": 159266,
-      "detail": "159266 event(s), 3 departed file(s), schema v2, 78.4 MiB"
-    }
-  ]
+  "schemaVersion": 1,
+  "report": "doctor",
+  "data": {
+    "sources": [
+      { "id": "pi", "format": "jsonl", "status": "ok", "itemsFound": 519 },
+      {
+        "id": "opencode",
+        "format": "sqlite",
+        "status": "error",
+        "error": "OpenCode database is missing or unreadable: /path/to/opencode.db"
+      },
+      {
+        "id": "event-store",
+        "format": "sqlite",
+        "status": "ok",
+        "itemsFound": 159266,
+        "detail": "159266 event(s), 3 departed file(s), schema v3, 78.4 MiB"
+      }
+    ]
+  }
 }
 ```

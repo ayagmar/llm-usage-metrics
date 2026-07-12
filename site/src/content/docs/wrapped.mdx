@@ -67,21 +67,25 @@ The report uses the shared boxed header, tables, and color policy; set `NO_COLOR
 
 ```json
 {
-  "year": 2026,
-  "timezone": "UTC",
-  "from": "2026-01-01",
-  "to": "2026-12-31",
-  "totalTokens": 48200000,
-  "totalCostUsd": 214.9,
-  "costIncomplete": false,
-  "activeDays": 143,
-  "longestStreak": 21,
-  "eventCount": 8640,
-  "sessionCount": 512,
-  "topModels": [{ "name": "gpt-5.1", "totalTokens": 21400000, "costUsd": 96.2 }],
-  "topSources": [{ "name": "codex", "totalTokens": 26300000, "costUsd": 121.4 }],
-  "monthlyIntensity": [{ "month": "2026-01", "totalTokens": 2000000, "level": 2 }],
-  "dailyIntensity": [{ "date": "2026-01-01", "totalTokens": 120000, "level": 2 }]
+  "schemaVersion": 1,
+  "report": "wrapped",
+  "data": {
+    "year": 2026,
+    "timezone": "UTC",
+    "from": "2026-01-01",
+    "to": "2026-12-31",
+    "totalTokens": 48200000,
+    "costUsd": 214.9,
+    "costIncomplete": false,
+    "activeDays": 143,
+    "longestStreak": 21,
+    "eventCount": 8640,
+    "sessionCount": 512,
+    "topModels": [{ "name": "gpt-5.1", "totalTokens": 21400000, "costUsd": 96.2 }],
+    "topSources": [{ "name": "codex", "totalTokens": 26300000, "costUsd": 121.4 }],
+    "monthlyIntensity": [{ "month": "2026-01", "totalTokens": 2000000, "level": 2 }],
+    "dailyIntensity": [{ "date": "2026-01-01", "totalTokens": 120000, "level": 2 }]
+  }
 }
 ```
 

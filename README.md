@@ -173,7 +173,7 @@ llm-usage daily --markdown
 llm-usage monthly --share
 ```
 
-Report data goes to `stdout`. Discovery, pricing, config, and skipped-row diagnostics go to `stderr`, which keeps JSON and Markdown safe to redirect.
+Report data goes to `stdout`. Discovery, pricing, config, and skipped-row diagnostics go to `stderr`, which keeps JSON and Markdown safe to redirect. JSON output is wrapped in a versioned envelope: `{ "schemaVersion": 1, "report": "usage", "data": ... }`.
 
 Terminal, JSON, and Markdown availability varies by report. Usage, trends, wrapped, efficiency, and optimize can write supported share SVGs. The [output guide](https://ayagmar.github.io/llm-usage-metrics/output-formats/) contains the format matrix and file names.
 

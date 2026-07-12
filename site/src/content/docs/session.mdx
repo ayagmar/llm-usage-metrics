@@ -44,28 +44,32 @@ Showing top 20 of 1653 sessions by cost. Use --top 0 for all.
 
 ## JSON shape
 
-Default `--json` returns an array of session rows:
+Default `--json` returns an array of session rows under `data`:
 
 ```json
-[
-  {
-    "rowType": "session",
-    "source": "codex",
-    "sessionId": "486c3261-d87e-4971-8813-904c9e5a9009",
-    "repoRoot": "/path/to/repo",
-    "firstActivity": "2026-03-05T10:00:00.000Z",
-    "lastActivity": "2026-03-05T11:30:00.000Z",
-    "eventCount": 42,
-    "models": ["gpt-5.1"],
-    "inputTokens": 120000,
-    "outputTokens": 8000,
-    "reasoningTokens": 0,
-    "cacheReadTokens": 40000,
-    "cacheWriteTokens": 0,
-    "totalTokens": 168000,
-    "costUsd": 1.23
-  }
-]
+{
+  "schemaVersion": 1,
+  "report": "session",
+  "data": [
+    {
+      "rowType": "session",
+      "source": "codex",
+      "sessionId": "486c3261-d87e-4971-8813-904c9e5a9009",
+      "repoRoot": "/path/to/repo",
+      "firstActivity": "2026-03-05T10:00:00.000Z",
+      "lastActivity": "2026-03-05T11:30:00.000Z",
+      "eventCount": 42,
+      "models": ["gpt-5.1"],
+      "inputTokens": 120000,
+      "outputTokens": 8000,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 40000,
+      "cacheWriteTokens": 0,
+      "totalTokens": 168000,
+      "costUsd": 1.23
+    }
+  ]
+}
 ```
 
 `--by-repo --json` returns an array of repo rows (`rowType: "repo"`, `repoRoot`, `sessionCount`, `sources`, and the same token/cost totals).

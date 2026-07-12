@@ -69,7 +69,7 @@ llm-usage efficiency monthly --repo-dir /path/to/repo --by-source
 
 Source rows show usage and cost under each period subtotal. Git outcomes belong to the repository period, so source rows display `-` for commits, line changes, and derived ratios. The period subtotal carries those values.
 
-JSON with `--by-source` returns `grouping: "source"` and a `rows` array. Default JSON returns the period rows directly.
+JSON always returns `{ "grouping", "rows" }` under `data`: `grouping` is `"source"` with `--by-source` and `"period"` otherwise.
 
 ## Filters and attribution
 

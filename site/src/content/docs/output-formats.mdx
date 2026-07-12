@@ -21,7 +21,17 @@ Very wide usage tables can emit an overflow warning on `stderr`. Use a wider ter
 llm-usage daily --json > usage.json
 ```
 
-Use JSON for scripts and pipelines. Specialized reports keep their own documented shape, so read the report page before depending on fields. Diagnostics never enter the JSON body.
+Use JSON for scripts and pipelines. Every report wraps its payload in a versioned envelope:
+
+```json
+{
+  "schemaVersion": 1,
+  "report": "usage",
+  "data": []
+}
+```
+
+`report` names the command (`usage`, `session`, `trends`, `compare`, `efficiency`, `optimize`, `wrapped`, `doctor`, or `prune`) and `data` carries the report-specific payload documented on each report page. `schemaVersion` increments only on breaking JSON changes; additive fields inside `data` are safe and do not bump it. Diagnostics never enter the JSON body.
 
 ## Markdown
 
