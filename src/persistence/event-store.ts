@@ -654,6 +654,21 @@ export function migrateSchemaV2ToV3(database: EventStoreDatabase): void {
   });
 }
 
+// Runs before the WAL pragma so an unsupported store is rejected without
+// persisting a journal-mode change; initializeSchema re-checks under lock.
+function assertSupportedSchemaVersion(database: EventStoreDatabase): void {
+  const schemaVersion = readSchemaVersion(database);
+
+  if (
+    schemaVersion !== undefined &&
+    schemaVersion !== EVENT_STORE_SCHEMA_VERSION &&
+    schemaVersion !== '1' &&
+    schemaVersion !== '2'
+  ) {
+    throw new EventStoreSchemaVersionError(schemaVersion);
+  }
+}
+
 function initializeSchema(database: EventStoreDatabase): void {
   const tableNames = listUserTableNames(database);
 
@@ -757,6 +772,7 @@ export async function openEventStore(
   });
 
   try {
+    assertSupportedSchemaVersion(database);
     database.exec('PRAGMA journal_mode=WAL');
     initializeSchema(database);
     await restrictEventStoreFiles(filePath);

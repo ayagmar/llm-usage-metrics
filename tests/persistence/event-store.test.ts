@@ -1058,6 +1058,38 @@ describe('event-store', () => {
     });
   });
 
+  it('leaves the journal mode of unsupported-version stores untouched', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-version-journal-'));
+    tempDirs.push(tempDir);
+    const dbPath = path.join(tempDir, 'events.db');
+    await writeV1Database(dbPath, { schemaVersion: '99' });
+
+    const before = await openTestDatabase(dbPath);
+
+    try {
+      expect(before.prepare('SELECT * FROM pragma_journal_mode').get()).toEqual({
+        journal_mode: 'delete',
+      });
+    } finally {
+      before.close();
+    }
+
+    await expect(openEventStore(dbPath)).rejects.toBeInstanceOf(EventStoreSchemaVersionError);
+
+    const after = await openTestDatabase(dbPath);
+
+    try {
+      expect(after.prepare('SELECT * FROM pragma_journal_mode').get()).toEqual({
+        journal_mode: 'delete',
+      });
+    } finally {
+      after.close();
+    }
+
+    await expect(stat(`${dbPath}-wal`)).rejects.toMatchObject({ code: 'ENOENT' });
+    await expect(stat(`${dbPath}-shm`)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
   it('opens writable stores with a busy timeout and WAL journal mode', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-open-options-'));
     tempDirs.push(tempDir);
