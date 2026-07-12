@@ -1,0 +1,36 @@
+---
+title: 'Migrating to 0.8'
+description: What changed in the 0.8.0 JSON output and how to update scripts.
+---
+
+0.8.0 wraps every report's `--json` output in a versioned envelope and renames three payload fields. Terminal and Markdown output are unchanged.
+
+## Field migration
+
+| Old | New |
+| --- | --- |
+| report payload at the top level | payload under `.data` (top level is `{ "schemaVersion": 1, "report": "<name>", "data": ... }`) |
+| wrapped `totalCostUsd` | `costUsd` |
+| optimize `savingsPct` (0-1 fraction) | `savingsRatio` (same 0-1 fraction) |
+| compare `deltaPercent` (0-1 fraction) | `deltaRatio` (same 0-1 fraction) |
+| compare `--json` `diagnostics` object | removed from the body (diagnostics stay on stderr) |
+
+efficiency `--json` `data` is always `{ "grouping", "rows" }`; the bare rows array for the default grouping is gone.
+
+## Updating jq pipelines
+
+The report payload moved under `.data`. A pipeline that previously read the usage rows from the top level:
+
+```bash
+llm-usage daily --json | jq '.'
+```
+
+now unwraps the envelope first:
+
+```bash
+llm-usage daily --json | jq '.data'
+```
+
+## Schemas
+
+Every payload has a published JSON Schema (draft 2020-12), for example [report-usage.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-usage.v1.schema.json). The full schema table is in [Output Formats](/llm-usage-metrics/output-formats/).

@@ -1,21 +1,5 @@
 # Changelog
 
-## Unreleased
-
-### ⚠ BREAKING CHANGES
-
-* `--json` output for every report is now wrapped in a versioned envelope, and three payload fields were renamed. Migration:
-
-| Old | New |
-| --- | --- |
-| report payload at the top level | payload under `.data` (top level is `{ "schemaVersion": 1, "report": "<name>", "data": ... }`) |
-| wrapped `totalCostUsd` | `costUsd` |
-| optimize `savingsPct` (0-1 fraction) | `savingsRatio` (same 0-1 fraction) |
-| compare `deltaPercent` (0-1 fraction) | `deltaRatio` (same 0-1 fraction) |
-| compare `--json` `diagnostics` object | removed from the body (diagnostics stay on stderr) |
-
-* efficiency `--json` `data` is always `{ "grouping", "rows" }`; the bare rows array for the default grouping is gone.
-
 ## [0.7.2](https://github.com/ayagmar/llm-usage-metrics/compare/v0.7.1...v0.7.2) (2026-07-03)
 
 ### Features

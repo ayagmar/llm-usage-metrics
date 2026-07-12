@@ -31,7 +31,7 @@ Use JSON for scripts and pipelines. Every report wraps its payload in a versione
 }
 ```
 
-`report` names the command (`usage`, `session`, `trends`, `compare`, `efficiency`, `optimize`, `wrapped`, `doctor`, or `prune`) and `data` carries the report-specific payload documented on each report page. `schemaVersion` increments only on breaking JSON changes; additive fields inside `data` are safe and do not bump it. Diagnostics never enter the JSON body.
+`report` names the command (`usage`, `session`, `trends`, `compare`, `efficiency`, `optimize`, `wrapped`, `doctor`, or `prune`) and `data` carries the report-specific payload documented on each report page. `schemaVersion` increments only on breaking JSON changes; additive fields inside `data` are safe and do not bump it. Diagnostics never enter the JSON body. The envelope arrived in 0.8.0 — [Migrating to 0.8](/llm-usage-metrics/migrating-to-0-8/) maps the old field names to the new ones.
 
 Every payload has a published JSON Schema (draft 2020-12) validated in CI against real CLI output:
 
