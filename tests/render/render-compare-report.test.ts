@@ -133,6 +133,29 @@ describe('renderCompareReport', () => {
     expect(output).toContain('co|dex');
   });
 
+  it('renders an empty-state message above the zeroed table when both windows are empty', () => {
+    const data = createCompareData();
+    const zeroedData: CompareDataResult = {
+      ...data,
+      current: {
+        ...data.current,
+        totals: { ...data.current.totals, events: 0 },
+      },
+      baseline: {
+        ...data.baseline,
+        totals: { ...data.baseline.totals, events: 0 },
+      },
+    };
+
+    const output = renderCompareReport(zeroedData, 'terminal', { useColor: false });
+
+    expect(output).toContain('No usage data found for the selected filters.');
+    expect(output.indexOf('No usage data found for the selected filters.')).toBeLessThan(
+      output.indexOf('Metric'),
+    );
+    expect(output).toContain('Metric');
+  });
+
   it('renders markdown output with escaped table cells', () => {
     const output = renderCompareReport(createCompareData(), 'markdown');
 

@@ -162,6 +162,18 @@ describe('renderUsageReport', () => {
     expect(rendered).toContain('$1.25<br>$1.50<br>**$2.75**');
   });
 
+  it('renders an empty-state message instead of an empty table', () => {
+    const rendered = renderUsageReport({ ...sampleUsageData, rows: [] }, 'terminal', {
+      granularity: 'daily',
+      useColor: false,
+    });
+
+    expect(rendered).toContain('Daily Token Usage Report');
+    expect(rendered).toContain('No usage data found for the selected filters.');
+    expect(rendered).not.toContain('╭');
+    expect(rendered).not.toContain('│ Period');
+  });
+
   it('renders JSON output as pretty-printed row payload only', () => {
     const rendered = renderUsageReport(sampleUsageData, 'json', { granularity: 'weekly' });
 

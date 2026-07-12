@@ -40,6 +40,12 @@ function renderTerminalUsageReport(
   );
 
   outputLines.push('');
+
+  if (usageData.rows.length === 0) {
+    outputLines.push('No usage data found for the selected filters.');
+    return outputLines.join('\n');
+  }
+
   outputLines.push(renderTerminalTable(usageData.rows, { useColor, tableLayout }));
 
   return outputLines.join('\n');

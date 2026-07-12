@@ -170,6 +170,12 @@ function renderTerminalCompareReport(
     }),
   );
   lines.push('');
+
+  if (compareData.current.totals.events === 0 && compareData.baseline.totals.events === 0) {
+    lines.push('No usage data found for the selected filters.');
+    lines.push('');
+  }
+
   lines.push(
     renderTerminalTable({
       headerCells: compareTableHeaders,
