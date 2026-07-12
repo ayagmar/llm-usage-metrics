@@ -66,7 +66,7 @@ describe('aggregateWrapped', () => {
       from: '2026-01-01',
       to: '2026-12-31',
       totalTokens: 600,
-      totalCostUsd: 6,
+      costUsd: 6,
       activeDays: 3,
       longestStreak: 2,
       eventCount: 3,

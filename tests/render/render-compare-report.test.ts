@@ -42,7 +42,7 @@ function createCompareData(): CompareDataResult {
         current: 100,
         baseline: 80,
         delta: 20,
-        deltaPercent: 0.25,
+        deltaRatio: 0.25,
       },
       {
         key: 'costUsd',
@@ -51,7 +51,7 @@ function createCompareData(): CompareDataResult {
         current: 3,
         baseline: 2,
         delta: 1,
-        deltaPercent: 0.5,
+        deltaRatio: 0.5,
         currentCostIncomplete: true,
         deltaCostIncomplete: true,
       },
@@ -62,7 +62,7 @@ function createCompareData(): CompareDataResult {
         current: 0,
         baseline: 0,
         delta: 0,
-        deltaPercent: 0,
+        deltaRatio: 0,
       },
     ],
     sources: [
@@ -103,7 +103,7 @@ function createCompareData(): CompareDataResult {
           events: 1,
           activeDays: 1,
         },
-        deltaPercent: {
+        deltaRatio: {
           costUsd: 0.5,
         },
       },

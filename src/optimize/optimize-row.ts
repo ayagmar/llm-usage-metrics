@@ -21,7 +21,7 @@ export type OptimizeCandidateRow = OptimizeRowCommon & {
   hypotheticalCostUsd: number | undefined;
   hypotheticalCostIncomplete: boolean;
   savingsUsd: number | undefined;
-  savingsPct: number | undefined;
+  savingsRatio: number | undefined;
   notes?: string[];
 };
 

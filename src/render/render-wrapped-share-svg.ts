@@ -157,7 +157,7 @@ ${cells}
 
 export function renderWrappedShareSvg(data: WrappedRecap): string {
   const commandText = `llm-usage wrapped --year ${data.year} --share`;
-  const cost = formatApproxUsd(data.totalCostUsd, data.costIncomplete);
+  const cost = formatApproxUsd(data.costUsd, data.costIncomplete);
   const footerLabel = `${data.from} to ${data.to}`;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">

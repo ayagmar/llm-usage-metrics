@@ -54,7 +54,7 @@ function renderStatLines(recap: WrappedRecap, paint: Paint, palette: TerminalSty
     { label: 'Tokens', value: formatInteger(recap.totalTokens), styler: bold(palette.cyan) },
     {
       label: 'Cost',
-      value: formatApproxUsd(recap.totalCostUsd, recap.costIncomplete),
+      value: formatApproxUsd(recap.costUsd, recap.costIncomplete),
       styler: bold(palette.green),
     },
     { label: 'Active days', value: formatInteger(recap.activeDays), styler: palette.white },

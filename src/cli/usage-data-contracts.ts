@@ -273,20 +273,20 @@ export type CompareMetricRow = {
   current: number | undefined;
   baseline: number | undefined;
   delta: number | undefined;
-  deltaPercent: number | undefined;
+  deltaRatio: number | undefined;
   currentCostIncomplete?: boolean;
   baselineCostIncomplete?: boolean;
   deltaCostIncomplete?: boolean;
 };
 
-export type CompareMetricDeltaPercent = Partial<Record<CompareMetricKey, number | undefined>>;
+export type CompareMetricDeltaRatio = Partial<Record<CompareMetricKey, number | undefined>>;
 
 export type CompareSourceRow = {
   source: string;
   current: CompareWindowTotals;
   baseline: CompareWindowTotals;
   delta: CompareWindowTotals;
-  deltaPercent: CompareMetricDeltaPercent;
+  deltaRatio: CompareMetricDeltaRatio;
 };
 
 export type CompareDataResult = {

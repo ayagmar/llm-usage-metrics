@@ -13,7 +13,7 @@ vi.mock('../../src/cli/build-wrapped-data.js', async (importOriginal) => {
         from: '2026-01-01',
         to: '2026-12-31',
         totalTokens: 1_000,
-        totalCostUsd: 12.34,
+        costUsd: 12.34,
         costIncomplete: false,
         activeDays: 10,
         longestStreak: 3,

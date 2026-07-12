@@ -268,7 +268,7 @@ export function aggregateWrapped(
     from: range.from,
     to: range.to,
     totalTokens: total.totalTokens,
-    totalCostUsd: total.costUsd,
+    costUsd: total.costUsd,
     costIncomplete: total.costIncomplete,
     activeDays: activeDateKeys.size,
     longestStreak: calculateLongestStreak(sortedDateKeys),

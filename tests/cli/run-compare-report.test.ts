@@ -38,7 +38,7 @@ vi.mock('../../src/cli/build-compare-data.js', () => ({
         current: 15,
         baseline: 10,
         delta: 5,
-        deltaPercent: 0.5,
+        deltaRatio: 0.5,
       },
     ],
     sources: [],

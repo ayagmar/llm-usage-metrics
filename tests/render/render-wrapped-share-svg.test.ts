@@ -10,7 +10,7 @@ function createRecap(): WrappedRecap {
     from: '2026-01-01',
     to: '2026-12-31',
     totalTokens: 1_234_500,
-    totalCostUsd: 123.45,
+    costUsd: 123.45,
     costIncomplete: true,
     activeDays: 42,
     longestStreak: 7,

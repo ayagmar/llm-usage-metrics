@@ -36,7 +36,7 @@ vi.mock('../../src/cli/build-optimize-data.js', () => ({
         hypotheticalCostUsd: 1.5,
         hypotheticalCostIncomplete: false,
         savingsUsd: 0.5,
-        savingsPct: 0.25,
+        savingsRatio: 0.25,
       },
       {
         rowType: 'candidate',
@@ -53,7 +53,7 @@ vi.mock('../../src/cli/build-optimize-data.js', () => ({
         hypotheticalCostUsd: undefined,
         hypotheticalCostIncomplete: true,
         savingsUsd: undefined,
-        savingsPct: undefined,
+        savingsRatio: undefined,
         notes: ['missing_pricing'],
       },
     ],

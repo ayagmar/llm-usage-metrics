@@ -42,7 +42,7 @@ function createOptimizeDataResult(): OptimizeDataResult {
         hypotheticalCostUsd: 1.1,
         hypotheticalCostIncomplete: false,
         savingsUsd: 0.15,
-        savingsPct: 0.12,
+        savingsRatio: 0.12,
         notes: ['baseline_incomplete'],
       },
       {
@@ -73,7 +73,7 @@ function createOptimizeDataResult(): OptimizeDataResult {
         hypotheticalCostUsd: 1.1,
         hypotheticalCostIncomplete: false,
         savingsUsd: 0.15,
-        savingsPct: 0.12,
+        savingsRatio: 0.12,
       },
     ],
     diagnostics: {
@@ -128,7 +128,7 @@ describe('renderOptimizeReport', () => {
         ? {
             ...row,
             savingsUsd: undefined,
-            savingsPct: undefined,
+            savingsRatio: undefined,
           }
         : row,
     );
@@ -150,7 +150,7 @@ describe('renderOptimizeReport', () => {
         ? {
             ...row,
             savingsUsd: -0.25,
-            savingsPct: -0.2,
+            savingsRatio: -0.2,
           }
         : row,
     );
@@ -170,7 +170,7 @@ describe('renderOptimizeReport', () => {
         ? {
             ...row,
             savingsUsd: 0,
-            savingsPct: 0,
+            savingsRatio: 0,
           }
         : row,
     );

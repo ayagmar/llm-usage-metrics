@@ -25,7 +25,7 @@ export type WrappedRecap = {
   from: string;
   to: string;
   totalTokens: number;
-  totalCostUsd?: number;
+  costUsd?: number;
   costIncomplete?: boolean;
   activeDays: number;
   longestStreak: number;

@@ -179,7 +179,7 @@ function evaluateCandidateForPeriod(
   }
 
   let savingsUsd: number | undefined;
-  let savingsPct: number | undefined;
+  let savingsRatio: number | undefined;
   let hasBaselineTokenMismatch = false;
 
   if (period.baselineCostIncomplete || period.baselineCostUsd === undefined) {
@@ -189,7 +189,7 @@ function evaluateCandidateForPeriod(
     hasBaselineTokenMismatch = true;
   } else if (hypotheticalCostUsd !== undefined) {
     savingsUsd = roundUsd(period.baselineCostUsd - hypotheticalCostUsd);
-    savingsPct = period.baselineCostUsd === 0 ? undefined : savingsUsd / period.baselineCostUsd;
+    savingsRatio = period.baselineCostUsd === 0 ? undefined : savingsUsd / period.baselineCostUsd;
   }
 
   return {
@@ -208,7 +208,7 @@ function evaluateCandidateForPeriod(
       hypotheticalCostUsd,
       hypotheticalCostIncomplete,
       savingsUsd,
-      savingsPct,
+      savingsRatio,
       notes: withNotes(notes),
     },
     missingPricing: notes.has('missing_pricing'),

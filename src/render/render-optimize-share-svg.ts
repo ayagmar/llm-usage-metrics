@@ -127,7 +127,7 @@ export function renderOptimizeMonthlyShareSvg(optimizeData: OptimizeDataResult):
       const row = cellMap.get(`${model}__${periodKeys[c]}`);
       const x = chartLeft + c * cellW;
       const yTop = chartTop + r * cellH;
-      const pct = row?.savingsPct;
+      const pct = row?.savingsRatio;
 
       gridCells.push(
         `<rect x="${(x + CELL_GAP / 2).toFixed(2)}" y="${(yTop + CELL_GAP / 2).toFixed(2)}" width="${Math.max(0, cellW - CELL_GAP).toFixed(2)}" height="${Math.max(0, cellH - CELL_GAP).toFixed(2)}" fill="${cellFill(pct)}" rx="8"/>`,

@@ -105,14 +105,14 @@ function formatMetricDelta(row: CompareMetricRow): string {
 
 function toMetricTableRow(row: CompareMetricRow, useColor: boolean): string[] {
   const delta = formatMetricDelta(row);
-  const deltaPercent = formatPercent(row.deltaPercent);
+  const deltaRatio = formatPercent(row.deltaRatio);
 
   return [
     row.label,
     formatMetricValue(row, row.current, row.currentCostIncomplete),
     formatMetricValue(row, row.baseline, row.baselineCostIncomplete),
     colorizeDelta(delta, row.delta, useColor),
-    colorizeDelta(deltaPercent, row.deltaPercent, useColor),
+    colorizeDelta(deltaRatio, row.deltaRatio, useColor),
   ];
 }
 
@@ -121,14 +121,14 @@ function toSourceTableRow(row: CompareSourceRow, useColor: boolean): string[] {
     approximate: row.delta.costIncomplete,
     signed: true,
   });
-  const deltaPercent = formatPercent(row.deltaPercent.costUsd);
+  const deltaRatio = formatPercent(row.deltaRatio.costUsd);
 
   return [
     row.source,
     formatUsd(row.current.costUsd, { approximate: row.current.costIncomplete }),
     formatUsd(row.baseline.costUsd, { approximate: row.baseline.costIncomplete }),
     colorizeDelta(delta, row.delta.costUsd, useColor),
-    colorizeDelta(deltaPercent, row.deltaPercent.costUsd, useColor),
+    colorizeDelta(deltaRatio, row.deltaRatio.costUsd, useColor),
   ];
 }
 

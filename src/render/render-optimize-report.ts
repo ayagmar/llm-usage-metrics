@@ -168,11 +168,11 @@ function resolveTerminalContextLines(
       lines.push('ALL best candidate: unavailable (missing baseline or candidate pricing)');
     } else if (bestRow.savingsUsd > 0) {
       lines.push(
-        `ALL best candidate: ${bestRow.candidateModel} saves ${formatAbsoluteUsd(bestRow.savingsUsd)} (${formatPercent(bestRow.savingsPct)})`,
+        `ALL best candidate: ${bestRow.candidateModel} saves ${formatAbsoluteUsd(bestRow.savingsUsd)} (${formatPercent(bestRow.savingsRatio)})`,
       );
     } else if (bestRow.savingsUsd < 0) {
       lines.push(
-        `ALL best candidate: ${bestRow.candidateModel} increases cost by ${formatAbsoluteUsd(bestRow.savingsUsd)} (${formatPercent(bestRow.savingsPct)})`,
+        `ALL best candidate: ${bestRow.candidateModel} increases cost by ${formatAbsoluteUsd(bestRow.savingsUsd)} (${formatPercent(bestRow.savingsRatio)})`,
       );
     } else {
       lines.push(`ALL best candidate: ${bestRow.candidateModel} matches baseline cost`);
@@ -219,7 +219,7 @@ function toTableCells(
     }
 
     const savingsCell = formatUsd(row.savingsUsd);
-    const savingsPctCell = formatPercent(row.savingsPct);
+    const savingsRatioCell = formatPercent(row.savingsRatio);
     const notesCell = formatNotes(row.notes);
 
     const candidateCells = [
@@ -230,7 +230,7 @@ function toTableCells(
         approximate: baselineRow?.baselineCostIncomplete === true,
       }),
       styleDeltaCell(row.savingsUsd, savingsCell, options.useColor),
-      styleDeltaCell(row.savingsPct, savingsPctCell, options.useColor),
+      styleDeltaCell(row.savingsRatio, savingsRatioCell, options.useColor),
     ];
 
     return options.includeNotesColumn

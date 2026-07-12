@@ -78,7 +78,7 @@ describe('buildWrappedData', () => {
 
     expect(result.recap.year).toBe(2026);
     expect(result.recap.totalTokens).toBe(1_000_000);
-    expect(result.recap.totalCostUsd).toBe(2);
+    expect(result.recap.costUsd).toBe(2);
   });
 
   it('uses the requested year as the event range', async () => {
