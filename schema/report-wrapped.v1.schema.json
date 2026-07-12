@@ -9,15 +9,29 @@
     }
   ],
   "properties": {
-    "report": { "const": "wrapped" },
+    "report": {
+      "const": "wrapped"
+    },
     "data": {
       "description": "The year recap.",
       "type": "object",
       "properties": {
-        "year": { "description": "Recap year.", "type": "integer" },
-        "timezone": { "description": "IANA timezone used for bucketing.", "type": "string" },
-        "from": { "description": "First date of the year window (YYYY-MM-DD).", "type": "string" },
-        "to": { "description": "Last date of the year window (YYYY-MM-DD).", "type": "string" },
+        "year": {
+          "description": "Recap year.",
+          "type": "integer"
+        },
+        "timezone": {
+          "description": "IANA timezone used for bucketing.",
+          "type": "string"
+        },
+        "from": {
+          "description": "First date of the year window (YYYY-MM-DD).",
+          "type": "string"
+        },
+        "to": {
+          "description": "Last date of the year window (YYYY-MM-DD).",
+          "type": "string"
+        },
         "totalTokens": {
           "description": "Total tokens for the year.",
           "type": "integer",
@@ -42,31 +56,108 @@
           "type": "integer",
           "minimum": 0
         },
+        "activeMs": {
+          "description": "Gap-capped hands-on time in milliseconds: per-session inter-event gaps capped at 5 minutes, summed across sessions.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "peakHour": {
+          "description": "Hour of day (recap timezone) with the most tokens; omitted for an empty year.",
+          "type": "object",
+          "properties": {
+            "hour": {
+              "description": "Hour of day, 0-23.",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 23
+            },
+            "totalTokens": {
+              "description": "Tokens in that hour.",
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": ["hour", "totalTokens"],
+          "additionalProperties": false
+        },
+        "weekdayTokens": {
+          "description": "Tokens on Monday-Friday local dates.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "weekendTokens": {
+          "description": "Tokens on Saturday/Sunday local dates.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "busiestDay": {
+          "description": "Local date with the most tokens; omitted for an empty year.",
+          "type": "object",
+          "properties": {
+            "date": {
+              "description": "Local date (YYYY-MM-DD).",
+              "type": "string"
+            },
+            "totalTokens": {
+              "description": "Tokens on that date.",
+              "type": "integer",
+              "minimum": 0
+            },
+            "costUsd": {
+              "description": "Resolved cost in USD; omitted when unresolved.",
+              "type": "number",
+              "minimum": 0
+            },
+            "costIncomplete": {
+              "description": "True when some events lack resolved pricing.",
+              "type": "boolean"
+            }
+          },
+          "required": ["date", "totalTokens"],
+          "additionalProperties": false
+        },
+        "estimatedCacheSavingsUsd": {
+          "description": "Estimated USD saved by cache reads vs full input pricing; counterfactual, omitted when no event qualifies.",
+          "type": "number",
+          "minimum": 0
+        },
         "eventCount": {
           "description": "Usage events in the year.",
           "type": "integer",
           "minimum": 0
         },
-        "sessionCount": { "description": "Sessions in the year.", "type": "integer", "minimum": 0 },
+        "sessionCount": {
+          "description": "Sessions in the year.",
+          "type": "integer",
+          "minimum": 0
+        },
         "topModels": {
           "description": "Top models by total tokens.",
           "type": "array",
-          "items": { "$ref": "#/$defs/topItem" }
+          "items": {
+            "$ref": "#/$defs/topItem"
+          }
         },
         "topSources": {
           "description": "Top sources by total tokens.",
           "type": "array",
-          "items": { "$ref": "#/$defs/topItem" }
+          "items": {
+            "$ref": "#/$defs/topItem"
+          }
         },
         "monthlyIntensity": {
           "description": "Per-month activity with quartile levels.",
           "type": "array",
-          "items": { "$ref": "#/$defs/month" }
+          "items": {
+            "$ref": "#/$defs/month"
+          }
         },
         "dailyIntensity": {
           "description": "Per-day activity with quartile levels; inactive days included at level 0.",
           "type": "array",
-          "items": { "$ref": "#/$defs/day" }
+          "items": {
+            "$ref": "#/$defs/day"
+          }
         }
       },
       "required": [
@@ -77,6 +168,9 @@
         "totalTokens",
         "activeDays",
         "longestStreak",
+        "activeMs",
+        "weekdayTokens",
+        "weekendTokens",
         "eventCount",
         "sessionCount",
         "topModels",
@@ -92,8 +186,15 @@
       "description": "One ranked model or source.",
       "type": "object",
       "properties": {
-        "name": { "description": "Model or source identifier.", "type": "string" },
-        "totalTokens": { "description": "Total tokens.", "type": "integer", "minimum": 0 },
+        "name": {
+          "description": "Model or source identifier.",
+          "type": "string"
+        },
+        "totalTokens": {
+          "description": "Total tokens.",
+          "type": "integer",
+          "minimum": 0
+        },
         "costUsd": {
           "description": "Resolved cost in USD; omitted when unresolved.",
           "type": "number",
@@ -111,7 +212,10 @@
       "description": "One month's activity.",
       "type": "object",
       "properties": {
-        "month": { "description": "Month key (YYYY-MM).", "type": "string" },
+        "month": {
+          "description": "Month key (YYYY-MM).",
+          "type": "string"
+        },
         "totalTokens": {
           "description": "Total tokens in the month.",
           "type": "integer",
@@ -139,7 +243,10 @@
       "description": "One day's activity.",
       "type": "object",
       "properties": {
-        "date": { "description": "Day (YYYY-MM-DD).", "type": "string" },
+        "date": {
+          "description": "Day (YYYY-MM-DD).",
+          "type": "string"
+        },
         "totalTokens": {
           "description": "Total tokens on the day.",
           "type": "integer",

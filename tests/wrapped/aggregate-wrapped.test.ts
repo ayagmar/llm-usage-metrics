@@ -23,6 +23,62 @@ function baseEvent(overrides: Partial<UsageEventInput> = {}) {
 }
 
 describe('aggregateWrapped', () => {
+  it('computes active time, peak hour, weekday split, and busiest day', () => {
+    const recap = aggregateWrapped(
+      [
+        // Session s-a on Monday 2026-01-05: gaps 3m + 90m (capped at 5m) = 8m.
+        baseEvent({
+          sessionId: 's-a',
+          timestamp: '2026-01-05T10:00:00.000Z',
+          totalTokens: 100,
+          costUsd: 1,
+        }),
+        baseEvent({
+          sessionId: 's-a',
+          timestamp: '2026-01-05T10:03:00.000Z',
+          totalTokens: 50,
+          costUsd: 2,
+        }),
+        baseEvent({
+          sessionId: 's-a',
+          timestamp: '2026-01-05T11:33:00.000Z',
+          totalTokens: 100,
+          costUsd: 3,
+        }),
+        // Single-event session s-b on Saturday 2026-01-10 contributes 0 active ms.
+        baseEvent({
+          sessionId: 's-b',
+          timestamp: '2026-01-10T22:00:00.000Z',
+          totalTokens: 150,
+          costUsd: 4,
+        }),
+      ],
+      { year: 2026, timezone: 'UTC' },
+    );
+
+    expect(recap.activeMs).toBe(8 * 60 * 1000);
+    // Hours 10 and 22 tie at 150 tokens; the lowest hour wins.
+    expect(recap.peakHour).toEqual({ hour: 10, totalTokens: 150 });
+    expect(recap.weekdayTokens).toBe(250);
+    expect(recap.weekendTokens).toBe(150);
+    expect(recap.busiestDay).toEqual({
+      date: '2026-01-05',
+      totalTokens: 250,
+      costUsd: 6,
+      costIncomplete: undefined,
+    });
+  });
+
+  it('leaves time stats empty for an empty year', () => {
+    const recap = aggregateWrapped([], { year: 2026, timezone: 'UTC' });
+
+    expect(recap.activeMs).toBe(0);
+    expect(recap.peakHour).toBeUndefined();
+    expect(recap.busiestDay).toBeUndefined();
+    expect(recap.weekdayTokens).toBe(0);
+    expect(recap.weekendTokens).toBe(0);
+  });
+
   it('filters to the local year and computes active days, sessions, totals, and streaks', () => {
     const recap = aggregateWrapped(
       [

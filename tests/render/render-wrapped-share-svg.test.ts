@@ -14,6 +14,12 @@ function createRecap(): WrappedRecap {
     costIncomplete: true,
     activeDays: 42,
     longestStreak: 7,
+    activeMs: 90 * 60 * 60 * 1000,
+    peakHour: { hour: 14, totalTokens: 300_000 },
+    weekdayTokens: 900_000,
+    weekendTokens: 334_500,
+    busiestDay: { date: '2026-03-01', totalTokens: 90_000 },
+    estimatedCacheSavingsUsd: 42.5,
     eventCount: 99,
     sessionCount: 12,
     topModels: [

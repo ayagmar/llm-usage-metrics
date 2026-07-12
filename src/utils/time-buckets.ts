@@ -287,6 +287,21 @@ export function getLocalDateKey(timestampIso: string, timezone: string): string 
   return formatLocalDateParts(extractLocalDateParts(timestampIso, timezone));
 }
 
+export function getLocalHour(timestampIso: string, timezone: string): number {
+  const timestampMs = new Date(timestampIso).getTime();
+
+  if (Number.isNaN(timestampMs)) {
+    throw new Error(`Invalid event timestamp: ${timestampIso}`);
+  }
+
+  return resolveLocalDateTimeParts(timestampMs, timezone, timestampIso).hour;
+}
+
+/** ISO day of week for a local date key: 1 = Monday … 7 = Sunday. */
+export function getIsoDayOfWeekFromDateKey(localDateKey: string): number {
+  return toIsoDayOfWeek(createUtcDate(parseLocalDateKey(localDateKey)));
+}
+
 export function getCurrentLocalDateKey(timezone: string, now: Date = new Date()): string {
   return formatLocalDateParts(extractLocalDateParts(now.toISOString(), timezone));
 }
