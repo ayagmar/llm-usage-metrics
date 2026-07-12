@@ -170,7 +170,7 @@ That keeps sorting and separator behavior deterministic without coupling the gen
 ## Module map
 
 - `src/cli`
-  Command creation, shared runtime, builders, diagnostics emission; `parse-worker-pool.ts` holds the worker-thread parse pool
+  Command creation, shared runtime, builders, diagnostics emission; `parse-worker-pool.ts` holds the worker-thread parse pool; `parse/` groups the parse-pipeline concerns (`parse-fingerprint.ts` dependency fingerprinting, `event-store-parse-cache.ts` store read/write caching, `parse-budget.ts` the global parse semaphore, `usage-event-filters.ts` provider/date/model filtering) around the coordinator in `build-usage-data-parsing.ts`
 - `src/cli/report-definitions`
   Canonical report metadata and option profiles
 - `src/cli/report-runtime`
