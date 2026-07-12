@@ -48,6 +48,15 @@ Every payload has a published JSON Schema (draft 2020-12) validated in CI agains
 | doctor | [report-doctor.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-doctor.v1.schema.json) |
 | prune | [report-prune.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-prune.v1.schema.json) |
 
+The installed CLI also carries these schemas, so pipelines can validate against the exact contract of their installed version without the network:
+
+```bash
+llm-usage schema usage > report-usage.schema.json
+llm-usage schema --list
+```
+
+`schema` accepts every report name plus `events-line` and `config`, and prints the schema document itself (not wrapped in the report envelope).
+
 ## Markdown
 
 ```bash

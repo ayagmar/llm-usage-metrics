@@ -48,19 +48,20 @@ llm-usage doctor
 
 ## Reports
 
-| Question                                                  | Command                                |
-| --------------------------------------------------------- | -------------------------------------- |
-| How much did I use by day, week, or month?                | `llm-usage daily`, `weekly`, `monthly` |
-| How did one period change from another?                   | `llm-usage compare`                    |
-| Which conversations or repositories used the most?        | `llm-usage session`                    |
-| How is daily usage moving?                                | `llm-usage trends`                     |
-| How does repo-attributed usage line up with Git activity? | `llm-usage efficiency monthly`         |
-| What would the same token mix cost on another model?      | `llm-usage optimize monthly`           |
-| What did the year add up to?                              | `llm-usage wrapped`                    |
-| How do I get the raw normalized events out?               | `llm-usage events`                     |
-| Which sources and local stores are healthy?               | `llm-usage doctor`                     |
-| Which departed files can leave the event ledger?          | `llm-usage prune`                      |
-| What configuration is active, and which file is it from?  | `llm-usage config show`, `config path` |
+| Question                                                  | Command                                   |
+| --------------------------------------------------------- | ----------------------------------------- |
+| How much did I use by day, week, or month?                | `llm-usage daily`, `weekly`, `monthly`    |
+| How did one period change from another?                   | `llm-usage compare`                       |
+| Which conversations or repositories used the most?        | `llm-usage session`                       |
+| How is daily usage moving?                                | `llm-usage trends`                        |
+| How does repo-attributed usage line up with Git activity? | `llm-usage efficiency monthly`            |
+| What would the same token mix cost on another model?      | `llm-usage optimize monthly`              |
+| What did the year add up to?                              | `llm-usage wrapped`                       |
+| How do I get the raw normalized events out?               | `llm-usage events`                        |
+| Which sources and local stores are healthy?               | `llm-usage doctor`                        |
+| Which departed files can leave the event ledger?          | `llm-usage prune`                         |
+| What configuration is active, and which file is it from?  | `llm-usage config show`, `config path`    |
+| Which JSON Schema does my installed version emit?         | `llm-usage schema usage`, `schema --list` |
 
 Common examples:
 

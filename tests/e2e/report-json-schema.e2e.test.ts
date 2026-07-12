@@ -15,6 +15,7 @@ import { buildUsageReport } from '../../src/cli/run-usage-report.js';
 import { buildWrappedReport } from '../../src/cli/run-wrapped-report.js';
 import { runDoctorReport } from '../../src/cli/run-doctor-report.js';
 import { runPruneReport } from '../../src/cli/run-prune-report.js';
+import { reportSchemas } from '../../src/cli/report-schema-registry.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import {
   closeEventStore,
@@ -112,18 +113,8 @@ afterAll(async () => {
 });
 
 describe('report json schema e2e', () => {
-  it('registers a validator for all nine reports', () => {
-    expect([...validators.keys()].sort()).toEqual([
-      'compare',
-      'doctor',
-      'efficiency',
-      'optimize',
-      'prune',
-      'session',
-      'trends',
-      'usage',
-      'wrapped',
-    ]);
+  it('registers a validator for every report in the schema registry', () => {
+    expect([...validators.keys()].sort()).toEqual(Object.keys(reportSchemas).sort());
   });
 
   it('validates usage output', async () => {

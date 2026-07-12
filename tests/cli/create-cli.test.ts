@@ -19,7 +19,7 @@ afterEach(async () => {
 });
 
 describe('createCli', () => {
-  it('registers daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, doctor, prune, and config commands', () => {
+  it('registers daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, doctor, prune, config, and schema commands', () => {
     const cli = createCli();
 
     expect(cli.name()).toBe('llm-usage');
@@ -37,6 +37,7 @@ describe('createCli', () => {
       'doctor',
       'prune',
       'config',
+      'schema',
     ]);
   });
 
@@ -105,7 +106,9 @@ describe('createCli', () => {
 
   it('includes quiet on every report command', () => {
     const cli = createCli();
-    const reportCommands = cli.commands.filter((command) => command.name() !== 'config');
+    const reportCommands = cli.commands.filter(
+      (command) => !['config', 'schema'].includes(command.name()),
+    );
 
     for (const command of reportCommands) {
       expect(command.options.some((option) => option.long === '--quiet')).toBe(true);
