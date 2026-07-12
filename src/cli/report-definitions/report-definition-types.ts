@@ -7,6 +7,7 @@ export type SharedOptionProfile =
   | 'trends'
   | 'session'
   | 'wrapped'
+  | 'events'
   | 'doctor';
 
 export type ReportHelpExample = {

@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 
 import type {
+  EventsCommandOptions,
   CompareCommandOptions,
   DoctorCommandOptions,
   EfficiencyCommandOptions,
@@ -19,6 +20,7 @@ import { runTrendsReport } from '../run-trends-report.js';
 import { runUsageReport } from '../run-usage-report.js';
 import { runDoctorReport } from '../run-doctor-report.js';
 import { runPruneReport } from '../run-prune-report.js';
+import { runEventsReport } from '../run-events-report.js';
 import { runWrappedReport } from '../run-wrapped-report.js';
 import type { ReportGranularity } from '../../utils/time-buckets.js';
 import {
@@ -434,6 +436,34 @@ const pruneReportDefinition: ReportRuntimeDefinition = {
   },
 };
 
+const eventsReportDefinition: ReportRuntimeDefinition = {
+  meta: {
+    commandName: 'events',
+    docsLabel: 'events',
+    kind: 'specialized',
+    description: 'Export normalized usage events as JSONL or CSV',
+    sharedOptionProfile: 'events',
+    helpExamples: [
+      {
+        command: 'llm-usage events --format jsonl > events.jsonl',
+        includeInRootHelp: true,
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage events --format csv --since 2026-01-01',
+        includeInCliReference: true,
+      },
+    ],
+  },
+  register(command) {
+    command
+      .option('--format <name>', 'Export format: jsonl | csv', 'jsonl')
+      .action((options: EventsCommandOptions) => runEventsReport(options));
+
+    return command;
+  },
+};
+
 const reportDefinitions = [
   createUsageReportDefinition('daily'),
   createUsageReportDefinition('weekly'),
@@ -444,6 +474,7 @@ const reportDefinitions = [
   trendsReportDefinition,
   sessionReportDefinition,
   wrappedReportDefinition,
+  eventsReportDefinition,
   doctorReportDefinition,
   pruneReportDefinition,
 ] as const satisfies readonly ReportRuntimeDefinition[];

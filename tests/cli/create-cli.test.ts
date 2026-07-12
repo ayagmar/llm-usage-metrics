@@ -19,7 +19,7 @@ afterEach(async () => {
 });
 
 describe('createCli', () => {
-  it('registers daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, doctor, prune, and config commands', () => {
+  it('registers daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, doctor, prune, and config commands', () => {
     const cli = createCli();
 
     expect(cli.name()).toBe('llm-usage');
@@ -33,6 +33,7 @@ describe('createCli', () => {
       'trends',
       'session',
       'wrapped',
+      'events',
       'doctor',
       'prune',
       'config',
@@ -365,10 +366,12 @@ describe('createCli', () => {
       'trends',
       'session',
       'wrapped',
+      'events',
       'doctor',
       'prune',
     ]);
     expect(getCliReferenceExamples()).toContain('llm-usage trends');
+    expect(getCliReferenceExamples()).toContain('llm-usage events --format jsonl > events.jsonl');
     expect(getCliReferenceExamples()).toContain('llm-usage compare');
     expect(getCliReferenceExamples()).toContain(
       'llm-usage compare --since 2026-06-01 --until 2026-06-30 --vs-since 2026-05-01 --vs-until 2026-05-31',

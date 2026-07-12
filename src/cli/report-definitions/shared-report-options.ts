@@ -78,6 +78,16 @@ export const sharedOptionProfileConfig = {
     includeShare: true,
     includeTimezone: true,
   },
+  events: {
+    includeDateFilters: true,
+    includeMarkdown: false,
+    includePerModelColumns: false,
+    includePricing: true,
+    includeProviderModelFilters: true,
+    includeHistory: true,
+    includeShare: false,
+    includeTimezone: true,
+  },
   doctor: {
     includeDateFilters: false,
     includeMarkdown: false,

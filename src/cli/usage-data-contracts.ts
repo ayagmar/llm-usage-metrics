@@ -132,6 +132,10 @@ export type WrappedCommandOptions = SharedOptionsForProfile<'wrapped'> & {
   year?: string;
 };
 
+export type EventsCommandOptions = SharedOptionsForProfile<'events'> & {
+  format?: string;
+};
+
 export type DoctorCommandOptions = SharedOptionsForProfile<'doctor'>;
 
 export type PruneCommandOptions = DoctorCommandOptions & {

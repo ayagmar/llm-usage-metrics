@@ -25,6 +25,7 @@ Commands:
 - `trends`
 - `session`
 - `wrapped`
+- `events`
 - `doctor`
 - `prune`
 - `config <init>`
@@ -49,38 +50,39 @@ Generated from root + command help output.
 | `--departed-before` | - | `<YYYY-MM-DD>` | Select departed files whose newest event timestamp is strictly before this UTC date \(prune only\) |
 | `--droid-dir` | - | `<path>` | Path to Droid sessions directory |
 | `--force` | - | - | Overwrite an existing config file \(config only\) |
+| `--format` | - | `<name>` | Export format: jsonl \| csv \(default: "jsonl"\) \(events only\) |
 | `--gemini-dir` | - | `<path>` | Path to .gemini directory |
 | `--goose-db` | - | `<path>` | Path to Goose SQLite DB |
-| `--history` | - | - | include usage from files that no longer exist on disk \(from the local event store\) \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped only\) |
+| `--history` | - | - | include usage from files that no longer exist on disk \(from the local event store\) \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
 | `--id` | - | `<session-id>` | Show only sessions whose id contains the value \(case-insensitive; repeatable or comma-separated\) \(session only\) |
-| `--ignore-pricing-failures` | - | - | Continue without estimated costs when pricing cannot be loaded \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped only\) |
+| `--ignore-pricing-failures` | - | - | Continue without estimated costs when pricing cannot be loaded \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
 | `--include-merge-commits` | - | - | Include merge commits in Git outcome metrics \(efficiency only\) |
 | `--json` | - | - | Render output as JSON |
 | `--kilocode-dir` | - | `<path>` | Path to KiloCode tasks directory |
 | `--kimi-dir` | - | `<path>` | Path to Kimi sessions directory |
 | `--markdown` | - | - | Render output as Markdown table \(daily, weekly, monthly, compare, efficiency, optimize, session only\) |
 | `--metric` | - | `<name>` | Trend metric: cost \| tokens \(default: "cost"\) \(trends only\) |
-| `--model` | - | `<name>` | Filter by model \(repeatable/comma-separated; exact when exact match exists after source/provider/date filters, otherwise substring\) \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped only\) |
+| `--model` | - | `<name>` | Filter by model \(repeatable/comma-separated; exact when exact match exists after source/provider/date filters, otherwise substring\) \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
 | `--openclaw-dir` | - | `<path>` | Path to OpenClaw agents directory |
 | `--opencode-db` | - | `<path>` | Path to OpenCode SQLite DB |
 | `--per-model-columns` | - | - | Render per-model metrics as multiline aligned table columns \(terminal/Markdown\) \(usage reports only\) |
 | `--pi-dir` | - | `<path>` | Path to .pi sessions directory |
-| `--pricing-offline` | - | - | Use cached LiteLLM pricing only \(no network fetch\) \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped only\) |
-| `--pricing-overrides` | - | `<path>` | Path to a JSON file of per-model pricing overrides \(takes precedence over LiteLLM\) \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped only\) |
-| `--pricing-url` | - | `<url>` | Override LiteLLM pricing source URL \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped only\) |
-| `--provider` | - | `<name>` | Billing-provider filter \(normalized to billing entity; e.g. openai, anthropic, google, moonshot\) \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped only\) |
+| `--pricing-offline` | - | - | Use cached LiteLLM pricing only \(no network fetch\) \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
+| `--pricing-overrides` | - | `<path>` | Path to a JSON file of per-model pricing overrides \(takes precedence over LiteLLM\) \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
+| `--pricing-url` | - | `<url>` | Override LiteLLM pricing source URL \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
+| `--provider` | - | `<name>` | Billing-provider filter \(normalized to billing entity; e.g. openai, anthropic, google, moonshot\) \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
 | `--quiet` | - | - | Suppress informational stderr output \(warnings still print\) |
 | `--qwen-dir` | - | `<path>` | Path to Qwen projects directory |
 | `--repo-dir` | - | `<path>` | Path to repository for Git outcome metrics \(efficiency only\) |
 | `--roocode-dir` | - | `<path>` | Path to RooCode tasks directory |
 | `--share` | - | - | Write a share SVG image to the current directory \(daily, weekly, monthly, efficiency, optimize, trends, wrapped only\) |
-| `--since` | - | `<YYYY-MM-DD>` | Inclusive start date filter \(daily, weekly, monthly, compare, efficiency, optimize, trends, session only\) |
+| `--since` | - | `<YYYY-MM-DD>` | Inclusive start date filter \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, events only\) |
 | `--source` | - | `<name>` | Filter by source id \(repeatable or comma-separated, supported sources \(16\): pi, codex, gemini, droid, opencode, openclaw, claude, copilot, goose, amp, qwen, kimi, cline, roocode, kilocode, antigravity\) |
 | `--source-dir` | - | `<source-id=path>` | Override source directory for directory-backed sources \(repeatable\) |
 | `--suppressed` | - | - | Select departed files that --history already suppresses \(prune only\) |
-| `--timezone` | - | `<iana>` | Timezone for bucketing \(default: system timezone\) \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped only\) |
+| `--timezone` | - | `<iana>` | Timezone for bucketing \(default: system timezone\) \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
 | `--top` | - | `<n>` | optimize: Show only the top N cheapest candidates \(positive integer\); session: Show only the top N rows by cost \(default 20; 0 shows all\) |
-| `--until` | - | `<YYYY-MM-DD>` | Inclusive end date filter \(daily, weekly, monthly, compare, efficiency, optimize, trends, session only\) |
+| `--until` | - | `<YYYY-MM-DD>` | Inclusive end date filter \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, events only\) |
 | `--vs-since` | - | `<date>` | Inclusive start date for the baseline comparison window \(compare only\) |
 | `--vs-until` | - | `<date>` | Inclusive end date for the baseline comparison window \(compare only\) |
 | `--year` | - | `<YYYY>` | Year to recap \(2020-2100; defaults to current local year\) \(wrapped only\) |
@@ -118,6 +120,8 @@ llm-usage session --markdown
 llm-usage wrapped
 llm-usage wrapped --year 2026 --share
 llm-usage wrapped --year 2026 --json
+llm-usage events --format jsonl > events.jsonl
+llm-usage events --format csv --since 2026-01-01
 llm-usage doctor
 llm-usage doctor --json
 llm-usage prune --suppressed
