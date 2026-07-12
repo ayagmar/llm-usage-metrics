@@ -10,6 +10,11 @@ export type SourceCapabilities = {
   fixedProviderRoots?: readonly string[];
 };
 
+export type SourceAdapterPathOptions = {
+  dir?: string;
+  requireDir?: boolean;
+};
+
 export type SourceParseFileDiagnostics<Event extends UsageEvent = UsageEvent> = {
   events: Event[];
   skippedRows: number;

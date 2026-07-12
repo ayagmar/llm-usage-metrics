@@ -15,11 +15,13 @@ import {
   toTokenCount,
 } from '../parsing-utils.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
-import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
+import type {
+  SourceAdapter,
+  SourceAdapterPathOptions,
+  SourceParseFileDiagnostics,
+} from '../source-adapter.js';
 
-export type AmpSourceAdapterOptions = {
-  threadsDir?: string;
-  requireThreadsDir?: boolean;
+export type AmpSourceAdapterOptions = SourceAdapterPathOptions & {
   env?: NodeJS.ProcessEnv;
   homeDir?: string;
 };
@@ -308,13 +310,13 @@ export class AmpSourceAdapter implements SourceAdapter {
   public readonly id = 'amp' as const;
 
   private readonly threadsDir: string;
-  private readonly requireThreadsDir: boolean;
+  private readonly requireDir: boolean;
 
   public constructor(options: AmpSourceAdapterOptions = {}) {
     this.threadsDir =
-      options.threadsDir ??
+      options.dir ??
       resolveDefaultAmpThreadsDir(options.env ?? process.env, options.homeDir ?? os.homedir());
-    this.requireThreadsDir = options.requireThreadsDir ?? false;
+    this.requireDir = options.requireDir ?? false;
   }
 
   private getNormalizedThreadsDir(): string {
@@ -328,11 +330,11 @@ export class AmpSourceAdapter implements SourceAdapter {
   public async discoverFiles(): Promise<string[]> {
     const normalizedDir = this.getNormalizedThreadsDir();
 
-    if (this.requireThreadsDir && !(await pathReadable(normalizedDir))) {
+    if (this.requireDir && !(await pathReadable(normalizedDir))) {
       throw new Error(`Amp threads directory is missing or unreadable: ${normalizedDir}`);
     }
 
-    if (this.requireThreadsDir && !(await pathIsDirectory(normalizedDir))) {
+    if (this.requireDir && !(await pathIsDirectory(normalizedDir))) {
       throw new Error(`Amp threads directory is not a directory: ${normalizedDir}`);
     }
 

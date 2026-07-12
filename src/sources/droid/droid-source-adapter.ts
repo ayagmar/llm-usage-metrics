@@ -16,14 +16,15 @@ import {
   toNumberLike,
 } from '../parsing-utils.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
-import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
+import type {
+  SourceAdapter,
+  SourceAdapterPathOptions,
+  SourceParseFileDiagnostics,
+} from '../source-adapter.js';
 
 const defaultSessionsDir = path.join(os.homedir(), '.factory', 'sessions');
 
-export type DroidSourceAdapterOptions = {
-  sessionsDir?: string;
-  requireSessionsDir?: boolean;
-};
+export type DroidSourceAdapterOptions = SourceAdapterPathOptions;
 
 const DROID_SESSION_START_LINE_PATTERN = /"type"\s*:\s*"session_start"/u;
 const DROID_MESSAGE_LINE_PATTERN = /"type"\s*:\s*"message"/u;
@@ -59,11 +60,11 @@ export class DroidSourceAdapter implements SourceAdapter {
   public readonly id = 'droid' as const;
 
   private readonly sessionsDir: string;
-  private readonly requireSessionsDir: boolean;
+  private readonly requireDir: boolean;
 
   public constructor(options: DroidSourceAdapterOptions = {}) {
-    this.sessionsDir = options.sessionsDir ?? defaultSessionsDir;
-    this.requireSessionsDir = options.requireSessionsDir ?? false;
+    this.sessionsDir = options.dir ?? defaultSessionsDir;
+    this.requireDir = options.requireDir ?? false;
   }
 
   private getNormalizedSessionsDir(): string {
@@ -77,11 +78,11 @@ export class DroidSourceAdapter implements SourceAdapter {
   public async discoverFiles(): Promise<string[]> {
     const normalizedDir = this.getNormalizedSessionsDir();
 
-    if (this.requireSessionsDir && !(await pathReadable(normalizedDir))) {
+    if (this.requireDir && !(await pathReadable(normalizedDir))) {
       throw new Error(`Droid sessions directory is missing or unreadable: ${normalizedDir}`);
     }
 
-    if (this.requireSessionsDir && !(await pathIsDirectory(normalizedDir))) {
+    if (this.requireDir && !(await pathIsDirectory(normalizedDir))) {
       throw new Error(`Droid sessions directory is not a directory: ${normalizedDir}`);
     }
 

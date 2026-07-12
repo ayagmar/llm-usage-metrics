@@ -31,7 +31,7 @@ describe('PiSourceAdapter', () => {
     await writeFile(second, '{}\n', 'utf8');
     await writeFile(first, '{}\n', 'utf8');
 
-    const adapter = new PiSourceAdapter({ sessionsDir: root });
+    const adapter = new PiSourceAdapter({ dir: root });
 
     await expect(adapter.discoverFiles()).resolves.toEqual([first, second]);
   });
@@ -69,15 +69,15 @@ describe('PiSourceAdapter', () => {
     await writeFile(path.join(ompRoot, 'b.jsonl'), '{}\n', 'utf8');
 
     const adapter = new PiSourceAdapter({
-      sessionsDir: piRoot,
+      dir: piRoot,
       defaultRootDirs: [piRoot, ompRoot],
     });
 
     await expect(adapter.discoverFiles()).resolves.toEqual([piFile]);
 
     const missingAdapter = new PiSourceAdapter({
-      sessionsDir: path.join(ompRoot, 'missing'),
-      requireSessionsDir: true,
+      dir: path.join(ompRoot, 'missing'),
+      requireDir: true,
     });
 
     await expect(missingAdapter.discoverFiles()).rejects.toThrow(
@@ -178,7 +178,7 @@ describe('PiSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new PiSourceAdapter({ sessionsDir: root });
+    const adapter = new PiSourceAdapter({ dir: root });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toHaveLength(2);
@@ -224,7 +224,7 @@ describe('PiSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new PiSourceAdapter({ sessionsDir: root });
+    const adapter = new PiSourceAdapter({ dir: root });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toHaveLength(1);
@@ -258,7 +258,7 @@ describe('PiSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new PiSourceAdapter({ sessionsDir: root });
+    const adapter = new PiSourceAdapter({ dir: root });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toHaveLength(1);
@@ -292,7 +292,7 @@ describe('PiSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new PiSourceAdapter({ sessionsDir: root });
+    const adapter = new PiSourceAdapter({ dir: root });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toHaveLength(1);
@@ -325,7 +325,7 @@ describe('PiSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new PiSourceAdapter({ sessionsDir: root });
+    const adapter = new PiSourceAdapter({ dir: root });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toHaveLength(1);
@@ -370,7 +370,7 @@ describe('PiSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new PiSourceAdapter({ sessionsDir: root });
+    const adapter = new PiSourceAdapter({ dir: root });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toHaveLength(1);
@@ -404,7 +404,7 @@ describe('PiSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new PiSourceAdapter({ sessionsDir: root });
+    const adapter = new PiSourceAdapter({ dir: root });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toEqual([]);
@@ -441,7 +441,7 @@ describe('PiSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new PiSourceAdapter({ sessionsDir: root });
+    const adapter = new PiSourceAdapter({ dir: root });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toEqual([]);
@@ -474,7 +474,7 @@ describe('PiSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new PiSourceAdapter({ sessionsDir: root });
+    const adapter = new PiSourceAdapter({ dir: root });
     const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
 
     expect(diagnostics.events).toEqual([]);
@@ -509,7 +509,7 @@ describe('PiSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new PiSourceAdapter({ sessionsDir: root });
+    const adapter = new PiSourceAdapter({ dir: root });
     const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
 
     expect(diagnostics.events).toEqual([]);
@@ -543,7 +543,7 @@ describe('PiSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new PiSourceAdapter({ sessionsDir: root });
+    const adapter = new PiSourceAdapter({ dir: root });
     const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
 
     expect(diagnostics.events).toEqual([]);
@@ -558,7 +558,7 @@ describe('PiSourceAdapter', () => {
 
     await writeFile(filePath, ['{"type":"message",', '{"type":"ignored",'].join('\n'), 'utf8');
 
-    const adapter = new PiSourceAdapter({ sessionsDir: root });
+    const adapter = new PiSourceAdapter({ dir: root });
     const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
 
     expect(diagnostics.events).toEqual([]);
@@ -594,7 +594,7 @@ describe('PiSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new PiSourceAdapter({ sessionsDir: root });
+    const adapter = new PiSourceAdapter({ dir: root });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toHaveLength(1);

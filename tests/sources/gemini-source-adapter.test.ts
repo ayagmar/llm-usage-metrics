@@ -30,7 +30,7 @@ describe('GeminiSourceAdapter', () => {
 
   describe('discoverFiles', () => {
     it('discovers only session files inside tmp/*/chats', async () => {
-      const adapter = new GeminiSourceAdapter({ geminiDir: fixturesDir });
+      const adapter = new GeminiSourceAdapter({ dir: fixturesDir });
 
       await expect(adapter.discoverFiles()).resolves.toEqual([
         path.join(fixturesDir, 'tmp', 'legacy-project', 'chats', 'nested-no-project-hash.json'),
@@ -40,7 +40,7 @@ describe('GeminiSourceAdapter', () => {
 
     it('returns empty array when tmp directory is missing', async () => {
       const adapter = new GeminiSourceAdapter({
-        geminiDir: path.join(fixturesDir, 'missing-root'),
+        dir: path.join(fixturesDir, 'missing-root'),
       });
 
       await expect(adapter.discoverFiles()).resolves.toEqual([]);
@@ -51,7 +51,7 @@ describe('GeminiSourceAdapter', () => {
       tempDirs.push(tempDir);
       await writeFile(path.join(tempDir, 'tmp'), 'not-a-directory', 'utf8');
 
-      const adapter = new GeminiSourceAdapter({ geminiDir: tempDir });
+      const adapter = new GeminiSourceAdapter({ dir: tempDir });
 
       await expect(adapter.discoverFiles()).rejects.toThrow();
     });
@@ -74,7 +74,7 @@ describe('GeminiSourceAdapter', () => {
 
     it('prefers an explicit geminiDir over GEMINI_CLI_HOME', async () => {
       const adapter = new GeminiSourceAdapter({
-        geminiDir: '/tmp/explicit-gemini',
+        dir: '/tmp/explicit-gemini',
         env: { GEMINI_CLI_HOME: '/tmp/env-gemini' },
       });
 
@@ -92,14 +92,14 @@ describe('GeminiSourceAdapter', () => {
     });
 
     it('validates explicit directory options', async () => {
-      const blankDirAdapter = new GeminiSourceAdapter({ geminiDir: '   ' });
+      const blankDirAdapter = new GeminiSourceAdapter({ dir: '   ' });
       await expect(blankDirAdapter.discoverFiles()).rejects.toThrow(
         'Gemini directory must be a non-empty path',
       );
 
       const missingRequiredDirAdapter = new GeminiSourceAdapter({
-        geminiDir: path.join(fixturesDir, 'missing-root'),
-        requireGeminiDir: true,
+        dir: path.join(fixturesDir, 'missing-root'),
+        requireDir: true,
       });
       await expect(missingRequiredDirAdapter.discoverFiles()).rejects.toThrow(
         'Gemini directory is missing or unreadable',
@@ -118,7 +118,7 @@ describe('GeminiSourceAdapter', () => {
         'utf8',
       );
 
-      const adapter = new GeminiSourceAdapter({ geminiDir });
+      const adapter = new GeminiSourceAdapter({ dir: geminiDir });
 
       await expect(adapter.discoverFiles()).resolves.toEqual([
         path.join(geminiDir, 'tmp', 'project-a', 'chats', 'session.json'),
@@ -132,7 +132,7 @@ describe('GeminiSourceAdapter', () => {
       await mkdir(path.join(geminiDir, 'tmp'), { recursive: true });
       await writeFile(path.join(geminiDir, 'tmp', 'not-a-project'), 'x', 'utf8');
 
-      const adapter = new GeminiSourceAdapter({ geminiDir });
+      const adapter = new GeminiSourceAdapter({ dir: geminiDir });
 
       await expect(adapter.discoverFiles()).resolves.toEqual([]);
     });
@@ -159,7 +159,7 @@ describe('GeminiSourceAdapter', () => {
         await writeFile(sessionFilePath, '{"sessionId":"session-001","messages":[]}', 'utf8');
         await symlink(externalProjectDir, linkedProjectDir);
 
-        const adapter = new GeminiSourceAdapter({ geminiDir });
+        const adapter = new GeminiSourceAdapter({ dir: geminiDir });
 
         await expect(adapter.discoverFiles()).resolves.toEqual([sessionFilePath]);
       },
@@ -168,7 +168,7 @@ describe('GeminiSourceAdapter', () => {
 
   describe('parseFile', () => {
     it('parses usage and maps token fields correctly', async () => {
-      const adapter = new GeminiSourceAdapter({ geminiDir: fixturesDir });
+      const adapter = new GeminiSourceAdapter({ dir: fixturesDir });
       const filePath = path.join(fixturesDir, 'session-with-usage.json');
       const events = await adapter.parseFile(filePath);
 
@@ -199,7 +199,7 @@ describe('GeminiSourceAdapter', () => {
     });
 
     it('computes total tokens when source total is missing', async () => {
-      const adapter = new GeminiSourceAdapter({ geminiDir: fixturesDir });
+      const adapter = new GeminiSourceAdapter({ dir: fixturesDir });
       const filePath = path.join(fixturesDir, 'session-no-project-hash.json');
       const events = await adapter.parseFile(filePath);
 
@@ -234,7 +234,7 @@ describe('GeminiSourceAdapter', () => {
         'utf8',
       );
 
-      const adapter = new GeminiSourceAdapter({ geminiDir: tempDir });
+      const adapter = new GeminiSourceAdapter({ dir: tempDir });
       const events = await adapter.parseFile(filePath);
 
       expect(events).toHaveLength(1);
@@ -242,7 +242,7 @@ describe('GeminiSourceAdapter', () => {
     });
 
     it('does not fabricate repoRoot when project mapping is unavailable', async () => {
-      const adapter = new GeminiSourceAdapter({ geminiDir: fixturesDir });
+      const adapter = new GeminiSourceAdapter({ dir: fixturesDir });
       const filePath = path.join(fixturesDir, 'session-no-project-hash.json');
       const events = await adapter.parseFile(filePath);
 
@@ -278,7 +278,7 @@ describe('GeminiSourceAdapter', () => {
         'utf8',
       );
 
-      const adapter = new GeminiSourceAdapter({ geminiDir });
+      const adapter = new GeminiSourceAdapter({ dir: geminiDir });
       const events = await adapter.parseFile(filePath);
 
       expect(events).toHaveLength(1);
@@ -321,7 +321,7 @@ describe('GeminiSourceAdapter', () => {
         'utf8',
       );
 
-      const adapter = new GeminiSourceAdapter({ geminiDir });
+      const adapter = new GeminiSourceAdapter({ dir: geminiDir });
       const events = await adapter.parseFile(filePath);
 
       expect(events).toHaveLength(1);
@@ -329,7 +329,7 @@ describe('GeminiSourceAdapter', () => {
     });
 
     it('resolves repoRoot from tmp directory identifier when present in projects.json', async () => {
-      const adapter = new GeminiSourceAdapter({ geminiDir: fixturesDir });
+      const adapter = new GeminiSourceAdapter({ dir: fixturesDir });
       const filePath = path.join(
         fixturesDir,
         'tmp',
@@ -396,7 +396,7 @@ describe('GeminiSourceAdapter', () => {
           'utf8',
         );
 
-        const adapter = new GeminiSourceAdapter({ geminiDir });
+        const adapter = new GeminiSourceAdapter({ dir: geminiDir });
         const [discoveredFilePath] = await adapter.discoverFiles();
         const events = await adapter.parseFile(discoveredFilePath);
 
@@ -407,7 +407,7 @@ describe('GeminiSourceAdapter', () => {
     );
 
     it('skips messages without billable token usage', async () => {
-      const adapter = new GeminiSourceAdapter({ geminiDir: fixturesDir });
+      const adapter = new GeminiSourceAdapter({ dir: fixturesDir });
 
       await expect(
         adapter.parseFile(path.join(fixturesDir, 'session-zero-tokens.json')),
@@ -421,7 +421,7 @@ describe('GeminiSourceAdapter', () => {
     });
 
     it('falls back to filename when sessionId is missing', async () => {
-      const adapter = new GeminiSourceAdapter({ geminiDir: fixturesDir });
+      const adapter = new GeminiSourceAdapter({ dir: fixturesDir });
       const events = await adapter.parseFile(
         path.join(fixturesDir, 'session-missing-sessionid.json'),
       );
@@ -431,7 +431,7 @@ describe('GeminiSourceAdapter', () => {
     });
 
     it('can parse files even when geminiDir option is blank', async () => {
-      const adapter = new GeminiSourceAdapter({ geminiDir: '   ' });
+      const adapter = new GeminiSourceAdapter({ dir: '   ' });
       const events = await adapter.parseFile(path.join(fixturesDir, 'session-with-usage.json'));
 
       expect(events).toHaveLength(2);
@@ -439,13 +439,13 @@ describe('GeminiSourceAdapter', () => {
     });
 
     it('returns no parse dependencies when geminiDir is blank', async () => {
-      const adapter = new GeminiSourceAdapter({ geminiDir: '   ' });
+      const adapter = new GeminiSourceAdapter({ dir: '   ' });
 
       await expect(adapter.getParseDependencies()).resolves.toEqual([]);
     });
 
     it('returns projects.json as a parse dependency when geminiDir is configured', async () => {
-      const adapter = new GeminiSourceAdapter({ geminiDir: fixturesDir });
+      const adapter = new GeminiSourceAdapter({ dir: fixturesDir });
 
       await expect(adapter.getParseDependencies()).resolves.toEqual([
         path.join(fixturesDir, 'projects.json'),
@@ -463,7 +463,7 @@ describe('GeminiSourceAdapter', () => {
         'utf8',
       );
 
-      const adapter = new GeminiSourceAdapter({ geminiDir: tempDir });
+      const adapter = new GeminiSourceAdapter({ dir: tempDir });
 
       await writeFile(
         path.join(tempDir, 'projects.json'),
@@ -495,7 +495,7 @@ describe('GeminiSourceAdapter', () => {
       const secondParse = await adapter.parseFile(sessionFilePath);
       expect(secondParse[0]?.repoRoot).toBe('/tmp/first-repo');
 
-      const nextAdapter = new GeminiSourceAdapter({ geminiDir: tempDir });
+      const nextAdapter = new GeminiSourceAdapter({ dir: tempDir });
       const nextAdapterParse = await nextAdapter.parseFile(sessionFilePath);
       expect(nextAdapterParse[0]?.repoRoot).toBe('/tmp/second-repo');
     });
@@ -512,7 +512,7 @@ describe('GeminiSourceAdapter', () => {
       );
       await mkdir(path.join(tempDir, 'projects.json'));
 
-      const adapter = new GeminiSourceAdapter({ geminiDir: tempDir });
+      const adapter = new GeminiSourceAdapter({ dir: tempDir });
 
       await expect(adapter.parseFile(sessionFilePath)).rejects.toThrow();
     });
@@ -520,7 +520,7 @@ describe('GeminiSourceAdapter', () => {
 
   describe('parseFileWithDiagnostics', () => {
     it('tracks skipped reason counts', async () => {
-      const adapter = new GeminiSourceAdapter({ geminiDir: fixturesDir });
+      const adapter = new GeminiSourceAdapter({ dir: fixturesDir });
       const result = await adapter.parseFileWithDiagnostics(
         path.join(fixturesDir, 'session-with-usage.json'),
       );
@@ -531,7 +531,7 @@ describe('GeminiSourceAdapter', () => {
     });
 
     it('reports parse and shape errors', async () => {
-      const adapter = new GeminiSourceAdapter({ geminiDir: fixturesDir });
+      const adapter = new GeminiSourceAdapter({ dir: fixturesDir });
 
       const malformed = await adapter.parseFileWithDiagnostics(
         path.join(fixturesDir, 'invalid-json.txt'),
@@ -557,7 +557,7 @@ describe('GeminiSourceAdapter', () => {
     });
 
     it('reports invalid timestamp rows', async () => {
-      const adapter = new GeminiSourceAdapter({ geminiDir: fixturesDir });
+      const adapter = new GeminiSourceAdapter({ dir: fixturesDir });
       const result = await adapter.parseFileWithDiagnostics(
         path.join(fixturesDir, 'session-invalid-timestamp.json'),
       );
@@ -579,7 +579,7 @@ describe('GeminiSourceAdapter', () => {
         'utf8',
       );
 
-      const adapter = new GeminiSourceAdapter({ geminiDir: fixturesDir });
+      const adapter = new GeminiSourceAdapter({ dir: fixturesDir });
       const result = await adapter.parseFileWithDiagnostics(filePath);
 
       expect(result.events).toHaveLength(0);
@@ -587,7 +587,7 @@ describe('GeminiSourceAdapter', () => {
     });
 
     it('reports event creation failures when fallback sessionId is invalid', async () => {
-      const adapter = new GeminiSourceAdapter({ geminiDir: fixturesDir });
+      const adapter = new GeminiSourceAdapter({ dir: fixturesDir });
       const result = await adapter.parseFileWithDiagnostics(path.join(fixturesDir, '   .json'));
 
       expect(result.events).toHaveLength(0);

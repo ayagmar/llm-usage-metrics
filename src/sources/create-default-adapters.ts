@@ -42,6 +42,11 @@ export type CreateDefaultAdaptersOptions = {
 // so the manifest and the parsed CLI options can never disagree on their names.
 type SourceOverrideOptionKey = Exclude<keyof CreateDefaultAdaptersOptions, 'sourceDir'>;
 
+type ResolvedSourcePath = {
+  path: string | undefined;
+  requireExistingPath: boolean;
+};
+
 type SourceRegistration = {
   id: string;
   format: SourceStorageFormat;
@@ -51,11 +56,13 @@ type SourceRegistration = {
     flag: string;
     help: string;
   };
-  create: (
-    options: CreateDefaultAdaptersOptions,
-    sourceDirectoryOverrides: ReadonlyMap<string, string>,
-  ) => SourceAdapter;
+  create: (resolved: ResolvedSourcePath) => SourceAdapter;
 };
+
+const dirOptions = ({ path, requireExistingPath }: ResolvedSourcePath) => ({
+  dir: path,
+  requireDir: requireExistingPath,
+});
 
 const sourceRegistrations: readonly SourceRegistration[] = [
   {
@@ -63,14 +70,7 @@ const sourceRegistrations: readonly SourceRegistration[] = [
     format: 'jsonl',
     supportsSourceDir: true,
     option: { key: 'piDir', flag: '--pi-dir <path>', help: 'Path to .pi sessions directory' },
-    create: (options, sourceDirectoryOverrides) => {
-      const directoryConfig = resolveDirectoryConfig('pi', options.piDir, sourceDirectoryOverrides);
-
-      return new PiSourceAdapter({
-        sessionsDir: directoryConfig.path,
-        requireSessionsDir: directoryConfig.requireExistingPath,
-      });
-    },
+    create: (resolved) => new PiSourceAdapter(dirOptions(resolved)),
   },
   {
     id: 'codex',
@@ -81,36 +81,14 @@ const sourceRegistrations: readonly SourceRegistration[] = [
       flag: '--codex-dir <path>',
       help: 'Path to .codex sessions directory',
     },
-    create: (options, sourceDirectoryOverrides) => {
-      const directoryConfig = resolveDirectoryConfig(
-        'codex',
-        options.codexDir,
-        sourceDirectoryOverrides,
-      );
-
-      return new CodexSourceAdapter({
-        sessionsDir: directoryConfig.path,
-        requireSessionsDir: directoryConfig.requireExistingPath,
-      });
-    },
+    create: (resolved) => new CodexSourceAdapter(dirOptions(resolved)),
   },
   {
     id: 'gemini',
     format: 'json',
     supportsSourceDir: true,
     option: { key: 'geminiDir', flag: '--gemini-dir <path>', help: 'Path to .gemini directory' },
-    create: (options, sourceDirectoryOverrides) => {
-      const directoryConfig = resolveDirectoryConfig(
-        'gemini',
-        options.geminiDir,
-        sourceDirectoryOverrides,
-      );
-
-      return new GeminiSourceAdapter({
-        geminiDir: directoryConfig.path,
-        requireGeminiDir: directoryConfig.requireExistingPath,
-      });
-    },
+    create: (resolved) => new GeminiSourceAdapter(dirOptions(resolved)),
   },
   {
     id: 'droid',
@@ -121,18 +99,7 @@ const sourceRegistrations: readonly SourceRegistration[] = [
       flag: '--droid-dir <path>',
       help: 'Path to Droid sessions directory',
     },
-    create: (options, sourceDirectoryOverrides) => {
-      const directoryConfig = resolveDirectoryConfig(
-        'droid',
-        options.droidDir,
-        sourceDirectoryOverrides,
-      );
-
-      return new DroidSourceAdapter({
-        sessionsDir: directoryConfig.path,
-        requireSessionsDir: directoryConfig.requireExistingPath,
-      });
-    },
+    create: (resolved) => new DroidSourceAdapter(dirOptions(resolved)),
   },
   {
     id: 'opencode',
@@ -143,10 +110,7 @@ const sourceRegistrations: readonly SourceRegistration[] = [
       flag: '--opencode-db <path>',
       help: 'Path to OpenCode SQLite DB',
     },
-    create: (options) =>
-      new OpenCodeSourceAdapter({
-        dbPath: options.opencodeDb,
-      }),
+    create: ({ path }) => new OpenCodeSourceAdapter({ dbPath: path }),
   },
   {
     id: 'openclaw',
@@ -157,18 +121,7 @@ const sourceRegistrations: readonly SourceRegistration[] = [
       flag: '--openclaw-dir <path>',
       help: 'Path to OpenClaw agents directory',
     },
-    create: (options, sourceDirectoryOverrides) => {
-      const directoryConfig = resolveDirectoryConfig(
-        'openclaw',
-        options.openclawDir,
-        sourceDirectoryOverrides,
-      );
-
-      return new OpenClawSourceAdapter({
-        agentsDir: directoryConfig.path,
-        requireAgentsDir: directoryConfig.requireExistingPath,
-      });
-    },
+    create: (resolved) => new OpenClawSourceAdapter(dirOptions(resolved)),
   },
   {
     id: 'claude',
@@ -179,18 +132,7 @@ const sourceRegistrations: readonly SourceRegistration[] = [
       flag: '--claude-dir <path>',
       help: 'Path to Claude projects directory',
     },
-    create: (options, sourceDirectoryOverrides) => {
-      const directoryConfig = resolveDirectoryConfig(
-        'claude',
-        options.claudeDir,
-        sourceDirectoryOverrides,
-      );
-
-      return new ClaudeSourceAdapter({
-        projectsDir: directoryConfig.path,
-        requireProjectsDir: directoryConfig.requireExistingPath,
-      });
-    },
+    create: (resolved) => new ClaudeSourceAdapter(dirOptions(resolved)),
   },
   {
     id: 'copilot',
@@ -201,102 +143,47 @@ const sourceRegistrations: readonly SourceRegistration[] = [
       flag: '--copilot-dir <path>',
       help: 'Path to GitHub Copilot OTEL directory',
     },
-    create: (options, sourceDirectoryOverrides) => {
-      const directoryConfig = resolveDirectoryConfig(
-        'copilot',
-        options.copilotDir,
-        sourceDirectoryOverrides,
-      );
-
-      return new CopilotSourceAdapter({
-        otelDir: directoryConfig.path,
-        requireOtelDir: directoryConfig.requireExistingPath,
-      });
-    },
+    create: (resolved) => new CopilotSourceAdapter(dirOptions(resolved)),
   },
   {
     id: 'goose',
     format: 'sqlite',
     supportsSourceDir: false,
     option: { key: 'gooseDb', flag: '--goose-db <path>', help: 'Path to Goose SQLite DB' },
-    create: (options) =>
-      new GooseSourceAdapter({
-        dbPath: options.gooseDb,
-      }),
+    create: ({ path }) => new GooseSourceAdapter({ dbPath: path }),
   },
   {
     id: 'amp',
     format: 'json',
     supportsSourceDir: true,
     option: { key: 'ampDir', flag: '--amp-dir <path>', help: 'Path to Amp threads directory' },
-    create: (options, sourceDirectoryOverrides) => {
-      const directoryConfig = resolveDirectoryConfig(
-        'amp',
-        options.ampDir,
-        sourceDirectoryOverrides,
-      );
-
-      return new AmpSourceAdapter({
-        threadsDir: directoryConfig.path,
-        requireThreadsDir: directoryConfig.requireExistingPath,
-      });
-    },
+    create: (resolved) => new AmpSourceAdapter(dirOptions(resolved)),
   },
   {
     id: 'qwen',
     format: 'jsonl',
     supportsSourceDir: true,
     option: { key: 'qwenDir', flag: '--qwen-dir <path>', help: 'Path to Qwen projects directory' },
-    create: (options, sourceDirectoryOverrides) => {
-      const directoryConfig = resolveDirectoryConfig(
-        'qwen',
-        options.qwenDir,
-        sourceDirectoryOverrides,
-      );
-
-      return new QwenSourceAdapter({
-        projectsDir: directoryConfig.path,
-        requireProjectsDir: directoryConfig.requireExistingPath,
-      });
-    },
+    create: (resolved) => new QwenSourceAdapter(dirOptions(resolved)),
   },
   {
     id: 'kimi',
     format: 'jsonl',
     supportsSourceDir: true,
     option: { key: 'kimiDir', flag: '--kimi-dir <path>', help: 'Path to Kimi sessions directory' },
-    create: (options, sourceDirectoryOverrides) => {
-      const directoryConfig = resolveDirectoryConfig(
-        'kimi',
-        options.kimiDir,
-        sourceDirectoryOverrides,
-      );
-
-      return new KimiSourceAdapter({
-        kimiDir: directoryConfig.path,
-        requireKimiDir: directoryConfig.requireExistingPath,
-      });
-    },
+    create: (resolved) => new KimiSourceAdapter(dirOptions(resolved)),
   },
   {
     id: 'cline',
     format: 'json',
     supportsSourceDir: true,
     option: { key: 'clineDir', flag: '--cline-dir <path>', help: 'Path to Cline tasks directory' },
-    create: (options, sourceDirectoryOverrides) => {
-      const directoryConfig = resolveDirectoryConfig(
-        'cline',
-        options.clineDir,
-        sourceDirectoryOverrides,
-      );
-
-      return createClineFamilyAdapter({
+    create: (resolved) =>
+      createClineFamilyAdapter({
         id: 'cline',
         extensionId: CLINE_EXTENSION_IDS.cline,
-        tasksDir: directoryConfig.path,
-        requireTasksDir: directoryConfig.requireExistingPath,
-      });
-    },
+        ...dirOptions(resolved),
+      }),
   },
   {
     id: 'roocode',
@@ -307,20 +194,12 @@ const sourceRegistrations: readonly SourceRegistration[] = [
       flag: '--roocode-dir <path>',
       help: 'Path to RooCode tasks directory',
     },
-    create: (options, sourceDirectoryOverrides) => {
-      const directoryConfig = resolveDirectoryConfig(
-        'roocode',
-        options.roocodeDir,
-        sourceDirectoryOverrides,
-      );
-
-      return createClineFamilyAdapter({
+    create: (resolved) =>
+      createClineFamilyAdapter({
         id: 'roocode',
         extensionId: CLINE_EXTENSION_IDS.roocode,
-        tasksDir: directoryConfig.path,
-        requireTasksDir: directoryConfig.requireExistingPath,
-      });
-    },
+        ...dirOptions(resolved),
+      }),
   },
   {
     id: 'kilocode',
@@ -331,20 +210,12 @@ const sourceRegistrations: readonly SourceRegistration[] = [
       flag: '--kilocode-dir <path>',
       help: 'Path to KiloCode tasks directory',
     },
-    create: (options, sourceDirectoryOverrides) => {
-      const directoryConfig = resolveDirectoryConfig(
-        'kilocode',
-        options.kilocodeDir,
-        sourceDirectoryOverrides,
-      );
-
-      return createClineFamilyAdapter({
+    create: (resolved) =>
+      createClineFamilyAdapter({
         id: 'kilocode',
         extensionId: CLINE_EXTENSION_IDS.kilocode,
-        tasksDir: directoryConfig.path,
-        requireTasksDir: directoryConfig.requireExistingPath,
-      });
-    },
+        ...dirOptions(resolved),
+      }),
   },
   {
     id: 'antigravity',
@@ -355,18 +226,7 @@ const sourceRegistrations: readonly SourceRegistration[] = [
       flag: '--antigravity-dir <path>',
       help: 'Path to Antigravity conversations directory',
     },
-    create: (options, sourceDirectoryOverrides) => {
-      const directoryConfig = resolveDirectoryConfig(
-        'antigravity',
-        options.antigravityDir,
-        sourceDirectoryOverrides,
-      );
-
-      return new AntigravitySourceAdapter({
-        conversationsDir: directoryConfig.path,
-        requireConversationsDir: directoryConfig.requireExistingPath,
-      });
-    },
+    create: (resolved) => new AntigravitySourceAdapter(dirOptions(resolved)),
   },
 ];
 
@@ -524,5 +384,11 @@ export function createDefaultAdapters(options: CreateDefaultAdaptersOptions): So
   const sourceDirectoryOverrides = parseSourceDirectoryOverrides(options.sourceDir);
   validateSourceDirectoryOverrideIds(sourceDirectoryOverrides);
 
-  return sourceRegistrations.map((source) => source.create(options, sourceDirectoryOverrides));
+  return sourceRegistrations.map((source) => {
+    const resolved = source.supportsSourceDir
+      ? resolveDirectoryConfig(source.id, options[source.option.key], sourceDirectoryOverrides)
+      : { path: options[source.option.key], requireExistingPath: false };
+
+    return source.create(resolved);
+  });
 }

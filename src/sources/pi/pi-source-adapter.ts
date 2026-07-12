@@ -15,7 +15,11 @@ import {
   normalizeTimestampCandidate,
   toNumberLike,
 } from '../parsing-utils.js';
-import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
+import type {
+  SourceAdapter,
+  SourceAdapterPathOptions,
+  SourceParseFileDiagnostics,
+} from '../source-adapter.js';
 
 const defaultSessionsDir = path.join(os.homedir(), '.pi', 'agent', 'sessions');
 const defaultPiRootDirs = [
@@ -41,10 +45,8 @@ type PiUsageExtract = {
   costUsd?: NumberLike;
 };
 
-export type PiSourceAdapterOptions = {
-  sessionsDir?: string;
-  requireSessionsDir?: boolean;
-  /** Test seam: default roots scanned when no sessionsDir override is given. */
+export type PiSourceAdapterOptions = SourceAdapterPathOptions & {
+  /** Test seam: default roots scanned when no dir override is given. */
   defaultRootDirs?: string[];
 };
 
@@ -152,20 +154,17 @@ export class PiSourceAdapter implements SourceAdapter {
   public readonly id = 'pi' as const;
 
   private readonly rootDirs: readonly string[];
-  private readonly requireSessionsDir: boolean;
+  private readonly requireDir: boolean;
 
   public constructor(options: PiSourceAdapterOptions = {}) {
-    this.rootDirs = resolveRootDirs(
-      options.sessionsDir,
-      options.defaultRootDirs ?? defaultPiRootDirs,
-    );
-    this.requireSessionsDir = options.requireSessionsDir ?? false;
+    this.rootDirs = resolveRootDirs(options.dir, options.defaultRootDirs ?? defaultPiRootDirs);
+    this.requireDir = options.requireDir ?? false;
   }
 
   public async discoverFiles(): Promise<string[]> {
     return discoverFilesAcrossRoots({
       rootDirs: this.rootDirs,
-      requireDir: this.requireSessionsDir,
+      requireDir: this.requireDir,
       directoryLabel: 'PI sessions directory',
       discoverInRoot: (rootDir) => discoverJsonlFiles(rootDir),
     });

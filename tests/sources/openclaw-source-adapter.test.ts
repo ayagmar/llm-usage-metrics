@@ -31,7 +31,7 @@ describe('OpenClawSourceAdapter', () => {
     await writeFile(second, '{}\n', 'utf8');
     await writeFile(first, '{}\n', 'utf8');
 
-    const adapter = new OpenClawSourceAdapter({ agentsDir: root });
+    const adapter = new OpenClawSourceAdapter({ dir: root });
 
     await expect(adapter.discoverFiles()).resolves.toEqual([
       await realpath(first),
@@ -80,7 +80,7 @@ describe('OpenClawSourceAdapter', () => {
     await writeFile(path.join(clawdbotRoot, 'b.jsonl'), '{}\n', 'utf8');
 
     const adapter = new OpenClawSourceAdapter({
-      agentsDir: openclawRoot,
+      dir: openclawRoot,
       defaultRootDirs: [openclawRoot, clawdbotRoot],
     });
 
@@ -180,7 +180,7 @@ describe('OpenClawSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new OpenClawSourceAdapter({ agentsDir: root });
+    const adapter = new OpenClawSourceAdapter({ dir: root });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toHaveLength(1);
@@ -229,7 +229,7 @@ describe('OpenClawSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new OpenClawSourceAdapter({ agentsDir: root });
+    const adapter = new OpenClawSourceAdapter({ dir: root });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toHaveLength(1);
@@ -286,7 +286,7 @@ describe('OpenClawSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new OpenClawSourceAdapter({ agentsDir: root });
+    const adapter = new OpenClawSourceAdapter({ dir: root });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toHaveLength(3);
@@ -331,7 +331,7 @@ describe('OpenClawSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new OpenClawSourceAdapter({ agentsDir: root });
+    const adapter = new OpenClawSourceAdapter({ dir: root });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toHaveLength(1);
@@ -379,7 +379,7 @@ describe('OpenClawSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new OpenClawSourceAdapter({ agentsDir: root });
+    const adapter = new OpenClawSourceAdapter({ dir: root });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toHaveLength(1);
@@ -399,7 +399,7 @@ describe('OpenClawSourceAdapter', () => {
 
     await writeFile(filePath, '{"type":"message",', 'utf8');
 
-    const adapter = new OpenClawSourceAdapter({ agentsDir: root });
+    const adapter = new OpenClawSourceAdapter({ dir: root });
     const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
 
     expect(diagnostics.events).toEqual([]);
@@ -428,7 +428,7 @@ describe('OpenClawSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new OpenClawSourceAdapter({ agentsDir: root });
+    const adapter = new OpenClawSourceAdapter({ dir: root });
     Object.defineProperty(adapter, 'id', { value: ' ' });
     const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
 
@@ -444,8 +444,8 @@ describe('OpenClawSourceAdapter', () => {
 
   it('fails discovery when an explicitly configured directory is missing', async () => {
     const adapter = new OpenClawSourceAdapter({
-      agentsDir: path.join(os.tmpdir(), `missing-openclaw-${Date.now()}`),
-      requireAgentsDir: true,
+      dir: path.join(os.tmpdir(), `missing-openclaw-${Date.now()}`),
+      requireDir: true,
     });
 
     await expect(adapter.discoverFiles()).rejects.toThrow(
@@ -460,8 +460,8 @@ describe('OpenClawSourceAdapter', () => {
     await writeFile(filePath, '{}\n', 'utf8');
 
     const adapter = new OpenClawSourceAdapter({
-      agentsDir: filePath,
-      requireAgentsDir: true,
+      dir: filePath,
+      requireDir: true,
     });
 
     await expect(adapter.discoverFiles()).rejects.toThrow(

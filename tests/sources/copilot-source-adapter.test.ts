@@ -34,7 +34,7 @@ describe('CopilotSourceAdapter', () => {
     await writeFile(envFile, '{}\n', 'utf8');
 
     const adapter = new CopilotSourceAdapter({
-      otelDir: root,
+      dir: root,
       env: { COPILOT_OTEL_FILE_EXPORTER_PATH: envFile },
     });
 
@@ -47,8 +47,8 @@ describe('CopilotSourceAdapter', () => {
 
   it('errors when an explicitly required OTEL directory is missing', async () => {
     const adapter = new CopilotSourceAdapter({
-      otelDir: path.join(os.tmpdir(), `missing-copilot-${Date.now()}`),
-      requireOtelDir: true,
+      dir: path.join(os.tmpdir(), `missing-copilot-${Date.now()}`),
+      requireDir: true,
     });
 
     await expect(adapter.discoverFiles()).rejects.toThrow(
@@ -135,7 +135,7 @@ describe('CopilotSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new CopilotSourceAdapter({ otelDir: root });
+    const adapter = new CopilotSourceAdapter({ dir: root });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toHaveLength(1);
@@ -149,7 +149,7 @@ describe('CopilotSourceAdapter', () => {
 
     await writeFile(filePath, '{"attributes":', 'utf8');
 
-    const adapter = new CopilotSourceAdapter({ otelDir: root });
+    const adapter = new CopilotSourceAdapter({ dir: root });
     const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
 
     expect(diagnostics.events).toEqual([]);

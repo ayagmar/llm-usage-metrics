@@ -11,7 +11,11 @@ import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
 import { discoverFilesAcrossRoots } from '../multi-root-discovery.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
 import { asTrimmedText, normalizeTimestampCandidate } from '../parsing-utils.js';
-import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
+import type {
+  SourceAdapter,
+  SourceAdapterPathOptions,
+  SourceParseFileDiagnostics,
+} from '../source-adapter.js';
 
 const defaultOtelDir = path.join(os.homedir(), '.copilot', 'otel');
 type CopilotCandidate = {
@@ -31,9 +35,7 @@ type CopilotCandidate = {
   totalTokens: number | undefined;
 };
 
-export type CopilotSourceAdapterOptions = {
-  otelDir?: string;
-  requireOtelDir?: boolean;
+export type CopilotSourceAdapterOptions = SourceAdapterPathOptions & {
   env?: NodeJS.ProcessEnv;
 };
 
@@ -377,20 +379,20 @@ export class CopilotSourceAdapter implements SourceAdapter {
 
   private readonly rootDirs: readonly string[];
   private readonly envFilePath: string | undefined;
-  private readonly requireOtelDir: boolean;
+  private readonly requireDir: boolean;
 
   public constructor(options: CopilotSourceAdapterOptions = {}) {
     const env = options.env ?? process.env;
     const envFilePath = asTrimmedText(env.COPILOT_OTEL_FILE_EXPORTER_PATH);
-    this.rootDirs = [options.otelDir ?? defaultOtelDir];
+    this.rootDirs = [options.dir ?? defaultOtelDir];
     this.envFilePath = envFilePath;
-    this.requireOtelDir = options.requireOtelDir ?? false;
+    this.requireDir = options.requireDir ?? false;
   }
 
   public async discoverFiles(): Promise<string[]> {
     const discoveredFiles = await discoverFilesAcrossRoots({
       rootDirs: this.rootDirs,
-      requireDir: this.requireOtelDir,
+      requireDir: this.requireDir,
       directoryLabel: 'Copilot OTEL directory',
       discoverInRoot: (rootDir) => discoverJsonlFiles(rootDir),
     });

@@ -15,7 +15,11 @@ import {
   resolveTotalTokens,
   toTokenCount,
 } from '../parsing-utils.js';
-import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
+import type {
+  SourceAdapter,
+  SourceAdapterPathOptions,
+  SourceParseFileDiagnostics,
+} from '../source-adapter.js';
 
 const defaultKimiCliSessionsDir = path.join(os.homedir(), '.kimi', 'sessions');
 const defaultKimiCodeSessionsDir = path.join(os.homedir(), '.kimi-code', 'sessions');
@@ -32,10 +36,8 @@ const KIMI_K2_6_CUTOFF_MS = 1_776_698_890_072;
 const KIMI_K2_5_MODEL = 'kimi-k2.5';
 const KIMI_K2_6_MODEL = 'kimi-k2.6';
 
-export type KimiSourceAdapterOptions = {
-  kimiDir?: string;
-  requireKimiDir?: boolean;
-  /** Test seam: default roots scanned when no kimiDir override is given. */
+export type KimiSourceAdapterOptions = SourceAdapterPathOptions & {
+  /** Test seam: default roots scanned when no dir override is given. */
   defaultRootDirs?: string[];
 };
 
@@ -292,17 +294,17 @@ export class KimiSourceAdapter implements SourceAdapter {
   public readonly capabilities = { fixedProviderRoots: [KIMI_PROVIDER] };
 
   private readonly rootDirs: readonly string[];
-  private readonly requireKimiDir: boolean;
+  private readonly requireDir: boolean;
 
   public constructor(options: KimiSourceAdapterOptions = {}) {
-    this.rootDirs = resolveRootDirs(options.kimiDir, options.defaultRootDirs ?? defaultRootDirs);
-    this.requireKimiDir = options.requireKimiDir ?? false;
+    this.rootDirs = resolveRootDirs(options.dir, options.defaultRootDirs ?? defaultRootDirs);
+    this.requireDir = options.requireDir ?? false;
   }
 
   public async discoverFiles(): Promise<string[]> {
     return discoverFilesAcrossRoots({
       rootDirs: this.rootDirs,
-      requireDir: this.requireKimiDir,
+      requireDir: this.requireDir,
       directoryLabel: 'Kimi sessions directory',
       discoverInRoot: (rootDir) => discoverWireFiles(rootDir),
       sortAcrossRoots: true,
