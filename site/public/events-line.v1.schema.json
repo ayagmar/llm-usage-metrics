@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ayagmar.github.io/llm-usage-metrics/events-line.v1.schema.json",
+  "title": "llm-usage-metrics events export line (v1)",
+  "description": "One JSONL line of llm-usage events output: a normalized usage event. Lines are not wrapped in the report envelope.",
+  "allOf": [
+    {
+      "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/tokenBuckets"
+    }
+  ],
+  "properties": {
+    "source": {
+      "description": "Source id the event was parsed from.",
+      "type": "string"
+    },
+    "sessionId": {
+      "description": "Normalized session identifier.",
+      "type": "string"
+    },
+    "timestamp": {
+      "description": "Normalized ISO 8601 event timestamp.",
+      "type": "string"
+    },
+    "repoRoot": {
+      "description": "Repository root attributed to the event; omitted when unknown.",
+      "type": "string"
+    },
+    "provider": {
+      "description": "Billing-entity provider; omitted when unknown.",
+      "type": "string"
+    },
+    "model": {
+      "description": "Normalized model identifier; omitted when unknown.",
+      "type": "string"
+    },
+    "costUsd": {
+      "description": "Cost in USD; omitted when pricing is unresolved.",
+      "type": "number",
+      "minimum": 0
+    },
+    "costMode": {
+      "description": "Whether the cost came from the source (explicit) or from pricing (estimated).",
+      "type": "string",
+      "enum": ["explicit", "estimated"]
+    }
+  },
+  "required": ["source", "sessionId", "timestamp", "costMode"],
+  "unevaluatedProperties": false
+}
