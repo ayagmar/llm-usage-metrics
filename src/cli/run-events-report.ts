@@ -1,14 +1,12 @@
 import type { UsageEvent } from '../domain/usage-event.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
-import { logger } from '../utils/logger.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import {
   applyPricingToUsageEventDataset,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
-import { emitActiveConfig } from './emit-active-config.js';
 import { emitDiagnostics } from './emit-diagnostics.js';
-import { emitEnvVarOverrides } from './emit-env-var-overrides.js';
+import { emitReportRunDiagnostics } from './report-runtime/report-lifecycle.js';
 import type { BuildUsageDataDeps, EventsCommandOptions } from './usage-data-contracts.js';
 
 const eventsExportFormats = ['jsonl', 'csv'] as const;
@@ -104,9 +102,11 @@ export async function runEventsReport(
     timezone: dataset.normalizedInputs.timezone,
   });
 
-  emitDiagnostics(diagnostics);
-  emitEnvVarOverrides(diagnostics.activeEnvOverrides, logger);
-  emitActiveConfig(diagnostics.activeConfig, logger);
+  emitReportRunDiagnostics(diagnostics, {
+    emitCommonDiagnostics: emitDiagnostics,
+    getEnvVarOverrides: (usageDiagnostics) => usageDiagnostics.activeEnvOverrides,
+    getActiveConfig: (usageDiagnostics) => usageDiagnostics.activeConfig,
+  });
 
   if (format === 'csv') {
     process.stdout.write(`${CSV_HEADER}\n`);
