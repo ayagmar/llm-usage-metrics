@@ -6,17 +6,16 @@ import {
 import { logger } from '../utils/logger.js';
 import type { ReportGranularity } from '../utils/time-buckets.js';
 import { buildEfficiencyData } from './build-efficiency-data.js';
-import { emitDiagnostics } from './emit-diagnostics.js';
-import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
+import {
+  prepareReport,
+  runStandardPreparedReport,
+  STANDARD_REPORT_FORMATS,
+} from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
 import type { EfficiencyCommandOptions, EfficiencyDiagnostics } from './usage-data-contracts.js';
 import type { BuildEfficiencyDataDeps } from './build-efficiency-data.js';
 
-const efficiencyReportFormats = [
-  'terminal',
-  'markdown',
-  'json',
-] as const satisfies readonly EfficiencyReportFormat[];
+const efficiencyReportFormats = STANDARD_REPORT_FORMATS satisfies readonly EfficiencyReportFormat[];
 
 function validateShareOption(
   granularity: ReportGranularity,
@@ -103,15 +102,8 @@ export async function runEfficiencyReport(
   const runtimeProfile = createRuntimeProfileCollector();
   const preparedReport = await prepareEfficiencyReport(granularity, options, { runtimeProfile });
 
-  await runPreparedReport<EfficiencyDiagnostics, EfficiencyReportFormat>({
+  await runStandardPreparedReport({
     preparedReport,
-    emitCommonDiagnostics: (diagnostics) => {
-      emitDiagnostics(diagnostics);
-    },
-    getEnvVarOverrides: (diagnostics) => diagnostics.activeEnvOverrides,
-    getActiveConfig: (diagnostics) => diagnostics.activeConfig,
     emitReportDiagnostics: emitEfficiencyReportDiagnostics,
-    getRuntimeProfile: (diagnostics) => diagnostics.runtimeProfile,
-    warnOnTerminalOverflow: true,
   });
 }

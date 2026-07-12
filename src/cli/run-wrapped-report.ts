@@ -1,18 +1,9 @@
-import {
-  renderWrappedReport,
-  wrappedReportFormats,
-  type WrappedReportFormat,
-} from '../render/render-wrapped-report.js';
+import { renderWrappedReport, wrappedReportFormats } from '../render/render-wrapped-report.js';
 import { renderWrappedShareSvg } from '../render/render-wrapped-share-svg.js';
 import { buildWrappedData, parseWrappedYearOption } from './build-wrapped-data.js';
-import { emitDiagnostics } from './emit-diagnostics.js';
-import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
+import { prepareReport, runStandardPreparedReport } from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
-import type {
-  BuildWrappedDataDeps,
-  UsageDiagnostics,
-  WrappedCommandOptions,
-} from './usage-data-contracts.js';
+import type { BuildWrappedDataDeps, WrappedCommandOptions } from './usage-data-contracts.js';
 
 async function prepareWrappedReport(
   options: WrappedCommandOptions,
@@ -47,11 +38,6 @@ export async function runWrappedReport(options: WrappedCommandOptions): Promise<
   const runtimeProfile = createRuntimeProfileCollector();
   const preparedReport = await prepareWrappedReport(options, { runtimeProfile });
 
-  await runPreparedReport<UsageDiagnostics, WrappedReportFormat>({
-    preparedReport,
-    emitCommonDiagnostics: emitDiagnostics,
-    getEnvVarOverrides: (diagnostics) => diagnostics.activeEnvOverrides,
-    getActiveConfig: (diagnostics) => diagnostics.activeConfig,
-    getRuntimeProfile: (diagnostics) => diagnostics.runtimeProfile,
-  });
+  // Wrapped never warned on terminal overflow; keep stderr byte-identical.
+  await runStandardPreparedReport({ preparedReport, warnOnTerminalOverflow: false });
 }

@@ -1,8 +1,11 @@
 import { renderSessionReport, type SessionReportFormat } from '../render/render-session-report.js';
 import { logger } from '../utils/logger.js';
 import { buildSessionData } from './build-session-data.js';
-import { emitDiagnostics } from './emit-diagnostics.js';
-import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
+import {
+  prepareReport,
+  runStandardPreparedReport,
+  STANDARD_REPORT_FORMATS,
+} from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
 import type {
   BuildSessionDataDeps,
@@ -10,11 +13,7 @@ import type {
   UsageDiagnostics,
 } from './usage-data-contracts.js';
 
-const sessionReportFormats = [
-  'terminal',
-  'markdown',
-  'json',
-] as const satisfies readonly SessionReportFormat[];
+const sessionReportFormats = STANDARD_REPORT_FORMATS satisfies readonly SessionReportFormat[];
 
 type SessionPreparedDiagnostics = UsageDiagnostics & {
   limitNote?: string;
@@ -56,13 +55,8 @@ export async function runSessionReport(options: SessionCommandOptions): Promise<
   const runtimeProfile = createRuntimeProfileCollector();
   const preparedReport = await prepareSessionReport(options, { runtimeProfile });
 
-  await runPreparedReport<SessionPreparedDiagnostics, SessionReportFormat>({
+  await runStandardPreparedReport({
     preparedReport,
-    emitCommonDiagnostics: emitDiagnostics,
-    getEnvVarOverrides: (diagnostics) => diagnostics.activeEnvOverrides,
-    getActiveConfig: (diagnostics) => diagnostics.activeConfig,
     emitReportDiagnostics: emitSessionReportDiagnostics,
-    getRuntimeProfile: (diagnostics) => diagnostics.runtimeProfile,
-    warnOnTerminalOverflow: true,
   });
 }

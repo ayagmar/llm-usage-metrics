@@ -6,17 +6,16 @@ import { renderOptimizeMonthlyShareSvg } from '../render/render-optimize-share-s
 import { logger } from '../utils/logger.js';
 import type { ReportGranularity } from '../utils/time-buckets.js';
 import { buildOptimizeData } from './build-optimize-data.js';
-import { emitDiagnostics } from './emit-diagnostics.js';
-import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
+import {
+  prepareReport,
+  runStandardPreparedReport,
+  STANDARD_REPORT_FORMATS,
+} from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
 import type { OptimizeCommandOptions, OptimizeDiagnostics } from './usage-data-contracts.js';
 import type { BuildOptimizeDataDeps } from './build-optimize-data.js';
 
-const optimizeReportFormats = [
-  'terminal',
-  'markdown',
-  'json',
-] as const satisfies readonly OptimizeReportFormat[];
+const optimizeReportFormats = STANDARD_REPORT_FORMATS satisfies readonly OptimizeReportFormat[];
 
 type OptimizePreparedDiagnostics = OptimizeDiagnostics & {
   candidateCount: number;
@@ -106,15 +105,8 @@ export async function runOptimizeReport(
   const runtimeProfile = createRuntimeProfileCollector();
   const preparedReport = await prepareOptimizeReport(granularity, options, { runtimeProfile });
 
-  await runPreparedReport<OptimizePreparedDiagnostics, OptimizeReportFormat>({
+  await runStandardPreparedReport({
     preparedReport,
-    emitCommonDiagnostics: (diagnostics) => {
-      emitDiagnostics(diagnostics);
-    },
-    getEnvVarOverrides: (diagnostics) => diagnostics.activeEnvOverrides,
-    getActiveConfig: (diagnostics) => diagnostics.activeConfig,
     emitReportDiagnostics: emitOptimizeReportDiagnostics,
-    getRuntimeProfile: (diagnostics) => diagnostics.runtimeProfile,
-    warnOnTerminalOverflow: true,
   });
 }
