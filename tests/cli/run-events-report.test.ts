@@ -166,6 +166,59 @@ describe('run-events-report', () => {
     expect(lines[2]).toContain(',,openai,');
   });
 
+  it('neutralizes formula triggers and quotes rfc 4180 characters in csv', async () => {
+    // A raw repoRoot override, because createUsageEvent strips control
+    // characters before values reach the exporter.
+    const rawNewlineEvent = {
+      ...createUsageEvent({
+        source: 'pi',
+        sessionId: 'quote-session',
+        timestamp: '2026-03-01T10:00:00.000Z',
+        provider: 'openai',
+        model: 'gpt-4.1',
+        inputTokens: 3,
+        outputTokens: 2,
+        totalTokens: 5,
+        costUsd: 0.05,
+      }),
+      repoRoot: '/home/user/repo"with\nnewline',
+    };
+    const adapters = [
+      createAdapter('pi', {
+        '/tmp/pi-injection.jsonl': [
+          rawNewlineEvent,
+          createUsageEvent({
+            source: 'pi',
+            sessionId: '+SUM(A1:A9)',
+            timestamp: '2026-03-01T11:00:00.000Z',
+            provider: 'openai',
+            model: '=HYPERLINK("https://example.com","x")',
+            inputTokens: 20,
+            outputTokens: 10,
+            totalTokens: 30,
+            costUsd: 0.2,
+          }),
+        ],
+      }),
+    ];
+    const output = captureOutput();
+
+    try {
+      await runEventsReport({ timezone: 'UTC', format: 'csv' }, runtimeDeps(adapters));
+    } finally {
+      output.restore();
+    }
+
+    const stdout = output.stdout();
+
+    // createUsageEvent lowercases model names; the '=' trigger survives.
+    expect(stdout).toContain('"\'=hyperlink(""https://example.com"",""x"")"');
+    expect(stdout).toContain("'+SUM(A1:A9)");
+    expect(stdout).toContain('"/home/user/repo""with\nnewline"');
+    // Numeric cells never gain an apostrophe prefix.
+    expect(stdout).toContain(',20,10,0,0,0,30,0.2,explicit');
+  });
+
   it('rejects --json with a pointer to --format jsonl', async () => {
     await expect(runEventsReport({ json: true }, runtimeDeps([]))).rejects.toThrow(
       '--json is not supported for events; use --format jsonl',

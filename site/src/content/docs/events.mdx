@@ -29,7 +29,7 @@ llm-usage events --source codex --since 2026-06-01 | jq '.totalTokens'
 ## Export contract
 
 - **jsonl** (default): one JSON object per line with the exact `UsageEvent` field names; absent optionals (`repoRoot`, `provider`, `model`, `costUsd`) are omitted, not `null`. Lines are **not** wrapped in the report envelope. Each line validates against [events-line.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/events-line.v1.schema.json).
-- **csv**: a frozen header row with all 14 columns in declaration order (`source,sessionId,timestamp,repoRoot,provider,model,inputTokens,outputTokens,reasoningTokens,cacheReadTokens,cacheWriteTokens,totalTokens,costUsd,costMode`), RFC 4180 quoting, empty string for absent optionals. New fields will only ever be appended as trailing columns.
+- **csv**: a frozen header row with all 14 columns in declaration order (`source,sessionId,timestamp,repoRoot,provider,model,inputTokens,outputTokens,reasoningTokens,cacheReadTokens,cacheWriteTokens,totalTokens,costUsd,costMode`), RFC 4180 quoting, empty string for absent optionals. New fields will only ever be appended as trailing columns. Cells that begin with a spreadsheet formula trigger (`=`, `+`, `-`, `@`, tab, carriage return) are prefixed with a single apostrophe to prevent formula execution, per OWASP CSV-injection guidance; use `--format jsonl` when you need raw values.
 - **Ordering** is deterministic: `timestamp`, then `source`, then `sessionId`, then original parse order.
 
 ```json

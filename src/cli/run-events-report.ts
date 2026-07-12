@@ -52,7 +52,10 @@ function toCsvField(value: string | number | undefined): string {
     return '';
   }
 
-  const text = String(value);
+  // OWASP CSV-injection guidance: apostrophe-prefix cells that would start a
+  // spreadsheet formula. Numbers are non-negative by normalization.
+  const raw = String(value);
+  const text = typeof value === 'string' && /^[=+\-@\t\r]/u.test(raw) ? `'${raw}` : raw;
   return /[",\n\r]/u.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
