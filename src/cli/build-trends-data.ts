@@ -14,7 +14,7 @@ import type {
   TrendsCommandOptions,
   TrendsDataResult,
 } from './usage-data-contracts.js';
-import type { TrendsMetric } from '../trends/trends-series.js';
+import type { TrendsMetric, TrendValueRow } from '../trends/trends-series.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 
 type ResolvedDateRange = {
@@ -176,6 +176,15 @@ function filterRowsToDateRange(rows: UsageReportRow[], dateRange: ResolvedDateRa
   );
 }
 
+function toTrendValueRows(rows: UsageReportRow[], metric: TrendsMetric): TrendValueRow[] {
+  return rows.map((row) => ({
+    periodKey: row.periodKey,
+    source: row.source,
+    value: metric === 'tokens' ? row.totalTokens : (row.costUsd ?? 0),
+    incomplete: metric === 'cost' ? row.costIncomplete : undefined,
+  }));
+}
+
 export async function buildTrendsData(
   options: TrendsCommandOptions,
   deps: BuildTrendsDataDeps = {},
@@ -232,12 +241,14 @@ export async function buildTrendsData(
     ...new Set(observedDates),
   ]);
   const trends = measureRuntimeProfileStageSync(deps.runtimeProfile, 'trends.aggregate', () =>
-    aggregateTrends(filterRowsToDateRange(dailyRows, outputDateRange), {
-      dateRange: outputDateRange,
-      metric: resolved.metric,
-      bySource: options.bySource === true,
-      sourceOrder: dataset.adaptersToParse.map((adapter) => adapter.id),
-    }),
+    aggregateTrends(
+      toTrendValueRows(filterRowsToDateRange(dailyRows, outputDateRange), resolved.metric),
+      {
+        dateRange: outputDateRange,
+        bySource: options.bySource === true,
+        sourceOrder: dataset.adaptersToParse.map((adapter) => adapter.id),
+      },
+    ),
   );
   const diagnostics = buildUsageDiagnostics({
     adaptersToParse: dataset.adaptersToParse,

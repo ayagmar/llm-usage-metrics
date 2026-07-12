@@ -1,42 +1,27 @@
 import { describe, expect, it } from 'vitest';
 
 import { aggregateTrends } from '../../src/trends/aggregate-trends.js';
-import type { UsageReportRow } from '../../src/domain/usage-report-row.js';
+import type { TrendValueRow } from '../../src/trends/trends-series.js';
 
-function createUsageRow(overrides: Partial<UsageReportRow>): UsageReportRow {
+function createValueRow(overrides: Partial<TrendValueRow>): TrendValueRow {
   return {
-    rowType: 'period_source',
     periodKey: '2026-03-04',
     source: 'pi',
-    models: [],
-    modelBreakdown: [],
-    inputTokens: 10,
-    outputTokens: 5,
-    reasoningTokens: 0,
-    cacheReadTokens: 0,
-    cacheWriteTokens: 0,
-    totalTokens: 15,
-    costUsd: 1,
+    value: 15,
     ...overrides,
-  } as UsageReportRow;
+  };
 }
 
 describe('aggregateTrends', () => {
-  it('prefers period_combined rows and fills gaps in the combined series', () => {
+  it('prefers combined rows and fills gaps in the combined series', () => {
     const result = aggregateTrends(
       [
-        createUsageRow({ periodKey: '2026-03-04', source: 'pi', totalTokens: 10 }),
-        createUsageRow({
-          periodKey: '2026-03-04',
-          rowType: 'period_combined',
-          source: 'combined',
-          totalTokens: 25,
-        }),
-        createUsageRow({ periodKey: '2026-03-06', source: 'pi', totalTokens: 20 }),
+        createValueRow({ periodKey: '2026-03-04', source: 'pi', value: 10 }),
+        createValueRow({ periodKey: '2026-03-04', source: 'combined', value: 25 }),
+        createValueRow({ periodKey: '2026-03-06', source: 'pi', value: 20 }),
       ],
       {
         dateRange: { from: '2026-03-04', to: '2026-03-06' },
-        metric: 'tokens',
         bySource: false,
         sourceOrder: ['pi'],
       },
@@ -54,12 +39,11 @@ describe('aggregateTrends', () => {
   it('emits source series in configured source order and omits empty sources', () => {
     const result = aggregateTrends(
       [
-        createUsageRow({ periodKey: '2026-03-04', source: 'codex', totalTokens: 20 }),
-        createUsageRow({ periodKey: '2026-03-05', source: 'pi', totalTokens: 10 }),
+        createValueRow({ periodKey: '2026-03-04', source: 'codex', value: 20 }),
+        createValueRow({ periodKey: '2026-03-05', source: 'pi', value: 10 }),
       ],
       {
         dateRange: { from: '2026-03-04', to: '2026-03-05' },
-        metric: 'tokens',
         bySource: true,
         sourceOrder: ['pi', 'codex', 'gemini'],
       },
@@ -73,7 +57,6 @@ describe('aggregateTrends', () => {
   it('clears the peak summary when the selected range has no observed days', () => {
     const result = aggregateTrends([], {
       dateRange: { from: '2026-03-04', to: '2026-03-06' },
-      metric: 'tokens',
       bySource: false,
       sourceOrder: ['pi'],
     });
@@ -89,7 +72,6 @@ describe('aggregateTrends', () => {
   it('returns an empty bucket list when the requested date range is reversed', () => {
     const result = aggregateTrends([], {
       dateRange: { from: '2026-03-06', to: '2026-03-04' },
-      metric: 'tokens',
       bySource: false,
       sourceOrder: ['pi'],
     });
@@ -104,15 +86,11 @@ describe('aggregateTrends', () => {
   });
 
   it('chooses the peak date from observed buckets when gap buckets tie at zero', () => {
-    const result = aggregateTrends(
-      [createUsageRow({ periodKey: '2026-03-06', totalTokens: 0, costUsd: 0 })],
-      {
-        dateRange: { from: '2026-03-04', to: '2026-03-06' },
-        metric: 'tokens',
-        bySource: false,
-        sourceOrder: ['pi'],
-      },
-    );
+    const result = aggregateTrends([createValueRow({ periodKey: '2026-03-06', value: 0 })], {
+      dateRange: { from: '2026-03-04', to: '2026-03-06' },
+      bySource: false,
+      sourceOrder: ['pi'],
+    });
 
     expect(result.totalSeries.summary.observedDayCount).toBe(1);
     expect(result.totalSeries.summary.peak).toEqual({
@@ -124,13 +102,12 @@ describe('aggregateTrends', () => {
   it('keeps known sources ahead of unknown ones and sorts unknown sources deterministically', () => {
     const result = aggregateTrends(
       [
-        createUsageRow({ periodKey: '2026-03-04', source: 'beta', totalTokens: 5 }),
-        createUsageRow({ periodKey: '2026-03-04', source: 'pi', totalTokens: 10 }),
-        createUsageRow({ periodKey: '2026-03-04', source: 'alpha', totalTokens: 15 }),
+        createValueRow({ periodKey: '2026-03-04', source: 'beta', value: 5 }),
+        createValueRow({ periodKey: '2026-03-04', source: 'pi', value: 10 }),
+        createValueRow({ periodKey: '2026-03-04', source: 'alpha', value: 15 }),
       ],
       {
         dateRange: { from: '2026-03-04', to: '2026-03-04' },
-        metric: 'tokens',
         bySource: true,
         sourceOrder: ['pi'],
       },
@@ -139,15 +116,14 @@ describe('aggregateTrends', () => {
     expect(result.sourceSeries?.map((series) => series.source)).toEqual(['pi', 'alpha', 'beta']);
   });
 
-  it('sums source-only rows into the combined series when no period_combined row exists', () => {
+  it('sums source rows into the combined series when no combined row exists', () => {
     const result = aggregateTrends(
       [
-        createUsageRow({ periodKey: '2026-03-04', source: 'pi', totalTokens: 10 }),
-        createUsageRow({ periodKey: '2026-03-04', source: 'codex', totalTokens: 15 }),
+        createValueRow({ periodKey: '2026-03-04', source: 'pi', value: 10 }),
+        createValueRow({ periodKey: '2026-03-04', source: 'codex', value: 15 }),
       ],
       {
         dateRange: { from: '2026-03-04', to: '2026-03-04' },
-        metric: 'tokens',
         bySource: false,
         sourceOrder: ['pi', 'codex'],
       },
@@ -161,12 +137,11 @@ describe('aggregateTrends', () => {
   it('merges duplicate rows for the same source and day in source series', () => {
     const result = aggregateTrends(
       [
-        createUsageRow({ periodKey: '2026-03-04', source: 'pi', totalTokens: 10 }),
-        createUsageRow({ periodKey: '2026-03-04', source: 'pi', totalTokens: 15 }),
+        createValueRow({ periodKey: '2026-03-04', source: 'pi', value: 10 }),
+        createValueRow({ periodKey: '2026-03-04', source: 'pi', value: 15 }),
       ],
       {
         dateRange: { from: '2026-03-04', to: '2026-03-04' },
-        metric: 'tokens',
         bySource: true,
         sourceOrder: ['pi'],
       },
@@ -177,25 +152,14 @@ describe('aggregateTrends', () => {
     ]);
   });
 
-  it('ignores combined and grand-total rows when building source series', () => {
+  it('ignores combined rows when building source series', () => {
     const result = aggregateTrends(
       [
-        createUsageRow({
-          rowType: 'period_combined',
-          source: 'combined',
-          periodKey: '2026-03-04',
-          totalTokens: 25,
-        }),
-        createUsageRow({
-          rowType: 'grand_total',
-          source: 'combined',
-          periodKey: 'ALL',
-          totalTokens: 99,
-        }),
+        createValueRow({ periodKey: '2026-03-04', source: 'combined', value: 25 }),
+        createValueRow({ periodKey: 'ALL', source: 'combined', value: 99 }),
       ],
       {
         dateRange: { from: '2026-03-04', to: '2026-03-04' },
-        metric: 'tokens',
         bySource: true,
         sourceOrder: ['pi'],
       },
@@ -204,20 +168,14 @@ describe('aggregateTrends', () => {
     expect(result.sourceSeries).toEqual([]);
   });
 
-  it('rounds merged cost totals for combined source-only rows', () => {
+  it('rounds merged totals for combined source-only rows', () => {
     const result = aggregateTrends(
       [
-        createUsageRow({ periodKey: '2026-03-04', source: 'pi', totalTokens: 10, costUsd: 0.1 }),
-        createUsageRow({
-          periodKey: '2026-03-04',
-          source: 'codex',
-          totalTokens: 15,
-          costUsd: 0.2,
-        }),
+        createValueRow({ periodKey: '2026-03-04', source: 'pi', value: 0.1 }),
+        createValueRow({ periodKey: '2026-03-04', source: 'codex', value: 0.2 }),
       ],
       {
         dateRange: { from: '2026-03-04', to: '2026-03-04' },
-        metric: 'cost',
         bySource: false,
         sourceOrder: ['pi', 'codex'],
       },
@@ -233,25 +191,14 @@ describe('aggregateTrends', () => {
     });
   });
 
-  it('marks cost series as incomplete when observed rows are missing resolved pricing', () => {
+  it('marks series as incomplete when observed rows are missing resolved pricing', () => {
     const result = aggregateTrends(
       [
-        createUsageRow({
-          periodKey: '2026-03-04',
-          costUsd: undefined,
-          costIncomplete: true,
-        }),
-        createUsageRow({
-          rowType: 'grand_total',
-          periodKey: 'ALL',
-          source: 'combined',
-          costUsd: 99,
-          totalTokens: 999,
-        }),
+        createValueRow({ periodKey: '2026-03-04', value: 0, incomplete: true }),
+        createValueRow({ periodKey: 'ALL', source: 'combined', value: 99 }),
       ],
       {
         dateRange: { from: '2026-03-04', to: '2026-03-04' },
-        metric: 'cost',
         bySource: false,
         sourceOrder: ['pi'],
       },
