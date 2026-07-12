@@ -1,18 +1,12 @@
-import { stat } from 'node:fs/promises';
-
 import type { EventStoreRuntimeConfig } from '../config/runtime-overrides.js';
 import type { UsageEvent } from '../domain/usage-event.js';
-import { matchesCanonicalProviderFilter } from '../domain/provider-normalization.js';
 import {
   closeEventStore as closeDefaultEventStore,
   getFileEntry as getDefaultEventStoreFileEntry,
   openEventStore as openDefaultEventStore,
   readFileEvents as readDefaultEventStoreFileEvents,
   replaceFileEvents as replaceDefaultFileEvents,
-  serializeEventStoreFingerprint,
   type EventStore,
-  type EventStoreDependencyFingerprint,
-  type EventStoreFileEntry,
   type EventStoreFileFingerprint,
 } from '../persistence/event-store.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
@@ -22,7 +16,21 @@ import type {
   SourceSkippedRowReasonStat,
 } from '../sources/source-adapter.js';
 import { normalizeSkippedRowReasons } from './normalize-skipped-row-reasons.js';
-import { getPeriodKey } from '../utils/time-buckets.js';
+import {
+  getErrorReason,
+  readParsedFileFromEventStore,
+  recordEventStoreFailure,
+  writeParsedFileToEventStore,
+  type EventStoreFailureState,
+  type EventStoreParseContext,
+  type EventStoreParseDeps,
+} from './parse/event-store-parse-cache.js';
+import { createParseBudget, type RunWithParseBudget } from './parse/parse-budget.js';
+import {
+  getFileByteSize,
+  getParseFileFingerprint,
+  getPrimaryFingerprintByteSize,
+} from './parse/parse-fingerprint.js';
 import type { RuntimeProfileCollector } from './runtime-profile.js';
 import {
   canParseSourceOnWorker,
@@ -66,10 +74,6 @@ export type ParseSelectedAdaptersOptions = {
   runtimeProfile?: RuntimeProfileCollector;
 };
 
-type RunWithParseBudget = <T>(task: () => Promise<T>) => Promise<T>;
-
-type ParseDependencyFingerprint = EventStoreDependencyFingerprint;
-
 type ParseWorkerRuntimeOptions = {
   workerCount: number;
   minBytes: number;
@@ -84,40 +88,6 @@ type MissedParseFile = {
   byteSize: number;
 };
 
-export type EventStoreParseDeps = {
-  openEventStore?: (filePath: string) => Promise<EventStore>;
-  closeEventStore?: (store: EventStore) => void;
-  getFileEntry?: (
-    store: EventStore,
-    source: string,
-    filePath: string,
-  ) => EventStoreFileEntry | undefined;
-  readFileEvents?: (
-    store: EventStore,
-    source: string,
-    filePath: string,
-  ) => UsageEvent[] | undefined;
-  replaceFileEvents?: typeof replaceDefaultFileEvents;
-};
-
-type EventStoreFailureState = {
-  disabled: boolean;
-  warning?: string;
-};
-
-type EventStoreParseContext = {
-  store: EventStore;
-  getFileEntry: (
-    store: EventStore,
-    source: string,
-    filePath: string,
-  ) => EventStoreFileEntry | undefined;
-  readFileEvents: (store: EventStore, source: string, filePath: string) => UsageEvent[] | undefined;
-  replaceFileEvents: typeof replaceDefaultFileEvents;
-  now: () => number;
-  failureState: EventStoreFailureState;
-};
-
 function getDefaultParseFileDiagnostics(events: UsageEvent[]): SourceParseFileDiagnostics {
   return { events, skippedRows: 0, skippedRowReasons: [] };
 }
@@ -128,215 +98,6 @@ function normalizeSkippedRowsCount(value: unknown): number {
   }
 
   return Math.max(0, Math.trunc(value));
-}
-
-function isMissingPathError(error: unknown): error is NodeJS.ErrnoException {
-  return typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT';
-}
-
-async function createParseDependencyFingerprint(
-  filePath: string,
-  options: { allowMissing: boolean },
-): Promise<ParseDependencyFingerprint | undefined> {
-  try {
-    const fileStat = await stat(filePath);
-
-    return {
-      path: filePath,
-      exists: true,
-      size: fileStat.size,
-      mtimeMs: fileStat.mtimeMs,
-    };
-  } catch (error) {
-    if (options.allowMissing && isMissingPathError(error)) {
-      return {
-        path: filePath,
-        exists: false,
-      };
-    }
-
-    return undefined;
-  }
-}
-
-async function getParseFileFingerprint(
-  adapter: SourceAdapter,
-  filePath: string,
-): Promise<{ dependencies: ParseDependencyFingerprint[] } | undefined> {
-  const primaryFingerprint = await createParseDependencyFingerprint(filePath, {
-    allowMissing: false,
-  });
-
-  if (!primaryFingerprint) {
-    return undefined;
-  }
-
-  const additionalDependencyPaths = adapter.getParseDependencies
-    ? await adapter.getParseDependencies(filePath)
-    : [];
-  const uniqueAdditionalDependencyPaths = [...new Set(additionalDependencyPaths)]
-    .filter((dependencyPath) => dependencyPath !== filePath)
-    .sort(compareByCodePoint);
-  const dependencyFingerprints: ParseDependencyFingerprint[] = [primaryFingerprint];
-
-  for (const dependencyPath of uniqueAdditionalDependencyPaths) {
-    const dependencyFingerprint = await createParseDependencyFingerprint(dependencyPath, {
-      allowMissing: true,
-    });
-
-    if (!dependencyFingerprint) {
-      return undefined;
-    }
-
-    dependencyFingerprints.push(dependencyFingerprint);
-  }
-
-  return {
-    dependencies: dependencyFingerprints,
-  };
-}
-
-function recordEventStoreFailure(state: EventStoreFailureState, error: unknown): void {
-  if (state.disabled) {
-    return;
-  }
-
-  state.disabled = true;
-  state.warning = `Event store disabled after failure: ${getErrorReason(error)}`;
-}
-
-function readParsedFileFromEventStore(
-  context: EventStoreParseContext,
-  params: {
-    source: string;
-    filePath: string;
-    fingerprint: EventStoreFileFingerprint;
-    runtimeProfile?: RuntimeProfileCollector;
-  },
-): SourceParseFileDiagnostics | undefined {
-  if (context.failureState.disabled) {
-    return undefined;
-  }
-
-  try {
-    const fingerprint = serializeEventStoreFingerprint(params.fingerprint);
-    const storedEntry = context.getFileEntry(context.store, params.source, params.filePath);
-
-    if (storedEntry?.fingerprint !== fingerprint) {
-      params.runtimeProfile?.recordEventStoreResult(params.source, 'miss');
-      return undefined;
-    }
-
-    const events = context.readFileEvents(context.store, params.source, params.filePath);
-
-    if (!events) {
-      params.runtimeProfile?.recordEventStoreResult(params.source, 'miss');
-      return undefined;
-    }
-
-    params.runtimeProfile?.recordEventStoreResult(params.source, 'hit');
-
-    return {
-      events,
-      skippedRows: storedEntry.skippedRows,
-      skippedRowReasons: storedEntry.skippedRowReasons,
-    };
-  } catch (error) {
-    recordEventStoreFailure(context.failureState, error);
-    return undefined;
-  }
-}
-
-function writeParsedFileToEventStore(
-  context: EventStoreParseContext,
-  params: {
-    source: string;
-    filePath: string;
-    fingerprint: EventStoreFileFingerprint;
-    events: UsageEvent[];
-    skippedRows: number;
-    skippedRowReasons: SourceSkippedRowReasonStat[];
-  },
-): void {
-  if (context.failureState.disabled) {
-    return;
-  }
-
-  // Only called after a store miss, so the stored fingerprint already differs.
-  try {
-    context.replaceFileEvents(context.store, {
-      source: params.source,
-      filePath: params.filePath,
-      fingerprint: params.fingerprint,
-      events: params.events,
-      skippedRows: params.skippedRows,
-      skippedRowReasons: params.skippedRowReasons,
-      now: context.now(),
-    });
-  } catch (error) {
-    recordEventStoreFailure(context.failureState, error);
-  }
-}
-
-function createParseBudget(maxParallelFileParsing: number): RunWithParseBudget {
-  const safeMaxParallelFileParsing =
-    Number.isFinite(maxParallelFileParsing) && maxParallelFileParsing > 0
-      ? Math.max(1, Math.floor(maxParallelFileParsing))
-      : 1;
-  let availablePermits = safeMaxParallelFileParsing;
-  const waitingResolvers: Array<() => void> = [];
-
-  async function acquire(): Promise<void> {
-    if (availablePermits > 0) {
-      availablePermits -= 1;
-      return;
-    }
-
-    await new Promise<void>((resolve) => {
-      waitingResolvers.push(resolve);
-    });
-  }
-
-  function release(): void {
-    const nextResolver = waitingResolvers.shift();
-
-    if (nextResolver) {
-      nextResolver();
-      return;
-    }
-
-    availablePermits += 1;
-  }
-
-  return async <T>(task: () => Promise<T>): Promise<T> => {
-    await acquire();
-
-    try {
-      return await task();
-    } finally {
-      release();
-    }
-  };
-}
-
-async function getFileByteSize(filePath: string): Promise<number> {
-  try {
-    return (await stat(filePath)).size;
-  } catch {
-    return 0;
-  }
-}
-
-function getPrimaryFingerprintByteSize(
-  fingerprint: EventStoreFileFingerprint | undefined,
-): number | undefined {
-  const primaryFingerprint = fingerprint?.dependencies[0];
-
-  if (!primaryFingerprint?.exists || primaryFingerprint.size === undefined) {
-    return undefined;
-  }
-
-  return Math.max(0, primaryFingerprint.size);
 }
 
 function getSafeWorkerCount(workerCount: number): number {
@@ -666,14 +427,6 @@ export async function parseAdapterEvents(
   return result;
 }
 
-function getErrorReason(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return String(error);
-}
-
 export async function parseSelectedAdapters(
   adaptersToParse: SourceAdapter[],
   maxParallelFileParsing: number,
@@ -787,131 +540,4 @@ export function throwOnExplicitSourceFailures(
     .join('; ');
 
   throw new Error(`Failed to parse explicitly requested source(s): ${details}`);
-}
-
-function isEventWithinDateRange(
-  eventDate: string,
-  since: string | undefined,
-  until: string | undefined,
-): boolean {
-  if (since && eventDate < since) {
-    return false;
-  }
-
-  if (until && eventDate > until) {
-    return false;
-  }
-
-  return true;
-}
-
-type ModelFilterRule = {
-  value: string;
-  mode: 'exact' | 'substring';
-};
-
-function resolveModelFilterRules(
-  events: UsageEvent[],
-  modelFilter: string[] | undefined,
-): ModelFilterRule[] | undefined {
-  if (!modelFilter || modelFilter.length === 0) {
-    return undefined;
-  }
-
-  const availableModels = new Set(
-    events
-      .map((event) => event.model?.toLowerCase())
-      .filter((model): model is string => Boolean(model)),
-  );
-
-  return modelFilter.map((value) => ({
-    value,
-    mode: availableModels.has(value) ? 'exact' : 'substring',
-  }));
-}
-
-function matchesModel(
-  model: string | undefined,
-  modelRules: ModelFilterRule[] | undefined,
-): boolean {
-  if (!modelRules || modelRules.length === 0) {
-    return true;
-  }
-
-  if (!model) {
-    return false;
-  }
-
-  const normalizedModel = model.toLowerCase();
-
-  return modelRules.some((rule) =>
-    rule.mode === 'exact' ? normalizedModel === rule.value : normalizedModel.includes(rule.value),
-  );
-}
-
-export type UsageEventFilterOptions = {
-  timezone: string;
-  since?: string;
-  until?: string;
-  providerFilter?: string;
-  modelFilter?: string[];
-};
-
-function filterByModelRules(events: UsageEvent[], modelFilter: string[] | undefined): UsageEvent[] {
-  const modelFilterRules = resolveModelFilterRules(events, modelFilter);
-
-  return events.filter((event) => matchesModel(event.model, modelFilterRules));
-}
-
-function collectProviderAndDateFilteredEvents(
-  eventGroups: Iterable<readonly UsageEvent[]>,
-  options: UsageEventFilterOptions,
-): UsageEvent[] {
-  const filteredEvents: UsageEvent[] = [];
-  const hasDateRange = Boolean(options.since ?? options.until);
-  const dateByTimestamp = new Map<string, string>();
-
-  for (const events of eventGroups) {
-    for (const event of events) {
-      if (!matchesCanonicalProviderFilter(event.provider, options.providerFilter)) {
-        continue;
-      }
-
-      if (hasDateRange) {
-        let eventDate = dateByTimestamp.get(event.timestamp);
-
-        if (!eventDate) {
-          eventDate = getPeriodKey(event.timestamp, 'daily', options.timezone);
-          dateByTimestamp.set(event.timestamp, eventDate);
-        }
-
-        if (!isEventWithinDateRange(eventDate, options.since, options.until)) {
-          continue;
-        }
-      }
-
-      filteredEvents.push(event);
-    }
-  }
-
-  return filteredEvents;
-}
-
-export function filterUsageEvents(
-  events: UsageEvent[],
-  options: UsageEventFilterOptions,
-): UsageEvent[] {
-  const providerAndDateFilteredEvents = collectProviderAndDateFilteredEvents([events], options);
-  return filterByModelRules(providerAndDateFilteredEvents, options.modelFilter);
-}
-
-export function filterParsedAdapterEvents(
-  parseResults: AdapterParseResult[],
-  options: UsageEventFilterOptions,
-): UsageEvent[] {
-  const providerAndDateFilteredEvents = collectProviderAndDateFilteredEvents(
-    parseResults.map((result) => result.events),
-    options,
-  );
-  return filterByModelRules(providerAndDateFilteredEvents, options.modelFilter);
 }

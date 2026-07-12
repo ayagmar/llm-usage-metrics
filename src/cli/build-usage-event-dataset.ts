@@ -23,11 +23,11 @@ import {
   resolveUserConfigForOptions,
 } from './apply-user-config.js';
 import {
-  filterParsedAdapterEvents,
   parseSelectedAdapters,
   throwOnExplicitSourceFailures,
   type AdapterParseResult,
 } from './build-usage-data-parsing.js';
+import { filterParsedAdapterEvents } from './parse/usage-event-filters.js';
 import {
   resolveAndApplyPricingToEvents,
   resolvePricingSource,
