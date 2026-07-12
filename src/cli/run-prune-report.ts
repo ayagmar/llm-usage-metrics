@@ -16,9 +16,7 @@ import {
 } from '../persistence/event-store-history.js';
 import { createDefaultAdapters, getDefaultSourceIds } from '../sources/create-default-adapters.js';
 import type { SourceAdapter } from '../sources/source-adapter.js';
-import { renderReportHeader } from '../render/report-header.js';
-import { renderUnicodeTable, type TableRowMeta } from '../render/unicode-table.js';
-import { wrapTableColumn } from '../render/table-text-layout.js';
+import { renderPruneReport } from '../render/render-prune-report.js';
 import {
   normalizeSourceFilter,
   validateDateInput,
@@ -43,7 +41,7 @@ type PruneDeps = UserConfigResolutionDeps & {
   statFile?: StatFile;
 };
 
-type StoreSizeSnapshot = {
+export type StoreSizeSnapshot = {
   databaseBytes: number;
   walBytes: number;
   shmBytes: number;
@@ -370,81 +368,6 @@ export async function buildPruneReport(
       },
     };
   });
-}
-
-function formatByteSize(sizeBytes: number): string {
-  if (sizeBytes < 1024) {
-    return `${sizeBytes} B`;
-  }
-
-  if (sizeBytes < 1024 * 1024) {
-    return `${(sizeBytes / 1024).toFixed(1)} KiB`;
-  }
-
-  return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MiB`;
-}
-
-function formatStoreSize(size: StoreSizeSnapshot): string {
-  return [
-    `${formatByteSize(size.totalBytes)} total`,
-    `db ${formatByteSize(size.databaseBytes)}`,
-    `wal ${formatByteSize(size.walBytes)}`,
-    `shm ${formatByteSize(size.shmBytes)}`,
-  ].join(', ');
-}
-
-function createRowMetas(candidates: readonly PruneCandidate[]): TableRowMeta[] {
-  return candidates.map((candidate) => ({
-    periodKey: candidate.source,
-    rowKind: 'detail',
-  }));
-}
-
-function renderCandidateTable(candidates: readonly PruneCandidate[]): string {
-  const bodyRows = candidates.map((candidate) => [
-    candidate.source,
-    candidate.filePath,
-    String(candidate.eventCount),
-    candidate.newestTimestamp ?? '-',
-    candidate.reasons.join(', '),
-  ]);
-  const wrappedRows = wrapTableColumn(bodyRows, { columnIndex: 1, width: 56 });
-
-  return renderUnicodeTable({
-    headerCells: ['Source', 'Path', 'Events', 'Newest timestamp', 'Reason'],
-    bodyRows: wrappedRows,
-    measureHeaderCells: ['Source', 'Path', 'Events', 'Newest timestamp', 'Reason'],
-    measureBodyRows: wrappedRows,
-    rowMetas: createRowMetas(candidates),
-    layout: 'top_aligned',
-    multilineColumnIndex: 1,
-    multilineColumnWidth: 56,
-  });
-}
-
-function renderSummary(summary: PruneSummary): string {
-  if (!summary.applied) {
-    return `Would delete ${summary.candidateFileCount} file(s) / ${summary.candidateEventCount} event(s). Re-run with --apply.`;
-  }
-
-  const sizeSuffix =
-    summary.sizeBefore && summary.sizeAfter && summary.reclaimedBytes !== undefined
-      ? ` Reclaimed ${formatByteSize(summary.reclaimedBytes)} (${formatStoreSize(summary.sizeBefore)} before; ${formatStoreSize(summary.sizeAfter)} after).`
-      : '';
-
-  return `Deleted ${summary.deletedFileCount ?? 0} file(s) / ${summary.deletedEventCount ?? 0} event(s).${sizeSuffix}`;
-}
-
-export function renderPruneReport(result: PruneReportResult): string {
-  const lines: string[] = [
-    renderReportHeader({ title: 'Event Store Prune', useColor: false }),
-    '',
-    renderCandidateTable(result.candidates),
-    '',
-    renderSummary(result.summary),
-  ];
-
-  return lines.join('\n');
 }
 
 export async function runPruneReport(

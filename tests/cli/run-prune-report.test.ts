@@ -7,10 +7,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildUsageEventDataset } from '../../src/cli/build-usage-event-dataset.js';
 import {
   buildPruneReport,
-  renderPruneReport,
   runPruneReport,
   type PruneReportResult,
 } from '../../src/cli/run-prune-report.js';
+import { renderPruneReport } from '../../src/render/render-prune-report.js';
 import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.js';
 import {
   closeEventStore,
