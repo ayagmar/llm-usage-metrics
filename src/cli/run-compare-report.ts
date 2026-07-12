@@ -1,4 +1,5 @@
 import { renderCompareReport, type CompareReportFormat } from '../render/render-compare-report.js';
+import { renderCompareShareSvg } from '../render/render-compare-share-svg.js';
 import { buildCompareData } from './build-compare-data.js';
 import { emitDiagnostics } from './emit-diagnostics.js';
 import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
@@ -25,6 +26,13 @@ async function prepareCompareReport(
     buildData: () => buildCompareData(options, deps),
     getDiagnostics: (compareData) => compareData.diagnostics,
     runtimeProfile: deps.runtimeProfile,
+    createShareArtifact: options.share
+      ? (compareData) => ({
+          fileName: 'compare-share.svg',
+          svg: renderCompareShareSvg(compareData),
+          logLabel: 'compare',
+        })
+      : undefined,
     render: (compareData, format) => renderCompareReport(compareData, format),
   });
 }

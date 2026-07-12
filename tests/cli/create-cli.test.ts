@@ -171,7 +171,7 @@ describe('createCli', () => {
     expect(sessionCommand?.options.some((option) => option.long === '--repo-dir')).toBe(false);
   });
 
-  it('configures compare command with baseline flags and without share or per-model columns', () => {
+  it('configures compare command with baseline flags and without per-model columns', () => {
     const cli = createCli();
     const compareCommand = cli.commands.find((command) => command.name() === 'compare');
 
@@ -188,7 +188,7 @@ describe('createCli', () => {
     expect(compareCommand?.options.some((option) => option.long === '--model')).toBe(true);
     expect(compareCommand?.options.some((option) => option.long === '--pricing-url')).toBe(true);
     expect(compareCommand?.options.some((option) => option.long === '--history')).toBe(true);
-    expect(compareCommand?.options.some((option) => option.long === '--share')).toBe(false);
+    expect(compareCommand?.options.some((option) => option.long === '--share')).toBe(true);
     expect(compareCommand?.options.some((option) => option.long === '--per-model-columns')).toBe(
       false,
     );
