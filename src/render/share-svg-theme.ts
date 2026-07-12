@@ -105,6 +105,58 @@ export function renderShareFooter(options: {
   return lines.join('\n');
 }
 
+export type StatTileGeometry = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  gap: number;
+};
+
+/** The KPI stat tile shared by the wrapped and compare cards. */
+export function renderStatTile(
+  geometry: StatTileGeometry,
+  index: number,
+  label: string,
+  value: string,
+  sublabel: string,
+): string {
+  const x = geometry.left + index * (geometry.width + geometry.gap);
+  const y = geometry.top;
+
+  return `<g data-stat-tile="${escapeSvg(label)}">
+<rect x="${x}" y="${y}" width="${geometry.width}" height="${geometry.height}" rx="18" fill="${shareTheme.cardBg}" stroke="${shareTheme.cardBorder}"/>
+<text x="${x + 24}" y="${y + 42}" font-size="14" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}">${escapeSvg(label)}</text>
+<text x="${x + 24}" y="${y + 82}" font-size="30" font-weight="800" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">${escapeSvg(value)}</text>
+<text x="${x + 24}" y="${y + 108}" font-size="13" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">${escapeSvg(sublabel)}</text>
+</g>`;
+}
+
+/** The outer SVG skeleton every share card shares: defs, background, accent bar, footer. */
+export function renderShareDocument(options: {
+  width?: number;
+  height: number;
+  extraDefs?: string;
+  body: string;
+  footerRightText?: string;
+}): string {
+  const width = options.width ?? SHARE_SVG_WIDTH;
+  const defs =
+    options.extraDefs === undefined
+      ? renderShareAccentGradientDef()
+      : `${renderShareAccentGradientDef()}\n  ${options.extraDefs}`;
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${options.height}" viewBox="0 0 ${width} ${options.height}">
+<defs>
+  ${defs}
+</defs>
+<rect width="${width}" height="${options.height}" fill="${shareTheme.bg}"/>
+${renderShareAccentBar()}
+${options.body}
+${renderShareFooter({ height: options.height, rightText: options.footerRightText })}
+</svg>`;
+}
+
 export function formatCompact(n: number): string {
   if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'B';
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';

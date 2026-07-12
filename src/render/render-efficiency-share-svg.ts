@@ -10,10 +10,8 @@ import {
   formatDecimal,
   formatInteger,
   formatUsd,
-  renderShareAccentBar,
-  renderShareAccentGradientDef,
   renderShareCommandBadge,
-  renderShareFooter,
+  renderShareDocument,
   scaleY,
   SHARE_SVG_WIDTH,
   shareTheme,
@@ -155,17 +153,11 @@ export function renderEfficiencyMonthlyShareSvg(efficiencyData: EfficiencyDataRe
       ? `<text x="${(W / 2).toFixed(0)}" y="${(H / 2).toFixed(0)}" text-anchor="middle" font-size="20" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}">No monthly efficiency data available</text>`
       : '';
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
-<defs>
-  ${renderShareAccentGradientDef()}
-  <linearGradient id="usd-area-grad" x1="0" y1="0" x2="0" y2="1">
+  const extraDefs = `<linearGradient id="usd-area-grad" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0%" stop-color="${chartColors.usdPerCommit}" stop-opacity="0.28"/>
     <stop offset="100%" stop-color="${chartColors.usdPerCommit}" stop-opacity="0.04"/>
-  </linearGradient>
-</defs>
-<rect width="${W}" height="${H}" fill="${shareTheme.bg}"/>
-${renderShareAccentBar()}
-<text x="${left}" y="52" font-size="32" font-weight="700" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">Monthly Efficiency</text>
+  </linearGradient>`;
+  const body = `<text x="${left}" y="52" font-size="32" font-weight="700" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">Monthly Efficiency</text>
 <text x="${left}" y="76" font-size="15" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}">Spend per commit and commit volume, month by month</text>
 ${renderShareCommandBadge('llm-usage efficiency monthly --share')}
 ${renderSummaryStats(allRow)}
@@ -180,7 +172,7 @@ ${renderPanelFrame(commitPanel)}
 ${commitBars}
 ${commitLabels}
 ${monthLabels}
-${noData}
-${renderShareFooter({ height: H })}
-</svg>`;
+${noData}`;
+
+  return renderShareDocument({ height: H, extraDefs, body });
 }

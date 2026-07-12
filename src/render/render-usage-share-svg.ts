@@ -8,10 +8,8 @@ import {
   formatCompact,
   formatUsd,
   getSourceColor,
-  renderShareAccentBar,
-  renderShareAccentGradientDef,
   renderShareCommandBadge,
-  renderShareFooter,
+  renderShareDocument,
   scaleY,
   SHARE_SVG_FOOTER_HEIGHT,
   SHARE_SVG_WIDTH,
@@ -347,24 +345,23 @@ export function renderUsageShareSvg(
     );
   }
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
-<defs>
-  ${renderShareAccentGradientDef()}
-  <clipPath id="chart-clip">
+  const extraDefs = `<clipPath id="chart-clip">
     <rect x="${chartLeft}" y="${chartTop - 4}" width="${chartW}" height="${chartH + 8}"/>
   </clipPath>
-  ${renderGradientDefs(activeSeries)}
-</defs>
-<rect width="${W}" height="${H}" fill="${shareTheme.bg}"/>
-${renderShareAccentBar()}
-<text x="${left}" y="52" font-size="32" font-weight="700" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">${escapeSvg(granularityTitle(granularity))}</text>
+  ${renderGradientDefs(activeSeries)}`;
+  const body = `<text x="${left}" y="52" font-size="32" font-weight="700" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">${escapeSvg(granularityTitle(granularity))}</text>
 <text x="${left}" y="76" font-size="15" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}">Token usage by source over ${formatFooterRange(periods) || 'the selected window'}</text>
 ${renderShareCommandBadge(commandText)}
 ${renderStatsRow(totalTokens, totalCost, activeSeries.length)}
 ${renderLegend(legendItems)}
 ${renderGridLines(chartLeft, chartRight, chartTop, chartH, maxY)}
 ${chartContent}
-${renderPeriodLabels(periods, toX, chartBottom)}
-${renderShareFooter({ height: H, rightText: formatFooterRange(periods) })}
-</svg>`;
+${renderPeriodLabels(periods, toX, chartBottom)}`;
+
+  return renderShareDocument({
+    height: H,
+    extraDefs,
+    body,
+    footerRightText: formatFooterRange(periods),
+  });
 }

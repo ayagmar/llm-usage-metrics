@@ -4,12 +4,12 @@ import {
   formatApproxUsd,
   formatCompact,
   formatInteger,
-  renderShareAccentBar,
-  renderShareAccentGradientDef,
   renderShareCommandBadge,
-  renderShareFooter,
+  renderShareDocument,
+  renderStatTile,
   SHARE_SVG_WIDTH,
   shareTheme,
+  type StatTileGeometry,
 } from './share-svg-theme.js';
 
 const W = SHARE_SVG_WIDTH;
@@ -44,16 +44,16 @@ function formatHours(activeMs: number): string {
   return `${formatInteger(hours)}h`;
 }
 
-function renderStatTile(index: number, label: string, value: string, sublabel: string): string {
-  const x = left + index * (tileWidth + tileGap);
-  const y = tileTop;
+const tileGeometry: StatTileGeometry = {
+  left,
+  top: tileTop,
+  width: tileWidth,
+  height: tileHeight,
+  gap: tileGap,
+};
 
-  return `<g data-stat-tile="${escapeSvg(label)}">
-<rect x="${x}" y="${y}" width="${tileWidth}" height="${tileHeight}" rx="18" fill="${shareTheme.cardBg}" stroke="${shareTheme.cardBorder}"/>
-<text x="${x + 24}" y="${y + 42}" font-size="14" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}">${escapeSvg(label)}</text>
-<text x="${x + 24}" y="${y + 82}" font-size="30" font-weight="800" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">${escapeSvg(value)}</text>
-<text x="${x + 24}" y="${y + 108}" font-size="13" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">${escapeSvg(sublabel)}</text>
-</g>`;
+function renderWrappedStatTile(index: number, label: string, value: string, sublabel: string) {
+  return renderStatTile(tileGeometry, index, label, value, sublabel);
 }
 
 // The card fits three rows; the recap carries up to five, so the SVG shows the top three.
@@ -175,23 +175,17 @@ export function renderWrappedShareSvg(data: WrappedRecap): string {
       : `saved ${formatApproxUsd(data.estimatedCacheSavingsUsd, true)} via cache`;
   const footerLabel = `${data.from} to ${data.to}`;
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
-<defs>
-  ${renderShareAccentGradientDef()}
-</defs>
-<rect width="${W}" height="${H}" fill="${shareTheme.bg}"/>
-${renderShareAccentBar()}
-<text x="${left}" y="78" font-size="44" font-weight="900" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">${data.year} Wrapped</text>
+  const body = `<text x="${left}" y="78" font-size="44" font-weight="900" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">${data.year} Wrapped</text>
 <text x="${left}" y="112" font-size="18" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}">Your local LLM usage recap</text>
 ${renderShareCommandBadge(commandText)}
-${renderStatTile(0, 'Tokens', formatCompact(data.totalTokens), `${formatInteger(data.eventCount)} events`)}
-${renderStatTile(1, 'Cost', cost, costSublabel)}
-${renderStatTile(2, 'Hours', formatHours(data.activeMs), `${formatInteger(data.sessionCount)} sessions`)}
-${renderStatTile(3, 'Active Days', formatInteger(data.activeDays), 'this year')}
-${renderStatTile(4, 'Streak', formatInteger(data.longestStreak), formatDayLabel(data.longestStreak))}
+${renderWrappedStatTile(0, 'Tokens', formatCompact(data.totalTokens), `${formatInteger(data.eventCount)} events`)}
+${renderWrappedStatTile(1, 'Cost', cost, costSublabel)}
+${renderWrappedStatTile(2, 'Hours', formatHours(data.activeMs), `${formatInteger(data.sessionCount)} sessions`)}
+${renderWrappedStatTile(3, 'Active Days', formatInteger(data.activeDays), 'this year')}
+${renderWrappedStatTile(4, 'Streak', formatInteger(data.longestStreak), formatDayLabel(data.longestStreak))}
 ${renderTopList('Top Models', data.topModels, left)}
 ${renderTopList('Top Sources', data.topSources, W - right - 640)}
-${renderDailyHeatmap(data)}
-${renderShareFooter({ height: H, rightText: footerLabel })}
-</svg>`;
+${renderDailyHeatmap(data)}`;
+
+  return renderShareDocument({ height: H, body, footerRightText: footerLabel });
 }

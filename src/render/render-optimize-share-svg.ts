@@ -4,10 +4,8 @@ import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import {
   escapeSvg,
   formatUsd,
-  renderShareAccentBar,
-  renderShareAccentGradientDef,
   renderShareCommandBadge,
-  renderShareFooter,
+  renderShareDocument,
   SHARE_SVG_FOOTER_HEIGHT,
   SHARE_SVG_WIDTH,
   shareTheme,
@@ -147,13 +145,7 @@ export function renderOptimizeMonthlyShareSvg(optimizeData: OptimizeDataResult):
       ? `<text x="${(W / 2).toFixed(0)}" y="${(H / 2).toFixed(0)}" text-anchor="middle" font-size="20" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}">No monthly optimize data available</text>`
       : '';
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
-<defs>
-  ${renderShareAccentGradientDef()}
-</defs>
-<rect width="${W}" height="${H}" fill="${shareTheme.bg}"/>
-${renderShareAccentBar()}
-<text x="${pad.left}" y="52" font-size="32" font-weight="700" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">Monthly Optimize</text>
+  const body = `<text x="${pad.left}" y="52" font-size="32" font-weight="700" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">Monthly Optimize</text>
 <text x="${pad.left}" y="78" font-size="15" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}">Savings % heatmap by candidate and month</text>
 ${renderShareCommandBadge('llm-usage optimize monthly --share')}
 <text x="${pad.left}" y="112" font-size="15" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">Provider: <tspan font-weight="700">${escapeSvg(provider)}</tspan></text>
@@ -164,7 +156,7 @@ ${warning ? `<text x="${pad.left}" y="158" font-size="13" fill="#eab308" font-fa
 ${gridCells.join('\n')}
 ${colLabels.join('\n')}
 ${rowLabels.join('\n')}
-${noData}
-${renderShareFooter({ height: H })}
-</svg>`;
+${noData}`;
+
+  return renderShareDocument({ height: H, body });
 }

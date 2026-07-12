@@ -5,10 +5,8 @@ import {
   escapeSvg,
   formatCompact,
   formatUsd,
-  renderShareAccentBar,
-  renderShareAccentGradientDef,
   renderShareCommandBadge,
-  renderShareFooter,
+  renderShareDocument,
   scaleY,
   SHARE_SVG_FOOTER_HEIGHT,
   SHARE_SVG_WIDTH,
@@ -213,27 +211,26 @@ export function renderTrendsShareSvg(data: TrendsDataResult): string {
       ? `<text x="${(W / 2).toFixed(0)}" y="${(H / 2).toFixed(0)}" text-anchor="middle" font-size="20" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}">No trend data available</text>`
       : renderTrendShape(buckets, points, color, chartBottom);
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
-<defs>
-  ${renderShareAccentGradientDef()}
-  <linearGradient id="trend-area-grad" x1="0" y1="0" x2="0" y2="1">
+  const extraDefs = `<linearGradient id="trend-area-grad" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0%" stop-color="${color}" stop-opacity="0.42"/>
     <stop offset="100%" stop-color="${color}" stop-opacity="0.08"/>
   </linearGradient>
   <clipPath id="chart-clip">
     <rect x="${chartLeft}" y="${chartTop - 6}" width="${chartW}" height="${chartH + 12}"/>
-  </clipPath>
-</defs>
-<rect width="${W}" height="${H}" fill="${shareTheme.bg}"/>
-${renderShareAccentBar()}
-<text x="${pad.left}" y="52" font-size="32" font-weight="700" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">${escapeSvg(title)}</text>
+  </clipPath>`;
+  const body = `<text x="${pad.left}" y="52" font-size="32" font-weight="700" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">${escapeSvg(title)}</text>
 <text x="${pad.left}" y="78" font-size="15" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}">${escapeSvg(subtitle)}</text>
 ${renderShareCommandBadge(commandText)}
 ${renderSummaryStats(data)}
 ${renderGridLines(chartLeft, chartRight, chartTop, chartBottom, scaleMax, data.metric)}
 ${chartContent}
 ${peakMarker}
-${renderDateLabels(buckets, toX, chartBottom + 30)}
-${renderShareFooter({ height: H, rightText: getDateRangeLabel(data) })}
-</svg>`;
+${renderDateLabels(buckets, toX, chartBottom + 30)}`;
+
+  return renderShareDocument({
+    height: H,
+    extraDefs,
+    body,
+    footerRightText: getDateRangeLabel(data),
+  });
 }
