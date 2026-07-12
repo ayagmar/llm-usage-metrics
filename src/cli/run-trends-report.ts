@@ -10,7 +10,11 @@ import type {
   UsageDiagnostics,
 } from './usage-data-contracts.js';
 
-const trendsReportFormats = ['terminal', 'json'] as const satisfies readonly TrendsReportFormat[];
+const trendsReportFormats = [
+  'terminal',
+  'markdown',
+  'json',
+] as const satisfies readonly TrendsReportFormat[];
 
 function validateShareOption(options: TrendsCommandOptions): void {
   if (!options.share) {

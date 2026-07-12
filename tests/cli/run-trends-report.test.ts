@@ -62,16 +62,20 @@ describe('run-trends-report', () => {
     expect(parsed.data).not.toHaveProperty('diagnostics');
   });
 
-  it('rejects unsupported markdown output', async () => {
-    const buildCallsBefore = vi.mocked(buildTrendsData).mock.calls.length;
+  it('renders markdown output and rejects combining it with --json', async () => {
+    const report = await buildTrendsReport({
+      markdown: true,
+    });
+
+    expect(report).toContain('| Date');
+    expect(report).toContain('Total');
 
     await expect(
       buildTrendsReport({
         markdown: true,
-      } as never),
-    ).rejects.toThrow('--markdown is not supported for this command');
-
-    expect(vi.mocked(buildTrendsData).mock.calls).toHaveLength(buildCallsBefore);
+        json: true,
+      }),
+    ).rejects.toThrow('Choose either --markdown or --json, not both');
   });
 
   it('keeps diagnostics on stderr for JSON output', async () => {

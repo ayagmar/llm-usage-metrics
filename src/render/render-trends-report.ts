@@ -1,13 +1,15 @@
+import { markdownTable } from 'markdown-table';
 import pc from 'picocolors';
 
 import type { TrendsDataResult } from '../cli/usage-data-contracts.js';
 import type { TrendBucket, TrendSeries, TrendsMetric } from '../trends/trends-series.js';
+import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { renderReportHeader } from './report-header.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { resolveTtyColumns, visibleWidth } from './table-text-layout.js';
 import { renderReportJson } from './report-json.js';
 
-export type TrendsReportFormat = 'terminal' | 'json';
+export type TrendsReportFormat = 'terminal' | 'markdown' | 'json';
 
 export type RenderTrendsReportOptions = {
   useColor?: boolean;
@@ -447,6 +449,59 @@ function renderTerminalTrendsReport(
   return lines.join('\n');
 }
 
+const markdownIntegerFormatter = new Intl.NumberFormat('en-US');
+
+function formatMarkdownMetricValue(bucket: TrendBucket | undefined, metric: TrendsMetric): string {
+  if (bucket === undefined) {
+    return '-';
+  }
+
+  if (metric === 'cost') {
+    const formatted = usdFormatter.format(bucket.value);
+    return bucket.incomplete === true ? `~${formatted}` : formatted;
+  }
+
+  return markdownIntegerFormatter.format(bucket.value);
+}
+
+function formatMarkdownSummaryTotal(series: TrendSeries, metric: TrendsMetric): string {
+  if (metric === 'cost') {
+    const formatted = usdFormatter.format(series.summary.total);
+    return series.summary.incomplete ? `~${formatted}` : formatted;
+  }
+
+  return markdownIntegerFormatter.format(series.summary.total);
+}
+
+function renderMarkdownTrendsReport(trendsData: TrendsDataResult): string {
+  const metricLabel = trendsData.metric === 'cost' ? 'Cost' : 'Tokens';
+  const sourceSeries = trendsData.sourceSeries ?? [];
+  const seriesColumns =
+    sourceSeries.length > 0 ? [trendsData.totalSeries, ...sourceSeries] : [trendsData.totalSeries];
+  const headers =
+    sourceSeries.length > 0
+      ? ['Date', 'combined', ...sourceSeries.map((series) => series.source)]
+      : ['Date', metricLabel];
+  const bucketsByDate = seriesColumns.map(
+    (series) => new Map(series.buckets.map((bucket) => [bucket.date, bucket])),
+  );
+  const rows = trendsData.totalSeries.buckets.map((bucket) => [
+    bucket.date,
+    ...seriesColumns.map((series, columnIndex) =>
+      formatMarkdownMetricValue(bucketsByDate[columnIndex].get(bucket.date), trendsData.metric),
+    ),
+  ]);
+  const totalRow = [
+    'Total',
+    ...seriesColumns.map((series) => formatMarkdownSummaryTotal(series, trendsData.metric)),
+  ];
+
+  return markdownTable(
+    [headers, ...rows, totalRow].map((row) => row.map((cell) => toMarkdownSafeCell(cell))),
+    { align: ['l', ...seriesColumns.map(() => 'r' as const)] },
+  );
+}
+
 export function renderTrendsReport(
   trendsData: TrendsDataResult,
   format: TrendsReportFormat,
@@ -460,6 +515,8 @@ export function renderTrendsReport(
         totalSeries: trendsData.totalSeries,
         sourceSeries: trendsData.sourceSeries,
       });
+    case 'markdown':
+      return renderMarkdownTrendsReport(trendsData);
     case 'terminal':
       return renderTerminalTrendsReport(trendsData, options);
   }

@@ -50,7 +50,7 @@ export const sharedOptionProfileConfig = {
   },
   trends: {
     includeDateFilters: true,
-    includeMarkdown: false,
+    includeMarkdown: true,
     includePerModelColumns: false,
     includePricing: true,
     includeProviderModelFilters: true,

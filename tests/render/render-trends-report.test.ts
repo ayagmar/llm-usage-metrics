@@ -38,6 +38,63 @@ function createTrendsDataResult(): TrendsDataResult {
 }
 
 describe('renderTrendsReport', () => {
+  it('renders markdown with one row per date and a total row', () => {
+    const output = renderTrendsReport(createTrendsDataResult(), 'markdown');
+
+    expect(output).toContain('| Date');
+    expect(output).toContain('Cost |');
+    expect(output).toContain('| 2026-03-04 |');
+    expect(output).toContain('$1.25');
+    expect(output).toContain('~$2.50');
+    expect(output).toContain('| Total');
+    expect(output).toContain('~$3.75');
+  });
+
+  it('renders markdown token columns per source when sourceSeries is present', () => {
+    const data = createTrendsDataResult();
+    data.metric = 'tokens';
+    data.totalSeries = {
+      source: 'combined',
+      buckets: [
+        { date: '2026-03-04', value: 1_500, observed: true },
+        { date: '2026-03-05', value: 500, observed: true },
+      ],
+      summary: {
+        total: 2_000,
+        average: 1_000,
+        peak: { date: '2026-03-04', value: 1_500 },
+        incomplete: false,
+        observedDayCount: 2,
+      },
+    };
+    data.sourceSeries = [
+      {
+        source: 'pi',
+        buckets: [
+          { date: '2026-03-04', value: 1_000, observed: true },
+          { date: '2026-03-05', value: 0, observed: false },
+        ],
+        summary: {
+          total: 1_000,
+          average: 500,
+          peak: { date: '2026-03-04', value: 1_000 },
+          incomplete: false,
+          observedDayCount: 1,
+        },
+      },
+    ];
+
+    const output = renderTrendsReport(data, 'markdown');
+
+    expect(output).toContain('combined |');
+    expect(output).toContain('pi |');
+    expect(output).toContain('| 2026-03-04 |');
+    expect(output).toContain('1,500');
+    expect(output).toContain('1,000');
+    expect(output).toContain('| Total');
+    expect(output).toContain('2,000');
+  });
+
   it('renders terminal output with title and summary', () => {
     const output = renderTrendsReport(createTrendsDataResult(), 'terminal', {
       useColor: false,
