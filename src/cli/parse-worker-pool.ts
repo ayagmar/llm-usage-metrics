@@ -30,7 +30,7 @@ export type ParseWorkerResponseMessage =
 export type ParseWorkerLike = {
   postMessage(message: ParseWorkerRequestMessage): void;
   terminate(): Promise<unknown>;
-  on(event: 'message' | 'error', listener: (value: unknown) => void): ParseWorkerLike;
+  on(event: 'message' | 'error' | 'exit', listener: (value: unknown) => void): ParseWorkerLike;
 };
 
 export type ParseWorkerSpawner = (entryUrl: URL, options: WorkerOptions) => ParseWorkerLike;
@@ -272,6 +272,7 @@ export function createParseWorkerPool(options: {
     const currentTask = slot.currentTask;
 
     if (!response || response.taskId !== currentTask?.id) {
+      disablePool();
       return;
     }
 
@@ -298,6 +299,9 @@ export function createParseWorkerPool(options: {
         handleWorkerMessage(slot, message);
       });
       worker.on('error', () => {
+        disablePool();
+      });
+      worker.on('exit', () => {
         disablePool();
       });
       slots.push(slot);
