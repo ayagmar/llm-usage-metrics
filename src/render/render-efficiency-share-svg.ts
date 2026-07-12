@@ -4,6 +4,7 @@ import type {
   EfficiencyPeriodRow,
   EfficiencyRow,
 } from '../efficiency/efficiency-row.js';
+import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import {
   catmullRom,
   escapeSvg,
@@ -43,7 +44,7 @@ function isGrandTotalRow(row: EfficiencyRow): row is EfficiencyGrandTotalRow {
 }
 
 function toMonthlyRows(rows: EfficiencyRow[]): EfficiencyPeriodRow[] {
-  return rows.filter(isPeriodRow).sort((a, b) => a.periodKey.localeCompare(b.periodKey));
+  return rows.filter(isPeriodRow).sort((a, b) => compareByCodePoint(a.periodKey, b.periodKey));
 }
 
 function toAllRow(rows: EfficiencyRow[]): EfficiencyGrandTotalRow | undefined {
