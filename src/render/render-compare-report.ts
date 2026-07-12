@@ -10,6 +10,7 @@ import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { renderReportHeader } from './report-header.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
+import { renderReportJson } from './report-json.js';
 
 export type CompareReportFormat = 'terminal' | 'markdown' | 'json';
 
@@ -230,7 +231,12 @@ export function renderCompareReport(
 ): string {
   switch (format) {
     case 'json':
-      return JSON.stringify(compareData, null, 2);
+      return renderReportJson('compare', {
+        current: compareData.current,
+        baseline: compareData.baseline,
+        totals: compareData.totals,
+        sources: compareData.sources,
+      });
     case 'markdown':
       return renderMarkdownCompareReport(compareData);
     case 'terminal':

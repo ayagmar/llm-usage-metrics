@@ -9,6 +9,7 @@ import {
 } from './terminal-style-policy.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
+import { renderReportJson } from './report-json.js';
 
 export type WrappedReportFormat = 'terminal' | 'json';
 
@@ -163,7 +164,7 @@ export function renderWrappedReport(
 ): string {
   switch (format) {
     case 'json':
-      return JSON.stringify(recap, null, 2);
+      return renderReportJson('wrapped', recap);
     case 'terminal':
       return renderWrappedTerminalReport(recap, options);
   }

@@ -616,7 +616,11 @@ describe('run-doctor-report', () => {
     }
 
     expect(JSON.parse(stdout.getOutput())).toEqual({
-      sources: [{ id: 'gemini', format: 'json', status: 'ok', itemsFound: 1 }],
+      schemaVersion: 1,
+      report: 'doctor',
+      data: {
+        sources: [{ id: 'gemini', format: 'json', status: 'ok', itemsFound: 1 }],
+      },
     });
   });
 });

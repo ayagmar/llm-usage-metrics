@@ -65,9 +65,14 @@ describe('run-compare-report', () => {
     const report = await buildCompareReport({
       json: true,
     });
-    const parsed = JSON.parse(report) as { current: { window: { label: string } } };
+    const parsed = JSON.parse(report) as {
+      schemaVersion: number;
+      report: string;
+      data: { current: { window: { label: string } } };
+    };
 
-    expect(parsed.current.window.label).toBe('2026-06');
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'compare' });
+    expect(parsed.data.current.window.label).toBe('2026-06');
   });
 
   it('renders markdown output when requested', async () => {
@@ -103,8 +108,10 @@ describe('run-compare-report', () => {
 
       expect(consoleLogSpy).toHaveBeenCalledTimes(1);
       const stdoutBody = String(consoleLogSpy.mock.calls[0]?.[0]);
-      const parsed = JSON.parse(stdoutBody) as { current: { window: { label: string } } };
-      expect(parsed.current.window.label).toBe('2026-06');
+      const parsed = JSON.parse(stdoutBody) as {
+        data: { current: { window: { label: string } } };
+      };
+      expect(parsed.data.current.window.label).toBe('2026-06');
       expect(consoleErrorSpy.mock.calls.length).toBeGreaterThan(0);
     } finally {
       consoleLogSpy.mockRestore();

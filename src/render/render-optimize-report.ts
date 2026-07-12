@@ -9,6 +9,7 @@ import { visibleWidth } from './table-text-layout.js';
 import { renderReportHeader } from './report-header.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
+import { renderReportJson } from './report-json.js';
 
 export type OptimizeReportFormat = 'terminal' | 'markdown' | 'json';
 
@@ -321,7 +322,7 @@ export function renderOptimizeReport(
 ): string {
   switch (format) {
     case 'json':
-      return JSON.stringify(optimizeData.rows, null, 2);
+      return renderReportJson('optimize', optimizeData.rows);
     case 'markdown':
       return renderMarkdownOptimizeReport(optimizeData);
     case 'terminal':

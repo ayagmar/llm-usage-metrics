@@ -354,10 +354,15 @@ describe('renderEfficiencyReport', () => {
       granularity: 'monthly',
     });
 
-    const parsed = JSON.parse(output) as Array<Record<string, unknown>>;
+    const parsed = JSON.parse(output) as {
+      schemaVersion: number;
+      report: string;
+      data: { grouping: string; rows: Array<Record<string, unknown>> };
+    };
 
-    expect(parsed[0]?.commitsPerUsd).toBeUndefined();
-    expect(parsed[1]?.tokensPerCommit).toBe(62.5);
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'efficiency' });
+    expect(parsed.data.rows[0]?.commitsPerUsd).toBeUndefined();
+    expect(parsed.data.rows[1]?.tokensPerCommit).toBe(62.5);
   });
 
   it('renders by-source json with grouping metadata', () => {
@@ -366,12 +371,14 @@ describe('renderEfficiencyReport', () => {
     });
 
     const parsed = JSON.parse(output) as {
-      grouping?: unknown;
-      rows?: Array<Record<string, unknown>>;
+      data: {
+        grouping?: unknown;
+        rows?: Array<Record<string, unknown>>;
+      };
     };
 
-    expect(parsed.grouping).toBe('source');
-    expect(parsed.rows?.[0]).toMatchObject({
+    expect(parsed.data.grouping).toBe('source');
+    expect(parsed.data.rows?.[0]).toMatchObject({
       rowType: 'period_source',
       periodKey: '2026-02-10',
       source: 'codex',

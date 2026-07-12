@@ -283,7 +283,14 @@ describe.skipIf(!DatabaseSync)('multi-source usage report e2e', () => {
       json: true,
     });
 
-    const rows = JSON.parse(report) as UsageJsonRow[];
+    const parsed = JSON.parse(report) as {
+      schemaVersion: number;
+      report: string;
+      data: UsageJsonRow[];
+    };
+
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'usage' });
+    const rows = parsed.data;
     const sourceRows = getPeriodSourceRows(rows);
     const sourceIds = new Set(sourceRows.map((row) => row.source));
     const grandTotalRows = getGrandTotalRows(rows);
@@ -323,7 +330,14 @@ describe.skipIf(!DatabaseSync)('multi-source usage report e2e', () => {
       json: true,
     });
 
-    const rows = JSON.parse(report) as UsageJsonRow[];
+    const parsed = JSON.parse(report) as {
+      schemaVersion: number;
+      report: string;
+      data: UsageJsonRow[];
+    };
+
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'usage' });
+    const rows = parsed.data;
     const sourceRows = getPeriodSourceRows(rows);
     const sourceIds = [...new Set(sourceRows.map((row) => row.source))].sort();
     const grandTotalRows = getGrandTotalRows(rows);

@@ -51,7 +51,14 @@ describe('usage report e2e', () => {
       json: true,
     });
 
-    const rows = JSON.parse(report) as { periodKey: string; rowType: string }[];
+    const parsed = JSON.parse(report) as {
+      schemaVersion: number;
+      report: string;
+      data: { periodKey: string; rowType: string }[];
+    };
+
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'usage' });
+    const rows = parsed.data;
 
     expect(rows.some((row) => row.periodKey === '2026-01')).toBe(true);
     expect(rows.some((row) => row.periodKey === '2026-02')).toBe(true);
@@ -84,13 +91,18 @@ describe('usage report e2e', () => {
     });
 
     const parsed = JSON.parse(report) as {
-      current: { totals: { totalTokens: number } };
-      baseline: { totals: { totalTokens: number } };
-      sources: Array<{ source: string }>;
+      schemaVersion: number;
+      report: string;
+      data: {
+        current: { totals: { totalTokens: number } };
+        baseline: { totals: { totalTokens: number } };
+        sources: Array<{ source: string }>;
+      };
     };
 
-    expect(parsed.current.totals.totalTokens).toBe(120);
-    expect(parsed.baseline.totals.totalTokens).toBe(450);
-    expect(parsed.sources.map((row) => row.source)).toEqual(['pi', 'codex']);
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'compare' });
+    expect(parsed.data.current.totals.totalTokens).toBe(120);
+    expect(parsed.data.baseline.totals.totalTokens).toBe(450);
+    expect(parsed.data.sources.map((row) => row.source)).toEqual(['pi', 'codex']);
   });
 });

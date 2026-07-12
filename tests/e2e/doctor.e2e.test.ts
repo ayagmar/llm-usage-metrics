@@ -46,7 +46,14 @@ async function captureDoctorJson(options: Parameters<typeof runDoctorReport>[0])
     logSpy.mockRestore();
   }
 
-  return JSON.parse(chunks.join('')) as DoctorJsonReport;
+  const parsed = JSON.parse(chunks.join('')) as {
+    schemaVersion: number;
+    report: string;
+    data: DoctorJsonReport;
+  };
+
+  expect(parsed).toMatchObject({ schemaVersion: 1, report: 'doctor' });
+  return parsed.data;
 }
 
 afterEach(() => {

@@ -267,11 +267,16 @@ describe('renderTrendsReport', () => {
 
   it('renders JSON without diagnostics', () => {
     const output = renderTrendsReport(createTrendsDataResult(), 'json');
-    const parsed = JSON.parse(output) as Record<string, unknown>;
+    const parsed = JSON.parse(output) as {
+      schemaVersion: number;
+      report: string;
+      data: Record<string, unknown>;
+    };
 
-    expect(parsed.metric).toBe('cost');
-    expect(parsed.dateRange).toEqual({ from: '2026-03-04', to: '2026-03-06' });
-    expect(parsed).not.toHaveProperty('diagnostics');
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'trends' });
+    expect(parsed.data.metric).toBe('cost');
+    expect(parsed.data.dateRange).toEqual({ from: '2026-03-04', to: '2026-03-06' });
+    expect(parsed.data).not.toHaveProperty('diagnostics');
   });
 
   it('renders a midpoint date label on wider combined charts', () => {

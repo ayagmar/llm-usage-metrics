@@ -169,10 +169,15 @@ describe('renderSessionReport', () => {
     const output = renderSessionReport(createSessionData(), 'json', {
       timezone: 'UTC',
     });
-    const parsed = JSON.parse(output) as Array<Record<string, unknown>>;
+    const parsed = JSON.parse(output) as {
+      schemaVersion: number;
+      report: string;
+      data: Array<Record<string, unknown>>;
+    };
 
-    expect(parsed).toHaveLength(1);
-    expect(parsed[0]).toMatchObject({
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'session' });
+    expect(parsed.data).toHaveLength(1);
+    expect(parsed.data[0]).toMatchObject({
       sessionId: 'session-abcdef123456',
       repoRoot: '/home/user/project-alpha',
       eventCount: 2,
@@ -180,7 +185,7 @@ describe('renderSessionReport', () => {
       cacheWriteTokens: 40,
       models: ['gpt-4.1', 'gpt-5-codex'],
     });
-    expect(parsed[0]).not.toHaveProperty('diagnostics');
+    expect(parsed.data[0]).not.toHaveProperty('diagnostics');
   });
 
   it('renders repo rows with basenames, a no-repo bucket, and comma-joined sources', () => {
@@ -203,16 +208,21 @@ describe('renderSessionReport', () => {
     const output = renderSessionReport(createRepoData(), 'json', {
       timezone: 'UTC',
     });
-    const parsed = JSON.parse(output) as Array<Record<string, unknown>>;
+    const parsed = JSON.parse(output) as {
+      schemaVersion: number;
+      report: string;
+      data: Array<Record<string, unknown>>;
+    };
 
-    expect(parsed).toHaveLength(2);
-    expect(parsed[0]).toMatchObject({
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'session' });
+    expect(parsed.data).toHaveLength(2);
+    expect(parsed.data[0]).toMatchObject({
       rowType: 'repo',
       repoRoot: '/home/user/project-alpha',
       sessionCount: 3,
       sources: ['codex', 'pi'],
     });
-    expect(parsed[1]).not.toHaveProperty('repoRoot');
+    expect(parsed.data[1]).not.toHaveProperty('repoRoot');
   });
 
   it('renders an empty terminal state when no rows are available', () => {

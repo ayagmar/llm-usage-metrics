@@ -9,6 +9,7 @@ import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { renderReportHeader } from './report-header.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
+import { renderReportJson } from './report-json.js';
 
 export type SessionReportFormat = 'terminal' | 'markdown' | 'json';
 
@@ -193,7 +194,7 @@ export function renderSessionReport(
 ): string {
   switch (format) {
     case 'json':
-      return JSON.stringify(sessionData.rows, null, 2);
+      return renderReportJson('session', sessionData.rows);
     case 'markdown':
       return renderMarkdownSessionReport(sessionData, options);
     case 'terminal':

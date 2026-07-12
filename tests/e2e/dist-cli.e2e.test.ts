@@ -71,7 +71,14 @@ describe.skipIf(!existsSync(distCliPath))('dist CLI e2e', () => {
       },
     );
 
-    const rows = JSON.parse(stdout) as UsageJsonRow[];
+    const parsed = JSON.parse(stdout) as {
+      schemaVersion: number;
+      report: string;
+      data: UsageJsonRow[];
+    };
+
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'usage' });
+    const rows = parsed.data;
     const grandTotalRow = rows.find(
       (row) => row.rowType === 'grand_total' && row.periodKey === 'ALL',
     );

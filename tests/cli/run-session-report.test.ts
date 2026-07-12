@@ -47,11 +47,16 @@ describe('run-session-report', () => {
       json: true,
     });
 
-    const parsed = JSON.parse(report) as Array<{ sessionId: string; diagnostics?: unknown }>;
+    const parsed = JSON.parse(report) as {
+      schemaVersion: number;
+      report: string;
+      data: Array<{ sessionId: string; diagnostics?: unknown }>;
+    };
 
-    expect(parsed).toHaveLength(1);
-    expect(parsed[0]?.sessionId).toBe('session-abcdef123456');
-    expect(parsed[0]).not.toHaveProperty('diagnostics');
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'session' });
+    expect(parsed.data).toHaveLength(1);
+    expect(parsed.data[0]?.sessionId).toBe('session-abcdef123456');
+    expect(parsed.data[0]).not.toHaveProperty('diagnostics');
   });
 
   it('renders markdown output when requested', async () => {
@@ -97,8 +102,13 @@ describe('run-session-report', () => {
 
       expect(consoleLogSpy).toHaveBeenCalledTimes(1);
       const stdoutBody = String(consoleLogSpy.mock.calls[0]?.[0]);
-      const parsed = JSON.parse(stdoutBody) as unknown;
-      expect(Array.isArray(parsed)).toBe(true);
+      const parsed = JSON.parse(stdoutBody) as {
+        schemaVersion: number;
+        report: string;
+        data: unknown;
+      };
+      expect(parsed).toMatchObject({ schemaVersion: 1, report: 'session' });
+      expect(Array.isArray(parsed.data)).toBe(true);
       expect(stdoutBody).not.toContain('Showing top');
 
       const stderrBody = consoleErrorSpy.mock.calls.map((call) => String(call[0])).join('\n');

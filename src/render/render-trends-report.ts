@@ -5,6 +5,7 @@ import type { TrendBucket, TrendSeries, TrendsMetric } from '../trends/trends-se
 import { renderReportHeader } from './report-header.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { resolveTtyColumns, visibleWidth } from './table-text-layout.js';
+import { renderReportJson } from './report-json.js';
 
 export type TrendsReportFormat = 'terminal' | 'json';
 
@@ -453,16 +454,12 @@ export function renderTrendsReport(
 ): string {
   switch (format) {
     case 'json':
-      return JSON.stringify(
-        {
-          metric: trendsData.metric,
-          dateRange: trendsData.dateRange,
-          totalSeries: trendsData.totalSeries,
-          sourceSeries: trendsData.sourceSeries,
-        },
-        null,
-        2,
-      );
+      return renderReportJson('trends', {
+        metric: trendsData.metric,
+        dateRange: trendsData.dateRange,
+        totalSeries: trendsData.totalSeries,
+        sourceSeries: trendsData.sourceSeries,
+      });
     case 'terminal':
       return renderTerminalTrendsReport(trendsData, options);
   }

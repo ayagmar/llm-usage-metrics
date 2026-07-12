@@ -114,7 +114,15 @@ async function main() {
       );
     }
 
-    const rows = JSON.parse(output);
+    const envelope = JSON.parse(output);
+
+    if (envelope.schemaVersion !== 1 || envelope.report !== 'usage') {
+      throw new Error(
+        `Dist OpenCode smoke check failed: unexpected JSON envelope (${output.trim().slice(0, 120)})`,
+      );
+    }
+
+    const rows = envelope.data;
     const totalRow = rows.find((row) => row.rowType === 'grand_total');
 
     if (!totalRow || totalRow.totalTokens !== 15) {

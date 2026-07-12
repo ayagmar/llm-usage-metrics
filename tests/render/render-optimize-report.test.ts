@@ -289,11 +289,16 @@ describe('renderOptimizeReport', () => {
       granularity: 'monthly',
     });
 
-    const parsed = JSON.parse(output) as Array<{ rowType: string; periodKey: string }>;
+    const parsed = JSON.parse(output) as {
+      schemaVersion: number;
+      report: string;
+      data: Array<{ rowType: string; periodKey: string }>;
+    };
 
-    expect(parsed).toHaveLength(4);
-    expect(parsed[0]).toMatchObject({ rowType: 'baseline', periodKey: '2026-02-10' });
-    expect(parsed[3]).toMatchObject({ rowType: 'candidate', periodKey: 'ALL' });
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'optimize' });
+    expect(parsed.data).toHaveLength(4);
+    expect(parsed.data[0]).toMatchObject({ rowType: 'baseline', periodKey: '2026-02-10' });
+    expect(parsed.data[3]).toMatchObject({ rowType: 'candidate', periodKey: 'ALL' });
   });
 
   it('renders colored terminal output without changing visible optimize context', () => {

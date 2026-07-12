@@ -333,8 +333,13 @@ describe('run-prune-report', () => {
       stdout.restore();
     }
 
-    const parsed = JSON.parse(stdout.getOutput()) as PruneReportResult;
-    expect(parsed.candidates).toEqual([
+    const parsed = JSON.parse(stdout.getOutput()) as {
+      schemaVersion: number;
+      report: string;
+      data: PruneReportResult;
+    };
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'prune' });
+    expect(parsed.data.candidates).toEqual([
       expect.objectContaining({
         source: 'codex',
         filePath: oldPath,
@@ -342,7 +347,7 @@ describe('run-prune-report', () => {
         reasons: ['suppressed'],
       }),
     ]);
-    expect(parsed.summary).toMatchObject({
+    expect(parsed.data.summary).toMatchObject({
       storePath: dbPath,
       applied: false,
       candidateFileCount: 1,

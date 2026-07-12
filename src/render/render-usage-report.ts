@@ -2,6 +2,7 @@ import type { UsageDataResult } from '../cli/usage-data-contracts.js';
 import type { ReportGranularity } from '../utils/time-buckets.js';
 import { renderMarkdownTable } from './markdown-table.js';
 import { renderReportHeader } from './report-header.js';
+import { renderReportJson } from './report-json.js';
 import type { UsageTableLayout } from './row-cells.js';
 import { renderTerminalTable, shouldUseColorByDefault } from './terminal-table.js';
 
@@ -60,7 +61,7 @@ export function renderUsageReport(
 
   switch (format) {
     case 'json':
-      return JSON.stringify(usageData.rows, null, 2);
+      return renderReportJson('usage', usageData.rows);
     case 'markdown':
       return renderMarkdownTable(usageData.rows, { tableLayout });
     case 'terminal':

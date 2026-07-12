@@ -21,16 +21,21 @@ describe('trends report e2e', () => {
     });
 
     const parsed = JSON.parse(report) as {
-      metric: string;
-      totalSeries: { buckets: Array<{ date: string; observed: boolean }> };
+      schemaVersion: number;
+      report: string;
+      data: {
+        metric: string;
+        totalSeries: { buckets: Array<{ date: string; observed: boolean }> };
+      };
     };
 
-    expect(parsed.metric).toBe('tokens');
-    expect(parsed.totalSeries.buckets.map((bucket) => bucket.date)).toEqual([
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'trends' });
+    expect(parsed.data.metric).toBe('tokens');
+    expect(parsed.data.totalSeries.buckets.map((bucket) => bucket.date)).toEqual([
       '2026-01-04',
       '2026-01-05',
       '2026-01-06',
     ]);
-    expect(parsed.totalSeries.buckets.some((bucket) => bucket.observed)).toBe(true);
+    expect(parsed.data.totalSeries.buckets.some((bucket) => bucket.observed)).toBe(true);
   });
 });

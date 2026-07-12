@@ -57,18 +57,23 @@ describe('buildUsageReport', () => {
       });
 
       const parsed = JSON.parse(report) as {
-        rowType: string;
-        periodKey: string;
-        source: string;
-        totalTokens: number;
-        inputTokens: number;
-        outputTokens: number;
-        reasoningTokens: number;
-        cacheReadTokens: number;
-        cacheWriteTokens: number;
-      }[];
+        schemaVersion: number;
+        report: string;
+        data: {
+          rowType: string;
+          periodKey: string;
+          source: string;
+          totalTokens: number;
+          inputTokens: number;
+          outputTokens: number;
+          reasoningTokens: number;
+          cacheReadTokens: number;
+          cacheWriteTokens: number;
+        }[];
+      };
 
-      const periodRow = parsed.find(
+      expect(parsed).toMatchObject({ schemaVersion: 1, report: 'usage' });
+      const periodRow = parsed.data.find(
         (row) => row.rowType === 'period_source' && row.source === 'droid',
       );
 
@@ -83,7 +88,7 @@ describe('buildUsageReport', () => {
         cacheWriteTokens: 2,
         totalTokens: 18,
       });
-      expect(parsed.at(-1)).toMatchObject({ rowType: 'grand_total', periodKey: 'ALL' });
+      expect(parsed.data.at(-1)).toMatchObject({ rowType: 'grand_total', periodKey: 'ALL' });
     } finally {
       vi.unstubAllGlobals();
     }
@@ -131,11 +136,16 @@ describe('buildUsageReport', () => {
       json: true,
     });
 
-    const parsed = JSON.parse(report) as { rowType: string; periodKey: string }[];
+    const parsed = JSON.parse(report) as {
+      schemaVersion: number;
+      report: string;
+      data: { rowType: string; periodKey: string }[];
+    };
 
-    expect(parsed.length).toBeGreaterThan(0);
-    expect(parsed.some((row) => row.rowType === 'period_combined')).toBe(true);
-    expect(parsed.at(-1)).toMatchObject({ rowType: 'grand_total', periodKey: 'ALL' });
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'usage' });
+    expect(parsed.data.length).toBeGreaterThan(0);
+    expect(parsed.data.some((row) => row.rowType === 'period_combined')).toBe(true);
+    expect(parsed.data.at(-1)).toMatchObject({ rowType: 'grand_total', periodKey: 'ALL' });
   });
 
   it('filters rows to a single source when --source is provided', async () => {
@@ -147,15 +157,15 @@ describe('buildUsageReport', () => {
       json: true,
     });
 
-    const parsed = JSON.parse(report) as { rowType: string; source: string }[];
+    const parsed = JSON.parse(report) as { data: { rowType: string; source: string }[] };
 
-    expect(parsed.some((row) => row.rowType === 'period_source' && row.source === 'codex')).toBe(
-      true,
-    );
-    expect(parsed.some((row) => row.rowType === 'period_source' && row.source === 'pi')).toBe(
+    expect(
+      parsed.data.some((row) => row.rowType === 'period_source' && row.source === 'codex'),
+    ).toBe(true);
+    expect(parsed.data.some((row) => row.rowType === 'period_source' && row.source === 'pi')).toBe(
       false,
     );
-    expect(parsed.some((row) => row.rowType === 'period_combined')).toBe(false);
+    expect(parsed.data.some((row) => row.rowType === 'period_combined')).toBe(false);
   });
 
   it('supports comma-separated source filters', async () => {
@@ -167,12 +177,14 @@ describe('buildUsageReport', () => {
       json: true,
     });
 
-    const parsed = JSON.parse(report) as { rowType: string; source: string }[];
+    const parsed = JSON.parse(report) as { data: { rowType: string; source: string }[] };
 
-    expect(parsed.some((row) => row.rowType === 'period_source' && row.source === 'pi')).toBe(true);
-    expect(parsed.some((row) => row.rowType === 'period_source' && row.source === 'codex')).toBe(
+    expect(parsed.data.some((row) => row.rowType === 'period_source' && row.source === 'pi')).toBe(
       true,
     );
+    expect(
+      parsed.data.some((row) => row.rowType === 'period_source' && row.source === 'codex'),
+    ).toBe(true);
   });
 
   it('applies provider filtering when --provider is supplied', async () => {
@@ -224,14 +236,16 @@ describe('buildUsageReport', () => {
     });
 
     const parsed = JSON.parse(report) as {
-      rowType: string;
-      source: string;
-      totalTokens: number;
-      costUsd: number;
-    }[];
+      data: {
+        rowType: string;
+        source: string;
+        totalTokens: number;
+        costUsd: number;
+      }[];
+    };
 
-    expect(parsed).toHaveLength(1);
-    expect(parsed[0]).toMatchObject({
+    expect(parsed.data).toHaveLength(1);
+    expect(parsed.data[0]).toMatchObject({
       rowType: 'grand_total',
       source: 'combined',
       totalTokens: 0,
@@ -259,22 +273,26 @@ describe('buildUsageReport', () => {
       });
 
       expect(fetchSpy).not.toHaveBeenCalled();
-      expect(JSON.parse(report)).toEqual([
-        {
-          rowType: 'grand_total',
-          periodKey: 'ALL',
-          source: 'combined',
-          models: [],
-          modelBreakdown: [],
-          inputTokens: 0,
-          outputTokens: 0,
-          reasoningTokens: 0,
-          cacheReadTokens: 0,
-          cacheWriteTokens: 0,
-          totalTokens: 0,
-          costUsd: 0,
-        },
-      ]);
+      expect(JSON.parse(report)).toEqual({
+        schemaVersion: 1,
+        report: 'usage',
+        data: [
+          {
+            rowType: 'grand_total',
+            periodKey: 'ALL',
+            source: 'combined',
+            models: [],
+            modelBreakdown: [],
+            inputTokens: 0,
+            outputTokens: 0,
+            reasoningTokens: 0,
+            cacheReadTokens: 0,
+            cacheWriteTokens: 0,
+            totalTokens: 0,
+            costUsd: 0,
+          },
+        ],
+      });
     } finally {
       vi.unstubAllGlobals();
     }

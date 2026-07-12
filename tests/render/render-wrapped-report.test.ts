@@ -115,6 +115,10 @@ describe('render-wrapped-report', () => {
   it('returns the recap as JSON for the json format', () => {
     const recap = createRecap();
 
-    expect(JSON.parse(renderWrappedReport(recap, 'json'))).toEqual(recap);
+    expect(JSON.parse(renderWrappedReport(recap, 'json'))).toEqual({
+      schemaVersion: 1,
+      report: 'wrapped',
+      data: recap,
+    });
   });
 });

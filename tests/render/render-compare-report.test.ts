@@ -167,14 +167,28 @@ describe('renderCompareReport', () => {
 
   it('renders structured JSON output', () => {
     const output = renderCompareReport(createCompareData(), 'json');
-    const parsed = JSON.parse(output) as CompareDataResult;
+    const parsed = JSON.parse(output) as {
+      schemaVersion: number;
+      report: string;
+      data: CompareDataResult;
+    };
 
-    expect(parsed.current.window).toEqual({
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'compare' });
+    expect(parsed.data.current.window).toEqual({
       since: '2026-06-01',
       until: '2026-06-30',
       label: '2026-06',
     });
-    expect(parsed.totals[0]).toMatchObject({ key: 'inputTokens', delta: 20 });
-    expect(parsed.sources[0]).toMatchObject({ source: 'co|dex' });
+    expect(parsed.data.totals[0]).toMatchObject({ key: 'inputTokens', delta: 20 });
+    expect(parsed.data.sources[0]).toMatchObject({ source: 'co|dex' });
+  });
+
+  it('excludes diagnostics from JSON output', () => {
+    const output = renderCompareReport(createCompareData(), 'json');
+
+    expect(output).not.toContain('"diagnostics"');
+    expect(output).not.toContain('"runtimeProfile"');
+    expect(output).not.toContain('"activeConfig"');
+    expect(output).not.toContain('"activeEnvOverrides"');
   });
 });

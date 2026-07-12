@@ -19,6 +19,7 @@ import { logger } from '../utils/logger.js';
 import { normalizeSourceFilter, validateSourceFilterValues } from './build-usage-data-inputs.js';
 import { resolveUserConfigForOptions, type UserConfigResolutionDeps } from './apply-user-config.js';
 import { emitUserConfigResolution } from './emit-active-config.js';
+import { renderReportJson } from '../render/report-json.js';
 import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
 import type { DoctorCommandOptions } from './usage-data-contracts.js';
 
@@ -258,7 +259,7 @@ export async function runDoctorReport(
     supportedFormats: ['terminal', 'json'] as const,
     buildData: async () => results,
     render: (data, format) =>
-      format === 'json' ? JSON.stringify({ sources: data }, null, 2) : renderDoctorText(data),
+      format === 'json' ? renderReportJson('doctor', { sources: data }) : renderDoctorText(data),
     getDiagnostics: () => undefined,
   });
   await runPreparedReport({ preparedReport });

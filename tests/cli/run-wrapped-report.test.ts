@@ -66,10 +66,15 @@ describe('run-wrapped-report', () => {
       json: true,
     });
 
-    const parsed = JSON.parse(report) as { year: number; diagnostics?: unknown };
+    const parsed = JSON.parse(report) as {
+      schemaVersion: number;
+      report: string;
+      data: { year: number; diagnostics?: unknown };
+    };
 
-    expect(parsed.year).toBe(2026);
-    expect(parsed).not.toHaveProperty('diagnostics');
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'wrapped' });
+    expect(parsed.data.year).toBe(2026);
+    expect(parsed.data).not.toHaveProperty('diagnostics');
   });
 
   it('renders terminal output by default', async () => {
@@ -143,8 +148,10 @@ describe('run-wrapped-report', () => {
       });
 
       expect(consoleLogSpy).toHaveBeenCalledTimes(1);
-      const parsed = JSON.parse(String(consoleLogSpy.mock.calls[0]?.[0])) as { year: number };
-      expect(parsed.year).toBe(2026);
+      const parsed = JSON.parse(String(consoleLogSpy.mock.calls[0]?.[0])) as {
+        data: { year: number };
+      };
+      expect(parsed.data.year).toBe(2026);
       expect(consoleErrorSpy.mock.calls.length).toBeGreaterThan(0);
     } finally {
       consoleLogSpy.mockRestore();

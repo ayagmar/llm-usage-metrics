@@ -118,11 +118,16 @@ describe('run-optimize-report', () => {
       json: true,
     });
 
-    const parsed = JSON.parse(report) as Array<{ rowType: string; candidateModel?: string }>;
+    const parsed = JSON.parse(report) as {
+      schemaVersion: number;
+      report: string;
+      data: Array<{ rowType: string; candidateModel?: string }>;
+    };
 
-    expect(parsed.map((row) => row.rowType)).toEqual(['baseline', 'candidate', 'candidate']);
-    expect(parsed[1]?.candidateModel).toBe('gpt-5-codex');
-    expect(parsed[2]?.candidateModel).toBe('missing-model');
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'optimize' });
+    expect(parsed.data.map((row) => row.rowType)).toEqual(['baseline', 'candidate', 'candidate']);
+    expect(parsed.data[1]?.candidateModel).toBe('gpt-5-codex');
+    expect(parsed.data[2]?.candidateModel).toBe('missing-model');
   });
 
   it('renders markdown output when --markdown is set', async () => {
@@ -146,8 +151,13 @@ describe('run-optimize-report', () => {
 
     expect(consoleLogSpy).toHaveBeenCalledTimes(1);
     const stdoutBody = String(consoleLogSpy.mock.calls[0]?.[0]);
-    const parsed = JSON.parse(stdoutBody) as unknown;
-    expect(Array.isArray(parsed)).toBe(true);
+    const parsed = JSON.parse(stdoutBody) as {
+      schemaVersion: number;
+      report: string;
+      data: unknown;
+    };
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'optimize' });
+    expect(Array.isArray(parsed.data)).toBe(true);
 
     const stderrLines = consoleErrorSpy.mock.calls.map((call) => String(call[0]));
     expect(stderrLines.some((line) => line.includes('No sessions found'))).toBe(true);

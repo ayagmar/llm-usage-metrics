@@ -123,12 +123,19 @@ describe('opencode e2e', () => {
       json: true,
     });
 
-    const rows = JSON.parse(report) as Array<{
-      rowType: string;
-      source: string;
-      totalTokens: number;
-      costUsd: number;
-    }>;
+    const parsed = JSON.parse(report) as {
+      schemaVersion: number;
+      report: string;
+      data: Array<{
+        rowType: string;
+        source: string;
+        totalTokens: number;
+        costUsd: number;
+      }>;
+    };
+
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'usage' });
+    const rows = parsed.data;
 
     expect(rows.some((row) => row.rowType === 'period_source' && row.source === 'opencode')).toBe(
       true,
@@ -156,22 +163,26 @@ describe('opencode e2e', () => {
       json: true,
     });
 
-    expect(JSON.parse(report)).toEqual([
-      {
-        rowType: 'grand_total',
-        periodKey: 'ALL',
-        source: 'combined',
-        models: [],
-        modelBreakdown: [],
-        inputTokens: 0,
-        outputTokens: 0,
-        reasoningTokens: 0,
-        cacheReadTokens: 0,
-        cacheWriteTokens: 0,
-        totalTokens: 0,
-        costUsd: 0,
-      },
-    ]);
+    expect(JSON.parse(report)).toEqual({
+      schemaVersion: 1,
+      report: 'usage',
+      data: [
+        {
+          rowType: 'grand_total',
+          periodKey: 'ALL',
+          source: 'combined',
+          models: [],
+          modelBreakdown: [],
+          inputTokens: 0,
+          outputTokens: 0,
+          reasoningTokens: 0,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+          totalTokens: 0,
+          costUsd: 0,
+        },
+      ],
+    });
   });
 
   it('fails explicitly on schema drift when required tables are missing', async () => {
