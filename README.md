@@ -60,6 +60,7 @@ llm-usage doctor
 | How do I get the raw normalized events out?               | `llm-usage events`                     |
 | Which sources and local stores are healthy?               | `llm-usage doctor`                     |
 | Which departed files can leave the event ledger?          | `llm-usage prune`                      |
+| What configuration is active, and which file is it from?  | `llm-usage config show`, `config path` |
 
 Common examples:
 

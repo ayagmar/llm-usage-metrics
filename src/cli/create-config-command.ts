@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { access, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { Command } from 'commander';
@@ -18,6 +18,8 @@ import { getDefaultEventStorePath } from '../persistence/event-store.js';
 import { DEFAULT_LITELLM_PRICING_URL } from '../pricing/litellm-pricing-fetcher.js';
 import { asRecord } from '../utils/as-record.js';
 import { logger } from '../utils/logger.js';
+import { resolveUserConfigForOptions } from './apply-user-config.js';
+import { buildActiveConfigLines } from './emit-active-config.js';
 
 type ConfigInitOptions = {
   force?: boolean;
@@ -94,6 +96,15 @@ async function writeConfigTemplate(configPath: string, options: ConfigInitOption
   }
 }
 
+async function configFileExists(configPath: string): Promise<boolean> {
+  try {
+    await access(configPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function createConfigCommand(): Command {
   const configCommand = new Command('config').description('Manage user configuration');
   const initCommand = new Command('init')
@@ -104,7 +115,31 @@ export function createConfigCommand(): Command {
       await writeConfigTemplate(configPath, options);
       logger.info(`Wrote config template: ${configPath}`);
     });
+  const pathCommand = new Command('path')
+    .description('Print the resolved config file path')
+    .action(() => {
+      console.log(resolveUserConfigPath(process.env));
+    });
+  const showCommand = new Command('show')
+    .description('Print the effective configuration and where each value comes from')
+    .action(async () => {
+      const configPath = resolveUserConfigPath(process.env);
+      const missingSuffix = (await configFileExists(configPath)) ? '' : ' (missing)';
+      const userConfigResolution = await resolveUserConfigForOptions({});
+
+      console.log(`Config file: ${configPath}${missingSuffix}`);
+
+      for (const line of buildActiveConfigLines(userConfigResolution)) {
+        console.log(line);
+      }
+
+      for (const warning of userConfigResolution.loadedConfig.warnings) {
+        logger.warn(warning);
+      }
+    });
 
   configCommand.addCommand(initCommand);
+  configCommand.addCommand(showCommand);
+  configCommand.addCommand(pathCommand);
   return configCommand;
 }
