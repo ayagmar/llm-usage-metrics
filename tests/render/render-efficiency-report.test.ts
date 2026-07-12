@@ -115,6 +115,7 @@ function createEfficiencyDataResult(
       repoDir: '/tmp/repo',
       includeMergeCommits: false,
       gitCommitCount: 2,
+      gitMalformedCommitLines: 0,
       gitLinesAdded: 20,
       gitLinesDeleted: 8,
       repoMatchedUsageEvents: 2,

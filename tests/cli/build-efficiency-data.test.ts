@@ -24,6 +24,7 @@ type CollectGitOutcomesFn = (options: { activeUsageDays?: ReadonlySet<string> })
     repoDir: string;
     includeMergeCommits: boolean;
     commitsCollected: number;
+    malformedCommitLines: number;
     linesAdded: number;
     linesDeleted: number;
   };
@@ -179,6 +180,7 @@ describe('buildEfficiencyData', () => {
         repoDir: '/tmp/repo',
         includeMergeCommits: false,
         commitsCollected: 2,
+        malformedCommitLines: 3,
         linesAdded: 60,
         linesDeleted: 20,
       },
@@ -246,6 +248,7 @@ describe('buildEfficiencyData', () => {
       gitCommitCount: 2,
       gitLinesAdded: 60,
       gitLinesDeleted: 20,
+      gitMalformedCommitLines: 3,
       repoMatchedUsageEvents: 1,
       repoExcludedUsageEvents: 1,
       repoUnattributedUsageEvents: 1,
@@ -290,6 +293,7 @@ describe('buildEfficiencyData', () => {
             repoDir: '/tmp/repo',
             includeMergeCommits: false,
             commitsCollected: 3,
+            malformedCommitLines: 0,
             linesAdded: 60,
             linesDeleted: 20,
           },
@@ -367,6 +371,7 @@ describe('buildEfficiencyData', () => {
         repoDir: '/tmp/repo',
         includeMergeCommits: false,
         commitsCollected: 1,
+        malformedCommitLines: 0,
         linesAdded: 10,
         linesDeleted: 0,
       },
@@ -409,6 +414,7 @@ describe('buildEfficiencyData', () => {
             repoDir: '/tmp/repo',
             includeMergeCommits: false,
             commitsCollected: 0,
+            malformedCommitLines: 0,
             linesAdded: 0,
             linesDeleted: 0,
           },
@@ -443,6 +449,7 @@ describe('buildEfficiencyData', () => {
             repoDir: '/tmp/repo',
             includeMergeCommits: false,
             commitsCollected: 0,
+            malformedCommitLines: 0,
             linesAdded: 0,
             linesDeleted: 0,
           },
@@ -487,6 +494,7 @@ describe('buildEfficiencyData', () => {
             repoDir: '/tmp/repo',
             includeMergeCommits: false,
             commitsCollected: 0,
+            malformedCommitLines: 0,
             linesAdded: 0,
             linesDeleted: 0,
           },
@@ -531,6 +539,7 @@ describe('buildEfficiencyData', () => {
             repoDir: '/tmp/repo',
             includeMergeCommits: false,
             commitsCollected: 0,
+            malformedCommitLines: 0,
             linesAdded: 0,
             linesDeleted: 0,
           },
@@ -556,6 +565,7 @@ describe('buildEfficiencyData', () => {
         repoDir: '/tmp/repo',
         includeMergeCommits: false,
         commitsCollected: 0,
+        malformedCommitLines: 0,
         linesAdded: 0,
         linesDeleted: 0,
       },
@@ -592,6 +602,7 @@ describe('buildEfficiencyData', () => {
         repoDir: '/tmp/repo',
         includeMergeCommits: false,
         commitsCollected: 0,
+        malformedCommitLines: 0,
         linesAdded: 0,
         linesDeleted: 0,
       },
@@ -691,6 +702,7 @@ describe('buildEfficiencyData', () => {
             repoDir: '/tmp/repo',
             includeMergeCommits: false,
             commitsCollected: 0,
+            malformedCommitLines: 0,
             linesAdded: 0,
             linesDeleted: 0,
           },

@@ -77,6 +77,7 @@ function createData(): EfficiencyDataResult {
       repoDir: '/tmp/repo',
       includeMergeCommits: false,
       gitCommitCount: 6,
+      gitMalformedCommitLines: 0,
       gitLinesAdded: 180,
       gitLinesDeleted: 60,
       repoMatchedUsageEvents: 10,

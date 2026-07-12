@@ -195,6 +195,7 @@ export type EfficiencyDiagnostics = {
   gitCommitCount: number;
   gitLinesAdded: number;
   gitLinesDeleted: number;
+  gitMalformedCommitLines: number;
   repoMatchedUsageEvents: number;
   repoExcludedUsageEvents: number;
   repoUnattributedUsageEvents: number;

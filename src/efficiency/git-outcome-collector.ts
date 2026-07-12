@@ -37,6 +37,7 @@ export type GitOutcomeCollectionDiagnostics = {
   commitsCollected: number;
   linesAdded: number;
   linesDeleted: number;
+  malformedCommitLines: number;
 };
 
 export type GitOutcomeCollectionResult = {
@@ -170,6 +171,7 @@ function createEmptyOutcomeCollection(
       commitsCollected: 0,
       linesAdded: 0,
       linesDeleted: 0,
+      malformedCommitLines: 0,
     },
   };
 }
@@ -296,8 +298,9 @@ function finalizeCurrentEvent(
 export function parseGitLogShortstatLines(
   lines: Iterable<string>,
   authorEmail?: string,
-): GitOutcomeEvent[] {
+): { events: GitOutcomeEvent[]; malformedCommitLines: number } {
   const events: GitOutcomeEvent[] = [];
+  let malformedCommitLines = 0;
   let currentEvent: MutableGitOutcomeEvent | undefined;
 
   for (const line of lines) {
@@ -313,7 +316,10 @@ export function parseGitLogShortstatLines(
         !/^[0-9a-f]{7,64}$/iu.test(shaPart) ||
         authorPart.trim().length === 0
       ) {
-        throw new Error(`Malformed git commit boundary line: ${line}`);
+        finalizeCurrentEvent(currentEvent, events, authorEmail);
+        currentEvent = undefined;
+        malformedCommitLines += 1;
+        continue;
       }
 
       finalizeCurrentEvent(currentEvent, events, authorEmail);
@@ -342,7 +348,7 @@ export function parseGitLogShortstatLines(
   }
 
   finalizeCurrentEvent(currentEvent, events, authorEmail);
-  return events;
+  return { events, malformedCommitLines };
 }
 
 async function runGitCommand(repoDir: string, args: string[]): Promise<GitCommandResult> {
@@ -591,7 +597,10 @@ export async function collectGitOutcomes(
     throw new Error(`Failed to collect git outcomes from ${repoDir}: ${reason}`);
   }
 
-  const allEvents = parseGitLogShortstatLines(gitResult.lines, authorEmail);
+  const { events: allEvents, malformedCommitLines } = parseGitLogShortstatLines(
+    gitResult.lines,
+    authorEmail,
+  );
   const filteredEvents = filterEventsByDateRange(
     allEvents,
     options.timezone,
@@ -618,6 +627,7 @@ export async function collectGitOutcomes(
       commitsCollected: totalOutcomes.commitCount,
       linesAdded: totalOutcomes.linesAdded,
       linesDeleted: totalOutcomes.linesDeleted,
+      malformedCommitLines,
     },
   };
 }

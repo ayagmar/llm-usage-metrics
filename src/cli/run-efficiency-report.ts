@@ -78,6 +78,14 @@ function emitEfficiencyReportDiagnostics(diagnostics: EfficiencyDiagnostics): vo
   if (diagnostics.scopeNote) {
     logger.warn(diagnostics.scopeNote);
   }
+
+  if (diagnostics.gitMalformedCommitLines > 0) {
+    logger.warn(
+      `Skipped ${diagnostics.gitMalformedCommitLines} malformed git commit boundar${
+        diagnostics.gitMalformedCommitLines === 1 ? 'y' : 'ies'
+      }`,
+    );
+  }
 }
 
 export async function buildEfficiencyReport(
