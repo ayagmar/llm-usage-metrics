@@ -58,6 +58,12 @@ describe('litellm model matching', () => {
     );
   });
 
+  it('resolves a 256-character junk model key to undefined quickly', () => {
+    const pricingByModel = createPricingMap(['gpt-4.1', 'gpt-5.2-codex', 'gemini/gemini-3-flash']);
+
+    expect(resolveCanonicalModelKey(normalizeKey('x'.repeat(256)), pricingByModel)).toBe(undefined);
+  });
+
   it('skips fuzzy matching for guarded model names', () => {
     const pricingByModel = createPricingMap(['kimi-for-codng']);
 

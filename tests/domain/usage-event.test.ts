@@ -175,6 +175,19 @@ describe('createUsageEvent', () => {
     expect(controlOnlyModelEvent.model).toBeUndefined();
   });
 
+  it('truncates model keys longer than 256 characters', () => {
+    const event = createUsageEvent({
+      source: 'pi',
+      sessionId: 'session-model-truncation',
+      timestamp: '2026-02-12T10:00:00Z',
+      model: 'm'.repeat(300),
+      inputTokens: 1,
+      outputTokens: 1,
+    });
+
+    expect(event.model).toBe('m'.repeat(256));
+  });
+
   it('normalizes provider identifiers to billing entities', () => {
     const event = createUsageEvent({
       source: 'pi',
