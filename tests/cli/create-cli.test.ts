@@ -210,7 +210,7 @@ describe('createCli', () => {
     expect(wrappedCommand?.options.some((option) => option.long === '--model')).toBe(true);
     expect(wrappedCommand?.options.some((option) => option.long === '--since')).toBe(false);
     expect(wrappedCommand?.options.some((option) => option.long === '--until')).toBe(false);
-    expect(wrappedCommand?.options.some((option) => option.long === '--markdown')).toBe(false);
+    expect(wrappedCommand?.options.some((option) => option.long === '--markdown')).toBe(true);
     expect(wrappedCommand?.options.some((option) => option.long === '--per-model-columns')).toBe(
       false,
     );

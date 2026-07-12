@@ -125,6 +125,53 @@ describe('render-wrapped-report', () => {
     expect(plain.includes('[')).toBe(false);
   });
 
+  it('renders markdown stat and top tables', () => {
+    const output = renderWrappedReport(createRecap(), 'markdown');
+
+    expect(output).toContain('### Wrapped 2026');
+    expect(output).toContain('2026-01-01 to 2026-12-31 (UTC)');
+    expect(output).toContain('| Stat');
+    expect(output).toContain('| Tokens');
+    expect(output).toContain('1,000');
+    expect(output).toContain('$12.34');
+    expect(output).toContain('| Hours');
+    expect(output).toContain('3h');
+    expect(output).toContain('14:00');
+    expect(output).toContain('70% weekday');
+    expect(output).toContain('### Top models');
+    expect(output).toContain('gpt-4.1');
+    expect(output).toContain('### Top sources');
+    expect(output).toContain('pi');
+  });
+
+  it('renders markdown dashes for an empty recap', () => {
+    const output = renderWrappedReport(
+      createRecap({
+        totalTokens: 0,
+        costUsd: undefined,
+        activeDays: 0,
+        longestStreak: 0,
+        activeMs: 0,
+        peakHour: undefined,
+        weekdayTokens: 0,
+        weekendTokens: 0,
+        busiestDay: undefined,
+        estimatedCacheSavingsUsd: undefined,
+        eventCount: 0,
+        sessionCount: 0,
+        topModels: [],
+        topSources: [],
+      }),
+      'markdown',
+    );
+
+    expect(output).toContain('0h');
+    expect(output).toMatch(/\| Peak hour\s+\|\s+- \|/);
+    expect(output).toMatch(/\| Weekday split\s+\|\s+- \|/);
+    expect(output).toMatch(/\| Busiest day\s+\|\s+- \|/);
+    expect(output).toMatch(/\| Cache savings\s+\|\s+- \|/);
+  });
+
   it('returns the recap as JSON for the json format', () => {
     const recap = createRecap();
 

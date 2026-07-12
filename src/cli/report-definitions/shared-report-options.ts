@@ -70,7 +70,7 @@ export const sharedOptionProfileConfig = {
   },
   wrapped: {
     includeDateFilters: false,
-    includeMarkdown: false,
+    includeMarkdown: true,
     includePerModelColumns: false,
     includePricing: true,
     includeProviderModelFilters: true,

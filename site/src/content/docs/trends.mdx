@@ -36,7 +36,7 @@ llm-usage trends --days 14 --share
 - `--share`: write the combined series to `trends-share.svg`
 - shared filters apply: `--source`, `--provider`, `--model`, `--since`, `--until`, `--timezone`, source-path overrides, pricing flags, and `--history`
 
-`trends` supports terminal output, `--json`, and `--share`. It does not support `--markdown`. The share renderer needs the combined series, so `--share` cannot be combined with `--by-source`.
+`trends` supports terminal output, `--json`, `--markdown` (one row per date plus a Total row), and `--share`. The share renderer needs the combined series, so `--share` cannot be combined with `--by-source`.
 
 ## `--days` vs `--since` / `--until`
 

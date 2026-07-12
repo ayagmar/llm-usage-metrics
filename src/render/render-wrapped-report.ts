@@ -1,4 +1,7 @@
+import { markdownTable } from 'markdown-table';
+
 import type { WrappedRecap, WrappedTopItem } from '../wrapped/wrapped-recap.js';
+import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { renderReportHeader } from './report-header.js';
 import { formatApproxUsd, formatInteger } from './share-svg-theme.js';
 import { visibleWidth } from './table-text-layout.js';
@@ -11,7 +14,7 @@ import { shouldUseColorByDefault } from './terminal-table.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
 import { renderReportJson } from './report-json.js';
 
-export type WrappedReportFormat = 'terminal' | 'json';
+export type WrappedReportFormat = 'terminal' | 'markdown' | 'json';
 
 export type RenderWrappedReportOptions = {
   useColor?: boolean;
@@ -20,6 +23,7 @@ export type RenderWrappedReportOptions = {
 
 export const wrappedReportFormats = [
   'terminal',
+  'markdown',
   'json',
 ] as const satisfies readonly WrappedReportFormat[];
 
@@ -206,6 +210,81 @@ function renderWrappedTerminalReport(
   ].join('\n');
 }
 
+function toMarkdownStatRows(recap: WrappedRecap): string[][] {
+  const totalSplitTokens = recap.weekdayTokens + recap.weekendTokens;
+
+  return [
+    ['Tokens', formatInteger(recap.totalTokens)],
+    ['Cost', formatApproxUsd(recap.costUsd, recap.costIncomplete)],
+    ['Hours', formatHours(recap.activeMs)],
+    ['Active days', formatInteger(recap.activeDays)],
+    [
+      'Longest streak',
+      `${formatInteger(recap.longestStreak)} day${recap.longestStreak === 1 ? '' : 's'}`,
+    ],
+    ['Events', formatInteger(recap.eventCount)],
+    ['Sessions', formatInteger(recap.sessionCount)],
+    ['Peak hour', formatPeakHour(recap.peakHour)],
+    [
+      'Weekday split',
+      totalSplitTokens > 0
+        ? `${Math.round((100 * recap.weekdayTokens) / totalSplitTokens)}% weekday`
+        : '-',
+    ],
+    ['Busiest day', formatBusiestDay(recap.busiestDay)],
+    [
+      'Cache savings',
+      recap.estimatedCacheSavingsUsd === undefined
+        ? '-'
+        : formatApproxUsd(recap.estimatedCacheSavingsUsd, true),
+    ],
+  ];
+}
+
+function renderMarkdownTopTable(title: string, items: readonly WrappedTopItem[]): string {
+  const rows =
+    items.length === 0
+      ? [['-', '-', '-', '-']]
+      : items.map((item, index) => [
+          String(index + 1),
+          item.name,
+          formatInteger(item.totalTokens),
+          formatApproxUsd(item.costUsd, item.costIncomplete),
+        ]);
+
+  return [
+    `### ${title}`,
+    '',
+    markdownTable(
+      [['#', title === 'Top models' ? 'Model' : 'Source', 'Tokens', 'Cost'], ...rows].map((row) =>
+        row.map((cell) => toMarkdownSafeCell(cell)),
+      ),
+      { align: ['r', 'l', 'r', 'r'] },
+    ),
+  ].join('\n');
+}
+
+function renderMarkdownWrappedReport(recap: WrappedRecap): string {
+  const statTable = markdownTable(
+    [['Stat', 'Value'], ...toMarkdownStatRows(recap)].map((row) =>
+      row.map((cell) => toMarkdownSafeCell(cell)),
+    ),
+    { align: ['l', 'r'] },
+  );
+
+  return [
+    `### Wrapped ${recap.year}`,
+    '',
+    `${recap.from} to ${recap.to} (${recap.timezone})`,
+    '',
+    statTable,
+    '',
+    renderMarkdownTopTable('Top models', recap.topModels),
+    '',
+    renderMarkdownTopTable('Top sources', recap.topSources),
+  ].join('\n');
+}
+
 export function renderWrappedReport(
   recap: WrappedRecap,
   format: WrappedReportFormat,
@@ -214,6 +293,8 @@ export function renderWrappedReport(
   switch (format) {
     case 'json':
       return renderReportJson('wrapped', recap);
+    case 'markdown':
+      return renderMarkdownWrappedReport(recap);
     case 'terminal':
       return renderWrappedTerminalReport(recap, options);
   }

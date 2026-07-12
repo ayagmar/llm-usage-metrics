@@ -106,16 +106,22 @@ describe('run-wrapped-report', () => {
     expect(vi.mocked(buildWrappedData).mock.calls).toHaveLength(buildCallsBefore);
   });
 
-  it('rejects unsupported markdown output before building data', async () => {
-    const buildCallsBefore = vi.mocked(buildWrappedData).mock.calls.length;
+  it('renders markdown output and rejects combining it with --json', async () => {
+    const report = await buildWrappedReport({
+      year: '2026',
+      markdown: true,
+    });
+
+    expect(report).toContain('### Wrapped 2026');
+    expect(report).toContain('| Stat');
 
     await expect(
       buildWrappedReport({
+        year: '2026',
         markdown: true,
-      } as never),
-    ).rejects.toThrow('--markdown is not supported for this command');
-
-    expect(vi.mocked(buildWrappedData).mock.calls).toHaveLength(buildCallsBefore);
+        json: true,
+      }),
+    ).rejects.toThrow('Choose either --markdown or --json, not both');
   });
 
   it('writes a wrapped share SVG while keeping the report body on stdout', async () => {
