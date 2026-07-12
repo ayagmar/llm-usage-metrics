@@ -8,8 +8,7 @@ import {
 import type { PricingSource } from '../pricing/types.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import type { OptimizeBaselineRow, OptimizeCandidateRow, OptimizeRow } from './optimize-row.js';
-
-const USD_PRECISION_SCALE = 1_000_000_000_000;
+import { addUsd, roundUsd } from '../utils/usd-math.js';
 
 type BaselinePeriodTotals = {
   periodKey: string;
@@ -43,14 +42,6 @@ export type BuildCounterfactualRowsResult = {
   baselineCostIncomplete: boolean;
   warning?: string;
 };
-
-export function roundUsd(value: number): number {
-  return Math.round(value * USD_PRECISION_SCALE) / USD_PRECISION_SCALE;
-}
-
-function addUsd(left: number, right: number): number {
-  return roundUsd(left + right);
-}
 
 function hasAnyUsageSignal(period: BaselinePeriodTotals): boolean {
   return (

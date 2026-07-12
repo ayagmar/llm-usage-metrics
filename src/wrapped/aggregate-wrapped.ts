@@ -1,5 +1,5 @@
 import { computeActiveMs } from '../domain/active-time.js';
-import type { UsageEvent } from '../domain/usage-event.js';
+import { getEventSessionKey, type UsageEvent } from '../domain/usage-event.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import {
   getIsoDayOfWeekFromDateKey,
@@ -8,6 +8,7 @@ import {
   shiftLocalDateKey,
 } from '../utils/time-buckets.js';
 import type { WrappedDay, WrappedMonth, WrappedRecap, WrappedTopItem } from './wrapped-recap.js';
+import { addUsd } from '../utils/usd-math.js';
 
 export type AggregateWrappedOptions = {
   year: number;
@@ -19,12 +20,6 @@ type TotalsAccumulator = {
   costUsd?: number;
   costIncomplete?: boolean;
 };
-
-const USD_PRECISION_SCALE = 1_000_000_000_000;
-
-function addUsd(left: number, right: number): number {
-  return Math.round((left + right) * USD_PRECISION_SCALE) / USD_PRECISION_SCALE;
-}
 
 function toDateKeyRange(year: number): { from: string; to: string } {
   return {
@@ -227,10 +222,6 @@ function isInYearRange(dateKey: string, range: { from: string; to: string }): bo
   return dateKey >= range.from && dateKey <= range.to;
 }
 
-function getSessionKey(event: UsageEvent): string {
-  return `${event.source}\0${event.sessionId}`;
-}
-
 export function aggregateWrapped(
   events: readonly UsageEvent[],
   options: AggregateWrappedOptions,
@@ -264,7 +255,7 @@ export function aggregateWrapped(
     addGroupedEvent(monthlyTotals, dateKey.slice(0, 7), event);
     addGroupedEvent(dailyTotals, dateKey, event);
 
-    const sessionKey = getSessionKey(event);
+    const sessionKey = getEventSessionKey(event);
     const timestamps = sessionTimestamps.get(sessionKey) ?? [];
     timestamps.push(Date.parse(event.timestamp));
     sessionTimestamps.set(sessionKey, timestamps);

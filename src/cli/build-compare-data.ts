@@ -21,6 +21,7 @@ import type {
   CompareWindowRange,
   CompareWindowTotals,
 } from './usage-data-contracts.js';
+import { addUsd } from '../utils/usd-math.js';
 
 type DateParts = {
   year: number;
@@ -41,8 +42,6 @@ type WindowSummary = {
   totals: CompareWindowTotals;
   sources: Map<string, CompareWindowTotals>;
 };
-
-const USD_PRECISION_SCALE = 1_000_000_000_000;
 
 const metricDefinitions: Array<{
   key: CompareMetricKey;
@@ -202,10 +201,6 @@ function createEmptyTotals(): CompareWindowTotals {
     events: 0,
     activeDays: 0,
   };
-}
-
-function addUsd(left: number, right: number): number {
-  return Math.round((left + right) * USD_PRECISION_SCALE) / USD_PRECISION_SCALE;
 }
 
 function addUsageTotals(target: CompareWindowTotals, source: UsageTotals): void {

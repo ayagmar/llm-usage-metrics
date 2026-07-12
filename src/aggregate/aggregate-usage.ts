@@ -9,6 +9,7 @@ import type {
 } from '../domain/usage-report-row.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { getPeriodKey, type ReportGranularity } from '../utils/time-buckets.js';
+import { addUsd } from '../utils/usd-math.js';
 
 export type AggregateUsageOptions = {
   granularity: ReportGranularity;
@@ -26,12 +27,6 @@ type RankedModelUsage = {
   models: string[];
   modelBreakdown: ModelUsageBreakdown[];
 };
-
-const USD_PRECISION_SCALE = 1_000_000_000_000;
-
-function addUsd(left: number, right: number): number {
-  return Math.round((left + right) * USD_PRECISION_SCALE) / USD_PRECISION_SCALE;
-}
 
 function createEmptyTotals(): UsageTotals {
   return {

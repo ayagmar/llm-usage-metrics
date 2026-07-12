@@ -96,7 +96,7 @@ function normalizeModelKey(value: string): string {
   return stripControlCharacters(value).trim().toLowerCase().slice(0, MODEL_KEY_MAX_LENGTH);
 }
 
-function normalizeOptionalModel(value: string | undefined): string | undefined {
+export function normalizeOptionalModel(value: string | undefined): string | undefined {
   if (!value) {
     return undefined;
   }
@@ -115,6 +115,10 @@ function resolveCostMode(costMode: CostMode | undefined, costUsd: number | undef
   }
 
   return costUsd === undefined ? 'estimated' : 'explicit';
+}
+
+export function getEventSessionKey(event: Pick<UsageEvent, 'source' | 'sessionId'>): string {
+  return `${event.source}\0${event.sessionId}`;
 }
 
 export function createUsageEvent(input: UsageEventInput): UsageEvent {
