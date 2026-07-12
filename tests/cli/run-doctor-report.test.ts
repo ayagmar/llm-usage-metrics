@@ -167,15 +167,14 @@ function captureStdout(): {
   restore: () => void;
 } {
   const chunks: string[] = [];
-  const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-    chunks.push(String(chunk));
-    return true;
+  const logSpy = vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
+    chunks.push(`${args.join(' ')}\n`);
   });
 
   return {
     getOutput: () => chunks.join(''),
     restore: () => {
-      writeSpy.mockRestore();
+      logSpy.mockRestore();
     },
   };
 }

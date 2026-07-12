@@ -26,6 +26,7 @@ import {
 } from './build-usage-data-inputs.js';
 import { resolveUserConfigForOptions, type UserConfigResolutionDeps } from './apply-user-config.js';
 import { emitUserConfigResolution } from './emit-active-config.js';
+import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
 import { logger } from '../utils/logger.js';
 import type { PruneCommandOptions } from './usage-data-contracts.js';
 
@@ -454,10 +455,13 @@ export async function runPruneReport(
 
   emitUserConfigResolution(userConfigResolution, logger);
 
-  if (options.json) {
-    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
-    return;
-  }
-
-  process.stdout.write(`${renderPruneReport(result)}\n`);
+  const preparedReport = await prepareReport({
+    commandOptions: options,
+    supportedFormats: ['terminal', 'json'] as const,
+    buildData: async () => result,
+    render: (data, format) =>
+      format === 'json' ? JSON.stringify(data, null, 2) : renderPruneReport(data),
+    getDiagnostics: () => undefined,
+  });
+  await runPreparedReport({ preparedReport });
 }

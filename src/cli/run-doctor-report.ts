@@ -19,6 +19,7 @@ import { logger } from '../utils/logger.js';
 import { normalizeSourceFilter, validateSourceFilterValues } from './build-usage-data-inputs.js';
 import { resolveUserConfigForOptions, type UserConfigResolutionDeps } from './apply-user-config.js';
 import { emitUserConfigResolution } from './emit-active-config.js';
+import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
 import type { DoctorCommandOptions } from './usage-data-contracts.js';
 
 export type DoctorSourceResult = {
@@ -252,10 +253,13 @@ export async function runDoctorReport(
 
   emitUserConfigResolution(userConfigResolution, logger);
 
-  if (options.json) {
-    process.stdout.write(`${JSON.stringify({ sources: results }, null, 2)}\n`);
-    return;
-  }
-
-  process.stdout.write(`${renderDoctorText(results)}\n`);
+  const preparedReport = await prepareReport({
+    commandOptions: options,
+    supportedFormats: ['terminal', 'json'] as const,
+    buildData: async () => results,
+    render: (data, format) =>
+      format === 'json' ? JSON.stringify({ sources: data }, null, 2) : renderDoctorText(data),
+    getDiagnostics: () => undefined,
+  });
+  await runPreparedReport({ preparedReport });
 }
