@@ -81,6 +81,25 @@ describe('buildWrappedData', () => {
     expect(result.recap.costUsd).toBe(2);
   });
 
+  it('estimates cache savings from the priced in-year events', async () => {
+    const result = await buildWrappedData(
+      {
+        timezone: 'UTC',
+      },
+      runtimeDeps({
+        now: () => new Date('2026-03-06T12:00:00.000Z'),
+        adapters: [
+          createAdapter('pi', {
+            // 1M cache-read tokens at gpt-4.1 rates: ($2 - $0.50) per 1M = $1.50.
+            '/tmp/pi.jsonl': [createBaseEvent({ cacheReadTokens: 1_000_000 })],
+          }),
+        ],
+      }),
+    );
+
+    expect(result.recap.estimatedCacheSavingsUsd).toBe(1.5);
+  });
+
   it('uses the requested year as the event range', async () => {
     const result = await buildWrappedData(
       {
