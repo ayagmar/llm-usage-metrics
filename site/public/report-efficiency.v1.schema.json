@@ -4,7 +4,9 @@
   "title": "llm-usage-metrics efficiency report output (v1)",
   "description": "Envelope and payload for efficiency report --json output.",
   "allOf": [
-    { "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope" }
+    {
+      "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope"
+    }
   ],
   "properties": {
     "report": { "const": "efficiency" },
@@ -66,7 +68,9 @@
     "periodRow": {
       "description": "One period's usage, outcomes, and derived metrics.",
       "allOf": [
-        { "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/usageTotals" },
+        {
+          "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/usageTotals"
+        },
         { "$ref": "#/$defs/outcomeTotals" },
         { "$ref": "#/$defs/derivedMetrics" }
       ],
@@ -80,7 +84,9 @@
     "sourceRow": {
       "description": "One source's usage share inside a period (--by-source).",
       "allOf": [
-        { "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/usageTotals" }
+        {
+          "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/usageTotals"
+        }
       ],
       "properties": {
         "rowType": { "description": "Discriminator for source rows.", "const": "period_source" },
@@ -98,7 +104,9 @@
     "grandTotalRow": {
       "description": "Grand-total usage, outcomes, and derived metrics.",
       "allOf": [
-        { "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/usageTotals" },
+        {
+          "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/usageTotals"
+        },
         { "$ref": "#/$defs/outcomeTotals" },
         { "$ref": "#/$defs/derivedMetrics" }
       ],

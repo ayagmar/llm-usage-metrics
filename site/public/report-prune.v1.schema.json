@@ -4,7 +4,9 @@
   "title": "llm-usage-metrics prune report output (v1)",
   "description": "Envelope and payload for prune --json output.",
   "allOf": [
-    { "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope" }
+    {
+      "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope"
+    }
   ],
   "properties": {
     "report": { "const": "prune" },
@@ -65,7 +67,10 @@
       "type": "object",
       "properties": {
         "storePath": { "description": "Path of the event store.", "type": "string" },
-        "applied": { "description": "True when --apply deleted the candidates.", "type": "boolean" },
+        "applied": {
+          "description": "True when --apply deleted the candidates.",
+          "type": "boolean"
+        },
         "candidateFileCount": {
           "description": "Files selected for deletion.",
           "type": "integer",

@@ -4,7 +4,9 @@
   "title": "llm-usage-metrics usage report output (v1)",
   "description": "Envelope and payload for daily/weekly/monthly usage report --json output.",
   "allOf": [
-    { "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope" }
+    {
+      "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope"
+    }
   ],
   "properties": {
     "report": { "const": "usage" },
@@ -18,7 +20,9 @@
     "modelBreakdown": {
       "description": "Per-model usage totals inside a row.",
       "allOf": [
-        { "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/usageTotals" }
+        {
+          "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/usageTotals"
+        }
       ],
       "properties": {
         "model": {
@@ -32,7 +36,9 @@
     "rowCommon": {
       "description": "Fields shared by every usage report row.",
       "allOf": [
-        { "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/usageTotals" }
+        {
+          "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/usageTotals"
+        }
       ],
       "properties": {
         "periodKey": {

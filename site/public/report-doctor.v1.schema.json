@@ -4,7 +4,9 @@
   "title": "llm-usage-metrics doctor report output (v1)",
   "description": "Envelope and payload for doctor --json output.",
   "allOf": [
-    { "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope" }
+    {
+      "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope"
+    }
   ],
   "properties": {
     "report": { "const": "doctor" },

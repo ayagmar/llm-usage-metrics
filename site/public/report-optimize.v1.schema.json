@@ -4,7 +4,9 @@
   "title": "llm-usage-metrics optimize report output (v1)",
   "description": "Envelope and payload for optimize report --json output.",
   "allOf": [
-    { "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope" }
+    {
+      "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope"
+    }
   ],
   "properties": {
     "report": { "const": "optimize" },
@@ -20,7 +22,9 @@
     "rowCommon": {
       "description": "Fields shared by baseline and candidate rows.",
       "allOf": [
-        { "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/tokenBuckets" }
+        {
+          "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/tokenBuckets"
+        }
       ],
       "properties": {
         "periodKey": { "description": "Bucket key for the period.", "type": "string" },
@@ -79,7 +83,12 @@
           "items": { "type": "string" }
         }
       },
-      "required": ["rowType", "candidateModel", "candidateResolvedModel", "hypotheticalCostIncomplete"],
+      "required": [
+        "rowType",
+        "candidateModel",
+        "candidateResolvedModel",
+        "hypotheticalCostIncomplete"
+      ],
       "unevaluatedProperties": false
     }
   }

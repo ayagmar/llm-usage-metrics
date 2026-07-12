@@ -4,7 +4,9 @@
   "title": "llm-usage-metrics compare report output (v1)",
   "description": "Envelope and payload for compare report --json output. Diagnostics are excluded by contract.",
   "allOf": [
-    { "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope" }
+    {
+      "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope"
+    }
   ],
   "properties": {
     "report": { "const": "compare" },
@@ -44,7 +46,9 @@
     "windowTotals": {
       "description": "Usage totals for one window (non-negative).",
       "allOf": [
-        { "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/usageTotals" }
+        {
+          "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/usageTotals"
+        }
       ],
       "properties": {
         "events": { "description": "Events in the window.", "type": "integer", "minimum": 0 },

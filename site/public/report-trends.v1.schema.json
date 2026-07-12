@@ -4,7 +4,9 @@
   "title": "llm-usage-metrics trends report output (v1)",
   "description": "Envelope and payload for trends report --json output.",
   "allOf": [
-    { "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope" }
+    {
+      "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope"
+    }
   ],
   "properties": {
     "report": { "const": "trends" },
@@ -71,7 +73,11 @@
           "description": "Aggregates over the observed days.",
           "type": "object",
           "properties": {
-            "total": { "description": "Metric total for the range.", "type": "number", "minimum": 0 },
+            "total": {
+              "description": "Metric total for the range.",
+              "type": "number",
+              "minimum": 0
+            },
             "average": {
               "description": "Average per observed day.",
               "type": "number",
