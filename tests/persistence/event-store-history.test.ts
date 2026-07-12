@@ -248,10 +248,40 @@ describe('event-store history', () => {
     }
   });
 
-  it('suppresses a moved file with identical content under a new session id', async () => {
+  it('serves a departed file whose events differ from live data only by session id', async () => {
     const store = await createTempStore();
-    const oldPathEvent = createEvent({ sessionId: 'old-path-session' });
-    const newPathEvent = createEvent({ sessionId: 'new-path-session' });
+    const departedEvent = createEvent({ sessionId: 'departed-session' });
+    const liveEvent = createEvent({ sessionId: 'live-session' });
+
+    try {
+      writeStoredFile(store, {
+        filePath: '/tmp/departed.jsonl',
+        events: [departedEvent],
+        now: 1_000,
+      });
+      writeStoredFile(store, { filePath: '/tmp/live.jsonl', events: [liveEvent], now: 2_000 });
+
+      const result = loadHistoryEvents(store, {
+        selectedSources: ['codex'],
+        discoveredFiles: [{ source: 'codex', filePath: '/tmp/live.jsonl' }],
+      });
+
+      expect(result.events).toEqual([departedEvent]);
+      expect(result).toMatchObject({
+        departedFileCount: 1,
+        servedFileCount: 1,
+        suppressedFileCount: 0,
+        servedEventCount: 1,
+      });
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  it('suppresses a moved file with identical content under the same session id', async () => {
+    const store = await createTempStore();
+    const oldPathEvent = createEvent({ sessionId: 'moved-session' });
+    const newPathEvent = createEvent({ sessionId: 'moved-session' });
 
     try {
       writeStoredFile(store, { filePath: '/tmp/old.jsonl', events: [oldPathEvent], now: 1_000 });
@@ -276,10 +306,10 @@ describe('event-store history', () => {
 
   it('suppresses a moved file after the live copy grows', async () => {
     const store = await createTempStore();
-    const oldEvent = createEvent({ sessionId: 'old-path-session' });
-    const movedEvent = createEvent({ sessionId: 'new-path-session' });
+    const oldEvent = createEvent({ sessionId: 'moved-session' });
+    const movedEvent = createEvent({ sessionId: 'moved-session' });
     const appendedEvent = createEvent({
-      sessionId: 'new-path-session',
+      sessionId: 'moved-session',
       timestamp: '2026-02-14T10:01:00.000Z',
       inputTokens: 20,
       totalTokens: 25,
@@ -307,8 +337,8 @@ describe('event-store history', () => {
 
   it('serves one departed file and suppresses a second identical departed copy', async () => {
     const store = await createTempStore();
-    const firstCopyEvent = createEvent({ sessionId: 'copy-1' });
-    const secondCopyEvent = createEvent({ sessionId: 'copy-2' });
+    const firstCopyEvent = createEvent({ sessionId: 'copied-session' });
+    const secondCopyEvent = createEvent({ sessionId: 'copied-session' });
 
     try {
       writeStoredFile(store, {
@@ -351,8 +381,8 @@ describe('event-store history', () => {
       inputTokens: 20,
       totalTokens: 25,
     });
-    const oldPathEvent = createEvent({ sessionId: 'old-path-session' });
-    const livePathEvent = createEvent({ sessionId: 'live-path-session' });
+    const oldPathEvent = createEvent({ sessionId: 'moved-session' });
+    const livePathEvent = createEvent({ sessionId: 'moved-session' });
 
     try {
       writeStoredFile(store, {
@@ -407,8 +437,8 @@ describe('event-store history', () => {
 
   it('serves a departed file whole when it only partially overlaps live data', async () => {
     const store = await createTempStore();
-    const sharedDeletedEvent = createEvent({ sessionId: 'deleted' });
-    const sharedLiveEvent = createEvent({ sessionId: 'live' });
+    const sharedDeletedEvent = createEvent({ sessionId: 'shared' });
+    const sharedLiveEvent = createEvent({ sessionId: 'shared' });
     const uniqueDeletedEvent = createEvent({
       sessionId: 'deleted',
       timestamp: '2026-02-14T10:02:00.000Z',
@@ -590,11 +620,11 @@ describe('event-store history', () => {
           }),
         ]);
       }
-      // Exact copies under new session ids — suppressed (content ignores session).
+      // Exact copies (same session ids) — suppressed.
       for (let index = 0; index < 60; index += 1) {
         write(`/tmp/copy-${index}.jsonl`, [
           createEvent({
-            sessionId: `copy-${index}`,
+            sessionId: `base-${index}`,
             inputTokens: 100 + index,
             totalTokens: 105 + index,
           }),
@@ -620,12 +650,12 @@ describe('event-store history', () => {
       for (let index = 0; index < 50; index += 1) {
         write(`/tmp/partial-copy-${index}.jsonl`, [
           createEvent({
-            sessionId: `pcs-${index}`,
+            sessionId: `ps-${index}`,
             inputTokens: 100 + index,
             totalTokens: 105 + index,
           }),
           createEvent({
-            sessionId: `pcu-${index}`,
+            sessionId: `pu-${index}`,
             inputTokens: 900 + index,
             totalTokens: 905 + index,
             timestamp: partialTimestamp,
@@ -646,7 +676,7 @@ describe('event-store history', () => {
       for (let index = 0; index < 30; index += 1) {
         write(`/tmp/dup-single-${index}.jsonl`, [
           createEvent({
-            sessionId: `ds-${index}`,
+            sessionId: `dup-${index}`,
             inputTokens: 2_000 + index,
             totalTokens: 2_005 + index,
           }),
@@ -656,7 +686,7 @@ describe('event-store history', () => {
       for (let index = 0; index < 20; index += 1) {
         const duplicate = () =>
           createEvent({
-            sessionId: `dd-${index}`,
+            sessionId: `dup-${index}`,
             inputTokens: 2_000 + index,
             totalTokens: 2_005 + index,
           });
@@ -734,7 +764,7 @@ describe('event-store history', () => {
       // Content identical to other-0, so a non-null hash would be suppressed.
       writeStoredFile(store, {
         filePath: '/tmp/nullish.jsonl',
-        events: [createEvent({ sessionId: 'nullish', inputTokens: 300, totalTokens: 305 })],
+        events: [createEvent({ sessionId: 'other-0', inputTokens: 300, totalTokens: 305 })],
         now: (now += 1),
       });
       store.database
@@ -747,7 +777,8 @@ describe('event-store history', () => {
 
       const nullFile = classified.find((file) => file.filePath === '/tmp/nullish.jsonl');
       expect(nullFile?.suppressed).toBe(false);
-      expect(result.events.some((event) => event.sessionId === 'nullish')).toBe(true);
+      // Served twice: once from other-0 and once from the null-hash copy.
+      expect(result.events.filter((event) => event.inputTokens === 300)).toHaveLength(2);
     } finally {
       closeEventStore(store);
     }

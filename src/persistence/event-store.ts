@@ -16,7 +16,7 @@ import { asRecord } from '../utils/as-record.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
 
-export const EVENT_STORE_SCHEMA_VERSION = '2';
+export const EVENT_STORE_SCHEMA_VERSION = '3';
 
 const EVENT_STORE_OPEN_TIMEOUT_MS = 2_000;
 const CONTROL_CHARACTERS_PATTERN = new RegExp(String.raw`[\u0000-\u001F\u007F-\u009F]`, 'u');
@@ -525,6 +525,7 @@ function createFreshSchema(database: EventStoreDatabase): void {
 export function computeEventContentHash(event: UsageEvent): string {
   const fields = [
     event.source.toLowerCase(),
+    event.sessionId,
     event.timestamp,
     event.model ?? '',
     event.provider ?? '',
@@ -584,9 +585,46 @@ export function migrateSchemaV1ToV2(database: EventStoreDatabase): void {
     }
 
     database.exec('CREATE INDEX IF NOT EXISTS events_content_hash ON events(content_hash)');
-    database
-      .prepare("UPDATE meta SET value = ? WHERE key = 'schemaVersion'")
-      .run(EVENT_STORE_SCHEMA_VERSION);
+    database.prepare("UPDATE meta SET value = ? WHERE key = 'schemaVersion'").run('2');
+  });
+}
+
+export function migrateSchemaV2ToV3(database: EventStoreDatabase): void {
+  runTransaction(database, () => {
+    // Re-check under the write lock: another process may have migrated while
+    // this one waited on BEGIN IMMEDIATE.
+    if (readSchemaVersion(database) !== '2') {
+      return;
+    }
+
+    const rows = database
+      .prepare(
+        [
+          'SELECT id, source, session_id, timestamp, model, provider, repo_root,',
+          '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
+          '  cache_write_tokens, total_tokens, cost_usd, cost_mode',
+          'FROM events',
+          'ORDER BY id ASC',
+        ].join('\n'),
+      )
+      .all();
+    const updateContentHash = database.prepare('UPDATE events SET content_hash = ? WHERE id = ?');
+
+    for (const row of rows) {
+      const id = toNonNegativeInteger(row.id);
+
+      if (id === undefined) {
+        throw new Error('Cannot migrate event store row without a valid row id');
+      }
+
+      const event = normalizeStoredEvent(row);
+
+      // An un-normalizable row gets a NULL hash instead of aborting the
+      // migration; the history read path never suppresses NULL-hash files.
+      updateContentHash.run(event ? computeEventContentHash(event) : null, id);
+    }
+
+    database.prepare("UPDATE meta SET value = ? WHERE key = 'schemaVersion'").run('3');
   });
 }
 
@@ -606,6 +644,12 @@ function initializeSchema(database: EventStoreDatabase): void {
 
   if (schemaVersion === '1') {
     migrateSchemaV1ToV2(database);
+    migrateSchemaV2ToV3(database);
+    return;
+  }
+
+  if (schemaVersion === '2') {
+    migrateSchemaV2ToV3(database);
     return;
   }
 

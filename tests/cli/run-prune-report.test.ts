@@ -134,8 +134,8 @@ describe('run-prune-report', () => {
     const dbPath = await createTempDbPath('prune-dry-run-');
     const oldPath = '/tmp/old.jsonl';
     const livePath = '/tmp/live.jsonl';
-    const oldEvent = createEvent({ sessionId: 'old-path' });
-    const liveEvent = createEvent({ sessionId: 'live-path' });
+    const oldEvent = createEvent({ sessionId: 'moved-session' });
+    const liveEvent = createEvent({ sessionId: 'moved-session' });
     const store = await openEventStore(dbPath);
 
     try {
@@ -179,12 +179,12 @@ describe('run-prune-report', () => {
     try {
       writeStoredFile(store, {
         filePath: oldPath,
-        events: [createEvent({ sessionId: 'old-path' })],
+        events: [createEvent({ sessionId: 'moved-session' })],
         now: 1_000,
       });
       writeStoredFile(store, {
         filePath: livePath,
-        events: [createEvent({ sessionId: 'live-path' })],
+        events: [createEvent({ sessionId: 'moved-session' })],
         now: 2_000,
       });
       writeStoredFile(store, {
@@ -269,12 +269,12 @@ describe('run-prune-report', () => {
     try {
       writeStoredFile(store, {
         filePath: oldPath,
-        events: [createEvent({ sessionId: 'old-path' })],
+        events: [createEvent({ sessionId: 'moved-session' })],
         now: 1_000,
       });
       writeStoredFile(store, {
         filePath: livePath,
-        events: [createEvent({ sessionId: 'live-path' })],
+        events: [createEvent({ sessionId: 'moved-session' })],
         now: 2_000,
       });
       writeStoredFile(store, {
@@ -311,8 +311,14 @@ describe('run-prune-report', () => {
     const store = await openEventStore(dbPath);
 
     try {
-      writeStoredFile(store, { filePath: oldPath, events: [createEvent({ sessionId: 'old' })] });
-      writeStoredFile(store, { filePath: livePath, events: [createEvent({ sessionId: 'live' })] });
+      writeStoredFile(store, {
+        filePath: oldPath,
+        events: [createEvent({ sessionId: 'moved-session' })],
+      });
+      writeStoredFile(store, {
+        filePath: livePath,
+        events: [createEvent({ sessionId: 'moved-session' })],
+      });
     } finally {
       closeEventStore(store);
     }
@@ -598,7 +604,7 @@ describe('run-prune-report', () => {
     try {
       writeStoredFile(store, {
         filePath: oldPath,
-        events: [createEvent({ sessionId: 'old-path' })],
+        events: [createEvent({ sessionId: 'live-path' })],
         now: 1_000,
       });
       writeStoredFile(store, {
@@ -661,7 +667,7 @@ describe('run-prune-report', () => {
       for (let index = 0; index < 3; index += 1) {
         writeStoredFile(store, {
           filePath: path.join(tempRoot, `copy-${index}.jsonl`),
-          events: [createEvent({ sessionId: `copy-${index}` })],
+          events: [createEvent({ sessionId: 'live' })],
           now: 1_000 + index,
         });
       }
