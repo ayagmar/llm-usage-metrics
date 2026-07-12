@@ -1,15 +1,11 @@
+import type { TokenBuckets } from '../domain/usage-report-row.js';
+
 export type OptimizeRowType = 'baseline' | 'candidate';
 
-export type OptimizeRowCommon = {
+export type OptimizeRowCommon = TokenBuckets & {
   rowType: OptimizeRowType;
   periodKey: string;
   provider: string;
-  inputTokens: number;
-  outputTokens: number;
-  reasoningTokens: number;
-  cacheReadTokens: number;
-  cacheWriteTokens: number;
-  totalTokens: number;
 };
 
 export type OptimizeBaselineRow = OptimizeRowCommon & {

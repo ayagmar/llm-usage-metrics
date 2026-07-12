@@ -6,7 +6,7 @@ import type {
   PricingFetcherRuntimeConfig,
 } from '../config/runtime-overrides.js';
 import type { LoadedUserConfig } from '../config/user-config.js';
-import type { UsageReportRow } from '../domain/usage-report-row.js';
+import type { UsageReportRow, UsageTotals } from '../domain/usage-report-row.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import type { EfficiencyRow } from '../efficiency/efficiency-row.js';
 import type { OptimizeRow } from '../optimize/optimize-row.js';
@@ -250,15 +250,7 @@ export type CompareWindowRange = {
   label: string;
 };
 
-export type CompareWindowTotals = {
-  inputTokens: number;
-  outputTokens: number;
-  reasoningTokens: number;
-  cacheReadTokens: number;
-  cacheWriteTokens: number;
-  totalTokens: number;
-  costUsd?: number;
-  costIncomplete?: boolean;
+export type CompareWindowTotals = UsageTotals & {
   events: number;
   activeDays: number;
 };
