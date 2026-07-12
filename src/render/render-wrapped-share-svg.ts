@@ -17,7 +17,8 @@ const H = 940;
 const left = 80;
 const right = 80;
 const tileTop = 172;
-const tileWidth = 300;
+// Five tiles between the margins: (1500 - 160 - 4 * 28) / 5 = 245.6, floored.
+const tileWidth = 245;
 const tileHeight = 126;
 const tileGap = 28;
 const listTop = 360;
@@ -33,6 +34,16 @@ function formatDayLabel(count: number): string {
   return count === 1 ? 'day' : 'days';
 }
 
+function formatHours(activeMs: number): string {
+  const hours = Math.round(activeMs / 3_600_000);
+
+  if (hours === 0) {
+    return activeMs > 0 ? '<1h' : '0h';
+  }
+
+  return `${formatInteger(hours)}h`;
+}
+
 function renderStatTile(index: number, label: string, value: string, sublabel: string): string {
   const x = left + index * (tileWidth + tileGap);
   const y = tileTop;
@@ -40,7 +51,7 @@ function renderStatTile(index: number, label: string, value: string, sublabel: s
   return `<g data-stat-tile="${escapeSvg(label)}">
 <rect x="${x}" y="${y}" width="${tileWidth}" height="${tileHeight}" rx="18" fill="${shareTheme.cardBg}" stroke="${shareTheme.cardBorder}"/>
 <text x="${x + 24}" y="${y + 42}" font-size="14" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}">${escapeSvg(label)}</text>
-<text x="${x + 24}" y="${y + 82}" font-size="34" font-weight="800" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">${escapeSvg(value)}</text>
+<text x="${x + 24}" y="${y + 82}" font-size="30" font-weight="800" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">${escapeSvg(value)}</text>
 <text x="${x + 24}" y="${y + 108}" font-size="13" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">${escapeSvg(sublabel)}</text>
 </g>`;
 }
@@ -158,6 +169,10 @@ ${cells}
 export function renderWrappedShareSvg(data: WrappedRecap): string {
   const commandText = `llm-usage wrapped --year ${data.year} --share`;
   const cost = formatApproxUsd(data.costUsd, data.costIncomplete);
+  const costSublabel =
+    data.estimatedCacheSavingsUsd === undefined
+      ? 'estimated spend'
+      : `saved ${formatApproxUsd(data.estimatedCacheSavingsUsd, true)} via cache`;
   const footerLabel = `${data.from} to ${data.to}`;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
@@ -170,9 +185,10 @@ ${renderShareAccentBar()}
 <text x="${left}" y="112" font-size="18" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}">Your local LLM usage recap</text>
 ${renderShareCommandBadge(commandText)}
 ${renderStatTile(0, 'Tokens', formatCompact(data.totalTokens), `${formatInteger(data.eventCount)} events`)}
-${renderStatTile(1, 'Cost', cost, 'estimated spend')}
-${renderStatTile(2, 'Active Days', formatInteger(data.activeDays), `${formatInteger(data.sessionCount)} sessions`)}
-${renderStatTile(3, 'Streak', formatInteger(data.longestStreak), formatDayLabel(data.longestStreak))}
+${renderStatTile(1, 'Cost', cost, costSublabel)}
+${renderStatTile(2, 'Hours', formatHours(data.activeMs), `${formatInteger(data.sessionCount)} sessions`)}
+${renderStatTile(3, 'Active Days', formatInteger(data.activeDays), 'this year')}
+${renderStatTile(4, 'Streak', formatInteger(data.longestStreak), formatDayLabel(data.longestStreak))}
 ${renderTopList('Top Models', data.topModels, left)}
 ${renderTopList('Top Sources', data.topSources, W - right - 640)}
 ${renderDailyHeatmap(data)}

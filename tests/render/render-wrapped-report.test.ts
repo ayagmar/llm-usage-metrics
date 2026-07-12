@@ -65,6 +65,14 @@ describe('render-wrapped-report', () => {
     expect(output).toContain('$12.34');
     expect(output).toContain('Longest streak');
     expect(output).toContain('3 days');
+    expect(output).toContain('Hours');
+    expect(output).toContain('3h');
+    expect(output).toContain('Peak hour');
+    expect(output).toContain('14:00');
+    expect(output).toContain('Weekday split');
+    expect(output).toContain('70% weekday');
+    expect(output).toContain('Busiest day');
+    expect(output).toContain('2026-03-01 (400 tokens)');
     expect(output).toContain('Monthly activity');
     expect(output).toContain('Jan ·');
     expect(output).toContain('Feb ▁');

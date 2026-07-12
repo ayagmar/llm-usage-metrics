@@ -3,7 +3,7 @@ title: Wrapped Recap
 description: A yearly usage recap in the terminal and as a shareable SVG.
 ---
 
-`llm-usage wrapped` condenses a full year of local usage into a single recap: totals, active days, the longest daily streak, the top models and sources, a month-by-month intensity strip in the terminal, and a day-by-day activity heatmap in the share SVG.
+`llm-usage wrapped` condenses a full year of local usage into a single recap: totals, active days, the longest daily streak, hands-on hours and time patterns, estimated cache savings, the top models and sources, a month-by-month intensity strip in the terminal, and a day-by-day activity heatmap in the share SVG.
 
 ## Command structure
 
@@ -41,6 +41,11 @@ Tokens          48,200,000
 Cost            $214.90
 Active days     143
 Longest streak  21 days
+Hours           312h
+Peak hour       14:00
+Weekday split   84% weekday
+Busiest day     2026-03-17 (612,000 tokens)
+Cache savings   ~$38.20
 Events          8,640
 Sessions        512
 
@@ -59,9 +64,11 @@ Top models
 
 The report uses the shared boxed header, tables, and color policy; set `NO_COLOR` for plain text. The monthly strip renders each month's relative intensity with block glyphs (`·▁▂▄█`, scaled against the busiest month). Terminal and JSON list the top five models and sources.
 
+The time stats read as follows. `Hours` is gap-capped hands-on time: per session, inter-event gaps are summed with each gap capped at 5 minutes, so a session left open overnight contributes at most 5 idle minutes per gap. `Peak hour` is the hour of day (report timezone) with the most tokens. `Weekday split` is the share of tokens on Monday–Friday dates. `Busiest day` is the single date with the most tokens. `Cache savings` is an estimated counterfactual: what your cache-read tokens would have cost at each model's full input rate minus what they cost at its cache-read rate; only models with a published cache-read rate contribute, and cache-write costs are deliberately ignored (it answers "what did reads save").
+
 ## Share SVG
 
-`--share` writes an offline SVG named `llm-usage-wrapped-<year>.svg` to the current working directory. It shows the stat tiles, the top three models and sources, and a GitHub-style daily activity heatmap: one cell per day of the year, shaded by quartile of your active days so a single outlier day does not flatten the rest. PNG rendering and embedded logo/font assets are intentionally out of scope.
+`--share` writes an offline SVG named `llm-usage-wrapped-<year>.svg` to the current working directory. It shows five stat tiles (tokens, cost with cache savings, hours, active days, streak), the top three models and sources, and a GitHub-style daily activity heatmap: one cell per day of the year, shaded by quartile of your active days so a single outlier day does not flatten the rest. PNG rendering and embedded logo/font assets are intentionally out of scope.
 
 ## JSON shape
 
@@ -79,6 +86,12 @@ The report uses the shared boxed header, tables, and color policy; set `NO_COLOR
     "costIncomplete": false,
     "activeDays": 143,
     "longestStreak": 21,
+    "activeMs": 1123200000,
+    "peakHour": { "hour": 14, "totalTokens": 5200000 },
+    "weekdayTokens": 40500000,
+    "weekendTokens": 7700000,
+    "busiestDay": { "date": "2026-03-17", "totalTokens": 612000, "costUsd": 2.9 },
+    "estimatedCacheSavingsUsd": 38.2,
     "eventCount": 8640,
     "sessionCount": 512,
     "topModels": [{ "name": "gpt-5.1", "totalTokens": 21400000, "costUsd": 96.2 }],

@@ -46,11 +46,32 @@ const TOP_ITEM_NAME_COLUMN = 1;
 /** Gates a styler behind the color policy so `useColor: false` never emits ANSI. */
 type Paint = (styler: TextStyler) => TextStyler;
 
+function formatHours(activeMs: number): string {
+  const hours = Math.round(activeMs / 3_600_000);
+
+  if (hours === 0) {
+    return activeMs > 0 ? '<1h' : '0h';
+  }
+
+  return `${formatInteger(hours)}h`;
+}
+
+function formatPeakHour(peakHour: WrappedRecap['peakHour']): string {
+  return peakHour === undefined ? '-' : `${String(peakHour.hour).padStart(2, '0')}:00`;
+}
+
+function formatBusiestDay(busiestDay: WrappedRecap['busiestDay']): string {
+  return busiestDay === undefined
+    ? '-'
+    : `${busiestDay.date} (${formatInteger(busiestDay.totalTokens)} tokens)`;
+}
+
 function renderStatLines(recap: WrappedRecap, paint: Paint, palette: TerminalStylePalette): string {
   const bold =
     (styler: TextStyler): TextStyler =>
     (text) =>
       palette.bold(styler(text));
+  const totalSplitTokens = recap.weekdayTokens + recap.weekendTokens;
   const stats: { label: string; value: string; styler: TextStyler }[] = [
     { label: 'Tokens', value: formatInteger(recap.totalTokens), styler: bold(palette.cyan) },
     {
@@ -64,9 +85,37 @@ function renderStatLines(recap: WrappedRecap, paint: Paint, palette: TerminalSty
       value: `${formatInteger(recap.longestStreak)} day${recap.longestStreak === 1 ? '' : 's'}`,
       styler: bold(palette.yellow),
     },
+    { label: 'Hours', value: formatHours(recap.activeMs), styler: bold(palette.cyan) },
+    { label: 'Peak hour', value: formatPeakHour(recap.peakHour), styler: palette.white },
+  ];
+
+  if (totalSplitTokens > 0) {
+    stats.push({
+      label: 'Weekday split',
+      value: `${Math.round((100 * recap.weekdayTokens) / totalSplitTokens)}% weekday`,
+      styler: palette.white,
+    });
+  }
+
+  stats.push({
+    label: 'Busiest day',
+    value: formatBusiestDay(recap.busiestDay),
+    styler: palette.white,
+  });
+
+  if (recap.estimatedCacheSavingsUsd !== undefined) {
+    stats.push({
+      label: 'Cache savings',
+      value: formatApproxUsd(recap.estimatedCacheSavingsUsd, true),
+      styler: bold(palette.green),
+    });
+  }
+
+  stats.push(
     { label: 'Events', value: formatInteger(recap.eventCount), styler: palette.white },
     { label: 'Sessions', value: formatInteger(recap.sessionCount), styler: palette.white },
-  ];
+  );
+
   const labelWidth = stats.reduce((max, stat) => Math.max(max, stat.label.length), 0);
 
   return stats

@@ -59,6 +59,14 @@ describe('renderWrappedShareSvg', () => {
     expect(svg).toContain('Cost');
     expect(svg).toContain('Active Days');
     expect(svg).toContain('Streak');
+    expect(svg.match(/data-stat-tile="/g)).toHaveLength(5);
+    expect(svg).toContain('data-stat-tile="Hours"');
+    expect(svg).toContain('>90h<');
+    expect(svg).toContain('12 sessions');
+    expect(svg).toContain('this year');
+    expect(svg).toContain('saved ~$42.50 via cache');
+    const tileOrder = [...svg.matchAll(/data-stat-tile="([^"]+)"/g)].map((match) => match[1]);
+    expect(tileOrder).toEqual(['Tokens', 'Cost', 'Hours', 'Active Days', 'Streak']);
     expect(svg).toContain('~$123.45');
     expect(svg).toContain('Top Models');
     expect(svg).toContain('Top Sources');
