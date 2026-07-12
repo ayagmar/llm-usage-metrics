@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ayagmar.github.io/llm-usage-metrics/report-prune.v1.schema.json",
+  "title": "llm-usage-metrics prune report output (v1)",
+  "description": "Envelope and payload for prune --json output.",
+  "allOf": [
+    { "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope" }
+  ],
+  "properties": {
+    "report": { "const": "prune" },
+    "data": {
+      "description": "Prune payload: deletion candidates and the run summary.",
+      "type": "object",
+      "properties": {
+        "candidates": {
+          "description": "Departed files selected for deletion.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/candidate" }
+        },
+        "summary": { "$ref": "#/$defs/summary" }
+      },
+      "required": ["candidates", "summary"],
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "candidate": {
+      "description": "One departed file selected by the prune filters.",
+      "type": "object",
+      "properties": {
+        "source": { "description": "Source id the file belonged to.", "type": "string" },
+        "filePath": { "description": "Absolute path of the departed file.", "type": "string" },
+        "eventCount": {
+          "description": "Events stored for the file.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "newestTimestamp": {
+          "description": "ISO timestamp of the file's newest event; omitted for empty files.",
+          "type": "string"
+        },
+        "reasons": {
+          "description": "Why the file matched the selectors.",
+          "type": "array",
+          "items": { "type": "string", "enum": ["suppressed", "aged"] }
+        }
+      },
+      "required": ["source", "filePath", "eventCount", "reasons"],
+      "additionalProperties": false
+    },
+    "sizeSnapshot": {
+      "description": "Store size on disk, including WAL and SHM files.",
+      "type": "object",
+      "properties": {
+        "databaseBytes": { "description": "Main database size.", "type": "integer", "minimum": 0 },
+        "walBytes": { "description": "Write-ahead log size.", "type": "integer", "minimum": 0 },
+        "shmBytes": { "description": "Shared-memory file size.", "type": "integer", "minimum": 0 },
+        "totalBytes": { "description": "Sum of the three files.", "type": "integer", "minimum": 0 }
+      },
+      "required": ["databaseBytes", "walBytes", "shmBytes", "totalBytes"],
+      "additionalProperties": false
+    },
+    "summary": {
+      "description": "Counts and size effects of the (dry or applied) run.",
+      "type": "object",
+      "properties": {
+        "storePath": { "description": "Path of the event store.", "type": "string" },
+        "applied": { "description": "True when --apply deleted the candidates.", "type": "boolean" },
+        "candidateFileCount": {
+          "description": "Files selected for deletion.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "candidateEventCount": {
+          "description": "Events inside the selected files.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "deletedFileCount": {
+          "description": "Files actually deleted; applied runs only.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "deletedEventCount": {
+          "description": "Events actually deleted; applied runs only.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "sizeBefore": { "$ref": "#/$defs/sizeSnapshot" },
+        "sizeAfter": { "$ref": "#/$defs/sizeSnapshot" },
+        "reclaimedBytes": {
+          "description": "Bytes reclaimed by the applied run's vacuum.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": ["storePath", "applied", "candidateFileCount", "candidateEventCount"],
+      "additionalProperties": false
+    }
+  }
+}

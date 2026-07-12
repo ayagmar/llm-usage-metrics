@@ -33,6 +33,21 @@ Use JSON for scripts and pipelines. Every report wraps its payload in a versione
 
 `report` names the command (`usage`, `session`, `trends`, `compare`, `efficiency`, `optimize`, `wrapped`, `doctor`, or `prune`) and `data` carries the report-specific payload documented on each report page. `schemaVersion` increments only on breaking JSON changes; additive fields inside `data` are safe and do not bump it. Diagnostics never enter the JSON body.
 
+Every payload has a published JSON Schema (draft 2020-12) validated in CI against real CLI output:
+
+| Report | Schema |
+| --- | --- |
+| shared definitions | [report-common.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json) |
+| usage | [report-usage.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-usage.v1.schema.json) |
+| session | [report-session.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-session.v1.schema.json) |
+| trends | [report-trends.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-trends.v1.schema.json) |
+| compare | [report-compare.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-compare.v1.schema.json) |
+| efficiency | [report-efficiency.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-efficiency.v1.schema.json) |
+| optimize | [report-optimize.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-optimize.v1.schema.json) |
+| wrapped | [report-wrapped.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-wrapped.v1.schema.json) |
+| doctor | [report-doctor.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-doctor.v1.schema.json) |
+| prune | [report-prune.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-prune.v1.schema.json) |
+
 ## Markdown
 
 ```bash

@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ayagmar.github.io/llm-usage-metrics/report-compare.v1.schema.json",
+  "title": "llm-usage-metrics compare report output (v1)",
+  "description": "Envelope and payload for compare report --json output. Diagnostics are excluded by contract.",
+  "allOf": [
+    {
+      "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope"
+    }
+  ],
+  "properties": {
+    "report": { "const": "compare" },
+    "data": {
+      "description": "Compare payload: both windows plus metric and source deltas.",
+      "type": "object",
+      "properties": {
+        "current": { "$ref": "#/$defs/windowSummary" },
+        "baseline": { "$ref": "#/$defs/windowSummary" },
+        "totals": {
+          "description": "Per-metric comparison rows.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/metricRow" }
+        },
+        "sources": {
+          "description": "Per-source cost comparison rows.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/sourceRow" }
+        }
+      },
+      "required": ["current", "baseline", "totals", "sources"],
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "windowRange": {
+      "description": "A compared date window.",
+      "type": "object",
+      "properties": {
+        "since": { "description": "Window start (YYYY-MM-DD).", "type": "string" },
+        "until": { "description": "Window end (YYYY-MM-DD).", "type": "string" },
+        "label": { "description": "Human-readable window label.", "type": "string" }
+      },
+      "required": ["since", "until", "label"],
+      "additionalProperties": false
+    },
+    "windowTotals": {
+      "description": "Usage totals for one window (non-negative).",
+      "allOf": [
+        {
+          "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/usageTotals"
+        }
+      ],
+      "properties": {
+        "events": { "description": "Events in the window.", "type": "integer", "minimum": 0 },
+        "activeDays": {
+          "description": "Days with at least one event in the window.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": ["events", "activeDays"],
+      "unevaluatedProperties": false
+    },
+    "windowTotalsDelta": {
+      "description": "Current-minus-baseline totals; values can be negative.",
+      "type": "object",
+      "properties": {
+        "inputTokens": { "description": "Input token delta.", "type": "integer" },
+        "outputTokens": { "description": "Output token delta.", "type": "integer" },
+        "reasoningTokens": { "description": "Reasoning token delta.", "type": "integer" },
+        "cacheReadTokens": { "description": "Cache-read token delta.", "type": "integer" },
+        "cacheWriteTokens": { "description": "Cache-write token delta.", "type": "integer" },
+        "totalTokens": { "description": "Total token delta.", "type": "integer" },
+        "costUsd": { "description": "Cost delta in USD.", "type": "number" },
+        "costIncomplete": {
+          "description": "True when either side's cost is missing pricing.",
+          "type": "boolean"
+        },
+        "events": { "description": "Event count delta.", "type": "integer" },
+        "activeDays": { "description": "Active day delta.", "type": "integer" }
+      },
+      "required": [
+        "inputTokens",
+        "outputTokens",
+        "reasoningTokens",
+        "cacheReadTokens",
+        "cacheWriteTokens",
+        "totalTokens",
+        "events",
+        "activeDays"
+      ],
+      "additionalProperties": false
+    },
+    "windowSummary": {
+      "description": "One compared window with its totals.",
+      "type": "object",
+      "properties": {
+        "window": { "$ref": "#/$defs/windowRange" },
+        "totals": { "$ref": "#/$defs/windowTotals" }
+      },
+      "required": ["window", "totals"],
+      "additionalProperties": false
+    },
+    "metricRow": {
+      "description": "One compared metric with values and deltas; unresolved values are omitted.",
+      "type": "object",
+      "properties": {
+        "key": {
+          "description": "Metric key.",
+          "type": "string",
+          "enum": [
+            "inputTokens",
+            "outputTokens",
+            "reasoningTokens",
+            "cacheReadTokens",
+            "cacheWriteTokens",
+            "totalTokens",
+            "costUsd",
+            "events",
+            "activeDays"
+          ]
+        },
+        "label": { "description": "Display label for the metric.", "type": "string" },
+        "valueType": {
+          "description": "Render hint: integer or USD.",
+          "type": "string",
+          "enum": ["integer", "usd"]
+        },
+        "current": { "description": "Current-window value.", "type": "number" },
+        "baseline": { "description": "Baseline-window value.", "type": "number" },
+        "delta": { "description": "current minus baseline; can be negative.", "type": "number" },
+        "deltaRatio": {
+          "description": "delta / baseline as a 0-centered fraction; can be negative.",
+          "type": "number"
+        },
+        "currentCostIncomplete": {
+          "description": "True when the current cost is missing pricing.",
+          "type": "boolean"
+        },
+        "baselineCostIncomplete": {
+          "description": "True when the baseline cost is missing pricing.",
+          "type": "boolean"
+        },
+        "deltaCostIncomplete": {
+          "description": "True when the cost delta involves missing pricing.",
+          "type": "boolean"
+        }
+      },
+      "required": ["key", "label", "valueType"],
+      "additionalProperties": false
+    },
+    "sourceRow": {
+      "description": "One source's window totals and deltas.",
+      "type": "object",
+      "properties": {
+        "source": { "description": "Source id.", "type": "string" },
+        "current": { "$ref": "#/$defs/windowTotals" },
+        "baseline": { "$ref": "#/$defs/windowTotals" },
+        "delta": { "$ref": "#/$defs/windowTotalsDelta" },
+        "deltaRatio": {
+          "description": "Per-metric delta fractions keyed by metric name; unresolved entries omitted.",
+          "type": "object",
+          "propertyNames": {
+            "enum": [
+              "inputTokens",
+              "outputTokens",
+              "reasoningTokens",
+              "cacheReadTokens",
+              "cacheWriteTokens",
+              "totalTokens",
+              "costUsd",
+              "events",
+              "activeDays"
+            ]
+          },
+          "additionalProperties": { "type": "number" }
+        }
+      },
+      "required": ["source", "current", "baseline", "delta", "deltaRatio"],
+      "additionalProperties": false
+    }
+  }
+}

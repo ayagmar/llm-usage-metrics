@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ayagmar.github.io/llm-usage-metrics/report-trends.v1.schema.json",
+  "title": "llm-usage-metrics trends report output (v1)",
+  "description": "Envelope and payload for trends report --json output.",
+  "allOf": [
+    {
+      "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope"
+    }
+  ],
+  "properties": {
+    "report": { "const": "trends" },
+    "data": {
+      "description": "Trend series payload.",
+      "type": "object",
+      "properties": {
+        "metric": {
+          "description": "Metric charted: resolved cost or total tokens.",
+          "type": "string",
+          "enum": ["cost", "tokens"]
+        },
+        "dateRange": {
+          "description": "Inclusive date window of the series.",
+          "type": "object",
+          "properties": {
+            "from": { "description": "First date (YYYY-MM-DD).", "type": "string" },
+            "to": { "description": "Last date (YYYY-MM-DD).", "type": "string" }
+          },
+          "required": ["from", "to"],
+          "additionalProperties": false
+        },
+        "totalSeries": { "$ref": "#/$defs/trendSeries" },
+        "sourceSeries": {
+          "description": "Per-source series; present with --by-source.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/trendSeries" }
+        }
+      },
+      "required": ["metric", "dateRange", "totalSeries"],
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "trendBucket": {
+      "description": "One day in a trend series.",
+      "type": "object",
+      "properties": {
+        "date": { "description": "Bucket date (YYYY-MM-DD).", "type": "string" },
+        "value": { "description": "Metric value for the day.", "type": "number", "minimum": 0 },
+        "observed": {
+          "description": "True when at least one event landed on the day.",
+          "type": "boolean"
+        },
+        "incomplete": {
+          "description": "True when the day's cost is missing pricing for some events.",
+          "type": "boolean"
+        }
+      },
+      "required": ["date", "value", "observed"],
+      "additionalProperties": false
+    },
+    "trendSeries": {
+      "description": "A single source's (or the combined) daily series.",
+      "type": "object",
+      "properties": {
+        "source": { "description": "Source id, or combined.", "type": "string" },
+        "buckets": {
+          "description": "One bucket per day in the range.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/trendBucket" }
+        },
+        "summary": {
+          "description": "Aggregates over the observed days.",
+          "type": "object",
+          "properties": {
+            "total": {
+              "description": "Metric total for the range.",
+              "type": "number",
+              "minimum": 0
+            },
+            "average": {
+              "description": "Average per observed day.",
+              "type": "number",
+              "minimum": 0
+            },
+            "peak": {
+              "description": "Highest-value day.",
+              "type": "object",
+              "properties": {
+                "date": { "description": "Peak date (YYYY-MM-DD).", "type": "string" },
+                "value": { "description": "Peak value.", "type": "number", "minimum": 0 }
+              },
+              "required": ["date", "value"],
+              "additionalProperties": false
+            },
+            "incomplete": {
+              "description": "True when some cost values are missing pricing.",
+              "type": "boolean"
+            },
+            "observedDayCount": {
+              "description": "Days with at least one event.",
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": ["total", "average", "peak", "incomplete", "observedDayCount"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["source", "buckets", "summary"],
+      "additionalProperties": false
+    }
+  }
+}

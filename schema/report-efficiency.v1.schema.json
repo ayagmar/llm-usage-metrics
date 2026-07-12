@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ayagmar.github.io/llm-usage-metrics/report-efficiency.v1.schema.json",
+  "title": "llm-usage-metrics efficiency report output (v1)",
+  "description": "Envelope and payload for efficiency report --json output.",
+  "allOf": [
+    {
+      "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope"
+    }
+  ],
+  "properties": {
+    "report": { "const": "efficiency" },
+    "data": {
+      "description": "Efficiency payload; grouping is period by default and source with --by-source.",
+      "type": "object",
+      "properties": {
+        "grouping": {
+          "description": "Row grouping mode.",
+          "type": "string",
+          "enum": ["period", "source"]
+        },
+        "rows": {
+          "description": "Efficiency rows in render order.",
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "$ref": "#/$defs/periodRow" },
+              { "$ref": "#/$defs/sourceRow" },
+              { "$ref": "#/$defs/grandTotalRow" }
+            ]
+          }
+        }
+      },
+      "required": ["grouping", "rows"],
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "outcomeTotals": {
+      "description": "Git outcome totals attributed to the row.",
+      "type": "object",
+      "properties": {
+        "commitCount": { "description": "Commits attributed.", "type": "integer", "minimum": 0 },
+        "linesAdded": { "description": "Lines added.", "type": "integer", "minimum": 0 },
+        "linesDeleted": { "description": "Lines deleted.", "type": "integer", "minimum": 0 },
+        "linesChanged": {
+          "description": "Lines added plus deleted.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": ["commitCount", "linesAdded", "linesDeleted", "linesChanged"]
+    },
+    "derivedMetrics": {
+      "description": "Derived cost/outcome ratios; omitted when the denominator is zero.",
+      "type": "object",
+      "properties": {
+        "usdPerCommit": { "description": "USD per commit.", "type": "number", "minimum": 0 },
+        "usdPer1kLinesChanged": {
+          "description": "USD per 1000 changed lines.",
+          "type": "number",
+          "minimum": 0
+        },
+        "tokensPerCommit": { "description": "Tokens per commit.", "type": "number", "minimum": 0 },
+        "commitsPerUsd": { "description": "Commits per USD.", "type": "number", "minimum": 0 }
+      }
+    },
+    "periodRow": {
+      "description": "One period's usage, outcomes, and derived metrics.",
+      "allOf": [
+        {
+          "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/usageTotals"
+        },
+        { "$ref": "#/$defs/outcomeTotals" },
+        { "$ref": "#/$defs/derivedMetrics" }
+      ],
+      "properties": {
+        "rowType": { "description": "Discriminator for period rows.", "const": "period" },
+        "periodKey": { "description": "Bucket key for the period.", "type": "string" }
+      },
+      "required": ["rowType", "periodKey"],
+      "unevaluatedProperties": false
+    },
+    "sourceRow": {
+      "description": "One source's usage share inside a period (--by-source).",
+      "allOf": [
+        {
+          "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/usageTotals"
+        }
+      ],
+      "properties": {
+        "rowType": { "description": "Discriminator for source rows.", "const": "period_source" },
+        "periodKey": { "description": "Bucket key for the period.", "type": "string" },
+        "source": { "description": "Source id.", "type": "string" },
+        "costShare": {
+          "description": "Source's share of the period cost as a 0-1 fraction.",
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": ["rowType", "periodKey", "source"],
+      "unevaluatedProperties": false
+    },
+    "grandTotalRow": {
+      "description": "Grand-total usage, outcomes, and derived metrics.",
+      "allOf": [
+        {
+          "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/usageTotals"
+        },
+        { "$ref": "#/$defs/outcomeTotals" },
+        { "$ref": "#/$defs/derivedMetrics" }
+      ],
+      "properties": {
+        "rowType": { "description": "Discriminator for the grand total.", "const": "grand_total" },
+        "periodKey": { "description": "Always ALL for the grand total.", "const": "ALL" }
+      },
+      "required": ["rowType", "periodKey"],
+      "unevaluatedProperties": false
+    }
+  }
+}

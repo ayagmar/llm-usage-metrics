@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ayagmar.github.io/llm-usage-metrics/report-usage.v1.schema.json",
+  "title": "llm-usage-metrics usage report output (v1)",
+  "description": "Envelope and payload for daily/weekly/monthly usage report --json output.",
+  "allOf": [
+    {
+      "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope"
+    }
+  ],
+  "properties": {
+    "report": { "const": "usage" },
+    "data": {
+      "description": "Usage report rows in render order.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/usageReportRow" }
+    }
+  },
+  "$defs": {
+    "modelBreakdown": {
+      "description": "Per-model usage totals inside a row.",
+      "allOf": [
+        {
+          "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/usageTotals"
+        }
+      ],
+      "properties": {
+        "model": {
+          "description": "Normalized model identifier.",
+          "type": "string"
+        }
+      },
+      "required": ["model"],
+      "unevaluatedProperties": false
+    },
+    "rowCommon": {
+      "description": "Fields shared by every usage report row.",
+      "allOf": [
+        {
+          "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/usageTotals"
+        }
+      ],
+      "properties": {
+        "periodKey": {
+          "description": "Bucket key for the row's period, or ALL for the grand total.",
+          "type": "string"
+        },
+        "source": {
+          "description": "Source id for per-source rows, or combined.",
+          "type": "string"
+        },
+        "models": {
+          "description": "Model identifiers active in the row.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "modelBreakdown": {
+          "description": "Per-model totals for the row.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/modelBreakdown" }
+        }
+      },
+      "required": ["periodKey", "source", "models", "modelBreakdown"]
+    },
+    "usageReportRow": {
+      "description": "One usage report row, discriminated by rowType.",
+      "allOf": [{ "$ref": "#/$defs/rowCommon" }],
+      "properties": {
+        "rowType": {
+          "description": "Row kind: per-source period row, combined period row, or grand total.",
+          "type": "string",
+          "enum": ["period_source", "period_combined", "grand_total"]
+        }
+      },
+      "required": ["rowType"],
+      "unevaluatedProperties": false
+    }
+  }
+}

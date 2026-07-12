@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ayagmar.github.io/llm-usage-metrics/report-doctor.v1.schema.json",
+  "title": "llm-usage-metrics doctor report output (v1)",
+  "description": "Envelope and payload for doctor --json output.",
+  "allOf": [
+    {
+      "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope"
+    }
+  ],
+  "properties": {
+    "report": { "const": "doctor" },
+    "data": {
+      "description": "Doctor payload.",
+      "type": "object",
+      "properties": {
+        "sources": {
+          "description": "One health row per selected source, plus the event store when enabled.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/sourceResult" }
+        }
+      },
+      "required": ["sources"],
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "sourceResult": {
+      "description": "Health of one source or the event store.",
+      "type": "object",
+      "properties": {
+        "id": { "description": "Source id, or event-store.", "type": "string" },
+        "format": { "description": "Storage format of the source.", "type": "string" },
+        "status": { "description": "Health status.", "type": "string", "enum": ["ok", "error"] },
+        "itemsFound": {
+          "description": "Files (or events for the store) discovered; healthy rows only.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "detail": {
+          "description": "Extra healthy-row detail (the event-store row uses this).",
+          "type": "string"
+        },
+        "error": { "description": "Failure reason; unhealthy rows only.", "type": "string" }
+      },
+      "required": ["id", "format", "status"],
+      "additionalProperties": false
+    }
+  }
+}

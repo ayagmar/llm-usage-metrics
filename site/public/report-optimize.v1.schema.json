@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ayagmar.github.io/llm-usage-metrics/report-optimize.v1.schema.json",
+  "title": "llm-usage-metrics optimize report output (v1)",
+  "description": "Envelope and payload for optimize report --json output.",
+  "allOf": [
+    { "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope" }
+  ],
+  "properties": {
+    "report": { "const": "optimize" },
+    "data": {
+      "description": "Baseline and candidate rows in render order.",
+      "type": "array",
+      "items": {
+        "oneOf": [{ "$ref": "#/$defs/baselineRow" }, { "$ref": "#/$defs/candidateRow" }]
+      }
+    }
+  },
+  "$defs": {
+    "rowCommon": {
+      "description": "Fields shared by baseline and candidate rows.",
+      "allOf": [
+        { "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/tokenBuckets" }
+      ],
+      "properties": {
+        "periodKey": { "description": "Bucket key for the period.", "type": "string" },
+        "provider": { "description": "Provider the baseline is scoped to.", "type": "string" }
+      },
+      "required": ["periodKey", "provider"]
+    },
+    "baselineRow": {
+      "description": "Observed usage priced at the actual models.",
+      "allOf": [{ "$ref": "#/$defs/rowCommon" }],
+      "properties": {
+        "rowType": { "description": "Discriminator for baseline rows.", "const": "baseline" },
+        "baselineCostUsd": {
+          "description": "Observed cost in USD; omitted when pricing is unresolved.",
+          "type": "number",
+          "minimum": 0
+        },
+        "baselineCostIncomplete": {
+          "description": "True when some baseline events lack resolved pricing.",
+          "type": "boolean"
+        }
+      },
+      "required": ["rowType", "baselineCostIncomplete"],
+      "unevaluatedProperties": false
+    },
+    "candidateRow": {
+      "description": "The same usage hypothetically priced at a candidate model.",
+      "allOf": [{ "$ref": "#/$defs/rowCommon" }],
+      "properties": {
+        "rowType": { "description": "Discriminator for candidate rows.", "const": "candidate" },
+        "candidateModel": { "description": "Requested candidate model.", "type": "string" },
+        "candidateResolvedModel": {
+          "description": "Pricing key the candidate resolved to.",
+          "type": "string"
+        },
+        "hypotheticalCostUsd": {
+          "description": "Hypothetical cost in USD; omitted when pricing is unresolved.",
+          "type": "number",
+          "minimum": 0
+        },
+        "hypotheticalCostIncomplete": {
+          "description": "True when some candidate events lack resolved pricing.",
+          "type": "boolean"
+        },
+        "savingsUsd": {
+          "description": "baseline minus hypothetical cost; negative means a cost increase; omitted when unresolved.",
+          "type": "number"
+        },
+        "savingsRatio": {
+          "description": "savingsUsd / baseline cost as a 0-centered fraction; omitted when unresolved.",
+          "type": "number"
+        },
+        "notes": {
+          "description": "Row caveats such as missing_pricing.",
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["rowType", "candidateModel", "candidateResolvedModel", "hypotheticalCostIncomplete"],
+      "unevaluatedProperties": false
+    }
+  }
+}
