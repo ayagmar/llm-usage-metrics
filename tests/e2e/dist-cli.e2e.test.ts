@@ -39,6 +39,13 @@ function createSmokeEnv(): NodeJS.ProcessEnv {
 }
 
 // Local `pnpm run test` can run before `pnpm run build`; CI's main-test job builds first.
+if (!existsSync(distCliPath)) {
+  // vitest swallows module-scope console output from fully skipped files.
+  process.stderr.write(
+    'dist cli e2e skipped: dist/index.js not built (run pnpm run build or pnpm run verify:full)\n',
+  );
+}
+
 describe.skipIf(!existsSync(distCliPath))('dist CLI e2e', () => {
   it('prints data-only monthly JSON from the built CLI', async () => {
     const { stdout, stderr } = await execFileAsync(

@@ -21,6 +21,14 @@ pnpm run verify
 
 `pnpm run test` includes coverage by default; the coverage-threshold gate then enforces the global and per-file floors that CI enforces.
 
+Faster loops while iterating:
+
+- `pnpm run test:fast [path]` — one-shot run with coverage off; pass any vitest filter (`pnpm run test:fast tests/render/`).
+- `pnpm run test:watch` — watch mode with coverage off.
+- `pnpm run verify:full` — `build` followed by `verify`, so the built-binary e2e (`tests/e2e/dist-cli.e2e.test.ts`) actually runs instead of skipping. Without a `dist/` build that suite skips itself and prints a one-line warning.
+
+The `test` and `verify` scripts themselves are the unchanged CI gates — use them before committing.
+
 Toolchain note: `pnpm run typecheck` runs `tsc --noEmit` through the native TypeScript 7 compiler (the `@typescript/native` devDependency, aliased to `npm:typescript@7.0.2`). The package named `typescript` is aliased to `npm:@typescript/typescript6@6.0.2` so typescript-eslint keeps resolving a TS6-named API until upstream supports the TS 7 API.
 
 ## CI-parity validation
