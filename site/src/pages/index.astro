@@ -62,7 +62,7 @@ const reportGroups = [
     doc: 'doctor/',
     question: 'Is my local data healthy?',
     answer: 'Probe every discovery path, inspect the event ledger, and preview retained-history cleanup before deleting anything.',
-    commands: ['doctor', 'prune'],
+    commands: ['doctor', 'prune', 'config show'],
   },
   {
     number: '06',
@@ -71,6 +71,14 @@ const reportGroups = [
     question: 'What did the year look like?',
     answer: 'Summarize active days, streaks, models, sources, tokens, and estimated cost in one terminal recap or SVG.',
     commands: ['wrapped'],
+  },
+  {
+    number: '07',
+    label: 'Export',
+    doc: 'events/',
+    question: 'Can I take the data with me?',
+    answer: 'Stream every normalized event as JSONL or CSV for jq, DuckDB, or warehouse workflows — with published JSON Schemas to validate any report output against.',
+    commands: ['events --format csv', 'schema usage'],
   },
 ];
 
