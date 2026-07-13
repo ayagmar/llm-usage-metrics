@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   getCurrentLocalDateKey,
+  getIsoDayOfWeekFromDateKey,
   getLocalDateKey,
   getLocalDateKeyRange,
+  getLocalHour,
   getPeriodKey,
   shiftLocalDateKey,
 } from '../../src/utils/time-buckets.js';
@@ -104,6 +106,22 @@ describe('time bucket helpers', () => {
 
   it('formats monthly keys as YYYY-MM', () => {
     expect(getPeriodKey('2026-08-14T00:00:00Z', 'monthly', 'UTC')).toBe('2026-08');
+  });
+
+  it('resolves the local hour across timezone boundaries', () => {
+    expect(getLocalHour('2026-06-01T23:30:00Z', 'UTC')).toBe(23);
+    expect(getLocalHour('2026-06-01T23:30:00Z', 'Europe/Paris')).toBe(1);
+    expect(getLocalHour('2026-06-01T00:10:00Z', 'America/New_York')).toBe(20);
+  });
+
+  it('throws on an invalid timestamp when resolving the local hour', () => {
+    expect(() => getLocalHour('not-a-timestamp', 'UTC')).toThrow('Invalid event timestamp');
+  });
+
+  it('maps local date keys to ISO weekdays', () => {
+    expect(getIsoDayOfWeekFromDateKey('2026-01-05')).toBe(1); // Monday
+    expect(getIsoDayOfWeekFromDateKey('2026-01-10')).toBe(6); // Saturday
+    expect(getIsoDayOfWeekFromDateKey('2026-01-11')).toBe(7); // Sunday
   });
 
   it('shifts local day keys by whole days', () => {

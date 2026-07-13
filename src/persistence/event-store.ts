@@ -16,7 +16,11 @@ import { asRecord } from '../utils/as-record.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
 
-export const EVENT_STORE_SCHEMA_VERSION = '2';
+export const EVENT_STORE_SCHEMA_VERSION = '3';
+
+// Migration rehash pages through events with keyset pagination so a large
+// store never materializes every row in memory at once.
+export const MIGRATION_BATCH_SIZE = 5_000;
 
 const EVENT_STORE_OPEN_TIMEOUT_MS = 2_000;
 const CONTROL_CHARACTERS_PATTERN = new RegExp(String.raw`[\u0000-\u001F\u007F-\u009F]`, 'u');
@@ -525,6 +529,7 @@ function createFreshSchema(database: EventStoreDatabase): void {
 export function computeEventContentHash(event: UsageEvent): string {
   const fields = [
     event.source.toLowerCase(),
+    event.sessionId,
     event.timestamp,
     event.model ?? '',
     event.provider ?? '',
@@ -552,42 +557,116 @@ export function migrateSchemaV1ToV2(database: EventStoreDatabase): void {
 
     database.exec('ALTER TABLE events ADD COLUMN content_hash TEXT');
 
-    const rows = database
-      .prepare(
-        [
-          'SELECT id, source, session_id, timestamp, model, provider, repo_root,',
-          '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
-          '  cache_write_tokens, total_tokens, cost_usd, cost_mode',
-          'FROM events',
-          'ORDER BY id ASC',
-        ].join('\n'),
-      )
-      .all();
+    const selectBatch = database.prepare(
+      [
+        'SELECT id, source, session_id, timestamp, model, provider, repo_root,',
+        '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
+        '  cache_write_tokens, total_tokens, cost_usd, cost_mode',
+        'FROM events',
+        'WHERE id > ?',
+        'ORDER BY id ASC',
+        'LIMIT ?',
+      ].join('\n'),
+    );
     const updateContentHash = database.prepare('UPDATE events SET content_hash = ? WHERE id = ?');
 
-    for (const row of rows) {
-      const id = toNonNegativeInteger(row.id);
+    let lastId = -1;
+    for (;;) {
+      const rows = selectBatch.all(lastId, MIGRATION_BATCH_SIZE);
 
-      if (id === undefined) {
-        throw new Error('Cannot migrate event store row without a valid row id');
+      if (rows.length === 0) {
+        break;
       }
 
-      const event = normalizeStoredEvent(row);
+      for (const row of rows) {
+        const id = toNonNegativeInteger(row.id);
 
-      // An un-normalizable row keeps a NULL hash instead of aborting the
-      // migration; the history read path never suppresses NULL-hash files.
-      if (!event) {
-        continue;
+        if (id === undefined) {
+          throw new Error('Cannot migrate event store row without a valid row id');
+        }
+
+        lastId = id;
+
+        const event = normalizeStoredEvent(row);
+
+        // An un-normalizable row keeps a NULL hash instead of aborting the
+        // migration; the history read path never suppresses NULL-hash files.
+        if (!event) {
+          continue;
+        }
+
+        updateContentHash.run(computeEventContentHash(event), id);
       }
-
-      updateContentHash.run(computeEventContentHash(event), id);
     }
 
     database.exec('CREATE INDEX IF NOT EXISTS events_content_hash ON events(content_hash)');
-    database
-      .prepare("UPDATE meta SET value = ? WHERE key = 'schemaVersion'")
-      .run(EVENT_STORE_SCHEMA_VERSION);
+    database.prepare("UPDATE meta SET value = ? WHERE key = 'schemaVersion'").run('2');
   });
+}
+
+export function migrateSchemaV2ToV3(database: EventStoreDatabase): void {
+  runTransaction(database, () => {
+    // Re-check under the write lock: another process may have migrated while
+    // this one waited on BEGIN IMMEDIATE.
+    if (readSchemaVersion(database) !== '2') {
+      return;
+    }
+
+    const selectBatch = database.prepare(
+      [
+        'SELECT id, source, session_id, timestamp, model, provider, repo_root,',
+        '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
+        '  cache_write_tokens, total_tokens, cost_usd, cost_mode',
+        'FROM events',
+        'WHERE id > ?',
+        'ORDER BY id ASC',
+        'LIMIT ?',
+      ].join('\n'),
+    );
+    const updateContentHash = database.prepare('UPDATE events SET content_hash = ? WHERE id = ?');
+
+    let lastId = -1;
+    for (;;) {
+      const rows = selectBatch.all(lastId, MIGRATION_BATCH_SIZE);
+
+      if (rows.length === 0) {
+        break;
+      }
+
+      for (const row of rows) {
+        const id = toNonNegativeInteger(row.id);
+
+        if (id === undefined) {
+          throw new Error('Cannot migrate event store row without a valid row id');
+        }
+
+        lastId = id;
+
+        const event = normalizeStoredEvent(row);
+
+        // An un-normalizable row gets a NULL hash instead of aborting the
+        // migration; the history read path never suppresses NULL-hash files.
+        updateContentHash.run(event ? computeEventContentHash(event) : null, id);
+      }
+    }
+
+    database.prepare("UPDATE meta SET value = ? WHERE key = 'schemaVersion'").run('3');
+  });
+}
+
+// Runs before the WAL pragma so an unsupported store is rejected without
+// persisting a journal-mode change; initializeSchema re-checks under lock.
+function assertSupportedSchemaVersion(database: EventStoreDatabase): void {
+  const schemaVersion = readSchemaVersion(database);
+
+  if (
+    schemaVersion !== undefined &&
+    schemaVersion !== EVENT_STORE_SCHEMA_VERSION &&
+    schemaVersion !== '1' &&
+    schemaVersion !== '2'
+  ) {
+    throw new EventStoreSchemaVersionError(schemaVersion);
+  }
 }
 
 function initializeSchema(database: EventStoreDatabase): void {
@@ -606,6 +685,12 @@ function initializeSchema(database: EventStoreDatabase): void {
 
   if (schemaVersion === '1') {
     migrateSchemaV1ToV2(database);
+    migrateSchemaV2ToV3(database);
+    return;
+  }
+
+  if (schemaVersion === '2') {
+    migrateSchemaV2ToV3(database);
     return;
   }
 
@@ -687,6 +772,7 @@ export async function openEventStore(
   });
 
   try {
+    assertSupportedSchemaVersion(database);
     database.exec('PRAGMA journal_mode=WAL');
     initializeSchema(database);
     await restrictEventStoreFiles(filePath);

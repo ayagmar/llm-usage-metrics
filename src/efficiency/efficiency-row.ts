@@ -1,13 +1,6 @@
-export type EfficiencyUsageTotals = {
-  inputTokens: number;
-  outputTokens: number;
-  reasoningTokens: number;
-  cacheReadTokens: number;
-  cacheWriteTokens: number;
-  totalTokens: number;
-  costUsd?: number;
-  costIncomplete?: boolean;
-};
+import type { UsageTotals } from '../domain/usage-report-row.js';
+
+export type EfficiencyUsageTotals = UsageTotals;
 
 export type EfficiencyOutcomeTotals = {
   commitCount: number;

@@ -38,6 +38,63 @@ function createTrendsDataResult(): TrendsDataResult {
 }
 
 describe('renderTrendsReport', () => {
+  it('renders markdown with one row per date and a total row', () => {
+    const output = renderTrendsReport(createTrendsDataResult(), 'markdown');
+
+    expect(output).toContain('| Date');
+    expect(output).toContain('Cost |');
+    expect(output).toContain('| 2026-03-04 |');
+    expect(output).toContain('$1.25');
+    expect(output).toContain('~$2.50');
+    expect(output).toContain('| Total');
+    expect(output).toContain('~$3.75');
+  });
+
+  it('renders markdown token columns per source when sourceSeries is present', () => {
+    const data = createTrendsDataResult();
+    data.metric = 'tokens';
+    data.totalSeries = {
+      source: 'combined',
+      buckets: [
+        { date: '2026-03-04', value: 1_500, observed: true },
+        { date: '2026-03-05', value: 500, observed: true },
+      ],
+      summary: {
+        total: 2_000,
+        average: 1_000,
+        peak: { date: '2026-03-04', value: 1_500 },
+        incomplete: false,
+        observedDayCount: 2,
+      },
+    };
+    data.sourceSeries = [
+      {
+        source: 'pi',
+        buckets: [
+          { date: '2026-03-04', value: 1_000, observed: true },
+          { date: '2026-03-05', value: 0, observed: false },
+        ],
+        summary: {
+          total: 1_000,
+          average: 500,
+          peak: { date: '2026-03-04', value: 1_000 },
+          incomplete: false,
+          observedDayCount: 1,
+        },
+      },
+    ];
+
+    const output = renderTrendsReport(data, 'markdown');
+
+    expect(output).toContain('combined |');
+    expect(output).toContain('pi |');
+    expect(output).toContain('| 2026-03-04 |');
+    expect(output).toContain('1,500');
+    expect(output).toContain('1,000');
+    expect(output).toContain('| Total');
+    expect(output).toContain('2,000');
+  });
+
   it('renders terminal output with title and summary', () => {
     const output = renderTrendsReport(createTrendsDataResult(), 'terminal', {
       useColor: false,
@@ -47,6 +104,63 @@ describe('renderTrendsReport', () => {
     expect(output).toContain('Daily Cost Trend');
     expect(output).toContain('Total: ~$3.75');
     expect(output).toContain('Peak: ~$2.50 (Mar 06)');
+  });
+
+  it('renders active-hours durations with the Active Hours title', () => {
+    const data = createTrendsDataResult();
+    data.metric = 'active-hours';
+    data.totalSeries = {
+      source: 'combined',
+      buckets: [
+        { date: '2026-03-04', value: 8_040_000, observed: true },
+        { date: '2026-03-05', value: 0, observed: false },
+        { date: '2026-03-06', value: 300_000, observed: true },
+      ],
+      summary: {
+        total: 8_340_000,
+        average: 2_780_000,
+        peak: { date: '2026-03-04', value: 8_040_000 },
+        incomplete: false,
+        observedDayCount: 2,
+      },
+    };
+
+    const output = renderTrendsReport(data, 'terminal', {
+      useColor: false,
+      terminalWidth: 80,
+    });
+
+    expect(output).toContain('Daily Active Hours Trend');
+    expect(output).toContain('Total: 2h 19m');
+    expect(output).toContain('Avg: 46m/day');
+    expect(output).toContain('Peak: 2h 14m (Mar 04)');
+  });
+
+  it('renders active-hours markdown with an Active column and durations', () => {
+    const data = createTrendsDataResult();
+    data.metric = 'active-hours';
+    data.totalSeries = {
+      source: 'combined',
+      buckets: [
+        { date: '2026-03-04', value: 8_040_000, observed: true },
+        { date: '2026-03-05', value: 0, observed: false },
+        { date: '2026-03-06', value: 300_000, observed: true },
+      ],
+      summary: {
+        total: 8_340_000,
+        average: 2_780_000,
+        peak: { date: '2026-03-04', value: 8_040_000 },
+        incomplete: false,
+        observedDayCount: 2,
+      },
+    };
+
+    const output = renderTrendsReport(data, 'markdown');
+
+    expect(output).toContain('Active |');
+    expect(output).toContain('2h 14m');
+    expect(output).toContain('| Total');
+    expect(output).toContain('2h 19m');
   });
 
   it('renders by-source rows in terminal mode', () => {
@@ -267,11 +381,16 @@ describe('renderTrendsReport', () => {
 
   it('renders JSON without diagnostics', () => {
     const output = renderTrendsReport(createTrendsDataResult(), 'json');
-    const parsed = JSON.parse(output) as Record<string, unknown>;
+    const parsed = JSON.parse(output) as {
+      schemaVersion: number;
+      report: string;
+      data: Record<string, unknown>;
+    };
 
-    expect(parsed.metric).toBe('cost');
-    expect(parsed.dateRange).toEqual({ from: '2026-03-04', to: '2026-03-06' });
-    expect(parsed).not.toHaveProperty('diagnostics');
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'trends' });
+    expect(parsed.data.metric).toBe('cost');
+    expect(parsed.data.dateRange).toEqual({ from: '2026-03-04', to: '2026-03-06' });
+    expect(parsed.data).not.toHaveProperty('diagnostics');
   });
 
   it('renders a midpoint date label on wider combined charts', () => {

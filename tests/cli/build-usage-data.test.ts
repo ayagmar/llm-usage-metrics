@@ -13,7 +13,7 @@ import {
 import {
   filterParsedAdapterEvents,
   filterUsageEvents,
-} from '../../src/cli/build-usage-data-parsing.js';
+} from '../../src/cli/parse/usage-event-filters.js';
 import { shouldLoadPricingSource } from '../../src/cli/build-usage-data-pricing.js';
 import type { PricingLoadResult } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';

@@ -4,6 +4,12 @@ import { describe, expect, it } from 'vitest';
 
 import { buildCompareReport } from '../../src/cli/run-compare-report.js';
 
+type CompareJsonEnvelope = {
+  schemaVersion: number;
+  report: string;
+  data: CompareJsonReport;
+};
+
 type CompareJsonReport = {
   current: {
     window: {
@@ -67,7 +73,10 @@ function createCompareOptions() {
 describe('compare report e2e', () => {
   it('compares explicit fixture windows', async () => {
     const report = await buildCompareReport(createCompareOptions());
-    const parsedReport = JSON.parse(report) as CompareJsonReport;
+    const parsedEnvelope = JSON.parse(report) as CompareJsonEnvelope;
+
+    expect(parsedEnvelope).toMatchObject({ schemaVersion: 1, report: 'compare' });
+    const parsedReport = parsedEnvelope.data;
 
     expect(parsedReport.current.window).toEqual({
       since: '2026-06-01',

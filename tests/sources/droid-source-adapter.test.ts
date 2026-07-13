@@ -32,7 +32,7 @@ describe('DroidSourceAdapter', () => {
   describe('discoverFiles', () => {
     it('discovers *.settings.json recursively', async () => {
       const sessionsDir = path.join(fixturesDir, 'sessions');
-      const adapter = new DroidSourceAdapter({ sessionsDir });
+      const adapter = new DroidSourceAdapter({ dir: sessionsDir });
 
       await expect(adapter.discoverFiles()).resolves.toEqual([
         path.join(sessionsDir, 'nested', 'root-b.settings.json'),
@@ -42,8 +42,8 @@ describe('DroidSourceAdapter', () => {
 
     it('validates explicit directory overrides', async () => {
       const blankAdapter = new DroidSourceAdapter({
-        sessionsDir: '   ',
-        requireSessionsDir: true,
+        dir: '   ',
+        requireDir: true,
       });
       await expect(blankAdapter.discoverFiles()).rejects.toThrow(
         'Droid sessions directory must be a non-empty path',
@@ -51,8 +51,8 @@ describe('DroidSourceAdapter', () => {
 
       const missingPath = path.join(os.tmpdir(), `missing-droid-${Date.now()}`);
       const missingAdapter = new DroidSourceAdapter({
-        sessionsDir: missingPath,
-        requireSessionsDir: true,
+        dir: missingPath,
+        requireDir: true,
       });
       await expect(missingAdapter.discoverFiles()).rejects.toThrow(
         'Droid sessions directory is missing or unreadable',
@@ -64,8 +64,8 @@ describe('DroidSourceAdapter', () => {
       await writeFile(filePath, '{}', 'utf8');
 
       const fileAdapter = new DroidSourceAdapter({
-        sessionsDir: filePath,
-        requireSessionsDir: true,
+        dir: filePath,
+        requireDir: true,
       });
       await expect(fileAdapter.discoverFiles()).rejects.toThrow(
         `Droid sessions directory is not a directory: ${filePath}`,
@@ -75,7 +75,7 @@ describe('DroidSourceAdapter', () => {
 
   describe('parseFile', () => {
     it('parses settings-only sessions and computes billable totalTokens', async () => {
-      const adapter = new DroidSourceAdapter({ sessionsDir: fixturesDir });
+      const adapter = new DroidSourceAdapter({ dir: fixturesDir });
       const filePath = path.join(fixturesDir, 'parsing', 'settings-only.settings.json');
       const events = await adapter.parseFile(filePath);
 
@@ -97,7 +97,7 @@ describe('DroidSourceAdapter', () => {
     });
 
     it('enriches repoRoot from sibling JSONL session_start', async () => {
-      const adapter = new DroidSourceAdapter({ sessionsDir: fixturesDir });
+      const adapter = new DroidSourceAdapter({ dir: fixturesDir });
       const filePath = path.join(fixturesDir, 'parsing', 'with-jsonl.settings.json');
       const events = await adapter.parseFile(filePath);
 
@@ -106,7 +106,7 @@ describe('DroidSourceAdapter', () => {
     });
 
     it('falls back to first JSONL message timestamp when settings timestamp is missing', async () => {
-      const adapter = new DroidSourceAdapter({ sessionsDir: fixturesDir });
+      const adapter = new DroidSourceAdapter({ dir: fixturesDir });
       const filePath = path.join(fixturesDir, 'parsing', 'fallback-timestamp.settings.json');
       const events = await adapter.parseFile(filePath);
 
@@ -116,7 +116,7 @@ describe('DroidSourceAdapter', () => {
     });
 
     it('accepts numeric-string epoch timestamps from settings metadata', async () => {
-      const adapter = new DroidSourceAdapter({ sessionsDir: fixturesDir });
+      const adapter = new DroidSourceAdapter({ dir: fixturesDir });
       const tempDir = await mkdtemp(path.join(os.tmpdir(), 'droid-epoch-string-'));
       tempDirs.push(tempDir);
       const settingsPath = path.join(tempDir, 'epoch-string.settings.json');
@@ -145,7 +145,7 @@ describe('DroidSourceAdapter', () => {
     });
 
     it('skips invalid fallback message timestamps and keeps scanning for a valid one', async () => {
-      const adapter = new DroidSourceAdapter({ sessionsDir: fixturesDir });
+      const adapter = new DroidSourceAdapter({ dir: fixturesDir });
       const tempDir = await mkdtemp(path.join(os.tmpdir(), 'droid-fallback-scan-'));
       tempDirs.push(tempDir);
       const settingsPath = path.join(tempDir, 'fallback-scan.settings.json');
@@ -183,7 +183,7 @@ describe('DroidSourceAdapter', () => {
     });
 
     it('fails open when sibling JSONL is missing, unreadable, or malformed', async () => {
-      const adapter = new DroidSourceAdapter({ sessionsDir: fixturesDir });
+      const adapter = new DroidSourceAdapter({ dir: fixturesDir });
 
       const missingJsonlEvents = await adapter.parseFile(
         path.join(fixturesDir, 'parsing', 'settings-only.settings.json'),
@@ -224,7 +224,7 @@ describe('DroidSourceAdapter', () => {
     });
 
     it('stops JSONL scan after session_start when primary timestamp is valid', async () => {
-      const adapter = new DroidSourceAdapter({ sessionsDir: fixturesDir });
+      const adapter = new DroidSourceAdapter({ dir: fixturesDir });
       const events = await adapter.parseFile(
         path.join(fixturesDir, 'parsing', 'early-exit.settings.json'),
       );
@@ -234,7 +234,7 @@ describe('DroidSourceAdapter', () => {
     });
 
     it('keeps reasoning-only sessions even when billable totals are zero', async () => {
-      const adapter = new DroidSourceAdapter({ sessionsDir: fixturesDir });
+      const adapter = new DroidSourceAdapter({ dir: fixturesDir });
       const events = await adapter.parseFile(
         path.join(fixturesDir, 'parsing', 'reasoning-only.settings.json'),
       );
@@ -253,7 +253,7 @@ describe('DroidSourceAdapter', () => {
 
   describe('parseFileWithDiagnostics', () => {
     it('reports parse errors and invalid shapes', async () => {
-      const adapter = new DroidSourceAdapter({ sessionsDir: fixturesDir });
+      const adapter = new DroidSourceAdapter({ dir: fixturesDir });
 
       const malformed = await adapter.parseFileWithDiagnostics(
         path.join(fixturesDir, 'parsing', 'invalid-json.txt'),
@@ -271,7 +271,7 @@ describe('DroidSourceAdapter', () => {
     });
 
     it('reports missing/zero usage as no_token_usage', async () => {
-      const adapter = new DroidSourceAdapter({ sessionsDir: fixturesDir });
+      const adapter = new DroidSourceAdapter({ dir: fixturesDir });
 
       const missingUsage = await adapter.parseFileWithDiagnostics(
         path.join(fixturesDir, 'parsing', 'missing-token-usage.settings.json'),
@@ -281,7 +281,7 @@ describe('DroidSourceAdapter', () => {
     });
 
     it('reports explicit zero token usage as no_token_usage', async () => {
-      const adapter = new DroidSourceAdapter({ sessionsDir: fixturesDir });
+      const adapter = new DroidSourceAdapter({ dir: fixturesDir });
       const tempDir = await mkdtemp(path.join(os.tmpdir(), 'droid-zero-usage-'));
       tempDirs.push(tempDir);
       const settingsPath = path.join(tempDir, 'zero-usage.settings.json');
@@ -310,7 +310,7 @@ describe('DroidSourceAdapter', () => {
     });
 
     it('reports invalid timestamp rows when neither primary nor fallback are valid', async () => {
-      const adapter = new DroidSourceAdapter({ sessionsDir: fixturesDir });
+      const adapter = new DroidSourceAdapter({ dir: fixturesDir });
       const result = await adapter.parseFileWithDiagnostics(
         path.join(fixturesDir, 'parsing', 'invalid-timestamp.settings.json'),
       );
@@ -340,7 +340,7 @@ describe('DroidSourceAdapter', () => {
       );
       await writeFile(jsonlPath, '{"type":"message",', 'utf8');
 
-      const adapter = new DroidSourceAdapter({ sessionsDir: tempDir });
+      const adapter = new DroidSourceAdapter({ dir: tempDir });
       const result = await adapter.parseFileWithDiagnostics(settingsPath);
 
       expect(result.events).toHaveLength(1);
@@ -349,7 +349,7 @@ describe('DroidSourceAdapter', () => {
     });
 
     it('reports event creation failures when sessionId is invalid', async () => {
-      const adapter = new DroidSourceAdapter({ sessionsDir: fixturesDir });
+      const adapter = new DroidSourceAdapter({ dir: fixturesDir });
       Object.defineProperty(adapter, 'id', { value: '   ' });
       const result = await adapter.parseFileWithDiagnostics(
         path.join(fixturesDir, 'parsing', 'settings-only.settings.json'),

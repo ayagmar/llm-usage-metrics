@@ -1,22 +1,17 @@
 import { buildUsageData } from './build-usage-data.js';
-import { emitDiagnostics } from './emit-diagnostics.js';
-import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
+import {
+  prepareReport,
+  runStandardPreparedReport,
+  STANDARD_REPORT_FORMATS,
+} from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
-import type {
-  BuildUsageDataDeps,
-  ReportCommandOptions,
-  UsageDiagnostics,
-} from './usage-data-contracts.js';
+import type { BuildUsageDataDeps, ReportCommandOptions } from './usage-data-contracts.js';
 import { renderUsageReport, type UsageReportFormat } from '../render/render-usage-report.js';
 import { renderUsageShareSvg } from '../render/render-usage-share-svg.js';
 import type { UsageTableLayout } from '../render/row-cells.js';
 import type { ReportGranularity } from '../utils/time-buckets.js';
 
-const usageReportFormats = [
-  'terminal',
-  'markdown',
-  'json',
-] as const satisfies readonly UsageReportFormat[];
+const usageReportFormats = STANDARD_REPORT_FORMATS satisfies readonly UsageReportFormat[];
 
 function resolveTableLayout(options: ReportCommandOptions): UsageTableLayout {
   return options.perModelColumns ? 'per_model_columns' : 'compact';
@@ -69,12 +64,5 @@ export async function runUsageReport(
   const runtimeProfile = createRuntimeProfileCollector();
   const preparedReport = await prepareUsageReport(granularity, options, { runtimeProfile });
 
-  await runPreparedReport<UsageDiagnostics, UsageReportFormat>({
-    preparedReport,
-    emitCommonDiagnostics: emitDiagnostics,
-    getEnvVarOverrides: (diagnostics) => diagnostics.activeEnvOverrides,
-    getActiveConfig: (diagnostics) => diagnostics.activeConfig,
-    getRuntimeProfile: (diagnostics) => diagnostics.runtimeProfile,
-    warnOnTerminalOverflow: true,
-  });
+  await runStandardPreparedReport({ preparedReport });
 }

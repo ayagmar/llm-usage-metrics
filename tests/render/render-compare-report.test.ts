@@ -42,7 +42,7 @@ function createCompareData(): CompareDataResult {
         current: 100,
         baseline: 80,
         delta: 20,
-        deltaPercent: 0.25,
+        deltaRatio: 0.25,
       },
       {
         key: 'costUsd',
@@ -51,7 +51,7 @@ function createCompareData(): CompareDataResult {
         current: 3,
         baseline: 2,
         delta: 1,
-        deltaPercent: 0.5,
+        deltaRatio: 0.5,
         currentCostIncomplete: true,
         deltaCostIncomplete: true,
       },
@@ -62,7 +62,7 @@ function createCompareData(): CompareDataResult {
         current: 0,
         baseline: 0,
         delta: 0,
-        deltaPercent: 0,
+        deltaRatio: 0,
       },
     ],
     sources: [
@@ -103,7 +103,7 @@ function createCompareData(): CompareDataResult {
           events: 1,
           activeDays: 1,
         },
-        deltaPercent: {
+        deltaRatio: {
           costUsd: 0.5,
         },
       },
@@ -133,6 +133,29 @@ describe('renderCompareReport', () => {
     expect(output).toContain('co|dex');
   });
 
+  it('renders an empty-state message above the zeroed table when both windows are empty', () => {
+    const data = createCompareData();
+    const zeroedData: CompareDataResult = {
+      ...data,
+      current: {
+        ...data.current,
+        totals: { ...data.current.totals, events: 0 },
+      },
+      baseline: {
+        ...data.baseline,
+        totals: { ...data.baseline.totals, events: 0 },
+      },
+    };
+
+    const output = renderCompareReport(zeroedData, 'terminal', { useColor: false });
+
+    expect(output).toContain('No usage data found for the selected filters.');
+    expect(output.indexOf('No usage data found for the selected filters.')).toBeLessThan(
+      output.indexOf('Metric'),
+    );
+    expect(output).toContain('Metric');
+  });
+
   it('renders markdown output with escaped table cells', () => {
     const output = renderCompareReport(createCompareData(), 'markdown');
 
@@ -144,14 +167,28 @@ describe('renderCompareReport', () => {
 
   it('renders structured JSON output', () => {
     const output = renderCompareReport(createCompareData(), 'json');
-    const parsed = JSON.parse(output) as CompareDataResult;
+    const parsed = JSON.parse(output) as {
+      schemaVersion: number;
+      report: string;
+      data: CompareDataResult;
+    };
 
-    expect(parsed.current.window).toEqual({
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'compare' });
+    expect(parsed.data.current.window).toEqual({
       since: '2026-06-01',
       until: '2026-06-30',
       label: '2026-06',
     });
-    expect(parsed.totals[0]).toMatchObject({ key: 'inputTokens', delta: 20 });
-    expect(parsed.sources[0]).toMatchObject({ source: 'co|dex' });
+    expect(parsed.data.totals[0]).toMatchObject({ key: 'inputTokens', delta: 20 });
+    expect(parsed.data.sources[0]).toMatchObject({ source: 'co|dex' });
+  });
+
+  it('excludes diagnostics from JSON output', () => {
+    const output = renderCompareReport(createCompareData(), 'json');
+
+    expect(output).not.toContain('"diagnostics"');
+    expect(output).not.toContain('"runtimeProfile"');
+    expect(output).not.toContain('"activeConfig"');
+    expect(output).not.toContain('"activeEnvOverrides"');
   });
 });

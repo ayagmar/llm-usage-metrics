@@ -69,7 +69,9 @@ export default defineConfig({
             { label: 'Efficiency', link: '/efficiency/' },
             { label: 'Optimize', link: '/optimize/' },
             { label: 'Wrapped recap', link: '/wrapped/' },
+            { label: 'Events export', link: '/events/' },
             { label: 'Output formats', link: '/output-formats/' },
+            { label: 'Migrating to 0.8', link: '/migrating-to-0-8/' },
           ],
         },
         {

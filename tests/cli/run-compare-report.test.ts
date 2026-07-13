@@ -38,7 +38,7 @@ vi.mock('../../src/cli/build-compare-data.js', () => ({
         current: 15,
         baseline: 10,
         delta: 5,
-        deltaPercent: 0.5,
+        deltaRatio: 0.5,
       },
     ],
     sources: [],
@@ -53,8 +53,17 @@ vi.mock('../../src/cli/build-compare-data.js', () => ({
   })),
 }));
 
+vi.mock('../../src/cli/share-artifact.js', () => ({
+  writeAndOpenShareSvgFile: vi.fn(async (fileName: string) => ({
+    outputPath: `/tmp/${fileName}`,
+    opened: false,
+    openErrorMessage: 'open disabled in tests',
+  })),
+}));
+
 import { buildCompareData } from '../../src/cli/build-compare-data.js';
 import { buildCompareReport, runCompareReport } from '../../src/cli/run-compare-report.js';
+import { writeAndOpenShareSvgFile } from '../../src/cli/share-artifact.js';
 
 describe('run-compare-report', () => {
   afterEach(() => {
@@ -65,9 +74,14 @@ describe('run-compare-report', () => {
     const report = await buildCompareReport({
       json: true,
     });
-    const parsed = JSON.parse(report) as { current: { window: { label: string } } };
+    const parsed = JSON.parse(report) as {
+      schemaVersion: number;
+      report: string;
+      data: { current: { window: { label: string } } };
+    };
 
-    expect(parsed.current.window.label).toBe('2026-06');
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'compare' });
+    expect(parsed.data.current.window.label).toBe('2026-06');
   });
 
   it('renders markdown output when requested', async () => {
@@ -103,9 +117,31 @@ describe('run-compare-report', () => {
 
       expect(consoleLogSpy).toHaveBeenCalledTimes(1);
       const stdoutBody = String(consoleLogSpy.mock.calls[0]?.[0]);
-      const parsed = JSON.parse(stdoutBody) as { current: { window: { label: string } } };
-      expect(parsed.current.window.label).toBe('2026-06');
+      const parsed = JSON.parse(stdoutBody) as {
+        data: { current: { window: { label: string } } };
+      };
+      expect(parsed.data.current.window.label).toBe('2026-06');
       expect(consoleErrorSpy.mock.calls.length).toBeGreaterThan(0);
+    } finally {
+      consoleLogSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it('writes a compare share SVG while keeping the report body on stdout', async () => {
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    try {
+      await runCompareReport({ share: true });
+
+      expect(writeAndOpenShareSvgFile).toHaveBeenCalledTimes(1);
+      const [fileName, svg] = vi.mocked(writeAndOpenShareSvgFile).mock.calls[0] ?? [];
+      expect(fileName).toBe('compare-share.svg');
+      expect(svg).toContain('2026-06 vs 2026-05');
+
+      expect(consoleLogSpy).toHaveBeenCalledTimes(1);
+      expect(String(consoleLogSpy.mock.calls[0]?.[0])).toContain('Compare: 2026-06 vs 2026-05');
     } finally {
       consoleLogSpy.mockRestore();
       consoleErrorSpy.mockRestore();

@@ -1,18 +1,12 @@
-import type {
-  PeriodCombinedRow,
-  PeriodSourceRow,
-  UsageReportRow,
-} from '../domain/usage-report-row.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { getLocalDateKeyRange } from '../utils/time-buckets.js';
-import type { TrendBucket, TrendSeries, TrendsMetric } from './trends-series.js';
+import type { TrendBucket, TrendSeries, TrendValueRow } from './trends-series.js';
 
 type AggregateTrendsOptions = {
   dateRange: {
     from: string;
     to: string;
   };
-  metric: TrendsMetric;
   bySource: boolean;
   sourceOrder: readonly string[];
 };
@@ -32,12 +26,12 @@ function divideValue(value: number, divisor: number): number {
   return Math.round((value / divisor) * VALUE_PRECISION_SCALE) / VALUE_PRECISION_SCALE;
 }
 
-function toTrendBucket(row: UsageReportRow, metric: TrendsMetric): TrendBucket {
+function toTrendBucket(row: TrendValueRow): TrendBucket {
   return {
     date: row.periodKey,
-    value: metric === 'tokens' ? row.totalTokens : (row.costUsd ?? 0),
+    value: row.value,
     observed: true,
-    incomplete: metric === 'cost' ? row.costIncomplete : undefined,
+    incomplete: row.incomplete,
   };
 }
 
@@ -99,13 +93,12 @@ function buildTrendSummary(buckets: TrendBucket[]) {
 
 function buildSeries(
   source: TrendSeries['source'],
-  rowsByDate: ReadonlyMap<string, UsageReportRow>,
+  rowsByDate: ReadonlyMap<string, TrendValueRow>,
   dateKeys: readonly string[],
-  metric: TrendsMetric,
 ): TrendSeries {
   const buckets = dateKeys.map((date) => {
     const row = rowsByDate.get(date);
-    return row ? toTrendBucket(row, metric) : createGapBucket(date);
+    return row ? toTrendBucket(row) : createGapBucket(date);
   });
 
   return {
@@ -115,87 +108,38 @@ function buildSeries(
   };
 }
 
-function createEmptyUsageRow(
-  periodKey: string,
-  rowType: 'period_source',
-  source: string,
-): PeriodSourceRow;
-function createEmptyUsageRow(
-  periodKey: string,
-  rowType: 'period_combined',
-  source: 'combined',
-): PeriodCombinedRow;
-function createEmptyUsageRow(
-  periodKey: string,
-  rowType: 'period_source' | 'period_combined',
-  source: string,
-): PeriodSourceRow | PeriodCombinedRow {
-  return rowType === 'period_combined'
-    ? {
-        rowType,
-        periodKey,
-        source: 'combined',
-        models: [],
-        modelBreakdown: [],
-        inputTokens: 0,
-        outputTokens: 0,
-        reasoningTokens: 0,
-        cacheReadTokens: 0,
-        cacheWriteTokens: 0,
-        totalTokens: 0,
-      }
-    : {
-        rowType,
-        periodKey,
-        source,
-        models: [],
-        modelBreakdown: [],
-        inputTokens: 0,
-        outputTokens: 0,
-        reasoningTokens: 0,
-        cacheReadTokens: 0,
-        cacheWriteTokens: 0,
-        totalTokens: 0,
-      };
-}
-
-function addRowTotals(target: UsageReportRow, row: UsageReportRow): UsageReportRow {
+function createEmptyValueRow(periodKey: string, source: TrendValueRow['source']): TrendValueRow {
   return {
-    ...target,
-    inputTokens: target.inputTokens + row.inputTokens,
-    outputTokens: target.outputTokens + row.outputTokens,
-    reasoningTokens: target.reasoningTokens + row.reasoningTokens,
-    cacheReadTokens: target.cacheReadTokens + row.cacheReadTokens,
-    cacheWriteTokens: target.cacheWriteTokens + row.cacheWriteTokens,
-    totalTokens: target.totalTokens + row.totalTokens,
-    costUsd:
-      row.costUsd !== undefined ? addValue(target.costUsd ?? 0, row.costUsd) : target.costUsd,
-    costIncomplete:
-      target.costIncomplete === true || row.costIncomplete === true ? true : undefined,
+    periodKey,
+    source,
+    value: 0,
   };
 }
 
-function toCombinedRowsByDate(rows: UsageReportRow[]): Map<string, UsageReportRow> {
-  const combinedByDate = new Map<string, UsageReportRow>();
-  const sourceOnlyByDate = new Map<string, UsageReportRow>();
+function addValueRows(target: TrendValueRow, row: TrendValueRow): TrendValueRow {
+  return {
+    ...target,
+    value: addValue(target.value, row.value),
+    incomplete: target.incomplete === true || row.incomplete === true ? true : undefined,
+  };
+}
+
+function toCombinedRowsByDate(rows: TrendValueRow[]): Map<string, TrendValueRow> {
+  const combinedByDate = new Map<string, TrendValueRow>();
+  const sourceOnlyByDate = new Map<string, TrendValueRow>();
 
   for (const row of rows) {
-    if (row.rowType === 'grand_total') {
-      continue;
-    }
-
-    if (row.rowType === 'period_combined') {
+    if (row.source === 'combined') {
       combinedByDate.set(row.periodKey, row);
       continue;
     }
 
     const existingSourceOnlyRow =
-      sourceOnlyByDate.get(row.periodKey) ??
-      createEmptyUsageRow(row.periodKey, 'period_combined', 'combined');
-    sourceOnlyByDate.set(row.periodKey, addRowTotals(existingSourceOnlyRow, row));
+      sourceOnlyByDate.get(row.periodKey) ?? createEmptyValueRow(row.periodKey, 'combined');
+    sourceOnlyByDate.set(row.periodKey, addValueRows(existingSourceOnlyRow, row));
   }
 
-  const resolved = new Map<string, UsageReportRow>();
+  const resolved = new Map<string, TrendValueRow>();
 
   for (const [date, row] of sourceOnlyByDate) {
     resolved.set(date, row);
@@ -209,7 +153,7 @@ function toCombinedRowsByDate(rows: UsageReportRow[]): Map<string, UsageReportRo
 }
 
 function toSourceSeries(
-  rows: UsageReportRow[],
+  rows: TrendValueRow[],
   dateKeys: readonly string[],
   options: AggregateTrendsOptions,
 ): TrendSeries[] | undefined {
@@ -217,18 +161,17 @@ function toSourceSeries(
     return undefined;
   }
 
-  const rowsBySource = new Map<string, Map<string, UsageReportRow>>();
+  const rowsBySource = new Map<string, Map<string, TrendValueRow>>();
 
   for (const row of rows) {
-    if (row.rowType !== 'period_source') {
+    if (row.source === 'combined') {
       continue;
     }
 
-    const sourceRows = rowsBySource.get(row.source) ?? new Map<string, UsageReportRow>();
+    const sourceRows = rowsBySource.get(row.source) ?? new Map<string, TrendValueRow>();
     const existingSourceRow =
-      sourceRows.get(row.periodKey) ??
-      createEmptyUsageRow(row.periodKey, 'period_source', row.source);
-    sourceRows.set(row.periodKey, addRowTotals(existingSourceRow, row));
+      sourceRows.get(row.periodKey) ?? createEmptyValueRow(row.periodKey, row.source);
+    sourceRows.set(row.periodKey, addValueRows(existingSourceRow, row));
     rowsBySource.set(row.source, sourceRows);
   }
 
@@ -252,23 +195,18 @@ function toSourceSeries(
   });
 
   return observedSources.map((source) =>
-    buildSeries(
-      source,
-      rowsBySource.get(source) ?? new Map<string, UsageReportRow>(),
-      dateKeys,
-      options.metric,
-    ),
+    buildSeries(source, rowsBySource.get(source) ?? new Map<string, TrendValueRow>(), dateKeys),
   );
 }
 
 export function aggregateTrends(
-  rows: UsageReportRow[],
+  rows: TrendValueRow[],
   options: AggregateTrendsOptions,
 ): AggregateTrendsResult {
   const dateKeys = getLocalDateKeyRange(options.dateRange.from, options.dateRange.to);
 
   return {
-    totalSeries: buildSeries('combined', toCombinedRowsByDate(rows), dateKeys, options.metric),
+    totalSeries: buildSeries('combined', toCombinedRowsByDate(rows), dateKeys),
     sourceSeries: toSourceSeries(rows, dateKeys, options),
   };
 }

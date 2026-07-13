@@ -148,6 +148,7 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
     <script is:inline>
       const storedTheme = localStorage.getItem('landing-theme');
       document.documentElement.dataset.theme = storedTheme === 'light' ? 'light' : 'dark';
+      document.documentElement.classList.add('js');
     </script>
   </head>
   <body>
@@ -223,17 +224,18 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
       </div>
 
       <div class="terminal-stage">
-        <div class="terminal" aria-label="Recording of a monthly usage report in a terminal">
+        <div class="terminal" aria-label="Recording of a compare report in a terminal">
           <div class="terminal-bar">
             <span class="terminal-dots" aria-hidden="true"><i></i><i></i><i></i></span>
             <span class="terminal-title">~ llm-usage</span>
             <span class="terminal-badge">local</span>
           </div>
-          <pre class="terminal-body" aria-hidden="true"><span class="t-line t-cmd"><span class="t-prompt">❯ </span><span class="t-typed">llm-usage monthly --source codex,claude</span></span><span class="t-line t-dim" style="--d: 1.9s"><span class="t-cyan">ℹ</span> 1,354 session files · 105,232 events</span><span class="t-line t-dim" style="--d: 2.05s"><span class="t-cyan">ℹ</span> pricing loaded from cache</span><span class="t-line t-gap" style="--d: 2.15s"> </span><span class="t-line t-frame" style="--d: 2.25s">╭─────────┬────────┬────────┬─────────┬──────────╮</span><span class="t-line t-head" style="--d: 2.32s"><span class="t-frame">│</span> Period  <span class="t-frame">│</span> Source <span class="t-frame">│</span> Models <span class="t-frame">│</span>  Tokens <span class="t-frame">│</span>     Cost <span class="t-frame">│</span></span><span class="t-line t-frame" style="--d: 2.39s">├─────────┼────────┼────────┼─────────┼──────────┤</span><span class="t-line" style="--d: 2.46s"><span class="t-frame">│</span> 2026-01 <span class="t-frame">│</span> <span class="t-accent">codex</span>  <span class="t-frame">│</span> 2      <span class="t-frame">│</span>   91.4M <span class="t-frame">│</span>   $54.12 <span class="t-frame">│</span></span><span class="t-line" style="--d: 2.53s"><span class="t-frame">│</span> 2026-01 <span class="t-frame">│</span> <span class="t-accent">claude</span> <span class="t-frame">│</span> 2      <span class="t-frame">│</span>   51.4M <span class="t-frame">│</span>  <span class="t-yellow">~</span>$32.28 <span class="t-frame">│</span></span><span class="t-line t-frame" style="--d: 2.6s">├─────────┼────────┼────────┼─────────┼──────────┤</span><span class="t-line t-total" style="--d: 2.67s"><span class="t-frame">│</span> total   <span class="t-frame">│</span>        <span class="t-frame">│</span> 4      <span class="t-frame">│</span>  142.8M <span class="t-frame">│</span>  <span class="t-yellow">~</span>$86.40 <span class="t-frame">│</span></span><span class="t-line t-frame" style="--d: 2.74s">╰─────────┴────────┴────────┴─────────┴──────────╯</span><span class="t-line t-gap" style="--d: 2.8s"> </span><span class="t-line t-dim" style="--d: 2.9s"><span class="t-cyan">✔</span> 2 sources parsed · <span class="t-yellow">~</span> marks estimated pricing</span><span class="t-line" style="--d: 3.4s"><span class="t-prompt">❯ </span><span class="t-cursor"></span></span></pre>
+          <pre class="terminal-body" aria-hidden="true"><span class="t-line t-cmd"><span class="t-prompt">&#10095; </span><span class="t-typed">llm-usage compare --source codex,claude</span></span><span class="t-line t-dim" style="--d: 1.9s"><span class="t-cyan">ℹ</span> Found 49 session file(s) with 2080 event(s)</span><span class="t-line t-dim" style="--d: 2.02s"><span class="t-dim">•</span>   codex: 42 file(s), 1330 events</span><span class="t-line t-dim" style="--d: 2.14s"><span class="t-dim">•</span>   claude: 7 file(s), 750 events</span><span class="t-line t-dim" style="--d: 2.26s"><span class="t-cyan">ℹ</span> Loaded pricing from cache</span><span class="t-line" style="--d: 2.48s"><span class="t-dim">┌─────────────────────────────┐</span></span><span class="t-line" style="--d: 2.58s"><span class="t-frame">│</span> Compare: 2026-01 vs 2025-12 <span class="t-frame">│</span></span><span class="t-line" style="--d: 2.64s"><span class="t-dim">└─────────────────────────────┘</span></span><span class="t-line t-gap" style="--d: 2.69s"> </span><span class="t-line" style="--d: 2.75s"><span class="t-frame">╭────────────────┬─────────────┬────────────┬─────────────┬────────╮</span></span><span class="t-line" style="--d: 2.85s"><span class="t-frame">│</span> Metric         <span class="t-frame">│</span>     Current <span class="t-frame">│</span>   Baseline <span class="t-frame">│</span>           Δ <span class="t-frame">│</span>     Δ% <span class="t-frame">│</span></span><span class="t-line" style="--d: 2.9s"><span class="t-frame">├────────────────┼─────────────┼────────────┼─────────────┼────────┤</span></span><span class="t-line" style="--d: 2.96s"><span class="t-frame">│</span> Input          <span class="t-frame">│</span>  35,658,301 <span class="t-frame">│</span> 26,057,998 <span class="t-frame">│</span>  <span class="t-green">+9,600,303</span> <span class="t-frame">│</span> <span class="t-green">+36.8%</span> <span class="t-frame">│</span></span><span class="t-line" style="--d: 3.01s"><span class="t-frame">├────────────────┼─────────────┼────────────┼─────────────┼────────┤</span></span><span class="t-line" style="--d: 3.07s"><span class="t-frame">│</span> Output         <span class="t-frame">│</span>  38,451,301 <span class="t-frame">│</span> 27,139,012 <span class="t-frame">│</span> <span class="t-green">+11,312,289</span> <span class="t-frame">│</span> <span class="t-green">+41.7%</span> <span class="t-frame">│</span></span><span class="t-line" style="--d: 3.12s"><span class="t-frame">├────────────────┼─────────────┼────────────┼─────────────┼────────┤</span></span><span class="t-line" style="--d: 3.18s"><span class="t-frame">│</span> Reasoning      <span class="t-frame">│</span>   3,063,593 <span class="t-frame">│</span>  2,109,213 <span class="t-frame">│</span>    <span class="t-green">+954,380</span> <span class="t-frame">│</span> <span class="t-green">+45.2%</span> <span class="t-frame">│</span></span><span class="t-line" style="--d: 3.23s"><span class="t-frame">├────────────────┼─────────────┼────────────┼─────────────┼────────┤</span></span><span class="t-line" style="--d: 3.29s"><span class="t-frame">│</span> Cache read     <span class="t-frame">│</span>  36,843,384 <span class="t-frame">│</span> 25,976,061 <span class="t-frame">│</span> <span class="t-green">+10,867,323</span> <span class="t-frame">│</span> <span class="t-green">+41.8%</span> <span class="t-frame">│</span></span><span class="t-line" style="--d: 3.34s"><span class="t-frame">├────────────────┼─────────────┼────────────┼─────────────┼────────┤</span></span><span class="t-line" style="--d: 3.4s"><span class="t-frame">│</span> Cache write    <span class="t-frame">│</span>   6,864,968 <span class="t-frame">│</span>  4,901,036 <span class="t-frame">│</span>  <span class="t-green">+1,963,932</span> <span class="t-frame">│</span> <span class="t-green">+40.1%</span> <span class="t-frame">│</span></span><span class="t-line" style="--d: 3.45s"><span class="t-frame">├────────────────┼─────────────┼────────────┼─────────────┼────────┤</span></span><span class="t-line" style="--d: 3.51s"><span class="t-frame">│</span> Total tokens   <span class="t-frame">│</span> 117,817,954 <span class="t-frame">│</span> 84,074,107 <span class="t-frame">│</span> <span class="t-green">+33,743,847</span> <span class="t-frame">│</span> <span class="t-green">+40.1%</span> <span class="t-frame">│</span></span><span class="t-line" style="--d: 3.56s"><span class="t-frame">├────────────────┼─────────────┼────────────┼─────────────┼────────┤</span></span><span class="t-line" style="--d: 3.62s"><span class="t-frame">│</span> Cost           <span class="t-frame">│</span>     $663.38 <span class="t-frame">│</span>    $470.40 <span class="t-frame">│</span>    <span class="t-green">+$192.98</span> <span class="t-frame">│</span> <span class="t-green">+41.0%</span> <span class="t-frame">│</span></span><span class="t-line" style="--d: 3.67s"><span class="t-frame">├────────────────┼─────────────┼────────────┼─────────────┼────────┤</span></span><span class="t-line" style="--d: 3.73s"><span class="t-frame">│</span> Events         <span class="t-frame">│</span>       1,130 <span class="t-frame">│</span>        950 <span class="t-frame">│</span>        <span class="t-green">+180</span> <span class="t-frame">│</span> <span class="t-green">+18.9%</span> <span class="t-frame">│</span></span><span class="t-line" style="--d: 3.78s"><span class="t-frame">├────────────────┼─────────────┼────────────┼─────────────┼────────┤</span></span><span class="t-line" style="--d: 3.84s"><span class="t-frame">│</span> Active days    <span class="t-frame">│</span>          22 <span class="t-frame">│</span>         20 <span class="t-frame">│</span>          <span class="t-green">+2</span> <span class="t-frame">│</span> <span class="t-green">+10.0%</span> <span class="t-frame">│</span></span><span class="t-line" style="--d: 3.89s"><span class="t-frame">╰────────────────┴─────────────┴────────────┴─────────────┴────────╯</span></span><span class="t-line t-gap" style="--d: 3.95s"> </span><span class="t-line" style="--d: 4s">By source (cost)</span><span class="t-line" style="--d: 4.06s"><span class="t-frame">╭────────────────┬─────────┬──────────┬──────────┬────────╮</span></span><span class="t-line" style="--d: 4.16s"><span class="t-frame">│</span> Source         <span class="t-frame">│</span> Current <span class="t-frame">│</span> Baseline <span class="t-frame">│</span>        Δ <span class="t-frame">│</span>     Δ% <span class="t-frame">│</span></span><span class="t-line" style="--d: 4.21s"><span class="t-frame">├────────────────┼─────────┼──────────┼──────────┼────────┤</span></span><span class="t-line" style="--d: 4.27s"><span class="t-frame">│</span> codex          <span class="t-frame">│</span> $396.84 <span class="t-frame">│</span>  $279.36 <span class="t-frame">│</span> <span class="t-green">+$117.48</span> <span class="t-frame">│</span> <span class="t-green">+42.1%</span> <span class="t-frame">│</span></span><span class="t-line" style="--d: 4.32s"><span class="t-frame">├────────────────┼─────────┼──────────┼──────────┼────────┤</span></span><span class="t-line" style="--d: 4.38s"><span class="t-frame">│</span> claude         <span class="t-frame">│</span> $266.53 <span class="t-frame">│</span>  $191.03 <span class="t-frame">│</span>  <span class="t-green">+$75.50</span> <span class="t-frame">│</span> <span class="t-green">+39.5%</span> <span class="t-frame">│</span></span><span class="t-line" style="--d: 4.43s"><span class="t-frame">╰────────────────┴─────────┴──────────┴──────────┴────────╯</span></span><span class="t-line" style="--d: 4.89s"><span class="t-prompt">&#10095; </span><span class="t-cursor"></span></span></pre>
           <p class="sr-only">
-            Example: llm-usage monthly --source codex,claude reports 91.4M codex tokens for
-            $54.12 and 51.4M claude tokens for an estimated $32.28 — 142.8M tokens and an
-            estimated $86.40 combined. Estimates are marked with a tilde.
+            Example: llm-usage compare --source codex,claude reads 49 session files with 2,080
+            events and compares 2026-01 against 2025-12 — 117.8 million total tokens versus
+            84.9 million (up 38.7%), $662.35 versus $476.41 (up 39.0%), with per-source cost
+            deltas for codex and claude.
           </p>
         </div>
       </div>
@@ -249,13 +251,22 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
 
     <div class="source-roster" aria-label="Supported tools">
       <span class="source-roster-label">Reads local history from</span>
-      <div class="source-roster-list">
-        {doctorSources.map((source) => <span>{source.name}</span>)}
+      <div class="source-marquee">
+        <ul class="source-marquee-track">
+          {doctorSources.map((source) => (
+            <li><span class="marquee-dot" aria-hidden="true"></span>{source.name}</li>
+          ))}
+        </ul>
+        <ul class="source-marquee-track" aria-hidden="true">
+          {doctorSources.map((source) => (
+            <li><span class="marquee-dot" aria-hidden="true"></span>{source.name}</li>
+          ))}
+        </ul>
       </div>
     </div>
 
     <section id="reports" class="reports section" aria-labelledby="reports-title">
-      <div class="section-heading">
+      <div class="section-heading" data-reveal>
         <p class="eyebrow"># 01 · reports</p>
         <h2 id="reports-title">Ask the question first. There’s a table for it.</h2>
         <p>
@@ -265,8 +276,8 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
       </div>
 
       <div class="report-list">
-        {reportGroups.map((report) => (
-          <a class="report-row" href={link(report.doc)} aria-label={`${report.question} Read the ${report.label} documentation`}>
+        {reportGroups.map((report, index) => (
+          <a class="report-row" href={link(report.doc)} data-reveal style={`--reveal-delay: ${index * 70}ms`} aria-label={`${report.question} Read the ${report.label} documentation`}>
             <div class="report-identity">
               <span class="report-number font-mono">{report.number}</span>
               <span class="report-label">{report.label}</span>
@@ -290,7 +301,7 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
     </section>
 
     <section class="pipeline section" aria-labelledby="pipeline-title">
-      <div class="section-heading">
+      <div class="section-heading" data-reveal>
         <p class="eyebrow"># 02 · pipeline</p>
         <h2 id="pipeline-title">Four stages. One pipe.</h2>
         <p>
@@ -299,7 +310,7 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
         </p>
       </div>
 
-      <div class="pipe-line font-mono" aria-hidden="true">
+      <div class="pipe-line font-mono" aria-hidden="true" data-reveal>
         {pipelineStages.map((stage, index) => (
           <>
             {index > 0 && <span class="pipe-char">|</span>}
@@ -310,7 +321,7 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
 
       <ol class="pipe-stages">
         {pipelineStages.map((stage, index) => (
-          <li>
+          <li data-reveal style={`--reveal-delay: ${index * 90}ms`}>
             <span class="flow-index font-mono">0{index + 1}</span>
             <strong>{stage.name}</strong>
             <p>{stage.detail}</p>
@@ -319,7 +330,7 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
       </ol>
 
       <div class="pipeline-notes">
-        <article>
+        <article data-reveal>
           <span class="note-label label">Persistent ledger</span>
           <h3>Unchanged files do not need another parse.</h3>
           <p>
@@ -328,7 +339,7 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
           </p>
           <a href={link('architecture/event-store/')}>How the event store works</a>
         </article>
-        <article>
+        <article data-reveal style="--reveal-delay: 90ms">
           <span class="note-label label">Honest pricing</span>
           <h3>Unknown cost stays unknown.</h3>
           <p>
@@ -342,7 +353,7 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
     </section>
 
     <section id="sources" class="sources section" aria-labelledby="sources-title">
-      <div class="sources-copy">
+      <div class="sources-copy" data-reveal>
         <p class="eyebrow"># 03 · sources</p>
         <h2 id="sources-title">Sixteen adapters. One event shape.</h2>
         <p>
@@ -353,13 +364,13 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
         <a class="text-link" href={link('sources/')}>See discovery paths and overrides</a>
       </div>
 
-      <div class="doctor-panel" role="list" aria-label="Supported sources">
+      <div class="doctor-panel" role="list" aria-label="Supported sources" data-reveal>
         <div class="doctor-command font-mono" aria-hidden="true">
           <span class="t-prompt">❯ </span>llm-usage doctor
         </div>
         <ul class="doctor-grid">
-          {doctorSources.map((source) => (
-            <li role="listitem">
+          {doctorSources.map((source, index) => (
+            <li role="listitem" data-reveal style={`--reveal-delay: ${120 + index * 45}ms`}>
               <span class="doctor-check" aria-hidden="true">✔</span>
               <span class="doctor-name">{source.name}</span>
               <span class={`doctor-format doctor-format-${source.format}`}>{source.format}</span>
@@ -370,7 +381,7 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
     </section>
 
     <section class="wrapped section" aria-labelledby="wrapped-title">
-      <div class="section-heading">
+      <div class="section-heading" data-reveal>
         <p class="eyebrow"># 04 · wrapped</p>
         <h2 id="wrapped-title">A year of sessions fits in one artifact.</h2>
         <p>
@@ -379,7 +390,7 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
         </p>
       </div>
 
-      <figure class="heatmap-figure">
+      <figure class="heatmap-figure" data-reveal>
         <div class="heatmap" aria-hidden="true">
           {heatCells.map((level) => <i class={`heat-${level}`}></i>)}
         </div>
@@ -391,7 +402,7 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
     </section>
 
     <section class="benchmark section" aria-labelledby="benchmark-title">
-      <div class="benchmark-copy">
+      <div class="benchmark-copy" data-reveal>
         <p class="eyebrow"># 05 · benchmarks</p>
         <h2 id="benchmark-title">Performance numbers you can audit.</h2>
         <p>
@@ -402,7 +413,7 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
         <a class="text-link" href={link('benchmarks/')}>Read the benchmark and reproduce it</a>
       </div>
 
-      <dl class="benchmark-data">
+      <dl class="benchmark-data" data-reveal style="--reveal-delay: 90ms">
         <div>
           <dt>Largest measured corpus</dt>
           <dd>1.8 GiB</dd>
@@ -421,7 +432,7 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
       </dl>
     </section>
 
-    <section class="final-cta section" aria-labelledby="cta-title">
+    <section class="final-cta section" aria-labelledby="cta-title" data-reveal>
       <p class="eyebrow"># 06 · start</p>
       <h2 id="cta-title">The sessions are already on your disk. Ask them something.</h2>
       <button
@@ -501,6 +512,48 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
           if (copyLabel) copyLabel.textContent = 'Copy';
         }, 2000);
       });
+    }
+
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const revealTargets = document.querySelectorAll('[data-reveal]');
+    if (prefersReducedMotion || !('IntersectionObserver' in window)) {
+      for (const target of revealTargets) target.classList.add('is-visible');
+    } else {
+      const revealObserver = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('is-visible');
+              revealObserver.unobserve(entry.target);
+            }
+          }
+        },
+        { threshold: 0.15, rootMargin: '0px 0px -6% 0px' },
+      );
+      for (const target of revealTargets) revealObserver.observe(target);
+    }
+
+    // Follow the report output like a real terminal while lines appear.
+    const terminalBody = document.querySelector('.terminal-body');
+    if (terminalBody) {
+      if (prefersReducedMotion) {
+        terminalBody.scrollTop = terminalBody.scrollHeight;
+      } else {
+        const scrollStart = 2600;
+        const scrollEnd = 5600;
+        const startedAt = performance.now();
+        const followOutput = (now) => {
+          const elapsed = now - startedAt;
+          if (elapsed > scrollStart) {
+            const progress = Math.min(1, (elapsed - scrollStart) / (scrollEnd - scrollStart));
+            terminalBody.scrollTop =
+              progress * (terminalBody.scrollHeight - terminalBody.clientHeight);
+          }
+          if (elapsed < scrollEnd) window.requestAnimationFrame(followOutput);
+        };
+        window.requestAnimationFrame(followOutput);
+      }
     }
   </script>
   </body>
@@ -928,6 +981,19 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
     position: relative;
   }
 
+  .terminal-stage::before {
+    position: absolute;
+    inset: -12% 0;
+    background: radial-gradient(
+      44% 44% at 60% 38%,
+      color-mix(in srgb, var(--color-accent) 15%, transparent),
+      transparent 72%
+    );
+    content: '';
+    filter: blur(30px);
+    pointer-events: none;
+  }
+
   .terminal {
     /* A terminal is dark in both site themes. */
     --term-bg: #0d0f0c;
@@ -939,6 +1005,9 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
     --term-accent: #ef9067;
     --term-cyan: #7cc3cd;
     --term-yellow: #e0bc7c;
+    --term-green: #8fd694;
+    --term-red: #e08072;
+    position: relative;
     overflow: hidden;
     border: 1px solid var(--term-border);
     border-radius: var(--radius-lg);
@@ -989,12 +1058,13 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
   .terminal-body {
     margin: 0;
     padding: 1.2rem 1.3rem 1.35rem;
-    overflow-x: auto;
+    overflow: auto;
+    max-height: min(62dvh, 33rem);
     background: transparent;
     color: var(--term-text);
     font-family: var(--font-mono);
-    font-size: clamp(0.62rem, 1.05vw, 0.78rem);
-    line-height: 1.6;
+    font-size: clamp(0.55rem, 0.85vw, 0.74rem);
+    line-height: 1.45;
   }
 
   .t-line {
@@ -1026,21 +1096,17 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
     color: var(--term-frame);
   }
 
-  .t-head {
-    color: var(--term-dim);
-  }
-
-  .t-total {
-    color: var(--term-text);
-    font-weight: 600;
-  }
-
-  .t-accent {
-    color: var(--term-accent);
-  }
-
   .t-cyan {
     color: var(--term-cyan);
+  }
+
+  .t-green {
+    color: var(--term-green);
+  }
+
+  /* Kept for regenerated captures with negative deltas. */
+  .t-red {
+    color: var(--term-red);
   }
 
   .t-yellow {
@@ -1057,6 +1123,54 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
     height: 1.15em;
     vertical-align: text-bottom;
     background: var(--term-accent);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .t-line {
+      animation: t-appear 0.16s both;
+      animation-delay: var(--d, 0s);
+    }
+
+    .t-typed {
+      width: 0;
+      animation: t-type 1.15s steps(39, end) 0.45s forwards;
+    }
+
+    .t-cursor {
+      animation: t-blink 1.1s steps(1) infinite;
+    }
+  }
+
+  @keyframes t-appear {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes t-type {
+    from {
+      width: 0;
+    }
+
+    to {
+      width: 39ch;
+    }
+  }
+
+  @keyframes t-blink {
+    0%,
+    55% {
+      opacity: 1;
+    }
+
+    56%,
+    100% {
+      opacity: 0;
+    }
   }
 
   /* ---------- statusline ---------- */
@@ -1112,17 +1226,98 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
     white-space: nowrap;
   }
 
-  .source-roster-list {
+  .source-marquee {
     display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 0.55rem 1.4rem;
+    min-width: 0;
+    overflow: hidden;
+    mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
   }
 
-  .source-roster-list span {
+  .source-marquee-track {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 2.4rem;
+    min-width: max-content;
+    margin: 0;
+    padding: 0 1.2rem;
+    list-style: none;
+  }
+
+  .source-marquee-track li {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
     color: var(--color-text-muted);
     font-family: var(--font-mono);
     font-size: 0.72rem;
+    white-space: nowrap;
+  }
+
+  .marquee-dot {
+    width: 0.3rem;
+    height: 0.3rem;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--color-accent) 55%, transparent);
+  }
+
+  .source-marquee:hover .source-marquee-track {
+    animation-play-state: paused;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .source-marquee-track {
+      animation: source-marquee 38s linear infinite;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .source-marquee {
+      mask-image: none;
+      -webkit-mask-image: none;
+    }
+
+    .source-marquee-track {
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+
+    .source-marquee-track[aria-hidden='true'] {
+      display: none;
+    }
+  }
+
+  @keyframes source-marquee {
+    to {
+      transform: translateX(-100%);
+    }
+  }
+
+  /* ---------- scroll reveal ---------- */
+
+  @media (prefers-reduced-motion: no-preference) {
+    :global(html.js) [data-reveal] {
+      opacity: 0;
+    }
+
+    :global(html.js) [data-reveal].is-visible {
+      opacity: 1;
+      animation: reveal-in 0.55s ease both;
+      animation-delay: var(--reveal-delay, 0s);
+    }
+  }
+
+  @keyframes reveal-in {
+    from {
+      opacity: 0;
+      transform: translateY(18px);
+    }
+
+    to {
+      opacity: 1;
+      transform: none;
+    }
   }
 
   /* ---------- section headings ---------- */
@@ -1714,7 +1909,7 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
     .hero,
     .sources,
     .benchmark {
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
     }
 
     .hero {
@@ -1827,7 +2022,7 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
     .report-row,
     .report-row:first-child {
       grid-row: auto;
-      min-height: 22rem;
+      min-height: 0;
     }
 
     .report-row:first-child .report-copy {
@@ -1840,7 +2035,7 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
     }
 
     .report-copy {
-      padding-block: 2rem;
+      padding-block: 1.4rem;
     }
 
     .report-arrow {
@@ -1860,7 +2055,12 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
       grid-template-columns: 1fr;
     }
 
+    .heatmap-figure {
+      overflow-x: auto;
+    }
+
     .heatmap {
+      min-width: 40rem;
       gap: 2px;
       padding: 0.9rem;
     }
@@ -1892,7 +2092,7 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
 
   @media (max-width: 430px) {
     .terminal-body {
-      font-size: 0.58rem;
+      font-size: 0.55rem;
     }
 
     .statusline-cell {

@@ -25,10 +25,16 @@ export type WrappedRecap = {
   from: string;
   to: string;
   totalTokens: number;
-  totalCostUsd?: number;
+  costUsd?: number;
   costIncomplete?: boolean;
   activeDays: number;
   longestStreak: number;
+  activeMs: number;
+  peakHour?: { hour: number; totalTokens: number };
+  weekdayTokens: number;
+  weekendTokens: number;
+  busiestDay?: { date: string; totalTokens: number; costUsd?: number; costIncomplete?: boolean };
+  estimatedCacheSavingsUsd?: number;
   eventCount: number;
   sessionCount: number;
   topModels: WrappedTopItem[];

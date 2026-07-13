@@ -31,12 +31,12 @@ llm-usage trends --days 14 --share
 ## Options
 
 - `--days <n>`: trailing local calendar days to chart
-- `--metric <name>`: `cost` or `tokens`
+- `--metric <name>`: `cost`, `tokens`, or `active-hours`
 - `--by-source`: render one sparkline row per source
 - `--share`: write the combined series to `trends-share.svg`
 - shared filters apply: `--source`, `--provider`, `--model`, `--since`, `--until`, `--timezone`, source-path overrides, pricing flags, and `--history`
 
-`trends` supports terminal output, `--json`, and `--share`. It does not support `--markdown`. The share renderer needs the combined series, so `--share` cannot be combined with `--by-source`.
+`trends` supports terminal output, `--json`, `--markdown` (one row per date plus a Total row), and `--share`. The share renderer needs the combined series, so `--share` cannot be combined with `--by-source`.
 
 ## `--days` vs `--since` / `--until`
 
@@ -59,6 +59,13 @@ llm-usage trends --days 14 --share
 - Skips pricing loads entirely.
 - Pricing flags are accepted but have no effect in this mode.
 
+### `--metric active-hours`
+
+- Charts per-day active time: each day's events are grouped by session, gaps between consecutive events are capped at 5 minutes, and the per-session results are summed.
+- A session crossing midnight splits at the day boundary — each day counts only the gaps between that day's events.
+- Terminal and Markdown output format durations (`2h 14m`); JSON `value`, `total`, `average`, and `peak.value` are **milliseconds**, matching session `activeMs`.
+- Skips pricing loads entirely, like `tokens`.
+
 ## `--by-source`
 
 `--by-source` renders one sparkline row per source instead of a single combined chart.
@@ -80,20 +87,24 @@ If no observed bucket in the selected range has resolved cost, the terminal outp
 
 ```json
 {
-  "metric": "cost",
-  "dateRange": { "from": "2026-02-06", "to": "2026-03-06" },
-  "totalSeries": {
-    "source": "combined",
-    "buckets": [
-      { "date": "2026-02-06", "value": 1.57, "observed": true },
-      { "date": "2026-02-07", "value": 0, "observed": false }
-    ],
-    "summary": {
-      "total": 87.4,
-      "average": 2.91,
-      "peak": { "date": "2026-02-28", "value": 5.12 },
-      "incomplete": true,
-      "observedDayCount": 12
+  "schemaVersion": 1,
+  "report": "trends",
+  "data": {
+    "metric": "cost",
+    "dateRange": { "from": "2026-02-06", "to": "2026-03-06" },
+    "totalSeries": {
+      "source": "combined",
+      "buckets": [
+        { "date": "2026-02-06", "value": 1.57, "observed": true },
+        { "date": "2026-02-07", "value": 0, "observed": false }
+      ],
+      "summary": {
+        "total": 87.4,
+        "average": 2.91,
+        "peak": { "date": "2026-02-28", "value": 5.12 },
+        "incomplete": true,
+        "observedDayCount": 12
+      }
     }
   }
 }

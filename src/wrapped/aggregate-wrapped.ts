@@ -1,7 +1,14 @@
-import type { UsageEvent } from '../domain/usage-event.js';
+import { computeActiveMs } from '../domain/active-time.js';
+import { getEventSessionKey, type UsageEvent } from '../domain/usage-event.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
-import { getPeriodKey, shiftLocalDateKey } from '../utils/time-buckets.js';
+import {
+  getIsoDayOfWeekFromDateKey,
+  getLocalHour,
+  getPeriodKey,
+  shiftLocalDateKey,
+} from '../utils/time-buckets.js';
 import type { WrappedDay, WrappedMonth, WrappedRecap, WrappedTopItem } from './wrapped-recap.js';
+import { addUsd } from '../utils/usd-math.js';
 
 export type AggregateWrappedOptions = {
   year: number;
@@ -13,12 +20,6 @@ type TotalsAccumulator = {
   costUsd?: number;
   costIncomplete?: boolean;
 };
-
-const USD_PRECISION_SCALE = 1_000_000_000_000;
-
-function addUsd(left: number, right: number): number {
-  return Math.round((left + right) * USD_PRECISION_SCALE) / USD_PRECISION_SCALE;
-}
 
 function toDateKeyRange(year: number): { from: string; to: string } {
   return {
@@ -221,10 +222,6 @@ function isInYearRange(dateKey: string, range: { from: string; to: string }): bo
   return dateKey >= range.from && dateKey <= range.to;
 }
 
-function getSessionKey(event: UsageEvent): string {
-  return `${event.source}\0${event.sessionId}`;
-}
-
 export function aggregateWrapped(
   events: readonly UsageEvent[],
   options: AggregateWrappedOptions,
@@ -232,12 +229,16 @@ export function aggregateWrapped(
   const range = toDateKeyRange(options.year);
   const monthKeys = createMonthKeys(options.year);
   const activeDateKeys = new Set<string>();
-  const sessionKeys = new Set<string>();
+  const sessionTimestamps = new Map<string, number[]>();
   const modelGroups = new Map<string, TotalsAccumulator>();
   const sourceGroups = new Map<string, TotalsAccumulator>();
   const monthlyTotals = new Map<string, TotalsAccumulator>();
   const dailyTotals = new Map<string, TotalsAccumulator>();
+  const weekendByDateKey = new Map<string, boolean>();
+  const hourTokens: number[] = Array.from({ length: 24 }, () => 0);
   const total: TotalsAccumulator = { totalTokens: 0 };
+  let weekdayTokens = 0;
+  let weekendTokens = 0;
   let eventCount = 0;
 
   for (const event of events) {
@@ -249,11 +250,30 @@ export function aggregateWrapped(
 
     eventCount += 1;
     activeDateKeys.add(dateKey);
-    sessionKeys.add(getSessionKey(event));
     addEventTotals(total, event);
     addGroupedEvent(sourceGroups, event.source, event);
     addGroupedEvent(monthlyTotals, dateKey.slice(0, 7), event);
     addGroupedEvent(dailyTotals, dateKey, event);
+
+    const sessionKey = getEventSessionKey(event);
+    const timestamps = sessionTimestamps.get(sessionKey) ?? [];
+    timestamps.push(Date.parse(event.timestamp));
+    sessionTimestamps.set(sessionKey, timestamps);
+
+    hourTokens[getLocalHour(event.timestamp, options.timezone)] += event.totalTokens;
+
+    let isWeekend = weekendByDateKey.get(dateKey);
+
+    if (isWeekend === undefined) {
+      isWeekend = getIsoDayOfWeekFromDateKey(dateKey) >= 6;
+      weekendByDateKey.set(dateKey, isWeekend);
+    }
+
+    if (isWeekend) {
+      weekendTokens += event.totalTokens;
+    } else {
+      weekdayTokens += event.totalTokens;
+    }
 
     if (event.model) {
       addGroupedEvent(modelGroups, event.model, event);
@@ -261,6 +281,43 @@ export function aggregateWrapped(
   }
 
   const sortedDateKeys = [...activeDateKeys].sort(compareByCodePoint);
+  let activeMs = 0;
+
+  for (const timestamps of sessionTimestamps.values()) {
+    activeMs += computeActiveMs(timestamps);
+  }
+
+  let peakHour: WrappedRecap['peakHour'];
+
+  for (let hour = 0; hour < hourTokens.length; hour += 1) {
+    if (
+      hourTokens[hour] > 0 &&
+      (peakHour === undefined || hourTokens[hour] > peakHour.totalTokens)
+    ) {
+      peakHour = { hour, totalTokens: hourTokens[hour] };
+    }
+  }
+
+  let busiestDay: WrappedRecap['busiestDay'];
+
+  for (const [date, accumulator] of dailyTotals) {
+    if (accumulator.totalTokens <= 0) {
+      continue;
+    }
+
+    if (
+      busiestDay === undefined ||
+      accumulator.totalTokens > busiestDay.totalTokens ||
+      (accumulator.totalTokens === busiestDay.totalTokens && date < busiestDay.date)
+    ) {
+      busiestDay = {
+        date,
+        totalTokens: accumulator.totalTokens,
+        costUsd: accumulator.costUsd,
+        costIncomplete: accumulator.costIncomplete,
+      };
+    }
+  }
 
   return {
     year: options.year,
@@ -268,12 +325,17 @@ export function aggregateWrapped(
     from: range.from,
     to: range.to,
     totalTokens: total.totalTokens,
-    totalCostUsd: total.costUsd,
+    costUsd: total.costUsd,
     costIncomplete: total.costIncomplete,
     activeDays: activeDateKeys.size,
     longestStreak: calculateLongestStreak(sortedDateKeys),
+    activeMs,
+    peakHour,
+    weekdayTokens,
+    weekendTokens,
+    busiestDay,
     eventCount,
-    sessionCount: sessionKeys.size,
+    sessionCount: sessionTimestamps.size,
     topModels: toTopItems(modelGroups),
     topSources: toTopItems(sourceGroups),
     monthlyIntensity: buildMonthlyIntensity(monthKeys, monthlyTotals),

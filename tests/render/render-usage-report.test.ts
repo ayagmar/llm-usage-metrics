@@ -162,13 +162,30 @@ describe('renderUsageReport', () => {
     expect(rendered).toContain('$1.25<br>$1.50<br>**$2.75**');
   });
 
+  it('renders an empty-state message instead of an empty table', () => {
+    const rendered = renderUsageReport({ ...sampleUsageData, rows: [] }, 'terminal', {
+      granularity: 'daily',
+      useColor: false,
+    });
+
+    expect(rendered).toContain('Daily Token Usage Report');
+    expect(rendered).toContain('No usage data found for the selected filters.');
+    expect(rendered).not.toContain('╭');
+    expect(rendered).not.toContain('│ Period');
+  });
+
   it('renders JSON output as pretty-printed row payload only', () => {
     const rendered = renderUsageReport(sampleUsageData, 'json', { granularity: 'weekly' });
 
-    const parsed = JSON.parse(rendered) as Array<{ rowType: string; periodKey: string }>;
+    const parsed = JSON.parse(rendered) as {
+      schemaVersion: number;
+      report: string;
+      data: Array<{ rowType: string; periodKey: string }>;
+    };
 
-    expect(parsed).toHaveLength(3);
-    expect(parsed[0]).toMatchObject({ rowType: 'period_source', periodKey: '2026-02-10' });
-    expect(parsed[2]).toMatchObject({ rowType: 'grand_total', periodKey: 'ALL' });
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'usage' });
+    expect(parsed.data).toHaveLength(3);
+    expect(parsed.data[0]).toMatchObject({ rowType: 'period_source', periodKey: '2026-02-10' });
+    expect(parsed.data[2]).toMatchObject({ rowType: 'grand_total', periodKey: 'ALL' });
   });
 });

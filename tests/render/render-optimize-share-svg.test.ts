@@ -34,7 +34,7 @@ function createData(): OptimizeDataResult {
         hypotheticalCostUsd: 8,
         hypotheticalCostIncomplete: false,
         savingsUsd: 2,
-        savingsPct: 0.2,
+        savingsRatio: 0.2,
       },
       {
         rowType: 'candidate',
@@ -51,7 +51,7 @@ function createData(): OptimizeDataResult {
         hypotheticalCostUsd: 11,
         hypotheticalCostIncomplete: false,
         savingsUsd: -1,
-        savingsPct: -0.1,
+        savingsRatio: -0.1,
       },
       {
         rowType: 'candidate',
@@ -68,18 +68,16 @@ function createData(): OptimizeDataResult {
         hypotheticalCostUsd: 19,
         hypotheticalCostIncomplete: false,
         savingsUsd: 1,
-        savingsPct: 0.05,
+        savingsRatio: 0.05,
       },
     ],
     diagnostics: {
-      usage: {
-        sessionStats: [],
-        sourceFailures: [],
-        skippedRows: [],
-        pricingOrigin: 'none',
-        activeEnvOverrides: [],
-        timezone: 'UTC',
-      },
+      sessionStats: [],
+      sourceFailures: [],
+      skippedRows: [],
+      pricingOrigin: 'none',
+      activeEnvOverrides: [],
+      timezone: 'UTC',
       provider: 'openai',
       baselineCostIncomplete: false,
       candidatesWithMissingPricing: [],
@@ -133,7 +131,7 @@ describe('renderOptimizeMonthlyShareSvg', () => {
         hypotheticalCostUsd: 10,
         hypotheticalCostIncomplete: false,
         savingsUsd: 0,
-        savingsPct: 0,
+        savingsRatio: 0,
       },
       {
         rowType: 'candidate',
@@ -150,7 +148,7 @@ describe('renderOptimizeMonthlyShareSvg', () => {
         hypotheticalCostUsd: 10,
         hypotheticalCostIncomplete: false,
         savingsUsd: 0,
-        savingsPct: 0,
+        savingsRatio: 0,
       },
       {
         rowType: 'candidate',
@@ -167,7 +165,7 @@ describe('renderOptimizeMonthlyShareSvg', () => {
         hypotheticalCostUsd: undefined,
         hypotheticalCostIncomplete: true,
         savingsUsd: undefined,
-        savingsPct: undefined,
+        savingsRatio: undefined,
       },
     );
 

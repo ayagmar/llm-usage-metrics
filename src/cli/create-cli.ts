@@ -6,6 +6,7 @@ import {
   createRootDescription,
 } from './report-definitions/report-definitions.js';
 import { createConfigCommand } from './create-config-command.js';
+import { createSchemaCommand } from './create-schema-command.js';
 
 export type CreateCliOptions = {
   version?: string;
@@ -24,6 +25,7 @@ export function createCli(options: CreateCliOptions = {}): Command {
     program.addCommand(command);
   }
   program.addCommand(createConfigCommand());
+  program.addCommand(createSchemaCommand());
 
   program.hook('preAction', (_thisCommand, actionCommand) => {
     if (actionCommand.opts().quiet === true) {

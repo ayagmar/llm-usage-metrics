@@ -159,8 +159,8 @@ describe('ClineFamilyAdapter', () => {
     const blankAdapter = createClineFamilyAdapter({
       id: 'cline',
       extensionId: CLINE_EXTENSION_IDS.cline,
-      tasksDir: '   ',
-      requireTasksDir: true,
+      dir: '   ',
+      requireDir: true,
     });
     await expect(blankAdapter.discoverFiles()).rejects.toThrow(
       'cline tasks directory must be a non-empty path',
@@ -170,8 +170,8 @@ describe('ClineFamilyAdapter', () => {
     const missingAdapter = createClineFamilyAdapter({
       id: 'cline',
       extensionId: CLINE_EXTENSION_IDS.cline,
-      tasksDir: missingPath,
-      requireTasksDir: true,
+      dir: missingPath,
+      requireDir: true,
     });
     await expect(missingAdapter.discoverFiles()).rejects.toThrow(
       'cline tasks directory is missing or unreadable',
@@ -185,8 +185,8 @@ describe('ClineFamilyAdapter', () => {
     const fileAdapter = createClineFamilyAdapter({
       id: 'cline',
       extensionId: CLINE_EXTENSION_IDS.cline,
-      tasksDir: filePath,
-      requireTasksDir: true,
+      dir: filePath,
+      requireDir: true,
     });
     await expect(fileAdapter.discoverFiles()).rejects.toThrow(
       `cline tasks directory is not a directory: ${filePath}`,

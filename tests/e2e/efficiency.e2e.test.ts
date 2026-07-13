@@ -104,7 +104,14 @@ describe('efficiency report e2e', () => {
       pricingOffline: true,
       json: true,
     });
-    const rows = JSON.parse(report) as EfficiencyJsonRow[];
+    const parsed = JSON.parse(report) as {
+      schemaVersion: number;
+      report: string;
+      data: { grouping: string; rows: EfficiencyJsonRow[] };
+    };
+
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'efficiency' });
+    const rows = parsed.data.rows;
 
     // Static e2e fixtures use repo roots such as /tmp/claude-e2e that are not git repos.
     // Efficiency JSON is repo-scoped, so unattributed fixture usage is excluded.
@@ -141,7 +148,8 @@ describe('efficiency report e2e', () => {
       pricingOffline: true,
       json: true,
     });
-    const rows = JSON.parse(report) as EfficiencyJsonRow[];
+    const parsed = JSON.parse(report) as { data: { rows: EfficiencyJsonRow[] } };
+    const rows = parsed.data.rows;
     const periodRow = rows.find((row) => row.rowType === 'period' && row.periodKey === '2026-06');
     const grandTotal = rows.find((row) => row.rowType === 'grand_total');
 

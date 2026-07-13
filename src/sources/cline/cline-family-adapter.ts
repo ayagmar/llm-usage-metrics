@@ -4,7 +4,11 @@ import path from 'node:path';
 import type { SourceId, UsageEvent } from '../../domain/usage-event.js';
 import { discoverFiles } from '../../utils/discover-files.js';
 import { discoverFilesAcrossRoots, resolveRootDirs } from '../multi-root-discovery.js';
-import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
+import type {
+  SourceAdapter,
+  SourceAdapterPathOptions,
+  SourceParseFileDiagnostics,
+} from '../source-adapter.js';
 import { getClineTaskHistoryPath, parseClineTaskFile } from './cline-task-parser.js';
 
 export const CLINE_EXTENSION_IDS = {
@@ -22,11 +26,9 @@ export type ClineTaskRootResolverOptions = {
   env?: NodeJS.ProcessEnv;
 };
 
-export type ClineFamilyAdapterOptions = {
+export type ClineFamilyAdapterOptions = SourceAdapterPathOptions & {
   id: ClineFamilySourceId;
   extensionId: string;
-  tasksDir?: string;
-  requireTasksDir?: boolean;
   defaultRootDirs?: string[];
 };
 
@@ -93,22 +95,22 @@ export class ClineFamilyAdapter implements SourceAdapter {
   public readonly id: SourceId;
 
   private readonly rootDirs: readonly string[];
-  private readonly requireTasksDir: boolean;
+  private readonly requireDir: boolean;
 
   public constructor(options: ClineFamilyAdapterOptions) {
     this.id = options.id;
     this.rootDirs = resolveRootDirs(
-      options.tasksDir,
+      options.dir,
       options.defaultRootDirs ??
         getDefaultClineTaskRootCandidates({ extensionId: options.extensionId }),
     );
-    this.requireTasksDir = options.requireTasksDir ?? false;
+    this.requireDir = options.requireDir ?? false;
   }
 
   public async discoverFiles(): Promise<string[]> {
     return discoverFilesAcrossRoots({
       rootDirs: this.rootDirs,
-      requireDir: this.requireTasksDir,
+      requireDir: this.requireDir,
       directoryLabel: `${this.id} tasks directory`,
       discoverInRoot: (rootDir) => discoverUiMessageFiles(rootDir),
       sortAcrossRoots: true,

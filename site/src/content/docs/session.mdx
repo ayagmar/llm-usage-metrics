@@ -34,7 +34,7 @@ llm-usage session --markdown
 
 ## Output
 
-The terminal report is a boxed **Session Usage Report** table with `Session`, `Source`, `Repo`, `Last Activity`, `Total`, `Cost`, and `Models` columns, sorted by cost. Sessions have no `TOTAL` row because each row is a conversation, not a calendar period. When the list is truncated, a note is printed on `stderr`:
+The terminal report is a boxed **Session Usage Report** table with `Session`, `Source`, `Repo`, `Last Activity`, `Duration`, `Total`, `Cost`, and `Models` columns, sorted by cost. `Duration` is the raw span from a session's first to last event (`-` for single-event sessions). Sessions have no `TOTAL` row because each row is a conversation, not a calendar period. When the list is truncated, a note is printed on `stderr`:
 
 ```text
 Showing top 20 of 1653 sessions by cost. Use --top 0 for all.
@@ -44,28 +44,36 @@ Showing top 20 of 1653 sessions by cost. Use --top 0 for all.
 
 ## JSON shape
 
-Default `--json` returns an array of session rows:
+Default `--json` returns an array of session rows under `data`:
 
 ```json
-[
-  {
-    "rowType": "session",
-    "source": "codex",
-    "sessionId": "486c3261-d87e-4971-8813-904c9e5a9009",
-    "repoRoot": "/path/to/repo",
-    "firstActivity": "2026-03-05T10:00:00.000Z",
-    "lastActivity": "2026-03-05T11:30:00.000Z",
-    "eventCount": 42,
-    "models": ["gpt-5.1"],
-    "inputTokens": 120000,
-    "outputTokens": 8000,
-    "reasoningTokens": 0,
-    "cacheReadTokens": 40000,
-    "cacheWriteTokens": 0,
-    "totalTokens": 168000,
-    "costUsd": 1.23
-  }
-]
+{
+  "schemaVersion": 1,
+  "report": "session",
+  "data": [
+    {
+      "rowType": "session",
+      "source": "codex",
+      "sessionId": "486c3261-d87e-4971-8813-904c9e5a9009",
+      "repoRoot": "/path/to/repo",
+      "firstActivity": "2026-03-05T10:00:00.000Z",
+      "lastActivity": "2026-03-05T11:30:00.000Z",
+      "durationMs": 5400000,
+      "activeMs": 2700000,
+      "eventCount": 42,
+      "models": ["gpt-5.1"],
+      "inputTokens": 120000,
+      "outputTokens": 8000,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 40000,
+      "cacheWriteTokens": 0,
+      "totalTokens": 168000,
+      "costUsd": 1.23
+    }
+  ]
+}
 ```
 
-`--by-repo --json` returns an array of repo rows (`rowType: "repo"`, `repoRoot`, `sessionCount`, `sources`, and the same token/cost totals).
+`durationMs` is the raw span: `lastActivity` minus `firstActivity`; it over-counts idle time by design. `activeMs` is the honest "hands-on time": the sum of inter-event gaps, each capped at 5 minutes, so a session left open overnight contributes at most 5 idle minutes per gap. Single-event sessions get `activeMs: 0`.
+
+`--by-repo --json` returns an array of repo rows (`rowType: "repo"`, `repoRoot`, `sessionCount`, `firstActivity`, `sources`, and the same token/cost totals).

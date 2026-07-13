@@ -82,6 +82,41 @@ describe('createConfigCommand', () => {
     await expect(readFile(configPath, 'utf8')).resolves.toBe(USER_CONFIG_TEMPLATE);
   });
 
+  it('prints the resolved config path on stdout', async () => {
+    const configPath = await createTempConfigPath('config-path-');
+    process.env.LLM_USAGE_CONFIG_PATH = configPath;
+    const stdout = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    await createConfigCommand().parseAsync(['path'], { from: 'user' });
+
+    expect(stdout).toHaveBeenCalledExactlyOnceWith(configPath);
+  });
+
+  it('shows the config file and provenance for configured values', async () => {
+    const configPath = await createTempConfigPath('config-show-');
+    process.env.LLM_USAGE_CONFIG_PATH = configPath;
+    await writeFile(configPath, 'timezone = "UTC"\n', 'utf8');
+    const stdout = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    await createConfigCommand().parseAsync(['show'], { from: 'user' });
+
+    const lines = stdout.mock.calls.map((call) => String(call[0]));
+    expect(lines[0]).toBe(`Config file: ${configPath}`);
+    expect(lines).toContain(`Active config: ${configPath}`);
+    expect(lines).toContain('  timezone=UTC');
+  });
+
+  it('marks a missing config file and prints no provenance block', async () => {
+    const configPath = await createTempConfigPath('config-show-missing-');
+    process.env.LLM_USAGE_CONFIG_PATH = configPath;
+    const stdout = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    await createConfigCommand().parseAsync(['show'], { from: 'user' });
+
+    const lines = stdout.mock.calls.map((call) => String(call[0]));
+    expect(lines).toEqual([`Config file: ${configPath} (missing)`]);
+  });
+
   it('writes a template that parses cleanly when every key is uncommented', async () => {
     const configPath = await createTempConfigPath('config-init-template-');
     const uncommentedTemplate = uncommentTemplate(USER_CONFIG_TEMPLATE);

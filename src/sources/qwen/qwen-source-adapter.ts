@@ -15,15 +15,16 @@ import {
   resolveTotalTokens,
   toTokenCount,
 } from '../parsing-utils.js';
-import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
+import type {
+  SourceAdapter,
+  SourceAdapterPathOptions,
+  SourceParseFileDiagnostics,
+} from '../source-adapter.js';
 
 const defaultProjectsDir = path.join(os.homedir(), '.qwen', 'projects');
 const QWEN_USAGE_LINE_TEXT = '"usageMetadata"';
 
-export type QwenSourceAdapterOptions = {
-  projectsDir?: string;
-  requireProjectsDir?: boolean;
-};
+export type QwenSourceAdapterOptions = SourceAdapterPathOptions;
 
 type QwenTokenUsage = {
   inputTokens: number;
@@ -90,11 +91,11 @@ export class QwenSourceAdapter implements SourceAdapter {
   public readonly id = 'qwen' as const;
 
   private readonly projectsDir: string;
-  private readonly requireProjectsDir: boolean;
+  private readonly requireDir: boolean;
 
   public constructor(options: QwenSourceAdapterOptions = {}) {
-    this.projectsDir = options.projectsDir ?? defaultProjectsDir;
-    this.requireProjectsDir = options.requireProjectsDir ?? false;
+    this.projectsDir = options.dir ?? defaultProjectsDir;
+    this.requireDir = options.requireDir ?? false;
   }
 
   private getNormalizedProjectsDir(): string {
@@ -108,11 +109,11 @@ export class QwenSourceAdapter implements SourceAdapter {
   public async discoverFiles(): Promise<string[]> {
     const normalizedDir = this.getNormalizedProjectsDir();
 
-    if (this.requireProjectsDir && !(await pathReadable(normalizedDir))) {
+    if (this.requireDir && !(await pathReadable(normalizedDir))) {
       throw new Error(`Qwen projects directory is missing or unreadable: ${normalizedDir}`);
     }
 
-    if (this.requireProjectsDir && !(await pathIsDirectory(normalizedDir))) {
+    if (this.requireDir && !(await pathIsDirectory(normalizedDir))) {
       throw new Error(`Qwen projects directory is not a directory: ${normalizedDir}`);
     }
 

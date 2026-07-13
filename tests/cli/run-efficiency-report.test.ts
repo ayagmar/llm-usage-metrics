@@ -75,8 +75,15 @@ describe('buildEfficiencyReport', () => {
       json: true,
     });
 
-    const parsed = JSON.parse(report) as Array<Record<string, unknown>>;
-    const grandTotal = parsed.at(-1);
+    const parsed = JSON.parse(report) as {
+      schemaVersion: number;
+      report: string;
+      data: { grouping: string; rows: Array<Record<string, unknown>> };
+    };
+
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'efficiency' });
+    expect(parsed.data.grouping).toBe('period');
+    const grandTotal = parsed.data.rows.at(-1);
 
     // No usage events are parsed from empty dirs, so efficiency rows are omitted
     // and the grand total remains at zero despite the git commit in the fixture repo.

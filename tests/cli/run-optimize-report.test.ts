@@ -36,7 +36,7 @@ vi.mock('../../src/cli/build-optimize-data.js', () => ({
         hypotheticalCostUsd: 1.5,
         hypotheticalCostIncomplete: false,
         savingsUsd: 0.5,
-        savingsPct: 0.25,
+        savingsRatio: 0.25,
       },
       {
         rowType: 'candidate',
@@ -53,19 +53,17 @@ vi.mock('../../src/cli/build-optimize-data.js', () => ({
         hypotheticalCostUsd: undefined,
         hypotheticalCostIncomplete: true,
         savingsUsd: undefined,
-        savingsPct: undefined,
+        savingsRatio: undefined,
         notes: ['missing_pricing'],
       },
     ],
     diagnostics: {
-      usage: {
-        sessionStats: [],
-        sourceFailures: [],
-        skippedRows: [],
-        pricingOrigin: 'none',
-        activeEnvOverrides: [],
-        timezone: 'UTC',
-      },
+      sessionStats: [],
+      sourceFailures: [],
+      skippedRows: [],
+      pricingOrigin: 'none',
+      activeEnvOverrides: [],
+      timezone: 'UTC',
       provider: 'openai',
       baselineCostIncomplete: false,
       candidatesWithMissingPricing: ['missing-model'],
@@ -120,11 +118,16 @@ describe('run-optimize-report', () => {
       json: true,
     });
 
-    const parsed = JSON.parse(report) as Array<{ rowType: string; candidateModel?: string }>;
+    const parsed = JSON.parse(report) as {
+      schemaVersion: number;
+      report: string;
+      data: Array<{ rowType: string; candidateModel?: string }>;
+    };
 
-    expect(parsed.map((row) => row.rowType)).toEqual(['baseline', 'candidate', 'candidate']);
-    expect(parsed[1]?.candidateModel).toBe('gpt-5-codex');
-    expect(parsed[2]?.candidateModel).toBe('missing-model');
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'optimize' });
+    expect(parsed.data.map((row) => row.rowType)).toEqual(['baseline', 'candidate', 'candidate']);
+    expect(parsed.data[1]?.candidateModel).toBe('gpt-5-codex');
+    expect(parsed.data[2]?.candidateModel).toBe('missing-model');
   });
 
   it('renders markdown output when --markdown is set', async () => {
@@ -148,8 +151,13 @@ describe('run-optimize-report', () => {
 
     expect(consoleLogSpy).toHaveBeenCalledTimes(1);
     const stdoutBody = String(consoleLogSpy.mock.calls[0]?.[0]);
-    const parsed = JSON.parse(stdoutBody) as unknown;
-    expect(Array.isArray(parsed)).toBe(true);
+    const parsed = JSON.parse(stdoutBody) as {
+      schemaVersion: number;
+      report: string;
+      data: unknown;
+    };
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'optimize' });
+    expect(Array.isArray(parsed.data)).toBe(true);
 
     const stderrLines = consoleErrorSpy.mock.calls.map((call) => String(call[0]));
     expect(stderrLines.some((line) => line.includes('No sessions found'))).toBe(true);
@@ -165,38 +173,36 @@ describe('run-optimize-report', () => {
     vi.mocked(buildOptimizeData).mockResolvedValueOnce({
       rows: [],
       diagnostics: {
-        usage: {
-          sessionStats: [],
-          sourceFailures: [],
-          skippedRows: [],
-          pricingOrigin: 'none',
-          activeEnvOverrides: [],
-          timezone: 'UTC',
-          runtimeProfile: {
-            sourceSelection: {
-              availableSourceIds: ['pi', 'codex'],
-              selectedSourceIds: ['codex'],
-              candidateProviderRoots: ['openai'],
-            },
-            eventStore: {
-              hits: 0,
-              misses: 0,
-            },
-            parseTotals: {
+        sessionStats: [],
+        sourceFailures: [],
+        skippedRows: [],
+        pricingOrigin: 'none',
+        activeEnvOverrides: [],
+        timezone: 'UTC',
+        runtimeProfile: {
+          sourceSelection: {
+            availableSourceIds: ['pi', 'codex'],
+            selectedSourceIds: ['codex'],
+            candidateProviderRoots: ['openai'],
+          },
+          eventStore: {
+            hits: 0,
+            misses: 0,
+          },
+          parseTotals: {
+            filesFound: 1,
+            eventsParsed: 2,
+          },
+          sourceStats: [
+            {
+              source: 'codex',
               filesFound: 1,
               eventsParsed: 2,
+              eventStoreHits: 0,
+              eventStoreMisses: 0,
             },
-            sourceStats: [
-              {
-                source: 'codex',
-                filesFound: 1,
-                eventsParsed: 2,
-                eventStoreHits: 0,
-                eventStoreMisses: 0,
-              },
-            ],
-            stageTimings: [{ name: 'optimize.dataset.total', durationMs: 1.23 }],
-          },
+          ],
+          stageTimings: [{ name: 'optimize.dataset.total', durationMs: 1.23 }],
         },
         provider: 'openai',
         baselineCostIncomplete: false,
@@ -231,14 +237,12 @@ describe('run-optimize-report', () => {
     buildOptimizeDataMock.mockResolvedValueOnce({
       rows: [],
       diagnostics: {
-        usage: {
-          sessionStats: [],
-          sourceFailures: [],
-          skippedRows: [],
-          pricingOrigin: 'none',
-          activeEnvOverrides: [],
-          timezone: 'UTC',
-        },
+        sessionStats: [],
+        sourceFailures: [],
+        skippedRows: [],
+        pricingOrigin: 'none',
+        activeEnvOverrides: [],
+        timezone: 'UTC',
         provider: 'openai',
         baselineCostIncomplete: false,
         candidatesWithMissingPricing: [],

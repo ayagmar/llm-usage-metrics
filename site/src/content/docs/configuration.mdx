@@ -21,6 +21,17 @@ Config root follows the platform:
 
 Run `llm-usage config init` to write a commented template at the active config path. Set `LLM_USAGE_CONFIG_PATH=/path/to/config.toml` to point at a different config file. A missing config file is silent and uses built-in defaults. Malformed TOML is an error. Unknown keys are reported once on `stderr` and the run continues.
 
+Run `llm-usage config path` to print the resolved config file path on `stdout`, one line, nothing else. Run `llm-usage config show` to print the config file (with a `(missing)` marker when it does not exist) followed by the same `Active config:` block reports emit on `stderr`, listing every value the file overrides:
+
+```text
+Config file: /home/user/.config/llm-usage-metrics/config.toml
+Active config: /home/user/.config/llm-usage-metrics/config.toml
+  timezone=Africa/Casablanca
+  eventStore.enabled=true
+```
+
+Unknown-key warnings still go to `stderr`, so `config show` output stays clean to redirect. A `--json` variant is a possible follow-up once config output and the report envelope interaction is decided.
+
 TOML editors such as Taplo can validate the file through the `#:schema` directive. The schema is published at [config-schema.json](/llm-usage-metrics/config-schema.json):
 
 ```toml

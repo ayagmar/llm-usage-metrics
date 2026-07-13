@@ -296,7 +296,7 @@ describe('buildOptimizeData', () => {
 
     expect(candidateAll).toMatchObject({
       savingsUsd: undefined,
-      savingsPct: undefined,
+      savingsRatio: undefined,
       notes: ['baseline_tokens_missing', 'usage_buckets_missing'],
     });
     expect(result.diagnostics.warning).toContain('Baseline cost exists for zero-token periods');

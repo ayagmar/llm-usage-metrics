@@ -13,7 +13,9 @@ import {
   EventStoreSchemaVersionError,
   getDefaultEventStorePath,
   getFileEntry,
+  MIGRATION_BATCH_SIZE,
   migrateSchemaV1ToV2,
+  migrateSchemaV2ToV3,
   normalizeStoredEvent,
   openEventStore,
   readEventStoreSummary,
@@ -272,6 +274,24 @@ async function writeV1Database(
   }
 }
 
+const V2_STALE_HASH = 'stale-v2-hash';
+
+async function writeV2Database(
+  filePath: string,
+  options: { events?: ReturnType<typeof createEvent>[] } = {},
+): Promise<void> {
+  await writeV1Database(filePath, { events: options.events, schemaVersion: '2' });
+  const database = await openTestDatabase(filePath);
+
+  try {
+    database.exec('ALTER TABLE events ADD COLUMN content_hash TEXT');
+    database.exec('CREATE INDEX IF NOT EXISTS events_content_hash ON events(content_hash)');
+    database.prepare('UPDATE events SET content_hash = ?').run(V2_STALE_HASH);
+  } finally {
+    database.close();
+  }
+}
+
 type FakeSqliteModule = {
   DatabaseSync: new (
     filePath: string,
@@ -368,7 +388,7 @@ describe('event-store', () => {
     }
   });
 
-  it('migrates a real v1 database to v2 without losing rows', async () => {
+  it('migrates a real v1 database through v2 to v3 without losing rows', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-v1-migrate-'));
     tempDirs.push(tempDir);
     const dbPath = path.join(tempDir, 'events.db');
@@ -535,6 +555,176 @@ describe('event-store', () => {
     }
   });
 
+  it('produces different content hashes for events that differ only by session id', () => {
+    const firstSessionEvent = createEvent({ sessionId: 'session-a' });
+    const secondSessionEvent = createEvent({ sessionId: 'session-b' });
+
+    expect(computeEventContentHash(firstSessionEvent)).not.toBe(
+      computeEventContentHash(secondSessionEvent),
+    );
+  });
+
+  it('migrates a v2 database to v3 by rehashing with session identity', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-v2-migrate-'));
+    tempDirs.push(tempDir);
+    const dbPath = path.join(tempDir, 'events.db');
+    const firstSessionEvent = createEvent({ sessionId: 'session-a' });
+    const secondSessionEvent = createEvent({ sessionId: 'session-b' });
+    await writeV2Database(dbPath, { events: [firstSessionEvent, secondSessionEvent] });
+
+    const store = await openEventStore(dbPath);
+
+    try {
+      expect(
+        store.database.prepare("SELECT value FROM meta WHERE key = 'schemaVersion'").get(),
+      ).toEqual({ value: '3' });
+
+      const contentHashes = store.database
+        .prepare('SELECT content_hash FROM events ORDER BY id ASC')
+        .all()
+        .map((row) => row.content_hash);
+
+      expect(contentHashes).toEqual([
+        computeEventContentHash(firstSessionEvent),
+        computeEventContentHash(secondSessionEvent),
+      ]);
+      expect(new Set(contentHashes).size).toBe(2);
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  it('re-opens a migrated v3 database idempotently', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-v3-idempotent-'));
+    tempDirs.push(tempDir);
+    const dbPath = path.join(tempDir, 'events.db');
+    const event = createEvent();
+    await writeV2Database(dbPath, { events: [event] });
+
+    const firstOpen = await openEventStore(dbPath);
+    closeEventStore(firstOpen);
+    const store = await openEventStore(dbPath);
+
+    try {
+      migrateSchemaV2ToV3(store.database);
+
+      expect(
+        store.database.prepare("SELECT value FROM meta WHERE key = 'schemaVersion'").get(),
+      ).toEqual({ value: '3' });
+      expect(store.database.prepare('SELECT content_hash FROM events').get()).toEqual({
+        content_hash: computeEventContentHash(event),
+      });
+      expect(readFileEvents(store, 'codex', '/tmp/session.jsonl')).toEqual([event]);
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  it('nulls the hash of un-normalizable rows during the v2 to v3 migration', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-v2-poisoned-'));
+    tempDirs.push(tempDir);
+    const dbPath = path.join(tempDir, 'events.db');
+    const goodEvent = createEvent({ sessionId: 'good' });
+    const poisonedEvent = createEvent({ sessionId: 'poisoned', inputTokens: 7, totalTokens: 9 });
+    await writeV2Database(dbPath, { events: [goodEvent, poisonedEvent] });
+
+    const rawDatabase = await openTestDatabase(dbPath);
+
+    try {
+      rawDatabase
+        .prepare("UPDATE events SET cost_mode = 'bogus' WHERE session_id = ?")
+        .run('poisoned');
+    } finally {
+      rawDatabase.close();
+    }
+
+    const store = await openEventStore(dbPath);
+
+    try {
+      expect(
+        store.database.prepare('SELECT session_id, content_hash FROM events ORDER BY id ASC').all(),
+      ).toEqual([
+        { session_id: 'good', content_hash: computeEventContentHash(goodEvent) },
+        { session_id: 'poisoned', content_hash: null },
+      ]);
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  it('rehashes stores larger than one migration batch without skipping rows', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-v2-batched-'));
+    tempDirs.push(tempDir);
+    const dbPath = path.join(tempDir, 'events.db');
+    const poisonedEvent = createEvent({ sessionId: 'poisoned', inputTokens: 7, totalTokens: 9 });
+    await writeV2Database(dbPath, { events: [poisonedEvent] });
+
+    // MIGRATION_BATCH_SIZE + 3 rows in total forces at least two batches.
+    const extraEvents = Array.from({ length: MIGRATION_BATCH_SIZE + 2 }, (_, index) =>
+      createEvent({ sessionId: `batch-session-${index}` }),
+    );
+    const rawDatabase = await openTestDatabase(dbPath);
+
+    try {
+      // One transaction; per-row autocommit inserts would slow the test down.
+      rawDatabase.exec('BEGIN');
+      const insertEvent = rawDatabase.prepare(
+        [
+          'INSERT INTO events (',
+          '  source, file_path, event_index, session_id, timestamp, model, provider, repo_root,',
+          '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
+          '  cache_write_tokens, total_tokens, cost_usd, cost_mode',
+          ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        ].join('\n'),
+      );
+      extraEvents.forEach((event, index) => {
+        insertEvent.run(
+          event.source,
+          '/tmp/session.jsonl',
+          index + 1,
+          event.sessionId,
+          event.timestamp,
+          event.model ?? null,
+          event.provider ?? null,
+          event.repoRoot ?? null,
+          event.inputTokens,
+          event.outputTokens,
+          event.reasoningTokens,
+          event.cacheReadTokens,
+          event.cacheWriteTokens,
+          event.totalTokens,
+          event.costUsd ?? null,
+          event.costMode,
+        );
+      });
+      rawDatabase.exec('COMMIT');
+      rawDatabase
+        .prepare("UPDATE events SET cost_mode = 'bogus' WHERE session_id = ?")
+        .run('poisoned');
+    } finally {
+      rawDatabase.close();
+    }
+
+    const store = await openEventStore(dbPath);
+
+    try {
+      expect(
+        store.database.prepare("SELECT value FROM meta WHERE key = 'schemaVersion'").get(),
+      ).toEqual({ value: '3' });
+      expect(
+        store.database.prepare('SELECT session_id, content_hash FROM events ORDER BY id ASC').all(),
+      ).toEqual([
+        { session_id: 'poisoned', content_hash: null },
+        ...extraEvents.map((event) => ({
+          session_id: event.sessionId,
+          content_hash: computeEventContentHash(event),
+        })),
+      ]);
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
   it('stores a content hash for freshly ingested events', async () => {
     const store = await createTempStore('event-store-ingest-hash-');
 
@@ -577,25 +767,11 @@ describe('event-store', () => {
     }
   });
 
-  it('computes deterministic content hashes while excluding session identity', () => {
-    const baseline = createEvent({
-      sessionId: 'derived-from-old-path',
-      inputTokens: 10,
-      totalTokens: 12,
-    });
-    const movedPathEvent = createEvent({
-      sessionId: 'derived-from-new-path',
-      inputTokens: 10,
-      totalTokens: 12,
-    });
-    const changedUsage = createEvent({
-      sessionId: 'derived-from-old-path',
-      inputTokens: 11,
-      totalTokens: 13,
-    });
+  it('computes deterministic content hashes sensitive to usage changes', () => {
+    const baseline = createEvent({ inputTokens: 10, totalTokens: 12 });
+    const changedUsage = createEvent({ inputTokens: 11, totalTokens: 13 });
 
     expect(computeEventContentHash(baseline)).toBe(computeEventContentHash(baseline));
-    expect(computeEventContentHash(movedPathEvent)).toBe(computeEventContentHash(baseline));
     expect(computeEventContentHash(changedUsage)).not.toBe(computeEventContentHash(baseline));
   });
 
@@ -880,6 +1056,38 @@ describe('event-store', () => {
       eventCount: 1,
       schemaVersion: '999',
     });
+  });
+
+  it('leaves the journal mode of unsupported-version stores untouched', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-version-journal-'));
+    tempDirs.push(tempDir);
+    const dbPath = path.join(tempDir, 'events.db');
+    await writeV1Database(dbPath, { schemaVersion: '99' });
+
+    const before = await openTestDatabase(dbPath);
+
+    try {
+      expect(before.prepare('SELECT * FROM pragma_journal_mode').get()).toEqual({
+        journal_mode: 'delete',
+      });
+    } finally {
+      before.close();
+    }
+
+    await expect(openEventStore(dbPath)).rejects.toBeInstanceOf(EventStoreSchemaVersionError);
+
+    const after = await openTestDatabase(dbPath);
+
+    try {
+      expect(after.prepare('SELECT * FROM pragma_journal_mode').get()).toEqual({
+        journal_mode: 'delete',
+      });
+    } finally {
+      after.close();
+    }
+
+    await expect(stat(`${dbPath}-wal`)).rejects.toMatchObject({ code: 'ENOENT' });
+    await expect(stat(`${dbPath}-shm`)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
   it('opens writable stores with a busy timeout and WAL journal mode', async () => {

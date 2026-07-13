@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ayagmar.github.io/llm-usage-metrics/report-session.v1.schema.json",
+  "title": "llm-usage-metrics session report output (v1)",
+  "description": "Envelope and payload for session report --json output (session rows, or repo rows with --by-repo).",
+  "allOf": [
+    {
+      "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope"
+    }
+  ],
+  "properties": {
+    "report": {
+      "const": "session"
+    },
+    "data": {
+      "description": "Session or repo rows in render order.",
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/sessionRow"
+          },
+          {
+            "$ref": "#/$defs/repoRow"
+          }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "sessionRow": {
+      "description": "One session with aggregated usage.",
+      "allOf": [
+        {
+          "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/usageTotals"
+        }
+      ],
+      "properties": {
+        "rowType": {
+          "description": "Discriminator for session rows.",
+          "const": "session"
+        },
+        "source": {
+          "description": "Source id the session came from.",
+          "type": "string"
+        },
+        "sessionId": {
+          "description": "Normalized session identifier.",
+          "type": "string"
+        },
+        "repoRoot": {
+          "description": "Repository root attributed to the session; omitted when unknown.",
+          "type": "string"
+        },
+        "firstActivity": {
+          "description": "ISO timestamp of the session's first event.",
+          "type": "string"
+        },
+        "lastActivity": {
+          "description": "ISO timestamp of the session's last event.",
+          "type": "string"
+        },
+        "durationMs": {
+          "description": "Raw span in milliseconds: lastActivity minus firstActivity.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "activeMs": {
+          "description": "Gap-capped active time in milliseconds: sum of inter-event gaps, each capped at 5 minutes; 0 for single-event sessions.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "eventCount": {
+          "description": "Number of usage events in the session.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "models": {
+          "description": "Model identifiers active in the session.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "rowType",
+        "source",
+        "sessionId",
+        "firstActivity",
+        "lastActivity",
+        "durationMs",
+        "activeMs",
+        "eventCount",
+        "models"
+      ],
+      "unevaluatedProperties": false
+    },
+    "repoRow": {
+      "description": "One repository with aggregated usage (--by-repo).",
+      "allOf": [
+        {
+          "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/usageTotals"
+        }
+      ],
+      "properties": {
+        "rowType": {
+          "description": "Discriminator for repo rows.",
+          "const": "repo"
+        },
+        "repoRoot": {
+          "description": "Repository root; omitted for the unattributed bucket.",
+          "type": "string"
+        },
+        "sessionCount": {
+          "description": "Number of sessions attributed to the repository.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "firstActivity": {
+          "description": "ISO timestamp of the repository's first event.",
+          "type": "string"
+        },
+        "lastActivity": {
+          "description": "ISO timestamp of the repository's last event.",
+          "type": "string"
+        },
+        "sources": {
+          "description": "Source ids active in the repository.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": ["rowType", "sessionCount", "firstActivity", "lastActivity", "sources"],
+      "unevaluatedProperties": false
+    }
+  }
+}

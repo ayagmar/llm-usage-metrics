@@ -13,7 +13,7 @@ const marker = '\u001f';
 
 describe('parseGitLogShortstatLines', () => {
   it('parses commit boundaries and shortstat lines', () => {
-    const events = parseGitLogShortstatLines([
+    const { events } = parseGitLogShortstatLines([
       `${marker}1760090400${marker}abcdef1${marker}dev@example.com`,
       ' 1 file changed, 12 insertions(+), 3 deletions(-)',
       '',
@@ -48,7 +48,7 @@ describe('parseGitLogShortstatLines', () => {
   });
 
   it('filters out commits that do not match the configured author email', () => {
-    const events = parseGitLogShortstatLines(
+    const { events } = parseGitLogShortstatLines(
       [
         `${marker}1760090400${marker}abcdef1${marker}dev.test+tools@example.com`,
         ' 1 file changed, 2 insertions(+)',
@@ -70,7 +70,7 @@ describe('parseGitLogShortstatLines', () => {
   });
 
   it('ignores non-commit lines before the first boundary', () => {
-    const events = parseGitLogShortstatLines([
+    const { events } = parseGitLogShortstatLines([
       'noise before first commit',
       `${marker}1760090400${marker}abcdef1${marker}dev@example.com`,
       ' 1 file changed, 2 insertions(+)',
@@ -87,10 +87,20 @@ describe('parseGitLogShortstatLines', () => {
     ]);
   });
 
-  it('throws when a commit boundary line is malformed', () => {
-    expect(() =>
-      parseGitLogShortstatLines([`${marker}1760090400${marker}abcdef1${marker}`]),
-    ).toThrow('Malformed git commit boundary line');
+  it('skips a malformed commit boundary and keeps surrounding commits', () => {
+    const { events, malformedCommitLines } = parseGitLogShortstatLines([
+      `${marker}1760090400${marker}abcdef1${marker}dev@example.com`,
+      ' 1 file changed, 2 insertions(+)',
+      `${marker}1760094000${marker}abcdef2${marker}evil${marker}@example.com`,
+      ' 1 file changed, 9 insertions(+)',
+      `${marker}1760097600${marker}abcdef3${marker}dev@example.com`,
+      ' 1 file changed, 4 insertions(+)',
+    ]);
+
+    expect(events.map((event) => event.sha)).toEqual(['abcdef1', 'abcdef3']);
+    expect(events[0]?.linesAdded).toBe(2);
+    expect(events[1]?.linesAdded).toBe(4);
+    expect(malformedCommitLines).toBe(1);
   });
 
   it('throws when commit timestamp cannot be converted to ISO date', () => {

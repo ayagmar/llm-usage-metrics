@@ -24,7 +24,7 @@ import { fileURLToPath } from 'node:url';
 
 import { getEventStoreRuntimeConfig } from '../src/config/runtime-overrides.ts';
 import { normalizeProviderToBillingEntity } from '../src/domain/provider-normalization.ts';
-import { filterUsageEvents } from '../src/cli/build-usage-data-parsing.ts';
+import { filterUsageEvents } from '../src/cli/parse/usage-event-filters.ts';
 import { buildUsageEventDataset } from '../src/cli/build-usage-event-dataset.ts';
 import { RuntimeProfileCollector } from '../src/cli/runtime-profile.ts';
 import { getUserCacheRootDir } from '../src/utils/cache-root-dir.ts';

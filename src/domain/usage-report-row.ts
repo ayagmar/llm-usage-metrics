@@ -1,12 +1,15 @@
 import type { SourceId } from './usage-event.js';
 
-export type UsageTotals = {
+export type TokenBuckets = {
   inputTokens: number;
   outputTokens: number;
   reasoningTokens: number;
   cacheReadTokens: number;
   cacheWriteTokens: number;
   totalTokens: number;
+};
+
+export type UsageTotals = TokenBuckets & {
   costUsd?: number;
   costIncomplete?: boolean;
 };

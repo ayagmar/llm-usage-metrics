@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { IDLE_GAP_CAP_MS } from '../../src/domain/active-time.js';
 import { createUsageEvent, type UsageEventInput } from '../../src/domain/usage-event.js';
 import {
   aggregateSessions,
@@ -70,6 +71,82 @@ describe('aggregateSessions', () => {
       eventCount: 1,
       totalTokens: 3,
       costUsd: 0.01,
+    });
+  });
+
+  it('computes raw duration and gap-capped active time per session', () => {
+    // Events at 10:00, 10:30 (30m gap, capped to 5m), 12:00 (90m gap, capped
+    // to 5m): durationMs = 2h, activeMs = 2 * IDLE_GAP_CAP_MS.
+    const rows = aggregateSessions([
+      event({
+        source: 'codex',
+        sessionId: 'timed-session',
+        timestamp: '2026-01-02T10:00:00.000Z',
+        inputTokens: 1,
+        outputTokens: 1,
+      }),
+      event({
+        source: 'codex',
+        sessionId: 'timed-session',
+        timestamp: '2026-01-02T10:30:00.000Z',
+        inputTokens: 1,
+        outputTokens: 1,
+      }),
+      event({
+        source: 'codex',
+        sessionId: 'timed-session',
+        timestamp: '2026-01-02T12:00:00.000Z',
+        inputTokens: 1,
+        outputTokens: 1,
+      }),
+      event({
+        source: 'pi',
+        sessionId: 'single-event',
+        timestamp: '2026-01-02T09:00:00.000Z',
+        inputTokens: 1,
+        outputTokens: 1,
+      }),
+    ]);
+
+    const timedRow = rows.find((row) => row.sessionId === 'timed-session');
+    const singleRow = rows.find((row) => row.sessionId === 'single-event');
+
+    expect(timedRow).toMatchObject({
+      durationMs: 2 * 60 * 60 * 1000,
+      activeMs: 2 * IDLE_GAP_CAP_MS,
+    });
+    expect(singleRow).toMatchObject({ durationMs: 0, activeMs: 0 });
+  });
+
+  it('sums short gaps as-is inside active time', () => {
+    // Gaps: 3m + 90m (capped to 5m) = 8m active over a 93m duration.
+    const rows = aggregateSessions([
+      event({
+        source: 'codex',
+        sessionId: 'mixed-gaps',
+        timestamp: '2026-01-02T10:00:00.000Z',
+        inputTokens: 1,
+        outputTokens: 1,
+      }),
+      event({
+        source: 'codex',
+        sessionId: 'mixed-gaps',
+        timestamp: '2026-01-02T10:03:00.000Z',
+        inputTokens: 1,
+        outputTokens: 1,
+      }),
+      event({
+        source: 'codex',
+        sessionId: 'mixed-gaps',
+        timestamp: '2026-01-02T11:33:00.000Z',
+        inputTokens: 1,
+        outputTokens: 1,
+      }),
+    ]);
+
+    expect(rows[0]).toMatchObject({
+      durationMs: 93 * 60 * 1000,
+      activeMs: 3 * 60 * 1000 + IDLE_GAP_CAP_MS,
     });
   });
 
@@ -318,6 +395,7 @@ describe('aggregateSessionsByRepo', () => {
       rowType: 'repo',
       repoRoot: '/home/user/project-a',
       sessionCount: 2,
+      firstActivity: '2026-01-02T10:00:00.000Z',
       lastActivity: '2026-01-02T12:00:00.000Z',
       sources: ['codex', 'pi'],
       inputTokens: 35,

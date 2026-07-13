@@ -1,16 +1,15 @@
 import { renderTrendsReport, type TrendsReportFormat } from '../render/render-trends-report.js';
 import { renderTrendsShareSvg } from '../render/render-trends-share-svg.js';
 import { buildTrendsData } from './build-trends-data.js';
-import { emitDiagnostics } from './emit-diagnostics.js';
-import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
+import {
+  prepareReport,
+  runStandardPreparedReport,
+  STANDARD_REPORT_FORMATS,
+} from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
-import type {
-  BuildTrendsDataDeps,
-  TrendsCommandOptions,
-  UsageDiagnostics,
-} from './usage-data-contracts.js';
+import type { BuildTrendsDataDeps, TrendsCommandOptions } from './usage-data-contracts.js';
 
-const trendsReportFormats = ['terminal', 'json'] as const satisfies readonly TrendsReportFormat[];
+const trendsReportFormats = STANDARD_REPORT_FORMATS satisfies readonly TrendsReportFormat[];
 
 function validateShareOption(options: TrendsCommandOptions): void {
   if (!options.share) {
@@ -52,11 +51,6 @@ export async function runTrendsReport(options: TrendsCommandOptions): Promise<vo
   const runtimeProfile = createRuntimeProfileCollector();
   const preparedReport = await prepareTrendsReport(options, { runtimeProfile });
 
-  await runPreparedReport<UsageDiagnostics, TrendsReportFormat>({
-    preparedReport,
-    emitCommonDiagnostics: emitDiagnostics,
-    getEnvVarOverrides: (diagnostics) => diagnostics.activeEnvOverrides,
-    getActiveConfig: (diagnostics) => diagnostics.activeConfig,
-    getRuntimeProfile: (diagnostics) => diagnostics.runtimeProfile,
-  });
+  // Trends never warned on terminal overflow; keep stderr byte-identical.
+  await runStandardPreparedReport({ preparedReport, warnOnTerminalOverflow: false });
 }

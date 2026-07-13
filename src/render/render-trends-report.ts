@@ -1,12 +1,16 @@
+import { markdownTable } from 'markdown-table';
 import pc from 'picocolors';
 
 import type { TrendsDataResult } from '../cli/usage-data-contracts.js';
 import type { TrendBucket, TrendSeries, TrendsMetric } from '../trends/trends-series.js';
+import { formatDuration } from './format-duration.js';
+import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { renderReportHeader } from './report-header.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { resolveTtyColumns, visibleWidth } from './table-text-layout.js';
+import { renderReportJson } from './report-json.js';
 
-export type TrendsReportFormat = 'terminal' | 'json';
+export type TrendsReportFormat = 'terminal' | 'markdown' | 'json';
 
 export type RenderTrendsReportOptions = {
   useColor?: boolean;
@@ -42,11 +46,23 @@ function formatMetricValue(value: number, metric: TrendsMetric, approximate = fa
     return approximate ? `~${formatted}` : formatted;
   }
 
+  if (metric === 'active-hours') {
+    return formatDuration(value);
+  }
+
   return compactNumberFormatter.format(value);
 }
 
 function formatAxisValue(value: number, metric: TrendsMetric): string {
-  return metric === 'cost' ? usdFormatter.format(value) : compactNumberFormatter.format(value);
+  if (metric === 'cost') {
+    return usdFormatter.format(value);
+  }
+
+  if (metric === 'active-hours') {
+    return formatDuration(value);
+  }
+
+  return compactNumberFormatter.format(value);
 }
 
 function formatDateLabel(date: string): string {
@@ -59,8 +75,16 @@ function formatDateLabel(date: string): string {
   }).format(parsed);
 }
 
+function getMetricTitleLabel(metric: TrendsMetric): string {
+  if (metric === 'cost') {
+    return 'Cost';
+  }
+
+  return metric === 'active-hours' ? 'Active Hours' : 'Token Usage';
+}
+
 function getReportTitle(trendsData: TrendsDataResult): string {
-  const metricLabel = trendsData.metric === 'cost' ? 'Cost' : 'Token Usage';
+  const metricLabel = getMetricTitleLabel(trendsData.metric);
   const bucketCount = trendsData.totalSeries.buckets.length;
   const dayLabel = bucketCount === 1 ? 'day' : 'days';
   const sourceSuffix =
@@ -446,6 +470,72 @@ function renderTerminalTrendsReport(
   return lines.join('\n');
 }
 
+const markdownIntegerFormatter = new Intl.NumberFormat('en-US');
+
+function formatMarkdownMetricValue(bucket: TrendBucket | undefined, metric: TrendsMetric): string {
+  if (bucket === undefined) {
+    return '-';
+  }
+
+  if (metric === 'cost') {
+    const formatted = usdFormatter.format(bucket.value);
+    return bucket.incomplete === true ? `~${formatted}` : formatted;
+  }
+
+  if (metric === 'active-hours') {
+    return formatDuration(bucket.value);
+  }
+
+  return markdownIntegerFormatter.format(bucket.value);
+}
+
+function formatMarkdownSummaryTotal(series: TrendSeries, metric: TrendsMetric): string {
+  if (metric === 'cost') {
+    const formatted = usdFormatter.format(series.summary.total);
+    return series.summary.incomplete ? `~${formatted}` : formatted;
+  }
+
+  if (metric === 'active-hours') {
+    return formatDuration(series.summary.total);
+  }
+
+  return markdownIntegerFormatter.format(series.summary.total);
+}
+
+function renderMarkdownTrendsReport(trendsData: TrendsDataResult): string {
+  const metricLabel =
+    trendsData.metric === 'cost'
+      ? 'Cost'
+      : trendsData.metric === 'active-hours'
+        ? 'Active'
+        : 'Tokens';
+  const sourceSeries = trendsData.sourceSeries ?? [];
+  const seriesColumns =
+    sourceSeries.length > 0 ? [trendsData.totalSeries, ...sourceSeries] : [trendsData.totalSeries];
+  const headers =
+    sourceSeries.length > 0
+      ? ['Date', 'combined', ...sourceSeries.map((series) => series.source)]
+      : ['Date', metricLabel];
+  const bucketsByDate = seriesColumns.map(
+    (series) => new Map(series.buckets.map((bucket) => [bucket.date, bucket])),
+  );
+  const rows = trendsData.totalSeries.buckets.map((bucket) => [
+    bucket.date,
+    ...seriesColumns.map((series, columnIndex) =>
+      formatMarkdownMetricValue(bucketsByDate[columnIndex].get(bucket.date), trendsData.metric),
+    ),
+  ]);
+  const totalRow = [
+    'Total',
+    ...seriesColumns.map((series) => formatMarkdownSummaryTotal(series, trendsData.metric)),
+  ];
+
+  return markdownTable(
+    [headers, ...rows, totalRow].map((row) => row.map((cell) => toMarkdownSafeCell(cell))),
+    { align: ['l', ...seriesColumns.map(() => 'r' as const)] },
+  );
+}
+
 export function renderTrendsReport(
   trendsData: TrendsDataResult,
   format: TrendsReportFormat,
@@ -453,16 +543,14 @@ export function renderTrendsReport(
 ): string {
   switch (format) {
     case 'json':
-      return JSON.stringify(
-        {
-          metric: trendsData.metric,
-          dateRange: trendsData.dateRange,
-          totalSeries: trendsData.totalSeries,
-          sourceSeries: trendsData.sourceSeries,
-        },
-        null,
-        2,
-      );
+      return renderReportJson('trends', {
+        metric: trendsData.metric,
+        dateRange: trendsData.dateRange,
+        totalSeries: trendsData.totalSeries,
+        sourceSeries: trendsData.sourceSeries,
+      });
+    case 'markdown':
+      return renderMarkdownTrendsReport(trendsData);
     case 'terminal':
       return renderTerminalTrendsReport(trendsData, options);
   }

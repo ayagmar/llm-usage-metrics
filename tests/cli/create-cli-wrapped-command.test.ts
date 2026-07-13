@@ -48,7 +48,7 @@ describe('createCli wrapped command parsing', () => {
     );
   });
 
-  it('exposes provider/model filters but not date or markdown filters on wrapped command', () => {
+  it('exposes provider/model filters and markdown but not date filters on wrapped command', () => {
     const cli = createCli();
     const wrappedCommand = cli.commands.find((command) => command.name() === 'wrapped');
 
@@ -57,6 +57,6 @@ describe('createCli wrapped command parsing', () => {
     expect(wrappedCommand?.options.some((option) => option.long === '--model')).toBe(true);
     expect(wrappedCommand?.options.some((option) => option.long === '--since')).toBe(false);
     expect(wrappedCommand?.options.some((option) => option.long === '--until')).toBe(false);
-    expect(wrappedCommand?.options.some((option) => option.long === '--markdown')).toBe(false);
+    expect(wrappedCommand?.options.some((option) => option.long === '--markdown')).toBe(true);
   });
 });

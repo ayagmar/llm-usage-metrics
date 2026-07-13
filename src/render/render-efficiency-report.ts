@@ -15,6 +15,7 @@ import {
 } from './table-text-layout.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
+import { renderReportJson } from './report-json.js';
 
 export type EfficiencyReportFormat = 'terminal' | 'markdown' | 'json';
 
@@ -347,18 +348,10 @@ export function renderEfficiencyReport(
 ): string {
   switch (format) {
     case 'json':
-      if (efficiencyData.grouping === 'source') {
-        return JSON.stringify(
-          {
-            grouping: efficiencyData.grouping,
-            rows: efficiencyData.rows,
-          },
-          null,
-          2,
-        );
-      }
-
-      return JSON.stringify(efficiencyData.rows, null, 2);
+      return renderReportJson('efficiency', {
+        grouping: efficiencyData.grouping,
+        rows: efficiencyData.rows,
+      });
     case 'markdown':
       return renderMarkdownEfficiencyTable(efficiencyData.rows);
     case 'terminal':

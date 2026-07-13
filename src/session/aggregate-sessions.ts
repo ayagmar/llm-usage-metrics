@@ -1,8 +1,11 @@
+import { computeActiveMs } from '../domain/active-time.js';
+import { getEventSessionKey, normalizeOptionalModel } from '../domain/usage-event.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import type { UsageTotals } from '../domain/usage-report-row.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { getPeriodKey } from '../utils/time-buckets.js';
 import type { SessionRepoRow, SessionRow } from './session-row.js';
+import { addUsd } from '../utils/usd-math.js';
 
 export type AggregateSessionsOptions = {
   timezone?: string;
@@ -19,22 +22,18 @@ type SessionAccumulator = UsageTotals & {
   repoRoot: string | undefined;
   firstActivity: string;
   lastActivity: string;
+  timestampsMs: number[];
   eventCount: number;
   models: Set<string>;
 };
 
 type RepoAccumulator = UsageTotals & {
   repoRoot: string | undefined;
+  firstActivity: string;
   lastActivity: string;
   sessionKeys: Set<string>;
   sources: Set<string>;
 };
-
-const USD_PRECISION_SCALE = 1_000_000_000_000;
-
-function addUsd(left: number, right: number): number {
-  return Math.round((left + right) * USD_PRECISION_SCALE) / USD_PRECISION_SCALE;
-}
 
 function createAccumulator(event: UsageEvent): SessionAccumulator {
   return {
@@ -43,6 +42,7 @@ function createAccumulator(event: UsageEvent): SessionAccumulator {
     repoRoot: undefined,
     firstActivity: event.timestamp,
     lastActivity: event.timestamp,
+    timestampsMs: [],
     eventCount: 0,
     models: new Set(),
     inputTokens: 0,
@@ -52,15 +52,6 @@ function createAccumulator(event: UsageEvent): SessionAccumulator {
     cacheWriteTokens: 0,
     totalTokens: 0,
   };
-}
-
-function normalizeModel(model: string | undefined): string | undefined {
-  if (!model) {
-    return undefined;
-  }
-
-  const normalized = model.trim().toLowerCase();
-  return normalized || undefined;
 }
 
 function addEventUsage(totals: UsageTotals, event: UsageEvent): void {
@@ -81,6 +72,7 @@ function addEventUsage(totals: UsageTotals, event: UsageEvent): void {
 function addEventToAccumulator(accumulator: SessionAccumulator, event: UsageEvent): void {
   accumulator.eventCount++;
   addEventUsage(accumulator, event);
+  accumulator.timestampsMs.push(Date.parse(event.timestamp));
 
   accumulator.repoRoot ??= event.repoRoot;
 
@@ -92,15 +84,11 @@ function addEventToAccumulator(accumulator: SessionAccumulator, event: UsageEven
     accumulator.lastActivity = event.timestamp;
   }
 
-  const model = normalizeModel(event.model);
+  const model = normalizeOptionalModel(event.model);
 
   if (model) {
     accumulator.models.add(model);
   }
-}
-
-function getSessionKey(event: UsageEvent): string {
-  return `${event.source}\0${event.sessionId}`;
 }
 
 function isEventWithinDateRange(
@@ -176,6 +164,8 @@ function toSessionRow(accumulator: SessionAccumulator): SessionRow {
     repoRoot: accumulator.repoRoot,
     firstActivity: accumulator.firstActivity,
     lastActivity: accumulator.lastActivity,
+    durationMs: Date.parse(accumulator.lastActivity) - Date.parse(accumulator.firstActivity),
+    activeMs: computeActiveMs(accumulator.timestampsMs),
     eventCount: accumulator.eventCount,
     models: [...accumulator.models].sort(compareByCodePoint),
     inputTokens: accumulator.inputTokens,
@@ -207,7 +197,7 @@ export function aggregateSessions(
       continue;
     }
 
-    const key = getSessionKey(event);
+    const key = getEventSessionKey(event);
     const accumulator = sessions.get(key) ?? createAccumulator(event);
     addEventToAccumulator(accumulator, event);
     sessions.set(key, accumulator);
@@ -219,6 +209,7 @@ export function aggregateSessions(
 function createRepoAccumulator(event: UsageEvent): RepoAccumulator {
   return {
     repoRoot: event.repoRoot,
+    firstActivity: event.timestamp,
     lastActivity: event.timestamp,
     sessionKeys: new Set(),
     sources: new Set(),
@@ -232,9 +223,13 @@ function createRepoAccumulator(event: UsageEvent): RepoAccumulator {
 }
 
 function addEventToRepoAccumulator(accumulator: RepoAccumulator, event: UsageEvent): void {
-  accumulator.sessionKeys.add(getSessionKey(event));
+  accumulator.sessionKeys.add(getEventSessionKey(event));
   accumulator.sources.add(event.source);
   addEventUsage(accumulator, event);
+
+  if (event.timestamp < accumulator.firstActivity) {
+    accumulator.firstActivity = event.timestamp;
+  }
 
   if (event.timestamp > accumulator.lastActivity) {
     accumulator.lastActivity = event.timestamp;
@@ -246,6 +241,7 @@ function toRepoRow(accumulator: RepoAccumulator): SessionRepoRow {
     rowType: 'repo',
     repoRoot: accumulator.repoRoot,
     sessionCount: accumulator.sessionKeys.size,
+    firstActivity: accumulator.firstActivity,
     lastActivity: accumulator.lastActivity,
     sources: [...accumulator.sources].sort(compareByCodePoint),
     inputTokens: accumulator.inputTokens,

@@ -36,7 +36,7 @@ describe('QwenSourceAdapter', () => {
     await writeFile(second, '{}\n', 'utf8');
     await writeFile(first, '{}\n', 'utf8');
 
-    const adapter = new QwenSourceAdapter({ projectsDir: root });
+    const adapter = new QwenSourceAdapter({ dir: root });
 
     await expect(adapter.discoverFiles()).resolves.toEqual([
       await realpath(first),
@@ -46,13 +46,13 @@ describe('QwenSourceAdapter', () => {
 
   it('returns no files when the default directory is missing', async () => {
     const missingRoot = path.join(os.tmpdir(), `missing-qwen-${Date.now()}`);
-    const adapter = new QwenSourceAdapter({ projectsDir: missingRoot });
+    const adapter = new QwenSourceAdapter({ dir: missingRoot });
 
     await expect(adapter.discoverFiles()).resolves.toEqual([]);
   });
 
   it('rejects blank projects directories', async () => {
-    const adapter = new QwenSourceAdapter({ projectsDir: '   ' });
+    const adapter = new QwenSourceAdapter({ dir: '   ' });
 
     await expect(adapter.discoverFiles()).rejects.toThrow(
       'Qwen projects directory must be a non-empty path',
@@ -62,8 +62,8 @@ describe('QwenSourceAdapter', () => {
   it('errors when an explicit projects directory is missing', async () => {
     const missingRoot = path.join(os.tmpdir(), `missing-qwen-required-${Date.now()}`);
     const adapter = new QwenSourceAdapter({
-      projectsDir: missingRoot,
-      requireProjectsDir: true,
+      dir: missingRoot,
+      requireDir: true,
     });
 
     await expect(adapter.discoverFiles()).rejects.toThrow(
@@ -77,7 +77,7 @@ describe('QwenSourceAdapter', () => {
 
     const filePath = path.join(root, 'projects.jsonl');
     await writeFile(filePath, '{}\n', 'utf8');
-    const adapter = new QwenSourceAdapter({ projectsDir: filePath, requireProjectsDir: true });
+    const adapter = new QwenSourceAdapter({ dir: filePath, requireDir: true });
 
     await expect(adapter.discoverFiles()).rejects.toThrow(
       `Qwen projects directory is not a directory: ${filePath}`,
@@ -134,7 +134,7 @@ describe('QwenSourceAdapter', () => {
 
     await writeFile(filePath, '{"usageMetadata":', 'utf8');
 
-    const adapter = new QwenSourceAdapter({ projectsDir: root });
+    const adapter = new QwenSourceAdapter({ dir: root });
     const result = await adapter.parseFileWithDiagnostics(filePath);
 
     expect(result.events).toEqual([]);
@@ -161,7 +161,7 @@ describe('QwenSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new QwenSourceAdapter({ projectsDir: root });
+    const adapter = new QwenSourceAdapter({ dir: root });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toHaveLength(1);

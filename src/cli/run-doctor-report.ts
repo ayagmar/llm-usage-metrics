@@ -19,6 +19,10 @@ import { logger } from '../utils/logger.js';
 import { normalizeSourceFilter, validateSourceFilterValues } from './build-usage-data-inputs.js';
 import { resolveUserConfigForOptions, type UserConfigResolutionDeps } from './apply-user-config.js';
 import { emitUserConfigResolution } from './emit-active-config.js';
+import { formatByteSize } from '../render/format-byte-size.js';
+import { renderDoctorText } from '../render/render-doctor-report.js';
+import { renderReportJson } from '../render/report-json.js';
+import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
 import type { DoctorCommandOptions } from './usage-data-contracts.js';
 
 export type DoctorSourceResult = {
@@ -111,18 +115,6 @@ export async function buildDoctorResults(
   }
 
   return results;
-}
-
-function formatByteSize(sizeBytes: number): string {
-  if (sizeBytes < 1024) {
-    return `${sizeBytes} B`;
-  }
-
-  if (sizeBytes < 1024 * 1024) {
-    return `${(sizeBytes / 1024).toFixed(1)} KiB`;
-  }
-
-  return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MiB`;
 }
 
 function isSupportedStoreSchemaVersion(schemaVersion: string | undefined): boolean {
@@ -224,25 +216,6 @@ async function buildEventStoreDoctorResult(
   }
 }
 
-const doctorStatusGlyphs = { ok: '✔', error: '✖' } as const;
-
-function renderDoctorText(results: DoctorSourceResult[]): string {
-  const idWidth = Math.max(...results.map((result) => result.id.length), 0);
-  const formatWidth = Math.max(...results.map((result) => result.format.length), 0);
-  const lines = results.map((result) => {
-    const detail =
-      result.status === 'ok'
-        ? (result.detail ?? `${result.itemsFound ?? 0} file(s)`)
-        : (result.error ?? 'Unknown');
-
-    return `${doctorStatusGlyphs[result.status]} ${result.id.padEnd(idWidth)}  ${result.format.padEnd(formatWidth)}  ${detail}`;
-  });
-  const sourceResults = results.filter((result) => result.id !== 'event-store');
-  const healthyCount = sourceResults.filter((result) => result.status === 'ok').length;
-
-  return [...lines, '', `${healthyCount}/${sourceResults.length} sources healthy`].join('\n');
-}
-
 export async function runDoctorReport(
   options: DoctorCommandOptions,
   deps: DoctorDeps = {},
@@ -252,10 +225,13 @@ export async function runDoctorReport(
 
   emitUserConfigResolution(userConfigResolution, logger);
 
-  if (options.json) {
-    process.stdout.write(`${JSON.stringify({ sources: results }, null, 2)}\n`);
-    return;
-  }
-
-  process.stdout.write(`${renderDoctorText(results)}\n`);
+  const preparedReport = await prepareReport({
+    commandOptions: options,
+    supportedFormats: ['terminal', 'json'] as const,
+    buildData: async () => results,
+    render: (data, format) =>
+      format === 'json' ? renderReportJson('doctor', { sources: data }) : renderDoctorText(data),
+    getDiagnostics: () => undefined,
+  });
+  await runPreparedReport({ preparedReport });
 }

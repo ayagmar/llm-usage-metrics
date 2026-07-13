@@ -60,7 +60,7 @@ describe.skipIf(!DatabaseSync)('AntigravitySourceAdapter', () => {
       ],
     });
 
-    const adapter = new AntigravitySourceAdapter({ conversationsDir: tempDir });
+    const adapter = new AntigravitySourceAdapter({ dir: tempDir });
     const diagnostics = await adapter.parseFileWithDiagnostics(dbPath);
 
     expect(diagnostics).toMatchObject({
@@ -214,8 +214,8 @@ describe.skipIf(!DatabaseSync)('AntigravitySourceAdapter', () => {
     await writeFile(defaultDbPath, '', 'utf8');
 
     const explicitAdapter = new AntigravitySourceAdapter({
-      conversationsDir: explicitDir,
-      requireConversationsDir: true,
+      dir: explicitDir,
+      requireDir: true,
     });
     const defaultAdapter = new AntigravitySourceAdapter({
       homeDir: tempDir,
@@ -239,8 +239,8 @@ describe.skipIf(!DatabaseSync)('AntigravitySourceAdapter', () => {
 
   it('fails discovery when explicit conversation directory is blank, missing, or not a directory', async () => {
     const blankAdapter = new AntigravitySourceAdapter({
-      conversationsDir: '   ',
-      requireConversationsDir: true,
+      dir: '   ',
+      requireDir: true,
     });
 
     await expect(blankAdapter.discoverFiles()).rejects.toThrow(
@@ -248,8 +248,8 @@ describe.skipIf(!DatabaseSync)('AntigravitySourceAdapter', () => {
     );
 
     const missingAdapter = new AntigravitySourceAdapter({
-      conversationsDir: path.join(os.tmpdir(), `missing-antigravity-${Date.now()}`),
-      requireConversationsDir: true,
+      dir: path.join(os.tmpdir(), `missing-antigravity-${Date.now()}`),
+      requireDir: true,
     });
 
     await expect(missingAdapter.discoverFiles()).rejects.toThrow(
@@ -261,8 +261,8 @@ describe.skipIf(!DatabaseSync)('AntigravitySourceAdapter', () => {
     const filePath = path.join(tempDir, 'conversation.db');
     await writeFile(filePath, '', 'utf8');
     const fileAdapter = new AntigravitySourceAdapter({
-      conversationsDir: filePath,
-      requireConversationsDir: true,
+      dir: filePath,
+      requireDir: true,
     });
 
     await expect(fileAdapter.discoverFiles()).rejects.toThrow(

@@ -304,13 +304,13 @@ describe('buildCompareData', () => {
       current: 10,
       baseline: 0,
       delta: 10,
-      deltaPercent: undefined,
+      deltaRatio: undefined,
     });
     expect(metric(result, 'reasoningTokens')).toMatchObject({
       current: 0,
       baseline: 0,
       delta: 0,
-      deltaPercent: 0,
+      deltaRatio: 0,
     });
   });
 

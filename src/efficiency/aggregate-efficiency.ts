@@ -9,8 +9,7 @@ import {
   type EfficiencySourceRow,
   type EfficiencyUsageTotals,
 } from './efficiency-row.js';
-
-const USD_PRECISION_SCALE = 1_000_000_000_000;
+import { addUsd } from '../utils/usd-math.js';
 
 export type AggregateEfficiencyOptions = {
   usageRows: UsageReportRow[];
@@ -22,10 +21,6 @@ type UsageTotalsByPeriod = {
   combined: Map<string, EfficiencyUsageTotals>;
   sources: Map<string, Map<string, EfficiencyUsageTotals>>;
 };
-
-function addUsd(left: number, right: number): number {
-  return Math.round((left + right) * USD_PRECISION_SCALE) / USD_PRECISION_SCALE;
-}
 
 function toUsageTotals(row: UsageReportRow): EfficiencyUsageTotals {
   return {

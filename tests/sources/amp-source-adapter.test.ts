@@ -44,7 +44,7 @@ describe('AmpSourceAdapter', () => {
 
   describe('discoverFiles', () => {
     it('discovers JSON thread files', async () => {
-      const adapter = new AmpSourceAdapter({ threadsDir: fixturesDir });
+      const adapter = new AmpSourceAdapter({ dir: fixturesDir });
 
       await expect(adapter.discoverFiles()).resolves.toEqual([
         await fixturePath('both-thread.json'),
@@ -57,21 +57,21 @@ describe('AmpSourceAdapter', () => {
 
     it('returns empty array when a default directory is missing', async () => {
       const adapter = new AmpSourceAdapter({
-        threadsDir: path.join(fixturesDir, 'missing-root'),
+        dir: path.join(fixturesDir, 'missing-root'),
       });
 
       await expect(adapter.discoverFiles()).resolves.toEqual([]);
     });
 
     it('validates explicit directory options', async () => {
-      const blankDirAdapter = new AmpSourceAdapter({ threadsDir: '   ' });
+      const blankDirAdapter = new AmpSourceAdapter({ dir: '   ' });
       await expect(blankDirAdapter.discoverFiles()).rejects.toThrow(
         'Amp threads directory must be a non-empty path',
       );
 
       const missingRequiredDirAdapter = new AmpSourceAdapter({
-        threadsDir: path.join(fixturesDir, 'missing-root'),
-        requireThreadsDir: true,
+        dir: path.join(fixturesDir, 'missing-root'),
+        requireDir: true,
       });
       await expect(missingRequiredDirAdapter.discoverFiles()).rejects.toThrow(
         'Amp threads directory is missing or unreadable',
@@ -85,8 +85,8 @@ describe('AmpSourceAdapter', () => {
       await writeFile(filePath, '{}', 'utf8');
 
       const adapter = new AmpSourceAdapter({
-        threadsDir: filePath,
-        requireThreadsDir: true,
+        dir: filePath,
+        requireDir: true,
       });
 
       await expect(adapter.discoverFiles()).rejects.toThrow(
@@ -97,7 +97,7 @@ describe('AmpSourceAdapter', () => {
 
   describe('parseFileWithDiagnostics', () => {
     it('parses ledger events, resolves cache tokens from messages, and ignores credits', async () => {
-      const adapter = new AmpSourceAdapter({ threadsDir: fixturesDir });
+      const adapter = new AmpSourceAdapter({ dir: fixturesDir });
       const result = await adapter.parseFileWithDiagnostics(
         await fixturePath('ledger-thread.json'),
       );
@@ -130,7 +130,7 @@ describe('AmpSourceAdapter', () => {
     });
 
     it('falls back to assistant message usage when the ledger is absent', async () => {
-      const adapter = new AmpSourceAdapter({ threadsDir: fixturesDir });
+      const adapter = new AmpSourceAdapter({ dir: fixturesDir });
       const result = await adapter.parseFileWithDiagnostics(
         await fixturePath('legacy-messages-thread.json'),
       );
@@ -151,7 +151,7 @@ describe('AmpSourceAdapter', () => {
     });
 
     it('prefers ledger events over message usage when both are present', async () => {
-      const adapter = new AmpSourceAdapter({ threadsDir: fixturesDir });
+      const adapter = new AmpSourceAdapter({ dir: fixturesDir });
       const events = await adapter.parseFile(await fixturePath('both-thread.json'));
 
       expect(events).toHaveLength(1);
@@ -166,7 +166,7 @@ describe('AmpSourceAdapter', () => {
     });
 
     it('uses thread created timestamp when a usage entry timestamp is missing', async () => {
-      const adapter = new AmpSourceAdapter({ threadsDir: fixturesDir });
+      const adapter = new AmpSourceAdapter({ dir: fixturesDir });
       const events = await adapter.parseFile(await fixturePath('created-fallback-thread.json'));
 
       expect(events).toHaveLength(1);
@@ -181,7 +181,7 @@ describe('AmpSourceAdapter', () => {
     });
 
     it('reports zero-usage and bad-timestamp diagnostics', async () => {
-      const adapter = new AmpSourceAdapter({ threadsDir: fixturesDir });
+      const adapter = new AmpSourceAdapter({ dir: fixturesDir });
       const result = await adapter.parseFileWithDiagnostics(
         await fixturePath('diagnostics-thread.json'),
       );
@@ -200,7 +200,7 @@ describe('AmpSourceAdapter', () => {
       const filePath = path.join(tempDir, 'invalid.json');
       await writeFile(filePath, '{', 'utf8');
 
-      const adapter = new AmpSourceAdapter({ threadsDir: tempDir });
+      const adapter = new AmpSourceAdapter({ dir: tempDir });
       const result = await adapter.parseFileWithDiagnostics(filePath);
 
       expect(result.events).toEqual([]);

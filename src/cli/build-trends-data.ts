@@ -1,7 +1,9 @@
 import { aggregateUsage } from '../aggregate/aggregate-usage.js';
+import { computeActiveMs } from '../domain/active-time.js';
+import { getEventSessionKey, type UsageEvent } from '../domain/usage-event.js';
 import type { UsageReportRow } from '../domain/usage-report-row.js';
 import { aggregateTrends } from '../trends/aggregate-trends.js';
-import { getCurrentLocalDateKey, shiftLocalDateKey } from '../utils/time-buckets.js';
+import { getCurrentLocalDateKey, getPeriodKey, shiftLocalDateKey } from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import { validateDateInput, validateTimezone } from './build-usage-data-inputs.js';
@@ -14,7 +16,7 @@ import type {
   TrendsCommandOptions,
   TrendsDataResult,
 } from './usage-data-contracts.js';
-import type { TrendsMetric } from '../trends/trends-series.js';
+import type { TrendsMetric, TrendValueRow } from '../trends/trends-series.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 
 type ResolvedDateRange = {
@@ -43,11 +45,15 @@ function resolveMetric(metric: string | undefined): TrendsMetric {
 
   const normalizedMetric = metric.trim().toLowerCase();
 
-  if (normalizedMetric === 'cost' || normalizedMetric === 'tokens') {
+  if (
+    normalizedMetric === 'cost' ||
+    normalizedMetric === 'tokens' ||
+    normalizedMetric === 'active-hours'
+  ) {
     return normalizedMetric;
   }
 
-  throw new Error('--metric must be one of: cost, tokens');
+  throw new Error('--metric must be one of: cost, tokens, active-hours');
 }
 
 function resolveTrailingDateRange(today: string, days: number): ResolvedDateRange {
@@ -169,11 +175,67 @@ function resolveTrendsOptions(
   };
 }
 
-function filterRowsToDateRange(rows: UsageReportRow[], dateRange: ResolvedDateRange) {
+function filterRowsToDateRange(rows: TrendValueRow[], dateRange: ResolvedDateRange) {
   return rows.filter(
     (row) =>
       row.periodKey !== 'ALL' && row.periodKey >= dateRange.from && row.periodKey <= dateRange.to,
   );
+}
+
+function toTrendValueRows(rows: UsageReportRow[], metric: 'cost' | 'tokens'): TrendValueRow[] {
+  return rows.map((row) => ({
+    periodKey: row.periodKey,
+    source: row.source,
+    value: metric === 'tokens' ? row.totalTokens : (row.costUsd ?? 0),
+    incomplete: metric === 'cost' ? row.costIncomplete : undefined,
+  }));
+}
+
+// Per-day gap-capped active time: group a day's events by session, run
+// computeActiveMs per group, and sum per source. A session crossing midnight
+// splits at the day boundary.
+type ActiveTimeSessionGroup = {
+  source: string;
+  timestampsMs: number[];
+};
+
+function toActiveTimeValueRows(events: readonly UsageEvent[], timezone: string): TrendValueRow[] {
+  const groupsByDate = new Map<string, Map<string, ActiveTimeSessionGroup>>();
+
+  for (const event of events) {
+    const timestampMs = Date.parse(event.timestamp);
+
+    if (Number.isNaN(timestampMs)) {
+      continue;
+    }
+
+    const dateKey = getPeriodKey(event.timestamp, 'daily', timezone);
+    const sessions = groupsByDate.get(dateKey) ?? new Map<string, ActiveTimeSessionGroup>();
+    const group = sessions.get(getEventSessionKey(event)) ?? {
+      source: event.source,
+      timestampsMs: [],
+    };
+    group.timestampsMs.push(timestampMs);
+    sessions.set(getEventSessionKey(event), group);
+    groupsByDate.set(dateKey, sessions);
+  }
+
+  const rows: TrendValueRow[] = [];
+
+  for (const [dateKey, sessions] of groupsByDate) {
+    const activeMsBySource = new Map<string, number>();
+
+    for (const group of sessions.values()) {
+      const activeMs = computeActiveMs(group.timestampsMs);
+      activeMsBySource.set(group.source, (activeMsBySource.get(group.source) ?? 0) + activeMs);
+    }
+
+    for (const [source, activeMs] of activeMsBySource) {
+      rows.push({ periodKey: dateKey, source, value: activeMs });
+    }
+  }
+
+  return rows;
 }
 
 export async function buildTrendsData(
@@ -213,28 +275,32 @@ export async function buildTrendsData(
           pricingOrigin: 'none' as const,
           pricingWarning: undefined,
         };
-  const dailyRows = measureRuntimeProfileStageSync(
+  const dailyValueRows = measureRuntimeProfileStageSync(
     deps.runtimeProfile,
     'trends.aggregate_usage',
     () =>
-      aggregateUsage(pricingResult.pricedEvents, {
-        granularity: 'daily',
-        timezone: dataset.normalizedInputs.timezone,
-        sourceOrder: dataset.adaptersToParse.map((adapter) => adapter.id),
-        includeModelBreakdown: false,
-      }),
+      resolved.metric === 'active-hours'
+        ? toActiveTimeValueRows(dataset.filteredEvents, dataset.normalizedInputs.timezone)
+        : toTrendValueRows(
+            aggregateUsage(pricingResult.pricedEvents, {
+              granularity: 'daily',
+              timezone: dataset.normalizedInputs.timezone,
+              sourceOrder: dataset.adaptersToParse.map((adapter) => adapter.id),
+              includeModelBreakdown: false,
+            }),
+            resolved.metric,
+          ),
   );
-  const observedDates = dailyRows
-    .filter((row) => row.rowType !== 'grand_total')
+  const observedDates = dailyValueRows
+    .filter((row) => row.periodKey !== 'ALL')
     .map((row) => row.periodKey)
     .sort();
   const outputDateRange = resolveOutputDateRange(options, resolved.today, resolved.days, [
     ...new Set(observedDates),
   ]);
   const trends = measureRuntimeProfileStageSync(deps.runtimeProfile, 'trends.aggregate', () =>
-    aggregateTrends(filterRowsToDateRange(dailyRows, outputDateRange), {
+    aggregateTrends(filterRowsToDateRange(dailyValueRows, outputDateRange), {
       dateRange: outputDateRange,
-      metric: resolved.metric,
       bySource: options.bySource === true,
       sourceOrder: dataset.adaptersToParse.map((adapter) => adapter.id),
     }),

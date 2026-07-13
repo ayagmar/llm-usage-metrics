@@ -38,7 +38,14 @@ describe('large jsonl fixture e2e', () => {
         json: true,
       });
 
-      const rows = JSON.parse(report) as JsonReportRow[];
+      const parsed = JSON.parse(report) as {
+        schemaVersion: number;
+        report: string;
+        data: JsonReportRow[];
+      };
+
+      expect(parsed).toMatchObject({ schemaVersion: 1, report: 'usage' });
+      const rows = parsed.data;
       const periodRow = rows.find((row) => row.rowType === 'period_source' && row.source === 'pi');
       const codexRow = rows.find(
         (row) => row.rowType === 'period_source' && row.source === 'codex',

@@ -15,7 +15,11 @@ import {
   normalizeTimestampCandidate,
   toNumberLike,
 } from '../parsing-utils.js';
-import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
+import type {
+  SourceAdapter,
+  SourceAdapterPathOptions,
+  SourceParseFileDiagnostics,
+} from '../source-adapter.js';
 
 const defaultSessionsDir = path.join(os.homedir(), '.codex', 'sessions');
 
@@ -38,10 +42,7 @@ type CodexSessionState = {
   previousLastUsageOnlyKey?: string;
 };
 
-export type CodexSourceAdapterOptions = {
-  sessionsDir?: string;
-  requireSessionsDir?: boolean;
-};
+export type CodexSourceAdapterOptions = SourceAdapterPathOptions;
 
 const SESSION_META_BYTES = Buffer.from('"session_meta"');
 const TURN_CONTEXT_BYTES = Buffer.from('"turn_context"');
@@ -249,11 +250,11 @@ export class CodexSourceAdapter implements SourceAdapter {
   } as const;
 
   private readonly sessionsDir: string;
-  private readonly requireSessionsDir: boolean;
+  private readonly requireDir: boolean;
 
   public constructor(options: CodexSourceAdapterOptions = {}) {
-    this.sessionsDir = options.sessionsDir ?? defaultSessionsDir;
-    this.requireSessionsDir = options.requireSessionsDir ?? false;
+    this.sessionsDir = options.dir ?? defaultSessionsDir;
+    this.requireDir = options.requireDir ?? false;
   }
 
   public async discoverFiles(): Promise<string[]> {
@@ -263,7 +264,7 @@ export class CodexSourceAdapter implements SourceAdapter {
 
     const normalizedSessionsDir = this.sessionsDir.trim();
 
-    if (this.requireSessionsDir) {
+    if (this.requireDir) {
       const sessionsDirStats = await pathStat(normalizedSessionsDir);
 
       if (!sessionsDirStats) {

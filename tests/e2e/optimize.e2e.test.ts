@@ -24,7 +24,14 @@ describe('optimize report e2e', () => {
       ignorePricingFailures: true,
     });
 
-    const rows = JSON.parse(report) as OptimizeRow[];
+    const parsed = JSON.parse(report) as {
+      schemaVersion: number;
+      report: string;
+      data: OptimizeRow[];
+    };
+
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'optimize' });
+    const rows = parsed.data;
     const candidateRows = rows.filter(
       (row): row is OptimizeCandidateRow => row.rowType === 'candidate',
     );

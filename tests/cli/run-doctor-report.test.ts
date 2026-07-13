@@ -167,15 +167,14 @@ function captureStdout(): {
   restore: () => void;
 } {
   const chunks: string[] = [];
-  const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-    chunks.push(String(chunk));
-    return true;
+  const logSpy = vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
+    chunks.push(`${args.join(' ')}\n`);
   });
 
   return {
     getOutput: () => chunks.join(''),
     restore: () => {
-      writeSpy.mockRestore();
+      logSpy.mockRestore();
     },
   };
 }
@@ -389,7 +388,7 @@ describe('run-doctor-report', () => {
     const eventStorePath = path.join(rootDir, 'events.db');
     await writeFile(eventStorePath, '', 'utf8');
 
-    const readEventStoreSummarySpy = vi.fn(async () => ({ eventCount: 42, schemaVersion: '2' }));
+    const readEventStoreSummarySpy = vi.fn(async () => ({ eventCount: 42, schemaVersion: '3' }));
     const readEventStoreStoredFilesSpy = vi.fn(async () => []);
 
     const results = await buildDoctorResults(
@@ -416,7 +415,7 @@ describe('run-doctor-report', () => {
         format: 'sqlite',
         status: 'ok',
         itemsFound: 42,
-        detail: '42 event(s), 0 departed file(s), schema v2, 0 B',
+        detail: '42 event(s), 0 departed file(s), schema v3, 0 B',
       },
     ]);
   });
@@ -457,10 +456,10 @@ describe('run-doctor-report', () => {
       status: 'ok',
       itemsFound: 3,
     });
-    expect(eventStoreResult?.detail).toMatch(/^3 event\(s\), 1 departed file\(s\), schema v2, .+$/);
+    expect(eventStoreResult?.detail).toMatch(/^3 event\(s\), 1 departed file\(s\), schema v3, .+$/);
     await expect(readEventStoreSummary(eventStorePath)).resolves.toMatchObject({
       eventCount: 3,
-      schemaVersion: '2',
+      schemaVersion: '3',
     });
   });
 
@@ -494,7 +493,7 @@ describe('run-doctor-report', () => {
         format: 'sqlite',
         status: 'error',
         error:
-          'Event store schema v999 is not supported by this llm-usage-metrics version (supports v2); upgrade llm-usage-metrics or set LLM_USAGE_EVENT_STORE=0',
+          'Event store schema v999 is not supported by this llm-usage-metrics version (supports v3); upgrade llm-usage-metrics or set LLM_USAGE_EVENT_STORE=0',
       },
     ]);
     // The doctor check must be read-only: the newer version survives it.
@@ -617,7 +616,11 @@ describe('run-doctor-report', () => {
     }
 
     expect(JSON.parse(stdout.getOutput())).toEqual({
-      sources: [{ id: 'gemini', format: 'json', status: 'ok', itemsFound: 1 }],
+      schemaVersion: 1,
+      report: 'doctor',
+      data: {
+        sources: [{ id: 'gemini', format: 'json', status: 'ok', itemsFound: 1 }],
+      },
     });
   });
 });

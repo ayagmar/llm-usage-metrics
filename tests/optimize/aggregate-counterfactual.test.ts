@@ -96,7 +96,7 @@ describe('aggregate-counterfactual', () => {
       candidateModel: 'gpt-4.1',
       hypotheticalCostUsd: 2.8,
       savingsUsd: 0,
-      savingsPct: 0,
+      savingsRatio: 0,
     });
   });
 
@@ -379,7 +379,7 @@ describe('aggregate-counterfactual', () => {
 
     expect(candidateRow).toMatchObject({
       savingsUsd: undefined,
-      savingsPct: undefined,
+      savingsRatio: undefined,
       notes: ['baseline_incomplete'],
     });
   });

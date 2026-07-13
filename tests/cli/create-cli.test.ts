@@ -19,7 +19,7 @@ afterEach(async () => {
 });
 
 describe('createCli', () => {
-  it('registers daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, doctor, prune, and config commands', () => {
+  it('registers daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, doctor, prune, config, and schema commands', () => {
     const cli = createCli();
 
     expect(cli.name()).toBe('llm-usage');
@@ -33,9 +33,11 @@ describe('createCli', () => {
       'trends',
       'session',
       'wrapped',
+      'events',
       'doctor',
       'prune',
       'config',
+      'schema',
     ]);
   });
 
@@ -104,7 +106,9 @@ describe('createCli', () => {
 
   it('includes quiet on every report command', () => {
     const cli = createCli();
-    const reportCommands = cli.commands.filter((command) => command.name() !== 'config');
+    const reportCommands = cli.commands.filter(
+      (command) => !['config', 'schema'].includes(command.name()),
+    );
 
     for (const command of reportCommands) {
       expect(command.options.some((option) => option.long === '--quiet')).toBe(true);
@@ -128,7 +132,7 @@ describe('createCli', () => {
     );
   });
 
-  it('configures trends command with share but without markdown or per-model columns', () => {
+  it('configures trends command with share and markdown but without per-model columns', () => {
     const cli = createCli();
     const trendsCommand = cli.commands.find((command) => command.name() === 'trends');
 
@@ -139,7 +143,7 @@ describe('createCli', () => {
     expect(trendsCommand?.options.some((option) => option.long === '--json')).toBe(true);
     expect(trendsCommand?.options.some((option) => option.long === '--share')).toBe(true);
     expect(trendsCommand?.options.some((option) => option.long === '--history')).toBe(true);
-    expect(trendsCommand?.options.some((option) => option.long === '--markdown')).toBe(false);
+    expect(trendsCommand?.options.some((option) => option.long === '--markdown')).toBe(true);
     expect(trendsCommand?.options.some((option) => option.long === '--per-model-columns')).toBe(
       false,
     );
@@ -170,7 +174,7 @@ describe('createCli', () => {
     expect(sessionCommand?.options.some((option) => option.long === '--repo-dir')).toBe(false);
   });
 
-  it('configures compare command with baseline flags and without share or per-model columns', () => {
+  it('configures compare command with baseline flags and without per-model columns', () => {
     const cli = createCli();
     const compareCommand = cli.commands.find((command) => command.name() === 'compare');
 
@@ -187,7 +191,7 @@ describe('createCli', () => {
     expect(compareCommand?.options.some((option) => option.long === '--model')).toBe(true);
     expect(compareCommand?.options.some((option) => option.long === '--pricing-url')).toBe(true);
     expect(compareCommand?.options.some((option) => option.long === '--history')).toBe(true);
-    expect(compareCommand?.options.some((option) => option.long === '--share')).toBe(false);
+    expect(compareCommand?.options.some((option) => option.long === '--share')).toBe(true);
     expect(compareCommand?.options.some((option) => option.long === '--per-model-columns')).toBe(
       false,
     );
@@ -209,7 +213,7 @@ describe('createCli', () => {
     expect(wrappedCommand?.options.some((option) => option.long === '--model')).toBe(true);
     expect(wrappedCommand?.options.some((option) => option.long === '--since')).toBe(false);
     expect(wrappedCommand?.options.some((option) => option.long === '--until')).toBe(false);
-    expect(wrappedCommand?.options.some((option) => option.long === '--markdown')).toBe(false);
+    expect(wrappedCommand?.options.some((option) => option.long === '--markdown')).toBe(true);
     expect(wrappedCommand?.options.some((option) => option.long === '--per-model-columns')).toBe(
       false,
     );
@@ -365,10 +369,12 @@ describe('createCli', () => {
       'trends',
       'session',
       'wrapped',
+      'events',
       'doctor',
       'prune',
     ]);
     expect(getCliReferenceExamples()).toContain('llm-usage trends');
+    expect(getCliReferenceExamples()).toContain('llm-usage events --format jsonl > events.jsonl');
     expect(getCliReferenceExamples()).toContain('llm-usage compare');
     expect(getCliReferenceExamples()).toContain(
       'llm-usage compare --since 2026-06-01 --until 2026-06-30 --vs-since 2026-05-01 --vs-until 2026-05-31',

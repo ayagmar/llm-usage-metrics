@@ -30,7 +30,7 @@ In a 1.8 GiB codex corpus, most lines carry no usage data. Rejecting them before
 
 Two mechanisms bound and exploit parallelism:
 
-- **`parseMaxParallel`** (config key, default 8, clamped to 1–64) is a global semaphore over concurrent file parses. Adapters share one budget per run (`createParseBudget` in `src/cli/build-usage-data-parsing.ts`), so parsing many sources at once cannot multiply the concurrency.
+- **`parseMaxParallel`** (config key, default 8, clamped to 1–64) is a global semaphore over concurrent file parses. Adapters share one budget per run (`createParseBudget` in `src/cli/parse/parse-budget.ts`), so parsing many sources at once cannot multiply the concurrency.
 - **The worker-thread parse pool** (`src/cli/parse-worker-pool.ts`) moves large parse work off the main thread. Only sources registered for worker parsing are eligible — currently codex only. For an eligible source the pipeline first resolves event-store hits and collects the misses with their byte sizes; the pool engages only when the total missed bytes reach `parseWorkerMinBytes` (default 268435456, ≈256 MiB). It then spawns at most `parseWorkers` threads (config `"auto"` — the default, resolving to `min(8, cores − 1)` — or `0`–`64`, where `0` disables the pool) and parses the missed files on them. If workers cannot run, every task carries an inline-parse fallback, so the run completes on the main thread and the runtime profile records the pool as `fallback`. `LLM_USAGE_PARSE_WORKERS` and `LLM_USAGE_PARSE_WORKER_MIN_BYTES` override both knobs per run.
 
 In practice a warm run has few misses and the pool stays off; a cold codex run over a large corpus is what engages it.

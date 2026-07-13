@@ -1,3 +1,4 @@
+import { estimateCacheSavingsUsd } from '../pricing/cache-savings.js';
 import { aggregateWrapped } from '../wrapped/aggregate-wrapped.js';
 import { getCurrentLocalDateKey } from '../utils/time-buckets.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
@@ -76,17 +77,20 @@ export async function buildWrappedData(
         },
       }),
   );
-  const { pricedEvents, pricingOrigin, pricingWarning } = await applyPricingToUsageEventDataset(
-    dataset,
-    deps,
-    'auto',
-  );
+  const { pricedEvents, pricingOrigin, pricingWarning, pricingSource } =
+    await applyPricingToUsageEventDataset(dataset, deps, 'auto');
   const recap = measureRuntimeProfileStageSync(deps.runtimeProfile, 'wrapped.aggregate', () =>
     aggregateWrapped(pricedEvents, {
       year,
       timezone: dataset.normalizedInputs.timezone,
     }),
   );
+
+  // The dataset is already year-filtered via since/until above, so the same
+  // events the aggregator consumed feed the counterfactual.
+  recap.estimatedCacheSavingsUsd = pricingSource
+    ? estimateCacheSavingsUsd(pricedEvents, pricingSource)
+    : undefined;
   const diagnostics = buildUsageDiagnostics({
     adaptersToParse: dataset.adaptersToParse,
     successfulParseResults: dataset.successfulParseResults,

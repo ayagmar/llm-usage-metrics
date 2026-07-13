@@ -19,7 +19,7 @@ afterEach(async () => {
 
 describe('CodexSourceAdapter', () => {
   it('rejects blank sessions directories before discovery', async () => {
-    const adapter = new CodexSourceAdapter({ sessionsDir: '   ' });
+    const adapter = new CodexSourceAdapter({ dir: '   ' });
 
     await expect(adapter.discoverFiles()).rejects.toThrow(
       'Codex sessions directory must be a non-empty path',
@@ -40,7 +40,7 @@ describe('CodexSourceAdapter', () => {
     await writeFile(second, '{}\n', 'utf8');
     await writeFile(first, '{}\n', 'utf8');
 
-    const adapter = new CodexSourceAdapter({ sessionsDir: root });
+    const adapter = new CodexSourceAdapter({ dir: root });
 
     await expect(adapter.discoverFiles()).resolves.toEqual([first, second]);
   });
@@ -171,7 +171,7 @@ describe('CodexSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new CodexSourceAdapter({ sessionsDir: root });
+    const adapter = new CodexSourceAdapter({ dir: root });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toHaveLength(3);
@@ -239,7 +239,7 @@ describe('CodexSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new CodexSourceAdapter({ sessionsDir: root });
+    const adapter = new CodexSourceAdapter({ dir: root });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toHaveLength(1);
@@ -324,7 +324,7 @@ describe('CodexSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new CodexSourceAdapter({ sessionsDir: root });
+    const adapter = new CodexSourceAdapter({ dir: root });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toHaveLength(1);
@@ -407,7 +407,7 @@ describe('CodexSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new CodexSourceAdapter({ sessionsDir: root });
+    const adapter = new CodexSourceAdapter({ dir: root });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toHaveLength(2);
@@ -462,7 +462,7 @@ describe('CodexSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new CodexSourceAdapter({ sessionsDir: root });
+    const adapter = new CodexSourceAdapter({ dir: root });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toHaveLength(1);
@@ -555,7 +555,7 @@ describe('CodexSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new CodexSourceAdapter({ sessionsDir: root });
+    const adapter = new CodexSourceAdapter({ dir: root });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toHaveLength(1);
@@ -602,7 +602,7 @@ describe('CodexSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new CodexSourceAdapter({ sessionsDir: root });
+    const adapter = new CodexSourceAdapter({ dir: root });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toEqual([]);
@@ -678,7 +678,7 @@ describe('CodexSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new CodexSourceAdapter({ sessionsDir: root });
+    const adapter = new CodexSourceAdapter({ dir: root });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toHaveLength(2);
@@ -737,7 +737,7 @@ describe('CodexSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new CodexSourceAdapter({ sessionsDir: root });
+    const adapter = new CodexSourceAdapter({ dir: root });
     const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
 
     expect(diagnostics.events).toEqual([]);
@@ -752,7 +752,7 @@ describe('CodexSourceAdapter', () => {
 
     await writeFile(filePath, '{"type":"session_meta",', 'utf8');
 
-    const adapter = new CodexSourceAdapter({ sessionsDir: root });
+    const adapter = new CodexSourceAdapter({ dir: root });
     const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
 
     expect(diagnostics.events).toEqual([]);
@@ -809,7 +809,7 @@ describe('CodexSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new CodexSourceAdapter({ sessionsDir: root });
+    const adapter = new CodexSourceAdapter({ dir: root });
     const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
 
     expect(diagnostics.events).toHaveLength(1);

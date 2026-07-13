@@ -1,19 +1,15 @@
 import { renderCompareReport, type CompareReportFormat } from '../render/render-compare-report.js';
+import { renderCompareShareSvg } from '../render/render-compare-share-svg.js';
 import { buildCompareData } from './build-compare-data.js';
-import { emitDiagnostics } from './emit-diagnostics.js';
-import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
+import {
+  prepareReport,
+  runStandardPreparedReport,
+  STANDARD_REPORT_FORMATS,
+} from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
-import type {
-  BuildCompareDataDeps,
-  CompareCommandOptions,
-  UsageDiagnostics,
-} from './usage-data-contracts.js';
+import type { BuildCompareDataDeps, CompareCommandOptions } from './usage-data-contracts.js';
 
-const compareReportFormats = [
-  'terminal',
-  'markdown',
-  'json',
-] as const satisfies readonly CompareReportFormat[];
+const compareReportFormats = STANDARD_REPORT_FORMATS satisfies readonly CompareReportFormat[];
 
 async function prepareCompareReport(
   options: CompareCommandOptions,
@@ -25,6 +21,13 @@ async function prepareCompareReport(
     buildData: () => buildCompareData(options, deps),
     getDiagnostics: (compareData) => compareData.diagnostics,
     runtimeProfile: deps.runtimeProfile,
+    createShareArtifact: options.share
+      ? (compareData) => ({
+          fileName: 'compare-share.svg',
+          svg: renderCompareShareSvg(compareData),
+          logLabel: 'compare',
+        })
+      : undefined,
     render: (compareData, format) => renderCompareReport(compareData, format),
   });
 }
@@ -38,12 +41,5 @@ export async function runCompareReport(options: CompareCommandOptions): Promise<
   const runtimeProfile = createRuntimeProfileCollector();
   const preparedReport = await prepareCompareReport(options, { runtimeProfile });
 
-  await runPreparedReport<UsageDiagnostics, CompareReportFormat>({
-    preparedReport,
-    emitCommonDiagnostics: emitDiagnostics,
-    getEnvVarOverrides: (diagnostics) => diagnostics.activeEnvOverrides,
-    getActiveConfig: (diagnostics) => diagnostics.activeConfig,
-    getRuntimeProfile: (diagnostics) => diagnostics.runtimeProfile,
-    warnOnTerminalOverflow: true,
-  });
+  await runStandardPreparedReport({ preparedReport });
 }

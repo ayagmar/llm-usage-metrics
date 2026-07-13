@@ -4,7 +4,7 @@ import pc from 'picocolors';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { renderEfficiencyReport } from '../../src/render/render-efficiency-report.js';
-import type { EfficiencyDataResult } from '../../src/cli/usage-data-contracts.js';
+import type { EfficiencyDataResult, UsageDiagnostics } from '../../src/cli/usage-data-contracts.js';
 import { visibleWidth } from '../../src/render/table-text-layout.js';
 
 function stripAnsi(value: string): string {
@@ -57,7 +57,7 @@ function overrideStdoutTty(columns: number): () => void {
 }
 
 function createEfficiencyDataResult(
-  overrides: Partial<EfficiencyDataResult['diagnostics']['usage']> = {},
+  overrides: Partial<UsageDiagnostics> = {},
 ): EfficiencyDataResult {
   return {
     grouping: 'period',
@@ -103,18 +103,17 @@ function createEfficiencyDataResult(
       },
     ],
     diagnostics: {
-      usage: {
-        sessionStats: [],
-        sourceFailures: [],
-        skippedRows: [],
-        pricingOrigin: 'none',
-        activeEnvOverrides: [],
-        timezone: 'UTC',
-        ...overrides,
-      },
+      sessionStats: [],
+      sourceFailures: [],
+      skippedRows: [],
+      pricingOrigin: 'none',
+      activeEnvOverrides: [],
+      timezone: 'UTC',
+      ...overrides,
       repoDir: '/tmp/repo',
       includeMergeCommits: false,
       gitCommitCount: 2,
+      gitMalformedCommitLines: 0,
       gitLinesAdded: 20,
       gitLinesDeleted: 8,
       repoMatchedUsageEvents: 2,
@@ -355,10 +354,15 @@ describe('renderEfficiencyReport', () => {
       granularity: 'monthly',
     });
 
-    const parsed = JSON.parse(output) as Array<Record<string, unknown>>;
+    const parsed = JSON.parse(output) as {
+      schemaVersion: number;
+      report: string;
+      data: { grouping: string; rows: Array<Record<string, unknown>> };
+    };
 
-    expect(parsed[0]?.commitsPerUsd).toBeUndefined();
-    expect(parsed[1]?.tokensPerCommit).toBe(62.5);
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'efficiency' });
+    expect(parsed.data.rows[0]?.commitsPerUsd).toBeUndefined();
+    expect(parsed.data.rows[1]?.tokensPerCommit).toBe(62.5);
   });
 
   it('renders by-source json with grouping metadata', () => {
@@ -367,12 +371,14 @@ describe('renderEfficiencyReport', () => {
     });
 
     const parsed = JSON.parse(output) as {
-      grouping?: unknown;
-      rows?: Array<Record<string, unknown>>;
+      data: {
+        grouping?: unknown;
+        rows?: Array<Record<string, unknown>>;
+      };
     };
 
-    expect(parsed.grouping).toBe('source');
-    expect(parsed.rows?.[0]).toMatchObject({
+    expect(parsed.data.grouping).toBe('source');
+    expect(parsed.data.rows?.[0]).toMatchObject({
       rowType: 'period_source',
       periodKey: '2026-02-10',
       source: 'codex',

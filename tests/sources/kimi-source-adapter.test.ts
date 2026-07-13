@@ -101,21 +101,21 @@ describe('KimiSourceAdapter', () => {
     await writeFile(codeFile, '{}\n', 'utf8');
 
     const adapter = new KimiSourceAdapter({
-      kimiDir: cliRoot,
+      dir: cliRoot,
       defaultRootDirs: [cliRoot, codeRoot],
     });
 
     await expect(adapter.discoverFiles()).resolves.toEqual([await realpath(cliFile)]);
 
-    const blankAdapter = new KimiSourceAdapter({ kimiDir: '   ', requireKimiDir: true });
+    const blankAdapter = new KimiSourceAdapter({ dir: '   ', requireDir: true });
     await expect(blankAdapter.discoverFiles()).rejects.toThrow(
       'Kimi sessions directory must be a non-empty path',
     );
 
     const missingPath = path.join(os.tmpdir(), `missing-kimi-${Date.now()}`);
     const missingAdapter = new KimiSourceAdapter({
-      kimiDir: missingPath,
-      requireKimiDir: true,
+      dir: missingPath,
+      requireDir: true,
     });
     await expect(missingAdapter.discoverFiles()).rejects.toThrow(
       'Kimi sessions directory is missing or unreadable',
@@ -123,7 +123,7 @@ describe('KimiSourceAdapter', () => {
 
     const filePath = path.join(root, 'not-a-dir.jsonl');
     await writeFile(filePath, '{}\n', 'utf8');
-    const fileAdapter = new KimiSourceAdapter({ kimiDir: filePath, requireKimiDir: true });
+    const fileAdapter = new KimiSourceAdapter({ dir: filePath, requireDir: true });
     await expect(fileAdapter.discoverFiles()).rejects.toThrow(
       `Kimi sessions directory is not a directory: ${filePath}`,
     );
@@ -225,7 +225,7 @@ describe('KimiSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new KimiSourceAdapter({ kimiDir: root });
+    const adapter = new KimiSourceAdapter({ dir: root });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toHaveLength(1);
@@ -257,7 +257,7 @@ describe('KimiSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new KimiSourceAdapter({ kimiDir: path.join(root, 'sessions') });
+    const adapter = new KimiSourceAdapter({ dir: path.join(root, 'sessions') });
     const events = await adapter.parseFile(filePath);
 
     expect(events.map((event) => event.model)).toEqual(['kimi-latest', 'kimi-latest']);
@@ -279,7 +279,7 @@ describe('KimiSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new KimiSourceAdapter({ kimiDir: path.join(root, 'sessions') });
+    const adapter = new KimiSourceAdapter({ dir: path.join(root, 'sessions') });
     const result = await adapter.parseFileWithDiagnostics(filePath);
 
     expect(result.events.map((event) => event.model)).toEqual(['kimi-k2.5', 'kimi-k2.6']);
@@ -295,7 +295,7 @@ describe('KimiSourceAdapter', () => {
     await writeFile(path.join(root, 'config.json'), 'not-json{', 'utf8');
     await writeFile(filePath, cliStatusUpdateLine('message-1', 1772445600), 'utf8');
 
-    const adapter = new KimiSourceAdapter({ kimiDir: path.join(root, 'sessions') });
+    const adapter = new KimiSourceAdapter({ dir: path.join(root, 'sessions') });
     const result = await adapter.parseFileWithDiagnostics(filePath);
 
     expect(result.events.map((event) => event.model)).toEqual(['kimi-k2.5']);
@@ -309,7 +309,7 @@ describe('KimiSourceAdapter', () => {
     await mkdir(path.dirname(filePath), { recursive: true });
     await writeFile(filePath, '{"type":"StatusUpdate",', 'utf8');
 
-    const adapter = new KimiSourceAdapter({ kimiDir: path.join(root, 'sessions') });
+    const adapter = new KimiSourceAdapter({ dir: path.join(root, 'sessions') });
     const result = await adapter.parseFileWithDiagnostics(filePath);
 
     expect(result.events).toEqual([]);

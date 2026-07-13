@@ -280,6 +280,7 @@ function resolveFuzzyModelMatch(
   if (!fuzzyTarget) {
     return undefined;
   }
+  const maxDistance = Math.max(2, Math.floor(fuzzyTarget.length * 0.2));
   let bestMatch: { modelName: string; distance: number } | undefined;
   for (const modelName of pricingByModel.keys()) {
     if (!areNumericSignaturesCompatible(strippedModel, modelName)) {
@@ -287,6 +288,11 @@ function resolveFuzzyModelMatch(
     }
     const fuzzyModelName = canonicalizeForFuzzy(modelName);
     if (!fuzzyModelName) {
+      continue;
+    }
+    // A length difference is a lower bound on edit distance, so skipping
+    // here cannot change any match result.
+    if (Math.abs(fuzzyTarget.length - fuzzyModelName.length) > maxDistance) {
       continue;
     }
     const distance = levenshteinDistance(fuzzyTarget, fuzzyModelName);
@@ -297,7 +303,6 @@ function resolveFuzzyModelMatch(
   if (!bestMatch) {
     return undefined;
   }
-  const maxDistance = Math.max(2, Math.floor(fuzzyTarget.length * 0.2));
   if (bestMatch.distance > maxDistance) {
     return undefined;
   }

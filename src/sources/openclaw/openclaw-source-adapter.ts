@@ -4,7 +4,11 @@ import path from 'node:path';
 import type { UsageEvent } from '../../domain/usage-event.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import { discoverFilesAcrossRoots, resolveRootDirs } from '../multi-root-discovery.js';
-import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
+import type {
+  SourceAdapter,
+  SourceAdapterPathOptions,
+  SourceParseFileDiagnostics,
+} from '../source-adapter.js';
 import { parseOpenClawSessionFile } from './openclaw-session-parser.js';
 
 const defaultAgentsDir = path.join(os.homedir(), '.openclaw', 'agents');
@@ -15,10 +19,8 @@ const defaultOpenClawRootDirs = [
   path.join(os.homedir(), '.moldbot', 'agents'),
 ];
 
-export type OpenClawSourceAdapterOptions = {
-  agentsDir?: string;
-  requireAgentsDir?: boolean;
-  /** Test seam: default roots scanned when no agentsDir override is given. */
+export type OpenClawSourceAdapterOptions = SourceAdapterPathOptions & {
+  /** Test seam: default roots scanned when no dir override is given. */
   defaultRootDirs?: string[];
 };
 
@@ -26,20 +28,20 @@ export class OpenClawSourceAdapter implements SourceAdapter {
   public readonly id = 'openclaw' as const;
 
   private readonly rootDirs: readonly string[];
-  private readonly requireAgentsDir: boolean;
+  private readonly requireDir: boolean;
 
   public constructor(options: OpenClawSourceAdapterOptions = {}) {
     this.rootDirs = resolveRootDirs(
-      options.agentsDir,
+      options.dir,
       options.defaultRootDirs ?? defaultOpenClawRootDirs,
     );
-    this.requireAgentsDir = options.requireAgentsDir ?? false;
+    this.requireDir = options.requireDir ?? false;
   }
 
   public async discoverFiles(): Promise<string[]> {
     return discoverFilesAcrossRoots({
       rootDirs: this.rootDirs,
-      requireDir: this.requireAgentsDir,
+      requireDir: this.requireDir,
       directoryLabel: 'OpenClaw agents directory',
       discoverInRoot: (rootDir) => discoverJsonlFiles(rootDir),
     });

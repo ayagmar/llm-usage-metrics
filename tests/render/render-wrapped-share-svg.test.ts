@@ -10,10 +10,16 @@ function createRecap(): WrappedRecap {
     from: '2026-01-01',
     to: '2026-12-31',
     totalTokens: 1_234_500,
-    totalCostUsd: 123.45,
+    costUsd: 123.45,
     costIncomplete: true,
     activeDays: 42,
     longestStreak: 7,
+    activeMs: 90 * 60 * 60 * 1000,
+    peakHour: { hour: 14, totalTokens: 300_000 },
+    weekdayTokens: 900_000,
+    weekendTokens: 334_500,
+    busiestDay: { date: '2026-03-01', totalTokens: 90_000 },
+    estimatedCacheSavingsUsd: 42.5,
     eventCount: 99,
     sessionCount: 12,
     topModels: [
@@ -53,6 +59,14 @@ describe('renderWrappedShareSvg', () => {
     expect(svg).toContain('Cost');
     expect(svg).toContain('Active Days');
     expect(svg).toContain('Streak');
+    expect(svg.match(/data-stat-tile="/g)).toHaveLength(5);
+    expect(svg).toContain('data-stat-tile="Hours"');
+    expect(svg).toContain('>90h<');
+    expect(svg).toContain('12 sessions');
+    expect(svg).toContain('this year');
+    expect(svg).toContain('saved ~$42.50 via cache');
+    const tileOrder = [...svg.matchAll(/data-stat-tile="([^"]+)"/g)].map((match) => match[1]);
+    expect(tileOrder).toEqual(['Tokens', 'Cost', 'Hours', 'Active Days', 'Streak']);
     expect(svg).toContain('~$123.45');
     expect(svg).toContain('Top Models');
     expect(svg).toContain('Top Sources');

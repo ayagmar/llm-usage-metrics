@@ -21,7 +21,41 @@ Very wide usage tables can emit an overflow warning on `stderr`. Use a wider ter
 llm-usage daily --json > usage.json
 ```
 
-Use JSON for scripts and pipelines. Specialized reports keep their own documented shape, so read the report page before depending on fields. Diagnostics never enter the JSON body.
+Use JSON for scripts and pipelines. Every report wraps its payload in a versioned envelope:
+
+```json
+{
+  "schemaVersion": 1,
+  "report": "usage",
+  "data": []
+}
+```
+
+`report` names the command (`usage`, `session`, `trends`, `compare`, `efficiency`, `optimize`, `wrapped`, `doctor`, or `prune`) and `data` carries the report-specific payload documented on each report page. `schemaVersion` increments only on breaking JSON changes; additive fields inside `data` are safe and do not bump it. Diagnostics never enter the JSON body. The envelope arrived in 0.8.0 — [Migrating to 0.8](/llm-usage-metrics/migrating-to-0-8/) maps the old field names to the new ones.
+
+Every payload has a published JSON Schema (draft 2020-12) validated in CI against real CLI output:
+
+| Report | Schema |
+| --- | --- |
+| shared definitions | [report-common.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json) |
+| usage | [report-usage.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-usage.v1.schema.json) |
+| session | [report-session.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-session.v1.schema.json) |
+| trends | [report-trends.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-trends.v1.schema.json) |
+| compare | [report-compare.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-compare.v1.schema.json) |
+| efficiency | [report-efficiency.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-efficiency.v1.schema.json) |
+| optimize | [report-optimize.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-optimize.v1.schema.json) |
+| wrapped | [report-wrapped.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-wrapped.v1.schema.json) |
+| doctor | [report-doctor.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-doctor.v1.schema.json) |
+| prune | [report-prune.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-prune.v1.schema.json) |
+
+The installed CLI also carries these schemas, so pipelines can validate against the exact contract of their installed version without the network:
+
+```bash
+llm-usage schema usage > report-usage.schema.json
+llm-usage schema --list
+```
+
+`schema` accepts every report name plus `events-line` and `config`, and prints the schema document itself (not wrapped in the report envelope).
 
 ## Markdown
 
@@ -29,7 +63,7 @@ Use JSON for scripts and pipelines. Specialized reports keep their own documente
 llm-usage daily --markdown > usage.md
 ```
 
-Markdown works for usage, compare, session, efficiency, and optimize reports. It does not work for trends, wrapped, doctor, or prune.
+Markdown works for usage, compare, session, efficiency, optimize, trends, and wrapped reports. It does not work for doctor, prune, or events.
 
 Usage and session output keep the same ordering and row limits as the terminal renderer. `--per-model-columns` also works with Markdown usage reports.
 
@@ -40,6 +74,7 @@ Share output is an offline SVG written to the current directory. The command sti
 | Report | Command | File |
 | --- | --- | --- |
 | Usage | `llm-usage monthly --share` | `usage-monthly-share.svg` |
+| Compare | `llm-usage compare --share` | `compare-share.svg` |
 | Trends | `llm-usage trends --share` | `trends-share.svg` |
 | Wrapped | `llm-usage wrapped --year 2026 --share` | `llm-usage-wrapped-2026.svg` |
 | Efficiency | `llm-usage efficiency monthly --share` | `efficiency-monthly-share.svg` |
@@ -47,7 +82,7 @@ Share output is an offline SVG written to the current directory. The command sti
 
 Usage share works for daily, weekly, and monthly reports. Efficiency and optimize share work for monthly reports only. Trends share requires the combined view, so it cannot be paired with `--by-source`. Efficiency share cannot be paired with `--by-source` either.
 
-Compare, session, doctor, and prune do not support `--share`.
+Session, doctor, prune, and events do not support `--share`.
 
 ## Per-model columns
 

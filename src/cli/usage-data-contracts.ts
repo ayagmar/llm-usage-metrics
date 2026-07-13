@@ -6,7 +6,7 @@ import type {
   PricingFetcherRuntimeConfig,
 } from '../config/runtime-overrides.js';
 import type { LoadedUserConfig } from '../config/user-config.js';
-import type { UsageReportRow } from '../domain/usage-report-row.js';
+import type { UsageReportRow, UsageTotals } from '../domain/usage-report-row.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import type { EfficiencyRow } from '../efficiency/efficiency-row.js';
 import type { OptimizeRow } from '../optimize/optimize-row.js';
@@ -132,6 +132,10 @@ export type WrappedCommandOptions = SharedOptionsForProfile<'wrapped'> & {
   year?: string;
 };
 
+export type EventsCommandOptions = SharedOptionsForProfile<'events'> & {
+  format?: string;
+};
+
 export type DoctorCommandOptions = SharedOptionsForProfile<'doctor'>;
 
 export type PruneCommandOptions = DoctorCommandOptions & {
@@ -188,13 +192,13 @@ export type UsageDataResult = {
   diagnostics: UsageDiagnostics;
 };
 
-export type EfficiencyDiagnostics = {
-  usage: UsageDiagnostics;
+export type EfficiencyDiagnostics = UsageDiagnostics & {
   repoDir: string;
   includeMergeCommits: boolean;
   gitCommitCount: number;
   gitLinesAdded: number;
   gitLinesDeleted: number;
+  gitMalformedCommitLines: number;
   repoMatchedUsageEvents: number;
   repoExcludedUsageEvents: number;
   repoUnattributedUsageEvents: number;
@@ -207,8 +211,7 @@ export type EfficiencyDataResult = {
   diagnostics: EfficiencyDiagnostics;
 };
 
-export type OptimizeDiagnostics = {
-  usage: UsageDiagnostics;
+export type OptimizeDiagnostics = UsageDiagnostics & {
   provider: string;
   baselineCostIncomplete: boolean;
   candidatesWithMissingPricing: string[];
@@ -251,15 +254,7 @@ export type CompareWindowRange = {
   label: string;
 };
 
-export type CompareWindowTotals = {
-  inputTokens: number;
-  outputTokens: number;
-  reasoningTokens: number;
-  cacheReadTokens: number;
-  cacheWriteTokens: number;
-  totalTokens: number;
-  costUsd?: number;
-  costIncomplete?: boolean;
+export type CompareWindowTotals = UsageTotals & {
   events: number;
   activeDays: number;
 };
@@ -282,20 +277,20 @@ export type CompareMetricRow = {
   current: number | undefined;
   baseline: number | undefined;
   delta: number | undefined;
-  deltaPercent: number | undefined;
+  deltaRatio: number | undefined;
   currentCostIncomplete?: boolean;
   baselineCostIncomplete?: boolean;
   deltaCostIncomplete?: boolean;
 };
 
-export type CompareMetricDeltaPercent = Partial<Record<CompareMetricKey, number | undefined>>;
+export type CompareMetricDeltaRatio = Partial<Record<CompareMetricKey, number | undefined>>;
 
 export type CompareSourceRow = {
   source: string;
   current: CompareWindowTotals;
   baseline: CompareWindowTotals;
   delta: CompareWindowTotals;
-  deltaPercent: CompareMetricDeltaPercent;
+  deltaRatio: CompareMetricDeltaRatio;
 };
 
 export type CompareDataResult = {

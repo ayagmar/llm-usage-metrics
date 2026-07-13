@@ -48,17 +48,20 @@ llm-usage doctor
 
 ## Reports
 
-| Question                                                  | Command                                |
-| --------------------------------------------------------- | -------------------------------------- |
-| How much did I use by day, week, or month?                | `llm-usage daily`, `weekly`, `monthly` |
-| How did one period change from another?                   | `llm-usage compare`                    |
-| Which conversations or repositories used the most?        | `llm-usage session`                    |
-| How is daily usage moving?                                | `llm-usage trends`                     |
-| How does repo-attributed usage line up with Git activity? | `llm-usage efficiency monthly`         |
-| What would the same token mix cost on another model?      | `llm-usage optimize monthly`           |
-| What did the year add up to?                              | `llm-usage wrapped`                    |
-| Which sources and local stores are healthy?               | `llm-usage doctor`                     |
-| Which departed files can leave the event ledger?          | `llm-usage prune`                      |
+| Question                                                  | Command                                   |
+| --------------------------------------------------------- | ----------------------------------------- |
+| How much did I use by day, week, or month?                | `llm-usage daily`, `weekly`, `monthly`    |
+| How did one period change from another?                   | `llm-usage compare`                       |
+| Which conversations or repositories used the most?        | `llm-usage session`                       |
+| How is daily usage moving?                                | `llm-usage trends`                        |
+| How does repo-attributed usage line up with Git activity? | `llm-usage efficiency monthly`            |
+| What would the same token mix cost on another model?      | `llm-usage optimize monthly`              |
+| What did the year add up to?                              | `llm-usage wrapped`                       |
+| How do I get the raw normalized events out?               | `llm-usage events`                        |
+| Which sources and local stores are healthy?               | `llm-usage doctor`                        |
+| Which departed files can leave the event ledger?          | `llm-usage prune`                         |
+| What configuration is active, and which file is it from?  | `llm-usage config show`, `config path`    |
+| Which JSON Schema does my installed version emit?         | `llm-usage schema usage`, `schema --list` |
 
 Common examples:
 
@@ -83,6 +86,9 @@ llm-usage optimize monthly \
   --provider openai \
   --candidate-model gpt-4.1 \
   --candidate-model gpt-5-codex
+
+# Normalized events as JSONL, e.g. total tokens per line via jq
+llm-usage events --since 2026-06-01 | jq '.totalTokens'
 ```
 
 ## Supported sources
@@ -173,7 +179,7 @@ llm-usage daily --markdown
 llm-usage monthly --share
 ```
 
-Report data goes to `stdout`. Discovery, pricing, config, and skipped-row diagnostics go to `stderr`, which keeps JSON and Markdown safe to redirect.
+Report data goes to `stdout`. Discovery, pricing, config, and skipped-row diagnostics go to `stderr`, which keeps JSON and Markdown safe to redirect. JSON output is wrapped in a versioned envelope: `{ "schemaVersion": 1, "report": "usage", "data": ... }`. Scripts written against pre-0.8.0 JSON should follow the [migration guide](https://ayagmar.github.io/llm-usage-metrics/migrating-to-0-8/).
 
 Terminal, JSON, and Markdown availability varies by report. Usage, trends, wrapped, efficiency, and optimize can write supported share SVGs. The [output guide](https://ayagmar.github.io/llm-usage-metrics/output-formats/) contains the format matrix and file names.
 

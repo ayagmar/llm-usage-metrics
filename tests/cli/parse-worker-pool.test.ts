@@ -15,6 +15,7 @@ class FakeWorker implements ParseWorkerLike {
 
   private readonly messageListeners: Array<(message: unknown) => void> = [];
   private readonly errorListeners: Array<(error: unknown) => void> = [];
+  private readonly exitListeners: Array<(exitCode: unknown) => void> = [];
 
   public postMessage(message: ParseWorkerRequestMessage): void {
     this.postedMessages.push(message);
@@ -25,9 +26,17 @@ class FakeWorker implements ParseWorkerLike {
     return 0;
   }
 
-  public on(event: 'message' | 'error', listener: (value: unknown) => void): ParseWorkerLike {
+  public on(
+    event: 'message' | 'error' | 'exit',
+    listener: (value: unknown) => void,
+  ): ParseWorkerLike {
     if (event === 'message') {
       this.messageListeners.push(listener);
+      return this;
+    }
+
+    if (event === 'exit') {
+      this.exitListeners.push(listener);
       return this;
     }
 
@@ -44,6 +53,12 @@ class FakeWorker implements ParseWorkerLike {
   public emitError(error: unknown): void {
     for (const listener of this.errorListeners) {
       listener(error);
+    }
+  }
+
+  public emitExit(exitCode: number): void {
+    for (const listener of this.exitListeners) {
+      listener(exitCode);
     }
   }
 }
@@ -124,35 +139,26 @@ describe('parse-worker-pool', () => {
     await expect(secondResult).resolves.toEqual(createDiagnostics(2));
   });
 
-  it('ignores malformed worker messages before a valid response arrives', async () => {
+  it('falls back inline when a worker replies with a mismatched task id', async () => {
     const worker = new FakeWorker();
+    const inlineParse = vi.fn(async () => createDiagnostics(4));
     const pool = createParseWorkerPool({
       entryUrl,
       workerCount: 1,
       spawnWorker: () => worker,
     });
 
-    const result = pool.parse({ sourceId: 'codex', filePath: '/tmp/a.jsonl' }, async () =>
-      createDiagnostics(99),
-    );
+    const result = pool.parse({ sourceId: 'codex', filePath: '/tmp/a.jsonl' }, inlineParse);
 
     worker.emitMessage({
       taskId: 99,
       ok: true,
       diagnostics: createDiagnostics(99),
     });
-    worker.emitMessage({
-      taskId: 1,
-      ok: true,
-      diagnostics: { events: [], skippedRows: 'bad' },
-    });
-    worker.emitMessage({
-      taskId: 1,
-      ok: true,
-      diagnostics: createDiagnostics(0),
-    });
 
-    await expect(result).resolves.toEqual(createDiagnostics(0));
+    await expect(result).resolves.toEqual(createDiagnostics(4));
+    expect(inlineParse).toHaveBeenCalledTimes(1);
+    expect(pool.status()).toBe('fallback');
   });
 
   it('reruns a failed worker task inline', async () => {
@@ -199,6 +205,61 @@ describe('parse-worker-pool', () => {
     });
 
     await expect(result).rejects.toThrow('inline failed');
+  });
+
+  it('falls back inline when a worker exits with a task in flight', async () => {
+    const worker = new FakeWorker();
+    const inlineParse = vi.fn(async () => createDiagnostics(7));
+    const pool = createParseWorkerPool({
+      entryUrl,
+      workerCount: 1,
+      spawnWorker: () => worker,
+    });
+
+    const result = pool.parse({ sourceId: 'codex', filePath: '/tmp/a.jsonl' }, inlineParse);
+
+    worker.emitExit(1);
+
+    await expect(result).resolves.toEqual(createDiagnostics(7));
+    expect(inlineParse).toHaveBeenCalledTimes(1);
+    expect(pool.status()).toBe('fallback');
+  });
+
+  it('falls back inline when a worker posts a malformed message with a task in flight', async () => {
+    const worker = new FakeWorker();
+    const inlineParse = vi.fn(async () => createDiagnostics(8));
+    const pool = createParseWorkerPool({
+      entryUrl,
+      workerCount: 1,
+      spawnWorker: () => worker,
+    });
+
+    const result = pool.parse({ sourceId: 'codex', filePath: '/tmp/a.jsonl' }, inlineParse);
+
+    worker.emitMessage({});
+
+    await expect(result).resolves.toEqual(createDiagnostics(8));
+    expect(inlineParse).toHaveBeenCalledTimes(1);
+    expect(pool.status()).toBe('fallback');
+  });
+
+  it('does not double-handle exit events fired by a normal terminate', async () => {
+    const worker = new FakeWorker();
+    const inlineParse = vi.fn(async () => createDiagnostics(9));
+    const pool = createParseWorkerPool({
+      entryUrl,
+      workerCount: 1,
+      spawnWorker: () => worker,
+    });
+
+    const result = pool.parse({ sourceId: 'codex', filePath: '/tmp/a.jsonl' }, inlineParse);
+
+    await pool.terminate();
+    worker.emitExit(0);
+
+    await expect(result).resolves.toEqual(createDiagnostics(9));
+    expect(inlineParse).toHaveBeenCalledTimes(1);
+    expect(worker.terminateCalls).toBe(1);
   });
 
   it('disables the pool after a worker error and falls back inline', async () => {

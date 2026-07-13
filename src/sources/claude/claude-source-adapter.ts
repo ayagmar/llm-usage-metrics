@@ -12,7 +12,11 @@ import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
 import { discoverFilesAcrossRoots, resolveRootDirs } from '../multi-root-discovery.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
 import { asTrimmedText, normalizeTimestampCandidate, toNumberLike } from '../parsing-utils.js';
-import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
+import type {
+  SourceAdapter,
+  SourceAdapterPathOptions,
+  SourceParseFileDiagnostics,
+} from '../source-adapter.js';
 
 const defaultClaudeProjectsDir = path.join(os.homedir(), '.claude', 'projects');
 const defaultClaudeRootDirs = [
@@ -41,10 +45,8 @@ type ClaudePendingEvent = {
   sequence: number;
 };
 
-export type ClaudeSourceAdapterOptions = {
-  projectsDir?: string;
-  requireProjectsDir?: boolean;
-  /** Test seam: default roots scanned when no projectsDir override is given. */
+export type ClaudeSourceAdapterOptions = SourceAdapterPathOptions & {
+  /** Test seam: default roots scanned when no dir override is given. */
   defaultRootDirs?: string[];
 };
 
@@ -134,20 +136,17 @@ export class ClaudeSourceAdapter implements SourceAdapter {
   public readonly id = 'claude' as const;
 
   private readonly rootDirs: readonly string[];
-  private readonly requireProjectsDir: boolean;
+  private readonly requireDir: boolean;
 
   public constructor(options: ClaudeSourceAdapterOptions = {}) {
-    this.rootDirs = resolveRootDirs(
-      options.projectsDir,
-      options.defaultRootDirs ?? defaultClaudeRootDirs,
-    );
-    this.requireProjectsDir = options.requireProjectsDir ?? false;
+    this.rootDirs = resolveRootDirs(options.dir, options.defaultRootDirs ?? defaultClaudeRootDirs);
+    this.requireDir = options.requireDir ?? false;
   }
 
   public async discoverFiles(): Promise<string[]> {
     return discoverFilesAcrossRoots({
       rootDirs: this.rootDirs,
-      requireDir: this.requireProjectsDir,
+      requireDir: this.requireDir,
       directoryLabel: 'Claude projects directory',
       discoverInRoot: (rootDir) => discoverJsonlFiles(rootDir),
     });

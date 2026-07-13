@@ -16,13 +16,16 @@ import {
   resolveTotalTokens,
 } from '../parsing-utils.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
-import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
+import { readBoundedJsonFile } from '../read-json-file.js';
+import type {
+  SourceAdapter,
+  SourceAdapterPathOptions,
+  SourceParseFileDiagnostics,
+} from '../source-adapter.js';
 
 const defaultGeminiDir = path.join(os.homedir(), '.gemini');
 
-export type GeminiSourceAdapterOptions = {
-  geminiDir?: string;
-  requireGeminiDir?: boolean;
+export type GeminiSourceAdapterOptions = SourceAdapterPathOptions & {
   env?: NodeJS.ProcessEnv;
 };
 
@@ -202,12 +205,12 @@ export class GeminiSourceAdapter implements SourceAdapter {
   } as const;
 
   private readonly geminiDir: string;
-  private readonly requireGeminiDir: boolean;
+  private readonly requireDir: boolean;
   private projectMappingPromise?: Promise<Map<string, string>>;
 
   public constructor(options: GeminiSourceAdapterOptions = {}) {
-    this.geminiDir = options.geminiDir ?? resolveDefaultGeminiDir(options.env ?? process.env);
-    this.requireGeminiDir = options.requireGeminiDir ?? false;
+    this.geminiDir = options.dir ?? resolveDefaultGeminiDir(options.env ?? process.env);
+    this.requireDir = options.requireDir ?? false;
   }
 
   private getNormalizedGeminiDir(): string {
@@ -231,11 +234,11 @@ export class GeminiSourceAdapter implements SourceAdapter {
   public async discoverFiles(): Promise<string[]> {
     const normalizedDir = this.getNormalizedGeminiDir();
 
-    if (this.requireGeminiDir && !(await pathReadable(normalizedDir))) {
+    if (this.requireDir && !(await pathReadable(normalizedDir))) {
       throw new Error(`Gemini directory is missing or unreadable: ${normalizedDir}`);
     }
 
-    if (this.requireGeminiDir && !(await pathIsDirectory(normalizedDir))) {
+    if (this.requireDir && !(await pathIsDirectory(normalizedDir))) {
       throw new Error(`Gemini directory is not a directory: ${normalizedDir}`);
     }
 
@@ -261,17 +264,16 @@ export class GeminiSourceAdapter implements SourceAdapter {
     let skippedRows = 0;
     const skippedRowReasons = new Map<string, number>();
 
-    let sessionData: unknown;
+    const readResult = await readBoundedJsonFile(filePath);
 
-    try {
-      const content = await readFile(filePath, 'utf8');
-      sessionData = JSON.parse(content) as unknown;
-    } catch {
+    if (!readResult.ok) {
       skippedRows++;
-      incrementSkippedReason(skippedRowReasons, 'json_parse_error');
+      incrementSkippedReason(skippedRowReasons, readResult.reason);
 
       return toParseDiagnostics(events, skippedRows, skippedRowReasons);
     }
+
+    const sessionData = readResult.value;
 
     const sessionDataRecord = asRecord(sessionData);
 

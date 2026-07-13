@@ -51,22 +51,31 @@ describe('run-trends-report', () => {
       json: true,
     });
 
-    const parsed = JSON.parse(report) as Record<string, unknown>;
+    const parsed = JSON.parse(report) as {
+      schemaVersion: number;
+      report: string;
+      data: Record<string, unknown>;
+    };
 
-    expect(parsed.metric).toBe('tokens');
-    expect(parsed).not.toHaveProperty('diagnostics');
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'trends' });
+    expect(parsed.data.metric).toBe('tokens');
+    expect(parsed.data).not.toHaveProperty('diagnostics');
   });
 
-  it('rejects unsupported markdown output', async () => {
-    const buildCallsBefore = vi.mocked(buildTrendsData).mock.calls.length;
+  it('renders markdown output and rejects combining it with --json', async () => {
+    const report = await buildTrendsReport({
+      markdown: true,
+    });
+
+    expect(report).toContain('| Date');
+    expect(report).toContain('Total');
 
     await expect(
       buildTrendsReport({
         markdown: true,
-      } as never),
-    ).rejects.toThrow('--markdown is not supported for this command');
-
-    expect(vi.mocked(buildTrendsData).mock.calls).toHaveLength(buildCallsBefore);
+        json: true,
+      }),
+    ).rejects.toThrow('Choose either --markdown or --json, not both');
   });
 
   it('keeps diagnostics on stderr for JSON output', async () => {
@@ -80,8 +89,8 @@ describe('run-trends-report', () => {
 
       expect(consoleLogSpy).toHaveBeenCalledTimes(1);
       const stdoutBody = String(consoleLogSpy.mock.calls[0]?.[0]);
-      const parsed = JSON.parse(stdoutBody) as Record<string, unknown>;
-      expect(parsed.metric).toBe('tokens');
+      const parsed = JSON.parse(stdoutBody) as { data: Record<string, unknown> };
+      expect(parsed.data.metric).toBe('tokens');
 
       expect(consoleErrorSpy.mock.calls.length).toBeGreaterThan(0);
     } finally {

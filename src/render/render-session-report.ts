@@ -5,10 +5,12 @@ import { markdownTable } from 'markdown-table';
 import type { SessionDataResult } from '../cli/usage-data-contracts.js';
 import type { SessionRepoRow, SessionRow } from '../session/session-row.js';
 import { getPeriodKey } from '../utils/time-buckets.js';
+import { formatDuration } from './format-duration.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { renderReportHeader } from './report-header.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
+import { renderReportJson } from './report-json.js';
 
 export type SessionReportFormat = 'terminal' | 'markdown' | 'json';
 
@@ -23,6 +25,7 @@ const sessionTableHeaders = [
   'Source',
   'Repo',
   'Last Activity',
+  'Duration',
   'Total',
   'Cost',
   'Models',
@@ -85,6 +88,7 @@ function toSessionTableCells(
     row.source,
     row.repoRoot ? path.basename(row.repoRoot) : '-',
     getPeriodKey(row.lastActivity, 'daily', options.timezone),
+    formatDuration(row.durationMs),
     formatInteger(row.totalTokens),
     formatCost(row),
     formatModels(row.models),
@@ -128,7 +132,7 @@ function buildTableCells(
         truncateSessionIds: options.truncateSessionIds ?? true,
       }),
     ),
-    markdownAlign: ['l', 'l', 'l', 'l', 'r', 'r', 'l'],
+    markdownAlign: ['l', 'l', 'l', 'l', 'r', 'r', 'r', 'l'],
   };
 }
 
@@ -193,7 +197,7 @@ export function renderSessionReport(
 ): string {
   switch (format) {
     case 'json':
-      return JSON.stringify(sessionData.rows, null, 2);
+      return renderReportJson('session', sessionData.rows);
     case 'markdown':
       return renderMarkdownSessionReport(sessionData, options);
     case 'terminal':

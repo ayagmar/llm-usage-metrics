@@ -91,7 +91,7 @@ describe('ClaudeSourceAdapter', () => {
     await writeFile(sessionFile, '{}\n', 'utf8');
     await writeFile(subagentFile, '{}\n', 'utf8');
 
-    const adapter = new ClaudeSourceAdapter({ projectsDir });
+    const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
 
     await expect(adapter.discoverFiles()).resolves.toEqual([
       await realpath(sessionFile),
@@ -132,7 +132,7 @@ describe('ClaudeSourceAdapter', () => {
     await writeFile(path.join(transcriptsRoot, 'session-b.jsonl'), assistantRow(), 'utf8');
 
     const adapter = new ClaudeSourceAdapter({
-      projectsDir: projectsRoot,
+      dir: projectsRoot,
       defaultRootDirs: [projectsRoot, transcriptsRoot],
     });
 
@@ -186,7 +186,7 @@ describe('ClaudeSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new ClaudeSourceAdapter({ projectsDir });
+    const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toHaveLength(2);
@@ -229,7 +229,7 @@ describe('ClaudeSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new ClaudeSourceAdapter({ projectsDir });
+    const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toHaveLength(3);
@@ -264,7 +264,7 @@ describe('ClaudeSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new ClaudeSourceAdapter({ projectsDir });
+    const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
     const result = await adapter.parseFileWithDiagnostics(filePath);
 
     expect(result.events).toEqual([]);
@@ -311,7 +311,7 @@ describe('ClaudeSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new ClaudeSourceAdapter({ projectsDir });
+    const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toHaveLength(2);
@@ -352,7 +352,7 @@ describe('ClaudeSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new ClaudeSourceAdapter({ projectsDir });
+    const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toHaveLength(1);
@@ -385,7 +385,7 @@ describe('ClaudeSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new ClaudeSourceAdapter({ projectsDir });
+    const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toHaveLength(2);
@@ -417,7 +417,7 @@ describe('ClaudeSourceAdapter', () => {
       'utf8',
     );
 
-    const adapter = new ClaudeSourceAdapter({ projectsDir });
+    const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
     const events = await adapter.parseFile(filePath);
 
     expect(events).toHaveLength(1);
@@ -431,7 +431,7 @@ describe('ClaudeSourceAdapter', () => {
 
     await writeFile(filePath, '{"type":"assistant","usage":', 'utf8');
 
-    const adapter = new ClaudeSourceAdapter({ projectsDir });
+    const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
     const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
 
     expect(diagnostics.events).toEqual([]);
@@ -440,14 +440,14 @@ describe('ClaudeSourceAdapter', () => {
   });
 
   it('validates explicit directory overrides', async () => {
-    const blankAdapter = new ClaudeSourceAdapter({ projectsDir: '   ' });
+    const blankAdapter = new ClaudeSourceAdapter({ dir: '   ' });
     await expect(blankAdapter.discoverFiles()).rejects.toThrow(
       'Claude projects directory must be a non-empty path',
     );
 
     const missingAdapter = new ClaudeSourceAdapter({
-      projectsDir: path.join(os.tmpdir(), `missing-claude-${Date.now()}`),
-      requireProjectsDir: true,
+      dir: path.join(os.tmpdir(), `missing-claude-${Date.now()}`),
+      requireDir: true,
     });
     await expect(missingAdapter.discoverFiles()).rejects.toThrow(
       'Claude projects directory is missing or unreadable',

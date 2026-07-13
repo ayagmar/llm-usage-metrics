@@ -1,0 +1,68 @@
+---
+title: Events Export
+description: Stream normalized usage events as JSONL or CSV for jq, DuckDB, or warehouse workflows.
+---
+
+`llm-usage events` streams the normalized usage events every report is built from — one record per model interaction, after source parsing, normalization, and pricing. It is the raw-data counterpart to the aggregated reports.
+
+## Command structure
+
+```bash
+llm-usage events [options]
+```
+
+Examples:
+
+```bash
+llm-usage events > events.jsonl
+llm-usage events --format csv --since 2026-01-01 > events.csv
+llm-usage events --source codex --since 2026-06-01 | jq '.totalTokens'
+```
+
+## Options
+
+- `--format <name>`: `jsonl` (default) or `csv`
+- shared filters apply: `--source`, `--provider`, `--model`, `--since`, `--until`, `--timezone`, source-path overrides, pricing flags, and `--history`
+
+`events` is an export stream, not a report: `--json` is rejected with `--json is not supported for events; use --format jsonl`, and `--markdown`/`--share` are not available. Diagnostics go to `stderr` as usual, so redirecting `stdout` produces a clean data file.
+
+## Export contract
+
+- **jsonl** (default): one JSON object per line with the exact `UsageEvent` field names; absent optionals (`repoRoot`, `provider`, `model`, `costUsd`) are omitted, not `null`. Lines are **not** wrapped in the report envelope. Each line validates against [events-line.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/events-line.v1.schema.json).
+- **csv**: a frozen header row with all 14 columns in declaration order (`source,sessionId,timestamp,repoRoot,provider,model,inputTokens,outputTokens,reasoningTokens,cacheReadTokens,cacheWriteTokens,totalTokens,costUsd,costMode`), RFC 4180 quoting, empty string for absent optionals. New fields will only ever be appended as trailing columns. Cells that begin with a spreadsheet formula trigger (`=`, `+`, `-`, `@`, tab, carriage return) are prefixed with a single apostrophe to prevent formula execution, per OWASP CSV-injection guidance; use `--format jsonl` when you need raw values.
+- **Ordering** is deterministic: `timestamp`, then `source`, then `sessionId`, then original parse order.
+
+```json
+{
+  "source": "codex",
+  "sessionId": "486c3261-d87e-4971-8813-904c9e5a9009",
+  "timestamp": "2026-06-15T12:00:00.000Z",
+  "repoRoot": "/path/to/repo",
+  "provider": "openai",
+  "model": "gpt-5.2-codex",
+  "inputTokens": 150,
+  "outputTokens": 100,
+  "reasoningTokens": 20,
+  "cacheReadTokens": 50,
+  "cacheWriteTokens": 0,
+  "totalTokens": 300,
+  "costUsd": 0.0017,
+  "costMode": "estimated"
+}
+```
+
+## OTel mapping
+
+No OpenTelemetry exporter is shipped or promised. The table documents how a consumer maps exported fields onto the OTel GenAI semantic conventions, so a future exporter (or your own pipeline) has a stable contract to build from:
+
+| export field | OTel mapping |
+| --- | --- |
+| `model` | `gen_ai.request.model` |
+| `provider` | `gen_ai.provider.name` |
+| `inputTokens` | `gen_ai.usage.input_tokens` |
+| `outputTokens` | `gen_ai.usage.output_tokens` |
+| `cacheReadTokens` | `gen_ai.usage.cache_read.input_tokens` |
+| `cacheWriteTokens` | `gen_ai.usage.cache_creation.input_tokens` |
+| `reasoningTokens` | no stable semconv; suggested `llm_usage.reasoning_tokens` |
+| `costUsd`, `costMode` | no semconv; suggested `llm_usage.cost_usd`, `llm_usage.cost_mode` |
+| `source`, `sessionId`, `repoRoot`, `timestamp` | resource/span attributes (`service.name`-like `source`; `session.id`; VCS path; event time) |

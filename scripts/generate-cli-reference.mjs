@@ -64,25 +64,28 @@ function normalizeDescription(text, optionLong, scopeSuffix) {
 }
 
 function parseOptions(helpText) {
+  // A help text may concatenate several help blocks (a parent command plus
+  // its subcommands), so every `Options:` section is scanned.
   const lines = helpText.split(/\r?\n/);
   const options = [];
-
-  const optionsStart = lines.findIndex((line) => line.trim() === 'Options:');
-  if (optionsStart < 0) {
-    return options;
-  }
-
+  let inOptions = false;
   let current = null;
 
-  for (let index = optionsStart + 1; index < lines.length; index += 1) {
-    const line = lines[index];
-
-    if (!line.trim()) {
+  for (const line of lines) {
+    if (line.trim() === 'Options:') {
+      inOptions = true;
+      current = null;
       continue;
     }
 
     if (/^\s*[A-Z][a-z]+:/.test(line)) {
-      break;
+      inOptions = false;
+      current = null;
+      continue;
+    }
+
+    if (!inOptions || !line.trim()) {
+      continue;
     }
 
     const match = line.match(/^\s*(?:(-\w),\s*)?(--[\w-]+)(?:\s+([^\s].*?))?\s{2,}(.+)$/);
@@ -106,7 +109,19 @@ function parseOptions(helpText) {
     }
   }
 
-  return options;
+  const seenLongs = new Set();
+  const dedupedOptions = [];
+
+  for (const option of options) {
+    if (seenLongs.has(option.long)) {
+      continue;
+    }
+
+    seenLongs.add(option.long);
+    dedupedOptions.push(option);
+  }
+
+  return dedupedOptions;
 }
 
 function sortOptions(options) {
@@ -350,10 +365,15 @@ async function loadCliMetadata() {
   };
 }
 
-function createExtraCommandMeta(commandName) {
+function createExtraCommandMeta(command) {
+  const subcommandNames = command.commands.map((subcommand) => subcommand.name());
+
   return {
-    commandName,
-    docsLabel: commandName === 'config' ? 'config <init>' : commandName,
+    commandName: command.name(),
+    docsLabel:
+      subcommandNames.length > 0
+        ? `${command.name()} <${subcommandNames.join('|')}>`
+        : command.name(),
     kind: 'specialized',
   };
 }
@@ -361,12 +381,12 @@ function createExtraCommandMeta(commandName) {
 function getCommandHelpText(cli, meta) {
   const subCommand = cli.commands.find((candidate) => candidate.name() === meta.commandName);
 
-  if (meta.commandName === 'config') {
-    const initCommand = subCommand?.commands.find((candidate) => candidate.name() === 'init');
-    return initCommand?.helpInformation() ?? subCommand?.helpInformation() ?? '';
+  if (!subCommand) {
+    return '';
   }
 
-  return subCommand?.helpInformation() ?? '';
+  const subcommandHelps = subCommand.commands.map((candidate) => candidate.helpInformation());
+  return [subCommand.helpInformation(), ...subcommandHelps].join('\n');
 }
 
 async function loadCliHelpTexts(version, reportMetas) {
@@ -383,7 +403,7 @@ async function loadCliHelpTexts(version, reportMetas) {
   const reportCommandNames = new Set(reportMetas.map((meta) => meta.commandName));
   const extraCommandMetas = cli.commands
     .filter((command) => !reportCommandNames.has(command.name()))
-    .map((command) => createExtraCommandMeta(command.name()));
+    .map((command) => createExtraCommandMeta(command));
   const commandMetas = [...reportMetas, ...extraCommandMetas];
   const commandHelps = Object.fromEntries(
     commandMetas.map((meta) => {

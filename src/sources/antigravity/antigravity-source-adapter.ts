@@ -5,7 +5,11 @@ import { discoverFiles } from '../../utils/discover-files.js';
 import { pathExists, pathIsDirectory, pathIsFile, pathReadable } from '../../utils/fs-helpers.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
 import { isBlankText } from '../parsing-utils.js';
-import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
+import type {
+  SourceAdapter,
+  SourceAdapterPathOptions,
+  SourceParseFileDiagnostics,
+} from '../source-adapter.js';
 import { loadNodeSqliteModule, type SqliteModule } from '../opencode/node-sqlite-loader.js';
 import { getDefaultAntigravityConversationsDir } from './antigravity-path-resolver.js';
 import {
@@ -19,9 +23,7 @@ type AntigravitySqliteRow = {
   data?: unknown;
 };
 
-export type AntigravitySourceAdapterOptions = {
-  conversationsDir?: string;
-  requireConversationsDir?: boolean;
+export type AntigravitySourceAdapterOptions = SourceAdapterPathOptions & {
   env?: NodeJS.ProcessEnv;
   homeDir?: string;
   pathExists?: PathPredicate;
@@ -71,7 +73,7 @@ export class AntigravitySourceAdapter implements SourceAdapter {
   } as const;
 
   private readonly conversationsDir: string;
-  private readonly requireConversationsDir: boolean;
+  private readonly requireDir: boolean;
   private readonly pathExists: PathPredicate;
   private readonly pathReadable: PathPredicate;
   private readonly pathIsDirectory: PathPredicate;
@@ -80,12 +82,12 @@ export class AntigravitySourceAdapter implements SourceAdapter {
 
   public constructor(options: AntigravitySourceAdapterOptions = {}) {
     this.conversationsDir =
-      options.conversationsDir ??
+      options.dir ??
       getDefaultAntigravityConversationsDir({
         env: options.env,
         homeDir: options.homeDir,
       });
-    this.requireConversationsDir = options.requireConversationsDir ?? false;
+    this.requireDir = options.requireDir ?? false;
     this.pathExists = options.pathExists ?? pathExists;
     this.pathReadable = options.pathReadable ?? pathReadable;
     this.pathIsDirectory = options.pathIsDirectory ?? pathIsDirectory;
@@ -106,7 +108,7 @@ export class AntigravitySourceAdapter implements SourceAdapter {
     const readable = await this.pathReadable(conversationsDir);
 
     if (!readable) {
-      if (this.requireConversationsDir) {
+      if (this.requireDir) {
         throw new Error(
           `Antigravity conversations directory is missing or unreadable: ${conversationsDir}`,
         );
@@ -118,7 +120,7 @@ export class AntigravitySourceAdapter implements SourceAdapter {
     const isDirectory = await this.pathIsDirectory(conversationsDir);
 
     if (!isDirectory) {
-      if (this.requireConversationsDir) {
+      if (this.requireDir) {
         throw new Error(
           `Antigravity conversations directory is not a directory: ${conversationsDir}`,
         );

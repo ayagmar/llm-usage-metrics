@@ -7,10 +7,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildUsageEventDataset } from '../../src/cli/build-usage-event-dataset.js';
 import {
   buildPruneReport,
-  renderPruneReport,
   runPruneReport,
   type PruneReportResult,
 } from '../../src/cli/run-prune-report.js';
+import { renderPruneReport } from '../../src/render/render-prune-report.js';
 import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.js';
 import {
   closeEventStore,
@@ -116,15 +116,14 @@ function captureStdout(): {
   restore: () => void;
 } {
   const chunks: string[] = [];
-  const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-    chunks.push(String(chunk));
-    return true;
+  const logSpy = vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
+    chunks.push(`${args.join(' ')}\n`);
   });
 
   return {
     getOutput: () => chunks.join(''),
     restore: () => {
-      writeSpy.mockRestore();
+      logSpy.mockRestore();
     },
   };
 }
@@ -134,8 +133,8 @@ describe('run-prune-report', () => {
     const dbPath = await createTempDbPath('prune-dry-run-');
     const oldPath = '/tmp/old.jsonl';
     const livePath = '/tmp/live.jsonl';
-    const oldEvent = createEvent({ sessionId: 'old-path' });
-    const liveEvent = createEvent({ sessionId: 'live-path' });
+    const oldEvent = createEvent({ sessionId: 'moved-session' });
+    const liveEvent = createEvent({ sessionId: 'moved-session' });
     const store = await openEventStore(dbPath);
 
     try {
@@ -179,12 +178,12 @@ describe('run-prune-report', () => {
     try {
       writeStoredFile(store, {
         filePath: oldPath,
-        events: [createEvent({ sessionId: 'old-path' })],
+        events: [createEvent({ sessionId: 'moved-session' })],
         now: 1_000,
       });
       writeStoredFile(store, {
         filePath: livePath,
-        events: [createEvent({ sessionId: 'live-path' })],
+        events: [createEvent({ sessionId: 'moved-session' })],
         now: 2_000,
       });
       writeStoredFile(store, {
@@ -269,12 +268,12 @@ describe('run-prune-report', () => {
     try {
       writeStoredFile(store, {
         filePath: oldPath,
-        events: [createEvent({ sessionId: 'old-path' })],
+        events: [createEvent({ sessionId: 'moved-session' })],
         now: 1_000,
       });
       writeStoredFile(store, {
         filePath: livePath,
-        events: [createEvent({ sessionId: 'live-path' })],
+        events: [createEvent({ sessionId: 'moved-session' })],
         now: 2_000,
       });
       writeStoredFile(store, {
@@ -311,8 +310,14 @@ describe('run-prune-report', () => {
     const store = await openEventStore(dbPath);
 
     try {
-      writeStoredFile(store, { filePath: oldPath, events: [createEvent({ sessionId: 'old' })] });
-      writeStoredFile(store, { filePath: livePath, events: [createEvent({ sessionId: 'live' })] });
+      writeStoredFile(store, {
+        filePath: oldPath,
+        events: [createEvent({ sessionId: 'moved-session' })],
+      });
+      writeStoredFile(store, {
+        filePath: livePath,
+        events: [createEvent({ sessionId: 'moved-session' })],
+      });
     } finally {
       closeEventStore(store);
     }
@@ -328,8 +333,13 @@ describe('run-prune-report', () => {
       stdout.restore();
     }
 
-    const parsed = JSON.parse(stdout.getOutput()) as PruneReportResult;
-    expect(parsed.candidates).toEqual([
+    const parsed = JSON.parse(stdout.getOutput()) as {
+      schemaVersion: number;
+      report: string;
+      data: PruneReportResult;
+    };
+    expect(parsed).toMatchObject({ schemaVersion: 1, report: 'prune' });
+    expect(parsed.data.candidates).toEqual([
       expect.objectContaining({
         source: 'codex',
         filePath: oldPath,
@@ -337,7 +347,7 @@ describe('run-prune-report', () => {
         reasons: ['suppressed'],
       }),
     ]);
-    expect(parsed.summary).toMatchObject({
+    expect(parsed.data.summary).toMatchObject({
       storePath: dbPath,
       applied: false,
       candidateFileCount: 1,
@@ -598,7 +608,7 @@ describe('run-prune-report', () => {
     try {
       writeStoredFile(store, {
         filePath: oldPath,
-        events: [createEvent({ sessionId: 'old-path' })],
+        events: [createEvent({ sessionId: 'live-path' })],
         now: 1_000,
       });
       writeStoredFile(store, {
@@ -661,7 +671,7 @@ describe('run-prune-report', () => {
       for (let index = 0; index < 3; index += 1) {
         writeStoredFile(store, {
           filePath: path.join(tempRoot, `copy-${index}.jsonl`),
-          events: [createEvent({ sessionId: `copy-${index}` })],
+          events: [createEvent({ sessionId: 'live' })],
           now: 1_000 + index,
         });
       }

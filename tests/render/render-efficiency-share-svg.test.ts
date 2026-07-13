@@ -66,17 +66,16 @@ function createData(): EfficiencyDataResult {
       },
     ],
     diagnostics: {
-      usage: {
-        sessionStats: [],
-        sourceFailures: [],
-        skippedRows: [],
-        pricingOrigin: 'none',
-        activeEnvOverrides: [],
-        timezone: 'UTC',
-      },
+      sessionStats: [],
+      sourceFailures: [],
+      skippedRows: [],
+      pricingOrigin: 'none',
+      activeEnvOverrides: [],
+      timezone: 'UTC',
       repoDir: '/tmp/repo',
       includeMergeCommits: false,
       gitCommitCount: 6,
+      gitMalformedCommitLines: 0,
       gitLinesAdded: 180,
       gitLinesDeleted: 60,
       repoMatchedUsageEvents: 10,
@@ -96,5 +95,18 @@ describe('renderEfficiencyMonthlyShareSvg', () => {
     expect(svg).toContain('2026-02');
     expect(svg).toContain('Total Cost');
     expect(svg).toContain('$13.00');
+  });
+
+  it('orders period labels by code point, not locale', () => {
+    const data = createData();
+    data.rows[0].periodKey = '2026-a';
+    data.rows[1].periodKey = '2026-B';
+
+    const svg = renderEfficiencyMonthlyShareSvg(data);
+
+    // Code-point order puts 'B' (U+0042) before 'a' (U+0061); an en locale
+    // comparison would flip them.
+    expect(svg.indexOf('>2026-B<')).toBeGreaterThan(-1);
+    expect(svg.indexOf('>2026-B<')).toBeLessThan(svg.indexOf('>2026-a<'));
   });
 });

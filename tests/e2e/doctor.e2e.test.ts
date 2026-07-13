@@ -36,18 +36,24 @@ function createDoctorOptions() {
 
 async function captureDoctorJson(options: Parameters<typeof runDoctorReport>[0]) {
   const chunks: string[] = [];
-  const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-    chunks.push(String(chunk));
-    return true;
+  const logSpy = vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
+    chunks.push(`${args.join(' ')}\n`);
   });
 
   try {
     await runDoctorReport(options);
   } finally {
-    writeSpy.mockRestore();
+    logSpy.mockRestore();
   }
 
-  return JSON.parse(chunks.join('')) as DoctorJsonReport;
+  const parsed = JSON.parse(chunks.join('')) as {
+    schemaVersion: number;
+    report: string;
+    data: DoctorJsonReport;
+  };
+
+  expect(parsed).toMatchObject({ schemaVersion: 1, report: 'doctor' });
+  return parsed.data;
 }
 
 afterEach(() => {

@@ -2,7 +2,9 @@ import { logger } from '../../utils/logger.js';
 import type { ActiveConfig } from '../../config/active-config-display.js';
 import type { EnvVarOverride } from '../../config/env-var-display.js';
 import { emitActiveConfig } from '../emit-active-config.js';
+import { emitDiagnostics } from '../emit-diagnostics.js';
 import { emitEnvVarOverrides } from '../emit-env-var-overrides.js';
+import type { UsageDiagnostics } from '../usage-data-contracts.js';
 import {
   emitRuntimeProfile,
   mergeRuntimeProfiles,
@@ -15,6 +17,8 @@ import { writeAndOpenShareSvgFile } from '../share-artifact.js';
 import { warnIfTerminalTableOverflows } from '../terminal-overflow-warning.js';
 
 type StandardReportFormat = 'terminal' | 'markdown' | 'json';
+
+export const STANDARD_REPORT_FORMATS = ['terminal', 'markdown', 'json'] as const;
 
 type OutputFlagOptions = {
   json?: boolean;
@@ -122,22 +126,45 @@ async function writeShareArtifact(artifact: ShareArtifact): Promise<void> {
   );
 }
 
-export async function runPreparedReport<Diagnostics, Format extends string>(
-  options: RunPreparedReportOptions<Diagnostics, Format>,
-): Promise<void> {
-  options.emitCommonDiagnostics?.(options.preparedReport.diagnostics);
+type EmitReportRunDiagnosticsOptions<Diagnostics> = {
+  emitCommonDiagnostics?: (diagnostics: Diagnostics) => void;
+  getEnvVarOverrides?: (diagnostics: Diagnostics) => EnvVarOverride[];
+  getActiveConfig?: (diagnostics: Diagnostics) => ActiveConfig | undefined;
+  emitReportDiagnostics?: (diagnostics: Diagnostics) => void;
+  getRuntimeProfile?: (diagnostics: Diagnostics) => RuntimeProfileSnapshot | undefined;
+  runtimeProfile?: RuntimeProfileCollector;
+};
 
-  const envVarOverrides = options.getEnvVarOverrides?.(options.preparedReport.diagnostics) ?? [];
-  emitEnvVarOverrides(envVarOverrides, logger);
-  emitActiveConfig(options.getActiveConfig?.(options.preparedReport.diagnostics), logger);
-  options.emitReportDiagnostics?.(options.preparedReport.diagnostics);
+// The one place that fixes the stderr diagnostics ordering shared by every
+// report command, including the streaming events export.
+export function emitReportRunDiagnostics<Diagnostics>(
+  diagnostics: Diagnostics,
+  options: EmitReportRunDiagnosticsOptions<Diagnostics>,
+): void {
+  options.emitCommonDiagnostics?.(diagnostics);
+  emitEnvVarOverrides(options.getEnvVarOverrides?.(diagnostics) ?? [], logger);
+  emitActiveConfig(options.getActiveConfig?.(diagnostics), logger);
+  options.emitReportDiagnostics?.(diagnostics);
   emitRuntimeProfile(
     mergeRuntimeProfiles(
-      options.preparedReport.runtimeProfile?.snapshot(),
-      options.getRuntimeProfile?.(options.preparedReport.diagnostics),
+      options.runtimeProfile?.snapshot(),
+      options.getRuntimeProfile?.(diagnostics),
     ),
     logger,
   );
+}
+
+export async function runPreparedReport<Diagnostics, Format extends string>(
+  options: RunPreparedReportOptions<Diagnostics, Format>,
+): Promise<void> {
+  emitReportRunDiagnostics(options.preparedReport.diagnostics, {
+    emitCommonDiagnostics: options.emitCommonDiagnostics,
+    getEnvVarOverrides: options.getEnvVarOverrides,
+    getActiveConfig: options.getActiveConfig,
+    emitReportDiagnostics: options.emitReportDiagnostics,
+    getRuntimeProfile: options.getRuntimeProfile,
+    runtimeProfile: options.preparedReport.runtimeProfile,
+  });
 
   if (options.warnOnTerminalOverflow && options.preparedReport.format === 'terminal') {
     warnIfTerminalTableOverflows(options.preparedReport.output, (message) => {
@@ -150,4 +177,27 @@ export async function runPreparedReport<Diagnostics, Format extends string>(
   }
 
   console.log(options.preparedReport.output);
+}
+
+type RunStandardPreparedReportOptions<Diagnostics, Format extends string> = {
+  preparedReport: PreparedReport<Format, Diagnostics>;
+  emitReportDiagnostics?: (diagnostics: Diagnostics) => void;
+  warnOnTerminalOverflow?: boolean;
+};
+
+// Standard wiring for diagnostics that extend UsageDiagnostics; bespoke
+// runPreparedReport calls in report wrappers are a review smell.
+export async function runStandardPreparedReport<
+  Diagnostics extends UsageDiagnostics,
+  Format extends string,
+>(options: RunStandardPreparedReportOptions<Diagnostics, Format>): Promise<void> {
+  await runPreparedReport({
+    preparedReport: options.preparedReport,
+    emitCommonDiagnostics: emitDiagnostics,
+    getEnvVarOverrides: (diagnostics) => diagnostics.activeEnvOverrides,
+    getActiveConfig: (diagnostics) => diagnostics.activeConfig,
+    emitReportDiagnostics: options.emitReportDiagnostics,
+    getRuntimeProfile: (diagnostics) => diagnostics.runtimeProfile,
+    warnOnTerminalOverflow: options.warnOnTerminalOverflow ?? true,
+  });
 }

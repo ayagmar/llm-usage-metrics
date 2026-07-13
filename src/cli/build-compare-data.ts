@@ -15,12 +15,13 @@ import type {
   BuildCompareDataDeps,
   CompareCommandOptions,
   CompareDataResult,
-  CompareMetricDeltaPercent,
+  CompareMetricDeltaRatio,
   CompareMetricKey,
   CompareMetricRow,
   CompareWindowRange,
   CompareWindowTotals,
 } from './usage-data-contracts.js';
+import { addUsd } from '../utils/usd-math.js';
 
 type DateParts = {
   year: number;
@@ -41,8 +42,6 @@ type WindowSummary = {
   totals: CompareWindowTotals;
   sources: Map<string, CompareWindowTotals>;
 };
-
-const USD_PRECISION_SCALE = 1_000_000_000_000;
 
 const metricDefinitions: Array<{
   key: CompareMetricKey;
@@ -204,10 +203,6 @@ function createEmptyTotals(): CompareWindowTotals {
   };
 }
 
-function addUsd(left: number, right: number): number {
-  return Math.round((left + right) * USD_PRECISION_SCALE) / USD_PRECISION_SCALE;
-}
-
 function addUsageTotals(target: CompareWindowTotals, source: UsageTotals): void {
   target.inputTokens += source.inputTokens;
   target.outputTokens += source.outputTokens;
@@ -328,7 +323,7 @@ function subtractValues(
   return current - baseline;
 }
 
-function computeDeltaPercent(
+function computeDeltaRatio(
   current: number | undefined,
   baseline: number | undefined,
 ): number | undefined {
@@ -358,7 +353,7 @@ function buildMetricRows(
       current: currentValue,
       baseline: baselineValue,
       delta: subtractValues(currentValue, baselineValue, definition.valueType),
-      deltaPercent: computeDeltaPercent(currentValue, baselineValue),
+      deltaRatio: computeDeltaRatio(currentValue, baselineValue),
       currentCostIncomplete:
         definition.key === 'costUsd' && current.costIncomplete ? true : undefined,
       baselineCostIncomplete:
@@ -389,14 +384,14 @@ function diffTotals(
   };
 }
 
-function buildDeltaPercentMap(
+function buildDeltaRatioMap(
   current: CompareWindowTotals,
   baseline: CompareWindowTotals,
-): CompareMetricDeltaPercent {
+): CompareMetricDeltaRatio {
   return Object.fromEntries(
     metricDefinitions.map((definition) => [
       definition.key,
-      computeDeltaPercent(
+      computeDeltaRatio(
         resolveMetricValue(current, definition.key),
         resolveMetricValue(baseline, definition.key),
       ),
@@ -421,7 +416,7 @@ function buildSourceRows(current: WindowSummary, baseline: WindowSummary) {
         current: currentTotals,
         baseline: baselineTotals,
         delta: diffTotals(currentTotals, baselineTotals),
-        deltaPercent: buildDeltaPercentMap(currentTotals, baselineTotals),
+        deltaRatio: buildDeltaRatioMap(currentTotals, baselineTotals),
       };
     })
     .sort((left, right) => {

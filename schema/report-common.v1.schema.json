@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json",
+  "title": "llm-usage-metrics report output: shared definitions (v1)",
+  "description": "Shared definitions for the schemaVersion 1 report JSON envelope and token-bucket shapes.",
+  "$defs": {
+    "tokenBuckets": {
+      "description": "The six token buckets every usage-bearing row carries.",
+      "type": "object",
+      "properties": {
+        "inputTokens": {
+          "description": "Prompt tokens sent to the model.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "outputTokens": {
+          "description": "Completion tokens returned by the model.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "reasoningTokens": {
+          "description": "Reasoning/thinking tokens, when the source reports them.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "cacheReadTokens": {
+          "description": "Tokens served from a provider prompt cache.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "cacheWriteTokens": {
+          "description": "Tokens written into a provider prompt cache.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "totalTokens": {
+          "description": "Total tokens for the row as reported or derived.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "inputTokens",
+        "outputTokens",
+        "reasoningTokens",
+        "cacheReadTokens",
+        "cacheWriteTokens",
+        "totalTokens"
+      ]
+    },
+    "usageTotals": {
+      "description": "Token buckets plus optional cost fields.",
+      "allOf": [{ "$ref": "#/$defs/tokenBuckets" }],
+      "properties": {
+        "costUsd": {
+          "description": "Resolved cost in USD; omitted when no pricing resolved.",
+          "type": "number",
+          "minimum": 0
+        },
+        "costIncomplete": {
+          "description": "True when some events in the row lack resolved pricing.",
+          "type": "boolean"
+        }
+      }
+    },
+    "envelope": {
+      "description": "The versioned envelope wrapping every report's --json output.",
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "description": "Breaking-change version of the report JSON contract.",
+          "const": 1
+        },
+        "report": {
+          "description": "The report name that produced this payload.",
+          "type": "string",
+          "enum": [
+            "usage",
+            "session",
+            "trends",
+            "compare",
+            "efficiency",
+            "optimize",
+            "wrapped",
+            "doctor",
+            "prune"
+          ]
+        },
+        "data": {
+          "description": "The report-specific payload."
+        }
+      },
+      "required": ["schemaVersion", "report", "data"]
+    }
+  }
+}
