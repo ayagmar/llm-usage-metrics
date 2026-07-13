@@ -1,4 +1,3 @@
-import { readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -15,6 +14,7 @@ import {
   toTokenCount,
 } from '../parsing-utils.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
+import { readBoundedJsonFile } from '../read-json-file.js';
 import type {
   SourceAdapter,
   SourceAdapterPathOptions,
@@ -352,17 +352,16 @@ export class AmpSourceAdapter implements SourceAdapter {
     let skippedRows = 0;
     const skippedRowReasons = new Map<string, number>();
 
-    let threadData: unknown;
+    const readResult = await readBoundedJsonFile(filePath);
 
-    try {
-      const content = await readFile(filePath, 'utf8');
-      threadData = JSON.parse(content) as unknown;
-    } catch {
+    if (!readResult.ok) {
       skippedRows++;
-      incrementSkippedReason(skippedRowReasons, 'json_parse_error');
+      incrementSkippedReason(skippedRowReasons, readResult.reason);
 
       return toParseDiagnostics(events, skippedRows, skippedRowReasons);
     }
+
+    const threadData = readResult.value;
 
     const thread = asRecord(threadData);
 

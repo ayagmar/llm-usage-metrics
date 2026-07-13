@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, symlink, truncate, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,6 +9,7 @@ import {
   GeminiSourceAdapter,
   getDefaultGeminiDir,
 } from '../../src/sources/gemini/gemini-source-adapter.js';
+import { MAX_JSON_TRANSCRIPT_BYTES } from '../../src/sources/read-json-file.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturesDir = path.join(__dirname, '..', 'fixtures', 'gemini');
@@ -554,6 +555,21 @@ describe('GeminiSourceAdapter', () => {
         path.join(fixturesDir, 'session-invalid-token-types.json'),
       );
       expect(invalidTokenTypes.skippedRowReasons).toEqual([{ reason: 'no_token_usage', count: 1 }]);
+    });
+
+    it('skips oversized session files instead of reading them', async () => {
+      const tempDir = await mkdtemp(path.join(os.tmpdir(), 'gemini-oversized-session-'));
+      tempDirs.push(tempDir);
+      const sessionPath = path.join(tempDir, 'huge-session.json');
+      await writeFile(sessionPath, '{}', 'utf8');
+      // Sparse-extend so the stat size exceeds the cap without real I/O.
+      await truncate(sessionPath, MAX_JSON_TRANSCRIPT_BYTES + 1);
+
+      const adapter = new GeminiSourceAdapter({ dir: tempDir });
+      const result = await adapter.parseFileWithDiagnostics(sessionPath);
+
+      expect(result.events).toHaveLength(0);
+      expect(result.skippedRowReasons).toEqual([{ reason: 'file_too_large', count: 1 }]);
     });
 
     it('reports invalid timestamp rows', async () => {
