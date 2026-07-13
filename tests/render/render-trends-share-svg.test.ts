@@ -59,6 +59,31 @@ describe('renderTrendsShareSvg', () => {
     expect(svg).not.toContain('combined <all>');
   });
 
+  it('renders an active-hours trend with duration labels', () => {
+    const data = createData();
+    data.metric = 'active-hours';
+    data.totalSeries = {
+      source: 'combined',
+      buckets: [
+        { date: '2026-03-04', value: 8_040_000, observed: true },
+        { date: '2026-03-05', value: 0, observed: false },
+        { date: '2026-03-06', value: 300_000, observed: true },
+      ],
+      summary: {
+        total: 8_340_000,
+        average: 2_780_000,
+        peak: { date: '2026-03-04', value: 8_040_000 },
+        incomplete: false,
+        observedDayCount: 2,
+      },
+    };
+
+    const svg = renderTrendsShareSvg(data);
+
+    expect(svg).toContain('Daily Active Hours Trend');
+    expect(svg).toContain('2h 19m');
+  });
+
   it('renders a single-day cost trend as one marker', () => {
     const data = createData();
     data.metric = 'cost';

@@ -1,6 +1,6 @@
 import type { SourceId } from '../domain/usage-event.js';
 
-export type TrendsMetric = 'cost' | 'tokens';
+export type TrendsMetric = 'cost' | 'tokens' | 'active-hours';
 
 // One pre-extracted metric value per (day, source); 'combined' rows carry a
 // source-spanning total that wins over summing the per-source rows.

@@ -118,6 +118,63 @@ describe('buildTrendsData', () => {
     expect(result.diagnostics.pricingOrigin).toBe('none');
   });
 
+  it('computes gap-capped active time per day and source for active-hours trends', async () => {
+    const pricingLoaderSpy = vi.fn(async () => ({
+      source: createDefaultOpenAiPricingSource(),
+      origin: 'cache' as const,
+    }));
+
+    const result = await buildTrendsData(
+      {
+        metric: 'active-hours',
+        since: '2026-03-05',
+        until: '2026-03-06',
+        timezone: 'UTC',
+        bySource: true,
+      },
+      runtimeDeps({
+        now: () => new Date('2026-03-06T12:00:00.000Z'),
+        adapters: [
+          createAdapter('pi', {
+            '/tmp/pi.jsonl': [
+              // One session with a 10-minute gap (capped to 5 minutes) plus a
+              // single-event session that contributes zero.
+              createBaseEvent({ sessionId: 'gapped', timestamp: '2026-03-05T10:00:00.000Z' }),
+              createBaseEvent({ sessionId: 'gapped', timestamp: '2026-03-05T10:10:00.000Z' }),
+              createBaseEvent({ sessionId: 'solo', timestamp: '2026-03-05T11:00:00.000Z' }),
+            ],
+          }),
+          createAdapter('codex', {
+            '/tmp/codex.jsonl': [
+              createBaseEvent({
+                source: 'codex',
+                sessionId: 'codex-a',
+                timestamp: '2026-03-06T09:00:00.000Z',
+              }),
+              createBaseEvent({
+                source: 'codex',
+                sessionId: 'codex-a',
+                timestamp: '2026-03-06T09:02:00.000Z',
+              }),
+            ],
+          }),
+        ],
+        resolvePricingSource: pricingLoaderSpy,
+      }),
+    );
+
+    expect(result.metric).toBe('active-hours');
+    expect(result.totalSeries.buckets).toEqual([
+      { date: '2026-03-05', value: 300_000, observed: true, incomplete: undefined },
+      { date: '2026-03-06', value: 120_000, observed: true, incomplete: undefined },
+    ]);
+    expect(result.sourceSeries?.map((series) => series.source)).toEqual(['pi', 'codex']);
+    expect(result.sourceSeries?.[0]?.buckets.map((bucket) => bucket.value)).toEqual([300_000, 0]);
+    expect(result.sourceSeries?.[1]?.buckets.map((bucket) => bucket.value)).toEqual([0, 120_000]);
+    expect(pricingLoaderSpy).not.toHaveBeenCalled();
+    expect(result.diagnostics.pricingOrigin).toBe('none');
+  });
+
   it('uses explicit trailing day ranges when --days is provided', async () => {
     const result = await buildTrendsData(
       {
@@ -171,7 +228,7 @@ describe('buildTrendsData', () => {
         } as never,
         runtimeDeps(),
       ),
-    ).rejects.toThrow('--metric must be one of: cost, tokens');
+    ).rejects.toThrow('--metric must be one of: cost, tokens, active-hours');
 
     await expect(
       buildTrendsData(

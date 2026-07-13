@@ -106,6 +106,63 @@ describe('renderTrendsReport', () => {
     expect(output).toContain('Peak: ~$2.50 (Mar 06)');
   });
 
+  it('renders active-hours durations with the Active Hours title', () => {
+    const data = createTrendsDataResult();
+    data.metric = 'active-hours';
+    data.totalSeries = {
+      source: 'combined',
+      buckets: [
+        { date: '2026-03-04', value: 8_040_000, observed: true },
+        { date: '2026-03-05', value: 0, observed: false },
+        { date: '2026-03-06', value: 300_000, observed: true },
+      ],
+      summary: {
+        total: 8_340_000,
+        average: 2_780_000,
+        peak: { date: '2026-03-04', value: 8_040_000 },
+        incomplete: false,
+        observedDayCount: 2,
+      },
+    };
+
+    const output = renderTrendsReport(data, 'terminal', {
+      useColor: false,
+      terminalWidth: 80,
+    });
+
+    expect(output).toContain('Daily Active Hours Trend');
+    expect(output).toContain('Total: 2h 19m');
+    expect(output).toContain('Avg: 46m/day');
+    expect(output).toContain('Peak: 2h 14m (Mar 04)');
+  });
+
+  it('renders active-hours markdown with an Active column and durations', () => {
+    const data = createTrendsDataResult();
+    data.metric = 'active-hours';
+    data.totalSeries = {
+      source: 'combined',
+      buckets: [
+        { date: '2026-03-04', value: 8_040_000, observed: true },
+        { date: '2026-03-05', value: 0, observed: false },
+        { date: '2026-03-06', value: 300_000, observed: true },
+      ],
+      summary: {
+        total: 8_340_000,
+        average: 2_780_000,
+        peak: { date: '2026-03-04', value: 8_040_000 },
+        incomplete: false,
+        observedDayCount: 2,
+      },
+    };
+
+    const output = renderTrendsReport(data, 'markdown');
+
+    expect(output).toContain('Active |');
+    expect(output).toContain('2h 14m');
+    expect(output).toContain('| Total');
+    expect(output).toContain('2h 19m');
+  });
+
   it('renders by-source rows in terminal mode', () => {
     const data = createTrendsDataResult();
     data.metric = 'tokens';

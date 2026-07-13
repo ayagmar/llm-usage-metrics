@@ -15,9 +15,9 @@
       "type": "object",
       "properties": {
         "metric": {
-          "description": "Metric charted: resolved cost or total tokens.",
+          "description": "Metric charted: resolved cost, total tokens, or gap-capped active time (active-hours values are milliseconds).",
           "type": "string",
-          "enum": ["cost", "tokens"]
+          "enum": ["cost", "tokens", "active-hours"]
         },
         "dateRange": {
           "description": "Inclusive date window of the series.",
@@ -46,7 +46,11 @@
       "type": "object",
       "properties": {
         "date": { "description": "Bucket date (YYYY-MM-DD).", "type": "string" },
-        "value": { "description": "Metric value for the day.", "type": "number", "minimum": 0 },
+        "value": {
+          "description": "Metric value for the day (milliseconds for active-hours).",
+          "type": "number",
+          "minimum": 0
+        },
         "observed": {
           "description": "True when at least one event landed on the day.",
           "type": "boolean"

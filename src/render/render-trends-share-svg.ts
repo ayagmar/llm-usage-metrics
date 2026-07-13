@@ -1,5 +1,6 @@
 import type { TrendsDataResult } from '../cli/usage-data-contracts.js';
 import type { TrendBucket, TrendsMetric } from '../trends/trends-series.js';
+import { formatDuration } from './format-duration.js';
 import {
   catmullRom,
   escapeSvg,
@@ -21,14 +22,24 @@ const pad = { top: 180, right: 80, bottom: 70 + SHARE_SVG_FOOTER_HEIGHT, left: 1
 const chartColors: Record<TrendsMetric, string> = {
   cost: '#10b981',
   tokens: '#06b6d4',
+  'active-hours': '#06b6d4',
 };
 
 function getMetricLabel(metric: TrendsMetric): string {
-  return metric === 'cost' ? 'Cost' : 'Token Usage';
+  if (metric === 'cost') {
+    return 'Cost';
+  }
+
+  return metric === 'active-hours' ? 'Active Hours' : 'Token Usage';
 }
 
 function formatMetricValue(value: number, metric: TrendsMetric, approximate = false): string {
-  const formatted = metric === 'cost' ? formatUsd(value) : formatCompact(Math.round(value));
+  const formatted =
+    metric === 'cost'
+      ? formatUsd(value)
+      : metric === 'active-hours'
+        ? formatDuration(value)
+        : formatCompact(Math.round(value));
   return approximate ? `~${formatted}` : formatted;
 }
 

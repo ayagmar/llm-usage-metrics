@@ -137,6 +137,16 @@ describe('report json schema e2e', () => {
     validateReport('trends', output);
   });
 
+  it('validates trends active-hours output', async () => {
+    const output = await buildTrendsReport({
+      ...fixtureOptions,
+      since: '2026-01-01',
+      until: '2026-01-31',
+      metric: 'active-hours',
+    });
+    validateReport('trends', output);
+  });
+
   it('validates compare output', async () => {
     const output = await buildCompareReport({
       ...fixtureOptions,

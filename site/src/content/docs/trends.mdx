@@ -31,7 +31,7 @@ llm-usage trends --days 14 --share
 ## Options
 
 - `--days <n>`: trailing local calendar days to chart
-- `--metric <name>`: `cost` or `tokens`
+- `--metric <name>`: `cost`, `tokens`, or `active-hours`
 - `--by-source`: render one sparkline row per source
 - `--share`: write the combined series to `trends-share.svg`
 - shared filters apply: `--source`, `--provider`, `--model`, `--since`, `--until`, `--timezone`, source-path overrides, pricing flags, and `--history`
@@ -58,6 +58,13 @@ llm-usage trends --days 14 --share
 - Uses daily `totalTokens`.
 - Skips pricing loads entirely.
 - Pricing flags are accepted but have no effect in this mode.
+
+### `--metric active-hours`
+
+- Charts per-day active time: each day's events are grouped by session, gaps between consecutive events are capped at 5 minutes, and the per-session results are summed.
+- A session crossing midnight splits at the day boundary — each day counts only the gaps between that day's events.
+- Terminal and Markdown output format durations (`2h 14m`); JSON `value`, `total`, `average`, and `peak.value` are **milliseconds**, matching session `activeMs`.
+- Skips pricing loads entirely, like `tokens`.
 
 ## `--by-source`
 

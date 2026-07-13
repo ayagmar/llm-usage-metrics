@@ -5,6 +5,7 @@ import { markdownTable } from 'markdown-table';
 import type { SessionDataResult } from '../cli/usage-data-contracts.js';
 import type { SessionRepoRow, SessionRow } from '../session/session-row.js';
 import { getPeriodKey } from '../utils/time-buckets.js';
+import { formatDuration } from './format-duration.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { renderReportHeader } from './report-header.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
@@ -62,22 +63,6 @@ function formatCost(row: { costUsd?: number; costIncomplete?: boolean }): string
 
   const formatted = usdFormatter.format(row.costUsd);
   return row.costIncomplete ? `~${formatted}` : formatted;
-}
-
-function formatDuration(durationMs: number): string {
-  if (durationMs <= 0) {
-    return '-';
-  }
-
-  const totalMinutes = Math.round(durationMs / 60_000);
-
-  if (totalMinutes < 1) {
-    return '<1m';
-  }
-
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return hours === 0 ? `${minutes}m` : `${hours}h ${minutes}m`;
 }
 
 function formatModels(models: readonly string[]): string {
