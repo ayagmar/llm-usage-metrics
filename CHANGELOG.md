@@ -1,5 +1,142 @@
 # Changelog
 
+## [0.8.0](https://github.com/ayagmar/llm-usage-metrics/compare/v0.7.2...v0.8.0) (2026-07-13)
+
+### ⚠ BREAKING CHANGES
+
+* **render:** --json output is now wrapped in the schemaVersion 1
+envelope; former payloads live under .data. compare --json no longer
+includes diagnostics.
+* **reports:** --json field renames: savingsPct -> savingsRatio
+(optimize), deltaPercent -> deltaRatio (compare), totalCostUsd ->
+costUsd (wrapped).
+* **config:** retire the tuning env vars in favor of config keys
+* **config:** read user config from TOML
+* **cli:** replace the parse cache with the sqlite event store
+
+### Features
+
+* **cli:** add --history to serve departed-file usage from the event store ([26eeb64](https://github.com/ayagmar/llm-usage-metrics/commit/26eeb642e5f084b2556e3f8aaed4dd247998de41))
+* **cli:** add --openclaw-dir override flag ([1095f69](https://github.com/ayagmar/llm-usage-metrics/commit/1095f692ef9724b5f5d23da667714518781529f2))
+* **cli:** add a parse-worker entry branch to the CLI bundle ([99733eb](https://github.com/ayagmar/llm-usage-metrics/commit/99733eb5a4c50bb7468409da92b9be56c9ed4597))
+* **cli:** add compare command with period-vs-period deltas ([f1c6fab](https://github.com/ayagmar/llm-usage-metrics/commit/f1c6fabe431b62279d7b0ecbf9938faa20226468))
+* **cli:** add config init with a commented default template ([12e30e3](https://github.com/ayagmar/llm-usage-metrics/commit/12e30e3da339b21f64471fe08cd7fb0c6af614dd))
+* **cli:** add doctor command for source discovery health ([e529f64](https://github.com/ayagmar/llm-usage-metrics/commit/e529f6443f10887e7c23de44ba2c6b97bf960797))
+* **cli:** add events export command (jsonl, csv) ([627fded](https://github.com/ayagmar/llm-usage-metrics/commit/627fdedf7f30e631d88077fa81b9223b20ed6288))
+* **cli:** add logLevel config and a --quiet flag ([aab0fb0](https://github.com/ayagmar/llm-usage-metrics/commit/aab0fb08d17574eea689593353afa45691c33fee))
+* **cli:** add provider and model filters to wrapped ([b2c5476](https://github.com/ayagmar/llm-usage-metrics/commit/b2c54767b207261447245c6a4e0db140baa6658b))
+* **cli:** add prune for explicit event-store maintenance ([528a16d](https://github.com/ayagmar/llm-usage-metrics/commit/528a16d181fc801b21014d01e87ad55619cdf2ce))
+* **cli:** add schema command exposing bundled report schemas ([4f2b6e7](https://github.com/ayagmar/llm-usage-metrics/commit/4f2b6e7408d1b48273d3feee1b718d1435f2a05a))
+* **cli:** add session report command ([ed25850](https://github.com/ayagmar/llm-usage-metrics/commit/ed25850944d6f51f432fb8762c9ae743039ecc0a))
+* **cli:** add wrapped command with share SVG ([1e13b63](https://github.com/ayagmar/llm-usage-metrics/commit/1e13b637709e45e1d36347614fc1b093896a5c44))
+* **cli:** give wrapped a styled terminal recap ([54caaae](https://github.com/ayagmar/llm-usage-metrics/commit/54caaae4813a468f51f1d26679b4f64ac1d1ff74))
+* **cli:** ingest parsed events into the store behind LLM_USAGE_EVENT_STORE ([3ce234e](https://github.com/ayagmar/llm-usage-metrics/commit/3ce234ed7e724f60ad974bc96bbf99fd3d31049f))
+* **cli:** level-gate the shared logger ([96cb516](https://github.com/ayagmar/llm-usage-metrics/commit/96cb51627e0a9efccfd4dcccc03d2b6c989952f8))
+* **cli:** parse large jsonl sources on the worker pool ([8753845](https://github.com/ayagmar/llm-usage-metrics/commit/8753845b1e8b08b42d5bac5b9777772a4d14a747))
+* **cli:** replace the parse cache with the sqlite event store ([54879db](https://github.com/ayagmar/llm-usage-metrics/commit/54879db97dbb0a34cf9d7397a1bc8247695d4b75))
+* **cli:** resolve compare windows and build compare data ([08eb8b2](https://github.com/ayagmar/llm-usage-metrics/commit/08eb8b247d83d1c92c2d23a7f4a735a95876cda5))
+* **cli:** serve unchanged files from the event store ([8e1ed60](https://github.com/ayagmar/llm-usage-metrics/commit/8e1ed60bbb86ae4476049aba7e5906cf8375a673))
+* **cli:** session default top 20, slimmer table, and limit diagnostics ([7e65ca3](https://github.com/ayagmar/llm-usage-metrics/commit/7e65ca32aae83d97276ba035d1cacda5b1e2eee3))
+* **compare:** add share svg export ([127666b](https://github.com/ayagmar/llm-usage-metrics/commit/127666b79880806fdc5013b94975bf03e77b74e2))
+* **config:** add config show and config path subcommands ([1cf98f6](https://github.com/ayagmar/llm-usage-metrics/commit/1cf98f6b4e00dfa52a3ee6d60493c978005d8066))
+* **config:** add parseWorkers and parseWorkerMinBytes settings ([033b6ff](https://github.com/ayagmar/llm-usage-metrics/commit/033b6ffd81640b9127fa493fe82271b0919c321e))
+* **config:** apply config below flags and env across the CLI ([1d80875](https://github.com/ayagmar/llm-usage-metrics/commit/1d808756886093e2da0e17a3cdafa75dc58255c5))
+* **config:** load a user config file with a published JSON schema ([434539d](https://github.com/ayagmar/llm-usage-metrics/commit/434539d540aad8ddc685997edee93dc26c3fcbc5))
+* **config:** read user config from TOML ([83cfe7b](https://github.com/ayagmar/llm-usage-metrics/commit/83cfe7b5706290271912642871e13010cb1aef54))
+* **config:** retire the tuning env vars in favor of config keys ([a2dcd08](https://github.com/ayagmar/llm-usage-metrics/commit/a2dcd087fc7d2fd168c702cd0ac32e3fe4198025))
+* **efficiency:** aggregate per-source rows behind --by-source ([b7ed718](https://github.com/ayagmar/llm-usage-metrics/commit/b7ed71854b98b72a3bb5acd398b0fac230471e70))
+* **efficiency:** render the by-source view ([ba04c3b](https://github.com/ayagmar/llm-usage-metrics/commit/ba04c3bcd8344de5a7c185929f88c92f358d2bf1))
+* **persistence:** add sqlite event store with per-file replace ingest ([941b1dc](https://github.com/ayagmar/llm-usage-metrics/commit/941b1dc01d746b79a125ce8ddbf7387ce7a45e81))
+* **persistence:** expose departed-file classification, deletion, and vacuum ([367c25c](https://github.com/ayagmar/llm-usage-metrics/commit/367c25c55b863a2691d4ff31bf0ae1a636f99b4b))
+* **persistence:** migrate the event store to a ledger with content hashes ([55d44e1](https://github.com/ayagmar/llm-usage-metrics/commit/55d44e1bfd7b6bdc64e22dd638e0897a7c6d8ba3))
+* **pricing:** add a generated LiteLLM pricing snapshot ([ed4fcda](https://github.com/ayagmar/llm-usage-metrics/commit/ed4fcda378218b5b569b4f05be5c7d7d25332e9a))
+* **pricing:** fall back to the bundled snapshot when cache and network fail ([ecb1570](https://github.com/ayagmar/llm-usage-metrics/commit/ecb1570d78e40b76b2afb47cc7f7fdd75291cacb))
+* **render:** consistent empty-state message for usage and compare ([f905dd6](https://github.com/ayagmar/llm-usage-metrics/commit/f905dd6fcac2bf9d86e55f0f9e18670d4da7fd1f))
+* **render:** wrap report json output in a versioned envelope ([c61a567](https://github.com/ayagmar/llm-usage-metrics/commit/c61a567c13fd54010e716ac86de81ca8d0162d56))
+* **reports:** refresh output and product presentation ([f351c8a](https://github.com/ayagmar/llm-usage-metrics/commit/f351c8aa50b2e94b59ebc85e956bec3cac7b69d8))
+* **session:** add repo attribution, --id filter, and --by-repo grouping ([ba7f48a](https://github.com/ayagmar/llm-usage-metrics/commit/ba7f48a6ae616c82340c02b1ae4a220315bbe542))
+* **session:** add session aggregation ([3beba6a](https://github.com/ayagmar/llm-usage-metrics/commit/3beba6a5b446f63c5e5b4c701a21e65ca963e29c))
+* **session:** compute session duration and gap-capped active time ([e048515](https://github.com/ayagmar/llm-usage-metrics/commit/e048515a294f746cd53e020cb3a5e35d41026043))
+* **session:** show session duration column ([2ff8efa](https://github.com/ayagmar/llm-usage-metrics/commit/2ff8efac8d0120c3b7b44642ada566b070617d29))
+* **site:** animate the landing page and use real report output ([923cfaa](https://github.com/ayagmar/llm-usage-metrics/commit/923cfaa918cf4acb237a400248e7ce4d067c08b7))
+* **site:** refine landing theme and performance ([e763909](https://github.com/ayagmar/llm-usage-metrics/commit/e7639095699585bcdf3eea0eab172c5d20cf296f))
+* **site:** refresh brand mark and add DeepWiki ([f0fe212](https://github.com/ayagmar/llm-usage-metrics/commit/f0fe21234a11224dcd604ff896a447c2d8197a1a))
+* **source:** add amp adapter ([0aa4e22](https://github.com/ayagmar/llm-usage-metrics/commit/0aa4e222a53e351d2820e8b1f7221c2e35cfb327))
+* **source:** add antigravity adapter ([cf13c10](https://github.com/ayagmar/llm-usage-metrics/commit/cf13c107bd76ebb28bbbdbf2398b76664cac345e))
+* **source:** add antigravity protobuf reader ([b75b913](https://github.com/ayagmar/llm-usage-metrics/commit/b75b9134f6766ba045b149bda39f0f62d5b19478))
+* **source:** add cline-family task parser and cline adapter ([5811177](https://github.com/ayagmar/llm-usage-metrics/commit/58111772c799bb8cb27c3eafa48aa9778de62637))
+* **source:** add GitHub Copilot CLI adapter ([7d4292b](https://github.com/ayagmar/llm-usage-metrics/commit/7d4292bf53b6bbfbdf516027547249fa0a3fc8bf))
+* **source:** add goose adapter ([fde72f7](https://github.com/ayagmar/llm-usage-metrics/commit/fde72f73f6f638d4de3128d5d23ab404a4583fdb))
+* **source:** add kimi adapter ([1d39df4](https://github.com/ayagmar/llm-usage-metrics/commit/1d39df4700898269376ad45924e8dd24fdaea2ee))
+* **source:** add parse diagnostics to codex adapter ([cce2863](https://github.com/ayagmar/llm-usage-metrics/commit/cce28639a91c89213716c5e7270a6fb12672fb47))
+* **source:** add parse diagnostics to pi adapter ([c5e1b3f](https://github.com/ayagmar/llm-usage-metrics/commit/c5e1b3ffc76e0d0c753bf9f40128d9c2deb79379))
+* **source:** add qwen adapter ([de0a125](https://github.com/ayagmar/llm-usage-metrics/commit/de0a125376455e010e71cb309ae8cf335c2f1a9f))
+* **source:** register roocode and kilocode adapters ([669f1a3](https://github.com/ayagmar/llm-usage-metrics/commit/669f1a30c8d2928b2575990f29eb4c7c92e48f25))
+* **sources:** register moonshot provider root and kimi fixed roots ([62f0a73](https://github.com/ayagmar/llm-usage-metrics/commit/62f0a733abad9d4823365a8b35a5355c967cb372))
+* **sources:** scan claude transcripts, oh-my-pi, and legacy openclaw homes by default ([d8c7ae3](https://github.com/ayagmar/llm-usage-metrics/commit/d8c7ae3008544b43128b24d069aa5582186e332a))
+* **sources:** support opencode channel databases and GEMINI_CLI_HOME ([34b3afd](https://github.com/ayagmar/llm-usage-metrics/commit/34b3afd42c48e7813c5bc001c7c30dd87041f6ac))
+* **trends:** add --share SVG export ([f5c36a2](https://github.com/ayagmar/llm-usage-metrics/commit/f5c36a27fff384632b5ea073da64920c1866ba5a))
+* **trends:** add active-hours metric ([10efd05](https://github.com/ayagmar/llm-usage-metrics/commit/10efd057de4532b7134a2e62ba93f8297d650bd8))
+* **trends:** add markdown output ([40b2d5b](https://github.com/ayagmar/llm-usage-metrics/commit/40b2d5b33d80cdacf2a242833217d0a8255a3771))
+* **wrapped:** add markdown output ([634656e](https://github.com/ayagmar/llm-usage-metrics/commit/634656e25e953713b8da7094d6b909e3c69cdbf2))
+* **wrapped:** add yearly recap aggregation ([c9d9d68](https://github.com/ayagmar/llm-usage-metrics/commit/c9d9d68a7630c288c20f00b167b344211827f628))
+* **wrapped:** aggregate active time and time-pattern stats ([d7bbdb2](https://github.com/ayagmar/llm-usage-metrics/commit/d7bbdb26997e6024a04b00bc4de7c5504fc697e6))
+* **wrapped:** estimate cache savings ([d13d736](https://github.com/ayagmar/llm-usage-metrics/commit/d13d736b53b8ce3fc5e865c9806741cbc06fd437))
+* **wrapped:** surface hours, time patterns, and cache savings ([bb8dcf4](https://github.com/ayagmar/llm-usage-metrics/commit/bb8dcf48e176ab2667a83df9ac0f8f2a53218167))
+
+### Bug Fixes
+
+* **cli:** apply user config to doctor and surface it on prune ([b101d71](https://github.com/ayagmar/llm-usage-metrics/commit/b101d714987923102001e068a6fa0d1a3c44de8f))
+* **cli:** event-store review cleanups ([066babe](https://github.com/ayagmar/llm-usage-metrics/commit/066babe60385b4db1b06ef562d34ba6e4f549e2e))
+* **cli:** keep a source's events when a single file fails to parse ([c40b943](https://github.com/ayagmar/llm-usage-metrics/commit/c40b9434601b65768d3913e0442714c7fd3f4626))
+* **cli:** recover parse workers that exit or reply malformed ([66d7a79](https://github.com/ayagmar/llm-usage-metrics/commit/66d7a79fb8e1eb92a2bc2e256562d998df41d8fc))
+* **cli:** report event-store env overrides in diagnostics again ([f8b7374](https://github.com/ayagmar/llm-usage-metrics/commit/f8b73744d365dfdd7bc798868edd384142552752))
+* **cli:** report how the event store was disabled ([357f910](https://github.com/ayagmar/llm-usage-metrics/commit/357f910dab54fe36bb63630a60a56ebed59c0bff))
+* **cli:** restrict --history to successfully parsed sources ([a27c10a](https://github.com/ayagmar/llm-usage-metrics/commit/a27c10a579f34fa0cb6c51a41f344f5ebd22135c))
+* **cli:** show the real default store path in the config template ([28f0aa3](https://github.com/ayagmar/llm-usage-metrics/commit/28f0aa3be77130f1502a539a1363a79b73e29206))
+* **cli:** unblock help on malformed config and polish config visibility ([c03a4e9](https://github.com/ayagmar/llm-usage-metrics/commit/c03a4e9a93a539d35ff2fa99684a6de3722e8721))
+* **docs:** generate cli reference sections for all config subcommands ([5bae099](https://github.com/ayagmar/llm-usage-metrics/commit/5bae099bd4561183141ff66945097b41dd4649da))
+* **efficiency:** skip malformed git commit boundaries ([2702d22](https://github.com/ayagmar/llm-usage-metrics/commit/2702d2208fd47dc6e0cd18d0a10d07175d014a42))
+* **events:** neutralize spreadsheet formula triggers in csv export ([9dd8e26](https://github.com/ayagmar/llm-usage-metrics/commit/9dd8e26215a9f9e8ec7daa17e6c9aeb6e0105cfd))
+* **perf:** isolate the report baseline from user state ([a0ccf4a](https://github.com/ayagmar/llm-usage-metrics/commit/a0ccf4a2c5b76a97d296bd46b7e03d7dddd36faf))
+* **persistence:** busy timeout, WAL, and read-only doctor access ([0775a40](https://github.com/ayagmar/llm-usage-metrics/commit/0775a405eb772fba4ac4057613509d048f19d410))
+* **persistence:** keep ledger reads non-mutating and migration poison-safe ([63344f0](https://github.com/ayagmar/llm-usage-metrics/commit/63344f00ea9b50f3c972a67e932534acd9d8eb93))
+* **pricing:** alias gemini-3-flash-a family to priced keys ([1c2d398](https://github.com/ayagmar/llm-usage-metrics/commit/1c2d398fd580ced10b8a689bd88198e868c7a81f))
+* **pricing:** bound model names before fuzzy matching ([f356377](https://github.com/ayagmar/llm-usage-metrics/commit/f35637710d5c9530837c4bc6b75b17a157adf5cd))
+* **pricing:** let the model map veto fuzzy matching for listed models ([b6e0b86](https://github.com/ayagmar/llm-usage-metrics/commit/b6e0b862557786d0ab17c0ccd4686f86f7813909))
+* **pricing:** reject negative override rates ([448dcf1](https://github.com/ayagmar/llm-usage-metrics/commit/448dcf1e754532b60da1b570a3113148ffa7efe8))
+* **render:** sort efficiency share periods by code point ([1f12294](https://github.com/ayagmar/llm-usage-metrics/commit/1f122948459778365d09075415e44b36f44d6a98))
+* **render:** wrap usage share source pills across rows ([0d0053b](https://github.com/ayagmar/llm-usage-metrics/commit/0d0053b0b7543e158b0b79d52d8798a7b3565834))
+* **security:** cap LiteLLM pricing response size ([efa540f](https://github.com/ayagmar/llm-usage-metrics/commit/efa540f40a7c9aee87a722c013b72cb8b99a0ead))
+* **security:** restrict event-store file permissions ([66e3926](https://github.com/ayagmar/llm-usage-metrics/commit/66e392670bf8fb60af1e0e980dbd7c4286b8a341))
+* **security:** strip control characters from session-derived strings ([c365ba6](https://github.com/ayagmar/llm-usage-metrics/commit/c365ba6fdd7a55eb5b4697d6d69e27d4200bdb2e))
+* **source:** cap json transcript file size before parse ([632e541](https://github.com/ayagmar/llm-usage-metrics/commit/632e541c35ff737c35662152a2d9006ca0f0ed01))
+* **source:** count claude retries separately via requestId dedup ([a4195ac](https://github.com/ayagmar/llm-usage-metrics/commit/a4195ac3aaef316234a9cd7a917439f9026d62f1))
+* **source:** keep same-priority copilot spans sharing a trace ([b49667b](https://github.com/ayagmar/llm-usage-metrics/commit/b49667b0978148983fe1e580c3707768bc30f306))
+* **source:** report malformed jsonl rows ([94e8b68](https://github.com/ayagmar/llm-usage-metrics/commit/94e8b6869779f5af93d24b812c8ef904be2b5f36))
+* **source:** resolve kimi model from config with timestamp fallback ([8ff5846](https://github.com/ayagmar/llm-usage-metrics/commit/8ff5846e53736e8cbf406d98d3ad8ecf3e6b9ddb))
+* **store:** check schema version before switching journal mode ([d1e5f4f](https://github.com/ayagmar/llm-usage-metrics/commit/d1e5f4fc92607483c38cc2974ab0c64db3200c24))
+* **store:** include session id in event content hashes ([666f721](https://github.com/ayagmar/llm-usage-metrics/commit/666f721ae56bf0e43ee00e9aebc7f3d58bf03a0d))
+* **store:** page migration rehash in batches ([a35181b](https://github.com/ayagmar/llm-usage-metrics/commit/a35181bef95a5ffc98850aabfff2fef55762ff9e))
+* **test:** keep the event store out of real user state during tests ([ef17eec](https://github.com/ayagmar/llm-usage-metrics/commit/ef17eecaeb9174c6536a25d4342d91fc75bda4c8))
+
+### Performance Improvements
+
+* **cli:** dispatch worker misses in one pass ([f972fc5](https://github.com/ayagmar/llm-usage-metrics/commit/f972fc513e5607be39ba4c9aef2543bbf50478bc))
+* **cli:** skip date bucketing when no date filters are set ([5b33f0f](https://github.com/ayagmar/llm-usage-metrics/commit/5b33f0f882ff4fb20e4fce90b06f6a7469ebfdc3))
+* **persistence:** fast-path stored event materialization ([5eb97a8](https://github.com/ayagmar/llm-usage-metrics/commit/5eb97a8f9d8ed04a7e7cb6d2b7428eeb18e18d2f))
+* **persistence:** prepare hot event-store statements once per connection ([12e06a9](https://github.com/ayagmar/llm-usage-metrics/commit/12e06a9c6c4ad2b64a82e18d6c683d5a07f004d6))
+* **source:** skip non-usage jsonl lines before utf8 decode ([3aa8e91](https://github.com/ayagmar/llm-usage-metrics/commit/3aa8e9126162b4265eff6bc64d1cf4be4a37a8a1))
+* **source:** snapshot gemini project mapping per run ([555d3f8](https://github.com/ayagmar/llm-usage-metrics/commit/555d3f824cf8cddf8949cc330e54105b8c3bf658))
+* **store:** batch history event selection ([40c7e75](https://github.com/ayagmar/llm-usage-metrics/commit/40c7e7502592da438820d0e7d9242e417eab1eae))
+* **update:** bound notifier latency at cli exit ([860d40a](https://github.com/ayagmar/llm-usage-metrics/commit/860d40a74485714b799c4dacbc1c4ec5bdfd15a2))
+* **utils:** cache local-date windows in time bucketing ([672a2f7](https://github.com/ayagmar/llm-usage-metrics/commit/672a2f78c12587c21b2737248d73cd1bd5ff8b10))
+* **utils:** scan jsonl lines from binary chunks instead of readline ([fccba83](https://github.com/ayagmar/llm-usage-metrics/commit/fccba83c4c8fd14fba63dbd399578aeb98e3751c))
+
+### Code Refactoring
+
+* **reports:** rename ratio and wrapped cost fields ([dd17a44](https://github.com/ayagmar/llm-usage-metrics/commit/dd17a44617c2e8fc8fa85f9d4ed0e729fdeb62af))
+
 ## [0.7.2](https://github.com/ayagmar/llm-usage-metrics/compare/v0.7.1...v0.7.2) (2026-07-03)
 
 ### Features
