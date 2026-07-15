@@ -76,22 +76,29 @@ Compare production runtime against `ccusage` on your machine. The script times t
 
 ```bash
 pnpm run build
-npx -y ccusage@latest --version
-CCUSAGE_BIN=$(find ~/.npm/_npx -name ccusage -path '*/.bin/*' | head -1)
+CCUSAGE_BIN=$(npx --yes --package=ccusage@20.0.17 sh -c 'command -v ccusage')
+"$CCUSAGE_BIN" --version
 
 # one scenario at a time
-node scripts/perf-production-benchmark.mjs --runs 5 --scenario codex --ccusage-bin "$CCUSAGE_BIN"
-node scripts/perf-production-benchmark.mjs --runs 5 --scenario claude --ccusage-bin "$CCUSAGE_BIN"
+node scripts/perf-production-benchmark.mjs --runs 8 --scenario codex --ccusage-bin "$CCUSAGE_BIN"
+node scripts/perf-production-benchmark.mjs --runs 8 --scenario claude --ccusage-bin "$CCUSAGE_BIN"
 
 # or both scenarios in one run
-node scripts/perf-production-benchmark.mjs --runs 5 --scenario all --ccusage-bin "$CCUSAGE_BIN"
+node scripts/perf-production-benchmark.mjs --runs 8 --scenario all --ccusage-bin "$CCUSAGE_BIN"
 ```
+
+The direct executable path keeps npm/npx resolution outside the measured command. The runner
+isolates application config and cache state, fixes both tools to UTC, and rotates cell order. It
+does not flush the OS filesystem page cache, so its states are fresh and warmed **application**
+state rather than disk-cold and disk-warm. Stop the source tools or benchmark a stable snapshot so
+session files do not change during the run. Replace the pinned ccusage version when intentionally
+creating a new baseline.
 
 Optional artifact outputs:
 
 ```bash
 node scripts/perf-production-benchmark.mjs \
-  --runs 5 \
+  --runs 8 \
   --scenario codex \
   --ccusage-bin "$CCUSAGE_BIN" \
   --json-output ./tmp/production-benchmark-codex.json \

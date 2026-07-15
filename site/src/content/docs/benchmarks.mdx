@@ -1,39 +1,57 @@
 ---
 title: Benchmarks
-description: Measured cold and warm runtimes on real local data, with methodology and honest ccusage context.
+description: Direct-process and launcher-inclusive runtimes on stable snapshots of real local data.
 ---
 
-This page publishes measured absolute runtimes for `llm-usage` on real local data, with `ccusage` numbers included as context. There are no cherry-picked speedup claims here: `ccusage` 20.x is a native Rust binary, it wins cold runs, and this page says so. All numbers were measured on 2026-07-09 with 5 timed runs per cell.
+This page publishes absolute runtimes for `llm-usage` and `ccusage` on stable snapshots of real local data. The result depends on what is timed: ccusage wins the current direct-process comparison, while putting `npx` in front of ccusage adds enough launcher overhead to reverse the result at the shell. All numbers below were measured on 2026-07-15 with 8 timed runs per cell.
 
-## Results
+## Direct-process results
 
-### codex — `daily` (5 runs each)
+These cells invoke the built `llm-usage` entry and ccusage's installed package executable directly. They include process startup and captured JSON output, but exclude shell package-manager launchers such as `npx`.
 
-| Tool                                               | Cache | Median (s) | Mean (s) | Min (s) | Max (s) |
-| -------------------------------------------------- | ----- | ---------: | -------: | ------: | ------: |
-| `ccusage codex daily`                              | cold  |      0.516 |    0.515 |   0.487 |   0.549 |
-| `ccusage codex daily --offline`                    | warm  |      0.292 |    0.292 |   0.281 |   0.306 |
-| `llm-usage daily --source codex`                   | cold  |      1.655 |    1.670 |   1.642 |   1.715 |
-| `llm-usage daily --source codex --pricing-offline` | warm  |      0.996 |    1.005 |   0.971 |   1.046 |
+### codex — `daily --json` (8 runs each)
 
-Derived from median runtime: llm-usage vs ccusage cold `0.31x` (ccusage ~3.2x faster), warm `0.29x` (ccusage ~3.4x faster).
+| Tool                                               | Application state | Median (s) | Mean (s) | Min (s) | Max (s) |
+| -------------------------------------------------- | ----------------- | ---------: | -------: | ------: | ------: |
+| `ccusage codex daily --no-offline --timezone UTC --json`                    | fresh             |      0.479 |    0.483 |   0.404 |   0.590 |
+| `ccusage codex daily --offline --timezone UTC --json`                       | warmed            |      0.271 |    0.275 |   0.244 |   0.328 |
+| `llm-usage daily --source codex --timezone UTC --json`                      | fresh             |      1.527 |    1.555 |   1.497 |   1.734 |
+| `llm-usage daily --source codex --timezone UTC --json --pricing-offline`    | warmed            |      0.766 |    0.776 |   0.692 |   0.899 |
 
-### claude — `daily` (5 runs each)
+From median runtime, ccusage was 3.19x faster in fresh application state and 2.83x faster in warmed application state.
 
-| Tool                                                | Cache | Median (s) | Mean (s) | Min (s) | Max (s) |
-| --------------------------------------------------- | ----- | ---------: | -------: | ------: | ------: |
-| `ccusage claude daily`                              | cold  |      0.335 |    0.354 |   0.317 |   0.437 |
-| `ccusage claude daily --offline`                    | warm  |      0.478 |    0.474 |   0.464 |   0.483 |
-| `llm-usage daily --source claude`                   | cold  |      0.883 |    0.896 |   0.833 |   1.010 |
-| `llm-usage daily --source claude --pricing-offline` | warm  |      0.256 |    0.255 |   0.227 |   0.287 |
+### claude — `daily --json` (8 runs each)
 
-Derived from median runtime: llm-usage vs ccusage cold `0.38x` (ccusage ~2.6x faster), warm `1.87x` (llm-usage ~1.9x faster).
+| Tool                                                | Application state | Median (s) | Mean (s) | Min (s) | Max (s) |
+| --------------------------------------------------- | ----------------- | ---------: | -------: | ------: | ------: |
+| `ccusage claude daily --no-offline --timezone UTC --json`                   | fresh             |      0.363 |    0.328 |   0.242 |   0.392 |
+| `ccusage claude daily --offline --timezone UTC --json`                      | warmed            |      0.087 |    0.089 |   0.074 |   0.114 |
+| `llm-usage daily --source claude --timezone UTC --json`                     | fresh             |      0.754 |    0.773 |   0.713 |   0.837 |
+| `llm-usage daily --source claude --timezone UTC --json --pricing-offline`   | warmed            |      0.182 |    0.185 |   0.170 |   0.204 |
 
-## Where each tool wins
+From median runtime, ccusage was 2.08x faster in fresh application state and 2.10x faster in warmed application state.
 
-- **Cold runs favor ccusage.** ccusage 20.x is a native Rust binary; llm-usage is TypeScript on Node. Cold runs are dominated by JSONL parsing, where native code wins: llm-usage parses the 1.8 GiB codex corpus cold in ~1.65 s (buffer reader + byte prefilters + a worker-thread parse pool), which is fast for a Node tool but ~3x behind the Rust binary.
-- **Warm claude favors llm-usage (~1.9x).** The SQLite event store serves already-parsed events, so llm-usage skips file parsing entirely and returns in ~0.26 s, while ccusage re-reads the corpus every run (~0.48 s).
-- **Warm codex does not flip.** The store skips parsing, but the warm path still materializes and aggregates every stored codex event in JS, and the codex ledger holds far more events than the claude one. That aggregation cost (~1.0 s) is the current warm-path bottleneck.
+These are runtime comparisons of similar report commands, not correctness or byte-for-byte output-equivalence claims. The tools use different output schemas and normalization rules.
+
+## Why an `npx` timing says llm-usage is faster
+
+The reported shell commands do not have equivalent launch paths: `llm-usage` is already installed, while `npx ccusage@latest` starts npm, resolves the package, prepares its execution environment, and then starts ccusage. We repeated that monthly terminal scenario on the same stable Codex snapshot, using the pinned ccusage version from this baseline:
+
+| Command                                                    | Launch path        | Median (s) | Mean (s) | Min (s) | Max (s) |
+| ---------------------------------------------------------- | ------------------ | ---------: | -------: | ------: | ------: |
+| `llm-usage monthly --per-model-columns --source codex`     | installed command  |      0.893 |    0.939 |   0.759 |   1.172 |
+| `ccusage codex monthly`                                    | package executable |      0.578 |    0.573 |   0.539 |   0.612 |
+| `npx --yes ccusage@20.0.17 codex monthly`                  | npm + ccusage      |      3.771 |    3.814 |   3.448 |   4.110 |
+
+With direct package executables, ccusage was 1.55x faster in this terminal scenario. With `npx` included, the installed `llm-usage` command appeared 4.22x faster. Both observations are valid; they answer different questions. Use launcher-inclusive timing to judge the one-off `npx` experience, and direct-process timing to compare the tools themselves.
+
+This launcher check is an observed shell-path comparison, not the counterbalanced application benchmark above. Each command received one untimed warm-up followed by 8 sequential timed runs on the stable snapshot; commands were grouped by row, output was discarded through non-TTY pipes, and the system timezone plus default online pricing/update behavior were left in place. ccusage 20.0.17 was already resolved in npm's package cache before both its direct and `npx` rows.
+
+## What the application states mean
+
+- **Fresh application state:** a new `XDG_CACHE_HOME` and `XDG_CONFIG_HOME` for every timed run, live pricing, and `LLM_USAGE_EVENT_STORE=0` for llm-usage. This is not disk-cold: both corpora were read during setup, and the OS filesystem page cache was not flushed.
+- **Warmed application state:** one live setup run populates each tool's pricing cache and llm-usage's event store. Timed runs then use offline pricing (`--offline` or `--pricing-offline`) and reuse that application state.
+- ccusage does not expose an event ledger equivalent to llm-usage's SQLite store; “warmed” does not imply that both tools cache parsed source events in the same way.
 
 ## Baseline machine
 
@@ -44,40 +62,48 @@ Derived from median runtime: llm-usage vs ccusage cold `0.38x` (ccusage ~2.6x fa
 | Memory    | 62.2 GiB RAM                                     |
 | Node.js   | v24.12.0                                         |
 | pnpm      | 10.17.1                                          |
-| ccusage   | 20.0.14 (native binary)                          |
-| llm-usage | 0.7.2 (git `28f0aa3`, built dist)                |
+| ccusage   | 20.0.17 (package executable + native binary)     |
+| llm-usage | 0.8.0 (git `7ebacde`, built dist)                 |
 
 ## Dataset scope
 
 | Corpus | Files                                    | Size on disk |
 | ------ | ---------------------------------------- | ------------ |
-| codex  | 1,145 JSONL session files                | ≈ 1.8 GiB    |
-| claude | 201 JSONL files (projects + transcripts) | ≈ 115 MiB    |
+| codex  | 1,168 JSONL session files                | ≈ 1.77 GiB   |
+| claude | 271 JSONL files (projects + transcripts) | ≈ 178.8 MiB  |
+
+The source trees were copied to a filesystem snapshot immediately before the run so the active Codex session could not grow between samples.
 
 ## Methodology
 
-- 5 timed runs per cell, on an otherwise-quiet machine (load average 1.30 / 22 logical CPUs before the run).
-- Cold cells use a fresh `XDG_CACHE_HOME` and `LLM_USAGE_EVENT_STORE=0`.
-- Each tool's warm cache is populated by one live warm-up run, then timed warm cells run offline (`--offline` for ccusage, `--pricing-offline` for llm-usage).
-- Asymmetry to disclose: llm-usage runs get `LLM_USAGE_SKIP_UPDATE_CHECK=1`; ccusage exposes no equivalent knob, so none is applied.
+- 8 timed runs per cell. The four cells rotate execution order each run, so every cell occupies every position twice.
+- Both tools use UTC, isolated application cache/config directories, and the same stable source snapshot.
+- Inherited `LLM_USAGE_*` overrides are removed. The warmed llm-usage event store is explicitly enabled and placed inside the temporary benchmark root; fresh-state runs explicitly disable it.
+- Fresh-state cells use live pricing. Warmed-state cells use pricing populated by one live setup run and then run offline.
+- The OS filesystem page cache is not flushed. No true disk-cold claim is made.
+- Direct-process cells exclude npm/npx/pnpm launcher overhead. The separate monthly table intentionally includes `npx` in its third row.
+- llm-usage gets `LLM_USAGE_SKIP_UPDATE_CHECK=1` in the direct-process comparison. ccusage exposes no equivalent update-check switch.
 
-## Engineering notes: the cold-codex path
+## Engineering notes: the fresh Codex path
 
-Before the parse-pipeline work, a cold codex run over this corpus took 8.7 s; it takes 1.65 s now. The mechanisms, in pipeline order:
+Before the parse-pipeline work, a fresh Codex run over this corpus took 8.7 s; the current measured median is 1.527 s. The mechanisms, in pipeline order:
 
 1. Byte prefilters and a buffer-based JSONL reader (`src/utils/read-jsonl-objects.ts`) skip irrelevant lines before any JSON parsing.
 2. A per-timezone local-date window cache for period bucketing (`src/utils/time-buckets.ts`) avoids repeated date math per event.
-3. An event-store warm read fast path serves already-parsed events from SQLite.
+3. An event-store warm read path serves already-parsed events.
 4. A worker-thread parse pool (`src/cli/parse-worker-pool.ts`) parses large JSONL files in parallel.
 
 ## Reproduce it
 
+Build the current checkout and resolve the exact ccusage version without timing `npx` itself:
+
 ```bash
 pnpm run build
-npx -y ccusage@latest --version
-CCUSAGE_BIN=$(find ~/.npm/_npx -name ccusage -path '*/.bin/*' | head -1)
-node scripts/perf-production-benchmark.mjs --runs 5 --scenario codex --ccusage-bin "$CCUSAGE_BIN"
-node scripts/perf-production-benchmark.mjs --runs 5 --scenario claude --ccusage-bin "$CCUSAGE_BIN"
+CCUSAGE_BIN=$(npx --yes --package=ccusage@20.0.17 sh -c 'command -v ccusage')
+"$CCUSAGE_BIN" --version
+node scripts/perf-production-benchmark.mjs --runs 8 --scenario all --ccusage-bin "$CCUSAGE_BIN"
 ```
 
-The script also accepts `--json-output <path>` and `--markdown-output <path>` to export artifacts. Results are machine- and dataset-specific: re-run on your own workload before drawing conclusions.
+Stop Codex and Claude while the benchmark runs, or point `HOME` at a stable snapshot containing `.codex` and `.claude`. Replace the pinned ccusage version only when intentionally creating a new baseline. The script also accepts `--json-output <path>` and `--markdown-output <path>` to export artifacts.
+
+Results are machine-, dataset-, command-, and launcher-specific. Re-run the exact scenario you care about before drawing a broader conclusion.

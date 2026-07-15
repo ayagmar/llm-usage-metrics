@@ -10,20 +10,30 @@ const repoRoot = path.resolve(scriptDir, '..');
 const llmEntryPath = path.join(repoRoot, 'dist', 'index.js');
 
 const SCENARIOS = ['claude', 'codex'];
+const BENCHMARK_TIMEZONE = 'UTC';
 
 // Both tools are warmed with a LIVE run so pricing caches actually populate, then
-// their timed warm cells read those caches offline. Update-check suppression is
+// their timed application-warm cells read those caches offline. Update-check suppression is
 // asymmetric and unavoidable: llm-usage gets LLM_USAGE_SKIP_UPDATE_CHECK=1 on every
 // invocation, but ccusage exposes no equivalent flag or env (verified via
 // `ccusage --help`) — it is a native binary with no npm-style launch-time update
 // check, so there is no knob to match.
 const METHODOLOGY_LINES = [
   'Methodology:',
-  '  - Warm-up: each tool is warmed once with a LIVE (online) run so its pricing',
-  '    caches populate; timed warm cells then read those caches offline',
+  '  - Application-warm setup: each tool is warmed once with a LIVE (online) run',
+  '    so its pricing caches populate; timed repeat runs then read those caches offline',
   '    (ccusage --offline, llm-usage --pricing-offline).',
-  '  - Cold cells run against a fresh XDG_CACHE_HOME; llm-usage also sets',
+  '  - Application-cold cells are first runs with fresh XDG_CACHE_HOME and',
+  '    XDG_CONFIG_HOME directories and live pricing. llm-usage also sets',
   '    LLM_USAGE_EVENT_STORE=0 so no prior parse state is reused.',
+  '  - Application-warm cells are repeat runs with warmed application caches and',
+  '    offline pricing. The OS filesystem page cache is not flushed for either cell.',
+  '  - Both tools run with TZ=UTC and isolated config/cache paths. Inherited',
+  '    LLM_USAGE_* overrides are removed before llm-usage benchmark commands run.',
+  '  - Commands invoke the ccusage executable and Node dist entry directly; timing',
+  '    excludes npm, npx, and pnpm launcher overhead.',
+  '  - Source files must remain unchanged while the benchmark runs. Stop active',
+  '    tools or point HOME at a stable snapshot of the source corpus.',
   '  - Update-check suppression: llm-usage gets LLM_USAGE_SKIP_UPDATE_CHECK=1 on',
   '    every invocation; ccusage exposes no equivalent flag or env, so none is',
   '    applied (verified via `ccusage --help`).',
@@ -35,23 +45,24 @@ function printHelp() {
 Benchmark ccusage <source> daily vs llm-usage daily --source <source>, for
 source in {claude, codex}. Each scenario times four cells over N runs:
 
-  - ccusage cold    ccusage <source> daily --no-offline --json (fresh cache home)
-  - ccusage warm    ccusage <source> daily --offline    --json (warmed cache home)
-  - llm-usage cold  daily --source <source> --json       (fresh cache home, event store off, live pricing)
-  - llm-usage warm  daily --source <source> --pricing-offline --json (warmed cache home + event store)
+  - ccusage application-cold  first run, fresh app cache/config, live pricing
+  - ccusage application-warm  repeat run, warmed app cache, offline pricing
+  - llm-usage application-cold  first run, fresh app cache/config, event store off, live pricing
+  - llm-usage application-warm  repeat run, warmed app cache + event store, offline pricing
 
-Each tool's warm cache home is populated by one live (online) warm-up run before
-sampling, so the timed warm cells read a genuinely warmed cache on both sides.
+Each tool's application-warm cache home is populated by one live (online) warm-up
+run before sampling. The OS filesystem page cache is not flushed.
 
-llm-usage is measured via the freshly built dist (node dist/index.js), so it
-reflects the current checkout. Build first: pnpm run build.
+Both tools are invoked directly, without npm/npx/pnpm launcher overhead. llm-usage
+uses the freshly built dist (node dist/index.js), so it reflects the current
+checkout. Build first: pnpm run build.
 
 ${METHODOLOGY_LINES.join('\n')}
 
 Options:
-  --runs <count>             Number of timed runs per cell (default: 5)
+  --runs <count>             Number of timed runs per cell (default: 8)
   --scenario <name>          claude | codex | all (default: all)
-  --ccusage-bin <path>       ccusage executable to benchmark (default: ccusage)
+  --ccusage-bin <path>       Direct ccusage executable to benchmark (default: ccusage)
   --json-output <path>       Write detailed benchmark payload as JSON
   --markdown-output <path>   Write markdown benchmark summary
   --keep-temp-cache          Keep temporary cache directory for inspection
@@ -61,7 +72,7 @@ Options:
 
 function parseCliArgs(argv) {
   const args = {
-    runs: 5,
+    runs: 8,
     scenario: 'all',
     ccusageBin: 'ccusage',
     jsonOutputPath: undefined,
@@ -158,10 +169,7 @@ function runCommand(command, commandArgs, options = {}) {
   const result = spawnSync(command, commandArgs, {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: {
-      ...process.env,
-      ...options.env,
-    },
+    env: options.env ?? process.env,
     cwd: options.cwd ?? process.cwd(),
   });
 
@@ -178,6 +186,45 @@ function runCommand(command, commandArgs, options = {}) {
   }
 
   return (result.stdout ?? '').trim();
+}
+
+function buildBenchmarkEnv(overrides) {
+  const env = {};
+
+  for (const [name, value] of Object.entries(process.env)) {
+    if (
+      !name.startsWith('LLM_USAGE_') &&
+      name !== 'CODEX_HOME' &&
+      name !== 'CLAUDE_CONFIG_DIR' &&
+      value !== undefined
+    ) {
+      env[name] = value;
+    }
+  }
+
+  return {
+    ...env,
+    TZ: BENCHMARK_TIMEZONE,
+    CODEX_HOME: path.join(os.homedir(), '.codex'),
+    CLAUDE_CONFIG_DIR: path.join(os.homedir(), '.claude'),
+    ...overrides,
+  };
+}
+
+function buildLlmBenchmarkEnv({ cacheRoot, configRoot, eventStorePath }) {
+  const eventStoreEnv = eventStorePath
+    ? {
+        LLM_USAGE_EVENT_STORE: '1',
+        LLM_USAGE_EVENT_STORE_PATH: eventStorePath,
+      }
+    : { LLM_USAGE_EVENT_STORE: '0' };
+
+  return buildBenchmarkEnv({
+    XDG_CACHE_HOME: cacheRoot,
+    XDG_CONFIG_HOME: configRoot,
+    LLM_USAGE_SKIP_UPDATE_CHECK: '1',
+    ...eventStoreEnv,
+  });
 }
 
 function assertCommandAvailable(command) {
@@ -234,12 +281,27 @@ function toFixed(value, digits = 2) {
 
 // ccusage <source> daily [--offline|--no-offline] --json
 function ccusageArgs(source, offline) {
-  return [source, 'daily', offline ? '--offline' : '--no-offline', '--json'];
+  return [
+    source,
+    'daily',
+    offline ? '--offline' : '--no-offline',
+    '--timezone',
+    BENCHMARK_TIMEZONE,
+    '--json',
+  ];
 }
 
 // node dist/index.js daily --source <source> [--pricing-offline] --json
 function llmArgs(source, pricingOffline) {
-  const args = [llmEntryPath, 'daily', '--source', source, '--json'];
+  const args = [
+    llmEntryPath,
+    'daily',
+    '--source',
+    source,
+    '--timezone',
+    BENCHMARK_TIMEZONE,
+    '--json',
+  ];
 
   if (pricingOffline) {
     args.push('--pricing-offline');
@@ -251,33 +313,46 @@ function llmArgs(source, pricingOffline) {
 function toScenarioTableRows(sourceResult, ccusageBinLabel) {
   return [
     {
-      Tool: `${ccusageBinLabel} ${sourceResult.source} daily`,
-      Cache: 'cold',
+      Tool: `${ccusageBinLabel} ${ccusageArgs(sourceResult.source, false).join(' ')}`,
+      State: 'fresh application state',
       stats: sourceResult.summary.ccusageCold,
     },
     {
-      Tool: `${ccusageBinLabel} ${sourceResult.source} daily --offline`,
-      Cache: 'warm',
+      Tool: `${ccusageBinLabel} ${ccusageArgs(sourceResult.source, true).join(' ')}`,
+      State: 'warmed application state',
       stats: sourceResult.summary.ccusageWarm,
     },
     {
-      Tool: `llm-usage daily --source ${sourceResult.source}`,
-      Cache: 'cold',
+      Tool: `llm-usage ${llmArgs(sourceResult.source, false).slice(1).join(' ')}`,
+      State: 'fresh application state',
       stats: sourceResult.summary.llmCold,
     },
     {
-      Tool: `llm-usage daily --source ${sourceResult.source} --pricing-offline`,
-      Cache: 'warm',
+      Tool: `llm-usage ${llmArgs(sourceResult.source, true).slice(1).join(' ')}`,
+      State: 'warmed application state',
       stats: sourceResult.summary.llmWarm,
     },
   ].map((row) => ({
     Tool: row.Tool,
-    Cache: row.Cache,
+    State: row.State,
     'Median (s)': toSeconds(row.stats.medianMs),
     'Mean (s)': toSeconds(row.stats.meanMs),
     'Min (s)': toSeconds(row.stats.minMs),
     'Max (s)': toSeconds(row.stats.maxMs),
   }));
+}
+
+function describeMedianWinner(llmMedianMs, ccusageMedianMs) {
+  if (llmMedianMs === ccusageMedianMs) {
+    return 'llm-usage and ccusage have the same median runtime';
+  }
+
+  const llmUsageWins = llmMedianMs < ccusageMedianMs;
+  const winner = llmUsageWins ? 'llm-usage' : 'ccusage';
+  const loser = llmUsageWins ? 'ccusage' : 'llm-usage';
+  const multiplier = llmUsageWins ? ccusageMedianMs / llmMedianMs : llmMedianMs / ccusageMedianMs;
+
+  return `${winner} is ${multiplier.toFixed(2)}x faster than ${loser}`;
 }
 
 function buildMarkdownSummary(report) {
@@ -300,23 +375,23 @@ function buildMarkdownSummary(report) {
 
   for (const sourceResult of report.resultsBySource) {
     const rows = toScenarioTableRows(sourceResult, report.config.ccusageBinLabel);
-    const speedups = sourceResult.derivedSpeedups;
+    const summary = sourceResult.summary;
 
     lines.push(
       '',
       `### ${sourceResult.source} — daily (${report.config.runs} runs each)`,
       '',
-      '| Tool | Cache | Median (s) | Mean (s) | Min (s) | Max (s) |',
+      '| Tool | State | Median (s) | Mean (s) | Min (s) | Max (s) |',
       '| --- | --- | ---: | ---: | ---: | ---: |',
       ...rows.map(
         (row) =>
-          `| \`${row.Tool}\` | ${row.Cache} | ${row['Median (s)']} | ${row['Mean (s)']} | ${row['Min (s)']} | ${row['Max (s)']} |`,
+          `| \`${row.Tool}\` | ${row.State} | ${row['Median (s)']} | ${row['Mean (s)']} | ${row['Min (s)']} | ${row['Max (s)']} |`,
       ),
       '',
       'Derived from median runtime:',
       '',
-      `- \`llm-usage\` vs \`ccusage\` (cold): \`${speedups.llmVsCcusageCold}x\``,
-      `- \`llm-usage\` vs \`ccusage\` (warm): \`${speedups.llmVsCcusageWarm}x\``,
+      `- Application-cold (first run): ${describeMedianWinner(summary.llmCold.medianMs, summary.ccusageCold.medianMs)}.`,
+      `- Application-warm (repeat run): ${describeMedianWinner(summary.llmWarm.medianMs, summary.ccusageWarm.medianMs)}.`,
     );
   }
 
@@ -348,55 +423,116 @@ function resolveMachineSpecs(ccusageBin) {
 
 async function benchmarkSource(source, cliArgs, tempCacheRoot) {
   const ccusageBin = cliArgs.ccusageBin;
-  const warmCcusageRoot = path.join(tempCacheRoot, 'warm', `ccusage-${source}`);
-  const warmLlmRoot = path.join(tempCacheRoot, 'warm', `llm-${source}`);
+  const warmCcusageCacheRoot = path.join(tempCacheRoot, 'cache', 'warm', `ccusage-${source}`);
+  const warmCcusageConfigRoot = path.join(tempCacheRoot, 'config', 'warm', `ccusage-${source}`);
+  const warmLlmCacheRoot = path.join(tempCacheRoot, 'cache', 'warm', `llm-${source}`);
+  const warmLlmConfigRoot = path.join(tempCacheRoot, 'config', 'warm', `llm-${source}`);
+  const warmLlmEventStorePath = path.join(warmLlmCacheRoot, 'events.sqlite');
 
-  await mkdir(warmCcusageRoot, { recursive: true });
-  await mkdir(warmLlmRoot, { recursive: true });
+  await mkdir(warmCcusageCacheRoot, { recursive: true });
+  await mkdir(warmCcusageConfigRoot, { recursive: true });
+  await mkdir(warmLlmCacheRoot, { recursive: true });
+  await mkdir(warmLlmConfigRoot, { recursive: true });
 
   // Warm each tool's cache with one LIVE (online) run before sampling, so the
   // timed warm cells read a genuinely populated cache on both sides.
   runCommand(ccusageBin, ccusageArgs(source, false), {
-    env: { XDG_CACHE_HOME: warmCcusageRoot },
+    env: buildBenchmarkEnv({
+      XDG_CACHE_HOME: warmCcusageCacheRoot,
+      XDG_CONFIG_HOME: warmCcusageConfigRoot,
+    }),
   });
   // ccusage has no update-check/telemetry env to suppress; llm-usage gets its own.
   runCommand(process.execPath, llmArgs(source, false), {
-    env: { XDG_CACHE_HOME: warmLlmRoot, LLM_USAGE_SKIP_UPDATE_CHECK: '1' },
+    env: buildLlmBenchmarkEnv({
+      cacheRoot: warmLlmCacheRoot,
+      configRoot: warmLlmConfigRoot,
+      eventStorePath: warmLlmEventStorePath,
+    }),
   });
 
   const timings = { ccusageCold: [], ccusageWarm: [], llmCold: [], llmWarm: [] };
+  const executionOrderByRun = [];
 
   for (let runIndex = 1; runIndex <= cliArgs.runs; runIndex += 1) {
-    const coldCcusageRoot = path.join(tempCacheRoot, `run-${runIndex}`, `ccusage-${source}`);
-    const coldLlmRoot = path.join(tempCacheRoot, `run-${runIndex}`, `llm-${source}`);
+    const coldCcusageCacheRoot = path.join(
+      tempCacheRoot,
+      'cache',
+      `run-${runIndex}`,
+      `ccusage-${source}`,
+    );
+    const coldCcusageConfigRoot = path.join(
+      tempCacheRoot,
+      'config',
+      `run-${runIndex}`,
+      `ccusage-${source}`,
+    );
+    const coldLlmCacheRoot = path.join(tempCacheRoot, 'cache', `run-${runIndex}`, `llm-${source}`);
+    const coldLlmConfigRoot = path.join(
+      tempCacheRoot,
+      'config',
+      `run-${runIndex}`,
+      `llm-${source}`,
+    );
 
-    await mkdir(coldCcusageRoot, { recursive: true });
-    await mkdir(coldLlmRoot, { recursive: true });
+    await mkdir(coldCcusageCacheRoot, { recursive: true });
+    await mkdir(coldCcusageConfigRoot, { recursive: true });
+    await mkdir(coldLlmCacheRoot, { recursive: true });
+    await mkdir(coldLlmConfigRoot, { recursive: true });
 
-    timings.ccusageCold.push(
-      measureCommand(ccusageBin, ccusageArgs(source, false), {
-        env: { XDG_CACHE_HOME: coldCcusageRoot },
-      }),
-    );
-    timings.ccusageWarm.push(
-      measureCommand(ccusageBin, ccusageArgs(source, true), {
-        env: { XDG_CACHE_HOME: warmCcusageRoot },
-      }),
-    );
-    timings.llmCold.push(
-      measureCommand(process.execPath, llmArgs(source, false), {
-        env: {
-          XDG_CACHE_HOME: coldLlmRoot,
-          LLM_USAGE_EVENT_STORE: '0',
-          LLM_USAGE_SKIP_UPDATE_CHECK: '1',
-        },
-      }),
-    );
-    timings.llmWarm.push(
-      measureCommand(process.execPath, llmArgs(source, true), {
-        env: { XDG_CACHE_HOME: warmLlmRoot, LLM_USAGE_SKIP_UPDATE_CHECK: '1' },
-      }),
-    );
+    const cells = [
+      {
+        name: 'ccusageCold',
+        measure: () =>
+          measureCommand(ccusageBin, ccusageArgs(source, false), {
+            env: buildBenchmarkEnv({
+              XDG_CACHE_HOME: coldCcusageCacheRoot,
+              XDG_CONFIG_HOME: coldCcusageConfigRoot,
+            }),
+          }),
+      },
+      {
+        name: 'ccusageWarm',
+        measure: () =>
+          measureCommand(ccusageBin, ccusageArgs(source, true), {
+            env: buildBenchmarkEnv({
+              XDG_CACHE_HOME: warmCcusageCacheRoot,
+              XDG_CONFIG_HOME: warmCcusageConfigRoot,
+            }),
+          }),
+      },
+      {
+        name: 'llmCold',
+        measure: () =>
+          measureCommand(process.execPath, llmArgs(source, false), {
+            env: buildLlmBenchmarkEnv({
+              cacheRoot: coldLlmCacheRoot,
+              configRoot: coldLlmConfigRoot,
+            }),
+          }),
+      },
+      {
+        name: 'llmWarm',
+        measure: () =>
+          measureCommand(process.execPath, llmArgs(source, true), {
+            env: buildLlmBenchmarkEnv({
+              cacheRoot: warmLlmCacheRoot,
+              configRoot: warmLlmConfigRoot,
+              eventStorePath: warmLlmEventStorePath,
+            }),
+          }),
+      },
+    ];
+    const executionOrder = rotateForRun(cells, runIndex);
+
+    executionOrderByRun.push({
+      run: runIndex,
+      cells: executionOrder.map((cell) => cell.name),
+    });
+
+    for (const cell of executionOrder) {
+      timings[cell.name].push(cell.measure());
+    }
   }
 
   const summary = {
@@ -411,7 +547,7 @@ async function benchmarkSource(source, cliArgs, tempCacheRoot) {
     llmVsCcusageWarm: toFixed(summary.ccusageWarm.medianMs / summary.llmWarm.medianMs),
   };
 
-  return { source, timings, summary, derivedSpeedups };
+  return { source, timings, summary, derivedSpeedups, executionOrderByRun };
 }
 
 async function main() {
@@ -438,7 +574,13 @@ async function main() {
 
   const report = {
     generatedAt: new Date().toISOString().slice(0, 10),
-    config: { runs: cliArgs.runs, scenario: cliArgs.scenario, ccusageBinLabel },
+    config: {
+      runs: cliArgs.runs,
+      scenario: cliArgs.scenario,
+      timezone: BENCHMARK_TIMEZONE,
+      ccusageBinLabel,
+      includesNpmLauncherOverhead: false,
+    },
     machine: resolveMachineSpecs(cliArgs.ccusageBin),
     resultsBySource,
   };
@@ -448,10 +590,10 @@ async function main() {
     console.log(`\n${sourceResult.source} — daily`);
     console.table(toScenarioTableRows(sourceResult, ccusageBinLabel));
     console.log(
-      `- llm-usage vs ccusage (cold): ${sourceResult.derivedSpeedups.llmVsCcusageCold.toFixed(2)}x`,
+      `- Application-cold (first run): ${describeMedianWinner(sourceResult.summary.llmCold.medianMs, sourceResult.summary.ccusageCold.medianMs)}.`,
     );
     console.log(
-      `- llm-usage vs ccusage (warm): ${sourceResult.derivedSpeedups.llmVsCcusageWarm.toFixed(2)}x`,
+      `- Application-warm (repeat run): ${describeMedianWinner(sourceResult.summary.llmWarm.medianMs, sourceResult.summary.ccusageWarm.medianMs)}.`,
     );
   }
 
@@ -472,4 +614,16 @@ async function main() {
   }
 }
 
-await main();
+function rotateForRun(cells, runIndex) {
+  const rotationIndex = (runIndex - 1) % cells.length;
+  return [...cells.slice(rotationIndex), ...cells.slice(0, rotationIndex)];
+}
+
+const isMainModule =
+  process.argv[1] !== undefined && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isMainModule) {
+  await main();
+}
+
+export { buildBenchmarkEnv, buildLlmBenchmarkEnv, ccusageArgs, llmArgs, rotateForRun };

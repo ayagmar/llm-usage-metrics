@@ -185,7 +185,7 @@ Terminal, JSON, and Markdown availability varies by report. Usage, trends, wrapp
 
 ## Performance
 
-The repository publishes absolute cold and warm runtimes on real local corpora. The comparison includes the runs where `ccusage` is faster and the warm Claude run where the event ledger is faster. It also records the machine, commands, cache state, dataset size, and five-run distribution.
+The repository publishes direct-process and launcher-inclusive runtimes on stable snapshots of real local corpora. The current direct-process comparison shows `ccusage` ahead in every measured daily JSON cell; a separate monthly terminal check shows why timing `npx ccusage@...` can appear much slower than an installed `llm-usage` command. The benchmark records the machine, exact commands, application state, dataset size, and eight-run summary statistics.
 
 Read and reproduce the [benchmark](https://ayagmar.github.io/llm-usage-metrics/benchmarks/) before applying its results to another workload.
 

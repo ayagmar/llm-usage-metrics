@@ -414,9 +414,10 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
         <p class="eyebrow"># 05 · benchmarks</p>
         <h2 id="benchmark-title">Performance numbers you can audit.</h2>
         <p>
-          The benchmark records five-run medians on real local corpora and publishes the machine,
-          commands, cache state, and dataset size. Cold runs favor the native Rust comparison tool;
-          the warm Claude run favors the local event store.
+          The benchmark records eight-run medians on stable snapshots of real local corpora and
+          publishes the machine, commands, application state, and dataset size. The current direct
+          comparison favors ccusage; a separate launcher test explains why npx can reverse the
+          result you see at the shell.
         </p>
         <a class="text-link" href={link('benchmarks/')}>Read the benchmark and reproduce it</a>
       </div>
@@ -424,18 +425,18 @@ const heatCells = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
       <dl class="benchmark-data" data-reveal style="--reveal-delay: 90ms">
         <div>
           <dt>Largest measured corpus</dt>
-          <dd>1.8 GiB</dd>
-          <span>1,145 codex session files</span>
+          <dd>1.77 GiB</dd>
+          <span>1,168 codex session files</span>
         </div>
         <div>
-          <dt>Warm Claude median</dt>
-          <dd>0.256 s</dd>
-          <span>201 files in the measured corpus</span>
+          <dt>Warm Codex median</dt>
+          <dd>0.766 s</dd>
+          <span>built llm-usage, direct process</span>
         </div>
         <div>
           <dt>Runs per cell</dt>
-          <dd>5</dd>
-          <span>median, mean, min, and max published</span>
+          <dd>8</dd>
+          <span>rotated order; summary statistics published</span>
         </div>
       </dl>
     </section>
