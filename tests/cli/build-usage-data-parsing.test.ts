@@ -828,23 +828,26 @@ describe('build-usage-data-parsing', () => {
     expect(parseCalls.count).toBe(3);
   });
 
-  it('keeps diagnostics identical between inline and worker-pool parsing', async () => {
+  it('dispatches largest misses first while preserving inline output order', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'worker-diagnostics-parity-'));
     tempDirs.push(tempDir);
 
     const fileA = path.join(tempDir, 'a.jsonl');
     const fileB = path.join(tempDir, 'b.jsonl');
     const fileC = path.join(tempDir, 'c.jsonl');
-    await writeFile(fileA, '{"line":1}\n', 'utf8');
-    await writeFile(fileB, '{"line":2}\n', 'utf8');
-    await writeFile(fileC, '{"line":3}\n', 'utf8');
+    const fileD = path.join(tempDir, 'd.jsonl');
+    await writeFile(fileA, 'a'.repeat(10), 'utf8');
+    await writeFile(fileB, 'b'.repeat(40), 'utf8');
+    await writeFile(fileC, 'c'.repeat(20), 'utf8');
+    await writeFile(fileD, 'd'.repeat(20), 'utf8');
 
     const dispatchedFiles: string[] = [];
     const completedFiles: string[] = [];
     const completionDelayByFile = new Map([
-      [fileA, 30],
-      [fileB, 15],
-      [fileC, 0],
+      [fileA, 0],
+      [fileB, 30],
+      [fileC, 20],
+      [fileD, 10],
     ]);
     const pool: ParseWorkerPool = {
       parse: async (task, inlineParse) => {
@@ -897,22 +900,34 @@ describe('build-usage-data-parsing', () => {
         skippedRows: 3,
         skippedRowReasons: [{ reason: 'no_usage', count: 3 }],
       },
+      [fileD]: {
+        events: [
+          createUsageEvent({
+            source: 'codex',
+            sessionId: 'd',
+            timestamp: '2026-02-01T00:00:00.000Z',
+            totalTokens: 1,
+          }),
+        ],
+        skippedRows: 4,
+        skippedRowReasons: [{ reason: 'invalid_timestamp', count: 4 }],
+      },
     });
 
-    const inlineResult = await parseAdapterEvents(adapter, 3, undefined, undefined, undefined, {
+    const inlineResult = await parseAdapterEvents(adapter, 4, undefined, undefined, undefined, {
       workerCount: 0,
       minBytes: 0,
     });
-    const workerResult = await parseAdapterEvents(adapter, 3, undefined, undefined, undefined, {
-      workerCount: 3,
+    const workerResult = await parseAdapterEvents(adapter, 4, undefined, undefined, undefined, {
+      workerCount: 4,
       minBytes: 1,
       createPool,
     });
 
     expect(createPool).toHaveBeenCalledTimes(1);
-    expect(dispatchedFiles).toEqual([fileA, fileB, fileC]);
-    expect(completedFiles).toEqual([fileC, fileB, fileA]);
-    expect(workerResult.events.map((event) => event.sessionId)).toEqual(['a', 'b', 'c']);
+    expect(dispatchedFiles).toEqual([fileB, fileC, fileD, fileA]);
+    expect(completedFiles).toEqual([fileA, fileD, fileC, fileB]);
+    expect(workerResult.events.map((event) => event.sessionId)).toEqual(['a', 'b', 'c', 'd']);
     expect(workerResult).toEqual(inlineResult);
   });
 });

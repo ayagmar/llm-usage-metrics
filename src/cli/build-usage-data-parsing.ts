@@ -355,7 +355,13 @@ export async function parseAdapterEvents(
     await runTaskLoop(fileIndices, (fileIndex) =>
       resolveStoreHitOrWorkerMiss(fileIndex, missedFiles),
     );
-    missedFiles.sort((left, right) => left.fileIndex - right.fileIndex);
+    missedFiles.sort((left, right) => {
+      if (left.byteSize !== right.byteSize) {
+        return right.byteSize - left.byteSize;
+      }
+
+      return left.fileIndex - right.fileIndex;
+    });
 
     const missedBytes = missedFiles.reduce(
       (sum, missedFile) => sum + Math.max(0, missedFile.byteSize),
