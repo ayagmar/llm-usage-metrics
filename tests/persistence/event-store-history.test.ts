@@ -96,6 +96,9 @@ function countStoreQueries(store: EventStore): { getCount: () => number } {
       count += 1;
       return statement.run(...args);
     },
+    setReturnArrays: (enabled: boolean) => {
+      statement.setReturnArrays(enabled);
+    },
   });
 
   store.database = {

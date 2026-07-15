@@ -32,6 +32,7 @@ type EventStoreStatement = {
   all: (...parameters: unknown[]) => Record<string, unknown>[];
   get: (...parameters: unknown[]) => Record<string, unknown> | undefined;
   run: (...parameters: unknown[]) => unknown;
+  setReturnArrays: (enabled: boolean) => void;
 };
 
 type EventStoreDatabase = {
@@ -309,6 +310,23 @@ function stringifySkippedRowReasons(
 
 type OptionalStoredText = string | undefined | typeof FAST_PATH_REJECT;
 
+type StoredEventTuple = [
+  source: unknown,
+  session_id: unknown,
+  timestamp: unknown,
+  model: unknown,
+  provider: unknown,
+  repo_root: unknown,
+  input_tokens: unknown,
+  output_tokens: unknown,
+  reasoning_tokens: unknown,
+  cache_read_tokens: unknown,
+  cache_write_tokens: unknown,
+  total_tokens: unknown,
+  cost_usd: unknown,
+  cost_mode: unknown,
+];
+
 export function normalizeStoredEvent(row: Record<string, unknown>): UsageEvent | undefined {
   return fastMaterializeStoredEvent(row) ?? slowNormalizeStoredEvent(row);
 }
@@ -346,26 +364,85 @@ function slowNormalizeStoredEvent(row: Record<string, unknown>): UsageEvent | un
 }
 
 function fastMaterializeStoredEvent(row: Record<string, unknown>): UsageEvent | undefined {
+  return materializeStoredEvent(
+    row.source,
+    row.session_id,
+    row.timestamp,
+    row.model,
+    row.provider,
+    row.repo_root,
+    row.input_tokens,
+    row.output_tokens,
+    row.reasoning_tokens,
+    row.cache_read_tokens,
+    row.cache_write_tokens,
+    row.total_tokens,
+    row.cost_usd,
+    row.cost_mode,
+  );
+}
+
+function normalizeStoredEventTuple(row: StoredEventTuple): UsageEvent | undefined {
+  const event = materializeStoredEvent(...row);
+
+  if (event) {
+    return event;
+  }
+
+  return slowNormalizeStoredEvent({
+    source: row[0],
+    session_id: row[1],
+    timestamp: row[2],
+    model: row[3],
+    provider: row[4],
+    repo_root: row[5],
+    input_tokens: row[6],
+    output_tokens: row[7],
+    reasoning_tokens: row[8],
+    cache_read_tokens: row[9],
+    cache_write_tokens: row[10],
+    total_tokens: row[11],
+    cost_usd: row[12],
+    cost_mode: row[13],
+  });
+}
+
+function materializeStoredEvent(
+  sourceValue: unknown,
+  sessionIdValue: unknown,
+  timestampValue: unknown,
+  modelValue: unknown,
+  providerValue: unknown,
+  repoRootValue: unknown,
+  inputTokensValue: unknown,
+  outputTokensValue: unknown,
+  reasoningTokensValue: unknown,
+  cacheReadTokensValue: unknown,
+  cacheWriteTokensValue: unknown,
+  totalTokensValue: unknown,
+  costUsdValue: unknown,
+  costModeValue: unknown,
+): UsageEvent | undefined {
   const costMode =
-    row.cost_mode === 'explicit' || row.cost_mode === 'estimated' ? row.cost_mode : undefined;
+    costModeValue === 'explicit' || costModeValue === 'estimated' ? costModeValue : undefined;
 
   if (!costMode) {
     return undefined;
   }
 
-  const source = toStoredRequiredText(row.source);
-  const sessionId = toStoredRequiredText(row.session_id);
-  const timestamp = toStoredTimestamp(row.timestamp);
-  const repoRoot = toStoredOptionalText(row.repo_root);
-  const provider = toStoredOptionalText(row.provider);
-  const model = toStoredOptionalText(row.model);
-  const inputTokens = toStoredNonNegativeInteger(row.input_tokens);
-  const outputTokens = toStoredNonNegativeInteger(row.output_tokens);
-  const reasoningTokens = toStoredNonNegativeInteger(row.reasoning_tokens);
-  const cacheReadTokens = toStoredNonNegativeInteger(row.cache_read_tokens);
-  const cacheWriteTokens = toStoredNonNegativeInteger(row.cache_write_tokens);
-  const totalTokens = toStoredNonNegativeInteger(row.total_tokens);
-  const costUsd = toStoredCostUsd(row.cost_usd, costMode);
+  const source = toStoredRequiredText(sourceValue);
+  const sessionId = toStoredRequiredText(sessionIdValue);
+  const timestamp = toStoredTimestamp(timestampValue);
+  const repoRoot = toStoredOptionalText(repoRootValue);
+  const provider = toStoredOptionalText(providerValue);
+  const model = toStoredOptionalText(modelValue);
+  const inputTokens = toStoredNonNegativeInteger(inputTokensValue);
+  const outputTokens = toStoredNonNegativeInteger(outputTokensValue);
+  const reasoningTokens = toStoredNonNegativeInteger(reasoningTokensValue);
+  const cacheReadTokens = toStoredNonNegativeInteger(cacheReadTokensValue);
+  const cacheWriteTokens = toStoredNonNegativeInteger(cacheWriteTokensValue);
+  const totalTokens = toStoredNonNegativeInteger(totalTokensValue);
+  const costUsd = toStoredCostUsd(costUsdValue, costMode);
 
   if (
     !source ||
@@ -907,18 +984,27 @@ function selectFileEventRows(
   store: EventStore,
   source: string,
   filePath: string,
-): Record<string, unknown>[] {
-  const statement = (store.statements.selectFileEvents ??= store.database.prepare(
-    [
-      'SELECT source, session_id, timestamp, model, provider, repo_root,',
-      '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
-      '  cache_write_tokens, total_tokens, cost_usd, cost_mode',
-      'FROM events',
-      'WHERE source = ? AND file_path = ?',
-      'ORDER BY event_index ASC',
-    ].join('\n'),
-  ));
-  return statement.all(source, filePath);
+): StoredEventTuple[] {
+  let statement = store.statements.selectFileEvents;
+
+  if (!statement) {
+    statement = store.database.prepare(
+      [
+        'SELECT source, session_id, timestamp, model, provider, repo_root,',
+        '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
+        '  cache_write_tokens, total_tokens, cost_usd, cost_mode',
+        'FROM events',
+        'WHERE source = ? AND file_path = ?',
+        'ORDER BY event_index ASC',
+      ].join('\n'),
+    );
+    statement.setReturnArrays(true);
+    store.statements.selectFileEvents = statement;
+  }
+
+  // StatementSync's return type does not narrow after setReturnArrays(true).
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+  return statement.all(source, filePath) as unknown as StoredEventTuple[];
 }
 
 export function readFileEvents(
@@ -931,7 +1017,7 @@ export function readFileEvents(
   const events: UsageEvent[] = [];
 
   for (const row of selectFileEventRows(store, normalizedSource, normalizedFilePath)) {
-    const event = normalizeStoredEvent(row);
+    const event = normalizeStoredEventTuple(row);
 
     if (!event) {
       deleteFileEntry(store, normalizedSource, normalizedFilePath);
@@ -954,7 +1040,7 @@ export function readDepartedFileEvents(
   const events: UsageEvent[] = [];
 
   for (const row of selectFileEventRows(store, normalizedSource, normalizedFilePath)) {
-    const event = normalizeStoredEvent(row);
+    const event = normalizeStoredEventTuple(row);
 
     // A departed file has no source data left to re-parse, so an invalid row
     // is skipped instead of deleting the ledger's only copy of the file.

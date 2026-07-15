@@ -18,6 +18,7 @@ import {
   migrateSchemaV2ToV3,
   normalizeStoredEvent,
   openEventStore,
+  readDepartedFileEvents,
   readEventStoreSummary,
   readFileEvents,
   replaceFileEvents,
@@ -303,6 +304,7 @@ type FakeSqliteModule = {
   }>;
   execCalls: string[];
   prepareCalls: string[];
+  setReturnArraysCalls: Array<{ sql: string; enabled: boolean }>;
   closeCalls: number;
 };
 
@@ -325,6 +327,9 @@ function createFakeSqliteModule(
           all: () => [],
           get: () => rowsBySql[sql],
           run: () => undefined,
+          setReturnArrays: (enabled: boolean) => {
+            fakeSqlite.setReturnArraysCalls.push({ sql, enabled });
+          },
         };
       }
 
@@ -335,6 +340,7 @@ function createFakeSqliteModule(
     constructorCalls: [],
     execCalls: [],
     prepareCalls: [],
+    setReturnArraysCalls: [],
     closeCalls: 0,
   };
 
@@ -970,6 +976,69 @@ describe('event-store', () => {
     }
   });
 
+  it('maps every positional event column in SELECT order', async () => {
+    const store = await createTempStore('event-store-positional-columns-');
+    const event = createEvent({
+      sessionId: 'session-positional',
+      timestamp: '2026-02-03T04:05:06.007Z',
+      model: 'gpt-4.1-mini',
+      provider: 'openai',
+      repoRoot: '/workspace/positional',
+      inputTokens: 11,
+      outputTokens: 22,
+      reasoningTokens: 33,
+      cacheReadTokens: 44,
+      cacheWriteTokens: 55,
+      totalTokens: 66,
+      costUsd: 0.75,
+      costMode: 'explicit',
+    });
+
+    try {
+      replaceCodexFile(store, { events: [event] });
+
+      const objectRow = store.database
+        .prepare(
+          [
+            'SELECT source, session_id, timestamp, model, provider, repo_root,',
+            '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
+            '  cache_write_tokens, total_tokens, cost_usd, cost_mode',
+            'FROM events',
+            'WHERE source = ? AND file_path = ?',
+            'ORDER BY event_index ASC',
+          ].join('\n'),
+        )
+        .get('codex', '/tmp/session.jsonl');
+
+      expect(objectRow).toBeDefined();
+      expect(readFileEvents(store, 'codex', '/tmp/session.jsonl')).toEqual([
+        normalizeStoredEvent(objectRow ?? {}),
+      ]);
+      expect(readFileEvents(store, 'codex', '/tmp/session.jsonl')).toEqual([event]);
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  it('maps nullable positional event columns', async () => {
+    const store = await createTempStore('event-store-positional-nullable-columns-');
+    const event = createEvent({
+      model: undefined,
+      provider: undefined,
+      repoRoot: undefined,
+      costUsd: undefined,
+      costMode: 'estimated',
+    });
+
+    try {
+      replaceCodexFile(store, { events: [event] });
+
+      expect(readFileEvents(store, 'codex', '/tmp/session.jsonl')).toEqual([event]);
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
   it('round-trips file diagnostics and canonical fingerprint JSON', async () => {
     const store = await createTempStore('event-store-diagnostics-');
     const fingerprint = createFingerprint([
@@ -1019,6 +1088,24 @@ describe('event-store', () => {
         createEvent({ sessionId: 'good' }),
       ]);
       expect(countEvents(store)).toBe(1);
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  it('skips a malformed departed event without deleting the retained file', async () => {
+    const store = await createTempStore('event-store-malformed-departed-row-');
+    const validEvent = createEvent({ sessionId: 'valid' });
+
+    try {
+      replaceCodexFile(store, {
+        events: [createEvent({ sessionId: 'invalid' }), validEvent],
+      });
+      store.database.prepare("UPDATE events SET cost_mode = 'broken' WHERE event_index = 0").run();
+
+      expect(readDepartedFileEvents(store, 'codex', '/tmp/session.jsonl')).toEqual([validEvent]);
+      expect(getFileEntry(store, 'codex', '/tmp/session.jsonl')).toBeDefined();
+      expect(countEvents(store)).toBe(2);
     } finally {
       closeEventStore(store);
     }
@@ -1222,6 +1309,7 @@ describe('event-store', () => {
 
     expect(fakeSqlite.prepareCalls.filter((sql) => sql === getFileEntrySql)).toHaveLength(1);
     expect(fakeSqlite.prepareCalls.filter((sql) => sql === selectFileEventsSql)).toHaveLength(1);
+    expect(fakeSqlite.setReturnArraysCalls).toEqual([{ sql: selectFileEventsSql, enabled: true }]);
     closeEventStore(store);
   });
 
