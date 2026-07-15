@@ -295,8 +295,8 @@ describe('event-store history', () => {
         discoveredFiles: [{ source: 'codex', filePath: '/tmp/new.jsonl' }],
       });
 
-      expect(result.events).toEqual([]);
-      expect(result).toMatchObject({
+      expect(result).toEqual({
+        events: [],
         departedFileCount: 1,
         servedFileCount: 0,
         suppressedFileCount: 1,
@@ -360,8 +360,8 @@ describe('event-store history', () => {
         discoveredFiles: [],
       });
 
-      expect(result.events).toEqual([firstCopyEvent]);
-      expect(result).toMatchObject({
+      expect(result).toEqual({
+        events: [firstCopyEvent],
         departedFileCount: 2,
         servedFileCount: 1,
         suppressedFileCount: 1,
@@ -466,8 +466,8 @@ describe('event-store history', () => {
         discoveredFiles: [{ source: 'codex', filePath: '/tmp/live.jsonl' }],
       });
 
-      expect(result.events).toEqual([sharedDeletedEvent, uniqueDeletedEvent]);
-      expect(result).toMatchObject({
+      expect(result).toEqual({
+        events: [sharedDeletedEvent, uniqueDeletedEvent],
         departedFileCount: 1,
         servedFileCount: 1,
         suppressedFileCount: 0,
@@ -557,8 +557,8 @@ describe('event-store history', () => {
         discoveredFiles: [],
       });
 
-      expect(result.events).toEqual([deletedEvent]);
-      expect(result).toMatchObject({
+      expect(result).toEqual({
+        events: [deletedEvent],
         departedFileCount: 1,
         servedFileCount: 1,
         suppressedFileCount: 0,
@@ -734,9 +734,13 @@ describe('event-store history', () => {
       const reference = referenceHistory(store, 'codex');
       const result = loadHistoryEvents(store, { selectedSources: ['codex'], discoveredFiles: [] });
 
-      expect(result.servedFileCount).toBe(servedCount);
-      expect(result.servedEventCount).toBe(servedCount);
-      expect(result.events).toEqual(reference.events);
+      expect(result).toEqual({
+        events: reference.events,
+        departedFileCount: servedCount,
+        servedFileCount: servedCount,
+        suppressedFileCount: 0,
+        servedEventCount: servedCount,
+      });
       // Ordinal ordering must hold across the chunk boundary (index 499 -> 500).
       expect(result.events.map((event) => event.sessionId)).toEqual(
         Array.from({ length: servedCount }, (_unused, index) => `served-${index}`),
@@ -802,10 +806,21 @@ describe('event-store history', () => {
         selectedSources: ['codex'],
         discoveredFiles: [],
       });
+      const result = loadHistoryEvents(store, {
+        selectedSources: ['codex'],
+        discoveredFiles: [],
+      });
 
       const emptyFile = classified.find((file) => file.filePath === '/tmp/empty.jsonl');
       expect(emptyFile?.eventCount).toBe(0);
       expect(emptyFile?.suppressed).toBe(true);
+      expect(result).toEqual({
+        events: [createEvent({ sessionId: 'full', inputTokens: 400, totalTokens: 405 })],
+        departedFileCount: 2,
+        servedFileCount: 1,
+        suppressedFileCount: 1,
+        servedEventCount: 1,
+      });
     } finally {
       closeEventStore(store);
     }
