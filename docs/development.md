@@ -3,7 +3,7 @@
 ## Requirements
 
 - Node.js 24+
-- pnpm (used for local scripts and lockfile)
+- pnpm 11.13.0 (used for local scripts and the lockfile)
 
 ## Install
 
@@ -50,13 +50,15 @@ Notes:
 See [Security Guide](./security.md) for the current repo controls and contributor expectations.
 Highlights:
 
-- direct dependencies are pinned to exact versions and `.npmrc` enforces `save-exact=true`
+- direct dependencies are pinned to exact versions and `pnpm-workspace.yaml` sets `saveExact: true`
+- dependency build scripts are allowlisted in `pnpm-workspace.yaml`; only `esbuild` and `sharp` may run them
 - the committed `pnpm-lock.yaml` is the effective dependency pin for installs
 - lockfile entries include `integrity: sha512-...` hashes
-- GitHub Actions are pinned to full commit SHAs
+- GitHub Actions are pinned to full commit SHAs and repository settings enforce SHA pinning
 - Dependabot manages npm and GitHub Actions update PRs
 - security scanning includes `pnpm audit`, Dependency Review on PRs, and CodeQL
 - npm publishing uses OIDC trusted publishing
+- non-release checkouts do not persist credentials, and workflow permissions default to read-only contents
 
 ## Reporting pipeline performance baseline
 
@@ -166,7 +168,8 @@ Checks:
 
 Runtime:
 
-- Node 24
+- Node 24.13.1
+- pnpm 11.13.0
 
 Coverage summary/artifacts are generated from the single Node 24 CI run.
 
@@ -193,7 +196,7 @@ The release workflow is manual (`workflow_dispatch`) and asks for:
 - increment type (`patch`, `minor`, `major`)
 - dry-run flag
 
-The workflow uses Node `24` and upgrades npm to `11.5.1+`, which is required for trusted publishing.
+The workflow uses Node `24.13.1` and its bundled npm 11 release. npm 11.5.1 or newer is required for trusted publishing; the pinned Node runtime already provides a compatible version.
 
 ### Required repository configuration
 

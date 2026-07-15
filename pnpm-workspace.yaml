@@ -1,2 +1,29 @@
 packages:
   - 'site'
+
+saveExact: true
+
+allowBuilds:
+  esbuild: true
+  sharp: true
+
+overrides:
+  'anymatch>picomatch': 2.3.2
+  basic-ftp: 5.3.1
+  brace-expansion: 5.0.6
+  defu: 6.1.7
+  devalue: 5.8.1
+  esbuild: 0.28.1
+  fast-uri: 3.1.2
+  flatted: 3.4.2
+  h3: 1.15.9
+  handlebars: 4.7.9
+  ip-address: 10.2.0
+  js-yaml: 4.2.0
+  lodash: 4.18.1
+  picomatch: 4.0.4
+  postcss: 8.5.10
+  smol-toml: 1.7.0
+  undici: 6.27.0
+  vite: 8.1.0
+  yaml: 2.8.3

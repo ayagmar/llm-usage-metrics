@@ -14,20 +14,23 @@ This page documents the security controls and contributor steps configured in th
 ### Locked installs and reproducible tool versions
 
 - CI, Pages, release, performance, and security workflows install dependencies with `pnpm install --frozen-lockfile` where dependencies are needed.
-- The root package declares `"packageManager": "pnpm@10.17.1"` in `package.json`.
+- The root package declares `"packageManager": "pnpm@11.13.0"` in `package.json`.
 - GitHub Actions workflows use explicit runtime/tool versions:
   - Node.js `24.13.1`
-  - pnpm `10.17.1`
+  - pnpm `11.13.0`
+  - npm bundled with Node.js `24.13.1` in the release workflow
 - OpenCode support requires Node.js 24+ because it uses built-in `node:sqlite`.
 
 ### Dependency pinning and integrity
 
 - Direct dependencies in `package.json` and `site/package.json` are pinned to exact versions.
-- `.npmrc` sets `save-exact=true` so future additions stay exact by default.
+- `pnpm-workspace.yaml` sets `saveExact: true` so future additions stay exact by default.
+- `pnpm-workspace.yaml` allows dependency build scripts only for `esbuild` and `sharp`.
 - The committed `pnpm-lock.yaml` is the real installation pin for this repo.
 - `pnpm-lock.yaml` records `integrity: sha512-...` hashes for downloaded package tarballs.
 - GitHub Actions workflows are pinned to full commit SHAs, with trailing version comments so automated updaters can keep them current.
-- The root `package.json` also uses `pnpm.overrides` to force `basic-ftp@5.3.1` and `lodash@4.18.1`, patching vulnerable transitive versions in the current dependency graph.
+- Repository settings require GitHub Actions to be pinned to full commit SHAs.
+- The complete transitive dependency override policy lives in `pnpm-workspace.yaml`, keeping pnpm install policy in one place.
 
 ### Automated dependency upgrades
 
@@ -66,8 +69,10 @@ The regular CI workflow in `.github/workflows/ci.yml` enforces the normal qualit
 
 - npm publishing is configured for **trusted publishing (OIDC)** in `.github/workflows/release.yml`.
 - The release workflow does not require a long-lived npm publish token.
-- Codecov uploads in CI use OIDC as well.
-- Workflow permissions are declared explicitly where elevated access is needed (for example release publishing, Pages deploy, PR coverage comments, and CodeQL security events upload).
+- Codecov uploads in CI use OIDC and pin the downloaded Codecov CLI version.
+- The release workflow uses the npm version bundled with its pinned Node.js runtime; it does not install an ad-hoc global npm package.
+- Workflows default to read-only repository contents and grant write access only to the jobs that need it, such as release publishing, Pages deployment, PR coverage comments, and CodeQL security-event uploads.
+- Non-release checkouts disable credential persistence. The release checkout deliberately retains credentials because `release-it` pushes the release commit and tag.
 
 ## Contributor checklist
 
@@ -90,8 +95,9 @@ pnpm run format:check
 4. Review the lockfile diff and confirm only intended packages changed.
 5. Keep `integrity: sha512-...` entries intact in the lockfile.
 6. Preserve `pnpm install --frozen-lockfile` in workflows.
-7. Keep GitHub Actions pinned to full commit SHAs.
+7. Keep GitHub Actions pinned to full commit SHAs and preserve repository-level SHA enforcement once it is enabled.
 8. Keep the trailing action-version comments (for example `# v4.3.1`) so Dependabot can update pinned refs cleanly.
+9. Keep build-script permissions limited to the explicit `allowBuilds` entries in `pnpm-workspace.yaml`.
 
 Recommended validation for dependency or workflow changes:
 
