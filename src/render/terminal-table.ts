@@ -75,7 +75,7 @@ function resolveTerminalWidth(override: number | undefined): number | undefined 
     return Math.floor(override);
   }
 
-  return resolveTtyColumns(process.stdout as { isTTY?: unknown; columns?: unknown });
+  return resolveTtyColumns(process.stdout);
 }
 
 function measureTableWidth(tableOutput: string): number {

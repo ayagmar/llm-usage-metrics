@@ -37,7 +37,7 @@ function detectTerminalOverflowColumns(
 export function warnIfTerminalTableOverflows(
   reportOutput: string,
   warn: (message: string) => void,
-  stdoutState: TerminalColumnsSource = process.stdout as TerminalColumnsSource,
+  stdoutState: TerminalColumnsSource = process.stdout,
 ): void {
   const overflowColumns = detectTerminalOverflowColumns(reportOutput, stdoutState);
 

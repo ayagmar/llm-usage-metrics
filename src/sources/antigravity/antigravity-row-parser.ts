@@ -25,9 +25,7 @@ const MILLISECONDS_PER_SECOND = 1_000;
 const NANOSECONDS_PER_MILLISECOND = 1_000_000;
 
 export type AntigravitySkippedRowReason =
-  | 'invalid_payload'
-  | 'invalid_timestamp'
-  | 'no_token_usage';
+  'invalid_payload' | 'invalid_timestamp' | 'no_token_usage';
 
 export type AntigravityParsedRow = {
   event?: UsageEvent;

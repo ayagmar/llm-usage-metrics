@@ -473,7 +473,7 @@ function parseUserConfigRoot(filePath: string, content: string): Record<string, 
   let parsed: unknown;
 
   try {
-    parsed = parseToml(content) as unknown;
+    parsed = parseToml(content);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     throw new Error(`Failed to parse config file ${filePath}: ${reason}`, { cause: error });

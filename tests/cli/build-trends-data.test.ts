@@ -225,7 +225,7 @@ describe('buildTrendsData', () => {
       buildTrendsData(
         {
           metric: 'latency',
-        } as never,
+        },
         runtimeDeps(),
       ),
     ).rejects.toThrow('--metric must be one of: cost, tokens, active-hours');

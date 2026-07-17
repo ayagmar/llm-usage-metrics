@@ -223,7 +223,7 @@ describe('build-usage-data-parsing', () => {
   it('stringifies non-Error parse failures without stopping healthy sources', async () => {
     const failingAdapter: SourceAdapter = {
       id: 'CoDex',
-      discoverFiles: () => rejectWithUnknown('plain failure') as Promise<string[]>,
+      discoverFiles: () => rejectWithUnknown('plain failure'),
       parseFile: async () => [],
     };
     const succeedingAdapter: SourceAdapter = {

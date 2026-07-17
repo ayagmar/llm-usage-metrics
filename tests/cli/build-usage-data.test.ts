@@ -1181,12 +1181,10 @@ describe('buildUsageData', () => {
   });
 
   it('trims timezone and pricing-url values before using them', async () => {
-    const pricingLoaderSpy = vi.fn(
-      async (): Promise<PricingLoadResult> => ({
-        source: createDefaultOpenAiPricingSource(),
-        origin: 'network',
-      }),
-    );
+    const pricingLoaderSpy = vi.fn(async (): Promise<PricingLoadResult> => ({
+      source: createDefaultOpenAiPricingSource(),
+      origin: 'network',
+    }));
 
     const result = await buildUsageData(
       'daily',
@@ -1227,12 +1225,10 @@ describe('buildUsageData', () => {
   it.each(['cache', 'network', 'offline-cache'] as const)(
     'records pricing origin "%s" when pricing lookup is required',
     async (origin) => {
-      const pricingLoaderSpy = vi.fn(
-        async (): Promise<PricingLoadResult> => ({
-          source: createDefaultOpenAiPricingSource(),
-          origin,
-        }),
-      );
+      const pricingLoaderSpy = vi.fn(async (): Promise<PricingLoadResult> => ({
+        source: createDefaultOpenAiPricingSource(),
+        origin,
+      }));
 
       const result = await buildUsageData(
         'daily',
@@ -1262,12 +1258,10 @@ describe('buildUsageData', () => {
   );
 
   it('keeps pricing origin as none when all events already have explicit cost', async () => {
-    const pricingLoaderSpy = vi.fn(
-      async (): Promise<PricingLoadResult> => ({
-        source: createDefaultOpenAiPricingSource(),
-        origin: 'network',
-      }),
-    );
+    const pricingLoaderSpy = vi.fn(async (): Promise<PricingLoadResult> => ({
+      source: createDefaultOpenAiPricingSource(),
+      origin: 'network',
+    }));
 
     const result = await buildUsageData(
       'daily',
@@ -1301,12 +1295,10 @@ describe('buildUsageData', () => {
   ] as const)(
     'does not force pricing loading for explicit non-zero costs when %s is set',
     async (_, optionOverrides) => {
-      const pricingLoaderSpy = vi.fn(
-        async (): Promise<PricingLoadResult> => ({
-          source: createDefaultOpenAiPricingSource(),
-          origin: 'network',
-        }),
-      );
+      const pricingLoaderSpy = vi.fn(async (): Promise<PricingLoadResult> => ({
+        source: createDefaultOpenAiPricingSource(),
+        origin: 'network',
+      }));
 
       const result = await buildUsageData(
         'daily',
@@ -1337,12 +1329,10 @@ describe('buildUsageData', () => {
   );
 
   it('re-prices explicit zero-cost events when model pricing is available', async () => {
-    const pricingLoaderSpy = vi.fn(
-      async (): Promise<PricingLoadResult> => ({
-        source: createDefaultOpenAiPricingSource(),
-        origin: 'network',
-      }),
-    );
+    const pricingLoaderSpy = vi.fn(async (): Promise<PricingLoadResult> => ({
+      source: createDefaultOpenAiPricingSource(),
+      origin: 'network',
+    }));
 
     const result = await buildUsageData(
       'daily',

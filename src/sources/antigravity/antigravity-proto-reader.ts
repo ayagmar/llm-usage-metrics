@@ -16,8 +16,7 @@ export type AntigravityProtoLengthDelimitedField = {
 };
 
 export type AntigravityProtoField =
-  | AntigravityProtoVarintField
-  | AntigravityProtoLengthDelimitedField;
+  AntigravityProtoVarintField | AntigravityProtoLengthDelimitedField;
 
 export type AntigravityProtoFields = Map<number, AntigravityProtoField[]>;
 

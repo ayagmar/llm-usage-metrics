@@ -49,9 +49,7 @@ function hasSqliteTable(
 }
 
 function queryRows(database: InstanceType<SqliteModule['DatabaseSync']>): AntigravitySqliteRow[] {
-  return database
-    .prepare('SELECT data FROM gen_metadata ORDER BY idx')
-    .all() as AntigravitySqliteRow[];
+  return database.prepare('SELECT data FROM gen_metadata ORDER BY idx').all();
 }
 
 function querySessionCreatedAt(
