@@ -5,6 +5,16 @@ description: 'Design of the SQLite usage-event ledger: ingest, fingerprints, his
 
 The event store (`src/persistence/event-store.ts`) is a local SQLite **ledger**, not a disposable cache. It solves three problems at once: warm runs skip reparsing files that have not changed, usage from files that later disappear stays reportable through `--history`, and a file that merely moved is recognized by content so it never double counts. Because the ledger retains rows for departed files, deleting `events.db` deletes that retained history — you get a fresh ledger, not just a slower next run.
 
+The public facade stays intentionally small while the implementation is split by responsibility:
+
+- `event-store-schema.ts` owns schema creation, version checks, and migrations.
+- `event-store-database.ts` owns the SQLite handle, transactions, and primitive value conversions.
+- `event-store-codec.ts` owns row normalization and content hashing.
+- `event-store-administration.ts` owns open, ingest, summaries, file listing, and prune operations.
+- `event-store-history.ts` owns departed-file replay and move suppression.
+
+This is an internal boundary: callers continue to use `event-store.ts`, so the persistence API and schema remain stable.
+
 ## Location and lifecycle
 
 - **Default path**: `getDefaultEventStorePath()` resolves to `llm-usage-metrics/events.db` under the platform cache root — `~/.cache/llm-usage-metrics/events.db` on Linux when `XDG_CACHE_HOME` is unset.

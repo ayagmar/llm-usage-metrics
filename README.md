@@ -183,6 +183,28 @@ Report data goes to `stdout`. Discovery, pricing, config, and skipped-row diagno
 
 Terminal, JSON, and Markdown availability varies by report. Usage, trends, wrapped, efficiency, and optimize can write supported share SVGs. The [output guide](https://ayagmar.github.io/llm-usage-metrics/output-formats/) contains the format matrix and file names.
 
+### Shareable snapshots
+
+Share cards are deterministic, offline SVG files. They contain aggregated metrics only—not prompts, message text, file contents, or credentials—so you can review the image before posting it anywhere.
+
+```bash
+# Write a monthly card without changing the report on stdout
+llm-usage monthly --share > monthly.txt
+
+# Open the generated SVG, then attach it to a post or issue
+open usage-monthly-share.svg        # macOS
+xdg-open usage-monthly-share.svg    # Linux
+```
+
+Examples from the repository:
+
+<p>
+  <a href="./usage-monthly-share.svg"><img src="./usage-monthly-share.svg" width="49%" alt="Example monthly usage share card"></a>
+  <a href="./trends-share.svg"><img src="./trends-share.svg" width="49%" alt="Example usage trends share card"></a>
+</p>
+
+The complete format matrix, filenames, and limitations are in the [output guide](https://ayagmar.github.io/llm-usage-metrics/output-formats/). For a launch-ready message, see the [LinkedIn post draft](./docs/marketing/linkedin-post.md).
+
 ## Performance
 
 The repository publishes direct-process and launcher-inclusive runtimes on stable snapshots of real local corpora. The current direct-process comparison shows `ccusage` ahead in every measured daily JSON cell; a separate monthly terminal check shows why timing `npx ccusage@...` can appear much slower than an installed `llm-usage` command. The benchmark records the machine, exact commands, application state, dataset size, and eight-run summary statistics.

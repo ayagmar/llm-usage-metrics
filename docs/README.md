@@ -11,6 +11,8 @@ This folder contains internal technical documentation for `llm-usage-metrics` co
 - [Architecture](./architecture.md) - Runtime flow and module boundaries
 - [Development Guide](./development.md) - Setup, build, test workflows
 - [Security Guide](./security.md) - Security controls, dependency hygiene, and contributor steps
+- [Production Release Checklist](./release-checklist.md) - Verification and approval gates before publishing
+- [LinkedIn Post Draft](./marketing/linkedin-post.md) - A privacy-conscious launch message and posting checklist
 - [Contributing Guide](../CONTRIBUTING.md) - Contribution guidelines
 
 ## Documentation Structure
