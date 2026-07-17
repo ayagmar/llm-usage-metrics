@@ -583,8 +583,7 @@ describe('buildEfficiencyData', () => {
     );
 
     const options = collectGitOutcomesMock.mock.calls[0]?.[0] as
-      | { activeUsageDays?: ReadonlySet<string> }
-      | undefined;
+      { activeUsageDays?: ReadonlySet<string> } | undefined;
     expect(options?.activeUsageDays).toBeDefined();
     expect(options?.activeUsageDays?.size).toBe(0);
   });
@@ -649,8 +648,7 @@ describe('buildEfficiencyData', () => {
     );
 
     const options = collectGitOutcomesMock.mock.calls[0]?.[0] as
-      | { activeUsageDays?: ReadonlySet<string> }
-      | undefined;
+      { activeUsageDays?: ReadonlySet<string> } | undefined;
 
     expect(options?.activeUsageDays).toEqual(new Set(['2026-02-10', '2026-02-11']));
   });

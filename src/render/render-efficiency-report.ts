@@ -134,7 +134,7 @@ function fitTableCellsToTerminal(
   bodyRows: readonly string[][],
 ): FittedEfficiencyTableCells {
   const naturalWidths = computeColumnWidths(headerCells, bodyRows);
-  const terminalWidth = resolveTtyColumns(process.stdout as { isTTY?: unknown; columns?: unknown });
+  const terminalWidth = resolveTtyColumns(process.stdout);
 
   if (terminalWidth === undefined || measureRenderedTableWidth(naturalWidths) <= terminalWidth) {
     return {
@@ -312,8 +312,7 @@ function renderMarkdownEfficiencyTable(rows: EfficiencyRow[]): string {
   );
   const tableRows = [Array.from(efficiencyTableHeaders), ...bodyRows];
   const alignment = efficiencyTableHeaders.map((_, index) => (index === 0 ? 'l' : 'r')) as (
-    | 'l'
-    | 'r'
+    'l' | 'r'
   )[];
 
   return markdownTable(tableRows, {

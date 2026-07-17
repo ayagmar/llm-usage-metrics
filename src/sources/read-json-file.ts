@@ -5,8 +5,7 @@ import { readFile, stat } from 'node:fs/promises';
 export const MAX_JSON_TRANSCRIPT_BYTES = 64 * 1024 * 1024;
 
 export type BoundedJsonReadResult =
-  | { ok: true; value: unknown }
-  | { ok: false; reason: 'file_too_large' | 'json_parse_error' };
+  { ok: true; value: unknown } | { ok: false; reason: 'file_too_large' | 'json_parse_error' };
 
 export async function readBoundedJsonFile(filePath: string): Promise<BoundedJsonReadResult> {
   try {

@@ -1,8 +1,8 @@
 import type { UsageEvent } from '../domain/usage-event.js';
 import { normalizeSourceId } from '../domain/usage-event.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
-import type { EventStore } from './event-store.js';
-import { normalizeStoredEvent } from './event-store.js';
+import { normalizeStoredEvent } from './event-store-codec.js';
+import type { EventStore } from './event-store-database.js';
 
 export type EventStoreHistoryDiscoveredFile = {
   source: string;

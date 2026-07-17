@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import type { TrendsDataResult } from '../../src/cli/usage-data-contracts.js';
 import { renderTrendsShareSvg } from '../../src/render/render-trends-share-svg.js';
-import type { TrendSeries } from '../../src/trends/trends-series.js';
 
 function createData(): TrendsDataResult {
   return {
@@ -12,7 +11,7 @@ function createData(): TrendsDataResult {
       to: '2026-03-06',
     },
     totalSeries: {
-      source: 'combined <all>' as unknown as TrendSeries['source'],
+      source: 'combined <all>',
       buckets: [
         { date: '2026-03-04', value: 1200, observed: true },
         { date: '2026-03-05', value: 0, observed: false },

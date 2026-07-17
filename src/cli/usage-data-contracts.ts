@@ -167,11 +167,7 @@ export type UsageSkippedRowsStat = {
 };
 
 export type UsagePricingOrigin =
-  | 'cache'
-  | 'network'
-  | 'offline-cache'
-  | 'bundled-snapshot'
-  | 'none';
+  'cache' | 'network' | 'offline-cache' | 'bundled-snapshot' | 'none';
 
 export type UsageDiagnostics = {
   sessionStats: UsageSessionStats[];
