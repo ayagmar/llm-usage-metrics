@@ -71,6 +71,8 @@ Usage and session output keep the same ordering and row limits as the terminal r
 
 Share output is an offline SVG written to the current directory. The command still prints the normal report to `stdout`.
 
+The image contains aggregated metrics only: prompts, message text, file contents, and credentials are never rendered into a share card. Open the generated file and review it before posting it publicly.
+
 | Report | Command | File |
 | --- | --- | --- |
 | Usage | `llm-usage monthly --share` | `usage-monthly-share.svg` |
@@ -83,6 +85,8 @@ Share output is an offline SVG written to the current directory. The command sti
 Usage share works for daily, weekly, and monthly reports. Efficiency and optimize share work for monthly reports only. Trends share requires the combined view, so it cannot be paired with `--by-source`. Efficiency share cannot be paired with `--by-source` either.
 
 Session, doctor, prune, and events do not support `--share`.
+
+The repository README includes [example share cards](https://github.com/ayagmar/llm-usage-metrics#shareable-snapshots) so you can see the intended output before running a report.
 
 ## Per-model columns
 

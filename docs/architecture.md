@@ -184,7 +184,7 @@ That keeps sorting and separator behavior deterministic without coupling the gen
 - `src/pricing`
   LiteLLM pricing loader, cache, model matching, cost engine
 - `src/persistence`
-  SQLite event-store ledger, schema migrations, history suppression
+  SQLite event-store ledger. `event-store.ts` is the public facade; schema/migrations, database primitives, row codecs/hashing, administration, and history suppression live in focused modules behind it.
 - `src/aggregate`
   Period/source usage aggregation
 - `src/efficiency`
