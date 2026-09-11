@@ -32,3 +32,27 @@ DeepSeek Harness appends one independently zstd-compressed frame per flush, so t
 - Tool calls, step boundaries, and other lifecycle records carry no usage and are skipped silently.
 
 Only the session log is read. The harness projection cache under `~/.dsh/storages` holds session totals rather than per-request usage, so it is never used as an event source.
+
+## Pricing
+
+The harness default route is reported as `deepseek-flash`, which its own catalog names `DeepSeek-V41-Flash`. Neither the bundled LiteLLM snapshot nor the live LiteLLM pricing file publishes V4.1-Flash rates (`deepseek-v4-flash` is the earlier V4 model, at roughly a third of the published V4.1 output rate), so this model is deliberately left unpriced instead of being aliased onto another model's rates. Rows show `-` for cost until rates exist.
+
+Price it explicitly in the meantime:
+
+```bash
+llm-usage monthly --source dsh --pricing-overrides ./pricing-overrides.json
+```
+
+```json
+{
+  "models": {
+    "deepseek-flash": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 1.2,
+      "cacheReadPer1MUsd": 0.006
+    }
+  }
+}
+```
+
+`deepseek-v4-flash`, `deepseek-v4-pro`, and the other harness routes resolve from LiteLLM as usual.

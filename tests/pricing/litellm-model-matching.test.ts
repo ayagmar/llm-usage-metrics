@@ -34,15 +34,19 @@ describe('litellm model matching', () => {
     );
   });
 
-  it('maps the DeepSeek Harness default route to the published flash tier', () => {
+  it('leaves the DeepSeek v4.1 flash route unpriced instead of borrowing v4 rates', () => {
     const pricingByModel = createPricingMap(['deepseek-v4-flash', 'deepseek-v4-pro']);
 
-    expect(resolveCanonicalModelKey(normalizeKey('deepseek-flash'), pricingByModel)).toBe(
-      'deepseek-v4-flash',
-    );
-    expect(resolveCanonicalModelKey(normalizeKey('deepseek-v4.1-flash'), pricingByModel)).toBe(
-      'deepseek-v4-flash',
-    );
+    // deepseek-flash is DeepSeek-V41-Flash. Nothing publishes v4.1 rates, so a
+    // fuzzy match onto deepseek-v4-flash would silently misprice the model.
+    expect(
+      resolveCanonicalModelKey(normalizeKey('deepseek-flash'), pricingByModel),
+    ).toBeUndefined();
+    // The guard also covers the model key the DSH catalog implies, since a
+    // later catalog release could report it verbatim.
+    expect(
+      resolveCanonicalModelKey(normalizeKey('deepseek-v41-flash'), pricingByModel),
+    ).toBeUndefined();
   });
 
   it('matches provider-prefixed pricing keys', () => {
