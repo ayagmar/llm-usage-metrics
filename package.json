@@ -1,7 +1,7 @@
 {
   "name": "llm-usage-metrics",
   "version": "0.8.0",
-  "description": "CLI for aggregating local LLM usage metrics from pi, codex, gemini, droid, opencode, openclaw, claude, copilot, goose, amp, qwen, kimi, cline, roocode, kilocode, and antigravity sessions",
+  "description": "CLI for aggregating local LLM usage metrics from pi, codex, gemini, droid, opencode, openclaw, claude, copilot, goose, amp, qwen, kimi, cline, roocode, kilocode, antigravity, and deepseek harness sessions",
   "type": "module",
   "packageManager": "pnpm@11.13.0",
   "engines": {
@@ -64,7 +64,9 @@
     "cline",
     "roocode",
     "kilocode",
-    "antigravity"
+    "antigravity",
+    "dsh",
+    "deepseek"
   ],
   "license": "MIT",
   "repository": {

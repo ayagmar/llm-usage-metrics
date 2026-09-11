@@ -23,7 +23,7 @@
   <a href="./CONTRIBUTING.md">Contributing</a>
 </p>
 
-`llm-usage-metrics` reads local session data from 16 AI coding tools and converts it into one normalized usage history. Use it to review tokens and estimated cost, compare periods, find expensive sessions, correlate usage with local Git activity, or export the result.
+`llm-usage-metrics` reads local session data from 17 AI coding tools and converts it into one normalized usage history. Use it to review tokens and estimated cost, compare periods, find expensive sessions, correlate usage with local Git activity, or export the result.
 
 The CLI parses session content on your machine. It discovers standard source locations and includes a bundled pricing snapshot, so the first report can run without configuration or network access.
 
@@ -111,6 +111,7 @@ llm-usage events --since 2026-06-01 | jq '.totalTokens'
 | RooCode                | task JSON     |
 | KiloCode               | task JSON     |
 | Antigravity            | SQLite        |
+| DeepSeek Harness       | JSONL + zstd  |
 
 Each source adapter owns discovery and source-specific token normalization. Reports operate on the same `UsageEvent` shape after parsing. The [source documentation](https://ayagmar.github.io/llm-usage-metrics/sources/) lists default paths, override flags, and adapter-specific semantics.
 

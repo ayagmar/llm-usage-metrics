@@ -1,0 +1,34 @@
+---
+title: dsh Source
+---
+
+## Default location
+
+- `$DSH_HOME/sessions/*/session-*/session.v3.jsonl.zstd`
+- `~/.dsh/sessions/*/session-*/session.v3.jsonl.zstd`
+
+`$DSH_HOME` is the harness home; when it is unset or blank the adapter falls back to `~/.dsh`. Each `session-*` directory holds one session log.
+
+## Override
+
+```bash
+llm-usage daily --source dsh --dsh-dir /path/to/.dsh/sessions
+```
+
+`dsh` is directory-backed, so generic source directory overrides also work:
+
+```bash
+llm-usage daily --source-dir dsh=/path/to/.dsh/sessions
+```
+
+## Parsing notes
+
+DeepSeek Harness appends one independently zstd-compressed frame per flush, so the adapter decodes the log frame by frame instead of once for the whole file: a single whole-file decode would stop at the first frame and hide most of a session. A torn final frame from an interrupted append is reported as `undecodable_jsonl_frame` and never discards the frames before it.
+
+- Each `assistant/message` record that carries a `usage` block becomes one event.
+- `inputTokens` is already the uncached prompt size, so it maps directly to input tokens; `cacheReadTokens` and `cacheWriteTokens` are preserved as separate buckets.
+- `reasoningTokens` is a subset of `outputTokens` and is carried for cache and reasoning reporting without being billed twice.
+- `sessionId` comes from the session header, `repoRoot` from its `cwd`, and provider/model from the message source, falling back to the route recorded by `session/title-llm-request` when a message omits them.
+- Tool calls, step boundaries, and other lifecycle records carry no usage and are skipped silently.
+
+Only the session log is read. The harness projection cache under `~/.dsh/storages` holds session totals rather than per-request usage, so it is never used as an event source.
