@@ -235,7 +235,10 @@ describe('run-doctor-report', () => {
     }
   });
 
-  it('reads the event store from the config eventStore.path', async () => {
+  // Opening a fresh SQLite event store and re-running discovery is occasionally
+  // slower than the default 5s budget on loaded CI machines (the test uses the
+  // real default source roots, not fixtures).
+  it('reads the event store from the config eventStore.path', { timeout: 30_000 }, async () => {
     const rootDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-config-store-'));
     tempDirs.push(rootDir);
 

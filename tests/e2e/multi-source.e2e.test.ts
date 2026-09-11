@@ -7,6 +7,7 @@ import path from 'node:path';
 import { buildUsageReport } from '../../src/cli/run-usage-report.js';
 import { withSuppressedSqliteExperimentalWarning } from '../../src/sources/opencode/sqlite-warning-suppression.js';
 import { createAntigravityFixtureDb } from '../helpers/antigravity-fixtures.js';
+import { createDshSessionsFixture } from '../helpers/dsh-fixtures.js';
 
 type OpenCodeMessageFixture = {
   id: string;
@@ -53,8 +54,8 @@ const clineDir = path.resolve('tests/fixtures/e2e/cline');
 const roocodeDir = path.resolve('tests/fixtures/e2e/roocode');
 const kilocodeDir = path.resolve('tests/fixtures/e2e/kilocode');
 const allSources =
-  'pi,codex,gemini,droid,opencode,openclaw,claude,copilot,goose,amp,qwen,kimi,cline,roocode,kilocode,antigravity';
-const expectedAllSourceTokens = 2_180;
+  'pi,codex,gemini,droid,opencode,openclaw,claude,copilot,goose,amp,qwen,kimi,cline,roocode,kilocode,antigravity,dsh';
+const expectedAllSourceTokens = 4_620;
 const expectedGeminiClaudeTokens = 415;
 
 function loadDatabaseSync(): FixtureDatabaseSync | undefined {
@@ -179,13 +180,16 @@ describe.skipIf(!DatabaseSync)('multi-source usage report e2e', () => {
   let opencodeDbPath: string;
   let gooseDbPath: string;
   let antigravityDir: string;
+  let dshDir: string;
 
   beforeAll(async () => {
     tempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-multi-source-e2e-'));
     opencodeDbPath = path.join(tempDir, 'opencode.db');
     gooseDbPath = path.join(tempDir, 'goose.db');
     antigravityDir = path.join(tempDir, 'antigravity');
+    dshDir = path.join(tempDir, 'dsh');
     await mkdir(antigravityDir);
+    await createDshSessionsFixture(dshDir);
 
     createOpenCodeFixtureDb(opencodeDbPath, [
       {
@@ -278,6 +282,7 @@ describe.skipIf(!DatabaseSync)('multi-source usage report e2e', () => {
       roocodeDir,
       kilocodeDir,
       antigravityDir,
+      dshDir,
       source: allSources,
       timezone: 'UTC',
       json: true,
@@ -325,6 +330,7 @@ describe.skipIf(!DatabaseSync)('multi-source usage report e2e', () => {
       roocodeDir,
       kilocodeDir,
       antigravityDir,
+      dshDir,
       source: 'gemini,claude',
       timezone: 'UTC',
       json: true,
