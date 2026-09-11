@@ -34,6 +34,7 @@ describe('createDefaultAdapters', () => {
       'roocode',
       'kilocode',
       'antigravity',
+      'dsh',
     ]);
   });
 

@@ -34,6 +34,17 @@ describe('litellm model matching', () => {
     );
   });
 
+  it('maps the DeepSeek Harness default route to the published flash tier', () => {
+    const pricingByModel = createPricingMap(['deepseek-v4-flash', 'deepseek-v4-pro']);
+
+    expect(resolveCanonicalModelKey(normalizeKey('deepseek-flash'), pricingByModel)).toBe(
+      'deepseek-v4-flash',
+    );
+    expect(resolveCanonicalModelKey(normalizeKey('deepseek-v4.1-flash'), pricingByModel)).toBe(
+      'deepseek-v4-flash',
+    );
+  });
+
   it('matches provider-prefixed pricing keys', () => {
     const pricingByModel = createPricingMap(['openai/gpt-4.1']);
 
