@@ -408,6 +408,74 @@ describe('DshSourceAdapter', () => {
     expect(result.skippedRowReasons).toEqual([{ reason: 'file_parse_failed', count: 1 }]);
   });
 
+  it('propagates unexpected read failures instead of reporting an empty file', async () => {
+    const root = await createTempRoot('dsh-read-failure-');
+    const adapter = new DshSourceAdapter();
+
+    await expect(
+      adapter.parseFileWithDiagnostics(path.join(root, 'session-absent', 'session.v3.jsonl.zstd')),
+    ).rejects.toThrow(/ENOENT/u);
+  });
+
+  it('ignores a non-object session header that still matches the line prefilter', async () => {
+    const root = await createTempRoot('dsh-non-object-');
+    const logPath = resolveDshSessionLogPath(path.join(root, 'session-non-object'));
+
+    await writeDshSessionLog({
+      filePath: logPath,
+      lines: [
+        'null',
+        usageLine({ seq: 1, time: SESSION_HEADER.createdAt + 90, inputTokens: 3, outputTokens: 3 }),
+      ],
+    });
+
+    const adapter = new DshSourceAdapter();
+    const result = await adapter.parseFileWithDiagnostics(logPath);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0]).toMatchObject({ sessionId: 'session-non-object', totalTokens: 6 });
+  });
+
+  it('keeps earlier state when a session header carries unusable fields', async () => {
+    const root = await createTempRoot('dsh-header-fallbacks-');
+    const sessionId = 'session-header-fallbacks';
+    const logPath = resolveDshSessionLogPath(path.join(root, sessionId));
+
+    await writeDshSessionLog({
+      filePath: logPath,
+      lines: [
+        JSON.stringify({
+          type: 'session/title-llm-request',
+          seq: 1,
+          time: SESSION_HEADER.createdAt + 5,
+          data: { provider: 'deepseek-official', model: 'deepseek-flash' },
+        }),
+        usageLine({ seq: 2, time: SESSION_HEADER.createdAt + 6, inputTokens: 2, outputTokens: 2 }),
+        JSON.stringify({ type: 'session', version: 3, id: 7, cwd: '/tmp/from-header' }),
+        usageLine({ seq: 3, time: SESSION_HEADER.createdAt + 7, inputTokens: 4, outputTokens: 4 }),
+      ],
+    });
+
+    const adapter = new DshSourceAdapter();
+    const result = await adapter.parseFileWithDiagnostics(logPath);
+
+    expect(result.events).toHaveLength(2);
+    expect(result.events[0]).toMatchObject({
+      sessionId,
+      repoRoot: undefined,
+      provider: 'deepseek-official',
+      model: 'deepseek-flash',
+    });
+    // A non-string header id must not overwrite the identity resolved earlier,
+    // while a usable cwd still contributes repository attribution.
+    expect(result.events[1]).toMatchObject({
+      sessionId,
+      repoRoot: '/tmp/from-header',
+      provider: 'deepseek-official',
+      model: 'deepseek-flash',
+    });
+  });
+
   it('reports an unreadable log instead of throwing when no frame decodes', async () => {
     const root = await createTempRoot('dsh-unreadable-');
     const logPath = resolveDshSessionLogPath(path.join(root, '--proj--', 'session-broken'));

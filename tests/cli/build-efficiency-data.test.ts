@@ -478,6 +478,7 @@ describe('buildEfficiencyData', () => {
         roocodeDir: '/tmp/roocode/tasks',
         kilocodeDir: '/tmp/kilocode/tasks',
         antigravityDir: '/tmp/antigravity/conversations',
+        dshDir: '/tmp/.dsh/sessions',
       },
       {
         buildUsageEventDataset: async (options) => createUsageEventDataset(options),
@@ -515,6 +516,7 @@ describe('buildEfficiencyData', () => {
     expect(result.diagnostics.scopeNote).toContain('--roocode-dir');
     expect(result.diagnostics.scopeNote).toContain('--kilocode-dir');
     expect(result.diagnostics.scopeNote).toContain('--antigravity-dir');
+    expect(result.diagnostics.scopeNote).toContain('--dsh-dir');
   });
 
   it('includes DB source override flags in scope note when configured', async () => {
