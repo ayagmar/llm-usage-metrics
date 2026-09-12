@@ -35,13 +35,18 @@ Only the session log is read. The harness projection cache under `~/.dsh/storage
 
 ## Pricing
 
-The harness default route is reported as `deepseek-flash`, which its own catalog names `DeepSeek-V41-Flash`. Neither the bundled LiteLLM snapshot nor the live LiteLLM pricing file publishes V4.1-Flash rates (`deepseek-v4-flash` is the earlier V4 model, at roughly a third of the published V4.1 output rate), so this model is deliberately left unpriced instead of being aliased onto another model's rates. Rows show `-` for cost until rates exist.
+The harness default route is reported as `deepseek-flash`, which its own catalog names `DeepSeek-V41-Flash`. LiteLLM publishes no v4.1 key — neither in the bundled snapshot nor upstream — so this model is deliberately left unpriced instead of being aliased onto another model's rates (`deepseek-v4-flash` is the earlier V4 model and is materially cheaper). Cost rows show `-` until you supply rates.
 
-Price it explicitly in the meantime:
+DeepSeek prices V4.1-Flash in two daily windows, per million tokens:
 
-```bash
-llm-usage monthly --source dsh --pricing-overrides ./pricing-overrides.json
-```
+| Window | Input (cache hit) | Input (cache miss) | Output |
+| --- | --- | --- | --- |
+| Off-peak | $0.003 | $0.15 | $0.60 |
+| Peak | $0.006 | $0.30 | $1.20 |
+
+Off-peak covers everything outside 01:00-04:00 and 06:00-10:00 UTC on weekdays, including weekends and public holidays. The card is effective from 2026-09-10.
+
+The pricing pipeline applies one rate per model and buckets by day, not by hour, so it cannot apply the window that was actually in effect when a request was made. Pick the tier that dominates your usage and pass it as an override:
 
 ```json
 {
@@ -55,4 +60,17 @@ llm-usage monthly --source dsh --pricing-overrides ./pricing-overrides.json
 }
 ```
 
-`deepseek-v4-flash`, `deepseek-v4-pro`, and the other harness routes resolve from LiteLLM as usual.
+The values above are the peak tier, which is the conservative choice for a mixed workload. Halve all three to model off-peak.
+
+```bash
+llm-usage monthly --source dsh --pricing-overrides ./pricing-overrides.json
+```
+
+Overrides match the raw model name, so `deepseek-flash` is priced directly and skips LiteLLM alias resolution. Pass the override to every command that reports cost — `session`, `compare`, `trends`, `wrapped`, and `optimize` all price independently — or set it once:
+
+```toml
+[pricing]
+overridesPath = "/absolute/path/to/pricing-overrides.json"
+```
+
+Only `deepseek-flash` needs an override. The harness can also route to `deepseek-v4-flash`, which is the earlier V4 model and resolves from LiteLLM at `$0.14` input, `$0.0028` cached input, and `$0.28` output per million — do not copy the V4.1 values onto it. See [Pricing](/llm-usage-metrics/pricing/#per-model-pricing-overrides) for the full override shape.
