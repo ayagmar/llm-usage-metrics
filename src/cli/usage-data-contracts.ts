@@ -42,6 +42,7 @@ type AlwaysOnCommandOptions = {
   roocodeDir?: string;
   kilocodeDir?: string;
   antigravityDir?: string;
+  dshDir?: string;
   sourceDir?: string[];
   source?: string | string[];
   json?: boolean;

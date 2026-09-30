@@ -90,6 +90,7 @@ export default defineConfig({
             { label: 'Overview', link: '/sources/' },
             { label: 'amp', link: '/sources/amp/' },
             { label: 'antigravity', link: '/sources/antigravity/' },
+            { label: 'dsh', link: '/sources/dsh/' },
             { label: 'claude', link: '/sources/claude/' },
             { label: 'cline', link: '/sources/cline/' },
             { label: 'codex', link: '/sources/codex/' },

@@ -101,6 +101,7 @@ describe('createCli', () => {
       '--roocode-dir',
       '--kilocode-dir',
       '--antigravity-dir',
+      '--dsh-dir',
     ]);
   });
 
@@ -323,7 +324,7 @@ describe('createCli', () => {
     const compactDailyCommandHelp = dailyCommandHelp?.replace(/\s+/gu, ' ');
 
     expect(compactHelp).toContain(
-      'Supported sources (16): pi, codex, gemini, droid, opencode, openclaw, claude, copilot, goose, amp, qwen, kimi, cline, roocode, kilocode, antigravity',
+      'Supported sources (17): pi, codex, gemini, droid, opencode, openclaw, claude, copilot, goose, amp, qwen, kimi, cline, roocode, kilocode, antigravity, dsh',
     );
     expect(compactHelp).toContain('Show daily usage report');
     expect(compactHelp).toContain('llm-usage <command> --help');

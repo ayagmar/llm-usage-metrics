@@ -20,6 +20,7 @@ const sourceDirOptionByConfigKey = {
   roocode: 'roocodeDir',
   kilocode: 'kilocodeDir',
   antigravity: 'antigravityDir',
+  dsh: 'dshDir',
 } as const satisfies Record<string, keyof ReportCommandOptions>;
 
 type SourceDirConfigKey = keyof typeof sourceDirOptionByConfigKey;
@@ -42,6 +43,7 @@ const sourceDirConfigKeys = [
   'roocode',
   'kilocode',
   'antigravity',
+  'dsh',
 ] as const satisfies readonly SourceDirConfigKey[];
 
 export type UserConfigResolution = {

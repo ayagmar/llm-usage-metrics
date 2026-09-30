@@ -44,6 +44,7 @@ export const USER_CONFIG_SOURCE_DIR_KEYS = [
   'roocode',
   'kilocode',
   'antigravity',
+  'dsh',
 ] as const;
 
 const knownTopLevelKeys = [

@@ -95,6 +95,10 @@
         "antigravity": {
           "description": "Default path for Antigravity conversations; maps to --antigravity-dir.",
           "type": "string"
+        },
+        "dsh": {
+          "description": "Default path for DeepSeek Harness sessions; maps to --dsh-dir.",
+          "type": "string"
         }
       }
     },

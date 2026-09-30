@@ -5,6 +5,7 @@ import { CLINE_EXTENSION_IDS, createClineFamilyAdapter } from './cline/cline-fam
 import { CodexSourceAdapter } from './codex/codex-source-adapter.js';
 import { CopilotSourceAdapter } from './copilot/copilot-source-adapter.js';
 import { DroidSourceAdapter } from './droid/droid-source-adapter.js';
+import { DshSourceAdapter } from './dsh/dsh-source-adapter.js';
 import { GeminiSourceAdapter } from './gemini/gemini-source-adapter.js';
 import { GooseSourceAdapter } from './goose/goose-source-adapter.js';
 import { KimiSourceAdapter } from './kimi/kimi-source-adapter.js';
@@ -35,6 +36,7 @@ export type CreateDefaultAdaptersOptions = {
   roocodeDir?: string;
   kilocodeDir?: string;
   antigravityDir?: string;
+  dshDir?: string;
   sourceDir?: string[];
 };
 
@@ -228,6 +230,17 @@ const sourceRegistrations: readonly SourceRegistration[] = [
     },
     create: (resolved) => new AntigravitySourceAdapter(dirOptions(resolved)),
   },
+  {
+    id: 'dsh',
+    format: 'jsonl',
+    supportsSourceDir: true,
+    option: {
+      key: 'dshDir',
+      flag: '--dsh-dir <path>',
+      help: 'Path to DeepSeek Harness sessions directory',
+    },
+    create: (resolved) => new DshSourceAdapter(dirOptions(resolved)),
+  },
 ];
 
 // Order of the dedicated per-source override flags in `--help` and the generated
@@ -251,6 +264,7 @@ const dedicatedOptionOrderIds = [
   'roocode',
   'kilocode',
   'antigravity',
+  'dsh',
 ] as const;
 
 function dedicatedFlagName(flag: string): string {

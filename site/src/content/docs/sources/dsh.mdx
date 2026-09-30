@@ -1,0 +1,76 @@
+---
+title: dsh Source
+---
+
+## Default location
+
+- `$DSH_HOME/sessions/*/session-*/session.v3.jsonl.zstd`
+- `~/.dsh/sessions/*/session-*/session.v3.jsonl.zstd`
+
+`$DSH_HOME` is the harness home; when it is unset or blank the adapter falls back to `~/.dsh`. Each `session-*` directory holds one session log.
+
+## Override
+
+```bash
+llm-usage daily --source dsh --dsh-dir /path/to/.dsh/sessions
+```
+
+`dsh` is directory-backed, so generic source directory overrides also work:
+
+```bash
+llm-usage daily --source-dir dsh=/path/to/.dsh/sessions
+```
+
+## Parsing notes
+
+DeepSeek Harness appends one independently zstd-compressed frame per flush, so the adapter decodes the log frame by frame instead of once for the whole file: a single whole-file decode would stop at the first frame and hide most of a session. A torn final frame from an interrupted append is reported as `undecodable_jsonl_frame` and never discards the frames before it.
+
+- Each `assistant/message` record that carries a `usage` block becomes one event.
+- `inputTokens` is already the uncached prompt size, so it maps directly to input tokens; `cacheReadTokens` and `cacheWriteTokens` are preserved as separate buckets.
+- `reasoningTokens` is a subset of `outputTokens` and is carried for cache and reasoning reporting without being billed twice.
+- `sessionId` comes from the session header, `repoRoot` from its `cwd`, and provider/model from the message source, falling back to the route recorded by `session/title-llm-request` when a message omits them.
+- Tool calls, step boundaries, and other lifecycle records carry no usage and are skipped silently.
+
+Only the session log is read. The harness projection cache under `~/.dsh/storages` holds session totals rather than per-request usage, so it is never used as an event source.
+
+## Pricing
+
+The harness default route is reported as `deepseek-flash`, which its own catalog names `DeepSeek-V41-Flash`. LiteLLM publishes no v4.1 key — neither in the bundled snapshot nor upstream — so this model is deliberately left unpriced instead of being aliased onto another model's rates (`deepseek-v4-flash` is the earlier V4 model and is materially cheaper). Cost rows show `-` until you supply rates.
+
+DeepSeek prices V4.1-Flash in two daily windows, per million tokens:
+
+| Window | Input (cache hit) | Input (cache miss) | Output |
+| --- | --- | --- | --- |
+| Off-peak | $0.003 | $0.15 | $0.60 |
+| Peak | $0.006 | $0.30 | $1.20 |
+
+Off-peak covers everything outside 01:00-04:00 and 06:00-10:00 UTC on weekdays, including weekends and public holidays. The card is effective from 2026-09-10.
+
+The pricing pipeline applies one rate per model and buckets by day, not by hour, so it cannot apply the window that was actually in effect when a request was made. Pick the tier that dominates your usage and pass it as an override:
+
+```json
+{
+  "models": {
+    "deepseek-flash": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 1.2,
+      "cacheReadPer1MUsd": 0.006
+    }
+  }
+}
+```
+
+The values above are the peak tier, which is the conservative choice for a mixed workload. Halve all three to model off-peak.
+
+```bash
+llm-usage monthly --source dsh --pricing-overrides ./pricing-overrides.json
+```
+
+Overrides match the raw model name, so `deepseek-flash` is priced directly and skips LiteLLM alias resolution. Pass the override to every command that reports cost — `session`, `compare`, `trends`, `wrapped`, and `optimize` all price independently — or set it once:
+
+```toml
+[pricing]
+overridesPath = "/absolute/path/to/pricing-overrides.json"
+```
+
+Only `deepseek-flash` needs an override. The harness can also route to `deepseek-v4-flash`, which is the earlier V4 model and resolves from LiteLLM at `$0.14` input, `$0.0028` cached input, and `$0.28` output per million — do not copy the V4.1 values onto it. See [Pricing](/llm-usage-metrics/pricing/#per-model-pricing-overrides) for the full override shape.

@@ -80,4 +80,6 @@ File shape:
 }
 ```
 
-Only `inputPer1MUsd` and `outputPer1MUsd` are required; `cacheReadPer1MUsd`, `cacheWritePer1MUsd`, `reasoningPer1MUsd`, and `reasoningBilling` (`included-in-output` or `separate`) are optional. Rates must be finite, non-negative numbers. Invalid required rates discard the entry, while invalid optional rates are ignored. Model names match case-insensitively.
+Only `inputPer1MUsd` and `outputPer1MUsd` are required; `cacheReadPer1MUsd`, `cacheWritePer1MUsd`, `reasoningPer1MUsd`, and `reasoningBilling` (`included-in-output` or `separate`) are optional. Rates must be finite, non-negative numbers. Invalid required rates discard the entry, while invalid optional rates are ignored. Model names match case-insensitively, and an override on a name short-circuits LiteLLM alias resolution for that name.
+
+Overrides are the supported way to price a model that LiteLLM does not publish yet. The [DeepSeek Harness source](/llm-usage-metrics/sources/dsh/#pricing) is a worked example: its default route, `deepseek-flash`, is a model LiteLLM has no key for, and the page lists the published rates to copy.

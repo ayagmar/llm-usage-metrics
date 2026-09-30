@@ -117,6 +117,10 @@ function resolveScopeNote(options: EfficiencyCommandOptions): string | undefined
     activeFilters.push('--antigravity-dir');
   }
 
+  if (hasActiveTextOption(options.dshDir)) {
+    activeFilters.push('--dsh-dir');
+  }
+
   if (hasActiveRepeatedFilter(options.sourceDir)) {
     activeFilters.push('--source-dir');
   }

@@ -1,6 +1,6 @@
 ---
 title: Data Sources
-description: Default locations, formats, and path overrides for all 16 source adapters.
+description: Default locations, formats, and path overrides for all 17 source adapters.
 ---
 
 Each adapter owns discovery and source-specific parsing. After parsing, every adapter returns the same normalized `UsageEvent` shape, so reports and filters behave the same across tools.
@@ -25,6 +25,7 @@ Each adapter owns discovery and source-specific parsing. After parsing, every ad
 | RooCode | task JSON | VS Code global storage for `rooveterinaryinc.roo-cline` |
 | KiloCode | task JSON | VS Code global storage for `kilocode.kilo-code` |
 | Antigravity | SQLite | `~/.gemini/antigravity-cli/conversations` |
+| DeepSeek Harness | JSONL + zstd | `$DSH_HOME/sessions` or `~/.dsh/sessions` |
 
 SQLite-backed sources use the built-in `node:sqlite` module and require Node.js 24 or newer.
 

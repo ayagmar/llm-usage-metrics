@@ -101,6 +101,12 @@ const EXPECTED_OVERRIDE_OPTIONS = [
     flag: '--antigravity-dir <path>',
     help: 'Path to Antigravity conversations directory',
   },
+  {
+    id: 'dsh',
+    optionKey: 'dshDir',
+    flag: '--dsh-dir <path>',
+    help: 'Path to DeepSeek Harness sessions directory',
+  },
 ] as const;
 
 const SOURCE_DIR_UNSUPPORTED_IDS = new Set(['opencode', 'goose']);
@@ -156,6 +162,7 @@ describe('source metadata manifest', () => {
       'roocode',
       'kilocode',
       'antigravity',
+      'dsh',
     ]);
   });
 

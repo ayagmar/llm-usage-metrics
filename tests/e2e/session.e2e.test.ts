@@ -10,6 +10,7 @@ import type { SessionCommandOptions } from '../../src/cli/usage-data-contracts.j
 import type { SessionRow } from '../../src/session/session-row.js';
 import { withSuppressedSqliteExperimentalWarning } from '../../src/sources/opencode/sqlite-warning-suppression.js';
 import { createAntigravityFixtureDb } from '../helpers/antigravity-fixtures.js';
+import { createDshSessionsFixture } from '../helpers/dsh-fixtures.js';
 import { StaticPricingSource } from '../helpers/static-pricing-source.js';
 
 type OpenCodeMessageFixture = {
@@ -50,7 +51,7 @@ const clineDir = path.resolve('tests/fixtures/e2e/cline');
 const roocodeDir = path.resolve('tests/fixtures/e2e/roocode');
 const kilocodeDir = path.resolve('tests/fixtures/e2e/kilocode');
 const allSources =
-  'pi,codex,gemini,droid,opencode,openclaw,claude,copilot,goose,amp,qwen,kimi,cline,roocode,kilocode,antigravity';
+  'pi,codex,gemini,droid,opencode,openclaw,claude,copilot,goose,amp,qwen,kimi,cline,roocode,kilocode,antigravity,dsh';
 
 const expectedSessionKeys = [
   'amp:amp-e2e-thread',
@@ -61,6 +62,8 @@ const expectedSessionKeys = [
   'copilot:copilot-e2e-session',
   'droid:session-001',
   'droid:session-002',
+  'dsh:session-e2e-dsh-a',
+  'dsh:session-e2e-dsh-b',
   'gemini:gemini-e2e-session',
   'goose:goose-e2e-session',
   'kilocode:task-kilocode',
@@ -193,6 +196,7 @@ function createE2ePricingSource(): StaticPricingSource {
     'gpt-4.1-copilot',
     'gpt-4.1-opencode',
     'gpt-5-codex',
+    'deepseek-flash',
     'gpt-goose-e2e',
     'gpt-roocode-e2e',
     'qwen3-coder-e2e',
@@ -252,13 +256,16 @@ describe.skipIf(!DatabaseSync)('session report e2e', () => {
   let opencodeDbPath: string;
   let gooseDbPath: string;
   let antigravityDir: string;
+  let dshDir: string;
 
   beforeAll(async () => {
     tempDir = await mkdtemp(path.join(os.tmpdir(), 'usage-session-e2e-'));
     opencodeDbPath = path.join(tempDir, 'opencode.db');
     gooseDbPath = path.join(tempDir, 'goose.db');
     antigravityDir = path.join(tempDir, 'antigravity');
+    dshDir = path.join(tempDir, 'dsh');
     await mkdir(antigravityDir);
+    await createDshSessionsFixture(dshDir);
 
     createOpenCodeFixtureDb(opencodeDbPath, [
       {
@@ -351,6 +358,7 @@ describe.skipIf(!DatabaseSync)('session report e2e', () => {
       roocodeDir,
       kilocodeDir,
       antigravityDir,
+      dshDir,
       source: allSources,
       timezone: 'UTC',
     };
@@ -403,6 +411,6 @@ describe.skipIf(!DatabaseSync)('session report e2e', () => {
       'kilocode:task-kilocode',
       'roocode:task-roocode',
     ]);
-    expect(result.limitNote).toBe('Showing top 3 of 17 sessions by cost. Use --top 0 for all.');
+    expect(result.limitNote).toBe('Showing top 3 of 19 sessions by cost. Use --top 0 for all.');
   });
 });

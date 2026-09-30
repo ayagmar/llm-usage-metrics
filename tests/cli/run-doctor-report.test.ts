@@ -57,6 +57,7 @@ async function createDoctorFixtureOptions(): Promise<DoctorCommandOptions> {
   const roocodeDir = path.join(rootDir, 'roocode');
   const kilocodeDir = path.join(rootDir, 'kilocode');
   const antigravityDir = path.join(rootDir, 'antigravity');
+  const dshDir = path.join(rootDir, 'dsh');
 
   await mkdir(path.join(geminiDir, 'tmp', 'project', 'chats'), { recursive: true });
   await mkdir(path.join(qwenDir, 'project', 'chats'), { recursive: true });
@@ -65,6 +66,7 @@ async function createDoctorFixtureOptions(): Promise<DoctorCommandOptions> {
   await mkdir(path.join(roocodeDir, 'task-a'), { recursive: true });
   await mkdir(path.join(kilocodeDir, 'task-a'), { recursive: true });
   await mkdir(antigravityDir, { recursive: true });
+  await mkdir(path.join(dshDir, '--project--', 'session-a'), { recursive: true });
   await mkdir(path.join(claudeDir, 'project'), { recursive: true });
   await mkdir(piDir, { recursive: true });
   await mkdir(codexDir, { recursive: true });
@@ -89,6 +91,11 @@ async function createDoctorFixtureOptions(): Promise<DoctorCommandOptions> {
   await writeFile(path.join(roocodeDir, 'task-a', 'ui_messages.json'), '[]', 'utf8');
   await writeFile(path.join(kilocodeDir, 'task-a', 'ui_messages.json'), '[]', 'utf8');
   await writeFile(path.join(antigravityDir, 'conversation.db'), '', 'utf8');
+  await writeFile(
+    path.join(dshDir, '--project--', 'session-a', 'session.v3.jsonl'),
+    '{}\n',
+    'utf8',
+  );
 
   return {
     piDir,
@@ -107,6 +114,7 @@ async function createDoctorFixtureOptions(): Promise<DoctorCommandOptions> {
     roocodeDir,
     kilocodeDir,
     antigravityDir,
+    dshDir,
   };
 }
 
@@ -202,6 +210,7 @@ describe('run-doctor-report', () => {
       { id: 'roocode', format: 'json', status: 'ok', itemsFound: 1 },
       { id: 'kilocode', format: 'json', status: 'ok', itemsFound: 1 },
       { id: 'antigravity', format: 'sqlite', status: 'ok', itemsFound: 1 },
+      { id: 'dsh', format: 'jsonl', status: 'ok', itemsFound: 1 },
     ]);
   });
 
@@ -226,7 +235,10 @@ describe('run-doctor-report', () => {
     }
   });
 
-  it('reads the event store from the config eventStore.path', async () => {
+  // Opening a fresh SQLite event store and re-running discovery is occasionally
+  // slower than the default 5s budget on loaded CI machines (the test uses the
+  // real default source roots, not fixtures).
+  it('reads the event store from the config eventStore.path', { timeout: 30_000 }, async () => {
     const rootDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-config-store-'));
     tempDirs.push(rootDir);
 
@@ -577,7 +589,7 @@ describe('run-doctor-report', () => {
 
     expect(stdout.getOutput()).toContain('✖ claude       jsonl');
     expect(stdout.getOutput()).toContain(missingClaudeDir);
-    expect(stdout.getOutput()).toContain('15/16 sources healthy');
+    expect(stdout.getOutput()).toContain('16/17 sources healthy');
   });
 
   it('counts only source rows in the summary while still listing the event store', async () => {
@@ -595,7 +607,7 @@ describe('run-doctor-report', () => {
 
     const output = stdout.getOutput();
     expect(output).toContain('event-store');
-    expect(output).toContain('16/16 sources healthy');
+    expect(output).toContain('17/17 sources healthy');
   });
 
   it('prints JSON output to stdout', async () => {
