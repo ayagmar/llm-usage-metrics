@@ -32,7 +32,17 @@ Token columns keep the buckets supplied by each source:
 - `Cache Read` and `Cache Write`
 - `Total`, using the source adapter's normalized total
 
-Cost may come from the source or from LiteLLM pricing. A tilde, such as `~$4.82`, marks a partial estimate. A dash means the CLI could not resolve cost for that row. See [Pricing](/llm-usage-metrics/pricing/) for the full rules.
+Cost may come from the source or from LiteLLM pricing. A tilde, such as `~$4.82`, means only some contributing events have a resolved cost. A dash means the CLI could not resolve cost for that row. See [Pricing](/llm-usage-metrics/pricing/) for the full rules.
+
+:::note[Use an offline report]
+After installation, skip both pricing refreshes and startup update checks with:
+
+```bash
+LLM_USAGE_SKIP_UPDATE_CHECK=1 llm-usage daily --pricing-offline
+```
+
+The CLI uses cached or bundled rates. Downloading the package with npm or npx still requires network access. See [Security](/llm-usage-metrics/security/) for network behavior.
+:::
 
 ## 3. Scope the result
 
@@ -70,7 +80,7 @@ llm-usage trends --metric tokens --days 14
 llm-usage session --by-repo
 ```
 
-Use [Compare](/llm-usage-metrics/compare/) for period changes, [Session](/llm-usage-metrics/session/) for conversation-level detail, and [Trends](/llm-usage-metrics/trends/) for a daily series.
+The [report chooser](/llm-usage-metrics/reports/) covers every command by question. Use [Compare](/llm-usage-metrics/compare/) for period changes, [Session](/llm-usage-metrics/session/) for conversation-level detail, and [Trends](/llm-usage-metrics/trends/) for a daily series.
 
 ## 5. Save your defaults when you need them
 

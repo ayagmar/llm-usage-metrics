@@ -1,92 +1,110 @@
 ---
 title: Troubleshooting
-description: Common problems and practical checks.
+description: Diagnose empty reports, source paths, missing prices, and local ledger problems.
 ---
 
-## No sessions found
+Start with the symptom below. Keep diagnostics visible while investigating: leave off `--quiet`, and inspect `stderr` if you redirect report data.
 
-Run a scoped check first:
+## Empty report or missing source
+
+Check discovery before changing paths:
 
 ```bash
-llm-usage daily --source pi
+llm-usage doctor
+llm-usage doctor --source codex,claude
+```
+
+Doctor probes local source locations and ledger health without parsing session content or loading pricing. A healthy source can still produce no matching events: date, model, provider, and configured source filters may exclude them.
+
+Run a scoped report without date, provider, or model flags:
+
+```bash
 llm-usage daily --source codex
-llm-usage daily --source gemini
-llm-usage daily --source droid
-llm-usage daily --source opencode
-llm-usage daily --source openclaw
-llm-usage daily --source claude
-llm-usage daily --source copilot
-llm-usage daily --source goose
-llm-usage daily --source amp
-llm-usage daily --source qwen
-llm-usage daily --source kimi
-llm-usage daily --source cline
-llm-usage daily --source roocode
-llm-usage daily --source kilocode
-llm-usage daily --source antigravity
 ```
 
-If OpenCode or Goose is expected, provide an explicit DB path:
+Check `llm-usage config show` for persistent defaults. If discovery cannot find your data, compare the reported path with the [source's default locations](/llm-usage-metrics/sources/) and pass an explicit override:
 
 ```bash
-llm-usage daily --source opencode --opencode-db /path/to/opencode.db
-llm-usage daily --source goose --goose-db /path/to/goose/sessions.db
+# Directory-backed source
+llm-usage doctor --source codex --codex-dir /path/to/.codex/sessions
+
+# Database-backed source
+llm-usage doctor --source opencode --opencode-db /path/to/opencode.db
+llm-usage doctor --source goose --goose-db /path/to/goose/sessions.db
 ```
 
-## Runtime requirements
+Some tools require extra setup before they record usage. For example, [Copilot CLI](/llm-usage-metrics/sources/copilot/) needs its telemetry export configured. Read the source guide before assuming existing conversations contain token data.
 
-SQLite-backed source parsing for OpenCode, Goose, and Antigravity requires Node.js 24+ runtime with built-in `node:sqlite`.
+## Runtime or path override errors
 
-## Path override errors
-
-- `--source-dir` supports only `pi`, `codex`, `gemini`, `droid`, `openclaw`, `claude`, `copilot`, `amp`, `qwen`, `kimi`, `cline`, `roocode`, `kilocode`, `antigravity`, and `dsh`.
-- `--pi-dir`, `--codex-dir`, `--gemini-dir`, `--droid-dir`, `--claude-dir`, `--copilot-dir`, `--amp-dir`, `--qwen-dir`, `--kimi-dir`, `--cline-dir`, `--roocode-dir`, `--kilocode-dir`, `--antigravity-dir`, and `--dsh-dir` must point to valid directories.
-- For OpenCode, use `--opencode-db`.
-- For Goose, use `--goose-db`.
-
-Correct examples:
+The CLI requires **Node.js 24 or newer**, including built-in `node:sqlite` for its ledger and SQLite-backed sources. Check the runtime used by your shell:
 
 ```bash
-llm-usage daily --source-dir pi=/path/to/pi --source-dir codex=/path/to/codex --source-dir gemini=/path/to/.gemini --source-dir droid=/path/to/.factory/sessions --source-dir openclaw=/path/to/.openclaw/agents --source-dir claude=/path/to/.claude/projects --source-dir copilot=/path/to/.copilot/otel --source-dir amp=/path/to/amp/threads --source-dir qwen=/path/to/.qwen/projects --source-dir kimi=/path/to/kimi/sessions --source-dir cline=/path/to/cline/tasks --source-dir roocode=/path/to/roocode/tasks --source-dir kilocode=/path/to/kilocode/tasks --source-dir antigravity=/path/to/antigravity/conversations --source-dir dsh=/path/to/.dsh/sessions
-llm-usage daily --pi-dir /path/to/pi --codex-dir /path/to/codex --gemini-dir /path/to/.gemini --droid-dir /path/to/.factory/sessions --claude-dir /path/to/.claude/projects --copilot-dir /path/to/.copilot/otel --amp-dir /path/to/amp/threads --qwen-dir /path/to/.qwen/projects --kimi-dir /path/to/kimi/sessions --cline-dir /path/to/cline/tasks --roocode-dir /path/to/roocode/tasks --kilocode-dir /path/to/kilocode/tasks --antigravity-dir /path/to/antigravity/conversations --dsh-dir /path/to/.dsh/sessions
-llm-usage daily --opencode-db /path/to/opencode.db
-llm-usage daily --goose-db /path/to/goose/sessions.db
+node --version
 ```
 
-## Pricing load failures
+Directory-backed sources accept named flags or repeatable `--source-dir` entries. OpenCode and Goose require their database flags instead:
 
-Default LiteLLM pricing works without a warm cache because the CLI includes a
-bundled LiteLLM snapshot. If you see this warning, the run succeeded from that
-snapshot:
+```bash
+llm-usage monthly \
+  --source-dir codex=/path/to/.codex/sessions \
+  --source-dir claude=/path/to/.claude/projects
 
-```text
-Pricing: using the bundled LiteLLM snapshot from 2026-07-08 (run online to refresh).
+llm-usage monthly --opencode-db /path/to/opencode.db
+llm-usage monthly --goose-db /path/to/goose/sessions.db
 ```
 
-Run once without `--pricing-offline` to refresh the local cache from LiteLLM:
+Use the actual sessions directory or database file, not its parent. Explicit directory overrides must exist. Paths containing spaces need shell quotes. The [CLI reference](/llm-usage-metrics/cli-reference/) lists every supported flag.
+
+## Missing or partial cost
+
+A dash (`-`) means no contributing event has a resolved cost. A tilde (`~$4.82`) means only part of the row was priced. Token totals still include unpriced events.
+
+Check the model names and pricing diagnostics. If a model is not in LiteLLM, supply [per-model pricing overrides](/llm-usage-metrics/pricing/#per-model-pricing-overrides). Do not assume a different model's rates apply.
+
+Default LiteLLM pricing can fall back to the bundled snapshot even without a warm cache. Its diagnostic includes the snapshot date. Run online to refresh pricing:
 
 ```bash
 llm-usage monthly
 ```
 
-If pricing still fails, check for a custom `--pricing-url`, a bad
-`--pricing-overrides` file, or a network failure while using a custom pricing
-URL. Custom pricing URLs use their matching cache or network source and do not
-fall back to the bundled default snapshot.
+If `pricing.offline = true` is saved in your config, see [Configuration](/llm-usage-metrics/configuration/#config-keys) for how to run with online pricing. Custom pricing URLs use their own matching cache and do not fall back to the bundled default snapshot.
 
-## Schema drift / OpenCode parsing errors
+A pricing load error can also come from an invalid overrides file or an unreachable custom URL. Keep the original error message when reporting the problem.
 
-OpenCode runtime parsing is read-only and CLI-independent. For schema inspection, use OpenCode CLI tooling:
+## Unexpected totals or missing older history
 
-```bash
-opencode db "select name from sqlite_master where type='table'"
-opencode db --format json "<sql>"
-```
+Source tools normalize token buckets differently. Check the relevant [source guide](/llm-usage-metrics/sources/) before comparing the report with the tool's own dashboard. Also check the report timezone and date bounds.
 
-## Need a reproducible report
-
-Pin source and date range explicitly:
+The default report uses discovered source files. To include retained events from files that left the disk, use:
 
 ```bash
-llm-usage monthly --source opencode --opencode-db /archives/opencode-2026-01.db --since 2026-01-01 --until 2026-01-31
+llm-usage monthly --history
 ```
+
+:::caution[The ledger contains retained history]
+Deleting `events.db` deletes history retained for departed files. Before resetting it, read [Caching and history](/llm-usage-metrics/caching/). A fresh ledger can reparse existing files, but it cannot restore files that have disappeared.
+:::
+
+## Wide tables or broken redirected output
+
+Switch to JSON or Markdown when a terminal table does not fit. Keep report data and diagnostics in separate files:
+
+```bash
+llm-usage daily --json > usage.json 2> usage.log
+```
+
+Report JSON uses a versioned envelope. If a script expects the pre-0.8 shape, follow [Migrating to 0.8](/llm-usage-metrics/migrating-to-0-8/). `events` uses `--format jsonl` or `--format csv`, rather than `--json`.
+
+## Report a reproducible issue
+
+Include your CLI version, Node.js version, source, exact command, and diagnostics. Use a fixed timezone and date range when reporting total differences:
+
+```bash
+llm-usage --version
+node --version
+llm-usage monthly --source codex --timezone UTC \
+  --since 2026-09-01 --until 2026-09-30
+```
+
+Review logs and fixtures before attaching them: they can contain paths, repository names, or session content. Open an issue on [GitHub](https://github.com/ayagmar/llm-usage-metrics/issues).

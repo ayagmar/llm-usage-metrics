@@ -32,12 +32,14 @@ llm-usage doctor --json
 
 Doctor prints one line per source — a `✔`/`✖` health glyph, the source id, its storage format (`jsonl`, `json`, or `sqlite`), and what was found — then a health summary. It exits `0` even when a source is unhealthy, so it is safe to run in scripts.
 
+Illustrative output for `llm-usage doctor --source pi,opencode` (counts depend on your local data):
+
 ```text
 ✔ pi           jsonl   519 file(s)
 ✖ opencode     sqlite  OpenCode database is missing or unreadable: /path/to/opencode.db
-✔ event-store  sqlite  159266 event(s), 3 departed file(s), schema v2, 78.4 MiB
+✔ event-store  sqlite  159266 event(s), 3 departed file(s), schema v3, 78.4 MiB
 
-15/16 sources healthy
+1/2 sources healthy
 ```
 
 The summary counts only source rows; the `event-store` row reports the ledger's event count, departed-file count, schema version, and on-disk size.

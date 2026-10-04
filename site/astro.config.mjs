@@ -1,5 +1,6 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import { getDefaultSourceIds } from '../src/sources/create-default-adapters.ts';
 
 export default defineConfig({
   site: 'https://ayagmar.github.io',
@@ -9,8 +10,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'LLM Usage Metrics',
-      description:
-        'Local-first usage reports for 16 AI coding tools, with pricing, session analysis, Git attribution, comparisons, and exports',
+      description: `Local usage reports for ${getDefaultSourceIds().length} AI coding tools: tokens, estimated cost, sessions, comparisons, and exports`,
       favicon: '/favicon.svg',
       logo: {
         src: './src/assets/logo.svg',
@@ -54,71 +54,64 @@ export default defineConfig({
         {
           label: 'Start here',
           items: [
-            { label: 'Getting started', link: '/getting-started/' },
-            { label: 'Data sources', link: '/sources/' },
-            { label: 'Configuration', link: '/configuration/' },
+            { label: 'Docs overview', slug: 'docs' },
+            { label: 'Getting started', slug: 'getting-started' },
+            { label: 'Choose a report', slug: 'reports' },
+            { label: 'Data sources', slug: 'sources' },
+            { label: 'Configuration', slug: 'configuration' },
           ],
         },
         {
           label: 'Reports',
           items: [
-            { label: 'CLI reference', link: '/cli-reference/' },
-            { label: 'Compare periods', link: '/compare/' },
-            { label: 'Session usage', link: '/session/' },
-            { label: 'Trends', link: '/trends/' },
-            { label: 'Efficiency', link: '/efficiency/' },
-            { label: 'Optimize', link: '/optimize/' },
-            { label: 'Wrapped recap', link: '/wrapped/' },
-            { label: 'Events export', link: '/events/' },
-            { label: 'Output formats', link: '/output-formats/' },
-            { label: 'Migrating to 0.8', link: '/migrating-to-0-8/' },
+            { label: 'Usage totals', slug: 'usage' },
+            { label: 'Compare periods', slug: 'compare' },
+            { label: 'Session usage', slug: 'session' },
+            { label: 'Trends', slug: 'trends' },
+            { label: 'Efficiency', slug: 'efficiency' },
+            { label: 'Optimize', slug: 'optimize' },
+            { label: 'Wrapped recap', slug: 'wrapped' },
+            { label: 'Events export', slug: 'events' },
+            { label: 'Output formats', slug: 'output-formats' },
           ],
         },
         {
           label: 'Operate',
           items: [
-            { label: 'Pricing', link: '/pricing/' },
-            { label: 'Caching and history', link: '/caching/' },
-            { label: 'Doctor', link: '/doctor/' },
-            { label: 'Troubleshooting', link: '/troubleshooting/' },
-            { label: 'Security', link: '/security/' },
+            { label: 'Pricing', slug: 'pricing' },
+            { label: 'Caching and history', slug: 'caching' },
+            { label: 'Doctor', slug: 'doctor' },
+            { label: 'Troubleshooting', slug: 'troubleshooting' },
+            { label: 'Security', slug: 'security' },
           ],
         },
         {
-          label: 'Data Sources',
+          label: 'Source details',
+          collapsed: true,
           items: [
-            { label: 'Overview', link: '/sources/' },
-            { label: 'amp', link: '/sources/amp/' },
-            { label: 'antigravity', link: '/sources/antigravity/' },
-            { label: 'dsh', link: '/sources/dsh/' },
-            { label: 'claude', link: '/sources/claude/' },
-            { label: 'cline', link: '/sources/cline/' },
-            { label: 'codex', link: '/sources/codex/' },
-            { label: 'copilot', link: '/sources/copilot/' },
-            { label: 'droid', link: '/sources/droid/' },
-            { label: 'gemini', link: '/sources/gemini/' },
-            { label: 'goose', link: '/sources/goose/' },
-            { label: 'kilocode', link: '/sources/kilocode/' },
-            { label: 'kimi', link: '/sources/kimi/' },
-            { label: 'openclaw', link: '/sources/openclaw/' },
-            { label: 'opencode', link: '/sources/opencode/' },
-            { label: 'pi', link: '/sources/pi/' },
-            { label: 'qwen', link: '/sources/qwen/' },
-            { label: 'roocode', link: '/sources/roocode/' },
+            { label: 'Overview', slug: 'sources' },
+            ...getDefaultSourceIds()
+              .sort()
+              .map((id) => ({ label: id, slug: `sources/${id}` })),
           ],
         },
         {
-          label: 'Engineering',
-          items: [{ label: 'Benchmarks', link: '/benchmarks/' }],
+          label: 'Reference',
+          items: [
+            { label: 'CLI reference', slug: 'cli-reference' },
+            { label: 'Migrating to 0.8', slug: 'migrating-to-0-8' },
+            { label: 'Benchmarks', slug: 'benchmarks' },
+          ],
         },
         {
           label: 'Architecture',
+          collapsed: true,
           items: [
-            { label: 'Overview', link: '/architecture/' },
-            { label: 'Event Store', link: '/architecture/event-store/' },
-            { label: 'Parse Pipeline', link: '/architecture/parse-pipeline/' },
-            { label: 'Pricing Pipeline', link: '/architecture/pricing-pipeline/' },
-            { label: 'Config & Logging', link: '/architecture/config-and-logging/' },
+            { label: 'Overview', slug: 'architecture' },
+            { label: 'Event Store', slug: 'architecture/event-store' },
+            { label: 'Parse Pipeline', slug: 'architecture/parse-pipeline' },
+            { label: 'Pricing Pipeline', slug: 'architecture/pricing-pipeline' },
+            { label: 'Config & Logging', slug: 'architecture/config-and-logging' },
           ],
         },
       ],

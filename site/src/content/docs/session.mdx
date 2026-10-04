@@ -74,6 +74,6 @@ Default `--json` returns an array of session rows under `data`:
 }
 ```
 
-`durationMs` is the raw span: `lastActivity` minus `firstActivity`; it over-counts idle time by design. `activeMs` is the honest "hands-on time": the sum of inter-event gaps, each capped at 5 minutes, so a session left open overnight contributes at most 5 idle minutes per gap. Single-event sessions get `activeMs: 0`.
+`durationMs` is the raw span: `lastActivity` minus `firstActivity`; it over-counts idle time by design. `activeMs` estimates activity from event timing: the sum of inter-event gaps, each capped at 5 minutes, so a session left open overnight contributes at most 5 idle minutes per gap. Single-event sessions get `activeMs: 0`. This is an event-gap estimate, not a measurement of human working time.
 
 `--by-repo --json` returns an array of repo rows (`rowType: "repo"`, `repoRoot`, `sessionCount`, `firstActivity`, `sources`, and the same token/cost totals).

@@ -31,9 +31,834 @@ Commands:
 - `config <init|show|path>`
 - `schema`
 
-## Options
+## Command help
 
-Generated from root + command help output.
+Open a command to see its supported flags and defaults. Flags in the option index below are not available on every command.
+
+<details>
+<summary>llm-usage daily</summary>
+
+```text
+Usage: llm-usage daily [options]
+
+Show daily usage report
+
+Options:
+  --pi-dir <path>                Path to .pi sessions directory
+  --codex-dir <path>             Path to .codex sessions directory
+  --copilot-dir <path>           Path to GitHub Copilot OTEL directory
+  --gemini-dir <path>            Path to .gemini directory
+  --droid-dir <path>             Path to Droid sessions directory
+  --claude-dir <path>            Path to Claude projects directory
+  --openclaw-dir <path>          Path to OpenClaw agents directory
+  --opencode-db <path>           Path to OpenCode SQLite DB
+  --goose-db <path>              Path to Goose SQLite DB
+  --amp-dir <path>               Path to Amp threads directory
+  --qwen-dir <path>              Path to Qwen projects directory
+  --kimi-dir <path>              Path to Kimi sessions directory
+  --cline-dir <path>             Path to Cline tasks directory
+  --roocode-dir <path>           Path to RooCode tasks directory
+  --kilocode-dir <path>          Path to KiloCode tasks directory
+  --antigravity-dir <path>       Path to Antigravity conversations directory
+  --dsh-dir <path>               Path to DeepSeek Harness sessions directory
+  --source-dir <source-id=path>  Override source directory for directory-backed
+                                 sources (repeatable)
+  --source <name>                Filter by source id (repeatable or
+                                 comma-separated, supported sources (17): pi,
+                                 codex, gemini, droid, opencode, openclaw,
+                                 claude, copilot, goose, amp, qwen, kimi, cline,
+                                 roocode, kilocode, antigravity, dsh)
+  --json                         Render output as JSON
+  --quiet                        Suppress informational stderr output (warnings
+                                 still print)
+  --since <YYYY-MM-DD>           Inclusive start date filter
+  --until <YYYY-MM-DD>           Inclusive end date filter
+  --timezone <iana>              Timezone for bucketing (default: system
+                                 timezone)
+  --provider <name>              Billing-provider filter (normalized to billing
+                                 entity; e.g. openai, anthropic, google,
+                                 moonshot)
+  --model <name>                 Filter by model (repeatable/comma-separated;
+                                 exact when exact match exists after
+                                 source/provider/date filters, otherwise
+                                 substring)
+  --pricing-url <url>            Override LiteLLM pricing source URL
+  --pricing-overrides <path>     Path to a JSON file of per-model pricing
+                                 overrides (takes precedence over LiteLLM)
+  --pricing-offline              Use cached LiteLLM pricing only (no network
+                                 fetch)
+  --ignore-pricing-failures      Continue without estimated costs when pricing
+                                 cannot be loaded
+  --history                      include usage from files that no longer exist
+                                 on disk (from the local event store)
+  --markdown                     Render output as markdown table
+  --per-model-columns            Render per-model metrics as multiline aligned
+                                 table columns (terminal/markdown)
+  --share                        Write a share SVG image to the current
+                                 directory
+  -h, --help                     display help for command
+```
+
+</details>
+
+<details>
+<summary>llm-usage weekly</summary>
+
+```text
+Usage: llm-usage weekly [options]
+
+Show weekly usage report (week starts Monday)
+
+Options:
+  --pi-dir <path>                Path to .pi sessions directory
+  --codex-dir <path>             Path to .codex sessions directory
+  --copilot-dir <path>           Path to GitHub Copilot OTEL directory
+  --gemini-dir <path>            Path to .gemini directory
+  --droid-dir <path>             Path to Droid sessions directory
+  --claude-dir <path>            Path to Claude projects directory
+  --openclaw-dir <path>          Path to OpenClaw agents directory
+  --opencode-db <path>           Path to OpenCode SQLite DB
+  --goose-db <path>              Path to Goose SQLite DB
+  --amp-dir <path>               Path to Amp threads directory
+  --qwen-dir <path>              Path to Qwen projects directory
+  --kimi-dir <path>              Path to Kimi sessions directory
+  --cline-dir <path>             Path to Cline tasks directory
+  --roocode-dir <path>           Path to RooCode tasks directory
+  --kilocode-dir <path>          Path to KiloCode tasks directory
+  --antigravity-dir <path>       Path to Antigravity conversations directory
+  --dsh-dir <path>               Path to DeepSeek Harness sessions directory
+  --source-dir <source-id=path>  Override source directory for directory-backed
+                                 sources (repeatable)
+  --source <name>                Filter by source id (repeatable or
+                                 comma-separated, supported sources (17): pi,
+                                 codex, gemini, droid, opencode, openclaw,
+                                 claude, copilot, goose, amp, qwen, kimi, cline,
+                                 roocode, kilocode, antigravity, dsh)
+  --json                         Render output as JSON
+  --quiet                        Suppress informational stderr output (warnings
+                                 still print)
+  --since <YYYY-MM-DD>           Inclusive start date filter
+  --until <YYYY-MM-DD>           Inclusive end date filter
+  --timezone <iana>              Timezone for bucketing (default: system
+                                 timezone)
+  --provider <name>              Billing-provider filter (normalized to billing
+                                 entity; e.g. openai, anthropic, google,
+                                 moonshot)
+  --model <name>                 Filter by model (repeatable/comma-separated;
+                                 exact when exact match exists after
+                                 source/provider/date filters, otherwise
+                                 substring)
+  --pricing-url <url>            Override LiteLLM pricing source URL
+  --pricing-overrides <path>     Path to a JSON file of per-model pricing
+                                 overrides (takes precedence over LiteLLM)
+  --pricing-offline              Use cached LiteLLM pricing only (no network
+                                 fetch)
+  --ignore-pricing-failures      Continue without estimated costs when pricing
+                                 cannot be loaded
+  --history                      include usage from files that no longer exist
+                                 on disk (from the local event store)
+  --markdown                     Render output as markdown table
+  --per-model-columns            Render per-model metrics as multiline aligned
+                                 table columns (terminal/markdown)
+  --share                        Write a share SVG image to the current
+                                 directory
+  -h, --help                     display help for command
+```
+
+</details>
+
+<details>
+<summary>llm-usage monthly</summary>
+
+```text
+Usage: llm-usage monthly [options]
+
+Show monthly usage report
+
+Options:
+  --pi-dir <path>                Path to .pi sessions directory
+  --codex-dir <path>             Path to .codex sessions directory
+  --copilot-dir <path>           Path to GitHub Copilot OTEL directory
+  --gemini-dir <path>            Path to .gemini directory
+  --droid-dir <path>             Path to Droid sessions directory
+  --claude-dir <path>            Path to Claude projects directory
+  --openclaw-dir <path>          Path to OpenClaw agents directory
+  --opencode-db <path>           Path to OpenCode SQLite DB
+  --goose-db <path>              Path to Goose SQLite DB
+  --amp-dir <path>               Path to Amp threads directory
+  --qwen-dir <path>              Path to Qwen projects directory
+  --kimi-dir <path>              Path to Kimi sessions directory
+  --cline-dir <path>             Path to Cline tasks directory
+  --roocode-dir <path>           Path to RooCode tasks directory
+  --kilocode-dir <path>          Path to KiloCode tasks directory
+  --antigravity-dir <path>       Path to Antigravity conversations directory
+  --dsh-dir <path>               Path to DeepSeek Harness sessions directory
+  --source-dir <source-id=path>  Override source directory for directory-backed
+                                 sources (repeatable)
+  --source <name>                Filter by source id (repeatable or
+                                 comma-separated, supported sources (17): pi,
+                                 codex, gemini, droid, opencode, openclaw,
+                                 claude, copilot, goose, amp, qwen, kimi, cline,
+                                 roocode, kilocode, antigravity, dsh)
+  --json                         Render output as JSON
+  --quiet                        Suppress informational stderr output (warnings
+                                 still print)
+  --since <YYYY-MM-DD>           Inclusive start date filter
+  --until <YYYY-MM-DD>           Inclusive end date filter
+  --timezone <iana>              Timezone for bucketing (default: system
+                                 timezone)
+  --provider <name>              Billing-provider filter (normalized to billing
+                                 entity; e.g. openai, anthropic, google,
+                                 moonshot)
+  --model <name>                 Filter by model (repeatable/comma-separated;
+                                 exact when exact match exists after
+                                 source/provider/date filters, otherwise
+                                 substring)
+  --pricing-url <url>            Override LiteLLM pricing source URL
+  --pricing-overrides <path>     Path to a JSON file of per-model pricing
+                                 overrides (takes precedence over LiteLLM)
+  --pricing-offline              Use cached LiteLLM pricing only (no network
+                                 fetch)
+  --ignore-pricing-failures      Continue without estimated costs when pricing
+                                 cannot be loaded
+  --history                      include usage from files that no longer exist
+                                 on disk (from the local event store)
+  --markdown                     Render output as markdown table
+  --per-model-columns            Render per-model metrics as multiline aligned
+                                 table columns (terminal/markdown)
+  --share                        Write a share SVG image to the current
+                                 directory
+  -h, --help                     display help for command
+```
+
+</details>
+
+<details>
+<summary>llm-usage compare</summary>
+
+```text
+Usage: llm-usage compare [options]
+
+Compare usage and cost between two date windows
+
+Options:
+  --pi-dir <path>                Path to .pi sessions directory
+  --codex-dir <path>             Path to .codex sessions directory
+  --copilot-dir <path>           Path to GitHub Copilot OTEL directory
+  --gemini-dir <path>            Path to .gemini directory
+  --droid-dir <path>             Path to Droid sessions directory
+  --claude-dir <path>            Path to Claude projects directory
+  --openclaw-dir <path>          Path to OpenClaw agents directory
+  --opencode-db <path>           Path to OpenCode SQLite DB
+  --goose-db <path>              Path to Goose SQLite DB
+  --amp-dir <path>               Path to Amp threads directory
+  --qwen-dir <path>              Path to Qwen projects directory
+  --kimi-dir <path>              Path to Kimi sessions directory
+  --cline-dir <path>             Path to Cline tasks directory
+  --roocode-dir <path>           Path to RooCode tasks directory
+  --kilocode-dir <path>          Path to KiloCode tasks directory
+  --antigravity-dir <path>       Path to Antigravity conversations directory
+  --dsh-dir <path>               Path to DeepSeek Harness sessions directory
+  --source-dir <source-id=path>  Override source directory for directory-backed
+                                 sources (repeatable)
+  --source <name>                Filter by source id (repeatable or
+                                 comma-separated, supported sources (17): pi,
+                                 codex, gemini, droid, opencode, openclaw,
+                                 claude, copilot, goose, amp, qwen, kimi, cline,
+                                 roocode, kilocode, antigravity, dsh)
+  --json                         Render output as JSON
+  --quiet                        Suppress informational stderr output (warnings
+                                 still print)
+  --since <YYYY-MM-DD>           Inclusive start date filter
+  --until <YYYY-MM-DD>           Inclusive end date filter
+  --timezone <iana>              Timezone for bucketing (default: system
+                                 timezone)
+  --provider <name>              Billing-provider filter (normalized to billing
+                                 entity; e.g. openai, anthropic, google,
+                                 moonshot)
+  --model <name>                 Filter by model (repeatable/comma-separated;
+                                 exact when exact match exists after
+                                 source/provider/date filters, otherwise
+                                 substring)
+  --pricing-url <url>            Override LiteLLM pricing source URL
+  --pricing-overrides <path>     Path to a JSON file of per-model pricing
+                                 overrides (takes precedence over LiteLLM)
+  --pricing-offline              Use cached LiteLLM pricing only (no network
+                                 fetch)
+  --ignore-pricing-failures      Continue without estimated costs when pricing
+                                 cannot be loaded
+  --history                      include usage from files that no longer exist
+                                 on disk (from the local event store)
+  --markdown                     Render output as markdown table
+  --share                        Write a share SVG image to the current
+                                 directory
+  --vs-since <date>              Inclusive start date for the baseline
+                                 comparison window
+  --vs-until <date>              Inclusive end date for the baseline comparison
+                                 window
+  -h, --help                     display help for command
+```
+
+</details>
+
+<details>
+<summary>llm-usage efficiency &lt;daily|weekly|monthly&gt;</summary>
+
+```text
+Usage: llm-usage efficiency [options] <granularity>
+
+Show efficiency report by correlating usage metrics with local Git outcomes
+
+Arguments:
+  granularity                    Granularity: daily | weekly | monthly
+
+Options:
+  --pi-dir <path>                Path to .pi sessions directory
+  --codex-dir <path>             Path to .codex sessions directory
+  --copilot-dir <path>           Path to GitHub Copilot OTEL directory
+  --gemini-dir <path>            Path to .gemini directory
+  --droid-dir <path>             Path to Droid sessions directory
+  --claude-dir <path>            Path to Claude projects directory
+  --openclaw-dir <path>          Path to OpenClaw agents directory
+  --opencode-db <path>           Path to OpenCode SQLite DB
+  --goose-db <path>              Path to Goose SQLite DB
+  --amp-dir <path>               Path to Amp threads directory
+  --qwen-dir <path>              Path to Qwen projects directory
+  --kimi-dir <path>              Path to Kimi sessions directory
+  --cline-dir <path>             Path to Cline tasks directory
+  --roocode-dir <path>           Path to RooCode tasks directory
+  --kilocode-dir <path>          Path to KiloCode tasks directory
+  --antigravity-dir <path>       Path to Antigravity conversations directory
+  --dsh-dir <path>               Path to DeepSeek Harness sessions directory
+  --source-dir <source-id=path>  Override source directory for directory-backed
+                                 sources (repeatable)
+  --source <name>                Filter by source id (repeatable or
+                                 comma-separated, supported sources (17): pi,
+                                 codex, gemini, droid, opencode, openclaw,
+                                 claude, copilot, goose, amp, qwen, kimi, cline,
+                                 roocode, kilocode, antigravity, dsh)
+  --json                         Render output as JSON
+  --quiet                        Suppress informational stderr output (warnings
+                                 still print)
+  --since <YYYY-MM-DD>           Inclusive start date filter
+  --until <YYYY-MM-DD>           Inclusive end date filter
+  --timezone <iana>              Timezone for bucketing (default: system
+                                 timezone)
+  --provider <name>              Billing-provider filter (normalized to billing
+                                 entity; e.g. openai, anthropic, google,
+                                 moonshot)
+  --model <name>                 Filter by model (repeatable/comma-separated;
+                                 exact when exact match exists after
+                                 source/provider/date filters, otherwise
+                                 substring)
+  --pricing-url <url>            Override LiteLLM pricing source URL
+  --pricing-overrides <path>     Path to a JSON file of per-model pricing
+                                 overrides (takes precedence over LiteLLM)
+  --pricing-offline              Use cached LiteLLM pricing only (no network
+                                 fetch)
+  --ignore-pricing-failures      Continue without estimated costs when pricing
+                                 cannot be loaded
+  --history                      include usage from files that no longer exist
+                                 on disk (from the local event store)
+  --markdown                     Render output as markdown table
+  --share                        Write a share SVG image to the current
+                                 directory
+  --repo-dir <path>              Path to repository for Git outcome metrics
+  --include-merge-commits        Include merge commits in Git outcome metrics
+  --by-source                    Include per-source usage rows under each period
+  -h, --help                     display help for command
+```
+
+</details>
+
+<details>
+<summary>llm-usage optimize &lt;daily|weekly|monthly&gt;</summary>
+
+```text
+Usage: llm-usage optimize [options] <granularity>
+
+Show counterfactual pricing report for candidate model(s)
+
+Arguments:
+  granularity                    Granularity: daily | weekly | monthly
+
+Options:
+  --pi-dir <path>                Path to .pi sessions directory
+  --codex-dir <path>             Path to .codex sessions directory
+  --copilot-dir <path>           Path to GitHub Copilot OTEL directory
+  --gemini-dir <path>            Path to .gemini directory
+  --droid-dir <path>             Path to Droid sessions directory
+  --claude-dir <path>            Path to Claude projects directory
+  --openclaw-dir <path>          Path to OpenClaw agents directory
+  --opencode-db <path>           Path to OpenCode SQLite DB
+  --goose-db <path>              Path to Goose SQLite DB
+  --amp-dir <path>               Path to Amp threads directory
+  --qwen-dir <path>              Path to Qwen projects directory
+  --kimi-dir <path>              Path to Kimi sessions directory
+  --cline-dir <path>             Path to Cline tasks directory
+  --roocode-dir <path>           Path to RooCode tasks directory
+  --kilocode-dir <path>          Path to KiloCode tasks directory
+  --antigravity-dir <path>       Path to Antigravity conversations directory
+  --dsh-dir <path>               Path to DeepSeek Harness sessions directory
+  --source-dir <source-id=path>  Override source directory for directory-backed
+                                 sources (repeatable)
+  --source <name>                Filter by source id (repeatable or
+                                 comma-separated, supported sources (17): pi,
+                                 codex, gemini, droid, opencode, openclaw,
+                                 claude, copilot, goose, amp, qwen, kimi, cline,
+                                 roocode, kilocode, antigravity, dsh)
+  --json                         Render output as JSON
+  --quiet                        Suppress informational stderr output (warnings
+                                 still print)
+  --since <YYYY-MM-DD>           Inclusive start date filter
+  --until <YYYY-MM-DD>           Inclusive end date filter
+  --timezone <iana>              Timezone for bucketing (default: system
+                                 timezone)
+  --provider <name>              Billing-provider filter (normalized to billing
+                                 entity; e.g. openai, anthropic, google,
+                                 moonshot)
+  --model <name>                 Filter by model (repeatable/comma-separated;
+                                 exact when exact match exists after
+                                 source/provider/date filters, otherwise
+                                 substring)
+  --pricing-url <url>            Override LiteLLM pricing source URL
+  --pricing-overrides <path>     Path to a JSON file of per-model pricing
+                                 overrides (takes precedence over LiteLLM)
+  --pricing-offline              Use cached LiteLLM pricing only (no network
+                                 fetch)
+  --ignore-pricing-failures      Continue without estimated costs when pricing
+                                 cannot be loaded
+  --history                      include usage from files that no longer exist
+                                 on disk (from the local event store)
+  --markdown                     Render output as markdown table
+  --share                        Write a share SVG image to the current
+                                 directory
+  --candidate-model <name>       Candidate model for counterfactual pricing
+                                 (repeatable or comma-separated)
+  --top <n>                      Show only the top N cheapest candidates
+                                 (positive integer)
+  -h, --help                     display help for command
+```
+
+</details>
+
+<details>
+<summary>llm-usage trends</summary>
+
+```text
+Usage: llm-usage trends [options]
+
+Show daily cost or token usage trends
+
+Options:
+  --pi-dir <path>                Path to .pi sessions directory
+  --codex-dir <path>             Path to .codex sessions directory
+  --copilot-dir <path>           Path to GitHub Copilot OTEL directory
+  --gemini-dir <path>            Path to .gemini directory
+  --droid-dir <path>             Path to Droid sessions directory
+  --claude-dir <path>            Path to Claude projects directory
+  --openclaw-dir <path>          Path to OpenClaw agents directory
+  --opencode-db <path>           Path to OpenCode SQLite DB
+  --goose-db <path>              Path to Goose SQLite DB
+  --amp-dir <path>               Path to Amp threads directory
+  --qwen-dir <path>              Path to Qwen projects directory
+  --kimi-dir <path>              Path to Kimi sessions directory
+  --cline-dir <path>             Path to Cline tasks directory
+  --roocode-dir <path>           Path to RooCode tasks directory
+  --kilocode-dir <path>          Path to KiloCode tasks directory
+  --antigravity-dir <path>       Path to Antigravity conversations directory
+  --dsh-dir <path>               Path to DeepSeek Harness sessions directory
+  --source-dir <source-id=path>  Override source directory for directory-backed
+                                 sources (repeatable)
+  --source <name>                Filter by source id (repeatable or
+                                 comma-separated, supported sources (17): pi,
+                                 codex, gemini, droid, opencode, openclaw,
+                                 claude, copilot, goose, amp, qwen, kimi, cline,
+                                 roocode, kilocode, antigravity, dsh)
+  --json                         Render output as JSON
+  --quiet                        Suppress informational stderr output (warnings
+                                 still print)
+  --since <YYYY-MM-DD>           Inclusive start date filter
+  --until <YYYY-MM-DD>           Inclusive end date filter
+  --timezone <iana>              Timezone for bucketing (default: system
+                                 timezone)
+  --provider <name>              Billing-provider filter (normalized to billing
+                                 entity; e.g. openai, anthropic, google,
+                                 moonshot)
+  --model <name>                 Filter by model (repeatable/comma-separated;
+                                 exact when exact match exists after
+                                 source/provider/date filters, otherwise
+                                 substring)
+  --pricing-url <url>            Override LiteLLM pricing source URL
+  --pricing-overrides <path>     Path to a JSON file of per-model pricing
+                                 overrides (takes precedence over LiteLLM)
+  --pricing-offline              Use cached LiteLLM pricing only (no network
+                                 fetch)
+  --ignore-pricing-failures      Continue without estimated costs when pricing
+                                 cannot be loaded
+  --history                      include usage from files that no longer exist
+                                 on disk (from the local event store)
+  --markdown                     Render output as markdown table
+  --share                        Write a share SVG image to the current
+                                 directory
+  --days <n>                     Trailing local calendar days to chart; defaults
+                                 to 30 when no date flags are provided
+  --metric <name>                Trend metric: cost | tokens (default: "cost")
+  --by-source                    Render one sparkline row per source instead of
+                                 a single combined chart
+  -h, --help                     display help for command
+```
+
+</details>
+
+<details>
+<summary>llm-usage session</summary>
+
+```text
+Usage: llm-usage session [options]
+
+Show usage grouped by conversation session
+
+Options:
+  --pi-dir <path>                Path to .pi sessions directory
+  --codex-dir <path>             Path to .codex sessions directory
+  --copilot-dir <path>           Path to GitHub Copilot OTEL directory
+  --gemini-dir <path>            Path to .gemini directory
+  --droid-dir <path>             Path to Droid sessions directory
+  --claude-dir <path>            Path to Claude projects directory
+  --openclaw-dir <path>          Path to OpenClaw agents directory
+  --opencode-db <path>           Path to OpenCode SQLite DB
+  --goose-db <path>              Path to Goose SQLite DB
+  --amp-dir <path>               Path to Amp threads directory
+  --qwen-dir <path>              Path to Qwen projects directory
+  --kimi-dir <path>              Path to Kimi sessions directory
+  --cline-dir <path>             Path to Cline tasks directory
+  --roocode-dir <path>           Path to RooCode tasks directory
+  --kilocode-dir <path>          Path to KiloCode tasks directory
+  --antigravity-dir <path>       Path to Antigravity conversations directory
+  --dsh-dir <path>               Path to DeepSeek Harness sessions directory
+  --source-dir <source-id=path>  Override source directory for directory-backed
+                                 sources (repeatable)
+  --source <name>                Filter by source id (repeatable or
+                                 comma-separated, supported sources (17): pi,
+                                 codex, gemini, droid, opencode, openclaw,
+                                 claude, copilot, goose, amp, qwen, kimi, cline,
+                                 roocode, kilocode, antigravity, dsh)
+  --json                         Render output as JSON
+  --quiet                        Suppress informational stderr output (warnings
+                                 still print)
+  --since <YYYY-MM-DD>           Inclusive start date filter
+  --until <YYYY-MM-DD>           Inclusive end date filter
+  --timezone <iana>              Timezone for bucketing (default: system
+                                 timezone)
+  --provider <name>              Billing-provider filter (normalized to billing
+                                 entity; e.g. openai, anthropic, google,
+                                 moonshot)
+  --model <name>                 Filter by model (repeatable/comma-separated;
+                                 exact when exact match exists after
+                                 source/provider/date filters, otherwise
+                                 substring)
+  --pricing-url <url>            Override LiteLLM pricing source URL
+  --pricing-overrides <path>     Path to a JSON file of per-model pricing
+                                 overrides (takes precedence over LiteLLM)
+  --pricing-offline              Use cached LiteLLM pricing only (no network
+                                 fetch)
+  --ignore-pricing-failures      Continue without estimated costs when pricing
+                                 cannot be loaded
+  --history                      include usage from files that no longer exist
+                                 on disk (from the local event store)
+  --markdown                     Render output as markdown table
+  --top <n>                      Show only the top N rows by cost (default 20; 0
+                                 shows all)
+  --id <session-id>              Show only sessions whose id contains the value
+                                 (case-insensitive; repeatable or
+                                 comma-separated)
+  --by-repo                      Group usage by repository root instead of by
+                                 session
+  -h, --help                     display help for command
+```
+
+</details>
+
+<details>
+<summary>llm-usage wrapped</summary>
+
+```text
+Usage: llm-usage wrapped [options]
+
+Show a yearly usage recap with optional share SVG
+
+Options:
+  --pi-dir <path>                Path to .pi sessions directory
+  --codex-dir <path>             Path to .codex sessions directory
+  --copilot-dir <path>           Path to GitHub Copilot OTEL directory
+  --gemini-dir <path>            Path to .gemini directory
+  --droid-dir <path>             Path to Droid sessions directory
+  --claude-dir <path>            Path to Claude projects directory
+  --openclaw-dir <path>          Path to OpenClaw agents directory
+  --opencode-db <path>           Path to OpenCode SQLite DB
+  --goose-db <path>              Path to Goose SQLite DB
+  --amp-dir <path>               Path to Amp threads directory
+  --qwen-dir <path>              Path to Qwen projects directory
+  --kimi-dir <path>              Path to Kimi sessions directory
+  --cline-dir <path>             Path to Cline tasks directory
+  --roocode-dir <path>           Path to RooCode tasks directory
+  --kilocode-dir <path>          Path to KiloCode tasks directory
+  --antigravity-dir <path>       Path to Antigravity conversations directory
+  --dsh-dir <path>               Path to DeepSeek Harness sessions directory
+  --source-dir <source-id=path>  Override source directory for directory-backed
+                                 sources (repeatable)
+  --source <name>                Filter by source id (repeatable or
+                                 comma-separated, supported sources (17): pi,
+                                 codex, gemini, droid, opencode, openclaw,
+                                 claude, copilot, goose, amp, qwen, kimi, cline,
+                                 roocode, kilocode, antigravity, dsh)
+  --json                         Render output as JSON
+  --quiet                        Suppress informational stderr output (warnings
+                                 still print)
+  --timezone <iana>              Timezone for bucketing (default: system
+                                 timezone)
+  --provider <name>              Billing-provider filter (normalized to billing
+                                 entity; e.g. openai, anthropic, google,
+                                 moonshot)
+  --model <name>                 Filter by model (repeatable/comma-separated;
+                                 exact when exact match exists after
+                                 source/provider/date filters, otherwise
+                                 substring)
+  --pricing-url <url>            Override LiteLLM pricing source URL
+  --pricing-overrides <path>     Path to a JSON file of per-model pricing
+                                 overrides (takes precedence over LiteLLM)
+  --pricing-offline              Use cached LiteLLM pricing only (no network
+                                 fetch)
+  --ignore-pricing-failures      Continue without estimated costs when pricing
+                                 cannot be loaded
+  --history                      include usage from files that no longer exist
+                                 on disk (from the local event store)
+  --markdown                     Render output as markdown table
+  --share                        Write a share SVG image to the current
+                                 directory
+  --year <YYYY>                  Year to recap (2020-2100; defaults to current
+                                 local year)
+  -h, --help                     display help for command
+```
+
+</details>
+
+<details>
+<summary>llm-usage events</summary>
+
+```text
+Usage: llm-usage events [options]
+
+Export normalized usage events as JSONL or CSV
+
+Options:
+  --pi-dir <path>                Path to .pi sessions directory
+  --codex-dir <path>             Path to .codex sessions directory
+  --copilot-dir <path>           Path to GitHub Copilot OTEL directory
+  --gemini-dir <path>            Path to .gemini directory
+  --droid-dir <path>             Path to Droid sessions directory
+  --claude-dir <path>            Path to Claude projects directory
+  --openclaw-dir <path>          Path to OpenClaw agents directory
+  --opencode-db <path>           Path to OpenCode SQLite DB
+  --goose-db <path>              Path to Goose SQLite DB
+  --amp-dir <path>               Path to Amp threads directory
+  --qwen-dir <path>              Path to Qwen projects directory
+  --kimi-dir <path>              Path to Kimi sessions directory
+  --cline-dir <path>             Path to Cline tasks directory
+  --roocode-dir <path>           Path to RooCode tasks directory
+  --kilocode-dir <path>          Path to KiloCode tasks directory
+  --antigravity-dir <path>       Path to Antigravity conversations directory
+  --dsh-dir <path>               Path to DeepSeek Harness sessions directory
+  --source-dir <source-id=path>  Override source directory for directory-backed
+                                 sources (repeatable)
+  --source <name>                Filter by source id (repeatable or
+                                 comma-separated, supported sources (17): pi,
+                                 codex, gemini, droid, opencode, openclaw,
+                                 claude, copilot, goose, amp, qwen, kimi, cline,
+                                 roocode, kilocode, antigravity, dsh)
+  --json                         Render output as JSON
+  --quiet                        Suppress informational stderr output (warnings
+                                 still print)
+  --since <YYYY-MM-DD>           Inclusive start date filter
+  --until <YYYY-MM-DD>           Inclusive end date filter
+  --timezone <iana>              Timezone for bucketing (default: system
+                                 timezone)
+  --provider <name>              Billing-provider filter (normalized to billing
+                                 entity; e.g. openai, anthropic, google,
+                                 moonshot)
+  --model <name>                 Filter by model (repeatable/comma-separated;
+                                 exact when exact match exists after
+                                 source/provider/date filters, otherwise
+                                 substring)
+  --pricing-url <url>            Override LiteLLM pricing source URL
+  --pricing-overrides <path>     Path to a JSON file of per-model pricing
+                                 overrides (takes precedence over LiteLLM)
+  --pricing-offline              Use cached LiteLLM pricing only (no network
+                                 fetch)
+  --ignore-pricing-failures      Continue without estimated costs when pricing
+                                 cannot be loaded
+  --history                      include usage from files that no longer exist
+                                 on disk (from the local event store)
+  --format <name>                Export format: jsonl | csv (default: "jsonl")
+  -h, --help                     display help for command
+```
+
+</details>
+
+<details>
+<summary>llm-usage doctor</summary>
+
+```text
+Usage: llm-usage doctor [options]
+
+Check source discovery health and runtime configuration
+
+Options:
+  --pi-dir <path>                Path to .pi sessions directory
+  --codex-dir <path>             Path to .codex sessions directory
+  --copilot-dir <path>           Path to GitHub Copilot OTEL directory
+  --gemini-dir <path>            Path to .gemini directory
+  --droid-dir <path>             Path to Droid sessions directory
+  --claude-dir <path>            Path to Claude projects directory
+  --openclaw-dir <path>          Path to OpenClaw agents directory
+  --opencode-db <path>           Path to OpenCode SQLite DB
+  --goose-db <path>              Path to Goose SQLite DB
+  --amp-dir <path>               Path to Amp threads directory
+  --qwen-dir <path>              Path to Qwen projects directory
+  --kimi-dir <path>              Path to Kimi sessions directory
+  --cline-dir <path>             Path to Cline tasks directory
+  --roocode-dir <path>           Path to RooCode tasks directory
+  --kilocode-dir <path>          Path to KiloCode tasks directory
+  --antigravity-dir <path>       Path to Antigravity conversations directory
+  --dsh-dir <path>               Path to DeepSeek Harness sessions directory
+  --source-dir <source-id=path>  Override source directory for directory-backed
+                                 sources (repeatable)
+  --source <name>                Filter by source id (repeatable or
+                                 comma-separated, supported sources (17): pi,
+                                 codex, gemini, droid, opencode, openclaw,
+                                 claude, copilot, goose, amp, qwen, kimi, cline,
+                                 roocode, kilocode, antigravity, dsh)
+  --json                         Render output as JSON
+  --quiet                        Suppress informational stderr output (warnings
+                                 still print)
+  -h, --help                     display help for command
+```
+
+</details>
+
+<details>
+<summary>llm-usage prune</summary>
+
+```text
+Usage: llm-usage prune [options]
+
+Preview or delete departed files from the local event store
+
+Options:
+  --pi-dir <path>                 Path to .pi sessions directory
+  --codex-dir <path>              Path to .codex sessions directory
+  --copilot-dir <path>            Path to GitHub Copilot OTEL directory
+  --gemini-dir <path>             Path to .gemini directory
+  --droid-dir <path>              Path to Droid sessions directory
+  --claude-dir <path>             Path to Claude projects directory
+  --openclaw-dir <path>           Path to OpenClaw agents directory
+  --opencode-db <path>            Path to OpenCode SQLite DB
+  --goose-db <path>               Path to Goose SQLite DB
+  --amp-dir <path>                Path to Amp threads directory
+  --qwen-dir <path>               Path to Qwen projects directory
+  --kimi-dir <path>               Path to Kimi sessions directory
+  --cline-dir <path>              Path to Cline tasks directory
+  --roocode-dir <path>            Path to RooCode tasks directory
+  --kilocode-dir <path>           Path to KiloCode tasks directory
+  --antigravity-dir <path>        Path to Antigravity conversations directory
+  --dsh-dir <path>                Path to DeepSeek Harness sessions directory
+  --source-dir <source-id=path>   Override source directory for directory-backed
+                                  sources (repeatable)
+  --source <name>                 Filter by source id (repeatable or
+                                  comma-separated, supported sources (17): pi,
+                                  codex, gemini, droid, opencode, openclaw,
+                                  claude, copilot, goose, amp, qwen, kimi,
+                                  cline, roocode, kilocode, antigravity, dsh)
+  --json                          Render output as JSON
+  --quiet                         Suppress informational stderr output (warnings
+                                  still print)
+  --suppressed                    Select departed files that --history already
+                                  suppresses
+  --departed-before <YYYY-MM-DD>  Select departed files whose newest event
+                                  timestamp is strictly before this UTC date
+  --apply                         Delete selected departed files and vacuum the
+                                  event store
+  -h, --help                      display help for command
+```
+
+</details>
+
+<details>
+<summary>llm-usage config &lt;init|show|path&gt;</summary>
+
+```text
+Usage: llm-usage config [options] [command]
+
+Manage user configuration
+
+Options:
+  -h, --help      display help for command
+
+Commands:
+  init [options]  Write a commented config template
+  show            Print the effective configuration and where each value comes
+                  from
+  path            Print the resolved config file path
+  help [command]  display help for command
+
+Usage: llm-usage config init [options]
+
+Write a commented config template
+
+Options:
+  --force     Overwrite an existing config file
+  -h, --help  display help for command
+
+Usage: llm-usage config show [options]
+
+Print the effective configuration and where each value comes from
+
+Options:
+  -h, --help  display help for command
+
+Usage: llm-usage config path [options]
+
+Print the resolved config file path
+
+Options:
+  -h, --help  display help for command
+```
+
+</details>
+
+<details>
+<summary>llm-usage schema</summary>
+
+```text
+Usage: llm-usage schema [options] [name]
+
+Print a bundled report JSON Schema
+
+Arguments:
+  name        Schema name: compare, config, doctor, efficiency, events-line,
+              optimize, prune, session, trends, usage, wrapped
+
+Options:
+  --list      List available schema names
+  -h, --help  display help for command
+```
+
+</details>
+
+## Option index
+
+Search across root and command help. See Command help above to check which flags a command accepts.
 
 | Option | Short | Argument | Description |
 | --- | --- | --- | --- |
