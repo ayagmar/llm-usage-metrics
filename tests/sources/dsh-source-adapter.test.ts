@@ -360,6 +360,19 @@ describe('DshSourceAdapter', () => {
     expect(result.skippedRowReasons).toEqual([{ reason: 'undecodable_jsonl_frame', count: 1 }]);
   });
 
+  it('reports an unreadable log containing only a truncated frame', async () => {
+    const root = await createTempRoot('dsh-truncated-frame-');
+    const logPath = resolveDshSessionLogPath(path.join(root, 'session-truncated'));
+    await mkdir(path.dirname(logPath), { recursive: true });
+    await writeFile(logPath, createTornTailBytes(sessionHeaderLine()));
+
+    const result = await new DshSourceAdapter().parseFileWithDiagnostics(logPath);
+
+    expect(result.events).toEqual([]);
+    expect(result.skippedRows).toBe(1);
+    expect(result.skippedRowReasons).toEqual([{ reason: 'file_parse_failed', count: 1 }]);
+  });
+
   it('recovers frames that follow a damaged region of the log', async () => {
     const root = await createTempRoot('dsh-damage-');
     const logPath = resolveDshSessionLogPath(path.join(root, '--proj--', 'session-damaged'));

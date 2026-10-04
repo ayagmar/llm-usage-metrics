@@ -35,15 +35,7 @@ function createBusyError(message = 'database is locked'): Error {
 
 function createSqliteLoader(scenario: FakeSqliteScenario): () => Promise<TestSqliteModule> {
   class FakeDatabase {
-    public constructor(
-      filePath: string,
-      options?: {
-        readOnly?: boolean;
-        timeout?: number;
-      },
-    ) {
-      void filePath;
-      void options;
+    public constructor() {
       const openError = scenario.openErrors?.shift();
 
       if (openError) {

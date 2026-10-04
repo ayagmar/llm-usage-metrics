@@ -80,7 +80,7 @@ describe('readJsonlObjects', () => {
         malformedLines++;
       },
     })) {
-      void record;
+      expect.fail(`Unexpected record: ${JSON.stringify(record)}`);
     }
 
     expect(malformedLines).toBe(1);
@@ -101,7 +101,7 @@ describe('readJsonlObjects', () => {
         malformedLines++;
       },
     })) {
-      void record;
+      expect.fail(`Unexpected record: ${JSON.stringify(record)}`);
     }
 
     expect(malformedLines).toBe(1);
@@ -152,7 +152,7 @@ describe('readJsonlObjects', () => {
 
     await expect(async () => {
       for await (const record of readJsonlObjects(missingPath)) {
-        void record;
+        expect.fail(`Unexpected record: ${JSON.stringify(record)}`);
       }
     }).rejects.toThrow();
   });
