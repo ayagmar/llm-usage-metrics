@@ -6,7 +6,7 @@ tableOfContents: false
 
 import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 
-`llm-usage-metrics` reads session data created by 17 AI coding tools and converts it into one normalized usage history. You can review token volume, estimate cost, find expensive sessions, compare periods, and export the results. The CLI parses session content on your machine.
+`llm-usage-metrics` reads session data created by supported AI coding tools and converts it into one normalized usage history. You can review token volume, estimate cost, find expensive sessions, compare periods, and export the results. The CLI parses session content on your machine.
 
 ## Run your first report
 
@@ -23,17 +23,19 @@ llm-usage config init
 
 ## Pick the report by question
 
-| Question | Command |
-| --- | --- |
-| How many tokens and dollars did I use? | `daily`, `weekly`, `monthly` |
-| How did this period change from the last one? | `compare` |
-| Which conversations or repositories used the most? | `session` |
-| How is usage moving day by day? | `trends` |
-| How does repo-attributed usage line up with Git activity? | `efficiency` |
-| What would the same token mix cost on another model? | `optimize` |
-| Which sources can the CLI see? | `doctor` |
-| Which departed files can I remove from the event ledger? | `prune` |
-| How did the year add up? | `wrapped` |
+Use the [report chooser](/llm-usage-metrics/reports/) for commands, defaults, and links to each guide.
+
+| Question                                                  | Command                      |
+| --------------------------------------------------------- | ---------------------------- |
+| How many tokens and dollars did I use?                    | `daily`, `weekly`, `monthly` |
+| How did this period change from the last one?             | `compare`                    |
+| Which conversations or repositories used the most?        | `session`                    |
+| How is usage moving day by day?                           | `trends`                     |
+| How does repo-attributed usage line up with Git activity? | `efficiency`                 |
+| What would the same token mix cost on another model?      | `optimize`                   |
+| Which sources can the CLI see?                            | `doctor`                     |
+| Which departed files can I remove from the event ledger?  | `prune`                      |
+| How did the year add up?                                  | `wrapped`                    |
 
 ## How the CLI handles your numbers
 
@@ -60,13 +62,23 @@ Use `--pricing-offline` and `LLM_USAGE_SKIP_UPDATE_CHECK=1` when you want a repo
 
 <CardGrid>
   <LinkCard
+    title="Choose a report"
+    description="Find the right command for tokens, cost, sessions, repositories, or exports."
+    href="/llm-usage-metrics/reports/"
+  />
+  <LinkCard
+    title="Usage totals"
+    description="Understand daily, weekly, and monthly rows, filters, and model breakdowns."
+    href="/llm-usage-metrics/usage/"
+  />
+  <LinkCard
     title="Getting started"
     description="Install the CLI, read the first table, and choose the next useful report."
     href="/llm-usage-metrics/getting-started/"
   />
   <LinkCard
     title="Data sources"
-    description="Check default locations, file formats, and path overrides for all 16 adapters."
+    description="Check default locations, file formats, and path overrides for every supported adapter."
     href="/llm-usage-metrics/sources/"
   />
   <LinkCard

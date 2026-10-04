@@ -1,0 +1,87 @@
+---
+title: Usage Totals
+description: Review daily, weekly, and monthly tokens and cost across local coding tools.
+---
+
+Use `daily`, `weekly`, and `monthly` to group matching usage by period and source. These commands differ in their time buckets; they share filters, pricing, and output formats.
+
+```bash
+llm-usage daily
+llm-usage weekly
+llm-usage monthly
+```
+
+## Set the reporting window
+
+Without date bounds, usage reports include all matching discovered history. `monthly` groups that history by month; it does not limit the result to the current month.
+
+```bash
+llm-usage monthly --since 2026-09-01 --until 2026-09-30
+```
+
+`--since` and `--until` use inclusive calendar dates in the reporting timezone. Set `--timezone` to keep boundaries consistent across machines:
+
+```bash
+llm-usage daily --timezone UTC --since 2026-09-01 --until 2026-09-07
+```
+
+Use [Compare](/llm-usage-metrics/compare/) when you want a current-versus-baseline comparison instead of a sequence of period totals.
+
+## Narrow the scope
+
+```bash
+# Tool that wrote the session
+llm-usage monthly --source codex,claude
+
+# Normalized billing provider
+llm-usage monthly --provider openai
+
+# Model name or substring
+llm-usage monthly --model codex
+```
+
+Source and provider are different: a Codex event can have `source=codex` and `provider=openai`. Model filters use an exact match when one exists after source, provider, and date filtering; otherwise they use substring matching.
+
+For custom session locations, use [source path overrides](/llm-usage-metrics/sources/#override-a-location). Save recurring defaults in [Configuration](/llm-usage-metrics/configuration/).
+
+## Read the rows
+
+A period has a row for each contributing source. A `combined` row appears when multiple sources contribute to that period. The final `ALL` row totals the full filtered range.
+
+Token columns preserve the normalized buckets provided by each adapter: input, output, reasoning, cache read, cache write, and total. Reasoning can be included in output for some sources, so adding every displayed bucket is not a reliable way to reconstruct total tokens. Check the [source guide](/llm-usage-metrics/sources/) for token semantics.
+
+Cost is in USD:
+
+| Display   | Meaning                                           |
+| --------- | ------------------------------------------------- |
+| `$12.34`  | Every contributing event has resolved cost.       |
+| `~$12.34` | Only some contributing events have resolved cost. |
+| `-`       | No contributing event has resolved cost.          |
+
+A resolved cost may be source-recorded or estimated. It is not a guarantee that the amount matches your invoice. [Pricing](/llm-usage-metrics/pricing/) explains rate matching, offline mode, and overrides.
+
+## Inspect model breakdowns
+
+```bash
+llm-usage monthly --per-model-columns
+```
+
+This expands metrics into aligned multiline cells ranked by each model's total tokens within the row. It works with terminal and Markdown output. Use [Session usage](/llm-usage-metrics/session/) when you need conversations or repositories instead of time buckets.
+
+## Export or share
+
+```bash
+llm-usage monthly --json > usage.json
+llm-usage monthly --markdown > usage.md
+llm-usage monthly --share
+```
+
+JSON uses the `usage` report envelope. Share output writes `usage-monthly-share.svg` to the current directory and still prints the normal report. Daily and weekly reports also support share SVGs. See [Output formats](/llm-usage-metrics/output-formats/) for contracts and diagnostics.
+
+## Include retained history
+
+```bash
+llm-usage monthly --history
+```
+
+This adds retained events from files that have left the disk, with moved or copied files suppressed to avoid duplicate history. It requires the event ledger to remain enabled. Read [Caching and history](/llm-usage-metrics/caching/) before deleting the ledger or pruning retained events.

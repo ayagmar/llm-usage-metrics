@@ -259,7 +259,7 @@ function deduplicateAndNormalizeOptions(
   return sortOptions([...byLong.values()]);
 }
 
-function generateMarkdown(version, commandMetas, options, examples, cellFormatters) {
+function generateMarkdown(version, commandMetas, commandHelps, options, examples, cellFormatters) {
   const { toMarkdownSafeCodeCell, toMarkdownSafeCell } = cellFormatters;
   const lines = [
     '---',
@@ -282,9 +282,24 @@ function generateMarkdown(version, commandMetas, options, examples, cellFormatte
     '',
     ...commandMetas.map((meta) => `- \`${meta.docsLabel}\``),
     '',
-    '## Options',
+    '## Command help',
     '',
-    'Generated from root + command help output.',
+    'Open a command to see its supported flags and defaults. Flags in the option index below are not available on every command.',
+    '',
+    ...commandMetas.flatMap((meta) => [
+      '<details>',
+      `<summary>llm-usage ${meta.docsLabel.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')}</summary>`,
+      '',
+      '```text',
+      commandHelps[meta.commandName].trimEnd(),
+      '```',
+      '',
+      '</details>',
+      '',
+    ]),
+    '## Option index',
+    '',
+    'Search across root and command help. See Command help above to check which flags a command accepts.',
     '',
     '| Option | Short | Argument | Description |',
     '| --- | --- | --- | --- |',
@@ -436,6 +451,7 @@ async function main() {
   const markdown = generateMarkdown(
     version,
     helpTexts.commandMetas,
+    helpTexts.commandHelps,
     options,
     examples,
     cellFormatters,

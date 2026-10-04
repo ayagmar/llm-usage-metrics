@@ -30,7 +30,7 @@ Active config: /home/user/.config/llm-usage-metrics/config.toml
   eventStore.enabled=true
 ```
 
-Unknown-key warnings still go to `stderr`, so `config show` output stays clean to redirect. A `--json` variant is a possible follow-up once config output and the report envelope interaction is decided.
+Unknown-key warnings still go to `stderr`, so `config show` output stays clean to redirect. The config commands emit text; `--json` is not supported.
 
 TOML editors such as Taplo can validate the file through the `#:schema` directive. The schema is published at [config-schema.json](/llm-usage-metrics/config-schema.json):
 
@@ -71,53 +71,53 @@ fetchTimeoutMs = 1000
 
 Higher layers win:
 
-| Layer | Use case |
-| --- | --- |
-| CLI flags | One-off command overrides |
+| Layer                 | Use case                                 |
+| --------------------- | ---------------------------------------- |
+| CLI flags             | One-off command overrides                |
 | Environment variables | CI, scripts, temporary runtime overrides |
-| Config file | Persistent personal defaults |
-| Built-in defaults | Zero-config behavior |
+| Config file           | Persistent personal defaults             |
+| Built-in defaults     | Zero-config behavior                     |
 
 Applied config values are printed on `stderr` as an `Active config:` block. Values shadowed by a flag or environment variable are not listed. Set `logLevel = "warn"` to suppress informational stderr by default, or pass `--quiet` to do the same for a single report command.
 
 ## Config keys
 
-| Config key | CLI flag or env override | What it controls |
-| --- | --- | --- |
-| `timezone` | `--timezone` | Default report timezone |
-| `logLevel` | `--quiet` | Stderr logging level: `silent`, `warn`, `info`, or `debug` |
-| `sources` | `--source` | Default source filter |
-| `sourceDirs.pi` | `--pi-dir` or `--source-dir pi=...` | Pi sessions path |
-| `sourceDirs.codex` | `--codex-dir` or `--source-dir codex=...` | Codex sessions path |
-| `sourceDirs.copilot` | `--copilot-dir` or `--source-dir copilot=...` | GitHub Copilot OTEL path |
-| `sourceDirs.gemini` | `--gemini-dir` or `--source-dir gemini=...` | Gemini CLI path |
-| `sourceDirs.droid` | `--droid-dir` or `--source-dir droid=...` | Droid sessions path |
-| `sourceDirs.claude` | `--claude-dir` or `--source-dir claude=...` | Claude projects path |
-| `sourceDirs.openclaw` | `--openclaw-dir` or `--source-dir openclaw=...` | OpenClaw agents path |
-| `sourceDirs.opencode` | `--opencode-db` | OpenCode SQLite DB |
-| `sourceDirs.goose` | `--goose-db` | Goose SQLite DB |
-| `sourceDirs.amp` | `--amp-dir` or `--source-dir amp=...` | Amp threads path |
-| `sourceDirs.qwen` | `--qwen-dir` or `--source-dir qwen=...` | Qwen projects path |
-| `sourceDirs.kimi` | `--kimi-dir` or `--source-dir kimi=...` | Kimi sessions path |
-| `sourceDirs.cline` | `--cline-dir` or `--source-dir cline=...` | Cline tasks path |
-| `sourceDirs.roocode` | `--roocode-dir` or `--source-dir roocode=...` | RooCode tasks path |
-| `sourceDirs.kilocode` | `--kilocode-dir` or `--source-dir kilocode=...` | KiloCode tasks path |
-| `sourceDirs.antigravity` | `--antigravity-dir` or `--source-dir antigravity=...` | Antigravity conversations path |
-| `sourceDirs.dsh` | `--dsh-dir` or `--source-dir dsh=...` | DeepSeek Harness sessions path |
-| `pricing.offline` | `--pricing-offline` | Use cached LiteLLM pricing only |
-| `pricing.url` | `--pricing-url` | LiteLLM pricing source URL |
-| `pricing.overridesPath` | `--pricing-overrides` | JSON pricing overrides path |
-| `pricing.ignoreFailures` | `--ignore-pricing-failures` | Continue without estimated costs when pricing cannot load |
-| `pricing.cacheTtlMs` | Config only | Pricing cache TTL |
-| `pricing.fetchTimeoutMs` | Config only | Pricing fetch timeout |
-| `eventStore.enabled` | `LLM_USAGE_EVENT_STORE` | Enable SQLite event-store reuse |
-| `eventStore.path` | `LLM_USAGE_EVENT_STORE_PATH` | SQLite event-store path |
-| `parseMaxParallel` | Config only | Max parallel file parses |
-| `parseWorkers` | `LLM_USAGE_PARSE_WORKERS` | Worker-thread parser count for large JSONL misses |
-| `parseWorkerMinBytes` | `LLM_USAGE_PARSE_WORKER_MIN_BYTES` | Missed-file byte threshold before workers engage |
-| `update.skipCheck` | `LLM_USAGE_SKIP_UPDATE_CHECK` | Skip startup update checks |
-| `update.cacheTtlMs` | Config only | Update-check cache TTL |
-| `update.fetchTimeoutMs` | Config only | Update-check fetch timeout |
+| Config key               | CLI flag or env override                              | What it controls                                           |
+| ------------------------ | ----------------------------------------------------- | ---------------------------------------------------------- |
+| `timezone`               | `--timezone`                                          | Default report timezone                                    |
+| `logLevel`               | `--quiet`                                             | Stderr logging level: `silent`, `warn`, `info`, or `debug` |
+| `sources`                | `--source`                                            | Default source filter                                      |
+| `sourceDirs.pi`          | `--pi-dir` or `--source-dir pi=...`                   | Pi sessions path                                           |
+| `sourceDirs.codex`       | `--codex-dir` or `--source-dir codex=...`             | Codex sessions path                                        |
+| `sourceDirs.copilot`     | `--copilot-dir` or `--source-dir copilot=...`         | GitHub Copilot OTEL path                                   |
+| `sourceDirs.gemini`      | `--gemini-dir` or `--source-dir gemini=...`           | Gemini CLI path                                            |
+| `sourceDirs.droid`       | `--droid-dir` or `--source-dir droid=...`             | Droid sessions path                                        |
+| `sourceDirs.claude`      | `--claude-dir` or `--source-dir claude=...`           | Claude projects path                                       |
+| `sourceDirs.openclaw`    | `--openclaw-dir` or `--source-dir openclaw=...`       | OpenClaw agents path                                       |
+| `sourceDirs.opencode`    | `--opencode-db`                                       | OpenCode SQLite DB                                         |
+| `sourceDirs.goose`       | `--goose-db`                                          | Goose SQLite DB                                            |
+| `sourceDirs.amp`         | `--amp-dir` or `--source-dir amp=...`                 | Amp threads path                                           |
+| `sourceDirs.qwen`        | `--qwen-dir` or `--source-dir qwen=...`               | Qwen projects path                                         |
+| `sourceDirs.kimi`        | `--kimi-dir` or `--source-dir kimi=...`               | Kimi sessions path                                         |
+| `sourceDirs.cline`       | `--cline-dir` or `--source-dir cline=...`             | Cline tasks path                                           |
+| `sourceDirs.roocode`     | `--roocode-dir` or `--source-dir roocode=...`         | RooCode tasks path                                         |
+| `sourceDirs.kilocode`    | `--kilocode-dir` or `--source-dir kilocode=...`       | KiloCode tasks path                                        |
+| `sourceDirs.antigravity` | `--antigravity-dir` or `--source-dir antigravity=...` | Antigravity conversations path                             |
+| `sourceDirs.dsh`         | `--dsh-dir` or `--source-dir dsh=...`                 | DeepSeek Harness sessions path                             |
+| `pricing.offline`        | `--pricing-offline`                                   | Use cached or bundled pricing without fetching             |
+| `pricing.url`            | `--pricing-url`                                       | LiteLLM pricing source URL                                 |
+| `pricing.overridesPath`  | `--pricing-overrides`                                 | JSON pricing overrides path                                |
+| `pricing.ignoreFailures` | `--ignore-pricing-failures`                           | Continue without estimated costs when pricing cannot load  |
+| `pricing.cacheTtlMs`     | Config only                                           | Pricing cache TTL                                          |
+| `pricing.fetchTimeoutMs` | Config only                                           | Pricing fetch timeout                                      |
+| `eventStore.enabled`     | `LLM_USAGE_EVENT_STORE`                               | Enable SQLite event-store reuse                            |
+| `eventStore.path`        | `LLM_USAGE_EVENT_STORE_PATH`                          | SQLite event-store path                                    |
+| `parseMaxParallel`       | Config only                                           | Max parallel file parses                                   |
+| `parseWorkers`           | `LLM_USAGE_PARSE_WORKERS`                             | Worker-thread parser count for large JSONL misses          |
+| `parseWorkerMinBytes`    | `LLM_USAGE_PARSE_WORKER_MIN_BYTES`                    | Missed-file byte threshold before workers engage           |
+| `update.skipCheck`       | `LLM_USAGE_SKIP_UPDATE_CHECK`                         | Skip startup update checks                                 |
+| `update.cacheTtlMs`      | Config only                                           | Update-check cache TTL                                     |
+| `update.fetchTimeoutMs`  | Config only                                           | Update-check fetch timeout                                 |
 
 There is no `--no-pricing-offline` flag. To force a one-off online pricing refresh while `pricing.offline = true` stays in the config, bypass the config for that run by pointing `LLM_USAGE_CONFIG_PATH` at a nonexistent file (a missing file loads an empty config) or edit the file:
 
@@ -129,17 +129,17 @@ LLM_USAGE_CONFIG_PATH=/nonexistent llm-usage monthly
 
 Environment variables override the config file and are printed as an `Active environment overrides:` block when set.
 
-| Variable | Config key | Default | Notes |
-| --- | --- | --- | --- |
-| `LLM_USAGE_CONFIG_PATH` | n/a | platform config path | Points at a config TOML file |
-| `LLM_USAGE_SKIP_UPDATE_CHECK` | `update.skipCheck` | unset (`false`) | Truthy values: `1`, `true`, `yes`, `on` |
-| `LLM_USAGE_UPDATE_CACHE_SCOPE` | n/a | `global` | `session` isolates update-check cache by session |
-| `LLM_USAGE_UPDATE_CACHE_SESSION_KEY` | n/a | unset | Stable key for session-scoped update cache |
-| `LLM_USAGE_PARSE_WORKERS` | `parseWorkers` | `auto` | `auto` or integer `0..64`; `0` disables workers |
-| `LLM_USAGE_PARSE_WORKER_MIN_BYTES` | `parseWorkerMinBytes` | `268435456` | Clamps to `0..9007199254740991` |
-| `LLM_USAGE_EVENT_STORE` | `eventStore.enabled` | `1` (`true`) | Set `0` to disable the store |
-| `LLM_USAGE_EVENT_STORE_PATH` | `eventStore.path` | platform cache `events.db` | Use an isolated store for experiments or CI |
-| `LLM_USAGE_PROFILE_RUNTIME` | n/a | unset (`false`) | Emits runtime profiling diagnostics |
+| Variable                             | Config key            | Default                    | Notes                                            |
+| ------------------------------------ | --------------------- | -------------------------- | ------------------------------------------------ |
+| `LLM_USAGE_CONFIG_PATH`              | n/a                   | platform config path       | Points at a config TOML file                     |
+| `LLM_USAGE_SKIP_UPDATE_CHECK`        | `update.skipCheck`    | unset (`false`)            | Truthy values: `1`, `true`, `yes`, `on`          |
+| `LLM_USAGE_UPDATE_CACHE_SCOPE`       | n/a                   | `global`                   | `session` isolates update-check cache by session |
+| `LLM_USAGE_UPDATE_CACHE_SESSION_KEY` | n/a                   | unset                      | Stable key for session-scoped update cache       |
+| `LLM_USAGE_PARSE_WORKERS`            | `parseWorkers`        | `auto`                     | `auto` or integer `0..64`; `0` disables workers  |
+| `LLM_USAGE_PARSE_WORKER_MIN_BYTES`   | `parseWorkerMinBytes` | `268435456`                | Clamps to `0..9007199254740991`                  |
+| `LLM_USAGE_EVENT_STORE`              | `eventStore.enabled`  | `1` (`true`)               | Set `0` to disable the store                     |
+| `LLM_USAGE_EVENT_STORE_PATH`         | `eventStore.path`     | platform cache `events.db` | Use an isolated store for experiments or CI      |
+| `LLM_USAGE_PROFILE_RUNTIME`          | n/a                   | unset (`false`)            | Emits runtime profiling diagnostics              |
 
 `--history` requires the event store to stay enabled. Deleting `events.db` also deletes retained departed-file history.
 

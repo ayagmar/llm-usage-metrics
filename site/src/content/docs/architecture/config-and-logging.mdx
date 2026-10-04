@@ -36,7 +36,7 @@ Reports print what configuration actually applied, on `stderr`:
 
 ## The template and the schema
 
-`llm-usage config init` (`src/cli/create-config-command.ts`) writes a fully commented template at the active config path, creating parent directories as needed. It refuses to overwrite an existing file (`Config file already exists: <path> (use --force to overwrite)`); `--force` replaces it. The template is documentation that cannot drift: every key ships commented out with its real default interpolated from the exported constants — including the machine's absolute default event-store path — and covers all keys, including all 16 `[sourceDirs]` entries.
+`llm-usage config init` (`src/cli/create-config-command.ts`) writes a fully commented template at the active config path, creating parent directories as needed. It refuses to overwrite an existing file (`Config file already exists: <path> (use --force to overwrite)`); `--force` replaces it. The template is documentation that cannot drift: every key ships commented out with its real default interpolated from the exported constants — including the machine's absolute default event-store path — and covers all keys, including every supported `[sourceDirs]` entry.
 
 The first line is a `#:schema https://ayagmar.github.io/llm-usage-metrics/config-schema.json` directive, which TOML editors (e.g. Taplo) use for completion and validation. The schema is hand-maintained at `schema/config.schema.json`, and unit tests keep it honest: one test asserts the schema's key paths equal the loader's known-key set, and another asserts the published copy at `site/public/config-schema.json` is byte-identical to it.
 

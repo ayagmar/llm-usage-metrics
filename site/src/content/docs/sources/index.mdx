@@ -1,31 +1,31 @@
 ---
 title: Data Sources
-description: Default locations, formats, and path overrides for all 17 source adapters.
+description: Default locations, formats, and path overrides for every supported source adapter.
 ---
 
 Each adapter owns discovery and source-specific parsing. After parsing, every adapter returns the same normalized `UsageEvent` shape, so reports and filters behave the same across tools.
 
 ## Supported sources
 
-| Source | Local format | Default location |
-| --- | --- | --- |
-| pi | JSONL | `~/.pi/agent/sessions` and `~/.omp/agent/sessions` |
-| codex | JSONL | `~/.codex/sessions` |
-| Gemini CLI | JSON | `~/.gemini/tmp/*/chats` |
-| Droid CLI | settings JSON | `~/.factory/sessions` |
-| OpenCode | SQLite | platform data directory, including `opencode-<channel>.db` |
-| OpenClaw | JSONL | `~/.openclaw/agents` and supported legacy homes |
-| Claude Code | JSONL | `~/.claude/projects` and `~/.claude/transcripts` |
-| Copilot CLI | OTEL JSONL | `~/.copilot/otel` |
-| Goose | SQLite | platform Goose data directory |
-| Amp | JSON | `~/.local/share/amp/threads` |
-| Qwen CLI | JSONL | `~/.qwen/projects` |
-| Kimi | wire JSONL | `~/.kimi/sessions` and `~/.kimi-code/sessions` |
-| Cline | task JSON | VS Code global storage for `saoudrizwan.claude-dev` |
-| RooCode | task JSON | VS Code global storage for `rooveterinaryinc.roo-cline` |
-| KiloCode | task JSON | VS Code global storage for `kilocode.kilo-code` |
-| Antigravity | SQLite | `~/.gemini/antigravity-cli/conversations` |
-| DeepSeek Harness | JSONL + zstd | `$DSH_HOME/sessions` or `~/.dsh/sessions` |
+| Source                                                 | Local format  | Default location                                           |
+| ------------------------------------------------------ | ------------- | ---------------------------------------------------------- |
+| [pi](/llm-usage-metrics/sources/pi/)                   | JSONL         | `~/.pi/agent/sessions` and `~/.omp/agent/sessions`         |
+| [codex](/llm-usage-metrics/sources/codex/)             | JSONL         | `~/.codex/sessions`                                        |
+| [Gemini CLI](/llm-usage-metrics/sources/gemini/)       | JSON          | `~/.gemini/tmp/*/chats`                                    |
+| [Droid CLI](/llm-usage-metrics/sources/droid/)         | settings JSON | `~/.factory/sessions`                                      |
+| [OpenCode](/llm-usage-metrics/sources/opencode/)       | SQLite        | platform data directory, including `opencode-<channel>.db` |
+| [OpenClaw](/llm-usage-metrics/sources/openclaw/)       | JSONL         | `~/.openclaw/agents` and supported legacy homes            |
+| [Claude Code](/llm-usage-metrics/sources/claude/)      | JSONL         | `~/.claude/projects` and `~/.claude/transcripts`           |
+| [Copilot CLI](/llm-usage-metrics/sources/copilot/)     | OTEL JSONL    | `~/.copilot/otel`                                          |
+| [Goose](/llm-usage-metrics/sources/goose/)             | SQLite        | platform Goose data directory                              |
+| [Amp](/llm-usage-metrics/sources/amp/)                 | JSON          | `~/.local/share/amp/threads`                               |
+| [Qwen CLI](/llm-usage-metrics/sources/qwen/)           | JSONL         | `~/.qwen/projects`                                         |
+| [Kimi](/llm-usage-metrics/sources/kimi/)               | wire JSONL    | `~/.kimi/sessions` and `~/.kimi-code/sessions`             |
+| [Cline](/llm-usage-metrics/sources/cline/)             | task JSON     | VS Code global storage for `saoudrizwan.claude-dev`        |
+| [RooCode](/llm-usage-metrics/sources/roocode/)         | task JSON     | VS Code global storage for `rooveterinaryinc.roo-cline`    |
+| [KiloCode](/llm-usage-metrics/sources/kilocode/)       | task JSON     | VS Code global storage for `kilocode.kilo-code`            |
+| [Antigravity](/llm-usage-metrics/sources/antigravity/) | SQLite        | `~/.gemini/antigravity-cli/conversations`                  |
+| [DeepSeek Harness](/llm-usage-metrics/sources/dsh/)    | JSONL + zstd  | `$DSH_HOME/sessions` or `~/.dsh/sessions`                  |
 
 SQLite-backed sources use the built-in `node:sqlite` module and require Node.js 24 or newer.
 

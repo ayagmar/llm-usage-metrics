@@ -5,6 +5,21 @@ description: Choose terminal, JSON, Markdown, or a supported share SVG.
 
 The CLI keeps report data on `stdout` and diagnostics on `stderr`. Redirecting JSON or Markdown therefore produces a clean data file while discovery and pricing notes remain visible in the terminal.
 
+## Choose a format
+
+| Report                   | Terminal | JSON | Markdown | Share SVG                   |
+| ------------------------ | -------- | ---- | -------- | --------------------------- |
+| Daily / weekly / monthly | Yes      | Yes  | Yes      | Yes                         |
+| Compare                  | Yes      | Yes  | Yes      | Yes                         |
+| Session                  | Yes      | Yes  | Yes      | No                          |
+| Trends                   | Yes      | Yes  | Yes      | Combined view only          |
+| Efficiency               | Yes      | Yes  | Yes      | Monthly, combined view only |
+| Optimize                 | Yes      | Yes  | Yes      | Monthly only                |
+| Wrapped                  | Yes      | Yes  | Yes      | Yes                         |
+| Doctor / prune           | Yes      | Yes  | No       | No                          |
+
+[Events](/llm-usage-metrics/events/) exports JSONL or CSV using `--format`; it does not use the report-format flags. `schema` prints a JSON Schema document, and `config` emits text.
+
 ## Terminal
 
 ```bash
@@ -31,22 +46,22 @@ Use JSON for scripts and pipelines. Every report wraps its payload in a versione
 }
 ```
 
-`report` names the command (`usage`, `session`, `trends`, `compare`, `efficiency`, `optimize`, `wrapped`, `doctor`, or `prune`) and `data` carries the report-specific payload documented on each report page. `schemaVersion` increments only on breaking JSON changes; additive fields inside `data` are safe and do not bump it. Diagnostics never enter the JSON body. The envelope arrived in 0.8.0 — [Migrating to 0.8](/llm-usage-metrics/migrating-to-0-8/) maps the old field names to the new ones.
+`report` identifies the report family (`usage`, `session`, `trends`, `compare`, `efficiency`, `optimize`, `wrapped`, `doctor`, or `prune`) and `data` carries the report-specific payload documented on each report page. `schemaVersion` increments only on breaking JSON changes; additive fields inside `data` are safe and do not bump it. Diagnostics never enter the JSON body. The envelope arrived in 0.8.0 — [Migrating to 0.8](/llm-usage-metrics/migrating-to-0-8/) maps the old field names to the new ones.
 
 Every payload has a published JSON Schema (draft 2020-12) validated in CI against real CLI output:
 
-| Report | Schema |
-| --- | --- |
-| shared definitions | [report-common.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json) |
-| usage | [report-usage.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-usage.v1.schema.json) |
-| session | [report-session.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-session.v1.schema.json) |
-| trends | [report-trends.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-trends.v1.schema.json) |
-| compare | [report-compare.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-compare.v1.schema.json) |
-| efficiency | [report-efficiency.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-efficiency.v1.schema.json) |
-| optimize | [report-optimize.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-optimize.v1.schema.json) |
-| wrapped | [report-wrapped.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-wrapped.v1.schema.json) |
-| doctor | [report-doctor.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-doctor.v1.schema.json) |
-| prune | [report-prune.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-prune.v1.schema.json) |
+| Report             | Schema                                                                                                           |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| shared definitions | [report-common.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json)         |
+| usage              | [report-usage.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-usage.v1.schema.json)           |
+| session            | [report-session.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-session.v1.schema.json)       |
+| trends             | [report-trends.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-trends.v1.schema.json)         |
+| compare            | [report-compare.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-compare.v1.schema.json)       |
+| efficiency         | [report-efficiency.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-efficiency.v1.schema.json) |
+| optimize           | [report-optimize.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-optimize.v1.schema.json)     |
+| wrapped            | [report-wrapped.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-wrapped.v1.schema.json)       |
+| doctor             | [report-doctor.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-doctor.v1.schema.json)         |
+| prune              | [report-prune.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-prune.v1.schema.json)           |
 
 The installed CLI also carries these schemas, so pipelines can validate against the exact contract of their installed version without the network:
 
@@ -71,14 +86,14 @@ Usage and session output keep the same ordering and row limits as the terminal r
 
 Share output is an offline SVG written to the current directory. The command still prints the normal report to `stdout`.
 
-| Report | Command | File |
-| --- | --- | --- |
-| Usage | `llm-usage monthly --share` | `usage-monthly-share.svg` |
-| Compare | `llm-usage compare --share` | `compare-share.svg` |
-| Trends | `llm-usage trends --share` | `trends-share.svg` |
-| Wrapped | `llm-usage wrapped --year 2026 --share` | `llm-usage-wrapped-2026.svg` |
-| Efficiency | `llm-usage efficiency monthly --share` | `efficiency-monthly-share.svg` |
-| Optimize | `llm-usage optimize monthly --candidate-model gpt-4.1 --share` | `optimize-monthly-share.svg` |
+| Report     | Command                                                        | File                           |
+| ---------- | -------------------------------------------------------------- | ------------------------------ |
+| Usage      | `llm-usage monthly --share`                                    | `usage-monthly-share.svg`      |
+| Compare    | `llm-usage compare --share`                                    | `compare-share.svg`            |
+| Trends     | `llm-usage trends --share`                                     | `trends-share.svg`             |
+| Wrapped    | `llm-usage wrapped --year 2026 --share`                        | `llm-usage-wrapped-2026.svg`   |
+| Efficiency | `llm-usage efficiency monthly --share`                         | `efficiency-monthly-share.svg` |
+| Optimize   | `llm-usage optimize monthly --candidate-model gpt-4.1 --share` | `optimize-monthly-share.svg`   |
 
 Usage share works for daily, weekly, and monthly reports. Efficiency and optimize share work for monthly reports only. Trends share requires the combined view, so it cannot be paired with `--by-source`. Efficiency share cannot be paired with `--by-source` either.
 

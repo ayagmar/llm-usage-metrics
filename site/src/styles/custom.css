@@ -180,7 +180,6 @@ header.header {
 }
 
 .sl-markdown-content table {
-  display: table;
   width: 100%;
   font-size: 0.88rem;
 }
@@ -231,12 +230,6 @@ header.header {
   border-color: var(--border-strong);
 }
 
-@media (max-width: 50rem) {
-  .sl-markdown-content table {
-    display: block;
-  }
-}
-
 @media print {
   * {
     background: transparent !important;
@@ -244,4 +237,83 @@ header.header {
     color: #181a16 !important;
     text-shadow: none !important;
   }
+}
+
+/* Keep long references readable without widening the whole document. */
+.sl-markdown-content table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+
+.sl-markdown-content th,
+.sl-markdown-content td {
+  padding: 0.75rem 0.9rem;
+  vertical-align: top;
+  min-width: 7rem;
+}
+
+.sl-markdown-content th {
+  background: var(--color-bg-elevated);
+  white-space: nowrap;
+}
+
+.sl-markdown-content td code {
+  overflow-wrap: anywhere;
+}
+
+.sl-markdown-content details {
+  padding: 1rem 1.2rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-card);
+}
+
+.sl-markdown-content summary {
+  cursor: pointer;
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.sl-markdown-content details[open] summary {
+  margin-bottom: 1rem;
+}
+
+.sl-markdown-content h2 {
+  border-bottom: 1px solid var(--border-default);
+  padding-bottom: 0.65rem;
+}
+
+.sl-markdown-content > p:first-child {
+  color: var(--color-text-muted);
+  font-size: 1.08rem;
+}
+
+.sidebar-content a {
+  padding-block: 0.45rem;
+  line-height: 1.4;
+}
+
+.sidebar-content a:hover:not([aria-current='page']) {
+  background: var(--color-bg-elevated);
+}
+
+/* Starlight declares theme tokens with this specificity in light mode. */
+:root[data-theme='light'] {
+  --sl-color-white: var(--color-text);
+  --sl-color-gray-1: var(--color-text-secondary);
+  --sl-color-gray-2: var(--color-text-muted);
+  --sl-color-gray-3: var(--color-text-dim);
+  --sl-color-gray-4: var(--border-strong);
+  --sl-color-gray-5: var(--border-default);
+  --sl-color-gray-6: var(--color-bg-elevated);
+  --sl-color-gray-7: var(--color-bg-card);
+  --sl-color-black: var(--color-bg);
+  --sl-color-accent-low: var(--color-accent-subtle);
+  --sl-color-accent: var(--color-accent);
+  --sl-color-accent-high: var(--color-accent-hover);
+  --sl-color-bg: var(--color-bg);
+  --sl-color-bg-nav: var(--color-bg);
+  --sl-color-bg-sidebar: var(--color-bg);
 }

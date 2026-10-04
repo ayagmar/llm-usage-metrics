@@ -1,0 +1,80 @@
+---
+title: Choose a Report
+description: Find the command that answers your usage question, with defaults and examples.
+---
+
+Start with a question, then narrow the result with source, model, provider, or date filters. If you have not run the CLI yet, follow [Getting Started](/llm-usage-metrics/getting-started/).
+
+## Tokens and cost
+
+| Question                            | Command                                      | Guide                                              |
+| ----------------------------------- | -------------------------------------------- | -------------------------------------------------- |
+| How much did I use each day?        | `llm-usage daily`                            | [Usage totals](/llm-usage-metrics/usage/)          |
+| How did the weeks or months add up? | `llm-usage weekly` or `llm-usage monthly`    | [CLI reference](/llm-usage-metrics/cli-reference/) |
+| What changed from last month?       | `llm-usage compare`                          | [Compare periods](/llm-usage-metrics/compare/)     |
+| Is usage rising or falling?         | `llm-usage trends --metric tokens --days 14` | [Trends](/llm-usage-metrics/trends/)               |
+| What did the year look like?        | `llm-usage wrapped`                          | [Wrapped recap](/llm-usage-metrics/wrapped/)       |
+
+Usage reports include all matching local history unless you set a date range. `compare` defaults to the current local calendar month versus the previous month; explicit current ranges require both date bounds. Check each guide for the command's defaults.
+
+```bash
+# Limit the report to one source and one calendar month
+llm-usage monthly --source codex --since 2026-09-01 --until 2026-09-30
+```
+
+:::note[Estimated cost is not your invoice]
+The CLI preserves source-recorded cost and estimates other costs from available pricing. A tilde marks partial cost; a dash means no resolved cost. Subscription billing, discounts, and missing source data can make these values differ from your actual bill. See [Pricing](/llm-usage-metrics/pricing/).
+:::
+
+## Sessions and repositories
+
+```bash
+# Ten conversations ranked by cost
+llm-usage session --top 10
+
+# Group usage by repository
+llm-usage session --by-repo
+
+# Join repo-attributed usage with local Git activity
+llm-usage efficiency monthly
+```
+
+[Session usage](/llm-usage-metrics/session/) helps you find expensive conversations and repositories. [Efficiency](/llm-usage-metrics/efficiency/) puts usage beside commits and line changes. Its ratios depend on repository attribution and Git history; they do not measure code quality or developer productivity.
+
+## Model cost comparisons
+
+```bash
+llm-usage optimize monthly \
+  --provider openai \
+  --candidate-model gpt-4.1
+```
+
+[Optimize](/llm-usage-metrics/optimize/) prices your observed token mix against candidate models. It does not run the models or predict their output quality, latency, or future token usage.
+
+## Exports and automation
+
+| Need                              | Command                           | Guide                                                     |
+| --------------------------------- | --------------------------------- | --------------------------------------------------------- |
+| An aggregated report for a script | `llm-usage daily --json`          | [Output formats](/llm-usage-metrics/output-formats/)      |
+| A table for a document            | `llm-usage daily --markdown`      | [Output formats](/llm-usage-metrics/output-formats/)      |
+| An SVG summary                    | `llm-usage monthly --share`       | [Share SVG](/llm-usage-metrics/output-formats/#share-svg) |
+| Individual normalized events      | `llm-usage events --format jsonl` | [Events export](/llm-usage-metrics/events/)               |
+| Events for a spreadsheet          | `llm-usage events --format csv`   | [Events export](/llm-usage-metrics/events/)               |
+| The installed report's schema     | `llm-usage schema usage`          | [JSON contracts](/llm-usage-metrics/output-formats/#json) |
+
+Report JSON uses a versioned envelope. Event JSONL is one event per line without that envelope. Diagnostics go to `stderr`, so you can redirect report data safely.
+
+## Discovery and maintenance
+
+```bash
+# Inspect source locations and ledger health
+llm-usage doctor
+
+# Show which config-file values are active
+llm-usage config show
+
+# Preview removal of departed files suppressed as moves or duplicates
+llm-usage prune --suppressed
+```
+
+Use [Doctor](/llm-usage-metrics/doctor/) when data is missing, [Configuration](/llm-usage-metrics/configuration/) to save defaults, and [Caching and history](/llm-usage-metrics/caching/) to understand the event ledger. `prune` is a dry run unless you pass `--apply`; applying age-based pruning permanently removes selected retained history.
