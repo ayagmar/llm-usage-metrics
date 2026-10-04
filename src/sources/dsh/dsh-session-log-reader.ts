@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { Readable } from 'node:stream';
+import { Readable, Writable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { createZstdDecompress } from 'node:zlib';
 
@@ -63,11 +63,18 @@ async function decodeFrame(frameBytes: Buffer): Promise<Buffer> {
   const engine = createZstdDecompress();
   const chunks: Buffer[] = [];
 
-  engine.on('data', (chunk: Buffer) => {
-    chunks.push(chunk);
-  });
-
-  await pipeline(Readable.from([frameBytes]), engine);
+  // Consume the readable side too, so decompression errors cannot arrive after
+  // the pipeline has resolved on the engine's writable finish event.
+  await pipeline(
+    Readable.from([frameBytes]),
+    engine,
+    new Writable({
+      write(chunk: Buffer, _encoding, callback) {
+        chunks.push(chunk);
+        callback();
+      },
+    }),
+  );
 
   const decoded = Buffer.concat(chunks);
   const frameConsumed = engine.bytesWritten === frameBytes.length;
