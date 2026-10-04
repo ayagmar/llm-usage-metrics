@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.8.1](https://github.com/ayagmar/llm-usage-metrics/compare/v0.8.0...v0.8.1) (2026-10-04)
+
+### Features
+
+* **site:** add export card to the landing report grid ([92674f8](https://github.com/ayagmar/llm-usage-metrics/commit/92674f89f9af3fc078ec5fe51fd212b447812f97))
+* **source:** add dsh adapter for DeepSeek Harness sessions ([2739a04](https://github.com/ayagmar/llm-usage-metrics/commit/2739a04de2d15ba63b70cbfeeb648f00166b0c17))
+
+### Bug Fixes
+
+* **benchmark:** compare direct application runtimes fairly ([937a39f](https://github.com/ayagmar/llm-usage-metrics/commit/937a39f0d9a1d7d10f91604fde1b15fc95b175de))
+* **dsh:** await complete decompression before returning frames ([b3a3479](https://github.com/ayagmar/llm-usage-metrics/commit/b3a3479f4c74887d39ba408b0b48554aeaa1b0c7))
+* **pricing:** stop billing deepseek-flash as deepseek-v4-flash ([3faea42](https://github.com/ayagmar/llm-usage-metrics/commit/3faea429c04e8d96f4f1cf0ac7b2cb3330da9968))
+
+### Performance Improvements
+
+* **cli:** schedule largest Codex misses first ([51500e2](https://github.com/ayagmar/llm-usage-metrics/commit/51500e2c4db1fd160fb50ef250c667dcd9880757))
+* **history:** drive event joins from temp tables ([3efa475](https://github.com/ayagmar/llm-usage-metrics/commit/3efa475c87bbf87d45f05b4d6c83f52c2e6286a7))
+* **persistence:** read stored events as positional rows ([4b25556](https://github.com/ayagmar/llm-usage-metrics/commit/4b255563192995bf87251f69576218bf483f4ef9))
+
 ## [0.8.0](https://github.com/ayagmar/llm-usage-metrics/compare/v0.7.2...v0.8.0) (2026-07-13)
 
 ### ⚠ BREAKING CHANGES
