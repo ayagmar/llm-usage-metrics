@@ -2,8 +2,8 @@
 
 ## Requirements
 
-- Node.js 24+
-- pnpm 11.13.0 (used for local scripts and the lockfile)
+- Node.js 24.15+ for development (release tooling); the CLI supports Node.js 24+
+- pnpm 12.9.1 (used for local scripts and the lockfile)
 
 ## Install
 
@@ -168,8 +168,8 @@ Checks:
 
 Runtime:
 
-- Node 24.13.1
-- pnpm 11.13.0
+- Node 24.21.0
+- pnpm 12.9.1
 
 Coverage summary/artifacts are generated from the single Node 24 CI run.
 
@@ -196,7 +196,7 @@ The release workflow is manual (`workflow_dispatch`) and asks for:
 - increment type (`patch`, `minor`, `major`)
 - dry-run flag
 
-The workflow uses Node `24.13.1` and its bundled npm 11 release. npm 11.5.1 or newer is required for trusted publishing; the pinned Node runtime already provides a compatible version.
+The workflow uses Node `24.21.0` and its bundled npm 11 release. npm 11.5.1 or newer is required for trusted publishing; the pinned Node runtime already provides a compatible version.
 
 ### Required repository configuration
 

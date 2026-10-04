@@ -14,11 +14,11 @@ This page documents the security controls and contributor steps configured in th
 ### Locked installs and reproducible tool versions
 
 - CI, Pages, release, performance, and security workflows install dependencies with `pnpm install --frozen-lockfile` where dependencies are needed.
-- The root package declares `"packageManager": "pnpm@11.13.0"` in `package.json`.
+- The root package declares `"packageManager": "pnpm@12.9.1"` in `package.json`.
 - GitHub Actions workflows use explicit runtime/tool versions:
-  - Node.js `24.13.1`
-  - pnpm `11.13.0`
-  - npm bundled with Node.js `24.13.1` in the release workflow
+  - Node.js `24.21.0`
+  - pnpm `12.9.1`
+  - npm bundled with Node.js `24.21.0` in the release workflow
 - OpenCode support requires Node.js 24+ because it uses built-in `node:sqlite`.
 
 ### Dependency pinning and integrity
@@ -47,6 +47,14 @@ Dedicated security workflows are configured in `.github/workflows/security.yml`:
 - **`pnpm audit --audit-level=moderate`** on pushes, pull requests, manual runs, and the weekly security schedule
 - **Dependency Review** on pull requests, failing on moderate-or-higher findings in dependency changes
 - **CodeQL** analysis for JavaScript/TypeScript on pushes, pull requests, and a weekly schedule
+
+### Temporary audit exception
+
+`pnpm-workspace.yaml` excludes only [GHSA-ch52-4w7c-c8xp](https://github.com/advisories/GHSA-ch52-4w7c-c8xp) from audit failures. The advisory affects `http-cache-semantics` through 4.2.0 and has no published fixed version as of October 4, 2026.
+
+The dependency is pulled in by Astro for remote-image caching during site builds. Astro 7.3.5 uses `storable()` and `timeToLive()` in that path, not the affected `satisfiesWithoutRevalidation()` method. This repository deploys static files to GitHub Pages, does not run a shared HTTP cache, and does not ship Astro in the CLI package. These facts make the reported cross-user cache disclosure path inapplicable to the current deployment.
+
+Remove the exception when a patched release is available, and reassess it before adding a server adapter or shared response cache. All other moderate-or-higher advisories still fail the audit job.
 
 The regular CI workflow in `.github/workflows/ci.yml` enforces the normal quality gates:
 

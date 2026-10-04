@@ -64,8 +64,7 @@ class FakeWorker implements ParseWorkerLike {
 }
 
 class ThrowingPostWorker extends FakeWorker {
-  public override postMessage(message: ParseWorkerRequestMessage): void {
-    void message;
+  public override postMessage(): void {
     throw new Error('post failed');
   }
 }
