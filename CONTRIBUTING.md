@@ -132,5 +132,12 @@ Use concise Conventional Commit subjects, for example:
 Run the full check suite:
 
 ```bash
-pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run format:check
+pnpm run verify
 ```
+
+Then:
+
+- Review the full diff with fresh eyes, or have someone (or a review agent) do it, before pushing.
+- Keep the PR to one concern.
+- If the change touches pricing, check `tests/pricing/model-resolution-reference.test.ts`. Update any row whose resolution moves, and only on purpose.
+- If an adapter's output changes, bump its `parserVersion` (see `AGENTS.md`, Correctness Guardrails).
