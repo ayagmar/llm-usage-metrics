@@ -16,6 +16,8 @@ export type DiscoverFilesOptions = {
   sort?: boolean;
 };
 
+const UNRESOLVABLE_SYMLINK_ERROR_CODES = new Set(['ENOENT', 'ELOOP', 'ENOTDIR', 'ENAMETOOLONG']);
+
 function getNodeErrorCode(error: unknown): string | undefined {
   const record = asRecord(error);
   return typeof record?.code === 'string' ? record.code : undefined;
@@ -116,7 +118,8 @@ async function walkDirectory(
           acc.push(entryPath);
         }
       } catch (error) {
-        if (getNodeErrorCode(error) === 'ENOENT') {
+        // A dangling or looping link is one bad entry, not a reason to fail the whole source.
+        if (UNRESOLVABLE_SYMLINK_ERROR_CODES.has(getNodeErrorCode(error) ?? '')) {
           continue;
         }
 

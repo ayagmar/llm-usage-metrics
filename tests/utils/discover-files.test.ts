@@ -158,6 +158,19 @@ describe('discoverFiles', () => {
     await expect(discoverFiles(rootDir, { extension: '.json' })).resolves.toEqual([existingFile]);
   });
 
+  itIfSymlinksSupported('skips self-referencing symlinks without failing discovery', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'discover-files-self-link-'));
+    tempDirs.push(rootDir);
+
+    const existingFile = path.join(rootDir, 'good.json');
+    const loopLink = path.join(rootDir, 'loop.json');
+
+    await writeFile(existingFile, '{}', 'utf8');
+    await symlink(loopLink, loopLink);
+
+    await expect(discoverFiles(rootDir, { extension: '.json' })).resolves.toEqual([existingFile]);
+  });
+
   itIfSymlinksSupported('avoids infinite recursion for symlink cycles', async () => {
     const rootDir = await mkdtemp(path.join(os.tmpdir(), 'discover-files-loop-'));
     tempDirs.push(rootDir);
