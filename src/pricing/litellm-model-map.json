@@ -51,7 +51,7 @@
     "kimi-k2.6": "moonshot/kimi-k2.6",
     "gpt-5.3-codex": "gpt-5.3-codex",
     "gemini-3-flash": "gemini/gemini-3-flash-preview",
-    "gemini-3-pro": "gemini/gemini-3-pro-preview",
+    "gemini-3-pro": "vertex_ai/gemini-3-pro-preview",
     "minimax-m2.1": "openrouter/minimax/minimax-m2.1",
     "minimax-m2.5": "openrouter/minimax/minimax-m2.5",
     "claude-sonnet-4.6": "anthropic.claude-sonnet-4-6"

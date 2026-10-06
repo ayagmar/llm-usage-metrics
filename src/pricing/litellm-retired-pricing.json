@@ -1,0 +1,1096 @@
+{
+  "pricingByModel": {
+    "anthropic.claude-3-haiku-20240307-v1:0": {
+      "inputPer1MUsd": 0.25,
+      "outputPer1MUsd": 1.25,
+      "cacheReadPer1MUsd": 0.024999999999999998,
+      "cacheWritePer1MUsd": 0.3125
+    },
+    "anthropic.claude-3-sonnet-20240229-v1:0": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15,
+      "cacheReadPer1MUsd": 0.3,
+      "cacheWritePer1MUsd": 3.75
+    },
+    "apac.anthropic.claude-3-5-sonnet-20240620-v1:0": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15,
+      "cacheReadPer1MUsd": 0.3,
+      "cacheWritePer1MUsd": 3.75
+    },
+    "apac.anthropic.claude-3-5-sonnet-20241022-v2:0": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15,
+      "cacheReadPer1MUsd": 0.3,
+      "cacheWritePer1MUsd": 3.75
+    },
+    "apac.anthropic.claude-3-haiku-20240307-v1:0": {
+      "inputPer1MUsd": 0.25,
+      "outputPer1MUsd": 1.25,
+      "cacheReadPer1MUsd": 0.024999999999999998,
+      "cacheWritePer1MUsd": 0.3125
+    },
+    "apac.anthropic.claude-3-sonnet-20240229-v1:0": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15,
+      "cacheReadPer1MUsd": 0.3,
+      "cacheWritePer1MUsd": 3.75
+    },
+    "azure/eu/o1-preview-2024-09-12": {
+      "inputPer1MUsd": 16.5,
+      "outputPer1MUsd": 66,
+      "cacheReadPer1MUsd": 8.25
+    },
+    "azure/global/gpt-5.1-chat": {
+      "inputPer1MUsd": 1.25,
+      "outputPer1MUsd": 10,
+      "cacheReadPer1MUsd": 0.125
+    },
+    "azure/gpt-3.5-turbo-0125": {
+      "inputPer1MUsd": 0.5,
+      "outputPer1MUsd": 1.5
+    },
+    "azure/gpt-35-turbo-0125": {
+      "inputPer1MUsd": 0.5,
+      "outputPer1MUsd": 1.5
+    },
+    "azure/gpt-35-turbo-1106": {
+      "inputPer1MUsd": 1,
+      "outputPer1MUsd": 2
+    },
+    "azure/gpt-5-chat-latest": {
+      "inputPer1MUsd": 1.25,
+      "outputPer1MUsd": 10,
+      "cacheReadPer1MUsd": 0.125
+    },
+    "azure/gpt-5.1-chat-2025-11-13": {
+      "inputPer1MUsd": 1.25,
+      "outputPer1MUsd": 10,
+      "cacheReadPer1MUsd": 0.125
+    },
+    "azure/gpt-5.2-chat-2025-12-11": {
+      "inputPer1MUsd": 1.75,
+      "outputPer1MUsd": 14,
+      "cacheReadPer1MUsd": 0.175
+    },
+    "azure/gpt-image-2": {
+      "inputPer1MUsd": 5,
+      "outputPer1MUsd": 10,
+      "cacheReadPer1MUsd": 1.25
+    },
+    "azure/gpt-image-2-2026-04-21": {
+      "inputPer1MUsd": 5,
+      "outputPer1MUsd": 10,
+      "cacheReadPer1MUsd": 1.25
+    },
+    "azure/o1-preview": {
+      "inputPer1MUsd": 15,
+      "outputPer1MUsd": 60,
+      "cacheReadPer1MUsd": 7.5
+    },
+    "azure/o1-preview-2024-09-12": {
+      "inputPer1MUsd": 15,
+      "outputPer1MUsd": 60,
+      "cacheReadPer1MUsd": 7.5
+    },
+    "azure/us/o1-preview-2024-09-12": {
+      "inputPer1MUsd": 16.5,
+      "outputPer1MUsd": 66,
+      "cacheReadPer1MUsd": 8.25
+    },
+    "azure_ai/claude-opus-4-1": {
+      "inputPer1MUsd": 15,
+      "outputPer1MUsd": 75,
+      "cacheReadPer1MUsd": 1.5,
+      "cacheWritePer1MUsd": 18.75
+    },
+    "azure_ai/cohere-rerank-v3.5": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "azure_ai/global/grok-3": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15
+    },
+    "azure_ai/global/grok-3-mini": {
+      "inputPer1MUsd": 0.25,
+      "outputPer1MUsd": 1.27
+    },
+    "azure_ai/llama-3.2-11b-vision-instruct": {
+      "inputPer1MUsd": 0.37,
+      "outputPer1MUsd": 0.37
+    },
+    "azure_ai/llama-3.2-90b-vision-instruct": {
+      "inputPer1MUsd": 2.04,
+      "outputPer1MUsd": 2.04
+    },
+    "azure_ai/meta-llama-3.1-405b-instruct": {
+      "inputPer1MUsd": 5.33,
+      "outputPer1MUsd": 16
+    },
+    "azure_ai/meta-llama-3.1-8b-instruct": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 0.61
+    },
+    "bedrock/us-gov-east-1/anthropic.claude-3-5-sonnet-20240620-v1:0": {
+      "inputPer1MUsd": 3.5999999999999996,
+      "outputPer1MUsd": 18,
+      "cacheReadPer1MUsd": 0.36,
+      "cacheWritePer1MUsd": 4.5
+    },
+    "bedrock/us-gov-east-1/anthropic.claude-3-haiku-20240307-v1:0": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 1.5,
+      "cacheReadPer1MUsd": 0.03,
+      "cacheWritePer1MUsd": 0.375
+    },
+    "bedrock/us-gov-west-1/anthropic.claude-3-5-sonnet-20240620-v1:0": {
+      "inputPer1MUsd": 3.5999999999999996,
+      "outputPer1MUsd": 18,
+      "cacheReadPer1MUsd": 0.36,
+      "cacheWritePer1MUsd": 4.5
+    },
+    "bedrock/us-gov-west-1/anthropic.claude-3-7-sonnet-20250219-v1:0": {
+      "inputPer1MUsd": 3.5999999999999996,
+      "outputPer1MUsd": 18,
+      "cacheReadPer1MUsd": 0.36,
+      "cacheWritePer1MUsd": 4.5
+    },
+    "bedrock/us-gov-west-1/anthropic.claude-3-haiku-20240307-v1:0": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 1.5,
+      "cacheReadPer1MUsd": 0.03,
+      "cacheWritePer1MUsd": 0.375
+    },
+    "cerebras/zai-glm-4.6": {
+      "inputPer1MUsd": 2.25,
+      "outputPer1MUsd": 2.75
+    },
+    "cerebras/zai-glm-4.7": {
+      "inputPer1MUsd": 2.25,
+      "outputPer1MUsd": 2.75
+    },
+    "chatgpt-4o-latest": {
+      "inputPer1MUsd": 5,
+      "outputPer1MUsd": 15
+    },
+    "claude-3-7-sonnet-20250219": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15,
+      "cacheReadPer1MUsd": 0.3,
+      "cacheWritePer1MUsd": 3.75
+    },
+    "claude-3-haiku-20240307": {
+      "inputPer1MUsd": 0.25,
+      "outputPer1MUsd": 1.25,
+      "cacheReadPer1MUsd": 0.03,
+      "cacheWritePer1MUsd": 0.3
+    },
+    "claude-3-opus-20240229": {
+      "inputPer1MUsd": 15,
+      "outputPer1MUsd": 75,
+      "cacheReadPer1MUsd": 1.5,
+      "cacheWritePer1MUsd": 18.75
+    },
+    "claude-4-opus-20250514": {
+      "inputPer1MUsd": 15,
+      "outputPer1MUsd": 75,
+      "cacheReadPer1MUsd": 1.5,
+      "cacheWritePer1MUsd": 18.75
+    },
+    "claude-4-sonnet-20250514": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15,
+      "cacheReadPer1MUsd": 0.3,
+      "cacheWritePer1MUsd": 3.75
+    },
+    "claude-opus-4-1": {
+      "inputPer1MUsd": 15,
+      "outputPer1MUsd": 75,
+      "cacheReadPer1MUsd": 1.5,
+      "cacheWritePer1MUsd": 18.75
+    },
+    "claude-opus-4-1-20250805": {
+      "inputPer1MUsd": 15,
+      "outputPer1MUsd": 75,
+      "cacheReadPer1MUsd": 1.5,
+      "cacheWritePer1MUsd": 18.75
+    },
+    "claude-opus-4-20250514": {
+      "inputPer1MUsd": 15,
+      "outputPer1MUsd": 75,
+      "cacheReadPer1MUsd": 1.5,
+      "cacheWritePer1MUsd": 18.75
+    },
+    "claude-sonnet-4-20250514": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15,
+      "cacheReadPer1MUsd": 0.3,
+      "cacheWritePer1MUsd": 3.75
+    },
+    "codex-mini-latest": {
+      "inputPer1MUsd": 1.5,
+      "outputPer1MUsd": 6,
+      "cacheReadPer1MUsd": 0.375
+    },
+    "cohere.command-r-plus-v1:0": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15
+    },
+    "cohere.command-r-v1:0": {
+      "inputPer1MUsd": 0.5,
+      "outputPer1MUsd": 1.5
+    },
+    "command": {
+      "inputPer1MUsd": 1,
+      "outputPer1MUsd": 2
+    },
+    "command-light": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 0.6
+    },
+    "command-r": {
+      "inputPer1MUsd": 0.15,
+      "outputPer1MUsd": 0.6
+    },
+    "command-r-plus": {
+      "inputPer1MUsd": 2.5,
+      "outputPer1MUsd": 10
+    },
+    "databricks/databricks-claude-3-7-sonnet": {
+      "inputPer1MUsd": 2.9999900000000004,
+      "outputPer1MUsd": 15.000020000000001
+    },
+    "databricks/databricks-llama-2-70b-chat": {
+      "inputPer1MUsd": 0.5000100000000001,
+      "outputPer1MUsd": 1.5000300000000002
+    },
+    "databricks/databricks-meta-llama-3-1-405b-instruct": {
+      "inputPer1MUsd": 5.00003,
+      "outputPer1MUsd": 15.000020000000001
+    },
+    "databricks/databricks-meta-llama-3-70b-instruct": {
+      "inputPer1MUsd": 1.0000200000000001,
+      "outputPer1MUsd": 2.9999900000000004
+    },
+    "databricks/databricks-mixtral-8x7b-instruct": {
+      "inputPer1MUsd": 0.5000100000000001,
+      "outputPer1MUsd": 1.0000200000000001
+    },
+    "databricks/databricks-mpt-30b-instruct": {
+      "inputPer1MUsd": 1.0000200000000001,
+      "outputPer1MUsd": 1.0000200000000001
+    },
+    "databricks/databricks-mpt-7b-instruct": {
+      "inputPer1MUsd": 0.5000100000000001,
+      "outputPer1MUsd": 0
+    },
+    "deepinfra/google/gemini-2.0-flash-001": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.39999999999999997
+    },
+    "embed-english-light-v2.0": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0
+    },
+    "embed-english-v2.0": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0
+    },
+    "embed-multilingual-v2.0": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0
+    },
+    "eu.anthropic.claude-3-haiku-20240307-v1:0": {
+      "inputPer1MUsd": 0.25,
+      "outputPer1MUsd": 1.25,
+      "cacheReadPer1MUsd": 0.024999999999999998,
+      "cacheWritePer1MUsd": 0.3125
+    },
+    "eu.anthropic.claude-3-sonnet-20240229-v1:0": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15,
+      "cacheReadPer1MUsd": 0.3,
+      "cacheWritePer1MUsd": 3.75
+    },
+    "eu.twelvelabs.marengo-embed-2-7-v1:0": {
+      "inputPer1MUsd": 70,
+      "outputPer1MUsd": 0
+    },
+    "fireworks_ai/deepseek-v4-pro": {
+      "inputPer1MUsd": 1.74,
+      "outputPer1MUsd": 3.48,
+      "cacheReadPer1MUsd": 0.145
+    },
+    "fireworks_ai/minimax-m2p7": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 1.2,
+      "cacheReadPer1MUsd": 0.06
+    },
+    "friendliai/meta-llama-3.1-70b-instruct": {
+      "inputPer1MUsd": 0.6,
+      "outputPer1MUsd": 0.6
+    },
+    "friendliai/meta-llama-3.1-8b-instruct": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.09999999999999999
+    },
+    "gemini-2.0-flash": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.39999999999999997,
+      "cacheReadPer1MUsd": 0.024999999999999998
+    },
+    "gemini-2.0-flash-001": {
+      "inputPer1MUsd": 0.15,
+      "outputPer1MUsd": 0.6,
+      "cacheReadPer1MUsd": 0.0375
+    },
+    "gemini-2.0-flash-lite": {
+      "inputPer1MUsd": 0.075,
+      "outputPer1MUsd": 0.3,
+      "cacheReadPer1MUsd": 0.01875
+    },
+    "gemini-2.0-flash-lite-001": {
+      "inputPer1MUsd": 0.075,
+      "outputPer1MUsd": 0.3,
+      "cacheReadPer1MUsd": 0.01875
+    },
+    "gemini-2.5-flash-lite-preview-06-17": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.39999999999999997,
+      "cacheReadPer1MUsd": 0.024999999999999998,
+      "reasoningPer1MUsd": 0.39999999999999997,
+      "reasoningBilling": "separate"
+    },
+    "gemini-3-pro-preview": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 12,
+      "cacheReadPer1MUsd": 0.19999999999999998
+    },
+    "gemini/gemini-1.5-flash": {
+      "inputPer1MUsd": 0.075,
+      "outputPer1MUsd": 0
+    },
+    "gemini/gemini-2.0-flash": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.39999999999999997,
+      "cacheReadPer1MUsd": 0.024999999999999998
+    },
+    "gemini/gemini-2.0-flash-001": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.39999999999999997,
+      "cacheReadPer1MUsd": 0.024999999999999998
+    },
+    "gemini/gemini-2.0-flash-lite": {
+      "inputPer1MUsd": 0.075,
+      "outputPer1MUsd": 0.3,
+      "cacheReadPer1MUsd": 0.01875
+    },
+    "gemini/gemini-2.0-flash-lite-001": {
+      "inputPer1MUsd": 0.075,
+      "outputPer1MUsd": 0.3,
+      "cacheReadPer1MUsd": 0.01875
+    },
+    "gemini/gemini-2.5-flash-lite-preview-06-17": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.39999999999999997,
+      "cacheReadPer1MUsd": 0.024999999999999998,
+      "reasoningPer1MUsd": 0.39999999999999997,
+      "reasoningBilling": "separate"
+    },
+    "gemini/gemini-2.5-flash-lite-preview-09-2025": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.39999999999999997,
+      "cacheReadPer1MUsd": 0.01,
+      "reasoningPer1MUsd": 0.39999999999999997,
+      "reasoningBilling": "separate"
+    },
+    "gemini/gemini-2.5-flash-preview-09-2025": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 2.5,
+      "cacheReadPer1MUsd": 0.075,
+      "reasoningPer1MUsd": 2.5,
+      "reasoningBilling": "separate"
+    },
+    "gemini/gemini-3-pro-preview": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 12,
+      "cacheReadPer1MUsd": 0.19999999999999998
+    },
+    "gemini/gemini-robotics-er-1.5-preview": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 2.5,
+      "cacheReadPer1MUsd": 0,
+      "reasoningPer1MUsd": 2.5,
+      "reasoningBilling": "separate"
+    },
+    "gigachat/gigachat-2-lite": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "gmi/google/gemini-3-pro-preview": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 12
+    },
+    "gpt-4-0125-preview": {
+      "inputPer1MUsd": 10,
+      "outputPer1MUsd": 30
+    },
+    "gpt-4-0314": {
+      "inputPer1MUsd": 30,
+      "outputPer1MUsd": 60
+    },
+    "gpt-4-turbo-preview": {
+      "inputPer1MUsd": 10,
+      "outputPer1MUsd": 30
+    },
+    "gpt-4o-audio-preview": {
+      "inputPer1MUsd": 2.5,
+      "outputPer1MUsd": 10
+    },
+    "gpt-4o-mini-audio-preview": {
+      "inputPer1MUsd": 0.15,
+      "outputPer1MUsd": 0.6
+    },
+    "gpt-4o-mini-realtime-preview": {
+      "inputPer1MUsd": 0.6,
+      "outputPer1MUsd": 2.4,
+      "cacheReadPer1MUsd": 0.3
+    },
+    "gpt-4o-mini-search-preview-2025-03-11": {
+      "inputPer1MUsd": 0.15,
+      "outputPer1MUsd": 0.6,
+      "cacheReadPer1MUsd": 0.075
+    },
+    "gpt-4o-realtime-preview": {
+      "inputPer1MUsd": 5,
+      "outputPer1MUsd": 20,
+      "cacheReadPer1MUsd": 2.5
+    },
+    "gpt-4o-realtime-preview-2024-12-17": {
+      "inputPer1MUsd": 5,
+      "outputPer1MUsd": 20,
+      "cacheReadPer1MUsd": 2.5
+    },
+    "gpt-4o-realtime-preview-2025-06-03": {
+      "inputPer1MUsd": 5,
+      "outputPer1MUsd": 20,
+      "cacheReadPer1MUsd": 2.5
+    },
+    "gpt-4o-search-preview-2025-03-11": {
+      "inputPer1MUsd": 2.5,
+      "outputPer1MUsd": 10,
+      "cacheReadPer1MUsd": 1.25
+    },
+    "gpt-audio-mini-2025-10-06": {
+      "inputPer1MUsd": 0.6,
+      "outputPer1MUsd": 2.4
+    },
+    "gpt-image-2": {
+      "inputPer1MUsd": 5,
+      "outputPer1MUsd": 10,
+      "cacheReadPer1MUsd": 1.25
+    },
+    "gpt-image-2-2026-04-21": {
+      "inputPer1MUsd": 5,
+      "outputPer1MUsd": 10,
+      "cacheReadPer1MUsd": 1.25
+    },
+    "gpt-realtime-mini-2025-10-06": {
+      "inputPer1MUsd": 0.6,
+      "outputPer1MUsd": 2.4,
+      "cacheReadPer1MUsd": 0.06
+    },
+    "groq/gemma-7b-it": {
+      "inputPer1MUsd": 0.049999999999999996,
+      "outputPer1MUsd": 0.08
+    },
+    "groq/llama-3.1-8b-instant": {
+      "inputPer1MUsd": 0.049999999999999996,
+      "outputPer1MUsd": 0.08
+    },
+    "groq/llama-3.3-70b-versatile": {
+      "inputPer1MUsd": 0.59,
+      "outputPer1MUsd": 0.7899999999999999
+    },
+    "groq/meta-llama/llama-4-maverick-17b-128e-instruct": {
+      "inputPer1MUsd": 0.19999999999999998,
+      "outputPer1MUsd": 0.6
+    },
+    "groq/meta-llama/llama-4-scout-17b-16e-instruct": {
+      "inputPer1MUsd": 0.11,
+      "outputPer1MUsd": 0.33999999999999997
+    },
+    "groq/meta-llama/llama-guard-4-12b": {
+      "inputPer1MUsd": 0.19999999999999998,
+      "outputPer1MUsd": 0.19999999999999998
+    },
+    "groq/moonshotai/kimi-k2-instruct-0905": {
+      "inputPer1MUsd": 1,
+      "outputPer1MUsd": 3,
+      "cacheReadPer1MUsd": 0.5
+    },
+    "groq/qwen/qwen3-32b": {
+      "inputPer1MUsd": 0.29,
+      "outputPer1MUsd": 0.59
+    },
+    "mistral/codestral-2405": {
+      "inputPer1MUsd": 1,
+      "outputPer1MUsd": 3
+    },
+    "mistral/devstral-2512": {
+      "inputPer1MUsd": 0.39999999999999997,
+      "outputPer1MUsd": 2
+    },
+    "mistral/devstral-medium-2507": {
+      "inputPer1MUsd": 0.39999999999999997,
+      "outputPer1MUsd": 2
+    },
+    "mistral/devstral-small-2505": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.3
+    },
+    "mistral/devstral-small-2507": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.3
+    },
+    "mistral/labs-devstral-small-2512": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.3
+    },
+    "mistral/magistral-medium-1-2-2509": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 5
+    },
+    "mistral/magistral-medium-2506": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 5
+    },
+    "mistral/magistral-medium-2509": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 5
+    },
+    "mistral/magistral-small-1-2-2509": {
+      "inputPer1MUsd": 0.5,
+      "outputPer1MUsd": 1.5
+    },
+    "mistral/magistral-small-2506": {
+      "inputPer1MUsd": 0.5,
+      "outputPer1MUsd": 1.5
+    },
+    "mistral/mistral-large-2402": {
+      "inputPer1MUsd": 4,
+      "outputPer1MUsd": 12
+    },
+    "mistral/mistral-large-2407": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 9
+    },
+    "mistral/mistral-large-2411": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 6
+    },
+    "mistral/mistral-medium-2312": {
+      "inputPer1MUsd": 2.7,
+      "outputPer1MUsd": 8.1
+    },
+    "mistral/mistral-medium-2505": {
+      "inputPer1MUsd": 0.39999999999999997,
+      "outputPer1MUsd": 2
+    },
+    "mistral/mistral-medium-2508": {
+      "inputPer1MUsd": 0.39999999999999997,
+      "outputPer1MUsd": 2
+    },
+    "mistral/mistral-medium-3-1-2508": {
+      "inputPer1MUsd": 0.39999999999999997,
+      "outputPer1MUsd": 2
+    },
+    "mistral/mistral-small-3-2-2506": {
+      "inputPer1MUsd": 0.06,
+      "outputPer1MUsd": 0.18
+    },
+    "mistral/open-codestral-mamba": {
+      "inputPer1MUsd": 0.25,
+      "outputPer1MUsd": 0.25
+    },
+    "mistral/open-mistral-7b": {
+      "inputPer1MUsd": 0.25,
+      "outputPer1MUsd": 0.25
+    },
+    "mistral/open-mistral-nemo-2407": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 0.3
+    },
+    "mistral/open-mixtral-8x22b": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 6
+    },
+    "mistral/open-mixtral-8x7b": {
+      "inputPer1MUsd": 0.7,
+      "outputPer1MUsd": 0.7
+    },
+    "mistral/pixtral-12b-2409": {
+      "inputPer1MUsd": 0.15,
+      "outputPer1MUsd": 0.15
+    },
+    "mistral/pixtral-large-2411": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 6
+    },
+    "moonshot/kimi-k2-0711-preview": {
+      "inputPer1MUsd": 0.6,
+      "outputPer1MUsd": 2.5,
+      "cacheReadPer1MUsd": 0.15
+    },
+    "moonshot/kimi-k2-0905-preview": {
+      "inputPer1MUsd": 0.6,
+      "outputPer1MUsd": 2.5,
+      "cacheReadPer1MUsd": 0.15
+    },
+    "moonshot/kimi-k2-thinking": {
+      "inputPer1MUsd": 0.6,
+      "outputPer1MUsd": 2.5,
+      "cacheReadPer1MUsd": 0.15
+    },
+    "moonshot/kimi-k2-thinking-turbo": {
+      "inputPer1MUsd": 1.15,
+      "outputPer1MUsd": 8,
+      "cacheReadPer1MUsd": 0.15
+    },
+    "moonshot/kimi-k2-turbo-preview": {
+      "inputPer1MUsd": 1.15,
+      "outputPer1MUsd": 8,
+      "cacheReadPer1MUsd": 0.15
+    },
+    "moonshot/kimi-latest": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 5,
+      "cacheReadPer1MUsd": 0.15
+    },
+    "moonshot/kimi-latest-128k": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 5,
+      "cacheReadPer1MUsd": 0.15
+    },
+    "moonshot/kimi-latest-32k": {
+      "inputPer1MUsd": 1,
+      "outputPer1MUsd": 3,
+      "cacheReadPer1MUsd": 0.15
+    },
+    "moonshot/kimi-latest-8k": {
+      "inputPer1MUsd": 0.19999999999999998,
+      "outputPer1MUsd": 2,
+      "cacheReadPer1MUsd": 0.15
+    },
+    "moonshot/kimi-thinking-preview": {
+      "inputPer1MUsd": 0.6,
+      "outputPer1MUsd": 2.5,
+      "cacheReadPer1MUsd": 0.15
+    },
+    "moonshot/moonshot-v1-128k-0430": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 5
+    },
+    "moonshot/moonshot-v1-32k-0430": {
+      "inputPer1MUsd": 1,
+      "outputPer1MUsd": 3
+    },
+    "moonshot/moonshot-v1-8k-0430": {
+      "inputPer1MUsd": 0.19999999999999998,
+      "outputPer1MUsd": 2
+    },
+    "o3-deep-research-2025-06-26": {
+      "inputPer1MUsd": 10,
+      "outputPer1MUsd": 40,
+      "cacheReadPer1MUsd": 2.5
+    },
+    "o4-mini-deep-research-2025-06-26": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 8,
+      "cacheReadPer1MUsd": 0.5
+    },
+    "openrouter/anthropic/claude-opus-4": {
+      "inputPer1MUsd": 15,
+      "outputPer1MUsd": 75,
+      "cacheReadPer1MUsd": 1.5,
+      "cacheWritePer1MUsd": 18.75
+    },
+    "openrouter/google/gemini-2.0-flash-001": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.39999999999999997
+    },
+    "replicateopenai/gpt-oss-20b": {
+      "inputPer1MUsd": 0.09,
+      "outputPer1MUsd": 0.36
+    },
+    "rerank-english-v2.0": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "rerank-multilingual-v2.0": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "sambanova/deepseek-r1-distill-llama-70b": {
+      "inputPer1MUsd": 0.7,
+      "outputPer1MUsd": 1.4
+    },
+    "sambanova/deepseek-v3-0324": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 4.5
+    },
+    "sambanova/llama-4-scout-17b-16e-instruct": {
+      "inputPer1MUsd": 0.39999999999999997,
+      "outputPer1MUsd": 0.7
+    },
+    "sambanova/meta-llama-3.1-405b-instruct": {
+      "inputPer1MUsd": 5,
+      "outputPer1MUsd": 10
+    },
+    "sambanova/meta-llama-3.1-8b-instruct": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.19999999999999998
+    },
+    "sambanova/meta-llama-3.2-1b-instruct": {
+      "inputPer1MUsd": 0.04,
+      "outputPer1MUsd": 0.08
+    },
+    "sambanova/meta-llama-3.2-3b-instruct": {
+      "inputPer1MUsd": 0.08,
+      "outputPer1MUsd": 0.16
+    },
+    "sambanova/meta-llama-guard-3-8b": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 0.3
+    },
+    "sambanova/qwen2-audio-7b-instruct": {
+      "inputPer1MUsd": 0.5,
+      "outputPer1MUsd": 100
+    },
+    "sambanova/qwen3-32b": {
+      "inputPer1MUsd": 0.39999999999999997,
+      "outputPer1MUsd": 0.7999999999999999
+    },
+    "sambanova/qwq-32b": {
+      "inputPer1MUsd": 0.5,
+      "outputPer1MUsd": 1
+    },
+    "scaleway/google/gemma-3-27b-it": {
+      "inputPer1MUsd": 0.25,
+      "outputPer1MUsd": 0.5
+    },
+    "scaleway/hcompany/holo2-30b-a3b": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 0.7
+    },
+    "scaleway/mistralai/devstral-2-123b-instruct-2512": {
+      "inputPer1MUsd": 0.39999999999999997,
+      "outputPer1MUsd": 2
+    },
+    "scaleway/mistralai/voxtral-small-24b-2507": {
+      "inputPer1MUsd": 0.15,
+      "outputPer1MUsd": 0.35
+    },
+    "text-moderation-007": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "text-moderation-latest": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "text-moderation-stable": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "together_ai/deepseek-ai/deepseek-r1": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 7
+    },
+    "together_ai/deepseek-ai/deepseek-r1-0528-tput": {
+      "inputPer1MUsd": 0.55,
+      "outputPer1MUsd": 2.1900000000000004
+    },
+    "together_ai/meta-llama/llama-3.3-70b-instruct-turbo-free": {
+      "inputPer1MUsd": 0,
+      "outputPer1MUsd": 0
+    },
+    "together_ai/meta-llama/llama-4-maverick-17b-128e-instruct-fp8": {
+      "inputPer1MUsd": 0.27,
+      "outputPer1MUsd": 0.85
+    },
+    "together_ai/meta-llama/meta-llama-3.1-405b-instruct-turbo": {
+      "inputPer1MUsd": 3.5,
+      "outputPer1MUsd": 3.5
+    },
+    "together_ai/moonshotai/kimi-k2-instruct-0905": {
+      "inputPer1MUsd": 1,
+      "outputPer1MUsd": 3
+    },
+    "together_ai/moonshotai/kimi-k2.5": {
+      "inputPer1MUsd": 0.5,
+      "outputPer1MUsd": 2.8
+    },
+    "together_ai/qwen/qwen3-235b-a22b-fp8-tput": {
+      "inputPer1MUsd": 0.19999999999999998,
+      "outputPer1MUsd": 0.6
+    },
+    "together_ai/qwen/qwen3-235b-a22b-instruct-2507-tput": {
+      "inputPer1MUsd": 0.19999999999999998,
+      "outputPer1MUsd": 6
+    },
+    "together_ai/qwen/qwen3-235b-a22b-thinking-2507": {
+      "inputPer1MUsd": 0.65,
+      "outputPer1MUsd": 3
+    },
+    "twelvelabs.marengo-embed-2-7-v1:0": {
+      "inputPer1MUsd": 70,
+      "outputPer1MUsd": 0
+    },
+    "us.amazon.nova-premier-v1:0": {
+      "inputPer1MUsd": 2.5,
+      "outputPer1MUsd": 12.5
+    },
+    "us.anthropic.claude-3-haiku-20240307-v1:0": {
+      "inputPer1MUsd": 0.25,
+      "outputPer1MUsd": 1.25,
+      "cacheReadPer1MUsd": 0.024999999999999998,
+      "cacheWritePer1MUsd": 0.3125
+    },
+    "us.anthropic.claude-3-sonnet-20240229-v1:0": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15,
+      "cacheReadPer1MUsd": 0.3,
+      "cacheWritePer1MUsd": 3.75
+    },
+    "us.twelvelabs.marengo-embed-2-7-v1:0": {
+      "inputPer1MUsd": 70,
+      "outputPer1MUsd": 0
+    },
+    "vercel_ai_gateway/google/gemini-2.0-flash": {
+      "inputPer1MUsd": 0.15,
+      "outputPer1MUsd": 0.6
+    },
+    "vercel_ai_gateway/google/gemini-2.0-flash-lite": {
+      "inputPer1MUsd": 0.075,
+      "outputPer1MUsd": 0.3
+    },
+    "vertex_ai/claude-3-7-sonnet@20250219": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15,
+      "cacheReadPer1MUsd": 0.3,
+      "cacheWritePer1MUsd": 3.75
+    },
+    "vertex_ai/claude-opus-4": {
+      "inputPer1MUsd": 15,
+      "outputPer1MUsd": 75,
+      "cacheReadPer1MUsd": 1.5,
+      "cacheWritePer1MUsd": 18.75
+    },
+    "vertex_ai/claude-opus-4-1": {
+      "inputPer1MUsd": 15,
+      "outputPer1MUsd": 75,
+      "cacheReadPer1MUsd": 1.5,
+      "cacheWritePer1MUsd": 18.75
+    },
+    "vertex_ai/claude-opus-4-1@20250805": {
+      "inputPer1MUsd": 15,
+      "outputPer1MUsd": 75,
+      "cacheReadPer1MUsd": 1.5,
+      "cacheWritePer1MUsd": 18.75
+    },
+    "vertex_ai/claude-opus-4@20250514": {
+      "inputPer1MUsd": 15,
+      "outputPer1MUsd": 75,
+      "cacheReadPer1MUsd": 1.5,
+      "cacheWritePer1MUsd": 18.75
+    },
+    "vertex_ai/claude-sonnet-4": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15,
+      "cacheReadPer1MUsd": 0.3,
+      "cacheWritePer1MUsd": 3.75
+    },
+    "vertex_ai/claude-sonnet-4@20250514": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15,
+      "cacheReadPer1MUsd": 0.3,
+      "cacheWritePer1MUsd": 3.75
+    },
+    "wandb/deepseek-ai/deepseek-r1-0528": {
+      "inputPer1MUsd": 135000,
+      "outputPer1MUsd": 540000
+    },
+    "wandb/deepseek-ai/deepseek-v3-0324": {
+      "inputPer1MUsd": 114000,
+      "outputPer1MUsd": 275000
+    },
+    "wandb/meta-llama/llama-4-scout-17b-16e-instruct": {
+      "inputPer1MUsd": 17000,
+      "outputPer1MUsd": 66000
+    },
+    "wandb/microsoft/phi-4-mini-instruct": {
+      "inputPer1MUsd": 8000,
+      "outputPer1MUsd": 35000
+    },
+    "wandb/minimaxai/minimax-m2.5": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 1.2
+    },
+    "wandb/moonshotai/kimi-k2-instruct": {
+      "inputPer1MUsd": 0.6,
+      "outputPer1MUsd": 2.5
+    },
+    "wandb/qwen/qwen3-235b-a22b-instruct-2507": {
+      "inputPer1MUsd": 10000,
+      "outputPer1MUsd": 10000
+    },
+    "wandb/qwen/qwen3-235b-a22b-thinking-2507": {
+      "inputPer1MUsd": 10000,
+      "outputPer1MUsd": 10000
+    },
+    "wandb/qwen/qwen3-coder-480b-a35b-instruct": {
+      "inputPer1MUsd": 100000,
+      "outputPer1MUsd": 150000
+    },
+    "wandb/zai-org/glm-4.5": {
+      "inputPer1MUsd": 55000,
+      "outputPer1MUsd": 200000
+    },
+    "xai/grok-2": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 10
+    },
+    "xai/grok-2-1212": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 10
+    },
+    "xai/grok-2-latest": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 10
+    },
+    "xai/grok-2-vision": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 10
+    },
+    "xai/grok-2-vision-1212": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 10
+    },
+    "xai/grok-2-vision-latest": {
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 10
+    },
+    "xai/grok-3": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15,
+      "cacheReadPer1MUsd": 0.75
+    },
+    "xai/grok-3-beta": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15,
+      "cacheReadPer1MUsd": 0.75
+    },
+    "xai/grok-3-fast-beta": {
+      "inputPer1MUsd": 5,
+      "outputPer1MUsd": 25,
+      "cacheReadPer1MUsd": 1.25
+    },
+    "xai/grok-3-fast-latest": {
+      "inputPer1MUsd": 5,
+      "outputPer1MUsd": 25,
+      "cacheReadPer1MUsd": 1.25
+    },
+    "xai/grok-3-latest": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15,
+      "cacheReadPer1MUsd": 0.75
+    },
+    "xai/grok-3-mini": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 0.5,
+      "cacheReadPer1MUsd": 0.075
+    },
+    "xai/grok-3-mini-beta": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 0.5,
+      "cacheReadPer1MUsd": 0.075
+    },
+    "xai/grok-3-mini-fast": {
+      "inputPer1MUsd": 0.6,
+      "outputPer1MUsd": 4,
+      "cacheReadPer1MUsd": 0.15
+    },
+    "xai/grok-3-mini-fast-beta": {
+      "inputPer1MUsd": 0.6,
+      "outputPer1MUsd": 4,
+      "cacheReadPer1MUsd": 0.15
+    },
+    "xai/grok-3-mini-fast-latest": {
+      "inputPer1MUsd": 0.6,
+      "outputPer1MUsd": 4,
+      "cacheReadPer1MUsd": 0.15
+    },
+    "xai/grok-3-mini-latest": {
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 0.5,
+      "cacheReadPer1MUsd": 0.075
+    },
+    "xai/grok-4": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15
+    },
+    "xai/grok-4-0709": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15
+    },
+    "xai/grok-4-1-fast": {
+      "inputPer1MUsd": 0.19999999999999998,
+      "outputPer1MUsd": 0.5,
+      "cacheReadPer1MUsd": 0.049999999999999996
+    },
+    "xai/grok-4-1-fast-non-reasoning": {
+      "inputPer1MUsd": 0.19999999999999998,
+      "outputPer1MUsd": 0.5,
+      "cacheReadPer1MUsd": 0.049999999999999996
+    },
+    "xai/grok-4-1-fast-non-reasoning-latest": {
+      "inputPer1MUsd": 0.19999999999999998,
+      "outputPer1MUsd": 0.5,
+      "cacheReadPer1MUsd": 0.049999999999999996
+    },
+    "xai/grok-4-1-fast-reasoning": {
+      "inputPer1MUsd": 0.19999999999999998,
+      "outputPer1MUsd": 0.5,
+      "cacheReadPer1MUsd": 0.049999999999999996
+    },
+    "xai/grok-4-1-fast-reasoning-latest": {
+      "inputPer1MUsd": 0.19999999999999998,
+      "outputPer1MUsd": 0.5,
+      "cacheReadPer1MUsd": 0.049999999999999996
+    },
+    "xai/grok-4-fast-non-reasoning": {
+      "inputPer1MUsd": 0.19999999999999998,
+      "outputPer1MUsd": 0.5,
+      "cacheReadPer1MUsd": 0.049999999999999996
+    },
+    "xai/grok-4-fast-reasoning": {
+      "inputPer1MUsd": 0.19999999999999998,
+      "outputPer1MUsd": 0.5,
+      "cacheReadPer1MUsd": 0.049999999999999996
+    },
+    "xai/grok-4-latest": {
+      "inputPer1MUsd": 3,
+      "outputPer1MUsd": 15
+    },
+    "xai/grok-beta": {
+      "inputPer1MUsd": 5,
+      "outputPer1MUsd": 15
+    },
+    "xai/grok-vision-beta": {
+      "inputPer1MUsd": 5,
+      "outputPer1MUsd": 15
+    }
+  }
+}

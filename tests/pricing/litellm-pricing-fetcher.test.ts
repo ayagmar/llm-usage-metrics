@@ -814,7 +814,7 @@ describe('LiteLLMPricingFetcher', () => {
               input_cost_per_token: 0.0000005,
               output_cost_per_token: 0.000003,
             },
-            'gemini/gemini-3-pro-preview': {
+            'vertex_ai/gemini-3-pro-preview': {
               input_cost_per_token: 0.000002,
               output_cost_per_token: 0.000012,
             },
@@ -842,12 +842,12 @@ describe('LiteLLMPricingFetcher', () => {
     expect(fetcher.resolveModelAlias('moonshotai.kimi-k2.5')).toBe('moonshot/kimi-k2.5');
     expect(fetcher.resolveModelAlias('gpt-5.3-codex-spark')).toBe('gpt-5.3-codex');
     expect(fetcher.resolveModelAlias('kimi-k2.5-free')).toBe('moonshot/kimi-k2.5');
-    expect(fetcher.resolveModelAlias('gemini-3-pro')).toBe('gemini/gemini-3-pro-preview');
+    expect(fetcher.resolveModelAlias('gemini-3-pro')).toBe('vertex_ai/gemini-3-pro-preview');
     expect(fetcher.resolveModelAlias('antigravity-gemini-3-flash')).toBe(
       'gemini/gemini-3-flash-preview',
     );
     expect(fetcher.resolveModelAlias('antigravity-gemini-3-pro-high')).toBe(
-      'gemini/gemini-3-pro-preview',
+      'vertex_ai/gemini-3-pro-preview',
     );
     expect(fetcher.resolveModelAlias('minimax-m2.1-free')).toBe('openrouter/minimax/minimax-m2.1');
     expect(fetcher.resolveModelAlias('minimax-m2.5-free')).toBe('openrouter/minimax/minimax-m2.5');
@@ -947,7 +947,7 @@ describe('LiteLLMPricingFetcher', () => {
               input_cost_per_token: 0.0000005,
               output_cost_per_token: 0.000003,
             },
-            'gemini/gemini-3-pro-preview': {
+            'vertex_ai/gemini-3-pro-preview': {
               input_cost_per_token: 0.000002,
               output_cost_per_token: 0.000012,
             },
@@ -961,7 +961,7 @@ describe('LiteLLMPricingFetcher', () => {
 
     expect(fetcher.resolveModelAlias('gemini-3-flash-a')).toBe('gemini/gemini-3-flash-preview');
     expect(fetcher.resolveModelAlias('gemini-3-flash')).toBe('gemini/gemini-3-flash-preview');
-    expect(fetcher.resolveModelAlias('gemini-3-pro-a')).toBe('gemini/gemini-3-pro-preview');
+    expect(fetcher.resolveModelAlias('gemini-3-pro-a')).toBe('vertex_ai/gemini-3-pro-preview');
 
     expect(fetcher.getPricing('gemini-3-flash-a')?.inputPer1MUsd).toBeCloseTo(0.5, 10);
     expect(fetcher.getPricing('gemini-3-flash')?.outputPer1MUsd).toBeCloseTo(3, 10);
