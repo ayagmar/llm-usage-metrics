@@ -94,20 +94,31 @@ function metric(result: Awaited<ReturnType<typeof buildCompareData>>, key: strin
 }
 
 describe('resolveCompareWindows', () => {
-  it('defaults to current and previous calendar month across a year boundary', () => {
+  it('defaults to month-to-date against the same days of the previous month', () => {
     const windows = resolveCompareWindows({}, 'UTC', new Date('2026-01-15T12:00:00.000Z'));
 
     expect(windows.current).toEqual({
       since: '2026-01-01',
-      until: '2026-01-31',
-      label: '2026-01',
+      until: '2026-01-15',
+      label: '2026-01-01 to 2026-01-15',
     });
     expect(windows.baseline).toEqual({
       since: '2025-12-01',
-      until: '2025-12-31',
-      label: '2025-12',
+      until: '2025-12-15',
+      label: '2025-12-01 to 2025-12-15',
     });
-    expect(windows.combined).toEqual({ since: '2025-12-01', until: '2026-01-31' });
+    expect(windows.combined).toEqual({ since: '2025-12-01', until: '2026-01-15' });
+  });
+
+  it('clamps the default baseline to the end of a shorter previous month', () => {
+    const windows = resolveCompareWindows({}, 'UTC', new Date('2026-03-31T12:00:00.000Z'));
+
+    expect(windows.current).toEqual({ since: '2026-03-01', until: '2026-03-31', label: '2026-03' });
+    expect(windows.baseline).toEqual({
+      since: '2026-02-01',
+      until: '2026-02-28',
+      label: '2026-02',
+    });
   });
 
   it('resolves an explicit range against the preceding equal-length range', () => {

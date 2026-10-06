@@ -110,7 +110,22 @@ function createRange(since: string, until: string): CompareWindowRange {
 
 function createDefaultCurrentWindow(timezone: string, now: Date): CompareWindowRange {
   const currentDate = getCurrentLocalDateKey(timezone, now);
-  return createRange(getMonthStart(currentDate), getMonthEnd(currentDate));
+  return createRange(getMonthStart(currentDate), currentDate);
+}
+
+/**
+ * The default baseline covers the same days of the previous month as the month-to-date
+ * current window (clamped to that month's last day), so a partial month is never
+ * compared against a full one.
+ */
+function createPreviousMonthToDateWindow(current: CompareWindowRange): CompareWindowRange {
+  const previousMonth = getPreviousMonthRange(current.since);
+  const { day } = parseDateKey(current.until);
+  const { year, month } = parseDateKey(previousMonth.since);
+  const sameDayKey = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const until = sameDayKey < previousMonth.until ? sameDayKey : previousMonth.until;
+
+  return createRange(previousMonth.since, until);
 }
 
 function createPreviousSameLengthWindow(current: CompareWindowRange): CompareWindowRange {
@@ -169,7 +184,7 @@ export function resolveCompareWindows(
       ? createRange(options.vsSince, options.vsUntil)
       : options.since && options.until
         ? createPreviousSameLengthWindow(current)
-        : getPreviousMonthRange(current.since);
+        : createPreviousMonthToDateWindow(current);
 
   return {
     current,

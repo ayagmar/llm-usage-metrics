@@ -69,7 +69,7 @@ Common examples:
 # A chosen calendar range
 llm-usage monthly --since 2026-06-01 --until 2026-06-30
 
-# Current local month compared with the previous month
+# Current month to date compared with the same days of the previous month
 llm-usage compare
 
 # Ten highest-cost conversations
