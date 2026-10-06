@@ -57,6 +57,54 @@ describe('litellm model matching', () => {
     );
   });
 
+  it('prefers the first-party provider over resellers for provider-prefixed keys', () => {
+    const pricingByModel = createPricingMap([
+      'azure_ai/deepseek-v3.2',
+      'deepseek/deepseek-v3.2',
+      'openrouter/deepseek/deepseek-v3.2',
+      'sambanova/deepseek-v3.2',
+    ]);
+
+    expect(resolveCanonicalModelKey(normalizeKey('deepseek-v3.2'), pricingByModel)).toBe(
+      'deepseek/deepseek-v3.2',
+    );
+  });
+
+  it('prefers list-price clouds over resellers, then keys defining more rates', () => {
+    const cloudOverReseller = createPricingMap([
+      'deepinfra/anthropic/claude-x',
+      'vertex_ai/claude-x',
+    ]);
+    const moreRates = new Map<string, ModelPricing>([
+      ['novita/zai-org/glm-4.7', pricing],
+      ['baseten/zai-org/glm-4.7', { ...pricing, cacheReadPer1MUsd: 0.1 }],
+    ]);
+
+    expect(resolveCanonicalModelKey(normalizeKey('claude-x'), cloudOverReseller)).toBe(
+      'vertex_ai/claude-x',
+    );
+    expect(resolveCanonicalModelKey(normalizeKey('glm-4.7'), moreRates)).toBe(
+      'baseten/zai-org/glm-4.7',
+    );
+  });
+
+  it('bridges release suffixes but not variants or minor versions in prefix matches', () => {
+    const pricingByModel = createPricingMap(['gpt-5-codex', 'claude-fable-5', 'claude-sonnet-4-5']);
+
+    expect(
+      resolveCanonicalModelKey(normalizeKey('claude-sonnet-4-5-20250929'), pricingByModel),
+    ).toBe('claude-sonnet-4-5');
+    expect(
+      resolveCanonicalModelKey(normalizeKey('claude-sonnet-4-5@20250929'), pricingByModel),
+    ).toBe('claude-sonnet-4-5');
+    expect(resolveCanonicalModelKey(normalizeKey('gpt-5-codex-mini'), pricingByModel)).toBe(
+      undefined,
+    );
+    expect(resolveCanonicalModelKey(normalizeKey('claude-fable-5-1'), pricingByModel)).toBe(
+      undefined,
+    );
+  });
+
   it('matches fuzzy model names when numeric signatures are compatible', () => {
     const pricingByModel = createPricingMap(['gpt-5.2-codex']);
 
