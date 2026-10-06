@@ -11,7 +11,9 @@ import {
   asTrimmedText,
   hasPositiveUsageOrCostSignal,
   normalizeTimestampCandidate,
+  splitPromptIncludingCachedTokens,
   toNumberLike,
+  toTokenCount,
 } from '../parsing-utils.js';
 import type { SourceParseFileDiagnostics } from '../source-adapter.js';
 
@@ -126,12 +128,30 @@ function extractCostUsd(usage: Record<string, unknown>): NumberLike {
 }
 
 function extractUsageFromRecord(usage: Record<string, unknown>): OpenClawUsageExtract | undefined {
+  const cacheReadTokens =
+    toNumberLike(usage.cacheRead) ??
+    toNumberLike(usage.cache_read) ??
+    toNumberLike(usage.cacheReadTokens) ??
+    toNumberLike(usage.cache_read_tokens) ??
+    toNumberLike(usage.cached) ??
+    toNumberLike(usage.cached_input_tokens);
+  const namedInputTokens =
+    toNumberLike(usage.input) ??
+    toNumberLike(usage.inputTokens) ??
+    toNumberLike(usage.input_tokens);
+  const promptTokens =
+    namedInputTokens === undefined ? toNumberLike(usage.prompt_tokens) : undefined;
+  // The named input keys follow the pi usage shape, which already excludes cache reads.
+  // Chat Completions `prompt_tokens` includes cached input, so split it out.
+  const inputTokens =
+    namedInputTokens ??
+    (promptTokens === undefined
+      ? undefined
+      : splitPromptIncludingCachedTokens(toTokenCount(promptTokens), toTokenCount(cacheReadTokens))
+          .inputTokens);
+
   const extracted: OpenClawUsageExtract = {
-    inputTokens:
-      toNumberLike(usage.input) ??
-      toNumberLike(usage.inputTokens) ??
-      toNumberLike(usage.input_tokens) ??
-      toNumberLike(usage.prompt_tokens),
+    inputTokens,
     outputTokens:
       toNumberLike(usage.output) ??
       toNumberLike(usage.outputTokens) ??
@@ -143,13 +163,7 @@ function extractUsageFromRecord(usage: Record<string, unknown>): OpenClawUsageEx
       toNumberLike(usage.reasoning_tokens) ??
       toNumberLike(usage.reasoningOutput) ??
       toNumberLike(usage.reasoning_output_tokens),
-    cacheReadTokens:
-      toNumberLike(usage.cacheRead) ??
-      toNumberLike(usage.cache_read) ??
-      toNumberLike(usage.cacheReadTokens) ??
-      toNumberLike(usage.cache_read_tokens) ??
-      toNumberLike(usage.cached) ??
-      toNumberLike(usage.cached_input_tokens),
+    cacheReadTokens,
     cacheWriteTokens:
       toNumberLike(usage.cacheWrite) ??
       toNumberLike(usage.cache_write) ??

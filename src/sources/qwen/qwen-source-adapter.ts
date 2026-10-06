@@ -13,6 +13,7 @@ import {
   isBlankText,
   normalizeTimestampCandidate,
   resolveTotalTokens,
+  splitPromptIncludingCachedTokens,
   toTokenCount,
 } from '../parsing-utils.js';
 import type {
@@ -46,15 +47,27 @@ function extractTokenUsage(
     return null;
   }
 
-  const inputTokens = toTokenCount(usageMetadata.promptTokenCount);
-  const outputTokens = toTokenCount(usageMetadata.candidatesTokenCount);
+  const promptTokens = toTokenCount(usageMetadata.promptTokenCount);
+  const candidatesTokens = toTokenCount(usageMetadata.candidatesTokenCount);
   const reasoningTokens = toTokenCount(usageMetadata.thoughtsTokenCount);
-  const cacheReadTokens = toTokenCount(usageMetadata.cachedContentTokenCount);
+  const cachedTokens = toTokenCount(usageMetadata.cachedContentTokenCount);
   const cacheWriteTokens = 0;
   const declaredTotalTokens = toTokenCount(usageMetadata.totalTokenCount);
 
-  const componentTotalTokens =
-    inputTokens + outputTokens + reasoningTokens + cacheReadTokens + cacheWriteTokens;
+  // Qwen Code stores Gemini-shaped usageMetadata for every provider: promptTokenCount
+  // always includes cached input. OpenAI/Anthropic-backed models report reasoning inside
+  // candidatesTokenCount (total = prompt + candidates), while Gemini-native responses
+  // report thoughts outside it (total = prompt + candidates + thoughts). Thoughts are
+  // billed as output, so only the latter adds them to output.
+  const { inputTokens, cacheReadTokens } = splitPromptIncludingCachedTokens(
+    promptTokens,
+    cachedTokens,
+  );
+  const thoughtsOutsideCandidates =
+    reasoningTokens > 0 && declaredTotalTokens >= promptTokens + candidatesTokens + reasoningTokens;
+  const outputTokens = candidatesTokens + (thoughtsOutsideCandidates ? reasoningTokens : 0);
+
+  const componentTotalTokens = inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens;
 
   if (resolveTotalTokens(declaredTotalTokens, componentTotalTokens) === 0) {
     return null;
@@ -89,6 +102,7 @@ function getFallbackSessionId(filePath: string): string {
 
 export class QwenSourceAdapter implements SourceAdapter {
   public readonly id = 'qwen' as const;
+  public readonly parserVersion = 2;
 
   private readonly projectsDir: string;
   private readonly requireDir: boolean;

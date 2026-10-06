@@ -19,7 +19,7 @@
         "thoughts": 25,
         "cached": 10,
         "tool": 5,
-        "total": 190
+        "total": 180
       }
     },
     {
@@ -32,7 +32,7 @@
         "thoughts": 50,
         "cached": 20,
         "tool": 10,
-        "total": 380
+        "total": 360
       }
     }
   ]

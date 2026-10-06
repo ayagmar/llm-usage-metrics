@@ -61,6 +61,27 @@ export function hasPositiveUsageOrCostSignal(
   return hasPositiveUsageSignal || hasPositiveCostSignal;
 }
 
+export type SplitPromptTokens = {
+  inputTokens: number;
+  cacheReadTokens: number;
+};
+
+/**
+ * Splits a prompt count that already includes cached input (OpenAI `prompt_tokens` and
+ * Responses `input_tokens`, Gemini `promptTokenCount`) into uncached input plus cache
+ * reads. Reports and estimated pricing treat the two buckets as disjoint, so passing the
+ * raw prompt count alongside the cached count would bill cache reads twice.
+ */
+export function splitPromptIncludingCachedTokens(
+  promptTokens: number,
+  cachedTokens: number,
+): SplitPromptTokens {
+  return {
+    inputTokens: Math.max(0, promptTokens - cachedTokens),
+    cacheReadTokens: cachedTokens,
+  };
+}
+
 export function resolveTotalTokens(declaredTotal: number, componentTotal: number): number {
   if (declaredTotal > 0) {
     return declaredTotal;

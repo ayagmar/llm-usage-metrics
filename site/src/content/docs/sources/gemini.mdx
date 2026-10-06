@@ -20,8 +20,9 @@ llm-usage daily --source-dir gemini=/path/to/.gemini
 - each file is a single JSON session object
 - only `message.type === "gemini"` rows with token usage are emitted
 - token mapping:
-  - `tokens.input + tokens.tool` → `inputTokens`
-  - `tokens.output` → `outputTokens`
-  - `tokens.thoughts` → `reasoningTokens`
+  - `tokens.input - tokens.cached + tokens.tool` → `inputTokens` (Gemini's `input` already includes cached input)
+  - `tokens.output + tokens.thoughts` → `outputTokens` (thinking tokens are billed at the output rate)
+  - `tokens.thoughts` → `reasoningTokens` (a breakdown of output, as for other sources)
   - `tokens.cached` → `cacheReadTokens`
+  - `tokens.total` → `totalTokens` when present
 - `repoRoot` is resolved from `~/.gemini/projects.json` when available

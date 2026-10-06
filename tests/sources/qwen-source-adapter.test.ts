@@ -96,12 +96,13 @@ describe('QwenSourceAdapter', () => {
       sessionId: 'qwen-session-1',
       timestamp: '2026-03-01T10:00:00.000Z',
       model: 'qwen3-coder',
-      inputTokens: 100,
+      // OpenAI-compatible usage: prompt includes cached, candidates include thoughts.
+      inputTokens: 95,
       outputTokens: 40,
       reasoningTokens: 15,
       cacheReadTokens: 5,
       cacheWriteTokens: 0,
-      totalTokens: 160,
+      totalTokens: 140,
       costMode: 'estimated',
     });
     expect(result.events[0]?.provider).toBeUndefined();
@@ -125,6 +126,39 @@ describe('QwenSourceAdapter', () => {
       { reason: 'invalid_timestamp', count: 1 },
       { reason: 'no_token_usage', count: 1 },
     ]);
+  });
+
+  it('adds thoughts to output when Gemini-native usage reports them outside candidates', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'qwen-gemini-native-'));
+    tempDirs.push(tempDir);
+    const filePath = path.join(tempDir, 'native.jsonl');
+    await writeFile(
+      filePath,
+      `${JSON.stringify({
+        type: 'assistant',
+        model: 'gemini-2.5-pro',
+        timestamp: '2026-03-01T10:00:00.000Z',
+        sessionId: 'qwen-gemini-native',
+        usageMetadata: {
+          promptTokenCount: 100,
+          candidatesTokenCount: 40,
+          thoughtsTokenCount: 15,
+          cachedContentTokenCount: 30,
+          totalTokenCount: 155,
+        },
+      })}\n`,
+      'utf8',
+    );
+
+    const events = await new QwenSourceAdapter().parseFile(filePath);
+
+    expect(events[0]).toMatchObject({
+      inputTokens: 70,
+      outputTokens: 55,
+      reasoningTokens: 15,
+      cacheReadTokens: 30,
+      totalTokens: 155,
+    });
   });
 
   it('reports malformed JSONL lines that pass its prefilter', async () => {

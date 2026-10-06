@@ -23,4 +23,4 @@ The adapter does not read `QWEN_DATA_DIR` in this release; use `--qwen-dir` for 
 
 ## Parsing notes
 
-The adapter reads Qwen CLI JSONL chat rows. Assistant rows with `usageMetadata` become usage events: `promptTokenCount` maps to input, `candidatesTokenCount` to output, `thoughtsTokenCount` to reasoning, `cachedContentTokenCount` to cache read, and `totalTokenCount` to the declared total when present.
+The adapter reads Qwen CLI JSONL chat rows. Assistant rows with `usageMetadata` become usage events: `promptTokenCount` minus `cachedContentTokenCount` maps to input (Qwen Code's prompt count always includes cached input), `cachedContentTokenCount` to cache read, `candidatesTokenCount` to output, `thoughtsTokenCount` to reasoning, and `totalTokenCount` to the declared total when present. OpenAI- and Anthropic-backed models already count reasoning inside `candidatesTokenCount`; when the declared total shows thoughts reported outside it (Gemini-native responses), thoughts are added to output because they are billed at the output rate.
