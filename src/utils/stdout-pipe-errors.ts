@@ -8,16 +8,17 @@ function isBrokenPipeError(error: unknown): boolean {
 
 /**
  * When a reader closes the pipe early (`llm-usage events | head`), further writes fail
- * with EPIPE. The reader already has all the output it wants, so exit quietly with
- * success instead of crashing with an unhandled stream error.
+ * with EPIPE. The reader already has all the output it wants, so exit quietly instead
+ * of crashing with an unhandled stream error. `process.exit()` without a code keeps any
+ * failure code the command already set.
  */
 export function exitQuietlyOnBrokenPipe(
   stream: ErrorEmitter,
-  exit: (code: number) => void = (code) => process.exit(code),
+  exit: () => void = () => process.exit(),
 ): void {
   stream.on('error', (error) => {
     if (isBrokenPipeError(error)) {
-      exit(0);
+      exit();
       return;
     }
 

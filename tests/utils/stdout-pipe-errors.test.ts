@@ -9,14 +9,14 @@ function createErrnoError(code: string): Error {
 }
 
 describe('exitQuietlyOnBrokenPipe', () => {
-  it('exits with success when the reader closes the pipe', () => {
+  it('exits quietly when the reader closes the pipe', () => {
     const stream = new EventEmitter();
     const exit = vi.fn();
     exitQuietlyOnBrokenPipe(stream, exit);
 
     stream.emit('error', createErrnoError('EPIPE'));
 
-    expect(exit).toHaveBeenCalledWith(0);
+    expect(exit).toHaveBeenCalledOnce();
   });
 
   it('rethrows other stream errors', () => {
