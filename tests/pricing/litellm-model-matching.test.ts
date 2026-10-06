@@ -109,6 +109,18 @@ describe('litellm model matching', () => {
     expect(resolveCanonicalModelKey(normalizeKey('gpt-5-codex-mini'), pricingByModel)).toBe(
       undefined,
     );
+    expect(resolveCanonicalModelKey(normalizeKey('gpt-5-codex-xhigh'), pricingByModel)).toBe(
+      'gpt-5-codex',
+    );
+    expect(
+      resolveCanonicalModelKey(normalizeKey('claude-sonnet-4-5-thinking-high'), pricingByModel),
+    ).toBe('claude-sonnet-4-5');
+    expect(resolveCanonicalModelKey(normalizeKey('gpt-5-codex-thinking'), pricingByModel)).toBe(
+      undefined,
+    );
+    expect(resolveCanonicalModelKey(normalizeKey('gpt-5-codex-max'), pricingByModel)).toBe(
+      undefined,
+    );
     expect(resolveCanonicalModelKey(normalizeKey('claude-fable-5-1'), pricingByModel)).toBe(
       undefined,
     );

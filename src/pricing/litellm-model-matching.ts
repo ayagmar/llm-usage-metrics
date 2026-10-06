@@ -84,9 +84,10 @@ function canonicalizeForFuzzy(value: string): string {
 }
 
 // Release suffixes that leave the priced model unchanged: dates and snapshot ids
-// (-20250929, -2025-09-29, -0613), -latest, Vertex @versions and Bedrock :n / -vN:n.
-// Variant words (-mini, -flash) and minor versions (-1) name a different model, so
-// prefix matching must not bridge them. The suffix is split into separator-led
+// (-20250929, -2025-09-29, -0613), -latest, Vertex @versions, Bedrock :n / -vN:n, and
+// reasoning-effort labels that harnesses append (-low ... -xhigh, Claude's -thinking).
+// Variant words (-mini, -flash, -max) and minor versions (-1) name a different model,
+// so prefix matching must not bridge them. The suffix is split into separator-led
 // segments and each is checked on its own, which keeps matching linear in its length.
 const ISO_DATE_SEGMENT_PATTERN = /-(\d{4})-(\d{2})-(\d{2})(?=$|[-@:])/gu;
 const SUFFIX_SEGMENT_PATTERN = /[-@:][^-@:]*/gu;
@@ -94,14 +95,18 @@ const RELEASE_SEGMENT_PATTERNS = [
   /^-\d{4}$/u,
   /^-\d{8}$/u,
   /^-latest$/u,
+  /^-(?:minimal|low|medium|high|xhigh)$/u,
   /^@[a-z0-9.]+$/u,
   /^:\d+$/u,
   /^:latest$/u,
 ];
 const BEDROCK_VERSION_SEGMENT_PATTERN = /^-v\d+$/u;
 const BEDROCK_REVISION_SEGMENT_PATTERN = /^:\d+$/u;
+// Claude prices extended thinking like any other output; other families (e.g.
+// kimi-k2-thinking) ship -thinking as a separately priced model.
+const CLAUDE_THINKING_SEGMENT = '-thinking';
 
-function isReleaseSuffix(suffix: string): boolean {
+function isReleaseSuffix(suffix: string, modelName: string): boolean {
   if (!/^[-@:]/u.test(suffix)) {
     return false;
   }
@@ -112,6 +117,8 @@ function isReleaseSuffix(suffix: string): boolean {
   return segments.every(
     (segment, index) =>
       RELEASE_SEGMENT_PATTERNS.some((pattern) => pattern.test(segment)) ||
+      (segment === CLAUDE_THINKING_SEGMENT &&
+        stripProviderPrefix(modelName).startsWith('claude')) ||
       (BEDROCK_VERSION_SEGMENT_PATTERN.test(segment) &&
         BEDROCK_REVISION_SEGMENT_PATTERN.test(segments[index + 1] ?? '')),
   );
@@ -124,7 +131,7 @@ function isPrefixModelMatch(candidate: string, modelName: string): boolean {
   if (candidate.length === modelName.length) {
     return true;
   }
-  return isReleaseSuffix(candidate.slice(modelName.length));
+  return isReleaseSuffix(candidate.slice(modelName.length), modelName);
 }
 
 // Providers that publish their own list prices, then clouds that resell at list price.
