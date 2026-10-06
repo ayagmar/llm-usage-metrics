@@ -359,6 +359,62 @@ describe('ClaudeSourceAdapter', () => {
     expect(events[0]).toMatchObject({ outputTokens: 6, totalTokens: 16 });
   });
 
+  it('skips rows a forked subagent replayed from its parent transcript', async () => {
+    const projectsDir = await mkdtemp(path.join(os.tmpdir(), 'claude-fork-replay-'));
+    tempDirs.push(projectsDir);
+    const sessionPath = path.join(projectsDir, 'session-1.jsonl');
+    const subagentsDir = path.join(projectsDir, 'session-1', 'subagents');
+    await mkdir(subagentsDir, { recursive: true });
+
+    const parentRow = assistantRow({ messageId: 'msg_parent', requestId: 'req_parent' });
+    const childRow = (messageId: string) =>
+      assistantRow({ messageId, requestId: `req_${messageId}`, uuid: messageId });
+
+    await writeFile(sessionPath, parentRow, 'utf8');
+    // Main-thread fork: parent is the session transcript.
+    await writeFile(
+      path.join(subagentsDir, 'agent-a1.jsonl'),
+      [parentRow, childRow('msg_a1')].join('\n'),
+      'utf8',
+    );
+    await writeFile(
+      path.join(subagentsDir, 'agent-a1.meta.json'),
+      JSON.stringify({ agentType: 'fork', isFork: true }),
+      'utf8',
+    );
+    // Nested fork: parent is another subagent, whose replayed rows are skipped too.
+    await writeFile(
+      path.join(subagentsDir, 'agent-a2.jsonl'),
+      [parentRow, childRow('msg_a1'), childRow('msg_a2')].join('\n'),
+      'utf8',
+    );
+    await writeFile(
+      path.join(subagentsDir, 'agent-a2.meta.json'),
+      JSON.stringify({ agentType: 'fork', isFork: true, parentAgentId: 'a1' }),
+      'utf8',
+    );
+    // A fresh (non-fork) subagent keeps every row.
+    await writeFile(path.join(subagentsDir, 'agent-a3.jsonl'), parentRow, 'utf8');
+    await writeFile(
+      path.join(subagentsDir, 'agent-a3.meta.json'),
+      JSON.stringify({ agentType: 'general-purpose' }),
+      'utf8',
+    );
+
+    const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
+    const countEvents = async (fileName: string) =>
+      (await adapter.parseFile(path.join(subagentsDir, fileName))).length;
+
+    expect(await countEvents('agent-a1.jsonl')).toBe(1);
+    expect(await countEvents('agent-a2.jsonl')).toBe(1);
+    expect(await countEvents('agent-a3.jsonl')).toBe(1);
+    expect(await adapter.getParseDependencies(path.join(subagentsDir, 'agent-a2.jsonl'))).toEqual([
+      path.join(subagentsDir, 'agent-a2.meta.json'),
+      path.join(subagentsDir, 'agent-a1.jsonl'),
+    ]);
+    expect(await adapter.getParseDependencies(sessionPath)).toEqual([]);
+  });
+
   it('counts retries with the same message id but different request ids separately', async () => {
     const projectsDir = await mkdtemp(path.join(os.tmpdir(), 'claude-retry-dedup-'));
     tempDirs.push(projectsDir);

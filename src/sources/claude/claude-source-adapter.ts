@@ -10,6 +10,12 @@ import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
 import { discoverFilesAcrossRoots, resolveRootDirs } from '../multi-root-discovery.js';
+import {
+  getClaudeMessageKey,
+  getClaudeSubagentMetaPath,
+  readClaudeMessageKeys,
+  resolveClaudeForkParentPath,
+} from './claude-fork-transcript.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
 import { asTrimmedText, normalizeTimestampCandidate, toNumberLike } from '../parsing-utils.js';
 import type {
@@ -101,14 +107,12 @@ function createDedupKey(
   timestamp: string,
   model: string | undefined,
 ): string {
-  const messageId = asTrimmedText(message.id);
+  // Streamed duplicates (same messageId + requestId) collapse while retried
+  // requests, which reuse the message id under a fresh requestId, count separately.
+  const messageKey = getClaudeMessageKey(line, message);
 
-  if (messageId) {
-    // Retries reuse the message id under a fresh requestId, so key on both:
-    // streamed duplicates (same messageId + requestId) still collapse while
-    // retried requests count separately.
-    const requestId = asTrimmedText(line.requestId) ?? asTrimmedText(line.request_id) ?? '';
-    return `${filePath}\0${messageId}\0${requestId}`;
+  if (messageKey) {
+    return `${filePath}\0${messageKey}`;
   }
 
   const uuid = asTrimmedText(line.uuid);
@@ -134,6 +138,7 @@ function comparePendingEvents(left: ClaudePendingEvent, right: ClaudePendingEven
 
 export class ClaudeSourceAdapter implements SourceAdapter {
   public readonly id = 'claude' as const;
+  public readonly parserVersion = 2;
 
   private readonly rootDirs: readonly string[];
   private readonly requireDir: boolean;
@@ -157,7 +162,23 @@ export class ClaudeSourceAdapter implements SourceAdapter {
     return events;
   }
 
+  public async getParseDependencies(filePath: string): Promise<string[]> {
+    const metaPath = getClaudeSubagentMetaPath(filePath);
+
+    if (!metaPath) {
+      return [];
+    }
+
+    const forkParentPath = await resolveClaudeForkParentPath(filePath);
+    return forkParentPath ? [metaPath, forkParentPath] : [metaPath];
+  }
+
   public async parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
+    const forkParentPath = await resolveClaudeForkParentPath(filePath);
+    // Rows a forked subagent replayed from its parent are counted in the parent transcript.
+    const parentMessageKeys = forkParentPath
+      ? await readClaudeMessageKeys(forkParentPath)
+      : new Set<string>();
     const eventsByDedupKey = new Map<string, ClaudePendingEvent>();
     let skippedRows = 0;
     let sequence = 0;
@@ -187,6 +208,12 @@ export class ClaudeSourceAdapter implements SourceAdapter {
       if (model === '<synthetic>') {
         skippedRows++;
         incrementSkippedReason(skippedRowReasons, 'synthetic_message');
+        continue;
+      }
+
+      const messageKey = getClaudeMessageKey(line, message);
+
+      if (messageKey && parentMessageKeys.has(messageKey)) {
         continue;
       }
 
