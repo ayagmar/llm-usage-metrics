@@ -558,6 +558,39 @@ describe('aggregate-counterfactual', () => {
     });
   });
 
+  it('prices cache writes at the input rate for candidates without a cache-write rate', () => {
+    const pricing = new StaticPricingSource({
+      pricingByModel: {
+        'gpt-5.2': { inputPer1MUsd: 1, outputPer1MUsd: 2, cacheReadPer1MUsd: 0.1 },
+      },
+    });
+    const usageRows = createUsageRows().map((row) => ({
+      ...row,
+      cacheReadTokens: 1_000_000,
+      cacheWriteTokens: 1_000_000,
+      totalTokens: 3_100_000,
+    }));
+
+    const result = buildCounterfactualRows({
+      usageRows,
+      provider: 'anthropic',
+      candidateModels: ['gpt-5.2'],
+      pricingSource: pricing,
+    });
+
+    const candidateRow = result.rows.find(
+      (row) => row.rowType === 'candidate' && row.periodKey === 'ALL',
+    );
+
+    // 1M input + 1M cache writes at $1, 0.1M output at $2, 1M cache reads at $0.10.
+    expect(candidateRow).toMatchObject({
+      hypotheticalCostUsd: 2.3,
+      hypotheticalCostIncomplete: false,
+      notes: ['cache_write_priced_as_input'],
+    });
+    expect(result.candidatesWithMissingPricing).toEqual([]);
+  });
+
   it('keeps hypothetical cost at zero when a period has no billable buckets and no usage signal', () => {
     const usageRows: UsageReportRow[] = [
       {
