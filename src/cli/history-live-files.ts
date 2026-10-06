@@ -60,7 +60,7 @@ async function mapWithConcurrency<Input, Output>(
 /**
  * History and prune treat stored files the run did not discover as departed. A file
  * that still exists on disk has not departed (discovery was narrowed, e.g. by
- * `--source-dir`), so it is added to the live set: its stored events are neither
+ * `--source-dir`), so it is passed as a present file: its stored events are neither
  * served as history nor offered for pruning.
  */
 export async function addStoredFilesStillOnDisk(
@@ -73,15 +73,15 @@ export async function addStoredFilesStillOnDisk(
   const presence = await mapWithConcurrency(undiscoveredFiles, MAX_CONCURRENT_STATS, (file) =>
     checkDiskPresence(file.filePath, statFile),
   );
-  const liveFiles = undiscoveredFiles.filter(
+  const presentFiles = undiscoveredFiles.filter(
     (_, index) =>
       presence[index] === 'present' ||
       (presence[index] === 'unknown' && options.unverifiable === 'treat-as-live'),
   );
 
-  if (liveFiles.length === 0) {
+  if (presentFiles.length === 0) {
     return input;
   }
 
-  return { ...input, discoveredFiles: [...input.discoveredFiles, ...liveFiles] };
+  return { ...input, presentFiles: [...(input.presentFiles ?? []), ...presentFiles] };
 }

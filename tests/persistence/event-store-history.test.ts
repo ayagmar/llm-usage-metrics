@@ -307,6 +307,34 @@ describe('event-store history', () => {
     }
   });
 
+  it('serves a moved file whose copy is present on disk but not counted by this run', async () => {
+    const store = await createTempStore();
+    const oldPathEvent = createEvent({ sessionId: 'moved-session' });
+    const newPathEvent = createEvent({ sessionId: 'moved-session' });
+
+    try {
+      writeStoredFile(store, { filePath: '/tmp/old.jsonl', events: [oldPathEvent], now: 1_000 });
+      writeStoredFile(store, { filePath: '/tmp/new.jsonl', events: [newPathEvent], now: 2_000 });
+
+      const result = loadHistoryEvents(store, {
+        selectedSources: ['codex'],
+        discoveredFiles: [],
+        presentFiles: [{ source: 'codex', filePath: '/tmp/new.jsonl' }],
+      });
+
+      // The present copy is neither departed nor counted, so it cannot stand in for the
+      // departed file's usage.
+      expect(result).toMatchObject({
+        events: [oldPathEvent],
+        departedFileCount: 1,
+        servedFileCount: 1,
+        suppressedFileCount: 0,
+      });
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
   it('suppresses a moved file after the live copy grows', async () => {
     const store = await createTempStore();
     const oldEvent = createEvent({ sessionId: 'moved-session' });

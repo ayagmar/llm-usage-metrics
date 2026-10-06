@@ -72,19 +72,12 @@ describe('addStoredFilesStillOnDisk', () => {
       const liveFilePaths = async (unverifiable: 'treat-as-departed' | 'treat-as-live') =>
         (
           await addStoredFilesStillOnDisk(store, input, { unverifiable, statFile })
-        ).discoveredFiles.map((file) => file.filePath);
+        ).presentFiles?.map((file) => file.filePath);
 
       // History never hides usage it cannot prove is still on disk.
-      expect(await liveFilePaths('treat-as-departed')).toEqual([
-        '/stored/discovered',
-        '/stored/present',
-      ]);
+      expect(await liveFilePaths('treat-as-departed')).toEqual(['/stored/present']);
       // Prune never deletes files it cannot prove are gone.
-      expect(await liveFilePaths('treat-as-live')).toEqual([
-        '/stored/discovered',
-        '/stored/denied',
-        '/stored/present',
-      ]);
+      expect(await liveFilePaths('treat-as-live')).toEqual(['/stored/denied', '/stored/present']);
     } finally {
       closeEventStore(store);
     }
