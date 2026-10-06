@@ -551,6 +551,57 @@ describe('PiSourceAdapter', () => {
     expect(diagnostics.skippedRowReasons).toEqual([]);
   });
 
+  it('skips parent entries copied into a forked session', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-fork-'));
+    tempDirs.push(root);
+
+    const usageRow = (id: string, timestamp: string) =>
+      JSON.stringify({
+        type: 'message',
+        id,
+        timestamp,
+        message: { role: 'assistant', usage: { input: 10, output: 5, totalTokens: 15 } },
+      });
+    const parentPath = path.join(root, 'parent.jsonl');
+    const forkPath = path.join(root, 'fork.jsonl');
+
+    await writeFile(
+      parentPath,
+      [
+        JSON.stringify({ type: 'session', id: 'parent', timestamp: '2026-02-12T20:00:00.000Z' }),
+        usageRow('a1', '2026-02-12T20:01:00.000Z'),
+        usageRow('a2', '2026-02-12T20:02:00.000Z'),
+      ].join('\n'),
+      'utf8',
+    );
+    await writeFile(
+      forkPath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'fork',
+          timestamp: '2026-02-12T20:05:00.000Z',
+          parentSession: parentPath,
+        }),
+        usageRow('a1', '2026-02-12T20:01:00.000Z'),
+        usageRow('a2', '2026-02-12T20:02:00.000Z'),
+        usageRow('b1', '2026-02-12T20:06:00.000Z'),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new PiSourceAdapter({ dir: root });
+    const parentDiagnostics = await adapter.parseFileWithDiagnostics(parentPath);
+    const forkDiagnostics = await adapter.parseFileWithDiagnostics(forkPath);
+
+    expect(parentDiagnostics.events).toHaveLength(2);
+    expect(forkDiagnostics.events.map((event) => event.timestamp)).toEqual([
+      '2026-02-12T20:06:00.000Z',
+    ]);
+    expect(forkDiagnostics.events[0]?.sessionId).toBe('fork');
+    expect(forkDiagnostics.skippedRows).toBe(0);
+  });
+
   it('reports malformed JSONL lines that pass its prefilter', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-malformed-jsonl-'));
     tempDirs.push(root);

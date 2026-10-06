@@ -30,6 +30,8 @@ const defaultPiRootDirs = [
 type PiSessionState = {
   sessionId?: string;
   sessionTimestamp?: string;
+  /** Set for forked sessions: entries before this instant were copied from the parent. */
+  forkedAtMs?: number;
   repoRoot?: string;
   provider?: string;
   model?: string;
@@ -78,6 +80,15 @@ function resolveTimestamp(
   }
 
   return undefined;
+}
+
+function resolveForkedAtMs(sessionLine: Record<string, unknown>): number | undefined {
+  if (!asTrimmedText(sessionLine.parentSession)) {
+    return undefined;
+  }
+
+  const timestamp = normalizeTimestampCandidate(sessionLine.timestamp);
+  return timestamp ? Date.parse(timestamp) : undefined;
 }
 
 function extractUsageFromRecord(usage: Record<string, unknown>): PiUsageExtract | undefined {
@@ -152,6 +163,7 @@ function resolveRepoRootFromRecord(
 
 export class PiSourceAdapter implements SourceAdapter {
   public readonly id = 'pi' as const;
+  public readonly parserVersion = 2;
 
   private readonly rootDirs: readonly string[];
   private readonly requireDir: boolean;
@@ -192,6 +204,7 @@ export class PiSourceAdapter implements SourceAdapter {
         state.sessionId = asTrimmedText(line.id) ?? state.sessionId;
         state.sessionTimestamp = asTrimmedText(line.timestamp) ?? state.sessionTimestamp;
         state.repoRoot = resolveRepoRootFromRecord(line) ?? state.repoRoot;
+        state.forkedAtMs = resolveForkedAtMs(line) ?? state.forkedAtMs;
         continue;
       }
 
@@ -228,6 +241,12 @@ export class PiSourceAdapter implements SourceAdapter {
       if (!timestamp || !state.sessionId) {
         skippedRows++;
         incrementSkippedReason(skippedRowReasons, 'invalid_timestamp');
+        continue;
+      }
+
+      // A fork copies the parent's entries (same ids and timestamps) ahead of its own;
+      // the parent session file already counts them.
+      if (state.forkedAtMs !== undefined && Date.parse(timestamp) < state.forkedAtMs) {
         continue;
       }
 

@@ -19,3 +19,5 @@ llm-usage daily --source-dir pi=/path/to/pi/sessions
 ## Parsing notes
 
 The adapter reads `session`, `model_change`, and `message` records and extracts token/cost usage from message usage payloads.
+
+Forked sessions start with a copy of the parent's entries, keeping their original ids and timestamps. When a `session` header carries `parentSession`, entries timestamped before the fork are skipped because the parent session file already counts them.
