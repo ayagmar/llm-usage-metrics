@@ -25,7 +25,9 @@ overrides:
   'nanoid@3': 3.3.19
   picomatch: 4.0.4
   postcss: 8.5.28
+  'postcss-nested>postcss-selector-parser': 7.1.6
   smol-toml: 1.9.0
+  source-map-js: 1.2.2
   undici: 6.29.0
   vite: 8.1.0
   yaml: 2.8.3
