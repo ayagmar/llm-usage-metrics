@@ -229,6 +229,7 @@ Optional but recommended:
    - required: `discoverFiles()` and `parseFile(filePath)`
    - optional: `parseFileWithDiagnostics(filePath)` when you need per-file skipped-row counters
    - optional: `getParseDependencies(filePath)` when parsing reads sidecar files (the event store fingerprints them)
+   - optional: `parserVersion` (defaults to 1); bump it whenever the same unchanged file would parse into different events, so stored events are re-parsed
    - for JSONL sources, consider `readJsonlObjects(filePath, { shouldParseLine })` — or the faster byte-level `shouldParseLineBytes` — to skip irrelevant lines before `JSON.parse`
 3. Normalize output through `createUsageEvent`
 4. Add fixture tests under `tests/sources`

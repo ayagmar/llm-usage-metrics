@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -549,6 +549,76 @@ describe('PiSourceAdapter', () => {
     expect(diagnostics.events).toEqual([]);
     expect(diagnostics.skippedRows).toBe(0);
     expect(diagnostics.skippedRowReasons).toEqual([]);
+  });
+
+  it('skips parent entries copied into a forked session', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-fork-'));
+    tempDirs.push(root);
+
+    const usageRow = (id: string, timestamp: string) =>
+      JSON.stringify({
+        type: 'message',
+        id,
+        timestamp,
+        message: { role: 'assistant', usage: { input: 10, output: 5, totalTokens: 15 } },
+      });
+    const parentPath = path.join(root, 'parent.jsonl');
+    const forkPath = path.join(root, 'fork.jsonl');
+
+    await writeFile(
+      parentPath,
+      [
+        JSON.stringify({ type: 'session', id: 'parent', timestamp: '2026-02-12T20:00:00.000Z' }),
+        usageRow('a1', '2026-02-12T20:01:00.000Z'),
+        usageRow('a2', '2026-02-12T20:02:00.000Z'),
+      ].join('\n'),
+      'utf8',
+    );
+    await writeFile(
+      forkPath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'fork',
+          timestamp: '2026-02-12T20:05:00.000Z',
+          parentSession: parentPath,
+        }),
+        usageRow('a1', '2026-02-12T20:01:00.000Z'),
+        usageRow('a2', '2026-02-12T20:02:00.000Z'),
+        usageRow('b1', '2026-02-12T20:06:00.000Z'),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new PiSourceAdapter({ dir: root });
+    const parentDiagnostics = await adapter.parseFileWithDiagnostics(parentPath);
+    const forkDiagnostics = await adapter.parseFileWithDiagnostics(forkPath);
+
+    expect(parentDiagnostics.events).toHaveLength(2);
+    expect(forkDiagnostics.events.map((event) => event.timestamp)).toEqual([
+      '2026-02-12T20:06:00.000Z',
+    ]);
+    expect(forkDiagnostics.events[0]?.sessionId).toBe('fork');
+    expect(forkDiagnostics.skippedRows).toBe(0);
+    expect(await adapter.getParseDependencies(forkPath)).toEqual([parentPath]);
+    expect(await adapter.getParseDependencies(parentPath)).toEqual([]);
+
+    // A scan root that excludes the parent leaves it uncounted, so the copies stay.
+    const forkOnlyDir = path.join(root, 'fork-only');
+    const forkOnlyPath = path.join(forkOnlyDir, 'fork.jsonl');
+    await mkdir(forkOnlyDir);
+    await writeFile(forkOnlyPath, await readFile(forkPath, 'utf8'), 'utf8');
+    const forkOnlyAdapter = new PiSourceAdapter({ dir: forkOnlyDir });
+    expect(await forkOnlyAdapter.parseFile(forkOnlyPath)).toHaveLength(3);
+    expect(await forkOnlyAdapter.getParseDependencies(forkOnlyPath)).toEqual([]);
+
+    // Once the parent is gone, the fork's copies are the only record of that usage.
+    await rm(parentPath);
+    expect((await adapter.parseFile(forkPath)).map((event) => event.timestamp)).toEqual([
+      '2026-02-12T20:01:00.000Z',
+      '2026-02-12T20:02:00.000Z',
+      '2026-02-12T20:06:00.000Z',
+    ]);
   });
 
   it('reports malformed JSONL lines that pass its prefilter', async () => {

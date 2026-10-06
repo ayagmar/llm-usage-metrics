@@ -23,6 +23,12 @@ export type SourceParseFileDiagnostics<Event extends UsageEvent = UsageEvent> = 
 
 export interface SourceAdapter<Event extends UsageEvent = UsageEvent> {
   readonly id: SourceId;
+  /**
+   * Bump whenever parsing the same unchanged file would produce different events
+   * (token mapping, dedup, model resolution). It is part of the event-store cache key,
+   * so a bump re-parses files that were stored by an older parser. Defaults to 1.
+   */
+  readonly parserVersion?: number;
   readonly capabilities?: SourceCapabilities;
   discoverFiles(): Promise<string[]>;
   parseFile(filePath: string): Promise<Event[]>;

@@ -8,8 +8,19 @@ import type { UsageEvent } from '../../domain/usage-event.js';
 import { asRecord } from '../../utils/as-record.js';
 import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
+import { pathStat } from '../../utils/fs-helpers.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
-import { discoverFilesAcrossRoots, resolveRootDirs } from '../multi-root-discovery.js';
+import {
+  discoverFilesAcrossRoots,
+  isPathWithinRoots,
+  resolveRootDirs,
+} from '../multi-root-discovery.js';
+import {
+  getClaudeMessageKey,
+  getClaudeSubagentMetaPath,
+  readClaudeMessageKeys,
+  resolveClaudeForkParentPath,
+} from './claude-fork-transcript.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
 import { asTrimmedText, normalizeTimestampCandidate, toNumberLike } from '../parsing-utils.js';
 import type {
@@ -101,14 +112,12 @@ function createDedupKey(
   timestamp: string,
   model: string | undefined,
 ): string {
-  const messageId = asTrimmedText(message.id);
+  // Streamed duplicates (same messageId + requestId) collapse while retried
+  // requests, which reuse the message id under a fresh requestId, count separately.
+  const messageKey = getClaudeMessageKey(line, message);
 
-  if (messageId) {
-    // Retries reuse the message id under a fresh requestId, so key on both:
-    // streamed duplicates (same messageId + requestId) still collapse while
-    // retried requests count separately.
-    const requestId = asTrimmedText(line.requestId) ?? asTrimmedText(line.request_id) ?? '';
-    return `${filePath}\0${messageId}\0${requestId}`;
+  if (messageKey) {
+    return `${filePath}\0${messageKey}`;
   }
 
   const uuid = asTrimmedText(line.uuid);
@@ -134,9 +143,12 @@ function comparePendingEvents(left: ClaudePendingEvent, right: ClaudePendingEven
 
 export class ClaudeSourceAdapter implements SourceAdapter {
   public readonly id = 'claude' as const;
+  public readonly parserVersion = 2;
 
   private readonly rootDirs: readonly string[];
   private readonly requireDir: boolean;
+  // Sibling forks share a parent; read its message keys once per parent version.
+  private readonly parentMessageKeysByVersion = new Map<string, Promise<Set<string>>>();
 
   public constructor(options: ClaudeSourceAdapterOptions = {}) {
     this.rootDirs = resolveRootDirs(options.dir, options.defaultRootDirs ?? defaultClaudeRootDirs);
@@ -157,7 +169,47 @@ export class ClaudeSourceAdapter implements SourceAdapter {
     return events;
   }
 
+  public async getParseDependencies(filePath: string): Promise<string[]> {
+    const metaPath = getClaudeSubagentMetaPath(filePath);
+
+    if (!metaPath) {
+      return [];
+    }
+
+    // Only a parent this adapter can discover changes the parse result, so the dependency
+    // also keys the cache on whether replayed rows were skipped.
+    const forkParentPath = await resolveClaudeForkParentPath(filePath);
+    return forkParentPath && isPathWithinRoots(forkParentPath, this.rootDirs)
+      ? [metaPath, forkParentPath]
+      : [metaPath];
+  }
+
+  private async readParentMessageKeys(parentPath: string): Promise<Set<string>> {
+    const parentStats = await pathStat(parentPath);
+
+    if (!parentStats) {
+      return new Set();
+    }
+
+    const versionKey = `${parentPath}\0${parentStats.size}\0${parentStats.mtimeMs}`;
+    let messageKeys = this.parentMessageKeysByVersion.get(versionKey);
+
+    if (!messageKeys) {
+      messageKeys = readClaudeMessageKeys(parentPath);
+      this.parentMessageKeysByVersion.set(versionKey, messageKeys);
+    }
+
+    return messageKeys;
+  }
+
   public async parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
+    const forkParentPath = await resolveClaudeForkParentPath(filePath);
+    // Rows a forked subagent replayed from its parent are counted in the parent transcript,
+    // provided this adapter's discovery covers the parent.
+    const parentMessageKeys =
+      forkParentPath && isPathWithinRoots(forkParentPath, this.rootDirs)
+        ? await this.readParentMessageKeys(forkParentPath)
+        : new Set<string>();
     const eventsByDedupKey = new Map<string, ClaudePendingEvent>();
     let skippedRows = 0;
     let sequence = 0;
@@ -187,6 +239,12 @@ export class ClaudeSourceAdapter implements SourceAdapter {
       if (model === '<synthetic>') {
         skippedRows++;
         incrementSkippedReason(skippedRowReasons, 'synthetic_message');
+        continue;
+      }
+
+      const messageKey = getClaudeMessageKey(line, message);
+
+      if (messageKey && parentMessageKeys.has(messageKey)) {
         continue;
       }
 

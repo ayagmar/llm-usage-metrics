@@ -12,6 +12,12 @@ export type EventStoreHistoryDiscoveredFile = {
 export type LoadHistoryEventsInput = {
   selectedSources: readonly string[];
   discoveredFiles: readonly EventStoreHistoryDiscoveredFile[];
+  /**
+   * Stored files that still exist on disk but that this run did not discover (e.g. a
+   * narrowed --source-dir). They have not departed, but this run does not count their
+   * events either, so their content cannot suppress departed files as moved copies.
+   */
+  presentFiles?: readonly EventStoreHistoryDiscoveredFile[];
 };
 
 export type EventStoreHistoryResult = {
@@ -81,6 +87,7 @@ CREATE TEMP TABLE IF NOT EXISTS history_selected_sources (
 CREATE TEMP TABLE IF NOT EXISTS history_discovered_files (
   source TEXT NOT NULL,
   file_path TEXT NOT NULL,
+  counted INTEGER NOT NULL,
   PRIMARY KEY (source, file_path)
 );
 CREATE TEMP TABLE IF NOT EXISTS history_departed_files (
@@ -107,9 +114,10 @@ function writeTempInputs(store: EventStore, input: LoadHistoryEventsInput): Set<
     'INSERT OR IGNORE INTO history_selected_sources (source) VALUES (?)',
   );
   const insertDiscoveredFile = store.database.prepare(
-    ['INSERT OR IGNORE INTO history_discovered_files (source, file_path)', 'VALUES (?, ?)'].join(
-      '\n',
-    ),
+    [
+      'INSERT OR IGNORE INTO history_discovered_files (source, file_path, counted)',
+      'VALUES (?, ?, ?)',
+    ].join('\n'),
   );
 
   for (const source of input.selectedSources) {
@@ -123,18 +131,83 @@ function writeTempInputs(store: EventStore, input: LoadHistoryEventsInput): Set<
     insertSelectedSource.run(normalizedSource);
   }
 
+  const insertLiveFiles = (
+    files: readonly EventStoreHistoryDiscoveredFile[],
+    counted: boolean,
+  ): void => {
+    for (const file of files) {
+      const normalizedSource = normalizeHistorySource(file.source);
+      const normalizedFilePath = normalizeHistoryFilePath(file.filePath);
+
+      if (!normalizedSource || !normalizedFilePath || !selectedSources.has(normalizedSource)) {
+        continue;
+      }
+
+      insertDiscoveredFile.run(normalizedSource, normalizedFilePath, counted ? 1 : 0);
+    }
+  };
+
+  // Discovered files go first so INSERT OR IGNORE keeps them counted.
+  insertLiveFiles(input.discoveredFiles, true);
+  insertLiveFiles(input.presentFiles ?? [], false);
+
+  return selectedSources;
+}
+
+function historyFileKey(source: string, filePath: string): string {
+  return `${source}\0${filePath}`;
+}
+
+/**
+ * Stored files of the selected sources that this run did not discover. Discovery can
+ * miss files that are still on disk (a narrowed `--source-dir`, a different root), so
+ * callers check these before letting history or prune treat them as departed.
+ */
+export function readUndiscoveredStoredFiles(
+  store: EventStore,
+  input: LoadHistoryEventsInput,
+): EventStoreHistoryDiscoveredFile[] {
+  const selectedSources = new Set<string>();
+
+  for (const source of input.selectedSources) {
+    const normalizedSource = normalizeHistorySource(source);
+
+    if (normalizedSource) {
+      selectedSources.add(normalizedSource);
+    }
+  }
+
+  const discoveredKeys = new Set<string>();
+
   for (const discoveredFile of input.discoveredFiles) {
     const normalizedSource = normalizeHistorySource(discoveredFile.source);
     const normalizedFilePath = normalizeHistoryFilePath(discoveredFile.filePath);
 
-    if (!normalizedSource || !normalizedFilePath || !selectedSources.has(normalizedSource)) {
-      continue;
+    if (normalizedSource && normalizedFilePath) {
+      discoveredKeys.add(historyFileKey(normalizedSource, normalizedFilePath));
     }
-
-    insertDiscoveredFile.run(normalizedSource, normalizedFilePath);
   }
 
-  return selectedSources;
+  const rows = store.database
+    .prepare('SELECT source, file_path FROM files ORDER BY source ASC, file_path ASC')
+    .all();
+  const undiscoveredFiles: EventStoreHistoryDiscoveredFile[] = [];
+
+  for (const row of rows) {
+    const source = toText(row.source);
+    const filePath = toText(row.file_path);
+
+    if (
+      source &&
+      filePath &&
+      selectedSources.has(source) &&
+      !discoveredKeys.has(historyFileKey(source, filePath))
+    ) {
+      undiscoveredFiles.push({ source, filePath });
+    }
+  }
+
+  return undiscoveredFiles;
 }
 
 function addHashCount(target: Map<string, number>, hash: string, count: number): void {
@@ -154,7 +227,8 @@ function readLiveHashCounts(store: EventStore): Map<string, number> {
         'JOIN history_selected_sources AS selected',
         '  ON discovered.source = selected.source',
         'CROSS JOIN events',
-        'WHERE events.source = discovered.source',
+        'WHERE discovered.counted = 1',
+        '  AND events.source = discovered.source',
         '  AND events.file_path = discovered.file_path',
         '  AND events.content_hash IS NOT NULL',
         'GROUP BY events.content_hash',

@@ -83,6 +83,47 @@ function canonicalizeForFuzzy(value: string): string {
   return value.replace(/[^a-z0-9]/gu, '');
 }
 
+// Release suffixes that leave the priced model unchanged: dates and snapshot ids
+// (-20250929, -2025-09-29, -0613), -latest, Vertex @versions, Bedrock :n / -vN:n, and
+// reasoning-effort labels that harnesses append (-low ... -xhigh, Claude's -thinking).
+// Variant words (-mini, -flash, -max) and minor versions (-1) name a different model,
+// so prefix matching must not bridge them. The suffix is split into separator-led
+// segments and each is checked on its own, which keeps matching linear in its length.
+const ISO_DATE_SEGMENT_PATTERN = /-(\d{4})-(\d{2})-(\d{2})(?=$|[-@:])/gu;
+const SUFFIX_SEGMENT_PATTERN = /[-@:][^-@:]*/gu;
+const RELEASE_SEGMENT_PATTERNS = [
+  /^-\d{4}$/u,
+  /^-\d{8}$/u,
+  /^-latest$/u,
+  /^-(?:minimal|low|medium|high|xhigh)$/u,
+  /^@[a-z0-9.]+$/u,
+  /^:\d+$/u,
+  /^:latest$/u,
+];
+const BEDROCK_VERSION_SEGMENT_PATTERN = /^-v\d+$/u;
+const BEDROCK_REVISION_SEGMENT_PATTERN = /^:\d+$/u;
+// Claude prices extended thinking like any other output; other families (e.g.
+// kimi-k2-thinking) ship -thinking as a separately priced model.
+const CLAUDE_THINKING_SEGMENT = '-thinking';
+
+function isReleaseSuffix(suffix: string, modelName: string): boolean {
+  if (!/^[-@:]/u.test(suffix)) {
+    return false;
+  }
+
+  const segments =
+    suffix.replace(ISO_DATE_SEGMENT_PATTERN, '-$1$2$3').match(SUFFIX_SEGMENT_PATTERN) ?? [];
+
+  return segments.every(
+    (segment, index) =>
+      RELEASE_SEGMENT_PATTERNS.some((pattern) => pattern.test(segment)) ||
+      (segment === CLAUDE_THINKING_SEGMENT &&
+        stripProviderPrefix(modelName).startsWith('claude')) ||
+      (BEDROCK_VERSION_SEGMENT_PATTERN.test(segment) &&
+        BEDROCK_REVISION_SEGMENT_PATTERN.test(segments[index + 1] ?? '')),
+  );
+}
+
 function isPrefixModelMatch(candidate: string, modelName: string): boolean {
   if (!candidate.startsWith(modelName)) {
     return false;
@@ -90,8 +131,56 @@ function isPrefixModelMatch(candidate: string, modelName: string): boolean {
   if (candidate.length === modelName.length) {
     return true;
   }
-  const nextCharacter = candidate[modelName.length];
-  return nextCharacter === '-' || nextCharacter === ':' || nextCharacter === '@';
+  return isReleaseSuffix(candidate.slice(modelName.length), modelName);
+}
+
+// Providers that publish their own list prices, then clouds that resell at list price.
+// Everything else (aggregators, inference resellers) can carry markups or omit rates.
+const FIRST_PARTY_PRICING_PROVIDERS = new Set([
+  'anthropic',
+  'cohere',
+  'dashscope',
+  'deepseek',
+  'gemini',
+  'minimax',
+  'mistral',
+  'moonshot',
+  'openai',
+  'perplexity',
+  'xai',
+  'zai',
+]);
+const CLOUD_PRICING_PROVIDERS = new Set(['azure', 'azure_ai', 'bedrock', 'vertex_ai']);
+
+function getProviderPrefixedKeyRank(modelName: string, candidate: string): number {
+  const prefix = modelName.slice(0, modelName.length - candidate.length - 1);
+  const slashIndex = prefix.indexOf('/');
+
+  if (slashIndex === -1 && modelName[prefix.length] === '.') {
+    // Dotted keys (`anthropic.claude-…`, `zai.glm-…`) are Bedrock model ids.
+    return 1;
+  }
+
+  const provider = slashIndex === -1 ? prefix : prefix.slice(0, slashIndex);
+
+  if (FIRST_PARTY_PRICING_PROVIDERS.has(provider)) {
+    return 0;
+  }
+
+  return CLOUD_PRICING_PROVIDERS.has(provider) ? 1 : 2;
+}
+
+function countDefinedRates(pricing: ModelPricing | undefined): number {
+  if (!pricing) {
+    return 0;
+  }
+
+  return [
+    pricing.inputPer1MUsd,
+    pricing.outputPer1MUsd,
+    pricing.cacheReadPer1MUsd,
+    pricing.cacheWritePer1MUsd,
+  ].filter((rate) => rate !== undefined).length;
 }
 
 function extractNumericTokens(value: string): string[] {
@@ -215,24 +304,27 @@ function resolveProviderPrefixedModelMatch(
 ): string | undefined {
   const candidates = [normalizedModel, stripProviderPrefix(normalizedModel)];
   for (const candidate of candidates) {
-    let bestMatch: string | undefined;
-    for (const modelName of pricingByModel.keys()) {
-      const isProviderPrefixedMatch =
-        modelName.endsWith(`/${candidate}`) || modelName.endsWith(`.${candidate}`);
-      if (!isProviderPrefixedMatch) {
-        continue;
-      }
-      if (
-        !bestMatch ||
-        modelName.length < bestMatch.length ||
-        (modelName.length === bestMatch.length && compareByCodePoint(modelName, bestMatch) < 0)
-      ) {
-        bestMatch = modelName;
-      }
+    const matches = [...pricingByModel.keys()].filter(
+      (modelName) => modelName.endsWith(`/${candidate}`) || modelName.endsWith(`.${candidate}`),
+    );
+    if (matches.length === 0) {
+      continue;
     }
-    if (bestMatch) {
-      return bestMatch;
-    }
+    // Several hosts often price the same model: prefer the model's own provider, then
+    // the key that defines the most rates, then the shortest key.
+    return matches
+      .map((modelName) => ({
+        modelName,
+        rank: getProviderPrefixedKeyRank(modelName, candidate),
+        definedRates: countDefinedRates(pricingByModel.get(modelName)),
+      }))
+      .sort(
+        (left, right) =>
+          left.rank - right.rank ||
+          right.definedRates - left.definedRates ||
+          left.modelName.length - right.modelName.length ||
+          compareByCodePoint(left.modelName, right.modelName),
+      )[0].modelName;
   }
   return undefined;
 }

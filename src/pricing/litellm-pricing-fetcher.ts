@@ -5,6 +5,7 @@ import { asRecord } from '../utils/as-record.js';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
 import { normalizeKey, resolveCanonicalModelKey } from './litellm-model-matching.js';
 import litellmPricingSnapshotPayload from './litellm-pricing-snapshot.json' with { type: 'json' };
+import litellmRetiredPricingPayload from './litellm-retired-pricing.json' with { type: 'json' };
 import type { ModelPricing, PricingSource } from './types.js';
 
 const ONE_MILLION = 1_000_000;
@@ -268,6 +269,33 @@ function getBundledLiteLLMPricingSnapshot(): LiteLLMCachePayload {
   return snapshot;
 }
 
+let retiredLiteLLMPricing: ReadonlyMap<string, ModelPricing> | undefined;
+
+/**
+ * Models LiteLLM no longer lists, kept from earlier snapshots by the snapshot generator.
+ * Their prices still apply to historical usage, so they back-fill any default-source
+ * pricing that lacks them.
+ */
+function getRetiredLiteLLMPricing(): ReadonlyMap<string, ModelPricing> {
+  if (retiredLiteLLMPricing) {
+    return retiredLiteLLMPricing;
+  }
+
+  const retiredPricing = new Map<string, ModelPricing>();
+  const pricingRecord = asRecord(asRecord(litellmRetiredPricingPayload)?.pricingByModel) ?? {};
+
+  for (const [modelName, rawPricing] of Object.entries(pricingRecord)) {
+    const pricing = normalizeCachedPricing(rawPricing);
+
+    if (pricing) {
+      retiredPricing.set(normalizeKey(modelName), pricing);
+    }
+  }
+
+  retiredLiteLLMPricing = retiredPricing;
+  return retiredPricing;
+}
+
 function formatBundledSnapshotWarning(fetchedAt: number): string {
   const fetchedDate = new Date(fetchedAt).toISOString().slice(0, 10);
   return `Pricing: using the bundled LiteLLM snapshot from ${fetchedDate} (run online to refresh).`;
@@ -484,6 +512,8 @@ export class LiteLLMPricingFetcher implements PricingSource {
     } catch {
       // Cache writes are best-effort. A successful remote fetch must still be usable.
     }
+
+    this.backfillRetiredModels();
   }
 
   private async loadFromCache(options: { allowStale: boolean }): Promise<boolean> {
@@ -520,7 +550,20 @@ export class LiteLLMPricingFetcher implements PricingSource {
 
     this.loadOrigin = 'cache';
     this.pricingWarning = undefined;
+    this.backfillRetiredModels();
     return true;
+  }
+
+  private backfillRetiredModels(): void {
+    if (this.sourceUrl !== DEFAULT_LITELLM_PRICING_URL) {
+      return;
+    }
+
+    for (const [modelName, pricing] of getRetiredLiteLLMPricing()) {
+      if (!this.pricingByModel.has(modelName)) {
+        this.pricingByModel.set(modelName, pricing);
+      }
+    }
   }
 
   private loadFromBundledSnapshot(): boolean {
@@ -548,6 +591,7 @@ export class LiteLLMPricingFetcher implements PricingSource {
 
     this.loadOrigin = 'bundled-snapshot';
     this.pricingWarning = formatBundledSnapshotWarning(snapshot.fetchedAt);
+    this.backfillRetiredModels();
     return true;
   }
 

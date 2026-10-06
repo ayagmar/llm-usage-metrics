@@ -7,6 +7,7 @@ import {
 } from '../config/runtime-overrides.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { closeEventStore, openEventStore, type EventStore } from '../persistence/event-store.js';
+import { addStoredFilesStillOnDisk } from './history-live-files.js';
 import {
   loadHistoryEvents as loadDefaultHistoryEvents,
   type EventStoreHistoryResult,
@@ -232,12 +233,19 @@ export async function buildUsageEventDataset(
           runtimeProfile,
           'usage.dataset.history',
           async () =>
-            loadHistoryEvents(historyStore, {
-              // Only successfully parsed sources: a failed source has an empty
-              // discovered set, so all its stored files would look departed.
-              selectedSources: successfulParseResults.map((result) => result.source),
-              discoveredFiles,
-            }),
+            loadHistoryEvents(
+              historyStore,
+              await addStoredFilesStillOnDisk(
+                historyStore,
+                {
+                  // Only successfully parsed sources: a failed source has an empty
+                  // discovered set, so all its stored files would look departed.
+                  selectedSources: successfulParseResults.map((result) => result.source),
+                  discoveredFiles,
+                },
+                { unverifiable: 'treat-as-departed' },
+              ),
+            ),
         );
         parseResultsForFiltering = appendHistoryEvents(
           parseResultsForFiltering,

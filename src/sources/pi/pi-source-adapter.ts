@@ -6,8 +6,14 @@ import type { UsageEvent } from '../../domain/usage-event.js';
 import type { NumberLike } from '../../domain/normalization.js';
 import { asRecord } from '../../utils/as-record.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
+import { pathExists } from '../../utils/fs-helpers.js';
+import { readFirstLine } from '../../utils/read-first-line.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
-import { discoverFilesAcrossRoots, resolveRootDirs } from '../multi-root-discovery.js';
+import {
+  discoverFilesAcrossRoots,
+  isPathWithinRoots,
+  resolveRootDirs,
+} from '../multi-root-discovery.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
@@ -30,6 +36,8 @@ const defaultPiRootDirs = [
 type PiSessionState = {
   sessionId?: string;
   sessionTimestamp?: string;
+  /** Set for forked sessions: entries before this instant were copied from the parent. */
+  forkedAtMs?: number;
   repoRoot?: string;
   provider?: string;
   model?: string;
@@ -78,6 +86,55 @@ function resolveTimestamp(
   }
 
   return undefined;
+}
+
+function resolveParentSessionPath(
+  sessionLine: Record<string, unknown>,
+  filePath: string,
+): string | undefined {
+  const parentSession = asTrimmedText(sessionLine.parentSession);
+  return parentSession ? path.resolve(path.dirname(filePath), parentSession) : undefined;
+}
+
+async function readParentSessionPath(filePath: string): Promise<string | undefined> {
+  // pi writes the session header as the first line; reading only that line keeps the
+  // per-file cache-key check cheap on warm runs.
+  const firstLine = await readFirstLine(filePath);
+
+  if (!firstLine?.includes('"parentSession"')) {
+    return undefined;
+  }
+
+  try {
+    const header = asRecord(JSON.parse(firstLine));
+    return header?.type === 'session' ? resolveParentSessionPath(header, filePath) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Entries of a forked session older than its header were copied from the parent. They
+ * are skipped only while the same report counts the parent (it exists and lies under a
+ * discovery root); otherwise the fork's copies are the only counted record of that usage.
+ */
+async function resolveForkedAtMs(
+  sessionLine: Record<string, unknown>,
+  filePath: string,
+  rootDirs: readonly string[],
+): Promise<number | undefined> {
+  const parentSessionPath = resolveParentSessionPath(sessionLine, filePath);
+
+  if (
+    !parentSessionPath ||
+    !isPathWithinRoots(parentSessionPath, rootDirs) ||
+    !(await pathExists(parentSessionPath))
+  ) {
+    return undefined;
+  }
+
+  const timestamp = normalizeTimestampCandidate(sessionLine.timestamp);
+  return timestamp ? Date.parse(timestamp) : undefined;
 }
 
 function extractUsageFromRecord(usage: Record<string, unknown>): PiUsageExtract | undefined {
@@ -152,6 +209,7 @@ function resolveRepoRootFromRecord(
 
 export class PiSourceAdapter implements SourceAdapter {
   public readonly id = 'pi' as const;
+  public readonly parserVersion = 3;
 
   private readonly rootDirs: readonly string[];
   private readonly requireDir: boolean;
@@ -168,6 +226,15 @@ export class PiSourceAdapter implements SourceAdapter {
       directoryLabel: 'PI sessions directory',
       discoverInRoot: (rootDir) => discoverJsonlFiles(rootDir),
     });
+  }
+
+  public async getParseDependencies(filePath: string): Promise<string[]> {
+    // Only a parent this adapter can discover changes the parse result (see
+    // resolveForkedAtMs), so the dependency also keys the cache on that decision.
+    const parentSessionPath = await readParentSessionPath(filePath);
+    return parentSessionPath && isPathWithinRoots(parentSessionPath, this.rootDirs)
+      ? [parentSessionPath]
+      : [];
   }
 
   public async parseFile(filePath: string): Promise<UsageEvent[]> {
@@ -192,6 +259,8 @@ export class PiSourceAdapter implements SourceAdapter {
         state.sessionId = asTrimmedText(line.id) ?? state.sessionId;
         state.sessionTimestamp = asTrimmedText(line.timestamp) ?? state.sessionTimestamp;
         state.repoRoot = resolveRepoRootFromRecord(line) ?? state.repoRoot;
+        state.forkedAtMs =
+          (await resolveForkedAtMs(line, filePath, this.rootDirs)) ?? state.forkedAtMs;
         continue;
       }
 
@@ -228,6 +297,12 @@ export class PiSourceAdapter implements SourceAdapter {
       if (!timestamp || !state.sessionId) {
         skippedRows++;
         incrementSkippedReason(skippedRowReasons, 'invalid_timestamp');
+        continue;
+      }
+
+      // A fork copies the parent's entries (same ids and timestamps) ahead of its own;
+      // the parent session file already counts them.
+      if (state.forkedAtMs !== undefined && Date.parse(timestamp) < state.forkedAtMs) {
         continue;
       }
 

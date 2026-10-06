@@ -61,6 +61,7 @@ Relevant options/config:
 - validity requires matching dependency fingerprints
 - stores parse diagnostics and normalized events
 - dependency fingerprints include the primary file and any adapter-declared sidecar inputs
+- fingerprints also include a parser version, so upgrading to a release with parser fixes re-parses stored files once
 - persisted as SQLite with per-file replace-on-change writes
 - `--history` includes usage from files that no longer exist on disk
 - moved, renamed, and copied files are suppressed by content hash to avoid double counting

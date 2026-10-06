@@ -14,17 +14,26 @@ export type AntigravityTimestampFixture = {
 };
 
 export type AntigravityUsageFixture = {
-  fixedInputTokens?: number;
+  /** Field 1 repeats the request's model enum; parsers must not count it as tokens. */
+  modelEnum?: number;
   inputTokens?: number;
   cacheReadTokens?: number;
+  /** Field 3: visible output plus thinking. */
+  totalOutputTokens?: number;
   outputTokens?: number;
   reasoningTokens?: number;
   responseId?: string;
 };
 
+export type AntigravityTimestampWrapperFixture = {
+  /** A 64-bit id next to the timestamp, as real blobs carry; exceeds Number's safe range. */
+  unsafeVarint?: bigint;
+};
+
 export type AntigravityTurnFixture = {
   model?: string;
   timestamp?: AntigravityTimestampFixture;
+  timestampWrapper?: AntigravityTimestampWrapperFixture;
   usage?: AntigravityUsageFixture;
   rawBlob?: Uint8Array;
 };
@@ -55,7 +64,7 @@ export function loadAntigravityFixtureDatabaseSync(): FixtureDatabaseSync | unde
   return moduleRecord.DatabaseSync as FixtureDatabaseSync;
 }
 
-function encodeVarint(value: number): number[] {
+function encodeVarint(value: number | bigint): number[] {
   const bytes: number[] = [];
   let remainingValue = BigInt(value);
 
@@ -98,8 +107,9 @@ function encodeTimestamp(timestamp: AntigravityTimestampFixture): number[] {
 
 function encodeUsage(usage: AntigravityUsageFixture): number[] {
   return [
-    ...encodeVarintField(1, usage.fixedInputTokens),
+    ...encodeVarintField(1, usage.modelEnum),
     ...encodeVarintField(2, usage.inputTokens),
+    ...encodeVarintField(3, usage.totalOutputTokens),
     ...encodeVarintField(5, usage.cacheReadTokens),
     ...encodeVarintField(9, usage.outputTokens),
     ...encodeVarintField(10, usage.reasoningTokens),
@@ -113,7 +123,12 @@ export function encodeAntigravityGenMetadataBlob(turn: AntigravityTurnFixture): 
   }
 
   const timestampWrapper = turn.timestamp
-    ? encodeLengthDelimitedField(4, encodeTimestamp(turn.timestamp))
+    ? [
+        ...(turn.timestampWrapper?.unsafeVarint === undefined
+          ? []
+          : [...encodeFieldKey(1, 0), ...encodeVarint(turn.timestampWrapper.unsafeVarint)]),
+        ...encodeLengthDelimitedField(4, encodeTimestamp(turn.timestamp)),
+      ]
     : [];
   const chatModel = [
     ...encodeStringField(19, turn.model),

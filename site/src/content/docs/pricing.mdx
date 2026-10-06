@@ -12,6 +12,7 @@ description: How pricing is loaded and how row costs are computed.
 - fallback: stale cache is used when live refresh fails
 - bundled snapshot: the default LiteLLM pricing URL can fall back to a bundled snapshot
 - offline mode: `--pricing-offline` skips network and uses cache, stale cache, or the bundled snapshot
+- retired models: LiteLLM eventually drops retired models (for example `claude-sonnet-4-20250514`); their last published prices are bundled and back-fill the default source, so historical usage stays priced
 
 ```bash
 llm-usage monthly --pricing-offline
@@ -21,7 +22,7 @@ When the bundled snapshot is used, `stderr` includes a warning with the snapshot
 date:
 
 ```text
-Pricing: using the bundled LiteLLM snapshot from 2026-07-08 (run online to refresh).
+Pricing: using the bundled LiteLLM snapshot from 2026-10-06 (run online to refresh).
 ```
 
 Online runs refresh a stale cache; omitting `--pricing-offline` can still use a fresh cache. Custom

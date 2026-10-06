@@ -46,6 +46,7 @@ llm-usage optimize monthly \
 ## Missing pricing and incomplete baselines
 
 - Missing candidate pricing on non-zero token periods marks candidate cost as incomplete.
+- A candidate without a published cache-write rate bills cache creation as regular input (as OpenAI-style automatic caching does), so baseline cache writes are priced at its input rate and the row carries the `cache_write_priced_as_input` note.
 - If baseline cost is incomplete, savings fields are omitted.
 - If all billable token buckets are zero but baseline has cost, savings are omitted and a warning is emitted to `stderr`.
 

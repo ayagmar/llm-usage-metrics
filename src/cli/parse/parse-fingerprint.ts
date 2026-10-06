@@ -4,6 +4,7 @@ import type {
   EventStoreDependencyFingerprint,
   EventStoreFileFingerprint,
 } from '../../persistence/event-store.js';
+import { USAGE_EVENT_NORMALIZATION_VERSION } from '../../domain/usage-event.js';
 import type { SourceAdapter } from '../../sources/source-adapter.js';
 import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
 
@@ -38,10 +39,14 @@ async function createParseDependencyFingerprint(
   }
 }
 
+export function getParserVersion(adapter: Pick<SourceAdapter, 'parserVersion'>): string {
+  return `n${USAGE_EVENT_NORMALIZATION_VERSION}.p${adapter.parserVersion ?? 1}`;
+}
+
 export async function getParseFileFingerprint(
   adapter: SourceAdapter,
   filePath: string,
-): Promise<{ dependencies: ParseDependencyFingerprint[] } | undefined> {
+): Promise<EventStoreFileFingerprint | undefined> {
   const primaryFingerprint = await createParseDependencyFingerprint(filePath, {
     allowMissing: false,
   });
@@ -71,6 +76,7 @@ export async function getParseFileFingerprint(
   }
 
   return {
+    parserVersion: getParserVersion(adapter),
     dependencies: dependencyFingerprints,
   };
 }

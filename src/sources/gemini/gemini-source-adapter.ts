@@ -14,6 +14,7 @@ import {
   isBlankText,
   normalizeTimestampCandidate,
   resolveTotalTokens,
+  splitPromptIncludingCachedTokens,
 } from '../parsing-utils.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
 import { readBoundedJsonFile } from '../read-json-file.js';
@@ -174,13 +175,18 @@ function extractTokenUsage(tokens: Record<string, unknown> | undefined): {
   const thoughts = Math.max(0, toFiniteNumber(tokens.thoughts) ?? 0);
   const cached = Math.max(0, toFiniteNumber(tokens.cached) ?? 0);
 
-  const inputTokens = input + tool;
-  const outputTokens = output;
+  // Gemini CLI records the API usage metadata: `input` already includes `cached`, and
+  // `output` excludes `thoughts` (total = input + output + thoughts + tool). Thinking
+  // tokens are billed at the output rate, so they are folded into output and kept in
+  // reasoningTokens as a breakdown, matching the other sources.
+  const splitInput = splitPromptIncludingCachedTokens(input, cached);
+  const inputTokens = splitInput.inputTokens + tool;
+  const outputTokens = output + thoughts;
   const reasoningTokens = thoughts;
-  const cacheReadTokens = cached;
+  const cacheReadTokens = splitInput.cacheReadTokens;
 
   const declaredTotal = Math.max(0, toFiniteNumber(tokens.total) ?? 0);
-  const componentTotal = inputTokens + outputTokens + reasoningTokens + cacheReadTokens;
+  const componentTotal = inputTokens + outputTokens + cacheReadTokens;
   const totalTokens = resolveTotalTokens(declaredTotal, componentTotal);
 
   if (inputTokens === 0 && outputTokens === 0 && reasoningTokens === 0 && cached === 0) {
@@ -200,6 +206,7 @@ function extractTokenUsage(tokens: Record<string, unknown> | undefined): {
 
 export class GeminiSourceAdapter implements SourceAdapter {
   public readonly id = 'gemini' as const;
+  public readonly parserVersion = 2;
   public readonly capabilities = {
     fixedProviderRoots: ['google'],
   } as const;

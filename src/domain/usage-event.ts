@@ -9,6 +9,13 @@ import { normalizeProviderToBillingEntity } from './provider-normalization.js';
 
 export type SourceId = 'pi' | 'codex' | (string & {});
 
+/**
+ * Bump whenever `createUsageEvent` or other shared normalization changes the events
+ * produced from unchanged source files. Like adapter parser versions, it is part of
+ * the event-store cache key so stored events are re-parsed after the change.
+ */
+export const USAGE_EVENT_NORMALIZATION_VERSION = 1;
+
 export type CostMode = 'explicit' | 'estimated';
 
 export type UsageEvent = {

@@ -22,4 +22,4 @@ llm-usage daily --source-dir antigravity=/path/to/antigravity/conversations
 
 ## Parsing notes
 
-The adapter reads Antigravity CLI SQLite conversation databases in read-only mode. Token usage is stored in protobuf blobs: fixed prompt and new input tokens are added together, cache reads and reasoning tokens are preserved, and repeated response ids are counted once.
+The adapter reads Antigravity CLI SQLite conversation databases in read-only mode. Token usage is stored in protobuf blobs: input and cache-read tokens map directly, output includes thinking tokens (they are billed at the output rate) with reasoning kept as a breakdown, and repeated response ids are counted once. The usage message's first field repeats the request's model enum and is not counted as tokens. Claude model names carry Antigravity's effort suffix (`claude-opus-5-5-medium`) and are priced as the base model.

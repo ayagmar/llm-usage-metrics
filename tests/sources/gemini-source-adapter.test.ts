@@ -181,21 +181,22 @@ describe('GeminiSourceAdapter', () => {
         provider: 'google',
         model: 'gemini-3-flash-preview',
         timestamp: '2026-02-25T10:05:00.000Z',
-        inputTokens: 105,
-        outputTokens: 50,
+        // input 100 includes cached 10; plus tool 5. Thoughts are billed as output.
+        inputTokens: 95,
+        outputTokens: 75,
         reasoningTokens: 25,
         cacheReadTokens: 10,
-        totalTokens: 190,
+        totalTokens: 180,
         costMode: 'estimated',
         repoRoot: '/home/user/projects/my-app',
       });
 
       expect(events[1]).toMatchObject({
-        inputTokens: 210,
-        outputTokens: 100,
+        inputTokens: 190,
+        outputTokens: 150,
         reasoningTokens: 50,
         cacheReadTokens: 20,
-        totalTokens: 380,
+        totalTokens: 360,
       });
     });
 
@@ -286,7 +287,7 @@ describe('GeminiSourceAdapter', () => {
       expect(events[0]).toMatchObject({
         repoRoot: undefined,
         inputTokens: 2,
-        outputTokens: 0,
+        outputTokens: 3,
         reasoningTokens: 3,
         cacheReadTokens: 4,
         totalTokens: 9,

@@ -392,6 +392,40 @@ describe('OpenClawSourceAdapter', () => {
     });
   });
 
+  it('splits cached input out of Chat Completions prompt_tokens only', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'openclaw-prompt-tokens-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'session.jsonl');
+    const assistantRow = (usage: Record<string, number>, timestamp: string) =>
+      JSON.stringify({ type: 'message', role: 'assistant', timestamp, usage });
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'openclaw-prompt-tokens',
+          timestamp: '2026-04-03T20:00:00.000Z',
+          provider: 'openai',
+          model: 'gpt-5.3-codex',
+        }),
+        assistantRow(
+          { prompt_tokens: 1000, completion_tokens: 50, cached_input_tokens: 800 },
+          '2026-04-03T20:01:00.000Z',
+        ),
+        assistantRow({ input: 200, output: 50, cacheRead: 800 }, '2026-04-03T20:02:00.000Z'),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const events = await new OpenClawSourceAdapter({ dir: root }).parseFile(filePath);
+
+    expect(events).toHaveLength(2);
+    expect(events[0]).toMatchObject({ inputTokens: 200, cacheReadTokens: 800, totalTokens: 1050 });
+    expect(events[1]).toMatchObject({ inputTokens: 200, cacheReadTokens: 800, totalTokens: 1050 });
+  });
+
   it('reports malformed JSONL lines that pass its prefilter', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'openclaw-malformed-jsonl-'));
     tempDirs.push(root);

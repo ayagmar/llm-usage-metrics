@@ -36,6 +36,8 @@ export type EventStoreDependencyFingerprint = {
 };
 
 export type EventStoreFileFingerprint = {
+  /** Identifies the parser that produced the stored events; a change forces a re-parse. */
+  parserVersion?: string;
   dependencies: EventStoreDependencyFingerprint[];
 };
 
@@ -166,7 +168,9 @@ function normalizeEventStoreFingerprint(
 
   dependencies.sort(compareDependencyFingerprint);
 
-  return { dependencies };
+  const parserVersion = toText(fingerprint.parserVersion);
+
+  return parserVersion ? { parserVersion, dependencies } : { dependencies };
 }
 
 export function serializeEventStoreFingerprint(fingerprint: EventStoreFileFingerprint): string {

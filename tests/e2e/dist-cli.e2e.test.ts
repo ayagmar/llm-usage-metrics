@@ -70,6 +70,7 @@ describe.skipIf(!existsSync(distCliPath))('dist CLI e2e', () => {
         claudeDir,
         '--openclaw-dir',
         openclawDir,
+        '--pricing-offline',
       ],
       {
         encoding: 'utf8',
@@ -116,6 +117,7 @@ describe.skipIf(!existsSync(distCliPath))('dist CLI e2e', () => {
       claudeDir,
       '--openclaw-dir',
       openclawDir,
+      '--pricing-offline',
     ];
     const plain = await execFileAsync(process.execPath, args, {
       encoding: 'utf8',

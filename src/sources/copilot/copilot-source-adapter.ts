@@ -10,7 +10,11 @@ import { pathIsFile, pathReadable } from '../../utils/fs-helpers.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
 import { discoverFilesAcrossRoots } from '../multi-root-discovery.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
-import { asTrimmedText, normalizeTimestampCandidate } from '../parsing-utils.js';
+import {
+  asTrimmedText,
+  normalizeTimestampCandidate,
+  splitPromptIncludingCachedTokens,
+} from '../parsing-utils.js';
 import type {
   SourceAdapter,
   SourceAdapterPathOptions,
@@ -240,8 +244,10 @@ function extractCandidate(
     'gen_ai.usage.cache_read.input_tokens',
     'gen_ai.usage.cache_read_input_tokens',
   ]);
-  const inputTokensRaw = getAttributeTokens(attributes, ['gen_ai.usage.input_tokens']);
-  const inputTokens = inputTokensRaw - Math.min(inputTokensRaw, cacheReadTokens);
+  const { inputTokens } = splitPromptIncludingCachedTokens(
+    getAttributeTokens(attributes, ['gen_ai.usage.input_tokens']),
+    cacheReadTokens,
+  );
   const totalTokens = getAttributeTokens(attributes, [
     'gen_ai.usage.total_tokens',
     'gen_ai.usage.total.token_count',

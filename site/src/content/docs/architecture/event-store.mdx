@@ -17,7 +17,7 @@ The event store (`src/persistence/event-store.ts`) is a local SQLite **ledger**,
 
 The ledger keys one record set per `(source, file path)`: a row in `files` (fingerprint, skipped-row stats, ingest time) plus ordered rows in `events`. Ingest is replace-on-change: after a successful parse, the file's old event rows are deleted and the new ones inserted in a single transaction.
 
-Stored events are reused only when dependency fingerprints match exactly. A fingerprint is the serialized list of a file's dependencies — the primary file first, plus any sidecar inputs the adapter declares via `getParseDependencies(filePath)` — each recorded as `{path, exists, size, mtimeMs}` (a missing sidecar is recorded as `exists: false`). Any difference in the serialized fingerprint is a store miss: the file is reparsed and its rows replaced.
+Stored events are reused only when dependency fingerprints match exactly. A fingerprint is the serialized list of a file's dependencies — the primary file first, plus any sidecar inputs the adapter declares via `getParseDependencies(filePath)` — each recorded as `{path, exists, size, mtimeMs}` (a missing sidecar is recorded as `exists: false`). Any difference in the serialized fingerprint is a store miss: the file is reparsed and its rows replaced. The fingerprint also carries a parser version, built from the shared event-normalization version and the adapter's `parserVersion`; bumping either re-parses unchanged files, so parser fixes reach events that were stored by an older release.
 
 Report runs open the store **once** and share the handle across the pipeline: `buildUsageEventDataset` opens it before parsing, passes it to the adapter parse phase, reuses it for `--history`, and closes it after both (`prune` opens its own handle).
 
@@ -32,7 +32,7 @@ When `--history` classifies a departed file, it compares that file's multiset of
 `src/persistence/event-store-history.ts` serves `--history`:
 
 1. It takes the run's successfully parsed sources and their discovered `(source, file)` pairs. Only successfully parsed sources participate — a failed source has an empty discovered set, so all its stored files would otherwise look departed.
-2. Stored files for those sources that were **not** discovered this run are the departed set, classified oldest-ingested first with the move suppression above.
+2. Stored files for those sources that were **not** discovered this run and are also missing from disk are the departed set, classified oldest-ingested first with the move suppression above. A stored file that discovery skipped but that still exists (for example, outside a narrowed `--source-dir`) counts as live: it is neither replayed as history nor offered to `prune`. When a file's presence cannot be checked (for example, permission denied), history replays it so usage is never hidden, while `prune` keeps it so nothing is deleted without proof that the file is gone.
 3. Events from non-suppressed departed files are replayed and appended to their source's parse results **before** the provider/model/date filters, pricing, and aggregation — so report shapes are unchanged and history events flow through the exact same pipeline.
 
 History reads never mutate the ledger: the classification writes only connection-local SQLite `TEMP` tables. Each history run reports its outcome as a diagnostic: `History: included N event(s) from M departed file(s) (K suppressed as moved or duplicated).`

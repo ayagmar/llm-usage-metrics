@@ -10,6 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const rootDir = join(__dirname, '..');
 const snapshotPath = join(rootDir, 'src', 'pricing', 'litellm-pricing-snapshot.json');
+const retiredPricingPath = join(rootDir, 'src', 'pricing', 'litellm-retired-pricing.json');
 
 const {
   DEFAULT_LITELLM_PRICING_URL,
@@ -117,6 +118,36 @@ async function checkSnapshot() {
   );
 }
 
+async function readPricingRecord(filePath) {
+  try {
+    const payload = JSON.parse(await readFile(filePath, 'utf8'));
+    return payload.pricingByModel ?? {};
+  } catch {
+    return {};
+  }
+}
+
+// LiteLLM drops retired models, but their prices still apply to historical usage. Keys
+// that leave upstream move from the snapshot into the retired-pricing file and stay there
+// until upstream lists them again.
+async function writeRetiredPricing(upstreamPricingByModel) {
+  const previousPricing = {
+    ...(await readPricingRecord(retiredPricingPath)),
+    ...(await readPricingRecord(snapshotPath)),
+  };
+  const retiredPricing = new Map(
+    Object.entries(previousPricing).filter(([modelName]) => !upstreamPricingByModel.has(modelName)),
+  );
+
+  await writeFile(
+    retiredPricingPath,
+    `${JSON.stringify({ pricingByModel: toSortedPricingRecord(retiredPricing) }, null, 2)}\n`,
+    'utf8',
+  );
+
+  return retiredPricing.size;
+}
+
 async function generateSnapshot() {
   const response = await fetch(DEFAULT_LITELLM_PRICING_URL);
 
@@ -134,10 +165,11 @@ async function generateSnapshot() {
   const { modelCount, fetchedAt } = assertSnapshotPayload(snapshotPayload);
 
   await mkdir(dirname(snapshotPath), { recursive: true });
+  const retiredModelCount = await writeRetiredPricing(pricingByModel);
   await writeFile(snapshotPath, `${JSON.stringify(snapshotPayload, null, 2)}\n`, 'utf8');
 
   console.log(
-    `Wrote ${snapshotPath}: ${modelCount} model(s), fetched ${new Date(fetchedAt).toISOString()}`,
+    `Wrote ${snapshotPath}: ${modelCount} model(s), fetched ${new Date(fetchedAt).toISOString()}; ${retiredModelCount} retired model(s) kept`,
   );
 }
 

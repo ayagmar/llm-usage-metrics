@@ -5,7 +5,7 @@ import {
   canEstimateUsageCost,
   hasUsedBucketWithUndefinedRate,
 } from '../pricing/cost-engine.js';
-import type { PricingSource } from '../pricing/types.js';
+import type { ModelPricing, PricingSource } from '../pricing/types.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import type { OptimizeBaselineRow, OptimizeCandidateRow, OptimizeRow } from './optimize-row.js';
 import { addUsd, roundUsd } from '../utils/usd-math.js';
@@ -127,6 +127,24 @@ function withNotes(notes: Set<string>): string[] | undefined {
   return [...notes].sort(compareByCodePoint);
 }
 
+/**
+ * Candidates without a published cache-write rate (OpenAI-style automatic caching) bill
+ * cache creation as regular input, so the baseline's cache writes are priced at the
+ * candidate's input rate instead of leaving the whole counterfactual unpriced.
+ */
+function withCacheWriteInputFallback(
+  pricing: ModelPricing | undefined,
+  period: BaselinePeriodTotals,
+  notes: Set<string>,
+): ModelPricing | undefined {
+  if (!pricing || pricing.cacheWritePer1MUsd !== undefined || period.cacheWriteTokens <= 0) {
+    return pricing;
+  }
+
+  notes.add('cache_write_priced_as_input');
+  return { ...pricing, cacheWritePer1MUsd: pricing.inputPer1MUsd };
+}
+
 function evaluateCandidateForPeriod(
   period: BaselinePeriodTotals,
   provider: string,
@@ -139,7 +157,11 @@ function evaluateCandidateForPeriod(
   const candidateResolvedModel = pricingSource
     ? pricingSource.resolveModelAlias(candidateModel)
     : candidateModel;
-  const pricing = pricingSource ? pricingSource.getPricing(candidateResolvedModel) : undefined;
+  const pricing = withCacheWriteInputFallback(
+    pricingSource ? pricingSource.getPricing(candidateResolvedModel) : undefined,
+    period,
+    notes,
+  );
   const syntheticEvent = createSyntheticEvent(period);
 
   let hypotheticalCostUsd: number | undefined;

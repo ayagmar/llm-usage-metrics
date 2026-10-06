@@ -258,6 +258,35 @@ describe('run-prune-report', () => {
     expect(result.candidates[0]?.reasons).toEqual(['aged']);
   });
 
+  it('never offers undiscovered files that are still on disk', async () => {
+    const dbPath = await createTempDbPath('prune-still-on-disk-');
+    const onDiskPath = path.join(path.dirname(dbPath), 'outside-discovery.jsonl');
+    const departedPath = path.join(path.dirname(dbPath), 'departed.jsonl');
+    await writeFile(onDiskPath, '{}\n', 'utf8');
+    const store = await openEventStore(dbPath);
+
+    try {
+      writeStoredFile(store, {
+        filePath: onDiskPath,
+        events: [createEvent({ sessionId: 'on-disk', timestamp: '2025-06-01T00:00:00.000Z' })],
+      });
+      writeStoredFile(store, {
+        filePath: departedPath,
+        events: [createEvent({ sessionId: 'departed', timestamp: '2025-06-01T00:00:00.000Z' })],
+      });
+    } finally {
+      closeEventStore(store);
+    }
+
+    // Discovery is narrowed to an empty directory, as with --source-dir.
+    const result = await buildPruneReport(
+      { departedBefore: '2026-01-01' },
+      createDeps(dbPath, [createAdapter({ files: [] })]),
+    );
+
+    expect(result.candidates.map((candidate) => candidate.filePath)).toEqual([departedPath]);
+  });
+
   it('combines suppressed and departed-before selectors as a union', async () => {
     const dbPath = await createTempDbPath('prune-selector-union-');
     const oldPath = '/tmp/old.jsonl';

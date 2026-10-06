@@ -11,7 +11,7 @@ description: Compare tokens, cost, events, and active days between two date wind
 llm-usage compare
 ```
 
-With no date flags, the current window is the current local calendar month and the baseline is the previous calendar month. The report timezone decides those boundaries.
+With no date flags, the current window is the current local month to date and the baseline is the same days of the previous month (clamped to that month's last day), so a partial month is never compared against a full one. On 6 October the report compares 1–6 October with 1–6 September. The report timezone decides those boundaries.
 
 ## Compare a chosen range
 

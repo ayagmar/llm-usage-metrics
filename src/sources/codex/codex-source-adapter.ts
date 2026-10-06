@@ -13,6 +13,7 @@ import {
   asTrimmedText,
   isBlankText,
   normalizeTimestampCandidate,
+  splitPromptIncludingCachedTokens,
   toNumberLike,
 } from '../parsing-utils.js';
 import type {
@@ -105,15 +106,15 @@ function toUsage(value: unknown): CodexUsage | undefined {
     return undefined;
   }
 
-  const rawInputTokens = normalizeNonNegativeInteger(toNumberLike(usage.input_tokens));
-  const cacheReadTokens = normalizeNonNegativeInteger(toNumberLike(usage.cached_input_tokens));
+  // Codex input_tokens includes cached_input_tokens. We store net input separately
+  // to avoid double counting input + cache read in reports and estimated pricing.
+  const { inputTokens, cacheReadTokens } = splitPromptIncludingCachedTokens(
+    normalizeNonNegativeInteger(toNumberLike(usage.input_tokens)),
+    normalizeNonNegativeInteger(toNumberLike(usage.cached_input_tokens)),
+  );
   const outputTokens = normalizeNonNegativeInteger(toNumberLike(usage.output_tokens));
 
-  const inputTokens = Math.max(0, rawInputTokens - cacheReadTokens);
-
   return {
-    // Codex input_tokens includes cached_input_tokens. We store net input separately
-    // to avoid double counting input + cache read in reports and estimated pricing.
     inputTokens,
     cacheReadTokens,
     outputTokens,
