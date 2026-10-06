@@ -852,6 +852,14 @@ describe('event-store', () => {
       }).toThrow('source');
       expect(() => getFileEntry(store, 'codex', '   ')).toThrow('file path');
       expect(() => serializeEventStoreFingerprint({ dependencies: [] })).toThrow('fingerprint');
+      expect(
+        serializeEventStoreFingerprint({ ...createFingerprint(), parserVersion: 'n1.p2' }),
+      ).not.toBe(
+        serializeEventStoreFingerprint({ ...createFingerprint(), parserVersion: 'n1.p3' }),
+      );
+      expect(serializeEventStoreFingerprint({ ...createFingerprint(), parserVersion: '  ' })).toBe(
+        serializeEventStoreFingerprint(createFingerprint()),
+      );
     } finally {
       closeEventStore(store);
     }

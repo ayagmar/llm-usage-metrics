@@ -516,6 +516,33 @@ describe('build-usage-data-parsing', () => {
     expect(parseCalls.count).toBe(2);
   });
 
+  it('re-parses unchanged files when the adapter parser version changes', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-parser-version-'));
+    tempDirs.push(tempDir);
+
+    const filePath = path.join(tempDir, 'session.jsonl');
+    const eventStorePath = path.join(tempDir, 'events.db');
+    await writeFingerprintFixture(filePath, '{"line":1}\n', 1_700_000_001);
+
+    const parseCalls = { count: 0 };
+    const adapter = createCountingJsonlAdapter('pi', [filePath], parseCalls);
+    const eventStoreOptions = { eventStore: { enabled: true as const, path: eventStorePath } };
+
+    await parseSelectedAdapters([adapter], 1, eventStoreOptions);
+    await parseSelectedAdapters([adapter], 1, eventStoreOptions);
+    expect(parseCalls.count).toBe(1);
+
+    const runtimeProfile = new RuntimeProfileCollector(() => 100);
+    await parseSelectedAdapters([{ ...adapter, parserVersion: 2 }], 1, {
+      ...eventStoreOptions,
+      runtimeProfile,
+    });
+    await parseSelectedAdapters([{ ...adapter, parserVersion: 2 }], 1, eventStoreOptions);
+
+    expect(parseCalls.count).toBe(2);
+    expect(runtimeProfile.snapshot().eventStore).toEqual({ hits: 0, misses: 1 });
+  });
+
   it('re-parses when an auxiliary dependency changes', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-aux-change-'));
     tempDirs.push(tempDir);
