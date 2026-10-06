@@ -1,5 +1,9 @@
 const VARINT_WIRE_TYPE = 0;
+const FIXED64_WIRE_TYPE = 1;
 const LENGTH_DELIMITED_WIRE_TYPE = 2;
+const FIXED32_WIRE_TYPE = 5;
+const FIXED64_BYTES = 8;
+const FIXED32_BYTES = 4;
 const FIELD_KEY_BASE = 8;
 const LOW_7_BITS_MASK = 0x7f;
 const CONTINUATION_BIT = 0x80;
@@ -39,7 +43,11 @@ function readByte(input: Uint8Array, offset: number): number {
   return input[offset];
 }
 
-function readVarint(input: Uint8Array, startOffset: number): { value: number; nextOffset: number } {
+/** Decodes a varint; `value` is undefined when it exceeds the safe integer range. */
+function readVarintValue(
+  input: Uint8Array,
+  startOffset: number,
+): { value: number | undefined; nextOffset: number } {
   let value = 0n;
   let shift = 0n;
 
@@ -50,12 +58,8 @@ function readVarint(input: Uint8Array, startOffset: number): { value: number; ne
     if ((byte & CONTINUATION_BIT) === 0) {
       const decoded = Number(value);
 
-      if (!Number.isSafeInteger(decoded)) {
-        return fail('Protobuf varint exceeds safe integer range');
-      }
-
       return {
-        value: decoded,
+        value: Number.isSafeInteger(decoded) ? decoded : undefined,
         nextOffset: startOffset + byteIndex + 1,
       };
     }
@@ -64,6 +68,26 @@ function readVarint(input: Uint8Array, startOffset: number): { value: number; ne
   }
 
   return fail('Protobuf varint is too long');
+}
+
+function readVarint(input: Uint8Array, startOffset: number): { value: number; nextOffset: number } {
+  const { value, nextOffset } = readVarintValue(input, startOffset);
+
+  if (value === undefined) {
+    return fail('Protobuf varint exceeds safe integer range');
+  }
+
+  return { value, nextOffset };
+}
+
+function skipFixedBytes(input: Uint8Array, offset: number, byteCount: number): number {
+  const endOffset = offset + byteCount;
+
+  if (endOffset > input.byteLength) {
+    return fail('Truncated protobuf fixed-width field');
+  }
+
+  return endOffset;
 }
 
 function appendField(
@@ -98,9 +122,24 @@ export function readAntigravityProtoFields(inputValue: Uint8Array): AntigravityP
     }
 
     if (wireType === VARINT_WIRE_TYPE) {
-      const parsedValue = readVarint(input, offset);
+      // 64-bit ids and hashes exceed Number's safe range; no usage field is that large, so
+      // they are skipped instead of failing the whole message.
+      const parsedValue = readVarintValue(input, offset);
       offset = parsedValue.nextOffset;
-      appendField(fields, fieldNumber, { wireType: 'varint', value: parsedValue.value });
+
+      if (parsedValue.value !== undefined) {
+        appendField(fields, fieldNumber, { wireType: 'varint', value: parsedValue.value });
+      }
+
+      continue;
+    }
+
+    if (wireType === FIXED64_WIRE_TYPE || wireType === FIXED32_WIRE_TYPE) {
+      offset = skipFixedBytes(
+        input,
+        offset,
+        wireType === FIXED64_WIRE_TYPE ? FIXED64_BYTES : FIXED32_BYTES,
+      );
       continue;
     }
 

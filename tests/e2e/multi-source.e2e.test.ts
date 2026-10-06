@@ -55,7 +55,7 @@ const roocodeDir = path.resolve('tests/fixtures/e2e/roocode');
 const kilocodeDir = path.resolve('tests/fixtures/e2e/kilocode');
 const allSources =
   'pi,codex,gemini,droid,opencode,openclaw,claude,copilot,goose,amp,qwen,kimi,cline,roocode,kilocode,antigravity,dsh';
-const expectedAllSourceTokens = 4_620;
+const expectedAllSourceTokens = 4_615;
 const expectedGeminiClaudeTokens = 415;
 
 function loadDatabaseSync(): FixtureDatabaseSync | undefined {
@@ -246,10 +246,11 @@ describe.skipIf(!DatabaseSync)('multi-source usage report e2e', () => {
           model: 'gemini-antigravity-e2e',
           timestamp: { seconds: 1_781_510_400 },
           usage: {
-            fixedInputTokens: 30,
-            inputTokens: 10,
+            modelEnum: 1016,
+            inputTokens: 40,
             cacheReadTokens: 5,
-            outputTokens: 20,
+            totalOutputTokens: 20,
+            outputTokens: 15,
             reasoningTokens: 5,
             responseId: 'antigravity-e2e-response',
           },

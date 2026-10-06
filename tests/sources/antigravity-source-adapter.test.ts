@@ -48,9 +48,10 @@ describe.skipIf(!DatabaseSync)('AntigravitySourceAdapter', () => {
         {
           model: 'gemini-3-pro',
           timestamp: { seconds: 1_775_044_800, nanos: 123_000_000 },
+          timestampWrapper: { unsafeVarint: 2n ** 63n + 5n },
           usage: {
-            fixedInputTokens: 1_132,
-            inputTokens: 68,
+            modelEnum: 1_016,
+            inputTokens: 1_200,
             cacheReadTokens: 20,
             outputTokens: 30,
             reasoningTokens: 9,
@@ -75,7 +76,8 @@ describe.skipIf(!DatabaseSync)('AntigravitySourceAdapter', () => {
       provider: undefined,
       model: 'gemini-3-pro',
       inputTokens: 1_200,
-      outputTokens: 30,
+      // Visible output 30 plus 9 thinking tokens; reasoning stays a breakdown of output.
+      outputTokens: 39,
       reasoningTokens: 9,
       cacheReadTokens: 20,
       cacheWriteTokens: 0,
@@ -95,9 +97,10 @@ describe.skipIf(!DatabaseSync)('AntigravitySourceAdapter', () => {
         {
           model: 'gemini-fallback',
           usage: {
-            fixedInputTokens: 10,
-            inputTokens: 5,
+            inputTokens: 15,
+            totalOutputTokens: 7,
             outputTokens: 4,
+            reasoningTokens: 3,
             responseId: 'fallback-response',
           },
         },
@@ -112,7 +115,9 @@ describe.skipIf(!DatabaseSync)('AntigravitySourceAdapter', () => {
     expect(events[0]).toMatchObject({
       sessionId: 'fallback',
       inputTokens: 15,
-      outputTokens: 4,
+      outputTokens: 7,
+      reasoningTokens: 3,
+      totalTokens: 22,
     });
   });
 
@@ -145,7 +150,8 @@ describe.skipIf(!DatabaseSync)('AntigravitySourceAdapter', () => {
           model: 'gemini-zero',
           timestamp: { seconds: 1_775_044_802 },
           usage: {
-            fixedInputTokens: 0,
+            // The model enum in field 1 is not token usage.
+            modelEnum: 1_016,
             inputTokens: 0,
             outputTokens: 0,
             reasoningTokens: 0,

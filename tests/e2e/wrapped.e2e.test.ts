@@ -266,10 +266,11 @@ describe.skipIf(!DatabaseSync)('wrapped report e2e', () => {
           model: 'gemini-antigravity-e2e',
           timestamp: { seconds: 1_781_510_400 },
           usage: {
-            fixedInputTokens: 30,
-            inputTokens: 10,
+            modelEnum: 1016,
+            inputTokens: 40,
             cacheReadTokens: 5,
-            outputTokens: 20,
+            totalOutputTokens: 20,
+            outputTokens: 15,
             reasoningTokens: 5,
             responseId: 'antigravity-e2e-response',
           },
@@ -318,7 +319,7 @@ describe.skipIf(!DatabaseSync)('wrapped report e2e', () => {
 
     expect(result.recap).toMatchObject({
       year: 2026,
-      totalTokens: 2_180,
+      totalTokens: 2_175,
       costUsd: 0.6674325,
       costIncomplete: true,
       activeDays: 10,
@@ -341,7 +342,7 @@ describe.skipIf(!DatabaseSync)('wrapped report e2e', () => {
       'codex',
     ]);
     expect(result.recap.monthlyIntensity.map((month) => month.totalTokens)).toEqual([
-      450, 120, 0, 0, 15, 1_595, 0, 0, 0, 0, 0, 0,
+      450, 120, 0, 0, 15, 1_590, 0, 0, 0, 0, 0, 0,
     ]);
     expect(result.recap.monthlyIntensity.map((month) => month.level)).toEqual([
       2, 1, 0, 0, 1, 4, 0, 0, 0, 0, 0, 0,

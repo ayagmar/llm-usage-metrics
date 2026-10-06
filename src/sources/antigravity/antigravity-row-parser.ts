@@ -11,10 +11,11 @@ const GEN_METADATA_CHAT_MODEL_FIELD = 1;
 const CHAT_MODEL_USAGE_FIELD = 4;
 const CHAT_MODEL_TIMESTAMP_WRAPPER_FIELD = 9;
 const CHAT_MODEL_RESPONSE_MODEL_FIELD = 19;
-const USAGE_FIXED_INPUT_FIELD = 1;
-const USAGE_NEW_INPUT_FIELD = 2;
+// Usage field 1 repeats the request's model enum (also chat field 3), not a token count.
+const USAGE_INPUT_FIELD = 2;
+const USAGE_TOTAL_OUTPUT_FIELD = 3;
 const USAGE_CACHE_READ_FIELD = 5;
-const USAGE_OUTPUT_FIELD = 9;
+const USAGE_VISIBLE_OUTPUT_FIELD = 9;
 const USAGE_REASONING_FIELD = 10;
 const USAGE_RESPONSE_ID_FIELD = 11;
 const TRAJECTORY_CREATED_AT_FIELD = 2;
@@ -99,17 +100,18 @@ function readUsage(usageBytes: Uint8Array | undefined): AntigravityUsage | undef
   }
 
   const fields = readFieldsFromBytes(usageBytes);
-  const fixedInputTokens = getFirstProtoVarintField(fields, USAGE_FIXED_INPUT_FIELD) ?? 0;
-  const newInputTokens = getFirstProtoVarintField(fields, USAGE_NEW_INPUT_FIELD) ?? 0;
-  const outputTokens = getFirstProtoVarintField(fields, USAGE_OUTPUT_FIELD) ?? 0;
   const reasoningTokens = getFirstProtoVarintField(fields, USAGE_REASONING_FIELD) ?? 0;
-  const cacheReadTokens = getFirstProtoVarintField(fields, USAGE_CACHE_READ_FIELD) ?? 0;
+  // Field 3 is visible output plus thinking (field 9 + field 10). Thinking is billed at the
+  // output rate, so output includes it and reasoningTokens stays a breakdown.
+  const outputTokens =
+    getFirstProtoVarintField(fields, USAGE_TOTAL_OUTPUT_FIELD) ??
+    (getFirstProtoVarintField(fields, USAGE_VISIBLE_OUTPUT_FIELD) ?? 0) + reasoningTokens;
 
   return {
-    inputTokens: fixedInputTokens + newInputTokens,
+    inputTokens: getFirstProtoVarintField(fields, USAGE_INPUT_FIELD) ?? 0,
+    cacheReadTokens: getFirstProtoVarintField(fields, USAGE_CACHE_READ_FIELD) ?? 0,
     outputTokens,
     reasoningTokens,
-    cacheReadTokens,
     responseId: asTrimmedText(getFirstProtoStringField(fields, USAGE_RESPONSE_ID_FIELD)),
   };
 }
@@ -197,6 +199,8 @@ export function parseAntigravityMetadataBlob(
         reasoningTokens: usage.reasoningTokens,
         cacheReadTokens: usage.cacheReadTokens,
         cacheWriteTokens: 0,
+        // Reasoning is already inside output, so it must not be added to the total again.
+        totalTokens: usage.inputTokens + usage.outputTokens + usage.cacheReadTokens,
         costMode: 'estimated',
       }),
     };

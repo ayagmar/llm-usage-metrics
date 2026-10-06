@@ -80,12 +80,29 @@ describe('antigravity proto reader', () => {
     ]);
   });
 
-  it('rejects unsupported wire types', () => {
-    expect(() => readAntigravityProtoFields(new Uint8Array([...encodeFieldKey(1, 5), 0]))).toThrow(
+  it('skips fixed-width fields and rejects unsupported wire types', () => {
+    const fields = readAntigravityProtoFields(
+      new Uint8Array([
+        ...encodeFieldKey(1, 5),
+        0,
+        0,
+        0,
+        0,
+        ...encodeFieldKey(2, 1),
+        ...Array<number>(8).fill(0),
+        ...encodeVarintField(3, 7),
+      ]),
+    );
+
+    expect([...fields.keys()]).toEqual([3]);
+    expect(() =>
+      readAntigravityProtoFields(new Uint8Array([...encodeFieldKey(1, 5), 0, 0])),
+    ).toThrow('Truncated protobuf fixed-width field');
+    expect(() => readAntigravityProtoFields(new Uint8Array([...encodeFieldKey(1, 3)]))).toThrow(
       AntigravityProtoDecodeError,
     );
-    expect(() => readAntigravityProtoFields(new Uint8Array([...encodeFieldKey(1, 5), 0]))).toThrow(
-      'Unsupported protobuf wire type: 5',
+    expect(() => readAntigravityProtoFields(new Uint8Array([...encodeFieldKey(1, 3)]))).toThrow(
+      'Unsupported protobuf wire type: 3',
     );
   });
 
@@ -104,17 +121,19 @@ describe('antigravity proto reader', () => {
     ).toThrow('Truncated protobuf length-delimited field');
   });
 
-  it('rejects overlong and unsafe varints', () => {
+  it('rejects overlong varints and skips values beyond the safe integer range', () => {
     expect(() => readAntigravityProtoFields(new Uint8Array(Array(11).fill(0x80)))).toThrow(
       'Protobuf varint is too long',
     );
-    expect(() =>
-      readAntigravityProtoFields(
-        new Uint8Array([
-          ...encodeFieldKey(1, 0),
-          ...encodeBigVarint(BigInt(Number.MAX_SAFE_INTEGER) + 1n),
-        ]),
-      ),
-    ).toThrow('Protobuf varint exceeds safe integer range');
+
+    const fields = readAntigravityProtoFields(
+      new Uint8Array([
+        ...encodeFieldKey(1, 0),
+        ...encodeBigVarint(BigInt(Number.MAX_SAFE_INTEGER) + 1n),
+        ...encodeVarintField(2, 9),
+      ]),
+    );
+
+    expect([...fields.keys()]).toEqual([2]);
   });
 });
