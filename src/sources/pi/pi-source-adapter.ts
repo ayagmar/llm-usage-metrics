@@ -7,6 +7,7 @@ import type { NumberLike } from '../../domain/normalization.js';
 import { asRecord } from '../../utils/as-record.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import { pathExists } from '../../utils/fs-helpers.js';
+import { readFirstLine } from '../../utils/read-first-line.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
 import {
   discoverFilesAcrossRoots,
@@ -96,15 +97,20 @@ function resolveParentSessionPath(
 }
 
 async function readParentSessionPath(filePath: string): Promise<string | undefined> {
-  for await (const line of readJsonlObjects(filePath, {
-    shouldParseLine: (lineText) => lineText.includes('"session"'),
-  })) {
-    if (line.type === 'session') {
-      return resolveParentSessionPath(line, filePath);
-    }
+  // pi writes the session header as the first line; reading only that line keeps the
+  // per-file cache-key check cheap on warm runs.
+  const firstLine = await readFirstLine(filePath);
+
+  if (!firstLine?.includes('"parentSession"')) {
+    return undefined;
   }
 
-  return undefined;
+  try {
+    const header = asRecord(JSON.parse(firstLine));
+    return header?.type === 'session' ? resolveParentSessionPath(header, filePath) : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**

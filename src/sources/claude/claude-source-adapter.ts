@@ -8,6 +8,7 @@ import type { UsageEvent } from '../../domain/usage-event.js';
 import { asRecord } from '../../utils/as-record.js';
 import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
+import { pathStat } from '../../utils/fs-helpers.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
 import {
   discoverFilesAcrossRoots,
@@ -146,6 +147,8 @@ export class ClaudeSourceAdapter implements SourceAdapter {
 
   private readonly rootDirs: readonly string[];
   private readonly requireDir: boolean;
+  // Sibling forks share a parent; read its message keys once per parent version.
+  private readonly parentMessageKeysByVersion = new Map<string, Promise<Set<string>>>();
 
   public constructor(options: ClaudeSourceAdapterOptions = {}) {
     this.rootDirs = resolveRootDirs(options.dir, options.defaultRootDirs ?? defaultClaudeRootDirs);
@@ -181,13 +184,31 @@ export class ClaudeSourceAdapter implements SourceAdapter {
       : [metaPath];
   }
 
+  private async readParentMessageKeys(parentPath: string): Promise<Set<string>> {
+    const parentStats = await pathStat(parentPath);
+
+    if (!parentStats) {
+      return new Set();
+    }
+
+    const versionKey = `${parentPath}\0${parentStats.size}\0${parentStats.mtimeMs}`;
+    let messageKeys = this.parentMessageKeysByVersion.get(versionKey);
+
+    if (!messageKeys) {
+      messageKeys = readClaudeMessageKeys(parentPath);
+      this.parentMessageKeysByVersion.set(versionKey, messageKeys);
+    }
+
+    return messageKeys;
+  }
+
   public async parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
     const forkParentPath = await resolveClaudeForkParentPath(filePath);
     // Rows a forked subagent replayed from its parent are counted in the parent transcript,
     // provided this adapter's discovery covers the parent.
     const parentMessageKeys =
       forkParentPath && isPathWithinRoots(forkParentPath, this.rootDirs)
-        ? await readClaudeMessageKeys(forkParentPath)
+        ? await this.readParentMessageKeys(forkParentPath)
         : new Set<string>();
     const eventsByDedupKey = new Map<string, ClaudePendingEvent>();
     let skippedRows = 0;
