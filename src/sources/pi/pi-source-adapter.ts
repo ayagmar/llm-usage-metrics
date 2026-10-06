@@ -8,7 +8,11 @@ import { asRecord } from '../../utils/as-record.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import { pathExists } from '../../utils/fs-helpers.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
-import { discoverFilesAcrossRoots, resolveRootDirs } from '../multi-root-discovery.js';
+import {
+  discoverFilesAcrossRoots,
+  isPathWithinRoots,
+  resolveRootDirs,
+} from '../multi-root-discovery.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
@@ -105,16 +109,21 @@ async function readParentSessionPath(filePath: string): Promise<string | undefin
 
 /**
  * Entries of a forked session older than its header were copied from the parent. They
- * are skipped only while the parent file exists to count them; if the parent is gone,
- * the fork's copies are the only record of that usage.
+ * are skipped only while the same report counts the parent (it exists and lies under a
+ * discovery root); otherwise the fork's copies are the only counted record of that usage.
  */
 async function resolveForkedAtMs(
   sessionLine: Record<string, unknown>,
   filePath: string,
+  rootDirs: readonly string[],
 ): Promise<number | undefined> {
   const parentSessionPath = resolveParentSessionPath(sessionLine, filePath);
 
-  if (!parentSessionPath || !(await pathExists(parentSessionPath))) {
+  if (
+    !parentSessionPath ||
+    !isPathWithinRoots(parentSessionPath, rootDirs) ||
+    !(await pathExists(parentSessionPath))
+  ) {
     return undefined;
   }
 
@@ -214,8 +223,12 @@ export class PiSourceAdapter implements SourceAdapter {
   }
 
   public async getParseDependencies(filePath: string): Promise<string[]> {
+    // Only a parent this adapter can discover changes the parse result (see
+    // resolveForkedAtMs), so the dependency also keys the cache on that decision.
     const parentSessionPath = await readParentSessionPath(filePath);
-    return parentSessionPath ? [parentSessionPath] : [];
+    return parentSessionPath && isPathWithinRoots(parentSessionPath, this.rootDirs)
+      ? [parentSessionPath]
+      : [];
   }
 
   public async parseFile(filePath: string): Promise<UsageEvent[]> {
@@ -240,7 +253,8 @@ export class PiSourceAdapter implements SourceAdapter {
         state.sessionId = asTrimmedText(line.id) ?? state.sessionId;
         state.sessionTimestamp = asTrimmedText(line.timestamp) ?? state.sessionTimestamp;
         state.repoRoot = resolveRepoRootFromRecord(line) ?? state.repoRoot;
-        state.forkedAtMs = (await resolveForkedAtMs(line, filePath)) ?? state.forkedAtMs;
+        state.forkedAtMs =
+          (await resolveForkedAtMs(line, filePath, this.rootDirs)) ?? state.forkedAtMs;
         continue;
       }
 

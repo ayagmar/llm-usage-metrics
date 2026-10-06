@@ -9,7 +9,11 @@ import { asRecord } from '../../utils/as-record.js';
 import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
-import { discoverFilesAcrossRoots, resolveRootDirs } from '../multi-root-discovery.js';
+import {
+  discoverFilesAcrossRoots,
+  isPathWithinRoots,
+  resolveRootDirs,
+} from '../multi-root-discovery.js';
 import {
   getClaudeMessageKey,
   getClaudeSubagentMetaPath,
@@ -169,16 +173,22 @@ export class ClaudeSourceAdapter implements SourceAdapter {
       return [];
     }
 
+    // Only a parent this adapter can discover changes the parse result, so the dependency
+    // also keys the cache on whether replayed rows were skipped.
     const forkParentPath = await resolveClaudeForkParentPath(filePath);
-    return forkParentPath ? [metaPath, forkParentPath] : [metaPath];
+    return forkParentPath && isPathWithinRoots(forkParentPath, this.rootDirs)
+      ? [metaPath, forkParentPath]
+      : [metaPath];
   }
 
   public async parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
     const forkParentPath = await resolveClaudeForkParentPath(filePath);
-    // Rows a forked subagent replayed from its parent are counted in the parent transcript.
-    const parentMessageKeys = forkParentPath
-      ? await readClaudeMessageKeys(forkParentPath)
-      : new Set<string>();
+    // Rows a forked subagent replayed from its parent are counted in the parent transcript,
+    // provided this adapter's discovery covers the parent.
+    const parentMessageKeys =
+      forkParentPath && isPathWithinRoots(forkParentPath, this.rootDirs)
+        ? await readClaudeMessageKeys(forkParentPath)
+        : new Set<string>();
     const eventsByDedupKey = new Map<string, ClaudePendingEvent>();
     let skippedRows = 0;
     let sequence = 0;

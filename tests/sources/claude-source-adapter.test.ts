@@ -413,6 +413,16 @@ describe('ClaudeSourceAdapter', () => {
       path.join(subagentsDir, 'agent-a1.jsonl'),
     ]);
     expect(await adapter.getParseDependencies(sessionPath)).toEqual([]);
+
+    // Scanning only the subagents directory leaves the main-thread parent uncounted, so
+    // the fork's replayed rows stay.
+    const narrowedAdapter = new ClaudeSourceAdapter({ dir: subagentsDir });
+    expect(await narrowedAdapter.parseFile(path.join(subagentsDir, 'agent-a1.jsonl'))).toHaveLength(
+      2,
+    );
+    expect(
+      await narrowedAdapter.getParseDependencies(path.join(subagentsDir, 'agent-a1.jsonl')),
+    ).toEqual([path.join(subagentsDir, 'agent-a1.meta.json')]);
   });
 
   it('counts retries with the same message id but different request ids separately', async () => {

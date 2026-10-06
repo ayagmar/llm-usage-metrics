@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { pathIsDirectory, pathReadable } from '../utils/fs-helpers.js';
 import { isBlankText } from './parsing-utils.js';
@@ -15,6 +17,22 @@ export function resolveRootDirs(
   defaultRootDirs: readonly string[],
 ): readonly string[] {
   return overrideDir !== undefined ? [overrideDir] : defaultRootDirs;
+}
+
+/**
+ * Whether a path lies under one of an adapter's discovery roots, i.e. whether this
+ * run's discovery can include it. Fork deduplication relies on this: copied rows may
+ * only be skipped when the parent transcript is counted by the same report.
+ */
+export function isPathWithinRoots(filePath: string, rootDirs: readonly string[]): boolean {
+  const resolvedFilePath = path.resolve(filePath);
+
+  return rootDirs.some((rootDir) => {
+    const relativePath = path.relative(path.resolve(rootDir.trim()), resolvedFilePath);
+    return (
+      relativePath.length > 0 && !relativePath.startsWith('..') && !path.isAbsolute(relativePath)
+    );
+  });
 }
 
 export async function discoverFilesAcrossRoots(

@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -602,6 +602,15 @@ describe('PiSourceAdapter', () => {
     expect(forkDiagnostics.skippedRows).toBe(0);
     expect(await adapter.getParseDependencies(forkPath)).toEqual([parentPath]);
     expect(await adapter.getParseDependencies(parentPath)).toEqual([]);
+
+    // A scan root that excludes the parent leaves it uncounted, so the copies stay.
+    const forkOnlyDir = path.join(root, 'fork-only');
+    const forkOnlyPath = path.join(forkOnlyDir, 'fork.jsonl');
+    await mkdir(forkOnlyDir);
+    await writeFile(forkOnlyPath, await readFile(forkPath, 'utf8'), 'utf8');
+    const forkOnlyAdapter = new PiSourceAdapter({ dir: forkOnlyDir });
+    expect(await forkOnlyAdapter.parseFile(forkOnlyPath)).toHaveLength(3);
+    expect(await forkOnlyAdapter.getParseDependencies(forkOnlyPath)).toEqual([]);
 
     // Once the parent is gone, the fork's copies are the only record of that usage.
     await rm(parentPath);
