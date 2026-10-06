@@ -6,6 +6,7 @@ import type { UsageEvent } from '../../domain/usage-event.js';
 import type { NumberLike } from '../../domain/normalization.js';
 import { asRecord } from '../../utils/as-record.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
+import { pathExists } from '../../utils/fs-helpers.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
 import { discoverFilesAcrossRoots, resolveRootDirs } from '../multi-root-discovery.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
@@ -82,8 +83,38 @@ function resolveTimestamp(
   return undefined;
 }
 
-function resolveForkedAtMs(sessionLine: Record<string, unknown>): number | undefined {
-  if (!asTrimmedText(sessionLine.parentSession)) {
+function resolveParentSessionPath(
+  sessionLine: Record<string, unknown>,
+  filePath: string,
+): string | undefined {
+  const parentSession = asTrimmedText(sessionLine.parentSession);
+  return parentSession ? path.resolve(path.dirname(filePath), parentSession) : undefined;
+}
+
+async function readParentSessionPath(filePath: string): Promise<string | undefined> {
+  for await (const line of readJsonlObjects(filePath, {
+    shouldParseLine: (lineText) => lineText.includes('"session"'),
+  })) {
+    if (line.type === 'session') {
+      return resolveParentSessionPath(line, filePath);
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Entries of a forked session older than its header were copied from the parent. They
+ * are skipped only while the parent file exists to count them; if the parent is gone,
+ * the fork's copies are the only record of that usage.
+ */
+async function resolveForkedAtMs(
+  sessionLine: Record<string, unknown>,
+  filePath: string,
+): Promise<number | undefined> {
+  const parentSessionPath = resolveParentSessionPath(sessionLine, filePath);
+
+  if (!parentSessionPath || !(await pathExists(parentSessionPath))) {
     return undefined;
   }
 
@@ -163,7 +194,7 @@ function resolveRepoRootFromRecord(
 
 export class PiSourceAdapter implements SourceAdapter {
   public readonly id = 'pi' as const;
-  public readonly parserVersion = 2;
+  public readonly parserVersion = 3;
 
   private readonly rootDirs: readonly string[];
   private readonly requireDir: boolean;
@@ -180,6 +211,11 @@ export class PiSourceAdapter implements SourceAdapter {
       directoryLabel: 'PI sessions directory',
       discoverInRoot: (rootDir) => discoverJsonlFiles(rootDir),
     });
+  }
+
+  public async getParseDependencies(filePath: string): Promise<string[]> {
+    const parentSessionPath = await readParentSessionPath(filePath);
+    return parentSessionPath ? [parentSessionPath] : [];
   }
 
   public async parseFile(filePath: string): Promise<UsageEvent[]> {
@@ -204,7 +240,7 @@ export class PiSourceAdapter implements SourceAdapter {
         state.sessionId = asTrimmedText(line.id) ?? state.sessionId;
         state.sessionTimestamp = asTrimmedText(line.timestamp) ?? state.sessionTimestamp;
         state.repoRoot = resolveRepoRootFromRecord(line) ?? state.repoRoot;
-        state.forkedAtMs = resolveForkedAtMs(line) ?? state.forkedAtMs;
+        state.forkedAtMs = (await resolveForkedAtMs(line, filePath)) ?? state.forkedAtMs;
         continue;
       }
 

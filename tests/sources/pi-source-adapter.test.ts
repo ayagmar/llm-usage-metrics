@@ -600,6 +600,16 @@ describe('PiSourceAdapter', () => {
     ]);
     expect(forkDiagnostics.events[0]?.sessionId).toBe('fork');
     expect(forkDiagnostics.skippedRows).toBe(0);
+    expect(await adapter.getParseDependencies(forkPath)).toEqual([parentPath]);
+    expect(await adapter.getParseDependencies(parentPath)).toEqual([]);
+
+    // Once the parent is gone, the fork's copies are the only record of that usage.
+    await rm(parentPath);
+    expect((await adapter.parseFile(forkPath)).map((event) => event.timestamp)).toEqual([
+      '2026-02-12T20:01:00.000Z',
+      '2026-02-12T20:02:00.000Z',
+      '2026-02-12T20:06:00.000Z',
+    ]);
   });
 
   it('reports malformed JSONL lines that pass its prefilter', async () => {
