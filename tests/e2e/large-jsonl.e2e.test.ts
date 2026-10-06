@@ -36,6 +36,7 @@ describe('large jsonl fixture e2e', () => {
         source: 'pi,codex',
         timezone: 'UTC',
         json: true,
+        pricingOffline: true,
       });
 
       const parsed = JSON.parse(report) as {
