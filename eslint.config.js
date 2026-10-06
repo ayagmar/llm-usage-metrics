@@ -3,6 +3,8 @@ import { fileURLToPath } from 'node:url';
 
 import js from '@eslint/js';
 import prettierConfig from 'eslint-config-prettier';
+import redosPlugin from 'eslint-plugin-redos';
+import regexpPlugin from 'eslint-plugin-regexp';
 import tseslint from 'typescript-eslint';
 
 const tsconfigRootDir = path.dirname(fileURLToPath(import.meta.url));
@@ -28,6 +30,7 @@ export default tseslint.config(
     ],
   },
   js.configs.recommended,
+  regexpPlugin.configs['flat/recommended'],
   ...scopeToFiles(tseslint.configs.recommendedTypeChecked, tsFiles),
   ...scopeToFiles(tseslint.configs.strictTypeChecked, tsFiles),
   ...scopeToFiles(tseslint.configs.stylisticTypeChecked, tsFiles),
@@ -41,6 +44,9 @@ export default tseslint.config(
     },
     rules: {
       'no-console': 'off',
+      // Control-character classes are built with new RegExp(String.raw`...`) on purpose,
+      // which keeps them readable without tripping no-control-regex.
+      'prefer-regex-literals': 'off',
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/consistent-type-imports': [
         'error',
@@ -75,6 +81,15 @@ export default tseslint.config(
           message: 'Inline dynamic imports are forbidden; use top-level static imports instead.',
         },
       ],
+    },
+  },
+  {
+    // recheck finds ReDoS that static rules miss, e.g. alternatives that overlap across
+    // iterations of a repeated group. Model names and log text are untrusted input.
+    files: ['src/**/*.ts'],
+    plugins: { redos: redosPlugin },
+    rules: {
+      'redos/no-vulnerable': 'error',
     },
   },
   {

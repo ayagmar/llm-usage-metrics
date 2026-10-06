@@ -23,7 +23,7 @@ import type {
  * zstd-compressed. Temporary, uppercase, and leading-zero names are not
  * canonical.
  */
-const DSH_SESSION_LOG_FILENAME_PATTERN = /^session(?:\.v[1-9][0-9]*)?\.jsonl(?:\.zstd)?$/u;
+const DSH_SESSION_LOG_FILENAME_PATTERN = /^session(?:\.v[1-9]\d*)?\.jsonl(?:\.zstd)?$/u;
 
 const DSH_ASSISTANT_MESSAGE_LINE_PATTERN = /"type"\s*:\s*"assistant\/message"/u;
 const DSH_SESSION_LINE_PATTERN = /"type"\s*:\s*"session"/u;

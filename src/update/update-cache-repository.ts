@@ -72,7 +72,7 @@ export function getDefaultUpdateCheckCachePath(): string {
 }
 
 function sanitizeCachePathFragment(value: string): string {
-  return value.replace(/[^A-Za-z0-9._-]/gu, '_');
+  return value.replace(/[^\w.-]/gu, '_');
 }
 
 function toCacheSessionKey(value: string | undefined): string | undefined {
