@@ -40,8 +40,28 @@ function shouldParseQwenJsonlLine(lineText: string): boolean {
   return lineText.includes(QWEN_USAGE_LINE_TEXT);
 }
 
+function reportsThoughtsOutsideCandidates(
+  usage: { promptTokens: number; candidatesTokens: number; reasoningTokens: number },
+  declaredTotalTokens: number,
+  model: string | undefined,
+): boolean {
+  if (usage.reasoningTokens === 0) {
+    return false;
+  }
+
+  if (declaredTotalTokens > 0) {
+    return (
+      declaredTotalTokens >= usage.promptTokens + usage.candidatesTokens + usage.reasoningTokens
+    );
+  }
+
+  // Without a declared total, only the model family tells the layouts apart.
+  return model?.toLowerCase().startsWith('gemini') ?? false;
+}
+
 function extractTokenUsage(
   usageMetadata: Record<string, unknown> | undefined,
+  model: string | undefined,
 ): QwenTokenUsage | null {
   if (!usageMetadata) {
     return null;
@@ -63,8 +83,11 @@ function extractTokenUsage(
     promptTokens,
     cachedTokens,
   );
-  const thoughtsOutsideCandidates =
-    reasoningTokens > 0 && declaredTotalTokens >= promptTokens + candidatesTokens + reasoningTokens;
+  const thoughtsOutsideCandidates = reportsThoughtsOutsideCandidates(
+    { promptTokens, candidatesTokens, reasoningTokens },
+    declaredTotalTokens,
+    model,
+  );
   const outputTokens = candidatesTokens + (thoughtsOutsideCandidates ? reasoningTokens : 0);
 
   const componentTotalTokens = inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens;
@@ -102,7 +125,7 @@ function getFallbackSessionId(filePath: string): string {
 
 export class QwenSourceAdapter implements SourceAdapter {
   public readonly id = 'qwen' as const;
-  public readonly parserVersion = 2;
+  public readonly parserVersion = 3;
 
   private readonly projectsDir: string;
   private readonly requireDir: boolean;
@@ -156,7 +179,7 @@ export class QwenSourceAdapter implements SourceAdapter {
         continue;
       }
 
-      const usage = extractTokenUsage(asRecord(line.usageMetadata));
+      const usage = extractTokenUsage(asRecord(line.usageMetadata), asTrimmedText(line.model));
 
       if (!usage) {
         skippedRows++;

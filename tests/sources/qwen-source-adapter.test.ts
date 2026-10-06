@@ -161,6 +161,33 @@ describe('QwenSourceAdapter', () => {
     });
   });
 
+  it('falls back to the model family when usage has no declared total', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'qwen-no-total-'));
+    tempDirs.push(tempDir);
+    const filePath = path.join(tempDir, 'no-total.jsonl');
+    const usageRow = (model: string, sessionId: string) =>
+      JSON.stringify({
+        type: 'assistant',
+        model,
+        timestamp: '2026-03-01T10:00:00.000Z',
+        sessionId,
+        usageMetadata: {
+          promptTokenCount: 100,
+          candidatesTokenCount: 40,
+          thoughtsTokenCount: 15,
+        },
+      });
+    await writeFile(
+      filePath,
+      `${usageRow('gemini-2.5-pro', 'gemini')}\n${usageRow('qwen3-coder', 'qwen')}\n`,
+      'utf8',
+    );
+
+    const events = await new QwenSourceAdapter().parseFile(filePath);
+
+    expect(events.map((event) => event.outputTokens)).toEqual([55, 40]);
+  });
+
   it('reports malformed JSONL lines that pass its prefilter', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'qwen-malformed-jsonl-'));
     tempDirs.push(root);
