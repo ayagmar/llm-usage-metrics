@@ -20,7 +20,7 @@ const knownCanonicalProviderRoots = new Set([
 
 const explicitModelProviderRootPatterns: Array<[pattern: RegExp, providerRoot: string]> = [
   [/^gpt-/u, 'openai'],
-  [/^o(?:1|3|4)(?:$|[-.])/u, 'openai'],
+  [/^o[134](?:$|[-.])/u, 'openai'],
   [/^claude(?:$|[-.])/u, 'anthropic'],
   [/^gemini(?:$|[-.])/u, 'google'],
 ];

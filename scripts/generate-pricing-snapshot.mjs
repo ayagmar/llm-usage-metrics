@@ -11,6 +11,7 @@ const __dirname = dirname(__filename);
 const rootDir = join(__dirname, '..');
 const snapshotPath = join(rootDir, 'src', 'pricing', 'litellm-pricing-snapshot.json');
 const retiredPricingPath = join(rootDir, 'src', 'pricing', 'litellm-retired-pricing.json');
+const modelMapPath = join(rootDir, 'src', 'pricing', 'litellm-model-map.json');
 
 const {
   DEFAULT_LITELLM_PRICING_URL,
@@ -131,13 +132,38 @@ async function readPricingRecord(filePath) {
 // that leave upstream move from the snapshot into the retired-pricing file and stay there
 // until upstream lists them again.
 async function writeRetiredPricing(upstreamPricingByModel) {
-  const previousPricing = {
-    ...(await readPricingRecord(retiredPricingPath)),
-    ...(await readPricingRecord(snapshotPath)),
-  };
+  const previousRetiredPricing = await readPricingRecord(retiredPricingPath);
+  const previousSnapshotPricing = await readPricingRecord(snapshotPath);
+  const previousPricing = { ...previousRetiredPricing, ...previousSnapshotPricing };
   const retiredPricing = new Map(
     Object.entries(previousPricing).filter(([modelName]) => !upstreamPricingByModel.has(modelName)),
   );
+  const newlyRetiredModels = Object.keys(previousSnapshotPricing)
+    .filter((modelName) => !upstreamPricingByModel.has(modelName))
+    .sort(compareByCodePoint);
+
+  // A refresh is a pricing change, not a chore: list what left upstream so the diff gets
+  // reviewed, and check that the model map's preferred keys still exist.
+  if (newlyRetiredModels.length > 0) {
+    console.log(`Models removed upstream since the last snapshot (${newlyRetiredModels.length}):`);
+
+    for (const modelName of newlyRetiredModels) {
+      console.log(`  - ${modelName}`);
+    }
+  }
+
+  const modelMap = JSON.parse(await readFile(modelMapPath, 'utf8'));
+  const missingPreferredKeys = Object.entries(modelMap.preferredPricingKeyByCanonicalModel ?? {})
+    .filter(([, pricingKey]) => !upstreamPricingByModel.has(pricingKey))
+    .map(([canonicalModel, pricingKey]) => `${canonicalModel} -> ${pricingKey}`);
+
+  if (missingPreferredKeys.length > 0) {
+    console.warn('Preferred pricing keys missing upstream; update litellm-model-map.json:');
+
+    for (const entry of missingPreferredKeys) {
+      console.warn(`  - ${entry}`);
+    }
+  }
 
   await writeFile(
     retiredPricingPath,

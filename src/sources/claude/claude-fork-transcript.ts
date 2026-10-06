@@ -5,7 +5,7 @@ import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
 import { asTrimmedText } from '../parsing-utils.js';
 import { readBoundedJsonFile } from '../read-json-file.js';
 
-const SUBAGENT_TRANSCRIPT_PATTERN = /^agent-([A-Za-z0-9_-]+)\.jsonl$/u;
+const SUBAGENT_TRANSCRIPT_PATTERN = /^agent-([\w-]+)\.jsonl$/u;
 const SUBAGENTS_DIR_NAME = 'subagents';
 const CLAUDE_ASSISTANT_BYTES = Buffer.from('"assistant"');
 
