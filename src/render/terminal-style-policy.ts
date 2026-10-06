@@ -32,7 +32,8 @@ const periodColumnIndex = 0;
 const sourceColumnIndex = 1;
 const modelsColumnIndex = 2;
 const totalColumnIndex = 8;
-const packedModelStartPattern = /(^| {2,})(?=• )/gu;
+// Matches only at the start of a space run, so long runs without a bullet stay linear.
+const packedModelStartPattern = /(?:^|(?<! ) {2,})(?=• )/gu;
 
 function styleCellLines(cell: string, styler: TextStyler): string {
   return splitCellLines(cell)

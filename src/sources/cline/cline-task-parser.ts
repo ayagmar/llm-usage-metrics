@@ -32,8 +32,53 @@ type ClineTokenUsage = {
   cacheWriteTokens: number;
 };
 
-const ENVIRONMENT_DETAILS_PATTERN = /<environment_details>[\s\S]*?<\/environment_details>/gu;
-const MODEL_PATTERN = /<model>([\s\S]*?)<\/model>/u;
+const ENVIRONMENT_DETAILS_OPEN_TAG = '<environment_details>';
+const ENVIRONMENT_DETAILS_CLOSE_TAG = '</environment_details>';
+const MODEL_OPEN_TAG = '<model>';
+const MODEL_CLOSE_TAG = '</model>';
+
+// Conversation history is untrusted, multi-megabyte text; lazy `[\s\S]*?` regexes over it
+// go quadratic on repeated unclosed tags, so tagged blocks are found with indexOf scans.
+function findLastTaggedBlock(
+  content: string,
+  openTag: string,
+  closeTag: string,
+): string | undefined {
+  let lastBlock: string | undefined;
+  let searchFrom = 0;
+
+  for (;;) {
+    const start = content.indexOf(openTag, searchFrom);
+
+    if (start === -1) {
+      return lastBlock;
+    }
+
+    const end = content.indexOf(closeTag, start + openTag.length);
+
+    if (end === -1) {
+      return lastBlock;
+    }
+
+    searchFrom = end + closeTag.length;
+    lastBlock = content.slice(start, searchFrom);
+  }
+}
+
+function findFirstTaggedText(
+  content: string,
+  openTag: string,
+  closeTag: string,
+): string | undefined {
+  const start = content.indexOf(openTag);
+
+  if (start === -1) {
+    return undefined;
+  }
+
+  const end = content.indexOf(closeTag, start + openTag.length);
+  return end === -1 ? undefined : content.slice(start + openTag.length, end);
+}
 
 function incrementContextSkippedReason(context: ClineParseContext, reason: string): void {
   context.skippedRows++;
@@ -116,16 +161,19 @@ async function loadHistoryModel(historyPath: string): Promise<string | undefined
     return undefined;
   }
 
-  const lastEnvironmentDetails = [...content.matchAll(ENVIRONMENT_DETAILS_PATTERN)]
-    .map((match) => match[0])
-    .at(-1);
+  const lastEnvironmentDetails = findLastTaggedBlock(
+    content,
+    ENVIRONMENT_DETAILS_OPEN_TAG,
+    ENVIRONMENT_DETAILS_CLOSE_TAG,
+  );
 
   if (!lastEnvironmentDetails) {
     return undefined;
   }
 
-  const modelMatch = MODEL_PATTERN.exec(lastEnvironmentDetails);
-  return asTrimmedText(modelMatch?.[1]);
+  return asTrimmedText(
+    findFirstTaggedText(lastEnvironmentDetails, MODEL_OPEN_TAG, MODEL_CLOSE_TAG),
+  );
 }
 
 function isUsageEntry(entry: Record<string, unknown>): boolean {

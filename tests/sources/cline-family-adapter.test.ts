@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -249,5 +249,28 @@ describe('ClineFamilyAdapter', () => {
       costMode: 'estimated',
     });
     expect(result.events[1]?.costUsd).toBeUndefined();
+  });
+
+  it('finds the last model block in linear time despite unclosed tags', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'cline-unclosed-tags-'));
+    tempDirs.push(tempDir);
+    const uiMessagesPath = path.join(tempDir, 'task-a', 'ui_messages.json');
+    await mkdir(path.dirname(uiMessagesPath), { recursive: true });
+    await copyFile(fixtureUiMessagesPath, uiMessagesPath);
+    const history = JSON.parse(
+      await readFile(getClineTaskHistoryPath(fixtureUiMessagesPath), 'utf8'),
+    ) as unknown[];
+    history.push({ role: 'user', content: '<environment_details>'.repeat(60_000) });
+    await writeFile(getClineTaskHistoryPath(uiMessagesPath), JSON.stringify(history), 'utf8');
+
+    const adapter = createClineFamilyAdapter({
+      id: 'cline',
+      extensionId: CLINE_EXTENSION_IDS.cline,
+    });
+    const startedAt = performance.now();
+    const result = await adapter.parseFileWithDiagnostics(uiMessagesPath);
+
+    expect(result.events[0]?.model).toBe('claude-3.7-sonnet');
+    expect(performance.now() - startedAt).toBeLessThan(2_000);
   });
 });

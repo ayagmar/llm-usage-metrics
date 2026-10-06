@@ -11,7 +11,7 @@ import {
 
 const GIT_COMMIT_MARKER = '\u001f';
 const SHORTSTAT_PATTERN =
-  /(\d+)\s+files?\s+changed(?:,\s+(\d+)\s+insertions?\(\+\))?(?:,\s+(\d+)\s+deletions?\(-\))?/u;
+  /(?<!\d)\d+\s+files?\s+changed(?:,\s+(\d+)\s+insertions?\(\+\))?(?:,\s+(\d+)\s+deletions?\(-\))?/u;
 
 export type GitOutcomeCollectorOptions = {
   repoDir?: string;
@@ -191,7 +191,7 @@ function resolveEmailFromGitAuthorIdent(lines: string[]): string | undefined {
     return undefined;
   }
 
-  const emailMatch = /<([^>]+)>/u.exec(identLine);
+  const emailMatch = /<([^<>]+)>/u.exec(identLine);
   const email = emailMatch?.[1]?.trim();
 
   return email && email.length > 0 ? email : undefined;
@@ -259,8 +259,8 @@ function parseShortstatLine(
     return undefined;
   }
 
-  const linesAddedRaw = shortstatMatch[2];
-  const linesDeletedRaw = shortstatMatch[3];
+  const linesAddedRaw = shortstatMatch[1];
+  const linesDeletedRaw = shortstatMatch[2];
 
   return {
     linesAdded: linesAddedRaw ? Number.parseInt(linesAddedRaw, 10) : 0,
