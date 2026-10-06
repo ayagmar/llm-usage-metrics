@@ -8,6 +8,17 @@ import {
 
 type StatFile = (filePath: string) => Promise<unknown>;
 
+type DiskPresence = 'present' | 'missing' | 'unknown';
+
+/**
+ * How a stored file whose presence cannot be checked (e.g. EACCES) is treated. History
+ * serves it as departed so usage is never hidden; prune keeps it live so nothing is
+ * deleted without proof that the file is gone.
+ */
+export type UnverifiableStoredFilePolicy = 'treat-as-departed' | 'treat-as-live';
+
+const MAX_CONCURRENT_STATS = 32;
+
 function isMissingPathError(error: unknown): boolean {
   return (
     typeof error === 'object' &&
@@ -17,14 +28,33 @@ function isMissingPathError(error: unknown): boolean {
   );
 }
 
-async function isStillOnDisk(filePath: string, statFile: StatFile): Promise<boolean> {
+async function checkDiskPresence(filePath: string, statFile: StatFile): Promise<DiskPresence> {
   try {
     await statFile(filePath);
-    return true;
+    return 'present';
   } catch (error) {
-    // Only a missing path proves a file departed; unreadable files are kept as live.
-    return !isMissingPathError(error);
+    return isMissingPathError(error) ? 'missing' : 'unknown';
   }
+}
+
+async function mapWithConcurrency<Input, Output>(
+  inputs: readonly Input[],
+  concurrency: number,
+  mapInput: (input: Input) => Promise<Output>,
+): Promise<Output[]> {
+  const outputs = new Array<Output>(inputs.length);
+  let nextIndex = 0;
+
+  const workers = Array.from({ length: Math.min(concurrency, inputs.length) }, async () => {
+    while (nextIndex < inputs.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      outputs[index] = await mapInput(inputs[index]);
+    }
+  });
+
+  await Promise.all(workers);
+  return outputs;
 }
 
 /**
@@ -36,17 +66,22 @@ async function isStillOnDisk(filePath: string, statFile: StatFile): Promise<bool
 export async function addStoredFilesStillOnDisk(
   store: EventStore,
   input: LoadHistoryEventsInput,
-  statFile: StatFile = stat,
+  options: { unverifiable: UnverifiableStoredFilePolicy; statFile?: StatFile },
 ): Promise<LoadHistoryEventsInput> {
+  const statFile = options.statFile ?? stat;
   const undiscoveredFiles = readUndiscoveredStoredFiles(store, input);
-  const presence = await Promise.all(
-    undiscoveredFiles.map((file) => isStillOnDisk(file.filePath, statFile)),
+  const presence = await mapWithConcurrency(undiscoveredFiles, MAX_CONCURRENT_STATS, (file) =>
+    checkDiskPresence(file.filePath, statFile),
   );
-  const filesStillOnDisk = undiscoveredFiles.filter((_, index) => presence[index]);
+  const liveFiles = undiscoveredFiles.filter(
+    (_, index) =>
+      presence[index] === 'present' ||
+      (presence[index] === 'unknown' && options.unverifiable === 'treat-as-live'),
+  );
 
-  if (filesStillOnDisk.length === 0) {
+  if (liveFiles.length === 0) {
     return input;
   }
 
-  return { ...input, discoveredFiles: [...input.discoveredFiles, ...filesStillOnDisk] };
+  return { ...input, discoveredFiles: [...input.discoveredFiles, ...liveFiles] };
 }

@@ -328,7 +328,11 @@ export async function buildPruneReport(
   return withEventStore(storePath, deps, async (store) => {
     const classifiedFiles = classifyDepartedFiles(
       store,
-      await addStoredFilesStillOnDisk(store, { selectedSources, discoveredFiles }, statFile),
+      await addStoredFilesStillOnDisk(
+        store,
+        { selectedSources, discoveredFiles },
+        { unverifiable: 'treat-as-live', statFile },
+      ),
     );
     const candidates = buildCandidates(classifiedFiles, {
       includeSuppressed: Boolean(options.suppressed),

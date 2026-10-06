@@ -235,12 +235,16 @@ export async function buildUsageEventDataset(
           async () =>
             loadHistoryEvents(
               historyStore,
-              await addStoredFilesStillOnDisk(historyStore, {
-                // Only successfully parsed sources: a failed source has an empty
-                // discovered set, so all its stored files would look departed.
-                selectedSources: successfulParseResults.map((result) => result.source),
-                discoveredFiles,
-              }),
+              await addStoredFilesStillOnDisk(
+                historyStore,
+                {
+                  // Only successfully parsed sources: a failed source has an empty
+                  // discovered set, so all its stored files would look departed.
+                  selectedSources: successfulParseResults.map((result) => result.source),
+                  discoveredFiles,
+                },
+                { unverifiable: 'treat-as-departed' },
+              ),
             ),
         );
         parseResultsForFiltering = appendHistoryEvents(
