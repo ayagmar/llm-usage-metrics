@@ -24,6 +24,7 @@ import {
 } from './build-usage-data-inputs.js';
 import { resolveUserConfigForOptions, type UserConfigResolutionDeps } from './apply-user-config.js';
 import { emitUserConfigResolution } from './emit-active-config.js';
+import { addStoredFilesStillOnDisk } from './history-live-files.js';
 import { renderReportJson } from '../render/report-json.js';
 import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
 import { logger } from '../utils/logger.js';
@@ -325,10 +326,10 @@ export async function buildPruneReport(
   }
 
   return withEventStore(storePath, deps, async (store) => {
-    const classifiedFiles = classifyDepartedFiles(store, {
-      selectedSources,
-      discoveredFiles,
-    });
+    const classifiedFiles = classifyDepartedFiles(
+      store,
+      await addStoredFilesStillOnDisk(store, { selectedSources, discoveredFiles }, statFile),
+    );
     const candidates = buildCandidates(classifiedFiles, {
       includeSuppressed: Boolean(options.suppressed),
       departedBeforeTimestamp,

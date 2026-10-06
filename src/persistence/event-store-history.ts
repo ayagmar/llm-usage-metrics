@@ -137,6 +137,62 @@ function writeTempInputs(store: EventStore, input: LoadHistoryEventsInput): Set<
   return selectedSources;
 }
 
+function historyFileKey(source: string, filePath: string): string {
+  return `${source}\0${filePath}`;
+}
+
+/**
+ * Stored files of the selected sources that this run did not discover. Discovery can
+ * miss files that are still on disk (a narrowed `--source-dir`, a different root), so
+ * callers check these before letting history or prune treat them as departed.
+ */
+export function readUndiscoveredStoredFiles(
+  store: EventStore,
+  input: LoadHistoryEventsInput,
+): EventStoreHistoryDiscoveredFile[] {
+  const selectedSources = new Set<string>();
+
+  for (const source of input.selectedSources) {
+    const normalizedSource = normalizeHistorySource(source);
+
+    if (normalizedSource) {
+      selectedSources.add(normalizedSource);
+    }
+  }
+
+  const discoveredKeys = new Set<string>();
+
+  for (const discoveredFile of input.discoveredFiles) {
+    const normalizedSource = normalizeHistorySource(discoveredFile.source);
+    const normalizedFilePath = normalizeHistoryFilePath(discoveredFile.filePath);
+
+    if (normalizedSource && normalizedFilePath) {
+      discoveredKeys.add(historyFileKey(normalizedSource, normalizedFilePath));
+    }
+  }
+
+  const rows = store.database
+    .prepare('SELECT source, file_path FROM files ORDER BY source ASC, file_path ASC')
+    .all();
+  const undiscoveredFiles: EventStoreHistoryDiscoveredFile[] = [];
+
+  for (const row of rows) {
+    const source = toText(row.source);
+    const filePath = toText(row.file_path);
+
+    if (
+      source &&
+      filePath &&
+      selectedSources.has(source) &&
+      !discoveredKeys.has(historyFileKey(source, filePath))
+    ) {
+      undiscoveredFiles.push({ source, filePath });
+    }
+  }
+
+  return undiscoveredFiles;
+}
+
 function addHashCount(target: Map<string, number>, hash: string, count: number): void {
   if (count <= 0) {
     return;

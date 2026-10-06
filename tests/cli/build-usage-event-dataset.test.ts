@@ -332,4 +332,30 @@ describe('buildUsageEventDataset history', () => {
       'History: included 3 event(s) from 1 departed file(s) (0 suppressed as moved or duplicated).',
     ]);
   });
+
+  it('does not serve undiscovered files that are still on disk as history', async () => {
+    const eventStorePath = await createEventStorePath();
+    const onDiskPath = path.join(path.dirname(eventStorePath), 'outside-discovery.jsonl');
+    const departedPath = path.join(path.dirname(eventStorePath), 'departed.jsonl');
+    await writeFile(onDiskPath, '{}\n', 'utf8');
+    await writeStoredFile(eventStorePath, {
+      filePath: onDiskPath,
+      events: [createEvent({ sessionId: 'on-disk' })],
+    });
+    const departedEvent = createEvent({ sessionId: 'departed' });
+    await writeStoredFile(eventStorePath, { filePath: departedPath, events: [departedEvent] });
+
+    const dataset = await buildUsageEventDataset(
+      { history: true, source: 'codex', timezone: 'UTC' },
+      {
+        ...createDatasetDeps(eventStorePath),
+        createAdapters: () => [createAdapter('codex', {})],
+      },
+    );
+
+    expect(dataset.filteredEvents).toEqual([departedEvent]);
+    expect(dataset.warnings).toEqual([
+      'History: included 1 event(s) from 1 departed file(s) (0 suppressed as moved or duplicated).',
+    ]);
+  });
 });
