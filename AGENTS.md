@@ -62,13 +62,16 @@ Keep source-specific parsing logic inside adapters. Keep pricing logic in `src/p
   roots). Otherwise stored events go stale silently.
 - Token semantics: `inputTokens` excludes cache reads (use `splitPromptIncludingCachedTokens`
   for prompt counts that include them), and `outputTokens` includes reasoning, with
-  `reasoningTokens` as a breakdown. Check new sources against real logs, not only fixtures.
+  `reasoningTokens` as a breakdown. When `reasoningTokens > 0`, pass `totalTokens`
+  explicitly: `createUsageEvent` adds reasoning to a computed total. Check new sources
+  against real logs, not only fixtures.
 - Pricing: `tests/pricing/model-resolution-reference.test.ts` pins how real model names
   resolve. When the matcher, model map, or snapshot changes, review every moved row and
   update it deliberately. A snapshot refresh lists models removed upstream; review that
   list, since those prices move to `litellm-retired-pricing.json`.
-- Regexes: lint runs ReDoS checks (`eslint-plugin-regexp`, `eslint-plugin-redos`). Do not
-  run lazy or greedy wildcards over large untrusted text; scan with `indexOf` instead.
+- Regexes: lint runs ReDoS checks (`eslint-plugin-regexp` everywhere; `eslint-plugin-redos`
+  on regex literals in `src/`, not `new RegExp(...)`). Do not run lazy or greedy wildcards
+  over large untrusted text; scan with `indexOf` instead.
 - When a shared helper serves several callers (e.g. history and prune), check the change
   against each caller's semantics.
 
