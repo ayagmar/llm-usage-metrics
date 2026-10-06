@@ -97,6 +97,15 @@ describe('litellm model matching', () => {
     expect(
       resolveCanonicalModelKey(normalizeKey('claude-sonnet-4-5@20250929'), pricingByModel),
     ).toBe('claude-sonnet-4-5');
+    expect(
+      resolveCanonicalModelKey(normalizeKey('claude-sonnet-4-5-2025-09-29'), pricingByModel),
+    ).toBe('claude-sonnet-4-5');
+    expect(
+      resolveCanonicalModelKey(normalizeKey('claude-sonnet-4-5-20250929-v2:0'), pricingByModel),
+    ).toBe('claude-sonnet-4-5');
+    expect(resolveCanonicalModelKey(normalizeKey('claude-sonnet-4-5-v2'), pricingByModel)).toBe(
+      undefined,
+    );
     expect(resolveCanonicalModelKey(normalizeKey('gpt-5-codex-mini'), pricingByModel)).toBe(
       undefined,
     );
@@ -125,6 +134,17 @@ describe('litellm model matching', () => {
     const pricingByModel = createPricingMap(['gpt-4.1', 'gpt-5.2-codex', 'gemini/gemini-3-flash']);
 
     expect(resolveCanonicalModelKey(normalizeKey('x'.repeat(256)), pricingByModel)).toBe(undefined);
+  });
+
+  it('checks adversarial release suffixes in linear time', () => {
+    const pricingByModel = createPricingMap(['gpt-5-codex']);
+    const adversarialModel = `gpt-5-codex@${'--v0:0@'.repeat(5_000)}!`;
+    const startedAt = performance.now();
+
+    expect(resolveCanonicalModelKey(normalizeKey(adversarialModel), pricingByModel)).toBe(
+      undefined,
+    );
+    expect(performance.now() - startedAt).toBeLessThan(500);
   });
 
   it('skips fuzzy matching for guarded model names', () => {

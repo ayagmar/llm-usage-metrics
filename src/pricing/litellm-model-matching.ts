@@ -86,9 +86,36 @@ function canonicalizeForFuzzy(value: string): string {
 // Release suffixes that leave the priced model unchanged: dates and snapshot ids
 // (-20250929, -2025-09-29, -0613), -latest, Vertex @versions and Bedrock :n / -vN:n.
 // Variant words (-mini, -flash) and minor versions (-1) name a different model, so
-// prefix matching must not bridge them.
-const RELEASE_SUFFIX_PATTERN =
-  /^(?:-(?:\d{4}(?:-?\d{2}-?\d{2})?|latest|v\d+:\d+)|@[a-z0-9.-]+|:(?:\d+|latest))+$/u;
+// prefix matching must not bridge them. The suffix is split into separator-led
+// segments and each is checked on its own, which keeps matching linear in its length.
+const ISO_DATE_SEGMENT_PATTERN = /-(\d{4})-(\d{2})-(\d{2})(?=$|[-@:])/gu;
+const SUFFIX_SEGMENT_PATTERN = /[-@:][^-@:]*/gu;
+const RELEASE_SEGMENT_PATTERNS = [
+  /^-\d{4}$/u,
+  /^-\d{8}$/u,
+  /^-latest$/u,
+  /^@[a-z0-9.]+$/u,
+  /^:\d+$/u,
+  /^:latest$/u,
+];
+const BEDROCK_VERSION_SEGMENT_PATTERN = /^-v\d+$/u;
+const BEDROCK_REVISION_SEGMENT_PATTERN = /^:\d+$/u;
+
+function isReleaseSuffix(suffix: string): boolean {
+  if (!/^[-@:]/u.test(suffix)) {
+    return false;
+  }
+
+  const segments =
+    suffix.replace(ISO_DATE_SEGMENT_PATTERN, '-$1$2$3').match(SUFFIX_SEGMENT_PATTERN) ?? [];
+
+  return segments.every(
+    (segment, index) =>
+      RELEASE_SEGMENT_PATTERNS.some((pattern) => pattern.test(segment)) ||
+      (BEDROCK_VERSION_SEGMENT_PATTERN.test(segment) &&
+        BEDROCK_REVISION_SEGMENT_PATTERN.test(segments[index + 1] ?? '')),
+  );
+}
 
 function isPrefixModelMatch(candidate: string, modelName: string): boolean {
   if (!candidate.startsWith(modelName)) {
@@ -97,7 +124,7 @@ function isPrefixModelMatch(candidate: string, modelName: string): boolean {
   if (candidate.length === modelName.length) {
     return true;
   }
-  return RELEASE_SUFFIX_PATTERN.test(candidate.slice(modelName.length));
+  return isReleaseSuffix(candidate.slice(modelName.length));
 }
 
 // Providers that publish their own list prices, then clouds that resell at list price.
