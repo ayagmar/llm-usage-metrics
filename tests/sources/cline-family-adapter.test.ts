@@ -273,4 +273,82 @@ describe('ClineFamilyAdapter', () => {
     expect(result.events[0]?.model).toBe('claude-3.7-sonnet');
     expect(performance.now() - startedAt).toBeLessThan(2_000);
   });
+
+  it('splits cache tokens out of the cache-inclusive Roo and Kilo input counts', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'roo-cache-inclusive-'));
+    tempDirs.push(tempDir);
+    const uiMessagesPath = path.join(tempDir, 'task-roo', 'ui_messages.json');
+    await mkdir(path.dirname(uiMessagesPath), { recursive: true });
+    const apiRequest = (ts: number, payload: Record<string, unknown>) => ({
+      type: 'say',
+      say: 'api_req_started',
+      ts,
+      text: JSON.stringify(payload),
+    });
+    await writeFile(
+      uiMessagesPath,
+      JSON.stringify([
+        // Roo >= 3.30: tokensIn = input + cache writes + cache reads.
+        apiRequest(1_772_445_600_000, {
+          cost: 0.25,
+          tokensIn: 10_500,
+          tokensOut: 50,
+          cacheReads: 9_000,
+          cacheWrites: 500,
+          apiProtocol: 'anthropic',
+        }),
+        // Older Roo rows carried the raw Anthropic count, which excludes cache tokens.
+        apiRequest(1_772_445_660_000, {
+          cost: 0,
+          tokensIn: 1_000,
+          tokensOut: 20,
+          cacheReads: 9_000,
+          cacheWrites: 500,
+          apiProtocol: 'anthropic',
+        }),
+      ]),
+      'utf8',
+    );
+
+    for (const id of ['roocode', 'kilocode'] as const) {
+      const adapter = createClineFamilyAdapter({ id, extensionId: CLINE_EXTENSION_IDS[id] });
+      const events = await adapter.parseFile(uiMessagesPath);
+
+      expect(
+        events.map((event) => ({
+          inputTokens: event.inputTokens,
+          cacheReadTokens: event.cacheReadTokens,
+          cacheWriteTokens: event.cacheWriteTokens,
+          totalTokens: event.totalTokens,
+          costUsd: event.costUsd,
+          costMode: event.costMode,
+        })),
+      ).toEqual([
+        {
+          inputTokens: 1_000,
+          cacheReadTokens: 9_000,
+          cacheWriteTokens: 500,
+          totalTokens: 10_550,
+          costUsd: 0.25,
+          costMode: 'explicit',
+        },
+        {
+          inputTokens: 1_000,
+          cacheReadTokens: 9_000,
+          cacheWriteTokens: 500,
+          totalTokens: 10_520,
+          costUsd: undefined,
+          costMode: 'estimated',
+        },
+      ]);
+    }
+
+    const clineAdapter = createClineFamilyAdapter({
+      id: 'cline',
+      extensionId: CLINE_EXTENSION_IDS.cline,
+    });
+    const clineEvents = await clineAdapter.parseFile(uiMessagesPath);
+
+    expect(clineEvents.map((event) => event.inputTokens)).toEqual([10_500, 1_000]);
+  });
 });
