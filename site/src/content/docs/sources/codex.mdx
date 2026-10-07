@@ -17,4 +17,4 @@ llm-usage daily --source-dir codex=/path/to/codex/sessions
 
 ## Parsing notes
 
-The adapter handles Codex token-count events and computes deterministic usage deltas for cumulative counters.
+The adapter handles Codex token-count events and computes deterministic usage deltas for cumulative counters. Newer Codex releases also write one `token_usage_record` row per API response; when a session has them, the adapter emits those records (deduplicated by `response_id`) instead of the deltas, which recovers the response that triggers an auto-compaction (the cumulative counters never include it) and maps `cache_write_input_tokens`.

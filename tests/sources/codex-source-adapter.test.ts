@@ -816,6 +816,97 @@ describe('CodexSourceAdapter', () => {
     expect(diagnostics.skippedRows).toBe(0);
     expect(diagnostics.skippedRowReasons).toEqual([]);
   });
+  it('prefers per-response token_usage_record rows and keeps the compaction response', async () => {
+    const fixturePath = path.resolve('tests/fixtures/codex/session-token-usage-record.jsonl');
+    const adapter = new CodexSourceAdapter();
+
+    const diagnostics = await adapter.parseFileWithDiagnostics(fixturePath);
+
+    expect(diagnostics.skippedRows).toBe(1);
+    expect(diagnostics.skippedRowReasons).toEqual([{ reason: 'invalid_timestamp', count: 1 }]);
+    expect(
+      diagnostics.events.map((event) => ({
+        timestamp: event.timestamp,
+        model: event.model,
+        inputTokens: event.inputTokens,
+        cacheReadTokens: event.cacheReadTokens,
+        cacheWriteTokens: event.cacheWriteTokens,
+        outputTokens: event.outputTokens,
+        reasoningTokens: event.reasoningTokens,
+        totalTokens: event.totalTokens,
+      })),
+    ).toEqual([
+      // Released by the first token_count delta.
+      {
+        timestamp: '2026-10-04T15:00:10.000Z',
+        model: 'gpt-5.4',
+        inputTokens: 200,
+        cacheReadTokens: 800,
+        cacheWriteTokens: 0,
+        outputTokens: 50,
+        reasoningTokens: 10,
+        totalTokens: 1050,
+      },
+      // The compaction response: the cumulative totals never include it, so it stays
+      // pending across the unchanged token_count and is released by the next delta.
+      {
+        timestamp: '2026-10-04T15:00:20.000Z',
+        model: 'gpt-5.4',
+        inputTokens: 500,
+        cacheReadTokens: 1500,
+        cacheWriteTokens: 0,
+        outputTokens: 300,
+        reasoningTokens: 100,
+        totalTokens: 2300,
+      },
+      // Duplicate response_id rows collapse into one event.
+      {
+        timestamp: '2026-10-04T15:00:30.000Z',
+        model: 'gpt-5.4',
+        inputTokens: 400,
+        cacheReadTokens: 100,
+        cacheWriteTokens: 0,
+        outputTokens: 20,
+        reasoningTokens: 0,
+        totalTokens: 520,
+      },
+      // Records without a token_count yet are still emitted at the end of the file; a
+      // zero-usage record is ignored and records without a response_id are not deduplicated.
+      {
+        timestamp: '2026-10-04T15:00:40.000Z',
+        model: 'gpt-5.4',
+        inputTokens: 100,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 40,
+        outputTokens: 5,
+        reasoningTokens: 0,
+        totalTokens: 145,
+      },
+      {
+        timestamp: '2026-10-04T15:00:42.000Z',
+        model: 'gpt-5.4',
+        inputTokens: 30,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        outputTokens: 3,
+        reasoningTokens: 0,
+        totalTokens: 33,
+      },
+      {
+        timestamp: '2026-10-04T15:00:43.000Z',
+        model: 'gpt-5.4',
+        inputTokens: 30,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        outputTokens: 3,
+        reasoningTokens: 0,
+        totalTokens: 33,
+      },
+    ]);
+    expect(diagnostics.events.every((event) => event.sessionId === 'codex-session-records')).toBe(
+      true,
+    );
+  });
 });
 
 describe('codex source helpers', () => {
