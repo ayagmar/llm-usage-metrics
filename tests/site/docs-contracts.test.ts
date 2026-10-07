@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { revealHiddenOptions } from '../../src/cli/report-definitions/shared-report-options.js';
 import { createCli } from '../../src/cli/create-cli.js';
 import { getDefaultSourceIds } from '../../src/sources/create-default-adapters.js';
 
@@ -22,6 +23,8 @@ describe('website documentation contracts', () => {
   it('keeps generated command help aligned with each current CLI command', async () => {
     const reference = await readFile(path.join(docsRoot, 'cli-reference.mdx'), 'utf8');
     const cli = createCli({ version: 'test' });
+    // The reference documents the per-source path flags that only --help-all shows.
+    revealHiddenOptions(cli);
 
     for (const command of cli.commands) {
       expect(reference, command.name()).toContain(command.helpInformation().trimEnd());

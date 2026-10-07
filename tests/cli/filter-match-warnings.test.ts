@@ -88,7 +88,9 @@ describe('validateSourceFilterValues', () => {
   it('suggests the closest source id for a typo', () => {
     const available = new Set(['claude', 'codex', 'pi']);
 
-    expect(() => validateSourceFilterValues(new Set(['cladue', 'zzz']), available)).toThrow(
+    expect(() => {
+      validateSourceFilterValues(new Set(['cladue', 'zzz']), available);
+    }).toThrow(
       'Unknown --source value(s): cladue (did you mean claude?), zzz. Allowed values: claude, codex, pi',
     );
   });

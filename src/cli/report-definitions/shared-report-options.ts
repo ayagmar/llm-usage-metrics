@@ -1,4 +1,4 @@
-import type { Command } from 'commander';
+import { type Command, Option } from 'commander';
 
 import {
   getDefaultSourceIds,
@@ -114,6 +114,54 @@ export function collectRepeatedOption(value: string, previous?: string[]): strin
   return [...(previous ?? []), value];
 }
 
+/** Shows options hidden from regular help (the per-source path flags) on a command tree. */
+export function revealHiddenOptions(command: Command): void {
+  for (const option of command.options) {
+    option.hidden = false;
+  }
+
+  for (const subcommand of command.commands) {
+    revealHiddenOptions(subcommand);
+  }
+}
+
+function hasHiddenOptions(command: Command): boolean {
+  return command.options.some((option) => option.hidden);
+}
+
+/**
+ * The 17 per-source path flags crowd every report's help, so they stay out of it;
+ * `--help-all` prints the help with them.
+ */
+function registerSourcePathOptions(command: Command): void {
+  for (const overrideOption of getSourceOverrideOptions()) {
+    const option = new Option(
+      overrideOption.flag,
+      overrideOption.supportsSourceDir
+        ? `${overrideOption.help} (repeatable)`
+        : overrideOption.help,
+    ).hideHelp();
+
+    if (overrideOption.supportsSourceDir) {
+      option.argParser(collectRepeatedOption);
+    }
+
+    command.addOption(option);
+  }
+
+  command
+    .option('--help-all', 'Display help including the per-source path flags')
+    .on('option:help-all', () => {
+      revealHiddenOptions(command);
+      command.help();
+    })
+    .addHelpText('after', () =>
+      hasHiddenOptions(command)
+        ? '\nPer-source path flags (--claude-dir, --codex-dir, --opencode-db, ...) are listed by --help-all.'
+        : '',
+    );
+}
+
 export function getSupportedSourceIds(): string[] {
   return getDefaultSourceIds();
 }
@@ -133,17 +181,7 @@ export function registerSharedReportOptions(
 
   const configuredCommand = command;
 
-  for (const overrideOption of getSourceOverrideOptions()) {
-    if (overrideOption.supportsSourceDir) {
-      configuredCommand.option(
-        overrideOption.flag,
-        `${overrideOption.help} (repeatable)`,
-        collectRepeatedOption,
-      );
-    } else {
-      configuredCommand.option(overrideOption.flag, overrideOption.help);
-    }
-  }
+  registerSourcePathOptions(configuredCommand);
 
   configuredCommand
     .option(
@@ -222,7 +260,9 @@ export function registerSharedReportOptions(
   }
 
   if (profileConfig.includeShare) {
-    configuredCommand.option('--share', 'Write a share SVG image to the current directory');
+    configuredCommand
+      .option('--share', 'Write a share SVG image to the current directory')
+      .option('--no-open', 'With --share, write the SVG without opening it');
   }
 
   return configuredCommand;

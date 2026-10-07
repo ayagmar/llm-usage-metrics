@@ -40,12 +40,15 @@ Doctor checks discovery without parsing session contents or loading pricing. Use
 
 ## Override a location
 
-Directory-backed sources accept a named flag and the generic repeatable form:
+Directory-backed sources accept a named flag and the generic `--source-dir` form. Repeat either to scan several directories as one source:
 
 ```bash
 llm-usage monthly --codex-dir /path/to/codex/sessions
 llm-usage monthly --source-dir codex=/path/to/codex/sessions
+llm-usage monthly --claude-dir /work/.claude/projects --claude-dir /home/me/.claude/projects
 ```
+
+The per-source flags (`--claude-dir`, `--codex-dir`, `--opencode-db`, and so on) are left out of `--help` to keep it short; `llm-usage <command> --help-all` lists them. `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, and `GEMINI_CLI_HOME` move the default locations the same way they do for each tool.
 
 SQLite sources use their database flags:
 
