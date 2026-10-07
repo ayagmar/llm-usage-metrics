@@ -25,4 +25,4 @@ llm-usage daily --source-dir gemini=/path/to/.gemini
   - `tokens.thoughts` → `reasoningTokens` (a breakdown of output, as for other sources)
   - `tokens.cached` → `cacheReadTokens`
   - `tokens.total` → `totalTokens` when present
-- `repoRoot` is resolved from `~/.gemini/projects.json` when available
+- `repoRoot` is resolved from `~/.gemini/projects.json` when available: the file maps each project root to its `tmp/<name>` directory, and a session's `projectHash` is the SHA-256 of that root, so sessions resolve by hash first and by `tmp/<name>` otherwise (the older `{"<id>": {"absolutePath": ...}}` layout is still read; when several roots map to the same `tmp/<name>`, the last entry in `projects.json` wins

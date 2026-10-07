@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, rm, symlink, truncate, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -500,6 +501,54 @@ describe('GeminiSourceAdapter', () => {
       const nextAdapter = new GeminiSourceAdapter({ dir: tempDir });
       const nextAdapterParse = await nextAdapter.parseFile(sessionFilePath);
       expect(nextAdapterParse[0]?.repoRoot).toBe('/tmp/second-repo');
+    });
+
+    it('maps the real projects.json layout by project hash and tmp directory name', async () => {
+      const tempDir = await mkdtemp(path.join(os.tmpdir(), 'gemini-real-projects-json-'));
+      tempDirs.push(tempDir);
+      const session = JSON.parse(
+        await readFile(path.join(fixturesDir, 'session-with-usage.json'), 'utf8'),
+      ) as Record<string, unknown>;
+      const hashOf = (projectPath: string) =>
+        createHash('sha256').update(projectPath).digest('hex');
+      const writeSession = async (tmpName: string, fileName: string, projectHash?: string) => {
+        const chatsDir = path.join(tempDir, 'tmp', tmpName, 'chats');
+        await mkdir(chatsDir, { recursive: true });
+        const filePath = path.join(chatsDir, fileName);
+        const sessionWithoutHash = Object.fromEntries(
+          Object.entries(session).filter(([key]) => key !== 'projectHash'),
+        );
+        await writeFile(
+          filePath,
+          JSON.stringify(projectHash ? { ...sessionWithoutHash, projectHash } : sessionWithoutHash),
+          'utf8',
+        );
+        return filePath;
+      };
+
+      // Gemini CLI writes `{ "<root path>": "<tmp name>" }`; two roots can share a tmp name.
+      await writeFile(
+        path.join(tempDir, 'projects.json'),
+        JSON.stringify({
+          projects: {
+            '/home/dev/real-repo': 'real-repo',
+            '/srv/real-repo': 'real-repo',
+            '/home/dev/other-repo': 'other-repo',
+          },
+        }),
+        'utf8',
+      );
+      // The hash resolves the root even though tmp/real-repo falls back to /srv/real-repo.
+      const byHash = await writeSession('real-repo', 'a.json', hashOf('/home/dev/real-repo'));
+      const byTmpName = await writeSession('other-repo', 'b.json');
+      const unknownHash = await writeSession('real-repo', 'c.json', 'not-a-known-hash');
+
+      const adapter = new GeminiSourceAdapter({ dir: tempDir });
+
+      expect((await adapter.parseFile(byHash))[0]?.repoRoot).toBe('/home/dev/real-repo');
+      expect((await adapter.parseFile(byTmpName))[0]?.repoRoot).toBe('/home/dev/other-repo');
+      // The tmp name is ambiguous, so the last mapping written for it wins.
+      expect((await adapter.parseFile(unknownHash))[0]?.repoRoot).toBe('/srv/real-repo');
     });
 
     it('rethrows non-missing projects.json errors', async () => {

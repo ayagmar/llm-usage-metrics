@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -38,6 +39,17 @@ function getProjectsJsonPath(geminiDir: string): string {
   return path.join(geminiDir, 'projects.json');
 }
 
+/** Gemini CLI derives a session's `projectHash` from the project root path. */
+function hashProjectPath(projectPath: string): string {
+  return createHash('sha256').update(projectPath).digest('hex');
+}
+
+/**
+ * Maps session identifiers (`projectHash`, or the `tmp/<name>` directory name) to project
+ * roots. Gemini CLI writes `projects.json` as `{"projects": {"<root path>": "<tmp name>"}}`;
+ * the older `{"projects": {"<id>": {"absolutePath": "<root path>"}}}` layout is still
+ * accepted.
+ */
 function parseProjectsJson(data: unknown): Map<string, string> {
   const mapping = new Map<string, string>();
   const record = asRecord(data);
@@ -54,10 +66,23 @@ function parseProjectsJson(data: unknown): Map<string, string> {
 
   for (const [key, value] of Object.entries(projects)) {
     const projectEntry = asRecord(value);
-    const absolutePath = asTrimmedText(projectEntry?.absolutePath);
 
-    if (absolutePath) {
-      mapping.set(key, absolutePath);
+    if (projectEntry) {
+      const absolutePath = asTrimmedText(projectEntry.absolutePath);
+
+      if (absolutePath) {
+        mapping.set(key, absolutePath);
+      }
+
+      continue;
+    }
+
+    const projectPath = asTrimmedText(key);
+    const projectName = asTrimmedText(value);
+
+    if (projectPath && projectName) {
+      mapping.set(projectName, projectPath);
+      mapping.set(hashProjectPath(projectPath), projectPath);
     }
   }
 
@@ -206,7 +231,7 @@ function extractTokenUsage(tokens: Record<string, unknown> | undefined): {
 
 export class GeminiSourceAdapter implements SourceAdapter {
   public readonly id = 'gemini' as const;
-  public readonly parserVersion = 2;
+  public readonly parserVersion = 3;
   public readonly capabilities = {
     fixedProviderRoots: ['google'],
     eventsPrecedeFileMtime: true,
