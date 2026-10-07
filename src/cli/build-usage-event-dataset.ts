@@ -208,6 +208,7 @@ export async function buildUsageEventDataset(
         return parseSelectedAdapters(adaptersToParse, parsingRuntimeConfig.maxParallelFileParsing, {
           eventStore: parseEventStoreRuntimeConfig,
           openedStore: openedEventStore,
+          since: configuredOptions.since,
           parseWorkers: {
             workerCount: parsingRuntimeConfig.parseWorkers,
             minBytes: parsingRuntimeConfig.parseWorkerMinBytes,

@@ -144,6 +144,7 @@ function comparePendingEvents(left: ClaudePendingEvent, right: ClaudePendingEven
 export class ClaudeSourceAdapter implements SourceAdapter {
   public readonly id = 'claude' as const;
   public readonly parserVersion = 2;
+  public readonly capabilities = { eventsPrecedeFileMtime: true } as const;
 
   private readonly rootDirs: readonly string[];
   private readonly requireDir: boolean;

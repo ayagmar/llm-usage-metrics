@@ -43,10 +43,26 @@ describe('createDefaultAdapters', () => {
 
     expect(adapters.find((adapter) => adapter.id === 'codex')?.capabilities).toEqual({
       fixedProviderRoots: ['openai'],
+      eventsPrecedeFileMtime: true,
     });
     expect(adapters.find((adapter) => adapter.id === 'gemini')?.capabilities).toEqual({
       fixedProviderRoots: ['google'],
+      eventsPrecedeFileMtime: true,
     });
+  });
+
+  it('lets only file-per-session sources skip files by mtime', () => {
+    const adapters = createDefaultAdapters({});
+    const skippable = adapters
+      .filter((adapter) => adapter.capabilities?.eventsPrecedeFileMtime)
+      .map((adapter) => adapter.id);
+    const notSkippable = adapters
+      .filter((adapter) => !adapter.capabilities?.eventsPrecedeFileMtime)
+      .map((adapter) => adapter.id);
+
+    // SQLite sources keep events in a database whose mtime does not track each row.
+    expect(notSkippable.sort()).toEqual(['antigravity', 'goose', 'opencode']);
+    expect(skippable.length + notSkippable.length).toBe(adapters.length);
   });
 
   it('supports generic source directory overrides', async () => {

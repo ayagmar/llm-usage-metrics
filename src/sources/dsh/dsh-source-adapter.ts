@@ -131,6 +131,7 @@ function resolveTimestamp(line: Record<string, unknown>): string | undefined {
 
 export class DshSourceAdapter implements SourceAdapter {
   public readonly id = 'dsh' as const;
+  public readonly capabilities = { eventsPrecedeFileMtime: true } as const;
 
   private readonly rootDirs: readonly string[];
   private readonly requireDir: boolean;

@@ -58,6 +58,7 @@ function resolveRepoRootFromSessionStart(line: Record<string, unknown>): string 
 
 export class DroidSourceAdapter implements SourceAdapter {
   public readonly id = 'droid' as const;
+  public readonly capabilities = { eventsPrecedeFileMtime: true } as const;
 
   private readonly sessionsDir: string;
   private readonly requireDir: boolean;

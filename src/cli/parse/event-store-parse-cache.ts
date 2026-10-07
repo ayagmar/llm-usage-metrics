@@ -63,6 +63,24 @@ export function recordEventStoreFailure(state: EventStoreFailureState, error: un
   state.warning = `Event store disabled after failure: ${getErrorReason(error)}`;
 }
 
+/** Whether the store already holds this exact version of the file. */
+export function isStoredFileCurrent(
+  context: EventStoreParseContext,
+  params: { source: string; filePath: string; fingerprint: EventStoreFileFingerprint },
+): boolean {
+  if (context.failureState.disabled) {
+    return false;
+  }
+
+  try {
+    const storedEntry = context.getFileEntry(context.store, params.source, params.filePath);
+    return storedEntry?.fingerprint === serializeEventStoreFingerprint(params.fingerprint);
+  } catch (error) {
+    recordEventStoreFailure(context.failureState, error);
+    return false;
+  }
+}
+
 export function readParsedFileFromEventStore(
   context: EventStoreParseContext,
   params: {

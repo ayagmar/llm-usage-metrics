@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, utimes, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -356,6 +356,47 @@ describe('buildUsageEventDataset history', () => {
     expect(dataset.filteredEvents).toEqual([departedEvent]);
     expect(dataset.warnings).toEqual([
       'History: included 1 event(s) from 1 departed file(s) (0 suppressed as moved or duplicated).',
+    ]);
+  });
+
+  it('does not treat a file skipped by --since as departed', async () => {
+    const eventStorePath = await createEventStorePath();
+    const liveFilePath = path.join(path.dirname(eventStorePath), 'live.jsonl');
+    const departedFilePath = path.join(path.dirname(eventStorePath), 'departed.jsonl');
+    await writeFile(liveFilePath, '{}\n', 'utf8');
+    const beforeWindowSeconds = Date.parse('2026-02-01T00:00:00.000Z') / 1000;
+    await utimes(liveFilePath, beforeWindowSeconds, beforeWindowSeconds);
+
+    // The stored event sits inside the window only so a wrongly departed file would show.
+    const liveEvent = createEvent({ sessionId: 'live' });
+    const departedEvent = createEvent({ sessionId: 'departed' });
+    const parseFile = vi.fn(async () => [liveEvent]);
+    const adapter: SourceAdapter = {
+      id: 'codex',
+      capabilities: { eventsPrecedeFileMtime: true },
+      discoverFiles: async () => [liveFilePath],
+      parseFile,
+    };
+    const deps = { ...createDatasetDeps(eventStorePath), createAdapters: () => [adapter] };
+
+    await buildUsageEventDataset({ source: 'codex', timezone: 'UTC' }, deps);
+    await writeStoredFile(eventStorePath, { filePath: departedFilePath, events: [departedEvent] });
+    // A departed copy of the skipped file is suppressed only while the skipped file still
+    // counts as discovered; as a merely present file it would be served again.
+    await writeStoredFile(eventStorePath, {
+      filePath: path.join(path.dirname(eventStorePath), 'moved-away.jsonl'),
+      events: [liveEvent],
+    });
+
+    const dataset = await buildUsageEventDataset(
+      { history: true, since: '2026-02-10', source: 'codex', timezone: 'UTC' },
+      deps,
+    );
+
+    expect(parseFile).toHaveBeenCalledTimes(1);
+    expect(dataset.filteredEvents).toEqual([departedEvent]);
+    expect(dataset.warnings).toEqual([
+      'History: included 1 event(s) from 1 departed file(s) (1 suppressed as moved or duplicated).',
     ]);
   });
 });
