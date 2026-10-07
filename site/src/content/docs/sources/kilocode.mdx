@@ -23,3 +23,5 @@ llm-usage daily --source-dir kilocode=/path/to/kilocode/tasks
 ## Parsing notes
 
 KiloCode shares the Cline task format. The adapter reads `ui_messages.json` usage payloads, keeps positive USD `cost` values as explicit cost, and reads the model from sibling `api_conversation_history.json`.
+
+Like Roo Code, the Kilo Code VS Code extension writes `tokensIn` as the cache-inclusive prompt count (input plus `cacheWrites` plus `cacheReads`). The adapter subtracts the cache buckets whenever `tokensIn` is at least their sum, so input tokens exclude cache reads and writes as in every other source. Older rows carried the provider's raw count; those whose count is below the cache buckets cannot be cache-inclusive and are left unchanged.

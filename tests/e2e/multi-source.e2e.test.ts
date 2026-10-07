@@ -55,7 +55,7 @@ const roocodeDir = path.resolve('tests/fixtures/e2e/roocode');
 const kilocodeDir = path.resolve('tests/fixtures/e2e/kilocode');
 const allSources =
   'pi,codex,gemini,droid,opencode,openclaw,claude,copilot,goose,amp,qwen,kimi,cline,roocode,kilocode,antigravity,dsh';
-const expectedAllSourceTokens = 4_615;
+const expectedAllSourceTokens = 4_610;
 const expectedGeminiClaudeTokens = 415;
 
 function loadDatabaseSync(): FixtureDatabaseSync | undefined {

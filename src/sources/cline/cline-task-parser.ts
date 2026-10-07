@@ -93,17 +93,48 @@ export function getClineTaskHistoryPath(uiMessagesPath: string): string {
   return path.join(path.dirname(uiMessagesPath), 'api_conversation_history.json');
 }
 
-function extractUsage(payload: Record<string, unknown>): {
+// Roo Code (since PR #8954, 2025-10-31) and the Kilo Code extension write `tokensIn` as the
+// cache-inclusive prompt count (input + cache writes + cache reads) next to the cache
+// buckets, while Cline writes the provider's raw input count. Earlier Roo/Kilo rows carried
+// the raw count too, which for Anthropic excludes cache tokens; an inclusive count is never
+// smaller than the cache buckets, so only rows that can be inclusive are split.
+const CACHE_INCLUSIVE_INPUT_SOURCE_IDS: ReadonlySet<string> = new Set(['roocode', 'kilocode']);
+
+function resolveInputTokens(
+  sourceId: SourceId,
+  tokensIn: number,
+  cacheReadTokens: number,
+  cacheWriteTokens: number,
+): number {
+  if (!CACHE_INCLUSIVE_INPUT_SOURCE_IDS.has(sourceId)) {
+    return tokensIn;
+  }
+
+  const cacheTokens = cacheReadTokens + cacheWriteTokens;
+  return tokensIn >= cacheTokens ? tokensIn - cacheTokens : tokensIn;
+}
+
+function extractUsage(
+  sourceId: SourceId,
+  payload: Record<string, unknown>,
+): {
   usage: ClineTokenUsage;
   costUsd: number | undefined;
   hasUsageSignal: boolean;
 } {
+  const cacheReadTokens = toTokenCount(payload.cacheReads);
+  const cacheWriteTokens = toTokenCount(payload.cacheWrites);
   const usage = {
-    inputTokens: toTokenCount(payload.tokensIn),
+    inputTokens: resolveInputTokens(
+      sourceId,
+      toTokenCount(payload.tokensIn),
+      cacheReadTokens,
+      cacheWriteTokens,
+    ),
     outputTokens: toTokenCount(payload.tokensOut),
     reasoningTokens: 0,
-    cacheReadTokens: toTokenCount(payload.cacheReads),
-    cacheWriteTokens: toTokenCount(payload.cacheWrites),
+    cacheReadTokens,
+    cacheWriteTokens,
   };
   const costUsd = normalizeUsdCost(toNumberLike(payload.cost));
   const hasTokenSignal =
@@ -188,7 +219,7 @@ function parseUsageEntry(context: ClineParseContext, entry: Record<string, unkno
     return;
   }
 
-  const { usage, costUsd, hasUsageSignal } = extractUsage(payload);
+  const { usage, costUsd, hasUsageSignal } = extractUsage(context.sourceId, payload);
 
   if (!hasUsageSignal) {
     incrementContextSkippedReason(context, 'no_token_usage');
