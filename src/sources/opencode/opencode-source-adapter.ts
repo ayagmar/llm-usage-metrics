@@ -67,6 +67,12 @@ export class OpenCodeSourceAdapter implements SourceAdapter {
     this.sleep = options.sleep ?? sleep;
   }
 
+  public getSearchPaths(): string[] {
+    return this.explicitDbPath !== undefined
+      ? [this.explicitDbPath.trim()]
+      : this.resolveDefaultDbPaths();
+  }
+
   public async discoverFiles(): Promise<string[]> {
     if (this.explicitDbPath !== undefined) {
       if (isBlankText(this.explicitDbPath)) {

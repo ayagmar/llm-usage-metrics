@@ -438,7 +438,8 @@ const doctorReportDefinition: ReportRuntimeDefinition = {
     commandName: 'doctor',
     docsLabel: 'doctor',
     kind: 'specialized',
-    description: 'Check source discovery health and runtime configuration',
+    description:
+      'Show where each source is searched, whether its usage is readable, and ledger health',
     sharedOptionProfile: 'doctor',
     helpExamples: [
       {

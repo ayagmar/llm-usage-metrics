@@ -25,6 +25,10 @@ export class MultiDirectorySourceAdapter implements SourceAdapter {
     this.capabilities = firstAdapter.capabilities;
   }
 
+  public getSearchPaths(): string[] {
+    return this.adapters.flatMap((adapter) => adapter.getSearchPaths?.() ?? []);
+  }
+
   public async discoverFiles(): Promise<string[]> {
     const files: string[] = [];
 

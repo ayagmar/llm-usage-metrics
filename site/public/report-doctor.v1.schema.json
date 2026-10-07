@@ -31,17 +31,31 @@
       "properties": {
         "id": { "description": "Source id, or event-store.", "type": "string" },
         "format": { "description": "Storage format of the source.", "type": "string" },
-        "status": { "description": "Health status.", "type": "string", "enum": ["ok", "error"] },
+        "status": {
+          "description": "Whether discovery ran (error: it failed). See state for whether usage was found.",
+          "type": "string",
+          "enum": ["ok", "error"]
+        },
+        "state": {
+          "description": "Source rows only. found: files with readable usage; not_installed: no files in any searched path; unparseable: files whose newest entries yield no usage; error: discovery failed.",
+          "type": "string",
+          "enum": ["found", "not_installed", "unparseable", "error"]
+        },
         "itemsFound": {
-          "description": "Files (or events for the store) discovered; healthy rows only.",
+          "description": "Files (or events for the store) discovered; rows whose discovery ran.",
           "type": "integer",
           "minimum": 0
         },
         "detail": {
-          "description": "Extra healthy-row detail (the event-store row uses this).",
+          "description": "Extra detail: why an unparseable source has no usage, or the event-store summary.",
           "type": "string"
         },
-        "error": { "description": "Failure reason; unhealthy rows only.", "type": "string" }
+        "error": { "description": "Failure reason; unhealthy rows only.", "type": "string" },
+        "searchedPaths": {
+          "description": "Source rows only: directories or database files discovery searched.",
+          "type": "array",
+          "items": { "type": "string" }
+        }
       },
       "required": ["id", "format", "status"],
       "additionalProperties": false

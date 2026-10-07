@@ -328,6 +328,10 @@ export class AmpSourceAdapter implements SourceAdapter {
     return this.threadsDir.trim();
   }
 
+  public getSearchPaths(): string[] {
+    return [this.threadsDir].map((searchPath) => searchPath.trim());
+  }
+
   public async discoverFiles(): Promise<string[]> {
     const normalizedDir = this.getNormalizedThreadsDir();
 

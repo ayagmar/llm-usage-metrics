@@ -396,6 +396,10 @@ export class CopilotSourceAdapter implements SourceAdapter {
     this.requireDir = options.requireDir ?? false;
   }
 
+  public getSearchPaths(): string[] {
+    return this.rootDirs.map((searchPath) => searchPath.trim());
+  }
+
   public async discoverFiles(): Promise<string[]> {
     const discoveredFiles = await discoverFilesAcrossRoots({
       rootDirs: this.rootDirs,

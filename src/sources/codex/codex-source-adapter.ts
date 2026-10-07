@@ -267,6 +267,10 @@ export class CodexSourceAdapter implements SourceAdapter {
     this.requireDir = options.requireDir ?? false;
   }
 
+  public getSearchPaths(): string[] {
+    return [this.sessionsDir].map((searchPath) => searchPath.trim());
+  }
+
   public async discoverFiles(): Promise<string[]> {
     if (isBlankText(this.sessionsDir)) {
       throw new Error('Codex sessions directory must be a non-empty path');

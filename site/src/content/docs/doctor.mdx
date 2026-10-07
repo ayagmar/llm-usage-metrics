@@ -1,9 +1,9 @@
 ---
 title: Doctor
-description: Check source discovery and event-store health without parsing sessions.
+description: Check where each source is searched, whether usage is readable, and event-store health.
 ---
 
-`llm-usage doctor` answers the question "why does a source show no usage?" It probes each source's discovery path and reports how many files (or events) it found, without parsing sessions or loading pricing.
+`llm-usage doctor` answers the question "why does a source show no usage?" For each source it lists the paths it searched, how many files it found, and whether those files contain readable usage. It does not load pricing or write to the ledger.
 
 ## Command structure
 
@@ -30,23 +30,37 @@ llm-usage doctor --json
 
 ## Output
 
-Doctor prints one line per source — a `✔`/`✖` health glyph, the source id, its storage format (`jsonl`, `json`, or `sqlite`), and what was found — then a health summary. It exits `0` even when a source is unhealthy, so it is safe to run in scripts.
+Doctor prints one line per source — a state glyph, the source id, its storage format (`jsonl`, `json`, or `sqlite`), and what was found — followed by the paths it searched, then a summary. Each source is in one of four states:
 
-Illustrative output for `llm-usage doctor --source pi,opencode` (counts depend on your local data):
+| Glyph | State           | Meaning                                                                                                                                                   |
+| ----- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `✔`   | `found`         | Files exist and contain readable usage.                                                                                                                   |
+| `○`   | `not_installed` | No files in any searched path. The tool is not installed, has no sessions yet, or stores them elsewhere; pass a path override.                          |
+| `⚠`   | `unparseable`   | Files exist, but the newest ones (up to 25) yield no usage. The tool may have changed its log format, or its sessions record no token usage (see the source guide). |
+| `✖`   | `error`         | Discovery failed, for example an explicit directory override that does not exist.                                                                       |
+
+To decide between `found` and `unparseable`, doctor parses the newest files first and stops at the first one with usage, so it stays fast on large histories. It exits `0` in every state, so it is safe to run in scripts.
+
+Illustrative output for `llm-usage doctor --source pi,codex,opencode` (counts depend on your local data):
 
 ```text
 ✔ pi           jsonl   519 file(s)
-✖ opencode     sqlite  OpenCode database is missing or unreadable: /path/to/opencode.db
+    ~/.pi/agent/sessions
+    ~/.omp/agent/sessions
+○ codex        jsonl   not installed (no files found)
+    ~/.codex/sessions
+✖ opencode     sqlite  OpenCode DB path is missing or unreadable: /path/to/opencode.db
+    /path/to/opencode.db
 ✔ event-store  sqlite  159266 event(s), 3 departed file(s), schema v3, 78.4 MiB
 
-1/2 sources healthy
+Sources: 1 found · 1 failed · 1 not installed
 ```
 
-The summary counts only source rows; the `event-store` row reports the ledger's event count, departed-file count, schema version, and on-disk size.
+Searched paths reflect overrides, config `sourceDirs`, and tool environment variables such as `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, and `GEMINI_CLI_HOME`. The summary counts only source rows; the `event-store` row reports the ledger's event count, departed-file count, schema version, and on-disk size.
 
 ## JSON shape
 
-`--json` returns a `sources` array under `data`. Healthy rows carry `itemsFound` (and the `event-store` row a `detail` string); unhealthy rows carry `error`:
+`--json` returns a `sources` array under `data`. `status` says whether discovery ran (`ok` or `error`); source rows add `state` (above) and `searchedPaths`. Rows whose discovery ran carry `itemsFound`, `unparseable` rows and the `event-store` row a `detail` string, and failed rows `error`:
 
 ```json
 {
@@ -54,12 +68,21 @@ The summary counts only source rows; the `event-store` row reports the ledger's 
   "report": "doctor",
   "data": {
     "sources": [
-      { "id": "pi", "format": "jsonl", "status": "ok", "itemsFound": 519 },
+      {
+        "id": "pi",
+        "format": "jsonl",
+        "status": "ok",
+        "state": "found",
+        "itemsFound": 519,
+        "searchedPaths": ["/home/me/.pi/agent/sessions", "/home/me/.omp/agent/sessions"]
+      },
       {
         "id": "opencode",
         "format": "sqlite",
         "status": "error",
-        "error": "OpenCode database is missing or unreadable: /path/to/opencode.db"
+        "state": "error",
+        "error": "OpenCode DB path is missing or unreadable: /path/to/opencode.db",
+        "searchedPaths": ["/path/to/opencode.db"]
       },
       {
         "id": "event-store",

@@ -37,6 +37,8 @@ export interface SourceAdapter<Event extends UsageEvent = UsageEvent> {
    */
   readonly parserVersion?: number;
   readonly capabilities?: SourceCapabilities;
+  /** Directories or database files discovery looks in, for `doctor`. */
+  getSearchPaths?(): readonly string[];
   discoverFiles(): Promise<string[]>;
   parseFile(filePath: string): Promise<Event[]>;
   parseFileWithDiagnostics?(filePath: string): Promise<SourceParseFileDiagnostics<Event>>;

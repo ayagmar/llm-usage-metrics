@@ -239,6 +239,10 @@ export class GeminiSourceAdapter implements SourceAdapter {
     return this.projectMappingPromise;
   }
 
+  public getSearchPaths(): string[] {
+    return [this.geminiDir].map((searchPath) => searchPath.trim());
+  }
+
   public async discoverFiles(): Promise<string[]> {
     const normalizedDir = this.getNormalizedGeminiDir();
 

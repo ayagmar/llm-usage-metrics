@@ -15,6 +15,7 @@ import {
   type SourceStorageFormat,
 } from '../sources/create-default-adapters.js';
 import type { SourceAdapter } from '../sources/source-adapter.js';
+import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { logger } from '../utils/logger.js';
 import { normalizeSourceFilter, validateSourceFilterValues } from './build-usage-data-inputs.js';
 import { resolveUserConfigForOptions, type UserConfigResolutionDeps } from './apply-user-config.js';
@@ -25,13 +26,32 @@ import { renderReportJson } from '../render/report-json.js';
 import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
 import type { DoctorCommandOptions } from './usage-data-contracts.js';
 
+/**
+ * found: files with readable usage. not_installed: no files in any searched path.
+ * unparseable: files exist but the newest ones yield no usage (a log-format change, or
+ * logs without usage yet). error: discovery itself failed.
+ */
+export type DoctorSourceState = 'found' | 'not_installed' | 'unparseable' | 'error';
+
 export type DoctorSourceResult = {
   id: string;
   format: SourceStorageFormat;
+  /** Whether discovery ran; `state` says whether usage was found. */
   status: 'ok' | 'error';
+  state?: DoctorSourceState;
   itemsFound?: number;
   detail?: string;
   error?: string;
+  searchedPaths?: string[];
+};
+
+/** Newest files parsed when looking for usage; parsing stops at the first one with usage. */
+const USAGE_PROBE_FILE_LIMIT = 25;
+
+type UsageProbeResult = {
+  usageFound: boolean;
+  filesChecked: number;
+  firstError?: string;
 };
 
 type DoctorDeps = UserConfigResolutionDeps & {
@@ -48,6 +68,107 @@ function getErrorReason(error: unknown): string {
 
 function isMissingPathError(error: unknown): error is NodeJS.ErrnoException {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT';
+}
+
+async function sortNewestFirst(files: readonly string[]): Promise<string[]> {
+  const mtimes = await Promise.all(
+    files.map(async (filePath) => {
+      try {
+        return (await stat(filePath)).mtimeMs;
+      } catch {
+        return 0;
+      }
+    }),
+  );
+
+  return files
+    .map((filePath, index) => ({ filePath, mtimeMs: mtimes[index] }))
+    .sort(
+      (left, right) =>
+        right.mtimeMs - left.mtimeMs || compareByCodePoint(left.filePath, right.filePath),
+    )
+    .map((entry) => entry.filePath);
+}
+
+async function parseFileEvents(adapter: SourceAdapter, filePath: string) {
+  return adapter.parseFileWithDiagnostics
+    ? (await adapter.parseFileWithDiagnostics(filePath)).events
+    : adapter.parseFile(filePath);
+}
+
+async function probeForUsage(
+  adapter: SourceAdapter,
+  files: readonly string[],
+): Promise<UsageProbeResult> {
+  const candidates = (await sortNewestFirst(files)).slice(0, USAGE_PROBE_FILE_LIMIT);
+  let firstError: string | undefined;
+
+  for (const [index, filePath] of candidates.entries()) {
+    try {
+      if ((await parseFileEvents(adapter, filePath)).length > 0) {
+        return { usageFound: true, filesChecked: index + 1 };
+      }
+    } catch (error) {
+      firstError ??= getErrorReason(error);
+    }
+  }
+
+  return { usageFound: false, filesChecked: candidates.length, firstError };
+}
+
+function describeMissingUsage(fileCount: number, probe: UsageProbeResult): string {
+  const scope =
+    probe.filesChecked === fileCount
+      ? `${pluralize(fileCount, 'file')} found, none with readable usage`
+      : `${pluralize(fileCount, 'file')} found, no readable usage in the newest ${probe.filesChecked}`;
+  const reason = probe.firstError ? ` (${probe.firstError})` : '';
+
+  return `${scope}${reason}; the log format may have changed`;
+}
+
+function pluralize(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? '' : 's'}`;
+}
+
+async function buildSourceResult(
+  adapter: SourceAdapter,
+): Promise<{ result: DoctorSourceResult; files?: string[] }> {
+  const format = getSourceStorageFormat(adapter.id.toLowerCase());
+  const searchedPaths = [...(adapter.getSearchPaths?.() ?? [])];
+  let files: string[];
+
+  try {
+    files = await adapter.discoverFiles();
+  } catch (error) {
+    return {
+      result: {
+        id: adapter.id,
+        format,
+        status: 'error',
+        state: 'error',
+        error: getErrorReason(error),
+        searchedPaths,
+      },
+    };
+  }
+
+  const discovered = { id: adapter.id, format, status: 'ok' as const, itemsFound: files.length };
+
+  if (files.length === 0) {
+    return { result: { ...discovered, state: 'not_installed', searchedPaths }, files };
+  }
+
+  const probe = await probeForUsage(adapter, files);
+  const result: DoctorSourceResult = probe.usageFound
+    ? { ...discovered, state: 'found', searchedPaths }
+    : {
+        ...discovered,
+        state: 'unparseable',
+        detail: describeMissingUsage(files.length, probe),
+        searchedPaths,
+      };
+
+  return { result, files };
 }
 
 function selectDoctorAdapters(
@@ -78,24 +199,11 @@ export async function buildDoctorResults(
   const discoveredFilesBySource: DiscoveredFilesBySource = new Map();
 
   for (const adapter of adapters) {
-    const format = getSourceStorageFormat(adapter.id.toLowerCase());
+    const { result, files } = await buildSourceResult(adapter);
+    results.push(result);
 
-    try {
-      const files = await adapter.discoverFiles();
+    if (files) {
       discoveredFilesBySource.set(adapter.id.toLowerCase(), new Set(files));
-      results.push({
-        id: adapter.id,
-        format,
-        status: 'ok',
-        itemsFound: files.length,
-      });
-    } catch (error) {
-      results.push({
-        id: adapter.id,
-        format,
-        status: 'error',
-        error: getErrorReason(error),
-      });
     }
   }
 

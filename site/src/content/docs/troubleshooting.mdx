@@ -14,7 +14,7 @@ llm-usage doctor
 llm-usage doctor --source codex,claude
 ```
 
-Doctor probes local source locations and ledger health without parsing session content or loading pricing. A healthy source can still produce no matching events: date, model, provider, and configured source filters may exclude them.
+Doctor lists the paths each source searched and marks it found, not installed, unparseable (files without readable usage), or failed, plus ledger health. It does not load pricing. A found source can still produce no matching events: date, model, provider, and configured source filters may exclude them.
 
 Run a scoped report without date, provider, or model flags:
 
