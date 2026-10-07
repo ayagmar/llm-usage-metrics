@@ -156,24 +156,29 @@ export function validateBuildOptions(options: ReportCommandOptions): {
   };
 }
 
+/**
+ * Sources the user asked for on the command line: a `--source` filter, `--source-dir`
+ * entries, and dedicated path flags. Config values are defaults, not requests, so the ids
+ * come from the options as given on the CLI rather than the config-merged ones.
+ */
 export function resolveExplicitSourceIds(
-  options: ReportCommandOptions,
-  sourceFilter: Set<string> | undefined,
+  cliOptions: ReportCommandOptions,
+  cliSourceFilter: Set<string> | undefined,
 ): Set<string> {
   const explicitSourceIds = new Set<string>();
 
-  if (sourceFilter) {
-    for (const sourceId of sourceFilter) {
+  if (cliSourceFilter) {
+    for (const sourceId of cliSourceFilter) {
       explicitSourceIds.add(sourceId);
     }
   }
 
-  for (const sourceId of parseSourceDirectoryOverrides(options.sourceDir).keys()) {
+  for (const sourceId of parseSourceDirectoryOverrides(cliOptions.sourceDir).keys()) {
     explicitSourceIds.add(sourceId);
   }
 
   for (const overrideOption of getSourceOverrideOptions()) {
-    if (options[overrideOption.optionKey]) {
+    if (cliOptions[overrideOption.optionKey]) {
       explicitSourceIds.add(overrideOption.id);
     }
   }
@@ -197,6 +202,8 @@ function detectDefaultTimezone(): string {
 
 export function normalizeBuildUsageInputs(
   options: ReportCommandOptions,
+  /** The options as given on the command line, before config defaults were applied. */
+  cliOptions: ReportCommandOptions = options,
 ): NormalizedBuildUsageInputs {
   const { normalizedPricingUrl } = validateBuildOptions(options);
 
@@ -211,7 +218,10 @@ export function normalizeBuildUsageInputs(
     resolveExplicitProviderRoots(providerFilter),
     inferCanonicalProviderRootsFromModels(modelFilter),
   );
-  const explicitSourceIds = resolveExplicitSourceIds(options, sourceFilter);
+  const explicitSourceIds = resolveExplicitSourceIds(
+    cliOptions,
+    normalizeSourceFilter(cliOptions.source),
+  );
 
   return {
     timezone,

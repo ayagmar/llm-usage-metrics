@@ -64,7 +64,10 @@ export async function buildSummaryData(
 ): Promise<SummaryDataResult> {
   const userConfigResolution = await resolveUserConfigForOptions(options, deps);
   const configuredOptions = userConfigResolution.options;
-  const { timezone } = normalizeBuildUsageInputs(configuredOptions);
+  const { timezone } = normalizeBuildUsageInputs(
+    configuredOptions,
+    userConfigResolution.cliOptions,
+  );
   const windows = resolveSummaryWindows(timezone, deps.now?.() ?? new Date());
   const since = windows.reduce(
     (earliest, window) => (window.since < earliest ? window.since : earliest),
