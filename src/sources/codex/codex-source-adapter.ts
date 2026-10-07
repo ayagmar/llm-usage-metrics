@@ -22,7 +22,13 @@ import type {
   SourceParseFileDiagnostics,
 } from '../source-adapter.js';
 
-const defaultSessionsDir = path.join(os.homedir(), '.codex', 'sessions');
+/** Codex keeps its state in CODEX_HOME (default ~/.codex); sessions live under it. */
+export function resolveDefaultCodexSessionsDir(
+  env: NodeJS.ProcessEnv = process.env,
+  homeDir: string = os.homedir(),
+): string {
+  return path.join(asTrimmedText(env.CODEX_HOME) ?? path.join(homeDir, '.codex'), 'sessions');
+}
 
 export const LEGACY_CODEX_MODEL_FALLBACK = 'legacy-codex-unknown';
 
@@ -43,7 +49,9 @@ type CodexSessionState = {
   previousLastUsageOnlyKey?: string;
 };
 
-export type CodexSourceAdapterOptions = SourceAdapterPathOptions;
+export type CodexSourceAdapterOptions = SourceAdapterPathOptions & {
+  env?: NodeJS.ProcessEnv;
+};
 
 const SESSION_META_BYTES = Buffer.from('"session_meta"');
 const TURN_CONTEXT_BYTES = Buffer.from('"turn_context"');
@@ -255,7 +263,7 @@ export class CodexSourceAdapter implements SourceAdapter {
   private readonly requireDir: boolean;
 
   public constructor(options: CodexSourceAdapterOptions = {}) {
-    this.sessionsDir = options.dir ?? defaultSessionsDir;
+    this.sessionsDir = options.dir ?? resolveDefaultCodexSessionsDir(options.env);
     this.requireDir = options.requireDir ?? false;
   }
 
@@ -412,6 +420,7 @@ export class CodexSourceAdapter implements SourceAdapter {
   }
 }
 
+/** The sessions directory under ~/.codex, ignoring CODEX_HOME. */
 export function getDefaultCodexSessionsDir(): string {
-  return defaultSessionsDir;
+  return resolveDefaultCodexSessionsDir({});
 }

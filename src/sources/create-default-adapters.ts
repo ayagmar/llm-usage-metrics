@@ -15,28 +15,33 @@ import { PiSourceAdapter } from './pi/pi-source-adapter.js';
 import { QwenSourceAdapter } from './qwen/qwen-source-adapter.js';
 import type { SourceAdapter } from './source-adapter.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
-import { parseSourceDirectoryOverrides } from '../utils/source-directory-overrides.js';
+import {
+  parseSourceDirectoryOverrides,
+  type SourceDirectoryValue,
+  toSourceDirectoryList,
+} from '../utils/source-directory-overrides.js';
+import { MultiDirectorySourceAdapter } from './multi-directory-source-adapter.js';
 
 export type SourceStorageFormat = 'jsonl' | 'json' | 'sqlite';
 
 export type CreateDefaultAdaptersOptions = {
-  piDir?: string;
-  codexDir?: string;
-  copilotDir?: string;
-  geminiDir?: string;
-  droidDir?: string;
-  claudeDir?: string;
-  openclawDir?: string;
+  piDir?: SourceDirectoryValue;
+  codexDir?: SourceDirectoryValue;
+  copilotDir?: SourceDirectoryValue;
+  geminiDir?: SourceDirectoryValue;
+  droidDir?: SourceDirectoryValue;
+  claudeDir?: SourceDirectoryValue;
+  openclawDir?: SourceDirectoryValue;
   opencodeDb?: string;
   gooseDb?: string;
-  ampDir?: string;
-  qwenDir?: string;
-  kimiDir?: string;
-  clineDir?: string;
-  roocodeDir?: string;
-  kilocodeDir?: string;
-  antigravityDir?: string;
-  dshDir?: string;
+  ampDir?: SourceDirectoryValue;
+  qwenDir?: SourceDirectoryValue;
+  kimiDir?: SourceDirectoryValue;
+  clineDir?: SourceDirectoryValue;
+  roocodeDir?: SourceDirectoryValue;
+  kilocodeDir?: SourceDirectoryValue;
+  antigravityDir?: SourceDirectoryValue;
+  dshDir?: SourceDirectoryValue;
   sourceDir?: string[];
 };
 
@@ -52,7 +57,13 @@ type ResolvedSourcePath = {
 type SourceRegistration = {
   id: string;
   format: SourceStorageFormat;
+  /** Directory-backed: accepts --source-dir and repeated directory flags. */
   supportsSourceDir: boolean;
+  /**
+   * Builds one adapter over several directories. Without it, each directory gets its own
+   * adapter behind MultiDirectorySourceAdapter.
+   */
+  createForDirectories?: (directories: readonly string[]) => SourceAdapter;
   option: {
     key: SourceOverrideOptionKey;
     flag: string;
@@ -135,6 +146,9 @@ const sourceRegistrations: readonly SourceRegistration[] = [
       help: 'Path to Claude projects directory',
     },
     create: (resolved) => new ClaudeSourceAdapter(dirOptions(resolved)),
+    // Fork deduplication needs every root in one adapter to find a parent transcript.
+    createForDirectories: (directories) =>
+      new ClaudeSourceAdapter({ dir: directories, requireDir: true }),
   },
   {
     id: 'copilot',
@@ -308,7 +322,7 @@ export function getSourceOverrideOptions(): readonly SourceOverrideOption[] {
 }
 
 function validateSourceDirectoryOverrideIds(
-  sourceDirectoryOverrides: ReadonlyMap<string, string>,
+  sourceDirectoryOverrides: ReadonlyMap<string, readonly string[]>,
 ): void {
   const nonDirectorySourceOverrides = [...sourceDirectoryOverrides.keys()].filter((sourceId) =>
     sourceDirUnsupportedFlags.has(sourceId),
@@ -336,44 +350,55 @@ function validateSourceDirectoryOverrideIds(
   );
 }
 
-function validateOverridePath(flagName: string, value: string | undefined): void {
-  if (value === undefined) {
-    return;
+function validateOverridePath(
+  flagName: string,
+  value: SourceDirectoryValue | undefined,
+  allowsSeveral: boolean,
+): void {
+  const paths = toSourceDirectoryList(value);
+
+  if (paths.some((overridePath) => overridePath.trim().length === 0)) {
+    throw new Error(`${flagName} must be a non-empty path`);
   }
 
-  if (value.trim().length === 0) {
-    throw new Error(`${flagName} must be a non-empty path`);
+  if (!allowsSeveral && paths.length > 1) {
+    throw new Error(`${flagName} takes a single path`);
   }
 }
 
-function resolveDirectoryConfig(
+/** Dedicated flags win over --source-dir; each lists one or more directories. */
+function resolveDirectories(
   sourceId: string,
-  explicitDirectory: string | undefined,
-  sourceDirectoryOverrides: ReadonlyMap<string, string>,
-): {
-  path: string | undefined;
-  requireExistingPath: boolean;
-} {
-  if (explicitDirectory !== undefined) {
-    return {
-      path: explicitDirectory,
-      requireExistingPath: true,
-    };
+  explicitDirectories: SourceDirectoryValue | undefined,
+  sourceDirectoryOverrides: ReadonlyMap<string, readonly string[]>,
+): string[] {
+  const directories = toSourceDirectoryList(explicitDirectories);
+
+  if (directories.length > 0) {
+    return [...new Set(directories)];
   }
 
-  const sourceDirOverride = sourceDirectoryOverrides.get(sourceId);
+  return [...(sourceDirectoryOverrides.get(sourceId) ?? [])];
+}
 
-  if (sourceDirOverride !== undefined) {
-    return {
-      path: sourceDirOverride,
-      requireExistingPath: true,
-    };
+function createDirectoryBackedAdapter(
+  source: SourceRegistration,
+  directories: readonly string[],
+): SourceAdapter {
+  if (directories.length === 0) {
+    return source.create({ path: undefined, requireExistingPath: false });
   }
 
-  return {
-    path: undefined,
-    requireExistingPath: false,
-  };
+  if (directories.length === 1) {
+    return source.create({ path: directories[0], requireExistingPath: true });
+  }
+
+  return (
+    source.createForDirectories?.(directories) ??
+    new MultiDirectorySourceAdapter(
+      directories.map((directory) => source.create({ path: directory, requireExistingPath: true })),
+    )
+  );
 }
 
 export function getDefaultSourceIds(): string[] {
@@ -392,17 +417,25 @@ export function getSourceStorageFormat(sourceId: string): SourceStorageFormat {
 
 export function createDefaultAdapters(options: CreateDefaultAdaptersOptions): SourceAdapter[] {
   for (const source of sourceRegistrations) {
-    validateOverridePath(dedicatedFlagName(source.option.flag), options[source.option.key]);
+    validateOverridePath(
+      dedicatedFlagName(source.option.flag),
+      options[source.option.key],
+      source.supportsSourceDir,
+    );
   }
 
   const sourceDirectoryOverrides = parseSourceDirectoryOverrides(options.sourceDir);
   validateSourceDirectoryOverrideIds(sourceDirectoryOverrides);
 
   return sourceRegistrations.map((source) => {
-    const resolved = source.supportsSourceDir
-      ? resolveDirectoryConfig(source.id, options[source.option.key], sourceDirectoryOverrides)
-      : { path: options[source.option.key], requireExistingPath: false };
+    if (!source.supportsSourceDir) {
+      const [dbPath] = toSourceDirectoryList(options[source.option.key]);
+      return source.create({ path: dbPath, requireExistingPath: false });
+    }
 
-    return source.create(resolved);
+    return createDirectoryBackedAdapter(
+      source,
+      resolveDirectories(source.id, options[source.option.key], sourceDirectoryOverrides),
+    );
   });
 }

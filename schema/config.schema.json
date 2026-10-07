@@ -33,32 +33,32 @@
       "additionalProperties": false,
       "properties": {
         "pi": {
-          "description": "Default path for Pi sessions; maps to --pi-dir.",
-          "type": "string"
+          "description": "Default path for Pi sessions; maps to --pi-dir. A list scans several directories.",
+          "$ref": "#/$defs/directoryPaths"
         },
         "codex": {
-          "description": "Default path for Codex sessions; maps to --codex-dir.",
-          "type": "string"
+          "description": "Default path for Codex sessions; maps to --codex-dir. A list scans several directories.",
+          "$ref": "#/$defs/directoryPaths"
         },
         "copilot": {
-          "description": "Default path for GitHub Copilot telemetry; maps to --copilot-dir.",
-          "type": "string"
+          "description": "Default path for GitHub Copilot telemetry; maps to --copilot-dir. A list scans several directories.",
+          "$ref": "#/$defs/directoryPaths"
         },
         "gemini": {
-          "description": "Default path for Gemini CLI data; maps to --gemini-dir.",
-          "type": "string"
+          "description": "Default path for Gemini CLI data; maps to --gemini-dir. A list scans several directories.",
+          "$ref": "#/$defs/directoryPaths"
         },
         "droid": {
-          "description": "Default path for Droid sessions; maps to --droid-dir.",
-          "type": "string"
+          "description": "Default path for Droid sessions; maps to --droid-dir. A list scans several directories.",
+          "$ref": "#/$defs/directoryPaths"
         },
         "claude": {
-          "description": "Default path for Claude projects; maps to --claude-dir.",
-          "type": "string"
+          "description": "Default path for Claude projects; maps to --claude-dir. A list scans several directories.",
+          "$ref": "#/$defs/directoryPaths"
         },
         "openclaw": {
-          "description": "Default path for OpenClaw agents; maps to --openclaw-dir.",
-          "type": "string"
+          "description": "Default path for OpenClaw agents; maps to --openclaw-dir. A list scans several directories.",
+          "$ref": "#/$defs/directoryPaths"
         },
         "opencode": {
           "description": "Default OpenCode SQLite database path; maps to --opencode-db.",
@@ -69,36 +69,36 @@
           "type": "string"
         },
         "amp": {
-          "description": "Default path for Amp threads; maps to --amp-dir.",
-          "type": "string"
+          "description": "Default path for Amp threads; maps to --amp-dir. A list scans several directories.",
+          "$ref": "#/$defs/directoryPaths"
         },
         "qwen": {
-          "description": "Default path for Qwen projects; maps to --qwen-dir.",
-          "type": "string"
+          "description": "Default path for Qwen projects; maps to --qwen-dir. A list scans several directories.",
+          "$ref": "#/$defs/directoryPaths"
         },
         "kimi": {
-          "description": "Default path for Kimi sessions; maps to --kimi-dir.",
-          "type": "string"
+          "description": "Default path for Kimi sessions; maps to --kimi-dir. A list scans several directories.",
+          "$ref": "#/$defs/directoryPaths"
         },
         "cline": {
-          "description": "Default path for Cline tasks; maps to --cline-dir.",
-          "type": "string"
+          "description": "Default path for Cline tasks; maps to --cline-dir. A list scans several directories.",
+          "$ref": "#/$defs/directoryPaths"
         },
         "roocode": {
-          "description": "Default path for RooCode tasks; maps to --roocode-dir.",
-          "type": "string"
+          "description": "Default path for RooCode tasks; maps to --roocode-dir. A list scans several directories.",
+          "$ref": "#/$defs/directoryPaths"
         },
         "kilocode": {
-          "description": "Default path for KiloCode tasks; maps to --kilocode-dir.",
-          "type": "string"
+          "description": "Default path for KiloCode tasks; maps to --kilocode-dir. A list scans several directories.",
+          "$ref": "#/$defs/directoryPaths"
         },
         "antigravity": {
-          "description": "Default path for Antigravity conversations; maps to --antigravity-dir.",
-          "type": "string"
+          "description": "Default path for Antigravity conversations; maps to --antigravity-dir. A list scans several directories.",
+          "$ref": "#/$defs/directoryPaths"
         },
         "dsh": {
-          "description": "Default path for DeepSeek Harness sessions; maps to --dsh-dir.",
-          "type": "string"
+          "description": "Default path for DeepSeek Harness sessions; maps to --dsh-dir. A list scans several directories.",
+          "$ref": "#/$defs/directoryPaths"
         }
       }
     },
@@ -212,6 +212,23 @@
           "maximum": 30000
         }
       }
+    }
+  },
+  "$defs": {
+    "directoryPaths": {
+      "description": "One directory path, or a list of directories to scan.",
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      ]
     }
   }
 }

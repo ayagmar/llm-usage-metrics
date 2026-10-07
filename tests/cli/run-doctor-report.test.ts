@@ -438,7 +438,7 @@ describe('run-doctor-report', () => {
     tempDirs.push(rootDir);
 
     const eventStorePath = path.join(rootDir, 'events.db');
-    const livePiFilePath = path.join(options.piDir ?? '', 'session.jsonl');
+    const livePiFilePath = path.join(String(options.piDir ?? ''), 'session.jsonl');
     const store = await openEventStore(eventStorePath);
 
     try {

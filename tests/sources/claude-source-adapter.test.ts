@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   ClaudeSourceAdapter,
   getDefaultClaudeProjectsDir,
+  resolveDefaultClaudeRootDirs,
 } from '../../src/sources/claude/claude-source-adapter.js';
 
 const tempDirs: string[] = [];
@@ -76,6 +77,29 @@ describe('ClaudeSourceAdapter', () => {
     expect(path.basename(path.dirname(getDefaultClaudeProjectsDir()))).toBe('.claude');
     expect(path.basename(getDefaultClaudeProjectsDir())).toBe('projects');
     expect(path.isAbsolute(getDefaultClaudeProjectsDir())).toBe(true);
+  });
+
+  it('reads every comma-separated CLAUDE_CONFIG_DIR instead of ~/.claude', async () => {
+    expect(resolveDefaultClaudeRootDirs({}, '/home/me')).toEqual([
+      path.join('/home/me', '.claude', 'projects'),
+      path.join('/home/me', '.claude', 'transcripts'),
+    ]);
+    expect(resolveDefaultClaudeRootDirs({ CLAUDE_CONFIG_DIR: '/a, ,/b ' }, '/home/me')).toEqual([
+      path.join('/a', 'projects'),
+      path.join('/a', 'transcripts'),
+      path.join('/b', 'projects'),
+      path.join('/b', 'transcripts'),
+    ]);
+
+    const configDir = await mkdtemp(path.join(os.tmpdir(), 'claude-config-dir-'));
+    tempDirs.push(configDir);
+    const sessionPath = path.join(configDir, 'projects', 'repo', 'session.jsonl');
+    await mkdir(path.dirname(sessionPath), { recursive: true });
+    await writeFile(sessionPath, '');
+
+    const adapter = new ClaudeSourceAdapter({ env: { CLAUDE_CONFIG_DIR: configDir } });
+
+    await expect(adapter.discoverFiles()).resolves.toEqual([sessionPath]);
   });
 
   it('discovers project and subagent JSONL files recursively', async () => {

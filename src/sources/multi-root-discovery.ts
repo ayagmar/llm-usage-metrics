@@ -13,10 +13,14 @@ export type MultiRootDiscoveryOptions = {
 };
 
 export function resolveRootDirs(
-  overrideDir: string | undefined,
+  overrideDir: string | readonly string[] | undefined,
   defaultRootDirs: readonly string[],
 ): readonly string[] {
-  return overrideDir !== undefined ? [overrideDir] : defaultRootDirs;
+  if (overrideDir === undefined) {
+    return defaultRootDirs;
+  }
+
+  return typeof overrideDir === 'string' ? [overrideDir] : overrideDir;
 }
 
 /**

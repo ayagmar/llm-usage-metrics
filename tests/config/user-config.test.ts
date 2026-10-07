@@ -121,6 +121,24 @@ describe('loadUserConfig', () => {
     ).rejects.toThrow('Failed to parse config file /tmp/array-config.toml:');
   });
 
+  it('reads a list of directories for directory sources but one path for databases', async () => {
+    const result = await loadUserConfig(
+      { LLM_USAGE_CONFIG_PATH: '/tmp/config.toml' },
+      readContent(`
+[sourceDirs]
+claude = ["/work/claude", " ", "/home/claude"]
+codex = []
+opencode = ["/tmp/a.db", "/tmp/b.db"]
+goose = "/tmp/goose.db"
+`),
+    );
+
+    expect(result.config.sourceDirs).toEqual({
+      claude: ['/work/claude', '/home/claude'],
+      goose: '/tmp/goose.db',
+    });
+  });
+
   it('loads supported keys and reports unknown keys once', async () => {
     const result = await loadUserConfig(
       {

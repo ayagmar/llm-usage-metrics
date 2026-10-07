@@ -100,7 +100,7 @@ function applySourceDirs(
     }
 
     Object.assign(output, { [optionKey]: sourceDir });
-    entries.push({ key: `sourceDirs.${sourceId}`, value: sourceDir });
+    entries.push({ key: `sourceDirs.${sourceId}`, value: formatConfigValue(sourceDir) });
   }
 }
 

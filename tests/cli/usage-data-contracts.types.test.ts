@@ -11,24 +11,25 @@ import type {
   TrendsCommandOptions,
   WrappedCommandOptions,
 } from '../../src/cli/usage-data-contracts.js';
+import type { SourceDirectoryValue } from '../../src/utils/source-directory-overrides.js';
 
 type ReportCommandOptions_Old = {
-  piDir?: string;
-  codexDir?: string;
-  copilotDir?: string;
-  geminiDir?: string;
-  droidDir?: string;
-  claudeDir?: string;
-  openclawDir?: string;
+  piDir?: SourceDirectoryValue;
+  codexDir?: SourceDirectoryValue;
+  copilotDir?: SourceDirectoryValue;
+  geminiDir?: SourceDirectoryValue;
+  droidDir?: SourceDirectoryValue;
+  claudeDir?: SourceDirectoryValue;
+  openclawDir?: SourceDirectoryValue;
   opencodeDb?: string;
   gooseDb?: string;
-  ampDir?: string;
-  qwenDir?: string;
-  kimiDir?: string;
-  clineDir?: string;
-  roocodeDir?: string;
-  kilocodeDir?: string;
-  antigravityDir?: string;
+  ampDir?: SourceDirectoryValue;
+  qwenDir?: SourceDirectoryValue;
+  kimiDir?: SourceDirectoryValue;
+  clineDir?: SourceDirectoryValue;
+  roocodeDir?: SourceDirectoryValue;
+  kilocodeDir?: SourceDirectoryValue;
+  antigravityDir?: SourceDirectoryValue;
   sourceDir?: string[];
   source?: string | string[];
   since?: string;

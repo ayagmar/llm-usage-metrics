@@ -54,7 +54,7 @@ llm-usage monthly --opencode-db /path/to/opencode.db
 llm-usage monthly --goose-db /path/to/goose/sessions.db
 ```
 
-Use the actual sessions directory or database file, not its parent. Explicit directory overrides must exist. Paths containing spaces need shell quotes. The [CLI reference](/llm-usage-metrics/cli-reference/) lists every supported flag.
+Use the actual sessions directory or database file, not its parent. Explicit directory overrides must exist. Repeat a directory flag or `--source-dir` entry to scan several directories for one source; OpenCode and Goose take one database each. Paths containing spaces need shell quotes. The [CLI reference](/llm-usage-metrics/cli-reference/) lists every supported flag.
 
 ## Missing or partial cost
 

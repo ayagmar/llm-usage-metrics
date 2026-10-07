@@ -48,7 +48,8 @@ export const USER_CONFIG_TEMPLATE = `${CONFIG_TEMPLATE_HEADER}
 # parseWorkers = "${PARSE_WORKERS_CONFIG_DEFAULT}"
 # parseWorkerMinBytes = ${PARSE_WORKER_MIN_BYTES_DEFAULT}
 
-# Default source path overrides.
+# Default source path overrides. Directory sources (all except opencode and
+# goose) also accept a list of paths to scan several directories.
 # [sourceDirs]
 ${sourceDirTemplate}
 

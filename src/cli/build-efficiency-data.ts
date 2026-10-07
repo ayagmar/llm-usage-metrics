@@ -19,6 +19,10 @@ import type {
   EfficiencyDataResult,
 } from './usage-data-contracts.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
+import {
+  type SourceDirectoryValue,
+  toSourceDirectoryList,
+} from '../utils/source-directory-overrides.js';
 
 export type BuildEfficiencyDataDeps = BuildUsageDataDeps & {
   buildUsageEventDataset?: typeof buildUsageEventDataset;
@@ -46,8 +50,8 @@ function hasActiveProviderFilter(provider: string | undefined): boolean {
   return Boolean(provider?.trim());
 }
 
-function hasActiveTextOption(value: string | undefined): boolean {
-  return Boolean(value?.trim());
+function hasActiveTextOption(value: SourceDirectoryValue | undefined): boolean {
+  return toSourceDirectoryList(value).some((entry) => entry.trim().length > 0);
 }
 
 function resolveScopeNote(options: EfficiencyCommandOptions): string | undefined {

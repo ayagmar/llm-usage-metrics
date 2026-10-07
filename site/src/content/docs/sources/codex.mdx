@@ -5,7 +5,7 @@ description: Discovery paths, overrides, and usage parsing for Codex.
 
 ## Default location
 
-- `~/.codex/sessions/**/*.jsonl`
+- `~/.codex/sessions/**/*.jsonl` (or `$CODEX_HOME/sessions/**/*.jsonl` when `CODEX_HOME` is set)
 
 ## Override
 
@@ -13,6 +13,8 @@ description: Discovery paths, overrides, and usage parsing for Codex.
 llm-usage daily --codex-dir /path/to/codex/sessions
 # or
 llm-usage daily --source-dir codex=/path/to/codex/sessions
+# several directories (repeat the flag)
+llm-usage daily --codex-dir /path/one/sessions --codex-dir /path/two/sessions
 ```
 
 ## Parsing notes

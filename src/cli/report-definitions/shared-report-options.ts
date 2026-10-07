@@ -134,7 +134,15 @@ export function registerSharedReportOptions(
   const configuredCommand = command;
 
   for (const overrideOption of getSourceOverrideOptions()) {
-    configuredCommand.option(overrideOption.flag, overrideOption.help);
+    if (overrideOption.supportsSourceDir) {
+      configuredCommand.option(
+        overrideOption.flag,
+        `${overrideOption.help} (repeatable)`,
+        collectRepeatedOption,
+      );
+    } else {
+      configuredCommand.option(overrideOption.flag, overrideOption.help);
+    }
   }
 
   configuredCommand

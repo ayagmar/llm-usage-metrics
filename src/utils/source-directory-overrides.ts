@@ -1,5 +1,19 @@
-export function parseSourceDirectoryOverrides(entries: string[] | undefined): Map<string, string> {
-  const overrides = new Map<string, string>();
+/** A dedicated directory flag or config value: one path, or several when repeated. */
+export type SourceDirectoryValue = string | readonly string[];
+
+export function toSourceDirectoryList(value: SourceDirectoryValue | undefined): string[] {
+  if (value === undefined) {
+    return [];
+  }
+
+  return typeof value === 'string' ? [value] : [...value];
+}
+
+/** Parses repeated `--source-dir <source-id>=<path>` entries; a source may repeat. */
+export function parseSourceDirectoryOverrides(
+  entries: readonly string[] | undefined,
+): Map<string, string[]> {
+  const overrides = new Map<string, string[]>();
 
   if (!entries || entries.length === 0) {
     return overrides;
@@ -19,11 +33,13 @@ export function parseSourceDirectoryOverrides(entries: string[] | undefined): Ma
       throw new Error('--source-dir must use non-empty <source-id>=<path> values');
     }
 
-    if (overrides.has(sourceId)) {
-      throw new Error(`Duplicate --source-dir source id: ${sourceId}`);
+    const directories = overrides.get(sourceId) ?? [];
+
+    if (!directories.includes(directoryPath)) {
+      directories.push(directoryPath);
     }
 
-    overrides.set(sourceId, directoryPath);
+    overrides.set(sourceId, directories);
   }
 
   return overrides;
