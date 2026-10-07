@@ -1656,6 +1656,21 @@ describe('buildUsageData', () => {
     });
   });
 
+  it('warns when a model filter matches no parsed usage', async () => {
+    const result = await buildUsageData(
+      'daily',
+      { all: true, model: 'gpt-4.2', timezone: 'UTC' },
+      {
+        ...withDeterministicRuntimeDeps(),
+        createAdapters: () => [createAdapter('pi', { '/tmp/pi.jsonl': [createEvent()] })],
+      },
+    );
+
+    expect(result.diagnostics.warnings).toContain(
+      '--model gpt-4.2 matched no usage (did you mean gpt-4.1?)',
+    );
+  });
+
   describe('weekly default window', () => {
     // Mondays: 2026-01-12 (W03), 2026-01-19 (W04), 2026-03-02 (W10), 2026-03-09 (W11).
     const timestamps = [

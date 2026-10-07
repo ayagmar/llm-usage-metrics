@@ -8,6 +8,7 @@ import {
 import { getSourceOverrideOptions } from '../sources/create-default-adapters.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { parseSourceDirectoryOverrides } from '../utils/source-directory-overrides.js';
+import { suggestClosest } from '../utils/suggest-closest.js';
 import type { RuntimeProfileCollector } from './runtime-profile.js';
 
 import type { ReportCommandOptions } from './usage-data-contracts.js';
@@ -101,9 +102,13 @@ export function validateSourceFilterValues(
   }
 
   const allowedSources = [...availableSourceIds].sort(compareByCodePoint);
+  const describedSources = unknownSources.map((source) => {
+    const suggestion = suggestClosest(source, allowedSources);
+    return suggestion ? `${source} (did you mean ${suggestion}?)` : source;
+  });
 
   throw new Error(
-    `Unknown --source value(s): ${unknownSources.join(', ')}. Allowed values: ${allowedSources.join(', ')}`,
+    `Unknown --source value(s): ${describedSources.join(', ')}. Allowed values: ${allowedSources.join(', ')}`,
   );
 }
 

@@ -43,6 +43,7 @@ import type {
 import type { SourceAdapter } from '../sources/source-adapter.js';
 import type { EnvVarOverride } from '../config/env-var-display.js';
 import type { PricingSource } from '../pricing/types.js';
+import { findUnmatchedFilterWarnings } from './filter-match-warnings.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 
 function withNormalizedPricingUrl(
@@ -284,6 +285,12 @@ export async function buildUsageEventDataset(
         ...userConfigResolution.loadedConfig.warnings,
         ...parseWarnings,
         ...historyWarnings,
+        ...findUnmatchedFilterWarnings({
+          parseResults: parseResultsForFiltering,
+          sourceFilter: normalizedInputs.sourceFilter,
+          providerFilter: normalizedInputs.providerFilter,
+          modelFilter: normalizedInputs.modelFilter,
+        }),
       ],
       notes: historyNotes,
       filteredEvents,

@@ -49,6 +49,8 @@ llm-usage monthly --model codex
 
 Source and provider are different: a Codex event can have `source=codex` and `provider=openai`. Model filters use an exact match when one exists after source, provider, and date filtering; otherwise they use substring matching.
 
+A filter that cannot match prints a warning on `stderr`, with a suggestion for a likely typo: a `--model` or `--provider` value that appears in no parsed usage (`--model claude-opsu-5-5 matched no usage (did you mean claude-opus-5-5?)`), or a `--source` that has no files while other sources do. An unknown `--source` id is an error that also suggests the closest id.
+
 For custom session locations, use [source path overrides](/llm-usage-metrics/sources/#override-a-location). Save recurring defaults in [Configuration](/llm-usage-metrics/configuration/).
 
 ## Read the rows
