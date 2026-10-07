@@ -98,6 +98,7 @@ export async function buildWrappedData(
     pricingOrigin,
     pricingWarning,
     warnings: dataset.warnings,
+    notes: dataset.notes,
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,

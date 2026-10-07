@@ -73,6 +73,8 @@ Options:
   --json                         Render output as JSON
   --quiet                        Suppress informational stderr output (warnings
                                  still print)
+  --verbose                      Print detailed diagnostics on stderr
+                                 (per-source counts, routine skips, config, env)
   --timezone <iana>              Timezone for bucketing (default: system
                                  timezone)
   --provider <name>              Billing-provider filter (normalized to billing
@@ -133,6 +135,8 @@ Options:
   --json                         Render output as JSON
   --quiet                        Suppress informational stderr output (warnings
                                  still print)
+  --verbose                      Print detailed diagnostics on stderr
+                                 (per-source counts, routine skips, config, env)
   --since <YYYY-MM-DD>           Inclusive start date filter
   --until <YYYY-MM-DD>           Inclusive end date filter
   --timezone <iana>              Timezone for bucketing (default: system
@@ -200,6 +204,8 @@ Options:
   --json                         Render output as JSON
   --quiet                        Suppress informational stderr output (warnings
                                  still print)
+  --verbose                      Print detailed diagnostics on stderr
+                                 (per-source counts, routine skips, config, env)
   --since <YYYY-MM-DD>           Inclusive start date filter
   --until <YYYY-MM-DD>           Inclusive end date filter
   --timezone <iana>              Timezone for bucketing (default: system
@@ -266,6 +272,8 @@ Options:
   --json                         Render output as JSON
   --quiet                        Suppress informational stderr output (warnings
                                  still print)
+  --verbose                      Print detailed diagnostics on stderr
+                                 (per-source counts, routine skips, config, env)
   --since <YYYY-MM-DD>           Inclusive start date filter
   --until <YYYY-MM-DD>           Inclusive end date filter
   --timezone <iana>              Timezone for bucketing (default: system
@@ -332,6 +340,8 @@ Options:
   --json                         Render output as JSON
   --quiet                        Suppress informational stderr output (warnings
                                  still print)
+  --verbose                      Print detailed diagnostics on stderr
+                                 (per-source counts, routine skips, config, env)
   --since <YYYY-MM-DD>           Inclusive start date filter
   --until <YYYY-MM-DD>           Inclusive end date filter
   --timezone <iana>              Timezone for bucketing (default: system
@@ -403,6 +413,8 @@ Options:
   --json                         Render output as JSON
   --quiet                        Suppress informational stderr output (warnings
                                  still print)
+  --verbose                      Print detailed diagnostics on stderr
+                                 (per-source counts, routine skips, config, env)
   --since <YYYY-MM-DD>           Inclusive start date filter
   --until <YYYY-MM-DD>           Inclusive end date filter
   --timezone <iana>              Timezone for bucketing (default: system
@@ -473,6 +485,8 @@ Options:
   --json                         Render output as JSON
   --quiet                        Suppress informational stderr output (warnings
                                  still print)
+  --verbose                      Print detailed diagnostics on stderr
+                                 (per-source counts, routine skips, config, env)
   --since <YYYY-MM-DD>           Inclusive start date filter
   --until <YYYY-MM-DD>           Inclusive end date filter
   --timezone <iana>              Timezone for bucketing (default: system
@@ -541,6 +555,8 @@ Options:
   --json                         Render output as JSON
   --quiet                        Suppress informational stderr output (warnings
                                  still print)
+  --verbose                      Print detailed diagnostics on stderr
+                                 (per-source counts, routine skips, config, env)
   --since <YYYY-MM-DD>           Inclusive start date filter
   --until <YYYY-MM-DD>           Inclusive end date filter
   --timezone <iana>              Timezone for bucketing (default: system
@@ -610,6 +626,8 @@ Options:
   --json                         Render output as JSON
   --quiet                        Suppress informational stderr output (warnings
                                  still print)
+  --verbose                      Print detailed diagnostics on stderr
+                                 (per-source counts, routine skips, config, env)
   --since <YYYY-MM-DD>           Inclusive start date filter
   --until <YYYY-MM-DD>           Inclusive end date filter
   --timezone <iana>              Timezone for bucketing (default: system
@@ -679,6 +697,8 @@ Options:
   --json                         Render output as JSON
   --quiet                        Suppress informational stderr output (warnings
                                  still print)
+  --verbose                      Print detailed diagnostics on stderr
+                                 (per-source counts, routine skips, config, env)
   --timezone <iana>              Timezone for bucketing (default: system
                                  timezone)
   --provider <name>              Billing-provider filter (normalized to billing
@@ -743,6 +763,8 @@ Options:
   --json                         Render output as JSON
   --quiet                        Suppress informational stderr output (warnings
                                  still print)
+  --verbose                      Print detailed diagnostics on stderr
+                                 (per-source counts, routine skips, config, env)
   --since <YYYY-MM-DD>           Inclusive start date filter
   --until <YYYY-MM-DD>           Inclusive end date filter
   --timezone <iana>              Timezone for bucketing (default: system
@@ -805,6 +827,8 @@ Options:
   --json                         Render output as JSON
   --quiet                        Suppress informational stderr output (warnings
                                  still print)
+  --verbose                      Print detailed diagnostics on stderr
+                                 (per-source counts, routine skips, config, env)
   -h, --help                     display help for command
 ```
 
@@ -846,6 +870,9 @@ Options:
   --json                          Render output as JSON
   --quiet                         Suppress informational stderr output (warnings
                                   still print)
+  --verbose                       Print detailed diagnostics on stderr
+                                  (per-source counts, routine skips, config,
+                                  env)
   --suppressed                    Select departed files that --history already
                                   suppresses
   --departed-before <YYYY-MM-DD>  Select departed files whose newest event
@@ -975,6 +1002,7 @@ Search across root and command help. See Command help above to check which flags
 | `--timezone` | - | `<iana>` | Timezone for bucketing \(default: system timezone\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
 | `--top` | - | `<n>` | optimize: Show only the top N cheapest candidates \(positive integer\); session: Show only the top N rows by cost \(default 20; 0 shows all\) |
 | `--until` | - | `<YYYY-MM-DD>` | Inclusive end date filter \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, events only\) |
+| `--verbose` | - | - | Print detailed diagnostics on stderr \(per-source counts, routine skips, config, env\) |
 | `--vs-since` | - | `<date>` | Inclusive start date for the baseline comparison window \(compare only\) |
 | `--vs-until` | - | `<date>` | Inclusive end date for the baseline comparison window \(compare only\) |
 | `--year` | - | `<YYYY>` | Year to recap \(2020-2100; defaults to current local year\) \(wrapped only\) |

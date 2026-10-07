@@ -149,7 +149,11 @@ export function registerSharedReportOptions(
       collectRepeatedOption,
     )
     .option('--json', 'Render output as JSON')
-    .option('--quiet', 'Suppress informational stderr output (warnings still print)');
+    .option('--quiet', 'Suppress informational stderr output (warnings still print)')
+    .option(
+      '--verbose',
+      'Print detailed diagnostics on stderr (per-source counts, routine skips, config, env)',
+    );
 
   if (profileConfig.includeDateFilters) {
     configuredCommand

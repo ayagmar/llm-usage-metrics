@@ -63,7 +63,7 @@ function getErrorReason(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function formatHistoryWarning(historyResult: EventStoreHistoryResult): string {
+function formatHistoryNote(historyResult: EventStoreHistoryResult): string {
   return [
     `History: included ${historyResult.servedEventCount} event(s)`,
     `from ${historyResult.servedFileCount} departed file(s)`,
@@ -109,6 +109,7 @@ export type UsageEventDataset = {
   successfulParseResults: AdapterParseResult[];
   sourceFailures: UsageSourceFailure[];
   warnings: string[];
+  notes: string[];
   filteredEvents: UsageEvent[];
   pricingRuntimeConfig: ReturnType<typeof getPricingFetcherRuntimeConfig>;
   readEnvVarOverrides: () => EnvVarOverride[];
@@ -223,6 +224,7 @@ export async function buildUsageEventDataset(
 
     let parseResultsForFiltering = successfulParseResults;
     const historyWarnings: string[] = [];
+    const historyNotes: string[] = [];
 
     const historyStore = openedEventStore;
 
@@ -252,7 +254,7 @@ export async function buildUsageEventDataset(
           parseResultsForFiltering,
           historyResult.events,
         );
-        historyWarnings.push(formatHistoryWarning(historyResult));
+        historyNotes.push(formatHistoryNote(historyResult));
       } catch (error) {
         historyWarnings.push(`Event store disabled after failure: ${getErrorReason(error)}`);
       }
@@ -283,6 +285,7 @@ export async function buildUsageEventDataset(
         ...parseWarnings,
         ...historyWarnings,
       ],
+      notes: historyNotes,
       filteredEvents,
       pricingRuntimeConfig,
       readEnvVarOverrides: deps.getActiveEnvVarOverrides ?? getActiveEnvVarOverrides,

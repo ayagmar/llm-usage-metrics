@@ -246,6 +246,6 @@ describe('run-events-report', () => {
       }).not.toThrow();
     }
 
-    expect(output.stderr()).toContain('session file(s)');
+    expect(output.stderr()).toMatch(/Scanned \d+ files?/u);
   });
 });

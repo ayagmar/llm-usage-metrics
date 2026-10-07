@@ -239,8 +239,7 @@ describe('runEfficiencyReport', () => {
 
     expect(String(consoleLogSpy.mock.calls[0]?.[0])).not.toContain('Active environment overrides:');
     const stderrLines = consoleErrorSpy.mock.calls.map((call) => String(call[0]));
-    expect(stderrLines.some((line) => line.includes('Active environment overrides:'))).toBe(true);
-    expect(stderrLines.some((line) => line.includes('LLM_USAGE_PARSE_WORKERS=0'))).toBe(true);
+    expect(stderrLines.some((line) => /\d+ env overrides?/u.test(line))).toBe(true);
   });
 
   it('writes monthly efficiency share svg when --share is enabled', async () => {

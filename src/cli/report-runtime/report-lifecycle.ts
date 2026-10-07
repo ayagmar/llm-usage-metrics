@@ -20,6 +20,8 @@ type StandardReportFormat = 'terminal' | 'markdown' | 'json';
 
 export const STANDARD_REPORT_FORMATS = ['terminal', 'markdown', 'json'] as const;
 
+const verboseLogger = { info: logger.debug, dim: logger.debug };
+
 type OutputFlagOptions = {
   json?: boolean;
   markdown?: boolean;
@@ -146,8 +148,10 @@ export function emitReportRunDiagnostics<Diagnostics>(
   options: EmitReportRunDiagnosticsOptions<Diagnostics>,
 ): void {
   options.emitCommonDiagnostics?.(diagnostics);
-  emitEnvVarOverrides(options.getEnvVarOverrides?.(diagnostics) ?? [], logger);
-  emitActiveConfig(options.getActiveConfig?.(diagnostics), logger);
+  // The summary line already counts env overrides and names the config file; the
+  // full blocks are `--verbose` detail.
+  emitEnvVarOverrides(options.getEnvVarOverrides?.(diagnostics) ?? [], verboseLogger);
+  emitActiveConfig(options.getActiveConfig?.(diagnostics), verboseLogger);
   options.emitReportDiagnostics?.(diagnostics);
   emitRuntimeProfile(
     mergeRuntimeProfiles(

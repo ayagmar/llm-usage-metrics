@@ -5,6 +5,7 @@ import {
   runPreparedReport,
 } from '../../../src/cli/report-runtime/report-lifecycle.js';
 import { RuntimeProfileCollector } from '../../../src/cli/runtime-profile.js';
+import { setLogLevel } from '../../../src/utils/logger.js';
 
 describe('report-lifecycle', () => {
   it('emits the final runtime profile snapshot after render timing is recorded', async () => {
@@ -43,7 +44,8 @@ describe('report-lifecycle', () => {
     }
   });
 
-  it('emits active config after active environment overrides', async () => {
+  it('emits active config after active environment overrides under --verbose', async () => {
+    setLogLevel('debug');
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 
@@ -88,6 +90,7 @@ describe('report-lifecycle', () => {
       expect(stderrLines.some((line) => line.includes('sources=codex'))).toBe(true);
       expect(consoleLogSpy).toHaveBeenCalledWith('report body');
     } finally {
+      setLogLevel('info');
       consoleErrorSpy.mockRestore();
       consoleLogSpy.mockRestore();
     }

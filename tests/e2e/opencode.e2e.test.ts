@@ -250,7 +250,10 @@ describe('opencode e2e', () => {
         timezone: 'UTC',
       });
 
-      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Skipped 2 malformed rows'));
+      // The malformed JSON row warns; the assistant row without tokens is routine.
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Skipped 1 unreadable row: opencode 1 (invalid_data_json 1)'),
+      );
       expect(logSpy).toHaveBeenCalledTimes(1);
     } finally {
       errorSpy.mockRestore();

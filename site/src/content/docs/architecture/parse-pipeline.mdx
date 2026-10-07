@@ -43,7 +43,7 @@ Bucketing hundreds of thousands of events into local days would be slow if each 
 
 A file that fails to parse does not kill the run: the failure is recorded as a `file_parse_failed` skipped-row reason and parsing continues. Only when **every** file of a source fails does the source itself error (`All N file(s) failed to parse for source <id>: <reason>`) — and even then the report continues without that source unless it was explicitly selected, in which case the run aborts.
 
-Adapters count skipped rows with per-reason counters (`src/sources/parse-diagnostics.ts`), and the report surfaces them — files found, skipped rows and reasons, source failures — as diagnostics on `stderr`, never mixed into the report body on `stdout`. The `logLevel` config key and `--quiet` gate the informational lines.
+Adapters count skipped rows with per-reason counters (`src/sources/parse-diagnostics.ts`), and the report surfaces them — files found, skipped rows and reasons, source failures — as diagnostics on `stderr`, never mixed into the report body on `stdout`. Routine skips (rows with no usage by design) only show with `--verbose`; rows that could not be read are a warning. The `logLevel` config key, `--quiet`, and `--verbose` gate the informational lines.
 
 ## Related pages
 
