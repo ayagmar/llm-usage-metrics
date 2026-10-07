@@ -378,6 +378,51 @@ describe('build-usage-data-parsing', () => {
     ).toEqual([[fileA, fileB], [fileB]]);
   });
 
+  it('flushes parse misses to the event store in bounded batches', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-write-batches-'));
+    tempDirs.push(tempDir);
+
+    const files = ['a', 'b', 'c'].map((name) => path.join(tempDir, `${name}.jsonl`));
+
+    for (const filePath of files) {
+      await writeFingerprintFixture(filePath, '{}\n', 1_700_000_001);
+    }
+
+    const adapter: SourceAdapter = {
+      id: 'pi',
+      discoverFiles: async () => files,
+      parseFile: async (filePath) =>
+        Array.from({ length: 3_000 }, (_, index) =>
+          createUsageEvent({
+            source: 'pi',
+            sessionId: path.basename(filePath, '.jsonl'),
+            timestamp: new Date(Date.UTC(2026, 1, 1) + index * 1_000).toISOString(),
+            inputTokens: 1,
+            totalTokens: 1,
+          }),
+        ),
+    };
+    const batches: string[][] = [];
+    const replaceFilesEvents = vi.fn(
+      (_store: EventStore, inputs: readonly ReplaceFileEventsInput[]) => {
+        batches.push(inputs.map((input) => path.basename(input.filePath)));
+      },
+    );
+
+    await parseSelectedAdapters([adapter], 1, {
+      eventStore: { enabled: true, path: path.join(tempDir, 'events.db') },
+      eventStoreDeps: {
+        openEventStore: async () => ({}) as EventStore,
+        closeEventStore: vi.fn(),
+        getFileEntry: () => undefined,
+        replaceFilesEvents,
+      },
+    });
+
+    // 5,000 events per batch: a + b cross the bound, c is flushed at the end.
+    expect(batches).toEqual([['a.jsonl', 'b.jsonl'], ['c.jsonl']]);
+  });
+
   it('keeps parsed output and returns one warning when the event store fails', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-parse-failure-'));
     tempDirs.push(tempDir);
