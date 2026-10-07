@@ -28,7 +28,13 @@ llm-usage daily
 
 The default renderer uses a boxed title and a Unicode table. `NO_COLOR=1` removes ANSI color without changing the content.
 
-Very wide usage tables can emit an overflow warning on `stderr`. Use a wider terminal, filter the report, or switch to JSON when you need every column without terminal wrapping.
+Usage tables fit the terminal width. When the full table is too wide, the renderer steps down in this order until it fits: abbreviate token counts (`616M`, `24.3K`; cost stays exact), hide Reasoning and Cache Write, hide Models, then hide Input and Output. At any step, a model name longer than the space left for the Models column (at least 20 characters) gets a middle `…` instead of wrapping. Period, Source, Cache Read, Total, and Cost always stay. A note on `stderr` lists what was left out. Piped output has no terminal width and keeps every column.
+
+```bash
+llm-usage daily --compact
+```
+
+`--compact` starts from the abbreviated table without Reasoning and Cache Write, even when the terminal is wide or the output is piped. It works with terminal and Markdown output, not JSON. If even the narrowest table is wider than the terminal, an overflow warning goes to `stderr`; use a wider terminal or JSON.
 
 ## JSON
 
@@ -80,7 +86,7 @@ llm-usage daily --markdown > usage.md
 
 Markdown works for usage, compare, session, efficiency, optimize, trends, and wrapped reports. It does not work for doctor, prune, or events.
 
-Usage and session output keep the same ordering and row limits as the terminal renderer. `--per-model-columns` also works with Markdown usage reports.
+Usage and session output keep the same ordering and row limits as the terminal renderer. `--per-model-columns` and `--compact` also work with Markdown usage reports.
 
 ## Share SVG
 

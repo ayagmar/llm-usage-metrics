@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import type { UsageReportRow } from '../../src/domain/usage-report-row.js';
-import { toUsageTableCells, usageTableHeaders } from '../../src/render/row-cells.js';
+import {
+  getUsageTableHeader,
+  getVisibleUsageColumnIndexes,
+  selectColumns,
+  toUsageTableCells,
+  usageTableHeaders,
+} from '../../src/render/row-cells.js';
 
 describe('row-cells', () => {
   it('renders compact layout fallbacks and grand-total source label', () => {
@@ -235,5 +241,50 @@ describe('row-cells', () => {
 
     const perModelCells = toUsageTableCells(rows, { layout: 'per_model_columns' });
     expect(perModelCells[0]?.[9]).toBe('-');
+  });
+
+  it('abbreviates token counts but keeps cost exact', () => {
+    const rows: UsageReportRow[] = [
+      {
+        rowType: 'period_source',
+        periodKey: '2026-02-10',
+        source: 'pi',
+        models: ['gpt-4.1'],
+        modelBreakdown: [],
+        inputTokens: 999,
+        outputTokens: 24_296,
+        reasoningTokens: 999_999,
+        cacheReadTokens: 615_776_407,
+        cacheWriteTokens: 0,
+        totalTokens: 1_810_162_608,
+        costUsd: 1234.5,
+      },
+    ];
+
+    expect(toUsageTableCells(rows, { tokenFormat: 'abbreviated' })[0].slice(3)).toEqual([
+      '999',
+      '24.3K',
+      '1M',
+      '616M',
+      '0',
+      '1.81B',
+      '$1,234.50',
+    ]);
+  });
+
+  it('selects visible columns in table order', () => {
+    const columns = getVisibleUsageColumnIndexes(new Set(['models', 'reasoning']));
+
+    expect(selectColumns(usageTableHeaders, columns)).toEqual([
+      'Period',
+      'Source',
+      'Input',
+      'Output',
+      'Cache Read',
+      'Cache Write',
+      'Total',
+      'Cost',
+    ]);
+    expect(getUsageTableHeader('cacheWrite')).toBe('Cache Write');
   });
 });

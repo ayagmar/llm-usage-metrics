@@ -19,7 +19,8 @@ type RenderUnicodeTableOptions = {
   rowMetas: TableRowMeta[];
   layout: UnicodeTableLayout;
   multilineColumnIndex: number;
-  multilineColumnWidth: number;
+  /** Fixed width for the multiline column; measured from its content when omitted. */
+  multilineColumnWidth?: number;
   /** Columns after the multiline column that hold text rather than numbers. */
   leftAlignedColumnIndexes?: readonly number[];
 };
@@ -240,7 +241,7 @@ function normalizeRenderableRows(options: {
 
 function computeColumnWidths(
   measureRows: readonly (readonly string[])[],
-  options: { multilineColumnIndex: number; multilineColumnWidth: number },
+  options: { multilineColumnIndex: number; multilineColumnWidth?: number },
 ): number[] {
   const columnCount = measureRows.reduce(
     (maxColumnCount, row) => Math.max(maxColumnCount, row.length),
@@ -256,7 +257,9 @@ function computeColumnWidths(
     }
   }
 
-  widths[options.multilineColumnIndex] = options.multilineColumnWidth;
+  if (options.multilineColumnWidth !== undefined) {
+    widths[options.multilineColumnIndex] = options.multilineColumnWidth;
+  }
 
   return widths;
 }

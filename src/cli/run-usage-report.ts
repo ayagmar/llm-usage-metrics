@@ -6,7 +6,10 @@ import {
 } from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
 import type { BuildUsageDataDeps, ReportCommandOptions } from './usage-data-contracts.js';
-import { renderUsageReport, type UsageReportFormat } from '../render/render-usage-report.js';
+import {
+  renderUsageReportWithNotes,
+  type UsageReportFormat,
+} from '../render/render-usage-report.js';
 import { renderUsageShareSvg } from '../render/render-usage-share-svg.js';
 import type { UsageTableLayout } from '../render/row-cells.js';
 import type { ReportGranularity } from '../utils/time-buckets.js';
@@ -53,11 +56,20 @@ async function prepareUsageReport(
           logLabel: 'usage',
         })
       : undefined,
-    render: (usageData, format) =>
-      renderUsageReport(usageData, format, {
+    validate: () => {
+      if (options.compact && options.json) {
+        throw new Error('--compact applies to terminal and markdown tables; drop it with --json');
+      }
+    },
+    render: (usageData, format) => {
+      const { output, notes } = renderUsageReportWithNotes(usageData, format, {
         granularity,
         tableLayout,
-      }),
+        compact: options.compact,
+      });
+
+      return { output, hintsAfterOutput: notes };
+    },
     getHintsAfterOutput: (usageData) =>
       usageData.defaultWindowSince
         ? getDefaultWindowHint(granularity, usageData.defaultWindowSince)

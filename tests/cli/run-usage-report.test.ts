@@ -582,7 +582,8 @@ describe('buildUsageReport', () => {
     const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'usage-run-overflow-hint-'));
     tempDirs.push(emptyDir);
 
-    const restoreStdout = overrideStdoutTty(60);
+    // Narrower than the most compact table (Period, Source, Cache Read, Total, Cost).
+    const restoreStdout = overrideStdoutTty(30);
 
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -608,6 +609,49 @@ describe('buildUsageReport', () => {
       errorSpy.mockRestore();
       logSpy.mockRestore();
     }
+  });
+
+  it('fits the table to an 80-column terminal and says what it left out', async () => {
+    const restoreStdout = overrideStdoutTty(80);
+    const order: string[] = [];
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation((value: unknown) => {
+      order.push(`stderr:${String(value)}`);
+    });
+    const logSpy = vi.spyOn(console, 'log').mockImplementation((value: unknown) => {
+      order.push(`stdout:${String(value)}`);
+    });
+
+    try {
+      await runUsageReport('daily', {
+        all: true,
+        piDir: path.resolve('tests/fixtures/pi'),
+        codexDir: path.resolve('tests/fixtures/codex'),
+        source: directoryBackedSources,
+        timezone: 'UTC',
+        pricingOffline: true,
+      });
+
+      const outputIndex = order.findIndex((line) => line.startsWith('stdout:'));
+      const tableLines = order[outputIndex].split('\n').filter((line) => /^[│╭├╰]/u.test(line));
+
+      expect(Math.max(...tableLines.map((line) => line.length))).toBeLessThanOrEqual(80);
+      expect(order.some((line) => line.includes('wider than terminal'))).toBe(false);
+      expect(
+        order
+          .slice(outputIndex + 1)
+          .some((line) => line.includes('Fitted the table to the terminal')),
+      ).toBe(true);
+    } finally {
+      restoreStdout();
+      errorSpy.mockRestore();
+      logSpy.mockRestore();
+    }
+  });
+
+  it('rejects --compact with --json', async () => {
+    await expect(
+      buildUsageReport('daily', { all: true, compact: true, json: true }),
+    ).rejects.toThrow('--compact applies to terminal and markdown tables; drop it with --json');
   });
 
   it('does not emit a fullscreen hint when terminal column metadata is invalid', async () => {

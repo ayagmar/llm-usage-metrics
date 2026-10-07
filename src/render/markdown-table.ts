@@ -2,13 +2,23 @@ import { markdownTable } from 'markdown-table';
 
 import type { UsageReportRow } from '../domain/usage-report-row.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
-import { toUsageTableCells, type UsageTableLayout, usageTableHeaders } from './row-cells.js';
+import {
+  compactHiddenUsageColumns,
+  getVisibleUsageColumnIndexes,
+  selectColumns,
+  toUsageTableCells,
+  type UsageTableColumnId,
+  type UsageTableLayout,
+  usageTableHeaders,
+} from './row-cells.js';
 import { splitCellLines } from './table-text-layout.js';
 
 const alignment: ('l' | 'r')[] = ['l', 'l', 'l', 'r', 'r', 'r', 'r', 'r', 'r', 'r'];
 
 type MarkdownRenderOptions = {
   tableLayout?: UsageTableLayout;
+  /** Abbreviated token counts without the Reasoning and Cache Write columns. */
+  compact?: boolean;
 };
 
 function boldMarkdownText(value: string): string {
@@ -84,12 +94,16 @@ export function renderMarkdownTable(
   options: MarkdownRenderOptions = {},
 ): string {
   const tableLayout = options.tableLayout ?? 'compact';
-  const bodyRows = toUsageTableCells(rows, { layout: tableLayout }).map((cells, index) =>
-    emphasizeMarkdownRow(rows[index], cells),
+  const columns = getVisibleUsageColumnIndexes(
+    new Set<UsageTableColumnId>(options.compact ? compactHiddenUsageColumns : []),
   );
-  const tableRows = [Array.from(usageTableHeaders), ...bodyRows];
+  const bodyRows = toUsageTableCells(rows, {
+    layout: tableLayout,
+    tokenFormat: options.compact ? 'abbreviated' : 'full',
+  }).map((cells, index) => selectColumns(emphasizeMarkdownRow(rows[index], cells), columns));
+  const tableRows = [selectColumns(usageTableHeaders, columns), ...bodyRows];
 
   return markdownTable(tableRows, {
-    align: alignment,
+    align: selectColumns(alignment, columns),
   });
 }

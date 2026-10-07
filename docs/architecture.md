@@ -38,6 +38,7 @@ Commander help text remains the source of truth for option descriptions.
   - report preparation
   - share artifact write/open/log handling
   - optional terminal overflow warnings
+  - stderr hints after the output (from the data, or from the renderer, such as columns a narrow terminal hid)
   - final stdout emission
 
 Each report wrapper owns its policy:
