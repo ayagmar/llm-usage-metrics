@@ -15,18 +15,42 @@ function estimateTokenGroupCost(tokens: number, per1MUsd: number | undefined): n
   return (tokens / ONE_MILLION) * per1MUsd;
 }
 
+type BilledOutputTokens = {
+  /** Output tokens billed at the output rate. */
+  outputTokens: number;
+  /** Reasoning tokens billed at the reasoning rate (0 when reasoning is included in output). */
+  reasoningTokens: number;
+};
+
+/**
+ * `outputTokens` already includes reasoning, so a model with a separate reasoning rate bills
+ * only the non-reasoning remainder at the output rate and the reasoning share at its own rate.
+ */
+function splitOutputForBilling(
+  usage: BillableTokenUsage,
+  pricing: ModelPricing,
+): BilledOutputTokens {
+  if ((pricing.reasoningBilling ?? 'included-in-output') !== 'separate') {
+    return { outputTokens: usage.outputTokens, reasoningTokens: 0 };
+  }
+
+  return {
+    outputTokens: Math.max(0, usage.outputTokens - usage.reasoningTokens),
+    reasoningTokens: usage.reasoningTokens,
+  };
+}
+
 export function calculateEstimatedCostUsd(event: UsageEvent, pricing: ModelPricing): number {
-  const reasoningBilling = pricing.reasoningBilling ?? 'included-in-output';
+  const billedOutput = splitOutputForBilling(event, pricing);
 
   const inputCost = estimateTokenGroupCost(event.inputTokens, pricing.inputPer1MUsd);
-  const outputCost = estimateTokenGroupCost(event.outputTokens, pricing.outputPer1MUsd);
+  const outputCost = estimateTokenGroupCost(billedOutput.outputTokens, pricing.outputPer1MUsd);
   const cacheReadCost = estimateTokenGroupCost(event.cacheReadTokens, pricing.cacheReadPer1MUsd);
   const cacheWriteCost = estimateTokenGroupCost(event.cacheWriteTokens, pricing.cacheWritePer1MUsd);
-
-  const reasoningCost =
-    reasoningBilling === 'separate'
-      ? estimateTokenGroupCost(event.reasoningTokens, pricing.reasoningPer1MUsd)
-      : 0;
+  const reasoningCost = estimateTokenGroupCost(
+    billedOutput.reasoningTokens,
+    pricing.reasoningPer1MUsd,
+  );
 
   return inputCost + outputCost + cacheReadCost + cacheWriteCost + reasoningCost;
 }
@@ -52,7 +76,9 @@ export function hasUsedBucketWithUndefinedRate(
     return true;
   }
 
-  if (usage.outputTokens > 0 && !hasDefinedRate(pricing.outputPer1MUsd)) {
+  const billedOutput = splitOutputForBilling(usage, pricing);
+
+  if (billedOutput.outputTokens > 0 && !hasDefinedRate(pricing.outputPer1MUsd)) {
     return true;
   }
 
@@ -64,13 +90,7 @@ export function hasUsedBucketWithUndefinedRate(
     return true;
   }
 
-  const reasoningBilling = pricing.reasoningBilling ?? 'included-in-output';
-
-  return (
-    usage.reasoningTokens > 0 &&
-    reasoningBilling === 'separate' &&
-    !hasDefinedRate(pricing.reasoningPer1MUsd)
-  );
+  return billedOutput.reasoningTokens > 0 && !hasDefinedRate(pricing.reasoningPer1MUsd);
 }
 
 export function canEstimateUsageCost(usage: BillableTokenUsage, pricing: ModelPricing): boolean {

@@ -129,7 +129,7 @@ describe('cost engine', () => {
     expect(pricedEvent.costUsd).toBeCloseTo(0.0002, 10);
   });
 
-  it('can charge reasoning tokens separately when configured', () => {
+  it('bills the reasoning share of output at the reasoning rate when configured', () => {
     const event = createUsageEvent({
       source: 'codex',
       sessionId: 'session-3',
@@ -138,6 +138,7 @@ describe('cost engine', () => {
       inputTokens: 0,
       outputTokens: 100,
       reasoningTokens: 50,
+      totalTokens: 100,
       costMode: 'estimated',
     });
 
@@ -148,7 +149,31 @@ describe('cost engine', () => {
       reasoningBilling: 'separate',
     });
 
-    expect(estimated).toBeCloseTo(0.00035, 10);
+    // 50 non-reasoning output tokens at $2/M plus 50 reasoning tokens at $3/M.
+    expect(estimated).toBeCloseTo(0.00025, 10);
+  });
+
+  it('charges separately billed reasoning only once when its rate equals the output rate', () => {
+    const event = createUsageEvent({
+      source: 'gemini',
+      sessionId: 'session-flash',
+      timestamp: '2026-02-16T10:00:00Z',
+      model: 'gemini-3-flash-preview',
+      inputTokens: 9935,
+      outputTokens: 312,
+      reasoningTokens: 228,
+      totalTokens: 10247,
+      costMode: 'estimated',
+    });
+
+    const estimated = calculateEstimatedCostUsd(event, {
+      inputPer1MUsd: 0.5,
+      outputPer1MUsd: 3,
+      reasoningPer1MUsd: 3,
+      reasoningBilling: 'separate',
+    });
+
+    expect(estimated).toBeCloseTo(0.0059035, 10);
   });
 
   it('keeps estimated mode with undefined cost when no pricing exists', () => {
