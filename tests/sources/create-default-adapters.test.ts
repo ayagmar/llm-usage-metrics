@@ -209,7 +209,7 @@ describe('createDefaultAdapters', () => {
 
     expect(adapters.filter((adapter) => adapter.id === 'codex')).toHaveLength(1);
     expect(codex).toBeInstanceOf(MultiDirectorySourceAdapter);
-    expect(files.filter((file) => file.startsWith(fixturesDir))).toHaveLength(2);
+    expect(files.filter((file) => file.startsWith(fixturesDir))).toHaveLength(3);
     expect(files).toContain(copiedFile);
     expect((await codex?.parseFile(copiedFile))?.length).toBeGreaterThan(0);
   });
