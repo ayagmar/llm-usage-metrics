@@ -75,6 +75,21 @@ describe('MultiDirectorySourceAdapter', () => {
     ]);
   });
 
+  it('returns the current files on every discovery, not only the first', async () => {
+    const files = ['/a/one.jsonl'];
+    const first = createAdapter([]);
+    first.discoverFiles = async () => [...files];
+    const adapter = new MultiDirectorySourceAdapter([first, createAdapter(['/b/two.jsonl'])]);
+
+    await expect(adapter.discoverFiles()).resolves.toEqual(['/a/one.jsonl', '/b/two.jsonl']);
+    files.push('/a/new.jsonl');
+    await expect(adapter.discoverFiles()).resolves.toEqual([
+      '/a/one.jsonl',
+      '/a/new.jsonl',
+      '/b/two.jsonl',
+    ]);
+  });
+
   it('needs at least one adapter', () => {
     expect(() => new MultiDirectorySourceAdapter([])).toThrow('needs at least one adapter');
   });

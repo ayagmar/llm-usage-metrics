@@ -13,8 +13,7 @@ export class MultiDirectorySourceAdapter implements SourceAdapter {
   public readonly capabilities: SourceAdapter['capabilities'];
 
   private readonly adapters: readonly SourceAdapter[];
-  private readonly adapterByFile = new Map<string, SourceAdapter>();
-  private readonly discoveredPaths = new Set<string>();
+  private adapterByFile = new Map<string, SourceAdapter>();
 
   public constructor(adapters: readonly SourceAdapter[]) {
     if (adapters.length === 0) {
@@ -32,22 +31,26 @@ export class MultiDirectorySourceAdapter implements SourceAdapter {
     return this.adapters.flatMap((adapter) => adapter.getSearchPaths?.() ?? []);
   }
 
+  /** Each call reflects the directories as they are now, like any other adapter. */
   public async discoverFiles(): Promise<string[]> {
     const files: string[] = [];
+    const discoveredPaths = new Set<string>();
+    const adapterByFile = new Map<string, SourceAdapter>();
 
     for (const adapter of this.adapters) {
       for (const filePath of await adapter.discoverFiles()) {
         // Overlapping or equivalent directories must not count a file twice.
         const resolvedPath = path.resolve(filePath);
 
-        if (!this.discoveredPaths.has(resolvedPath)) {
-          this.discoveredPaths.add(resolvedPath);
-          this.adapterByFile.set(filePath, adapter);
+        if (!discoveredPaths.has(resolvedPath)) {
+          discoveredPaths.add(resolvedPath);
+          adapterByFile.set(filePath, adapter);
           files.push(filePath);
         }
       }
     }
 
+    this.adapterByFile = adapterByFile;
     return files;
   }
 

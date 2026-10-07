@@ -111,6 +111,14 @@ export function findUnmatchedFilterWarnings(input: FilterMatchInput): string[] {
     return [];
   }
 
+  const sourceWarnings = findSourcesWithoutFiles(input.parseResults, input.cliSourceFilter);
+  const hasModelFilter = input.modelFilter !== undefined && input.modelFilter.length > 0;
+
+  // Only model and provider filters need the events; skip the scan on unfiltered runs.
+  if (!hasModelFilter && input.provider === undefined) {
+    return sourceWarnings;
+  }
+
   // Judged within the date range, so the answer does not depend on which files a
   // `--since` run skipped by modification time.
   const eventsInRange = filterUsageEvents(
@@ -120,7 +128,7 @@ export function findUnmatchedFilterWarnings(input: FilterMatchInput): string[] {
   const scope = input.since !== undefined || input.until !== undefined ? ' in this date range' : '';
 
   return [
-    ...findSourcesWithoutFiles(input.parseResults, input.cliSourceFilter),
+    ...sourceWarnings,
     ...findUnmatchedProviderWarning(eventsInRange, input.provider, scope),
     ...findUnmatchedModelWarnings(eventsInRange, input.modelFilter, scope),
   ];
