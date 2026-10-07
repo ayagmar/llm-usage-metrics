@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as shareArtifact from '../../src/cli/share-artifact.js';
 
 import { buildUsageReport, runUsageReport } from '../../src/cli/run-usage-report.js';
+import { visibleWidth } from '../../src/render/table-text-layout.js';
 import { overrideStdoutTty } from '../helpers/stdout.js';
 
 const tempDirs: string[] = [];
@@ -632,9 +633,11 @@ describe('buildUsageReport', () => {
       });
 
       const outputIndex = order.findIndex((line) => line.startsWith('stdout:'));
-      const tableLines = order[outputIndex].split('\n').filter((line) => /^[│╭├╰]/u.test(line));
+      // visibleWidth ignores ANSI codes; CI enables color.
+      const outputLines = order[outputIndex].split('\n');
 
-      expect(Math.max(...tableLines.map((line) => line.length))).toBeLessThanOrEqual(80);
+      expect(outputLines.some((line) => line.includes('Cost'))).toBe(true);
+      expect(Math.max(...outputLines.map((line) => visibleWidth(line)))).toBeLessThanOrEqual(80);
       expect(order.some((line) => line.includes('wider than terminal'))).toBe(false);
       expect(
         order
