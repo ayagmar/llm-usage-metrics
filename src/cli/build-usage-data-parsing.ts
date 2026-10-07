@@ -87,6 +87,13 @@ type ParseWorkerRuntimeOptions = {
   createPool?: typeof createParseWorkerPool;
 };
 
+/**
+ * Parse misses are written to the event store in batches: one transaction per file
+ * fsyncs and rewrites the same index pages, while one per source holds the write lock
+ * and a second copy of every event for too long.
+ */
+const STORE_WRITE_BATCH_EVENTS = 5_000;
+
 type FileLookup =
   | { kind: 'skipped' }
   | {
@@ -163,7 +170,8 @@ export async function parseAdapterEvents(
   const parsedByFile: UsageEvent[][] = Array.from({ length: files.length }, () => []);
   const skippedRowsByFile: number[] = Array.from({ length: files.length }, () => 0);
   const skippedRowReasons = new Map<string, number>();
-  const pendingStoreWrites: ParsedFileStoreWrite[] = [];
+  let pendingStoreWrites: ParsedFileStoreWrite[] = [];
+  let pendingStoreEventCount = 0;
   let failedFiles = 0;
   let lastErrorMessage = '';
 
@@ -214,7 +222,21 @@ export async function parseAdapterEvents(
         skippedRows,
         skippedRowReasons: normalizedSkippedRowReasons,
       });
+      pendingStoreEventCount += params.diagnostics.events.length;
+
+      if (pendingStoreEventCount >= STORE_WRITE_BATCH_EVENTS) {
+        flushPendingStoreWrites();
+      }
     }
+  }
+
+  function flushPendingStoreWrites(): void {
+    if (eventStore && pendingStoreWrites.length > 0) {
+      writeParsedFilesToEventStore(eventStore, pendingStoreWrites);
+    }
+
+    pendingStoreWrites = [];
+    pendingStoreEventCount = 0;
   }
 
   async function runTaskLoop<T>(
@@ -463,9 +485,7 @@ export async function parseAdapterEvents(
     await runTaskLoop(fileIndices, parseFileAtIndexInline);
   }
 
-  if (eventStore) {
-    writeParsedFilesToEventStore(eventStore, pendingStoreWrites);
-  }
+  flushPendingStoreWrites();
 
   if (failedFiles === files.length) {
     throw new Error(
