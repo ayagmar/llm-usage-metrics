@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, utimes, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -10,6 +10,7 @@ import {
   type DoctorSourceResult,
 } from '../../src/cli/run-doctor-report.js';
 import type { DoctorCommandOptions } from '../../src/cli/usage-data-contracts.js';
+import { renderDoctorText } from '../../src/render/render-doctor-report.js';
 import {
   closeEventStore,
   openEventStore,
@@ -170,6 +171,21 @@ function eventStoreDisabledDeps(): {
   };
 }
 
+/** Discovery fields only: drops the usage probe (state, its detail) and searched paths. */
+function discoveryOnly(results: DoctorSourceResult[]): DoctorSourceResult[] {
+  return results.map((result) => {
+    const discovery = { ...result };
+    delete discovery.state;
+    delete discovery.searchedPaths;
+
+    if (result.state === 'unparseable') {
+      delete discovery.detail;
+    }
+
+    return discovery;
+  });
+}
+
 function captureStdout(): {
   getOutput: () => string;
   restore: () => void;
@@ -193,7 +209,7 @@ describe('run-doctor-report', () => {
 
     const results = await buildDoctorResults(options, eventStoreDisabledDeps());
 
-    expect(results).toEqual([
+    expect(discoveryOnly(results)).toEqual([
       { id: 'pi', format: 'jsonl', status: 'ok', itemsFound: 1 },
       { id: 'codex', format: 'jsonl', status: 'ok', itemsFound: 1 },
       { id: 'gemini', format: 'json', status: 'ok', itemsFound: 1 },
@@ -360,7 +376,9 @@ describe('run-doctor-report', () => {
       },
     );
 
-    expect(results).toEqual([{ id: 'pi', format: 'jsonl', status: 'ok', itemsFound: 1 }]);
+    expect(discoveryOnly(results)).toEqual([
+      { id: 'pi', format: 'jsonl', status: 'ok', itemsFound: 1 },
+    ]);
   });
 
   it('reports an enabled event store that has not been created yet as healthy', async () => {
@@ -380,7 +398,7 @@ describe('run-doctor-report', () => {
       },
     );
 
-    expect(results).toEqual([
+    expect(discoveryOnly(results)).toEqual([
       { id: 'pi', format: 'jsonl', status: 'ok', itemsFound: 1 },
       {
         id: 'event-store',
@@ -420,7 +438,7 @@ describe('run-doctor-report', () => {
 
     expect(readEventStoreSummarySpy).toHaveBeenCalledWith(eventStorePath);
     expect(readEventStoreStoredFilesSpy).toHaveBeenCalledWith(eventStorePath);
-    expect(results).toEqual([
+    expect(discoveryOnly(results)).toEqual([
       { id: 'pi', format: 'jsonl', status: 'ok', itemsFound: 1 },
       {
         id: 'event-store',
@@ -438,7 +456,7 @@ describe('run-doctor-report', () => {
     tempDirs.push(rootDir);
 
     const eventStorePath = path.join(rootDir, 'events.db');
-    const livePiFilePath = path.join(options.piDir ?? '', 'session.jsonl');
+    const livePiFilePath = path.join(String(options.piDir ?? ''), 'session.jsonl');
     const store = await openEventStore(eventStorePath);
 
     try {
@@ -498,7 +516,7 @@ describe('run-doctor-report', () => {
       },
     );
 
-    expect(results).toEqual([
+    expect(discoveryOnly(results)).toEqual([
       { id: 'pi', format: 'jsonl', status: 'ok', itemsFound: 1 },
       {
         id: 'event-store',
@@ -539,7 +557,7 @@ describe('run-doctor-report', () => {
       },
     );
 
-    expect(results).toEqual([
+    expect(discoveryOnly(results)).toEqual([
       { id: 'pi', format: 'jsonl', status: 'ok', itemsFound: 1 },
       {
         id: 'event-store',
@@ -566,8 +584,9 @@ describe('run-doctor-report', () => {
       stdout.restore();
     }
 
-    expect(stdout.getOutput()).toContain('✔ gemini  json');
-    expect(stdout.getOutput()).toContain('1/1 sources healthy');
+    // The fixture file holds no usage, so gemini is found but unparseable.
+    expect(stdout.getOutput()).toContain('⚠ gemini  json');
+    expect(stdout.getOutput()).toContain('Sources: 1 unparseable');
   });
 
   it('prints plain text error details to stdout', async () => {
@@ -589,7 +608,7 @@ describe('run-doctor-report', () => {
 
     expect(stdout.getOutput()).toContain('✖ claude       jsonl');
     expect(stdout.getOutput()).toContain(missingClaudeDir);
-    expect(stdout.getOutput()).toContain('16/17 sources healthy');
+    expect(stdout.getOutput()).toContain('Sources: 16 unparseable · 1 failed');
   });
 
   it('counts only source rows in the summary while still listing the event store', async () => {
@@ -607,7 +626,7 @@ describe('run-doctor-report', () => {
 
     const output = stdout.getOutput();
     expect(output).toContain('event-store');
-    expect(output).toContain('17/17 sources healthy');
+    expect(output).toContain('Sources: 17 unparseable');
   });
 
   it('prints JSON output to stdout', async () => {
@@ -631,8 +650,207 @@ describe('run-doctor-report', () => {
       schemaVersion: 1,
       report: 'doctor',
       data: {
-        sources: [{ id: 'gemini', format: 'json', status: 'ok', itemsFound: 1 }],
+        sources: [
+          {
+            id: 'gemini',
+            format: 'json',
+            status: 'ok',
+            state: 'unparseable',
+            itemsFound: 1,
+            detail: '1 file found, none with readable usage; the log format may have changed',
+            searchedPaths: [options.geminiDir],
+          },
+        ],
       },
     });
+  });
+
+  it('tells found, not installed, and unparseable sources apart and lists searched paths', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-states-'));
+    tempDirs.push(rootDir);
+    const emptyCodexDir = path.join(rootDir, 'codex');
+    const brokenGeminiDir = path.join(rootDir, 'gemini');
+    await mkdir(emptyCodexDir, { recursive: true });
+    await mkdir(path.join(brokenGeminiDir, 'tmp', 'project', 'chats'), { recursive: true });
+    await writeFile(
+      path.join(brokenGeminiDir, 'tmp', 'project', 'chats', 'session.json'),
+      'not json',
+    );
+    const piDir = path.resolve('tests/fixtures/pi');
+
+    const results = await buildDoctorResults(
+      {
+        source: 'pi,codex,gemini',
+        piDir,
+        codexDir: emptyCodexDir,
+        geminiDir: brokenGeminiDir,
+      },
+      eventStoreDisabledDeps(),
+    );
+
+    expect(results).toEqual([
+      {
+        id: 'pi',
+        format: 'jsonl',
+        status: 'ok',
+        state: 'found',
+        itemsFound: 1,
+        searchedPaths: [piDir],
+      },
+      {
+        id: 'codex',
+        format: 'jsonl',
+        status: 'ok',
+        state: 'not_installed',
+        itemsFound: 0,
+        detail: 'no files found in the given path',
+        searchedPaths: [emptyCodexDir],
+      },
+      expect.objectContaining({
+        id: 'gemini',
+        status: 'ok',
+        state: 'unparseable',
+        searchedPaths: [brokenGeminiDir],
+      }),
+    ]);
+    expect(results[2]?.detail).toBe(
+      '1 file found, none with readable usage; the log format may have changed',
+    );
+  });
+
+  it('names the parse error when the newest files fail to parse', async () => {
+    const antigravityDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-antigravity-'));
+    tempDirs.push(antigravityDir);
+    await writeFile(path.join(antigravityDir, 'broken.db'), 'junk');
+
+    const [result] = await buildDoctorResults(
+      { source: 'antigravity', antigravityDir },
+      eventStoreDisabledDeps(),
+    );
+
+    expect(result).toMatchObject({ state: 'unparseable', status: 'ok' });
+    expect(result.detail).toMatch(
+      /^1 file found, none with readable usage \(.+\); the log format may have changed$/u,
+    );
+  });
+
+  it('reports a discovery failure as an error state with its searched paths', async () => {
+    const missingDir = path.join(os.tmpdir(), `missing-doctor-pi-${Date.now()}`);
+    const results = await buildDoctorResults(
+      { source: 'pi', piDir: missingDir },
+      eventStoreDisabledDeps(),
+    );
+
+    expect(results[0]).toMatchObject({
+      id: 'pi',
+      status: 'error',
+      state: 'error',
+      searchedPaths: [missingDir],
+    });
+  });
+
+  it('stops probing at the first newest file with usage and caps the probe', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-probe-'));
+    tempDirs.push(rootDir);
+    const usageFile = path.join(rootDir, 'usage.jsonl');
+    await writeFile(
+      usageFile,
+      await readFile(path.resolve('tests/fixtures/pi/session-mixed.jsonl'), 'utf8'),
+    );
+    await utimes(usageFile, new Date('2020-01-01'), new Date('2020-01-01'));
+
+    for (let index = 0; index < 26; index += 1) {
+      await writeFile(path.join(rootDir, `empty-${String(index).padStart(2, '0')}.jsonl`), '{}\n');
+    }
+
+    const [capped] = await buildDoctorResults(
+      { source: 'pi', piDir: rootDir },
+      eventStoreDisabledDeps(),
+    );
+
+    expect(capped).toMatchObject({ state: 'unparseable', itemsFound: 27 });
+    expect(capped.detail).toBe(
+      '27 files found, no readable usage in the newest 25; the log format may have changed',
+    );
+
+    await utimes(usageFile, new Date(), new Date(Date.now() + 60_000));
+    const [found] = await buildDoctorResults(
+      { source: 'pi', piDir: rootDir },
+      eventStoreDisabledDeps(),
+    );
+
+    expect(found).toMatchObject({ state: 'found', itemsFound: 27 });
+  });
+
+  it('lists every directory of a source scanned in several directories', async () => {
+    const piDir = path.resolve('tests/fixtures/pi');
+    const otherDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-pi-other-'));
+    tempDirs.push(otherDir);
+
+    const [result] = await buildDoctorResults(
+      { source: 'pi', piDir: [piDir, otherDir] },
+      eventStoreDisabledDeps(),
+    );
+
+    expect(result).toMatchObject({ state: 'found', searchedPaths: [piDir, otherDir] });
+  });
+});
+
+describe('renderDoctorText', () => {
+  it('shows a glyph per state, searched paths under each row with ~ for home, and a summary', () => {
+    const output = renderDoctorText(
+      [
+        {
+          id: 'pi',
+          format: 'jsonl',
+          status: 'ok',
+          state: 'found',
+          itemsFound: 2,
+          searchedPaths: ['/home/me/.pi/agent/sessions', '/opt/pi'],
+        },
+        {
+          id: 'goose',
+          format: 'sqlite',
+          status: 'ok',
+          state: 'not_installed',
+          itemsFound: 0,
+          searchedPaths: ['/home/me'],
+        },
+        {
+          id: 'kimi',
+          format: 'jsonl',
+          status: 'ok',
+          state: 'not_installed',
+          itemsFound: 0,
+          detail: 'no files found in the given path',
+        },
+        {
+          id: 'gemini',
+          format: 'json',
+          status: 'ok',
+          state: 'unparseable',
+          itemsFound: 1,
+          detail: '1 file found, none with readable usage',
+        },
+        { id: 'claude', format: 'jsonl', status: 'error', state: 'error', error: 'missing' },
+        { id: 'event-store', format: 'sqlite', status: 'ok', detail: 'not yet created' },
+      ],
+      { homeDir: '/home/me' },
+    );
+
+    expect(output.split('\n')).toEqual([
+      '✔ pi           jsonl   2 file(s)',
+      '    ~/.pi/agent/sessions',
+      '    /opt/pi',
+      '○ goose        sqlite  not installed (no files found)',
+      '    ~',
+      '○ kimi         jsonl   no files found in the given path',
+      '⚠ gemini       json    1 file found, none with readable usage',
+      '✖ claude       jsonl   missing',
+      '✔ event-store  sqlite  not yet created',
+      '',
+      'Sources: 1 found · 1 unparseable · 1 failed · 2 not installed',
+    ]);
+    expect(renderDoctorText([], { homeDir: '' })).toBe('\nSources: none checked');
   });
 });

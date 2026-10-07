@@ -105,6 +105,10 @@ export class AntigravitySourceAdapter implements SourceAdapter {
     return this.conversationsDir.trim();
   }
 
+  public getSearchPaths(): string[] {
+    return [this.conversationsDir].map((searchPath) => searchPath.trim());
+  }
+
   public async discoverFiles(): Promise<string[]> {
     const conversationsDir = this.getNormalizedConversationsDir();
     const readable = await this.pathReadable(conversationsDir);

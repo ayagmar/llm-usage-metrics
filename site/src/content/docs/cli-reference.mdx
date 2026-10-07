@@ -46,23 +46,28 @@ Show cost and tokens for today, the last 7 days, and month to date (default
 command)
 
 Options:
-  --pi-dir <path>                Path to .pi sessions directory
-  --codex-dir <path>             Path to .codex sessions directory
+  --pi-dir <path>                Path to .pi sessions directory (repeatable)
+  --codex-dir <path>             Path to .codex sessions directory (repeatable)
   --copilot-dir <path>           Path to GitHub Copilot OTEL directory
-  --gemini-dir <path>            Path to .gemini directory
-  --droid-dir <path>             Path to Droid sessions directory
-  --claude-dir <path>            Path to Claude projects directory
-  --openclaw-dir <path>          Path to OpenClaw agents directory
+                                 (repeatable)
+  --gemini-dir <path>            Path to .gemini directory (repeatable)
+  --droid-dir <path>             Path to Droid sessions directory (repeatable)
+  --claude-dir <path>            Path to Claude projects directory (repeatable)
+  --openclaw-dir <path>          Path to OpenClaw agents directory (repeatable)
   --opencode-db <path>           Path to OpenCode SQLite DB
   --goose-db <path>              Path to Goose SQLite DB
-  --amp-dir <path>               Path to Amp threads directory
-  --qwen-dir <path>              Path to Qwen projects directory
-  --kimi-dir <path>              Path to Kimi sessions directory
-  --cline-dir <path>             Path to Cline tasks directory
-  --roocode-dir <path>           Path to RooCode tasks directory
-  --kilocode-dir <path>          Path to KiloCode tasks directory
+  --amp-dir <path>               Path to Amp threads directory (repeatable)
+  --qwen-dir <path>              Path to Qwen projects directory (repeatable)
+  --kimi-dir <path>              Path to Kimi sessions directory (repeatable)
+  --cline-dir <path>             Path to Cline tasks directory (repeatable)
+  --roocode-dir <path>           Path to RooCode tasks directory (repeatable)
+  --kilocode-dir <path>          Path to KiloCode tasks directory (repeatable)
   --antigravity-dir <path>       Path to Antigravity conversations directory
+                                 (repeatable)
   --dsh-dir <path>               Path to DeepSeek Harness sessions directory
+                                 (repeatable)
+  --help-all                     Display help including the per-source path
+                                 flags
   --source-dir <source-id=path>  Override source directory for directory-backed
                                  sources (repeatable)
   --source <name>                Filter by source id (repeatable or
@@ -108,23 +113,28 @@ Usage: llm-usage daily [options]
 Show daily usage report (last 7 days unless --since, --until, or --all)
 
 Options:
-  --pi-dir <path>                Path to .pi sessions directory
-  --codex-dir <path>             Path to .codex sessions directory
+  --pi-dir <path>                Path to .pi sessions directory (repeatable)
+  --codex-dir <path>             Path to .codex sessions directory (repeatable)
   --copilot-dir <path>           Path to GitHub Copilot OTEL directory
-  --gemini-dir <path>            Path to .gemini directory
-  --droid-dir <path>             Path to Droid sessions directory
-  --claude-dir <path>            Path to Claude projects directory
-  --openclaw-dir <path>          Path to OpenClaw agents directory
+                                 (repeatable)
+  --gemini-dir <path>            Path to .gemini directory (repeatable)
+  --droid-dir <path>             Path to Droid sessions directory (repeatable)
+  --claude-dir <path>            Path to Claude projects directory (repeatable)
+  --openclaw-dir <path>          Path to OpenClaw agents directory (repeatable)
   --opencode-db <path>           Path to OpenCode SQLite DB
   --goose-db <path>              Path to Goose SQLite DB
-  --amp-dir <path>               Path to Amp threads directory
-  --qwen-dir <path>              Path to Qwen projects directory
-  --kimi-dir <path>              Path to Kimi sessions directory
-  --cline-dir <path>             Path to Cline tasks directory
-  --roocode-dir <path>           Path to RooCode tasks directory
-  --kilocode-dir <path>          Path to KiloCode tasks directory
+  --amp-dir <path>               Path to Amp threads directory (repeatable)
+  --qwen-dir <path>              Path to Qwen projects directory (repeatable)
+  --kimi-dir <path>              Path to Kimi sessions directory (repeatable)
+  --cline-dir <path>             Path to Cline tasks directory (repeatable)
+  --roocode-dir <path>           Path to RooCode tasks directory (repeatable)
+  --kilocode-dir <path>          Path to KiloCode tasks directory (repeatable)
   --antigravity-dir <path>       Path to Antigravity conversations directory
+                                 (repeatable)
   --dsh-dir <path>               Path to DeepSeek Harness sessions directory
+                                 (repeatable)
+  --help-all                     Display help including the per-source path
+                                 flags
   --source-dir <source-id=path>  Override source directory for directory-backed
                                  sources (repeatable)
   --source <name>                Filter by source id (repeatable or
@@ -162,6 +172,7 @@ Options:
                                  table columns (terminal/markdown)
   --share                        Write a share SVG image to the current
                                  directory
+  --no-open                      With --share, write the SVG without opening it
   --all                          Report every day instead of the last 7 days
   --compact                      Abbreviate token counts and hide the Reasoning
                                  and Cache Write columns (terminal/markdown)
@@ -180,23 +191,28 @@ Show weekly usage report (week starts Monday; last 8 weeks unless --since,
 --until, or --all)
 
 Options:
-  --pi-dir <path>                Path to .pi sessions directory
-  --codex-dir <path>             Path to .codex sessions directory
+  --pi-dir <path>                Path to .pi sessions directory (repeatable)
+  --codex-dir <path>             Path to .codex sessions directory (repeatable)
   --copilot-dir <path>           Path to GitHub Copilot OTEL directory
-  --gemini-dir <path>            Path to .gemini directory
-  --droid-dir <path>             Path to Droid sessions directory
-  --claude-dir <path>            Path to Claude projects directory
-  --openclaw-dir <path>          Path to OpenClaw agents directory
+                                 (repeatable)
+  --gemini-dir <path>            Path to .gemini directory (repeatable)
+  --droid-dir <path>             Path to Droid sessions directory (repeatable)
+  --claude-dir <path>            Path to Claude projects directory (repeatable)
+  --openclaw-dir <path>          Path to OpenClaw agents directory (repeatable)
   --opencode-db <path>           Path to OpenCode SQLite DB
   --goose-db <path>              Path to Goose SQLite DB
-  --amp-dir <path>               Path to Amp threads directory
-  --qwen-dir <path>              Path to Qwen projects directory
-  --kimi-dir <path>              Path to Kimi sessions directory
-  --cline-dir <path>             Path to Cline tasks directory
-  --roocode-dir <path>           Path to RooCode tasks directory
-  --kilocode-dir <path>          Path to KiloCode tasks directory
+  --amp-dir <path>               Path to Amp threads directory (repeatable)
+  --qwen-dir <path>              Path to Qwen projects directory (repeatable)
+  --kimi-dir <path>              Path to Kimi sessions directory (repeatable)
+  --cline-dir <path>             Path to Cline tasks directory (repeatable)
+  --roocode-dir <path>           Path to RooCode tasks directory (repeatable)
+  --kilocode-dir <path>          Path to KiloCode tasks directory (repeatable)
   --antigravity-dir <path>       Path to Antigravity conversations directory
+                                 (repeatable)
   --dsh-dir <path>               Path to DeepSeek Harness sessions directory
+                                 (repeatable)
+  --help-all                     Display help including the per-source path
+                                 flags
   --source-dir <source-id=path>  Override source directory for directory-backed
                                  sources (repeatable)
   --source <name>                Filter by source id (repeatable or
@@ -234,6 +250,7 @@ Options:
                                  table columns (terminal/markdown)
   --share                        Write a share SVG image to the current
                                  directory
+  --no-open                      With --share, write the SVG without opening it
   --all                          Report every week instead of the last 8 weeks
   --compact                      Abbreviate token counts and hide the Reasoning
                                  and Cache Write columns (terminal/markdown)
@@ -251,23 +268,28 @@ Usage: llm-usage monthly [options]
 Show monthly usage report
 
 Options:
-  --pi-dir <path>                Path to .pi sessions directory
-  --codex-dir <path>             Path to .codex sessions directory
+  --pi-dir <path>                Path to .pi sessions directory (repeatable)
+  --codex-dir <path>             Path to .codex sessions directory (repeatable)
   --copilot-dir <path>           Path to GitHub Copilot OTEL directory
-  --gemini-dir <path>            Path to .gemini directory
-  --droid-dir <path>             Path to Droid sessions directory
-  --claude-dir <path>            Path to Claude projects directory
-  --openclaw-dir <path>          Path to OpenClaw agents directory
+                                 (repeatable)
+  --gemini-dir <path>            Path to .gemini directory (repeatable)
+  --droid-dir <path>             Path to Droid sessions directory (repeatable)
+  --claude-dir <path>            Path to Claude projects directory (repeatable)
+  --openclaw-dir <path>          Path to OpenClaw agents directory (repeatable)
   --opencode-db <path>           Path to OpenCode SQLite DB
   --goose-db <path>              Path to Goose SQLite DB
-  --amp-dir <path>               Path to Amp threads directory
-  --qwen-dir <path>              Path to Qwen projects directory
-  --kimi-dir <path>              Path to Kimi sessions directory
-  --cline-dir <path>             Path to Cline tasks directory
-  --roocode-dir <path>           Path to RooCode tasks directory
-  --kilocode-dir <path>          Path to KiloCode tasks directory
+  --amp-dir <path>               Path to Amp threads directory (repeatable)
+  --qwen-dir <path>              Path to Qwen projects directory (repeatable)
+  --kimi-dir <path>              Path to Kimi sessions directory (repeatable)
+  --cline-dir <path>             Path to Cline tasks directory (repeatable)
+  --roocode-dir <path>           Path to RooCode tasks directory (repeatable)
+  --kilocode-dir <path>          Path to KiloCode tasks directory (repeatable)
   --antigravity-dir <path>       Path to Antigravity conversations directory
+                                 (repeatable)
   --dsh-dir <path>               Path to DeepSeek Harness sessions directory
+                                 (repeatable)
+  --help-all                     Display help including the per-source path
+                                 flags
   --source-dir <source-id=path>  Override source directory for directory-backed
                                  sources (repeatable)
   --source <name>                Filter by source id (repeatable or
@@ -305,6 +327,7 @@ Options:
                                  table columns (terminal/markdown)
   --share                        Write a share SVG image to the current
                                  directory
+  --no-open                      With --share, write the SVG without opening it
   --compact                      Abbreviate token counts and hide the Reasoning
                                  and Cache Write columns (terminal/markdown)
   -h, --help                     display help for command
@@ -321,23 +344,28 @@ Usage: llm-usage compare [options]
 Compare usage and cost between two date windows
 
 Options:
-  --pi-dir <path>                Path to .pi sessions directory
-  --codex-dir <path>             Path to .codex sessions directory
+  --pi-dir <path>                Path to .pi sessions directory (repeatable)
+  --codex-dir <path>             Path to .codex sessions directory (repeatable)
   --copilot-dir <path>           Path to GitHub Copilot OTEL directory
-  --gemini-dir <path>            Path to .gemini directory
-  --droid-dir <path>             Path to Droid sessions directory
-  --claude-dir <path>            Path to Claude projects directory
-  --openclaw-dir <path>          Path to OpenClaw agents directory
+                                 (repeatable)
+  --gemini-dir <path>            Path to .gemini directory (repeatable)
+  --droid-dir <path>             Path to Droid sessions directory (repeatable)
+  --claude-dir <path>            Path to Claude projects directory (repeatable)
+  --openclaw-dir <path>          Path to OpenClaw agents directory (repeatable)
   --opencode-db <path>           Path to OpenCode SQLite DB
   --goose-db <path>              Path to Goose SQLite DB
-  --amp-dir <path>               Path to Amp threads directory
-  --qwen-dir <path>              Path to Qwen projects directory
-  --kimi-dir <path>              Path to Kimi sessions directory
-  --cline-dir <path>             Path to Cline tasks directory
-  --roocode-dir <path>           Path to RooCode tasks directory
-  --kilocode-dir <path>          Path to KiloCode tasks directory
+  --amp-dir <path>               Path to Amp threads directory (repeatable)
+  --qwen-dir <path>              Path to Qwen projects directory (repeatable)
+  --kimi-dir <path>              Path to Kimi sessions directory (repeatable)
+  --cline-dir <path>             Path to Cline tasks directory (repeatable)
+  --roocode-dir <path>           Path to RooCode tasks directory (repeatable)
+  --kilocode-dir <path>          Path to KiloCode tasks directory (repeatable)
   --antigravity-dir <path>       Path to Antigravity conversations directory
+                                 (repeatable)
   --dsh-dir <path>               Path to DeepSeek Harness sessions directory
+                                 (repeatable)
+  --help-all                     Display help including the per-source path
+                                 flags
   --source-dir <source-id=path>  Override source directory for directory-backed
                                  sources (repeatable)
   --source <name>                Filter by source id (repeatable or
@@ -373,6 +401,7 @@ Options:
   --markdown                     Render output as markdown table
   --share                        Write a share SVG image to the current
                                  directory
+  --no-open                      With --share, write the SVG without opening it
   --vs-since <date>              Inclusive start date for the baseline
                                  comparison window
   --vs-until <date>              Inclusive end date for the baseline comparison
@@ -394,23 +423,28 @@ Arguments:
   granularity                    Granularity: daily | weekly | monthly
 
 Options:
-  --pi-dir <path>                Path to .pi sessions directory
-  --codex-dir <path>             Path to .codex sessions directory
+  --pi-dir <path>                Path to .pi sessions directory (repeatable)
+  --codex-dir <path>             Path to .codex sessions directory (repeatable)
   --copilot-dir <path>           Path to GitHub Copilot OTEL directory
-  --gemini-dir <path>            Path to .gemini directory
-  --droid-dir <path>             Path to Droid sessions directory
-  --claude-dir <path>            Path to Claude projects directory
-  --openclaw-dir <path>          Path to OpenClaw agents directory
+                                 (repeatable)
+  --gemini-dir <path>            Path to .gemini directory (repeatable)
+  --droid-dir <path>             Path to Droid sessions directory (repeatable)
+  --claude-dir <path>            Path to Claude projects directory (repeatable)
+  --openclaw-dir <path>          Path to OpenClaw agents directory (repeatable)
   --opencode-db <path>           Path to OpenCode SQLite DB
   --goose-db <path>              Path to Goose SQLite DB
-  --amp-dir <path>               Path to Amp threads directory
-  --qwen-dir <path>              Path to Qwen projects directory
-  --kimi-dir <path>              Path to Kimi sessions directory
-  --cline-dir <path>             Path to Cline tasks directory
-  --roocode-dir <path>           Path to RooCode tasks directory
-  --kilocode-dir <path>          Path to KiloCode tasks directory
+  --amp-dir <path>               Path to Amp threads directory (repeatable)
+  --qwen-dir <path>              Path to Qwen projects directory (repeatable)
+  --kimi-dir <path>              Path to Kimi sessions directory (repeatable)
+  --cline-dir <path>             Path to Cline tasks directory (repeatable)
+  --roocode-dir <path>           Path to RooCode tasks directory (repeatable)
+  --kilocode-dir <path>          Path to KiloCode tasks directory (repeatable)
   --antigravity-dir <path>       Path to Antigravity conversations directory
+                                 (repeatable)
   --dsh-dir <path>               Path to DeepSeek Harness sessions directory
+                                 (repeatable)
+  --help-all                     Display help including the per-source path
+                                 flags
   --source-dir <source-id=path>  Override source directory for directory-backed
                                  sources (repeatable)
   --source <name>                Filter by source id (repeatable or
@@ -446,6 +480,7 @@ Options:
   --markdown                     Render output as markdown table
   --share                        Write a share SVG image to the current
                                  directory
+  --no-open                      With --share, write the SVG without opening it
   --repo-dir <path>              Path to repository for Git outcome metrics
   --include-merge-commits        Include merge commits in Git outcome metrics
   --by-source                    Include per-source usage rows under each period
@@ -466,23 +501,28 @@ Arguments:
   granularity                    Granularity: daily | weekly | monthly
 
 Options:
-  --pi-dir <path>                Path to .pi sessions directory
-  --codex-dir <path>             Path to .codex sessions directory
+  --pi-dir <path>                Path to .pi sessions directory (repeatable)
+  --codex-dir <path>             Path to .codex sessions directory (repeatable)
   --copilot-dir <path>           Path to GitHub Copilot OTEL directory
-  --gemini-dir <path>            Path to .gemini directory
-  --droid-dir <path>             Path to Droid sessions directory
-  --claude-dir <path>            Path to Claude projects directory
-  --openclaw-dir <path>          Path to OpenClaw agents directory
+                                 (repeatable)
+  --gemini-dir <path>            Path to .gemini directory (repeatable)
+  --droid-dir <path>             Path to Droid sessions directory (repeatable)
+  --claude-dir <path>            Path to Claude projects directory (repeatable)
+  --openclaw-dir <path>          Path to OpenClaw agents directory (repeatable)
   --opencode-db <path>           Path to OpenCode SQLite DB
   --goose-db <path>              Path to Goose SQLite DB
-  --amp-dir <path>               Path to Amp threads directory
-  --qwen-dir <path>              Path to Qwen projects directory
-  --kimi-dir <path>              Path to Kimi sessions directory
-  --cline-dir <path>             Path to Cline tasks directory
-  --roocode-dir <path>           Path to RooCode tasks directory
-  --kilocode-dir <path>          Path to KiloCode tasks directory
+  --amp-dir <path>               Path to Amp threads directory (repeatable)
+  --qwen-dir <path>              Path to Qwen projects directory (repeatable)
+  --kimi-dir <path>              Path to Kimi sessions directory (repeatable)
+  --cline-dir <path>             Path to Cline tasks directory (repeatable)
+  --roocode-dir <path>           Path to RooCode tasks directory (repeatable)
+  --kilocode-dir <path>          Path to KiloCode tasks directory (repeatable)
   --antigravity-dir <path>       Path to Antigravity conversations directory
+                                 (repeatable)
   --dsh-dir <path>               Path to DeepSeek Harness sessions directory
+                                 (repeatable)
+  --help-all                     Display help including the per-source path
+                                 flags
   --source-dir <source-id=path>  Override source directory for directory-backed
                                  sources (repeatable)
   --source <name>                Filter by source id (repeatable or
@@ -518,6 +558,7 @@ Options:
   --markdown                     Render output as markdown table
   --share                        Write a share SVG image to the current
                                  directory
+  --no-open                      With --share, write the SVG without opening it
   --candidate-model <name>       Candidate model for counterfactual pricing
                                  (repeatable or comma-separated)
   --top <n>                      Show only the top N cheapest candidates
@@ -536,23 +577,28 @@ Usage: llm-usage trends [options]
 Show daily cost or token usage trends
 
 Options:
-  --pi-dir <path>                Path to .pi sessions directory
-  --codex-dir <path>             Path to .codex sessions directory
+  --pi-dir <path>                Path to .pi sessions directory (repeatable)
+  --codex-dir <path>             Path to .codex sessions directory (repeatable)
   --copilot-dir <path>           Path to GitHub Copilot OTEL directory
-  --gemini-dir <path>            Path to .gemini directory
-  --droid-dir <path>             Path to Droid sessions directory
-  --claude-dir <path>            Path to Claude projects directory
-  --openclaw-dir <path>          Path to OpenClaw agents directory
+                                 (repeatable)
+  --gemini-dir <path>            Path to .gemini directory (repeatable)
+  --droid-dir <path>             Path to Droid sessions directory (repeatable)
+  --claude-dir <path>            Path to Claude projects directory (repeatable)
+  --openclaw-dir <path>          Path to OpenClaw agents directory (repeatable)
   --opencode-db <path>           Path to OpenCode SQLite DB
   --goose-db <path>              Path to Goose SQLite DB
-  --amp-dir <path>               Path to Amp threads directory
-  --qwen-dir <path>              Path to Qwen projects directory
-  --kimi-dir <path>              Path to Kimi sessions directory
-  --cline-dir <path>             Path to Cline tasks directory
-  --roocode-dir <path>           Path to RooCode tasks directory
-  --kilocode-dir <path>          Path to KiloCode tasks directory
+  --amp-dir <path>               Path to Amp threads directory (repeatable)
+  --qwen-dir <path>              Path to Qwen projects directory (repeatable)
+  --kimi-dir <path>              Path to Kimi sessions directory (repeatable)
+  --cline-dir <path>             Path to Cline tasks directory (repeatable)
+  --roocode-dir <path>           Path to RooCode tasks directory (repeatable)
+  --kilocode-dir <path>          Path to KiloCode tasks directory (repeatable)
   --antigravity-dir <path>       Path to Antigravity conversations directory
+                                 (repeatable)
   --dsh-dir <path>               Path to DeepSeek Harness sessions directory
+                                 (repeatable)
+  --help-all                     Display help including the per-source path
+                                 flags
   --source-dir <source-id=path>  Override source directory for directory-backed
                                  sources (repeatable)
   --source <name>                Filter by source id (repeatable or
@@ -588,6 +634,7 @@ Options:
   --markdown                     Render output as markdown table
   --share                        Write a share SVG image to the current
                                  directory
+  --no-open                      With --share, write the SVG without opening it
   --days <n>                     Trailing local calendar days to chart; defaults
                                  to 30 when no date flags are provided
   --metric <name>                Trend metric: cost | tokens (default: "cost")
@@ -607,23 +654,28 @@ Usage: llm-usage session [options]
 Show usage grouped by conversation session
 
 Options:
-  --pi-dir <path>                Path to .pi sessions directory
-  --codex-dir <path>             Path to .codex sessions directory
+  --pi-dir <path>                Path to .pi sessions directory (repeatable)
+  --codex-dir <path>             Path to .codex sessions directory (repeatable)
   --copilot-dir <path>           Path to GitHub Copilot OTEL directory
-  --gemini-dir <path>            Path to .gemini directory
-  --droid-dir <path>             Path to Droid sessions directory
-  --claude-dir <path>            Path to Claude projects directory
-  --openclaw-dir <path>          Path to OpenClaw agents directory
+                                 (repeatable)
+  --gemini-dir <path>            Path to .gemini directory (repeatable)
+  --droid-dir <path>             Path to Droid sessions directory (repeatable)
+  --claude-dir <path>            Path to Claude projects directory (repeatable)
+  --openclaw-dir <path>          Path to OpenClaw agents directory (repeatable)
   --opencode-db <path>           Path to OpenCode SQLite DB
   --goose-db <path>              Path to Goose SQLite DB
-  --amp-dir <path>               Path to Amp threads directory
-  --qwen-dir <path>              Path to Qwen projects directory
-  --kimi-dir <path>              Path to Kimi sessions directory
-  --cline-dir <path>             Path to Cline tasks directory
-  --roocode-dir <path>           Path to RooCode tasks directory
-  --kilocode-dir <path>          Path to KiloCode tasks directory
+  --amp-dir <path>               Path to Amp threads directory (repeatable)
+  --qwen-dir <path>              Path to Qwen projects directory (repeatable)
+  --kimi-dir <path>              Path to Kimi sessions directory (repeatable)
+  --cline-dir <path>             Path to Cline tasks directory (repeatable)
+  --roocode-dir <path>           Path to RooCode tasks directory (repeatable)
+  --kilocode-dir <path>          Path to KiloCode tasks directory (repeatable)
   --antigravity-dir <path>       Path to Antigravity conversations directory
+                                 (repeatable)
   --dsh-dir <path>               Path to DeepSeek Harness sessions directory
+                                 (repeatable)
+  --help-all                     Display help including the per-source path
+                                 flags
   --source-dir <source-id=path>  Override source directory for directory-backed
                                  sources (repeatable)
   --source <name>                Filter by source id (repeatable or
@@ -678,23 +730,28 @@ Usage: llm-usage wrapped [options]
 Show a yearly usage recap with optional share SVG
 
 Options:
-  --pi-dir <path>                Path to .pi sessions directory
-  --codex-dir <path>             Path to .codex sessions directory
+  --pi-dir <path>                Path to .pi sessions directory (repeatable)
+  --codex-dir <path>             Path to .codex sessions directory (repeatable)
   --copilot-dir <path>           Path to GitHub Copilot OTEL directory
-  --gemini-dir <path>            Path to .gemini directory
-  --droid-dir <path>             Path to Droid sessions directory
-  --claude-dir <path>            Path to Claude projects directory
-  --openclaw-dir <path>          Path to OpenClaw agents directory
+                                 (repeatable)
+  --gemini-dir <path>            Path to .gemini directory (repeatable)
+  --droid-dir <path>             Path to Droid sessions directory (repeatable)
+  --claude-dir <path>            Path to Claude projects directory (repeatable)
+  --openclaw-dir <path>          Path to OpenClaw agents directory (repeatable)
   --opencode-db <path>           Path to OpenCode SQLite DB
   --goose-db <path>              Path to Goose SQLite DB
-  --amp-dir <path>               Path to Amp threads directory
-  --qwen-dir <path>              Path to Qwen projects directory
-  --kimi-dir <path>              Path to Kimi sessions directory
-  --cline-dir <path>             Path to Cline tasks directory
-  --roocode-dir <path>           Path to RooCode tasks directory
-  --kilocode-dir <path>          Path to KiloCode tasks directory
+  --amp-dir <path>               Path to Amp threads directory (repeatable)
+  --qwen-dir <path>              Path to Qwen projects directory (repeatable)
+  --kimi-dir <path>              Path to Kimi sessions directory (repeatable)
+  --cline-dir <path>             Path to Cline tasks directory (repeatable)
+  --roocode-dir <path>           Path to RooCode tasks directory (repeatable)
+  --kilocode-dir <path>          Path to KiloCode tasks directory (repeatable)
   --antigravity-dir <path>       Path to Antigravity conversations directory
+                                 (repeatable)
   --dsh-dir <path>               Path to DeepSeek Harness sessions directory
+                                 (repeatable)
+  --help-all                     Display help including the per-source path
+                                 flags
   --source-dir <source-id=path>  Override source directory for directory-backed
                                  sources (repeatable)
   --source <name>                Filter by source id (repeatable or
@@ -728,6 +785,7 @@ Options:
   --markdown                     Render output as markdown table
   --share                        Write a share SVG image to the current
                                  directory
+  --no-open                      With --share, write the SVG without opening it
   --year <YYYY>                  Year to recap (2020-2100; defaults to current
                                  local year)
   -h, --help                     display help for command
@@ -744,23 +802,28 @@ Usage: llm-usage events [options]
 Export normalized usage events as JSONL or CSV
 
 Options:
-  --pi-dir <path>                Path to .pi sessions directory
-  --codex-dir <path>             Path to .codex sessions directory
+  --pi-dir <path>                Path to .pi sessions directory (repeatable)
+  --codex-dir <path>             Path to .codex sessions directory (repeatable)
   --copilot-dir <path>           Path to GitHub Copilot OTEL directory
-  --gemini-dir <path>            Path to .gemini directory
-  --droid-dir <path>             Path to Droid sessions directory
-  --claude-dir <path>            Path to Claude projects directory
-  --openclaw-dir <path>          Path to OpenClaw agents directory
+                                 (repeatable)
+  --gemini-dir <path>            Path to .gemini directory (repeatable)
+  --droid-dir <path>             Path to Droid sessions directory (repeatable)
+  --claude-dir <path>            Path to Claude projects directory (repeatable)
+  --openclaw-dir <path>          Path to OpenClaw agents directory (repeatable)
   --opencode-db <path>           Path to OpenCode SQLite DB
   --goose-db <path>              Path to Goose SQLite DB
-  --amp-dir <path>               Path to Amp threads directory
-  --qwen-dir <path>              Path to Qwen projects directory
-  --kimi-dir <path>              Path to Kimi sessions directory
-  --cline-dir <path>             Path to Cline tasks directory
-  --roocode-dir <path>           Path to RooCode tasks directory
-  --kilocode-dir <path>          Path to KiloCode tasks directory
+  --amp-dir <path>               Path to Amp threads directory (repeatable)
+  --qwen-dir <path>              Path to Qwen projects directory (repeatable)
+  --kimi-dir <path>              Path to Kimi sessions directory (repeatable)
+  --cline-dir <path>             Path to Cline tasks directory (repeatable)
+  --roocode-dir <path>           Path to RooCode tasks directory (repeatable)
+  --kilocode-dir <path>          Path to KiloCode tasks directory (repeatable)
   --antigravity-dir <path>       Path to Antigravity conversations directory
+                                 (repeatable)
   --dsh-dir <path>               Path to DeepSeek Harness sessions directory
+                                 (repeatable)
+  --help-all                     Display help including the per-source path
+                                 flags
   --source-dir <source-id=path>  Override source directory for directory-backed
                                  sources (repeatable)
   --source <name>                Filter by source id (repeatable or
@@ -805,26 +868,32 @@ Options:
 ```text
 Usage: llm-usage doctor [options]
 
-Check source discovery health and runtime configuration
+Show where each source is searched, whether its usage is readable, and ledger
+health
 
 Options:
-  --pi-dir <path>                Path to .pi sessions directory
-  --codex-dir <path>             Path to .codex sessions directory
+  --pi-dir <path>                Path to .pi sessions directory (repeatable)
+  --codex-dir <path>             Path to .codex sessions directory (repeatable)
   --copilot-dir <path>           Path to GitHub Copilot OTEL directory
-  --gemini-dir <path>            Path to .gemini directory
-  --droid-dir <path>             Path to Droid sessions directory
-  --claude-dir <path>            Path to Claude projects directory
-  --openclaw-dir <path>          Path to OpenClaw agents directory
+                                 (repeatable)
+  --gemini-dir <path>            Path to .gemini directory (repeatable)
+  --droid-dir <path>             Path to Droid sessions directory (repeatable)
+  --claude-dir <path>            Path to Claude projects directory (repeatable)
+  --openclaw-dir <path>          Path to OpenClaw agents directory (repeatable)
   --opencode-db <path>           Path to OpenCode SQLite DB
   --goose-db <path>              Path to Goose SQLite DB
-  --amp-dir <path>               Path to Amp threads directory
-  --qwen-dir <path>              Path to Qwen projects directory
-  --kimi-dir <path>              Path to Kimi sessions directory
-  --cline-dir <path>             Path to Cline tasks directory
-  --roocode-dir <path>           Path to RooCode tasks directory
-  --kilocode-dir <path>          Path to KiloCode tasks directory
+  --amp-dir <path>               Path to Amp threads directory (repeatable)
+  --qwen-dir <path>              Path to Qwen projects directory (repeatable)
+  --kimi-dir <path>              Path to Kimi sessions directory (repeatable)
+  --cline-dir <path>             Path to Cline tasks directory (repeatable)
+  --roocode-dir <path>           Path to RooCode tasks directory (repeatable)
+  --kilocode-dir <path>          Path to KiloCode tasks directory (repeatable)
   --antigravity-dir <path>       Path to Antigravity conversations directory
+                                 (repeatable)
   --dsh-dir <path>               Path to DeepSeek Harness sessions directory
+                                 (repeatable)
+  --help-all                     Display help including the per-source path
+                                 flags
   --source-dir <source-id=path>  Override source directory for directory-backed
                                  sources (repeatable)
   --source <name>                Filter by source id (repeatable or
@@ -851,23 +920,28 @@ Usage: llm-usage prune [options]
 Preview or delete departed files from the local event store
 
 Options:
-  --pi-dir <path>                 Path to .pi sessions directory
-  --codex-dir <path>              Path to .codex sessions directory
+  --pi-dir <path>                 Path to .pi sessions directory (repeatable)
+  --codex-dir <path>              Path to .codex sessions directory (repeatable)
   --copilot-dir <path>            Path to GitHub Copilot OTEL directory
-  --gemini-dir <path>             Path to .gemini directory
-  --droid-dir <path>              Path to Droid sessions directory
-  --claude-dir <path>             Path to Claude projects directory
-  --openclaw-dir <path>           Path to OpenClaw agents directory
+                                  (repeatable)
+  --gemini-dir <path>             Path to .gemini directory (repeatable)
+  --droid-dir <path>              Path to Droid sessions directory (repeatable)
+  --claude-dir <path>             Path to Claude projects directory (repeatable)
+  --openclaw-dir <path>           Path to OpenClaw agents directory (repeatable)
   --opencode-db <path>            Path to OpenCode SQLite DB
   --goose-db <path>               Path to Goose SQLite DB
-  --amp-dir <path>                Path to Amp threads directory
-  --qwen-dir <path>               Path to Qwen projects directory
-  --kimi-dir <path>               Path to Kimi sessions directory
-  --cline-dir <path>              Path to Cline tasks directory
-  --roocode-dir <path>            Path to RooCode tasks directory
-  --kilocode-dir <path>           Path to KiloCode tasks directory
+  --amp-dir <path>                Path to Amp threads directory (repeatable)
+  --qwen-dir <path>               Path to Qwen projects directory (repeatable)
+  --kimi-dir <path>               Path to Kimi sessions directory (repeatable)
+  --cline-dir <path>              Path to Cline tasks directory (repeatable)
+  --roocode-dir <path>            Path to RooCode tasks directory (repeatable)
+  --kilocode-dir <path>           Path to KiloCode tasks directory (repeatable)
   --antigravity-dir <path>        Path to Antigravity conversations directory
+                                  (repeatable)
   --dsh-dir <path>                Path to DeepSeek Harness sessions directory
+                                  (repeatable)
+  --help-all                      Display help including the per-source path
+                                  flags
   --source-dir <source-id=path>   Override source directory for directory-backed
                                   sources (repeatable)
   --source <name>                 Filter by source id (repeatable or
@@ -961,48 +1035,50 @@ Search across root and command help. See Command help above to check which flags
 | Option | Short | Argument | Description |
 | --- | --- | --- | --- |
 | `--all` | - | - | daily: Report every day instead of the last 7 days; weekly: Report every week instead of the last 8 weeks |
-| `--amp-dir` | - | `<path>` | Path to Amp threads directory |
-| `--antigravity-dir` | - | `<path>` | Path to Antigravity conversations directory |
+| `--amp-dir` | - | `<path>` | Path to Amp threads directory \(repeatable\) |
+| `--antigravity-dir` | - | `<path>` | Path to Antigravity conversations directory \(repeatable\) |
 | `--apply` | - | - | Delete selected departed files and vacuum the event store \(prune only\) |
 | `--by-repo` | - | - | Group usage by repository root instead of by session \(session only\) |
 | `--by-source` | - | - | efficiency: Include per-source usage rows under each period; trends: Render one sparkline row per source instead of a single combined chart |
 | `--candidate-model` | - | `<name>` | Candidate model for counterfactual pricing \(repeatable or comma-separated\) \(optimize only\) |
-| `--claude-dir` | - | `<path>` | Path to Claude projects directory |
-| `--cline-dir` | - | `<path>` | Path to Cline tasks directory |
-| `--codex-dir` | - | `<path>` | Path to .codex sessions directory |
+| `--claude-dir` | - | `<path>` | Path to Claude projects directory \(repeatable\) |
+| `--cline-dir` | - | `<path>` | Path to Cline tasks directory \(repeatable\) |
+| `--codex-dir` | - | `<path>` | Path to .codex sessions directory \(repeatable\) |
 | `--compact` | - | - | Abbreviate token counts and hide the Reasoning and Cache Write columns \(terminal/Markdown\) \(usage reports only\) |
-| `--copilot-dir` | - | `<path>` | Path to GitHub Copilot OTEL directory |
+| `--copilot-dir` | - | `<path>` | Path to GitHub Copilot OTEL directory \(repeatable\) |
 | `--days` | - | `<n>` | Trailing local calendar days to chart; defaults to 30 when no date flags are provided \(trends only\) |
 | `--departed-before` | - | `<YYYY-MM-DD>` | Select departed files whose newest event timestamp is strictly before this UTC date \(prune only\) |
-| `--droid-dir` | - | `<path>` | Path to Droid sessions directory |
-| `--dsh-dir` | - | `<path>` | Path to DeepSeek Harness sessions directory |
+| `--droid-dir` | - | `<path>` | Path to Droid sessions directory \(repeatable\) |
+| `--dsh-dir` | - | `<path>` | Path to DeepSeek Harness sessions directory \(repeatable\) |
 | `--force` | - | - | Overwrite an existing config file \(config only\) |
 | `--format` | - | `<name>` | Export format: jsonl \| csv \(default: "jsonl"\) \(events only\) |
-| `--gemini-dir` | - | `<path>` | Path to .gemini directory |
+| `--gemini-dir` | - | `<path>` | Path to .gemini directory \(repeatable\) |
 | `--goose-db` | - | `<path>` | Path to Goose SQLite DB |
+| `--help-all` | - | - | Display help including the per-source path flags |
 | `--history` | - | - | include usage from files that no longer exist on disk \(from the local event store\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
 | `--id` | - | `<session-id>` | Show only sessions whose id contains the value \(case-insensitive; repeatable or comma-separated\) \(session only\) |
 | `--ignore-pricing-failures` | - | - | Continue without estimated costs when pricing cannot be loaded \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
 | `--include-merge-commits` | - | - | Include merge commits in Git outcome metrics \(efficiency only\) |
 | `--json` | - | - | Render output as JSON |
-| `--kilocode-dir` | - | `<path>` | Path to KiloCode tasks directory |
-| `--kimi-dir` | - | `<path>` | Path to Kimi sessions directory |
+| `--kilocode-dir` | - | `<path>` | Path to KiloCode tasks directory \(repeatable\) |
+| `--kimi-dir` | - | `<path>` | Path to Kimi sessions directory \(repeatable\) |
 | `--list` | - | - | List available schema names \(schema only\) |
 | `--markdown` | - | - | Render output as Markdown table \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped only\) |
 | `--metric` | - | `<name>` | Trend metric: cost \| tokens \(default: "cost"\) \(trends only\) |
 | `--model` | - | `<name>` | Filter by model \(repeatable/comma-separated; exact when exact match exists after source/provider/date filters, otherwise substring\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
-| `--openclaw-dir` | - | `<path>` | Path to OpenClaw agents directory |
+| `--no-open` | - | - | With --share, write the SVG without opening it \(daily, weekly, monthly, compare, efficiency, optimize, trends, wrapped only\) |
+| `--openclaw-dir` | - | `<path>` | Path to OpenClaw agents directory \(repeatable\) |
 | `--opencode-db` | - | `<path>` | Path to OpenCode SQLite DB |
 | `--per-model-columns` | - | - | Render per-model metrics as multiline aligned table columns \(terminal/Markdown\) \(usage reports only\) |
-| `--pi-dir` | - | `<path>` | Path to .pi sessions directory |
+| `--pi-dir` | - | `<path>` | Path to .pi sessions directory \(repeatable\) |
 | `--pricing-offline` | - | - | Use cached LiteLLM pricing only \(no network fetch\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
 | `--pricing-overrides` | - | `<path>` | Path to a JSON file of per-model pricing overrides \(takes precedence over LiteLLM\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
 | `--pricing-url` | - | `<url>` | Override LiteLLM pricing source URL \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
 | `--provider` | - | `<name>` | Billing-provider filter \(normalized to billing entity; e.g. openai, anthropic, google, moonshot\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
 | `--quiet` | - | - | Suppress informational stderr output \(warnings still print\) |
-| `--qwen-dir` | - | `<path>` | Path to Qwen projects directory |
+| `--qwen-dir` | - | `<path>` | Path to Qwen projects directory \(repeatable\) |
 | `--repo-dir` | - | `<path>` | Path to repository for Git outcome metrics \(efficiency only\) |
-| `--roocode-dir` | - | `<path>` | Path to RooCode tasks directory |
+| `--roocode-dir` | - | `<path>` | Path to RooCode tasks directory \(repeatable\) |
 | `--share` | - | - | Write a share SVG image to the current directory \(daily, weekly, monthly, compare, efficiency, optimize, trends, wrapped only\) |
 | `--since` | - | `<YYYY-MM-DD>` | Inclusive start date filter \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, events only\) |
 | `--source` | - | `<name>` | Filter by source id \(repeatable or comma-separated, supported sources \(17\): pi, codex, gemini, droid, opencode, openclaw, claude, copilot, goose, amp, qwen, kimi, cline, roocode, kilocode, antigravity, dsh\) |

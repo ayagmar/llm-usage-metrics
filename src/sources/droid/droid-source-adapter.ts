@@ -76,6 +76,10 @@ export class DroidSourceAdapter implements SourceAdapter {
     return this.sessionsDir.trim();
   }
 
+  public getSearchPaths(): string[] {
+    return [this.sessionsDir].map((searchPath) => searchPath.trim());
+  }
+
   public async discoverFiles(): Promise<string[]> {
     const normalizedDir = this.getNormalizedSessionsDir();
 

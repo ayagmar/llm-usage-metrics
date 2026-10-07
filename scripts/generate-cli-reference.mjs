@@ -414,6 +414,12 @@ async function loadCliHelpTexts(version, reportMetas) {
   }
 
   const cli = createCli({ version });
+  // The reference documents every option, including those only --help-all shows.
+  const sharedOptionsModule = await tsImport(
+    join(rootDir, 'src', 'cli', 'report-definitions', 'shared-report-options.ts'),
+    { parentURL: import.meta.url },
+  );
+  sharedOptionsModule.revealHiddenOptions(cli);
   const rootHelp = cli.helpInformation();
   const reportCommandNames = new Set(reportMetas.map((meta) => meta.commandName));
   const extraCommandMetas = cli.commands

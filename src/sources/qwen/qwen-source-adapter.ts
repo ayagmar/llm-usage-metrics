@@ -144,6 +144,10 @@ export class QwenSourceAdapter implements SourceAdapter {
     return this.projectsDir.trim();
   }
 
+  public getSearchPaths(): string[] {
+    return [this.projectsDir].map((searchPath) => searchPath.trim());
+  }
+
   public async discoverFiles(): Promise<string[]> {
     const normalizedDir = this.getNormalizedProjectsDir();
 

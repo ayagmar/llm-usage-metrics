@@ -29,11 +29,29 @@ import type {
   SourceParseFileDiagnostics,
 } from '../source-adapter.js';
 
-const defaultClaudeProjectsDir = path.join(os.homedir(), '.claude', 'projects');
-const defaultClaudeRootDirs = [
-  defaultClaudeProjectsDir,
-  path.join(os.homedir(), '.claude', 'transcripts'),
-];
+function getClaudeRootDirsForConfigDir(configDir: string): string[] {
+  return [path.join(configDir, 'projects'), path.join(configDir, 'transcripts')];
+}
+
+/**
+ * Claude Code reads CLAUDE_CONFIG_DIR instead of ~/.claude. Like other usage tools, a
+ * comma-separated value lists several config directories.
+ */
+export function resolveDefaultClaudeRootDirs(
+  env: NodeJS.ProcessEnv = process.env,
+  homeDir: string = os.homedir(),
+): string[] {
+  const configDirs = (env.CLAUDE_CONFIG_DIR ?? '')
+    .split(',')
+    .map((configDir) => configDir.trim())
+    .filter((configDir) => configDir.length > 0);
+
+  if (configDirs.length === 0) {
+    return getClaudeRootDirsForConfigDir(path.join(homeDir, '.claude'));
+  }
+
+  return configDirs.flatMap((configDir) => getClaudeRootDirsForConfigDir(configDir));
+}
 const CLAUDE_ASSISTANT_BYTES = Buffer.from('"assistant"');
 const CLAUDE_USAGE_BYTES = Buffer.from('"usage"');
 
@@ -56,9 +74,12 @@ type ClaudePendingEvent = {
   sequence: number;
 };
 
-export type ClaudeSourceAdapterOptions = SourceAdapterPathOptions & {
+export type ClaudeSourceAdapterOptions = Omit<SourceAdapterPathOptions, 'dir'> & {
+  /** One projects directory, or several that share fork deduplication. */
+  dir?: string | readonly string[];
   /** Test seam: default roots scanned when no dir override is given. */
   defaultRootDirs?: string[];
+  env?: NodeJS.ProcessEnv;
 };
 
 function shouldParseClaudeJsonlLineBytes(lineBytes: Buffer): boolean {
@@ -152,8 +173,15 @@ export class ClaudeSourceAdapter implements SourceAdapter {
   private readonly parentMessageKeysByVersion = new Map<string, Promise<Set<string>>>();
 
   public constructor(options: ClaudeSourceAdapterOptions = {}) {
-    this.rootDirs = resolveRootDirs(options.dir, options.defaultRootDirs ?? defaultClaudeRootDirs);
+    this.rootDirs = resolveRootDirs(
+      options.dir,
+      options.defaultRootDirs ?? resolveDefaultClaudeRootDirs(options.env),
+    );
     this.requireDir = options.requireDir ?? false;
+  }
+
+  public getSearchPaths(): string[] {
+    return this.rootDirs.map((searchPath) => searchPath.trim());
   }
 
   public async discoverFiles(): Promise<string[]> {
@@ -309,6 +337,7 @@ export class ClaudeSourceAdapter implements SourceAdapter {
   }
 }
 
+/** The projects directory under ~/.claude, ignoring CLAUDE_CONFIG_DIR. */
 export function getDefaultClaudeProjectsDir(): string {
-  return defaultClaudeProjectsDir;
+  return resolveDefaultClaudeRootDirs({})[0];
 }

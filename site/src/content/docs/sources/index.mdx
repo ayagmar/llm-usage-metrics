@@ -10,12 +10,12 @@ Each adapter owns discovery and source-specific parsing. After parsing, every ad
 | Source                                                 | Local format  | Default location                                           |
 | ------------------------------------------------------ | ------------- | ---------------------------------------------------------- |
 | [pi](/llm-usage-metrics/sources/pi/)                   | JSONL         | `~/.pi/agent/sessions` and `~/.omp/agent/sessions`         |
-| [codex](/llm-usage-metrics/sources/codex/)             | JSONL         | `~/.codex/sessions`                                        |
+| [codex](/llm-usage-metrics/sources/codex/)             | JSONL         | `~/.codex/sessions` (or `$CODEX_HOME/sessions`)            |
 | [Gemini CLI](/llm-usage-metrics/sources/gemini/)       | JSON          | `~/.gemini/tmp/*/chats`                                    |
 | [Droid CLI](/llm-usage-metrics/sources/droid/)         | settings JSON | `~/.factory/sessions`                                      |
 | [OpenCode](/llm-usage-metrics/sources/opencode/)       | SQLite        | platform data directory, including `opencode-<channel>.db` |
 | [OpenClaw](/llm-usage-metrics/sources/openclaw/)       | JSONL         | `~/.openclaw/agents` and supported legacy homes            |
-| [Claude Code](/llm-usage-metrics/sources/claude/)      | JSONL         | `~/.claude/projects` and `~/.claude/transcripts`           |
+| [Claude Code](/llm-usage-metrics/sources/claude/)      | JSONL         | `~/.claude/projects` and `~/.claude/transcripts` (or under `$CLAUDE_CONFIG_DIR`) |
 | [Copilot CLI](/llm-usage-metrics/sources/copilot/)     | OTEL JSONL    | `~/.copilot/otel`                                          |
 | [Goose](/llm-usage-metrics/sources/goose/)             | SQLite        | platform Goose data directory                              |
 | [Amp](/llm-usage-metrics/sources/amp/)                 | JSON          | `~/.local/share/amp/threads`                               |
@@ -36,16 +36,19 @@ llm-usage doctor
 llm-usage doctor --source codex,claude
 ```
 
-Doctor checks discovery without parsing session contents or loading pricing. Use it before adding overrides: an empty report can also result from date, provider, or model filters.
+Doctor lists the paths each source searched and whether its newest files contain readable usage, without loading pricing. Use it before adding overrides: an empty report can also result from date, provider, or model filters.
 
 ## Override a location
 
-Directory-backed sources accept a named flag and the generic repeatable form:
+Directory-backed sources accept a named flag and the generic `--source-dir` form. Repeat either to scan several directories as one source:
 
 ```bash
 llm-usage monthly --codex-dir /path/to/codex/sessions
 llm-usage monthly --source-dir codex=/path/to/codex/sessions
+llm-usage monthly --claude-dir /work/.claude/projects --claude-dir /home/me/.claude/projects
 ```
+
+The per-source flags (`--claude-dir`, `--codex-dir`, `--opencode-db`, and so on) are left out of `--help` to keep it short; `llm-usage <command> --help-all` lists them. `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, and `GEMINI_CLI_HOME` move the default locations the same way they do for each tool.
 
 SQLite sources use their database flags:
 

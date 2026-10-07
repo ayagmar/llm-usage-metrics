@@ -5,6 +5,7 @@ import {
   runPreparedReport,
 } from '../../../src/cli/report-runtime/report-lifecycle.js';
 import { RuntimeProfileCollector } from '../../../src/cli/runtime-profile.js';
+import * as shareArtifact from '../../../src/cli/share-artifact.js';
 import { setLogLevel } from '../../../src/utils/logger.js';
 
 describe('report-lifecycle', () => {
@@ -139,5 +140,56 @@ describe('report-lifecycle', () => {
       consoleErrorSpy.mockRestore();
       consoleLogSpy.mockRestore();
     }
+  });
+
+  it('writes the share SVG without opening it for --no-open', async () => {
+    const writeSpy = vi
+      .spyOn(shareArtifact, 'writeShareSvgFile')
+      .mockResolvedValue('/tmp/usage-share.svg');
+    const openSpy = vi.spyOn(shareArtifact, 'writeAndOpenShareSvgFile');
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    try {
+      const preparedReport = await prepareReport({
+        commandOptions: { share: true, open: false },
+        supportedFormats: ['terminal'] as const,
+        buildData: async () => ({}),
+        getDiagnostics: () => ({}),
+        render: () => 'report body',
+        createShareArtifact: () => ({
+          fileName: 'usage-share.svg',
+          svg: '<svg/>',
+          logLabel: 'usage',
+        }),
+      });
+
+      await runPreparedReport({ preparedReport });
+
+      expect(writeSpy).toHaveBeenCalledWith('usage-share.svg', '<svg/>');
+      expect(openSpy).not.toHaveBeenCalled();
+      expect(
+        consoleErrorSpy.mock.calls.some((call) =>
+          String(call[0]).includes('Wrote usage share SVG: /tmp/usage-share.svg'),
+        ),
+      ).toBe(true);
+    } finally {
+      writeSpy.mockRestore();
+      openSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
+      consoleLogSpy.mockRestore();
+    }
+  });
+
+  it('rejects --no-open without --share', async () => {
+    await expect(
+      prepareReport({
+        commandOptions: { open: false },
+        supportedFormats: ['terminal'] as const,
+        buildData: async () => ({}),
+        getDiagnostics: () => ({}),
+        render: () => 'report body',
+      }),
+    ).rejects.toThrow('--no-open only applies with --share');
   });
 });

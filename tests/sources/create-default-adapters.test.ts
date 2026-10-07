@@ -1,10 +1,12 @@
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { ClaudeSourceAdapter } from '../../src/sources/claude/claude-source-adapter.js';
 import { createDefaultAdapters } from '../../src/sources/create-default-adapters.js';
+import { MultiDirectorySourceAdapter } from '../../src/sources/multi-directory-source-adapter.js';
 
 const tempDirs: string[] = [];
 
@@ -189,9 +191,61 @@ describe('createDefaultAdapters', () => {
     );
   });
 
-  it('throws on duplicate source ids in source directory overrides', () => {
-    expect(() => createDefaultAdapters({ sourceDir: ['pi=/tmp/a', 'pi=/tmp/b'] })).toThrow(
-      'Duplicate --source-dir source id: pi',
+  it('scans every directory given for one source and parses each file once', async () => {
+    const extraDir = await mkdtemp(path.join(os.tmpdir(), 'codex-extra-'));
+    tempDirs.push(extraDir);
+    const fixturesDir = path.resolve('tests/fixtures/codex');
+    const copiedFile = path.join(extraDir, 'copied.jsonl');
+    await writeFile(
+      copiedFile,
+      await readFile(path.join(fixturesDir, 'session-token-count.jsonl'), 'utf8'),
+    );
+
+    const adapters = createDefaultAdapters({
+      sourceDir: [`codex=${fixturesDir}`, `codex=${extraDir}`, `codex=${fixturesDir}`],
+    });
+    const codex = adapters.find((adapter) => adapter.id === 'codex');
+    const files = (await codex?.discoverFiles()) ?? [];
+
+    expect(adapters.filter((adapter) => adapter.id === 'codex')).toHaveLength(1);
+    expect(codex).toBeInstanceOf(MultiDirectorySourceAdapter);
+    expect(files.filter((file) => file.startsWith(fixturesDir))).toHaveLength(2);
+    expect(files).toContain(copiedFile);
+    expect((await codex?.parseFile(copiedFile))?.length).toBeGreaterThan(0);
+  });
+
+  it('prefers repeated dedicated directory flags over --source-dir', async () => {
+    const fixturesDir = path.resolve('tests/fixtures/pi');
+    const adapters = createDefaultAdapters({
+      piDir: [fixturesDir, fixturesDir],
+      sourceDir: ['pi=/tmp/ignored'],
+    });
+    const pi = adapters.find((adapter) => adapter.id === 'pi');
+
+    expect(pi).not.toBeInstanceOf(MultiDirectorySourceAdapter);
+    await expect(pi?.discoverFiles()).resolves.toEqual([
+      path.join(fixturesDir, 'session-mixed.jsonl'),
+    ]);
+  });
+
+  it('gives Claude every directory in one adapter so fork deduplication sees all roots', async () => {
+    const missingDir = path.join(os.tmpdir(), 'llm-usage-missing-claude-root');
+    const claude = createDefaultAdapters({ claudeDir: [os.tmpdir(), missingDir] }).find(
+      (adapter) => adapter.id === 'claude',
+    );
+
+    expect(claude).toBeInstanceOf(ClaudeSourceAdapter);
+    await expect(claude?.discoverFiles()).rejects.toThrow(
+      `Claude projects directory is missing or unreadable: ${missingDir}`,
+    );
+  });
+
+  it('rejects several paths for a database source', () => {
+    expect(() =>
+      createDefaultAdapters({ opencodeDb: ['/tmp/a.db', '/tmp/b.db'] as never }),
+    ).toThrow('--opencode-db takes a single path');
+    expect(() => createDefaultAdapters({ claudeDir: ['/tmp/a', ' '] })).toThrow(
+      '--claude-dir must be a non-empty path',
     );
   });
 

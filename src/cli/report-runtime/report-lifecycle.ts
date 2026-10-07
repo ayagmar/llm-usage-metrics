@@ -13,7 +13,7 @@ import {
   type RuntimeProfileCollector,
   type RuntimeProfileSnapshot,
 } from '../runtime-profile.js';
-import { writeAndOpenShareSvgFile } from '../share-artifact.js';
+import { writeAndOpenShareSvgFile, writeShareSvgFile } from '../share-artifact.js';
 import { warnIfTerminalTableOverflows } from '../terminal-overflow-warning.js';
 
 type StandardReportFormat = 'terminal' | 'markdown' | 'json';
@@ -25,6 +25,9 @@ const verboseLogger = { info: logger.debug, dim: logger.debug };
 type OutputFlagOptions = {
   json?: boolean;
   markdown?: boolean;
+  share?: boolean;
+  /** Commander sets it to false for --no-open. */
+  open?: boolean;
 };
 
 type ShareArtifact = {
@@ -38,6 +41,8 @@ type PreparedReport<Format extends string, Diagnostics> = {
   output: string;
   diagnostics: Diagnostics;
   shareArtifact?: ShareArtifact;
+  /** False with --no-open: the share SVG is written but not opened. */
+  openShareArtifact?: boolean;
   runtimeProfile?: RuntimeProfileCollector;
   /** Informational stderr lines printed after the report, so they read as its footer. */
   hintsAfterOutput?: readonly string[];
@@ -71,6 +76,10 @@ type RunPreparedReportOptions<Diagnostics, Format extends string> = {
 function validateOutputFormatOptions(options: OutputFlagOptions): void {
   if (options.markdown && options.json) {
     throw new Error('Choose either --markdown or --json, not both');
+  }
+
+  if (options.open === false && !options.share) {
+    throw new Error('--no-open only applies with --share');
   }
 }
 
@@ -120,12 +129,19 @@ export async function prepareReport<Data, Diagnostics, Format extends StandardRe
     diagnostics: options.getDiagnostics(data),
     output,
     shareArtifact: options.createShareArtifact?.(data),
+    openShareArtifact: options.commandOptions.open !== false,
     runtimeProfile: options.runtimeProfile,
     hintsAfterOutput: hintsAfterOutput.length > 0 ? hintsAfterOutput : undefined,
   };
 }
 
-async function writeShareArtifact(artifact: ShareArtifact): Promise<void> {
+async function writeShareArtifact(artifact: ShareArtifact, open: boolean): Promise<void> {
+  if (!open) {
+    const outputPath = await writeShareSvgFile(artifact.fileName, artifact.svg);
+    logger.info(`Wrote ${artifact.logLabel} share SVG: ${outputPath}`);
+    return;
+  }
+
   const shareResult = await writeAndOpenShareSvgFile(artifact.fileName, artifact.svg);
   logger.info(`Wrote ${artifact.logLabel} share SVG: ${shareResult.outputPath}`);
 
@@ -188,7 +204,10 @@ export async function runPreparedReport<Diagnostics, Format extends string>(
   }
 
   if (options.preparedReport.shareArtifact) {
-    await writeShareArtifact(options.preparedReport.shareArtifact);
+    await writeShareArtifact(
+      options.preparedReport.shareArtifact,
+      options.preparedReport.openShareArtifact ?? true,
+    );
   }
 
   console.log(options.preparedReport.output);

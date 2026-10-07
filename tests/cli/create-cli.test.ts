@@ -466,6 +466,134 @@ describe('createCli', () => {
     expect(output.text()).toContain("error: unknown command 'dialy'\n(Did you mean daily?)");
   });
 
+  it('points a report option given to the bare command at a report', async () => {
+    const cli = createCli();
+    const output = captureOutput(cli);
+    const summaryAction = stubSummaryAction(cli);
+
+    await expect(cli.parseAsync(['--since', '2026-01-01'], { from: 'user' })).rejects.toMatchObject(
+      { exitCode: 1 },
+    );
+
+    expect(summaryAction).not.toHaveBeenCalled();
+    expect(output.text()).toContain(
+      'error: the summary has no --since option; use a report, e.g. llm-usage daily --since 2026-01-01',
+    );
+    expect(output.text()).not.toContain('--source?');
+  });
+
+  it('keeps the command a user typed after a report option in the example', async () => {
+    const cli = createCli();
+    const output = captureOutput(cli);
+    stubSummaryAction(cli);
+
+    await expect(
+      cli.parseAsync(['--since', '2026-01-01', 'weekly'], { from: 'user' }),
+    ).rejects.toMatchObject({ exitCode: 1 });
+
+    expect(output.text()).toContain(
+      'error: options go after the command, e.g. llm-usage weekly --since 2026-01-01',
+    );
+  });
+
+  it('suggests a close summary or report flag for a mistyped root option', async () => {
+    const summaryTypo = createCli();
+    const summaryOutput = captureOutput(summaryTypo);
+    stubSummaryAction(summaryTypo);
+    await expect(summaryTypo.parseAsync(['--jsno'], { from: 'user' })).rejects.toMatchObject({
+      exitCode: 1,
+    });
+
+    const reportTypo = createCli();
+    const reportOutput = captureOutput(reportTypo);
+    stubSummaryAction(reportTypo);
+    await expect(
+      reportTypo.parseAsync(['--sinse', '2026-01-01'], { from: 'user' }),
+    ).rejects.toMatchObject({ exitCode: 1 });
+
+    const unknown = createCli();
+    const unknownOutput = captureOutput(unknown);
+    stubSummaryAction(unknown);
+    await expect(unknown.parseAsync(['--zzz'], { from: 'user' })).rejects.toMatchObject({
+      exitCode: 1,
+    });
+
+    expect(summaryOutput.text()).toContain(
+      "error: unknown option '--jsno'\n(Did you mean --json?)",
+    );
+    expect(reportOutput.text()).toContain(
+      "error: unknown option '--sinse'\n(Did you mean llm-usage daily --since?)",
+    );
+    expect(unknownOutput.text()).toContain("error: unknown option '--zzz'");
+    expect(unknownOutput.text()).not.toContain('Did you mean');
+  });
+
+  it('hides the per-source path flags from --help and lists them with --help-all', async () => {
+    async function readDailyHelp(flag: string): Promise<string> {
+      const cli = createCli();
+      const daily = cli.commands.find((command) => command.name() === 'daily');
+
+      if (!daily) {
+        throw new Error('daily command missing');
+      }
+
+      // Subcommands copy exit and output settings when added, so set them on daily itself.
+      const output = captureOutput(daily);
+      await expect(daily.parseAsync([flag], { from: 'user' })).rejects.toMatchObject({
+        exitCode: 0,
+      });
+      return output.text();
+    }
+
+    const help = await readDailyHelp('--help');
+    const helpAll = await readDailyHelp('--help-all');
+
+    expect(help).not.toMatch(/^ {2}--claude-dir <path>/mu);
+    expect(help).toContain('--source-dir');
+    expect(help).toContain('listed by --help-all');
+
+    for (const option of getSourceOverrideOptions()) {
+      expect(helpAll).toContain(`  ${option.flag}`);
+    }
+    expect(helpAll).not.toContain('listed by --help-all');
+  });
+
+  it('still suggests a hidden path flag for a typo and keeps it hidden afterwards', async () => {
+    const cli = createCli();
+    const daily = cli.commands.find((command) => command.name() === 'daily');
+
+    if (!daily) {
+      throw new Error('daily command missing');
+    }
+
+    const output = captureOutput(daily);
+    await expect(daily.parseAsync(['--claud-dir', '/x'], { from: 'user' })).rejects.toMatchObject({
+      exitCode: 1,
+    });
+
+    expect(output.text()).toContain(
+      "error: unknown option '--claud-dir'\n(Did you mean --claude-dir?)",
+    );
+    expect(daily.options.find((option) => option.long === '--claude-dir')?.hidden).toBe(true);
+  });
+
+  it('accepts repeated directory flags and keeps database flags single', async () => {
+    const cli = createCli();
+    captureOutput(cli);
+    const dailyAction = vi.fn();
+    cli.commands.find((command) => command.name() === 'daily')?.action(dailyAction);
+
+    await cli.parseAsync(
+      ['daily', '--claude-dir', '/a', '--claude-dir', '/b', '--opencode-db', '/c.db'],
+      { from: 'user' },
+    );
+
+    expect(dailyAction.mock.calls[0]?.[0]).toMatchObject({
+      claudeDir: ['/a', '/b'],
+      opencodeDb: '/c.db',
+    });
+  });
+
   it('explains option order when options precede a command', async () => {
     const cli = createCli();
     const output = captureOutput(cli);

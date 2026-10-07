@@ -43,6 +43,7 @@ import type {
 import type { SourceAdapter } from '../sources/source-adapter.js';
 import type { EnvVarOverride } from '../config/env-var-display.js';
 import type { PricingSource } from '../pricing/types.js';
+import { findUnmatchedFilterWarnings } from './filter-match-warnings.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 
 function withNormalizedPricingUrl(
@@ -284,6 +285,20 @@ export async function buildUsageEventDataset(
         ...userConfigResolution.loadedConfig.warnings,
         ...parseWarnings,
         ...historyWarnings,
+        ...findUnmatchedFilterWarnings({
+          parseResults: parseResultsForFiltering,
+          // A `sources` list from config.toml is a standing default, not a typed filter.
+          cliSourceFilter: userConfigResolution.activeConfig?.entries.some(
+            (entry) => entry.key === 'sources',
+          )
+            ? undefined
+            : normalizedInputs.sourceFilter,
+          provider: configuredOptions.provider,
+          modelFilter: normalizedInputs.modelFilter,
+          timezone: normalizedInputs.timezone,
+          since: configuredOptions.since,
+          until: configuredOptions.until,
+        }),
       ],
       notes: historyNotes,
       filteredEvents,

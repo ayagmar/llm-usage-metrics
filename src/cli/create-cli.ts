@@ -14,9 +14,57 @@ export type CreateCliOptions = {
   version?: string;
 };
 
+function getLongFlags(command: Command | undefined): string[] {
+  return (command?.options ?? []).flatMap((option) => (option.long ? [option.long] : []));
+}
+
+/**
+ * The summary runs for a bare `llm-usage`, so report options typed there land on it.
+ * Point those to a report instead of commander's nearest-flag guess (`--since` →
+ * `--source`).
+ */
+function rejectUnknownOption(program: Command, args: readonly string[]): never {
+  const flag = args[0].split('=')[0];
+  const summaryFlags = getLongFlags(program.commands.find(isSummaryCommand));
+  const dailyFlags = getLongFlags(program.commands.find((command) => command.name() === 'daily'));
+  // `llm-usage --since 2026-01-01 weekly`: the command word came after its options.
+  const typedCommand = program.commands.find((command) => args.includes(command.name()));
+
+  if (typedCommand) {
+    const options = args.filter((arg) => arg !== typedCommand.name()).join(' ');
+    program.error(
+      `error: options go after the command, e.g. llm-usage ${typedCommand.name()} ${options}`,
+    );
+  }
+
+  if (dailyFlags.includes(flag)) {
+    program.error(
+      `error: the summary has no ${flag} option; use a report, e.g. llm-usage daily ${args.join(' ')}`,
+    );
+  }
+
+  const summarySuggestion = suggestClosest(flag, summaryFlags);
+  const dailySuggestion = suggestClosest(flag, dailyFlags);
+  const hint = summarySuggestion
+    ? `\n(Did you mean ${summarySuggestion}?)`
+    : dailySuggestion
+      ? `\n(Did you mean llm-usage daily ${dailySuggestion}?)`
+      : '';
+
+  return program.error(`error: unknown option '${flag}'${hint}`);
+}
+
+function isSummaryCommand(command: Command): boolean {
+  return command.name() === SUMMARY_COMMAND_NAME;
+}
+
 function rejectUnknownCommand(program: Command, args: readonly string[]): void {
   if (args.length === 0) {
     return;
+  }
+
+  if (args[0].startsWith('-')) {
+    rejectUnknownOption(program, args);
   }
 
   const unknownCommand = args[0];
@@ -43,14 +91,18 @@ export function createCli(options: CreateCliOptions = {}): Command {
     .showHelpAfterError();
 
   for (const command of createReportCommands()) {
-    const isSummary = command.name() === SUMMARY_COMMAND_NAME;
+    const isSummary = isSummaryCommand(command);
 
     if (isSummary) {
-      // As the default command the summary receives any unknown command word, so it
-      // reports that word itself instead of commander's "too many arguments".
-      command.allowExcessArguments(true).hook('preAction', (summaryCommand) => {
-        rejectUnknownCommand(program, summaryCommand.args);
-      });
+      // As the default command the summary receives any unknown command word or option,
+      // so it reports them itself instead of commander's "too many arguments" or
+      // nearest-flag guess.
+      command
+        .allowExcessArguments(true)
+        .allowUnknownOption(true)
+        .hook('preAction', (summaryCommand) => {
+          rejectUnknownCommand(program, summaryCommand.args);
+        });
     }
 
     // A bare `llm-usage` runs the summary instead of printing help.

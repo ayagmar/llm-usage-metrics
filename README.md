@@ -42,7 +42,7 @@ llm-usage
 
 With no command, `llm-usage` prints cost and tokens for today, the last 7 days, and month to date. `llm-usage daily` breaks the last 7 days down by day and source, and `llm-usage weekly` covers the last 8 weeks; add `--since YYYY-MM-DD` or `--all` for older usage.
 
-If the report is empty, check source discovery:
+If the report is empty, check source discovery. `doctor` lists the paths each source searched and marks it found, not installed, or unparseable:
 
 ```bash
 llm-usage doctor
@@ -188,7 +188,7 @@ Terminal tables fit the terminal width: on a narrow terminal, token counts are a
 
 Report data goes to `stdout`. Diagnostics go to `stderr` as one summary line plus any warnings, which keeps JSON and Markdown safe to redirect; `--quiet` keeps only warnings and `--verbose` adds per-source and skipped-row detail. JSON output is wrapped in a versioned envelope: `{ "schemaVersion": 1, "report": "usage", "data": ... }`. Scripts written against pre-0.8.0 JSON should follow the [migration guide](https://ayagmar.github.io/llm-usage-metrics/migrating-to-0-8/).
 
-Terminal, JSON, and Markdown availability varies by report. Usage, compare, trends, wrapped, efficiency, and optimize can write supported share SVGs. The [output guide](https://ayagmar.github.io/llm-usage-metrics/output-formats/) contains the format matrix and file names.
+Terminal, JSON, and Markdown availability varies by report. Usage, compare, trends, wrapped, efficiency, and optimize can write supported share SVGs; `--share --no-open` writes the file without opening it. The [output guide](https://ayagmar.github.io/llm-usage-metrics/output-formats/) contains the format matrix and file names.
 
 ## Performance
 

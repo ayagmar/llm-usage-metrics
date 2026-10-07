@@ -8,12 +8,16 @@ description: Discovery paths, overrides, and usage parsing for Claude Code.
 - `~/.claude/projects/**/*.jsonl`
 - `~/.claude/transcripts/**/*.jsonl`
 
+When `CLAUDE_CONFIG_DIR` is set, the `projects` and `transcripts` directories under it replace `~/.claude`. A comma-separated value scans several config directories.
+
 ## Override
 
 ```bash
 llm-usage daily --claude-dir /path/to/.claude/projects
 # or
 llm-usage daily --source-dir claude=/path/to/.claude/projects
+# several directories (repeat the flag)
+llm-usage daily --claude-dir /work/.claude/projects --claude-dir /home/me/.claude/projects
 ```
 
 ## Parsing notes

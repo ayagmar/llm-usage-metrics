@@ -146,6 +146,10 @@ export class DshSourceAdapter implements SourceAdapter {
     this.requireDir = options.requireDir ?? false;
   }
 
+  public getSearchPaths(): string[] {
+    return this.rootDirs.map((searchPath) => searchPath.trim());
+  }
+
   public async discoverFiles(): Promise<string[]> {
     return discoverFilesAcrossRoots({
       rootDirs: this.rootDirs,

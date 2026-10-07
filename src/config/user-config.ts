@@ -89,7 +89,8 @@ export type UserConfig = {
   timezone?: string;
   logLevel?: LogLevel;
   sources?: string[];
-  sourceDirs?: Partial<Record<(typeof USER_CONFIG_SOURCE_DIR_KEYS)[number], string>>;
+  /** A directory-backed source may list several directories; database paths take one. */
+  sourceDirs?: Partial<Record<(typeof USER_CONFIG_SOURCE_DIR_KEYS)[number], string | string[]>>;
   pricing?: {
     offline?: boolean;
     url?: string;
@@ -260,6 +261,22 @@ function toSources(value: unknown): string[] | undefined {
   return [...new Set(sources)];
 }
 
+/** SQLite sources read one database file, so their config value stays a single path. */
+const singlePathSourceDirKeys = new Set<string>(['opencode', 'goose']);
+
+function readSourceDirValue(value: unknown, allowsSeveral: boolean): string | string[] | undefined {
+  if (!Array.isArray(value)) {
+    return toNonBlankString(value);
+  }
+
+  if (!allowsSeveral) {
+    return undefined;
+  }
+
+  const directories = value.flatMap((entry) => toNonBlankString(entry) ?? []);
+  return directories.length > 0 ? directories : undefined;
+}
+
 function readSourceDirs(value: unknown): UserConfig['sourceDirs'] | undefined {
   const record = asRecord(value);
 
@@ -270,7 +287,7 @@ function readSourceDirs(value: unknown): UserConfig['sourceDirs'] | undefined {
   const sourceDirs: UserConfig['sourceDirs'] = {};
 
   for (const sourceId of USER_CONFIG_SOURCE_DIR_KEYS) {
-    const sourceDir = toNonBlankString(record[sourceId]);
+    const sourceDir = readSourceDirValue(record[sourceId], !singlePathSourceDirKeys.has(sourceId));
 
     if (sourceDir !== undefined) {
       sourceDirs[sourceId] = sourceDir;
@@ -467,7 +484,23 @@ function collectUserConfigWarnings(root: Record<string, unknown>): string[] {
   pushUnknownNestedKeys(unknownKeys, root, 'sourceDirs', sourceDirKeySet);
 
   const unknownKeyWarning = formatUnknownKeyWarning(unknownKeys);
-  return unknownKeyWarning === undefined ? [] : [unknownKeyWarning];
+  return [
+    ...(unknownKeyWarning === undefined ? [] : [unknownKeyWarning]),
+    ...collectSinglePathListWarnings(root.sourceDirs),
+  ];
+}
+
+/** A database source given a list is ignored; say so instead of silently using defaults. */
+function collectSinglePathListWarnings(sourceDirs: unknown): string[] {
+  const record = asRecord(sourceDirs);
+
+  if (!record) {
+    return [];
+  }
+
+  return [...singlePathSourceDirKeys]
+    .filter((sourceId) => Array.isArray(record[sourceId]))
+    .map((sourceId) => `Ignoring sourceDirs.${sourceId}: it takes one database path, not a list`);
 }
 
 function parseUserConfigRoot(filePath: string, content: string): Record<string, unknown> {

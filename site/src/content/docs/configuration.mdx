@@ -45,7 +45,7 @@ parseWorkerMinBytes = 268435456
 
 [sourceDirs]
 codex = "/path/to/.codex/sessions"
-claude = "/path/to/.claude/projects"
+claude = ["/path/to/.claude/projects", "/path/to/work/.claude/projects"]
 opencode = "/path/to/opencode.db"
 goose = "/path/to/goose/sessions.db"
 
@@ -118,6 +118,8 @@ Reports name the applied config file in their `stderr` summary line; `--verbose`
 | `update.skipCheck`       | `LLM_USAGE_SKIP_UPDATE_CHECK`                         | Skip startup update checks                                 |
 | `update.cacheTtlMs`      | Config only                                           | Update-check cache TTL                                     |
 | `update.fetchTimeoutMs`  | Config only                                           | Update-check fetch timeout                                 |
+
+A `sourceDirs` value for a directory-backed source can be a list, which scans every listed directory as one source, like repeating its flag. `sourceDirs.opencode` and `sourceDirs.goose` take one database path.
 
 There is no `--no-pricing-offline` flag. To force a one-off online pricing refresh while `pricing.offline = true` stays in the config, bypass the config for that run by pointing `LLM_USAGE_CONFIG_PATH` at a nonexistent file (a missing file loads an empty config) or edit the file:
 
