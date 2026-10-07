@@ -105,9 +105,21 @@ async function main() {
           dbPath,
           '--timezone',
           'UTC',
+          '--pricing-offline',
           '--json',
         ],
-        { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] },
+        {
+          encoding: 'utf8',
+          stdio: ['pipe', 'pipe', 'pipe'],
+          // Keep the fixture out of the user's ledger and caches: a stored row for this
+          // temp DB would later surface as departed usage under --history.
+          env: {
+            ...process.env,
+            LLM_USAGE_EVENT_STORE_PATH: path.join(tempDir, 'events.db'),
+            LLM_USAGE_SKIP_UPDATE_CHECK: '1',
+            XDG_CACHE_HOME: path.join(tempDir, 'cache'),
+          },
+        },
       );
     } catch (error) {
       throw new Error(
