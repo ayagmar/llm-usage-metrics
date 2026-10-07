@@ -13,6 +13,7 @@ import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics
 import {
   asTrimmedText,
   normalizeTimestampCandidate,
+  resolveUsageTotalTokens,
   splitPromptIncludingCachedTokens,
 } from '../parsing-utils.js';
 import type {
@@ -375,13 +376,14 @@ function toUsageEvent(candidate: CopilotCandidate): UsageEvent {
     reasoningTokens: candidate.reasoningTokens,
     cacheReadTokens: candidate.cacheReadTokens,
     cacheWriteTokens: candidate.cacheWriteTokens,
-    totalTokens: candidate.totalTokens,
+    totalTokens: resolveUsageTotalTokens(candidate),
     costMode: 'estimated',
   });
 }
 
 export class CopilotSourceAdapter implements SourceAdapter {
   public readonly id = 'copilot' as const;
+  public readonly parserVersion = 2;
   public readonly capabilities = { eventsPrecedeFileMtime: true } as const;
 
   private readonly rootDirs: readonly string[];

@@ -11,6 +11,7 @@ import {
   asTrimmedText,
   hasPositiveUsageOrCostSignal,
   normalizeTimestampCandidate,
+  resolveUsageTotalTokens,
   splitPromptIncludingCachedTokens,
   toNumberLike,
   toTokenCount,
@@ -358,6 +359,7 @@ export async function parseOpenClawSessionFile(
           provider,
           model,
           ...usage,
+          totalTokens: resolveUsageTotalTokens(usage),
         }),
       );
     } catch {

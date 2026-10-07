@@ -680,4 +680,40 @@ describe('pi source helpers', () => {
   it('returns the default pi sessions path', () => {
     expect(getDefaultPiSessionsDir()).toContain(path.join('.pi', 'agent', 'sessions'));
   });
+
+  it('keeps reasoning inside the total when usage declares no total', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'pi-reasoning-total-'));
+    tempDirs.push(root);
+    const filePath = path.join(root, 'reasoning.jsonl');
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'session-pi-reasoning',
+          timestamp: '2026-02-12T20:00:00.000Z',
+        }),
+        JSON.stringify({
+          type: 'message',
+          timestamp: '2026-02-12T20:01:00.000Z',
+          provider: 'openai',
+          model: 'gpt-5.3-codex',
+          usage: { input: 100, output: 80, reasoning: 30, cacheRead: 20 },
+        }),
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+
+    const events = await new PiSourceAdapter().parseFile(filePath);
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      inputTokens: 100,
+      outputTokens: 80,
+      reasoningTokens: 30,
+      cacheReadTokens: 20,
+      totalTokens: 200,
+    });
+  });
 });
