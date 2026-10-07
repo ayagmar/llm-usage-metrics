@@ -1671,6 +1671,37 @@ describe('buildUsageData', () => {
     );
   });
 
+  it('warns about a typed --source without files but not about config sources', async () => {
+    const adapters = () => [
+      createAdapter('pi', { '/tmp/pi.jsonl': [createEvent()] }),
+      createAdapter('codex', {}),
+    ];
+    const typed = await buildUsageData(
+      'daily',
+      { all: true, source: 'pi,codex', timezone: 'UTC' },
+      { ...withDeterministicRuntimeDeps(), createAdapters: adapters },
+    );
+    const fromConfig = await buildUsageData(
+      'daily',
+      { all: true, timezone: 'UTC' },
+      {
+        ...withDeterministicRuntimeDeps(),
+        createAdapters: adapters,
+        loadUserConfig: async () => ({
+          config: { sources: ['pi', 'codex'] },
+          path: '/tmp/config.toml',
+          exists: true,
+          warnings: [],
+        }),
+      },
+    );
+    const sourceWarning =
+      '--source codex found no files; `llm-usage doctor --source codex` shows where it looks';
+
+    expect(typed.diagnostics.warnings).toContain(sourceWarning);
+    expect(fromConfig.diagnostics.warnings).not.toContain(sourceWarning);
+  });
+
   describe('weekly default window', () => {
     // Mondays: 2026-01-12 (W03), 2026-01-19 (W04), 2026-03-02 (W10), 2026-03-09 (W11).
     const timestamps = [

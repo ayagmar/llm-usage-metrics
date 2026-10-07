@@ -102,6 +102,20 @@ describe('ClaudeSourceAdapter', () => {
     await expect(adapter.discoverFiles()).resolves.toEqual([sessionPath]);
   });
 
+  it('lists each file once when roots overlap or name the same directory', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'claude-overlap-'));
+    tempDirs.push(root);
+    const sessionPath = path.join(root, 'repo', 'session.jsonl');
+    await mkdir(path.dirname(sessionPath), { recursive: true });
+    await writeFile(sessionPath, '');
+
+    const adapter = new ClaudeSourceAdapter({
+      dir: [root, `${root}${path.sep}`, path.join(root, 'repo')],
+    });
+
+    await expect(adapter.discoverFiles()).resolves.toEqual([sessionPath]);
+  });
+
   it('discovers project and subagent JSONL files recursively', async () => {
     const projectsDir = await mkdtemp(path.join(os.tmpdir(), 'claude-projects-'));
     tempDirs.push(projectsDir);

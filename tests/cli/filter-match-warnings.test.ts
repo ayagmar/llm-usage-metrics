@@ -35,14 +35,16 @@ const parseResults = [
   createResult('goose', [], 0),
 ];
 
+const base = { parseResults, timezone: 'UTC' };
+
 describe('findUnmatchedFilterWarnings', () => {
   it('stays quiet without filters or when every filter matches', () => {
-    expect(findUnmatchedFilterWarnings({ parseResults })).toEqual([]);
+    expect(findUnmatchedFilterWarnings(base)).toEqual([]);
     expect(
       findUnmatchedFilterWarnings({
-        parseResults,
-        sourceFilter: new Set(['claude']),
-        providerFilter: 'anthropic',
+        ...base,
+        cliSourceFilter: new Set(['claude']),
+        provider: 'Anthropic',
         modelFilter: ['claude-opus-5-5', 'gpt'],
       }),
     ).toEqual([]);
@@ -50,35 +52,54 @@ describe('findUnmatchedFilterWarnings', () => {
 
   it('warns for each model value that matches nothing, with a close suggestion', () => {
     expect(
-      findUnmatchedFilterWarnings({
-        parseResults,
-        modelFilter: ['claude-opsu-5-5', 'opus', 'llama'],
-      }),
+      findUnmatchedFilterWarnings({ ...base, modelFilter: ['claude-opsu-5-5', 'opus', 'llama'] }),
     ).toEqual([
       '--model claude-opsu-5-5 matched no usage (did you mean claude-opus-5-5?)',
       '--model llama matched no usage',
     ]);
   });
 
-  it('warns for a provider that matches nothing', () => {
-    expect(findUnmatchedFilterWarnings({ parseResults, providerFilter: 'antropic' })).toEqual([
-      '--provider antropic matched no usage (did you mean anthropic?)',
+  it('warns for a provider that matches nothing, echoing the typed value', () => {
+    expect(findUnmatchedFilterWarnings({ ...base, provider: 'Antropic' })).toEqual([
+      '--provider Antropic matched no usage (did you mean anthropic?)',
     ]);
-    expect(findUnmatchedFilterWarnings({ parseResults, providerFilter: 'google' })).toEqual([
+    expect(findUnmatchedFilterWarnings({ ...base, provider: 'google' })).toEqual([
       '--provider google matched no usage',
     ]);
   });
 
-  it('warns for a selected source without files only while other sources have files', () => {
+  it('judges model and provider filters within the date range', () => {
     expect(
-      findUnmatchedFilterWarnings({ parseResults, sourceFilter: new Set(['claude', 'goose']) }),
+      findUnmatchedFilterWarnings({
+        ...base,
+        since: '2026-03-01',
+        modelFilter: ['claude-opus-5-5'],
+        provider: 'openai',
+      }),
+    ).toEqual([
+      '--provider openai matched no usage in this date range',
+      '--model claude-opus-5-5 matched no usage in this date range',
+    ]);
+    expect(
+      findUnmatchedFilterWarnings({ ...base, until: '2026-02-14', modelFilter: ['claude'] }),
+    ).toEqual([]);
+  });
+
+  it('warns for a --source without files', () => {
+    expect(
+      findUnmatchedFilterWarnings({ ...base, cliSourceFilter: new Set(['claude', 'goose']) }),
     ).toEqual([
       '--source goose found no files; `llm-usage doctor --source goose` shows where it looks',
     ]);
+  });
+
+  it('adds nothing when no source has files, which another warning already reports', () => {
     expect(
       findUnmatchedFilterWarnings({
         parseResults: [createResult('goose', [], 0)],
-        sourceFilter: new Set(['goose']),
+        timezone: 'UTC',
+        cliSourceFilter: new Set(['goose']),
+        modelFilter: ['llama'],
       }),
     ).toEqual([]);
   });

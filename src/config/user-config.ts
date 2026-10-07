@@ -484,7 +484,23 @@ function collectUserConfigWarnings(root: Record<string, unknown>): string[] {
   pushUnknownNestedKeys(unknownKeys, root, 'sourceDirs', sourceDirKeySet);
 
   const unknownKeyWarning = formatUnknownKeyWarning(unknownKeys);
-  return unknownKeyWarning === undefined ? [] : [unknownKeyWarning];
+  return [
+    ...(unknownKeyWarning === undefined ? [] : [unknownKeyWarning]),
+    ...collectSinglePathListWarnings(root.sourceDirs),
+  ];
+}
+
+/** A database source given a list is ignored; say so instead of silently using defaults. */
+function collectSinglePathListWarnings(sourceDirs: unknown): string[] {
+  const record = asRecord(sourceDirs);
+
+  if (!record) {
+    return [];
+  }
+
+  return [...singlePathSourceDirKeys]
+    .filter((sourceId) => Array.isArray(record[sourceId]))
+    .map((sourceId) => `Ignoring sourceDirs.${sourceId}: it takes one database path, not a list`);
 }
 
 function parseUserConfigRoot(filePath: string, content: string): Record<string, unknown> {

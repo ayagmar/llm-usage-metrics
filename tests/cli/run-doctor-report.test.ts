@@ -703,6 +703,7 @@ describe('run-doctor-report', () => {
         status: 'ok',
         state: 'not_installed',
         itemsFound: 0,
+        detail: 'no files found in the given path',
         searchedPaths: [emptyCodexDir],
       },
       expect.objectContaining({
@@ -816,6 +817,14 @@ describe('renderDoctorText', () => {
           searchedPaths: ['/home/me'],
         },
         {
+          id: 'kimi',
+          format: 'jsonl',
+          status: 'ok',
+          state: 'not_installed',
+          itemsFound: 0,
+          detail: 'no files found in the given path',
+        },
+        {
           id: 'gemini',
           format: 'json',
           status: 'ok',
@@ -835,11 +844,12 @@ describe('renderDoctorText', () => {
       '    /opt/pi',
       '○ goose        sqlite  not installed (no files found)',
       '    ~',
+      '○ kimi         jsonl   no files found in the given path',
       '⚠ gemini       json    1 file found, none with readable usage',
       '✖ claude       jsonl   missing',
       '✔ event-store  sqlite  not yet created',
       '',
-      'Sources: 1 found · 1 unparseable · 1 failed · 1 not installed',
+      'Sources: 1 found · 1 unparseable · 1 failed · 2 not installed',
     ]);
     expect(renderDoctorText([], { homeDir: '' })).toBe('\nSources: none checked');
   });

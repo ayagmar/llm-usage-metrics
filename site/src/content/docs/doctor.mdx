@@ -39,7 +39,7 @@ Doctor prints one line per source — a state glyph, the source id, its storage 
 | `⚠`   | `unparseable`   | Files exist, but the newest ones (up to 25) yield no usage. The tool may have changed its log format, or its sessions record no token usage (see the source guide). |
 | `✖`   | `error`         | Discovery failed, for example an explicit directory override that does not exist.                                                                       |
 
-To decide between `found` and `unparseable`, doctor parses the newest files first and stops at the first one with usage, so it stays fast on large histories. It exits `0` in every state, so it is safe to run in scripts.
+To decide between `found` and `unparseable`, doctor parses the newest files first and stops at the first one with usage, so it stays fast for file-per-session sources. A SQLite source (OpenCode, Goose, Antigravity) holds its history in one database, which doctor reads whole. It exits `0` in every state, so it is safe to run in scripts.
 
 Illustrative output for `llm-usage doctor --source pi,codex,opencode` (counts depend on your local data):
 

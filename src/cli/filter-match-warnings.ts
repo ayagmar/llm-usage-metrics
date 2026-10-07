@@ -3,12 +3,19 @@ import type { UsageEvent } from '../domain/usage-event.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { suggestClosest } from '../utils/suggest-closest.js';
 import type { AdapterParseResult } from './build-usage-data-parsing.js';
+import { filterUsageEvents } from './parse/usage-event-filters.js';
 
 export type FilterMatchInput = {
   parseResults: readonly AdapterParseResult[];
-  sourceFilter?: ReadonlySet<string>;
-  providerFilter?: string;
+  /** Sources named with --source on the command line; config `sources` never warn. */
+  cliSourceFilter?: ReadonlySet<string>;
+  /** The --provider value as typed. */
+  provider?: string;
+  /** Normalized --model values. */
   modelFilter?: readonly string[];
+  timezone: string;
+  since?: string;
+  until?: string;
 };
 
 function formatSuggestion(input: string, candidates: readonly string[]): string {
@@ -41,6 +48,7 @@ function modelValueMatches(value: string, models: readonly string[]): boolean {
 function findUnmatchedModelWarnings(
   events: readonly UsageEvent[],
   modelFilter: readonly string[] | undefined,
+  scope: string,
 ): string[] {
   if (!modelFilter || modelFilter.length === 0) {
     return [];
@@ -50,16 +58,17 @@ function findUnmatchedModelWarnings(
 
   return modelFilter
     .filter((value) => !modelValueMatches(value, models))
-    .map((value) => `--model ${value} matched no usage${formatSuggestion(value, models)}`);
+    .map((value) => `--model ${value} matched no usage${scope}${formatSuggestion(value, models)}`);
 }
 
 function findUnmatchedProviderWarning(
   events: readonly UsageEvent[],
-  providerFilter: string | undefined,
+  provider: string | undefined,
+  scope: string,
 ): string[] {
-  const normalizedFilter = normalizeProviderToBillingEntity(providerFilter);
+  const normalizedFilter = normalizeProviderToBillingEntity(provider);
 
-  if (!providerFilter || !normalizedFilter) {
+  if (!provider || !normalizedFilter) {
     return [];
   }
 
@@ -67,29 +76,25 @@ function findUnmatchedProviderWarning(
     normalizeProviderToBillingEntity(event.provider),
   );
 
-  if (providers.some((provider) => provider.includes(normalizedFilter))) {
+  if (providers.some((candidate) => candidate.includes(normalizedFilter))) {
     return [];
   }
 
   return [
-    `--provider ${providerFilter} matched no usage${formatSuggestion(normalizedFilter, providers)}`,
+    `--provider ${provider} matched no usage${scope}${formatSuggestion(normalizedFilter, providers)}`,
   ];
 }
 
-/**
- * A selected source without files, while others have some. When no source has files,
- * the "No session files found" warning already covers it.
- */
 function findSourcesWithoutFiles(
   parseResults: readonly AdapterParseResult[],
-  sourceFilter: ReadonlySet<string> | undefined,
+  cliSourceFilter: ReadonlySet<string> | undefined,
 ): string[] {
-  if (!sourceFilter || !parseResults.some((result) => result.filesFound > 0)) {
+  if (!cliSourceFilter) {
     return [];
   }
 
   return parseResults
-    .filter((result) => sourceFilter.has(result.source.toLowerCase()) && result.filesFound === 0)
+    .filter((result) => cliSourceFilter.has(result.source.toLowerCase()) && result.filesFound === 0)
     .map(
       (result) =>
         `--source ${result.source} found no files; \`llm-usage doctor --source ${result.source}\` shows where it looks`,
@@ -97,16 +102,26 @@ function findSourcesWithoutFiles(
 }
 
 /**
- * Warnings for filters that cannot match: a model or provider absent from every parsed
- * event (dates ignored, so a value used only outside the window does not warn), and a
- * selected source with no files.
+ * Warnings for filters that cannot match: a --model or --provider value absent from every
+ * parsed event in the report's date range, and a --source with no files. When no source
+ * has files at all, the "No session files found" warning already says so.
  */
 export function findUnmatchedFilterWarnings(input: FilterMatchInput): string[] {
-  const events = input.parseResults.flatMap((result) => result.events);
+  if (!input.parseResults.some((result) => result.filesFound > 0)) {
+    return [];
+  }
+
+  // Judged within the date range, so the answer does not depend on which files a
+  // `--since` run skipped by modification time.
+  const eventsInRange = filterUsageEvents(
+    input.parseResults.flatMap((result) => result.events),
+    { timezone: input.timezone, since: input.since, until: input.until },
+  );
+  const scope = input.since !== undefined || input.until !== undefined ? ' in this date range' : '';
 
   return [
-    ...findSourcesWithoutFiles(input.parseResults, input.sourceFilter),
-    ...findUnmatchedProviderWarning(events, input.providerFilter),
-    ...findUnmatchedModelWarnings(events, input.modelFilter),
+    ...findSourcesWithoutFiles(input.parseResults, input.cliSourceFilter),
+    ...findUnmatchedProviderWarning(eventsInRange, input.provider, scope),
+    ...findUnmatchedModelWarnings(eventsInRange, input.modelFilter, scope),
   ];
 }

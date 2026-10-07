@@ -129,6 +129,42 @@ function hasHiddenOptions(command: Command): boolean {
   return command.options.some((option) => option.hidden);
 }
 
+/** Commander's unknown-option hook; untyped in its declarations, present at runtime. */
+type UnknownOptionHook = { unknownOption: (flag: string) => void };
+
+/**
+ * Commander suggests only options shown in help, so a typo of a hidden path flag
+ * (`--claud-dir`) would lose its "Did you mean --claude-dir?". Reveal them while the
+ * error is built.
+ */
+function hasUnknownOptionHook(command: Command): command is Command & UnknownOptionHook {
+  return typeof Reflect.get(command, 'unknownOption') === 'function';
+}
+
+function suggestHiddenOptionsOnTypo(command: Command): void {
+  if (!hasUnknownOptionHook(command)) {
+    return;
+  }
+
+  const reportUnknownOption = command.unknownOption.bind(command);
+
+  command.unknownOption = (flag) => {
+    const hiddenOptions = command.options.filter((option) => option.hidden);
+
+    for (const option of hiddenOptions) {
+      option.hidden = false;
+    }
+
+    try {
+      reportUnknownOption(flag);
+    } finally {
+      for (const option of hiddenOptions) {
+        option.hidden = true;
+      }
+    }
+  };
+}
+
 /**
  * The 17 per-source path flags crowd every report's help, so they stay out of it;
  * `--help-all` prints the help with them.
@@ -157,9 +193,11 @@ function registerSourcePathOptions(command: Command): void {
     })
     .addHelpText('after', () =>
       hasHiddenOptions(command)
-        ? '\nPer-source path flags (--claude-dir, --codex-dir, --opencode-db, ...) are listed by --help-all.'
+        ? '\nPer-source path flags (--claude-dir, --codex-dir, --opencode-db, ...) are\nlisted by --help-all.'
         : '',
     );
+
+  suggestHiddenOptionsOnTypo(command);
 }
 
 export function getSupportedSourceIds(): string[] {

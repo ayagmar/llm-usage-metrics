@@ -550,12 +550,31 @@ describe('createCli', () => {
 
     expect(help).not.toMatch(/^ {2}--claude-dir <path>/mu);
     expect(help).toContain('--source-dir');
-    expect(help).toContain('are listed by --help-all');
+    expect(help).toContain('listed by --help-all');
 
     for (const option of getSourceOverrideOptions()) {
       expect(helpAll).toContain(`  ${option.flag}`);
     }
-    expect(helpAll).not.toContain('are listed by --help-all');
+    expect(helpAll).not.toContain('listed by --help-all');
+  });
+
+  it('still suggests a hidden path flag for a typo and keeps it hidden afterwards', async () => {
+    const cli = createCli();
+    const daily = cli.commands.find((command) => command.name() === 'daily');
+
+    if (!daily) {
+      throw new Error('daily command missing');
+    }
+
+    const output = captureOutput(daily);
+    await expect(daily.parseAsync(['--claud-dir', '/x'], { from: 'user' })).rejects.toMatchObject({
+      exitCode: 1,
+    });
+
+    expect(output.text()).toContain(
+      "error: unknown option '--claud-dir'\n(Did you mean --claude-dir?)",
+    );
+    expect(daily.options.find((option) => option.long === '--claude-dir')?.hidden).toBe(true);
   });
 
   it('accepts repeated directory flags and keeps database flags single', async () => {

@@ -17,7 +17,11 @@ import {
 import type { SourceAdapter } from '../sources/source-adapter.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { logger } from '../utils/logger.js';
-import { normalizeSourceFilter, validateSourceFilterValues } from './build-usage-data-inputs.js';
+import {
+  normalizeSourceFilter,
+  resolveExplicitSourceIds,
+  validateSourceFilterValues,
+} from './build-usage-data-inputs.js';
 import { resolveUserConfigForOptions, type UserConfigResolutionDeps } from './apply-user-config.js';
 import { emitUserConfigResolution } from './emit-active-config.js';
 import { formatByteSize } from '../render/format-byte-size.js';
@@ -132,6 +136,7 @@ function pluralize(count: number, noun: string): string {
 
 async function buildSourceResult(
   adapter: SourceAdapter,
+  hasPathOverride: boolean,
 ): Promise<{ result: DoctorSourceResult; files?: string[] }> {
   const format = getSourceStorageFormat(adapter.id.toLowerCase());
   const searchedPaths = [...(adapter.getSearchPaths?.() ?? [])];
@@ -155,7 +160,17 @@ async function buildSourceResult(
   const discovered = { id: adapter.id, format, status: 'ok' as const, itemsFound: files.length };
 
   if (files.length === 0) {
-    return { result: { ...discovered, state: 'not_installed', searchedPaths }, files };
+    // A path the user chose exists but holds nothing; "not installed" would mislead.
+    const detail = hasPathOverride ? 'no files found in the given path' : undefined;
+    return {
+      result: {
+        ...discovered,
+        state: 'not_installed',
+        ...(detail ? { detail } : {}),
+        searchedPaths,
+      },
+      files,
+    };
   }
 
   const probe = await probeForUsage(adapter, files);
@@ -195,11 +210,16 @@ export async function buildDoctorResults(
     createDefaultAdapters(configuredOptions),
     configuredOptions.source,
   );
+  // Dedicated flags, --source-dir entries, and config sourceDirs all name a path.
+  const sourcesWithPathOverrides = resolveExplicitSourceIds(configuredOptions, undefined);
   const results: DoctorSourceResult[] = [];
   const discoveredFilesBySource: DiscoveredFilesBySource = new Map();
 
   for (const adapter of adapters) {
-    const { result, files } = await buildSourceResult(adapter);
+    const { result, files } = await buildSourceResult(
+      adapter,
+      sourcesWithPathOverrides.has(adapter.id.toLowerCase()),
+    );
     results.push(result);
 
     if (files) {

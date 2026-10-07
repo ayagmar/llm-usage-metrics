@@ -137,6 +137,9 @@ goose = "/tmp/goose.db"
       claude: ['/work/claude', '/home/claude'],
       goose: '/tmp/goose.db',
     });
+    expect(result.warnings).toEqual([
+      'Ignoring sourceDirs.opencode: it takes one database path, not a list',
+    ]);
   });
 
   it('loads supported keys and reports unknown keys once', async () => {

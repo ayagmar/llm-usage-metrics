@@ -62,5 +62,10 @@ export async function discoverFilesAcrossRoots(
     discoveredFiles.push(...(await options.discoverInRoot(normalizedRootDir)));
   }
 
-  return options.sortAcrossRoots ? discoveredFiles.sort(compareByCodePoint) : discoveredFiles;
+  // Nested or equivalent roots (`dir`, `dir/`, `dir/project`) find the same files.
+  const uniqueFiles = [
+    ...new Map(discoveredFiles.map((filePath) => [path.resolve(filePath), filePath])).values(),
+  ];
+
+  return options.sortAcrossRoots ? uniqueFiles.sort(compareByCodePoint) : uniqueFiles;
 }

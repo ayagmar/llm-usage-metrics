@@ -287,9 +287,17 @@ export async function buildUsageEventDataset(
         ...historyWarnings,
         ...findUnmatchedFilterWarnings({
           parseResults: parseResultsForFiltering,
-          sourceFilter: normalizedInputs.sourceFilter,
-          providerFilter: normalizedInputs.providerFilter,
+          // A `sources` list from config.toml is a standing default, not a typed filter.
+          cliSourceFilter: userConfigResolution.activeConfig?.entries.some(
+            (entry) => entry.key === 'sources',
+          )
+            ? undefined
+            : normalizedInputs.sourceFilter,
+          provider: configuredOptions.provider,
           modelFilter: normalizedInputs.modelFilter,
+          timezone: normalizedInputs.timezone,
+          since: configuredOptions.since,
+          until: configuredOptions.until,
         }),
       ],
       notes: historyNotes,

@@ -41,7 +41,7 @@ function getDetail(result: DoctorSourceResult): string {
   }
 
   if (result.state === 'not_installed') {
-    return 'not installed (no files found)';
+    return result.detail ?? 'not installed (no files found)';
   }
 
   return result.detail ?? `${result.itemsFound ?? 0} file(s)`;

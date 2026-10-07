@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import type { SourceAdapter, SourceParseFileDiagnostics } from './source-adapter.js';
 
 /**
@@ -12,6 +14,7 @@ export class MultiDirectorySourceAdapter implements SourceAdapter {
 
   private readonly adapters: readonly SourceAdapter[];
   private readonly adapterByFile = new Map<string, SourceAdapter>();
+  private readonly discoveredPaths = new Set<string>();
 
   public constructor(adapters: readonly SourceAdapter[]) {
     if (adapters.length === 0) {
@@ -34,8 +37,11 @@ export class MultiDirectorySourceAdapter implements SourceAdapter {
 
     for (const adapter of this.adapters) {
       for (const filePath of await adapter.discoverFiles()) {
-        // Overlapping directories must not count a file twice.
-        if (!this.adapterByFile.has(filePath)) {
+        // Overlapping or equivalent directories must not count a file twice.
+        const resolvedPath = path.resolve(filePath);
+
+        if (!this.discoveredPaths.has(resolvedPath)) {
+          this.discoveredPaths.add(resolvedPath);
           this.adapterByFile.set(filePath, adapter);
           files.push(filePath);
         }
