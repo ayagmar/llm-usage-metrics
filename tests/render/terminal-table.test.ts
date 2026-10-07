@@ -2,7 +2,18 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import type { UsageReportRow } from '../../src/domain/usage-report-row.js';
 import { visibleWidth } from '../../src/render/table-text-layout.js';
-import { renderTerminalTable, shouldUseColorByDefault } from '../../src/render/terminal-table.js';
+import {
+  renderTerminalTable,
+  renderTerminalTableWithFit,
+  shouldUseColorByDefault,
+} from '../../src/render/terminal-table.js';
+
+function maxLineWidth(output: string): number {
+  return output
+    .trimEnd()
+    .split('\n')
+    .reduce((maxWidth, line) => Math.max(maxWidth, visibleWidth(line)), 0);
+}
 
 const sampleRows: UsageReportRow[] = [
   {
@@ -240,7 +251,7 @@ describe('renderTerminalTable', () => {
     );
   });
 
-  it('wraps long model words in the fixed-width models column', () => {
+  it('keeps long model names whole when the terminal width is unknown', () => {
     const rendered = renderTerminalTable(
       [
         {
@@ -275,9 +286,7 @@ describe('renderTerminalTable', () => {
       { useColor: false },
     );
 
-    expect(rendered).toContain('│ •                                │');
-    expect(rendered).toContain('superlongmodelnamewithoutspacesa');
-    expect(rendered).toContain('bcdefghijklmno1234567890');
+    expect(rendered).toContain('• superlongmodelnamewithoutspacesabcdefghijklmno1234567890 │');
   });
 
   it('keeps borders aligned for full-width unicode model names', () => {
@@ -871,7 +880,7 @@ describe('renderTerminalTable', () => {
     );
   });
 
-  it('widens compact tables to avoid wrapping single packed model columns when space allows', () => {
+  it('widens compact tables to avoid shortening model names when space allows', () => {
     const longModelRows: UsageReportRow[] = [
       {
         rowType: 'period_source',
@@ -912,12 +921,10 @@ describe('renderTerminalTable', () => {
       terminalWidth: 138,
     });
 
-    expect(constrainedRendered).toContain('primary-model-name-with-extra-s');
+    expect(constrainedRendered).toContain('• primary-model-…ith-extra-suffix');
     expect(expandedRendered).toContain('• primary-model-name-with-extra-suffix');
     expect(expandedRendered).toContain('• secondary-model-name-with-suffix');
-    expect(expandedRendered.trimEnd().split('\n').length).toBeLessThan(
-      constrainedRendered.trimEnd().split('\n').length,
-    );
+    expect(expandedRendered).not.toContain('…');
   });
 
   it('keeps single-model rows unchanged when compact tables widen for other rows', () => {
@@ -995,13 +1002,126 @@ describe('renderTerminalTable', () => {
     expect(expandedWidth).toBeLessThan(180);
   });
 
+  it('steps down the fit ladder as the terminal narrows', () => {
+    const fits = [200, 110, 100, 75, 60].map(
+      (terminalWidth) =>
+        renderTerminalTableWithFit(sampleRows, { useColor: false, terminalWidth }).fit,
+    );
+
+    expect(fits.map((fit) => [fit.tokenFormat, fit.hiddenColumns])).toEqual([
+      ['full', []],
+      ['abbreviated', []],
+      ['abbreviated', ['reasoning', 'cacheWrite']],
+      ['abbreviated', ['reasoning', 'cacheWrite', 'models']],
+      ['abbreviated', ['reasoning', 'cacheWrite', 'models', 'input', 'output']],
+    ]);
+  });
+
+  it('never hides the period, source, cache read, total, or cost columns', () => {
+    const { output } = renderTerminalTableWithFit(sampleRows, {
+      useColor: false,
+      terminalWidth: 60,
+    });
+    const header = output.split('\n')[1];
+
+    expect(header).toContain('Period');
+    expect(header).toContain('Source');
+    expect(header).toContain('Cache');
+    expect(header).toContain('Total');
+    expect(header).toContain('Cost');
+    expect(header).not.toContain('Models');
+    expect(header).not.toContain('Input');
+    expect(output).toContain('2.72K');
+    expect(maxLineWidth(output)).toBeLessThanOrEqual(60);
+  });
+
+  it('abbreviates token counts and stacks long headers before hiding columns', () => {
+    const { output, fit } = renderTerminalTableWithFit(sampleRows, {
+      useColor: false,
+      terminalWidth: 110,
+    });
+    const lines = output.split('\n');
+
+    expect(fit).toEqual({
+      tokenFormat: 'abbreviated',
+      hiddenColumns: [],
+      truncatedModelNames: false,
+    });
+    expect(lines[1]).toContain('│ Cache │ Cache │');
+    expect(lines[2]).toContain('│  Read │ Write │');
+    expect(output).toContain('1.23K');
+    expect(output).not.toContain('1,234');
+  });
+
+  it('keeps per-model tables readable by never hiding the models column', () => {
+    const { output, fit } = renderTerminalTableWithFit(sampleRows, {
+      useColor: false,
+      tableLayout: 'per_model_columns',
+      terminalWidth: 70,
+    });
+
+    expect(fit.hiddenColumns).toEqual(['reasoning', 'cacheWrite', 'input', 'output']);
+    expect(output).toContain('• gpt-5-codex');
+    expect(output).toContain('Σ TOTAL');
+  });
+
+  it('starts from the compact step when compact is requested, even without a terminal width', () => {
+    const { output, fit } = renderTerminalTableWithFit(sampleRows, {
+      useColor: false,
+      compact: true,
+    });
+
+    expect(fit).toEqual({
+      tokenFormat: 'abbreviated',
+      hiddenColumns: ['reasoning', 'cacheWrite'],
+      truncatedModelNames: false,
+    });
+    expect(output).not.toContain('Reasoning');
+    expect(output).toContain('• gpt-5-codex');
+  });
+
+  it('keeps one model per line for piped output even when a long name widens the column', () => {
+    const rows: UsageReportRow[] = [
+      {
+        ...sampleRows[0],
+        models: ['anthropic/claude-sonnet-4-5-20250929-thinking'],
+        modelBreakdown: [],
+      },
+      { ...sampleRows[1], models: ['gpt-4.1', 'gpt-5', 'o3'], modelBreakdown: [] },
+    ];
+    const { output } = renderTerminalTableWithFit(rows, { useColor: false });
+
+    expect(output).toContain('• anthropic/claude-sonnet-4-5-20250929-thinking │');
+    expect(output).toMatch(/│ • gpt-4\.1 +│/u);
+    expect(output).toMatch(/│ • o3 +│/u);
+  });
+
+  it('keeps every column for piped output without a terminal width', () => {
+    const { fit } = renderTerminalTableWithFit(sampleRows, { useColor: false });
+
+    expect(fit).toEqual({ tokenFormat: 'full', hiddenColumns: [], truncatedModelNames: false });
+  });
+
+  it('keeps stacked header lines aligned with color enabled', () => {
+    const { output } = renderTerminalTableWithFit(sampleRows, {
+      useColor: true,
+      terminalWidth: 110,
+    });
+    const headerLines = output.split('\n').slice(1, 3);
+
+    for (const line of headerLines) {
+      expect(visibleWidth(line)).toBe(visibleWidth(output.split('\n')[0]));
+    }
+    expect(headerLines[1]).toContain('Read');
+  });
+
   it('throws when explicit terminal width override is too narrow to render table', () => {
     expect(() =>
       renderTerminalTable(sampleRows, {
         useColor: false,
-        terminalWidth: 40,
+        terminalWidth: 30,
       }),
-    ).toThrow('Configured terminal width (40) is too narrow for table rendering');
+    ).toThrow('Configured terminal width (30) is too narrow for table rendering');
   });
 });
 

@@ -243,3 +243,59 @@ export function wrapTableColumn(
     return wrappedRow;
   });
 }
+
+function takeGraphemesByVisibleWidth(graphemes: readonly string[], maxWidth: number): string[] {
+  const taken: string[] = [];
+  let width = 0;
+
+  for (const grapheme of graphemes) {
+    const graphemeWidth = graphemeDisplayWidth(grapheme);
+
+    if (width + graphemeWidth > maxWidth) {
+      break;
+    }
+
+    width += graphemeWidth;
+    taken.push(grapheme);
+  }
+
+  return taken;
+}
+
+/**
+ * Shortens a plain line to `width` by replacing its middle with `…`, so both the start
+ * and the distinguishing end (a model's size, effort, or date suffix) stay readable.
+ */
+export function truncateMiddle(line: string, width: number): string {
+  if (visibleWidth(line) <= width) {
+    return line;
+  }
+
+  if (width <= 1) {
+    return '…'.slice(0, Math.max(0, width));
+  }
+
+  const graphemes = segmentGraphemes(line);
+  const headWidth = Math.ceil((width - 1) / 2);
+  const tailWidth = width - 1 - headWidth;
+  const head = takeGraphemesByVisibleWidth(graphemes, headWidth);
+  const tail = takeGraphemesByVisibleWidth([...graphemes].reverse(), tailWidth).reverse();
+
+  return `${head.join('')}…${tail.join('')}`;
+}
+
+export function truncateTableColumn(
+  rows: string[][],
+  options: { columnIndex: number; width: number },
+): string[][] {
+  return rows.map((row) => {
+    const truncatedRow = [...row];
+    const cell = truncatedRow[options.columnIndex] ?? '';
+
+    truncatedRow[options.columnIndex] = splitCellLines(cell)
+      .map((line) => truncateMiddle(line, options.width))
+      .join('\n');
+
+    return truncatedRow;
+  });
+}

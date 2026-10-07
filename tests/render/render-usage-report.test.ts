@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import type { UsageDataResult } from '../../src/cli/usage-data-contracts.js';
-import { renderUsageReport } from '../../src/render/render-usage-report.js';
+import {
+  describeTableFit,
+  renderUsageReport,
+  renderUsageReportWithNotes,
+} from '../../src/render/render-usage-report.js';
 
 const sampleUsageData: UsageDataResult = {
   events: [],
@@ -187,5 +191,57 @@ describe('renderUsageReport', () => {
     expect(parsed.data).toHaveLength(3);
     expect(parsed.data[0]).toMatchObject({ rowType: 'period_source', periodKey: '2026-02-10' });
     expect(parsed.data[2]).toMatchObject({ rowType: 'grand_total', periodKey: 'ALL' });
+  });
+
+  it('notes what a narrow terminal left out of the table', () => {
+    const { output, notes } = renderUsageReportWithNotes(sampleUsageData, 'terminal', {
+      granularity: 'daily',
+      useColor: false,
+      terminalWidth: 75,
+    });
+
+    expect(output).not.toContain('Reasoning');
+    expect(notes).toEqual([
+      'Fitted the table to the terminal: abbreviated token counts, hid Reasoning, Cache Write and Models. Widen the terminal or use --json for full detail.',
+    ]);
+  });
+
+  it('adds no note when the full table fits or the output is not a terminal table', () => {
+    const wide = renderUsageReportWithNotes(sampleUsageData, 'terminal', {
+      granularity: 'daily',
+      useColor: false,
+      terminalWidth: 200,
+    });
+    const markdown = renderUsageReportWithNotes(sampleUsageData, 'markdown', {
+      granularity: 'daily',
+      compact: true,
+    });
+    const empty = renderUsageReportWithNotes({ ...sampleUsageData, rows: [] }, 'terminal', {
+      granularity: 'daily',
+      useColor: false,
+      terminalWidth: 40,
+    });
+
+    expect([wide.notes, markdown.notes, empty.notes]).toEqual([[], [], []]);
+    expect(markdown.output).not.toContain('Reasoning');
+  });
+
+  it('leaves out of the note what --compact already asked for', () => {
+    const fit = {
+      tokenFormat: 'abbreviated' as const,
+      hiddenColumns: ['reasoning' as const, 'cacheWrite' as const],
+      truncatedModelNames: false,
+    };
+
+    expect(describeTableFit(fit, true)).toBeUndefined();
+    expect(describeTableFit({ ...fit, truncatedModelNames: true }, true)).toBe(
+      'Fitted the table to the terminal: shortened model names. Widen the terminal or use --json for full detail.',
+    );
+    expect(
+      describeTableFit({ ...fit, hiddenColumns: [...fit.hiddenColumns, 'models'] }, true),
+    ).toBe(
+      'Fitted the table to the terminal: hid Models. Widen the terminal or use --json for full detail.',
+    );
+    expect(describeTableFit(fit, false)).toContain('hid Reasoning and Cache Write');
   });
 });

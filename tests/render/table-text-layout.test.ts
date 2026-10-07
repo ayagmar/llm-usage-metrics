@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   resolveTtyColumns,
+  truncateMiddle,
+  truncateTableColumn,
   visibleWidth,
   wrapTableColumn,
 } from '../../src/render/table-text-layout.js';
@@ -89,5 +91,29 @@ describe('table-text-layout', () => {
     expect(resolveTtyColumns({ isTTY: true, columns: -1 })).toBeUndefined();
     expect(resolveTtyColumns({ isTTY: true, columns: Number.NaN })).toBeUndefined();
     expect(resolveTtyColumns({ isTTY: true, columns: undefined })).toBeUndefined();
+  });
+
+  it('shortens long lines with a middle ellipsis that keeps both ends', () => {
+    expect(truncateMiddle('• claude-opus-5-5-medium', 24)).toBe('• claude-opus-5-5-medium');
+    expect(truncateMiddle('• claude-haiku-4-5-20251001', 20)).toBe('• claude-h…-20251001');
+    expect(visibleWidth(truncateMiddle('• claude-haiku-4-5-20251001', 20))).toBe(20);
+    expect(truncateMiddle('abc', 1)).toBe('…');
+    expect(truncateMiddle('abc', 0)).toBe('');
+  });
+
+  it('never splits wide graphemes when shortening', () => {
+    const shortened = truncateMiddle('模型模型模型模型', 8);
+
+    expect(visibleWidth(shortened)).toBeLessThanOrEqual(8);
+    expect(shortened).toBe('模型…型');
+  });
+
+  it('shortens each line of one table column', () => {
+    expect(
+      truncateTableColumn([['2026-01', 'alpha-model-name\nbeta', '10']], {
+        columnIndex: 1,
+        width: 9,
+      }),
+    ).toEqual([['2026-01', 'alph…name\nbeta', '10']]);
   });
 });

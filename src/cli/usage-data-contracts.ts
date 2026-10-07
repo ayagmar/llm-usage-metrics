@@ -103,6 +103,8 @@ type SharedOptionsForProfile<P extends SharedOptionProfile> = AlwaysOnCommandOpt
 export type ReportCommandOptions = SharedOptionsForProfile<'usage'> & {
   /** `daily` and `weekly`: report full history instead of the default recent window. */
   all?: boolean;
+  /** Abbreviated token counts without the Reasoning and Cache Write columns. */
+  compact?: boolean;
 };
 
 export type SummaryCommandOptions = SharedOptionsForProfile<'summary'>;

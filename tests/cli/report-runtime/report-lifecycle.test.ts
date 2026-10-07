@@ -119,6 +119,22 @@ describe('report-lifecycle', () => {
 
       expect(order[0]).toBe('stdout:report body');
       expect(order[1]).toContain('try --all (terminal)');
+
+      order.length = 0;
+      const withRenderHints = await prepareReport({
+        commandOptions: {},
+        supportedFormats: ['terminal'] as const,
+        buildData: async () => ({ hint: 'try --all' }),
+        getDiagnostics: () => ({}),
+        render: () => ({ output: 'narrow body', hintsAfterOutput: ['hid Models'] }),
+        getHintsAfterOutput: (data) => [data.hint],
+      });
+
+      await runPreparedReport({ preparedReport: withRenderHints });
+
+      expect(order[0]).toBe('stdout:narrow body');
+      expect(order[1]).toContain('hid Models');
+      expect(order[2]).toContain('try --all');
     } finally {
       consoleErrorSpy.mockRestore();
       consoleLogSpy.mockRestore();

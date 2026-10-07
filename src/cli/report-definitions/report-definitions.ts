@@ -93,6 +93,10 @@ function createUsageReportDefinition(granularity: ReportGranularity): ReportRunt
         command: 'llm-usage daily --markdown',
         includeInCliReference: true,
       },
+      {
+        command: 'llm-usage daily --compact',
+        includeInCliReference: true,
+      },
     ],
     weekly: [
       {
@@ -168,6 +172,11 @@ function createUsageReportDefinition(granularity: ReportGranularity): ReportRunt
           `Report every ${period} instead of the last ${String(periods)} ${period}s`,
         );
       }
+
+      command.option(
+        '--compact',
+        'Abbreviate token counts and hide the Reasoning and Cache Write columns (terminal/markdown)',
+      );
 
       command.action((options: ReportCommandOptions) => runUsageReport(granularity, options));
 

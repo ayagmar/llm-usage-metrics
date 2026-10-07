@@ -43,12 +43,15 @@ type PreparedReport<Format extends string, Diagnostics> = {
   hintsAfterOutput?: readonly string[];
 };
 
+/** A render can return stderr hints about the output, such as columns a narrow terminal hid. */
+type RenderedOutput = string | { output: string; hintsAfterOutput: readonly string[] };
+
 type PrepareReportOptions<Data, Diagnostics, Format extends StandardReportFormat> = {
   commandOptions: OutputFlagOptions;
   supportedFormats: readonly Format[];
   validate?: () => void;
   buildData: () => Promise<Data>;
-  render: (data: Data, format: Format) => string;
+  render: (data: Data, format: Format) => RenderedOutput;
   getDiagnostics: (data: Data) => Diagnostics;
   createShareArtifact?: (data: Data) => ShareArtifact | undefined;
   getHintsAfterOutput?: (data: Data, format: Format) => readonly string[];
@@ -102,11 +105,15 @@ export async function prepareReport<Data, Diagnostics, Format extends StandardRe
     'report.prepare.build_data',
     options.buildData,
   );
-  const output = measureRuntimeProfileStageSync(
+  const rendered = measureRuntimeProfileStageSync(
     options.runtimeProfile,
     'report.prepare.render',
     () => options.render(data, format),
   );
+  const { output, hintsAfterOutput: renderHints } =
+    typeof rendered === 'string' ? { output: rendered, hintsAfterOutput: [] } : rendered;
+  const dataHints = options.getHintsAfterOutput?.(data, format) ?? [];
+  const hintsAfterOutput = [...renderHints, ...dataHints];
 
   return {
     format,
@@ -114,7 +121,7 @@ export async function prepareReport<Data, Diagnostics, Format extends StandardRe
     output,
     shareArtifact: options.createShareArtifact?.(data),
     runtimeProfile: options.runtimeProfile,
-    hintsAfterOutput: options.getHintsAfterOutput?.(data, format),
+    hintsAfterOutput: hintsAfterOutput.length > 0 ? hintsAfterOutput : undefined,
   };
 }
 

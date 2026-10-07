@@ -73,7 +73,11 @@ A resolved cost may be source-recorded or estimated. It is not a guarantee that 
 llm-usage monthly --per-model-columns
 ```
 
-This expands metrics into aligned multiline cells ranked by each model's total tokens within the row. It works with terminal and Markdown output. Use [Session usage](/llm-usage-metrics/session/) when you need conversations or repositories instead of time buckets.
+This expands metrics into aligned multiline cells ranked by each model's total tokens within the row. It works with terminal and Markdown output.
+
+## Fit narrow terminals
+
+Tables shrink to the terminal width: token counts are abbreviated first, then less-used columns are hidden, and a note on `stderr` says what was left out. `--compact` asks for the short table directly; see [Output formats](/llm-usage-metrics/output-formats/). Use [Session usage](/llm-usage-metrics/session/) when you need conversations or repositories instead of time buckets.
 
 ## Export or share
 

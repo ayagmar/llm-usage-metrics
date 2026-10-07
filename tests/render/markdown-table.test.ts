@@ -116,6 +116,18 @@ describe('renderMarkdownTable', () => {
     expect(rendered).not.toContain('tok, $');
   });
 
+  it('renders a compact table with abbreviated tokens and no reasoning or cache write', () => {
+    const rendered = renderMarkdownTable(sampleRows, { compact: true });
+
+    expect(rendered).toMatchInlineSnapshot(`
+      "| Period     | Source       | Models                         | Input | Output | Cache Read |     Total |      Cost |
+      | :--------- | :----------- | :----------------------------- | ----: | -----: | ---------: | --------: | --------: |
+      | 2026-02-10 | pi           | • gpt-4.1                      | 1.23K |    321 |         30 |     1.59K |     $1.25 |
+      | 2026-02-10 | **combined** | **• gpt-4.1**<br>• gpt-5-codex |    2K |    500 |        100 | **2.72K** | **$2.75** |
+      | **ALL**    | **TOTAL**    | **• gpt-4.1**<br>• gpt-5-codex |    2K |    500 |        100 | **2.72K** | **$2.75** |"
+    `);
+  });
+
   it('renders per-model aligned columns when enabled', () => {
     const rendered = renderMarkdownTable(sampleRows, { tableLayout: 'per_model_columns' });
 

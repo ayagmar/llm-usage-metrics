@@ -2,6 +2,24 @@ import type { ModelUsageBreakdown, UsageReportRow } from '../domain/usage-report
 
 export type UsageTableLayout = 'compact' | 'per_model_columns';
 
+/** `abbreviated` renders token counts as `1.09M`, `616M`, `24.3K`; cost stays exact. */
+export type UsageTokenFormat = 'full' | 'abbreviated';
+
+export const usageTableColumnIds = [
+  'period',
+  'source',
+  'models',
+  'input',
+  'output',
+  'reasoning',
+  'cacheRead',
+  'cacheWrite',
+  'total',
+  'cost',
+] as const;
+
+export type UsageTableColumnId = (typeof usageTableColumnIds)[number];
+
 export const usageTableHeaders = [
   'Period',
   'Source',
@@ -15,7 +33,31 @@ export const usageTableHeaders = [
   'Cost',
 ] as const;
 
+/** Columns `--compact` leaves out of terminal and markdown tables. */
+export const compactHiddenUsageColumns: readonly UsageTableColumnId[] = ['reasoning', 'cacheWrite'];
+
+export function getUsageTableHeader(columnId: UsageTableColumnId): string {
+  return usageTableHeaders[usageTableColumnIds.indexOf(columnId)];
+}
+
+/** Indexes of the columns that stay visible, in table order. */
+export function getVisibleUsageColumnIndexes(
+  hiddenColumns: ReadonlySet<UsageTableColumnId>,
+): number[] {
+  return usageTableColumnIds.flatMap((columnId, index) =>
+    hiddenColumns.has(columnId) ? [] : [index],
+  );
+}
+
+export function selectColumns<T>(cells: readonly T[], columnIndexes: readonly number[]): T[] {
+  return columnIndexes.map((columnIndex) => cells[columnIndex]);
+}
+
 const integerFormatter = new Intl.NumberFormat('en-US');
+const abbreviatedIntegerFormatter = new Intl.NumberFormat('en-US', {
+  notation: 'compact',
+  maximumSignificantDigits: 3,
+});
 const usdFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -31,8 +73,12 @@ function formatSource(row: UsageReportRow): string {
   return row.source;
 }
 
-function formatTokenCount(value: number | undefined): string {
+function formatFullTokenCount(value: number | undefined): string {
   return integerFormatter.format(value ?? 0);
+}
+
+function formatAbbreviatedTokenCount(value: number | undefined): string {
+  return abbreviatedIntegerFormatter.format(value ?? 0);
 }
 
 function formatUsd(value: number | undefined, options: { incomplete?: boolean } = {}): string {
@@ -103,9 +149,11 @@ function formatModelCostMetric(row: UsageReportRow, layout: UsageTableLayout): s
 
 export function toUsageTableCells(
   rows: UsageReportRow[],
-  options: { layout?: UsageTableLayout } = {},
+  options: { layout?: UsageTableLayout; tokenFormat?: UsageTokenFormat } = {},
 ): string[][] {
   const layout = options.layout ?? 'compact';
+  const formatTokenCount =
+    options.tokenFormat === 'abbreviated' ? formatAbbreviatedTokenCount : formatFullTokenCount;
 
   return rows.map((row) => [
     row.periodKey,

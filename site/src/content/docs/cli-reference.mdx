@@ -163,6 +163,8 @@ Options:
   --share                        Write a share SVG image to the current
                                  directory
   --all                          Report every day instead of the last 7 days
+  --compact                      Abbreviate token counts and hide the Reasoning
+                                 and Cache Write columns (terminal/markdown)
   -h, --help                     display help for command
 ```
 
@@ -233,6 +235,8 @@ Options:
   --share                        Write a share SVG image to the current
                                  directory
   --all                          Report every week instead of the last 8 weeks
+  --compact                      Abbreviate token counts and hide the Reasoning
+                                 and Cache Write columns (terminal/markdown)
   -h, --help                     display help for command
 ```
 
@@ -301,6 +305,8 @@ Options:
                                  table columns (terminal/markdown)
   --share                        Write a share SVG image to the current
                                  directory
+  --compact                      Abbreviate token counts and hide the Reasoning
+                                 and Cache Write columns (terminal/markdown)
   -h, --help                     display help for command
 ```
 
@@ -964,6 +970,7 @@ Search across root and command help. See Command help above to check which flags
 | `--claude-dir` | - | `<path>` | Path to Claude projects directory |
 | `--cline-dir` | - | `<path>` | Path to Cline tasks directory |
 | `--codex-dir` | - | `<path>` | Path to .codex sessions directory |
+| `--compact` | - | - | Abbreviate token counts and hide the Reasoning and Cache Write columns \(terminal/Markdown\) \(usage reports only\) |
 | `--copilot-dir` | - | `<path>` | Path to GitHub Copilot OTEL directory |
 | `--days` | - | `<n>` | Trailing local calendar days to chart; defaults to 30 when no date flags are provided \(trends only\) |
 | `--departed-before` | - | `<YYYY-MM-DD>` | Select departed files whose newest event timestamp is strictly before this UTC date \(prune only\) |
@@ -1020,6 +1027,7 @@ llm-usage daily
 llm-usage daily --source-dir pi=/tmp/pi-sessions --source-dir gemini=/tmp/.gemini --source-dir droid=/tmp/droid-sessions --source-dir openclaw=/tmp/openclaw-agents
 llm-usage daily --json
 llm-usage daily --markdown
+llm-usage daily --compact
 llm-usage weekly --timezone Europe/Paris
 llm-usage weekly --all --json
 llm-usage monthly --since 2026-01-01 --until 2026-01-31
