@@ -2,7 +2,13 @@ import { createUsageEvent } from '../../domain/usage-event.js';
 import type { UsageEvent } from '../../domain/usage-event.js';
 import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
 import { asRecord } from '../../utils/as-record.js';
-import { asTrimmedText, normalizeTimestampCandidate, toNumberLike } from '../parsing-utils.js';
+import {
+  asTrimmedText,
+  normalizeTimestampCandidate,
+  resolveTotalTokens,
+  toNumberLike,
+  toTokenCount,
+} from '../parsing-utils.js';
 import type { SourceParseFileDiagnostics } from '../source-adapter.js';
 import type { OpenCodeSqliteRow } from './opencode-sqlite-query.js';
 
@@ -156,12 +162,31 @@ export function parseOpenCodeMessageRows(
     const repoRoot = resolveRepoRoot(payload);
     const tokens = asRecord(payload.tokens);
     const tokenCache = asRecord(tokens?.cache);
-    const inputTokens = toNumberLike(tokens?.input);
-    const outputTokens = toNumberLike(tokens?.output);
-    const reasoningTokens = toNumberLike(tokens?.reasoning);
-    const cacheReadTokens = toNumberLike(tokenCache?.read);
-    const cacheWriteTokens = toNumberLike(tokenCache?.write);
-    const totalTokens = toNumberLike(tokens?.total);
+    const inputTokens = toTokenCount(tokens?.input);
+    const storedOutputTokens = toTokenCount(tokens?.output);
+    const reasoningTokens = toTokenCount(tokens?.reasoning);
+    const cacheReadTokens = toTokenCount(tokenCache?.read);
+    const cacheWriteTokens = toTokenCount(tokenCache?.write);
+    const declaredTotalTokens = toTokenCount(tokens?.total);
+    // OpenCode stored `output` with reasoning included until April 2026 (#21047) and as
+    // `outputTokens - reasoningTokens` since, while `total` (added February 2026) always comes
+    // from the SDK and includes reasoning. A total equal to the stored buckets therefore marks
+    // an inclusive row, and rows without a total predate the split (except Gemini rows, whose
+    // SDK then reported thoughts outside output; those are only caught when output is smaller
+    // than reasoning, which an inclusive row can never be). The domain contract counts
+    // reasoning inside output, so only exclusive rows get it added back.
+    const outputIncludesReasoning =
+      storedOutputTokens >= reasoningTokens &&
+      (declaredTotalTokens === 0 ||
+        declaredTotalTokens ===
+          inputTokens + storedOutputTokens + cacheReadTokens + cacheWriteTokens);
+    const outputTokens = outputIncludesReasoning
+      ? storedOutputTokens
+      : storedOutputTokens + reasoningTokens;
+    const totalTokens = resolveTotalTokens(
+      declaredTotalTokens,
+      inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens,
+    );
     const explicitCost = parseNonNegativeNumber(payload.cost);
 
     if (

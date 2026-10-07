@@ -99,7 +99,7 @@ describe('opencode row parser', () => {
       provider: 'openai',
       model: 'gpt-5-codex',
       inputTokens: 100,
-      outputTokens: 40,
+      outputTokens: 45,
       reasoningTokens: 5,
       cacheReadTokens: 20,
       cacheWriteTokens: 10,
@@ -266,6 +266,73 @@ describe('opencode row parser', () => {
     expect(parseDiagnostics.skippedRows).toBe(1);
     expect(parseDiagnostics.skippedRowReasons).toEqual([
       { reason: 'missing_usage_signal', count: 1 },
+    ]);
+  });
+
+  it('adds reasoning back into output only for rows that store it outside output', () => {
+    const row = (id: string, tokens: Record<string, unknown>) => ({
+      row_id: id,
+      row_session_id: `session-${id}`,
+      row_time: 1_737_000_000,
+      data_json: JSON.stringify({ role: 'assistant', modelID: 'gpt-5-codex', tokens }),
+    });
+    const parseDiagnostics = parseOpenCodeMessageRows(
+      [
+        // Since April 2026: output excludes reasoning and the SDK total includes it.
+        row('current', {
+          input: 100,
+          output: 40,
+          reasoning: 30,
+          cache: { read: 20, write: 10 },
+          total: 200,
+        }),
+        // Before April 2026: output already included reasoning, so the total equals the buckets.
+        row('legacy', {
+          input: 100,
+          output: 40,
+          reasoning: 30,
+          cache: { read: 20, write: 10 },
+          total: 170,
+        }),
+        // Before February 2026 there was no total at all; output included reasoning.
+        row('no-total', { input: 100, output: 40, reasoning: 30, cache: { read: 20, write: 10 } }),
+        // A total that matches neither layout is kept as declared; output follows the
+        // current layout.
+        row('odd-total', { input: 100, output: 40, reasoning: 30, total: 999 }),
+        row('null-total', { input: 10, output: 5, reasoning: 2, total: null }),
+        row('reasoning-only', { input: 0, output: 0, reasoning: 12, total: 12 }),
+        // An inclusive row can never store less output than reasoning (legacy Gemini rows).
+        row('legacy-gemini', { input: 100, output: 5, reasoning: 12 }),
+      ],
+      'opencode',
+    );
+
+    expect(parseDiagnostics.skippedRows).toBe(0);
+    expect(
+      parseDiagnostics.events.map((event) => ({
+        sessionId: event.sessionId,
+        outputTokens: event.outputTokens,
+        reasoningTokens: event.reasoningTokens,
+        totalTokens: event.totalTokens,
+      })),
+    ).toEqual([
+      { sessionId: 'session-current', outputTokens: 70, reasoningTokens: 30, totalTokens: 200 },
+      { sessionId: 'session-legacy', outputTokens: 40, reasoningTokens: 30, totalTokens: 170 },
+      { sessionId: 'session-no-total', outputTokens: 40, reasoningTokens: 30, totalTokens: 170 },
+      { sessionId: 'session-odd-total', outputTokens: 70, reasoningTokens: 30, totalTokens: 999 },
+      { sessionId: 'session-null-total', outputTokens: 5, reasoningTokens: 2, totalTokens: 15 },
+      {
+        sessionId: 'session-reasoning-only',
+        outputTokens: 12,
+        reasoningTokens: 12,
+        totalTokens: 12,
+      },
+      {
+        sessionId: 'session-legacy-gemini',
+        outputTokens: 17,
+        reasoningTokens: 12,
+        totalTokens: 117,
+      },
     ]);
   });
 });

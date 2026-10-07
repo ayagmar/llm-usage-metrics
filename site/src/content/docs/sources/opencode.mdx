@@ -20,5 +20,6 @@ llm-usage daily --source opencode --opencode-db /path/to/opencode.db
 
 - database is opened in read-only mode
 - assistant message rows are parsed into normalized events
+- `reasoningTokens` is a subset of `outputTokens`. OpenCode releases since April 2026 store `tokens.output` without reasoning while the SDK `tokens.total` includes it; the adapter adds `tokens.reasoning` back when the total shows reasoning outside the stored buckets, and leaves older rows (output already inclusive, or no total at all) unchanged. Gemini rows written before February 2026 stored thoughts outside `output`; they are corrected only when the stored output is smaller than the reasoning count. A positive `tokens.total` is kept as the event total; otherwise the buckets are summed.
 - malformed rows are skipped and surfaced in diagnostics
 - busy/locked DB errors use bounded retry before failing with actionable guidance
