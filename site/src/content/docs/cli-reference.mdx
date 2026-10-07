@@ -174,7 +174,8 @@ Options:
 ```text
 Usage: llm-usage weekly [options]
 
-Show weekly usage report (week starts Monday)
+Show weekly usage report (week starts Monday; last 8 weeks unless --since,
+--until, or --all)
 
 Options:
   --pi-dir <path>                Path to .pi sessions directory
@@ -231,6 +232,7 @@ Options:
                                  table columns (terminal/markdown)
   --share                        Write a share SVG image to the current
                                  directory
+  --all                          Report every week instead of the last 8 weeks
   -h, --help                     display help for command
 ```
 
@@ -952,7 +954,7 @@ Search across root and command help. See Command help above to check which flags
 
 | Option | Short | Argument | Description |
 | --- | --- | --- | --- |
-| `--all` | - | - | Report every day instead of the last 7 days \(usage reports only\) |
+| `--all` | - | - | daily: Report every day instead of the last 7 days; weekly: Report every week instead of the last 8 weeks |
 | `--amp-dir` | - | `<path>` | Path to Amp threads directory |
 | `--antigravity-dir` | - | `<path>` | Path to Antigravity conversations directory |
 | `--apply` | - | - | Delete selected departed files and vacuum the event store \(prune only\) |
@@ -1019,6 +1021,7 @@ llm-usage daily --source-dir pi=/tmp/pi-sessions --source-dir gemini=/tmp/.gemin
 llm-usage daily --json
 llm-usage daily --markdown
 llm-usage weekly --timezone Europe/Paris
+llm-usage weekly --all --json
 llm-usage monthly --since 2026-01-01 --until 2026-01-31
 llm-usage monthly --source opencode --opencode-db /path/to/opencode.db --json
 llm-usage monthly --source gemini --gemini-dir /path/to/.gemini

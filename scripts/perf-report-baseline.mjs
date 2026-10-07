@@ -40,7 +40,7 @@ const scenarios = [
     name: 'weekly-json',
     kind: 'usage',
     granularity: 'weekly',
-    options: { ...fixtureOptions, json: true },
+    options: { ...fixtureOptions, all: true, json: true },
   },
   {
     name: 'monthly-json',

@@ -13,6 +13,7 @@ import type {
   TrendsCommandOptions,
   WrappedCommandOptions,
 } from '../usage-data-contracts.js';
+import { DEFAULT_REPORT_WINDOWS } from '../build-usage-data.js';
 import { runCompareReport } from '../run-compare-report.js';
 import { runEfficiencyReport } from '../run-efficiency-report.js';
 import { runOptimizeReport } from '../run-optimize-report.js';
@@ -99,6 +100,10 @@ function createUsageReportDefinition(granularity: ReportGranularity): ReportRunt
         includeInRootHelp: true,
         includeInCliReference: true,
       },
+      {
+        command: 'llm-usage weekly --all --json',
+        includeInCliReference: true,
+      },
     ],
     monthly: [
       {
@@ -139,7 +144,8 @@ function createUsageReportDefinition(granularity: ReportGranularity): ReportRunt
 
   const descriptionByGranularity: Record<ReportGranularity, string> = {
     daily: 'Show daily usage report (last 7 days unless --since, --until, or --all)',
-    weekly: 'Show weekly usage report (week starts Monday)',
+    weekly:
+      'Show weekly usage report (week starts Monday; last 8 weeks unless --since, --until, or --all)',
     monthly: 'Show monthly usage report',
   };
 
@@ -153,8 +159,14 @@ function createUsageReportDefinition(granularity: ReportGranularity): ReportRunt
       helpExamples: helpExamplesByGranularity[granularity],
     },
     register(command) {
-      if (granularity === 'daily') {
-        command.option('--all', 'Report every day instead of the last 7 days');
+      const defaultWindow = DEFAULT_REPORT_WINDOWS[granularity];
+
+      if (defaultWindow) {
+        const { period, periods } = defaultWindow;
+        command.option(
+          '--all',
+          `Report every ${period} instead of the last ${String(periods)} ${period}s`,
+        );
       }
 
       command.action((options: ReportCommandOptions) => runUsageReport(granularity, options));

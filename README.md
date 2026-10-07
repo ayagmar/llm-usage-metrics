@@ -40,7 +40,7 @@ npm install -g llm-usage-metrics
 llm-usage
 ```
 
-With no command, `llm-usage` prints cost and tokens for today, the last 7 days, and month to date. `llm-usage daily` breaks the last 7 days down by day and source; add `--since YYYY-MM-DD` or `--all` for older usage.
+With no command, `llm-usage` prints cost and tokens for today, the last 7 days, and month to date. `llm-usage daily` breaks the last 7 days down by day and source, and `llm-usage weekly` covers the last 8 weeks; add `--since YYYY-MM-DD` or `--all` for older usage.
 
 If the report is empty, check source discovery:
 

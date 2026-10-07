@@ -30,6 +30,7 @@ describe('usage report e2e', () => {
 
   it('renders weekly report with Monday-based week buckets', async () => {
     const report = await buildUsageReport('weekly', {
+      all: true,
       piDir,
       codexDir,
       source: 'pi,codex',

@@ -15,10 +15,11 @@ Run `llm-usage` with no command for a short summary: cost, tokens, and the top s
 
 ## Set the reporting window
 
-Without date bounds, `daily` covers the last 7 days in your reporting timezone and prints a reminder on `stderr`; `--all` includes every day. `weekly` and `monthly` include all matching discovered history; `monthly` groups that history by month and does not limit the result to the current month.
+Without date bounds, `daily` covers the last 7 days and `weekly` covers the last 8 weeks (from the Monday 7 weeks before the current week), both in your reporting timezone. Each prints a reminder on `stderr`; `--all` includes every period and cannot be combined with `--since` or `--until`. `monthly` includes all matching discovered history and does not limit the result to the current month.
 
 ```bash
 llm-usage daily --all
+llm-usage weekly --all
 ```
 
 ```bash

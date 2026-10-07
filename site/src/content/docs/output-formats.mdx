@@ -36,7 +36,7 @@ Very wide usage tables can emit an overflow warning on `stderr`. Use a wider ter
 llm-usage daily --all --json > usage.json
 ```
 
-Use JSON for scripts and pipelines. Every report wraps its payload in a versioned envelope:
+Use JSON for scripts and pipelines. Without date bounds, `daily` and `weekly` cover only their default windows (the last 7 days and the last 8 weeks), so scripts that need full history should pass `--all` or explicit `--since`/`--until` dates. Every report wraps its payload in a versioned envelope:
 
 ```json
 {

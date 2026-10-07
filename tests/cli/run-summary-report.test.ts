@@ -70,6 +70,22 @@ describe('runUsageReport default window hint', () => {
     );
   });
 
+  it('tells weekly users how to see older usage', async () => {
+    const options = await emptySourceOptions();
+    const order = await captureRun(() => runUsageReport('weekly', options));
+
+    expect(order.at(-1)).toMatch(
+      /Showing the last 8 weeks \(since \d{4}-\d{2}-\d{2}\)\. Use --since YYYY-MM-DD or --all/u,
+    );
+  });
+
+  it('prints no window hint for monthly', async () => {
+    const options = await emptySourceOptions();
+    const order = await captureRun(() => runUsageReport('monthly', options));
+
+    expect(order.some((line) => line.includes('Showing the last'))).toBe(false);
+  });
+
   it('stays quiet once the user picks the range', async () => {
     const options = await emptySourceOptions();
     const order = await captureRun(() => runUsageReport('daily', { ...options, all: true }));

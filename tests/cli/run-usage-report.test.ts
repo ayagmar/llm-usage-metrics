@@ -132,6 +132,7 @@ describe('buildUsageReport', () => {
 
   it('builds json report when --json semantics are requested', async () => {
     const report = await buildUsageReport('weekly', {
+      all: true,
       piDir: path.resolve('tests/fixtures/pi'),
       codexDir: path.resolve('tests/fixtures/codex'),
       source: directoryBackedSources,

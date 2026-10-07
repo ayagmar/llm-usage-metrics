@@ -101,7 +101,7 @@ type SharedOptionsForProfile<P extends SharedOptionProfile> = AlwaysOnCommandOpt
   (ProfileConfig[P]['includeShare'] extends true ? ShareOption : unknown);
 
 export type ReportCommandOptions = SharedOptionsForProfile<'usage'> & {
-  /** `daily` only: report every day instead of the default recent window. */
+  /** `daily` and `weekly`: report full history instead of the default recent window. */
   all?: boolean;
 };
 
