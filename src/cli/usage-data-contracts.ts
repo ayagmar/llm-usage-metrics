@@ -47,6 +47,7 @@ type AlwaysOnCommandOptions = {
   source?: string | string[];
   json?: boolean;
   quiet?: boolean;
+  verbose?: boolean;
 };
 
 type DateFilterOptions = {
@@ -182,6 +183,8 @@ export type UsageDiagnostics = {
   pricingOrigin: UsagePricingOrigin;
   pricingWarning?: string;
   warnings?: string[];
+  /** Informational lines the user asked for (e.g. --history totals); not problems. */
+  notes?: string[];
   activeEnvOverrides: EnvVarOverride[];
   activeConfig?: ActiveConfig;
   timezone: string;

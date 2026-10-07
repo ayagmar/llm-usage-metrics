@@ -16,6 +16,7 @@ type BuildUsageDiagnosticsParams = {
   pricingOrigin: UsagePricingOrigin;
   pricingWarning?: string;
   warnings?: string[];
+  notes?: string[];
   activeEnvOverrides: UsageDiagnostics['activeEnvOverrides'];
   activeConfig?: UsageDiagnostics['activeConfig'];
   timezone: string;
@@ -52,6 +53,7 @@ export function buildUsageDiagnostics(params: BuildUsageDiagnosticsParams): Usag
     pricingOrigin: params.pricingOrigin,
     pricingWarning: params.pricingWarning,
     warnings: params.warnings,
+    notes: params.notes,
     activeEnvOverrides: params.activeEnvOverrides,
     activeConfig: params.activeConfig,
     timezone: params.timezone,

@@ -92,8 +92,7 @@ describe.skipIf(!existsSync(distCliPath))('dist CLI e2e', () => {
     );
 
     expect(grandTotalRow?.totalTokens).toBe(expectedDirectorySourceTokens);
-    expect(stderr).toContain('Found');
-    expect(stderr).toContain('session file(s)');
+    expect(stderr).toMatch(/Scanned \d+ files?/u);
   });
 
   it('suppresses informational stderr with --quiet without changing JSON output', async () => {
@@ -132,9 +131,7 @@ describe.skipIf(!existsSync(distCliPath))('dist CLI e2e', () => {
 
     expect(quiet.stdout).toBe(plain.stdout);
     expect(plain.stderr).toContain('ℹ');
-    expect(plain.stderr).toContain('•');
     expect(quiet.stderr).not.toContain('ℹ');
-    expect(quiet.stderr).not.toContain('•');
     expect(quiet.stderr.split('\n').filter((line) => line.includes('⚠'))).toEqual(
       plain.stderr.split('\n').filter((line) => line.includes('⚠')),
     );
@@ -169,6 +166,8 @@ describe.skipIf(!existsSync(distCliPath))('dist CLI e2e', () => {
       '--codex-dir',
       largeCodexDir,
       '--pricing-offline',
+      // Env override details are --verbose output.
+      '--verbose',
     ];
     const workersOn = await execFileAsync(process.execPath, args, {
       encoding: 'utf8',

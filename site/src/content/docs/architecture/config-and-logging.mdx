@@ -29,7 +29,7 @@ The default constants live in `runtime-overrides.ts` as exports, and the `config
 
 ## Transparency blocks
 
-Reports print what configuration actually applied, on `stderr`:
+Reports print what configuration actually applied, on `stderr`. The default summary line names the config file and counts env overrides; `--verbose` prints the full blocks:
 
 - `Active config: <path>` lists the config-file values that took effect this run. The shadowing rule is load-bearing: a config value overridden by a flag or an env var is **not** listed, so the block never claims credit for a value that came from somewhere else.
 - `Active environment overrides:` separately lists every recognized `LLM_USAGE_*` env var that is set, with its value.
@@ -47,12 +47,13 @@ Adding a config key therefore touches: the known-key set in `user-config.ts`, bo
 `src/utils/logger.ts` is a leveled `stderr` logger with a module-level `setLogLevel` and the ladder `silent < warn < info < debug`. The default level is `info`. Message kinds map to levels as follows: `warn` messages show at `warn` and above; `info` and `dim` messages show at `info` and above; `debug` messages only at `debug`.
 
 - Startup applies the `logLevel` config key (`setLogLevel(config.logLevel ?? 'info')` in `src/cli/index.ts`).
-- `--quiet` maps to `warn` for a single run via a Commander `preAction` hook in `create-cli.ts` — it wins over the configured level for that run.
+- `--quiet` maps to `warn` and `--verbose` to `debug` for a single run via a Commander `preAction` hook in `create-cli.ts`; either wins over the configured level for that run, and passing both is an error.
+- Report diagnostics (`src/cli/emit-diagnostics.ts`) print one `info` summary line: files scanned per source, the pricing origin, the config file, and the env-override count. Real problems are `warn` lines: source failures, files that failed to parse, rows that could not be read, a source whose files yield no usage at all (a likely log-format change), and pricing and event-store warnings. Informational notes such as the `--history` totals are `info`. Routine skips (rows that carry no usage by design: `no_token_usage`, `missing_usage_signal`, `synthetic_message`, `non_gemini_message`; and goose's `invalid_model_config`, which keeps the event), per-source event counts, and the config/env blocks are `debug`.
 - **Report bodies on `stdout` are never gated.** Levels only control `stderr` diagnostics; `--json` output at `silent` is byte-identical to `--json` output at `debug`.
 - The fatal error handler in `src/cli/index.ts` is a raw `console.error` with exit code 1, outside the logger — failures always print, even at `silent`.
 
 ## Related pages
 
 - [Configuration](/llm-usage-metrics/configuration/) — the key tables, source path overrides, and env vars.
-- [CLI Reference](/llm-usage-metrics/cli-reference/) — the `--quiet` flag and per-command options.
+- [CLI Reference](/llm-usage-metrics/cli-reference/) — the `--quiet` and `--verbose` flags and per-command options.
 - [Architecture overview](/llm-usage-metrics/architecture/) — where config and logging sit in the runtime.

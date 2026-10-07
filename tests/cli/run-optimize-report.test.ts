@@ -160,7 +160,7 @@ describe('run-optimize-report', () => {
     expect(Array.isArray(parsed.data)).toBe(true);
 
     const stderrLines = consoleErrorSpy.mock.calls.map((call) => String(call[0]));
-    expect(stderrLines.some((line) => line.includes('No sessions found'))).toBe(true);
+    expect(stderrLines.some((line) => line.includes('No session files found'))).toBe(true);
     expect(stderrLines.some((line) => line.includes('Optimize provider scope'))).toBe(true);
     expect(
       stderrLines.some((line) => line.includes('Missing pricing for candidate model(s)')),

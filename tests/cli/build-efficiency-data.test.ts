@@ -131,6 +131,7 @@ function createUsageEventDataset(options: Record<string, unknown> = {}): UsageEv
     ],
     sourceFailures: [],
     warnings: [],
+    notes: [],
     filteredEvents: pricedEvents,
     pricingRuntimeConfig: {
       cacheTtlMs: 1_000,

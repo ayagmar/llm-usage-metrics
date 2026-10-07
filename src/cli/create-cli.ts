@@ -60,8 +60,16 @@ export function createCli(options: CreateCliOptions = {}): Command {
   program.addCommand(createSchemaCommand());
 
   program.hook('preAction', (_thisCommand, actionCommand) => {
-    if (actionCommand.opts().quiet === true) {
+    const { quiet, verbose } = actionCommand.opts<{ quiet?: boolean; verbose?: boolean }>();
+
+    if (quiet === true && verbose === true) {
+      program.error('error: choose either --quiet or --verbose, not both');
+    }
+
+    if (quiet === true) {
       setLogLevel('warn');
+    } else if (verbose === true) {
+      setLogLevel('debug');
     }
   });
 

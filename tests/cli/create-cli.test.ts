@@ -5,6 +5,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createCli } from '../../src/cli/create-cli.js';
+import { logger, setLogLevel } from '../../src/utils/logger.js';
 import {
   getCliReferenceExamples,
   getReportDefinitionMetas,
@@ -114,6 +115,7 @@ describe('createCli', () => {
 
     for (const command of reportCommands) {
       expect(command.options.some((option) => option.long === '--quiet')).toBe(true);
+      expect(command.options.some((option) => option.long === '--verbose')).toBe(true);
     }
   });
 
@@ -487,5 +489,51 @@ describe('createCli', () => {
       .map((command) => command.name());
 
     expect(commandsWithAll).toEqual(['daily']);
+  });
+
+  it('rejects --quiet together with --verbose', async () => {
+    const cli = createCli();
+    const output = captureOutput(cli);
+    const summaryAction = stubSummaryAction(cli);
+
+    await expect(
+      cli.parseAsync(['summary', '--quiet', '--verbose'], { from: 'user' }),
+    ).rejects.toMatchObject({ exitCode: 1 });
+
+    expect(summaryAction).not.toHaveBeenCalled();
+    expect(output.text()).toContain('choose either --quiet or --verbose, not both');
+  });
+
+  it.each([
+    [['--verbose'], ['debug', 'info', 'warn']],
+    [[], ['info', 'warn']],
+    [['--quiet'], ['warn']],
+  ])('maps %j to the stderr levels a report prints', async (flags, expectedLevels) => {
+    const cli = createCli();
+    captureOutput(cli);
+    const printed: string[] = [];
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation((value: unknown) => {
+      printed.push(String(value));
+    });
+    cli.commands
+      .find((command) => command.name() === 'summary')
+      ?.action(() => {
+        logger.debug('debug line');
+        logger.info('info line');
+        logger.warn('warn line');
+      });
+
+    try {
+      await cli.parseAsync(['summary', ...flags], { from: 'user' });
+    } finally {
+      errorSpy.mockRestore();
+      setLogLevel('info');
+    }
+
+    expect(
+      ['debug', 'info', 'warn'].filter((level) =>
+        printed.some((line) => line.includes(`${level} line`)),
+      ),
+    ).toEqual(expectedLevels);
   });
 });

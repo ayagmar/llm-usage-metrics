@@ -114,4 +114,4 @@ This usage-report option expands token and cost values per model into aligned mu
 llm-usage daily --all --json > usage.json 2> usage.log
 ```
 
-`usage.json` contains report data. `usage.log` contains source discovery, skipped-row, pricing, config, and runtime notes. Pass `--quiet` when you want to suppress informational diagnostics while keeping warnings.
+`usage.json` contains report data. `usage.log` contains a one-line discovery and pricing summary, any warnings, and notes such as `--history` totals. Pass `--quiet` to keep only warnings, or `--verbose` to add per-source counts, routine skipped rows, and the config and env blocks.

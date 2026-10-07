@@ -507,7 +507,7 @@ describe('buildUsageReport', () => {
         timezone: 'UTC',
       });
 
-      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('No sessions found'));
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('No session files found'));
       expect(logSpy).toHaveBeenCalledTimes(1);
       expect(errorSpy.mock.invocationCallOrder[0]).toBeLessThan(logSpy.mock.invocationCallOrder[0]);
     } finally {
@@ -535,8 +535,7 @@ describe('buildUsageReport', () => {
 
       expect(String(logSpy.mock.calls[0]?.[0])).not.toContain('Active environment overrides:');
       const stderrLines = errorSpy.mock.calls.map((call) => String(call[0]));
-      expect(stderrLines.some((line) => line.includes('Active environment overrides:'))).toBe(true);
-      expect(stderrLines.some((line) => line.includes('LLM_USAGE_PARSE_WORKERS=0'))).toBe(true);
+      expect(stderrLines.some((line) => /\d+ env overrides?/u.test(line))).toBe(true);
     } finally {
       errorSpy.mockRestore();
       logSpy.mockRestore();
@@ -597,7 +596,7 @@ describe('buildUsageReport', () => {
       });
 
       expect(
-        errorSpy.mock.calls.some((call) => String(call[0]).includes('No sessions found')),
+        errorSpy.mock.calls.some((call) => String(call[0]).includes('No session files found')),
       ).toBe(true);
       expect(
         errorSpy.mock.calls.some((call) => String(call[0]).includes('wider than terminal')),
@@ -721,7 +720,7 @@ describe('buildUsageReport', () => {
         json: true,
       });
 
-      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('No sessions found'));
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('No session files found'));
       expect(logSpy).toHaveBeenCalledTimes(1);
       expect(String(logSpy.mock.calls[0]?.[0])).toContain('"rowType": "grand_total"');
       expect(errorSpy.mock.invocationCallOrder[0]).toBeLessThan(logSpy.mock.invocationCallOrder[0]);
