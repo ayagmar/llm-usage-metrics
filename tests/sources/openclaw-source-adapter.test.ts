@@ -506,4 +506,49 @@ describe('OpenClawSourceAdapter', () => {
   it('uses the default OpenClaw agents directory', () => {
     expect(getDefaultOpenClawAgentsDir()).toBe(path.join(os.homedir(), '.openclaw', 'agents'));
   });
+
+  it('keeps reasoning inside the total when usage declares no total', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'openclaw-reasoning-total-'));
+    tempDirs.push(root);
+    const filePath = path.join(root, 'reasoning.jsonl');
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'openclaw-reasoning',
+          timestamp: '2026-04-01T10:00:00.000Z',
+          provider: 'openai',
+          model: 'gpt-5.3-codex',
+        }),
+        JSON.stringify({
+          type: 'message',
+          id: 'a1',
+          role: 'assistant',
+          timestamp: '2026-04-01T10:00:20.000Z',
+          usage: { input: 100, output: 80, reasoning: 30, cacheRead: 20 },
+        }),
+        JSON.stringify({
+          type: 'message',
+          id: 'a2',
+          role: 'assistant',
+          timestamp: '2026-04-01T10:00:30.000Z',
+          usage: { input: 100, output: 80, reasoning: 30, cacheRead: 20, total: 0 },
+        }),
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+
+    const events = await new OpenClawSourceAdapter().parseFile(filePath);
+
+    expect(events).toHaveLength(2);
+    expect(events.map((event) => event.totalTokens)).toEqual([200, 200]);
+    expect(events[0]).toMatchObject({
+      inputTokens: 100,
+      outputTokens: 80,
+      reasoningTokens: 30,
+      cacheReadTokens: 20,
+    });
+  });
 });

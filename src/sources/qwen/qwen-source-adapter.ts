@@ -33,7 +33,7 @@ type QwenTokenUsage = {
   reasoningTokens: number;
   cacheReadTokens: number;
   cacheWriteTokens: number;
-  totalTokens?: number;
+  totalTokens: number;
 };
 
 function shouldParseQwenJsonlLine(lineText: string): boolean {
@@ -96,22 +96,15 @@ function extractTokenUsage(
     return null;
   }
 
-  const extractedUsage = {
+  // Reasoning is a breakdown of output, so the fallback total must not add it again.
+  return {
     inputTokens,
     outputTokens,
     reasoningTokens,
     cacheReadTokens,
     cacheWriteTokens,
+    totalTokens: resolveTotalTokens(declaredTotalTokens, componentTotalTokens),
   };
-
-  if (declaredTotalTokens > 0) {
-    return {
-      ...extractedUsage,
-      totalTokens: declaredTotalTokens,
-    };
-  }
-
-  return extractedUsage;
 }
 
 function getFallbackSessionId(filePath: string): string {
@@ -125,7 +118,7 @@ function getFallbackSessionId(filePath: string): string {
 
 export class QwenSourceAdapter implements SourceAdapter {
   public readonly id = 'qwen' as const;
-  public readonly parserVersion = 3;
+  public readonly parserVersion = 4;
   public readonly capabilities = { eventsPrecedeFileMtime: true } as const;
 
   private readonly projectsDir: string;

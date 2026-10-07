@@ -160,4 +160,41 @@ describe('CopilotSourceAdapter', () => {
   it('returns the documented default OTEL directory', () => {
     expect(getDefaultCopilotOtelDir()).toBe(path.join(os.homedir(), '.copilot', 'otel'));
   });
+
+  it('keeps reasoning inside the total when the span declares no total', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'copilot-reasoning-total-'));
+    tempDirs.push(root);
+    const filePath = path.join(root, 'reasoning.jsonl');
+    await writeFile(
+      filePath,
+      `${JSON.stringify({
+        name: 'chat completion',
+        traceId: 'trace-reasoning',
+        spanId: 'span-reasoning',
+        timestamp: '2026-04-01T12:00:00.000Z',
+        attributes: {
+          'gen_ai.operation.name': 'chat',
+          'gen_ai.usage.input_tokens': 100,
+          'gen_ai.usage.output_tokens': 80,
+          'gen_ai.usage.reasoning.output_tokens': 30,
+          'gen_ai.usage.cache_read.input_tokens': 20,
+          'gen_ai.response.model': 'gpt-5-copilot',
+          'gen_ai.conversation.id': 'conversation-reasoning',
+        },
+      })}\n`,
+      'utf8',
+    );
+
+    const events = await new CopilotSourceAdapter({ dir: root, env: {} }).parseFile(filePath);
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      inputTokens: 80,
+      outputTokens: 80,
+      reasoningTokens: 30,
+      cacheReadTokens: 20,
+      cacheWriteTokens: 0,
+      totalTokens: 180,
+    });
+  });
 });

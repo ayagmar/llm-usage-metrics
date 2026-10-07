@@ -90,6 +90,30 @@ export function resolveTotalTokens(declaredTotal: number, componentTotal: number
   return componentTotal;
 }
 
+export type UsageTotalTokenBuckets = {
+  inputTokens?: NumberLike;
+  outputTokens?: NumberLike;
+  cacheReadTokens?: NumberLike;
+  cacheWriteTokens?: NumberLike;
+  totalTokens?: NumberLike;
+};
+
+/**
+ * Total for a usage row whose `reasoningTokens` is a breakdown of `outputTokens`: the
+ * declared total when the source reports one, otherwise input + output + cache buckets.
+ * Always pass this to `createUsageEvent` for such rows; its own fallback adds reasoning to
+ * the component sum a second time.
+ */
+export function resolveUsageTotalTokens(usage: UsageTotalTokenBuckets): number {
+  return resolveTotalTokens(
+    normalizeNonNegativeInteger(usage.totalTokens),
+    normalizeNonNegativeInteger(usage.inputTokens) +
+      normalizeNonNegativeInteger(usage.outputTokens) +
+      normalizeNonNegativeInteger(usage.cacheReadTokens) +
+      normalizeNonNegativeInteger(usage.cacheWriteTokens),
+  );
+}
+
 export function toTokenCount(value: unknown): number {
   return normalizeNonNegativeInteger(toNumberLike(value));
 }

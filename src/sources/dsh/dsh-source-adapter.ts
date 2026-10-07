@@ -7,7 +7,12 @@ import { asRecord } from '../../utils/as-record.js';
 import { discoverFiles } from '../../utils/discover-files.js';
 import { discoverFilesAcrossRoots, resolveRootDirs } from '../multi-root-discovery.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
-import { asTrimmedText, hasPositiveUsageOrCostSignal, toNumberLike } from '../parsing-utils.js';
+import {
+  asTrimmedText,
+  hasPositiveUsageOrCostSignal,
+  resolveUsageTotalTokens,
+  toNumberLike,
+} from '../parsing-utils.js';
 import { DshSessionLogUnreadableError, readDshSessionLog } from './dsh-session-log-reader.js';
 import type { DshSessionLogRead } from './dsh-session-log-reader.js';
 import { getDefaultDshSessionsDir } from './dsh-path-resolver.js';
@@ -131,6 +136,7 @@ function resolveTimestamp(line: Record<string, unknown>): string | undefined {
 
 export class DshSourceAdapter implements SourceAdapter {
   public readonly id = 'dsh' as const;
+  public readonly parserVersion = 2;
   public readonly capabilities = { eventsPrecedeFileMtime: true } as const;
 
   private readonly rootDirs: readonly string[];
@@ -267,6 +273,7 @@ export class DshSourceAdapter implements SourceAdapter {
             provider,
             model,
             ...extractedUsage,
+            totalTokens: resolveUsageTotalTokens(extractedUsage),
           }),
         );
       } catch {

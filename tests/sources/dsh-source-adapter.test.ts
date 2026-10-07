@@ -639,4 +639,37 @@ describe('DshSourceAdapter', () => {
     ]);
     expect(result.events.map((event) => event.inputTokens)).toEqual([1, 2, 3]);
   });
+
+  it('keeps reasoning inside the total when a message declares a zero total', async () => {
+    const root = await createTempRoot('dsh-reasoning-total-');
+    const logPath = resolveDshSessionLogPath(path.join(root, '--proj--', 'session-reasoning'));
+
+    await writeDshSessionLog({
+      filePath: logPath,
+      frames: 'plain',
+      lines: [
+        sessionHeaderLine(),
+        JSON.stringify(
+          dshAssistantMessageFixture({
+            seq: 1,
+            time: SESSION_HEADER.createdAt + 500,
+            usage: { inputTokens: 100, outputTokens: 80, reasoningTokens: 30, cacheReadTokens: 20 },
+          }),
+        ),
+      ],
+    });
+
+    const result = await new DshSourceAdapter().parseFileWithDiagnostics(
+      logPath.replace(/\.zstd$/u, ''),
+    );
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0]).toMatchObject({
+      inputTokens: 100,
+      outputTokens: 80,
+      reasoningTokens: 30,
+      cacheReadTokens: 20,
+      totalTokens: 200,
+    });
+  });
 });

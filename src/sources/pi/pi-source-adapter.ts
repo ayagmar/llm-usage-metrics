@@ -19,6 +19,7 @@ import {
   asTrimmedText,
   hasPositiveUsageOrCostSignal,
   normalizeTimestampCandidate,
+  resolveUsageTotalTokens,
   toNumberLike,
 } from '../parsing-utils.js';
 import type {
@@ -209,7 +210,7 @@ function resolveRepoRootFromRecord(
 
 export class PiSourceAdapter implements SourceAdapter {
   public readonly id = 'pi' as const;
-  public readonly parserVersion = 3;
+  public readonly parserVersion = 4;
   public readonly capabilities = { eventsPrecedeFileMtime: true } as const;
 
   private readonly rootDirs: readonly string[];
@@ -325,6 +326,7 @@ export class PiSourceAdapter implements SourceAdapter {
             provider,
             model,
             ...usage,
+            totalTokens: resolveUsageTotalTokens(usage),
           }),
         );
       } catch {

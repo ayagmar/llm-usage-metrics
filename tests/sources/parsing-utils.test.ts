@@ -6,6 +6,7 @@ import {
   isBlankText,
   normalizeTimestampCandidate,
   resolveTotalTokens,
+  resolveUsageTotalTokens,
   toFiniteNumber,
   toNumberLike,
 } from '../../src/sources/parsing-utils.js';
@@ -78,5 +79,18 @@ describe('source parsing helpers', () => {
 
   it('rejects invalid Date instances', () => {
     expect(normalizeTimestampCandidate(new Date(Number.NaN))).toBeUndefined();
+  });
+
+  it('resolves a usage total without counting reasoning twice', () => {
+    expect(
+      resolveUsageTotalTokens({ inputTokens: 100, outputTokens: 80, cacheReadTokens: 20 }),
+    ).toBe(200);
+    expect(resolveUsageTotalTokens({ inputTokens: '100', outputTokens: 80, totalTokens: 0 })).toBe(
+      180,
+    );
+    expect(resolveUsageTotalTokens({ inputTokens: 100, outputTokens: 80, totalTokens: 500 })).toBe(
+      500,
+    );
+    expect(resolveUsageTotalTokens({ cacheWriteTokens: null })).toBe(0);
   });
 });

@@ -235,4 +235,57 @@ describe('QwenSourceAdapter', () => {
       totalTokens: 33,
     });
   });
+
+  it('keeps reasoning inside the total when usage has no declared total', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'qwen-reasoning-total-'));
+    tempDirs.push(tempDir);
+    const filePath = path.join(tempDir, 'reasoning-no-total.jsonl');
+    const usageRow = (model: string, sessionId: string) =>
+      JSON.stringify({
+        type: 'assistant',
+        model,
+        timestamp: '2026-03-01T10:00:00.000Z',
+        sessionId,
+        usageMetadata: {
+          promptTokenCount: 100,
+          candidatesTokenCount: 80,
+          thoughtsTokenCount: 30,
+          cachedContentTokenCount: 20,
+        },
+      });
+    await writeFile(
+      filePath,
+      `${usageRow('gemini-2.5-pro', 'gemini')}\n${usageRow('qwen3-coder', 'qwen')}\n`,
+      'utf8',
+    );
+
+    const events = await new QwenSourceAdapter().parseFile(filePath);
+
+    // Gemini-native thoughts sit outside candidates (output 110); OpenAI-style reasoning
+    // sits inside them (output 80). Neither total counts reasoning a second time.
+    expect(
+      events.map((event) => ({
+        inputTokens: event.inputTokens,
+        outputTokens: event.outputTokens,
+        reasoningTokens: event.reasoningTokens,
+        cacheReadTokens: event.cacheReadTokens,
+        totalTokens: event.totalTokens,
+      })),
+    ).toEqual([
+      {
+        inputTokens: 80,
+        outputTokens: 110,
+        reasoningTokens: 30,
+        cacheReadTokens: 20,
+        totalTokens: 210,
+      },
+      {
+        inputTokens: 80,
+        outputTokens: 80,
+        reasoningTokens: 30,
+        cacheReadTokens: 20,
+        totalTokens: 180,
+      },
+    ]);
+  });
 });
