@@ -5,7 +5,7 @@ import {
   getFileEntry as getDefaultEventStoreFileEntry,
   openEventStore as openDefaultEventStore,
   readFileEvents as readDefaultEventStoreFileEvents,
-  replaceFileEvents as replaceDefaultFileEvents,
+  replaceFilesEvents as replaceDefaultFilesEvents,
   type EventStore,
   type EventStoreFileFingerprint,
 } from '../persistence/event-store.js';
@@ -20,10 +20,11 @@ import {
   getErrorReason,
   readParsedFileFromEventStore,
   recordEventStoreFailure,
-  writeParsedFileToEventStore,
+  writeParsedFilesToEventStore,
   type EventStoreFailureState,
   type EventStoreParseContext,
   type EventStoreParseDeps,
+  type ParsedFileStoreWrite,
 } from './parse/event-store-parse-cache.js';
 import { createParseBudget, type RunWithParseBudget } from './parse/parse-budget.js';
 import {
@@ -144,6 +145,7 @@ export async function parseAdapterEvents(
   const parsedByFile: UsageEvent[][] = Array.from({ length: files.length }, () => []);
   const skippedRowsByFile: number[] = Array.from({ length: files.length }, () => 0);
   const skippedRowReasons = new Map<string, number>();
+  const pendingStoreWrites: ParsedFileStoreWrite[] = [];
   let failedFiles = 0;
   let lastErrorMessage = '';
 
@@ -186,7 +188,7 @@ export async function parseAdapterEvents(
     }
 
     if (eventStore && params.fileFingerprint && !params.servedFromEventStore) {
-      writeParsedFileToEventStore(eventStore, {
+      pendingStoreWrites.push({
         source: adapter.id,
         filePath: params.filePath,
         fingerprint: params.fileFingerprint,
@@ -408,6 +410,10 @@ export async function parseAdapterEvents(
     await runTaskLoop(fileIndices, parseFileAtIndexInline);
   }
 
+  if (eventStore) {
+    writeParsedFilesToEventStore(eventStore, pendingStoreWrites);
+  }
+
   if (failedFiles === files.length) {
     throw new Error(
       `All ${files.length} file(s) failed to parse for source ${adapter.id}: ${lastErrorMessage}`,
@@ -452,7 +458,7 @@ export async function parseSelectedAdapters(
         store,
         getFileEntry: options.eventStoreDeps?.getFileEntry ?? getDefaultEventStoreFileEntry,
         readFileEvents: options.eventStoreDeps?.readFileEvents ?? readDefaultEventStoreFileEvents,
-        replaceFileEvents: options.eventStoreDeps?.replaceFileEvents ?? replaceDefaultFileEvents,
+        replaceFilesEvents: options.eventStoreDeps?.replaceFilesEvents ?? replaceDefaultFilesEvents,
         now: options.now ?? Date.now,
         failureState: eventStoreFailureState,
       };

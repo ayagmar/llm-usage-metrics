@@ -263,6 +263,13 @@ export async function openEventStore(
   try {
     assertSupportedSchemaVersion(database);
     database.exec('PRAGMA journal_mode=WAL');
+
+    // In WAL mode NORMAL skips the fsync on every commit but keeps the database
+    // consistent; a power loss can only drop the latest commits, which the next run
+    // re-parses from the source files. A rollback journal keeps the safer default.
+    if (toText(database.prepare('PRAGMA journal_mode').get()?.journal_mode) === 'wal') {
+      database.exec('PRAGMA synchronous=NORMAL');
+    }
     initializeSchema(database);
     await restrictEventStoreFiles(filePath);
 
@@ -510,65 +517,92 @@ export function vacuumEventStore(store: EventStore): void {
 }
 
 export function replaceFileEvents(store: EventStore, input: ReplaceFileEventsInput): void {
-  const source = normalizeStoreSource(input.source);
-  const filePath = normalizeStoreFilePath(input.filePath);
-  const fingerprint = serializeEventStoreFingerprint(input.fingerprint);
-  const skippedRows = toNonNegativeInteger(input.skippedRows) ?? 0;
-  const skippedRowReasons = stringifySkippedRowReasons(input.skippedRowReasons);
-  const ingestedAt = Math.max(0, Math.trunc(input.now));
-  const events = input.events.map((event) => createUsageEvent(event));
+  replaceFilesEvents(store, [input]);
+}
+
+/**
+ * Replaces the stored events of several files in one transaction. Batching keeps a
+ * cold run from paying a WAL commit, and the page rewrites that come with it, per file.
+ */
+export function replaceFilesEvents(
+  store: EventStore,
+  inputs: readonly ReplaceFileEventsInput[],
+): void {
+  if (inputs.length === 0) {
+    return;
+  }
+
+  const writes = inputs.map((input) => ({
+    source: normalizeStoreSource(input.source),
+    filePath: normalizeStoreFilePath(input.filePath),
+    fingerprint: serializeEventStoreFingerprint(input.fingerprint),
+    skippedRows: toNonNegativeInteger(input.skippedRows) ?? 0,
+    skippedRowReasons: stringifySkippedRowReasons(input.skippedRowReasons),
+    ingestedAt: Math.max(0, Math.trunc(input.now)),
+    events: input.events.map((event) => createUsageEvent(event)),
+  }));
+
+  const deleteFileEvents = (store.statements.deleteFileEvents ??= store.database.prepare(
+    'DELETE FROM events WHERE source = ? AND file_path = ?',
+  ));
+  const insertEvent = (store.statements.insertEvent ??= store.database.prepare(
+    [
+      'INSERT INTO events (',
+      '  source, file_path, event_index, session_id, timestamp, model, provider, repo_root,',
+      '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
+      '  cache_write_tokens, total_tokens, content_hash, cost_usd, cost_mode',
+      ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    ].join('\n'),
+  ));
+  const upsertFile = (store.statements.upsertFile ??= store.database.prepare(
+    [
+      'INSERT INTO files (',
+      '  source, file_path, fingerprint, skipped_rows, skipped_row_reasons, ingested_at',
+      ') VALUES (?, ?, ?, ?, ?, ?)',
+      'ON CONFLICT(source, file_path) DO UPDATE SET',
+      '  fingerprint = excluded.fingerprint,',
+      '  skipped_rows = excluded.skipped_rows,',
+      '  skipped_row_reasons = excluded.skipped_row_reasons,',
+      '  ingested_at = excluded.ingested_at',
+    ].join('\n'),
+  ));
 
   runTransaction(store.database, () => {
-    store.database
-      .prepare('DELETE FROM events WHERE source = ? AND file_path = ?')
-      .run(source, filePath);
+    for (const write of writes) {
+      const { source, filePath } = write;
+      deleteFileEvents.run(source, filePath);
 
-    const insertEvent = store.database.prepare(
-      [
-        'INSERT INTO events (',
-        '  source, file_path, event_index, session_id, timestamp, model, provider, repo_root,',
-        '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
-        '  cache_write_tokens, total_tokens, content_hash, cost_usd, cost_mode',
-        ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      ].join('\n'),
-    );
+      write.events.forEach((event, eventIndex) => {
+        insertEvent.run(
+          source,
+          filePath,
+          eventIndex,
+          event.sessionId,
+          event.timestamp,
+          event.model ?? null,
+          event.provider ?? null,
+          event.repoRoot ?? null,
+          event.inputTokens,
+          event.outputTokens,
+          event.reasoningTokens,
+          event.cacheReadTokens,
+          event.cacheWriteTokens,
+          event.totalTokens,
+          computeEventContentHash(event),
+          event.costUsd ?? null,
+          event.costMode,
+        );
+      });
 
-    events.forEach((event, eventIndex) => {
-      insertEvent.run(
+      upsertFile.run(
         source,
         filePath,
-        eventIndex,
-        event.sessionId,
-        event.timestamp,
-        event.model ?? null,
-        event.provider ?? null,
-        event.repoRoot ?? null,
-        event.inputTokens,
-        event.outputTokens,
-        event.reasoningTokens,
-        event.cacheReadTokens,
-        event.cacheWriteTokens,
-        event.totalTokens,
-        computeEventContentHash(event),
-        event.costUsd ?? null,
-        event.costMode,
+        write.fingerprint,
+        write.skippedRows,
+        write.skippedRowReasons,
+        write.ingestedAt,
       );
-    });
-
-    store.database
-      .prepare(
-        [
-          'INSERT INTO files (',
-          '  source, file_path, fingerprint, skipped_rows, skipped_row_reasons, ingested_at',
-          ') VALUES (?, ?, ?, ?, ?, ?)',
-          'ON CONFLICT(source, file_path) DO UPDATE SET',
-          '  fingerprint = excluded.fingerprint,',
-          '  skipped_rows = excluded.skipped_rows,',
-          '  skipped_row_reasons = excluded.skipped_row_reasons,',
-          '  ingested_at = excluded.ingested_at',
-        ].join('\n'),
-      )
-      .run(source, filePath, fingerprint, skippedRows, skippedRowReasons, ingestedAt);
+    }
   });
 }
 

@@ -31,6 +31,9 @@ export type EventStore = {
   statements: {
     getFileEntry?: EventStoreStatement;
     selectFileEvents?: EventStoreStatement;
+    deleteFileEvents?: EventStoreStatement;
+    insertEvent?: EventStoreStatement;
+    upsertFile?: EventStoreStatement;
   };
 };
 

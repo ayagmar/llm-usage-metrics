@@ -10,6 +10,7 @@ export {
   readEventStoreSummary,
   readFileEvents,
   replaceFileEvents,
+  replaceFilesEvents,
   serializeEventStoreFingerprint,
   vacuumEventStore,
   type DeleteStoredFilesInput,
