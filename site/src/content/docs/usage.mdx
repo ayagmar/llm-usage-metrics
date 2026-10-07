@@ -11,9 +11,15 @@ llm-usage weekly
 llm-usage monthly
 ```
 
+Run `llm-usage` with no command for a short summary: cost, tokens, and the top source for today, the last 7 days, and month to date. It accepts the same source, provider, model, timezone, pricing, and output flags.
+
 ## Set the reporting window
 
-Without date bounds, usage reports include all matching discovered history. `monthly` groups that history by month; it does not limit the result to the current month.
+Without date bounds, `daily` covers the last 7 days in your reporting timezone and prints a reminder on `stderr`; `--all` includes every day. `weekly` and `monthly` include all matching discovered history; `monthly` groups that history by month and does not limit the result to the current month.
+
+```bash
+llm-usage daily --all
+```
 
 ```bash
 llm-usage monthly --since 2026-09-01 --until 2026-09-30

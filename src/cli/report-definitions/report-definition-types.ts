@@ -1,7 +1,15 @@
 import type { Command } from 'commander';
 
 export type SharedOptionProfile =
-  'usage' | 'specialized' | 'compare' | 'trends' | 'session' | 'wrapped' | 'events' | 'doctor';
+  | 'usage'
+  | 'summary'
+  | 'specialized'
+  | 'compare'
+  | 'trends'
+  | 'session'
+  | 'wrapped'
+  | 'events'
+  | 'doctor';
 
 export type ReportHelpExample = {
   command: string;

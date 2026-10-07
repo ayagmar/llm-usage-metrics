@@ -1,4 +1,4 @@
-import { buildUsageData } from './build-usage-data.js';
+import { buildUsageData, DAILY_DEFAULT_DAYS } from './build-usage-data.js';
 import {
   prepareReport,
   runStandardPreparedReport,
@@ -15,6 +15,10 @@ const usageReportFormats = STANDARD_REPORT_FORMATS satisfies readonly UsageRepor
 
 function resolveTableLayout(options: ReportCommandOptions): UsageTableLayout {
   return options.perModelColumns ? 'per_model_columns' : 'compact';
+}
+
+export function getDefaultWindowHint(since: string): string {
+  return `Showing the last ${String(DAILY_DEFAULT_DAYS)} days (since ${since}). Use --since YYYY-MM-DD or --all for older usage.`;
 }
 
 function resolveShareFileName(granularity: ReportGranularity): string {
@@ -46,6 +50,8 @@ async function prepareUsageReport(
         granularity,
         tableLayout,
       }),
+    getHintsAfterOutput: (usageData) =>
+      usageData.defaultWindowSince ? [getDefaultWindowHint(usageData.defaultWindowSince)] : [],
   });
 }
 

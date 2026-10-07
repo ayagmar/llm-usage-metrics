@@ -28,6 +28,16 @@ export const sharedOptionProfileConfig = {
     includeShare: true,
     includeTimezone: true,
   },
+  summary: {
+    includeDateFilters: false,
+    includeMarkdown: true,
+    includePerModelColumns: false,
+    includePricing: true,
+    includeProviderModelFilters: true,
+    includeHistory: true,
+    includeShare: false,
+    includeTimezone: true,
+  },
   specialized: {
     includeDateFilters: true,
     includeMarkdown: true,

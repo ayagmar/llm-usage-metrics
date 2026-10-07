@@ -19,11 +19,12 @@ afterEach(async () => {
 });
 
 describe('createCli', () => {
-  it('registers daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, doctor, prune, config, and schema commands', () => {
+  it('registers summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, doctor, prune, config, and schema commands', () => {
     const cli = createCli();
 
     expect(cli.name()).toBe('llm-usage');
     expect(cli.commands.map((command) => command.name())).toEqual([
+      'summary',
       'daily',
       'weekly',
       'monthly',
@@ -342,7 +343,7 @@ describe('createCli', () => {
     expect(compactHelp).toContain('llm-usage wrapped');
     expect(compactHelp).toContain('llm-usage doctor');
     expect(compactHelp).toContain('llm-usage prune --suppressed');
-    expect(compactHelp).toContain('npx --yes llm-usage-metrics@latest daily');
+    expect(compactHelp).toContain('npx --yes llm-usage-metrics@latest');
     expect(compactDailyCommandHelp).toContain('after source/provider/date filters');
   });
 
@@ -361,6 +362,7 @@ describe('createCli', () => {
 
   it('exports shared report metadata and CLI reference examples', () => {
     expect(getReportDefinitionMetas().map((meta) => meta.commandName)).toEqual([
+      'summary',
       'daily',
       'weekly',
       'monthly',
@@ -374,6 +376,7 @@ describe('createCli', () => {
       'doctor',
       'prune',
     ]);
+    expect(getCliReferenceExamples()).toContain('llm-usage');
     expect(getCliReferenceExamples()).toContain('llm-usage trends');
     expect(getCliReferenceExamples()).toContain('llm-usage events --format jsonl > events.jsonl');
     expect(getCliReferenceExamples()).toContain('llm-usage compare');
@@ -411,5 +414,78 @@ describe('createCli', () => {
       code: 'commander.version',
     });
     expect(output.trim()).toBe('1.2.3');
+  });
+
+  function captureOutput(cli: ReturnType<typeof createCli>): { text: () => string } {
+    let output = '';
+    cli.exitOverride();
+    cli.configureOutput({
+      writeOut: (value) => {
+        output += value;
+      },
+      writeErr: (value) => {
+        output += value;
+      },
+      outputError: (value) => {
+        output += value;
+      },
+    });
+    return { text: () => output };
+  }
+
+  function stubSummaryAction(cli: ReturnType<typeof createCli>) {
+    const summaryAction = vi.fn();
+    cli.commands.find((command) => command.name() === 'summary')?.action(summaryAction);
+    return summaryAction;
+  }
+
+  it('runs the summary when no command is given', async () => {
+    const cli = createCli();
+    captureOutput(cli);
+    const summaryAction = stubSummaryAction(cli);
+
+    await cli.parseAsync([], { from: 'user' });
+    await cli.parseAsync(['--json', '--source', 'codex'], { from: 'user' });
+
+    expect(summaryAction).toHaveBeenCalledTimes(2);
+    expect(summaryAction.mock.calls[1]?.[0]).toMatchObject({ json: true, source: ['codex'] });
+  });
+
+  it('reports an unknown command with a suggestion instead of running the summary', async () => {
+    const cli = createCli();
+    const output = captureOutput(cli);
+    const summaryAction = stubSummaryAction(cli);
+
+    await expect(cli.parseAsync(['dialy'], { from: 'user' })).rejects.toMatchObject({
+      exitCode: 1,
+    });
+
+    expect(summaryAction).not.toHaveBeenCalled();
+    expect(output.text()).toContain("error: unknown command 'dialy'\n(Did you mean daily?)");
+  });
+
+  it('explains option order when options precede a command', async () => {
+    const cli = createCli();
+    const output = captureOutput(cli);
+    const summaryAction = stubSummaryAction(cli);
+
+    await expect(cli.parseAsync(['--json', 'daily'], { from: 'user' })).rejects.toMatchObject({
+      exitCode: 1,
+    });
+
+    expect(summaryAction).not.toHaveBeenCalled();
+    expect(output.text()).toContain(
+      'error: options go after the command, e.g. llm-usage daily --json',
+    );
+    expect(output.text()).not.toContain('Did you mean');
+  });
+
+  it('offers --all on daily only', () => {
+    const cli = createCli();
+    const commandsWithAll = cli.commands
+      .filter((command) => command.options.some((option) => option.long === '--all'))
+      .map((command) => command.name());
+
+    expect(commandsWithAll).toEqual(['daily']);
   });
 });

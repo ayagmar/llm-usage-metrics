@@ -6,6 +6,7 @@ import efficiencySchema from '../../schema/report-efficiency.v1.schema.json' wit
 import optimizeSchema from '../../schema/report-optimize.v1.schema.json' with { type: 'json' };
 import pruneSchema from '../../schema/report-prune.v1.schema.json' with { type: 'json' };
 import sessionSchema from '../../schema/report-session.v1.schema.json' with { type: 'json' };
+import summarySchema from '../../schema/report-summary.v1.schema.json' with { type: 'json' };
 import trendsSchema from '../../schema/report-trends.v1.schema.json' with { type: 'json' };
 import usageSchema from '../../schema/report-usage.v1.schema.json' with { type: 'json' };
 import wrappedSchema from '../../schema/report-wrapped.v1.schema.json' with { type: 'json' };
@@ -19,6 +20,7 @@ export const reportSchemas: Record<string, unknown> = {
   optimize: optimizeSchema,
   prune: pruneSchema,
   session: sessionSchema,
+  summary: summarySchema,
   trends: trendsSchema,
   usage: usageSchema,
   wrapped: wrappedSchema,

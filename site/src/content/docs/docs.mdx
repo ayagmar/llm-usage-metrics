@@ -11,10 +11,10 @@ import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 ## Run your first report
 
 ```bash
-npx --yes llm-usage-metrics@latest daily
+npx --yes llm-usage-metrics@latest
 ```
 
-The command discovers supported sources in their default locations. Use `llm-usage doctor` if the report finds no data, or create a config file when your sessions live elsewhere.
+The command prints cost and tokens for today, the last 7 days, and month to date. It discovers supported sources in their default locations. Use `llm-usage doctor` if the report finds no data, or create a config file when your sessions live elsewhere.
 
 ```bash
 llm-usage doctor

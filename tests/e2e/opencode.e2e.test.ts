@@ -117,6 +117,7 @@ describe('opencode e2e', () => {
     ]);
 
     const report = await buildUsageReport('daily', {
+      all: true,
       source: 'opencode',
       opencodeDb: opencodeDbPath,
       timezone: 'UTC',
@@ -158,6 +159,7 @@ describe('opencode e2e', () => {
     process.env.LOCALAPPDATA = path.join(tempDir, 'local-appdata');
 
     const report = await buildUsageReport('daily', {
+      all: true,
       source: 'opencode',
       timezone: 'UTC',
       json: true,
@@ -197,6 +199,7 @@ describe('opencode e2e', () => {
 
     await expect(
       buildUsageReport('daily', {
+        all: true,
         source: 'opencode',
         opencodeDb: opencodeDbPath,
         timezone: 'UTC',
@@ -241,6 +244,7 @@ describe('opencode e2e', () => {
 
     try {
       await runUsageReport('daily', {
+        all: true,
         source: 'opencode',
         opencodeDb: opencodeDbPath,
         timezone: 'UTC',

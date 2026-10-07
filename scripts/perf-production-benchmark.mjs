@@ -291,11 +291,13 @@ function ccusageArgs(source, offline) {
   ];
 }
 
-// node dist/index.js daily --source <source> [--pricing-offline] --json
+// node dist/index.js daily --all --source <source> [--pricing-offline] --json
+// --all keeps the full history, like `ccusage daily`, so the comparison stays like for like.
 function llmArgs(source, pricingOffline) {
   const args = [
     llmEntryPath,
     'daily',
+    '--all',
     '--source',
     source,
     '--timezone',

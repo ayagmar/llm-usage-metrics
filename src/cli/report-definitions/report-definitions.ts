@@ -9,6 +9,7 @@ import type {
   PruneCommandOptions,
   ReportCommandOptions,
   SessionCommandOptions,
+  SummaryCommandOptions,
   TrendsCommandOptions,
   WrappedCommandOptions,
 } from '../usage-data-contracts.js';
@@ -16,6 +17,7 @@ import { runCompareReport } from '../run-compare-report.js';
 import { runEfficiencyReport } from '../run-efficiency-report.js';
 import { runOptimizeReport } from '../run-optimize-report.js';
 import { runSessionReport } from '../run-session-report.js';
+import { runSummaryReport } from '../run-summary-report.js';
 import { runTrendsReport } from '../run-trends-report.js';
 import { runUsageReport } from '../run-usage-report.js';
 import { runDoctorReport } from '../run-doctor-report.js';
@@ -37,7 +39,7 @@ import type {
 
 const reportReferenceExamples: readonly ReportHelpExample[] = [
   {
-    command: 'npx --yes llm-usage-metrics@latest daily',
+    command: 'npx --yes llm-usage-metrics@latest',
     includeInRootHelp: true,
   },
 ];
@@ -136,7 +138,7 @@ function createUsageReportDefinition(granularity: ReportGranularity): ReportRunt
   };
 
   const descriptionByGranularity: Record<ReportGranularity, string> = {
-    daily: 'Show daily usage report',
+    daily: 'Show daily usage report (last 7 days unless --since, --until, or --all)',
     weekly: 'Show weekly usage report (week starts Monday)',
     monthly: 'Show monthly usage report',
   };
@@ -151,12 +153,45 @@ function createUsageReportDefinition(granularity: ReportGranularity): ReportRunt
       helpExamples: helpExamplesByGranularity[granularity],
     },
     register(command) {
+      if (granularity === 'daily') {
+        command.option('--all', 'Report every day instead of the last 7 days');
+      }
+
       command.action((options: ReportCommandOptions) => runUsageReport(granularity, options));
 
       return command;
     },
   };
 }
+
+export const SUMMARY_COMMAND_NAME = 'summary';
+
+const summaryReportDefinition: ReportRuntimeDefinition = {
+  meta: {
+    commandName: SUMMARY_COMMAND_NAME,
+    docsLabel: 'summary',
+    kind: 'specialized',
+    description:
+      'Show cost and tokens for today, the last 7 days, and month to date (default command)',
+    sharedOptionProfile: 'summary',
+    helpExamples: [
+      {
+        command: 'llm-usage',
+        includeInRootHelp: true,
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage summary --json',
+        includeInCliReference: true,
+      },
+    ],
+  },
+  register(command) {
+    command.action((options: SummaryCommandOptions) => runSummaryReport(options));
+
+    return command;
+  },
+};
 
 const efficiencyReportDefinition: ReportRuntimeDefinition = {
   meta: {
@@ -465,6 +500,7 @@ const eventsReportDefinition: ReportRuntimeDefinition = {
 };
 
 const reportDefinitions = [
+  summaryReportDefinition,
   createUsageReportDefinition('daily'),
   createUsageReportDefinition('weekly'),
   createUsageReportDefinition('monthly'),

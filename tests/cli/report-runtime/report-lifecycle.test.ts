@@ -92,4 +92,33 @@ describe('report-lifecycle', () => {
       consoleLogSpy.mockRestore();
     }
   });
+
+  it('prints report hints on stderr after the output', async () => {
+    const order: string[] = [];
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation((value: unknown) => {
+      order.push(`stderr:${String(value)}`);
+    });
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation((value: unknown) => {
+      order.push(`stdout:${String(value)}`);
+    });
+
+    try {
+      const preparedReport = await prepareReport({
+        commandOptions: {},
+        supportedFormats: ['terminal'] as const,
+        buildData: async () => ({ hint: 'try --all' }),
+        getDiagnostics: () => ({}),
+        render: () => 'report body',
+        getHintsAfterOutput: (data, format) => [`${data.hint} (${format})`],
+      });
+
+      await runPreparedReport({ preparedReport });
+
+      expect(order[0]).toBe('stdout:report body');
+      expect(order[1]).toContain('try --all (terminal)');
+    } finally {
+      consoleErrorSpy.mockRestore();
+      consoleLogSpy.mockRestore();
+    }
+  });
 });
