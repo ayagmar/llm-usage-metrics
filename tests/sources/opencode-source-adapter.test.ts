@@ -271,7 +271,7 @@ describe('OpenCodeSourceAdapter', () => {
       provider: 'openai',
       model: 'gpt-5-codex',
       inputTokens: 100,
-      outputTokens: 40,
+      outputTokens: 45,
       reasoningTokens: 5,
       cacheReadTokens: 20,
       cacheWriteTokens: 10,
