@@ -38,7 +38,7 @@ A name that survives no stage stays unresolved — its events keep their token c
 `src/pricing/cost-engine.ts` computes per-event costs:
 
 - Events are `explicit` (the source supplied a cost, which is kept) or `estimated` (computed from rates). One exception: an explicit `costUsd: 0` on a priceable event with a model is treated as suspect and repriced when resolvable pricing exists; if it cannot be repriced, the explicit zero stays.
-- Estimated cost sums four per-1M-token buckets: input, output, cache read, and cache write. Reasoning tokens bill according to the model's `reasoningBilling`: `included-in-output` (the default — reasoning adds nothing on top) or `separate` (a fifth bucket with its own rate).
+- Estimated cost sums four per-1M-token buckets: input, output, cache read, and cache write. `outputTokens` already includes reasoning, so reasoning bills according to the model's `reasoningBilling`: `included-in-output` (the default — the whole output bucket bills at the output rate) or `separate` (the reasoning share of output bills at `reasoningPer1MUsd` and only the remainder at the output rate, so reasoning is never charged twice).
 - Estimation refuses to guess: if any bucket the event actually used has no defined rate, no cost is computed and the event stays cost-less — surfaced downstream as partial (`~$`) or unresolved (`-`) figures, whose rendering semantics live on [Pricing](/llm-usage-metrics/pricing/).
 - Pricing lookups are memoized per resolved model for the duration of a run.
 
