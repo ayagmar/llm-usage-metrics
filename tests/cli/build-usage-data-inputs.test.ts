@@ -320,4 +320,33 @@ describe('build-usage-data-inputs', () => {
       'Explicitly requested source(s) are incompatible with the requested provider/model scope: gemini.',
     );
   });
+
+  it('derives explicit sources from the CLI options, not the config-merged ones', () => {
+    const inputs = normalizeBuildUsageInputs(
+      { geminiDir: '/tmp/config-gemini', source: ['codex'], codexDir: '/tmp/flag-codex' },
+      { codexDir: '/tmp/flag-codex' },
+    );
+
+    expect([...(inputs.sourceFilter ?? [])]).toEqual(['codex']);
+    expect([...inputs.explicitSourceIds]).toEqual(['codex']);
+  });
+
+  it('keeps CLI path overrides explicit even when --source excludes them', () => {
+    const inputs = normalizeBuildUsageInputs({
+      source: 'codex',
+      sourceDir: ['gemini=/tmp/gemini'],
+      claudeDir: '/tmp/claude',
+    });
+
+    expect([...inputs.explicitSourceIds]).toEqual(['codex', 'gemini', 'claude']);
+  });
+
+  it('keeps CLI path overrides explicit even when a config source filter excludes them', () => {
+    const inputs = normalizeBuildUsageInputs(
+      { source: ['codex'], geminiDir: '/tmp/flag-gemini', provider: 'openai' },
+      { geminiDir: '/tmp/flag-gemini', provider: 'openai' },
+    );
+
+    expect([...inputs.explicitSourceIds]).toEqual(['gemini']);
+  });
 });

@@ -129,7 +129,10 @@ export async function buildUsageEventDataset(
 ): Promise<UsageEventDataset> {
   const userConfigResolution = await resolveUserConfigForOptions(options, deps);
   const configuredOptions = userConfigResolution.options;
-  const normalizedInputs = normalizeBuildUsageInputs(configuredOptions);
+  const normalizedInputs = normalizeBuildUsageInputs(
+    configuredOptions,
+    userConfigResolution.cliOptions,
+  );
   const runtimeProfile = deps.runtimeProfile;
 
   const readParsingRuntimeConfig = deps.getParsingRuntimeConfig ?? getParsingRuntimeConfig;

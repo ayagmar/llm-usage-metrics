@@ -210,7 +210,8 @@ export async function buildDoctorResults(
     createDefaultAdapters(configuredOptions),
     configuredOptions.source,
   );
-  // Dedicated flags, --source-dir entries, and config sourceDirs all name a path.
+  // Doctor is the one caller that treats config sourceDirs as path overrides: it passes the
+  // merged options on purpose, so an unreadable configured path surfaces as a doctor error.
   const sourcesWithPathOverrides = resolveExplicitSourceIds(configuredOptions, undefined);
   const results: DoctorSourceResult[] = [];
   const discoveredFilesBySource: DiscoveredFilesBySource = new Map();

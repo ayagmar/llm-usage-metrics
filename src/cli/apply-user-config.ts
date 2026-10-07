@@ -1,6 +1,7 @@
 import type { ActiveConfig, ActiveConfigEntry } from '../config/active-config-display.js';
 import type { LoadedUserConfig, UserConfig } from '../config/user-config.js';
 import { loadUserConfig } from '../config/user-config.js';
+import { parseSourceDirectoryOverrides } from '../utils/source-directory-overrides.js';
 import type { ReportCommandOptions } from './usage-data-contracts.js';
 
 const sourceDirOptionByConfigKey = {
@@ -48,7 +49,10 @@ const sourceDirConfigKeys = [
 
 export type UserConfigResolution = {
   loadedConfig: LoadedUserConfig;
+  /** The options with config defaults applied. */
   options: ReportCommandOptions;
+  /** The options as given on the command line, before config defaults were applied. */
+  cliOptions: ReportCommandOptions;
   activeConfig: ActiveConfig | undefined;
 };
 
@@ -91,11 +95,18 @@ function applySourceDirs(
     return;
   }
 
+  // A CLI `--source-dir <id>=<path>` is as explicit as the dedicated flag, so it wins too.
+  const cliSourceDirOverrides = parseSourceDirectoryOverrides(original.sourceDir);
+
   for (const sourceId of sourceDirConfigKeys) {
     const optionKey: SourceDirOptionKey = sourceDirOptionByConfigKey[sourceId];
     const sourceDir = sourceDirs[sourceId];
 
-    if (sourceDir === undefined || original[optionKey] !== undefined) {
+    if (
+      sourceDir === undefined ||
+      original[optionKey] !== undefined ||
+      cliSourceDirOverrides.has(sourceId)
+    ) {
       continue;
     }
 
@@ -262,6 +273,7 @@ export function applyUserConfigToReportOptions(
   return {
     loadedConfig,
     options: output,
+    cliOptions: options,
     activeConfig: buildActiveConfig(loadedConfig, entries),
   };
 }

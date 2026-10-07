@@ -131,4 +131,24 @@ describe('applyUserConfigToReportOptions', () => {
       '  pricing.offline=true',
     ]);
   });
+
+  it('lets a --source-dir entry win over the config source dir for the same source', () => {
+    const loadedConfig = createLoadedConfig({
+      sourceDirs: {
+        pi: '/tmp/config-pi',
+        claude: '/tmp/config-claude',
+      },
+    });
+
+    const configured = applyUserConfigToReportOptions(
+      { sourceDir: ['PI=/tmp/flag-pi'] },
+      loadedConfig,
+    );
+
+    expect(configured.options.piDir).toBeUndefined();
+    expect(configured.options.claudeDir).toBe('/tmp/config-claude');
+    expect(configured.activeConfig?.entries).toEqual([
+      { key: 'sourceDirs.claude', value: '/tmp/config-claude' },
+    ]);
+  });
 });

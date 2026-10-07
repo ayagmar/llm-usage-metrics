@@ -337,7 +337,10 @@ export async function buildCompareData(
 ): Promise<CompareDataResult> {
   const userConfigResolution = await resolveUserConfigForOptions(options, deps);
   const configuredOptions = userConfigResolution.options;
-  const normalizedInputs = normalizeBuildUsageInputs(configuredOptions);
+  const normalizedInputs = normalizeBuildUsageInputs(
+    configuredOptions,
+    userConfigResolution.cliOptions,
+  );
   const windows = resolveCompareWindows(
     configuredOptions,
     normalizedInputs.timezone,

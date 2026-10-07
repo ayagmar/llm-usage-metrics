@@ -182,4 +182,37 @@ describe('buildSummaryData', () => {
       'pi',
     ]);
   });
+
+  it('keeps config source dirs as defaults under a provider run', async () => {
+    const gemini: SourceAdapter = {
+      id: 'gemini',
+      capabilities: { fixedProviderRoots: ['google'] },
+      discoverFiles: async () => {
+        throw new Error('gemini should have been pruned');
+      },
+      parseFile: async () => [],
+    };
+    const deps = {
+      ...runtimeDeps(
+        [gemini, createAdapter('codex', [createEvent('2026-03-10T09:00:00.000Z')])],
+        '2026-03-10T18:00:00.000Z',
+      ),
+      loadUserConfig: async () => ({
+        config: { sourceDirs: { gemini: '/tmp/config-gemini' } },
+        path: '/tmp/config.toml',
+        exists: true,
+        warnings: [],
+      }),
+    };
+
+    const result = await buildSummaryData(
+      { timezone: 'UTC', pricingOffline: true, provider: 'openai' },
+      deps,
+    );
+
+    expect(result.diagnostics.sourceFailures).toEqual([]);
+    expect(result.diagnostics.sessionStats).toEqual([
+      { source: 'codex', filesFound: 1, eventsParsed: 1 },
+    ]);
+  });
 });

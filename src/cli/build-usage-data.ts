@@ -76,7 +76,10 @@ async function resolveUsageDataRequest(
   }
 
   const userConfigResolution = await resolveUserConfigForOptions(options, deps);
-  const { timezone } = normalizeBuildUsageInputs(userConfigResolution.options);
+  const { timezone } = normalizeBuildUsageInputs(
+    userConfigResolution.options,
+    userConfigResolution.cliOptions,
+  );
   const today = getCurrentLocalDateKey(timezone, deps.now?.() ?? new Date());
   const since = defaultWindow.resolveSince(today);
   const windowedOptions = { ...userConfigResolution.options, since };

@@ -746,6 +746,46 @@ describe('buildUsageData', () => {
     ]);
   });
 
+  it('keeps config source dirs as defaults during the default daily and weekly windows', async () => {
+    const deps = {
+      ...withDeterministicRuntimeDeps(),
+      createAdapters: () => [
+        createAdapter('gemini', {}, { fixedProviderRoots: ['google'] }),
+        createAdapter(
+          'codex',
+          {
+            '/tmp/codex-config-source-dir.jsonl': [
+              createEvent({ source: 'codex', provider: 'openai', sessionId: 'codex-config' }),
+            ],
+          },
+          { fixedProviderRoots: ['openai'] },
+        ),
+      ],
+      loadUserConfig: async () => ({
+        config: { sourceDirs: { gemini: '/tmp/config-gemini' } },
+        path: '/tmp/config.toml',
+        exists: true,
+        warnings: [],
+      }),
+      now: () => new Date('2026-02-14T12:00:00.000Z'),
+    };
+
+    const daily = await buildUsageData('daily', { provider: 'openai', timezone: 'UTC' }, deps);
+    const weekly = await buildUsageData('weekly', { provider: 'openai', timezone: 'UTC' }, deps);
+
+    expect([daily.defaultWindowSince, weekly.defaultWindowSince]).toEqual([
+      '2026-02-08',
+      '2025-12-22',
+    ]);
+
+    for (const result of [daily, weekly]) {
+      expect(result.diagnostics.sourceFailures).toEqual([]);
+      expect(result.diagnostics.sessionStats).toEqual([
+        { source: 'codex', filesFound: 1, eventsParsed: 1 },
+      ]);
+    }
+  });
+
   it('records non-explicit source failures in diagnostics and continues with healthy sources', async () => {
     const result = await buildUsageData(
       'daily',
@@ -909,6 +949,30 @@ describe('buildUsageData', () => {
       ),
     ).rejects.toThrow(
       'Explicitly requested source(s) are incompatible with the requested --model scope: gemini.',
+    );
+  });
+
+  it('fails when a CLI source override is excluded by --source but incompatible with --provider', async () => {
+    await expect(
+      buildUsageData(
+        'daily',
+        {
+          all: true,
+          timezone: 'UTC',
+          source: 'codex',
+          geminiDir: '/tmp/explicit-gemini',
+          provider: 'openai',
+        },
+        {
+          ...withDeterministicRuntimeDeps(),
+          createAdapters: () => [
+            createAdapter('gemini', {}, { fixedProviderRoots: ['google'] }),
+            createAdapter('codex', {}, { fixedProviderRoots: ['openai'] }),
+          ],
+        },
+      ),
+    ).rejects.toThrow(
+      'Explicitly requested source(s) are incompatible with the requested --provider scope: gemini.',
     );
   });
 

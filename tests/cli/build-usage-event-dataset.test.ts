@@ -136,6 +136,44 @@ describe('buildUsageEventDataset history', () => {
     expect(flagDataset.activeConfig).toBeUndefined();
   });
 
+  it('does not treat config source dirs as explicit requests under a provider filter', async () => {
+    const codexEvent = createEvent({
+      source: 'codex',
+      sessionId: 'codex-openai',
+      provider: 'openai',
+    });
+    const loadedConfig = {
+      config: {
+        sourceDirs: { gemini: '/tmp/config-gemini' },
+      },
+      path: '/tmp/config.toml',
+      exists: true,
+      warnings: [],
+    };
+    const geminiAdapter: SourceAdapter = {
+      ...createAdapter('gemini', {}),
+      capabilities: { fixedProviderRoots: ['google'] },
+    };
+    const deps = {
+      ...createDatasetDeps('/tmp/events.db'),
+      createAdapters: () => [
+        geminiAdapter,
+        createAdapter('codex', { '/tmp/codex.jsonl': [codexEvent] }),
+      ],
+      loadUserConfig: async () => loadedConfig,
+    };
+
+    const dataset = await buildUsageEventDataset({ provider: 'openai', timezone: 'UTC' }, deps);
+
+    expect(dataset.filteredEvents).toEqual([codexEvent]);
+    await expect(
+      buildUsageEventDataset(
+        { provider: 'openai', timezone: 'UTC', geminiDir: '/tmp/flag-gemini' },
+        deps,
+      ),
+    ).rejects.toThrow('Explicitly requested source(s) are incompatible');
+  });
+
   it('does not call the history loader when --history is off', async () => {
     const eventStorePath = await createEventStorePath();
     const loadHistoryEvents = vi.fn();
