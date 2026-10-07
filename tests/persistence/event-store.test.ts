@@ -22,6 +22,7 @@ import {
   readEventStoreSummary,
   readFileEvents,
   replaceFileEvents,
+  replaceFilesEvents,
   serializeEventStoreFingerprint,
   type EventStore,
   type EventStoreFileFingerprint,
@@ -1189,7 +1190,7 @@ describe('event-store', () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-open-options-'));
     tempDirs.push(tempDir);
 
-    const fakeSqlite = createFakeSqliteModule();
+    const fakeSqlite = createFakeSqliteModule({ 'PRAGMA journal_mode': { journal_mode: 'wal' } });
     const store = await openEventStore(path.join(tempDir, 'events.db'), async () => fakeSqlite);
 
     expect(fakeSqlite.constructorCalls).toEqual([
@@ -1199,7 +1200,36 @@ describe('event-store', () => {
       },
     ]);
     expect(fakeSqlite.execCalls).toContain('PRAGMA journal_mode=WAL');
+    // Without this, WAL mode still fsyncs on every per-file commit.
+    expect(fakeSqlite.execCalls.indexOf('PRAGMA synchronous=NORMAL')).toBeGreaterThan(
+      fakeSqlite.execCalls.indexOf('PRAGMA journal_mode=WAL'),
+    );
     closeEventStore(store);
+  });
+
+  it('keeps full sync when WAL mode is unavailable', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-no-wal-'));
+    tempDirs.push(tempDir);
+
+    const fakeSqlite = createFakeSqliteModule({
+      'PRAGMA journal_mode': { journal_mode: 'delete' },
+    });
+    const store = await openEventStore(path.join(tempDir, 'events.db'), async () => fakeSqlite);
+
+    expect(fakeSqlite.execCalls).not.toContain('PRAGMA synchronous=NORMAL');
+    closeEventStore(store);
+  });
+
+  it('runs a real store in WAL mode with NORMAL sync', async () => {
+    const store = await createTempStore('event-store-real-pragmas-');
+
+    try {
+      expect(store.database.prepare('PRAGMA journal_mode').get()).toEqual({ journal_mode: 'wal' });
+      // 1 = NORMAL.
+      expect(store.database.prepare('PRAGMA synchronous').get()).toEqual({ synchronous: 1 });
+    } finally {
+      closeEventStore(store);
+    }
   });
 
   itWhenPosix('creates the default event-store directory with mode 0700', async () => {
@@ -1319,6 +1349,90 @@ describe('event-store', () => {
     expect(fakeSqlite.prepareCalls.filter((sql) => sql === selectFileEventsSql)).toHaveLength(1);
     expect(fakeSqlite.setReturnArraysCalls).toEqual([{ sql: selectFileEventsSql, enabled: true }]);
     closeEventStore(store);
+  });
+
+  it('prepares write statements once per store connection', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-write-statements-'));
+    tempDirs.push(tempDir);
+
+    const fakeSqlite = createFakeSqliteModule();
+    const store = await openEventStore(path.join(tempDir, 'events.db'), async () => fakeSqlite);
+    const prepareCountBeforeWrites = fakeSqlite.prepareCalls.length;
+
+    replaceCodexFile(store, { filePath: '/tmp/a.jsonl' });
+    replaceCodexFile(store, { filePath: '/tmp/b.jsonl' });
+    replaceCodexFile(store, { filePath: '/tmp/c.jsonl' });
+
+    expect(fakeSqlite.prepareCalls.length - prepareCountBeforeWrites).toBe(3);
+    closeEventStore(store);
+  });
+
+  it('writes several files in one transaction', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-batch-transaction-'));
+    tempDirs.push(tempDir);
+
+    const fakeSqlite = createFakeSqliteModule();
+    const store = await openEventStore(path.join(tempDir, 'events.db'), async () => fakeSqlite);
+    const execCountBeforeWrites = fakeSqlite.execCalls.length;
+
+    replaceFilesEvents(
+      store,
+      ['/tmp/a.jsonl', '/tmp/b.jsonl'].map((filePath) => ({
+        source: 'codex',
+        filePath,
+        fingerprint: createFingerprint(),
+        events: [createEvent()],
+        skippedRows: 0,
+        now: 1_000,
+      })),
+    );
+
+    expect(fakeSqlite.execCalls.slice(execCountBeforeWrites)).toEqual([
+      'BEGIN IMMEDIATE',
+      'COMMIT',
+    ]);
+    closeEventStore(store);
+  });
+
+  it('stores every file of a batch and rolls the whole batch back on failure', async () => {
+    const store = await createTempStore('event-store-batch-');
+    const toInput = (filePath: string, sessionId: string) => ({
+      source: 'codex',
+      filePath,
+      fingerprint: createFingerprint(),
+      events: [createEvent({ sessionId })],
+      skippedRows: 0,
+      now: 1_000,
+    });
+
+    try {
+      replaceFilesEvents(store, [toInput('/tmp/a.jsonl', 'a-1'), toInput('/tmp/b.jsonl', 'b-1')]);
+
+      expect(readFileEvents(store, 'codex', '/tmp/a.jsonl')).toEqual([
+        createEvent({ sessionId: 'a-1' }),
+      ]);
+      expect(readFileEvents(store, 'codex', '/tmp/b.jsonl')).toEqual([
+        createEvent({ sessionId: 'b-1' }),
+      ]);
+
+      store.database.exec(`
+CREATE TEMP TRIGGER fail_file_b BEFORE INSERT ON files
+WHEN NEW.file_path = '/tmp/b.jsonl'
+BEGIN
+  SELECT RAISE(ABORT, 'injected failure');
+END;
+`);
+
+      expect(() => {
+        replaceFilesEvents(store, [toInput('/tmp/a.jsonl', 'a-2'), toInput('/tmp/b.jsonl', 'b-2')]);
+      }).toThrow('injected failure');
+      expect(readFileEvents(store, 'codex', '/tmp/a.jsonl')).toEqual([
+        createEvent({ sessionId: 'a-1' }),
+      ]);
+      expect(countEvents(store)).toBe(2);
+    } finally {
+      closeEventStore(store);
+    }
   });
 
   it('reads summaries through a read-only connection with a busy timeout', async () => {

@@ -335,14 +335,18 @@ describe('build-usage-data-parsing', () => {
     const readFileEvents = vi.fn((_store: EventStore, _source: string, filePath: string) =>
       eventsByFile.get(filePath),
     );
-    const replaceFileEvents = vi.fn((_store: EventStore, input: ReplaceFileEventsInput) => {
-      entries.set(input.filePath, {
-        fingerprint: serializeEventStoreFingerprint(input.fingerprint),
-        skippedRows: input.skippedRows,
-        skippedRowReasons: input.skippedRowReasons ?? [],
-      });
-      eventsByFile.set(input.filePath, input.events);
-    });
+    const replaceFilesEvents = vi.fn(
+      (_store: EventStore, inputs: readonly ReplaceFileEventsInput[]) => {
+        for (const input of inputs) {
+          entries.set(input.filePath, {
+            fingerprint: serializeEventStoreFingerprint(input.fingerprint),
+            skippedRows: input.skippedRows,
+            skippedRowReasons: input.skippedRowReasons ?? [],
+          });
+          eventsByFile.set(input.filePath, input.events);
+        }
+      },
+    );
     const adapter = createStoreBackedAdapter('pi', [fileA, fileB]);
     const options = {
       eventStore: {
@@ -354,7 +358,7 @@ describe('build-usage-data-parsing', () => {
         closeEventStore,
         getFileEntry,
         readFileEvents,
-        replaceFileEvents,
+        replaceFilesEvents,
       },
       now: () => 123,
     };
@@ -366,12 +370,11 @@ describe('build-usage-data-parsing', () => {
 
     expect(openEventStore).toHaveBeenCalledTimes(3);
     expect(closeEventStore).toHaveBeenCalledTimes(3);
-    expect(replaceFileEvents).toHaveBeenCalledTimes(3);
-    expect(replaceFileEvents.mock.calls.map(([, input]) => input.filePath)).toEqual([
-      fileA,
-      fileB,
-      fileB,
-    ]);
+    // One batched write per run that had misses: both files, then only the changed one.
+    expect(replaceFilesEvents).toHaveBeenCalledTimes(2);
+    expect(
+      replaceFilesEvents.mock.calls.map(([, inputs]) => inputs.map((input) => input.filePath)),
+    ).toEqual([[fileA, fileB], [fileB]]);
   });
 
   it('keeps parsed output and returns one warning when the event store fails', async () => {
@@ -384,7 +387,7 @@ describe('build-usage-data-parsing', () => {
     await writeFingerprintFixture(fileB, '{"line":1}\n', 1_700_000_001);
 
     const store = { filePath: path.join(tempDir, 'events.db') } as unknown as EventStore;
-    const replaceFileEvents = vi.fn();
+    const replaceFilesEvents = vi.fn();
     const result = await parseSelectedAdapters(
       [createStoreBackedAdapter('pi', [fileA, fileB])],
       1,
@@ -399,7 +402,7 @@ describe('build-usage-data-parsing', () => {
           getFileEntry: () => {
             throw new Error('database locked');
           },
-          replaceFileEvents,
+          replaceFilesEvents,
         },
       },
     );
@@ -410,7 +413,7 @@ describe('build-usage-data-parsing', () => {
       'b',
     ]);
     expect(result.warnings).toEqual(['Event store disabled after failure: database locked']);
-    expect(replaceFileEvents).not.toHaveBeenCalled();
+    expect(replaceFilesEvents).not.toHaveBeenCalled();
   });
 
   it('skips fingerprint work for remaining files after the store is disabled', async () => {
@@ -440,7 +443,7 @@ describe('build-usage-data-parsing', () => {
         getFileEntry: () => {
           throw new Error('database locked');
         },
-        replaceFileEvents: vi.fn(),
+        replaceFilesEvents: vi.fn(),
       },
     });
 
@@ -821,13 +824,15 @@ describe('build-usage-data-parsing', () => {
           entries.get(filePath),
         readFileEvents: (_store: EventStore, _source: string, filePath: string) =>
           eventsByFile.get(filePath),
-        replaceFileEvents: (_store: EventStore, input: ReplaceFileEventsInput) => {
-          entries.set(input.filePath, {
-            fingerprint: serializeEventStoreFingerprint(input.fingerprint),
-            skippedRows: input.skippedRows,
-            skippedRowReasons: input.skippedRowReasons ?? [],
-          });
-          eventsByFile.set(input.filePath, input.events);
+        replaceFilesEvents: (_store: EventStore, inputs: readonly ReplaceFileEventsInput[]) => {
+          for (const input of inputs) {
+            entries.set(input.filePath, {
+              fingerprint: serializeEventStoreFingerprint(input.fingerprint),
+              skippedRows: input.skippedRows,
+              skippedRowReasons: input.skippedRowReasons ?? [],
+            });
+            eventsByFile.set(input.filePath, input.events);
+          }
         },
       },
       now: () => 123,

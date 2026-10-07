@@ -1,5 +1,5 @@
 import type { UsageEvent } from '../../domain/usage-event.js';
-import type { replaceFileEvents as replaceDefaultFileEvents } from '../../persistence/event-store.js';
+import type { replaceFilesEvents as replaceDefaultFilesEvents } from '../../persistence/event-store.js';
 import {
   serializeEventStoreFingerprint,
   type EventStore,
@@ -25,7 +25,7 @@ export type EventStoreParseDeps = {
     source: string,
     filePath: string,
   ) => UsageEvent[] | undefined;
-  replaceFileEvents?: typeof replaceDefaultFileEvents;
+  replaceFilesEvents?: typeof replaceDefaultFilesEvents;
 };
 
 export type EventStoreFailureState = {
@@ -41,7 +41,7 @@ export type EventStoreParseContext = {
     filePath: string,
   ) => EventStoreFileEntry | undefined;
   readFileEvents: (store: EventStore, source: string, filePath: string) => UsageEvent[] | undefined;
-  replaceFileEvents: typeof replaceDefaultFileEvents;
+  replaceFilesEvents: typeof replaceDefaultFilesEvents;
   now: () => number;
   failureState: EventStoreFailureState;
 };
@@ -105,32 +105,30 @@ export function readParsedFileFromEventStore(
   }
 }
 
-export function writeParsedFileToEventStore(
+export type ParsedFileStoreWrite = {
+  source: string;
+  filePath: string;
+  fingerprint: EventStoreFileFingerprint;
+  events: UsageEvent[];
+  skippedRows: number;
+  skippedRowReasons: SourceSkippedRowReasonStat[];
+};
+
+export function writeParsedFilesToEventStore(
   context: EventStoreParseContext,
-  params: {
-    source: string;
-    filePath: string;
-    fingerprint: EventStoreFileFingerprint;
-    events: UsageEvent[];
-    skippedRows: number;
-    skippedRowReasons: SourceSkippedRowReasonStat[];
-  },
+  files: readonly ParsedFileStoreWrite[],
 ): void {
-  if (context.failureState.disabled) {
+  if (context.failureState.disabled || files.length === 0) {
     return;
   }
 
-  // Only called after a store miss, so the stored fingerprint already differs.
+  // Only called for store misses, so each stored fingerprint already differs.
   try {
-    context.replaceFileEvents(context.store, {
-      source: params.source,
-      filePath: params.filePath,
-      fingerprint: params.fingerprint,
-      events: params.events,
-      skippedRows: params.skippedRows,
-      skippedRowReasons: params.skippedRowReasons,
-      now: context.now(),
-    });
+    const now = context.now();
+    context.replaceFilesEvents(
+      context.store,
+      files.map((file) => ({ ...file, now })),
+    );
   } catch (error) {
     recordEventStoreFailure(context.failureState, error);
   }
