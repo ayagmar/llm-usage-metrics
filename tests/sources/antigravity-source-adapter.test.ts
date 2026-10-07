@@ -1,13 +1,15 @@
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { getParseFileFingerprint } from '../../src/cli/parse/parse-fingerprint.js';
 import { getDefaultAntigravityConversationsDir } from '../../src/sources/antigravity/antigravity-path-resolver.js';
 import { AntigravitySourceAdapter } from '../../src/sources/antigravity/antigravity-source-adapter.js';
 import {
   createAntigravityFixtureDb,
+  encodeAntigravityGenMetadataBlob,
   loadAntigravityFixtureDatabaseSync,
 } from '../helpers/antigravity-fixtures.js';
 
@@ -302,12 +304,70 @@ describe.skipIf(!DatabaseSync)('AntigravitySourceAdapter', () => {
     );
   });
 
+  it('keeps its cache key across reads of a WAL database but not across writes', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'antigravity-wal-fingerprint-'));
+    tempDirs.push(tempDir);
+    const writerPath = path.join(tempDir, 'writer.db');
+    const dbPath = path.join(tempDir, 'conversation-wal.db');
+    const turn = {
+      model: 'gemini-3-pro',
+      timestamp: { seconds: 1_775_044_800 },
+      usage: { inputTokens: 10, outputTokens: 5 },
+    };
+    const Database = DatabaseSync;
+
+    if (!Database) {
+      throw new Error('node:sqlite is required for this test');
+    }
+
+    createAntigravityFixtureDb(writerPath, { turns: [turn] });
+
+    // Snapshot the files while a writer holds uncheckpointed commits, as a closed CLI
+    // leaves them: a reader then has to rebuild the -shm index, which bumps its mtime.
+    const writer = new Database(writerPath);
+
+    try {
+      writer.exec('PRAGMA journal_mode=WAL; PRAGMA wal_autocheckpoint=0;');
+      writer
+        .prepare('INSERT INTO gen_metadata (idx, data) VALUES (?, ?)')
+        .run(1, encodeAntigravityGenMetadataBlob(turn));
+
+      for (const suffix of ['', '-wal', '-shm']) {
+        await copyFile(`${writerPath}${suffix}`, `${dbPath}${suffix}`);
+      }
+    } finally {
+      writer.close();
+    }
+
+    const adapter = new AntigravitySourceAdapter({ dir: tempDir });
+    const before = await getParseFileFingerprint(adapter, dbPath);
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect((await adapter.parseFileWithDiagnostics(dbPath)).events).toHaveLength(2);
+    expect(await getParseFileFingerprint(adapter, dbPath)).toEqual(before);
+
+    const appender = new Database(dbPath);
+
+    try {
+      const { mtimeMs: dbMtimeMs } = await stat(dbPath);
+      appender
+        .prepare('INSERT INTO gen_metadata (idx, data) VALUES (?, ?)')
+        .run(2, encodeAntigravityGenMetadataBlob(turn));
+
+      // The new commit is only in -wal, so -wal must stay part of the cache key.
+      expect((await stat(dbPath)).mtimeMs).toBe(dbMtimeMs);
+      expect(await getParseFileFingerprint(adapter, dbPath)).not.toEqual(before);
+      expect((await adapter.parseFileWithDiagnostics(dbPath)).events).toHaveLength(3);
+    } finally {
+      appender.close();
+    }
+  });
+
   it('reports sqlite sidecars as parse dependencies', async () => {
     const adapter = new AntigravitySourceAdapter();
 
     await expect(adapter.getParseDependencies('/tmp/conversation.db')).resolves.toEqual([
       '/tmp/conversation.db-wal',
-      '/tmp/conversation.db-shm',
       '/tmp/conversation.db-journal',
     ]);
     await expect(adapter.getParseDependencies('   ')).resolves.toEqual([]);

@@ -33,8 +33,11 @@ export type AntigravitySourceAdapterOptions = SourceAdapterPathOptions & {
   loadSqliteModule?: () => Promise<SqliteModule>;
 };
 
+// `-wal` holds commits that are not checkpointed into the database file yet. `-shm` is
+// only an index of it, and a read-only open rewrites it, so keying on it would miss the
+// parse cache on every run.
 function getAntigravityParseDependencies(dbPath: string): string[] {
-  return [`${dbPath}-wal`, `${dbPath}-shm`, `${dbPath}-journal`];
+  return [`${dbPath}-wal`, `${dbPath}-journal`];
 }
 
 function hasSqliteTable(

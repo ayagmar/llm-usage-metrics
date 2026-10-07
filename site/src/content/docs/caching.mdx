@@ -60,7 +60,7 @@ Relevant options/config:
 - key is `(source, file path)`
 - validity requires matching dependency fingerprints
 - stores parse diagnostics and normalized events
-- dependency fingerprints include the primary file and any adapter-declared sidecar inputs
+- dependency fingerprints include the primary file and any adapter-declared sidecar inputs; for SQLite sources that means the `-wal` and `-journal` files, not `-shm`, which every read rewrites
 - fingerprints also include a parser version, so upgrading to a release with parser fixes re-parses stored files once
 - persisted as SQLite with per-file replace-on-change writes, batched into one transaction per source
 - `--history` includes usage from files that no longer exist on disk
