@@ -12,6 +12,7 @@ const openclawDir = path.resolve('tests/fixtures/e2e/openclaw');
 describe('usage report e2e', () => {
   it('renders daily report with mixed pi + codex data', async () => {
     const report = await buildUsageReport('daily', {
+      all: true,
       piDir,
       codexDir,
       source: 'pi,codex',
@@ -67,6 +68,7 @@ describe('usage report e2e', () => {
 
   it('renders daily report from openclaw source-dir override', async () => {
     const report = await buildUsageReport('daily', {
+      all: true,
       source: 'openclaw',
       sourceDir: [`openclaw=${openclawDir}`],
       timezone: 'UTC',

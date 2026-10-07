@@ -49,6 +49,7 @@ describe('buildUsageReport', () => {
 
     try {
       const report = await buildUsageReport('daily', {
+        all: true,
         droidDir: path.resolve('tests/fixtures/droid/report'),
         source: 'droid',
         timezone: 'UTC',
@@ -96,6 +97,7 @@ describe('buildUsageReport', () => {
 
   it('builds markdown report with source-separated rows', async () => {
     const report = await buildUsageReport('daily', {
+      all: true,
       piDir: path.resolve('tests/fixtures/pi'),
       codexDir: path.resolve('tests/fixtures/codex'),
       source: directoryBackedSources,
@@ -115,6 +117,7 @@ describe('buildUsageReport', () => {
 
   it('builds markdown report with per-model column layout when requested', async () => {
     const report = await buildUsageReport('daily', {
+      all: true,
       piDir: path.resolve('tests/fixtures/pi'),
       codexDir: path.resolve('tests/fixtures/codex'),
       source: directoryBackedSources,
@@ -150,6 +153,7 @@ describe('buildUsageReport', () => {
 
   it('filters rows to a single source when --source is provided', async () => {
     const report = await buildUsageReport('daily', {
+      all: true,
       piDir: path.resolve('tests/fixtures/pi'),
       codexDir: path.resolve('tests/fixtures/codex'),
       timezone: 'UTC',
@@ -170,6 +174,7 @@ describe('buildUsageReport', () => {
 
   it('supports comma-separated source filters', async () => {
     const report = await buildUsageReport('daily', {
+      all: true,
       piDir: path.resolve('tests/fixtures/pi'),
       codexDir: path.resolve('tests/fixtures/codex'),
       timezone: 'UTC',
@@ -227,6 +232,7 @@ describe('buildUsageReport', () => {
     );
 
     const report = await buildUsageReport('daily', {
+      all: true,
       piDir: tempDir,
       codexDir: tempDir,
       source: directoryBackedSources,
@@ -265,6 +271,7 @@ describe('buildUsageReport', () => {
 
     try {
       const report = await buildUsageReport('daily', {
+        all: true,
         piDir: emptyDir,
         codexDir: emptyDir,
         source: directoryBackedSources,
@@ -328,6 +335,7 @@ describe('buildUsageReport', () => {
     tempDirs.push(emptyDir);
 
     const report = await buildUsageReport('daily', {
+      all: true,
       piDir: emptyDir,
       codexDir: emptyDir,
       source: directoryBackedSources,
@@ -361,12 +369,14 @@ describe('buildUsageReport', () => {
 
     await expect(
       buildUsageReport('daily', {
+        all: true,
         timezone: 'Invalid/Timezone',
       }),
     ).rejects.toThrow('Invalid timezone: Invalid/Timezone');
 
     await expect(
       buildUsageReport('daily', {
+        all: true,
         pricingUrl: 'not-a-url',
       }),
     ).rejects.toThrow('--pricing-url must be a valid http(s) URL');
@@ -414,6 +424,7 @@ describe('buildUsageReport', () => {
 
     await expect(
       buildUsageReport('daily', {
+        all: true,
         piDir: piTempDir,
         codexDir: codexTempDir,
         source: 'pi',
@@ -425,12 +436,14 @@ describe('buildUsageReport', () => {
   it('validates source and model filter input', async () => {
     await expect(
       buildUsageReport('daily', {
+        all: true,
         source: '   ',
       }),
     ).rejects.toThrow('--source must contain at least one non-empty source id');
 
     await expect(
       buildUsageReport('daily', {
+        all: true,
         source: 'unknown-source',
       }),
     ).rejects.toThrow(
@@ -439,6 +452,7 @@ describe('buildUsageReport', () => {
 
     await expect(
       buildUsageReport('daily', {
+        all: true,
         model: '   ',
       }),
     ).rejects.toThrow('--model must contain at least one non-empty model filter');
@@ -447,6 +461,7 @@ describe('buildUsageReport', () => {
   it('validates conflicting output flags', async () => {
     await expect(
       buildUsageReport('daily', {
+        all: true,
         markdown: true,
         json: true,
       }),
@@ -461,6 +476,7 @@ describe('buildUsageReport', () => {
 
     try {
       const report = await buildUsageReport('daily', {
+        all: true,
         piDir: emptyDir,
         codexDir: emptyDir,
         source: directoryBackedSources,
@@ -484,6 +500,7 @@ describe('buildUsageReport', () => {
 
     try {
       await runUsageReport('daily', {
+        all: true,
         piDir: emptyDir,
         codexDir: emptyDir,
         source: directoryBackedSources,
@@ -509,6 +526,7 @@ describe('buildUsageReport', () => {
 
     try {
       await runUsageReport('daily', {
+        all: true,
         piDir: emptyDir,
         codexDir: emptyDir,
         source: directoryBackedSources,
@@ -536,6 +554,7 @@ describe('buildUsageReport', () => {
 
     try {
       await runUsageReport('daily', {
+        all: true,
         piDir: emptyDir,
         codexDir: emptyDir,
         source: directoryBackedSources,
@@ -570,6 +589,7 @@ describe('buildUsageReport', () => {
 
     try {
       await runUsageReport('daily', {
+        all: true,
         piDir: emptyDir,
         codexDir: emptyDir,
         source: directoryBackedSources,
@@ -601,6 +621,7 @@ describe('buildUsageReport', () => {
 
     try {
       await runUsageReport('daily', {
+        all: true,
         piDir: emptyDir,
         codexDir: emptyDir,
         source: directoryBackedSources,
@@ -629,6 +650,7 @@ describe('buildUsageReport', () => {
 
     try {
       await runUsageReport('daily', {
+        all: true,
         piDir: emptyDir,
         codexDir: emptyDir,
         source: directoryBackedSources,
@@ -659,6 +681,7 @@ describe('buildUsageReport', () => {
 
     try {
       await runUsageReport('daily', {
+        all: true,
         piDir: emptyDir,
         codexDir: emptyDir,
         source: directoryBackedSources,
@@ -690,6 +713,7 @@ describe('buildUsageReport', () => {
 
     try {
       await runUsageReport('daily', {
+        all: true,
         piDir: emptyDir,
         codexDir: emptyDir,
         source: directoryBackedSources,

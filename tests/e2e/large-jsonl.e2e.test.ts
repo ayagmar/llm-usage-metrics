@@ -31,6 +31,7 @@ describe('large jsonl fixture e2e', () => {
 
     try {
       const report = await buildUsageReport('daily', {
+        all: true,
         piDir,
         codexDir,
         source: 'pi,codex',

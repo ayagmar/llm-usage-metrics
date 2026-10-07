@@ -99,7 +99,12 @@ type SharedOptionsForProfile<P extends SharedOptionProfile> = AlwaysOnCommandOpt
   (ProfileConfig[P]['includePerModelColumns'] extends true ? PerModelColumnsOption : unknown) &
   (ProfileConfig[P]['includeShare'] extends true ? ShareOption : unknown);
 
-export type ReportCommandOptions = SharedOptionsForProfile<'usage'>;
+export type ReportCommandOptions = SharedOptionsForProfile<'usage'> & {
+  /** `daily` only: report every day instead of the default recent window. */
+  all?: boolean;
+};
+
+export type SummaryCommandOptions = SharedOptionsForProfile<'summary'>;
 
 export type EfficiencyCommandOptions = SharedOptionsForProfile<'specialized'> & {
   repoDir?: string;
@@ -187,6 +192,8 @@ export type UsageDataResult = {
   events: UsageEvent[];
   rows: UsageReportRow[];
   diagnostics: UsageDiagnostics;
+  /** Set when `daily` ran without dates and so covered only its default recent window. */
+  defaultWindowSince?: string;
 };
 
 export type EfficiencyDiagnostics = UsageDiagnostics & {
@@ -251,9 +258,33 @@ export type CompareWindowRange = {
   label: string;
 };
 
-export type CompareWindowTotals = UsageTotals & {
+export type UsageWindowTotals = UsageTotals & {
   events: number;
   activeDays: number;
+};
+
+export type CompareWindowTotals = UsageWindowTotals;
+
+export type SummaryPeriodKey = 'today' | 'last7Days' | 'monthToDate';
+
+export type SummarySourceTotals = UsageWindowTotals & {
+  source: string;
+};
+
+export type SummaryPeriod = {
+  key: SummaryPeriodKey;
+  label: string;
+  since: string;
+  until: string;
+  totals: UsageWindowTotals;
+  /** Sources with usage in the period, by cost then name. */
+  sources: SummarySourceTotals[];
+};
+
+export type SummaryDataResult = {
+  timezone: string;
+  periods: SummaryPeriod[];
+  diagnostics: UsageDiagnostics;
 };
 
 export type CompareMetricKey =
@@ -339,6 +370,7 @@ export type BuildUsageDataDeps = {
   getActiveEnvVarOverrides?: () => EnvVarOverride[];
   loadHistoryEvents?: (store: EventStore, input: LoadHistoryEventsInput) => EventStoreHistoryResult;
   runtimeProfile?: RuntimeProfileCollector;
+  now?: () => Date;
 };
 
 export type BuildTrendsDataDeps = BuildUsageDataDeps & {
@@ -351,6 +383,6 @@ export type BuildWrappedDataDeps = BuildUsageDataDeps & {
   now?: () => Date;
 };
 
-export type BuildCompareDataDeps = BuildUsageDataDeps & {
-  now?: () => Date;
-};
+export type BuildCompareDataDeps = BuildUsageDataDeps;
+
+export type BuildSummaryDataDeps = BuildUsageDataDeps;

@@ -372,7 +372,7 @@ describe('buildUsageData', () => {
 
     const result = await buildUsageData(
       'daily',
-      { source: 'pi', timezone: 'UTC' },
+      { all: true, source: 'pi', timezone: 'UTC' },
       {
         ...withDeterministicRuntimeDeps(),
         createAdapters: () => [createAdapter('pi', {})],
@@ -390,7 +390,7 @@ describe('buildUsageData', () => {
 
     const result = await buildUsageData(
       'daily',
-      { source: 'pi', timezone: 'UTC' },
+      { all: true, source: 'pi', timezone: 'UTC' },
       {
         ...deps,
         createAdapters: () => [createAdapter('pi', {})],
@@ -412,6 +412,7 @@ describe('buildUsageData', () => {
     const result = await buildUsageData(
       'daily',
       {
+        all: true,
         timezone: 'UTC',
       },
       {
@@ -463,6 +464,7 @@ describe('buildUsageData', () => {
       const result = await buildUsageData(
         'daily',
         {
+          all: true,
           timezone: 'UTC',
           ...options,
         },
@@ -502,6 +504,7 @@ describe('buildUsageData', () => {
     const result = await buildUsageData(
       'daily',
       {
+        all: true,
         timezone: 'UTC',
       },
       {
@@ -538,6 +541,7 @@ describe('buildUsageData', () => {
     const result = await buildUsageData(
       'daily',
       {
+        all: true,
         timezone: 'UTC',
       },
       {
@@ -628,6 +632,7 @@ describe('buildUsageData', () => {
     const result = await buildUsageData(
       'daily',
       {
+        all: true,
         timezone: 'UTC',
         source: 'codex',
       },
@@ -664,6 +669,7 @@ describe('buildUsageData', () => {
     const result = await buildUsageData(
       'daily',
       {
+        all: true,
         timezone: 'UTC',
         provider: 'openai',
       },
@@ -701,6 +707,7 @@ describe('buildUsageData', () => {
     const result = await buildUsageData(
       'daily',
       {
+        all: true,
         timezone: 'UTC',
         model: 'gpt-5.2',
       },
@@ -743,6 +750,7 @@ describe('buildUsageData', () => {
     const result = await buildUsageData(
       'daily',
       {
+        all: true,
         timezone: 'UTC',
       },
       {
@@ -777,6 +785,7 @@ describe('buildUsageData', () => {
     const result = await buildUsageData(
       'daily',
       {
+        all: true,
         timezone: 'UTC',
       },
       {
@@ -815,6 +824,7 @@ describe('buildUsageData', () => {
     const result = await buildUsageData(
       'daily',
       {
+        all: true,
         timezone: 'UTC',
       },
       {
@@ -842,6 +852,7 @@ describe('buildUsageData', () => {
       buildUsageData(
         'daily',
         {
+          all: true,
           timezone: 'UTC',
           source: 'codex',
         },
@@ -860,6 +871,7 @@ describe('buildUsageData', () => {
       buildUsageData(
         'daily',
         {
+          all: true,
           timezone: 'UTC',
           source: 'gemini',
           provider: 'openai',
@@ -882,6 +894,7 @@ describe('buildUsageData', () => {
       buildUsageData(
         'daily',
         {
+          all: true,
           timezone: 'UTC',
           geminiDir: '/tmp/explicit-gemini',
           model: 'gpt-5.2',
@@ -904,6 +917,7 @@ describe('buildUsageData', () => {
       buildUsageData(
         'daily',
         {
+          all: true,
           timezone: 'UTC',
           codexDir: '/tmp/explicit-codex',
         },
@@ -927,6 +941,7 @@ describe('buildUsageData', () => {
       buildUsageData(
         'daily',
         {
+          all: true,
           timezone: 'UTC',
           geminiDir: '/tmp/explicit-gemini',
         },
@@ -945,6 +960,7 @@ describe('buildUsageData', () => {
       buildUsageData(
         'daily',
         {
+          all: true,
           timezone: 'UTC',
           droidDir: '/tmp/explicit-droid',
         },
@@ -962,6 +978,7 @@ describe('buildUsageData', () => {
     const result = await buildUsageData(
       'daily',
       {
+        all: true,
         timezone: 'UTC',
       },
       {
@@ -993,6 +1010,7 @@ describe('buildUsageData', () => {
     const result = await buildUsageData(
       'daily',
       {
+        all: true,
         timezone: 'UTC',
       },
       {
@@ -1024,6 +1042,7 @@ describe('buildUsageData', () => {
     const result = await buildUsageData(
       'daily',
       {
+        all: true,
         timezone: 'UTC',
       },
       {
@@ -1054,6 +1073,7 @@ describe('buildUsageData', () => {
     const result = await buildUsageData(
       'daily',
       {
+        all: true,
         timezone: 'UTC',
         model: 'claude',
       },
@@ -1084,6 +1104,7 @@ describe('buildUsageData', () => {
     const result = await buildUsageData(
       'daily',
       {
+        all: true,
         timezone: 'UTC',
         model: 'claude-sonnet-4.5',
       },
@@ -1155,6 +1176,7 @@ describe('buildUsageData', () => {
       buildUsageData(
         'daily',
         {
+          all: true,
           timezone: 'UTC',
           sourceDir: ['missing-separator'],
         },
@@ -1170,6 +1192,7 @@ describe('buildUsageData', () => {
       buildUsageData(
         'daily',
         {
+          all: true,
           timezone: 'UTC',
           model: '   ',
         },
@@ -1189,6 +1212,7 @@ describe('buildUsageData', () => {
     const result = await buildUsageData(
       'daily',
       {
+        all: true,
         timezone: ' UTC ',
         pricingUrl: ' https://example.test/pricing.json ',
       },
@@ -1233,6 +1257,7 @@ describe('buildUsageData', () => {
       const result = await buildUsageData(
         'daily',
         {
+          all: true,
           timezone: 'UTC',
         },
         {
@@ -1266,6 +1291,7 @@ describe('buildUsageData', () => {
     const result = await buildUsageData(
       'daily',
       {
+        all: true,
         timezone: 'UTC',
       },
       {
@@ -1303,6 +1329,7 @@ describe('buildUsageData', () => {
       const result = await buildUsageData(
         'daily',
         {
+          all: true,
           timezone: 'UTC',
           ...optionOverrides,
         },
@@ -1337,6 +1364,7 @@ describe('buildUsageData', () => {
     const result = await buildUsageData(
       'daily',
       {
+        all: true,
         timezone: 'UTC',
       },
       {
@@ -1378,6 +1406,7 @@ describe('buildUsageData', () => {
     const result = await buildUsageData(
       'daily',
       {
+        all: true,
         timezone: 'UTC',
       },
       {
@@ -1418,6 +1447,7 @@ describe('buildUsageData', () => {
     const result = await buildUsageData(
       'daily',
       {
+        all: true,
         timezone: 'UTC',
         pricingUrl: 'https://example.test/pricing.json',
         ignorePricingFailures: true,
@@ -1462,6 +1492,7 @@ describe('buildUsageData', () => {
     const result = await buildUsageData(
       'daily',
       {
+        all: true,
         timezone: 'UTC',
         pricingOffline: true,
       },
@@ -1516,6 +1547,7 @@ describe('buildUsageData', () => {
     const result = await buildUsageData(
       'daily',
       {
+        all: true,
         timezone: 'UTC',
         pricingOffline: true,
         pricingOverrides: overridesPath,
@@ -1540,5 +1572,82 @@ describe('buildUsageData', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(result.diagnostics.pricingOrigin).toBe('bundled-snapshot');
     expect(result.rows[0]?.costUsd).toBe(20);
+  });
+
+  describe('daily default window', () => {
+    const timestamps = [
+      '2026-03-01T12:00:00.000Z',
+      '2026-03-03T12:00:00.000Z',
+      '2026-03-04T12:00:00.000Z',
+      '2026-03-10T12:00:00.000Z',
+    ];
+
+    function windowDeps() {
+      return {
+        ...withDeterministicRuntimeDeps(),
+        createAdapters: () => [
+          createAdapter('pi', {
+            '/tmp/pi.jsonl': timestamps.map((timestamp) => createEvent({ timestamp })),
+          }),
+        ],
+        now: () => new Date('2026-03-10T18:00:00.000Z'),
+      };
+    }
+
+    function reportedDays(result: Awaited<ReturnType<typeof buildUsageData>>): string[] {
+      return result.rows
+        .filter((row) => row.rowType === 'period_source')
+        .map((row) => row.periodKey);
+    }
+
+    it('reports only the last 7 days when daily gets no dates', async () => {
+      const result = await buildUsageData('daily', { timezone: 'UTC' }, windowDeps());
+
+      expect(reportedDays(result)).toEqual(['2026-03-04', '2026-03-10']);
+      expect(result.defaultWindowSince).toBe('2026-03-04');
+    });
+
+    it('resolves the window in the report timezone', async () => {
+      // 2026-03-10T18:00Z is already Mar 11 in Kiritimati (+14:00).
+      const result = await buildUsageData(
+        'daily',
+        { timezone: 'Pacific/Kiritimati' },
+        windowDeps(),
+      );
+
+      expect(result.defaultWindowSince).toBe('2026-03-05');
+    });
+
+    it('keeps every day with --all, explicit dates, or another granularity', async () => {
+      const all = await buildUsageData('daily', { all: true, timezone: 'UTC' }, windowDeps());
+      const since = await buildUsageData(
+        'daily',
+        { since: '2026-03-03', timezone: 'UTC' },
+        windowDeps(),
+      );
+      const until = await buildUsageData(
+        'daily',
+        { until: '2026-03-03', timezone: 'UTC' },
+        windowDeps(),
+      );
+      const weekly = await buildUsageData('weekly', { timezone: 'UTC' }, windowDeps());
+
+      expect(reportedDays(all)).toHaveLength(4);
+      expect(reportedDays(since)).toEqual(['2026-03-03', '2026-03-04', '2026-03-10']);
+      expect(reportedDays(until)).toEqual(['2026-03-01', '2026-03-03']);
+      expect(weekly.rows.some((row) => row.rowType === 'period_source')).toBe(true);
+      expect([all, since, until, weekly].map((result) => result.defaultWindowSince)).toEqual([
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+      ]);
+    });
+
+    it('rejects --all with explicit dates', async () => {
+      await expect(
+        buildUsageData('daily', { all: true, since: '2026-03-01', timezone: 'UTC' }, windowDeps()),
+      ).rejects.toThrow('--all cannot be combined with --since or --until');
+    });
   });
 });

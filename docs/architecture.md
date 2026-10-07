@@ -17,7 +17,7 @@ This keeps source-specific parsing, pricing, aggregation, rendering, and command
 ### Report definitions
 
 - `src/cli/report-definitions/report-definitions.ts`
-  Owns the canonical registry for `daily`, `weekly`, `monthly`, `compare`, `efficiency`, `optimize`, `trends`, `session`, `wrapped`, `doctor`, and `prune`. (`config init` is registered directly in `create-cli.ts`.)
+  Owns the canonical registry for `summary` (the default command), `daily`, `weekly`, `monthly`, `compare`, `efficiency`, `optimize`, `trends`, `session`, `wrapped`, `doctor`, and `prune`. (`config init` is registered directly in `create-cli.ts`.)
 - `src/cli/report-definitions/shared-report-options.ts`
   Registers the shared option surface by profile (`usage`, `specialized`, `trends`).
 
@@ -170,7 +170,7 @@ That keeps sorting and separator behavior deterministic without coupling the gen
 ## Module map
 
 - `src/cli`
-  Command creation, shared runtime, builders, diagnostics emission; `parse-worker-pool.ts` holds the worker-thread parse pool; `parse/` groups the parse-pipeline concerns (`parse-fingerprint.ts` dependency fingerprinting, `event-store-parse-cache.ts` store read/write caching, `since-file-skip.ts` the `--since` mtime cutoff, `parse-budget.ts` the global parse semaphore, `usage-event-filters.ts` provider/date/model filtering) around the coordinator in `build-usage-data-parsing.ts`
+  Command creation, shared runtime, builders, diagnostics emission; `parse-worker-pool.ts` holds the worker-thread parse pool; `parse/` groups the parse-pipeline concerns (`parse-fingerprint.ts` dependency fingerprinting, `event-store-parse-cache.ts` store read/write caching, `since-file-skip.ts` the `--since` mtime cutoff, `parse-budget.ts` the global parse semaphore, `usage-event-filters.ts` provider/date/model filtering) around the coordinator in `build-usage-data-parsing.ts`; `usage-window-summary.ts` sums date windows for `compare` and `summary`
 - `src/cli/report-definitions`
   Canonical report metadata and option profiles
 - `src/cli/report-runtime`

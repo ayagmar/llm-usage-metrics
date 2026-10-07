@@ -1,5 +1,11 @@
 import { aggregateUsage } from '../aggregate/aggregate-usage.js';
-import type { ReportGranularity } from '../utils/time-buckets.js';
+import {
+  getCurrentLocalDateKey,
+  shiftLocalDateKey,
+  type ReportGranularity,
+} from '../utils/time-buckets.js';
+import { resolveUserConfigForOptions } from './apply-user-config.js';
+import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
 import { assembleUsageDataResult, buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import {
   applyPricingToUsageEventDataset,
@@ -12,11 +18,59 @@ import type {
   UsageDataResult,
 } from './usage-data-contracts.js';
 
-export async function buildUsageData(
+export const DAILY_DEFAULT_DAYS = 7;
+
+type UsageDataRequest = {
+  options: ReportCommandOptions;
+  deps: BuildUsageDataDeps;
+  defaultWindowSince?: string;
+};
+
+/**
+ * `daily` without dates covers the last DAILY_DEFAULT_DAYS days in the report timezone;
+ * `--all` restores every day. Other granularities and explicit dates are unchanged.
+ */
+async function resolveUsageDataRequest(
   granularity: ReportGranularity,
   options: ReportCommandOptions,
-  deps: BuildUsageDataDeps = {},
+  deps: BuildUsageDataDeps,
+): Promise<UsageDataRequest> {
+  if (options.all && (options.since !== undefined || options.until !== undefined)) {
+    throw new Error('--all cannot be combined with --since or --until');
+  }
+
+  if (
+    granularity !== 'daily' ||
+    options.all ||
+    options.since !== undefined ||
+    options.until !== undefined
+  ) {
+    return { options, deps };
+  }
+
+  const userConfigResolution = await resolveUserConfigForOptions(options, deps);
+  const { timezone } = normalizeBuildUsageInputs(userConfigResolution.options);
+  const today = getCurrentLocalDateKey(timezone, deps.now?.() ?? new Date());
+  const since = shiftLocalDateKey(today, -(DAILY_DEFAULT_DAYS - 1));
+  const windowedOptions = { ...userConfigResolution.options, since };
+
+  return {
+    options: windowedOptions,
+    deps: { ...deps, userConfigResolution: { ...userConfigResolution, options: windowedOptions } },
+    defaultWindowSince: since,
+  };
+}
+
+export async function buildUsageData(
+  granularity: ReportGranularity,
+  commandOptions: ReportCommandOptions,
+  commandDeps: BuildUsageDataDeps = {},
 ): Promise<UsageDataResult> {
+  const { options, deps, defaultWindowSince } = await resolveUsageDataRequest(
+    granularity,
+    commandOptions,
+    commandDeps,
+  );
   const dataset = await measureRuntimeProfileStage(deps.runtimeProfile, 'usage.dataset.total', () =>
     buildUsageEventDataset(options, deps),
   );
@@ -47,5 +101,6 @@ export async function buildUsageData(
     runtimeProfile: deps.runtimeProfile?.snapshot(),
   });
 
-  return assembleUsageDataResult(pricedEvents, rows, diagnostics);
+  const result = assembleUsageDataResult(pricedEvents, rows, diagnostics);
+  return defaultWindowSince ? { ...result, defaultWindowSince } : result;
 }

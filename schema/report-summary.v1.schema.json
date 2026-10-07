@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ayagmar.github.io/llm-usage-metrics/report-summary.v1.schema.json",
+  "title": "llm-usage-metrics summary report output (v1)",
+  "description": "Envelope and payload for summary report --json output. Diagnostics are excluded by contract.",
+  "allOf": [
+    {
+      "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope"
+    }
+  ],
+  "properties": {
+    "report": { "const": "summary" },
+    "data": {
+      "description": "Summary payload: today, the last 7 days, and month to date.",
+      "type": "object",
+      "properties": {
+        "timezone": {
+          "description": "IANA timezone or offset the periods are computed in.",
+          "type": "string"
+        },
+        "periods": {
+          "description": "Periods in fixed order: today, last7Days, monthToDate.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/period" }
+        }
+      },
+      "required": ["timezone", "periods"],
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "windowTotals": {
+      "description": "Usage totals for one period (non-negative).",
+      "allOf": [
+        {
+          "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/usageTotals"
+        }
+      ],
+      "properties": {
+        "events": { "description": "Events in the period.", "type": "integer", "minimum": 0 },
+        "activeDays": {
+          "description": "Days with at least one event in the period.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": ["events", "activeDays"],
+      "unevaluatedProperties": false
+    },
+    "sourceTotals": {
+      "description": "Usage totals for one source within a period (non-negative).",
+      "allOf": [
+        {
+          "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/usageTotals"
+        }
+      ],
+      "properties": {
+        "source": { "description": "Source id.", "type": "string" },
+        "events": { "description": "Events in the period.", "type": "integer", "minimum": 0 },
+        "activeDays": {
+          "description": "Days with at least one event in the period.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": ["source", "events", "activeDays"],
+      "unevaluatedProperties": false
+    },
+    "period": {
+      "description": "One summarized period.",
+      "type": "object",
+      "properties": {
+        "key": {
+          "description": "Stable period identifier.",
+          "enum": ["today", "last7Days", "monthToDate"]
+        },
+        "label": { "description": "Human-readable period label.", "type": "string" },
+        "since": { "description": "Period start (YYYY-MM-DD, inclusive).", "type": "string" },
+        "until": { "description": "Period end (YYYY-MM-DD, inclusive).", "type": "string" },
+        "totals": { "$ref": "#/$defs/windowTotals" },
+        "sources": {
+          "description": "Sources with usage in the period, by cost then tokens then id.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/sourceTotals" }
+        }
+      },
+      "required": ["key", "label", "since", "until", "totals", "sources"],
+      "additionalProperties": false
+    }
+  }
+}

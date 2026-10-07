@@ -20,6 +20,8 @@ type RenderUnicodeTableOptions = {
   layout: UnicodeTableLayout;
   multilineColumnIndex: number;
   multilineColumnWidth: number;
+  /** Columns after the multiline column that hold text rather than numbers. */
+  leftAlignedColumnIndexes?: readonly number[];
 };
 
 type BorderChars = {
@@ -35,8 +37,12 @@ type RenderableTableRow = {
   originalIndex: number;
 };
 
-function getColumnAlignment(columnIndex: number, multilineColumnIndex: number): TableAlignment {
-  if (columnIndex <= multilineColumnIndex) {
+function getColumnAlignment(
+  columnIndex: number,
+  multilineColumnIndex: number,
+  leftAlignedColumnIndexes: readonly number[] = [],
+): TableAlignment {
+  if (columnIndex <= multilineColumnIndex || leftAlignedColumnIndexes.includes(columnIndex)) {
     return 'left';
   }
 
@@ -96,6 +102,7 @@ function toRenderableRowLines(
     widths: number[];
     layout: UnicodeTableLayout;
     multilineColumnIndex: number;
+    leftAlignedColumnIndexes?: readonly number[];
   },
 ): string[] {
   const cellLines = row.map((cell) => splitCellLines(cell));
@@ -108,7 +115,11 @@ function toRenderableRowLines(
       options.multilineColumnIndex,
     );
     const alignedLines = padCellLines(lines, rowHeight, verticalAlignment);
-    const horizontalAlignment = getColumnAlignment(columnIndex, options.multilineColumnIndex);
+    const horizontalAlignment = getColumnAlignment(
+      columnIndex,
+      options.multilineColumnIndex,
+      options.leftAlignedColumnIndexes,
+    );
 
     return alignedLines.map((line) =>
       alignCellLine(line, options.widths[columnIndex], horizontalAlignment),
@@ -295,6 +306,7 @@ export function renderUnicodeTable(options: RenderUnicodeTableOptions): string {
       widths,
       layout: options.layout,
       multilineColumnIndex: options.multilineColumnIndex,
+      leftAlignedColumnIndexes: options.leftAlignedColumnIndexes,
     }),
   );
   outputLines.push(
@@ -314,6 +326,7 @@ export function renderUnicodeTable(options: RenderUnicodeTableOptions): string {
         widths,
         layout: options.layout,
         multilineColumnIndex: options.multilineColumnIndex,
+        leftAlignedColumnIndexes: options.leftAlignedColumnIndexes,
       }),
     );
 

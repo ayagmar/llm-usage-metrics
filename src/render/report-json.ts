@@ -2,6 +2,7 @@ export const REPORT_JSON_SCHEMA_VERSION = 1;
 
 export type ReportJsonName =
   | 'usage'
+  | 'summary'
   | 'session'
   | 'trends'
   | 'compare'

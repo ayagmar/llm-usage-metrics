@@ -10,6 +10,7 @@ import { buildCompareReport } from '../../src/cli/run-compare-report.js';
 import { buildEfficiencyReport } from '../../src/cli/run-efficiency-report.js';
 import { buildOptimizeReport } from '../../src/cli/run-optimize-report.js';
 import { buildSessionReport } from '../../src/cli/run-session-report.js';
+import { buildSummaryReport } from '../../src/cli/run-summary-report.js';
 import { buildTrendsReport } from '../../src/cli/run-trends-report.js';
 import { buildUsageReport } from '../../src/cli/run-usage-report.js';
 import { buildWrappedReport } from '../../src/cli/run-wrapped-report.js';
@@ -145,6 +146,18 @@ describe('report json schema e2e', () => {
       metric: 'active-hours',
     });
     validateReport('trends', output);
+  });
+
+  it('validates summary output', async () => {
+    const output = await buildSummaryReport(
+      { ...fixtureOptions, pricingOffline: true },
+      { now: () => new Date('2026-02-28T12:00:00.000Z') },
+    );
+    expect(
+      (JSON.parse(output) as { data: { periods: Array<{ totals: { events: number } }> } }).data
+        .periods[2]?.totals.events,
+    ).toBeGreaterThan(0);
+    validateReport('summary', output);
   });
 
   it('validates compare output', async () => {

@@ -98,6 +98,7 @@ async function main() {
         [
           'dist/index.js',
           'daily',
+          '--all',
           '--source',
           'opencode',
           '--opencode-db',

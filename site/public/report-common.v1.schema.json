@@ -76,6 +76,7 @@
           "type": "string",
           "enum": [
             "usage",
+            "summary",
             "session",
             "trends",
             "compare",

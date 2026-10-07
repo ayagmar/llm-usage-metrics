@@ -33,12 +33,14 @@ Requires Node.js 24 or newer.
 
 ```bash
 # Run without installing
-npx --yes llm-usage-metrics@latest daily
+npx --yes llm-usage-metrics@latest
 
 # Or install the llm-usage command
 npm install -g llm-usage-metrics
-llm-usage daily
+llm-usage
 ```
+
+With no command, `llm-usage` prints cost and tokens for today, the last 7 days, and month to date. `llm-usage daily` breaks the last 7 days down by day and source; add `--since YYYY-MM-DD` or `--all` for older usage.
 
 If the report is empty, check source discovery:
 
@@ -50,6 +52,7 @@ llm-usage doctor
 
 | Question                                                  | Command                                   |
 | --------------------------------------------------------- | ----------------------------------------- |
+| What did I spend today, this week, and this month?        | `llm-usage`                               |
 | How much did I use by day, week, or month?                | `llm-usage daily`, `weekly`, `monthly`    |
 | How did one period change from another?                   | `llm-usage compare`                       |
 | Which conversations or repositories used the most?        | `llm-usage session`                       |
@@ -175,7 +178,7 @@ Deleting the ledger also deletes retained history. Read [Caching](https://ayagma
 ## Output
 
 ```bash
-llm-usage daily --json
+llm-usage daily --all --json
 llm-usage daily --markdown
 llm-usage monthly --share
 ```

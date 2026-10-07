@@ -22,19 +22,19 @@ const scenarios = [
     name: 'daily-terminal',
     kind: 'usage',
     granularity: 'daily',
-    options: { ...fixtureOptions },
+    options: { ...fixtureOptions, all: true },
   },
   {
     name: 'daily-markdown',
     kind: 'usage',
     granularity: 'daily',
-    options: { ...fixtureOptions, markdown: true },
+    options: { ...fixtureOptions, all: true, markdown: true },
   },
   {
     name: 'daily-json',
     kind: 'usage',
     granularity: 'daily',
-    options: { ...fixtureOptions, json: true },
+    options: { ...fixtureOptions, all: true, json: true },
   },
   {
     name: 'weekly-json',

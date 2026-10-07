@@ -33,7 +33,7 @@ Very wide usage tables can emit an overflow warning on `stderr`. Use a wider ter
 ## JSON
 
 ```bash
-llm-usage daily --json > usage.json
+llm-usage daily --all --json > usage.json
 ```
 
 Use JSON for scripts and pipelines. Every report wraps its payload in a versioned envelope:
@@ -111,7 +111,7 @@ This usage-report option expands token and cost values per model into aligned mu
 ## Keep diagnostics separate
 
 ```bash
-llm-usage daily --json > usage.json 2> usage.log
+llm-usage daily --all --json > usage.json 2> usage.log
 ```
 
 `usage.json` contains report data. `usage.log` contains source discovery, skipped-row, pricing, config, and runtime notes. Pass `--quiet` when you want to suppress informational diagnostics while keeping warnings.

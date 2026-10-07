@@ -37,6 +37,8 @@ type PreparedReport<Format extends string, Diagnostics> = {
   diagnostics: Diagnostics;
   shareArtifact?: ShareArtifact;
   runtimeProfile?: RuntimeProfileCollector;
+  /** Informational stderr lines printed after the report, so they read as its footer. */
+  hintsAfterOutput?: readonly string[];
 };
 
 type PrepareReportOptions<Data, Diagnostics, Format extends StandardReportFormat> = {
@@ -47,6 +49,7 @@ type PrepareReportOptions<Data, Diagnostics, Format extends StandardReportFormat
   render: (data: Data, format: Format) => string;
   getDiagnostics: (data: Data) => Diagnostics;
   createShareArtifact?: (data: Data) => ShareArtifact | undefined;
+  getHintsAfterOutput?: (data: Data, format: Format) => readonly string[];
   runtimeProfile?: RuntimeProfileCollector;
 };
 
@@ -109,6 +112,7 @@ export async function prepareReport<Data, Diagnostics, Format extends StandardRe
     output,
     shareArtifact: options.createShareArtifact?.(data),
     runtimeProfile: options.runtimeProfile,
+    hintsAfterOutput: options.getHintsAfterOutput?.(data, format),
   };
 }
 
@@ -177,6 +181,10 @@ export async function runPreparedReport<Diagnostics, Format extends string>(
   }
 
   console.log(options.preparedReport.output);
+
+  for (const hint of options.preparedReport.hintsAfterOutput ?? []) {
+    logger.info(hint);
+  }
 }
 
 type RunStandardPreparedReportOptions<Diagnostics, Format extends string> = {
