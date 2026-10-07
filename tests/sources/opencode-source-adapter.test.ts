@@ -104,7 +104,6 @@ describe('OpenCodeSourceAdapter', () => {
 
     await expect(configuredAdapter.getParseDependencies('/tmp/opencode.db')).resolves.toEqual([
       '/tmp/opencode.db-wal',
-      '/tmp/opencode.db-shm',
       '/tmp/opencode.db-journal',
     ]);
     await expect(blankAdapter.getParseDependencies('   ')).resolves.toEqual([]);
