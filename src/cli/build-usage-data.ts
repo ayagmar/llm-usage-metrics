@@ -1,6 +1,7 @@
 import { aggregateUsage } from '../aggregate/aggregate-usage.js';
 import {
   getCurrentLocalDateKey,
+  getIsoDayOfWeekFromDateKey,
   shiftLocalDateKey,
   type ReportGranularity,
 } from '../utils/time-buckets.js';
@@ -18,7 +19,35 @@ import type {
   UsageDataResult,
 } from './usage-data-contracts.js';
 
-export const DAILY_DEFAULT_DAYS = 7;
+type DefaultReportWindow = {
+  periods: number;
+  period: 'day' | 'week';
+  /** First local date key of the window that ends with the period containing `today`. */
+  resolveSince: (today: string) => string;
+};
+
+const DAILY_DEFAULT_DAYS = 7;
+const WEEKLY_DEFAULT_WEEKS = 8;
+
+/**
+ * Granularities that report a recent window when no dates are given. `monthly` keeps full
+ * history. Weeks start on Monday, matching the weekly buckets.
+ */
+export const DEFAULT_REPORT_WINDOWS: Partial<Record<ReportGranularity, DefaultReportWindow>> = {
+  daily: {
+    periods: DAILY_DEFAULT_DAYS,
+    period: 'day',
+    resolveSince: (today) => shiftLocalDateKey(today, -(DAILY_DEFAULT_DAYS - 1)),
+  },
+  weekly: {
+    periods: WEEKLY_DEFAULT_WEEKS,
+    period: 'week',
+    resolveSince: (today) => {
+      const currentWeekMonday = shiftLocalDateKey(today, -(getIsoDayOfWeekFromDateKey(today) - 1));
+      return shiftLocalDateKey(currentWeekMonday, -7 * (WEEKLY_DEFAULT_WEEKS - 1));
+    },
+  },
+};
 
 type UsageDataRequest = {
   options: ReportCommandOptions;
@@ -27,8 +56,9 @@ type UsageDataRequest = {
 };
 
 /**
- * `daily` without dates covers the last DAILY_DEFAULT_DAYS days in the report timezone;
- * `--all` restores every day. Other granularities and explicit dates are unchanged.
+ * A granularity with a DEFAULT_REPORT_WINDOWS entry covers that recent window in the report
+ * timezone when no dates are given; `--all` restores full history. Explicit dates and other
+ * granularities are unchanged.
  */
 async function resolveUsageDataRequest(
   granularity: ReportGranularity,
@@ -39,19 +69,16 @@ async function resolveUsageDataRequest(
     throw new Error('--all cannot be combined with --since or --until');
   }
 
-  if (
-    granularity !== 'daily' ||
-    options.all ||
-    options.since !== undefined ||
-    options.until !== undefined
-  ) {
+  const defaultWindow = DEFAULT_REPORT_WINDOWS[granularity];
+
+  if (!defaultWindow || options.all || options.since !== undefined || options.until !== undefined) {
     return { options, deps };
   }
 
   const userConfigResolution = await resolveUserConfigForOptions(options, deps);
   const { timezone } = normalizeBuildUsageInputs(userConfigResolution.options);
   const today = getCurrentLocalDateKey(timezone, deps.now?.() ?? new Date());
-  const since = shiftLocalDateKey(today, -(DAILY_DEFAULT_DAYS - 1));
+  const since = defaultWindow.resolveSince(today);
   const windowedOptions = { ...userConfigResolution.options, since };
 
   return {

@@ -1630,13 +1630,15 @@ describe('buildUsageData', () => {
         { until: '2026-03-03', timezone: 'UTC' },
         windowDeps(),
       );
-      const weekly = await buildUsageData('weekly', { timezone: 'UTC' }, windowDeps());
+      const monthly = await buildUsageData('monthly', { timezone: 'UTC' }, windowDeps());
 
       expect(reportedDays(all)).toHaveLength(4);
       expect(reportedDays(since)).toEqual(['2026-03-03', '2026-03-04', '2026-03-10']);
       expect(reportedDays(until)).toEqual(['2026-03-01', '2026-03-03']);
-      expect(weekly.rows.some((row) => row.rowType === 'period_source')).toBe(true);
-      expect([all, since, until, weekly].map((result) => result.defaultWindowSince)).toEqual([
+      expect(monthly.rows.find((row) => row.rowType === 'grand_total')?.totalTokens).toBe(
+        all.rows.find((row) => row.rowType === 'grand_total')?.totalTokens,
+      );
+      expect([all, since, until, monthly].map((result) => result.defaultWindowSince)).toEqual([
         undefined,
         undefined,
         undefined,
@@ -1648,6 +1650,95 @@ describe('buildUsageData', () => {
       await expect(
         buildUsageData('daily', { all: true, since: '2026-03-01', timezone: 'UTC' }, windowDeps()),
       ).rejects.toThrow('--all cannot be combined with --since or --until');
+      await expect(
+        buildUsageData('weekly', { all: true, until: '2026-03-01', timezone: 'UTC' }, windowDeps()),
+      ).rejects.toThrow('--all cannot be combined with --since or --until');
+    });
+  });
+
+  describe('weekly default window', () => {
+    // Mondays: 2026-01-12 (W03), 2026-01-19 (W04), 2026-03-02 (W10), 2026-03-09 (W11).
+    const timestamps = [
+      '2026-01-18T12:00:00.000Z',
+      '2026-01-19T12:00:00.000Z',
+      '2026-03-08T23:30:00.000Z',
+      '2026-03-10T12:00:00.000Z',
+    ];
+
+    function windowDeps(now: string) {
+      return {
+        ...withDeterministicRuntimeDeps(),
+        createAdapters: () => [
+          createAdapter('pi', {
+            '/tmp/pi.jsonl': timestamps.map((timestamp) => createEvent({ timestamp })),
+          }),
+        ],
+        now: () => new Date(now),
+      };
+    }
+
+    function reportedWeeks(result: Awaited<ReturnType<typeof buildUsageData>>): string[] {
+      return result.rows
+        .filter((row) => row.rowType === 'period_source')
+        .map((row) => row.periodKey);
+    }
+
+    it('starts on the Monday seven weeks before the current week', async () => {
+      // Wednesday 2026-03-11: current week starts Monday 2026-03-09.
+      const result = await buildUsageData(
+        'weekly',
+        { timezone: 'UTC' },
+        windowDeps('2026-03-11T18:00:00.000Z'),
+      );
+
+      expect(result.defaultWindowSince).toBe('2026-01-19');
+      expect(reportedWeeks(result)).toEqual(['2026-W04', '2026-W10', '2026-W11']);
+    });
+
+    it('treats Monday and Sunday as part of the current week', async () => {
+      const monday = await buildUsageData(
+        'weekly',
+        { timezone: 'UTC' },
+        windowDeps('2026-03-09T00:30:00.000Z'),
+      );
+      const sunday = await buildUsageData(
+        'weekly',
+        { timezone: 'UTC' },
+        windowDeps('2026-03-15T23:30:00.000Z'),
+      );
+
+      expect(monday.defaultWindowSince).toBe('2026-01-19');
+      expect(sunday.defaultWindowSince).toBe('2026-01-19');
+    });
+
+    it('resolves the current week in the report timezone', async () => {
+      // 2026-03-08T23:30Z is Sunday in UTC but already Monday 2026-03-09 in Paris.
+      const utc = await buildUsageData(
+        'weekly',
+        { timezone: 'UTC' },
+        windowDeps('2026-03-08T23:30:00.000Z'),
+      );
+      const paris = await buildUsageData(
+        'weekly',
+        { timezone: 'Europe/Paris' },
+        windowDeps('2026-03-08T23:30:00.000Z'),
+      );
+
+      expect(utc.defaultWindowSince).toBe('2026-01-12');
+      expect(paris.defaultWindowSince).toBe('2026-01-19');
+    });
+
+    it('keeps every week with --all or explicit dates', async () => {
+      const deps = windowDeps('2026-03-11T18:00:00.000Z');
+      const all = await buildUsageData('weekly', { all: true, timezone: 'UTC' }, deps);
+      const since = await buildUsageData('weekly', { since: '2026-01-01', timezone: 'UTC' }, deps);
+
+      expect(reportedWeeks(all)).toEqual(['2026-W03', '2026-W04', '2026-W10', '2026-W11']);
+      expect(reportedWeeks(since)).toEqual(reportedWeeks(all));
+      expect([all, since].map((result) => result.defaultWindowSince)).toEqual([
+        undefined,
+        undefined,
+      ]);
     });
   });
 });

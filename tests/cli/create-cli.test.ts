@@ -482,13 +482,13 @@ describe('createCli', () => {
     expect(output.text()).not.toContain('Did you mean');
   });
 
-  it('offers --all on daily only', () => {
+  it('offers --all on daily and weekly only', () => {
     const cli = createCli();
     const commandsWithAll = cli.commands
       .filter((command) => command.options.some((option) => option.long === '--all'))
       .map((command) => command.name());
 
-    expect(commandsWithAll).toEqual(['daily']);
+    expect(commandsWithAll).toEqual(['daily', 'weekly']);
   });
 
   it('rejects --quiet together with --verbose', async () => {
