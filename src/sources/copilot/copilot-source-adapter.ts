@@ -382,6 +382,7 @@ function toUsageEvent(candidate: CopilotCandidate): UsageEvent {
 
 export class CopilotSourceAdapter implements SourceAdapter {
   public readonly id = 'copilot' as const;
+  public readonly capabilities = { eventsPrecedeFileMtime: true } as const;
 
   private readonly rootDirs: readonly string[];
   private readonly envFilePath: string | undefined;

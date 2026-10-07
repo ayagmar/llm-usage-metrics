@@ -126,6 +126,7 @@ function getFallbackSessionId(filePath: string): string {
 export class QwenSourceAdapter implements SourceAdapter {
   public readonly id = 'qwen' as const;
   public readonly parserVersion = 3;
+  public readonly capabilities = { eventsPrecedeFileMtime: true } as const;
 
   private readonly projectsDir: string;
   private readonly requireDir: boolean;

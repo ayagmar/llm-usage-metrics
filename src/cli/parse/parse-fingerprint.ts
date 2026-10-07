@@ -100,3 +100,16 @@ export function getPrimaryFingerprintByteSize(
 
   return Math.max(0, primaryFingerprint.size);
 }
+
+/** Newest mtime among the file and its parse dependencies that exist. */
+export function getNewestFingerprintMtimeMs(fingerprint: EventStoreFileFingerprint): number {
+  let newestMtimeMs = Number.NEGATIVE_INFINITY;
+
+  for (const dependency of fingerprint.dependencies) {
+    if (dependency.exists && dependency.mtimeMs !== undefined) {
+      newestMtimeMs = Math.max(newestMtimeMs, dependency.mtimeMs);
+    }
+  }
+
+  return newestMtimeMs;
+}

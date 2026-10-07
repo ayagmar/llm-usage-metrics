@@ -210,6 +210,7 @@ function resolveRepoRootFromRecord(
 export class PiSourceAdapter implements SourceAdapter {
   public readonly id = 'pi' as const;
   public readonly parserVersion = 3;
+  public readonly capabilities = { eventsPrecedeFileMtime: true } as const;
 
   private readonly rootDirs: readonly string[];
   private readonly requireDir: boolean;

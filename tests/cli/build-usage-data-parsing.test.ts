@@ -13,6 +13,7 @@ import { createUsageEvent } from '../../src/domain/usage-event.js';
 import {
   closeEventStore,
   openEventStore,
+  readFileEvents as readStoredFileEvents,
   serializeEventStoreFingerprint,
   type EventStore,
   type EventStoreFileEntry,
@@ -961,5 +962,160 @@ describe('build-usage-data-parsing', () => {
     expect(completedFiles).toEqual([fileA, fileD, fileC, fileB]);
     expect(workerResult.events.map((event) => event.sessionId)).toEqual(['a', 'b', 'c', 'd']);
     expect(workerResult).toEqual(inlineResult);
+  });
+
+  describe('--since file skipping', () => {
+    const since = '2026-02-10';
+    // One day of timezone slack before the window: 2026-02-09T00:00:00Z.
+    const beforeCutoffSeconds = Date.parse('2026-02-08T23:00:00.000Z') / 1000;
+    const afterCutoffSeconds = Date.parse('2026-02-09T01:00:00.000Z') / 1000;
+
+    function withMtimeSkip(adapter: SourceAdapter): SourceAdapter {
+      return { ...adapter, capabilities: { eventsPrecedeFileMtime: true } };
+    }
+
+    async function createSessionFiles(
+      prefix: string,
+      mtimes: Record<string, number>,
+    ): Promise<{ tempDir: string; files: Record<string, string> }> {
+      const tempDir = await mkdtemp(path.join(os.tmpdir(), prefix));
+      tempDirs.push(tempDir);
+      const files: Record<string, string> = {};
+
+      for (const [name, mtime] of Object.entries(mtimes)) {
+        files[name] = path.join(tempDir, `${name}.jsonl`);
+        await writeFingerprintFixture(files[name], '{"line":1}\n', mtime);
+      }
+
+      return { tempDir, files };
+    }
+
+    it('skips files last modified before the window but still reports them as discovered', async () => {
+      const { files } = await createSessionFiles('since-skip-no-store-', {
+        old: beforeCutoffSeconds,
+        recent: afterCutoffSeconds,
+      });
+      const parseCalls = { count: 0 };
+      const adapter = withMtimeSkip(
+        createCountingJsonlAdapter('pi', [files.old, files.recent], parseCalls),
+      );
+
+      const result = await parseSelectedAdapters([adapter], 1, { since });
+
+      expect(parseCalls.count).toBe(1);
+      expect(result.successfulParseResults[0]?.events.map((event) => event.sessionId)).toEqual([
+        'recent',
+      ]);
+      expect(result.successfulParseResults[0]?.filesFound).toBe(2);
+      expect(result.discoveredFiles).toEqual([
+        { source: 'pi', filePath: files.old },
+        { source: 'pi', filePath: files.recent },
+      ]);
+    });
+
+    it('parses every file without --since or without the adapter capability', async () => {
+      const { files } = await createSessionFiles('since-skip-off-', { old: beforeCutoffSeconds });
+      const parseCalls = { count: 0 };
+      const adapter = createCountingJsonlAdapter('pi', [files.old], parseCalls);
+
+      await parseSelectedAdapters([withMtimeSkip(adapter)], 1, {});
+      await parseSelectedAdapters([adapter], 1, { since });
+
+      expect(parseCalls.count).toBe(2);
+    });
+
+    it('parses an old file whose parse dependency changed inside the window', async () => {
+      const { tempDir, files } = await createSessionFiles('since-skip-dependency-', {
+        old: beforeCutoffSeconds,
+      });
+      const dependencyPath = path.join(tempDir, 'sidecar.jsonl');
+      await writeFingerprintFixture(dependencyPath, '{"line":1}\n', afterCutoffSeconds);
+      const parseCalls = { count: 0 };
+      const adapter = withMtimeSkip(
+        createAuxiliaryDependencyAdapter('pi', [files.old], parseCalls, () => dependencyPath),
+      );
+
+      await parseSelectedAdapters([adapter], 1, { since });
+
+      expect(parseCalls.count).toBe(1);
+    });
+
+    it('ingests an old file the store lacks, then skips it once stored', async () => {
+      const { tempDir, files } = await createSessionFiles('since-skip-store-', {
+        old: beforeCutoffSeconds,
+      });
+      const parseCalls = { count: 0 };
+      const adapter = withMtimeSkip(createCountingJsonlAdapter('pi', [files.old], parseCalls));
+      const eventStorePath = path.join(tempDir, 'events.db');
+      const options = { since, eventStore: { enabled: true as const, path: eventStorePath } };
+
+      await parseSelectedAdapters([adapter], 1, options);
+      expect(parseCalls.count).toBe(1);
+
+      const readFileEvents = vi.fn();
+      const skippedRun = await parseSelectedAdapters([adapter], 1, {
+        ...options,
+        eventStoreDeps: { readFileEvents },
+      });
+
+      expect(parseCalls.count).toBe(1);
+      expect(readFileEvents).not.toHaveBeenCalled();
+      expect(skippedRun.successfulParseResults[0]?.events).toEqual([]);
+
+      const store = await openEventStore(eventStorePath);
+
+      try {
+        expect(readStoredFileEvents(store, 'pi', files.old)).toHaveLength(1);
+      } finally {
+        closeEventStore(store);
+      }
+    });
+
+    it('re-parses an old file whose stored copy is stale', async () => {
+      const { tempDir, files } = await createSessionFiles('since-skip-stale-', {
+        old: beforeCutoffSeconds,
+      });
+      const parseCalls = { count: 0 };
+      const adapter = withMtimeSkip(createCountingJsonlAdapter('pi', [files.old], parseCalls));
+      const eventStore = { enabled: true as const, path: path.join(tempDir, 'events.db') };
+
+      await parseSelectedAdapters([adapter], 1, { eventStore });
+      await writeFingerprintFixture(
+        files.old,
+        '{"line":1}\n{"line":2}\n',
+        beforeCutoffSeconds + 60,
+      );
+      await parseSelectedAdapters([adapter], 1, { since, eventStore });
+      await parseSelectedAdapters([adapter], 1, { since, eventStore });
+
+      expect(parseCalls.count).toBe(2);
+    });
+
+    it('skips old files on the parse-worker path too', async () => {
+      const { files } = await createSessionFiles('since-skip-workers-', {
+        old: beforeCutoffSeconds,
+        recent: afterCutoffSeconds,
+      });
+      const parseCalls = { count: 0 };
+      const adapter = withMtimeSkip(
+        createCountingJsonlAdapter('codex', [files.old, files.recent], parseCalls),
+      );
+      const createPool = vi.fn(() => createInlineWorkerPool());
+
+      const result = await parseAdapterEvents(
+        adapter,
+        2,
+        undefined,
+        undefined,
+        undefined,
+        { workerCount: 2, minBytes: 0, createPool },
+        since,
+      );
+
+      expect(createPool).toHaveBeenCalledTimes(1);
+      expect(parseCalls.count).toBe(1);
+      expect(result.events.map((event) => event.sessionId)).toEqual(['recent']);
+      expect(result.filePaths).toEqual([files.old, files.recent]);
+    });
   });
 });

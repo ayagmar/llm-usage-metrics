@@ -18,6 +18,7 @@ import type {
 import { normalizeSkippedRowReasons } from './normalize-skipped-row-reasons.js';
 import {
   getErrorReason,
+  isStoredFileCurrent,
   readParsedFileFromEventStore,
   recordEventStoreFailure,
   writeParsedFilesToEventStore,
@@ -29,9 +30,11 @@ import {
 import { createParseBudget, type RunWithParseBudget } from './parse/parse-budget.js';
 import {
   getFileByteSize,
+  getNewestFingerprintMtimeMs,
   getParseFileFingerprint,
   getPrimaryFingerprintByteSize,
 } from './parse/parse-fingerprint.js';
+import { getSinceFileSkipCutoffMs } from './parse/since-file-skip.js';
 import type { RuntimeProfileCollector } from './runtime-profile.js';
 import {
   canParseSourceOnWorker,
@@ -68,6 +71,8 @@ export type ParsedAdaptersResult = {
 
 export type ParseSelectedAdaptersOptions = {
   eventStore?: EventStoreRuntimeConfig;
+  /** The report's `--since` date; lets adapters skip files last modified before it. */
+  since?: string;
   eventStoreDeps?: EventStoreParseDeps;
   openedStore?: EventStore;
   now?: () => number;
@@ -81,6 +86,15 @@ type ParseWorkerRuntimeOptions = {
   entryUrl?: URL;
   createPool?: typeof createParseWorkerPool;
 };
+
+type FileLookup =
+  | { kind: 'skipped' }
+  | {
+      kind: 'hit';
+      fileFingerprint: EventStoreFileFingerprint;
+      diagnostics: SourceParseFileDiagnostics;
+    }
+  | { kind: 'miss'; fileFingerprint?: EventStoreFileFingerprint };
 
 type MissedParseFile = {
   fileIndex: number;
@@ -124,8 +138,12 @@ export async function parseAdapterEvents(
   runtimeProfile?: RuntimeProfileCollector,
   eventStore?: EventStoreParseContext,
   parseWorkerOptions?: ParseWorkerRuntimeOptions,
+  since?: string,
 ): Promise<AdapterParseResultWithFiles> {
   const files = await adapter.discoverFiles();
+  const skipCutoffMs = adapter.capabilities?.eventsPrecedeFileMtime
+    ? getSinceFileSkipCutoffMs(since)
+    : undefined;
 
   if (files.length === 0) {
     return {
@@ -218,36 +236,80 @@ export async function parseAdapterEvents(
     await Promise.all(workers);
   }
 
+  /**
+   * A file last modified before the `--since` window holds no events in it, so it is
+   * skipped. With the event store on, only a file the store already holds is skipped:
+   * a narrow run must still ingest older files, or the ledger would never retain them.
+   */
+  function canSkipOutsideWindow(
+    filePath: string,
+    fileFingerprint: EventStoreFileFingerprint | undefined,
+  ): boolean {
+    if (
+      skipCutoffMs === undefined ||
+      !fileFingerprint ||
+      getNewestFingerprintMtimeMs(fileFingerprint) >= skipCutoffMs
+    ) {
+      return false;
+    }
+
+    if (!eventStore || eventStore.failureState.disabled) {
+      return true;
+    }
+
+    return isStoredFileCurrent(eventStore, {
+      source: adapter.id,
+      filePath,
+      fingerprint: fileFingerprint,
+    });
+  }
+
+  async function lookUpFile(filePath: string): Promise<FileLookup> {
+    const storeEnabled = eventStore !== undefined && !eventStore.failureState.disabled;
+    const fileFingerprint =
+      storeEnabled || skipCutoffMs !== undefined
+        ? await getParseFileFingerprint(adapter, filePath)
+        : undefined;
+
+    if (canSkipOutsideWindow(filePath, fileFingerprint)) {
+      return { kind: 'skipped' };
+    }
+
+    if (eventStore && fileFingerprint) {
+      const diagnostics = readParsedFileFromEventStore(eventStore, {
+        source: adapter.id,
+        filePath,
+        fingerprint: fileFingerprint,
+        runtimeProfile,
+      });
+
+      if (diagnostics) {
+        return { kind: 'hit', fileFingerprint, diagnostics };
+      }
+    }
+
+    return { kind: 'miss', fileFingerprint };
+  }
+
   async function parseFileAtIndexInline(fileIndex: number): Promise<void> {
     const filePath = files[fileIndex];
 
     try {
-      let fileFingerprint: EventStoreFileFingerprint | undefined;
-      let parseFileDiagnostics: SourceParseFileDiagnostics | undefined;
-      let servedFromEventStore = false;
+      const lookup = await lookUpFile(filePath);
 
-      if (eventStore && !eventStore.failureState.disabled) {
-        fileFingerprint = await getParseFileFingerprint(adapter, filePath);
+      if (lookup.kind === 'skipped') {
+        return;
       }
 
-      if (eventStore && fileFingerprint) {
-        parseFileDiagnostics = readParsedFileFromEventStore(eventStore, {
-          source: adapter.id,
-          filePath,
-          fingerprint: fileFingerprint,
-          runtimeProfile,
-        });
-        servedFromEventStore = parseFileDiagnostics !== undefined;
-      }
-
-      parseFileDiagnostics ??= await parseFileInline(filePath);
+      const diagnostics =
+        lookup.kind === 'hit' ? lookup.diagnostics : await parseFileInline(filePath);
 
       recordParsedFile({
         fileIndex,
         filePath,
-        fileFingerprint,
-        diagnostics: parseFileDiagnostics,
-        servedFromEventStore,
+        fileFingerprint: lookup.fileFingerprint,
+        diagnostics,
+        servedFromEventStore: lookup.kind === 'hit',
       });
     } catch (error) {
       recordParseFailure(fileIndex, error);
@@ -261,28 +323,18 @@ export async function parseAdapterEvents(
     const filePath = files[fileIndex];
 
     try {
-      let fileFingerprint: EventStoreFileFingerprint | undefined;
-      let parseFileDiagnostics: SourceParseFileDiagnostics | undefined;
+      const lookup = await lookUpFile(filePath);
 
-      if (eventStore && !eventStore.failureState.disabled) {
-        fileFingerprint = await getParseFileFingerprint(adapter, filePath);
+      if (lookup.kind === 'skipped') {
+        return;
       }
 
-      if (eventStore && fileFingerprint) {
-        parseFileDiagnostics = readParsedFileFromEventStore(eventStore, {
-          source: adapter.id,
-          filePath,
-          fingerprint: fileFingerprint,
-          runtimeProfile,
-        });
-      }
-
-      if (parseFileDiagnostics) {
+      if (lookup.kind === 'hit') {
         recordParsedFile({
           fileIndex,
           filePath,
-          fileFingerprint,
-          diagnostics: parseFileDiagnostics,
+          fileFingerprint: lookup.fileFingerprint,
+          diagnostics: lookup.diagnostics,
           servedFromEventStore: true,
         });
         return;
@@ -291,9 +343,10 @@ export async function parseAdapterEvents(
       missedFiles.push({
         fileIndex,
         filePath,
-        fileFingerprint,
+        fileFingerprint: lookup.fileFingerprint,
         byteSize:
-          getPrimaryFingerprintByteSize(fileFingerprint) ?? (await getFileByteSize(filePath)),
+          getPrimaryFingerprintByteSize(lookup.fileFingerprint) ??
+          (await getFileByteSize(filePath)),
       });
     } catch (error) {
       recordParseFailure(fileIndex, error);
@@ -481,6 +534,7 @@ export async function parseSelectedAdapters(
                 options.runtimeProfile,
                 eventStoreContext,
                 options.parseWorkers,
+                options.since,
               ),
             )
           : parseAdapterEvents(
@@ -490,6 +544,7 @@ export async function parseSelectedAdapters(
               undefined,
               eventStoreContext,
               options.parseWorkers,
+              options.since,
             ),
       ),
     );

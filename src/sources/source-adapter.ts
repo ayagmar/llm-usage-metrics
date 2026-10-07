@@ -8,6 +8,13 @@ export type SourceSkippedRowReasonStat = {
 
 export type SourceCapabilities = {
   fixedProviderRoots?: readonly string[];
+  /**
+   * Every event a file yields is timestamped no later than the newest mtime of the file
+   * and its parse dependencies, so a `--since` run may skip files last modified before
+   * the window. Leave it unset for SQLite sources: their events live in a shared database
+   * whose sidecars and checkpoints do not track when each row was written.
+   */
+  eventsPrecedeFileMtime?: boolean;
 };
 
 export type SourceAdapterPathOptions = {

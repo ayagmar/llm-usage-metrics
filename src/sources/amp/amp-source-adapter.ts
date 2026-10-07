@@ -308,6 +308,7 @@ function parseMessageUsage(context: AmpParseContext): void {
 
 export class AmpSourceAdapter implements SourceAdapter {
   public readonly id = 'amp' as const;
+  public readonly capabilities = { eventsPrecedeFileMtime: true } as const;
 
   private readonly threadsDir: string;
   private readonly requireDir: boolean;
