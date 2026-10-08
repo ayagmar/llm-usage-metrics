@@ -19,6 +19,14 @@ describe('warnIfTerminalTableOverflows', () => {
     expect(warnSpy).not.toHaveBeenCalled();
   });
 
+  it('measures only table lines, so a long plain line next to a fitting table does not warn', () => {
+    const warnSpy = vi.fn();
+
+    warnIfTerminalTableOverflows(`${'x'.repeat(50)}\n│ A │`, warnSpy, { isTTY: true, columns: 10 });
+
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
   it('does not warn when table width fits terminal columns', () => {
     const warnSpy = vi.fn();
 
