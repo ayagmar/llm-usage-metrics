@@ -17,6 +17,7 @@ import {
   replaceFileEvents,
 } from '../../src/persistence/event-store.js';
 import type { SourceAdapter } from '../../src/sources/source-adapter.js';
+import { canonicalTmpdir } from '../helpers/tmp.js';
 import type {
   MachineExportEndLine,
   MachineExportFileLine,
@@ -62,7 +63,8 @@ function knownStdin(end: MachineExportEndLine): Readable {
 }
 
 beforeEach(async () => {
-  rootDir = await mkdtemp(path.join(os.tmpdir(), 'machine-export-'));
+  // Discovery returns canonical paths (macOS /private/var, Windows long names).
+  rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'machine-export-'));
   await cp(path.resolve('tests/fixtures/e2e/pi'), path.join(rootDir, 'pi'), { recursive: true });
   await cp(path.resolve('tests/fixtures/e2e/codex'), path.join(rootDir, 'codex'), {
     recursive: true,
