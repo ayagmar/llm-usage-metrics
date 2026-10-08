@@ -155,8 +155,8 @@ provider/model/date filters, pricing, and aggregation steps, so downstream
 report shapes stay unchanged.
 
 `machine export` reuses that run: the dataset reports the stored files it counted
-(discovered files plus served history), and `readStoredFileSnapshots` reads them back
-in one read transaction with a revision per file (a digest of its parse fingerprint),
+(successfully parsed files plus served history), and `readStoredFileSnapshots` reads
+them back in one read transaction with a revision per file (a digest of its events),
 so another machine can sync only the files that changed.
 
 ## Aggregation profiles

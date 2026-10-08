@@ -112,8 +112,8 @@ export type UsageEventDataset = {
   notes: string[];
   filteredEvents: UsageEvent[];
   /**
-   * The event store and the stored files whose events this run counts: discovered files
-   * and the history it served. Undefined when the event store was unavailable.
+   * The event store and the stored files whose events this run counts: parsed files and
+   * the history it served. Undefined when the event store was unavailable.
    */
   ledger?: { path: string; countedFiles: EventStoreHistoryDiscoveredFile[] };
   pricingRuntimeConfig: ReturnType<typeof getPricingFetcherRuntimeConfig>;
@@ -197,6 +197,7 @@ export async function buildUsageEventDataset(
     const {
       successfulParseResults,
       discoveredFiles,
+      parsedFiles,
       eventStoreAvailable,
       sourceFailures,
       warnings,
@@ -244,8 +245,10 @@ export async function buildUsageEventDataset(
     throwOnExplicitSourceFailures(sourceFailures, normalizedInputs.explicitSourceIds);
 
     let parseResultsForFiltering = successfulParseResults;
+    // A discovered file that failed to parse is not counted, though history still treats it
+    // as present.
     const ledger = eventStoreAvailable
-      ? { path: eventStoreRuntimeConfig.path, countedFiles: [...discoveredFiles] }
+      ? { path: eventStoreRuntimeConfig.path, countedFiles: [...parsedFiles] }
       : undefined;
     const historyWarnings: string[] = [];
     const historyNotes: string[] = [];

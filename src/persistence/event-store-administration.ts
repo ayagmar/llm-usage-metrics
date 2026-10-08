@@ -82,7 +82,7 @@ export type EventStoreStoredFile = {
 };
 
 export type EventStoreFileSnapshot = EventStoreStoredFile & {
-  /** Changes whenever the file's stored events can change: a digest of its fingerprint. */
+  /** A digest of `events`: it changes exactly when they do. */
   revision: string;
   events: UsageEvent[];
 };
@@ -574,16 +574,14 @@ export function readDepartedFileEvents(
 
 /**
  * Reads the stored events of `files` in one read transaction, so a concurrent run that
- * rewrites a file cannot pair one version's revision with another version's events.
- * Files the store does not hold are left out; invalid rows are skipped, as for history.
+ * rewrites a file cannot be seen half-written. A file's revision is a digest of the
+ * events read, so it changes exactly when they do. Invalid rows are skipped, as for
+ * history; a file the store does not hold has no events.
  */
 export function readStoredFileSnapshots(
   store: EventStore,
   files: readonly EventStoreStoredFile[],
 ): EventStoreFileSnapshot[] {
-  const selectFingerprint = store.database.prepare(
-    'SELECT fingerprint FROM files WHERE source = ? AND file_path = ?',
-  );
   const snapshots: EventStoreFileSnapshot[] = [];
 
   store.database.exec('BEGIN');
@@ -592,17 +590,13 @@ export function readStoredFileSnapshots(
     for (const file of files) {
       const source = normalizeStoreSource(file.source);
       const filePath = normalizeStoreFilePath(file.filePath);
-      const fingerprint = toText(selectFingerprint.get(source, filePath)?.fingerprint);
-
-      if (!fingerprint) {
-        continue;
-      }
+      const events = readDepartedFileEvents(store, source, filePath);
 
       snapshots.push({
         source,
         filePath,
-        revision: createHash('sha256').update(fingerprint).digest('hex').slice(0, 16),
-        events: readDepartedFileEvents(store, source, filePath),
+        revision: createHash('sha256').update(JSON.stringify(events)).digest('hex').slice(0, 16),
+        events,
       });
     }
   } finally {

@@ -36,7 +36,7 @@
           "minLength": 1
         },
         "revision": {
-          "description": "Opaque; changes whenever the file's events can change.",
+          "description": "Opaque; changes exactly when the file's events change.",
           "type": "string",
           "minLength": 1
         },

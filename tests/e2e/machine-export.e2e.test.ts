@@ -1,4 +1,4 @@
-import { cp, mkdtemp, rm, utimes, writeFile } from 'node:fs/promises';
+import { cp, mkdtemp, readFile, rm, utimes, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { PassThrough, Readable } from 'node:stream';
@@ -9,7 +9,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { schemaDocuments } from '../../src/cli/report-schema-registry.js';
 import { runEventsReport } from '../../src/cli/run-events-report.js';
 import { runMachineExport } from '../../src/cli/run-machine-export.js';
-import { openEventStore } from '../../src/persistence/event-store.js';
+import { createUsageEvent } from '../../src/domain/usage-event.js';
+import {
+  closeEventStore,
+  openEventStore,
+  readStoredFileSnapshots,
+  replaceFileEvents,
+} from '../../src/persistence/event-store.js';
+import type { SourceAdapter } from '../../src/sources/source-adapter.js';
 import type {
   MachineExportEndLine,
   MachineExportFileLine,
@@ -119,23 +126,48 @@ describe('machine export e2e', () => {
     expect(endLine(second)).toEqual(endLine(first));
   });
 
-  it('resends a file whose source changed, and keeps listing a deleted file served as history', async () => {
+  it('resends only files whose events changed, and keeps listing a deleted file served as history', async () => {
     const first = await exportLines();
     const piFile = path.join(rootDir, 'pi', 'session.jsonl');
     const codexFile = path.join(rootDir, 'codex', 'session.jsonl');
-    const later = new Date('2030-01-01T00:00:00.000Z');
-    await utimes(codexFile, later, later);
+    const codexLines = (await readFile(codexFile, 'utf8')).trimEnd().split('\n');
+    // One more turn: cumulative totals grow a day later.
+    const nextTurn = JSON.stringify({
+      timestamp: '2026-02-03T08:00:00.000Z',
+      type: 'event_msg',
+      payload: {
+        type: 'token_count',
+        info: {
+          total_token_usage: {
+            input_tokens: 300,
+            cached_input_tokens: 70,
+            output_tokens: 150,
+            reasoning_output_tokens: 30,
+            total_tokens: 550,
+          },
+        },
+      },
+    });
+    await writeFile(codexFile, [...codexLines, nextTurn].join('\n'));
     await rm(piFile);
 
     const second = await exportLines({ known: '-' }, knownStdin(endLine(first)));
 
     expect(fileLines(second).map((line) => line.filePath)).toEqual([codexFile]);
-    expect(endLine(second).eventCount).toBe(endLine(first).eventCount);
+    expect(endLine(second).eventCount).toBe(endLine(first).eventCount + 1);
     expect(
       endLine(second)
         .files.map(([, filePath]) => filePath)
         .sort(),
     ).toEqual([codexFile, piFile].sort());
+  });
+
+  it('sends nothing for a file touched without new events', async () => {
+    const first = await exportLines();
+    const later = new Date('2030-01-01T00:00:00.000Z');
+    await utimes(path.join(rootDir, 'codex', 'session.jsonl'), later, later);
+
+    expect(fileLines(await exportLines({ known: '-' }, knownStdin(endLine(first))))).toEqual([]);
   });
 
   it('reads the known files from a path', async () => {
@@ -156,7 +188,7 @@ describe('machine export e2e', () => {
         opens += 1;
 
         if (opens === 2) {
-          store.database.exec("DELETE FROM files WHERE source = 'pi'");
+          store.database.exec("DELETE FROM events WHERE source = 'pi'");
         }
 
         return store;
@@ -167,6 +199,87 @@ describe('machine export e2e', () => {
     expect(stderr.mock.calls.flat().join('\n')).toMatch(
       /machine export left out \d+ event\(s\) that reports count but the event store does not hold/,
     );
+  });
+
+  it('leaves out a stored file that failed to parse this run, as reports do', async () => {
+    const goodFile = path.join(rootDir, 'good.json');
+    const badFile = path.join(rootDir, 'bad.json');
+    // Each file holds one session id; "FAIL" makes parsing it throw.
+    const adapter: SourceAdapter = {
+      id: 'codex',
+      discoverFiles: async () => [goodFile, badFile],
+      parseFile: async (filePath) => {
+        const sessionId = (await readFile(filePath, 'utf8')).trim();
+
+        if (sessionId === 'FAIL') {
+          throw new Error('unreadable');
+        }
+
+        return [
+          createUsageEvent({
+            source: 'codex',
+            sessionId,
+            timestamp: '2026-10-01T10:00:00.000Z',
+            inputTokens: 10,
+            costMode: 'estimated',
+          }),
+        ];
+      },
+    };
+    const deps = { createAdapters: () => [adapter] };
+    await writeFile(path.join(rootDir, 'config.toml'), 'sources = ["codex"]\n');
+    await writeFile(goodFile, 'good');
+    await writeFile(badFile, 'bad');
+    const first = await exportLines({}, undefined, deps);
+    expect(endLine(first).files.map(([, filePath]) => filePath)).toEqual([goodFile, badFile]);
+
+    await writeFile(badFile, 'FAIL');
+    const second = await exportLines({ known: '-' }, knownStdin(endLine(first)), deps);
+
+    expect(endLine(second)).toEqual({
+      type: 'end',
+      files: [endLine(first).files[0]],
+      eventCount: 1,
+    });
+  });
+
+  it('changes a revision when stored events change under the same fingerprint', async () => {
+    // Two concurrent runs can store different events for one fingerprint.
+    const store = await openEventStore(path.join(rootDir, 'race.db'));
+    const fingerprint = { dependencies: [{ path: '/a.jsonl', exists: true, size: 1, mtimeMs: 1 }] };
+    const event = (sessionId: string) =>
+      createUsageEvent({
+        source: 'codex',
+        sessionId,
+        timestamp: '2026-10-01T10:00:00.000Z',
+        costMode: 'estimated',
+      });
+
+    try {
+      replaceFileEvents(store, {
+        source: 'codex',
+        filePath: '/a.jsonl',
+        fingerprint,
+        events: [event('a')],
+        skippedRows: 0,
+        now: 1,
+      });
+      const [before] = readStoredFileSnapshots(store, [{ source: 'codex', filePath: '/a.jsonl' }]);
+      replaceFileEvents(store, {
+        source: 'codex',
+        filePath: '/a.jsonl',
+        fingerprint,
+        events: [event('a'), event('b')],
+        skippedRows: 0,
+        now: 2,
+      });
+      const [after] = readStoredFileSnapshots(store, [{ source: 'codex', filePath: '/a.jsonl' }]);
+
+      expect(after.events).toHaveLength(2);
+      expect(after.revision).not.toBe(before.revision);
+    } finally {
+      closeEventStore(store);
+    }
   });
 
   it('fails without the event store instead of exporting nothing', async () => {
