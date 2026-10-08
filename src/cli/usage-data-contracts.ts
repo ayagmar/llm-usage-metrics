@@ -87,7 +87,7 @@ type HistoryOption = {
 
 type ShareOption = {
   share?: boolean;
-  /** False with --no-open: write the share SVG without opening it. */
+  /** False with --no-open: write the share files without opening the page. */
   open?: boolean;
 };
 

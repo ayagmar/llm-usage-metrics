@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import type { CompareDataResult, CompareMetricRow } from '../../src/cli/usage-data-contracts.js';
 import { renderCompareShareSvg } from '../../src/render/render-compare-share-svg.js';
+import { shareThemes } from '../../src/render/share-svg-theme.js';
+import { HOSTILE_TEXT, renderInBothThemes } from './share-svg-assertions.js';
 
 function createTotalsRow(overrides: Partial<CompareMetricRow> = {}): CompareMetricRow {
   return {
@@ -89,64 +91,93 @@ function createCompareData(overrides: Partial<CompareDataResult> = {}): CompareD
   };
 }
 
+const dark = shareThemes.dark;
+
+function headlineDelta(svg: string): { text: string; fill: string } {
+  const match = /<text [^>]*fill="([^"]+)"[^>]*data-headline-delta="true">([^<]*)</u.exec(svg);
+  return { fill: match?.[1] ?? '', text: match?.[2] ?? '' };
+}
+
+function barWidths(svg: string, metric: string): number[] {
+  const group = svg.slice(svg.indexOf(`data-compare-metric="${metric}"`));
+  return [...group.slice(0, group.indexOf('</g>')).matchAll(/<rect [^>]*width="([0-9.]+)"/gu)].map(
+    (match) => Number(match[1]),
+  );
+}
+
 describe('renderCompareShareSvg', () => {
-  it('renders a falling-cost headline in green with window labels', () => {
-    const svg = renderCompareShareSvg(createCompareData());
+  it('leads with current cost and pairs current and baseline bars per metric', () => {
+    const [svg] = renderInBothThemes((theme) => renderCompareShareSvg(createCompareData(), theme));
 
-    expect(svg).toContain('<svg');
-    expect(svg).toContain('2026-06 vs 2026-05');
-    expect(svg).toContain('llm-usage compare --share');
-    expect(svg).toContain('▼ 38% vs baseline');
-    expect(svg).toContain('#22c55e');
-    expect(svg.match(/data-stat-tile="/g)).toHaveLength(4);
-    expect(svg).toContain('was 280 (-46%)');
+    expect(svg).toContain('2026-06 against 2026-05');
+    expect(svg).toContain('$6.20');
+    expect(svg).toContain('2026-05: $10.00');
+    expect(svg).toContain('$ llm-usage compare --share');
+    expect(svg).toContain('2026-06-01 to 2026-06-30');
+    expect([...svg.matchAll(/data-compare-metric="([^"]+)"/gu)].map((match) => match[1])).toEqual([
+      'costUsd',
+      'totalTokens',
+      'events',
+      'activeDays',
+    ]);
+    // The larger value fills the bar; the smaller one is drawn to scale.
+    expect(barWidths(svg, 'costUsd')).toEqual([235.6, 380]);
+    expect(svg).toContain('>-46%<');
   });
 
-  it('renders a rising-cost headline in red', () => {
-    const data = createCompareData();
-    data.totals[1] = createTotalsRow({ current: 12, baseline: 10, delta: 2, deltaRatio: 0.2 });
+  it('reads a cost drop as positive and a rise as negative', () => {
+    expect(headlineDelta(renderCompareShareSvg(createCompareData(), dark))).toEqual({
+      text: 'Down $3.80 (38%) from the baseline',
+      fill: dark.positive,
+    });
 
-    const svg = renderCompareShareSvg(data);
-
-    expect(svg).toContain('▲ 20% vs baseline');
-    expect(svg).toContain('#ef4444');
+    const rising = createCompareData();
+    rising.totals[1] = createTotalsRow({ current: 12, baseline: 10, delta: 2, deltaRatio: 0.2 });
+    expect(headlineDelta(renderCompareShareSvg(rising, dark))).toEqual({
+      text: 'Up $2.00 (20%) from the baseline',
+      fill: dark.negative,
+    });
   });
 
-  it('omits the percent when the ratio is undefined and says no change at zero delta', () => {
-    const risingNoRatio = createCompareData();
-    risingNoRatio.totals[1] = createTotalsRow({
+  it('omits the percent without a ratio and says no change at zero delta', () => {
+    const noRatio = createCompareData();
+    noRatio.totals[1] = createTotalsRow({
       current: 12,
       baseline: undefined,
       delta: 12,
       deltaRatio: undefined,
+      deltaCostIncomplete: true,
     });
-
-    expect(renderCompareShareSvg(risingNoRatio)).toContain('▲ vs baseline');
+    expect(headlineDelta(renderCompareShareSvg(noRatio, dark)).text).toBe(
+      'Up ~$12.00 from the baseline',
+    );
 
     const unchanged = createCompareData();
     unchanged.totals[1] = createTotalsRow({ current: 10, baseline: 10, delta: 0, deltaRatio: 0 });
-
-    expect(renderCompareShareSvg(unchanged)).toContain('no change vs baseline');
+    expect(headlineDelta(renderCompareShareSvg(unchanged, dark))).toEqual({
+      text: 'No change from the baseline',
+      fill: dark.textSecondary,
+    });
   });
 
-  it('renders the no-data subtitle when both windows are empty', () => {
+  it('shows an empty state when both windows are empty', () => {
     const data = createCompareData();
     data.current.totals.events = 0;
     data.baseline.totals.events = 0;
 
-    const svg = renderCompareShareSvg(data);
+    const [svg] = renderInBothThemes((theme) => renderCompareShareSvg(data, theme));
 
-    expect(svg).toContain('No usage data in either window');
-    expect(svg).not.toContain('2026-06 vs 2026-05');
+    expect(svg).toContain('No usage in either window');
+    expect(svg).not.toContain('data-compare-metric=');
   });
 
-  it('escapes user-influenced strings', () => {
+  it('escapes window labels', () => {
     const data = createCompareData();
-    data.current.window.label = '<June>';
+    data.current.window.label = HOSTILE_TEXT;
 
-    const svg = renderCompareShareSvg(data);
+    const [svg] = renderInBothThemes((theme) => renderCompareShareSvg(data, theme));
 
-    expect(svg).toContain('&lt;June&gt;');
-    expect(svg).not.toContain('<June>');
+    expect(svg).not.toContain('<script');
+    expect(svg).toContain('&lt;script&gt;');
   });
 });

@@ -36,7 +36,7 @@ Commander help text remains the source of truth for option descriptions.
   - `--markdown` / `--json` validation
   - output-format resolution
   - report preparation
-  - share artifact write/open/log handling
+  - share artifact handling: render the card per theme, write the dark SVG and the HTML export page (`render/render-share-page.ts`), open the page
   - optional terminal overflow warnings
   - stderr hints after the output (from the data, or from the renderer, such as columns a narrow terminal hid)
   - final stdout emission
@@ -69,7 +69,7 @@ The public entry points remain stable, one `build*`/`run*` pair per command:
 1. `buildUsageData(...)`
 2. `aggregateUsage(..., { includeModelBreakdown: true })`
 3. `renderUsageReport(...)`
-4. shared report runtime emits diagnostics, optional share SVG, and stdout body
+4. shared report runtime emits diagnostics, optional share card, and stdout body
 
 ### Efficiency
 
@@ -81,7 +81,7 @@ The public entry points remain stable, one `build*`/`run*` pair per command:
 4. `aggregateUsage(..., { includeModelBreakdown: false })`
 5. `aggregateEfficiency(...)`
 6. `renderEfficiencyReport(...)`
-7. shared report runtime emits diagnostics, optional share SVG, and stdout body
+7. shared report runtime emits diagnostics, optional share card, and stdout body
 
 ### Optimize
 
@@ -92,7 +92,7 @@ The public entry points remain stable, one `build*`/`run*` pair per command:
 3. `aggregateUsage(..., { includeModelBreakdown: false })`
 4. `buildCounterfactualRows(...)`
 5. `renderOptimizeReport(...)`
-6. shared report runtime emits diagnostics, optional share SVG, and stdout body
+6. shared report runtime emits diagnostics, optional share card, and stdout body
 
 ### Trends
 
@@ -130,7 +130,7 @@ The public entry points remain stable, one `build*`/`run*` pair per command:
 1. `buildWrappedData(...)` builds the priced dataset for the recap year's range
 2. `aggregateWrapped(...)` (`src/wrapped`)
 3. `renderWrappedReport(...)`
-4. shared report runtime emits diagnostics, optional share SVG, and stdout body
+4. shared report runtime emits diagnostics, optional share card, and stdout body
 
 ### Doctor and Prune
 

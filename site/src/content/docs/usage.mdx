@@ -91,7 +91,7 @@ llm-usage monthly --markdown > usage.md
 llm-usage monthly --share
 ```
 
-JSON uses the `usage` report envelope. Share output writes `usage-monthly-share.svg` to the current directory and still prints the normal report. Daily and weekly reports also support share SVGs. See [Output formats](/llm-usage-metrics/output-formats/) for contracts and diagnostics.
+JSON uses the `usage` report envelope. Share output writes `usage-monthly-share.svg` and a `usage-monthly-share.html` page with PNG export to the current directory, and still prints the normal report. Daily and weekly reports also support share cards. `llm-usage summary --share` writes a streak card with the past year's activity heatmap. See [Output formats](/llm-usage-metrics/output-formats/) for contracts and diagnostics.
 
 ## Retained history
 

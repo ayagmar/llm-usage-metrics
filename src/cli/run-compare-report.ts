@@ -24,8 +24,9 @@ async function prepareCompareReport(
     createShareArtifact: options.share
       ? (compareData) => ({
           fileName: 'compare-share.svg',
-          svg: renderCompareShareSvg(compareData),
           logLabel: 'compare',
+          title: 'Compare share card',
+          render: (theme) => renderCompareShareSvg(compareData, theme),
         })
       : undefined,
     render: (compareData, format) => renderCompareReport(compareData, format),
