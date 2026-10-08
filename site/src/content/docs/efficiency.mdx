@@ -40,12 +40,12 @@ Events without repository attribution stay out of the usage totals. Periods need
 
 | Column | Formula |
 | --- | --- |
-| `Tokens/Commit` | `(Input + Output + Reasoning) / Commits` |
+| `Tokens/Commit` | `(Input + Output) / Commits` |
 | `$/Commit` | `Cost / Commits` |
 | `$/1k Lines` | `Cost / (ΔLines / 1000)` |
 | `Commits/$` | `Commits / Cost`, when cost is above zero |
 
-`Tokens/Commit` excludes cache read and cache write tokens. The table keeps those buckets visible in the raw usage columns.
+`Tokens/Commit` excludes cache read and cache write tokens. Output already includes reasoning, so reasoning is not counted twice. The table keeps those buckets visible in the raw usage columns.
 
 A zero denominator renders as `-` in terminal and Markdown output. JSON omits that derived value. Partial pricing adds a `~` prefix to affected USD metrics.
 

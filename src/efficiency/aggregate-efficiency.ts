@@ -174,7 +174,8 @@ function computeDerivedMetrics(
   outcomes: EfficiencyOutcomeTotals,
 ): EfficiencyDerivedMetrics {
   const costUsd = usage.costUsd;
-  const nonCacheTotalTokens = usage.inputTokens + usage.outputTokens + usage.reasoningTokens;
+  // outputTokens already includes reasoning, so reasoning is not added again.
+  const nonCacheTotalTokens = usage.inputTokens + usage.outputTokens;
 
   return {
     usdPerCommit:

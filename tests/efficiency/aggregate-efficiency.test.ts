@@ -510,7 +510,7 @@ describe('aggregateEfficiency', () => {
     expect(rows[0]).toMatchObject({
       rowType: 'period',
       periodKey: '2026-02-01',
-      tokensPerCommit: 85,
+      tokensPerCommit: 75,
     });
   });
 
@@ -553,7 +553,8 @@ describe('aggregateEfficiency', () => {
       reasoningTokens: 30,
       totalTokens: 0,
       commitCount: 2,
-      tokensPerCommit: 15,
+      // Output already includes reasoning, so a reasoning-only bucket adds no tokens.
+      tokensPerCommit: 0,
     });
   });
 
