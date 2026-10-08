@@ -225,11 +225,21 @@ export function assertSupportedSchemaVersion(database: EventStoreDatabase): void
 }
 
 export function initializeSchema(database: EventStoreDatabase): void {
-  const tableNames = listUserTableNames(database);
+  if (listUserTableNames(database).length === 0) {
+    let createdSchema = false;
 
-  if (tableNames.length === 0) {
-    createFreshSchema(database);
-    return;
+    runTransaction(database, () => {
+      // Re-check under the write lock: a concurrent first run may have created the
+      // schema while this one waited, and must never see it half-created.
+      if (listUserTableNames(database).length === 0) {
+        createFreshSchema(database);
+        createdSchema = true;
+      }
+    });
+
+    if (createdSchema) {
+      return;
+    }
   }
 
   const schemaVersion = readSchemaVersion(database);

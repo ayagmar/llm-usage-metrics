@@ -1207,6 +1207,21 @@ describe('event-store', () => {
     closeEventStore(store);
   });
 
+  it('creates a fresh schema inside a write transaction', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-fresh-schema-'));
+    tempDirs.push(tempDir);
+
+    const fakeSqlite = createFakeSqliteModule({ 'PRAGMA journal_mode': { journal_mode: 'wal' } });
+    const store = await openEventStore(path.join(tempDir, 'events.db'), async () => fakeSqlite);
+    const createIndex = fakeSqlite.execCalls.findIndex((sql) => sql.includes('CREATE TABLE'));
+
+    // A concurrent first run must never observe a half-created schema.
+    expect(createIndex).toBeGreaterThan(fakeSqlite.execCalls.indexOf('BEGIN IMMEDIATE'));
+    expect(fakeSqlite.execCalls.indexOf('BEGIN IMMEDIATE')).toBeGreaterThanOrEqual(0);
+    expect(fakeSqlite.execCalls.indexOf('COMMIT')).toBeGreaterThan(createIndex);
+    closeEventStore(store);
+  });
+
   it('keeps full sync when WAL mode is unavailable', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-no-wal-'));
     tempDirs.push(tempDir);
