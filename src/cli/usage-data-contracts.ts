@@ -1,3 +1,4 @@
+import type { SpawnSsh } from '../machines/machine-ssh.js';
 import type { DailyActivity } from '../aggregate/daily-activity.js';
 import type { EnvVarOverride } from '../config/env-var-display.js';
 import type { ActiveConfig } from '../config/active-config-display.js';
@@ -85,6 +86,8 @@ type HistoryOption = {
   history?: boolean;
   /** Machines to count, by name; `local` is this one. Default: all. */
   machine?: string | string[];
+  /** False with --no-sync: use other machines' cached usage without refreshing it. */
+  sync?: boolean;
 };
 
 type ShareOption = {
@@ -400,6 +403,8 @@ export type BuildUsageDataDeps = {
   loadHistoryEvents?: (store: EventStore, input: LoadHistoryEventsInput) => EventStoreHistoryResult;
   runtimeProfile?: RuntimeProfileCollector;
   now?: () => Date;
+  /** Stands in for ssh when other machines are refreshed. */
+  spawnSsh?: SpawnSsh;
 };
 
 export type BuildTrendsDataDeps = BuildUsageDataDeps & {

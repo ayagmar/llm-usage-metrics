@@ -13,7 +13,7 @@ import {
 import { getMachineCachePath, readMachineCacheStatus } from '../../src/machines/machine-cache.js';
 import { syncMachine } from '../../src/machines/sync-machine.js';
 import { pathExists } from '../../src/utils/fs-helpers.js';
-import { createInProcessRemote } from '../helpers/machine-remote.js';
+import { appendCodexTurn, createInProcessRemote } from '../helpers/machine-remote.js';
 
 let rootDir: string;
 let localConfigPath: string;
@@ -22,29 +22,6 @@ let printed: string[];
 
 const NOW = Date.parse('2026-10-08T12:00:00.000Z');
 
-/** Appends a turn whose cumulative totals grew, so the session has one more event. */
-async function appendCodexTurn(codexFile: string): Promise<void> {
-  const turn = {
-    timestamp: '2026-02-03T08:00:00.000Z',
-    type: 'event_msg',
-    payload: {
-      type: 'token_count',
-      info: {
-        total_token_usage: {
-          input_tokens: 300,
-          cached_input_tokens: 70,
-          output_tokens: 150,
-          reasoning_output_tokens: 30,
-          total_tokens: 550,
-        },
-      },
-    },
-  };
-  await writeFile(
-    codexFile,
-    `${(await readFile(codexFile, 'utf8')).trimEnd()}\n${JSON.stringify(turn)}\n`,
-  );
-}
 const print = (line: string) => printed.push(line);
 
 beforeEach(async () => {

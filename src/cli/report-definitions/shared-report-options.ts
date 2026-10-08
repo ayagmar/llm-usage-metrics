@@ -300,7 +300,8 @@ export function registerSharedReportOptions(
         '--machine <name>',
         'Count only these machines (repeatable or comma-separated; local is this one; default: all)',
         collectRepeatedOption,
-      );
+      )
+      .option('--no-sync', "use other machines' cached usage without refreshing it over ssh");
   }
 
   if (profileConfig.includeMarkdown) {

@@ -15,6 +15,8 @@ import {
 } from './machine-export-bundle.js';
 
 export const DEFAULT_MACHINE_COMMAND = 'llm-usage';
+/** Ends a timeout error, so callers can tell it from other failures. */
+export const MACHINE_EXPORT_TIMEOUT_MARK = 'timed out';
 
 const STDERR_TAIL_BYTES = 4096;
 
@@ -213,9 +215,13 @@ export type FetchedMachineExport = {
 export async function fetchMachineExport(
   machine: MachineConfig,
   knownFiles: readonly MachineExportFileKey[],
-  options: { spawnSsh?: SpawnSsh; timeoutMs?: number } = {},
+  options: { spawnSsh?: SpawnSsh; timeoutMs?: number; signal?: AbortSignal } = {},
 ): Promise<FetchedMachineExport> {
   const child = (options.spawnSsh ?? spawnSystemSsh)(buildSshExportArgs(machine));
+  const stopOnAbort = () => {
+    child.kill();
+  };
+  options.signal?.addEventListener('abort', stopOnAbort, { once: true });
   const stderrChunks: Buffer[] = [];
   const closed = new Promise<number | null>((resolve, reject) => {
     child.once('error', reject);
@@ -276,10 +282,17 @@ export async function fetchMachineExport(
     throw new Error(`could not run ssh: ${getErrorReason(error)}`, { cause: error });
   } finally {
     clearTimeout(timer);
+    options.signal?.removeEventListener('abort', stopOnAbort);
+  }
+
+  if (options.signal?.aborted) {
+    throw new Error('stopped: the report it was for ended');
   }
 
   if (timeout.expired) {
-    throw new Error(`no complete export within ${Math.round((options.timeoutMs ?? 0) / 1000)}s`);
+    throw new Error(
+      `no complete export within ${Math.round((options.timeoutMs ?? 0) / 1000)}s (${MACHINE_EXPORT_TIMEOUT_MARK})`,
+    );
   }
 
   // A failing remote command explains itself on stderr; a bundle cut short by it does not.

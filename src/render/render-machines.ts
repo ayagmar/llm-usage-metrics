@@ -1,6 +1,7 @@
 import type { MachineConfig } from '../config/user-config.js';
 import type { MachineSyncState } from '../machines/machine-cache.js';
 import type { MachineUsageSummary } from '../machines/load-machine-usage.js';
+import { MACHINE_EXPORT_TIMEOUT_MARK } from '../machines/machine-ssh.js';
 import type { MachineSyncOutcome } from '../machines/sync-machine.js';
 
 const integerFormat = new Intl.NumberFormat('en-US');
@@ -140,4 +141,39 @@ export function formatMachinesNote(
       : '';
 
   return `Machines: ${machines.map((machine) => describeIncludedMachine(machine, now, localVersion)).join(', ')}${duplicates}.`;
+}
+
+/** Past this age a machine's cached usage is worth a warning when it cannot refresh. */
+const STALE_CACHE_MS = 24 * 60 * 60_000;
+
+/**
+ * Describes a refresh a report could not do. A machine that is off is normal, so a
+ * recent cache gets a note; an old or empty one a warning.
+ */
+export function formatRefreshFailure(
+  outcome: MachineSyncOutcome,
+  now: number,
+): { text: string; stale: boolean } | undefined {
+  if (outcome.ok) {
+    return undefined;
+  }
+
+  const { syncedAt } = outcome.state;
+
+  if (syncedAt === undefined) {
+    return {
+      text: `Could not sync ${outcome.name} (${outcome.error}); it has no usage cached yet.`,
+      stale: true,
+    };
+  }
+
+  // A remote that needs longer than a report waits can still be synced by hand.
+  const hint = outcome.error.endsWith(`(${MACHINE_EXPORT_TIMEOUT_MARK})`)
+    ? ` Run llm-usage sync ${outcome.name} to wait for it.`
+    : '';
+
+  return {
+    text: `Could not sync ${outcome.name} (${outcome.error}); using its usage from ${formatAge(now - syncedAt)}.${hint}`,
+    stale: now - syncedAt >= STALE_CACHE_MS,
+  };
 }
