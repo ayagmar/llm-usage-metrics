@@ -217,6 +217,11 @@ export async function fetchMachineExport(
   knownFiles: readonly MachineExportFileKey[],
   options: { spawnSsh?: SpawnSsh; timeoutMs?: number; signal?: AbortSignal } = {},
 ): Promise<FetchedMachineExport> {
+  // An abort listener added after the abort never fires, so check before starting ssh.
+  if (options.signal?.aborted) {
+    throw new Error('stopped: the report it was for ended');
+  }
+
   const child = (options.spawnSsh ?? spawnSystemSsh)(buildSshExportArgs(machine));
   const stopOnAbort = () => {
     child.kill();
