@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import type { Readable, Writable } from 'node:stream';
 import { createInterface } from 'node:readline';
+import { stripVTControlCharacters } from 'node:util';
 
 import type { MachineConfig } from '../config/user-config.js';
 import { stripControlCharacters } from '../domain/normalization.js';
@@ -123,7 +124,7 @@ export async function detectRemoteCommand(
 
 function readStderrTail(chunks: readonly Buffer[]): string {
   const text = Buffer.concat(chunks).toString('utf8').slice(-STDERR_TAIL_BYTES);
-  return stripControlCharacters(text.replaceAll(/\s+/gu, ' ')).trim();
+  return stripControlCharacters(stripVTControlCharacters(text).replaceAll(/\s+/gu, ' ')).trim();
 }
 
 /** Names what failed and, when the cause is a known one, how to fix it. */
@@ -136,15 +137,20 @@ export function describeExportFailure(
   // Hints follow as their own sentence, so the detail's own final period is dropped.
   const detail = (stderr || `exit code ${String(exitCode)}`).replace(/\.$/u, '');
 
-  if (/permission denied|too many authentication failures/iu.test(stderr)) {
-    return `ssh could not log in without a prompt: ${detail}. Set up key login (ssh-copy-id ${machine.ssh}) or load your key into ssh-agent.`;
+  if (exitCode === null) {
+    return `ssh was stopped by a signal: ${detail}`;
   }
 
-  if (/host key verification failed/iu.test(stderr)) {
-    return `ssh does not know this host yet: ${detail}. Connect once with \`ssh ${machine.ssh}\` to check and accept its host key.`;
-  }
-
+  // Exit status 255 is ssh's own failure; anything else came from the remote command.
   if (exitCode === 255) {
+    if (/permission denied|too many authentication failures/iu.test(stderr)) {
+      return `ssh could not log in without a prompt: ${detail}. Set up key login (ssh-copy-id ${machine.ssh}) or load your key into ssh-agent.`;
+    }
+
+    if (/host key verification failed/iu.test(stderr)) {
+      return `ssh does not know this host yet: ${detail}. Connect once with \`ssh ${machine.ssh}\` to check and accept its host key.`;
+    }
+
     return `ssh failed: ${detail}`;
   }
 
@@ -159,6 +165,12 @@ export function describeExportFailure(
   return `machine export failed: ${detail}`;
 }
 
+export type FetchedMachineExport = {
+  bundle: ParsedMachineExport;
+  /** What the remote printed on stderr; with `--quiet` only its warnings remain. */
+  remoteWarnings: string[];
+};
+
 /**
  * Runs `machine export` on another machine over ssh, sending the files the cache holds,
  * and returns the validated bundle. It throws on any failure; a partial bundle never
@@ -168,7 +180,7 @@ export async function fetchMachineExport(
   machine: MachineConfig,
   knownFiles: readonly MachineExportFileKey[],
   options: { spawnSsh?: SpawnSsh; timeoutMs?: number } = {},
-): Promise<ParsedMachineExport> {
+): Promise<FetchedMachineExport> {
   const child = (options.spawnSsh ?? spawnSystemSsh)(buildSshExportArgs(machine));
   const stderrChunks: Buffer[] = [];
   const closed = new Promise<number | null>((resolve, reject) => {
@@ -201,12 +213,25 @@ export async function fetchMachineExport(
 
   let bundle: ParsedMachineExport | undefined;
   let readError: unknown;
+  let stoppedByUs = false;
+
+  // A broken pipe must fail this machine's sync, not crash the process.
+  child.stdout.on('error', (error) => {
+    readError ??= error;
+  });
+  child.stderr.on('error', () => undefined);
 
   try {
     bundle = await readMachineExport(createInterface({ input: child.stdout, crlfDelay: Infinity }));
   } catch (error) {
     readError = error;
-    child.kill();
+
+    // An invalid line mid-stream: stop the remote. At the end of the stream it has exited
+    // or is exiting, and its status explains why the bundle is incomplete.
+    if (!child.stdout.readableEnded) {
+      stoppedByUs = true;
+      child.kill();
+    }
   }
 
   let exitCode: number | null;
@@ -225,7 +250,8 @@ export async function fetchMachineExport(
   }
 
   // A failing remote command explains itself on stderr; a bundle cut short by it does not.
-  if (exitCode !== null && exitCode !== 0) {
+  // A signal this side did not send is the reason too, even with a complete bundle.
+  if (exitCode !== 0 && !stoppedByUs) {
     throw new Error(describeExportFailure(machine, exitCode, readStderrTail(stderrChunks)));
   }
 
@@ -235,9 +261,12 @@ export async function fetchMachineExport(
     });
   }
 
-  if (exitCode !== 0) {
-    throw new Error(describeExportFailure(machine, exitCode, readStderrTail(stderrChunks)));
-  }
+  const remoteWarnings = Buffer.concat(stderrChunks)
+    .toString('utf8')
+    .slice(-STDERR_TAIL_BYTES)
+    .split('\n')
+    .map((line) => stripControlCharacters(stripVTControlCharacters(line)).trim())
+    .filter((line) => line.length > 0);
 
-  return bundle;
+  return { bundle, remoteWarnings };
 }

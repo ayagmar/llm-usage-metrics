@@ -47,7 +47,7 @@ function fakeSsh(output: {
       stderr.write(output.stderr ?? '');
 
       if (!output.hang) {
-        close(output.exitCode ?? 0);
+        close(output.exitCode === undefined ? 0 : output.exitCode);
       }
     });
 
@@ -81,15 +81,17 @@ describe('fetchMachineExport', () => {
       '  const { files } = JSON.parse(input);',
       '  console.log(JSON.stringify({ type: "header", format: "llm-usage-metrics.machine-export", version: 1 }));',
       '  console.log(JSON.stringify({ type: "end", files, eventCount: 0 }));',
+      '  console.error("\\u001b[33mcareful: disk almost full\\u001b[39m");',
       '});',
     ].join('\n');
     const known: [string, string, string][] = [['codex', '/a.jsonl', 'r1']];
 
-    const bundle = await fetchMachineExport(machine, known, {
+    const { bundle, remoteWarnings } = await fetchMachineExport(machine, known, {
       spawnSsh: () => spawn(process.execPath, ['-e', script]),
     });
 
     expect(bundle.files).toEqual(known);
+    expect(remoteWarnings).toEqual(['careful: disk almost full']);
   });
 
   it('reports a missing ssh binary', async () => {
@@ -121,11 +123,24 @@ describe('fetchMachineExport', () => {
     );
   });
 
+  it('fails one machine, not the process, when its output stream breaks', async () => {
+    const { spawnSsh } = fakeSsh({ hang: true });
+    const breaking: SpawnSsh = (args) => {
+      const child = spawnSsh(args);
+      setImmediate(() => child.stdout.destroy(new Error('read ECONNRESET')));
+      return child;
+    };
+
+    await expect(fetchMachineExport(machine, [], { spawnSsh: breaking })).rejects.toThrow(
+      /ssh was stopped by a signal|read ECONNRESET/,
+    );
+  });
+
   it('rejects an export cut off by a signal', async () => {
     const { spawnSsh } = fakeSsh({ stdout: '', exitCode: null });
 
     await expect(fetchMachineExport(machine, [], { spawnSsh })).rejects.toThrow(
-      'the export from me@laptop is invalid: the output is not a machine export (no header line)',
+      'ssh was stopped by a signal: exit code null',
     );
   });
 });
@@ -139,6 +154,11 @@ describe('describeExportFailure', () => {
       'ssh failed: ssh: Could not resolve hostname laptop',
     ],
     [1, "error: unknown command 'machine'", 'too old to export usage'],
+    [
+      1,
+      "EACCES: permission denied, open '/home/me/.local/share/llm-usage-metrics/events.db'",
+      'machine export failed: EACCES: permission denied',
+    ],
     [1, '', 'machine export failed: exit code 1'],
   ])('explains exit %i with "%s"', (exitCode, stderr, message) => {
     expect(describeExportFailure(machine, exitCode, stderr)).toContain(message);

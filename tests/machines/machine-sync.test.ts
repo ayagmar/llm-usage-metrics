@@ -21,6 +21,30 @@ let remote: { configPath: string; eventStorePath: string; codexFile: string };
 let printed: string[];
 
 const NOW = Date.parse('2026-10-08T12:00:00.000Z');
+
+/** Appends a turn whose cumulative totals grew, so the session has one more event. */
+async function appendCodexTurn(codexFile: string): Promise<void> {
+  const turn = {
+    timestamp: '2026-02-03T08:00:00.000Z',
+    type: 'event_msg',
+    payload: {
+      type: 'token_count',
+      info: {
+        total_token_usage: {
+          input_tokens: 300,
+          cached_input_tokens: 70,
+          output_tokens: 150,
+          reasoning_output_tokens: 30,
+          total_tokens: 550,
+        },
+      },
+    },
+  };
+  await writeFile(
+    codexFile,
+    `${(await readFile(codexFile, 'utf8')).trimEnd()}\n${JSON.stringify(turn)}\n`,
+  );
+}
 const print = (line: string) => printed.push(line);
 
 beforeEach(async () => {
@@ -114,6 +138,110 @@ describe('machine add, sync, list and remove', () => {
       expect.stringMatching(/^✓ laptop: up to date; 1 file\(s\), 2 event\(s\) cached/),
       'laptop  me@laptop  synced 5 min ago, 1 file(s), 2 event(s)',
     ]);
+  });
+
+  it('applies changed, removed and fully resent files', async () => {
+    const machine = { ssh: 'me@laptop' };
+    const sync = (options: { full?: boolean } = {}) =>
+      syncMachine('laptop', machine, {
+        ...options,
+        spawnSsh: createInProcessRemote(remote).spawnSsh,
+      });
+    await sync();
+
+    // One more turn in the remote session: only that file is sent again.
+    await appendCodexTurn(remote.codexFile);
+    expect(await sync()).toMatchObject({
+      ok: true,
+      result: { receivedFileCount: 1, removedFileCount: 0, fileCount: 1, eventCount: 3 },
+    });
+
+    expect(await sync({ full: true })).toMatchObject({
+      ok: true,
+      result: { receivedFileCount: 1, removedFileCount: 0, eventCount: 3 },
+    });
+
+    // A source the remote no longer counts leaves the cache.
+    await writeFile(remote.configPath, 'sources = ["pi"]\n[sourceDirs]\npi = "pi"\n');
+    await mkdir(path.join(path.dirname(remote.configPath), 'pi'));
+    expect(await sync()).toMatchObject({
+      ok: true,
+      result: { receivedFileCount: 0, removedFileCount: 1, fileCount: 0, eventCount: 0 },
+    });
+  });
+
+  it('rejects a bundle that does not add up, leaving the cache as it was', async () => {
+    await syncMachine(
+      'laptop',
+      { ssh: 'me@laptop' },
+      {
+        spawnSsh: createInProcessRemote(remote).spawnSsh,
+      },
+    );
+    const before = await readMachineCacheStatus('laptop');
+    const inflateEnd = (bundle: string) =>
+      bundle.replace(
+        /"eventCount":(\d+)\}/u,
+        (_match, count: string) => `"eventCount":${Number(count) + 1}}`,
+      );
+    const listUnsentRevision = (bundle: string) =>
+      bundle.replace(
+        /"files":\[\["codex","([^"]+)","[0-9a-f]+"\]\]/u,
+        '"files":[["codex","$1","0000"]]',
+      );
+
+    for (const rewrite of [inflateEnd, listUnsentRevision]) {
+      const outcome = await syncMachine(
+        'laptop',
+        { ssh: 'me@laptop' },
+        {
+          spawnSsh: createInProcessRemote({ ...remote, rewrite }).spawnSsh,
+        },
+      );
+
+      expect(outcome.ok).toBe(false);
+      expect((await readMachineCacheStatus('laptop'))?.eventCount).toBe(before?.eventCount);
+    }
+  });
+
+  it('prints the warnings of a successful export', async () => {
+    await runMachineAdd(
+      'laptop',
+      'me@laptop',
+      {},
+      {
+        spawnSsh: createInProcessRemote(remote).spawnSsh,
+        print,
+      },
+    );
+    printed = [];
+
+    await runSync(
+      [],
+      {},
+      {
+        spawnSsh: createInProcessRemote({
+          ...remote,
+          warning: '⚠ machine export left out 2 event(s)',
+        }).spawnSsh,
+        print,
+      },
+    );
+
+    expect(printed).toEqual([
+      expect.stringMatching(/^✓ laptop: up to date/),
+      '  laptop warned: ⚠ machine export left out 2 event(s)',
+    ]);
+  });
+
+  it('refuses to add over an invalid entry of the same name before syncing', async () => {
+    await writeFile(localConfigPath, '[machines.laptop]\nssh = ""\n');
+    const { spawnSsh, calls } = createInProcessRemote(remote);
+
+    await expect(runMachineAdd('laptop', 'me@laptop', {}, { spawnSsh, print })).rejects.toThrow(
+      'already has a machines.laptop entry that is not valid',
+    );
+    expect(calls).toEqual([]);
   });
 
   it('keeps the cached usage and records the error when a sync fails', async () => {

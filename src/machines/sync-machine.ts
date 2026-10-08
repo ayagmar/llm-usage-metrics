@@ -14,7 +14,13 @@ import {
 import { fetchMachineExport, type SpawnSsh } from './machine-ssh.js';
 
 export type MachineSyncOutcome =
-  | { name: string; ok: true; result: MachineSyncResult; state: MachineSyncState }
+  | {
+      name: string;
+      ok: true;
+      result: MachineSyncResult;
+      remoteWarnings: string[];
+      state: MachineSyncState;
+    }
   | { name: string; ok: false; error: string; state: MachineSyncState };
 
 export type SyncMachineOptions = {
@@ -49,14 +55,14 @@ export async function syncMachine(
   }
 
   try {
-    const bundle = await fetchMachineExport(
+    const { bundle, remoteWarnings } = await fetchMachineExport(
       machine,
       options.full === true ? [] : readCachedFiles(cache),
       { spawnSsh: options.spawnSsh, timeoutMs: options.timeoutMs },
     );
     const result = applyMachineExport(cache, bundle, now());
 
-    return { name, ok: true, result, state: readMachineSyncState(cache) };
+    return { name, ok: true, result, remoteWarnings, state: readMachineSyncState(cache) };
   } catch (error) {
     const reason = getErrorReason(error);
 

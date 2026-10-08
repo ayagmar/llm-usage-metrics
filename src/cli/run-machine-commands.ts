@@ -9,6 +9,7 @@ import {
 import { deleteMachineCache, readMachineCacheStatus } from '../machines/machine-cache.js';
 import {
   addMachineToConfigFile,
+  hasMachineEntry,
   removeMachineFromConfigFile,
 } from '../machines/machine-config-file.js';
 import { detectRemoteCommand, type SpawnSsh } from '../machines/machine-ssh.js';
@@ -63,6 +64,12 @@ export async function runMachineAdd(
     );
   }
 
+  if (await hasMachineEntry(configPath, name)) {
+    throw new Error(
+      `${configPath} already has a machines.${name} entry that is not valid (see the warning above); fix or delete it first`,
+    );
+  }
+
   let command = options.command?.trim();
 
   if (!command) {
@@ -94,7 +101,11 @@ export async function runMachineAdd(
   }
 
   await addMachineToConfigFile(configPath, name, machine);
-  print(renderSyncOutcome(outcome, (deps.now ?? Date.now)()));
+
+  for (const line of renderSyncOutcome(outcome, (deps.now ?? Date.now)())) {
+    print(line);
+  }
+
   print(`Added ${name} to ${configPath}. llm-usage sync refreshes its usage.`);
 }
 
@@ -163,16 +174,23 @@ export async function runSync(
     return;
   }
 
+  // No timeout: a first export can parse for minutes, and Ctrl-C stops it. Each machine
+  // prints as soon as it finishes.
   const outcomes = await Promise.all(
-    selected.map(([name, machine]) =>
-      syncMachine(name, machine, { full: options.full, spawnSsh: deps.spawnSsh, now: deps.now }),
-    ),
-  );
-  const now = (deps.now ?? Date.now)();
+    selected.map(async ([name, machine]) => {
+      const outcome = await syncMachine(name, machine, {
+        full: options.full,
+        spawnSsh: deps.spawnSsh,
+        now: deps.now,
+      });
 
-  for (const outcome of outcomes) {
-    print(renderSyncOutcome(outcome, now));
-  }
+      for (const line of renderSyncOutcome(outcome, (deps.now ?? Date.now)())) {
+        print(line);
+      }
+
+      return outcome;
+    }),
+  );
 
   if (outcomes.some((outcome) => !outcome.ok)) {
     process.exitCode = 1;

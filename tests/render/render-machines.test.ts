@@ -57,24 +57,26 @@ describe('renderMachineList', () => {
 
 describe('renderSyncOutcome', () => {
   it('reports a failure before any successful sync', () => {
-    expect(renderSyncOutcome({ name: 'vps', ok: false, error: 'ssh failed', state: {} }, NOW)).toBe(
-      '✗ vps: ssh failed (nothing cached yet)',
-    );
+    expect(
+      renderSyncOutcome({ name: 'vps', ok: false, error: 'ssh failed', state: {} }, NOW),
+    ).toEqual(['✗ vps: ssh failed (nothing cached yet)']);
   });
 
-  it('names the remote version without a host name', () => {
+  it('names the remote version without a host name, then its warnings', () => {
     expect(
       renderSyncOutcome(
         {
           name: 'vps',
           ok: true,
           result: { receivedFileCount: 3072, removedFileCount: 1, fileCount: 3072, eventCount: 10 },
+          remoteWarnings: ['⚠ machine export left out 2 event(s)'],
           state: { cliVersion: '1.0.0' },
         },
         NOW,
       ),
-    ).toBe(
+    ).toEqual([
       '✓ vps: 3,072 file(s) updated, 1 removed; 3,072 file(s), 10 event(s) cached (llm-usage-metrics 1.0.0)',
-    );
+      '  vps warned: ⚠ machine export left out 2 event(s)',
+    ]);
   });
 });

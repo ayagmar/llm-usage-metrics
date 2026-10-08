@@ -38,7 +38,8 @@ function formatRemoteVersion(state: MachineSyncState): string {
     : ` (llm-usage-metrics ${state.cliVersion})`;
 }
 
-export function renderSyncOutcome(outcome: MachineSyncOutcome, now: number): string {
+/** One line per machine, then any warnings its export printed. */
+export function renderSyncOutcome(outcome: MachineSyncOutcome, now: number): string[] {
   if (outcome.ok) {
     const { result } = outcome;
     const changes =
@@ -46,7 +47,10 @@ export function renderSyncOutcome(outcome: MachineSyncOutcome, now: number): str
         ? 'up to date'
         : `${integerFormat.format(result.receivedFileCount)} file(s) updated, ${integerFormat.format(result.removedFileCount)} removed`;
 
-    return `✓ ${outcome.name}: ${changes}; ${formatCachedTotals(result.fileCount, result.eventCount)} cached${formatRemoteVersion(outcome.state)}`;
+    return [
+      `✓ ${outcome.name}: ${changes}; ${formatCachedTotals(result.fileCount, result.eventCount)} cached${formatRemoteVersion(outcome.state)}`,
+      ...outcome.remoteWarnings.map((warning) => `  ${outcome.name} warned: ${warning}`),
+    ];
   }
 
   const cacheNote =
@@ -54,7 +58,7 @@ export function renderSyncOutcome(outcome: MachineSyncOutcome, now: number): str
       ? 'nothing cached yet'
       : `reports keep its usage from ${formatAge(now - outcome.state.syncedAt)}`;
 
-  return `✗ ${outcome.name}: ${outcome.error} (${cacheNote})`;
+  return [`✗ ${outcome.name}: ${outcome.error} (${cacheNote})`];
 }
 
 export type MachineListEntry = {

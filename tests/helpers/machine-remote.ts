@@ -22,6 +22,8 @@ export function createInProcessRemote(options: {
   fail?: { exitCode: number; stderr: string };
   /** What the command probe prints, e.g. a login-shell-only path after the probe marker. */
   loginShellCommand?: string;
+  /** A warning the remote prints on stderr while succeeding. */
+  warning?: string;
 }): InProcessRemote {
   const calls: string[][] = [];
 
@@ -73,6 +75,11 @@ export function createInProcessRemote(options: {
 
       const text = Buffer.concat(chunks).toString('utf8');
       stdout.write(options.rewrite ? options.rewrite(text) : text);
+
+      if (options.warning) {
+        stderr.write(`${options.warning}\n`);
+      }
+
       close(0);
     })();
 

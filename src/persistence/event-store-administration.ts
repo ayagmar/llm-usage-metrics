@@ -630,6 +630,7 @@ export function readStoredFileSnapshots(
 ): EventStoreFileSnapshot[] {
   const snapshots: EventStoreFileSnapshot[] = [];
 
+  // A read snapshot, not runTransaction's write lock; so never call this inside one.
   store.database.exec('BEGIN');
 
   try {
