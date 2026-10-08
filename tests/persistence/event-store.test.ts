@@ -1195,6 +1195,15 @@ describe('event-store', () => {
     await expect(stat(`${dbPath}-shm`)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
+  // Node's recursive mkdir never settles under /proc; the store must fail instead.
+  it.runIf(process.platform === 'linux')(
+    'rejects a store path under /proc instead of hanging',
+    async () => {
+      await expect(openEventStore('/proc/llm-usage-test/events.db')).rejects.toThrow(/ENOENT/u);
+    },
+    2_000,
+  );
+
   it('opens writable stores with a busy timeout and WAL journal mode', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-open-options-'));
     tempDirs.push(tempDir);

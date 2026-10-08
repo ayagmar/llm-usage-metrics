@@ -1,9 +1,9 @@
-import { mkdir, readFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { asRecord } from '../utils/as-record.js';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
-import { writeFileAtomic } from '../utils/fs-helpers.js';
+import { ensureDirectory, writeFileAtomic } from '../utils/fs-helpers.js';
 import { normalizeKey, resolveCanonicalModelKey } from './litellm-model-matching.js';
 import litellmPricingSnapshotPayload from './litellm-pricing-snapshot.json' with { type: 'json' };
 import litellmRetiredPricingPayload from './litellm-retired-pricing.json' with { type: 'json' };
@@ -638,7 +638,7 @@ export class LiteLLMPricingFetcher implements PricingSource {
 
   private async writeCache(): Promise<void> {
     const directoryPath = path.dirname(this.cacheFilePath);
-    await mkdir(directoryPath, { recursive: true });
+    await ensureDirectory(directoryPath);
 
     const payload: LiteLLMCachePayload = {
       fetchedAt: this.now(),

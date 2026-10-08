@@ -1,10 +1,10 @@
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { writeFileAtomic } from '../../src/utils/fs-helpers.js';
+import { ensureDirectory, writeFileAtomic } from '../../src/utils/fs-helpers.js';
 
 const tempDirs: string[] = [];
 
@@ -18,6 +18,46 @@ async function createTempDir(): Promise<string> {
   tempDirs.push(tempDir);
   return tempDir;
 }
+
+describe('ensureDirectory', () => {
+  it('creates every missing level and accepts an existing directory', async () => {
+    const tempDir = await createTempDir();
+    const nested = path.join(tempDir, 'a', 'b', 'c');
+
+    await ensureDirectory(nested);
+    await ensureDirectory(nested);
+
+    expect((await stat(nested)).isDirectory()).toBe(true);
+  });
+
+  it.skipIf(process.platform === 'win32')('applies the mode to the levels it creates', async () => {
+    const tempDir = await createTempDir();
+    const nested = path.join(tempDir, 'private', 'store');
+
+    await ensureDirectory(nested, 0o700);
+
+    expect((await stat(path.join(tempDir, 'private'))).mode & 0o777).toBe(0o700);
+    expect((await stat(nested)).mode & 0o777).toBe(0o700);
+  });
+
+  it('fails when a file sits where a directory should be', async () => {
+    const tempDir = await createTempDir();
+    await writeFile(path.join(tempDir, 'file'), 'x');
+
+    await expect(ensureDirectory(path.join(tempDir, 'file', 'sub'))).rejects.toThrow();
+    await expect(ensureDirectory(path.join(tempDir, 'file'))).rejects.toThrow(/EEXIST/u);
+  });
+
+  // Node's recursive mkdir never settles here: mkdir under /proc fails with ENOENT
+  // although /proc exists. ensureDirectory must fail instead of hanging the CLI.
+  it.runIf(process.platform === 'linux')(
+    'fails fast for a path under /proc',
+    async () => {
+      await expect(ensureDirectory('/proc/llm-usage-test/store')).rejects.toThrow(/ENOENT/u);
+    },
+    2_000,
+  );
+});
 
 describe('writeFileAtomic', () => {
   it('replaces the file contents and leaves no temp file behind', async () => {
