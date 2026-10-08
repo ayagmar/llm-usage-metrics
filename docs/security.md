@@ -12,7 +12,7 @@ This page documents the security controls and contributor steps configured in th
   - Node.js `24.21.0`
   - pnpm `12.9.1`
   - npm bundled with Node.js `24.21.0` in the release workflow
-- OpenCode support requires Node.js 24+ because it uses built-in `node:sqlite`.
+- The CLI requires Node.js 22.16+ for built-in `node:sqlite` (ledger and SQLite-backed sources) and zstd.
 
 ### Dependency pinning and integrity
 
