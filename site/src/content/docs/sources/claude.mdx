@@ -23,6 +23,7 @@ llm-usage daily --claude-dir /work/.claude/projects --claude-dir /home/me/.claud
 ## Parsing notes
 
 The adapter reads Claude Code assistant transcript rows with `message.usage`, including nested subagent transcripts.
+`output_tokens` already includes extended thinking; `output_tokens_details.thinking_tokens`, when present, fills the reasoning breakdown without changing output, total, or cost.
 Streaming/update rows are de-duplicated by message id plus request id, so only the final observed usage row per request is counted while retries count separately.
 Forked subagents (`isFork` in the `agent-<id>.meta.json` sidecar) begin with a replay of their parent's conversation; rows whose message id and request id also appear in the parent transcript (`parentAgentId`, or the main session transcript) are skipped because the parent already counts them. This applies only when the parent lies under a scanned Claude directory; otherwise the replayed rows are kept.
 

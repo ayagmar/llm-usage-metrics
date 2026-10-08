@@ -177,6 +177,48 @@ describe('ClaudeSourceAdapter', () => {
     await expect(adapter.discoverFiles()).resolves.toEqual([await realpath(projectFile)]);
   });
 
+  it('breaks thinking tokens out of output without changing output or total', async () => {
+    const projectsDir = await mkdtemp(path.join(os.tmpdir(), 'claude-thinking-'));
+    tempDirs.push(projectsDir);
+    const filePath = path.join(projectsDir, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        assistantRow({
+          messageId: 'msg_thinking',
+          uuid: 'row-1',
+          usage: {
+            input_tokens: 2,
+            cache_creation_input_tokens: 10,
+            cache_read_input_tokens: 20,
+            output_tokens: 177,
+            output_tokens_details: { thinking_tokens: 91 },
+          },
+        }),
+        assistantRow({
+          messageId: 'msg_overreported',
+          uuid: 'row-2',
+          usage: {
+            input_tokens: 1,
+            output_tokens: 5,
+            output_tokens_details: { thinking_tokens: 9 },
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const events = await new ClaudeSourceAdapter({ dir: projectsDir }).parseFile(filePath);
+
+    expect(events[0]).toMatchObject({
+      outputTokens: 177,
+      reasoningTokens: 91,
+      totalTokens: 209,
+    });
+    expect(events[1]).toMatchObject({ outputTokens: 5, reasoningTokens: 5, totalTokens: 6 });
+  });
+
   it('keeps only the final row per message id and maps token buckets', async () => {
     const projectsDir = await mkdtemp(path.join(os.tmpdir(), 'claude-final-row-'));
     tempDirs.push(projectsDir);

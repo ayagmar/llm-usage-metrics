@@ -110,6 +110,10 @@ function parseUsage(usage: Record<string, unknown>): ClaudeUsage | undefined {
   const cacheWriteTokens = normalizeNonNegativeInteger(
     toNumberLike(usage.cache_creation_input_tokens),
   );
+  // output_tokens already includes thinking; the details field is only a breakdown.
+  const thinkingTokens = normalizeNonNegativeInteger(
+    toNumberLike(asRecord(usage.output_tokens_details)?.thinking_tokens),
+  );
   const totalTokens = inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens;
 
   if (totalTokens === 0) {
@@ -119,7 +123,7 @@ function parseUsage(usage: Record<string, unknown>): ClaudeUsage | undefined {
   return {
     inputTokens,
     outputTokens,
-    reasoningTokens: 0,
+    reasoningTokens: Math.min(outputTokens, thinkingTokens),
     cacheReadTokens,
     cacheWriteTokens,
     totalTokens,
@@ -164,7 +168,7 @@ function comparePendingEvents(left: ClaudePendingEvent, right: ClaudePendingEven
 
 export class ClaudeSourceAdapter implements SourceAdapter {
   public readonly id = 'claude' as const;
-  public readonly parserVersion = 2;
+  public readonly parserVersion = 3;
   public readonly capabilities = { eventsPrecedeFileMtime: true } as const;
 
   private readonly rootDirs: readonly string[];
