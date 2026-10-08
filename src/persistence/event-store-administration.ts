@@ -1,4 +1,5 @@
-import { chmod, mkdir, open } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { chmod, link, mkdir, open, rm } from 'node:fs/promises';
 import path from 'node:path';
 
 import { normalizeSkippedRowReasons } from '../cli/normalize-skipped-row-reasons.js';
@@ -7,6 +8,8 @@ import { loadNodeSqliteModule } from '../sources/opencode/node-sqlite-loader.js'
 import type { SourceSkippedRowReasonStat } from '../sources/source-adapter.js';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { getUserDataRootDir } from '../utils/data-root-dir.js';
+import { pathExists } from '../utils/fs-helpers.js';
 import {
   computeEventContentHash,
   normalizeStoredEventTuple,
@@ -14,6 +17,7 @@ import {
 } from './event-store-codec.js';
 import {
   type EventStore,
+  type EventStoreSqliteModule,
   isEventStoreSqliteModule,
   type LoadEventStoreSqliteModule,
   runTransaction,
@@ -203,7 +207,72 @@ function stringifySkippedRowReasons(
 }
 
 export function getDefaultEventStorePath(): string {
+  return path.join(getUserDataRootDir(), 'llm-usage-metrics', 'events.db');
+}
+
+/** Older versions kept the ledger in the cache directory, which users and tools clear freely. */
+export function getLegacyEventStorePath(): string {
   return path.join(getUserCacheRootDir(), 'llm-usage-metrics', 'events.db');
+}
+
+function isErrorCode(error: unknown, code: string): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === code;
+}
+
+/**
+ * Moves a ledger left by an older version to `targetPath` once. VACUUM INTO takes a consistent snapshot
+ * that includes uncheckpointed WAL pages and works across filesystems; the snapshot is
+ * hard-linked into place, so a concurrent first run can never overwrite the other's.
+ */
+async function moveLegacyEventStore(
+  targetPath: string,
+  sqliteModule: EventStoreSqliteModule,
+): Promise<void> {
+  const legacyPath = getLegacyEventStorePath();
+
+  if (
+    legacyPath === targetPath ||
+    (await pathExists(targetPath)) ||
+    !(await pathExists(legacyPath))
+  ) {
+    return;
+  }
+
+  const snapshotPath = `${targetPath}.${randomUUID()}.tmp`;
+
+  try {
+    const legacyDatabase = new sqliteModule.DatabaseSync(legacyPath, {
+      timeout: EVENT_STORE_OPEN_TIMEOUT_MS,
+    });
+
+    try {
+      legacyDatabase.prepare('VACUUM INTO ?').run(snapshotPath);
+    } finally {
+      legacyDatabase.close();
+    }
+
+    try {
+      await link(snapshotPath, targetPath);
+    } catch (error) {
+      // Another first run moved the ledger while this one copied it.
+      if (isErrorCode(error, 'EEXIST')) {
+        return;
+      }
+
+      throw error;
+    }
+  } finally {
+    await rm(snapshotPath, { force: true });
+  }
+
+  for (const legacyFilePath of [
+    legacyPath,
+    `${legacyPath}-wal`,
+    `${legacyPath}-shm`,
+    `${legacyPath}-journal`,
+  ]) {
+    await rm(legacyFilePath, { force: true });
+  }
 }
 
 async function prepareEventStoreFile(filePath: string): Promise<void> {
@@ -252,6 +321,10 @@ export async function openEventStore(
 
   if (!isEventStoreSqliteModule(sqliteModule)) {
     throw new Error('Event store requires a sqlite module with a DatabaseSync constructor');
+  }
+
+  if (filePath === getDefaultEventStorePath()) {
+    await moveLegacyEventStore(filePath, sqliteModule);
   }
 
   await prepareEventStoreFile(filePath);

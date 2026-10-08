@@ -13,7 +13,7 @@ Four layers resolve, highest first: **flags → env vars → config file → bui
 - Env vars shadow config in `src/config/runtime-overrides.ts`: each runtime config reader (event store, parsing, pricing, update) checks its env var first, then the config key, then the exported default constant.
 - Consumers never read raw layers — they call the runtime-config readers and get final values.
 
-A worked example with the event-store path: `LLM_USAGE_EVENT_STORE_PATH=/tmp/scratch.db` wins over `eventStore.path = "/data/events.db"` in `config.toml`, which wins over the default `events.db` under the platform cache root. Same shape for a flag-backed key: `--timezone Europe/Paris` wins over `timezone = "Africa/Casablanca"`.
+A worked example with the event-store path: `LLM_USAGE_EVENT_STORE_PATH=/tmp/scratch.db` wins over `eventStore.path = "/data/events.db"` in `config.toml`, which wins over the default `events.db` under the platform data root. Same shape for a flag-backed key: `--timezone Europe/Paris` wins over `timezone = "Africa/Casablanca"`.
 
 The default constants live in `runtime-overrides.ts` as exports, and the `config init` template interpolates them — so the template's documented defaults cannot drift from the real ones by construction.
 

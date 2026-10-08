@@ -1,0 +1,101 @@
+import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { createUsageEvent } from '../../src/domain/usage-event.js';
+import {
+  closeEventStore,
+  getDefaultEventStorePath,
+  getLegacyEventStorePath,
+  openEventStore,
+  readEventStoreStoredFiles,
+  replaceFileEvents,
+} from '../../src/persistence/event-store.js';
+
+let rootDir: string;
+
+beforeEach(async () => {
+  rootDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-legacy-move-'));
+  vi.stubEnv('XDG_CACHE_HOME', path.join(rootDir, 'cache'));
+  vi.stubEnv('XDG_DATA_HOME', path.join(rootDir, 'data'));
+});
+
+afterEach(async () => {
+  vi.unstubAllEnvs();
+  await rm(rootDir, { recursive: true, force: true });
+});
+
+async function writeStore(filePath: string, storedFilePath: string): Promise<void> {
+  const store = await openEventStore(filePath);
+  replaceFileEvents(store, {
+    source: 'codex',
+    filePath: storedFilePath,
+    fingerprint: { dependencies: [{ path: storedFilePath, exists: true, size: 10, mtimeMs: 20 }] },
+    events: [
+      createUsageEvent({
+        source: 'codex',
+        sessionId: 'session-1',
+        timestamp: '2026-02-01T00:00:00.000Z',
+        inputTokens: 1,
+        outputTokens: 2,
+        totalTokens: 3,
+        costMode: 'estimated',
+      }),
+    ],
+    skippedRows: 0,
+    now: 1_000,
+  });
+  closeEventStore(store);
+}
+
+describe('legacy event store move', () => {
+  it('keeps the ledger in the data directory, not the cache directory', () => {
+    expect(getDefaultEventStorePath()).toBe(
+      path.join(rootDir, 'data', 'llm-usage-metrics', 'events.db'),
+    );
+    expect(getLegacyEventStorePath()).toBe(
+      path.join(rootDir, 'cache', 'llm-usage-metrics', 'events.db'),
+    );
+  });
+
+  it('moves a ledger left in the cache directory by an older version on first open', async () => {
+    await writeStore(getLegacyEventStorePath(), '/tmp/departed.jsonl');
+
+    closeEventStore(await openEventStore());
+
+    await expect(readEventStoreStoredFiles(getDefaultEventStorePath())).resolves.toEqual([
+      { source: 'codex', filePath: '/tmp/departed.jsonl' },
+    ]);
+    // The pricing and update caches stay; only the ledger files leave.
+    await expect(readdir(path.dirname(getLegacyEventStorePath()))).resolves.toEqual([]);
+    await expect(readdir(path.dirname(getDefaultEventStorePath()))).resolves.not.toContainEqual(
+      expect.stringMatching(/\.tmp$/u),
+    );
+  });
+
+  it('never overwrites a ledger that already exists in the data directory', async () => {
+    await writeStore(getDefaultEventStorePath(), '/tmp/current.jsonl');
+    await writeStore(getLegacyEventStorePath(), '/tmp/legacy.jsonl');
+
+    closeEventStore(await openEventStore());
+
+    await expect(readEventStoreStoredFiles(getDefaultEventStorePath())).resolves.toEqual([
+      { source: 'codex', filePath: '/tmp/current.jsonl' },
+    ]);
+    await expect(readEventStoreStoredFiles(getLegacyEventStorePath())).resolves.toEqual([
+      { source: 'codex', filePath: '/tmp/legacy.jsonl' },
+    ]);
+  });
+
+  it('leaves the legacy ledger alone when a custom store path is used', async () => {
+    await writeStore(getLegacyEventStorePath(), '/tmp/legacy.jsonl');
+
+    closeEventStore(await openEventStore(path.join(rootDir, 'custom', 'events.db')));
+
+    await expect(readEventStoreStoredFiles(getLegacyEventStorePath())).resolves.toEqual([
+      { source: 'codex', filePath: '/tmp/legacy.jsonl' },
+    ]);
+  });
+});

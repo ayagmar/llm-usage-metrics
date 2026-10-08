@@ -32,7 +32,7 @@ import { createUsageEvent } from '../../src/domain/usage-event.js';
 import { loadNodeSqliteModule } from '../../src/sources/opencode/node-sqlite-loader.js';
 
 const tempDirs: string[] = [];
-const originalXdgCacheHome = process.env.XDG_CACHE_HOME;
+const originalXdgDataHome = process.env.XDG_DATA_HOME;
 const itWhenPosix = process.platform === 'win32' ? it.skip : it;
 
 const V1_SCHEMA_SQL = `
@@ -82,10 +82,10 @@ afterEach(async () => {
   await Promise.all(tempDirs.map((tempDir) => rm(tempDir, { recursive: true, force: true })));
   tempDirs.length = 0;
 
-  if (originalXdgCacheHome === undefined) {
-    delete process.env.XDG_CACHE_HOME;
+  if (originalXdgDataHome === undefined) {
+    delete process.env.XDG_DATA_HOME;
   } else {
-    process.env.XDG_CACHE_HOME = originalXdgCacheHome;
+    process.env.XDG_DATA_HOME = originalXdgDataHome;
   }
 });
 
@@ -378,7 +378,7 @@ function replaceCodexFile(
 }
 
 describe('event-store', () => {
-  it('resolves the default path under the user cache root', () => {
+  it('resolves the default path under the user data root', () => {
     expect(getDefaultEventStorePath()).toContain(path.join('llm-usage-metrics', 'events.db'));
   });
 
@@ -1257,14 +1257,14 @@ describe('event-store', () => {
   });
 
   itWhenPosix('creates the default event-store directory with mode 0700', async () => {
-    const cacheRoot = await mkdtemp(path.join(os.tmpdir(), 'event-store-default-permissions-'));
-    tempDirs.push(cacheRoot);
-    process.env.XDG_CACHE_HOME = cacheRoot;
+    const dataRoot = await mkdtemp(path.join(os.tmpdir(), 'event-store-default-permissions-'));
+    tempDirs.push(dataRoot);
+    process.env.XDG_DATA_HOME = dataRoot;
 
     const store = await openEventStore();
 
     try {
-      expect(store.filePath).toBe(path.join(cacheRoot, 'llm-usage-metrics', 'events.db'));
+      expect(store.filePath).toBe(path.join(dataRoot, 'llm-usage-metrics', 'events.db'));
       expect((await stat(path.dirname(store.filePath))).mode & 0o777).toBe(0o700);
     } finally {
       closeEventStore(store);

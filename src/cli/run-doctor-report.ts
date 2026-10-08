@@ -3,6 +3,8 @@ import { stat } from 'node:fs/promises';
 import { getEventStoreRuntimeConfig } from '../config/runtime-overrides.js';
 import {
   EVENT_STORE_SCHEMA_VERSION,
+  getDefaultEventStorePath,
+  getLegacyEventStorePath,
   isSupportedSchemaVersion,
   readEventStoreStoredFiles as readDefaultEventStoreStoredFiles,
   readEventStoreSummary as readDefaultEventStoreSummary,
@@ -31,6 +33,7 @@ import { renderReportJson } from '../render/report-json.js';
 import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
 import type { DoctorCommandOptions } from './usage-data-contracts.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
+import { pathExists } from '../utils/fs-helpers.js';
 
 /**
  * found: files with readable usage. not_installed: no files in any searched path.
@@ -281,12 +284,20 @@ async function buildEventStoreDoctorResult(
     fileStats = await stat(filePath);
   } catch (error) {
     if (isMissingPathError(error)) {
+      const legacyPath = getLegacyEventStorePath();
+      const movesFromLegacy =
+        filePath === getDefaultEventStorePath() &&
+        legacyPath !== filePath &&
+        (await pathExists(legacyPath));
+
       return {
         id: 'event-store',
         format: 'sqlite',
         status: 'ok',
         itemsFound: 0,
-        detail: 'not yet created',
+        detail: movesFromLegacy
+          ? `still at ${legacyPath}; the next report moves it here`
+          : 'not yet created',
       };
     }
 

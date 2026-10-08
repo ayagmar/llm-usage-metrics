@@ -13,6 +13,8 @@ import type { DoctorCommandOptions } from '../../src/cli/usage-data-contracts.js
 import { renderDoctorText } from '../../src/render/render-doctor-report.js';
 import {
   closeEventStore,
+  getDefaultEventStorePath,
+  getLegacyEventStorePath,
   openEventStore,
   readEventStoreSummary,
   replaceFileEvents,
@@ -408,6 +410,32 @@ describe('run-doctor-report', () => {
         detail: 'not yet created',
       },
     ]);
+  });
+
+  it('points at a ledger left in the cache directory, which the next report moves', async () => {
+    const options = await createDoctorFixtureOptions();
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-legacy-store-'));
+    tempDirs.push(rootDir);
+    vi.stubEnv('XDG_CACHE_HOME', path.join(rootDir, 'cache'));
+    vi.stubEnv('XDG_DATA_HOME', path.join(rootDir, 'data'));
+    const legacyStore = await openEventStore(getLegacyEventStorePath());
+    closeEventStore(legacyStore);
+
+    try {
+      const results = await buildDoctorResults(
+        { ...options, source: 'pi' },
+        {
+          getEventStoreRuntimeConfig: () => ({ enabled: true, path: getDefaultEventStorePath() }),
+        },
+      );
+
+      expect(results.find((result) => result.id === 'event-store')).toMatchObject({
+        status: 'ok',
+        detail: `still at ${getLegacyEventStorePath()}; the next report moves it here`,
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('counts events for an existing enabled event store', async () => {
