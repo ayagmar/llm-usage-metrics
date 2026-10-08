@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Node.js 24.21.0 for development (matches CI and `.nvmrc`); the CLI supports Node.js 22.16+
+- Node.js 24.21.0 for development (matches CI and `.nvmrc`); the CLI supports Node.js 22.16+ or 24+ (not 23)
 - pnpm 12.9.1 (used for local scripts and the lockfile)
 
 ## Install

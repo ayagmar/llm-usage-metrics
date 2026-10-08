@@ -29,7 +29,7 @@ The CLI parses session content on your machine. It discovers standard source loc
 
 ## Quick start
 
-Requires Node.js 22.16 or newer.
+Requires Node.js 22.16+ or 24+ (Node 23 lacks the SQLite busy timeout the ledger uses).
 
 ```bash
 # Run without installing
