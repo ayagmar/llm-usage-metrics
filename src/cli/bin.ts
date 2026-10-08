@@ -2,7 +2,7 @@
 import module from 'node:module';
 
 // Reuse V8's compiled code for the CLI bundle across runs, so a repeat run skips most
-// of the compile step. Every supported runtime has it: Node 22.1+ and Bun.
+// of the compile step. Every supported runtime has it: Node 22.8+ and Bun.
 module.enableCompileCache();
 
 // Only modules loaded after enableCompileCache() use the cache, so this loader stays tiny
