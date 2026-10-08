@@ -1,36 +1,34 @@
+import { toActivityLevels } from '../aggregate/daily-activity.js';
 import type { TrendsDataResult } from '../cli/usage-data-contracts.js';
 import type { TrendBucket, TrendsMetric } from '../trends/trends-series.js';
 import { formatDuration } from './format-duration.js';
 import {
-  catmullRom,
   escapeSvg,
   formatCompact,
   formatUsd,
-  renderShareCommandBadge,
-  renderShareDocument,
+  renderEmptyState,
+  renderShareCard,
+  renderStat,
   scaleY,
-  SHARE_SVG_FOOTER_HEIGHT,
-  SHARE_SVG_WIDTH,
-  shareTheme,
-  type Point,
+  SHARE_MARGIN,
+  SHARE_WIDTH,
+  svgText,
+  type ShareTheme,
 } from './share-svg-theme.js';
 
-const W = SHARE_SVG_WIDTH;
-const H = 580;
-const pad = { top: 180, right: 80, bottom: 70 + SHARE_SVG_FOOTER_HEIGHT, left: 120 };
-
-const chartColors: Record<TrendsMetric, string> = {
-  cost: '#10b981',
-  tokens: '#06b6d4',
-  'active-hours': '#06b6d4',
-};
+const statsTop = 160;
+const statPitch = 268;
+const chartLeft = SHARE_MARGIN + 60;
+const chartRight = SHARE_WIDTH - SHARE_MARGIN;
+const chartTop = 284;
+const chartBottom = 500;
 
 function getMetricLabel(metric: TrendsMetric): string {
   if (metric === 'cost') {
-    return 'Cost';
+    return 'cost';
   }
 
-  return metric === 'active-hours' ? 'Active Hours' : 'Token Usage';
+  return metric === 'active-hours' ? 'active hours' : 'tokens';
 }
 
 function formatMetricValue(value: number, metric: TrendsMetric, approximate = false): string {
@@ -41,10 +39,6 @@ function formatMetricValue(value: number, metric: TrendsMetric, approximate = fa
         ? formatDuration(value)
         : formatCompact(Math.round(value));
   return approximate ? `~${formatted}` : formatted;
-}
-
-function getDayLabel(bucketCount: number): string {
-  return bucketCount === 1 ? 'day' : 'days';
 }
 
 function getDateRangeLabel(data: TrendsDataResult): string {
@@ -61,7 +55,7 @@ function getMinBucket(buckets: readonly TrendBucket[]): TrendBucket | undefined 
   );
 }
 
-function renderSummaryStats(data: TrendsDataResult): string {
+function renderSummaryStats(data: TrendsDataResult, theme: ShareTheme): string {
   const { metric, totalSeries } = data;
   const minBucket = getMinBucket(totalSeries.buckets);
   const approximate = metric === 'cost' && totalSeries.summary.incomplete;
@@ -69,179 +63,120 @@ function renderSummaryStats(data: TrendsDataResult): string {
     {
       label: 'Total',
       value: formatMetricValue(totalSeries.summary.total, metric, approximate),
-      x: pad.left,
+      accent: true,
     },
     {
-      label: 'Avg / Day',
+      label: 'Daily average',
       value: formatMetricValue(totalSeries.summary.average, metric, approximate),
-      x: pad.left + 260,
     },
     {
       label: 'Peak',
       value: formatMetricValue(totalSeries.summary.peak.value, metric, approximate),
-      date: totalSeries.summary.peak.date,
-      x: pad.left + 520,
+      detail: totalSeries.summary.peak.date,
     },
     {
-      label: 'Min',
+      label: 'Lowest',
       value: minBucket
         ? formatMetricValue(minBucket.value, metric, minBucket.incomplete === true)
         : '-',
-      date: minBucket?.date,
-      x: pad.left + 780,
+      detail: minBucket?.date,
     },
   ];
 
   return stats
-    .map((stat) => {
-      const lines = [
-        `<text x="${stat.x}" y="92" font-size="13" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">${escapeSvg(stat.label)}</text>`,
-        `<text x="${stat.x}" y="118" font-size="22" font-weight="700" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">${escapeSvg(stat.value)}</text>`,
-      ];
-
-      if (stat.date !== undefined) {
-        lines.push(
-          `<text x="${stat.x}" y="138" font-size="12" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">${escapeSvg(stat.date)}</text>`,
-        );
-      }
-
-      return lines.join('\n');
-    })
+    .map((stat, index) =>
+      renderStat({
+        theme,
+        x: SHARE_MARGIN + index * statPitch,
+        y: statsTop,
+        size: 30,
+        ...stat,
+      }),
+    )
     .join('\n');
 }
 
-function renderGridLines(
-  chartLeft: number,
-  chartRight: number,
-  chartTop: number,
-  chartBottom: number,
-  scaleMax: number,
-  metric: TrendsMetric,
-): string {
-  const gridCount = 4;
+function renderGridLines(scaleMax: number, metric: TrendsMetric, theme: ShareTheme): string {
   const lines: string[] = [];
 
-  for (let index = 0; index <= gridCount; index++) {
-    const value = (scaleMax / gridCount) * (gridCount - index);
-    const y = chartTop + ((chartBottom - chartTop) / gridCount) * index;
-    const dash = index === gridCount ? '' : ' stroke-dasharray="4 4"';
+  for (let step = 1; step <= 3; step += 1) {
+    const value = (scaleMax / 3) * step;
+    const y = scaleY(value, scaleMax, chartTop, chartBottom);
 
     lines.push(
-      `<line x1="${chartLeft}" y1="${y.toFixed(2)}" x2="${chartRight}" y2="${y.toFixed(2)}" stroke="${shareTheme.gridLine}" stroke-width="1"${dash}/>`,
-    );
-    lines.push(
-      `<text x="${(chartLeft - 14).toFixed(0)}" y="${(y + 4).toFixed(0)}" text-anchor="end" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}" font-size="11">${escapeSvg(formatMetricValue(value, metric))}</text>`,
+      `<line x1="${chartLeft}" y1="${y.toFixed(2)}" x2="${chartRight}" y2="${y.toFixed(2)}" stroke="${theme.line}" stroke-width="1" stroke-dasharray="3 5"/>`,
+      svgText(chartLeft - 10, y + 4, formatMetricValue(value, metric), {
+        size: 12,
+        fill: theme.textMuted,
+        mono: true,
+        anchor: 'end',
+      }),
     );
   }
+
+  lines.push(
+    `<line x1="${chartLeft}" y1="${chartBottom}" x2="${chartRight}" y2="${chartBottom}" stroke="${theme.line}" stroke-width="1"/>`,
+  );
 
   return lines.join('\n');
 }
 
-function renderDateLabels(
-  buckets: readonly TrendBucket[],
-  toX: (index: number) => number,
-  y: number,
-): string {
-  if (buckets.length === 0) {
-    return '';
-  }
+/** One bar per day, shaded by quartile like the activity heatmap; days without data are faint. */
+function renderBars(buckets: readonly TrendBucket[], scaleMax: number, theme: ShareTheme): string {
+  const slot = (chartRight - chartLeft) / buckets.length;
+  const barWidth = Math.max(1, Math.min(40, slot * 0.7));
+  const levels = toActivityLevels(buckets.map((bucket) => bucket.value));
 
-  const labelIndexes = [...new Set([0, Math.floor((buckets.length - 1) / 2), buckets.length - 1])];
+  return buckets
+    .map((bucket, index) => {
+      const x = chartLeft + index * slot + (slot - barWidth) / 2;
+      const yTop = scaleY(bucket.value, scaleMax, chartTop, chartBottom);
+      const opacity = bucket.observed ? '' : ' fill-opacity="0.4"';
 
-  return labelIndexes
+      return `<rect data-date="${escapeSvg(bucket.date)}" x="${x.toFixed(2)}" y="${yTop.toFixed(2)}" width="${barWidth.toFixed(2)}" height="${(chartBottom - yTop).toFixed(2)}" rx="2" fill="${theme.heat[Math.max(1, levels[index])]}"${opacity}/>`;
+    })
+    .join('\n');
+}
+
+function renderDateLabels(buckets: readonly TrendBucket[], theme: ShareTheme): string {
+  const slot = (chartRight - chartLeft) / buckets.length;
+  const indexes = [...new Set([0, Math.floor((buckets.length - 1) / 2), buckets.length - 1])];
+
+  return indexes
     .map((index) => {
+      // The outer labels align to the chart edges so they never leave the card.
       const anchor = index === 0 ? 'start' : index === buckets.length - 1 ? 'end' : 'middle';
-      return `<text x="${toX(index).toFixed(2)}" y="${y}" text-anchor="${anchor}" font-size="13" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">${escapeSvg(buckets[index]?.date ?? '')}</text>`;
+      const x = anchor === 'start' ? chartLeft : anchor === 'end' ? chartRight : chartLeft + index * slot + slot / 2;
+
+      return svgText(x, chartBottom + 26, buckets[index].date, {
+        size: 13,
+        fill: theme.textMuted,
+        anchor,
+      });
     })
     .join('\n');
 }
 
-function renderTrendShape(
-  buckets: readonly TrendBucket[],
-  points: readonly Point[],
-  color: string,
-  chartBottom: number,
-): string {
-  if (points.length === 0) {
-    return '';
-  }
-
-  if (points.length === 1) {
-    const point = points[0];
-    return `<circle data-series="combined" cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="6" fill="${color}"/>`;
-  }
-
-  const linePath = catmullRom([...points], 0.3, chartBottom);
-  const firstPoint = points[0];
-  const lastPoint = points[points.length - 1];
-  const areaPath = `${linePath} L${lastPoint.x.toFixed(2)},${chartBottom} L${firstPoint.x.toFixed(2)},${chartBottom} Z`;
-  const dots = points
-    .map((point, index) => {
-      const opacity = buckets[index]?.observed ? '0.95' : '0.35';
-      return `<circle cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="4" fill="${color}" fill-opacity="${opacity}" clip-path="url(#chart-clip)"/>`;
-    })
-    .join('\n');
-
-  return [
-    `<path d="${areaPath}" fill="url(#trend-area-grad)" clip-path="url(#chart-clip)"/>`,
-    `<path data-series="combined" d="${linePath}" fill="none" stroke="${color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" clip-path="url(#chart-clip)"/>`,
-    dots,
-  ].join('\n');
-}
-
-export function renderTrendsShareSvg(data: TrendsDataResult): string {
+export function renderTrendsShareSvg(data: TrendsDataResult, theme: ShareTheme): string {
   const buckets = data.totalSeries.buckets;
-  const chartLeft = pad.left;
-  const chartTop = pad.top;
-  const chartRight = W - pad.right;
-  const chartBottom = H - pad.bottom;
-  const chartW = chartRight - chartLeft;
-  const chartH = chartBottom - chartTop;
-  const bucketCount = buckets.length;
-  const color = chartColors[data.metric];
   const scaleMax = Math.max(1, ...buckets.map((bucket) => bucket.value)) * 1.08;
-  const toX = (index: number): number =>
-    chartLeft + (bucketCount <= 1 ? chartW / 2 : (index / (bucketCount - 1)) * chartW);
-  const points = buckets.map((bucket, index) => ({
-    x: toX(index),
-    y: scaleY(bucket.value, scaleMax, chartTop, chartBottom),
-  }));
-  const commandText = 'llm-usage trends --share';
-  const title = `Daily ${getMetricLabel(data.metric)} Trend`;
-  const subtitle = `${bucketCount} ${getDayLabel(bucketCount)} - ${getDateRangeLabel(data)} · ${data.totalSeries.source}`;
-  const peakIndex = buckets.findIndex(
-    (bucket) => bucket.date === data.totalSeries.summary.peak.date,
-  );
-  const peakPoint = peakIndex >= 0 ? points[peakIndex] : undefined;
-  const peakMarker =
-    bucketCount > 1 && peakPoint
-      ? `<circle data-peak="${escapeSvg(data.totalSeries.summary.peak.date)}" cx="${peakPoint.x.toFixed(2)}" cy="${peakPoint.y.toFixed(2)}" r="9" fill="none" stroke="${color}" stroke-width="2" stroke-opacity="0.7"/>`
-      : '';
-  const chartContent =
-    bucketCount === 0
-      ? `<text x="${(W / 2).toFixed(0)}" y="${(H / 2).toFixed(0)}" text-anchor="middle" font-size="20" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}">No trend data available</text>`
-      : renderTrendShape(buckets, points, color, chartBottom);
+  const source = data.totalSeries.source === 'combined' ? 'all sources' : data.totalSeries.source;
+  const body =
+    buckets.length === 0
+      ? renderEmptyState(theme, 'No usage in this window')
+      : [
+          renderSummaryStats(data, theme),
+          renderGridLines(scaleMax, data.metric, theme),
+          renderBars(buckets, scaleMax, theme),
+          renderDateLabels(buckets, theme),
+        ].join('\n');
 
-  const extraDefs = `<linearGradient id="trend-area-grad" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0%" stop-color="${color}" stop-opacity="0.42"/>
-    <stop offset="100%" stop-color="${color}" stop-opacity="0.08"/>
-  </linearGradient>
-  <clipPath id="chart-clip">
-    <rect x="${chartLeft}" y="${chartTop - 6}" width="${chartW}" height="${chartH + 12}"/>
-  </clipPath>`;
-  const body = `<text x="${pad.left}" y="52" font-size="32" font-weight="700" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">${escapeSvg(title)}</text>
-<text x="${pad.left}" y="78" font-size="15" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}">${escapeSvg(subtitle)}</text>
-${renderShareCommandBadge(commandText)}
-${renderSummaryStats(data)}
-${renderGridLines(chartLeft, chartRight, chartTop, chartBottom, scaleMax, data.metric)}
-${chartContent}
-${peakMarker}
-${renderDateLabels(buckets, toX, chartBottom + 30)}`;
-
-  return renderShareDocument({
-    height: H,
-    extraDefs,
+  return renderShareCard({
+    theme,
+    title: `Daily ${getMetricLabel(data.metric)}`,
+    subtitle: `${buckets.length} ${buckets.length === 1 ? 'day' : 'days'} of ${source}`,
+    command: 'llm-usage trends --share',
+    footnote: getDateRangeLabel(data),
     body,
-    footerRightText: getDateRangeLabel(data),
   });
 }

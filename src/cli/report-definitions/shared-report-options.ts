@@ -35,7 +35,7 @@ export const sharedOptionProfileConfig = {
     includePricing: true,
     includeProviderModelFilters: true,
     includeHistory: true,
-    includeShare: false,
+    includeShare: true,
     includeTimezone: true,
   },
   specialized: {

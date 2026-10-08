@@ -14,7 +14,7 @@ vi.mock('node:fs/promises', () => ({
   writeFile: vi.fn(),
 }));
 
-import { openShareSvgFile } from '../../src/cli/share-artifact.js';
+import { openShareFile } from '../../src/cli/share-artifact.js';
 
 type EventName = 'spawn' | 'error' | 'close';
 type EventHandler = (value?: Error | number | null) => void;
@@ -74,7 +74,7 @@ describe('share-artifact spawn integration', () => {
     const { child, emit, unrefSpy, removeListenerSpy } = createMockChildProcess();
     spawnMock.mockReturnValueOnce(child);
 
-    const openPromise = openShareSvgFile('/tmp/share.svg', {
+    const openPromise = openShareFile('/tmp/share.svg', {
       platform: 'linux',
     });
     await vi.waitFor(() => {
@@ -100,7 +100,7 @@ describe('share-artifact spawn integration', () => {
     const { child, emit, removeListenerSpy } = createMockChildProcess();
     spawnMock.mockReturnValueOnce(child);
 
-    const openPromise = openShareSvgFile('/tmp/share.svg', {
+    const openPromise = openShareFile('/tmp/share.svg', {
       platform: 'linux',
     });
     await vi.waitFor(() => {
@@ -118,7 +118,7 @@ describe('share-artifact spawn integration', () => {
     const { child, emit, removeListenerSpy } = createMockChildProcess();
     spawnMock.mockReturnValueOnce(child);
 
-    const openPromise = openShareSvgFile('/tmp/share.svg', {
+    const openPromise = openShareFile('/tmp/share.svg', {
       platform: 'linux',
     });
     await vi.waitFor(() => {

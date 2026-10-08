@@ -49,16 +49,15 @@ vi.mock('../../src/cli/build-wrapped-data.js', async (importOriginal) => {
 });
 
 vi.mock('../../src/cli/share-artifact.js', () => ({
-  writeAndOpenShareSvgFile: vi.fn(async (fileName: string) => ({
-    outputPath: `/tmp/${fileName}`,
-    opened: false,
-    openErrorMessage: 'open disabled in tests',
-  })),
+  writeShareFile: vi.fn(async (fileName: string) => `/tmp/${fileName}`),
+  openShareFile: vi.fn(async () => {
+    throw new Error('open disabled in tests');
+  }),
 }));
 
 import { buildWrappedData } from '../../src/cli/build-wrapped-data.js';
 import { buildWrappedReport, runWrappedReport } from '../../src/cli/run-wrapped-report.js';
-import { writeAndOpenShareSvgFile } from '../../src/cli/share-artifact.js';
+import { writeShareFile } from '../../src/cli/share-artifact.js';
 
 describe('run-wrapped-report', () => {
   afterEach(() => {
@@ -134,8 +133,8 @@ describe('run-wrapped-report', () => {
         share: true,
       });
 
-      expect(writeAndOpenShareSvgFile).toHaveBeenCalledTimes(1);
-      const [fileName, svg] = vi.mocked(writeAndOpenShareSvgFile).mock.calls[0] ?? [];
+      expect(writeShareFile).toHaveBeenCalledTimes(2);
+      const [fileName, svg] = vi.mocked(writeShareFile).mock.calls[0] ?? [];
       expect(fileName).toBe('llm-usage-wrapped-2026.svg');
       expect(svg).toContain('2026 Wrapped');
 

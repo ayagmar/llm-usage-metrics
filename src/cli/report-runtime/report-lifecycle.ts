@@ -13,7 +13,9 @@ import {
   type RuntimeProfileCollector,
   type RuntimeProfileSnapshot,
 } from '../runtime-profile.js';
-import { writeAndOpenShareSvgFile, writeShareSvgFile } from '../share-artifact.js';
+import { renderSharePage } from '../../render/render-share-page.js';
+import { shareThemes, type ShareTheme } from '../../render/share-svg-theme.js';
+import { openShareFile, writeShareFile } from '../share-artifact.js';
 import { warnIfTerminalTableOverflows } from '../terminal-overflow-warning.js';
 
 type StandardReportFormat = 'terminal' | 'markdown' | 'json';
@@ -31,9 +33,12 @@ type OutputFlagOptions = {
 };
 
 type ShareArtifact = {
+  /** The SVG file name; the HTML page takes the same name with `.html`. */
   fileName: string;
-  svg: string;
   logLabel: string;
+  /** Page title of the HTML share page. */
+  title: string;
+  render: (theme: ShareTheme) => string;
 };
 
 type PreparedReport<Format extends string, Diagnostics> = {
@@ -41,7 +46,7 @@ type PreparedReport<Format extends string, Diagnostics> = {
   output: string;
   diagnostics: Diagnostics;
   shareArtifact?: ShareArtifact;
-  /** False with --no-open: the share SVG is written but not opened. */
+  /** False with --no-open: the share files are written but not opened. */
   openShareArtifact?: boolean;
   runtimeProfile?: RuntimeProfileCollector;
   /** Informational stderr lines printed after the report, so they read as its footer. */
@@ -135,24 +140,32 @@ export async function prepareReport<Data, Diagnostics, Format extends StandardRe
   };
 }
 
+// Writes the dark SVG, plus an HTML page with both themes that exports PNGs in
+// the browser, and opens the page unless --no-open.
 async function writeShareArtifact(artifact: ShareArtifact, open: boolean): Promise<void> {
-  if (!open) {
-    const outputPath = await writeShareSvgFile(artifact.fileName, artifact.svg);
-    logger.info(`Wrote ${artifact.logLabel} share SVG: ${outputPath}`);
-    return;
-  }
+  const svgs = { dark: artifact.render(shareThemes.dark), light: artifact.render(shareThemes.light) };
+  const svgPath = await writeShareFile(artifact.fileName, svgs.dark);
+  logger.info(`Wrote ${artifact.logLabel} share SVG: ${svgPath}`);
 
-  const shareResult = await writeAndOpenShareSvgFile(artifact.fileName, artifact.svg);
-  logger.info(`Wrote ${artifact.logLabel} share SVG: ${shareResult.outputPath}`);
-
-  if (shareResult.opened) {
-    logger.info(`Opened ${artifact.logLabel} share SVG: ${shareResult.outputPath}`);
-    return;
-  }
-
-  logger.warn(
-    `Could not open ${artifact.logLabel} share SVG: ${shareResult.outputPath} (${shareResult.openErrorMessage})`,
+  const fileBaseName = artifact.fileName.replace(/\.svg$/u, '');
+  const pagePath = await writeShareFile(
+    `${fileBaseName}.html`,
+    renderSharePage({ title: artifact.title, fileBaseName, svgs }),
   );
+  logger.info(`Wrote ${artifact.logLabel} share page: ${pagePath}`);
+
+  if (!open) {
+    return;
+  }
+
+  try {
+    await openShareFile(pagePath);
+    logger.info(`Opened ${artifact.logLabel} share page: ${pagePath}`);
+  } catch (error) {
+    logger.warn(
+      `Could not open ${artifact.logLabel} share page: ${pagePath} (${error instanceof Error ? error.message : String(error)})`,
+    );
+  }
 }
 
 type EmitReportRunDiagnosticsOptions<Diagnostics> = {

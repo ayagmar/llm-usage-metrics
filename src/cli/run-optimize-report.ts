@@ -63,8 +63,9 @@ async function prepareOptimizeReport(
     createShareArtifact: options.share
       ? (bundle) => ({
           fileName: 'optimize-monthly-share.svg',
-          svg: renderOptimizeMonthlyShareSvg(bundle.optimizeData),
           logLabel: 'optimize',
+          title: 'Optimize share card',
+          render: (theme) => renderOptimizeMonthlyShareSvg(bundle.optimizeData, theme),
         })
       : undefined,
     render: (bundle, format) =>

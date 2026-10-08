@@ -1,162 +1,202 @@
 import type { OptimizeDataResult } from '../cli/usage-data-contracts.js';
-import type { OptimizeCandidateRow } from '../optimize/optimize-row.js';
+import type { OptimizeBaselineRow, OptimizeCandidateRow } from '../optimize/optimize-row.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import {
-  escapeSvg,
+  formatApproxUsd,
   formatUsd,
-  renderShareCommandBadge,
-  renderShareDocument,
-  SHARE_SVG_FOOTER_HEIGHT,
-  SHARE_SVG_WIDTH,
-  shareTheme,
+  renderEmptyState,
+  renderShareCard,
+  renderStat,
+  SHARE_MARGIN,
+  SHARE_WIDTH,
+  svgText,
+  truncateLabel,
+  type ShareTheme,
 } from './share-svg-theme.js';
 
-const W = SHARE_SVG_WIDTH;
-const pad = { top: 180, right: 80, bottom: 60 + SHARE_SVG_FOOTER_HEIGHT, left: 260 };
-const CELL_HEIGHT = 96;
-const CELL_MAX_WIDTH = 320;
+const statsTop = 160;
+const statPitch = 300;
+const gridLeft = 330;
+const gridRight = SHARE_WIDTH - SHARE_MARGIN;
+const gridTop = 314;
+const gridBottom = 520;
 const CELL_GAP = 6;
-const MIN_GRID_HEIGHT = 200;
+// The fixed card fits five candidates and eight months; the rest stay in the report.
+const MAX_CANDIDATES = 5;
+const MAX_MONTHS = 8;
 
 function formatPercent(value: number | undefined): string {
   if (value === undefined) return '-';
-  return `${(value * 100).toFixed(1)}%`;
+  return `${value > 0 ? '+' : ''}${(value * 100).toFixed(1)}%`;
 }
 
-function cellFill(value: number | undefined): string {
-  if (value === undefined) return 'rgba(139,148,158,0.12)';
-
-  const mag = Math.min(1, Math.abs(value));
-  const alpha = 0.22 + mag * 0.58;
-
-  if (value > 0) return `rgba(34,197,94,${alpha.toFixed(3)})`;
-  if (value < 0) return `rgba(239,68,68,${alpha.toFixed(3)})`;
-  return 'rgba(139,148,158,0.15)';
+function formatSignedUsd(value: number | undefined): string {
+  if (value === undefined) return '-';
+  return `${value > 0 ? '+' : value < 0 ? '-' : ''}${formatUsd(Math.abs(value))}`;
 }
 
-function cellTextFill(value: number | undefined): string {
-  if (value === undefined) return shareTheme.textMuted;
-  if (Math.abs(value) >= 0.35) return '#ffffff';
-  return shareTheme.textPrimary;
+function savingsColor(value: number | undefined, theme: ShareTheme): string {
+  if (value === undefined || value === 0) return theme.textSecondary;
+  return value > 0 ? theme.positive : theme.negative;
 }
 
-function toCandidateRows(data: OptimizeDataResult): OptimizeCandidateRow[] {
-  return data.rows.filter((r): r is OptimizeCandidateRow => r.rowType === 'candidate');
+function renderCell(
+  theme: ShareTheme,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  ratio: number | undefined,
+): string {
+  const color = ratio === undefined || ratio === 0 ? theme.line : savingsColor(ratio, theme);
+  const opacity = ratio === undefined ? 0.6 : 0.25 + Math.min(1, Math.abs(ratio)) * 0.6;
+
+  return [
+    `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${width.toFixed(2)}" height="${height.toFixed(2)}" rx="6" fill="${color}" fill-opacity="${opacity.toFixed(2)}"/>`,
+    svgText(x + width / 2, y + height / 2 + 5, formatPercent(ratio), {
+      size: 14,
+      fill: theme.text,
+      mono: true,
+      anchor: 'middle',
+    }),
+  ].join('\n');
 }
 
-function sortPeriodKeys(keys: Iterable<string>): string[] {
-  return [...keys].sort(compareByCodePoint);
-}
-
-export function renderOptimizeMonthlyShareSvg(optimizeData: OptimizeDataResult): string {
-  const candidateRows = toCandidateRows(optimizeData);
-  const periodKeys = sortPeriodKeys(
-    new Set(candidateRows.map((r) => r.periodKey).filter((k) => k !== 'ALL')),
+function renderGrid(
+  theme: ShareTheme,
+  candidates: OptimizeCandidateRow[],
+  periodKeys: string[],
+  cells: ReadonlyMap<string, OptimizeCandidateRow>,
+): string {
+  const cellWidth = (gridRight - gridLeft) / periodKeys.length;
+  const cellHeight = Math.min(52, (gridBottom - gridTop) / candidates.length);
+  const parts = periodKeys.map((periodKey, column) =>
+    svgText(gridLeft + column * cellWidth + cellWidth / 2, gridTop - 12, periodKey, {
+      size: 13,
+      fill: theme.textMuted,
+      anchor: 'middle',
+    }),
   );
-  const candidateModels = [...new Set(candidateRows.map((r) => r.candidateModel))].sort(
-    compareByCodePoint,
+
+  candidates.forEach((candidate, row) => {
+    const y = gridTop + row * cellHeight;
+
+    parts.push(
+      svgText(SHARE_MARGIN, y + cellHeight / 2, truncateLabel(candidate.candidateModel, 26), {
+        size: 16,
+        fill: theme.text,
+      }),
+      svgText(SHARE_MARGIN, y + cellHeight / 2 + 18, formatSignedUsd(candidate.savingsUsd), {
+        size: 13,
+        fill: savingsColor(candidate.savingsUsd, theme),
+        mono: true,
+      }),
+    );
+
+    periodKeys.forEach((periodKey, column) => {
+      parts.push(
+        renderCell(
+          theme,
+          gridLeft + column * cellWidth + CELL_GAP / 2,
+          y + CELL_GAP / 2,
+          cellWidth - CELL_GAP,
+          cellHeight - CELL_GAP,
+          cells.get(`${candidate.candidateModel}__${periodKey}`)?.savingsRatio,
+        ),
+      );
+    });
+  });
+
+  return parts.join('\n');
+}
+
+function renderBestSavings(theme: ShareTheme, best: OptimizeCandidateRow): string {
+  const saves = (best.savingsUsd ?? 0) >= 0;
+  const percent =
+    best.savingsRatio === undefined
+      ? undefined
+      : `${Math.abs(best.savingsRatio * 100).toFixed(1)}% ${saves ? 'cheaper' : 'more expensive'}`;
+
+  return renderStat({
+    theme,
+    x: SHARE_MARGIN + statPitch * 2,
+    y: statsTop,
+    label: saves ? 'It would save' : 'It would cost more by',
+    value: best.savingsUsd === undefined ? '-' : formatUsd(Math.abs(best.savingsUsd)),
+    detail: percent,
+    size: 30,
+    accent: saves,
+  });
+}
+
+export function renderOptimizeMonthlyShareSvg(
+  optimizeData: OptimizeDataResult,
+  theme: ShareTheme,
+): string {
+  const candidateRows = optimizeData.rows.filter(
+    (row): row is OptimizeCandidateRow => row.rowType === 'candidate',
   );
+  const baseline = optimizeData.rows.find(
+    (row): row is OptimizeBaselineRow => row.rowType === 'baseline' && row.periodKey === 'ALL',
+  );
+  const periodKeys = [
+    ...new Set(candidateRows.map((row) => row.periodKey).filter((key) => key !== 'ALL')),
+  ]
+    .sort(compareByCodePoint)
+    .slice(-MAX_MONTHS);
+  const cells = new Map(candidateRows.map((row) => [`${row.candidateModel}__${row.periodKey}`, row]));
+  // Best savings first; unpriced candidates last, then by name.
+  const candidates = candidateRows
+    .filter((row) => row.periodKey === 'ALL')
+    .sort(
+      (a, b) =>
+        (b.savingsUsd ?? Number.NEGATIVE_INFINITY) - (a.savingsUsd ?? Number.NEGATIVE_INFINITY) ||
+        compareByCodePoint(a.candidateModel, b.candidateModel),
+    )
+    .slice(0, MAX_CANDIDATES);
+  const best = candidates[0];
+  const { provider, candidatesWithMissingPricing: missing, warning } = optimizeData.diagnostics;
+  const notes = [
+    missing.length > 0 ? `Missing pricing: ${missing.join(', ')}` : undefined,
+    warning,
+  ].filter((note): note is string => note !== undefined && note.length > 0);
+  const body =
+    candidates.length === 0 || periodKeys.length === 0
+      ? renderEmptyState(theme, 'No months to compare')
+      : [
+          renderStat({
+            theme,
+            x: SHARE_MARGIN,
+            y: statsTop,
+            label: 'Actual cost',
+            value: formatApproxUsd(baseline?.baselineCostUsd, baseline?.baselineCostIncomplete),
+            size: 30,
+          }),
+          renderStat({
+            theme,
+            x: SHARE_MARGIN + statPitch,
+            y: statsTop,
+            label: 'Best candidate',
+            value: truncateLabel(best.candidateModel, 18),
+            size: 26,
+          }),
+          renderBestSavings(theme, best),
+          renderGrid(theme, candidates, periodKeys, cells),
+          notes.length === 0
+            ? ''
+            : svgText(SHARE_MARGIN, gridBottom + 24, truncateLabel(notes.join('; '), 130), {
+                size: 13,
+                fill: theme.warning,
+              }),
+        ].join('\n');
 
-  const cellMap = new Map<string, OptimizeCandidateRow>();
-  for (const row of candidateRows) {
-    cellMap.set(`${row.candidateModel}__${row.periodKey}`, row);
-  }
-
-  const allByCandidate = new Map<string, OptimizeCandidateRow>();
-  for (const row of candidateRows) {
-    if (row.periodKey === 'ALL') allByCandidate.set(row.candidateModel, row);
-  }
-
-  const rowCount = Math.max(1, candidateModels.length);
-  const colCount = Math.max(1, periodKeys.length);
-
-  const chartTop = pad.top;
-  const cellH = CELL_HEIGHT;
-  const chartH = Math.max(MIN_GRID_HEIGHT, rowCount * cellH);
-  const chartBottom = chartTop + chartH;
-  const H = chartBottom + pad.bottom;
-  const availableW = W - pad.left - pad.right;
-  const cellW = Math.min(CELL_MAX_WIDTH, availableW / colCount);
-  const chartLeft = pad.left;
-
-  const gridCells: string[] = [];
-  const colLabels: string[] = [];
-  const rowLabels: string[] = [];
-
-  for (let c = 0; c < periodKeys.length; c++) {
-    const x = chartLeft + c * cellW + cellW / 2;
-    colLabels.push(
-      `<text x="${x.toFixed(2)}" y="${(chartTop - 14).toFixed(0)}" text-anchor="middle" font-size="14" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}">${escapeSvg(periodKeys[c])}</text>`,
-    );
-  }
-
-  for (let r = 0; r < candidateModels.length; r++) {
-    const model = candidateModels[r];
-    const y = chartTop + r * cellH + cellH / 2 + 5;
-    const allRow = allByCandidate.get(model);
-
-    const allLabel =
-      allRow?.savingsUsd === undefined ? '-' : formatUsd(Math.abs(allRow.savingsUsd));
-    const allColor =
-      allRow?.savingsUsd === undefined
-        ? shareTheme.textMuted
-        : allRow.savingsUsd > 0
-          ? '#22c55e'
-          : allRow.savingsUsd < 0
-            ? '#ef4444'
-            : shareTheme.textSecondary;
-    const prefix =
-      allRow?.savingsUsd === undefined
-        ? ''
-        : allRow.savingsUsd > 0
-          ? '+'
-          : allRow.savingsUsd < 0
-            ? '-'
-            : '';
-
-    rowLabels.push(
-      `<text x="${(chartLeft - 16).toFixed(0)}" y="${y.toFixed(0)}" text-anchor="end" font-size="14" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">${escapeSvg(model)}</text>`,
-    );
-    rowLabels.push(
-      `<text x="${(chartLeft - 16).toFixed(0)}" y="${(y + 16).toFixed(0)}" text-anchor="end" font-size="12" fill="${allColor}" font-family="${shareTheme.font}">ALL: ${escapeSvg(prefix + allLabel)}</text>`,
-    );
-
-    for (let c = 0; c < periodKeys.length; c++) {
-      const row = cellMap.get(`${model}__${periodKeys[c]}`);
-      const x = chartLeft + c * cellW;
-      const yTop = chartTop + r * cellH;
-      const pct = row?.savingsRatio;
-
-      gridCells.push(
-        `<rect x="${(x + CELL_GAP / 2).toFixed(2)}" y="${(yTop + CELL_GAP / 2).toFixed(2)}" width="${Math.max(0, cellW - CELL_GAP).toFixed(2)}" height="${Math.max(0, cellH - CELL_GAP).toFixed(2)}" fill="${cellFill(pct)}" rx="8"/>`,
-      );
-      gridCells.push(
-        `<text x="${(x + cellW / 2).toFixed(2)}" y="${(yTop + cellH / 2 + 5).toFixed(2)}" text-anchor="middle" font-size="13" font-weight="600" fill="${cellTextFill(pct)}" font-family="${shareTheme.font}">${escapeSvg(formatPercent(pct))}</text>`,
-      );
-    }
-  }
-
-  const provider = optimizeData.diagnostics.provider;
-  const missing = optimizeData.diagnostics.candidatesWithMissingPricing;
-  const warning = optimizeData.diagnostics.warning ?? '';
-
-  const noData =
-    candidateModels.length === 0 || periodKeys.length === 0
-      ? `<text x="${(W / 2).toFixed(0)}" y="${(H / 2).toFixed(0)}" text-anchor="middle" font-size="20" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}">No monthly optimize data available</text>`
-      : '';
-
-  const body = `<text x="${pad.left}" y="52" font-size="32" font-weight="700" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">Monthly Optimize</text>
-<text x="${pad.left}" y="78" font-size="15" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}">Savings % heatmap by candidate and month</text>
-${renderShareCommandBadge('llm-usage optimize monthly --share')}
-<text x="${pad.left}" y="112" font-size="15" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">Provider: <tspan font-weight="700">${escapeSvg(provider)}</tspan></text>
-<text x="${pad.left + 280}" y="112" font-size="14" fill="#22c55e" font-family="${shareTheme.font}">● positive = savings</text>
-<text x="${pad.left + 480}" y="112" font-size="14" fill="#ef4444" font-family="${shareTheme.font}">● negative = higher cost</text>
-${missing.length > 0 ? `<text x="${pad.left}" y="136" font-size="13" fill="#eab308" font-family="${shareTheme.font}">Missing pricing: ${escapeSvg(missing.join(', '))}</text>` : ''}
-${warning ? `<text x="${pad.left}" y="158" font-size="13" fill="#eab308" font-family="${shareTheme.font}">${escapeSvg(warning)}</text>` : ''}
-${gridCells.join('\n')}
-${colLabels.join('\n')}
-${rowLabels.join('\n')}
-${noData}`;
-
-  return renderShareDocument({ height: H, body });
+  return renderShareCard({
+    theme,
+    title: 'Optimize',
+    subtitle: `${provider} usage priced on other models; positive means cheaper`,
+    command: 'llm-usage optimize monthly --share',
+    footnote:
+      periodKeys.length === 0 ? undefined : `${periodKeys[0]} to ${periodKeys[periodKeys.length - 1]}`,
+    body,
+  });
 }
