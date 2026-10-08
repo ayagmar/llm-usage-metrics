@@ -38,6 +38,9 @@ npx --yes llm-usage-metrics@latest
 # Or install it: the package provides `llm-usage` and the alias `llm-usage-metrics`
 npm install -g llm-usage-metrics
 llm-usage
+
+# Optional: tab completion (bash shown; zsh and fish work the same way)
+echo 'source <(llm-usage completion bash)' >> ~/.bashrc
 ```
 
 With no command, `llm-usage` prints cost and tokens for today, the last 7 days, and month to date, a month-end projection (checked against `monthlyBudgetUsd` when you set one), what prompt caching saved you this month, then your current and longest streak, best day, and a year-long activity heatmap. `llm-usage daily` breaks the last 7 days down by day and source, and `llm-usage weekly` covers the last 8 weeks; add `--since YYYY-MM-DD` or `--all` for older usage.
