@@ -257,38 +257,48 @@ async function copyLegacyEventStore(
   targetPath: string,
   sqliteModule: EventStoreSqliteModule,
 ): Promise<void> {
-  const legacyPath = await findLegacyEventStore(targetPath);
+  const legacyPath = getLegacyEventStorePath();
+  const markerPath = getLegacyCopyMarkerPath(targetPath);
 
-  if (legacyPath === undefined) {
+  if (
+    targetPath !== getDefaultEventStorePath() ||
+    legacyPath === targetPath ||
+    (await pathExists(markerPath)) ||
+    !(await pathExists(legacyPath))
+  ) {
     return;
   }
 
-  const snapshotPath = `${targetPath}.${randomUUID()}.tmp`;
-
-  try {
-    const legacyDatabase = new sqliteModule.DatabaseSync(legacyPath, {
-      timeout: EVENT_STORE_OPEN_TIMEOUT_MS,
-    });
+  if (!(await pathExists(targetPath))) {
+    const snapshotPath = `${targetPath}.${randomUUID()}.tmp`;
 
     try {
-      legacyDatabase.prepare('VACUUM INTO ?').run(snapshotPath);
-    } finally {
-      legacyDatabase.close();
-    }
+      const legacyDatabase = new sqliteModule.DatabaseSync(legacyPath, {
+        timeout: EVENT_STORE_OPEN_TIMEOUT_MS,
+      });
 
-    try {
-      await link(snapshotPath, targetPath);
-    } catch (error) {
-      // Another first run copied the ledger while this one did.
-      if (!isErrorCode(error, 'EEXIST')) {
-        throw error;
+      try {
+        legacyDatabase.prepare('VACUUM INTO ?').run(snapshotPath);
+      } finally {
+        legacyDatabase.close();
       }
+
+      try {
+        await link(snapshotPath, targetPath);
+      } catch (error) {
+        // Another first run copied the ledger while this one did.
+        if (!isErrorCode(error, 'EEXIST')) {
+          throw error;
+        }
+      }
+    } finally {
+      await rm(snapshotPath, { force: true });
     }
-  } finally {
-    await rm(snapshotPath, { force: true });
   }
 
-  await writeFile(getLegacyCopyMarkerPath(targetPath), `${legacyPath}\n`, { mode: 0o600 });
+  // The ledger exists now, copied or not (a run may have stopped before marking its copy):
+  // the old one must never be imported later.
+  await writeFile(markerPath, `${legacyPath}\n`, { mode: 0o600 });
 }
 
 async function prepareEventStoreFile(filePath: string): Promise<void> {

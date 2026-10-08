@@ -134,4 +134,17 @@ describe('legacy event store copy', () => {
 
     await expect(readEventStoreStoredFiles(getDefaultEventStorePath())).resolves.toEqual([]);
   });
+
+  it('marks a copy that a stopped run left unmarked, so a later reset does not re-import', async () => {
+    await writeStore(getLegacyEventStorePath(), '/tmp/old.jsonl');
+    closeEventStore(await openEventStore());
+    // Simulate a run that stopped after linking the copy but before writing the marker.
+    await rm(path.join(path.dirname(getDefaultEventStorePath()), 'legacy-ledger-copied'));
+
+    closeEventStore(await openEventStore());
+    await rm(getDefaultEventStorePath());
+    closeEventStore(await openEventStore());
+
+    await expect(readEventStoreStoredFiles(getDefaultEventStorePath())).resolves.toEqual([]);
+  });
 });
