@@ -4,13 +4,16 @@ export type NumberLike = number | string | null | undefined;
 
 // C0/C1 controls, plus bidi controls and line/paragraph separators, which can reorder
 // or break terminal output (Trojan Source-style spoofing) while looking invisible.
-const CONTROL_CHARACTERS_PATTERN = new RegExp(
-  String.raw`[\u0000-\u001F\u007F-\u009F\u061C\u200E\u200F\u2028-\u202E\u2066-\u2069]`,
-  'gu',
-);
+const CONTROL_CHARACTER_CLASS = String.raw`[\u0000-\u001F\u007F-\u009F\u061C\u200E\u200F\u2028-\u202E\u2066-\u2069]`;
+const CONTROL_CHARACTERS_PATTERN = new RegExp(CONTROL_CHARACTER_CLASS, 'gu');
+const CONTROL_CHARACTER_TEST_PATTERN = new RegExp(CONTROL_CHARACTER_CLASS, 'u');
 
 export function stripControlCharacters(value: string): string {
   return value.replace(CONTROL_CHARACTERS_PATTERN, '');
+}
+
+export function hasControlCharacters(value: string): boolean {
+  return CONTROL_CHARACTER_TEST_PATTERN.test(value);
 }
 
 export function normalizeNonNegativeInteger(value: NumberLike): number {

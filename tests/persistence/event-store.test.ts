@@ -812,6 +812,7 @@ describe('event-store', () => {
         total_tokens: 7_000_000,
       }),
       createStoredEventRow({ session_id: 'bad\u0000session' }),
+      createStoredEventRow({ session_id: 'safe\u202Espoof', model: 'gpt-5\u2066' }),
       createStoredEventRow({ model: 'GPT-5-CODEX' }),
       createStoredEventRow({ provider: 'OpenAI' }),
       createStoredEventRow({ source: ' codex ' }),
@@ -828,6 +829,14 @@ describe('event-store', () => {
     for (const row of rows) {
       expect(normalizeStoredEvent(row)).toEqual(slowNormalizeStoredEventFromRow(row));
     }
+  });
+
+  it('strips bidi controls from stored events written before they were sanitized', () => {
+    const event = normalizeStoredEvent(
+      createStoredEventRow({ session_id: 'safe\u202Espoof', model: 'gpt-5\u2066' }),
+    );
+
+    expect(event).toMatchObject({ sessionId: 'safespoof', model: 'gpt-5' });
   });
 
   it('rejects invalid sqlite loaders and store keys', async () => {
