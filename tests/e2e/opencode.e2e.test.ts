@@ -267,7 +267,7 @@ function createNodeSqliteFixtureError(reason: string): Error {
   return new Error(
     [
       'OpenCode e2e fixtures require node:sqlite DatabaseSync support.',
-      'Use Node.js 24+.',
+      'Use Node.js 22.16+.',
       `Runtime load failure: ${reason}`,
     ].join(' '),
   );
