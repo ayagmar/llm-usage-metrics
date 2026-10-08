@@ -78,7 +78,7 @@ Compare production runtime against `ccusage` on your machine. The script times t
 
 ```bash
 pnpm run build
-CCUSAGE_BIN=$(npx --yes --package=ccusage@20.0.17 sh -c 'command -v ccusage')
+CCUSAGE_BIN=$(npx --yes --package=ccusage@20.0.26 sh -c 'command -v ccusage')
 "$CCUSAGE_BIN" --version
 
 # one scenario at a time
