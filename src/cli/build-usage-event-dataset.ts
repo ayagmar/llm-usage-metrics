@@ -384,6 +384,9 @@ export async function buildUsageEventDataset(
         () =>
           loadMachineUsage({
             names: machineSelection.names,
+            disabledNames: new Set(
+              machineSelection.names.filter((name) => config.machines?.[name]?.enabled === false),
+            ),
             servedEvents: parseResultsForFiltering.flatMap((result) => result.events),
             sources: new Set(adaptersToParse.map((adapter) => adapter.id)),
             since: configuredOptions.since,

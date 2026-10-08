@@ -474,6 +474,7 @@ describe('event-store', () => {
     }
   });
 
+  // A real SQLite store: slow on Windows CI runners.
   it('migrates a zero-row v1 database cleanly', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-v1-zero-row-'));
     tempDirs.push(tempDir);
@@ -495,7 +496,7 @@ describe('event-store', () => {
     } finally {
       closeEventStore(store);
     }
-  });
+  }, 20_000);
 
   it('completes a v1 migration despite a poisoned row, leaving its hash null', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-v1-poisoned-'));

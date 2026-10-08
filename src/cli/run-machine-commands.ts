@@ -36,17 +36,23 @@ async function loadConfiguredMachines(): Promise<Record<string, MachineConfig>> 
   return loaded.config.machines ?? {};
 }
 
+/** Without a destination, the name is one too (an ssh_config alias, a host name). */
 export async function runMachineAdd(
   name: string,
-  sshTarget: string,
+  sshDestination: string | undefined,
   options: MachineAddOptions,
   deps: MachineCommandDeps = {},
 ): Promise<void> {
+  const sshTarget = sshDestination ?? name;
   const print = deps.print ?? console.log;
 
   if (!isValidMachineName(name)) {
+    // A destination typed as the name is the likely mistake.
+    const hint = /[@.:]/u.test(name)
+      ? `; give a name first, then the destination: llm-usage machine add laptop ${name}`
+      : '';
     throw new Error(
-      `Invalid machine name "${name}": use 1-32 lowercase letters, digits or dashes (not "${LOCAL_MACHINE_NAME}")`,
+      `Invalid machine name "${name}": use 1-32 lowercase letters, digits or dashes (not "${LOCAL_MACHINE_NAME}")${hint}`,
     );
   }
 
@@ -170,7 +176,7 @@ export async function runSync(
   if (selected.length === 0) {
     print(
       Object.keys(machines).length === 0
-        ? 'No machines configured. Add one with: llm-usage machine add <name> <user@host>'
+        ? 'No machines configured. Add one with: llm-usage machine add <name> [user@host]'
         : 'Every machine is disabled; name one to sync it anyway.',
     );
     return;

@@ -93,11 +93,15 @@ export function describeMachineStatus(entry: MachineListEntry, now: number): str
 
 export function renderMachineList(entries: readonly MachineListEntry[], now: number): string[] {
   if (entries.length === 0) {
-    return ['No machines configured.', 'Add one with: llm-usage machine add <name> <user@host>'];
+    return ['No machines configured.', 'Add one with: llm-usage machine add <name> [user@host]'];
   }
 
+  const nameWidth = Math.max(...entries.map((entry) => entry.name.length));
+  const sshWidth = Math.max(...entries.map((entry) => entry.machine.ssh.length));
+
   return entries.map(
-    (entry) => `${entry.name}  ${entry.machine.ssh}  ${describeMachineStatus(entry, now)}`,
+    (entry) =>
+      `${entry.name.padEnd(nameWidth)}  ${entry.machine.ssh.padEnd(sshWidth)}  ${describeMachineStatus(entry, now)}`,
   );
 }
 
@@ -107,6 +111,12 @@ function describeIncludedMachine(
   localVersion: string,
 ): string {
   const { state } = machine;
+
+  if (!machine.enabled) {
+    return state?.syncedAt === undefined
+      ? `${machine.name} (disabled, nothing cached)`
+      : `${machine.name} (disabled, usage from ${formatAge(now - state.syncedAt)})`;
+  }
 
   if (state?.syncedAt === undefined) {
     return `${machine.name} (never synced; run llm-usage sync ${machine.name})`;

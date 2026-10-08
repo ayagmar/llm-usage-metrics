@@ -17,7 +17,7 @@ export function createMachineCommand(): Command {
     .addHelpText(
       'after',
       formatHelpExamples([
-        'llm-usage machine add laptop me@laptop.local',
+        'llm-usage machine add laptop',
         'llm-usage machine list',
         'llm-usage machine remove laptop',
       ]),
@@ -27,16 +27,20 @@ export function createMachineCommand(): Command {
       'Sync a machine over ssh and add it to config.toml; it needs llm-usage-metrics installed and ssh login without a prompt',
     )
     .argument('<name>', 'Name for the machine in reports (lowercase letters, digits, dashes)')
-    .argument('<ssh-target>', 'ssh destination: host, user@host, or an ssh_config alias')
+    .argument(
+      '[ssh-target]',
+      'ssh destination: host, user@host, or an ssh_config alias (default: the name)',
+    )
     .option('--command <command>', 'How llm-usage-metrics is launched there (default: llm-usage)')
     .addHelpText(
       'after',
       formatHelpExamples([
-        'llm-usage machine add laptop me@laptop.local',
-        'llm-usage machine add vps vps --command /home/me/.local/bin/llm-usage',
+        'llm-usage machine add laptop',
+        'llm-usage machine add work me@10.0.0.5',
+        'llm-usage machine add vps --command /home/me/.local/bin/llm-usage',
       ]),
     )
-    .action((name: string, sshTarget: string, options: MachineAddOptions) =>
+    .action((name: string, sshTarget: string | undefined, options: MachineAddOptions) =>
       runMachineAdd(name, sshTarget, options),
     );
   const listCommand = new Command('list')

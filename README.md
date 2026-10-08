@@ -190,7 +190,7 @@ Deleting the ledger also deletes retained history. Read [Caching](https://ayagma
 Reports can include your other machines' usage over ssh. Install llm-usage-metrics there, make sure ssh logs in without a prompt, then:
 
 ```bash
-llm-usage machine add laptop me@laptop.local
+llm-usage machine add laptop         # syncs over ssh laptop; see the docs for other destinations
 llm-usage monthly                    # this machine and the laptop, fetched when due
 llm-usage monthly --machine laptop   # only the laptop
 ```

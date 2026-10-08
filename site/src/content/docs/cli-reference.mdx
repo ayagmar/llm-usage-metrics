@@ -1207,7 +1207,7 @@ Options:
   -h, --help                         display help for command
 
 Commands:
-  add [options] <name> <ssh-target>  Sync a machine over ssh and add it to
+  add [options] <name> [ssh-target]  Sync a machine over ssh and add it to
                                      config.toml; it needs llm-usage-metrics
                                      installed and ssh login without a prompt
   list                               Show each machine, when it last synced, and
@@ -1219,7 +1219,7 @@ Commands:
                                      sync reads
   help [command]                     display help for command
 
-Usage: llm-usage machine add [options] <name> <ssh-target>
+Usage: llm-usage machine add [options] <name> [ssh-target]
 
 Sync a machine over ssh and add it to config.toml; it needs llm-usage-metrics
 installed and ssh login without a prompt
@@ -1228,6 +1228,7 @@ Arguments:
   name                 Name for the machine in reports (lowercase letters,
                        digits, dashes)
   ssh-target           ssh destination: host, user@host, or an ssh_config alias
+                       (default: the name)
 
 Options:
   --command <command>  How llm-usage-metrics is launched there (default:

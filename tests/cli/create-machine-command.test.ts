@@ -23,6 +23,11 @@ describe('createMachineCommand', () => {
       createMachineCommand().parseAsync(['add', 'Laptop', 'me@laptop'], { from: 'user' }),
     ).rejects.toThrow('Invalid machine name "Laptop"');
     await expect(
+      createMachineCommand().parseAsync(['add', 'me@laptop.local'], { from: 'user' }),
+    ).rejects.toThrow(
+      'give a name first, then the destination: llm-usage machine add laptop me@laptop.local',
+    );
+    await expect(
       createMachineCommand().parseAsync(['add', 'laptop', '--', '-oProxyCommand=x'], {
         from: 'user',
       }),
@@ -43,8 +48,8 @@ describe('createMachineCommand', () => {
 
     expect(stdout.mock.calls.map(([line]) => String(line))).toEqual([
       'No machines configured.',
-      'Add one with: llm-usage machine add <name> <user@host>',
-      'No machines configured. Add one with: llm-usage machine add <name> <user@host>',
+      'Add one with: llm-usage machine add <name> [user@host]',
+      'No machines configured. Add one with: llm-usage machine add <name> [user@host]',
     ]);
   });
 });

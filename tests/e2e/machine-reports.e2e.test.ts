@@ -174,8 +174,9 @@ describe('reports refreshing other machines', () => {
         { spawnSsh: hanging.spawnSsh, now: later },
       ),
     ).rejects.toThrow('codex');
+    // Whether the report fails before or after ssh starts, no export keeps running.
     await vi.waitFor(async () => {
-      expect(hanging.killed).toHaveLength(1);
+      expect(hanging.killed).toHaveLength(exportCalls(hanging.calls));
       // Stopped on purpose: not recorded as a failed sync.
       expect((await readMachineCacheStatus('laptop'))?.state.lastError).toBeUndefined();
     });

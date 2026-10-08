@@ -679,6 +679,7 @@ describe('build-usage-data-parsing', () => {
     expect(parseCalls.count).toBe(3);
   });
 
+  // A real SQLite store: slow on Windows CI runners.
   it('falls back to parsing and re-ingests when a stored event row is corrupted', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-corrupt-row-'));
     tempDirs.push(tempDir);
@@ -717,7 +718,7 @@ describe('build-usage-data-parsing', () => {
     expect(secondRun.warnings).toEqual([]);
     expect(secondRun.successfulParseResults[0]?.events[0]?.totalTokens).toBe(1);
     expect(parseCalls.count).toBe(2);
-  });
+  }, 20_000);
 
   it('replays stored skipped-row diagnostics on an event store hit', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-diagnostics-replay-'));

@@ -94,6 +94,17 @@ describe('fetchMachineExport', () => {
     expect(remoteWarnings).toEqual(['careful: disk almost full']);
   });
 
+  it('does not start ssh for a sync stopped before it began', async () => {
+    const spawnSsh = vi.fn<SpawnSsh>();
+    const stopped = new AbortController();
+    stopped.abort();
+
+    await expect(
+      fetchMachineExport(machine, [], { spawnSsh, signal: stopped.signal }),
+    ).rejects.toThrow('stopped: the report it was for ended');
+    expect(spawnSsh).not.toHaveBeenCalled();
+  });
+
   it('reports a missing ssh binary', async () => {
     const { spawnSsh } = fakeSsh({ spawnError: new Error('spawn ssh ENOENT') });
 

@@ -43,6 +43,8 @@ export function selectMachines(
 
 export type MachineUsageSummary = {
   name: string;
+  /** False when its table sets enabled = false: read from cache, never synced. */
+  enabled: boolean;
   /** Undefined when the machine was never synced. */
   state?: MachineSyncState;
   duplicateCount: number;
@@ -72,6 +74,8 @@ function toTimestampBound(date: string | undefined, offsetDays: number): string 
  */
 export async function loadMachineUsage(params: {
   names: readonly string[];
+  /** Selected machines with enabled = false. */
+  disabledNames?: ReadonlySet<string>;
   servedEvents: readonly UsageEvent[];
   sources: ReadonlySet<string>;
   since?: string;
@@ -109,6 +113,7 @@ export async function loadMachineUsage(params: {
     ),
     machines: readable.map(({ name, usage }, index) => ({
       name,
+      enabled: !params.disabledNames?.has(name),
       state: usage?.state,
       duplicateCount: merged[index].duplicateCount,
     })),

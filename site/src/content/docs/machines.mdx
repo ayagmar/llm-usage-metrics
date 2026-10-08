@@ -5,29 +5,41 @@ description: Combine usage from your laptop, desktop, and servers into one repor
 
 If you use coding agents on several machines, one machine's reports can include the others. Each machine keeps parsing its own logs; this machine fetches what they count over ssh and keeps a copy, so reports work offline and stay fast.
 
-## Set up
+## Quick start
 
-On the other machine, install llm-usage-metrics as usual. On this machine, make sure ssh can log in to it without a password prompt (key login, or a key loaded in `ssh-agent`), then add it:
+1. Install llm-usage-metrics on both machines.
+2. Connect once with `ssh laptop`, using whatever you type to reach that machine, and check that it logs in without asking for a password.
+3. On this machine:
 
 ```bash
-llm-usage machine add laptop me@laptop.local
+llm-usage machine add laptop                    # or: machine add laptop me@192.168.1.20
+llm-usage                                       # every report now includes the laptop
 ```
 
-The name (`laptop`) is how reports refer to the machine: 1-32 lowercase letters, digits, or dashes. The destination is anything `ssh` accepts: `host`, `user@host`, or a `Host` alias from `~/.ssh/config`, whose settings (port, key, `ProxyJump`, `ControlMaster`) all apply.
+The first `machine add` parses all of that machine's logs and can take a minute.
+
+## Set up
+
+`machine add` takes a name and an ssh destination. The name is how reports refer to the machine: 1-32 lowercase letters, digits, or dashes. The destination is anything `ssh` accepts: `host`, `user@host`, or a `Host` alias from `~/.ssh/config`, whose settings (port, key, `ProxyJump`, `ControlMaster`) all apply. Without a destination, the name is used as one, which suits an ssh alias or a host name:
+
+```bash
+llm-usage machine add laptop                    # ssh laptop
+llm-usage machine add work me@10.0.0.5          # a name of your choice for another destination
+```
+
+Install llm-usage-metrics on the other machine first. ssh must log in without a password prompt: key login, or a key loaded in `ssh-agent`.
 
 `machine add` fetches the machine's usage once and only then adds it to your [config file](/llm-usage-metrics/configuration/), keeping your comments:
 
 ```toml
 [machines.laptop]
-ssh = "me@laptop.local"
+ssh = "laptop"
 ```
-
-The first fetch can take a minute: the other machine parses all its logs, as its own first report would.
 
 If node comes from a version manager (nvm, fnm, volta, mise), a non-interactive ssh command usually cannot find `llm-usage`. `machine add` then asks the machine's login shell where it is and saves a `command` that puts that directory on `PATH`. To set it yourself:
 
 ```bash
-llm-usage machine add vps vps --command "/home/me/.local/bin/llm-usage"
+llm-usage machine add vps --command "/home/me/.local/bin/llm-usage"
 ```
 
 ## Use it
@@ -81,19 +93,19 @@ llm-usage machine remove laptop   # delete its config table and its cached usage
 
 `llm-usage doctor` shows the same machines next to your sources, from what is cached; it never connects to them.
 
-To stop fetching a machine but keep its cached usage in reports, set `enabled = false` in its table.
+To stop fetching a machine but keep its cached usage in reports, set `enabled = false` in its table; the `Machines:` note then says `(disabled, usage from 3 h ago)`.
 
 ## Troubleshooting
 
 `sync` and `machine add` print what failed and how to fix it:
 
-| Message                              | Fix                                                                                                                                    |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `ssh could not log in without a prompt` | Set up key login (`ssh-copy-id me@laptop.local`) or load your key into `ssh-agent`. Syncs never prompt.                            |
-| `ssh does not know this host yet`    | Connect once with `ssh me@laptop.local` to check and accept its host key.                                                              |
-| `llm-usage was not found`            | Install llm-usage-metrics there, or set `command` to how it starts (see [Set up](#set-up)).                                            |
-| `too old to export usage`            | Update llm-usage-metrics on that machine.                                                                                               |
-| `no complete export within 30s`      | The machine needs longer than a report waits (a large first parse); run `llm-usage sync <name>`, which waits as long as it takes. |
-| `the export ended early`             | The connection dropped or the other machine stopped; run `llm-usage sync` again. Nothing was changed.                                 |
+| Message                                 | Fix                                                                                                                               |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `ssh could not log in without a prompt` | Set up key login (`ssh-copy-id laptop`) or load your key into `ssh-agent`. Syncs never prompt.                                    |
+| `ssh does not know this host yet`       | Connect once with `ssh laptop` to check and accept its host key.                                                                  |
+| `llm-usage was not found`               | Install llm-usage-metrics there, or set `command` to how it starts (see [Set up](#set-up)).                                       |
+| `too old to export usage`               | Update llm-usage-metrics on that machine.                                                                                         |
+| `no complete export within 30s`         | The machine needs longer than a report waits (a large first parse); run `llm-usage sync <name>`, which waits as long as it takes. |
+| `the export ended early`                | The connection dropped or the other machine stopped; run `llm-usage sync` again. Nothing was changed.                             |
 
 After a node upgrade, a saved `command` with a version in its path may stop working; remove the machine and add it again to detect the new path.
