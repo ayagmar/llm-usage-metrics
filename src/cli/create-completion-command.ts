@@ -31,9 +31,11 @@ type ValueCompletions = {
   sourceIds: string[];
 };
 
+// Flags named for a directory or database take a path. `--source-dir` is the exception:
+// its value is `<source-id>=<path>`, which plain file completion would get wrong.
 function isPathFlag(flag: string): boolean {
   return (
-    flag.endsWith('-dir') ||
+    (flag.endsWith('-dir') && flag !== '--source-dir') ||
     flag.endsWith('-db') ||
     flag === '--pricing-overrides' ||
     flag === '--repo-dir'
@@ -91,43 +93,72 @@ function words(values: readonly string[]): string {
   return [...new Set(values)].join(' ');
 }
 
-/** A command's subcommands, argument values, and options, including its subcommands' options. */
+/** A command's subcommands, argument values, and own options. */
 function commandWords(command: CompletionCommand): string[] {
-  return [
-    ...command.words,
-    ...[command, ...command.subcommands].flatMap((entry) =>
-      entry.options.map((option) => option.flag),
-    ),
-  ];
+  return [...command.words, ...command.options.map((option) => option.flag)];
 }
 
+type CompletionCase = { key: string; words: string[] };
+
+/**
+ * One case per subcommand ("config init") before its parent ("config"), keyed by the
+ * first one or two non-option words typed.
+ */
+function completionCases(commands: readonly CompletionCommand[]): CompletionCase[] {
+  return commands.flatMap((command) => [
+    ...command.subcommands.map((subcommand) => ({
+      key: `${command.name} ${subcommand.name}`,
+      words: commandWords(subcommand),
+    })),
+    { key: command.name, words: commandWords(command) },
+  ]);
+}
+
+function rootWords(commands: readonly CompletionCommand[]): string {
+  return words([...commands.map((command) => command.name), '--help', '--version']);
+}
+
+// Shell code shared by bash and zsh: the first two non-option words typed so far.
+const COLLECT_COMMAND_KEY = `  local key="" word count=0
+  for word in "$@"; do
+    case "$word" in
+      -*) ;;
+      *) key="\${key:+$key }$word"; count=$((count + 1)); [ "$count" -eq 2 ] && break ;;
+    esac
+  done`;
+
 function renderBash(commands: readonly CompletionCommand[], values: ValueCompletions): string {
-  const commandCases = commands
-    .map((command) => `    ${command.name}) words="${words(commandWords(command))}" ;;`)
+  const cases = completionCases(commands)
+    .map((entry) => `    "${entry.key}"|"${entry.key} "*) words="${words(entry.words)}" ;;`)
     .join('\n');
 
   return `# llm-usage bash completion. Load it with:
 #   source <(llm-usage completion bash)
+_llm_usage_key() {
+${COLLECT_COMMAND_KEY}
+  printf '%s' "$key"
+}
+
 _llm_usage() {
   local cur="\${COMP_WORDS[COMP_CWORD]}"
   local prev="\${COMP_WORDS[COMP_CWORD-1]}"
-  local command="" word words
+  local words
 
-  for word in "\${COMP_WORDS[@]:1:COMP_CWORD-1}"; do
-    case "$word" in
-      -*) ;;
-      *) command="$word"; break ;;
-    esac
-  done
+  # bash splits --flag=value at "=": complete the value of the flag before it.
+  if [ "$cur" = "=" ]; then
+    cur=""
+  elif [ "$prev" = "=" ]; then
+    prev="\${COMP_WORDS[COMP_CWORD-2]}"
+  fi
 
   case "$prev" in
     ${values.sourceFlags.join('|') || '--source'}) COMPREPLY=($(compgen -W "${words(values.sourceIds)}" -- "$cur")); return ;;
     ${values.pathFlags.join('|') || '--repo-dir'}) COMPREPLY=($(compgen -f -- "$cur")); return ;;
   esac
 
-  case "$command" in
-    "") words="${words(commands.map((command) => command.name))} --help --version" ;;
-${commandCases}
+  case "$(_llm_usage_key "\${COMP_WORDS[@]:1:COMP_CWORD-1}")" in
+    "") words="${rootWords(commands)}" ;;
+${cases}
     *) words="" ;;
   esac
 
@@ -138,13 +169,17 @@ complete -F _llm_usage ${PROGRAM_NAMES.join(' ')}
 }
 
 function renderZsh(commands: readonly CompletionCommand[], values: ValueCompletions): string {
-  const commandCases = commands
-    .map((command) => `    ${command.name}) compadd -- ${words(commandWords(command))} ;;`)
+  const cases = completionCases(commands)
+    .map((entry) => `    "${entry.key}"|"${entry.key} "*) compadd -- ${words(entry.words)} ;;`)
     .join('\n');
 
-  return `#compdef ${PROGRAM_NAMES.join(' ')}
-# llm-usage zsh completion. Load it with:
+  return `# llm-usage zsh completion. Load it with (after compinit):
 #   source <(llm-usage completion zsh)
+_llm_usage_key() {
+${COLLECT_COMMAND_KEY}
+  print -rn -- "$key"
+}
+
 _llm_usage() {
   local prev="\${words[CURRENT-1]}"
 
@@ -153,13 +188,9 @@ _llm_usage() {
     ${values.pathFlags.join('|') || '--repo-dir'}) _files; return ;;
   esac
 
-  if (( CURRENT == 2 )); then
-    compadd -- ${words(commands.map((command) => command.name))} --help --version
-    return
-  fi
-
-  case "\${words[2]}" in
-${commandCases}
+  case "$(_llm_usage_key "\${(@)words[2,CURRENT-1]}")" in
+    "") compadd -- ${rootWords(commands)} ;;
+${cases}
   esac
 }
 compdef _llm_usage ${PROGRAM_NAMES.join(' ')}
@@ -201,6 +232,9 @@ function renderFish(commands: readonly CompletionCommand[], values: ValueComplet
         `    complete -c $cmd -n ${quoteFish(`__fish_seen_subcommand_from ${command.name}`)} -a ${quoteFish(word)}`,
     ),
     ...command.options.map((option) => renderFishOption(command, option, values)),
+    ...command.subcommands.flatMap((subcommand) =>
+      subcommand.options.map((option) => renderFishOption(subcommand, option, values)),
+    ),
   ]);
 
   return `# llm-usage fish completion. Install it with:

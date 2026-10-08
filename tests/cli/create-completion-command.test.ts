@@ -28,6 +28,25 @@ describe('renderCompletionScript', () => {
     expect(render('fish')).toContain('for cmd in llm-usage llm-usage-metrics');
   });
 
+  it('completes the value of --flag=value in bash', () => {
+    expect(render('bash')).toContain('if [ "$cur" = "=" ]; then');
+    expect(render('bash')).toContain('prev="${COMP_WORDS[COMP_CWORD-2]}"');
+  });
+
+  it('keeps file completion off --source-dir, whose value is <source-id>=<path>', () => {
+    const bash = render('bash');
+    const pathCase =
+      /\n {4}(--[^)]*)\) COMPREPLY=\(\$\(compgen -f/u.exec(bash)?.[1].split('|') ?? [];
+
+    expect(pathCase).toContain('--claude-dir');
+    expect(pathCase).not.toContain('--source-dir');
+  });
+
+  it('is written to be sourced in zsh, without an fpath #compdef header', () => {
+    expect(render('zsh').startsWith('#compdef')).toBe(false);
+    expect(render('zsh')).toContain('source <(llm-usage completion zsh)');
+  });
+
   it('completes source ids after --source and files after path flags', () => {
     const bash = render('bash');
 
@@ -45,9 +64,13 @@ describe('renderCompletionScript', () => {
   it('offers argument values, subcommands, and subcommand options', () => {
     const bash = render('bash');
 
-    expect(bash).toMatch(/ {4}efficiency\) words="daily weekly monthly /u);
-    expect(bash).toMatch(/ {4}schema\) words="summary usage /u);
-    expect(bash).toMatch(/ {4}config\) words="init show path [^"]*--force/u);
+    expect(bash).toMatch(/"efficiency"\|"efficiency "\*\) words="daily weekly monthly /u);
+    expect(bash).toMatch(/"schema"\|"schema "\*\) words="summary usage /u);
+    // A subcommand's options belong to it, matched before its parent.
+    expect(bash).toMatch(/"config init"\|"config init "\*\) words="--force --help"/u);
+    expect(bash).toMatch(/"config"\|"config "\*\) words="init show path --help"/u);
+    expect(bash.indexOf('"config init"')).toBeLessThan(bash.indexOf('"config"|'));
+    expect(render('fish')).toMatch(/__fish_seen_subcommand_from init' -l force/u);
   });
 
   it('escapes quotes in fish descriptions', () => {

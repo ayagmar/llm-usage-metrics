@@ -5,6 +5,7 @@ import { suggestClosest } from '../utils/suggest-closest.js';
 import {
   createReportCommands,
   createRootDescription,
+  GRANULARITY_ARGUMENT_VALUES,
   SUMMARY_COMMAND_NAME,
 } from './report-definitions/report-definitions.js';
 import { createConfigCommand } from './create-config-command.js';
@@ -111,11 +112,10 @@ export function createCli(options: CreateCliOptions = {}): Command {
   }
   program.addCommand(createConfigCommand());
   program.addCommand(createSchemaCommand());
-  const granularities = ['daily', 'weekly', 'monthly'];
   program.addCommand(
     createCompletionCommand(() => program, {
-      efficiency: granularities,
-      optimize: granularities,
+      efficiency: GRANULARITY_ARGUMENT_VALUES,
+      optimize: GRANULARITY_ARGUMENT_VALUES,
       schema: schemaNames,
       completion: COMPLETION_SHELLS,
     }),

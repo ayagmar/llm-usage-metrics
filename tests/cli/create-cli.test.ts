@@ -382,7 +382,13 @@ describe('createCli', () => {
     const dailyHelp = fullHelp(cli.commands.find((command) => command.name() === 'daily'));
     const dailyExamples = dailyHelp.slice(dailyHelp.indexOf('Examples:'));
     expect(dailyExamples).not.toContain('--help');
-    expect(dailyExamples.match(/ {2}\$ /gu)).toHaveLength(4);
+    // The four shortest, so the long path-flag examples stay in the CLI reference only.
+    expect(dailyExamples.match(/ {2}\$ .*/gu)).toEqual([
+      '  $ llm-usage daily',
+      '  $ llm-usage daily --json',
+      '  $ llm-usage daily --markdown',
+      '  $ llm-usage daily --compact',
+    ]);
   });
 
   it('exports shared report metadata and CLI reference examples', () => {
