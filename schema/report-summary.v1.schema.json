@@ -10,9 +10,11 @@
     }
   ],
   "properties": {
-    "report": { "const": "summary" },
+    "report": {
+      "const": "summary"
+    },
     "data": {
-      "description": "Summary payload: today, the last 7 days, and month to date.",
+      "description": "Summary payload: today, the last 7 days, month to date, and daily activity over the past year.",
       "type": "object",
       "properties": {
         "timezone": {
@@ -22,10 +24,15 @@
         "periods": {
           "description": "Periods in fixed order: today, last7Days, monthToDate.",
           "type": "array",
-          "items": { "$ref": "#/$defs/period" }
+          "items": {
+            "$ref": "#/$defs/period"
+          }
+        },
+        "activity": {
+          "$ref": "#/$defs/activity"
         }
       },
-      "required": ["timezone", "periods"],
+      "required": ["timezone", "periods", "activity"],
       "additionalProperties": false
     }
   },
@@ -39,7 +46,11 @@
         }
       ],
       "properties": {
-        "events": { "description": "Events in the period.", "type": "integer", "minimum": 0 },
+        "events": {
+          "description": "Events in the period.",
+          "type": "integer",
+          "minimum": 0
+        },
         "activeDays": {
           "description": "Days with at least one event in the period.",
           "type": "integer",
@@ -58,8 +69,15 @@
         }
       ],
       "properties": {
-        "source": { "description": "Source id.", "type": "string" },
-        "events": { "description": "Events in the period.", "type": "integer", "minimum": 0 },
+        "source": {
+          "description": "Source id.",
+          "type": "string"
+        },
+        "events": {
+          "description": "Events in the period.",
+          "type": "integer",
+          "minimum": 0
+        },
         "activeDays": {
           "description": "Days with at least one event in the period.",
           "type": "integer",
@@ -77,17 +95,108 @@
           "description": "Stable period identifier.",
           "enum": ["today", "last7Days", "monthToDate"]
         },
-        "label": { "description": "Human-readable period label.", "type": "string" },
-        "since": { "description": "Period start (YYYY-MM-DD, inclusive).", "type": "string" },
-        "until": { "description": "Period end (YYYY-MM-DD, inclusive).", "type": "string" },
-        "totals": { "$ref": "#/$defs/windowTotals" },
+        "label": {
+          "description": "Human-readable period label.",
+          "type": "string"
+        },
+        "since": {
+          "description": "Period start (YYYY-MM-DD, inclusive).",
+          "type": "string"
+        },
+        "until": {
+          "description": "Period end (YYYY-MM-DD, inclusive).",
+          "type": "string"
+        },
+        "totals": {
+          "$ref": "#/$defs/windowTotals"
+        },
         "sources": {
           "description": "Sources with usage in the period, by cost then tokens then id.",
           "type": "array",
-          "items": { "$ref": "#/$defs/sourceTotals" }
+          "items": {
+            "$ref": "#/$defs/sourceTotals"
+          }
         }
       },
       "required": ["key", "label", "since", "until", "totals", "sources"],
+      "additionalProperties": false
+    },
+    "activity": {
+      "description": "Daily activity over the past 53 ISO weeks: from the Monday 52 weeks before the current week, to today.",
+      "type": "object",
+      "properties": {
+        "from": {
+          "description": "First day of the activity window, always a Monday (YYYY-MM-DD).",
+          "type": "string"
+        },
+        "to": {
+          "description": "Last day of the activity window: today (YYYY-MM-DD).",
+          "type": "string"
+        },
+        "activeDays": {
+          "description": "Days with at least one event in the window.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "currentStreak": {
+          "description": "Consecutive active days ending today, or ending yesterday while today has no usage yet.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "longestStreak": {
+          "description": "Longest run of consecutive active days in the window.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "bestDay": {
+          "description": "Day with the most tokens; ties go to the earliest date. Absent without usage.",
+          "type": "object",
+          "properties": {
+            "date": {
+              "description": "Local date (YYYY-MM-DD).",
+              "type": "string"
+            },
+            "totalTokens": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "costUsd": {
+              "description": "Cost of the day; absent when no event had a known price.",
+              "type": "number",
+              "minimum": 0
+            },
+            "costIncomplete": {
+              "description": "True when some events of the day had no known price.",
+              "type": "boolean"
+            }
+          },
+          "required": ["date", "totalTokens"],
+          "additionalProperties": false
+        },
+        "days": {
+          "description": "Every day of the window in date order, with its intensity level: 0 without usage, 1-4 by quartile of active-day tokens.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "date": {
+                "description": "Local date (YYYY-MM-DD).",
+                "type": "string"
+              },
+              "totalTokens": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "level": {
+                "enum": [0, 1, 2, 3, 4]
+              }
+            },
+            "required": ["date", "totalTokens", "level"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["from", "to", "activeDays", "currentStreak", "longestStreak", "days"],
       "additionalProperties": false
     }
   }

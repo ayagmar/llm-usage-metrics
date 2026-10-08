@@ -1,9 +1,17 @@
 import { markdownTable } from 'markdown-table';
 
 import type { SummaryDataResult, SummaryPeriod } from '../cli/usage-data-contracts.js';
+import { renderActivityHeatmap } from './activity-heatmap.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { renderReportHeader } from './report-header.js';
 import { renderReportJson } from './report-json.js';
+import { formatApproxUsd, formatCompact, formatInteger } from './share-svg-theme.js';
+import { resolveTtyColumns } from './table-text-layout.js';
+import {
+  defaultTerminalStylePalette,
+  type TerminalStylePalette,
+  type TextStyler,
+} from './terminal-style-policy.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
 
@@ -11,6 +19,9 @@ export type SummaryReportFormat = 'terminal' | 'markdown' | 'json';
 
 export type RenderSummaryReportOptions = {
   useColor?: boolean;
+  palette?: TerminalStylePalette;
+  /** Overrides the TTY width the activity heatmap is fitted to. */
+  terminalWidth?: number;
 };
 
 const summaryTableHeaders = ['Period', 'Cost', 'Tokens', 'Top source'] as const;
@@ -68,6 +79,76 @@ function getTitle(summaryData: SummaryDataResult): string {
   return `Usage summary for ${today} (${summaryData.timezone})`;
 }
 
+function formatDays(count: number): string {
+  return `${formatInteger(count)} day${count === 1 ? '' : 's'}`;
+}
+
+function formatBestDay(activity: SummaryDataResult['activity']): string {
+  const bestDay = activity.bestDay;
+
+  if (bestDay === undefined) {
+    return '-';
+  }
+
+  const cost =
+    bestDay.costUsd === undefined
+      ? ''
+      : ` · ${formatApproxUsd(bestDay.costUsd, bestDay.costIncomplete)}`;
+  return `${bestDay.date}${cost} · ${formatCompact(bestDay.totalTokens)} tokens`;
+}
+
+function toActivityStats(activity: SummaryDataResult['activity']): [string, string][] {
+  return [
+    ['Current streak', formatDays(activity.currentStreak)],
+    ['Longest streak', formatDays(activity.longestStreak)],
+    ['Best day', formatBestDay(activity)],
+    ['Active days', formatInteger(activity.activeDays)],
+  ];
+}
+
+function renderTerminalActivity(
+  activity: SummaryDataResult['activity'],
+  options: RenderSummaryReportOptions,
+  useColor: boolean,
+): string[] {
+  const palette = options.palette ?? defaultTerminalStylePalette;
+  const paint =
+    (styler: TextStyler): TextStyler =>
+    (text) =>
+      useColor ? styler(text) : text;
+  const dim = paint(palette.dim);
+  const stats = toActivityStats(activity);
+  const labelWidth = Math.max(...stats.map(([label]) => label.length));
+  const valueStylers = [
+    paint((text) => palette.bold(palette.yellow(text))),
+    paint(palette.yellow),
+    paint(palette.white),
+    paint(palette.white),
+  ];
+  const heatmap = renderActivityHeatmap(
+    activity.days,
+    {
+      dim,
+      level: (level) =>
+        level === 0
+          ? dim
+          : level >= 3
+            ? paint((text) => palette.bold(palette.green(text)))
+            : paint(palette.green),
+    },
+    options.terminalWidth ?? resolveTtyColumns(process.stdout),
+  );
+
+  return [
+    '',
+    `Activity ${dim(`since ${activity.from}`)}`,
+    ...stats.map(
+      ([label, value], index) => `${dim(label.padEnd(labelWidth))}  ${valueStylers[index](value)}`,
+    ),
+    ...(heatmap.length > 0 ? ['', ...heatmap] : []),
+  ];
+}
+
 function renderTerminalSummaryReport(
   summaryData: SummaryDataResult,
   options: RenderSummaryReportOptions,
@@ -101,6 +182,10 @@ function renderTerminalSummaryReport(
     }),
   );
 
+  if (summaryData.activity.activeDays > 0) {
+    lines.push(...renderTerminalActivity(summaryData.activity, options, useColor));
+  }
+
   return lines.join('\n');
 }
 
@@ -123,6 +208,15 @@ function renderMarkdownSummaryReport(summaryData: SummaryDataResult): string {
       rows.map((row) => row.map((cell) => toMarkdownSafeCell(cell))),
       { align: ['l', 'l', 'r', 'r', 'l'] },
     ),
+    '',
+    `#### Activity since ${summaryData.activity.from}`,
+    '',
+    markdownTable(
+      [['Stat', 'Value'], ...toActivityStats(summaryData.activity)].map((row) =>
+        row.map((cell) => toMarkdownSafeCell(cell)),
+      ),
+      { align: ['l', 'r'] },
+    ),
   ].join('\n');
 }
 
@@ -136,6 +230,7 @@ export function renderSummaryReport(
       return renderReportJson('summary', {
         timezone: summaryData.timezone,
         periods: summaryData.periods,
+        activity: summaryData.activity,
       });
     case 'markdown':
       return renderMarkdownSummaryReport(summaryData);

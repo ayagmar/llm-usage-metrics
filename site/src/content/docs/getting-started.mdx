@@ -20,7 +20,7 @@ npm install -g llm-usage-metrics
 llm-usage
 ```
 
-With no command, `llm-usage` prints cost and tokens for today, the last 7 days, and month to date, plus the source with the highest cost in each period. Run `llm-usage daily` for one row per day and source.
+With no command, `llm-usage` prints cost and tokens for today, the last 7 days, and month to date, plus the source with the highest cost in each period, followed by your streaks and a past-year activity heatmap. Run `llm-usage daily` for one row per day and source.
 
 The first run parses matching session files, stores normalized events in a local SQLite ledger, and loads pricing. Later runs can reuse unchanged files from the ledger.
 

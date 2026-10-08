@@ -193,7 +193,7 @@ const summaryReportDefinition: ReportRuntimeDefinition = {
     docsLabel: 'summary',
     kind: 'specialized',
     description:
-      'Show cost and tokens for today, the last 7 days, and month to date (default command)',
+      'Show cost and tokens for today, the last 7 days, and month to date, plus activity streaks (default command)',
     sharedOptionProfile: 'summary',
     helpExamples: [
       {

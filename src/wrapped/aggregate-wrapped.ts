@@ -1,13 +1,13 @@
+import {
+  buildDailyIntensity,
+  calculateLongestStreak,
+  findBusiestDay,
+} from '../aggregate/daily-activity.js';
 import { computeActiveMs } from '../domain/active-time.js';
 import { getEventSessionKey, type UsageEvent } from '../domain/usage-event.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
-import {
-  getIsoDayOfWeekFromDateKey,
-  getLocalHour,
-  getPeriodKey,
-  shiftLocalDateKey,
-} from '../utils/time-buckets.js';
-import type { WrappedDay, WrappedMonth, WrappedRecap, WrappedTopItem } from './wrapped-recap.js';
+import { getIsoDayOfWeekFromDateKey, getLocalHour, getPeriodKey } from '../utils/time-buckets.js';
+import type { WrappedMonth, WrappedRecap, WrappedTopItem } from './wrapped-recap.js';
 import { addUsd } from '../utils/usd-math.js';
 
 export type AggregateWrappedOptions = {
@@ -91,30 +91,6 @@ function toTopItems(groups: Map<string, TotalsAccumulator>): WrappedTopItem[] {
   return [...groups.entries()].map(toWrappedTopItem).sort(compareTopItems).slice(0, TOP_ITEM_LIMIT);
 }
 
-function calculateLongestStreak(dateKeys: readonly string[]): number {
-  if (dateKeys.length === 0) {
-    return 0;
-  }
-
-  let longestStreak = 1;
-  let currentStreak = 1;
-
-  for (let index = 1; index < dateKeys.length; index += 1) {
-    const previous = dateKeys[index - 1] ?? '';
-    const current = dateKeys[index] ?? '';
-
-    if (shiftLocalDateKey(previous, 1) === current) {
-      currentStreak += 1;
-      longestStreak = Math.max(longestStreak, currentStreak);
-      continue;
-    }
-
-    currentStreak = 1;
-  }
-
-  return longestStreak;
-}
-
 function toIntensityLevel(totalTokens: number, maxMonthlyTokens: number): WrappedMonth['level'] {
   if (totalTokens <= 0 || maxMonthlyTokens <= 0) {
     return 0;
@@ -151,69 +127,6 @@ function buildMonthlyIntensity(
       costUsd: accumulator.costUsd,
       costIncomplete: accumulator.costIncomplete,
       level: toIntensityLevel(accumulator.totalTokens, maxMonthlyTokens),
-    };
-  });
-}
-
-function createDateKeys(range: { from: string; to: string }): string[] {
-  const dateKeys: string[] = [];
-
-  for (let dateKey = range.from; dateKey <= range.to; dateKey = shiftLocalDateKey(dateKey, 1)) {
-    dateKeys.push(dateKey);
-  }
-
-  return dateKeys;
-}
-
-// Quartile banding over active days keeps the heatmap readable when one
-// outlier day dwarfs the rest; max-scaling would flatten everything to level 1.
-function toDailyLevelThresholds(activeDayTokens: number[]): [number, number, number] {
-  const sorted = [...activeDayTokens].sort((left, right) => left - right);
-  const quantile = (fraction: number) => sorted[Math.floor(fraction * (sorted.length - 1))] ?? 0;
-
-  return [quantile(0.25), quantile(0.5), quantile(0.75)];
-}
-
-function toDailyLevel(
-  totalTokens: number,
-  thresholds: readonly [number, number, number],
-): WrappedDay['level'] {
-  if (totalTokens <= 0) {
-    return 0;
-  }
-
-  if (totalTokens <= thresholds[0]) {
-    return 1;
-  }
-
-  if (totalTokens <= thresholds[1]) {
-    return 2;
-  }
-
-  if (totalTokens <= thresholds[2]) {
-    return 3;
-  }
-
-  return 4;
-}
-
-function buildDailyIntensity(
-  range: { from: string; to: string },
-  dailyTotals: Map<string, TotalsAccumulator>,
-): WrappedDay[] {
-  const dateKeys = createDateKeys(range);
-  const activeDayTokens = dateKeys
-    .map((dateKey) => dailyTotals.get(dateKey)?.totalTokens ?? 0)
-    .filter((totalTokens) => totalTokens > 0);
-  const thresholds = toDailyLevelThresholds(activeDayTokens);
-
-  return dateKeys.map((dateKey) => {
-    const totalTokens = dailyTotals.get(dateKey)?.totalTokens ?? 0;
-
-    return {
-      date: dateKey,
-      totalTokens,
-      level: toDailyLevel(totalTokens, thresholds),
     };
   });
 }
@@ -298,27 +211,6 @@ export function aggregateWrapped(
     }
   }
 
-  let busiestDay: WrappedRecap['busiestDay'];
-
-  for (const [date, accumulator] of dailyTotals) {
-    if (accumulator.totalTokens <= 0) {
-      continue;
-    }
-
-    if (
-      busiestDay === undefined ||
-      accumulator.totalTokens > busiestDay.totalTokens ||
-      (accumulator.totalTokens === busiestDay.totalTokens && date < busiestDay.date)
-    ) {
-      busiestDay = {
-        date,
-        totalTokens: accumulator.totalTokens,
-        costUsd: accumulator.costUsd,
-        costIncomplete: accumulator.costIncomplete,
-      };
-    }
-  }
-
   return {
     year: options.year,
     timezone: options.timezone,
@@ -333,7 +225,7 @@ export function aggregateWrapped(
     peakHour,
     weekdayTokens,
     weekendTokens,
-    busiestDay,
+    busiestDay: findBusiestDay(dailyTotals),
     eventCount,
     sessionCount: sessionTimestamps.size,
     topModels: toTopItems(modelGroups),

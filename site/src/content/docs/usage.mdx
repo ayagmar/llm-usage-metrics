@@ -13,6 +13,8 @@ llm-usage monthly
 
 Run `llm-usage` with no command for a short summary: cost, tokens, and the top source for today, the last 7 days, and month to date. It accepts the same source, provider, model, timezone, pricing, and output flags.
 
+Below the table, the summary shows your activity over the past year: the current streak, the longest streak, the best day (most tokens), the number of active days, and a heatmap with one column per week and one row per weekday. A streak counts consecutive local days with usage in your reporting timezone; today without usage yet does not break it. The year starts on the Monday 52 weeks before the current week, and a narrow terminal keeps only the most recent weeks that fit. `--json` carries the same data under `activity`, including every day with its intensity level.
+
 ## Set the reporting window
 
 Without date bounds, `daily` covers the last 7 days and `weekly` covers the last 8 weeks (from the Monday 7 weeks before the current week), both in your reporting timezone. Each prints a reminder on `stderr`; `--all` includes every period and cannot be combined with `--since` or `--until`. `monthly` includes all matching discovered history and does not limit the result to the current month.

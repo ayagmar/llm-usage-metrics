@@ -1,3 +1,5 @@
+import type { ActivityDay, BusiestDay } from '../aggregate/daily-activity.js';
+
 export type WrappedTopItem = {
   name: string;
   totalTokens: number;
@@ -13,11 +15,7 @@ export type WrappedMonth = {
   level: 0 | 1 | 2 | 3 | 4;
 };
 
-export type WrappedDay = {
-  date: string;
-  totalTokens: number;
-  level: 0 | 1 | 2 | 3 | 4;
-};
+export type WrappedDay = ActivityDay;
 
 export type WrappedRecap = {
   year: number;
@@ -33,7 +31,7 @@ export type WrappedRecap = {
   peakHour?: { hour: number; totalTokens: number };
   weekdayTokens: number;
   weekendTokens: number;
-  busiestDay?: { date: string; totalTokens: number; costUsd?: number; costIncomplete?: boolean };
+  busiestDay?: BusiestDay;
   estimatedCacheSavingsUsd?: number;
   eventCount: number;
   sessionCount: number;
