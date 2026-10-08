@@ -146,7 +146,12 @@ function renderDateLabels(buckets: readonly TrendBucket[], theme: ShareTheme): s
     .map((index) => {
       // The outer labels align to the chart edges so they never leave the card.
       const anchor = index === 0 ? 'start' : index === buckets.length - 1 ? 'end' : 'middle';
-      const x = anchor === 'start' ? chartLeft : anchor === 'end' ? chartRight : chartLeft + index * slot + slot / 2;
+      const x =
+        anchor === 'start'
+          ? chartLeft
+          : anchor === 'end'
+            ? chartRight
+            : chartLeft + index * slot + slot / 2;
 
       return svgText(x, chartBottom + 26, buckets[index].date, {
         size: 13,

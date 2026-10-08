@@ -143,7 +143,10 @@ export async function prepareReport<Data, Diagnostics, Format extends StandardRe
 // Writes the dark SVG, plus an HTML page with both themes that exports PNGs in
 // the browser, and opens the page unless --no-open.
 async function writeShareArtifact(artifact: ShareArtifact, open: boolean): Promise<void> {
-  const svgs = { dark: artifact.render(shareThemes.dark), light: artifact.render(shareThemes.light) };
+  const svgs = {
+    dark: artifact.render(shareThemes.dark),
+    light: artifact.render(shareThemes.light),
+  };
   const svgPath = await writeShareFile(artifact.fileName, svgs.dark);
   logger.info(`Wrote ${artifact.logLabel} share SVG: ${svgPath}`);
 

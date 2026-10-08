@@ -33,7 +33,7 @@ llm-usage trends --days 14 --share
 - `--days <n>`: trailing local calendar days to chart
 - `--metric <name>`: `cost`, `tokens`, or `active-hours`
 - `--by-source`: render one sparkline row per source
-- `--share`: write the combined series to `trends-share.svg`
+- `--share`: write the combined series to `trends-share.svg` and a `trends-share.html` page with PNG export
 - shared filters apply: `--source`, `--provider`, `--model`, `--since`, `--until`, `--timezone`, source-path overrides, pricing flags, and `--history`
 
 `trends` supports terminal output, `--json`, `--markdown` (one row per date plus a Total row), and `--share`. The share renderer needs the combined series, so `--share` cannot be combined with `--by-source`.

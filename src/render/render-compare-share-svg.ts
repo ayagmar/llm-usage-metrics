@@ -148,8 +148,6 @@ export function renderCompareShareSvg(data: CompareDataResult, theme: ShareTheme
     subtitle: `${data.current.window.label} against ${data.baseline.window.label}`,
     command: 'llm-usage compare --share',
     footnote: `${data.current.window.since} to ${data.current.window.until}`,
-    body: hasData
-      ? renderBody(data, theme)
-      : renderEmptyState(theme, 'No usage in either window'),
+    body: hasData ? renderBody(data, theme) : renderEmptyState(theme, 'No usage in either window'),
   });
 }

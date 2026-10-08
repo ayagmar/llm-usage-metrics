@@ -36,7 +36,7 @@ Commander help text remains the source of truth for option descriptions.
   - `--markdown` / `--json` validation
   - output-format resolution
   - report preparation
-  - share artifact write/open/log handling
+  - share artifact handling: render the card per theme, write the dark SVG and the HTML export page (`render/render-share-page.ts`), open the page
   - optional terminal overflow warnings
   - stderr hints after the output (from the data, or from the renderer, such as columns a narrow terminal hid)
   - final stdout emission

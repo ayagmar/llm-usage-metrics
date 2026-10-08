@@ -54,7 +54,9 @@ function renderSummaryStats(
     {
       label: 'Tokens per commit',
       value:
-        allRow?.tokensPerCommit === undefined ? '-' : formatCompact(Math.round(allRow.tokensPerCommit)),
+        allRow?.tokensPerCommit === undefined
+          ? '-'
+          : formatCompact(Math.round(allRow.tokensPerCommit)),
     },
   ];
 

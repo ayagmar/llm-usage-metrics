@@ -62,9 +62,12 @@ function renderCell(
   ].join('\n');
 }
 
+/** A candidate model and its whole-window row, when the report has one. */
+type Candidate = { model: string; all?: OptimizeCandidateRow };
+
 function renderGrid(
   theme: ShareTheme,
-  candidates: OptimizeCandidateRow[],
+  candidates: Candidate[],
   periodKeys: string[],
   cells: ReadonlyMap<string, OptimizeCandidateRow>,
 ): string {
@@ -82,13 +85,13 @@ function renderGrid(
     const y = gridTop + row * cellHeight;
 
     parts.push(
-      svgText(SHARE_MARGIN, y + cellHeight / 2, truncateLabel(candidate.candidateModel, 26), {
+      svgText(SHARE_MARGIN, y + cellHeight / 2, truncateLabel(candidate.model, 26), {
         size: 16,
         fill: theme.text,
       }),
-      svgText(SHARE_MARGIN, y + cellHeight / 2 + 18, formatSignedUsd(candidate.savingsUsd), {
+      svgText(SHARE_MARGIN, y + cellHeight / 2 + 18, formatSignedUsd(candidate.all?.savingsUsd), {
         size: 13,
-        fill: savingsColor(candidate.savingsUsd, theme),
+        fill: savingsColor(candidate.all?.savingsUsd, theme),
         mono: true,
       }),
     );
@@ -101,7 +104,7 @@ function renderGrid(
           y + CELL_GAP / 2,
           cellWidth - CELL_GAP,
           cellHeight - CELL_GAP,
-          cells.get(`${candidate.candidateModel}__${periodKey}`)?.savingsRatio,
+          cells.get(`${candidate.model}__${periodKey}`)?.savingsRatio,
         ),
       );
     });
@@ -110,10 +113,10 @@ function renderGrid(
   return parts.join('\n');
 }
 
-function renderBestSavings(theme: ShareTheme, best: OptimizeCandidateRow): string {
-  const saves = (best.savingsUsd ?? 0) >= 0;
+function renderBestSavings(theme: ShareTheme, best: OptimizeCandidateRow | undefined): string {
+  const saves = (best?.savingsUsd ?? 0) >= 0;
   const percent =
-    best.savingsRatio === undefined
+    best?.savingsRatio === undefined
       ? undefined
       : `${Math.abs(best.savingsRatio * 100).toFixed(1)}% ${saves ? 'cheaper' : 'more expensive'}`;
 
@@ -122,7 +125,7 @@ function renderBestSavings(theme: ShareTheme, best: OptimizeCandidateRow): strin
     x: SHARE_MARGIN + statPitch * 2,
     y: statsTop,
     label: saves ? 'It would save' : 'It would cost more by',
-    value: best.savingsUsd === undefined ? '-' : formatUsd(Math.abs(best.savingsUsd)),
+    value: best?.savingsUsd === undefined ? '-' : formatUsd(Math.abs(best.savingsUsd)),
     detail: percent,
     size: 30,
     accent: saves,
@@ -144,14 +147,16 @@ export function renderOptimizeMonthlyShareSvg(
   ]
     .sort(compareByCodePoint)
     .slice(-MAX_MONTHS);
-  const cells = new Map(candidateRows.map((row) => [`${row.candidateModel}__${row.periodKey}`, row]));
-  // Best savings first; unpriced candidates last, then by name.
-  const candidates = candidateRows
-    .filter((row) => row.periodKey === 'ALL')
+  const cells = new Map(
+    candidateRows.map((row) => [`${row.candidateModel}__${row.periodKey}`, row]),
+  );
+  // Best whole-window savings first; unpriced candidates last, then by name.
+  const candidates: Candidate[] = [...new Set(candidateRows.map((row) => row.candidateModel))]
+    .map((model) => ({ model, all: cells.get(`${model}__ALL`) }))
     .sort(
       (a, b) =>
-        (b.savingsUsd ?? Number.NEGATIVE_INFINITY) - (a.savingsUsd ?? Number.NEGATIVE_INFINITY) ||
-        compareByCodePoint(a.candidateModel, b.candidateModel),
+        (b.all?.savingsUsd ?? Number.NEGATIVE_INFINITY) -
+          (a.all?.savingsUsd ?? Number.NEGATIVE_INFINITY) || compareByCodePoint(a.model, b.model),
     )
     .slice(0, MAX_CANDIDATES);
   const best = candidates[0];
@@ -160,9 +165,17 @@ export function renderOptimizeMonthlyShareSvg(
     missing.length > 0 ? `Missing pricing: ${missing.join(', ')}` : undefined,
     warning,
   ].filter((note): note is string => note !== undefined && note.length > 0);
+  // Pricing notes explain an empty or partial card, so they render either way.
+  const notesLine =
+    notes.length === 0
+      ? ''
+      : svgText(SHARE_MARGIN, gridBottom + 24, truncateLabel(notes.join('; '), 130), {
+          size: 13,
+          fill: theme.warning,
+        });
   const body =
     candidates.length === 0 || periodKeys.length === 0
-      ? renderEmptyState(theme, 'No months to compare')
+      ? `${renderEmptyState(theme, 'No months to compare')}\n${notesLine}`
       : [
           renderStat({
             theme,
@@ -177,17 +190,12 @@ export function renderOptimizeMonthlyShareSvg(
             x: SHARE_MARGIN + statPitch,
             y: statsTop,
             label: 'Best candidate',
-            value: truncateLabel(best.candidateModel, 18),
+            value: truncateLabel(best.model, 18),
             size: 26,
           }),
-          renderBestSavings(theme, best),
+          renderBestSavings(theme, best.all),
           renderGrid(theme, candidates, periodKeys, cells),
-          notes.length === 0
-            ? ''
-            : svgText(SHARE_MARGIN, gridBottom + 24, truncateLabel(notes.join('; '), 130), {
-                size: 13,
-                fill: theme.warning,
-              }),
+          notesLine,
         ].join('\n');
 
   return renderShareCard({
@@ -196,7 +204,9 @@ export function renderOptimizeMonthlyShareSvg(
     subtitle: `${provider} usage priced on other models; positive means cheaper`,
     command: 'llm-usage optimize monthly --share',
     footnote:
-      periodKeys.length === 0 ? undefined : `${periodKeys[0]} to ${periodKeys[periodKeys.length - 1]}`,
+      periodKeys.length === 0
+        ? undefined
+        : `${periodKeys[0]} to ${periodKeys[periodKeys.length - 1]}`,
     body,
   });
 }

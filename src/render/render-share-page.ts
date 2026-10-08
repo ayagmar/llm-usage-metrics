@@ -1,4 +1,10 @@
-import { escapeSvg, SHARE_HEIGHT, SHARE_WIDTH, shareThemes, type ShareThemeName } from './share-svg-theme.js';
+import {
+  escapeSvg,
+  SHARE_HEIGHT,
+  SHARE_WIDTH,
+  shareThemes,
+  type ShareThemeName,
+} from './share-svg-theme.js';
 
 export type SharePageOptions = {
   title: string;

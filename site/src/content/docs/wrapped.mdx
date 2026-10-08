@@ -66,9 +66,9 @@ The report uses the shared boxed header, tables, and color policy; set `NO_COLOR
 
 The time stats read as follows. `Hours` estimates activity from event timing: per session, inter-event gaps are summed with each gap capped at 5 minutes, so a session left open overnight contributes at most 5 idle minutes per gap. It does not measure human working time. `Peak hour` is the hour of day (report timezone) with the most tokens. `Weekday split` is the share of tokens on Monday–Friday dates. `Busiest day` is the single date with the most tokens. `Cache savings` is an estimated counterfactual: what your cache-read tokens would have cost at each model's full input rate minus what they cost at its cache-read rate; only models with a published cache-read rate contribute, and cache-write costs are deliberately ignored (it answers "what did reads save").
 
-## Share SVG
+## Share card
 
-`--share` writes an offline SVG named `llm-usage-wrapped-<year>.svg` to the current working directory. It shows five stat tiles (tokens, cost with cache savings, hours, active days, streak), the top three models and sources, and a GitHub-style daily activity heatmap: one cell per day of the year, shaded by quartile of your active days so a single outlier day does not flatten the rest. The CLI writes SVG rather than PNG.
+`--share` writes `llm-usage-wrapped-<year>.svg` and an `llm-usage-wrapped-<year>.html` page to the current working directory; the page shows the card in dark and light and exports it as PNG (see [Share cards](/llm-usage-metrics/output-formats/#share-cards)). The card shows five stats (cost with cache savings, tokens, hours, active days, longest streak), the top three models and sources, and a GitHub-style daily activity heatmap: one cell per day of the year, one row per weekday from Monday, shaded by quartile of your active days so a single outlier day does not flatten the rest.
 
 ## JSON shape
 

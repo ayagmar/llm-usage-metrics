@@ -54,7 +54,7 @@ function normalizeDescription(text, optionLong, scopeSuffix) {
 
   const normalizedDescription =
     optionLong === '--share'
-      ? 'Write a share SVG image to the current directory'
+      ? 'Write a share card (SVG and an HTML page with PNG export) to the current directory'
       : timezoneNormalizedText
           .replace(/\bmarkdown\b/giu, 'Markdown')
           .replace(/\s+/g, ' ')

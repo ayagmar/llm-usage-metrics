@@ -8,9 +8,9 @@
 
 import type { ActivityDay } from '../aggregate/daily-activity.js';
 import { getIsoDayOfWeekFromDateKey, shiftLocalDateKey } from '../utils/time-buckets.js';
+import { segmentGraphemes } from './table-text-layout.js';
 
-export const SHARE_THEME_NAMES = ['dark', 'light'] as const;
-export type ShareThemeName = (typeof SHARE_THEME_NAMES)[number];
+export type ShareThemeName = 'dark' | 'light';
 
 export type ShareTheme = {
   name: ShareThemeName;
@@ -65,9 +65,9 @@ export const SHARE_HEIGHT = 630;
 /** Left and right margin of every card. */
 export const SHARE_MARGIN = 64;
 /** Top of the area below the card title. */
-export const SHARE_BODY_TOP = 150;
+const SHARE_BODY_TOP = 150;
 /** Bottom of the area above the footer. */
-export const SHARE_BODY_BOTTOM = 560;
+const SHARE_BODY_BOTTOM = 560;
 
 export const shareFonts = {
   sans: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif",
@@ -117,8 +117,8 @@ export function escapeSvg(value: string): string {
 
 /** Shortens a label to `maxChars` with an ellipsis, so long names cannot overflow a card. */
 export function truncateLabel(value: string, maxChars: number): string {
-  const characters = [...value];
-  return characters.length <= maxChars ? value : `${characters.slice(0, maxChars - 1).join('')}…`;
+  const graphemes = segmentGraphemes(value);
+  return graphemes.length <= maxChars ? value : `${graphemes.slice(0, maxChars - 1).join('')}…`;
 }
 
 export type SvgTextOptions = {
@@ -135,7 +135,8 @@ export type SvgTextOptions = {
 
 /** One `<text>` element; `content` is escaped here. */
 export function svgText(x: number, y: number, content: string, options: SvgTextOptions): string {
-  const anchor = options.anchor && options.anchor !== 'start' ? ` text-anchor="${options.anchor}"` : '';
+  const anchor =
+    options.anchor && options.anchor !== 'start' ? ` text-anchor="${options.anchor}"` : '';
   const weight = options.weight === undefined ? '' : ` font-weight="${options.weight}"`;
   const family = options.mono ? shareFonts.mono : shareFonts.sans;
   const attributes = options.attributes === undefined ? '' : ` ${options.attributes}`;
@@ -327,7 +328,8 @@ export function renderActivityGrid(options: ActivityGridOptions): string {
 
     // Label a month at the first column whose Monday falls in it (or the first column).
     const isFirstCell = index === 0;
-    const startsMonthColumn = row === 0 && shiftLocalDateKey(day.date, -7).slice(5, 7) !== day.date.slice(5, 7);
+    const startsMonthColumn =
+      row === 0 && shiftLocalDateKey(day.date, -7).slice(5, 7) !== day.date.slice(5, 7);
 
     if ((isFirstCell || startsMonthColumn) && x - previousLabelX >= 3 * pitch) {
       monthLabels.push(
@@ -416,36 +418,6 @@ export function formatApproxUsd(
 
 export function formatDayUnit(count: number): string {
   return count === 1 ? 'day' : 'days';
-}
-
-export type Point = { x: number; y: number };
-
-/**
- * Catmull-Rom spline interpolation for smooth stacked-area paths.
- * {@link yFloor} clamps control points to prevent curves from
- * overshooting below the chart baseline.
- */
-export function catmullRom(points: Point[], tension = 0.3, yFloor?: number): string {
-  if (points.length < 2) return '';
-
-  const clamp = (y: number): number => (yFloor !== undefined ? Math.min(y, yFloor) : y);
-  let d = `M${points[0].x.toFixed(2)},${points[0].y.toFixed(2)}`;
-
-  for (let i = 0; i < points.length - 1; i++) {
-    const p0 = points[Math.max(0, i - 1)];
-    const p1 = points[i];
-    const p2 = points[i + 1];
-    const p3 = points[Math.min(points.length - 1, i + 2)];
-
-    const cp1x = p1.x + ((p2.x - p0.x) * tension) / 3;
-    const cp1y = clamp(p1.y + ((p2.y - p0.y) * tension) / 3);
-    const cp2x = p2.x - ((p3.x - p1.x) * tension) / 3;
-    const cp2y = clamp(p2.y - ((p3.y - p1.y) * tension) / 3);
-
-    d += ` C${cp1x.toFixed(2)},${cp1y.toFixed(2)} ${cp2x.toFixed(2)},${cp2y.toFixed(2)} ${p2.x.toFixed(2)},${p2.y.toFixed(2)}`;
-  }
-
-  return d;
 }
 
 export function scaleY(value: number, max: number, top: number, bottom: number): number {
