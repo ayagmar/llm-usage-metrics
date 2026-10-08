@@ -1,4 +1,4 @@
-export const REPORT_JSON_SCHEMA_VERSION = 1;
+const REPORT_JSON_SCHEMA_VERSION = 1;
 
 export type ReportJsonName =
   | 'usage'

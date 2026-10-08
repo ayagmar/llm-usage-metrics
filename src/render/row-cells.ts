@@ -5,7 +5,7 @@ export type UsageTableLayout = 'compact' | 'per_model_columns';
 /** `abbreviated` renders token counts as `1.09M`, `616M`, `24.3K`; cost stays exact. */
 export type UsageTokenFormat = 'full' | 'abbreviated';
 
-export const usageTableColumnIds = [
+const usageTableColumnIds = [
   'period',
   'source',
   'models',

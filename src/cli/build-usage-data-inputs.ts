@@ -71,7 +71,7 @@ export function normalizeSourceFilter(
   return new Set(normalizedSources);
 }
 
-export function normalizeModelFilter(model: string | string[] | undefined): string[] | undefined {
+function normalizeModelFilter(model: string | string[] | undefined): string[] | undefined {
   if (!model || (Array.isArray(model) && model.length === 0)) {
     return undefined;
   }
@@ -115,7 +115,7 @@ export function validateSourceFilterValues(
   );
 }
 
-export function validatePricingUrl(pricingUrl: string | undefined): string | undefined {
+function validatePricingUrl(pricingUrl: string | undefined): string | undefined {
   if (pricingUrl === undefined) {
     return undefined;
   }
@@ -139,7 +139,7 @@ export function validatePricingUrl(pricingUrl: string | undefined): string | und
   return normalizedPricingUrl;
 }
 
-export function validateBuildOptions(options: ReportCommandOptions): {
+function validateBuildOptions(options: ReportCommandOptions): {
   normalizedPricingUrl: string | undefined;
 } {
   if (options.since) {

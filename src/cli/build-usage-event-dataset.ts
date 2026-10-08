@@ -45,6 +45,7 @@ import type { EnvVarOverride } from '../config/env-var-display.js';
 import type { PricingSource } from '../pricing/types.js';
 import { findUnmatchedFilterWarnings } from './filter-match-warnings.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
+import { getErrorReason } from '../utils/get-error-reason.js';
 
 function withNormalizedPricingUrl(
   options: ReportCommandOptions,
@@ -58,10 +59,6 @@ function withNormalizedPricingUrl(
     ...options,
     pricingUrl: normalizedPricingUrl,
   };
-}
-
-function getErrorReason(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 function formatHistoryNote(historyResult: EventStoreHistoryResult): string {

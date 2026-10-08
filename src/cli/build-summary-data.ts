@@ -27,7 +27,7 @@ type SummaryWindow = UsageDateWindow & {
   label: string;
 };
 
-export const SUMMARY_RECENT_DAYS = 7;
+const SUMMARY_RECENT_DAYS = 7;
 
 export function resolveSummaryWindows(timezone: string, now: Date): SummaryWindow[] {
   const today = getCurrentLocalDateKey(timezone, now);

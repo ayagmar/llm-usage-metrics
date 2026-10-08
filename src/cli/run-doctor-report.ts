@@ -30,6 +30,7 @@ import { renderDoctorText } from '../render/render-doctor-report.js';
 import { renderReportJson } from '../render/report-json.js';
 import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
 import type { DoctorCommandOptions } from './usage-data-contracts.js';
+import { getErrorReason } from '../utils/get-error-reason.js';
 
 /**
  * found: files with readable usage. not_installed: no files in any searched path.
@@ -66,10 +67,6 @@ type DoctorDeps = UserConfigResolutionDeps & {
 };
 
 type DiscoveredFilesBySource = Map<string, Set<string>>;
-
-function getErrorReason(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
 
 function isMissingPathError(error: unknown): error is NodeJS.ErrnoException {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT';

@@ -2,7 +2,7 @@ import type { UsageEvent } from '../domain/usage-event.js';
 import { normalizeSourceId } from '../domain/usage-event.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { normalizeStoredEvent } from './event-store-codec.js';
-import type { EventStore } from './event-store-database.js';
+import { toText, type EventStore } from './event-store-database.js';
 
 export type EventStoreHistoryDiscoveredFile = {
   source: string;
@@ -48,15 +48,6 @@ type FileContentHashMultiset = {
   counts: Map<string, number>;
   hasNullHash: boolean;
 };
-
-function toText(value: unknown): string | undefined {
-  if (typeof value !== 'string') {
-    return undefined;
-  }
-
-  const normalized = value.trim();
-  return normalized || undefined;
-}
 
 function toNonNegativeInteger(value: unknown): number | undefined {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {

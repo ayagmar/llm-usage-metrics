@@ -144,7 +144,9 @@ export async function* readDshSessionLogRecords(
   if (!filePath.toLowerCase().endsWith('.zstd')) {
     yield* readJsonlObjects(filePath, {
       shouldParseLine: options.shouldParseLine,
-      onMalformedLine: () => options.onSkippedRow('json_parse_error'),
+      onMalformedLine: () => {
+        options.onSkippedRow('json_parse_error');
+      },
     });
     return;
   }

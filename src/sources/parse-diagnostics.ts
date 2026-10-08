@@ -7,9 +7,7 @@ export function incrementSkippedReason(reasons: Map<string, number>, reason: str
   reasons.set(reason, current + 1);
 }
 
-export function toSkippedRowReasonStats(
-  reasons: Map<string, number>,
-): SourceSkippedRowReasonStat[] {
+function toSkippedRowReasonStats(reasons: Map<string, number>): SourceSkippedRowReasonStat[] {
   return [...reasons.entries()]
     .map(([reason, count]) => ({ reason, count }))
     .sort((left, right) => compareByCodePoint(left.reason, right.reason));

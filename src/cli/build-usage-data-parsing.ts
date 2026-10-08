@@ -17,7 +17,6 @@ import type {
 } from '../sources/source-adapter.js';
 import { normalizeSkippedRowReasons } from './normalize-skipped-row-reasons.js';
 import {
-  getErrorReason,
   isStoredFileCurrent,
   readParsedFileFromEventStore,
   recordEventStoreFailure,
@@ -43,6 +42,7 @@ import {
 } from './parse-worker-pool.js';
 
 import type { UsageSourceFailure } from './usage-data-contracts.js';
+import { getErrorReason } from '../utils/get-error-reason.js';
 
 export type AdapterParseResult = {
   source: string;

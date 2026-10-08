@@ -67,12 +67,13 @@ export function toText(value: unknown): string | undefined {
   return normalized || undefined;
 }
 
-export function runTransaction(database: EventStoreDatabase, task: () => void): void {
+export function runTransaction<T>(database: EventStoreDatabase, task: () => T): T {
   database.exec('BEGIN IMMEDIATE');
 
   try {
-    task();
+    const result = task();
     database.exec('COMMIT');
+    return result;
   } catch (error) {
     database.exec('ROLLBACK');
     throw error;

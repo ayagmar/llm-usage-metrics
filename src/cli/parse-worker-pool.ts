@@ -5,6 +5,7 @@ import type { SourceId } from '../domain/usage-event.js';
 import { CodexSourceAdapter } from '../sources/codex/codex-source-adapter.js';
 import type { SourceAdapter, SourceParseFileDiagnostics } from '../sources/source-adapter.js';
 import { asRecord } from '../utils/as-record.js';
+import { getErrorReason } from '../utils/get-error-reason.js';
 
 export type ParseWorkerTask = {
   sourceId: SourceId;
@@ -64,14 +65,6 @@ const parseWorkerSourceRegistry = new Map<SourceId, WorkerSourceFactory>([
 ]);
 
 /* v8 ignore start -- Worker-entry helpers run only inside the built CLI bundle. */
-function getErrorReason(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return String(error);
-}
-
 function getDefaultParseFileDiagnostics(events: SourceParseFileDiagnostics['events']) {
   return { events, skippedRows: 0, skippedRowReasons: [] } satisfies SourceParseFileDiagnostics;
 }

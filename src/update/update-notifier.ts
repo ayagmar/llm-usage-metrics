@@ -25,8 +25,8 @@ export {
   type ParsedVersion,
 } from './version-utils.js';
 
-export const UPDATE_CHECK_SKIP_ENV_VAR = 'LLM_USAGE_SKIP_UPDATE_CHECK';
-export const UPDATE_HINT_EXIT_GRACE_MS = 50;
+const UPDATE_CHECK_SKIP_ENV_VAR = 'LLM_USAGE_SKIP_UPDATE_CHECK';
+const UPDATE_HINT_EXIT_GRACE_MS = 50;
 
 export type UpdateNotifierOptions = {
   packageName: string;

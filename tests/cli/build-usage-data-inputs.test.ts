@@ -49,9 +49,9 @@ describe('build-usage-data-inputs', () => {
     expect(
       normalizeBuildUsageInputs({ source: 'claude' }, { source: 'claude' }).sourceFilterLabel,
     ).toBe('--source');
-    expect(() =>
-      validateSourceFilterValues(new Set(['cladue']), new Set(['claude']), 'config `sources`'),
-    ).toThrow('Unknown config `sources` value(s): cladue (did you mean claude?)');
+    expect(() => {
+      validateSourceFilterValues(new Set(['cladue']), new Set(['claude']), 'config `sources`');
+    }).toThrow('Unknown config `sources` value(s): cladue (did you mean claude?)');
   });
 
   it('normalizes provider filter to billing-entity value', () => {

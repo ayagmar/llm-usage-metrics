@@ -179,7 +179,7 @@ export function normalizeLitellmPricingPayload(payload: unknown): Map<string, Mo
   return normalizedPricing;
 }
 
-export function normalizeCachedPricing(rawPricing: unknown): ModelPricing | undefined {
+function normalizeCachedPricing(rawPricing: unknown): ModelPricing | undefined {
   const pricingRecord = asRecord(rawPricing);
 
   if (!pricingRecord) {
@@ -312,7 +312,7 @@ function formatStaleCacheWarning(fetchedAt: number, fetchError: string | undefin
   return `Pricing: the LiteLLM refresh failed (${fetchError}); using cached pricing from ${fetchedDate}.`;
 }
 
-export function getDefaultLiteLLMPricingCachePath(): string {
+function getDefaultLiteLLMPricingCachePath(): string {
   return path.join(getUserCacheRootDir(), 'llm-usage-metrics', 'litellm-pricing-cache.json');
 }
 
@@ -399,7 +399,9 @@ export class LiteLLMPricingFetcher implements PricingSource {
         const bundledSnapshotLoaded = this.loadFromBundledSnapshot();
 
         if (!bundledSnapshotLoaded) {
-          throw new Error('Could not load LiteLLM pricing from network or cache');
+          throw new Error('Could not load LiteLLM pricing from network or cache', {
+            cause: error,
+          });
         }
 
         return true;
