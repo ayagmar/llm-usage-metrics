@@ -1,4 +1,4 @@
-// Runs the built CLI under Bun and checks it against Node on the e2e fixtures:
+// Runs the built CLI (the published dist/bin.js loader) under Bun and checks it against Node on the e2e fixtures:
 // identical report JSON on a cold run whose Codex files really parse in worker
 // threads, and on a warm run served from the SQLite event store, plus a one-line
 // statusline. A node:sqlite preflight makes a missing SQLite fatal instead of the
@@ -10,7 +10,7 @@ import path from 'node:path';
 
 const fixturesDir = path.resolve('tests/fixtures/e2e');
 const reportArgs = [
-  'dist/index.js',
+  'dist/bin.js',
   'daily',
   '--all',
   '--source',
@@ -118,7 +118,7 @@ async function main() {
 
     const statusline = run(
       'bun',
-      ['dist/index.js', 'statusline', '--source', 'pi', '--pi-dir', path.join(fixturesDir, 'pi')],
+      ['dist/bin.js', 'statusline', '--source', 'pi', '--pi-dir', path.join(fixturesDir, 'pi')],
       bunEnv,
     ).stdout.trimEnd();
 
