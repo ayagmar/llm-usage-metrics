@@ -20,4 +20,4 @@ llm-usage daily --source goose --goose-db /path/to/goose/sessions.db
 
 ## Parsing notes
 
-The adapter reads whole-session aggregate rows from Goose's SQLite `sessions` table, prefers accumulated token columns when present, and infers reasoning tokens from `total - input - output`.
+The adapter reads whole-session aggregate rows from Goose's SQLite `sessions` table, prefers accumulated token columns when present, and infers reasoning tokens from `total - input - output`. Those reasoning tokens are counted inside output, and the database's `-wal` and `-journal` sidecars invalidate the parse cache.

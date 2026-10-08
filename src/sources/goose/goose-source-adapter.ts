@@ -127,6 +127,8 @@ function parseGooseRow(row: GooseSqliteRow): GooseParsedRow {
   }
 
   const { model, invalidModelConfig } = parseModelName(row.model_config_json);
+  // Goose's output count can exclude thinking tokens that its total includes (e.g. Gemini's
+  // candidatesTokenCount), so the remainder is reasoning and belongs inside output.
   const reasoningTokens =
     resolvedTotalTokens === undefined
       ? 0
@@ -140,7 +142,7 @@ function parseGooseRow(row: GooseSqliteRow): GooseParsedRow {
       provider: asTrimmedText(row.provider_name),
       model,
       inputTokens,
-      outputTokens,
+      outputTokens: outputTokens + reasoningTokens,
       reasoningTokens,
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
@@ -153,6 +155,7 @@ function parseGooseRow(row: GooseSqliteRow): GooseParsedRow {
 
 export class GooseSourceAdapter implements SourceAdapter {
   public readonly id = 'goose' as const;
+  public readonly parserVersion = 2;
 
   private readonly explicitDbPath?: string;
   private readonly resolveDefaultDbPaths: () => string[];
@@ -222,6 +225,15 @@ export class GooseSourceAdapter implements SourceAdapter {
   public async parseFile(dbPath: string): Promise<UsageEvent[]> {
     const parseDiagnostics = await this.parseFileWithDiagnostics(dbPath);
     return parseDiagnostics.events;
+  }
+
+  public async getParseDependencies(dbPath: string): Promise<string[]> {
+    if (isBlankText(dbPath)) {
+      return [];
+    }
+
+    const normalizedDbPath = dbPath.trim();
+    return [`${normalizedDbPath}-wal`, `${normalizedDbPath}-journal`];
   }
 
   public async parseFileWithDiagnostics(dbPath: string): Promise<SourceParseFileDiagnostics> {

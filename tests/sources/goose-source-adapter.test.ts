@@ -244,7 +244,7 @@ describe.skipIf(!DatabaseSync)('GooseSourceAdapter', () => {
       provider: 'openai',
       model: 'gpt-goose',
       inputTokens: 100,
-      outputTokens: 30,
+      outputTokens: 50,
       reasoningTokens: 20,
       totalTokens: 150,
       costMode: 'estimated',
@@ -254,7 +254,7 @@ describe.skipIf(!DatabaseSync)('GooseSourceAdapter', () => {
       provider: 'anthropic',
       model: undefined,
       inputTokens: 10,
-      outputTokens: 5,
+      outputTokens: 10,
       reasoningTokens: 5,
       totalTokens: 20,
     });
@@ -265,6 +265,16 @@ describe.skipIf(!DatabaseSync)('GooseSourceAdapter', () => {
       timestamp: '2026-04-01T12:00:00.000Z',
       totalTokens: 5,
     });
+  });
+
+  it('declares the SQLite -wal and -journal sidecars as parse dependencies', async () => {
+    const adapter = new GooseSourceAdapter();
+
+    await expect(adapter.getParseDependencies(' /data/sessions.db ')).resolves.toEqual([
+      '/data/sessions.db-wal',
+      '/data/sessions.db-journal',
+    ]);
+    await expect(adapter.getParseDependencies('  ')).resolves.toEqual([]);
   });
 
   it('uses GOOSE_PATH_ROOT before other default DB candidates', async () => {
