@@ -29,10 +29,11 @@
           }
         },
         "activity": {
+          "description": "Daily activity and streaks. Always emitted by current releases; optional so v1 reports from earlier releases stay valid.",
           "$ref": "#/$defs/activity"
         }
       },
-      "required": ["timezone", "periods", "activity"],
+      "required": ["timezone", "periods"],
       "additionalProperties": false
     }
   },

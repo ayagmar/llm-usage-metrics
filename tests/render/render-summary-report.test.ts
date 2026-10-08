@@ -171,6 +171,22 @@ describe('renderSummaryReport', () => {
     expect(tooNarrow).toContain('Current streak  2 days');
   });
 
+  it('never draws the heatmap or its legend past the terminal width', () => {
+    for (const terminalWidth of [17, 18, 19, 20, 57, 80]) {
+      const output = renderSummaryReport(createSummaryData(), 'terminal', {
+        useColor: true,
+        terminalWidth,
+      });
+      const activityLines = output
+        .split('\n')
+        .slice(output.split('\n').findIndex((line) => line.includes('Active days')) + 1);
+
+      for (const line of activityLines) {
+        expect(visibleWidth(line), `${terminalWidth}: ${line}`).toBeLessThanOrEqual(terminalWidth);
+      }
+    }
+  });
+
   it('colors heatmap cells by level when color is on', () => {
     const output = renderSummaryReport(createSummaryData(), 'terminal', {
       useColor: true,

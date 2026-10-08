@@ -29,6 +29,8 @@ const MONTH_LABELS = [
 const MONTH_LABEL_WIDTH = 3;
 /** Fewer weeks than this is not worth drawing. */
 const MIN_HEATMAP_WEEKS = 13;
+// `Less ·░▒▓█ More`: the legend must fit the grid's width too.
+const LEGEND_WIDTH = 'Less '.length + LEVEL_GLYPHS.length + ' More'.length;
 
 function renderCell(level: ActivityDay['level'], styles: HeatmapStyles): string {
   return styles.level(level)(LEVEL_GLYPHS[level]);
@@ -87,7 +89,7 @@ export function renderActivityHeatmap(
       ? allWeeks.length
       : Math.min(allWeeks.length, maxWidth - ROW_LABEL_WIDTH);
 
-  if (weekCount < MIN_HEATMAP_WEEKS) {
+  if (weekCount < Math.max(MIN_HEATMAP_WEEKS, LEGEND_WIDTH)) {
     return [];
   }
 

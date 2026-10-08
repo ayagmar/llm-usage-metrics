@@ -192,7 +192,14 @@ describe('report json schema e2e', () => {
       (JSON.parse(output) as { data: { periods: Array<{ totals: { events: number } }> } }).data
         .periods[2]?.totals.events,
     ).toBeGreaterThan(0);
-    validateReport('summary', output);
+    const parsed = validateReport('summary', output) as {
+      data: { activity?: { activeDays: number } };
+    };
+    expect(parsed.data.activity?.activeDays).toBeGreaterThan(0);
+
+    // A v1 summary from before the activity block must stay valid.
+    delete parsed.data.activity;
+    validateReport('summary', JSON.stringify(parsed));
   });
 
   it('validates compare output', async () => {
