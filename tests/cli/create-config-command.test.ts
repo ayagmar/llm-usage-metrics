@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createConfigCommand, USER_CONFIG_TEMPLATE } from '../../src/cli/create-config-command.js';
 import { loadUserConfig } from '../../src/config/user-config.js';
+import { getDefaultEventStorePath } from '../../src/persistence/event-store.js';
 
 const tempDirs: string[] = [];
 const previousConfigPath = process.env.LLM_USAGE_CONFIG_PATH;
@@ -122,6 +123,9 @@ describe('createConfigCommand', () => {
     const uncommentedTemplate = uncommentTemplate(USER_CONFIG_TEMPLATE);
 
     expect(() => parseToml(uncommentedTemplate)).not.toThrow();
+    expect(parseToml(uncommentedTemplate)).toMatchObject({
+      eventStore: { path: getDefaultEventStorePath() },
+    });
 
     const loadedConfig = await loadUserConfig({ LLM_USAGE_CONFIG_PATH: configPath }, async () => {
       return uncommentedTemplate;
