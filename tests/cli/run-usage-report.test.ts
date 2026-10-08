@@ -24,12 +24,7 @@ function restoreParseWorkers(): void {
 
 beforeEach(() => {
   restoreParseWorkers();
-  vi.spyOn(shareArtifact, 'writeAndOpenShareSvgFile').mockImplementation(
-    async (fileName, svgContent) => ({
-      outputPath: await shareArtifact.writeShareSvgFile(fileName, svgContent),
-      opened: true,
-    }),
-  );
+  vi.spyOn(shareArtifact, 'openShareFile').mockResolvedValue();
 });
 
 afterEach(async () => {
@@ -38,6 +33,7 @@ afterEach(async () => {
 
   restoreParseWorkers();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe('buildUsageReport', () => {
@@ -823,11 +819,11 @@ describe('buildUsageReport', () => {
     const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'usage-share-open-failure-sessions-'));
     tempDirs.push(emptyDir);
 
-    vi.mocked(shareArtifact.writeAndOpenShareSvgFile).mockResolvedValueOnce({
-      outputPath: '/tmp/usage-monthly-share.svg',
-      opened: false,
-      openErrorMessage: 'open failed',
-    });
+    // Stub the write too: this test does not run in a temp directory.
+    vi.spyOn(shareArtifact, 'writeShareFile').mockImplementation(
+      async (fileName) => `/tmp/${fileName}`,
+    );
+    vi.mocked(shareArtifact.openShareFile).mockRejectedValueOnce(new Error('open failed'));
 
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -848,6 +844,6 @@ describe('buildUsageReport', () => {
     }
 
     expect(stderrLines.some((line) => line.includes('Wrote usage share SVG'))).toBe(true);
-    expect(stderrLines.some((line) => line.includes('Could not open usage share SVG'))).toBe(true);
+    expect(stderrLines.some((line) => line.includes('Could not open usage share page'))).toBe(true);
   });
 });

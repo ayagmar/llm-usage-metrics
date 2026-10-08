@@ -30,16 +30,15 @@ vi.mock('../../src/cli/build-trends-data.js', () => ({
 }));
 
 vi.mock('../../src/cli/share-artifact.js', () => ({
-  writeAndOpenShareSvgFile: vi.fn(async (fileName: string) => ({
-    outputPath: `/tmp/${fileName}`,
-    opened: false,
-    openErrorMessage: 'open disabled in tests',
-  })),
+  writeShareFile: vi.fn(async (fileName: string) => `/tmp/${fileName}`),
+  openShareFile: vi.fn(async () => {
+    throw new Error('open disabled in tests');
+  }),
 }));
 
 import { buildTrendsData } from '../../src/cli/build-trends-data.js';
 import { buildTrendsReport, runTrendsReport } from '../../src/cli/run-trends-report.js';
-import { writeAndOpenShareSvgFile } from '../../src/cli/share-artifact.js';
+import { writeShareFile } from '../../src/cli/share-artifact.js';
 
 describe('run-trends-report', () => {
   afterEach(() => {
@@ -108,10 +107,10 @@ describe('run-trends-report', () => {
         share: true,
       });
 
-      expect(writeAndOpenShareSvgFile).toHaveBeenCalledTimes(1);
-      const [fileName, svg] = vi.mocked(writeAndOpenShareSvgFile).mock.calls[0] ?? [];
+      expect(writeShareFile).toHaveBeenCalledTimes(2);
+      const [fileName, svg] = vi.mocked(writeShareFile).mock.calls[0] ?? [];
       expect(fileName).toBe('trends-share.svg');
-      expect(svg).toContain('Daily Token Usage Trend');
+      expect(svg).toContain('Daily tokens');
 
       expect(consoleLogSpy).toHaveBeenCalledTimes(1);
       expect(String(consoleLogSpy.mock.calls[0]?.[0])).toContain('Daily Token Usage Trend');

@@ -408,7 +408,7 @@ const wrappedReportDefinition: ReportRuntimeDefinition = {
     commandName: 'wrapped',
     docsLabel: 'wrapped',
     kind: 'specialized',
-    description: 'Show a yearly usage recap with optional share SVG',
+    description: 'Show a yearly usage recap with an optional share card',
     sharedOptionProfile: 'wrapped',
     helpExamples: [
       {

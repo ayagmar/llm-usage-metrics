@@ -142,37 +142,91 @@ describe('report-lifecycle', () => {
     }
   });
 
-  it('writes the share SVG without opening it for --no-open', async () => {
+  async function runShareReport(open: boolean | undefined) {
+    const preparedReport = await prepareReport({
+      commandOptions: { share: true, open },
+      supportedFormats: ['terminal'] as const,
+      buildData: async () => ({}),
+      getDiagnostics: () => ({}),
+      render: () => 'report body',
+      createShareArtifact: () => ({
+        fileName: 'usage-share.svg',
+        logLabel: 'usage',
+        title: 'Usage share card',
+        render: (theme) => `<svg data-theme="${theme.name}"/>`,
+      }),
+    });
+
+    await runPreparedReport({ preparedReport });
+  }
+
+  it('writes the dark SVG and a page with both themes, then opens the page', async () => {
     const writeSpy = vi
-      .spyOn(shareArtifact, 'writeShareSvgFile')
-      .mockResolvedValue('/tmp/usage-share.svg');
-    const openSpy = vi.spyOn(shareArtifact, 'writeAndOpenShareSvgFile');
+      .spyOn(shareArtifact, 'writeShareFile')
+      .mockImplementation(async (fileName) => `/tmp/${fileName}`);
+    const openSpy = vi.spyOn(shareArtifact, 'openShareFile').mockResolvedValue();
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 
     try {
-      const preparedReport = await prepareReport({
-        commandOptions: { share: true, open: false },
-        supportedFormats: ['terminal'] as const,
-        buildData: async () => ({}),
-        getDiagnostics: () => ({}),
-        render: () => 'report body',
-        createShareArtifact: () => ({
-          fileName: 'usage-share.svg',
-          svg: '<svg/>',
-          logLabel: 'usage',
-        }),
-      });
+      await runShareReport(undefined);
 
-      await runPreparedReport({ preparedReport });
+      expect(writeSpy).toHaveBeenCalledTimes(2);
+      expect(writeSpy).toHaveBeenNthCalledWith(1, 'usage-share.svg', '<svg data-theme="dark"/>');
+      const [pageName, page] = writeSpy.mock.calls[1] ?? [];
+      expect(pageName).toBe('usage-share.html');
+      expect(page).toContain('<svg data-theme="dark"/>');
+      expect(page).toContain('<svg data-theme="light"/>');
+      expect(page).toContain('data-file-base-name="usage-share"');
+      expect(openSpy).toHaveBeenCalledWith('/tmp/usage-share.html');
+      const stderr = consoleErrorSpy.mock.calls.map((call) => String(call[0])).join('\n');
+      expect(stderr).toContain('Wrote usage share SVG: /tmp/usage-share.svg');
+      expect(stderr).toContain('Wrote usage share page: /tmp/usage-share.html');
+      expect(stderr).toContain('Opened usage share page: /tmp/usage-share.html');
+    } finally {
+      writeSpy.mockRestore();
+      openSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
+      consoleLogSpy.mockRestore();
+    }
+  });
 
-      expect(writeSpy).toHaveBeenCalledWith('usage-share.svg', '<svg/>');
+  it('writes the share files without opening them for --no-open', async () => {
+    const writeSpy = vi
+      .spyOn(shareArtifact, 'writeShareFile')
+      .mockImplementation(async (fileName) => `/tmp/${fileName}`);
+    const openSpy = vi.spyOn(shareArtifact, 'openShareFile').mockResolvedValue();
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    try {
+      await runShareReport(false);
+
+      expect(writeSpy).toHaveBeenCalledTimes(2);
       expect(openSpy).not.toHaveBeenCalled();
-      expect(
-        consoleErrorSpy.mock.calls.some((call) =>
-          String(call[0]).includes('Wrote usage share SVG: /tmp/usage-share.svg'),
-        ),
-      ).toBe(true);
+    } finally {
+      writeSpy.mockRestore();
+      openSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
+      consoleLogSpy.mockRestore();
+    }
+  });
+
+  it('warns but keeps the report when the page cannot be opened', async () => {
+    const writeSpy = vi
+      .spyOn(shareArtifact, 'writeShareFile')
+      .mockImplementation(async (fileName) => `/tmp/${fileName}`);
+    const openSpy = vi.spyOn(shareArtifact, 'openShareFile').mockRejectedValue('no opener');
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    try {
+      await runShareReport(undefined);
+
+      expect(consoleLogSpy).toHaveBeenCalledWith('report body');
+      expect(consoleErrorSpy.mock.calls.map((call) => String(call[0])).join('\n')).toContain(
+        'Could not open usage share page: /tmp/usage-share.html (no opener)',
+      );
     } finally {
       writeSpy.mockRestore();
       openSpy.mockRestore();

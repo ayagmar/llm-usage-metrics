@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import type { UsageDataResult } from '../../src/cli/usage-data-contracts.js';
 import { renderUsageShareSvg } from '../../src/render/render-usage-share-svg.js';
+import { getSourceColor, shareThemes } from '../../src/render/share-svg-theme.js';
+import { HOSTILE_TEXT, renderInBothThemes } from './share-svg-assertions.js';
 
 function createMultiSourceData(): UsageDataResult {
   return {
@@ -199,109 +201,157 @@ function createManySourcesData(sourceNames: string[]): UsageDataResult {
   };
 }
 
-const legendPattern =
-  /<circle data-legend="([^"]+)" cx="([0-9.]+)" cy="([0-9.]+)" r="5" fill="([^"]+)"\/>/g;
+const dark = shareThemes.dark;
+const legendPattern = /data-legend="([^"]+)">\n<rect [^>]*fill="([^"]+)"/gu;
+
+function legendEntries(svg: string): [string, string][] {
+  return [...svg.matchAll(legendPattern)].map((match) => [match[1], match[2]]);
+}
+
+function withPeriods(data: UsageDataResult, periodKeys: string[]): UsageDataResult {
+  const [template] = data.rows.filter((row) => row.rowType === 'period_source');
+
+  return {
+    ...data,
+    rows: [
+      ...periodKeys.map((periodKey) => ({ ...template, periodKey })),
+      ...data.rows.filter((row) => row.rowType === 'grand_total'),
+    ],
+  };
+}
 
 describe('renderUsageShareSvg', () => {
-  it('renders a stacked area SVG with title, stats, legend, and period labels', () => {
-    const svg = renderUsageShareSvg(createMultiSourceData(), 'monthly');
+  it('renders cost, tokens, a source legend, and stacked bars in both themes', () => {
+    const [svg] = renderInBothThemes((theme) =>
+      renderUsageShareSvg(createMultiSourceData(), 'monthly', theme),
+    );
 
-    expect(svg).toContain('Monthly Usage');
-    expect(svg).toContain('Tokens');
-    expect(svg).toContain('pi');
-    expect(svg).toContain('codex');
-    expect(svg).toContain('2026-01');
-    expect(svg).toContain('2026-02');
+    expect(svg).toContain('Monthly usage');
     expect(svg).toContain('$2.00');
-    expect(svg).toContain('llm-usage monthly --share');
+    expect(svg).toContain('29k');
+    expect(svg).toContain('2 months with usage');
+    expect(svg).toContain('$ llm-usage monthly --share');
+    expect(svg).toContain('2026-01 to 2026-02');
+    expect(svg).toContain('>Jan 2026<');
+    expect(svg).toContain('>Feb 2026<');
+    // Largest source first, with its share of all tokens.
+    expect(legendEntries(svg).map(([source]) => source)).toEqual(['pi', 'codex']);
+    expect(svg).toContain('>86%<');
+    expect(svg).toContain('>14%<');
+    // January stacks pi and codex; February is pi alone.
+    expect(
+      svg.match(/<rect x="[0-9.]+" y="[0-9.]+" width="[0-9.]+" height="[0-9.]+" fill="/gu),
+    ).toHaveLength(3);
   });
 
-  it('renders dark theme background', () => {
-    const svg = renderUsageShareSvg(createMultiSourceData(), 'monthly');
+  it('labels periods for each granularity', () => {
+    const daily = renderUsageShareSvg(
+      withPeriods(createManySourcesData(['pi']), ['2026-01-02', '2026-01-03']),
+      'daily',
+      dark,
+    );
+    const weekly = renderUsageShareSvg(
+      withPeriods(createManySourcesData(['pi']), ['2026-W01', '2026-W02']),
+      'weekly',
+      dark,
+    );
 
-    expect(svg).toContain('#0d1117');
+    expect(daily).toContain('Daily usage');
+    expect(daily).toContain('>Jan 2<');
+    expect(daily).toContain('2 days with usage');
+    expect(weekly).toContain('Weekly usage');
+    expect(weekly).toContain('>W02<');
+    expect(weekly).toContain('$ llm-usage weekly --share');
   });
 
-  it('uses stacked area paths for multiple periods', () => {
-    const svg = renderUsageShareSvg(createMultiSourceData(), 'monthly');
+  it('keeps an empty slot for each period without usage', () => {
+    const [svg] = renderInBothThemes((theme) =>
+      renderUsageShareSvg(
+        withPeriods(createManySourcesData(['pi']), ['2026-03', '2026-06']),
+        'monthly',
+        theme,
+      ),
+    );
 
-    expect(svg).toContain('clip-path="url(#chart-clip)"');
+    expect(svg.match(/>\w{3} 2026</gu)).toEqual([
+      '>Mar 2026<',
+      '>Apr 2026<',
+      '>May 2026<',
+      '>Jun 2026<',
+    ]);
+    expect(svg).toContain('2 months with usage');
+    // Two bars across four slots: Mar in the first, Jun in the last.
+    const barXs = [...svg.matchAll(/<rect x="([0-9.]+)" y="[0-9.]+" width="[0-9.]+" height/gu)]
+      .map((match) => Number(match[1]))
+      .filter((x) => x >= 420); // chart area; the legend swatches sit left of it
+    expect(barXs).toHaveLength(2);
+    expect(barXs[1] - barXs[0]).toBeCloseTo((3 * (1136 - 420)) / 4, 1);
   });
 
-  it('renders no-data message for empty data', () => {
-    const svg = renderUsageShareSvg(createEmptyData(), 'daily');
-
-    expect(svg).toContain('No usage data available');
-    expect(svg).toContain('llm-usage daily --share');
-  });
-
-  it('adapts the title and command badge to granularity', () => {
-    expect(renderUsageShareSvg(createEmptyData(), 'daily')).toContain('Daily Usage');
-    expect(renderUsageShareSvg(createEmptyData(), 'daily')).toContain('llm-usage daily --share');
-    expect(renderUsageShareSvg(createEmptyData(), 'weekly')).toContain('Weekly Usage');
-    expect(renderUsageShareSvg(createEmptyData(), 'monthly')).toContain(
-      'llm-usage monthly --share',
+  it('drops characters XML forbids from source names', () => {
+    renderInBothThemes((theme) =>
+      renderUsageShareSvg(createManySourcesData(['bad\u0001name\uD800']), 'monthly', theme),
     );
   });
 
-  it('renders single-period data as bars', () => {
-    const data = createMultiSourceData();
-    // Remove second period and combined rows, keep only 2026-01 source rows + grand total
-    data.rows = data.rows.filter(
-      (r) =>
-        (r.rowType === 'period_source' && r.periodKey === '2026-01') || r.rowType === 'grand_total',
+  it('draws at most eight period labels', () => {
+    const periods = Array.from(
+      { length: 30 },
+      (_, index) => `2026-01-${String(index + 1).padStart(2, '0')}`,
+    );
+    const svg = renderUsageShareSvg(
+      withPeriods(createManySourcesData(['pi']), periods),
+      'daily',
+      dark,
     );
 
-    const svg = renderUsageShareSvg(data, 'monthly');
-
-    expect(svg).toContain('<rect');
-    expect(svg).not.toContain('clip-path="url(#chart-clip)"');
+    const labels = svg.match(/>Jan \d+</gu);
+    expect(labels).toHaveLength(8);
+    // The last day is always labelled, ending at the chart edge.
+    expect(labels?.at(-1)).toBe('>Jan 30<');
+    expect(svg).toMatch(/<text x="1136" y="526" text-anchor="end"[^>]*>Jan 30</u);
   });
 
-  it('wraps many legend items across rows without leaving the canvas', () => {
-    const names = Array.from({ length: 14 }, (_, i) => `sourcelongname${i}`);
-    const svg = renderUsageShareSvg(createManySourcesData(names), 'monthly');
-    const items = [...svg.matchAll(legendPattern)];
+  it('keeps six legend rows and folds the smallest sources into one', () => {
+    const names = ['a1', 'b2', 'c3', 'd4', 'e5', 'f6', 'g7', 'pi'];
+    const [svg] = renderInBothThemes((theme) =>
+      renderUsageShareSvg(createManySourcesData(names), 'monthly', theme),
+    );
+    const entries = legendEntries(svg);
 
-    expect(items).toHaveLength(14);
-    for (const item of items) {
-      expect(Number(item[2])).toBeLessThanOrEqual(1500 - 80);
-    }
-
-    const distinctRows = new Set(items.map((item) => item[3]));
-    expect(distinctRows.size).toBeGreaterThanOrEqual(2);
+    // Tokens grow with the index, so pi is largest and a1..c3 fold into "3 more".
+    expect(entries.map(([source]) => source)).toEqual(['pi', 'g7', 'f6', 'e5', 'd4', '3 more']);
+    expect(entries.at(-1)?.[1]).toBe(dark.textMuted);
+    // Named colors follow the alphabetical source order, as in every other report.
+    expect(entries[0]?.[1]).toBe(getSourceColor('pi', 7));
+    expect(entries[1]?.[1]).toBe(getSourceColor('g7', 6));
+    expect(new Set(entries.map(([, color]) => color)).size).toBe(6);
   });
 
-  it('keeps a single legend row at the base height for a few sources', () => {
-    const svg = renderUsageShareSvg(createManySourcesData(['alpha', 'beta', 'gamma']), 'monthly');
-    const items = [...svg.matchAll(legendPattern)];
+  it('shows <1% for a source with a tiny share', () => {
+    const data = createManySourcesData(['big', 'tiny']);
+    const [bigRow, tinyRow] = data.rows;
+    bigRow.totalTokens = 1_000_000;
+    tinyRow.totalTokens = 10;
 
-    expect(svg).toContain('height="620"');
-    expect(svg).toContain('viewBox="0 0 1500 620"');
-    expect(new Set(items.map((item) => item[3]))).toEqual(new Set(['158']));
+    expect(renderUsageShareSvg(data, 'monthly', dark)).toContain('>&lt;1%<');
   });
 
-  it('grows the canvas and shifts the chart and footer down per wrapped legend row', () => {
-    const names = Array.from({ length: 14 }, (_, i) => `sourcelongname${i}`);
-    const svg = renderUsageShareSvg(createManySourcesData(names), 'monthly');
-    const rowCount = new Set([...svg.matchAll(legendPattern)].map((item) => item[3])).size;
-    const extraHeight = (rowCount - 1) * 30;
-    const height = 620 + extraHeight;
+  it('escapes and shortens hostile source names', () => {
+    const [svg] = renderInBothThemes((theme) =>
+      renderUsageShareSvg(createManySourcesData([HOSTILE_TEXT]), 'monthly', theme),
+    );
 
-    expect(rowCount).toBeGreaterThanOrEqual(2);
-    expect(svg).toContain(`height="${height}"`);
-    expect(svg).toContain(`viewBox="0 0 1500 ${height}"`);
-    // Footer line sits at H - footerHeight + 1; the top grid line at chartTop.
-    expect(svg).toContain(`<line x1="0" y1="${height - 36 + 1}"`);
-    expect(svg).toContain(`y1="${(208 + extraHeight).toFixed(2)}"`);
+    expect(svg).not.toContain('<script');
+    expect(svg).toContain('&lt;script&gt;alert(&quot;x&quot;…');
   });
 
-  it('gives each of 16 fallback sources a distinct legend color', () => {
-    const names = Array.from({ length: 16 }, (_, i) => `custom${String.fromCharCode(97 + i)}`);
-    const svg = renderUsageShareSvg(createManySourcesData(names), 'monthly');
-    const items = [...svg.matchAll(legendPattern)];
+  it('shows an empty state without usage', () => {
+    const [svg] = renderInBothThemes((theme) =>
+      renderUsageShareSvg(createEmptyData(), 'monthly', theme),
+    );
 
-    expect(items).toHaveLength(16);
-    expect(new Set(items.map((item) => item[4])).size).toBe(16);
+    expect(svg).toContain('No usage in this window');
+    expect(legendEntries(svg)).toEqual([]);
   });
 });

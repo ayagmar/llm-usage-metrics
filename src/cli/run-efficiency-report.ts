@@ -51,8 +51,9 @@ async function prepareEfficiencyReport(
     createShareArtifact: options.share
       ? (efficiencyData) => ({
           fileName: 'efficiency-monthly-share.svg',
-          svg: renderEfficiencyMonthlyShareSvg(efficiencyData),
           logLabel: 'efficiency',
+          title: 'Efficiency share card',
+          render: (theme) => renderEfficiencyMonthlyShareSvg(efficiencyData, theme),
         })
       : undefined,
     render: (efficiencyData, format) =>

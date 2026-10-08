@@ -1,191 +1,149 @@
 import type { WrappedRecap, WrappedTopItem } from '../wrapped/wrapped-recap.js';
 import {
+  activityGridWidth,
+  countActivityWeeks,
   escapeSvg,
   formatApproxUsd,
   formatCompact,
+  formatDayUnit,
   formatInteger,
-  renderShareCommandBadge,
-  renderShareDocument,
-  renderStatTile,
-  SHARE_SVG_WIDTH,
-  shareTheme,
-  type StatTileGeometry,
+  renderActivityGrid,
+  renderEmptyState,
+  renderHeatLegend,
+  renderShareCard,
+  renderStat,
+  SHARE_MARGIN,
+  SHARE_WIDTH,
+  svgText,
+  truncateLabel,
+  type ShareTheme,
 } from './share-svg-theme.js';
 
-const W = SHARE_SVG_WIDTH;
-const H = 940;
-const left = 80;
-const right = 80;
-const tileTop = 172;
-// Five tiles between the margins: (1500 - 160 - 4 * 28) / 5 = 245.6, floored.
-const tileWidth = 245;
-const tileHeight = 126;
-const tileGap = 28;
-const listTop = 360;
-const heatTitleTop = 668;
-const heatGridTop = 726;
-const heatCellSize = 20;
-const heatCellPitch = 24;
-const heatGridLeft = left + 42;
-// Single-hue ramp (dark to light) matching the site accent, plus the empty-cell gray.
-const levelColors = ['#21262d', '#4a2a1c', '#7d4224', '#c26535', '#f59d70'] as const;
-
-function formatDayLabel(count: number): string {
-  return count === 1 ? 'day' : 'days';
-}
+const right = SHARE_WIDTH - SHARE_MARGIN;
+const statsTop = 150;
+// The cost column is wider: it holds the longest figure.
+const statColumns = [SHARE_MARGIN, 344, 548, 752, 956];
+const gridTop = 272;
+const gridLeft = SHARE_MARGIN + 36;
+const gridPitch = 19;
+const listTop = 458;
+const listRowPitch = 24;
+const listWidth = 500;
+// The card fits three rows per list; the recap carries up to five.
+const TOP_LIST_ROWS = 3;
 
 function formatHours(activeMs: number): string {
   const hours = Math.round(activeMs / 3_600_000);
 
   if (hours === 0) {
-    return activeMs > 0 ? '<1h' : '0h';
+    return activeMs > 0 ? '<1' : '0';
   }
 
-  return `${formatInteger(hours)}h`;
+  return formatInteger(hours);
 }
 
-const tileGeometry: StatTileGeometry = {
-  left,
-  top: tileTop,
-  width: tileWidth,
-  height: tileHeight,
-  gap: tileGap,
-};
+function renderStats(data: WrappedRecap, theme: ShareTheme): string {
+  const stats = [
+    {
+      label: 'Cost',
+      value: formatApproxUsd(data.costUsd, data.costIncomplete),
+      detail:
+        data.estimatedCacheSavingsUsd === undefined
+          ? 'estimated spend'
+          : `cache saved ${formatApproxUsd(data.estimatedCacheSavingsUsd, true)}`,
+      accent: true,
+    },
+    {
+      label: 'Tokens',
+      value: formatCompact(data.totalTokens),
+      detail: `${formatInteger(data.eventCount)} events`,
+    },
+    {
+      label: 'Hours',
+      value: formatHours(data.activeMs),
+      detail: `${formatInteger(data.sessionCount)} sessions`,
+    },
+    {
+      label: 'Active days',
+      value: formatInteger(data.activeDays),
+      detail: 'this year',
+    },
+    {
+      label: 'Longest streak',
+      value: formatInteger(data.longestStreak),
+      unit: formatDayUnit(data.longestStreak),
+    },
+  ];
 
-function renderWrappedStatTile(index: number, label: string, value: string, sublabel: string) {
-  return renderStatTile(tileGeometry, index, label, value, sublabel);
-}
-
-// The card fits three rows; the recap carries up to five, so the SVG shows the top three.
-const TOP_LIST_ROWS = 3;
-
-function renderTopList(title: string, items: readonly WrappedTopItem[], x: number): string {
-  const width = 640;
-  const height = 260;
-  const visibleItems = items.slice(0, TOP_LIST_ROWS);
-  const rows =
-    visibleItems.length === 0
-      ? `<text x="${x + 28}" y="${listTop + 100}" font-size="18" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">No data</text>`
-      : visibleItems
-          .map((item, index) => {
-            const rowY = listTop + 78 + index * 56;
-            const rank = String(index + 1).padStart(2, '0');
-            const cost = formatApproxUsd(item.costUsd, item.costIncomplete);
-            const metric = `${formatCompact(item.totalTokens)} tokens | ${cost}`;
-
-            return `<g data-top-item="${escapeSvg(title)}-${index + 1}">
-<text x="${x + 28}" y="${rowY}" font-size="15" fill="${shareTheme.textMuted}" font-family="${shareTheme.mono}">${rank}</text>
-<text x="${x + 76}" y="${rowY}" font-size="20" font-weight="700" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">${escapeSvg(item.name)}</text>
-<text x="${x + width - 28}" y="${rowY}" text-anchor="end" font-size="15" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}">${escapeSvg(metric)}</text>
-</g>`;
-          })
-          .join('\n');
-
-  return `<g>
-<rect x="${x}" y="${listTop}" width="${width}" height="${height}" rx="18" fill="${shareTheme.cardBg}" stroke="${shareTheme.cardBorder}"/>
-<text x="${x + 28}" y="${listTop + 38}" font-size="22" font-weight="800" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">${escapeSvg(title)}</text>
-${rows}
-</g>`;
-}
-
-const MONTH_LABELS = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
-const WEEKDAY_LABELS: readonly { row: number; label: string }[] = [
-  { row: 1, label: 'Mon' },
-  { row: 3, label: 'Wed' },
-  { row: 5, label: 'Fri' },
-];
-const MS_PER_DAY = 86_400_000;
-
-function renderHeatLegend(): string {
-  const swatch = 12;
-  const gap = 4;
-  const rightEdge = W - right;
-  const swatchesWidth = levelColors.length * (swatch + gap) - gap;
-  const moreX = rightEdge;
-  const swatchesX = rightEdge - 34 - swatchesWidth;
-  const lessX = swatchesX - 8;
-  const y = heatTitleTop + 18;
-  const swatches = levelColors
-    .map(
-      (color, index) =>
-        `<rect x="${swatchesX + index * (swatch + gap)}" y="${y}" width="${swatch}" height="${swatch}" rx="3" fill="${color}"/>`,
+  return stats
+    .map((stat, index) =>
+      renderStat({ theme, x: statColumns[index], y: statsTop, size: 32, ...stat }),
     )
     .join('\n');
-
-  return `<g data-heat-legend="true">
-<text x="${lessX}" y="${y + 10}" text-anchor="end" font-size="12" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">Less</text>
-${swatches}
-<text x="${moreX}" y="${y + 10}" text-anchor="end" font-size="12" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">More</text>
-</g>`;
 }
 
-function renderDailyHeatmap(data: WrappedRecap): string {
-  const yearStartDow = new Date(`${data.from}T00:00:00Z`).getUTCDay();
-  const cells = data.dailyIntensity
-    .map((day, index) => {
-      const row = (yearStartDow + index) % 7;
-      const column = Math.floor((yearStartDow + index) / 7);
-      const x = heatGridLeft + column * heatCellPitch;
-      const y = heatGridTop + row * heatCellPitch;
+function renderTopList(
+  theme: ShareTheme,
+  title: string,
+  items: readonly WrappedTopItem[],
+  x: number,
+): string {
+  const rows = items.slice(0, TOP_LIST_ROWS).map((item, index) => {
+    const y = listTop + 30 + index * listRowPitch;
+    const cost = formatApproxUsd(item.costUsd, item.costIncomplete);
 
-      return `<rect data-date="${escapeSvg(day.date)}" data-level="${day.level}" x="${x}" y="${y}" width="${heatCellSize}" height="${heatCellSize}" rx="4" fill="${levelColors[day.level]}"/>`;
-    })
-    .join('\n');
-  const monthLabels = MONTH_LABELS.map((label, monthIndex) => {
-    const dayOfYear = (Date.UTC(data.year, monthIndex, 1) - Date.UTC(data.year, 0, 1)) / MS_PER_DAY;
-    const column = Math.floor((yearStartDow + dayOfYear) / 7);
-    const x = heatGridLeft + column * heatCellPitch;
-
-    return `<text x="${x}" y="${heatGridTop - 12}" font-size="12" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">${label}</text>`;
-  }).join('\n');
-  const weekdayLabels = WEEKDAY_LABELS.map(
-    ({ row, label }) =>
-      `<text x="${heatGridLeft - 12}" y="${heatGridTop + row * heatCellPitch + 14}" text-anchor="end" font-size="12" fill="${shareTheme.textMuted}" font-family="${shareTheme.font}">${label}</text>`,
-  ).join('\n');
-
-  return `<g>
-<text x="${left}" y="${heatTitleTop}" font-size="24" font-weight="800" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">Daily activity</text>
-<text x="${left}" y="${heatTitleTop + 26}" font-size="15" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}">Tokens per day, shaded by quartile of your active days</text>
-${renderHeatLegend()}
-${monthLabels}
-${weekdayLabels}
-${cells}
+    return `<g data-top-item="${escapeSvg(title)}-${index + 1}">
+${svgText(x, y, truncateLabel(item.name, 34), { size: 17, fill: theme.text })}
+${svgText(x + listWidth, y, `${formatCompact(item.totalTokens)}  ${cost}`, {
+  size: 15,
+  fill: theme.textSecondary,
+  mono: true,
+  anchor: 'end',
+})}
 </g>`;
+  });
+
+  return [
+    svgText(x, listTop, title, { size: 16, fill: theme.textSecondary }),
+    ...(rows.length === 0
+      ? [svgText(x, listTop + 30, 'No data', { size: 17, fill: theme.textMuted })]
+      : rows),
+  ].join('\n');
 }
 
-export function renderWrappedShareSvg(data: WrappedRecap): string {
-  const commandText = `llm-usage wrapped --year ${data.year} --share`;
-  const cost = formatApproxUsd(data.costUsd, data.costIncomplete);
-  const costSublabel =
-    data.estimatedCacheSavingsUsd === undefined
-      ? 'estimated spend'
-      : `saved ${formatApproxUsd(data.estimatedCacheSavingsUsd, true)} via cache`;
-  const footerLabel = `${data.from} to ${data.to}`;
+function renderActivity(data: WrappedRecap, theme: ShareTheme): string {
+  const gridRight =
+    gridLeft + activityGridWidth(countActivityWeeks(data.dailyIntensity), gridPitch);
 
-  const body = `<text x="${left}" y="78" font-size="44" font-weight="900" fill="${shareTheme.textPrimary}" font-family="${shareTheme.font}">${data.year} Wrapped</text>
-<text x="${left}" y="112" font-size="18" fill="${shareTheme.textSecondary}" font-family="${shareTheme.font}">Your local LLM usage recap</text>
-${renderShareCommandBadge(commandText)}
-${renderWrappedStatTile(0, 'Tokens', formatCompact(data.totalTokens), `${formatInteger(data.eventCount)} events`)}
-${renderWrappedStatTile(1, 'Cost', cost, costSublabel)}
-${renderWrappedStatTile(2, 'Hours', formatHours(data.activeMs), `${formatInteger(data.sessionCount)} sessions`)}
-${renderWrappedStatTile(3, 'Active Days', formatInteger(data.activeDays), 'this year')}
-${renderWrappedStatTile(4, 'Streak', formatInteger(data.longestStreak), formatDayLabel(data.longestStreak))}
-${renderTopList('Top Models', data.topModels, left)}
-${renderTopList('Top Sources', data.topSources, W - right - 640)}
-${renderDailyHeatmap(data)}`;
+  return [
+    renderActivityGrid({
+      theme,
+      days: data.dailyIntensity,
+      x: gridLeft,
+      y: gridTop,
+      pitch: gridPitch,
+    }),
+    renderHeatLegend(theme, gridRight, gridTop + 7 * gridPitch + 20),
+  ].join('\n');
+}
 
-  return renderShareDocument({ height: H, body, footerRightText: footerLabel });
+export function renderWrappedShareSvg(data: WrappedRecap, theme: ShareTheme): string {
+  const body =
+    data.eventCount === 0
+      ? renderEmptyState(theme, `No usage in ${data.year}`)
+      : [
+          renderStats(data, theme),
+          renderActivity(data, theme),
+          renderTopList(theme, 'Top models', data.topModels, SHARE_MARGIN),
+          renderTopList(theme, 'Top sources', data.topSources, right - listWidth),
+        ].join('\n');
+
+  return renderShareCard({
+    theme,
+    title: `${data.year} Wrapped`,
+    subtitle: `A year of LLM usage, ${data.timezone} time`,
+    command: `llm-usage wrapped --year ${data.year} --share`,
+    footnote: `${data.from} to ${data.to}`,
+    body,
+  });
 }

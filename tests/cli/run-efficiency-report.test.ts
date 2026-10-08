@@ -43,12 +43,7 @@ async function createGitRepoWithCommit(commitIsoTimestamp: string): Promise<stri
 }
 
 beforeEach(() => {
-  vi.spyOn(shareArtifact, 'writeAndOpenShareSvgFile').mockImplementation(
-    async (fileName, svgContent) => ({
-      outputPath: await shareArtifact.writeShareSvgFile(fileName, svgContent),
-      opened: true,
-    }),
-  );
+  vi.spyOn(shareArtifact, 'openShareFile').mockResolvedValue();
 });
 
 afterEach(async () => {
@@ -274,7 +269,7 @@ describe('runEfficiencyReport', () => {
     const stderrLines = consoleErrorSpy.mock.calls.map((call) => String(call[0]));
 
     expect(svgContent).toContain('<svg');
-    expect(svgContent).toContain('Monthly Efficiency');
+    expect(svgContent).toContain('>Efficiency<');
     expect(stderrLines.some((line) => line.includes('Wrote efficiency share SVG'))).toBe(true);
     expect(consoleLogSpy).toHaveBeenCalledTimes(1);
   });
@@ -286,11 +281,11 @@ describe('runEfficiencyReport', () => {
     );
     tempDirs.push(emptyDir);
 
-    vi.mocked(shareArtifact.writeAndOpenShareSvgFile).mockResolvedValueOnce({
-      outputPath: '/tmp/efficiency-monthly-share.svg',
-      opened: false,
-      openErrorMessage: 'open failed',
-    });
+    // Stub the write too: this test does not run in a temp directory.
+    vi.spyOn(shareArtifact, 'writeShareFile').mockImplementation(
+      async (fileName) => `/tmp/${fileName}`,
+    );
+    vi.mocked(shareArtifact.openShareFile).mockRejectedValueOnce(new Error('open failed'));
 
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -314,7 +309,7 @@ describe('runEfficiencyReport', () => {
     }
 
     expect(stderrLines.some((line) => line.includes('Wrote efficiency share SVG'))).toBe(true);
-    expect(stderrLines.some((line) => line.includes('Could not open efficiency share SVG'))).toBe(
+    expect(stderrLines.some((line) => line.includes('Could not open efficiency share page'))).toBe(
       true,
     );
   });

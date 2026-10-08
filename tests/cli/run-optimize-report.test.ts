@@ -78,12 +78,7 @@ describe('run-optimize-report', () => {
   const tempDirs: string[] = [];
 
   beforeEach(() => {
-    vi.spyOn(shareArtifact, 'writeAndOpenShareSvgFile').mockImplementation(
-      async (fileName, svgContent) => ({
-        outputPath: await shareArtifact.writeShareSvgFile(fileName, svgContent),
-        opened: true,
-      }),
-    );
+    vi.spyOn(shareArtifact, 'openShareFile').mockResolvedValue();
   });
 
   afterEach(async () => {
@@ -322,17 +317,17 @@ describe('run-optimize-report', () => {
     const stderrLines = consoleErrorSpy.mock.calls.map((call) => String(call[0]));
 
     expect(svgContent).toContain('<svg');
-    expect(svgContent).toContain('Monthly Optimize');
+    expect(svgContent).toContain('>Optimize<');
     expect(stderrLines.some((line) => line.includes('Wrote optimize share SVG'))).toBe(true);
     expect(consoleLogSpy).toHaveBeenCalledTimes(1);
   });
 
   it('warns when optimize share SVG cannot be opened after writing', async () => {
-    vi.mocked(shareArtifact.writeAndOpenShareSvgFile).mockResolvedValueOnce({
-      outputPath: '/tmp/optimize-monthly-share.svg',
-      opened: false,
-      openErrorMessage: 'open failed',
-    });
+    // Stub the write too: this test does not run in a temp directory.
+    vi.spyOn(shareArtifact, 'writeShareFile').mockImplementation(
+      async (fileName) => `/tmp/${fileName}`,
+    );
+    vi.mocked(shareArtifact.openShareFile).mockRejectedValueOnce(new Error('open failed'));
 
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -350,7 +345,7 @@ describe('run-optimize-report', () => {
     }
 
     expect(stderrLines.some((line) => line.includes('Wrote optimize share SVG'))).toBe(true);
-    expect(stderrLines.some((line) => line.includes('Could not open optimize share SVG'))).toBe(
+    expect(stderrLines.some((line) => line.includes('Could not open optimize share page'))).toBe(
       true,
     );
   });

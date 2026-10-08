@@ -1,15 +1,21 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  catmullRom,
+  countActivityWeeks,
   escapeSvg,
   formatCompact,
-  formatDecimal,
   formatInteger,
   formatUsd,
   getSourceColor,
+  renderActivityGrid,
+  renderShareCard,
   scaleY,
+  shareThemes,
+  svgText,
+  truncateLabel,
 } from '../../src/render/share-svg-theme.js';
+import { getLocalDateKeyRange } from '../../src/utils/time-buckets.js';
+import { expectShareCard, HOSTILE_TEXT } from './share-svg-assertions.js';
 
 describe('share-svg-theme', () => {
   describe('getSourceColor', () => {
@@ -35,12 +41,122 @@ describe('share-svg-theme', () => {
   });
 
   describe('escapeSvg', () => {
+    it('drops characters XML forbids, keeping valid emoji', () => {
+      expect(escapeSvg('a\u0000b\u001Fc\uD800d😀\tok')).toBe('abcd😀\tok');
+    });
+
     it('escapes all XML special characters', () => {
       expect(escapeSvg('a & b < c > d " e \' f')).toBe('a &amp; b &lt; c &gt; d &quot; e &#39; f');
     });
 
     it('returns plain text unchanged', () => {
       expect(escapeSvg('hello')).toBe('hello');
+    });
+  });
+
+  describe('truncateLabel', () => {
+    it('keeps short labels and cuts long ones with an ellipsis', () => {
+      expect(truncateLabel('claude', 10)).toBe('claude');
+      expect(truncateLabel('abcdefghij', 10)).toBe('abcdefghij');
+      expect(truncateLabel('abcdefghijk', 10)).toBe('abcdefghi…');
+    });
+
+    it('never splits a grapheme', () => {
+      const family = '👨‍👩‍👧';
+      expect(truncateLabel(`${family}${family}${family}`, 2)).toBe(`${family}…`);
+    });
+  });
+
+  describe('svgText', () => {
+    it('escapes content and the suffix', () => {
+      const text = svgText(10, 20, HOSTILE_TEXT, {
+        size: 12,
+        fill: '#000',
+        suffix: { text: '<u>', size: 8, fill: '#111' },
+      });
+
+      expect(text).not.toContain('<script');
+      expect(text).toContain('>&lt;u&gt;</tspan></text>');
+    });
+  });
+
+  describe('renderShareCard', () => {
+    it('frames the body at 1200x630 with the title, command, and footnote', () => {
+      for (const theme of [shareThemes.dark, shareThemes.light]) {
+        const svg = renderShareCard({
+          theme,
+          title: HOSTILE_TEXT,
+          subtitle: 'Sub',
+          command: 'llm-usage daily --share',
+          footnote: '2026-01-01 to 2026-01-31',
+          body: '<g/>',
+        });
+
+        expectShareCard(svg, theme);
+        expect(svg).toContain('$ llm-usage daily --share');
+        expect(svg).toContain('2026-01-01 to 2026-01-31');
+      }
+    });
+  });
+
+  describe('renderActivityGrid', () => {
+    it('puts each day in its Monday-first row and week column', () => {
+      // A contiguous Thursday-to-Monday run: Thursday is row 3, Monday opens column 1.
+      const run = ['2026-01-01', '2026-01-02', '2026-01-03', '2026-01-04', '2026-01-05'].map(
+        (date) => ({ date, totalTokens: 1, level: 1 as const }),
+      );
+      const grid = renderActivityGrid({
+        theme: shareThemes.dark,
+        days: run,
+        x: 100,
+        y: 50,
+        pitch: 20,
+      });
+
+      expect(grid).toContain('data-date="2026-01-01" data-level="1" x="100" y="110"');
+      expect(grid).toContain('data-date="2026-01-04" data-level="1" x="100" y="170"');
+      expect(grid).toContain('data-date="2026-01-05" data-level="1" x="120" y="50"');
+      expect(countActivityWeeks(run)).toBe(2);
+    });
+
+    it('labels the first column and each month that has room', () => {
+      const monthLabels = (from: string, to: string) =>
+        [
+          ...renderActivityGrid({
+            theme: shareThemes.dark,
+            days: getLocalDateKeyRange(from, to).map((date) => ({
+              date,
+              totalTokens: 0,
+              level: 0,
+            })),
+            x: 100,
+            y: 50,
+            pitch: 20,
+          }).matchAll(/<text x="(\d+)" y="40"[^>]*>(\w{3})</gu),
+        ].map((match) => [Number(match[1]), match[2]]);
+
+      // November's first Monday is only one column after October's label: no room, no label.
+      expect(monthLabels('2025-10-29', '2025-11-30')).toEqual([[100, 'Oct']]);
+      // A whole year labels every month at the column of its first Monday.
+      const year = monthLabels('2026-01-01', '2026-12-31');
+      expect(year.map(([, label]) => label)).toEqual([
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ]);
+      expect(year[1]).toEqual([200, 'Feb']); // Monday 2026-02-02 opens column 5.
+      expect(renderActivityGrid({ theme: shareThemes.dark, days: [], x: 0, y: 0, pitch: 20 })).toBe(
+        '',
+      );
     });
   });
 
@@ -74,16 +190,6 @@ describe('share-svg-theme', () => {
     });
   });
 
-  describe('formatDecimal', () => {
-    it('formats with 2 decimal places', () => {
-      expect(formatDecimal(491.67)).toBe('491.67');
-    });
-
-    it('returns dash for undefined', () => {
-      expect(formatDecimal(undefined)).toBe('-');
-    });
-  });
-
   describe('formatUsd', () => {
     it('formats as currency', () => {
       expect(formatUsd(13)).toBe('$13.00');
@@ -91,40 +197,6 @@ describe('share-svg-theme', () => {
 
     it('returns dash for undefined', () => {
       expect(formatUsd(undefined)).toBe('-');
-    });
-  });
-
-  describe('catmullRom', () => {
-    it('returns empty string for fewer than 2 points', () => {
-      expect(catmullRom([])).toBe('');
-      expect(catmullRom([{ x: 0, y: 0 }])).toBe('');
-    });
-
-    it('generates a path string for 2+ points', () => {
-      const path = catmullRom([
-        { x: 0, y: 100 },
-        { x: 50, y: 50 },
-        { x: 100, y: 80 },
-      ]);
-
-      expect(path).toMatch(/^M0\.00,100\.00/);
-      expect(path).toContain('C');
-    });
-
-    it('clamps control points to yFloor', () => {
-      const path = catmullRom(
-        [
-          { x: 0, y: 0 },
-          { x: 50, y: 100 },
-        ],
-        0.3,
-        100,
-      );
-
-      const yValues = path.match(/[\d.]+/g)?.map(Number) ?? [];
-      for (let i = 1; i < yValues.length; i += 2) {
-        expect(yValues[i]).toBeLessThanOrEqual(100);
-      }
     });
   });
 
