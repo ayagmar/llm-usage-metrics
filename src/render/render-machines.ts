@@ -1,6 +1,7 @@
 import type { MachineConfig } from '../config/user-config.js';
 import type { MachineSyncState } from '../machines/machine-cache.js';
 import type { MachineUsageSummary } from '../machines/load-machine-usage.js';
+import { MACHINE_EXPORT_TIMEOUT_MARK } from '../machines/machine-ssh.js';
 import type { MachineSyncOutcome } from '../machines/sync-machine.js';
 
 const integerFormat = new Intl.NumberFormat('en-US');
@@ -166,8 +167,13 @@ export function formatRefreshFailure(
     };
   }
 
+  // A remote that needs longer than a report waits can still be synced by hand.
+  const hint = outcome.error.endsWith(`(${MACHINE_EXPORT_TIMEOUT_MARK})`)
+    ? ` Run llm-usage sync ${outcome.name} to wait for it.`
+    : '';
+
   return {
-    text: `Could not sync ${outcome.name} (${outcome.error}); using its usage from ${formatAge(now - syncedAt)}.`,
+    text: `Could not sync ${outcome.name} (${outcome.error}); using its usage from ${formatAge(now - syncedAt)}.${hint}`,
     stale: now - syncedAt >= STALE_CACHE_MS,
   };
 }

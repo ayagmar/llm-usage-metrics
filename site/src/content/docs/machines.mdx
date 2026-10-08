@@ -83,6 +83,7 @@ To stop fetching a machine but keep its cached usage in reports, set `enabled = 
 | `ssh does not know this host yet`    | Connect once with `ssh me@laptop.local` to check and accept its host key.                                                              |
 | `llm-usage was not found`            | Install llm-usage-metrics there, or set `command` to how it starts (see [Set up](#set-up)).                                            |
 | `too old to export usage`            | Update llm-usage-metrics on that machine.                                                                                               |
+| `no complete export within 30s`      | The machine needs longer than a report waits (a large first parse); run `llm-usage sync <name>`, which waits as long as it takes. |
 | `the export ended early`             | The connection dropped or the other machine stopped; run `llm-usage sync` again. Nothing was changed.                                 |
 
 After a node upgrade, a saved `command` with a version in its path may stop working; remove the machine and add it again to detect the new path.

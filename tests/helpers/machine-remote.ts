@@ -9,6 +9,8 @@ import type { SpawnSsh, SshProcess } from '../../src/machines/machine-ssh.js';
 export type InProcessRemote = {
   spawnSsh: SpawnSsh;
   calls: string[][];
+  /** The calls that were killed. */
+  killed: string[][];
 };
 
 /**
@@ -25,8 +27,11 @@ export function createInProcessRemote(options: {
   loginShellCommand?: string;
   /** A warning the remote prints on stderr while succeeding. */
   warning?: string;
+  /** The export never finishes; only a kill ends it. */
+  hang?: boolean;
 }): InProcessRemote {
   const calls: string[][] = [];
+  const killed: string[][] = [];
 
   const spawnSsh: SpawnSsh = (args) => {
     calls.push([...args]);
@@ -45,6 +50,10 @@ export function createInProcessRemote(options: {
       if (!args.at(-1)?.includes('machine export')) {
         stdout.write(`${options.loginShellCommand ?? '/usr/bin/llm-usage'}\n`);
         close(0);
+        return;
+      }
+
+      if (options.hang) {
         return;
       }
 
@@ -89,6 +98,7 @@ export function createInProcessRemote(options: {
       stdout,
       stderr,
       kill: () => {
+        killed.push([...args]);
         close(null);
         return true;
       },
@@ -98,7 +108,7 @@ export function createInProcessRemote(options: {
     return sshProcess;
   };
 
-  return { spawnSsh, calls };
+  return { spawnSsh, calls, killed };
 }
 
 /** Appends a turn whose cumulative totals grew, so the session has one more event. */

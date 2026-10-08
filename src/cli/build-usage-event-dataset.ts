@@ -193,19 +193,6 @@ export async function buildUsageEventDataset(
   const machineSelection = selectMachines(config.machines, normalizedInputs.machineFilter, {
     customSourceDirectories: cliDirectorySourceIds.size > 0,
   });
-  const nowMs = () => (deps.now?.() ?? new Date()).getTime();
-  // Refreshing other machines runs alongside the local parse.
-  const machineRefresh =
-    configuredOptions.sync === false
-      ? Promise.resolve([])
-      : refreshDueMachines(
-          Object.entries(config.machines ?? {})
-            .filter(([name]) => machineSelection.names.includes(name))
-            .map(([name, machine]) => ({ name, machine })),
-          { now: nowMs, spawnSsh: deps.spawnSsh },
-        );
-  const includeHistory = configuredOptions.history !== false;
-
   if (historyRequested && !eventStoreRuntimeConfig.enabled) {
     throw new Error(
       eventStoreRuntimeConfig.disabledBy === 'environment'
@@ -236,6 +223,20 @@ export async function buildUsageEventDataset(
     providerFilter: normalizedInputs.providerFilter,
     modelFilter: normalizedInputs.modelFilter,
   });
+
+  const nowMs = () => (deps.now?.() ?? new Date()).getTime();
+  // Refreshing other machines runs alongside the local parse; a failed run stops it.
+  const machineRefreshAbort = new AbortController();
+  const machineRefresh =
+    configuredOptions.sync === false
+      ? Promise.resolve([])
+      : refreshDueMachines(
+          Object.entries(config.machines ?? {})
+            .filter(([name]) => machineSelection.names.includes(name))
+            .map(([name, machine]) => ({ name, machine })),
+          { now: nowMs, spawnSsh: deps.spawnSsh, signal: machineRefreshAbort.signal },
+        );
+  const includeHistory = configuredOptions.history !== false;
 
   let openedEventStore: EventStore | undefined;
   let dataset: UsageEventDataset | undefined;
@@ -355,7 +356,20 @@ export async function buildUsageEventDataset(
       }));
     }
 
-    for (const outcome of await machineRefresh) {
+    const refreshOutcomes = await measureRuntimeProfileStage(
+      runtimeProfile,
+      'usage.dataset.machine_refresh',
+      () => machineRefresh,
+    );
+
+    for (const outcome of refreshOutcomes) {
+      if (outcome.ok) {
+        machineWarnings.push(
+          ...outcome.remoteWarnings.map((warning) => `${outcome.name} warned: ${warning}`),
+        );
+        continue;
+      }
+
       const failure = formatRefreshFailure(outcome, nowMs());
 
       if (failure) {
@@ -436,6 +450,9 @@ export async function buildUsageEventDataset(
 
     return dataset;
   } finally {
+    // Settled already on success; stops a refresh the failed run no longer needs.
+    machineRefreshAbort.abort();
+
     if (openedEventStore) {
       try {
         const closeStore = deps.closeEventStore ?? closeEventStore;

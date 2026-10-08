@@ -46,7 +46,12 @@ async function claimDueSync(name: string, now: number): Promise<boolean> {
  */
 export async function refreshDueMachines(
   machines: readonly { name: string; machine: MachineConfig }[],
-  options: { now?: () => number; spawnSsh?: SpawnSsh } = {},
+  options: {
+    now?: () => number;
+    spawnSsh?: SpawnSsh;
+    signal?: AbortSignal;
+    timeoutMs?: number;
+  } = {},
 ): Promise<MachineSyncOutcome[]> {
   const now = options.now ?? Date.now;
   const outcomes = await Promise.all(
@@ -60,7 +65,8 @@ export async function refreshDueMachines(
         return syncMachine(name, machine, {
           spawnSsh: options.spawnSsh,
           now,
-          timeoutMs: MACHINE_REFRESH_TIMEOUT_MS,
+          timeoutMs: options.timeoutMs ?? MACHINE_REFRESH_TIMEOUT_MS,
+          signal: options.signal,
         });
       }),
   );

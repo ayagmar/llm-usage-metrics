@@ -1,5 +1,9 @@
 import type { MachineConfig } from '../config/user-config.js';
-import { closeEventStore, type EventStore } from '../persistence/event-store.js';
+import {
+  closeEventStore,
+  writeEventStoreMeta,
+  type EventStore,
+} from '../persistence/event-store.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
 import {
   applyMachineExport,
@@ -27,6 +31,13 @@ export type SyncMachineOptions = {
   /** Ask for every file again instead of only the changed ones. */
   full?: boolean;
   timeoutMs?: number;
+  /** Stops the sync, e.g. when the report it was for ended. */
+  signal?: AbortSignal;
+  /**
+   * Records the attempt before fetching, so reports running meanwhile find the machine
+   * already being synced instead of starting a second export.
+   */
+  recordAttemptFirst?: boolean;
   spawnSsh?: SpawnSsh;
   now?: () => number;
 };
@@ -56,10 +67,18 @@ export async function syncMachine(
   }
 
   try {
+    if (options.recordAttemptFirst === true) {
+      try {
+        writeEventStoreMeta(cache, { attemptedAt: String(now()) });
+      } catch {
+        // A busy cache is being synced already; this sync still runs, as asked.
+      }
+    }
+
     const { bundle, remoteWarnings } = await fetchMachineExport(
       machine,
       options.full === true ? [] : readCachedFiles(cache),
-      { spawnSsh: options.spawnSsh, timeoutMs: options.timeoutMs },
+      { spawnSsh: options.spawnSsh, timeoutMs: options.timeoutMs, signal: options.signal },
     );
     const result = applyMachineExport(cache, bundle, now());
 

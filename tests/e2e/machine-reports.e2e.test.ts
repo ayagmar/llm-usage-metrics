@@ -8,7 +8,9 @@ import { buildUsageEventDataset } from '../../src/cli/build-usage-event-dataset.
 import { runMachineExport } from '../../src/cli/run-machine-export.js';
 import { buildStatusline } from '../../src/cli/run-statusline.js';
 import type { MachineExportLine } from '../../src/machines/machine-export-bundle.js';
+import { refreshDueMachines } from '../../src/machines/refresh-machines.js';
 import { syncMachine } from '../../src/machines/sync-machine.js';
+import { formatRefreshFailure } from '../../src/render/render-machines.js';
 import { appendCodexTurn, createInProcessRemote } from '../helpers/machine-remote.js';
 import { canonicalTmpdir } from '../helpers/tmp.js';
 
@@ -118,6 +120,67 @@ describe('reports refreshing other machines', () => {
 
     expect(calls).toEqual([]);
     expect(line).toContain('this month');
+  });
+
+  it('wait an interval after a failed sync before trying again', async () => {
+    const unreachable = createInProcessRemote({
+      ...remote,
+      fail: { exitCode: 255, stderr: 'ssh: connect to host laptop port 22: No route to host' },
+    });
+    const reachable = createInProcessRemote(remote);
+
+    await buildDataset({ timezone: 'UTC' }, { spawnSsh: unreachable.spawnSsh, now: later });
+    await buildDataset(
+      { timezone: 'UTC' },
+      { spawnSsh: reachable.spawnSsh, now: () => new Date(Date.now() + ELEVEN_MINUTES + 60_000) },
+    );
+
+    expect(exportCalls(unreachable.calls)).toBe(1);
+    expect(exportCalls(reachable.calls)).toBe(0);
+  });
+
+  it('give up on a machine that takes too long, and say how to wait for it', async () => {
+    const hanging = createInProcessRemote({ ...remote, hang: true });
+
+    const [outcome] = await refreshDueMachines(
+      [{ name: 'laptop', machine: { ssh: 'me@laptop' } }],
+      {
+        spawnSsh: hanging.spawnSsh,
+        now: () => Date.now() + ELEVEN_MINUTES,
+        timeoutMs: 20,
+      },
+    );
+
+    expect(hanging.killed).toHaveLength(1);
+    expect(formatRefreshFailure(outcome, Date.now() + ELEVEN_MINUTES)?.text).toMatch(
+      /^Could not sync laptop \(no complete export within 0s \(timed out\)\); using its usage from 11 min ago\. Run llm-usage sync laptop to wait for it\.$/,
+    );
+  });
+
+  it('stop the sync when the report fails', async () => {
+    const hanging = createInProcessRemote({ ...remote, hang: true });
+
+    // An explicitly requested source that fails to parse ends the report.
+    await expect(
+      buildDataset(
+        { timezone: 'UTC', codexDir: path.join(rootDir, 'missing'), machine: ['local', 'laptop'] },
+        { spawnSsh: hanging.spawnSsh, now: later },
+      ),
+    ).rejects.toThrow('codex');
+    await vi.waitFor(() => {
+      expect(hanging.killed).toHaveLength(1);
+    });
+  });
+
+  it('read a disabled machine without syncing it', async () => {
+    const configPath = path.join(rootDir, 'local', 'config.toml');
+    await writeFile(configPath, `${await readFile(configPath, 'utf8')}enabled = false\n`);
+    const { spawnSsh, calls } = createInProcessRemote(remote);
+
+    const dataset = await buildDataset({ timezone: 'UTC' }, { spawnSsh, now: later });
+
+    expect(calls).toEqual([]);
+    expect(sourcesOf(dataset.filteredEvents)).toEqual(['codex', 'codex', 'pi', 'pi']);
   });
 
   it('skip the sync with --no-sync', async () => {

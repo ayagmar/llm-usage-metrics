@@ -182,6 +182,7 @@ export async function runSync(
     selected.map(async ([name, machine]) => {
       const outcome = await syncMachine(name, machine, {
         full: options.full,
+        recordAttemptFirst: true,
         spawnSsh: deps.spawnSsh,
         now: deps.now,
       });
