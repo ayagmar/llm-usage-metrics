@@ -20,6 +20,26 @@ afterEach(async () => {
   tempDirs.length = 0;
 });
 
+const sourcePathFlags = getSourceOverrideOptions().map((option) => option.flag.split(' ')[0]);
+const usageReportFlags = [
+  '--markdown',
+  '--per-model-columns',
+  '--pricing-url',
+  '--pricing-offline',
+  '--ignore-pricing-failures',
+  '--source',
+  '--source-dir',
+  '--model',
+  '--history',
+  '--machine',
+  '--by-machine',
+  ...sourcePathFlags,
+];
+
+function getLongFlags(command: Command | undefined): string[] {
+  return (command?.options ?? []).flatMap((option) => (option.long ? [option.long] : []));
+}
+
 describe('createCli', () => {
   it('registers summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline, doctor, prune, config, machine, sync, schema, and completion commands', () => {
     const cli = createCli();
@@ -48,39 +68,122 @@ describe('createCli', () => {
     ]);
   });
 
-  it('includes output, pricing, and source filter flags on report commands', () => {
-    const cli = createCli();
-    const reportCommands = cli.commands.filter((command) =>
-      ['daily', 'weekly', 'monthly'].includes(command.name()),
+  // Which shared and command flags each command has, and which it must not have.
+  it.each([
+    { command: 'daily', present: usageReportFlags, absent: [] },
+    { command: 'weekly', present: usageReportFlags, absent: [] },
+    { command: 'monthly', present: usageReportFlags, absent: [] },
+    {
+      command: 'optimize',
+      present: ['--candidate-model', '--top', '--share', '--history'],
+      absent: ['--repo-dir', '--per-model-columns'],
+    },
+    {
+      command: 'trends',
+      present: [
+        '--days',
+        '--metric',
+        '--by-source',
+        '--json',
+        '--share',
+        '--history',
+        '--markdown',
+      ],
+      absent: ['--per-model-columns'],
+    },
+    {
+      command: 'session',
+      present: [
+        '--top',
+        '--id',
+        '--by-repo',
+        '--json',
+        '--markdown',
+        '--source',
+        '--since',
+        '--until',
+        '--timezone',
+        '--provider',
+        '--model',
+        '--pricing-url',
+        '--history',
+      ],
+      absent: ['--share', '--per-model-columns', '--repo-dir'],
+    },
+    {
+      command: 'compare',
+      present: [
+        '--vs-since',
+        '--vs-until',
+        '--source',
+        '--timezone',
+        '--pricing-url',
+        '--json',
+        '--markdown',
+        '--since',
+        '--until',
+        '--provider',
+        '--model',
+        '--history',
+        '--share',
+      ],
+      absent: ['--per-model-columns'],
+    },
+    {
+      command: 'wrapped',
+      present: [
+        '--year',
+        '--pricing-url',
+        '--json',
+        '--share',
+        '--source',
+        '--timezone',
+        '--provider',
+        '--model',
+        '--history',
+        '--markdown',
+      ],
+      absent: ['--since', '--until', '--per-model-columns'],
+    },
+    {
+      command: 'efficiency',
+      present: ['--repo-dir', '--include-merge-commits', '--share', '--ignore-pricing-failures'],
+      absent: ['--per-model-columns'],
+    },
+    {
+      command: 'doctor',
+      present: ['--json', '--source', '--source-dir', ...sourcePathFlags],
+      absent: [
+        '--markdown',
+        '--since',
+        '--timezone',
+        '--provider',
+        '--model',
+        '--pricing-url',
+        '--history',
+        '--share',
+        '--machine',
+      ],
+    },
+    {
+      command: 'prune',
+      present: [
+        '--suppressed',
+        '--departed-before',
+        '--apply',
+        '--json',
+        '--source',
+        '--source-dir',
+      ],
+      absent: ['--history', '--since', '--timezone', '--pricing-url'],
+    },
+  ])('gives $command its flags', ({ command, present, absent }) => {
+    const flags = getLongFlags(
+      createCli().commands.find((candidate) => candidate.name() === command),
     );
 
-    for (const command of reportCommands) {
-      expect(command.options.some((option) => option.long === '--markdown')).toBe(true);
-      expect(command.options.some((option) => option.long === '--per-model-columns')).toBe(true);
-      expect(command.options.some((option) => option.long === '--pricing-url')).toBe(true);
-      expect(command.options.some((option) => option.long === '--pricing-offline')).toBe(true);
-      expect(command.options.some((option) => option.long === '--ignore-pricing-failures')).toBe(
-        true,
-      );
-      expect(command.options.some((option) => option.long === '--opencode-db')).toBe(true);
-      expect(command.options.some((option) => option.long === '--goose-db')).toBe(true);
-      expect(command.options.some((option) => option.long === '--amp-dir')).toBe(true);
-      expect(command.options.some((option) => option.long === '--qwen-dir')).toBe(true);
-      expect(command.options.some((option) => option.long === '--kimi-dir')).toBe(true);
-      expect(command.options.some((option) => option.long === '--cline-dir')).toBe(true);
-      expect(command.options.some((option) => option.long === '--roocode-dir')).toBe(true);
-      expect(command.options.some((option) => option.long === '--kilocode-dir')).toBe(true);
-      expect(command.options.some((option) => option.long === '--antigravity-dir')).toBe(true);
-      expect(command.options.some((option) => option.long === '--copilot-dir')).toBe(true);
-      expect(command.options.some((option) => option.long === '--gemini-dir')).toBe(true);
-      expect(command.options.some((option) => option.long === '--droid-dir')).toBe(true);
-      expect(command.options.some((option) => option.long === '--claude-dir')).toBe(true);
-      expect(command.options.some((option) => option.long === '--openclaw-dir')).toBe(true);
-      expect(command.options.some((option) => option.long === '--source')).toBe(true);
-      expect(command.options.some((option) => option.long === '--source-dir')).toBe(true);
-      expect(command.options.some((option) => option.long === '--model')).toBe(true);
-      expect(command.options.some((option) => option.long === '--history')).toBe(true);
-    }
+    expect(present.filter((flag) => !flags.includes(flag))).toEqual([]);
+    expect(absent.filter((flag) => flags.includes(flag))).toEqual([]);
   });
 
   it('registers dedicated source override flags in the frozen manifest order', () => {
@@ -122,175 +225,6 @@ describe('createCli', () => {
       expect(command.options.some((option) => option.long === '--quiet')).toBe(true);
       expect(command.options.some((option) => option.long === '--verbose')).toBe(true);
     }
-  });
-
-  it('configures optimize command with candidate-model and top flags', () => {
-    const cli = createCli();
-    const optimizeCommand = cli.commands.find((command) => command.name() === 'optimize');
-
-    expect(optimizeCommand).toBeDefined();
-    expect(optimizeCommand?.options.some((option) => option.long === '--candidate-model')).toBe(
-      true,
-    );
-    expect(optimizeCommand?.options.some((option) => option.long === '--top')).toBe(true);
-    expect(optimizeCommand?.options.some((option) => option.long === '--share')).toBe(true);
-    expect(optimizeCommand?.options.some((option) => option.long === '--history')).toBe(true);
-    expect(optimizeCommand?.options.some((option) => option.long === '--repo-dir')).toBe(false);
-    expect(optimizeCommand?.options.some((option) => option.long === '--per-model-columns')).toBe(
-      false,
-    );
-  });
-
-  it('configures trends command with share and markdown but without per-model columns', () => {
-    const cli = createCli();
-    const trendsCommand = cli.commands.find((command) => command.name() === 'trends');
-
-    expect(trendsCommand).toBeDefined();
-    expect(trendsCommand?.options.some((option) => option.long === '--days')).toBe(true);
-    expect(trendsCommand?.options.some((option) => option.long === '--metric')).toBe(true);
-    expect(trendsCommand?.options.some((option) => option.long === '--by-source')).toBe(true);
-    expect(trendsCommand?.options.some((option) => option.long === '--json')).toBe(true);
-    expect(trendsCommand?.options.some((option) => option.long === '--share')).toBe(true);
-    expect(trendsCommand?.options.some((option) => option.long === '--history')).toBe(true);
-    expect(trendsCommand?.options.some((option) => option.long === '--markdown')).toBe(true);
-    expect(trendsCommand?.options.some((option) => option.long === '--per-model-columns')).toBe(
-      false,
-    );
-  });
-
-  it('configures session command with markdown and top but without share or per-model columns', () => {
-    const cli = createCli();
-    const sessionCommand = cli.commands.find((command) => command.name() === 'session');
-
-    expect(sessionCommand).toBeDefined();
-    expect(sessionCommand?.options.some((option) => option.long === '--top')).toBe(true);
-    expect(sessionCommand?.options.some((option) => option.long === '--id')).toBe(true);
-    expect(sessionCommand?.options.some((option) => option.long === '--by-repo')).toBe(true);
-    expect(sessionCommand?.options.some((option) => option.long === '--json')).toBe(true);
-    expect(sessionCommand?.options.some((option) => option.long === '--markdown')).toBe(true);
-    expect(sessionCommand?.options.some((option) => option.long === '--source')).toBe(true);
-    expect(sessionCommand?.options.some((option) => option.long === '--since')).toBe(true);
-    expect(sessionCommand?.options.some((option) => option.long === '--until')).toBe(true);
-    expect(sessionCommand?.options.some((option) => option.long === '--timezone')).toBe(true);
-    expect(sessionCommand?.options.some((option) => option.long === '--provider')).toBe(true);
-    expect(sessionCommand?.options.some((option) => option.long === '--model')).toBe(true);
-    expect(sessionCommand?.options.some((option) => option.long === '--pricing-url')).toBe(true);
-    expect(sessionCommand?.options.some((option) => option.long === '--history')).toBe(true);
-    expect(sessionCommand?.options.some((option) => option.long === '--share')).toBe(false);
-    expect(sessionCommand?.options.some((option) => option.long === '--per-model-columns')).toBe(
-      false,
-    );
-    expect(sessionCommand?.options.some((option) => option.long === '--repo-dir')).toBe(false);
-  });
-
-  it('configures compare command with baseline flags and without per-model columns', () => {
-    const cli = createCli();
-    const compareCommand = cli.commands.find((command) => command.name() === 'compare');
-
-    expect(compareCommand).toBeDefined();
-    expect(compareCommand?.options.some((option) => option.long === '--vs-since')).toBe(true);
-    expect(compareCommand?.options.some((option) => option.long === '--vs-until')).toBe(true);
-    expect(compareCommand?.options.some((option) => option.long === '--json')).toBe(true);
-    expect(compareCommand?.options.some((option) => option.long === '--markdown')).toBe(true);
-    expect(compareCommand?.options.some((option) => option.long === '--source')).toBe(true);
-    expect(compareCommand?.options.some((option) => option.long === '--since')).toBe(true);
-    expect(compareCommand?.options.some((option) => option.long === '--until')).toBe(true);
-    expect(compareCommand?.options.some((option) => option.long === '--timezone')).toBe(true);
-    expect(compareCommand?.options.some((option) => option.long === '--provider')).toBe(true);
-    expect(compareCommand?.options.some((option) => option.long === '--model')).toBe(true);
-    expect(compareCommand?.options.some((option) => option.long === '--pricing-url')).toBe(true);
-    expect(compareCommand?.options.some((option) => option.long === '--history')).toBe(true);
-    expect(compareCommand?.options.some((option) => option.long === '--share')).toBe(true);
-    expect(compareCommand?.options.some((option) => option.long === '--per-model-columns')).toBe(
-      false,
-    );
-  });
-
-  it('configures wrapped command with year, share, and provider/model but without date filters', () => {
-    const cli = createCli();
-    const wrappedCommand = cli.commands.find((command) => command.name() === 'wrapped');
-
-    expect(wrappedCommand).toBeDefined();
-    expect(wrappedCommand?.options.some((option) => option.long === '--year')).toBe(true);
-    expect(wrappedCommand?.options.some((option) => option.long === '--json')).toBe(true);
-    expect(wrappedCommand?.options.some((option) => option.long === '--share')).toBe(true);
-    expect(wrappedCommand?.options.some((option) => option.long === '--source')).toBe(true);
-    expect(wrappedCommand?.options.some((option) => option.long === '--timezone')).toBe(true);
-    expect(wrappedCommand?.options.some((option) => option.long === '--pricing-url')).toBe(true);
-    expect(wrappedCommand?.options.some((option) => option.long === '--history')).toBe(true);
-    expect(wrappedCommand?.options.some((option) => option.long === '--provider')).toBe(true);
-    expect(wrappedCommand?.options.some((option) => option.long === '--model')).toBe(true);
-    expect(wrappedCommand?.options.some((option) => option.long === '--since')).toBe(false);
-    expect(wrappedCommand?.options.some((option) => option.long === '--until')).toBe(false);
-    expect(wrappedCommand?.options.some((option) => option.long === '--markdown')).toBe(true);
-    expect(wrappedCommand?.options.some((option) => option.long === '--per-model-columns')).toBe(
-      false,
-    );
-  });
-
-  it('configures efficiency command with repository outcome flags', () => {
-    const cli = createCli();
-    const efficiencyCommand = cli.commands.find((command) => command.name() === 'efficiency');
-
-    expect(efficiencyCommand).toBeDefined();
-    expect(efficiencyCommand?.options.some((option) => option.long === '--repo-dir')).toBe(true);
-    expect(
-      efficiencyCommand?.options.some((option) => option.long === '--include-merge-commits'),
-    ).toBe(true);
-    expect(efficiencyCommand?.options.some((option) => option.long === '--share')).toBe(true);
-    expect(
-      efficiencyCommand?.options.some((option) => option.long === '--ignore-pricing-failures'),
-    ).toBe(true);
-    expect(efficiencyCommand?.options.some((option) => option.long === '--per-model-columns')).toBe(
-      false,
-    );
-  });
-
-  it('configures doctor command with only discovery and JSON shared flags', () => {
-    const cli = createCli();
-    const doctorCommand = cli.commands.find((command) => command.name() === 'doctor');
-
-    expect(doctorCommand).toBeDefined();
-    expect(doctorCommand?.options.some((option) => option.long === '--json')).toBe(true);
-    expect(doctorCommand?.options.some((option) => option.long === '--source')).toBe(true);
-    expect(doctorCommand?.options.some((option) => option.long === '--source-dir')).toBe(true);
-    expect(doctorCommand?.options.some((option) => option.long === '--pi-dir')).toBe(true);
-    expect(doctorCommand?.options.some((option) => option.long === '--copilot-dir')).toBe(true);
-    expect(doctorCommand?.options.some((option) => option.long === '--openclaw-dir')).toBe(true);
-    expect(doctorCommand?.options.some((option) => option.long === '--opencode-db')).toBe(true);
-    expect(doctorCommand?.options.some((option) => option.long === '--goose-db')).toBe(true);
-    expect(doctorCommand?.options.some((option) => option.long === '--amp-dir')).toBe(true);
-    expect(doctorCommand?.options.some((option) => option.long === '--qwen-dir')).toBe(true);
-    expect(doctorCommand?.options.some((option) => option.long === '--kimi-dir')).toBe(true);
-    expect(doctorCommand?.options.some((option) => option.long === '--cline-dir')).toBe(true);
-    expect(doctorCommand?.options.some((option) => option.long === '--roocode-dir')).toBe(true);
-    expect(doctorCommand?.options.some((option) => option.long === '--kilocode-dir')).toBe(true);
-    expect(doctorCommand?.options.some((option) => option.long === '--antigravity-dir')).toBe(true);
-    expect(doctorCommand?.options.some((option) => option.long === '--markdown')).toBe(false);
-    expect(doctorCommand?.options.some((option) => option.long === '--since')).toBe(false);
-    expect(doctorCommand?.options.some((option) => option.long === '--timezone')).toBe(false);
-    expect(doctorCommand?.options.some((option) => option.long === '--provider')).toBe(false);
-    expect(doctorCommand?.options.some((option) => option.long === '--model')).toBe(false);
-    expect(doctorCommand?.options.some((option) => option.long === '--pricing-url')).toBe(false);
-    expect(doctorCommand?.options.some((option) => option.long === '--history')).toBe(false);
-    expect(doctorCommand?.options.some((option) => option.long === '--share')).toBe(false);
-  });
-
-  it('configures prune command with maintenance selectors and doctor-style shared flags', () => {
-    const cli = createCli();
-    const pruneCommand = cli.commands.find((command) => command.name() === 'prune');
-
-    expect(pruneCommand).toBeDefined();
-    expect(pruneCommand?.options.some((option) => option.long === '--suppressed')).toBe(true);
-    expect(pruneCommand?.options.some((option) => option.long === '--departed-before')).toBe(true);
-    expect(pruneCommand?.options.some((option) => option.long === '--apply')).toBe(true);
-    expect(pruneCommand?.options.some((option) => option.long === '--json')).toBe(true);
-    expect(pruneCommand?.options.some((option) => option.long === '--source')).toBe(true);
-    expect(pruneCommand?.options.some((option) => option.long === '--source-dir')).toBe(true);
-    expect(pruneCommand?.options.some((option) => option.long === '--history')).toBe(false);
-    expect(pruneCommand?.options.some((option) => option.long === '--since')).toBe(false);
-    expect(pruneCommand?.options.some((option) => option.long === '--timezone')).toBe(false);
-    expect(pruneCommand?.options.some((option) => option.long === '--pricing-url')).toBe(false);
   });
 
   it('runs daily command and prints terminal table output', async () => {
