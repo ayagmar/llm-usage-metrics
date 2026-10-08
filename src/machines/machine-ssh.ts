@@ -6,6 +6,7 @@ import { stripVTControlCharacters } from 'node:util';
 import type { MachineConfig } from '../config/user-config.js';
 import { stripControlCharacters } from '../domain/normalization.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
+import { logger } from '../utils/logger.js';
 import {
   MACHINE_EXPORT_VERSION,
   readMachineExport,
@@ -65,13 +66,32 @@ export function buildSshExportArgs(machine: MachineConfig): string[] {
 
 const LOGIN_SHELL_MARKER = 'llm-usage-metrics: asking the login shell';
 const PROBE_OUTPUT_BYTES = 64 * 1024;
+const PROBE_TIMEOUT_MS = 20_000;
+const SAFE_PATH_PATTERN = /^\/[\w./+@-]*$/u;
+
+/** Drops a stream error: the exit status or a missing bundle reports the failure. */
+function ignoreStreamErrors(child: SshProcess): void {
+  child.stdin.on('error', () => undefined);
+  child.stdout.on('error', () => undefined);
+  child.stderr.on('error', () => undefined);
+}
+
+function readProbeValue(lines: readonly string[], key: string): string | undefined {
+  const value = lines
+    .filter((line) => line.startsWith(`${key}=`))
+    .at(-1)
+    ?.slice(key.length + 1);
+
+  return value !== undefined && SAFE_PATH_PATTERN.test(value) ? value : undefined;
+}
 
 /**
  * Finds how to launch llm-usage on another machine when ssh commands cannot. Version
  * managers (nvm, fnm, volta, mise) put node on PATH in shell startup files, which a
- * non-interactive ssh session skips; a command only the login shell finds is launched
- * with its directory on PATH. Undefined means the default command works or nothing
- * better was found.
+ * non-interactive ssh session skips. When only the login shell finds llm-usage, it is
+ * launched with that directory and node's real one on PATH (node's own path survives
+ * the per-shell symlink directories some managers use). Undefined means the default
+ * command works or nothing better was found.
  */
 export async function detectRemoteCommand(
   target: string,
@@ -80,13 +100,18 @@ export async function detectRemoteCommand(
   const probe = [
     `command -v ${DEFAULT_MACHINE_COMMAND} && exit 0`,
     `echo '${LOGIN_SHELL_MARKER}'`,
-    `"$SHELL" -lic 'command -v ${DEFAULT_MACHINE_COMMAND}'`,
+    `"$SHELL" -lic 'echo "command=$(command -v ${DEFAULT_MACHINE_COMMAND})"; echo "node=$(node -p process.execPath)"'`,
   ].join('; ');
   const child = (options.spawnSsh ?? spawnSystemSsh)(buildSshArgs(target, probe));
+  const timeoutMs = options.timeoutMs ?? PROBE_TIMEOUT_MS;
+  const timeout = { expired: false };
   let output = '';
-  const timer = setTimeout(() => child.kill(), options.timeoutMs ?? 20_000);
+  const timer = setTimeout(() => {
+    timeout.expired = true;
+    child.kill();
+  }, timeoutMs);
 
-  child.stdin.on('error', () => undefined);
+  ignoreStreamErrors(child);
   child.stdin.end();
   child.stdout.on('data', (chunk: Buffer) => {
     output = (output + chunk.toString('utf8')).slice(-PROBE_OUTPUT_BYTES);
@@ -107,19 +132,28 @@ export async function detectRemoteCommand(
     clearTimeout(timer);
   }
 
-  const lines = output.split(/\r?\n/u).map((line) => line.trim());
-  const markerIndex = lines.indexOf(LOGIN_SHELL_MARKER);
-  const suffix = `/${DEFAULT_MACHINE_COMMAND}`;
-  const found = lines
-    .slice(markerIndex + 1)
-    .filter((line) => line.startsWith('/') && line.endsWith(suffix))
-    .at(-1);
-
-  if (markerIndex === -1 || !found || !/^[\w./+@-]+$/u.test(found)) {
+  if (timeout.expired) {
+    logger.info(
+      `Looking up llm-usage in ${target}'s login shell took over ${Math.round(timeoutMs / 1000)}s (a startup file may wait for input); trying the default command`,
+    );
     return undefined;
   }
 
-  return `env PATH=${found.slice(0, -suffix.length)}:"$PATH" ${DEFAULT_MACHINE_COMMAND}`;
+  const lines = output.split(/\r?\n/u).map((line) => line.trim());
+  const markerIndex = lines.indexOf(LOGIN_SHELL_MARKER);
+  const afterMarker = lines.slice(markerIndex + 1);
+  const command = readProbeValue(afterMarker, 'command');
+
+  if (markerIndex === -1 || !command?.endsWith(`/${DEFAULT_MACHINE_COMMAND}`)) {
+    return undefined;
+  }
+
+  const node = readProbeValue(afterMarker, 'node');
+  const directories = [command, node]
+    .filter((filePath) => filePath !== undefined)
+    .map((filePath) => filePath.slice(0, filePath.lastIndexOf('/')));
+
+  return `env PATH=${[...new Set(directories)].join(':')}:"$PATH" ${DEFAULT_MACHINE_COMMAND}`;
 }
 
 function readStderrTail(chunks: readonly Buffer[]): string {
@@ -199,6 +233,7 @@ export async function fetchMachineExport(
   let stderrBytes = 0;
 
   // Only the tail explains a failure; a chatty remote must not grow memory without bound.
+  ignoreStreamErrors(child);
   child.stderr.on('data', (chunk: Buffer) => {
     stderrChunks.push(chunk);
     stderrBytes += chunk.length;
@@ -208,7 +243,6 @@ export async function fetchMachineExport(
     }
   });
   // ssh may exit before reading its input; the exit status reports why.
-  child.stdin.on('error', () => undefined);
   child.stdin.end(JSON.stringify({ version: MACHINE_EXPORT_VERSION, files: knownFiles }));
 
   let bundle: ParsedMachineExport | undefined;
@@ -219,7 +253,6 @@ export async function fetchMachineExport(
   child.stdout.on('error', (error) => {
     readError ??= error;
   });
-  child.stderr.on('error', () => undefined);
 
   try {
     bundle = await readMachineExport(createInterface({ input: child.stdout, crlfDelay: Infinity }));

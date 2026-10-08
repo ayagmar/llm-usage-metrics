@@ -32,8 +32,9 @@ export type SyncMachineOptions = {
 };
 
 /**
- * Syncs one machine's cache. A failed sync leaves the cached usage as it was and records
- * why, so reports can keep using it and say how stale it is.
+ * Syncs one machine's cache; it never throws, so one machine cannot stop the others. A
+ * failed sync leaves the cached usage as it was and records why, so reports can keep
+ * using it and say how stale it is.
  */
 export async function syncMachine(
   name: string,
@@ -66,13 +67,17 @@ export async function syncMachine(
   } catch (error) {
     const reason = getErrorReason(error);
 
+    let state: MachineSyncState = {};
+
+    // A busy or broken cache cannot record the failure; the outcome still reports it.
     try {
       recordMachineSyncFailure(cache, reason, now());
+      state = readMachineSyncState(cache);
     } catch {
-      // A busy or broken cache cannot record the failure; the outcome still reports it.
+      // Nothing more to report than the failure itself.
     }
 
-    return { name, ok: false, error: reason, state: readMachineSyncState(cache) };
+    return { name, ok: false, error: reason, state };
   } finally {
     closeEventStore(cache);
   }

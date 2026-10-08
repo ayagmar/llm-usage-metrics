@@ -114,7 +114,7 @@ describe('machine add, sync, list and remove', () => {
     const { spawnSsh, calls } = createInProcessRemote({
       ...remote,
       loginShellCommand:
-        'llm-usage-metrics: asking the login shell\nWelcome!\n/home/me/.fnm/aliases/default/bin/llm-usage',
+        'llm-usage-metrics: asking the login shell\nWelcome!\ncommand=/home/me/.fnm/aliases/default/bin/llm-usage\nnode=/home/me/.fnm/aliases/default/bin/node',
     });
 
     await runMachineAdd('laptop', 'me@laptop', {}, { spawnSsh, print });

@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   describeExportFailure,
@@ -173,20 +173,37 @@ describe('detectRemoteCommand', () => {
   it.each([
     ['the ssh PATH has llm-usage', '/usr/local/bin/llm-usage\n', undefined],
     [
-      'only the login shell has it',
-      `${marker}\nWelcome back\n/home/me/.nvm/versions/node/v24.1.0/bin/llm-usage\n`,
+      'only the login shell has it, next to node',
+      `${marker}\nWelcome back\ncommand=/home/me/.nvm/versions/node/v24.1.0/bin/llm-usage\nnode=/home/me/.nvm/versions/node/v24.1.0/bin/node\n`,
       'env PATH=/home/me/.nvm/versions/node/v24.1.0/bin:"$PATH" llm-usage',
     ],
-    ['neither has it', `${marker}\n`, undefined],
+    [
+      'the login shell has a shim and node elsewhere',
+      `${marker}\ncommand=/run/user/1000/fnm_multishells/42/bin/llm-usage\nnode=/home/me/.local/share/fnm/node-versions/v24/installation/bin/node\n`,
+      'env PATH=/run/user/1000/fnm_multishells/42/bin:/home/me/.local/share/fnm/node-versions/v24/installation/bin:"$PATH" llm-usage',
+    ],
+    ['neither has it', `${marker}\ncommand=\nnode=/usr/bin/node\n`, undefined],
     [
       'it lives in a path that needs quoting',
-      `${marker}\n/home/me/my tools/llm-usage\n`,
+      `${marker}\ncommand=/home/me/my tools/llm-usage\n`,
       undefined,
     ],
   ])('when %s', async (_name, stdout, expected) => {
     await expect(detectRemoteCommand('me@laptop', { spawnSsh: printing(stdout) })).resolves.toBe(
       expected,
     );
+  });
+
+  it('gives up on a login shell that never finishes', async () => {
+    const { spawnSsh, killed } = fakeSsh({ hang: true });
+    const info = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await expect(detectRemoteCommand('me@laptop', { spawnSsh, timeoutMs: 20 })).resolves.toBe(
+      undefined,
+    );
+    expect(killed()).toBe(true);
+    expect(info.mock.calls.flat().join('')).toContain('login shell took over 0s');
+    info.mockRestore();
   });
 
   it('gives up when ssh cannot run', async () => {
