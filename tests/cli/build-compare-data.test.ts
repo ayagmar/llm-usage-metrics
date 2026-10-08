@@ -393,6 +393,7 @@ describe('buildCompareData', () => {
     const eventStorePath = await createEventStorePath();
     const loadHistoryEvents = vi.fn(() => ({
       events: [],
+      servedFiles: [],
       departedFileCount: 0,
       servedEventCount: 0,
       servedFileCount: 0,

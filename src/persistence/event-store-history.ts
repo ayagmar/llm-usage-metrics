@@ -22,6 +22,7 @@ export type LoadHistoryEventsInput = {
 
 export type EventStoreHistoryResult = {
   events: UsageEvent[];
+  servedFiles: EventStoreHistoryDiscoveredFile[];
   departedFileCount: number;
   servedFileCount: number;
   suppressedFileCount: number;
@@ -508,6 +509,7 @@ export function loadHistoryEvents(
 
   return {
     events,
+    servedFiles: servedFiles.map(({ source, filePath }) => ({ source, filePath })),
     departedFileCount: departedFiles.length,
     servedFileCount: servedFiles.length,
     suppressedFileCount,

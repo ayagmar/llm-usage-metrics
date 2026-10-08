@@ -54,6 +54,10 @@ describe('update-notifier', () => {
       shouldSkipUpdateCheckForArgv(['node', '/app/dist/index.js', 'ts-node/register', 'help']),
     ).toBe(true);
     expect(shouldSkipUpdateCheckForArgv(['node', '/app/dist/index.js', '--version'])).toBe(true);
+    // A machine export runs over ssh for another machine's report.
+    expect(shouldSkipUpdateCheckForArgv(['node', '/app/dist/index.js', 'machine', 'export'])).toBe(
+      true,
+    );
     // A status line runs constantly: it never checks for updates.
     expect(shouldSkipUpdateCheckForArgv(['node', '/app/dist/index.js', 'statusline'])).toBe(true);
     expect(

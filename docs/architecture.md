@@ -154,6 +154,11 @@ content hash. Served history events are appended before the normal
 provider/model/date filters, pricing, and aggregation steps, so downstream
 report shapes stay unchanged.
 
+`machine export` reuses that run: the dataset reports the stored files it counted
+(discovered files plus served history), and `readStoredFileSnapshots` reads them back
+in one read transaction with a revision per file (a digest of its parse fingerprint),
+so another machine can sync only the files that changed.
+
 ## Aggregation profiles
 
 `src/aggregate/aggregate-usage.ts` supports `includeModelBreakdown`.
@@ -190,6 +195,8 @@ That keeps sorting and separator behavior deterministic without coupling the gen
   LiteLLM pricing loader, cache, model matching, cost engine
 - `src/persistence`
   SQLite event-store ledger, schema migrations, history suppression
+- `src/machines`
+  Multi-machine sync: the versioned `machine export` bundle format (`machine-export-bundle.ts`)
 - `src/aggregate`
   Period/source usage aggregation; `daily-activity.ts` holds the streak, best-day, and heatmap-level logic shared by `summary` and `wrapped`
 - `src/efficiency`

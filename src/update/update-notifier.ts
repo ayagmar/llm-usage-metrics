@@ -65,6 +65,7 @@ export function shouldSkipUpdateCheckForArgv(argv: string[]): boolean {
     'efficiency',
     'optimize',
     'statusline',
+    'machine',
     'help',
     'version',
   ]);
@@ -79,11 +80,14 @@ export function shouldSkipUpdateCheckForArgv(argv: string[]): boolean {
 
   const firstRecognizedCommand = executableArgs.find((arg) => commandNames.has(arg));
 
-  // A status line runs constantly and must never print or wait on an update hint.
+  // A status line runs constantly and must never print or wait on an update hint, and a
+  // machine export runs over ssh for another machine's report.
   return (
     firstRecognizedCommand === 'help' ||
     firstRecognizedCommand === 'version' ||
-    firstRecognizedCommand === 'statusline'
+    firstRecognizedCommand === 'statusline' ||
+    (firstRecognizedCommand === 'machine' &&
+      executableArgs[executableArgs.indexOf('machine') + 1] === 'export')
   );
 }
 

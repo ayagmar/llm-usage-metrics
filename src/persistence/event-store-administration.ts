@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { chmod, link, open, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -79,6 +79,12 @@ export type EventStoreSummary = {
 export type EventStoreStoredFile = {
   source: string;
   filePath: string;
+};
+
+export type EventStoreFileSnapshot = EventStoreStoredFile & {
+  /** Changes whenever the file's stored events can change: a digest of its fingerprint. */
+  revision: string;
+  events: UsageEvent[];
 };
 
 function normalizeStoreSource(source: string): string {
@@ -564,6 +570,46 @@ export function readDepartedFileEvents(
   }
 
   return events;
+}
+
+/**
+ * Reads the stored events of `files` in one read transaction, so a concurrent run that
+ * rewrites a file cannot pair one version's revision with another version's events.
+ * Files the store does not hold are left out; invalid rows are skipped, as for history.
+ */
+export function readStoredFileSnapshots(
+  store: EventStore,
+  files: readonly EventStoreStoredFile[],
+): EventStoreFileSnapshot[] {
+  const selectFingerprint = store.database.prepare(
+    'SELECT fingerprint FROM files WHERE source = ? AND file_path = ?',
+  );
+  const snapshots: EventStoreFileSnapshot[] = [];
+
+  store.database.exec('BEGIN');
+
+  try {
+    for (const file of files) {
+      const source = normalizeStoreSource(file.source);
+      const filePath = normalizeStoreFilePath(file.filePath);
+      const fingerprint = toText(selectFingerprint.get(source, filePath)?.fingerprint);
+
+      if (!fingerprint) {
+        continue;
+      }
+
+      snapshots.push({
+        source,
+        filePath,
+        revision: createHash('sha256').update(fingerprint).digest('hex').slice(0, 16),
+        events: readDepartedFileEvents(store, source, filePath),
+      });
+    }
+  } finally {
+    store.database.exec('COMMIT');
+  }
+
+  return snapshots;
 }
 
 function countMatchingRows(
