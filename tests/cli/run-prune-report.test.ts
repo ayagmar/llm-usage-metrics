@@ -15,6 +15,8 @@ import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.
 import {
   closeEventStore,
   countEvents,
+  getDefaultEventStorePath,
+  getLegacyEventStorePath,
   openEventStore,
   readFileEvents,
   replaceFileEvents,
@@ -382,6 +384,33 @@ describe('run-prune-report', () => {
       candidateFileCount: 1,
       candidateEventCount: 1,
     });
+  });
+
+  it('finds candidates in a ledger an older version left in the cache directory', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'prune-legacy-ledger-'));
+    tempDirs.push(rootDir);
+    vi.stubEnv('XDG_CACHE_HOME', path.join(rootDir, 'cache'));
+    vi.stubEnv('XDG_DATA_HOME', path.join(rootDir, 'data'));
+
+    try {
+      const legacyStore = await openEventStore(getLegacyEventStorePath());
+      writeStoredFile(legacyStore, {
+        filePath: '/tmp/departed-february.jsonl',
+        events: [createEvent({ timestamp: '2026-02-01T10:00:00.000Z' })],
+      });
+      closeEventStore(legacyStore);
+
+      const result = await buildPruneReport(
+        { departedBefore: '2026-03-01', source: 'codex' },
+        createDeps(getDefaultEventStorePath(), [createAdapter({ files: [] })]),
+      );
+
+      expect(result.candidates.map((candidate) => candidate.filePath)).toEqual([
+        '/tmp/departed-february.jsonl',
+      ]);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('returns zero delete counts for a missing store without creating it', async () => {

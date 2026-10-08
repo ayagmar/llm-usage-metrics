@@ -3,6 +3,7 @@ import { stat } from 'node:fs/promises';
 import { getEventStoreRuntimeConfig } from '../config/runtime-overrides.js';
 import {
   closeEventStore,
+  findLegacyEventStore,
   deleteStoredFiles,
   openEventStore,
   vacuumEventStore,
@@ -309,7 +310,11 @@ export async function buildPruneReport(
   const statFile = deps.statFile ?? stat;
   const storePath = eventStoreRuntimeConfig.path;
 
-  if (!(await fileExists(storePath, statFile))) {
+  // A ledger an older version left in the cache directory is copied in by withEventStore.
+  if (
+    !(await fileExists(storePath, statFile)) &&
+    (await findLegacyEventStore(storePath)) === undefined
+  ) {
     return {
       candidates: [],
       summary: {

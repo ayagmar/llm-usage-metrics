@@ -219,22 +219,35 @@ function isErrorCode(error: unknown, code: string): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === code;
 }
 
-/**
- * Moves a ledger left by an older version to `targetPath` once. VACUUM INTO takes a consistent snapshot
- * that includes uncheckpointed WAL pages and works across filesystems; the snapshot is
- * hard-linked into place, so a concurrent first run can never overwrite the other's.
- */
-async function moveLegacyEventStore(
-  targetPath: string,
-  sqliteModule: EventStoreSqliteModule,
-): Promise<void> {
+/** The cache-directory ledger an older version left, when the default ledger does not exist yet. */
+export async function findLegacyEventStore(targetPath: string): Promise<string | undefined> {
   const legacyPath = getLegacyEventStorePath();
 
   if (
+    targetPath !== getDefaultEventStorePath() ||
     legacyPath === targetPath ||
     (await pathExists(targetPath)) ||
     !(await pathExists(legacyPath))
   ) {
+    return undefined;
+  }
+
+  return legacyPath;
+}
+
+/**
+ * Copies a ledger left by an older version to `targetPath` once. VACUUM INTO takes a
+ * consistent snapshot that includes uncheckpointed WAL pages and works across filesystems;
+ * the snapshot is hard-linked into place, so a concurrent first run can never overwrite
+ * the other's. The old ledger stays: an older version may still be writing to it.
+ */
+async function copyLegacyEventStore(
+  targetPath: string,
+  sqliteModule: EventStoreSqliteModule,
+): Promise<void> {
+  const legacyPath = await findLegacyEventStore(targetPath);
+
+  if (legacyPath === undefined) {
     return;
   }
 
@@ -254,24 +267,13 @@ async function moveLegacyEventStore(
     try {
       await link(snapshotPath, targetPath);
     } catch (error) {
-      // Another first run moved the ledger while this one copied it.
-      if (isErrorCode(error, 'EEXIST')) {
-        return;
+      // Another first run copied the ledger while this one did.
+      if (!isErrorCode(error, 'EEXIST')) {
+        throw error;
       }
-
-      throw error;
     }
   } finally {
     await rm(snapshotPath, { force: true });
-  }
-
-  for (const legacyFilePath of [
-    legacyPath,
-    `${legacyPath}-wal`,
-    `${legacyPath}-shm`,
-    `${legacyPath}-journal`,
-  ]) {
-    await rm(legacyFilePath, { force: true });
   }
 }
 
@@ -318,9 +320,7 @@ export async function openEventStore(
     throw new Error('Event store requires a sqlite module with a DatabaseSync constructor');
   }
 
-  if (filePath === getDefaultEventStorePath()) {
-    await moveLegacyEventStore(filePath, sqliteModule);
-  }
+  await copyLegacyEventStore(filePath, sqliteModule);
 
   await prepareEventStoreFile(filePath);
 

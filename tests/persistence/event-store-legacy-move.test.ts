@@ -50,7 +50,7 @@ async function writeStore(filePath: string, storedFilePath: string): Promise<voi
   closeEventStore(store);
 }
 
-describe('legacy event store move', () => {
+describe('legacy event store copy', () => {
   it('keeps the ledger in the data directory, not the cache directory', () => {
     expect(getDefaultEventStorePath()).toBe(
       path.join(rootDir, 'data', 'llm-usage-metrics', 'events.db'),
@@ -60,7 +60,7 @@ describe('legacy event store move', () => {
     );
   });
 
-  it('moves a ledger left in the cache directory by an older version on first open', async () => {
+  it('copies a ledger left in the cache directory by an older version on first open', async () => {
     await writeStore(getLegacyEventStorePath(), '/tmp/departed.jsonl');
 
     closeEventStore(await openEventStore());
@@ -68,8 +68,10 @@ describe('legacy event store move', () => {
     await expect(readEventStoreStoredFiles(getDefaultEventStorePath())).resolves.toEqual([
       { source: 'codex', filePath: '/tmp/departed.jsonl' },
     ]);
-    // The pricing and update caches stay; only the ledger files leave.
-    await expect(readdir(path.dirname(getLegacyEventStorePath()))).resolves.toEqual([]);
+    // An older version may still write to the old ledger, so it is kept, never deleted.
+    await expect(readEventStoreStoredFiles(getLegacyEventStorePath())).resolves.toEqual([
+      { source: 'codex', filePath: '/tmp/departed.jsonl' },
+    ]);
     await expect(readdir(path.dirname(getDefaultEventStorePath()))).resolves.not.toContainEqual(
       expect.stringMatching(/\.tmp$/u),
     );

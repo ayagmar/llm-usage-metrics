@@ -19,7 +19,7 @@ description: Why caching exists, how each cache works, and how to tune it.
 | pricing cache | stores normalized LiteLLM pricing data | 24 hours | `<platform-cache-root>/llm-usage-metrics/litellm-pricing-cache.json` |
 | event store | stores parsed file diagnostics/events and retained departed-file history | no TTL | `<platform-data-root>/llm-usage-metrics/events.db` |
 
-On Linux with no `XDG_CACHE_HOME`, `<platform-cache-root>` defaults to `~/.cache`. The event store is a ledger rather than a cache, so it lives under `<platform-data-root>`: `~/.local/share` when `XDG_DATA_HOME` is unset (Linux and macOS), `%LOCALAPPDATA%` on Windows. A ledger left in the cache directory by an older version moves there on the next report.
+On Linux with no `XDG_CACHE_HOME`, `<platform-cache-root>` defaults to `~/.cache`. The event store is a ledger rather than a cache, so it lives under `<platform-data-root>`: `~/.local/share` when `XDG_DATA_HOME` is unset (Linux and macOS), `%LOCALAPPDATA%` on Windows. A ledger left in the cache directory by an older version is copied there on the next report; the old file stays until you delete it.
 
 ## How each cache works
 

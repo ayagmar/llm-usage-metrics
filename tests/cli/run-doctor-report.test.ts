@@ -412,7 +412,7 @@ describe('run-doctor-report', () => {
     ]);
   });
 
-  it('points at a ledger left in the cache directory, which the next report moves', async () => {
+  it('points at a ledger left in the cache directory, which the next report copies', async () => {
     const options = await createDoctorFixtureOptions();
     const rootDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-legacy-store-'));
     tempDirs.push(rootDir);
@@ -431,7 +431,7 @@ describe('run-doctor-report', () => {
 
       expect(results.find((result) => result.id === 'event-store')).toMatchObject({
         status: 'ok',
-        detail: `still at ${getLegacyEventStorePath()}; the next report moves it here`,
+        detail: `still at ${getLegacyEventStorePath()}; the next report copies it here`,
       });
     } finally {
       vi.unstubAllEnvs();
