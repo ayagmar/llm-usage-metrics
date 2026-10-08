@@ -292,12 +292,7 @@ async function restrictEventStoreFiles(filePath: string): Promise<void> {
     try {
       await chmod(sidecarPath, 0o600);
     } catch (error) {
-      if (
-        typeof error === 'object' &&
-        error !== null &&
-        'code' in error &&
-        error.code === 'ENOENT'
-      ) {
+      if (isErrorCode(error, 'ENOENT')) {
         continue;
       }
 

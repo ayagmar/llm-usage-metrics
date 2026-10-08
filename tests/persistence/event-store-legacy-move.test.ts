@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -97,5 +97,28 @@ describe('legacy event store move', () => {
     await expect(readEventStoreStoredFiles(getLegacyEventStorePath())).resolves.toEqual([
       { source: 'codex', filePath: '/tmp/legacy.jsonl' },
     ]);
+  });
+
+  it('opens the ledger in place when the cache and data roots are the same directory', async () => {
+    vi.stubEnv('XDG_DATA_HOME', path.join(rootDir, 'cache'));
+    await writeStore(getLegacyEventStorePath(), '/tmp/same-root.jsonl');
+
+    closeEventStore(await openEventStore());
+
+    await expect(readEventStoreStoredFiles(getDefaultEventStorePath())).resolves.toEqual([
+      { source: 'codex', filePath: '/tmp/same-root.jsonl' },
+    ]);
+  });
+
+  it('keeps an unreadable legacy ledger and leaves no snapshot behind', async () => {
+    await mkdir(path.dirname(getLegacyEventStorePath()), { recursive: true });
+    await writeFile(getLegacyEventStorePath(), 'not a sqlite database');
+
+    await expect(openEventStore()).rejects.toThrow();
+
+    await expect(readFile(getLegacyEventStorePath(), 'utf8')).resolves.toBe(
+      'not a sqlite database',
+    );
+    await expect(readdir(path.dirname(getDefaultEventStorePath()))).resolves.toEqual([]);
   });
 });
