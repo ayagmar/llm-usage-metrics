@@ -43,7 +43,7 @@ Notes:
 
 - CI installs with `pnpm install --frozen-lockfile`.
 - The main test job rebuilds `dist` before `pnpm run smoke:dist-opencode` and `pnpm run test`.
-- The Bun job builds `dist` with Node, then runs `pnpm run smoke:dist-bun` (Bun's report JSON must match Node's, cold with parse workers and warm from the event store, plus `statusline`) and the OpenCode smoke under Bun.
+- The Bun job builds `dist` with Node, then runs `pnpm run smoke:dist-bun` and the OpenCode smoke under Bun. The Bun smoke check fails unless `node:sqlite` works under Bun, Bun's report JSON matches Node's on a cold run whose Codex files parse in worker threads (no fallback) and on a warm run served from the event store, and `statusline` prints one line.
 - Site CI also regenerates `site/src/content/docs/cli-reference.mdx` and `site/src/content/docs/security.mdx` and fails if either generated file is out of date.
 
 ## Security and dependency hygiene

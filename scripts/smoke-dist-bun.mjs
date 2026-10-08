@@ -1,6 +1,8 @@
 // Runs the built CLI under Bun and checks it against Node on the e2e fixtures:
-// identical report JSON on a cold run (worker-thread parsing forced on) and on a
-// warm run served from the SQLite event store, plus a one-line statusline.
+// identical report JSON on a cold run whose Codex files really parse in worker
+// threads, and on a warm run served from the SQLite event store, plus a one-line
+// statusline. A node:sqlite preflight makes a missing SQLite fatal instead of the
+// OpenCode smoke check skipping.
 import { spawnSync } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
@@ -40,6 +42,7 @@ function createEnv(root) {
     XDG_DATA_HOME: path.join(root, 'data'),
     XDG_CONFIG_HOME: path.join(root, 'config'),
     LLM_USAGE_SKIP_UPDATE_CHECK: '1',
+    LLM_USAGE_PARSE_WORKERS: '2',
     LLM_USAGE_PARSE_WORKER_MIN_BYTES: '0',
     LLM_USAGE_PROFILE_RUNTIME: '1',
   };
@@ -78,10 +81,29 @@ async function main() {
   const root = await mkdtemp(path.join(os.tmpdir(), 'llm-usage-bun-smoke-'));
 
   try {
+    // The event store and the OpenCode source need node:sqlite; a skip would hide its loss.
+    run(
+      'bun',
+      [
+        '-e',
+        "const { DatabaseSync } = require('node:sqlite'); new DatabaseSync(':memory:').exec('select 1');",
+      ],
+      process.env,
+    );
+
     const nodeData = runReport('node', createEnv(path.join(root, 'node'))).data;
     const bunEnv = createEnv(path.join(root, 'bun'));
-    const coldData = runReport('bun', bunEnv).data;
+    const cold = runReport('bun', bunEnv);
+    const coldData = cold.data;
     const warm = runReport('bun', bunEnv);
+
+    // Equal output alone would also come from the inline fallback when workers fail.
+    if (
+      !/source codex:[^\n]*parseWorkers=engaged/u.test(cold.stderr) ||
+      /fallback/u.test(cold.stderr)
+    ) {
+      throw new Error(`The cold Bun run did not parse in worker threads:\n${cold.stderr}`);
+    }
 
     if (nodeData.length === 0) {
       throw new Error('The fixture report is empty; the smoke check would prove nothing');
