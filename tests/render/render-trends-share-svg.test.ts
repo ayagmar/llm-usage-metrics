@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import type { TrendsDataResult } from '../../src/cli/usage-data-contracts.js';
 import { renderTrendsShareSvg } from '../../src/render/render-trends-share-svg.js';
+import { shareThemes } from '../../src/render/share-svg-theme.js';
+import { renderInBothThemes } from './share-svg-assertions.js';
 
 function createData(): TrendsDataResult {
   return {
@@ -36,29 +38,51 @@ function createData(): TrendsDataResult {
   };
 }
 
+const dark = shareThemes.dark;
+
+function barFor(svg: string, date: string): string {
+  return (
+    /<rect data-date="[^"]+"[^>]*>/u.exec(
+      svg.slice(svg.indexOf(`<rect data-date="${date}"`)),
+    )?.[0] ?? ''
+  );
+}
+
 describe('renderTrendsShareSvg', () => {
-  it('renders a combined trends SVG with title, day span, line path, stats, and footer', () => {
-    const svg = renderTrendsShareSvg(createData());
+  it('renders summary stats and one bar per day in both themes', () => {
+    const [svg] = renderInBothThemes((theme) => renderTrendsShareSvg(createData(), theme));
 
-    expect(svg).toContain('<svg');
-    expect(svg).toContain('Daily Token Usage Trend');
-    expect(svg).toContain('3 days - 2026-03-04 to 2026-03-06');
-    expect(svg).toContain('Total');
-    expect(svg).toContain('Peak');
-    expect(svg).toContain('Min');
-    expect(svg).toContain('llm-usage trends --share');
-    expect(svg).toContain('llm-usage-metrics');
-    expect(svg.match(/data-series="combined"/g)).toHaveLength(1);
+    expect(svg).toContain('Daily tokens');
+    // The series label is escaped.
+    expect(svg).toContain('3 days of combined &lt;all&gt;');
+    expect([...svg.matchAll(/data-stat="([^"]+)"/gu)].map((match) => match[1])).toEqual([
+      'Total',
+      'Daily average',
+      'Peak',
+      'Lowest',
+    ]);
+    expect(svg).toContain('>3.6k<');
+    expect(svg).toContain('$ llm-usage trends --share');
+    expect(svg).toContain('2026-03-04 to 2026-03-06');
+    expect(svg.match(/<rect data-date="/gu)).toHaveLength(3);
   });
 
-  it('escapes the rendered series label', () => {
-    const svg = renderTrendsShareSvg(createData());
+  it('shades bars by quartile, with the peak in the accent and missing days faint', () => {
+    const svg = renderTrendsShareSvg(createData(), dark);
 
-    expect(svg).toContain('· combined &lt;all&gt;');
-    expect(svg).not.toContain('combined <all>');
+    expect(barFor(svg, '2026-03-06')).toContain(`fill="${dark.heat[4]}"`);
+    expect(barFor(svg, '2026-03-04')).not.toContain('fill-opacity');
+    expect(barFor(svg, '2026-03-05')).toContain('fill-opacity="0.4"');
   });
 
-  it('renders an active-hours trend with duration labels', () => {
+  it('anchors the first and last date labels to the chart edges', () => {
+    const svg = renderTrendsShareSvg(createData(), dark);
+
+    expect(svg).toMatch(/<text x="124" y="526" font-size="13"[^>]*>2026-03-04</u);
+    expect(svg).toMatch(/<text x="1136" y="526" text-anchor="end"[^>]*>2026-03-06</u);
+  });
+
+  it('formats active-hours values as durations', () => {
     const data = createData();
     data.metric = 'active-hours';
     data.totalSeries = {
@@ -77,19 +101,16 @@ describe('renderTrendsShareSvg', () => {
       },
     };
 
-    const svg = renderTrendsShareSvg(data);
+    const svg = renderTrendsShareSvg(data, dark);
 
-    expect(svg).toContain('Daily Active Hours Trend');
+    expect(svg).toContain('Daily active hours');
     expect(svg).toContain('2h 19m');
   });
 
-  it('renders a single-day cost trend as one marker', () => {
+  it('renders a single incomplete cost day', () => {
     const data = createData();
     data.metric = 'cost';
-    data.dateRange = {
-      from: '2026-03-04',
-      to: '2026-03-04',
-    };
+    data.dateRange = { from: '2026-03-04', to: '2026-03-04' };
     data.totalSeries = {
       source: 'combined',
       buckets: [{ date: '2026-03-04', value: 12.34, observed: true, incomplete: true }],
@@ -102,15 +123,15 @@ describe('renderTrendsShareSvg', () => {
       },
     };
 
-    const svg = renderTrendsShareSvg(data);
+    const [svg] = renderInBothThemes((theme) => renderTrendsShareSvg(data, theme));
 
-    expect(svg).toContain('Daily Cost Trend');
-    expect(svg).toContain('1 day - 2026-03-04');
+    expect(svg).toContain('Daily cost');
+    expect(svg).toContain('1 day of all sources');
     expect(svg).toContain('~$12.34');
-    expect(svg).toContain('<circle data-series="combined"');
+    expect(svg.match(/<rect data-date="/gu)).toHaveLength(1);
   });
 
-  it('renders an empty-state SVG without date labels', () => {
+  it('shows an empty state without days', () => {
     const data = createData();
     data.totalSeries = {
       source: 'combined',
@@ -124,9 +145,9 @@ describe('renderTrendsShareSvg', () => {
       },
     };
 
-    const svg = renderTrendsShareSvg(data);
+    const [svg] = renderInBothThemes((theme) => renderTrendsShareSvg(data, theme));
 
-    expect(svg).toContain('No trend data available');
-    expect(svg).toContain('0 days - 2026-03-04 to 2026-03-06');
+    expect(svg).toContain('No usage in this window');
+    expect(svg).not.toContain('data-date=');
   });
 });

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import { renderWrappedShareSvg } from '../../src/render/render-wrapped-share-svg.js';
+import { shareThemes } from '../../src/render/share-svg-theme.js';
 import type { WrappedRecap } from '../../src/wrapped/wrapped-recap.js';
+import { HOSTILE_TEXT, renderInBothThemes } from './share-svg-assertions.js';
 
 function createRecap(): WrappedRecap {
   return {
@@ -50,63 +52,96 @@ function createRecap(): WrappedRecap {
 }
 
 describe('renderWrappedShareSvg', () => {
-  it('renders stat tiles, top lists, daily heatmap, command badge, and footer', () => {
-    const svg = renderWrappedShareSvg(createRecap());
+  it('renders the stats, a Monday-first year grid, and the top lists in both themes', () => {
+    const [svg] = renderInBothThemes((theme) => renderWrappedShareSvg(createRecap(), theme));
 
-    expect(svg).toContain('<svg');
     expect(svg).toContain('2026 Wrapped');
-    expect(svg).toContain('Tokens');
-    expect(svg).toContain('Cost');
-    expect(svg).toContain('Active Days');
-    expect(svg).toContain('Streak');
-    expect(svg.match(/data-stat-tile="/g)).toHaveLength(5);
-    expect(svg).toContain('data-stat-tile="Hours"');
-    expect(svg).toContain('>90h<');
-    expect(svg).toContain('12 sessions');
-    expect(svg).toContain('this year');
-    expect(svg).toContain('saved ~$42.50 via cache');
-    const tileOrder = [...svg.matchAll(/data-stat-tile="([^"]+)"/g)].map((match) => match[1]);
-    expect(tileOrder).toEqual(['Tokens', 'Cost', 'Hours', 'Active Days', 'Streak']);
+    expect([...svg.matchAll(/data-stat="([^"]+)"/gu)].map((match) => match[1])).toEqual([
+      'Cost',
+      'Tokens',
+      'Hours',
+      'Active days',
+      'Longest streak',
+    ]);
     expect(svg).toContain('~$123.45');
-    expect(svg).toContain('Top Models');
-    expect(svg).toContain('Top Sources');
-    expect(svg).toContain('Daily activity');
-    expect(svg).toContain('llm-usage wrapped --year 2026 --share');
-    expect(svg).toContain('llm-usage-metrics');
-    expect(svg.match(/data-date="/g)).toHaveLength(365);
+    expect(svg).toContain('cache saved ~$42.50');
+    expect(svg).toContain('>90<');
+    expect(svg).toContain('12 sessions');
+    expect(svg).toContain('Top models');
+    expect(svg).toContain('Top sources');
+    expect(svg).toContain('$ llm-usage wrapped --year 2026 --share');
+    expect(svg).toContain('2026-01-01 to 2026-12-31');
+    expect(svg.match(/data-date="/gu)).toHaveLength(365);
+    // 2026-01-01 is a Thursday: the fourth row of the first week column.
+    expect(svg).toMatch(/data-date="2026-01-01" data-level="0" x="100" y="329"/u);
+    expect(svg).toMatch(/data-date="2026-01-05" data-level="4" x="119" y="272"/u);
   });
 
-  it('escapes model and source names', () => {
-    const svg = renderWrappedShareSvg(createRecap());
+  it('colors heatmap cells from each theme', () => {
+    for (const theme of [shareThemes.dark, shareThemes.light]) {
+      const svg = renderWrappedShareSvg(createRecap(), theme);
 
-    expect(svg).toContain('gpt-4.1 &lt;fast&gt;');
+      expect(svg).toMatch(
+        new RegExp(`data-date="2026-01-05" data-level="4"[^>]*fill="${theme.heat[4]}"`, 'u'),
+      );
+    }
+  });
+
+  it('escapes and shortens hostile model and source names', () => {
+    const [svg] = renderInBothThemes((theme) =>
+      renderWrappedShareSvg(
+        {
+          ...createRecap(),
+          topModels: [{ name: HOSTILE_TEXT, totalTokens: 1, costUsd: 1 }],
+          topSources: [{ name: 'pi & codex', totalTokens: 1 }],
+        },
+        theme,
+      ),
+    );
+
+    expect(svg).not.toContain('<script');
+    expect(svg).toContain('&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt; &amp; &#39;q&#39;');
     expect(svg).toContain('pi &amp; codex');
-    expect(svg).not.toContain('gpt-4.1 <fast>');
-    expect(svg).not.toContain('pi & codex');
+
+    const longName = renderWrappedShareSvg(
+      { ...createRecap(), topModels: [{ name: 'm'.repeat(80), totalTokens: 1 }] },
+      shareThemes.dark,
+    );
+    expect(longName).toContain(`${'m'.repeat(33)}…`);
   });
 
-  it('renders at most three rows per top list even when the recap carries five', () => {
-    const svg = renderWrappedShareSvg({
-      ...createRecap(),
-      topModels: Array.from({ length: 5 }, (_, index) => ({
-        name: `model-${index}`,
-        totalTokens: (5 - index) * 100,
-        costUsd: 5 - index,
-      })),
-    });
+  it('shows the top three rows of each list even when the recap carries five', () => {
+    const svg = renderWrappedShareSvg(
+      {
+        ...createRecap(),
+        topModels: Array.from({ length: 5 }, (_, index) => ({
+          name: `model-${index}`,
+          totalTokens: (5 - index) * 100,
+          costUsd: 5 - index,
+        })),
+      },
+      shareThemes.dark,
+    );
 
-    expect(svg.match(/data-top-item="Top Models-\d+"/g)).toHaveLength(3);
+    expect(svg.match(/data-top-item="Top models-\d+"/gu)).toHaveLength(3);
   });
 
-  it('uses singular day label for a one-day streak and shows No data for empty lists', () => {
-    const svg = renderWrappedShareSvg({
-      ...createRecap(),
-      longestStreak: 1,
-      topModels: [],
-      topSources: [],
-    });
+  it('uses a singular day unit and shows No data for empty lists', () => {
+    const svg = renderWrappedShareSvg(
+      { ...createRecap(), longestStreak: 1, topModels: [], topSources: [] },
+      shareThemes.dark,
+    );
 
-    expect(svg).toContain('>day<');
-    expect(svg).toContain('No data');
+    expect(svg).toContain('>day</tspan>');
+    expect(svg.match(/No data/gu)).toHaveLength(2);
+  });
+
+  it('shows an empty state for a year without usage', () => {
+    const [svg] = renderInBothThemes((theme) =>
+      renderWrappedShareSvg({ ...createRecap(), eventCount: 0 }, theme),
+    );
+
+    expect(svg).toContain('No usage in 2026');
+    expect(svg).not.toContain('data-date=');
   });
 });

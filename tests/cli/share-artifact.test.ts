@@ -1,11 +1,7 @@
 import { access } from 'node:fs/promises';
 import { describe, expect, it, vi } from 'vitest';
 
-import {
-  openShareSvgFile,
-  resolveOpenCommand,
-  writeAndOpenShareSvgFile,
-} from '../../src/cli/share-artifact.js';
+import { openShareFile, resolveOpenCommand } from '../../src/cli/share-artifact.js';
 
 vi.mock('node:fs/promises', () => ({
   access: vi.fn(),
@@ -83,12 +79,12 @@ describe('share-artifact', () => {
     });
   });
 
-  describe('openShareSvgFile', () => {
+  describe('openShareFile', () => {
     it('delegates to injected detached opener with resolved command', async () => {
       vi.mocked(access).mockResolvedValue(undefined);
       const spawnDetached = vi.fn(async () => undefined);
 
-      await openShareSvgFile('/tmp/share.svg', {
+      await openShareFile('/tmp/share.svg', {
         platform: 'darwin',
         spawnDetached,
       });
@@ -100,7 +96,7 @@ describe('share-artifact', () => {
       vi.mocked(access).mockResolvedValue(undefined);
       const spawnDetached = vi.fn(async () => undefined);
 
-      await openShareSvgFile('C:\\temp\\share.svg', {
+      await openShareFile('C:\\temp\\share.svg', {
         platform: 'win32',
         spawnDetached,
       });
@@ -109,78 +105,6 @@ describe('share-artifact', () => {
         'shell32.dll,ShellExec_RunDLL',
         'C:\\temp\\share.svg',
       ]);
-    });
-  });
-
-  describe('writeAndOpenShareSvgFile', () => {
-    it('writes then opens and reports success', async () => {
-      const writeShareSvgFileFn = vi.fn(async () => '/tmp/share.svg');
-      const openShareSvgFileFn = vi.fn(async () => undefined);
-
-      const result = await writeAndOpenShareSvgFile('usage-monthly-share.svg', '<svg/>', {
-        writeShareSvgFileFn,
-        openShareSvgFileFn,
-      });
-
-      expect(writeShareSvgFileFn).toHaveBeenCalledWith('usage-monthly-share.svg', '<svg/>');
-      expect(openShareSvgFileFn).toHaveBeenCalledWith('/tmp/share.svg');
-      expect(result).toEqual({
-        outputPath: '/tmp/share.svg',
-        opened: true,
-      });
-    });
-
-    it('returns non-fatal open failure details', async () => {
-      const writeShareSvgFileFn = vi.fn(async () => '/tmp/share.svg');
-      const openShareSvgFileFn = vi.fn(async () => {
-        throw new Error('open failed');
-      });
-
-      const result = await writeAndOpenShareSvgFile('usage-monthly-share.svg', '<svg/>', {
-        writeShareSvgFileFn,
-        openShareSvgFileFn,
-      });
-
-      expect(result).toEqual({
-        outputPath: '/tmp/share.svg',
-        opened: false,
-        openErrorMessage: 'open failed',
-      });
-    });
-
-    it('stringifies non-Error open failures', async () => {
-      const writeShareSvgFileFn = vi.fn(async () => '/tmp/share.svg');
-      const nonErrorRejection = 'open failed as string' as unknown as Error;
-      const openShareSvgFileFn = vi.fn(() => Promise.reject(nonErrorRejection));
-
-      const result = await writeAndOpenShareSvgFile('usage-monthly-share.svg', '<svg/>', {
-        writeShareSvgFileFn,
-        openShareSvgFileFn,
-      });
-
-      expect(result).toEqual({
-        outputPath: '/tmp/share.svg',
-        opened: false,
-        openErrorMessage: 'open failed as string',
-      });
-    });
-
-    it('returns pre-flight error when opener binary is not found', async () => {
-      vi.mocked(access).mockRejectedValue(new Error('not found'));
-      const writeShareSvgFileFn = vi.fn(async () => '/tmp/share.svg');
-      const openShareSvgFileFn = (filePath: string) =>
-        openShareSvgFile(filePath, {
-          platform: 'linux',
-        });
-
-      const result = await writeAndOpenShareSvgFile('usage-monthly-share.svg', '<svg/>', {
-        writeShareSvgFileFn,
-        openShareSvgFileFn,
-      });
-
-      expect(result.outputPath).toBe('/tmp/share.svg');
-      expect(result.opened).toBe(false);
-      expect(result.openErrorMessage).toContain('Could not find xdg-open');
     });
   });
 });

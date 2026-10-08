@@ -52,8 +52,9 @@ async function prepareUsageReport(
     createShareArtifact: options.share
       ? (usageData) => ({
           fileName: resolveShareFileName(granularity),
-          svg: renderUsageShareSvg(usageData, granularity),
           logLabel: 'usage',
+          title: 'Usage share card',
+          render: (theme) => renderUsageShareSvg(usageData, granularity, theme),
         })
       : undefined,
     validate: () => {

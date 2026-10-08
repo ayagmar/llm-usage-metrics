@@ -148,3 +148,5 @@ site/dist/
 /plans/
 /*-share.svg
 /llm-usage-wrapped-*.svg
+/*-share.html
+/llm-usage-wrapped-*.html

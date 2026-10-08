@@ -1,15 +1,15 @@
 ---
 title: Output Formats
-description: Choose terminal, JSON, Markdown, or a supported share SVG.
+description: Choose terminal, JSON, Markdown, or a share card.
 ---
 
 The CLI keeps report data on `stdout` and diagnostics on `stderr`. Redirecting JSON or Markdown therefore produces a clean data file while discovery and pricing notes remain visible in the terminal.
 
 ## Choose a format
 
-| Report                   | Terminal | JSON | Markdown | Share SVG                   |
+| Report                   | Terminal | JSON | Markdown | Share card                  |
 | ------------------------ | -------- | ---- | -------- | --------------------------- |
-| Summary                  | Yes      | Yes  | Yes      | No                          |
+| Summary                  | Yes      | Yes  | Yes      | Yes                         |
 | Daily / weekly / monthly | Yes      | Yes  | Yes      | Yes                         |
 | Compare                  | Yes      | Yes  | Yes      | Yes                         |
 | Session                  | Yes      | Yes  | Yes      | No                          |
@@ -90,12 +90,18 @@ Markdown works for summary, usage, compare, session, efficiency, optimize, trend
 
 Usage and session output keep the same ordering and row limits as the terminal renderer. `--per-model-columns` and `--compact` also work with Markdown usage reports.
 
-## Share SVG
+## Share cards
 
-Share output is an offline SVG written to the current directory and opened in your default viewer; add `--no-open` to only write the file (useful over SSH or in scripts). The command still prints the normal report to `stdout`.
+`--share` writes a 1200×630 card, the usual size for social link previews, to the current directory as two files:
+
+- an SVG in the dark theme
+- an HTML page with the same name that shows the card in dark and light, with **Download PNG** and **Copy image** buttons
+
+The page opens in your default browser; add `--no-open` to only write the files (useful over SSH or in scripts). The page works offline: it renders the PNG in the browser at twice the card size, loads nothing from the network, and needs no extra software. Copying an image needs a browser that supports image clipboard writes; Download PNG works everywhere. The command still prints the normal report to `stdout`.
 
 | Report     | Command                                                        | File                           |
 | ---------- | -------------------------------------------------------------- | ------------------------------ |
+| Summary    | `llm-usage summary --share`                                    | `summary-share.svg`            |
 | Usage      | `llm-usage monthly --share`                                    | `usage-monthly-share.svg`      |
 | Compare    | `llm-usage compare --share`                                    | `compare-share.svg`            |
 | Trends     | `llm-usage trends --share`                                     | `trends-share.svg`             |
@@ -103,9 +109,9 @@ Share output is an offline SVG written to the current directory and opened in yo
 | Efficiency | `llm-usage efficiency monthly --share`                         | `efficiency-monthly-share.svg` |
 | Optimize   | `llm-usage optimize monthly --candidate-model gpt-4.1 --share` | `optimize-monthly-share.svg`   |
 
-Usage share works for daily, weekly, and monthly reports. Efficiency and optimize share work for monthly reports only. Trends share requires the combined view, so it cannot be paired with `--by-source`. Efficiency share cannot be paired with `--by-source` either.
+Each HTML page takes the SVG's name with `.html`. The summary card leads with your current streak above the past year's activity heatmap. Usage share works for daily, weekly, and monthly reports, and folds sources past the sixth into one entry. Efficiency share shows the last 12 months and optimize share the top 5 candidates over the last 8 months; the full data stays in the report. Efficiency and optimize share work for monthly reports only. Trends share requires the combined view, so it cannot be paired with `--by-source`. Efficiency share cannot be paired with `--by-source` either.
 
-Summary, session, doctor, prune, and events do not support `--share`.
+Session, doctor, prune, and events do not support `--share`.
 
 ## Per-model columns
 

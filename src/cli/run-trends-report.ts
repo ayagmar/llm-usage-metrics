@@ -34,8 +34,9 @@ async function prepareTrendsReport(options: TrendsCommandOptions, deps: BuildTre
     createShareArtifact: options.share
       ? (trendsData) => ({
           fileName: 'trends-share.svg',
-          svg: renderTrendsShareSvg(trendsData),
           logLabel: 'trends',
+          title: 'Trends share card',
+          render: (theme) => renderTrendsShareSvg(trendsData, theme),
         })
       : undefined,
     render: (trendsData, format) => renderTrendsReport(trendsData, format),
