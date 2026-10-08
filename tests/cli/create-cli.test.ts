@@ -2,6 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
+import type { Command } from 'commander';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createCli } from '../../src/cli/create-cli.js';
@@ -20,7 +21,7 @@ afterEach(async () => {
 });
 
 describe('createCli', () => {
-  it('registers summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, doctor, prune, config, and schema commands', () => {
+  it('registers summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline, doctor, prune, config, schema, and completion commands', () => {
     const cli = createCli();
 
     expect(cli.name()).toBe('llm-usage');
@@ -36,10 +37,12 @@ describe('createCli', () => {
       'session',
       'wrapped',
       'events',
+      'statusline',
       'doctor',
       'prune',
       'config',
       'schema',
+      'completion',
     ]);
   });
 
@@ -110,7 +113,7 @@ describe('createCli', () => {
   it('includes quiet on every report command', () => {
     const cli = createCli();
     const reportCommands = cli.commands.filter(
-      (command) => !['config', 'schema'].includes(command.name()),
+      (command) => !['config', 'schema', 'completion'].includes(command.name()),
     );
 
     for (const command of reportCommands) {
@@ -362,6 +365,32 @@ describe('createCli', () => {
     expect(optimizeHelp).not.toContain('(default: [])');
   });
 
+  it('ends each command help with a short examples block', () => {
+    const cli = createCli();
+
+    // The text commander prints for --help, including addHelpText blocks.
+    const fullHelp = (command: Command | undefined): string => {
+      let text = '';
+      command?.configureOutput({ writeOut: (chunk) => (text += chunk) }).outputHelp();
+      return text;
+    };
+
+    for (const command of cli.commands.flatMap((entry) => [entry, ...entry.commands])) {
+      expect(fullHelp(command), command.name()).toContain('Examples:\n  $ ');
+    }
+
+    const dailyHelp = fullHelp(cli.commands.find((command) => command.name() === 'daily'));
+    const dailyExamples = dailyHelp.slice(dailyHelp.indexOf('Examples:'));
+    expect(dailyExamples).not.toContain('--help');
+    // The four shortest, so the long path-flag examples stay in the CLI reference only.
+    expect(dailyExamples.match(/ {2}\$ .*/gu)).toEqual([
+      '  $ llm-usage daily',
+      '  $ llm-usage daily --json',
+      '  $ llm-usage daily --markdown',
+      '  $ llm-usage daily --compact',
+    ]);
+  });
+
   it('exports shared report metadata and CLI reference examples', () => {
     expect(getReportDefinitionMetas().map((meta) => meta.commandName)).toEqual([
       'summary',
@@ -375,6 +404,7 @@ describe('createCli', () => {
       'session',
       'wrapped',
       'events',
+      'statusline',
       'doctor',
       'prune',
     ]);
@@ -389,6 +419,7 @@ describe('createCli', () => {
     expect(getCliReferenceExamples()).toContain('llm-usage monthly --no-history --pricing-offline');
     expect(getCliReferenceExamples()).toContain('llm-usage wrapped --year 2026 --share');
     expect(getCliReferenceExamples()).toContain('llm-usage doctor --json');
+    expect(getCliReferenceExamples()).toContain('llm-usage statusline');
     expect(getCliReferenceExamples()).toContain('llm-usage prune --suppressed');
     expect(getCliReferenceExamples()).toContain(
       'llm-usage prune --departed-before 2026-01-01 --apply',

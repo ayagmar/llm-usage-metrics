@@ -17,6 +17,11 @@
       "enum": ["silent", "warn", "info", "debug"],
       "default": "info"
     },
+    "monthlyBudgetUsd": {
+      "description": "Monthly spending budget in USD. When set, summary shows the month-end projection against it and warns when the projection exceeds it.",
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
     "sources": {
       "description": "Default source filter; maps to repeatable --source values.",
       "type": "array",

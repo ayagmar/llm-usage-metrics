@@ -19,6 +19,7 @@ import { DEFAULT_LITELLM_PRICING_URL } from '../pricing/litellm-pricing-fetcher.
 import { asRecord } from '../utils/as-record.js';
 import { logger } from '../utils/logger.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
+import { formatHelpExamples } from './report-definitions/report-definitions.js';
 import { buildActiveConfigLines } from './emit-active-config.js';
 
 type ConfigInitOptions = {
@@ -42,6 +43,10 @@ export const USER_CONFIG_TEMPLATE = `${CONFIG_TEMPLATE_HEADER}
 
 # Default: all supported sources.
 # sources = []
+
+# Monthly budget in USD. When set, the summary compares month-to-date spend and
+# the month-end projection against it. Default: no budget.
+# monthlyBudgetUsd = 100
 
 # Parser defaults.
 # parseMaxParallel = ${PARSE_MAX_PARALLEL_DEFAULT}
@@ -107,10 +112,23 @@ async function configFileExists(configPath: string): Promise<boolean> {
 }
 
 export function createConfigCommand(): Command {
-  const configCommand = new Command('config').description('Manage user configuration');
+  const configCommand = new Command('config')
+    .description('Manage user configuration')
+    .addHelpText(
+      'after',
+      formatHelpExamples([
+        'llm-usage config init',
+        'llm-usage config show',
+        'llm-usage config path',
+      ]),
+    );
   const initCommand = new Command('init')
     .description('Write a commented config template')
     .option('--force', 'Overwrite an existing config file')
+    .addHelpText(
+      'after',
+      formatHelpExamples(['llm-usage config init', 'llm-usage config init --force']),
+    )
     .action(async (options: ConfigInitOptions) => {
       const configPath = resolveUserConfigPath(process.env);
       await writeConfigTemplate(configPath, options);
@@ -118,11 +136,22 @@ export function createConfigCommand(): Command {
     });
   const pathCommand = new Command('path')
     .description('Print the resolved config file path')
+    .addHelpText(
+      'after',
+      formatHelpExamples(['llm-usage config path', '$EDITOR "$(llm-usage config path)"']),
+    )
     .action(() => {
       console.log(resolveUserConfigPath(process.env));
     });
   const showCommand = new Command('show')
     .description('Print the effective configuration and where each value comes from')
+    .addHelpText(
+      'after',
+      formatHelpExamples([
+        'llm-usage config show',
+        'LLM_USAGE_CONFIG_PATH=./work.toml llm-usage config show',
+      ]),
+    )
     .action(async () => {
       const configPath = resolveUserConfigPath(process.env);
       const missingSuffix = (await configFileExists(configPath)) ? '' : ' (missing)';

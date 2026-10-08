@@ -38,6 +38,7 @@ TOML editors such as Taplo can validate the file through the `#:schema` directiv
 #:schema https://ayagmar.github.io/llm-usage-metrics/config-schema.json
 timezone = "Africa/Casablanca"
 logLevel = "info"
+monthlyBudgetUsd = 200
 sources = ["codex", "claude"]
 parseMaxParallel = 8
 parseWorkers = "auto"
@@ -90,6 +91,7 @@ Reports name the applied config file in their `stderr` summary line; `--verbose`
 | ------------------------ | ----------------------------------------------------- | ---------------------------------------------------------- |
 | `timezone`               | `--timezone`                                          | Default report timezone                                    |
 | `logLevel`               | `--quiet`, `--verbose`                                | Stderr logging level: `silent`, `warn`, `info`, or `debug` |
+| `monthlyBudgetUsd`       | Config only                                           | Monthly budget the summary checks its projection against   |
 | `sources`                | `--source`                                            | Default source filter                                      |
 | `sourceDirs.pi`          | `--pi-dir` or `--source-dir pi=...`                   | Pi sessions path                                           |
 | `sourceDirs.codex`       | `--codex-dir` or `--source-dir codex=...`             | Codex sessions path                                        |

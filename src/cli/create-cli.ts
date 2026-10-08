@@ -5,10 +5,12 @@ import { suggestClosest } from '../utils/suggest-closest.js';
 import {
   createReportCommands,
   createRootDescription,
+  GRANULARITY_ARGUMENT_VALUES,
   SUMMARY_COMMAND_NAME,
 } from './report-definitions/report-definitions.js';
 import { createConfigCommand } from './create-config-command.js';
-import { createSchemaCommand } from './create-schema-command.js';
+import { createCompletionCommand, COMPLETION_SHELLS } from './create-completion-command.js';
+import { createSchemaCommand, schemaNames } from './create-schema-command.js';
 
 export type CreateCliOptions = {
   version?: string;
@@ -110,6 +112,14 @@ export function createCli(options: CreateCliOptions = {}): Command {
   }
   program.addCommand(createConfigCommand());
   program.addCommand(createSchemaCommand());
+  program.addCommand(
+    createCompletionCommand(() => program, {
+      efficiency: GRANULARITY_ARGUMENT_VALUES,
+      optimize: GRANULARITY_ARGUMENT_VALUES,
+      schema: schemaNames,
+      completion: COMPLETION_SHELLS,
+    }),
+  );
 
   program.hook('preAction', (_thisCommand, actionCommand) => {
     const { quiet, verbose } = actionCommand.opts<{ quiet?: boolean; verbose?: boolean }>();

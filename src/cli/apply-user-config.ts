@@ -186,6 +186,7 @@ export function collectRuntimeConfigEntries(
     'eventStore.path',
     config.eventStore?.path,
   );
+  pushConfigEntry(entries, 'monthlyBudgetUsd', config.monthlyBudgetUsd);
   pushConfigEntry(entries, 'parseMaxParallel', config.parseMaxParallel);
   pushRuntimeEntry(entries, env, 'LLM_USAGE_PARSE_WORKERS', 'parseWorkers', config.parseWorkers);
   pushRuntimeEntry(

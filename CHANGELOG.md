@@ -1,5 +1,113 @@
 # Changelog
 
+## [0.9.0](https://github.com/ayagmar/llm-usage-metrics/compare/v0.8.1...v0.9.0) (2026-10-08)
+
+### ⚠ BREAKING CHANGES
+
+* **cli:** `llm-usage daily` (including --json and --markdown) without
+  --since or --until now reports only the last 7 days. Pass --all for the full
+  history. A bare `llm-usage` runs the summary instead of printing help.
+* **cli:** `llm-usage weekly` (including --json) without dates now
+  reports only the last 8 weeks. Pass --all or --since to keep full history.
+* **cli:** reports include usage from departed files by default; pass --no-history for the previous behavior.
+* **cache:** the default event store path moves from the cache to the data directory.
+
+### Features
+
+* **cache:** keep the event ledger in the data directory ([d13e754](https://github.com/ayagmar/llm-usage-metrics/commit/d13e754dbf200b6e4f8707cac1f78119678675ce))
+* **cli:** add an llm-usage-metrics command alias ([16fe2c1](https://github.com/ayagmar/llm-usage-metrics/commit/16fe2c1583fe92e002934af8618b53985a4e1635))
+* **cli:** add shell completions and an examples block to each command's help ([3b9f4db](https://github.com/ayagmar/llm-usage-metrics/commit/3b9f4db67417c9d357dca24196097eb98acab30d))
+* **cli:** fit usage tables to the terminal width and add --compact ([6c2a922](https://github.com/ayagmar/llm-usage-metrics/commit/6c2a92203437a848716dd51cfa741a55cb762b33))
+* **cli:** group source-path flags under --help-all, fix root option errors, add --share --no-open ([55763a4](https://github.com/ayagmar/llm-usage-metrics/commit/55763a4a9ba2e9eee0c93b461acf036d9c73423f))
+* **cli:** include retained history in reports by default ([b3963e1](https://github.com/ayagmar/llm-usage-metrics/commit/b3963e10ca0d91c6b3dde38caa7f1721c668dc29))
+* **cli:** print one stderr summary line and add --verbose ([d515f8d](https://github.com/ayagmar/llm-usage-metrics/commit/d515f8dd1dba34967249612e473892403d9ace81))
+* **cli:** show each source's state and searched paths in doctor ([9ea6595](https://github.com/ayagmar/llm-usage-metrics/commit/9ea659559c451cbf1839f2845d8778fc2ee8ce12))
+* **cli:** summarize recent usage by default and window daily to 7 days ([f23f1d1](https://github.com/ayagmar/llm-usage-metrics/commit/f23f1d189c2c46cbf3ac719c1b09ebea7aac8124))
+* **cli:** warn when a source, provider, or model filter matches nothing ([daf9d0f](https://github.com/ayagmar/llm-usage-metrics/commit/daf9d0f46ac193028bb53b66406a3959aada69bb))
+* **cli:** window weekly reports to the last 8 weeks by default ([a11435c](https://github.com/ayagmar/llm-usage-metrics/commit/a11435c5ac5037dafa5763f950a029c62707d464))
+* **share:** redesign share cards with light and dark themes and a PNG export page ([0f191da](https://github.com/ayagmar/llm-usage-metrics/commit/0f191da1fc3b61a1603e1386d821c234d9388efc))
+* **site:** refresh landing page and documentation UX ([a11ddf5](https://github.com/ayagmar/llm-usage-metrics/commit/a11ddf5ad95cee577db3b422f330169828d69f8e))
+* **source:** read CLAUDE_CONFIG_DIR and CODEX_HOME, and scan several directories per source ([2b1820c](https://github.com/ayagmar/llm-usage-metrics/commit/2b1820c9b011d5c8231c4e307ac0fb01dfb59542))
+* **statusline:** print today's cost, streak, and month to date in one line ([af30a21](https://github.com/ayagmar/llm-usage-metrics/commit/af30a2184fec9feeafda3cab7a0b6a63cebaa160))
+* **summary:** add streaks, best day, and a past-year activity heatmap ([9ad3696](https://github.com/ayagmar/llm-usage-metrics/commit/9ad3696945fd4978cf6d42de801406975894fe84))
+* **summary:** project month-end cost against an optional budget and show cache savings ([cb6c152](https://github.com/ayagmar/llm-usage-metrics/commit/cb6c1528f9687246f29274fb66f96f13074c62c5))
+* support Node.js 22.16 and test on macOS and Windows ([b8c3560](https://github.com/ayagmar/llm-usage-metrics/commit/b8c3560229b2eb5b9f9f12d31f37ce6038bc4409))
+
+### Bug Fixes
+
+* **cache:** copy the legacy ledger instead of deleting it, and let prune find it ([3529877](https://github.com/ayagmar/llm-usage-metrics/commit/352987711bc8c29e862b6b9f84a113ec0ad4a8c9))
+* **cache:** create a fresh event store schema under a write lock ([8ffe243](https://github.com/ayagmar/llm-usage-metrics/commit/8ffe24389f0183e6f693466062d9a6bb93a198b6))
+* **cache:** include parser version in event-store fingerprints ([2448382](https://github.com/ayagmar/llm-usage-metrics/commit/244838200138db66f943003ebc3183ca8a34d1d5))
+* **cache:** mark a legacy copy that a stopped run left unmarked ([eedf641](https://github.com/ayagmar/llm-usage-metrics/commit/eedf641de94487e6494b70cdb6e52142cf885eb3))
+* **cache:** never re-import the legacy ledger after a reset ([1ecc690](https://github.com/ayagmar/llm-usage-metrics/commit/1ecc690a788b593ec83cd0404026b9e048d37455))
+* **cache:** re-parse stored events after the sanitation and DSH frame-cap changes ([d2078dd](https://github.com/ayagmar/llm-usage-metrics/commit/d2078dd9749808569818a575ed169898265b0ad7))
+* **cache:** stop keying SQLite sources on the -shm sidecar ([9c0a823](https://github.com/ayagmar/llm-usage-metrics/commit/9c0a823b7945b8ea37c8f25298858accce0351d9))
+* **cache:** write the pricing and update caches atomically ([907c730](https://github.com/ayagmar/llm-usage-metrics/commit/907c730db9402aae6ad7a35d651e99f5ca49211e))
+* **cli:** address review findings on paths, doctor, filters, and help ([9abda34](https://github.com/ayagmar/llm-usage-metrics/commit/9abda34eb4090c98d1c34c5ce38f23c335399b5e))
+* **cli:** exit quietly when stdout is closed early ([120e11a](https://github.com/ayagmar/llm-usage-metrics/commit/120e11aa142dd2fefa6ff9dafdeb79db0ea76b13))
+* **cli:** fail --history when the store cannot open and accept v2 stores in doctor ([ff40c63](https://github.com/ayagmar/llm-usage-metrics/commit/ff40c6355f12ee3e17bec05f4d60042bedc70eec))
+* **cli:** keep the command's exit code when stdout closes early ([66b44d6](https://github.com/ayagmar/llm-usage-metrics/commit/66b44d6d2e245fdccdaca86a98b9b362be950e2b))
+* **cli:** make printed report schemas compile offline and in strict mode ([8f9df3b](https://github.com/ayagmar/llm-usage-metrics/commit/8f9df3b130af132aab9679c4f1eaf847a4a882b5))
+* **cli:** name config sources, not --source, in unknown-source errors ([490c0ee](https://github.com/ayagmar/llm-usage-metrics/commit/490c0ee261d9071491d1734a7d27818177d0a947))
+* **cli:** treat config source dirs as defaults, not explicit requests ([da47cee](https://github.com/ayagmar/llm-usage-metrics/commit/da47cee00a1c4cf860752e3386215d1ef0c94479))
+* **compare:** compare month to date against the same days of last month ([ebae517](https://github.com/ayagmar/llm-usage-metrics/commit/ebae5175ef6dd131528a8ce75dee3b5845f3051e))
+* **completion:** complete subcommand options in fish, --flag=value in bash, and leading options in zsh ([06f2f7c](https://github.com/ayagmar/llm-usage-metrics/commit/06f2f7cdb123edebc6ada35180893aeb72e71ba5)), references [#compdef](https://github.com/ayagmar/llm-usage-metrics/issues/compdef)
+* **completion:** keep spaced paths whole in bash, install fish completions per bin name, add config subcommand examples ([ab43916](https://github.com/ayagmar/llm-usage-metrics/commit/ab439169fdcbc1406f076c3317e4ff483b581345))
+* **config:** quote the default event store path in the config template ([600191c](https://github.com/ayagmar/llm-usage-metrics/commit/600191ca7627d2ca0d9d10b94a8e624ae8129d52))
+* **config:** warn about wrong-type values and resolve config paths like a user expects ([de18f18](https://github.com/ayagmar/llm-usage-metrics/commit/de18f183f821019434caaa5451647adbd2d1f39a))
+* **discovery:** skip looping and unresolvable symlinks ([4c366ba](https://github.com/ayagmar/llm-usage-metrics/commit/4c366baf5206dc4f0c5a5d50a1a05d2ad84a28ea))
+* **efficiency:** stop adding reasoning to output in Tokens/Commit ([9899e3f](https://github.com/ayagmar/llm-usage-metrics/commit/9899e3fdd13a9cae76102327ddbf32cb45f0eaeb))
+* exclude Node.js 23 from the supported range ([b68cab7](https://github.com/ayagmar/llm-usage-metrics/commit/b68cab7adeb2b3c790c7296657113f65b6cb540e))
+* **history:** keep uncounted on-disk files out of move suppression ([cbba5ac](https://github.com/ayagmar/llm-usage-metrics/commit/cbba5ac1c8d59aa73627130742f1a486531b2f7e))
+* **history:** only treat stored files missing from disk as departed ([95152cd](https://github.com/ayagmar/llm-usage-metrics/commit/95152cd26bb1ef74ae4fa08de868cb05d91b97c8))
+* **history:** serve unverifiable stored files as history but never prune them ([ef8cd21](https://github.com/ayagmar/llm-usage-metrics/commit/ef8cd211d629de9269c8f7f31aa58aa8d67405e9))
+* **optimize:** price cache writes as input for candidates without a write rate ([79f5a02](https://github.com/ayagmar/llm-usage-metrics/commit/79f5a02750cbd75d8fe995debf0522bb4168d1cf))
+* **pricing:** bill separately rated reasoning tokens once ([99a4f7c](https://github.com/ayagmar/llm-usage-metrics/commit/99a4f7c79b373b39b53300153c2e2b761ebaede0))
+* **pricing:** bridge reasoning-effort suffixes in prefix matching ([0181195](https://github.com/ayagmar/llm-usage-metrics/commit/0181195cb97cf162b872724afdf92e45244a2f0d))
+* **pricing:** check release suffixes without a backtracking regex ([b462e4a](https://github.com/ayagmar/llm-usage-metrics/commit/b462e4a7c7f56fb3add12840d827a9935e4a2406))
+* **pricing:** fail on malformed pricing overrides instead of dropping them ([ccd373a](https://github.com/ayagmar/llm-usage-metrics/commit/ccd373ab816dc69346d61b5bb6eb38cf123768a2))
+* **pricing:** keep retired LiteLLM models priced and repair a dead preferred key ([2d16d64](https://github.com/ayagmar/llm-usage-metrics/commit/2d16d64fc65ecbb6682ba15dc6c83d2edffaf29c))
+* **pricing:** prefer first-party pricing keys and stop bridging model variants ([28aeca6](https://github.com/ayagmar/llm-usage-metrics/commit/28aeca6f96de636b27b7b3085ddcbe07ffeaf4a6))
+* **pricing:** price effort-suffixed models as their base model before reseller keys ([c8266ac](https://github.com/ayagmar/llm-usage-metrics/commit/c8266ac97e14e4055f76c8f3753fff3628f540b3))
+* **pricing:** warn with the cache date when stale cached pricing is used ([b2f32d2](https://github.com/ayagmar/llm-usage-metrics/commit/b2f32d21a41ed50f27ff97a4ddbd8518c7639ad8))
+* **render:** close terminal sanitation gaps in untrusted text ([b2a592c](https://github.com/ayagmar/llm-usage-metrics/commit/b2a592c8e21185c432bc805466416e4789b2cb4a))
+* replace quadratic regexes flagged by a ReDoS checker ([2c24a29](https://github.com/ayagmar/llm-usage-metrics/commit/2c24a2948ee0d0c5f8570767e62817bfc63a7e1c))
+* **scripts:** keep the dist smoke run out of the user's ledger and caches ([d966878](https://github.com/ayagmar/llm-usage-metrics/commit/d966878ae09f3950b1e66735c7fae9d24bd71b8c))
+* **share:** always label the last period on usage cards ([f6dcc5a](https://github.com/ayagmar/llm-usage-metrics/commit/f6dcc5a5ad4c05d9831dbcbec2efb69e58354f2b))
+* **share:** keep empty periods, guard XML-forbidden characters, and tidy share wording ([8503014](https://github.com/ayagmar/llm-usage-metrics/commit/850301467b6e528906ace30e42e032b02f139c0a))
+* **share:** name and render the PNG for the theme chosen at click time ([fad81ef](https://github.com/ayagmar/llm-usage-metrics/commit/fad81ef6767d6c6f561e4663f3b26574d4dd80b2))
+* **source:** count goose reasoning inside output and key its cache on SQLite sidecars ([b658c27](https://github.com/ayagmar/llm-usage-metrics/commit/b658c278c49f10fa6a578d6c983d9d55b678f4bb))
+* **source:** count OpenCode reasoning inside output tokens ([f7f8acb](https://github.com/ayagmar/llm-usage-metrics/commit/f7f8acba71098d6adc007e4dcabf1a95eb0b3e3a)), references [#21047](https://github.com/ayagmar/llm-usage-metrics/issues/21047)
+* **source:** fall back to the model family for qwen rows without a total ([072f54c](https://github.com/ayagmar/llm-usage-metrics/commit/072f54c9905debb88d652eb8501bb8b9329d3798))
+* **source:** only skip fork copies when discovery covers the parent ([61f7cbc](https://github.com/ayagmar/llm-usage-metrics/commit/61f7cbc1eb47fc52e9504c328ef84da5be3b6ed8))
+* **source:** parse current antigravity blobs and correct their token mapping ([08b7220](https://github.com/ayagmar/llm-usage-metrics/commit/08b7220e61fc54843298652aba62535a9542730a))
+* **source:** read every OpenCode channel database, not just the first ([7e38755](https://github.com/ayagmar/llm-usage-metrics/commit/7e38755d9dc56de043bd0ae8eca58eec7cb5b86d))
+* **source:** read the real Gemini CLI projects.json layout for repoRoot ([107cf4a](https://github.com/ayagmar/llm-usage-metrics/commit/107cf4a42c767cc8d6250b1cbe5b73839d34406b))
+* **source:** recover the Codex auto-compaction response from token_usage_record rows ([f91c140](https://github.com/ayagmar/llm-usage-metrics/commit/f91c14020d076f0e35ec500c5bb9ee86d7d66bb0))
+* **source:** rediscover files on every call in MultiDirectorySourceAdapter ([9e8f141](https://github.com/ayagmar/llm-usage-metrics/commit/9e8f1415fab73a264a051087ea100e4b63cd0f20))
+* **source:** report Claude thinking tokens in the reasoning breakdown ([aa484b0](https://github.com/ayagmar/llm-usage-metrics/commit/aa484b0347704cd13118087a6942854fc062307a))
+* **source:** skip parent entries copied into forked pi sessions ([fca5891](https://github.com/ayagmar/llm-usage-metrics/commit/fca58914f5e986cfc4260d915ffb8f2c41beff97))
+* **source:** skip parent rows replayed into forked claude subagents ([e2e8761](https://github.com/ayagmar/llm-usage-metrics/commit/e2e876150850de51bd3ff8c9dc7b844555b4686c))
+* **source:** skip pi fork copies only while the parent session exists ([3be4e89](https://github.com/ayagmar/llm-usage-metrics/commit/3be4e895749d1a32700a28b814e67caf1c997e69))
+* **source:** split cache tokens out of Roo Code and Kilo Code input counts ([88c692c](https://github.com/ayagmar/llm-usage-metrics/commit/88c692c7a5066c27b55f65e8229a7e2130de8c7d)), references [#8954](https://github.com/ayagmar/llm-usage-metrics/issues/8954)
+* **source:** stop counting reasoning twice in pi, qwen, copilot, dsh, and openclaw totals ([1d47624](https://github.com/ayagmar/llm-usage-metrics/commit/1d47624c3a316cc9aea51ed94e47fa4374dd0511))
+* **source:** stop dating timestamp-less OpenClaw rows by file mtime ([cb49f8c](https://github.com/ayagmar/llm-usage-metrics/commit/cb49f8cb1c5b4a0fa66d93c8f8ef5371d9267c31))
+* **source:** stop double-counting cached input for gemini, qwen and openclaw ([013bffb](https://github.com/ayagmar/llm-usage-metrics/commit/013bffb30b7ab91f112e6aa33a8cf17bfcba531b))
+* state the Node.js 22.16 minimum in the SQLite docs and loader error ([a126e2e](https://github.com/ayagmar/llm-usage-metrics/commit/a126e2e5c443bdd464402e6e68e93f038f9cc4a9))
+* **statusline:** keep warnings with --verbose and document pricing URL, filter, and slow-refresh cases ([4cd0778](https://github.com/ayagmar/llm-usage-metrics/commit/4cd07787813f8f9c9bba5afc5d9ebe87b87c08db))
+* **statusline:** leave the budget out when the month's cost is unknown ([a746321](https://github.com/ayagmar/llm-usage-metrics/commit/a746321974155f0e8ff40bb1c04af59bab943b96))
+* **statusline:** print the run diagnostics with --verbose ([f89c2cf](https://github.com/ayagmar/llm-usage-metrics/commit/f89c2cf414afa13e2480c9415bca78ae98b879c4))
+* **summary:** keep activity optional in the v1 schema and fit the heatmap legend ([c387278](https://github.com/ayagmar/llm-usage-metrics/commit/c3872782b782577fdeaceed4e5c60f6494a45156))
+* **summary:** scope the budget to unfiltered runs and stay quiet for an empty month ([c4c75b2](https://github.com/ayagmar/llm-usage-metrics/commit/c4c75b289e4e461bf5b60adb8ad47d8ed17b4249))
+
+### Performance Improvements
+
+* **cache:** bound event-store write batches ([00393af](https://github.com/ayagmar/llm-usage-metrics/commit/00393affb70db6d7bacb0247c2e128e6fa8cd507))
+* **cache:** stop fsyncing the event store once per parsed file ([10b14a4](https://github.com/ayagmar/llm-usage-metrics/commit/10b14a47d2b0313f0ec1cc4f5f657a0416ee010d))
+* **cli:** skip files last modified before the --since window ([57c521b](https://github.com/ayagmar/llm-usage-metrics/commit/57c521bf22ce73f621ae16d625e76735d3f0594b))
+* **source:** read only pi session headers and share claude parent keys ([3dd76e8](https://github.com/ayagmar/llm-usage-metrics/commit/3dd76e85b41a66e91121f8d64059aab794a3c146))
+* **source:** stream DSH session logs instead of materialising them ([9d04e13](https://github.com/ayagmar/llm-usage-metrics/commit/9d04e13e692d0e208bb1d2e890a18d77f84ab8e5))
+
 ## [0.8.1](https://github.com/ayagmar/llm-usage-metrics/compare/v0.8.0...v0.8.1) (2026-10-04)
 
 ### Features

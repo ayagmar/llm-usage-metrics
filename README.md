@@ -38,9 +38,12 @@ npx --yes llm-usage-metrics@latest
 # Or install it: the package provides `llm-usage` and the alias `llm-usage-metrics`
 npm install -g llm-usage-metrics
 llm-usage
+
+# Optional: tab completion (bash shown; zsh and fish work the same way)
+echo 'source <(llm-usage completion bash)' >> ~/.bashrc
 ```
 
-With no command, `llm-usage` prints cost and tokens for today, the last 7 days, and month to date, then your current and longest streak, best day, and a year-long activity heatmap. `llm-usage daily` breaks the last 7 days down by day and source, and `llm-usage weekly` covers the last 8 weeks; add `--since YYYY-MM-DD` or `--all` for older usage.
+With no command, `llm-usage` prints cost and tokens for today, the last 7 days, and month to date, a month-end projection (checked against `monthlyBudgetUsd` when you set one), what prompt caching saved you this month, then your current and longest streak, best day, and a year-long activity heatmap. `llm-usage daily` breaks the last 7 days down by day and source, and `llm-usage weekly` covers the last 8 weeks; add `--since YYYY-MM-DD` or `--all` for older usage.
 
 If the report is empty, check source discovery. `doctor` lists the paths each source searched and marks it found, not installed, or unparseable:
 
@@ -60,6 +63,7 @@ llm-usage doctor
 | How does repo-attributed usage line up with Git activity? | `llm-usage efficiency monthly`            |
 | What would the same token mix cost on another model?      | `llm-usage optimize monthly`              |
 | What did the year add up to?                              | `llm-usage wrapped`                       |
+| What can my status bar show?                              | `llm-usage statusline`                    |
 | How do I get the raw normalized events out?               | `llm-usage events`                        |
 | Which sources and local stores are healthy?               | `llm-usage doctor`                        |
 | Which departed files can leave the event ledger?          | `llm-usage prune`                         |
@@ -89,6 +93,9 @@ llm-usage optimize monthly \
   --provider openai \
   --candidate-model gpt-4.1 \
   --candidate-model gpt-5-codex
+
+# One line for the Claude Code status line, tmux, or starship
+llm-usage statusline
 
 # Normalized events as JSONL, e.g. total tokens per line via jq
 llm-usage events --since 2026-06-01 | jq '.totalTokens'

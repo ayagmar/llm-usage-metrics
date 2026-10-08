@@ -4,7 +4,7 @@ description: Command-line options and usage for llm-usage-metrics.
 ---
 
 :::note[Auto-generated reference]
-Generated from CLI version `0.8.1` via `scripts/generate-cli-reference.mjs`.
+Generated from CLI version `0.9.0` via `scripts/generate-cli-reference.mjs`.
 For behavioral details and examples, see the other documentation pages.
 :::
 
@@ -27,10 +27,12 @@ Commands:
 - `session`
 - `wrapped`
 - `events`
+- `statusline`
 - `doctor`
 - `prune`
 - `config <init|show|path>`
 - `schema`
+- `completion`
 
 ## Command help
 
@@ -909,6 +911,76 @@ Options:
 </details>
 
 <details>
+<summary>llm-usage statusline</summary>
+
+```text
+Usage: llm-usage statusline [options]
+
+Print one line with today's cost, your streak, and month to date (for status
+bars; never fetches)
+
+Options:
+  --pi-dir <path>                Path to .pi sessions directory (repeatable)
+  --codex-dir <path>             Path to .codex sessions directory (repeatable)
+  --copilot-dir <path>           Path to GitHub Copilot OTEL directory
+                                 (repeatable)
+  --gemini-dir <path>            Path to .gemini directory (repeatable)
+  --droid-dir <path>             Path to Droid sessions directory (repeatable)
+  --claude-dir <path>            Path to Claude projects directory (repeatable)
+  --openclaw-dir <path>          Path to OpenClaw agents directory (repeatable)
+  --opencode-db <path>           Path to OpenCode SQLite DB
+  --goose-db <path>              Path to Goose SQLite DB
+  --amp-dir <path>               Path to Amp threads directory (repeatable)
+  --qwen-dir <path>              Path to Qwen projects directory (repeatable)
+  --kimi-dir <path>              Path to Kimi sessions directory (repeatable)
+  --cline-dir <path>             Path to Cline tasks directory (repeatable)
+  --roocode-dir <path>           Path to RooCode tasks directory (repeatable)
+  --kilocode-dir <path>          Path to KiloCode tasks directory (repeatable)
+  --antigravity-dir <path>       Path to Antigravity conversations directory
+                                 (repeatable)
+  --dsh-dir <path>               Path to DeepSeek Harness sessions directory
+                                 (repeatable)
+  --help-all                     Display help including the per-source path
+                                 flags
+  --source-dir <source-id=path>  Override source directory for directory-backed
+                                 sources (repeatable)
+  --source <name>                Filter by source id (repeatable or
+                                 comma-separated, supported sources (17): pi,
+                                 codex, gemini, droid, opencode, openclaw,
+                                 claude, copilot, goose, amp, qwen, kimi, cline,
+                                 roocode, kilocode, antigravity, dsh)
+  --json                         Render output as JSON
+  --quiet                        Suppress informational stderr output (warnings
+                                 still print)
+  --verbose                      Print detailed diagnostics on stderr
+                                 (per-source counts, routine skips, config, env)
+  --timezone <iana>              Timezone for bucketing (default: system
+                                 timezone)
+  --provider <name>              Billing-provider filter (normalized to billing
+                                 entity; e.g. openai, anthropic, google,
+                                 moonshot)
+  --model <name>                 Filter by model (repeatable/comma-separated;
+                                 exact when exact match exists after
+                                 source/provider/date filters, otherwise
+                                 substring)
+  --pricing-url <url>            Override LiteLLM pricing source URL
+  --pricing-overrides <path>     Path to a JSON file of per-model pricing
+                                 overrides (takes precedence over LiteLLM)
+  --pricing-offline              Use cached LiteLLM pricing only (no network
+                                 fetch)
+  --ignore-pricing-failures      Continue without estimated costs when pricing
+                                 cannot be loaded
+  --history                      include usage from files that no longer exist
+                                 on disk (the default; fails if the event store
+                                 is unavailable)
+  --no-history                   leave out usage from files that no longer exist
+                                 on disk
+  -h, --help                     display help for command
+```
+
+</details>
+
+<details>
 <summary>llm-usage doctor</summary>
 
 ```text
@@ -1074,6 +1146,23 @@ Options:
 
 </details>
 
+<details>
+<summary>llm-usage completion</summary>
+
+```text
+Usage: llm-usage completion [options] <shell>
+
+Print a shell completion script (bash, zsh, or fish)
+
+Arguments:
+  shell       Shell: bash | zsh | fish
+
+Options:
+  -h, --help  display help for command
+```
+
+</details>
+
 ## Option index
 
 Search across root and command help. See Command help above to check which flags a command accepts.
@@ -1101,9 +1190,9 @@ Search across root and command help. See Command help above to check which flags
 | `--gemini-dir` | - | `<path>` | Path to .gemini directory \(repeatable\) |
 | `--goose-db` | - | `<path>` | Path to Goose SQLite DB |
 | `--help-all` | - | - | Display help including the per-source path flags |
-| `--history` | - | - | include usage from files that no longer exist on disk \(the default; fails if the event store is unavailable\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
+| `--history` | - | - | include usage from files that no longer exist on disk \(the default; fails if the event store is unavailable\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline only\) |
 | `--id` | - | `<session-id>` | Show only sessions whose id contains the value \(case-insensitive; repeatable or comma-separated\) \(session only\) |
-| `--ignore-pricing-failures` | - | - | Continue without estimated costs when pricing cannot be loaded \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
+| `--ignore-pricing-failures` | - | - | Continue without estimated costs when pricing cannot be loaded \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline only\) |
 | `--include-merge-commits` | - | - | Include merge commits in Git outcome metrics \(efficiency only\) |
 | `--json` | - | - | Render output as JSON |
 | `--kilocode-dir` | - | `<path>` | Path to KiloCode tasks directory \(repeatable\) |
@@ -1111,17 +1200,17 @@ Search across root and command help. See Command help above to check which flags
 | `--list` | - | - | List available schema names \(schema only\) |
 | `--markdown` | - | - | Render output as Markdown table \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped only\) |
 | `--metric` | - | `<name>` | Trend metric: cost \| tokens \| active-hours \(default: "cost"\) \(trends only\) |
-| `--model` | - | `<name>` | Filter by model \(repeatable/comma-separated; exact when exact match exists after source/provider/date filters, otherwise substring\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
-| `--no-history` | - | - | leave out usage from files that no longer exist on disk \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
+| `--model` | - | `<name>` | Filter by model \(repeatable/comma-separated; exact when exact match exists after source/provider/date filters, otherwise substring\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline only\) |
+| `--no-history` | - | - | leave out usage from files that no longer exist on disk \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline only\) |
 | `--no-open` | - | - | With --share, write the files without opening the page \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, wrapped only\) |
 | `--openclaw-dir` | - | `<path>` | Path to OpenClaw agents directory \(repeatable\) |
 | `--opencode-db` | - | `<path>` | Path to OpenCode SQLite DB |
 | `--per-model-columns` | - | - | Render per-model metrics as multiline aligned table columns \(terminal/Markdown\) \(usage reports only\) |
 | `--pi-dir` | - | `<path>` | Path to .pi sessions directory \(repeatable\) |
-| `--pricing-offline` | - | - | Use cached LiteLLM pricing only \(no network fetch\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
-| `--pricing-overrides` | - | `<path>` | Path to a JSON file of per-model pricing overrides \(takes precedence over LiteLLM\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
-| `--pricing-url` | - | `<url>` | Override LiteLLM pricing source URL \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
-| `--provider` | - | `<name>` | Billing-provider filter \(normalized to billing entity; e.g. openai, anthropic, google, moonshot\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
+| `--pricing-offline` | - | - | Use cached LiteLLM pricing only \(no network fetch\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline only\) |
+| `--pricing-overrides` | - | `<path>` | Path to a JSON file of per-model pricing overrides \(takes precedence over LiteLLM\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline only\) |
+| `--pricing-url` | - | `<url>` | Override LiteLLM pricing source URL \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline only\) |
+| `--provider` | - | `<name>` | Billing-provider filter \(normalized to billing entity; e.g. openai, anthropic, google, moonshot\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline only\) |
 | `--quiet` | - | - | Suppress informational stderr output \(warnings still print\) |
 | `--qwen-dir` | - | `<path>` | Path to Qwen projects directory \(repeatable\) |
 | `--repo-dir` | - | `<path>` | Path to repository for Git outcome metrics \(efficiency only\) |
@@ -1131,7 +1220,7 @@ Search across root and command help. See Command help above to check which flags
 | `--source` | - | `<name>` | Filter by source id \(repeatable or comma-separated, supported sources \(17\): pi, codex, gemini, droid, opencode, openclaw, claude, copilot, goose, amp, qwen, kimi, cline, roocode, kilocode, antigravity, dsh\) |
 | `--source-dir` | - | `<source-id=path>` | Override source directory for directory-backed sources \(repeatable\) |
 | `--suppressed` | - | - | Select departed files that --history already suppresses \(prune only\) |
-| `--timezone` | - | `<iana>` | Timezone for bucketing \(default: system timezone\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
+| `--timezone` | - | `<iana>` | Timezone for bucketing \(default: system timezone\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline only\) |
 | `--top` | - | `<n>` | optimize: Show only the top N cheapest candidates \(positive integer\); session: Show only the top N rows by cost \(default 20; 0 shows all\) |
 | `--until` | - | `<YYYY-MM-DD>` | Inclusive end date filter \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, events only\) |
 | `--verbose` | - | - | Print detailed diagnostics on stderr \(per-source counts, routine skips, config, env\) |
@@ -1178,6 +1267,8 @@ llm-usage wrapped --year 2026 --share
 llm-usage wrapped --year 2026 --json
 llm-usage events --format jsonl > events.jsonl
 llm-usage events --format csv --since 2026-01-01
+llm-usage statusline
+llm-usage statusline --source claude
 llm-usage doctor
 llm-usage doctor --json
 llm-usage prune --suppressed

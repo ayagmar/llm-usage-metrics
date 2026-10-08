@@ -50,6 +50,7 @@ export const USER_CONFIG_SOURCE_DIR_KEYS = [
 const knownTopLevelKeys = [
   'eventStore',
   'logLevel',
+  'monthlyBudgetUsd',
   'parseMaxParallel',
   'parseWorkerMinBytes',
   'parseWorkers',
@@ -88,6 +89,8 @@ const sourceDirKeySet = new Set<string>(USER_CONFIG_SOURCE_DIR_KEYS);
 export type UserConfig = {
   timezone?: string;
   logLevel?: LogLevel;
+  /** Monthly spending budget; summary warns when the month-end projection exceeds it. */
+  monthlyBudgetUsd?: number;
   sources?: string[];
   /** A directory-backed source may list several directories; database paths take one. */
   sourceDirs?: Partial<Record<(typeof USER_CONFIG_SOURCE_DIR_KEYS)[number], string | string[]>>;
@@ -283,6 +286,10 @@ function toNonBlankString(value: unknown): string | undefined {
 
   const trimmedValue = value.trim();
   return trimmedValue.length === 0 ? undefined : trimmedValue;
+}
+
+function toPositiveNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined;
 }
 
 function toBoolean(value: unknown): boolean | undefined {
@@ -555,6 +562,13 @@ function readConfig(context: ConfigReadContext, root: Record<string, unknown>): 
     readLogLevel,
     'one of silent, warn, info, debug',
   );
+  const monthlyBudgetUsd = readKey(
+    context,
+    'monthlyBudgetUsd',
+    root.monthlyBudgetUsd,
+    toPositiveNumber,
+    'a positive number',
+  );
   const sources = readKey(context, 'sources', root.sources, toSources, 'a list of source ids');
   const sourceDirs = readSourceDirs(context, root.sourceDirs);
   const pricing = readPricingConfig(context, root.pricing);
@@ -588,6 +602,10 @@ function readConfig(context: ConfigReadContext, root: Record<string, unknown>): 
 
   if (logLevel !== undefined) {
     config.logLevel = logLevel;
+  }
+
+  if (monthlyBudgetUsd !== undefined) {
+    config.monthlyBudgetUsd = monthlyBudgetUsd;
   }
 
   if (sources !== undefined) {

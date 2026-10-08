@@ -9,6 +9,7 @@ import type {
   PruneCommandOptions,
   ReportCommandOptions,
   SessionCommandOptions,
+  StatuslineCommandOptions,
   SummaryCommandOptions,
   TrendsCommandOptions,
   WrappedCommandOptions,
@@ -19,6 +20,7 @@ import { runEfficiencyReport } from '../run-efficiency-report.js';
 import { runOptimizeReport } from '../run-optimize-report.js';
 import { runSessionReport } from '../run-session-report.js';
 import { runSummaryReport } from '../run-summary-report.js';
+import { runStatusline } from '../run-statusline.js';
 import { runTrendsReport } from '../run-trends-report.js';
 import { runUsageReport } from '../run-usage-report.js';
 import { runDoctorReport } from '../run-doctor-report.js';
@@ -45,20 +47,50 @@ const reportReferenceExamples: readonly ReportHelpExample[] = [
   },
 ];
 
+/** The `<granularity>` values of efficiency and optimize. */
+export const GRANULARITY_ARGUMENT_VALUES = [
+  'daily',
+  'weekly',
+  'monthly',
+] as const satisfies readonly ReportGranularity[];
+
 function parseGranularityArgument(value: string): ReportGranularity {
   const normalized = value.trim().toLowerCase();
+  const granularity = GRANULARITY_ARGUMENT_VALUES.find((candidate) => candidate === normalized);
 
-  if (normalized === 'daily' || normalized === 'weekly' || normalized === 'monthly') {
-    return normalized;
+  if (granularity) {
+    return granularity;
   }
 
-  throw new Error(`Invalid granularity: ${value}. Expected one of: daily, weekly, monthly`);
+  throw new Error(
+    `Invalid granularity: ${value}. Expected one of: ${GRANULARITY_ARGUMENT_VALUES.join(', ')}`,
+  );
+}
+
+const MAX_COMMAND_HELP_EXAMPLES = 4;
+
+/** An `Examples:` block for `--help`, or nothing when there are no examples. */
+export function formatHelpExamples(commands: readonly string[]): string {
+  return commands.length === 0
+    ? ''
+    : ['', 'Examples:', ...commands.map((command) => `  $ ${command}`)].join('\n');
 }
 
 function createCommand(definition: ReportRuntimeDefinition): Command {
   const command = new Command(definition.meta.commandName);
   command.description(definition.meta.description);
   registerSharedReportOptions(command, definition.meta.sharedOptionProfile);
+  // The shortest examples suit --help; the long path-flag ones stay in the CLI reference.
+  const candidates = definition.meta.helpExamples
+    .map((example) => example.command)
+    .filter((example) => !example.endsWith(' --help'));
+  const shortest = new Set(
+    [...candidates]
+      .sort((left, right) => left.length - right.length)
+      .slice(0, MAX_COMMAND_HELP_EXAMPLES),
+  );
+  const examples = candidates.filter((example) => shortest.has(example));
+  command.addHelpText('after', formatHelpExamples(examples));
   return definition.register(command);
 }
 
@@ -521,6 +553,32 @@ const eventsReportDefinition: ReportRuntimeDefinition = {
   },
 };
 
+const statuslineDefinition: ReportRuntimeDefinition = {
+  meta: {
+    commandName: 'statusline',
+    docsLabel: 'statusline',
+    kind: 'specialized',
+    description:
+      "Print one line with today's cost, your streak, and month to date (for status bars; never fetches)",
+    sharedOptionProfile: 'statusline',
+    helpExamples: [
+      {
+        command: 'llm-usage statusline',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage statusline --source claude',
+        includeInCliReference: true,
+      },
+    ],
+  },
+  register(command) {
+    command.action((options: StatuslineCommandOptions) => runStatusline(options));
+
+    return command;
+  },
+};
+
 const reportDefinitions = [
   summaryReportDefinition,
   createUsageReportDefinition('daily'),
@@ -533,6 +591,7 @@ const reportDefinitions = [
   sessionReportDefinition,
   wrappedReportDefinition,
   eventsReportDefinition,
+  statuslineDefinition,
   doctorReportDefinition,
   pruneReportDefinition,
 ] as const satisfies readonly ReportRuntimeDefinition[];

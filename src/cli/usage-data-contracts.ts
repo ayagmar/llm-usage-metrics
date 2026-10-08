@@ -113,6 +113,8 @@ export type ReportCommandOptions = SharedOptionsForProfile<'usage'> & {
 
 export type SummaryCommandOptions = SharedOptionsForProfile<'summary'>;
 
+export type StatuslineCommandOptions = SharedOptionsForProfile<'statusline'>;
+
 export type EfficiencyCommandOptions = SharedOptionsForProfile<'specialized'> & {
   repoDir?: string;
   includeMergeCommits?: boolean;
@@ -290,9 +292,23 @@ export type SummaryPeriod = {
   sources: SummarySourceTotals[];
 };
 
+/** Month-to-date run rate and the configured budget. */
+export type SummaryMonthEnd = {
+  daysElapsed: number;
+  daysInMonth: number;
+  /** Month-to-date cost scaled to the whole month; absent before day 3, without usage, or without a known cost. */
+  projectedCostUsd?: number;
+  costIncomplete?: boolean;
+  /** `monthlyBudgetUsd` from the config file; absent when --source, --provider, or --model narrows the run. */
+  budgetUsd?: number;
+};
+
 export type SummaryDataResult = {
   timezone: string;
   periods: SummaryPeriod[];
+  monthEnd: SummaryMonthEnd;
+  /** Estimated month-to-date savings from cache reads; absent without cache reads to price. */
+  monthToDateCacheSavingsUsd?: number;
   /** Daily activity over the past 53 ISO weeks, ending today. */
   activity: DailyActivity;
   diagnostics: UsageDiagnostics;
