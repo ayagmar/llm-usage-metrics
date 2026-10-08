@@ -29,13 +29,13 @@ The CLI parses session content on your machine. It discovers standard source loc
 
 ## Quick start
 
-Requires Node.js 24 or newer.
+Requires Node.js 22.16+ or 24+ (Node 23 lacks the SQLite busy timeout the ledger uses).
 
 ```bash
 # Run without installing
 npx --yes llm-usage-metrics@latest
 
-# Or install the llm-usage command
+# Or install it: the package provides `llm-usage` and the alias `llm-usage-metrics`
 npm install -g llm-usage-metrics
 llm-usage
 ```

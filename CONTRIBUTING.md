@@ -6,7 +6,7 @@ Thanks for contributing.
 
 Requirements:
 
-- Node.js 24+
+- Node.js 24.21.0 for development (the CLI supports Node.js 22.16+ or 24+)
 - pnpm
 
 Recommended setup with `nvm`:

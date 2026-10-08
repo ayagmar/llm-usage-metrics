@@ -1,5 +1,4 @@
 import { mkdir, mkdtemp, readFile, rm, utimes, writeFile } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -22,6 +21,7 @@ import {
   type EventStoreFileFingerprint,
 } from '../../src/persistence/event-store.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
+import { canonicalTmpdir } from '../helpers/tmp.js';
 
 const tempDirs: string[] = [];
 
@@ -41,7 +41,7 @@ afterEach(async () => {
 });
 
 async function createDoctorFixtureOptions(): Promise<DoctorCommandOptions> {
-  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-fixtures-'));
+  const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'doctor-fixtures-'));
   tempDirs.push(rootDir);
 
   const piDir = path.join(rootDir, 'pi');
@@ -233,12 +233,12 @@ describe('run-doctor-report', () => {
   });
 
   it('probes the config sourceDirs override when no dir flag is set', async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-config-dir-'));
+    const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'doctor-config-dir-'));
     tempDirs.push(rootDir);
 
     const missingPiDir = path.join(rootDir, 'configured-pi');
     const configPath = path.join(rootDir, 'config.toml');
-    await writeFile(configPath, `[sourceDirs]\npi = "${missingPiDir}"\n`, 'utf8');
+    await writeFile(configPath, `[sourceDirs]\npi = ${JSON.stringify(missingPiDir)}\n`, 'utf8');
 
     const previousConfigPath = process.env.LLM_USAGE_CONFIG_PATH;
     process.env.LLM_USAGE_CONFIG_PATH = configPath;
@@ -257,7 +257,7 @@ describe('run-doctor-report', () => {
   // slower than the default 5s budget on loaded CI machines (the test uses the
   // real default source roots, not fixtures).
   it('reads the event store from the config eventStore.path', { timeout: 30_000 }, async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-config-store-'));
+    const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'doctor-config-store-'));
     tempDirs.push(rootDir);
 
     const eventStorePath = path.join(rootDir, 'configured-events.db');
@@ -272,7 +272,7 @@ describe('run-doctor-report', () => {
     const configPath = path.join(rootDir, 'config.toml');
     await writeFile(
       configPath,
-      `[eventStore]\nenabled = true\npath = "${eventStorePath}"\n`,
+      `[eventStore]\nenabled = true\npath = ${JSON.stringify(eventStorePath)}\n`,
       'utf8',
     );
 
@@ -292,11 +292,15 @@ describe('run-doctor-report', () => {
   });
 
   it('emits the Active config block and unknown-key warnings on doctor', async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-config-emit-'));
+    const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'doctor-config-emit-'));
     tempDirs.push(rootDir);
 
     const configPath = path.join(rootDir, 'config.toml');
-    await writeFile(configPath, `mystery = true\n\n[sourceDirs]\npi = "${rootDir}"\n`, 'utf8');
+    await writeFile(
+      configPath,
+      `mystery = true\n\n[sourceDirs]\npi = ${JSON.stringify(rootDir)}\n`,
+      'utf8',
+    );
 
     const previousConfigPath = process.env.LLM_USAGE_CONFIG_PATH;
     process.env.LLM_USAGE_CONFIG_PATH = configPath;
@@ -322,7 +326,7 @@ describe('run-doctor-report', () => {
 
   it('reports one source error without stopping other source checks', async () => {
     const options = await createDoctorFixtureOptions();
-    const missingClaudeDir = path.join(os.tmpdir(), `missing-claude-${Date.now()}`);
+    const missingClaudeDir = path.join(canonicalTmpdir(), `missing-claude-${Date.now()}`);
 
     const results = await buildDoctorResults(
       {
@@ -385,7 +389,7 @@ describe('run-doctor-report', () => {
 
   it('reports an enabled event store that has not been created yet as healthy', async () => {
     const options = await createDoctorFixtureOptions();
-    const eventStorePath = path.join(os.tmpdir(), `missing-events-${Date.now()}.db`);
+    const eventStorePath = path.join(canonicalTmpdir(), `missing-events-${Date.now()}.db`);
 
     const results = await buildDoctorResults(
       {
@@ -440,7 +444,7 @@ describe('run-doctor-report', () => {
 
   it('counts events for an existing enabled event store', async () => {
     const options = await createDoctorFixtureOptions();
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-event-store-'));
+    const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'doctor-event-store-'));
     tempDirs.push(rootDir);
 
     const eventStorePath = path.join(rootDir, 'events.db');
@@ -480,7 +484,7 @@ describe('run-doctor-report', () => {
 
   it('counts departed files for selected sources without mutating the store', async () => {
     const options = await createDoctorFixtureOptions();
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-event-store-departed-'));
+    const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'doctor-event-store-departed-'));
     tempDirs.push(rootDir);
 
     const eventStorePath = path.join(rootDir, 'events.db');
@@ -523,7 +527,7 @@ describe('run-doctor-report', () => {
 
   it('accepts an older event store schema that opening the store migrates', async () => {
     const options = await createDoctorFixtureOptions();
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-event-store-v2-'));
+    const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'doctor-event-store-v2-'));
     tempDirs.push(rootDir);
 
     const eventStorePath = path.join(rootDir, 'events.db');
@@ -541,7 +545,7 @@ describe('run-doctor-report', () => {
 
   it('reports a newer event store schema as an error without mutating it', async () => {
     const options = await createDoctorFixtureOptions();
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-event-store-stale-'));
+    const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'doctor-event-store-stale-'));
     tempDirs.push(rootDir);
 
     const eventStorePath = path.join(rootDir, 'events.db');
@@ -581,7 +585,7 @@ describe('run-doctor-report', () => {
 
   it('reports an enabled event store open failure as an error', async () => {
     const options = await createDoctorFixtureOptions();
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-event-store-error-'));
+    const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'doctor-event-store-error-'));
     tempDirs.push(rootDir);
 
     const eventStorePath = path.join(rootDir, 'events.db');
@@ -637,7 +641,7 @@ describe('run-doctor-report', () => {
 
   it('prints plain text error details to stdout', async () => {
     const options = await createDoctorFixtureOptions();
-    const missingClaudeDir = path.join(os.tmpdir(), `missing-claude-${Date.now()}`);
+    const missingClaudeDir = path.join(canonicalTmpdir(), `missing-claude-${Date.now()}`);
     const stdout = captureStdout();
 
     try {
@@ -659,7 +663,7 @@ describe('run-doctor-report', () => {
 
   it('counts only source rows in the summary while still listing the event store', async () => {
     const options = await createDoctorFixtureOptions();
-    const eventStorePath = path.join(os.tmpdir(), `missing-events-summary-${Date.now()}.db`);
+    const eventStorePath = path.join(canonicalTmpdir(), `missing-events-summary-${Date.now()}.db`);
     const stdout = captureStdout();
 
     try {
@@ -712,7 +716,7 @@ describe('run-doctor-report', () => {
   });
 
   it('tells found, not installed, and unparseable sources apart and lists searched paths', async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-states-'));
+    const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'doctor-states-'));
     tempDirs.push(rootDir);
     const emptyCodexDir = path.join(rootDir, 'codex');
     const brokenGeminiDir = path.join(rootDir, 'gemini');
@@ -765,7 +769,7 @@ describe('run-doctor-report', () => {
   });
 
   it('names the parse error when the newest files fail to parse', async () => {
-    const antigravityDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-antigravity-'));
+    const antigravityDir = await mkdtemp(path.join(canonicalTmpdir(), 'doctor-antigravity-'));
     tempDirs.push(antigravityDir);
     await writeFile(path.join(antigravityDir, 'broken.db'), 'junk');
 
@@ -781,7 +785,7 @@ describe('run-doctor-report', () => {
   });
 
   it('reports a discovery failure as an error state with its searched paths', async () => {
-    const missingDir = path.join(os.tmpdir(), `missing-doctor-pi-${Date.now()}`);
+    const missingDir = path.join(canonicalTmpdir(), `missing-doctor-pi-${Date.now()}`);
     const results = await buildDoctorResults(
       { source: 'pi', piDir: missingDir },
       eventStoreDisabledDeps(),
@@ -796,7 +800,7 @@ describe('run-doctor-report', () => {
   });
 
   it('stops probing at the first newest file with usage and caps the probe', async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-probe-'));
+    const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'doctor-probe-'));
     tempDirs.push(rootDir);
     const usageFile = path.join(rootDir, 'usage.jsonl');
     await writeFile(
@@ -830,7 +834,7 @@ describe('run-doctor-report', () => {
 
   it('lists every directory of a source scanned in several directories', async () => {
     const piDir = path.resolve('tests/fixtures/pi');
-    const otherDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-pi-other-'));
+    const otherDir = await mkdtemp(path.join(canonicalTmpdir(), 'doctor-pi-other-'));
     tempDirs.push(otherDir);
 
     const [result] = await buildDoctorResults(
@@ -843,6 +847,9 @@ describe('run-doctor-report', () => {
 });
 
 describe('renderDoctorText', () => {
+  const homeDir = path.resolve('/home/me');
+  const piSessionsDir = path.join(homeDir, '.pi', 'agent', 'sessions');
+
   it('shows a glyph per state, searched paths under each row with ~ for home, and a summary', () => {
     const output = renderDoctorText(
       [
@@ -852,7 +859,7 @@ describe('renderDoctorText', () => {
           status: 'ok',
           state: 'found',
           itemsFound: 2,
-          searchedPaths: ['/home/me/.pi/agent/sessions', '/opt/pi'],
+          searchedPaths: [piSessionsDir, '/opt/pi'],
         },
         {
           id: 'goose',
@@ -860,7 +867,7 @@ describe('renderDoctorText', () => {
           status: 'ok',
           state: 'not_installed',
           itemsFound: 0,
-          searchedPaths: ['/home/me'],
+          searchedPaths: [homeDir],
         },
         {
           id: 'kimi',
@@ -881,12 +888,12 @@ describe('renderDoctorText', () => {
         { id: 'claude', format: 'jsonl', status: 'error', state: 'error', error: 'missing' },
         { id: 'event-store', format: 'sqlite', status: 'ok', detail: 'not yet created' },
       ],
-      { homeDir: '/home/me' },
+      { homeDir },
     );
 
     expect(output.split('\n')).toEqual([
       '✔ pi           jsonl   2 file(s)',
-      '    ~/.pi/agent/sessions',
+      `    ~${path.sep}${path.join('.pi', 'agent', 'sessions')}`,
       '    /opt/pi',
       '○ goose        sqlite  not installed (no files found)',
       '    ~',

@@ -9,6 +9,12 @@ import { getDefaultSourceIds } from '../../src/sources/create-default-adapters.j
 
 const docsRoot = path.resolve('site/src/content/docs');
 
+// readdir returns backslash-separated paths on Windows; routes are slash-separated.
+async function readdirPosix(directory: string): Promise<string[]> {
+  const entries = await readdir(directory, { recursive: true });
+  return entries.map((entry) => entry.split(path.sep).join('/'));
+}
+
 describe('website documentation contracts', () => {
   it('publishes discovery documentation for every registered source', async () => {
     const overview = await readFile(path.join(docsRoot, 'sources/index.mdx'), 'utf8');
@@ -37,13 +43,13 @@ describe('website documentation contracts', () => {
   });
 
   it('resolves internal documentation links to published routes or public files', async () => {
-    const entries = await readdir(docsRoot, { recursive: true });
+    const entries = await readdirPosix(docsRoot);
     const docFiles = entries.filter((entry) => entry.endsWith('.mdx'));
     const routes = new Set([
       '', // Custom Astro landing page.
       ...docFiles.map((file) => file.replace(/(?:\/index)?\.mdx$/, '')),
     ]);
-    const publicFiles = new Set(await readdir(path.resolve('site/public'), { recursive: true }));
+    const publicFiles = new Set(await readdirPosix(path.resolve('site/public')));
 
     for (const file of docFiles) {
       const content = await readFile(path.join(docsRoot, file), 'utf8');

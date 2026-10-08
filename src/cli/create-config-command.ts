@@ -65,7 +65,7 @@ ${sourceDirTemplate}
 # Event store defaults.
 # [eventStore]
 # enabled = ${String(EVENT_STORE_ENABLED_DEFAULT)}
-# path = "${getDefaultEventStorePath()}"
+# path = ${JSON.stringify(getDefaultEventStorePath())}
 
 # Update-check defaults.
 # [update]

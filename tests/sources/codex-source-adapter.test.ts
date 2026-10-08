@@ -1,5 +1,4 @@
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -10,6 +9,7 @@ import {
   LEGACY_CODEX_MODEL_FALLBACK,
   resolveDefaultCodexSessionsDir,
 } from '../../src/sources/codex/codex-source-adapter.js';
+import { canonicalTmpdir } from '../helpers/tmp.js';
 
 const tempDirs: string[] = [];
 
@@ -28,7 +28,7 @@ describe('CodexSourceAdapter', () => {
   });
 
   it('discovers jsonl files recursively in deterministic order', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'codex-source-adapter-'));
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'codex-source-adapter-'));
     tempDirs.push(root);
 
     const nested = path.join(root, 'nested');
@@ -98,7 +98,7 @@ describe('CodexSourceAdapter', () => {
   });
 
   it('accumulates previous totals when consecutive events only include last_token_usage', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'codex-source-last-usage-'));
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'codex-source-last-usage-'));
     tempDirs.push(root);
 
     const filePath = path.join(root, 'session.jsonl');
@@ -183,7 +183,7 @@ describe('CodexSourceAdapter', () => {
   });
 
   it('deduplicates repeated last_token_usage-only rows', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'codex-source-dedup-last-only-'));
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'codex-source-dedup-last-only-'));
     tempDirs.push(root);
 
     const filePath = path.join(root, 'session.jsonl');
@@ -254,7 +254,7 @@ describe('CodexSourceAdapter', () => {
   });
 
   it('does not double count duplicated token_count lines when totals do not advance', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'codex-source-dedup-last-usage-'));
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'codex-source-dedup-last-usage-'));
     tempDirs.push(root);
 
     const filePath = path.join(root, 'session.jsonl');
@@ -344,7 +344,7 @@ describe('CodexSourceAdapter', () => {
   });
 
   it('keeps usage after Codex cumulative counters reset mid-session', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'codex-source-counter-reset-'));
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'codex-source-counter-reset-'));
     tempDirs.push(root);
 
     const filePath = path.join(root, 'session.jsonl');
@@ -422,7 +422,7 @@ describe('CodexSourceAdapter', () => {
   });
 
   it('accepts numeric-string epoch timestamps in token_count rows', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'codex-source-epoch-string-'));
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'codex-source-epoch-string-'));
     tempDirs.push(root);
 
     const filePath = path.join(root, 'session.jsonl');
@@ -484,7 +484,7 @@ describe('CodexSourceAdapter', () => {
   });
 
   it('skips non-token events and ignores token rows without usage info', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'codex-source-skip-cases-'));
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'codex-source-skip-cases-'));
     tempDirs.push(root);
     const filePath = path.join(root, 'session.jsonl');
 
@@ -571,7 +571,7 @@ describe('CodexSourceAdapter', () => {
   });
 
   it('ignores response items whose text mentions token_count', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'codex-source-response-item-text-'));
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'codex-source-response-item-text-'));
     tempDirs.push(root);
     const filePath = path.join(root, 'session.jsonl');
 
@@ -610,7 +610,7 @@ describe('CodexSourceAdapter', () => {
   });
 
   it('does not advance cumulative totals when a token row has an invalid timestamp', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'codex-source-invalid-timestamp-'));
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'codex-source-invalid-timestamp-'));
     tempDirs.push(root);
     const filePath = path.join(root, 'session.jsonl');
 
@@ -699,7 +699,7 @@ describe('CodexSourceAdapter', () => {
     });
   });
   it('counts a skip when a fresh usage delta has an invalid timestamp', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'codex-source-skip-invalid-ts-'));
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'codex-source-skip-invalid-ts-'));
     tempDirs.push(root);
     const filePath = path.join(root, 'session.jsonl');
 
@@ -747,7 +747,7 @@ describe('CodexSourceAdapter', () => {
   });
 
   it('reports malformed JSONL lines that pass its byte prefilter', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'codex-source-malformed-jsonl-'));
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'codex-source-malformed-jsonl-'));
     tempDirs.push(root);
     const filePath = path.join(root, 'session.jsonl');
 
@@ -762,7 +762,7 @@ describe('CodexSourceAdapter', () => {
   });
 
   it('does not count no-delta token_count repeats as skips', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'codex-source-no-skip-no-delta-'));
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'codex-source-no-skip-no-delta-'));
     tempDirs.push(root);
     const filePath = path.join(root, 'session.jsonl');
 

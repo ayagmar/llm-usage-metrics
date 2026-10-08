@@ -184,6 +184,38 @@ jobs:
           name: coverage-report
           path: coverage
 
+  # Supported runtimes and platforms beyond the coverage run above.
+  main-test-matrix:
+    name: Main - Test (${{ matrix.os }}, Node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    needs: [main-build]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: ['22.16.0', '24.21.0']
+        exclude:
+          # main-test already covers this pair, with coverage.
+          - os: ubuntu-latest
+            node: '24.21.0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 12.9.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+      - run: pnpm run smoke:dist-opencode
+      - run: pnpm exec vitest run --coverage.enabled=false
+
   # Site validation (parallel)
   site-format:
     name: Site - Format
@@ -261,6 +293,7 @@ jobs:
         main-typecheck,
         main-mermaid,
         main-test,
+        main-test-matrix,
         site-format,
         site-check,
         site-build,
@@ -272,6 +305,7 @@ jobs:
       MAIN_TYPECHECK_RESULT: ${{ needs.main-typecheck.result }}
       MAIN_MERMAID_RESULT: ${{ needs.main-mermaid.result }}
       MAIN_TEST_RESULT: ${{ needs.main-test.result }}
+      MAIN_TEST_MATRIX_RESULT: ${{ needs.main-test-matrix.result }}
       SITE_FORMAT_RESULT: ${{ needs.site-format.result }}
       SITE_CHECK_RESULT: ${{ needs.site-check.result }}
       SITE_BUILD_RESULT: ${{ needs.site-build.result }}
@@ -283,6 +317,7 @@ jobs:
              [ "$MAIN_TYPECHECK_RESULT" != "success" ] || \
              [ "$MAIN_MERMAID_RESULT" != "success" ] || \
              [ "$MAIN_TEST_RESULT" != "success" ] || \
+             [ "$MAIN_TEST_MATRIX_RESULT" != "success" ] || \
              [ "$SITE_FORMAT_RESULT" != "success" ] || \
              [ "$SITE_CHECK_RESULT" != "success" ] || \
              [ "$SITE_BUILD_RESULT" != "success" ]; then

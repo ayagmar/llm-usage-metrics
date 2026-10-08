@@ -22,10 +22,10 @@ describe('getDefaultOpenCodeDbPathCandidates', () => {
     });
 
     expect(candidates).toEqual([
-      '/var/lib/test-user/opencode/opencode.db',
-      '/var/lib/test-user/opencode/db.sqlite',
-      '/home/test-user/.opencode/opencode.db',
-      '/home/test-user/.opencode/db.sqlite',
+      path.join('/var/lib/test-user', 'opencode', 'opencode.db'),
+      path.join('/var/lib/test-user', 'opencode', 'db.sqlite'),
+      path.join('/home/test-user', '.opencode', 'opencode.db'),
+      path.join('/home/test-user', '.opencode', 'db.sqlite'),
     ]);
   });
 
@@ -37,10 +37,10 @@ describe('getDefaultOpenCodeDbPathCandidates', () => {
     });
 
     expect(candidates).toEqual([
-      '/home/test-user/.local/share/opencode/opencode.db',
-      '/home/test-user/.local/share/opencode/db.sqlite',
-      '/home/test-user/.opencode/opencode.db',
-      '/home/test-user/.opencode/db.sqlite',
+      path.join('/home/test-user', '.local', 'share', 'opencode', 'opencode.db'),
+      path.join('/home/test-user', '.local', 'share', 'opencode', 'db.sqlite'),
+      path.join('/home/test-user', '.opencode', 'opencode.db'),
+      path.join('/home/test-user', '.opencode', 'db.sqlite'),
     ]);
   });
 
@@ -52,10 +52,10 @@ describe('getDefaultOpenCodeDbPathCandidates', () => {
     });
 
     expect(candidates).toEqual([
-      '/Users/test-user/Library/Application Support/opencode/opencode.db',
-      '/Users/test-user/Library/Application Support/opencode/db.sqlite',
-      '/Users/test-user/.opencode/opencode.db',
-      '/Users/test-user/.opencode/db.sqlite',
+      path.join('/Users/test-user', 'Library', 'Application Support', 'opencode', 'opencode.db'),
+      path.join('/Users/test-user', 'Library', 'Application Support', 'opencode', 'db.sqlite'),
+      path.join('/Users/test-user', '.opencode', 'opencode.db'),
+      path.join('/Users/test-user', '.opencode', 'db.sqlite'),
     ]);
   });
 
@@ -113,8 +113,8 @@ describe('getDefaultOpenCodeDbPathCandidates', () => {
       path.join(opencodeDir, 'opencode-nightly.db'),
       path.join(opencodeDir, 'opencode-stable.db'),
       path.join(opencodeDir, 'db.sqlite'),
-      '/home/test-user/.opencode/opencode.db',
-      '/home/test-user/.opencode/db.sqlite',
+      path.join('/home/test-user', '.opencode', 'opencode.db'),
+      path.join('/home/test-user', '.opencode', 'db.sqlite'),
     ]);
   });
 

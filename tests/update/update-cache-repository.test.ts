@@ -48,7 +48,7 @@ describe('update-cache-repository', () => {
       { parentPid: 777 },
     );
 
-    expect(scopedPath).toBe('/tmp/cache/update-check.kitty_tab-1.json');
+    expect(scopedPath).toBe(path.join('/tmp/cache', 'update-check.kitty_tab-1.json'));
   });
 
   it('falls back to parent pid when session scope key is blank', () => {
@@ -61,7 +61,7 @@ describe('update-cache-repository', () => {
       { parentPid: 777 },
     );
 
-    expect(scopedPath).toBe('/tmp/cache/update-check.ppid-777.json');
+    expect(scopedPath).toBe(path.join('/tmp/cache', 'update-check.ppid-777.json'));
   });
 
   it('falls back to parent pid when session scope key env var is missing', () => {
@@ -73,7 +73,7 @@ describe('update-cache-repository', () => {
       { parentPid: 42 },
     );
 
-    expect(scopedPath).toBe('/tmp/cache/update-check.ppid-42.json');
+    expect(scopedPath).toBe(path.join('/tmp/cache', 'update-check.ppid-42.json'));
   });
 
   it('writes cache payloads and ignores malformed cache content on read', async () => {

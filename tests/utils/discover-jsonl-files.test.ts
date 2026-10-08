@@ -1,10 +1,10 @@
 import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { discoverJsonlFiles } from '../../src/utils/discover-jsonl-files.js';
+import { canonicalTmpdir } from '../helpers/tmp.js';
 
 const tempDirs: string[] = [];
 const itWhenUnix = process.platform === 'win32' ? it.skip : it;
@@ -16,7 +16,7 @@ afterEach(async () => {
 
 describe('discoverJsonlFiles', () => {
   it('recursively discovers jsonl files in deterministic order', async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'discover-jsonl-'));
+    const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'discover-jsonl-'));
     tempDirs.push(rootDir);
 
     const alphaDir = path.join(rootDir, 'alpha');
@@ -40,11 +40,13 @@ describe('discoverJsonlFiles', () => {
     expect(discoveredFiles).toEqual([alphaFile, alphaNestedFile, betaFile]);
   });
 
-  itWhenUnix('sorts file names by code point for locale-independent ordering', async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'discover-jsonl-code-point-'));
+  it('sorts file names by code point for locale-independent ordering', async () => {
+    const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'discover-jsonl-code-point-'));
     tempDirs.push(rootDir);
 
-    const upperFile = path.join(rootDir, 'A.jsonl');
+    // B (66) sorts before a (97) by code point but after it in locale order; unlike A/a,
+    // the two names stay distinct on case-insensitive filesystems (macOS, Windows).
+    const upperFile = path.join(rootDir, 'B.jsonl');
     const lowerFile = path.join(rootDir, 'a.jsonl');
 
     await writeFile(lowerFile, '{}\n', 'utf8');
@@ -56,7 +58,7 @@ describe('discoverJsonlFiles', () => {
   });
 
   it('discovers jsonl files case-insensitively by extension', async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'discover-jsonl-extension-case-'));
+    const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'discover-jsonl-extension-case-'));
     tempDirs.push(rootDir);
 
     const lowerFile = path.join(rootDir, 'lower.jsonl');
@@ -71,13 +73,13 @@ describe('discoverJsonlFiles', () => {
   });
 
   it('returns an empty list when the root directory does not exist', async () => {
-    const missingDir = path.join(os.tmpdir(), `discover-jsonl-missing-${Date.now()}`);
+    const missingDir = path.join(canonicalTmpdir(), `discover-jsonl-missing-${Date.now()}`);
 
     await expect(discoverJsonlFiles(missingDir)).resolves.toEqual([]);
   });
 
   it('propagates non-ENOENT discovery errors', async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'discover-jsonl-errors-'));
+    const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'discover-jsonl-errors-'));
     tempDirs.push(rootDir);
 
     const regularFile = path.join(rootDir, 'file.jsonl');
@@ -89,7 +91,7 @@ describe('discoverJsonlFiles', () => {
   itWhenUnix(
     'skips unreadable nested directories and continues walking readable paths',
     async () => {
-      const rootDir = await mkdtemp(path.join(os.tmpdir(), 'discover-jsonl-permissions-'));
+      const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'discover-jsonl-permissions-'));
       tempDirs.push(rootDir);
 
       const readableDir = path.join(rootDir, 'readable');

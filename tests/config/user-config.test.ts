@@ -136,8 +136,8 @@ goose = "/tmp/goose.db"
     );
 
     expect(result.config.sourceDirs).toEqual({
-      claude: ['/work/claude', '/home/claude'],
-      goose: '/tmp/goose.db',
+      claude: [path.resolve('/work/claude'), path.resolve('/home/claude')],
+      goose: path.resolve('/tmp/goose.db'),
     });
     expect(result.warnings).toEqual([
       'Ignoring sourceDirs.pi: expected a non-empty path or list of paths',
@@ -243,19 +243,19 @@ fetchTimeoutMs = 500
       logLevel: 'debug',
       sources: ['codex', 'claude'],
       sourceDirs: {
-        claude: '/tmp/claude',
+        claude: path.resolve('/tmp/claude'),
       },
       pricing: {
         offline: true,
         url: 'https://example.test/prices.json',
-        overridesPath: '/tmp/pricing.json',
+        overridesPath: path.resolve('/tmp/pricing.json'),
         ignoreFailures: false,
         cacheTtlMs: 60_000,
         fetchTimeoutMs: 30_000,
       },
       eventStore: {
         enabled: false,
-        path: '/tmp/events.db',
+        path: path.resolve('/tmp/events.db'),
       },
       parseMaxParallel: 12,
       parseWorkers: 'auto',
