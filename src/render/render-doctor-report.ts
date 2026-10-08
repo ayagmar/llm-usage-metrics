@@ -69,7 +69,13 @@ export function renderDoctorText(
       (searchPath) => `    ${abbreviateHome(searchPath, homeDir)}`,
     ),
   ]);
-  const sourceResults = results.filter((result) => result.id !== 'event-store');
+  const sourceResults = results.filter((result) => result.state !== undefined);
+  const hasMachines = results.some((result) => result.format === 'ssh');
+  const tip = hasMachines
+    ? []
+    : [
+        'Tip: add your other machines to every report with llm-usage machine add <name> <user@host>',
+      ];
 
-  return [...lines, '', formatSummary(sourceResults)].join('\n');
+  return [...lines, '', formatSummary(sourceResults), ...tip].join('\n');
 }

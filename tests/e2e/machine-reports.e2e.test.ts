@@ -5,6 +5,7 @@ import { PassThrough } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildUsageEventDataset } from '../../src/cli/build-usage-event-dataset.js';
+import { buildDoctorResults } from '../../src/cli/run-doctor-report.js';
 import { runMachineExport } from '../../src/cli/run-machine-export.js';
 import { buildStatusline } from '../../src/cli/run-statusline.js';
 import type { MachineExportLine } from '../../src/machines/machine-export-bundle.js';
@@ -324,5 +325,30 @@ describe('reports with other machines', () => {
     expect(lines.at(-1)).toMatchObject({ type: 'end', eventCount: 2 });
     // Counting the laptop's events would also report them as missing from the ledger.
     expect(vi.mocked(console.error).mock.calls.flat().join('\n')).not.toContain('left out');
+  });
+
+  it('show each machine in doctor, from its cache', async () => {
+    await syncMachine(
+      'laptop',
+      { ssh: 'me@laptop' },
+      {
+        spawnSsh: createInProcessRemote({
+          ...remote,
+          fail: { exitCode: 255, stderr: 'ssh: connect to host laptop port 22: No route to host' },
+        }).spawnSsh,
+        now: () => Date.now() + 60_000,
+      },
+    );
+
+    const results = await buildDoctorResults({});
+
+    const machineRows = results.filter((result) => result.format === 'ssh');
+
+    expect(machineRows).toMatchObject([
+      { id: 'machine:laptop', format: 'ssh', status: 'error', itemsFound: 4 },
+    ]);
+    expect(machineRows[0].error).toMatch(
+      /^me@laptop: synced just now, 2 file\(s\), 4 event\(s\); last attempt failed just now: ssh failed/,
+    );
   });
 });

@@ -71,7 +71,7 @@ export type MachineListEntry = {
   eventCount: number;
 };
 
-function describeMachineStatus(entry: MachineListEntry, now: number): string {
+export function describeMachineStatus(entry: MachineListEntry, now: number): string {
   const { state } = entry;
 
   if (entry.machine.enabled === false) {
@@ -84,7 +84,7 @@ function describeMachineStatus(entry: MachineListEntry, now: number): string {
 
   const synced = `synced ${formatAge(now - state.syncedAt)}, ${formatCachedTotals(entry.fileCount, entry.eventCount)}`;
 
-  if (state.lastError && (state.attemptedAt ?? 0) > state.syncedAt) {
+  if (state.lastError && (state.attemptedAt ?? 0) >= state.syncedAt) {
     return `${synced}; last attempt failed ${formatAge(now - (state.attemptedAt ?? 0))}: ${state.lastError}`;
   }
 
@@ -114,7 +114,7 @@ function describeIncludedMachine(
 
   const details = [`synced ${formatAge(now - state.syncedAt)}`];
 
-  if (state.lastError !== undefined && (state.attemptedAt ?? 0) > state.syncedAt) {
+  if (state.lastError !== undefined && (state.attemptedAt ?? 0) >= state.syncedAt) {
     details.push('last sync failed');
   }
 

@@ -30,8 +30,14 @@
       "description": "Health of one source or the event store.",
       "type": "object",
       "properties": {
-        "id": { "description": "Source id, or event-store.", "type": "string" },
-        "format": { "description": "Storage format of the source.", "type": "string" },
+        "id": {
+          "description": "Source id, event-store, or machine:<name> for a configured machine.",
+          "type": "string"
+        },
+        "format": {
+          "description": "Storage format of the source; ssh for a machine.",
+          "type": "string"
+        },
         "status": {
           "description": "Whether discovery ran (error: it failed). See state for whether usage was found.",
           "type": "string",

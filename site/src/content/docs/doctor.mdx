@@ -58,6 +58,8 @@ Sources: 1 found · 1 failed · 1 not installed
 
 Searched paths reflect overrides, config `sourceDirs`, and tool environment variables such as `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, and `GEMINI_CLI_HOME`. The summary counts only source rows; the `event-store` row reports the ledger's event count, departed-file count, schema version, and on-disk size.
 
+Each machine added with [`machine add`](/llm-usage-metrics/machines/) gets a `machine:<name>` row (format `ssh`) from its cached usage: when it last synced, how many files and events are cached, and the last error. Doctor never connects to it; a row whose last sync failed is marked `✖`. Without any machine, doctor ends with a tip on adding one.
+
 ## JSON shape
 
 `--json` returns a `sources` array under `data`. `status` says whether discovery ran (`ok` or `error`); source rows add `state` (above) and `searchedPaths`. Rows whose discovery ran carry `itemsFound`, `unparseable` rows and the `event-store` row a `detail` string, and failed rows `error`:
