@@ -159,6 +159,13 @@ report shapes stay unchanged.
 them back in one read transaction with a revision per file (a digest of its events),
 so another machine can sync only the files that changed.
 
+Reports read other machines after history and before the provider, model and date
+filters: `buildUsageEventDataset` selects machines (`--machine`, or every configured one
+unless the run points at custom source directories), reads each cache read-only within
+the date window, and `mergeMachineEvents` leaves out events already counted, by content
+hash, only for sessions present on both sides. The events then join the per-source
+results, so pricing and aggregation treat them like local ones.
+
 ## Aggregation profiles
 
 `src/aggregate/aggregate-usage.ts` supports `includeModelBreakdown`.
@@ -196,7 +203,7 @@ That keeps sorting and separator behavior deterministic without coupling the gen
 - `src/persistence`
   SQLite event-store ledger, schema migrations, history suppression
 - `src/machines`
-  Multi-machine sync: the versioned `machine export` bundle format (`machine-export-bundle.ts`)
+  Multi-machine sync: the versioned `machine export` bundle format and its validating reader (`machine-export-bundle.ts`), the ssh transport and `command` detection (`machine-ssh.ts`), per-machine caches (`machine-cache.ts`, each an event store under `machines/<name>.db`), `sync` (`sync-machine.ts`), safe `config.toml` edits for `machine add/remove` (`machine-config-file.ts`), and the report-side read and cross-machine dedup (`load-machine-usage.ts`, `merge-machine-events.ts`)
 - `src/aggregate`
   Period/source usage aggregation; `daily-activity.ts` holds the streak, best-day, and heatmap-level logic shared by `summary` and `wrapped`
 - `src/efficiency`

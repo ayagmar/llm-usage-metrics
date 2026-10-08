@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import os from 'node:os';
 import { text } from 'node:stream/consumers';
 
+import { LOCAL_MACHINE_NAME } from '../config/user-config.js';
 import { buildMachineExportLines, parseKnownFiles } from '../machines/machine-export-bundle.js';
 import {
   closeEventStore,
@@ -55,7 +56,8 @@ export async function runMachineExport(
 ): Promise<void> {
   const stdout = deps.stdout ?? process.stdout;
   const knownFiles = await readKnownFiles(options.known, deps.stdin ?? process.stdin);
-  const dataset = await buildUsageEventDataset({}, deps);
+  // Only this machine's own usage: other machines export theirs themselves.
+  const dataset = await buildUsageEventDataset({ machine: LOCAL_MACHINE_NAME }, deps);
 
   emitReportRunDiagnostics(
     buildUsageDiagnostics({

@@ -8,6 +8,7 @@ import {
   getDefaultEventStorePath,
   listStoredFileFingerprints,
   openEventStore,
+  readEventStoreEvents,
   readEventStoreMeta,
   replaceFilesEvents,
   runTransaction,
@@ -15,6 +16,7 @@ import {
   type EventStore,
   type EventStoreFileFingerprint,
 } from '../persistence/event-store.js';
+import type { UsageEvent } from '../domain/usage-event.js';
 import { pathExists } from '../utils/fs-helpers.js';
 import {
   toFileKey,
@@ -54,8 +56,11 @@ export function getMachineCachePath(name: string): string {
   return path.join(getMachineCacheDirectory(), `${name}.db`);
 }
 
-export function openMachineCache(name: string): Promise<EventStore> {
-  return openEventStore(getMachineCachePath(name));
+/** Reports read a cache by date window, which this index serves. */
+export async function openMachineCache(name: string): Promise<EventStore> {
+  const cache = await openEventStore(getMachineCachePath(name));
+  cache.database.exec('CREATE INDEX IF NOT EXISTS machine_events_timestamp ON events (timestamp)');
+  return cache;
 }
 
 export async function deleteMachineCache(name: string): Promise<void> {
@@ -193,14 +198,41 @@ function toEpochMs(value: string | undefined): number | undefined {
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
-export function readMachineSyncState(cache: EventStore): MachineSyncState {
+function toSyncState(readMeta: (key: string) => string | undefined): MachineSyncState {
   return {
-    hostname: readEventStoreMeta(cache, 'hostname'),
-    cliVersion: readEventStoreMeta(cache, 'cliVersion'),
-    syncedAt: toEpochMs(readEventStoreMeta(cache, 'syncedAt')),
-    attemptedAt: toEpochMs(readEventStoreMeta(cache, 'attemptedAt')),
-    lastError: readEventStoreMeta(cache, 'lastError'),
+    hostname: readMeta('hostname'),
+    cliVersion: readMeta('cliVersion'),
+    syncedAt: toEpochMs(readMeta('syncedAt')),
+    attemptedAt: toEpochMs(readMeta('attemptedAt')),
+    lastError: readMeta('lastError'),
   };
+}
+
+export function readMachineSyncState(cache: EventStore): MachineSyncState {
+  return toSyncState((key) => readEventStoreMeta(cache, key));
+}
+
+export type MachineCacheUsage = {
+  state: MachineSyncState;
+  events: UsageEvent[];
+};
+
+/**
+ * A machine's cached events in a timestamp window and its sync state, read without
+ * locking the cache; undefined when the machine was never synced.
+ */
+export async function readMachineCacheUsage(
+  name: string,
+  window: { fromTimestamp?: string; toTimestamp?: string },
+): Promise<MachineCacheUsage | undefined> {
+  const cachePath = getMachineCachePath(name);
+
+  if (!(await pathExists(cachePath))) {
+    return undefined;
+  }
+
+  const { meta, events } = await readEventStoreEvents(cachePath, window);
+  return { state: toSyncState((key) => meta.get(key)), events };
 }
 
 export type MachineCacheStatus = {

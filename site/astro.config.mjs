@@ -81,6 +81,7 @@ export default defineConfig({
           items: [
             { label: 'Pricing', slug: 'pricing' },
             { label: 'Caching and history', slug: 'caching' },
+            { label: 'Multiple machines', slug: 'machines' },
             { label: 'Doctor', slug: 'doctor' },
             { label: 'Troubleshooting', slug: 'troubleshooting' },
             { label: 'Security', slug: 'security' },

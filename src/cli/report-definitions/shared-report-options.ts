@@ -295,7 +295,12 @@ export function registerSharedReportOptions(
         '--history',
         'include usage from files that no longer exist on disk (the default; fails if the event store is unavailable)',
       )
-      .option('--no-history', 'leave out usage from files that no longer exist on disk');
+      .option('--no-history', 'leave out usage from files that no longer exist on disk')
+      .option(
+        '--machine <name>',
+        'Count only these machines (repeatable or comma-separated; local is this one; default: all)',
+        collectRepeatedOption,
+      );
   }
 
   if (profileConfig.includeMarkdown) {

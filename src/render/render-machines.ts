@@ -1,5 +1,6 @@
 import type { MachineConfig } from '../config/user-config.js';
 import type { MachineSyncState } from '../machines/machine-cache.js';
+import type { MachineUsageSummary } from '../machines/load-machine-usage.js';
 import type { MachineSyncOutcome } from '../machines/sync-machine.js';
 
 const integerFormat = new Intl.NumberFormat('en-US');
@@ -97,4 +98,46 @@ export function renderMachineList(entries: readonly MachineListEntry[], now: num
   return entries.map(
     (entry) => `${entry.name}  ${entry.machine.ssh}  ${describeMachineStatus(entry, now)}`,
   );
+}
+
+function describeIncludedMachine(
+  machine: MachineUsageSummary,
+  now: number,
+  localVersion: string,
+): string {
+  const { state } = machine;
+
+  if (state?.syncedAt === undefined) {
+    return `${machine.name} (never synced; run llm-usage sync ${machine.name})`;
+  }
+
+  const details = [`synced ${formatAge(now - state.syncedAt)}`];
+
+  if (state.lastError !== undefined && (state.attemptedAt ?? 0) > state.syncedAt) {
+    details.push('last sync failed');
+  }
+
+  // Parsers change between versions, so a session copied to both machines may not match.
+  if (state.cliVersion && state.cliVersion !== localVersion) {
+    details.push(
+      `llm-usage-metrics ${state.cliVersion} there; shared sessions may count twice until both run the same version`,
+    );
+  }
+
+  return `${machine.name} (${details.join(', ')})`;
+}
+
+/** The stderr note of a report that counts other machines' usage. */
+export function formatMachinesNote(
+  machines: readonly MachineUsageSummary[],
+  now: number,
+  localVersion: string,
+): string {
+  const duplicateCount = machines.reduce((sum, machine) => sum + machine.duplicateCount, 0);
+  const duplicates =
+    duplicateCount > 0
+      ? `; left out ${integerFormat.format(duplicateCount)} event(s) already counted`
+      : '';
+
+  return `Machines: ${machines.map((machine) => describeIncludedMachine(machine, now, localVersion)).join(', ')}${duplicates}.`;
 }

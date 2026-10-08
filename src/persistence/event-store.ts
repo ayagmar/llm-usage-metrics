@@ -9,6 +9,7 @@ export {
   listStoredFileFingerprints,
   openEventStore,
   readDepartedFileEvents,
+  readEventStoreEvents,
   readEventStoreMeta,
   readEventStoreStoredFiles,
   readEventStoreSummary,

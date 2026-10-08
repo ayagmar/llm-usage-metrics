@@ -185,6 +185,19 @@ llm-usage prune --departed-before 2026-01-01 --apply
 
 Deleting the ledger also deletes retained history. Read [Caching](https://ayagmar.github.io/llm-usage-metrics/caching/) before clearing it as a troubleshooting step.
 
+## Multiple machines
+
+Reports can include your other machines' usage over ssh. Install llm-usage-metrics there, make sure ssh logs in without a prompt, then:
+
+```bash
+llm-usage machine add laptop me@laptop.local
+llm-usage sync
+llm-usage monthly                    # this machine and the laptop
+llm-usage monthly --machine laptop   # only the laptop
+```
+
+A session that reached both machines (a copied or synced `~/.claude`) is counted once. See [Multiple machines](https://ayagmar.github.io/llm-usage-metrics/machines/).
+
 ## Output
 
 ```bash

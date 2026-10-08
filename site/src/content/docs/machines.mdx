@@ -1,0 +1,87 @@
+---
+title: Multiple machines
+description: Combine usage from your laptop, desktop, and servers into one report over ssh.
+---
+
+If you use coding agents on several machines, one machine's reports can include the others. Each machine keeps parsing its own logs; this machine fetches what they count over ssh and keeps a copy, so reports work offline and stay fast.
+
+## Set up
+
+On the other machine, install llm-usage-metrics as usual. On this machine, make sure ssh can log in to it without a password prompt (key login, or a key loaded in `ssh-agent`), then add it:
+
+```bash
+llm-usage machine add laptop me@laptop.local
+```
+
+The name (`laptop`) is how reports refer to the machine: 1-32 lowercase letters, digits, or dashes. The destination is anything `ssh` accepts: `host`, `user@host`, or a `Host` alias from `~/.ssh/config`, whose settings (port, key, `ProxyJump`, `ControlMaster`) all apply.
+
+`machine add` fetches the machine's usage once and only then adds it to your [config file](/llm-usage-metrics/configuration/), keeping your comments:
+
+```toml
+[machines.laptop]
+ssh = "me@laptop.local"
+```
+
+The first fetch can take a minute: the other machine parses all its logs, as its own first report would.
+
+If node comes from a version manager (nvm, fnm, volta, mise), a non-interactive ssh command usually cannot find `llm-usage`. `machine add` then asks the machine's login shell where it is and saves a `command` that puts that directory on `PATH`. To set it yourself:
+
+```bash
+llm-usage machine add vps vps --command "/home/me/.local/bin/llm-usage"
+```
+
+## Use it
+
+Every report includes the machines you added, as last fetched:
+
+```bash
+llm-usage sync          # fetch every machine's latest usage
+llm-usage daily
+```
+
+The `stderr` summary says which machines a report includes and when each was last fetched:
+
+```text
+ℹ Machines: laptop (synced 4 min ago); left out 1,204 event(s) already counted.
+```
+
+`--machine` limits a report to some machines; `local` is this one:
+
+```bash
+llm-usage monthly --machine laptop
+llm-usage monthly --machine local,vps
+```
+
+A report pointed at a custom directory (`--claude-dir`, `--source-dir`) counts only that directory, without other machines, unless you name them with `--machine`. `statusline` includes other machines too, from their last fetch; it never connects to them.
+
+## How it works
+
+- `llm-usage sync` runs `llm-usage machine export` on each machine over ssh. The machine refreshes its own [event store](/llm-usage-metrics/caching/) and sends only the files that changed since the last fetch, in a [versioned format](/llm-usage-metrics/output-formats/#machine-export).
+- What it sends is what that machine's own reports count, history included, for the sources its own config selects. Costs are calculated here, with this machine's pricing.
+- Each machine's usage is kept in its own file, `machines/<name>.db`, next to this machine's event store; your own ledger never mixes with it. A failed fetch keeps the previous copy, and `machine list` shows the error.
+- The same session can reach several machines (a copied `~/.claude`, a synced or shared home directory). An event already counted, from this machine or one added before, is counted once. A session continued on another machine keeps its new turns. This relies on both machines parsing logs the same way, so the `Machines:` note warns when another machine runs a different llm-usage-metrics version.
+- Repository paths are those of the machine the usage came from: `efficiency --repo-dir` and `session --by-repo` treat the same repository at another path as a different one.
+
+## Manage machines
+
+```bash
+llm-usage machine list            # each machine, when it last synced, how much is cached
+llm-usage sync laptop --full      # fetch every file again
+llm-usage machine remove laptop   # delete its config table and its cached usage
+```
+
+To stop fetching a machine but keep its cached usage in reports, set `enabled = false` in its table.
+
+## Troubleshooting
+
+`sync` and `machine add` print what failed and how to fix it:
+
+| Message                              | Fix                                                                                                                                    |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `ssh could not log in without a prompt` | Set up key login (`ssh-copy-id me@laptop.local`) or load your key into `ssh-agent`. Syncs never prompt.                            |
+| `ssh does not know this host yet`    | Connect once with `ssh me@laptop.local` to check and accept its host key.                                                              |
+| `llm-usage was not found`            | Install llm-usage-metrics there, or set `command` to how it starts (see [Set up](#set-up)).                                            |
+| `too old to export usage`            | Update llm-usage-metrics on that machine.                                                                                               |
+| `the export ended early`             | The connection dropped or the other machine stopped; run `llm-usage sync` again. Nothing was changed.                                 |
+
+After a node upgrade, a saved `command` with a version in its path may stop working; remove the machine and add it again to detect the new path.

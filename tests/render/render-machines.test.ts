@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   formatAge,
+  formatMachinesNote,
   renderMachineList,
   renderSyncOutcome,
 } from '../../src/render/render-machines.js';
@@ -78,5 +79,25 @@ describe('renderSyncOutcome', () => {
       '✓ vps: 3,072 file(s) updated, 1 removed; 3,072 file(s), 10 event(s) cached (llm-usage-metrics 1.0.0)',
       '  vps warned: ⚠ machine export left out 2 event(s)',
     ]);
+  });
+});
+
+describe('formatMachinesNote', () => {
+  it('warns about a machine running another version', () => {
+    expect(
+      formatMachinesNote(
+        [
+          {
+            name: 'laptop',
+            state: { syncedAt: NOW - 2 * MINUTE, cliVersion: '0.9.0' },
+            duplicateCount: 0,
+          },
+        ],
+        NOW,
+        '0.10.0',
+      ),
+    ).toBe(
+      'Machines: laptop (synced 2 min ago, llm-usage-metrics 0.9.0 there; shared sessions may count twice until both run the same version).',
+    );
   });
 });

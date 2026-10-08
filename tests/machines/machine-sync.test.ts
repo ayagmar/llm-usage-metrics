@@ -101,7 +101,7 @@ describe('machine add, sync, list and remove', () => {
       expect.stringMatching(
         /^✓ laptop: 1 file\(s\) updated, 0 removed; 1 file\(s\), 2 event\(s\) cached/,
       ),
-      `Added laptop to ${localConfigPath}. llm-usage sync refreshes its usage.`,
+      `Added laptop to ${localConfigPath}. Reports now include its usage; llm-usage sync fetches it again.`,
     ]);
     expect(await readMachineCacheStatus('laptop')).toMatchObject({
       fileCount: 1,
