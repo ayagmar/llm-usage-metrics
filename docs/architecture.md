@@ -175,7 +175,7 @@ That keeps sorting and separator behavior deterministic without coupling the gen
 ## Module map
 
 - `src/cli`
-  Command creation, shared runtime, builders, diagnostics emission; `parse-worker-pool.ts` holds the worker-thread parse pool; `parse/` groups the parse-pipeline concerns (`parse-fingerprint.ts` dependency fingerprinting, `event-store-parse-cache.ts` store read/write caching, `since-file-skip.ts` the `--since` mtime cutoff, `parse-budget.ts` the global parse semaphore, `usage-event-filters.ts` provider/date/model filtering) around the coordinator in `build-usage-data-parsing.ts`; `usage-window-summary.ts` sums date windows for `compare` and `summary`
+  Command creation, shared runtime, builders, diagnostics emission; the installed bin is `bin.ts` (built to `dist/bin.js`), a tiny loader that enables Node's compile cache and then imports the bundled CLI in `dist/index.js`, which parse workers also load; `parse-worker-pool.ts` holds the worker-thread parse pool; `parse/` groups the parse-pipeline concerns (`parse-fingerprint.ts` dependency fingerprinting, `event-store-parse-cache.ts` store read/write caching, `since-file-skip.ts` the `--since` mtime cutoff, `parse-budget.ts` the global parse semaphore, `usage-event-filters.ts` provider/date/model filtering) around the coordinator in `build-usage-data-parsing.ts`; `usage-window-summary.ts` sums date windows for `compare` and `summary`
 - `src/cli/report-definitions`
   Canonical report metadata and option profiles
 - `src/cli/report-runtime`

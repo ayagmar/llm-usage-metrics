@@ -23,6 +23,7 @@ export default defineConfig({
       reportsDirectory: 'coverage',
       include: ['src/**/*.ts'],
       exclude: [
+        'src/cli/bin.ts',
         'src/cli/index.ts',
         'src/cli/report-definitions/report-definition-types.ts',
         'src/cli/usage-data-contracts.ts',
