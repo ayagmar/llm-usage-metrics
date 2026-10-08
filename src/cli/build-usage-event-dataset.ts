@@ -201,6 +201,13 @@ export async function buildUsageEventDataset(
             const openStore = deps.openEventStore ?? openEventStore;
             openedEventStore = await openStore(eventStoreRuntimeConfig.path);
           } catch (error) {
+            if (configuredOptions.history) {
+              throw new Error(
+                `--history could not open the event store at ${eventStoreRuntimeConfig.path}: ${getErrorReason(error)}`,
+                { cause: error },
+              );
+            }
+
             eventStoreOpenWarning = `Event store disabled after failure: ${getErrorReason(error)}`;
             parseEventStoreRuntimeConfig = {
               enabled: false,

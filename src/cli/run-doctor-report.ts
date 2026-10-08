@@ -3,6 +3,7 @@ import { stat } from 'node:fs/promises';
 import { getEventStoreRuntimeConfig } from '../config/runtime-overrides.js';
 import {
   EVENT_STORE_SCHEMA_VERSION,
+  isSupportedSchemaVersion,
   readEventStoreStoredFiles as readDefaultEventStoreStoredFiles,
   readEventStoreSummary as readDefaultEventStoreSummary,
   type EventStoreStoredFile,
@@ -246,10 +247,6 @@ export async function buildDoctorResults(
   return results;
 }
 
-function isSupportedStoreSchemaVersion(schemaVersion: string | undefined): boolean {
-  return schemaVersion === '1' || schemaVersion === EVENT_STORE_SCHEMA_VERSION;
-}
-
 function getUnsupportedSchemaError(schemaVersion: string | undefined): string {
   const versionLabel = schemaVersion ? `v${schemaVersion}` : 'unknown';
   return `Event store schema ${versionLabel} is not supported by this llm-usage-metrics version (supports v${EVENT_STORE_SCHEMA_VERSION}); upgrade llm-usage-metrics or set LLM_USAGE_EVENT_STORE=0`;
@@ -311,7 +308,7 @@ async function buildEventStoreDoctorResult(
   try {
     const summary = await readEventStoreSummary(filePath);
 
-    if (!isSupportedStoreSchemaVersion(summary.schemaVersion)) {
+    if (summary.schemaVersion === undefined || !isSupportedSchemaVersion(summary.schemaVersion)) {
       return {
         id: 'event-store',
         format: 'sqlite',

@@ -493,6 +493,24 @@ describe('run-doctor-report', () => {
     });
   });
 
+  it('accepts an older event store schema that opening the store migrates', async () => {
+    const options = await createDoctorFixtureOptions();
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-event-store-v2-'));
+    tempDirs.push(rootDir);
+
+    const eventStorePath = path.join(rootDir, 'events.db');
+    const store = await openEventStore(eventStorePath);
+    store.database.prepare("UPDATE meta SET value = '2' WHERE key = 'schemaVersion'").run();
+    closeEventStore(store);
+
+    const results = await buildDoctorResults(
+      { ...options, source: 'pi' },
+      { getEventStoreRuntimeConfig: () => ({ enabled: true, path: eventStorePath }) },
+    );
+
+    expect(results.find((result) => result.id === 'event-store')?.status).toBe('ok');
+  });
+
   it('reports a newer event store schema as an error without mutating it', async () => {
     const options = await createDoctorFixtureOptions();
     const rootDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-event-store-stale-'));

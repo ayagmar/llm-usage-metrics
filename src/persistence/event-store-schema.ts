@@ -207,17 +207,19 @@ export function migrateSchemaV2ToV3(database: EventStoreDatabase): void {
   });
 }
 
+/** Versions this build reads directly or migrates on open. */
+export function isSupportedSchemaVersion(schemaVersion: string): boolean {
+  return (
+    schemaVersion === EVENT_STORE_SCHEMA_VERSION || schemaVersion === '1' || schemaVersion === '2'
+  );
+}
+
 // Runs before the WAL pragma so an unsupported store is rejected without
 // persisting a journal-mode change; initializeSchema re-checks under lock.
 export function assertSupportedSchemaVersion(database: EventStoreDatabase): void {
   const schemaVersion = readSchemaVersion(database);
 
-  if (
-    schemaVersion !== undefined &&
-    schemaVersion !== EVENT_STORE_SCHEMA_VERSION &&
-    schemaVersion !== '1' &&
-    schemaVersion !== '2'
-  ) {
+  if (schemaVersion !== undefined && !isSupportedSchemaVersion(schemaVersion)) {
     throw new EventStoreSchemaVersionError(schemaVersion);
   }
 }
