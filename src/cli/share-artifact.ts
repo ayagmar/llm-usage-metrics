@@ -3,21 +3,13 @@ import { constants } from 'node:fs';
 import { access, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-export async function writeShareSvgFile(fileName: string, svgContent: string): Promise<string> {
+export async function writeShareFile(fileName: string, content: string): Promise<string> {
   const outputPath = path.resolve(process.cwd(), fileName);
-  await writeFile(outputPath, svgContent, 'utf8');
+  await writeFile(outputPath, content, 'utf8');
   return outputPath;
 }
 
-function stringifyError(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return String(error);
-}
-
-type OpenShareSvgFileDeps = {
+type OpenShareFileDeps = {
   platform?: NodeJS.Platform;
   spawnDetached?: (command: string, args: string[]) => Promise<void>;
 };
@@ -137,48 +129,9 @@ async function spawnDetached(command: string, args: string[]): Promise<void> {
   });
 }
 
-export async function openShareSvgFile(
-  filePath: string,
-  deps: OpenShareSvgFileDeps = {},
-): Promise<void> {
+export async function openShareFile(filePath: string, deps: OpenShareFileDeps = {}): Promise<void> {
   const platform = deps.platform ?? process.platform;
   const runDetached = deps.spawnDetached ?? spawnDetached;
   const { command, args } = await resolveOpenCommand(filePath, platform);
   await runDetached(command, args);
-}
-
-type WriteAndOpenShareSvgFileDeps = {
-  writeShareSvgFileFn?: (fileName: string, svgContent: string) => Promise<string>;
-  openShareSvgFileFn?: (filePath: string) => Promise<void>;
-};
-
-export type ShareSvgArtifactResult = {
-  outputPath: string;
-  opened: boolean;
-  openErrorMessage?: string;
-};
-
-export async function writeAndOpenShareSvgFile(
-  fileName: string,
-  svgContent: string,
-  deps: WriteAndOpenShareSvgFileDeps = {},
-): Promise<ShareSvgArtifactResult> {
-  const writeShareSvg = deps.writeShareSvgFileFn ?? writeShareSvgFile;
-  const openShareSvg = deps.openShareSvgFileFn ?? openShareSvgFile;
-
-  const outputPath = await writeShareSvg(fileName, svgContent);
-
-  try {
-    await openShareSvg(outputPath);
-    return {
-      outputPath,
-      opened: true,
-    };
-  } catch (error) {
-    return {
-      outputPath,
-      opened: false,
-      openErrorMessage: stringifyError(error),
-    };
-  }
 }

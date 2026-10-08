@@ -21,8 +21,9 @@ async function prepareWrappedReport(
     createShareArtifact: options.share
       ? (wrappedData) => ({
           fileName: `llm-usage-wrapped-${wrappedData.recap.year}.svg`,
-          svg: renderWrappedShareSvg(wrappedData.recap),
           logLabel: 'wrapped',
+          title: `${wrappedData.recap.year} Wrapped share card`,
+          render: (theme) => renderWrappedShareSvg(wrappedData.recap, theme),
         })
       : undefined,
     render: (wrappedData, format) => renderWrappedReport(wrappedData.recap, format),

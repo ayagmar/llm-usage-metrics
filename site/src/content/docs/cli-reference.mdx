@@ -104,6 +104,10 @@ Options:
   --no-history                   leave out usage from files that no longer exist
                                  on disk
   --markdown                     Render output as markdown table
+  --share                        Write a share card (SVG and an HTML page with
+                                 PNG export) to the current directory
+  --no-open                      With --share, write the files without opening
+                                 the page
   -h, --help                     display help for command
 ```
 
@@ -178,9 +182,10 @@ Options:
   --markdown                     Render output as markdown table
   --per-model-columns            Render per-model metrics as multiline aligned
                                  table columns (terminal/markdown)
-  --share                        Write a share SVG image to the current
-                                 directory
-  --no-open                      With --share, write the SVG without opening it
+  --share                        Write a share card (SVG and an HTML page with
+                                 PNG export) to the current directory
+  --no-open                      With --share, write the files without opening
+                                 the page
   --all                          Report every day instead of the last 7 days
   --compact                      Abbreviate token counts and hide the Reasoning
                                  and Cache Write columns (terminal/markdown)
@@ -259,9 +264,10 @@ Options:
   --markdown                     Render output as markdown table
   --per-model-columns            Render per-model metrics as multiline aligned
                                  table columns (terminal/markdown)
-  --share                        Write a share SVG image to the current
-                                 directory
-  --no-open                      With --share, write the SVG without opening it
+  --share                        Write a share card (SVG and an HTML page with
+                                 PNG export) to the current directory
+  --no-open                      With --share, write the files without opening
+                                 the page
   --all                          Report every week instead of the last 8 weeks
   --compact                      Abbreviate token counts and hide the Reasoning
                                  and Cache Write columns (terminal/markdown)
@@ -339,9 +345,10 @@ Options:
   --markdown                     Render output as markdown table
   --per-model-columns            Render per-model metrics as multiline aligned
                                  table columns (terminal/markdown)
-  --share                        Write a share SVG image to the current
-                                 directory
-  --no-open                      With --share, write the SVG without opening it
+  --share                        Write a share card (SVG and an HTML page with
+                                 PNG export) to the current directory
+  --no-open                      With --share, write the files without opening
+                                 the page
   --compact                      Abbreviate token counts and hide the Reasoning
                                  and Cache Write columns (terminal/markdown)
   -h, --help                     display help for command
@@ -416,9 +423,10 @@ Options:
   --no-history                   leave out usage from files that no longer exist
                                  on disk
   --markdown                     Render output as markdown table
-  --share                        Write a share SVG image to the current
-                                 directory
-  --no-open                      With --share, write the SVG without opening it
+  --share                        Write a share card (SVG and an HTML page with
+                                 PNG export) to the current directory
+  --no-open                      With --share, write the files without opening
+                                 the page
   --vs-since <date>              Inclusive start date for the baseline
                                  comparison window
   --vs-until <date>              Inclusive end date for the baseline comparison
@@ -498,9 +506,10 @@ Options:
   --no-history                   leave out usage from files that no longer exist
                                  on disk
   --markdown                     Render output as markdown table
-  --share                        Write a share SVG image to the current
-                                 directory
-  --no-open                      With --share, write the SVG without opening it
+  --share                        Write a share card (SVG and an HTML page with
+                                 PNG export) to the current directory
+  --no-open                      With --share, write the files without opening
+                                 the page
   --repo-dir <path>              Path to repository for Git outcome metrics
   --include-merge-commits        Include merge commits in Git outcome metrics
   --by-source                    Include per-source usage rows under each period
@@ -579,9 +588,10 @@ Options:
   --no-history                   leave out usage from files that no longer exist
                                  on disk
   --markdown                     Render output as markdown table
-  --share                        Write a share SVG image to the current
-                                 directory
-  --no-open                      With --share, write the SVG without opening it
+  --share                        Write a share card (SVG and an HTML page with
+                                 PNG export) to the current directory
+  --no-open                      With --share, write the files without opening
+                                 the page
   --candidate-model <name>       Candidate model for counterfactual pricing
                                  (repeatable or comma-separated)
   --top <n>                      Show only the top N cheapest candidates
@@ -658,9 +668,10 @@ Options:
   --no-history                   leave out usage from files that no longer exist
                                  on disk
   --markdown                     Render output as markdown table
-  --share                        Write a share SVG image to the current
-                                 directory
-  --no-open                      With --share, write the SVG without opening it
+  --share                        Write a share card (SVG and an HTML page with
+                                 PNG export) to the current directory
+  --no-open                      With --share, write the files without opening
+                                 the page
   --days <n>                     Trailing local calendar days to chart; defaults
                                  to 30 when no date flags are provided
   --metric <name>                Trend metric: cost | tokens | active-hours
@@ -757,7 +768,7 @@ Options:
 ```text
 Usage: llm-usage wrapped [options]
 
-Show a yearly usage recap with optional share SVG
+Show a yearly usage recap with an optional share card
 
 Options:
   --pi-dir <path>                Path to .pi sessions directory (repeatable)
@@ -816,9 +827,10 @@ Options:
   --no-history                   leave out usage from files that no longer exist
                                  on disk
   --markdown                     Render output as markdown table
-  --share                        Write a share SVG image to the current
-                                 directory
-  --no-open                      With --share, write the SVG without opening it
+  --share                        Write a share card (SVG and an HTML page with
+                                 PNG export) to the current directory
+  --no-open                      With --share, write the files without opening
+                                 the page
   --year <YYYY>                  Year to recap (2020-2100; defaults to current
                                  local year)
   -h, --help                     display help for command
@@ -1190,7 +1202,7 @@ Search across root and command help. See Command help above to check which flags
 | `--metric` | - | `<name>` | Trend metric: cost \| tokens \| active-hours \(default: "cost"\) \(trends only\) |
 | `--model` | - | `<name>` | Filter by model \(repeatable/comma-separated; exact when exact match exists after source/provider/date filters, otherwise substring\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline only\) |
 | `--no-history` | - | - | leave out usage from files that no longer exist on disk \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline only\) |
-| `--no-open` | - | - | With --share, write the SVG without opening it \(daily, weekly, monthly, compare, efficiency, optimize, trends, wrapped only\) |
+| `--no-open` | - | - | With --share, write the files without opening the page \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, wrapped only\) |
 | `--openclaw-dir` | - | `<path>` | Path to OpenClaw agents directory \(repeatable\) |
 | `--opencode-db` | - | `<path>` | Path to OpenCode SQLite DB |
 | `--per-model-columns` | - | - | Render per-model metrics as multiline aligned table columns \(terminal/Markdown\) \(usage reports only\) |
@@ -1203,7 +1215,7 @@ Search across root and command help. See Command help above to check which flags
 | `--qwen-dir` | - | `<path>` | Path to Qwen projects directory \(repeatable\) |
 | `--repo-dir` | - | `<path>` | Path to repository for Git outcome metrics \(efficiency only\) |
 | `--roocode-dir` | - | `<path>` | Path to RooCode tasks directory \(repeatable\) |
-| `--share` | - | - | Write a share SVG image to the current directory \(daily, weekly, monthly, compare, efficiency, optimize, trends, wrapped only\) |
+| `--share` | - | - | Write a share card \(SVG and an HTML page with PNG export\) to the current directory \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, wrapped only\) |
 | `--since` | - | `<YYYY-MM-DD>` | Inclusive start date filter \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, events only\) |
 | `--source` | - | `<name>` | Filter by source id \(repeatable or comma-separated, supported sources \(17\): pi, codex, gemini, droid, opencode, openclaw, claude, copilot, goose, amp, qwen, kimi, cline, roocode, kilocode, antigravity, dsh\) |
 | `--source-dir` | - | `<source-id=path>` | Override source directory for directory-backed sources \(repeatable\) |

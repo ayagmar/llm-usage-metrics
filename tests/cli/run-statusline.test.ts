@@ -97,6 +97,13 @@ describe('formatStatusline', () => {
       '$12.30 today · 6d streak · ~$120.50/$300.00 this month ⚠',
     );
     expect(formatStatusline(overSpent)).toMatch(/\/\$100\.00 this month ⚠$/u);
+
+    // No known cost this month: tokens are never set against a dollar budget.
+    const unpriced = summary({
+      periods: [period('today', {}), period('monthToDate', { totalTokens: 5_000 })],
+      monthEnd: { daysElapsed: 10, daysInMonth: 31, budgetUsd: 500 },
+    });
+    expect(formatStatusline(unpriced)).toBe('0 tokens today · 6d streak · 5k tokens this month');
   });
 });
 

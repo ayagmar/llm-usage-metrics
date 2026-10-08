@@ -330,3 +330,52 @@ export function getLocalDateKeyRange(from: string, to: string): string[] {
 
   return range;
 }
+
+function shiftMonthKey(monthKey: string, months: number): string {
+  const index = Number(monthKey.slice(0, 4)) * 12 + Number(monthKey.slice(5, 7)) - 1 + months;
+  return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, '0')}`;
+}
+
+/** Monday of an ISO week key such as `2026-W05`. */
+function getIsoWeekMonday(weekKey: string): string {
+  const weekYear = Number(weekKey.slice(0, 4));
+  const weekNumber = Number(weekKey.slice(6));
+  const jan4 = new Date(Date.UTC(weekYear, 0, 4));
+  const firstMonday = addDays(jan4, -(toIsoDayOfWeek(jan4) - 1));
+
+  return addDays(firstMonday, (weekNumber - 1) * 7)
+    .toISOString()
+    .slice(0, 10);
+}
+
+/** Every period key from `first` to `last` (inclusive), including periods without data. */
+export function getPeriodKeyRange(
+  first: string,
+  last: string,
+  granularity: ReportGranularity,
+): string[] {
+  if (granularity === 'daily') {
+    return getLocalDateKeyRange(first, last);
+  }
+
+  const keys: string[] = [];
+
+  if (granularity === 'monthly') {
+    for (let key = first; key <= last; key = shiftMonthKey(key, 1)) {
+      keys.push(key);
+    }
+
+    return keys;
+  }
+
+  for (
+    let monday = getIsoWeekMonday(first), key = first;
+    key <= last;
+    monday = shiftLocalDateKey(monday, 7),
+      key = getPeriodKey(`${monday}T12:00:00.000Z`, 'weekly', 'UTC')
+  ) {
+    keys.push(key);
+  }
+
+  return keys;
+}

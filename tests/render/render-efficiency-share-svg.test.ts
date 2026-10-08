@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import type { EfficiencyDataResult } from '../../src/cli/usage-data-contracts.js';
+import type { EfficiencyPeriodRow } from '../../src/efficiency/efficiency-row.js';
 import { renderEfficiencyMonthlyShareSvg } from '../../src/render/render-efficiency-share-svg.js';
+import { shareThemes } from '../../src/render/share-svg-theme.js';
+import { renderInBothThemes } from './share-svg-assertions.js';
 
 function createData(): EfficiencyDataResult {
   return {
@@ -85,28 +88,81 @@ function createData(): EfficiencyDataResult {
   };
 }
 
-describe('renderEfficiencyMonthlyShareSvg', () => {
-  it('renders a monthly efficiency SVG with period labels and summary metrics', () => {
-    const svg = renderEfficiencyMonthlyShareSvg(createData());
+const dark = shareThemes.dark;
 
-    expect(svg).toContain('<svg');
-    expect(svg).toContain('Monthly Efficiency');
-    expect(svg).toContain('2026-01');
-    expect(svg).toContain('2026-02');
-    expect(svg).toContain('Total Cost');
+function withMonths(count: number): EfficiencyDataResult {
+  const data = createData();
+  const [template] = data.rows.filter(
+    (row): row is EfficiencyPeriodRow => row.rowType === 'period',
+  );
+  const months = Array.from({ length: count }, (_, index) => ({
+    ...template,
+    periodKey: `2025-${String(index + 1).padStart(2, '0')}`,
+  }));
+
+  return {
+    ...data,
+    rows: [...months, ...data.rows.filter((row) => row.rowType === 'grand_total')],
+  };
+}
+
+describe('renderEfficiencyMonthlyShareSvg', () => {
+  it('renders spend per commit and commit volume per month in both themes', () => {
+    const [svg] = renderInBothThemes((theme) =>
+      renderEfficiencyMonthlyShareSvg(createData(), theme),
+    );
+
+    expect(svg).toContain('>Efficiency<');
+    expect([...svg.matchAll(/data-stat="([^"]+)"/gu)].map((match) => match[1])).toEqual([
+      'Spend per commit',
+      'Commits',
+      'Cost',
+      'Tokens per commit',
+    ]);
+    expect(svg).toContain('$2.17');
     expect(svg).toContain('$13.00');
+    expect(svg).toContain('>442<');
+    expect(svg).toContain('>$2.00<');
+    expect(svg).toContain('>$2.50<');
+    expect(svg).toContain('<polyline points="');
+    expect(svg).toContain('$ llm-usage efficiency monthly --share');
+    expect(svg).toContain('2026-01 to 2026-02');
   });
 
-  it('orders period labels by code point, not locale', () => {
+  it('orders months by code point, not locale', () => {
     const data = createData();
     data.rows[0].periodKey = '2026-a';
     data.rows[1].periodKey = '2026-B';
 
-    const svg = renderEfficiencyMonthlyShareSvg(data);
+    const svg = renderEfficiencyMonthlyShareSvg(data, dark);
 
     // Code-point order puts 'B' (U+0042) before 'a' (U+0061); an en locale
     // comparison would flip them.
     expect(svg.indexOf('>2026-B<')).toBeGreaterThan(-1);
     expect(svg.indexOf('>2026-B<')).toBeLessThan(svg.indexOf('>2026-a<'));
+  });
+
+  it('keeps the last twelve months and says so', () => {
+    const svg = renderEfficiencyMonthlyShareSvg(withMonths(14), dark);
+
+    expect(svg).toContain('(last 12 of 14 months)');
+    expect(svg).not.toContain('>2025-02<');
+    expect(svg).toContain('>2025-03<');
+    expect(svg).toContain('>2025-14<');
+  });
+
+  it('draws a single month as a point without a line', () => {
+    const svg = renderEfficiencyMonthlyShareSvg(withMonths(1), dark);
+
+    expect(svg).not.toContain('<polyline');
+    expect(svg.match(/<circle /gu)).toHaveLength(1);
+  });
+
+  it('shows an empty state without months', () => {
+    const [svg] = renderInBothThemes((theme) =>
+      renderEfficiencyMonthlyShareSvg(withMonths(0), theme),
+    );
+
+    expect(svg).toContain('No months with commits and usage');
   });
 });

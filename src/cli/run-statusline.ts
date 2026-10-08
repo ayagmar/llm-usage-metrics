@@ -32,11 +32,13 @@ function formatMonth(summary: SummaryDataResult): string {
   const monthToDate = findPeriod(summary, 'monthToDate');
   const { budgetUsd, projectedCostUsd } = summary.monthEnd;
 
-  if (budgetUsd === undefined) {
+  const spentUsd = monthToDate?.totals.costUsd;
+
+  // A budget compares dollars: without a known month cost there is nothing to compare.
+  if (budgetUsd === undefined || spentUsd === undefined) {
     return `${formatPeriodAmount(monthToDate)} this month`;
   }
 
-  const spentUsd = monthToDate?.totals.costUsd ?? 0;
   const overPace = Math.max(spentUsd, projectedCostUsd ?? 0) > budgetUsd;
 
   return `${formatPeriodAmount(monthToDate)}/${formatUsd(budgetUsd)} this month${overPace ? ' ⚠' : ''}`;

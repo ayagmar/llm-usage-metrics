@@ -94,8 +94,8 @@ export function findBusiestDay(
 
 // Quartile banding over active days keeps the heatmap readable when one
 // outlier day dwarfs the rest; max-scaling would flatten everything to level 1.
-function toDailyLevelThresholds(activeDayTokens: number[]): [number, number, number] {
-  const sorted = [...activeDayTokens].sort((left, right) => left - right);
+function toDailyLevelThresholds(positiveValues: number[]): [number, number, number] {
+  const sorted = [...positiveValues].sort((left, right) => left - right);
   const quantile = (fraction: number) => sorted[Math.floor(fraction * (sorted.length - 1))] ?? 0;
 
   return [quantile(0.25), quantile(0.5), quantile(0.75)];
@@ -124,26 +124,26 @@ function toDailyLevel(
   return 4;
 }
 
+/** Intensity level of each value: 0 when not positive, else 1-4 by quartile of the positive values. */
+export function toActivityLevels(values: readonly number[]): ActivityLevel[] {
+  const thresholds = toDailyLevelThresholds(values.filter((value) => value > 0));
+  return values.map((value) => toDailyLevel(value, thresholds));
+}
+
 /** Every day from `from` to `to` (inclusive) with its quartile intensity level. */
 export function buildDailyIntensity(
   range: { from: string; to: string },
   dailyTotals: ReadonlyMap<string, DailyTotals>,
 ): ActivityDay[] {
   const dateKeys = getLocalDateKeyRange(range.from, range.to);
-  const activeDayTokens = dateKeys
-    .map((dateKey) => dailyTotals.get(dateKey)?.totalTokens ?? 0)
-    .filter((totalTokens) => totalTokens > 0);
-  const thresholds = toDailyLevelThresholds(activeDayTokens);
+  const tokens = dateKeys.map((dateKey) => dailyTotals.get(dateKey)?.totalTokens ?? 0);
+  const levels = toActivityLevels(tokens);
 
-  return dateKeys.map((dateKey) => {
-    const totalTokens = dailyTotals.get(dateKey)?.totalTokens ?? 0;
-
-    return {
-      date: dateKey,
-      totalTokens,
-      level: toDailyLevel(totalTokens, thresholds),
-    };
-  });
+  return dateKeys.map((dateKey, index) => ({
+    date: dateKey,
+    totalTokens: tokens[index],
+    level: levels[index],
+  }));
 }
 
 export type DailyActivity = {

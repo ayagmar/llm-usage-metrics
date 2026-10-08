@@ -1,4 +1,5 @@
 import { renderSummaryReport, type SummaryReportFormat } from '../render/render-summary-report.js';
+import { renderSummaryShareSvg } from '../render/render-summary-share-svg.js';
 import { buildSummaryData } from './build-summary-data.js';
 import {
   prepareReport,
@@ -23,6 +24,14 @@ async function prepareSummaryReport(
     buildData: () => buildSummaryData(options, deps),
     getDiagnostics: (summaryData) => summaryData.diagnostics,
     runtimeProfile: deps.runtimeProfile,
+    createShareArtifact: options.share
+      ? (summaryData) => ({
+          fileName: 'summary-share.svg',
+          logLabel: 'summary',
+          title: 'Activity share card',
+          render: (theme) => renderSummaryShareSvg(summaryData, theme),
+        })
+      : undefined,
     render: (summaryData, format) => renderSummaryReport(summaryData, format),
     getHintsAfterOutput: (_summaryData, format) =>
       format === 'terminal' ? [SUMMARY_NEXT_STEPS_HINT] : [],
