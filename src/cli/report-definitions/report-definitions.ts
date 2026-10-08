@@ -9,6 +9,7 @@ import type {
   PruneCommandOptions,
   ReportCommandOptions,
   SessionCommandOptions,
+  StatuslineCommandOptions,
   SummaryCommandOptions,
   TrendsCommandOptions,
   WrappedCommandOptions,
@@ -19,6 +20,7 @@ import { runEfficiencyReport } from '../run-efficiency-report.js';
 import { runOptimizeReport } from '../run-optimize-report.js';
 import { runSessionReport } from '../run-session-report.js';
 import { runSummaryReport } from '../run-summary-report.js';
+import { runStatusline } from '../run-statusline.js';
 import { runTrendsReport } from '../run-trends-report.js';
 import { runUsageReport } from '../run-usage-report.js';
 import { runDoctorReport } from '../run-doctor-report.js';
@@ -521,6 +523,32 @@ const eventsReportDefinition: ReportRuntimeDefinition = {
   },
 };
 
+const statuslineDefinition: ReportRuntimeDefinition = {
+  meta: {
+    commandName: 'statusline',
+    docsLabel: 'statusline',
+    kind: 'specialized',
+    description:
+      "Print one line with today's cost, your streak, and month to date (for status bars; never fetches)",
+    sharedOptionProfile: 'statusline',
+    helpExamples: [
+      {
+        command: 'llm-usage statusline',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage statusline --source claude',
+        includeInCliReference: true,
+      },
+    ],
+  },
+  register(command) {
+    command.action((options: StatuslineCommandOptions) => runStatusline(options));
+
+    return command;
+  },
+};
+
 const reportDefinitions = [
   summaryReportDefinition,
   createUsageReportDefinition('daily'),
@@ -533,6 +561,7 @@ const reportDefinitions = [
   sessionReportDefinition,
   wrappedReportDefinition,
   eventsReportDefinition,
+  statuslineDefinition,
   doctorReportDefinition,
   pruneReportDefinition,
 ] as const satisfies readonly ReportRuntimeDefinition[];

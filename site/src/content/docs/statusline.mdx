@@ -1,0 +1,65 @@
+---
+title: Status line
+description: Show today's cost, your streak, and month to date in Claude Code, tmux, or starship.
+---
+
+`statusline` prints one short line for status bars:
+
+```bash
+llm-usage statusline
+```
+
+```text
+$270.20 today · 6d streak · ~$1,215.82 this month
+```
+
+The line shows today's cost, the current streak (left out at zero), and month-to-date cost. A `~` marks a cost that leaves out unpriced events; a day without any known cost shows its token count instead. With `monthlyBudgetUsd` in the [config file](/llm-usage-metrics/configuration/), the month reads `~$1,215.82/$2,000.00 this month`, followed by `⚠` once spending or the month-end projection passes the budget.
+
+It is built for frequent refreshes:
+
+- pricing is never fetched: it uses cached LiteLLM prices, or the bundled snapshot when there is no cache. With a custom `--pricing-url` or `pricing.url`, run any report online once so that URL's prices are cached; until then `statusline` exits with an error
+- the update check is skipped, and nothing is printed on `stderr`; errors still exit non-zero. Add `--verbose` to see the warnings it hides, and run `llm-usage doctor` if refreshes feel slow (an unusable event store means every run reparses all files)
+- parsed events come from the event store, so repeat runs only reparse changed files
+
+It accepts the source, provider, model, timezone, pricing-override, and history flags of the other reports, so a status line can show one tool only:
+
+```bash
+llm-usage statusline --source claude
+```
+
+A filtered line shows no budget, since the budget covers all your usage.
+
+`--json` is not supported; use `llm-usage summary --json` for structured data.
+
+## Claude Code
+
+Add a `statusLine` command to `~/.claude/settings.json`:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "llm-usage statusline"
+  }
+}
+```
+
+Claude Code passes session details on `stdin`; `statusline` ignores them.
+
+## tmux
+
+```bash
+set -g status-interval 60
+set -g status-right '#(llm-usage statusline)'
+```
+
+## starship
+
+```toml
+[custom.llm_usage]
+command = "llm-usage statusline"
+when = true
+shell = ["sh"]
+```
+
+starship runs custom commands on every prompt, and a warm run takes a few hundred milliseconds, so raise `command_timeout` if the module disappears, or prefer tmux or the Claude Code status line for a line that refreshes on its own.

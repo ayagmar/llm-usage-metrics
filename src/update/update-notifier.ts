@@ -64,6 +64,7 @@ export function shouldSkipUpdateCheckForArgv(argv: string[]): boolean {
     'monthly',
     'efficiency',
     'optimize',
+    'statusline',
     'help',
     'version',
   ]);
@@ -78,7 +79,12 @@ export function shouldSkipUpdateCheckForArgv(argv: string[]): boolean {
 
   const firstRecognizedCommand = executableArgs.find((arg) => commandNames.has(arg));
 
-  return firstRecognizedCommand === 'help' || firstRecognizedCommand === 'version';
+  // A status line runs constantly and must never print or wait on an update hint.
+  return (
+    firstRecognizedCommand === 'help' ||
+    firstRecognizedCommand === 'version' ||
+    firstRecognizedCommand === 'statusline'
+  );
 }
 
 export function isLikelyNpxExecution(argv: string[], env: NodeJS.ProcessEnv): boolean {

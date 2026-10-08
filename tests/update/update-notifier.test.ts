@@ -54,6 +54,17 @@ describe('update-notifier', () => {
       shouldSkipUpdateCheckForArgv(['node', '/app/dist/index.js', 'ts-node/register', 'help']),
     ).toBe(true);
     expect(shouldSkipUpdateCheckForArgv(['node', '/app/dist/index.js', '--version'])).toBe(true);
+    // A status line runs constantly: it never checks for updates.
+    expect(shouldSkipUpdateCheckForArgv(['node', '/app/dist/index.js', 'statusline'])).toBe(true);
+    expect(
+      shouldSkipUpdateCheckForArgv([
+        'node',
+        '/app/dist/index.js',
+        'statusline',
+        '--source',
+        'claude',
+      ]),
+    ).toBe(true);
     expect(
       shouldSkipUpdateCheckForArgv([
         'node',

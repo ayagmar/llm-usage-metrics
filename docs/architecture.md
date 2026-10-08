@@ -17,9 +17,9 @@ This keeps source-specific parsing, pricing, aggregation, rendering, and command
 ### Report definitions
 
 - `src/cli/report-definitions/report-definitions.ts`
-  Owns the canonical registry for `summary` (the default command), `daily`, `weekly`, `monthly`, `compare`, `efficiency`, `optimize`, `trends`, `session`, `wrapped`, `doctor`, `prune`, and `events`. (`config` and `schema` are registered directly in `create-cli.ts`.)
+  Owns the canonical registry for `summary` (the default command), `daily`, `weekly`, `monthly`, `compare`, `efficiency`, `optimize`, `trends`, `session`, `wrapped`, `statusline`, `doctor`, `prune`, and `events`. (`config` and `schema` are registered directly in `create-cli.ts`.)
 - `src/cli/report-definitions/shared-report-options.ts`
-  Registers the shared option surface by profile (`usage`, `summary`, `specialized`, `compare`, `trends`, `session`, `wrapped`, `events`, `doctor`).
+  Registers the shared option surface by profile (`usage`, `summary`, `specialized`, `compare`, `trends`, `session`, `wrapped`, `events`, `statusline`, `doctor`).
 
 This metadata is reused by:
 
@@ -133,6 +133,8 @@ The public entry points remain stable, one `build*`/`run*` pair per command:
 4. shared report runtime emits diagnostics, optional share card, and stdout body
 
 ### Doctor and Prune
+
+`runStatusline` builds the summary data with offline pricing and prints one line from it, with the logger silenced and the update check skipped.
 
 Non-report commands with their own runners: `buildDoctorResults(...)` checks source discovery health and runtime configuration and `runDoctorReport` renders it; `buildPruneReport(...)` classifies departed event-store files through the shared history logic and `renderPruneReport` prints candidates and the apply summary.
 
