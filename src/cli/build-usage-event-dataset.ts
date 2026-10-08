@@ -168,6 +168,7 @@ export async function buildUsageEventDataset(
     () =>
       selectAdaptersForParsing(adapters, {
         sourceFilter: normalizedInputs.sourceFilter,
+        sourceFilterLabel: normalizedInputs.sourceFilterLabel,
         candidateProviderRoots: normalizedInputs.candidateProviderRoots,
         runtimeProfile,
       }),

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   normalizeBuildUsageInputs,
+  validateSourceFilterValues,
   selectAdaptersForParsing,
   throwOnExplicitSourceScopeConflicts,
 } from '../../src/cli/build-usage-data-inputs.js';
@@ -39,6 +40,18 @@ describe('build-usage-data-inputs', () => {
     const inputs = normalizeBuildUsageInputs({});
 
     expect(inputs.timezone).toBe('UTC');
+  });
+
+  it('names config `sources` as the origin of a filter that came only from config', () => {
+    expect(normalizeBuildUsageInputs({ source: 'claude' }, {}).sourceFilterLabel).toBe(
+      'config `sources`',
+    );
+    expect(
+      normalizeBuildUsageInputs({ source: 'claude' }, { source: 'claude' }).sourceFilterLabel,
+    ).toBe('--source');
+    expect(() =>
+      validateSourceFilterValues(new Set(['cladue']), new Set(['claude']), 'config `sources`'),
+    ).toThrow('Unknown config `sources` value(s): cladue (did you mean claude?)');
   });
 
   it('normalizes provider filter to billing-entity value', () => {

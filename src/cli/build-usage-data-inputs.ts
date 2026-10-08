@@ -18,6 +18,8 @@ export type NormalizedBuildUsageInputs = {
   providerFilter: string | undefined;
   candidateProviderRoots: string[] | undefined;
   sourceFilter: Set<string> | undefined;
+  /** Where the source filter came from, for error messages. */
+  sourceFilterLabel: string;
   modelFilter: string[] | undefined;
   explicitSourceIds: Set<string>;
   pricingUrl: string | undefined;
@@ -90,6 +92,7 @@ export function normalizeModelFilter(model: string | string[] | undefined): stri
 export function validateSourceFilterValues(
   sourceFilter: Set<string> | undefined,
   availableSourceIds: ReadonlySet<string>,
+  sourceFilterLabel = '--source',
 ): void {
   if (!sourceFilter) {
     return;
@@ -108,7 +111,7 @@ export function validateSourceFilterValues(
   });
 
   throw new Error(
-    `Unknown --source value(s): ${describedSources.join(', ')}. Allowed values: ${allowedSources.join(', ')}`,
+    `Unknown ${sourceFilterLabel} value(s): ${describedSources.join(', ')}. Allowed values: ${allowedSources.join(', ')}`,
   );
 }
 
@@ -228,6 +231,10 @@ export function normalizeBuildUsageInputs(
     providerFilter,
     candidateProviderRoots,
     sourceFilter,
+    sourceFilterLabel:
+      cliOptions.source === undefined && options.source !== undefined
+        ? 'config `sources`'
+        : '--source',
     modelFilter,
     explicitSourceIds,
     pricingUrl: normalizedPricingUrl,
@@ -238,12 +245,13 @@ export function selectAdaptersForParsing(
   adapters: SourceAdapter[],
   options: {
     sourceFilter: Set<string> | undefined;
+    sourceFilterLabel?: string;
     candidateProviderRoots: string[] | undefined;
     runtimeProfile?: RuntimeProfileCollector;
   },
 ): SourceAdapter[] {
   const availableSourceIds = new Set(adapters.map((adapter) => adapter.id.toLowerCase()));
-  validateSourceFilterValues(options.sourceFilter, availableSourceIds);
+  validateSourceFilterValues(options.sourceFilter, availableSourceIds, options.sourceFilterLabel);
 
   const sourceFilter = options.sourceFilter;
   const selectedBySource = sourceFilter
