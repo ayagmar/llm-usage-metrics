@@ -35,7 +35,7 @@ These are runtime comparisons of similar report commands, not correctness or byt
 
 ## The shell path: installed command, package executable, and `npx`
 
-The commands people type do not behave the same way by default. An installed `llm-usage` starts Node on its built entry and reuses its cached pricing (and its ledger) on a repeat run; `ccusage` fetches live pricing on every run unless it gets `--offline`; and `npx ccusage@latest` first starts npm, resolves the package, and prepares its execution environment. We timed a monthly terminal report on the same Codex snapshot:
+The commands people type do not behave the same way by default. `llm-usage` starts Node on its built entry and reuses its cached pricing (and its ledger) on a repeat run; `ccusage` fetches live pricing on every run unless it gets `--offline`; and `npx ccusage@latest` first starts npm, resolves the package, and prepares its execution environment. We timed a monthly terminal report on the same Codex snapshot:
 
 | Command                                                | Launch path                     | Median (s) | Mean (s) | Min (s) | Max (s) |
 | ------------------------------------------------------ | ------------------------------- | ---------: | -------: | ------: | ------: |
@@ -44,9 +44,9 @@ The commands people type do not behave the same way by default. An installed `ll
 | `ccusage codex monthly --offline`                      | package executable, cached      |      0.054 |    0.054 |   0.053 |   0.057 |
 | `npx --yes ccusage@20.0.26 codex monthly`              | npm + ccusage (package cached)  |      0.628 |    0.618 |   0.569 |   0.647 |
 
-With default settings the installed `llm-usage` was 1.65x faster than the ccusage executable and 6.5x faster than the `npx` form. That comes from pricing, not parsing: given cached prices with `--offline`, ccusage was 1.78x faster than `llm-usage`, in line with the warmed direct-process cells above. Use launcher-inclusive timing to judge the one-off `npx` experience, and the direct-process cells to compare the tools themselves.
+With default settings `llm-usage` was 1.65x faster than the ccusage executable and 6.5x faster than the `npx` form. That comes from pricing, not parsing: given cached prices with `--offline`, ccusage was 1.78x faster than `llm-usage`, in line with the warmed direct-process cells above. Use launcher-inclusive timing to judge the one-off `npx` experience, and the direct-process cells to compare the tools themselves.
 
-This launcher check is an observed shell-path comparison, not the counterbalanced benchmark above. Each command received one untimed warm-up followed by 8 sequential timed runs on the stable snapshot; commands were grouped by row, output was discarded through non-TTY pipes, `LLM_USAGE_*` variables were removed, and the system timezone plus default online pricing and update-check behavior were left in place. The `--offline` row was timed separately right after the others, with the same procedure. ccusage 20.0.26 was already in npm's package cache before its direct and `npx` rows, and `llm-usage` ran as `node dist/index.js`, which is what the installed `llm-usage` bin starts.
+This launcher check is an observed shell-path comparison, not the counterbalanced benchmark above. Each command received one untimed warm-up followed by 8 sequential timed runs on the stable snapshot; commands were grouped by row, output was discarded through non-TTY pipes, `LLM_USAGE_*` variables were removed, and the system timezone plus default online pricing and update-check behavior were left in place. The `--offline` row was timed separately right after the others, with the same procedure. ccusage 20.0.26 was already in npm's package cache before its direct and `npx` rows, and `llm-usage` ran as `node dist/index.js`, which is what the installed `llm-usage` bin starts. The build was master at `7d1aba7`, just before the 0.9.0 release; the code these reports run (parsing, pricing, the event store, daily and monthly aggregation) is unchanged in 0.9.0.
 
 ## What the application states mean
 
@@ -64,7 +64,7 @@ This launcher check is an observed shell-path comparison, not the counterbalance
 | Node.js   | v24.21.0                                                |
 | pnpm      | 12.9.1                                                  |
 | ccusage   | 20.0.26 (package executable + native binary)            |
-| llm-usage | 0.8.1 (git `7d1aba7`, built dist)                       |
+| llm-usage | 0.9.0 code paths (built dist at git `7d1aba7`)          |
 
 ## Dataset scope
 
