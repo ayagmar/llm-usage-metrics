@@ -17,14 +17,13 @@ import type { ModelPricing, PricingSource, ReasoningBillingMode } from './types.
 //   }
 // }
 
-type RawPricingOverride = {
-  inputPer1MUsd?: unknown;
-  outputPer1MUsd?: unknown;
-  cacheReadPer1MUsd?: unknown;
-  cacheWritePer1MUsd?: unknown;
-  reasoningPer1MUsd?: unknown;
-  reasoningBilling?: unknown;
-};
+const requiredRateKeys = ['inputPer1MUsd', 'outputPer1MUsd'] as const;
+const optionalRateKeys = ['cacheReadPer1MUsd', 'cacheWritePer1MUsd', 'reasoningPer1MUsd'] as const;
+const knownOverrideKeys = new Set<string>([
+  ...requiredRateKeys,
+  ...optionalRateKeys,
+  'reasoningBilling',
+]);
 
 function toFiniteUsdRate(value: NumberLike): number | undefined {
   if (value === null || value === undefined) {
@@ -48,18 +47,62 @@ function normalizeReasoningBilling(value: unknown): ReasoningBillingMode | undef
   return undefined;
 }
 
-function normalizePricingOverride(raw: RawPricingOverride): ModelPricing | undefined {
-  const inputPer1MUsd = toFiniteUsdRate(toNumberLike(raw.inputPer1MUsd));
-  const outputPer1MUsd = toFiniteUsdRate(toNumberLike(raw.outputPer1MUsd));
+function readRate(
+  raw: Record<string, unknown>,
+  key: string,
+  required: boolean,
+  problems: string[],
+): number | undefined {
+  const value = raw[key];
 
-  if (inputPer1MUsd === undefined || outputPer1MUsd === undefined) {
+  if (value === undefined || value === null) {
+    if (required) {
+      problems.push(`${key} is required`);
+    }
+
     return undefined;
   }
 
-  const cacheReadPer1MUsd = toFiniteUsdRate(toNumberLike(raw.cacheReadPer1MUsd));
-  const cacheWritePer1MUsd = toFiniteUsdRate(toNumberLike(raw.cacheWritePer1MUsd));
-  const reasoningPer1MUsd = toFiniteUsdRate(toNumberLike(raw.reasoningPer1MUsd));
+  const rate = toFiniteUsdRate(toNumberLike(value));
+
+  if (rate === undefined) {
+    problems.push(`${key} must be a non-negative number`);
+  }
+
+  return rate;
+}
+
+/** Returns the pricing, or pushes why the entry is invalid onto `problems`. */
+function normalizePricingOverride(
+  raw: Record<string, unknown>,
+  problems: string[],
+): ModelPricing | undefined {
+  const problemCount = problems.length;
+
+  for (const key of Object.keys(raw)) {
+    if (!knownOverrideKeys.has(key)) {
+      problems.push(`unknown key "${key}"`);
+    }
+  }
+
+  const inputPer1MUsd = readRate(raw, 'inputPer1MUsd', true, problems);
+  const outputPer1MUsd = readRate(raw, 'outputPer1MUsd', true, problems);
+  const cacheReadPer1MUsd = readRate(raw, 'cacheReadPer1MUsd', false, problems);
+  const cacheWritePer1MUsd = readRate(raw, 'cacheWritePer1MUsd', false, problems);
+  const reasoningPer1MUsd = readRate(raw, 'reasoningPer1MUsd', false, problems);
   const reasoningBilling = normalizeReasoningBilling(raw.reasoningBilling);
+
+  if (raw.reasoningBilling !== undefined && reasoningBilling === undefined) {
+    problems.push('reasoningBilling must be "included-in-output" or "separate"');
+  }
+
+  if (
+    problems.length > problemCount ||
+    inputPer1MUsd === undefined ||
+    outputPer1MUsd === undefined
+  ) {
+    return undefined;
+  }
 
   return {
     inputPer1MUsd,
@@ -71,27 +114,47 @@ function normalizePricingOverride(raw: RawPricingOverride): ModelPricing | undef
   };
 }
 
+// A malformed entry fails the load: silently dropping it would price the model
+// from LiteLLM while the user believes their override applied.
 function normalizeOverrideFile(payload: unknown): Map<string, ModelPricing> {
-  const root = asRecord(payload);
-  const overrides = new Map<string, ModelPricing>();
-  const modelsRecord = asRecord(root?.models);
+  const modelsRecord = asRecord(asRecord(payload)?.models);
 
   if (!modelsRecord) {
-    return overrides;
+    throw new Error('expected a JSON object with a "models" object');
   }
+
+  const overrides = new Map<string, ModelPricing>();
+  const problems: string[] = [];
 
   for (const [modelName, rawPricing] of Object.entries(modelsRecord)) {
     const normalizedModelName = asTrimmedText(modelName)?.toLowerCase();
 
     if (!normalizedModelName) {
+      problems.push('model names must be non-empty');
       continue;
     }
 
-    const pricing = normalizePricingOverride(asRecord(rawPricing) ?? {});
+    const rawRecord = asRecord(rawPricing);
+
+    if (!rawRecord) {
+      problems.push(`"${modelName}": expected an object of per-1M-token USD rates`);
+      continue;
+    }
+
+    const entryProblems: string[] = [];
+    const pricing = normalizePricingOverride(rawRecord, entryProblems);
 
     if (pricing) {
       overrides.set(normalizedModelName, pricing);
+    } else {
+      problems.push(`"${modelName}": ${entryProblems.join(', ')}`);
     }
+  }
+
+  if (problems.length > 0) {
+    throw new Error(
+      `invalid entries: ${problems.join('; ')} (valid keys: ${[...knownOverrideKeys].join(', ')})`,
+    );
   }
 
   return overrides;
