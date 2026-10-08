@@ -1,10 +1,10 @@
-import { readFile as readFileFromFs } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
 import { parse as parseToml } from 'smol-toml';
 
 import { asRecord } from '../utils/as-record.js';
+import { readRegularTextFile } from '../utils/fs-helpers.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { getUserConfigRootDir } from '../utils/config-root-dir.js';
 import type { LogLevel } from '../utils/logger.js';
@@ -675,7 +675,7 @@ function parseUserConfigRoot(filePath: string, content: string): Record<string, 
 
 export async function loadUserConfig(
   env: NodeJS.ProcessEnv = process.env,
-  readFile: ReadConfigFile = (filePath) => readFileFromFs(filePath, 'utf8'),
+  readFile: ReadConfigFile = readRegularTextFile,
 ): Promise<LoadedUserConfig> {
   const configPath = resolveUserConfigPath(env);
 

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Stats } from 'node:fs';
-import { access, constants, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { access, constants, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 
 export async function pathExists(filePath: string): Promise<boolean> {
   try {
@@ -42,6 +43,59 @@ export async function pathStat(filePath: string): Promise<Stats | undefined> {
   } catch {
     return undefined;
   }
+}
+
+/**
+ * `mkdir -p` that always settles. Node's `mkdir(..., { recursive: true })` never
+ * resolves for a path under /proc, where mkdir fails with ENOENT although the
+ * parent exists, so a configured path there would hang the CLI at full CPU.
+ * This walks up to the nearest existing directory, then creates each missing
+ * level once and lets the first failure propagate.
+ */
+export async function ensureDirectory(directoryPath: string, mode?: number): Promise<void> {
+  const missing: string[] = [];
+  // The path is walked as given, not resolved: `link/../dir` must climb from the
+  // symlink's target, as the later file operation on the same path will.
+  let current = directoryPath;
+
+  while (!(await pathIsDirectory(current))) {
+    const parent = path.dirname(current);
+
+    if (parent === current) {
+      break;
+    }
+
+    missing.push(current);
+    current = parent;
+  }
+
+  for (const directory of missing.reverse()) {
+    try {
+      await mkdir(directory, { mode });
+    } catch (error) {
+      // Another process may have created it meanwhile; anything else is a real failure.
+      if (!(error instanceof Error && 'code' in error && error.code === 'EEXIST')) {
+        throw error;
+      }
+
+      if (!(await pathIsDirectory(directory))) {
+        throw error;
+      }
+    }
+  }
+}
+
+/**
+ * Reads a UTF-8 file, refusing anything but a regular file (or a symlink to one).
+ * Opening a FIFO with no writer blocks forever, so a user-supplied path that
+ * points at one would hang the CLI. A missing file still rejects with ENOENT.
+ */
+export async function readRegularTextFile(filePath: string): Promise<string> {
+  if (!(await stat(filePath)).isFile()) {
+    throw new Error(`${filePath} is not a regular file`);
+  }
+
+  return readFile(filePath, 'utf8');
 }
 
 /**

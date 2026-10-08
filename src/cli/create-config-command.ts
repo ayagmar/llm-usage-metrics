@@ -1,4 +1,4 @@
-import { access, mkdir, writeFile } from 'node:fs/promises';
+import { access, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { Command } from 'commander';
@@ -17,6 +17,7 @@ import { resolveUserConfigPath, USER_CONFIG_SOURCE_DIR_KEYS } from '../config/us
 import { getDefaultEventStorePath } from '../persistence/event-store.js';
 import { DEFAULT_LITELLM_PRICING_URL } from '../pricing/litellm-pricing-fetcher.js';
 import { asRecord } from '../utils/as-record.js';
+import { ensureDirectory } from '../utils/fs-helpers.js';
 import { logger } from '../utils/logger.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
 import { formatHelpExamples } from './report-definitions/report-definitions.js';
@@ -84,7 +85,7 @@ function isExistingFileError(error: unknown): boolean {
 }
 
 async function writeConfigTemplate(configPath: string, options: ConfigInitOptions): Promise<void> {
-  await mkdir(path.dirname(configPath), { recursive: true });
+  await ensureDirectory(path.dirname(configPath));
 
   try {
     await writeFile(configPath, USER_CONFIG_TEMPLATE, {

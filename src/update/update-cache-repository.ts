@@ -1,10 +1,9 @@
-import { mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { setTimeout as sleepTimer } from 'node:timers/promises';
 
 import { asRecord } from '../utils/as-record.js';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
-import { writeFileAtomic } from '../utils/fs-helpers.js';
+import { ensureDirectory, readRegularTextFile, writeFileAtomic } from '../utils/fs-helpers.js';
 import { parseVersion } from './version-utils.js';
 
 const DEFAULT_UPDATE_CHECK_CACHE_TTL_MS = 60 * 60 * 1000;
@@ -146,7 +145,7 @@ export async function readUpdateCheckCachePayload(
   let content: string;
 
   try {
-    content = await readFile(cacheFilePath, 'utf8');
+    content = await readRegularTextFile(cacheFilePath);
   } catch {
     return undefined;
   }
@@ -182,7 +181,7 @@ export async function writeUpdateCheckCachePayload(
   cacheFilePath: string,
   payload: UpdateCheckCachePayload,
 ): Promise<void> {
-  await mkdir(path.dirname(cacheFilePath), { recursive: true });
+  await ensureDirectory(path.dirname(cacheFilePath));
   await writeFileAtomic(cacheFilePath, JSON.stringify(payload));
 }
 
