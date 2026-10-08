@@ -30,8 +30,7 @@ const KIMI_CODE_MODEL_PREFIX = 'kimi-code/';
 const KIMI_PROVIDER = 'moonshot';
 // kimi-cli StatusUpdate lines carry no model. When <kimiRoot>/config.json has no model either,
 // fall back by event timestamp: kimi-cli's managed "kimi-for-coding" endpoint switched from
-// kimi-k2.5 to kimi-k2.6 at 2026-04-20T15:28:10.072Z (ccusage KIMI_FOR_CODING_K2_6_CUTOFF_MS,
-// rust/crates/ccusage/src/adapter/kimi/parser.rs).
+// kimi-k2.5 to kimi-k2.6 at 2026-04-20T15:28:10.072Z.
 const KIMI_K2_6_CUTOFF_MS = 1_776_698_890_072;
 const KIMI_K2_5_MODEL = 'kimi-k2.5';
 const KIMI_K2_6_MODEL = 'kimi-k2.6';

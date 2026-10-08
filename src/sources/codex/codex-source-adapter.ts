@@ -149,7 +149,7 @@ function toUsage(value: unknown): CodexUsage | undefined {
     cacheWriteTokens,
     outputTokens,
     reasoningTokens: normalizeNonNegativeInteger(toNumberLike(usage.reasoning_output_tokens)),
-    // Match ccusage semantics: billable total excludes reasoning breakdown.
+    // Billable total excludes the reasoning breakdown: output_tokens already includes it.
     totalTokens: inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens,
   };
 }
