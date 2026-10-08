@@ -5,7 +5,7 @@ import { renderActivityHeatmap } from './activity-heatmap.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { renderReportHeader } from './report-header.js';
 import { renderReportJson } from './report-json.js';
-import { formatApproxUsd, formatCompact, formatInteger } from './share-svg-theme.js';
+import { formatApproxUsd, formatCompact, formatInteger, formatUsd } from './share-svg-theme.js';
 import { resolveTtyColumns } from './table-text-layout.js';
 import {
   defaultTerminalStylePalette,
@@ -149,6 +149,53 @@ function renderTerminalActivity(
   ];
 }
 
+type MonthNote = { text: string; warning: boolean };
+
+/** Month-end projection, budget status, and cache savings, in that order. */
+function toMonthNotes(summaryData: SummaryDataResult): MonthNote[] {
+  const { monthEnd } = summaryData;
+  const monthToDate = summaryData.periods.find((period) => period.key === 'monthToDate');
+  const spentUsd = monthToDate?.totals.costUsd;
+  const spent = formatApproxUsd(spentUsd, monthToDate?.totals.costIncomplete);
+  const notes: MonthNote[] = [];
+
+  if (monthEnd.projectedCostUsd !== undefined) {
+    notes.push({
+      text: `On pace for ${formatApproxUsd(monthEnd.projectedCostUsd, monthEnd.costIncomplete)} this month`,
+      warning: false,
+    });
+  }
+
+  if (monthEnd.budgetUsd !== undefined) {
+    const budget = formatUsd(monthEnd.budgetUsd);
+
+    if ((spentUsd ?? 0) > monthEnd.budgetUsd) {
+      notes.push({ text: `Over your ${budget} monthly budget: ${spent} spent`, warning: true });
+    } else if ((monthEnd.projectedCostUsd ?? 0) > monthEnd.budgetUsd) {
+      const overBy = formatApproxUsd(
+        (monthEnd.projectedCostUsd ?? 0) - monthEnd.budgetUsd,
+        monthEnd.costIncomplete,
+      );
+      notes.push({
+        text: `On pace to exceed your ${budget} monthly budget by ${overBy}`,
+        warning: true,
+      });
+    } else {
+      notes.push({ text: `Within your ${budget} monthly budget (${spent} spent)`, warning: false });
+    }
+  }
+
+  if (summaryData.monthToDateCacheSavingsUsd !== undefined) {
+    // The savings are an estimate, so they always carry the approximate marker.
+    notes.push({
+      text: `Prompt caching saved you ${formatApproxUsd(summaryData.monthToDateCacheSavingsUsd, true)} this month`,
+      warning: false,
+    });
+  }
+
+  return notes;
+}
+
 function renderTerminalSummaryReport(
   summaryData: SummaryDataResult,
   options: RenderSummaryReportOptions,
@@ -182,6 +229,17 @@ function renderTerminalSummaryReport(
     }),
   );
 
+  const monthNotes = toMonthNotes(summaryData);
+
+  if (monthNotes.length > 0) {
+    const palette = options.palette ?? defaultTerminalStylePalette;
+    const warn = (text: string) => (useColor ? palette.yellow(text) : text);
+    lines.push(
+      '',
+      ...monthNotes.map((note) => (note.warning ? warn(`⚠ ${note.text}`) : note.text)),
+    );
+  }
+
   if (summaryData.activity.activeDays > 0) {
     lines.push(...renderTerminalActivity(summaryData.activity, options, useColor));
   }
@@ -208,6 +266,10 @@ function renderMarkdownSummaryReport(summaryData: SummaryDataResult): string {
       rows.map((row) => row.map((cell) => toMarkdownSafeCell(cell))),
       { align: ['l', 'l', 'r', 'r', 'l'] },
     ),
+    ...toMonthNotes(summaryData).flatMap((note) => [
+      '',
+      toMarkdownSafeCell(note.warning ? `⚠ ${note.text}` : note.text),
+    ]),
     '',
     `#### Activity since ${summaryData.activity.from}`,
     '',
@@ -230,6 +292,8 @@ export function renderSummaryReport(
       return renderReportJson('summary', {
         timezone: summaryData.timezone,
         periods: summaryData.periods,
+        monthEnd: summaryData.monthEnd,
+        monthToDateCacheSavingsUsd: summaryData.monthToDateCacheSavingsUsd,
         activity: summaryData.activity,
       });
     case 'markdown':

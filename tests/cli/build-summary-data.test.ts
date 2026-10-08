@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildSummaryData, resolveSummaryWindows } from '../../src/cli/build-summary-data.js';
+import {
+  buildSummaryData,
+  resolveMonthEnd,
+  resolveSummaryWindows,
+} from '../../src/cli/build-summary-data.js';
+import type { SummaryPeriod } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import type { SourceAdapter } from '../../src/sources/source-adapter.js';
 
@@ -66,7 +71,102 @@ describe('resolveSummaryWindows', () => {
   });
 });
 
+function monthToDate(costUsd: number | undefined, costIncomplete?: boolean): SummaryPeriod {
+  return {
+    key: 'monthToDate',
+    label: 'Month to date',
+    since: '2026-03-01',
+    until: '2026-03-10',
+    totals: {
+      inputTokens: 0,
+      outputTokens: 0,
+      reasoningTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      totalTokens: 0,
+      events: 0,
+      activeDays: 0,
+      costUsd,
+      costIncomplete,
+    },
+    sources: [],
+  };
+}
+
+describe('resolveMonthEnd', () => {
+  it('scales month-to-date cost to the whole month from the third day', () => {
+    expect(resolveMonthEnd('2026-03-10', monthToDate(100), undefined)).toEqual({
+      daysElapsed: 10,
+      daysInMonth: 31,
+      projectedCostUsd: 310,
+    });
+    expect(resolveMonthEnd('2026-03-03', monthToDate(30, true), 50)).toEqual({
+      daysElapsed: 3,
+      daysInMonth: 31,
+      projectedCostUsd: 310,
+      costIncomplete: true,
+      budgetUsd: 50,
+    });
+  });
+
+  it('skips the projection in the first two days or without a cost, keeping the budget', () => {
+    expect(resolveMonthEnd('2026-03-02', monthToDate(100), 50)).toEqual({
+      daysElapsed: 2,
+      daysInMonth: 31,
+      budgetUsd: 50,
+    });
+    expect(resolveMonthEnd('2026-03-10', monthToDate(undefined), undefined)).toEqual({
+      daysElapsed: 10,
+      daysInMonth: 31,
+    });
+  });
+
+  it('knows the length of February in leap and common years', () => {
+    expect(resolveMonthEnd('2028-02-14', monthToDate(14), undefined)).toMatchObject({
+      daysInMonth: 29,
+      projectedCostUsd: 29,
+    });
+    expect(resolveMonthEnd('2026-02-14', monthToDate(14), undefined).daysInMonth).toBe(28);
+  });
+});
+
 describe('buildSummaryData', () => {
+  it('projects the month against the config budget and estimates month-to-date cache savings', async () => {
+    const result = await buildSummaryData(
+      { timezone: 'UTC', pricingOffline: true },
+      {
+        ...runtimeDeps(
+          [
+            createAdapter('codex', [
+              // Estimated cost: priced from the bundled snapshot, which also prices the savings.
+              createEvent('2026-03-05T09:00:00.000Z', {
+                costMode: 'estimated',
+                costUsd: undefined,
+                cacheReadTokens: 1_000_000,
+              }),
+              // Last month: counts toward the 7-day window, not toward month-to-date savings.
+              createEvent('2026-02-28T09:00:00.000Z', { cacheReadTokens: 5_000_000 }),
+            ]),
+          ],
+          '2026-03-10T18:00:00.000Z',
+        ),
+        loadUserConfig: async () => ({
+          config: { monthlyBudgetUsd: 25 },
+          path: '/tmp/config.toml',
+          exists: true,
+          warnings: [],
+        }),
+      },
+    );
+
+    const monthToDateCost = result.periods[2]?.totals.costUsd ?? 0;
+    expect(monthToDateCost).toBeGreaterThan(0);
+    expect(result.monthEnd).toMatchObject({ daysElapsed: 10, daysInMonth: 31, budgetUsd: 25 });
+    expect(result.monthEnd.projectedCostUsd).toBeCloseTo(monthToDateCost * 3.1, 6);
+    // gpt-4.1 bundled pricing: $2.00 input vs $0.50 cache read per 1M tokens.
+    expect(result.monthToDateCacheSavingsUsd).toBeCloseTo(1.5, 6);
+  });
+
   it('sums each period and ranks its sources by cost', async () => {
     const codexEvents = [
       createEvent('2026-03-10T09:00:00.000Z'),

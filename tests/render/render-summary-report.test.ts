@@ -65,6 +65,7 @@ function createSummaryData(
 ): SummaryDataResult {
   return {
     timezone: 'UTC',
+    monthEnd: { daysElapsed: 10, daysInMonth: 31 },
     activity,
     periods: periods ?? [
       period('today', 'Today', '2026-03-10', {
@@ -207,6 +208,71 @@ describe('renderSummaryReport', () => {
     expect(output).toContain('_·_');
   });
 
+  it('says nothing about the month without a projection, budget, or savings', () => {
+    const output = renderSummaryReport(createSummaryData(), 'terminal', { useColor: false });
+
+    expect(output).not.toContain('On pace');
+    expect(output).not.toContain('budget');
+    expect(output).not.toContain('Prompt caching');
+  });
+
+  it('shows the projection, budget status, and cache savings under the table', () => {
+    const withMonth = (
+      monthEnd: SummaryDataResult['monthEnd'],
+      monthToDateCacheSavingsUsd?: number,
+    ) => {
+      const data = createSummaryData();
+      data.periods[2].totals.costUsd = 40;
+      return renderSummaryReport({ ...data, monthEnd, monthToDateCacheSavingsUsd }, 'terminal', {
+        useColor: false,
+      }).split('\n');
+    };
+    const base = { daysElapsed: 10, daysInMonth: 31 };
+
+    expect(withMonth({ ...base, projectedCostUsd: 124, costIncomplete: true }, 12.5)).toEqual(
+      expect.arrayContaining([
+        'On pace for ~$124.00 this month',
+        'Prompt caching saved you ~$12.50 this month',
+      ]),
+    );
+    expect(withMonth({ ...base, projectedCostUsd: 124, budgetUsd: 100 })).toContain(
+      '⚠ On pace to exceed your $100.00 monthly budget by $24.00',
+    );
+    expect(withMonth({ ...base, projectedCostUsd: 124, budgetUsd: 30 })).toContain(
+      '⚠ Over your $30.00 monthly budget: $40.00 spent',
+    );
+    // Before day 3 there is no projection, but the budget still reports what was spent.
+    expect(withMonth({ ...base, budgetUsd: 500 })).toContain(
+      'Within your $500.00 monthly budget ($40.00 spent)',
+    );
+  });
+
+  it('colors budget warnings when color is on', () => {
+    const data = createSummaryData();
+    const output = renderSummaryReport(
+      {
+        ...data,
+        monthEnd: { daysElapsed: 10, daysInMonth: 31, projectedCostUsd: 200, budgetUsd: 1 },
+      },
+      'terminal',
+      {
+        useColor: true,
+        palette: {
+          cyan: (text) => text,
+          magenta: (text) => text,
+          blue: (text) => text,
+          yellow: (text) => `<y>${text}</y>`,
+          white: (text) => text,
+          bold: (text) => text,
+          green: (text) => text,
+          dim: (text) => text,
+        },
+      },
+    );
+
+    expect(output).toContain('<y>⚠ On pace to exceed your $1.00 monthly budget by $199.00</y>');
+  });
+
   it('renders markdown with each period date range', () => {
     const output = renderSummaryReport(createSummaryData(), 'markdown');
 
@@ -214,6 +280,15 @@ describe('renderSummaryReport', () => {
     expect(output).toMatch(/\| Today\s+\| 2026-03-10\s+\|/u);
     expect(output).toMatch(/\| Last 7 days\s+\| 2026-03-04 to 2026-03-10 \|/u);
     expect(output).toContain('#### Activity since 2025-03-10');
+    const withBudget = renderSummaryReport(
+      {
+        ...createSummaryData(),
+        monthEnd: { daysElapsed: 10, daysInMonth: 31, projectedCostUsd: 9, budgetUsd: 5 },
+      },
+      'markdown',
+    );
+    expect(withBudget).toContain('On pace for $9.00 this month');
+    expect(withBudget).toContain('⚠ On pace to exceed your $5.00 monthly budget by $4.00');
     expect(output).toMatch(/\| Current streak \|\s+2 days \|/u);
     expect(output).toMatch(/\| Best day\s+\| 2026-03-10 · \$3\.00 · 3k tokens \|/u);
   });
@@ -235,7 +310,7 @@ describe('renderSummaryReport', () => {
       'last7Days',
       'monthToDate',
     ]);
-    expect(Object.keys(parsed.data)).toEqual(['timezone', 'periods', 'activity']);
+    expect(Object.keys(parsed.data)).toEqual(['timezone', 'periods', 'monthEnd', 'activity']);
     expect(parsed.data.activity).toMatchObject({ currentStreak: 2, longestStreak: 2 });
     expect(parsed.data.activity.days).toHaveLength(366);
   });

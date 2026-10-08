@@ -28,6 +28,15 @@
             "$ref": "#/$defs/period"
           }
         },
+        "monthEnd": {
+          "description": "Month-to-date run rate and the configured budget. Optional so v1 reports from earlier releases stay valid.",
+          "$ref": "#/$defs/monthEnd"
+        },
+        "monthToDateCacheSavingsUsd": {
+          "description": "Estimated month-to-date savings from cache reads: cache-read tokens priced at the input rate minus the cache-read rate. Absent when no cache reads could be priced.",
+          "type": "number",
+          "minimum": 0
+        },
         "activity": {
           "description": "Daily activity and streaks. Always emitted by current releases; optional so v1 reports from earlier releases stay valid.",
           "$ref": "#/$defs/activity"
@@ -198,6 +207,38 @@
         }
       },
       "required": ["from", "to", "activeDays", "currentStreak", "longestStreak", "days"],
+      "additionalProperties": false
+    },
+    "monthEnd": {
+      "type": "object",
+      "properties": {
+        "daysElapsed": {
+          "description": "Days of the month so far, today included.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "daysInMonth": {
+          "description": "Days in the current month.",
+          "type": "integer",
+          "minimum": 28,
+          "maximum": 31
+        },
+        "projectedCostUsd": {
+          "description": "Month-to-date cost scaled to the whole month. Absent before the third day of the month or without a known cost.",
+          "type": "number",
+          "minimum": 0
+        },
+        "costIncomplete": {
+          "description": "True when the month-to-date cost leaves out events without a known price.",
+          "type": "boolean"
+        },
+        "budgetUsd": {
+          "description": "monthlyBudgetUsd from the config file.",
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": ["daysElapsed", "daysInMonth"],
       "additionalProperties": false
     }
   }

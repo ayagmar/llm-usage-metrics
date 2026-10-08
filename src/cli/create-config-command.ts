@@ -43,6 +43,10 @@ export const USER_CONFIG_TEMPLATE = `${CONFIG_TEMPLATE_HEADER}
 # Default: all supported sources.
 # sources = []
 
+# Monthly budget in USD. When set, the summary warns once the month-end
+# projection exceeds it. Default: no budget.
+# monthlyBudgetUsd = 100
+
 # Parser defaults.
 # parseMaxParallel = ${PARSE_MAX_PARALLEL_DEFAULT}
 # parseWorkers = "${PARSE_WORKERS_CONFIG_DEFAULT}"
