@@ -67,8 +67,20 @@ export function toText(value: unknown): string | undefined {
   return normalized || undefined;
 }
 
+const databasesInTransaction = new WeakSet<EventStoreDatabase>();
+
+/**
+ * Runs `task` in a write transaction. A nested call joins the outer transaction, so it is
+ * atomic only as part of it: a caller that catches a nested error and carries on commits
+ * the work done before it.
+ */
 export function runTransaction<T>(database: EventStoreDatabase, task: () => T): T {
+  if (databasesInTransaction.has(database)) {
+    return task();
+  }
+
   database.exec('BEGIN IMMEDIATE');
+  databasesInTransaction.add(database);
 
   try {
     const result = task();
@@ -77,5 +89,7 @@ export function runTransaction<T>(database: EventStoreDatabase, task: () => T): 
   } catch (error) {
     database.exec('ROLLBACK');
     throw error;
+  } finally {
+    databasesInTransaction.delete(database);
   }
 }

@@ -49,6 +49,17 @@ function collectSchemaKeyPaths(schema: Record<string, unknown>): string[] {
       continue;
     }
 
+    // A table of named entries (`machines.<name>`) declares its keys on additionalProperties.
+    const namedEntry = (value as { additionalProperties?: unknown }).additionalProperties;
+
+    if (namedEntry && typeof namedEntry === 'object' && 'properties' in namedEntry) {
+      for (const nestedKey of Object.keys(namedEntry.properties as object)) {
+        keyPaths.push(`${key}.<name>.${nestedKey}`);
+      }
+
+      continue;
+    }
+
     const nestedProperties = (value as { properties?: unknown }).properties;
 
     if (
@@ -98,6 +109,46 @@ describe('loadUserConfig', () => {
       exists: false,
       warnings: [],
     });
+  });
+
+  it('reads machines and skips invalid ones with a warning', async () => {
+    const result = await loadUserConfig(
+      { LLM_USAGE_CONFIG_PATH: '/tmp/config.toml' },
+      readContent(`
+[machines.laptop]
+ssh = "me@laptop.local"
+
+[machines.vps]
+ssh = "vps"
+command = "/home/me/.local/bin/llm-usage"
+enabled = false
+port = 22
+
+[machines.local]
+ssh = "localhost"
+
+[machines.Bad_Name]
+ssh = "host"
+
+[machines.nossh]
+command = "llm-usage"
+
+[machines.flag]
+ssh = "-oProxyCommand=evil"
+`),
+    );
+
+    expect(result.config.machines).toEqual({
+      laptop: { ssh: 'me@laptop.local' },
+      vps: { ssh: 'vps', command: '/home/me/.local/bin/llm-usage', enabled: false },
+    });
+    expect(result.warnings).toEqual([
+      'Unknown config key(s): machines.vps.port',
+      'Ignoring machines.local: a machine name is 1-32 lowercase letters, digits or dashes, and not "local"',
+      'Ignoring machines.Bad_Name: a machine name is 1-32 lowercase letters, digits or dashes, and not "local"',
+      'Ignoring machines.nossh: set ssh = "user@host"',
+      'Ignoring machines.flag.ssh: expected an ssh destination such as "user@host" (no spaces, not starting with -)',
+    ]);
   });
 
   it('throws an actionable error for malformed TOML', async () => {

@@ -21,7 +21,7 @@ afterEach(async () => {
 });
 
 describe('createCli', () => {
-  it('registers summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline, doctor, prune, config, machine, schema, and completion commands', () => {
+  it('registers summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline, doctor, prune, config, machine, sync, schema, and completion commands', () => {
     const cli = createCli();
 
     expect(cli.name()).toBe('llm-usage');
@@ -42,6 +42,7 @@ describe('createCli', () => {
       'prune',
       'config',
       'machine',
+      'sync',
       'schema',
       'completion',
     ]);
@@ -114,7 +115,7 @@ describe('createCli', () => {
   it('includes quiet on every report command', () => {
     const cli = createCli();
     const reportCommands = cli.commands.filter(
-      (command) => !['config', 'machine', 'schema', 'completion'].includes(command.name()),
+      (command) => !['config', 'machine', 'sync', 'schema', 'completion'].includes(command.name()),
     );
 
     for (const command of reportCommands) {

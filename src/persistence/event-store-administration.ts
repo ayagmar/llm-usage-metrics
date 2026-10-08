@@ -459,6 +459,52 @@ export async function readEventStoreStoredFiles(
   }
 }
 
+/** Every stored file with its raw fingerprint, in key order. */
+export function listStoredFileFingerprints(
+  store: EventStore,
+): (EventStoreStoredFile & { fingerprint: string })[] {
+  const rows = store.database
+    .prepare('SELECT source, file_path, fingerprint FROM files ORDER BY source ASC, file_path ASC')
+    .all();
+  const files: (EventStoreStoredFile & { fingerprint: string })[] = [];
+
+  for (const row of rows) {
+    const source = toText(row.source);
+    const filePath = toText(row.file_path);
+    const fingerprint = toText(row.fingerprint);
+
+    if (source && filePath && fingerprint) {
+      files.push({ source, filePath, fingerprint });
+    }
+  }
+
+  return files;
+}
+
+export function readEventStoreMeta(store: EventStore, key: string): string | undefined {
+  return toText(store.database.prepare('SELECT value FROM meta WHERE key = ?').get(key)?.value);
+}
+
+/** Sets meta values; `undefined` deletes the key. */
+export function writeEventStoreMeta(
+  store: EventStore,
+  entries: Readonly<Record<string, string | undefined>>,
+): void {
+  runTransaction(store.database, () => {
+    for (const [key, value] of Object.entries(entries)) {
+      if (value === undefined) {
+        store.database.prepare('DELETE FROM meta WHERE key = ?').run(key);
+      } else {
+        store.database
+          .prepare(
+            'INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+          )
+          .run(key, value);
+      }
+    }
+  });
+}
+
 function deleteFileEntry(store: EventStore, source: string, filePath: string): void {
   deleteStoredFiles(store, [{ source, filePath }]);
 }
@@ -584,6 +630,7 @@ export function readStoredFileSnapshots(
 ): EventStoreFileSnapshot[] {
   const snapshots: EventStoreFileSnapshot[] = [];
 
+  // A read snapshot, not runTransaction's write lock; so never call this inside one.
   store.database.exec('BEGIN');
 
   try {

@@ -31,7 +31,8 @@ Commands:
 - `doctor`
 - `prune`
 - `config <init|show|path>`
-- `machine <export>`
+- `machine <add|list|remove|export>`
+- `sync`
 - `schema`
 - `completion`
 
@@ -1129,25 +1130,65 @@ Options:
 </details>
 
 <details>
-<summary>llm-usage machine &lt;export&gt;</summary>
+<summary>llm-usage machine &lt;add|list|remove|export&gt;</summary>
 
 ```text
 Usage: llm-usage machine [options] [command]
 
-Combine usage from your other machines
+Combine usage from your other machines over ssh
 
 Options:
-  -h, --help        display help for command
+  -h, --help                         display help for command
 
 Commands:
-  export [options]  Print the usage this machine's reports count, as a versioned
-                    NDJSON bundle that machine sync reads
-  help [command]    display help for command
+  add [options] <name> <ssh-target>  Sync a machine over ssh and add it to
+                                     config.toml; it needs llm-usage-metrics
+                                     installed and ssh login without a prompt
+  list                               Show each machine, when it last synced, and
+                                     how much usage is cached
+  remove <name>                      Remove a machine from config.toml and
+                                     delete its cached usage
+  export [options]                   Print the usage this machine's reports
+                                     count, as a versioned NDJSON bundle that
+                                     sync reads
+  help [command]                     display help for command
+
+Usage: llm-usage machine add [options] <name> <ssh-target>
+
+Sync a machine over ssh and add it to config.toml; it needs llm-usage-metrics
+installed and ssh login without a prompt
+
+Arguments:
+  name                 Name for the machine in reports (lowercase letters,
+                       digits, dashes)
+  ssh-target           ssh destination: host, user@host, or an ssh_config alias
+
+Options:
+  --command <command>  How llm-usage-metrics is launched there (default:
+                       llm-usage)
+  -h, --help           display help for command
+
+Usage: llm-usage machine list [options]
+
+Show each machine, when it last synced, and how much usage is cached
+
+Options:
+  -h, --help  display help for command
+
+Usage: llm-usage machine remove [options] <name>
+
+Remove a machine from config.toml and delete its cached usage
+
+Arguments:
+  name        Machine name
+
+Options:
+  -h, --help  display help for command
 
 Usage: llm-usage machine export [options]
 
 Print the usage this machine's reports count, as a versioned NDJSON bundle that
-machine sync reads
+sync reads
 
 Options:
   --known <path>  Leave out files already held at the same revision, as listed
@@ -1156,6 +1197,24 @@ Options:
   --verbose       Print detailed diagnostics on stderr (per-source counts,
                   routine skips, config, env)
   -h, --help      display help for command
+```
+
+</details>
+
+<details>
+<summary>llm-usage sync</summary>
+
+```text
+Usage: llm-usage sync [options] [names...]
+
+Fetch your other machines' usage over ssh
+
+Arguments:
+  names       Machines to sync (default: every enabled machine)
+
+Options:
+  --full      Fetch every file again instead of only the changed ones
+  -h, --help  display help for command
 ```
 
 </details>
@@ -1213,6 +1272,7 @@ Search across root and command help. See Command help above to check which flags
 | `--claude-dir` | - | `<path>` | Path to Claude projects directory \(repeatable\) |
 | `--cline-dir` | - | `<path>` | Path to Cline tasks directory \(repeatable\) |
 | `--codex-dir` | - | `<path>` | Path to .codex sessions directory \(repeatable\) |
+| `--command` | - | `<command>` | How llm-usage-metrics is launched there \(default: llm-usage\) \(machine only\) |
 | `--compact` | - | - | Abbreviate token counts and hide the Reasoning and Cache Write columns \(terminal/Markdown\) \(usage reports only\) |
 | `--copilot-dir` | - | `<path>` | Path to GitHub Copilot OTEL directory \(repeatable\) |
 | `--days` | - | `<n>` | Trailing local calendar days to chart; defaults to 30 when no date flags are provided \(trends only\) |
@@ -1221,6 +1281,7 @@ Search across root and command help. See Command help above to check which flags
 | `--dsh-dir` | - | `<path>` | Path to DeepSeek Harness sessions directory \(repeatable\) |
 | `--force` | - | - | Overwrite an existing config file \(config only\) |
 | `--format` | - | `<name>` | Export format: jsonl \| csv \(default: "jsonl"\) \(events only\) |
+| `--full` | - | - | Fetch every file again instead of only the changed ones \(sync only\) |
 | `--gemini-dir` | - | `<path>` | Path to .gemini directory \(repeatable\) |
 | `--goose-db` | - | `<path>` | Path to Goose SQLite DB |
 | `--help-all` | - | - | Display help including the per-source path flags |

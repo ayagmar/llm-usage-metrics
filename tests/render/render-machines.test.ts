@@ -1,0 +1,82 @@
+import { describe, expect, it } from 'vitest';
+
+import {
+  formatAge,
+  renderMachineList,
+  renderSyncOutcome,
+} from '../../src/render/render-machines.js';
+
+const NOW = Date.parse('2026-10-08T12:00:00.000Z');
+const MINUTE = 60_000;
+
+describe('formatAge', () => {
+  it.each([
+    [30_000, 'just now'],
+    [5 * MINUTE, '5 min ago'],
+    [3 * 60 * MINUTE, '3 h ago'],
+    [3 * 24 * 60 * MINUTE, '3 days ago'],
+  ])('formats %i ms', (ageMs, text) => {
+    expect(formatAge(ageMs)).toBe(text);
+  });
+});
+
+describe('renderMachineList', () => {
+  const entry = (state: object | undefined, enabled?: boolean) => ({
+    name: 'laptop',
+    machine: enabled === undefined ? { ssh: 'me@laptop' } : { ssh: 'me@laptop', enabled },
+    state,
+    fileCount: 2,
+    eventCount: 1200,
+  });
+
+  it('describes each machine state', () => {
+    expect(
+      renderMachineList(
+        [
+          entry(undefined),
+          entry({ lastError: 'ssh failed: timed out', attemptedAt: NOW }),
+          entry({ syncedAt: NOW - 5 * MINUTE }, false),
+          entry({
+            syncedAt: NOW - 90 * MINUTE,
+            attemptedAt: NOW - MINUTE,
+            lastError: 'ssh failed',
+          }),
+          entry({ syncedAt: NOW - 2 * MINUTE, attemptedAt: NOW - 2 * MINUTE }),
+        ],
+        NOW,
+      ),
+    ).toEqual([
+      'laptop  me@laptop  never synced',
+      'laptop  me@laptop  never synced: ssh failed: timed out',
+      'laptop  me@laptop  disabled (cached usage stays in reports)',
+      'laptop  me@laptop  synced 1 h ago, 2 file(s), 1,200 event(s); last attempt failed 1 min ago: ssh failed',
+      'laptop  me@laptop  synced 2 min ago, 2 file(s), 1,200 event(s)',
+    ]);
+  });
+});
+
+describe('renderSyncOutcome', () => {
+  it('reports a failure before any successful sync', () => {
+    expect(
+      renderSyncOutcome({ name: 'vps', ok: false, error: 'ssh failed', state: {} }, NOW),
+    ).toEqual(['✗ vps: ssh failed (nothing cached yet)']);
+  });
+
+  it('names the remote version without a host name, then its warnings', () => {
+    expect(
+      renderSyncOutcome(
+        {
+          name: 'vps',
+          ok: true,
+          result: { receivedFileCount: 3072, removedFileCount: 1, fileCount: 3072, eventCount: 10 },
+          remoteWarnings: ['⚠ machine export left out 2 event(s)'],
+          state: { cliVersion: '1.0.0' },
+        },
+        NOW,
+      ),
+    ).toEqual([
+      '✓ vps: 3,072 file(s) updated, 1 removed; 3,072 file(s), 10 event(s) cached (llm-usage-metrics 1.0.0)',
+      '  vps warned: ⚠ machine export left out 2 event(s)',
+    ]);
+  });
+});

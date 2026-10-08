@@ -191,6 +191,37 @@
       "minimum": 0,
       "maximum": 9007199254740991
     },
+    "machines": {
+      "description": "Other machines whose usage reports include, by name. Each needs llm-usage-metrics installed and ssh access without a password prompt. Add one with `llm-usage machine add`.",
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[a-z0-9][a-z0-9-]{0,31}$",
+        "not": { "const": "local" }
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ssh"],
+        "properties": {
+          "ssh": {
+            "description": "ssh destination: host, user@host, or an alias from ~/.ssh/config.",
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[^-\\s][^\\s]*$"
+          },
+          "command": {
+            "description": "How llm-usage-metrics is launched on that machine, e.g. a full path when a non-interactive ssh session does not find it.",
+            "type": "string",
+            "default": "llm-usage"
+          },
+          "enabled": {
+            "description": "Set to false to keep the machine's cached usage in reports but stop syncing it.",
+            "type": "boolean",
+            "default": true
+          }
+        }
+      }
+    },
     "update": {
       "description": "Startup update-check runtime settings.",
       "type": "object",

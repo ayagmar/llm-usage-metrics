@@ -124,6 +124,11 @@ Reports name the applied config file in their `stderr` summary line; `--verbose`
 | `update.skipCheck`       | `LLM_USAGE_SKIP_UPDATE_CHECK`                         | Skip startup update checks                                 |
 | `update.cacheTtlMs`      | Config only                                           | Update-check cache TTL                                     |
 | `update.fetchTimeoutMs`  | Config only                                           | Update-check fetch timeout                                 |
+| `machines.<name>.ssh`     | `machine add <name> <ssh-target>`                     | ssh destination of another machine to sync usage from      |
+| `machines.<name>.command` | `machine add --command`                               | How llm-usage-metrics is launched on that machine          |
+| `machines.<name>.enabled` | Config only                                           | `false` stops syncing it                                   |
+
+A machine name is 1-32 lowercase letters, digits or dashes; `local` is reserved for this machine. `llm-usage machine add` syncs the machine once and only then appends its table to the config file, keeping your comments; `machine remove` deletes the table and the machine's cached usage.
 
 A `sourceDirs` value for a directory-backed source can be a list, which scans every listed directory as one source, like repeating its flag. `sourceDirs.opencode` and `sourceDirs.goose` take one database path.
 

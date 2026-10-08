@@ -9,7 +9,7 @@ import {
   SUMMARY_COMMAND_NAME,
 } from './report-definitions/report-definitions.js';
 import { createConfigCommand } from './create-config-command.js';
-import { createMachineCommand } from './create-machine-command.js';
+import { createMachineCommand, createSyncCommand } from './create-machine-command.js';
 import { createCompletionCommand, COMPLETION_SHELLS } from './create-completion-command.js';
 import { createSchemaCommand, schemaNames } from './create-schema-command.js';
 
@@ -113,6 +113,7 @@ export function createCli(options: CreateCliOptions = {}): Command {
   }
   program.addCommand(createConfigCommand());
   program.addCommand(createMachineCommand());
+  program.addCommand(createSyncCommand());
   program.addCommand(createSchemaCommand());
   program.addCommand(
     createCompletionCommand(() => program, {
