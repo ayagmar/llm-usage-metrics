@@ -4,7 +4,6 @@ import { createUsageEvent } from '../../domain/usage-event.js';
 import type { SourceId, UsageEvent } from '../../domain/usage-event.js';
 import type { NumberLike } from '../../domain/normalization.js';
 import { asRecord } from '../../utils/as-record.js';
-import { pathStat } from '../../utils/fs-helpers.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
 import {
@@ -225,9 +224,9 @@ function resolveTimestamp(
   line: Record<string, unknown>,
   message: Record<string, unknown>,
   state: OpenClawSessionState,
-  fallbackTimestamp: string | undefined,
 ): string | undefined {
-  const candidates = [line.timestamp, message.timestamp, fallbackTimestamp, state.sessionTimestamp];
+  // Never fall back to the file mtime: it moves every time the session is appended.
+  const candidates = [line.timestamp, message.timestamp, state.sessionTimestamp];
 
   for (const candidate of candidates) {
     const normalizedTimestamp = normalizeTimestampCandidate(candidate);
@@ -274,8 +273,6 @@ export async function parseOpenClawSessionFile(
   const events: UsageEvent[] = [];
   let skippedRows = 0;
   const skippedRowReasons = new Map<string, number>();
-  const fileStats = await pathStat(filePath);
-  const fallbackTimestamp = fileStats?.mtime.toISOString();
   const state: OpenClawSessionState = {
     sessionId: getFallbackSessionId(filePath),
   };
@@ -343,9 +340,11 @@ export async function parseOpenClawSessionFile(
       continue;
     }
 
-    const timestamp = resolveTimestamp(line, message, state, fallbackTimestamp);
+    const timestamp = resolveTimestamp(line, message, state);
 
     if (!timestamp) {
+      skippedRows += 1;
+      incrementSkippedReason(skippedRowReasons, 'invalid_timestamp');
       continue;
     }
 

@@ -21,5 +21,5 @@ llm-usage daily --source-dir openclaw=/path/to/.openclaw/agents
 - Emits only assistant messages with usage.
 - Preserves explicit `usage.cost` values when present.
 - Reads pi-style usage (`input`, `output`, `cacheRead`, `cacheWrite`), where input already excludes cache reads. For OpenAI Chat Completions `prompt_tokens`, which include cached input, cache reads are subtracted from input.
-- Falls back to file mtime when an assistant usage row has no message timestamp.
+- Falls back to the `session` row timestamp when an assistant usage row has no timestamp of its own, and skips the row otherwise (never the file mtime, which moves as the session grows).
 - Ignores non-usage user/system/tool rows and OpenClaw delivery-mirror assistant rows.
