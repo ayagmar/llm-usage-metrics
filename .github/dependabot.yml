@@ -18,8 +18,9 @@ updates:
         dependency-type: development
     ignore:
       # This job also updates the site in the pnpm workspace; see the /site job for why the
-      # site stays on TypeScript 6. Root's `typescript` is the TS6 API alias for typescript-eslint;
-      # the TypeScript 7 compiler is `@typescript/native` and keeps updating.
+      # site stays on TypeScript 6. Root's `typescript` is the TS6 API alias for typescript-eslint.
+      # This rule does not cover the TypeScript 7 compiler (`@typescript/native`), but Dependabot
+      # does not update `npm:` aliases at all, so bump that one by hand.
       - dependency-name: typescript
         versions: ['>=7']
 
