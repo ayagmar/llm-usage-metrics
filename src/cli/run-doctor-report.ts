@@ -69,6 +69,8 @@ type DoctorDeps = UserConfigResolutionDeps & {
   getEventStoreRuntimeConfig?: typeof getEventStoreRuntimeConfig;
   readEventStoreStoredFiles?: (filePath: string) => Promise<EventStoreStoredFile[]>;
   readEventStoreSummary?: (filePath: string) => Promise<EventStoreSummary>;
+  /** Epoch ms, for the machine rows' sync ages. */
+  now?: () => number;
 };
 
 type DiscoveredFilesBySource = Map<string, Set<string>>;
@@ -249,7 +251,7 @@ export async function buildDoctorResults(
   results.push(
     ...(await buildMachineDoctorResults(
       userConfigResolution.loadedConfig.config.machines ?? {},
-      Date.now(),
+      (deps.now ?? Date.now)(),
     )),
   );
 

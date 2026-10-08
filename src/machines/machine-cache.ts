@@ -2,8 +2,6 @@ import { rm } from 'node:fs/promises';
 import path from 'node:path';
 
 import {
-  closeEventStore,
-  countEvents,
   deleteStoredFiles,
   getDefaultEventStorePath,
   listStoredFileFingerprints,
@@ -11,6 +9,8 @@ import {
   readEventStoreEvents,
   readEventStoreMeta,
   readEventStoreMetaValues,
+  readEventStoreStoredFiles,
+  readEventStoreSummary,
   replaceFilesEvents,
   runTransaction,
   writeEventStoreMeta,
@@ -242,25 +242,30 @@ export type MachineCacheStatus = {
   eventCount: number;
 };
 
-/** The cache's sync state and size, or undefined when the machine was never synced. */
+/**
+ * The cache's sync state and size, or undefined when the machine was never synced. Read
+ * read-only, so a sync in progress never blocks it.
+ */
 export async function readMachineCacheStatus(
   name: string,
 ): Promise<MachineCacheStatus | undefined> {
-  if (!(await pathExists(getMachineCachePath(name)))) {
+  const cachePath = getMachineCachePath(name);
+
+  if (!(await pathExists(cachePath))) {
     return undefined;
   }
 
-  const cache = await openMachineCache(name);
+  const [meta, summary, storedFiles] = await Promise.all([
+    readEventStoreMetaValues(cachePath),
+    readEventStoreSummary(cachePath),
+    readEventStoreStoredFiles(cachePath),
+  ]);
 
-  try {
-    return {
-      state: readMachineSyncState(cache),
-      fileCount: readCachedFiles(cache).length,
-      eventCount: countEvents(cache),
-    };
-  } finally {
-    closeEventStore(cache);
-  }
+  return {
+    state: toSyncState((key) => meta.get(key)),
+    fileCount: storedFiles.length,
+    eventCount: summary.eventCount,
+  };
 }
 
 /** The sync state, read without locking the cache; undefined when never synced. */
