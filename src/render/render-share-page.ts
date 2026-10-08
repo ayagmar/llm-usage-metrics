@@ -37,8 +37,10 @@ function show(nextTheme) {
   status.textContent = '';
 }
 
-async function renderPng() {
-  const svg = cards[theme].querySelector('svg');
+// The theme is captured when the click happens, so switching themes mid-render
+// cannot mislabel or mix up the image.
+async function renderPng(renderedTheme) {
+  const svg = cards[renderedTheme].querySelector('svg');
   const xml = new XMLSerializer().serializeToString(svg);
   const url = URL.createObjectURL(new Blob([xml], { type: 'image/svg+xml' }));
   try {
@@ -59,11 +61,12 @@ async function renderPng() {
 }
 
 async function downloadPng() {
+  const renderedTheme = theme;
   try {
-    const url = URL.createObjectURL(await renderPng());
+    const url = URL.createObjectURL(await renderPng(renderedTheme));
     const link = document.createElement('a');
     link.href = url;
-    link.download = fileBaseName + '-' + theme + '.png';
+    link.download = fileBaseName + '-' + renderedTheme + '.png';
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     status.textContent = 'Downloaded ' + link.download;
@@ -73,6 +76,7 @@ async function downloadPng() {
 }
 
 async function copyImage() {
+  const renderedTheme = theme;
   if (!navigator.clipboard || typeof ClipboardItem === 'undefined') {
     status.textContent = 'This browser cannot copy images. Use Download PNG instead.';
     return;
@@ -80,10 +84,10 @@ async function copyImage() {
   try {
     // A pending blob keeps Safari's user activation; older Chromium only takes a resolved one.
     try {
-      await navigator.clipboard.write([new ClipboardItem({ 'image/png': renderPng() })]);
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': renderPng(renderedTheme) })]);
     } catch (error) {
       if (!(error instanceof TypeError)) throw error;
-      await navigator.clipboard.write([new ClipboardItem({ 'image/png': await renderPng() })]);
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': await renderPng(renderedTheme) })]);
     }
     status.textContent = 'Copied the image to the clipboard';
   } catch (error) {

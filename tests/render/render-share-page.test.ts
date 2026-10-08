@@ -25,6 +25,14 @@ describe('renderSharePage', () => {
     expect(page).toContain('data-file-base-name="usage-daily-share"');
   });
 
+  it('renders and names the PNG from the theme selected at click time', () => {
+    const page = renderPage();
+
+    expect(page).toContain("const svg = cards[renderedTheme].querySelector('svg');");
+    expect(page).toContain("link.download = fileBaseName + '-' + renderedTheme + '.png';");
+    expect(page.match(/const renderedTheme = theme;/gu)).toHaveLength(2);
+  });
+
   it('exports at twice the card size', () => {
     const page = renderPage();
 
