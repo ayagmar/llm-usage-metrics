@@ -12,7 +12,7 @@ import type {
 } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import type { SourceAdapter } from '../../src/sources/source-adapter.js';
-import { setLogLevel } from '../../src/utils/logger.js';
+import { logger, setLogLevel } from '../../src/utils/logger.js';
 
 function totals(overrides: Partial<UsageWindowTotals> = {}): UsageWindowTotals {
   return {
@@ -179,8 +179,29 @@ describe('runStatusline', () => {
       expect(logSpy).toHaveBeenCalledTimes(1);
       expect(String(logSpy.mock.calls[0]?.[0])).toMatch(/ today · .* this month$/u);
       expect(errorSpy).not.toHaveBeenCalled();
+      logger.warn('after the run');
+      expect(errorSpy).not.toHaveBeenCalled();
     } finally {
       // The module default; runStatusline lowers it for the whole process.
+      setLogLevel('info');
+      logSpy.mockRestore();
+      errorSpy.mockRestore();
+      await rm(emptyDir, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps the configured log level with --verbose', async () => {
+    const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'statusline-verbose-'));
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    try {
+      setLogLevel('info');
+      await runStatusline({ source: 'codex', codexDir: emptyDir, timezone: 'UTC', verbose: true });
+      logger.warn('after the run');
+
+      expect(errorSpy.mock.calls.flat().join('\n')).toContain('after the run');
+    } finally {
       setLogLevel('info');
       logSpy.mockRestore();
       errorSpy.mockRestore();

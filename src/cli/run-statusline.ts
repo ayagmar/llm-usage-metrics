@@ -65,7 +65,11 @@ export async function buildStatusline(
 }
 
 export async function runStatusline(options: StatuslineCommandOptions): Promise<void> {
-  // Status bars show stdout; diagnostics would only add noise. Errors still exit non-zero.
-  setLogLevel('silent');
+  // Status bars show stdout; diagnostics would only add noise. Errors still exit non-zero,
+  // and --verbose keeps the configured level to debug a slow or odd line.
+  if (!options.verbose) {
+    setLogLevel('silent');
+  }
+
   console.log(await buildStatusline(options));
 }
