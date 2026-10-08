@@ -7,7 +7,7 @@ Guidance for coding agents working in this repository.
 ## Project Snapshot
 
 - Type: TypeScript CLI (`llm-usage-metrics`)
-- Runtime: Node.js 22.16+ or 24+, not 23 (develop on 24, see `.nvmrc`)
+- Runtime: Node.js 22.16+ or 24+, not 23 (develop on 24, see `.nvmrc`); the built CLI also runs on Bun 1.4+ (CI smoke: `pnpm run smoke:dist-bun`)
 - Package/dev workflow: pnpm (`pnpm-lock.yaml`)
 - Core job: parse local usage data, normalize events, apply pricing, aggregate, render reports
 

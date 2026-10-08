@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Node.js 24.21.0 for development (matches CI and `.nvmrc`); the CLI supports Node.js 22.16+ or 24+ (not 23)
+- Node.js 24.21.0 for development (matches CI and `.nvmrc`); the CLI supports Node.js 22.16+ or 24+ (not 23), and Bun 1.4+
 - pnpm 12.9.1 (used for local scripts and the lockfile)
 
 ## Install
@@ -43,6 +43,7 @@ Notes:
 
 - CI installs with `pnpm install --frozen-lockfile`.
 - The main test job rebuilds `dist` before `pnpm run smoke:dist-opencode` and `pnpm run test`.
+- The Bun job builds `dist` with Node, then runs `pnpm run smoke:dist-bun` and the OpenCode smoke under Bun. The Bun smoke check fails unless `node:sqlite` works under Bun, Bun's report JSON matches Node's on a cold run whose Codex files parse in worker threads (no fallback) and on a warm run served from the event store, and `statusline` prints one line.
 - Site CI also regenerates `site/src/content/docs/cli-reference.mdx` and `site/src/content/docs/security.mdx` and fails if either generated file is out of date.
 
 ## Security and dependency hygiene
@@ -134,6 +135,13 @@ Smoke-test built OpenCode path:
 
 ```bash
 pnpm run smoke:dist-opencode
+```
+
+Smoke-test the built CLI on Bun (needs `bun` on `PATH`):
+
+```bash
+pnpm run smoke:dist-bun
+bun scripts/smoke-dist-opencode.mjs
 ```
 
 Check npm package output:

@@ -33,6 +33,7 @@
     "pack:check": "npm pack",
     "pricing:snapshot": "node scripts/generate-pricing-snapshot.mjs",
     "smoke:dist-opencode": "node scripts/smoke-dist-opencode.mjs",
+    "smoke:dist-bun": "node scripts/smoke-dist-bun.mjs",
     "perf:report-baseline": "node --import tsx scripts/perf-report-baseline.mjs",
     "perf:warm-query": "node --import tsx scripts/perf-warm-query-benchmark.mjs",
     "perf:production-benchmark": "node scripts/perf-production-benchmark.mjs",
