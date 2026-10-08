@@ -10,6 +10,7 @@ import { closeEventStore, openEventStore, type EventStore } from '../persistence
 import { addStoredFilesStillOnDisk } from './history-live-files.js';
 import {
   loadHistoryEvents as loadDefaultHistoryEvents,
+  type EventStoreHistoryDiscoveredFile,
   type EventStoreHistoryResult,
 } from '../persistence/event-store-history.js';
 import { createDefaultAdapters } from '../sources/create-default-adapters.js';
@@ -110,6 +111,11 @@ export type UsageEventDataset = {
   warnings: string[];
   notes: string[];
   filteredEvents: UsageEvent[];
+  /**
+   * The event store and the stored files whose events this run counts: parsed files and
+   * the history it served. Undefined when the event store was unavailable.
+   */
+  ledger?: { path: string; countedFiles: EventStoreHistoryDiscoveredFile[] };
   pricingRuntimeConfig: ReturnType<typeof getPricingFetcherRuntimeConfig>;
   readEnvVarOverrides: () => EnvVarOverride[];
 };
@@ -191,6 +197,7 @@ export async function buildUsageEventDataset(
     const {
       successfulParseResults,
       discoveredFiles,
+      parsedFiles,
       eventStoreAvailable,
       sourceFailures,
       warnings,
@@ -238,6 +245,11 @@ export async function buildUsageEventDataset(
     throwOnExplicitSourceFailures(sourceFailures, normalizedInputs.explicitSourceIds);
 
     let parseResultsForFiltering = successfulParseResults;
+    // A discovered file that failed to parse is not counted, though history still treats it
+    // as present.
+    const ledger = eventStoreAvailable
+      ? { path: eventStoreRuntimeConfig.path, countedFiles: [...parsedFiles] }
+      : undefined;
     const historyWarnings: string[] = [];
     const historyNotes: string[] = [];
 
@@ -275,6 +287,7 @@ export async function buildUsageEventDataset(
           parseResultsForFiltering,
           historyResult.events,
         );
+        ledger?.countedFiles.push(...historyResult.servedFiles);
         // Default history stays quiet unless it changes the numbers.
         if (historyRequested || historyResult.servedFileCount > 0) {
           historyNotes.push(formatHistoryNote(historyResult));
@@ -325,6 +338,7 @@ export async function buildUsageEventDataset(
       ],
       notes: historyNotes,
       filteredEvents,
+      ledger,
       pricingRuntimeConfig,
       readEnvVarOverrides: deps.getActiveEnvVarOverrides ?? getActiveEnvVarOverrides,
     };

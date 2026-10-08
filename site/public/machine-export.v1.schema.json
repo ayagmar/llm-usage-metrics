@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ayagmar.github.io/llm-usage-metrics/machine-export.v1.schema.json",
+  "title": "llm-usage-metrics machine export line (v1)",
+  "description": "One NDJSON line of `llm-usage machine export`. A bundle is a header line, zero or more file lines, then an end line; a bundle without its end line is incomplete.",
+  "oneOf": [{ "$ref": "#/$defs/header" }, { "$ref": "#/$defs/file" }, { "$ref": "#/$defs/end" }],
+  "$defs": {
+    "header": {
+      "type": "object",
+      "properties": {
+        "type": { "const": "header" },
+        "format": { "const": "llm-usage-metrics.machine-export" },
+        "version": {
+          "description": "Bundle format version; readers reject versions they do not know.",
+          "const": 1
+        },
+        "cliVersion": {
+          "description": "llm-usage-metrics version that wrote the bundle.",
+          "type": "string"
+        },
+        "hostname": { "description": "Host name of the exporting machine.", "type": "string" },
+        "exportedAt": { "description": "ISO 8601 time of the export.", "type": "string" }
+      },
+      "required": ["type", "format", "version", "cliVersion", "hostname", "exportedAt"],
+      "additionalProperties": false
+    },
+    "file": {
+      "description": "The events of one counted file the reader does not hold at this revision.",
+      "type": "object",
+      "properties": {
+        "type": { "const": "file" },
+        "source": { "type": "string", "minLength": 1 },
+        "filePath": {
+          "description": "Path of the file on the exporting machine.",
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "description": "Opaque; changes exactly when the file's events change.",
+          "type": "string",
+          "minLength": 1
+        },
+        "events": {
+          "description": "Unpriced usage events: costUsd is present only when the source recorded it (costMode explicit).",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "https://ayagmar.github.io/llm-usage-metrics/events-line.v1.schema.json"
+          }
+        }
+      },
+      "required": ["type", "source", "filePath", "revision", "events"],
+      "additionalProperties": false
+    },
+    "end": {
+      "description": "Every counted file, including those the reader already holds; a file it holds that is not listed is no longer counted.",
+      "type": "object",
+      "properties": {
+        "type": { "const": "end" },
+        "files": {
+          "type": "array",
+          "items": {
+            "description": "[source, filePath, revision]",
+            "type": "array",
+            "prefixItems": [
+              { "type": "string", "minLength": 1 },
+              { "type": "string", "minLength": 1 },
+              { "type": "string", "minLength": 1 }
+            ],
+            "minItems": 3,
+            "maxItems": 3
+          }
+        },
+        "eventCount": {
+          "description": "Total events across all listed files.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": ["type", "files", "eventCount"],
+      "additionalProperties": false
+    }
+  }
+}

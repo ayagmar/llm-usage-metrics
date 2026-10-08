@@ -78,7 +78,21 @@ llm-usage schema usage > report-usage.schema.json
 llm-usage schema --list
 ```
 
-`schema` accepts every report name plus `events-line` and `config`, and prints the schema document itself (not wrapped in the report envelope). Report and `events-line` schemas embed the shared definitions under `$defs`, so the printed file compiles on its own in any JSON Schema 2020-12 validator.
+`schema` accepts every report name plus `events-line`, `machine-export` and `config`, and prints the schema document itself (not wrapped in the report envelope). Report, `events-line` and `machine-export` schemas embed the shared definitions under `$defs`, so the printed file compiles on its own in any JSON Schema 2020-12 validator.
+
+## Machine export
+
+```bash
+llm-usage machine export > usage.ndjson
+```
+
+`machine export` prints the events this machine's reports count, so another machine can combine them into its own reports. It refreshes the local event store the way a report does and needs it enabled. The output is NDJSON with one object per line, each validated by [machine-export.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/machine-export.v1.schema.json):
+
+- a `header` line with the bundle `format`, its `version` (1), the exporting CLI version and host name
+- a `file` line per counted file, with its `source`, `filePath`, an opaque `revision` and its `events` (the same objects as `events --format jsonl`, but unpriced: `costUsd` is present only when the source recorded the cost)
+- an `end` line listing every counted file as `[source, filePath, revision]`, plus the total `eventCount`
+
+A bundle without its `end` line is incomplete. `--known <path>` (or `-` for stdin) takes `{"version":1,"files":[[source, filePath, revision], ...]}`, usually the `files` of a previous `end` line, and leaves out the events of files listed at the same revision. A file that a reader holds but the `end` line no longer lists is no longer counted.
 
 ## Markdown
 

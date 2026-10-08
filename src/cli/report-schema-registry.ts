@@ -1,5 +1,6 @@
 import configSchema from '../../schema/config.schema.json' with { type: 'json' };
 import eventsLineSchema from '../../schema/events-line.v1.schema.json' with { type: 'json' };
+import machineExportSchema from '../../schema/machine-export.v1.schema.json' with { type: 'json' };
 import commonSchema from '../../schema/report-common.v1.schema.json' with { type: 'json' };
 import compareSchema from '../../schema/report-compare.v1.schema.json' with { type: 'json' };
 import doctorSchema from '../../schema/report-doctor.v1.schema.json' with { type: 'json' };
@@ -37,5 +38,13 @@ export const reportSchemas: Record<string, unknown> = {
 export const schemaDocuments: Record<string, unknown> = {
   ...reportSchemas,
   'events-line': bundleCommonDefinitions(eventsLineSchema),
+  // Its events are events-line objects, so both resources are embedded.
+  'machine-export': {
+    ...machineExportSchema,
+    $defs: {
+      ...machineExportSchema.$defs,
+      'events-line.v1': bundleCommonDefinitions(eventsLineSchema),
+    },
+  },
   config: configSchema,
 };

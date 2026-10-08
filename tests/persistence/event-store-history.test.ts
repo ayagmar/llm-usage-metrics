@@ -219,6 +219,7 @@ function referenceHistory(store: EventStore, source: string) {
 
   return {
     events,
+    servedFiles: servedFiles.map(({ source, filePath }) => ({ source, filePath })),
     departedFileCount: files.length,
     servedFileCount: servedFiles.length,
     suppressedFileCount,
@@ -246,6 +247,7 @@ describe('event-store history', () => {
         servedEventCount: 1,
       });
       expect(result.events).toEqual([deletedEvent]);
+      expect(result.servedFiles).toEqual([{ source: 'codex', filePath: '/tmp/deleted.jsonl' }]);
     } finally {
       closeEventStore(store);
     }
@@ -297,6 +299,7 @@ describe('event-store history', () => {
 
       expect(result).toEqual({
         events: [],
+        servedFiles: [],
         departedFileCount: 1,
         servedFileCount: 0,
         suppressedFileCount: 1,
@@ -390,6 +393,7 @@ describe('event-store history', () => {
 
       expect(result).toEqual({
         events: [firstCopyEvent],
+        servedFiles: [{ source: 'codex', filePath: '/tmp/copy-a.jsonl' }],
         departedFileCount: 2,
         servedFileCount: 1,
         suppressedFileCount: 1,
@@ -496,6 +500,7 @@ describe('event-store history', () => {
 
       expect(result).toEqual({
         events: [sharedDeletedEvent, uniqueDeletedEvent],
+        servedFiles: [{ source: 'codex', filePath: '/tmp/deleted.jsonl' }],
         departedFileCount: 1,
         servedFileCount: 1,
         suppressedFileCount: 0,
@@ -523,6 +528,7 @@ describe('event-store history', () => {
 
       expect(result).toEqual({
         events: [],
+        servedFiles: [],
         departedFileCount: 0,
         servedFileCount: 0,
         suppressedFileCount: 0,
@@ -587,6 +593,7 @@ describe('event-store history', () => {
 
       expect(result).toEqual({
         events: [deletedEvent],
+        servedFiles: [{ source: 'codex', filePath: '/tmp/deleted.jsonl' }],
         departedFileCount: 1,
         servedFileCount: 1,
         suppressedFileCount: 0,
@@ -764,6 +771,7 @@ describe('event-store history', () => {
 
       expect(result).toEqual({
         events: reference.events,
+        servedFiles: reference.servedFiles,
         departedFileCount: servedCount,
         servedFileCount: servedCount,
         suppressedFileCount: 0,
@@ -844,6 +852,7 @@ describe('event-store history', () => {
       expect(emptyFile?.suppressed).toBe(true);
       expect(result).toEqual({
         events: [createEvent({ sessionId: 'full', inputTokens: 400, totalTokens: 405 })],
+        servedFiles: [{ source: 'codex', filePath: '/tmp/full.jsonl' }],
         departedFileCount: 2,
         servedFileCount: 1,
         suppressedFileCount: 1,

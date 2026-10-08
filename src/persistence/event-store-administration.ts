@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { chmod, link, open, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -79,6 +79,12 @@ export type EventStoreSummary = {
 export type EventStoreStoredFile = {
   source: string;
   filePath: string;
+};
+
+export type EventStoreFileSnapshot = EventStoreStoredFile & {
+  /** A digest of `events`: it changes exactly when they do. */
+  revision: string;
+  events: UsageEvent[];
 };
 
 function normalizeStoreSource(source: string): string {
@@ -564,6 +570,40 @@ export function readDepartedFileEvents(
   }
 
   return events;
+}
+
+/**
+ * Reads the stored events of `files` in one read transaction, so a concurrent run that
+ * rewrites a file cannot be seen half-written. A file's revision is a digest of the
+ * events read, so it changes exactly when they do. Invalid rows are skipped, as for
+ * history; a file the store does not hold has no events.
+ */
+export function readStoredFileSnapshots(
+  store: EventStore,
+  files: readonly EventStoreStoredFile[],
+): EventStoreFileSnapshot[] {
+  const snapshots: EventStoreFileSnapshot[] = [];
+
+  store.database.exec('BEGIN');
+
+  try {
+    for (const file of files) {
+      const source = normalizeStoreSource(file.source);
+      const filePath = normalizeStoreFilePath(file.filePath);
+      const events = readDepartedFileEvents(store, source, filePath);
+
+      snapshots.push({
+        source,
+        filePath,
+        revision: createHash('sha256').update(JSON.stringify(events)).digest('hex').slice(0, 16),
+        events,
+      });
+    }
+  } finally {
+    store.database.exec('COMMIT');
+  }
+
+  return snapshots;
 }
 
 function countMatchingRows(

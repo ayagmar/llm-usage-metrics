@@ -31,6 +31,7 @@ Commands:
 - `doctor`
 - `prune`
 - `config <init|show|path>`
+- `machine <export>`
 - `schema`
 - `completion`
 
@@ -1128,6 +1129,38 @@ Options:
 </details>
 
 <details>
+<summary>llm-usage machine &lt;export&gt;</summary>
+
+```text
+Usage: llm-usage machine [options] [command]
+
+Combine usage from your other machines
+
+Options:
+  -h, --help        display help for command
+
+Commands:
+  export [options]  Print the usage this machine's reports count, as a versioned
+                    NDJSON bundle that machine sync reads
+  help [command]    display help for command
+
+Usage: llm-usage machine export [options]
+
+Print the usage this machine's reports count, as a versioned NDJSON bundle that
+machine sync reads
+
+Options:
+  --known <path>  Leave out files already held at the same revision, as listed
+                  in this JSON file (- for stdin)
+  --quiet         Suppress informational stderr output (warnings still print)
+  --verbose       Print detailed diagnostics on stderr (per-source counts,
+                  routine skips, config, env)
+  -h, --help      display help for command
+```
+
+</details>
+
+<details>
 <summary>llm-usage schema</summary>
 
 ```text
@@ -1137,7 +1170,8 @@ Print a bundled report JSON Schema
 
 Arguments:
   name        Schema name: compare, config, doctor, efficiency, events-line,
-              optimize, prune, session, summary, trends, usage, wrapped
+              machine-export, optimize, prune, session, summary, trends, usage,
+              wrapped
 
 Options:
   --list      List available schema names
@@ -1197,6 +1231,7 @@ Search across root and command help. See Command help above to check which flags
 | `--json` | - | - | Render output as JSON |
 | `--kilocode-dir` | - | `<path>` | Path to KiloCode tasks directory \(repeatable\) |
 | `--kimi-dir` | - | `<path>` | Path to Kimi sessions directory \(repeatable\) |
+| `--known` | - | `<path>` | Leave out files already held at the same revision, as listed in this JSON file \(- for stdin\) \(machine only\) |
 | `--list` | - | - | List available schema names \(schema only\) |
 | `--markdown` | - | - | Render output as Markdown table \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped only\) |
 | `--metric` | - | `<name>` | Trend metric: cost \| tokens \| active-hours \(default: "cost"\) \(trends only\) |
@@ -1211,7 +1246,7 @@ Search across root and command help. See Command help above to check which flags
 | `--pricing-overrides` | - | `<path>` | Path to a JSON file of per-model pricing overrides \(takes precedence over LiteLLM\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline only\) |
 | `--pricing-url` | - | `<url>` | Override LiteLLM pricing source URL \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline only\) |
 | `--provider` | - | `<name>` | Billing-provider filter \(normalized to billing entity; e.g. openai, anthropic, google, moonshot\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline only\) |
-| `--quiet` | - | - | Suppress informational stderr output \(warnings still print\) |
+| `--quiet` | - | - | Suppress informational stderr output \(warnings still print\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline, doctor, prune, machine only\) |
 | `--qwen-dir` | - | `<path>` | Path to Qwen projects directory \(repeatable\) |
 | `--repo-dir` | - | `<path>` | Path to repository for Git outcome metrics \(efficiency only\) |
 | `--roocode-dir` | - | `<path>` | Path to RooCode tasks directory \(repeatable\) |
@@ -1223,7 +1258,7 @@ Search across root and command help. See Command help above to check which flags
 | `--timezone` | - | `<iana>` | Timezone for bucketing \(default: system timezone\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline only\) |
 | `--top` | - | `<n>` | optimize: Show only the top N cheapest candidates \(positive integer\); session: Show only the top N rows by cost \(default 20; 0 shows all\) |
 | `--until` | - | `<YYYY-MM-DD>` | Inclusive end date filter \(daily, weekly, monthly, compare, efficiency, optimize, trends, session, events only\) |
-| `--verbose` | - | - | Print detailed diagnostics on stderr \(per-source counts, routine skips, config, env\) |
+| `--verbose` | - | - | Print detailed diagnostics on stderr \(per-source counts, routine skips, config, env\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline, doctor, prune, machine only\) |
 | `--vs-since` | - | `<date>` | Inclusive start date for the baseline comparison window \(compare only\) |
 | `--vs-until` | - | `<date>` | Inclusive end date for the baseline comparison window \(compare only\) |
 | `--year` | - | `<YYYY>` | Year to recap \(2020-2100; defaults to current local year\) \(wrapped only\) |
