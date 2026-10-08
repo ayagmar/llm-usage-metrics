@@ -59,7 +59,8 @@ A report pointed at a custom directory (`--claude-dir`, `--source-dir`) counts o
 - `llm-usage sync` runs `llm-usage machine export` on each machine over ssh. The machine refreshes its own [event store](/llm-usage-metrics/caching/) and sends only the files that changed since the last fetch, in a [versioned format](/llm-usage-metrics/output-formats/#machine-export).
 - What it sends is what that machine's own reports count, history included, for the sources its own config selects. Costs are calculated here, with this machine's pricing.
 - Each machine's usage is kept in its own file, `machines/<name>.db`, next to this machine's event store; your own ledger never mixes with it. A failed fetch keeps the previous copy, and `machine list` shows the error.
-- The same session can reach several machines (a copied `~/.claude`, a synced or shared home directory). An event already counted, from this machine or one added before, is counted once. A session continued on another machine keeps its new turns.
+- The same session can reach several machines (a copied `~/.claude`, a synced or shared home directory). An event already counted, from this machine or one added before, is counted once. A session continued on another machine keeps its new turns. This relies on both machines parsing logs the same way, so the `Machines:` note warns when another machine runs a different llm-usage-metrics version.
+- Repository paths are those of the machine the usage came from: `efficiency --repo-dir` and `session --by-repo` treat the same repository at another path as a different one.
 
 ## Manage machines
 

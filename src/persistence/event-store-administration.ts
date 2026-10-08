@@ -535,6 +535,7 @@ export async function readEventStoreEvents(
         '  cache_write_tokens, total_tokens, cost_usd, cost_mode',
         'FROM events',
         'WHERE timestamp >= ? AND timestamp < ?',
+        'ORDER BY source, file_path, event_index',
       ].join('\n'),
     );
     statement.setReturnArrays(true);

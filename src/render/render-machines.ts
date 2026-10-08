@@ -100,24 +100,44 @@ export function renderMachineList(entries: readonly MachineListEntry[], now: num
   );
 }
 
-function describeIncludedMachine(machine: MachineUsageSummary, now: number): string {
+function describeIncludedMachine(
+  machine: MachineUsageSummary,
+  now: number,
+  localVersion: string,
+): string {
   const { state } = machine;
 
   if (state?.syncedAt === undefined) {
     return `${machine.name} (never synced; run llm-usage sync ${machine.name})`;
   }
 
-  const failed = state.lastError !== undefined && (state.attemptedAt ?? 0) > state.syncedAt;
-  return `${machine.name} (synced ${formatAge(now - state.syncedAt)}${failed ? ', last sync failed' : ''})`;
+  const details = [`synced ${formatAge(now - state.syncedAt)}`];
+
+  if (state.lastError !== undefined && (state.attemptedAt ?? 0) > state.syncedAt) {
+    details.push('last sync failed');
+  }
+
+  // Parsers change between versions, so a session copied to both machines may not match.
+  if (state.cliVersion && state.cliVersion !== localVersion) {
+    details.push(
+      `llm-usage-metrics ${state.cliVersion} there; shared sessions may count twice until both run the same version`,
+    );
+  }
+
+  return `${machine.name} (${details.join(', ')})`;
 }
 
 /** The stderr note of a report that counts other machines' usage. */
-export function formatMachinesNote(machines: readonly MachineUsageSummary[], now: number): string {
+export function formatMachinesNote(
+  machines: readonly MachineUsageSummary[],
+  now: number,
+  localVersion: string,
+): string {
   const duplicateCount = machines.reduce((sum, machine) => sum + machine.duplicateCount, 0);
   const duplicates =
     duplicateCount > 0
       ? `; left out ${integerFormat.format(duplicateCount)} event(s) already counted`
       : '';
 
-  return `Machines: ${machines.map((machine) => describeIncludedMachine(machine, now)).join(', ')}${duplicates}.`;
+  return `Machines: ${machines.map((machine) => describeIncludedMachine(machine, now, localVersion)).join(', ')}${duplicates}.`;
 }

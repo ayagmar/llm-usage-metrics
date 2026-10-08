@@ -33,6 +33,7 @@ import {
 import { filterParsedAdapterEvents } from './parse/usage-event-filters.js';
 import { loadMachineUsage, selectMachines } from '../machines/load-machine-usage.js';
 import { formatMachinesNote } from '../render/render-machines.js';
+import { loadPackageMetadataFromRuntime } from './package-metadata.js';
 import {
   resolveAndApplyPricingToEvents,
   resolvePricingSource,
@@ -187,6 +188,10 @@ export async function buildUsageEventDataset(
   // History is on by default; only an explicit --history fails when it cannot be honored.
   const historyRequested = configuredOptions.history === true;
   const cliDirectorySourceIds = resolveCliDirectorySourceIds(userConfigResolution.cliOptions);
+  // Before parsing, so a mistyped --machine fails fast.
+  const machineSelection = selectMachines(config.machines, normalizedInputs.machineFilter, {
+    customSourceDirectories: cliDirectorySourceIds.size > 0,
+  });
   const includeHistory = configuredOptions.history !== false;
 
   if (historyRequested && !eventStoreRuntimeConfig.enabled) {
@@ -328,9 +333,6 @@ export async function buildUsageEventDataset(
       }
     }
 
-    const machineSelection = selectMachines(config.machines, normalizedInputs.machineFilter, {
-      customSourceDirectories: cliDirectorySourceIds.size > 0,
-    });
     const machineWarnings: string[] = [];
     const machineNotes: string[] = [];
 
@@ -356,7 +358,13 @@ export async function buildUsageEventDataset(
       );
       parseResultsForFiltering = appendMachineEvents(parseResultsForFiltering, machineUsage.events);
       machineWarnings.push(...machineUsage.warnings);
-      machineNotes.push(formatMachinesNote(machineUsage.machines, Date.now()));
+      machineNotes.push(
+        formatMachinesNote(
+          machineUsage.machines,
+          (deps.now?.() ?? new Date()).getTime(),
+          loadPackageMetadataFromRuntime().packageVersion,
+        ),
+      );
     }
 
     const filteredEvents = measureRuntimeProfileStageSync(

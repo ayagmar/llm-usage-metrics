@@ -56,8 +56,11 @@ export function getMachineCachePath(name: string): string {
   return path.join(getMachineCacheDirectory(), `${name}.db`);
 }
 
-export function openMachineCache(name: string): Promise<EventStore> {
-  return openEventStore(getMachineCachePath(name));
+/** Reports read a cache by date window, which this index serves. */
+export async function openMachineCache(name: string): Promise<EventStore> {
+  const cache = await openEventStore(getMachineCachePath(name));
+  cache.database.exec('CREATE INDEX IF NOT EXISTS machine_events_timestamp ON events (timestamp)');
+  return cache;
 }
 
 export async function deleteMachineCache(name: string): Promise<void> {

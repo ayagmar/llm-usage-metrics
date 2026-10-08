@@ -141,7 +141,12 @@ function formatSummaryLine(diagnostics: UsageDiagnostics, totalFiles: number): s
   const fileCounts = sourcesWithFiles
     .map((session) => `${session.source} ${integerFormatter.format(session.filesFound)}`)
     .join(', ');
-  const parts = [`Scanned ${pluralize(totalFiles, 'file')}${fileCounts ? ` (${fileCounts})` : ''}`];
+  // Only other machines' usage: nothing was scanned here.
+  const parts = [
+    totalFiles === 0
+      ? 'Scanned no local files'
+      : `Scanned ${pluralize(totalFiles, 'file')} (${fileCounts})`,
+  ];
   const pricingLabel = pricingLabels[diagnostics.pricingOrigin];
 
   if (pricingLabel) {
