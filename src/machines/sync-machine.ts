@@ -88,9 +88,13 @@ export async function syncMachine(
 
     let state: MachineSyncState = {};
 
-    // A busy or broken cache cannot record the failure; the outcome still reports it.
+    // A busy or broken cache cannot record the failure; the outcome still reports it. A
+    // sync stopped on purpose did not fail, so it records nothing.
     try {
-      recordMachineSyncFailure(cache, reason, now());
+      if (!options.signal?.aborted) {
+        recordMachineSyncFailure(cache, reason, now());
+      }
+
       state = readMachineSyncState(cache);
     } catch {
       // Nothing more to report than the failure itself.

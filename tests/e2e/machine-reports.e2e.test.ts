@@ -8,6 +8,7 @@ import { buildUsageEventDataset } from '../../src/cli/build-usage-event-dataset.
 import { runMachineExport } from '../../src/cli/run-machine-export.js';
 import { buildStatusline } from '../../src/cli/run-statusline.js';
 import type { MachineExportLine } from '../../src/machines/machine-export-bundle.js';
+import { readMachineCacheStatus } from '../../src/machines/machine-cache.js';
 import { refreshDueMachines } from '../../src/machines/refresh-machines.js';
 import { syncMachine } from '../../src/machines/sync-machine.js';
 import { formatRefreshFailure } from '../../src/render/render-machines.js';
@@ -167,8 +168,10 @@ describe('reports refreshing other machines', () => {
         { spawnSsh: hanging.spawnSsh, now: later },
       ),
     ).rejects.toThrow('codex');
-    await vi.waitFor(() => {
+    await vi.waitFor(async () => {
       expect(hanging.killed).toHaveLength(1);
+      // Stopped on purpose: not recorded as a failed sync.
+      expect((await readMachineCacheStatus('laptop'))?.state.lastError).toBeUndefined();
     });
   });
 
