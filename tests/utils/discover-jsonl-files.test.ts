@@ -40,11 +40,13 @@ describe('discoverJsonlFiles', () => {
     expect(discoveredFiles).toEqual([alphaFile, alphaNestedFile, betaFile]);
   });
 
-  itWhenUnix('sorts file names by code point for locale-independent ordering', async () => {
+  it('sorts file names by code point for locale-independent ordering', async () => {
     const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'discover-jsonl-code-point-'));
     tempDirs.push(rootDir);
 
-    const upperFile = path.join(rootDir, 'A.jsonl');
+    // B (66) sorts before a (97) by code point but after it in locale order; unlike A/a,
+    // the two names stay distinct on case-insensitive filesystems (macOS, Windows).
+    const upperFile = path.join(rootDir, 'B.jsonl');
     const lowerFile = path.join(rootDir, 'a.jsonl');
 
     await writeFile(lowerFile, '{}\n', 'utf8');
