@@ -78,6 +78,14 @@ ${sourceDirTemplate}
 # skipCheck = false
 # cacheTtlMs = ${UPDATE_CACHE_TTL_DEFAULT_MS}
 # fetchTimeoutMs = ${UPDATE_FETCH_TIMEOUT_DEFAULT_MS}
+
+# Other machines to sync usage from over ssh; each needs llm-usage-metrics
+# installed and ssh login without a prompt. \`llm-usage machine add\` checks
+# the connection and writes the table for you.
+# [machines.laptop]
+# ssh = "me@laptop.local"
+# command = "llm-usage"
+# enabled = true
 `;
 
 function isExistingFileError(error: unknown): boolean {

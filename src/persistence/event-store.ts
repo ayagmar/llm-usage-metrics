@@ -6,8 +6,10 @@ export {
   findLegacyEventStore,
   getLegacyEventStorePath,
   getFileEntry,
+  listStoredFileFingerprints,
   openEventStore,
   readDepartedFileEvents,
+  readEventStoreMeta,
   readEventStoreStoredFiles,
   readEventStoreSummary,
   readFileEvents,
@@ -16,6 +18,7 @@ export {
   replaceFilesEvents,
   serializeEventStoreFingerprint,
   vacuumEventStore,
+  writeEventStoreMeta,
   type DeleteStoredFilesInput,
   type DeleteStoredFilesResult,
   type EventStoreDependencyFingerprint,
@@ -27,7 +30,11 @@ export {
   type ReplaceFileEventsInput,
 } from './event-store-administration.js';
 export { computeEventContentHash, normalizeStoredEvent } from './event-store-codec.js';
-export { type EventStore, type LoadEventStoreSqliteModule } from './event-store-database.js';
+export {
+  runTransaction,
+  type EventStore,
+  type LoadEventStoreSqliteModule,
+} from './event-store-database.js';
 export {
   EVENT_STORE_SCHEMA_VERSION,
   EventStoreSchemaVersionError,

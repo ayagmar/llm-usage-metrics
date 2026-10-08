@@ -50,6 +50,7 @@ export const USER_CONFIG_SOURCE_DIR_KEYS = [
 const knownTopLevelKeys = [
   'eventStore',
   'logLevel',
+  'machines',
   'monthlyBudgetUsd',
   'parseMaxParallel',
   'parseWorkerMinBytes',
@@ -71,12 +72,14 @@ const knownPricingKeys = [
 ] as const;
 const knownEventStoreKeys = ['enabled', 'path'] as const;
 const knownUpdateKeys = ['cacheTtlMs', 'fetchTimeoutMs', 'skipCheck'] as const;
+const knownMachineKeys = ['command', 'enabled', 'ssh'] as const;
 
 export const USER_CONFIG_KNOWN_KEY_PATHS = [
   ...knownTopLevelKeys,
   ...knownPricingKeys.map((key) => `pricing.${key}`),
   ...knownEventStoreKeys.map((key) => `eventStore.${key}`),
   ...knownUpdateKeys.map((key) => `update.${key}`),
+  ...knownMachineKeys.map((key) => `machines.<name>.${key}`),
   ...USER_CONFIG_SOURCE_DIR_KEYS.map((key) => `sourceDirs.${key}`),
 ] as const;
 
@@ -84,6 +87,34 @@ const knownTopLevelKeySet = new Set<string>(knownTopLevelKeys);
 const knownPricingKeySet = new Set<string>(knownPricingKeys);
 const knownEventStoreKeySet = new Set<string>(knownEventStoreKeys);
 const knownUpdateKeySet = new Set<string>(knownUpdateKeys);
+const knownMachineKeySet = new Set<string>(knownMachineKeys);
+
+/** `local` names this machine in `--machine` filters. */
+export const LOCAL_MACHINE_NAME = 'local';
+const MACHINE_NAME_PATTERN = /^[a-z0-9][a-z0-9-]{0,31}$/u;
+
+export function isValidMachineName(name: string): boolean {
+  return MACHINE_NAME_PATTERN.test(name) && name !== LOCAL_MACHINE_NAME;
+}
+
+/**
+ * An ssh destination (`host`, `user@host`, an ssh_config alias or `ssh://` URI). A
+ * leading `-` would be read as an ssh option, and whitespace or control characters
+ * never belong in one.
+ */
+export function isValidSshTarget(target: string): boolean {
+  // eslint-disable-next-line no-control-regex -- control characters are what this rejects
+  return target.length > 0 && !target.startsWith('-') && !/[\s\u0000-\u001F\u007F]/u.test(target);
+}
+
+export type MachineConfig = {
+  /** The ssh destination. */
+  ssh: string;
+  /** How the CLI is launched on that machine; defaults to `llm-usage`. */
+  command?: string;
+  /** `false` keeps the machine's cached usage but stops syncing it. */
+  enabled?: boolean;
+};
 const sourceDirKeySet = new Set<string>(USER_CONFIG_SOURCE_DIR_KEYS);
 
 export type UserConfig = {
@@ -114,6 +145,8 @@ export type UserConfig = {
     cacheTtlMs?: number;
     fetchTimeoutMs?: number;
   };
+  /** Other machines whose usage reports include, by name. */
+  machines?: Record<string, MachineConfig>;
 };
 
 export type LoadedUserConfig = {
@@ -538,6 +571,83 @@ function readUpdateConfig(
   return Object.keys(update).length === 0 ? undefined : update;
 }
 
+function readMachinesConfig(
+  context: ConfigReadContext,
+  value: unknown,
+): UserConfig['machines'] | undefined {
+  const record = readTable(context, 'machines', value);
+
+  if (!record) {
+    return undefined;
+  }
+
+  const machines: Record<string, MachineConfig> = {};
+
+  for (const [name, machineValue] of Object.entries(record)) {
+    const keyPath = `machines.${name}`;
+
+    if (!isValidMachineName(name)) {
+      context.warnings.push(
+        `Ignoring ${keyPath}: a machine name is 1-32 lowercase letters, digits or dashes, and not "${LOCAL_MACHINE_NAME}"`,
+      );
+      continue;
+    }
+
+    const machineRecord = readTable(context, keyPath, machineValue);
+
+    if (!machineRecord) {
+      continue;
+    }
+
+    const ssh = readKey(
+      context,
+      `${keyPath}.ssh`,
+      machineRecord.ssh,
+      (target) => {
+        const text = toNonBlankString(target);
+        return text !== undefined && isValidSshTarget(text) ? text : undefined;
+      },
+      'an ssh destination such as "user@host" (no spaces, not starting with -)',
+    );
+
+    if (ssh === undefined) {
+      if (isUnset(machineRecord.ssh)) {
+        context.warnings.push(`Ignoring ${keyPath}: set ssh = "user@host"`);
+      }
+
+      continue;
+    }
+
+    const machine: MachineConfig = { ssh };
+    const command = readKey(
+      context,
+      `${keyPath}.command`,
+      machineRecord.command,
+      toNonBlankString,
+      'a non-empty command',
+    );
+    const enabled = readKey(
+      context,
+      `${keyPath}.enabled`,
+      machineRecord.enabled,
+      toBoolean,
+      'true or false',
+    );
+
+    if (command !== undefined) {
+      machine.command = command;
+    }
+
+    if (enabled !== undefined) {
+      machine.enabled = enabled;
+    }
+
+    machines[name] = machine;
+  }
+
+  return Object.keys(machines).length === 0 ? undefined : machines;
+}
+
 function readParseWorkers(value: unknown): UserConfig['parseWorkers'] | undefined {
   if (value === 'auto') {
     return 'auto';
@@ -595,6 +705,7 @@ function readConfig(context: ConfigReadContext, root: Record<string, unknown>): 
     PARSE_WORKER_MIN_BYTES_MAX,
   );
   const update = readUpdateConfig(context, root.update);
+  const machines = readMachinesConfig(context, root.machines);
 
   if (timezone !== undefined) {
     config.timezone = timezone;
@@ -640,6 +751,10 @@ function readConfig(context: ConfigReadContext, root: Record<string, unknown>): 
     config.update = update;
   }
 
+  if (machines !== undefined) {
+    config.machines = machines;
+  }
+
   return config;
 }
 
@@ -649,6 +764,16 @@ function collectUnknownKeyWarnings(root: Record<string, unknown>): string[] {
   pushUnknownNestedKeys(unknownKeys, root, 'eventStore', knownEventStoreKeySet);
   pushUnknownNestedKeys(unknownKeys, root, 'update', knownUpdateKeySet);
   pushUnknownNestedKeys(unknownKeys, root, 'sourceDirs', sourceDirKeySet);
+
+  for (const [name, machine] of Object.entries(asRecord(root.machines) ?? {})) {
+    const machineRecord = asRecord(machine);
+
+    if (machineRecord) {
+      unknownKeys.push(
+        ...collectUnknownKeys(machineRecord, knownMachineKeySet, `machines.${name}.`),
+      );
+    }
+  }
 
   const unknownKeyWarning = formatUnknownKeyWarning(unknownKeys);
   return unknownKeyWarning === undefined ? [] : [unknownKeyWarning];
