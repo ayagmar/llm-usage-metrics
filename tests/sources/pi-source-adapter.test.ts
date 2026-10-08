@@ -1,5 +1,4 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -8,6 +7,7 @@ import {
   getDefaultPiSessionsDir,
   PiSourceAdapter,
 } from '../../src/sources/pi/pi-source-adapter.js';
+import { canonicalTmpdir } from '../helpers/tmp.js';
 
 const tempDirs: string[] = [];
 
@@ -18,7 +18,7 @@ afterEach(async () => {
 
 describe('PiSourceAdapter', () => {
   it('discovers jsonl files recursively in deterministic order', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-adapter-'));
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-adapter-'));
     tempDirs.push(root);
 
     const nested = path.join(root, 'nested');
@@ -37,8 +37,8 @@ describe('PiSourceAdapter', () => {
   });
 
   it('scans all default roots and silently skips missing ones', async () => {
-    const piRoot = await mkdtemp(path.join(os.tmpdir(), 'pi-default-root-'));
-    const ompRoot = await mkdtemp(path.join(os.tmpdir(), 'omp-default-root-'));
+    const piRoot = await mkdtemp(path.join(canonicalTmpdir(), 'pi-default-root-'));
+    const ompRoot = await mkdtemp(path.join(canonicalTmpdir(), 'omp-default-root-'));
     tempDirs.push(piRoot, ompRoot);
 
     const piFile = path.join(piRoot, 'a.jsonl');
@@ -60,8 +60,8 @@ describe('PiSourceAdapter', () => {
   });
 
   it('scans only the explicit directory and errors when it is required but missing', async () => {
-    const piRoot = await mkdtemp(path.join(os.tmpdir(), 'pi-explicit-root-'));
-    const ompRoot = await mkdtemp(path.join(os.tmpdir(), 'omp-explicit-root-'));
+    const piRoot = await mkdtemp(path.join(canonicalTmpdir(), 'pi-explicit-root-'));
+    const ompRoot = await mkdtemp(path.join(canonicalTmpdir(), 'omp-explicit-root-'));
     tempDirs.push(piRoot, ompRoot);
 
     const piFile = path.join(piRoot, 'a.jsonl');
@@ -135,7 +135,7 @@ describe('PiSourceAdapter', () => {
   });
 
   it('falls back to message.usage when line-level usage is malformed or empty', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-message-usage-'));
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-message-usage-'));
     tempDirs.push(root);
 
     const filePath = path.join(root, 'session.jsonl');
@@ -195,7 +195,7 @@ describe('PiSourceAdapter', () => {
   });
 
   it('falls back to message timestamp when line timestamp is malformed', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-malformed-line-timestamp-'));
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-malformed-line-timestamp-'));
     tempDirs.push(root);
 
     const filePath = path.join(root, 'session.jsonl');
@@ -232,7 +232,7 @@ describe('PiSourceAdapter', () => {
   });
 
   it('supports unix-second timestamps in message events', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-unix-seconds-'));
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-unix-seconds-'));
     tempDirs.push(root);
 
     const filePath = path.join(root, 'session.jsonl');
@@ -266,7 +266,7 @@ describe('PiSourceAdapter', () => {
   });
 
   it('supports numeric-string epoch timestamps in message events', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-epoch-string-'));
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-epoch-string-'));
     tempDirs.push(root);
 
     const filePath = path.join(root, 'session.jsonl');
@@ -300,7 +300,7 @@ describe('PiSourceAdapter', () => {
   });
 
   it('preserves total-only usage without inventing billable buckets', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-total-only-'));
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-total-only-'));
     tempDirs.push(root);
 
     const filePath = path.join(root, 'session.jsonl');
@@ -344,7 +344,7 @@ describe('PiSourceAdapter', () => {
   });
 
   it('treats millisecond timestamps as milliseconds (without multiplying by 1000)', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-unix-milliseconds-'));
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-unix-milliseconds-'));
     tempDirs.push(root);
 
     const filePath = path.join(root, 'session.jsonl');
@@ -378,7 +378,7 @@ describe('PiSourceAdapter', () => {
   });
 
   it('ignores out-of-range numeric timestamps instead of crashing', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-invalid-numeric-ts-'));
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-invalid-numeric-ts-'));
     tempDirs.push(root);
 
     const filePath = path.join(root, 'session.jsonl');
@@ -411,7 +411,7 @@ describe('PiSourceAdapter', () => {
   });
 
   it('skips message entries that only carry zero usage and zero cost', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-zero-usage-'));
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-zero-usage-'));
     tempDirs.push(root);
 
     const filePath = path.join(root, 'session.jsonl');
@@ -448,7 +448,7 @@ describe('PiSourceAdapter', () => {
   });
 
   it('counts a skip when a usage record exists but carries no positive signal', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-skip-no-usage-'));
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-skip-no-usage-'));
     tempDirs.push(root);
 
     const filePath = path.join(root, 'session.jsonl');
@@ -483,7 +483,7 @@ describe('PiSourceAdapter', () => {
   });
 
   it('counts a skip when usage is valid but no timestamp can be resolved', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-skip-invalid-ts-'));
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-skip-invalid-ts-'));
     tempDirs.push(root);
 
     const filePath = path.join(root, 'session.jsonl');
@@ -518,7 +518,7 @@ describe('PiSourceAdapter', () => {
   });
 
   it('does not count user messages without any usage record as skips', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-no-skip-user-message-'));
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-no-skip-user-message-'));
     tempDirs.push(root);
 
     const filePath = path.join(root, 'session.jsonl');
@@ -552,7 +552,7 @@ describe('PiSourceAdapter', () => {
   });
 
   it('skips parent entries copied into a forked session', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-fork-'));
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-fork-'));
     tempDirs.push(root);
 
     const usageRow = (id: string, timestamp: string) =>
@@ -622,7 +622,7 @@ describe('PiSourceAdapter', () => {
   });
 
   it('reports malformed JSONL lines that pass its prefilter', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-malformed-jsonl-'));
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-malformed-jsonl-'));
     tempDirs.push(root);
     const filePath = path.join(root, 'session.jsonl');
 
@@ -637,7 +637,7 @@ describe('PiSourceAdapter', () => {
   });
 
   it('keeps cost-only usage entries when explicit non-zero cost exists', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'pi-source-cost-only-'));
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-cost-only-'));
     tempDirs.push(root);
 
     const filePath = path.join(root, 'session.jsonl');
@@ -682,7 +682,7 @@ describe('pi source helpers', () => {
   });
 
   it('keeps reasoning inside the total when usage declares no total', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'pi-reasoning-total-'));
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-reasoning-total-'));
     tempDirs.push(root);
     const filePath = path.join(root, 'reasoning.jsonl');
     await writeFile(

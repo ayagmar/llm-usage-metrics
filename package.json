@@ -5,10 +5,11 @@
   "type": "module",
   "packageManager": "pnpm@12.9.1",
   "engines": {
-    "node": ">=24"
+    "node": ">=22.16 <23 || >=24"
   },
   "bin": {
-    "llm-usage": "dist/index.js"
+    "llm-usage": "dist/index.js",
+    "llm-usage-metrics": "dist/index.js"
   },
   "files": [
     "dist/index.js",

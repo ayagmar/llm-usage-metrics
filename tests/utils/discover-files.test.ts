@@ -1,10 +1,10 @@
 import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { discoverFiles } from '../../src/utils/discover-files.js';
+import { canonicalTmpdir } from '../helpers/tmp.js';
 
 const tempDirs: string[] = [];
 
@@ -15,7 +15,7 @@ afterEach(async () => {
 
 describe('discoverFiles', () => {
   it('recursively discovers files by extension in deterministic order', async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'discover-files-'));
+    const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'discover-files-'));
     tempDirs.push(rootDir);
 
     const alphaDir = path.join(rootDir, 'alpha');
@@ -42,7 +42,7 @@ describe('discoverFiles', () => {
   });
 
   it('supports non-recursive discovery', async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'discover-files-flat-'));
+    const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'discover-files-flat-'));
     tempDirs.push(rootDir);
 
     const nestedDir = path.join(rootDir, 'nested');
@@ -60,13 +60,13 @@ describe('discoverFiles', () => {
   });
 
   it('returns empty array for missing roots', async () => {
-    const missingDir = path.join(os.tmpdir(), `discover-files-missing-${Date.now()}`);
+    const missingDir = path.join(canonicalTmpdir(), `discover-files-missing-${Date.now()}`);
 
     await expect(discoverFiles(missingDir, { extension: '.json' })).resolves.toEqual([]);
   });
 
   it('validates extension option', async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'discover-files-ext-'));
+    const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'discover-files-ext-'));
     tempDirs.push(rootDir);
 
     await expect(discoverFiles(rootDir, { extension: '' })).rejects.toThrow(
@@ -82,10 +82,12 @@ describe('discoverFiles', () => {
   itIfSymlinksSupported(
     'discovers matching files through symlinked files and directories as canonical paths',
     async () => {
-      const rootDir = await mkdtemp(path.join(os.tmpdir(), 'discover-files-symlink-root-'));
+      const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'discover-files-symlink-root-'));
       tempDirs.push(rootDir);
 
-      const targetDir = await mkdtemp(path.join(os.tmpdir(), 'discover-files-symlink-target-'));
+      const targetDir = await mkdtemp(
+        path.join(canonicalTmpdir(), 'discover-files-symlink-target-'),
+      );
       tempDirs.push(targetDir);
 
       const targetNestedDir = path.join(targetDir, 'nested');
@@ -110,7 +112,7 @@ describe('discoverFiles', () => {
   itIfSymlinksSupported(
     'deduplicates real and symlinked directory path families that share a target',
     async () => {
-      const rootDir = await mkdtemp(path.join(os.tmpdir(), 'discover-files-real-and-link-'));
+      const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'discover-files-real-and-link-'));
       tempDirs.push(rootDir);
 
       const realDir = path.join(rootDir, 'real');
@@ -132,7 +134,9 @@ describe('discoverFiles', () => {
   itIfSymlinksSupported(
     'matches symlinked files by the target extension and returns the canonical file',
     async () => {
-      const rootDir = await mkdtemp(path.join(os.tmpdir(), 'discover-files-extensionless-link-'));
+      const rootDir = await mkdtemp(
+        path.join(canonicalTmpdir(), 'discover-files-extensionless-link-'),
+      );
       tempDirs.push(rootDir);
 
       const targetFile = path.join(rootDir, 'target.json');
@@ -146,7 +150,7 @@ describe('discoverFiles', () => {
   );
 
   itIfSymlinksSupported('skips broken symlinks without failing discovery', async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'discover-files-broken-link-'));
+    const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'discover-files-broken-link-'));
     tempDirs.push(rootDir);
 
     const existingFile = path.join(rootDir, 'good.json');
@@ -159,7 +163,7 @@ describe('discoverFiles', () => {
   });
 
   itIfSymlinksSupported('skips self-referencing symlinks without failing discovery', async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'discover-files-self-link-'));
+    const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'discover-files-self-link-'));
     tempDirs.push(rootDir);
 
     const existingFile = path.join(rootDir, 'good.json');
@@ -172,7 +176,7 @@ describe('discoverFiles', () => {
   });
 
   itIfSymlinksSupported('avoids infinite recursion for symlink cycles', async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'discover-files-loop-'));
+    const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'discover-files-loop-'));
     tempDirs.push(rootDir);
 
     const nestedDir = path.join(rootDir, 'nested');

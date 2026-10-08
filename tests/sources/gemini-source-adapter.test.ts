@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, rm, symlink, truncate, writeFile } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -11,6 +10,7 @@ import {
   getDefaultGeminiDir,
 } from '../../src/sources/gemini/gemini-source-adapter.js';
 import { MAX_JSON_TRANSCRIPT_BYTES } from '../../src/sources/read-json-file.js';
+import { canonicalTmpdir } from '../helpers/tmp.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturesDir = path.join(__dirname, '..', 'fixtures', 'gemini');
@@ -49,7 +49,7 @@ describe('GeminiSourceAdapter', () => {
     });
 
     it('rethrows non-missing tmp directory errors', async () => {
-      const tempDir = await mkdtemp(path.join(os.tmpdir(), 'gemini-bad-tmp-'));
+      const tempDir = await mkdtemp(path.join(canonicalTmpdir(), 'gemini-bad-tmp-'));
       tempDirs.push(tempDir);
       await writeFile(path.join(tempDir, 'tmp'), 'not-a-directory', 'utf8');
 
@@ -59,7 +59,7 @@ describe('GeminiSourceAdapter', () => {
     });
 
     it('honors GEMINI_CLI_HOME for the default directory', async () => {
-      const geminiHome = await mkdtemp(path.join(os.tmpdir(), 'gemini-cli-home-'));
+      const geminiHome = await mkdtemp(path.join(canonicalTmpdir(), 'gemini-cli-home-'));
       tempDirs.push(geminiHome);
       const chatsDir = path.join(geminiHome, 'tmp', 'project-a', 'chats');
       await mkdir(chatsDir, { recursive: true });
@@ -109,7 +109,9 @@ describe('GeminiSourceAdapter', () => {
     });
 
     it('discovers sessions even when projects.json is not a record', async () => {
-      const geminiDir = await mkdtemp(path.join(os.tmpdir(), 'gemini-invalid-projects-root-'));
+      const geminiDir = await mkdtemp(
+        path.join(canonicalTmpdir(), 'gemini-invalid-projects-root-'),
+      );
       tempDirs.push(geminiDir);
 
       await mkdir(path.join(geminiDir, 'tmp', 'project-a', 'chats'), { recursive: true });
@@ -128,7 +130,7 @@ describe('GeminiSourceAdapter', () => {
     });
 
     it('ignores non-directory tmp entries during discovery', async () => {
-      const geminiDir = await mkdtemp(path.join(os.tmpdir(), 'gemini-tmp-file-entry-'));
+      const geminiDir = await mkdtemp(path.join(canonicalTmpdir(), 'gemini-tmp-file-entry-'));
       tempDirs.push(geminiDir);
 
       await mkdir(path.join(geminiDir, 'tmp'), { recursive: true });
@@ -144,11 +146,11 @@ describe('GeminiSourceAdapter', () => {
     itIfSymlinksSupported(
       'discovers session files inside symlinked tmp project directories',
       async () => {
-        const geminiDir = await mkdtemp(path.join(os.tmpdir(), 'gemini-symlink-project-'));
+        const geminiDir = await mkdtemp(path.join(canonicalTmpdir(), 'gemini-symlink-project-'));
         tempDirs.push(geminiDir);
 
         const externalProjectDir = await mkdtemp(
-          path.join(os.tmpdir(), 'gemini-external-project-'),
+          path.join(canonicalTmpdir(), 'gemini-external-project-'),
         );
         tempDirs.push(externalProjectDir);
 
@@ -211,7 +213,7 @@ describe('GeminiSourceAdapter', () => {
     });
 
     it('accepts numeric-string epoch timestamps in message payloads', async () => {
-      const tempDir = await mkdtemp(path.join(os.tmpdir(), 'gemini-epoch-string-'));
+      const tempDir = await mkdtemp(path.join(canonicalTmpdir(), 'gemini-epoch-string-'));
       tempDirs.push(tempDir);
       const filePath = path.join(tempDir, 'epoch-string.json');
 
@@ -253,7 +255,7 @@ describe('GeminiSourceAdapter', () => {
     });
 
     it('ignores missing projects payloads and malformed numeric token strings', async () => {
-      const geminiDir = await mkdtemp(path.join(os.tmpdir(), 'gemini-missing-projects-key-'));
+      const geminiDir = await mkdtemp(path.join(canonicalTmpdir(), 'gemini-missing-projects-key-'));
       tempDirs.push(geminiDir);
 
       const filePath = path.join(geminiDir, 'session.json');
@@ -296,7 +298,9 @@ describe('GeminiSourceAdapter', () => {
     });
 
     it('ignores non-record projects.json payloads during parse', async () => {
-      const geminiDir = await mkdtemp(path.join(os.tmpdir(), 'gemini-invalid-projects-parse-'));
+      const geminiDir = await mkdtemp(
+        path.join(canonicalTmpdir(), 'gemini-invalid-projects-parse-'),
+      );
       tempDirs.push(geminiDir);
 
       const filePath = path.join(geminiDir, 'session.json');
@@ -351,11 +355,11 @@ describe('GeminiSourceAdapter', () => {
     parseItIfSymlinksSupported(
       'resolves repoRoot from the real tmp directory identifier for symlinked projects',
       async () => {
-        const geminiDir = await mkdtemp(path.join(os.tmpdir(), 'gemini-symlink-parse-'));
+        const geminiDir = await mkdtemp(path.join(canonicalTmpdir(), 'gemini-symlink-parse-'));
         tempDirs.push(geminiDir);
 
         const externalProjectDir = await mkdtemp(
-          path.join(os.tmpdir(), 'gemini-real-project-identifier-'),
+          path.join(canonicalTmpdir(), 'gemini-real-project-identifier-'),
         );
         tempDirs.push(externalProjectDir);
 
@@ -456,7 +460,7 @@ describe('GeminiSourceAdapter', () => {
     });
 
     it('snapshots projects.json per adapter instance', async () => {
-      const tempDir = await mkdtemp(path.join(os.tmpdir(), 'gemini-project-mapping-'));
+      const tempDir = await mkdtemp(path.join(canonicalTmpdir(), 'gemini-project-mapping-'));
       tempDirs.push(tempDir);
 
       const sessionFilePath = path.join(tempDir, 'session-with-usage.json');
@@ -504,7 +508,7 @@ describe('GeminiSourceAdapter', () => {
     });
 
     it('maps the real projects.json layout by project hash and tmp directory name', async () => {
-      const tempDir = await mkdtemp(path.join(os.tmpdir(), 'gemini-real-projects-json-'));
+      const tempDir = await mkdtemp(path.join(canonicalTmpdir(), 'gemini-real-projects-json-'));
       tempDirs.push(tempDir);
       const session = JSON.parse(
         await readFile(path.join(fixturesDir, 'session-with-usage.json'), 'utf8'),
@@ -552,7 +556,7 @@ describe('GeminiSourceAdapter', () => {
     });
 
     it('rethrows non-missing projects.json errors', async () => {
-      const tempDir = await mkdtemp(path.join(os.tmpdir(), 'gemini-project-errors-'));
+      const tempDir = await mkdtemp(path.join(canonicalTmpdir(), 'gemini-project-errors-'));
       tempDirs.push(tempDir);
 
       const sessionFilePath = path.join(tempDir, 'session-with-usage.json');
@@ -608,7 +612,7 @@ describe('GeminiSourceAdapter', () => {
     });
 
     it('skips oversized session files instead of reading them', async () => {
-      const tempDir = await mkdtemp(path.join(os.tmpdir(), 'gemini-oversized-session-'));
+      const tempDir = await mkdtemp(path.join(canonicalTmpdir(), 'gemini-oversized-session-'));
       tempDirs.push(tempDir);
       const sessionPath = path.join(tempDir, 'huge-session.json');
       await writeFile(sessionPath, '{}', 'utf8');
@@ -633,7 +637,7 @@ describe('GeminiSourceAdapter', () => {
     });
 
     it('reports invalid message rows', async () => {
-      const tempDir = await mkdtemp(path.join(os.tmpdir(), 'gemini-invalid-message-'));
+      const tempDir = await mkdtemp(path.join(canonicalTmpdir(), 'gemini-invalid-message-'));
       tempDirs.push(tempDir);
       const filePath = path.join(tempDir, 'invalid-message.json');
       await writeFile(

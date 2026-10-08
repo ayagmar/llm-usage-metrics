@@ -10,6 +10,8 @@ import {
 } from '../../src/efficiency/git-outcome-collector.js';
 
 const marker = '\u001f';
+// collectGitOutcomes resolves repoDir, which adds a drive letter on Windows.
+const fakeRepoDir = path.resolve('/tmp/repo');
 
 describe('parseGitLogShortstatLines', () => {
   it('parses commit boundaries and shortstat lines', () => {
@@ -160,7 +162,7 @@ describe('collectGitOutcomes', () => {
 
     const result = await collectGitOutcomes(
       {
-        repoDir: '/tmp/repo',
+        repoDir: fakeRepoDir,
         granularity: 'daily',
         timezone: 'UTC',
         since: '2026-02-11',
@@ -229,7 +231,7 @@ describe('collectGitOutcomes', () => {
 
     await collectGitOutcomes(
       {
-        repoDir: '/tmp/repo',
+        repoDir: fakeRepoDir,
         granularity: 'daily',
         timezone: 'UTC',
         includeMergeCommits: true,
@@ -257,7 +259,7 @@ describe('collectGitOutcomes', () => {
     await expect(
       collectGitOutcomes(
         {
-          repoDir: '/tmp/repo',
+          repoDir: fakeRepoDir,
           granularity: 'daily',
           timezone: 'UTC',
         },
@@ -299,7 +301,7 @@ describe('collectGitOutcomes', () => {
     await expect(
       collectGitOutcomes(
         {
-          repoDir: '/tmp/repo',
+          repoDir: fakeRepoDir,
           granularity: 'daily',
           timezone: 'UTC',
         },
@@ -348,7 +350,7 @@ describe('collectGitOutcomes', () => {
     await expect(
       collectGitOutcomes(
         {
-          repoDir: '/tmp/repo',
+          repoDir: fakeRepoDir,
           granularity: 'daily',
           timezone: 'UTC',
         },
@@ -397,13 +399,13 @@ describe('collectGitOutcomes', () => {
     await expect(
       collectGitOutcomes(
         {
-          repoDir: '/tmp/repo',
+          repoDir: fakeRepoDir,
           granularity: 'daily',
           timezone: 'UTC',
         },
         { runGitCommand },
       ),
-    ).rejects.toThrow('Git user.email is not configured for /tmp/repo');
+    ).rejects.toThrow(`Git user.email is not configured for ${fakeRepoDir}`);
   });
 
   it('fails with git stderr when resolving user.email errors for unexpected exit codes', async () => {
@@ -421,14 +423,14 @@ describe('collectGitOutcomes', () => {
     await expect(
       collectGitOutcomes(
         {
-          repoDir: '/tmp/repo',
+          repoDir: fakeRepoDir,
           granularity: 'daily',
           timezone: 'UTC',
         },
         { runGitCommand },
       ),
     ).rejects.toThrow(
-      'Failed to resolve git user.email from /tmp/repo: fatal: unable to read config file',
+      `Failed to resolve git user.email from ${fakeRepoDir}: fatal: unable to read config file`,
     );
   });
 
@@ -457,13 +459,13 @@ describe('collectGitOutcomes', () => {
     await expect(
       collectGitOutcomes(
         {
-          repoDir: '/tmp/repo',
+          repoDir: fakeRepoDir,
           granularity: 'daily',
           timezone: 'UTC',
         },
         { runGitCommand },
       ),
-    ).rejects.toThrow('Git user.email is not configured for /tmp/repo');
+    ).rejects.toThrow(`Git user.email is not configured for ${fakeRepoDir}`);
   });
 
   it('includes fallback exit-code reason when git log fails without stderr', async () => {
@@ -491,13 +493,13 @@ describe('collectGitOutcomes', () => {
     await expect(
       collectGitOutcomes(
         {
-          repoDir: '/tmp/repo',
+          repoDir: fakeRepoDir,
           granularity: 'daily',
           timezone: 'UTC',
         },
         { runGitCommand },
       ),
-    ).rejects.toThrow('Failed to collect git outcomes from /tmp/repo: git exited with code 3');
+    ).rejects.toThrow(`Failed to collect git outcomes from ${fakeRepoDir}: git exited with code 3`);
   });
 
   it('fails fast on invalid date literals when building git log args', async () => {
@@ -525,7 +527,7 @@ describe('collectGitOutcomes', () => {
     await expect(
       collectGitOutcomes(
         {
-          repoDir: '/tmp/repo',
+          repoDir: fakeRepoDir,
           granularity: 'daily',
           timezone: 'UTC',
           since: 'not-a-date',
@@ -566,7 +568,7 @@ describe('collectGitOutcomes', () => {
 
     const result = await collectGitOutcomes(
       {
-        repoDir: '/tmp/repo',
+        repoDir: fakeRepoDir,
         granularity: 'daily',
         timezone: 'UTC',
         activeUsageDays: new Set(['2026-02-11']),
@@ -612,7 +614,7 @@ describe('collectGitOutcomes', () => {
 
     await collectGitOutcomes(
       {
-        repoDir: '/tmp/repo',
+        repoDir: fakeRepoDir,
         granularity: 'daily',
         timezone: 'UTC',
         activeUsageDays: new Set(['2026-02-11', '2026-02-13']),
@@ -649,7 +651,7 @@ describe('collectGitOutcomes', () => {
 
     const result = await collectGitOutcomes(
       {
-        repoDir: '/tmp/repo',
+        repoDir: fakeRepoDir,
         granularity: 'daily',
         timezone: 'UTC',
         activeUsageDays: new Set(),
@@ -690,7 +692,7 @@ describe('collectGitOutcomes', () => {
 
     const result = await collectGitOutcomes(
       {
-        repoDir: '/tmp/repo',
+        repoDir: fakeRepoDir,
         granularity: 'daily',
         timezone: 'UTC',
       },
@@ -730,7 +732,7 @@ describe('collectGitOutcomes', () => {
 
     const result = await collectGitOutcomes(
       {
-        repoDir: '/tmp/repo',
+        repoDir: fakeRepoDir,
         granularity: 'daily',
         timezone: 'UTC',
       },
@@ -738,7 +740,7 @@ describe('collectGitOutcomes', () => {
     );
 
     expect(result.totalOutcomes.commitCount).toBe(0);
-    expect(runGitCommand).toHaveBeenCalledWith('/tmp/repo', ['rev-parse', '--verify', 'HEAD']);
+    expect(runGitCommand).toHaveBeenCalledWith(fakeRepoDir, ['rev-parse', '--verify', 'HEAD']);
   });
 
   it('rejects blank --repo-dir values', async () => {
@@ -752,7 +754,7 @@ describe('collectGitOutcomes', () => {
   });
 
   it('fails fast when the configured repo path does not exist', async () => {
-    const missingRepoPath = `/tmp/llm-usage-metrics-missing-repo-${Date.now()}`;
+    const missingRepoPath = path.resolve(`/tmp/llm-usage-metrics-missing-repo-${Date.now()}`);
 
     await expect(
       collectGitOutcomes({

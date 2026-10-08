@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Node.js 24.21.0 for development (matches CI and `.nvmrc`); the CLI supports Node.js 24+
+- Node.js 24.21.0 for development (matches CI and `.nvmrc`); the CLI supports Node.js 22.16+ or 24+ (not 23)
 - pnpm 12.9.1 (used for local scripts and the lockfile)
 
 ## Install
@@ -165,13 +165,14 @@ Checks:
 - npm pack check
 - test + coverage (`pnpm run test`, Node 24)
 - coverage threshold gate (`node .github/scripts/check-coverage-threshold.mjs`)
+- test matrix: build, dist smoke and tests on Ubuntu, macOS and Windows with Node 22.16.0 and 24.21.0
 
 Runtime:
 
-- Node 24.21.0
+- Node 24.21.0 (the matrix adds the minimum supported Node 22.16.0)
 - pnpm 12.9.1
 
-Coverage summary/artifacts are generated from the single Node 24 CI run.
+Coverage summary/artifacts are generated from the single Ubuntu Node 24 CI run.
 
 ## Release process
 

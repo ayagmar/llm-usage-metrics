@@ -43,7 +43,7 @@ export function loadNodeSqliteModuleFromRequire(
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     throw new Error(
-      `${consumerLabel} requires Node.js 24+ runtime with node:sqlite support: ${reason}`,
+      `${consumerLabel} requires Node.js 22.16+ or 24+ runtime with node:sqlite support: ${reason}`,
       { cause: error },
     );
   }
