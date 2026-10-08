@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -128,6 +129,7 @@ describe('loadUserConfig', () => {
 [sourceDirs]
 claude = ["/work/claude", " ", "/home/claude"]
 codex = []
+pi = [" "]
 opencode = ["/tmp/a.db", "/tmp/b.db"]
 goose = "/tmp/goose.db"
 `),
@@ -138,8 +140,63 @@ goose = "/tmp/goose.db"
       goose: '/tmp/goose.db',
     });
     expect(result.warnings).toEqual([
+      'Ignoring sourceDirs.pi: expected a non-empty path or list of paths',
       'Ignoring sourceDirs.opencode: it takes one database path, not a list',
     ]);
+  });
+
+  it('warns about values of the wrong type instead of dropping them silently', async () => {
+    const result = await loadUserConfig(
+      { LLM_USAGE_CONFIG_PATH: '/tmp/config.toml' },
+      readContent(`
+timezone = 123
+sources = "gemini"
+parseWorkers = 2.5
+pricing = "offline"
+
+[eventStore]
+enabled = "false"
+
+[update]
+cacheTtlMs = "1h"
+`),
+    );
+
+    expect(result.config).toEqual({});
+    expect(result.warnings).toEqual([
+      'Ignoring timezone: expected a non-empty string',
+      'Ignoring sources: expected a list of source ids',
+      'Ignoring pricing: expected a table',
+      'Ignoring eventStore.enabled: expected true or false',
+      'Ignoring parseWorkers: expected "auto" or an integer',
+      'Ignoring update.cacheTtlMs: expected an integer',
+    ]);
+  });
+
+  it('expands ~ and resolves relative paths against the config file directory', async () => {
+    const configDir = path.resolve('/etc/llm-usage');
+    const result = await loadUserConfig(
+      { LLM_USAGE_CONFIG_PATH: path.join(configDir, 'config.toml') },
+      readContent(`
+[eventStore]
+path = "~/ledger/events.db"
+
+[pricing]
+overridesPath = "overrides.json"
+
+[sourceDirs]
+gemini = "~"
+claude = ["../claude", "/abs/claude"]
+`),
+    );
+
+    expect(result.warnings).toEqual([]);
+    expect(result.config.eventStore?.path).toBe(path.join(os.homedir(), 'ledger/events.db'));
+    expect(result.config.pricing?.overridesPath).toBe(path.join(configDir, 'overrides.json'));
+    expect(result.config.sourceDirs).toEqual({
+      gemini: os.homedir(),
+      claude: [path.resolve(configDir, '../claude'), path.resolve('/abs/claude')],
+    });
   });
 
   it('loads supported keys and reports unknown keys once', async () => {

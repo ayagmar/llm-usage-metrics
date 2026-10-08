@@ -15,7 +15,7 @@ import wrappedSchema from '../../schema/report-wrapped.v1.schema.json' with { ty
 // Embeds the shared definitions as a JSON Schema 2020-12 bundled resource, so a
 // printed schema compiles offline: its absolute report-common $refs resolve to the
 // embedded schema's $id.
-function bundleCommonDefinitions(schema: { $defs?: Record<string, unknown> }): unknown {
+function bundleCommonDefinitions(schema: { [key: string]: unknown; $defs?: object }): unknown {
   return { ...schema, $defs: { ...schema.$defs, 'report-common.v1': commonSchema } };
 }
 

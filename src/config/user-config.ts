@@ -207,6 +207,49 @@ function formatUnknownKeyWarning(unknownKeys: string[]): string | undefined {
   return `Unknown config key(s): ${sortedKeys.join(', ')}`;
 }
 
+type ConfigReadContext = {
+  configDir: string;
+  warnings: string[];
+};
+
+/** Blank strings and empty lists, as in the `config init` template, mean "not set". */
+function isUnset(value: unknown): boolean {
+  return (
+    value === undefined ||
+    (typeof value === 'string' && value.trim().length === 0) ||
+    (Array.isArray(value) && value.length === 0)
+  );
+}
+
+/** Reads one config value and warns when it is set but has the wrong type. */
+function readKey<T>(
+  context: ConfigReadContext,
+  keyPath: string,
+  value: unknown,
+  read: (value: unknown) => T | undefined,
+  expected: string,
+): T | undefined {
+  if (isUnset(value)) {
+    return undefined;
+  }
+
+  const result = read(value);
+
+  if (result === undefined) {
+    context.warnings.push(`Ignoring ${keyPath}: expected ${expected}`);
+  }
+
+  return result;
+}
+
+function readTable(
+  context: ConfigReadContext,
+  keyPath: string,
+  value: unknown,
+): Record<string, unknown> | undefined {
+  return readKey(context, keyPath, value, asRecord, 'a table');
+}
+
 function clampInteger(value: unknown, min: number, max: number): number | undefined {
   if (typeof value !== 'number' || !Number.isInteger(value) || !Number.isFinite(value)) {
     return undefined;
@@ -223,6 +266,16 @@ function clampInteger(value: unknown, min: number, max: number): number | undefi
   return value;
 }
 
+function readInteger(
+  context: ConfigReadContext,
+  keyPath: string,
+  value: unknown,
+  min: number,
+  max: number,
+): number | undefined {
+  return readKey(context, keyPath, value, (v) => clampInteger(v, min, max), 'an integer');
+}
+
 function toNonBlankString(value: unknown): string | undefined {
   if (typeof value !== 'string') {
     return undefined;
@@ -234,6 +287,24 @@ function toNonBlankString(value: unknown): string | undefined {
 
 function toBoolean(value: unknown): boolean | undefined {
   return typeof value === 'boolean' ? value : undefined;
+}
+
+/** Config paths may start with `~` and resolve against the config file, not the cwd. */
+function resolveConfigPath(value: string, configDir: string): string {
+  if (value === '~') {
+    return os.homedir();
+  }
+
+  if (value.startsWith('~/') || value.startsWith(`~${path.sep}`)) {
+    return path.join(os.homedir(), value.slice(2));
+  }
+
+  return path.resolve(configDir, value);
+}
+
+function readPath(context: ConfigReadContext, keyPath: string, value: unknown): string | undefined {
+  const text = readKey(context, keyPath, value, toNonBlankString, 'a non-empty path');
+  return text === undefined ? undefined : resolveConfigPath(text, context.configDir);
 }
 
 function readLogLevel(value: unknown): LogLevel | undefined {
@@ -264,21 +335,40 @@ function toSources(value: unknown): string[] | undefined {
 /** SQLite sources read one database file, so their config value stays a single path. */
 const singlePathSourceDirKeys = new Set<string>(['opencode', 'goose']);
 
-function readSourceDirValue(value: unknown, allowsSeveral: boolean): string | string[] | undefined {
+function readSourceDirValue(
+  context: ConfigReadContext,
+  sourceId: string,
+  value: unknown,
+): string | string[] | undefined {
+  const keyPath = `sourceDirs.${sourceId}`;
+
   if (!Array.isArray(value)) {
-    return toNonBlankString(value);
+    return readPath(context, keyPath, value);
   }
 
-  if (!allowsSeveral) {
+  if (singlePathSourceDirKeys.has(sourceId)) {
+    context.warnings.push(`Ignoring ${keyPath}: it takes one database path, not a list`);
     return undefined;
   }
 
-  const directories = value.flatMap((entry) => toNonBlankString(entry) ?? []);
-  return directories.length > 0 ? directories : undefined;
+  const directories = value.flatMap((entry) => {
+    const directory = toNonBlankString(entry);
+    return directory === undefined ? [] : [resolveConfigPath(directory, context.configDir)];
+  });
+
+  if (directories.length === 0) {
+    context.warnings.push(`Ignoring ${keyPath}: expected a non-empty path or list of paths`);
+    return undefined;
+  }
+
+  return directories;
 }
 
-function readSourceDirs(value: unknown): UserConfig['sourceDirs'] | undefined {
-  const record = asRecord(value);
+function readSourceDirs(
+  context: ConfigReadContext,
+  value: unknown,
+): UserConfig['sourceDirs'] | undefined {
+  const record = readTable(context, 'sourceDirs', value);
 
   if (!record) {
     return undefined;
@@ -287,7 +377,9 @@ function readSourceDirs(value: unknown): UserConfig['sourceDirs'] | undefined {
   const sourceDirs: UserConfig['sourceDirs'] = {};
 
   for (const sourceId of USER_CONFIG_SOURCE_DIR_KEYS) {
-    const sourceDir = readSourceDirValue(record[sourceId], !singlePathSourceDirKeys.has(sourceId));
+    const sourceDir = isUnset(record[sourceId])
+      ? undefined
+      : readSourceDirValue(context, sourceId, record[sourceId]);
 
     if (sourceDir !== undefined) {
       sourceDirs[sourceId] = sourceDir;
@@ -297,24 +389,37 @@ function readSourceDirs(value: unknown): UserConfig['sourceDirs'] | undefined {
   return Object.keys(sourceDirs).length === 0 ? undefined : sourceDirs;
 }
 
-function readPricingConfig(value: unknown): UserConfig['pricing'] | undefined {
-  const record = asRecord(value);
+function readPricingConfig(
+  context: ConfigReadContext,
+  value: unknown,
+): UserConfig['pricing'] | undefined {
+  const record = readTable(context, 'pricing', value);
 
   if (!record) {
     return undefined;
   }
 
   const pricing: UserConfig['pricing'] = {};
-  const offline = toBoolean(record.offline);
-  const url = toNonBlankString(record.url);
-  const overridesPath = toNonBlankString(record.overridesPath);
-  const ignoreFailures = toBoolean(record.ignoreFailures);
-  const cacheTtlMs = clampInteger(
+  const offline = readKey(context, 'pricing.offline', record.offline, toBoolean, 'true or false');
+  const url = readKey(context, 'pricing.url', record.url, toNonBlankString, 'a non-empty URL');
+  const overridesPath = readPath(context, 'pricing.overridesPath', record.overridesPath);
+  const ignoreFailures = readKey(
+    context,
+    'pricing.ignoreFailures',
+    record.ignoreFailures,
+    toBoolean,
+    'true or false',
+  );
+  const cacheTtlMs = readInteger(
+    context,
+    'pricing.cacheTtlMs',
     record.cacheTtlMs,
     PRICING_CACHE_TTL_MIN_MS,
     PRICING_CACHE_TTL_MAX_MS,
   );
-  const fetchTimeoutMs = clampInteger(
+  const fetchTimeoutMs = readInteger(
+    context,
+    'pricing.fetchTimeoutMs',
     record.fetchTimeoutMs,
     PRICING_FETCH_TIMEOUT_MIN_MS,
     PRICING_FETCH_TIMEOUT_MAX_MS,
@@ -347,16 +452,25 @@ function readPricingConfig(value: unknown): UserConfig['pricing'] | undefined {
   return Object.keys(pricing).length === 0 ? undefined : pricing;
 }
 
-function readEventStoreConfig(value: unknown): UserConfig['eventStore'] | undefined {
-  const record = asRecord(value);
+function readEventStoreConfig(
+  context: ConfigReadContext,
+  value: unknown,
+): UserConfig['eventStore'] | undefined {
+  const record = readTable(context, 'eventStore', value);
 
   if (!record) {
     return undefined;
   }
 
   const eventStore: UserConfig['eventStore'] = {};
-  const enabled = toBoolean(record.enabled);
-  const pathValue = toNonBlankString(record.path);
+  const enabled = readKey(
+    context,
+    'eventStore.enabled',
+    record.enabled,
+    toBoolean,
+    'true or false',
+  );
+  const pathValue = readPath(context, 'eventStore.path', record.path);
 
   if (enabled !== undefined) {
     eventStore.enabled = enabled;
@@ -369,21 +483,34 @@ function readEventStoreConfig(value: unknown): UserConfig['eventStore'] | undefi
   return Object.keys(eventStore).length === 0 ? undefined : eventStore;
 }
 
-function readUpdateConfig(value: unknown): UserConfig['update'] | undefined {
-  const record = asRecord(value);
+function readUpdateConfig(
+  context: ConfigReadContext,
+  value: unknown,
+): UserConfig['update'] | undefined {
+  const record = readTable(context, 'update', value);
 
   if (!record) {
     return undefined;
   }
 
   const update: UserConfig['update'] = {};
-  const skipCheck = toBoolean(record.skipCheck);
-  const cacheTtlMs = clampInteger(
+  const skipCheck = readKey(
+    context,
+    'update.skipCheck',
+    record.skipCheck,
+    toBoolean,
+    'true or false',
+  );
+  const cacheTtlMs = readInteger(
+    context,
+    'update.cacheTtlMs',
     record.cacheTtlMs,
     UPDATE_CACHE_TTL_MIN_MS,
     UPDATE_CACHE_TTL_MAX_MS,
   );
-  const fetchTimeoutMs = clampInteger(
+  const fetchTimeoutMs = readInteger(
+    context,
+    'update.fetchTimeoutMs',
     record.fetchTimeoutMs,
     UPDATE_FETCH_TIMEOUT_MIN_MS,
     UPDATE_FETCH_TIMEOUT_MAX_MS,
@@ -412,26 +539,48 @@ function readParseWorkers(value: unknown): UserConfig['parseWorkers'] | undefine
   return clampInteger(value, PARSE_WORKERS_MIN, PARSE_WORKERS_MAX);
 }
 
-function readConfig(root: Record<string, unknown>): UserConfig {
+function readConfig(context: ConfigReadContext, root: Record<string, unknown>): UserConfig {
   const config: UserConfig = {};
-  const timezone = toNonBlankString(root.timezone);
-  const logLevel = readLogLevel(root.logLevel);
-  const sources = toSources(root.sources);
-  const sourceDirs = readSourceDirs(root.sourceDirs);
-  const pricing = readPricingConfig(root.pricing);
-  const eventStore = readEventStoreConfig(root.eventStore);
-  const parseMaxParallel = clampInteger(
+  const timezone = readKey(
+    context,
+    'timezone',
+    root.timezone,
+    toNonBlankString,
+    'a non-empty string',
+  );
+  const logLevel = readKey(
+    context,
+    'logLevel',
+    root.logLevel,
+    readLogLevel,
+    'one of silent, warn, info, debug',
+  );
+  const sources = readKey(context, 'sources', root.sources, toSources, 'a list of source ids');
+  const sourceDirs = readSourceDirs(context, root.sourceDirs);
+  const pricing = readPricingConfig(context, root.pricing);
+  const eventStore = readEventStoreConfig(context, root.eventStore);
+  const parseMaxParallel = readInteger(
+    context,
+    'parseMaxParallel',
     root.parseMaxParallel,
     PARSE_MAX_PARALLEL_MIN,
     PARSE_MAX_PARALLEL_MAX,
   );
-  const parseWorkers = readParseWorkers(root.parseWorkers);
-  const parseWorkerMinBytes = clampInteger(
+  const parseWorkers = readKey(
+    context,
+    'parseWorkers',
+    root.parseWorkers,
+    readParseWorkers,
+    '"auto" or an integer',
+  );
+  const parseWorkerMinBytes = readInteger(
+    context,
+    'parseWorkerMinBytes',
     root.parseWorkerMinBytes,
     PARSE_WORKER_MIN_BYTES_MIN,
     PARSE_WORKER_MIN_BYTES_MAX,
   );
-  const update = readUpdateConfig(root.update);
+  const update = readUpdateConfig(context, root.update);
 
   if (timezone !== undefined) {
     config.timezone = timezone;
@@ -476,7 +625,7 @@ function readConfig(root: Record<string, unknown>): UserConfig {
   return config;
 }
 
-function collectUserConfigWarnings(root: Record<string, unknown>): string[] {
+function collectUnknownKeyWarnings(root: Record<string, unknown>): string[] {
   const unknownKeys = collectUnknownKeys(root, knownTopLevelKeySet);
   pushUnknownNestedKeys(unknownKeys, root, 'pricing', knownPricingKeySet);
   pushUnknownNestedKeys(unknownKeys, root, 'eventStore', knownEventStoreKeySet);
@@ -484,23 +633,7 @@ function collectUserConfigWarnings(root: Record<string, unknown>): string[] {
   pushUnknownNestedKeys(unknownKeys, root, 'sourceDirs', sourceDirKeySet);
 
   const unknownKeyWarning = formatUnknownKeyWarning(unknownKeys);
-  return [
-    ...(unknownKeyWarning === undefined ? [] : [unknownKeyWarning]),
-    ...collectSinglePathListWarnings(root.sourceDirs),
-  ];
-}
-
-/** A database source given a list is ignored; say so instead of silently using defaults. */
-function collectSinglePathListWarnings(sourceDirs: unknown): string[] {
-  const record = asRecord(sourceDirs);
-
-  if (!record) {
-    return [];
-  }
-
-  return [...singlePathSourceDirKeys]
-    .filter((sourceId) => Array.isArray(record[sourceId]))
-    .map((sourceId) => `Ignoring sourceDirs.${sourceId}: it takes one database path, not a list`);
+  return unknownKeyWarning === undefined ? [] : [unknownKeyWarning];
 }
 
 function parseUserConfigRoot(filePath: string, content: string): Record<string, unknown> {
@@ -550,11 +683,16 @@ export async function loadUserConfig(
   }
 
   const root = parseUserConfigRoot(configPath, content);
+  const context: ConfigReadContext = {
+    configDir: path.dirname(path.resolve(configPath)),
+    warnings: [],
+  };
+  const config = readConfig(context, root);
 
   return {
-    config: readConfig(root),
+    config,
     path: configPath,
     exists: true,
-    warnings: collectUserConfigWarnings(root),
+    warnings: [...collectUnknownKeyWarnings(root), ...context.warnings],
   };
 }
