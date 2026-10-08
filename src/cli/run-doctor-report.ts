@@ -3,6 +3,7 @@ import { stat } from 'node:fs/promises';
 import { getEventStoreRuntimeConfig } from '../config/runtime-overrides.js';
 import {
   EVENT_STORE_SCHEMA_VERSION,
+  findLegacyEventStore,
   isSupportedSchemaVersion,
   readEventStoreStoredFiles as readDefaultEventStoreStoredFiles,
   readEventStoreSummary as readDefaultEventStoreSummary,
@@ -281,12 +282,17 @@ async function buildEventStoreDoctorResult(
     fileStats = await stat(filePath);
   } catch (error) {
     if (isMissingPathError(error)) {
+      const legacyPath = await findLegacyEventStore(filePath);
+
       return {
         id: 'event-store',
         format: 'sqlite',
         status: 'ok',
         itemsFound: 0,
-        detail: 'not yet created',
+        detail:
+          legacyPath === undefined
+            ? 'not yet created'
+            : `still at ${legacyPath}; the next report copies it here`,
       };
     }
 

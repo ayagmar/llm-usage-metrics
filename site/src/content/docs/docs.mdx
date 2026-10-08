@@ -51,7 +51,7 @@ The bundled pricing snapshot lets the first report run offline. An online run ma
 
 ## What stays on your machine
 
-The CLI reads local session files and local Git history. It writes its event ledger and caches under your platform cache directory. Two optional network requests remain separate from your usage data:
+The CLI reads local session files and local Git history. It writes its event ledger under your platform data directory and its caches under your platform cache directory. Two optional network requests remain separate from your usage data:
 
 - a cached npm version check at startup
 - a LiteLLM pricing refresh when the pricing cache is stale

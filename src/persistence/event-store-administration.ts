@@ -1,4 +1,5 @@
-import { chmod, mkdir, open } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { chmod, link, mkdir, open, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { normalizeSkippedRowReasons } from '../cli/normalize-skipped-row-reasons.js';
@@ -7,6 +8,8 @@ import { loadNodeSqliteModule } from '../sources/opencode/node-sqlite-loader.js'
 import type { SourceSkippedRowReasonStat } from '../sources/source-adapter.js';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { getUserDataRootDir } from '../utils/data-root-dir.js';
+import { pathExists } from '../utils/fs-helpers.js';
 import {
   computeEventContentHash,
   normalizeStoredEventTuple,
@@ -14,6 +17,7 @@ import {
 } from './event-store-codec.js';
 import {
   type EventStore,
+  type EventStoreSqliteModule,
   isEventStoreSqliteModule,
   type LoadEventStoreSqliteModule,
   runTransaction,
@@ -203,7 +207,98 @@ function stringifySkippedRowReasons(
 }
 
 export function getDefaultEventStorePath(): string {
+  return path.join(getUserDataRootDir(), 'llm-usage-metrics', 'events.db');
+}
+
+/** Older versions kept the ledger in the cache directory, which users and tools clear freely. */
+export function getLegacyEventStorePath(): string {
   return path.join(getUserCacheRootDir(), 'llm-usage-metrics', 'events.db');
+}
+
+function isErrorCode(error: unknown, code: string): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === code;
+}
+
+/**
+ * Written next to the ledger once the legacy copy succeeds, so deleting the ledger later
+ * (a reset) never re-imports the old copy and its already-pruned history.
+ */
+function getLegacyCopyMarkerPath(targetPath: string): string {
+  return path.join(path.dirname(targetPath), 'legacy-ledger-copied');
+}
+
+/**
+ * The cache-directory ledger an older version left, when the default ledger does not exist
+ * yet and has never been copied from it.
+ */
+export async function findLegacyEventStore(targetPath: string): Promise<string | undefined> {
+  const legacyPath = getLegacyEventStorePath();
+
+  if (
+    targetPath !== getDefaultEventStorePath() ||
+    legacyPath === targetPath ||
+    (await pathExists(targetPath)) ||
+    (await pathExists(getLegacyCopyMarkerPath(targetPath))) ||
+    !(await pathExists(legacyPath))
+  ) {
+    return undefined;
+  }
+
+  return legacyPath;
+}
+
+/**
+ * Copies a ledger left by an older version to `targetPath` once. VACUUM INTO takes a
+ * consistent snapshot that includes uncheckpointed WAL pages and works across filesystems;
+ * the snapshot is hard-linked into place, so a concurrent first run can never overwrite
+ * the other's. The old ledger stays: an older version may still be writing to it.
+ */
+async function copyLegacyEventStore(
+  targetPath: string,
+  sqliteModule: EventStoreSqliteModule,
+): Promise<void> {
+  const legacyPath = getLegacyEventStorePath();
+  const markerPath = getLegacyCopyMarkerPath(targetPath);
+
+  if (
+    targetPath !== getDefaultEventStorePath() ||
+    legacyPath === targetPath ||
+    (await pathExists(markerPath)) ||
+    !(await pathExists(legacyPath))
+  ) {
+    return;
+  }
+
+  if (!(await pathExists(targetPath))) {
+    const snapshotPath = `${targetPath}.${randomUUID()}.tmp`;
+
+    try {
+      const legacyDatabase = new sqliteModule.DatabaseSync(legacyPath, {
+        timeout: EVENT_STORE_OPEN_TIMEOUT_MS,
+      });
+
+      try {
+        legacyDatabase.prepare('VACUUM INTO ?').run(snapshotPath);
+      } finally {
+        legacyDatabase.close();
+      }
+
+      try {
+        await link(snapshotPath, targetPath);
+      } catch (error) {
+        // Another first run copied the ledger while this one did.
+        if (!isErrorCode(error, 'EEXIST')) {
+          throw error;
+        }
+      }
+    } finally {
+      await rm(snapshotPath, { force: true });
+    }
+  }
+
+  // The ledger exists now, copied or not (a run may have stopped before marking its copy):
+  // the old one must never be imported later.
+  await writeFile(markerPath, `${legacyPath}\n`, { mode: 0o600 });
 }
 
 async function prepareEventStoreFile(filePath: string): Promise<void> {
@@ -223,12 +318,7 @@ async function restrictEventStoreFiles(filePath: string): Promise<void> {
     try {
       await chmod(sidecarPath, 0o600);
     } catch (error) {
-      if (
-        typeof error === 'object' &&
-        error !== null &&
-        'code' in error &&
-        error.code === 'ENOENT'
-      ) {
+      if (isErrorCode(error, 'ENOENT')) {
         continue;
       }
 
@@ -253,6 +343,8 @@ export async function openEventStore(
   if (!isEventStoreSqliteModule(sqliteModule)) {
     throw new Error('Event store requires a sqlite module with a DatabaseSync constructor');
   }
+
+  await copyLegacyEventStore(filePath, sqliteModule);
 
   await prepareEventStoreFile(filePath);
 

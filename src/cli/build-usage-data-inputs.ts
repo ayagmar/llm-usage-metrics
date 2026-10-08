@@ -168,25 +168,20 @@ export function resolveExplicitSourceIds(
   cliOptions: ReportCommandOptions,
   cliSourceFilter: Set<string> | undefined,
 ): Set<string> {
-  const explicitSourceIds = new Set<string>();
+  return new Set([...(cliSourceFilter ?? []), ...resolveCliDirectorySourceIds(cliOptions)]);
+}
 
-  if (cliSourceFilter) {
-    for (const sourceId of cliSourceFilter) {
-      explicitSourceIds.add(sourceId);
-    }
-  }
-
-  for (const sourceId of parseSourceDirectoryOverrides(cliOptions.sourceDir).keys()) {
-    explicitSourceIds.add(sourceId);
-  }
+/** Sources the command line pointed at a directory or database of its own. */
+export function resolveCliDirectorySourceIds(cliOptions: ReportCommandOptions): Set<string> {
+  const sourceIds = new Set(parseSourceDirectoryOverrides(cliOptions.sourceDir).keys());
 
   for (const overrideOption of getSourceOverrideOptions()) {
     if (cliOptions[overrideOption.optionKey]) {
-      explicitSourceIds.add(overrideOption.id);
+      sourceIds.add(overrideOption.id);
     }
   }
 
-  return explicitSourceIds;
+  return sourceIds;
 }
 
 function detectDefaultTimezone(): string {

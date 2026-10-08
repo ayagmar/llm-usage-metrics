@@ -17,9 +17,9 @@ description: Why caching exists, how each cache works, and how to tune it.
 | --- | --- | --- | --- |
 | update-check cache | avoids querying npm on every startup | 1 hour | `<platform-cache-root>/llm-usage-metrics/update-check.json` |
 | pricing cache | stores normalized LiteLLM pricing data | 24 hours | `<platform-cache-root>/llm-usage-metrics/litellm-pricing-cache.json` |
-| event store | stores parsed file diagnostics/events and retained departed-file history | no TTL | `<platform-cache-root>/llm-usage-metrics/events.db` |
+| event store | stores parsed file diagnostics/events and retained departed-file history | no TTL | `<platform-data-root>/llm-usage-metrics/events.db` |
 
-On Linux with no `XDG_CACHE_HOME`, `<platform-cache-root>` defaults to `~/.cache`.
+On Linux with no `XDG_CACHE_HOME`, `<platform-cache-root>` defaults to `~/.cache`. The event store is a ledger rather than a cache, so it lives under `<platform-data-root>`: `~/.local/share` when `XDG_DATA_HOME` is unset (Linux and macOS), `%LOCALAPPDATA%` on Windows. A ledger left in the cache directory by an older version is copied there once, on the next report; the old file stays until you delete it.
 
 ## How each cache works
 
@@ -64,11 +64,11 @@ Relevant options/config:
 - fingerprints also include a parser version, so upgrading to a release with parser fixes re-parses stored files once
 - persisted as SQLite with per-file replace-on-change writes, batched into one transaction per source
 - with `--since`, file-per-session sources skip files whose newest `mtime` (including sidecars) is more than a day before the window; with the store on, only files the store already holds are skipped, so the ledger still ingests older files
-- `--history` includes usage from files that no longer exist on disk
+- reports include usage from files that no longer exist on disk by default; `--no-history` leaves it out
 - moved, renamed, and copied files are suppressed by content hash to avoid double counting
 - `llm-usage prune` previews or deletes departed-file rows explicitly
 - first run after a store schema upgrade migrates the database in place and may take a few seconds
-- deleting the database file deletes retained local history and starts a new ledger on the next run
+- deleting the database file deletes retained local history and starts a new ledger on the next run; a ledger once copied from the old cache-directory location is not copied again (a `legacy-ledger-copied` marker beside the ledger records the copy), so delete that old file yourself to reclaim its space
 - legacy JSON cache shards are ignored and safe to delete manually
 
 Prune is dry-run by default:
@@ -125,5 +125,5 @@ cacheTtlMs = 7200000
 
 - When pricing uses the bundled snapshot, `stderr` shows its snapshot date; run once without `--pricing-offline` to refresh the cache.
 - Custom `--pricing-url` values use their matching cache or network source and do not fall back to the bundled default snapshot.
-- For stale reports after source file changes, verify source files updated `mtime`. Deleting `<platform-cache-root>/llm-usage-metrics/events.db` starts a fresh ledger, but it also deletes retained history used by `--history`.
+- For stale reports after source file changes, verify source files updated `mtime`. Deleting `<platform-data-root>/llm-usage-metrics/events.db` starts a fresh ledger, but it also deletes retained history used by `--history`.
 - To force update checks every run, set `update.cacheTtlMs = 0` in the config file.

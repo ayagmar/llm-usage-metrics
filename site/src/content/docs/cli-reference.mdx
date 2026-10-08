@@ -97,7 +97,10 @@ Options:
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
   --history                      include usage from files that no longer exist
-                                 on disk (from the local event store)
+                                 on disk (the default; fails if the event store
+                                 is unavailable)
+  --no-history                   leave out usage from files that no longer exist
+                                 on disk
   --markdown                     Render output as markdown table
   -h, --help                     display help for command
 ```
@@ -166,7 +169,10 @@ Options:
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
   --history                      include usage from files that no longer exist
-                                 on disk (from the local event store)
+                                 on disk (the default; fails if the event store
+                                 is unavailable)
+  --no-history                   leave out usage from files that no longer exist
+                                 on disk
   --markdown                     Render output as markdown table
   --per-model-columns            Render per-model metrics as multiline aligned
                                  table columns (terminal/markdown)
@@ -244,7 +250,10 @@ Options:
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
   --history                      include usage from files that no longer exist
-                                 on disk (from the local event store)
+                                 on disk (the default; fails if the event store
+                                 is unavailable)
+  --no-history                   leave out usage from files that no longer exist
+                                 on disk
   --markdown                     Render output as markdown table
   --per-model-columns            Render per-model metrics as multiline aligned
                                  table columns (terminal/markdown)
@@ -321,7 +330,10 @@ Options:
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
   --history                      include usage from files that no longer exist
-                                 on disk (from the local event store)
+                                 on disk (the default; fails if the event store
+                                 is unavailable)
+  --no-history                   leave out usage from files that no longer exist
+                                 on disk
   --markdown                     Render output as markdown table
   --per-model-columns            Render per-model metrics as multiline aligned
                                  table columns (terminal/markdown)
@@ -397,7 +409,10 @@ Options:
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
   --history                      include usage from files that no longer exist
-                                 on disk (from the local event store)
+                                 on disk (the default; fails if the event store
+                                 is unavailable)
+  --no-history                   leave out usage from files that no longer exist
+                                 on disk
   --markdown                     Render output as markdown table
   --share                        Write a share SVG image to the current
                                  directory
@@ -476,7 +491,10 @@ Options:
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
   --history                      include usage from files that no longer exist
-                                 on disk (from the local event store)
+                                 on disk (the default; fails if the event store
+                                 is unavailable)
+  --no-history                   leave out usage from files that no longer exist
+                                 on disk
   --markdown                     Render output as markdown table
   --share                        Write a share SVG image to the current
                                  directory
@@ -554,7 +572,10 @@ Options:
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
   --history                      include usage from files that no longer exist
-                                 on disk (from the local event store)
+                                 on disk (the default; fails if the event store
+                                 is unavailable)
+  --no-history                   leave out usage from files that no longer exist
+                                 on disk
   --markdown                     Render output as markdown table
   --share                        Write a share SVG image to the current
                                  directory
@@ -630,7 +651,10 @@ Options:
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
   --history                      include usage from files that no longer exist
-                                 on disk (from the local event store)
+                                 on disk (the default; fails if the event store
+                                 is unavailable)
+  --no-history                   leave out usage from files that no longer exist
+                                 on disk
   --markdown                     Render output as markdown table
   --share                        Write a share SVG image to the current
                                  directory
@@ -708,7 +732,10 @@ Options:
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
   --history                      include usage from files that no longer exist
-                                 on disk (from the local event store)
+                                 on disk (the default; fails if the event store
+                                 is unavailable)
+  --no-history                   leave out usage from files that no longer exist
+                                 on disk
   --markdown                     Render output as markdown table
   --top <n>                      Show only the top N rows by cost (default 20; 0
                                  shows all)
@@ -782,7 +809,10 @@ Options:
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
   --history                      include usage from files that no longer exist
-                                 on disk (from the local event store)
+                                 on disk (the default; fails if the event store
+                                 is unavailable)
+  --no-history                   leave out usage from files that no longer exist
+                                 on disk
   --markdown                     Render output as markdown table
   --share                        Write a share SVG image to the current
                                  directory
@@ -856,7 +886,10 @@ Options:
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
   --history                      include usage from files that no longer exist
-                                 on disk (from the local event store)
+                                 on disk (the default; fails if the event store
+                                 is unavailable)
+  --no-history                   leave out usage from files that no longer exist
+                                 on disk
   --format <name>                Export format: jsonl | csv (default: "jsonl")
   -h, --help                     display help for command
 ```
@@ -1056,7 +1089,7 @@ Search across root and command help. See Command help above to check which flags
 | `--gemini-dir` | - | `<path>` | Path to .gemini directory \(repeatable\) |
 | `--goose-db` | - | `<path>` | Path to Goose SQLite DB |
 | `--help-all` | - | - | Display help including the per-source path flags |
-| `--history` | - | - | include usage from files that no longer exist on disk \(from the local event store\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
+| `--history` | - | - | include usage from files that no longer exist on disk \(the default; fails if the event store is unavailable\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
 | `--id` | - | `<session-id>` | Show only sessions whose id contains the value \(case-insensitive; repeatable or comma-separated\) \(session only\) |
 | `--ignore-pricing-failures` | - | - | Continue without estimated costs when pricing cannot be loaded \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
 | `--include-merge-commits` | - | - | Include merge commits in Git outcome metrics \(efficiency only\) |
@@ -1067,6 +1100,7 @@ Search across root and command help. See Command help above to check which flags
 | `--markdown` | - | - | Render output as Markdown table \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped only\) |
 | `--metric` | - | `<name>` | Trend metric: cost \| tokens \| active-hours \(default: "cost"\) \(trends only\) |
 | `--model` | - | `<name>` | Filter by model \(repeatable/comma-separated; exact when exact match exists after source/provider/date filters, otherwise substring\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
+| `--no-history` | - | - | leave out usage from files that no longer exist on disk \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
 | `--no-open` | - | - | With --share, write the SVG without opening it \(daily, weekly, monthly, compare, efficiency, optimize, trends, wrapped only\) |
 | `--openclaw-dir` | - | `<path>` | Path to OpenClaw agents directory \(repeatable\) |
 | `--opencode-db` | - | `<path>` | Path to OpenCode SQLite DB |
@@ -1110,7 +1144,7 @@ llm-usage weekly --all --json
 llm-usage monthly --since 2026-01-01 --until 2026-01-31
 llm-usage monthly --source opencode --opencode-db /path/to/opencode.db --json
 llm-usage monthly --source gemini --gemini-dir /path/to/.gemini
-llm-usage monthly --history --pricing-offline
+llm-usage monthly --no-history --pricing-offline
 llm-usage monthly --source droid --droid-dir /path/to/.factory/sessions
 llm-usage monthly --share
 llm-usage compare

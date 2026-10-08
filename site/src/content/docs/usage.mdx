@@ -91,10 +91,12 @@ llm-usage monthly --share
 
 JSON uses the `usage` report envelope. Share output writes `usage-monthly-share.svg` to the current directory and still prints the normal report. Daily and weekly reports also support share SVGs. See [Output formats](/llm-usage-metrics/output-formats/) for contracts and diagnostics.
 
-## Include retained history
+## Retained history
+
+Reports include retained events from files that have left the disk, with moved or copied files suppressed to avoid duplicate history. A `History:` line on `stderr` says how many departed files it added, when there are any. Leave them out with `--no-history`:
 
 ```bash
-llm-usage monthly --history
+llm-usage monthly --no-history
 ```
 
-This adds retained events from files that have left the disk, with moved or copied files suppressed to avoid duplicate history. It requires the event ledger to remain enabled. Read [Caching and history](/llm-usage-metrics/caching/) before deleting the ledger or pruning retained events.
+History needs the event ledger. When the ledger is disabled or cannot be opened, reports run without it; pass `--history` to fail instead. A source pointed at a custom directory (`--codex-dir ./export`, `--source-dir`) gets no history unless you pass `--history`, so departed files from its usual location never leak into a report scoped elsewhere. Read [Caching and history](/llm-usage-metrics/caching/) before deleting the ledger or pruning retained events.

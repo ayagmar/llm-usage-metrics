@@ -174,12 +174,12 @@ describe('buildUsageEventDataset history', () => {
     ).rejects.toThrow('Explicitly requested source(s) are incompatible');
   });
 
-  it('does not call the history loader when --history is off', async () => {
+  it('does not call the history loader with --no-history', async () => {
     const eventStorePath = await createEventStorePath();
     const loadHistoryEvents = vi.fn();
 
     const dataset = await buildUsageEventDataset(
-      { source: 'codex', timezone: 'UTC' },
+      { history: false, source: 'codex', timezone: 'UTC' },
       {
         ...createDatasetDeps(eventStorePath),
         createAdapters: () => [createAdapter('codex', {})],
@@ -190,6 +190,61 @@ describe('buildUsageEventDataset history', () => {
     expect(loadHistoryEvents).not.toHaveBeenCalled();
     expect(dataset.filteredEvents).toEqual([]);
     expect(dataset.warnings).toEqual([]);
+  });
+
+  it('includes history by default', async () => {
+    const eventStorePath = await createEventStorePath();
+    const loadHistoryEventsSpy = vi.fn(loadHistoryEvents);
+
+    const dataset = await buildUsageEventDataset(
+      { source: 'codex', timezone: 'UTC' },
+      {
+        ...createDatasetDeps(eventStorePath),
+        createAdapters: () => [createAdapter('codex', {})],
+        loadHistoryEvents: loadHistoryEventsSpy,
+      },
+    );
+
+    expect(loadHistoryEventsSpy).toHaveBeenCalledTimes(1);
+    // Nothing departed, so the default run adds no stderr note.
+    expect(dataset.notes).toEqual([]);
+  });
+
+  it('skips default history quietly when the event store is disabled', async () => {
+    const loadHistoryEventsSpy = vi.fn(loadHistoryEvents);
+
+    const dataset = await buildUsageEventDataset(
+      { source: 'codex', timezone: 'UTC' },
+      {
+        ...createDatasetDeps('/tmp/events.db'),
+        getEventStoreRuntimeConfig: () => ({
+          enabled: false,
+          path: '/tmp/events.db',
+          disabledBy: 'environment',
+        }),
+        createAdapters: () => [createAdapter('codex', {})],
+        loadHistoryEvents: loadHistoryEventsSpy,
+      },
+    );
+
+    expect(loadHistoryEventsSpy).not.toHaveBeenCalled();
+    expect(dataset.warnings).toEqual([]);
+  });
+
+  it('leaves default history out for a source pointed at a custom directory', async () => {
+    const eventStorePath = await createEventStorePath();
+    const loadHistoryEventsSpy = vi.fn(loadHistoryEvents);
+    const deps = {
+      ...createDatasetDeps(eventStorePath),
+      createAdapters: () => [createAdapter('codex', {})],
+      loadHistoryEvents: loadHistoryEventsSpy,
+    };
+
+    await buildUsageEventDataset({ codexDir: '/tmp/export', timezone: 'UTC' }, deps);
+    expect(loadHistoryEventsSpy).not.toHaveBeenCalled();
+
+    await buildUsageEventDataset({ codexDir: '/tmp/export', history: true, timezone: 'UTC' }, deps);
+    expect(loadHistoryEventsSpy).toHaveBeenCalledTimes(1);
   });
 
   it('rejects --history when the event store is disabled by env config', async () => {

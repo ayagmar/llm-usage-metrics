@@ -160,10 +160,10 @@ The pricing request never includes session content. See [Pricing](https://ayagma
 
 ## Local event ledger
 
-A SQLite event ledger stores normalized events and parse diagnostics. Unchanged files can skip parsing on later runs. The ledger also supports retained history for files that have left the disk:
+A SQLite event ledger stores normalized events and parse diagnostics. Unchanged files can skip parsing on later runs. Reports also include retained history for files that have left the disk (Claude Code, for example, deletes old transcripts), with moved or copied files suppressed. Leave it out with `--no-history`:
 
 ```bash
-llm-usage monthly --history
+llm-usage monthly --no-history
 ```
 
 `prune` is a dry run unless you pass `--apply`:

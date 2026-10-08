@@ -3,6 +3,8 @@ export {
   countEvents,
   deleteStoredFiles,
   getDefaultEventStorePath,
+  findLegacyEventStore,
+  getLegacyEventStorePath,
   getFileEntry,
   openEventStore,
   readDepartedFileEvents,

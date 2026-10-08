@@ -144,10 +144,10 @@ Environment variables override the config file. Reports count them in the `stder
 | `LLM_USAGE_PARSE_WORKERS`            | `parseWorkers`        | `auto`                     | `auto` or integer `0..64`; `0` disables workers  |
 | `LLM_USAGE_PARSE_WORKER_MIN_BYTES`   | `parseWorkerMinBytes` | `268435456`                | Clamps to `0..9007199254740991`                  |
 | `LLM_USAGE_EVENT_STORE`              | `eventStore.enabled`  | `1` (`true`)               | Set `0` to disable the store                     |
-| `LLM_USAGE_EVENT_STORE_PATH`         | `eventStore.path`     | platform cache `events.db` | Use an isolated store for experiments or CI      |
+| `LLM_USAGE_EVENT_STORE_PATH`         | `eventStore.path`     | platform data `events.db`  | Use an isolated store for experiments or CI      |
 | `LLM_USAGE_PROFILE_RUNTIME`          | n/a                   | unset (`false`)            | Emits runtime profiling diagnostics              |
 
-`--history` requires the event store to stay enabled. Deleting `events.db` also deletes retained departed-file history.
+Retained history (on by default) needs the event store; with the store disabled, reports run without it and an explicit `--history` fails. Deleting `events.db` also deletes retained departed-file history.
 
 Example:
 
