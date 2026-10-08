@@ -14,7 +14,7 @@ description: High-level runtime architecture and data flow.
 ## Report definitions and runtime
 
 - `src/cli/report-definitions`
-  Canonical metadata for `daily`, `weekly`, `monthly`, `compare`, `efficiency`, `optimize`, `trends`, `session`, `wrapped`, `doctor`, `prune`, and `events`. The `config` and `schema` commands are registered directly in `create-cli.ts`
+  Canonical metadata for `summary` (the default command), `daily`, `weekly`, `monthly`, `compare`, `efficiency`, `optimize`, `trends`, `session`, `wrapped`, `doctor`, `prune`, and `events`. The `config` and `schema` commands are registered directly in `create-cli.ts`
 - `src/cli/report-runtime`
   Shared prepare/run lifecycle for format validation, share handling, terminal overflow warnings, and stdout emission
 
@@ -62,7 +62,7 @@ That keeps command/docs drift low without duplicating option descriptions outsid
 
 ### Event store and history
 
-`src/persistence/event-store.ts` owns a local SQLite ledger: schema, migrations, per-file ingest on parse, and stored-event revalidation. Schema changes run as migrations, and an unknown newer schema disables the store rather than rebuilding tables.
+The `src/persistence/event-store-*.ts` modules own a local SQLite ledger (`event-store.ts` re-exports them): schema and migrations, per-file ingest on parse, and stored-event revalidation. Schema changes run as migrations, and an unknown newer schema disables the store rather than rebuilding tables.
 
 `src/persistence/event-store-history.ts` serves `--history`. It compares the current run's discovered `(source, file)` pairs against stored files, replays departed files for the selected sources, and suppresses moved or copied files by content hash. History events join the pipeline before the provider/model/date filters, pricing, and aggregation, so report shapes stay unchanged. `prune` uses the same classification to delete departed-file rows and vacuum the ledger.
 

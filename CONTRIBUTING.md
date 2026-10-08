@@ -69,12 +69,11 @@ Normalize raw data with `createUsageEvent` so downstream code receives consisten
 
 ### 2) Wire it into reporting
 
-Register the adapter in `src/sources/create-default-adapters.ts`.
-
-If the source should be selectable from CLI source filtering/help text, ensure its id is included via
-`getDefaultSourceIds()` (same file).
-
-When adding a **directory-backed** source, add a dedicated `--<source>-dir` flag AND wire the generic `--source-dir <source-id=path>` override, then add CLI docs/examples:
+Add one entry to `sourceRegistrations` in `src/sources/create-default-adapters.ts`. That entry
+drives `getDefaultSourceIds()` (and so `--source` filtering and the docs sidebar), the dedicated
+`--<source>-dir`/`--<source>-db` flag, and, for directory-backed sources, the generic
+`--source-dir <source-id=path>` override. Then add the config key and docs (see
+`docs/development.md`, "Adding a new source adapter"), plus CLI examples:
 
 ```bash
 llm-usage daily --source-dir <new-source-id>=/path/to/sessions

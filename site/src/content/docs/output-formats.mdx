@@ -9,6 +9,7 @@ The CLI keeps report data on `stdout` and diagnostics on `stderr`. Redirecting J
 
 | Report                   | Terminal | JSON | Markdown | Share SVG                   |
 | ------------------------ | -------- | ---- | -------- | --------------------------- |
+| Summary                  | Yes      | Yes  | Yes      | No                          |
 | Daily / weekly / monthly | Yes      | Yes  | Yes      | Yes                         |
 | Compare                  | Yes      | Yes  | Yes      | Yes                         |
 | Session                  | Yes      | Yes  | Yes      | No                          |
@@ -52,13 +53,14 @@ Use JSON for scripts and pipelines. Without date bounds, `daily` and `weekly` co
 }
 ```
 
-`report` identifies the report family (`usage`, `session`, `trends`, `compare`, `efficiency`, `optimize`, `wrapped`, `doctor`, or `prune`) and `data` carries the report-specific payload documented on each report page. `schemaVersion` increments only on breaking JSON changes; additive fields inside `data` are safe and do not bump it. Diagnostics never enter the JSON body. The envelope arrived in 0.8.0 — [Migrating to 0.8](/llm-usage-metrics/migrating-to-0-8/) maps the old field names to the new ones.
+`report` identifies the report family (`summary`, `usage`, `session`, `trends`, `compare`, `efficiency`, `optimize`, `wrapped`, `doctor`, or `prune`) and `data` carries the report-specific payload documented on each report page. `schemaVersion` increments only on breaking JSON changes; additive fields inside `data` are safe and do not bump it. Diagnostics never enter the JSON body. The envelope arrived in 0.8.0 — [Migrating to 0.8](/llm-usage-metrics/migrating-to-0-8/) maps the old field names to the new ones.
 
 Every payload has a published JSON Schema (draft 2020-12) validated in CI against real CLI output:
 
 | Report             | Schema                                                                                                           |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------- |
 | shared definitions | [report-common.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json)         |
+| summary            | [report-summary.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-summary.v1.schema.json)       |
 | usage              | [report-usage.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-usage.v1.schema.json)           |
 | session            | [report-session.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-session.v1.schema.json)       |
 | trends             | [report-trends.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-trends.v1.schema.json)         |
@@ -84,7 +86,7 @@ llm-usage schema --list
 llm-usage daily --markdown > usage.md
 ```
 
-Markdown works for usage, compare, session, efficiency, optimize, trends, and wrapped reports. It does not work for doctor, prune, or events.
+Markdown works for summary, usage, compare, session, efficiency, optimize, trends, and wrapped reports. It does not work for doctor, prune, or events.
 
 Usage and session output keep the same ordering and row limits as the terminal renderer. `--per-model-columns` and `--compact` also work with Markdown usage reports.
 
@@ -103,7 +105,7 @@ Share output is an offline SVG written to the current directory and opened in yo
 
 Usage share works for daily, weekly, and monthly reports. Efficiency and optimize share work for monthly reports only. Trends share requires the combined view, so it cannot be paired with `--by-source`. Efficiency share cannot be paired with `--by-source` either.
 
-Session, doctor, prune, and events do not support `--share`.
+Summary, session, doctor, prune, and events do not support `--share`.
 
 ## Per-model columns
 

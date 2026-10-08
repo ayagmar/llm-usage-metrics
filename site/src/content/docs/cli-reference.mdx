@@ -637,7 +637,8 @@ Options:
   --no-open                      With --share, write the SVG without opening it
   --days <n>                     Trailing local calendar days to chart; defaults
                                  to 30 when no date flags are provided
-  --metric <name>                Trend metric: cost | tokens (default: "cost")
+  --metric <name>                Trend metric: cost | tokens | active-hours
+                                 (default: "cost")
   --by-source                    Render one sparkline row per source instead of
                                  a single combined chart
   -h, --help                     display help for command
@@ -1064,7 +1065,7 @@ Search across root and command help. See Command help above to check which flags
 | `--kimi-dir` | - | `<path>` | Path to Kimi sessions directory \(repeatable\) |
 | `--list` | - | - | List available schema names \(schema only\) |
 | `--markdown` | - | - | Render output as Markdown table \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped only\) |
-| `--metric` | - | `<name>` | Trend metric: cost \| tokens \(default: "cost"\) \(trends only\) |
+| `--metric` | - | `<name>` | Trend metric: cost \| tokens \| active-hours \(default: "cost"\) \(trends only\) |
 | `--model` | - | `<name>` | Filter by model \(repeatable/comma-separated; exact when exact match exists after source/provider/date filters, otherwise substring\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events only\) |
 | `--no-open` | - | - | With --share, write the SVG without opening it \(daily, weekly, monthly, compare, efficiency, optimize, trends, wrapped only\) |
 | `--openclaw-dir` | - | `<path>` | Path to OpenClaw agents directory \(repeatable\) |
