@@ -51,7 +51,10 @@ function getDateTimeFormatter(timezone: string): Intl.DateTimeFormat {
 }
 
 // A report buckets the same event timestamps several times (filters, windows, totals,
-// active days), so the parsed local date is kept per timestamp string.
+// active days), so the parsed local date is kept per timestamp string. The memo is
+// capped: past the cap it starts over, so a long-lived process cannot keep every
+// timestamp it ever saw (a year of heavy usage is ~25k events per timezone).
+const MAX_MEMOIZED_TIMESTAMPS = 100_000;
 const localDatePartsByTimestamp = new Map<string, Map<string, LocalDateParts>>();
 
 function extractLocalDateParts(timestampIso: string, timezone: string): LocalDateParts {
@@ -69,6 +72,11 @@ function extractLocalDateParts(timestampIso: string, timezone: string): LocalDat
   }
 
   const parts = parseLocalDateParts(timestampIso, timezone);
+
+  if (partsByTimestamp.size >= MAX_MEMOIZED_TIMESTAMPS) {
+    partsByTimestamp.clear();
+  }
+
   partsByTimestamp.set(timestampIso, parts);
   return parts;
 }

@@ -112,6 +112,20 @@ describe('getPeriodKeyRange', () => {
 });
 
 describe('time bucket helpers', () => {
+  it('stays correct after the timestamp memo fills and starts over', () => {
+    const base = Date.UTC(2026, 2, 10, 23, 30);
+
+    // More distinct timestamps than the memo keeps (100k), all on one local day per zone.
+    for (let offset = 0; offset <= 100_000; offset += 1) {
+      getPeriodKey(new Date(base + offset).toISOString(), 'daily', 'UTC');
+    }
+
+    expect(getPeriodKey(new Date(base).toISOString(), 'daily', 'UTC')).toBe('2026-03-10');
+    expect(getPeriodKey(new Date(base).toISOString(), 'daily', 'Pacific/Kiritimati')).toBe(
+      '2026-03-11',
+    );
+  });
+
   it('keeps repeated lookups of one timestamp correct for each timezone', () => {
     const timestamp = '2026-03-10T23:30:00.000Z';
 
