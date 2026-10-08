@@ -903,7 +903,37 @@ describe('renderDoctorText', () => {
       '✔ event-store  sqlite  not yet created',
       '',
       'Sources: 1 found · 1 unparseable · 1 failed · 2 not installed',
+      'Tip: add your other machines to every report with llm-usage machine add <name> <user@host>',
     ]);
-    expect(renderDoctorText([], { homeDir: '' })).toBe('\nSources: none checked');
+  });
+
+  it('lists machines after the sources, without the tip', () => {
+    expect(
+      renderDoctorText(
+        [
+          { id: 'pi', format: 'jsonl', status: 'ok', state: 'found', itemsFound: 2 },
+          {
+            id: 'machine:laptop',
+            format: 'ssh',
+            status: 'ok',
+            itemsFound: 1200,
+            detail: 'me@laptop: synced 4 min ago, 2 file(s), 1,200 event(s)',
+          },
+          {
+            id: 'machine:vps',
+            format: 'ssh',
+            status: 'error',
+            error: 'vps: never synced: ssh failed: timed out',
+          },
+        ],
+        { homeDir: '' },
+      ).split('\n'),
+    ).toEqual([
+      '✔ pi              jsonl  2 file(s)',
+      '✔ machine:laptop  ssh    me@laptop: synced 4 min ago, 2 file(s), 1,200 event(s)',
+      '✖ machine:vps     ssh    vps: never synced: ssh failed: timed out',
+      '',
+      'Sources: 1 found',
+    ]);
   });
 });

@@ -10,7 +10,12 @@ import {
   runMachineRemove,
   runSync,
 } from '../../src/cli/run-machine-commands.js';
-import { getMachineCachePath, readMachineCacheStatus } from '../../src/machines/machine-cache.js';
+import {
+  getMachineCachePath,
+  openMachineCache,
+  readMachineCacheStatus,
+} from '../../src/machines/machine-cache.js';
+import { closeEventStore } from '../../src/persistence/event-store.js';
 import { syncMachine } from '../../src/machines/sync-machine.js';
 import { pathExists } from '../../src/utils/fs-helpers.js';
 import { appendCodexTurn, createInProcessRemote } from '../helpers/machine-remote.js';
@@ -274,6 +279,28 @@ describe('machine add, sync, list and remove', () => {
       error: 'the export from me@laptop is invalid: the export ended early (no end line)',
     });
     expect(await readMachineCacheStatus('laptop')).toMatchObject({ eventCount: 0, fileCount: 0 });
+  });
+
+  it('reads a machine status while a sync holds the cache', async () => {
+    await syncMachine(
+      'laptop',
+      { ssh: 'me@laptop' },
+      {
+        spawnSsh: createInProcessRemote(remote).spawnSsh,
+      },
+    );
+    const writer = await openMachineCache('laptop');
+    writer.database.exec('BEGIN IMMEDIATE');
+
+    try {
+      const started = Date.now();
+      await expect(readMachineCacheStatus('laptop')).resolves.toMatchObject({ eventCount: 2 });
+      // Below the 2 s busy timeout: the read did not wait for the writer.
+      expect(Date.now() - started).toBeLessThan(1_000);
+    } finally {
+      writer.database.exec('ROLLBACK');
+      closeEventStore(writer);
+    }
   });
 
   it('reports a cache it cannot open as that machine failing', async () => {

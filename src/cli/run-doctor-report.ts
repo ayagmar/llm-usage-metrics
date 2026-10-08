@@ -28,6 +28,9 @@ import { resolveUserConfigForOptions, type UserConfigResolutionDeps } from './ap
 import { emitUserConfigResolution } from './emit-active-config.js';
 import { formatByteSize } from '../render/format-byte-size.js';
 import { renderDoctorText } from '../render/render-doctor-report.js';
+import { describeMachineStatus } from '../render/render-machines.js';
+import { getMachineCachePath, readMachineCacheStatus } from '../machines/machine-cache.js';
+import type { MachineConfig } from '../config/user-config.js';
 import { renderReportJson } from '../render/report-json.js';
 import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
 import type { DoctorCommandOptions } from './usage-data-contracts.js';
@@ -41,8 +44,9 @@ import { getErrorReason } from '../utils/get-error-reason.js';
 export type DoctorSourceState = 'found' | 'not_installed' | 'unparseable' | 'error';
 
 export type DoctorSourceResult = {
+  /** A source id, `event-store`, or `machine:<name>`. */
   id: string;
-  format: SourceStorageFormat;
+  format: SourceStorageFormat | 'ssh';
   /** Whether discovery ran; `state` says whether usage was found. */
   status: 'ok' | 'error';
   state?: DoctorSourceState;
@@ -65,6 +69,8 @@ type DoctorDeps = UserConfigResolutionDeps & {
   getEventStoreRuntimeConfig?: typeof getEventStoreRuntimeConfig;
   readEventStoreStoredFiles?: (filePath: string) => Promise<EventStoreStoredFile[]>;
   readEventStoreSummary?: (filePath: string) => Promise<EventStoreSummary>;
+  /** Epoch ms, for the machine rows' sync ages. */
+  now?: () => number;
 };
 
 type DiscoveredFilesBySource = Map<string, Set<string>>;
@@ -242,7 +248,52 @@ export async function buildDoctorResults(
     );
   }
 
+  results.push(
+    ...(await buildMachineDoctorResults(
+      userConfigResolution.loadedConfig.config.machines ?? {},
+      (deps.now ?? Date.now)(),
+    )),
+  );
+
   return results;
+}
+
+/** One row per configured machine, from its cache: doctor never connects over ssh. */
+async function buildMachineDoctorResults(
+  machines: Readonly<Record<string, MachineConfig>>,
+  now: number,
+): Promise<DoctorSourceResult[]> {
+  return Promise.all(
+    Object.entries(machines).map(async ([name, machine]): Promise<DoctorSourceResult> => {
+      const id = `machine:${name}`;
+
+      try {
+        const status = await readMachineCacheStatus(name);
+        const entry = {
+          name,
+          machine,
+          state: status?.state,
+          fileCount: status?.fileCount ?? 0,
+          eventCount: status?.eventCount ?? 0,
+        };
+        const detail = `${machine.ssh}: ${describeMachineStatus(entry, now)}`;
+        const { state } = entry;
+        const lastSyncFailed =
+          state?.lastError !== undefined && (state.attemptedAt ?? 0) >= (state.syncedAt ?? -1);
+
+        return lastSyncFailed && machine.enabled !== false
+          ? { id, format: 'ssh', status: 'error', itemsFound: entry.eventCount, error: detail }
+          : { id, format: 'ssh', status: 'ok', itemsFound: entry.eventCount, detail };
+      } catch (error) {
+        return {
+          id,
+          format: 'ssh',
+          status: 'error',
+          error: `cannot read its cache at ${getMachineCachePath(name)}: ${getErrorReason(error)}`,
+        };
+      }
+    }),
+  );
 }
 
 function getUnsupportedSchemaError(schemaVersion: string | undefined): string {

@@ -71,6 +71,8 @@ llm-usage sync laptop --full      # fetch every file again
 llm-usage machine remove laptop   # delete its config table and its cached usage
 ```
 
+`llm-usage doctor` shows the same machines next to your sources, from what is cached; it never connects to them.
+
 To stop fetching a machine but keep its cached usage in reports, set `enabled = false` in its table.
 
 ## Troubleshooting
