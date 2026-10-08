@@ -192,7 +192,7 @@ Terminal, JSON, and Markdown availability varies by report. Summary, usage, comp
 
 ## Performance
 
-The repository publishes direct-process and launcher-inclusive runtimes on stable snapshots of real local corpora. In the October 2026 run, `ccusage` is ahead in every direct-process daily JSON cell (1.3x to 2.4x); a monthly terminal run against a warmed llm-usage ledger is 1.65x faster than the ccusage executable, and `npx ccusage@...` adds about half a second of launcher time. The benchmark records the machine, exact commands, application state, dataset size, and eight-run summary statistics.
+The repository publishes direct-process and launcher-inclusive runtimes on stable snapshots of real local corpora. In the October 2026 run, `ccusage` is ahead in every direct-process daily JSON cell (1.3x to 2.4x). At the shell with default settings, ccusage refetches pricing on every run, so a monthly terminal run of the installed `llm-usage` finished first, and `npx ccusage@...` adds about half a second of launcher time. The benchmark records the machine, exact commands, application state, dataset size, and eight-run summary statistics.
 
 Read and reproduce the [benchmark](https://ayagmar.github.io/llm-usage-metrics/benchmarks/) before applying its results to another workload.
 

@@ -3,7 +3,7 @@ title: Benchmarks
 description: Direct-process and launcher-inclusive runtimes on stable snapshots of real local data.
 ---
 
-This page publishes absolute runtimes for `llm-usage` and `ccusage` on stable snapshots of real local data. The result depends on what is timed: ccusage wins every cell of the counterbalanced direct-process comparison, by 1.3x to 2.4x, while a monthly terminal run against a warmed llm-usage ledger, and anything launched through `npx`, favors llm-usage. All numbers below were measured on 2026-10-08 with 8 timed runs per cell.
+This page publishes absolute runtimes for `llm-usage` and `ccusage` on stable snapshots of real local data. The result depends on what is timed: ccusage wins every cell of the counterbalanced direct-process comparison, by 1.3x to 2.4x. With default settings at the shell, ccusage refetches pricing on every run while llm-usage reuses its cached pricing, which reverses a monthly terminal run; launching ccusage through `npx` adds about half a second more. All numbers below were measured on 2026-10-08 with 8 timed runs per cell.
 
 ## Direct-process results
 
@@ -35,17 +35,18 @@ These are runtime comparisons of similar report commands, not correctness or byt
 
 ## The shell path: installed command, package executable, and `npx`
 
-The commands people type do not have equivalent launch paths. An installed `llm-usage` starts Node on its built entry and, on a repeat run, reads parsed events from its ledger; `npx ccusage@latest` first starts npm, resolves the package, and prepares its execution environment. We timed a monthly terminal report on the same Codex snapshot:
+The commands people type do not behave the same way by default. An installed `llm-usage` starts Node on its built entry and reuses its cached pricing (and its ledger) on a repeat run; `ccusage` fetches live pricing on every run unless it gets `--offline`; and `npx ccusage@latest` first starts npm, resolves the package, and prepares its execution environment. We timed a monthly terminal report on the same Codex snapshot:
 
 | Command                                                | Launch path                     | Median (s) | Mean (s) | Min (s) | Max (s) |
 | ------------------------------------------------------ | ------------------------------- | ---------: | -------: | ------: | ------: |
 | `llm-usage monthly --per-model-columns --source codex` | built entry, warmed ledger      |      0.096 |    0.096 |   0.089 |   0.101 |
-| `ccusage codex monthly`                                | package executable              |      0.159 |    0.147 |   0.117 |   0.174 |
+| `ccusage codex monthly`                                | package executable, live prices |      0.159 |    0.147 |   0.117 |   0.174 |
+| `ccusage codex monthly --offline`                      | package executable, cached      |      0.054 |    0.054 |   0.053 |   0.057 |
 | `npx --yes ccusage@20.0.26 codex monthly`              | npm + ccusage (package cached)  |      0.628 |    0.618 |   0.569 |   0.647 |
 
-In this scenario the installed `llm-usage` was 1.65x faster than the ccusage executable and 6.5x faster than the `npx` form. The difference from the daily JSON cells above comes from the ledger: here llm-usage's warm-up run filled its event store, which it then reads instead of reparsing, while ccusage has no equivalent store. Use launcher-inclusive timing to judge the one-off `npx` experience, and the direct-process cells to compare the tools themselves.
+With default settings the installed `llm-usage` was 1.65x faster than the ccusage executable and 6.5x faster than the `npx` form. That comes from pricing, not parsing: given cached prices with `--offline`, ccusage was 1.78x faster than `llm-usage`, in line with the warmed direct-process cells above. Use launcher-inclusive timing to judge the one-off `npx` experience, and the direct-process cells to compare the tools themselves.
 
-This launcher check is an observed shell-path comparison, not the counterbalanced benchmark above. Each command received one untimed warm-up followed by 8 sequential timed runs on the stable snapshot; commands were grouped by row, output was discarded through non-TTY pipes, `LLM_USAGE_*` variables were removed, and the system timezone plus default online pricing and update-check behavior were left in place. ccusage 20.0.26 was already in npm's package cache before both its direct and `npx` rows, and `llm-usage` ran as `node dist/index.js`, which is what the installed `llm-usage` bin starts.
+This launcher check is an observed shell-path comparison, not the counterbalanced benchmark above. Each command received one untimed warm-up followed by 8 sequential timed runs on the stable snapshot; commands were grouped by row, output was discarded through non-TTY pipes, `LLM_USAGE_*` variables were removed, and the system timezone plus default online pricing and update-check behavior were left in place. The `--offline` row was timed separately right after the others, with the same procedure. ccusage 20.0.26 was already in npm's package cache before its direct and `npx` rows, and `llm-usage` ran as `node dist/index.js`, which is what the installed `llm-usage` bin starts.
 
 ## What the application states mean
 
@@ -70,7 +71,7 @@ This launcher check is an observed shell-path comparison, not the counterbalance
 | Corpus | Files                     | Size on disk |
 | ------ | ------------------------- | ------------ |
 | codex  | 136 JSONL session files   | ≈ 235 MiB    |
-| claude | 431 JSONL files           | ≈ 385 MiB    |
+| claude | 431 JSONL files           | ≈ 362 MiB    |
 
 The source trees were copied to a snapshot on a RAM-backed filesystem immediately before the run, so the active sessions could not grow between samples, and `HOME` pointed at that snapshot for both tools.
 
