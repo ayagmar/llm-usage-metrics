@@ -543,7 +543,7 @@ describe('run-prune-report', () => {
           source: 'codex',
           filePath: '/tmp/\u001B[31mred\u202E.jsonl',
           eventCount: 1,
-          reasons: ['missing'],
+          reasons: ['aged'],
         },
       ],
       summary: {

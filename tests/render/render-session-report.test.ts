@@ -145,7 +145,7 @@ describe('renderSessionReport', () => {
       useColor: false,
     });
     const lines = output.split('\n');
-    const tableTop = lines.findLastIndex((line) => line.startsWith('╭'));
+    const tableTop = lines.map((line) => line.startsWith('╭')).lastIndexOf(true);
     const borderWidth = visibleWidth(lines[tableTop] ?? '');
     const tableLines = lines.slice(tableTop + 1).filter((line) => line.startsWith('│'));
 
