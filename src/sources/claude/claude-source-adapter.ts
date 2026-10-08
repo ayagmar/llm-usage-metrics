@@ -340,8 +340,3 @@ export class ClaudeSourceAdapter implements SourceAdapter {
     return toParseDiagnostics(events, skippedRows, skippedRowReasons);
   }
 }
-
-/** The projects directory under ~/.claude, ignoring CLAUDE_CONFIG_DIR. */
-export function getDefaultClaudeProjectsDir(): string {
-  return resolveDefaultClaudeRootDirs({})[0];
-}

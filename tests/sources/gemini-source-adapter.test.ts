@@ -5,10 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import {
-  GeminiSourceAdapter,
-  getDefaultGeminiDir,
-} from '../../src/sources/gemini/gemini-source-adapter.js';
+import { GeminiSourceAdapter } from '../../src/sources/gemini/gemini-source-adapter.js';
 import { MAX_JSON_TRANSCRIPT_BYTES } from '../../src/sources/read-json-file.js';
 import { canonicalTmpdir } from '../helpers/tmp.js';
 
@@ -26,8 +23,8 @@ describe('GeminiSourceAdapter', () => {
     const adapter = new GeminiSourceAdapter();
 
     expect(adapter.id).toBe('gemini');
-    expect(path.basename(getDefaultGeminiDir())).toBe('.gemini');
-    expect(path.isAbsolute(getDefaultGeminiDir())).toBe(true);
+    expect(path.basename(new GeminiSourceAdapter().getSearchPaths()[0])).toBe('.gemini');
+    expect(path.isAbsolute(new GeminiSourceAdapter().getSearchPaths()[0])).toBe(true);
   });
 
   describe('discoverFiles', () => {
@@ -89,7 +86,7 @@ describe('GeminiSourceAdapter', () => {
       const adapter = new GeminiSourceAdapter({ env: { GEMINI_CLI_HOME: '   ' } });
 
       await expect(adapter.getParseDependencies()).resolves.toEqual([
-        path.join(getDefaultGeminiDir(), 'projects.json'),
+        path.join(new GeminiSourceAdapter().getSearchPaths()[0], 'projects.json'),
       ]);
     });
 

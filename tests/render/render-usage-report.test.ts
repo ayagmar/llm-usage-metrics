@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import type { UsageDataResult } from '../../src/cli/usage-data-contracts.js';
 import {
   describeTableFit,
-  renderUsageReport,
   renderUsageReportWithNotes,
 } from '../../src/render/render-usage-report.js';
 
@@ -125,12 +124,12 @@ const sampleUsageData: UsageDataResult = {
   },
 };
 
-describe('renderUsageReport', () => {
+describe('renderUsageReportWithNotes output', () => {
   it('renders terminal output with header and table only', () => {
-    const rendered = renderUsageReport(sampleUsageData, 'terminal', {
+    const rendered = renderUsageReportWithNotes(sampleUsageData, 'terminal', {
       granularity: 'monthly',
       useColor: false,
-    });
+    }).output;
 
     expect(rendered).not.toContain('Active environment overrides:');
     expect(rendered).not.toContain('LLM_USAGE_PARSE_WORKERS=0');
@@ -147,7 +146,9 @@ describe('renderUsageReport', () => {
   });
 
   it('renders markdown output in compact mode by default', () => {
-    const rendered = renderUsageReport(sampleUsageData, 'markdown', { granularity: 'daily' });
+    const rendered = renderUsageReportWithNotes(sampleUsageData, 'markdown', {
+      granularity: 'daily',
+    }).output;
 
     expect(rendered).toContain('| Period');
     expect(rendered).toContain('**• gpt-4.1**<br>• gpt-5-codex');
@@ -156,10 +157,10 @@ describe('renderUsageReport', () => {
   });
 
   it('renders markdown output with per-model column layout when requested', () => {
-    const rendered = renderUsageReport(sampleUsageData, 'markdown', {
+    const rendered = renderUsageReportWithNotes(sampleUsageData, 'markdown', {
       granularity: 'daily',
       tableLayout: 'per_model_columns',
-    });
+    }).output;
 
     expect(rendered).toContain('**• gpt-4.1**<br>• gpt-5-codex<br>**Σ TOTAL**');
     expect(rendered).toContain('1,234<br>766<br>2,000');
@@ -167,10 +168,10 @@ describe('renderUsageReport', () => {
   });
 
   it('renders an empty-state message instead of an empty table', () => {
-    const rendered = renderUsageReport({ ...sampleUsageData, rows: [] }, 'terminal', {
+    const rendered = renderUsageReportWithNotes({ ...sampleUsageData, rows: [] }, 'terminal', {
       granularity: 'daily',
       useColor: false,
-    });
+    }).output;
 
     expect(rendered).toContain('Daily Token Usage Report');
     expect(rendered).toContain('No usage data found for the selected filters.');
@@ -179,7 +180,9 @@ describe('renderUsageReport', () => {
   });
 
   it('renders JSON output as pretty-printed row payload only', () => {
-    const rendered = renderUsageReport(sampleUsageData, 'json', { granularity: 'weekly' });
+    const rendered = renderUsageReportWithNotes(sampleUsageData, 'json', {
+      granularity: 'weekly',
+    }).output;
 
     const parsed = JSON.parse(rendered) as {
       schemaVersion: number;

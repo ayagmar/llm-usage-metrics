@@ -4,10 +4,7 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import {
-  getDefaultKimiSessionDirs,
-  KimiSourceAdapter,
-} from '../../src/sources/kimi/kimi-source-adapter.js';
+import { KimiSourceAdapter } from '../../src/sources/kimi/kimi-source-adapter.js';
 
 const tempDirs: string[] = [];
 
@@ -39,7 +36,7 @@ function cliStatusUpdateLine(messageId: string, timestamp: number): string {
 describe('KimiSourceAdapter', () => {
   it('exposes stable source id and default session directories', () => {
     const adapter = new KimiSourceAdapter();
-    const defaultDirs = getDefaultKimiSessionDirs();
+    const defaultDirs = new KimiSourceAdapter().getSearchPaths();
 
     expect(adapter.id).toBe('kimi');
     expect(adapter.capabilities).toEqual({

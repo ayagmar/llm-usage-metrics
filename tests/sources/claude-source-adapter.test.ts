@@ -5,7 +5,6 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   ClaudeSourceAdapter,
-  getDefaultClaudeProjectsDir,
   resolveDefaultClaudeRootDirs,
 } from '../../src/sources/claude/claude-source-adapter.js';
 import { canonicalTmpdir } from '../helpers/tmp.js';
@@ -74,9 +73,9 @@ describe('ClaudeSourceAdapter', () => {
     const adapter = new ClaudeSourceAdapter();
 
     expect(adapter.id).toBe('claude');
-    expect(path.basename(path.dirname(getDefaultClaudeProjectsDir()))).toBe('.claude');
-    expect(path.basename(getDefaultClaudeProjectsDir())).toBe('projects');
-    expect(path.isAbsolute(getDefaultClaudeProjectsDir())).toBe(true);
+    expect(path.basename(path.dirname(resolveDefaultClaudeRootDirs({})[0]))).toBe('.claude');
+    expect(path.basename(resolveDefaultClaudeRootDirs({})[0])).toBe('projects');
+    expect(path.isAbsolute(resolveDefaultClaudeRootDirs({})[0])).toBe(true);
   });
 
   it('reads every comma-separated CLAUDE_CONFIG_DIR instead of ~/.claude', async () => {

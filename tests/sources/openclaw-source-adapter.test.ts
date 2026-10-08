@@ -4,10 +4,7 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import {
-  getDefaultOpenClawAgentsDir,
-  OpenClawSourceAdapter,
-} from '../../src/sources/openclaw/openclaw-source-adapter.js';
+import { OpenClawSourceAdapter } from '../../src/sources/openclaw/openclaw-source-adapter.js';
 
 const tempDirs: string[] = [];
 
@@ -532,7 +529,9 @@ describe('OpenClawSourceAdapter', () => {
   });
 
   it('uses the default OpenClaw agents directory', () => {
-    expect(getDefaultOpenClawAgentsDir()).toBe(path.join(os.homedir(), '.openclaw', 'agents'));
+    expect(new OpenClawSourceAdapter().getSearchPaths()[0]).toBe(
+      path.join(os.homedir(), '.openclaw', 'agents'),
+    );
   });
 
   it('keeps reasoning inside the total when usage declares no total', async () => {

@@ -214,7 +214,3 @@ export class QwenSourceAdapter implements SourceAdapter {
     return toParseDiagnostics(events, skippedRows, skippedRowReasons);
   }
 }
-
-export function getDefaultQwenProjectsDir(): string {
-  return defaultProjectsDir;
-}

@@ -343,7 +343,3 @@ export class PiSourceAdapter implements SourceAdapter {
     return toParseDiagnostics(events, skippedRows, skippedRowReasons);
   }
 }
-
-export function getDefaultPiSessionsDir(): string {
-  return defaultSessionsDir;
-}

@@ -4,10 +4,7 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import {
-  getDefaultCopilotOtelDir,
-  CopilotSourceAdapter,
-} from '../../src/sources/copilot/copilot-source-adapter.js';
+import { CopilotSourceAdapter } from '../../src/sources/copilot/copilot-source-adapter.js';
 
 const tempDirs: string[] = [];
 
@@ -158,7 +155,9 @@ describe('CopilotSourceAdapter', () => {
   });
 
   it('returns the documented default OTEL directory', () => {
-    expect(getDefaultCopilotOtelDir()).toBe(path.join(os.homedir(), '.copilot', 'otel'));
+    expect(new CopilotSourceAdapter().getSearchPaths()[0]).toBe(
+      path.join(os.homedir(), '.copilot', 'otel'),
+    );
   });
 
   it('keeps reasoning inside the total when the span declares no total', async () => {

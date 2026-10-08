@@ -5,7 +5,6 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   CodexSourceAdapter,
-  getDefaultCodexSessionsDir,
   LEGACY_CODEX_MODEL_FALLBACK,
   resolveDefaultCodexSessionsDir,
 } from '../../src/sources/codex/codex-source-adapter.js';
@@ -912,7 +911,7 @@ describe('CodexSourceAdapter', () => {
 
 describe('codex source helpers', () => {
   it('returns default codex sessions path', () => {
-    expect(getDefaultCodexSessionsDir()).toContain(path.join('.codex', 'sessions'));
+    expect(resolveDefaultCodexSessionsDir({})).toContain(path.join('.codex', 'sessions'));
   });
 
   it('reads sessions from CODEX_HOME when it is set', () => {

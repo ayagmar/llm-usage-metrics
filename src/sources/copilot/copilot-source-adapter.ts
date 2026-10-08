@@ -476,7 +476,3 @@ export class CopilotSourceAdapter implements SourceAdapter {
     return toParseDiagnostics(events, skippedRows, skippedRowReasons);
   }
 }
-
-export function getDefaultCopilotOtelDir(): string {
-  return defaultOtelDir;
-}

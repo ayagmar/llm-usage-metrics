@@ -5,10 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import {
-  AmpSourceAdapter,
-  getDefaultAmpThreadsDir,
-} from '../../src/sources/amp/amp-source-adapter.js';
+import { AmpSourceAdapter } from '../../src/sources/amp/amp-source-adapter.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturesDir = path.join(__dirname, '..', 'fixtures', 'amp');
@@ -29,16 +26,16 @@ describe('AmpSourceAdapter', () => {
 
     expect(adapter.id).toBe('amp');
     expect(
-      getDefaultAmpThreadsDir({
+      new AmpSourceAdapter({
         homeDir: '/home/tester',
         env: { XDG_DATA_HOME: '/xdg-data' },
-      }),
+      }).getSearchPaths()[0],
     ).toBe(path.join('/xdg-data', 'amp', 'threads'));
     expect(
-      getDefaultAmpThreadsDir({
+      new AmpSourceAdapter({
         homeDir: '/home/tester',
         env: { XDG_DATA_HOME: '   ' },
-      }),
+      }).getSearchPaths()[0],
     ).toBe(path.join('/home/tester', '.local', 'share', 'amp', 'threads'));
   });
 

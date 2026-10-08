@@ -4,10 +4,7 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import {
-  getDefaultQwenProjectsDir,
-  QwenSourceAdapter,
-} from '../../src/sources/qwen/qwen-source-adapter.js';
+import { QwenSourceAdapter } from '../../src/sources/qwen/qwen-source-adapter.js';
 
 const tempDirs: string[] = [];
 
@@ -18,7 +15,9 @@ afterEach(async () => {
 
 describe('QwenSourceAdapter', () => {
   it('uses the stable default projects directory', () => {
-    expect(getDefaultQwenProjectsDir()).toBe(path.join(os.homedir(), '.qwen', 'projects'));
+    expect(new QwenSourceAdapter().getSearchPaths()[0]).toBe(
+      path.join(os.homedir(), '.qwen', 'projects'),
+    );
   });
 
   it('discovers jsonl files recursively in deterministic order', async () => {

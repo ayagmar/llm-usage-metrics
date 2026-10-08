@@ -2,7 +2,7 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import type { UsageEvent } from '../../src/domain/usage-event.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
-import { isSourceAdapter, type SourceAdapter } from '../../src/sources/source-adapter.js';
+import type { SourceAdapter } from '../../src/sources/source-adapter.js';
 
 describe('SourceAdapter contract', () => {
   it('supports strongly typed adapter implementations', async () => {
@@ -36,34 +36,5 @@ describe('SourceAdapter contract', () => {
 
     expectTypeOf(adapter.id).toEqualTypeOf<'pi'>();
     expectTypeOf(events).toEqualTypeOf<UsageEvent[]>();
-  });
-
-  it('can validate adapter shape at runtime', () => {
-    const candidate = {
-      id: 'codex',
-      discoverFiles: () => Promise.resolve(['/tmp/codex.jsonl']),
-      parseFile: () => Promise.resolve<UsageEvent[]>([]),
-    };
-
-    expect(isSourceAdapter(candidate)).toBe(true);
-    expect(isSourceAdapter(null)).toBe(false);
-    expect(isSourceAdapter(undefined)).toBe(false);
-    expect(isSourceAdapter(42)).toBe(false);
-    expect(isSourceAdapter('string')).toBe(false);
-    expect(
-      isSourceAdapter({
-        id: '',
-        discoverFiles: () => Promise.resolve([]),
-        parseFile: () => Promise.resolve([]),
-      }),
-    ).toBe(false);
-    expect(
-      isSourceAdapter({
-        id: '   ',
-        discoverFiles: () => Promise.resolve([]),
-        parseFile: () => Promise.resolve([]),
-      }),
-    ).toBe(false);
-    expect(isSourceAdapter({ id: 'pi' })).toBe(false);
   });
 });

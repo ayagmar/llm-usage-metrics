@@ -226,7 +226,3 @@ export class DroidSourceAdapter implements SourceAdapter {
     return toParseDiagnostics(events, skippedRows, skippedRowReasons);
   }
 }
-
-export function getDefaultDroidSessionsDir(): string {
-  return defaultSessionsDir;
-}

@@ -362,7 +362,3 @@ export class KimiSourceAdapter implements SourceAdapter {
     return toParseDiagnostics(context.events, context.skippedRows, context.skippedRowReasons);
   }
 }
-
-export function getDefaultKimiSessionDirs(): string[] {
-  return [...defaultRootDirs];
-}
