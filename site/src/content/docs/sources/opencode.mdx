@@ -10,7 +10,7 @@ description: Discovery paths, overrides, and usage parsing for OpenCode.
 ## Path selection
 
 1. explicit `--opencode-db`
-2. deterministic OS-specific default candidates: per directory, `opencode.db` first, then `opencode-<channel>.db` variants sorted by name, then `db.sqlite`
+2. deterministic OS-specific default candidates: per directory, `opencode.db` first, then `opencode-<channel>.db` variants sorted by name, then `db.sqlite`. OpenCode keeps one database per release channel, so every readable `opencode.db` and `opencode-<channel>.db` in the first directory that has one is read; `db.sqlite` is read only when neither exists there
 
 ```bash
 llm-usage daily --source opencode --opencode-db /path/to/opencode.db

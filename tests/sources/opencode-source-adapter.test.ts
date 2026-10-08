@@ -153,6 +153,42 @@ describe('OpenCodeSourceAdapter', () => {
     await expect(adapter.discoverFiles()).resolves.toEqual(['/tmp/opencode-readable.db']);
   });
 
+  it('returns every channel database in the first directory that has one', async () => {
+    const readable = new Set([
+      '/data/opencode/opencode.db',
+      '/data/opencode/opencode-dev.db',
+      '/data/opencode/db.sqlite',
+      '/home/.opencode/opencode.db',
+    ]);
+    const adapter = new OpenCodeSourceAdapter({
+      resolveDefaultDbPaths: () => [
+        '/data/opencode/opencode.db',
+        '/data/opencode/opencode-dev.db',
+        '/data/opencode/db.sqlite',
+        '/home/.opencode/opencode.db',
+      ],
+      pathExists: async (filePath) => readable.has(filePath),
+      pathReadable: async (filePath) => readable.has(filePath),
+      pathIsFile: async () => true,
+    });
+
+    await expect(adapter.discoverFiles()).resolves.toEqual([
+      '/data/opencode/opencode.db',
+      '/data/opencode/opencode-dev.db',
+    ]);
+  });
+
+  it('falls back to db.sqlite only when no opencode database sits beside it', async () => {
+    const adapter = new OpenCodeSourceAdapter({
+      resolveDefaultDbPaths: () => ['/data/opencode/opencode.db', '/data/opencode/db.sqlite'],
+      pathExists: async (filePath) => filePath === '/data/opencode/db.sqlite',
+      pathReadable: async (filePath) => filePath === '/data/opencode/db.sqlite',
+      pathIsFile: async () => true,
+    });
+
+    await expect(adapter.discoverFiles()).resolves.toEqual(['/data/opencode/db.sqlite']);
+  });
+
   it('fails discovery when first readable default candidate is not a file', async () => {
     const adapter = new OpenCodeSourceAdapter({
       resolveDefaultDbPaths: () => ['/tmp/opencode-candidate'],
