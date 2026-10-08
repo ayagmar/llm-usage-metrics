@@ -68,13 +68,13 @@ describe('renderSyncOutcome', () => {
         {
           name: 'vps',
           ok: true,
-          result: { receivedFileCount: 0, removedFileCount: 1, fileCount: 3, eventCount: 10 },
+          result: { receivedFileCount: 3072, removedFileCount: 1, fileCount: 3072, eventCount: 10 },
           state: { cliVersion: '1.0.0' },
         },
         NOW,
       ),
     ).toBe(
-      '✓ vps: 0 file(s) updated, 1 removed; 3 file(s), 10 event(s) cached (llm-usage-metrics 1.0.0)',
+      '✓ vps: 3,072 file(s) updated, 1 removed; 3,072 file(s), 10 event(s) cached (llm-usage-metrics 1.0.0)',
     );
   });
 });

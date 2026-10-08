@@ -34,9 +34,9 @@ const spawnSystemSsh: SpawnSsh = (args) =>
 /**
  * ssh never prompts (BatchMode): a sync runs inside reports, where a password or host-key
  * prompt would hang. Keepalives end a dead connection; options from ~/.ssh/config, such
- * as ControlMaster, still apply.
+ * as ControlMaster, still apply. `--` keeps a destination from being read as an option.
  */
-export function buildSshExportArgs(machine: MachineConfig): string[] {
+function buildSshArgs(target: string, remoteCommand: string): string[] {
   return [
     '-T',
     '-o',
@@ -50,9 +50,75 @@ export function buildSshExportArgs(machine: MachineConfig): string[] {
     '-o',
     'Compression=yes',
     '--',
+    target,
+    remoteCommand,
+  ];
+}
+
+export function buildSshExportArgs(machine: MachineConfig): string[] {
+  return buildSshArgs(
     machine.ssh,
     `${machine.command ?? DEFAULT_MACHINE_COMMAND} machine export --known - --quiet`,
-  ];
+  );
+}
+
+const LOGIN_SHELL_MARKER = 'llm-usage-metrics: asking the login shell';
+const PROBE_OUTPUT_BYTES = 64 * 1024;
+
+/**
+ * Finds how to launch llm-usage on another machine when ssh commands cannot. Version
+ * managers (nvm, fnm, volta, mise) put node on PATH in shell startup files, which a
+ * non-interactive ssh session skips; a command only the login shell finds is launched
+ * with its directory on PATH. Undefined means the default command works or nothing
+ * better was found.
+ */
+export async function detectRemoteCommand(
+  target: string,
+  options: { spawnSsh?: SpawnSsh; timeoutMs?: number } = {},
+): Promise<string | undefined> {
+  const probe = [
+    `command -v ${DEFAULT_MACHINE_COMMAND} && exit 0`,
+    `echo '${LOGIN_SHELL_MARKER}'`,
+    `"$SHELL" -lic 'command -v ${DEFAULT_MACHINE_COMMAND}'`,
+  ].join('; ');
+  const child = (options.spawnSsh ?? spawnSystemSsh)(buildSshArgs(target, probe));
+  let output = '';
+  const timer = setTimeout(() => child.kill(), options.timeoutMs ?? 20_000);
+
+  child.stdin.on('error', () => undefined);
+  child.stdin.end();
+  child.stdout.on('data', (chunk: Buffer) => {
+    output = (output + chunk.toString('utf8')).slice(-PROBE_OUTPUT_BYTES);
+  });
+  child.stderr.resume();
+
+  try {
+    // A failed probe only means nothing better was found.
+    await new Promise<void>((resolve) => {
+      child.once('error', () => {
+        resolve();
+      });
+      child.once('close', () => {
+        resolve();
+      });
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+
+  const lines = output.split(/\r?\n/u).map((line) => line.trim());
+  const markerIndex = lines.indexOf(LOGIN_SHELL_MARKER);
+  const suffix = `/${DEFAULT_MACHINE_COMMAND}`;
+  const found = lines
+    .slice(markerIndex + 1)
+    .filter((line) => line.startsWith('/') && line.endsWith(suffix))
+    .at(-1);
+
+  if (markerIndex === -1 || !found || !/^[\w./+@-]+$/u.test(found)) {
+    return undefined;
+  }
+
+  return `env PATH=${found.slice(0, -suffix.length)}:"$PATH" ${DEFAULT_MACHINE_COMMAND}`;
 }
 
 function readStderrTail(chunks: readonly Buffer[]): string {
@@ -83,7 +149,7 @@ export function describeExportFailure(
   }
 
   if (exitCode === 127 || /command not found|not recognized as an internal/iu.test(stderr)) {
-    return `${command} was not found on ${machine.ssh}: ${detail}. Install llm-usage-metrics there, or set command to its full path in config.toml.`;
+    return `${command} was not found on ${machine.ssh}: ${detail}. Install llm-usage-metrics there, or give the command that starts it (machine add --command, or command in config.toml).`;
   }
 
   if (/unknown command 'machine'|unknown command 'export'/iu.test(stderr)) {

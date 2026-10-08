@@ -20,6 +20,8 @@ export function createInProcessRemote(options: {
   eventStorePath: string;
   rewrite?: (bundle: string) => string;
   fail?: { exitCode: number; stderr: string };
+  /** What the command probe prints, e.g. a login-shell-only path after the probe marker. */
+  loginShellCommand?: string;
 }): InProcessRemote {
   const calls: string[][] = [];
 
@@ -36,6 +38,13 @@ export function createInProcessRemote(options: {
     };
 
     void (async () => {
+      // `machine add` first asks where llm-usage is; here it is on the ssh PATH.
+      if (!args.at(-1)?.includes('machine export')) {
+        stdout.write(`${options.loginShellCommand ?? '/usr/bin/llm-usage'}\n`);
+        close(0);
+        return;
+      }
+
       if (options.fail) {
         stderr.write(options.fail.stderr);
         close(options.fail.exitCode);

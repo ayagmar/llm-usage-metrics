@@ -63,7 +63,8 @@ describe('machine add, sync, list and remove', () => {
     expect(await readFile(localConfigPath, 'utf8')).toBe(
       '# my settings\ntimezone = "UTC"\n\n[machines.laptop]\nssh = "me@laptop"\n',
     );
-    expect(calls[0]).toEqual(
+    expect(calls).toHaveLength(2);
+    expect(calls[1]).toEqual(
       expect.arrayContaining([
         'BatchMode=yes',
         '--',
@@ -71,7 +72,7 @@ describe('machine add, sync, list and remove', () => {
         'llm-usage machine export --known - --quiet',
       ]),
     );
-    expect(calls[0].indexOf('--')).toBe(calls[0].indexOf('me@laptop') - 1);
+    expect(calls[1].indexOf('--')).toBe(calls[1].indexOf('me@laptop') - 1);
     expect(printed).toEqual([
       expect.stringMatching(
         /^✓ laptop: 1 file\(s\) updated, 0 removed; 1 file\(s\), 2 event\(s\) cached/,
@@ -83,6 +84,22 @@ describe('machine add, sync, list and remove', () => {
       eventCount: 2,
       state: { syncedAt: NOW, hostname: os.hostname() },
     });
+  });
+
+  it('launches llm-usage from the directory only a login shell finds', async () => {
+    const { spawnSsh, calls } = createInProcessRemote({
+      ...remote,
+      loginShellCommand:
+        'llm-usage-metrics: asking the login shell\nWelcome!\n/home/me/.fnm/aliases/default/bin/llm-usage',
+    });
+
+    await runMachineAdd('laptop', 'me@laptop', {}, { spawnSsh, print });
+
+    const command = 'env PATH=/home/me/.fnm/aliases/default/bin:"$PATH" llm-usage';
+    expect(calls[1].at(-1)).toBe(`${command} machine export --known - --quiet`);
+    expect(await readFile(localConfigPath, 'utf8')).toBe(
+      `[machines.laptop]\nssh = "me@laptop"\ncommand = ${JSON.stringify(command)}\n`,
+    );
   });
 
   it('syncs only what changed, and lists the result', async () => {

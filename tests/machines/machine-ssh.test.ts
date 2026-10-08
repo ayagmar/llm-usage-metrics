@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   describeExportFailure,
+  detectRemoteCommand,
   fetchMachineExport,
   type SpawnSsh,
   type SshProcess,
@@ -116,7 +117,7 @@ describe('fetchMachineExport', () => {
     });
 
     await expect(fetchMachineExport(machine, [], { spawnSsh })).rejects.toThrow(
-      'llm-usage was not found on me@laptop: bash: line 1: llm-usage: command not found. Install llm-usage-metrics there, or set command to its full path in config.toml.',
+      'llm-usage was not found on me@laptop: bash: line 1: llm-usage: command not found. Install llm-usage-metrics there, or give the command that starts it (machine add --command, or command in config.toml).',
     );
   });
 
@@ -141,5 +142,36 @@ describe('describeExportFailure', () => {
     [1, '', 'machine export failed: exit code 1'],
   ])('explains exit %i with "%s"', (exitCode, stderr, message) => {
     expect(describeExportFailure(machine, exitCode, stderr)).toContain(message);
+  });
+});
+
+describe('detectRemoteCommand', () => {
+  const printing = (stdout: string) => () =>
+    spawn(process.execPath, ['-e', `process.stdout.write(${JSON.stringify(stdout)})`]);
+  const marker = 'llm-usage-metrics: asking the login shell';
+
+  it.each([
+    ['the ssh PATH has llm-usage', '/usr/local/bin/llm-usage\n', undefined],
+    [
+      'only the login shell has it',
+      `${marker}\nWelcome back\n/home/me/.nvm/versions/node/v24.1.0/bin/llm-usage\n`,
+      'env PATH=/home/me/.nvm/versions/node/v24.1.0/bin:"$PATH" llm-usage',
+    ],
+    ['neither has it', `${marker}\n`, undefined],
+    [
+      'it lives in a path that needs quoting',
+      `${marker}\n/home/me/my tools/llm-usage\n`,
+      undefined,
+    ],
+  ])('when %s', async (_name, stdout, expected) => {
+    await expect(detectRemoteCommand('me@laptop', { spawnSsh: printing(stdout) })).resolves.toBe(
+      expected,
+    );
+  });
+
+  it('gives up when ssh cannot run', async () => {
+    const { spawnSsh } = fakeSsh({ spawnError: new Error('spawn ssh ENOENT') });
+
+    await expect(detectRemoteCommand('me@laptop', { spawnSsh })).resolves.toBeUndefined();
   });
 });

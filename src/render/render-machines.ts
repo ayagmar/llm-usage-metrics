@@ -44,7 +44,7 @@ export function renderSyncOutcome(outcome: MachineSyncOutcome, now: number): str
     const changes =
       result.receivedFileCount === 0 && result.removedFileCount === 0
         ? 'up to date'
-        : `${result.receivedFileCount} file(s) updated, ${result.removedFileCount} removed`;
+        : `${integerFormat.format(result.receivedFileCount)} file(s) updated, ${integerFormat.format(result.removedFileCount)} removed`;
 
     return `✓ ${outcome.name}: ${changes}; ${formatCachedTotals(result.fileCount, result.eventCount)} cached${formatRemoteVersion(outcome.state)}`;
   }

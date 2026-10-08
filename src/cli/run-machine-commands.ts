@@ -11,7 +11,7 @@ import {
   addMachineToConfigFile,
   removeMachineFromConfigFile,
 } from '../machines/machine-config-file.js';
-import type { SpawnSsh } from '../machines/machine-ssh.js';
+import { detectRemoteCommand, type SpawnSsh } from '../machines/machine-ssh.js';
 import { syncMachine } from '../machines/sync-machine.js';
 import { renderMachineList, renderSyncOutcome } from '../render/render-machines.js';
 import { logger } from '../utils/logger.js';
@@ -55,8 +55,6 @@ export async function runMachineAdd(
     );
   }
 
-  const command = options.command?.trim();
-  const machine: MachineConfig = command ? { ssh: sshTarget, command } : { ssh: sshTarget };
   const configPath = resolveUserConfigPath(process.env);
 
   if (Object.hasOwn(await loadConfiguredMachines(), name)) {
@@ -64,6 +62,20 @@ export async function runMachineAdd(
       `Machine ${name} is already configured in ${configPath}; pick another name or run llm-usage machine remove ${name}`,
     );
   }
+
+  let command = options.command?.trim();
+
+  if (!command) {
+    command = await detectRemoteCommand(sshTarget, { spawnSsh: deps.spawnSsh });
+
+    if (command) {
+      logger.info(
+        `${sshTarget} finds llm-usage only in a login shell; launching it with: ${command}`,
+      );
+    }
+  }
+
+  const machine: MachineConfig = command ? { ssh: sshTarget, command } : { ssh: sshTarget };
 
   logger.info(
     `Syncing ${name} over ssh (${sshTarget}); its first export parses that machine's logs and can take a while...`,
