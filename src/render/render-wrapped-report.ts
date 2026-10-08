@@ -13,6 +13,7 @@ import {
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
 import { renderReportJson } from './report-json.js';
+import { MONTH_LABELS } from './month-labels.js';
 
 export type WrappedReportFormat = 'terminal' | 'markdown' | 'json';
 
@@ -27,20 +28,6 @@ export const wrappedReportFormats = [
   'json',
 ] as const satisfies readonly WrappedReportFormat[];
 
-const MONTH_LABELS = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
 // Block glyphs for monthly intensity levels 0..4.
 const INTENSITY_GLYPHS = ['·', '▁', '▂', '▄', '█'];
 const TOP_MODELS_HEADERS = ['#', 'Model', 'Tokens', 'Cost'] as const;

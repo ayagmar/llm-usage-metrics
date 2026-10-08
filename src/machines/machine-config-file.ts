@@ -8,16 +8,13 @@ import { parse as parseToml } from 'smol-toml';
 import { loadUserConfig, type MachineConfig, type UserConfig } from '../config/user-config.js';
 import { asRecord } from '../utils/as-record.js';
 import { ensureDirectory } from '../utils/fs-helpers.js';
-
-function isMissingFileError(error: unknown): boolean {
-  return typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT';
-}
+import { hasErrorCode } from '../utils/error-code.js';
 
 async function readConfigText(configPath: string): Promise<string | undefined> {
   try {
     return await readFile(configPath, 'utf8');
   } catch (error) {
-    if (isMissingFileError(error)) {
+    if (hasErrorCode(error, 'ENOENT')) {
       return undefined;
     }
 

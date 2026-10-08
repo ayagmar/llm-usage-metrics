@@ -1,6 +1,7 @@
 import type { ActivityDay } from '../aggregate/daily-activity.js';
 import { getIsoDayOfWeekFromDateKey } from '../utils/time-buckets.js';
 import type { TextStyler } from './terminal-style-policy.js';
+import { MONTH_LABELS } from './month-labels.js';
 
 export type HeatmapStyles = {
   dim: TextStyler;
@@ -12,20 +13,6 @@ const LEVEL_GLYPHS = ['·', '░', '▒', '▓', '█'] as const;
 const LEVELS = [0, 1, 2, 3, 4] as const satisfies readonly ActivityDay['level'][];
 const ROW_LABELS = ['Mon', '', 'Wed', '', 'Fri', '', ''];
 const ROW_LABEL_WIDTH = 4;
-const MONTH_LABELS = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
 const MONTH_LABEL_WIDTH = 3;
 /** Fewer weeks than this is not worth drawing. */
 const MIN_HEATMAP_WEEKS = 13;

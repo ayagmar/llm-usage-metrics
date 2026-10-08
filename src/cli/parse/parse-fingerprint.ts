@@ -7,12 +7,9 @@ import type {
 import { USAGE_EVENT_NORMALIZATION_VERSION } from '../../domain/usage-event.js';
 import type { SourceAdapter } from '../../sources/source-adapter.js';
 import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
+import { hasErrorCode } from '../../utils/error-code.js';
 
 type ParseDependencyFingerprint = EventStoreDependencyFingerprint;
-
-function isMissingPathError(error: unknown): error is NodeJS.ErrnoException {
-  return typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT';
-}
 
 async function createParseDependencyFingerprint(
   filePath: string,
@@ -28,7 +25,7 @@ async function createParseDependencyFingerprint(
       mtimeMs: fileStat.mtimeMs,
     };
   } catch (error) {
-    if (options.allowMissing && isMissingPathError(error)) {
+    if (options.allowMissing && hasErrorCode(error, 'ENOENT')) {
       return {
         path: filePath,
         exists: false,

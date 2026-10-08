@@ -11,13 +11,15 @@ import {
   renderEmptyState,
   renderShareCard,
   renderStat,
+  renderValueGridLines,
   scaleY,
   SHARE_MARGIN,
   SHARE_WIDTH,
+  type ShareTheme,
   svgText,
   truncateLabel,
-  type ShareTheme,
 } from './share-svg-theme.js';
+import { MONTH_LABELS } from './month-labels.js';
 
 const statsTop = 160;
 const legendTop = 372;
@@ -31,20 +33,6 @@ const MAX_NAMED_SOURCES = 6;
 const MAX_PERIOD_LABELS = 8;
 /** Slot width under which a centered label would cross the chart edge. */
 const MIN_CENTERED_LABEL_SLOT = 80;
-const MONTH_NAMES = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
 
 type SourceSeries = {
   source: string;
@@ -119,7 +107,7 @@ function formatPeriodLabel(period: string, granularity: ReportGranularity): stri
     return period.slice(5);
   }
 
-  const month = MONTH_NAMES[Number(period.slice(5, 7)) - 1] ?? period;
+  const month = MONTH_LABELS[Number(period.slice(5, 7)) - 1] ?? period;
 
   return granularity === 'daily'
     ? `${month} ${Number(period.slice(8, 10))}`
@@ -140,31 +128,6 @@ ${svgText(chartLeft - 64, y, share, { size: 15, fill: theme.textSecondary, mono:
 </g>`;
     })
     .join('\n');
-}
-
-function renderGridLines(maxY: number, theme: ShareTheme): string {
-  const lines: string[] = [];
-
-  for (let step = 1; step <= 3; step += 1) {
-    const value = (maxY / 3) * step;
-    const y = scaleY(value, maxY, chartTop, chartBottom);
-
-    lines.push(
-      `<line x1="${chartLeft}" y1="${y.toFixed(2)}" x2="${chartRight}" y2="${y.toFixed(2)}" stroke="${theme.line}" stroke-width="1" stroke-dasharray="3 5"/>`,
-      svgText(chartLeft - 10, y + 4, formatCompact(value), {
-        size: 12,
-        fill: theme.textMuted,
-        mono: true,
-        anchor: 'end',
-      }),
-    );
-  }
-
-  lines.push(
-    `<line x1="${chartLeft}" y1="${chartBottom}" x2="${chartRight}" y2="${chartBottom}" stroke="${theme.line}" stroke-width="1"/>`,
-  );
-
-  return lines.join('\n');
 }
 
 function renderBars(series: SourceSeries[], periodCount: number, maxY: number): string {
@@ -278,7 +241,12 @@ export function renderUsageShareSvg(
             size: 30,
           }),
           renderLegend(series, totalTokens, theme),
-          renderGridLines(maxY, theme),
+          renderValueGridLines(
+            maxY,
+            { left: chartLeft, right: chartRight, top: chartTop, bottom: chartBottom },
+            formatCompact,
+            theme,
+          ),
           renderBars(series, periods.length, maxY),
           renderPeriodLabels(periods, granularity, theme),
         ].join('\n');

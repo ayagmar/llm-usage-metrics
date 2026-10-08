@@ -1,10 +1,8 @@
+import { hasErrorCode } from './error-code.js';
+
 type ErrorEmitter = {
   on(event: 'error', listener: (error: Error) => void): unknown;
 };
-
-function isBrokenPipeError(error: unknown): boolean {
-  return typeof error === 'object' && error !== null && 'code' in error && error.code === 'EPIPE';
-}
 
 /**
  * When a reader closes the pipe early (`llm-usage events | head`), further writes fail
@@ -17,7 +15,7 @@ export function exitQuietlyOnBrokenPipe(
   exit: () => void = () => process.exit(),
 ): void {
   stream.on('error', (error) => {
-    if (isBrokenPipeError(error)) {
+    if (hasErrorCode(error, 'EPIPE')) {
       exit();
       return;
     }

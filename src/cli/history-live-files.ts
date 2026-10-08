@@ -5,6 +5,7 @@ import {
   readUndiscoveredStoredFiles,
   type LoadHistoryEventsInput,
 } from '../persistence/event-store-history.js';
+import { hasErrorCode } from '../utils/error-code.js';
 
 type StatFile = (filePath: string) => Promise<unknown>;
 
@@ -19,21 +20,12 @@ export type UnverifiableStoredFilePolicy = 'treat-as-departed' | 'treat-as-live'
 
 const MAX_CONCURRENT_STATS = 32;
 
-function isMissingPathError(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    (error.code === 'ENOENT' || error.code === 'ENOTDIR')
-  );
-}
-
 async function checkDiskPresence(filePath: string, statFile: StatFile): Promise<DiskPresence> {
   try {
     await statFile(filePath);
     return 'present';
   } catch (error) {
-    return isMissingPathError(error) ? 'missing' : 'unknown';
+    return hasErrorCode(error, 'ENOENT', 'ENOTDIR') ? 'missing' : 'unknown';
   }
 }
 

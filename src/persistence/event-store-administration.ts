@@ -27,6 +27,7 @@ import {
   toText,
 } from './event-store-database.js';
 import { assertSupportedSchemaVersion, initializeSchema } from './event-store-schema.js';
+import { hasErrorCode } from '../utils/error-code.js';
 
 const EVENT_STORE_OPEN_TIMEOUT_MS = 2_000;
 
@@ -222,10 +223,6 @@ export function getLegacyEventStorePath(): string {
   return path.join(getUserCacheRootDir(), 'llm-usage-metrics', 'events.db');
 }
 
-function isErrorCode(error: unknown, code: string): boolean {
-  return typeof error === 'object' && error !== null && 'code' in error && error.code === code;
-}
-
 /**
  * Written next to the ledger once the legacy copy succeeds, so deleting the ledger later
  * (a reset) never re-imports the old copy and its already-pruned history.
@@ -294,7 +291,7 @@ async function copyLegacyEventStore(
         await link(snapshotPath, targetPath);
       } catch (error) {
         // Another first run copied the ledger while this one did.
-        if (!isErrorCode(error, 'EEXIST')) {
+        if (!hasErrorCode(error, 'EEXIST')) {
           throw error;
         }
       }
@@ -332,7 +329,7 @@ async function restrictEventStoreFiles(filePath: string): Promise<void> {
     try {
       await chmod(sidecarPath, 0o600);
     } catch (error) {
-      if (isErrorCode(error, 'ENOENT')) {
+      if (hasErrorCode(error, 'ENOENT')) {
         continue;
       }
 

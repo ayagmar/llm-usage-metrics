@@ -27,4 +27,18 @@ describe('exitQuietlyOnBrokenPipe', () => {
     expect(() => stream.emit('error', createErrnoError('EIO'))).toThrow('write EIO');
     expect(exit).not.toHaveBeenCalled();
   });
+
+  it('exits the process by default, keeping its exit code', () => {
+    const stream = new EventEmitter();
+    const exit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+
+    try {
+      exitQuietlyOnBrokenPipe(stream);
+      stream.emit('error', createErrnoError('EPIPE'));
+
+      expect(exit).toHaveBeenCalledWith();
+    } finally {
+      exit.mockRestore();
+    }
+  });
 });

@@ -16,29 +16,16 @@ import {
   svgText,
   type ShareTheme,
 } from './share-svg-theme.js';
+import { MONTH_LABELS } from './month-labels.js';
 
 const right = SHARE_WIDTH - SHARE_MARGIN;
 const statsTop = 168;
 const gridTop = 352;
 const gridLeft = SHARE_MARGIN + 36;
 const gridPitch = 19;
-const MONTH_NAMES = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
 
 function formatShortDate(date: string): string {
-  return `${MONTH_NAMES[Number(date.slice(5, 7)) - 1]} ${Number(date.slice(8, 10))}`;
+  return `${MONTH_LABELS[Number(date.slice(5, 7)) - 1]} ${Number(date.slice(8, 10))}`;
 }
 
 function findPeriod(data: SummaryDataResult, key: SummaryPeriod['key']): SummaryPeriod | undefined {
