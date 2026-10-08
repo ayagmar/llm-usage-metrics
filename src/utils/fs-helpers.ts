@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { Stats } from 'node:fs';
-import { access, constants, mkdir, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { access, constants, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 export async function pathExists(filePath: string): Promise<boolean> {
@@ -54,7 +54,9 @@ export async function pathStat(filePath: string): Promise<Stats | undefined> {
  */
 export async function ensureDirectory(directoryPath: string, mode?: number): Promise<void> {
   const missing: string[] = [];
-  let current = path.resolve(directoryPath);
+  // The path is walked as given, not resolved: `link/../dir` must climb from the
+  // symlink's target, as the later file operation on the same path will.
+  let current = directoryPath;
 
   while (!(await pathIsDirectory(current))) {
     const parent = path.dirname(current);
@@ -81,6 +83,19 @@ export async function ensureDirectory(directoryPath: string, mode?: number): Pro
       }
     }
   }
+}
+
+/**
+ * Reads a UTF-8 file, refusing anything but a regular file (or a symlink to one).
+ * Opening a FIFO with no writer blocks forever, so a user-supplied path that
+ * points at one would hang the CLI. A missing file still rejects with ENOENT.
+ */
+export async function readRegularTextFile(filePath: string): Promise<string> {
+  if (!(await stat(filePath)).isFile()) {
+    throw new Error(`${filePath} is not a regular file`);
+  }
+
+  return readFile(filePath, 'utf8');
 }
 
 /**

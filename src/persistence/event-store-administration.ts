@@ -9,7 +9,7 @@ import type { SourceSkippedRowReasonStat } from '../sources/source-adapter.js';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { getUserDataRootDir } from '../utils/data-root-dir.js';
-import { ensureDirectory, pathExists } from '../utils/fs-helpers.js';
+import { ensureDirectory, pathExists, pathStat } from '../utils/fs-helpers.js';
 import {
   computeEventContentHash,
   normalizeStoredEventTuple,
@@ -302,6 +302,13 @@ async function copyLegacyEventStore(
 }
 
 async function prepareEventStoreFile(filePath: string): Promise<void> {
+  // Opening a FIFO or device blocks or misbehaves; only a regular file (or none yet) is a ledger.
+  const existing = await pathStat(filePath);
+
+  if (existing && !existing.isFile()) {
+    throw new Error(`Event store path ${filePath} is not a regular file`);
+  }
+
   const fileHandle = await open(filePath, 'a', 0o600);
 
   try {

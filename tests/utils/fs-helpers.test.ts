@@ -1,10 +1,16 @@
-import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { ensureDirectory, writeFileAtomic } from '../../src/utils/fs-helpers.js';
+import {
+  ensureDirectory,
+  pathExists,
+  readRegularTextFile,
+  writeFileAtomic,
+} from '../../src/utils/fs-helpers.js';
 
 const tempDirs: string[] = [];
 
@@ -40,6 +46,20 @@ describe('ensureDirectory', () => {
     expect((await stat(nested)).mode & 0o777).toBe(0o700);
   });
 
+  // The later file operation on the same path follows the symlink before `..`, so the
+  // directory must be created there, not where a lexical resolve would put it.
+  it.skipIf(process.platform === 'win32')('climbs from a symlink target on `..`', async () => {
+    const tempDir = await createTempDir();
+    await mkdir(path.join(tempDir, 'target', 'deep'), { recursive: true });
+    await symlink(path.join(tempDir, 'target', 'deep'), path.join(tempDir, 'link'));
+
+    // Concatenated: path.join would collapse `link/..` before the helper sees it.
+    await ensureDirectory(`${tempDir}/link/../new`);
+
+    expect(await pathExists(path.join(tempDir, 'target', 'new'))).toBe(true);
+    expect(await pathExists(path.join(tempDir, 'new'))).toBe(false);
+  });
+
   it('fails when a file sits where a directory should be', async () => {
     const tempDir = await createTempDir();
     await writeFile(path.join(tempDir, 'file'), 'x');
@@ -54,6 +74,37 @@ describe('ensureDirectory', () => {
     'fails fast for a path under /proc',
     async () => {
       await expect(ensureDirectory('/proc/llm-usage-test/store')).rejects.toThrow(/ENOENT/u);
+    },
+    2_000,
+  );
+});
+
+describe('readRegularTextFile', () => {
+  it('reads a regular file and rejects a missing one with ENOENT', async () => {
+    const tempDir = await createTempDir();
+    await writeFile(path.join(tempDir, 'a.txt'), 'hello');
+
+    await expect(readRegularTextFile(path.join(tempDir, 'a.txt'))).resolves.toBe('hello');
+    await expect(readRegularTextFile(path.join(tempDir, 'missing.txt'))).rejects.toMatchObject({
+      code: 'ENOENT',
+    });
+  });
+
+  it('refuses a directory', async () => {
+    const tempDir = await createTempDir();
+
+    await expect(readRegularTextFile(tempDir)).rejects.toThrow('is not a regular file');
+  });
+
+  // Opening a FIFO with no writer would block forever.
+  it.skipIf(process.platform === 'win32')(
+    'refuses a FIFO instead of blocking',
+    async () => {
+      const tempDir = await createTempDir();
+      const fifoPath = path.join(tempDir, 'fifo');
+      execFileSync('mkfifo', [fifoPath]);
+
+      await expect(readRegularTextFile(fifoPath)).rejects.toThrow('is not a regular file');
     },
     2_000,
   );

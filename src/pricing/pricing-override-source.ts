@@ -1,6 +1,5 @@
-import { readFile } from 'node:fs/promises';
-
 import { asRecord } from '../utils/as-record.js';
+import { readRegularTextFile } from '../utils/fs-helpers.js';
 import { asTrimmedText, toNumberLike } from '../sources/parsing-utils.js';
 import type { NumberLike } from '../domain/normalization.js';
 import type { ModelPricing, PricingSource, ReasoningBillingMode } from './types.js';
@@ -161,7 +160,7 @@ function normalizeOverrideFile(payload: unknown): Map<string, ModelPricing> {
 }
 
 export async function loadPricingOverrides(filePath: string): Promise<Map<string, ModelPricing>> {
-  const fileContents = await readFile(filePath, 'utf8');
+  const fileContents = await readRegularTextFile(filePath);
   const parsed = JSON.parse(fileContents) as unknown;
 
   return normalizeOverrideFile(parsed);
