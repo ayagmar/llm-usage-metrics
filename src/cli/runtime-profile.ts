@@ -1,7 +1,7 @@
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { logger } from '../utils/logger.js';
 
-export const RUNTIME_PROFILE_ENV_VAR = 'LLM_USAGE_PROFILE_RUNTIME';
+const RUNTIME_PROFILE_ENV_VAR = 'LLM_USAGE_PROFILE_RUNTIME';
 
 export type RuntimeProfileLogger = Pick<typeof logger, 'info' | 'warn' | 'dim'>;
 

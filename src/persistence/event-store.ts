@@ -27,6 +27,7 @@ export { type EventStore, type LoadEventStoreSqliteModule } from './event-store-
 export {
   EVENT_STORE_SCHEMA_VERSION,
   EventStoreSchemaVersionError,
+  isSupportedSchemaVersion,
   MIGRATION_BATCH_SIZE,
   migrateSchemaV1ToV2,
   migrateSchemaV2ToV3,

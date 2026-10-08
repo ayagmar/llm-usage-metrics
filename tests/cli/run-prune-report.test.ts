@@ -536,6 +536,29 @@ describe('run-prune-report', () => {
     expect(renderPruneReport(result)).toContain('/tmp/old.jsonl');
   });
 
+  it('strips terminal escapes from stored file paths', () => {
+    const rendered = renderPruneReport({
+      candidates: [
+        {
+          source: 'codex',
+          filePath: '/tmp/\u001B[31mred\u202E.jsonl',
+          eventCount: 1,
+          reasons: ['aged'],
+        },
+      ],
+      summary: {
+        storePath: '/tmp/events.db',
+        applied: false,
+        candidateFileCount: 1,
+        candidateEventCount: 1,
+      },
+    });
+
+    expect(rendered).toContain('/tmp/[31mred.jsonl');
+    expect(rendered).not.toContain('\u001B');
+    expect(rendered).not.toContain('\u202E');
+  });
+
   it('renders apply summaries with reclaimed db, wal, and shm sizes', () => {
     const rendered = renderPruneReport({
       candidates: [],

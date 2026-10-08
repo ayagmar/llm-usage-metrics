@@ -36,7 +36,7 @@ Only the session log is read. The harness projection cache under `~/.dsh/storage
 
 ## Pricing
 
-The harness reports its default route as `deepseek-flash`. As checked on October 4, 2026, [LiteLLM's upstream catalog](https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json) includes this key with DeepSeek's peak rates. A refreshed pricing cache can therefore price it directly. The bundled July 2026 snapshot does not contain this key, so an offline run using that snapshot can still show `-` without an override.
+The harness reports its default route as `deepseek-flash`. As checked on October 4, 2026, [LiteLLM's upstream catalog](https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json) includes this key with DeepSeek's peak rates. A refreshed pricing cache can therefore price it directly. The bundled snapshot also contains `deepseek-flash`, at the same peak rates ($0.30 input, $1.20 output, $0.006 cache read per million tokens), so offline runs price it without an override.
 
 [DeepSeek's current pricing page](https://api-docs.deepseek.com/quick_start/pricing/) lists these V4.1-Flash rates per million tokens:
 
@@ -80,4 +80,4 @@ Overrides match the event's model name. Use the same override for every command 
 overridesPath = "/absolute/path/to/pricing-overrides.json"
 ```
 
-DeepSeek's pricing page also says the legacy `deepseek-v4-flash` and `deepseek-v4-flash-vision-exp` names now route to V4.1-Flash and use its prices. The bundled snapshot contains older V4 rates for `deepseek-v4-flash`; those rates are not the current rate card. Refresh pricing for current traffic, or add an override under the exact legacy name present in your events. For historical traffic, use rates appropriate to that period. See [Pricing](/llm-usage-metrics/pricing/#per-model-pricing-overrides) for the full override shape.
+DeepSeek's pricing page also says the legacy `deepseek-v4-flash` and `deepseek-v4-flash-vision-exp` names now route to V4.1-Flash and use its prices. The bundled snapshot prices `deepseek-v4-flash` and `deepseek-v4-flash-vision-exp` at the same peak rates as `deepseek-flash`. Add an override under the exact name present in your events if you want off-peak rates or rates for a different period. See [Pricing](/llm-usage-metrics/pricing/#per-model-pricing-overrides) for the full override shape.

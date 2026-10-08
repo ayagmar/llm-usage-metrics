@@ -35,6 +35,10 @@ describe('table-text-layout', () => {
     expect(visibleWidth('a\u200Bb\u2060c\uFEFFd')).toBe(4);
   });
 
+  it('treats bidi controls as width 0', () => {
+    expect(visibleWidth('a\u202Eb\u2067c\u200Fd')).toBe(4);
+  });
+
   it('wraps at spaces when possible', () => {
     const wrappedRows = wrapTableColumn([['period', 'source', 'hello world']], {
       columnIndex: 2,

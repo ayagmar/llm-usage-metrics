@@ -8,7 +8,8 @@ export function getUserCacheRootDir(
 ): string {
   const xdgCacheDir = env.XDG_CACHE_HOME;
 
-  if (xdgCacheDir) {
+  // The XDG spec says a relative path is invalid and must be ignored.
+  if (xdgCacheDir && path.isAbsolute(xdgCacheDir)) {
     return xdgCacheDir;
   }
 

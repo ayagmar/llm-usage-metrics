@@ -25,7 +25,12 @@ date:
 Pricing: using the bundled LiteLLM snapshot from 2026-10-06 (run online to refresh).
 ```
 
-Online runs refresh a stale cache; omitting `--pricing-offline` can still use a fresh cache. Custom
+Online runs refresh a stale cache; omitting `--pricing-offline` can still use a fresh cache. A cache past its refresh interval is still used when the refresh fails or the run is offline, and `stderr` then names the cache date (and the fetch error, when a refresh was attempted):
+
+```text
+Pricing: the LiteLLM refresh failed (network timeout); using cached pricing from 2026-07-01.
+```
+ Custom
 `--pricing-url` values do not fall back to the bundled default snapshot; they
 must load from their matching cache or network URL.
 
@@ -81,6 +86,6 @@ Illustrative file shape (these are example rates, not a provider rate card):
 }
 ```
 
-Only `inputPer1MUsd` and `outputPer1MUsd` are required; `cacheReadPer1MUsd`, `cacheWritePer1MUsd`, `reasoningPer1MUsd`, and `reasoningBilling` are optional. `reasoningBilling: "included-in-output"` (the default) bills all output tokens at `outputPer1MUsd`; `"separate"` bills the reasoning share of output at `reasoningPer1MUsd` and only the remainder at `outputPer1MUsd`, since `outputTokens` already includes reasoning. Rates must be finite, non-negative numbers. Invalid required rates discard the entry, while invalid optional rates are ignored. Model names match case-insensitively, and an override on a name short-circuits LiteLLM alias resolution for that name.
+Only `inputPer1MUsd` and `outputPer1MUsd` are required; `cacheReadPer1MUsd`, `cacheWritePer1MUsd`, `reasoningPer1MUsd`, and `reasoningBilling` are optional. `reasoningBilling: "included-in-output"` (the default) bills all output tokens at `outputPer1MUsd`; `"separate"` bills the reasoning share of output at `reasoningPer1MUsd` and only the remainder at `outputPer1MUsd`, since `outputTokens` already includes reasoning. Rates must be finite, non-negative numbers. A missing required rate, an invalid rate, an unknown key, or an unknown `reasoningBilling` value fails the run with an error naming each bad entry, so a typo never leaves a model silently priced from LiteLLM. Model names match case-insensitively, and an override on a name short-circuits LiteLLM alias resolution for that name.
 
 Overrides can price a model absent from your current cache or bundled snapshot, or select rates for a specific workload. The [DeepSeek Harness guide](/llm-usage-metrics/sources/dsh/#pricing) explains refreshed pricing, legacy model names, and peak versus off-peak estimates.

@@ -30,7 +30,7 @@ Active config: /home/user/.config/llm-usage-metrics/config.toml
   eventStore.enabled=true
 ```
 
-Unknown-key warnings still go to `stderr`, so `config show` output stays clean to redirect. The config commands emit text; `--json` is not supported.
+Unknown keys and values of the wrong type (for example `enabled = "false"` instead of `enabled = false`) are ignored with a warning; blank strings and empty lists mean "not set". These warnings still go to `stderr`, so `config show` output stays clean to redirect. The config commands emit text; `--json` is not supported.
 
 TOML editors such as Taplo can validate the file through the `#:schema` directive. The schema is published at [config-schema.json](/llm-usage-metrics/config-schema.json):
 
@@ -79,6 +79,8 @@ Higher layers win:
 | Built-in defaults     | Zero-config behavior                     |
 
 A CLI `--source-dir <id>=<path>` overrides the config `sourceDirs.<id>` entry just like the dedicated `--<id>-dir` flag does. Config entries are defaults rather than explicit requests: a config source dir that cannot be read is reported as a warning instead of failing the run, and it never conflicts with a `--provider` or `--model` filter that excludes that source (both of which happen when the same path is passed on the command line). A config `sources` filter is a default too, so a config-only `sources` entry that `--provider` or `--model` excludes does not fail the run either.
+
+Paths in the config file (`sourceDirs.*`, `eventStore.path`, `pricing.overridesPath`) may start with `~/`, and relative paths resolve against the directory holding the config file, not the current directory.
 
 Reports name the applied config file in their `stderr` summary line; `--verbose` prints the `Active config:` block with each applied value. Values shadowed by a flag or environment variable are not listed. Set `logLevel = "warn"` to suppress informational stderr by default, or pass `--quiet` to do the same for a single report command.
 

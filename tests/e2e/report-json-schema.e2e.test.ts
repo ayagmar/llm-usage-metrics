@@ -1,4 +1,4 @@
-import { readdir, readFile, mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, readdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -38,37 +38,26 @@ const fixtureOptions = {
 const validators = new Map<string, ValidateFunction>();
 const tempDirs: string[] = [];
 
+const reportNamesOnDisk: string[] = [];
+
 async function loadValidators(): Promise<void> {
-  const ajv = new Ajv2020({ allErrors: true });
-  const schemaDir = path.resolve('schema');
-  const schemaFiles = (await readdir(schemaDir)).filter(
+  const schemaFiles = (await readdir(path.resolve('schema'))).filter(
     (name) => name.startsWith('report-') && name.endsWith('.v1.schema.json'),
   );
 
   for (const name of schemaFiles) {
-    const schema = JSON.parse(await readFile(path.join(schemaDir, name), 'utf8')) as Record<
-      string,
-      unknown
-    >;
-    ajv.addSchema(schema);
-  }
-
-  for (const name of schemaFiles) {
     const reportName = name.replace('report-', '').replace('.v1.schema.json', '');
 
-    if (reportName === 'common') {
-      continue;
+    if (reportName !== 'common') {
+      reportNamesOnDisk.push(reportName);
     }
+  }
 
-    const validate = ajv.getSchema(
-      `https://ayagmar.github.io/llm-usage-metrics/report-${reportName}.v1.schema.json`,
-    );
-
-    if (!validate) {
-      throw new Error(`Schema for report ${reportName} did not register`);
-    }
-
-    validators.set(reportName, validate);
+  // Compile what `llm-usage schema <report>` prints, alone and in strict mode, so the
+  // printed schemas are proven self-contained against real report output.
+  for (const [reportName, schema] of Object.entries(reportSchemas)) {
+    const ajv = new Ajv2020({ allErrors: true, strict: true });
+    validators.set(reportName, ajv.compile(schema as object));
   }
 }
 
@@ -104,18 +93,64 @@ async function captureJsonStdout(run: () => Promise<void>): Promise<string> {
   return chunks.join('');
 }
 
+function compactJson(output: string): string {
+  return JSON.stringify(JSON.parse(output));
+}
+
+async function createTempDir(prefix: string): Promise<string> {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), prefix));
+  tempDirs.push(tempDir);
+  return tempDir;
+}
+
+async function createStoreWithDepartedEvent(dbPath: string): Promise<void> {
+  const store = await openEventStore(dbPath);
+
+  try {
+    replaceFileEvents(store, {
+      source: 'codex',
+      filePath: '/tmp/departed.jsonl',
+      fingerprint: {
+        dependencies: [{ path: '/tmp/departed.jsonl', exists: true, size: 10, mtimeMs: 20 }],
+      },
+      events: [
+        createUsageEvent({
+          source: 'codex',
+          sessionId: 'schema-departed-session',
+          timestamp: '2025-01-01T00:00:00.000Z',
+          model: 'gpt-4.1',
+          inputTokens: 1,
+          outputTokens: 1,
+          totalTokens: 2,
+        }),
+      ],
+      skippedRows: 0,
+      now: 1_000,
+    });
+  } finally {
+    closeEventStore(store);
+  }
+}
+
+const noFilesAdapter: SourceAdapter = {
+  id: 'codex',
+  discoverFiles: async () => [],
+  parseFile: async () => [],
+};
+
 beforeAll(async () => {
   await loadValidators();
 });
 
 afterAll(async () => {
+  vi.unstubAllEnvs();
   await Promise.all(tempDirs.map((tempDir) => rm(tempDir, { recursive: true, force: true })));
   tempDirs.length = 0;
 });
 
 describe('report json schema e2e', () => {
-  it('registers a validator for every report in the schema registry', () => {
-    expect([...validators.keys()].sort()).toEqual(Object.keys(reportSchemas).sort());
+  it('registers every report schema file in the schema registry', () => {
+    expect(reportNamesOnDisk.sort()).toEqual(Object.keys(reportSchemas).sort());
   });
 
   it('validates usage output', async () => {
@@ -258,6 +293,153 @@ describe('report json schema e2e', () => {
       ),
     );
     validateReport('prune', output);
+  });
+
+  it('validates daily and weekly usage output', async () => {
+    const expectedPeriodKeys = {
+      daily: '"periodKey":"2026-01-05"',
+      weekly: '"periodKey":"2026-W02"',
+    };
+
+    for (const granularity of ['daily', 'weekly'] as const) {
+      const output = await buildUsageReport(granularity, { ...fixtureOptions, all: true });
+      validateReport('usage', output);
+      expect(compactJson(output)).toContain(expectedPeriodKeys[granularity]);
+    }
+  });
+
+  it('validates session output grouped by repo', async () => {
+    const output = await buildSessionReport({ ...fixtureOptions, byRepo: true });
+    validateReport('session', output);
+    expect(compactJson(output)).toContain('"rowType":"repo"');
+  });
+
+  it('validates efficiency output by source', async () => {
+    const output = await buildEfficiencyReport('monthly', {
+      ...fixtureOptions,
+      since: '2026-01-01',
+      until: '2026-06-30',
+      pricingOffline: true,
+      bySource: true,
+    });
+    validateReport('efficiency', output);
+    expect(compactJson(output)).toContain('"grouping":"source"');
+  });
+
+  it('validates trends output by source and with the cost metric', async () => {
+    const bySource = await buildTrendsReport({
+      ...fixtureOptions,
+      since: '2026-01-01',
+      until: '2026-02-28',
+      metric: 'tokens',
+      bySource: true,
+    });
+    validateReport('trends', bySource);
+    expect(compactJson(bySource)).toContain('"source":"codex"');
+    expect(compactJson(bySource)).toContain('"source":"pi"');
+
+    const cost = await buildTrendsReport({
+      ...fixtureOptions,
+      since: '2026-01-01',
+      until: '2026-02-28',
+      metric: 'cost',
+      pricingOffline: true,
+    });
+    validateReport('trends', cost);
+    expect(compactJson(cost)).toContain('"metric":"cost"');
+  });
+
+  it('validates optimize output with a resolvable candidate model', async () => {
+    const output = await buildOptimizeReport('monthly', {
+      ...fixtureOptions,
+      since: '2026-01-01',
+      until: '2026-06-30',
+      candidateModel: ['gpt-5-codex'],
+      pricingOffline: true,
+    });
+    validateReport('optimize', output);
+    expect(compactJson(output)).toContain('"candidateResolvedModel":"gpt-5-codex"');
+  });
+
+  it('validates doctor output with the event store enabled', async () => {
+    const tempDir = await createTempDir('report-schema-doctor-');
+    const dbPath = path.join(tempDir, 'events.db');
+    await createStoreWithDepartedEvent(dbPath);
+
+    const output = await captureJsonStdout(() =>
+      runDoctorReport(
+        { ...fixtureOptions },
+        { getEventStoreRuntimeConfig: () => ({ enabled: true, path: dbPath }) },
+      ),
+    );
+    validateReport('doctor', output);
+    expect(compactJson(output)).toContain('"id":"event-store"');
+  });
+
+  it('validates prune output with --departed-before and --apply', async () => {
+    const tempDir = await createTempDir('report-schema-prune-apply-');
+    const dbPath = path.join(tempDir, 'events.db');
+    await createStoreWithDepartedEvent(dbPath);
+    const deps = {
+      createAdapters: () => [noFilesAdapter],
+      getEventStoreRuntimeConfig: () => ({ enabled: true as const, path: dbPath }),
+    };
+
+    const dryRun = await captureJsonStdout(() =>
+      runPruneReport({ departedBefore: '2026-01-01', json: true }, deps),
+    );
+    validateReport('prune', dryRun);
+    expect(compactJson(dryRun)).toContain('/tmp/departed.jsonl');
+    expect(compactJson(dryRun)).toContain('"applied":false');
+
+    const applied = await captureJsonStdout(() =>
+      runPruneReport({ departedBefore: '2026-01-01', apply: true, json: true }, deps),
+    );
+    validateReport('prune', applied);
+    expect(compactJson(applied)).toContain('"applied":true');
+  });
+
+  it('validates a report whose cost is incomplete', async () => {
+    const tempDir = await createTempDir('report-schema-unpriced-');
+    const piUnpricedDir = path.join(tempDir, 'pi');
+    await mkdir(piUnpricedDir);
+    await writeFile(
+      path.join(piUnpricedDir, 'session.jsonl'),
+      [
+        '{"type":"session","id":"unpriced-session","timestamp":"2026-01-04T09:00:00.000Z"}',
+        '{"type":"message","timestamp":"2026-01-04T09:10:00.000Z","provider":"nobody","model":"definitely-unpriced-model","usage":{"input":10,"output":5,"totalTokens":15}}',
+      ].join('\n'),
+    );
+
+    const output = await buildUsageReport('monthly', {
+      piDir: piUnpricedDir,
+      source: 'pi',
+      timezone: 'UTC',
+      json: true,
+      pricingOffline: true,
+    });
+    validateReport('usage', output);
+    expect(compactJson(output)).toContain('"costIncomplete":true');
+  });
+
+  it('validates usage output with --history reading a temp store', async () => {
+    const tempDir = await createTempDir('report-schema-history-');
+    const dbPath = path.join(tempDir, 'events.db');
+    await createStoreWithDepartedEvent(dbPath);
+    vi.stubEnv('LLM_USAGE_EVENT_STORE', '1');
+    vi.stubEnv('LLM_USAGE_EVENT_STORE_PATH', dbPath);
+
+    try {
+      const output = await buildUsageReport('monthly', {
+        ...fixtureOptions,
+        history: true,
+        pricingOffline: true,
+      });
+      validateReport('usage', output);
+      expect(compactJson(output)).toContain('2025-01');
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('fails validation when schemaVersion is removed (negative control)', async () => {

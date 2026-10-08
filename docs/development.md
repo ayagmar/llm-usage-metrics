@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Node.js 24.15+ for development (release tooling); the CLI supports Node.js 24+
+- Node.js 24.21.0 for development (matches CI and `.nvmrc`); the CLI supports Node.js 24+
 - pnpm 12.9.1 (used for local scripts and the lockfile)
 
 ## Install
@@ -253,8 +253,8 @@ Optional but recommended:
      copy drifts from the loader's known keys
 7. Update the docs surface:
    - README Supported Sources table and source-list examples
-   - the site landing page (`site/src/content/docs/index.mdx`): source count and sources table
-   - a `site/src/content/docs/sources/<id>.mdx` page plus its Data Sources sidebar entry in `site/astro.config.mjs`
+   - the sources table in `site/src/content/docs/sources/index.mdx` (a docs contract test requires a link to each registered source)
+   - a `site/src/content/docs/sources/<id>.mdx` page (the sidebar entry is generated from `getDefaultSourceIds()`)
 8. Extend the e2e expectations: fixtures under `tests/fixtures/e2e/<id>/` and the all-sources list plus totals in `tests/e2e/multi-source.e2e.test.ts`
 9. Verify CLI filtering with `--source <name>`
 

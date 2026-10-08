@@ -3,6 +3,7 @@
   "$id": "https://ayagmar.github.io/llm-usage-metrics/report-summary.v1.schema.json",
   "title": "llm-usage-metrics summary report output (v1)",
   "description": "Envelope and payload for summary report --json output. Diagnostics are excluded by contract.",
+  "type": "object",
   "allOf": [
     {
       "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope"
@@ -30,6 +31,7 @@
   },
   "$defs": {
     "windowTotals": {
+      "type": "object",
       "description": "Usage totals for one period (non-negative).",
       "allOf": [
         {
@@ -48,6 +50,7 @@
       "unevaluatedProperties": false
     },
     "sourceTotals": {
+      "type": "object",
       "description": "Usage totals for one source within a period (non-negative).",
       "allOf": [
         {

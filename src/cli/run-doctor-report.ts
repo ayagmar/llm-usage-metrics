@@ -3,6 +3,7 @@ import { stat } from 'node:fs/promises';
 import { getEventStoreRuntimeConfig } from '../config/runtime-overrides.js';
 import {
   EVENT_STORE_SCHEMA_VERSION,
+  isSupportedSchemaVersion,
   readEventStoreStoredFiles as readDefaultEventStoreStoredFiles,
   readEventStoreSummary as readDefaultEventStoreSummary,
   type EventStoreStoredFile,
@@ -29,6 +30,7 @@ import { renderDoctorText } from '../render/render-doctor-report.js';
 import { renderReportJson } from '../render/report-json.js';
 import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
 import type { DoctorCommandOptions } from './usage-data-contracts.js';
+import { getErrorReason } from '../utils/get-error-reason.js';
 
 /**
  * found: files with readable usage. not_installed: no files in any searched path.
@@ -65,10 +67,6 @@ type DoctorDeps = UserConfigResolutionDeps & {
 };
 
 type DiscoveredFilesBySource = Map<string, Set<string>>;
-
-function getErrorReason(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
 
 function isMissingPathError(error: unknown): error is NodeJS.ErrnoException {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT';
@@ -246,10 +244,6 @@ export async function buildDoctorResults(
   return results;
 }
 
-function isSupportedStoreSchemaVersion(schemaVersion: string | undefined): boolean {
-  return schemaVersion === '1' || schemaVersion === EVENT_STORE_SCHEMA_VERSION;
-}
-
 function getUnsupportedSchemaError(schemaVersion: string | undefined): string {
   const versionLabel = schemaVersion ? `v${schemaVersion}` : 'unknown';
   return `Event store schema ${versionLabel} is not supported by this llm-usage-metrics version (supports v${EVENT_STORE_SCHEMA_VERSION}); upgrade llm-usage-metrics or set LLM_USAGE_EVENT_STORE=0`;
@@ -311,7 +305,7 @@ async function buildEventStoreDoctorResult(
   try {
     const summary = await readEventStoreSummary(filePath);
 
-    if (!isSupportedStoreSchemaVersion(summary.schemaVersion)) {
+    if (summary.schemaVersion === undefined || !isSupportedSchemaVersion(summary.schemaVersion)) {
       return {
         id: 'event-store',
         format: 'sqlite',

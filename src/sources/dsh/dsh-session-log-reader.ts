@@ -3,13 +3,13 @@ import { Readable, Writable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { createZstdDecompress } from 'node:zlib';
 
-import type { SourceSkippedRowReasonStat } from '../source-adapter.js';
+import { asRecord } from '../../utils/as-record.js';
+import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
 
-export type DshSessionLogRead = {
-  /** Non-empty JSONL lines in append order. */
-  lines: string[];
-  /** Per-file counters for appended frames that were damaged and skipped. */
-  skippedRowReasons: SourceSkippedRowReasonStat[];
+export type DshSessionLogReadOptions = {
+  shouldParseLine: (lineText: string) => boolean;
+  /** Called once per malformed line or damaged frame, with the skip reason. */
+  onSkippedRow: (reason: string) => void;
 };
 
 export class DshSessionLogUnreadableError extends Error {
@@ -23,6 +23,9 @@ export class DshSessionLogUnreadableError extends Error {
 const ZSTD_FRAME_MAGIC = Buffer.from([0x28, 0xb5, 0x2f, 0xfd]);
 
 const UNDECODABLE_FRAME_REASON = 'undecodable_jsonl_frame';
+
+/** One flush is a handful of lines; a frame inflating past this is damage or a zstd bomb. */
+const MAX_DECODED_FRAME_BYTES = 64 * 1024 * 1024;
 
 /**
  * DeepSeek Harness appends one independently compressed zstd frame per flush,
@@ -62,6 +65,7 @@ function collectFrameSlices(compressed: Buffer): { frames: Buffer[]; damagedSlic
 async function decodeFrame(frameBytes: Buffer): Promise<Buffer> {
   const engine = createZstdDecompress();
   const chunks: Buffer[] = [];
+  let decodedBytes = 0;
 
   // Consume the readable side too, so decompression errors cannot arrive after
   // the pipeline has resolved on the engine's writable finish event.
@@ -70,6 +74,13 @@ async function decodeFrame(frameBytes: Buffer): Promise<Buffer> {
     engine,
     new Writable({
       write(chunk: Buffer, _encoding, callback) {
+        decodedBytes += chunk.length;
+
+        if (decodedBytes > MAX_DECODED_FRAME_BYTES) {
+          callback(new DshSessionLogUnreadableError('DSH session log frame is too large'));
+          return;
+        }
+
         chunks.push(chunk);
         callback();
       },
@@ -90,58 +101,78 @@ async function decodeFrame(frameBytes: Buffer): Promise<Buffer> {
   return decoded;
 }
 
-function splitJsonlLines(text: string): string[] {
-  const lines: string[] = [];
-
+function* parseJsonlLines(
+  text: string,
+  options: DshSessionLogReadOptions,
+): Generator<Record<string, unknown>, void, undefined> {
   for (const rawLine of text.split('\n')) {
     const line = rawLine.trim();
 
-    if (line.length > 0) {
-      lines.push(line);
+    if (line.length === 0 || !options.shouldParseLine(line)) {
+      continue;
+    }
+
+    let parsed: unknown;
+
+    try {
+      parsed = JSON.parse(line);
+    } catch {
+      options.onSkippedRow('json_parse_error');
+      continue;
+    }
+
+    const record = asRecord(parsed);
+
+    if (record) {
+      yield record;
     }
   }
-
-  return lines;
 }
 
 /**
- * Read a DSH session log. `session.v3.jsonl.zstd` is the default on-disk
+ * Read a DSH session log as JSONL records in append order, without holding the
+ * decoded log in memory. `session.v3.jsonl.zstd` is the default on-disk
  * encoding, but the harness can be configured to write plain `session*.jsonl`;
  * both are read so switching the harness encoding never hides sessions.
+ *
+ * Throws DshSessionLogUnreadableError when no zstd frame decodes.
  */
-export async function readDshSessionLog(filePath: string): Promise<DshSessionLogRead> {
-  const contents = await readFile(filePath);
-
+export async function* readDshSessionLogRecords(
+  filePath: string,
+  options: DshSessionLogReadOptions,
+): AsyncGenerator<Record<string, unknown>, void, undefined> {
   if (!filePath.toLowerCase().endsWith('.zstd')) {
-    return {
-      lines: splitJsonlLines(contents.toString('utf8')),
-      skippedRowReasons: [],
-    };
+    yield* readJsonlObjects(filePath, {
+      shouldParseLine: options.shouldParseLine,
+      onMalformedLine: () => {
+        options.onSkippedRow('json_parse_error');
+      },
+    });
+    return;
   }
 
-  const lines: string[] = [];
+  const { frames, damagedSlices } = collectFrameSlices(await readFile(filePath));
   let decodedFrames = 0;
-  const { frames, damagedSlices } = collectFrameSlices(contents);
-  let undecodableFrames = damagedSlices;
+
+  for (let index = 0; index < damagedSlices; index += 1) {
+    options.onSkippedRow(UNDECODABLE_FRAME_REASON);
+  }
 
   for (const frameBytes of frames) {
-    try {
-      const decoded = await decodeFrame(frameBytes);
+    let decoded: Buffer;
 
-      decodedFrames += 1;
-      lines.push(...splitJsonlLines(decoded.toString('utf8')));
+    try {
+      decoded = await decodeFrame(frameBytes);
     } catch {
-      undecodableFrames += 1;
+      options.onSkippedRow(UNDECODABLE_FRAME_REASON);
+      continue;
     }
+
+    decodedFrames += 1;
+    yield* parseJsonlLines(decoded.toString('utf8'), options);
   }
 
   if (decodedFrames === 0) {
     throw new DshSessionLogUnreadableError();
   }
-
-  return {
-    lines,
-    skippedRowReasons:
-      undecodableFrames > 0 ? [{ reason: UNDECODABLE_FRAME_REASON, count: undecodableFrames }] : [],
-  };
 }

@@ -812,6 +812,7 @@ describe('event-store', () => {
         total_tokens: 7_000_000,
       }),
       createStoredEventRow({ session_id: 'bad\u0000session' }),
+      createStoredEventRow({ session_id: 'safe\u202Espoof', model: 'gpt-5\u2066' }),
       createStoredEventRow({ model: 'GPT-5-CODEX' }),
       createStoredEventRow({ provider: 'OpenAI' }),
       createStoredEventRow({ source: ' codex ' }),
@@ -828,6 +829,14 @@ describe('event-store', () => {
     for (const row of rows) {
       expect(normalizeStoredEvent(row)).toEqual(slowNormalizeStoredEventFromRow(row));
     }
+  });
+
+  it('strips bidi controls from stored events written before they were sanitized', () => {
+    const event = normalizeStoredEvent(
+      createStoredEventRow({ session_id: 'safe\u202Espoof', model: 'gpt-5\u2066' }),
+    );
+
+    expect(event).toMatchObject({ sessionId: 'safespoof', model: 'gpt-5' });
   });
 
   it('rejects invalid sqlite loaders and store keys', async () => {
@@ -1204,6 +1213,21 @@ describe('event-store', () => {
     expect(fakeSqlite.execCalls.indexOf('PRAGMA synchronous=NORMAL')).toBeGreaterThan(
       fakeSqlite.execCalls.indexOf('PRAGMA journal_mode=WAL'),
     );
+    closeEventStore(store);
+  });
+
+  it('creates a fresh schema inside a write transaction', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-fresh-schema-'));
+    tempDirs.push(tempDir);
+
+    const fakeSqlite = createFakeSqliteModule({ 'PRAGMA journal_mode': { journal_mode: 'wal' } });
+    const store = await openEventStore(path.join(tempDir, 'events.db'), async () => fakeSqlite);
+    const createIndex = fakeSqlite.execCalls.findIndex((sql) => sql.includes('CREATE TABLE'));
+
+    // A concurrent first run must never observe a half-created schema.
+    expect(createIndex).toBeGreaterThan(fakeSqlite.execCalls.indexOf('BEGIN IMMEDIATE'));
+    expect(fakeSqlite.execCalls.indexOf('BEGIN IMMEDIATE')).toBeGreaterThanOrEqual(0);
+    expect(fakeSqlite.execCalls.indexOf('COMMIT')).toBeGreaterThan(createIndex);
     closeEventStore(store);
   });
 

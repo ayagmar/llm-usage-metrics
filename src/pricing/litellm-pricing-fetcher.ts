@@ -1,8 +1,9 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { asRecord } from '../utils/as-record.js';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
+import { writeFileAtomic } from '../utils/fs-helpers.js';
 import { normalizeKey, resolveCanonicalModelKey } from './litellm-model-matching.js';
 import litellmPricingSnapshotPayload from './litellm-pricing-snapshot.json' with { type: 'json' };
 import litellmRetiredPricingPayload from './litellm-retired-pricing.json' with { type: 'json' };
@@ -178,7 +179,7 @@ export function normalizeLitellmPricingPayload(payload: unknown): Map<string, Mo
   return normalizedPricing;
 }
 
-export function normalizeCachedPricing(rawPricing: unknown): ModelPricing | undefined {
+function normalizeCachedPricing(rawPricing: unknown): ModelPricing | undefined {
   const pricingRecord = asRecord(rawPricing);
 
   if (!pricingRecord) {
@@ -301,7 +302,17 @@ function formatBundledSnapshotWarning(fetchedAt: number): string {
   return `Pricing: using the bundled LiteLLM snapshot from ${fetchedDate} (run online to refresh).`;
 }
 
-export function getDefaultLiteLLMPricingCachePath(): string {
+function formatStaleCacheWarning(fetchedAt: number, fetchError: string | undefined): string {
+  const fetchedDate = new Date(fetchedAt).toISOString().slice(0, 10);
+
+  if (fetchError === undefined) {
+    return `Pricing: using cached LiteLLM pricing from ${fetchedDate}, past its refresh interval (run online to refresh).`;
+  }
+
+  return `Pricing: the LiteLLM refresh failed (${fetchError}); using cached pricing from ${fetchedDate}.`;
+}
+
+function getDefaultLiteLLMPricingCachePath(): string {
   return path.join(getUserCacheRootDir(), 'llm-usage-metrics', 'litellm-pricing-cache.json');
 }
 
@@ -378,14 +389,19 @@ export class LiteLLMPricingFetcher implements PricingSource {
     try {
       await this.loadFromRemote();
       return false;
-    } catch {
-      const staleCacheLoaded = await this.loadFromCache({ allowStale: true });
+    } catch (error) {
+      const staleCacheLoaded = await this.loadFromCache({
+        allowStale: true,
+        fetchError: error instanceof Error ? error.message : String(error),
+      });
 
       if (!staleCacheLoaded) {
         const bundledSnapshotLoaded = this.loadFromBundledSnapshot();
 
         if (!bundledSnapshotLoaded) {
-          throw new Error('Could not load LiteLLM pricing from network or cache');
+          throw new Error('Could not load LiteLLM pricing from network or cache', {
+            cause: error,
+          });
         }
 
         return true;
@@ -516,7 +532,10 @@ export class LiteLLMPricingFetcher implements PricingSource {
     this.backfillRetiredModels();
   }
 
-  private async loadFromCache(options: { allowStale: boolean }): Promise<boolean> {
+  private async loadFromCache(options: {
+    allowStale: boolean;
+    fetchError?: string;
+  }): Promise<boolean> {
     const cacheFileContent = await this.readCachePayload();
 
     if (!cacheFileContent) {
@@ -549,7 +568,9 @@ export class LiteLLMPricingFetcher implements PricingSource {
     }
 
     this.loadOrigin = 'cache';
-    this.pricingWarning = undefined;
+    this.pricingWarning = isStale
+      ? formatStaleCacheWarning(cacheFileContent.fetchedAt, options.fetchError)
+      : undefined;
     this.backfillRetiredModels();
     return true;
   }
@@ -625,6 +646,6 @@ export class LiteLLMPricingFetcher implements PricingSource {
       pricingByModel: Object.fromEntries(this.pricingByModel.entries()),
     };
 
-    await writeFile(this.cacheFilePath, JSON.stringify(payload), 'utf8');
+    await writeFileAtomic(this.cacheFilePath, JSON.stringify(payload));
   }
 }

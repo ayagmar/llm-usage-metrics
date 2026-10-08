@@ -1,10 +1,10 @@
 import { createHash } from 'node:crypto';
 
+import { hasControlCharacters } from '../domain/normalization.js';
 import { normalizeProviderToBillingEntity } from '../domain/provider-normalization.js';
 import { createUsageEvent, type UsageEvent, type UsageEventInput } from '../domain/usage-event.js';
 import { toNonNegativeInteger, toNonNegativeNumber, toText } from './event-store-database.js';
 
-const CONTROL_CHARACTERS_PATTERN = new RegExp(String.raw`[\u0000-\u001F\u007F-\u009F]`, 'u');
 const NORMALIZED_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
 const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const;
 const FAST_PATH_REJECT = Symbol('fast path reject');
@@ -194,7 +194,7 @@ function toStoredRequiredText(value: unknown): string | undefined {
     return undefined;
   }
 
-  if (value !== value.trim() || CONTROL_CHARACTERS_PATTERN.test(value)) {
+  if (value !== value.trim() || hasControlCharacters(value)) {
     return undefined;
   }
 

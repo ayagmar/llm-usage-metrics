@@ -17,9 +17,9 @@ This keeps source-specific parsing, pricing, aggregation, rendering, and command
 ### Report definitions
 
 - `src/cli/report-definitions/report-definitions.ts`
-  Owns the canonical registry for `summary` (the default command), `daily`, `weekly`, `monthly`, `compare`, `efficiency`, `optimize`, `trends`, `session`, `wrapped`, `doctor`, and `prune`. (`config init` is registered directly in `create-cli.ts`.)
+  Owns the canonical registry for `summary` (the default command), `daily`, `weekly`, `monthly`, `compare`, `efficiency`, `optimize`, `trends`, `session`, `wrapped`, `doctor`, `prune`, and `events`. (`config` and `schema` are registered directly in `create-cli.ts`.)
 - `src/cli/report-definitions/shared-report-options.ts`
-  Registers the shared option surface by profile (`usage`, `specialized`, `trends`).
+  Registers the shared option surface by profile (`usage`, `summary`, `specialized`, `compare`, `trends`, `session`, `wrapped`, `events`, `doctor`).
 
 This metadata is reused by:
 
@@ -138,8 +138,10 @@ Non-report commands with their own runners: `buildDoctorResults(...)` checks sou
 
 ### Event Store History
 
-`src/persistence/event-store.ts` owns SQLite schema, migration, per-file ingest,
-and stored-event revalidation. The store is a local ledger: schema changes run
+`src/persistence/event-store.ts` re-exports the store API. The code lives in
+`event-store-schema.ts` (schema and migrations), `event-store-administration.ts`
+(open, per-file ingest, reads, prune and vacuum), and `event-store-codec.ts`
+(stored-event revalidation and content hashes). The store is a local ledger: schema changes run
 as migrations, and unknown newer schemas disable store use instead of rebuilding
 tables.
 

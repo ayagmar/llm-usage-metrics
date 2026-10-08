@@ -14,7 +14,7 @@ export type SourceId = 'pi' | 'codex' | (string & {});
  * produced from unchanged source files. Like adapter parser versions, it is part of
  * the event-store cache key so stored events are re-parsed after the change.
  */
-export const USAGE_EVENT_NORMALIZATION_VERSION = 1;
+export const USAGE_EVENT_NORMALIZATION_VERSION = 2;
 
 export type CostMode = 'explicit' | 'estimated';
 

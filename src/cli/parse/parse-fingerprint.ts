@@ -39,7 +39,7 @@ async function createParseDependencyFingerprint(
   }
 }
 
-export function getParserVersion(adapter: Pick<SourceAdapter, 'parserVersion'>): string {
+function getParserVersion(adapter: Pick<SourceAdapter, 'parserVersion'>): string {
   return `n${USAGE_EVENT_NORMALIZATION_VERSION}.p${adapter.parserVersion ?? 1}`;
 }
 

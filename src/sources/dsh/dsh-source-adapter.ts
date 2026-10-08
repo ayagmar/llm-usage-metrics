@@ -13,8 +13,10 @@ import {
   resolveUsageTotalTokens,
   toNumberLike,
 } from '../parsing-utils.js';
-import { DshSessionLogUnreadableError, readDshSessionLog } from './dsh-session-log-reader.js';
-import type { DshSessionLogRead } from './dsh-session-log-reader.js';
+import {
+  DshSessionLogUnreadableError,
+  readDshSessionLogRecords,
+} from './dsh-session-log-reader.js';
 import { getDefaultDshSessionsDir } from './dsh-path-resolver.js';
 import type {
   SourceAdapter,
@@ -136,7 +138,7 @@ function resolveTimestamp(line: Record<string, unknown>): string | undefined {
 
 export class DshSourceAdapter implements SourceAdapter {
   public readonly id = 'dsh' as const;
-  public readonly parserVersion = 2;
+  public readonly parserVersion = 3;
   public readonly capabilities = { eventsPrecedeFileMtime: true } as const;
 
   private readonly rootDirs: readonly string[];
@@ -184,107 +186,86 @@ export class DshSourceAdapter implements SourceAdapter {
     const state: DshSessionState = { sessionId: getFallbackSessionId(filePath) };
     let skippedRows = 0;
 
-    let log: DshSessionLogRead;
+    const records = readDshSessionLogRecords(filePath, {
+      shouldParseLine: shouldParseDshJsonlLine,
+      onSkippedRow: (reason) => {
+        skippedRows++;
+        incrementSkippedReason(skippedRowReasons, reason);
+      },
+    });
 
     try {
-      log = await readDshSessionLog(filePath);
-    } catch (error) {
-      if (error instanceof DshSessionLogUnreadableError) {
-        return toParseDiagnostics(events, 1, new Map([['file_parse_failed', 1]]));
-      }
-
-      throw error;
-    }
-
-    for (const reasonStat of log.skippedRowReasons) {
-      incrementSkippedReason(skippedRowReasons, reasonStat.reason);
-      skippedRows += reasonStat.count;
-    }
-
-    for (const lineText of log.lines) {
-      if (!shouldParseDshJsonlLine(lineText)) {
-        continue;
-      }
-
-      let line: Record<string, unknown>;
-
-      try {
-        const parsedLine = asRecord(JSON.parse(lineText));
-
-        if (!parsedLine) {
+      for await (const line of records) {
+        if (line.type === 'session') {
+          state.sessionId = asTrimmedText(line.id) ?? state.sessionId;
+          state.repoRoot = asTrimmedText(line.cwd) ?? state.repoRoot;
           continue;
         }
 
-        line = parsedLine;
-      } catch {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'json_parse_error');
-        continue;
+        if (line.type === 'session/title-llm-request') {
+          const route = resolveRoute(asRecord(line.data));
+          state.provider = route.provider ?? state.provider;
+          state.model = route.model ?? state.model;
+          continue;
+        }
+
+        if (line.type !== 'assistant/message') {
+          continue;
+        }
+
+        const data = asRecord(line.data);
+        const message = asRecord(data?.message);
+        const usage = asRecord(data?.usage);
+
+        if (!usage) {
+          continue;
+        }
+
+        const extractedUsage = extractUsage(usage);
+
+        if (!extractedUsage) {
+          skippedRows++;
+          incrementSkippedReason(skippedRowReasons, 'no_token_usage');
+          continue;
+        }
+
+        const timestamp = resolveTimestamp(line);
+
+        if (!timestamp || !state.sessionId) {
+          skippedRows++;
+          incrementSkippedReason(skippedRowReasons, 'invalid_timestamp');
+          continue;
+        }
+
+        const source = asRecord(message?.source);
+        const provider = asTrimmedText(source?.provider) ?? state.provider;
+        const model = asTrimmedText(source?.model) ?? state.model;
+
+        try {
+          events.push(
+            createUsageEvent({
+              source: this.id,
+              sessionId: state.sessionId,
+              timestamp,
+              repoRoot: state.repoRoot,
+              provider,
+              model,
+              ...extractedUsage,
+              totalTokens: resolveUsageTotalTokens(extractedUsage),
+            }),
+          );
+        } catch {
+          skippedRows++;
+          incrementSkippedReason(skippedRowReasons, 'event_creation_failed');
+          continue;
+        }
+      }
+    } catch (error) {
+      if (error instanceof DshSessionLogUnreadableError) {
+        return toParseDiagnostics([], 1, new Map([['file_parse_failed', 1]]));
       }
 
-      if (line.type === 'session') {
-        state.sessionId = asTrimmedText(line.id) ?? state.sessionId;
-        state.repoRoot = asTrimmedText(line.cwd) ?? state.repoRoot;
-        continue;
-      }
-
-      if (line.type === 'session/title-llm-request') {
-        const route = resolveRoute(asRecord(line.data));
-        state.provider = route.provider ?? state.provider;
-        state.model = route.model ?? state.model;
-        continue;
-      }
-
-      if (line.type !== 'assistant/message') {
-        continue;
-      }
-
-      const data = asRecord(line.data);
-      const message = asRecord(data?.message);
-      const usage = asRecord(data?.usage);
-
-      if (!usage) {
-        continue;
-      }
-
-      const extractedUsage = extractUsage(usage);
-
-      if (!extractedUsage) {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'no_token_usage');
-        continue;
-      }
-
-      const timestamp = resolveTimestamp(line);
-
-      if (!timestamp || !state.sessionId) {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'invalid_timestamp');
-        continue;
-      }
-
-      const source = asRecord(message?.source);
-      const provider = asTrimmedText(source?.provider) ?? state.provider;
-      const model = asTrimmedText(source?.model) ?? state.model;
-
-      try {
-        events.push(
-          createUsageEvent({
-            source: this.id,
-            sessionId: state.sessionId,
-            timestamp,
-            repoRoot: state.repoRoot,
-            provider,
-            model,
-            ...extractedUsage,
-            totalTokens: resolveUsageTotalTokens(extractedUsage),
-          }),
-        );
-      } catch {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'event_creation_failed');
-        continue;
-      }
+      throw error;
     }
 
     return toParseDiagnostics(events, skippedRows, skippedRowReasons);

@@ -320,7 +320,7 @@ describe.skipIf(!DatabaseSync)('wrapped report e2e', () => {
     expect(result.recap).toMatchObject({
       year: 2026,
       totalTokens: 2_170,
-      costUsd: 0.6674325,
+      costUsd: 0.6676725,
       costIncomplete: true,
       activeDays: 10,
       longestStreak: 2,

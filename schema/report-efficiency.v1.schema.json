@@ -3,6 +3,7 @@
   "$id": "https://ayagmar.github.io/llm-usage-metrics/report-efficiency.v1.schema.json",
   "title": "llm-usage-metrics efficiency report output (v1)",
   "description": "Envelope and payload for efficiency report --json output.",
+  "type": "object",
   "allOf": [
     {
       "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope"
@@ -66,6 +67,7 @@
       }
     },
     "periodRow": {
+      "type": "object",
       "description": "One period's usage, outcomes, and derived metrics.",
       "allOf": [
         {
@@ -82,6 +84,7 @@
       "unevaluatedProperties": false
     },
     "sourceRow": {
+      "type": "object",
       "description": "One source's usage share inside a period (--by-source).",
       "allOf": [
         {
@@ -102,6 +105,7 @@
       "unevaluatedProperties": false
     },
     "grandTotalRow": {
+      "type": "object",
       "description": "Grand-total usage, outcomes, and derived metrics.",
       "allOf": [
         {

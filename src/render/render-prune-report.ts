@@ -4,6 +4,7 @@ import type {
   PruneSummary,
   StoreSizeSnapshot,
 } from '../cli/run-prune-report.js';
+import { stripControlCharacters } from '../domain/normalization.js';
 import { formatByteSize } from './format-byte-size.js';
 import { renderReportHeader } from './report-header.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
@@ -28,7 +29,7 @@ function createRowMetas(candidates: readonly PruneCandidate[]): TableRowMeta[] {
 function renderCandidateTable(candidates: readonly PruneCandidate[]): string {
   const bodyRows = candidates.map((candidate) => [
     candidate.source,
-    candidate.filePath,
+    stripControlCharacters(candidate.filePath),
     String(candidate.eventCount),
     candidate.newestTimestamp ?? '-',
     candidate.reasons.join(', '),

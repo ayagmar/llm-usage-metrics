@@ -34,18 +34,18 @@ The command builds two datasets for each period:
 1. Usage events mapped to the selected repository root through source metadata such as a working directory or file path.
 2. Commits and line changes from local Git history for your configured author.
 
-Events without repository attribution stay out of the usage totals. Periods need both Git activity and attributed usage before the renderer emits a row.
+Events without repository attribution stay out of the usage totals. Periods need at least one commit and attributed usage before the renderer emits a row.
 
 ## Column formulas
 
 | Column | Formula |
 | --- | --- |
-| `Tokens/Commit` | `(Input + Output + Reasoning) / Commits` |
+| `Tokens/Commit` | `(Input + Output) / Commits` |
 | `$/Commit` | `Cost / Commits` |
 | `$/1k Lines` | `Cost / (ΔLines / 1000)` |
 | `Commits/$` | `Commits / Cost`, when cost is above zero |
 
-`Tokens/Commit` excludes cache read and cache write tokens. The table keeps those buckets visible in the raw usage columns.
+`Tokens/Commit` excludes cache read and cache write tokens. Output already includes reasoning, so reasoning is not counted twice. The table keeps those buckets visible in the raw usage columns.
 
 A zero denominator renders as `-` in terminal and Markdown output. JSON omits that derived value. Partial pricing adds a `~` prefix to affected USD metrics.
 

@@ -15,7 +15,7 @@ export const shareTheme = {
 } as const;
 
 export const SHARE_SVG_WIDTH = 1500;
-export const SHARE_SVG_ACCENT_HEIGHT = 4;
+const SHARE_SVG_ACCENT_HEIGHT = 4;
 export const SHARE_SVG_FOOTER_HEIGHT = 36;
 
 const knownSourceColors: Readonly<Record<string, string>> = {
@@ -59,12 +59,12 @@ export function escapeSvg(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
-export function renderShareAccentBar(width = SHARE_SVG_WIDTH): string {
+function renderShareAccentBar(width = SHARE_SVG_WIDTH): string {
   return `<rect width="${width}" height="${SHARE_SVG_ACCENT_HEIGHT}" fill="url(#accent-grad)"/>`;
 }
 
 /** The brand gradient behind the accent bar; identical across every share card. */
-export function renderShareAccentGradientDef(): string {
+function renderShareAccentGradientDef(): string {
   return `<linearGradient id="accent-grad" x1="0" y1="0" x2="1" y2="0">
     <stop offset="0%" stop-color="#f97316"/>
     <stop offset="50%" stop-color="#22c55e"/>
@@ -83,7 +83,7 @@ export function renderShareCommandBadge(command: string): string {
   ].join('\n');
 }
 
-export function renderShareFooter(options: {
+function renderShareFooter(options: {
   height: number;
   width?: number;
   rightText?: string;

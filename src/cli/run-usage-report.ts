@@ -20,7 +20,7 @@ function resolveTableLayout(options: ReportCommandOptions): UsageTableLayout {
   return options.perModelColumns ? 'per_model_columns' : 'compact';
 }
 
-export function getDefaultWindowHint(granularity: ReportGranularity, since: string): string[] {
+function getDefaultWindowHint(granularity: ReportGranularity, since: string): string[] {
   const defaultWindow = DEFAULT_REPORT_WINDOWS[granularity];
 
   if (!defaultWindow) {

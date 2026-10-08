@@ -344,7 +344,7 @@ const trendsReportDefinition: ReportRuntimeDefinition = {
         '--days <n>',
         'Trailing local calendar days to chart; defaults to 30 when no date flags are provided',
       )
-      .option('--metric <name>', 'Trend metric: cost | tokens', 'cost')
+      .option('--metric <name>', 'Trend metric: cost | tokens | active-hours', 'cost')
       .option(
         '--by-source',
         'Render one sparkline row per source instead of a single combined chart',

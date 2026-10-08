@@ -3,6 +3,7 @@
   "$id": "https://ayagmar.github.io/llm-usage-metrics/report-optimize.v1.schema.json",
   "title": "llm-usage-metrics optimize report output (v1)",
   "description": "Envelope and payload for optimize report --json output.",
+  "type": "object",
   "allOf": [
     {
       "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope"
@@ -20,6 +21,7 @@
   },
   "$defs": {
     "rowCommon": {
+      "type": "object",
       "description": "Fields shared by baseline and candidate rows.",
       "allOf": [
         {
@@ -33,6 +35,7 @@
       "required": ["periodKey", "provider"]
     },
     "baselineRow": {
+      "type": "object",
       "description": "Observed usage priced at the actual models.",
       "allOf": [{ "$ref": "#/$defs/rowCommon" }],
       "properties": {
@@ -51,6 +54,7 @@
       "unevaluatedProperties": false
     },
     "candidateRow": {
+      "type": "object",
       "description": "The same usage hypothetically priced at a candidate model.",
       "allOf": [{ "$ref": "#/$defs/rowCommon" }],
       "properties": {

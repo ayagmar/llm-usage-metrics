@@ -143,7 +143,35 @@ describe('OpenClawSourceAdapter', () => {
       totalTokens: 7,
       costMode: 'estimated',
     });
-    expect(events[2]?.timestamp).toBe('2026-04-01T10:03:00.000Z');
+    // A row without its own timestamp takes the session header's, never the file mtime.
+    expect(events[2]?.timestamp).toBe('2026-04-01T10:00:00.000Z');
+  });
+
+  it('skips usage rows that have no timestamp of their own or from the session', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'openclaw-no-timestamp-'));
+    tempDirs.push(root);
+    const filePath = path.join(root, 'session.jsonl');
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({ type: 'session', id: 'no-time-session' }),
+        JSON.stringify({
+          type: 'message',
+          message: {
+            role: 'assistant',
+            provider: 'openai',
+            model: 'gpt-5.3-codex',
+            usage: { input: 3, output: 4, totalTokens: 7 },
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const diagnostics = await new OpenClawSourceAdapter().parseFileWithDiagnostics(filePath);
+
+    expect(diagnostics.events).toEqual([]);
+    expect(diagnostics.skippedRowReasons).toEqual([{ reason: 'invalid_timestamp', count: 1 }]);
   });
 
   it('falls back to message.usage when line-level usage is malformed', async () => {

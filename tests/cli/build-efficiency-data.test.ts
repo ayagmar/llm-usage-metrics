@@ -101,6 +101,7 @@ function createUsageEventDataset(options: Record<string, unknown> = {}): UsageEv
       providerFilter: undefined,
       candidateProviderRoots: undefined,
       sourceFilter: undefined,
+      sourceFilterLabel: '--source',
       modelFilter: undefined,
       explicitSourceIds: new Set(),
       pricingUrl: undefined,

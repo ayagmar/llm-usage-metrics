@@ -92,7 +92,7 @@ export async function resolvePricingSource(
   }
 }
 
-export function eventNeedsPricingLookup(event: UsageEvent): boolean {
+function eventNeedsPricingLookup(event: UsageEvent): boolean {
   if (!event.model) {
     return false;
   }

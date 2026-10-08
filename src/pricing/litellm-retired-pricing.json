@@ -720,6 +720,30 @@
       "inputPer1MUsd": 0.09999999999999999,
       "outputPer1MUsd": 0.39999999999999997
     },
+    "palm/chat-bison": {
+      "inputPer1MUsd": 0.125,
+      "outputPer1MUsd": 0.125
+    },
+    "palm/chat-bison-001": {
+      "inputPer1MUsd": 0.125,
+      "outputPer1MUsd": 0.125
+    },
+    "palm/text-bison": {
+      "inputPer1MUsd": 0.125,
+      "outputPer1MUsd": 0.125
+    },
+    "palm/text-bison-001": {
+      "inputPer1MUsd": 0.125,
+      "outputPer1MUsd": 0.125
+    },
+    "palm/text-bison-safety-off": {
+      "inputPer1MUsd": 0.125,
+      "outputPer1MUsd": 0.125
+    },
+    "palm/text-bison-safety-recitation-off": {
+      "inputPer1MUsd": 0.125,
+      "outputPer1MUsd": 0.125
+    },
     "replicateopenai/gpt-oss-20b": {
       "inputPer1MUsd": 0.09,
       "outputPer1MUsd": 0.36

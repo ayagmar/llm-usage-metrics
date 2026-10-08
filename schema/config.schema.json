@@ -114,8 +114,7 @@
         },
         "url": {
           "description": "Default LiteLLM pricing source URL; maps to --pricing-url.",
-          "type": "string",
-          "format": "uri"
+          "type": "string"
         },
         "overridesPath": {
           "description": "Default JSON pricing overrides path; maps to --pricing-overrides.",

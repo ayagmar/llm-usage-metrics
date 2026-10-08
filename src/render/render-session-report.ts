@@ -11,6 +11,7 @@ import { renderReportHeader } from './report-header.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
 import { renderReportJson } from './report-json.js';
+import { wrapTableColumn } from './table-text-layout.js';
 
 export type SessionReportFormat = 'terminal' | 'markdown' | 'json';
 
@@ -19,6 +20,8 @@ export type RenderSessionReportOptions = {
   useColor?: boolean;
   truncateSessionIds?: boolean;
 };
+
+const MODELS_COLUMN_WIDTH = 32;
 
 const sessionTableHeaders = [
   'Session',
@@ -162,16 +165,22 @@ function renderTerminalSessionReport(
     return outputLines.join('\n');
   }
 
+  const modelsColumnIndex = headers.length - 1;
+  const wrappedRows = wrapTableColumn(bodyRows, {
+    columnIndex: modelsColumnIndex,
+    width: MODELS_COLUMN_WIDTH,
+  });
+
   outputLines.push(
     renderUnicodeTable({
       headerCells: headers,
-      bodyRows,
+      bodyRows: wrappedRows,
       measureHeaderCells: headers,
-      measureBodyRows: bodyRows,
-      rowMetas: bodyRows.map(() => toRowMeta()),
+      measureBodyRows: wrappedRows,
+      rowMetas: wrappedRows.map(() => toRowMeta()),
       layout: 'top_aligned',
-      multilineColumnIndex: headers.length - 1,
-      multilineColumnWidth: 32,
+      multilineColumnIndex: modelsColumnIndex,
+      multilineColumnWidth: MODELS_COLUMN_WIDTH,
     }),
   );
 

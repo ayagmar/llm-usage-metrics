@@ -11,6 +11,7 @@ import type {
   SourceSkippedRowReasonStat,
 } from '../../sources/source-adapter.js';
 import type { RuntimeProfileCollector } from '../runtime-profile.js';
+import { getErrorReason } from '../../utils/get-error-reason.js';
 
 export type EventStoreParseDeps = {
   openEventStore?: (filePath: string) => Promise<EventStore>;
@@ -45,14 +46,6 @@ export type EventStoreParseContext = {
   now: () => number;
   failureState: EventStoreFailureState;
 };
-
-export function getErrorReason(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return String(error);
-}
 
 export function recordEventStoreFailure(state: EventStoreFailureState, error: unknown): void {
   if (state.disabled) {

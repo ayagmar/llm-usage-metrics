@@ -45,6 +45,7 @@ import type { EnvVarOverride } from '../config/env-var-display.js';
 import type { PricingSource } from '../pricing/types.js';
 import { findUnmatchedFilterWarnings } from './filter-match-warnings.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
+import { getErrorReason } from '../utils/get-error-reason.js';
 
 function withNormalizedPricingUrl(
   options: ReportCommandOptions,
@@ -58,10 +59,6 @@ function withNormalizedPricingUrl(
     ...options,
     pricingUrl: normalizedPricingUrl,
   };
-}
-
-function getErrorReason(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 function formatHistoryNote(historyResult: EventStoreHistoryResult): string {
@@ -168,6 +165,7 @@ export async function buildUsageEventDataset(
     () =>
       selectAdaptersForParsing(adapters, {
         sourceFilter: normalizedInputs.sourceFilter,
+        sourceFilterLabel: normalizedInputs.sourceFilterLabel,
         candidateProviderRoots: normalizedInputs.candidateProviderRoots,
         runtimeProfile,
       }),
@@ -201,6 +199,13 @@ export async function buildUsageEventDataset(
             const openStore = deps.openEventStore ?? openEventStore;
             openedEventStore = await openStore(eventStoreRuntimeConfig.path);
           } catch (error) {
+            if (configuredOptions.history) {
+              throw new Error(
+                `--history could not open the event store at ${eventStoreRuntimeConfig.path}: ${getErrorReason(error)}`,
+                { cause: error },
+              );
+            }
+
             eventStoreOpenWarning = `Event store disabled after failure: ${getErrorReason(error)}`;
             parseEventStoreRuntimeConfig = {
               enabled: false,

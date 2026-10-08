@@ -294,8 +294,21 @@ describe('LiteLLMPricingFetcher', () => {
 
     expect(offlineLoadedFromCache).toBe(true);
     expect(offlineFetcher.getLoadOrigin()).toBe('cache');
-    expect(offlineFetcher.getPricingWarning()).toBeUndefined();
+    expect(offlineFetcher.getPricingWarning()).toMatch(
+      /^Pricing: using cached LiteLLM pricing from \d{4}-\d{2}-\d{2}, past its refresh interval/u,
+    );
     expect(offlineFetcher.getPricing('gpt-5.2-codex')).toBeDefined();
+
+    const freshCacheFetcher = createFetcher({
+      cacheFilePath,
+      offline: true,
+      fetchImpl: vi.fn(async () => {
+        throw new Error('Offline fetch should not be called');
+      }),
+    });
+
+    await expect(freshCacheFetcher.load()).resolves.toBe(true);
+    expect(freshCacheFetcher.getPricingWarning()).toBeUndefined();
   });
 
   it('uses the bundled snapshot in offline mode when default cache is unavailable', async () => {
@@ -464,7 +477,9 @@ describe('LiteLLMPricingFetcher', () => {
 
     expect(loadedFromCache).toBe(true);
     expect(fetcher.getLoadOrigin()).toBe('cache');
-    expect(fetcher.getPricingWarning()).toBeUndefined();
+    expect(fetcher.getPricingWarning()).toBe(
+      'Pricing: the LiteLLM refresh failed (network timeout); using cached pricing from 1970-01-01.',
+    );
     expect(fetchSpy).toHaveBeenCalledTimes(3);
     expect(fetcher.getPricing('gpt-5.2-codex')?.inputPer1MUsd).toBeCloseTo(1.5, 10);
   });

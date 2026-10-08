@@ -49,6 +49,7 @@
       ]
     },
     "usageTotals": {
+      "type": "object",
       "description": "Token buckets plus optional cost fields.",
       "allOf": [{ "$ref": "#/$defs/tokenBuckets" }],
       "properties": {

@@ -141,57 +141,7 @@ describe('loadPricingOverrides', () => {
     });
   });
 
-  it('drops entries with blank or non-numeric required rates', async () => {
-    const dir = await mkdtemp(path.join(os.tmpdir(), 'pricing-overrides-blank-'));
-    tempDirs.push(dir);
-    const filePath = path.join(dir, 'overrides.json');
-
-    await writeFile(
-      filePath,
-      JSON.stringify({
-        models: {
-          'blank-rate-model': { inputPer1MUsd: '   ', outputPer1MUsd: 2 },
-          'non-numeric-model': { inputPer1MUsd: 'free', outputPer1MUsd: 2 },
-          'good-model': { inputPer1MUsd: 1, outputPer1MUsd: 2 },
-        },
-      }),
-      'utf8',
-    );
-
-    const overrides = await loadPricingOverrides(filePath);
-
-    expect(overrides.size).toBe(1);
-    expect(overrides.has('blank-rate-model')).toBe(false);
-    expect(overrides.has('non-numeric-model')).toBe(false);
-    expect(overrides.get('good-model')).toEqual({ inputPer1MUsd: 1, outputPer1MUsd: 2 });
-  });
-
-  it('drops entries with negative required rates', async () => {
-    const dir = await mkdtemp(path.join(os.tmpdir(), 'pricing-overrides-negative-required-'));
-    tempDirs.push(dir);
-    const filePath = path.join(dir, 'overrides.json');
-
-    await writeFile(
-      filePath,
-      JSON.stringify({
-        models: {
-          'negative-input': { inputPer1MUsd: -1, outputPer1MUsd: 2 },
-          'negative-output': { inputPer1MUsd: 1, outputPer1MUsd: '-2' },
-          'good-model': { inputPer1MUsd: 1, outputPer1MUsd: 2 },
-        },
-      }),
-      'utf8',
-    );
-
-    const overrides = await loadPricingOverrides(filePath);
-
-    expect(overrides.size).toBe(1);
-    expect(overrides.has('negative-input')).toBe(false);
-    expect(overrides.has('negative-output')).toBe(false);
-    expect(overrides.get('good-model')).toEqual({ inputPer1MUsd: 1, outputPer1MUsd: 2 });
-  });
-
-  it('ignores negative optional rates and preserves zero rates', async () => {
+  it('preserves zero and numeric-string rates', async () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), 'pricing-overrides-optional-rates-'));
     tempDirs.push(dir);
     const filePath = path.join(dir, 'overrides.json');
@@ -200,13 +150,6 @@ describe('loadPricingOverrides', () => {
       filePath,
       JSON.stringify({
         models: {
-          'negative-optional': {
-            inputPer1MUsd: 1,
-            outputPer1MUsd: 2,
-            cacheReadPer1MUsd: -1,
-            cacheWritePer1MUsd: '-2',
-            reasoningPer1MUsd: -3,
-          },
           'zero-rates': {
             inputPer1MUsd: 0,
             outputPer1MUsd: '0',
@@ -221,43 +164,12 @@ describe('loadPricingOverrides', () => {
 
     const overrides = await loadPricingOverrides(filePath);
 
-    expect(overrides.get('negative-optional')).toEqual({
-      inputPer1MUsd: 1,
-      outputPer1MUsd: 2,
-    });
     expect(overrides.get('zero-rates')).toEqual({
       inputPer1MUsd: 0,
       outputPer1MUsd: 0,
       cacheReadPer1MUsd: 0,
       cacheWritePer1MUsd: 0,
       reasoningPer1MUsd: 0,
-    });
-  });
-
-  it('ignores invalid reasoningBilling values', async () => {
-    const dir = await mkdtemp(path.join(os.tmpdir(), 'pricing-overrides-billing-'));
-    tempDirs.push(dir);
-    const filePath = path.join(dir, 'overrides.json');
-
-    await writeFile(
-      filePath,
-      JSON.stringify({
-        models: {
-          'with-bad-billing': {
-            inputPer1MUsd: 1,
-            outputPer1MUsd: 2,
-            reasoningBilling: 'not-a-mode',
-          },
-        },
-      }),
-      'utf8',
-    );
-
-    const overrides = await loadPricingOverrides(filePath);
-
-    expect(overrides.get('with-bad-billing')).toEqual({
-      inputPer1MUsd: 1,
-      outputPer1MUsd: 2,
     });
   });
 
@@ -291,37 +203,59 @@ describe('loadPricingOverrides', () => {
     });
   });
 
-  it('skips entries whose model name is blank', async () => {
-    const dir = await mkdtemp(path.join(os.tmpdir(), 'pricing-overrides-blank-key-'));
+  async function writeOverrides(models: unknown): Promise<string> {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'pricing-overrides-invalid-'));
     tempDirs.push(dir);
     const filePath = path.join(dir, 'overrides.json');
+    await writeFile(filePath, JSON.stringify(models), 'utf8');
+    return filePath;
+  }
 
-    await writeFile(
-      filePath,
-      JSON.stringify({
-        models: {
-          '   ': { inputPer1MUsd: 1, outputPer1MUsd: 2 },
-          'good-model': { inputPer1MUsd: 3, outputPer1MUsd: 4 },
-        },
-      }),
-      'utf8',
+  it('fails naming each invalid entry instead of dropping it silently', async () => {
+    const filePath = await writeOverrides({
+      models: {
+        'blank-rate': { inputPer1MUsd: '   ', outputPer1MUsd: 2 },
+        'non-numeric': { inputPer1MUsd: 'free', outputPer1MUsd: 2 },
+        'negative-output': { inputPer1MUsd: 1, outputPer1MUsd: '-2' },
+        'missing-output': { inputPer1MUsd: 1 },
+        'negative-optional': { inputPer1MUsd: 1, outputPer1MUsd: 2, cacheReadPer1MUsd: -1 },
+        'typo-key': { inputPer1MUsd: 1, outputPer1MUsd: 2, cacheReadPer1M: 0.1 },
+        'bad-billing': { inputPer1MUsd: 1, outputPer1MUsd: 2, reasoningBilling: 'not-a-mode' },
+        'not-an-object': 3,
+        '   ': { inputPer1MUsd: 1, outputPer1MUsd: 2 },
+        'good-model': { inputPer1MUsd: 1, outputPer1MUsd: 2 },
+      },
+    });
+
+    const error = await loadPricingOverrides(filePath).then(
+      () => undefined,
+      (reason: unknown) => reason,
     );
 
-    const overrides = await loadPricingOverrides(filePath);
-
-    expect(overrides.size).toBe(1);
-    expect(overrides.get('good-model')).toEqual({ inputPer1MUsd: 3, outputPer1MUsd: 4 });
+    expect(error).toBeInstanceOf(Error);
+    const message = (error as Error).message;
+    for (const expected of [
+      '"blank-rate": inputPer1MUsd must be a non-negative number',
+      '"non-numeric": inputPer1MUsd must be a non-negative number',
+      '"negative-output": outputPer1MUsd must be a non-negative number',
+      '"missing-output": outputPer1MUsd is required',
+      '"negative-optional": cacheReadPer1MUsd must be a non-negative number',
+      '"typo-key": unknown key "cacheReadPer1M"',
+      '"bad-billing": reasoningBilling must be "included-in-output" or "separate"',
+      '"not-an-object": expected an object of per-1M-token USD rates',
+      'model names must be non-empty',
+      'valid keys: inputPer1MUsd, outputPer1MUsd',
+    ]) {
+      expect(message).toContain(expected);
+    }
+    expect(message).not.toContain('good-model');
   });
 
-  it('returns an empty map for a file with no models object', async () => {
-    const dir = await mkdtemp(path.join(os.tmpdir(), 'pricing-overrides-empty-'));
-    tempDirs.push(dir);
-    const filePath = path.join(dir, 'overrides.json');
+  it('fails when the file has no models object', async () => {
+    const filePath = await writeOverrides({ note: 'no models here' });
 
-    await writeFile(filePath, JSON.stringify({ note: 'no models here' }), 'utf8');
-
-    const overrides = await loadPricingOverrides(filePath);
-
-    expect(overrides.size).toBe(0);
+    await expect(loadPricingOverrides(filePath)).rejects.toThrow(
+      'expected a JSON object with a "models" object',
+    );
   });
 });

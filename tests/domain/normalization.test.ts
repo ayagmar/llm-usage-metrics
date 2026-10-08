@@ -47,6 +47,14 @@ describe('normalizeTimestamp', () => {
 });
 
 describe('stripControlCharacters', () => {
+  it('removes bidi controls and line separators that can spoof terminal output', () => {
+    expect(stripControlCharacters('a\u202Eb\u2066c\u2069d\u2028e\u200Ff')).toBe('abcdef');
+  });
+
+  it('keeps joiners that real scripts and emoji sequences need', () => {
+    expect(stripControlCharacters('a\u200Cb\u200Dc')).toBe('a\u200Cb\u200Dc');
+  });
+
   it('removes the ESC byte from ANSI escape sequences', () => {
     expect(stripControlCharacters('a\u001B[31mb')).toBe('a[31mb');
   });

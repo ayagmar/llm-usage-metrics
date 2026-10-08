@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { SessionDataResult } from '../../src/cli/usage-data-contracts.js';
+import { visibleWidth } from '../../src/render/table-text-layout.js';
 import { renderSessionReport } from '../../src/render/render-session-report.js';
 
 function createDiagnostics(timezone: string): SessionDataResult['diagnostics'] {
@@ -128,6 +129,30 @@ describe('renderSessionReport', () => {
     expect(output).toContain('gpt-5-codex');
     expect(output).toContain('+2 more');
     expect(output).not.toContain('o4-mini');
+  });
+
+  it('wraps a long model id inside the models column instead of overflowing the box', () => {
+    const data = createSessionData();
+
+    if (data.grouping !== 'session') {
+      throw new Error('expected session grouping');
+    }
+
+    data.rows[0].models = ['openrouter/some-provider/a-very-long-model-identifier-v1'];
+
+    const output = renderSessionReport(data, 'terminal', {
+      timezone: 'UTC',
+      useColor: false,
+    });
+    const lines = output.split('\n');
+    const tableTop = lines.map((line) => line.startsWith('╭')).lastIndexOf(true);
+    const borderWidth = visibleWidth(lines[tableTop] ?? '');
+    const tableLines = lines.slice(tableTop + 1).filter((line) => line.startsWith('│'));
+
+    expect(tableLines.length).toBeGreaterThan(1);
+    for (const line of tableLines) {
+      expect(visibleWidth(line)).toBe(borderWidth);
+    }
   });
 
   it('renders the Duration column with hour-minute formatting', () => {

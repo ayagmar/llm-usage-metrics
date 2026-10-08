@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import type { UsageEvent } from '../../domain/usage-event.js';
 import { pathExists, pathIsFile, pathReadable } from '../../utils/fs-helpers.js';
 import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
@@ -95,19 +97,39 @@ export class OpenCodeSourceAdapter implements SourceAdapter {
     }
 
     let firstUnreadableCandidatePath: string | undefined;
+    let selectedDirectory: string | undefined;
+    const selectedPaths: string[] = [];
 
+    // OpenCode keeps one database per release channel (opencode.db, opencode-<channel>.db),
+    // each with its own sessions, so every readable one in the first directory counts.
     for (const candidatePath of this.resolveDefaultDbPaths()) {
+      const directory = path.dirname(candidatePath);
+
+      if (selectedDirectory !== undefined && directory !== selectedDirectory) {
+        break;
+      }
+
       if (await this.pathReadable(candidatePath)) {
         if ((await this.pathExists(candidatePath)) && !(await this.pathIsFile(candidatePath))) {
           throw new Error(`OpenCode DB path is not a file: ${candidatePath}`);
         }
 
-        return [candidatePath];
+        selectedDirectory = directory;
+        selectedPaths.push(candidatePath);
+        continue;
       }
 
       if (!firstUnreadableCandidatePath && (await this.pathExists(candidatePath))) {
         firstUnreadableCandidatePath = candidatePath;
       }
+    }
+
+    if (selectedPaths.length > 0) {
+      // db.sqlite is a fallback name, read only when no opencode database sits beside it.
+      const channelDbPaths = selectedPaths.filter(
+        (candidatePath) => path.basename(candidatePath) !== 'db.sqlite',
+      );
+      return channelDbPaths.length > 0 ? channelDbPaths : selectedPaths;
     }
 
     if (firstUnreadableCandidatePath) {

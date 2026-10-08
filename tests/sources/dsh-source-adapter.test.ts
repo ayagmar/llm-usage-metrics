@@ -331,6 +331,30 @@ describe('DshSourceAdapter', () => {
     ]);
   });
 
+  it('rejects a frame that inflates past the decoded-size cap instead of buffering it', async () => {
+    const root = await createTempRoot('dsh-bomb-');
+    const logPath = resolveDshSessionLogPath(path.join(root, '--proj--', 'session-bomb'));
+
+    await writeDshSessionLog({
+      filePath: logPath,
+      lines: [
+        sessionHeaderLine(),
+        usageLine({
+          seq: 1,
+          time: SESSION_HEADER.createdAt + 40,
+          inputTokens: 11,
+          outputTokens: 4,
+        }),
+      ],
+      trailingBytes: zstdCompressSync(Buffer.alloc(65 * 1024 * 1024, 0x20)),
+    });
+
+    const result = await new DshSourceAdapter().parseFileWithDiagnostics(logPath);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.skippedRowReasons).toEqual([{ reason: 'undecodable_jsonl_frame', count: 1 }]);
+  });
+
   it('keeps decoded frames and reports the torn tail of a crashed append', async () => {
     const root = await createTempRoot('dsh-torn-');
     const logPath = resolveDshSessionLogPath(path.join(root, '--proj--', 'session-torn'));

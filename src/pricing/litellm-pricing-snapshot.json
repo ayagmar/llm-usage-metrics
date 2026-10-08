@@ -1,5 +1,5 @@
 {
-  "fetchedAt": 1791306444959,
+  "fetchedAt": 1791422092401,
   "sourceUrl": "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json",
   "pricingByModel": {
     "ai21.j2-mid-v1": {
@@ -525,6 +525,12 @@
       "cacheReadPer1MUsd": 0.09999999999999999,
       "cacheWritePer1MUsd": 1.25
     },
+    "anthropic.claude-haiku-5-5": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.5,
+      "cacheReadPer1MUsd": 0.01,
+      "cacheWritePer1MUsd": 0.125
+    },
     "anthropic.claude-instant-v1": {
       "inputPer1MUsd": 0.7999999999999999,
       "outputPer1MUsd": 2.4
@@ -712,6 +718,12 @@
       "cacheReadPer1MUsd": 0.11,
       "cacheWritePer1MUsd": 1.375
     },
+    "apac.anthropic.claude-haiku-5-5": {
+      "inputPer1MUsd": 0.11,
+      "outputPer1MUsd": 0.55,
+      "cacheReadPer1MUsd": 0.011,
+      "cacheWritePer1MUsd": 0.1375
+    },
     "apac.anthropic.claude-mythos-preview": {
       "inputPer1MUsd": 27.5,
       "outputPer1MUsd": 137.5,
@@ -777,6 +789,12 @@
       "outputPer1MUsd": 5.5,
       "cacheReadPer1MUsd": 0.11,
       "cacheWritePer1MUsd": 1.375
+    },
+    "au.anthropic.claude-haiku-5-5": {
+      "inputPer1MUsd": 0.11,
+      "outputPer1MUsd": 0.55,
+      "cacheReadPer1MUsd": 0.011,
+      "cacheWritePer1MUsd": 0.1375
     },
     "au.anthropic.claude-mythos-preview": {
       "inputPer1MUsd": 27.5,
@@ -1317,8 +1335,8 @@
       "cacheReadPer1MUsd": 0.075
     },
     "azure/gpt-4o-mini-audio-preview-2024-12-17": {
-      "inputPer1MUsd": 2.5,
-      "outputPer1MUsd": 10
+      "inputPer1MUsd": 0.15,
+      "outputPer1MUsd": 0.6
     },
     "azure/gpt-4o-mini-realtime-preview-2024-12-17": {
       "inputPer1MUsd": 0.6,
@@ -1657,6 +1675,16 @@
       "outputPer1MUsd": 30,
       "cacheReadPer1MUsd": 0.5
     },
+    "azure/gpt-image-1.5": {
+      "inputPer1MUsd": 5,
+      "outputPer1MUsd": 10,
+      "cacheReadPer1MUsd": 1.25
+    },
+    "azure/gpt-image-1.5-2025-12-16": {
+      "inputPer1MUsd": 5,
+      "outputPer1MUsd": 10,
+      "cacheReadPer1MUsd": 1.25
+    },
     "azure/gpt-realtime": {
       "inputPer1MUsd": 4,
       "outputPer1MUsd": 16,
@@ -1709,6 +1737,10 @@
     "azure/mistral-large-latest": {
       "inputPer1MUsd": 8,
       "outputPer1MUsd": 24
+    },
+    "azure/model-router": {
+      "inputPer1MUsd": 0.14,
+      "outputPer1MUsd": 0
     },
     "azure/o1": {
       "inputPer1MUsd": 15,
@@ -2120,6 +2152,12 @@
       "cacheReadPer1MUsd": 0.09999999999999999,
       "cacheWritePer1MUsd": 1.25
     },
+    "azure_ai/claude-haiku-5-5": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.5,
+      "cacheReadPer1MUsd": 0.01,
+      "cacheWritePer1MUsd": 0.125
+    },
     "azure_ai/claude-opus-4-5": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
@@ -2501,7 +2539,12 @@
       "cacheReadPer1MUsd": 0.19999999999999998
     },
     "azure_ai/grok-4.6": {
-      "inputPer1MUsd": 1.25,
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 6,
+      "cacheReadPer1MUsd": 0.5
+    },
+    "azure_ai/grok-4.7": {
+      "inputPer1MUsd": 2,
       "outputPer1MUsd": 6,
       "cacheReadPer1MUsd": 0.5
     },
@@ -3203,6 +3246,12 @@
       "cacheReadPer1MUsd": 0.12,
       "cacheWritePer1MUsd": 1.5
     },
+    "bedrock/us-gov-east-1/anthropic.claude-haiku-5-5": {
+      "inputPer1MUsd": 0.12,
+      "outputPer1MUsd": 0.6,
+      "cacheReadPer1MUsd": 0.012,
+      "cacheWritePer1MUsd": 0.15
+    },
     "bedrock/us-gov-east-1/anthropic.claude-opus-4-8": {
       "inputPer1MUsd": 6,
       "outputPer1MUsd": 30,
@@ -3327,6 +3376,12 @@
       "outputPer1MUsd": 6,
       "cacheReadPer1MUsd": 0.12,
       "cacheWritePer1MUsd": 1.5
+    },
+    "bedrock/us-gov-west-1/anthropic.claude-haiku-5-5": {
+      "inputPer1MUsd": 0.12,
+      "outputPer1MUsd": 0.6,
+      "cacheReadPer1MUsd": 0.012,
+      "cacheWritePer1MUsd": 0.15
     },
     "bedrock/us-gov-west-1/anthropic.claude-opus-4-8": {
       "inputPer1MUsd": 6,
@@ -3473,6 +3528,12 @@
       "outputPer1MUsd": 5,
       "cacheReadPer1MUsd": 0.09999999999999999,
       "cacheWritePer1MUsd": 1.25
+    },
+    "bedrock_mantle/anthropic.claude-haiku-5-5": {
+      "inputPer1MUsd": 0.11,
+      "outputPer1MUsd": 0.55,
+      "cacheReadPer1MUsd": 0.011,
+      "cacheWritePer1MUsd": 0.1375
     },
     "bedrock_mantle/anthropic.claude-opus-5-5": {
       "inputPer1MUsd": 4.4,
@@ -3628,6 +3689,12 @@
       "outputPer1MUsd": 7.920000000000001,
       "cacheReadPer1MUsd": 0.66
     },
+    "bedrock_mantle/us-gov-west-1/anthropic.claude-haiku-5-5": {
+      "inputPer1MUsd": 0.12,
+      "outputPer1MUsd": 0.6,
+      "cacheReadPer1MUsd": 0.012,
+      "cacheWritePer1MUsd": 0.15
+    },
     "bedrock_mantle/us-gov-west-1/anthropic.claude-opus-5-5": {
       "inputPer1MUsd": 4.8,
       "outputPer1MUsd": 24,
@@ -3653,21 +3720,21 @@
       "outputPer1MUsd": 0.096
     },
     "bedrock_mantle/us-gov-west-1/openai.gpt-5.4": {
-      "inputPer1MUsd": 3.3000000000000003,
-      "outputPer1MUsd": 19.8,
-      "cacheReadPer1MUsd": 0.33
+      "inputPer1MUsd": 3.375,
+      "outputPer1MUsd": 20.25,
+      "cacheReadPer1MUsd": 0.3375
     },
     "bedrock_mantle/us-gov-west-1/openai.gpt-5.6-luna": {
-      "inputPer1MUsd": 0.26399999999999996,
-      "outputPer1MUsd": 1.584,
-      "cacheReadPer1MUsd": 0.0264,
-      "cacheWritePer1MUsd": 0.33
+      "inputPer1MUsd": 0.27,
+      "outputPer1MUsd": 1.6199999999999999,
+      "cacheReadPer1MUsd": 0.027,
+      "cacheWritePer1MUsd": 0.3375
     },
     "bedrock_mantle/us-gov-west-1/openai.gpt-5.6-terra": {
-      "inputPer1MUsd": 2.64,
-      "outputPer1MUsd": 15.840000000000002,
-      "cacheReadPer1MUsd": 0.26399999999999996,
-      "cacheWritePer1MUsd": 3.3000000000000003
+      "inputPer1MUsd": 2.7,
+      "outputPer1MUsd": 16.2,
+      "cacheReadPer1MUsd": 0.27,
+      "cacheWritePer1MUsd": 3.375
     },
     "bedrock_mantle/us-gov-west-1/openai.gpt-oss-120b": {
       "inputPer1MUsd": 0.18,
@@ -3779,6 +3846,12 @@
       "cacheReadPer1MUsd": 0.09999999999999999,
       "cacheWritePer1MUsd": 1.25
     },
+    "claude-haiku-5-5": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.5,
+      "cacheReadPer1MUsd": 0.01,
+      "cacheWritePer1MUsd": 0.125
+    },
     "claude-mythos-5": {
       "inputPer1MUsd": 10,
       "outputPer1MUsd": 50,
@@ -3884,7 +3957,7 @@
     "claude-sonnet-5-5": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 10,
-      "cacheReadPer1MUsd": 0.19999999999999998,
+      "cacheReadPer1MUsd": 0.09999999999999999,
       "cacheWritePer1MUsd": 2.5
     },
     "cloudflare/@cf/aisingapore/gemma-sea-lion-v4-27b-it": {
@@ -5452,6 +5525,12 @@
       "cacheReadPer1MUsd": 0.11,
       "cacheWritePer1MUsd": 1.375
     },
+    "eu.anthropic.claude-haiku-5-5": {
+      "inputPer1MUsd": 0.11,
+      "outputPer1MUsd": 0.55,
+      "cacheReadPer1MUsd": 0.011,
+      "cacheWritePer1MUsd": 0.1375
+    },
     "eu.anthropic.claude-opus-4-1-20250805-v1:0": {
       "inputPer1MUsd": 15,
       "outputPer1MUsd": 75,
@@ -5581,10 +5660,6 @@
     "fireworks-ai-up-to-4b": {
       "inputPer1MUsd": 0.09999999999999999,
       "outputPer1MUsd": 0.09999999999999999
-    },
-    "fireworks_ai/accounts/fireworks/models/": {
-      "inputPer1MUsd": 0.09999999999999999,
-      "outputPer1MUsd": 0
     },
     "fireworks_ai/accounts/fireworks/models/chronos-hermes-13b-v2": {
       "inputPer1MUsd": 0.19999999999999998,
@@ -7298,6 +7373,11 @@
       "inputPer1MUsd": 0.5,
       "outputPer1MUsd": 2
     },
+    "gemini-nano-banana-2.1": {
+      "inputPer1MUsd": 1.5,
+      "outputPer1MUsd": 7.5,
+      "cacheReadPer1MUsd": 0.15
+    },
     "gemini-omni-flash-preview": {
       "inputPer1MUsd": 1.5,
       "outputPer1MUsd": 9,
@@ -7553,6 +7633,10 @@
       "inputPer1MUsd": 0.5,
       "outputPer1MUsd": 2
     },
+    "gemini/gemini-nano-banana-2.1": {
+      "inputPer1MUsd": 1.5,
+      "outputPer1MUsd": 7.5
+    },
     "gemini/gemini-omni-1.1-flash": {
       "inputPer1MUsd": 1.5,
       "outputPer1MUsd": 9,
@@ -7711,6 +7795,12 @@
       "outputPer1MUsd": 5,
       "cacheReadPer1MUsd": 0.09999999999999999,
       "cacheWritePer1MUsd": 1.25
+    },
+    "global.anthropic.claude-haiku-5-5": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.5,
+      "cacheReadPer1MUsd": 0.01,
+      "cacheWritePer1MUsd": 0.125
     },
     "global.anthropic.claude-mythos-5-1": {
       "inputPer1MUsd": 10,
@@ -8568,6 +8658,12 @@
       "inputPer1MUsd": 0.19999999999999998,
       "outputPer1MUsd": 0.19999999999999998
     },
+    "in.moonshotai.kimi-k3": {
+      "inputPer1MUsd": 3.3000000000000003,
+      "outputPer1MUsd": 16.5,
+      "cacheReadPer1MUsd": 0.33,
+      "cacheWritePer1MUsd": 4.125
+    },
     "inception/mercury-2": {
       "inputPer1MUsd": 0.25,
       "outputPer1MUsd": 0.75,
@@ -8635,6 +8731,12 @@
       "outputPer1MUsd": 5.5,
       "cacheReadPer1MUsd": 0.11,
       "cacheWritePer1MUsd": 1.375
+    },
+    "jp.anthropic.claude-haiku-5-5": {
+      "inputPer1MUsd": 0.11,
+      "outputPer1MUsd": 0.55,
+      "cacheReadPer1MUsd": 0.011,
+      "cacheWritePer1MUsd": 0.1375
     },
     "jp.anthropic.claude-opus-4-7": {
       "inputPer1MUsd": 5.5,
@@ -9218,6 +9320,16 @@
       "inputPer1MUsd": 0.5,
       "outputPer1MUsd": 1.5,
       "cacheReadPer1MUsd": 0.049999999999999996
+    },
+    "mistral/mistral-large-4": {
+      "inputPer1MUsd": 0.6799999999999999,
+      "outputPer1MUsd": 2.09,
+      "cacheReadPer1MUsd": 0.068
+    },
+    "mistral/mistral-large-4-0": {
+      "inputPer1MUsd": 0.6799999999999999,
+      "outputPer1MUsd": 2.09,
+      "cacheReadPer1MUsd": 0.068
     },
     "mistral/mistral-large-latest": {
       "inputPer1MUsd": 0.5,
@@ -10828,6 +10940,12 @@
       "cacheReadPer1MUsd": 0.049999999999999996,
       "cacheWritePer1MUsd": 0.625
     },
+    "openrouter/anthropic/claude-haiku-5.5": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.5,
+      "cacheReadPer1MUsd": 0.01,
+      "cacheWritePer1MUsd": 0.125
+    },
     "openrouter/anthropic/claude-opus-4.1": {
       "inputPer1MUsd": 15,
       "outputPer1MUsd": 75,
@@ -11042,8 +11160,9 @@
       "outputPer1MUsd": 1.0287
     },
     "openrouter/deepseek/deepseek-chat-v3-0324": {
-      "inputPer1MUsd": 0.25,
-      "outputPer1MUsd": 1
+      "inputPer1MUsd": 0.29,
+      "outputPer1MUsd": 1.1400000000000001,
+      "cacheReadPer1MUsd": 0.11
     },
     "openrouter/deepseek/deepseek-chat-v3.1": {
       "inputPer1MUsd": 0.25,
@@ -11080,14 +11199,14 @@
       "cacheReadPer1MUsd": 0.02
     },
     "openrouter/deepseek/deepseek-v4-flash": {
-      "inputPer1MUsd": 0.0224,
+      "inputPer1MUsd": 0.03,
       "outputPer1MUsd": 1.28,
-      "cacheReadPer1MUsd": 0.0224
+      "cacheReadPer1MUsd": 0.03
     },
     "openrouter/deepseek/deepseek-v4-flash-0731": {
-      "inputPer1MUsd": 0.0152,
+      "inputPer1MUsd": 0.016300000000000002,
       "outputPer1MUsd": 1.28,
-      "cacheReadPer1MUsd": 0.0152
+      "cacheReadPer1MUsd": 0.016300000000000002
     },
     "openrouter/deepseek/deepseek-v4-flash-vision-exp": {
       "inputPer1MUsd": 0.21559999999999999,
@@ -11100,14 +11219,14 @@
       "cacheReadPer1MUsd": 0.0174
     },
     "openrouter/deepseek/deepseek-v4-pro-0813": {
-      "inputPer1MUsd": 0.85,
-      "outputPer1MUsd": 5,
-      "cacheReadPer1MUsd": 0.7
+      "inputPer1MUsd": 1.32,
+      "outputPer1MUsd": 3.9600000000000004,
+      "cacheReadPer1MUsd": 0.044
     },
     "openrouter/deepseek/deepseek-v4.1-flash": {
-      "inputPer1MUsd": 0.003,
-      "outputPer1MUsd": 2.4,
-      "cacheReadPer1MUsd": 0.003
+      "inputPer1MUsd": 0.044,
+      "outputPer1MUsd": 0.3,
+      "cacheReadPer1MUsd": 0.015
     },
     "openrouter/deepseek/deepseek-v4.1-flash:batch": {
       "inputPer1MUsd": 0.112,
@@ -11310,6 +11429,10 @@
       "cacheReadPer1MUsd": 0.0375,
       "cacheWritePer1MUsd": 0.0416666666666667
     },
+    "openrouter/google/gemini-nano-banana-2.1": {
+      "inputPer1MUsd": 1.5,
+      "outputPer1MUsd": 7.5
+    },
     "openrouter/google/gemma-2-27b-it": {
       "inputPer1MUsd": 0.65,
       "outputPer1MUsd": 0.65
@@ -11328,9 +11451,9 @@
       "outputPer1MUsd": 0.09999999999999999
     },
     "openrouter/google/gemma-4-26b-a4b-it": {
-      "inputPer1MUsd": 0.0675,
-      "outputPer1MUsd": 0.22499999999999998,
-      "cacheReadPer1MUsd": 0.0375
+      "inputPer1MUsd": 0.0765,
+      "outputPer1MUsd": 0.255,
+      "cacheReadPer1MUsd": 0.042499999999999996
     },
     "openrouter/google/gemma-4-26b-a4b-it:free": {
       "inputPer1MUsd": 0,
@@ -11455,7 +11578,8 @@
     },
     "openrouter/meta-llama/llama-4-maverick": {
       "inputPer1MUsd": 0.1875,
-      "outputPer1MUsd": 0.6525
+      "outputPer1MUsd": 0.6525,
+      "cacheReadPer1MUsd": 0.049999999999999996
     },
     "openrouter/meta-llama/llama-4-scout": {
       "inputPer1MUsd": 0.09999999999999999,
@@ -11466,8 +11590,8 @@
       "outputPer1MUsd": 0.18
     },
     "openrouter/meta/muse-glimmer-30b": {
-      "inputPer1MUsd": 0.35,
-      "outputPer1MUsd": 1.5,
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 1.2,
       "cacheReadPer1MUsd": 0.04
     },
     "openrouter/meta/muse-spark-1.1": {
@@ -11608,6 +11732,11 @@
       "outputPer1MUsd": 0.75,
       "cacheReadPer1MUsd": 0.024999999999999998
     },
+    "openrouter/mistralai/mistral-large-4-0": {
+      "inputPer1MUsd": 0.6799999999999999,
+      "outputPer1MUsd": 2.09,
+      "cacheReadPer1MUsd": 0.07
+    },
     "openrouter/mistralai/mistral-medium-3": {
       "inputPer1MUsd": 0.39999999999999997,
       "outputPer1MUsd": 2,
@@ -11701,9 +11830,9 @@
       "cacheReadPer1MUsd": 0.18
     },
     "openrouter/moonshotai/kimi-k3": {
-      "inputPer1MUsd": 0.72,
-      "outputPer1MUsd": 14,
-      "cacheReadPer1MUsd": 0.7
+      "inputPer1MUsd": 0.7899999999999999,
+      "outputPer1MUsd": 15,
+      "cacheReadPer1MUsd": 0.26
     },
     "openrouter/moonshotai/kimi-k3:batch": {
       "inputPer1MUsd": 2.2800000000000002,
@@ -11783,9 +11912,9 @@
       "outputPer1MUsd": 0
     },
     "openrouter/nvidia/nemotron-3.5-lightning": {
-      "inputPer1MUsd": 0.0595,
-      "outputPer1MUsd": 0.16999999999999998,
-      "cacheReadPer1MUsd": 0.02975
+      "inputPer1MUsd": 0.06,
+      "outputPer1MUsd": 0.16,
+      "cacheReadPer1MUsd": 0.03
     },
     "openrouter/nvidia/nemotron-3.5-lightning:free": {
       "inputPer1MUsd": 0,
@@ -12097,10 +12226,10 @@
       "cacheWritePer1MUsd": 2.5
     },
     "openrouter/openai/gpt-5.6-sol-pro": {
-      "inputPer1MUsd": 4,
-      "outputPer1MUsd": 20,
-      "cacheReadPer1MUsd": 0.39999999999999997,
-      "cacheWritePer1MUsd": 5
+      "inputPer1MUsd": 2,
+      "outputPer1MUsd": 10,
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "cacheWritePer1MUsd": 2.5
     },
     "openrouter/openai/gpt-5.6-sol-pro:batch": {
       "inputPer1MUsd": 1,
@@ -12430,9 +12559,8 @@
       "outputPer1MUsd": 1.8199999999999998
     },
     "openrouter/qwen/qwen3-235b-a22b-2507": {
-      "inputPer1MUsd": 0.0875,
-      "outputPer1MUsd": 0.35,
-      "cacheReadPer1MUsd": 0.0175
+      "inputPer1MUsd": 0.09,
+      "outputPer1MUsd": 0.55
     },
     "openrouter/qwen/qwen3-235b-a22b-thinking-2507": {
       "inputPer1MUsd": 0.22999999999999998,
@@ -12546,9 +12674,9 @@
       "cacheReadPer1MUsd": 0.049999999999999996
     },
     "openrouter/qwen/qwen3.5-397b-a17b": {
-      "inputPer1MUsd": 0.55,
-      "outputPer1MUsd": 3.5,
-      "cacheReadPer1MUsd": 0.22499999999999998
+      "inputPer1MUsd": 0.44999999999999996,
+      "outputPer1MUsd": 3,
+      "cacheReadPer1MUsd": 0.22
     },
     "openrouter/qwen/qwen3.5-9b": {
       "inputPer1MUsd": 0.09999999999999999,
@@ -12568,9 +12696,9 @@
       "cacheWritePer1MUsd": 0.375
     },
     "openrouter/qwen/qwen3.6-27b": {
-      "inputPer1MUsd": 0.32,
-      "outputPer1MUsd": 3.1999999999999997,
-      "cacheReadPer1MUsd": 0.15
+      "inputPer1MUsd": 0.3,
+      "outputPer1MUsd": 2,
+      "cacheReadPer1MUsd": 0.03
     },
     "openrouter/qwen/qwen3.6-35b-a3b": {
       "inputPer1MUsd": 0.15,
@@ -12764,9 +12892,9 @@
       "outputPer1MUsd": 0.39999999999999997
     },
     "openrouter/thinkingmachines/inkling": {
-      "inputPer1MUsd": 0.95,
+      "inputPer1MUsd": 1,
       "outputPer1MUsd": 4.05,
-      "cacheReadPer1MUsd": 0.16
+      "cacheReadPer1MUsd": 0.16999999999999998
     },
     "openrouter/thinkingmachines/inkling-small": {
       "inputPer1MUsd": 0.44999999999999996,
@@ -12951,24 +13079,24 @@
       "cacheReadPer1MUsd": 0.24
     },
     "openrouter/z-ai/glm-5.1": {
-      "inputPer1MUsd": 1.4,
-      "outputPer1MUsd": 4.4,
-      "cacheReadPer1MUsd": 0.26,
+      "inputPer1MUsd": 0.966,
+      "outputPer1MUsd": 3.036,
+      "cacheReadPer1MUsd": 0.1794,
       "cacheWritePer1MUsd": 0
     },
     "openrouter/z-ai/glm-5.2": {
-      "inputPer1MUsd": 0.10400000000000001,
-      "outputPer1MUsd": 8,
-      "cacheReadPer1MUsd": 0.09999999999999999
+      "inputPer1MUsd": 0.15200000000000002,
+      "outputPer1MUsd": 12,
+      "cacheReadPer1MUsd": 0.15
     },
     "openrouter/z-ai/glm-5.2:free": {
       "inputPer1MUsd": 0,
       "outputPer1MUsd": 0
     },
     "openrouter/z-ai/glm-5.3": {
-      "inputPer1MUsd": 1.4,
-      "outputPer1MUsd": 4.4,
-      "cacheReadPer1MUsd": 0.14
+      "inputPer1MUsd": 0.07,
+      "outputPer1MUsd": 7,
+      "cacheReadPer1MUsd": 0.065
     },
     "openrouter/z-ai/glm-5.3-flash": {
       "inputPer1MUsd": 0.15,
@@ -13160,30 +13288,6 @@
       "inputPer1MUsd": 0.08,
       "outputPer1MUsd": 0.22999999999999998
     },
-    "palm/chat-bison": {
-      "inputPer1MUsd": 0.125,
-      "outputPer1MUsd": 0.125
-    },
-    "palm/chat-bison-001": {
-      "inputPer1MUsd": 0.125,
-      "outputPer1MUsd": 0.125
-    },
-    "palm/text-bison": {
-      "inputPer1MUsd": 0.125,
-      "outputPer1MUsd": 0.125
-    },
-    "palm/text-bison-001": {
-      "inputPer1MUsd": 0.125,
-      "outputPer1MUsd": 0.125
-    },
-    "palm/text-bison-safety-off": {
-      "inputPer1MUsd": 0.125,
-      "outputPer1MUsd": 0.125
-    },
-    "palm/text-bison-safety-recitation-off": {
-      "inputPer1MUsd": 0.125,
-      "outputPer1MUsd": 0.125
-    },
     "perplexity/anthropic/claude-fable-5": {
       "inputPer1MUsd": 10,
       "outputPer1MUsd": 50,
@@ -13198,6 +13302,11 @@
       "inputPer1MUsd": 1,
       "outputPer1MUsd": 5,
       "cacheReadPer1MUsd": 0.09999999999999999
+    },
+    "perplexity/anthropic/claude-haiku-5-5": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.5,
+      "cacheReadPer1MUsd": 0.01
     },
     "perplexity/anthropic/claude-opus-4-5": {
       "inputPer1MUsd": 5,
@@ -14880,6 +14989,12 @@
       "cacheReadPer1MUsd": 0.3,
       "cacheWritePer1MUsd": 15
     },
+    "us-gov.anthropic.claude-haiku-5-5": {
+      "inputPer1MUsd": 0.12,
+      "outputPer1MUsd": 0.6,
+      "cacheReadPer1MUsd": 0.012,
+      "cacheWritePer1MUsd": 0.15
+    },
     "us-gov.anthropic.claude-opus-4-8": {
       "inputPer1MUsd": 6,
       "outputPer1MUsd": 30,
@@ -15017,6 +15132,12 @@
       "outputPer1MUsd": 5.5,
       "cacheReadPer1MUsd": 0.11,
       "cacheWritePer1MUsd": 1.375
+    },
+    "us.anthropic.claude-haiku-5-5": {
+      "inputPer1MUsd": 0.11,
+      "outputPer1MUsd": 0.55,
+      "cacheReadPer1MUsd": 0.011,
+      "cacheWritePer1MUsd": 0.1375
     },
     "us.anthropic.claude-mythos-5": {
       "inputPer1MUsd": 11,
@@ -15791,6 +15912,18 @@
       "cacheReadPer1MUsd": 0.09999999999999999,
       "cacheWritePer1MUsd": 1.25
     },
+    "vertex_ai/claude-haiku-5-5": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.5,
+      "cacheReadPer1MUsd": 0.01,
+      "cacheWritePer1MUsd": 0.125
+    },
+    "vertex_ai/claude-haiku-5-5@default": {
+      "inputPer1MUsd": 0.09999999999999999,
+      "outputPer1MUsd": 0.5,
+      "cacheReadPer1MUsd": 0.01,
+      "cacheWritePer1MUsd": 0.125
+    },
     "vertex_ai/claude-opus-4-5": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
@@ -15896,13 +16029,13 @@
     "vertex_ai/claude-sonnet-5-5": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 10,
-      "cacheReadPer1MUsd": 0.19999999999999998,
+      "cacheReadPer1MUsd": 0.09999999999999999,
       "cacheWritePer1MUsd": 2.5
     },
     "vertex_ai/claude-sonnet-5-5@default": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 10,
-      "cacheReadPer1MUsd": 0.19999999999999998,
+      "cacheReadPer1MUsd": 0.09999999999999999,
       "cacheWritePer1MUsd": 2.5
     },
     "vertex_ai/claude-sonnet-5@default": {
@@ -16120,6 +16253,11 @@
     "vertex_ai/gemini-embedding-2-preview": {
       "inputPer1MUsd": 0.19999999999999998,
       "outputPer1MUsd": 0
+    },
+    "vertex_ai/gemini-nano-banana-2.1": {
+      "inputPer1MUsd": 1.5,
+      "outputPer1MUsd": 7.5,
+      "cacheReadPer1MUsd": 0.15
     },
     "vertex_ai/gemini-omni-1.1-flash": {
       "inputPer1MUsd": 1.5,
