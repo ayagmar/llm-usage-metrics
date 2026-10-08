@@ -8,13 +8,15 @@ If you use coding agents on several machines, one machine's reports can include 
 ## Quick start
 
 1. Install llm-usage-metrics on both machines.
-2. Check that `ssh laptop` logs in without asking for a password.
+2. Connect once with `ssh laptop`, using whatever you type to reach that machine, and check that it logs in without asking for a password.
 3. On this machine:
 
 ```bash
-llm-usage machine add laptop
-llm-usage            # every report now includes the laptop
+llm-usage machine add laptop                    # or: machine add laptop me@192.168.1.20
+llm-usage                                       # every report now includes the laptop
 ```
+
+The first `machine add` parses all of that machine's logs and can take a minute.
 
 ## Set up
 
@@ -25,7 +27,7 @@ llm-usage machine add laptop                    # ssh laptop
 llm-usage machine add work me@10.0.0.5          # a name of your choice for another destination
 ```
 
-ssh must log in without a password prompt: key login, or a key loaded in `ssh-agent`.
+Install llm-usage-metrics on the other machine first. ssh must log in without a password prompt: key login, or a key loaded in `ssh-agent`.
 
 `machine add` fetches the machine's usage once and only then adds it to your [config file](/llm-usage-metrics/configuration/), keeping your comments:
 
@@ -33,8 +35,6 @@ ssh must log in without a password prompt: key login, or a key loaded in `ssh-ag
 [machines.laptop]
 ssh = "laptop"
 ```
-
-The first fetch can take a minute: the other machine parses all its logs, as its own first report would.
 
 If node comes from a version manager (nvm, fnm, volta, mise), a non-interactive ssh command usually cannot find `llm-usage`. `machine add` then asks the machine's login shell where it is and saves a `command` that puts that directory on `PATH`. To set it yourself:
 
@@ -93,7 +93,7 @@ llm-usage machine remove laptop   # delete its config table and its cached usage
 
 `llm-usage doctor` shows the same machines next to your sources, from what is cached; it never connects to them.
 
-To stop fetching a machine but keep its cached usage in reports, set `enabled = false` in its table.
+To stop fetching a machine but keep its cached usage in reports, set `enabled = false` in its table; the `Machines:` note then says `(disabled, usage from 3 h ago)`.
 
 ## Troubleshooting
 

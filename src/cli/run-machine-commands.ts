@@ -47,8 +47,12 @@ export async function runMachineAdd(
   const print = deps.print ?? console.log;
 
   if (!isValidMachineName(name)) {
+    // A destination typed as the name is the likely mistake.
+    const hint = /[@.:]/u.test(name)
+      ? `; give a name first, then the destination: llm-usage machine add laptop ${name}`
+      : '';
     throw new Error(
-      `Invalid machine name "${name}": use 1-32 lowercase letters, digits or dashes (not "${LOCAL_MACHINE_NAME}")`,
+      `Invalid machine name "${name}": use 1-32 lowercase letters, digits or dashes (not "${LOCAL_MACHINE_NAME}")${hint}`,
     );
   }
 
