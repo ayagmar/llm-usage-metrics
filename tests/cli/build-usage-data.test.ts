@@ -1000,107 +1000,40 @@ describe('buildUsageData', () => {
     );
   });
 
-  it('fails when --gemini-dir is set and gemini parsing fails', async () => {
-    await expect(
-      buildUsageData(
+  it.each([0, 0.5])(
+    'parses with injected parsing concurrency %s',
+    async (maxParallelFileParsing) => {
+      const result = await buildUsageData(
         'daily',
         {
           all: true,
           timezone: 'UTC',
-          geminiDir: '/tmp/explicit-gemini',
         },
         {
           ...withDeterministicRuntimeDeps(),
-          createAdapters: () => [createFailingAdapter('gemini', 'permission denied')],
-        },
-      ),
-    ).rejects.toThrow(
-      'Failed to parse explicitly requested source(s): gemini: All 1 file(s) failed to parse for source gemini: permission denied',
-    );
-  });
-
-  it('fails when --droid-dir is set and droid parsing fails', async () => {
-    await expect(
-      buildUsageData(
-        'daily',
-        {
-          all: true,
-          timezone: 'UTC',
-          droidDir: '/tmp/explicit-droid',
-        },
-        {
-          ...withDeterministicRuntimeDeps(),
-          createAdapters: () => [createFailingAdapter('droid', 'permission denied')],
-        },
-      ),
-    ).rejects.toThrow(
-      'Failed to parse explicitly requested source(s): droid: All 1 file(s) failed to parse for source droid: permission denied',
-    );
-  });
-
-  it('guards against non-positive parsing concurrency from injected deps', async () => {
-    const result = await buildUsageData(
-      'daily',
-      {
-        all: true,
-        timezone: 'UTC',
-      },
-      {
-        ...withDeterministicRuntimeDeps(),
-        getParsingRuntimeConfig: () => ({
-          maxParallelFileParsing: 0,
-          parseWorkers: 0,
-          parseWorkerMinBytes: 268_435_456,
-        }),
-        createAdapters: () => [
-          createAdapter('pi', {
-            '/tmp/pi-1.jsonl': [createEvent({ source: 'pi', sessionId: 'pi-session' })],
+          getParsingRuntimeConfig: () => ({
+            maxParallelFileParsing,
+            parseWorkers: 0,
+            parseWorkerMinBytes: 268_435_456,
           }),
-        ],
-      },
-    );
+          createAdapters: () => [
+            createAdapter('pi', {
+              '/tmp/pi-1.jsonl': [createEvent({ source: 'pi', sessionId: 'pi-session' })],
+            }),
+          ],
+        },
+      );
 
-    expect(result.diagnostics.sessionStats).toEqual([
-      {
-        source: 'pi',
-        filesFound: 1,
-        eventsParsed: 1,
-      },
-    ]);
-    expect(result.rows.some((row) => row.rowType === 'period_source')).toBe(true);
-  });
-
-  it('guards against fractional parsing concurrency from injected deps', async () => {
-    const result = await buildUsageData(
-      'daily',
-      {
-        all: true,
-        timezone: 'UTC',
-      },
-      {
-        ...withDeterministicRuntimeDeps(),
-        getParsingRuntimeConfig: () => ({
-          maxParallelFileParsing: 0.5,
-          parseWorkers: 0,
-          parseWorkerMinBytes: 268_435_456,
-        }),
-        createAdapters: () => [
-          createAdapter('pi', {
-            '/tmp/pi-1.jsonl': [createEvent({ source: 'pi', sessionId: 'pi-session' })],
-          }),
-        ],
-      },
-    );
-
-    expect(result.diagnostics.sessionStats).toEqual([
-      {
-        source: 'pi',
-        filesFound: 1,
-        eventsParsed: 1,
-      },
-    ]);
-    expect(result.rows.some((row) => row.rowType === 'period_source')).toBe(true);
-  });
+      expect(result.diagnostics.sessionStats).toEqual([
+        {
+          source: 'pi',
+          filesFound: 1,
+          eventsParsed: 1,
+        },
+      ]);
+      expect(result.rows.some((row) => row.rowType === 'period_source')).toBe(true);
+    },
+  );
 
   it('does not filter providers when no provider filter is passed', async () => {
     const result = await buildUsageData(

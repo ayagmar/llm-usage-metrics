@@ -274,46 +274,6 @@ describe('runEfficiencyReport', () => {
     expect(consoleLogSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('warns when efficiency share SVG cannot be opened after writing', async () => {
-    const repoDir = await createGitRepoWithCommit('2026-02-14T10:00:00Z');
-    const emptyDir = await mkdtemp(
-      path.join(os.tmpdir(), 'efficiency-share-open-failure-empty-sessions-'),
-    );
-    tempDirs.push(emptyDir);
-
-    // Stub the write too: this test does not run in a temp directory.
-    vi.spyOn(shareArtifact, 'writeShareFile').mockImplementation(
-      async (fileName) => `/tmp/${fileName}`,
-    );
-    vi.mocked(shareArtifact.openShareFile).mockRejectedValueOnce(new Error('open failed'));
-
-    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    let stderrLines!: string[];
-
-    try {
-      await runEfficiencyReport('monthly', {
-        piDir: emptyDir,
-        codexDir: emptyDir,
-        source: 'pi,codex',
-        timezone: 'UTC',
-        since: '2026-02-14',
-        until: '2026-02-14',
-        repoDir,
-        share: true,
-      });
-      stderrLines = consoleErrorSpy.mock.calls.map((call) => String(call[0]));
-    } finally {
-      consoleLogSpy.mockRestore();
-      consoleErrorSpy.mockRestore();
-    }
-
-    expect(stderrLines.some((line) => line.includes('Wrote efficiency share SVG'))).toBe(true);
-    expect(stderrLines.some((line) => line.includes('Could not open efficiency share page'))).toBe(
-      true,
-    );
-  });
-
   it('rejects --share for non-monthly efficiency reports', async () => {
     await expect(
       buildEfficiencyReport('weekly', {

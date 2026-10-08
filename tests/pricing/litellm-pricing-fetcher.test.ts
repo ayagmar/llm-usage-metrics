@@ -23,6 +23,19 @@ function createFetcher(options: LiteLLMPricingFetcherOptions = {}): LiteLLMPrici
   });
 }
 
+/** A fetcher loaded from a fresh cache path, its network serving `payload`. */
+async function loadFetcherServing(payload: object) {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-'));
+  tempDirs.push(rootDir);
+  const fetcher = createFetcher({
+    cacheFilePath: path.join(rootDir, 'cache.json'),
+    fetchImpl: vi.fn(async () => new Response(JSON.stringify(payload), { status: 200 })),
+  });
+
+  await fetcher.load();
+  return fetcher;
+}
+
 describe('LiteLLMPricingFetcher', () => {
   it('downloads, validates and resolves models via prefix and fuzzy lookup', async () => {
     const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-'));
@@ -809,49 +822,36 @@ describe('LiteLLMPricingFetcher', () => {
   });
 
   it('resolves configured canonical aliases to preferred LiteLLM pricing keys', async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-canonical-map-'));
-    tempDirs.push(rootDir);
-
-    const fetcher = createFetcher({
-      cacheFilePath: path.join(rootDir, 'cache.json'),
-      fetchImpl: vi.fn(async () => {
-        return new Response(
-          JSON.stringify({
-            'moonshot/kimi-k2.5': {
-              input_cost_per_token: 0.0000006,
-              output_cost_per_token: 0.000003,
-            },
-            'gpt-5.3-codex': {
-              input_cost_per_token: 0.00000175,
-              output_cost_per_token: 0.000014,
-            },
-            'gemini/gemini-3-flash-preview': {
-              input_cost_per_token: 0.0000005,
-              output_cost_per_token: 0.000003,
-            },
-            'vertex_ai/gemini-3-pro-preview': {
-              input_cost_per_token: 0.000002,
-              output_cost_per_token: 0.000012,
-            },
-            'openrouter/minimax/minimax-m2.1': {
-              input_cost_per_token: 0.00000027,
-              output_cost_per_token: 0.0000012,
-            },
-            'openrouter/minimax/minimax-m2.5': {
-              input_cost_per_token: 0.0000003,
-              output_cost_per_token: 0.0000011,
-            },
-            'anthropic.claude-sonnet-4-6': {
-              input_cost_per_token: 0.000003,
-              output_cost_per_token: 0.000015,
-            },
-          }),
-          { status: 200 },
-        );
-      }),
+    const fetcher = await loadFetcherServing({
+      'moonshot/kimi-k2.5': {
+        input_cost_per_token: 0.0000006,
+        output_cost_per_token: 0.000003,
+      },
+      'gpt-5.3-codex': {
+        input_cost_per_token: 0.00000175,
+        output_cost_per_token: 0.000014,
+      },
+      'gemini/gemini-3-flash-preview': {
+        input_cost_per_token: 0.0000005,
+        output_cost_per_token: 0.000003,
+      },
+      'vertex_ai/gemini-3-pro-preview': {
+        input_cost_per_token: 0.000002,
+        output_cost_per_token: 0.000012,
+      },
+      'openrouter/minimax/minimax-m2.1': {
+        input_cost_per_token: 0.00000027,
+        output_cost_per_token: 0.0000012,
+      },
+      'openrouter/minimax/minimax-m2.5': {
+        input_cost_per_token: 0.0000003,
+        output_cost_per_token: 0.0000011,
+      },
+      'anthropic.claude-sonnet-4-6': {
+        input_cost_per_token: 0.000003,
+        output_cost_per_token: 0.000015,
+      },
     });
-
-    await fetcher.load();
 
     expect(fetcher.resolveModelAlias('k2p5')).toBe('moonshot/kimi-k2.5');
     expect(fetcher.resolveModelAlias('moonshotai.kimi-k2.5')).toBe('moonshot/kimi-k2.5');
@@ -880,25 +880,12 @@ describe('LiteLLMPricingFetcher', () => {
   });
 
   it('resolves kimi-k2.6 aliases to the preferred moonshot pricing key', async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-kimi-k2-6-'));
-    tempDirs.push(rootDir);
-
-    const fetcher = createFetcher({
-      cacheFilePath: path.join(rootDir, 'cache.json'),
-      fetchImpl: vi.fn(async () => {
-        return new Response(
-          JSON.stringify({
-            'moonshot/kimi-k2.6': {
-              input_cost_per_token: 0.00000095,
-              output_cost_per_token: 0.000004,
-            },
-          }),
-          { status: 200 },
-        );
-      }),
+    const fetcher = await loadFetcherServing({
+      'moonshot/kimi-k2.6': {
+        input_cost_per_token: 0.00000095,
+        output_cost_per_token: 0.000004,
+      },
     });
-
-    await fetcher.load();
 
     expect(fetcher.resolveModelAlias('kimi-k2.6')).toBe('moonshot/kimi-k2.6');
     expect(fetcher.resolveModelAlias('k2p6')).toBe('moonshot/kimi-k2.6');
@@ -916,29 +903,16 @@ describe('LiteLLMPricingFetcher', () => {
   });
 
   it('lets the model map veto fuzzy matching for listed models', async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-never-fuzzy-'));
-    tempDirs.push(rootDir);
-
-    const fetcher = createFetcher({
-      cacheFilePath: path.join(rootDir, 'cache.json'),
-      fetchImpl: vi.fn(async () => {
-        return new Response(
-          JSON.stringify({
-            'kimi-for-codings': {
-              input_cost_per_token: 0.0000001,
-              output_cost_per_token: 0.0000002,
-            },
-            'moonshot/kimi-k2.6': {
-              input_cost_per_token: 0.00000095,
-              output_cost_per_token: 0.000004,
-            },
-          }),
-          { status: 200 },
-        );
-      }),
+    const fetcher = await loadFetcherServing({
+      'kimi-for-codings': {
+        input_cost_per_token: 0.0000001,
+        output_cost_per_token: 0.0000002,
+      },
+      'moonshot/kimi-k2.6': {
+        input_cost_per_token: 0.00000095,
+        output_cost_per_token: 0.000004,
+      },
     });
-
-    await fetcher.load();
 
     expect(fetcher.resolveModelAlias('kimi-for-coding')).toBe('kimi-for-coding');
     expect(fetcher.resolveModelAlias('moonshot/kimi-for-coding')).toBe('moonshot/kimi-for-coding');
@@ -950,29 +924,16 @@ describe('LiteLLMPricingFetcher', () => {
   });
 
   it('resolves -a suffixed gemini-3 aliases to preferred gemini preview pricing keys', async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-gemini-a-suffix-'));
-    tempDirs.push(rootDir);
-
-    const fetcher = createFetcher({
-      cacheFilePath: path.join(rootDir, 'cache.json'),
-      fetchImpl: vi.fn(async () => {
-        return new Response(
-          JSON.stringify({
-            'gemini/gemini-3-flash-preview': {
-              input_cost_per_token: 0.0000005,
-              output_cost_per_token: 0.000003,
-            },
-            'vertex_ai/gemini-3-pro-preview': {
-              input_cost_per_token: 0.000002,
-              output_cost_per_token: 0.000012,
-            },
-          }),
-          { status: 200 },
-        );
-      }),
+    const fetcher = await loadFetcherServing({
+      'gemini/gemini-3-flash-preview': {
+        input_cost_per_token: 0.0000005,
+        output_cost_per_token: 0.000003,
+      },
+      'vertex_ai/gemini-3-pro-preview': {
+        input_cost_per_token: 0.000002,
+        output_cost_per_token: 0.000012,
+      },
     });
-
-    await fetcher.load();
 
     expect(fetcher.resolveModelAlias('gemini-3-flash-a')).toBe('gemini/gemini-3-flash-preview');
     expect(fetcher.resolveModelAlias('gemini-3-flash')).toBe('gemini/gemini-3-flash-preview');
@@ -984,58 +945,32 @@ describe('LiteLLMPricingFetcher', () => {
   });
 
   it('uses direct gpt-5.3-codex pricing when available upstream', async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-codex-fallback-'));
-    tempDirs.push(rootDir);
-
-    const fetcher = createFetcher({
-      cacheFilePath: path.join(rootDir, 'cache.json'),
-      fetchImpl: vi.fn(async () => {
-        return new Response(
-          JSON.stringify({
-            'gpt-5': {
-              input_cost_per_token: 0.00000125,
-              output_cost_per_token: 0.00001,
-            },
-            'gpt-5.2-codex': {
-              input_cost_per_token: 0.0000015,
-              output_cost_per_token: 0.00001,
-            },
-            'gpt-5.3-codex': {
-              input_cost_per_token: 0.00000175,
-              output_cost_per_token: 0.000014,
-            },
-          }),
-          { status: 200 },
-        );
-      }),
+    const fetcher = await loadFetcherServing({
+      'gpt-5': {
+        input_cost_per_token: 0.00000125,
+        output_cost_per_token: 0.00001,
+      },
+      'gpt-5.2-codex': {
+        input_cost_per_token: 0.0000015,
+        output_cost_per_token: 0.00001,
+      },
+      'gpt-5.3-codex': {
+        input_cost_per_token: 0.00000175,
+        output_cost_per_token: 0.000014,
+      },
     });
-
-    await fetcher.load();
 
     expect(fetcher.resolveModelAlias('gpt-5.3-codex')).toBe('gpt-5.3-codex');
     expect(fetcher.getPricing('gpt-5.3-codex')?.inputPer1MUsd).toBeCloseTo(1.75, 10);
   });
 
   it('matches provider-prefixed LiteLLM keys from bare model names', async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-provider-prefix-'));
-    tempDirs.push(rootDir);
-
-    const fetcher = createFetcher({
-      cacheFilePath: path.join(rootDir, 'cache.json'),
-      fetchImpl: vi.fn(async () => {
-        return new Response(
-          JSON.stringify({
-            'openrouter/anthropic/claude-sonnet-4.5': {
-              input_cost_per_token: 0.000003,
-              output_cost_per_token: 0.000015,
-            },
-          }),
-          { status: 200 },
-        );
-      }),
+    const fetcher = await loadFetcherServing({
+      'openrouter/anthropic/claude-sonnet-4.5': {
+        input_cost_per_token: 0.000003,
+        output_cost_per_token: 0.000015,
+      },
     });
-
-    await fetcher.load();
 
     expect(fetcher.resolveModelAlias('claude-sonnet-4.5')).toBe(
       'openrouter/anthropic/claude-sonnet-4.5',
@@ -1044,25 +979,12 @@ describe('LiteLLMPricingFetcher', () => {
   });
 
   it('falls back to normal matching when preferred mapped key is unavailable', async () => {
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-map-fallback-'));
-    tempDirs.push(rootDir);
-
-    const fetcher = createFetcher({
-      cacheFilePath: path.join(rootDir, 'cache.json'),
-      fetchImpl: vi.fn(async () => {
-        return new Response(
-          JSON.stringify({
-            'moonshotai.kimi-k2.5': {
-              input_cost_per_token: 0.0000006,
-              output_cost_per_token: 0.000003,
-            },
-          }),
-          { status: 200 },
-        );
-      }),
+    const fetcher = await loadFetcherServing({
+      'moonshotai.kimi-k2.5': {
+        input_cost_per_token: 0.0000006,
+        output_cost_per_token: 0.000003,
+      },
     });
-
-    await fetcher.load();
 
     const pricing = fetcher.getPricing('k2p5');
 
