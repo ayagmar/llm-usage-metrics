@@ -8,7 +8,8 @@
     "node": ">=22.16"
   },
   "bin": {
-    "llm-usage": "dist/index.js"
+    "llm-usage": "dist/index.js",
+    "llm-usage-metrics": "dist/index.js"
   },
   "files": [
     "dist/index.js",

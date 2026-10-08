@@ -35,7 +35,7 @@ Requires Node.js 22.16 or newer.
 # Run without installing
 npx --yes llm-usage-metrics@latest
 
-# Or install the llm-usage command
+# Or install it: the package provides `llm-usage` and the alias `llm-usage-metrics`
 npm install -g llm-usage-metrics
 llm-usage
 ```
