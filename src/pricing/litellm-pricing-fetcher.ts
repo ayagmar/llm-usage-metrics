@@ -1,8 +1,9 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { asRecord } from '../utils/as-record.js';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
+import { writeFileAtomic } from '../utils/fs-helpers.js';
 import { normalizeKey, resolveCanonicalModelKey } from './litellm-model-matching.js';
 import litellmPricingSnapshotPayload from './litellm-pricing-snapshot.json' with { type: 'json' };
 import litellmRetiredPricingPayload from './litellm-retired-pricing.json' with { type: 'json' };
@@ -643,6 +644,6 @@ export class LiteLLMPricingFetcher implements PricingSource {
       pricingByModel: Object.fromEntries(this.pricingByModel.entries()),
     };
 
-    await writeFile(this.cacheFilePath, JSON.stringify(payload), 'utf8');
+    await writeFileAtomic(this.cacheFilePath, JSON.stringify(payload));
   }
 }
