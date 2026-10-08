@@ -418,7 +418,7 @@ describe('run-doctor-report', () => {
 
   it('points at a ledger left in the cache directory, which the next report copies', async () => {
     const options = await createDoctorFixtureOptions();
-    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'doctor-legacy-store-'));
+    const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'doctor-legacy-store-'));
     tempDirs.push(rootDir);
     vi.stubEnv('XDG_CACHE_HOME', path.join(rootDir, 'cache'));
     vi.stubEnv('XDG_DATA_HOME', path.join(rootDir, 'data'));
