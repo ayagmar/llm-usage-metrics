@@ -115,6 +115,7 @@ export async function buildUsageData(
       granularity,
       timezone: dataset.normalizedInputs.timezone,
       sourceOrder: dataset.adaptersToParse.map((adapter) => adapter.id),
+      byMachine: options.byMachine === true,
     }),
   );
 

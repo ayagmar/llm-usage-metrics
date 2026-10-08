@@ -11,7 +11,7 @@ const piDir = path.resolve('tests/fixtures/e2e/pi');
 const codexDir = path.resolve('tests/fixtures/e2e/codex');
 
 const CSV_HEADER =
-  'source,sessionId,timestamp,repoRoot,provider,model,inputTokens,outputTokens,reasoningTokens,cacheReadTokens,cacheWriteTokens,totalTokens,costUsd,costMode';
+  'source,sessionId,timestamp,repoRoot,provider,model,inputTokens,outputTokens,reasoningTokens,cacheReadTokens,cacheWriteTokens,totalTokens,costUsd,costMode,machine';
 
 async function loadLineValidator() {
   const ajv = new Ajv2020({ allErrors: true });

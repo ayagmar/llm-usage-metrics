@@ -52,6 +52,10 @@
           "description": "Source id for per-source rows, or combined.",
           "type": "string"
         },
+        "machine": {
+          "description": "With --by-machine, per-source rows only: the machine the usage came from (local for this one).",
+          "type": "string"
+        },
         "models": {
           "description": "Model identifiers active in the row.",
           "type": "array",

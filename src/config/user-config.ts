@@ -89,8 +89,9 @@ const knownEventStoreKeySet = new Set<string>(knownEventStoreKeys);
 const knownUpdateKeySet = new Set<string>(knownUpdateKeys);
 const knownMachineKeySet = new Set<string>(knownMachineKeys);
 
-/** `local` names this machine in `--machine` filters. */
-export const LOCAL_MACHINE_NAME = 'local';
+import { LOCAL_MACHINE_NAME } from '../domain/usage-event.js';
+
+export { LOCAL_MACHINE_NAME };
 const MACHINE_NAME_PATTERN = /^[a-z0-9][a-z0-9-]{0,31}$/u;
 
 export function isValidMachineName(name: string): boolean {
