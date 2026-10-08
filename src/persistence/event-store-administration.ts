@@ -17,6 +17,7 @@ import {
 } from './event-store-codec.js';
 import {
   type EventStore,
+  type EventStoreDatabase,
   type EventStoreSqliteModule,
   isEventStoreSqliteModule,
   type LoadEventStoreSqliteModule,
@@ -505,6 +506,44 @@ export function writeEventStoreMeta(
   });
 }
 
+/** The meta table of a store, opened read-only so a writer never blocks the read. */
+export async function readEventStoreMetaValues(
+  filePath: string,
+  loadSqliteModule: LoadEventStoreSqliteModule = loadEventStoreSqliteModule,
+): Promise<Map<string, string>> {
+  const sqliteModule = await loadSqliteModule();
+
+  if (!isEventStoreSqliteModule(sqliteModule)) {
+    throw new Error('Event store requires a sqlite module with a DatabaseSync constructor');
+  }
+
+  const database = new sqliteModule.DatabaseSync(filePath, {
+    readOnly: true,
+    timeout: EVENT_STORE_OPEN_TIMEOUT_MS,
+  });
+
+  try {
+    return readMetaValues(database);
+  } finally {
+    database.close();
+  }
+}
+
+function readMetaValues(database: EventStoreDatabase): Map<string, string> {
+  const meta = new Map<string, string>();
+
+  for (const row of database.prepare('SELECT key, value FROM meta').all()) {
+    const key = toText(row.key);
+    const value = toText(row.value);
+
+    if (key && value) {
+      meta.set(key, value);
+    }
+  }
+
+  return meta;
+}
+
 /**
  * Reads the meta table and every stored event, optionally only those with
  * `fromTimestamp <= timestamp < toTimestamp` (ISO strings), from a store opened
@@ -555,18 +594,7 @@ export async function readEventStoreEvents(
       }
     }
 
-    const meta = new Map<string, string>();
-
-    for (const row of database.prepare('SELECT key, value FROM meta').all()) {
-      const key = toText(row.key);
-      const value = toText(row.value);
-
-      if (key && value) {
-        meta.set(key, value);
-      }
-    }
-
-    return { meta, events };
+    return { meta: readMetaValues(database), events };
   } finally {
     database.close();
   }

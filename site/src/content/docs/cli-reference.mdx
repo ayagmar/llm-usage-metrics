@@ -108,6 +108,8 @@ Options:
   --machine <name>               Count only these machines (repeatable or
                                  comma-separated; local is this one; default:
                                  all)
+  --no-sync                      use other machines' cached usage without
+                                 refreshing it over ssh
   --markdown                     Render output as markdown table
   --share                        Write a share card (SVG and an HTML page with
                                  PNG export) to the current directory
@@ -187,6 +189,8 @@ Options:
   --machine <name>               Count only these machines (repeatable or
                                  comma-separated; local is this one; default:
                                  all)
+  --no-sync                      use other machines' cached usage without
+                                 refreshing it over ssh
   --markdown                     Render output as markdown table
   --per-model-columns            Render per-model metrics as multiline aligned
                                  table columns (terminal/markdown)
@@ -272,6 +276,8 @@ Options:
   --machine <name>               Count only these machines (repeatable or
                                  comma-separated; local is this one; default:
                                  all)
+  --no-sync                      use other machines' cached usage without
+                                 refreshing it over ssh
   --markdown                     Render output as markdown table
   --per-model-columns            Render per-model metrics as multiline aligned
                                  table columns (terminal/markdown)
@@ -356,6 +362,8 @@ Options:
   --machine <name>               Count only these machines (repeatable or
                                  comma-separated; local is this one; default:
                                  all)
+  --no-sync                      use other machines' cached usage without
+                                 refreshing it over ssh
   --markdown                     Render output as markdown table
   --per-model-columns            Render per-model metrics as multiline aligned
                                  table columns (terminal/markdown)
@@ -439,6 +447,8 @@ Options:
   --machine <name>               Count only these machines (repeatable or
                                  comma-separated; local is this one; default:
                                  all)
+  --no-sync                      use other machines' cached usage without
+                                 refreshing it over ssh
   --markdown                     Render output as markdown table
   --share                        Write a share card (SVG and an HTML page with
                                  PNG export) to the current directory
@@ -525,6 +535,8 @@ Options:
   --machine <name>               Count only these machines (repeatable or
                                  comma-separated; local is this one; default:
                                  all)
+  --no-sync                      use other machines' cached usage without
+                                 refreshing it over ssh
   --markdown                     Render output as markdown table
   --share                        Write a share card (SVG and an HTML page with
                                  PNG export) to the current directory
@@ -610,6 +622,8 @@ Options:
   --machine <name>               Count only these machines (repeatable or
                                  comma-separated; local is this one; default:
                                  all)
+  --no-sync                      use other machines' cached usage without
+                                 refreshing it over ssh
   --markdown                     Render output as markdown table
   --share                        Write a share card (SVG and an HTML page with
                                  PNG export) to the current directory
@@ -693,6 +707,8 @@ Options:
   --machine <name>               Count only these machines (repeatable or
                                  comma-separated; local is this one; default:
                                  all)
+  --no-sync                      use other machines' cached usage without
+                                 refreshing it over ssh
   --markdown                     Render output as markdown table
   --share                        Write a share card (SVG and an HTML page with
                                  PNG export) to the current directory
@@ -778,6 +794,8 @@ Options:
   --machine <name>               Count only these machines (repeatable or
                                  comma-separated; local is this one; default:
                                  all)
+  --no-sync                      use other machines' cached usage without
+                                 refreshing it over ssh
   --markdown                     Render output as markdown table
   --top <n>                      Show only the top N rows by cost (default 20; 0
                                  shows all)
@@ -858,6 +876,8 @@ Options:
   --machine <name>               Count only these machines (repeatable or
                                  comma-separated; local is this one; default:
                                  all)
+  --no-sync                      use other machines' cached usage without
+                                 refreshing it over ssh
   --markdown                     Render output as markdown table
   --share                        Write a share card (SVG and an HTML page with
                                  PNG export) to the current directory
@@ -939,6 +959,8 @@ Options:
   --machine <name>               Count only these machines (repeatable or
                                  comma-separated; local is this one; default:
                                  all)
+  --no-sync                      use other machines' cached usage without
+                                 refreshing it over ssh
   --format <name>                Export format: jsonl | csv (default: "jsonl")
   -h, --help                     display help for command
 ```
@@ -1013,6 +1035,8 @@ Options:
   --machine <name>               Count only these machines (repeatable or
                                  comma-separated; local is this one; default:
                                  all)
+  --no-sync                      use other machines' cached usage without
+                                 refreshing it over ssh
   -h, --help                     display help for command
 ```
 
@@ -1243,7 +1267,8 @@ Options:
 ```text
 Usage: llm-usage sync [options] [names...]
 
-Fetch your other machines' latest usage over ssh for reports to include
+Fetch your other machines' usage now (reports also fetch it when it is 10
+minutes old)
 
 Arguments:
   names       Machines to sync (default: every enabled machine)
@@ -1336,6 +1361,7 @@ Search across root and command help. See Command help above to check which flags
 | `--model` | - | `<name>` | Filter by model \(repeatable/comma-separated; exact when exact match exists after source/provider/date filters, otherwise substring\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline only\) |
 | `--no-history` | - | - | leave out usage from files that no longer exist on disk \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline only\) |
 | `--no-open` | - | - | With --share, write the files without opening the page \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, wrapped only\) |
+| `--no-sync` | - | - | use other machines' cached usage without refreshing it over ssh \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline only\) |
 | `--openclaw-dir` | - | `<path>` | Path to OpenClaw agents directory \(repeatable\) |
 | `--opencode-db` | - | `<path>` | Path to OpenCode SQLite DB |
 | `--per-model-columns` | - | - | Render per-model metrics as multiline aligned table columns \(terminal/Markdown\) \(usage reports only\) |

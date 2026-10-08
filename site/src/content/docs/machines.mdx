@@ -32,11 +32,12 @@ llm-usage machine add vps vps --command "/home/me/.local/bin/llm-usage"
 
 ## Use it
 
-Every report includes the machines you added, as last fetched:
+Every report includes the machines you added. When a machine's usage was last fetched more than 10 minutes ago, the report fetches it again while it parses this machine's logs, waiting at most 30 seconds. A machine that is off or unreachable does not stop the report: it uses the usage fetched last time and says so, and waits 10 minutes before trying again.
 
 ```bash
-llm-usage sync          # fetch every machine's latest usage
-llm-usage daily
+llm-usage daily               # this machine and the others, fetched when due
+llm-usage daily --no-sync     # use what was fetched last, without connecting
+llm-usage sync                # fetch every machine now
 ```
 
 The `stderr` summary says which machines a report includes and when each was last fetched:
@@ -52,7 +53,7 @@ llm-usage monthly --machine laptop
 llm-usage monthly --machine local,vps
 ```
 
-A report pointed at a custom directory (`--claude-dir`, `--source-dir`) counts only that directory, without other machines, unless you name them with `--machine`. `statusline` includes other machines too, from their last fetch; it never connects to them.
+A report pointed at a custom directory (`--claude-dir`, `--source-dir`) counts only that directory, without other machines, unless you name them with `--machine`. `statusline` includes other machines too, from their last fetch; it never connects to them, so a status bar stays fast.
 
 ## How it works
 

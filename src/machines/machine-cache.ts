@@ -10,6 +10,7 @@ import {
   openEventStore,
   readEventStoreEvents,
   readEventStoreMeta,
+  readEventStoreMetaValues,
   replaceFilesEvents,
   runTransaction,
   writeEventStoreMeta,
@@ -260,4 +261,43 @@ export async function readMachineCacheStatus(
   } finally {
     closeEventStore(cache);
   }
+}
+
+/** The sync state, read without locking the cache; undefined when never synced. */
+export async function readMachineSyncStateIfCached(
+  name: string,
+): Promise<MachineSyncState | undefined> {
+  const cachePath = getMachineCachePath(name);
+
+  if (!(await pathExists(cachePath))) {
+    return undefined;
+  }
+
+  const meta = await readEventStoreMetaValues(cachePath);
+  return toSyncState((key) => meta.get(key));
+}
+
+/** Whether the last sync, or attempt, is at least `intervalMs` old. */
+export function isMachineSyncDue(
+  state: MachineSyncState | undefined,
+  now: number,
+  intervalMs: number,
+): boolean {
+  const last = Math.max(state?.syncedAt ?? 0, state?.attemptedAt ?? 0);
+  return now - last >= intervalMs;
+}
+
+/**
+ * Records a sync attempt if one is due, in one transaction, so of several runs that find
+ * the cache stale only one syncs it. False when another run got there first.
+ */
+export function claimMachineSync(cache: EventStore, now: number, intervalMs: number): boolean {
+  return runTransaction(cache.database, () => {
+    if (!isMachineSyncDue(readMachineSyncState(cache), now, intervalMs)) {
+      return false;
+    }
+
+    writeEventStoreMeta(cache, { attemptedAt: String(now) });
+    return true;
+  });
 }

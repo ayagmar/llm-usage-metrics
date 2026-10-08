@@ -141,3 +141,33 @@ export function formatMachinesNote(
 
   return `Machines: ${machines.map((machine) => describeIncludedMachine(machine, now, localVersion)).join(', ')}${duplicates}.`;
 }
+
+/** Past this age a machine's cached usage is worth a warning when it cannot refresh. */
+const STALE_CACHE_MS = 24 * 60 * 60_000;
+
+/**
+ * Describes a refresh a report could not do. A machine that is off is normal, so a
+ * recent cache gets a note; an old or empty one a warning.
+ */
+export function formatRefreshFailure(
+  outcome: MachineSyncOutcome,
+  now: number,
+): { text: string; stale: boolean } | undefined {
+  if (outcome.ok) {
+    return undefined;
+  }
+
+  const { syncedAt } = outcome.state;
+
+  if (syncedAt === undefined) {
+    return {
+      text: `Could not sync ${outcome.name} (${outcome.error}); it has no usage cached yet.`,
+      stale: true,
+    };
+  }
+
+  return {
+    text: `Could not sync ${outcome.name} (${outcome.error}); using its usage from ${formatAge(now - syncedAt)}.`,
+    stale: now - syncedAt >= STALE_CACHE_MS,
+  };
+}

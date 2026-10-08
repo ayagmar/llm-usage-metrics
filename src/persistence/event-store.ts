@@ -11,6 +11,7 @@ export {
   readDepartedFileEvents,
   readEventStoreEvents,
   readEventStoreMeta,
+  readEventStoreMetaValues,
   readEventStoreStoredFiles,
   readEventStoreSummary,
   readFileEvents,

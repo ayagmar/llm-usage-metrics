@@ -73,7 +73,9 @@ export function createMachineCommand(): Command {
 
 export function createSyncCommand(): Command {
   return new Command('sync')
-    .description("Fetch your other machines' latest usage over ssh for reports to include")
+    .description(
+      "Fetch your other machines' usage now (reports also fetch it when it is 10 minutes old)",
+    )
     .argument('[names...]', 'Machines to sync (default: every enabled machine)')
     .option('--full', 'Fetch every file again instead of only the changed ones')
     .addHelpText('after', formatHelpExamples(['llm-usage sync', 'llm-usage sync laptop --full']))

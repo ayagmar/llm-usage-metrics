@@ -64,8 +64,9 @@ async function buildStatuslineSummary(
     throw new Error('--json is not supported for statusline; use llm-usage summary --json');
   }
 
-  // A status line refreshes often: cached or bundled prices only, never a network fetch.
-  return buildSummaryData({ ...options, pricingOffline: true }, deps);
+  // A status line refreshes often: cached or bundled prices and other machines' cached
+  // usage only, never a network fetch or an ssh connection.
+  return buildSummaryData({ ...options, pricingOffline: true, sync: false }, deps);
 }
 
 export async function buildStatusline(

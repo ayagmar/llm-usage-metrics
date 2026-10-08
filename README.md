@@ -191,8 +191,7 @@ Reports can include your other machines' usage over ssh. Install llm-usage-metri
 
 ```bash
 llm-usage machine add laptop me@laptop.local
-llm-usage sync
-llm-usage monthly                    # this machine and the laptop
+llm-usage monthly                    # this machine and the laptop, fetched when due
 llm-usage monthly --machine laptop   # only the laptop
 ```
 

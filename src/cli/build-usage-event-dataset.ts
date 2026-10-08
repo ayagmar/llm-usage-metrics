@@ -32,7 +32,8 @@ import {
 } from './build-usage-data-parsing.js';
 import { filterParsedAdapterEvents } from './parse/usage-event-filters.js';
 import { loadMachineUsage, selectMachines } from '../machines/load-machine-usage.js';
-import { formatMachinesNote } from '../render/render-machines.js';
+import { formatMachinesNote, formatRefreshFailure } from '../render/render-machines.js';
+import { refreshDueMachines } from '../machines/refresh-machines.js';
 import { loadPackageMetadataFromRuntime } from './package-metadata.js';
 import {
   resolveAndApplyPricingToEvents,
@@ -192,6 +193,17 @@ export async function buildUsageEventDataset(
   const machineSelection = selectMachines(config.machines, normalizedInputs.machineFilter, {
     customSourceDirectories: cliDirectorySourceIds.size > 0,
   });
+  const nowMs = () => (deps.now?.() ?? new Date()).getTime();
+  // Refreshing other machines runs alongside the local parse.
+  const machineRefresh =
+    configuredOptions.sync === false
+      ? Promise.resolve([])
+      : refreshDueMachines(
+          Object.entries(config.machines ?? {})
+            .filter(([name]) => machineSelection.names.includes(name))
+            .map(([name, machine]) => ({ name, machine })),
+          { now: nowMs, spawnSsh: deps.spawnSsh },
+        );
   const includeHistory = configuredOptions.history !== false;
 
   if (historyRequested && !eventStoreRuntimeConfig.enabled) {
@@ -343,6 +355,14 @@ export async function buildUsageEventDataset(
       }));
     }
 
+    for (const outcome of await machineRefresh) {
+      const failure = formatRefreshFailure(outcome, nowMs());
+
+      if (failure) {
+        (failure.stale ? machineWarnings : machineNotes).push(failure.text);
+      }
+    }
+
     if (machineSelection.names.length > 0) {
       const machineUsage = await measureRuntimeProfileStage(
         runtimeProfile,
@@ -361,7 +381,7 @@ export async function buildUsageEventDataset(
       machineNotes.push(
         formatMachinesNote(
           machineUsage.machines,
-          (deps.now?.() ?? new Date()).getTime(),
+          nowMs(),
           loadPackageMetadataFromRuntime().packageVersion,
         ),
       );
