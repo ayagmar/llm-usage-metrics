@@ -125,6 +125,10 @@ export function createConfigCommand(): Command {
   const initCommand = new Command('init')
     .description('Write a commented config template')
     .option('--force', 'Overwrite an existing config file')
+    .addHelpText(
+      'after',
+      formatHelpExamples(['llm-usage config init', 'llm-usage config init --force']),
+    )
     .action(async (options: ConfigInitOptions) => {
       const configPath = resolveUserConfigPath(process.env);
       await writeConfigTemplate(configPath, options);
@@ -132,11 +136,22 @@ export function createConfigCommand(): Command {
     });
   const pathCommand = new Command('path')
     .description('Print the resolved config file path')
+    .addHelpText(
+      'after',
+      formatHelpExamples(['llm-usage config path', '$EDITOR "$(llm-usage config path)"']),
+    )
     .action(() => {
       console.log(resolveUserConfigPath(process.env));
     });
   const showCommand = new Command('show')
     .description('Print the effective configuration and where each value comes from')
+    .addHelpText(
+      'after',
+      formatHelpExamples([
+        'llm-usage config show',
+        'LLM_USAGE_CONFIG_PATH=./work.toml llm-usage config show',
+      ]),
+    )
     .action(async () => {
       const configPath = resolveUserConfigPath(process.env);
       const missingSuffix = (await configFileExists(configPath)) ? '' : ' (missing)';

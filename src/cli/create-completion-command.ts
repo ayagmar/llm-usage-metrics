@@ -153,7 +153,11 @@ _llm_usage() {
 
   case "$prev" in
     ${values.sourceFlags.join('|') || '--source'}) COMPREPLY=($(compgen -W "${words(values.sourceIds)}" -- "$cur")); return ;;
-    ${values.pathFlags.join('|') || '--repo-dir'}) COMPREPLY=($(compgen -f -- "$cur")); return ;;
+    ${values.pathFlags.join('|') || '--repo-dir'})
+      # One entry per line keeps paths with spaces whole; -o filenames quotes them.
+      compopt -o filenames 2>/dev/null
+      mapfile -t COMPREPLY < <(compgen -f -- "$cur")
+      return ;;
   esac
 
   case "$(_llm_usage_key "\${COMP_WORDS[@]:1:COMP_CWORD-1}")" in
@@ -238,7 +242,8 @@ function renderFish(commands: readonly CompletionCommand[], values: ValueComplet
   ]);
 
   return `# llm-usage fish completion. Install it with:
-#   llm-usage completion fish > ~/.config/fish/completions/llm-usage.fish
+# fish loads completions by command name, so install one file per bin name:
+#   for name in llm-usage llm-usage-metrics; llm-usage completion fish > ~/.config/fish/completions/$name.fish; end
 for cmd in ${PROGRAM_NAMES.join(' ')}
     complete -c $cmd -f
 ${lines.join('\n')}
@@ -289,7 +294,7 @@ export function createCompletionCommand(
       formatHelpExamples([
         'source <(llm-usage completion bash)   # in ~/.bashrc',
         'source <(llm-usage completion zsh)    # in ~/.zshrc',
-        'llm-usage completion fish > ~/.config/fish/completions/llm-usage.fish',
+        'for name in llm-usage llm-usage-metrics; llm-usage completion fish > ~/.config/fish/completions/$name.fish; end',
       ]),
     )
     .action((shell: CompletionShell) => {

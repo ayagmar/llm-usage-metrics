@@ -109,8 +109,8 @@ source <(llm-usage completion bash)
 # zsh: add to ~/.zshrc, after compinit
 source <(llm-usage completion zsh)
 
-# fish
-llm-usage completion fish > ~/.config/fish/completions/llm-usage.fish
+# fish: one file per bin name, since fish loads completions by command name
+for name in llm-usage llm-usage-metrics; llm-usage completion fish > ~/.config/fish/completions/$name.fish; end
 ```
 
 Every command's `--help` ends with a few examples.

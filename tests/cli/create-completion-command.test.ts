@@ -36,10 +36,16 @@ describe('renderCompletionScript', () => {
   it('keeps file completion off --source-dir, whose value is <source-id>=<path>', () => {
     const bash = render('bash');
     const pathCase =
-      /\n {4}(--[^)]*)\) COMPREPLY=\(\$\(compgen -f/u.exec(bash)?.[1].split('|') ?? [];
+      /\n {4}(--[^)]*)\)\n[^\n]*\n {6}compopt -o filenames/u.exec(bash)?.[1].split('|') ?? [];
 
     expect(pathCase).toContain('--claude-dir');
     expect(pathCase).not.toContain('--source-dir');
+  });
+
+  it('tells fish users to install one file per bin name', () => {
+    expect(render('fish')).toContain(
+      'for name in llm-usage llm-usage-metrics; llm-usage completion fish > ~/.config/fish/completions/$name.fish; end',
+    );
   });
 
   it('is written to be sourced in zsh, without an fpath #compdef header', () => {
@@ -54,7 +60,9 @@ describe('renderCompletionScript', () => {
       .exec(bash)?.[1]
       .split(' ');
     expect(sourceWords).toEqual(expect.arrayContaining(['claude', 'codex', 'pi']));
-    expect(bash).toMatch(/[|(]--claude-dir[|)][^\n]*compgen -f/u);
+    expect(bash).toMatch(/[|(]--claude-dir[|)]/u);
+    // One completion per line, so a path with spaces stays one entry.
+    expect(bash).toContain('mapfile -t COMPREPLY < <(compgen -f -- "$cur")');
     expect(render('zsh')).toMatch(/--repo-dir[|)][^\n]*_files/u);
     expect(render('fish')).toMatch(
       /__fish_seen_subcommand_from daily' -l claude-dir -d '[^']*' -r -F/u,

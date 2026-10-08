@@ -375,7 +375,7 @@ describe('createCli', () => {
       return text;
     };
 
-    for (const command of cli.commands) {
+    for (const command of cli.commands.flatMap((entry) => [entry, ...entry.commands])) {
       expect(fullHelp(command), command.name()).toContain('Examples:\n  $ ');
     }
 
