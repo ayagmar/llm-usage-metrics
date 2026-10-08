@@ -44,6 +44,7 @@ function createSummaryData(dates: string[]): SummaryDataResult {
 
   return {
     timezone: 'Europe/Paris',
+    monthEnd: { daysElapsed: 10, daysInMonth: 31 },
     periods: [
       {
         key: 'monthToDate',

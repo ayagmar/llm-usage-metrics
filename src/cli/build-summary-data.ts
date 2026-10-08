@@ -1,4 +1,5 @@
 import { aggregateDailyActivity, resolveActivityStart } from '../aggregate/daily-activity.js';
+import { estimateCacheSavingsUsd } from '../pricing/cache-savings.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { getCurrentLocalDateKey, shiftLocalDateKey } from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
@@ -13,6 +14,7 @@ import type {
   BuildSummaryDataDeps,
   SummaryCommandOptions,
   SummaryDataResult,
+  SummaryMonthEnd,
   SummaryPeriod,
   SummaryPeriodKey,
   SummarySourceTotals,
@@ -43,6 +45,51 @@ export function resolveSummaryWindows(timezone: string, now: Date): SummaryWindo
     },
     { key: 'monthToDate', label: 'Month to date', since: `${today.slice(0, 8)}01`, until: today },
   ];
+}
+
+// Two days of usage are too few to scale to a month.
+const MIN_PROJECTION_DAYS = 3;
+
+export function resolveMonthEnd(
+  today: string,
+  monthToDate: SummaryPeriod | undefined,
+  budgetUsd: number | undefined,
+): SummaryMonthEnd {
+  const daysElapsed = Number(today.slice(8, 10));
+  const daysInMonth = new Date(
+    Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)), 0),
+  ).getUTCDate();
+  const costUsd = monthToDate?.totals.costUsd;
+  const monthEnd: SummaryMonthEnd = { daysElapsed, daysInMonth };
+  const hasUsage = (monthToDate?.totals.events ?? 0) > 0;
+
+  if (hasUsage && costUsd !== undefined && daysElapsed >= MIN_PROJECTION_DAYS) {
+    monthEnd.projectedCostUsd = (costUsd / daysElapsed) * daysInMonth;
+
+    if (monthToDate?.totals.costIncomplete) {
+      monthEnd.costIncomplete = true;
+    }
+  }
+
+  if (budgetUsd !== undefined) {
+    monthEnd.budgetUsd = budgetUsd;
+  }
+
+  return monthEnd;
+}
+
+/**
+ * The budget covers all usage, so a run narrowed by --source, --provider, or --model
+ * cannot be measured against it. A `sources` list in the config file is the user's
+ * standing view, not a narrowing, so it keeps the budget.
+ */
+function isNarrowedByCliFilters(cliOptions: SummaryCommandOptions): boolean {
+  const source = cliOptions.source;
+  const model = cliOptions.model;
+  const hasSource = Array.isArray(source) ? source.length > 0 : Boolean(source);
+  const hasModel = Array.isArray(model) ? model.length > 0 : Boolean(model);
+
+  return hasSource || hasModel || Boolean(cliOptions.provider);
 }
 
 function compareSourcesByCost(left: SummarySourceTotals, right: SummarySourceTotals): number {
@@ -83,11 +130,8 @@ export async function buildSummaryData(
         userConfigResolution: { ...userConfigResolution, options: datasetOptions },
       }),
   );
-  const { pricedEvents, pricingOrigin, pricingWarning } = await applyPricingToUsageEventDataset(
-    dataset,
-    deps,
-    'auto',
-  );
+  const { pricedEvents, pricingOrigin, pricingWarning, pricingSource } =
+    await applyPricingToUsageEventDataset(dataset, deps, 'auto');
   const sourceOrder = dataset.adaptersToParse.map((adapter) => adapter.id);
   const periods = measureRuntimeProfileStageSync(deps.runtimeProfile, 'summary.aggregate', () =>
     windows.map((window): SummaryPeriod => {
@@ -114,9 +158,27 @@ export async function buildSummaryData(
     aggregateDailyActivity(pricedEvents, { from: since, to: today, timezone }),
   );
 
+  const monthToDate = periods.find((period) => period.key === 'monthToDate');
+  const monthToDateWindow = windows.find((window) => window.key === 'monthToDate');
+  const monthToDateCacheSavingsUsd =
+    pricingSource && monthToDateWindow
+      ? estimateCacheSavingsUsd(
+          pricedEvents.filter((event) => isEventWithinWindow(event, monthToDateWindow, timezone)),
+          pricingSource,
+        )
+      : undefined;
+
   return {
     timezone,
     periods,
+    monthEnd: resolveMonthEnd(
+      today,
+      monthToDate,
+      isNarrowedByCliFilters(userConfigResolution.cliOptions)
+        ? undefined
+        : userConfigResolution.loadedConfig.config.monthlyBudgetUsd,
+    ),
+    monthToDateCacheSavingsUsd,
     activity,
     diagnostics: buildUsageDiagnostics({
       adaptersToParse: dataset.adaptersToParse,

@@ -40,7 +40,7 @@ npm install -g llm-usage-metrics
 llm-usage
 ```
 
-With no command, `llm-usage` prints cost and tokens for today, the last 7 days, and month to date, then your current and longest streak, best day, and a year-long activity heatmap. `llm-usage daily` breaks the last 7 days down by day and source, and `llm-usage weekly` covers the last 8 weeks; add `--since YYYY-MM-DD` or `--all` for older usage.
+With no command, `llm-usage` prints cost and tokens for today, the last 7 days, and month to date, a month-end projection (checked against `monthlyBudgetUsd` when you set one), what prompt caching saved you this month, then your current and longest streak, best day, and a year-long activity heatmap. `llm-usage daily` breaks the last 7 days down by day and source, and `llm-usage weekly` covers the last 8 weeks; add `--since YYYY-MM-DD` or `--all` for older usage.
 
 If the report is empty, check source discovery. `doctor` lists the paths each source searched and marks it found, not installed, or unparseable:
 

@@ -207,6 +207,7 @@ claude = ["../claude", "/abs/claude"]
       readContent(`
 timezone = "Africa/Casablanca"
 logLevel = "debug"
+monthlyBudgetUsd = 150.5
 sources = ["codex", "claude", "codex"]
 parseMaxParallel = 12
 parseWorkers = "auto"
@@ -241,6 +242,7 @@ fetchTimeoutMs = 500
     expect(result.config).toEqual({
       timezone: 'Africa/Casablanca',
       logLevel: 'debug',
+      monthlyBudgetUsd: 150.5,
       sources: ['codex', 'claude'],
       sourceDirs: {
         claude: path.resolve('/tmp/claude'),
@@ -269,6 +271,18 @@ fetchTimeoutMs = 500
     expect(result.warnings).toEqual([
       'Unknown config key(s): extra, pricing.mystery, sourceDirs.unknown',
     ]);
+  });
+
+  it('accepts only a positive monthly budget', async () => {
+    for (const value of ['0', '-5', '"100"']) {
+      const result = await loadUserConfig(
+        { LLM_USAGE_CONFIG_PATH: '/tmp/config.toml' },
+        readContent(`monthlyBudgetUsd = ${value}\n`),
+      );
+
+      expect(result.config).toEqual({});
+      expect(result.warnings).toEqual(['Ignoring monthlyBudgetUsd: expected a positive number']);
+    }
   });
 
   it('clamps numeric config values to existing runtime bounds', async () => {
