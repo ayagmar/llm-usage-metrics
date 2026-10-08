@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { chmod, link, mkdir, open, rm } from 'node:fs/promises';
+import { chmod, link, mkdir, open, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { normalizeSkippedRowReasons } from '../cli/normalize-skipped-row-reasons.js';
@@ -219,7 +219,18 @@ function isErrorCode(error: unknown, code: string): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === code;
 }
 
-/** The cache-directory ledger an older version left, when the default ledger does not exist yet. */
+/**
+ * Written next to the ledger once the legacy copy succeeds, so deleting the ledger later
+ * (a reset) never re-imports the old copy and its already-pruned history.
+ */
+function getLegacyCopyMarkerPath(targetPath: string): string {
+  return path.join(path.dirname(targetPath), 'legacy-ledger-copied');
+}
+
+/**
+ * The cache-directory ledger an older version left, when the default ledger does not exist
+ * yet and has never been copied from it.
+ */
 export async function findLegacyEventStore(targetPath: string): Promise<string | undefined> {
   const legacyPath = getLegacyEventStorePath();
 
@@ -227,6 +238,7 @@ export async function findLegacyEventStore(targetPath: string): Promise<string |
     targetPath !== getDefaultEventStorePath() ||
     legacyPath === targetPath ||
     (await pathExists(targetPath)) ||
+    (await pathExists(getLegacyCopyMarkerPath(targetPath))) ||
     !(await pathExists(legacyPath))
   ) {
     return undefined;
@@ -275,6 +287,8 @@ async function copyLegacyEventStore(
   } finally {
     await rm(snapshotPath, { force: true });
   }
+
+  await writeFile(getLegacyCopyMarkerPath(targetPath), `${legacyPath}\n`, { mode: 0o600 });
 }
 
 async function prepareEventStoreFile(filePath: string): Promise<void> {

@@ -19,7 +19,7 @@ description: Why caching exists, how each cache works, and how to tune it.
 | pricing cache | stores normalized LiteLLM pricing data | 24 hours | `<platform-cache-root>/llm-usage-metrics/litellm-pricing-cache.json` |
 | event store | stores parsed file diagnostics/events and retained departed-file history | no TTL | `<platform-data-root>/llm-usage-metrics/events.db` |
 
-On Linux with no `XDG_CACHE_HOME`, `<platform-cache-root>` defaults to `~/.cache`. The event store is a ledger rather than a cache, so it lives under `<platform-data-root>`: `~/.local/share` when `XDG_DATA_HOME` is unset (Linux and macOS), `%LOCALAPPDATA%` on Windows. A ledger left in the cache directory by an older version is copied there on the next report; the old file stays until you delete it.
+On Linux with no `XDG_CACHE_HOME`, `<platform-cache-root>` defaults to `~/.cache`. The event store is a ledger rather than a cache, so it lives under `<platform-data-root>`: `~/.local/share` when `XDG_DATA_HOME` is unset (Linux and macOS), `%LOCALAPPDATA%` on Windows. A ledger left in the cache directory by an older version is copied there once, on the next report; the old file stays until you delete it.
 
 ## How each cache works
 
@@ -68,7 +68,7 @@ Relevant options/config:
 - moved, renamed, and copied files are suppressed by content hash to avoid double counting
 - `llm-usage prune` previews or deletes departed-file rows explicitly
 - first run after a store schema upgrade migrates the database in place and may take a few seconds
-- deleting the database file deletes retained local history and starts a new ledger on the next run
+- deleting the database file deletes retained local history and starts a new ledger on the next run; a ledger once copied from the old cache-directory location is not copied again (a `legacy-ledger-copied` marker beside the ledger records the copy), so delete that old file yourself to reclaim its space
 - legacy JSON cache shards are ignored and safe to delete manually
 
 Prune is dry-run by default:

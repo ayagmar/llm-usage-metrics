@@ -123,4 +123,15 @@ describe('legacy event store copy', () => {
     );
     await expect(readdir(path.dirname(getDefaultEventStorePath()))).resolves.toEqual([]);
   });
+
+  it('does not copy the old ledger again after the copied one is deleted', async () => {
+    await writeStore(getLegacyEventStorePath(), '/tmp/pruned-later.jsonl');
+    closeEventStore(await openEventStore());
+
+    // A reset: the user deletes the copied ledger, e.g. after pruning it.
+    await rm(getDefaultEventStorePath());
+    closeEventStore(await openEventStore());
+
+    await expect(readEventStoreStoredFiles(getDefaultEventStorePath())).resolves.toEqual([]);
+  });
 });
