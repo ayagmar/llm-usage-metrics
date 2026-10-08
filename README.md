@@ -29,7 +29,7 @@ The CLI parses session content on your machine. It discovers standard source loc
 
 ## Quick start
 
-Requires Node.js 22.16+ or 24+ (Node 23 lacks the SQLite busy timeout the ledger uses).
+Requires Node.js 22.16+ or 24+ (Node 23 lacks the SQLite busy timeout the ledger uses), or Bun 1.4+.
 
 ```bash
 # Run without installing
@@ -38,6 +38,9 @@ npx --yes llm-usage-metrics@latest
 # Or install it: the package provides `llm-usage` and the alias `llm-usage-metrics`
 npm install -g llm-usage-metrics
 llm-usage
+
+# Or with Bun (--bun runs the CLI on Bun instead of Node)
+bunx --bun llm-usage-metrics@latest
 
 # Optional: tab completion (bash shown; zsh and fish work the same way)
 echo 'source <(llm-usage completion bash)' >> ~/.bashrc
