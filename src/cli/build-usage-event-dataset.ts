@@ -31,6 +31,8 @@ import {
   type AdapterParseResult,
 } from './build-usage-data-parsing.js';
 import { filterParsedAdapterEvents } from './parse/usage-event-filters.js';
+import { loadMachineUsage, selectMachines } from '../machines/load-machine-usage.js';
+import { formatMachinesNote } from '../render/render-machines.js';
 import {
   resolveAndApplyPricingToEvents,
   resolvePricingSource,
@@ -99,6 +101,35 @@ function appendHistoryEvents(
       events: [...parseResult.events, ...sourceHistoryEvents],
     };
   });
+}
+
+/** Adds other machines' events to the per-source results, creating any source missing here. */
+function appendMachineEvents(
+  parseResults: AdapterParseResult[],
+  machineEvents: UsageEvent[],
+): AdapterParseResult[] {
+  const results = parseResults.map((result) => ({ ...result, events: [...result.events] }));
+  const resultsBySource = new Map(results.map((result) => [result.source, result]));
+
+  for (const event of machineEvents) {
+    let result = resultsBySource.get(event.source);
+
+    if (!result) {
+      result = {
+        source: event.source,
+        events: [],
+        filesFound: 0,
+        skippedRows: 0,
+        skippedRowReasons: [],
+      };
+      resultsBySource.set(event.source, result);
+      results.push(result);
+    }
+
+    result.events.push(event);
+  }
+
+  return results;
 }
 
 export type UsageEventDataset = {
@@ -297,6 +328,37 @@ export async function buildUsageEventDataset(
       }
     }
 
+    const machineSelection = selectMachines(config.machines, normalizedInputs.machineFilter, {
+      customSourceDirectories: cliDirectorySourceIds.size > 0,
+    });
+    const machineWarnings: string[] = [];
+    const machineNotes: string[] = [];
+
+    if (!machineSelection.includeLocal) {
+      parseResultsForFiltering = parseResultsForFiltering.map((result) => ({
+        ...result,
+        events: [],
+      }));
+    }
+
+    if (machineSelection.names.length > 0) {
+      const machineUsage = await measureRuntimeProfileStage(
+        runtimeProfile,
+        'usage.dataset.machines',
+        () =>
+          loadMachineUsage({
+            names: machineSelection.names,
+            servedEvents: parseResultsForFiltering.flatMap((result) => result.events),
+            sources: new Set(adaptersToParse.map((adapter) => adapter.id)),
+            since: configuredOptions.since,
+            until: configuredOptions.until,
+          }),
+      );
+      parseResultsForFiltering = appendMachineEvents(parseResultsForFiltering, machineUsage.events);
+      machineWarnings.push(...machineUsage.warnings);
+      machineNotes.push(formatMachinesNote(machineUsage.machines, Date.now()));
+    }
+
     const filteredEvents = measureRuntimeProfileStageSync(
       runtimeProfile,
       'usage.dataset.filter_events',
@@ -321,6 +383,7 @@ export async function buildUsageEventDataset(
         ...userConfigResolution.loadedConfig.warnings,
         ...parseWarnings,
         ...historyWarnings,
+        ...machineWarnings,
         ...findUnmatchedFilterWarnings({
           parseResults: parseResultsForFiltering,
           // A `sources` list from config.toml is a standing default, not a typed filter.
@@ -336,7 +399,7 @@ export async function buildUsageEventDataset(
           until: configuredOptions.until,
         }),
       ],
-      notes: historyNotes,
+      notes: [...historyNotes, ...machineNotes],
       filteredEvents,
       ledger,
       pricingRuntimeConfig,

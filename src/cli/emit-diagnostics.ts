@@ -138,11 +138,10 @@ function formatSummaryLine(diagnostics: UsageDiagnostics, totalFiles: number): s
     .sort((left, right) => right.filesFound - left.filesFound);
   // Event counts depend on the date window and file skipping, so the line counts files;
   // `--verbose` lists events per source.
-  const parts = [
-    `Scanned ${pluralize(totalFiles, 'file')} (${sourcesWithFiles
-      .map((session) => `${session.source} ${integerFormatter.format(session.filesFound)}`)
-      .join(', ')})`,
-  ];
+  const fileCounts = sourcesWithFiles
+    .map((session) => `${session.source} ${integerFormatter.format(session.filesFound)}`)
+    .join(', ');
+  const parts = [`Scanned ${pluralize(totalFiles, 'file')}${fileCounts ? ` (${fileCounts})` : ''}`];
   const pricingLabel = pricingLabels[diagnostics.pricingOrigin];
 
   if (pricingLabel) {
@@ -176,8 +175,10 @@ export function emitDiagnostics(
   diagnosticsLogger: DiagnosticsLogger = logger,
 ): void {
   const totalFiles = diagnostics.sessionStats.reduce((sum, session) => sum + session.filesFound, 0);
+  // Usage from other machines counts even when this one has no session files.
+  const hasEvents = diagnostics.sessionStats.some((session) => session.eventsParsed > 0);
 
-  if (totalFiles > 0) {
+  if (totalFiles > 0 || hasEvents) {
     diagnosticsLogger.info(formatSummaryLine(diagnostics, totalFiles));
   } else {
     const settings = formatSettingsParts(diagnostics);

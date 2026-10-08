@@ -105,6 +105,9 @@ Options:
                                  is unavailable)
   --no-history                   leave out usage from files that no longer exist
                                  on disk
+  --machine <name>               Count only these machines (repeatable or
+                                 comma-separated; local is this one; default:
+                                 all)
   --markdown                     Render output as markdown table
   --share                        Write a share card (SVG and an HTML page with
                                  PNG export) to the current directory
@@ -181,6 +184,9 @@ Options:
                                  is unavailable)
   --no-history                   leave out usage from files that no longer exist
                                  on disk
+  --machine <name>               Count only these machines (repeatable or
+                                 comma-separated; local is this one; default:
+                                 all)
   --markdown                     Render output as markdown table
   --per-model-columns            Render per-model metrics as multiline aligned
                                  table columns (terminal/markdown)
@@ -263,6 +269,9 @@ Options:
                                  is unavailable)
   --no-history                   leave out usage from files that no longer exist
                                  on disk
+  --machine <name>               Count only these machines (repeatable or
+                                 comma-separated; local is this one; default:
+                                 all)
   --markdown                     Render output as markdown table
   --per-model-columns            Render per-model metrics as multiline aligned
                                  table columns (terminal/markdown)
@@ -344,6 +353,9 @@ Options:
                                  is unavailable)
   --no-history                   leave out usage from files that no longer exist
                                  on disk
+  --machine <name>               Count only these machines (repeatable or
+                                 comma-separated; local is this one; default:
+                                 all)
   --markdown                     Render output as markdown table
   --per-model-columns            Render per-model metrics as multiline aligned
                                  table columns (terminal/markdown)
@@ -424,6 +436,9 @@ Options:
                                  is unavailable)
   --no-history                   leave out usage from files that no longer exist
                                  on disk
+  --machine <name>               Count only these machines (repeatable or
+                                 comma-separated; local is this one; default:
+                                 all)
   --markdown                     Render output as markdown table
   --share                        Write a share card (SVG and an HTML page with
                                  PNG export) to the current directory
@@ -507,6 +522,9 @@ Options:
                                  is unavailable)
   --no-history                   leave out usage from files that no longer exist
                                  on disk
+  --machine <name>               Count only these machines (repeatable or
+                                 comma-separated; local is this one; default:
+                                 all)
   --markdown                     Render output as markdown table
   --share                        Write a share card (SVG and an HTML page with
                                  PNG export) to the current directory
@@ -589,6 +607,9 @@ Options:
                                  is unavailable)
   --no-history                   leave out usage from files that no longer exist
                                  on disk
+  --machine <name>               Count only these machines (repeatable or
+                                 comma-separated; local is this one; default:
+                                 all)
   --markdown                     Render output as markdown table
   --share                        Write a share card (SVG and an HTML page with
                                  PNG export) to the current directory
@@ -669,6 +690,9 @@ Options:
                                  is unavailable)
   --no-history                   leave out usage from files that no longer exist
                                  on disk
+  --machine <name>               Count only these machines (repeatable or
+                                 comma-separated; local is this one; default:
+                                 all)
   --markdown                     Render output as markdown table
   --share                        Write a share card (SVG and an HTML page with
                                  PNG export) to the current directory
@@ -751,6 +775,9 @@ Options:
                                  is unavailable)
   --no-history                   leave out usage from files that no longer exist
                                  on disk
+  --machine <name>               Count only these machines (repeatable or
+                                 comma-separated; local is this one; default:
+                                 all)
   --markdown                     Render output as markdown table
   --top <n>                      Show only the top N rows by cost (default 20; 0
                                  shows all)
@@ -828,6 +855,9 @@ Options:
                                  is unavailable)
   --no-history                   leave out usage from files that no longer exist
                                  on disk
+  --machine <name>               Count only these machines (repeatable or
+                                 comma-separated; local is this one; default:
+                                 all)
   --markdown                     Render output as markdown table
   --share                        Write a share card (SVG and an HTML page with
                                  PNG export) to the current directory
@@ -906,6 +936,9 @@ Options:
                                  is unavailable)
   --no-history                   leave out usage from files that no longer exist
                                  on disk
+  --machine <name>               Count only these machines (repeatable or
+                                 comma-separated; local is this one; default:
+                                 all)
   --format <name>                Export format: jsonl | csv (default: "jsonl")
   -h, --help                     display help for command
 ```
@@ -977,6 +1010,9 @@ Options:
                                  is unavailable)
   --no-history                   leave out usage from files that no longer exist
                                  on disk
+  --machine <name>               Count only these machines (repeatable or
+                                 comma-separated; local is this one; default:
+                                 all)
   -h, --help                     display help for command
 ```
 
@@ -1207,7 +1243,7 @@ Options:
 ```text
 Usage: llm-usage sync [options] [names...]
 
-Fetch your other machines' usage over ssh
+Fetch your other machines' latest usage over ssh for reports to include
 
 Arguments:
   names       Machines to sync (default: every enabled machine)
@@ -1294,6 +1330,7 @@ Search across root and command help. See Command help above to check which flags
 | `--kimi-dir` | - | `<path>` | Path to Kimi sessions directory \(repeatable\) |
 | `--known` | - | `<path>` | Leave out files already held at the same revision, as listed in this JSON file \(- for stdin\) \(machine only\) |
 | `--list` | - | - | List available schema names \(schema only\) |
+| `--machine` | - | `<name>` | Count only these machines \(repeatable or comma-separated; local is this one; default: all\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline only\) |
 | `--markdown` | - | - | Render output as Markdown table \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped only\) |
 | `--metric` | - | `<name>` | Trend metric: cost \| tokens \| active-hours \(default: "cost"\) \(trends only\) |
 | `--model` | - | `<name>` | Filter by model \(repeatable/comma-separated; exact when exact match exists after source/provider/date filters, otherwise substring\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline only\) |

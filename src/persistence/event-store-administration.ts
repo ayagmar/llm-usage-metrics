@@ -505,6 +505,72 @@ export function writeEventStoreMeta(
   });
 }
 
+/**
+ * Reads the meta table and every stored event, optionally only those with
+ * `fromTimestamp <= timestamp < toTimestamp` (ISO strings), from a store opened
+ * read-only, so a writer holding the store never blocks it. Invalid rows are skipped.
+ */
+export async function readEventStoreEvents(
+  filePath: string,
+  window: { fromTimestamp?: string; toTimestamp?: string } = {},
+  loadSqliteModule: LoadEventStoreSqliteModule = loadEventStoreSqliteModule,
+): Promise<{ meta: Map<string, string>; events: UsageEvent[] }> {
+  const sqliteModule = await loadSqliteModule();
+
+  if (!isEventStoreSqliteModule(sqliteModule)) {
+    throw new Error('Event store requires a sqlite module with a DatabaseSync constructor');
+  }
+
+  const database = new sqliteModule.DatabaseSync(filePath, {
+    readOnly: true,
+    timeout: EVENT_STORE_OPEN_TIMEOUT_MS,
+  });
+
+  try {
+    assertSupportedSchemaVersion(database);
+    const statement = database.prepare(
+      [
+        'SELECT source, session_id, timestamp, model, provider, repo_root,',
+        '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
+        '  cache_write_tokens, total_tokens, cost_usd, cost_mode',
+        'FROM events',
+        'WHERE timestamp >= ? AND timestamp < ?',
+      ].join('\n'),
+    );
+    statement.setReturnArrays(true);
+    // StatementSync's return type does not narrow after setReturnArrays(true).
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+    const rows = statement.all(
+      window.fromTimestamp ?? '',
+      window.toTimestamp ?? '\uFFFF',
+    ) as unknown as StoredEventTuple[];
+    const events: UsageEvent[] = [];
+
+    for (const row of rows) {
+      const event = normalizeStoredEventTuple(row);
+
+      if (event) {
+        events.push(event);
+      }
+    }
+
+    const meta = new Map<string, string>();
+
+    for (const row of database.prepare('SELECT key, value FROM meta').all()) {
+      const key = toText(row.key);
+      const value = toText(row.value);
+
+      if (key && value) {
+        meta.set(key, value);
+      }
+    }
+
+    return { meta, events };
+  } finally {
+    database.close();
+  }
+}
+
 function deleteFileEntry(store: EventStore, source: string, filePath: string): void {
   deleteStoredFiles(store, [{ source, filePath }]);
 }

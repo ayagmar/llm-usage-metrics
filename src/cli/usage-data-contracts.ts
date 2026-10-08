@@ -83,6 +83,8 @@ type PricingOptions = {
 
 type HistoryOption = {
   history?: boolean;
+  /** Machines to count, by name; `local` is this one. Default: all. */
+  machine?: string | string[];
 };
 
 type ShareOption = {

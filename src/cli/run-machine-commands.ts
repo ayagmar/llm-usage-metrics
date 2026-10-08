@@ -106,7 +106,9 @@ export async function runMachineAdd(
     print(line);
   }
 
-  print(`Added ${name} to ${configPath}. llm-usage sync refreshes its usage.`);
+  print(
+    `Added ${name} to ${configPath}. Reports now include its usage; llm-usage sync fetches it again.`,
+  );
 }
 
 export async function runMachineRemove(name: string, deps: MachineCommandDeps = {}): Promise<void> {

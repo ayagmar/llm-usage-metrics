@@ -21,6 +21,7 @@ export type NormalizedBuildUsageInputs = {
   /** Where the source filter came from, for error messages. */
   sourceFilterLabel: string;
   modelFilter: string[] | undefined;
+  machineFilter: Set<string> | undefined;
   explicitSourceIds: Set<string>;
   pricingUrl: string | undefined;
 };
@@ -69,6 +70,23 @@ export function normalizeSourceFilter(
   }
 
   return new Set(normalizedSources);
+}
+
+function normalizeMachineFilter(machine: string | string[] | undefined): Set<string> | undefined {
+  if (!machine || (Array.isArray(machine) && machine.length === 0)) {
+    return undefined;
+  }
+
+  const names = (Array.isArray(machine) ? machine : [machine])
+    .flatMap((candidate) => candidate.split(','))
+    .map((candidate) => candidate.trim().toLowerCase())
+    .filter((candidate) => candidate.length > 0);
+
+  if (names.length === 0) {
+    throw new Error('--machine must contain at least one machine name');
+  }
+
+  return new Set(names);
 }
 
 function normalizeModelFilter(model: string | string[] | undefined): string[] | undefined {
@@ -231,6 +249,7 @@ export function normalizeBuildUsageInputs(
         ? 'config `sources`'
         : '--source',
     modelFilter,
+    machineFilter: normalizeMachineFilter(options.machine),
     explicitSourceIds,
     pricingUrl: normalizedPricingUrl,
   };
