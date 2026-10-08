@@ -446,4 +446,51 @@ describe('aggregateUsage', () => {
       },
     ]);
   });
+
+  it('splits source rows by machine, this one first, with unchanged totals', () => {
+    const event = (source: string, inputTokens: number, machine?: string) => ({
+      ...createUsageEvent({
+        source,
+        sessionId: `${source}-${machine ?? 'local'}`,
+        timestamp: '2026-10-01T10:00:00.000Z',
+        inputTokens,
+        costMode: 'estimated',
+      }),
+      ...(machine === undefined ? {} : { machine }),
+    });
+    const events = [
+      event('claude', 20, 'laptop'),
+      event('claude', 5, 'vps'),
+      event('claude', 10),
+      event('codex', 10, 'laptop'),
+    ];
+    const options = {
+      granularity: 'monthly' as const,
+      timezone: 'UTC',
+      sourceOrder: ['claude', 'codex'],
+    };
+
+    const split = aggregateUsage(events, { ...options, byMachine: true });
+    const combined = aggregateUsage(events, options);
+
+    expect(
+      split.map((row) => [
+        row.rowType,
+        row.source,
+        row.rowType === 'period_source' ? row.machine : undefined,
+        row.inputTokens,
+      ]),
+    ).toEqual([
+      ['period_source', 'claude', 'local', 10],
+      ['period_source', 'claude', 'laptop', 20],
+      ['period_source', 'claude', 'vps', 5],
+      ['period_source', 'codex', 'laptop', 10],
+      ['period_combined', 'combined', undefined, 45],
+      ['grand_total', 'combined', undefined, 45],
+    ]);
+    expect(split.slice(-2)).toEqual(combined.slice(-2));
+    expect(
+      combined.filter((row) => row.rowType === 'period_source').every((row) => !('machine' in row)),
+    ).toBe(true);
+  });
 });

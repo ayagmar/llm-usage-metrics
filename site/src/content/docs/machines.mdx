@@ -59,6 +59,8 @@ Reports combine every machine into the same rows. To see each machine apart, `--
 llm-usage monthly --by-machine     # claude (local), claude (laptop), ...
 ```
 
+Until you add a machine, every row is `(local)`. The share card (`--share`) always combines machines.
+
 A report pointed at a custom directory (`--claude-dir`, `--source-dir`) counts only that directory, without other machines, unless you name them with `--machine`. `statusline` includes other machines too, from their last fetch; it never connects to them, so a status bar stays fast.
 
 ## How it works

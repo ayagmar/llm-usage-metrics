@@ -58,6 +58,9 @@ describe('row-cells', () => {
     const cells = toUsageTableCells(rows);
 
     expect(cells[0]).toEqual(['2026-02-10', 'pi', '-', '0', '0', '0', '0', '0', '0', '-']);
+    expect(toUsageTableCells([{ ...rows[0], machine: 'laptop' } as UsageReportRow])[0][1]).toBe(
+      'pi (laptop)',
+    );
     expect(cells[1]).toEqual([
       'ALL',
       'TOTAL',
