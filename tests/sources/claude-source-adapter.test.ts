@@ -1,5 +1,4 @@
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -9,6 +8,7 @@ import {
   getDefaultClaudeProjectsDir,
   resolveDefaultClaudeRootDirs,
 } from '../../src/sources/claude/claude-source-adapter.js';
+import { canonicalTmpdir } from '../helpers/tmp.js';
 
 const tempDirs: string[] = [];
 
@@ -91,7 +91,7 @@ describe('ClaudeSourceAdapter', () => {
       path.join('/b', 'transcripts'),
     ]);
 
-    const configDir = await mkdtemp(path.join(os.tmpdir(), 'claude-config-dir-'));
+    const configDir = await mkdtemp(path.join(canonicalTmpdir(), 'claude-config-dir-'));
     tempDirs.push(configDir);
     const sessionPath = path.join(configDir, 'projects', 'repo', 'session.jsonl');
     await mkdir(path.dirname(sessionPath), { recursive: true });
@@ -103,7 +103,7 @@ describe('ClaudeSourceAdapter', () => {
   });
 
   it('lists each file once when roots overlap or name the same directory', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'claude-overlap-'));
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'claude-overlap-'));
     tempDirs.push(root);
     const sessionPath = path.join(root, 'repo', 'session.jsonl');
     await mkdir(path.dirname(sessionPath), { recursive: true });
@@ -117,7 +117,7 @@ describe('ClaudeSourceAdapter', () => {
   });
 
   it('discovers project and subagent JSONL files recursively', async () => {
-    const projectsDir = await mkdtemp(path.join(os.tmpdir(), 'claude-projects-'));
+    const projectsDir = await mkdtemp(path.join(canonicalTmpdir(), 'claude-projects-'));
     tempDirs.push(projectsDir);
 
     const projectDir = path.join(projectsDir, '-tmp-repo');
@@ -138,8 +138,8 @@ describe('ClaudeSourceAdapter', () => {
   });
 
   it('scans all default roots and silently skips missing ones', async () => {
-    const projectsRoot = await mkdtemp(path.join(os.tmpdir(), 'claude-root-projects-'));
-    const transcriptsRoot = await mkdtemp(path.join(os.tmpdir(), 'claude-root-transcripts-'));
+    const projectsRoot = await mkdtemp(path.join(canonicalTmpdir(), 'claude-root-projects-'));
+    const transcriptsRoot = await mkdtemp(path.join(canonicalTmpdir(), 'claude-root-transcripts-'));
     tempDirs.push(projectsRoot, transcriptsRoot);
 
     const projectFile = path.join(projectsRoot, 'session-a.jsonl');
@@ -161,8 +161,10 @@ describe('ClaudeSourceAdapter', () => {
   });
 
   it('scans only the explicit directory when a dir override is provided', async () => {
-    const projectsRoot = await mkdtemp(path.join(os.tmpdir(), 'claude-explicit-projects-'));
-    const transcriptsRoot = await mkdtemp(path.join(os.tmpdir(), 'claude-explicit-transcripts-'));
+    const projectsRoot = await mkdtemp(path.join(canonicalTmpdir(), 'claude-explicit-projects-'));
+    const transcriptsRoot = await mkdtemp(
+      path.join(canonicalTmpdir(), 'claude-explicit-transcripts-'),
+    );
     tempDirs.push(projectsRoot, transcriptsRoot);
 
     const projectFile = path.join(projectsRoot, 'session-a.jsonl');
@@ -178,7 +180,7 @@ describe('ClaudeSourceAdapter', () => {
   });
 
   it('breaks thinking tokens out of output without changing output or total', async () => {
-    const projectsDir = await mkdtemp(path.join(os.tmpdir(), 'claude-thinking-'));
+    const projectsDir = await mkdtemp(path.join(canonicalTmpdir(), 'claude-thinking-'));
     tempDirs.push(projectsDir);
     const filePath = path.join(projectsDir, 'session.jsonl');
 
@@ -220,7 +222,7 @@ describe('ClaudeSourceAdapter', () => {
   });
 
   it('keeps only the final row per message id and maps token buckets', async () => {
-    const projectsDir = await mkdtemp(path.join(os.tmpdir(), 'claude-final-row-'));
+    const projectsDir = await mkdtemp(path.join(canonicalTmpdir(), 'claude-final-row-'));
     tempDirs.push(projectsDir);
     const filePath = path.join(projectsDir, 'session.jsonl');
 
@@ -295,7 +297,7 @@ describe('ClaudeSourceAdapter', () => {
   });
 
   it('infers provider roots from model when provider is missing', async () => {
-    const projectsDir = await mkdtemp(path.join(os.tmpdir(), 'claude-provider-inference-'));
+    const projectsDir = await mkdtemp(path.join(canonicalTmpdir(), 'claude-provider-inference-'));
     tempDirs.push(projectsDir);
     const filePath = path.join(projectsDir, 'session.jsonl');
 
@@ -317,7 +319,7 @@ describe('ClaudeSourceAdapter', () => {
   });
 
   it('reports skipped synthetic and invalid rows', async () => {
-    const projectsDir = await mkdtemp(path.join(os.tmpdir(), 'claude-skipped-'));
+    const projectsDir = await mkdtemp(path.join(canonicalTmpdir(), 'claude-skipped-'));
     tempDirs.push(projectsDir);
     const filePath = path.join(projectsDir, 'session.jsonl');
 
@@ -357,7 +359,7 @@ describe('ClaudeSourceAdapter', () => {
   });
 
   it('counts id-less usage rows via a content-based fallback dedup key', async () => {
-    const projectsDir = await mkdtemp(path.join(os.tmpdir(), 'claude-idless-'));
+    const projectsDir = await mkdtemp(path.join(canonicalTmpdir(), 'claude-idless-'));
     tempDirs.push(projectsDir);
     const filePath = path.join(projectsDir, 'session.jsonl');
 
@@ -407,7 +409,7 @@ describe('ClaudeSourceAdapter', () => {
   });
 
   it('still deduplicates streamed rows sharing message id and request id', async () => {
-    const projectsDir = await mkdtemp(path.join(os.tmpdir(), 'claude-request-dedup-'));
+    const projectsDir = await mkdtemp(path.join(canonicalTmpdir(), 'claude-request-dedup-'));
     tempDirs.push(projectsDir);
     const filePath = path.join(projectsDir, 'session.jsonl');
 
@@ -440,7 +442,7 @@ describe('ClaudeSourceAdapter', () => {
   });
 
   it('skips rows a forked subagent replayed from its parent transcript', async () => {
-    const projectsDir = await mkdtemp(path.join(os.tmpdir(), 'claude-fork-replay-'));
+    const projectsDir = await mkdtemp(path.join(canonicalTmpdir(), 'claude-fork-replay-'));
     tempDirs.push(projectsDir);
     const sessionPath = path.join(projectsDir, 'session-1.jsonl');
     const subagentsDir = path.join(projectsDir, 'session-1', 'subagents');
@@ -506,7 +508,7 @@ describe('ClaudeSourceAdapter', () => {
   });
 
   it('counts retries with the same message id but different request ids separately', async () => {
-    const projectsDir = await mkdtemp(path.join(os.tmpdir(), 'claude-retry-dedup-'));
+    const projectsDir = await mkdtemp(path.join(canonicalTmpdir(), 'claude-retry-dedup-'));
     tempDirs.push(projectsDir);
     const filePath = path.join(projectsDir, 'session.jsonl');
 
@@ -540,7 +542,7 @@ describe('ClaudeSourceAdapter', () => {
   });
 
   it('deduplicates by uuid when message id is absent', async () => {
-    const projectsDir = await mkdtemp(path.join(os.tmpdir(), 'claude-uuid-dedup-'));
+    const projectsDir = await mkdtemp(path.join(canonicalTmpdir(), 'claude-uuid-dedup-'));
     tempDirs.push(projectsDir);
     const filePath = path.join(projectsDir, 'session.jsonl');
 
@@ -571,7 +573,7 @@ describe('ClaudeSourceAdapter', () => {
   });
 
   it('reports malformed JSONL lines that pass its byte prefilter', async () => {
-    const projectsDir = await mkdtemp(path.join(os.tmpdir(), 'claude-malformed-jsonl-'));
+    const projectsDir = await mkdtemp(path.join(canonicalTmpdir(), 'claude-malformed-jsonl-'));
     tempDirs.push(projectsDir);
     const filePath = path.join(projectsDir, 'session.jsonl');
 
@@ -592,7 +594,7 @@ describe('ClaudeSourceAdapter', () => {
     );
 
     const missingAdapter = new ClaudeSourceAdapter({
-      dir: path.join(os.tmpdir(), `missing-claude-${Date.now()}`),
+      dir: path.join(canonicalTmpdir(), `missing-claude-${Date.now()}`),
       requireDir: true,
     });
     await expect(missingAdapter.discoverFiles()).rejects.toThrow(
