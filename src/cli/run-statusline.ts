@@ -1,6 +1,8 @@
 import { formatApproxUsd, formatCompact, formatUsd } from '../render/share-svg-theme.js';
 import { setLogLevel } from '../utils/logger.js';
 import { buildSummaryData } from './build-summary-data.js';
+import { emitDiagnostics } from './emit-diagnostics.js';
+import { emitReportRunDiagnostics } from './report-runtime/report-lifecycle.js';
 import type {
   BuildSummaryDataDeps,
   StatuslineCommandOptions,
@@ -52,24 +54,42 @@ export function formatStatusline(summary: SummaryDataResult): string {
   return parts.join(SEPARATOR);
 }
 
-export async function buildStatusline(
+async function buildStatuslineSummary(
   options: StatuslineCommandOptions,
-  deps: BuildSummaryDataDeps = {},
-): Promise<string> {
+  deps: BuildSummaryDataDeps,
+): Promise<SummaryDataResult> {
   if (options.json) {
     throw new Error('--json is not supported for statusline; use llm-usage summary --json');
   }
 
   // A status line refreshes often: cached or bundled prices only, never a network fetch.
-  return formatStatusline(await buildSummaryData({ ...options, pricingOffline: true }, deps));
+  return buildSummaryData({ ...options, pricingOffline: true }, deps);
+}
+
+export async function buildStatusline(
+  options: StatuslineCommandOptions,
+  deps: BuildSummaryDataDeps = {},
+): Promise<string> {
+  return formatStatusline(await buildStatuslineSummary(options, deps));
 }
 
 export async function runStatusline(options: StatuslineCommandOptions): Promise<void> {
-  // Status bars show stdout; diagnostics would only add noise. Errors still exit non-zero,
-  // and --verbose keeps the configured level to debug a slow or odd line.
+  // Status bars show stdout, so diagnostics stay off unless --verbose asks for them,
+  // as for a report: that is how to debug a slow or odd line. Errors still exit non-zero.
   if (!options.verbose) {
     setLogLevel('silent');
   }
 
-  console.log(await buildStatusline(options));
+  const summary = await buildStatuslineSummary(options, {});
+
+  if (options.verbose) {
+    emitReportRunDiagnostics(summary.diagnostics, {
+      emitCommonDiagnostics: emitDiagnostics,
+      getEnvVarOverrides: (diagnostics) => diagnostics.activeEnvOverrides,
+      getActiveConfig: (diagnostics) => diagnostics.activeConfig,
+      getRuntimeProfile: (diagnostics) => diagnostics.runtimeProfile,
+    });
+  }
+
+  console.log(formatStatusline(summary));
 }
