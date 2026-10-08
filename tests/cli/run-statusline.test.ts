@@ -190,17 +190,18 @@ describe('runStatusline', () => {
     }
   });
 
-  it('keeps the configured log level with --verbose', async () => {
+  it('prints the run diagnostics on stderr with --verbose', async () => {
     const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'statusline-verbose-'));
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
     try {
-      setLogLevel('info');
+      // The CLI's preAction hook raises the level for --verbose; mirror it here.
+      setLogLevel('debug');
       await runStatusline({ source: 'codex', codexDir: emptyDir, timezone: 'UTC', verbose: true });
-      logger.warn('after the run');
 
-      expect(errorSpy.mock.calls.flat().join('\n')).toContain('after the run');
+      expect(logSpy).toHaveBeenCalledTimes(1);
+      expect(errorSpy.mock.calls.flat().join('\n')).toContain('No session files found');
     } finally {
       setLogLevel('info');
       logSpy.mockRestore();
