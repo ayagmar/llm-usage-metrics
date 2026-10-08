@@ -43,8 +43,8 @@ describe('createMachineCommand', () => {
 
     expect(stdout.mock.calls.map(([line]) => String(line))).toEqual([
       'No machines configured.',
-      'Add one with: llm-usage machine add <name> <user@host>',
-      'No machines configured. Add one with: llm-usage machine add <name> <user@host>',
+      'Add one with: llm-usage machine add <name> [user@host]',
+      'No machines configured. Add one with: llm-usage machine add <name> [user@host]',
     ]);
   });
 });

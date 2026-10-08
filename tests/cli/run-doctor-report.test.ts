@@ -903,7 +903,7 @@ describe('renderDoctorText', () => {
       '✔ event-store  sqlite  not yet created',
       '',
       'Sources: 1 found · 1 unparseable · 1 failed · 2 not installed',
-      'Tip: add your other machines to every report with llm-usage machine add <name> <user@host>',
+      'Tip: add your other machines to every report with llm-usage machine add <name> [user@host]',
     ]);
   });
 

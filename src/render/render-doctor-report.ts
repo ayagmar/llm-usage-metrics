@@ -74,7 +74,7 @@ export function renderDoctorText(
   const tip = hasMachines
     ? []
     : [
-        'Tip: add your other machines to every report with llm-usage machine add <name> <user@host>',
+        'Tip: add your other machines to every report with llm-usage machine add <name> [user@host]',
       ];
 
   return [...lines, '', formatSummary(sourceResults), ...tip].join('\n');

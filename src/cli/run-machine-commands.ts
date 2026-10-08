@@ -36,12 +36,14 @@ async function loadConfiguredMachines(): Promise<Record<string, MachineConfig>> 
   return loaded.config.machines ?? {};
 }
 
+/** Without a destination, the name is one too (an ssh_config alias, a host name). */
 export async function runMachineAdd(
   name: string,
-  sshTarget: string,
+  sshDestination: string | undefined,
   options: MachineAddOptions,
   deps: MachineCommandDeps = {},
 ): Promise<void> {
+  const sshTarget = sshDestination ?? name;
   const print = deps.print ?? console.log;
 
   if (!isValidMachineName(name)) {
@@ -170,7 +172,7 @@ export async function runSync(
   if (selected.length === 0) {
     print(
       Object.keys(machines).length === 0
-        ? 'No machines configured. Add one with: llm-usage machine add <name> <user@host>'
+        ? 'No machines configured. Add one with: llm-usage machine add <name> [user@host]'
         : 'Every machine is disabled; name one to sync it anyway.',
     );
     return;

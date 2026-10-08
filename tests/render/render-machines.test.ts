@@ -89,6 +89,7 @@ describe('formatMachinesNote', () => {
         [
           {
             name: 'laptop',
+            enabled: true,
             state: { syncedAt: NOW - 2 * MINUTE, cliVersion: '0.9.0' },
             duplicateCount: 0,
           },
@@ -99,5 +100,37 @@ describe('formatMachinesNote', () => {
     ).toBe(
       'Machines: laptop (synced 2 min ago, llm-usage-metrics 0.9.0 there; shared sessions may count twice until both run the same version).',
     );
+  });
+
+  it('says a disabled machine is not synced, instead of suggesting a sync', () => {
+    expect(
+      formatMachinesNote(
+        [
+          { name: 'old', enabled: false, duplicateCount: 0 },
+          {
+            name: 'vps',
+            enabled: false,
+            state: { syncedAt: NOW - 3 * 60 * MINUTE },
+            duplicateCount: 0,
+          },
+        ],
+        NOW,
+        '1.0.0',
+      ),
+    ).toBe('Machines: old (disabled, nothing cached), vps (disabled, usage from 3 h ago).');
+  });
+});
+
+describe('renderMachineList alignment', () => {
+  it('aligns names and destinations', () => {
+    expect(
+      renderMachineList(
+        [
+          { name: 'vps', machine: { ssh: 'me@10.0.0.9' }, fileCount: 0, eventCount: 0 },
+          { name: 'workstation', machine: { ssh: 'ws' }, fileCount: 0, eventCount: 0 },
+        ],
+        NOW,
+      ),
+    ).toEqual(['vps          me@10.0.0.9  never synced', 'workstation  ws           never synced']);
   });
 });

@@ -108,6 +108,15 @@ describe('machine add, sync, list and remove', () => {
     );
   });
 
+  it('uses the name as the ssh destination when none is given', async () => {
+    const { spawnSsh, calls } = createInProcessRemote(remote);
+
+    await runMachineAdd('laptop', undefined, {}, { spawnSsh, print });
+
+    expect(calls[1]).toContain('laptop');
+    expect(await readFile(localConfigPath, 'utf8')).toBe('[machines.laptop]\nssh = "laptop"\n');
+  });
+
   it('syncs only what changed, and lists the result', async () => {
     const { spawnSsh } = createInProcessRemote(remote);
     await runMachineAdd('laptop', 'me@laptop', {}, { spawnSsh, print });
