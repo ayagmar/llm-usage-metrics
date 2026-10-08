@@ -16,6 +16,12 @@ updates:
         dependency-type: production
       development-dependencies:
         dependency-type: development
+    ignore:
+      # This job also updates the site in the pnpm workspace; see the /site job for why the
+      # site stays on TypeScript 6. Root's `typescript` is the TS6 API alias for typescript-eslint;
+      # the TypeScript 7 compiler is `@typescript/native` and keeps updating.
+      - dependency-name: typescript
+        versions: ['>=7']
 
   - package-ecosystem: npm
     directory: /site

@@ -29,7 +29,7 @@ Faster loops while iterating:
 
 The `test` and `verify` scripts themselves are the unchanged CI gates — use them before committing.
 
-Toolchain note: `pnpm run typecheck` runs `tsc --noEmit` through the native TypeScript 7 compiler (the `@typescript/native` devDependency, aliased to `npm:typescript@7.0.2`). The package named `typescript` is aliased to `npm:@typescript/typescript6@6.0.2` so typescript-eslint keeps resolving a TS6-named API until upstream supports the TS 7 API. The docs site stays on TypeScript 6: `astro check` refuses TypeScript 7.0, and its successor (`@astrojs/ts-content-mapper`) needs 7.1+, so `.github/dependabot.yml` ignores TypeScript 7 for `/site` until that settles.
+Toolchain note: `pnpm run typecheck` runs `tsc --noEmit` through the native TypeScript 7 compiler (the `@typescript/native` devDependency, aliased to `npm:typescript@7.0.2`). The package named `typescript` is aliased to `npm:@typescript/typescript6@6.0.2` so typescript-eslint keeps resolving a TS6-named API until upstream supports the TS 7 API. The docs site stays on TypeScript 6: `astro check` refuses TypeScript 7.0, and its successor (`@astrojs/ts-content-mapper`) needs 7.1+, so `.github/dependabot.yml` ignores `typescript` 7+ in both npm jobs (the root job also updates the site through the pnpm workspace) until that settles. `@typescript/native` is a separate name and keeps updating.
 
 ## CI-parity validation
 
