@@ -29,6 +29,8 @@ const chartBottom = 500;
 // Six named sources fit the legend; the rest share one "other" series.
 const MAX_NAMED_SOURCES = 6;
 const MAX_PERIOD_LABELS = 8;
+/** Slot width under which a centered label would cross the chart edge. */
+const MIN_CENTERED_LABEL_SLOT = 80;
 const MONTH_NAMES = [
   'Jan',
   'Feb',
@@ -200,20 +202,32 @@ function renderPeriodLabels(
 ): string {
   const slot = (chartRight - chartLeft) / periods.length;
   const step = Math.ceil(periods.length / MAX_PERIOD_LABELS);
-  const labels: string[] = [];
+  const lastIndex = periods.length - 1;
+  // Every step-th period, plus the last one; a step label too close to it is dropped.
+  const indexes = [];
 
-  for (let index = 0; index < periods.length; index += step) {
-    labels.push(
-      svgText(
-        chartLeft + index * slot + slot / 2,
-        chartBottom + 26,
-        formatPeriodLabel(periods[index], granularity),
-        { size: 13, fill: theme.textMuted, anchor: 'middle' },
-      ),
-    );
+  for (let index = 0; index < lastIndex; index += step) {
+    if (lastIndex - index >= step * 0.6) {
+      indexes.push(index);
+    }
   }
 
-  return labels.join('\n');
+  indexes.push(lastIndex);
+
+  return indexes
+    .map((index) => {
+      const center = chartLeft + index * slot + slot / 2;
+      // A narrow last slot would center its label past the chart edge, so it ends there instead.
+      const alignEnd = index === lastIndex && slot < MIN_CENTERED_LABEL_SLOT;
+
+      return svgText(
+        alignEnd ? chartRight : center,
+        chartBottom + 26,
+        formatPeriodLabel(periods[index], granularity),
+        { size: 13, fill: theme.textMuted, anchor: alignEnd ? 'end' : 'middle' },
+      );
+    })
+    .join('\n');
 }
 
 export function renderUsageShareSvg(

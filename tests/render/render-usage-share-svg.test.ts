@@ -305,7 +305,11 @@ describe('renderUsageShareSvg', () => {
       dark,
     );
 
-    expect(svg.match(/>Jan \d+</gu)).toHaveLength(8);
+    const labels = svg.match(/>Jan \d+</gu);
+    expect(labels).toHaveLength(8);
+    // The last day is always labelled, ending at the chart edge.
+    expect(labels?.at(-1)).toBe('>Jan 30<');
+    expect(svg).toMatch(/<text x="1136" y="526" text-anchor="end"[^>]*>Jan 30</u);
   });
 
   it('keeps six legend rows and folds the smallest sources into one', () => {
