@@ -158,7 +158,7 @@ describe('run-events-report', () => {
     const lines = output.stdout().trimEnd().split('\n');
 
     expect(lines[0]).toBe(
-      'source,sessionId,timestamp,repoRoot,provider,model,inputTokens,outputTokens,reasoningTokens,cacheReadTokens,cacheWriteTokens,totalTokens,costUsd,costMode',
+      'source,sessionId,timestamp,repoRoot,provider,model,inputTokens,outputTokens,reasoningTokens,cacheReadTokens,cacheWriteTokens,totalTokens,costUsd,costMode,machine',
     );
     expect(lines).toHaveLength(4);
     expect(lines[1]).toContain('"/home/user/repo,with-comma"');

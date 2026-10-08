@@ -39,6 +39,10 @@
       "type": "number",
       "minimum": 0
     },
+    "machine": {
+      "description": "The configured machine the event came from (see machine add); omitted for this machine's own usage.",
+      "type": "string"
+    },
     "costMode": {
       "description": "Whether the cost came from the source (explicit) or from pricing (estimated).",
       "type": "string",

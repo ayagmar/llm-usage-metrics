@@ -5,7 +5,12 @@ import { PassThrough } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildUsageEventDataset } from '../../src/cli/build-usage-event-dataset.js';
+import { Ajv2020 } from 'ajv/dist/2020.js';
+
+import { buildUsageData } from '../../src/cli/build-usage-data.js';
 import { buildDoctorResults } from '../../src/cli/run-doctor-report.js';
+import { schemaDocuments } from '../../src/cli/report-schema-registry.js';
+import { renderReportJson } from '../../src/render/report-json.js';
 import { runMachineExport } from '../../src/cli/run-machine-export.js';
 import { buildStatusline } from '../../src/cli/run-statusline.js';
 import type { MachineExportLine } from '../../src/machines/machine-export-bundle.js';
@@ -350,5 +355,37 @@ describe('reports with other machines', () => {
     expect(machineRows[0].error).toMatch(
       /^me@laptop: synced just now, 2 file\(s\), 4 event\(s\); last attempt failed just now: ssh failed/,
     );
+  });
+
+  it('split rows by machine with --by-machine, in JSON the schema accepts', async () => {
+    const usage = await buildUsageData(
+      'monthly',
+      { timezone: 'UTC', byMachine: true, pricingOffline: true },
+      { spawnSsh: createInProcessRemote(remote).spawnSsh },
+    );
+    const sourceRows = usage.rows.filter((row) => row.rowType === 'period_source');
+
+    expect(sourceRows.map((row) => [row.periodKey, row.source, row.machine])).toEqual([
+      ['2026-01', 'pi', 'local'],
+      ['2026-01', 'codex', 'laptop'],
+      ['2026-02', 'pi', 'local'],
+      ['2026-02', 'codex', 'laptop'],
+    ]);
+    const validate = new Ajv2020({ allErrors: true }).compile(schemaDocuments.usage as object);
+    expect(
+      validate(JSON.parse(renderReportJson('usage', usage.rows))),
+      JSON.stringify(validate.errors),
+    ).toBe(true);
+  });
+
+  it('name the machine of each event from another machine', async () => {
+    const dataset = await buildDataset({ timezone: 'UTC' });
+
+    expect(dataset.filteredEvents.map((event) => [event.source, event.machine]).sort()).toEqual([
+      ['codex', 'laptop'],
+      ['codex', 'laptop'],
+      ['pi', undefined],
+      ['pi', undefined],
+    ]);
   });
 });

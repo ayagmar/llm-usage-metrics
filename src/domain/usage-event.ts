@@ -18,6 +18,9 @@ export const USAGE_EVENT_NORMALIZATION_VERSION = 2;
 
 export type CostMode = 'explicit' | 'estimated';
 
+/** How reports and `--machine` name this machine, next to the configured ones. */
+export const LOCAL_MACHINE_NAME = 'local';
+
 export type UsageEvent = {
   source: SourceId;
   sessionId: string;
@@ -35,6 +38,9 @@ export type UsageEvent = {
 
   costUsd?: number;
   costMode: CostMode;
+
+  /** The configured machine the event came from; undefined for this machine's own usage. */
+  machine?: string;
 };
 
 export type BillableTokenUsage = Pick<

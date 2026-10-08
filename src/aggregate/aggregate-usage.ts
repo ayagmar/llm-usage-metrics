@@ -1,4 +1,4 @@
-import type { UsageEvent } from '../domain/usage-event.js';
+import { LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
 import type {
   GrandTotalRow,
   ModelUsageBreakdown,
@@ -16,6 +16,8 @@ export type AggregateUsageOptions = {
   timezone: string;
   sourceOrder?: string[];
   includeModelBreakdown?: boolean;
+  /** One row per source and machine instead of per source. */
+  byMachine?: boolean;
 };
 
 type RowAccumulator = {
@@ -173,6 +175,37 @@ function sourceSortComparator(
   return compareByCodePoint(left, right);
 }
 
+function toMachineRowKey(source: string, machine: string): string {
+  return `${source}\0${machine}`;
+}
+
+function fromMachineRowKey(rowKey: string): { source: string; machine: string } {
+  const separator = rowKey.indexOf('\0');
+  return { source: rowKey.slice(0, separator), machine: rowKey.slice(separator + 1) };
+}
+
+/** Sources in their usual order; with --by-machine, this machine before the others. */
+function compareRowKeys(
+  left: string,
+  right: string,
+  sourceWeightMap: ReadonlyMap<string, number>,
+  byMachine: boolean,
+): number {
+  if (!byMachine) {
+    return sourceSortComparator(left, right, sourceWeightMap);
+  }
+
+  const leftKey = fromMachineRowKey(left);
+  const rightKey = fromMachineRowKey(right);
+
+  return (
+    sourceSortComparator(leftKey.source, rightKey.source, sourceWeightMap) ||
+    Number(leftKey.machine !== LOCAL_MACHINE_NAME) -
+      Number(rightKey.machine !== LOCAL_MACHINE_NAME) ||
+    compareByCodePoint(leftKey.machine, rightKey.machine)
+  );
+}
+
 export function aggregateUsage(
   events: UsageEvent[],
   options: AggregateUsageOptions,
@@ -191,9 +224,11 @@ export function aggregateUsage(
     const periodSources = periodMap.get(periodKey) ?? new Map<string, RowAccumulator>();
     periodMap.set(periodKey, periodSources);
 
-    const rowAccumulator =
-      periodSources.get(event.source) ?? createRowAccumulator(includeModelBreakdown);
-    periodSources.set(event.source, rowAccumulator);
+    const rowKey = options.byMachine
+      ? toMachineRowKey(event.source, event.machine ?? LOCAL_MACHINE_NAME)
+      : event.source;
+    const rowAccumulator = periodSources.get(rowKey) ?? createRowAccumulator(includeModelBreakdown);
+    periodSources.set(rowKey, rowAccumulator);
 
     addEventToAccumulator(rowAccumulator, event, includeModelBreakdown);
   }
@@ -213,12 +248,15 @@ export function aggregateUsage(
     const periodCombinedTotals = createEmptyTotals();
     const periodCombinedModelTotals = new Map<string, UsageTotals>();
 
-    const sortedSources = [...sourceMap.keys()].sort((left, right) =>
-      sourceSortComparator(left, right, sourceWeightMap),
+    const sortedRowKeys = [...sourceMap.keys()].sort((left, right) =>
+      compareRowKeys(left, right, sourceWeightMap, options.byMachine === true),
     );
 
-    for (const source of sortedSources) {
-      const accumulator = sourceMap.get(source);
+    for (const rowKey of sortedRowKeys) {
+      const accumulator = sourceMap.get(rowKey);
+      const { source, machine } = options.byMachine
+        ? fromMachineRowKey(rowKey)
+        : { source: rowKey, machine: undefined };
 
       if (!accumulator) {
         continue;
@@ -233,6 +271,7 @@ export function aggregateUsage(
         rowType: 'period_source',
         periodKey,
         source,
+        ...(machine === undefined ? {} : { machine }),
         models: rankedModelUsage.models,
         modelBreakdown: rankedModelUsage.modelBreakdown,
         ...accumulator.totals,
@@ -248,7 +287,7 @@ export function aggregateUsage(
       }
     }
 
-    if (sortedSources.length > 1) {
+    if (sortedRowKeys.length > 1) {
       const rankedCombinedModels = includeModelBreakdown
         ? toRankedModelUsage(periodCombinedModelTotals)
         : { models: [], modelBreakdown: [] };

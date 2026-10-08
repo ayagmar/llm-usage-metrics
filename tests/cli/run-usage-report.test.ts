@@ -653,6 +653,12 @@ describe('buildUsageReport', () => {
     ).rejects.toThrow('--compact applies to terminal and markdown tables; drop it with --json');
   });
 
+  it('rejects --by-machine with --share', async () => {
+    await expect(
+      buildUsageReport('daily', { all: true, byMachine: true, share: true }),
+    ).rejects.toThrow('--by-machine splits the table only; drop it with --share');
+  });
+
   it('does not emit a fullscreen hint when terminal column metadata is invalid', async () => {
     const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'usage-run-invalid-columns-'));
     tempDirs.push(emptyDir);

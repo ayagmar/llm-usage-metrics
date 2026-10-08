@@ -201,6 +201,8 @@ Options:
   --all                          Report every day instead of the last 7 days
   --compact                      Abbreviate token counts and hide the Reasoning
                                  and Cache Write columns (terminal/markdown)
+  --by-machine                   Split each source row by the machine its usage
+                                 came from
   -h, --help                     display help for command
 ```
 
@@ -288,6 +290,8 @@ Options:
   --all                          Report every week instead of the last 8 weeks
   --compact                      Abbreviate token counts and hide the Reasoning
                                  and Cache Write columns (terminal/markdown)
+  --by-machine                   Split each source row by the machine its usage
+                                 came from
   -h, --help                     display help for command
 ```
 
@@ -373,6 +377,8 @@ Options:
                                  the page
   --compact                      Abbreviate token counts and hide the Reasoning
                                  and Cache Write columns (terminal/markdown)
+  --by-machine                   Split each source row by the machine its usage
+                                 came from
   -h, --help                     display help for command
 ```
 
@@ -1327,6 +1333,7 @@ Search across root and command help. See Command help above to check which flags
 | `--amp-dir` | - | `<path>` | Path to Amp threads directory \(repeatable\) |
 | `--antigravity-dir` | - | `<path>` | Path to Antigravity conversations directory \(repeatable\) |
 | `--apply` | - | - | Delete selected departed files and vacuum the event store \(prune only\) |
+| `--by-machine` | - | - | Split each source row by the machine its usage came from \(usage reports only\) |
 | `--by-repo` | - | - | Group usage by repository root instead of by session \(session only\) |
 | `--by-source` | - | - | efficiency: Include per-source usage rows under each period; trends: Render one sparkline row per source instead of a single combined chart |
 | `--candidate-model` | - | `<name>` | Candidate model for counterfactual pricing \(repeatable or comma-separated\) \(optimize only\) |

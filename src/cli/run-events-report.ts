@@ -15,7 +15,7 @@ type EventsExportFormat = (typeof eventsExportFormats)[number];
 // Column order is the UsageEvent declaration order and is frozen: new fields
 // append LAST, never reorder.
 const CSV_HEADER =
-  'source,sessionId,timestamp,repoRoot,provider,model,inputTokens,outputTokens,reasoningTokens,cacheReadTokens,cacheWriteTokens,totalTokens,costUsd,costMode';
+  'source,sessionId,timestamp,repoRoot,provider,model,inputTokens,outputTokens,reasoningTokens,cacheReadTokens,cacheWriteTokens,totalTokens,costUsd,costMode,machine';
 
 function resolveEventsFormat(options: EventsCommandOptions): EventsExportFormat {
   if (options.json) {
@@ -73,6 +73,7 @@ function toCsvLine(event: UsageEvent): string {
     event.totalTokens,
     event.costUsd,
     event.costMode,
+    event.machine,
   ]
     .map(toCsvField)
     .join(',');

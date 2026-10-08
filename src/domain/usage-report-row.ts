@@ -22,6 +22,8 @@ export type PeriodSourceRow = UsageTotals & {
   rowType: 'period_source';
   periodKey: string;
   source: SourceId;
+  /** With --by-machine: the machine the row's usage came from (`local` for this one). */
+  machine?: string;
   models: string[];
   modelBreakdown: ModelUsageBreakdown[];
 };

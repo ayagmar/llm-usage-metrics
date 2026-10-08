@@ -8,6 +8,7 @@ import { readRegularTextFile } from '../utils/fs-helpers.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { getUserConfigRootDir } from '../utils/config-root-dir.js';
 import type { LogLevel } from '../utils/logger.js';
+import { LOCAL_MACHINE_NAME } from '../domain/usage-event.js';
 
 const MINUTE_MS = 60_000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -89,8 +90,7 @@ const knownEventStoreKeySet = new Set<string>(knownEventStoreKeys);
 const knownUpdateKeySet = new Set<string>(knownUpdateKeys);
 const knownMachineKeySet = new Set<string>(knownMachineKeys);
 
-/** `local` names this machine in `--machine` filters. */
-export const LOCAL_MACHINE_NAME = 'local';
+export { LOCAL_MACHINE_NAME };
 const MACHINE_NAME_PATTERN = /^[a-z0-9][a-z0-9-]{0,31}$/u;
 
 export function isValidMachineName(name: string): boolean {

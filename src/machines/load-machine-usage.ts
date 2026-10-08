@@ -104,7 +104,9 @@ export async function loadMachineUsage(params: {
   );
 
   return {
-    events: merged.flatMap((machine) => machine.events),
+    events: merged.flatMap((machine) =>
+      machine.events.map((event) => ({ ...event, machine: machine.name })),
+    ),
     machines: readable.map(({ name, usage }, index) => ({
       name,
       state: usage?.state,

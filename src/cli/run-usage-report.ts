@@ -61,6 +61,11 @@ async function prepareUsageReport(
       if (options.compact && options.json) {
         throw new Error('--compact applies to terminal and markdown tables; drop it with --json');
       }
+
+      // The card shows one series per source.
+      if (options.byMachine && options.share) {
+        throw new Error('--by-machine splits the table only; drop it with --share');
+      }
     },
     render: (usageData, format) => {
       const { output, notes } = renderUsageReportWithNotes(usageData, format, {

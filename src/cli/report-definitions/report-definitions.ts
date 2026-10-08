@@ -205,10 +205,12 @@ function createUsageReportDefinition(granularity: ReportGranularity): ReportRunt
         );
       }
 
-      command.option(
-        '--compact',
-        'Abbreviate token counts and hide the Reasoning and Cache Write columns (terminal/markdown)',
-      );
+      command
+        .option(
+          '--compact',
+          'Abbreviate token counts and hide the Reasoning and Cache Write columns (terminal/markdown)',
+        )
+        .option('--by-machine', 'Split each source row by the machine its usage came from');
 
       command.action((options: ReportCommandOptions) => runUsageReport(granularity, options));
 

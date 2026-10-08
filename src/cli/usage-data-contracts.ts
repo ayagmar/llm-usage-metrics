@@ -114,6 +114,8 @@ export type ReportCommandOptions = SharedOptionsForProfile<'usage'> & {
   all?: boolean;
   /** Abbreviated token counts without the Reasoning and Cache Write columns. */
   compact?: boolean;
+  /** One row per source and machine instead of per source. */
+  byMachine?: boolean;
 };
 
 export type SummaryCommandOptions = SharedOptionsForProfile<'summary'>;
