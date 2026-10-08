@@ -30,4 +30,9 @@ describe('getUserConfigRootDir', () => {
 
     expect(configDir).toBe(path.join('/home/test', '.config'));
   });
+  it('ignores a relative XDG_CONFIG_HOME, as the XDG spec requires', () => {
+    expect(getUserConfigRootDir({ XDG_CONFIG_HOME: 'relative/dir' }, 'linux', '/home/test')).toBe(
+      path.join('/home/test', '.config'),
+    );
+  });
 });

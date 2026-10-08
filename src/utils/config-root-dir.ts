@@ -8,7 +8,8 @@ export function getUserConfigRootDir(
 ): string {
   const xdgConfigDir = env.XDG_CONFIG_HOME;
 
-  if (xdgConfigDir) {
+  // The XDG spec says a relative path is invalid and must be ignored.
+  if (xdgConfigDir && path.isAbsolute(xdgConfigDir)) {
     return xdgConfigDir;
   }
 

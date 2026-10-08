@@ -40,9 +40,10 @@ function isControlCodePoint(codePoint: number): boolean {
 
 function isZeroWidthCodePoint(codePoint: number): boolean {
   return (
-    codePoint === 0x200b ||
-    codePoint === 0x200d ||
-    codePoint === 0x2060 ||
+    (codePoint >= 0x200b && codePoint <= 0x200f) ||
+    (codePoint >= 0x202a && codePoint <= 0x202e) ||
+    (codePoint >= 0x2060 && codePoint <= 0x2064) ||
+    (codePoint >= 0x2066 && codePoint <= 0x2069) ||
     codePoint === 0xfeff ||
     (codePoint >= 0xfe00 && codePoint <= 0xfe0f)
   );

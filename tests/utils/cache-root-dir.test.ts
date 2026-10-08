@@ -30,4 +30,9 @@ describe('getUserCacheRootDir', () => {
 
     expect(cacheDir).toBe(path.join('/home/test', '.cache'));
   });
+  it('ignores a relative XDG_CACHE_HOME, as the XDG spec requires', () => {
+    expect(getUserCacheRootDir({ XDG_CACHE_HOME: 'relative/dir' }, 'linux', '/home/test')).toBe(
+      path.join('/home/test', '.cache'),
+    );
+  });
 });
