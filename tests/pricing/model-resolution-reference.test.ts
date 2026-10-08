@@ -17,6 +17,7 @@ const REFERENCE_RESOLUTIONS: ReadonlyArray<[model: string, pricingKey: string | 
   ['claude-3-7-sonnet-20250219', 'claude-3-7-sonnet-20250219'],
   ['claude-haiku-4-5-20251001', 'claude-haiku-4-5-20251001'],
   ['claude-sonnet-4-5@20250929', 'vertex_ai/claude-sonnet-4-5@20250929'],
+  ['gpt-5.4-high', 'gpt-5.4'],
   ['anthropic.claude-sonnet-4-5-20250929-v1:0', 'anthropic.claude-sonnet-4-5-20250929-v1:0'],
   ['anthropic/claude-sonnet-4.5', 'openrouter/anthropic/claude-sonnet-4.5'],
   ['claude-opus-5-5-medium', 'claude-opus-5-5'],

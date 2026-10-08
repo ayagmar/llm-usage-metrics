@@ -298,6 +298,20 @@ function resolveDirectModelMatch(
   return undefined;
 }
 
+const EFFORT_SUFFIX_PATTERN = /-(?:minimal|low|medium|high|xhigh)$/u;
+
+// An effort label names a reasoning setting, not a model: price the base model
+// before any reseller key that happens to spell the suffix (aihubmix/gpt-5.4-high).
+function resolveEffortSuffixMatch(
+  normalizedModel: string,
+  pricingByModel: ReadonlyMap<string, ModelPricing>,
+): string | undefined {
+  const baseModel = normalizedModel.replace(EFFORT_SUFFIX_PATTERN, '');
+  return baseModel === normalizedModel
+    ? undefined
+    : resolveDirectModelMatch(baseModel, pricingByModel);
+}
+
 function resolveProviderPrefixedModelMatch(
   normalizedModel: string,
   pricingByModel: ReadonlyMap<string, ModelPricing>,
@@ -412,6 +426,10 @@ export function resolveCanonicalModelKey(
   const directMatch = resolveDirectModelMatch(normalizedModel, pricingByModel);
   if (directMatch) {
     return directMatch;
+  }
+  const effortSuffixMatch = resolveEffortSuffixMatch(normalizedModel, pricingByModel);
+  if (effortSuffixMatch) {
+    return effortSuffixMatch;
   }
   const providerPrefixedMatch = resolveProviderPrefixedModelMatch(normalizedModel, pricingByModel);
   if (providerPrefixedMatch) {
