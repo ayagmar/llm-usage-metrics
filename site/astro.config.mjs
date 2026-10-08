@@ -71,6 +71,7 @@ export default defineConfig({
             { label: 'Efficiency', slug: 'efficiency' },
             { label: 'Optimize', slug: 'optimize' },
             { label: 'Wrapped recap', slug: 'wrapped' },
+            { label: 'Status line', slug: 'statusline' },
             { label: 'Events export', slug: 'events' },
             { label: 'Output formats', slug: 'output-formats' },
           ],

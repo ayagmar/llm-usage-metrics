@@ -20,7 +20,7 @@ afterEach(async () => {
 });
 
 describe('createCli', () => {
-  it('registers summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, doctor, prune, config, and schema commands', () => {
+  it('registers summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline, doctor, prune, config, and schema commands', () => {
     const cli = createCli();
 
     expect(cli.name()).toBe('llm-usage');
@@ -36,6 +36,7 @@ describe('createCli', () => {
       'session',
       'wrapped',
       'events',
+      'statusline',
       'doctor',
       'prune',
       'config',
@@ -375,6 +376,7 @@ describe('createCli', () => {
       'session',
       'wrapped',
       'events',
+      'statusline',
       'doctor',
       'prune',
     ]);
@@ -389,6 +391,7 @@ describe('createCli', () => {
     expect(getCliReferenceExamples()).toContain('llm-usage monthly --no-history --pricing-offline');
     expect(getCliReferenceExamples()).toContain('llm-usage wrapped --year 2026 --share');
     expect(getCliReferenceExamples()).toContain('llm-usage doctor --json');
+    expect(getCliReferenceExamples()).toContain('llm-usage statusline');
     expect(getCliReferenceExamples()).toContain('llm-usage prune --suppressed');
     expect(getCliReferenceExamples()).toContain(
       'llm-usage prune --departed-before 2026-01-01 --apply',

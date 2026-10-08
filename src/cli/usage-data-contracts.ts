@@ -113,6 +113,8 @@ export type ReportCommandOptions = SharedOptionsForProfile<'usage'> & {
 
 export type SummaryCommandOptions = SharedOptionsForProfile<'summary'>;
 
+export type StatuslineCommandOptions = SharedOptionsForProfile<'statusline'>;
+
 export type EfficiencyCommandOptions = SharedOptionsForProfile<'specialized'> & {
   repoDir?: string;
   includeMergeCommits?: boolean;

@@ -60,6 +60,7 @@ llm-usage doctor
 | How does repo-attributed usage line up with Git activity? | `llm-usage efficiency monthly`            |
 | What would the same token mix cost on another model?      | `llm-usage optimize monthly`              |
 | What did the year add up to?                              | `llm-usage wrapped`                       |
+| What can my status bar show?                              | `llm-usage statusline`                    |
 | How do I get the raw normalized events out?               | `llm-usage events`                        |
 | Which sources and local stores are healthy?               | `llm-usage doctor`                        |
 | Which departed files can leave the event ledger?          | `llm-usage prune`                         |
@@ -89,6 +90,9 @@ llm-usage optimize monthly \
   --provider openai \
   --candidate-model gpt-4.1 \
   --candidate-model gpt-5-codex
+
+# One line for the Claude Code status line, tmux, or starship
+llm-usage statusline
 
 # Normalized events as JSONL, e.g. total tokens per line via jq
 llm-usage events --since 2026-06-01 | jq '.totalTokens'

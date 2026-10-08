@@ -9,6 +9,7 @@ export type SharedOptionProfile =
   | 'session'
   | 'wrapped'
   | 'events'
+  | 'statusline'
   | 'doctor';
 
 export type ReportHelpExample = {
