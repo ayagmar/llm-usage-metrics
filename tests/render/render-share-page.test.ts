@@ -51,6 +51,7 @@ describe('renderSharePage', () => {
     });
 
     expect(page).toContain('<title>&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;');
-    expect(page.match(/<script>/gu)).toHaveLength(1);
+    // Only the page's own script element: the hostile file name stays an escaped attribute.
+    expect(page.toLowerCase().split('<script').length - 1).toBe(1);
   });
 });
