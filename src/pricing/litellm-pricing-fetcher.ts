@@ -301,6 +301,16 @@ function formatBundledSnapshotWarning(fetchedAt: number): string {
   return `Pricing: using the bundled LiteLLM snapshot from ${fetchedDate} (run online to refresh).`;
 }
 
+function formatStaleCacheWarning(fetchedAt: number, fetchError: string | undefined): string {
+  const fetchedDate = new Date(fetchedAt).toISOString().slice(0, 10);
+
+  if (fetchError === undefined) {
+    return `Pricing: using cached LiteLLM pricing from ${fetchedDate}, past its refresh interval (run online to refresh).`;
+  }
+
+  return `Pricing: the LiteLLM refresh failed (${fetchError}); using cached pricing from ${fetchedDate}.`;
+}
+
 export function getDefaultLiteLLMPricingCachePath(): string {
   return path.join(getUserCacheRootDir(), 'llm-usage-metrics', 'litellm-pricing-cache.json');
 }
@@ -378,8 +388,11 @@ export class LiteLLMPricingFetcher implements PricingSource {
     try {
       await this.loadFromRemote();
       return false;
-    } catch {
-      const staleCacheLoaded = await this.loadFromCache({ allowStale: true });
+    } catch (error) {
+      const staleCacheLoaded = await this.loadFromCache({
+        allowStale: true,
+        fetchError: error instanceof Error ? error.message : String(error),
+      });
 
       if (!staleCacheLoaded) {
         const bundledSnapshotLoaded = this.loadFromBundledSnapshot();
@@ -516,7 +529,10 @@ export class LiteLLMPricingFetcher implements PricingSource {
     this.backfillRetiredModels();
   }
 
-  private async loadFromCache(options: { allowStale: boolean }): Promise<boolean> {
+  private async loadFromCache(options: {
+    allowStale: boolean;
+    fetchError?: string;
+  }): Promise<boolean> {
     const cacheFileContent = await this.readCachePayload();
 
     if (!cacheFileContent) {
@@ -549,7 +565,9 @@ export class LiteLLMPricingFetcher implements PricingSource {
     }
 
     this.loadOrigin = 'cache';
-    this.pricingWarning = undefined;
+    this.pricingWarning = isStale
+      ? formatStaleCacheWarning(cacheFileContent.fetchedAt, options.fetchError)
+      : undefined;
     this.backfillRetiredModels();
     return true;
   }

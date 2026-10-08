@@ -25,7 +25,12 @@ date:
 Pricing: using the bundled LiteLLM snapshot from 2026-10-06 (run online to refresh).
 ```
 
-Online runs refresh a stale cache; omitting `--pricing-offline` can still use a fresh cache. Custom
+Online runs refresh a stale cache; omitting `--pricing-offline` can still use a fresh cache. A cache past its refresh interval is still used when the refresh fails or the run is offline, and `stderr` then names the cache date (and the fetch error, when a refresh was attempted):
+
+```text
+Pricing: the LiteLLM refresh failed (network timeout); using cached pricing from 2026-07-01.
+```
+ Custom
 `--pricing-url` values do not fall back to the bundled default snapshot; they
 must load from their matching cache or network URL.
 
