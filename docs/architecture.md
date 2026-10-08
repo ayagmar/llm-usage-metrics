@@ -17,7 +17,7 @@ This keeps source-specific parsing, pricing, aggregation, rendering, and command
 ### Report definitions
 
 - `src/cli/report-definitions/report-definitions.ts`
-  Owns the canonical registry for `summary` (the default command), `daily`, `weekly`, `monthly`, `compare`, `efficiency`, `optimize`, `trends`, `session`, `wrapped`, `statusline`, `doctor`, `prune`, and `events`. (`config` and `schema` are registered directly in `create-cli.ts`.)
+  Owns the canonical registry for `summary` (the default command), `daily`, `weekly`, `monthly`, `compare`, `efficiency`, `optimize`, `trends`, `session`, `wrapped`, `statusline`, `doctor`, `prune`, and `events`. (`config`, `schema`, and `completion` are registered directly in `create-cli.ts`; `create-completion-command.ts` generates the bash, zsh, and fish scripts from the live command tree.)
 - `src/cli/report-definitions/shared-report-options.ts`
   Registers the shared option surface by profile (`usage`, `summary`, `specialized`, `compare`, `trends`, `session`, `wrapped`, `events`, `statusline`, `doctor`).
 

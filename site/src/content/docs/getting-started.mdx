@@ -98,6 +98,23 @@ The command writes a commented TOML file with the current defaults and a JSON Sc
 
 CLI flags override environment variables, which override the config file. [Configuration](/llm-usage-metrics/configuration/) lists every key and its matching flag.
 
+## 6. Turn on tab completion
+
+`llm-usage completion <shell>` prints a completion script for bash, zsh, or fish. It completes commands, flags, source ids after `--source`, and file paths after the directory flags, for both `llm-usage` and `llm-usage-metrics`:
+
+```bash
+# bash: add to ~/.bashrc
+source <(llm-usage completion bash)
+
+# zsh: add to ~/.zshrc, after compinit
+source <(llm-usage completion zsh)
+
+# fish
+llm-usage completion fish > ~/.config/fish/completions/llm-usage.fish
+```
+
+Every command's `--help` ends with a few examples.
+
 ## If the first report is empty
 
 Run the discovery probe:

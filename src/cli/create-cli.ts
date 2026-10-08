@@ -8,7 +8,8 @@ import {
   SUMMARY_COMMAND_NAME,
 } from './report-definitions/report-definitions.js';
 import { createConfigCommand } from './create-config-command.js';
-import { createSchemaCommand } from './create-schema-command.js';
+import { createCompletionCommand, COMPLETION_SHELLS } from './create-completion-command.js';
+import { createSchemaCommand, schemaNames } from './create-schema-command.js';
 
 export type CreateCliOptions = {
   version?: string;
@@ -110,6 +111,15 @@ export function createCli(options: CreateCliOptions = {}): Command {
   }
   program.addCommand(createConfigCommand());
   program.addCommand(createSchemaCommand());
+  const granularities = ['daily', 'weekly', 'monthly'];
+  program.addCommand(
+    createCompletionCommand(() => program, {
+      efficiency: granularities,
+      optimize: granularities,
+      schema: schemaNames,
+      completion: COMPLETION_SHELLS,
+    }),
+  );
 
   program.hook('preAction', (_thisCommand, actionCommand) => {
     const { quiet, verbose } = actionCommand.opts<{ quiet?: boolean; verbose?: boolean }>();

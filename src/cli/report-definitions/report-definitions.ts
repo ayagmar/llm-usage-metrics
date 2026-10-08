@@ -57,10 +57,24 @@ function parseGranularityArgument(value: string): ReportGranularity {
   throw new Error(`Invalid granularity: ${value}. Expected one of: daily, weekly, monthly`);
 }
 
+const MAX_COMMAND_HELP_EXAMPLES = 4;
+
+/** An `Examples:` block for `--help`, or nothing when there are no examples. */
+export function formatHelpExamples(commands: readonly string[]): string {
+  return commands.length === 0
+    ? ''
+    : ['', 'Examples:', ...commands.map((command) => `  $ ${command}`)].join('\n');
+}
+
 function createCommand(definition: ReportRuntimeDefinition): Command {
   const command = new Command(definition.meta.commandName);
   command.description(definition.meta.description);
   registerSharedReportOptions(command, definition.meta.sharedOptionProfile);
+  const examples = definition.meta.helpExamples
+    .map((example) => example.command)
+    .filter((example) => !example.endsWith(' --help'))
+    .slice(0, MAX_COMMAND_HELP_EXAMPLES);
+  command.addHelpText('after', formatHelpExamples(examples));
   return definition.register(command);
 }
 

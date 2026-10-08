@@ -19,6 +19,7 @@ import { DEFAULT_LITELLM_PRICING_URL } from '../pricing/litellm-pricing-fetcher.
 import { asRecord } from '../utils/as-record.js';
 import { logger } from '../utils/logger.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
+import { formatHelpExamples } from './report-definitions/report-definitions.js';
 import { buildActiveConfigLines } from './emit-active-config.js';
 
 type ConfigInitOptions = {
@@ -111,7 +112,16 @@ async function configFileExists(configPath: string): Promise<boolean> {
 }
 
 export function createConfigCommand(): Command {
-  const configCommand = new Command('config').description('Manage user configuration');
+  const configCommand = new Command('config')
+    .description('Manage user configuration')
+    .addHelpText(
+      'after',
+      formatHelpExamples([
+        'llm-usage config init',
+        'llm-usage config show',
+        'llm-usage config path',
+      ]),
+    );
   const initCommand = new Command('init')
     .description('Write a commented config template')
     .option('--force', 'Overwrite an existing config file')
