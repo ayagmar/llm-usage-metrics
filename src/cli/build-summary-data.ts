@@ -1,3 +1,4 @@
+import { aggregateDailyActivity, resolveActivityStart } from '../aggregate/daily-activity.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { getCurrentLocalDateKey, shiftLocalDateKey } from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
@@ -69,11 +70,10 @@ export async function buildSummaryData(
     userConfigResolution.cliOptions,
   );
   const windows = resolveSummaryWindows(timezone, deps.now?.() ?? new Date());
-  const since = windows.reduce(
-    (earliest, window) => (window.since < earliest ? window.since : earliest),
-    windows[0].since,
-  );
-  const datasetOptions = { ...configuredOptions, since, until: windows[0].until, timezone };
+  const today = windows[0].until;
+  // The activity grid reaches back a year, which covers every summary window.
+  const since = resolveActivityStart(today);
+  const datasetOptions = { ...configuredOptions, since, until: today, timezone };
   const dataset = await measureRuntimeProfileStage(
     deps.runtimeProfile,
     'summary.dataset.total',
@@ -110,9 +110,14 @@ export async function buildSummaryData(
     }),
   );
 
+  const activity = measureRuntimeProfileStageSync(deps.runtimeProfile, 'summary.activity', () =>
+    aggregateDailyActivity(pricedEvents, { from: since, to: today, timezone }),
+  );
+
   return {
     timezone,
     periods,
+    activity,
     diagnostics: buildUsageDiagnostics({
       adaptersToParse: dataset.adaptersToParse,
       successfulParseResults: dataset.successfulParseResults,

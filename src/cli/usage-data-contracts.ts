@@ -1,3 +1,4 @@
+import type { DailyActivity } from '../aggregate/daily-activity.js';
 import type { EnvVarOverride } from '../config/env-var-display.js';
 import type { ActiveConfig } from '../config/active-config-display.js';
 import type {
@@ -292,6 +293,8 @@ export type SummaryPeriod = {
 export type SummaryDataResult = {
   timezone: string;
   periods: SummaryPeriod[];
+  /** Daily activity over the past 53 ISO weeks, ending today. */
+  activity: DailyActivity;
   diagnostics: UsageDiagnostics;
 };
 

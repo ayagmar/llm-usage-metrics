@@ -139,6 +139,36 @@ describe('buildSummaryData', () => {
     ]);
   });
 
+  it('reports streaks and activity over the past year, beyond the summary periods', async () => {
+    const result = await buildSummaryData(
+      { timezone: 'UTC', pricingOffline: true },
+      runtimeDeps(
+        [
+          createAdapter('codex', [
+            // Before the activity window (it starts Monday 2025-03-10).
+            createEvent('2025-03-09T09:00:00.000Z'),
+            // Months back: outside every summary period, inside the activity window.
+            createEvent('2025-09-01T09:00:00.000Z', { totalTokens: 900 }),
+            createEvent('2025-09-02T09:00:00.000Z'),
+            createEvent('2025-09-03T09:00:00.000Z'),
+            createEvent('2026-03-09T09:00:00.000Z'),
+          ]),
+        ],
+        '2026-03-10T18:00:00.000Z',
+      ),
+    );
+
+    expect(result.periods.map((period) => period.totals.events)).toEqual([0, 1, 1]);
+    expect(result.activity).toMatchObject({
+      from: '2025-03-10',
+      to: '2026-03-10',
+      activeDays: 4,
+      currentStreak: 1,
+      longestStreak: 3,
+      bestDay: { date: '2025-09-01', totalTokens: 900, costUsd: 1 },
+    });
+  });
+
   it('covers the last days of the previous month early in a month', async () => {
     const result = await buildSummaryData(
       { timezone: 'UTC', pricingOffline: true },

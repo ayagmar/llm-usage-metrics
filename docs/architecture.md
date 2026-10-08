@@ -189,7 +189,7 @@ That keeps sorting and separator behavior deterministic without coupling the gen
 - `src/persistence`
   SQLite event-store ledger, schema migrations, history suppression
 - `src/aggregate`
-  Period/source usage aggregation
+  Period/source usage aggregation; `daily-activity.ts` holds the streak, best-day, and heatmap-level logic shared by `summary` and `wrapped`
 - `src/efficiency`
   Repo attribution, Git outcomes, efficiency aggregation
 - `src/optimize`
