@@ -386,7 +386,7 @@ describe('createCli', () => {
       'llm-usage compare --since 2026-06-01 --until 2026-06-30 --vs-since 2026-05-01 --vs-until 2026-05-31',
     );
     expect(getCliReferenceExamples()).toContain('llm-usage session --top 5 --json');
-    expect(getCliReferenceExamples()).toContain('llm-usage monthly --history --pricing-offline');
+    expect(getCliReferenceExamples()).toContain('llm-usage monthly --no-history --pricing-offline');
     expect(getCliReferenceExamples()).toContain('llm-usage wrapped --year 2026 --share');
     expect(getCliReferenceExamples()).toContain('llm-usage doctor --json');
     expect(getCliReferenceExamples()).toContain('llm-usage prune --suppressed');

@@ -15,6 +15,7 @@ import {
 import { createDefaultAdapters } from '../sources/create-default-adapters.js';
 import {
   normalizeBuildUsageInputs,
+  resolveCliDirectorySourceIds,
   selectAdaptersForParsing,
   throwOnExplicitSourceScopeConflicts,
 } from './build-usage-data-inputs.js';
@@ -146,7 +147,12 @@ export async function buildUsageEventDataset(
     ...collectRuntimeConfigEntries(userConfigResolution.loadedConfig),
   ]);
 
-  if (configuredOptions.history && !eventStoreRuntimeConfig.enabled) {
+  // History is on by default; only an explicit --history fails when it cannot be honored.
+  const historyRequested = configuredOptions.history === true;
+  const cliDirectorySourceIds = resolveCliDirectorySourceIds(userConfigResolution.cliOptions);
+  const includeHistory = configuredOptions.history !== false;
+
+  if (historyRequested && !eventStoreRuntimeConfig.enabled) {
     throw new Error(
       eventStoreRuntimeConfig.disabledBy === 'environment'
         ? '--history requires the event store (unset LLM_USAGE_EVENT_STORE=0)'
@@ -199,7 +205,7 @@ export async function buildUsageEventDataset(
             const openStore = deps.openEventStore ?? openEventStore;
             openedEventStore = await openStore(eventStoreRuntimeConfig.path);
           } catch (error) {
-            if (configuredOptions.history) {
+            if (historyRequested) {
               throw new Error(
                 `--history could not open the event store at ${eventStoreRuntimeConfig.path}: ${getErrorReason(error)}`,
                 { cause: error },
@@ -237,7 +243,13 @@ export async function buildUsageEventDataset(
 
     const historyStore = openedEventStore;
 
-    if (configuredOptions.history && eventStoreAvailable && historyStore) {
+    // By default, a source pointed at a custom directory (e.g. an export) gets no history:
+    // departed files from its usual location would leak into a report scoped elsewhere.
+    const historySources = successfulParseResults
+      .map((result) => result.source)
+      .filter((source) => historyRequested || !cliDirectorySourceIds.has(source.toLowerCase()));
+
+    if (includeHistory && eventStoreAvailable && historyStore && historySources.length > 0) {
       const loadHistoryEvents = deps.loadHistoryEvents ?? loadDefaultHistoryEvents;
 
       try {
@@ -252,7 +264,7 @@ export async function buildUsageEventDataset(
                 {
                   // Only successfully parsed sources: a failed source has an empty
                   // discovered set, so all its stored files would look departed.
-                  selectedSources: successfulParseResults.map((result) => result.source),
+                  selectedSources: historySources,
                   discoveredFiles,
                 },
                 { unverifiable: 'treat-as-departed' },
@@ -263,7 +275,10 @@ export async function buildUsageEventDataset(
           parseResultsForFiltering,
           historyResult.events,
         );
-        historyNotes.push(formatHistoryNote(historyResult));
+        // Default history stays quiet unless it changes the numbers.
+        if (historyRequested || historyResult.servedFileCount > 0) {
+          historyNotes.push(formatHistoryNote(historyResult));
+        }
       } catch (error) {
         historyWarnings.push(`Event store disabled after failure: ${getErrorReason(error)}`);
       }

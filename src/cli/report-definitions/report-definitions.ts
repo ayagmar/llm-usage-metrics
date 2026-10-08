@@ -128,7 +128,7 @@ function createUsageReportDefinition(granularity: ReportGranularity): ReportRunt
         includeInCliReference: true,
       },
       {
-        command: 'llm-usage monthly --history --pricing-offline',
+        command: 'llm-usage monthly --no-history --pricing-offline',
         includeInCliReference: true,
       },
       {

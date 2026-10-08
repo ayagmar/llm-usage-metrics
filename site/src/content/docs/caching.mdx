@@ -64,7 +64,7 @@ Relevant options/config:
 - fingerprints also include a parser version, so upgrading to a release with parser fixes re-parses stored files once
 - persisted as SQLite with per-file replace-on-change writes, batched into one transaction per source
 - with `--since`, file-per-session sources skip files whose newest `mtime` (including sidecars) is more than a day before the window; with the store on, only files the store already holds are skipped, so the ledger still ingests older files
-- `--history` includes usage from files that no longer exist on disk
+- reports include usage from files that no longer exist on disk by default; `--no-history` leaves it out
 - moved, renamed, and copied files are suppressed by content hash to avoid double counting
 - `llm-usage prune` previews or deletes departed-file rows explicitly
 - first run after a store schema upgrade migrates the database in place and may take a few seconds

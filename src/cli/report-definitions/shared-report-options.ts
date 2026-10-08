@@ -280,10 +280,12 @@ export function registerSharedReportOptions(
   }
 
   if (profileConfig.includeHistory) {
-    configuredCommand.option(
-      '--history',
-      'include usage from files that no longer exist on disk (from the local event store)',
-    );
+    configuredCommand
+      .option(
+        '--history',
+        'include usage from files that no longer exist on disk (the default; fails if the event store is unavailable)',
+      )
+      .option('--no-history', 'leave out usage from files that no longer exist on disk');
   }
 
   if (profileConfig.includeMarkdown) {

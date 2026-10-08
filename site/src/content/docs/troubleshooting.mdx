@@ -76,10 +76,10 @@ A pricing load error can also come from an invalid overrides file or an unreacha
 
 Source tools normalize token buckets differently. Check the relevant [source guide](/llm-usage-metrics/sources/) before comparing the report with the tool's own dashboard. Also check the report timezone and date bounds.
 
-The default report uses discovered source files. To include retained events from files that left the disk, use:
+Reports include retained events from files that left the disk by default. To compare against discovered files only, use:
 
 ```bash
-llm-usage monthly --history
+llm-usage monthly --no-history
 ```
 
 :::caution[The ledger contains retained history]
