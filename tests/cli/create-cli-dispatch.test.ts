@@ -29,6 +29,8 @@ describe('createCli dispatch', () => {
         'compare',
         '--since',
         '2026-06-01',
+        '--until',
+        '2026-06-30',
         '--vs-since',
         '2026-05-01',
         '--vs-until',
@@ -39,6 +41,7 @@ describe('createCli dispatch', () => {
       expected: [
         expect.objectContaining({
           since: '2026-06-01',
+          until: '2026-06-30',
           vsSince: '2026-05-01',
           vsUntil: '2026-05-31',
           history: true,
@@ -109,7 +112,6 @@ describe('createCli dispatch', () => {
         '--top',
         '2',
         '--markdown',
-        '--by-repo',
         '--source',
         'pi,codex',
         '--id',
@@ -122,11 +124,15 @@ describe('createCli dispatch', () => {
           json: true,
           markdown: true,
           top: '2',
-          byRepo: true,
           source: ['pi,codex'],
           id: ['486c', 'abc,def'],
         }),
       ],
+    },
+    {
+      runner: runSessionReport,
+      argv: ['session', '--by-repo', '--top', '5'],
+      expected: [expect.objectContaining({ byRepo: true, top: '5' })],
     },
     {
       runner: runTrendsReport,

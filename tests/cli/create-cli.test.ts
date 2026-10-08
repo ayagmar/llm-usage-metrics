@@ -20,6 +20,22 @@ afterEach(async () => {
   tempDirs.length = 0;
 });
 
+const sourcePathFlags = getSourceOverrideOptions().map((option) => option.flag.split(' ')[0]);
+const usageReportFlags = [
+  '--markdown',
+  '--per-model-columns',
+  '--pricing-url',
+  '--pricing-offline',
+  '--ignore-pricing-failures',
+  '--source',
+  '--source-dir',
+  '--model',
+  '--history',
+  '--machine',
+  '--by-machine',
+  ...sourcePathFlags,
+];
+
 function getLongFlags(command: Command | undefined): string[] {
   return (command?.options ?? []).flatMap((option) => (option.long ? [option.long] : []));
 }
@@ -54,25 +70,9 @@ describe('createCli', () => {
 
   // Which shared and command flags each command has, and which it must not have.
   it.each([
-    {
-      command: 'daily',
-      present: [
-        '--markdown',
-        '--per-model-columns',
-        '--pricing-url',
-        '--pricing-offline',
-        '--ignore-pricing-failures',
-        '--source',
-        '--source-dir',
-        '--model',
-        '--history',
-        '--machine',
-        '--by-machine',
-        '--claude-dir',
-        '--opencode-db',
-      ],
-      absent: [],
-    },
+    { command: 'daily', present: usageReportFlags, absent: [] },
+    { command: 'weekly', present: usageReportFlags, absent: [] },
+    { command: 'monthly', present: usageReportFlags, absent: [] },
     {
       command: 'optimize',
       present: ['--candidate-model', '--top', '--share', '--history'],
@@ -115,6 +115,9 @@ describe('createCli', () => {
       present: [
         '--vs-since',
         '--vs-until',
+        '--source',
+        '--timezone',
+        '--pricing-url',
         '--json',
         '--markdown',
         '--since',
@@ -130,6 +133,7 @@ describe('createCli', () => {
       command: 'wrapped',
       present: [
         '--year',
+        '--pricing-url',
         '--json',
         '--share',
         '--source',
@@ -148,7 +152,7 @@ describe('createCli', () => {
     },
     {
       command: 'doctor',
-      present: ['--json', '--source', '--source-dir', '--pi-dir', '--opencode-db', '--goose-db'],
+      present: ['--json', '--source', '--source-dir', ...sourcePathFlags],
       absent: [
         '--markdown',
         '--since',
