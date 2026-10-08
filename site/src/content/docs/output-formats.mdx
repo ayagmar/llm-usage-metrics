@@ -76,7 +76,7 @@ llm-usage schema usage > report-usage.schema.json
 llm-usage schema --list
 ```
 
-`schema` accepts every report name plus `events-line` and `config`, and prints the schema document itself (not wrapped in the report envelope).
+`schema` accepts every report name plus `events-line` and `config`, and prints the schema document itself (not wrapped in the report envelope). Report and `events-line` schemas embed the shared definitions under `$defs`, so the printed file compiles on its own in any JSON Schema 2020-12 validator.
 
 ## Markdown
 

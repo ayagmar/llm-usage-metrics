@@ -3,6 +3,7 @@
   "$id": "https://ayagmar.github.io/llm-usage-metrics/report-session.v1.schema.json",
   "title": "llm-usage-metrics session report output (v1)",
   "description": "Envelope and payload for session report --json output (session rows, or repo rows with --by-repo).",
+  "type": "object",
   "allOf": [
     {
       "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope"
@@ -29,6 +30,7 @@
   },
   "$defs": {
     "sessionRow": {
+      "type": "object",
       "description": "One session with aggregated usage.",
       "allOf": [
         {
@@ -97,6 +99,7 @@
       "unevaluatedProperties": false
     },
     "repoRow": {
+      "type": "object",
       "description": "One repository with aggregated usage (--by-repo).",
       "allOf": [
         {

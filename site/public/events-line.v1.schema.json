@@ -3,6 +3,7 @@
   "$id": "https://ayagmar.github.io/llm-usage-metrics/events-line.v1.schema.json",
   "title": "llm-usage-metrics events export line (v1)",
   "description": "One JSONL line of llm-usage events output: a normalized usage event. Lines are not wrapped in the report envelope.",
+  "type": "object",
   "allOf": [
     {
       "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/tokenBuckets"

@@ -1,4 +1,4 @@
-import { readdir, readFile, mkdtemp, rm } from 'node:fs/promises';
+import { readdir, mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -38,37 +38,26 @@ const fixtureOptions = {
 const validators = new Map<string, ValidateFunction>();
 const tempDirs: string[] = [];
 
+const reportNamesOnDisk: string[] = [];
+
 async function loadValidators(): Promise<void> {
-  const ajv = new Ajv2020({ allErrors: true });
-  const schemaDir = path.resolve('schema');
-  const schemaFiles = (await readdir(schemaDir)).filter(
+  const schemaFiles = (await readdir(path.resolve('schema'))).filter(
     (name) => name.startsWith('report-') && name.endsWith('.v1.schema.json'),
   );
 
   for (const name of schemaFiles) {
-    const schema = JSON.parse(await readFile(path.join(schemaDir, name), 'utf8')) as Record<
-      string,
-      unknown
-    >;
-    ajv.addSchema(schema);
-  }
-
-  for (const name of schemaFiles) {
     const reportName = name.replace('report-', '').replace('.v1.schema.json', '');
 
-    if (reportName === 'common') {
-      continue;
+    if (reportName !== 'common') {
+      reportNamesOnDisk.push(reportName);
     }
+  }
 
-    const validate = ajv.getSchema(
-      `https://ayagmar.github.io/llm-usage-metrics/report-${reportName}.v1.schema.json`,
-    );
-
-    if (!validate) {
-      throw new Error(`Schema for report ${reportName} did not register`);
-    }
-
-    validators.set(reportName, validate);
+  // Compile what `llm-usage schema <report>` prints, alone and in strict mode, so the
+  // printed schemas are proven self-contained against real report output.
+  for (const [reportName, schema] of Object.entries(reportSchemas)) {
+    const ajv = new Ajv2020({ allErrors: true, strict: true });
+    validators.set(reportName, ajv.compile(schema as object));
   }
 }
 
@@ -114,8 +103,8 @@ afterAll(async () => {
 });
 
 describe('report json schema e2e', () => {
-  it('registers a validator for every report in the schema registry', () => {
-    expect([...validators.keys()].sort()).toEqual(Object.keys(reportSchemas).sort());
+  it('registers every report schema file in the schema registry', () => {
+    expect(reportNamesOnDisk.sort()).toEqual(Object.keys(reportSchemas).sort());
   });
 
   it('validates usage output', async () => {

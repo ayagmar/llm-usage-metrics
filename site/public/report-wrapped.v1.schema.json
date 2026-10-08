@@ -3,6 +3,7 @@
   "$id": "https://ayagmar.github.io/llm-usage-metrics/report-wrapped.v1.schema.json",
   "title": "llm-usage-metrics wrapped report output (v1)",
   "description": "Envelope and payload for wrapped report --json output.",
+  "type": "object",
   "allOf": [
     {
       "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope"
