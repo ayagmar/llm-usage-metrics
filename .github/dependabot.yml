@@ -16,6 +16,13 @@ updates:
         dependency-type: production
       development-dependencies:
         dependency-type: development
+    ignore:
+      # This job also updates the site in the pnpm workspace; see the /site job for why the
+      # site stays on TypeScript 6. Root's `typescript` is the TS6 API alias for typescript-eslint.
+      # This rule does not cover the TypeScript 7 compiler (`@typescript/native`), but Dependabot
+      # does not update `npm:` aliases at all, so bump that one by hand.
+      - dependency-name: typescript
+        versions: ['>=7']
 
   - package-ecosystem: npm
     directory: /site
@@ -32,6 +39,13 @@ updates:
       site-dependencies:
         patterns:
           - '*'
+    ignore:
+      # astro check (Site - Astro Check in CI) refuses TypeScript 7.0 and asks for TypeScript 6;
+      # its successor, @astrojs/ts-content-mapper, needs TypeScript 7.1+. The CLI itself already
+      # type-checks with TypeScript 7 (@typescript/native). Lift this once the site's checker
+      # supports a stable TypeScript 7.
+      - dependency-name: typescript
+        versions: ['>=7']
 
   - package-ecosystem: github-actions
     directory: /
