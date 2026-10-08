@@ -241,15 +241,22 @@ describe('createDefaultAdapters', () => {
   });
 
   it('gives Claude every directory in one adapter so fork deduplication sees all roots', async () => {
-    const missingDir = path.join(canonicalTmpdir(), 'llm-usage-missing-claude-root');
-    const claude = createDefaultAdapters({ claudeDir: [canonicalTmpdir(), missingDir] }).find(
+    // An empty directory of its own: the system temp dir can hold anything, and scanning
+    // it is slow.
+    const existingDir = await mkdtemp(path.join(canonicalTmpdir(), 'llm-usage-claude-root-'));
+    const missingDir = path.join(existingDir, 'missing');
+    const claude = createDefaultAdapters({ claudeDir: [existingDir, missingDir] }).find(
       (adapter) => adapter.id === 'claude',
     );
 
-    expect(claude).toBeInstanceOf(ClaudeSourceAdapter);
-    await expect(claude?.discoverFiles()).rejects.toThrow(
-      `Claude projects directory is missing or unreadable: ${missingDir}`,
-    );
+    try {
+      expect(claude).toBeInstanceOf(ClaudeSourceAdapter);
+      await expect(claude?.discoverFiles()).rejects.toThrow(
+        `Claude projects directory is missing or unreadable: ${missingDir}`,
+      );
+    } finally {
+      await rm(existingDir, { recursive: true, force: true });
+    }
   });
 
   it('rejects several paths for a database source', () => {
