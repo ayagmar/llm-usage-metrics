@@ -17,8 +17,8 @@ The line shows today's cost, the current streak (left out at zero), and month-to
 
 It is built for frequent refreshes:
 
-- pricing is never fetched: it uses cached LiteLLM prices, or the bundled snapshot when there is no cache
-- the update check is skipped, and nothing is printed on `stderr`; errors still exit non-zero
+- pricing is never fetched: it uses cached LiteLLM prices, or the bundled snapshot when there is no cache. With a custom `--pricing-url` or `pricing.url`, run any report online once so that URL's prices are cached; until then `statusline` exits with an error
+- the update check is skipped, and nothing is printed on `stderr`; errors still exit non-zero. Add `--verbose` to see the warnings it hides, and run `llm-usage doctor` if refreshes feel slow (an unusable event store means every run reparses all files)
 - parsed events come from the event store, so repeat runs only reparse changed files
 
 It accepts the source, provider, model, timezone, pricing-override, and history flags of the other reports, so a status line can show one tool only:
@@ -26,6 +26,8 @@ It accepts the source, provider, model, timezone, pricing-override, and history 
 ```bash
 llm-usage statusline --source claude
 ```
+
+A filtered line shows no budget, since the budget covers all your usage.
 
 `--json` is not supported; use `llm-usage summary --json` for structured data.
 
