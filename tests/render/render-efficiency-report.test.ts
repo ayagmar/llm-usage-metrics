@@ -6,34 +6,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderEfficiencyReport } from '../../src/render/render-efficiency-report.js';
 import type { EfficiencyDataResult, UsageDiagnostics } from '../../src/cli/usage-data-contracts.js';
 import { visibleWidth } from '../../src/render/table-text-layout.js';
+import { overrideStdoutProperty } from '../helpers/stdout.js';
 
 function stripAnsi(value: string): string {
   return stripVTControlCharacters(value);
 }
 
 const pendingStdoutRestores = new Set<() => void>();
-
-function overrideStdoutProperty<Key extends 'isTTY' | 'columns'>(
-  property: Key,
-  value: NodeJS.WriteStream[Key],
-): () => void {
-  const stdout = process.stdout as NodeJS.WriteStream;
-  const previousDescriptor = Object.getOwnPropertyDescriptor(stdout, property);
-
-  Object.defineProperty(stdout, property, {
-    configurable: true,
-    value,
-  });
-
-  return () => {
-    if (previousDescriptor) {
-      Object.defineProperty(stdout, property, previousDescriptor);
-      return;
-    }
-
-    Reflect.deleteProperty(stdout, property);
-  };
-}
 
 function overrideStdoutTty(columns: number): () => void {
   const restoreIsTTY = overrideStdoutProperty('isTTY', true);

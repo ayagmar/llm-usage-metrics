@@ -7,6 +7,7 @@ import {
   renderTerminalTableWithFit,
   shouldUseColorByDefault,
 } from '../../src/render/terminal-table.js';
+import { overrideStdoutProperty as overrideSharedStdoutProperty } from '../helpers/stdout.js';
 
 function maxLineWidth(output: string): number {
   return output
@@ -115,28 +116,13 @@ const sampleRows: UsageReportRow[] = [
 
 const originalNoColor = process.env.NO_COLOR;
 const originalForceColor = process.env.FORCE_COLOR;
-const stdout = process.stdout as NodeJS.WriteStream;
 const stdoutRestoreStack: Array<() => void> = [];
 
 function overrideStdoutProperty<Key extends 'isTTY' | 'columns'>(
   property: Key,
   value: NodeJS.WriteStream[Key],
 ): void {
-  const previousDescriptor = Object.getOwnPropertyDescriptor(stdout, property);
-
-  Object.defineProperty(stdout, property, {
-    configurable: true,
-    value,
-  });
-
-  stdoutRestoreStack.push(() => {
-    if (previousDescriptor) {
-      Object.defineProperty(stdout, property, previousDescriptor);
-      return;
-    }
-
-    Reflect.deleteProperty(stdout, property);
-  });
+  stdoutRestoreStack.push(overrideSharedStdoutProperty(property, value));
 }
 
 afterEach(() => {
