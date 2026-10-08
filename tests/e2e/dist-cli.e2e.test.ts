@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 
 const execFileAsync = promisify(execFile);
 const distCliPath = path.resolve('dist/index.js');
+const distBinPath = path.resolve('dist/bin.js');
 const piDir = path.resolve('tests/fixtures/e2e/pi');
 const codexDir = path.resolve('tests/fixtures/e2e/codex');
 const largeCodexDir = path.resolve('tests/fixtures/e2e-large/codex');
@@ -47,6 +48,36 @@ if (!existsSync(distCliPath)) {
 }
 
 describe.skipIf(!existsSync(distCliPath))('dist CLI e2e', () => {
+  // Installs run dist/bin.js, which enables Node's compile cache and then loads index.js.
+  it('runs the same CLI through the published bin loader', async () => {
+    const packageJson = JSON.parse(await readFile('package.json', 'utf8')) as {
+      bin: Record<string, string>;
+      files: string[];
+    };
+    expect(Object.values(packageJson.bin)).toEqual(['dist/bin.js', 'dist/bin.js']);
+    expect(packageJson.files).toEqual(expect.arrayContaining(['dist/bin.js', 'dist/index.js']));
+
+    const args = [
+      'monthly',
+      '--json',
+      '--timezone',
+      'UTC',
+      '--source',
+      'pi,codex',
+      '--pi-dir',
+      piDir,
+      '--codex-dir',
+      codexDir,
+      '--pricing-offline',
+    ];
+    const options = { encoding: 'utf8' as const, env: createSmokeEnv(), maxBuffer: 1024 * 1024 };
+    const viaBin = await execFileAsync(process.execPath, [distBinPath, ...args], options);
+    const viaIndex = await execFileAsync(process.execPath, [distCliPath, ...args], options);
+
+    expect(viaBin.stdout).toBe(viaIndex.stdout);
+    expect(JSON.parse(viaBin.stdout)).toMatchObject({ report: 'usage' });
+  });
+
   it('prints data-only monthly JSON from the built CLI', async () => {
     const { stdout, stderr } = await execFileAsync(
       process.execPath,

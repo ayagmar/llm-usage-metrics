@@ -8,16 +8,17 @@
     "node": ">=22.16 <23 || >=24"
   },
   "bin": {
-    "llm-usage": "dist/index.js",
-    "llm-usage-metrics": "dist/index.js"
+    "llm-usage": "dist/bin.js",
+    "llm-usage-metrics": "dist/bin.js"
   },
   "files": [
+    "dist/bin.js",
     "dist/index.js",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsup src/cli/index.ts --format esm --clean --sourcemap",
+    "build": "tsup src/cli/index.ts src/cli/bin.ts --format esm --clean --sourcemap",
     "cli": "tsx src/cli/index.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
