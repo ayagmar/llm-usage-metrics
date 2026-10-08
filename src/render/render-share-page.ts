@@ -2,6 +2,7 @@ import {
   escapeSvg,
   SHARE_HEIGHT,
   SHARE_WIDTH,
+  shareFonts,
   shareThemes,
   type ShareThemeName,
 } from './share-svg-theme.js';
@@ -77,7 +78,13 @@ async function copyImage() {
     return;
   }
   try {
-    await navigator.clipboard.write([new ClipboardItem({ 'image/png': renderPng() })]);
+    // A pending blob keeps Safari's user activation; older Chromium only takes a resolved one.
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': renderPng() })]);
+    } catch (error) {
+      if (!(error instanceof TypeError)) throw error;
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': await renderPng() })]);
+    }
     status.textContent = 'Copied the image to the clipboard';
   } catch (error) {
     status.textContent = 'Could not copy the image: ' + error.message + '. Use Download PNG instead.';
@@ -104,7 +111,7 @@ body {
   padding: 32px 16px;
   display: grid;
   place-items: center;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  font-family: ${shareFonts.sans};
   background: ${dark.bg};
   color: ${dark.text};
 }

@@ -4,7 +4,6 @@ import {
   countActivityWeeks,
   escapeSvg,
   formatCompact,
-  formatDecimal,
   formatInteger,
   formatUsd,
   getSourceColor,
@@ -15,6 +14,7 @@ import {
   svgText,
   truncateLabel,
 } from '../../src/render/share-svg-theme.js';
+import { getLocalDateKeyRange } from '../../src/utils/time-buckets.js';
 import { expectShareCard, HOSTILE_TEXT } from './share-svg-assertions.js';
 
 describe('share-svg-theme', () => {
@@ -41,6 +41,10 @@ describe('share-svg-theme', () => {
   });
 
   describe('escapeSvg', () => {
+    it('drops characters XML forbids, keeping valid emoji', () => {
+      expect(escapeSvg('a\u0000b\u001Fc\uD800d😀\tok')).toBe('abcd😀\tok');
+    });
+
     it('escapes all XML special characters', () => {
       expect(escapeSvg('a & b < c > d " e \' f')).toBe('a &amp; b &lt; c &gt; d &quot; e &#39; f');
     });
@@ -96,10 +100,6 @@ describe('share-svg-theme', () => {
   });
 
   describe('renderActivityGrid', () => {
-    const days = ['2026-01-01', '2026-01-02', '2026-01-05', '2026-01-31', '2026-02-02'].map(
-      (date) => ({ date, totalTokens: 1, level: 2 as const }),
-    );
-
     it('puts each day in its Monday-first row and week column', () => {
       // A contiguous Thursday-to-Monday run: Thursday is row 3, Monday opens column 1.
       const run = ['2026-01-01', '2026-01-02', '2026-01-03', '2026-01-04', '2026-01-05'].map(
@@ -120,15 +120,40 @@ describe('share-svg-theme', () => {
     });
 
     it('labels the first column and each month that has room', () => {
-      const grid = renderActivityGrid({
-        theme: shareThemes.dark,
-        days: days.slice(0, 1),
-        x: 100,
-        y: 50,
-        pitch: 20,
-      });
+      const monthLabels = (from: string, to: string) =>
+        [
+          ...renderActivityGrid({
+            theme: shareThemes.dark,
+            days: getLocalDateKeyRange(from, to).map((date) => ({
+              date,
+              totalTokens: 0,
+              level: 0,
+            })),
+            x: 100,
+            y: 50,
+            pitch: 20,
+          }).matchAll(/<text x="(\d+)" y="40"[^>]*>(\w{3})</gu),
+        ].map((match) => [Number(match[1]), match[2]]);
 
-      expect(grid).toContain('>Jan<');
+      // November's first Monday is only one column after October's label: no room, no label.
+      expect(monthLabels('2025-10-29', '2025-11-30')).toEqual([[100, 'Oct']]);
+      // A whole year labels every month at the column of its first Monday.
+      const year = monthLabels('2026-01-01', '2026-12-31');
+      expect(year.map(([, label]) => label)).toEqual([
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ]);
+      expect(year[1]).toEqual([200, 'Feb']); // Monday 2026-02-02 opens column 5.
       expect(renderActivityGrid({ theme: shareThemes.dark, days: [], x: 0, y: 0, pitch: 20 })).toBe(
         '',
       );
@@ -162,16 +187,6 @@ describe('share-svg-theme', () => {
   describe('formatInteger', () => {
     it('formats with commas', () => {
       expect(formatInteger(1234567)).toBe('1,234,567');
-    });
-  });
-
-  describe('formatDecimal', () => {
-    it('formats with 2 decimal places', () => {
-      expect(formatDecimal(491.67)).toBe('491.67');
-    });
-
-    it('returns dash for undefined', () => {
-      expect(formatDecimal(undefined)).toBe('-');
     });
   });
 

@@ -106,8 +106,14 @@ export function getSourceColor(source: string, index: number): string {
   return knownSourceColors[source] ?? fallbackColors[index % fallbackColors.length];
 }
 
+// Characters XML 1.0 forbids even when escaped; a corrupted log line can carry them.
+// With the u flag, the surrogate range only matches unpaired surrogates.
+// eslint-disable-next-line no-control-regex -- matching control characters is the point
+const XML_INVALID_CHARACTERS = /[\u0000-\u0008\v\f\u000E-\u001F\uD800-\uDFFF\uFFFE\uFFFF]/gu;
+
 export function escapeSvg(value: string): string {
   return value
+    .replace(XML_INVALID_CHARACTERS, '')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
@@ -161,7 +167,6 @@ export type ShareCardOptions = {
   /** Right side of the footer, usually the date range. */
   footnote?: string;
   body: string;
-  defs?: string;
 };
 
 /** The frame every card shares: background, title block, wordmark, and footer. */
@@ -177,10 +182,9 @@ export function renderShareCard(options: ShareCardOptions): string {
           fill: theme.textMuted,
           anchor: 'end',
         });
-  const defs = options.defs === undefined ? '' : `<defs>\n${options.defs}\n</defs>\n`;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${SHARE_WIDTH}" height="${SHARE_HEIGHT}" viewBox="0 0 ${SHARE_WIDTH} ${SHARE_HEIGHT}" data-theme="${theme.name}">
-${defs}<rect width="${SHARE_WIDTH}" height="${SHARE_HEIGHT}" fill="${theme.bg}"/>
+<rect width="${SHARE_WIDTH}" height="${SHARE_HEIGHT}" fill="${theme.bg}"/>
 ${svgText(SHARE_MARGIN, 82, options.title, { size: 34, weight: 700, fill: theme.text })}
 ${svgText(SHARE_MARGIN, 114, options.subtitle, { size: 17, fill: theme.textSecondary })}
 ${svgText(right, 74, 'llm-usage-metrics', { size: 15, fill: theme.textMuted, mono: true, anchor: 'end' })}
@@ -385,10 +389,6 @@ export function formatCompact(n: number): string {
 }
 
 const intFmt = new Intl.NumberFormat('en-US');
-const decFmt = new Intl.NumberFormat('en-US', {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
 const usdFmt = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -398,10 +398,6 @@ const usdFmt = new Intl.NumberFormat('en-US', {
 
 export function formatInteger(n: number): string {
   return intFmt.format(n);
-}
-
-export function formatDecimal(n: number | undefined): string {
-  return n === undefined ? '-' : decFmt.format(n);
 }
 
 export function formatUsd(n: number | undefined): string {

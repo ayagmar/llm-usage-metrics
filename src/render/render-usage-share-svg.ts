@@ -1,6 +1,6 @@
 import type { UsageDataResult } from '../cli/usage-data-contracts.js';
 import type { GrandTotalRow, PeriodSourceRow, UsageReportRow } from '../domain/usage-report-row.js';
-import type { ReportGranularity } from '../utils/time-buckets.js';
+import { getPeriodKeyRange, type ReportGranularity } from '../utils/time-buckets.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import {
   escapeSvg,
@@ -223,7 +223,12 @@ export function renderUsageShareSvg(
 ): string {
   const sourceRows = extractPeriodSourceRows(usageData.rows);
   const grandTotal = extractGrandTotal(usageData.rows);
-  const periods = [...new Set(sourceRows.map((r) => r.periodKey))].sort(compareByCodePoint);
+  const usedPeriods = [...new Set(sourceRows.map((r) => r.periodKey))].sort(compareByCodePoint);
+  // Periods without usage keep an empty slot, so the bars never read as consecutive.
+  const periods =
+    usedPeriods.length === 0
+      ? []
+      : getPeriodKeyRange(usedPeriods[0], usedPeriods[usedPeriods.length - 1], granularity);
   const series = buildSourceSeries(sourceRows, periods, theme);
   const totalTokens = grandTotal?.totalTokens ?? 0;
   const range =
@@ -255,7 +260,7 @@ export function renderUsageShareSvg(
             y: statsTop + 108,
             label: 'Tokens',
             value: formatCompact(totalTokens),
-            detail: `${formatInteger(periods.length)} ${granularity === 'daily' ? 'days' : granularity === 'weekly' ? 'weeks' : 'months'} with usage`,
+            detail: `${formatInteger(usedPeriods.length)} ${granularity === 'daily' ? 'days' : granularity === 'weekly' ? 'weeks' : 'months'} with usage`,
             size: 30,
           }),
           renderLegend(series, totalTokens, theme),

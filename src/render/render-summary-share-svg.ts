@@ -49,7 +49,8 @@ function renderStats(data: SummaryDataResult, theme: ShareTheme): string {
   const { activity } = data;
   const monthToDate = findPeriod(data, 'monthToDate');
   const bestDay = activity.bestDay;
-  const columns = [right - 650, right - 430, right - 210];
+  // The last column leaves room for a month-to-date figure like ~$123,456.78.
+  const columns = [right - 660, right - 450, right - 250];
 
   return [
     renderStat({

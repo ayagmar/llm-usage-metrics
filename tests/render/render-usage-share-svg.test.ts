@@ -264,6 +264,36 @@ describe('renderUsageShareSvg', () => {
     expect(weekly).toContain('$ llm-usage weekly --share');
   });
 
+  it('keeps an empty slot for each period without usage', () => {
+    const [svg] = renderInBothThemes((theme) =>
+      renderUsageShareSvg(
+        withPeriods(createManySourcesData(['pi']), ['2026-03', '2026-06']),
+        'monthly',
+        theme,
+      ),
+    );
+
+    expect(svg.match(/>\w{3} 2026</gu)).toEqual([
+      '>Mar 2026<',
+      '>Apr 2026<',
+      '>May 2026<',
+      '>Jun 2026<',
+    ]);
+    expect(svg).toContain('2 months with usage');
+    // Two bars across four slots: Mar in the first, Jun in the last.
+    const barXs = [...svg.matchAll(/<rect x="([0-9.]+)" y="[0-9.]+" width="[0-9.]+" height/gu)]
+      .map((match) => Number(match[1]))
+      .filter((x) => x >= 420); // chart area; the legend swatches sit left of it
+    expect(barXs).toHaveLength(2);
+    expect(barXs[1] - barXs[0]).toBeCloseTo((3 * (1136 - 420)) / 4, 1);
+  });
+
+  it('drops characters XML forbids from source names', () => {
+    renderInBothThemes((theme) =>
+      renderUsageShareSvg(createManySourcesData(['bad\u0001name\uD800']), 'monthly', theme),
+    );
+  });
+
   it('draws at most eight period labels', () => {
     const periods = Array.from(
       { length: 30 },

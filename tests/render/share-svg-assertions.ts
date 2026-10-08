@@ -10,6 +10,8 @@ const THEME_NAMES: readonly ShareThemeName[] = ['dark', 'light'];
 const ENTITY_PATTERN = /&(?:amp|lt|gt|quot|#39);/gu;
 const ATTRIBUTE_PATTERN = /\s([\w:-]+)="([^"<]*)"/gu;
 const TAG_NAME_PATTERN = /^[a-zA-Z][\w:-]*/u;
+// eslint-disable-next-line no-control-regex -- XML 1.0 forbids these characters
+const XML_INVALID_CHARACTER = /[\u0000-\u0008\v\f\u000E-\u001F\uD800-\uDFFF\uFFFE\uFFFF]/u;
 
 /** Hostile text that must come out escaped: markup, an ampersand, and both quotes. */
 export const HOSTILE_TEXT = `<script>alert("x")</script> & 'q'`;
@@ -18,6 +20,7 @@ function expectEscapedText(text: string, context: string): void {
   const withoutEntities = text.replace(ENTITY_PATTERN, '');
   expect(withoutEntities, `raw & in ${context}`).not.toContain('&');
   expect(withoutEntities, `raw < in ${context}`).not.toContain('<');
+  expect(text, `XML-forbidden character in ${context}`).not.toMatch(XML_INVALID_CHARACTER);
 }
 
 /**

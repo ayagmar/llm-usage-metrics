@@ -3,7 +3,7 @@ title: Wrapped Recap
 description: A yearly usage recap in the terminal and as a shareable SVG.
 ---
 
-`llm-usage wrapped` condenses a full year of local usage into a single recap: totals, active days, the longest daily streak, estimated activity hours and time patterns, estimated cache savings, the top models and sources, a month-by-month intensity strip in the terminal, and a day-by-day activity heatmap in the share SVG.
+`llm-usage wrapped` condenses a full year of local usage into a single recap: totals, active days, the longest daily streak, estimated activity hours and time patterns, estimated cache savings, the top models and sources, a month-by-month intensity strip in the terminal, and a day-by-day activity heatmap in the share card.
 
 ## Command structure
 
@@ -102,4 +102,4 @@ The time stats read as follows. `Hours` estimates activity from event timing: pe
 }
 ```
 
-`dailyIntensity` carries one entry per day of the year (inactive days included at level `0`). Active days are banded into quartile levels `1`–`4`, which is what the share SVG heatmap renders.
+`dailyIntensity` carries one entry per day of the year (inactive days included at level `0`). Active days are banded into quartile levels `1`–`4`, which is what the share card heatmap renders.

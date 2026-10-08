@@ -52,13 +52,10 @@ function normalizeDescription(text, optionLong, scopeSuffix) {
       ? text.replace(/\(default:\s*"[^"]+"\)/g, '(default: local system timezone)')
       : text;
 
-  const normalizedDescription =
-    optionLong === '--share'
-      ? 'Write a share card (SVG and an HTML page with PNG export) to the current directory'
-      : timezoneNormalizedText
-          .replace(/\bmarkdown\b/giu, 'Markdown')
-          .replace(/\s+/g, ' ')
-          .trim();
+  const normalizedDescription = timezoneNormalizedText
+    .replace(/\bmarkdown\b/giu, 'Markdown')
+    .replace(/\s+/g, ' ')
+    .trim();
 
   return appendScopeSuffix(normalizedDescription, scopeSuffix);
 }

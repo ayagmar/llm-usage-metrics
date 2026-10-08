@@ -301,7 +301,10 @@ export function registerSharedReportOptions(
 
   if (profileConfig.includeShare) {
     configuredCommand
-      .option('--share', 'Write a share card (SVG and an HTML page with PNG export) here')
+      .option(
+        '--share',
+        'Write a share card (SVG and an HTML page with PNG export) to the current directory',
+      )
       .option('--no-open', 'With --share, write the files without opening the page');
   }
 

@@ -104,6 +104,17 @@ describe('renderSummaryShareSvg', () => {
     expect(svg).toMatch(/data-date="2025-03-10" data-level="0" x="100" y="352"/u);
   });
 
+  it('keeps a six-figure month-to-date cost inside the right margin', () => {
+    const data = createSummaryData([TODAY]);
+    data.periods[0].totals.costUsd = 123_456.78;
+
+    const svg = renderSummaryShareSvg(data, shareThemes.dark);
+
+    // Twelve 34px monospace glyphs (about 0.6em each) from x=886 end before the 1136 margin.
+    expect(svg).toMatch(/<text x="886" y="214"[^>]*>~\$123,456\.78</u);
+    expect(886 + 12 * 34 * 0.6).toBeLessThan(1136);
+  });
+
   it('uses singular units and a dash for a missing best day', () => {
     const single = renderSummaryShareSvg(createSummaryData([TODAY]), shareThemes.dark);
     expect(single).toMatch(/>1<tspan[^>]*>day<\/tspan>/u);
