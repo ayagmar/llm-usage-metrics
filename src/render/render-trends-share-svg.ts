@@ -9,11 +9,12 @@ import {
   renderEmptyState,
   renderShareCard,
   renderStat,
+  renderValueGridLines,
   scaleY,
   SHARE_MARGIN,
   SHARE_WIDTH,
-  svgText,
   type ShareTheme,
+  svgText,
 } from './share-svg-theme.js';
 
 const statsTop = 160;
@@ -96,31 +97,6 @@ function renderSummaryStats(data: TrendsDataResult, theme: ShareTheme): string {
     .join('\n');
 }
 
-function renderGridLines(scaleMax: number, metric: TrendsMetric, theme: ShareTheme): string {
-  const lines: string[] = [];
-
-  for (let step = 1; step <= 3; step += 1) {
-    const value = (scaleMax / 3) * step;
-    const y = scaleY(value, scaleMax, chartTop, chartBottom);
-
-    lines.push(
-      `<line x1="${chartLeft}" y1="${y.toFixed(2)}" x2="${chartRight}" y2="${y.toFixed(2)}" stroke="${theme.line}" stroke-width="1" stroke-dasharray="3 5"/>`,
-      svgText(chartLeft - 10, y + 4, formatMetricValue(value, metric), {
-        size: 12,
-        fill: theme.textMuted,
-        mono: true,
-        anchor: 'end',
-      }),
-    );
-  }
-
-  lines.push(
-    `<line x1="${chartLeft}" y1="${chartBottom}" x2="${chartRight}" y2="${chartBottom}" stroke="${theme.line}" stroke-width="1"/>`,
-  );
-
-  return lines.join('\n');
-}
-
 /** One bar per day, shaded by quartile like the activity heatmap; days without data are faint. */
 function renderBars(buckets: readonly TrendBucket[], scaleMax: number, theme: ShareTheme): string {
   const slot = (chartRight - chartLeft) / buckets.length;
@@ -171,7 +147,12 @@ export function renderTrendsShareSvg(data: TrendsDataResult, theme: ShareTheme):
       ? renderEmptyState(theme, 'No usage in this window')
       : [
           renderSummaryStats(data, theme),
-          renderGridLines(scaleMax, data.metric, theme),
+          renderValueGridLines(
+            scaleMax,
+            { left: chartLeft, right: chartRight, top: chartTop, bottom: chartBottom },
+            (value) => formatMetricValue(value, data.metric),
+            theme,
+          ),
           renderBars(buckets, scaleMax, theme),
           renderDateLabels(buckets, theme),
         ].join('\n');

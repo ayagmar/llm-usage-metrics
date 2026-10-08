@@ -9,6 +9,7 @@
 import type { ActivityDay } from '../aggregate/daily-activity.js';
 import { getIsoDayOfWeekFromDateKey, shiftLocalDateKey } from '../utils/time-buckets.js';
 import { segmentGraphemes } from './table-text-layout.js';
+import { MONTH_LABELS } from './month-labels.js';
 
 export type ShareThemeName = 'dark' | 'light';
 
@@ -258,20 +259,6 @@ export function renderEmptyState(theme: ShareTheme, message: string): string {
   });
 }
 
-const MONTH_LABELS = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
 const WEEKDAY_LABELS = [
   { row: 0, label: 'Mon' },
   { row: 2, label: 'Wed' },
@@ -419,4 +406,37 @@ export function formatDayUnit(count: number): string {
 export function scaleY(value: number, max: number, top: number, bottom: number): number {
   if (max <= 0) return bottom;
   return bottom - (Math.max(0, value) / max) * (bottom - top);
+}
+
+export type ChartBounds = { left: number; right: number; top: number; bottom: number };
+
+/** Three dashed value lines with labels on the left, and the chart's baseline. */
+export function renderValueGridLines(
+  scaleMax: number,
+  chart: ChartBounds,
+  formatValue: (value: number) => string,
+  theme: ShareTheme,
+): string {
+  const lines: string[] = [];
+
+  for (let step = 1; step <= 3; step += 1) {
+    const value = (scaleMax / 3) * step;
+    const y = scaleY(value, scaleMax, chart.top, chart.bottom);
+
+    lines.push(
+      `<line x1="${chart.left}" y1="${y.toFixed(2)}" x2="${chart.right}" y2="${y.toFixed(2)}" stroke="${theme.line}" stroke-width="1" stroke-dasharray="3 5"/>`,
+      svgText(chart.left - 10, y + 4, formatValue(value), {
+        size: 12,
+        fill: theme.textMuted,
+        mono: true,
+        anchor: 'end',
+      }),
+    );
+  }
+
+  lines.push(
+    `<line x1="${chart.left}" y1="${chart.bottom}" x2="${chart.right}" y2="${chart.bottom}" stroke="${theme.line}" stroke-width="1"/>`,
+  );
+
+  return lines.join('\n');
 }

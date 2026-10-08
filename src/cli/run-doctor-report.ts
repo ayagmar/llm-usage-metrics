@@ -12,7 +12,6 @@ import {
 } from '../persistence/event-store.js';
 import {
   createDefaultAdapters,
-  getDefaultSourceIds,
   getSourceStorageFormat,
   type SourceStorageFormat,
 } from '../sources/create-default-adapters.js';
@@ -20,9 +19,8 @@ import type { SourceAdapter } from '../sources/source-adapter.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { logger } from '../utils/logger.js';
 import {
-  normalizeSourceFilter,
   resolveExplicitSourceIds,
-  validateSourceFilterValues,
+  selectAdaptersBySourceFilter,
 } from './build-usage-data-inputs.js';
 import { resolveUserConfigForOptions, type UserConfigResolutionDeps } from './apply-user-config.js';
 import { emitUserConfigResolution } from './emit-active-config.js';
@@ -35,6 +33,7 @@ import { renderReportJson } from '../render/report-json.js';
 import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
 import type { DoctorCommandOptions } from './usage-data-contracts.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
+import { hasErrorCode } from '../utils/error-code.js';
 
 /**
  * found: files with readable usage. not_installed: no files in any searched path.
@@ -74,10 +73,6 @@ type DoctorDeps = UserConfigResolutionDeps & {
 };
 
 type DiscoveredFilesBySource = Map<string, Set<string>>;
-
-function isMissingPathError(error: unknown): error is NodeJS.ErrnoException {
-  return typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT';
-}
 
 async function sortNewestFirst(files: readonly string[]): Promise<string[]> {
   const mtimes = await Promise.all(
@@ -191,27 +186,13 @@ async function buildSourceResult(
   return { result, files };
 }
 
-function selectDoctorAdapters(
-  adapters: SourceAdapter[],
-  source: DoctorCommandOptions['source'],
-): SourceAdapter[] {
-  const sourceFilter = normalizeSourceFilter(source);
-  validateSourceFilterValues(sourceFilter, new Set(getDefaultSourceIds()));
-
-  if (!sourceFilter) {
-    return adapters;
-  }
-
-  return adapters.filter((adapter) => sourceFilter.has(adapter.id.toLowerCase()));
-}
-
 export async function buildDoctorResults(
   options: DoctorCommandOptions,
   deps: DoctorDeps = {},
 ): Promise<DoctorSourceResult[]> {
   const userConfigResolution = await resolveUserConfigForOptions(options, deps);
   const configuredOptions = userConfigResolution.options;
-  const adapters = selectDoctorAdapters(
+  const adapters = selectAdaptersBySourceFilter(
     createDefaultAdapters(configuredOptions),
     configuredOptions.source,
   );
@@ -332,7 +313,7 @@ async function buildEventStoreDoctorResult(
   try {
     fileStats = await stat(filePath);
   } catch (error) {
-    if (isMissingPathError(error)) {
+    if (hasErrorCode(error, 'ENOENT')) {
       const legacyPath = await findLegacyEventStore(filePath);
 
       return {

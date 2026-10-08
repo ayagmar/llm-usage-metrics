@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
 
 import { asRecord } from '../utils/as-record.js';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
@@ -69,12 +70,6 @@ function isRetryableFetchFailure(error: unknown): boolean {
   }
 
   return /timeout|timed out|network|econn|enotfound|eai_again/iu.test(error.message);
-}
-
-async function sleep(delayMs: number): Promise<void> {
-  await new Promise<void>((resolve) => {
-    setTimeout(resolve, delayMs);
-  });
 }
 
 let bundledLiteLLMPricingSnapshot: LiteLLMCachePayload | undefined;

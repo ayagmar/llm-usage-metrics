@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
 
 import type { UsageEvent } from '../../domain/usage-event.js';
 import { pathExists, pathIsFile, pathReadable } from '../../utils/fs-helpers.js';
@@ -8,6 +9,7 @@ import { loadNodeSqliteModule, type SqliteModule } from './node-sqlite-loader.js
 import { parseOpenCodeMessageRows } from './opencode-row-parser.js';
 import { runWithBusyRetries, type SleepFn } from './opencode-retry-policy.js';
 import { queryOpenCodeMessageRows } from './opencode-sqlite-query.js';
+import { isBlankText } from '../parsing-utils.js';
 
 const DEFAULT_BUSY_RETRY_COUNT = 2;
 const DEFAULT_BUSY_RETRY_DELAY_MS = 50;
@@ -25,16 +27,6 @@ export type OpenCodeSourceAdapterOptions = {
   busyRetryDelayMs?: number;
   sleep?: SleepFn;
 };
-
-function isBlankText(value: string): boolean {
-  return value.trim().length === 0;
-}
-
-async function sleep(delayMs: number): Promise<void> {
-  await new Promise<void>((resolve) => {
-    setTimeout(resolve, delayMs);
-  });
-}
 
 // `-wal` holds commits that are not checkpointed into the database file yet. `-shm` is
 // only an index of it, and a read-only open rewrites it, so keying on it would miss the

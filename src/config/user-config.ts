@@ -9,6 +9,7 @@ import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { getUserConfigRootDir } from '../utils/config-root-dir.js';
 import type { LogLevel } from '../utils/logger.js';
 import { LOCAL_MACHINE_NAME } from '../domain/usage-event.js';
+import { hasErrorCode } from '../utils/error-code.js';
 
 const MINUTE_MS = 60_000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -176,10 +177,6 @@ export function resolveUserConfigPath(env: NodeJS.ProcessEnv = process.env): str
   return getDefaultUserConfigPath(env);
 }
 
-function isMissingFileError(error: unknown): boolean {
-  return asRecord(error)?.code === 'ENOENT';
-}
-
 function hasConfigPathOverride(env: NodeJS.ProcessEnv): boolean {
   return Boolean(env.LLM_USAGE_CONFIG_PATH?.trim());
 }
@@ -197,7 +194,7 @@ async function throwIfLegacyJsonConfigExists(
   try {
     await readFile(jsonPath);
   } catch (error) {
-    if (isMissingFileError(error)) {
+    if (hasErrorCode(error, 'ENOENT')) {
       return;
     }
 
@@ -809,7 +806,7 @@ export async function loadUserConfig(
   try {
     content = await readFile(configPath);
   } catch (error) {
-    if (isMissingFileError(error)) {
+    if (hasErrorCode(error, 'ENOENT')) {
       if (!hasConfigPathOverride(env)) {
         await throwIfLegacyJsonConfigExists(configPath, readFile);
       }

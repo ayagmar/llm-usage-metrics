@@ -15,14 +15,10 @@ import {
   type ClassifiedDepartedFile,
   type EventStoreHistoryDiscoveredFile,
 } from '../persistence/event-store-history.js';
-import { createDefaultAdapters, getDefaultSourceIds } from '../sources/create-default-adapters.js';
+import { createDefaultAdapters } from '../sources/create-default-adapters.js';
 import type { SourceAdapter } from '../sources/source-adapter.js';
 import { renderPruneReport } from '../render/render-prune-report.js';
-import {
-  normalizeSourceFilter,
-  validateDateInput,
-  validateSourceFilterValues,
-} from './build-usage-data-inputs.js';
+import { validateDateInput, selectAdaptersBySourceFilter } from './build-usage-data-inputs.js';
 import { resolveUserConfigForOptions, type UserConfigResolutionDeps } from './apply-user-config.js';
 import { emitUserConfigResolution } from './emit-active-config.js';
 import { addStoredFilesStillOnDisk } from './history-live-files.js';
@@ -31,6 +27,7 @@ import { prepareReport, runPreparedReport } from './report-runtime/report-lifecy
 import { logger } from '../utils/logger.js';
 import type { PruneCommandOptions } from './usage-data-contracts.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
+import { hasErrorCode } from '../utils/error-code.js';
 
 type StatFile = typeof stat;
 type OpenStore = typeof openEventStore;
@@ -78,10 +75,6 @@ export type PruneReportResult = {
   summary: PruneSummary;
 };
 
-function isMissingPathError(error: unknown): error is NodeJS.ErrnoException {
-  return typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT';
-}
-
 function assertHasSelector(options: PruneCommandOptions): void {
   if (options.suppressed || options.departedBefore !== undefined) {
     return;
@@ -110,20 +103,6 @@ function isOlderThanUtcDate(
   const newestTimestamp = Date.parse(file.newestTimestamp);
 
   return Number.isFinite(newestTimestamp) && newestTimestamp < departedBeforeTimestamp;
-}
-
-function selectPruneAdapters(
-  options: PruneCommandOptions,
-  adapters: SourceAdapter[],
-): SourceAdapter[] {
-  const sourceFilter = normalizeSourceFilter(options.source);
-  validateSourceFilterValues(sourceFilter, new Set(getDefaultSourceIds()));
-
-  if (!sourceFilter) {
-    return adapters;
-  }
-
-  return adapters.filter((adapter) => sourceFilter.has(adapter.id.toLowerCase()));
 }
 
 async function discoverLiveFiles(adapters: readonly SourceAdapter[]): Promise<{
@@ -193,7 +172,7 @@ async function fileExists(filePath: string, statFile: StatFile): Promise<boolean
     await statFile(filePath);
     return true;
   } catch (error) {
-    if (isMissingPathError(error)) {
+    if (hasErrorCode(error, 'ENOENT')) {
       return false;
     }
 
@@ -205,7 +184,7 @@ async function readFileSize(filePath: string, statFile: StatFile): Promise<numbe
   try {
     return (await statFile(filePath)).size;
   } catch (error) {
-    if (isMissingPathError(error)) {
+    if (hasErrorCode(error, 'ENOENT')) {
       return 0;
     }
 
@@ -305,7 +284,10 @@ export async function buildPruneReport(
   }
 
   const makeAdapters = deps.createAdapters ?? createDefaultAdapters;
-  const adapters = selectPruneAdapters(configuredOptions, makeAdapters(configuredOptions));
+  const adapters = selectAdaptersBySourceFilter(
+    makeAdapters(configuredOptions),
+    configuredOptions.source,
+  );
   const { selectedSources, discoveredFiles } = await discoverLiveFiles(adapters);
   const statFile = deps.statFile ?? stat;
   const storePath = eventStoreRuntimeConfig.path;

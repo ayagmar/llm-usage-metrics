@@ -5,7 +5,10 @@ import {
   normalizeProviderToBillingEntity,
   resolveExplicitProviderRoots,
 } from '../domain/provider-normalization.js';
-import { getSourceOverrideOptions } from '../sources/create-default-adapters.js';
+import {
+  getDefaultSourceIds,
+  getSourceOverrideOptions,
+} from '../sources/create-default-adapters.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { parseSourceDirectoryOverrides } from '../utils/source-directory-overrides.js';
 import { suggestClosest } from '../utils/suggest-closest.js';
@@ -358,4 +361,19 @@ export function throwOnExplicitSourceScopeConflicts(
   throw new Error(
     `Explicitly requested source(s) are incompatible with the requested ${describeExplicitScopeConstraint(options)} scope: ${incompatibleExplicitSources.join(', ')}.`,
   );
+}
+
+/** The adapters a `--source` filter names, all of them without one; unknown ids throw. */
+export function selectAdaptersBySourceFilter(
+  adapters: SourceAdapter[],
+  source: string | string[] | undefined,
+): SourceAdapter[] {
+  const sourceFilter = normalizeSourceFilter(source);
+  validateSourceFilterValues(sourceFilter, new Set(getDefaultSourceIds()));
+
+  if (!sourceFilter) {
+    return adapters;
+  }
+
+  return adapters.filter((adapter) => sourceFilter.has(adapter.id.toLowerCase()));
 }

@@ -16,12 +16,12 @@ import {
 import { resolveUserConfigPath, USER_CONFIG_SOURCE_DIR_KEYS } from '../config/user-config.js';
 import { getDefaultEventStorePath } from '../persistence/event-store.js';
 import { DEFAULT_LITELLM_PRICING_URL } from '../pricing/litellm-pricing-fetcher.js';
-import { asRecord } from '../utils/as-record.js';
 import { ensureDirectory } from '../utils/fs-helpers.js';
 import { logger } from '../utils/logger.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
 import { formatHelpExamples } from './report-definitions/report-definitions.js';
 import { buildActiveConfigLines } from './emit-active-config.js';
+import { hasErrorCode } from '../utils/error-code.js';
 
 type ConfigInitOptions = {
   force?: boolean;
@@ -88,10 +88,6 @@ ${sourceDirTemplate}
 # enabled = true
 `;
 
-function isExistingFileError(error: unknown): boolean {
-  return asRecord(error)?.code === 'EEXIST';
-}
-
 async function writeConfigTemplate(configPath: string, options: ConfigInitOptions): Promise<void> {
   await ensureDirectory(path.dirname(configPath));
 
@@ -101,7 +97,7 @@ async function writeConfigTemplate(configPath: string, options: ConfigInitOption
       flag: options.force === true ? 'w' : 'wx',
     });
   } catch (error) {
-    if (isExistingFileError(error)) {
+    if (hasErrorCode(error, 'EEXIST')) {
       throw new Error(`Config file already exists: ${configPath} (use --force to overwrite)`, {
         cause: error,
       });
