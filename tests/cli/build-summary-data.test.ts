@@ -71,7 +71,11 @@ describe('resolveSummaryWindows', () => {
   });
 });
 
-function monthToDate(costUsd: number | undefined, costIncomplete?: boolean): SummaryPeriod {
+function monthToDate(
+  costUsd: number | undefined,
+  costIncomplete?: boolean,
+  events = 3,
+): SummaryPeriod {
   return {
     key: 'monthToDate',
     label: 'Month to date',
@@ -84,7 +88,7 @@ function monthToDate(costUsd: number | undefined, costIncomplete?: boolean): Sum
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
       totalTokens: 0,
-      events: 0,
+      events,
       activeDays: 0,
       costUsd,
       costIncomplete,
@@ -119,6 +123,12 @@ describe('resolveMonthEnd', () => {
       daysElapsed: 10,
       daysInMonth: 31,
     });
+    // An empty month has a zero cost, not a $0.00 pace.
+    expect(resolveMonthEnd('2026-03-10', monthToDate(0, false, 0), 50)).toEqual({
+      daysElapsed: 10,
+      daysInMonth: 31,
+      budgetUsd: 50,
+    });
   });
 
   it('knows the length of February in leap and common years', () => {
@@ -131,6 +141,31 @@ describe('resolveMonthEnd', () => {
 });
 
 describe('buildSummaryData', () => {
+  it('drops the budget when CLI filters narrow the run, but not for config sources', async () => {
+    const run = (options: Parameters<typeof buildSummaryData>[0], sources?: string[]) =>
+      buildSummaryData(
+        { timezone: 'UTC', pricingOffline: true, ...options },
+        {
+          ...runtimeDeps(
+            [createAdapter('codex', [createEvent('2026-03-05T09:00:00.000Z')])],
+            '2026-03-10T18:00:00.000Z',
+          ),
+          loadUserConfig: async () => ({
+            config: { monthlyBudgetUsd: 25, sources },
+            path: '/tmp/config.toml',
+            exists: true,
+            warnings: [],
+          }),
+        },
+      );
+
+    expect((await run({})).monthEnd.budgetUsd).toBe(25);
+    expect((await run({}, ['codex'])).monthEnd.budgetUsd).toBe(25);
+    expect((await run({ source: 'codex' })).monthEnd.budgetUsd).toBeUndefined();
+    expect((await run({ provider: 'openai' })).monthEnd.budgetUsd).toBeUndefined();
+    expect((await run({ model: ['gpt-4.1'] })).monthEnd.budgetUsd).toBeUndefined();
+  });
+
   it('projects the month against the config budget and estimates month-to-date cache savings', async () => {
     const result = await buildSummaryData(
       { timezone: 'UTC', pricingOffline: true },

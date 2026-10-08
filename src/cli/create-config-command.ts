@@ -43,8 +43,8 @@ export const USER_CONFIG_TEMPLATE = `${CONFIG_TEMPLATE_HEADER}
 # Default: all supported sources.
 # sources = []
 
-# Monthly budget in USD. When set, the summary warns once the month-end
-# projection exceeds it. Default: no budget.
+# Monthly budget in USD. When set, the summary compares month-to-date spend and
+# the month-end projection against it. Default: no budget.
 # monthlyBudgetUsd = 100
 
 # Parser defaults.

@@ -61,8 +61,9 @@ export function resolveMonthEnd(
   ).getUTCDate();
   const costUsd = monthToDate?.totals.costUsd;
   const monthEnd: SummaryMonthEnd = { daysElapsed, daysInMonth };
+  const hasUsage = (monthToDate?.totals.events ?? 0) > 0;
 
-  if (costUsd !== undefined && daysElapsed >= MIN_PROJECTION_DAYS) {
+  if (hasUsage && costUsd !== undefined && daysElapsed >= MIN_PROJECTION_DAYS) {
     monthEnd.projectedCostUsd = (costUsd / daysElapsed) * daysInMonth;
 
     if (monthToDate?.totals.costIncomplete) {
@@ -75,6 +76,20 @@ export function resolveMonthEnd(
   }
 
   return monthEnd;
+}
+
+/**
+ * The budget covers all usage, so a run narrowed by --source, --provider, or --model
+ * cannot be measured against it. A `sources` list in the config file is the user's
+ * standing view, not a narrowing, so it keeps the budget.
+ */
+function isNarrowedByCliFilters(cliOptions: SummaryCommandOptions): boolean {
+  const source = cliOptions.source;
+  const model = cliOptions.model;
+  const hasSource = Array.isArray(source) ? source.length > 0 : Boolean(source);
+  const hasModel = Array.isArray(model) ? model.length > 0 : Boolean(model);
+
+  return hasSource || hasModel || Boolean(cliOptions.provider);
 }
 
 function compareSourcesByCost(left: SummarySourceTotals, right: SummarySourceTotals): number {
@@ -159,7 +174,9 @@ export async function buildSummaryData(
     monthEnd: resolveMonthEnd(
       today,
       monthToDate,
-      userConfigResolution.loadedConfig.config.monthlyBudgetUsd,
+      isNarrowedByCliFilters(userConfigResolution.cliOptions)
+        ? undefined
+        : userConfigResolution.loadedConfig.config.monthlyBudgetUsd,
     ),
     monthToDateCacheSavingsUsd,
     activity,

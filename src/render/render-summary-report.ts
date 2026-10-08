@@ -166,10 +166,16 @@ function toMonthNotes(summaryData: SummaryDataResult): MonthNote[] {
     });
   }
 
-  if (monthEnd.budgetUsd !== undefined) {
+  // An empty month has nothing to hold against the budget yet.
+  if (monthEnd.budgetUsd !== undefined && (monthToDate?.totals.events ?? 0) > 0) {
     const budget = formatUsd(monthEnd.budgetUsd);
 
-    if ((spentUsd ?? 0) > monthEnd.budgetUsd) {
+    if (spentUsd === undefined) {
+      notes.push({
+        text: `Monthly budget ${budget}: this month's cost is unknown (no pricing for its usage)`,
+        warning: false,
+      });
+    } else if (spentUsd > monthEnd.budgetUsd) {
       notes.push({ text: `Over your ${budget} monthly budget: ${spent} spent`, warning: true });
     } else if ((monthEnd.projectedCostUsd ?? 0) > monthEnd.budgetUsd) {
       const overBy = formatApproxUsd(
@@ -266,9 +272,10 @@ function renderMarkdownSummaryReport(summaryData: SummaryDataResult): string {
       rows.map((row) => row.map((cell) => toMarkdownSafeCell(cell))),
       { align: ['l', 'l', 'r', 'r', 'l'] },
     ),
+    // Notes are plain sentences of dates and amounts, so they need no Markdown escaping.
     ...toMonthNotes(summaryData).flatMap((note) => [
       '',
-      toMarkdownSafeCell(note.warning ? `⚠ ${note.text}` : note.text),
+      note.warning ? `⚠ ${note.text}` : note.text,
     ]),
     '',
     `#### Activity since ${summaryData.activity.from}`,

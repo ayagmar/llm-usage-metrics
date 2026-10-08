@@ -294,10 +294,10 @@ export type SummaryPeriod = {
 export type SummaryMonthEnd = {
   daysElapsed: number;
   daysInMonth: number;
-  /** Month-to-date cost scaled to the whole month; absent before day 3 or without a known cost. */
+  /** Month-to-date cost scaled to the whole month; absent before day 3, without usage, or without a known cost. */
   projectedCostUsd?: number;
   costIncomplete?: boolean;
-  /** `monthlyBudgetUsd` from the config file. */
+  /** `monthlyBudgetUsd` from the config file; absent when --source, --provider, or --model narrows the run. */
   budgetUsd?: number;
 };
 

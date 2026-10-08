@@ -208,6 +208,16 @@ describe('renderSummaryReport', () => {
     expect(output).toContain('_·_');
   });
 
+  it('stays quiet about a budget when the month has no usage yet', () => {
+    const output = renderSummaryReport(
+      { ...createSummaryData(), monthEnd: { daysElapsed: 10, daysInMonth: 31, budgetUsd: 100 } },
+      'terminal',
+      { useColor: false },
+    );
+
+    expect(output).not.toContain('budget');
+  });
+
   it('says nothing about the month without a projection, budget, or savings', () => {
     const output = renderSummaryReport(createSummaryData(), 'terminal', { useColor: false });
 
@@ -223,6 +233,7 @@ describe('renderSummaryReport', () => {
     ) => {
       const data = createSummaryData();
       data.periods[2].totals.costUsd = 40;
+      data.periods[2].totals.events = 4;
       return renderSummaryReport({ ...data, monthEnd, monthToDateCacheSavingsUsd }, 'terminal', {
         useColor: false,
       }).split('\n');
@@ -241,6 +252,14 @@ describe('renderSummaryReport', () => {
     expect(withMonth({ ...base, projectedCostUsd: 124, budgetUsd: 30 })).toContain(
       '⚠ Over your $30.00 monthly budget: $40.00 spent',
     );
+    // Spend without any known price is unknown, not within budget.
+    const unpriced = createSummaryData();
+    unpriced.periods[2].totals.events = 4;
+    expect(
+      renderSummaryReport({ ...unpriced, monthEnd: { ...base, budgetUsd: 500 } }, 'terminal', {
+        useColor: false,
+      }).split('\n'),
+    ).toContain("Monthly budget $500.00: this month's cost is unknown (no pricing for its usage)");
     // Before day 3 there is no projection, but the budget still reports what was spent.
     expect(withMonth({ ...base, budgetUsd: 500 })).toContain(
       'Within your $500.00 monthly budget ($40.00 spent)',
@@ -249,6 +268,8 @@ describe('renderSummaryReport', () => {
 
   it('colors budget warnings when color is on', () => {
     const data = createSummaryData();
+    data.periods[2].totals.costUsd = 0.5;
+    data.periods[2].totals.events = 2;
     const output = renderSummaryReport(
       {
         ...data,
@@ -280,9 +301,12 @@ describe('renderSummaryReport', () => {
     expect(output).toMatch(/\| Today\s+\| 2026-03-10\s+\|/u);
     expect(output).toMatch(/\| Last 7 days\s+\| 2026-03-04 to 2026-03-10 \|/u);
     expect(output).toContain('#### Activity since 2025-03-10');
+    const markdownData = createSummaryData();
+    markdownData.periods[2].totals.costUsd = 3;
+    markdownData.periods[2].totals.events = 2;
     const withBudget = renderSummaryReport(
       {
-        ...createSummaryData(),
+        ...markdownData,
         monthEnd: { daysElapsed: 10, daysInMonth: 31, projectedCostUsd: 9, budgetUsd: 5 },
       },
       'markdown',
