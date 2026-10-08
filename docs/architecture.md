@@ -68,7 +68,7 @@ The public entry points remain stable, one `build*`/`run*` pair per command:
 
 1. `buildUsageData(...)`
 2. `aggregateUsage(..., { includeModelBreakdown: true })`
-3. `renderUsageReport(...)`
+3. `renderUsageReportWithNotes(...)`
 4. shared report runtime emits diagnostics, optional share card, and stdout body
 
 ### Efficiency

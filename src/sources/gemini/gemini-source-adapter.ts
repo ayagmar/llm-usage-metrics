@@ -394,7 +394,3 @@ export class GeminiSourceAdapter implements SourceAdapter {
     return toParseDiagnostics(events, skippedRows, skippedRowReasons);
   }
 }
-
-export function getDefaultGeminiDir(): string {
-  return defaultGeminiDir;
-}

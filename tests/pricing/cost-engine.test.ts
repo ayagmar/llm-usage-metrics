@@ -1,11 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { createUsageEvent } from '../../src/domain/usage-event.js';
-import {
-  applyPricingToEvent,
-  applyPricingToEvents,
-  calculateEstimatedCostUsd,
-} from '../../src/pricing/cost-engine.js';
+import { applyPricingToEvents, calculateEstimatedCostUsd } from '../../src/pricing/cost-engine.js';
 import type { PricingSource } from '../../src/pricing/types.js';
 import { StaticPricingSource } from '../helpers/static-pricing-source.js';
 
@@ -28,7 +24,7 @@ describe('cost engine', () => {
       costMode: 'explicit',
     });
 
-    const pricedEvent = applyPricingToEvent(explicitEvent, source);
+    const pricedEvent = applyPricingToEvents([explicitEvent], source)[0];
 
     expect(pricedEvent.costMode).toBe('explicit');
     expect(pricedEvent.costUsd).toBe(1.23);
@@ -52,7 +48,7 @@ describe('cost engine', () => {
       costMode: 'explicit',
     });
 
-    const pricedEvent = applyPricingToEvent(explicitZeroEvent, source);
+    const pricedEvent = applyPricingToEvents([explicitZeroEvent], source)[0];
 
     expect(pricedEvent.costMode).toBe('estimated');
     expect(pricedEvent.costUsd).toBeCloseTo(0.0002, 10);
@@ -86,7 +82,7 @@ describe('cost engine', () => {
       costMode: 'estimated',
     });
 
-    const pricedEvent = applyPricingToEvent(event, source);
+    const pricedEvent = applyPricingToEvents([event], source)[0];
 
     expect(pricedEvent.costMode).toBe('estimated');
     expect(pricedEvent.costUsd).toBeCloseTo(0.00215, 10);
@@ -109,16 +105,18 @@ describe('cost engine', () => {
       getPricing,
     };
 
-    const pricedEvent = applyPricingToEvent(
-      createUsageEvent({
-        source: 'codex',
-        sessionId: 'alias-single-event',
-        timestamp: '2026-02-16T10:00:00Z',
-        model: 'gpt-5.3-codex',
-        inputTokens: 100,
-        outputTokens: 50,
-        costMode: 'estimated',
-      }),
+    const [pricedEvent] = applyPricingToEvents(
+      [
+        createUsageEvent({
+          source: 'codex',
+          sessionId: 'alias-single-event',
+          timestamp: '2026-02-16T10:00:00Z',
+          model: 'gpt-5.3-codex',
+          inputTokens: 100,
+          outputTokens: 50,
+          costMode: 'estimated',
+        }),
+      ],
       pricingSource,
     );
 

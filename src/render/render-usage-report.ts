@@ -130,11 +130,3 @@ export function renderUsageReportWithNotes(
       return renderTerminalUsageReport(usageData, options);
   }
 }
-
-export function renderUsageReport(
-  usageData: UsageDataResult,
-  format: UsageReportFormat,
-  options: RenderUsageReportOptions,
-): string {
-  return renderUsageReportWithNotes(usageData, format, options).output;
-}

@@ -314,10 +314,6 @@ export function getPeriodKey(
   return `${isoWeek.weekYear}-W${String(isoWeek.weekNumber).padStart(2, '0')}`;
 }
 
-export function getLocalDateKey(timestampIso: string, timezone: string): string {
-  return formatLocalDateParts(extractLocalDateParts(timestampIso, timezone));
-}
-
 export function getLocalHour(timestampIso: string, timezone: string): number {
   const timestampMs = new Date(timestampIso).getTime();
 

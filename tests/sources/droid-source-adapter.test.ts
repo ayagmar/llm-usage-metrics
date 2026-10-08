@@ -5,10 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import {
-  DroidSourceAdapter,
-  getDefaultDroidSessionsDir,
-} from '../../src/sources/droid/droid-source-adapter.js';
+import { DroidSourceAdapter } from '../../src/sources/droid/droid-source-adapter.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturesDir = path.join(__dirname, '..', 'fixtures', 'droid');
@@ -25,8 +22,8 @@ describe('DroidSourceAdapter', () => {
     const adapter = new DroidSourceAdapter();
 
     expect(adapter.id).toBe('droid');
-    expect(path.basename(getDefaultDroidSessionsDir())).toBe('sessions');
-    expect(path.isAbsolute(getDefaultDroidSessionsDir())).toBe(true);
+    expect(path.basename(new DroidSourceAdapter().getSearchPaths()[0])).toBe('sessions');
+    expect(path.isAbsolute(new DroidSourceAdapter().getSearchPaths()[0])).toBe(true);
   });
 
   describe('discoverFiles', () => {

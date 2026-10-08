@@ -113,15 +113,6 @@ export function canEstimateUsageCost(usage: BillableTokenUsage, pricing: ModelPr
   return hasNonReasoningPricedBuckets(usage);
 }
 
-export function applyPricingToEvent(event: UsageEvent, pricingSource: PricingSource): UsageEvent {
-  const pricing =
-    event.model && isPriceableEvent(event)
-      ? pricingSource.getPricing(pricingSource.resolveModelAlias(event.model))
-      : undefined;
-
-  return applyResolvedPricingToEvent(event, pricing);
-}
-
 function applyResolvedPricingToEvent(
   event: UsageEvent,
   pricing: ModelPricing | undefined,

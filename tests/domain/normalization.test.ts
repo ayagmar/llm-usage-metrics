@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  normalizeModelList,
   normalizeNonNegativeInteger,
   normalizeTimestamp,
   normalizeUsdCost,
@@ -69,22 +68,5 @@ describe('stripControlCharacters', () => {
 
   it('leaves normal unicode intact', () => {
     expect(stripControlCharacters('café 東京')).toBe('café 東京');
-  });
-});
-
-describe('normalizeModelList', () => {
-  it('deduplicates, trims and sorts model ids', () => {
-    expect(normalizeModelList([' gpt-4o ', 'gpt-4.1', undefined, 'gpt-4o', ''])).toEqual([
-      'gpt-4.1',
-      'gpt-4o',
-    ]);
-  });
-
-  it('uses deterministic code-point ordering regardless of locale', () => {
-    expect(normalizeModelList(['ä-model', 'z-model'])).toEqual(['z-model', 'ä-model']);
-  });
-
-  it('drops model names consisting only of control characters', () => {
-    expect(normalizeModelList(['\u001B\u0007', 'gpt-4o'])).toEqual(['gpt-4o']);
   });
 });

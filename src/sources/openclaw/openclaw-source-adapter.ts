@@ -61,7 +61,3 @@ export class OpenClawSourceAdapter implements SourceAdapter {
     return parseOpenClawSessionFile(this.id, filePath);
   }
 }
-
-export function getDefaultOpenClawAgentsDir(): string {
-  return defaultAgentsDir;
-}

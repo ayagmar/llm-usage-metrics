@@ -525,8 +525,3 @@ export class CodexSourceAdapter implements SourceAdapter {
     return toParseDiagnostics(events, skippedRows, skippedRowReasons);
   }
 }
-
-/** The sessions directory under ~/.codex, ignoring CODEX_HOME. */
-export function getDefaultCodexSessionsDir(): string {
-  return resolveDefaultCodexSessionsDir({});
-}

@@ -408,9 +408,3 @@ export class AmpSourceAdapter implements SourceAdapter {
     return toParseDiagnostics(context.events, context.skippedRows, context.skippedRowReasons);
   }
 }
-
-export function getDefaultAmpThreadsDir(
-  options: Pick<AmpSourceAdapterOptions, 'env' | 'homeDir'> = {},
-): string {
-  return resolveDefaultAmpThreadsDir(options.env ?? process.env, options.homeDir ?? os.homedir());
-}

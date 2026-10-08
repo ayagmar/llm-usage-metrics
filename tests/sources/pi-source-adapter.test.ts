@@ -3,10 +3,7 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import {
-  getDefaultPiSessionsDir,
-  PiSourceAdapter,
-} from '../../src/sources/pi/pi-source-adapter.js';
+import { PiSourceAdapter } from '../../src/sources/pi/pi-source-adapter.js';
 import { canonicalTmpdir } from '../helpers/tmp.js';
 
 const tempDirs: string[] = [];
@@ -678,7 +675,9 @@ describe('PiSourceAdapter', () => {
 
 describe('pi source helpers', () => {
   it('returns the default pi sessions path', () => {
-    expect(getDefaultPiSessionsDir()).toContain(path.join('.pi', 'agent', 'sessions'));
+    expect(new PiSourceAdapter().getSearchPaths()[0]).toContain(
+      path.join('.pi', 'agent', 'sessions'),
+    );
   });
 
   it('keeps reasoning inside the total when usage declares no total', async () => {

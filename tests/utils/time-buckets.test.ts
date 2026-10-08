@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import {
   getCurrentLocalDateKey,
   getIsoDayOfWeekFromDateKey,
-  getLocalDateKey,
   getLocalDateKeyRange,
   getLocalHour,
   getPeriodKey,
@@ -202,12 +201,12 @@ describe('time bucket helpers', () => {
   });
 
   it('resolves local day keys directly from timestamps', () => {
-    expect(getLocalDateKey('2026-01-04T23:30:00Z', 'UTC')).toBe('2026-01-04');
-    expect(getLocalDateKey('2026-01-04T23:30:00Z', 'Asia/Tokyo')).toBe('2026-01-05');
+    expect(getPeriodKey('2026-01-04T23:30:00Z', 'daily', 'UTC')).toBe('2026-01-04');
+    expect(getPeriodKey('2026-01-04T23:30:00Z', 'daily', 'Asia/Tokyo')).toBe('2026-01-05');
   });
 
   it('rejects invalid timestamps and invalid local date keys', () => {
-    expect(() => getLocalDateKey('not-a-date', 'UTC')).toThrow('Invalid event timestamp');
+    expect(() => getPeriodKey('not-a-date', 'daily', 'UTC')).toThrow('Invalid event timestamp');
     expect(() => shiftLocalDateKey('bad-key', 1)).toThrow('Invalid local date key');
     expect(() => shiftLocalDateKey('2026-02-30', 1)).toThrow('Invalid local date key');
   });
@@ -220,7 +219,7 @@ describe('time bucket helpers', () => {
     for (const timezone of transitionTimezones) {
       for (const [startIso, endIso] of transitionWindows) {
         for (const timestampIso of collectHourlyTimestamps(startIso, endIso)) {
-          expect(getLocalDateKey(timestampIso, timezone), `${timezone} ${timestampIso}`).toBe(
+          expect(getPeriodKey(timestampIso, 'daily', timezone), `${timezone} ${timestampIso}`).toBe(
             getDirectLocalDateKey(timestampIso, timezone),
           );
         }
@@ -229,9 +228,9 @@ describe('time bucket helpers', () => {
   });
 
   it('resolves timestamps around a local midnight boundary', () => {
-    expect(getLocalDateKey('2026-03-29T21:59:59.999Z', 'Europe/Paris')).toBe('2026-03-29');
-    expect(getLocalDateKey('2026-03-29T22:00:00.000Z', 'Europe/Paris')).toBe('2026-03-30');
-    expect(getLocalDateKey('2026-03-29T22:00:00.001Z', 'Europe/Paris')).toBe('2026-03-30');
+    expect(getPeriodKey('2026-03-29T21:59:59.999Z', 'daily', 'Europe/Paris')).toBe('2026-03-29');
+    expect(getPeriodKey('2026-03-29T22:00:00.000Z', 'daily', 'Europe/Paris')).toBe('2026-03-30');
+    expect(getPeriodKey('2026-03-29T22:00:00.001Z', 'daily', 'Europe/Paris')).toBe('2026-03-30');
   });
 
   it('keeps cached local dates correct for out-of-order lookups', () => {
@@ -245,14 +244,14 @@ describe('time bucket helpers', () => {
     ] as const;
 
     for (const [timestampIso, timezone] of lookups) {
-      expect(getLocalDateKey(timestampIso, timezone)).toBe(
+      expect(getPeriodKey(timestampIso, 'daily', timezone)).toBe(
         getDirectLocalDateKey(timestampIso, timezone),
       );
     }
   });
 
   it('keeps the invalid timestamp error text unchanged', () => {
-    expect(() => getLocalDateKey('not-a-date', 'UTC')).toThrow(
+    expect(() => getPeriodKey('not-a-date', 'daily', 'UTC')).toThrow(
       'Invalid event timestamp: not-a-date',
     );
   });

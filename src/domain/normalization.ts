@@ -1,5 +1,3 @@
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
-
 export type NumberLike = number | string | null | undefined;
 
 // C0/C1 controls, plus bidi controls and line/paragraph separators, which can reorder
@@ -56,24 +54,4 @@ export function normalizeTimestamp(value: string | Date): string {
   }
 
   return date.toISOString();
-}
-
-export function normalizeModelList(models: Iterable<string | null | undefined>): string[] {
-  const deduplicated = new Set<string>();
-
-  for (const model of models) {
-    if (!model) {
-      continue;
-    }
-
-    const normalized = stripControlCharacters(model).trim();
-
-    if (!normalized) {
-      continue;
-    }
-
-    deduplicated.add(normalized);
-  }
-
-  return [...deduplicated].sort(compareByCodePoint);
 }
