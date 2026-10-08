@@ -73,17 +73,14 @@ export async function buildStatusline(
   return formatStatusline(await buildStatuslineSummary(options, deps));
 }
 
-export async function runStatusline(
-  options: StatuslineCommandOptions,
-  deps: BuildSummaryDataDeps = {},
-): Promise<void> {
+export async function runStatusline(options: StatuslineCommandOptions): Promise<void> {
   // Status bars show stdout, so diagnostics stay off unless --verbose asks for them,
   // as for a report: that is how to debug a slow or odd line. Errors still exit non-zero.
   if (!options.verbose) {
     setLogLevel('silent');
   }
 
-  const summary = await buildStatuslineSummary(options, deps);
+  const summary = await buildStatuslineSummary(options, {});
 
   if (options.verbose) {
     emitReportRunDiagnostics(summary.diagnostics, {
