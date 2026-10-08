@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { chmod, link, mkdir, open, rm, writeFile } from 'node:fs/promises';
+import { chmod, link, open, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { normalizeSkippedRowReasons } from '../cli/normalize-skipped-row-reasons.js';
@@ -9,7 +9,7 @@ import type { SourceSkippedRowReasonStat } from '../sources/source-adapter.js';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { getUserDataRootDir } from '../utils/data-root-dir.js';
-import { pathExists } from '../utils/fs-helpers.js';
+import { ensureDirectory, pathExists, pathStat } from '../utils/fs-helpers.js';
 import {
   computeEventContentHash,
   normalizeStoredEventTuple,
@@ -302,6 +302,13 @@ async function copyLegacyEventStore(
 }
 
 async function prepareEventStoreFile(filePath: string): Promise<void> {
+  // Opening a FIFO or device blocks or misbehaves; only a regular file (or none yet) is a ledger.
+  const existing = await pathStat(filePath);
+
+  if (existing && !existing.isFile()) {
+    throw new Error(`Event store path ${filePath} is not a regular file`);
+  }
+
   const fileHandle = await open(filePath, 'a', 0o600);
 
   try {
@@ -332,7 +339,7 @@ export async function openEventStore(
   loadSqliteModule: LoadEventStoreSqliteModule = loadEventStoreSqliteModule,
 ): Promise<EventStore> {
   const parentDirectory = path.dirname(filePath);
-  await mkdir(parentDirectory, { recursive: true, mode: 0o700 });
+  await ensureDirectory(parentDirectory, 0o700);
 
   if (filePath === getDefaultEventStorePath()) {
     await chmod(parentDirectory, 0o700);

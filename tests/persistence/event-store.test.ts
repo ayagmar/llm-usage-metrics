@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { chmod, mkdtemp, rm, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -1194,6 +1195,29 @@ describe('event-store', () => {
     await expect(stat(`${dbPath}-wal`)).rejects.toMatchObject({ code: 'ENOENT' });
     await expect(stat(`${dbPath}-shm`)).rejects.toMatchObject({ code: 'ENOENT' });
   });
+
+  // Node's recursive mkdir never settles under /proc; the store must fail instead.
+  it.runIf(process.platform === 'linux')(
+    'rejects a store path under /proc instead of hanging',
+    async () => {
+      await expect(openEventStore('/proc/llm-usage-test/events.db')).rejects.toThrow(/ENOENT/u);
+    },
+    2_000,
+  );
+
+  // Opening a FIFO blocks with no writer; the store must refuse it.
+  it.skipIf(process.platform === 'win32')(
+    'rejects a store path that is not a regular file',
+    async () => {
+      const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-fifo-'));
+      tempDirs.push(tempDir);
+      const fifoPath = path.join(tempDir, 'events.db');
+      execFileSync('mkfifo', [fifoPath]);
+
+      await expect(openEventStore(fifoPath)).rejects.toThrow('is not a regular file');
+    },
+    2_000,
+  );
 
   it('opens writable stores with a busy timeout and WAL journal mode', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-open-options-'));
