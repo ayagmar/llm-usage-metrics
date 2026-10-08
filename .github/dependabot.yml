@@ -32,6 +32,13 @@ updates:
       site-dependencies:
         patterns:
           - '*'
+    ignore:
+      # astro check (Site - Astro Check in CI) refuses TypeScript 7.0 and asks for TypeScript 6;
+      # its successor, @astrojs/ts-content-mapper, needs TypeScript 7.1+. The CLI itself already
+      # type-checks with TypeScript 7 (@typescript/native). Lift this once the site's checker
+      # supports a stable TypeScript 7.
+      - dependency-name: typescript
+        versions: ['>=7']
 
   - package-ecosystem: github-actions
     directory: /
