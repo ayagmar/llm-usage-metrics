@@ -246,5 +246,8 @@ describe('renderUsageReportWithNotes output', () => {
       'Fitted the table to the terminal: hid Models. Widen the terminal or use --json for full detail.',
     );
     expect(describeTableFit(fit, false)).toContain('hid Reasoning and Cache Write');
+    expect(
+      describeTableFit({ ...fit, hiddenColumns: [...fit.hiddenColumns, 'cost'] }, true, true),
+    ).toBeUndefined();
   });
 });

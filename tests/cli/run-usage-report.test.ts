@@ -659,6 +659,12 @@ describe('buildUsageReport', () => {
     ).rejects.toThrow('--by-machine splits the table only; drop it with --share');
   });
 
+  it('rejects --no-cost with --json', async () => {
+    await expect(buildUsageReport('daily', { all: true, cost: false, json: true })).rejects.toThrow(
+      '--no-cost applies to tables and the share card; drop it with --json',
+    );
+  });
+
   it('keeps runUsageReport JSON output data-only on stdout while still emitting diagnostics', async () => {
     const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'usage-run-json-no-logs-'));
     tempDirs.push(emptyDir);

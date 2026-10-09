@@ -1,10 +1,16 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { PassThrough, Readable } from 'node:stream';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { buildStatusline, formatStatusline, runStatusline } from '../../src/cli/run-statusline.js';
+import {
+  buildStatusline,
+  formatStatusline,
+  parseClaudeCodeSession,
+  runStatusline,
+} from '../../src/cli/run-statusline.js';
 import type {
   SummaryDataResult,
   SummaryPeriod,
@@ -68,9 +74,49 @@ function summary(overrides: Partial<SummaryDataResult> = {}): SummaryDataResult 
   };
 }
 
+const claudeCodeInput = JSON.stringify({
+  session_id: 'abc123',
+  model: { id: 'claude-opus-4-1', display_name: 'Opus' },
+  cost: { total_cost_usd: 1.234 },
+  context_window: { context_window_size: 200_000, used_percentage: 41.6 },
+});
+
+describe('parseClaudeCodeSession', () => {
+  it("reads the session's cost and context use", () => {
+    expect(parseClaudeCodeSession(claudeCodeInput)).toEqual({
+      costUsd: 1.234,
+      contextPercent: 41.6,
+    });
+  });
+
+  it('leaves out fields Claude Code has not filled yet', () => {
+    expect(
+      parseClaudeCodeSession(
+        JSON.stringify({ session_id: 'abc', context_window: { used_percentage: null } }),
+      ),
+    ).toEqual({ costUsd: undefined, contextPercent: undefined });
+  });
+
+  it.each(['', 'not json', '[]', JSON.stringify({ cost: { total_cost_usd: 1 } })])(
+    'ignores input that is not a Claude Code session: %j',
+    (input) => {
+      expect(parseClaudeCodeSession(input)).toBeUndefined();
+    },
+  );
+});
+
 describe('formatStatusline', () => {
   it("shows today's cost, the streak, and month to date", () => {
     expect(formatStatusline(summary())).toBe('$12.30 today · 6d streak · ~$120.50 this month');
+  });
+
+  it("leads with the Claude Code session's cost and context use", () => {
+    expect(formatStatusline(summary(), { costUsd: 1.234, contextPercent: 41.6 })).toBe(
+      '$1.23 session · 42% context · $12.30 today · 6d streak · ~$120.50 this month',
+    );
+    expect(formatStatusline(summary(), { contextPercent: 8 })).toBe(
+      '8% context · $12.30 today · 6d streak · ~$120.50 this month',
+    );
   });
 
   it('drops a zero streak and falls back to tokens when a cost is unknown', () => {
@@ -181,7 +227,10 @@ describe('runStatusline', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
     try {
-      await runStatusline({ source: 'codex', codexDir: emptyDir, timezone: 'UTC' });
+      await runStatusline(
+        { source: 'codex', codexDir: emptyDir, timezone: 'UTC' },
+        { stdin: Readable.from([]) },
+      );
 
       expect(logSpy).toHaveBeenCalledTimes(1);
       expect(String(logSpy.mock.calls[0]?.[0])).toMatch(/ today · .* this month$/u);
@@ -197,6 +246,27 @@ describe('runStatusline', () => {
     }
   });
 
+  it('adds the session from Claude Code input, and finishes when stdin stays open', async () => {
+    const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'statusline-stdin-'));
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const openPipe = new PassThrough();
+
+    try {
+      const options = { source: 'codex', codexDir: emptyDir, timezone: 'UTC' };
+      await runStatusline(options, { stdin: Readable.from([Buffer.from(claudeCodeInput)]) });
+      await runStatusline(options, { stdin: openPipe });
+
+      const lines = logSpy.mock.calls.map(([line]) => String(line));
+      expect(lines[0]).toMatch(/^\$1\.23 session · 42% context · .* today/u);
+      expect(lines[1]).toMatch(/^\S+ today/u);
+      expect(openPipe.destroyed).toBe(true);
+    } finally {
+      setLogLevel('info');
+      logSpy.mockRestore();
+      await rm(emptyDir, { recursive: true, force: true });
+    }
+  });
+
   it('prints the run diagnostics on stderr with --verbose', async () => {
     const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'statusline-verbose-'));
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -205,7 +275,10 @@ describe('runStatusline', () => {
     try {
       // The CLI's preAction hook raises the level for --verbose; mirror it here.
       setLogLevel('debug');
-      await runStatusline({ source: 'codex', codexDir: emptyDir, timezone: 'UTC', verbose: true });
+      await runStatusline(
+        { source: 'codex', codexDir: emptyDir, timezone: 'UTC', verbose: true },
+        { stdin: Readable.from([]) },
+      );
 
       expect(logSpy).toHaveBeenCalledTimes(1);
       expect(errorSpy.mock.calls.flat().join('\n')).toContain('No session files found');

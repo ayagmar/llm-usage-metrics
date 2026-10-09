@@ -134,7 +134,8 @@ async function discoverSessionFiles(geminiDir: string): Promise<string[]> {
     allSessionFiles.push(...discoveredChatFiles);
   }
 
-  return allSessionFiles.sort(compareByCodePoint);
+  // A symlinked project alias resolves to files another project entry already found.
+  return [...new Set(allSessionFiles)].sort(compareByCodePoint);
 }
 
 function resolveRepoRoot(
