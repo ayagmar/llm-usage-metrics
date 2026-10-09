@@ -276,7 +276,7 @@ describe('run-prune-report', () => {
 
     let reingested = false;
     // The size read before deleting is where another run gets to write in between.
-    const statFile = async (target: string) => {
+    const statFile = (async (target: string) => {
       if (target === `${dbPath}-wal` && !reingested) {
         reingested = true;
         const otherRun = await openEventStore(dbPath);
@@ -293,7 +293,7 @@ describe('run-prune-report', () => {
       }
 
       return stat(target);
-    };
+    }) as typeof stat;
 
     const result = await buildPruneReport(
       { departedBefore: '2026-02-01', apply: true },
