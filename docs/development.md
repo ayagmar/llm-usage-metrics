@@ -78,9 +78,11 @@ Use it to track report runtime over time while iterating locally.
 The `Speed Check` workflow builds the PR and its base branch, then times both CLIs on a
 generated claude/codex/pi corpus (about 170k events): `daily` without the event store,
 `daily` with a warm store, and `statusline` with a warm store. The two builds run
-alternately, run by run, with separate config, cache, and data homes. The check fails when a
-PR median is slower than the base median by more than 15% and 30 ms; the job summary shows
-the table. Run the same comparison locally against any two builds:
+alternately, run by run, with separate config, cache, and data homes. Each build's untimed
+first run must show the work (usage from every source in `daily`, figures in `statusline`),
+so a build that skips it fails instead of looking fast; differing figures between the two
+builds are noted in the summary. The check fails when a PR median is slower than the base
+median by more than 15% and 30 ms; the job summary shows the table. Run the same comparison locally against any two builds:
 
 ```bash
 node scripts/perf-regression-check.mjs --base ../base/dist/index.js --head dist/index.js

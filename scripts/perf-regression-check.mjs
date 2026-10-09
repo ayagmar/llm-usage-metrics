@@ -17,8 +17,10 @@ const CORPUS = {
   pi: { sessions: 100, turns: 200 },
 };
 const SOURCES = Object.keys(CORPUS);
-const START_MS = Date.parse('2026-01-01T00:00:00.000Z');
 const MINUTE_MS = 60_000;
+const DAY_MS = 24 * 60 * MINUTE_MS;
+// The corpus spans about 15 days ending before today, so statusline has a current month.
+const START_MS = Math.floor(Date.now() / DAY_MS) * DAY_MS - 20 * DAY_MS;
 
 function printHelp() {
   console.log(`Usage: node scripts/perf-regression-check.mjs --base <entry> --head <entry> [options]
@@ -259,16 +261,55 @@ function sourceArgs(dirs) {
   ];
 }
 
+// A build that exits 0 without doing the work would look fast, so the untimed run of
+// each cell must show it: every source's usage in the daily report, a statusline line.
+function readDailyTokensBySource(stdout) {
+  const tokensBySource = {};
+
+  for (const row of JSON.parse(stdout).data ?? []) {
+    if (row.rowType === 'period_source') {
+      tokensBySource[row.source] = (tokensBySource[row.source] ?? 0) + row.totalTokens;
+    }
+  }
+
+  const missing = SOURCES.filter((source) => !(tokensBySource[source] > 0));
+
+  if (missing.length > 0) {
+    throw new Error(`the daily report has no usage from ${missing.join(', ')}`);
+  }
+
+  return tokensBySource;
+}
+
+function readStatusline(stdout) {
+  if (!/\d/.test(stdout)) {
+    throw new Error(`the statusline printed no figures: ${JSON.stringify(stdout)}`);
+  }
+
+  return stdout.trim();
+}
+
 function cellsFor(dirs) {
   const reportArgs = ['daily', '--all', '--pricing-offline', '--json', ...sourceArgs(dirs)];
 
   return [
-    { name: 'daily, cold (no event store)', args: reportArgs, eventStore: false },
-    { name: 'daily, warm event store', args: reportArgs, eventStore: true },
+    {
+      name: 'daily, cold (no event store)',
+      args: reportArgs,
+      eventStore: false,
+      readWorkload: readDailyTokensBySource,
+    },
+    {
+      name: 'daily, warm event store',
+      args: reportArgs,
+      eventStore: true,
+      readWorkload: readDailyTokensBySource,
+    },
     {
       name: 'statusline, warm event store',
       args: ['statusline', ...sourceArgs(dirs)],
       eventStore: true,
+      readWorkload: readStatusline,
     },
   ];
 }
@@ -309,7 +350,7 @@ function runOnce(build, cell) {
     );
   }
 
-  return durationMs;
+  return { durationMs, stdout: result.stdout };
 }
 
 function median(values) {
@@ -321,20 +362,32 @@ function median(values) {
 function measureCell(builds, cell, runs) {
   const durations = new Map(builds.map((build) => [build.name, []]));
 
-  // One untimed run each warms the event store and the OS page cache.
+  const workloads = {};
+
+  // One untimed run each warms the event store and the OS page cache, and shows the work.
   for (const build of builds) {
-    runOnce(build, cell);
+    const { stdout } = runOnce(build, cell);
+
+    try {
+      workloads[build.name] = cell.readWorkload(stdout);
+    } catch (error) {
+      throw new Error(`${build.name} did not do the work on "${cell.name}": ${error.message}`);
+    }
   }
 
   for (let run = 0; run < runs; run += 1) {
     const order = run % 2 === 0 ? builds : [...builds].reverse();
 
     for (const build of order) {
-      durations.get(build.name).push(runOnce(build, cell));
+      durations.get(build.name).push(runOnce(build, cell).durationMs);
     }
   }
 
-  return { base: median(durations.get('base')), head: median(durations.get('head')) };
+  return {
+    base: median(durations.get('base')),
+    head: median(durations.get('head')),
+    sameWorkload: JSON.stringify(workloads.base) === JSON.stringify(workloads.head),
+  };
 }
 
 function formatTable(results, args) {
@@ -347,6 +400,15 @@ function formatTable(results, args) {
     const change = (result.head - result.base) / result.base;
     lines.push(
       `| ${result.name} | ${result.base.toFixed(0)} | ${result.head.toFixed(0)} | ${(change * 100).toFixed(1)}% | ${result.regressed ? 'slower' : 'ok'} |`,
+    );
+  }
+
+  const differing = results.filter((result) => !result.sameWorkload).map((result) => result.name);
+
+  if (differing.length > 0) {
+    lines.push(
+      '',
+      `The PR reports different figures than its base on: ${differing.join('; ')}. Expected for a change to parsing or reporting; otherwise the timings compare unlike work.`,
     );
   }
 
@@ -374,9 +436,9 @@ async function main() {
     const results = [];
 
     for (const cell of cellsFor(dirs)) {
-      const { base, head } = measureCell(builds, cell, args.runs);
+      const { base, head, sameWorkload } = measureCell(builds, cell, args.runs);
       const regressed = head - base > args.minMs && head > base * (1 + args.threshold);
-      results.push({ name: cell.name, base, head, regressed });
+      results.push({ name: cell.name, base, head, regressed, sameWorkload });
     }
 
     const table = formatTable(results, args);
