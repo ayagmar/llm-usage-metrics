@@ -606,16 +606,78 @@ describe('PiSourceAdapter', () => {
     await mkdir(forkOnlyDir);
     await writeFile(forkOnlyPath, await readFile(forkPath, 'utf8'), 'utf8');
     const forkOnlyAdapter = new PiSourceAdapter({ dir: forkOnlyDir });
-    expect(await forkOnlyAdapter.parseFile(forkOnlyPath)).toHaveLength(3);
+    // A parent name outside pi's <timestamp>_<id> form gives no id, so copies keep the fork's.
+    expect((await forkOnlyAdapter.parseFile(forkOnlyPath)).map((event) => event.sessionId)).toEqual(
+      ['fork', 'fork', 'fork'],
+    );
     expect(await forkOnlyAdapter.getParseDependencies(forkOnlyPath)).toEqual([]);
 
     // Once the parent is gone, the fork's copies are the only record of that usage.
     await rm(parentPath);
-    expect((await adapter.parseFile(forkPath)).map((event) => event.timestamp)).toEqual([
-      '2026-02-12T20:01:00.000Z',
-      '2026-02-12T20:02:00.000Z',
-      '2026-02-12T20:06:00.000Z',
+    expect(
+      (await adapter.parseFile(forkPath)).map((event) => [event.sessionId, event.timestamp]),
+    ).toEqual([
+      ['fork', '2026-02-12T20:01:00.000Z'],
+      ['fork', '2026-02-12T20:02:00.000Z'],
+      ['fork', '2026-02-12T20:06:00.000Z'],
     ]);
+  });
+
+  it("takes a missing parent's session id from pi's <timestamp>_<id> file name", async () => {
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-fork-name-'));
+    tempDirs.push(root);
+    const forkPath = path.join(root, '2026-02-12T20-05-00-000Z_fork-id.jsonl');
+
+    await writeFile(
+      forkPath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'fork-id',
+          timestamp: '2026-02-12T20:05:00.000Z',
+          parentSession: path.join(root, '2026-02-12T20-00-00-000Z_parent-id.jsonl'),
+        }),
+        JSON.stringify({
+          type: 'message',
+          timestamp: '2026-02-12T20:01:00.000Z',
+          message: { role: 'assistant', usage: { input: 10, output: 5, totalTokens: 15 } },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const events = await new PiSourceAdapter({ dir: root }).parseFile(forkPath);
+
+    expect(events.map((event) => event.sessionId)).toEqual(['parent-id']);
+  });
+
+  it('keeps copies under the fork id when the parent name gives no session id', async () => {
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-fork-renamed-'));
+    tempDirs.push(root);
+    const forkPath = path.join(root, '2026-02-12T20-05-00-000Z_fork-id.jsonl');
+
+    await writeFile(
+      forkPath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'fork-id',
+          timestamp: '2026-02-12T20:05:00.000Z',
+          parentSession: path.join(root, 'archive_.jsonl'),
+        }),
+        JSON.stringify({
+          type: 'message',
+          timestamp: '2026-02-12T20:01:00.000Z',
+          message: { role: 'assistant', usage: { input: 10, output: 5, totalTokens: 15 } },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const diagnostics = await new PiSourceAdapter({ dir: root }).parseFileWithDiagnostics(forkPath);
+
+    expect(diagnostics.events.map((event) => event.sessionId)).toEqual(['fork-id']);
+    expect(diagnostics.skippedRows).toBe(0);
   });
 
   it('reports malformed JSONL lines that pass its prefilter', async () => {
