@@ -18,7 +18,7 @@ import {
   type EventStoreHistoryDiscoveredFile,
 } from '../persistence/event-store-history.js';
 import { createDefaultAdapters } from '../sources/create-default-adapters.js';
-import type { SourceAdapter } from '../sources/source-adapter.js';
+import { getRepeatingSourceIds, type SourceAdapter } from '../sources/source-adapter.js';
 import { renderPruneReport } from '../render/render-prune-report.js';
 import { validateDateInput, selectAdaptersBySourceFilter } from './build-usage-data-inputs.js';
 import { resolveUserConfigForOptions, type UserConfigResolutionDeps } from './apply-user-config.js';
@@ -324,7 +324,7 @@ export async function buildPruneReport(
     };
     const liveFiles = await addStoredFilesStillOnDisk(
       store,
-      { selectedSources, discoveredFiles },
+      { selectedSources, discoveredFiles, repeatingSources: getRepeatingSourceIds(adapters) },
       { unverifiable: 'treat-as-live', statFile },
     );
     const selectCandidates = () =>

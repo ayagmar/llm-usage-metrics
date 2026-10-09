@@ -229,7 +229,11 @@ function resolveRepoRootFromRecord(
 export class PiSourceAdapter implements SourceAdapter {
   public readonly id = 'pi' as const;
   public readonly parserVersion = 5;
-  public readonly capabilities = { eventsPrecedeFileMtime: true } as const;
+  // Two forks of a deleted parent both keep its copied entries under the parent's id.
+  public readonly capabilities = {
+    eventsPrecedeFileMtime: true,
+    eventsRepeatAcrossFiles: true,
+  } as const;
 
   private readonly rootDirs: readonly string[];
   private readonly requireDir: boolean;

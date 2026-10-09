@@ -46,7 +46,7 @@ import type {
   UsagePricingOrigin,
   UsageSourceFailure,
 } from './usage-data-contracts.js';
-import type { SourceAdapter } from '../sources/source-adapter.js';
+import { getRepeatingSourceIds, type SourceAdapter } from '../sources/source-adapter.js';
 import type { EnvVarOverride } from '../config/env-var-display.js';
 import type { PricingSource } from '../pricing/types.js';
 import { findUnmatchedFilterWarnings } from './filter-match-warnings.js';
@@ -331,6 +331,7 @@ export async function buildUsageEventDataset(
                   // discovered set, so all its stored files would look departed.
                   selectedSources: historySources,
                   discoveredFiles,
+                  repeatingSources: getRepeatingSourceIds(adaptersToParse),
                 },
                 { unverifiable: 'treat-as-departed' },
               ),

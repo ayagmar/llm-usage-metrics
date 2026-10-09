@@ -15,6 +15,8 @@ The parse pipeline turns on-disk session files into normalized usage events. It 
 
 Each source implements the adapter contract (`src/sources/source-adapter.ts`): `discoverFiles()` returns the file list, `parseFile(filePath)` returns that file's events, and the optional `parseFileWithDiagnostics(filePath)` adds per-file skipped-row counters. Adapters that read sidecar inputs also declare them via `getParseDependencies(filePath)` so the event store can fingerprint them. Parsing stays inside the adapter; everything downstream sees only normalized usage events.
 
+An adapter whose files can repeat each other's events sets `capabilities.eventsRepeatAcrossFiles` (pi, whose forks copy their parent's entries). The pipeline then counts an event found in several of the source's files once, from the first file in discovery order, matching events by content hash; repeats within one file are kept. Only files that share a session id with another file are hashed. Each file's stored events stay whole, so the parse cache still depends on that file alone.
+
 Sources with multiple home directories (claude, pi, openclaw, kimi, the cline family, copilot) discover through the shared multi-root helper (`src/sources/multi-root-discovery.ts`): `resolveRootDirs` applies overrides over defaults, `discoverFilesAcrossRoots` walks each root with per-root validation, and `sortAcrossRoots` optionally re-sorts the combined list. Paths can be overridden per source via the `sourceDirs.*` config keys, the `--<source>-dir` flags, or `--source-dir <source>=<path>` (directory-backed sources only), with the usual flags → env → config precedence.
 
 ## Reading JSONL fast

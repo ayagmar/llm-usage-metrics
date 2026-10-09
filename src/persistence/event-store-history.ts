@@ -18,6 +18,11 @@ export type LoadHistoryEventsInput = {
    * events either, so their content cannot suppress departed files as moved copies.
    */
   presentFiles?: readonly EventStoreHistoryDiscoveredFile[];
+  /**
+   * Selected sources whose files repeat each other's events (`eventsRepeatAcrossFiles`):
+   * reports count such an event once, so it is counted once here too.
+   */
+  repeatingSources?: readonly string[];
 };
 
 export type EventStoreHistoryResult = {
@@ -66,7 +71,8 @@ function normalizeHistoryFilePath(filePath: string): string | undefined {
 function createTempTables(store: EventStore): void {
   store.database.exec(`
 CREATE TEMP TABLE IF NOT EXISTS history_selected_sources (
-  source TEXT PRIMARY KEY
+  source TEXT PRIMARY KEY,
+  repeats_events INTEGER NOT NULL
 );
 CREATE TEMP TABLE IF NOT EXISTS history_discovered_files (
   source TEXT NOT NULL,
@@ -95,7 +101,10 @@ DELETE FROM history_served_files;
 function writeTempInputs(store: EventStore, input: LoadHistoryEventsInput): Set<string> {
   const selectedSources = new Set<string>();
   const insertSelectedSource = store.database.prepare(
-    'INSERT OR IGNORE INTO history_selected_sources (source) VALUES (?)',
+    'INSERT OR IGNORE INTO history_selected_sources (source, repeats_events) VALUES (?, ?)',
+  );
+  const repeatingSources = new Set(
+    (input.repeatingSources ?? []).map((source) => normalizeHistorySource(source)),
   );
   const insertDiscoveredFile = store.database.prepare(
     [
@@ -112,7 +121,7 @@ function writeTempInputs(store: EventStore, input: LoadHistoryEventsInput): Set<
     }
 
     selectedSources.add(normalizedSource);
-    insertSelectedSource.run(normalizedSource);
+    insertSelectedSource.run(normalizedSource, repeatingSources.has(normalizedSource) ? 1 : 0);
   }
 
   const insertLiveFiles = (
@@ -202,20 +211,30 @@ function addHashCount(target: Map<string, number>, hash: string, count: number):
   target.set(hash, (target.get(hash) ?? 0) + count);
 }
 
+// The live events reports count, per content hash. For a source whose files repeat
+// events, a hash in several files counts as often as the file holding it most often; a
+// content hash covers the source, so all of a hash's files belong to one source.
 function readLiveHashCounts(store: EventStore): Map<string, number> {
   const rows = store.database
     .prepare(
       [
-        'SELECT events.content_hash AS content_hash, COUNT(*) AS count',
-        'FROM history_discovered_files AS discovered',
-        'JOIN history_selected_sources AS selected',
-        '  ON discovered.source = selected.source',
-        'CROSS JOIN events',
-        'WHERE discovered.counted = 1',
-        '  AND events.source = discovered.source',
-        '  AND events.file_path = discovered.file_path',
-        '  AND events.content_hash IS NOT NULL',
-        'GROUP BY events.content_hash',
+        'SELECT content_hash,',
+        '  CASE WHEN MAX(repeats_events) = 1 THEN MAX(file_count) ELSE SUM(file_count) END',
+        '    AS count',
+        'FROM (',
+        '  SELECT events.content_hash AS content_hash,',
+        '    selected.repeats_events AS repeats_events, COUNT(*) AS file_count',
+        '  FROM history_discovered_files AS discovered',
+        '  JOIN history_selected_sources AS selected',
+        '    ON discovered.source = selected.source',
+        '  CROSS JOIN events',
+        '  WHERE discovered.counted = 1',
+        '    AND events.source = discovered.source',
+        '    AND events.file_path = discovered.file_path',
+        '    AND events.content_hash IS NOT NULL',
+        '  GROUP BY discovered.source, discovered.file_path, events.content_hash',
+        ')',
+        'GROUP BY content_hash',
       ].join('\n'),
     )
     .all();
@@ -384,10 +403,10 @@ function addServedFileHashCounts(
 }
 
 /**
- * Leaves out a served departed file's events that `countedHashes` already counts, per
- * content hash, and adds the rest to it. An identical content hash covers the session
- * id and timestamp, so it is the same event, not a lookalike: e.g. a pi fork's copy of
- * a parent session that kept going after the fork.
+ * Leaves out a file's events that `countedHashes` already counts, per content hash, and
+ * adds the rest to it; repeats within the file are kept. An identical content hash
+ * covers the session id and timestamp, so it is the same event, not a lookalike: e.g. a
+ * pi fork's copy of a parent session that is also counted from the parent or another fork.
  */
 export function takeUncountedEvents(
   events: readonly UsageEvent[],

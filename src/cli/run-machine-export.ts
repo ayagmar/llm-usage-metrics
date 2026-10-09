@@ -16,6 +16,7 @@ import { emitDiagnostics } from './emit-diagnostics.js';
 import { loadPackageMetadataFromRuntime } from './package-metadata.js';
 import { emitReportRunDiagnostics } from './report-runtime/report-lifecycle.js';
 import { logger } from '../utils/logger.js';
+import { getRepeatingSourceIds } from '../sources/source-adapter.js';
 import type { BuildUsageDataDeps } from './usage-data-contracts.js';
 
 export type MachineExportCommandOptions = {
@@ -88,11 +89,10 @@ export async function runMachineExport(
   let snapshots;
 
   try {
-    snapshots = readStoredFileSnapshots(
-      store,
-      dataset.ledger.parsedFiles,
-      dataset.ledger.historyFiles,
-    );
+    snapshots = readStoredFileSnapshots(store, dataset.ledger.parsedFiles, {
+      historyFiles: dataset.ledger.historyFiles,
+      repeatingSources: new Set(getRepeatingSourceIds(dataset.adaptersToParse)),
+    });
   } finally {
     (deps.closeEventStore ?? closeEventStore)(store);
   }

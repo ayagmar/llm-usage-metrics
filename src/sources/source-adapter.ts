@@ -14,6 +14,12 @@ export type SourceCapabilities = {
    * whose sidecars and checkpoints do not track when each row was written.
    */
   eventsPrecedeFileMtime?: boolean;
+  /**
+   * A file can repeat events that another file of the source also holds (a pi fork copies
+   * its parent's entries), so an event found in several files is counted once. Events are
+   * the same when their content hashes match, which cover session id and timestamp.
+   */
+  eventsRepeatAcrossFiles?: boolean;
 };
 
 export type SourceAdapterPathOptions = {
@@ -42,4 +48,11 @@ export interface SourceAdapter<Event extends UsageEvent = UsageEvent> {
   parseFile(filePath: string): Promise<Event[]>;
   parseFileWithDiagnostics?(filePath: string): Promise<SourceParseFileDiagnostics<Event>>;
   getParseDependencies?(filePath: string): Promise<string[]>;
+}
+
+/** The ids of the adapters whose files repeat each other's events. */
+export function getRepeatingSourceIds(adapters: readonly SourceAdapter[]): string[] {
+  return adapters
+    .filter((adapter) => adapter.capabilities?.eventsRepeatAcrossFiles)
+    .map((adapter) => adapter.id);
 }

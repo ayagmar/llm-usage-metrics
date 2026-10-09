@@ -521,6 +521,64 @@ describe('event-store history', () => {
     }
   });
 
+  it.each([
+    {
+      name: 'a parent with a unique event too',
+      parentSessions: ['shared', 'shared', 'parent-only'],
+      repeating: ['shared', 'parent-only'],
+      summing: ['parent-only'],
+    },
+    {
+      name: 'a parent of repeated events only',
+      parentSessions: ['shared', 'shared'],
+      repeating: ['shared'],
+      summing: [],
+    },
+  ])(
+    'counts live copies once for a source whose files repeat events: $name',
+    async ({ parentSessions, repeating, summing }) => {
+      const store = await createTempStore();
+      // The parent holds the same event twice; each live fork copied it once.
+      const event = (sessionId: string) => createEvent({ sessionId });
+
+      try {
+        writeStoredFile(store, {
+          filePath: '/tmp/parent.jsonl',
+          events: parentSessions.map((sessionId) => event(sessionId)),
+        });
+        writeStoredFile(store, {
+          filePath: '/tmp/fork-a.jsonl',
+          events: [event('shared'), event('a')],
+        });
+        writeStoredFile(store, {
+          filePath: '/tmp/fork-b.jsonl',
+          events: [event('shared'), event('b')],
+        });
+        const input = {
+          selectedSources: ['codex'],
+          discoveredFiles: [
+            { source: 'codex', filePath: '/tmp/fork-a.jsonl' },
+            { source: 'codex', filePath: '/tmp/fork-b.jsonl' },
+          ],
+        };
+
+        const served = (repeatingSources: string[]) =>
+          loadHistoryEvents(store, { ...input, repeatingSources }).events.map(
+            (served) => served.sessionId,
+          );
+
+        // The fork copies count the shared event once, so the parent's second one is new.
+        expect(served(['codex'])).toEqual(repeating);
+        expect(classifyDepartedFiles(store, { ...input, repeatingSources: ['codex'] })).toEqual([
+          expect.objectContaining({ filePath: '/tmp/parent.jsonl', suppressed: false }),
+        ]);
+        expect(served([])).toEqual(summing);
+      } finally {
+        closeEventStore(store);
+      }
+    },
+  );
+
   it('ignores departed files from sources that were not selected', async () => {
     const store = await createTempStore();
 

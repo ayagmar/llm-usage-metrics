@@ -220,6 +220,47 @@ describe('run-prune-report', () => {
     }
   });
 
+  it('keeps a departed file whose repeated event live files that repeat events count once', async () => {
+    const dbPath = await createTempDbPath('prune-repeating-');
+    const directory = path.dirname(dbPath);
+    const parentPath = path.join(directory, 'parent.jsonl');
+    const forkPaths = [path.join(directory, 'fork-a.jsonl'), path.join(directory, 'fork-b.jsonl')];
+    const store = await openEventStore(dbPath);
+
+    try {
+      // The parent holds the event twice; each fork copied it once, so reports count it once.
+      writeStoredFile(store, {
+        filePath: parentPath,
+        events: [createEvent({ sessionId: 'shared' }), createEvent({ sessionId: 'shared' })],
+      });
+      for (const forkPath of forkPaths) {
+        writeStoredFile(store, {
+          filePath: forkPath,
+          events: [createEvent({ sessionId: 'shared' })],
+        });
+      }
+    } finally {
+      closeEventStore(store);
+    }
+
+    const adapter: SourceAdapter = {
+      ...createAdapter({ files: forkPaths }),
+      capabilities: { eventsRepeatAcrossFiles: true },
+    };
+    const result = await buildPruneReport(
+      { suppressed: true, apply: true },
+      createDeps(dbPath, [adapter]),
+    );
+    const afterStore = await openEventStore(dbPath);
+
+    try {
+      expect(result.summary).toMatchObject({ candidateFileCount: 0, deletedEventCount: 0 });
+      expect(readFileEvents(afterStore, 'codex', parentPath)).toHaveLength(2);
+    } finally {
+      closeEventStore(afterStore);
+    }
+  });
+
   it('keeps files whose newest timestamp is exactly on the departed-before UTC date', async () => {
     const dbPath = await createTempDbPath('prune-departed-before-');
     const oldPath = '/tmp/old.jsonl';

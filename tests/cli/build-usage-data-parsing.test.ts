@@ -274,6 +274,43 @@ describe('build-usage-data-parsing', () => {
     ]);
   });
 
+  it.each([
+    { eventsRepeatAcrossFiles: true, expected: ['shared', 'shared', 'a-only', 'b-only'] },
+    {
+      eventsRepeatAcrossFiles: false,
+      expected: ['shared', 'shared', 'a-only', 'shared', 'b-only'],
+    },
+  ])(
+    'counts an event repeated across files once only when the source repeats events across files ($eventsRepeatAcrossFiles)',
+    async ({ eventsRepeatAcrossFiles, expected }) => {
+      const event = (sessionId: string) =>
+        createUsageEvent({
+          source: 'pi',
+          sessionId,
+          timestamp: '2026-02-01T00:00:00.000Z',
+          inputTokens: 1,
+          totalTokens: 1,
+        });
+      // A repeat within one file is kept: only a copy in another file is the same event.
+      const adapter: SourceAdapter = {
+        ...createAdapterWithDiagnostics('pi', {
+          '/tmp/a.jsonl': {
+            events: [event('shared'), event('shared'), event('a-only')],
+            skippedRows: 0,
+          },
+          '/tmp/b.jsonl': { events: [event('shared'), event('b-only')], skippedRows: 0 },
+        }),
+        capabilities: { eventsRepeatAcrossFiles },
+      };
+
+      const result = await parseSelectedAdapters([adapter], 1);
+
+      expect(result.successfulParseResults[0].events.map((parsed) => parsed.sessionId)).toEqual(
+        expected,
+      );
+    },
+  );
+
   it('reports a source failure when every file fails to parse', async () => {
     const adapter: SourceAdapter = {
       id: 'pi',
