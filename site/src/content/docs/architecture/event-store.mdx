@@ -45,7 +45,7 @@ History reads never mutate the ledger: the classification writes only connection
 - `--departed-before YYYY-MM-DD` selects departed files whose newest event timestamp is strictly older than that UTC date.
 - `--apply` deletes the selected files' rows in one transaction, runs `VACUUM`, truncates the WAL, and reports reclaimed bytes across the database, `-wal`, and `-shm` files.
 
-Prune shares its classification logic (`classifyDepartedFiles`) with the history read path, so "suppressed" means exactly the same thing in both. Prune does not parse, so a live file stands in for a departed copy only while its stored entry matches its current fingerprint, as when a report last read it successfully. A file that failed to parse, changed since, or awaits a re-parse after an upgrade counts as present but not counted, so `--suppressed` keeps its departed copies until a report reads it again.
+Prune shares its classification logic (`classifyDepartedFiles`) with the history read path, so "suppressed" means exactly the same thing in both. Prune does not parse, so a live file stands in for a departed copy only while its stored entry matches its current fingerprint, as when a report last read it successfully. A file that failed to parse, changed since, or awaits a re-parse after an upgrade counts as present but not counted, so `--suppressed` keeps its departed copies until a report reads it again. With `--apply`, that check is repeated under the write lock, just before deleting.
 
 ## Operational notes
 

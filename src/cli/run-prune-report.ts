@@ -6,13 +6,15 @@ import {
   closeEventStore,
   findLegacyEventStore,
   deleteStoredFiles,
-  getFileEntry,
+  listStoredFileFingerprints,
   openEventStore,
   runTransaction,
   serializeEventStoreFingerprint,
   vacuumEventStore,
   type DeleteStoredFilesResult,
   type EventStore,
+  type EventStoreDependencyFingerprint,
+  type EventStoreFileFingerprint,
 } from '../persistence/event-store.js';
 import {
   classifyDepartedFiles,
@@ -145,23 +147,65 @@ async function discoverLiveFiles(adapters: readonly SourceAdapter[]): Promise<{
   return { selectedSources, discoveredFiles };
 }
 
-/**
- * Whether the stored events of a live file are the ones a report reads from it now. A
- * file that changed since (it failed to parse, or no report has read it yet) keeps its
- * older stored events, which reports do not count while it fails.
- */
-async function isStoredEntryCurrent(store: EventStore, file: DiscoveredLiveFile): Promise<boolean> {
+async function readParseFingerprint(
+  file: DiscoveredLiveFile,
+): Promise<EventStoreFileFingerprint | undefined> {
   try {
-    const fingerprint = await getParseFileFingerprint(file.adapter, file.filePath);
-
-    return (
-      fingerprint !== undefined &&
-      getFileEntry(store, file.source, file.filePath)?.fingerprint ===
-        serializeEventStoreFingerprint(fingerprint)
-    );
+    return await getParseFileFingerprint(file.adapter, file.filePath);
   } catch {
-    return false;
+    return undefined;
   }
+}
+
+// Whether the dependency is still on disk as it was fingerprinted.
+function isDependencyUnchanged(dependency: EventStoreDependencyFingerprint): boolean {
+  let now: EventStoreDependencyFingerprint;
+
+  try {
+    const fileStat = statSync(dependency.path);
+    now = { path: dependency.path, exists: true, size: fileStat.size, mtimeMs: fileStat.mtimeMs };
+  } catch (error) {
+    if (!hasErrorCode(error, 'ENOENT')) {
+      return false;
+    }
+
+    now = { path: dependency.path, exists: false };
+  }
+
+  return JSON.stringify(now) === JSON.stringify(dependency);
+}
+
+/**
+ * Splits live files into those whose stored events a report counts now and the rest. A
+ * file stands in for a departed copy only while its stored entry matches its fingerprint
+ * and its dependencies are unchanged since: one that failed to parse, or changed since a
+ * report last read it, keeps older stored events that reports do not count. Synchronous,
+ * so it can run inside the delete transaction.
+ */
+function splitLiveFilesByCurrentEntry(
+  store: EventStore,
+  files: readonly { file: DiscoveredLiveFile; fingerprint?: EventStoreFileFingerprint }[],
+): { counted: EventStoreHistoryDiscoveredFile[]; uncounted: EventStoreHistoryDiscoveredFile[] } {
+  const storedFingerprints = new Map(
+    listStoredFileFingerprints(store).map((entry) => [
+      JSON.stringify([entry.source, entry.filePath]),
+      entry.fingerprint,
+    ]),
+  );
+  const counted: EventStoreHistoryDiscoveredFile[] = [];
+  const uncounted: EventStoreHistoryDiscoveredFile[] = [];
+
+  for (const { file, fingerprint } of files) {
+    const isCurrent =
+      fingerprint !== undefined &&
+      storedFingerprints.get(JSON.stringify([file.source, file.filePath])) ===
+        serializeEventStoreFingerprint(fingerprint) &&
+      fingerprint.dependencies.every(isDependencyUnchanged);
+
+    (isCurrent ? counted : uncounted).push({ source: file.source, filePath: file.filePath });
+  }
+
+  return { counted, uncounted };
 }
 
 function toCandidate(
@@ -347,27 +391,34 @@ export async function buildPruneReport(
         return hasErrorCode(error, 'ENOENT', 'ENOTDIR');
       }
     };
-    // Only a live file whose stored events are current can stand in for a departed copy,
-    // as in reports; the others are present but not counted.
-    const isCurrent = await mapWithConcurrency(discoveredFiles, 32, (file) =>
-      isStoredEntryCurrent(store, file),
-    );
-    const toHistoryFile = ({ source, filePath }: DiscoveredLiveFile) => ({ source, filePath });
-    const liveFiles = await addStoredFilesStillOnDisk(
+    const fingerprints = await mapWithConcurrency(discoveredFiles, 32, readParseFingerprint);
+    const fingerprintedFiles = discoveredFiles.map((file, index) => ({
+      file,
+      fingerprint: fingerprints[index],
+    }));
+    const { presentFiles: undiscoveredPresentFiles = [] } = await addStoredFilesStillOnDisk(
       store,
       {
         selectedSources,
-        discoveredFiles: discoveredFiles.filter((_, index) => isCurrent[index]).map(toHistoryFile),
-        presentFiles: discoveredFiles.filter((_, index) => !isCurrent[index]).map(toHistoryFile),
-        repeatingSources: getRepeatingSourceIds(adapters),
+        discoveredFiles: discoveredFiles.map(({ source, filePath }) => ({ source, filePath })),
       },
       { unverifiable: 'treat-as-live', statFile },
     );
-    const selectCandidates = () =>
-      buildCandidates(classifyDepartedFiles(store, liveFiles), {
-        includeSuppressed: Boolean(options.suppressed),
-        departedBeforeTimestamp,
-      });
+    // Rechecked on every selection, so the apply decides on the files as they are under
+    // the write lock, as reports would count them.
+    const selectCandidates = () => {
+      const { counted, uncounted } = splitLiveFilesByCurrentEntry(store, fingerprintedFiles);
+
+      return buildCandidates(
+        classifyDepartedFiles(store, {
+          selectedSources,
+          discoveredFiles: counted,
+          presentFiles: [...uncounted, ...undiscoveredPresentFiles],
+          repeatingSources: getRepeatingSourceIds(adapters),
+        }),
+        { includeSuppressed: Boolean(options.suppressed), departedBeforeTimestamp },
+      );
+    };
 
     if (!options.apply) {
       const candidates = selectCandidates();

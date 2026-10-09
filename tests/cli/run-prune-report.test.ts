@@ -392,6 +392,81 @@ describe('run-prune-report', () => {
     }
   });
 
+  it('keeps a moved file whose live copy broke while prune was running', async () => {
+    const dbPath = await createTempDbPath('prune-witness-race-');
+    const originalPath = path.join(path.dirname(dbPath), 'original.jsonl');
+    const movedPath = path.join(path.dirname(dbPath), 'moved.jsonl');
+    const store = await openEventStore(dbPath);
+
+    try {
+      writeStoredFile(store, {
+        filePath: originalPath,
+        events: [createEvent({ sessionId: 'moved-session' })],
+      });
+      await writeLiveStoredFile(store, {
+        filePath: movedPath,
+        events: [createEvent({ sessionId: 'moved-session' })],
+        now: 2_000,
+      });
+    } finally {
+      closeEventStore(store);
+    }
+
+    let broke = false;
+    // The size read before deleting is where the live copy changes, then fails to parse
+    // in a report, which keeps its older stored events and serves the original instead.
+    const statFile = (async (target: string) => {
+      if (target === `${dbPath}-wal` && !broke) {
+        broke = true;
+        await writeFile(movedPath, 'not json, and longer than before\n');
+      }
+
+      return stat(target);
+    }) as typeof stat;
+
+    const result = await buildPruneReport(
+      { suppressed: true, apply: true },
+      { ...createDeps(dbPath, [createAdapter({ files: [movedPath] })]), statFile },
+    );
+    const reopened = await openEventStore(dbPath);
+
+    try {
+      expect(broke).toBe(true);
+      expect(result.summary.deletedFileCount).toBe(0);
+      expect(readFileEvents(reopened, 'codex', originalPath)).toHaveLength(1);
+    } finally {
+      closeEventStore(reopened);
+    }
+  });
+
+  it('leaves a live file with unreadable stored metadata untouched in a dry run', async () => {
+    const dbPath = await createTempDbPath('prune-bad-metadata-');
+    const livePath = path.join(path.dirname(dbPath), 'live.jsonl');
+    const store = await openEventStore(dbPath);
+
+    try {
+      await writeLiveStoredFile(store, {
+        filePath: livePath,
+        events: [createEvent({ sessionId: 'live' })],
+      });
+      store.database.prepare("UPDATE files SET fingerprint = '' WHERE file_path = ?").run(livePath);
+    } finally {
+      closeEventStore(store);
+    }
+
+    await buildPruneReport(
+      { suppressed: true },
+      createDeps(dbPath, [createAdapter({ files: [livePath] })]),
+    );
+    const reopened = await openEventStore(dbPath);
+
+    try {
+      expect(countEvents(reopened)).toBe(1);
+    } finally {
+      closeEventStore(reopened);
+    }
+  });
+
   it('never offers undiscovered files that are still on disk', async () => {
     const dbPath = await createTempDbPath('prune-still-on-disk-');
     const onDiskPath = path.join(path.dirname(dbPath), 'outside-discovery.jsonl');
