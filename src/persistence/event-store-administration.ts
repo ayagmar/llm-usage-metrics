@@ -714,7 +714,8 @@ export function readDepartedFileEvents(
 /**
  * Reads the stored events of `files`, then of the departed `historyFiles`, in one read
  * transaction, so a concurrent run that rewrites a file cannot be seen half-written. As
- * for history, a history file is read without the events the files before it already
+ * reports do, a history file, or a file of a source in `repeatingSources` (see
+ * `eventsRepeatAcrossFiles`), is read without the events the files before it already
  * hold, decided on this same snapshot. A file's revision is a digest of the events read,
  * so it changes exactly when they do. Invalid rows are skipped, as for history; a file
  * the store does not hold has no events.
@@ -722,8 +723,13 @@ export function readDepartedFileEvents(
 export function readStoredFileSnapshots(
   store: EventStore,
   files: readonly EventStoreStoredFile[],
-  historyFiles: readonly EventStoreStoredFile[] = [],
+  options: {
+    historyFiles?: readonly EventStoreStoredFile[];
+    repeatingSources?: ReadonlySet<string>;
+  } = {},
 ): EventStoreFileSnapshot[] {
+  const historyFiles = options.historyFiles ?? [];
+  const repeatingSources = options.repeatingSources ?? new Set<string>();
   const snapshots: EventStoreFileSnapshot[] = [];
   const countedHashes = new Map<string, number>();
   const readSnapshot = (
@@ -748,6 +754,10 @@ export function readStoredFileSnapshots(
   try {
     for (const file of files) {
       readSnapshot(file, (events) => {
+        if (repeatingSources.has(normalizeStoreSource(file.source))) {
+          return takeUncountedEvents(events, countedHashes);
+        }
+
         if (historyFiles.length > 0) {
           for (const event of events) {
             const hash = computeEventContentHash(event);

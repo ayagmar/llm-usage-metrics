@@ -159,7 +159,8 @@ report shapes stay unchanged.
 (successfully parsed files plus served history), and `readStoredFileSnapshots` reads
 them back in one read transaction with a revision per file (a digest of its events),
 so another machine can sync only the files that changed. History files are read after
-the parsed files and, as in history, without the events those files already hold;
+the parsed files and, as in history, without the events those files already hold, as
+are the files of a source whose files repeat events (`eventsRepeatAcrossFiles`, pi);
 deciding that on the same read transaction keeps a concurrent run from skewing it.
 
 Reports read other machines after history and before the provider, model and date

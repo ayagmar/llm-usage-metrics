@@ -384,10 +384,10 @@ function addServedFileHashCounts(
 }
 
 /**
- * Leaves out a served departed file's events that `countedHashes` already counts, per
- * content hash, and adds the rest to it. An identical content hash covers the session
- * id and timestamp, so it is the same event, not a lookalike: e.g. a pi fork's copy of
- * a parent session that kept going after the fork.
+ * Leaves out a file's events that `countedHashes` already counts, per content hash, and
+ * adds the rest to it; repeats within the file are kept. An identical content hash
+ * covers the session id and timestamp, so it is the same event, not a lookalike: e.g. a
+ * pi fork's copy of a parent session that is also counted from the parent or another fork.
  */
 export function takeUncountedEvents(
   events: readonly UsageEvent[],

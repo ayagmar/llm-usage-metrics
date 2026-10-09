@@ -327,6 +327,40 @@ describe('machine export e2e', () => {
     ]);
   });
 
+  it('sends an event that two live files repeat once, for a source that repeats events', async () => {
+    const firstFile = path.join(rootDir, 'fork-a.json');
+    const secondFile = path.join(rootDir, 'fork-b.json');
+    const adapter: SourceAdapter = {
+      id: 'pi',
+      capabilities: { eventsRepeatAcrossFiles: true },
+      discoverFiles: async () => [firstFile, secondFile],
+      parseFile: async (filePath) =>
+        (await readFile(filePath, 'utf8'))
+          .trim()
+          .split('\n')
+          .map((sessionId) =>
+            createUsageEvent({
+              source: 'pi',
+              sessionId,
+              timestamp: '2026-10-01T10:00:00.000Z',
+              inputTokens: 10,
+              costMode: 'estimated',
+            }),
+          ),
+    };
+    await writeFile(path.join(rootDir, 'config.toml'), 'sources = ["pi"]\n');
+    await writeFile(firstFile, 'parent\nfork-a');
+    await writeFile(secondFile, 'parent\nfork-b');
+
+    const lines = await exportLines({}, undefined, { createAdapters: () => [adapter] });
+
+    expect(exportedSessions(lines)).toEqual([
+      [firstFile, ['parent', 'fork-a']],
+      [secondFile, ['fork-b']],
+    ]);
+    expect(endLine(lines).eventCount).toBe(3);
+  });
+
   it('changes a revision when stored events change under the same fingerprint', async () => {
     // Two concurrent runs can store different events for one fingerprint.
     const store = await openEventStore(path.join(rootDir, 'race.db'));

@@ -88,11 +88,14 @@ export async function runMachineExport(
   let snapshots;
 
   try {
-    snapshots = readStoredFileSnapshots(
-      store,
-      dataset.ledger.parsedFiles,
-      dataset.ledger.historyFiles,
-    );
+    snapshots = readStoredFileSnapshots(store, dataset.ledger.parsedFiles, {
+      historyFiles: dataset.ledger.historyFiles,
+      repeatingSources: new Set(
+        dataset.adaptersToParse
+          .filter((adapter) => adapter.capabilities?.eventsRepeatAcrossFiles)
+          .map((adapter) => adapter.id),
+      ),
+    });
   } finally {
     (deps.closeEventStore ?? closeEventStore)(store);
   }
