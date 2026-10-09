@@ -126,7 +126,7 @@ Options:
 ```text
 Usage: llm-usage daily [options]
 
-Show daily usage report (last 7 days unless --since, --until, or --all)
+Show daily usage report (last 7 days unless --last, --since, --until, or --all)
 
 Options:
   --pi-dir <path>                Path to .pi sessions directory (repeatable)
@@ -199,8 +199,12 @@ Options:
   --no-open                      With --share, write the files without opening
                                  the page
   --all                          Report every day instead of the last 7 days
+  --last <n>                     Report the last N days, counting the current
+                                 day
   --compact                      Abbreviate token counts and hide the Reasoning
                                  and Cache Write columns (terminal/markdown)
+  --no-cost                      Leave cost out of the table and share card,
+                                 e.g. for screenshots
   --by-machine                   Split each source row by the machine its usage
                                  came from
   -h, --help                     display help for command
@@ -214,8 +218,8 @@ Options:
 ```text
 Usage: llm-usage weekly [options]
 
-Show weekly usage report (week starts Monday; last 8 weeks unless --since,
---until, or --all)
+Show weekly usage report (week starts Monday; last 8 weeks unless --last,
+--since, --until, or --all)
 
 Options:
   --pi-dir <path>                Path to .pi sessions directory (repeatable)
@@ -288,8 +292,12 @@ Options:
   --no-open                      With --share, write the files without opening
                                  the page
   --all                          Report every week instead of the last 8 weeks
+  --last <n>                     Report the last N weeks, counting the current
+                                 week
   --compact                      Abbreviate token counts and hide the Reasoning
                                  and Cache Write columns (terminal/markdown)
+  --no-cost                      Leave cost out of the table and share card,
+                                 e.g. for screenshots
   --by-machine                   Split each source row by the machine its usage
                                  came from
   -h, --help                     display help for command
@@ -375,8 +383,12 @@ Options:
                                  PNG export) to the current directory
   --no-open                      With --share, write the files without opening
                                  the page
+  --last <n>                     Report the last N months, counting the current
+                                 month
   --compact                      Abbreviate token counts and hide the Reasoning
                                  and Cache Write columns (terminal/markdown)
+  --no-cost                      Leave cost out of the table and share card,
+                                 e.g. for screenshots
   --by-machine                   Split each source row by the machine its usage
                                  came from
   -h, --help                     display help for command
@@ -1363,11 +1375,13 @@ Search across root and command help. See Command help above to check which flags
 | `--kilocode-dir` | - | `<path>` | Path to KiloCode tasks directory \(repeatable\) |
 | `--kimi-dir` | - | `<path>` | Path to Kimi sessions directory \(repeatable\) |
 | `--known` | - | `<path>` | Leave out files already held at the same revision, as listed in this JSON file \(- for stdin\) \(machine only\) |
+| `--last` | - | `<n>` | daily: Report the last N days, counting the current day; weekly: Report the last N weeks, counting the current week; monthly: Report the last N months, counting the current month |
 | `--list` | - | - | List available schema names \(schema only\) |
 | `--machine` | - | `<name>` | Count only these machines \(repeatable or comma-separated; local is this one; default: all\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline only\) |
 | `--markdown` | - | - | Render output as Markdown table \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped only\) |
 | `--metric` | - | `<name>` | Trend metric: cost \| tokens \| active-hours \(default: "cost"\) \(trends only\) |
 | `--model` | - | `<name>` | Filter by model \(repeatable/comma-separated; exact when exact match exists after source/provider/date filters, otherwise substring\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline only\) |
+| `--no-cost` | - | - | Leave cost out of the table and share card, e.g. for screenshots \(usage reports only\) |
 | `--no-history` | - | - | leave out usage from files that no longer exist on disk \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline only\) |
 | `--no-open` | - | - | With --share, write the files without opening the page \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, wrapped only\) |
 | `--no-sync` | - | - | use other machines' cached usage without refreshing it over ssh \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline only\) |
@@ -1410,12 +1424,14 @@ llm-usage daily --markdown
 llm-usage daily --compact
 llm-usage weekly --timezone Europe/Paris
 llm-usage weekly --all --json
+llm-usage weekly --last 1 --no-cost
 llm-usage monthly --since 2026-01-01 --until 2026-01-31
 llm-usage monthly --source opencode --opencode-db /path/to/opencode.db --json
 llm-usage monthly --source gemini --gemini-dir /path/to/.gemini
 llm-usage monthly --no-history --pricing-offline
 llm-usage monthly --source droid --droid-dir /path/to/.factory/sessions
 llm-usage monthly --share
+llm-usage monthly --last 3
 llm-usage compare
 llm-usage compare --since 2026-06-01 --until 2026-06-30 --vs-since 2026-05-01 --vs-until 2026-05-31
 llm-usage efficiency weekly --repo-dir /path/to/repo --json

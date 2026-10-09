@@ -244,6 +244,19 @@ describe('renderUsageShareSvg', () => {
     ).toHaveLength(3);
   });
 
+  it('leads with tokens and shows no cost when cost is hidden', () => {
+    const [withCost, withoutCost] = [false, true].map((hideCost) =>
+      renderUsageShareSvg(createMultiSourceData(), 'monthly', shareThemes.dark, { hideCost }),
+    );
+
+    expect(withCost).toContain('>Cost<');
+    expect(withoutCost).not.toContain('>Cost<');
+    expect(withoutCost).not.toContain('$2.00');
+    expect(withoutCost).toContain('>Tokens<');
+    expect(withoutCost).toContain('29k');
+    expect(withoutCost).toContain('2 months with usage');
+  });
+
   it('labels periods for each granularity', () => {
     const daily = renderUsageShareSvg(
       withPeriods(createManySourcesData(['pi']), ['2026-01-02', '2026-01-03']),

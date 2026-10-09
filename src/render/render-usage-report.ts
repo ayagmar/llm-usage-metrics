@@ -22,6 +22,8 @@ export type RenderUsageReportOptions = {
   tableLayout?: UsageTableLayout;
   /** `--compact`: abbreviated token counts without the Reasoning and Cache Write columns. */
   compact?: boolean;
+  /** `--no-cost`: leave out the Cost column. */
+  hideCost?: boolean;
   terminalWidth?: number;
 };
 
@@ -48,15 +50,22 @@ function joinWithAnd(items: readonly string[]): string {
     : `${items.slice(0, -1).join(', ')} and ${items.at(-1) ?? ''}`;
 }
 
-/** Describes what the terminal fit changed beyond what the user asked for with --compact. */
-export function describeTableFit(fit: TerminalTableFit, compact: boolean): string | undefined {
+/** Describes what the terminal fit changed beyond what --compact and --no-cost asked for. */
+export function describeTableFit(
+  fit: TerminalTableFit,
+  compact: boolean,
+  hideCost = false,
+): string | undefined {
   const changes: string[] = [];
 
   if (!compact && fit.tokenFormat === 'abbreviated') {
     changes.push('abbreviated token counts');
   }
 
-  const impliedHiddenColumns = compact ? compactHiddenUsageColumns : [];
+  const impliedHiddenColumns = [
+    ...(compact ? compactHiddenUsageColumns : []),
+    ...(hideCost ? (['cost'] as const) : []),
+  ];
   const hiddenHeaders = fit.hiddenColumns
     .filter((column) => !impliedHiddenColumns.includes(column))
     .map((column) => getUsageTableHeader(column));
@@ -102,9 +111,10 @@ function renderTerminalUsageReport(
     useColor,
     tableLayout,
     compact: options.compact,
+    hideCost: options.hideCost,
     terminalWidth: options.terminalWidth,
   });
-  const fitNote = describeTableFit(fit, options.compact ?? false);
+  const fitNote = describeTableFit(fit, options.compact ?? false, options.hideCost);
 
   outputLines.push(output);
 
@@ -123,7 +133,11 @@ export function renderUsageReportWithNotes(
       return { output: renderReportJson('usage', usageData.rows), notes: [] };
     case 'markdown':
       return {
-        output: renderMarkdownTable(usageData.rows, { tableLayout, compact: options.compact }),
+        output: renderMarkdownTable(usageData.rows, {
+          tableLayout,
+          compact: options.compact,
+          hideCost: options.hideCost,
+        }),
         notes: [],
       };
     case 'terminal':

@@ -33,6 +33,8 @@ const usageReportFlags = [
   '--history',
   '--machine',
   '--by-machine',
+  '--last',
+  '--no-cost',
   ...sourcePathFlags,
 ];
 
