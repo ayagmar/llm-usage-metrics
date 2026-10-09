@@ -36,37 +36,48 @@ async function totalTokens(piDir: string): Promise<number | undefined> {
   return result.rows.find((row) => row.rowType === 'grand_total')?.totalTokens;
 }
 
+// A parent with usage rows at the given times, and a fork made at 20:05 that copies the
+// parent's 20:01 row and adds its own at 20:06.
+async function writeParentAndFork(parentRows: string[]): Promise<{
+  piDir: string;
+  parentPath: string;
+}> {
+  const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'pi-fork-history-'));
+  tempDirs.push(rootDir);
+  vi.stubEnv('LLM_USAGE_EVENT_STORE', '1');
+  vi.stubEnv('LLM_USAGE_EVENT_STORE_PATH', path.join(rootDir, 'events.db'));
+
+  const piDir = path.join(rootDir, 'sessions');
+  const projectDir = path.join(piDir, '--project--');
+  const parentPath = path.join(projectDir, '2026-02-12T20-00-00-000Z_parent-id.jsonl');
+  await mkdir(projectDir, { recursive: true });
+  await writeFile(
+    parentPath,
+    [
+      JSON.stringify({ type: 'session', id: 'parent-id', timestamp: '2026-02-12T20:00:00.000Z' }),
+      ...parentRows.map(usageRow),
+    ].join('\n'),
+  );
+  await writeFile(
+    path.join(projectDir, '2026-02-12T20-05-00-000Z_fork-id.jsonl'),
+    [
+      JSON.stringify({
+        type: 'session',
+        id: 'fork-id',
+        timestamp: '2026-02-12T20:05:00.000Z',
+        parentSession: parentPath,
+      }),
+      usageRow('2026-02-12T20:01:00.000Z'),
+      usageRow('2026-02-12T20:06:00.000Z'),
+    ].join('\n'),
+  );
+
+  return { piDir, parentPath };
+}
+
 describe('a pi fork whose parent session is deleted', () => {
   it('counts the copied usage once, from the fork or from history', async () => {
-    const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'pi-fork-history-'));
-    tempDirs.push(rootDir);
-    vi.stubEnv('LLM_USAGE_EVENT_STORE', '1');
-    vi.stubEnv('LLM_USAGE_EVENT_STORE_PATH', path.join(rootDir, 'events.db'));
-
-    const piDir = path.join(rootDir, 'sessions');
-    const projectDir = path.join(piDir, '--project--');
-    const parentPath = path.join(projectDir, '2026-02-12T20-00-00-000Z_parent-id.jsonl');
-    await mkdir(projectDir, { recursive: true });
-    await writeFile(
-      parentPath,
-      [
-        JSON.stringify({ type: 'session', id: 'parent-id', timestamp: '2026-02-12T20:00:00.000Z' }),
-        usageRow('2026-02-12T20:01:00.000Z'),
-      ].join('\n'),
-    );
-    await writeFile(
-      path.join(projectDir, '2026-02-12T20-05-00-000Z_fork-id.jsonl'),
-      [
-        JSON.stringify({
-          type: 'session',
-          id: 'fork-id',
-          timestamp: '2026-02-12T20:05:00.000Z',
-          parentSession: parentPath,
-        }),
-        usageRow('2026-02-12T20:01:00.000Z'),
-        usageRow('2026-02-12T20:06:00.000Z'),
-      ].join('\n'),
-    );
+    const { piDir, parentPath } = await writeParentAndFork(['2026-02-12T20:01:00.000Z']);
 
     const before = await totalTokens(piDir);
     await rm(parentPath);
@@ -74,5 +85,19 @@ describe('a pi fork whose parent session is deleted', () => {
 
     expect(before).toBe(30);
     expect(afterDeletion).toBe(30);
+  });
+
+  it('counts the copied usage once when the parent kept going after the fork', async () => {
+    const { piDir, parentPath } = await writeParentAndFork([
+      '2026-02-12T20:01:00.000Z',
+      '2026-02-12T20:10:00.000Z',
+    ]);
+
+    const before = await totalTokens(piDir);
+    await rm(parentPath);
+    const afterDeletion = await totalTokens(piDir);
+
+    expect(before).toBe(45);
+    expect(afterDeletion).toBe(45);
   });
 });

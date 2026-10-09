@@ -65,7 +65,7 @@ Relevant options/config:
 - persisted as SQLite with per-file replace-on-change writes, batched into one transaction per source
 - with `--since`, file-per-session sources skip files whose newest `mtime` (including sidecars) is more than a day before the window; with the store on, only files the store already holds are skipped, so the ledger still ingests older files
 - reports include usage from files that no longer exist on disk by default; `--no-history` leaves it out
-- moved, renamed, and copied files are suppressed by content hash to avoid double counting
+- moved, renamed, and copied files are suppressed by content hash to avoid double counting; a departed file that only partly overlaps counted usage is served without the overlapping events
 - `llm-usage prune` previews or deletes departed-file rows explicitly
 - first run after a store schema upgrade migrates the database in place and may take a few seconds
 - deleting the database file deletes retained local history and starts a new ledger on the next run; a ledger once copied from the old cache-directory location is not copied again (a `legacy-ledger-copied` marker beside the ledger records the copy), so delete that old file yourself to reclaim its space

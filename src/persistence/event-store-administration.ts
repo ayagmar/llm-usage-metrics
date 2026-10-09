@@ -26,6 +26,7 @@ import {
   toNonNegativeNumber,
   toText,
 } from './event-store-database.js';
+import { takeUncountedEvents } from './event-store-history.js';
 import { assertSupportedSchemaVersion, initializeSchema } from './event-store-schema.js';
 import { hasErrorCode } from '../utils/error-code.js';
 
@@ -711,32 +712,55 @@ export function readDepartedFileEvents(
 }
 
 /**
- * Reads the stored events of `files` in one read transaction, so a concurrent run that
- * rewrites a file cannot be seen half-written. A file's revision is a digest of the
- * events read, so it changes exactly when they do. Invalid rows are skipped, as for
- * history; a file the store does not hold has no events.
+ * Reads the stored events of `files`, then of the departed `historyFiles`, in one read
+ * transaction, so a concurrent run that rewrites a file cannot be seen half-written. As
+ * for history, a history file is read without the events the files before it already
+ * hold, decided on this same snapshot. A file's revision is a digest of the events read,
+ * so it changes exactly when they do. Invalid rows are skipped, as for history; a file
+ * the store does not hold has no events.
  */
 export function readStoredFileSnapshots(
   store: EventStore,
   files: readonly EventStoreStoredFile[],
+  historyFiles: readonly EventStoreStoredFile[] = [],
 ): EventStoreFileSnapshot[] {
   const snapshots: EventStoreFileSnapshot[] = [];
+  const countedHashes = new Map<string, number>();
+  const readSnapshot = (
+    file: EventStoreStoredFile,
+    selectEvents: (events: UsageEvent[]) => UsageEvent[],
+  ): void => {
+    const source = normalizeStoreSource(file.source);
+    const filePath = normalizeStoreFilePath(file.filePath);
+    const events = selectEvents(readDepartedFileEvents(store, source, filePath));
+
+    snapshots.push({
+      source,
+      filePath,
+      revision: createHash('sha256').update(JSON.stringify(events)).digest('hex').slice(0, 16),
+      events,
+    });
+  };
 
   // A read snapshot, not runTransaction's write lock; so never call this inside one.
   store.database.exec('BEGIN');
 
   try {
     for (const file of files) {
-      const source = normalizeStoreSource(file.source);
-      const filePath = normalizeStoreFilePath(file.filePath);
-      const events = readDepartedFileEvents(store, source, filePath);
+      readSnapshot(file, (events) => {
+        if (historyFiles.length > 0) {
+          for (const event of events) {
+            const hash = computeEventContentHash(event);
+            countedHashes.set(hash, (countedHashes.get(hash) ?? 0) + 1);
+          }
+        }
 
-      snapshots.push({
-        source,
-        filePath,
-        revision: createHash('sha256').update(JSON.stringify(events)).digest('hex').slice(0, 16),
-        events,
+        return events;
       });
+    }
+
+    for (const file of historyFiles) {
+      readSnapshot(file, (events) => takeUncountedEvents(events, countedHashes));
     }
   } finally {
     store.database.exec('COMMIT');
