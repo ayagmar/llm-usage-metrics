@@ -18,9 +18,13 @@ const CORPUS = {
 };
 const SOURCES = Object.keys(CORPUS);
 const MINUTE_MS = 60_000;
-const DAY_MS = 24 * 60 * MINUTE_MS;
-// The corpus spans about 15 days ending before today, so statusline has a current month.
-const START_MS = Math.floor(Date.now() / DAY_MS) * DAY_MS - 20 * DAY_MS;
+const TURN_MS = 9 * MINUTE_MS;
+// The corpus spans about 15 days and ends a minute ago, so statusline always has usage
+// today to summarize.
+const LAST_SLOT = Math.max(
+  ...Object.values(CORPUS).map(({ sessions, turns }) => (sessions - 1) * 7 + turns - 1),
+);
+const START_MS = Math.floor(Date.now() / MINUTE_MS) * MINUTE_MS - MINUTE_MS - LAST_SLOT * TURN_MS;
 
 function printHelp() {
   console.log(`Usage: node scripts/perf-regression-check.mjs --base <entry> --head <entry> [options]
@@ -101,7 +105,7 @@ function parseArgs(argv) {
 }
 
 function timestampAt(session, turn) {
-  return new Date(START_MS + (session * 7 + turn) * MINUTE_MS * 9).toISOString();
+  return new Date(START_MS + (session * 7 + turn) * TURN_MS).toISOString();
 }
 
 function claudeSession(session, turns) {
@@ -262,7 +266,8 @@ function sourceArgs(dirs) {
 }
 
 // A build that exits 0 without doing the work would look fast, so the untimed run of
-// each cell must show it: every source's usage in the daily report, a statusline line.
+// each cell must show it: every source's usage in the daily report, and a statusline with
+// a nonzero figure, which it has only when it summarized today's usage.
 function readDailyTokensBySource(stdout) {
   const tokensBySource = {};
 
@@ -282,8 +287,8 @@ function readDailyTokensBySource(stdout) {
 }
 
 function readStatusline(stdout) {
-  if (!/\d/.test(stdout)) {
-    throw new Error(`the statusline printed no figures: ${JSON.stringify(stdout)}`);
+  if (!/[1-9]/.test(stdout)) {
+    throw new Error(`the statusline shows no usage: ${JSON.stringify(stdout)}`);
   }
 
   return stdout.trim();
