@@ -4,6 +4,7 @@ import {
   mkdtemp,
   readdir,
   readFile,
+  realpath,
   rm,
   symlink,
   utimes,
@@ -181,8 +182,11 @@ describe('concurrent config edits', () => {
     const longAgo = new Date(Date.now() - 60_000);
     await utimes(lockPath, longAgo, longAgo);
 
+    // The lock sits next to the resolved config, which differs from configPath when the
+    // temp dir is reached through a symlink (macOS) or a short name (Windows).
+    const resolvedLockPath = `${await realpath(configPath)}.lock`;
     await expect(addMachineToConfigFile(configPath, 'laptop', { ssh: 'laptop' })).rejects.toThrow(
-      `delete ${lockPath} if no other run is`,
+      `delete ${resolvedLockPath} if no other run is`,
     );
     expect(await readFile(configPath, 'utf8')).toBe('');
     await expect(lstat(lockPath)).resolves.toBeDefined();
