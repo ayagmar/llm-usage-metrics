@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.js';
 import {
   closeEventStore,
+  computeEventContentHash,
   normalizeStoredEvent,
   openEventStore,
   replaceFileEvents,
@@ -186,7 +187,8 @@ function referenceHistory(store: EventStore, source: string) {
     });
 
   const served = new Map<string, number>();
-  const servedFiles: { source: string; filePath: string }[] = [];
+  const servedFiles: { source: string; filePath: string; alreadyCounted: Map<string, number> }[] =
+    [];
   let suppressedFileCount = 0;
 
   for (const file of files) {
@@ -197,20 +199,29 @@ function referenceHistory(store: EventStore, source: string) {
       continue;
     }
 
+    const alreadyCounted = new Map<string, number>();
     for (const [hash, count] of multiset.counts) {
-      served.set(hash, (served.get(hash) ?? 0) + count);
+      const servedCount = served.get(hash) ?? 0;
+      alreadyCounted.set(hash, Math.min(count, servedCount));
+      served.set(hash, Math.max(count, servedCount));
     }
-    servedFiles.push({ source: file.source, filePath: file.filePath });
+    servedFiles.push({ source: file.source, filePath: file.filePath, alreadyCounted });
   }
 
   const selectEvents = store.database.prepare(
-    'SELECT source, session_id, timestamp, model, provider, repo_root, input_tokens, output_tokens, reasoning_tokens, cache_read_tokens, cache_write_tokens, total_tokens, cost_usd, cost_mode FROM events WHERE source = ? AND file_path = ? ORDER BY event_index ASC',
+    'SELECT source, session_id, timestamp, model, provider, repo_root, input_tokens, output_tokens, reasoning_tokens, cache_read_tokens, cache_write_tokens, total_tokens, cost_usd, cost_mode, content_hash FROM events WHERE source = ? AND file_path = ? ORDER BY event_index ASC',
   );
   const events: UsageEvent[] = [];
 
   for (const file of servedFiles) {
     for (const row of selectEvents.all(file.source, file.filePath)) {
       const event = normalizeStoredEvent(row);
+      const hash = String(row.content_hash);
+      const toDrop = file.alreadyCounted.get(hash) ?? 0;
+      if (toDrop > 0) {
+        file.alreadyCounted.set(hash, toDrop - 1);
+        continue;
+      }
       if (event) {
         events.push(event);
       }
@@ -470,7 +481,7 @@ describe('event-store history', () => {
     }
   });
 
-  it('serves a departed file whole when it only partially overlaps live data', async () => {
+  it('serves a departed file without the events it shares with live data', async () => {
     const store = await createTempStore();
     const sharedDeletedEvent = createEvent({ sessionId: 'shared' });
     const sharedLiveEvent = createEvent({ sessionId: 'shared' });
@@ -499,12 +510,18 @@ describe('event-store history', () => {
       });
 
       expect(result).toEqual({
-        events: [sharedDeletedEvent, uniqueDeletedEvent],
-        servedFiles: [{ source: 'codex', filePath: '/tmp/deleted.jsonl' }],
+        events: [uniqueDeletedEvent],
+        servedFiles: [
+          {
+            source: 'codex',
+            filePath: '/tmp/deleted.jsonl',
+            alreadyCountedHashes: new Map([[computeEventContentHash(sharedDeletedEvent), 1]]),
+          },
+        ],
         departedFileCount: 1,
         servedFileCount: 1,
         suppressedFileCount: 0,
-        servedEventCount: 2,
+        servedEventCount: 1,
       });
     } finally {
       closeEventStore(store);
@@ -668,7 +685,7 @@ describe('event-store history', () => {
           }),
         ]);
       }
-      // Partial overlap (shared + unique event) — served whole.
+      // Partial overlap (shared + unique event) — served without the shared event.
       for (let index = 0; index < 50; index += 1) {
         write(`/tmp/partial-${index}.jsonl`, [
           createEvent({
@@ -720,7 +737,7 @@ describe('event-store history', () => {
           }),
         ]);
       }
-      // Four events of that content — count 4 > served 3, served whole.
+      // Four events of that content — count 4 > served 3, serves the fourth.
       for (let index = 0; index < 20; index += 1) {
         const duplicate = () =>
           createEvent({

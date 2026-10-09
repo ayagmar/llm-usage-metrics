@@ -1,7 +1,7 @@
 import type { UsageEvent } from '../domain/usage-event.js';
 import { normalizeSourceId } from '../domain/usage-event.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
-import { normalizeStoredEvent } from './event-store-codec.js';
+import { computeEventContentHash, normalizeStoredEvent } from './event-store-codec.js';
 import { toNonNegativeInteger, toText, type EventStore } from './event-store-database.js';
 
 export type EventStoreHistoryDiscoveredFile = {
@@ -20,9 +20,18 @@ export type LoadHistoryEventsInput = {
   presentFiles?: readonly EventStoreHistoryDiscoveredFile[];
 };
 
+/**
+ * A stored file whose events a run counts. `alreadyCountedHashes` maps content hashes to
+ * how many of the file's events with that hash are counted elsewhere (a live file or an
+ * earlier served file), so they are left out.
+ */
+export type EventStoreCountedFile = EventStoreHistoryDiscoveredFile & {
+  alreadyCountedHashes?: ReadonlyMap<string, number>;
+};
+
 export type EventStoreHistoryResult = {
   events: UsageEvent[];
-  servedFiles: EventStoreHistoryDiscoveredFile[];
+  servedFiles: EventStoreCountedFile[];
   departedFileCount: number;
   servedFileCount: number;
   suppressedFileCount: number;
@@ -43,6 +52,7 @@ export type ClassifiedDepartedFile = {
   eventCount: number;
   newestTimestamp?: string;
   suppressed: boolean;
+  alreadyCountedHashes?: ReadonlyMap<string, number>;
 };
 
 type FileContentHashMultiset = {
@@ -373,19 +383,52 @@ function isSubsetOfServedData(
   return true;
 }
 
-function addFileHashCounts(
-  servedHashCounts: Map<string, number>,
+// Returns how many of the file's events per hash are already counted, and adds the
+// rest to the counted multiset.
+function takeAlreadyCountedHashes(
   fileHashCounts: FileContentHashMultiset,
-): void {
+  servedHashCounts: Map<string, number>,
+): Map<string, number> {
+  const alreadyCounted = new Map<string, number>();
+
   for (const [hash, count] of fileHashCounts.counts.entries()) {
-    addHashCount(servedHashCounts, hash, count);
+    const servedCount = servedHashCounts.get(hash) ?? 0;
+    addHashCount(alreadyCounted, hash, Math.min(count, servedCount));
+    servedHashCounts.set(hash, Math.max(count, servedCount));
   }
+
+  return alreadyCounted;
+}
+
+/** Leaves out the events of a counted file that `alreadyCountedHashes` names. */
+export function withoutAlreadyCountedEvents(
+  events: readonly UsageEvent[],
+  alreadyCountedHashes: ReadonlyMap<string, number> | undefined,
+): UsageEvent[] {
+  if (!alreadyCountedHashes) {
+    return [...events];
+  }
+
+  const remaining = new Map(alreadyCountedHashes);
+
+  return events.filter((event) => {
+    const hash = computeEventContentHash(event);
+    const count = remaining.get(hash) ?? 0;
+
+    if (count === 0) {
+      return true;
+    }
+
+    remaining.set(hash, count - 1);
+    return false;
+  });
 }
 
 // One joined read of every served file's events, ordered by the classification
 // order (encoded as ordinal) then event_index — identical to concatenating each
-// served file's rows in classified order. An un-normalizable row is skipped, not
-// invalidated: a departed file has no source data left to re-parse.
+// served file's rows in classified order, less the events already counted. An
+// un-normalizable row is skipped, not invalidated: a departed file has no source data
+// left to re-parse.
 function loadServedEvents(
   store: EventStore,
   servedFiles: readonly ClassifiedDepartedFile[],
@@ -422,7 +465,7 @@ function loadServedEvents(
         'SELECT events.source, events.session_id, events.timestamp, events.model,',
         '  events.provider, events.repo_root, events.input_tokens, events.output_tokens,',
         '  events.reasoning_tokens, events.cache_read_tokens, events.cache_write_tokens,',
-        '  events.total_tokens, events.cost_usd, events.cost_mode',
+        '  events.total_tokens, events.cost_usd, events.cost_mode, served.ordinal',
         'FROM history_served_files AS served',
         'CROSS JOIN events',
         'WHERE events.source = served.source',
@@ -431,19 +474,22 @@ function loadServedEvents(
       ].join('\n'),
     )
     .all();
-  const events: UsageEvent[] = [];
+  const eventsByFile = servedFiles.map((): UsageEvent[] => []);
 
   for (const row of rows) {
     const event = normalizeStoredEvent(row);
+    const ordinal = toNonNegativeInteger(row.ordinal);
 
-    if (!event) {
+    if (!event || ordinal === undefined) {
       continue;
     }
 
-    events.push(event);
+    eventsByFile[ordinal].push(event);
   }
 
-  return events;
+  return eventsByFile.flatMap((fileEvents, ordinal) =>
+    withoutAlreadyCountedEvents(fileEvents, servedFiles[ordinal].alreadyCountedHashes),
+  );
 }
 
 export function classifyDepartedFiles(
@@ -469,22 +515,27 @@ export function classifyDepartedFiles(
       fileKey(departedFile.source, departedFile.filePath),
     ) ?? { counts: new Map<string, number>(), hasNullHash: false };
     const suppressed = isSubsetOfServedData(fileHashCounts, servedHashCounts);
-
-    classifiedFiles.push({
+    const classifiedFile: ClassifiedDepartedFile = {
       source: departedFile.source,
       filePath: departedFile.filePath,
       eventCount: departedFile.eventCount,
       newestTimestamp: departedFile.newestTimestamp,
       suppressed,
-    });
+    };
+    classifiedFiles.push(classifiedFile);
 
     if (suppressed) {
       continue;
     }
 
-    // Partial overlap is served whole: losing genuine deleted history is worse
-    // than a rare content overlap between unrelated files.
-    addFileHashCounts(servedHashCounts, fileHashCounts);
+    // A partial overlap is served without the events already counted, e.g. a pi fork's
+    // copy of a parent that kept going after the fork. An identical content hash
+    // includes the session id and timestamp, so it is the same event, not a lookalike.
+    const alreadyCountedHashes = takeAlreadyCountedHashes(fileHashCounts, servedHashCounts);
+
+    if (alreadyCountedHashes.size > 0) {
+      classifiedFile.alreadyCountedHashes = alreadyCountedHashes;
+    }
   }
 
   return classifiedFiles;
@@ -501,7 +552,9 @@ export function loadHistoryEvents(
 
   return {
     events,
-    servedFiles: servedFiles.map(({ source, filePath }) => ({ source, filePath })),
+    servedFiles: servedFiles.map(({ source, filePath, alreadyCountedHashes }) =>
+      alreadyCountedHashes ? { source, filePath, alreadyCountedHashes } : { source, filePath },
+    ),
     departedFileCount: departedFiles.length,
     servedFileCount: servedFiles.length,
     suppressedFileCount,

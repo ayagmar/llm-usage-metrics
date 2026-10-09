@@ -10,7 +10,7 @@ import { closeEventStore, openEventStore, type EventStore } from '../persistence
 import { addStoredFilesStillOnDisk } from './history-live-files.js';
 import {
   loadHistoryEvents as loadDefaultHistoryEvents,
-  type EventStoreHistoryDiscoveredFile,
+  type EventStoreCountedFile,
   type EventStoreHistoryResult,
 } from '../persistence/event-store-history.js';
 import { createDefaultAdapters } from '../sources/create-default-adapters.js';
@@ -148,7 +148,7 @@ export type UsageEventDataset = {
    * The event store and the stored files whose events this run counts: parsed files and
    * the history it served. Undefined when the event store was unavailable.
    */
-  ledger?: { path: string; countedFiles: EventStoreHistoryDiscoveredFile[] };
+  ledger?: { path: string; countedFiles: EventStoreCountedFile[] };
   pricingRuntimeConfig: ReturnType<typeof getPricingFetcherRuntimeConfig>;
   readEnvVarOverrides: () => EnvVarOverride[];
 };

@@ -26,6 +26,7 @@ import {
   toNonNegativeNumber,
   toText,
 } from './event-store-database.js';
+import { withoutAlreadyCountedEvents, type EventStoreCountedFile } from './event-store-history.js';
 import { assertSupportedSchemaVersion, initializeSchema } from './event-store-schema.js';
 import { hasErrorCode } from '../utils/error-code.js';
 
@@ -713,12 +714,12 @@ export function readDepartedFileEvents(
 /**
  * Reads the stored events of `files` in one read transaction, so a concurrent run that
  * rewrites a file cannot be seen half-written. A file's revision is a digest of the
- * events read, so it changes exactly when they do. Invalid rows are skipped, as for
- * history; a file the store does not hold has no events.
+ * events read, so it changes exactly when they do. Invalid rows and events counted
+ * elsewhere are left out, as for history; a file the store does not hold has no events.
  */
 export function readStoredFileSnapshots(
   store: EventStore,
-  files: readonly EventStoreStoredFile[],
+  files: readonly EventStoreCountedFile[],
 ): EventStoreFileSnapshot[] {
   const snapshots: EventStoreFileSnapshot[] = [];
 
@@ -729,7 +730,10 @@ export function readStoredFileSnapshots(
     for (const file of files) {
       const source = normalizeStoreSource(file.source);
       const filePath = normalizeStoreFilePath(file.filePath);
-      const events = readDepartedFileEvents(store, source, filePath);
+      const events = withoutAlreadyCountedEvents(
+        readDepartedFileEvents(store, source, filePath),
+        file.alreadyCountedHashes,
+      );
 
       snapshots.push({
         source,

@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { cp, mkdtemp, readFile, rm, utimes, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -243,6 +244,45 @@ describe('machine export e2e', () => {
       files: [endLine(first).files[0]],
       eventCount: 1,
     });
+  });
+
+  it('leaves out the events of a deleted file that a live file already counts', async () => {
+    const parentFile = path.join(rootDir, 'parent.json');
+    const forkFile = path.join(rootDir, 'fork.json');
+    // One event per line, keyed by session id: the fork copies the parent's "shared".
+    const adapter: SourceAdapter = {
+      id: 'codex',
+      discoverFiles: async () => [parentFile, forkFile].filter((filePath) => existsSync(filePath)),
+      parseFile: async (filePath) =>
+        (await readFile(filePath, 'utf8'))
+          .trim()
+          .split('\n')
+          .map((sessionId) =>
+            createUsageEvent({
+              source: 'codex',
+              sessionId,
+              timestamp: '2026-10-01T10:00:00.000Z',
+              inputTokens: 10,
+              costMode: 'estimated',
+            }),
+          ),
+    };
+    const deps = { createAdapters: () => [adapter] };
+    await writeFile(path.join(rootDir, 'config.toml'), 'sources = ["codex"]\n');
+    await writeFile(parentFile, 'shared\nparent-only');
+    await exportLines({}, undefined, deps);
+
+    await rm(parentFile);
+    await writeFile(forkFile, 'shared\nfork-only');
+    const lines = await exportLines({}, undefined, deps);
+
+    expect(
+      fileLines(lines).map((line) => [line.filePath, line.events.map((event) => event.sessionId)]),
+    ).toEqual([
+      [forkFile, ['shared', 'fork-only']],
+      [parentFile, ['parent-only']],
+    ]);
+    expect(endLine(lines).eventCount).toBe(3);
   });
 
   it('changes a revision when stored events change under the same fingerprint', async () => {

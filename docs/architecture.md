@@ -150,14 +150,16 @@ tables.
 `src/persistence/event-store-history.ts` owns `--history` reads. It compares the
 current run's discovered `(source, file_path)` pairs with stored files, serves
 departed files for selected sources, and suppresses moved or copied files by
-content hash. Served history events are appended before the normal
+content hash. A departed file that only partly overlaps counted events is served
+without the overlapping events. Served history events are appended before the normal
 provider/model/date filters, pricing, and aggregation steps, so downstream
 report shapes stay unchanged.
 
 `machine export` reuses that run: the dataset reports the stored files it counted
 (successfully parsed files plus served history), and `readStoredFileSnapshots` reads
 them back in one read transaction with a revision per file (a digest of its events),
-so another machine can sync only the files that changed.
+so another machine can sync only the files that changed. A partly overlapping history
+file is read without the events history left out of it.
 
 Reports read other machines after history and before the provider, model and date
 filters: `buildUsageEventDataset` selects machines (`--machine`, or every configured one
