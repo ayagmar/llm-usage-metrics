@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { buildUsageData } from '../../src/cli/build-usage-data.js';
+import { buildUsageData, resolvePeriodsSince } from '../../src/cli/build-usage-data.js';
 import { buildUsageDiagnostics } from '../../src/cli/build-usage-data-diagnostics.js';
 import {
   normalizeSourceFilter,
@@ -1782,6 +1782,73 @@ describe('buildUsageData', () => {
         undefined,
         undefined,
       ]);
+    });
+  });
+
+  describe('--last', () => {
+    const timestamps = [
+      '2026-01-18T12:00:00.000Z',
+      '2026-02-01T12:00:00.000Z',
+      '2026-03-08T12:00:00.000Z',
+      '2026-03-10T12:00:00.000Z',
+      '2026-03-11T12:00:00.000Z',
+      // Later than the report clock, e.g. from a machine whose clock runs ahead.
+      '2026-04-01T12:00:00.000Z',
+    ];
+
+    function lastDeps() {
+      return {
+        ...withDeterministicRuntimeDeps(),
+        createAdapters: () => [
+          createAdapter('pi', {
+            '/tmp/pi.jsonl': timestamps.map((timestamp) => createEvent({ timestamp })),
+          }),
+        ],
+        // Wednesday; the current week starts Monday 2026-03-09.
+        now: () => new Date('2026-03-11T18:00:00.000Z'),
+      };
+    }
+
+    function reportedPeriods(result: Awaited<ReturnType<typeof buildUsageData>>): string[] {
+      return result.rows
+        .filter((row) => row.rowType === 'period_source')
+        .map((row) => row.periodKey);
+    }
+
+    it('reports the last N periods of each granularity, counting the current one', async () => {
+      const today = await buildUsageData('daily', { last: '1', timezone: 'UTC' }, lastDeps());
+      const weeks = await buildUsageData('weekly', { last: '2', timezone: 'UTC' }, lastDeps());
+      const months = await buildUsageData('monthly', { last: '2', timezone: 'UTC' }, lastDeps());
+
+      expect(reportedPeriods(today)).toEqual(['2026-03-11']);
+      expect(reportedPeriods(weeks)).toEqual(['2026-W10', '2026-W11']);
+      expect(reportedPeriods(months)).toEqual(['2026-02', '2026-03']);
+      // An explicit window needs no hint about older usage.
+      expect([today, weeks, months].map((result) => result.defaultWindowSince)).toEqual([
+        undefined,
+        undefined,
+        undefined,
+      ]);
+    });
+
+    it('counts months back across a year boundary', () => {
+      expect(resolvePeriodsSince('monthly', '2026-01-15', 3)).toBe('2025-11-01');
+      expect(resolvePeriodsSince('monthly', '2026-12-31', 12)).toBe('2026-01-01');
+      expect(resolvePeriodsSince('monthly', '2026-03-11', 1)).toBe('2026-03-01');
+    });
+
+    it.each(['0', '-1', '1.5', 'two', '10001'])('rejects --last %s', async (last) => {
+      await expect(buildUsageData('daily', { last, timezone: 'UTC' }, lastDeps())).rejects.toThrow(
+        '--last must be a whole number from 1 to 10000',
+      );
+    });
+
+    it('rejects --last with --since, --until, or --all', async () => {
+      for (const options of [{ since: '2026-03-01' }, { until: '2026-03-01' }, { all: true }]) {
+        await expect(
+          buildUsageData('daily', { ...options, last: '2', timezone: 'UTC' }, lastDeps()),
+        ).rejects.toThrow('--last cannot be combined with --since, --until, or --all');
+      }
     });
   });
 });

@@ -197,6 +197,7 @@ export function renderUsageShareSvg(
   usageData: UsageDataResult,
   granularity: ReportGranularity,
   theme: ShareTheme,
+  options: { hideCost?: boolean } = {},
 ): string {
   const sourceRows = extractPeriodSourceRows(usageData.rows);
   const grandTotal = extractGrandTotal(usageData.rows);
@@ -218,28 +219,46 @@ export function renderUsageShareSvg(
     series.reduce((sum, entry) => sum + entry.values[index], 0),
   );
   const maxY = Math.max(1, ...periodTotals) * 1.08;
+  const tokensDetail = `${formatInteger(usedPeriods.length)} ${granularity === 'daily' ? 'days' : granularity === 'weekly' ? 'weeks' : 'months'} with usage`;
+  // Without cost, tokens take the lead stat.
+  const stats = options.hideCost
+    ? [
+        renderStat({
+          theme,
+          x: SHARE_MARGIN,
+          y: statsTop,
+          label: 'Tokens',
+          value: formatCompact(totalTokens),
+          detail: tokensDetail,
+          size: 44,
+          accent: true,
+        }),
+      ]
+    : [
+        renderStat({
+          theme,
+          x: SHARE_MARGIN,
+          y: statsTop,
+          label: 'Cost',
+          value: formatApproxUsd(grandTotal?.costUsd, grandTotal?.costIncomplete),
+          size: 44,
+          accent: true,
+        }),
+        renderStat({
+          theme,
+          x: SHARE_MARGIN,
+          y: statsTop + 108,
+          label: 'Tokens',
+          value: formatCompact(totalTokens),
+          detail: tokensDetail,
+          size: 30,
+        }),
+      ];
   const body =
     series.length === 0
       ? renderEmptyState(theme, 'No usage in this window')
       : [
-          renderStat({
-            theme,
-            x: SHARE_MARGIN,
-            y: statsTop,
-            label: 'Cost',
-            value: formatApproxUsd(grandTotal?.costUsd, grandTotal?.costIncomplete),
-            size: 44,
-            accent: true,
-          }),
-          renderStat({
-            theme,
-            x: SHARE_MARGIN,
-            y: statsTop + 108,
-            label: 'Tokens',
-            value: formatCompact(totalTokens),
-            detail: `${formatInteger(usedPeriods.length)} ${granularity === 'daily' ? 'days' : granularity === 'weekly' ? 'weeks' : 'months'} with usage`,
-            size: 30,
-          }),
+          ...stats,
           renderLegend(series, totalTokens, theme),
           renderValueGridLines(
             maxY,

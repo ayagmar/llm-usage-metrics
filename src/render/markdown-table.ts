@@ -19,6 +19,8 @@ type MarkdownRenderOptions = {
   tableLayout?: UsageTableLayout;
   /** Abbreviated token counts without the Reasoning and Cache Write columns. */
   compact?: boolean;
+  /** `--no-cost`: leave out the Cost column. */
+  hideCost?: boolean;
 };
 
 function boldMarkdownText(value: string): string {
@@ -95,7 +97,10 @@ export function renderMarkdownTable(
 ): string {
   const tableLayout = options.tableLayout ?? 'compact';
   const columns = getVisibleUsageColumnIndexes(
-    new Set<UsageTableColumnId>(options.compact ? compactHiddenUsageColumns : []),
+    new Set<UsageTableColumnId>([
+      ...(options.compact ? compactHiddenUsageColumns : []),
+      ...(options.hideCost ? (['cost'] as const) : []),
+    ]),
   );
   const bodyRows = toUsageTableCells(rows, {
     layout: tableLayout,
