@@ -6,6 +6,9 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     include: ['tests/**/*.test.ts'],
+    // Windows CI runners are several times slower at SQLite and child-process work; the
+    // defaults (5 s per test, 10 s per hook) time out tests that pass everywhere else.
+    ...(process.platform === 'win32' ? { testTimeout: 30_000, hookTimeout: 30_000 } : {}),
     // Keep in-process tests from writing fixture events into the user's real
     // events.db; tests that need the store on must set an explicit temp path.
     // Spawned CLIs inherit this env, so the cache root is redirected too: the
