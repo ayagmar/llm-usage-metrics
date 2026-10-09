@@ -165,6 +165,22 @@ describe('GeminiSourceAdapter', () => {
         await expect(adapter.discoverFiles()).resolves.toEqual([sessionFilePath]);
       },
     );
+
+    itIfSymlinksSupported('finds a project once when an alias links to it', async () => {
+      const geminiDir = await mkdtemp(path.join(canonicalTmpdir(), 'gemini-alias-project-'));
+      tempDirs.push(geminiDir);
+
+      const projectDir = path.join(geminiDir, 'tmp', 'project');
+      const sessionFilePath = path.join(projectDir, 'chats', 'session.json');
+
+      await mkdir(path.dirname(sessionFilePath), { recursive: true });
+      await writeFile(sessionFilePath, '{"sessionId":"session-001","messages":[]}', 'utf8');
+      await symlink(projectDir, path.join(geminiDir, 'tmp', 'alias'));
+
+      const adapter = new GeminiSourceAdapter({ dir: geminiDir });
+
+      await expect(adapter.discoverFiles()).resolves.toEqual([sessionFilePath]);
+    });
   });
 
   describe('parseFile', () => {

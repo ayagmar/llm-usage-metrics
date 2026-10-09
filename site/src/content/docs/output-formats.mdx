@@ -29,13 +29,20 @@ llm-usage daily
 
 The default renderer uses a boxed title and a Unicode table. `NO_COLOR=1` removes ANSI color without changing the content.
 
-Usage tables fit the terminal width. When the full table is too wide, the renderer steps down in this order until it fits: abbreviate token counts (`616M`, `24.3K`; cost stays exact), hide Reasoning and Cache Write, hide Models, then hide Input and Output. At any step, a model name longer than the space left for the Models column (at least 20 characters) gets a middle `…` instead of wrapping. Period, Source, Cache Read, Total, and Cost always stay. A note on `stderr` lists what was left out. Piped output has no terminal width and keeps every column.
+Usage tables fit the terminal width. When the full table is too wide, the renderer steps down in this order until it fits: abbreviate token counts (`616M`, `24.3K`; cost stays exact), hide Reasoning and Cache Write, hide Models, then hide Input and Output. At any step, a model name longer than the space left for the Models column (at least 20 characters) gets a middle `…` instead of wrapping. Period, Source, Cache Read, Total, and Cost always stay (Cost unless `--no-cost`). A note on `stderr` lists what was left out. Piped output has no terminal width and keeps every column.
 
 ```bash
 llm-usage daily --compact
 ```
 
 `--compact` starts from the abbreviated table without Reasoning and Cache Write, even when the terminal is wide or the output is piped. It works with terminal and Markdown output, not JSON. If even the narrowest table is wider than the terminal, an overflow warning goes to `stderr`; use a wider terminal or JSON.
+
+```bash
+llm-usage daily --no-cost
+llm-usage monthly --share --no-cost
+```
+
+`--no-cost` leaves cost out of `daily`, `weekly`, and `monthly` for a screenshot or a shared card that should not show spend: tables drop the Cost column, and the share card leads with tokens instead. It works with terminal, Markdown, and `--share`, not JSON.
 
 ## JSON
 

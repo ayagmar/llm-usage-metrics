@@ -204,9 +204,10 @@ llm-usage daily --all --json
 llm-usage daily --markdown
 llm-usage daily --compact
 llm-usage monthly --share
+llm-usage weekly --last 1 --no-cost
 ```
 
-Terminal tables fit the terminal width: on a narrow terminal, token counts are abbreviated and less-used columns are hidden, with a `stderr` note saying what was left out. `--compact` asks for the short table directly.
+Terminal tables fit the terminal width: on a narrow terminal, token counts are abbreviated and less-used columns are hidden, with a `stderr` note saying what was left out. `--compact` asks for the short table directly. `--last N` covers the last N days, weeks, or months, counting the current one, and `--no-cost` leaves spend out of tables and share cards.
 
 Report data goes to `stdout`. Diagnostics go to `stderr` as one summary line plus any warnings, which keeps JSON and Markdown safe to redirect; `--quiet` keeps only warnings and `--verbose` adds per-source and skipped-row detail. JSON output is wrapped in a versioned envelope: `{ "schemaVersion": 1, "report": "usage", "data": ... }`. Scripts written against pre-0.8.0 JSON should follow the [migration guide](https://ayagmar.github.io/llm-usage-metrics/migrating-to-0-8/).
 

@@ -128,6 +128,15 @@ describe('renderMarkdownTable', () => {
     `);
   });
 
+  it('leaves out the Cost column when cost is hidden', () => {
+    const rendered = renderMarkdownTable(sampleRows, { compact: true, hideCost: true });
+
+    expect(rendered.split('\n')[0]).toBe(
+      '| Period     | Source       | Models                         | Input | Output | Cache Read |     Total |',
+    );
+    expect(rendered).not.toContain('$');
+  });
+
   it('renders per-model aligned columns when enabled', () => {
     const rendered = renderMarkdownTable(sampleRows, { tableLayout: 'per_model_columns' });
 

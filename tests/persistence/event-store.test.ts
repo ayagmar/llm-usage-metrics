@@ -496,7 +496,7 @@ describe('event-store', () => {
     } finally {
       closeEventStore(store);
     }
-  }, 20_000);
+  });
 
   it('completes a v1 migration despite a poisoned row, leaving its hash null', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-v1-poisoned-'));
@@ -733,7 +733,7 @@ describe('event-store', () => {
     } finally {
       closeEventStore(store);
     }
-  }, 20_000);
+  });
 
   it('stores a content hash for freshly ingested events', async () => {
     const store = await createTempStore('event-store-ingest-hash-');

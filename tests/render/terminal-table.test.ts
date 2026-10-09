@@ -1066,6 +1066,23 @@ describe('renderTerminalTable', () => {
     expect(output).toContain('• gpt-5-codex');
   });
 
+  it('hides the Cost column at every fit step when cost is hidden', () => {
+    const piped = renderTerminalTableWithFit(sampleRows, { useColor: false, hideCost: true });
+    const narrow = renderTerminalTableWithFit(sampleRows, {
+      useColor: false,
+      hideCost: true,
+      terminalWidth: 70,
+    });
+
+    expect(piped.fit.hiddenColumns).toEqual(['cost']);
+    expect(narrow.fit.hiddenColumns).toContain('cost');
+    expect(narrow.fit.hiddenColumns.length).toBeGreaterThan(1);
+    for (const { output } of [piped, narrow]) {
+      expect(output).not.toContain('Cost');
+      expect(output).not.toContain('$');
+    }
+  });
+
   it('keeps one model per line for piped output even when a long name widens the column', () => {
     const rows: UsageReportRow[] = [
       {
