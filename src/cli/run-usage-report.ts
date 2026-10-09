@@ -42,6 +42,7 @@ async function prepareUsageReport(
   deps: BuildUsageDataDeps = {},
 ) {
   const tableLayout = resolveTableLayout(options);
+  const hideCost = options.cost === false;
 
   return prepareReport({
     commandOptions: options,
@@ -54,12 +55,16 @@ async function prepareUsageReport(
           fileName: resolveShareFileName(granularity),
           logLabel: 'usage',
           title: 'Usage share card',
-          render: (theme) => renderUsageShareSvg(usageData, granularity, theme),
+          render: (theme) => renderUsageShareSvg(usageData, granularity, theme, { hideCost }),
         })
       : undefined,
     validate: () => {
       if (options.compact && options.json) {
         throw new Error('--compact applies to terminal and markdown tables; drop it with --json');
+      }
+
+      if (hideCost && options.json) {
+        throw new Error('--no-cost applies to tables and the share card; drop it with --json');
       }
 
       // The card shows one series per source.
@@ -72,6 +77,7 @@ async function prepareUsageReport(
         granularity,
         tableLayout,
         compact: options.compact,
+        hideCost,
       });
 
       return { output, hintsAfterOutput: notes };

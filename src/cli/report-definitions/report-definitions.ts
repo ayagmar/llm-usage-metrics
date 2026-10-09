@@ -14,7 +14,7 @@ import type {
   TrendsCommandOptions,
   WrappedCommandOptions,
 } from '../usage-data-contracts.js';
-import { DEFAULT_REPORT_WINDOWS } from '../build-usage-data.js';
+import { DEFAULT_REPORT_WINDOWS, getReportPeriodName } from '../build-usage-data.js';
 import { runCompareReport } from '../run-compare-report.js';
 import { runEfficiencyReport } from '../run-efficiency-report.js';
 import { runOptimizeReport } from '../run-optimize-report.js';
@@ -140,6 +140,10 @@ function createUsageReportDefinition(granularity: ReportGranularity): ReportRunt
         command: 'llm-usage weekly --all --json',
         includeInCliReference: true,
       },
+      {
+        command: 'llm-usage weekly --last 1 --no-cost',
+        includeInCliReference: true,
+      },
     ],
     monthly: [
       {
@@ -175,13 +179,18 @@ function createUsageReportDefinition(granularity: ReportGranularity): ReportRunt
         command: 'llm-usage monthly --share',
         includeInCliReference: true,
       },
+      {
+        command: 'llm-usage monthly --last 3',
+        includeInRootHelp: true,
+        includeInCliReference: true,
+      },
     ],
   };
 
   const descriptionByGranularity: Record<ReportGranularity, string> = {
-    daily: 'Show daily usage report (last 7 days unless --since, --until, or --all)',
+    daily: 'Show daily usage report (last 7 days unless --last, --since, --until, or --all)',
     weekly:
-      'Show weekly usage report (week starts Monday; last 8 weeks unless --since, --until, or --all)',
+      'Show weekly usage report (week starts Monday; last 8 weeks unless --last, --since, --until, or --all)',
     monthly: 'Show monthly usage report',
   };
 
@@ -205,11 +214,15 @@ function createUsageReportDefinition(granularity: ReportGranularity): ReportRunt
         );
       }
 
+      const period = getReportPeriodName(granularity);
+
       command
+        .option('--last <n>', `Report the last N ${period}s, counting the current ${period}`)
         .option(
           '--compact',
           'Abbreviate token counts and hide the Reasoning and Cache Write columns (terminal/markdown)',
         )
+        .option('--no-cost', 'Leave cost out of the table and share card, e.g. for screenshots')
         .option('--by-machine', 'Split each source row by the machine its usage came from');
 
       command.action((options: ReportCommandOptions) => runUsageReport(granularity, options));
