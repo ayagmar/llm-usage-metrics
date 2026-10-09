@@ -88,7 +88,11 @@ export async function runMachineExport(
   let snapshots;
 
   try {
-    snapshots = readStoredFileSnapshots(store, dataset.ledger.countedFiles);
+    snapshots = readStoredFileSnapshots(
+      store,
+      dataset.ledger.parsedFiles,
+      dataset.ledger.historyFiles,
+    );
   } finally {
     (deps.closeEventStore ?? closeEventStore)(store);
   }

@@ -158,8 +158,9 @@ report shapes stay unchanged.
 `machine export` reuses that run: the dataset reports the stored files it counted
 (successfully parsed files plus served history), and `readStoredFileSnapshots` reads
 them back in one read transaction with a revision per file (a digest of its events),
-so another machine can sync only the files that changed. A partly overlapping history
-file is read without the events history left out of it.
+so another machine can sync only the files that changed. History files are read after
+the parsed files and, as in history, without the events those files already hold;
+deciding that on the same read transaction keeps a concurrent run from skewing it.
 
 Reports read other machines after history and before the provider, model and date
 filters: `buildUsageEventDataset` selects machines (`--machine`, or every configured one

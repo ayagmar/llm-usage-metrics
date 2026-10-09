@@ -246,10 +246,13 @@ describe('machine export e2e', () => {
     });
   });
 
-  it('leaves out the events of a deleted file that a live file already counts', async () => {
+  // A parent file that is deleted after a first run, and a live fork holding a copy of
+  // the parent's "shared" event. Each line of a file is one event, keyed by session id.
+  async function exportForkOfDeletedParent(
+    openStoreForExport?: (store: Awaited<ReturnType<typeof openEventStore>>) => void,
+  ): Promise<{ lines: MachineExportLine[]; parentFile: string; forkFile: string }> {
     const parentFile = path.join(rootDir, 'parent.json');
     const forkFile = path.join(rootDir, 'fork.json');
-    // One event per line, keyed by session id: the fork copies the parent's "shared".
     const adapter: SourceAdapter = {
       id: 'codex',
       discoverFiles: async () => [parentFile, forkFile].filter((filePath) => existsSync(filePath)),
@@ -274,15 +277,54 @@ describe('machine export e2e', () => {
 
     await rm(parentFile);
     await writeFile(forkFile, 'shared\nfork-only');
-    const lines = await exportLines({}, undefined, deps);
+    let opens = 0;
+    const lines = await exportLines({}, undefined, {
+      ...deps,
+      // The second open is the export's read.
+      openEventStore: async (filePath) => {
+        const store = await openEventStore(filePath);
+        opens += 1;
 
-    expect(
-      fileLines(lines).map((line) => [line.filePath, line.events.map((event) => event.sessionId)]),
-    ).toEqual([
+        if (opens === 2) {
+          openStoreForExport?.(store);
+        }
+
+        return store;
+      },
+    });
+
+    return { lines, parentFile, forkFile };
+  }
+
+  function exportedSessions(lines: MachineExportLine[]): [string, string[]][] {
+    return fileLines(lines).map((line) => [
+      line.filePath,
+      line.events.map((event) => event.sessionId),
+    ]);
+  }
+
+  it('leaves out the events of a deleted file that a live file already counts', async () => {
+    const { lines, parentFile, forkFile } = await exportForkOfDeletedParent();
+
+    expect(exportedSessions(lines)).toEqual([
       [forkFile, ['shared', 'fork-only']],
       [parentFile, ['parent-only']],
     ]);
     expect(endLine(lines).eventCount).toBe(3);
+  });
+
+  it('decides what a deleted file leaves out on the events it exports', async () => {
+    // Another run drops the live copy after this run's history, before its export read.
+    const { lines, parentFile, forkFile } = await exportForkOfDeletedParent((store) => {
+      store.database
+        .prepare("DELETE FROM events WHERE file_path = ? AND session_id = 'shared'")
+        .run(path.join(rootDir, 'fork.json'));
+    });
+
+    expect(exportedSessions(lines)).toEqual([
+      [forkFile, ['fork-only']],
+      [parentFile, ['shared', 'parent-only']],
+    ]);
   });
 
   it('changes a revision when stored events change under the same fingerprint', async () => {

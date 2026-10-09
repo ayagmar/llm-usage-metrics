@@ -7,7 +7,6 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.js';
 import {
   closeEventStore,
-  computeEventContentHash,
   normalizeStoredEvent,
   openEventStore,
   replaceFileEvents,
@@ -511,13 +510,7 @@ describe('event-store history', () => {
 
       expect(result).toEqual({
         events: [uniqueDeletedEvent],
-        servedFiles: [
-          {
-            source: 'codex',
-            filePath: '/tmp/deleted.jsonl',
-            alreadyCountedHashes: new Map([[computeEventContentHash(sharedDeletedEvent), 1]]),
-          },
-        ],
+        servedFiles: [{ source: 'codex', filePath: '/tmp/deleted.jsonl' }],
         departedFileCount: 1,
         servedFileCount: 1,
         suppressedFileCount: 0,
@@ -837,8 +830,12 @@ describe('event-store history', () => {
 
       const nullFile = classified.find((file) => file.filePath === '/tmp/nullish.jsonl');
       expect(nullFile?.suppressed).toBe(false);
-      // Served twice: once from other-0 and once from the null-hash copy.
-      expect(result.events.filter((event) => event.inputTokens === 300)).toHaveLength(2);
+      expect(result.servedFiles).toContainEqual({
+        source: 'codex',
+        filePath: '/tmp/nullish.jsonl',
+      });
+      // Served, though its event, identical to other-0's, is counted once.
+      expect(result.events.filter((event) => event.inputTokens === 300)).toHaveLength(1);
     } finally {
       closeEventStore(store);
     }
