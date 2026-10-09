@@ -37,8 +37,8 @@ const defaultPiRootDirs = [
 type PiSessionState = {
   sessionId?: string;
   sessionTimestamp?: string;
-  /** Set for forked sessions: entries before this instant were copied from the parent. */
-  forkedAtMs?: number;
+  /** Set for forked sessions. */
+  fork?: PiFork;
   repoRoot?: string;
   provider?: string;
   model?: string;
@@ -114,28 +114,46 @@ async function readParentSessionPath(filePath: string): Promise<string | undefin
   }
 }
 
+/** Entries of a forked session older than its header were copied from the parent. */
+type PiFork = {
+  forkedAtMs: number;
+  /** The same report counts the parent: it exists and lies under a discovery root. */
+  parentCounted: boolean;
+  /** Undefined when the parent's file name does not follow pi's naming. */
+  parentSessionId?: string;
+};
+
+/** pi names a session file `<timestamp>_<session id>.jsonl`; other names give nothing. */
+function getSessionIdFromPath(filePath: string): string | undefined {
+  const baseName = path.basename(filePath, '.jsonl');
+  const separator = baseName.lastIndexOf('_');
+  const sessionId = separator === -1 ? '' : baseName.slice(separator + 1).trim();
+  return sessionId || undefined;
+}
+
 /**
- * Entries of a forked session older than its header were copied from the parent. They
- * are skipped only while the same report counts the parent (it exists and lies under a
- * discovery root); otherwise the fork's copies are the only counted record of that usage.
+ * Copied entries are skipped while the report counts the parent. Otherwise the fork's
+ * copies are the only live record of that usage, and they keep the parent's session id:
+ * then they match the parent's events that history kept, which are not counted twice.
  */
-async function resolveForkedAtMs(
+async function resolveFork(
   sessionLine: Record<string, unknown>,
   filePath: string,
   rootDirs: readonly string[],
-): Promise<number | undefined> {
+): Promise<PiFork | undefined> {
   const parentSessionPath = resolveParentSessionPath(sessionLine, filePath);
+  const timestamp = normalizeTimestampCandidate(sessionLine.timestamp);
 
-  if (
-    !parentSessionPath ||
-    !isPathWithinRoots(parentSessionPath, rootDirs) ||
-    !(await pathExists(parentSessionPath))
-  ) {
+  if (!parentSessionPath || !timestamp) {
     return undefined;
   }
 
-  const timestamp = normalizeTimestampCandidate(sessionLine.timestamp);
-  return timestamp ? Date.parse(timestamp) : undefined;
+  return {
+    forkedAtMs: Date.parse(timestamp),
+    parentCounted:
+      isPathWithinRoots(parentSessionPath, rootDirs) && (await pathExists(parentSessionPath)),
+    parentSessionId: getSessionIdFromPath(parentSessionPath),
+  };
 }
 
 function extractUsageFromRecord(usage: Record<string, unknown>): PiUsageExtract | undefined {
@@ -210,7 +228,7 @@ function resolveRepoRootFromRecord(
 
 export class PiSourceAdapter implements SourceAdapter {
   public readonly id = 'pi' as const;
-  public readonly parserVersion = 4;
+  public readonly parserVersion = 5;
   public readonly capabilities = { eventsPrecedeFileMtime: true } as const;
 
   private readonly rootDirs: readonly string[];
@@ -265,8 +283,7 @@ export class PiSourceAdapter implements SourceAdapter {
         state.sessionId = asTrimmedText(line.id) ?? state.sessionId;
         state.sessionTimestamp = asTrimmedText(line.timestamp) ?? state.sessionTimestamp;
         state.repoRoot = resolveRepoRootFromRecord(line) ?? state.repoRoot;
-        state.forkedAtMs =
-          (await resolveForkedAtMs(line, filePath, this.rootDirs)) ?? state.forkedAtMs;
+        state.fork = (await resolveFork(line, filePath, this.rootDirs)) ?? state.fork;
         continue;
       }
 
@@ -306,9 +323,11 @@ export class PiSourceAdapter implements SourceAdapter {
         continue;
       }
 
-      // A fork copies the parent's entries (same ids and timestamps) ahead of its own;
-      // the parent session file already counts them.
-      if (state.forkedAtMs !== undefined && Date.parse(timestamp) < state.forkedAtMs) {
+      // A fork copies the parent's entries (same ids and timestamps) ahead of its own.
+      const copiedFrom =
+        state.fork && Date.parse(timestamp) < state.fork.forkedAtMs ? state.fork : undefined;
+
+      if (copiedFrom?.parentCounted) {
         continue;
       }
 
@@ -324,7 +343,7 @@ export class PiSourceAdapter implements SourceAdapter {
         events.push(
           createUsageEvent({
             source: this.id,
-            sessionId: state.sessionId,
+            sessionId: copiedFrom?.parentSessionId ?? state.sessionId,
             timestamp,
             repoRoot,
             provider,

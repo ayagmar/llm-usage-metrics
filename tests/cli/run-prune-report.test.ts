@@ -260,6 +260,73 @@ describe('run-prune-report', () => {
     expect(result.candidates[0]?.reasons).toEqual(['aged']);
   });
 
+  it.each([
+    { case: 'newer usage', timestamp: '2026-10-01T10:00:00.000Z', restoredOnDisk: false },
+    {
+      case: 'old usage, back on disk',
+      timestamp: '2026-01-02T10:00:00.000Z',
+      restoredOnDisk: true,
+    },
+  ])('keeps a file a report re-ingested while prune was running: $case', async (race) => {
+    const dbPath = await createTempDbPath('prune-reingest-race-');
+    const filePath = path.join(path.dirname(dbPath), 'restored.jsonl');
+    const store = await openEventStore(dbPath);
+
+    try {
+      writeStoredFile(store, {
+        filePath,
+        events: [createEvent({ sessionId: 'old', timestamp: '2026-01-10T10:00:00.000Z' })],
+      });
+    } finally {
+      closeEventStore(store);
+    }
+
+    let reingested = false;
+    // The size read before deleting is where another run gets to write in between.
+    const statFile = (async (target: string) => {
+      if (target === `${dbPath}-wal` && !reingested) {
+        reingested = true;
+
+        if (race.restoredOnDisk) {
+          await writeFile(filePath, '{}\n');
+        }
+
+        const otherRun = await openEventStore(dbPath);
+
+        try {
+          writeStoredFile(otherRun, {
+            filePath,
+            events: [createEvent({ sessionId: 'new', timestamp: race.timestamp })],
+            now: 2_000,
+          });
+        } finally {
+          closeEventStore(otherRun);
+        }
+      }
+
+      return stat(target);
+    }) as typeof stat;
+
+    const result = await buildPruneReport(
+      { departedBefore: '2026-02-01', apply: true },
+      { ...createDeps(dbPath, [createAdapter({ files: [] })]), statFile },
+    );
+
+    expect(reingested).toBe(true);
+    expect(result.candidates).toEqual([]);
+    expect(result.summary.deletedEventCount).toBe(0);
+
+    const reopened = await openEventStore(dbPath);
+
+    try {
+      expect(readFileEvents(reopened, 'codex', filePath)?.map((event) => event.sessionId)).toEqual([
+        'new',
+      ]);
+    } finally {
+      closeEventStore(reopened);
+    }
+  });
+
   it('never offers undiscovered files that are still on disk', async () => {
     const dbPath = await createTempDbPath('prune-still-on-disk-');
     const onDiskPath = path.join(path.dirname(dbPath), 'outside-discovery.jsonl');

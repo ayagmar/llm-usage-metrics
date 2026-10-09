@@ -107,5 +107,6 @@ To stop fetching a machine but keep its cached usage in reports, set `enabled = 
 | `too old to export usage`               | Update llm-usage-metrics on that machine.                                                                                         |
 | `no complete export within 30s`         | The machine needs longer than a report waits (a large first parse); run `llm-usage sync <name>`, which waits as long as it takes. |
 | `the export ended early`                | The connection dropped or the other machine stopped; run `llm-usage sync` again. Nothing was changed.                             |
+| `Another llm-usage run is editing`      | Another `machine add` or `remove` holds the config's `.lock` file. If none is running, one crashed: delete the named `.lock` file. |
 
 After a node upgrade, a saved `command` with a version in its path may stop working; remove the machine and add it again to detect the new path.
