@@ -1,3 +1,4 @@
+import { statSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
 
 import { getEventStoreRuntimeConfig } from '../config/runtime-overrides.js';
@@ -6,6 +7,7 @@ import {
   findLegacyEventStore,
   deleteStoredFiles,
   openEventStore,
+  runTransaction,
   vacuumEventStore,
   type DeleteStoredFilesResult,
   type EventStore,
@@ -310,34 +312,49 @@ export async function buildPruneReport(
   }
 
   return withEventStore(storePath, deps, async (store) => {
-    const classifiedFiles = classifyDepartedFiles(
+    // Under the write lock, a restored file (even one with old usage) counts as live again.
+    // Only proof that a file is gone allows deleting it, as for the first look.
+    const isStillMissing = (filePath: string): boolean => {
+      try {
+        statSync(filePath);
+        return false;
+      } catch (error) {
+        return hasErrorCode(error, 'ENOENT', 'ENOTDIR');
+      }
+    };
+    const liveFiles = await addStoredFilesStillOnDisk(
       store,
-      await addStoredFilesStillOnDisk(
-        store,
-        { selectedSources, discoveredFiles },
-        { unverifiable: 'treat-as-live', statFile },
-      ),
+      { selectedSources, discoveredFiles },
+      { unverifiable: 'treat-as-live', statFile },
     );
-    const candidates = buildCandidates(classifiedFiles, {
-      includeSuppressed: Boolean(options.suppressed),
-      departedBeforeTimestamp,
-    });
-    const candidateEventCount = countCandidateEvents(candidates);
+    const selectCandidates = () =>
+      buildCandidates(classifyDepartedFiles(store, liveFiles), {
+        includeSuppressed: Boolean(options.suppressed),
+        departedBeforeTimestamp,
+      });
 
     if (!options.apply) {
+      const candidates = selectCandidates();
+
       return {
         candidates,
         summary: {
           storePath,
           applied: false,
           candidateFileCount: candidates.length,
-          candidateEventCount,
+          candidateEventCount: countCandidateEvents(candidates),
         },
       };
     }
 
     const sizeBefore = await readStoreSizeSnapshot(storePath, statFile);
-    const deleteResult = deleteStoredFiles(store, candidates);
+    // Select under the write lock, so a file a report re-ingested in the meantime is
+    // judged by its current events and presence, not deleted by an earlier look.
+    const { candidates, deleteResult } = runTransaction(store.database, () => {
+      const selected = selectCandidates().filter((candidate) => isStillMissing(candidate.filePath));
+      return { candidates: selected, deleteResult: deleteStoredFiles(store, selected) };
+    });
+    const candidateEventCount = countCandidateEvents(candidates);
     vacuumEventStore(store);
     store.database.exec('PRAGMA wal_checkpoint(TRUNCATE)');
     const sizeAfter = await readStoreSizeSnapshot(storePath, statFile);
