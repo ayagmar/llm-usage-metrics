@@ -1,4 +1,15 @@
-import { lstat, mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import {
+  lstat,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  realpath,
+  rm,
+  symlink,
+  utimes,
+  writeFile,
+} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -145,4 +156,39 @@ describe('removeMachineFromConfigFile', () => {
     expect(await readFile(configPath, 'utf8')).toBe(original);
     expect(await temporaryFiles()).toEqual([]);
   });
+});
+
+describe('concurrent config edits', () => {
+  it('keeps every change when runs add and remove machines at the same time', async () => {
+    await writeConfig('[machines.old]\nssh = "old"\n');
+
+    await Promise.all([
+      addMachineToConfigFile(configPath, 'one', { ssh: 'one' }),
+      addMachineToConfigFile(configPath, 'two', { ssh: 'two' }),
+      removeMachineFromConfigFile(configPath, 'old'),
+    ]);
+
+    const content = await readFile(configPath, 'utf8');
+    expect(content).toContain('[machines.one]');
+    expect(content).toContain('[machines.two]');
+    expect(content).not.toContain('[machines.old]');
+    expect(await readdir(path.dirname(configPath))).toEqual(['config.toml']);
+  });
+
+  it('waits for a held lock, then names it instead of taking it over', async () => {
+    await writeConfig('');
+    const lockPath = `${configPath}.lock`;
+    await writeFile(lockPath, '');
+    const longAgo = new Date(Date.now() - 60_000);
+    await utimes(lockPath, longAgo, longAgo);
+
+    // The lock sits next to the resolved config, which differs from configPath when the
+    // temp dir is reached through a symlink (macOS) or a short name (Windows).
+    const resolvedLockPath = `${await realpath(configPath)}.lock`;
+    await expect(addMachineToConfigFile(configPath, 'laptop', { ssh: 'laptop' })).rejects.toThrow(
+      `delete ${resolvedLockPath} if no other run is`,
+    );
+    expect(await readFile(configPath, 'utf8')).toBe('');
+    await expect(lstat(lockPath)).resolves.toBeDefined();
+  }, 15_000);
 });
