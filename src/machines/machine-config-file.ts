@@ -1,7 +1,8 @@
 import { isDeepStrictEqual } from 'node:util';
 import { randomUUID } from 'node:crypto';
-import { readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { open, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
 
 import { parse as parseToml } from 'smol-toml';
 
@@ -37,13 +38,65 @@ function withoutMachine(config: UserConfig, name: string): UserConfig {
   return Object.keys(machines).length === 0 ? rest : { ...rest, machines };
 }
 
+const CONFIG_LOCK_RETRY_MS = 50;
+const CONFIG_LOCK_TIMEOUT_MS = 5_000;
+/** A lock this old was left by a process that died mid-edit. */
+const CONFIG_LOCK_STALE_MS = 30_000;
+
+/** The file a config edit replaces: a symlinked config's target, not the link. */
+async function resolveConfigTarget(configPath: string): Promise<string> {
+  return realpath(configPath).catch(() => configPath);
+}
+
+/**
+ * Runs a read-modify-write of the config file while holding `<target>.lock`, so two
+ * `machine add` or `remove` runs cannot each write a file that drops the other's change.
+ */
+async function withConfigLock<T>(configPath: string, edit: () => Promise<T>): Promise<T> {
+  await ensureDirectory(path.dirname(configPath));
+  const lockPath = `${await resolveConfigTarget(configPath)}.lock`;
+  const deadline = Date.now() + CONFIG_LOCK_TIMEOUT_MS;
+
+  for (;;) {
+    try {
+      await (await open(lockPath, 'wx')).close();
+      break;
+    } catch (error) {
+      if (!hasErrorCode(error, 'EEXIST')) {
+        throw error;
+      }
+
+      const lockAgeMs = Date.now() - ((await stat(lockPath).catch(() => undefined))?.mtimeMs ?? 0);
+
+      if (lockAgeMs > CONFIG_LOCK_STALE_MS) {
+        await rm(lockPath, { force: true });
+        continue;
+      }
+
+      if (Date.now() > deadline) {
+        throw new Error(
+          `Another llm-usage run is editing ${configPath}; try again, or delete ${lockPath} if none is`,
+          { cause: error },
+        );
+      }
+
+      await sleep(CONFIG_LOCK_RETRY_MS);
+    }
+  }
+
+  try {
+    return await edit();
+  } finally {
+    await rm(lockPath, { force: true });
+  }
+}
+
 /**
  * Replaces the file through a rename, so a crash never leaves a half-written config. A
  * symlinked config (e.g. into a dotfiles checkout) has its target replaced, not the link.
  */
 async function replaceConfigFile(configPath: string, content: string): Promise<void> {
-  await ensureDirectory(path.dirname(configPath));
-  const targetPath = await realpath(configPath).catch(() => configPath);
+  const targetPath = await resolveConfigTarget(configPath);
   const mode = (await stat(targetPath).catch(() => undefined))?.mode;
   const temporaryPath = `${targetPath}.${randomUUID()}.tmp`;
 
@@ -94,6 +147,14 @@ export async function addMachineToConfigFile(
   name: string,
   machine: MachineConfig,
 ): Promise<void> {
+  await withConfigLock(configPath, () => addMachineUnderLock(configPath, name, machine));
+}
+
+async function addMachineUnderLock(
+  configPath: string,
+  name: string,
+  machine: MachineConfig,
+): Promise<void> {
   const current = (await readConfigText(configPath)) ?? '';
   // Keep a Windows-style file's line endings.
   const eol = current.includes('\r\n') ? '\r\n' : '\n';
@@ -134,6 +195,10 @@ function isMachineHeader(line: string, name: string): boolean {
  * must equal the old config without this machine, or nothing is written.
  */
 export async function removeMachineFromConfigFile(configPath: string, name: string): Promise<void> {
+  await withConfigLock(configPath, () => removeMachineUnderLock(configPath, name));
+}
+
+async function removeMachineUnderLock(configPath: string, name: string): Promise<void> {
   const current = (await readConfigText(configPath)) ?? '';
   const lines = current.split('\n');
   const start = lines.findIndex((line) => isMachineHeader(line, name));
