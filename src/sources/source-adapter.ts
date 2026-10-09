@@ -49,3 +49,10 @@ export interface SourceAdapter<Event extends UsageEvent = UsageEvent> {
   parseFileWithDiagnostics?(filePath: string): Promise<SourceParseFileDiagnostics<Event>>;
   getParseDependencies?(filePath: string): Promise<string[]>;
 }
+
+/** The ids of the adapters whose files repeat each other's events. */
+export function getRepeatingSourceIds(adapters: readonly SourceAdapter[]): string[] {
+  return adapters
+    .filter((adapter) => adapter.capabilities?.eventsRepeatAcrossFiles)
+    .map((adapter) => adapter.id);
+}

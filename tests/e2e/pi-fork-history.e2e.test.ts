@@ -119,4 +119,19 @@ describe('a pi fork whose parent session is deleted', () => {
     expect(before).toBe(45);
     expect(afterDeletion).toBe(45);
   });
+
+  it('keeps a parent entry the forks copied fewer times than the parent holds it', async () => {
+    // The parent repeats its 20:01 entry; each fork copied it once.
+    const { piDir, parentPath } = await writeParentAndForks(
+      ['2026-02-12T20:01:00.000Z', '2026-02-12T20:01:00.000Z', '2026-02-12T20:10:00.000Z'],
+      ['fork-a', 'fork-b'],
+    );
+
+    const before = await totalTokens(piDir);
+    await rm(parentPath);
+    const afterDeletion = await totalTokens(piDir);
+
+    expect(before).toBe(75);
+    expect(afterDeletion).toBe(75);
+  });
 });
