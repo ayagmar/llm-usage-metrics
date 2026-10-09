@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.10.1](https://github.com/ayagmar/llm-usage-metrics/compare/v0.10.0...v0.10.1) (2026-10-09)
+
+### Features
+
+* **report:** add --last N and --no-cost to daily, weekly and monthly ([94c5bd7](https://github.com/ayagmar/llm-usage-metrics/commit/94c5bd7624a8004c09172fdce23a0b6b368f66a7))
+* **statusline:** show the Claude Code session's cost and context use ([16b1420](https://github.com/ayagmar/llm-usage-metrics/commit/16b1420e303cb627e3451f6a91a31701055c4adb))
+
+### Bug Fixes
+
+* **antigravity:** keep the source for Claude model and provider filters ([dac2af4](https://github.com/ayagmar/llm-usage-metrics/commit/dac2af44a985934f5637a697670bafefd0ede2e1))
+* **gemini:** count a project once when a symlinked alias points to it ([d1d5ffa](https://github.com/ayagmar/llm-usage-metrics/commit/d1d5ffad6b86536ce5a89c6975fa5a496cb7bfca))
+* **history:** count repeated live events once when classifying departed files ([0011e1d](https://github.com/ayagmar/llm-usage-metrics/commit/0011e1db4dc5ad6fe2be747310c07ee19e143b86))
+* **history:** decide export trimming on the events it sends ([0fa3bae](https://github.com/ayagmar/llm-usage-metrics/commit/0fa3bae141ee639158f1b1a5b9bb35b0229cdfbc))
+* **history:** let a file that failed to parse not hide a departed copy ([724c37a](https://github.com/ayagmar/llm-usage-metrics/commit/724c37ae1c8b793f92a0ba5287c08552535f0bc5))
+* **history:** serve a partly overlapping departed file without counted events ([7503ee7](https://github.com/ayagmar/llm-usage-metrics/commit/7503ee726165dae401a5016f45f457e782d6f7a9))
+* **machine:** never take over a config lock automatically ([2015a6b](https://github.com/ayagmar/llm-usage-metrics/commit/2015a6b3a31cf2a98571c6b29cb62cec055f5033))
+* **machine:** serialize config edits so concurrent runs keep each change ([54f9f37](https://github.com/ayagmar/llm-usage-metrics/commit/54f9f3747543b6d3f0bfc7c87a423fb6d6500920))
+* **pi:** count a deleted parent's usage once when its fork replays it ([c07c37d](https://github.com/ayagmar/llm-usage-metrics/commit/c07c37d2a2cdaf8f8d9ec3feaed2091277c78445))
+* **pi:** count an entry that sibling forks both copy once ([0c81309](https://github.com/ayagmar/llm-usage-metrics/commit/0c81309ec2be58e7ba3493672ef1f0a42cfbfb69))
+* **pi:** keep copies under the fork id when the parent name gives no id ([d42eaa2](https://github.com/ayagmar/llm-usage-metrics/commit/d42eaa2bcd766b58ddde4bd42fb68aaae009e96a))
+* **prune:** check again that a file is gone before deleting it ([1471d96](https://github.com/ayagmar/llm-usage-metrics/commit/1471d96e760835bea2b9630e8916d18828aabd81))
+* **prune:** choose files to delete under the write lock ([a8dd8c6](https://github.com/ayagmar/llm-usage-metrics/commit/a8dd8c6917204aff952e0ae9147b35e4fc484f9e))
+* **prune:** let only live files with current stored events suppress a copy ([c25701b](https://github.com/ayagmar/llm-usage-metrics/commit/c25701b1e71a8d48a409b9a23f797952834c305d))
+* **prune:** recheck live files under the write lock with a read-only lookup ([937a360](https://github.com/ayagmar/llm-usage-metrics/commit/937a360c9b5ffeaafe1eb3604979096759a10b6b))
+* **report:** end the --last window today ([a53db1a](https://github.com/ayagmar/llm-usage-metrics/commit/a53db1a852cbc9ebe7bb91c1ea4c44cae106fd5d))
+* **sources:** fail transcripts of the wrong shape and reparse cached failures ([32362e2](https://github.com/ayagmar/llm-usage-metrics/commit/32362e2559fff65425782bbebfae4a6d9744bdca))
+* **sources:** keep stored events when a whole transcript cannot be read ([03239ae](https://github.com/ayagmar/llm-usage-metrics/commit/03239aec1793f3117de5c7864591b4881cfba63e))
+
 ## [0.10.0](https://github.com/ayagmar/llm-usage-metrics/compare/v0.9.0...v0.10.0) (2026-10-08)
 
 ### Features
