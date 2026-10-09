@@ -119,13 +119,16 @@ type PiFork = {
   forkedAtMs: number;
   /** The same report counts the parent: it exists and lies under a discovery root. */
   parentCounted: boolean;
-  parentSessionId: string;
+  /** Undefined when the parent's file name does not follow pi's naming. */
+  parentSessionId?: string;
 };
 
-/** pi names a session file `<timestamp>_<session id>.jsonl`. */
-function getSessionIdFromPath(filePath: string): string {
+/** pi names a session file `<timestamp>_<session id>.jsonl`; other names give nothing. */
+function getSessionIdFromPath(filePath: string): string | undefined {
   const baseName = path.basename(filePath, '.jsonl');
-  return baseName.slice(baseName.lastIndexOf('_') + 1);
+  const separator = baseName.lastIndexOf('_');
+  const sessionId = separator === -1 ? '' : baseName.slice(separator + 1).trim();
+  return sessionId || undefined;
 }
 
 /**

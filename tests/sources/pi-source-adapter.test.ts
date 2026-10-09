@@ -606,9 +606,9 @@ describe('PiSourceAdapter', () => {
     await mkdir(forkOnlyDir);
     await writeFile(forkOnlyPath, await readFile(forkPath, 'utf8'), 'utf8');
     const forkOnlyAdapter = new PiSourceAdapter({ dir: forkOnlyDir });
-    // Copies keep the parent's session id, so they match the parent's own events.
+    // A parent name outside pi's <timestamp>_<id> form gives no id, so copies keep the fork's.
     expect((await forkOnlyAdapter.parseFile(forkOnlyPath)).map((event) => event.sessionId)).toEqual(
-      ['parent', 'parent', 'fork'],
+      ['fork', 'fork', 'fork'],
     );
     expect(await forkOnlyAdapter.getParseDependencies(forkOnlyPath)).toEqual([]);
 
@@ -617,8 +617,8 @@ describe('PiSourceAdapter', () => {
     expect(
       (await adapter.parseFile(forkPath)).map((event) => [event.sessionId, event.timestamp]),
     ).toEqual([
-      ['parent', '2026-02-12T20:01:00.000Z'],
-      ['parent', '2026-02-12T20:02:00.000Z'],
+      ['fork', '2026-02-12T20:01:00.000Z'],
+      ['fork', '2026-02-12T20:02:00.000Z'],
       ['fork', '2026-02-12T20:06:00.000Z'],
     ]);
   });
@@ -649,6 +649,35 @@ describe('PiSourceAdapter', () => {
     const events = await new PiSourceAdapter({ dir: root }).parseFile(forkPath);
 
     expect(events.map((event) => event.sessionId)).toEqual(['parent-id']);
+  });
+
+  it('keeps copies under the fork id when the parent name gives no session id', async () => {
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-fork-renamed-'));
+    tempDirs.push(root);
+    const forkPath = path.join(root, '2026-02-12T20-05-00-000Z_fork-id.jsonl');
+
+    await writeFile(
+      forkPath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'fork-id',
+          timestamp: '2026-02-12T20:05:00.000Z',
+          parentSession: path.join(root, 'archive_.jsonl'),
+        }),
+        JSON.stringify({
+          type: 'message',
+          timestamp: '2026-02-12T20:01:00.000Z',
+          message: { role: 'assistant', usage: { input: 10, output: 5, totalTokens: 15 } },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const diagnostics = await new PiSourceAdapter({ dir: root }).parseFileWithDiagnostics(forkPath);
+
+    expect(diagnostics.events.map((event) => event.sessionId)).toEqual(['fork-id']);
+    expect(diagnostics.skippedRows).toBe(0);
   });
 
   it('reports malformed JSONL lines that pass its prefilter', async () => {
