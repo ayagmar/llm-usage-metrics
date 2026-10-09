@@ -73,6 +73,23 @@ The command runs a warmup + sampled timings and prints min/avg/p95/max per scena
 It includes an ephemeral Git fixture repository for the `efficiency` scenario.
 Use it to track report runtime over time while iterating locally.
 
+## Speed check on pull requests
+
+The `Speed Check` workflow builds the PR and its base branch, then times both CLIs on a
+generated claude/codex/pi corpus (about 170k events, the newest a minute old): `daily` without the event store,
+`daily` with a warm store, and `statusline` with a warm store. The two builds run
+alternately, run by run, with separate config, cache, and data homes. Each build's untimed
+first run must show the work (usage from every source in `daily`, nonzero usage in `statusline`),
+so a build that skips it fails instead of looking fast; differing figures between the two
+builds are noted in the summary. The check fails when a PR median is slower than the base
+median by more than 15% and 30 ms; the job summary shows the table. Run the same comparison locally against any two builds:
+
+```bash
+node scripts/perf-regression-check.mjs --base ../base/dist/index.js --head dist/index.js
+```
+
+Shared runners are noisy, so a borderline failure can be re-run; a real regression repeats.
+
 ## Production benchmark comparison
 
 Compare production runtime against `ccusage` on your machine. The script times the built `dist/index.js`, so build first:
