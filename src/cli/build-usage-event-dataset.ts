@@ -251,6 +251,7 @@ export async function buildUsageEventDataset(
       successfulParseResults,
       discoveredFiles,
       parsedFiles,
+      failedFiles,
       eventStoreAvailable,
       sourceFailures,
       warnings,
@@ -298,8 +299,6 @@ export async function buildUsageEventDataset(
     throwOnExplicitSourceFailures(sourceFailures, normalizedInputs.explicitSourceIds);
 
     let parseResultsForFiltering = successfulParseResults;
-    // A discovered file that failed to parse is not counted, though history still treats it
-    // as present.
     const ledger: UsageEventDataset['ledger'] = eventStoreAvailable
       ? { path: eventStoreRuntimeConfig.path, parsedFiles: [...parsedFiles], historyFiles: [] }
       : undefined;
@@ -307,6 +306,7 @@ export async function buildUsageEventDataset(
     const historyNotes: string[] = [];
 
     const historyStore = openedEventStore;
+    const failedFileKeys = new Set(failedFiles.map((file) => `${file.source}\0${file.filePath}`));
 
     // By default, a source pointed at a custom directory (e.g. an export) gets no history:
     // departed files from its usual location would leak into a report scoped elsewhere.
@@ -330,7 +330,12 @@ export async function buildUsageEventDataset(
                   // Only successfully parsed sources: a failed source has an empty
                   // discovered set, so all its stored files would look departed.
                   selectedSources: historySources,
-                  discoveredFiles,
+                  // A file that failed to parse has not departed, but this run does not
+                  // count its stored events, so they cannot suppress a departed copy.
+                  discoveredFiles: discoveredFiles.filter(
+                    (file) => !failedFileKeys.has(`${file.source}\0${file.filePath}`),
+                  ),
+                  presentFiles: failedFiles,
                   repeatingSources: getRepeatingSourceIds(adaptersToParse),
                 },
                 { unverifiable: 'treat-as-departed' },

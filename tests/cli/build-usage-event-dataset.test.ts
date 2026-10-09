@@ -399,6 +399,7 @@ describe('buildUsageEventDataset history', () => {
     expect(loadHistoryEventsSpy).toHaveBeenCalledWith(expect.anything(), {
       selectedSources: ['codex'],
       discoveredFiles: [],
+      presentFiles: [],
       repeatingSources: [],
     });
     expect(dataset.sourceFailures).toEqual([{ source: 'pi', reason: 'pi discovery failed' }]);
