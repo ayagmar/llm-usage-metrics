@@ -130,7 +130,12 @@ async function resolveUsageDataRequest(
   );
   const today = getCurrentLocalDateKey(timezone, deps.now?.() ?? new Date());
   const since = resolvePeriodsSince(granularity, today, periods);
-  const windowedOptions = { ...userConfigResolution.options, since };
+  // `--last` also ends today, so events dated later (a clock set ahead) stay out.
+  const windowedOptions = {
+    ...userConfigResolution.options,
+    since,
+    ...(lastPeriods === undefined ? {} : { until: today }),
+  };
 
   return {
     options: windowedOptions,

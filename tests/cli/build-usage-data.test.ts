@@ -1792,6 +1792,8 @@ describe('buildUsageData', () => {
       '2026-03-08T12:00:00.000Z',
       '2026-03-10T12:00:00.000Z',
       '2026-03-11T12:00:00.000Z',
+      // Later than the report clock, e.g. from a machine whose clock runs ahead.
+      '2026-04-01T12:00:00.000Z',
     ];
 
     function lastDeps() {

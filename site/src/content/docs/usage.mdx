@@ -30,7 +30,7 @@ llm-usage weekly --all
 llm-usage monthly --since 2026-09-01 --until 2026-09-30
 ```
 
-`--last N` covers the last N days, weeks, or months, counting the current one: `daily --last 1` is today, `weekly --last 1` is this week, and `monthly --last 3` is this month and the two before it. It cannot be combined with `--since`, `--until`, or `--all`.
+`--last N` covers the last N days, weeks, or months, counting the current one: `daily --last 1` is today, `weekly --last 1` is this week, and `monthly --last 3` is this month and the two before it. The window ends today, so usage dated later (from a clock set ahead) is left out. It cannot be combined with `--since`, `--until`, or `--all`.
 
 ```bash
 llm-usage weekly --last 1
