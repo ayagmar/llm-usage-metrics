@@ -15,7 +15,7 @@ import {
   toNumberLike,
 } from '../parsing-utils.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
-import { readBoundedJsonFile } from '../read-json-file.js';
+import { readJsonTranscriptFile } from '../read-json-file.js';
 import type {
   SourceAdapter,
   SourceAdapterPathOptions,
@@ -108,15 +108,7 @@ export class DroidSourceAdapter implements SourceAdapter {
     let skippedRows = 0;
     const skippedRowReasons = new Map<string, number>();
 
-    const readResult = await readBoundedJsonFile(filePath);
-
-    if (!readResult.ok) {
-      skippedRows++;
-      incrementSkippedReason(skippedRowReasons, readResult.reason);
-      return toParseDiagnostics(events, skippedRows, skippedRowReasons);
-    }
-
-    const settingsJson = readResult.value;
+    const settingsJson = await readJsonTranscriptFile(filePath);
 
     const settings = asRecord(settingsJson);
 

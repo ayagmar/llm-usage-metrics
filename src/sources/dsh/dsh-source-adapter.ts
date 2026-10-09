@@ -13,10 +13,7 @@ import {
   resolveUsageTotalTokens,
   toNumberLike,
 } from '../parsing-utils.js';
-import {
-  DshSessionLogUnreadableError,
-  readDshSessionLogRecords,
-} from './dsh-session-log-reader.js';
+import { readDshSessionLogRecords } from './dsh-session-log-reader.js';
 import { getDefaultDshSessionsDir } from './dsh-path-resolver.js';
 import type {
   SourceAdapter,
@@ -194,78 +191,71 @@ export class DshSourceAdapter implements SourceAdapter {
       },
     });
 
-    try {
-      for await (const line of records) {
-        if (line.type === 'session') {
-          state.sessionId = asTrimmedText(line.id) ?? state.sessionId;
-          state.repoRoot = asTrimmedText(line.cwd) ?? state.repoRoot;
-          continue;
-        }
-
-        if (line.type === 'session/title-llm-request') {
-          const route = resolveRoute(asRecord(line.data));
-          state.provider = route.provider ?? state.provider;
-          state.model = route.model ?? state.model;
-          continue;
-        }
-
-        if (line.type !== 'assistant/message') {
-          continue;
-        }
-
-        const data = asRecord(line.data);
-        const message = asRecord(data?.message);
-        const usage = asRecord(data?.usage);
-
-        if (!usage) {
-          continue;
-        }
-
-        const extractedUsage = extractUsage(usage);
-
-        if (!extractedUsage) {
-          skippedRows++;
-          incrementSkippedReason(skippedRowReasons, 'no_token_usage');
-          continue;
-        }
-
-        const timestamp = resolveTimestamp(line);
-
-        if (!timestamp || !state.sessionId) {
-          skippedRows++;
-          incrementSkippedReason(skippedRowReasons, 'invalid_timestamp');
-          continue;
-        }
-
-        const source = asRecord(message?.source);
-        const provider = asTrimmedText(source?.provider) ?? state.provider;
-        const model = asTrimmedText(source?.model) ?? state.model;
-
-        try {
-          events.push(
-            createUsageEvent({
-              source: this.id,
-              sessionId: state.sessionId,
-              timestamp,
-              repoRoot: state.repoRoot,
-              provider,
-              model,
-              ...extractedUsage,
-              totalTokens: resolveUsageTotalTokens(extractedUsage),
-            }),
-          );
-        } catch {
-          skippedRows++;
-          incrementSkippedReason(skippedRowReasons, 'event_creation_failed');
-          continue;
-        }
-      }
-    } catch (error) {
-      if (error instanceof DshSessionLogUnreadableError) {
-        return toParseDiagnostics([], 1, new Map([['file_parse_failed', 1]]));
+    // A log with no decodable frame throws, failing the file so its stored events stay.
+    for await (const line of records) {
+      if (line.type === 'session') {
+        state.sessionId = asTrimmedText(line.id) ?? state.sessionId;
+        state.repoRoot = asTrimmedText(line.cwd) ?? state.repoRoot;
+        continue;
       }
 
-      throw error;
+      if (line.type === 'session/title-llm-request') {
+        const route = resolveRoute(asRecord(line.data));
+        state.provider = route.provider ?? state.provider;
+        state.model = route.model ?? state.model;
+        continue;
+      }
+
+      if (line.type !== 'assistant/message') {
+        continue;
+      }
+
+      const data = asRecord(line.data);
+      const message = asRecord(data?.message);
+      const usage = asRecord(data?.usage);
+
+      if (!usage) {
+        continue;
+      }
+
+      const extractedUsage = extractUsage(usage);
+
+      if (!extractedUsage) {
+        skippedRows++;
+        incrementSkippedReason(skippedRowReasons, 'no_token_usage');
+        continue;
+      }
+
+      const timestamp = resolveTimestamp(line);
+
+      if (!timestamp || !state.sessionId) {
+        skippedRows++;
+        incrementSkippedReason(skippedRowReasons, 'invalid_timestamp');
+        continue;
+      }
+
+      const source = asRecord(message?.source);
+      const provider = asTrimmedText(source?.provider) ?? state.provider;
+      const model = asTrimmedText(source?.model) ?? state.model;
+
+      try {
+        events.push(
+          createUsageEvent({
+            source: this.id,
+            sessionId: state.sessionId,
+            timestamp,
+            repoRoot: state.repoRoot,
+            provider,
+            model,
+            ...extractedUsage,
+            totalTokens: resolveUsageTotalTokens(extractedUsage),
+          }),
+        );
+      } catch {
+        skippedRows++;
+        incrementSkippedReason(skippedRowReasons, 'event_creation_failed');
+        continue;
+      }
     }
 
     return toParseDiagnostics(events, skippedRows, skippedRowReasons);

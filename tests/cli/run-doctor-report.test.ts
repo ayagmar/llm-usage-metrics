@@ -764,7 +764,7 @@ describe('run-doctor-report', () => {
       }),
     ]);
     expect(results[2]?.detail).toBe(
-      '1 file found, none with readable usage; the log format may have changed',
+      `1 file found, none with readable usage (Transcript is not readable JSON: ${path.join(brokenGeminiDir, 'tmp', 'project', 'chats', 'session.json')}); the log format may have changed`,
     );
   });
 

@@ -43,6 +43,8 @@ Bucketing hundreds of thousands of events into local days would be slow if each 
 
 A file that fails to parse does not kill the run: the failure is recorded as a `file_parse_failed` skipped-row reason and parsing continues. Only when **every** file of a source fails does the source itself error (`All N file(s) failed to parse for source <id>: <reason>`) — and even then the report continues without that source unless it was explicitly selected, in which case the run aborts.
 
+A failed file keeps the events the event store last read from it: its stored entry is not replaced, so history still has them if the file later disappears, and the next run retries it. Transcripts stored as one JSON document (Gemini, Amp, Droid, Cline) and DSH logs fail the whole file when it cannot be read: invalid or truncated JSON (often a file caught mid-rewrite), a file over 64 MiB, or a log with no decodable frame. Malformed lines in a JSONL transcript are only skipped rows.
+
 Adapters count skipped rows with per-reason counters (`src/sources/parse-diagnostics.ts`), and the report surfaces them — files found, skipped rows and reasons, source failures — as diagnostics on `stderr`, never mixed into the report body on `stdout`. Routine skips (rows with no usage by design) only show with `--verbose`; rows that could not be read are a warning. The `logLevel` config key, `--quiet`, and `--verbose` gate the informational lines.
 
 ## Related pages

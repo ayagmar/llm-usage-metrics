@@ -6,7 +6,7 @@ import { createUsageEvent } from '../../domain/usage-event.js';
 import type { SourceId, UsageEvent, UsageEventInput } from '../../domain/usage-event.js';
 import { asRecord } from '../../utils/as-record.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
-import { readBoundedJsonFile } from '../read-json-file.js';
+import { readJsonTranscriptFile } from '../read-json-file.js';
 import {
   asTrimmedText,
   normalizeTimestampCandidate,
@@ -267,14 +267,7 @@ export async function parseClineTaskFile(
     skippedRowReasons: new Map(),
   };
 
-  const readResult = await readBoundedJsonFile(filePath);
-
-  if (!readResult.ok) {
-    incrementContextSkippedReason(context, readResult.reason);
-    return toParseDiagnostics(context.events, context.skippedRows, context.skippedRowReasons);
-  }
-
-  const parsed = readResult.value;
+  const parsed = await readJsonTranscriptFile(filePath);
 
   if (!Array.isArray(parsed)) {
     incrementContextSkippedReason(context, 'invalid_messages_data');

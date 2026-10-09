@@ -585,10 +585,9 @@ describe('GeminiSourceAdapter', () => {
     it('reports parse and shape errors', async () => {
       const adapter = new GeminiSourceAdapter({ dir: fixturesDir });
 
-      const malformed = await adapter.parseFileWithDiagnostics(
-        path.join(fixturesDir, 'invalid-json.txt'),
-      );
-      expect(malformed.skippedRowReasons).toEqual([{ reason: 'json_parse_error', count: 1 }]);
+      await expect(
+        adapter.parseFileWithDiagnostics(path.join(fixturesDir, 'invalid-json.txt')),
+      ).rejects.toThrow('Transcript is not readable JSON');
 
       const invalidRoot = await adapter.parseFileWithDiagnostics(
         path.join(fixturesDir, 'session-invalid-root.json'),
@@ -608,7 +607,7 @@ describe('GeminiSourceAdapter', () => {
       expect(invalidTokenTypes.skippedRowReasons).toEqual([{ reason: 'no_token_usage', count: 1 }]);
     });
 
-    it('skips oversized session files instead of reading them', async () => {
+    it('fails oversized session files instead of reading them', async () => {
       const tempDir = await mkdtemp(path.join(canonicalTmpdir(), 'gemini-oversized-session-'));
       tempDirs.push(tempDir);
       const sessionPath = path.join(tempDir, 'huge-session.json');
@@ -617,10 +616,9 @@ describe('GeminiSourceAdapter', () => {
       await truncate(sessionPath, MAX_JSON_TRANSCRIPT_BYTES + 1);
 
       const adapter = new GeminiSourceAdapter({ dir: tempDir });
-      const result = await adapter.parseFileWithDiagnostics(sessionPath);
-
-      expect(result.events).toHaveLength(0);
-      expect(result.skippedRowReasons).toEqual([{ reason: 'file_too_large', count: 1 }]);
+      await expect(adapter.parseFileWithDiagnostics(sessionPath)).rejects.toThrow(
+        `Transcript is larger than 64 MiB: ${sessionPath}`,
+      );
     });
 
     it('reports invalid timestamp rows', async () => {
