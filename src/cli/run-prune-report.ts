@@ -1,3 +1,4 @@
+import { statSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
 
 import { getEventStoreRuntimeConfig } from '../config/runtime-overrides.js';
@@ -311,6 +312,16 @@ export async function buildPruneReport(
   }
 
   return withEventStore(storePath, deps, async (store) => {
+    // Under the write lock, a restored file (even one with old usage) counts as live again.
+    // Only proof that a file is gone allows deleting it, as for the first look.
+    const isStillMissing = (filePath: string): boolean => {
+      try {
+        statSync(filePath);
+        return false;
+      } catch (error) {
+        return hasErrorCode(error, 'ENOENT', 'ENOTDIR');
+      }
+    };
     const liveFiles = await addStoredFilesStillOnDisk(
       store,
       { selectedSources, discoveredFiles },
@@ -338,9 +349,9 @@ export async function buildPruneReport(
 
     const sizeBefore = await readStoreSizeSnapshot(storePath, statFile);
     // Select under the write lock, so a file a report re-ingested in the meantime is
-    // judged by its current events, not deleted by an earlier look.
+    // judged by its current events and presence, not deleted by an earlier look.
     const { candidates, deleteResult } = runTransaction(store.database, () => {
-      const selected = selectCandidates();
+      const selected = selectCandidates().filter((candidate) => isStillMissing(candidate.filePath));
       return { candidates: selected, deleteResult: deleteStoredFiles(store, selected) };
     });
     const candidateEventCount = countCandidateEvents(candidates);

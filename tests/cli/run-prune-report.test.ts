@@ -260,9 +260,16 @@ describe('run-prune-report', () => {
     expect(result.candidates[0]?.reasons).toEqual(['aged']);
   });
 
-  it('keeps a file a report re-ingested with newer usage while prune was running', async () => {
+  it.each([
+    { case: 'newer usage', timestamp: '2026-10-01T10:00:00.000Z', restoredOnDisk: false },
+    {
+      case: 'old usage, back on disk',
+      timestamp: '2026-01-02T10:00:00.000Z',
+      restoredOnDisk: true,
+    },
+  ])('keeps a file a report re-ingested while prune was running: $case', async (race) => {
     const dbPath = await createTempDbPath('prune-reingest-race-');
-    const filePath = '/tmp/restored.jsonl';
+    const filePath = path.join(path.dirname(dbPath), 'restored.jsonl');
     const store = await openEventStore(dbPath);
 
     try {
@@ -279,12 +286,17 @@ describe('run-prune-report', () => {
     const statFile = (async (target: string) => {
       if (target === `${dbPath}-wal` && !reingested) {
         reingested = true;
+
+        if (race.restoredOnDisk) {
+          await writeFile(filePath, '{}\n');
+        }
+
         const otherRun = await openEventStore(dbPath);
 
         try {
           writeStoredFile(otherRun, {
             filePath,
-            events: [createEvent({ sessionId: 'new', timestamp: '2026-10-01T10:00:00.000Z' })],
+            events: [createEvent({ sessionId: 'new', timestamp: race.timestamp })],
             now: 2_000,
           });
         } finally {
