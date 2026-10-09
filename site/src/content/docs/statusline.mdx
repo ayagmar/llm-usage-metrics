@@ -1,6 +1,6 @@
 ---
 title: Status line
-description: Show today's cost, your streak, and month to date in Claude Code, tmux, or starship.
+description: Show today's cost, your streak, and month to date in Claude Code, tmux, or starship, plus the session's cost and context use in Claude Code.
 ---
 
 `statusline` prints one short line for status bars:
@@ -44,7 +44,13 @@ Add a `statusLine` command to `~/.claude/settings.json`:
 }
 ```
 
-Claude Code passes session details on `stdin`; `statusline` ignores them.
+Claude Code passes the session's details on `stdin`, and the line then starts with the session's cost and how full its context window is:
+
+```text
+$1.23 session · 42% context · $270.20 today · 6d streak · ~$1,215.82 this month
+```
+
+Both numbers come from Claude Code as it sends them: the session cost is Claude Code's own estimate at list price and resets with `/clear`, so it can differ slightly from the same usage in llm-usage reports. Either part is left out until Claude Code has a value for it, such as before the first reply. Other status bars pass nothing on `stdin`; a bar that leaves `stdin` open costs at most a quarter second of waiting, overlapped with building the line.
 
 ## tmux
 

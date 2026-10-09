@@ -561,7 +561,7 @@ const statuslineDefinition: ReportRuntimeDefinition = {
     docsLabel: 'statusline',
     kind: 'specialized',
     description:
-      "Print one line with today's cost, your streak, and month to date (for status bars; never fetches)",
+      "Print one line with today's cost, your streak, and month to date, led by the session's cost and context use under Claude Code (for status bars; never fetches)",
     sharedOptionProfile: 'statusline',
     helpExamples: [
       {
