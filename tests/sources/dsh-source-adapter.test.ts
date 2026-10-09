@@ -9,6 +9,7 @@ import {
   DshSourceAdapter,
   getDefaultDshSessionsDir,
 } from '../../src/sources/dsh/dsh-source-adapter.js';
+import { DshSessionLogUnreadableError } from '../../src/sources/dsh/dsh-session-log-reader.js';
 import {
   createTornTailBytes,
   dshAssistantMessageFixture,
@@ -384,17 +385,15 @@ describe('DshSourceAdapter', () => {
     expect(result.skippedRowReasons).toEqual([{ reason: 'undecodable_jsonl_frame', count: 1 }]);
   });
 
-  it('reports an unreadable log containing only a truncated frame', async () => {
+  it('fails a log containing only a truncated frame', async () => {
     const root = await createTempRoot('dsh-truncated-frame-');
     const logPath = resolveDshSessionLogPath(path.join(root, 'session-truncated'));
     await mkdir(path.dirname(logPath), { recursive: true });
     await writeFile(logPath, createTornTailBytes(sessionHeaderLine()));
 
-    const result = await new DshSourceAdapter().parseFileWithDiagnostics(logPath);
-
-    expect(result.events).toEqual([]);
-    expect(result.skippedRows).toBe(1);
-    expect(result.skippedRowReasons).toEqual([{ reason: 'file_parse_failed', count: 1 }]);
+    await expect(new DshSourceAdapter().parseFileWithDiagnostics(logPath)).rejects.toThrow(
+      DshSessionLogUnreadableError,
+    );
   });
 
   it('recovers frames that follow a damaged region of the log', async () => {
@@ -428,7 +427,7 @@ describe('DshSourceAdapter', () => {
     expect(result.skippedRowReasons).toEqual([{ reason: 'undecodable_jsonl_frame', count: 1 }]);
   });
 
-  it('reports an unreadable log when every frame decodes to nothing', async () => {
+  it('fails a log when every frame decodes to nothing', async () => {
     const root = await createTempRoot('dsh-empty-frames-');
     const logPath = resolveDshSessionLogPath(path.join(root, '--proj--', 'session-empty'));
     await mkdir(path.dirname(logPath), { recursive: true });
@@ -437,12 +436,9 @@ describe('DshSourceAdapter', () => {
       Buffer.concat([zstdCompressSync(Buffer.from('')), zstdCompressSync(Buffer.from(''))]),
     );
 
-    const adapter = new DshSourceAdapter();
-    const result = await adapter.parseFileWithDiagnostics(logPath);
-
-    expect(result.events).toEqual([]);
-    expect(result.skippedRows).toBe(1);
-    expect(result.skippedRowReasons).toEqual([{ reason: 'file_parse_failed', count: 1 }]);
+    await expect(new DshSourceAdapter().parseFileWithDiagnostics(logPath)).rejects.toThrow(
+      DshSessionLogUnreadableError,
+    );
   });
 
   it('propagates unexpected read failures instead of reporting an empty file', async () => {
@@ -513,18 +509,15 @@ describe('DshSourceAdapter', () => {
     });
   });
 
-  it('reports an unreadable log instead of throwing when no frame decodes', async () => {
+  it('fails the file, so its stored events stay, when no frame decodes', async () => {
     const root = await createTempRoot('dsh-unreadable-');
     const logPath = resolveDshSessionLogPath(path.join(root, '--proj--', 'session-broken'));
     await mkdir(path.dirname(logPath), { recursive: true });
     await writeFile(logPath, Buffer.from('not a zstd frame at all'), 'binary');
 
-    const adapter = new DshSourceAdapter();
-    const result = await adapter.parseFileWithDiagnostics(logPath);
-
-    expect(result.events).toEqual([]);
-    expect(result.skippedRows).toBe(1);
-    expect(result.skippedRowReasons).toEqual([{ reason: 'file_parse_failed', count: 1 }]);
+    await expect(new DshSourceAdapter().parseFileWithDiagnostics(logPath)).rejects.toThrow(
+      DshSessionLogUnreadableError,
+    );
   });
 
   it('ignores rows that carry no usage by design', async () => {

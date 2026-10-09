@@ -252,19 +252,15 @@ describe('DroidSourceAdapter', () => {
     it('reports parse errors and invalid shapes', async () => {
       const adapter = new DroidSourceAdapter({ dir: fixturesDir });
 
-      const malformed = await adapter.parseFileWithDiagnostics(
-        path.join(fixturesDir, 'parsing', 'invalid-json.txt'),
-      );
-      expect(malformed.events).toHaveLength(0);
-      expect(malformed.skippedRowReasons).toEqual([{ reason: 'json_parse_error', count: 1 }]);
+      await expect(
+        adapter.parseFileWithDiagnostics(path.join(fixturesDir, 'parsing', 'invalid-json.txt')),
+      ).rejects.toThrow('Transcript is not readable JSON');
 
-      const invalidRoot = await adapter.parseFileWithDiagnostics(
-        path.join(fixturesDir, 'parsing', 'invalid-root.settings.json'),
-      );
-      expect(invalidRoot.events).toHaveLength(0);
-      expect(invalidRoot.skippedRowReasons).toEqual([
-        { reason: 'invalid_settings_data', count: 1 },
-      ]);
+      await expect(
+        adapter.parseFileWithDiagnostics(
+          path.join(fixturesDir, 'parsing', 'invalid-root.settings.json'),
+        ),
+      ).rejects.toThrow('Droid settings are not a JSON object');
     });
 
     it('reports missing/zero usage as no_token_usage', async () => {

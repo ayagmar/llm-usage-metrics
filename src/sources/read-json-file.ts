@@ -20,3 +20,22 @@ export async function readBoundedJsonFile(filePath: string): Promise<BoundedJson
     return { ok: false, reason: 'json_parse_error' };
   }
 }
+
+/**
+ * Reads a transcript that is one JSON document. A file that cannot be read whole (too
+ * large, unreadable, or mid-rewrite) fails its parse instead of parsing as empty, so the
+ * event store keeps the events it last read from it.
+ */
+export async function readJsonTranscriptFile(filePath: string): Promise<unknown> {
+  const readResult = await readBoundedJsonFile(filePath);
+
+  if (!readResult.ok) {
+    throw new Error(
+      readResult.reason === 'file_too_large'
+        ? `Transcript is larger than ${String(MAX_JSON_TRANSCRIPT_BYTES / 1024 / 1024)} MiB: ${filePath}`
+        : `Transcript is not readable JSON: ${filePath}`,
+    );
+  }
+
+  return readResult.value;
+}

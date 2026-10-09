@@ -14,7 +14,7 @@ import {
   toTokenCount,
 } from '../parsing-utils.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
-import { readBoundedJsonFile } from '../read-json-file.js';
+import { readJsonTranscriptFile } from '../read-json-file.js';
 import type {
   SourceAdapter,
   SourceAdapterPathOptions,
@@ -308,6 +308,7 @@ function parseMessageUsage(context: AmpParseContext): void {
 
 export class AmpSourceAdapter implements SourceAdapter {
   public readonly id = 'amp' as const;
+  public readonly parserVersion = 2;
   public readonly capabilities = { eventsPrecedeFileMtime: true } as const;
 
   private readonly threadsDir: string;
@@ -354,36 +355,28 @@ export class AmpSourceAdapter implements SourceAdapter {
 
   public async parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
     const events: UsageEvent[] = [];
-    let skippedRows = 0;
     const skippedRowReasons = new Map<string, number>();
 
-    const readResult = await readBoundedJsonFile(filePath);
-
-    if (!readResult.ok) {
-      skippedRows++;
-      incrementSkippedReason(skippedRowReasons, readResult.reason);
-
-      return toParseDiagnostics(events, skippedRows, skippedRowReasons);
-    }
-
-    const threadData = readResult.value;
+    const threadData = await readJsonTranscriptFile(filePath);
 
     const thread = asRecord(threadData);
 
+    // A document of the wrong shape fails the file, like unreadable JSON, so its stored
+    // events stay.
     if (!thread) {
-      skippedRows++;
-      incrementSkippedReason(skippedRowReasons, 'invalid_thread_data');
-
-      return toParseDiagnostics(events, skippedRows, skippedRowReasons);
+      throw new Error(`Amp thread is not a JSON object: ${filePath}`);
     }
 
     const sessionId = asTrimmedText(thread.id);
 
     if (!sessionId) {
-      skippedRows++;
-      incrementSkippedReason(skippedRowReasons, 'invalid_thread_id');
+      throw new Error(`Amp thread has no id: ${filePath}`);
+    }
 
-      return toParseDiagnostics(events, skippedRows, skippedRowReasons);
+    const ledgerEvents = getLedgerEvents(thread);
+
+    if (!ledgerEvents && !Array.isArray(thread.messages)) {
+      throw new Error(`Amp thread has neither a usage ledger nor a messages array: ${filePath}`);
     }
 
     const context: AmpParseContext = {
@@ -391,18 +384,14 @@ export class AmpSourceAdapter implements SourceAdapter {
       threadCreatedTimestamp: normalizeTimestampCandidate(thread.created),
       messages: getThreadMessages(thread),
       events,
-      skippedRows,
+      skippedRows: 0,
       skippedRowReasons,
     };
 
-    const ledgerEvents = getLedgerEvents(thread);
-
     if (ledgerEvents) {
       parseLedgerEvents(context, ledgerEvents);
-    } else if (Array.isArray(thread.messages)) {
-      parseMessageUsage(context);
     } else {
-      incrementContextSkippedReason(context, 'invalid_messages_array');
+      parseMessageUsage(context);
     }
 
     return toParseDiagnostics(context.events, context.skippedRows, context.skippedRowReasons);

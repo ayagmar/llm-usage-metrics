@@ -15,7 +15,7 @@ import {
   toNumberLike,
 } from '../parsing-utils.js';
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
-import { readBoundedJsonFile } from '../read-json-file.js';
+import { readJsonTranscriptFile } from '../read-json-file.js';
 import type {
   SourceAdapter,
   SourceAdapterPathOptions,
@@ -58,6 +58,7 @@ function resolveRepoRootFromSessionStart(line: Record<string, unknown>): string 
 
 export class DroidSourceAdapter implements SourceAdapter {
   public readonly id = 'droid' as const;
+  public readonly parserVersion = 2;
   public readonly capabilities = { eventsPrecedeFileMtime: true } as const;
 
   private readonly sessionsDir: string;
@@ -108,22 +109,14 @@ export class DroidSourceAdapter implements SourceAdapter {
     let skippedRows = 0;
     const skippedRowReasons = new Map<string, number>();
 
-    const readResult = await readBoundedJsonFile(filePath);
-
-    if (!readResult.ok) {
-      skippedRows++;
-      incrementSkippedReason(skippedRowReasons, readResult.reason);
-      return toParseDiagnostics(events, skippedRows, skippedRowReasons);
-    }
-
-    const settingsJson = readResult.value;
+    const settingsJson = await readJsonTranscriptFile(filePath);
 
     const settings = asRecord(settingsJson);
 
+    // A document of the wrong shape fails the file, like unreadable JSON, so its stored
+    // events stay.
     if (!settings) {
-      skippedRows++;
-      incrementSkippedReason(skippedRowReasons, 'invalid_settings_data');
-      return toParseDiagnostics(events, skippedRows, skippedRowReasons);
+      throw new Error(`Droid settings are not a JSON object: ${filePath}`);
     }
 
     const tokenUsage = asRecord(settings.tokenUsage);

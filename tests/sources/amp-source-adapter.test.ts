@@ -191,18 +191,16 @@ describe('AmpSourceAdapter', () => {
       ]);
     });
 
-    it('reports JSON parse failures', async () => {
+    it('fails the file on invalid JSON, so its stored events stay', async () => {
       const tempDir = await mkdtemp(path.join(os.tmpdir(), 'amp-invalid-json-'));
       tempDirs.push(tempDir);
       const filePath = path.join(tempDir, 'invalid.json');
       await writeFile(filePath, '{', 'utf8');
 
       const adapter = new AmpSourceAdapter({ dir: tempDir });
-      const result = await adapter.parseFileWithDiagnostics(filePath);
-
-      expect(result.events).toEqual([]);
-      expect(result.skippedRows).toBe(1);
-      expect(result.skippedRowReasons).toEqual([{ reason: 'json_parse_error', count: 1 }]);
+      await expect(adapter.parseFileWithDiagnostics(filePath)).rejects.toThrow(
+        `Transcript is not readable JSON: ${filePath}`,
+      );
     });
   });
 });
