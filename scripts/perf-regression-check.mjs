@@ -19,8 +19,8 @@ const CORPUS = {
 const SOURCES = Object.keys(CORPUS);
 const MINUTE_MS = 60_000;
 const TURN_MS = 9 * MINUTE_MS;
-// The corpus spans about 15 days and ends a minute ago, so statusline always has usage
-// today to summarize.
+// The corpus spans about 15 days and ends a minute ago, so statusline has usage to
+// summarize (only a run in the first minutes of a UTC month would see none).
 const LAST_SLOT = Math.max(
   ...Object.values(CORPUS).map(({ sessions, turns }) => (sessions - 1) * 7 + turns - 1),
 );
