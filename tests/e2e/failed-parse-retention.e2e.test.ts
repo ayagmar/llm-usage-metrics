@@ -4,6 +4,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { buildUsageData } from '../../src/cli/build-usage-data.js';
+import { buildPruneReport } from '../../src/cli/run-prune-report.js';
 import { canonicalTmpdir } from '../helpers/tmp.js';
 
 const sessionFixture = path.resolve('tests/fixtures/gemini/session-with-usage.json');
@@ -93,9 +94,19 @@ describe('a file that stops parsing', () => {
     await writeFile(movedPath, 'null');
     await utimes(movedPath, new Date(), new Date(Date.now() + 60_000));
     const whileBroken = await totalTokens(geminiDir);
+    // Prune agrees: the original is the only counted record of that usage, so it stays.
+    const pruned = await buildPruneReport({
+      source: 'gemini',
+      geminiDir,
+      suppressed: true,
+      apply: true,
+    });
+    const afterPrune = await totalTokens(geminiDir);
 
     expect(before).toBeGreaterThan(0);
     expect(afterMove).toBe(before);
     expect(whileBroken).toBe(before);
+    expect(pruned.summary.deletedFileCount).toBe(0);
+    expect(afterPrune).toBe(before);
   });
 });

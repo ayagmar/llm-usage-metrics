@@ -6,8 +6,10 @@ import {
   closeEventStore,
   findLegacyEventStore,
   deleteStoredFiles,
+  getFileEntry,
   openEventStore,
   runTransaction,
+  serializeEventStoreFingerprint,
   vacuumEventStore,
   type DeleteStoredFilesResult,
   type EventStore,
@@ -23,7 +25,8 @@ import { renderPruneReport } from '../render/render-prune-report.js';
 import { validateDateInput, selectAdaptersBySourceFilter } from './build-usage-data-inputs.js';
 import { resolveUserConfigForOptions, type UserConfigResolutionDeps } from './apply-user-config.js';
 import { emitUserConfigResolution } from './emit-active-config.js';
-import { addStoredFilesStillOnDisk } from './history-live-files.js';
+import { addStoredFilesStillOnDisk, mapWithConcurrency } from './history-live-files.js';
+import { getParseFileFingerprint } from './parse/parse-fingerprint.js';
 import { renderReportJson } from '../render/report-json.js';
 import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
 import { logger } from '../utils/logger.js';
@@ -107,12 +110,14 @@ function isOlderThanUtcDate(
   return Number.isFinite(newestTimestamp) && newestTimestamp < departedBeforeTimestamp;
 }
 
+type DiscoveredLiveFile = EventStoreHistoryDiscoveredFile & { adapter: SourceAdapter };
+
 async function discoverLiveFiles(adapters: readonly SourceAdapter[]): Promise<{
   selectedSources: string[];
-  discoveredFiles: EventStoreHistoryDiscoveredFile[];
+  discoveredFiles: DiscoveredLiveFile[];
 }> {
   const selectedSources: string[] = [];
-  const discoveredFiles: EventStoreHistoryDiscoveredFile[] = [];
+  const discoveredFiles: DiscoveredLiveFile[] = [];
 
   for (const adapter of adapters) {
     selectedSources.push(adapter.id);
@@ -132,11 +137,31 @@ async function discoverLiveFiles(adapters: readonly SourceAdapter[]): Promise<{
       ...files.map((filePath) => ({
         source: adapter.id,
         filePath,
+        adapter,
       })),
     );
   }
 
   return { selectedSources, discoveredFiles };
+}
+
+/**
+ * Whether the stored events of a live file are the ones a report reads from it now. A
+ * file that changed since (it failed to parse, or no report has read it yet) keeps its
+ * older stored events, which reports do not count while it fails.
+ */
+async function isStoredEntryCurrent(store: EventStore, file: DiscoveredLiveFile): Promise<boolean> {
+  try {
+    const fingerprint = await getParseFileFingerprint(file.adapter, file.filePath);
+
+    return (
+      fingerprint !== undefined &&
+      getFileEntry(store, file.source, file.filePath)?.fingerprint ===
+        serializeEventStoreFingerprint(fingerprint)
+    );
+  } catch {
+    return false;
+  }
 }
 
 function toCandidate(
@@ -322,9 +347,20 @@ export async function buildPruneReport(
         return hasErrorCode(error, 'ENOENT', 'ENOTDIR');
       }
     };
+    // Only a live file whose stored events are current can stand in for a departed copy,
+    // as in reports; the others are present but not counted.
+    const isCurrent = await mapWithConcurrency(discoveredFiles, 32, (file) =>
+      isStoredEntryCurrent(store, file),
+    );
+    const toHistoryFile = ({ source, filePath }: DiscoveredLiveFile) => ({ source, filePath });
     const liveFiles = await addStoredFilesStillOnDisk(
       store,
-      { selectedSources, discoveredFiles, repeatingSources: getRepeatingSourceIds(adapters) },
+      {
+        selectedSources,
+        discoveredFiles: discoveredFiles.filter((_, index) => isCurrent[index]).map(toHistoryFile),
+        presentFiles: discoveredFiles.filter((_, index) => !isCurrent[index]).map(toHistoryFile),
+        repeatingSources: getRepeatingSourceIds(adapters),
+      },
       { unverifiable: 'treat-as-live', statFile },
     );
     const selectCandidates = () =>

@@ -4,8 +4,9 @@ import path from 'node:path';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { buildUsageData } from '../../src/cli/build-usage-data.js';
 import { buildPruneReport } from '../../src/cli/run-prune-report.js';
-import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.js';
+import type { UsageEvent } from '../../src/domain/usage-event.js';
 import {
   closeEventStore,
   getDefaultEventStorePath,
@@ -55,24 +56,6 @@ async function getPathSnapshot(filePath: string): Promise<PathSnapshot> {
   }
 }
 
-function createEvent(overrides: Partial<Parameters<typeof createUsageEvent>[0]> = {}): UsageEvent {
-  return createUsageEvent({
-    source: 'claude',
-    sessionId: 'prune-e2e-session',
-    timestamp: '2026-02-14T10:00:00.000Z',
-    provider: 'anthropic',
-    model: 'claude-sonnet-4-5',
-    inputTokens: 10,
-    outputTokens: 5,
-    reasoningTokens: 0,
-    cacheReadTokens: 0,
-    cacheWriteTokens: 0,
-    totalTokens: 15,
-    costMode: 'estimated',
-    ...overrides,
-  });
-}
-
 function createFingerprint(filePath: string): EventStoreFileFingerprint {
   return {
     dependencies: [{ path: filePath, exists: true, size: 10, mtimeMs: 20 }],
@@ -97,23 +80,22 @@ function writeStoredFile(
   });
 }
 
+// A report ingests the live fixture; the departed file is an earlier copy of it.
 async function seedStore(): Promise<void> {
+  await buildUsageData('daily', {
+    all: true,
+    source: 'claude',
+    claudeDir,
+    timezone: 'UTC',
+    pricingOffline: true,
+  });
   const store = await openEventStore(storePath);
-  const storedEvents = [
-    createEvent({ sessionId: 'stored-a', timestamp: '2026-02-14T10:00:00.000Z' }),
-    createEvent({ sessionId: 'stored-b', timestamp: '2026-02-15T10:00:00.000Z' }),
-  ];
 
   try {
     writeStoredFile(store, {
       filePath: departedFilePath,
-      events: storedEvents,
+      events: readFileEvents(store, 'claude', liveFilePath) ?? [],
       now: 1_000,
-    });
-    writeStoredFile(store, {
-      filePath: liveFilePath,
-      events: storedEvents,
-      now: 2_000,
     });
   } finally {
     closeEventStore(store);
@@ -181,7 +163,7 @@ describe('prune report e2e', () => {
         source: 'claude',
         filePath: departedFilePath,
         eventCount: 2,
-        newestTimestamp: '2026-02-15T10:00:00.000Z',
+        newestTimestamp: '2026-06-20T12:05:00.000Z',
         reasons: ['suppressed'],
       }),
     ]);

@@ -79,7 +79,7 @@ llm-usage prune --suppressed
 
 Selectors:
 
-- `--suppressed` selects departed files that `--history` already suppresses as moved or duplicated. Applying this selector does not change report output.
+- `--suppressed` selects departed files that `--history` already suppresses as moved or duplicated. Applying this selector does not change report output. Only live files a report has read in their current state vouch for a departed copy, so run a report first after files change or an upgrade.
 - `--departed-before YYYY-MM-DD` selects departed files whose newest event timestamp is strictly older than that UTC date. Applying this selector permanently deletes retained history for those files.
 
 Apply selected candidates:

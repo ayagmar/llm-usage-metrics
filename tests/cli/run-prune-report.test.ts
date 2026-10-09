@@ -10,6 +10,7 @@ import {
   runPruneReport,
   type PruneReportResult,
 } from '../../src/cli/run-prune-report.js';
+import { getParseFileFingerprint } from '../../src/cli/parse/parse-fingerprint.js';
 import { renderPruneReport } from '../../src/render/render-prune-report.js';
 import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.js';
 import {
@@ -82,6 +83,29 @@ function writeStoredFile(
   });
 }
 
+// A live file as a report leaves it: on disk, with the events stored under its current
+// fingerprint. Only such a file stands in for a departed copy of its events.
+async function writeLiveStoredFile(
+  store: EventStore,
+  options: { filePath: string; events: UsageEvent[]; now?: number },
+): Promise<void> {
+  await writeFile(options.filePath, '{}\n', 'utf8');
+  const fingerprint = await getParseFileFingerprint(createAdapter({ files: [] }), options.filePath);
+
+  if (!fingerprint) {
+    throw new Error(`cannot fingerprint ${options.filePath}`);
+  }
+
+  replaceFileEvents(store, {
+    source: 'codex',
+    filePath: options.filePath,
+    fingerprint,
+    events: options.events,
+    skippedRows: 0,
+    now: options.now ?? 1_000,
+  });
+}
+
 function createAdapter(options: {
   id?: SourceAdapter['id'];
   files: string[];
@@ -134,14 +158,14 @@ describe('run-prune-report', () => {
   it('keeps the temp database byte-unchanged during a dry run', async () => {
     const dbPath = await createTempDbPath('prune-dry-run-');
     const oldPath = '/tmp/old.jsonl';
-    const livePath = '/tmp/live.jsonl';
+    const livePath = path.join(path.dirname(dbPath), 'live.jsonl');
     const oldEvent = createEvent({ sessionId: 'moved-session' });
     const liveEvent = createEvent({ sessionId: 'moved-session' });
     const store = await openEventStore(dbPath);
 
     try {
       writeStoredFile(store, { filePath: oldPath, events: [oldEvent], now: 1_000 });
-      writeStoredFile(store, { filePath: livePath, events: [liveEvent], now: 2_000 });
+      await writeLiveStoredFile(store, { filePath: livePath, events: [liveEvent], now: 2_000 });
     } finally {
       closeEventStore(store);
     }
@@ -173,7 +197,7 @@ describe('run-prune-report', () => {
   it('applies --suppressed by deleting only suppressed departed files', async () => {
     const dbPath = await createTempDbPath('prune-apply-suppressed-');
     const oldPath = '/tmp/old.jsonl';
-    const livePath = '/tmp/live.jsonl';
+    const livePath = path.join(path.dirname(dbPath), 'live.jsonl');
     const uniquePath = '/tmp/unique.jsonl';
     const store = await openEventStore(dbPath);
 
@@ -183,7 +207,7 @@ describe('run-prune-report', () => {
         events: [createEvent({ sessionId: 'moved-session' })],
         now: 1_000,
       });
-      writeStoredFile(store, {
+      await writeLiveStoredFile(store, {
         filePath: livePath,
         events: [createEvent({ sessionId: 'moved-session' })],
         now: 2_000,
@@ -234,7 +258,7 @@ describe('run-prune-report', () => {
         events: [createEvent({ sessionId: 'shared' }), createEvent({ sessionId: 'shared' })],
       });
       for (const forkPath of forkPaths) {
-        writeStoredFile(store, {
+        await writeLiveStoredFile(store, {
           filePath: forkPath,
           events: [createEvent({ sessionId: 'shared' })],
         });
@@ -400,7 +424,7 @@ describe('run-prune-report', () => {
   it('combines suppressed and departed-before selectors as a union', async () => {
     const dbPath = await createTempDbPath('prune-selector-union-');
     const oldPath = '/tmp/old.jsonl';
-    const livePath = '/tmp/live.jsonl';
+    const livePath = path.join(path.dirname(dbPath), 'live.jsonl');
     const agedPath = '/tmp/aged.jsonl';
     const store = await openEventStore(dbPath);
 
@@ -410,7 +434,7 @@ describe('run-prune-report', () => {
         events: [createEvent({ sessionId: 'moved-session' })],
         now: 1_000,
       });
-      writeStoredFile(store, {
+      await writeLiveStoredFile(store, {
         filePath: livePath,
         events: [createEvent({ sessionId: 'moved-session' })],
         now: 2_000,
@@ -445,7 +469,7 @@ describe('run-prune-report', () => {
   it('renders structured JSON output', async () => {
     const dbPath = await createTempDbPath('prune-json-');
     const oldPath = '/tmp/old.jsonl';
-    const livePath = '/tmp/live.jsonl';
+    const livePath = path.join(path.dirname(dbPath), 'live.jsonl');
     const store = await openEventStore(dbPath);
 
     try {
@@ -453,7 +477,7 @@ describe('run-prune-report', () => {
         filePath: oldPath,
         events: [createEvent({ sessionId: 'moved-session' })],
       });
-      writeStoredFile(store, {
+      await writeLiveStoredFile(store, {
         filePath: livePath,
         events: [createEvent({ sessionId: 'moved-session' })],
       });
@@ -800,7 +824,7 @@ describe('run-prune-report', () => {
         events: [createEvent({ sessionId: 'live-path' })],
         now: 1_000,
       });
-      writeStoredFile(store, {
+      await writeLiveStoredFile(store, {
         filePath: livePath,
         events: [liveEvent],
         now: 2_000,
@@ -851,7 +875,7 @@ describe('run-prune-report', () => {
 
     try {
       // Discovered live file — its content seeds the served set.
-      writeStoredFile(store, {
+      await writeLiveStoredFile(store, {
         filePath: livePath,
         events: [createEvent({ sessionId: 'live' })],
         now: 5_000,
