@@ -418,6 +418,7 @@ describe('buildCompareData', () => {
     expect(loadHistoryEvents).toHaveBeenCalledWith(expect.anything(), {
       selectedSources: ['codex'],
       discoveredFiles: [],
+      presentFiles: [],
       repeatingSources: [],
     });
   });

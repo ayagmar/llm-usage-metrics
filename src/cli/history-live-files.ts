@@ -29,7 +29,7 @@ async function checkDiskPresence(filePath: string, statFile: StatFile): Promise<
   }
 }
 
-async function mapWithConcurrency<Input, Output>(
+export async function mapWithConcurrency<Input, Output>(
   inputs: readonly Input[],
   concurrency: number,
   mapInput: (input: Input) => Promise<Output>,

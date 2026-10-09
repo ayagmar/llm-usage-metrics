@@ -62,12 +62,15 @@ type AdapterParseResultWithFiles = AdapterParseResult & {
   filePaths: string[];
   /** The discovered files whose events this run counts: neither failed nor skipped. */
   parsedFilePaths: string[];
+  failedFilePaths: string[];
 };
 
 export type ParsedAdaptersResult = {
   successfulParseResults: AdapterParseResult[];
   discoveredFiles: DiscoveredSourceFile[];
   parsedFiles: DiscoveredSourceFile[];
+  /** Discovered files that failed to parse: present, but not counted this run. */
+  failedFiles: DiscoveredSourceFile[];
   eventStoreAvailable: boolean;
   sourceFailures: UsageSourceFailure[];
   warnings: string[];
@@ -190,6 +193,7 @@ export async function parseAdapterEvents(
       events: [],
       filePaths: [],
       parsedFilePaths: [],
+      failedFilePaths: [],
       filesFound: 0,
       skippedRows: 0,
       skippedRowReasons: [],
@@ -203,14 +207,14 @@ export async function parseAdapterEvents(
   const parsedByFile: UsageEvent[][] = Array.from({ length: files.length }, () => []);
   const skippedRowsByFile: number[] = Array.from({ length: files.length }, () => 0);
   const parsedFileIndexes = new Set<number>();
+  const failedFileIndexes = new Set<number>();
   const skippedRowReasons = new Map<string, number>();
   let pendingStoreWrites: ParsedFileStoreWrite[] = [];
   let pendingStoreEventCount = 0;
-  let failedFiles = 0;
   let lastErrorMessage = '';
 
   function recordParseFailure(fileIndex: number, error: unknown): void {
-    failedFiles += 1;
+    failedFileIndexes.add(fileIndex);
     lastErrorMessage = getErrorReason(error);
     skippedRowsByFile[fileIndex] = 1;
     skippedRowReasons.set(
@@ -522,7 +526,7 @@ export async function parseAdapterEvents(
 
   flushPendingStoreWrites();
 
-  if (failedFiles === files.length) {
+  if (failedFileIndexes.size === files.length) {
     throw new Error(
       `All ${files.length} file(s) failed to parse for source ${adapter.id}: ${lastErrorMessage}`,
     );
@@ -535,6 +539,7 @@ export async function parseAdapterEvents(
       : parsedByFile.flat(),
     filePaths: files,
     parsedFilePaths: files.filter((_, fileIndex) => parsedFileIndexes.has(fileIndex)),
+    failedFilePaths: files.filter((_, fileIndex) => failedFileIndexes.has(fileIndex)),
     filesFound: files.length,
     skippedRows: skippedRowsByFile.reduce((sum, skippedRowsCount) => sum + skippedRowsCount, 0),
     skippedRowReasons: [...skippedRowReasons.entries()]
@@ -621,15 +626,18 @@ export async function parseSelectedAdapters(
   const successfulParseResults: AdapterParseResult[] = [];
   const discoveredFiles: DiscoveredSourceFile[] = [];
   const parsedFiles: DiscoveredSourceFile[] = [];
+  const failedFiles: DiscoveredSourceFile[] = [];
 
   for (const [index, parseResult] of parseResults.entries()) {
     const source = adaptersToParse[index].id;
 
     if (parseResult.status === 'fulfilled') {
-      const { filePaths, parsedFilePaths, ...parseResultWithoutFiles } = parseResult.value;
+      const { filePaths, parsedFilePaths, failedFilePaths, ...parseResultWithoutFiles } =
+        parseResult.value;
       successfulParseResults.push(parseResultWithoutFiles);
       discoveredFiles.push(...filePaths.map((filePath) => ({ source, filePath })));
       parsedFiles.push(...parsedFilePaths.map((filePath) => ({ source, filePath })));
+      failedFiles.push(...failedFilePaths.map((filePath) => ({ source, filePath })));
       continue;
     }
 
@@ -640,6 +648,7 @@ export async function parseSelectedAdapters(
     successfulParseResults,
     discoveredFiles,
     parsedFiles,
+    failedFiles,
     eventStoreAvailable: Boolean(options.eventStore?.enabled) && !eventStoreFailureState.disabled,
     sourceFailures,
     warnings: eventStoreFailureState.warning ? [eventStoreFailureState.warning] : [],

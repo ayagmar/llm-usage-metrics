@@ -10,6 +10,7 @@ import {
   runPruneReport,
   type PruneReportResult,
 } from '../../src/cli/run-prune-report.js';
+import { getParseFileFingerprint } from '../../src/cli/parse/parse-fingerprint.js';
 import { renderPruneReport } from '../../src/render/render-prune-report.js';
 import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.js';
 import {
@@ -82,6 +83,29 @@ function writeStoredFile(
   });
 }
 
+// A live file as a report leaves it: on disk, with the events stored under its current
+// fingerprint. Only such a file stands in for a departed copy of its events.
+async function writeLiveStoredFile(
+  store: EventStore,
+  options: { filePath: string; events: UsageEvent[]; now?: number },
+): Promise<void> {
+  await writeFile(options.filePath, '{}\n', 'utf8');
+  const fingerprint = await getParseFileFingerprint(createAdapter({ files: [] }), options.filePath);
+
+  if (!fingerprint) {
+    throw new Error(`cannot fingerprint ${options.filePath}`);
+  }
+
+  replaceFileEvents(store, {
+    source: 'codex',
+    filePath: options.filePath,
+    fingerprint,
+    events: options.events,
+    skippedRows: 0,
+    now: options.now ?? 1_000,
+  });
+}
+
 function createAdapter(options: {
   id?: SourceAdapter['id'];
   files: string[];
@@ -134,14 +158,14 @@ describe('run-prune-report', () => {
   it('keeps the temp database byte-unchanged during a dry run', async () => {
     const dbPath = await createTempDbPath('prune-dry-run-');
     const oldPath = '/tmp/old.jsonl';
-    const livePath = '/tmp/live.jsonl';
+    const livePath = path.join(path.dirname(dbPath), 'live.jsonl');
     const oldEvent = createEvent({ sessionId: 'moved-session' });
     const liveEvent = createEvent({ sessionId: 'moved-session' });
     const store = await openEventStore(dbPath);
 
     try {
       writeStoredFile(store, { filePath: oldPath, events: [oldEvent], now: 1_000 });
-      writeStoredFile(store, { filePath: livePath, events: [liveEvent], now: 2_000 });
+      await writeLiveStoredFile(store, { filePath: livePath, events: [liveEvent], now: 2_000 });
     } finally {
       closeEventStore(store);
     }
@@ -173,7 +197,7 @@ describe('run-prune-report', () => {
   it('applies --suppressed by deleting only suppressed departed files', async () => {
     const dbPath = await createTempDbPath('prune-apply-suppressed-');
     const oldPath = '/tmp/old.jsonl';
-    const livePath = '/tmp/live.jsonl';
+    const livePath = path.join(path.dirname(dbPath), 'live.jsonl');
     const uniquePath = '/tmp/unique.jsonl';
     const store = await openEventStore(dbPath);
 
@@ -183,7 +207,7 @@ describe('run-prune-report', () => {
         events: [createEvent({ sessionId: 'moved-session' })],
         now: 1_000,
       });
-      writeStoredFile(store, {
+      await writeLiveStoredFile(store, {
         filePath: livePath,
         events: [createEvent({ sessionId: 'moved-session' })],
         now: 2_000,
@@ -234,7 +258,7 @@ describe('run-prune-report', () => {
         events: [createEvent({ sessionId: 'shared' }), createEvent({ sessionId: 'shared' })],
       });
       for (const forkPath of forkPaths) {
-        writeStoredFile(store, {
+        await writeLiveStoredFile(store, {
           filePath: forkPath,
           events: [createEvent({ sessionId: 'shared' })],
         });
@@ -368,6 +392,81 @@ describe('run-prune-report', () => {
     }
   });
 
+  it('keeps a moved file whose live copy broke while prune was running', async () => {
+    const dbPath = await createTempDbPath('prune-witness-race-');
+    const originalPath = path.join(path.dirname(dbPath), 'original.jsonl');
+    const movedPath = path.join(path.dirname(dbPath), 'moved.jsonl');
+    const store = await openEventStore(dbPath);
+
+    try {
+      writeStoredFile(store, {
+        filePath: originalPath,
+        events: [createEvent({ sessionId: 'moved-session' })],
+      });
+      await writeLiveStoredFile(store, {
+        filePath: movedPath,
+        events: [createEvent({ sessionId: 'moved-session' })],
+        now: 2_000,
+      });
+    } finally {
+      closeEventStore(store);
+    }
+
+    let broke = false;
+    // The size read before deleting is where the live copy changes, then fails to parse
+    // in a report, which keeps its older stored events and serves the original instead.
+    const statFile = (async (target: string) => {
+      if (target === `${dbPath}-wal` && !broke) {
+        broke = true;
+        await writeFile(movedPath, 'not json, and longer than before\n');
+      }
+
+      return stat(target);
+    }) as typeof stat;
+
+    const result = await buildPruneReport(
+      { suppressed: true, apply: true },
+      { ...createDeps(dbPath, [createAdapter({ files: [movedPath] })]), statFile },
+    );
+    const reopened = await openEventStore(dbPath);
+
+    try {
+      expect(broke).toBe(true);
+      expect(result.summary.deletedFileCount).toBe(0);
+      expect(readFileEvents(reopened, 'codex', originalPath)).toHaveLength(1);
+    } finally {
+      closeEventStore(reopened);
+    }
+  });
+
+  it('leaves a live file with unreadable stored metadata untouched in a dry run', async () => {
+    const dbPath = await createTempDbPath('prune-bad-metadata-');
+    const livePath = path.join(path.dirname(dbPath), 'live.jsonl');
+    const store = await openEventStore(dbPath);
+
+    try {
+      await writeLiveStoredFile(store, {
+        filePath: livePath,
+        events: [createEvent({ sessionId: 'live' })],
+      });
+      store.database.prepare("UPDATE files SET fingerprint = '' WHERE file_path = ?").run(livePath);
+    } finally {
+      closeEventStore(store);
+    }
+
+    await buildPruneReport(
+      { suppressed: true },
+      createDeps(dbPath, [createAdapter({ files: [livePath] })]),
+    );
+    const reopened = await openEventStore(dbPath);
+
+    try {
+      expect(countEvents(reopened)).toBe(1);
+    } finally {
+      closeEventStore(reopened);
+    }
+  });
+
   it('never offers undiscovered files that are still on disk', async () => {
     const dbPath = await createTempDbPath('prune-still-on-disk-');
     const onDiskPath = path.join(path.dirname(dbPath), 'outside-discovery.jsonl');
@@ -400,7 +499,7 @@ describe('run-prune-report', () => {
   it('combines suppressed and departed-before selectors as a union', async () => {
     const dbPath = await createTempDbPath('prune-selector-union-');
     const oldPath = '/tmp/old.jsonl';
-    const livePath = '/tmp/live.jsonl';
+    const livePath = path.join(path.dirname(dbPath), 'live.jsonl');
     const agedPath = '/tmp/aged.jsonl';
     const store = await openEventStore(dbPath);
 
@@ -410,7 +509,7 @@ describe('run-prune-report', () => {
         events: [createEvent({ sessionId: 'moved-session' })],
         now: 1_000,
       });
-      writeStoredFile(store, {
+      await writeLiveStoredFile(store, {
         filePath: livePath,
         events: [createEvent({ sessionId: 'moved-session' })],
         now: 2_000,
@@ -445,7 +544,7 @@ describe('run-prune-report', () => {
   it('renders structured JSON output', async () => {
     const dbPath = await createTempDbPath('prune-json-');
     const oldPath = '/tmp/old.jsonl';
-    const livePath = '/tmp/live.jsonl';
+    const livePath = path.join(path.dirname(dbPath), 'live.jsonl');
     const store = await openEventStore(dbPath);
 
     try {
@@ -453,7 +552,7 @@ describe('run-prune-report', () => {
         filePath: oldPath,
         events: [createEvent({ sessionId: 'moved-session' })],
       });
-      writeStoredFile(store, {
+      await writeLiveStoredFile(store, {
         filePath: livePath,
         events: [createEvent({ sessionId: 'moved-session' })],
       });
@@ -800,7 +899,7 @@ describe('run-prune-report', () => {
         events: [createEvent({ sessionId: 'live-path' })],
         now: 1_000,
       });
-      writeStoredFile(store, {
+      await writeLiveStoredFile(store, {
         filePath: livePath,
         events: [liveEvent],
         now: 2_000,
@@ -851,7 +950,7 @@ describe('run-prune-report', () => {
 
     try {
       // Discovered live file — its content seeds the served set.
-      writeStoredFile(store, {
+      await writeLiveStoredFile(store, {
         filePath: livePath,
         events: [createEvent({ sessionId: 'live' })],
         now: 5_000,

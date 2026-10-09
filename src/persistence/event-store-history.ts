@@ -172,7 +172,7 @@ export function readUndiscoveredStoredFiles(
 
   const discoveredKeys = new Set<string>();
 
-  for (const discoveredFile of input.discoveredFiles) {
+  for (const discoveredFile of [...input.discoveredFiles, ...(input.presentFiles ?? [])]) {
     const normalizedSource = normalizeHistorySource(discoveredFile.source);
     const normalizedFilePath = normalizeHistoryFilePath(discoveredFile.filePath);
 
