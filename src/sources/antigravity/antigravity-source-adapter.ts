@@ -70,9 +70,6 @@ function querySessionCreatedAt(
 export class AntigravitySourceAdapter implements SourceAdapter {
   public readonly id = 'antigravity' as const;
   public readonly parserVersion = 2;
-  public readonly capabilities = {
-    fixedProviderRoots: ['google'],
-  } as const;
 
   private readonly conversationsDir: string;
   private readonly requireDir: boolean;
