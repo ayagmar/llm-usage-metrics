@@ -6,6 +6,7 @@ vi.mock('../../src/cli/run-optimize-report.js', () => ({ runOptimizeReport: vi.f
 vi.mock('../../src/cli/run-prune-report.js', () => ({ runPruneReport: vi.fn() }));
 vi.mock('../../src/cli/run-session-report.js', () => ({ runSessionReport: vi.fn() }));
 vi.mock('../../src/cli/run-trends-report.js', () => ({ runTrendsReport: vi.fn() }));
+vi.mock('../../src/cli/run-usage-report.js', () => ({ runUsageReport: vi.fn() }));
 vi.mock('../../src/cli/run-wrapped-report.js', () => ({ runWrappedReport: vi.fn() }));
 
 import { createCli } from '../../src/cli/create-cli.js';
@@ -15,6 +16,7 @@ import { runOptimizeReport } from '../../src/cli/run-optimize-report.js';
 import { runPruneReport } from '../../src/cli/run-prune-report.js';
 import { runSessionReport } from '../../src/cli/run-session-report.js';
 import { runTrendsReport } from '../../src/cli/run-trends-report.js';
+import { runUsageReport } from '../../src/cli/run-usage-report.js';
 import { runWrappedReport } from '../../src/cli/run-wrapped-report.js';
 
 beforeEach(() => {
@@ -140,6 +142,11 @@ describe('createCli dispatch', () => {
       expected: [
         expect.objectContaining({ days: '7', metric: 'tokens', bySource: true, json: true }),
       ],
+    },
+    {
+      runner: runUsageReport,
+      argv: ['monthly', '--last', '3', '--no-cost'],
+      expected: ['monthly', expect.objectContaining({ last: '3', cost: false })],
     },
     {
       runner: runWrappedReport,

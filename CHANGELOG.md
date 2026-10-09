@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.10.0](https://github.com/ayagmar/llm-usage-metrics/compare/v0.9.0...v0.10.0) (2026-10-08)
+
+### Features
+
+* **doctor:** show each configured machine ([ea27402](https://github.com/ayagmar/llm-usage-metrics/commit/ea2740239333820ee87997d319f17203b53e6ddb))
+* **machine:** add a versioned machine export bundle ([b79d901](https://github.com/ayagmar/llm-usage-metrics/commit/b79d9018492d92d80d9b48416b45d3680593a3d3))
+* **machine:** add machine add, list, remove and sync ([65281b8](https://github.com/ayagmar/llm-usage-metrics/commit/65281b8fca8e2dfbd81dfa9855023b85e803e4a0))
+* **machine:** default the ssh destination to the machine name ([af07ecf](https://github.com/ayagmar/llm-usage-metrics/commit/af07ecf0c4aa546d1448fa0c6335da5193be6fc0))
+* **machine:** find llm-usage through the login shell on machine add ([a20f574](https://github.com/ayagmar/llm-usage-metrics/commit/a20f57449296771b990da2ccbdd28fd40860d6ce))
+* **machine:** include other machines' usage in reports ([fb13a3d](https://github.com/ayagmar/llm-usage-metrics/commit/fb13a3de322d3d1426469924c0e337a51a79d42b))
+* **machine:** refresh other machines while reports parse ([ffcd00a](https://github.com/ayagmar/llm-usage-metrics/commit/ffcd00aa09fbbe4e371af5a1382c0dfe3e88cdec))
+* **machine:** split usage rows by machine with --by-machine ([2eac39c](https://github.com/ayagmar/llm-usage-metrics/commit/2eac39ce4594ce9619d2da2281dbd869055a9485))
+* support running the CLI on Bun ([4e4b63e](https://github.com/ayagmar/llm-usage-metrics/commit/4e4b63ed4a433bdf108977f931c2adf807311ae3))
+
+### Bug Fixes
+
+* **doctor:** read machine status without locking the cache ([a865582](https://github.com/ayagmar/llm-usage-metrics/commit/a865582e904f54b6d382d58a7a55c164e9a56860))
+* fail instead of hanging when a configured directory is under /proc ([0e7d7c6](https://github.com/ayagmar/llm-usage-metrics/commit/0e7d7c63d0d8ae996199b40c9f5895cff23e4fb5))
+* **machine:** address review of --by-machine ([cda5a16](https://github.com/ayagmar/llm-usage-metrics/commit/cda5a16b35013f31f30344e327508a127b85b0ad))
+* **machine:** address review of machine reports ([cb65c0f](https://github.com/ayagmar/llm-usage-metrics/commit/cb65c0fbe7b931555c9d4b90127f0608716ec8e4))
+* **machine:** address review of machine sync ([b504141](https://github.com/ayagmar/llm-usage-metrics/commit/b504141278b899355429a39bc01b85156f7864fd))
+* **machine:** address review of report refresh ([185e6df](https://github.com/ayagmar/llm-usage-metrics/commit/185e6dfc83df87c0ff5391042cd0b32f0cc7688a))
+* **machine:** do not record a stopped refresh as a failed sync ([8cf3500](https://github.com/ayagmar/llm-usage-metrics/commit/8cf35009c43009013ad0937822426488950546ca))
+* **machine:** export only parsed files, with revisions from their events ([c3bc3de](https://github.com/ayagmar/llm-usage-metrics/commit/c3bc3de26975a069099fa2f310a13c7ba818545e))
+* **machine:** never start ssh for a refresh stopped before it began ([d7cb6c5](https://github.com/ayagmar/llm-usage-metrics/commit/d7cb6c5b43de5f1948f6fd4967af59e7c9fb3c65))
+* **machine:** put node's real directory on PATH for login-shell installs ([9d11a6f](https://github.com/ayagmar/llm-usage-metrics/commit/9d11a6f77358ecb90b52845afea7a40782cd2f9c))
+* walk directory paths as given and refuse non-regular files at user paths ([3274e90](https://github.com/ayagmar/llm-usage-metrics/commit/3274e902f1adcfdc5c58b24c17d840feb771174a))
+
+### Performance Improvements
+
+* cache compiled code between runs with a small bin loader ([effc4ca](https://github.com/ayagmar/llm-usage-metrics/commit/effc4ca61b2771e0904f72371a62dc98ee7028b3))
+* cap the timestamp memo so long-lived processes stay bounded ([5bb4c6d](https://github.com/ayagmar/llm-usage-metrics/commit/5bb4c6d115e76bb99ca04f57bd75d56197dc4f41))
+* memoize local dates per event timestamp ([9e2ae06](https://github.com/ayagmar/llm-usage-metrics/commit/9e2ae0641ea3b2ede61d8e70d348b323fc6ee603))
+
 ## [0.9.0](https://github.com/ayagmar/llm-usage-metrics/compare/v0.8.1...v0.9.0) (2026-10-08)
 
 ### ⚠ BREAKING CHANGES

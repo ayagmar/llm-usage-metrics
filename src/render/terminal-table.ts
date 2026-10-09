@@ -34,7 +34,7 @@ type TableFitStep = {
 
 /**
  * Ordered from most to least detail. A table on a TTY uses the first step that fits the
- * terminal. Period, Source, Cache Read, Total, and Cost are never hidden.
+ * terminal. Fitting never hides Period, Source, Cache Read, Total, or Cost.
  */
 const tableFitSteps: readonly TableFitStep[] = [
   { tokenFormat: 'full', hiddenColumns: [] },
@@ -67,6 +67,8 @@ type TerminalRenderOptions = {
   terminalWidth?: number;
   /** Start from the compact step even when the full table would fit. */
   compact?: boolean;
+  /** `--no-cost`: leave out the Cost column at every step. */
+  hideCost?: boolean;
 };
 
 type PreparedFitStep = {
@@ -300,13 +302,23 @@ function resolveExpandedModelsColumnWidth(
   return bestWidth;
 }
 
-function resolveFitSteps(tableLayout: UsageTableLayout, compact: boolean): TableFitStep[] {
-  const steps = tableFitSteps.slice(compact ? compactTableFitStepIndex : 0).map((step) =>
+function resolveFitSteps(
+  tableLayout: UsageTableLayout,
+  compact: boolean,
+  hideCost: boolean,
+): TableFitStep[] {
+  const steps = tableFitSteps.slice(compact ? compactTableFitStepIndex : 0).map((step) => {
     // Per-model metric lines are unreadable without their model names.
-    tableLayout === 'per_model_columns'
-      ? { ...step, hiddenColumns: step.hiddenColumns.filter((column) => column !== 'models') }
-      : step,
-  );
+    const hiddenColumns =
+      tableLayout === 'per_model_columns'
+        ? step.hiddenColumns.filter((column) => column !== 'models')
+        : step.hiddenColumns;
+
+    return {
+      ...step,
+      hiddenColumns: hideCost ? [...hiddenColumns, 'cost' as const] : hiddenColumns,
+    };
+  });
 
   // Hidden sets only grow along the ladder, so equal sizes mean equal sets.
   return steps.filter((step, index) => {
@@ -458,7 +470,7 @@ export function renderTerminalTableWithFit(
   const tableLayout = options.tableLayout ?? 'compact';
   const hasExplicitTerminalWidth = isValidTerminalWidth(options.terminalWidth);
   const terminalWidth = resolveTerminalWidth(options.terminalWidth);
-  const steps = resolveFitSteps(tableLayout, options.compact ?? false);
+  const steps = resolveFitSteps(tableLayout, options.compact ?? false, options.hideCost ?? false);
   let prepared = prepareFitStep(rows, tableLayout, steps[0]);
 
   if (terminalWidth !== undefined) {

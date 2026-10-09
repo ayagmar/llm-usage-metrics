@@ -112,6 +112,10 @@ type SharedOptionsForProfile<P extends SharedOptionProfile> = AlwaysOnCommandOpt
 export type ReportCommandOptions = SharedOptionsForProfile<'usage'> & {
   /** `daily` and `weekly`: report full history instead of the default recent window. */
   all?: boolean;
+  /** `--last N`: the last N periods of the granularity, counting the current one. */
+  last?: string;
+  /** `false` with `--no-cost`: tables and the share card leave out cost. */
+  cost?: boolean;
   /** Abbreviated token counts without the Reasoning and Cache Write columns. */
   compact?: boolean;
   /** One row per source and machine instead of per source. */
