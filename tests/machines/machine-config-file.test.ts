@@ -174,16 +174,17 @@ describe('concurrent config edits', () => {
     expect(await readdir(path.dirname(configPath))).toEqual(['config.toml']);
   });
 
-  it('takes over a lock left behind by a run that died', async () => {
+  it('waits for a held lock, then names it instead of taking it over', async () => {
     await writeConfig('');
     const lockPath = `${configPath}.lock`;
     await writeFile(lockPath, '');
     const longAgo = new Date(Date.now() - 60_000);
     await utimes(lockPath, longAgo, longAgo);
 
-    await addMachineToConfigFile(configPath, 'laptop', { ssh: 'laptop' });
-
-    expect(await readFile(configPath, 'utf8')).toBe('[machines.laptop]\nssh = "laptop"\n');
-    await expect(lstat(lockPath)).rejects.toThrow();
-  });
+    await expect(addMachineToConfigFile(configPath, 'laptop', { ssh: 'laptop' })).rejects.toThrow(
+      `delete ${lockPath} if no other run is`,
+    );
+    expect(await readFile(configPath, 'utf8')).toBe('');
+    await expect(lstat(lockPath)).resolves.toBeDefined();
+  }, 15_000);
 });

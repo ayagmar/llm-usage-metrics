@@ -40,8 +40,6 @@ function withoutMachine(config: UserConfig, name: string): UserConfig {
 
 const CONFIG_LOCK_RETRY_MS = 50;
 const CONFIG_LOCK_TIMEOUT_MS = 5_000;
-/** A lock this old was left by a process that died mid-edit. */
-const CONFIG_LOCK_STALE_MS = 30_000;
 
 /** The file a config edit replaces: a symlinked config's target, not the link. */
 async function resolveConfigTarget(configPath: string): Promise<string> {
@@ -51,6 +49,8 @@ async function resolveConfigTarget(configPath: string): Promise<string> {
 /**
  * Runs a read-modify-write of the config file while holding `<target>.lock`, so two
  * `machine add` or `remove` runs cannot each write a file that drops the other's change.
+ * A lock left by a run that died is never taken over automatically: two runs could both
+ * take it over and edit at once. The error says which file to delete.
  */
 async function withConfigLock<T>(configPath: string, edit: () => Promise<T>): Promise<T> {
   await ensureDirectory(path.dirname(configPath));
@@ -66,16 +66,9 @@ async function withConfigLock<T>(configPath: string, edit: () => Promise<T>): Pr
         throw error;
       }
 
-      const lockAgeMs = Date.now() - ((await stat(lockPath).catch(() => undefined))?.mtimeMs ?? 0);
-
-      if (lockAgeMs > CONFIG_LOCK_STALE_MS) {
-        await rm(lockPath, { force: true });
-        continue;
-      }
-
       if (Date.now() > deadline) {
         throw new Error(
-          `Another llm-usage run is editing ${configPath}; try again, or delete ${lockPath} if none is`,
+          `Another llm-usage run is editing ${configPath}; try again, or delete ${lockPath} if no other run is (one that crashed leaves it behind)`,
           { cause: error },
         );
       }
