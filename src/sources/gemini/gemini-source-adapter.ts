@@ -231,7 +231,7 @@ function extractTokenUsage(tokens: Record<string, unknown> | undefined): {
 
 export class GeminiSourceAdapter implements SourceAdapter {
   public readonly id = 'gemini' as const;
-  public readonly parserVersion = 3;
+  public readonly parserVersion = 4;
   public readonly capabilities = {
     fixedProviderRoots: ['google'],
     eventsPrecedeFileMtime: true,
@@ -305,11 +305,10 @@ export class GeminiSourceAdapter implements SourceAdapter {
 
     const sessionDataRecord = asRecord(sessionData);
 
+    // A document of the wrong shape fails the file, like unreadable JSON, so its stored
+    // events stay.
     if (!sessionDataRecord) {
-      skippedRows++;
-      incrementSkippedReason(skippedRowReasons, 'invalid_session_data');
-
-      return toParseDiagnostics(events, skippedRows, skippedRowReasons);
+      throw new Error(`Gemini session is not a JSON object: ${filePath}`);
     }
 
     const sessionId =
@@ -319,9 +318,7 @@ export class GeminiSourceAdapter implements SourceAdapter {
     const repoRoot = resolveRepoRoot(filePath, sessionDataRecord, projectMapping);
 
     if (!Array.isArray(sessionDataRecord.messages)) {
-      skippedRows++;
-      incrementSkippedReason(skippedRowReasons, 'invalid_messages_array');
-      return toParseDiagnostics(events, skippedRows, skippedRowReasons);
+      throw new Error(`Gemini session has no messages array: ${filePath}`);
     }
 
     const messages = sessionDataRecord.messages;

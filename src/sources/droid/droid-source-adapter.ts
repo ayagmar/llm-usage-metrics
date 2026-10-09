@@ -58,6 +58,7 @@ function resolveRepoRootFromSessionStart(line: Record<string, unknown>): string 
 
 export class DroidSourceAdapter implements SourceAdapter {
   public readonly id = 'droid' as const;
+  public readonly parserVersion = 2;
   public readonly capabilities = { eventsPrecedeFileMtime: true } as const;
 
   private readonly sessionsDir: string;
@@ -112,10 +113,10 @@ export class DroidSourceAdapter implements SourceAdapter {
 
     const settings = asRecord(settingsJson);
 
+    // A document of the wrong shape fails the file, like unreadable JSON, so its stored
+    // events stay.
     if (!settings) {
-      skippedRows++;
-      incrementSkippedReason(skippedRowReasons, 'invalid_settings_data');
-      return toParseDiagnostics(events, skippedRows, skippedRowReasons);
+      throw new Error(`Droid settings are not a JSON object: ${filePath}`);
     }
 
     const tokenUsage = asRecord(settings.tokenUsage);

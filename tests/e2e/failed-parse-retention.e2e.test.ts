@@ -30,7 +30,10 @@ async function totalTokens(geminiDir: string): Promise<number | undefined> {
 }
 
 describe('a file that stops parsing', () => {
-  it('keeps the events the ledger last read from it', async () => {
+  it.each([
+    ['incomplete JSON, as mid-rewrite', '{"sessionId": "session-001", "messages": ['],
+    ['valid JSON of the wrong shape', 'null'],
+  ])('keeps the events the ledger last read from it: %s', async (_, brokenContent) => {
     const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'failed-parse-retention-'));
     tempDirs.push(rootDir);
     vi.stubEnv('LLM_USAGE_EVENT_STORE', '1');
@@ -50,8 +53,7 @@ describe('a file that stops parsing', () => {
 
     const before = await totalTokens(geminiDir);
 
-    // Mid-rewrite: incomplete JSON with a new fingerprint.
-    await writeFile(victimPath, '{"sessionId": "session-001", "messages": [');
+    await writeFile(victimPath, brokenContent);
     await utimes(victimPath, new Date(), new Date(Date.now() + 60_000));
     const whileBroken = await totalTokens(geminiDir);
 

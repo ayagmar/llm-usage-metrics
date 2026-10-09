@@ -589,17 +589,12 @@ describe('GeminiSourceAdapter', () => {
         adapter.parseFileWithDiagnostics(path.join(fixturesDir, 'invalid-json.txt')),
       ).rejects.toThrow('Transcript is not readable JSON');
 
-      const invalidRoot = await adapter.parseFileWithDiagnostics(
-        path.join(fixturesDir, 'session-invalid-root.json'),
-      );
-      expect(invalidRoot.skippedRowReasons).toEqual([{ reason: 'invalid_session_data', count: 1 }]);
-
-      const invalidMessages = await adapter.parseFileWithDiagnostics(
-        path.join(fixturesDir, 'session-invalid-messages.json'),
-      );
-      expect(invalidMessages.skippedRowReasons).toEqual([
-        { reason: 'invalid_messages_array', count: 1 },
-      ]);
+      await expect(
+        adapter.parseFileWithDiagnostics(path.join(fixturesDir, 'session-invalid-root.json')),
+      ).rejects.toThrow('Gemini session is not a JSON object');
+      await expect(
+        adapter.parseFileWithDiagnostics(path.join(fixturesDir, 'session-invalid-messages.json')),
+      ).rejects.toThrow('Gemini session has no messages array');
 
       const invalidTokenTypes = await adapter.parseFileWithDiagnostics(
         path.join(fixturesDir, 'session-invalid-token-types.json'),

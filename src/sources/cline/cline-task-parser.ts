@@ -269,9 +269,10 @@ export async function parseClineTaskFile(
 
   const parsed = await readJsonTranscriptFile(filePath);
 
+  // A document of the wrong shape fails the file, like unreadable JSON, so its stored
+  // events stay.
   if (!Array.isArray(parsed)) {
-    incrementContextSkippedReason(context, 'invalid_messages_data');
-    return toParseDiagnostics(context.events, context.skippedRows, context.skippedRowReasons);
+    throw new Error(`Task history is not a JSON array: ${filePath}`);
   }
 
   for (const entry of parsed) {

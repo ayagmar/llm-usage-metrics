@@ -256,13 +256,11 @@ describe('DroidSourceAdapter', () => {
         adapter.parseFileWithDiagnostics(path.join(fixturesDir, 'parsing', 'invalid-json.txt')),
       ).rejects.toThrow('Transcript is not readable JSON');
 
-      const invalidRoot = await adapter.parseFileWithDiagnostics(
-        path.join(fixturesDir, 'parsing', 'invalid-root.settings.json'),
-      );
-      expect(invalidRoot.events).toHaveLength(0);
-      expect(invalidRoot.skippedRowReasons).toEqual([
-        { reason: 'invalid_settings_data', count: 1 },
-      ]);
+      await expect(
+        adapter.parseFileWithDiagnostics(
+          path.join(fixturesDir, 'parsing', 'invalid-root.settings.json'),
+        ),
+      ).rejects.toThrow('Droid settings are not a JSON object');
     });
 
     it('reports missing/zero usage as no_token_usage', async () => {
