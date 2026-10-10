@@ -580,6 +580,30 @@ describe('LiteLLMPricingFetcher', () => {
     expect(reloaded.getPricing('claude-opus-5-5')?.cacheWrite1hPer1MUsd).toBeCloseTo(8, 10);
   });
 
+  it('still prices offline from a cache written before one-hour rates were kept', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-old-cache-offline-'));
+    tempDirs.push(rootDir);
+
+    const cacheFilePath = path.join(rootDir, 'cache.json');
+    const nowValue = 1_000_000;
+
+    await writeFile(
+      cacheFilePath,
+      JSON.stringify({
+        fetchedAt: nowValue,
+        sourceUrl: 'https://example.test/litellm-pricing.json',
+        pricingByModel: { 'claude-opus-5-5': { inputPer1MUsd: 4, outputPer1MUsd: 20 } },
+      }),
+      'utf8',
+    );
+
+    const fetcher = createFetcher({ cacheFilePath, now: () => nowValue, offline: true });
+
+    await expect(fetcher.load()).resolves.toBe(true);
+    expect(fetcher.getLoadOrigin()).toBe('cache');
+    expect(fetcher.getPricing('claude-opus-5-5')?.inputPer1MUsd).toBe(4);
+  });
+
   it('falls back to stale cache when content-length exceeds the response byte limit', async () => {
     const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-content-length-cap-'));
     tempDirs.push(rootDir);

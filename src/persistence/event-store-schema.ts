@@ -115,7 +115,7 @@ export function migrateSchemaV1ToV2(database: EventStoreDatabase): void {
       [
         'SELECT id, source, session_id, timestamp, model, provider, repo_root,',
         '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
-        '  cache_write_tokens, total_tokens, cost_usd, cost_mode',
+        '  cache_write_tokens, 0 AS cache_write_1h_tokens, total_tokens, cost_usd, cost_mode',
         'FROM events',
         'WHERE id > ?',
         'ORDER BY id ASC',
@@ -170,7 +170,7 @@ export function migrateSchemaV2ToV3(database: EventStoreDatabase): void {
       [
         'SELECT id, source, session_id, timestamp, model, provider, repo_root,',
         '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
-        '  cache_write_tokens, total_tokens, cost_usd, cost_mode',
+        '  cache_write_tokens, 0 AS cache_write_1h_tokens, total_tokens, cost_usd, cost_mode',
         'FROM events',
         'WHERE id > ?',
         'ORDER BY id ASC',

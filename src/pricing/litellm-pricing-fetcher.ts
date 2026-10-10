@@ -19,8 +19,8 @@ export const MAX_LITELLM_PRICING_RESPONSE_BYTES = 33_554_432;
 export const DEFAULT_LITELLM_PRICING_URL =
   'https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json';
 
-// Bumped when a cached model's pricing gains a rate, so a cache an older version wrote
-// (missing it) is refetched instead of underpricing until it expires.
+// Bumped when a cached model's pricing gains a rate. A cache an older version wrote lacks
+// it, so it counts as stale: refetched when online, still used when the fetch fails.
 const CACHE_FORMAT_VERSION = 2;
 
 export type LiteLLMCachePayload = {
@@ -559,6 +559,7 @@ export class LiteLLMPricingFetcher implements PricingSource {
 
     const nowTimestamp = this.now();
     const isStale =
+      cacheFileContent.formatVersion !== CACHE_FORMAT_VERSION ||
       cacheFileContent.fetchedAt > nowTimestamp ||
       nowTimestamp - cacheFileContent.fetchedAt > this.cacheTtlMs;
 
@@ -627,7 +628,9 @@ export class LiteLLMPricingFetcher implements PricingSource {
     return true;
   }
 
-  private async readCachePayload(): Promise<LiteLLMCachePayload | undefined> {
+  private async readCachePayload(): Promise<
+    (LiteLLMCachePayload & { formatVersion: unknown }) | undefined
+  > {
     let content: string;
 
     try {
@@ -644,11 +647,8 @@ export class LiteLLMPricingFetcher implements PricingSource {
       return undefined;
     }
 
-    if (asRecord(parsedPayload)?.formatVersion !== CACHE_FORMAT_VERSION) {
-      return undefined;
-    }
-
-    return normalizeLiteLLMCachePayload(parsedPayload);
+    const payload = normalizeLiteLLMCachePayload(parsedPayload);
+    return payload && { ...payload, formatVersion: asRecord(parsedPayload)?.formatVersion };
   }
 
   private async writeCache(): Promise<void> {

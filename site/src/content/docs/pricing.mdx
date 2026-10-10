@@ -52,7 +52,7 @@ Explicit `costUsd: 0` events are re-priced from LiteLLM when model pricing exist
 
 ## Cache writes
 
-Claude caches a prompt for five minutes or one hour, and a one-hour write costs more (2x the input rate instead of 1.25x). Claude logs record how many written tokens used each lifetime, so one-hour writes are priced at LiteLLM's one-hour rate. Models without a one-hour rate, and events stored before 0.10, price every write at the standard cache-write rate.
+Claude caches a prompt for five minutes or one hour, and a one-hour write costs more (2x the input rate instead of 1.25x). Claude logs record how many written tokens used each lifetime, so one-hour writes are priced at LiteLLM's one-hour rate. Models without a one-hour rate, and events stored before 0.11 whose log file is gone, price every write at the standard cache-write rate. When history has two stored copies of such a file, one from before the upgrade, it may serve the older copy at that rate.
 
 ## Row cost rendering
 

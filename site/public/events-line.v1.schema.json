@@ -35,7 +35,7 @@
       "type": "string"
     },
     "cacheWrite1hTokens": {
-      "description": "The part of cacheWriteTokens cached for one hour, which bills at a higher rate (Claude). Absent from events written by versions before 0.10.",
+      "description": "The part of cacheWriteTokens cached for one hour, which bills at a higher rate (Claude). Absent from events written by versions before 0.11.",
       "type": "integer",
       "minimum": 0
     },
