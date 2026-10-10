@@ -450,7 +450,7 @@ describe('run-doctor-report', () => {
     const eventStorePath = path.join(rootDir, 'events.db');
     await writeFile(eventStorePath, '', 'utf8');
 
-    const readEventStoreSummarySpy = vi.fn(async () => ({ eventCount: 42, schemaVersion: '3' }));
+    const readEventStoreSummarySpy = vi.fn(async () => ({ eventCount: 42, schemaVersion: '4' }));
     const readEventStoreStoredFilesSpy = vi.fn(async () => []);
 
     const results = await buildDoctorResults(
@@ -477,7 +477,7 @@ describe('run-doctor-report', () => {
         format: 'sqlite',
         status: 'ok',
         itemsFound: 42,
-        detail: '42 event(s), 0 departed file(s), schema v3, 0 B',
+        detail: '42 event(s), 0 departed file(s), schema v4, 0 B',
       },
     ]);
   });
@@ -518,10 +518,10 @@ describe('run-doctor-report', () => {
       status: 'ok',
       itemsFound: 3,
     });
-    expect(eventStoreResult?.detail).toMatch(/^3 event\(s\), 1 departed file\(s\), schema v3, .+$/);
+    expect(eventStoreResult?.detail).toMatch(/^3 event\(s\), 1 departed file\(s\), schema v4, .+$/);
     await expect(readEventStoreSummary(eventStorePath)).resolves.toMatchObject({
       eventCount: 3,
-      schemaVersion: '3',
+      schemaVersion: '4',
     });
   });
 
@@ -573,7 +573,7 @@ describe('run-doctor-report', () => {
         format: 'sqlite',
         status: 'error',
         error:
-          'Event store schema v999 is not supported by this llm-usage-metrics version (supports v3); upgrade llm-usage-metrics or set LLM_USAGE_EVENT_STORE=0',
+          'Event store schema v999 is not supported by this llm-usage-metrics version (supports v4); upgrade llm-usage-metrics or set LLM_USAGE_EVENT_STORE=0',
       },
     ]);
     // The doctor check must be read-only: the newer version survives it.

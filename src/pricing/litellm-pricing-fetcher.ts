@@ -19,6 +19,10 @@ export const MAX_LITELLM_PRICING_RESPONSE_BYTES = 33_554_432;
 export const DEFAULT_LITELLM_PRICING_URL =
   'https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json';
 
+// Bumped when a cached model's pricing gains a rate, so a cache an older version wrote
+// (missing it) is refetched instead of underpricing until it expires.
+const CACHE_FORMAT_VERSION = 2;
+
 export type LiteLLMCachePayload = {
   fetchedAt: number;
   sourceUrl: string;
@@ -118,6 +122,9 @@ function normalizeModelPricing(rawModelPricing: Record<string, unknown>): ModelP
   const cacheWritePerToken =
     toNonNegativeNumber(rawModelPricing.cache_creation_input_token_cost) ??
     toNonNegativeNumber(rawModelPricing.cache_creation_input_token_cost_priority);
+  const cacheWrite1hPerToken = toNonNegativeNumber(
+    rawModelPricing.cache_creation_input_token_cost_above_1hr,
+  );
   const reasoningPerToken = toNonNegativeNumber(rawModelPricing.output_cost_per_reasoning_token);
 
   const modelPricing: ModelPricing = {
@@ -131,6 +138,10 @@ function normalizeModelPricing(rawModelPricing: Record<string, unknown>): ModelP
 
   if (cacheWritePerToken !== undefined) {
     modelPricing.cacheWritePer1MUsd = cacheWritePerToken * ONE_MILLION;
+  }
+
+  if (cacheWrite1hPerToken !== undefined) {
+    modelPricing.cacheWrite1hPer1MUsd = cacheWrite1hPerToken * ONE_MILLION;
   }
 
   if (reasoningPerToken !== undefined) {
@@ -202,6 +213,12 @@ function normalizeCachedPricing(rawPricing: unknown): ModelPricing | undefined {
 
   if (cacheWritePer1MUsd !== undefined) {
     modelPricing.cacheWritePer1MUsd = cacheWritePer1MUsd;
+  }
+
+  const cacheWrite1hPer1MUsd = toNonNegativeNumber(pricingRecord.cacheWrite1hPer1MUsd);
+
+  if (cacheWrite1hPer1MUsd !== undefined) {
+    modelPricing.cacheWrite1hPer1MUsd = cacheWrite1hPer1MUsd;
   }
 
   const reasoningPer1MUsd = toNonNegativeNumber(pricingRecord.reasoningPer1MUsd);
@@ -627,6 +644,10 @@ export class LiteLLMPricingFetcher implements PricingSource {
       return undefined;
     }
 
+    if (asRecord(parsedPayload)?.formatVersion !== CACHE_FORMAT_VERSION) {
+      return undefined;
+    }
+
     return normalizeLiteLLMCachePayload(parsedPayload);
   }
 
@@ -634,7 +655,8 @@ export class LiteLLMPricingFetcher implements PricingSource {
     const directoryPath = path.dirname(this.cacheFilePath);
     await ensureDirectory(directoryPath);
 
-    const payload: LiteLLMCachePayload = {
+    const payload: LiteLLMCachePayload & { formatVersion: number } = {
+      formatVersion: CACHE_FORMAT_VERSION,
       fetchedAt: this.now(),
       sourceUrl: this.sourceUrl,
       pricingByModel: Object.fromEntries(this.pricingByModel.entries()),

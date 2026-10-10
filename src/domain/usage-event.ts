@@ -34,6 +34,8 @@ export type UsageEvent = {
   reasoningTokens: number;
   cacheReadTokens: number;
   cacheWriteTokens: number;
+  /** The part of `cacheWriteTokens` cached for one hour, billed at a higher rate. */
+  cacheWrite1hTokens: number;
   totalTokens: number;
 
   costUsd?: number;
@@ -61,6 +63,7 @@ export type UsageEventInput = {
   reasoningTokens?: NumberLike;
   cacheReadTokens?: NumberLike;
   cacheWriteTokens?: NumberLike;
+  cacheWrite1hTokens?: NumberLike;
   totalTokens?: NumberLike;
 
   costUsd?: NumberLike;
@@ -146,6 +149,10 @@ export function createUsageEvent(input: UsageEventInput): UsageEvent {
   const reasoningTokens = normalizeNonNegativeInteger(input.reasoningTokens);
   const cacheReadTokens = normalizeNonNegativeInteger(input.cacheReadTokens);
   const cacheWriteTokens = normalizeNonNegativeInteger(input.cacheWriteTokens);
+  const cacheWrite1hTokens = Math.min(
+    cacheWriteTokens,
+    normalizeNonNegativeInteger(input.cacheWrite1hTokens),
+  );
   const declaredTotalTokens = normalizeNonNegativeInteger(input.totalTokens);
   const componentTotalTokens =
     inputTokens + outputTokens + reasoningTokens + cacheReadTokens + cacheWriteTokens;
@@ -166,6 +173,7 @@ export function createUsageEvent(input: UsageEventInput): UsageEvent {
     reasoningTokens,
     cacheReadTokens,
     cacheWriteTokens,
+    cacheWrite1hTokens,
     totalTokens,
     costUsd,
     costMode,

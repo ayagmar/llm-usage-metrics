@@ -220,6 +220,53 @@ describe('ClaudeSourceAdapter', () => {
     expect(events[1]).toMatchObject({ outputTokens: 5, reasoningTokens: 5, totalTokens: 6 });
   });
 
+  it('splits one-hour cache writes out of the cache-write count', async () => {
+    const projectsDir = await mkdtemp(path.join(canonicalTmpdir(), 'claude-cache-write-1h-'));
+    tempDirs.push(projectsDir);
+    const filePath = path.join(projectsDir, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        assistantRow({
+          messageId: 'msg_one_hour',
+          uuid: 'row-1',
+          usage: {
+            input_tokens: 2,
+            cache_creation_input_tokens: 626,
+            cache_creation: { ephemeral_5m_input_tokens: 26, ephemeral_1h_input_tokens: 600 },
+            output_tokens: 10,
+          },
+        }),
+        assistantRow({
+          messageId: 'msg_no_split',
+          uuid: 'row-2',
+          usage: { input_tokens: 1, cache_creation_input_tokens: 50, output_tokens: 5 },
+        }),
+        assistantRow({
+          messageId: 'msg_overreported',
+          uuid: 'row-3',
+          usage: {
+            input_tokens: 1,
+            cache_creation_input_tokens: 40,
+            cache_creation: { ephemeral_1h_input_tokens: 90 },
+            output_tokens: 5,
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const events = await new ClaudeSourceAdapter({ dir: projectsDir }).parseFile(filePath);
+
+    expect(events.map((event) => [event.cacheWriteTokens, event.cacheWrite1hTokens])).toEqual([
+      [626, 600],
+      [50, 0],
+      [40, 40],
+    ]);
+    expect(events[0]?.totalTokens).toBe(638);
+  });
+
   it('keeps only the final row per message id and maps token buckets', async () => {
     const projectsDir = await mkdtemp(path.join(canonicalTmpdir(), 'claude-final-row-'));
     tempDirs.push(projectsDir);

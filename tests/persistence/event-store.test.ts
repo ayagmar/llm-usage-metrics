@@ -20,6 +20,7 @@ import {
   normalizeStoredEvent,
   openEventStore,
   readDepartedFileEvents,
+  readEventStoreEvents,
   readEventStoreSummary,
   readFileEvents,
   replaceFileEvents,
@@ -290,6 +291,20 @@ async function writeV2Database(
     database.exec('ALTER TABLE events ADD COLUMN content_hash TEXT');
     database.exec('CREATE INDEX IF NOT EXISTS events_content_hash ON events(content_hash)');
     database.prepare('UPDATE events SET content_hash = ?').run(V2_STALE_HASH);
+  } finally {
+    database.close();
+  }
+}
+
+async function writeV3Database(
+  filePath: string,
+  options: { events?: ReturnType<typeof createEvent>[] } = {},
+): Promise<void> {
+  await writeV2Database(filePath, options);
+  const database = await openTestDatabase(filePath);
+
+  try {
+    migrateSchemaV2ToV3(database);
   } finally {
     database.close();
   }
@@ -573,7 +588,52 @@ describe('event-store', () => {
     );
   });
 
-  it('migrates a v2 database to v3 by rehashing with session identity', async () => {
+  it('keeps a v3 event matching its reparsed copy that splits out one-hour cache writes', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-v3-cache-write-1h-'));
+    tempDirs.push(tempDir);
+    const dbPath = path.join(tempDir, 'events.db');
+    const storedBeforeSplit = createEvent({
+      source: 'claude',
+      cacheWriteTokens: 600,
+      totalTokens: 603,
+    });
+    await writeV3Database(dbPath, { events: [storedBeforeSplit] });
+
+    const store = await openEventStore(dbPath);
+
+    try {
+      const [stored] = readFileEvents(store, 'claude', '/tmp/session.jsonl') ?? [];
+      const storedHash = store.database.prepare('SELECT content_hash FROM events').get();
+      const reparsed = createEvent({
+        source: 'claude',
+        cacheWriteTokens: 600,
+        cacheWrite1hTokens: 600,
+        totalTokens: 603,
+      });
+
+      expect(stored).toMatchObject({ cacheWriteTokens: 600, cacheWrite1hTokens: 0 });
+      // History matches a moved or copied file by these hashes, so the copy reparsed after
+      // the upgrade must still match the one stored before it.
+      expect(storedHash).toEqual({ content_hash: computeEventContentHash(reparsed) });
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  it('reads a v3 store opened read-only without migrating it', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-v3-read-only-'));
+    tempDirs.push(tempDir);
+    const dbPath = path.join(tempDir, 'events.db');
+    const event = createEvent({ cacheWriteTokens: 5, totalTokens: 8 });
+    await writeV3Database(dbPath, { events: [event] });
+
+    const { meta, events } = await readEventStoreEvents(dbPath);
+
+    expect(events).toEqual([event]);
+    expect(meta.get('schemaVersion')).toBe('3');
+  });
+
+  it('migrates a v2 database to the current schema by rehashing with session identity', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-v2-migrate-'));
     tempDirs.push(tempDir);
     const dbPath = path.join(tempDir, 'events.db');
@@ -586,7 +646,7 @@ describe('event-store', () => {
     try {
       expect(
         store.database.prepare("SELECT value FROM meta WHERE key = 'schemaVersion'").get(),
-      ).toEqual({ value: '3' });
+      ).toEqual({ value: '4' });
 
       const contentHashes = store.database
         .prepare('SELECT content_hash FROM events ORDER BY id ASC')
@@ -603,7 +663,7 @@ describe('event-store', () => {
     }
   });
 
-  it('re-opens a migrated v3 database idempotently', async () => {
+  it('re-opens a migrated database idempotently', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-v3-idempotent-'));
     tempDirs.push(tempDir);
     const dbPath = path.join(tempDir, 'events.db');
@@ -619,7 +679,7 @@ describe('event-store', () => {
 
       expect(
         store.database.prepare("SELECT value FROM meta WHERE key = 'schemaVersion'").get(),
-      ).toEqual({ value: '3' });
+      ).toEqual({ value: '4' });
       expect(store.database.prepare('SELECT content_hash FROM events').get()).toEqual({
         content_hash: computeEventContentHash(event),
       });
@@ -720,7 +780,7 @@ describe('event-store', () => {
     try {
       expect(
         store.database.prepare("SELECT value FROM meta WHERE key = 'schemaVersion'").get(),
-      ).toEqual({ value: '3' });
+      ).toEqual({ value: '4' });
       expect(
         store.database.prepare('SELECT session_id, content_hash FROM events ORDER BY id ASC').all(),
       ).toEqual([
@@ -1023,7 +1083,7 @@ describe('event-store', () => {
           [
             'SELECT source, session_id, timestamp, model, provider, repo_root,',
             '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
-            '  cache_write_tokens, total_tokens, cost_usd, cost_mode',
+            '  cache_write_tokens, cache_write_1h_tokens, total_tokens, cost_usd, cost_mode',
             'FROM events',
             'WHERE source = ? AND file_path = ?',
             'ORDER BY event_index ASC',
@@ -1384,7 +1444,7 @@ describe('event-store', () => {
     const selectFileEventsSql = [
       'SELECT source, session_id, timestamp, model, provider, repo_root,',
       '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
-      '  cache_write_tokens, total_tokens, cost_usd, cost_mode',
+      '  cache_write_tokens, cache_write_1h_tokens, total_tokens, cost_usd, cost_mode',
       'FROM events',
       'WHERE source = ? AND file_path = ?',
       'ORDER BY event_index ASC',

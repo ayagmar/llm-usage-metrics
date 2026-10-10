@@ -230,6 +230,7 @@ describe('LiteLLMPricingFetcher', () => {
     await writeFile(
       cacheFilePath,
       JSON.stringify({
+        formatVersion: 2,
         fetchedAt: nowValue + 60_000,
         sourceUrl: 'https://example.test/litellm-pricing.json',
         pricingByModel: {
@@ -461,6 +462,7 @@ describe('LiteLLMPricingFetcher', () => {
     await writeFile(
       cacheFilePath,
       JSON.stringify({
+        formatVersion: 2,
         fetchedAt: nowValue - 10_000,
         sourceUrl: 'https://example.test/litellm-pricing.json',
         pricingByModel: {
@@ -520,6 +522,64 @@ describe('LiteLLMPricingFetcher', () => {
     expect(fetcher.getPricing('gpt-4.1')?.outputPer1MUsd).toBeGreaterThan(0);
   });
 
+  it('refetches a fresh cache written before one-hour cache-write rates were kept', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-old-cache-format-'));
+    tempDirs.push(rootDir);
+
+    const cacheFilePath = path.join(rootDir, 'cache.json');
+    const nowValue = 1_000_000;
+
+    // The shape older versions wrote: no formatVersion and no one-hour rate.
+    await writeFile(
+      cacheFilePath,
+      JSON.stringify({
+        fetchedAt: nowValue,
+        sourceUrl: 'https://example.test/litellm-pricing.json',
+        pricingByModel: {
+          'claude-opus-5-5': { inputPer1MUsd: 4, outputPer1MUsd: 20, cacheWritePer1MUsd: 5 },
+        },
+      }),
+      'utf8',
+    );
+
+    const fetchSpy = vi.fn(async () => {
+      return new Response(
+        JSON.stringify({
+          'claude-opus-5-5': {
+            input_cost_per_token: 0.000004,
+            output_cost_per_token: 0.00002,
+            cache_creation_input_token_cost: 0.000005,
+            cache_creation_input_token_cost_above_1hr: 0.000008,
+          },
+        }),
+        { status: 200 },
+      );
+    });
+
+    const fetcher = createFetcher({
+      cacheFilePath,
+      now: () => nowValue,
+      fetchImpl: fetchSpy,
+      fetchRetryCount: 0,
+    });
+
+    await fetcher.load();
+
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    expect(fetcher.getPricing('claude-opus-5-5')?.cacheWrite1hPer1MUsd).toBeCloseTo(8, 10);
+
+    const reloaded = createFetcher({
+      cacheFilePath,
+      now: () => nowValue,
+      fetchImpl: fetchSpy,
+      fetchRetryCount: 0,
+    });
+    await reloaded.load();
+
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    expect(reloaded.getPricing('claude-opus-5-5')?.cacheWrite1hPer1MUsd).toBeCloseTo(8, 10);
+  });
+
   it('falls back to stale cache when content-length exceeds the response byte limit', async () => {
     const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-content-length-cap-'));
     tempDirs.push(rootDir);
@@ -530,6 +590,7 @@ describe('LiteLLMPricingFetcher', () => {
     await writeFile(
       cacheFilePath,
       JSON.stringify({
+        formatVersion: 2,
         fetchedAt: nowValue - 10_000,
         sourceUrl: 'https://example.test/litellm-pricing.json',
         pricingByModel: {
@@ -654,6 +715,7 @@ describe('LiteLLMPricingFetcher', () => {
     await writeFile(
       cacheFilePath,
       JSON.stringify({
+        formatVersion: 2,
         fetchedAt: nowValue,
         sourceUrl: 'https://example.test/litellm-pricing.json',
         pricingByModel: {
@@ -705,6 +767,7 @@ describe('LiteLLMPricingFetcher', () => {
     await writeFile(
       cacheFilePath,
       JSON.stringify({
+        formatVersion: 2,
         fetchedAt: nowValue,
         sourceUrl: 'https://example.test/litellm-pricing.json',
         pricingByModel: {
@@ -752,6 +815,7 @@ describe('LiteLLMPricingFetcher', () => {
     await writeFile(
       cacheFilePath,
       JSON.stringify({
+        formatVersion: 2,
         fetchedAt: nowValue,
         sourceUrl: 'https://example.test/litellm-pricing.json',
         pricingByModel: 'not-an-object',
@@ -795,6 +859,7 @@ describe('LiteLLMPricingFetcher', () => {
     await writeFile(
       cacheFilePath,
       JSON.stringify({
+        formatVersion: 2,
         fetchedAt: nowValue,
         sourceUrl: 'https://example.test/litellm-pricing.json',
         pricingByModel: {

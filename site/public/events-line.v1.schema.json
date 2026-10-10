@@ -34,6 +34,11 @@
       "description": "Normalized model identifier; omitted when unknown.",
       "type": "string"
     },
+    "cacheWrite1hTokens": {
+      "description": "The part of cacheWriteTokens cached for one hour, which bills at a higher rate (Claude). Absent from events written by versions before 0.10.",
+      "type": "integer",
+      "minimum": 0
+    },
     "costUsd": {
       "description": "Cost in USD; omitted when pricing is unresolved.",
       "type": "number",

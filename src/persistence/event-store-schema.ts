@@ -6,7 +6,7 @@ import {
   toText,
 } from './event-store-database.js';
 
-export const EVENT_STORE_SCHEMA_VERSION = '3';
+export const EVENT_STORE_SCHEMA_VERSION = '4';
 
 // Migration rehash pages through events with keyset pagination so a large
 // store never materializes every row in memory at once.
@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS events (
   reasoning_tokens INTEGER NOT NULL,
   cache_read_tokens INTEGER NOT NULL,
   cache_write_tokens INTEGER NOT NULL,
+  cache_write_1h_tokens INTEGER NOT NULL DEFAULT 0,
   total_tokens INTEGER NOT NULL,
   content_hash TEXT,
   cost_usd REAL,
@@ -207,10 +208,28 @@ export function migrateSchemaV2ToV3(database: EventStoreDatabase): void {
   });
 }
 
+// Events stored before v4 read as having no one-hour cache writes; reparsing a file that
+// is still on disk fills them in.
+export function migrateSchemaV3ToV4(database: EventStoreDatabase): void {
+  runTransaction(database, () => {
+    // Re-check under the write lock: another process may have migrated while
+    // this one waited on BEGIN IMMEDIATE.
+    if (readSchemaVersion(database) !== '3') {
+      return;
+    }
+
+    database.exec('ALTER TABLE events ADD COLUMN cache_write_1h_tokens INTEGER NOT NULL DEFAULT 0');
+    database.prepare("UPDATE meta SET value = ? WHERE key = 'schemaVersion'").run('4');
+  });
+}
+
 /** Versions this build reads directly or migrates on open. */
 export function isSupportedSchemaVersion(schemaVersion: string): boolean {
   return (
-    schemaVersion === EVENT_STORE_SCHEMA_VERSION || schemaVersion === '1' || schemaVersion === '2'
+    schemaVersion === EVENT_STORE_SCHEMA_VERSION ||
+    schemaVersion === '1' ||
+    schemaVersion === '2' ||
+    schemaVersion === '3'
   );
 }
 
@@ -251,11 +270,18 @@ export function initializeSchema(database: EventStoreDatabase): void {
   if (schemaVersion === '1') {
     migrateSchemaV1ToV2(database);
     migrateSchemaV2ToV3(database);
+    migrateSchemaV3ToV4(database);
     return;
   }
 
   if (schemaVersion === '2') {
     migrateSchemaV2ToV3(database);
+    migrateSchemaV3ToV4(database);
+    return;
+  }
+
+  if (schemaVersion === '3') {
+    migrateSchemaV3ToV4(database);
     return;
   }
 

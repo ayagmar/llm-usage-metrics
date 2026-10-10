@@ -16,6 +16,9 @@ const event = createUsageEvent({
   timestamp: '2026-10-08T09:00:00.000Z',
   inputTokens: 10,
   outputTokens: 5,
+  // The one-hour share must survive the trip, or the reader underprices it.
+  cacheWriteTokens: 8,
+  cacheWrite1hTokens: 6,
   costMode: 'estimated',
 });
 

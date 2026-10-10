@@ -46,6 +46,10 @@ function orderModelPricing(pricing) {
     orderedPricing.cacheWritePer1MUsd = pricing.cacheWritePer1MUsd;
   }
 
+  if (pricing.cacheWrite1hPer1MUsd !== undefined) {
+    orderedPricing.cacheWrite1hPer1MUsd = pricing.cacheWrite1hPer1MUsd;
+  }
+
   if (pricing.reasoningPer1MUsd !== undefined) {
     orderedPricing.reasoningPer1MUsd = pricing.reasoningPer1MUsd;
     orderedPricing.reasoningBilling = 'separate';

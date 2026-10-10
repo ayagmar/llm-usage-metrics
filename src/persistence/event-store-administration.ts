@@ -27,7 +27,11 @@ import {
   toText,
 } from './event-store-database.js';
 import { takeUncountedEvents } from './event-store-history.js';
-import { assertSupportedSchemaVersion, initializeSchema } from './event-store-schema.js';
+import {
+  assertSupportedSchemaVersion,
+  EVENT_STORE_SCHEMA_VERSION,
+  initializeSchema,
+} from './event-store-schema.js';
 import { hasErrorCode } from '../utils/error-code.js';
 
 const EVENT_STORE_OPEN_TIMEOUT_MS = 2_000;
@@ -565,11 +569,17 @@ export async function readEventStoreEvents(
 
   try {
     assertSupportedSchemaVersion(database);
+    const meta = readMetaValues(database);
+    // A read-only open cannot migrate, and stores older than v4 lack the one-hour column.
+    const cacheWrite1hColumn =
+      meta.get('schemaVersion') === EVENT_STORE_SCHEMA_VERSION
+        ? 'cache_write_1h_tokens'
+        : '0 AS cache_write_1h_tokens';
     const statement = database.prepare(
       [
         'SELECT source, session_id, timestamp, model, provider, repo_root,',
         '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
-        '  cache_write_tokens, total_tokens, cost_usd, cost_mode',
+        `  cache_write_tokens, ${cacheWrite1hColumn}, total_tokens, cost_usd, cost_mode`,
         'FROM events',
         'WHERE timestamp >= ? AND timestamp < ?',
         'ORDER BY source, file_path, event_index',
@@ -592,7 +602,7 @@ export async function readEventStoreEvents(
       }
     }
 
-    return { meta: readMetaValues(database), events };
+    return { meta, events };
   } finally {
     database.close();
   }
@@ -649,7 +659,7 @@ function selectFileEventRows(
       [
         'SELECT source, session_id, timestamp, model, provider, repo_root,',
         '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
-        '  cache_write_tokens, total_tokens, cost_usd, cost_mode',
+        '  cache_write_tokens, cache_write_1h_tokens, total_tokens, cost_usd, cost_mode',
         'FROM events',
         'WHERE source = ? AND file_path = ?',
         'ORDER BY event_index ASC',
@@ -862,8 +872,9 @@ export function replaceFilesEvents(
       'INSERT INTO events (',
       '  source, file_path, event_index, session_id, timestamp, model, provider, repo_root,',
       '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
-      '  cache_write_tokens, total_tokens, content_hash, cost_usd, cost_mode',
-      ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      '  cache_write_tokens, cache_write_1h_tokens, total_tokens, content_hash, cost_usd,',
+      '  cost_mode',
+      ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     ].join('\n'),
   ));
   const upsertFile = (store.statements.upsertFile ??= store.database.prepare(
@@ -899,6 +910,7 @@ export function replaceFilesEvents(
           event.reasoningTokens,
           event.cacheReadTokens,
           event.cacheWriteTokens,
+          event.cacheWrite1hTokens,
           event.totalTokens,
           computeEventContentHash(event),
           event.costUsd ?? null,
