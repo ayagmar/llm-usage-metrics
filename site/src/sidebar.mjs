@@ -34,6 +34,7 @@ export const sidebar = [
       { label: 'Multiple machines', slug: 'machines' },
       { label: 'Doctor', slug: 'doctor' },
       { label: 'Troubleshooting', slug: 'troubleshooting' },
+      { label: 'Privacy', slug: 'privacy' },
       { label: 'Security', slug: 'security' },
     ],
   },

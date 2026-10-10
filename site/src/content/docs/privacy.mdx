@@ -1,0 +1,54 @@
+---
+title: Privacy
+description: What llm-usage-metrics reads, what it stores and where, and every network request it makes.
+---
+
+`llm-usage-metrics` runs on your machine. It has no telemetry, no analytics, and no account. This page lists everything it reads, stores, and sends.
+
+## What it reads
+
+- Local session logs and databases written by the [supported AI coding tools](/llm-usage-metrics/sources/). It reads them; it never changes them.
+- Your config file, if you have one (see [Configuration](/llm-usage-metrics/configuration/)).
+- Your local Git history, only for `efficiency` reports. It runs `git log` to count commits and changed lines by your author email.
+
+## What it stores
+
+| What | Where (Linux default) | Contents |
+| --- | --- | --- |
+| Event ledger | `~/.local/share/llm-usage-metrics/events.db` | One row per usage event: source, log file path, session ID, timestamp, model, provider, repository root, token counts, and cost. |
+| Pricing cache | `~/.cache/llm-usage-metrics/litellm-pricing-cache.json` | Model prices downloaded from LiteLLM. |
+| Update-check cache | `~/.cache/llm-usage-metrics/update-check.json` | The latest published version number. |
+| Config | `~/.config/llm-usage-metrics/config.toml` | Only what you write there. |
+
+The ledger stores token counts and metadata, not session content. Your prompts, model responses, and code are not saved. `XDG_DATA_HOME`, `XDG_CACHE_HOME`, and `XDG_CONFIG_HOME` move these locations, and other platforms use their own directories. See [Caching and history](/llm-usage-metrics/caching/) and [Event store](/llm-usage-metrics/architecture/event-store/) for details, and `LLM_USAGE_EVENT_STORE` to turn the ledger off.
+
+## Network requests
+
+The tool makes exactly two kinds of HTTP request. Neither sends any of your usage data.
+
+### Pricing refresh
+
+- **What:** a GET request for `https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json`.
+- **When:** when a report needs prices and the pricing cache is older than its TTL (24 hours by default, `pricing.cacheTtlMs`).
+- **Turn it off:** pass `--pricing-offline` or set `pricing.offline = true`. The tool then uses the cached prices, or the pricing snapshot bundled with the package if there is no cache.
+- **Change it:** `--pricing-url` points it at another URL. See [Pricing](/llm-usage-metrics/pricing/).
+
+### Update check
+
+- **What:** a GET request for `https://registry.npmjs.org/llm-usage-metrics/latest`, which returns the newest version number.
+- **When:** at startup, if the cached answer is older than one hour (`update.cacheTtlMs`). The request times out after 1 second by default. It is skipped for `statusline`, `machine export`, `--help`, `--version`, and when run through `npx`.
+- **Turn it off:** set `LLM_USAGE_SKIP_UPDATE_CHECK=1`, or `update.skipCheck = true` in the config file.
+
+## Other processes it starts
+
+- **`--share`** writes an SVG and an HTML page to the current directory, then opens the HTML page in your browser. Nothing is uploaded. Pass `--no-open` to skip opening the browser.
+- **Multiple machines:** `machine add` and machine sync run your system `ssh` to reach machines you added yourself. The remote machine runs `llm-usage machine export` and sends back its usage events (the same fields as the ledger) plus its hostname. Nothing goes anywhere else. See [Multiple machines](/llm-usage-metrics/machines/).
+- **`git log`** for `efficiency` reports, as described above.
+
+## Run fully offline
+
+1. Pass `--pricing-offline` (or set `pricing.offline = true`).
+2. Set `LLM_USAGE_SKIP_UPDATE_CHECK=1` (or `update.skipCheck = true`).
+3. Do not configure remote machines.
+
+With these set, the tool makes no network requests.
