@@ -5,7 +5,7 @@
 <h1 align="center">llm-usage-metrics</h1>
 
 <p align="center">
-  Local usage reports for AI coding tools.
+  Usage reports for AI coding tools, across all your machines.
 </p>
 
 <p align="center">
@@ -23,7 +23,7 @@
   <a href="./CONTRIBUTING.md">Contributing</a>
 </p>
 
-`llm-usage-metrics` reads local session data from 17 AI coding tools and converts it into one normalized usage history. Use it to review tokens and estimated cost, compare periods, find expensive sessions, correlate usage with local Git activity, or export the result.
+`llm-usage-metrics` reads local session data from 17 AI coding tools, on this machine and on others you reach over ssh, and converts it into one normalized usage history. Use it to review tokens and estimated cost, compare periods, find expensive sessions, correlate usage with local Git activity, or export the result.
 
 The CLI parses session content on your machine. It discovers standard source locations and includes a bundled pricing snapshot, so the first report can run without configuration or network access.
 

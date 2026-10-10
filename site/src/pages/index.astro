@@ -12,6 +12,14 @@ const github = 'https://github.com/ayagmar/llm-usage-metrics';
 const sources = getDefaultSourceIds();
 const reports = [
   {
+    name: 'Summary',
+    command: '',
+    question: 'How am I doing this month?',
+    detail:
+      'Today, the last 7 days, and the month at a glance, with your streak and a month-end projection.',
+    slug: 'usage',
+  },
+  {
     name: 'Usage',
     command: 'monthly',
     question: 'Where did the tokens go?',
@@ -41,20 +49,19 @@ const reports = [
     slug: 'trends',
   },
   {
-    name: 'Optimize',
-    command: 'optimize monthly --provider openai --candidate-model gpt-4.1',
-    question: 'What would another model cost?',
+    name: 'Status line',
+    command: 'statusline',
+    question: 'What is this session costing?',
     detail:
-      'Price the observed token mix against candidate models. This estimates cost, not quality.',
-    slug: 'optimize',
+      'Today, your streak, and the month in Claude Code, tmux, or starship, plus the session cost in Claude Code.',
+    slug: 'statusline',
   },
-  {
-    name: 'Efficiency',
-    command: 'efficiency monthly',
-    question: 'How does usage line up with Git?',
-    detail: 'Review repo-attributed usage alongside commits and line changes.',
-    slug: 'efficiency',
-  },
+];
+const machineRows = [
+  { label: 'claude (local)', tokens: '18,240,000', cost: '$96.10' },
+  { label: 'claude (laptop)', tokens: '9,880,000', cost: '$51.37' },
+  { label: 'codex (devbox)', tokens: '6,410,000', cost: '$14.82' },
+  { label: 'TOTAL', tokens: '34,530,000', cost: '$162.29' },
 ];
 const examples = [
   {
@@ -102,15 +109,24 @@ const examples = [
     <meta name="viewport" content="width=device-width" />
     <meta
       name="description"
-      content={`Track tokens, estimated cost, and sessions across ${sources.length} AI coding tools. Read local logs, compare reports, and export your data.`}
+      content={`Track tokens, estimated cost, and sessions across ${sources.length} AI coding tools on all your machines. Read the logs on your disks, compare reports, and export your data.`}
     />
     <meta name="theme-color" content="#11130f" />
     <meta property="og:title" content="LLM Usage Metrics — your agents, accounted for" />
     <meta
       property="og:description"
-      content="One local usage history for your AI coding tools. Tokens, estimated cost, sessions, and exports."
+      content="One usage history for your AI coding tools, across all your machines. Tokens, estimated cost, sessions, and exports."
     />
     <meta property="og:type" content="website" />
+    <meta property="og:image" content={new URL(`${base}og.png`, Astro.site)} />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="640" />
+    <meta
+      property="og:image:alt"
+      content="llm-usage-metrics: a monthly cost report across claude, codex, gemini, and pi, from three machines over ssh."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content={new URL(`${base}og.png`, Astro.site)} />
     <meta property="og:url" content={new URL(base, Astro.site)} />
     <link rel="canonical" href={new URL(base, Astro.site)} />
     <link rel="icon" type="image/svg+xml" href={`${base}favicon.svg`} />
@@ -172,8 +188,9 @@ const examples = [
             <em>Count the tokens.</em>
           </h1>
           <p class="summary">
-            One usage history for {sources.length} AI coding tools. Read the logs already on your
-            disk to see tokens, estimated cost, and the sessions behind them.
+            One usage history for {sources.length} AI coding tools, across every machine you work
+            on. Read the logs already on your disks to see tokens, estimated cost, and the sessions
+            behind them.
           </p>
           <div class="actions">
             <a class="button primary" href={link('getting-started')}>
@@ -194,7 +211,7 @@ const examples = [
             </button>
           </div>
           <p class="setup-note">
-            Node.js 24+ <span aria-hidden="true">·</span> macOS, Linux, Windows{' '}
+            Node.js 22.16+ or 24+, or Bun <span aria-hidden="true">·</span> macOS, Linux, Windows{' '}
             <span aria-hidden="true">·</span> MIT
           </p>
         </div>
@@ -286,10 +303,62 @@ const examples = [
         </ul>
       </section>
 
+      <section class="section machines" aria-labelledby="machines-title">
+        <div>
+          <p class="eyebrow">Every machine, one history</p>
+          <h2 id="machines-title">Your laptop, your desktop, your dev box. One report.</h2>
+          <p>
+            Add a machine you can reach over ssh and its usage joins every report. Each machine
+            parses its own logs; a session that reached two of them through a synced folder counts
+            once.
+          </p>
+          <p>
+            Usage also outlives the logs. Tools delete old transcripts, but the local ledger keeps
+            what they counted, so last quarter still adds up.
+          </p>
+          <a class="text-link" href={link('machines')}>
+            Set up machines →
+          </a>
+        </div>
+        <div class="report-preview flat">
+          <div class="window-bar">
+            <span class="window-dot" aria-hidden="true"></span>
+            <span>~/usage</span>
+            <span class="sample-label">Illustrative data</span>
+          </div>
+          <div class="preview-panel">
+            <p class="command">
+              <span aria-hidden="true">❯</span> <code>llm-usage machine add laptop</code>
+            </p>
+            <p class="command">
+              <span aria-hidden="true">❯</span> <code>llm-usage monthly --by-machine</code>
+            </p>
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Source</th>
+                  <th scope="col">Tokens</th>
+                  <th scope="col">Cost (USD)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {machineRows.map((row) => (
+                  <tr>
+                    <th scope="row">{row.label}</th>
+                    <td>{row.tokens}</td>
+                    <td>{row.cost}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
       <section class="section" aria-labelledby="reports-title">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">01 / Ask a better question</p>
+            <p class="eyebrow">Ask a better question</p>
             <h2 id="reports-title">Start with what you want to know.</h2>
           </div>
           <a class="text-link" href={link('reports')}>
@@ -297,21 +366,20 @@ const examples = [
           </a>
         </div>
         <div class="report-grid">
-          {reports.map((report, i) => (
+          {reports.map((report) => (
             <a class="report-card" href={link(report.slug)}>
               <div class="card-top">
-                <span class="eyebrow">
-                  0{i + 1} / {report.name}
-                </span>
+                <span class="eyebrow">{report.name}</span>
                 <span aria-hidden="true">↗</span>
               </div>
               <h3>{report.question}</h3>
               <p>{report.detail}</p>
-              <code>llm-usage {report.command}</code>
+              <code>{report.command ? `llm-usage ${report.command}` : 'llm-usage'}</code>
             </a>
           ))}
         </div>
         <p class="more-reports">
+          Does usage line up with your commits? <a href={link('efficiency')}>Check efficiency</a>.
           Want a year in review? <a href={link('wrapped')}>Try Wrapped</a>. Need individual events?{' '}
           <a href={link('events')}>Export JSONL or CSV</a>.
         </p>
@@ -319,7 +387,7 @@ const examples = [
 
       <section class="section principles" aria-labelledby="principles-title">
         <div>
-          <p class="eyebrow">02 / Know what you’re measuring</p>
+          <p class="eyebrow">Know what you’re measuring</p>
           <h2 id="principles-title">
             Useful numbers.
             <br />
@@ -336,12 +404,12 @@ const examples = [
         <dl>
           <div>
             <dt>
-              <span>01</span> Your sessions stay on your machine
+              <span>01</span> Your sessions stay on your machines
             </dt>
             <dd>
-              Parsing and reporting happen locally. Online runs can fetch pricing and check npm for
-              updates; neither request includes session content.{' '}
-              <a href={link('security')}>Review network behavior</a>.
+              Parsing and reporting happen on your machines, and other machines are reached only
+              over your own ssh. Online runs fetch pricing and check npm for updates; neither
+              request includes your usage. <a href={link('privacy')}>Read the privacy page</a>.
             </dd>
           </div>
           <div>
@@ -368,7 +436,7 @@ const examples = [
 
       <section class="section quickstart" aria-labelledby="quickstart-title">
         <div>
-          <p class="eyebrow">03 / From logs to a report</p>
+          <p class="eyebrow">From logs to a report</p>
           <h2 id="quickstart-title">Your first report is one command away.</h2>
           <p>Try it without installing. Standard source locations are discovered automatically.</p>
           <a class="button primary" href={link('getting-started')}>
@@ -403,6 +471,8 @@ const examples = [
       <nav aria-label="Footer">
         <a href={link('docs')}>Documentation</a>
         <a href={link('cli-reference')}>CLI reference</a>
+        <a href={link('privacy')}>Privacy</a>
+        <a href={`${base}llms.txt`}>llms.txt</a>
         <a href={link('benchmarks')}>Benchmarks</a>
         <a href={github}>GitHub</a>
         <a href="https://www.npmjs.com/package/llm-usage-metrics">npm</a>
@@ -904,6 +974,27 @@ const examples = [
     text-decoration: underline;
     text-underline-offset: 0.2em;
   }
+  .machines {
+    display: grid;
+    grid-template-columns: 1fr 1.15fr;
+    gap: 5rem;
+    align-items: center;
+    border-bottom: 1px solid var(--border-default);
+  }
+  .machines p {
+    color: var(--color-text-muted);
+    font-size: 0.93rem;
+    max-width: 34rem;
+  }
+  .machines .command {
+    margin-bottom: 0.6rem;
+  }
+  .machines table {
+    margin-top: 1.2rem;
+  }
+  .report-preview.flat {
+    transform: none;
+  }
   .principles {
     display: grid;
     grid-template-columns: 1fr 1.3fr;
@@ -1001,7 +1092,8 @@ const examples = [
     .sources-strip ul {
       grid-template-columns: repeat(3, 1fr);
     }
-    .principles {
+    .principles,
+    .machines {
       gap: 2.5rem;
     }
   }
@@ -1036,6 +1128,7 @@ const examples = [
       grid-template-columns: repeat(2, 1fr);
     }
     .principles,
+    .machines,
     .quickstart {
       grid-template-columns: 1fr;
       gap: 2.5rem;
