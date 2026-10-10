@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.10.2](https://github.com/ayagmar/llm-usage-metrics/compare/v0.10.1...v0.10.2) (2026-10-10)
+
+### Features
+
+* **summary:** split this month's cost by machine ([9c9cd70](https://github.com/ayagmar/llm-usage-metrics/commit/9c9cd700168667cc44a9f48bcee30041bdee1a05))
+
+### Bug Fixes
+
+* **pricing:** bill Claude one-hour cache writes at the one-hour rate ([d30d961](https://github.com/ayagmar/llm-usage-metrics/commit/d30d96138047bf455f67176e6e71c11ca6c684df))
+* **pricing:** keep an older pricing cache usable offline ([6829217](https://github.com/ayagmar/llm-usage-metrics/commit/6829217364d534df5204c6e0bd94ead031b83f40))
+
 ## [0.10.1](https://github.com/ayagmar/llm-usage-metrics/compare/v0.10.0...v0.10.1) (2026-10-09)
 
 ### Features
