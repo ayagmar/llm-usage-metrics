@@ -43,22 +43,26 @@ function formatCost(period: SummaryPeriod): string {
   return `${period.totals.costIncomplete ? '~' : ''}${usdFormatter.format(period.totals.costUsd)}`;
 }
 
+/** A part's share of the period cost, or undefined when either cost is unknown or zero. */
+function formatCostShare(period: SummaryPeriod, costUsd: number | undefined): string | undefined {
+  const totalCost = period.totals.costUsd ?? 0;
+
+  if (totalCost <= 0 || costUsd === undefined) {
+    return undefined;
+  }
+
+  // Like the Cost column, a `~` marks a share computed from incomplete costs.
+  return `${period.totals.costIncomplete ? '~' : ''}${String(Math.round((costUsd / totalCost) * 100))}%`;
+}
+
 function formatTopSource(period: SummaryPeriod): string {
   if (period.sources.length === 0) {
     return '-';
   }
 
   const topSource = period.sources[0];
-
-  const totalCost = period.totals.costUsd ?? 0;
-
-  if (totalCost <= 0 || topSource.costUsd === undefined) {
-    return topSource.source;
-  }
-
-  // Like the Cost column, a `~` marks a share computed from incomplete costs.
-  const share = `${String(Math.round((topSource.costUsd / totalCost) * 100))}%`;
-  return `${topSource.source} (${period.totals.costIncomplete ? '~' : ''}${share})`;
+  const share = formatCostShare(period, topSource.costUsd);
+  return share === undefined ? topSource.source : `${topSource.source} (${share})`;
 }
 
 function toTableRow(period: SummaryPeriod): string[] {
@@ -151,13 +155,53 @@ function renderTerminalActivity(
 
 type MonthNote = { text: string; warning: boolean };
 
-/** Month-end projection, budget status, and cache savings, in that order. */
+function formatTokenShare(tokens: number, totalTokens: number): string {
+  return `${String(Math.round((tokens / totalTokens) * 100))}%`;
+}
+
+/**
+ * Each machine's cost this month, when the month counts usage from more than one;
+ * its tokens instead when the month has no known cost.
+ */
+function formatMachinesNote(monthToDate: SummaryPeriod | undefined): string | undefined {
+  if (monthToDate?.machines === undefined || monthToDate.machines.length < 2) {
+    return undefined;
+  }
+
+  const byCost = (monthToDate.totals.costUsd ?? 0) > 0;
+
+  if (!byCost && monthToDate.totals.totalTokens === 0) {
+    return undefined;
+  }
+
+  const parts = monthToDate.machines.map((machine) => {
+    if (!byCost) {
+      const share = formatTokenShare(machine.totalTokens, monthToDate.totals.totalTokens);
+      return `${machine.machine} ${formatCompact(machine.totalTokens)} tokens (${share})`;
+    }
+
+    const cost = formatApproxUsd(machine.costUsd, machine.costIncomplete);
+    const share = formatCostShare(monthToDate, machine.costUsd);
+    return share === undefined
+      ? `${machine.machine} ${cost}`
+      : `${machine.machine} ${cost} (${share})`;
+  });
+
+  return `This month by machine: ${parts.join(', ')}`;
+}
+
+/** Cost by machine, month-end projection, budget status, and cache savings, in that order. */
 function toMonthNotes(summaryData: SummaryDataResult): MonthNote[] {
   const { monthEnd } = summaryData;
   const monthToDate = summaryData.periods.find((period) => period.key === 'monthToDate');
   const spentUsd = monthToDate?.totals.costUsd;
   const spent = formatApproxUsd(spentUsd, monthToDate?.totals.costIncomplete);
   const notes: MonthNote[] = [];
+  const machinesNote = formatMachinesNote(monthToDate);
+
+  if (machinesNote !== undefined) {
+    notes.push({ text: machinesNote, warning: false });
+  }
 
   if (monthEnd.projectedCostUsd !== undefined) {
     notes.push({

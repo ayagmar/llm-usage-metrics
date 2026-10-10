@@ -7,10 +7,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildUsageEventDataset } from '../../src/cli/build-usage-event-dataset.js';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 
+import { buildSummaryData } from '../../src/cli/build-summary-data.js';
 import { buildUsageData } from '../../src/cli/build-usage-data.js';
 import { buildDoctorResults } from '../../src/cli/run-doctor-report.js';
 import { schemaDocuments } from '../../src/cli/report-schema-registry.js';
 import { renderReportJson } from '../../src/render/report-json.js';
+import { renderSummaryReport } from '../../src/render/render-summary-report.js';
 import { runMachineExport } from '../../src/cli/run-machine-export.js';
 import { buildStatusline } from '../../src/cli/run-statusline.js';
 import type { MachineExportLine } from '../../src/machines/machine-export-bundle.js';
@@ -377,6 +379,47 @@ describe('reports with other machines', () => {
       validate(JSON.parse(renderReportJson('usage', usage.rows))),
       JSON.stringify(validate.errors),
     ).toBe(true);
+  });
+
+  it('split each summary period by machine, in JSON the schema accepts', async () => {
+    const summary = await buildSummaryData(
+      { timezone: 'UTC', pricingOffline: true },
+      {
+        spawnSsh: createInProcessRemote(remote).spawnSsh,
+        now: () => new Date('2026-02-10T12:00:00Z'),
+      },
+    );
+    const monthToDate = summary.periods.find((period) => period.key === 'monthToDate');
+
+    expect(
+      monthToDate?.machines?.map((machine) => [machine.machine, machine.events]).sort(),
+    ).toEqual([
+      ['laptop', 1],
+      ['local', 1],
+    ]);
+    expect(monthToDate?.machines?.reduce((sum, machine) => sum + machine.totalTokens, 0)).toBe(
+      monthToDate?.totals.totalTokens,
+    );
+    const validate = new Ajv2020({ allErrors: true }).compile(schemaDocuments.summary as object);
+    expect(
+      validate(JSON.parse(renderSummaryReport(summary, 'json'))),
+      JSON.stringify(validate.errors),
+    ).toBe(true);
+    expect(renderSummaryReport(summary, 'terminal', { useColor: false })).toContain(
+      'This month by machine: ',
+    );
+  });
+
+  it('leave machines out of a summary that counts only this one', async () => {
+    const summary = await buildSummaryData(
+      { timezone: 'UTC', pricingOffline: true, machine: 'local' },
+      { now: () => new Date('2026-02-10T12:00:00Z') },
+    );
+
+    expect(summary.periods.every((period) => period.machines === undefined)).toBe(true);
+    expect(renderSummaryReport(summary, 'terminal', { useColor: false })).not.toContain(
+      'by machine',
+    );
   });
 
   it('name the machine of each event from another machine', async () => {

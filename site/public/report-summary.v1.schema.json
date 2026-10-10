@@ -97,6 +97,33 @@
       "required": ["source", "events", "activeDays"],
       "unevaluatedProperties": false
     },
+    "machineTotals": {
+      "type": "object",
+      "description": "Usage totals for one machine within a period (non-negative).",
+      "allOf": [
+        {
+          "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/usageTotals"
+        }
+      ],
+      "properties": {
+        "machine": {
+          "description": "`local` for the machine that ran the report, otherwise the name the machine was added under.",
+          "type": "string"
+        },
+        "events": {
+          "description": "Events in the period.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "activeDays": {
+          "description": "Days with at least one event in the period.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": ["machine", "events", "activeDays"],
+      "unevaluatedProperties": false
+    },
     "period": {
       "description": "One summarized period.",
       "type": "object",
@@ -125,6 +152,13 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/sourceTotals"
+          }
+        },
+        "machines": {
+          "description": "Machines with usage in the period, by cost then tokens then name. Present only when the report counts other machines' usage in the past year, after its source, provider and model filters (since 0.11).",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/machineTotals"
           }
         }
       },

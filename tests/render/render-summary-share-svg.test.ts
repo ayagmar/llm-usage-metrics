@@ -128,6 +128,54 @@ describe('renderSummaryShareSvg', () => {
     expect(noBestDay).toMatch(/data-stat="Best day">[\s\S]*?>-<\/text>/u);
   });
 
+  it("splits this month's cost by machine, folding machines past the third", () => {
+    const machine = (name: string, costUsd: number) => ({
+      machine: name,
+      ...totals({ totalTokens: costUsd * 1_000, costUsd, events: 1 }),
+    });
+    const data = createSummaryData(['2026-03-09', TODAY]);
+    data.periods[0].machines = [
+      machine('local', 6),
+      machine('laptop', 3),
+      machine('devbox', 0.5),
+      machine('server', 0.5),
+    ];
+
+    for (const svg of renderInBothThemes((theme) => renderSummaryShareSvg(data, theme))) {
+      expect(svg).toContain('This month by machine');
+      // The month's cost is incomplete, so its shares are approximate.
+      expect(svg).toMatch(/>local<\/text>[^\n]*\n[^\n]*>~60%</);
+      expect(svg).toMatch(/>laptop<\/text>[^\n]*\n[^\n]*>~30%</);
+      expect(svg).toMatch(/>2 others<\/text>[^\n]*\n[^\n]*>~10%</);
+      expect(svg).not.toContain('>devbox<');
+    }
+
+    data.periods[0].machines = [machine('local', 6)];
+    expect(renderSummaryShareSvg(data, shareThemes.dark)).not.toContain('by machine');
+  });
+
+  it('splits a month without known cost by tokens', () => {
+    const data = createSummaryData(['2026-03-09', TODAY]);
+    data.periods[0].totals = totals({ totalTokens: 4_000 });
+    data.periods[0].machines = [
+      { machine: 'local', ...totals({ totalTokens: 3_000 }) },
+      { machine: 'laptop', ...totals({ totalTokens: 1_000 }) },
+    ];
+
+    const svg = renderSummaryShareSvg(data, shareThemes.dark);
+
+    expect(svg).toContain('This month by machine (tokens)');
+    expect(svg).toMatch(/>local<\/text>[^\n]*\n[^\n]*>75%</);
+    expect(svg).toMatch(/>laptop<\/text>[^\n]*\n[^\n]*>25%</);
+    // The track first, then one segment per machine, each starting where the last ended.
+    const [track, ...segments] = [
+      ...svg.matchAll(/<rect x="([\d.]+)" y="\d+" width="([\d.]+)" height="8"/g),
+    ].map((match) => ({ x: Number(match[1]), width: Number(match[2]) }));
+    expect(segments.map((segment) => segment.width / track.width)).toEqual([0.75, 0.25]);
+    expect(segments[0].x).toBe(track.x);
+    expect(segments[1].x).toBeCloseTo(segments[0].x + segments[0].width);
+  });
+
   it('shows an empty state without usage in the past year', () => {
     const [svg] = renderInBothThemes((theme) =>
       renderSummaryShareSvg(createSummaryData([]), theme),
