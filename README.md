@@ -234,6 +234,8 @@ pnpm run build
 
 The website has a [docs overview](https://ayagmar.github.io/llm-usage-metrics/docs/) and a [report chooser](https://ayagmar.github.io/llm-usage-metrics/reports/) for finding the right command. Its landing page and source navigation use the CLI source registry; regenerate CLI and security references after behavior changes.
 
+For LLMs and agents, the docs are also published as [llms.txt](https://ayagmar.github.io/llm-usage-metrics/llms.txt) (plus `llms-full.txt` with every page inlined).
+
 Site commands:
 
 ```bash
