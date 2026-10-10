@@ -49,6 +49,20 @@ export default defineConfig({
             content: '#11130f',
           },
         },
+        {
+          tag: 'meta',
+          attrs: {
+            property: 'og:image',
+            content: 'https://ayagmar.github.io/llm-usage-metrics/og.png',
+          },
+        },
+        {
+          tag: 'meta',
+          attrs: {
+            name: 'twitter:card',
+            content: 'summary_large_image',
+          },
+        },
       ],
       sidebar: [
         {
