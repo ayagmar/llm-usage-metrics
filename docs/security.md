@@ -60,7 +60,8 @@ The regular CI workflow in `.github/workflows/ci.yml` enforces the normal qualit
 
 ### Network and runtime behavior
 
-- The CLI is local-first: it parses local session files and local Git history.
+- The CLI is local-first: it parses local session files and local Git history. Machine sync runs your system `ssh` only to machines you added yourself.
+- [Privacy](https://ayagmar.github.io/llm-usage-metrics/privacy/) lists every network request the CLI makes.
 - Startup update checks only query the npm registry for the latest package version and are cached/skippable with `LLM_USAGE_SKIP_UPDATE_CHECK=1`.
 - Pricing refreshes only fetch the LiteLLM pricing JSON; `--pricing-offline` runs from cache or the bundled LiteLLM snapshot.
 - OpenCode parsing opens the SQLite database in read-only mode.
