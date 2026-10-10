@@ -58,6 +58,8 @@ The CLI reads local session files and local Git history. It writes its event led
 
 Use `--pricing-offline` and `LLM_USAGE_SKIP_UPDATE_CHECK=1` when you want a report with no network requests.
 
+If you add [other machines](/llm-usage-metrics/machines/), the CLI also uses your `ssh` to fetch their usage events. See [Privacy](/llm-usage-metrics/privacy/) for every network request.
+
 ## Continue from here
 
 <CardGrid>
@@ -95,6 +97,16 @@ Use `--pricing-offline` and `LLM_USAGE_SKIP_UPDATE_CHECK=1` when you want a repo
     title="Output formats"
     description="Choose terminal, JSON, Markdown, or a share card."
     href="/llm-usage-metrics/output-formats/"
+  />
+  <LinkCard
+    title="Multiple machines"
+    description="Combine usage from your other machines over ssh."
+    href="/llm-usage-metrics/machines/"
+  />
+  <LinkCard
+    title="Privacy"
+    description="What the CLI reads, stores, and sends over the network."
+    href="/llm-usage-metrics/privacy/"
   />
   <LinkCard
     title="Architecture"
