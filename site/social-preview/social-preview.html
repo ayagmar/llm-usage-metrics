@@ -9,8 +9,16 @@
       rel="stylesheet"
     />
     <style>
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      html, body { width: 1280px; height: 640px; }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        width: 1280px;
+        height: 640px;
+      }
       body {
         background: #11130f;
         color: #f1f0e9;
@@ -26,20 +34,62 @@
         content: '';
         position: absolute;
         inset: 0;
-        background-image: linear-gradient(rgba(241, 240, 233, 0.035) 1px, transparent 1px),
+        background-image:
+          linear-gradient(rgba(241, 240, 233, 0.035) 1px, transparent 1px),
           linear-gradient(90deg, rgba(241, 240, 233, 0.035) 1px, transparent 1px);
         background-size: 32px 32px;
         mask-image: radial-gradient(circle at 78% 50%, black, transparent 70%);
       }
-      .copy { display: flex; flex-direction: column; position: relative; }
-      .brand { display: flex; align-items: center; gap: 14px; font-family: 'Geist Mono'; font-size: 24px; font-weight: 500; }
-      .brand img { width: 44px; height: 44px; }
-      .brand span { color: #a1a49a; }
-      h1 { margin-top: 64px; font-size: 70px; line-height: 0.98; white-space: nowrap; letter-spacing: -0.045em; font-weight: 600; }
-      h1 em { font-style: normal; color: #df7b52; display: block; }
-      p.sub { margin-top: 28px; font-size: 27px; line-height: 1.35; color: #d8d8d0; max-width: 560px; }
-      .install { margin-top: auto; font-family: 'Geist Mono'; font-size: 22px; color: #a1a49a; }
-      .install b { color: #f1f0e9; font-weight: 500; }
+      .copy {
+        display: flex;
+        flex-direction: column;
+        position: relative;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        font-family: 'Geist Mono';
+        font-size: 24px;
+        font-weight: 500;
+      }
+      .brand img {
+        width: 44px;
+        height: 44px;
+      }
+      .brand span {
+        color: #a1a49a;
+      }
+      h1 {
+        margin-top: 64px;
+        font-size: 70px;
+        line-height: 0.98;
+        white-space: nowrap;
+        letter-spacing: -0.045em;
+        font-weight: 600;
+      }
+      h1 em {
+        font-style: normal;
+        color: #df7b52;
+        display: block;
+      }
+      p.sub {
+        margin-top: 28px;
+        font-size: 27px;
+        line-height: 1.35;
+        color: #d8d8d0;
+        max-width: 560px;
+      }
+      .install {
+        margin-top: auto;
+        font-family: 'Geist Mono';
+        font-size: 22px;
+        color: #a1a49a;
+      }
+      .install b {
+        color: #f1f0e9;
+        font-weight: 500;
+      }
       .card {
         position: relative;
         align-self: center;
@@ -50,42 +100,135 @@
         font-family: 'Geist Mono';
         box-shadow: 0 30px 80px rgba(5, 7, 4, 0.7);
       }
-      .cmd { font-size: 19px; color: #a1a49a; }
-      .cmd span { color: #df7b52; }
-      .total { margin-top: 22px; display: flex; align-items: baseline; gap: 14px; }
-      .total strong { font-family: Geist; font-size: 50px; font-weight: 600; letter-spacing: -0.03em; }
-      .total small { white-space: nowrap; font-size: 17px; color: #a1a49a; }
-      .rows { margin-top: 22px; display: grid; gap: 14px; }
-      .row { display: grid; grid-template-columns: 80px 1fr 92px; align-items: center; gap: 14px; font-size: 19px; }
-      .row .name { color: #d8d8d0; }
-      .bar { height: 12px; border-radius: 6px; background: rgba(241, 240, 233, 0.07); overflow: hidden; }
-      .bar i { display: block; height: 100%; background: #df7b52; border-radius: 6px; }
-      .row:nth-child(2) .bar i { background: #65aeb8; }
-      .row:nth-child(3) .bar i { background: #d8ae66; }
-      .row:nth-child(4) .bar i { background: #a1a49a; }
-      .row .cost { text-align: right; color: #f1f0e9; }
-      .machines { margin-top: 24px; padding-top: 18px; border-top: 1px solid rgba(241, 240, 233, 0.09); font-size: 17px; color: #a1a49a; display: flex; gap: 18px; white-space: nowrap; }
-      .machines b { color: #f1f0e9; font-weight: 500; }
-      .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #7fb069; margin-right: 8px; vertical-align: 1px; }
+      .cmd {
+        font-size: 19px;
+        color: #a1a49a;
+      }
+      .cmd span {
+        color: #df7b52;
+      }
+      .total {
+        margin-top: 22px;
+        display: flex;
+        align-items: baseline;
+        gap: 14px;
+      }
+      .total strong {
+        font-family: Geist;
+        font-size: 50px;
+        font-weight: 600;
+        letter-spacing: -0.03em;
+      }
+      .total small {
+        white-space: nowrap;
+        font-size: 17px;
+        color: #a1a49a;
+      }
+      .rows {
+        margin-top: 22px;
+        display: grid;
+        gap: 14px;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 80px 1fr 92px;
+        align-items: center;
+        gap: 14px;
+        font-size: 19px;
+      }
+      .row .name {
+        color: #d8d8d0;
+      }
+      .bar {
+        height: 12px;
+        border-radius: 6px;
+        background: rgba(241, 240, 233, 0.07);
+        overflow: hidden;
+      }
+      .bar i {
+        display: block;
+        height: 100%;
+        background: #df7b52;
+        border-radius: 6px;
+      }
+      .row:nth-child(2) .bar i {
+        background: #65aeb8;
+      }
+      .row:nth-child(3) .bar i {
+        background: #d8ae66;
+      }
+      .row:nth-child(4) .bar i {
+        background: #a1a49a;
+      }
+      .row .cost {
+        text-align: right;
+        color: #f1f0e9;
+      }
+      .machines {
+        margin-top: 24px;
+        padding-top: 18px;
+        border-top: 1px solid rgba(241, 240, 233, 0.09);
+        font-size: 17px;
+        color: #a1a49a;
+        display: flex;
+        gap: 18px;
+        white-space: nowrap;
+      }
+      .machines b {
+        color: #f1f0e9;
+        font-weight: 500;
+      }
+      .dot {
+        display: inline-block;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: #7fb069;
+        margin-right: 8px;
+        vertical-align: 1px;
+      }
     </style>
   </head>
   <body>
     <div class="copy">
-      <div class="brand"><img src="../public/favicon.svg" alt="" /><b style="font-weight:500">llm-usage<span>-metrics</span></b></div>
+      <div class="brand">
+        <img src="../public/favicon.svg" alt="" /><b style="font-weight: 500"
+          >llm-usage<span>-metrics</span></b
+        >
+      </div>
       <h1>Follow the work.<em>Count the tokens.</em></h1>
       <p class="sub">Tokens and cost for 17 AI coding tools, from the logs on all your machines.</p>
       <p class="install">$ <b>npm i -g llm-usage-metrics</b></p>
     </div>
     <div class="card">
       <p class="cmd"><span>❯</span> llm-usage monthly</p>
-      <div class="total"><strong>$412.80</strong><small>this month<br />61.4M tokens</small></div>
-      <div class="rows">
-        <div class="row"><span class="name">claude</span><span class="bar"><i style="width: 100%"></i></span><span class="cost">$231.40</span></div>
-        <div class="row"><span class="name">codex</span><span class="bar"><i style="width: 52%"></i></span><span class="cost">$118.95</span></div>
-        <div class="row"><span class="name">gemini</span><span class="bar"><i style="width: 18%"></i></span><span class="cost">$41.20</span></div>
-        <div class="row"><span class="name">pi</span><span class="bar"><i style="width: 9%"></i></span><span class="cost">$21.25</span></div>
+      <div class="total">
+        <strong>$412.80</strong><small>this month<br />61.4M tokens</small>
       </div>
-      <div class="machines"><span><i class="dot"></i><b>local</b></span><span><i class="dot"></i><b>laptop</b></span><span><i class="dot"></i><b>devbox</b></span><span style="margin-left:auto">over ssh</span></div>
+      <div class="rows">
+        <div class="row">
+          <span class="name">claude</span><span class="bar"><i style="width: 100%"></i></span
+          ><span class="cost">$231.40</span>
+        </div>
+        <div class="row">
+          <span class="name">codex</span><span class="bar"><i style="width: 52%"></i></span
+          ><span class="cost">$118.95</span>
+        </div>
+        <div class="row">
+          <span class="name">gemini</span><span class="bar"><i style="width: 18%"></i></span
+          ><span class="cost">$41.20</span>
+        </div>
+        <div class="row">
+          <span class="name">pi</span><span class="bar"><i style="width: 9%"></i></span
+          ><span class="cost">$21.25</span>
+        </div>
+      </div>
+      <div class="machines">
+        <span><i class="dot"></i><b>local</b></span
+        ><span><i class="dot"></i><b>laptop</b></span
+        ><span><i class="dot"></i><b>devbox</b></span
+        ><span style="margin-left: auto">over ssh</span>
+      </div>
     </div>
   </body>
 </html>
