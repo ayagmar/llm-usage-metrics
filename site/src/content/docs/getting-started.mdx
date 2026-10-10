@@ -45,7 +45,7 @@ After installation, skip both pricing refreshes and startup update checks with:
 LLM_USAGE_SKIP_UPDATE_CHECK=1 llm-usage daily --pricing-offline
 ```
 
-The CLI uses cached or bundled rates. Downloading the package with npm or npx still requires network access. See [Security](/llm-usage-metrics/security/) for network behavior.
+The CLI uses cached or bundled rates. Downloading the package with npm or npx still requires network access. See [Privacy](/llm-usage-metrics/privacy/) for network behavior.
 :::
 
 ## 3. Scope the result
@@ -116,6 +116,16 @@ for name in llm-usage llm-usage-metrics; llm-usage completion fish > ~/.config/f
 ```
 
 Every command's `--help` ends with a few examples.
+
+## Using more than one machine?
+
+Reports can include usage from your other machines over ssh. Install llm-usage-metrics there and make sure ssh logs in without a prompt, then add the machine by name:
+
+```bash
+llm-usage machine add laptop
+```
+
+See [Multiple machines](/llm-usage-metrics/machines/) for destinations and options.
 
 ## If the first report is empty
 
