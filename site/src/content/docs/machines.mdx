@@ -71,7 +71,9 @@ Reports combine every machine into the same rows. To see each machine apart, `--
 llm-usage monthly --by-machine     # claude (local), claude (laptop), ...
 ```
 
-Until you add a machine, every row is `(local)`. The share card (`--share`) always combines machines.
+Until you add a machine, every row is `(local)`. Share cards (`--share`) combine machines, except the summary's.
+
+The summary (`llm-usage` with no command) splits this month's cost by machine under its table, for example `This month by machine: local $412.10 (81%), laptop $96.70 (19%)`, and `llm-usage summary --share` draws the same split as a bar on the card. A month without a known cost is split by tokens instead. `--json` lists each period's machines under `machines`.
 
 A report pointed at a custom directory (`--claude-dir`, `--source-dir`) counts only that directory, without other machines, unless you name them with `--machine`. `statusline` includes other machines too, from their last fetch; it never connects to them, so a status bar stays fast.
 

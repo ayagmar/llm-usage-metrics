@@ -195,6 +195,7 @@ Reports can include your other machines' usage over ssh. Install llm-usage-metri
 llm-usage machine add laptop         # syncs over ssh laptop; see the docs for other destinations
 llm-usage monthly                    # this machine and the laptop, fetched when due
 llm-usage monthly --machine laptop   # only the laptop
+llm-usage                            # the summary splits this month's cost by machine
 ```
 
 A session that reached both machines (a copied or synced `~/.claude`) is counted once. See [Multiple machines](https://ayagmar.github.io/llm-usage-metrics/machines/).

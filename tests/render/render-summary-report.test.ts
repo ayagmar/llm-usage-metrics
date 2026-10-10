@@ -266,6 +266,43 @@ describe('renderSummaryReport', () => {
     );
   });
 
+  it("names each machine's cost this month when it counts other machines", () => {
+    const data = createSummaryData();
+    data.periods[2].totals = totals({ totalTokens: 300, costUsd: 40, events: 3 });
+    data.periods[2].machines = [
+      { machine: 'local', ...totals({ totalTokens: 200, costUsd: 30, events: 2 }) },
+      { machine: 'laptop', ...totals({ totalTokens: 100, costUsd: 10, events: 1 }) },
+    ];
+
+    expect(renderSummaryReport(data, 'terminal', { useColor: false }).split('\n')).toContain(
+      'This month by machine: local $30.00 (75%), laptop $10.00 (25%)',
+    );
+    expect(renderSummaryReport(data, 'markdown')).toContain(
+      'This month by machine: local $30.00 (75%), laptop $10.00 (25%)',
+    );
+
+    // Shares of an incomplete cost are approximate, like the cost itself.
+    data.periods[2].totals.costIncomplete = true;
+    data.periods[2].machines[1].costIncomplete = true;
+    expect(renderSummaryReport(data, 'terminal', { useColor: false }).split('\n')).toContain(
+      'This month by machine: local $30.00 (~75%), laptop ~$10.00 (~25%)',
+    );
+
+    // Without a known cost, the month is split by tokens.
+    data.periods[2].totals = totals({ totalTokens: 4_000_000, events: 3 });
+    data.periods[2].machines = [
+      { machine: 'local', ...totals({ totalTokens: 3_000_000, events: 2 }) },
+      { machine: 'laptop', ...totals({ totalTokens: 1_000_000, events: 1 }) },
+    ];
+    expect(renderSummaryReport(data, 'terminal', { useColor: false }).split('\n')).toContain(
+      'This month by machine: local 3M tokens (75%), laptop 1M tokens (25%)',
+    );
+
+    // A month whose usage all came from one machine has nothing to split.
+    data.periods[2].machines = data.periods[2].machines.slice(0, 1);
+    expect(renderSummaryReport(data, 'terminal', { useColor: false })).not.toContain('by machine');
+  });
+
   it('colors budget warnings when color is on', () => {
     const data = createSummaryData();
     data.periods[2].totals.costUsd = 0.5;

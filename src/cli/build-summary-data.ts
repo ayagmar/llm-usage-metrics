@@ -1,4 +1,5 @@
 import { aggregateDailyActivity, resolveActivityStart } from '../aggregate/daily-activity.js';
+import { LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
 import { estimateCacheSavingsUsd } from '../pricing/cache-savings.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { getCurrentLocalDateKey, shiftLocalDateKey } from '../utils/time-buckets.js';
@@ -14,10 +15,12 @@ import type {
   BuildSummaryDataDeps,
   SummaryCommandOptions,
   SummaryDataResult,
+  SummaryMachineTotals,
   SummaryMonthEnd,
   SummaryPeriod,
   SummaryPeriodKey,
   SummarySourceTotals,
+  UsageWindowTotals,
 } from './usage-data-contracts.js';
 import {
   isEventWithinWindow,
@@ -92,18 +95,44 @@ function isNarrowedByCliFilters(cliOptions: SummaryCommandOptions): boolean {
   return hasSource || hasModel || Boolean(cliOptions.provider);
 }
 
-function compareSourcesByCost(left: SummarySourceTotals, right: SummarySourceTotals): number {
+function compareByCost(left: UsageWindowTotals, right: UsageWindowTotals): number {
   const costDelta = (right.costUsd ?? 0) - (left.costUsd ?? 0);
 
   if (costDelta !== 0) {
     return costDelta;
   }
 
-  if (left.totalTokens !== right.totalTokens) {
-    return right.totalTokens - left.totalTokens;
+  return right.totalTokens - left.totalTokens;
+}
+
+function compareSourcesByCost(left: SummarySourceTotals, right: SummarySourceTotals): number {
+  return compareByCost(left, right) || compareByCodePoint(left.source, right.source);
+}
+
+function compareMachinesByCost(left: SummaryMachineTotals, right: SummaryMachineTotals): number {
+  return compareByCost(left, right) || compareByCodePoint(left.machine, right.machine);
+}
+
+function summarizeMachines(
+  events: UsageEvent[],
+  timezone: string,
+  sourceOrder: string[],
+): SummaryMachineTotals[] {
+  const eventsByMachine = new Map<string, UsageEvent[]>();
+
+  for (const event of events) {
+    const machine = event.machine ?? LOCAL_MACHINE_NAME;
+    const machineEvents = eventsByMachine.get(machine) ?? [];
+    machineEvents.push(event);
+    eventsByMachine.set(machine, machineEvents);
   }
 
-  return compareByCodePoint(left.source, right.source);
+  return [...eventsByMachine]
+    .map(([machine, machineEvents]) => ({
+      machine,
+      ...summarizeUsageWindow(machineEvents, timezone, sourceOrder).totals,
+    }))
+    .sort(compareMachinesByCost);
 }
 
 export async function buildSummaryData(
@@ -133,15 +162,15 @@ export async function buildSummaryData(
   const { pricedEvents, pricingOrigin, pricingWarning, pricingSource } =
     await applyPricingToUsageEventDataset(dataset, deps, 'auto');
   const sourceOrder = dataset.adaptersToParse.map((adapter) => adapter.id);
+  // Other machines' events carry their name; this machine's carry none.
+  const countsOtherMachines = pricedEvents.some((event) => event.machine !== undefined);
   const periods = measureRuntimeProfileStageSync(deps.runtimeProfile, 'summary.aggregate', () =>
     windows.map((window): SummaryPeriod => {
-      const summary = summarizeUsageWindow(
-        pricedEvents.filter((event) => isEventWithinWindow(event, window, timezone)),
-        timezone,
-        sourceOrder,
+      const windowEvents = pricedEvents.filter((event) =>
+        isEventWithinWindow(event, window, timezone),
       );
-
-      return {
+      const summary = summarizeUsageWindow(windowEvents, timezone, sourceOrder);
+      const period: SummaryPeriod = {
         key: window.key,
         label: window.label,
         since: window.since,
@@ -151,6 +180,12 @@ export async function buildSummaryData(
           .map(([source, totals]) => ({ source, ...totals }))
           .sort(compareSourcesByCost),
       };
+
+      if (countsOtherMachines) {
+        period.machines = summarizeMachines(windowEvents, timezone, sourceOrder);
+      }
+
+      return period;
     }),
   );
 

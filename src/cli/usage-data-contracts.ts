@@ -293,6 +293,11 @@ export type SummarySourceTotals = UsageWindowTotals & {
   source: string;
 };
 
+export type SummaryMachineTotals = UsageWindowTotals & {
+  /** `local` for this machine, otherwise the name it was added under. */
+  machine: string;
+};
+
 export type SummaryPeriod = {
   key: SummaryPeriodKey;
   label: string;
@@ -301,6 +306,11 @@ export type SummaryPeriod = {
   totals: UsageWindowTotals;
   /** Sources with usage in the period, by cost then name. */
   sources: SummarySourceTotals[];
+  /**
+   * Machines with usage in the period, by cost then tokens then name; present only
+   * when the report counts other machines' usage (after its filters) in the past year.
+   */
+  machines?: SummaryMachineTotals[];
 };
 
 /** Month-to-date run rate and the configured budget. */
