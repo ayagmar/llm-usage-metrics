@@ -27,6 +27,8 @@
 
 The CLI parses session content on your machine. It discovers standard source locations and includes a bundled pricing snapshot, so the first report can run without configuration or network access.
 
+See [Privacy](https://ayagmar.github.io/llm-usage-metrics/privacy/) for what it reads, stores, and sends over the network.
+
 ## Quick start
 
 Requires Node.js 22.16+ or 24+ (Node 23 lacks the SQLite busy timeout the ledger uses), or Bun 1.4+.
