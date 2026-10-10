@@ -61,6 +61,7 @@ type ClaudeUsage = {
   reasoningTokens: number;
   cacheReadTokens: number;
   cacheWriteTokens: number;
+  cacheWrite1hTokens: number;
   totalTokens: number;
 };
 
@@ -110,6 +111,10 @@ function parseUsage(usage: Record<string, unknown>): ClaudeUsage | undefined {
   const cacheWriteTokens = normalizeNonNegativeInteger(
     toNumberLike(usage.cache_creation_input_tokens),
   );
+  // cache_creation splits the writes by lifetime; one-hour writes bill at a higher rate.
+  const cacheWrite1hTokens = normalizeNonNegativeInteger(
+    toNumberLike(asRecord(usage.cache_creation)?.ephemeral_1h_input_tokens),
+  );
   // output_tokens already includes thinking; the details field is only a breakdown.
   const thinkingTokens = normalizeNonNegativeInteger(
     toNumberLike(asRecord(usage.output_tokens_details)?.thinking_tokens),
@@ -126,6 +131,7 @@ function parseUsage(usage: Record<string, unknown>): ClaudeUsage | undefined {
     reasoningTokens: Math.min(outputTokens, thinkingTokens),
     cacheReadTokens,
     cacheWriteTokens,
+    cacheWrite1hTokens: Math.min(cacheWriteTokens, cacheWrite1hTokens),
     totalTokens,
   };
 }
@@ -168,7 +174,7 @@ function comparePendingEvents(left: ClaudePendingEvent, right: ClaudePendingEven
 
 export class ClaudeSourceAdapter implements SourceAdapter {
   public readonly id = 'claude' as const;
-  public readonly parserVersion = 3;
+  public readonly parserVersion = 4;
   public readonly capabilities = { eventsPrecedeFileMtime: true } as const;
 
   private readonly rootDirs: readonly string[];

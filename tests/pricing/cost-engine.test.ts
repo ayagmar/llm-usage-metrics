@@ -151,6 +151,27 @@ describe('cost engine', () => {
     expect(estimated).toBeCloseTo(0.00025, 10);
   });
 
+  it('bills one-hour cache writes at the one-hour rate and the rest at the cache-write rate', () => {
+    const event = createUsageEvent({
+      source: 'claude',
+      sessionId: 'session-1h',
+      timestamp: '2026-02-16T10:00:00Z',
+      model: 'claude-opus-5-5',
+      cacheWriteTokens: 1_000_000,
+      cacheWrite1hTokens: 600_000,
+      costMode: 'estimated',
+    });
+    const pricing = { inputPer1MUsd: 4, outputPer1MUsd: 20, cacheWritePer1MUsd: 5 };
+
+    // 400k five-minute writes at $5/M plus 600k one-hour writes at $8/M.
+    expect(calculateEstimatedCostUsd(event, { ...pricing, cacheWrite1hPer1MUsd: 8 })).toBeCloseTo(
+      6.8,
+      10,
+    );
+    // Without a published one-hour rate every write bills at the cache-write rate.
+    expect(calculateEstimatedCostUsd(event, pricing)).toBeCloseTo(5, 10);
+  });
+
   it('charges separately billed reasoning only once when its rate equals the output rate', () => {
     const event = createUsageEvent({
       source: 'gemini',

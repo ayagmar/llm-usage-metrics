@@ -23,6 +23,7 @@ export type StoredEventTuple = [
   reasoning_tokens: unknown,
   cache_read_tokens: unknown,
   cache_write_tokens: unknown,
+  cache_write_1h_tokens: unknown,
   total_tokens: unknown,
   cost_usd: unknown,
   cost_mode: unknown,
@@ -52,6 +53,7 @@ function slowNormalizeStoredEvent(row: Record<string, unknown>): UsageEvent | un
     reasoningTokens: toNonNegativeInteger(row.reasoning_tokens),
     cacheReadTokens: toNonNegativeInteger(row.cache_read_tokens),
     cacheWriteTokens: toNonNegativeInteger(row.cache_write_tokens),
+    cacheWrite1hTokens: toNonNegativeInteger(row.cache_write_1h_tokens),
     totalTokens: toNonNegativeInteger(row.total_tokens),
     costUsd: toNonNegativeNumber(row.cost_usd),
     costMode,
@@ -77,6 +79,7 @@ function fastMaterializeStoredEvent(row: Record<string, unknown>): UsageEvent | 
     row.reasoning_tokens,
     row.cache_read_tokens,
     row.cache_write_tokens,
+    row.cache_write_1h_tokens,
     row.total_tokens,
     row.cost_usd,
     row.cost_mode,
@@ -102,9 +105,10 @@ export function normalizeStoredEventTuple(row: StoredEventTuple): UsageEvent | u
     reasoning_tokens: row[8],
     cache_read_tokens: row[9],
     cache_write_tokens: row[10],
-    total_tokens: row[11],
-    cost_usd: row[12],
-    cost_mode: row[13],
+    cache_write_1h_tokens: row[11],
+    total_tokens: row[12],
+    cost_usd: row[13],
+    cost_mode: row[14],
   });
 }
 
@@ -120,6 +124,7 @@ function materializeStoredEvent(
   reasoningTokensValue: unknown,
   cacheReadTokensValue: unknown,
   cacheWriteTokensValue: unknown,
+  cacheWrite1hTokensValue: unknown,
   totalTokensValue: unknown,
   costUsdValue: unknown,
   costModeValue: unknown,
@@ -142,6 +147,7 @@ function materializeStoredEvent(
   const reasoningTokens = toStoredNonNegativeInteger(reasoningTokensValue);
   const cacheReadTokens = toStoredNonNegativeInteger(cacheReadTokensValue);
   const cacheWriteTokens = toStoredNonNegativeInteger(cacheWriteTokensValue);
+  const cacheWrite1hTokens = toStoredNonNegativeInteger(cacheWrite1hTokensValue);
   const totalTokens = toStoredNonNegativeInteger(totalTokensValue);
   const costUsd = toStoredCostUsd(costUsdValue, costMode);
 
@@ -157,6 +163,8 @@ function materializeStoredEvent(
     reasoningTokens === undefined ||
     cacheReadTokens === undefined ||
     cacheWriteTokens === undefined ||
+    cacheWrite1hTokens === undefined ||
+    cacheWrite1hTokens > cacheWriteTokens ||
     totalTokens === undefined ||
     costUsd === FAST_PATH_REJECT
   ) {
@@ -183,6 +191,7 @@ function materializeStoredEvent(
     reasoningTokens,
     cacheReadTokens,
     cacheWriteTokens,
+    cacheWrite1hTokens,
     totalTokens,
     costUsd,
     costMode,
@@ -282,6 +291,8 @@ export function computeEventContentHash(event: UsageEvent): string {
     event.reasoningTokens,
     event.cacheReadTokens,
     event.cacheWriteTokens,
+    // cacheWrite1hTokens is left out: it only splits cacheWriteTokens, and leaving it out
+    // keeps events stored before it existed matching their reparsed copies.
     event.totalTokens,
     event.costMode,
     event.costUsd ?? '',

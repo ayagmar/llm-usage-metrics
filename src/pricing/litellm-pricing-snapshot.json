@@ -505,31 +505,36 @@
       "inputPer1MUsd": 10,
       "outputPer1MUsd": 50,
       "cacheReadPer1MUsd": 1,
-      "cacheWritePer1MUsd": 12.5
+      "cacheWritePer1MUsd": 12.5,
+      "cacheWrite1hPer1MUsd": 20
     },
     "anthropic.claude-fable-5-1": {
       "inputPer1MUsd": 10,
       "outputPer1MUsd": 50,
       "cacheReadPer1MUsd": 0.25,
-      "cacheWritePer1MUsd": 12.5
+      "cacheWritePer1MUsd": 12.5,
+      "cacheWrite1hPer1MUsd": 20
     },
     "anthropic.claude-haiku-4-5-20251001-v1:0": {
       "inputPer1MUsd": 1,
       "outputPer1MUsd": 5,
       "cacheReadPer1MUsd": 0.09999999999999999,
-      "cacheWritePer1MUsd": 1.25
+      "cacheWritePer1MUsd": 1.25,
+      "cacheWrite1hPer1MUsd": 2
     },
     "anthropic.claude-haiku-4-5@20251001": {
       "inputPer1MUsd": 1,
       "outputPer1MUsd": 5,
       "cacheReadPer1MUsd": 0.09999999999999999,
-      "cacheWritePer1MUsd": 1.25
+      "cacheWritePer1MUsd": 1.25,
+      "cacheWrite1hPer1MUsd": 2
     },
     "anthropic.claude-haiku-5-5": {
       "inputPer1MUsd": 0.09999999999999999,
       "outputPer1MUsd": 0.5,
       "cacheReadPer1MUsd": 0.01,
-      "cacheWritePer1MUsd": 0.125
+      "cacheWritePer1MUsd": 0.125,
+      "cacheWrite1hPer1MUsd": 0.19999999999999998
     },
     "anthropic.claude-instant-v1": {
       "inputPer1MUsd": 0.7999999999999999,
@@ -539,13 +544,15 @@
       "inputPer1MUsd": 10,
       "outputPer1MUsd": 50,
       "cacheReadPer1MUsd": 0.25,
-      "cacheWritePer1MUsd": 12.5
+      "cacheWritePer1MUsd": 12.5,
+      "cacheWrite1hPer1MUsd": 20
     },
     "anthropic.claude-mythos-preview": {
       "inputPer1MUsd": 27.5,
       "outputPer1MUsd": 137.5,
       "cacheReadPer1MUsd": 2.75,
-      "cacheWritePer1MUsd": 34.375
+      "cacheWritePer1MUsd": 34.375,
+      "cacheWrite1hPer1MUsd": 55
     },
     "anthropic.claude-opus-4-1-20250805-v1:0": {
       "inputPer1MUsd": 15,
@@ -563,37 +570,43 @@
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "anthropic.claude-opus-4-6-v1": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "anthropic.claude-opus-4-7": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "anthropic.claude-opus-4-8": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "anthropic.claude-opus-5": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "anthropic.claude-opus-5-5": {
       "inputPer1MUsd": 4,
       "outputPer1MUsd": 20,
       "cacheReadPer1MUsd": 0.19999999999999998,
-      "cacheWritePer1MUsd": 5
+      "cacheWritePer1MUsd": 5,
+      "cacheWrite1hPer1MUsd": 8
     },
     "anthropic.claude-sonnet-4-20250514-v1:0": {
       "inputPer1MUsd": 3,
@@ -605,25 +618,29 @@
       "inputPer1MUsd": 3,
       "outputPer1MUsd": 15,
       "cacheReadPer1MUsd": 0.3,
-      "cacheWritePer1MUsd": 3.75
+      "cacheWritePer1MUsd": 3.75,
+      "cacheWrite1hPer1MUsd": 6
     },
     "anthropic.claude-sonnet-4-6": {
       "inputPer1MUsd": 3,
       "outputPer1MUsd": 15,
       "cacheReadPer1MUsd": 0.3,
-      "cacheWritePer1MUsd": 3.75
+      "cacheWritePer1MUsd": 3.75,
+      "cacheWrite1hPer1MUsd": 6
     },
     "anthropic.claude-sonnet-5": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 10,
       "cacheReadPer1MUsd": 0.19999999999999998,
-      "cacheWritePer1MUsd": 2.5
+      "cacheWritePer1MUsd": 2.5,
+      "cacheWrite1hPer1MUsd": 4
     },
     "anthropic.claude-sonnet-5-5": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 10,
       "cacheReadPer1MUsd": 0.19999999999999998,
-      "cacheWritePer1MUsd": 2.5
+      "cacheWritePer1MUsd": 2.5,
+      "cacheWrite1hPer1MUsd": 4
     },
     "anthropic.claude-v1": {
       "inputPer1MUsd": 8,
@@ -710,7 +727,8 @@
       "inputPer1MUsd": 11,
       "outputPer1MUsd": 55,
       "cacheReadPer1MUsd": 1.1,
-      "cacheWritePer1MUsd": 13.75
+      "cacheWritePer1MUsd": 13.75,
+      "cacheWrite1hPer1MUsd": 22
     },
     "apac.anthropic.claude-haiku-4-5-20251001-v1:0": {
       "inputPer1MUsd": 1.1,
@@ -722,37 +740,43 @@
       "inputPer1MUsd": 0.11,
       "outputPer1MUsd": 0.55,
       "cacheReadPer1MUsd": 0.011,
-      "cacheWritePer1MUsd": 0.1375
+      "cacheWritePer1MUsd": 0.1375,
+      "cacheWrite1hPer1MUsd": 0.22
     },
     "apac.anthropic.claude-mythos-preview": {
       "inputPer1MUsd": 27.5,
       "outputPer1MUsd": 137.5,
       "cacheReadPer1MUsd": 2.75,
-      "cacheWritePer1MUsd": 34.375
+      "cacheWritePer1MUsd": 34.375,
+      "cacheWrite1hPer1MUsd": 55
     },
     "apac.anthropic.claude-opus-4-7": {
       "inputPer1MUsd": 5.5,
       "outputPer1MUsd": 27.5,
       "cacheReadPer1MUsd": 0.55,
-      "cacheWritePer1MUsd": 6.875
+      "cacheWritePer1MUsd": 6.875,
+      "cacheWrite1hPer1MUsd": 11
     },
     "apac.anthropic.claude-opus-4-8": {
       "inputPer1MUsd": 5.5,
       "outputPer1MUsd": 27.5,
       "cacheReadPer1MUsd": 0.55,
-      "cacheWritePer1MUsd": 6.875
+      "cacheWritePer1MUsd": 6.875,
+      "cacheWrite1hPer1MUsd": 11
     },
     "apac.anthropic.claude-opus-5": {
       "inputPer1MUsd": 5.5,
       "outputPer1MUsd": 27.5,
       "cacheReadPer1MUsd": 0.55,
-      "cacheWritePer1MUsd": 6.875
+      "cacheWritePer1MUsd": 6.875,
+      "cacheWrite1hPer1MUsd": 11
     },
     "apac.anthropic.claude-opus-5-5": {
       "inputPer1MUsd": 4.4,
       "outputPer1MUsd": 22,
       "cacheReadPer1MUsd": 0.22,
-      "cacheWritePer1MUsd": 5.5
+      "cacheWritePer1MUsd": 5.5,
+      "cacheWrite1hPer1MUsd": 8.8
     },
     "apac.anthropic.claude-sonnet-4-20250514-v1:0": {
       "inputPer1MUsd": 3,
@@ -764,97 +788,113 @@
       "inputPer1MUsd": 3.3000000000000003,
       "outputPer1MUsd": 16.5,
       "cacheReadPer1MUsd": 0.33,
-      "cacheWritePer1MUsd": 4.125
+      "cacheWritePer1MUsd": 4.125,
+      "cacheWrite1hPer1MUsd": 6.6000000000000005
     },
     "apac.anthropic.claude-sonnet-5": {
       "inputPer1MUsd": 2.2,
       "outputPer1MUsd": 11,
       "cacheReadPer1MUsd": 0.22,
-      "cacheWritePer1MUsd": 2.75
+      "cacheWritePer1MUsd": 2.75,
+      "cacheWrite1hPer1MUsd": 4.4
     },
     "apac.anthropic.claude-sonnet-5-5": {
       "inputPer1MUsd": 2.2,
       "outputPer1MUsd": 11,
       "cacheReadPer1MUsd": 0.22,
-      "cacheWritePer1MUsd": 2.75
+      "cacheWritePer1MUsd": 2.75,
+      "cacheWrite1hPer1MUsd": 4.4
     },
     "au.anthropic.claude-fable-5": {
       "inputPer1MUsd": 11,
       "outputPer1MUsd": 55,
       "cacheReadPer1MUsd": 1.1,
-      "cacheWritePer1MUsd": 13.75
+      "cacheWritePer1MUsd": 13.75,
+      "cacheWrite1hPer1MUsd": 22
     },
     "au.anthropic.claude-haiku-4-5-20251001-v1:0": {
       "inputPer1MUsd": 1.1,
       "outputPer1MUsd": 5.5,
       "cacheReadPer1MUsd": 0.11,
-      "cacheWritePer1MUsd": 1.375
+      "cacheWritePer1MUsd": 1.375,
+      "cacheWrite1hPer1MUsd": 2.2
     },
     "au.anthropic.claude-haiku-5-5": {
       "inputPer1MUsd": 0.11,
       "outputPer1MUsd": 0.55,
       "cacheReadPer1MUsd": 0.011,
-      "cacheWritePer1MUsd": 0.1375
+      "cacheWritePer1MUsd": 0.1375,
+      "cacheWrite1hPer1MUsd": 0.22
     },
     "au.anthropic.claude-mythos-preview": {
       "inputPer1MUsd": 27.5,
       "outputPer1MUsd": 137.5,
       "cacheReadPer1MUsd": 2.75,
-      "cacheWritePer1MUsd": 34.375
+      "cacheWritePer1MUsd": 34.375,
+      "cacheWrite1hPer1MUsd": 55
     },
     "au.anthropic.claude-opus-4-6-v1": {
       "inputPer1MUsd": 5.5,
       "outputPer1MUsd": 27.5,
       "cacheReadPer1MUsd": 0.55,
-      "cacheWritePer1MUsd": 6.875
+      "cacheWritePer1MUsd": 6.875,
+      "cacheWrite1hPer1MUsd": 11
     },
     "au.anthropic.claude-opus-4-7": {
       "inputPer1MUsd": 5.5,
       "outputPer1MUsd": 27.5,
       "cacheReadPer1MUsd": 0.55,
-      "cacheWritePer1MUsd": 6.875
+      "cacheWritePer1MUsd": 6.875,
+      "cacheWrite1hPer1MUsd": 11
     },
     "au.anthropic.claude-opus-4-8": {
       "inputPer1MUsd": 5.5,
       "outputPer1MUsd": 27.5,
       "cacheReadPer1MUsd": 0.55,
-      "cacheWritePer1MUsd": 6.875
+      "cacheWritePer1MUsd": 6.875,
+      "cacheWrite1hPer1MUsd": 11
     },
     "au.anthropic.claude-opus-5": {
       "inputPer1MUsd": 5.5,
       "outputPer1MUsd": 27.5,
       "cacheReadPer1MUsd": 0.55,
-      "cacheWritePer1MUsd": 6.875
+      "cacheWritePer1MUsd": 6.875,
+      "cacheWrite1hPer1MUsd": 11
     },
     "au.anthropic.claude-opus-5-5": {
       "inputPer1MUsd": 4.4,
       "outputPer1MUsd": 22,
       "cacheReadPer1MUsd": 0.22,
-      "cacheWritePer1MUsd": 5.5
+      "cacheWritePer1MUsd": 5.5,
+      "cacheWrite1hPer1MUsd": 8.8
     },
     "au.anthropic.claude-sonnet-4-5-20250929-v1:0": {
       "inputPer1MUsd": 3.3000000000000003,
       "outputPer1MUsd": 16.5,
       "cacheReadPer1MUsd": 0.33,
-      "cacheWritePer1MUsd": 4.125
+      "cacheWritePer1MUsd": 4.125,
+      "cacheWrite1hPer1MUsd": 6.6000000000000005
     },
     "au.anthropic.claude-sonnet-4-6": {
       "inputPer1MUsd": 3.3000000000000003,
       "outputPer1MUsd": 16.5,
       "cacheReadPer1MUsd": 0.33,
-      "cacheWritePer1MUsd": 4.125
+      "cacheWritePer1MUsd": 4.125,
+      "cacheWrite1hPer1MUsd": 6.6000000000000005
     },
     "au.anthropic.claude-sonnet-5": {
       "inputPer1MUsd": 2.2,
       "outputPer1MUsd": 11,
       "cacheReadPer1MUsd": 0.22,
-      "cacheWritePer1MUsd": 2.75
+      "cacheWritePer1MUsd": 2.75,
+      "cacheWrite1hPer1MUsd": 4.4
     },
     "au.anthropic.claude-sonnet-5-5": {
       "inputPer1MUsd": 2.2,
       "outputPer1MUsd": 11,
       "cacheReadPer1MUsd": 0.22,
-      "cacheWritePer1MUsd": 2.75
+      "cacheWritePer1MUsd": 2.75,
+      "cacheWrite1hPer1MUsd": 4.4
     },
     "azure/ada": {
       "inputPer1MUsd": 0.09999999999999999,
@@ -2138,85 +2178,99 @@
       "inputPer1MUsd": 10,
       "outputPer1MUsd": 50,
       "cacheReadPer1MUsd": 1,
-      "cacheWritePer1MUsd": 12.5
+      "cacheWritePer1MUsd": 12.5,
+      "cacheWrite1hPer1MUsd": 20
     },
     "azure_ai/claude-fable-5-1": {
       "inputPer1MUsd": 10,
       "outputPer1MUsd": 50,
       "cacheReadPer1MUsd": 0.25,
-      "cacheWritePer1MUsd": 12.5
+      "cacheWritePer1MUsd": 12.5,
+      "cacheWrite1hPer1MUsd": 20
     },
     "azure_ai/claude-haiku-4-5": {
       "inputPer1MUsd": 1,
       "outputPer1MUsd": 5,
       "cacheReadPer1MUsd": 0.09999999999999999,
-      "cacheWritePer1MUsd": 1.25
+      "cacheWritePer1MUsd": 1.25,
+      "cacheWrite1hPer1MUsd": 2
     },
     "azure_ai/claude-haiku-5-5": {
       "inputPer1MUsd": 0.09999999999999999,
       "outputPer1MUsd": 0.5,
       "cacheReadPer1MUsd": 0.01,
-      "cacheWritePer1MUsd": 0.125
+      "cacheWritePer1MUsd": 0.125,
+      "cacheWrite1hPer1MUsd": 0.19999999999999998
     },
     "azure_ai/claude-opus-4-5": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "azure_ai/claude-opus-4-6": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "azure_ai/claude-opus-4-7": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "azure_ai/claude-opus-4-8": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "azure_ai/claude-opus-5": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "azure_ai/claude-opus-5-5": {
       "inputPer1MUsd": 4,
       "outputPer1MUsd": 20,
       "cacheReadPer1MUsd": 0.19999999999999998,
-      "cacheWritePer1MUsd": 5
+      "cacheWritePer1MUsd": 5,
+      "cacheWrite1hPer1MUsd": 8
     },
     "azure_ai/claude-sonnet-4-5": {
       "inputPer1MUsd": 3,
       "outputPer1MUsd": 15,
       "cacheReadPer1MUsd": 0.3,
-      "cacheWritePer1MUsd": 3.75
+      "cacheWritePer1MUsd": 3.75,
+      "cacheWrite1hPer1MUsd": 6
     },
     "azure_ai/claude-sonnet-4-6": {
       "inputPer1MUsd": 3,
       "outputPer1MUsd": 15,
       "cacheReadPer1MUsd": 0.3,
-      "cacheWritePer1MUsd": 3.75
+      "cacheWritePer1MUsd": 3.75,
+      "cacheWrite1hPer1MUsd": 6
     },
     "azure_ai/claude-sonnet-5": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 10,
       "cacheReadPer1MUsd": 0.19999999999999998,
-      "cacheWritePer1MUsd": 2.5
+      "cacheWritePer1MUsd": 2.5,
+      "cacheWrite1hPer1MUsd": 4
     },
     "azure_ai/claude-sonnet-5-5": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 10,
       "cacheReadPer1MUsd": 0.19999999999999998,
-      "cacheWritePer1MUsd": 2.5
+      "cacheWritePer1MUsd": 2.5,
+      "cacheWrite1hPer1MUsd": 4
     },
     "azure_ai/codestral-2501": {
       "inputPer1MUsd": 0.3,
@@ -3238,61 +3292,71 @@
       "inputPer1MUsd": 12,
       "outputPer1MUsd": 60,
       "cacheReadPer1MUsd": 0.3,
-      "cacheWritePer1MUsd": 15
+      "cacheWritePer1MUsd": 15,
+      "cacheWrite1hPer1MUsd": 24
     },
     "bedrock/us-gov-east-1/anthropic.claude-haiku-4-5-20251001-v1:0": {
       "inputPer1MUsd": 1.2,
       "outputPer1MUsd": 6,
       "cacheReadPer1MUsd": 0.12,
-      "cacheWritePer1MUsd": 1.5
+      "cacheWritePer1MUsd": 1.5,
+      "cacheWrite1hPer1MUsd": 2.4
     },
     "bedrock/us-gov-east-1/anthropic.claude-haiku-5-5": {
       "inputPer1MUsd": 0.12,
       "outputPer1MUsd": 0.6,
       "cacheReadPer1MUsd": 0.012,
-      "cacheWritePer1MUsd": 0.15
+      "cacheWritePer1MUsd": 0.15,
+      "cacheWrite1hPer1MUsd": 0.24
     },
     "bedrock/us-gov-east-1/anthropic.claude-opus-4-8": {
       "inputPer1MUsd": 6,
       "outputPer1MUsd": 30,
       "cacheReadPer1MUsd": 0.6,
-      "cacheWritePer1MUsd": 7.5
+      "cacheWritePer1MUsd": 7.5,
+      "cacheWrite1hPer1MUsd": 12
     },
     "bedrock/us-gov-east-1/anthropic.claude-opus-5": {
       "inputPer1MUsd": 6,
       "outputPer1MUsd": 30,
       "cacheReadPer1MUsd": 0.6,
-      "cacheWritePer1MUsd": 7.5
+      "cacheWritePer1MUsd": 7.5,
+      "cacheWrite1hPer1MUsd": 12
     },
     "bedrock/us-gov-east-1/anthropic.claude-opus-5-5": {
       "inputPer1MUsd": 4.8,
       "outputPer1MUsd": 24,
       "cacheReadPer1MUsd": 0.24,
-      "cacheWritePer1MUsd": 6
+      "cacheWritePer1MUsd": 6,
+      "cacheWrite1hPer1MUsd": 9.6
     },
     "bedrock/us-gov-east-1/anthropic.claude-sonnet-4-5-20250929-v1:0": {
       "inputPer1MUsd": 3.5999999999999996,
       "outputPer1MUsd": 18,
       "cacheReadPer1MUsd": 0.36,
-      "cacheWritePer1MUsd": 4.5
+      "cacheWritePer1MUsd": 4.5,
+      "cacheWrite1hPer1MUsd": 7.199999999999999
     },
     "bedrock/us-gov-east-1/anthropic.claude-sonnet-5": {
       "inputPer1MUsd": 2.4,
       "outputPer1MUsd": 12,
       "cacheReadPer1MUsd": 0.24,
-      "cacheWritePer1MUsd": 3
+      "cacheWritePer1MUsd": 3,
+      "cacheWrite1hPer1MUsd": 4.8
     },
     "bedrock/us-gov-east-1/anthropic.claude-sonnet-5-5": {
       "inputPer1MUsd": 2.4,
       "outputPer1MUsd": 12,
       "cacheReadPer1MUsd": 0.24,
-      "cacheWritePer1MUsd": 3
+      "cacheWritePer1MUsd": 3,
+      "cacheWrite1hPer1MUsd": 4.8
     },
     "bedrock/us-gov-east-1/claude-sonnet-4-5-20250929-v1:0": {
       "inputPer1MUsd": 3.5999999999999996,
       "outputPer1MUsd": 18,
       "cacheReadPer1MUsd": 0.36,
-      "cacheWritePer1MUsd": 4.5
+      "cacheWritePer1MUsd": 4.5,
+      "cacheWrite1hPer1MUsd": 7.199999999999999
     },
     "bedrock/us-gov-east-1/meta.llama3-70b-instruct-v1:0": {
       "inputPer1MUsd": 2.65,
@@ -3369,61 +3433,71 @@
       "inputPer1MUsd": 12,
       "outputPer1MUsd": 60,
       "cacheReadPer1MUsd": 0.3,
-      "cacheWritePer1MUsd": 15
+      "cacheWritePer1MUsd": 15,
+      "cacheWrite1hPer1MUsd": 24
     },
     "bedrock/us-gov-west-1/anthropic.claude-haiku-4-5-20251001-v1:0": {
       "inputPer1MUsd": 1.2,
       "outputPer1MUsd": 6,
       "cacheReadPer1MUsd": 0.12,
-      "cacheWritePer1MUsd": 1.5
+      "cacheWritePer1MUsd": 1.5,
+      "cacheWrite1hPer1MUsd": 2.4
     },
     "bedrock/us-gov-west-1/anthropic.claude-haiku-5-5": {
       "inputPer1MUsd": 0.12,
       "outputPer1MUsd": 0.6,
       "cacheReadPer1MUsd": 0.012,
-      "cacheWritePer1MUsd": 0.15
+      "cacheWritePer1MUsd": 0.15,
+      "cacheWrite1hPer1MUsd": 0.24
     },
     "bedrock/us-gov-west-1/anthropic.claude-opus-4-8": {
       "inputPer1MUsd": 6,
       "outputPer1MUsd": 30,
       "cacheReadPer1MUsd": 0.6,
-      "cacheWritePer1MUsd": 7.5
+      "cacheWritePer1MUsd": 7.5,
+      "cacheWrite1hPer1MUsd": 12
     },
     "bedrock/us-gov-west-1/anthropic.claude-opus-5": {
       "inputPer1MUsd": 6,
       "outputPer1MUsd": 30,
       "cacheReadPer1MUsd": 0.6,
-      "cacheWritePer1MUsd": 7.5
+      "cacheWritePer1MUsd": 7.5,
+      "cacheWrite1hPer1MUsd": 12
     },
     "bedrock/us-gov-west-1/anthropic.claude-opus-5-5": {
       "inputPer1MUsd": 4.8,
       "outputPer1MUsd": 24,
       "cacheReadPer1MUsd": 0.24,
-      "cacheWritePer1MUsd": 6
+      "cacheWritePer1MUsd": 6,
+      "cacheWrite1hPer1MUsd": 9.6
     },
     "bedrock/us-gov-west-1/anthropic.claude-sonnet-4-5-20250929-v1:0": {
       "inputPer1MUsd": 3.5999999999999996,
       "outputPer1MUsd": 18,
       "cacheReadPer1MUsd": 0.36,
-      "cacheWritePer1MUsd": 4.5
+      "cacheWritePer1MUsd": 4.5,
+      "cacheWrite1hPer1MUsd": 7.199999999999999
     },
     "bedrock/us-gov-west-1/anthropic.claude-sonnet-5": {
       "inputPer1MUsd": 2.4,
       "outputPer1MUsd": 12,
       "cacheReadPer1MUsd": 0.24,
-      "cacheWritePer1MUsd": 3
+      "cacheWritePer1MUsd": 3,
+      "cacheWrite1hPer1MUsd": 4.8
     },
     "bedrock/us-gov-west-1/anthropic.claude-sonnet-5-5": {
       "inputPer1MUsd": 2.4,
       "outputPer1MUsd": 12,
       "cacheReadPer1MUsd": 0.24,
-      "cacheWritePer1MUsd": 3
+      "cacheWritePer1MUsd": 3,
+      "cacheWrite1hPer1MUsd": 4.8
     },
     "bedrock/us-gov-west-1/claude-sonnet-4-5-20250929-v1:0": {
       "inputPer1MUsd": 3.5999999999999996,
       "outputPer1MUsd": 18,
       "cacheReadPer1MUsd": 0.36,
-      "cacheWritePer1MUsd": 4.5
+      "cacheWritePer1MUsd": 4.5,
+      "cacheWrite1hPer1MUsd": 7.199999999999999
     },
     "bedrock/us-gov-west-1/meta.llama3-70b-instruct-v1:0": {
       "inputPer1MUsd": 2.65,
@@ -3527,25 +3601,29 @@
       "inputPer1MUsd": 1,
       "outputPer1MUsd": 5,
       "cacheReadPer1MUsd": 0.09999999999999999,
-      "cacheWritePer1MUsd": 1.25
+      "cacheWritePer1MUsd": 1.25,
+      "cacheWrite1hPer1MUsd": 2
     },
     "bedrock_mantle/anthropic.claude-haiku-5-5": {
       "inputPer1MUsd": 0.11,
       "outputPer1MUsd": 0.55,
       "cacheReadPer1MUsd": 0.011,
-      "cacheWritePer1MUsd": 0.1375
+      "cacheWritePer1MUsd": 0.1375,
+      "cacheWrite1hPer1MUsd": 0.22
     },
     "bedrock_mantle/anthropic.claude-opus-5-5": {
       "inputPer1MUsd": 4.4,
       "outputPer1MUsd": 22,
       "cacheReadPer1MUsd": 0.22,
-      "cacheWritePer1MUsd": 5.5
+      "cacheWritePer1MUsd": 5.5,
+      "cacheWrite1hPer1MUsd": 8.8
     },
     "bedrock_mantle/anthropic.claude-sonnet-5-5": {
       "inputPer1MUsd": 2.2,
       "outputPer1MUsd": 11,
       "cacheReadPer1MUsd": 0.22,
-      "cacheWritePer1MUsd": 2.75
+      "cacheWritePer1MUsd": 2.75,
+      "cacheWrite1hPer1MUsd": 4.4
     },
     "bedrock_mantle/deepseek.v3.1": {
       "inputPer1MUsd": 0.58,
@@ -3693,19 +3771,22 @@
       "inputPer1MUsd": 0.12,
       "outputPer1MUsd": 0.6,
       "cacheReadPer1MUsd": 0.012,
-      "cacheWritePer1MUsd": 0.15
+      "cacheWritePer1MUsd": 0.15,
+      "cacheWrite1hPer1MUsd": 0.24
     },
     "bedrock_mantle/us-gov-west-1/anthropic.claude-opus-5-5": {
       "inputPer1MUsd": 4.8,
       "outputPer1MUsd": 24,
       "cacheReadPer1MUsd": 0.24,
-      "cacheWritePer1MUsd": 6
+      "cacheWritePer1MUsd": 6,
+      "cacheWrite1hPer1MUsd": 9.6
     },
     "bedrock_mantle/us-gov-west-1/anthropic.claude-sonnet-5-5": {
       "inputPer1MUsd": 2.4,
       "outputPer1MUsd": 12,
       "cacheReadPer1MUsd": 0.24,
-      "cacheWritePer1MUsd": 3
+      "cacheWritePer1MUsd": 3,
+      "cacheWrite1hPer1MUsd": 4.8
     },
     "bedrock_mantle/us-gov-west-1/google.gemma-4-26b-a4b": {
       "inputPer1MUsd": 0.156,
@@ -3826,139 +3907,162 @@
       "inputPer1MUsd": 10,
       "outputPer1MUsd": 50,
       "cacheReadPer1MUsd": 1,
-      "cacheWritePer1MUsd": 12.5
+      "cacheWritePer1MUsd": 12.5,
+      "cacheWrite1hPer1MUsd": 20
     },
     "claude-fable-5-1": {
       "inputPer1MUsd": 10,
       "outputPer1MUsd": 50,
       "cacheReadPer1MUsd": 0.25,
-      "cacheWritePer1MUsd": 12.5
+      "cacheWritePer1MUsd": 12.5,
+      "cacheWrite1hPer1MUsd": 20
     },
     "claude-haiku-4-5": {
       "inputPer1MUsd": 1,
       "outputPer1MUsd": 5,
       "cacheReadPer1MUsd": 0.09999999999999999,
-      "cacheWritePer1MUsd": 1.25
+      "cacheWritePer1MUsd": 1.25,
+      "cacheWrite1hPer1MUsd": 2
     },
     "claude-haiku-4-5-20251001": {
       "inputPer1MUsd": 1,
       "outputPer1MUsd": 5,
       "cacheReadPer1MUsd": 0.09999999999999999,
-      "cacheWritePer1MUsd": 1.25
+      "cacheWritePer1MUsd": 1.25,
+      "cacheWrite1hPer1MUsd": 2
     },
     "claude-haiku-5-5": {
       "inputPer1MUsd": 0.09999999999999999,
       "outputPer1MUsd": 0.5,
       "cacheReadPer1MUsd": 0.01,
-      "cacheWritePer1MUsd": 0.125
+      "cacheWritePer1MUsd": 0.125,
+      "cacheWrite1hPer1MUsd": 0.19999999999999998
     },
     "claude-mythos-5": {
       "inputPer1MUsd": 10,
       "outputPer1MUsd": 50,
       "cacheReadPer1MUsd": 1,
-      "cacheWritePer1MUsd": 12.5
+      "cacheWritePer1MUsd": 12.5,
+      "cacheWrite1hPer1MUsd": 20
     },
     "claude-mythos-5-1": {
       "inputPer1MUsd": 10,
       "outputPer1MUsd": 50,
       "cacheReadPer1MUsd": 0.25,
-      "cacheWritePer1MUsd": 12.5
+      "cacheWritePer1MUsd": 12.5,
+      "cacheWrite1hPer1MUsd": 20
     },
     "claude-mythos-preview": {
       "inputPer1MUsd": 10,
       "outputPer1MUsd": 50,
       "cacheReadPer1MUsd": 1,
-      "cacheWritePer1MUsd": 12.5
+      "cacheWritePer1MUsd": 12.5,
+      "cacheWrite1hPer1MUsd": 20
     },
     "claude-opus-4-5": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "claude-opus-4-5-20251101": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "claude-opus-4-6": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "claude-opus-4-6-20260205": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "claude-opus-4-7": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "claude-opus-4-7-20260416": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "claude-opus-4-8": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "claude-opus-5": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "claude-opus-5-5": {
       "inputPer1MUsd": 4,
       "outputPer1MUsd": 20,
       "cacheReadPer1MUsd": 0.19999999999999998,
-      "cacheWritePer1MUsd": 5
+      "cacheWritePer1MUsd": 5,
+      "cacheWrite1hPer1MUsd": 8
     },
     "claude-sonnet-4-5": {
       "inputPer1MUsd": 3,
       "outputPer1MUsd": 15,
       "cacheReadPer1MUsd": 0.3,
-      "cacheWritePer1MUsd": 3.75
+      "cacheWritePer1MUsd": 3.75,
+      "cacheWrite1hPer1MUsd": 6
     },
     "claude-sonnet-4-5-20250929": {
       "inputPer1MUsd": 3,
       "outputPer1MUsd": 15,
       "cacheReadPer1MUsd": 0.3,
-      "cacheWritePer1MUsd": 3.75
+      "cacheWritePer1MUsd": 3.75,
+      "cacheWrite1hPer1MUsd": 6
     },
     "claude-sonnet-4-5-20250929-v1:0": {
       "inputPer1MUsd": 3,
       "outputPer1MUsd": 15,
       "cacheReadPer1MUsd": 0.3,
-      "cacheWritePer1MUsd": 3.75
+      "cacheWritePer1MUsd": 3.75,
+      "cacheWrite1hPer1MUsd": 6
     },
     "claude-sonnet-4-6": {
       "inputPer1MUsd": 3,
       "outputPer1MUsd": 15,
       "cacheReadPer1MUsd": 0.3,
-      "cacheWritePer1MUsd": 3.75
+      "cacheWritePer1MUsd": 3.75,
+      "cacheWrite1hPer1MUsd": 6
     },
     "claude-sonnet-5": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 10,
       "cacheReadPer1MUsd": 0.19999999999999998,
-      "cacheWritePer1MUsd": 2.5
+      "cacheWritePer1MUsd": 2.5,
+      "cacheWrite1hPer1MUsd": 4
     },
     "claude-sonnet-5-5": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 10,
       "cacheReadPer1MUsd": 0.09999999999999999,
-      "cacheWritePer1MUsd": 2.5
+      "cacheWritePer1MUsd": 2.5,
+      "cacheWrite1hPer1MUsd": 4
     },
     "cloudflare/@cf/aisingapore/gemma-sea-lion-v4-27b-it": {
       "inputPer1MUsd": 0.351,
@@ -4421,7 +4525,8 @@
       "inputPer1MUsd": 4.00001,
       "outputPer1MUsd": 19.99998,
       "cacheReadPer1MUsd": 0.19999,
-      "cacheWritePer1MUsd": 5.00003
+      "cacheWritePer1MUsd": 5.00003,
+      "cacheWrite1hPer1MUsd": 8.00002
     },
     "databricks/databricks-claude-sonnet-4": {
       "inputPer1MUsd": 2.9999900000000004,
@@ -5511,25 +5616,29 @@
       "inputPer1MUsd": 11,
       "outputPer1MUsd": 55,
       "cacheReadPer1MUsd": 1.1,
-      "cacheWritePer1MUsd": 13.75
+      "cacheWritePer1MUsd": 13.75,
+      "cacheWrite1hPer1MUsd": 22
     },
     "eu.anthropic.claude-fable-5-1": {
       "inputPer1MUsd": 11,
       "outputPer1MUsd": 55,
       "cacheReadPer1MUsd": 0.275,
-      "cacheWritePer1MUsd": 13.75
+      "cacheWritePer1MUsd": 13.75,
+      "cacheWrite1hPer1MUsd": 22
     },
     "eu.anthropic.claude-haiku-4-5-20251001-v1:0": {
       "inputPer1MUsd": 1.1,
       "outputPer1MUsd": 5.5,
       "cacheReadPer1MUsd": 0.11,
-      "cacheWritePer1MUsd": 1.375
+      "cacheWritePer1MUsd": 1.375,
+      "cacheWrite1hPer1MUsd": 2.2
     },
     "eu.anthropic.claude-haiku-5-5": {
       "inputPer1MUsd": 0.11,
       "outputPer1MUsd": 0.55,
       "cacheReadPer1MUsd": 0.011,
-      "cacheWritePer1MUsd": 0.1375
+      "cacheWritePer1MUsd": 0.1375,
+      "cacheWrite1hPer1MUsd": 0.22
     },
     "eu.anthropic.claude-opus-4-1-20250805-v1:0": {
       "inputPer1MUsd": 15,
@@ -5547,37 +5656,43 @@
       "inputPer1MUsd": 5.5,
       "outputPer1MUsd": 27.5,
       "cacheReadPer1MUsd": 0.55,
-      "cacheWritePer1MUsd": 6.875
+      "cacheWritePer1MUsd": 6.875,
+      "cacheWrite1hPer1MUsd": 11
     },
     "eu.anthropic.claude-opus-4-6-v1": {
       "inputPer1MUsd": 5.5,
       "outputPer1MUsd": 27.5,
       "cacheReadPer1MUsd": 0.55,
-      "cacheWritePer1MUsd": 6.875
+      "cacheWritePer1MUsd": 6.875,
+      "cacheWrite1hPer1MUsd": 11
     },
     "eu.anthropic.claude-opus-4-7": {
       "inputPer1MUsd": 5.5,
       "outputPer1MUsd": 27.5,
       "cacheReadPer1MUsd": 0.55,
-      "cacheWritePer1MUsd": 6.875
+      "cacheWritePer1MUsd": 6.875,
+      "cacheWrite1hPer1MUsd": 11
     },
     "eu.anthropic.claude-opus-4-8": {
       "inputPer1MUsd": 5.5,
       "outputPer1MUsd": 27.5,
       "cacheReadPer1MUsd": 0.55,
-      "cacheWritePer1MUsd": 6.875
+      "cacheWritePer1MUsd": 6.875,
+      "cacheWrite1hPer1MUsd": 11
     },
     "eu.anthropic.claude-opus-5": {
       "inputPer1MUsd": 5.5,
       "outputPer1MUsd": 27.5,
       "cacheReadPer1MUsd": 0.55,
-      "cacheWritePer1MUsd": 6.875
+      "cacheWritePer1MUsd": 6.875,
+      "cacheWrite1hPer1MUsd": 11
     },
     "eu.anthropic.claude-opus-5-5": {
       "inputPer1MUsd": 4.4,
       "outputPer1MUsd": 22,
       "cacheReadPer1MUsd": 0.22,
-      "cacheWritePer1MUsd": 5.5
+      "cacheWritePer1MUsd": 5.5,
+      "cacheWrite1hPer1MUsd": 8.8
     },
     "eu.anthropic.claude-sonnet-4-20250514-v1:0": {
       "inputPer1MUsd": 3,
@@ -5589,25 +5704,29 @@
       "inputPer1MUsd": 3.3000000000000003,
       "outputPer1MUsd": 16.5,
       "cacheReadPer1MUsd": 0.33,
-      "cacheWritePer1MUsd": 4.125
+      "cacheWritePer1MUsd": 4.125,
+      "cacheWrite1hPer1MUsd": 6.6000000000000005
     },
     "eu.anthropic.claude-sonnet-4-6": {
       "inputPer1MUsd": 3.3000000000000003,
       "outputPer1MUsd": 16.5,
       "cacheReadPer1MUsd": 0.33,
-      "cacheWritePer1MUsd": 4.125
+      "cacheWritePer1MUsd": 4.125,
+      "cacheWrite1hPer1MUsd": 6.6000000000000005
     },
     "eu.anthropic.claude-sonnet-5": {
       "inputPer1MUsd": 2.2,
       "outputPer1MUsd": 11,
       "cacheReadPer1MUsd": 0.22,
-      "cacheWritePer1MUsd": 2.75
+      "cacheWritePer1MUsd": 2.75,
+      "cacheWrite1hPer1MUsd": 4.4
     },
     "eu.anthropic.claude-sonnet-5-5": {
       "inputPer1MUsd": 2.2,
       "outputPer1MUsd": 11,
       "cacheReadPer1MUsd": 0.22,
-      "cacheWritePer1MUsd": 2.75
+      "cacheWritePer1MUsd": 2.75,
+      "cacheWrite1hPer1MUsd": 4.4
     },
     "eu.deepseek.v3.2": {
       "inputPer1MUsd": 0.74,
@@ -7782,67 +7901,78 @@
       "inputPer1MUsd": 10,
       "outputPer1MUsd": 50,
       "cacheReadPer1MUsd": 1,
-      "cacheWritePer1MUsd": 12.5
+      "cacheWritePer1MUsd": 12.5,
+      "cacheWrite1hPer1MUsd": 20
     },
     "global.anthropic.claude-fable-5-1": {
       "inputPer1MUsd": 10,
       "outputPer1MUsd": 50,
       "cacheReadPer1MUsd": 0.25,
-      "cacheWritePer1MUsd": 12.5
+      "cacheWritePer1MUsd": 12.5,
+      "cacheWrite1hPer1MUsd": 20
     },
     "global.anthropic.claude-haiku-4-5-20251001-v1:0": {
       "inputPer1MUsd": 1,
       "outputPer1MUsd": 5,
       "cacheReadPer1MUsd": 0.09999999999999999,
-      "cacheWritePer1MUsd": 1.25
+      "cacheWritePer1MUsd": 1.25,
+      "cacheWrite1hPer1MUsd": 2
     },
     "global.anthropic.claude-haiku-5-5": {
       "inputPer1MUsd": 0.09999999999999999,
       "outputPer1MUsd": 0.5,
       "cacheReadPer1MUsd": 0.01,
-      "cacheWritePer1MUsd": 0.125
+      "cacheWritePer1MUsd": 0.125,
+      "cacheWrite1hPer1MUsd": 0.19999999999999998
     },
     "global.anthropic.claude-mythos-5-1": {
       "inputPer1MUsd": 10,
       "outputPer1MUsd": 50,
       "cacheReadPer1MUsd": 0.25,
-      "cacheWritePer1MUsd": 12.5
+      "cacheWritePer1MUsd": 12.5,
+      "cacheWrite1hPer1MUsd": 20
     },
     "global.anthropic.claude-opus-4-5-20251101-v1:0": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "global.anthropic.claude-opus-4-6-v1": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "global.anthropic.claude-opus-4-7": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "global.anthropic.claude-opus-4-8": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "global.anthropic.claude-opus-5": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "global.anthropic.claude-opus-5-5": {
       "inputPer1MUsd": 4,
       "outputPer1MUsd": 20,
       "cacheReadPer1MUsd": 0.19999999999999998,
-      "cacheWritePer1MUsd": 5
+      "cacheWritePer1MUsd": 5,
+      "cacheWrite1hPer1MUsd": 8
     },
     "global.anthropic.claude-sonnet-4-20250514-v1:0": {
       "inputPer1MUsd": 3,
@@ -7854,25 +7984,29 @@
       "inputPer1MUsd": 3,
       "outputPer1MUsd": 15,
       "cacheReadPer1MUsd": 0.3,
-      "cacheWritePer1MUsd": 3.75
+      "cacheWritePer1MUsd": 3.75,
+      "cacheWrite1hPer1MUsd": 6
     },
     "global.anthropic.claude-sonnet-4-6": {
       "inputPer1MUsd": 3,
       "outputPer1MUsd": 15,
       "cacheReadPer1MUsd": 0.3,
-      "cacheWritePer1MUsd": 3.75
+      "cacheWritePer1MUsd": 3.75,
+      "cacheWrite1hPer1MUsd": 6
     },
     "global.anthropic.claude-sonnet-5": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 10,
       "cacheReadPer1MUsd": 0.19999999999999998,
-      "cacheWritePer1MUsd": 2.5
+      "cacheWritePer1MUsd": 2.5,
+      "cacheWrite1hPer1MUsd": 4
     },
     "global.anthropic.claude-sonnet-5-5": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 10,
       "cacheReadPer1MUsd": 0.19999999999999998,
-      "cacheWritePer1MUsd": 2.5
+      "cacheWritePer1MUsd": 2.5,
+      "cacheWrite1hPer1MUsd": 4
     },
     "global.cohere.embed-v4:0": {
       "inputPer1MUsd": 0.12,
@@ -8730,61 +8864,71 @@
       "inputPer1MUsd": 1.1,
       "outputPer1MUsd": 5.5,
       "cacheReadPer1MUsd": 0.11,
-      "cacheWritePer1MUsd": 1.375
+      "cacheWritePer1MUsd": 1.375,
+      "cacheWrite1hPer1MUsd": 2.2
     },
     "jp.anthropic.claude-haiku-5-5": {
       "inputPer1MUsd": 0.11,
       "outputPer1MUsd": 0.55,
       "cacheReadPer1MUsd": 0.011,
-      "cacheWritePer1MUsd": 0.1375
+      "cacheWritePer1MUsd": 0.1375,
+      "cacheWrite1hPer1MUsd": 0.22
     },
     "jp.anthropic.claude-opus-4-7": {
       "inputPer1MUsd": 5.5,
       "outputPer1MUsd": 27.5,
       "cacheReadPer1MUsd": 0.55,
-      "cacheWritePer1MUsd": 6.875
+      "cacheWritePer1MUsd": 6.875,
+      "cacheWrite1hPer1MUsd": 11
     },
     "jp.anthropic.claude-opus-4-8": {
       "inputPer1MUsd": 5.5,
       "outputPer1MUsd": 27.5,
       "cacheReadPer1MUsd": 0.55,
-      "cacheWritePer1MUsd": 6.875
+      "cacheWritePer1MUsd": 6.875,
+      "cacheWrite1hPer1MUsd": 11
     },
     "jp.anthropic.claude-opus-5": {
       "inputPer1MUsd": 5.5,
       "outputPer1MUsd": 27.5,
       "cacheReadPer1MUsd": 0.55,
-      "cacheWritePer1MUsd": 6.875
+      "cacheWritePer1MUsd": 6.875,
+      "cacheWrite1hPer1MUsd": 11
     },
     "jp.anthropic.claude-opus-5-5": {
       "inputPer1MUsd": 4.4,
       "outputPer1MUsd": 22,
       "cacheReadPer1MUsd": 0.22,
-      "cacheWritePer1MUsd": 5.5
+      "cacheWritePer1MUsd": 5.5,
+      "cacheWrite1hPer1MUsd": 8.8
     },
     "jp.anthropic.claude-sonnet-4-5-20250929-v1:0": {
       "inputPer1MUsd": 3.3000000000000003,
       "outputPer1MUsd": 16.5,
       "cacheReadPer1MUsd": 0.33,
-      "cacheWritePer1MUsd": 4.125
+      "cacheWritePer1MUsd": 4.125,
+      "cacheWrite1hPer1MUsd": 6.6000000000000005
     },
     "jp.anthropic.claude-sonnet-4-6": {
       "inputPer1MUsd": 3.3000000000000003,
       "outputPer1MUsd": 16.5,
       "cacheReadPer1MUsd": 0.33,
-      "cacheWritePer1MUsd": 4.125
+      "cacheWritePer1MUsd": 4.125,
+      "cacheWrite1hPer1MUsd": 6.6000000000000005
     },
     "jp.anthropic.claude-sonnet-5": {
       "inputPer1MUsd": 2.2,
       "outputPer1MUsd": 11,
       "cacheReadPer1MUsd": 0.22,
-      "cacheWritePer1MUsd": 2.75
+      "cacheWritePer1MUsd": 2.75,
+      "cacheWrite1hPer1MUsd": 4.4
     },
     "jp.anthropic.claude-sonnet-5-5": {
       "inputPer1MUsd": 2.2,
       "outputPer1MUsd": 11,
       "cacheReadPer1MUsd": 0.22,
-      "cacheWritePer1MUsd": 2.75
+      "cacheWritePer1MUsd": 2.75,
+      "cacheWrite1hPer1MUsd": 4.4
     },
     "kimi-k2-thinking-251104": {
       "inputPer1MUsd": 0,
@@ -14987,49 +15131,57 @@
       "inputPer1MUsd": 12,
       "outputPer1MUsd": 60,
       "cacheReadPer1MUsd": 0.3,
-      "cacheWritePer1MUsd": 15
+      "cacheWritePer1MUsd": 15,
+      "cacheWrite1hPer1MUsd": 24
     },
     "us-gov.anthropic.claude-haiku-5-5": {
       "inputPer1MUsd": 0.12,
       "outputPer1MUsd": 0.6,
       "cacheReadPer1MUsd": 0.012,
-      "cacheWritePer1MUsd": 0.15
+      "cacheWritePer1MUsd": 0.15,
+      "cacheWrite1hPer1MUsd": 0.24
     },
     "us-gov.anthropic.claude-opus-4-8": {
       "inputPer1MUsd": 6,
       "outputPer1MUsd": 30,
       "cacheReadPer1MUsd": 0.6,
-      "cacheWritePer1MUsd": 7.5
+      "cacheWritePer1MUsd": 7.5,
+      "cacheWrite1hPer1MUsd": 12
     },
     "us-gov.anthropic.claude-opus-5": {
       "inputPer1MUsd": 6,
       "outputPer1MUsd": 30,
       "cacheReadPer1MUsd": 0.6,
-      "cacheWritePer1MUsd": 7.5
+      "cacheWritePer1MUsd": 7.5,
+      "cacheWrite1hPer1MUsd": 12
     },
     "us-gov.anthropic.claude-opus-5-5": {
       "inputPer1MUsd": 4.8,
       "outputPer1MUsd": 24,
       "cacheReadPer1MUsd": 0.24,
-      "cacheWritePer1MUsd": 6
+      "cacheWritePer1MUsd": 6,
+      "cacheWrite1hPer1MUsd": 9.6
     },
     "us-gov.anthropic.claude-sonnet-4-5-20250929-v1:0": {
       "inputPer1MUsd": 3.5999999999999996,
       "outputPer1MUsd": 18,
       "cacheReadPer1MUsd": 0.36,
-      "cacheWritePer1MUsd": 4.5
+      "cacheWritePer1MUsd": 4.5,
+      "cacheWrite1hPer1MUsd": 7.199999999999999
     },
     "us-gov.anthropic.claude-sonnet-5": {
       "inputPer1MUsd": 2.4,
       "outputPer1MUsd": 12,
       "cacheReadPer1MUsd": 0.24,
-      "cacheWritePer1MUsd": 3
+      "cacheWritePer1MUsd": 3,
+      "cacheWrite1hPer1MUsd": 4.8
     },
     "us-gov.anthropic.claude-sonnet-5-5": {
       "inputPer1MUsd": 2.4,
       "outputPer1MUsd": 12,
       "cacheReadPer1MUsd": 0.24,
-      "cacheWritePer1MUsd": 3
+      "cacheWritePer1MUsd": 3,
+      "cacheWrite1hPer1MUsd": 4.8
     },
     "us-gov.nvidia.nemotron-nano-12b-v2": {
       "inputPer1MUsd": 0.24,
@@ -15119,43 +15271,50 @@
       "inputPer1MUsd": 11,
       "outputPer1MUsd": 55,
       "cacheReadPer1MUsd": 1.1,
-      "cacheWritePer1MUsd": 13.75
+      "cacheWritePer1MUsd": 13.75,
+      "cacheWrite1hPer1MUsd": 22
     },
     "us.anthropic.claude-fable-5-1": {
       "inputPer1MUsd": 11,
       "outputPer1MUsd": 55,
       "cacheReadPer1MUsd": 0.275,
-      "cacheWritePer1MUsd": 13.75
+      "cacheWritePer1MUsd": 13.75,
+      "cacheWrite1hPer1MUsd": 22
     },
     "us.anthropic.claude-haiku-4-5-20251001-v1:0": {
       "inputPer1MUsd": 1.1,
       "outputPer1MUsd": 5.5,
       "cacheReadPer1MUsd": 0.11,
-      "cacheWritePer1MUsd": 1.375
+      "cacheWritePer1MUsd": 1.375,
+      "cacheWrite1hPer1MUsd": 2.2
     },
     "us.anthropic.claude-haiku-5-5": {
       "inputPer1MUsd": 0.11,
       "outputPer1MUsd": 0.55,
       "cacheReadPer1MUsd": 0.011,
-      "cacheWritePer1MUsd": 0.1375
+      "cacheWritePer1MUsd": 0.1375,
+      "cacheWrite1hPer1MUsd": 0.22
     },
     "us.anthropic.claude-mythos-5": {
       "inputPer1MUsd": 11,
       "outputPer1MUsd": 55,
       "cacheReadPer1MUsd": 1.1,
-      "cacheWritePer1MUsd": 13.75
+      "cacheWritePer1MUsd": 13.75,
+      "cacheWrite1hPer1MUsd": 22
     },
     "us.anthropic.claude-mythos-5-1": {
       "inputPer1MUsd": 11,
       "outputPer1MUsd": 55,
       "cacheReadPer1MUsd": 0.275,
-      "cacheWritePer1MUsd": 13.75
+      "cacheWritePer1MUsd": 13.75,
+      "cacheWrite1hPer1MUsd": 22
     },
     "us.anthropic.claude-mythos-preview": {
       "inputPer1MUsd": 27.5,
       "outputPer1MUsd": 137.5,
       "cacheReadPer1MUsd": 2.75,
-      "cacheWritePer1MUsd": 34.375
+      "cacheWritePer1MUsd": 34.375,
+      "cacheWrite1hPer1MUsd": 55
     },
     "us.anthropic.claude-opus-4-1-20250805-v1:0": {
       "inputPer1MUsd": 15,
@@ -15173,37 +15332,43 @@
       "inputPer1MUsd": 5.5,
       "outputPer1MUsd": 27.5,
       "cacheReadPer1MUsd": 0.55,
-      "cacheWritePer1MUsd": 6.875
+      "cacheWritePer1MUsd": 6.875,
+      "cacheWrite1hPer1MUsd": 11
     },
     "us.anthropic.claude-opus-4-6-v1": {
       "inputPer1MUsd": 5.5,
       "outputPer1MUsd": 27.5,
       "cacheReadPer1MUsd": 0.55,
-      "cacheWritePer1MUsd": 6.875
+      "cacheWritePer1MUsd": 6.875,
+      "cacheWrite1hPer1MUsd": 11
     },
     "us.anthropic.claude-opus-4-7": {
       "inputPer1MUsd": 5.5,
       "outputPer1MUsd": 27.5,
       "cacheReadPer1MUsd": 0.55,
-      "cacheWritePer1MUsd": 6.875
+      "cacheWritePer1MUsd": 6.875,
+      "cacheWrite1hPer1MUsd": 11
     },
     "us.anthropic.claude-opus-4-8": {
       "inputPer1MUsd": 5.5,
       "outputPer1MUsd": 27.5,
       "cacheReadPer1MUsd": 0.55,
-      "cacheWritePer1MUsd": 6.875
+      "cacheWritePer1MUsd": 6.875,
+      "cacheWrite1hPer1MUsd": 11
     },
     "us.anthropic.claude-opus-5": {
       "inputPer1MUsd": 5.5,
       "outputPer1MUsd": 27.5,
       "cacheReadPer1MUsd": 0.55,
-      "cacheWritePer1MUsd": 6.875
+      "cacheWritePer1MUsd": 6.875,
+      "cacheWrite1hPer1MUsd": 11
     },
     "us.anthropic.claude-opus-5-5": {
       "inputPer1MUsd": 4.4,
       "outputPer1MUsd": 22,
       "cacheReadPer1MUsd": 0.22,
-      "cacheWritePer1MUsd": 5.5
+      "cacheWritePer1MUsd": 5.5,
+      "cacheWrite1hPer1MUsd": 8.8
     },
     "us.anthropic.claude-sonnet-4-20250514-v1:0": {
       "inputPer1MUsd": 3,
@@ -15215,25 +15380,29 @@
       "inputPer1MUsd": 3.3000000000000003,
       "outputPer1MUsd": 16.5,
       "cacheReadPer1MUsd": 0.33,
-      "cacheWritePer1MUsd": 4.125
+      "cacheWritePer1MUsd": 4.125,
+      "cacheWrite1hPer1MUsd": 6.6000000000000005
     },
     "us.anthropic.claude-sonnet-4-6": {
       "inputPer1MUsd": 3.3000000000000003,
       "outputPer1MUsd": 16.5,
       "cacheReadPer1MUsd": 0.33,
-      "cacheWritePer1MUsd": 4.125
+      "cacheWritePer1MUsd": 4.125,
+      "cacheWrite1hPer1MUsd": 6.6000000000000005
     },
     "us.anthropic.claude-sonnet-5": {
       "inputPer1MUsd": 2.2,
       "outputPer1MUsd": 11,
       "cacheReadPer1MUsd": 0.22,
-      "cacheWritePer1MUsd": 2.75
+      "cacheWritePer1MUsd": 2.75,
+      "cacheWrite1hPer1MUsd": 4.4
     },
     "us.anthropic.claude-sonnet-5-5": {
       "inputPer1MUsd": 2.2,
       "outputPer1MUsd": 11,
       "cacheReadPer1MUsd": 0.22,
-      "cacheWritePer1MUsd": 2.75
+      "cacheWritePer1MUsd": 2.75,
+      "cacheWrite1hPer1MUsd": 4.4
     },
     "us.cohere.embed-v4:0": {
       "inputPer1MUsd": 0.12,
@@ -15880,169 +16049,197 @@
       "inputPer1MUsd": 10,
       "outputPer1MUsd": 50,
       "cacheReadPer1MUsd": 1,
-      "cacheWritePer1MUsd": 12.5
+      "cacheWritePer1MUsd": 12.5,
+      "cacheWrite1hPer1MUsd": 20
     },
     "vertex_ai/claude-fable-5-1": {
       "inputPer1MUsd": 10,
       "outputPer1MUsd": 50,
       "cacheReadPer1MUsd": 0.25,
-      "cacheWritePer1MUsd": 12.5
+      "cacheWritePer1MUsd": 12.5,
+      "cacheWrite1hPer1MUsd": 20
     },
     "vertex_ai/claude-fable-5-1@default": {
       "inputPer1MUsd": 10,
       "outputPer1MUsd": 50,
       "cacheReadPer1MUsd": 0.25,
-      "cacheWritePer1MUsd": 12.5
+      "cacheWritePer1MUsd": 12.5,
+      "cacheWrite1hPer1MUsd": 20
     },
     "vertex_ai/claude-fable-5@default": {
       "inputPer1MUsd": 10,
       "outputPer1MUsd": 50,
       "cacheReadPer1MUsd": 1,
-      "cacheWritePer1MUsd": 12.5
+      "cacheWritePer1MUsd": 12.5,
+      "cacheWrite1hPer1MUsd": 20
     },
     "vertex_ai/claude-haiku-4-5": {
       "inputPer1MUsd": 1,
       "outputPer1MUsd": 5,
       "cacheReadPer1MUsd": 0.09999999999999999,
-      "cacheWritePer1MUsd": 1.25
+      "cacheWritePer1MUsd": 1.25,
+      "cacheWrite1hPer1MUsd": 2
     },
     "vertex_ai/claude-haiku-4-5@20251001": {
       "inputPer1MUsd": 1,
       "outputPer1MUsd": 5,
       "cacheReadPer1MUsd": 0.09999999999999999,
-      "cacheWritePer1MUsd": 1.25
+      "cacheWritePer1MUsd": 1.25,
+      "cacheWrite1hPer1MUsd": 2
     },
     "vertex_ai/claude-haiku-5-5": {
       "inputPer1MUsd": 0.09999999999999999,
       "outputPer1MUsd": 0.5,
       "cacheReadPer1MUsd": 0.01,
-      "cacheWritePer1MUsd": 0.125
+      "cacheWritePer1MUsd": 0.125,
+      "cacheWrite1hPer1MUsd": 0.19999999999999998
     },
     "vertex_ai/claude-haiku-5-5@default": {
       "inputPer1MUsd": 0.09999999999999999,
       "outputPer1MUsd": 0.5,
       "cacheReadPer1MUsd": 0.01,
-      "cacheWritePer1MUsd": 0.125
+      "cacheWritePer1MUsd": 0.125,
+      "cacheWrite1hPer1MUsd": 0.19999999999999998
     },
     "vertex_ai/claude-opus-4-5": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "vertex_ai/claude-opus-4-5@20251101": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "vertex_ai/claude-opus-4-6": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "vertex_ai/claude-opus-4-6@default": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "vertex_ai/claude-opus-4-7": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "vertex_ai/claude-opus-4-7@default": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "vertex_ai/claude-opus-4-8": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "vertex_ai/claude-opus-4-8@default": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "vertex_ai/claude-opus-5": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "vertex_ai/claude-opus-5-5": {
       "inputPer1MUsd": 4,
       "outputPer1MUsd": 20,
       "cacheReadPer1MUsd": 0.19999999999999998,
-      "cacheWritePer1MUsd": 5
+      "cacheWritePer1MUsd": 5,
+      "cacheWrite1hPer1MUsd": 8
     },
     "vertex_ai/claude-opus-5-5@default": {
       "inputPer1MUsd": 4,
       "outputPer1MUsd": 20,
       "cacheReadPer1MUsd": 0.19999999999999998,
-      "cacheWritePer1MUsd": 5
+      "cacheWritePer1MUsd": 5,
+      "cacheWrite1hPer1MUsd": 8
     },
     "vertex_ai/claude-opus-5@default": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 25,
       "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
+      "cacheWritePer1MUsd": 6.25,
+      "cacheWrite1hPer1MUsd": 10
     },
     "vertex_ai/claude-sonnet-4-5": {
       "inputPer1MUsd": 3,
       "outputPer1MUsd": 15,
       "cacheReadPer1MUsd": 0.3,
-      "cacheWritePer1MUsd": 3.75
+      "cacheWritePer1MUsd": 3.75,
+      "cacheWrite1hPer1MUsd": 6
     },
     "vertex_ai/claude-sonnet-4-5@20250929": {
       "inputPer1MUsd": 3,
       "outputPer1MUsd": 15,
       "cacheReadPer1MUsd": 0.3,
-      "cacheWritePer1MUsd": 3.75
+      "cacheWritePer1MUsd": 3.75,
+      "cacheWrite1hPer1MUsd": 6
     },
     "vertex_ai/claude-sonnet-4-6": {
       "inputPer1MUsd": 3,
       "outputPer1MUsd": 15,
       "cacheReadPer1MUsd": 0.3,
-      "cacheWritePer1MUsd": 3.75
+      "cacheWritePer1MUsd": 3.75,
+      "cacheWrite1hPer1MUsd": 6
     },
     "vertex_ai/claude-sonnet-4-6@default": {
       "inputPer1MUsd": 3,
       "outputPer1MUsd": 15,
       "cacheReadPer1MUsd": 0.3,
-      "cacheWritePer1MUsd": 3.75
+      "cacheWritePer1MUsd": 3.75,
+      "cacheWrite1hPer1MUsd": 6
     },
     "vertex_ai/claude-sonnet-5": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 10,
       "cacheReadPer1MUsd": 0.19999999999999998,
-      "cacheWritePer1MUsd": 2.5
+      "cacheWritePer1MUsd": 2.5,
+      "cacheWrite1hPer1MUsd": 4
     },
     "vertex_ai/claude-sonnet-5-5": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 10,
       "cacheReadPer1MUsd": 0.09999999999999999,
-      "cacheWritePer1MUsd": 2.5
+      "cacheWritePer1MUsd": 2.5,
+      "cacheWrite1hPer1MUsd": 4
     },
     "vertex_ai/claude-sonnet-5-5@default": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 10,
       "cacheReadPer1MUsd": 0.09999999999999999,
-      "cacheWritePer1MUsd": 2.5
+      "cacheWritePer1MUsd": 2.5,
+      "cacheWrite1hPer1MUsd": 4
     },
     "vertex_ai/claude-sonnet-5@default": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 10,
       "cacheReadPer1MUsd": 0.19999999999999998,
-      "cacheWritePer1MUsd": 2.5
+      "cacheWritePer1MUsd": 2.5,
+      "cacheWrite1hPer1MUsd": 4
     },
     "vertex_ai/codestral-2": {
       "inputPer1MUsd": 0.3,

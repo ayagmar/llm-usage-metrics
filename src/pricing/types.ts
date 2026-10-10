@@ -5,6 +5,8 @@ export type ModelPricing = {
   outputPer1MUsd: number;
   cacheReadPer1MUsd?: number;
   cacheWritePer1MUsd?: number;
+  /** One-hour cache writes; without it they bill at `cacheWritePer1MUsd`. */
+  cacheWrite1hPer1MUsd?: number;
   reasoningPer1MUsd?: number;
   reasoningBilling?: ReasoningBillingMode;
 };

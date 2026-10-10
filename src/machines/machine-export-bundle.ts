@@ -224,6 +224,7 @@ function toUsageEventInput(value: unknown): UsageEventInput {
     reasoningTokens: optionalCount(record, 'reasoningTokens'),
     cacheReadTokens: optionalCount(record, 'cacheReadTokens'),
     cacheWriteTokens: optionalCount(record, 'cacheWriteTokens'),
+    cacheWrite1hTokens: optionalCount(record, 'cacheWrite1hTokens'),
     totalTokens: optionalCount(record, 'totalTokens'),
     costUsd: optionalCount(record, 'costUsd'),
     costMode,

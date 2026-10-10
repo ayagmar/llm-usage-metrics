@@ -17,7 +17,12 @@ import type { ModelPricing, PricingSource, ReasoningBillingMode } from './types.
 // }
 
 const requiredRateKeys = ['inputPer1MUsd', 'outputPer1MUsd'] as const;
-const optionalRateKeys = ['cacheReadPer1MUsd', 'cacheWritePer1MUsd', 'reasoningPer1MUsd'] as const;
+const optionalRateKeys = [
+  'cacheReadPer1MUsd',
+  'cacheWritePer1MUsd',
+  'cacheWrite1hPer1MUsd',
+  'reasoningPer1MUsd',
+] as const;
 const knownOverrideKeys = new Set<string>([
   ...requiredRateKeys,
   ...optionalRateKeys,
@@ -88,6 +93,7 @@ function normalizePricingOverride(
   const outputPer1MUsd = readRate(raw, 'outputPer1MUsd', true, problems);
   const cacheReadPer1MUsd = readRate(raw, 'cacheReadPer1MUsd', false, problems);
   const cacheWritePer1MUsd = readRate(raw, 'cacheWritePer1MUsd', false, problems);
+  const cacheWrite1hPer1MUsd = readRate(raw, 'cacheWrite1hPer1MUsd', false, problems);
   const reasoningPer1MUsd = readRate(raw, 'reasoningPer1MUsd', false, problems);
   const reasoningBilling = normalizeReasoningBilling(raw.reasoningBilling);
 
@@ -108,6 +114,7 @@ function normalizePricingOverride(
     outputPer1MUsd,
     ...(cacheReadPer1MUsd !== undefined ? { cacheReadPer1MUsd } : {}),
     ...(cacheWritePer1MUsd !== undefined ? { cacheWritePer1MUsd } : {}),
+    ...(cacheWrite1hPer1MUsd !== undefined ? { cacheWrite1hPer1MUsd } : {}),
     ...(reasoningPer1MUsd !== undefined ? { reasoningPer1MUsd } : {}),
     ...(reasoningBilling !== undefined ? { reasoningBilling } : {}),
   };

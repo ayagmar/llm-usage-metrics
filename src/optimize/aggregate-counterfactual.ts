@@ -113,6 +113,9 @@ function createSyntheticEvent(period: BaselinePeriodTotals): UsageEvent {
     reasoningTokens: period.reasoningTokens,
     cacheReadTokens: period.cacheReadTokens,
     cacheWriteTokens: period.cacheWriteTokens,
+    // Report rows do not keep the one-hour share, so candidates price every write at the
+    // standard cache-write rate.
+    cacheWrite1hTokens: 0,
     totalTokens: period.totalTokens,
     costMode: 'estimated',
     costUsd: undefined,

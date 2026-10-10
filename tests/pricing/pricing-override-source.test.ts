@@ -115,7 +115,12 @@ describe('loadPricingOverrides', () => {
       filePath,
       JSON.stringify({
         models: {
-          'claude-opus-4-8': { inputPer1MUsd: 12, outputPer1MUsd: 60 },
+          'claude-opus-4-8': {
+            inputPer1MUsd: 12,
+            outputPer1MUsd: 60,
+            cacheWritePer1MUsd: 15,
+            cacheWrite1hPer1MUsd: 24,
+          },
           'My-Internal-Model': {
             inputPer1MUsd: 1,
             outputPer1MUsd: 2,
@@ -132,6 +137,8 @@ describe('loadPricingOverrides', () => {
     expect(overrides.get('claude-opus-4-8')).toEqual({
       inputPer1MUsd: 12,
       outputPer1MUsd: 60,
+      cacheWritePer1MUsd: 15,
+      cacheWrite1hPer1MUsd: 24,
     });
     // keys are lowercased so lookups are case-insensitive
     expect(overrides.get('my-internal-model')).toEqual({

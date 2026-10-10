@@ -46,7 +46,15 @@ export function calculateEstimatedCostUsd(event: UsageEvent, pricing: ModelPrici
   const inputCost = estimateTokenGroupCost(event.inputTokens, pricing.inputPer1MUsd);
   const outputCost = estimateTokenGroupCost(billedOutput.outputTokens, pricing.outputPer1MUsd);
   const cacheReadCost = estimateTokenGroupCost(event.cacheReadTokens, pricing.cacheReadPer1MUsd);
-  const cacheWriteCost = estimateTokenGroupCost(event.cacheWriteTokens, pricing.cacheWritePer1MUsd);
+  const cacheWriteCost =
+    estimateTokenGroupCost(
+      event.cacheWriteTokens - event.cacheWrite1hTokens,
+      pricing.cacheWritePer1MUsd,
+    ) +
+    estimateTokenGroupCost(
+      event.cacheWrite1hTokens,
+      pricing.cacheWrite1hPer1MUsd ?? pricing.cacheWritePer1MUsd,
+    );
   const reasoningCost = estimateTokenGroupCost(
     billedOutput.reasoningTokens,
     pricing.reasoningPer1MUsd,

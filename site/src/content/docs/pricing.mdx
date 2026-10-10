@@ -50,6 +50,10 @@ Each event is either:
 
 Explicit `costUsd: 0` events are re-priced from LiteLLM when model pricing exists.
 
+## Cache writes
+
+Claude caches a prompt for five minutes or one hour, and a one-hour write costs more (2x the input rate instead of 1.25x). Claude logs record how many written tokens used each lifetime, so one-hour writes are priced at LiteLLM's one-hour rate. Models without a one-hour rate, and events stored before 0.11 whose log file is gone, price every write at the standard cache-write rate. When history has two stored copies of such a file, one from before the upgrade, it may serve the older copy at that rate.
+
 ## Row cost rendering
 
 - `-` when all contributing events are unresolved
@@ -86,6 +90,6 @@ Illustrative file shape (these are example rates, not a provider rate card):
 }
 ```
 
-Only `inputPer1MUsd` and `outputPer1MUsd` are required; `cacheReadPer1MUsd`, `cacheWritePer1MUsd`, `reasoningPer1MUsd`, and `reasoningBilling` are optional. `reasoningBilling: "included-in-output"` (the default) bills all output tokens at `outputPer1MUsd`; `"separate"` bills the reasoning share of output at `reasoningPer1MUsd` and only the remainder at `outputPer1MUsd`, since `outputTokens` already includes reasoning. Rates must be finite, non-negative numbers. A missing required rate, an invalid rate, an unknown key, or an unknown `reasoningBilling` value fails the run with an error naming each bad entry, so a typo never leaves a model silently priced from LiteLLM. Model names match case-insensitively, and an override on a name short-circuits LiteLLM alias resolution for that name.
+Only `inputPer1MUsd` and `outputPer1MUsd` are required; `cacheReadPer1MUsd`, `cacheWritePer1MUsd`, `cacheWrite1hPer1MUsd`, `reasoningPer1MUsd`, and `reasoningBilling` are optional. `cacheWrite1hPer1MUsd` prices one-hour cache writes (Claude); without it they bill at `cacheWritePer1MUsd`. `reasoningBilling: "included-in-output"` (the default) bills all output tokens at `outputPer1MUsd`; `"separate"` bills the reasoning share of output at `reasoningPer1MUsd` and only the remainder at `outputPer1MUsd`, since `outputTokens` already includes reasoning. Rates must be finite, non-negative numbers. A missing required rate, an invalid rate, an unknown key, or an unknown `reasoningBilling` value fails the run with an error naming each bad entry, so a typo never leaves a model silently priced from LiteLLM. Model names match case-insensitively, and an override on a name short-circuits LiteLLM alias resolution for that name.
 
 Overrides can price a model absent from your current cache or bundled snapshot, or select rates for a specific workload. The [DeepSeek Harness guide](/llm-usage-metrics/sources/dsh/#pricing) explains refreshed pricing, legacy model names, and peak versus off-peak estimates.
