@@ -168,6 +168,18 @@ describe('createCli', () => {
       ],
     },
     {
+      // Export stream: --format replaces --json.
+      command: 'events',
+      present: ['--format', '--source', '--since', '--pricing-url', '--history', '--no-sync'],
+      absent: ['--json', '--markdown', '--share'],
+    },
+    {
+      // Always offline and silent, and never syncs over ssh.
+      command: 'statusline',
+      present: ['--source', '--verbose', '--pricing-overrides', '--history', '--machine'],
+      absent: ['--json', '--quiet', '--pricing-url', '--pricing-offline', '--no-sync', '--since'],
+    },
+    {
       command: 'prune',
       present: [
         '--suppressed',
@@ -217,10 +229,13 @@ describe('createCli', () => {
     ]);
   });
 
-  it('includes quiet on every report command', () => {
+  it('includes quiet on every report command except the always-silent statusline', () => {
     const cli = createCli();
     const reportCommands = cli.commands.filter(
-      (command) => !['config', 'machine', 'sync', 'schema', 'completion'].includes(command.name()),
+      (command) =>
+        !['config', 'machine', 'sync', 'schema', 'completion', 'statusline'].includes(
+          command.name(),
+        ),
     );
 
     for (const command of reportCommands) {
@@ -288,6 +303,28 @@ describe('createCli', () => {
     expect(compactHelp).toContain('llm-usage prune --suppressed');
     expect(compactHelp).toContain('npx --yes llm-usage-metrics@latest');
     expect(compactDailyCommandHelp).toContain('after source/provider/date filters');
+  });
+
+  it('wraps every help line to the terminal width on narrow terminals', () => {
+    const columns = 60;
+    const cli = createCli();
+    const commands = cli.commands.flatMap((entry) => [entry, ...entry.commands]);
+
+    for (const command of [cli, ...commands]) {
+      let text = '';
+      command
+        .configureOutput({ writeOut: (chunk) => (text += chunk), getOutHelpWidth: () => columns })
+        .outputHelp();
+
+      // Option and command rows; examples and prose blocks are written pre-wrapped.
+      // A single word wider than the description column cannot be split.
+      const overflowing = text
+        .split('\n')
+        .filter((line) => line.startsWith('  ') && !line.trimStart().startsWith('$ '))
+        .filter((line) => line.length > columns && line.trim().includes(' '));
+
+      expect(overflowing, command.name()).toEqual([]);
+    }
   });
 
   it('does not leak empty-array defaults for repeatable options in command help', () => {

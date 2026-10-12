@@ -29,7 +29,7 @@ llm-usage statusline --source claude
 
 A filtered line shows no budget, since the budget covers all your usage.
 
-`--json` is not supported; use `llm-usage summary --json` for structured data.
+The line uses cached or bundled prices and other machines' cached usage, and prints nothing on stderr unless you pass `--verbose`. So `statusline` has no `--json`, `--quiet`, `--pricing-url`, `--pricing-offline`, or `--no-sync`. For structured data, use `llm-usage summary --json`.
 
 ## Claude Code
 

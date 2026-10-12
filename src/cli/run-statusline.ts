@@ -147,10 +147,6 @@ async function buildStatuslineSummary(
   options: StatuslineCommandOptions,
   deps: BuildSummaryDataDeps,
 ): Promise<SummaryDataResult> {
-  if (options.json) {
-    throw new Error('--json is not supported for statusline; use llm-usage summary --json');
-  }
-
   // A status line refreshes often: cached or bundled prices and other machines' cached
   // usage only, never a network fetch or an ssh connection.
   return buildSummaryData({ ...options, pricingOffline: true, sync: false }, deps);

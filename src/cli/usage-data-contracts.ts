@@ -48,9 +48,15 @@ type AlwaysOnCommandOptions = {
   dshDir?: SourceDirectoryValue;
   sourceDir?: string[];
   source?: string | string[];
-  json?: boolean;
-  quiet?: boolean;
   verbose?: boolean;
+};
+
+type JsonOption = {
+  json?: boolean;
+};
+
+type QuietOption = {
+  quiet?: boolean;
 };
 
 type DateFilterOptions = {
@@ -76,16 +82,22 @@ type PerModelColumnsOption = {
 };
 
 type PricingOptions = {
-  pricingUrl?: string;
   pricingOverrides?: string;
-  pricingOffline?: boolean;
   ignorePricingFailures?: boolean;
+};
+
+type PricingFetchOptions = {
+  pricingUrl?: string;
+  pricingOffline?: boolean;
 };
 
 type HistoryOption = {
   history?: boolean;
   /** Machines to count, by name; `local` is this one. Default: all. */
   machine?: string | string[];
+};
+
+type SyncOption = {
   /** False with --no-sync: use other machines' cached usage without refreshing it. */
   sync?: boolean;
 };
@@ -100,11 +112,15 @@ type ProfileConfig = typeof sharedOptionProfileConfig;
 
 // Keep command option types derived from the same profile booleans that register the flags.
 type SharedOptionsForProfile<P extends SharedOptionProfile> = AlwaysOnCommandOptions &
+  (ProfileConfig[P]['includeJson'] extends true ? JsonOption : unknown) &
+  (ProfileConfig[P]['includeQuiet'] extends true ? QuietOption : unknown) &
   (ProfileConfig[P]['includeDateFilters'] extends true ? DateFilterOptions : unknown) &
   (ProfileConfig[P]['includeTimezone'] extends true ? TimezoneOption : unknown) &
   (ProfileConfig[P]['includeProviderModelFilters'] extends true ? ProviderModelOptions : unknown) &
   (ProfileConfig[P]['includePricing'] extends true ? PricingOptions : unknown) &
+  (ProfileConfig[P]['includePricingFetch'] extends true ? PricingFetchOptions : unknown) &
   (ProfileConfig[P]['includeHistory'] extends true ? HistoryOption : unknown) &
+  (ProfileConfig[P]['includeSync'] extends true ? SyncOption : unknown) &
   (ProfileConfig[P]['includeMarkdown'] extends true ? MarkdownOption : unknown) &
   (ProfileConfig[P]['includePerModelColumns'] extends true ? PerModelColumnsOption : unknown) &
   (ProfileConfig[P]['includeShare'] extends true ? ShareOption : unknown);

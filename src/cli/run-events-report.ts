@@ -18,10 +18,6 @@ const CSV_HEADER =
   'source,sessionId,timestamp,repoRoot,provider,model,inputTokens,outputTokens,reasoningTokens,cacheReadTokens,cacheWriteTokens,totalTokens,costUsd,costMode,machine';
 
 function resolveEventsFormat(options: EventsCommandOptions): EventsExportFormat {
-  if (options.json) {
-    throw new Error('--json is not supported for events; use --format jsonl');
-  }
-
   const format = options.format ?? 'jsonl';
   const resolved = eventsExportFormats.find((candidate) => candidate === format);
 

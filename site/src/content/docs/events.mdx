@@ -24,7 +24,7 @@ llm-usage events --source codex --since 2026-06-01 | jq '.totalTokens'
 - `--format <name>`: `jsonl` (default) or `csv`
 - shared filters apply: `--source`, `--provider`, `--model`, `--since`, `--until`, `--timezone`, source-path overrides, pricing flags, and `--history`
 
-`events` is an export stream, not a report: `--json` is rejected with `--json is not supported for events; use --format jsonl`, and `--markdown`/`--share` are not available. Diagnostics go to `stderr` as usual, so redirecting `stdout` produces a clean data file.
+`events` is an export stream, not a report: it takes `--format jsonl` or `--format csv` instead of `--json`, and has no `--markdown` or `--share`. Diagnostics go to `stderr` as usual, so redirecting `stdout` produces a clean data file.
 
 ## Export contract
 

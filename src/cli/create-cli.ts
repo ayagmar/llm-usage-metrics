@@ -84,6 +84,21 @@ function rejectUnknownCommand(program: Command, args: readonly string[]): void {
   program.error(`error: unknown command '${unknownCommand}'${hint}`);
 }
 
+/**
+ * Commander leaves option descriptions unwrapped when fewer than 40 columns remain beside
+ * the flags, which on terminals under ~73 columns prints 200-character lines. Wrap down to
+ * a narrower description column instead; wide terminals render the same as before.
+ */
+const MIN_HELP_DESCRIPTION_WIDTH = 20;
+
+function wrapHelpOnNarrowTerminals(command: Command): void {
+  command.configureHelp({ minWidthToWrap: MIN_HELP_DESCRIPTION_WIDTH });
+
+  for (const subcommand of command.commands) {
+    wrapHelpOnNarrowTerminals(subcommand);
+  }
+}
+
 export function createCli(options: CreateCliOptions = {}): Command {
   const program = new Command();
 
@@ -137,6 +152,8 @@ export function createCli(options: CreateCliOptions = {}): Command {
       setLogLevel('debug');
     }
   });
+
+  wrapHelpOnNarrowTerminals(program);
 
   return program;
 }
