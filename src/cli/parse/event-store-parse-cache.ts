@@ -1,5 +1,8 @@
 import type { UsageEvent } from '../../domain/usage-event.js';
-import type { replaceFilesEvents as replaceDefaultFilesEvents } from '../../persistence/event-store.js';
+import type {
+  claimOverrideOnlyFiles as claimDefaultOverrideOnlyFiles,
+  replaceFilesEvents as replaceDefaultFilesEvents,
+} from '../../persistence/event-store.js';
 import {
   serializeEventStoreFingerprint,
   type EventStore,
@@ -27,6 +30,7 @@ export type EventStoreParseDeps = {
     filePath: string,
   ) => UsageEvent[] | undefined;
   replaceFilesEvents?: typeof replaceDefaultFilesEvents;
+  claimOverrideOnlyFiles?: typeof claimDefaultOverrideOnlyFiles;
 };
 
 export type EventStoreFailureState = {
@@ -43,8 +47,11 @@ export type EventStoreParseContext = {
   ) => EventStoreFileEntry | undefined;
   readFileEvents: (store: EventStore, source: string, filePath: string) => UsageEvent[] | undefined;
   replaceFilesEvents: typeof replaceDefaultFilesEvents;
+  claimOverrideOnlyFiles: typeof claimDefaultOverrideOnlyFiles;
   now: () => number;
   failureState: EventStoreFailureState;
+  /** Lowercase ids of the sources this run reads from a custom directory. */
+  overrideSourceIds: ReadonlySet<string>;
 };
 
 export function recordEventStoreFailure(state: EventStoreFailureState, error: unknown): void {
@@ -138,8 +145,39 @@ export function writeParsedFilesToEventStore(
     const now = context.now();
     context.replaceFilesEvents(
       context.store,
-      files.map((file) => ({ ...file, now })),
+      files.map((file) => ({
+        ...file,
+        now,
+        overrideOnly: context.overrideSourceIds.has(file.source.toLowerCase()),
+      })),
     );
+  } catch (error) {
+    recordEventStoreFailure(context.failureState, error);
+  }
+}
+
+/**
+ * Claims the files this run discovered in their sources' usual locations, so a file
+ * first seen under a custom directory is served as history once it departs.
+ */
+export function claimFilesInUsualLocations(
+  context: EventStoreParseContext,
+  files: readonly { source: string; filePath: string }[],
+): void {
+  if (context.failureState.disabled) {
+    return;
+  }
+
+  const usualLocationFiles = files.filter(
+    (file) => !context.overrideSourceIds.has(file.source.toLowerCase()),
+  );
+
+  if (usualLocationFiles.length === 0) {
+    return;
+  }
+
+  try {
+    context.claimOverrideOnlyFiles(context.store, usualLocationFiles);
   } catch (error) {
     recordEventStoreFailure(context.failureState, error);
   }

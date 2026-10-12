@@ -66,6 +66,7 @@ Relevant options/config:
 - persisted as SQLite with per-file replace-on-change writes, batched into one transaction per source
 - with `--since`, file-per-session sources skip files whose newest `mtime` (including sidecars) is more than a day before the window; with the store on, only files the store already holds are skipped, so the ledger still ingests older files
 - reports include usage from files that no longer exist on disk by default; `--no-history` leaves it out
+- files only ever read through a directory flag (`--claude-dir ./export`, `--source-dir`) are cached but never served as history by a report on the usual directories; once such a report finds the file in the usual location, it is history like any other file
 - moved, renamed, and copied files are suppressed by content hash to avoid double counting; a departed file that only partly overlaps counted usage is served without the overlapping events
 - `llm-usage prune` previews or deletes departed-file rows explicitly
 - first run after a store schema upgrade migrates the database in place and may take a few seconds

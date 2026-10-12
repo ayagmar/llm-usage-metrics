@@ -1,4 +1,4 @@
-import { mkdtemp, rm, utimes, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, utimes, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -477,6 +477,70 @@ describe('buildUsageEventDataset history', () => {
     expect(dataset.notes).toEqual([
       'History: included 1 event(s) from 1 departed file(s) (0 suppressed as moved or duplicated).',
     ]);
+  });
+
+  it('keeps files only read from a custom directory out of later default reports', async () => {
+    const eventStorePath = await createEventStorePath();
+    const tempDir = path.dirname(eventStorePath);
+    const usualPath = path.join(tempDir, 'usual.jsonl');
+    const exportPath = path.join(tempDir, 'export', 'export.jsonl');
+    await mkdir(path.dirname(exportPath));
+    await writeFile(usualPath, '{}\n', 'utf8');
+    await writeFile(exportPath, '{}\n', 'utf8');
+    const usualEvent = createEvent({ sessionId: 'usual' });
+    const exportEvent = createEvent({ sessionId: 'export', totalTokens: 1_500 });
+    let discoveredFiles: Record<string, ReturnType<typeof createEvent>[]> = {
+      [usualPath]: [usualEvent],
+    };
+    const deps = {
+      ...createDatasetDeps(eventStorePath),
+      createAdapters: () => [createAdapter('codex', discoveredFiles)],
+    };
+
+    await buildUsageEventDataset({ source: 'codex', timezone: 'UTC' }, deps);
+    discoveredFiles = { [exportPath]: [exportEvent] };
+    const exportDataset = await buildUsageEventDataset(
+      { codexDir: path.dirname(exportPath), timezone: 'UTC' },
+      deps,
+    );
+    await rm(path.dirname(exportPath), { recursive: true });
+    discoveredFiles = { [usualPath]: [usualEvent] };
+
+    const defaultDataset = await buildUsageEventDataset({ source: 'codex', timezone: 'UTC' }, deps);
+    const historyDataset = await buildUsageEventDataset(
+      { history: true, source: 'codex', timezone: 'UTC' },
+      deps,
+    );
+
+    expect(exportDataset.filteredEvents).toEqual([exportEvent]);
+    expect(defaultDataset.filteredEvents).toEqual([usualEvent]);
+    expect(defaultDataset.notes).toEqual([]);
+    expect(historyDataset.filteredEvents).toEqual([usualEvent]);
+    expect(historyDataset.ledger?.historyFiles).toEqual([]);
+  });
+
+  it('serves a file first read from a custom directory once a default run found it', async () => {
+    const eventStorePath = await createEventStorePath();
+    const sessionPath = path.join(path.dirname(eventStorePath), 'session.jsonl');
+    await writeFile(sessionPath, '{}\n', 'utf8');
+    const sessionEvent = createEvent({ sessionId: 'session' });
+    let discoveredFiles: Record<string, ReturnType<typeof createEvent>[]> = {
+      [sessionPath]: [sessionEvent],
+    };
+    const deps = {
+      ...createDatasetDeps(eventStorePath),
+      createAdapters: () => [createAdapter('codex', discoveredFiles)],
+    };
+
+    await buildUsageEventDataset({ codexDir: path.dirname(sessionPath), timezone: 'UTC' }, deps);
+    await buildUsageEventDataset({ source: 'codex', timezone: 'UTC' }, deps);
+    await rm(sessionPath);
+    discoveredFiles = {};
+
+    const dataset = await buildUsageEventDataset({ source: 'codex', timezone: 'UTC' }, deps);
+
+    expect(dataset.filteredEvents).toEqual([sessionEvent]);
+    expect(dataset.ledger?.historyFiles).toEqual([{ source: 'codex', filePath: sessionPath }]);
   });
 
   it('does not treat a file skipped by --since as departed', async () => {
