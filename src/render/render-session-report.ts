@@ -11,7 +11,7 @@ import { renderReportHeader } from './report-header.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
 import { renderReportJson } from './report-json.js';
-import { wrapTableColumn } from './table-text-layout.js';
+import { resolveTtyColumns, wrapTableColumn } from './table-text-layout.js';
 
 export type SessionReportFormat = 'terminal' | 'markdown' | 'json';
 
@@ -181,6 +181,8 @@ function renderTerminalSessionReport(
       layout: 'top_aligned',
       multilineColumnIndex: modelsColumnIndex,
       multilineColumnWidth: MODELS_COLUMN_WIDTH,
+      terminalWidth: resolveTtyColumns(process.stdout),
+      stackedTitleColumnCount: 1,
     }),
   );
 

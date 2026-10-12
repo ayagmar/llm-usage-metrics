@@ -1,9 +1,11 @@
 import pc from 'picocolors';
-import { visibleWidth } from './table-text-layout.js';
+import { resolveTtyColumns, visibleWidth } from './table-text-layout.js';
 
 export type ReportHeaderOptions = {
   title: string;
   useColor?: boolean;
+  /** Defaults to the stdout TTY width; a title too wide for the box prints unboxed. */
+  terminalWidth?: number;
 };
 
 function getBoxWidth(content: string): number {
@@ -24,6 +26,11 @@ function padLine(content: string, width: number): string {
 export function renderReportHeader(options: ReportHeaderOptions): string {
   const { title, useColor = true } = options;
   const boxWidth = getBoxWidth(title);
+  const terminalWidth = options.terminalWidth ?? resolveTtyColumns(process.stdout);
+
+  if (terminalWidth !== undefined && boxWidth > terminalWidth) {
+    return useColor ? pc.bold(pc.white(title)) : title;
+  }
 
   const lines: string[] = [];
 

@@ -172,6 +172,25 @@ describe('renderSummaryReport', () => {
     expect(tooNarrow).toContain('Current streak  2 days');
   });
 
+  it('lists each period with labelled values on a phone-width terminal', () => {
+    const output = renderSummaryReport(createSummaryData(), 'terminal', {
+      useColor: true,
+      terminalWidth: 44,
+    });
+
+    expect(output).not.toContain('╭');
+    expect(output).toMatch(/^Today$/mu);
+    expect(output).toMatch(/^ {2}Cost +\S/mu);
+    const periodLines = output
+      .split('\n')
+      .filter((line) => /^(?:Today|Last 7 days|Month to date| {2}\S)/u.test(line));
+
+    expect(periodLines.length).toBeGreaterThanOrEqual(12);
+    for (const line of periodLines) {
+      expect(visibleWidth(line), line).toBeLessThanOrEqual(44);
+    }
+  });
+
   it('never draws the heatmap or its legend past the terminal width', () => {
     for (const terminalWidth of [17, 18, 19, 20, 57, 80]) {
       const output = renderSummaryReport(createSummaryData(), 'terminal', {

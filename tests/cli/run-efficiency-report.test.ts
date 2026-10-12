@@ -9,6 +9,7 @@ import * as shareArtifact from '../../src/cli/share-artifact.js';
 
 import { buildEfficiencyReport, runEfficiencyReport } from '../../src/cli/run-efficiency-report.js';
 import { overrideStdoutTty } from '../helpers/stdout.js';
+import { visibleWidth } from '../../src/render/table-text-layout.js';
 
 const execFileAsync = promisify(execFile);
 const tempDirs: string[] = [];
@@ -143,7 +144,7 @@ describe('runEfficiencyReport', () => {
     expect(String(consoleLogSpy.mock.calls[0]?.[0])).toContain('Daily Efficiency Report');
   });
 
-  it('warns when terminal table width exceeds available columns', async () => {
+  it('lists rows instead of an overflowing table on a narrow terminal', async () => {
     const repoDir = await createGitRepoWithCommit('2026-02-14T10:00:00Z');
     const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'efficiency-overflow-sessions-'));
     tempDirs.push(emptyDir);
@@ -167,9 +168,12 @@ describe('runEfficiencyReport', () => {
     }
 
     expect(consoleLogSpy).toHaveBeenCalledTimes(1);
+    const outputLines = String(consoleLogSpy.mock.calls[0][0]).split('\n');
+    expect(outputLines.some((line) => line.includes('╭'))).toBe(false);
+    expect(Math.max(...outputLines.map((line) => visibleWidth(line)))).toBeLessThanOrEqual(40);
     const stderrLines = consoleErrorSpy.mock.calls.map((call) => String(call[0]));
     expect(stderrLines.some((line) => line.includes('Report table is wider than terminal'))).toBe(
-      true,
+      false,
     );
   });
 

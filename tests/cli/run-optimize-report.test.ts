@@ -258,7 +258,7 @@ describe('run-optimize-report', () => {
     expect(stderrLines.some((line) => line.includes('token mismatch warning'))).toBe(true);
   });
 
-  it('warns when terminal output overflows tty width', async () => {
+  it('lists rows instead of an overflowing table on a narrow terminal', async () => {
     const stdout = process.stdout as NodeJS.WriteStream;
     const isTTYDescriptor = Object.getOwnPropertyDescriptor(stdout, 'isTTY');
     const columnsDescriptor = Object.getOwnPropertyDescriptor(stdout, 'columns');
@@ -288,9 +288,10 @@ describe('run-optimize-report', () => {
     }
 
     expect(consoleLogSpy).toHaveBeenCalledTimes(1);
+    expect(String(consoleLogSpy.mock.calls[0][0])).not.toContain('╭');
     const stderrLines = consoleErrorSpy.mock.calls.map((call) => String(call[0]));
     expect(stderrLines.some((line) => line.includes('Report table is wider than terminal'))).toBe(
-      true,
+      false,
     );
   });
 

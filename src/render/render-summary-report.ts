@@ -256,7 +256,14 @@ function renderTerminalSummaryReport(
     periodKey: 'summary',
     rowKind: 'detail',
   }));
-  const lines = [renderReportHeader({ title: getTitle(summaryData), useColor }), ''];
+  const lines = [
+    renderReportHeader({
+      title: getTitle(summaryData),
+      useColor,
+      terminalWidth: options.terminalWidth,
+    }),
+    '',
+  ];
 
   if (!hasAnyUsage(summaryData)) {
     lines.push(
@@ -276,6 +283,7 @@ function renderTerminalSummaryReport(
       multilineColumnIndex: 0,
       multilineColumnWidth: 13,
       leftAlignedColumnIndexes: [3],
+      terminalWidth: options.terminalWidth ?? resolveTtyColumns(process.stdout),
     }),
   );
 

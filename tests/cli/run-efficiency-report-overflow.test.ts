@@ -26,7 +26,10 @@ vi.mock('../../src/cli/build-efficiency-data.js', () => ({
 }));
 
 vi.mock('../../src/render/render-efficiency-report.js', () => ({
-  renderEfficiencyReport: vi.fn(() => 'plain output without table-like characters'),
+  renderEfficiencyReportWithNotes: vi.fn(() => ({
+    output: 'plain output without table-like characters',
+    notes: [],
+  })),
 }));
 
 import { runEfficiencyReport } from '../../src/cli/run-efficiency-report.js';

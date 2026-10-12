@@ -5,7 +5,7 @@ import type { OptimizeDataResult } from '../cli/usage-data-contracts.js';
 import type { OptimizeBaselineRow, OptimizeCandidateRow } from '../optimize/optimize-row.js';
 import type { ReportGranularity } from '../utils/time-buckets.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
-import { visibleWidth } from './table-text-layout.js';
+import { resolveTtyColumns, visibleWidth } from './table-text-layout.js';
 import { renderReportHeader } from './report-header.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
@@ -294,6 +294,7 @@ function renderTerminalOptimizeReport(
       layout: 'compact',
       multilineColumnIndex: 1,
       multilineColumnWidth: candidateColumnWidth,
+      terminalWidth: resolveTtyColumns(process.stdout),
     }),
   );
 

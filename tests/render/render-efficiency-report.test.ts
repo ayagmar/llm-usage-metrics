@@ -3,7 +3,10 @@ import { stripVTControlCharacters } from 'node:util';
 import pc from 'picocolors';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { renderEfficiencyReport } from '../../src/render/render-efficiency-report.js';
+import {
+  renderEfficiencyReport,
+  renderEfficiencyReportWithNotes,
+} from '../../src/render/render-efficiency-report.js';
 import type { EfficiencyDataResult, UsageDiagnostics } from '../../src/cli/usage-data-contracts.js';
 import { visibleWidth } from '../../src/render/table-text-layout.js';
 import { overrideStdoutProperty } from '../helpers/stdout.js';
@@ -302,6 +305,62 @@ describe('renderEfficiencyReport', () => {
       );
 
       expect(maxWidth).toBeLessThanOrEqual(120);
+    } finally {
+      restoreStdout();
+    }
+  });
+
+  it('lists rows instead of splitting numbers when the table cannot fit', () => {
+    const data = createEfficiencyDataResult();
+    data.rows = data.rows.map((row) => ({ ...row, totalTokens: 1_433_651_218 }));
+    const restoreStdout = overrideStdoutTty(44);
+
+    try {
+      const output = renderEfficiencyReport(data, 'terminal', {
+        granularity: 'monthly',
+        useColor: false,
+      });
+      const lines = output.split('\n');
+
+      expect(output).not.toContain('╭');
+      expect(lines).toContain('2026-02-10');
+      expect(lines.some((line) => /^ {2}Total +1,433,651,218$/u.test(line))).toBe(true);
+      expect(Math.max(...lines.map((line) => visibleWidth(line)))).toBeLessThanOrEqual(44);
+    } finally {
+      restoreStdout();
+    }
+  });
+
+  it('keeps a table at 80 columns for real-sized numbers by hiding detail columns', () => {
+    const data = createEfficiencyDataResult();
+    for (const row of data.rows) {
+      Object.assign(row, {
+        periodKey: row.rowType === 'period' ? '2026-02' : row.periodKey,
+        costIncomplete: false,
+        inputTokens: 1_771_205,
+        cacheReadTokens: 1_411_998_554,
+        totalTokens: 1_433_651_218,
+        costUsd: 533.82,
+        tokensPerCommit: 324_698.33,
+      });
+    }
+    const restoreStdout = overrideStdoutTty(80);
+
+    try {
+      const { output, notes } = renderEfficiencyReportWithNotes(data, 'terminal', {
+        granularity: 'monthly',
+        useColor: false,
+      });
+      const lines = output.split('\n');
+
+      expect(output).toContain('╭');
+      expect(output).toContain('1.43B');
+      expect(output).toMatch(/│ +Tokens\/ │/u);
+      expect(output).not.toContain('Cache Write');
+      expect(Math.max(...lines.map((line) => visibleWidth(line)))).toBeLessThanOrEqual(80);
+      expect(notes).toEqual([
+        expect.stringContaining('hid +Lines, -Lines, Input, Output, Reasoning, Cache Read'),
+      ]);
     } finally {
       restoreStdout();
     }

@@ -8,6 +8,7 @@ import type {
 } from '../cli/usage-data-contracts.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { renderReportHeader } from './report-header.js';
+import { resolveTtyColumns } from './table-text-layout.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
 import { renderReportJson } from './report-json.js';
@@ -154,6 +155,7 @@ function renderTerminalTable(options: {
     layout: 'compact',
     multilineColumnIndex: 0,
     multilineColumnWidth: options.firstColumnWidth,
+    terminalWidth: resolveTtyColumns(process.stdout),
   });
 }
 

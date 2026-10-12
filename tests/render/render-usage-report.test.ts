@@ -234,6 +234,7 @@ describe('renderUsageReportWithNotes output', () => {
       tokenFormat: 'abbreviated' as const,
       hiddenColumns: ['reasoning' as const, 'cacheWrite' as const],
       truncatedModelNames: false,
+      stacked: false,
     };
 
     expect(describeTableFit(fit, true)).toBeUndefined();

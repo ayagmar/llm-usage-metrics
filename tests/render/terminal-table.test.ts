@@ -1,3 +1,5 @@
+import { stripVTControlCharacters } from 'node:util';
+
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { UsageReportRow } from '../../src/domain/usage-report-row.js';
@@ -1032,6 +1034,7 @@ describe('renderTerminalTable', () => {
       tokenFormat: 'abbreviated',
       hiddenColumns: [],
       truncatedModelNames: false,
+      stacked: false,
     });
     expect(lines[1]).toContain('│ Cache │ Cache │');
     expect(lines[2]).toContain('│  Read │ Write │');
@@ -1061,6 +1064,7 @@ describe('renderTerminalTable', () => {
       tokenFormat: 'abbreviated',
       hiddenColumns: ['reasoning', 'cacheWrite'],
       truncatedModelNames: false,
+      stacked: false,
     });
     expect(output).not.toContain('Reasoning');
     expect(output).toContain('• gpt-5-codex');
@@ -1102,7 +1106,12 @@ describe('renderTerminalTable', () => {
   it('keeps every column for piped output without a terminal width', () => {
     const { fit } = renderTerminalTableWithFit(sampleRows, { useColor: false });
 
-    expect(fit).toEqual({ tokenFormat: 'full', hiddenColumns: [], truncatedModelNames: false });
+    expect(fit).toEqual({
+      tokenFormat: 'full',
+      hiddenColumns: [],
+      truncatedModelNames: false,
+      stacked: false,
+    });
   });
 
   it('keeps stacked header lines aligned with color enabled', () => {
@@ -1118,10 +1127,31 @@ describe('renderTerminalTable', () => {
     expect(headerLines[1]).toContain('Read');
   });
 
-  it('throws when explicit terminal width override is too narrow to render table', () => {
+  it('lists each row under its period and source when even the narrowest table is too wide', () => {
+    const { output, fit } = renderTerminalTableWithFit(sampleRows, {
+      useColor: true,
+      terminalWidth: 30,
+    });
+    // CI turns color on, so compare text without ANSI codes.
+    const plainLines = output.split('\n').map((line) => stripVTControlCharacters(line));
+
+    expect(fit.stacked).toBe(true);
+    expect(Math.max(...plainLines.map((line) => visibleWidth(line)))).toBeLessThanOrEqual(30);
+    expect(output).not.toContain('│');
+    expect(plainLines).toEqual(
+      expect.arrayContaining(['2026-02-10 · pi', '2026-02-10 · combined']),
+    );
+    expect(plainLines.some((line) => /^ {2}Cost +\$1\.25$/u.test(line))).toBe(true);
+    // A list has room for Input and Output even though the narrowest table hides them.
+    expect(plainLines.some((line) => /^ {2}Input +\S/u.test(line))).toBe(true);
+    expect(plainLines.some((line) => /^ {2}Output +\S/u.test(line))).toBe(true);
+  });
+
+  it('throws when an explicit width is too narrow for a per-model table', () => {
     expect(() =>
       renderTerminalTable(sampleRows, {
         useColor: false,
+        tableLayout: 'per_model_columns',
         terminalWidth: 30,
       }),
     ).toThrow('Configured terminal width (30) is too narrow for table rendering');

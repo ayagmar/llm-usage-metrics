@@ -79,7 +79,7 @@ function formatFullTokenCount(value: number | undefined): string {
   return integerFormatter.format(value ?? 0);
 }
 
-function formatAbbreviatedTokenCount(value: number | undefined): string {
+export function formatAbbreviatedTokenCount(value: number | undefined): string {
   return abbreviatedIntegerFormatter.format(value ?? 0);
 }
 

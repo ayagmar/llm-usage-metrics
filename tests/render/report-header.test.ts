@@ -19,6 +19,13 @@ describe('renderReportHeader', () => {
     expect(rendered.includes('\u001b[')).toBe(false);
   });
 
+  it('prints the title without a box when the box would not fit the terminal', () => {
+    const title = 'Usage summary for 2026-10-12 (Africa/Casablanca)';
+
+    expect(renderReportHeader({ title, useColor: false, terminalWidth: 44 })).toBe(title);
+    expect(renderReportHeader({ title, useColor: false, terminalWidth: 80 })).toContain('┌');
+  });
+
   it('renders header content when color is enabled', () => {
     const rendered = renderReportHeader({
       title: 'Daily Token Usage Report',
