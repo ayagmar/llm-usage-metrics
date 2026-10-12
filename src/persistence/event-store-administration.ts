@@ -904,7 +904,7 @@ export function replaceFilesEvents(
   const markOverrideOnlyFile = (store.statements.markOverrideOnlyFile ??= store.database.prepare(
     [
       'INSERT OR IGNORE INTO override_only_files (source, file_path)',
-      'SELECT ?1, ?2 WHERE NOT EXISTS (SELECT 1 FROM files WHERE source = ?1 AND file_path = ?2)',
+      'SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM files WHERE source = ? AND file_path = ?)',
     ].join('\n'),
   ));
 
@@ -915,7 +915,7 @@ export function replaceFilesEvents(
 
       // Before the upsert, which would make every file look already stored.
       if (write.overrideOnly) {
-        markOverrideOnlyFile.run(source, filePath);
+        markOverrideOnlyFile.run(source, filePath, source, filePath);
       }
 
       write.events.forEach((event, eventIndex) => {
