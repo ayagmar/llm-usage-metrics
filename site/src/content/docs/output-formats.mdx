@@ -35,7 +35,7 @@ Usage tables fit the terminal width. When the full table is too wide, the render
 llm-usage daily --compact
 ```
 
-`--compact` starts from the abbreviated table without Reasoning and Cache Write, even when the terminal is wide or the output is piped. It works with terminal and Markdown output, not JSON. If even the narrowest table is wider than the terminal, an overflow warning goes to `stderr`; use a wider terminal or JSON.
+`--compact` starts from the abbreviated table without Reasoning and Cache Write, even when the terminal is wide or the output is piped. It works with terminal and Markdown output, not JSON. If even the narrowest table is wider than the terminal, as on a phone, each row is listed on its own instead: a title line with the period and source, then one `label value` line each for Input, Output, Cache Read, Total, and Cost (abbreviated; Models, Reasoning, and Cache Write are left out). The other terminal reports (summary, session, compare, efficiency, optimize, wrapped) switch to the same list when their table does not fit, and a report title too wide for its box prints without one. `--per-model-columns` tables keep the table and warn on `stderr` instead, since their metric lines only make sense next to the model names.
 
 ```bash
 llm-usage daily --no-cost

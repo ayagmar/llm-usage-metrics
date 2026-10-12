@@ -1,4 +1,5 @@
 import type { EfficiencyRow } from '../efficiency/efficiency-row.js';
+import { formatAbbreviatedTokenCount, type UsageTokenFormat } from './row-cells.js';
 
 export const efficiencyTableHeaders = [
   'Period',
@@ -68,19 +69,29 @@ function formatDecimal(value: number | undefined, options: { approximate?: boole
   return options.approximate ? `~${formatted}` : formatted;
 }
 
-export function toEfficiencyTableCells(rows: EfficiencyRow[]): string[][] {
+/** `abbreviated` shortens token counts (`1.43B`); commits, lines, and costs stay exact. */
+export function toEfficiencyTableCells(
+  rows: EfficiencyRow[],
+  tokenFormat: UsageTokenFormat = 'full',
+): string[][] {
+  const formatTokens = tokenFormat === 'abbreviated' ? formatAbbreviatedTokenCount : formatInteger;
+  const formatTokenRate = (value: number | undefined) =>
+    value !== undefined && tokenFormat === 'abbreviated'
+      ? formatAbbreviatedTokenCount(value)
+      : formatDecimal(value);
+
   return rows.map((row) => [
     row.rowType === 'period_source' ? `  ${row.source}` : row.periodKey,
     formatInteger(row.rowType === 'period_source' ? undefined : row.commitCount),
     formatInteger(row.rowType === 'period_source' ? undefined : row.linesAdded),
     formatInteger(row.rowType === 'period_source' ? undefined : row.linesDeleted),
     formatInteger(row.rowType === 'period_source' ? undefined : row.linesChanged),
-    formatInteger(row.inputTokens),
-    formatInteger(row.outputTokens),
-    formatInteger(row.reasoningTokens),
-    formatInteger(row.cacheReadTokens),
-    formatInteger(row.cacheWriteTokens),
-    formatInteger(row.totalTokens),
+    formatTokens(row.inputTokens),
+    formatTokens(row.outputTokens),
+    formatTokens(row.reasoningTokens),
+    formatTokens(row.cacheReadTokens),
+    formatTokens(row.cacheWriteTokens),
+    formatTokens(row.totalTokens),
     formatUsd(row.costUsd, { approximate: row.costIncomplete }),
     formatUsdRate(row.rowType === 'period_source' ? undefined : row.usdPerCommit, {
       approximate: row.costIncomplete,
@@ -88,7 +99,7 @@ export function toEfficiencyTableCells(rows: EfficiencyRow[]): string[][] {
     formatUsdRate(row.rowType === 'period_source' ? undefined : row.usdPer1kLinesChanged, {
       approximate: row.costIncomplete,
     }),
-    formatDecimal(row.rowType === 'period_source' ? undefined : row.tokensPerCommit),
+    formatTokenRate(row.rowType === 'period_source' ? undefined : row.tokensPerCommit),
     formatDecimal(row.rowType === 'period_source' ? undefined : row.commitsPerUsd, {
       approximate: row.costIncomplete,
     }),

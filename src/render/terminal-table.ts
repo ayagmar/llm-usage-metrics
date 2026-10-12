@@ -59,6 +59,8 @@ export type TerminalTableFit = {
   tokenFormat: UsageTokenFormat;
   hiddenColumns: UsageTableColumnId[];
   truncatedModelNames: boolean;
+  /** Rows are listed as label/value lines because no table step fits the terminal. */
+  stacked: boolean;
 };
 
 type TerminalRenderOptions = {
@@ -421,6 +423,8 @@ function renderPreparedTable(
     modelsColumnWidth: number;
     /** Pack model lists side by side; only worth it when a terminal width bounds the table. */
     packModels: boolean;
+    /** Set when no step fits, so the rows are listed instead of boxed. */
+    stackedWidth: number | undefined;
   },
 ): { output: string; truncatedModelNames: boolean } {
   const laidOutRows =
@@ -453,6 +457,7 @@ function renderPreparedTable(
       ? columns.indexOf(modelsColumnIndex)
       : columns.indexOf(sourceColumnIndex),
     multilineColumnWidth: prepared.showsModels ? options.modelsColumnWidth : undefined,
+    terminalWidth: options.stackedWidth,
   });
 
   return { output, truncatedModelNames };
@@ -483,12 +488,27 @@ export function renderTerminalTableWithFit(
     }
   }
 
+  // Per-model metric lines only line up with their model names inside the table.
+  const stacked =
+    tableLayout === 'compact' &&
+    terminalWidth !== undefined &&
+    !fitsTerminal(prepared, terminalWidth);
+
+  if (stacked) {
+    // A list has no column budget: keep Input and Output, drop only the model lists.
+    const listStep = steps.find((step) => step.hiddenColumns.includes('models'));
+
+    if (listStep) {
+      prepared = prepareFitStep(rows, tableLayout, listStep);
+    }
+  }
   const modelsColumnWidth = resolveModelsColumnWidth(prepared, tableLayout, terminalWidth);
   const { output, truncatedModelNames } = renderPreparedTable(rows, prepared, {
     tableLayout,
     useColor,
     modelsColumnWidth,
     packModels: terminalWidth !== undefined,
+    stackedWidth: stacked ? terminalWidth : undefined,
   });
 
   if (hasExplicitTerminalWidth && terminalWidth !== undefined) {
@@ -507,6 +527,7 @@ export function renderTerminalTableWithFit(
       tokenFormat: prepared.step.tokenFormat,
       hiddenColumns: [...prepared.step.hiddenColumns],
       truncatedModelNames,
+      stacked,
     },
   };
 }

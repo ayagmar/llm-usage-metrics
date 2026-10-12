@@ -575,7 +575,7 @@ describe('buildUsageReport', () => {
     }
   });
 
-  it('emits a fullscreen hint only when terminal width cannot fit the table', async () => {
+  it('lists rows instead of a table when even the narrowest table cannot fit', async () => {
     const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'usage-run-overflow-hint-'));
     tempDirs.push(emptyDir);
 
@@ -599,8 +599,14 @@ describe('buildUsageReport', () => {
       ).toBe(true);
       expect(
         errorSpy.mock.calls.some((call) => String(call[0]).includes('wider than terminal')),
+      ).toBe(false);
+      expect(
+        errorSpy.mock.calls.some((call) =>
+          String(call[0]).includes('Listed rows instead of a table'),
+        ),
       ).toBe(true);
       expect(logSpy).toHaveBeenCalledTimes(1);
+      expect(String(logSpy.mock.calls[0][0])).not.toContain('╭');
     } finally {
       restoreStdout();
       errorSpy.mockRestore();

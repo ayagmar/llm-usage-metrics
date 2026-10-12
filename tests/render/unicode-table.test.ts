@@ -12,6 +12,48 @@ function createRowMeta(overrides: Partial<TableRowMeta> = {}): TableRowMeta {
 }
 
 describe('renderUnicodeTable', () => {
+  it('wraps a listed value between name parts when it is longer than the line', () => {
+    const model = 'deepseek/deepseek-v4.1-flash';
+    const rendered = renderUnicodeTable({
+      headerCells: ['Session', 'Model'],
+      bodyRows: [['…3b0277334e93', model]],
+      measureHeaderCells: ['Session', 'Model'],
+      measureBodyRows: [['…3b0277334e93', model]],
+      rowMetas: [createRowMeta()],
+      layout: 'top_aligned',
+      multilineColumnIndex: 1,
+      terminalWidth: 30,
+      stackedTitleColumnCount: 1,
+    });
+
+    expect(rendered.split('\n')).toEqual([
+      '…3b0277334e93',
+      '  Model  deepseek/deepseek-',
+      '         v4.1-flash',
+    ]);
+  });
+
+  it('lists rows as labelled values when the table is wider than the terminal', () => {
+    const rendered = renderUnicodeTable({
+      headerCells: ['Session', 'Source', 'Cost', 'Models'],
+      bodyRows: [['…3b0277334e93', 'codex', '', 'gpt-5.4\nclaude-opus-4-8']],
+      measureHeaderCells: ['Session', 'Source', 'Cost', 'Models'],
+      measureBodyRows: [['…3b0277334e93', 'codex', '', 'gpt-5.4\nclaude-opus-4-8']],
+      rowMetas: [createRowMeta()],
+      layout: 'top_aligned',
+      multilineColumnIndex: 3,
+      terminalWidth: 30,
+      stackedTitleColumnCount: 1,
+    });
+
+    expect(rendered.split('\n')).toEqual([
+      '…3b0277334e93',
+      '  Source  codex',
+      '  Models  gpt-5.4',
+      '          claude-opus-4-8',
+    ]);
+  });
+
   it('pads missing body/measure rows when usage row counts are misaligned', () => {
     const rendered = renderUnicodeTable({
       headerCells: ['Period', 'Source'],

@@ -4,7 +4,7 @@ import type { WrappedRecap, WrappedTopItem } from '../wrapped/wrapped-recap.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { renderReportHeader } from './report-header.js';
 import { formatApproxUsd, formatInteger } from './share-svg-theme.js';
-import { visibleWidth } from './table-text-layout.js';
+import { resolveTtyColumns, visibleWidth } from './table-text-layout.js';
 import {
   defaultTerminalStylePalette,
   type TerminalStylePalette,
@@ -169,6 +169,7 @@ function renderTopTable(headerCells: readonly string[], bodyRows: string[][]): s
     layout: 'compact',
     multilineColumnIndex: TOP_ITEM_NAME_COLUMN,
     multilineColumnWidth: nameColumnWidth,
+    terminalWidth: resolveTtyColumns(process.stdout),
   });
 }
 

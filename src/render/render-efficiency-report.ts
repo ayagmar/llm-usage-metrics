@@ -7,12 +7,8 @@ import type { ReportGranularity } from '../utils/time-buckets.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { renderReportHeader } from './report-header.js';
 import { efficiencyTableHeaders, toEfficiencyTableCells } from './efficiency-row-cells.js';
-import {
-  resolveTtyColumns,
-  splitCellLines,
-  visibleWidth,
-  wrapTableColumn,
-} from './table-text-layout.js';
+import { resolveTtyColumns, splitCellLines, visibleWidth } from './table-text-layout.js';
+import { selectColumns, type UsageTokenFormat } from './row-cells.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
 import { renderReportJson } from './report-json.js';
@@ -25,20 +21,64 @@ export type RenderEfficiencyReportOptions = {
 };
 
 const periodColumnIndex = 0;
-const minimumEfficiencyColumnWidth = 1;
 const commitsColumnIndex = 1;
 const linesAddedColumnIndex = 2;
 const linesDeletedColumnIndex = 3;
 const linesChangedColumnIndex = 4;
+const inputColumnIndex = 5;
+const outputColumnIndex = 6;
+const reasoningColumnIndex = 7;
+const cacheReadColumnIndex = 8;
+const cacheWriteColumnIndex = 9;
 const costColumnIndex = 11;
 const usdPerCommitColumnIndex = 12;
 const usdPer1kLinesChangedColumnIndex = 13;
 const commitsPerUsdColumnIndex = 15;
 
+type EfficiencyFitStep = {
+  tokenFormat: UsageTokenFormat;
+  hiddenColumnIndexes: readonly number[];
+};
+
+/** Ordered from most to least detail; the list layout is the last resort. */
+const efficiencyFitSteps: readonly EfficiencyFitStep[] = [
+  { tokenFormat: 'full', hiddenColumnIndexes: [] },
+  { tokenFormat: 'abbreviated', hiddenColumnIndexes: [] },
+  {
+    tokenFormat: 'abbreviated',
+    hiddenColumnIndexes: [
+      inputColumnIndex,
+      outputColumnIndex,
+      reasoningColumnIndex,
+      cacheWriteColumnIndex,
+    ],
+  },
+  {
+    tokenFormat: 'abbreviated',
+    hiddenColumnIndexes: [
+      linesAddedColumnIndex,
+      linesDeletedColumnIndex,
+      inputColumnIndex,
+      outputColumnIndex,
+      reasoningColumnIndex,
+      cacheReadColumnIndex,
+      cacheWriteColumnIndex,
+      commitsPerUsdColumnIndex,
+    ],
+  },
+];
+
+export type RenderedEfficiencyReport = {
+  output: string;
+  /** stderr notes, such as what fitting the table to the terminal left out. */
+  notes: string[];
+};
+
 type FittedEfficiencyTableCells = {
   headerCells: string[];
   bodyRows: string[][];
   widths: number[];
+  stackedWidth?: number;
 };
 
 function getReportTitle(granularity: ReportGranularity): string {
@@ -73,11 +113,7 @@ function computeColumnWidths(
   headerCells: readonly string[],
   bodyRows: readonly string[][],
 ): number[] {
-  const columnCount = Math.max(
-    headerCells.length,
-    ...bodyRows.map((row) => row.length),
-    efficiencyTableHeaders.length,
-  );
+  const columnCount = Math.max(headerCells.length, ...bodyRows.map((row) => row.length));
   const widths = Array.from({ length: columnCount }, () => 0);
 
   const measureRow = (row: readonly string[]) => {
@@ -97,99 +133,100 @@ function computeColumnWidths(
   return widths;
 }
 
-function resolveWrappedCells(
-  headerCells: readonly string[],
-  bodyRows: readonly string[][],
-  widths: readonly number[],
-): { wrappedHeaderCells: string[]; wrappedBodyRows: string[][] } {
-  let wrappedHeaderCells = [...headerCells];
-  let wrappedBodyRows = bodyRows.map((row) => [...row]);
-
-  for (let columnIndex = 0; columnIndex < widths.length; columnIndex += 1) {
-    const columnWidth = widths[columnIndex] ?? 0;
-
-    if (columnWidth <= 0) {
-      continue;
-    }
-
-    wrappedHeaderCells =
-      wrapTableColumn([wrappedHeaderCells], {
-        columnIndex,
-        width: columnWidth,
-      })[0] ?? [];
-    wrappedBodyRows = wrapTableColumn(wrappedBodyRows, {
-      columnIndex,
-      width: columnWidth,
-    });
-  }
-
-  return {
-    wrappedHeaderCells,
-    wrappedBodyRows,
-  };
+/** Header pieces that may start a new line: words, and the parts after a `/`. */
+function splitHeaderPieces(header: string): string[] {
+  return header.split(' ').flatMap((word) => word.split(/(?<=\/)/u));
 }
 
+function wrapHeader(header: string, width: number): string {
+  const lines: string[] = [];
+
+  for (const piece of splitHeaderPieces(header)) {
+    const lastLine = lines.at(-1);
+    const separator = lastLine === undefined || lastLine.endsWith('/') ? '' : ' ';
+
+    if (lastLine !== undefined && visibleWidth(lastLine + separator + piece) <= width) {
+      lines[lines.length - 1] = lastLine + separator + piece;
+    } else {
+      lines.push(piece);
+    }
+  }
+
+  return lines.join('\n');
+}
+
+/** Narrowest width for a column: values never wrap, headers wrap only between pieces. */
+function computeMinimumColumnWidths(
+  headerCells: readonly string[],
+  bodyRows: readonly string[][],
+): number[] {
+  const headerPieceWidths = headerCells.map((header) =>
+    splitHeaderPieces(header).reduce(
+      (maxWidth, piece) => Math.max(maxWidth, visibleWidth(piece)),
+      0,
+    ),
+  );
+
+  return computeColumnWidths([], bodyRows).map((bodyWidth, columnIndex) =>
+    Math.max(bodyWidth, headerPieceWidths[columnIndex] ?? 0),
+  );
+}
+
+/**
+ * Wraps headers to fit the terminal. When even the narrowest columns are too wide,
+ * returns the cells unchanged with `stackedWidth`, so rows are listed instead of boxed.
+ */
 function fitTableCellsToTerminal(
   headerCells: readonly string[],
   bodyRows: readonly string[][],
 ): FittedEfficiencyTableCells {
   const naturalWidths = computeColumnWidths(headerCells, bodyRows);
   const terminalWidth = resolveTtyColumns(process.stdout);
+  const natural = {
+    headerCells: [...headerCells],
+    bodyRows: bodyRows.map((row) => [...row]),
+    widths: naturalWidths,
+  };
 
   if (terminalWidth === undefined || measureRenderedTableWidth(naturalWidths) <= terminalWidth) {
-    return {
-      headerCells: [...headerCells],
-      bodyRows: bodyRows.map((row) => [...row]),
-      widths: naturalWidths,
-    };
+    return natural;
+  }
+
+  const minimumWidths = computeMinimumColumnWidths(headerCells, bodyRows);
+
+  if (measureRenderedTableWidth(minimumWidths) > terminalWidth) {
+    return { ...natural, stackedWidth: terminalWidth };
   }
 
   const constrainedWidths = [...naturalWidths];
-  let renderedTableWidth = measureRenderedTableWidth(constrainedWidths);
+  let overflowColumns = measureRenderedTableWidth(constrainedWidths) - terminalWidth;
 
-  while (
-    renderedTableWidth > terminalWidth &&
-    constrainedWidths.some((width) => width > minimumEfficiencyColumnWidth)
-  ) {
-    let widestIndex = -1;
-    let widestWidth = -1;
+  while (overflowColumns > 0) {
+    // Shrink the column with the most room to spare above its minimum.
+    let shrinkIndex = 0;
 
-    for (let columnIndex = 0; columnIndex < constrainedWidths.length; columnIndex += 1) {
-      const columnWidth = constrainedWidths[columnIndex];
-
-      if (columnWidth <= minimumEfficiencyColumnWidth || columnWidth <= widestWidth) {
-        continue;
+    for (let columnIndex = 1; columnIndex < constrainedWidths.length; columnIndex += 1) {
+      if (
+        constrainedWidths[columnIndex] - minimumWidths[columnIndex] >
+        constrainedWidths[shrinkIndex] - minimumWidths[shrinkIndex]
+      ) {
+        shrinkIndex = columnIndex;
       }
-
-      widestIndex = columnIndex;
-      widestWidth = columnWidth;
     }
 
-    if (widestIndex === -1) {
-      break;
-    }
-
-    const overflowColumns = renderedTableWidth - terminalWidth;
-    const maxReducibleWidth = widestWidth - minimumEfficiencyColumnWidth;
-    const reduction = Math.min(overflowColumns, maxReducibleWidth);
-
-    if (reduction <= 0) {
-      break;
-    }
-
-    constrainedWidths[widestIndex] -= reduction;
-    renderedTableWidth -= reduction;
+    const reduction = Math.min(
+      overflowColumns,
+      constrainedWidths[shrinkIndex] - minimumWidths[shrinkIndex],
+    );
+    constrainedWidths[shrinkIndex] -= reduction;
+    overflowColumns -= reduction;
   }
 
-  const { wrappedHeaderCells, wrappedBodyRows } = resolveWrappedCells(
-    headerCells,
-    bodyRows,
-    constrainedWidths,
-  );
-
   return {
-    headerCells: wrappedHeaderCells,
-    bodyRows: wrappedBodyRows,
+    headerCells: headerCells.map((header, columnIndex) =>
+      wrapHeader(header, constrainedWidths[columnIndex]),
+    ),
+    bodyRows: natural.bodyRows,
     widths: constrainedWidths,
   };
 }
@@ -284,16 +321,74 @@ function styleEfficiencyTerminalRows(
   });
 }
 
+function fitEfficiencyStep(
+  rows: EfficiencyRow[],
+  step: EfficiencyFitStep,
+  options: { useColor: boolean },
+): FittedEfficiencyTableCells {
+  const visibleColumnIndexes = efficiencyTableHeaders
+    .map((_, columnIndex) => columnIndex)
+    .filter((columnIndex) => !step.hiddenColumnIndexes.includes(columnIndex));
+  const styledRows = styleEfficiencyTerminalRows(
+    rows,
+    toEfficiencyTableCells(rows, step.tokenFormat),
+    options,
+  );
+
+  return fitTableCellsToTerminal(
+    selectColumns(Array.from(efficiencyTableHeaders), visibleColumnIndexes),
+    styledRows.map((row) => selectColumns(row, visibleColumnIndexes)),
+  );
+}
+
+function describeEfficiencyFit(step: EfficiencyFitStep, stacked: boolean): string | undefined {
+  if (stacked) {
+    return 'Listed rows instead of a table to fit the terminal. Widen the terminal to see the table.';
+  }
+
+  const changes: string[] = [];
+
+  if (step.tokenFormat === 'abbreviated') {
+    changes.push('abbreviated token counts');
+  }
+
+  const hiddenHeaders = step.hiddenColumnIndexes.map(
+    (columnIndex) => efficiencyTableHeaders[columnIndex],
+  );
+
+  if (hiddenHeaders.length > 0) {
+    changes.push(`hid ${hiddenHeaders.slice(0, -1).join(', ')} and ${hiddenHeaders.at(-1) ?? ''}`);
+  }
+
+  return changes.length > 0
+    ? `Fitted the table to the terminal: ${changes.join(', ')}. Widen the terminal or use --json for full detail.`
+    : undefined;
+}
+
 function renderTerminalEfficiencyTable(
   rows: EfficiencyRow[],
   options: { useColor: boolean },
-): string {
-  const headerCells = Array.from(efficiencyTableHeaders);
-  const bodyRows = styleEfficiencyTerminalRows(rows, toEfficiencyTableCells(rows), options);
+): RenderedEfficiencyReport {
   const rowMetas = rows.map((row) => toTableRowMeta(row));
-  const fittedCells = fitTableCellsToTerminal(headerCells, bodyRows);
+  let fittedStep = efficiencyFitSteps[0];
+  let fittedCells = fitEfficiencyStep(rows, fittedStep, options);
 
-  return renderUnicodeTable({
+  for (const step of efficiencyFitSteps.slice(1)) {
+    if (fittedCells.stackedWidth === undefined) {
+      break;
+    }
+
+    const candidate = fitEfficiencyStep(rows, step, options);
+
+    if (candidate.stackedWidth === undefined) {
+      fittedStep = step;
+      fittedCells = candidate;
+    }
+  }
+
+  // Listed rows have room for every column at full precision.
+  const note = describeEfficiencyFit(fittedStep, fittedCells.stackedWidth !== undefined);
+  const output = renderUnicodeTable({
     headerCells: fittedCells.headerCells,
     bodyRows: fittedCells.bodyRows,
     measureHeaderCells: fittedCells.headerCells,
@@ -303,7 +398,10 @@ function renderTerminalEfficiencyTable(
     multilineColumnIndex: periodColumnIndex,
     multilineColumnWidth:
       fittedCells.widths[periodColumnIndex] ?? efficiencyTableHeaders[periodColumnIndex].length,
+    terminalWidth: fittedCells.stackedWidth,
   });
+
+  return { output, notes: note ? [note] : [] };
 }
 
 function renderMarkdownEfficiencyTable(rows: EfficiencyRow[]): string {
@@ -323,7 +421,7 @@ function renderMarkdownEfficiencyTable(rows: EfficiencyRow[]): string {
 function renderTerminalEfficiencyReport(
   efficiencyData: EfficiencyDataResult,
   options: RenderEfficiencyReportOptions,
-): string {
+): RenderedEfficiencyReport {
   const outputLines: string[] = [];
   const useColor = options.useColor ?? shouldUseColorByDefault();
 
@@ -334,10 +432,31 @@ function renderTerminalEfficiencyReport(
     }),
   );
 
-  outputLines.push('');
-  outputLines.push(renderTerminalEfficiencyTable(efficiencyData.rows, { useColor }));
+  const table = renderTerminalEfficiencyTable(efficiencyData.rows, { useColor });
+  outputLines.push('', table.output);
 
-  return outputLines.join('\n');
+  return { output: outputLines.join('\n'), notes: table.notes };
+}
+
+export function renderEfficiencyReportWithNotes(
+  efficiencyData: EfficiencyDataResult,
+  format: EfficiencyReportFormat,
+  options: RenderEfficiencyReportOptions,
+): RenderedEfficiencyReport {
+  switch (format) {
+    case 'json':
+      return {
+        output: renderReportJson('efficiency', {
+          grouping: efficiencyData.grouping,
+          rows: efficiencyData.rows,
+        }),
+        notes: [],
+      };
+    case 'markdown':
+      return { output: renderMarkdownEfficiencyTable(efficiencyData.rows), notes: [] };
+    case 'terminal':
+      return renderTerminalEfficiencyReport(efficiencyData, options);
+  }
 }
 
 export function renderEfficiencyReport(
@@ -345,15 +464,5 @@ export function renderEfficiencyReport(
   format: EfficiencyReportFormat,
   options: RenderEfficiencyReportOptions,
 ): string {
-  switch (format) {
-    case 'json':
-      return renderReportJson('efficiency', {
-        grouping: efficiencyData.grouping,
-        rows: efficiencyData.rows,
-      });
-    case 'markdown':
-      return renderMarkdownEfficiencyTable(efficiencyData.rows);
-    case 'terminal':
-      return renderTerminalEfficiencyReport(efficiencyData, options);
-  }
+  return renderEfficiencyReportWithNotes(efficiencyData, format, options).output;
 }

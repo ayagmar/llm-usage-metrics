@@ -82,7 +82,11 @@ export function describeTableFit(
     return undefined;
   }
 
-  return `Fitted the table to the terminal: ${changes.join(', ')}. Widen the terminal or use --json for full detail.`;
+  const layout = fit.stacked
+    ? 'Listed rows instead of a table to fit the terminal'
+    : 'Fitted the table to the terminal';
+
+  return `${layout}: ${changes.join(', ')}. Widen the terminal or use --json for full detail.`;
 }
 
 function renderTerminalUsageReport(
@@ -97,6 +101,7 @@ function renderTerminalUsageReport(
     renderReportHeader({
       title: getReportTitle(options.granularity),
       useColor,
+      terminalWidth: options.terminalWidth,
     }),
   );
 

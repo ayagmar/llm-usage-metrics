@@ -1,6 +1,6 @@
 import { renderEfficiencyMonthlyShareSvg } from '../render/render-efficiency-share-svg.js';
 import {
-  renderEfficiencyReport,
+  renderEfficiencyReportWithNotes,
   type EfficiencyReportFormat,
 } from '../render/render-efficiency-report.js';
 import { logger } from '../utils/logger.js';
@@ -56,10 +56,13 @@ async function prepareEfficiencyReport(
           render: (theme) => renderEfficiencyMonthlyShareSvg(efficiencyData, theme),
         })
       : undefined,
-    render: (efficiencyData, format) =>
-      renderEfficiencyReport(efficiencyData, format, {
+    render: (efficiencyData, format) => {
+      const { output, notes } = renderEfficiencyReportWithNotes(efficiencyData, format, {
         granularity,
-      }),
+      });
+
+      return { output, hintsAfterOutput: notes };
+    },
   });
 }
 

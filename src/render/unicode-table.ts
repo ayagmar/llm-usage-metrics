@@ -1,4 +1,4 @@
-import { splitCellLines, visibleWidth } from './table-text-layout.js';
+import { splitCellLines, visibleWidth, wrapTableColumn } from './table-text-layout.js';
 
 type TableAlignment = 'left' | 'right';
 type TableVerticalAlignment = 'top' | 'middle';
@@ -23,6 +23,10 @@ type RenderUnicodeTableOptions = {
   multilineColumnWidth?: number;
   /** Columns after the multiline column that hold text rather than numbers. */
   leftAlignedColumnIndexes?: readonly number[];
+  /** When the boxed table is wider than this, each row is listed as label/value lines. */
+  terminalWidth?: number;
+  /** Leading columns that name a listed row; defaults to those up to the multiline column. */
+  stackedTitleColumnCount?: number;
 };
 
 type BorderChars = {
@@ -264,6 +268,118 @@ function computeColumnWidths(
   return widths;
 }
 
+function measureBoxedTableWidth(widths: readonly number[]): number {
+  return widths.reduce((total, width) => total + width + 3, 1);
+}
+
+function measureLinesWidth(cell: string): number {
+  return splitCellLines(cell).reduce((maxWidth, line) => Math.max(maxWidth, visibleWidth(line)), 0);
+}
+
+function joinCellLines(cell: string): string {
+  return splitCellLines(cell).join(' ');
+}
+
+/**
+ * Wraps a plain line after spaces, `/`, or `-` so model names and paths break between
+ * their parts; a part wider than the line is broken by width.
+ */
+function wrapAtNameBreaks(line: string, width: number): string[] {
+  const lines: string[] = [];
+
+  for (const piece of line.split(/(?<=[\s/-])/u)) {
+    const lastLine = lines.at(-1);
+
+    if (lastLine !== undefined && visibleWidth((lastLine + piece).trimEnd()) <= width) {
+      lines[lines.length - 1] = lastLine + piece;
+    } else {
+      lines.push(piece);
+    }
+  }
+
+  return lines.flatMap((wrappedLine) =>
+    splitCellLines(wrapTableColumn([[wrappedLine.trimEnd()]], { columnIndex: 0, width })[0][0]),
+  );
+}
+
+/**
+ * Lists each row as a title line (the identifying columns) followed by one label/value
+ * line per remaining column, for terminals too narrow for the boxed table.
+ */
+function renderStackedRows(options: {
+  headerCells: readonly string[];
+  measureHeaderCells: readonly string[];
+  bodyRows: string[][];
+  measureBodyRows: string[][];
+  titleColumnCount: number;
+  multilineColumnIndex: number;
+  leftAlignedColumnIndexes?: readonly number[];
+  terminalWidth: number;
+}): string {
+  const valueColumnIndexes = options.headerCells
+    .map((_, columnIndex) => columnIndex)
+    .filter((columnIndex) => columnIndex >= options.titleColumnCount);
+  const labelWidth = valueColumnIndexes.reduce(
+    (maxWidth, columnIndex) =>
+      Math.max(maxWidth, visibleWidth(joinCellLines(options.measureHeaderCells[columnIndex]))),
+    0,
+  );
+  const continuationIndent = ' '.repeat(2 + labelWidth + 2);
+  const availableValueWidth = Math.max(1, options.terminalWidth - continuationIndent.length);
+  const valueWidth = Math.min(
+    availableValueWidth,
+    options.measureBodyRows.reduce(
+      (maxWidth, row) =>
+        valueColumnIndexes.reduce(
+          (rowMax, columnIndex) => Math.max(rowMax, measureLinesWidth(row[columnIndex])),
+          maxWidth,
+        ),
+      0,
+    ),
+  );
+
+  const records = options.bodyRows.map((row, rowIndex) => {
+    const title = row
+      .slice(0, options.titleColumnCount)
+      .map(joinCellLines)
+      .filter((cell) => cell.trim().length > 0)
+      .join(' · ');
+    const valueLines = valueColumnIndexes.flatMap((columnIndex) => {
+      // A value too long for the line is wrapped from its uncolored text.
+      const lines =
+        measureLinesWidth(row[columnIndex]) > availableValueWidth
+          ? splitCellLines(options.measureBodyRows[rowIndex][columnIndex]).flatMap((line) =>
+              wrapAtNameBreaks(line, availableValueWidth),
+            )
+          : splitCellLines(row[columnIndex]);
+
+      if (lines.every((line) => line.trim().length === 0)) {
+        return [];
+      }
+
+      const alignment = getColumnAlignment(
+        columnIndex,
+        options.multilineColumnIndex,
+        options.leftAlignedColumnIndexes,
+      );
+      const label = alignCellLine(
+        joinCellLines(options.headerCells[columnIndex]),
+        labelWidth,
+        'left',
+      );
+
+      return lines.map((line, lineIndex) => {
+        const value = alignCellLine(line, valueWidth, alignment).trimEnd();
+        return lineIndex === 0 ? `  ${label}  ${value}` : `${continuationIndent}${value}`;
+      });
+    });
+
+    return [title, ...valueLines].join('\n');
+  });
+
+  return records.join('\n\n');
+}
+
 export function renderUnicodeTable(options: RenderUnicodeTableOptions): string {
   const bodyColumnCount = getMaxRowColumnCount(options.bodyRows, options.headerCells.length);
   const measureColumnCount = getMaxRowColumnCount(
@@ -295,6 +411,25 @@ export function renderUnicodeTable(options: RenderUnicodeTableOptions): string {
     multilineColumnIndex: options.multilineColumnIndex,
     multilineColumnWidth: options.multilineColumnWidth,
   });
+  const normalizedBodyRows = renderableRows.map((row) => row.bodyRow);
+  const normalizedRowMetas = renderableRows.map((row) => row.rowMeta);
+
+  if (
+    options.terminalWidth !== undefined &&
+    measureBoxedTableWidth(widths) > options.terminalWidth
+  ) {
+    return renderStackedRows({
+      headerCells: normalizedHeaderRow,
+      measureHeaderCells: normalizedMeasureHeaderRow,
+      bodyRows: normalizedBodyRows,
+      measureBodyRows: renderableRows.map((row) => row.measureBodyRow),
+      titleColumnCount: options.stackedTitleColumnCount ?? options.multilineColumnIndex + 1,
+      terminalWidth: options.terminalWidth,
+      multilineColumnIndex: options.multilineColumnIndex,
+      leftAlignedColumnIndexes: options.leftAlignedColumnIndexes,
+    });
+  }
+
   const outputLines: string[] = [];
 
   outputLines.push(
@@ -319,9 +454,6 @@ export function renderUnicodeTable(options: RenderUnicodeTableOptions): string {
       right: '┤',
     }),
   );
-
-  const normalizedBodyRows = renderableRows.map((row) => row.bodyRow);
-  const normalizedRowMetas = renderableRows.map((row) => row.rowMeta);
 
   normalizedBodyRows.forEach((row, rowIndex) => {
     outputLines.push(

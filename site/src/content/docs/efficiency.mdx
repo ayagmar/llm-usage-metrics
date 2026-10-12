@@ -47,6 +47,8 @@ Events without repository attribution stay out of the usage totals. Periods need
 
 `Tokens/Commit` excludes cache read and cache write tokens. Output already includes reasoning, so reasoning is not counted twice. The table keeps those buckets visible in the raw usage columns.
 
+On a terminal too narrow for the full table, the efficiency table abbreviates token counts, then hides Input, Output, Reasoning, and Cache Write, then +Lines, -Lines, Cache Read, and Commits/$, with a note on `stderr` saying what was left out. When even that does not fit, each period is listed as labelled values with every column.
+
 A zero denominator renders as `-` in terminal and Markdown output. JSON omits that derived value. Partial pricing adds a `~` prefix to affected USD metrics.
 
 ## Read the denominators before the ratios
