@@ -591,6 +591,7 @@ export async function parseSelectedAdapters(
   }
 
   let parseResults: Array<PromiseSettledResult<AdapterParseResultWithFiles>>;
+  let claimWarning: string | undefined;
 
   try {
     parseResults = await Promise.allSettled(
@@ -620,7 +621,7 @@ export async function parseSelectedAdapters(
     );
 
     if (eventStoreContext) {
-      claimFilesInUsualLocations(
+      claimWarning = claimFilesInUsualLocations(
         eventStoreContext,
         parseResults.flatMap((parseResult) =>
           parseResult.status === 'fulfilled'
@@ -672,7 +673,9 @@ export async function parseSelectedAdapters(
     failedFiles,
     eventStoreAvailable: Boolean(options.eventStore?.enabled) && !eventStoreFailureState.disabled,
     sourceFailures,
-    warnings: eventStoreFailureState.warning ? [eventStoreFailureState.warning] : [],
+    warnings: [eventStoreFailureState.warning, claimWarning].filter(
+      (warning): warning is string => warning !== undefined,
+    ),
   };
 }
 

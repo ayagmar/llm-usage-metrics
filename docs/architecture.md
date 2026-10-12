@@ -175,7 +175,9 @@ that only runs with a directory flag (`--claude-dir`, `--source-dir`) have disco
 the first store write of a file in such a run adds it, and a run on the usual
 directories removes the files it discovers. A run on the usual directories passes the
 listed files as present, so they never become its history; prune still sees them as
-departed and deletes their rows. Served history events are appended before the normal
+departed and deletes their rows. Only files first stored after the table existed are
+listed, and a file first read through a flag that points inside the usual location stays
+listed until a run on the usual directories discovers it. Served history events are appended before the normal
 provider/model/date filters, pricing, and aggregation steps, so downstream
 report shapes stay unchanged.
 

@@ -499,6 +499,31 @@ describe('build-usage-data-parsing', () => {
     expect(replaceFilesEvents).not.toHaveBeenCalled();
   });
 
+  it('keeps the event store when recording usual-location files fails', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-claim-failure-'));
+    tempDirs.push(tempDir);
+
+    const fileA = path.join(tempDir, 'a.jsonl');
+    await writeFingerprintFixture(fileA, '{"line":1}\n', 1_700_000_001);
+
+    const store = await openEventStore(path.join(tempDir, 'events.db'));
+    const result = await parseSelectedAdapters([createStoreBackedAdapter('pi', [fileA])], 1, {
+      eventStore: { enabled: true, path: store.filePath },
+      openedStore: store,
+      eventStoreDeps: {
+        claimOverrideOnlyFiles: () => {
+          throw new Error('database is locked');
+        },
+      },
+    });
+    closeEventStore(store);
+
+    expect(result.eventStoreAvailable).toBe(true);
+    expect(result.warnings).toEqual([
+      'Event store could not record files found in their usual location: database is locked',
+    ]);
+  });
+
   it('skips fingerprint work for remaining files after the store is disabled', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-disabled-gate-'));
     tempDirs.push(tempDir);

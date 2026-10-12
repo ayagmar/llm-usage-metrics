@@ -158,14 +158,15 @@ export function writeParsedFilesToEventStore(
 
 /**
  * Claims the files this run discovered in their sources' usual locations, so a file
- * first seen under a custom directory is served as history once it departs.
+ * first seen under a custom directory is served as history once it departs. A failure
+ * only delays the claim, so it returns a warning instead of disabling the store.
  */
 export function claimFilesInUsualLocations(
   context: EventStoreParseContext,
   files: readonly { source: string; filePath: string }[],
-): void {
+): string | undefined {
   if (context.failureState.disabled) {
-    return;
+    return undefined;
   }
 
   const usualLocationFiles = files.filter(
@@ -173,12 +174,13 @@ export function claimFilesInUsualLocations(
   );
 
   if (usualLocationFiles.length === 0) {
-    return;
+    return undefined;
   }
 
   try {
     context.claimOverrideOnlyFiles(context.store, usualLocationFiles);
+    return undefined;
   } catch (error) {
-    recordEventStoreFailure(context.failureState, error);
+    return `Event store could not record files found in their usual location: ${getErrorReason(error)}`;
   }
 }
