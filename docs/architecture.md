@@ -139,13 +139,13 @@ The public entry points remain stable, one `build*`/`run*` pair per command:
 
 1. `buildSummaryData(...)` builds one priced dataset from a year before today through today (the range the activity grid needs)
 2. per-window totals for today, the last 7 days, and month to date, split by source, and by machine when other machines' events are present
-3. `resolveMonthEnd(...)` projects the month-end cost (from 3 days of usage on) and compares it with `monthlyBudgetUsd`, unless provider, model, or source filters narrow the run
+3. `resolveMonthEnd(...)` projects the month-end cost from the 3rd of the month on, and compares it with `monthlyBudgetUsd` unless `--source`, `--model`, or `--provider` narrows the run
 4. `estimateCacheSavingsUsd(...)` for month to date, and `aggregateDailyActivity(...)` for streaks and the heatmap
 5. shared report runtime emits diagnostics and stdout body
 
 ### Statusline
 
-`runStatusline` builds the summary data with offline pricing and machine sync off, so it never fetches prices or opens an ssh connection, and prints one line from it with the logger silenced unless `--verbose`. Under Claude Code it also reads the session JSON from stdin and puts the session cost and context use first.
+`runStatusline` builds the summary data with offline pricing and machine sync off, so it never fetches prices or opens an ssh connection and skips the update check, and prints one line from it with the logger silenced unless `--verbose`. Under Claude Code it also reads the session JSON from stdin and puts the session cost and context use first.
 
 ### Machines and Sync
 
