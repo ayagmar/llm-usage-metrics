@@ -219,12 +219,6 @@ describe('run-events-report', () => {
     expect(stdout).toContain(',20,10,0,0,0,30,0.2,explicit');
   });
 
-  it('rejects --json with a pointer to --format jsonl', async () => {
-    await expect(runEventsReport({ json: true }, runtimeDeps([]))).rejects.toThrow(
-      '--json is not supported for events; use --format jsonl',
-    );
-  });
-
   it('rejects unknown formats', async () => {
     await expect(runEventsReport({ format: 'tsv' }, runtimeDeps([]))).rejects.toThrow(
       '--format must be one of: jsonl, csv',

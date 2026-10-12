@@ -168,6 +168,18 @@ describe('createCli', () => {
       ],
     },
     {
+      // Export stream: --format replaces --json.
+      command: 'events',
+      present: ['--format', '--source', '--since', '--pricing-url', '--history', '--no-sync'],
+      absent: ['--json', '--markdown', '--share'],
+    },
+    {
+      // Always offline and silent, and never syncs over ssh.
+      command: 'statusline',
+      present: ['--source', '--verbose', '--pricing-overrides', '--history', '--machine'],
+      absent: ['--json', '--quiet', '--pricing-url', '--pricing-offline', '--no-sync', '--since'],
+    },
+    {
       command: 'prune',
       present: [
         '--suppressed',
@@ -217,10 +229,13 @@ describe('createCli', () => {
     ]);
   });
 
-  it('includes quiet on every report command', () => {
+  it('includes quiet on every report command except the always-silent statusline', () => {
     const cli = createCli();
     const reportCommands = cli.commands.filter(
-      (command) => !['config', 'machine', 'sync', 'schema', 'completion'].includes(command.name()),
+      (command) =>
+        !['config', 'machine', 'sync', 'schema', 'completion', 'statusline'].includes(
+          command.name(),
+        ),
     );
 
     for (const command of reportCommands) {
@@ -288,6 +303,32 @@ describe('createCli', () => {
     expect(compactHelp).toContain('llm-usage prune --suppressed');
     expect(compactHelp).toContain('npx --yes llm-usage-metrics@latest');
     expect(compactDailyCommandHelp).toContain('after source/provider/date filters');
+  });
+
+  it('fits every help line to a phone-width or narrow terminal', () => {
+    const cli = createCli();
+    const commands = cli.commands.flatMap((entry) => [entry, ...entry.commands]);
+
+    for (const columns of [44, 60]) {
+      for (const command of [cli, ...commands]) {
+        let text = '';
+        command
+          .configureOutput({
+            writeOut: (chunk) => (text += chunk),
+            getOutHelpWidth: () => columns,
+          })
+          .outputHelp();
+
+        // Example commands and the usage synopsis are meant to be copied whole, and one
+        // word cannot be split.
+        const overflowing = text
+          .split('\n')
+          .filter((line) => !line.trimStart().startsWith('$ ') && !line.startsWith('Usage: '))
+          .filter((line) => line.length > columns && line.trim().includes(' '));
+
+        expect(overflowing, `${command.name()} at ${String(columns)}`).toEqual([]);
+      }
+    }
   });
 
   it('does not leak empty-array defaults for repeatable options in command help', () => {
@@ -495,6 +536,24 @@ describe('createCli', () => {
     );
     expect(unknownOutput.text()).toContain("error: unknown option '--zzz'");
     expect(unknownOutput.text()).not.toContain('Did you mean');
+  });
+
+  it('points --json on statusline and events to the command that has it', async () => {
+    for (const [name, alternative] of [
+      ['statusline', 'use llm-usage summary --json'],
+      ['events', 'use --format jsonl'],
+    ] as const) {
+      const cli = createCli();
+      const command = cli.commands.find((entry) => entry.name() === name);
+      expect(command).toBeDefined();
+      const output = captureOutput(command ?? cli);
+      command?.action(vi.fn());
+
+      await expect(cli.parseAsync([name, '--json'], { from: 'user' })).rejects.toMatchObject({
+        exitCode: 1,
+      });
+      expect(output.text()).toContain(`error: --json is not supported for ${name}; ${alternative}`);
+    }
   });
 
   it('hides the per-source path flags from --help and lists them with --help-all', async () => {

@@ -7,114 +7,164 @@ import {
 import type { SharedOptionProfile } from './report-definition-types.js';
 
 export type SharedOptionProfileConfig = {
+  includeJson: boolean;
+  /** Where to point `--json` on a command without it, instead of an unknown-option error. */
+  jsonAlternative?: string;
+  includeQuiet: boolean;
   includeDateFilters: boolean;
   includeMarkdown: boolean;
   includePerModelColumns: boolean;
   includePricing: boolean;
+  /** --pricing-url and --pricing-offline, for commands that may fetch prices. */
+  includePricingFetch: boolean;
   includeProviderModelFilters: boolean;
   includeHistory: boolean;
+  /** --no-sync, for commands that may refresh other machines over ssh. */
+  includeSync: boolean;
   includeShare: boolean;
   includeTimezone: boolean;
 };
 
 export const sharedOptionProfileConfig = {
   usage: {
+    includeJson: true,
+    includeQuiet: true,
     includeDateFilters: true,
     includeMarkdown: true,
     includePerModelColumns: true,
     includePricing: true,
+    includePricingFetch: true,
     includeProviderModelFilters: true,
     includeHistory: true,
+    includeSync: true,
     includeShare: true,
     includeTimezone: true,
   },
   summary: {
+    includeJson: true,
+    includeQuiet: true,
     includeDateFilters: false,
     includeMarkdown: true,
     includePerModelColumns: false,
     includePricing: true,
+    includePricingFetch: true,
     includeProviderModelFilters: true,
     includeHistory: true,
+    includeSync: true,
     includeShare: true,
     includeTimezone: true,
   },
   specialized: {
+    includeJson: true,
+    includeQuiet: true,
     includeDateFilters: true,
     includeMarkdown: true,
     includePerModelColumns: false,
     includePricing: true,
+    includePricingFetch: true,
     includeProviderModelFilters: true,
     includeHistory: true,
+    includeSync: true,
     includeShare: true,
     includeTimezone: true,
   },
   compare: {
+    includeJson: true,
+    includeQuiet: true,
     includeDateFilters: true,
     includeMarkdown: true,
     includePerModelColumns: false,
     includePricing: true,
+    includePricingFetch: true,
     includeProviderModelFilters: true,
     includeHistory: true,
+    includeSync: true,
     includeShare: true,
     includeTimezone: true,
   },
   trends: {
+    includeJson: true,
+    includeQuiet: true,
     includeDateFilters: true,
     includeMarkdown: true,
     includePerModelColumns: false,
     includePricing: true,
+    includePricingFetch: true,
     includeProviderModelFilters: true,
     includeHistory: true,
+    includeSync: true,
     includeShare: true,
     includeTimezone: true,
   },
   session: {
+    includeJson: true,
+    includeQuiet: true,
     includeDateFilters: true,
     includeMarkdown: true,
     includePerModelColumns: false,
     includePricing: true,
+    includePricingFetch: true,
     includeProviderModelFilters: true,
     includeHistory: true,
+    includeSync: true,
     includeShare: false,
     includeTimezone: true,
   },
   wrapped: {
+    includeJson: true,
+    includeQuiet: true,
     includeDateFilters: false,
     includeMarkdown: true,
     includePerModelColumns: false,
     includePricing: true,
+    includePricingFetch: true,
     includeProviderModelFilters: true,
     includeHistory: true,
+    includeSync: true,
     includeShare: true,
     includeTimezone: true,
   },
   events: {
+    includeJson: false,
+    jsonAlternative: 'use --format jsonl',
+    includeQuiet: true,
     includeDateFilters: true,
     includeMarkdown: false,
     includePerModelColumns: false,
     includePricing: true,
+    includePricingFetch: true,
     includeProviderModelFilters: true,
     includeHistory: true,
+    includeSync: true,
     includeShare: false,
     includeTimezone: true,
   },
   statusline: {
+    includeJson: false,
+    jsonAlternative: 'use llm-usage summary --json',
+    includeQuiet: false,
     includeDateFilters: false,
     includeMarkdown: false,
     includePerModelColumns: false,
     includePricing: true,
+    includePricingFetch: false,
     includeProviderModelFilters: true,
     includeHistory: true,
+    includeSync: false,
     includeShare: false,
     includeTimezone: true,
   },
   doctor: {
+    includeJson: true,
+    includeQuiet: true,
     includeDateFilters: false,
     includeMarkdown: false,
     includePerModelColumns: false,
     includePricing: false,
+    includePricingFetch: false,
     includeProviderModelFilters: false,
     includeHistory: false,
+    includeSync: false,
     includeShare: false,
     includeTimezone: false,
   },
@@ -175,6 +225,25 @@ function suggestHiddenOptionsOnTypo(command: Command): void {
   };
 }
 
+/** Turns `--json` on a command without it into an error that names the alternative. */
+function redirectUnsupportedJson(command: Command, alternative: string): void {
+  if (!hasUnknownOptionHook(command)) {
+    return;
+  }
+
+  const reportUnknownOption = command.unknownOption.bind(command);
+
+  command.unknownOption = (flag) => {
+    if (flag === '--json') {
+      command.error(`error: --json is not supported for ${command.name()}; ${alternative}`, {
+        code: 'commander.unknownOption',
+      });
+    }
+
+    reportUnknownOption(flag);
+  };
+}
+
 /**
  * The 17 per-source path flags crowd every report's help, so they stay out of it;
  * `--help-all` prints the help with them.
@@ -203,7 +272,7 @@ function registerSourcePathOptions(command: Command): void {
     })
     .addHelpText('after', () =>
       hasHiddenOptions(command)
-        ? '\nPer-source path flags (--claude-dir, --codex-dir, --opencode-db, ...) are\nlisted by --help-all.'
+        ? '\nPer-source path flags (--claude-dir, ...)\nare listed by --help-all.'
         : '',
     );
 
@@ -241,13 +310,25 @@ export function registerSharedReportOptions(
       '--source <name>',
       `Filter by source id (repeatable or comma-separated, supported sources ${supportedSourcesSummary})`,
       collectRepeatedOption,
-    )
-    .option('--json', 'Render output as JSON')
-    .option('--quiet', 'Suppress informational stderr output (warnings still print)')
-    .option(
-      '--verbose',
-      'Print detailed diagnostics on stderr (per-source counts, routine skips, config, env)',
     );
+
+  if (profileConfig.includeJson) {
+    configuredCommand.option('--json', 'Render output as JSON');
+  } else {
+    redirectUnsupportedJson(configuredCommand, profileConfig.jsonAlternative);
+  }
+
+  if (profileConfig.includeQuiet) {
+    configuredCommand.option(
+      '--quiet',
+      'Suppress informational stderr output (warnings still print)',
+    );
+  }
+
+  configuredCommand.option(
+    '--verbose',
+    'Print detailed diagnostics on stderr (per-source counts, routine skips, config, env)',
+  );
 
   if (profileConfig.includeDateFilters) {
     configuredCommand
@@ -276,32 +357,47 @@ export function registerSharedReportOptions(
   }
 
   if (profileConfig.includePricing) {
-    configuredCommand
-      .option('--pricing-url <url>', 'Override LiteLLM pricing source URL')
-      .option(
-        '--pricing-overrides <path>',
-        'Path to a JSON file of per-model pricing overrides (takes precedence over LiteLLM)',
-      )
-      .option('--pricing-offline', 'Use cached LiteLLM pricing only (no network fetch)')
-      .option(
-        '--ignore-pricing-failures',
-        'Continue without estimated costs when pricing cannot be loaded',
+    if (profileConfig.includePricingFetch) {
+      configuredCommand.option('--pricing-url <url>', 'Override LiteLLM pricing source URL');
+    }
+
+    configuredCommand.option(
+      '--pricing-overrides <path>',
+      'Path to a JSON file of per-model pricing overrides (takes precedence over LiteLLM)',
+    );
+
+    if (profileConfig.includePricingFetch) {
+      configuredCommand.option(
+        '--pricing-offline',
+        'Use cached LiteLLM pricing only (no network fetch)',
       );
+    }
+
+    configuredCommand.option(
+      '--ignore-pricing-failures',
+      'Continue without estimated costs when pricing cannot be loaded',
+    );
   }
 
   if (profileConfig.includeHistory) {
     configuredCommand
       .option(
         '--history',
-        'include usage from files that no longer exist on disk (the default; fails if the event store is unavailable)',
+        'Include usage from files that no longer exist on disk (on by default; when passed, fails if the event store is unavailable)',
       )
-      .option('--no-history', 'leave out usage from files that no longer exist on disk')
+      .option('--no-history', 'Leave out usage from files that no longer exist on disk')
       .option(
         '--machine <name>',
         'Count only these machines (repeatable or comma-separated; local is this one; default: all)',
         collectRepeatedOption,
-      )
-      .option('--no-sync', "use other machines' cached usage without refreshing it over ssh");
+      );
+
+    if (profileConfig.includeSync) {
+      configuredCommand.option(
+        '--no-sync',
+        "Use other machines' cached usage without refreshing it over ssh",
+      );
+    }
   }
 
   if (profileConfig.includeMarkdown) {

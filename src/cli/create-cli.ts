@@ -1,4 +1,4 @@
-import { Command } from 'commander';
+import { Command, Help } from 'commander';
 
 import { setLogLevel } from '../utils/logger.js';
 import { suggestClosest } from '../utils/suggest-closest.js';
@@ -84,6 +84,49 @@ function rejectUnknownCommand(program: Command, args: readonly string[]): void {
   program.error(`error: unknown command '${unknownCommand}'${hint}`);
 }
 
+/**
+ * Commander leaves option descriptions unwrapped when fewer than 40 columns remain beside
+ * the flags, which on terminals under ~73 columns prints 200-character lines. There, each
+ * flag goes on its own line with its description wrapped below it; wider terminals keep
+ * commander's side-by-side layout.
+ */
+const SIDE_BY_SIDE_MIN_DESCRIPTION_WIDTH = 40;
+const STACKED_DESCRIPTION_INDENT = '      ';
+
+function formatHelpItem(
+  this: Help,
+  term: string,
+  termWidth: number,
+  description: string,
+  helper: Help,
+): string {
+  const helpWidth = this.helpWidth ?? 80;
+  const sideBySideWidth = helpWidth - termWidth - 4;
+
+  if (!description || sideBySideWidth >= SIDE_BY_SIDE_MIN_DESCRIPTION_WIDTH) {
+    return Help.prototype.formatItem.call(this, term, termWidth, description, helper);
+  }
+
+  const wrappedDescription = helper.boxWrap(
+    description,
+    helpWidth - STACKED_DESCRIPTION_INDENT.length,
+  );
+
+  return [
+    `  ${term}`,
+    ...wrappedDescription.split('\n').map((line) => `${STACKED_DESCRIPTION_INDENT}${line}`),
+  ].join('\n');
+}
+
+function wrapHelpOnNarrowTerminals(command: Command): void {
+  // boxWrap skips widths under minWidthToWrap; stacked descriptions are narrower than 40.
+  command.configureHelp({ minWidthToWrap: 20, formatItem: formatHelpItem });
+
+  for (const subcommand of command.commands) {
+    wrapHelpOnNarrowTerminals(subcommand);
+  }
+}
+
 export function createCli(options: CreateCliOptions = {}): Command {
   const program = new Command();
 
@@ -137,6 +180,8 @@ export function createCli(options: CreateCliOptions = {}): Command {
       setLogLevel('debug');
     }
   });
+
+  wrapHelpOnNarrowTerminals(program);
 
   return program;
 }

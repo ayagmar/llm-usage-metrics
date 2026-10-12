@@ -212,12 +212,6 @@ describe('buildStatusline', () => {
     );
     expect(fetchSpy).not.toHaveBeenCalled();
   });
-
-  it('rejects --json with a pointer to summary --json', async () => {
-    await expect(buildStatusline({ json: true }, deps([]))).rejects.toThrow(
-      '--json is not supported for statusline; use llm-usage summary --json',
-    );
-  });
 });
 
 describe('runStatusline', () => {
