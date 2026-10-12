@@ -4,7 +4,10 @@ import { buildOptimizeData } from '../../src/cli/build-optimize-data.js';
 import type { PricingLoadResult } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import type { SourceAdapter } from '../../src/sources/source-adapter.js';
-import { createDefaultOpenAiPricingSource } from '../helpers/static-pricing-source.js';
+import {
+  createDefaultOpenAiPricingSource,
+  StaticPricingSource,
+} from '../helpers/static-pricing-source.js';
 
 function createAdapter(
   id: SourceAdapter['id'],
@@ -67,6 +70,50 @@ function createBaseEvent(overrides: Partial<Parameters<typeof createUsageEvent>[
 }
 
 describe('buildOptimizeData', () => {
+  it('shows no savings for the model already in use when it writes one-hour cache', async () => {
+    const sonnet = {
+      inputPer1MUsd: 3,
+      outputPer1MUsd: 15,
+      cacheWritePer1MUsd: 3.75,
+      cacheWrite1hPer1MUsd: 6,
+    };
+    const oneHourWrite = (day: string) =>
+      createBaseEvent({
+        source: 'claude',
+        provider: 'anthropic',
+        model: 'claude-sonnet-4-5',
+        timestamp: `${day}T10:00:00.000Z`,
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheWriteTokens: 1_000_000,
+        cacheWrite1hTokens: 1_000_000,
+        totalTokens: 1_000_000,
+      });
+
+    const result = await buildOptimizeData(
+      'daily',
+      { candidateModel: ['claude-sonnet-4-5'], timezone: 'UTC' },
+      runtimeDeps({
+        adapters: [
+          createAdapter('claude', {
+            '/tmp/a.jsonl': [oneHourWrite('2026-02-14'), oneHourWrite('2026-02-15')],
+          }),
+        ],
+        resolvePricingSource: async () => ({
+          source: new StaticPricingSource({ pricingByModel: { 'claude-sonnet-4-5': sonnet } }),
+          origin: 'cache',
+        }),
+      }),
+    );
+    const candidateRows = result.rows.filter((row) => row.rowType === 'candidate');
+
+    expect(candidateRows.map((row) => row.periodKey)).toEqual(['2026-02-14', '2026-02-15', 'ALL']);
+    for (const row of candidateRows) {
+      expect(row).toMatchObject({ savingsUsd: 0 });
+    }
+    expect(candidateRows.at(-1)).toMatchObject({ hypotheticalCostUsd: 12 });
+  });
+
   it('fails on multiple providers after filtering and before pricing load', async () => {
     const pricingLoaderSpy = vi.fn(async () => ({
       source: createDefaultOpenAiPricingSource(),

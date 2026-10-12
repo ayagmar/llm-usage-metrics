@@ -1,5 +1,5 @@
 import { aggregateUsage } from '../aggregate/aggregate-usage.js';
-import type { ReportGranularity } from '../utils/time-buckets.js';
+import { getPeriodKey, type ReportGranularity } from '../utils/time-buckets.js';
 import { normalizeProviderFilter } from './build-usage-data-inputs.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import {
@@ -105,12 +105,30 @@ export async function buildOptimizeData(
       }),
   );
 
+  const oneHourCacheWritesByPeriod = new Map<string, number>();
+
+  for (const event of pricedEvents) {
+    if (event.cacheWrite1hTokens === 0) {
+      continue;
+    }
+
+    const periodKey = getPeriodKey(event.timestamp, granularity, dataset.normalizedInputs.timezone);
+
+    for (const key of [periodKey, 'ALL']) {
+      oneHourCacheWritesByPeriod.set(
+        key,
+        (oneHourCacheWritesByPeriod.get(key) ?? 0) + event.cacheWrite1hTokens,
+      );
+    }
+  }
+
   const counterfactual = measureRuntimeProfileStageSync(
     deps.runtimeProfile,
     'optimize.counterfactual',
     () =>
       buildCounterfactualRows({
         usageRows,
+        oneHourCacheWritesByPeriod,
         provider,
         candidateModels,
         pricingSource,

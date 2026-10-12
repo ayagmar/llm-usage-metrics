@@ -17,6 +17,7 @@ type BaselinePeriodTotals = {
   reasoningTokens: number;
   cacheReadTokens: number;
   cacheWriteTokens: number;
+  cacheWrite1hTokens: number;
   totalTokens: number;
   baselineCostUsd: number | undefined;
   baselineCostIncomplete: boolean;
@@ -30,6 +31,11 @@ type CandidateEvaluation = {
 
 export type BuildCounterfactualRowsInput = {
   usageRows: UsageReportRow[];
+  /**
+   * One-hour cache writes by period key, plus `ALL`. Report rows do not carry this share
+   * of cacheWriteTokens, and candidates must price it like the baseline did.
+   */
+  oneHourCacheWritesByPeriod: ReadonlyMap<string, number>;
   provider: string;
   candidateModels: string[];
   pricingSource?: PricingSource;
@@ -113,9 +119,7 @@ function createSyntheticEvent(period: BaselinePeriodTotals): UsageEvent {
     reasoningTokens: period.reasoningTokens,
     cacheReadTokens: period.cacheReadTokens,
     cacheWriteTokens: period.cacheWriteTokens,
-    // Report rows do not keep the one-hour share, so candidates price every write at the
-    // standard cache-write rate.
-    cacheWrite1hTokens: 0,
+    cacheWrite1hTokens: period.cacheWrite1hTokens,
     totalTokens: period.totalTokens,
     costMode: 'estimated',
     costUsd: undefined,
@@ -253,7 +257,10 @@ function compareCandidateRank(
   return compareByCodePoint(left.candidateModel, right.candidateModel);
 }
 
-function resolveBaselinePeriods(usageRows: UsageReportRow[]): BaselinePeriodTotals[] {
+function resolveBaselinePeriods(
+  usageRows: UsageReportRow[],
+  oneHourCacheWritesByPeriod: ReadonlyMap<string, number>,
+): BaselinePeriodTotals[] {
   const periodRows = new Map<string, UsageReportRow>();
   let grandTotalRow: UsageReportRow | undefined;
 
@@ -307,6 +314,7 @@ function resolveBaselinePeriods(usageRows: UsageReportRow[]): BaselinePeriodTota
       reasoningTokens: row.reasoningTokens,
       cacheReadTokens: row.cacheReadTokens,
       cacheWriteTokens: row.cacheWriteTokens,
+      cacheWrite1hTokens: oneHourCacheWritesByPeriod.get(periodKey) ?? 0,
       totalTokens: row.totalTokens,
       baselineCostUsd: row.costUsd,
       baselineCostIncomplete: row.costIncomplete === true,
@@ -323,6 +331,7 @@ function resolveBaselinePeriods(usageRows: UsageReportRow[]): BaselinePeriodTota
       reasoningTokens: allRow.reasoningTokens,
       cacheReadTokens: allRow.cacheReadTokens,
       cacheWriteTokens: allRow.cacheWriteTokens,
+      cacheWrite1hTokens: oneHourCacheWritesByPeriod.get('ALL') ?? 0,
       totalTokens: allRow.totalTokens,
       baselineCostUsd: allRow.costUsd,
       baselineCostIncomplete: allRow.costIncomplete === true,
@@ -335,6 +344,7 @@ function resolveBaselinePeriods(usageRows: UsageReportRow[]): BaselinePeriodTota
       reasoningTokens: 0,
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
+      cacheWrite1hTokens: 0,
       totalTokens: 0,
       baselineCostUsd: 0,
       baselineCostIncomplete: false,
@@ -357,7 +367,7 @@ function buildWarning(periodKeys: string[]): string | undefined {
 export function buildCounterfactualRows(
   input: BuildCounterfactualRowsInput,
 ): BuildCounterfactualRowsResult {
-  const baselinePeriods = resolveBaselinePeriods(input.usageRows);
+  const baselinePeriods = resolveBaselinePeriods(input.usageRows, input.oneHourCacheWritesByPeriod);
   const allPeriod = baselinePeriods.find((period) => period.periodKey === 'ALL');
 
   if (!allPeriod) {

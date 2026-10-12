@@ -78,6 +78,7 @@ describe('aggregate-counterfactual', () => {
   it('matches cost-engine semantics for counterfactual costs', () => {
     const result = buildCounterfactualRows({
       usageRows: createUsageRows(),
+      oneHourCacheWritesByPeriod: new Map(),
       provider: 'openai',
       candidateModels: ['gpt-4.1', 'gpt-5-codex'],
       pricingSource: createDefaultOpenAiPricingSource(),
@@ -148,6 +149,7 @@ describe('aggregate-counterfactual', () => {
 
     const result = buildCounterfactualRows({
       usageRows,
+      oneHourCacheWritesByPeriod: new Map(),
       provider: 'openai',
       candidateModels: ['gpt-4.1'],
       pricingSource: createDefaultOpenAiPricingSource(),
@@ -209,6 +211,7 @@ describe('aggregate-counterfactual', () => {
 
     const result = buildCounterfactualRows({
       usageRows,
+      oneHourCacheWritesByPeriod: new Map(),
       provider: 'openai',
       candidateModels: ['gpt-5-codex'],
       pricingSource: createDefaultOpenAiPricingSource(),
@@ -280,6 +283,7 @@ describe('aggregate-counterfactual', () => {
 
     const result = buildCounterfactualRows({
       usageRows,
+      oneHourCacheWritesByPeriod: new Map(),
       provider: 'openai',
       candidateModels: ['gpt-5-codex'],
       pricingSource: createDefaultOpenAiPricingSource(),
@@ -297,6 +301,7 @@ describe('aggregate-counterfactual', () => {
   it('creates a zeroed ALL baseline row when usage rows are empty', () => {
     const result = buildCounterfactualRows({
       usageRows: [],
+      oneHourCacheWritesByPeriod: new Map(),
       provider: 'openai',
       candidateModels: ['gpt-4.1'],
       pricingSource: createDefaultOpenAiPricingSource(),
@@ -321,6 +326,7 @@ describe('aggregate-counterfactual', () => {
 
     const result = buildCounterfactualRows({
       usageRows: createUsageRows(),
+      oneHourCacheWritesByPeriod: new Map(),
       provider: 'openai',
       candidateModels: ['beta', 'alpha'],
       pricingSource: pricing,
@@ -346,6 +352,7 @@ describe('aggregate-counterfactual', () => {
 
     const result = buildCounterfactualRows({
       usageRows: createUsageRows(),
+      oneHourCacheWritesByPeriod: new Map(),
       provider: 'openai',
       candidateModels: ['missing-model', 'gpt-4.1'],
       pricingSource: pricing,
@@ -368,6 +375,7 @@ describe('aggregate-counterfactual', () => {
   it('suppresses savings when baseline is incomplete', () => {
     const result = buildCounterfactualRows({
       usageRows: createUsageRows({ costUsd: undefined, costIncomplete: true }),
+      oneHourCacheWritesByPeriod: new Map(),
       provider: 'openai',
       candidateModels: ['gpt-4.1'],
       pricingSource: createDefaultOpenAiPricingSource(),
@@ -420,6 +428,7 @@ describe('aggregate-counterfactual', () => {
 
     const result = buildCounterfactualRows({
       usageRows,
+      oneHourCacheWritesByPeriod: new Map(),
       provider: 'openai',
       candidateModels: ['gpt-5.2'],
       pricingSource: createDefaultOpenAiPricingSource(),
@@ -481,6 +490,7 @@ describe('aggregate-counterfactual', () => {
 
     const result = buildCounterfactualRows({
       usageRows,
+      oneHourCacheWritesByPeriod: new Map(),
       provider: 'openai',
       candidateModels: ['gpt-5.2'],
       pricingSource: pricing,
@@ -542,6 +552,7 @@ describe('aggregate-counterfactual', () => {
 
     const result = buildCounterfactualRows({
       usageRows,
+      oneHourCacheWritesByPeriod: new Map(),
       provider: 'openai',
       candidateModels: ['gpt-5.2'],
       pricingSource: pricing,
@@ -573,6 +584,7 @@ describe('aggregate-counterfactual', () => {
 
     const result = buildCounterfactualRows({
       usageRows,
+      oneHourCacheWritesByPeriod: new Map(),
       provider: 'anthropic',
       candidateModels: ['gpt-5.2'],
       pricingSource: pricing,
@@ -612,6 +624,7 @@ describe('aggregate-counterfactual', () => {
 
     const result = buildCounterfactualRows({
       usageRows,
+      oneHourCacheWritesByPeriod: new Map(),
       provider: 'openai',
       candidateModels: ['gpt-5.2'],
       pricingSource: createDefaultOpenAiPricingSource(),
@@ -671,6 +684,7 @@ describe('aggregate-counterfactual', () => {
 
     const result = buildCounterfactualRows({
       usageRows,
+      oneHourCacheWritesByPeriod: new Map(),
       provider: 'openai',
       candidateModels: ['gpt-4.1', 'gpt-5-codex'],
       pricingSource: createDefaultOpenAiPricingSource(),
@@ -697,6 +711,7 @@ describe('aggregate-counterfactual', () => {
 
     const result = buildCounterfactualRows({
       usageRows: createUsageRows(),
+      oneHourCacheWritesByPeriod: new Map(),
       provider: 'openai',
       candidateModels: ['gpt-4.1', 'missing-model-a', 'missing-model-b'],
       pricingSource: pricing,
