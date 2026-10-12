@@ -7,6 +7,7 @@ import {
 } from '../config/runtime-overrides.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { closeEventStore, openEventStore, type EventStore } from '../persistence/event-store.js';
+import { countCopiedSessionEventsOnce } from './count-copied-session-events-once.js';
 import { addStoredFilesStillOnDisk } from './history-live-files.js';
 import {
   loadHistoryEvents as loadDefaultHistoryEvents,
@@ -46,7 +47,11 @@ import type {
   UsagePricingOrigin,
   UsageSourceFailure,
 } from './usage-data-contracts.js';
-import { getRepeatingSourceIds, type SourceAdapter } from '../sources/source-adapter.js';
+import {
+  getRepeatingSourceIds,
+  getSessionCopyingSourceIds,
+  type SourceAdapter,
+} from '../sources/source-adapter.js';
 import type { EnvVarOverride } from '../config/env-var-display.js';
 import type { PricingSource } from '../pricing/types.js';
 import { findUnmatchedFilterWarnings } from './filter-match-warnings.js';
@@ -413,6 +418,19 @@ export async function buildUsageEventDataset(
         ),
       );
     }
+
+    // After history and other machines, so a departed or remote copy is counted once too.
+    const sessionCopyingSources = getSessionCopyingSourceIds(adaptersToParse);
+    parseResultsForFiltering = measureRuntimeProfileStageSync(
+      runtimeProfile,
+      'usage.dataset.count_copies',
+      () =>
+        parseResultsForFiltering.map((result) =>
+          sessionCopyingSources.has(result.source)
+            ? { ...result, events: countCopiedSessionEventsOnce(result.events) }
+            : result,
+        ),
+    );
 
     const filteredEvents = measureRuntimeProfileStageSync(
       runtimeProfile,

@@ -20,6 +20,12 @@ export type SourceCapabilities = {
    * the same when their content hashes match, which cover session id and timestamp.
    */
   eventsRepeatAcrossFiles?: boolean;
+  /**
+   * A session can copy another session's events under its own session id (a Claude
+   * `/branch` transcript repeats the rows it branched from), so an event that several
+   * sessions hold with the same timestamp, model and usage is counted once.
+   */
+  sessionsCopyEvents?: boolean;
 };
 
 export type SourceAdapterPathOptions = {
@@ -48,6 +54,15 @@ export interface SourceAdapter<Event extends UsageEvent = UsageEvent> {
   parseFile(filePath: string): Promise<Event[]>;
   parseFileWithDiagnostics?(filePath: string): Promise<SourceParseFileDiagnostics<Event>>;
   getParseDependencies?(filePath: string): Promise<string[]>;
+}
+
+/** The ids of the adapters whose sessions copy each other's events. */
+export function getSessionCopyingSourceIds(adapters: readonly SourceAdapter[]): Set<string> {
+  return new Set(
+    adapters
+      .filter((adapter) => adapter.capabilities?.sessionsCopyEvents)
+      .map((adapter) => adapter.id),
+  );
 }
 
 /** The ids of the adapters whose files repeat each other's events. */
