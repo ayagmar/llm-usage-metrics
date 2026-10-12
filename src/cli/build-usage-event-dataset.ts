@@ -6,7 +6,12 @@ import {
   getPricingFetcherRuntimeConfig,
 } from '../config/runtime-overrides.js';
 import type { UsageEvent } from '../domain/usage-event.js';
-import { closeEventStore, openEventStore, type EventStore } from '../persistence/event-store.js';
+import {
+  closeEventStore,
+  openEventStore,
+  readOverrideOnlyFiles,
+  type EventStore,
+} from '../persistence/event-store.js';
 import { addStoredFilesStillOnDisk } from './history-live-files.js';
 import {
   loadHistoryEvents as loadDefaultHistoryEvents,
@@ -285,6 +290,7 @@ export async function buildUsageEventDataset(
         return parseSelectedAdapters(adaptersToParse, parsingRuntimeConfig.maxParallelFileParsing, {
           eventStore: parseEventStoreRuntimeConfig,
           openedStore: openedEventStore,
+          overrideSourceIds: cliDirectorySourceIds,
           since: configuredOptions.since,
           parseWorkers: {
             workerCount: parsingRuntimeConfig.parseWorkers,
@@ -335,7 +341,14 @@ export async function buildUsageEventDataset(
                   discoveredFiles: discoveredFiles.filter(
                     (file) => !failedFileKeys.has(`${file.source}\0${file.filePath}`),
                   ),
-                  presentFiles: failedFiles,
+                  // Files only ever found under a custom directory never departed from
+                  // their source's usual location, so a run there leaves them out.
+                  presentFiles: [
+                    ...failedFiles,
+                    ...readOverrideOnlyFiles(historyStore).filter(
+                      (file) => !cliDirectorySourceIds.has(file.source),
+                    ),
+                  ],
                   repeatingSources: getRepeatingSourceIds(adaptersToParse),
                 },
                 { unverifiable: 'treat-as-departed' },
