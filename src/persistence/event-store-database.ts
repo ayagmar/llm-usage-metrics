@@ -34,6 +34,7 @@ export type EventStore = {
     deleteFileEvents?: EventStoreStatement;
     insertEvent?: EventStoreStatement;
     upsertFile?: EventStoreStatement;
+    markOverrideOnlyFile?: EventStoreStatement;
   };
 };
 

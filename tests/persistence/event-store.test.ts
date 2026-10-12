@@ -23,6 +23,7 @@ import {
   readEventStoreEvents,
   readEventStoreSummary,
   readFileEvents,
+  readOverrideOnlyFiles,
   replaceFileEvents,
   replaceFilesEvents,
   serializeEventStoreFingerprint,
@@ -406,6 +407,66 @@ describe('event-store', () => {
       expect(
         store.database.prepare("SELECT value FROM meta WHERE key = 'schemaVersion'").get(),
       ).toEqual({ value: EVENT_STORE_SCHEMA_VERSION });
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  it('adds the override-only table to a current store written by an older build', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-override-only-table-'));
+    tempDirs.push(tempDir);
+    const dbPath = path.join(tempDir, 'events.db');
+    const olderStore = await openEventStore(dbPath);
+    olderStore.database.exec('DROP TABLE override_only_files');
+    closeEventStore(olderStore);
+    const store = await openEventStore(dbPath);
+
+    try {
+      replaceFileEvents(store, {
+        source: 'codex',
+        filePath: '/tmp/export/session.jsonl',
+        fingerprint: createFingerprint(),
+        events: [createEvent()],
+        skippedRows: 0,
+        now: 1_000,
+        overrideOnly: true,
+      });
+
+      expect(readOverrideOnlyFiles(store)).toEqual([
+        { source: 'codex', filePath: '/tmp/export/session.jsonl' },
+      ]);
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  it('marks only files an override run stores first, and forgets the mark on delete', async () => {
+    const store = await createTempStore('event-store-override-only-marks-');
+    const writeFile = (filePath: string, overrideOnly: boolean): void => {
+      replaceFileEvents(store, {
+        source: 'codex',
+        filePath,
+        fingerprint: createFingerprint(),
+        events: [createEvent()],
+        skippedRows: 0,
+        now: 1_000,
+        overrideOnly,
+      });
+    };
+
+    try {
+      writeFile('/tmp/usual.jsonl', false);
+      writeFile('/tmp/usual.jsonl', true);
+      writeFile('/tmp/export.jsonl', true);
+      writeFile('/tmp/export.jsonl', false);
+
+      expect(readOverrideOnlyFiles(store)).toEqual([
+        { source: 'codex', filePath: '/tmp/export.jsonl' },
+      ]);
+
+      deleteStoredFiles(store, [{ source: 'codex', filePath: '/tmp/export.jsonl' }]);
+
+      expect(readOverrideOnlyFiles(store)).toEqual([]);
     } finally {
       closeEventStore(store);
     }
@@ -1473,7 +1534,7 @@ describe('event-store', () => {
     replaceCodexFile(store, { filePath: '/tmp/b.jsonl' });
     replaceCodexFile(store, { filePath: '/tmp/c.jsonl' });
 
-    expect(fakeSqlite.prepareCalls.length - prepareCountBeforeWrites).toBe(3);
+    expect(fakeSqlite.prepareCalls.length - prepareCountBeforeWrites).toBe(4);
     closeEventStore(store);
   });
 

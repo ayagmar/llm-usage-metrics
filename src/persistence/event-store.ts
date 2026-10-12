@@ -1,4 +1,5 @@
 export {
+  claimOverrideOnlyFiles,
   closeEventStore,
   countEvents,
   deleteStoredFiles,
@@ -15,6 +16,7 @@ export {
   readEventStoreStoredFiles,
   readEventStoreSummary,
   readFileEvents,
+  readOverrideOnlyFiles,
   readStoredFileSnapshots,
   replaceFileEvents,
   replaceFilesEvents,

@@ -20,6 +20,7 @@ import {
   getLegacyEventStorePath,
   openEventStore,
   readFileEvents,
+  readOverrideOnlyFiles,
   replaceFileEvents,
   type EventStore,
   type EventStoreFileFingerprint,
@@ -280,6 +281,39 @@ describe('run-prune-report', () => {
     try {
       expect(result.summary).toMatchObject({ candidateFileCount: 0, deletedEventCount: 0 });
       expect(readFileEvents(afterStore, 'codex', parentPath)).toHaveLength(2);
+    } finally {
+      closeEventStore(afterStore);
+    }
+  });
+
+  it('deletes a departed file that only a custom-directory run stored', async () => {
+    const dbPath = await createTempDbPath('prune-override-only-');
+    const exportPath = '/tmp/export/session.jsonl';
+    const store = await openEventStore(dbPath);
+
+    try {
+      replaceFileEvents(store, {
+        source: 'codex',
+        filePath: exportPath,
+        fingerprint: createFingerprint(exportPath),
+        events: [createEvent({ timestamp: '2025-12-01T00:00:00.000Z' })],
+        skippedRows: 0,
+        now: 1_000,
+        overrideOnly: true,
+      });
+    } finally {
+      closeEventStore(store);
+    }
+
+    const result = await buildPruneReport(
+      { departedBefore: '2026-01-01', apply: true },
+      createDeps(dbPath, [createAdapter({ files: [] })]),
+    );
+    const afterStore = await openEventStore(dbPath);
+
+    try {
+      expect(result.candidates.map((candidate) => candidate.filePath)).toEqual([exportPath]);
+      expect(readOverrideOnlyFiles(afterStore)).toEqual([]);
     } finally {
       closeEventStore(afterStore);
     }

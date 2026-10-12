@@ -63,7 +63,27 @@ CREATE TABLE IF NOT EXISTS events (
 );
 CREATE INDEX IF NOT EXISTS events_file ON events(source, file_path, event_index);
 CREATE INDEX IF NOT EXISTS events_content_hash ON events(content_hash);
+${createOverrideOnlyFilesSql()}
 `;
+}
+
+// Stored files that only a run with a custom directory (--claude-dir, --source-dir...)
+// has discovered. A default run never serves them as history: they were never in the
+// source's usual location. Added without a schema version bump, since older builds that
+// ignore the table still read and write the store correctly.
+function createOverrideOnlyFilesSql(): string {
+  return `
+CREATE TABLE IF NOT EXISTS override_only_files (
+  source TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  PRIMARY KEY (source, file_path)
+);`;
+}
+
+function ensureOverrideOnlyFilesTable(database: EventStoreDatabase): void {
+  if (!listUserTableNames(database).includes('override_only_files')) {
+    database.exec(createOverrideOnlyFilesSql());
+  }
 }
 
 function listUserTableNames(database: EventStoreDatabase): string[] {
@@ -244,6 +264,11 @@ export function assertSupportedSchemaVersion(database: EventStoreDatabase): void
 }
 
 export function initializeSchema(database: EventStoreDatabase): void {
+  createOrMigrateSchema(database);
+  ensureOverrideOnlyFilesTable(database);
+}
+
+function createOrMigrateSchema(database: EventStoreDatabase): void {
   if (listUserTableNames(database).length === 0) {
     const createdSchema = runTransaction(database, () => {
       // Re-check under the write lock: a concurrent first run may have created the

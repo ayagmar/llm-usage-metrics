@@ -66,6 +66,12 @@ export type ReplaceFileEventsInput = {
   skippedRows: number;
   skippedRowReasons?: SourceSkippedRowReasonStat[];
   now: number;
+  /**
+   * Set when the file was discovered under a custom directory (--claude-dir,
+   * --source-dir...). A file the store does not hold yet is then recorded as
+   * override-only, until a run with the usual directories discovers it too.
+   */
+  overrideOnly?: boolean;
 };
 
 export type DeleteStoredFilesInput = {
@@ -821,12 +827,16 @@ export function deleteStoredFiles(
     const deleteFile = store.database.prepare(
       'DELETE FROM files WHERE source = ? AND file_path = ?',
     );
+    const deleteOverrideOnlyFile = store.database.prepare(
+      'DELETE FROM override_only_files WHERE source = ? AND file_path = ?',
+    );
 
     for (const file of normalizedFiles) {
       result.deletedEventCount += countMatchingRows(store, 'events', file.source, file.filePath);
       result.deletedFileCount += countMatchingRows(store, 'files', file.source, file.filePath);
       deleteEvents.run(file.source, file.filePath);
       deleteFile.run(file.source, file.filePath);
+      deleteOverrideOnlyFile.run(file.source, file.filePath);
     }
   });
 
@@ -862,6 +872,7 @@ export function replaceFilesEvents(
     skippedRowReasons: stringifySkippedRowReasons(input.skippedRowReasons),
     ingestedAt: Math.max(0, Math.trunc(input.now)),
     events: input.events.map((event) => createUsageEvent(event)),
+    overrideOnly: input.overrideOnly === true,
   }));
 
   const deleteFileEvents = (store.statements.deleteFileEvents ??= store.database.prepare(
@@ -890,10 +901,22 @@ export function replaceFilesEvents(
     ].join('\n'),
   ));
 
+  const markOverrideOnlyFile = (store.statements.markOverrideOnlyFile ??= store.database.prepare(
+    [
+      'INSERT OR IGNORE INTO override_only_files (source, file_path)',
+      'SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM files WHERE source = ? AND file_path = ?)',
+    ].join('\n'),
+  ));
+
   runTransaction(store.database, () => {
     for (const write of writes) {
       const { source, filePath } = write;
       deleteFileEvents.run(source, filePath);
+
+      // Before the upsert, which would make every file look already stored.
+      if (write.overrideOnly) {
+        markOverrideOnlyFile.run(source, filePath, source, filePath);
+      }
 
       write.events.forEach((event, eventIndex) => {
         insertEvent.run(
@@ -926,6 +949,63 @@ export function replaceFilesEvents(
         write.skippedRowReasons,
         write.ingestedAt,
       );
+    }
+  });
+}
+
+/** Stored files that only runs with a custom directory have discovered, in key order. */
+export function readOverrideOnlyFiles(store: EventStore): EventStoreStoredFile[] {
+  const rows = store.database
+    .prepare('SELECT source, file_path FROM override_only_files ORDER BY source, file_path')
+    .all();
+  const files: EventStoreStoredFile[] = [];
+
+  for (const row of rows) {
+    const source = toText(row.source);
+    const filePath = toText(row.file_path);
+
+    if (source && filePath) {
+      files.push({ source, filePath });
+    }
+  }
+
+  return files;
+}
+
+/**
+ * Records that a run with the usual directories discovered `files`: those it held as
+ * override-only now belong to their source's usual location.
+ */
+export function claimOverrideOnlyFiles(
+  store: EventStore,
+  files: readonly EventStoreStoredFile[],
+): void {
+  const overrideOnlyKeys = new Set(
+    readOverrideOnlyFiles(store).map((file) => `${file.source}\0${file.filePath}`),
+  );
+
+  if (overrideOnlyKeys.size === 0) {
+    return;
+  }
+
+  const claimedFiles = files
+    .map((file) => ({
+      source: normalizeStoreSource(file.source),
+      filePath: normalizeStoreFilePath(file.filePath),
+    }))
+    .filter((file) => overrideOnlyKeys.has(`${file.source}\0${file.filePath}`));
+
+  if (claimedFiles.length === 0) {
+    return;
+  }
+
+  runTransaction(store.database, () => {
+    const deleteOverrideOnlyFile = store.database.prepare(
+      'DELETE FROM override_only_files WHERE source = ? AND file_path = ?',
+    );
+
+    for (const file of claimedFiles) {
+      deleteOverrideOnlyFile.run(file.source, file.filePath);
     }
   });
 }

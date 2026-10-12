@@ -1,6 +1,7 @@
 import type { EventStoreRuntimeConfig } from '../config/runtime-overrides.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import {
+  claimOverrideOnlyFiles as claimDefaultOverrideOnlyFiles,
   closeEventStore as closeDefaultEventStore,
   getFileEntry as getDefaultEventStoreFileEntry,
   openEventStore as openDefaultEventStore,
@@ -18,6 +19,7 @@ import type {
 } from '../sources/source-adapter.js';
 import { normalizeSkippedRowReasons } from './normalize-skipped-row-reasons.js';
 import {
+  claimFilesInUsualLocations,
   isStoredFileCurrent,
   readParsedFileFromEventStore,
   recordEventStoreFailure,
@@ -82,6 +84,8 @@ export type ParseSelectedAdaptersOptions = {
   since?: string;
   eventStoreDeps?: EventStoreParseDeps;
   openedStore?: EventStore;
+  /** Lowercase ids of the sources read from a custom directory (--claude-dir...). */
+  overrideSourceIds?: ReadonlySet<string>;
   now?: () => number;
   parseWorkers?: ParseWorkerRuntimeOptions;
   runtimeProfile?: RuntimeProfileCollector;
@@ -575,8 +579,11 @@ export async function parseSelectedAdapters(
         getFileEntry: options.eventStoreDeps?.getFileEntry ?? getDefaultEventStoreFileEntry,
         readFileEvents: options.eventStoreDeps?.readFileEvents ?? readDefaultEventStoreFileEvents,
         replaceFilesEvents: options.eventStoreDeps?.replaceFilesEvents ?? replaceDefaultFilesEvents,
+        claimOverrideOnlyFiles:
+          options.eventStoreDeps?.claimOverrideOnlyFiles ?? claimDefaultOverrideOnlyFiles,
         now: options.now ?? Date.now,
         failureState: eventStoreFailureState,
+        overrideSourceIds: options.overrideSourceIds ?? new Set(),
       };
     } catch (error) {
       recordEventStoreFailure(eventStoreFailureState, error);
@@ -584,6 +591,7 @@ export async function parseSelectedAdapters(
   }
 
   let parseResults: Array<PromiseSettledResult<AdapterParseResultWithFiles>>;
+  let claimWarning: string | undefined;
 
   try {
     parseResults = await Promise.allSettled(
@@ -611,6 +619,20 @@ export async function parseSelectedAdapters(
             ),
       ),
     );
+
+    if (eventStoreContext) {
+      claimWarning = claimFilesInUsualLocations(
+        eventStoreContext,
+        parseResults.flatMap((parseResult) =>
+          parseResult.status === 'fulfilled'
+            ? parseResult.value.filePaths.map((filePath) => ({
+                source: parseResult.value.source,
+                filePath,
+              }))
+            : [],
+        ),
+      );
+    }
   } finally {
     if (eventStoreContext && ownsEventStore) {
       try {
@@ -651,7 +673,9 @@ export async function parseSelectedAdapters(
     failedFiles,
     eventStoreAvailable: Boolean(options.eventStore?.enabled) && !eventStoreFailureState.disabled,
     sourceFailures,
-    warnings: eventStoreFailureState.warning ? [eventStoreFailureState.warning] : [],
+    warnings: [eventStoreFailureState.warning, claimWarning].filter(
+      (warning): warning is string => warning !== undefined,
+    ),
   };
 }
 
