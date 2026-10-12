@@ -305,25 +305,29 @@ describe('createCli', () => {
     expect(compactDailyCommandHelp).toContain('after source/provider/date filters');
   });
 
-  it('wraps every help line to the terminal width on narrow terminals', () => {
-    const columns = 60;
+  it('fits every help line to a phone-width or narrow terminal', () => {
     const cli = createCli();
     const commands = cli.commands.flatMap((entry) => [entry, ...entry.commands]);
 
-    for (const command of [cli, ...commands]) {
-      let text = '';
-      command
-        .configureOutput({ writeOut: (chunk) => (text += chunk), getOutHelpWidth: () => columns })
-        .outputHelp();
+    for (const columns of [44, 60]) {
+      for (const command of [cli, ...commands]) {
+        let text = '';
+        command
+          .configureOutput({
+            writeOut: (chunk) => (text += chunk),
+            getOutHelpWidth: () => columns,
+          })
+          .outputHelp();
 
-      // Option and command rows; examples and prose blocks are written pre-wrapped.
-      // A single word wider than the description column cannot be split.
-      const overflowing = text
-        .split('\n')
-        .filter((line) => line.startsWith('  ') && !line.trimStart().startsWith('$ '))
-        .filter((line) => line.length > columns && line.trim().includes(' '));
+        // Example commands and the usage synopsis are meant to be copied whole, and one
+        // word cannot be split.
+        const overflowing = text
+          .split('\n')
+          .filter((line) => !line.trimStart().startsWith('$ ') && !line.startsWith('Usage: '))
+          .filter((line) => line.length > columns && line.trim().includes(' '));
 
-      expect(overflowing, command.name()).toEqual([]);
+        expect(overflowing, `${command.name()} at ${String(columns)}`).toEqual([]);
+      }
     }
   });
 
@@ -532,6 +536,24 @@ describe('createCli', () => {
     );
     expect(unknownOutput.text()).toContain("error: unknown option '--zzz'");
     expect(unknownOutput.text()).not.toContain('Did you mean');
+  });
+
+  it('points --json on statusline and events to the command that has it', async () => {
+    for (const [name, alternative] of [
+      ['statusline', 'use llm-usage summary --json'],
+      ['events', 'use --format jsonl'],
+    ] as const) {
+      const cli = createCli();
+      const command = cli.commands.find((entry) => entry.name() === name);
+      expect(command).toBeDefined();
+      const output = captureOutput(command ?? cli);
+      command?.action(vi.fn());
+
+      await expect(cli.parseAsync([name, '--json'], { from: 'user' })).rejects.toMatchObject({
+        exitCode: 1,
+      });
+      expect(output.text()).toContain(`error: --json is not supported for ${name}; ${alternative}`);
+    }
   });
 
   it('hides the per-source path flags from --help and lists them with --help-all', async () => {

@@ -8,6 +8,8 @@ import type { SharedOptionProfile } from './report-definition-types.js';
 
 export type SharedOptionProfileConfig = {
   includeJson: boolean;
+  /** Where to point `--json` on a command without it, instead of an unknown-option error. */
+  jsonAlternative?: string;
   includeQuiet: boolean;
   includeDateFilters: boolean;
   includeMarkdown: boolean;
@@ -124,6 +126,7 @@ export const sharedOptionProfileConfig = {
   },
   events: {
     includeJson: false,
+    jsonAlternative: 'use --format jsonl',
     includeQuiet: true,
     includeDateFilters: true,
     includeMarkdown: false,
@@ -138,6 +141,7 @@ export const sharedOptionProfileConfig = {
   },
   statusline: {
     includeJson: false,
+    jsonAlternative: 'use llm-usage summary --json',
     includeQuiet: false,
     includeDateFilters: false,
     includeMarkdown: false,
@@ -221,6 +225,25 @@ function suggestHiddenOptionsOnTypo(command: Command): void {
   };
 }
 
+/** Turns `--json` on a command without it into an error that names the alternative. */
+function redirectUnsupportedJson(command: Command, alternative: string): void {
+  if (!hasUnknownOptionHook(command)) {
+    return;
+  }
+
+  const reportUnknownOption = command.unknownOption.bind(command);
+
+  command.unknownOption = (flag) => {
+    if (flag === '--json') {
+      command.error(`error: --json is not supported for ${command.name()}; ${alternative}`, {
+        code: 'commander.unknownOption',
+      });
+    }
+
+    reportUnknownOption(flag);
+  };
+}
+
 /**
  * The 17 per-source path flags crowd every report's help, so they stay out of it;
  * `--help-all` prints the help with them.
@@ -249,7 +272,7 @@ function registerSourcePathOptions(command: Command): void {
     })
     .addHelpText('after', () =>
       hasHiddenOptions(command)
-        ? '\nPer-source path flags (--claude-dir, --codex-dir, --opencode-db, ...) are\nlisted by --help-all.'
+        ? '\nPer-source path flags (--claude-dir, ...)\nare listed by --help-all.'
         : '',
     );
 
@@ -291,6 +314,8 @@ export function registerSharedReportOptions(
 
   if (profileConfig.includeJson) {
     configuredCommand.option('--json', 'Render output as JSON');
+  } else {
+    redirectUnsupportedJson(configuredCommand, profileConfig.jsonAlternative);
   }
 
   if (profileConfig.includeQuiet) {
