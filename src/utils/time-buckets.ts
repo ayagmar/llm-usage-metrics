@@ -12,10 +12,15 @@ type LocalDateTimeParts = LocalDateParts & {
   second: number;
 };
 
+/** A local date with its `YYYY-MM-DD` key, formatted once per cached day. */
+type KeyedLocalDate = LocalDateParts & {
+  dateKey: string;
+};
+
 type LocalDateWindow = {
   startMs: number;
   endMs: number;
-  parts: LocalDateParts;
+  parts: KeyedLocalDate;
 };
 
 type LocalDateWindowCache = {
@@ -53,11 +58,13 @@ function getDateTimeFormatter(timezone: string): Intl.DateTimeFormat {
 // A report buckets the same event timestamps several times (filters, windows, totals,
 // active days), so the parsed local date is kept per timestamp string. The memo is
 // capped: past the cap it starts over, so a long-lived process cannot keep every
-// timestamp it ever saw (a year of heavy usage is ~25k events per timezone).
-const MAX_MEMOIZED_TIMESTAMPS = 100_000;
-const localDatePartsByTimestamp = new Map<string, Map<string, LocalDateParts>>();
+// timestamp it ever saw. The cap sits well above one run's timestamps: a year of heavy
+// usage across several machines reaches ~300k, and a memo that starts over mid-run
+// recomputes every pass.
+const MAX_MEMOIZED_TIMESTAMPS = 1_000_000;
+const localDatePartsByTimestamp = new Map<string, Map<string, KeyedLocalDate>>();
 
-function extractLocalDateParts(timestampIso: string, timezone: string): LocalDateParts {
+function extractLocalDateParts(timestampIso: string, timezone: string): KeyedLocalDate {
   let partsByTimestamp = localDatePartsByTimestamp.get(timezone);
 
   if (!partsByTimestamp) {
@@ -81,7 +88,7 @@ function extractLocalDateParts(timestampIso: string, timezone: string): LocalDat
   return parts;
 }
 
-function parseLocalDateParts(timestampIso: string, timezone: string): LocalDateParts {
+function parseLocalDateParts(timestampIso: string, timezone: string): KeyedLocalDate {
   const date = new Date(timestampIso);
   const timestampMs = date.getTime();
 
@@ -96,7 +103,7 @@ function getCachedLocalDateParts(
   timestampMs: number,
   timezone: string,
   timestampIso: string,
-): LocalDateParts {
+): KeyedLocalDate {
   const cache = getLocalDateWindowCache(timezone);
 
   if (cache.last && coversTimestamp(cache.last, timestampMs)) {
@@ -147,7 +154,8 @@ function createLocalDateWindow(
 ): LocalDateWindow {
   const startMs = dayIndex * DAY_MS - offsetMs;
   const endMs = startMs + DAY_MS;
-  const parts = toLocalDateParts(localDateTime);
+  const localDate = toLocalDateParts(localDateTime);
+  const parts = { ...localDate, dateKey: formatLocalDateParts(localDate) };
 
   if (hasStableOffsetWindow(startMs, endMs, offsetMs, timezone)) {
     return { startMs, endMs, parts };
@@ -303,7 +311,7 @@ export function getPeriodKey(
   const localDate = extractLocalDateParts(timestampIso, timezone);
 
   if (granularity === 'daily') {
-    return formatLocalDateParts(localDate);
+    return localDate.dateKey;
   }
 
   if (granularity === 'monthly') {
@@ -330,16 +338,14 @@ export function getIsoDayOfWeekFromDateKey(localDateKey: string): number {
 }
 
 export function getCurrentLocalDateKey(timezone: string, now: Date = new Date()): string {
-  return formatLocalDateParts(extractLocalDateParts(now.toISOString(), timezone));
+  return extractLocalDateParts(now.toISOString(), timezone).dateKey;
 }
 
 export function shiftLocalDateKey(localDateKey: string, days: number): string {
-  return formatLocalDateParts(
-    extractLocalDateParts(
-      addDays(createUtcDate(parseLocalDateKey(localDateKey)), days).toISOString(),
-      'UTC',
-    ),
-  );
+  return extractLocalDateParts(
+    addDays(createUtcDate(parseLocalDateKey(localDateKey)), days).toISOString(),
+    'UTC',
+  ).dateKey;
 }
 
 export function getLocalDateKeyRange(from: string, to: string): string[] {
