@@ -575,7 +575,7 @@ costUsd (wrapped).
 
 * **docs:** update CLI version in reference to 0.3.0 ([8d5b88a](https://github.com/ayagmar/llm-usage-metrics/commit/8d5b88a80da9b2f398eb79b5a70d40b50936abb8))
 
-## [](https://github.com/ayagmar/llm-usage-metrics/compare/v0.2.1...vnull) (2026-02-23)
+## [0.3.0](https://github.com/ayagmar/llm-usage-metrics/compare/v0.2.1...v0.3.0) (2026-02-23)
 
 ### Features
 
@@ -592,7 +592,7 @@ costUsd (wrapped).
 * **docs:** include all command options in CLI reference ([bdf3629](https://github.com/ayagmar/llm-usage-metrics/commit/bdf3629f39005475b51dcbc248eaff7fab2256cc))
 * **site:** align docs config and canonical links ([e8466e6](https://github.com/ayagmar/llm-usage-metrics/commit/e8466e6fa9a5b9c48009cb4865e04a5113c9ecb8))
 
-## [](https://github.com/ayagmar/llm-usage-metrics/compare/v0.2.0...vnull) (2026-02-22)
+## [0.2.1](https://github.com/ayagmar/llm-usage-metrics/compare/v0.2.0...v0.2.1) (2026-02-22)
 
 ### Bug Fixes
 
@@ -607,7 +607,7 @@ costUsd (wrapped).
 
 * **parsing:** add bounded parse cache and jsonl prefilters ([9a76986](https://github.com/ayagmar/llm-usage-metrics/commit/9a76986ce623eca3f21a2e56511e62133df586a7))
 
-## [](https://github.com/ayagmar/llm-usage-metrics/compare/v0.1.11...vnull) (2026-02-22)
+## [0.2.0](https://github.com/ayagmar/llm-usage-metrics/compare/v0.1.11...v0.2.0) (2026-02-22)
 
 ### Features
 

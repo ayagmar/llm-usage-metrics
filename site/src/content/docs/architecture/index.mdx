@@ -14,7 +14,7 @@ description: High-level runtime architecture and data flow.
 ## Report definitions and runtime
 
 - `src/cli/report-definitions`
-  Canonical metadata for `summary` (the default command), `daily`, `weekly`, `monthly`, `compare`, `efficiency`, `optimize`, `trends`, `session`, `wrapped`, `doctor`, `prune`, and `events`. The `config` and `schema` commands are registered directly in `create-cli.ts`
+  Canonical metadata for `summary` (the default command), `daily`, `weekly`, `monthly`, `compare`, `efficiency`, `optimize`, `trends`, `session`, `wrapped`, `statusline`, `doctor`, `prune`, and `events`. The `config`, `schema`, `completion`, `machine`, and `sync` commands are registered directly in `create-cli.ts`
 - `src/cli/report-runtime`
   Shared prepare/run lifecycle for format validation, share handling, terminal overflow warnings, and stdout emission
 

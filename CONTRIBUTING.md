@@ -40,8 +40,10 @@ Main directories:
 - `src/sources`: source adapters (`pi`, `codex`, etc.)
 - `src/domain`: normalized event/report types
 - `src/pricing`: pricing loaders + cost engine
+- `src/persistence`: SQLite event store, migrations, and departed-file history
+- `src/machines`: other machines' usage: `machine export`, ssh sync, and per-machine caches
 - `src/aggregate`: period aggregation
-- `src/render`: terminal/markdown output
+- `src/render`: terminal, Markdown, JSON, and share-card output
 - `tests`: unit, fixture, and e2e tests
 
 More detail: `docs/architecture.md`.
@@ -64,6 +66,8 @@ Add `src/sources/<name>/<name>-source-adapter.ts` implementing:
 - `id`
 - `discoverFiles()`
 - `parseFile(filePath)`
+- `parserVersion`: bump it when unchanged input would parse differently, so the parse cache drops events stored by the old parser
+- `getParseDependencies(filePath)`, when the result depends on other files (sidecars, a parent transcript): return their paths so a change to them reparses the file
 
 Normalize raw data with `createUsageEvent` so downstream code receives consistent `UsageEvent` values.
 

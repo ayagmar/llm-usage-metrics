@@ -17,7 +17,7 @@ This keeps source-specific parsing, pricing, aggregation, rendering, and command
 ### Report definitions
 
 - `src/cli/report-definitions/report-definitions.ts`
-  Owns the canonical registry for `summary` (the default command), `daily`, `weekly`, `monthly`, `compare`, `efficiency`, `optimize`, `trends`, `session`, `wrapped`, `statusline`, `doctor`, `prune`, and `events`. (`config`, `schema`, and `completion` are registered directly in `create-cli.ts`; `create-completion-command.ts` generates the bash, zsh, and fish scripts from the live command tree.)
+  Owns the canonical registry for `summary` (the default command), `daily`, `weekly`, `monthly`, `compare`, `efficiency`, `optimize`, `trends`, `session`, `wrapped`, `statusline`, `doctor`, `prune`, and `events`. (`config`, `schema`, `completion`, `machine`, and `sync` are registered directly in `create-cli.ts`; `create-completion-command.ts` generates the bash, zsh, and fish scripts from the live command tree.)
 - `src/cli/report-definitions/shared-report-options.ts`
   Registers the shared option surface by profile (`usage`, `summary`, `specialized`, `compare`, `trends`, `session`, `wrapped`, `events`, `statusline`, `doctor`).
 
@@ -50,6 +50,7 @@ Each report wrapper owns its policy:
 
 The public entry points remain stable, one `build*`/`run*` pair per command:
 
+- `buildSummaryReport`, `runSummaryReport`
 - `buildUsageReport`, `runUsageReport`
 - `buildCompareReport`, `runCompareReport`
 - `buildEfficiencyReport`, `runEfficiencyReport`
@@ -132,9 +133,27 @@ The public entry points remain stable, one `build*`/`run*` pair per command:
 3. `renderWrappedReport(...)`
 4. shared report runtime emits diagnostics, optional share card, and stdout body
 
-### Doctor and Prune
+### Summary
 
-`runStatusline` builds the summary data with offline pricing and prints one line from it, with the logger silenced and the update check skipped.
+`runSummaryReport(options)`
+
+1. `buildSummaryData(...)` builds one priced dataset from a year before today through today (the range the activity grid needs)
+2. per-window totals for today, the last 7 days, and month to date, split by source, and by machine when other machines' events are present
+3. `resolveMonthEnd(...)` projects the month-end cost from the 3rd of the month on, and compares it with `monthlyBudgetUsd` unless `--source`, `--model`, or `--provider` narrows the run
+4. `estimateCacheSavingsUsd(...)` for month to date, and `aggregateDailyActivity(...)` for streaks and the heatmap
+5. shared report runtime emits diagnostics and stdout body
+
+### Statusline
+
+`runStatusline` builds the summary data with offline pricing and machine sync off, so it never fetches prices or opens an ssh connection and skips the update check, and prints one line from it with the logger silenced unless `--verbose`. Under Claude Code it also reads the session JSON from stdin and puts the session cost and context use first.
+
+### Machines and Sync
+
+`machine add` and `sync` run `syncMachine` (`src/machines/sync-machine.ts`): it runs `llm-usage machine export` on the other machine over ssh, sends the files its cache already holds so only changed files come back (`--full` asks for all of them), and applies the bundle to that machine's cache in one transaction. A failed sync leaves the cache as it was and records the error.
+
+Reports refresh caches themselves: `buildUsageEventDataset` calls `refreshDueMachines` alongside the local parse, which syncs each enabled machine whose last sync or attempt is at least 10 minutes old and waits at most 30 seconds before using what is cached. `--no-sync` and `statusline` skip the refresh.
+
+### Doctor and Prune
 
 Non-report commands with their own runners: `buildDoctorResults(...)` checks source discovery health and runtime configuration and `runDoctorReport` renders it; `buildPruneReport(...)` classifies departed event-store files through the shared history logic and `renderPruneReport` prints candidates and the apply summary.
 
