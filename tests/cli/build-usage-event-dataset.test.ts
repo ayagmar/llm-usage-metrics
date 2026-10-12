@@ -507,7 +507,7 @@ describe('buildUsageEventDataset history', () => {
       ].join('\n'),
       'utf8',
     );
-    // /branch rewrites the session id of the rows it copies.
+    // A continued session rewrites the session id of the rows it copies.
     await writeFile(
       branchPath,
       [

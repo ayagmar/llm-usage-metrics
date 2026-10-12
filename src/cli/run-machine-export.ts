@@ -108,8 +108,11 @@ export async function runMachineExport(
   );
 
   const end = lines.at(-1);
+  // The store keeps every copy of a copied session event; reports count it once.
   const missingEventCount =
-    dataset.filteredEvents.length - (end?.type === 'end' ? end.eventCount : 0);
+    dataset.filteredEvents.length +
+    dataset.ledger.copiedEventCount -
+    (end?.type === 'end' ? end.eventCount : 0);
 
   // A file whose fingerprint cannot be read (e.g. a dependency without read access) is
   // counted by reports but never stored, so it cannot be exported.

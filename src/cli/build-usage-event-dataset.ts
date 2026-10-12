@@ -157,6 +157,8 @@ export type UsageEventDataset = {
     path: string;
     parsedFiles: EventStoreHistoryDiscoveredFile[];
     historyFiles: EventStoreHistoryDiscoveredFile[];
+    /** Events those files hold that the run counted once, as copies of another session's. */
+    copiedEventCount: number;
   };
   pricingRuntimeConfig: ReturnType<typeof getPricingFetcherRuntimeConfig>;
   readEnvVarOverrides: () => EnvVarOverride[];
@@ -305,7 +307,12 @@ export async function buildUsageEventDataset(
 
     let parseResultsForFiltering = successfulParseResults;
     const ledger: UsageEventDataset['ledger'] = eventStoreAvailable
-      ? { path: eventStoreRuntimeConfig.path, parsedFiles: [...parsedFiles], historyFiles: [] }
+      ? {
+          path: eventStoreRuntimeConfig.path,
+          parsedFiles: [...parsedFiles],
+          historyFiles: [],
+          copiedEventCount: 0,
+        }
       : undefined;
     const historyWarnings: string[] = [];
     const historyNotes: string[] = [];
@@ -425,11 +432,19 @@ export async function buildUsageEventDataset(
       runtimeProfile,
       'usage.dataset.count_copies',
       () =>
-        parseResultsForFiltering.map((result) =>
-          sessionCopyingSources.has(result.source)
-            ? { ...result, events: countCopiedSessionEventsOnce(result.events) }
-            : result,
-        ),
+        parseResultsForFiltering.map((result) => {
+          if (!sessionCopyingSources.has(result.source)) {
+            return result;
+          }
+
+          const events = countCopiedSessionEventsOnce(result.events);
+
+          if (ledger) {
+            ledger.copiedEventCount += result.events.length - events.length;
+          }
+
+          return { ...result, events };
+        }),
     );
 
     const filteredEvents = measureRuntimeProfileStageSync(

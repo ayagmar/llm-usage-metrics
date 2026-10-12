@@ -22,8 +22,8 @@ export type SourceCapabilities = {
   eventsRepeatAcrossFiles?: boolean;
   /**
    * A session can copy another session's events under its own session id (a Claude
-   * `/branch` transcript repeats the rows it branched from), so an event that several
-   * sessions hold with the same timestamp, model and usage is counted once.
+   * session continued in a new session repeats the rows it continues), so an event that
+   * several sessions hold with the same timestamp, model and usage is counted once.
    */
   sessionsCopyEvents?: boolean;
 };

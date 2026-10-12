@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { cp, mkdtemp, readFile, rm, utimes, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, rm, utimes, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { PassThrough, Readable } from 'node:stream';
@@ -201,6 +201,63 @@ describe('machine export e2e', () => {
     expect(fileLines(lines).map((line) => line.source)).toEqual(['codex']);
     expect(stderr.mock.calls.flat().join('\n')).toMatch(
       /machine export left out \d+ event\(s\) that reports count but the event store does not hold/,
+    );
+  });
+
+  it('still warns about a missing file when Claude sessions copied events', async () => {
+    const stderr = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const projectDir = path.join(rootDir, 'claude', 'repo');
+    await mkdir(projectDir, { recursive: true });
+    const assistantRow = (sessionId: string, messageId: string, timestamp: string) =>
+      JSON.stringify({
+        type: 'assistant',
+        timestamp,
+        sessionId,
+        requestId: `${messageId}-request`,
+        message: {
+          id: messageId,
+          role: 'assistant',
+          model: 'claude-sonnet-4-5',
+          usage: { input_tokens: 10, output_tokens: 5 },
+        },
+      });
+    await writeFile(
+      path.join(projectDir, 'original.jsonl'),
+      assistantRow('original', 'msg-1', '2026-10-09T10:00:00.000Z'),
+    );
+    // A continued session copies the original's row under its own session id.
+    await writeFile(
+      path.join(projectDir, 'continued.jsonl'),
+      assistantRow('continued', 'msg-1', '2026-10-09T10:00:00.000Z'),
+    );
+    await writeFile(
+      path.join(projectDir, 'solo.jsonl'),
+      assistantRow('solo', 'msg-2', '2026-10-09T11:00:00.000Z'),
+    );
+    await writeFile(
+      path.join(rootDir, 'config.toml'),
+      ['sources = ["claude"]', '[sourceDirs]', 'claude = "claude"', ''].join('\n'),
+    );
+    let opens = 0;
+    // The second open is the export's read: the store loses the solo file's event, which
+    // reports count, while it still holds the copy that reports count once.
+    await exportLines({}, undefined, {
+      openEventStore: async (filePath) => {
+        const store = await openEventStore(filePath);
+        opens += 1;
+
+        if (opens === 2) {
+          store.database
+            .prepare('DELETE FROM events WHERE file_path = ?')
+            .run(path.join(projectDir, 'solo.jsonl'));
+        }
+
+        return store;
+      },
+    });
+
+    expect(stderr.mock.calls.flat().join('\n')).toMatch(
+      'machine export left out 1 event(s) that reports count but the event store does not hold',
     );
   });
 

@@ -19,10 +19,11 @@ function getCopyIdentity(event: UsageEvent): string {
 
 /**
  * Counts once the events a session copied from another session under its own session id
- * (a Claude `/branch` or `--fork-session` transcript repeats the rows it was branched
- * from). Sessions are visited oldest first, so the session that started earlier keeps a
- * copied event; within one session, identical events all count, as they would without
- * copies. Kept events stay in their input order.
+ * (a Claude Desktop session "continued in new session" repeats the rows since the last
+ * compaction). Sessions are visited oldest first, so the session whose first event is
+ * earlier keeps a copied event (on a tie, the lower session id); within one session,
+ * identical events all count, as they would without copies. Kept events stay in their
+ * input order.
  */
 export function countCopiedSessionEventsOnce(events: readonly UsageEvent[]): UsageEvent[] {
   // Only an event whose timestamp another session also has can be a copy.
