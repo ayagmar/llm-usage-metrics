@@ -223,6 +223,21 @@ describe('buildTrendsData', () => {
     ]);
   });
 
+  it('rejects --last beyond the 10000-day cap shared with usage reports', async () => {
+    await expect(buildTrendsData({ last: '10001' }, runtimeDeps())).rejects.toThrow(
+      '--last must be a whole number from 1 to 10000',
+    );
+  });
+
+  it('names --days in errors when the alias was passed', async () => {
+    await expect(
+      buildTrendsData({ days: '7', since: '2026-03-01' }, runtimeDeps()),
+    ).rejects.toThrow('--days cannot be combined with --since or --until');
+    await expect(buildTrendsData({ days: '0' }, runtimeDeps())).rejects.toThrow(
+      '--days must be a whole number from 1 to 10000',
+    );
+  });
+
   it('rejects passing both --last and its --days alias', async () => {
     await expect(buildTrendsData({ last: '7', days: '7' }, runtimeDeps())).rejects.toThrow(
       '--days is an alias of --last; pass only --last',
@@ -249,7 +264,7 @@ describe('buildTrendsData', () => {
         },
         runtimeDeps(),
       ),
-    ).rejects.toThrow('--last must be a positive integer');
+    ).rejects.toThrow('--last must be a whole number from 1 to 10000');
 
     await expect(
       buildTrendsData(

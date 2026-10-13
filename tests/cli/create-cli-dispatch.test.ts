@@ -144,6 +144,11 @@ describe('createCli dispatch', () => {
       ],
     },
     {
+      runner: runTrendsReport,
+      argv: ['trends', '--days', '3'],
+      expected: [expect.objectContaining({ days: '3' })],
+    },
+    {
       runner: runUsageReport,
       argv: ['monthly', '--last', '3', '--no-cost'],
       expected: ['monthly', expect.objectContaining({ last: '3', cost: false })],

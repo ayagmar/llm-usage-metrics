@@ -7,6 +7,7 @@ import { getCurrentLocalDateKey, getPeriodKey, shiftLocalDateKey } from '../util
 import { resolveUserConfigForOptions } from './apply-user-config.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import { validateDateInput, validateTimezone } from './build-usage-data-inputs.js';
+import { parseLastOption } from './build-usage-data.js';
 import {
   applyPricingToUsageEventDataset,
   buildUsageEventDataset,
@@ -23,20 +24,6 @@ type ResolvedDateRange = {
   from: string;
   to: string;
 };
-
-function parseDaysOption(days: string | undefined, flag: string): number | undefined {
-  if (days === undefined) {
-    return undefined;
-  }
-
-  const trimmedDays = days.trim();
-
-  if (!/^[1-9]\d*$/u.test(trimmedDays)) {
-    throw new Error(`${flag} must be a positive integer`);
-  }
-
-  return Number.parseInt(trimmedDays, 10);
-}
 
 function resolveMetric(metric: string | undefined): TrendsMetric {
   if (metric === undefined || metric.trim() === '') {
@@ -171,7 +158,7 @@ function resolveTrendsOptions(
   }
 
   const metric = resolveMetric(options.metric);
-  const days = parseDaysOption(daysValue, daysFlag);
+  const days = parseLastOption(daysValue, daysFlag);
   const today = getCurrentLocalDateKey(timezone, now);
 
   return {
