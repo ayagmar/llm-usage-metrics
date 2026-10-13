@@ -6,7 +6,7 @@ import {
   getPricingFetcherRuntimeConfig,
 } from '../config/runtime-overrides.js';
 import type { UsageEvent } from '../domain/usage-event.js';
-import { limitNamedModels } from '../render/render-session-report.js';
+import { limitNamedModels } from '../render/format-model-list.js';
 import { countCopiedSessionEventsOnce } from './count-copied-session-events-once.js';
 import {
   closeEventStore,

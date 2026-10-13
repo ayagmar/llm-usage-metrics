@@ -6,6 +6,7 @@ import type { SessionDataResult } from '../cli/usage-data-contracts.js';
 import type { SessionRepoRow, SessionRow } from '../session/session-row.js';
 import { getPeriodKey } from '../utils/time-buckets.js';
 import { formatDuration } from './format-duration.js';
+import { limitNamedModels } from './format-model-list.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { renderReportHeader } from './report-header.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
@@ -74,15 +75,6 @@ function formatModels(models: readonly string[]): string {
   }
 
   return limitNamedModels(models, MAX_NAMED_MODELS).join('\n');
-}
-
-/** The first `limit` model names, then `+N more` for the rest. */
-export function limitNamedModels(models: readonly string[], limit: number): string[] {
-  if (models.length <= limit) {
-    return [...models];
-  }
-
-  return [...models.slice(0, limit), `+${models.length - limit} more`];
 }
 
 function toSessionTableCells(
