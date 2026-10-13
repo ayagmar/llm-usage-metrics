@@ -57,8 +57,12 @@ function resolveOptimizeProvider(
     }
 
     const candidateProviders = inferCanonicalProviderRootsFromModels(candidateModels);
+    // --provider matches by substring, so only suggest a value that selects one provider.
     const suggestedProvider =
-      candidateProviders?.length === 1 && distinctProviders.includes(candidateProviders[0])
+      candidateProviders?.length === 1 &&
+      distinctProviders.filter((provider) =>
+        matchesCanonicalProviderFilter(provider, candidateProviders[0]),
+      ).length === 1
         ? ` ${candidateProviders[0]}`
         : '';
 

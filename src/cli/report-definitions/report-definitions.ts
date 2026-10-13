@@ -68,7 +68,9 @@ function parseGranularityArgument(value: string): ReportGranularity {
 }
 
 function addGranularityArgument(command: Command): Command {
-  // commander's own missing-argument error does not list the choices.
+  // commander's own missing-argument error does not list the choices, so this overrides
+  // commander's private, untyped `missingArgument`. The create-cli-dispatch test pins it;
+  // check it when upgrading commander.
   const reportMissingGranularity = (name: string): never =>
     command.error(
       `error: missing required argument '${name}' (choose ${GRANULARITY_ARGUMENT_VALUES.join(', ')})`,
@@ -78,6 +80,7 @@ function addGranularityArgument(command: Command): Command {
   return Object.assign(command, { missingArgument: reportMissingGranularity }).addArgument(
     new Argument('<granularity>', 'Report period')
       .choices(GRANULARITY_ARGUMENT_VALUES)
+      // Must stay after .choices(), which installs a strict case-sensitive parser.
       .argParser(parseGranularityArgument),
   );
 }

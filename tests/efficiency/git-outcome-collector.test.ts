@@ -125,8 +125,29 @@ describe('collectGitOutcomes', () => {
           granularity: 'daily',
           timezone: 'UTC',
         }),
-      ).rejects.toThrow(`${nonGitDir} is not a git repository; pass --repo-dir <path>`);
+      ).rejects.toThrow(
+        `${nonGitDir} is not a git repository; pass --repo-dir <path to a git repository>`,
+      );
     } finally {
+      await rm(nonGitDir, { recursive: true, force: true });
+    }
+  });
+
+  it('says git is required when git is not installed', async () => {
+    const nonGitDir = await mkdtemp(path.join(os.tmpdir(), 'git-outcomes-no-git-binary-'));
+    vi.stubEnv('PATH', nonGitDir);
+
+    try {
+      await expect(
+        collectGitOutcomes({
+          repoDir: nonGitDir,
+          granularity: 'daily',
+          timezone: 'UTC',
+          activeUsageDays: new Set(),
+        }),
+      ).rejects.toThrow('git was not found on PATH; efficiency needs git installed');
+    } finally {
+      vi.unstubAllEnvs();
       await rm(nonGitDir, { recursive: true, force: true });
     }
   });
@@ -143,7 +164,9 @@ describe('collectGitOutcomes', () => {
       });
 
       expect(result.diagnostics.commitsCollected).toBe(0);
-      expect(result.warning).toBe(`${nonGitDir} is not a git repository; pass --repo-dir <path>`);
+      expect(result.warning).toBe(
+        `${nonGitDir} is not a git repository; pass --repo-dir <path to a git repository>`,
+      );
     } finally {
       await rm(nonGitDir, { recursive: true, force: true });
     }

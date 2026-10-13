@@ -143,6 +143,25 @@ describe('buildOptimizeData', () => {
     expect(pricingLoaderSpy).not.toHaveBeenCalled();
   });
 
+  it('does not suggest a --provider value that would match several providers', async () => {
+    await expect(
+      buildOptimizeData(
+        'daily',
+        { candidateModel: ['gpt-4.1'] },
+        runtimeDeps({
+          adapters: [
+            createAdapter('pi', {
+              '/tmp/a.jsonl': [createBaseEvent({ provider: 'openai' })],
+              '/tmp/b.jsonl': [createBaseEvent({ provider: 'azure-openai-responses' })],
+            }),
+          ],
+        }),
+      ),
+    ).rejects.toThrow(
+      'Optimize requires a single provider; found providers: azure-openai-responses, openai. Narrow with --provider.',
+    );
+  });
+
   it('normalizes provider variants to a single billing provider scope', async () => {
     const result = await buildOptimizeData(
       'daily',

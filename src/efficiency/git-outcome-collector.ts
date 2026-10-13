@@ -136,12 +136,23 @@ async function isGitRepository(
   repoDir: string,
   runCommand: (repoDir: string, args: string[]) => Promise<GitCommandResult>,
 ): Promise<boolean> {
-  const gitRepoResult = await runCommand(repoDir, ['rev-parse', '--is-inside-work-tree']);
+  const gitRepoResult = await runCommand(repoDir, ['rev-parse', '--is-inside-work-tree']).catch(
+    (error: unknown) => {
+      if (getNodeErrorCode(error) === 'ENOENT') {
+        throw new Error('git was not found on PATH; efficiency needs git installed', {
+          cause: error,
+        });
+      }
+
+      throw error;
+    },
+  );
   return gitRepoResult.exitCode === 0;
 }
 
-function notGitRepositoryMessage(repoDir: string): string {
-  return `${repoDir} is not a git repository; pass --repo-dir <path>`;
+function notGitRepositoryMessage(repoDir: string, repoDirOption: string | undefined): string {
+  const hint = repoDirOption === undefined ? '<path>' : '<path to a git repository>';
+  return `${repoDir} is not a git repository; pass --repo-dir ${hint}`;
 }
 
 function isNoCommitHistoryFailure(result: GitCommandResult): boolean {
@@ -553,7 +564,7 @@ export async function collectGitOutcomes(
       await assertRepoDirReadable(repoDir);
 
       if (!(await isGitRepository(repoDir, runCommand))) {
-        emptyCollection.warning = notGitRepositoryMessage(repoDir);
+        emptyCollection.warning = notGitRepositoryMessage(repoDir, options.repoDir);
       }
     }
 
@@ -564,7 +575,7 @@ export async function collectGitOutcomes(
     await assertRepoDirReadable(repoDir);
 
     if (!(await isGitRepository(repoDir, runCommand))) {
-      throw new Error(notGitRepositoryMessage(repoDir));
+      throw new Error(notGitRepositoryMessage(repoDir, options.repoDir));
     }
   }
 

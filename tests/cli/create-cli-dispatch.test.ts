@@ -170,6 +170,12 @@ describe('createCli dispatch', () => {
     );
   });
 
+  it('accepts an uppercase granularity', async () => {
+    await createCli().parseAsync(['efficiency', 'DAILY'], { from: 'user' });
+
+    expect(vi.mocked(runEfficiencyReport).mock.calls[0]?.[0]).toBe('daily');
+  });
+
   it.each(['efficiency', 'optimize'])(
     'lists the granularity choices when %s has none',
     async (command) => {
