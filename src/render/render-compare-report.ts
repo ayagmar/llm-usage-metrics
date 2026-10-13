@@ -212,20 +212,12 @@ function renderMarkdownRows(headers: readonly string[], rows: string[][]): strin
   );
 }
 
-function renderMarkdownCompareReport(compareData: CompareDataResult, filtered: boolean): string {
-  const heading = [
+function renderMarkdownCompareReport(compareData: CompareDataResult): string {
+  return [
     `### Compare: ${toMarkdownSafeCell(compareData.current.window.label)} vs ${toMarkdownSafeCell(
       compareData.baseline.window.label,
     )}`,
     '',
-  ];
-
-  if (hasNoUsage(compareData)) {
-    return [...heading, formatNoUsageMessage(filtered)].join('\n');
-  }
-
-  return [
-    ...heading,
     renderMarkdownRows(
       compareTableHeaders,
       compareData.totals.map((row) => toMetricTableRow(row, false)),
@@ -254,7 +246,7 @@ export function renderCompareReport(
         sources: compareData.sources,
       });
     case 'markdown':
-      return renderMarkdownCompareReport(compareData, options.filtered ?? false);
+      return renderMarkdownCompareReport(compareData);
     case 'terminal':
       return renderTerminalCompareReport(compareData, options);
   }

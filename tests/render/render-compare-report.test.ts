@@ -148,13 +148,15 @@ describe('renderCompareReport', () => {
     };
 
     const output = renderCompareReport(zeroedData, 'terminal', { useColor: false });
-    const markdown = renderCompareReport(zeroedData, 'markdown', { filtered: true });
+    const filteredOutput = renderCompareReport(zeroedData, 'terminal', {
+      useColor: false,
+      filtered: true,
+    });
 
     expect(output).toContain('No usage data found.');
     expect(output).not.toContain('Metric');
     expect(output).not.toContain('By source');
-    expect(markdown).toContain('No usage data found for the selected filters.');
-    expect(markdown).not.toContain('| Metric');
+    expect(filteredOutput).toContain('No usage data found for the selected filters.');
   });
 
   it('renders markdown output with escaped table cells', () => {

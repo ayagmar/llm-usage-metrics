@@ -8,6 +8,7 @@ import {
 } from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
 import type { BuildSummaryDataDeps, SummaryCommandOptions } from './usage-data-contracts.js';
+import { hasCliFilters } from './filter-match-warnings.js';
 
 const summaryReportFormats = STANDARD_REPORT_FORMATS satisfies readonly SummaryReportFormat[];
 
@@ -32,7 +33,8 @@ async function prepareSummaryReport(
           render: (theme) => renderSummaryShareSvg(summaryData, theme),
         })
       : undefined,
-    render: (summaryData, format) => renderSummaryReport(summaryData, format),
+    render: (summaryData, format) =>
+      renderSummaryReport(summaryData, format, { filtered: hasCliFilters(options) }),
     getHintsAfterOutput: (_summaryData, format) =>
       format === 'terminal' ? [SUMMARY_NEXT_STEPS_HINT] : [],
   });

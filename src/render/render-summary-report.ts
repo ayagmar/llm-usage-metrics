@@ -22,6 +22,8 @@ export type RenderSummaryReportOptions = {
   palette?: TerminalStylePalette;
   /** Overrides the TTY width the activity heatmap is fitted to. */
   terminalWidth?: number;
+  /** Whether the command line narrowed the report; names the filters in the empty message. */
+  filtered?: boolean;
 };
 
 const summaryTableHeaders = ['Period', 'Cost', 'Tokens', 'Top source'] as const;
@@ -78,16 +80,23 @@ function hasAnyUsage(summaryData: SummaryDataResult): boolean {
   return summaryData.periods.some((period) => period.totals.events > 0);
 }
 
-function toNoRecentUsageMessage(summaryData: SummaryDataResult): string {
-  const filesFound = summaryData.diagnostics.sessionStats.some((stat) => stat.filesFound > 0);
-
-  if (!filesFound) {
-    return 'No usage found in the last 7 days or this month. Run `llm-usage doctor` to see which sources were found.';
+function toNoRecentUsageMessage(summaryData: SummaryDataResult, filtered: boolean): string {
+  if (filtered) {
+    return 'No usage in the last 7 days or this month for the selected filters.';
   }
 
+  // Synced machines can supply usage even when this machine has no files.
   const latestDay = summaryData.activity.days.filter((day) => day.totalTokens > 0).at(-1);
-  const latest = latestDay ? ` Latest usage: ${latestDay.date}.` : ' No usage in the past year.';
-  return `No usage in the last 7 days or this month.${latest} Try \`llm-usage monthly --all\`.`;
+
+  if (latestDay) {
+    return `No usage in the last 7 days or this month. Latest usage: ${latestDay.date}. Try \`llm-usage monthly --all\`.`;
+  }
+
+  if (summaryData.diagnostics.sessionStats.some((stat) => stat.filesFound > 0)) {
+    return 'No usage in the past year. Try `llm-usage monthly --all`.';
+  }
+
+  return 'No usage found in the last 7 days or this month. Run `llm-usage doctor` to see which sources were found.';
 }
 
 function getTitle(summaryData: SummaryDataResult): string {
@@ -278,7 +287,7 @@ function renderTerminalSummaryReport(
   ];
 
   if (!hasAnyUsage(summaryData)) {
-    lines.push(toNoRecentUsageMessage(summaryData), '');
+    lines.push(toNoRecentUsageMessage(summaryData, options.filtered ?? false), '');
   }
 
   lines.push(

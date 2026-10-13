@@ -141,6 +141,9 @@ type CliFilterOptions = {
   machine?: string | string[];
   since?: string;
   until?: string;
+  last?: string;
+  vsSince?: string;
+  vsUntil?: string;
   id?: string[];
 };
 
@@ -148,7 +151,11 @@ function hasValue(value: string | readonly string[] | undefined): boolean {
   return Array.isArray(value) ? value.length > 0 : Boolean(value);
 }
 
-/** Whether the command line narrowed the report, so an empty result can name the filters. */
+/**
+ * Whether the command line narrowed the report, so an empty result can name the filters.
+ * Unlike `isNarrowedByCliFilters` in build-summary-data.ts, which decides whether the
+ * monthly budget still applies, this counts date flags too: they narrow what is shown.
+ */
 export function hasCliFilters(options: CliFilterOptions): boolean {
   return [
     options.source,
@@ -157,6 +164,9 @@ export function hasCliFilters(options: CliFilterOptions): boolean {
     options.machine,
     options.since,
     options.until,
+    options.last,
+    options.vsSince,
+    options.vsUntil,
     options.id,
   ].some(hasValue);
 }

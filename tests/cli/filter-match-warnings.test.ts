@@ -131,5 +131,8 @@ describe('hasCliFilters', () => {
     expect(hasCliFilters({ since: '2026-01-01' })).toBe(true);
     expect(hasCliFilters({ until: '2026-01-31' })).toBe(true);
     expect(hasCliFilters({ id: ['session-1'] })).toBe(true);
+    expect(hasCliFilters({ last: '3' })).toBe(true);
+    expect(hasCliFilters({ vsSince: '2026-01-01' })).toBe(true);
+    expect(hasCliFilters({ vsUntil: '2026-01-31' })).toBe(true);
   });
 });

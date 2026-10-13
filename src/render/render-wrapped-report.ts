@@ -270,19 +270,7 @@ function renderMarkdownTopTable(title: string, items: readonly WrappedTopItem[])
   ].join('\n');
 }
 
-function renderMarkdownWrappedReport(recap: WrappedRecap, filtered: boolean): string {
-  const heading = [
-    `### Wrapped ${recap.year}`,
-    '',
-    `${recap.from} to ${recap.to} (${recap.timezone})`,
-    '',
-  ];
-  const emptyMessage = toEmptyMessage(recap, filtered);
-
-  if (emptyMessage) {
-    return [...heading, emptyMessage].join('\n');
-  }
-
+function renderMarkdownWrappedReport(recap: WrappedRecap): string {
   const statTable = markdownTable(
     [['Stat', 'Value'], ...toMarkdownStatRows(recap)].map((row) =>
       row.map((cell) => toMarkdownSafeCell(cell)),
@@ -291,7 +279,10 @@ function renderMarkdownWrappedReport(recap: WrappedRecap, filtered: boolean): st
   );
 
   return [
-    ...heading,
+    `### Wrapped ${recap.year}`,
+    '',
+    `${recap.from} to ${recap.to} (${recap.timezone})`,
+    '',
     statTable,
     '',
     renderMarkdownTopTable('Top models', recap.topModels),
@@ -309,7 +300,7 @@ export function renderWrappedReport(
     case 'json':
       return renderReportJson('wrapped', recap);
     case 'markdown':
-      return renderMarkdownWrappedReport(recap, options.filtered ?? false);
+      return renderMarkdownWrappedReport(recap);
     case 'terminal':
       return renderWrappedTerminalReport(recap, options);
   }
