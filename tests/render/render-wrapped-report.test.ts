@@ -144,32 +144,40 @@ describe('render-wrapped-report', () => {
     expect(output).toContain('pi');
   });
 
-  it('renders markdown dashes for an empty recap', () => {
-    const output = renderWrappedReport(
-      createRecap({
-        totalTokens: 0,
-        costUsd: undefined,
-        activeDays: 0,
-        longestStreak: 0,
-        activeMs: 0,
-        peakHour: undefined,
-        weekdayTokens: 0,
-        weekendTokens: 0,
-        busiestDay: undefined,
-        estimatedCacheSavingsUsd: undefined,
-        eventCount: 0,
-        sessionCount: 0,
-        topModels: [],
-        topSources: [],
-      }),
-      'markdown',
+  it('prints one message for an empty year in the terminal and keeps dashed markdown tables', () => {
+    const recap = createRecap({
+      totalTokens: 0,
+      costUsd: undefined,
+      activeDays: 0,
+      longestStreak: 0,
+      activeMs: 0,
+      peakHour: undefined,
+      weekdayTokens: 0,
+      weekendTokens: 0,
+      busiestDay: undefined,
+      estimatedCacheSavingsUsd: undefined,
+      eventCount: 0,
+      sessionCount: 0,
+      topModels: [],
+      topSources: [],
+    });
+
+    const output = renderWrappedReport(recap, 'terminal', { useColor: false });
+
+    expect(output).toContain(`No usage in ${recap.year}.`);
+    expect(output).not.toContain('Top models');
+    expect(output).not.toContain('Cost');
+
+    expect(renderWrappedReport(recap, 'terminal', { useColor: false, filtered: true })).toContain(
+      'No usage data found for the selected filters.',
     );
 
-    expect(output).toContain('0h');
-    expect(output).toMatch(/\| Peak hour\s+\|\s+- \|/);
-    expect(output).toMatch(/\| Weekday split\s+\|\s+- \|/);
-    expect(output).toMatch(/\| Busiest day\s+\|\s+- \|/);
-    expect(output).toMatch(/\| Cache savings\s+\|\s+- \|/);
+    const markdown = renderWrappedReport(recap, 'markdown');
+    expect(markdown).toContain('0h');
+    expect(markdown).toMatch(/\| Peak hour\s+\|\s+- \|/);
+    expect(markdown).toMatch(/\| Weekday split\s+\|\s+- \|/);
+    expect(markdown).toMatch(/\| Busiest day\s+\|\s+- \|/);
+    expect(markdown).toMatch(/\| Cache savings\s+\|\s+- \|/);
   });
 
   it('returns the recap as JSON for the json format', () => {

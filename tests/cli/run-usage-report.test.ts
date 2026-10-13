@@ -320,8 +320,9 @@ describe('buildUsageReport', () => {
     expect(report).not.toContain('LLM_USAGE_PARSE_WORKERS=0');
     expect(report).toContain('Monthly Token Usage Report');
     expect(report).not.toContain('Timezone');
-    expect(report).toContain('│ Period');
-    expect(report).toContain('│ ALL');
+    // --source narrowed the run, so the empty message names the filters.
+    expect(report).toContain('No usage data found for the selected filters.');
+    expect(report).not.toContain('│ ALL');
     expect(report.startsWith('\n')).toBe(false);
 
     const headerIndex = report.indexOf('┌');
@@ -576,12 +577,43 @@ describe('buildUsageReport', () => {
   });
 
   it('lists rows instead of a table when even the narrowest table cannot fit', async () => {
-    const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'usage-run-overflow-hint-'));
-    tempDirs.push(emptyDir);
-
     // Narrower than the most compact table (Period, Source, Cache Read, Total, Cost).
     const restoreStdout = overrideStdoutTty(30);
 
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    try {
+      await runUsageReport('daily', {
+        all: true,
+        piDir: path.resolve('tests/fixtures/pi'),
+        codexDir: path.resolve('tests/fixtures/codex'),
+        source: directoryBackedSources,
+        timezone: 'UTC',
+        pricingOffline: true,
+      });
+
+      expect(
+        errorSpy.mock.calls.some((call) => String(call[0]).includes('wider than terminal')),
+      ).toBe(false);
+      expect(
+        errorSpy.mock.calls.some((call) =>
+          String(call[0]).includes('Listed rows instead of a table'),
+        ),
+      ).toBe(true);
+      expect(logSpy).toHaveBeenCalledTimes(1);
+      expect(String(logSpy.mock.calls[0][0])).not.toContain('╭');
+    } finally {
+      restoreStdout();
+      errorSpy.mockRestore();
+      logSpy.mockRestore();
+    }
+  });
+
+  it('prints one message and no fit note when a narrow terminal has nothing to show', async () => {
+    const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'usage-run-empty-narrow-'));
+    tempDirs.push(emptyDir);
+    const restoreStdout = overrideStdoutTty(30);
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 
@@ -594,19 +626,12 @@ describe('buildUsageReport', () => {
         timezone: 'UTC',
       });
 
+      const output = String(logSpy.mock.calls[0][0]);
+      expect(output).toContain('No usage data found for the selected filters.');
+      expect(output).not.toContain('ALL');
       expect(
-        errorSpy.mock.calls.some((call) => String(call[0]).includes('No session files found')),
-      ).toBe(true);
-      expect(
-        errorSpy.mock.calls.some((call) => String(call[0]).includes('wider than terminal')),
+        errorSpy.mock.calls.some((call) => /Fitted the table|Listed rows/u.test(String(call[0]))),
       ).toBe(false);
-      expect(
-        errorSpy.mock.calls.some((call) =>
-          String(call[0]).includes('Listed rows instead of a table'),
-        ),
-      ).toBe(true);
-      expect(logSpy).toHaveBeenCalledTimes(1);
-      expect(String(logSpy.mock.calls[0][0])).not.toContain('╭');
     } finally {
       restoreStdout();
       errorSpy.mockRestore();

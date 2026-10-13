@@ -8,6 +8,7 @@ import {
 } from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
 import type { BuildCompareDataDeps, CompareCommandOptions } from './usage-data-contracts.js';
+import { hasCliFilters } from './filter-match-warnings.js';
 
 const compareReportFormats = STANDARD_REPORT_FORMATS satisfies readonly CompareReportFormat[];
 
@@ -29,7 +30,8 @@ async function prepareCompareReport(
           render: (theme) => renderCompareShareSvg(compareData, theme),
         })
       : undefined,
-    render: (compareData, format) => renderCompareReport(compareData, format),
+    render: (compareData, format) =>
+      renderCompareReport(compareData, format, { filtered: hasCliFilters(options) }),
   });
 }
 

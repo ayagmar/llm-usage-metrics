@@ -133,6 +133,59 @@ describe('renderSummaryReport', () => {
     expect(output).not.toContain('Activity');
   });
 
+  it('names the latest usage instead of doctor when files were found but the window is empty', () => {
+    const data = createSummaryData(
+      [
+        period('today', 'Today', '2026-03-10'),
+        period('last7Days', 'Last 7 days', '2026-03-04'),
+        period('monthToDate', 'Month to date', '2026-03-01'),
+      ],
+      activityFor(['2025-11-02', '2026-01-17']),
+    );
+    data.diagnostics.sessionStats = [{ source: 'codex', filesFound: 2, eventsParsed: 2 }];
+
+    const output = renderSummaryReport(data, 'terminal', { useColor: false });
+
+    expect(output).toContain(
+      'No usage in the last 7 days or this month. Latest usage: 2026-01-17. Try `llm-usage monthly --all`.',
+    );
+    expect(output).not.toContain('llm-usage doctor');
+  });
+
+  it('names synced usage instead of doctor when this machine has no files', () => {
+    const data = createSummaryData(
+      [
+        period('today', 'Today', '2026-03-10'),
+        period('last7Days', 'Last 7 days', '2026-03-04'),
+        period('monthToDate', 'Month to date', '2026-03-01'),
+      ],
+      activityFor(['2026-01-17']),
+    );
+    data.diagnostics.sessionStats = [{ source: 'codex', filesFound: 0, eventsParsed: 0 }];
+
+    const output = renderSummaryReport(data, 'terminal', { useColor: false });
+
+    expect(output).toContain('Latest usage: 2026-01-17.');
+    expect(output).not.toContain('llm-usage doctor');
+  });
+
+  it('prints one filtered message without the unfiltered suggestion', () => {
+    const data = createSummaryData(
+      [
+        period('today', 'Today', '2026-03-10'),
+        period('last7Days', 'Last 7 days', '2026-03-04'),
+        period('monthToDate', 'Month to date', '2026-03-01'),
+      ],
+      activityFor(['2026-01-17']),
+    );
+
+    const output = renderSummaryReport(data, 'terminal', { useColor: false, filtered: true });
+
+    expect(output).toContain('No usage in the last 7 days or this month for the selected filters.');
+    expect(output).not.toContain('monthly --all');
+    expect(output).not.toContain('llm-usage doctor');
+  });
+
   it('renders streaks, the best day, and a weekday-by-week heatmap', () => {
     const output = renderSummaryReport(createSummaryData(), 'terminal', { useColor: false });
     const lines = output.split('\n');

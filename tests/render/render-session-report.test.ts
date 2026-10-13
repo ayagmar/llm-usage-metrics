@@ -304,8 +304,15 @@ describe('renderSessionReport', () => {
       timezone: 'UTC',
       useColor: false,
     });
+    const filteredOutput = renderSessionReport(data, 'terminal', {
+      timezone: 'UTC',
+      useColor: false,
+      filtered: true,
+    });
 
     expect(output).toContain('Session Usage Report');
-    expect(output).toContain('No usage data found for the selected filters.');
+    // Without filters, the message must not blame filters the user never passed.
+    expect(output).toContain('No usage data found.');
+    expect(filteredOutput).toContain('No usage data found for the selected filters.');
   });
 });

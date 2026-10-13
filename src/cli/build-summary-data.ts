@@ -83,6 +83,9 @@ export function resolveMonthEnd(
 }
 
 /**
+ * Unlike `hasCliFilters` (filter-match-warnings.ts), dates are not counted: the summary has
+ * no date flags, and this only decides whether the monthly budget applies.
+ *
  * The budget covers all usage, so a run narrowed by --source, --provider, or --model
  * cannot be measured against it. A `sources` list in the config file is the user's
  * standing view, not a narrowing, so it keeps the budget.
