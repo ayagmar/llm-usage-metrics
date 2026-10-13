@@ -4,6 +4,13 @@ import type { MachineUsageSummary } from '../machines/load-machine-usage.js';
 import { MACHINE_EXPORT_TIMEOUT_MARK } from '../machines/machine-ssh.js';
 import type { MachineSyncOutcome } from '../machines/sync-machine.js';
 
+const MAX_REASON_LENGTH = 300;
+
+/** Keeps a long sync error to one readable line. */
+function formatReason(error: string): string {
+  return error.length > MAX_REASON_LENGTH ? `${error.slice(0, MAX_REASON_LENGTH)}…` : error;
+}
+
 const integerFormat = new Intl.NumberFormat('en-US');
 
 export function formatAge(ageMs: number): string {
@@ -60,7 +67,7 @@ export function renderSyncOutcome(outcome: MachineSyncOutcome, now: number): str
       ? 'nothing cached yet'
       : `reports keep its usage from ${formatAge(now - outcome.state.syncedAt)}`;
 
-  return [`✗ ${outcome.name}: ${outcome.error} (${cacheNote})`];
+  return [`✗ ${outcome.name}: ${formatReason(outcome.error)} (${cacheNote})`];
 }
 
 export type MachineListEntry = {
@@ -79,13 +86,13 @@ export function describeMachineStatus(entry: MachineListEntry, now: number): str
   }
 
   if (state?.syncedAt === undefined) {
-    return state?.lastError ? `never synced: ${state.lastError}` : 'never synced';
+    return state?.lastError ? `never synced: ${formatReason(state.lastError)}` : 'never synced';
   }
 
   const synced = `synced ${formatAge(now - state.syncedAt)}, ${formatCachedTotals(entry.fileCount, entry.eventCount)}`;
 
   if (state.lastError && (state.attemptedAt ?? 0) >= state.syncedAt) {
-    return `${synced}; last attempt failed ${formatAge(now - (state.attemptedAt ?? 0))}: ${state.lastError}`;
+    return `${synced}; last attempt failed ${formatAge(now - (state.attemptedAt ?? 0))}: ${formatReason(state.lastError)}`;
   }
 
   return synced;
@@ -119,7 +126,10 @@ function describeIncludedMachine(
   }
 
   if (state?.syncedAt === undefined) {
-    return `${machine.name} (never synced; run llm-usage sync ${machine.name})`;
+    // A failed first sync gets its own line with the reason.
+    return state?.lastError === undefined
+      ? `${machine.name} (never synced; run llm-usage sync ${machine.name})`
+      : `${machine.name} (never synced)`;
   }
 
   const details = [`synced ${formatAge(now - state.syncedAt)}`];
@@ -168,7 +178,7 @@ export function formatRefreshFailure(
 
   if (syncedAt === undefined) {
     return {
-      text: `Could not sync ${outcome.name} (${outcome.error}); it has no usage cached yet.`,
+      text: `Could not sync ${outcome.name} (${formatReason(outcome.error)}); it has no usage cached yet.`,
       stale: true,
     };
   }
@@ -179,7 +189,7 @@ export function formatRefreshFailure(
     : '';
 
   return {
-    text: `Could not sync ${outcome.name} (${outcome.error}); using its usage from ${formatAge(now - syncedAt)}.${hint}`,
+    text: `Could not sync ${outcome.name} (${formatReason(outcome.error)}); using its usage from ${formatAge(now - syncedAt)}.${hint}`,
     stale: now - syncedAt >= STALE_CACHE_MS,
   };
 }
@@ -194,17 +204,23 @@ export function formatStoredSyncFailure(
 ): { text: string; stale: boolean } | undefined {
   const { state } = machine;
 
-  if (
-    !machine.enabled ||
-    state?.syncedAt === undefined ||
-    state.lastError === undefined ||
-    (state.attemptedAt ?? 0) < state.syncedAt
-  ) {
+  if (!machine.enabled || state?.lastError === undefined) {
+    return undefined;
+  }
+
+  if (state.syncedAt === undefined) {
+    return {
+      text: `${machine.name}: never synced (${formatReason(state.lastError)}). Run llm-usage sync ${machine.name} to retry.`,
+      stale: true,
+    };
+  }
+
+  if ((state.attemptedAt ?? 0) < state.syncedAt) {
     return undefined;
   }
 
   return {
-    text: `${machine.name}: last sync failed (${state.lastError}); using its usage from ${formatAge(now - state.syncedAt)}. Run llm-usage sync ${machine.name} to retry.`,
+    text: `${machine.name}: last sync failed (${formatReason(state.lastError)}); using its usage from ${formatAge(now - state.syncedAt)}. Run llm-usage sync ${machine.name} to retry.`,
     stale: now - state.syncedAt >= STALE_CACHE_MS,
   };
 }

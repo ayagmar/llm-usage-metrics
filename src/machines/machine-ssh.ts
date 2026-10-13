@@ -4,7 +4,7 @@ import { createInterface } from 'node:readline';
 import { stripVTControlCharacters } from 'node:util';
 
 import type { MachineConfig } from '../config/user-config.js';
-import { stripControlCharacters } from '../domain/normalization.js';
+import { stripControlCharacters, toTerminalLine } from '../domain/normalization.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
 import { logger } from '../utils/logger.js';
 import {
@@ -160,7 +160,7 @@ export async function detectRemoteCommand(
 
 function readStderrTail(chunks: readonly Buffer[]): string {
   const text = Buffer.concat(chunks).toString('utf8').slice(-STDERR_TAIL_BYTES);
-  return stripControlCharacters(stripVTControlCharacters(text).replaceAll(/\s+/gu, ' ')).trim();
+  return toTerminalLine(text);
 }
 
 /** Names what failed and, when the cause is a known one, how to fix it. */

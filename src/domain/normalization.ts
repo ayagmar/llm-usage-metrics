@@ -1,3 +1,5 @@
+import { stripVTControlCharacters } from 'node:util';
+
 export type NumberLike = number | string | null | undefined;
 
 // C0/C1 controls, plus bidi controls and line/paragraph separators, which can reorder
@@ -8,6 +10,11 @@ const CONTROL_CHARACTER_TEST_PATTERN = new RegExp(CONTROL_CHARACTER_CLASS, 'u');
 
 export function stripControlCharacters(value: string): string {
   return value.replace(CONTROL_CHARACTERS_PATTERN, '');
+}
+
+/** Text from another machine or process, made safe to print on one terminal line. */
+export function toTerminalLine(value: string): string {
+  return stripControlCharacters(stripVTControlCharacters(value).replaceAll(/\s+/gu, ' ')).trim();
 }
 
 export function hasControlCharacters(value: string): boolean {
