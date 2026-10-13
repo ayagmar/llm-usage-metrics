@@ -274,6 +274,7 @@ export async function buildTrendsData(
           pricedEvents: dataset.filteredEvents,
           pricingOrigin: 'none' as const,
           pricingWarning: undefined,
+          notes: dataset.notes,
         };
   const dailyValueRows = measureRuntimeProfileStageSync(
     deps.runtimeProfile,
@@ -312,7 +313,7 @@ export async function buildTrendsData(
     pricingOrigin: pricingResult.pricingOrigin,
     pricingWarning: pricingResult.pricingWarning,
     warnings: dataset.warnings,
-    notes: dataset.notes,
+    notes: pricingResult.notes,
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,

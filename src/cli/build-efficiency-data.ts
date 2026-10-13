@@ -172,7 +172,11 @@ export async function buildEfficiencyData(
     'efficiency.dataset.total',
     () => buildDataset(options, deps),
   );
-  const { pricedEvents, pricingOrigin, pricingWarning } = await applyPricing(dataset, deps, 'auto');
+  const { pricedEvents, pricingOrigin, pricingWarning, notes } = await applyPricing(
+    dataset,
+    deps,
+    'auto',
+  );
   const attribution = await measureRuntimeProfileStage(
     deps.runtimeProfile,
     'efficiency.attribute_repo',
@@ -226,7 +230,7 @@ export async function buildEfficiencyData(
     pricingOrigin,
     pricingWarning,
     warnings: dataset.warnings,
-    notes: dataset.notes,
+    notes,
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,

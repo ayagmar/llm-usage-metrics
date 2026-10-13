@@ -77,7 +77,7 @@ export async function buildWrappedData(
         },
       }),
   );
-  const { pricedEvents, pricingOrigin, pricingWarning, pricingSource } =
+  const { pricedEvents, pricingOrigin, pricingWarning, pricingSource, notes } =
     await applyPricingToUsageEventDataset(dataset, deps, 'auto');
   const recap = measureRuntimeProfileStageSync(deps.runtimeProfile, 'wrapped.aggregate', () =>
     aggregateWrapped(pricedEvents, {
@@ -98,7 +98,7 @@ export async function buildWrappedData(
     pricingOrigin,
     pricingWarning,
     warnings: dataset.warnings,
-    notes: dataset.notes,
+    notes,
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,

@@ -174,6 +174,8 @@ export type UsageEventDatasetPricingResult = {
   pricingOrigin: UsagePricingOrigin;
   pricingWarning?: string;
   pricingSource?: PricingSource;
+  /** The dataset's notes, plus one explaining the `~` cost marker when any event has no cost. */
+  notes: string[];
 };
 
 export async function buildUsageEventDataset(
@@ -534,13 +536,39 @@ export async function applyPricingToUsageEventDataset(
     dataset.normalizedInputs.pricingUrl,
   );
 
-  return measureRuntimeProfileStage(deps.runtimeProfile, 'usage.pricing.apply', () =>
-    resolveAndApplyPricingToEvents(
-      dataset.filteredEvents,
-      pricingOptions,
-      dataset.pricingRuntimeConfig,
-      loadPricingSource,
-      pricingLoadMode,
-    ),
+  const pricingResult = await measureRuntimeProfileStage(
+    deps.runtimeProfile,
+    'usage.pricing.apply',
+    () =>
+      resolveAndApplyPricingToEvents(
+        dataset.filteredEvents,
+        pricingOptions,
+        dataset.pricingRuntimeConfig,
+        loadPricingSource,
+        pricingLoadMode,
+      ),
   );
+  const unpricedNote = describeUnpricedEvents(pricingResult.pricedEvents);
+
+  return {
+    ...pricingResult,
+    notes: unpricedNote ? [...dataset.notes, unpricedNote] : dataset.notes,
+  };
+}
+
+/**
+ * Reports leave an event without a cost out of cost totals and mark those totals with `~`;
+ * this note says what the marker leaves out.
+ */
+function describeUnpricedEvents(events: UsageEvent[]): string | undefined {
+  const unpricedEvents = events.filter((event) => event.costUsd === undefined);
+
+  if (unpricedEvents.length === 0) {
+    return undefined;
+  }
+
+  const models = [...new Set(unpricedEvents.map((event) => event.model ?? 'unknown'))].sort();
+  const eventLabel = unpricedEvents.length === 1 ? 'event' : 'events';
+
+  return `~ marks costs that leave out ${new Intl.NumberFormat('en-US').format(unpricedEvents.length)} ${eventLabel} with no known price (models: ${models.join(', ')})`;
 }

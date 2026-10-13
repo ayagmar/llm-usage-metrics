@@ -90,7 +90,7 @@ export async function buildOptimizeData(
     () => resolveOptimizeProvider(detectedProviders, dataset.normalizedInputs.providerFilter),
   );
 
-  const { pricedEvents, pricingOrigin, pricingWarning, pricingSource } =
+  const { pricedEvents, pricingOrigin, pricingWarning, pricingSource, notes } =
     await applyPricingToUsageEventDataset(dataset, deps, 'force');
 
   const usageRows = measureRuntimeProfileStageSync(
@@ -143,7 +143,7 @@ export async function buildOptimizeData(
     pricingOrigin,
     pricingWarning,
     warnings: dataset.warnings,
-    notes: dataset.notes,
+    notes,
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,

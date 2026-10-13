@@ -671,6 +671,85 @@ describe('buildUsageReport', () => {
     );
   });
 
+  async function writePiSession(models: { model: string; cost?: number }[]): Promise<string> {
+    const piDir = await mkdtemp(path.join(os.tmpdir(), 'usage-approximate-cost-'));
+    tempDirs.push(piDir);
+    const lines = [
+      JSON.stringify({ type: 'session', id: 'pi-approx', timestamp: '2026-02-14T10:00:00.000Z' }),
+      ...models.map((entry, index) =>
+        JSON.stringify({
+          type: 'message',
+          timestamp: `2026-02-14T10:00:0${String(index + 1)}.000Z`,
+          provider: 'openai',
+          model: entry.model,
+          usage: {
+            input: 10,
+            output: 5,
+            totalTokens: 15,
+            ...(entry.cost === undefined ? {} : { cost: { total: entry.cost } }),
+          },
+        }),
+      ),
+    ];
+    await writeFile(path.join(piDir, 'session.jsonl'), lines.join('\n'), 'utf8');
+    return piDir;
+  }
+
+  async function runWithUnreachablePricing(piDir: string): Promise<{
+    stderr: string[];
+    stdout: string;
+  }> {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('network unavailable');
+      }),
+    );
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    await runUsageReport('daily', {
+      all: true,
+      piDir,
+      source: 'pi',
+      timezone: 'UTC',
+      pricingUrl: 'https://example.test/approximate-cost-pricing.json',
+      ignorePricingFailures: true,
+    });
+
+    return {
+      stderr: errorSpy.mock.calls.map((call) => String(call[0])),
+      stdout: logSpy.mock.calls.map((call) => String(call[0])).join('\n'),
+    };
+  }
+
+  it('explains the ~ cost marker once on stderr, naming the unpriced models', async () => {
+    const piDir = await writePiSession([
+      { model: 'gpt-4.1', cost: 0.5 },
+      { model: 'mystery-model' },
+      { model: 'mystery-model' },
+    ]);
+
+    const { stderr, stdout } = await runWithUnreachablePricing(piDir);
+
+    expect(stdout).toContain('~$0.50');
+    expect(stdout).not.toContain('no known price');
+    expect(stderr.filter((line) => line.includes('~ marks costs'))).toEqual([
+      expect.stringContaining(
+        '~ marks costs that leave out 2 events with no known price (models: mystery-model)',
+      ),
+    ]);
+  });
+
+  it('does not explain the ~ cost marker when every event has a cost', async () => {
+    const piDir = await writePiSession([{ model: 'gpt-4.1', cost: 0.5 }]);
+
+    const { stderr, stdout } = await runWithUnreachablePricing(piDir);
+
+    expect(stdout).not.toContain('~$');
+    expect(stderr.some((line) => line.includes('~ marks costs'))).toBe(false);
+  });
+
   it('keeps runUsageReport JSON output data-only on stdout while still emitting diagnostics', async () => {
     const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'usage-run-json-no-logs-'));
     tempDirs.push(emptyDir);

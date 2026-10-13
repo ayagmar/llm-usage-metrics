@@ -364,11 +364,8 @@ export async function buildCompareData(
         },
       }),
   );
-  const { pricedEvents, pricingOrigin, pricingWarning } = await applyPricingToUsageEventDataset(
-    dataset,
-    deps,
-    'auto',
-  );
+  const { pricedEvents, pricingOrigin, pricingWarning, notes } =
+    await applyPricingToUsageEventDataset(dataset, deps, 'auto');
   const currentEvents = pricedEvents.filter((event) =>
     isEventWithinWindow(event, windows.current, dataset.normalizedInputs.timezone),
   );
@@ -393,7 +390,7 @@ export async function buildCompareData(
     pricingOrigin,
     pricingWarning,
     warnings: dataset.warnings,
-    notes: dataset.notes,
+    notes,
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,

@@ -88,11 +88,8 @@ export async function buildSessionData(
     'session.dataset.total',
     () => buildUsageEventDataset(options, deps),
   );
-  const { pricedEvents, pricingOrigin, pricingWarning } = await applyPricingToUsageEventDataset(
-    dataset,
-    deps,
-    'auto',
-  );
+  const { pricedEvents, pricingOrigin, pricingWarning, notes } =
+    await applyPricingToUsageEventDataset(dataset, deps, 'auto');
   const aggregateOptions = {
     timezone: dataset.normalizedInputs.timezone,
     since: options.since,
@@ -105,7 +102,7 @@ export async function buildSessionData(
     pricingOrigin,
     pricingWarning,
     warnings: dataset.warnings,
-    notes: dataset.notes,
+    notes,
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,

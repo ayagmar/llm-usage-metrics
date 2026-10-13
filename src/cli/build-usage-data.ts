@@ -157,11 +157,8 @@ export async function buildUsageData(
   const dataset = await measureRuntimeProfileStage(deps.runtimeProfile, 'usage.dataset.total', () =>
     buildUsageEventDataset(options, deps),
   );
-  const { pricedEvents, pricingOrigin, pricingWarning } = await applyPricingToUsageEventDataset(
-    dataset,
-    deps,
-    'auto',
-  );
+  const { pricedEvents, pricingOrigin, pricingWarning, notes } =
+    await applyPricingToUsageEventDataset(dataset, deps, 'auto');
 
   const rows = measureRuntimeProfileStageSync(deps.runtimeProfile, 'usage.aggregate', () =>
     aggregateUsage(pricedEvents, {
@@ -179,7 +176,7 @@ export async function buildUsageData(
     pricingOrigin,
     pricingWarning,
     warnings: dataset.warnings,
-    notes: dataset.notes,
+    notes,
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,

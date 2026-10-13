@@ -159,7 +159,7 @@ export async function buildSummaryData(
         userConfigResolution: { ...userConfigResolution, options: datasetOptions },
       }),
   );
-  const { pricedEvents, pricingOrigin, pricingWarning, pricingSource } =
+  const { pricedEvents, pricingOrigin, pricingWarning, pricingSource, notes } =
     await applyPricingToUsageEventDataset(dataset, deps, 'auto');
   const sourceOrder = dataset.adaptersToParse.map((adapter) => adapter.id);
   // Other machines' events carry their name; this machine's carry none.
@@ -222,7 +222,7 @@ export async function buildSummaryData(
       pricingOrigin,
       pricingWarning,
       warnings: dataset.warnings,
-      notes: dataset.notes,
+      notes,
       activeEnvOverrides: dataset.readEnvVarOverrides(),
       activeConfig: dataset.activeConfig,
       timezone,
