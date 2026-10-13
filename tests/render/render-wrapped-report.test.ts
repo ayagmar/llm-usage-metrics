@@ -144,7 +144,7 @@ describe('render-wrapped-report', () => {
     expect(output).toContain('pi');
   });
 
-  it('prints one message instead of dashed stats and tables for an empty year', () => {
+  it('prints one message for an empty year in the terminal and keeps dashed markdown tables', () => {
     const recap = createRecap({
       totalTokens: 0,
       costUsd: undefined,
@@ -171,6 +171,13 @@ describe('render-wrapped-report', () => {
     expect(renderWrappedReport(recap, 'terminal', { useColor: false, filtered: true })).toContain(
       'No usage data found for the selected filters.',
     );
+
+    const markdown = renderWrappedReport(recap, 'markdown');
+    expect(markdown).toContain('0h');
+    expect(markdown).toMatch(/\| Peak hour\s+\|\s+- \|/);
+    expect(markdown).toMatch(/\| Weekday split\s+\|\s+- \|/);
+    expect(markdown).toMatch(/\| Busiest day\s+\|\s+- \|/);
+    expect(markdown).toMatch(/\| Cache savings\s+\|\s+- \|/);
   });
 
   it('returns the recap as JSON for the json format', () => {
