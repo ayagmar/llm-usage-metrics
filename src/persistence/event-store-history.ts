@@ -234,6 +234,31 @@ function readLiveHashCounts(store: EventStore): Map<string, number> {
     )
     .run();
 
+  // A departed row without a stored hash is served under its computed hash, which no
+  // departed hash above covers; then count every live hash, as takeUncountedEvents
+  // trims against these counts.
+  store.database
+    .prepare(
+      [
+        'INSERT OR IGNORE INTO history_departed_hashes (content_hash)',
+        'SELECT events.content_hash',
+        'FROM history_discovered_files AS discovered',
+        'CROSS JOIN events',
+        'WHERE events.source = discovered.source',
+        '  AND events.file_path = discovered.file_path',
+        '  AND discovered.counted = 1',
+        '  AND events.content_hash IS NOT NULL',
+        '  AND EXISTS (',
+        '    SELECT 1 FROM history_departed_files AS departed',
+        '    CROSS JOIN events AS departed_events',
+        '    WHERE departed_events.source = departed.source',
+        '      AND departed_events.file_path = departed.file_path',
+        '      AND departed_events.content_hash IS NULL',
+        '  )',
+      ].join('\n'),
+    )
+    .run();
+
   // Each departed hash is looked up through the content hash index, instead of
   // reading the hashes of every live event.
   const rows = store.database

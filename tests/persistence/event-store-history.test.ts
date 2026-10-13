@@ -672,6 +672,32 @@ describe('event-store history', () => {
     }
   });
 
+  it('does not serve again a live event whose departed copy has no stored hash', async () => {
+    const store = await createTempStore();
+    const sharedEvent = createEvent({ sessionId: 'shared' });
+    const otherEvent = createEvent({ sessionId: 'other' });
+
+    try {
+      writeStoredFile(store, { filePath: '/tmp/live.jsonl', events: [sharedEvent] });
+      writeStoredFile(store, {
+        filePath: '/tmp/deleted.jsonl',
+        events: [sharedEvent, otherEvent],
+      });
+      store.database
+        .prepare('UPDATE events SET content_hash = NULL WHERE file_path = ? AND session_id = ?')
+        .run('/tmp/deleted.jsonl', 'shared');
+
+      const result = loadHistoryEvents(store, {
+        selectedSources: ['codex'],
+        discoveredFiles: [{ source: 'codex', filePath: '/tmp/live.jsonl' }],
+      });
+
+      expect(result.events).toEqual([otherEvent]);
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
   it('issues a bounded number of queries per history load regardless of departed count', async () => {
     const runLoad = async (fileCount: number): Promise<number> => {
       const store = await createTempStore();
@@ -703,7 +729,7 @@ describe('event-store history', () => {
     const largeCount = await runLoad(250);
 
     expect(smallCount).toBe(largeCount);
-    expect(smallCount).toBe(18);
+    expect(smallCount).toBe(20);
   });
 
   it('matches the per-file reference on a large overlapping/moved/copied fixture', async () => {
