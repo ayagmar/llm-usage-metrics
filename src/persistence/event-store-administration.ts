@@ -553,8 +553,9 @@ function readMetaValues(database: EventStoreDatabase): Map<string, string> {
 }
 
 // Above this share of the rows, walking the file index in result order beats a timestamp
-// index (machine caches have one), which must sort every row it returns.
-const WIDE_WINDOW_ROW_SHARE = 0.1;
+// index (machine caches have one), which must sort every row it returns. Measured on a
+// 242k-row cache, the two plans cross between 12% and 15%.
+const WIDE_WINDOW_ROW_SHARE = 0.15;
 
 /** Whether the window holds a large share of the rows; counts at most that share. */
 function isWideWindow(
@@ -562,10 +563,11 @@ function isWideWindow(
   fromTimestamp: string,
   toTimestamp: string,
 ): boolean {
-  const lastId = toNonNegativeInteger(
-    database.prepare('SELECT max(id) AS id FROM events').get()?.id,
+  // Not max(id): every sync rewrites changed files, leaving gaps in the ids.
+  const rowCount = toNonNegativeInteger(
+    database.prepare('SELECT count(*) AS count FROM events').get()?.count,
   );
-  const threshold = Math.ceil((lastId ?? 0) * WIDE_WINDOW_ROW_SHARE);
+  const threshold = Math.ceil((rowCount ?? 0) * WIDE_WINDOW_ROW_SHARE);
   const row = database
     .prepare(
       [
