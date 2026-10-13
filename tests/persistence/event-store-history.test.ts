@@ -703,7 +703,7 @@ describe('event-store history', () => {
     const largeCount = await runLoad(250);
 
     expect(smallCount).toBe(largeCount);
-    expect(smallCount).toBe(16);
+    expect(smallCount).toBe(18);
   });
 
   it('matches the per-file reference on a large overlapping/moved/copied fixture', async () => {

@@ -85,6 +85,9 @@ CREATE TEMP TABLE IF NOT EXISTS history_departed_files (
   file_path TEXT NOT NULL,
   PRIMARY KEY (source, file_path)
 );
+CREATE TEMP TABLE IF NOT EXISTS history_departed_hashes (
+  content_hash TEXT PRIMARY KEY
+);
 CREATE TEMP TABLE IF NOT EXISTS history_served_files (
   source TEXT NOT NULL,
   file_path TEXT NOT NULL,
@@ -94,6 +97,7 @@ CREATE TEMP TABLE IF NOT EXISTS history_served_files (
 DELETE FROM history_selected_sources;
 DELETE FROM history_discovered_files;
 DELETE FROM history_departed_files;
+DELETE FROM history_departed_hashes;
 DELETE FROM history_served_files;
 `);
 }
@@ -211,10 +215,27 @@ function addHashCount(target: Map<string, number>, hash: string, count: number):
   target.set(hash, (target.get(hash) ?? 0) + count);
 }
 
-// The live events reports count, per content hash. For a source whose files repeat
-// events, a hash in several files counts as often as the file holding it most often; a
-// content hash covers the source, so all of a hash's files belong to one source.
+// The live events reports count, per content hash, for the hashes departed files hold:
+// only those decide what history serves. For a source whose files repeat events, a hash
+// in several files counts as often as the file holding it most often; a content hash
+// covers the source, so all of a hash's files belong to one source.
 function readLiveHashCounts(store: EventStore): Map<string, number> {
+  store.database
+    .prepare(
+      [
+        'INSERT OR IGNORE INTO history_departed_hashes (content_hash)',
+        'SELECT events.content_hash',
+        'FROM history_departed_files AS departed',
+        'CROSS JOIN events',
+        'WHERE events.source = departed.source',
+        '  AND events.file_path = departed.file_path',
+        '  AND events.content_hash IS NOT NULL',
+      ].join('\n'),
+    )
+    .run();
+
+  // Each departed hash is looked up through the content hash index, instead of
+  // reading the hashes of every live event.
   const rows = store.database
     .prepare(
       [
@@ -224,15 +245,16 @@ function readLiveHashCounts(store: EventStore): Map<string, number> {
         'FROM (',
         '  SELECT events.content_hash AS content_hash,',
         '    selected.repeats_events AS repeats_events, COUNT(*) AS file_count',
-        '  FROM history_discovered_files AS discovered',
-        '  JOIN history_selected_sources AS selected',
-        '    ON discovered.source = selected.source',
+        '  FROM history_departed_hashes AS departed',
         '  CROSS JOIN events',
-        '  WHERE discovered.counted = 1',
-        '    AND events.source = discovered.source',
-        '    AND events.file_path = discovered.file_path',
-        '    AND events.content_hash IS NOT NULL',
-        '  GROUP BY discovered.source, discovered.file_path, events.content_hash',
+        '  JOIN history_discovered_files AS discovered',
+        '    ON discovered.source = events.source',
+        '    AND discovered.file_path = events.file_path',
+        '  JOIN history_selected_sources AS selected',
+        '    ON selected.source = events.source',
+        '  WHERE events.content_hash = departed.content_hash',
+        '    AND discovered.counted = 1',
+        '  GROUP BY events.source, events.file_path, events.content_hash',
         ')',
         'GROUP BY content_hash',
       ].join('\n'),
@@ -522,10 +544,10 @@ function classifyAgainstLiveFiles(
     return { classifiedFiles: [], liveHashCounts: new Map() };
   }
 
-  const liveHashCounts = readLiveHashCounts(store);
-  const servedHashCounts = new Map(liveHashCounts);
   const departedFiles = readDepartedFiles(store);
   const departedHashMultisets = readDepartedHashMultisets(store);
+  const liveHashCounts = readLiveHashCounts(store);
+  const servedHashCounts = new Map(liveHashCounts);
   const classifiedFiles: ClassifiedDepartedFile[] = [];
 
   for (const departedFile of departedFiles) {
