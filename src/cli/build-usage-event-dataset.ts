@@ -6,6 +6,7 @@ import {
   getPricingFetcherRuntimeConfig,
 } from '../config/runtime-overrides.js';
 import type { UsageEvent } from '../domain/usage-event.js';
+import { countCopiedSessionEventsOnce } from './count-copied-session-events-once.js';
 import {
   closeEventStore,
   openEventStore,
@@ -51,7 +52,11 @@ import type {
   UsagePricingOrigin,
   UsageSourceFailure,
 } from './usage-data-contracts.js';
-import { getRepeatingSourceIds, type SourceAdapter } from '../sources/source-adapter.js';
+import {
+  getRepeatingSourceIds,
+  getSessionCopyingSourceIds,
+  type SourceAdapter,
+} from '../sources/source-adapter.js';
 import type { EnvVarOverride } from '../config/env-var-display.js';
 import type { PricingSource } from '../pricing/types.js';
 import { findUnmatchedFilterWarnings } from './filter-match-warnings.js';
@@ -157,6 +162,8 @@ export type UsageEventDataset = {
     path: string;
     parsedFiles: EventStoreHistoryDiscoveredFile[];
     historyFiles: EventStoreHistoryDiscoveredFile[];
+    /** Events those files hold that the run counted once, as copies of another session's. */
+    copiedEventCount: number;
   };
   pricingRuntimeConfig: ReturnType<typeof getPricingFetcherRuntimeConfig>;
   readEnvVarOverrides: () => EnvVarOverride[];
@@ -306,7 +313,12 @@ export async function buildUsageEventDataset(
 
     let parseResultsForFiltering = successfulParseResults;
     const ledger: UsageEventDataset['ledger'] = eventStoreAvailable
-      ? { path: eventStoreRuntimeConfig.path, parsedFiles: [...parsedFiles], historyFiles: [] }
+      ? {
+          path: eventStoreRuntimeConfig.path,
+          parsedFiles: [...parsedFiles],
+          historyFiles: [],
+          copiedEventCount: 0,
+        }
       : undefined;
     const historyWarnings: string[] = [];
     const historyNotes: string[] = [];
@@ -426,6 +438,27 @@ export async function buildUsageEventDataset(
         ),
       );
     }
+
+    // After history and other machines, so a departed or remote copy is counted once too.
+    const sessionCopyingSources = getSessionCopyingSourceIds(adaptersToParse);
+    parseResultsForFiltering = measureRuntimeProfileStageSync(
+      runtimeProfile,
+      'usage.dataset.count_copies',
+      () =>
+        parseResultsForFiltering.map((result) => {
+          if (!sessionCopyingSources.has(result.source)) {
+            return result;
+          }
+
+          const events = countCopiedSessionEventsOnce(result.events);
+
+          if (ledger) {
+            ledger.copiedEventCount += result.events.length - events.length;
+          }
+
+          return { ...result, events };
+        }),
+    );
 
     const filteredEvents = measureRuntimeProfileStageSync(
       runtimeProfile,

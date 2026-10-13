@@ -5,7 +5,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { buildUsageEventDataset } from '../../src/cli/build-usage-event-dataset.js';
-import { createUsageEvent } from '../../src/domain/usage-event.js';
+import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.js';
 import {
   closeEventStore,
   openEventStore,
@@ -13,6 +13,7 @@ import {
   type EventStoreFileFingerprint,
 } from '../../src/persistence/event-store.js';
 import { loadHistoryEvents } from '../../src/persistence/event-store-history.js';
+import { ClaudeSourceAdapter } from '../../src/sources/claude/claude-source-adapter.js';
 import type { SourceAdapter } from '../../src/sources/source-adapter.js';
 
 const tempDirs: string[] = [];
@@ -477,6 +478,63 @@ describe('buildUsageEventDataset history', () => {
     expect(dataset.notes).toEqual([
       'History: included 1 event(s) from 1 departed file(s) (0 suppressed as moved or duplicated).',
     ]);
+  });
+
+  it('counts the rows a Claude branch copied once, also once the branch departs', async () => {
+    const eventStorePath = await createEventStorePath();
+    const projectDir = path.join(path.dirname(eventStorePath), 'projects', 'repo');
+    await mkdir(projectDir, { recursive: true });
+    const assistantRow = (sessionId: string, messageId: string, timestamp: string) =>
+      JSON.stringify({
+        type: 'assistant',
+        timestamp,
+        sessionId,
+        uuid: `${messageId}-row`,
+        requestId: `${messageId}-request`,
+        message: {
+          id: messageId,
+          role: 'assistant',
+          model: 'claude-sonnet-4-5',
+          usage: { input_tokens: 10, output_tokens: 5, cache_read_input_tokens: 100 },
+        },
+      });
+    const branchPath = path.join(projectDir, 'branch.jsonl');
+    await writeFile(
+      path.join(projectDir, 'original.jsonl'),
+      [
+        assistantRow('original', 'msg-1', '2026-10-09T10:00:00.000Z'),
+        assistantRow('original', 'msg-2', '2026-10-09T10:05:00.000Z'),
+      ].join('\n'),
+      'utf8',
+    );
+    // A continued session rewrites the session id of the rows it copies.
+    await writeFile(
+      branchPath,
+      [
+        assistantRow('branch', 'msg-2', '2026-10-09T10:05:00.000Z'),
+        assistantRow('branch', 'msg-3', '2026-10-09T11:00:00.000Z'),
+      ].join('\n'),
+      'utf8',
+    );
+    const deps = {
+      ...createDatasetDeps(eventStorePath),
+      createAdapters: () => [new ClaudeSourceAdapter({ dir: path.dirname(projectDir) })],
+    };
+    const options = { source: 'claude', since: '2026-10-01', timezone: 'UTC' };
+    const sessionTimestamps = (events: readonly UsageEvent[]) =>
+      events.map((event) => `${event.sessionId} ${event.timestamp}`).sort();
+    const expected = [
+      'branch 2026-10-09T11:00:00.000Z',
+      'original 2026-10-09T10:00:00.000Z',
+      'original 2026-10-09T10:05:00.000Z',
+    ];
+
+    const liveDataset = await buildUsageEventDataset(options, deps);
+    await rm(branchPath);
+    const historyDataset = await buildUsageEventDataset(options, deps);
+
+    expect(sessionTimestamps(liveDataset.filteredEvents)).toEqual(expected);
+    expect(sessionTimestamps(historyDataset.filteredEvents)).toEqual(expected);
   });
 
   it('keeps files only read from a custom directory out of later default reports', async () => {
