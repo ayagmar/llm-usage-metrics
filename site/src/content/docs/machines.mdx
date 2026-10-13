@@ -44,7 +44,7 @@ llm-usage machine add vps --command "/home/me/.local/bin/llm-usage"
 
 ## Use it
 
-Every report includes the machines you added. When a machine's usage was last fetched more than 10 minutes ago, the report fetches it again while it parses this machine's logs, waiting at most 30 seconds. A machine that is off or unreachable does not stop the report: it uses the usage fetched last time and says so, and waits 10 minutes before trying again.
+Every report includes the machines you added. When a machine's usage was last fetched more than 10 minutes ago, the report fetches it again while it parses this machine's logs, waiting at most 30 seconds. A machine that is off or unreachable does not stop the report: it uses the usage fetched last time and says so, and waits 10 minutes before trying again. Until a fetch succeeds, each report names the error, for example `laptop: last sync failed (ssh failed: ...); using its usage from 2 days ago. Run llm-usage sync laptop to retry.` It is a warning once the usage is a day old.
 
 ```bash
 llm-usage daily               # this machine and the others, fetched when due

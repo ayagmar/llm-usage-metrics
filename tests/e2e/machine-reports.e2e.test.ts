@@ -228,6 +228,21 @@ describe('reports refreshing other machines', () => {
     );
     expect(dataset.warnings).toEqual([]);
   });
+
+  it('say why the last sync failed when a report does not retry it', async () => {
+    const { spawnSsh } = createInProcessRemote({
+      ...remote,
+      fail: { exitCode: 255, stderr: 'ssh: connect to host laptop port 22: No route to host' },
+    });
+    await buildDataset({ timezone: 'UTC' }, { spawnSsh, now: later });
+
+    const dataset = await buildDataset({ timezone: 'UTC', sync: false }, { spawnSsh, now: later });
+
+    expect(dataset.notes).toEqual([
+      'laptop: last sync failed (ssh failed: ssh: connect to host laptop port 22: No route to host); using its usage from 11 min ago. Run llm-usage sync laptop to retry.',
+      'Machines: laptop (synced 11 min ago); left out 2 event(s) already counted.',
+    ]);
+  });
 });
 
 describe('reports with other machines', () => {

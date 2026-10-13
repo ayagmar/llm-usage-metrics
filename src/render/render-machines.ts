@@ -124,10 +124,6 @@ function describeIncludedMachine(
 
   const details = [`synced ${formatAge(now - state.syncedAt)}`];
 
-  if (state.lastError !== undefined && (state.attemptedAt ?? 0) >= state.syncedAt) {
-    details.push('last sync failed');
-  }
-
   // Parsers change between versions, so a session copied to both machines may not match.
   if (state.cliVersion && state.cliVersion !== localVersion) {
     details.push(
@@ -185,5 +181,30 @@ export function formatRefreshFailure(
   return {
     text: `Could not sync ${outcome.name} (${outcome.error}); using its usage from ${formatAge(now - syncedAt)}.${hint}`,
     stale: now - syncedAt >= STALE_CACHE_MS,
+  };
+}
+
+/**
+ * Describes a failed sync a report did not retry (it was recent, or --no-sync), from the
+ * machine's stored state, with the same note/warning split as a refresh failure.
+ */
+export function formatStoredSyncFailure(
+  machine: MachineUsageSummary,
+  now: number,
+): { text: string; stale: boolean } | undefined {
+  const { state } = machine;
+
+  if (
+    !machine.enabled ||
+    state?.syncedAt === undefined ||
+    state.lastError === undefined ||
+    (state.attemptedAt ?? 0) < state.syncedAt
+  ) {
+    return undefined;
+  }
+
+  return {
+    text: `${machine.name}: last sync failed (${state.lastError}); using its usage from ${formatAge(now - state.syncedAt)}. Run llm-usage sync ${machine.name} to retry.`,
+    stale: now - state.syncedAt >= STALE_CACHE_MS,
   };
 }
