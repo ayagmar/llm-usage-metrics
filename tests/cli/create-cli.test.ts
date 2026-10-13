@@ -83,6 +83,7 @@ describe('createCli', () => {
     {
       command: 'trends',
       present: [
+        '--last',
         '--days',
         '--metric',
         '--by-source',
