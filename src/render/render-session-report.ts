@@ -73,13 +73,16 @@ function formatModels(models: readonly string[]): string {
     return '-';
   }
 
-  if (models.length <= MAX_NAMED_MODELS) {
-    return models.join('\n');
+  return limitNamedModels(models, MAX_NAMED_MODELS).join('\n');
+}
+
+/** The first `limit` model names, then `+N more` for the rest. */
+export function limitNamedModels(models: readonly string[], limit: number): string[] {
+  if (models.length <= limit) {
+    return [...models];
   }
 
-  return [...models.slice(0, MAX_NAMED_MODELS), `+${models.length - MAX_NAMED_MODELS} more`].join(
-    '\n',
-  );
+  return [...models.slice(0, limit), `+${models.length - limit} more`];
 }
 
 function toSessionTableCells(

@@ -8,6 +8,7 @@ import {
 } from '../domain/provider-normalization.js';
 import {
   applyPricingToUsageEventDataset,
+  withUnpricedEventsNote,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
 import type {
@@ -90,7 +91,7 @@ export async function buildOptimizeData(
     () => resolveOptimizeProvider(detectedProviders, dataset.normalizedInputs.providerFilter),
   );
 
-  const { pricedEvents, pricingOrigin, pricingWarning, pricingSource, notes } =
+  const { pricedEvents, pricingOrigin, pricingWarning, pricingSource } =
     await applyPricingToUsageEventDataset(dataset, deps, 'force');
 
   const usageRows = measureRuntimeProfileStageSync(
@@ -143,7 +144,7 @@ export async function buildOptimizeData(
     pricingOrigin,
     pricingWarning,
     warnings: dataset.warnings,
-    notes,
+    notes: withUnpricedEventsNote(dataset.notes, pricedEvents),
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,

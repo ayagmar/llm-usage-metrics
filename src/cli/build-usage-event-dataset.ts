@@ -6,6 +6,7 @@ import {
   getPricingFetcherRuntimeConfig,
 } from '../config/runtime-overrides.js';
 import type { UsageEvent } from '../domain/usage-event.js';
+import { limitNamedModels } from '../render/render-session-report.js';
 import { countCopiedSessionEventsOnce } from './count-copied-session-events-once.js';
 import {
   closeEventStore,
@@ -174,8 +175,6 @@ export type UsageEventDatasetPricingResult = {
   pricingOrigin: UsagePricingOrigin;
   pricingWarning?: string;
   pricingSource?: PricingSource;
-  /** The dataset's notes, plus one explaining the `~` cost marker when any event has no cost. */
-  notes: string[];
 };
 
 export async function buildUsageEventDataset(
@@ -536,31 +535,24 @@ export async function applyPricingToUsageEventDataset(
     dataset.normalizedInputs.pricingUrl,
   );
 
-  const pricingResult = await measureRuntimeProfileStage(
-    deps.runtimeProfile,
-    'usage.pricing.apply',
-    () =>
-      resolveAndApplyPricingToEvents(
-        dataset.filteredEvents,
-        pricingOptions,
-        dataset.pricingRuntimeConfig,
-        loadPricingSource,
-        pricingLoadMode,
-      ),
+  return measureRuntimeProfileStage(deps.runtimeProfile, 'usage.pricing.apply', () =>
+    resolveAndApplyPricingToEvents(
+      dataset.filteredEvents,
+      pricingOptions,
+      dataset.pricingRuntimeConfig,
+      loadPricingSource,
+      pricingLoadMode,
+    ),
   );
-  const unpricedNote = describeUnpricedEvents(pricingResult.pricedEvents);
-
-  return {
-    ...pricingResult,
-    notes: unpricedNote ? [...dataset.notes, unpricedNote] : dataset.notes,
-  };
 }
 
+const MAX_NAMED_UNPRICED_MODELS = 5;
+
 /**
- * Reports leave an event without a cost out of cost totals and mark those totals with `~`;
- * this note says what the marker leaves out.
+ * Reports leave an event without a cost out of cost totals and mark those totals with `~`.
+ * Returns the note explaining that marker for the events a report shows, if any lack a cost.
  */
-function describeUnpricedEvents(events: UsageEvent[]): string | undefined {
+function describeUnpricedEvents(events: readonly UsageEvent[]): string | undefined {
   const unpricedEvents = events.filter((event) => event.costUsd === undefined);
 
   if (unpricedEvents.length === 0) {
@@ -568,7 +560,18 @@ function describeUnpricedEvents(events: UsageEvent[]): string | undefined {
   }
 
   const models = [...new Set(unpricedEvents.map((event) => event.model ?? 'unknown'))].sort();
+  const eventCount = new Intl.NumberFormat('en-US').format(unpricedEvents.length);
   const eventLabel = unpricedEvents.length === 1 ? 'event' : 'events';
+  const modelList = limitNamedModels(models, MAX_NAMED_UNPRICED_MODELS).join(', ');
 
-  return `~ marks costs that leave out ${new Intl.NumberFormat('en-US').format(unpricedEvents.length)} ${eventLabel} with no known price (models: ${models.join(', ')})`;
+  return `~ marks costs that leave out ${eventCount} ${eventLabel} with no known price (models: ${modelList})`;
+}
+
+/** The dataset's notes plus the `~` explanation for the events a report shows. */
+export function withUnpricedEventsNote(
+  notes: readonly string[],
+  events: readonly UsageEvent[],
+): string[] {
+  const note = describeUnpricedEvents(events);
+  return note ? [...notes, note] : [...notes];
 }

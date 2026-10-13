@@ -153,7 +153,6 @@ function createPricingResult(
     pricedEvents,
     pricingOrigin: 'cache',
     pricingWarning: undefined,
-    notes: [],
   };
 }
 

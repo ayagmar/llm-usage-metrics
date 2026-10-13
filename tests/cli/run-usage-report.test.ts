@@ -695,7 +695,10 @@ describe('buildUsageReport', () => {
     return piDir;
   }
 
-  async function runWithUnreachablePricing(piDir: string): Promise<{
+  async function runWithUnreachablePricing(
+    piDir: string,
+    extraOptions: { cost?: boolean } = {},
+  ): Promise<{
     stderr: string[];
     stdout: string;
   }> {
@@ -715,6 +718,7 @@ describe('buildUsageReport', () => {
       timezone: 'UTC',
       pricingUrl: 'https://example.test/approximate-cost-pricing.json',
       ignorePricingFailures: true,
+      ...extraOptions,
     });
 
     return {
@@ -739,6 +743,29 @@ describe('buildUsageReport', () => {
         '~ marks costs that leave out 2 events with no known price (models: mystery-model)',
       ),
     ]);
+  });
+
+  it('names at most five unpriced models in the ~ note', async () => {
+    const piDir = await writePiSession(
+      ['m-a', 'm-b', 'm-c', 'm-d', 'm-e', 'm-f', 'm-g'].map((model) => ({ model })),
+    );
+
+    const { stderr } = await runWithUnreachablePricing(piDir);
+
+    expect(stderr).toContainEqual(
+      expect.stringContaining('(models: m-a, m-b, m-c, m-d, m-e, +2 more)'),
+    );
+  });
+
+  it('does not explain the ~ cost marker when --no-cost hides cost', async () => {
+    const piDir = await writePiSession([
+      { model: 'gpt-4.1', cost: 0.5 },
+      { model: 'mystery-model' },
+    ]);
+
+    const { stderr } = await runWithUnreachablePricing(piDir, { cost: false });
+
+    expect(stderr.some((line) => line.includes('~ marks costs'))).toBe(false);
   });
 
   it('does not explain the ~ cost marker when every event has a cost', async () => {

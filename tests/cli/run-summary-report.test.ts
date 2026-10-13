@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -117,5 +117,67 @@ describe('runUsageReport default window hint', () => {
     const order = await captureRun(() => runUsageReport('daily', { ...options, all: true }));
 
     expect(order.some((line) => line.includes('Showing the last 7 days'))).toBe(false);
+  });
+
+  describe('the ~ cost note', () => {
+    async function runSummaryWithUnpricedEventDaysAgo(daysAgo: number): Promise<string[]> {
+      const piDir = await mkdtemp(path.join(os.tmpdir(), 'summary-approximate-cost-'));
+      tempDirs.push(piDir);
+      const at = (msAgo: number) => new Date(Date.now() - msAgo).toISOString();
+      const message = (timestamp: string, model: string, cost?: number) =>
+        JSON.stringify({
+          type: 'message',
+          timestamp,
+          provider: 'openai',
+          model,
+          usage: {
+            input: 10,
+            output: 5,
+            totalTokens: 15,
+            ...(cost === undefined ? {} : { cost: { total: cost } }),
+          },
+        });
+      await writeFile(
+        path.join(piDir, 'session.jsonl'),
+        [
+          JSON.stringify({ type: 'session', id: 'pi-approx', timestamp: at(daysAgo * 86_400_000) }),
+          message(at(daysAgo * 86_400_000), 'mystery-model'),
+          message(at(60_000), 'gpt-4.1', 1),
+        ].join('\n'),
+        'utf8',
+      );
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => {
+          throw new Error('network unavailable');
+        }),
+      );
+
+      try {
+        return await captureRun(() =>
+          runSummaryReport({
+            piDir,
+            source: ['pi'],
+            timezone: 'UTC',
+            pricingUrl: 'https://example.test/summary-approximate-cost.json',
+            ignorePricingFailures: true,
+          }),
+        );
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    }
+
+    it('explains ~ when an unpriced event falls in a shown window', async () => {
+      const order = await runSummaryWithUnpricedEventDaysAgo(0);
+
+      expect(order.some((line) => line.includes('~ marks costs'))).toBe(true);
+    });
+
+    it('stays silent when unpriced events only reach the activity grid', async () => {
+      const order = await runSummaryWithUnpricedEventDaysAgo(60);
+
+      expect(order.some((line) => line.includes('~ marks costs'))).toBe(false);
+    });
   });
 });
