@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.11.0](https://github.com/ayagmar/llm-usage-metrics/compare/v0.10.2...v0.11.0) (2026-10-13)
+
+### Bug Fixes
+
+* **claude:** count rows a branched session copied once ([16fd74c](https://github.com/ayagmar/llm-usage-metrics/commit/16fd74cb40ebe78f206a84a9f0e0d9c0e92b8a3a))
+* **claude:** name the continued-session copies and keep export checks exact ([acf51f6](https://github.com/ayagmar/llm-usage-metrics/commit/acf51f65c88fe1ff3a14dd2ba75934132dddbcb1))
+* **cli:** accept --last on trends, keep --days as an alias ([7ab0391](https://github.com/ayagmar/llm-usage-metrics/commit/7ab03913de1fe00b06033c61d59f3d8c050a810d))
+* **cli:** explain ~ only for the events a report shows ([36a2f24](https://github.com/ayagmar/llm-usage-metrics/commit/36a2f2460fc4ff1fb9a1e94b3ffa8616e88559a2))
+* **cli:** explain the ~ cost marker on stderr ([89513ee](https://github.com/ayagmar/llm-usage-metrics/commit/89513eef55039c97a05ea262b3a1f1a3addf547f))
+* **cli:** make date, granularity, optimize and repo errors actionable ([dbf84bd](https://github.com/ayagmar/llm-usage-metrics/commit/dbf84bd717af0dde9e7feb5b2457db74419698a6))
+* **cli:** stack help on phone-width terminals and keep the --json hint ([0c98581](https://github.com/ayagmar/llm-usage-metrics/commit/0c98581dce4528e50d26588e417425348176e82e))
+* **cli:** tighten provider hint, missing-git and repo-dir messages ([dfea63d](https://github.com/ayagmar/llm-usage-metrics/commit/dfea63d342ba8976831dccc7555d757705f4fa49))
+* **cli:** validate trends --last with the usage reports' 10000 cap ([e137a63](https://github.com/ayagmar/llm-usage-metrics/commit/e137a63abda87f31ea9ab1d2d5f2b8c6ee6293ad))
+* **cli:** wrap help on narrow terminals and drop options that do nothing ([0e9f9bd](https://github.com/ayagmar/llm-usage-metrics/commit/0e9f9bdece0b7fcb1897f93b79d8bcab670676c4))
+* **filters:** convert every timestamp when a window bound reaches year 9999 ([1742ffd](https://github.com/ayagmar/llm-usage-metrics/commit/1742ffd650077ac1e9b4400ebbd7d66e6011f583))
+* **history:** bind override-only marks positionally for Node 22 ([f07c313](https://github.com/ayagmar/llm-usage-metrics/commit/f07c3130eb79737331822cb036596b222db13e7b))
+* **history:** count every live hash when a departed event has no stored hash ([c4a1862](https://github.com/ayagmar/llm-usage-metrics/commit/c4a18623914f2bf2194281fc0ae2683c31cfda15))
+* **history:** keep files read from a custom directory out of default history ([0aaa75f](https://github.com/ayagmar/llm-usage-metrics/commit/0aaa75feb9f42762e6e8e4ded9ba7dfa5e5ebd01))
+* **history:** warn instead of disabling the store when a claim fails ([0a2b21f](https://github.com/ayagmar/llm-usage-metrics/commit/0a2b21f42e4dd1aee596989818c400fd1037158b))
+* **machines:** say why the last sync failed in reports ([1ac405d](https://github.com/ayagmar/llm-usage-metrics/commit/1ac405d9b8906cb757102446f75165f86b16506f))
+* **machines:** strip terminal escapes from sync errors and name first-sync failures ([3a0c231](https://github.com/ayagmar/llm-usage-metrics/commit/3a0c231c27934ff15260a158753da472e15caab7))
+* **optimize:** price one-hour cache writes for candidates like the baseline ([6d4ae8d](https://github.com/ayagmar/llm-usage-metrics/commit/6d4ae8de883360cd6a5c6231fe65b494e48bb637))
+* **optimize:** suggest a provider only when it is in the data ([d087d37](https://github.com/ayagmar/llm-usage-metrics/commit/d087d3761685c561df77abd60a00c3d945d8bfa9))
+* **render:** address review of empty-state messages ([a37dfab](https://github.com/ayagmar/llm-usage-metrics/commit/a37dfabe9b44586a57875f482b40fead4855fffe))
+* **render:** list rows when a table cannot fit a narrow terminal ([6fbdbc4](https://github.com/ayagmar/llm-usage-metrics/commit/6fbdbc4cc95fd2be4f29564902b9455b5b733998))
+* **render:** print one message for empty reports and point summary at older usage ([28b0f1f](https://github.com/ayagmar/llm-usage-metrics/commit/28b0f1f557109e09a3945055ca311d3c0be4589a))
+
+### Performance Improvements
+
+* **claude:** compare same-timestamp events before building copy identities ([93d82c4](https://github.com/ayagmar/llm-usage-metrics/commit/93d82c48754cd5530e4703afc1915961c937694c))
+* **filters:** skip time zone conversion for timestamps far from the window edges ([bb02167](https://github.com/ayagmar/llm-usage-metrics/commit/bb021671196520334097a20d85c81c3d7754a77b))
+* **history:** count live hashes only for what departed files hold ([8c934f9](https://github.com/ayagmar/llm-usage-metrics/commit/8c934f9a1e694f978ecac28a009f520045b3bacf))
+* **machines:** read wide cache windows in file order ([e344aaa](https://github.com/ayagmar/llm-usage-metrics/commit/e344aaa038ba903a8f9258d310243f977290c2d8))
+* **machines:** size the wide-window threshold on the real row count ([49af1ec](https://github.com/ayagmar/llm-usage-metrics/commit/49af1ec75070a48216f1c1237aaf581d463ec08d))
+* **time:** keep the local-date memo for a whole run ([487b1bb](https://github.com/ayagmar/llm-usage-metrics/commit/487b1bbe79262199f6735da974f3d0ebde44c728))
+
 ## [0.10.2](https://github.com/ayagmar/llm-usage-metrics/compare/v0.10.1...v0.10.2) (2026-10-10)
 
 ### Features
