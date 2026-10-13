@@ -154,6 +154,8 @@ export type OptimizeCommandOptions = SharedOptionsForProfile<'specialized'> & {
 };
 
 export type TrendsCommandOptions = SharedOptionsForProfile<'trends'> & {
+  last?: string;
+  /** Hidden alias of `last`. */
   days?: string;
   metric?: string;
   bySource?: boolean;

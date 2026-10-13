@@ -91,7 +91,7 @@ llm-usage session --top 10
 llm-usage session --by-repo
 
 # Last 14 local days as a token series
-llm-usage trends --metric tokens --days 14
+llm-usage trends --metric tokens --last 14
 
 # Candidate-model pricing against observed usage
 llm-usage optimize monthly \

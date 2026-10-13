@@ -175,7 +175,31 @@ describe('buildTrendsData', () => {
     expect(result.diagnostics.pricingOrigin).toBe('none');
   });
 
-  it('uses explicit trailing day ranges when --days is provided', async () => {
+  it('uses explicit trailing day ranges when --last is provided', async () => {
+    const result = await buildTrendsData(
+      {
+        metric: 'tokens',
+        last: '3',
+      },
+      runtimeDeps({
+        now: () => new Date('2026-03-06T12:00:00.000Z'),
+        adapters: [
+          createAdapter('pi', {
+            '/tmp/a.jsonl': [createBaseEvent({ timestamp: '2026-03-05T10:00:00.000Z' })],
+          }),
+        ],
+      }),
+    );
+
+    expect(result.dateRange).toEqual({ from: '2026-03-04', to: '2026-03-06' });
+    expect(result.totalSeries.buckets.map((bucket) => bucket.date)).toEqual([
+      '2026-03-04',
+      '2026-03-05',
+      '2026-03-06',
+    ]);
+  });
+
+  it('accepts --days as an alias of --last', async () => {
     const result = await buildTrendsData(
       {
         metric: 'tokens',
@@ -199,27 +223,48 @@ describe('buildTrendsData', () => {
     ]);
   });
 
-  it('rejects --days when combined with explicit date flags', async () => {
+  it('rejects --last beyond the 10000-day cap shared with usage reports', async () => {
+    await expect(buildTrendsData({ last: '10001' }, runtimeDeps())).rejects.toThrow(
+      '--last must be a whole number from 1 to 10000',
+    );
+  });
+
+  it('names --days in errors when the alias was passed', async () => {
+    await expect(
+      buildTrendsData({ days: '7', since: '2026-03-01' }, runtimeDeps()),
+    ).rejects.toThrow('--days cannot be combined with --since or --until');
+    await expect(buildTrendsData({ days: '0' }, runtimeDeps())).rejects.toThrow(
+      '--days must be a whole number from 1 to 10000',
+    );
+  });
+
+  it('rejects passing both --last and its --days alias', async () => {
+    await expect(buildTrendsData({ last: '7', days: '7' }, runtimeDeps())).rejects.toThrow(
+      '--days is an alias of --last; pass only --last',
+    );
+  });
+
+  it('rejects --last when combined with explicit date flags', async () => {
     await expect(
       buildTrendsData(
         {
-          days: '7',
+          last: '7',
           since: '2026-03-01',
         },
         runtimeDeps(),
       ),
-    ).rejects.toThrow('--days cannot be combined with --since or --until');
+    ).rejects.toThrow('--last cannot be combined with --since or --until');
   });
 
   it('rejects invalid days, metric, and date ordering inputs', async () => {
     await expect(
       buildTrendsData(
         {
-          days: '0',
+          last: '0',
         },
         runtimeDeps(),
       ),
-    ).rejects.toThrow('--days must be a positive integer');
+    ).rejects.toThrow('--last must be a whole number from 1 to 10000');
 
     await expect(
       buildTrendsData(
