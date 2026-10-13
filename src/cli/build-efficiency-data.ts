@@ -226,7 +226,7 @@ export async function buildEfficiencyData(
     sourceFailures: dataset.sourceFailures,
     pricingOrigin,
     pricingWarning,
-    warnings: dataset.warnings,
+    warnings: gitOutcomes.warning ? [...dataset.warnings, gitOutcomes.warning] : dataset.warnings,
     notes: withUnpricedEventsNote(dataset.notes, matchedEventsWithSignal),
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,

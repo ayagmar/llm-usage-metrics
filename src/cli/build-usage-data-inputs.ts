@@ -31,7 +31,7 @@ export type NormalizedBuildUsageInputs = {
 
 export function validateDateInput(value: string, flagName: string): void {
   if (!/^\d{4}-\d{2}-\d{2}$/u.test(value)) {
-    throw new Error(`${flagName} must use format YYYY-MM-DD`);
+    throw new Error(`${flagName} "${value}" is not a date; use YYYY-MM-DD`);
   }
 
   const parsed = new Date(`${value}T00:00:00.000Z`);

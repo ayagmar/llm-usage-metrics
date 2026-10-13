@@ -137,10 +137,48 @@ describe('buildOptimizeData', () => {
         }),
       ),
     ).rejects.toThrow(
-      'Optimize requires a single provider; found providers: anthropic, openai. Narrow with --provider.',
+      'Optimize requires a single provider; found providers: anthropic, openai. Narrow with --provider openai.',
     );
 
     expect(pricingLoaderSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not suggest a --provider value that would match several providers', async () => {
+    await expect(
+      buildOptimizeData(
+        'daily',
+        { candidateModel: ['gpt-4.1'] },
+        runtimeDeps({
+          adapters: [
+            createAdapter('pi', {
+              '/tmp/a.jsonl': [createBaseEvent({ provider: 'openai' })],
+              '/tmp/b.jsonl': [createBaseEvent({ provider: 'azure-openai-responses' })],
+            }),
+          ],
+        }),
+      ),
+    ).rejects.toThrow(
+      'Optimize requires a single provider; found providers: azure-openai-responses, openai. Narrow with --provider.',
+    );
+  });
+
+  it('does not suggest a provider that is absent from the data', async () => {
+    await expect(
+      buildOptimizeData(
+        'daily',
+        { candidateModel: ['gpt-4.1'] },
+        runtimeDeps({
+          adapters: [
+            createAdapter('pi', {
+              '/tmp/a.jsonl': [createBaseEvent({ provider: 'anthropic' })],
+              '/tmp/b.jsonl': [createBaseEvent({ provider: 'azure-openai-responses' })],
+            }),
+          ],
+        }),
+      ),
+    ).rejects.toThrow(
+      'Optimize requires a single provider; found providers: anthropic, azure-openai-responses. Narrow with --provider.',
+    );
   });
 
   it('normalizes provider variants to a single billing provider scope', async () => {
@@ -172,7 +210,8 @@ describe('buildOptimizeData', () => {
       buildOptimizeData(
         'daily',
         {
-          candidateModel: ['gpt-4.1'],
+          // Its provider is not among the detected ones, so no provider is suggested.
+          candidateModel: ['claude-sonnet-4-5'],
         },
         runtimeDeps({
           adapters: [

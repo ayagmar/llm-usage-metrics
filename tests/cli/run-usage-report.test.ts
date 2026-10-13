@@ -351,7 +351,7 @@ describe('buildUsageReport', () => {
       buildUsageReport('daily', {
         since: '2026-2-10',
       }),
-    ).rejects.toThrow('--since must use format YYYY-MM-DD');
+    ).rejects.toThrow('--since "2026-2-10" is not a date; use YYYY-MM-DD');
 
     await expect(
       buildUsageReport('daily', {

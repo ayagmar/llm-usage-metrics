@@ -57,7 +57,7 @@ function hasAnyUsageSignal(period: BaselinePeriodTotals): boolean {
 
 function parseCandidateModelsRaw(candidateModel: string | string[] | undefined): string[] {
   if (!candidateModel || (Array.isArray(candidateModel) && candidateModel.length === 0)) {
-    throw new Error('At least one --candidate-model is required');
+    throw new Error('At least one --candidate-model is required, e.g. --candidate-model gpt-5.5');
   }
 
   const normalizedCandidates = (Array.isArray(candidateModel) ? candidateModel : [candidateModel])

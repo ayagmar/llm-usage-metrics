@@ -1,4 +1,4 @@
-import { Command, Option } from 'commander';
+import { Argument, Command, Option } from 'commander';
 
 import type {
   EventsCommandOptions,
@@ -64,6 +64,24 @@ function parseGranularityArgument(value: string): ReportGranularity {
 
   throw new Error(
     `Invalid granularity: ${value}. Expected one of: ${GRANULARITY_ARGUMENT_VALUES.join(', ')}`,
+  );
+}
+
+function addGranularityArgument(command: Command): Command {
+  // commander's own missing-argument error does not list the choices, so this overrides
+  // commander's private, untyped `missingArgument`. The create-cli-dispatch test pins it;
+  // check it when upgrading commander.
+  const reportMissingGranularity = (name: string): never =>
+    command.error(
+      `error: missing required argument '${name}' (choose ${GRANULARITY_ARGUMENT_VALUES.join(', ')})`,
+      { code: 'commander.missingArgument' },
+    );
+
+  return Object.assign(command, { missingArgument: reportMissingGranularity }).addArgument(
+    new Argument('<granularity>', 'Report period')
+      .choices(GRANULARITY_ARGUMENT_VALUES)
+      // Must stay after .choices(), which installs a strict case-sensitive parser.
+      .argParser(parseGranularityArgument),
   );
 }
 
@@ -281,8 +299,7 @@ const efficiencyReportDefinition: ReportRuntimeDefinition = {
     ],
   },
   register(command) {
-    command
-      .argument('<granularity>', 'Granularity: daily | weekly | monthly', parseGranularityArgument)
+    addGranularityArgument(command)
       .option('--repo-dir <path>', 'Path to repository for Git outcome metrics')
       .option('--include-merge-commits', 'Include merge commits in Git outcome metrics')
       .option('--by-source', 'Include per-source usage rows under each period')
@@ -346,8 +363,7 @@ const optimizeReportDefinition: ReportRuntimeDefinition = {
     ],
   },
   register(command) {
-    command
-      .argument('<granularity>', 'Granularity: daily | weekly | monthly', parseGranularityArgument)
+    addGranularityArgument(command)
       .option(
         '--candidate-model <name>',
         'Candidate model for counterfactual pricing (repeatable or comma-separated)',
