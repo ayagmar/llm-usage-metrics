@@ -70,7 +70,7 @@ describe('usage-event-filters', () => {
     expect(vi.mocked(getPeriodKey)).toHaveBeenCalledTimes(2);
   });
 
-  it('keeps exactly the events whose local date is in the window, in every time zone', () => {
+  it('keeps exactly the events whose local date is in the window, in extreme time zones', () => {
     // Every 37 minutes across ten days around the window edges.
     const events = Array.from({ length: 390 }, (_, index) =>
       createUsageEvent({
@@ -81,6 +81,7 @@ describe('usage-event-filters', () => {
       }),
     );
     const windows = [
+      { since: '2026-03-04', until: '2026-02-28' },
       { since: '2026-03-01' },
       { until: '2026-03-03' },
       { since: '2026-03-01', until: '2026-03-03' },
@@ -104,6 +105,21 @@ describe('usage-event-filters', () => {
         expect(filterUsageEvents(events, { timezone, ...window })).toEqual(expected);
       }
     }
+  });
+
+  it("keeps a window ending in year 9999 open to today's events", () => {
+    const event = createUsageEvent({
+      source: 'pi',
+      sessionId: 'today',
+      timestamp: '2026-03-01T12:00:00.000Z',
+      totalTokens: 1,
+    });
+
+    expect(filterUsageEvents([event], { timezone: 'UTC', until: '9999-12-31' })).toEqual([event]);
+    expect(
+      filterUsageEvents([event], { timezone: 'UTC', since: '0000-01-01', until: '9999-12-31' }),
+    ).toEqual([event]);
+    expect(filterUsageEvents([event], { timezone: 'UTC', since: '9999-12-31' })).toEqual([]);
   });
 
   it('filters out events without model data when a model filter is active', () => {

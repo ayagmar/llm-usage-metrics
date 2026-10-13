@@ -95,6 +95,16 @@ function createDateWindowPrefilter(
   const insideBefore = until ? shiftUtcDate(until, 0) : undefined;
   const outsideFrom = until ? shiftUtcDate(until, 2) : undefined;
 
+  // Near year 0 or 9999 a bound shifts into an expanded year (+010000-...), which does
+  // not compare as text; every timestamp is then converted.
+  if (
+    [outsideBefore, insideFrom, insideBefore, outsideFrom].some(
+      (bound) => bound !== undefined && bound.length !== 24,
+    )
+  ) {
+    return () => 'near-edge';
+  }
+
   return (timestamp) => {
     if (timestamp.length !== 24) {
       return 'near-edge';
