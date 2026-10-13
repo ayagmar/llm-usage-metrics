@@ -11,6 +11,7 @@ import { getPeriodKey, type ReportGranularity } from '../utils/time-buckets.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import {
   applyPricingToUsageEventDataset,
+  withUnpricedEventsNote,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
 import type {
@@ -226,7 +227,7 @@ export async function buildEfficiencyData(
     pricingOrigin,
     pricingWarning,
     warnings: dataset.warnings,
-    notes: dataset.notes,
+    notes: withUnpricedEventsNote(dataset.notes, matchedEventsWithSignal),
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,

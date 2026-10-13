@@ -60,7 +60,7 @@ Use the actual sessions directory or database file, not its parent. Explicit dir
 
 A dash (`-`) means no contributing event has a resolved cost. A tilde (`~$4.82`) means only part of the row was priced. Token totals still include unpriced events.
 
-Check the model names and pricing diagnostics. If a model is not in LiteLLM, supply [per-model pricing overrides](/llm-usage-metrics/pricing/#per-model-pricing-overrides). Do not assume a different model's rates apply.
+The stderr line starting with `~ marks costs` lists the models without a price. Check the model names and pricing diagnostics. If a model is not in LiteLLM, supply [per-model pricing overrides](/llm-usage-metrics/pricing/#per-model-pricing-overrides). Do not assume a different model's rates apply.
 
 Default LiteLLM pricing can fall back to the bundled snapshot even without a warm cache. Its diagnostic includes the snapshot date. Run online to refresh pricing:
 

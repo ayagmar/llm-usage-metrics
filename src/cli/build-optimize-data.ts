@@ -8,6 +8,7 @@ import {
 } from '../domain/provider-normalization.js';
 import {
   applyPricingToUsageEventDataset,
+  withUnpricedEventsNote,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
 import type {
@@ -143,7 +144,7 @@ export async function buildOptimizeData(
     pricingOrigin,
     pricingWarning,
     warnings: dataset.warnings,
-    notes: dataset.notes,
+    notes: withUnpricedEventsNote(dataset.notes, pricedEvents),
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,

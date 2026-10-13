@@ -10,6 +10,7 @@ import { validateDateInput, validateTimezone } from './build-usage-data-inputs.j
 import { parseLastOption } from './build-usage-data.js';
 import {
   applyPricingToUsageEventDataset,
+  withUnpricedEventsNote,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
 import type {
@@ -299,6 +300,14 @@ export async function buildTrendsData(
       sourceOrder: dataset.adaptersToParse.map((adapter) => adapter.id),
     }),
   );
+  // Only cost trends show `~`, and only for the days in the chart.
+  const chartedEvents =
+    resolved.metric === 'cost'
+      ? pricingResult.pricedEvents.filter((event) => {
+          const day = getPeriodKey(event.timestamp, 'daily', dataset.normalizedInputs.timezone);
+          return day >= outputDateRange.from && day <= outputDateRange.to;
+        })
+      : [];
   const diagnostics = buildUsageDiagnostics({
     adaptersToParse: dataset.adaptersToParse,
     successfulParseResults: dataset.successfulParseResults,
@@ -306,7 +315,7 @@ export async function buildTrendsData(
     pricingOrigin: pricingResult.pricingOrigin,
     pricingWarning: pricingResult.pricingWarning,
     warnings: dataset.warnings,
-    notes: dataset.notes,
+    notes: withUnpricedEventsNote(dataset.notes, chartedEvents),
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,

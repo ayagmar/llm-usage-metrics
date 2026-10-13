@@ -6,6 +6,7 @@ import type { SessionDataResult } from '../cli/usage-data-contracts.js';
 import type { SessionRepoRow, SessionRow } from '../session/session-row.js';
 import { getPeriodKey } from '../utils/time-buckets.js';
 import { formatDuration } from './format-duration.js';
+import { limitNamedModels } from './format-model-list.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { renderReportHeader } from './report-header.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
@@ -73,13 +74,7 @@ function formatModels(models: readonly string[]): string {
     return '-';
   }
 
-  if (models.length <= MAX_NAMED_MODELS) {
-    return models.join('\n');
-  }
-
-  return [...models.slice(0, MAX_NAMED_MODELS), `+${models.length - MAX_NAMED_MODELS} more`].join(
-    '\n',
-  );
+  return limitNamedModels(models, MAX_NAMED_MODELS).join('\n');
 }
 
 function toSessionTableCells(

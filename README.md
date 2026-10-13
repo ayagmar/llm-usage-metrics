@@ -168,6 +168,8 @@ Cost rendering makes incomplete data visible:
 - `~$12.34` means the known cost is partial.
 - `-` means no contributing event has a resolved cost.
 
+When any cost is marked `~`, stderr names how many of the shown events have no known price and their models. `--quiet` and `--no-cost` hide that line.
+
 The pricing request never includes session content. See [Pricing](https://ayagmar.github.io/llm-usage-metrics/pricing/) for rate matching, overrides, and error behavior.
 
 ## Local event ledger

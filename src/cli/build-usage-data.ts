@@ -10,6 +10,7 @@ import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
 import { assembleUsageDataResult, buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import {
   applyPricingToUsageEventDataset,
+  withUnpricedEventsNote,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
@@ -179,7 +180,8 @@ export async function buildUsageData(
     pricingOrigin,
     pricingWarning,
     warnings: dataset.warnings,
-    notes: dataset.notes,
+    notes:
+      options.cost === false ? dataset.notes : withUnpricedEventsNote(dataset.notes, pricedEvents),
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,
