@@ -77,12 +77,46 @@ function filterByModelRules(events: UsageEvent[], modelFilter: string[] | undefi
   return events.filter((event) => matchesModel(event.model, modelFilterRules));
 }
 
+function shiftUtcDate(date: string, days: number): string {
+  const shifted = new Date(`${date}T00:00:00.000Z`);
+  shifted.setUTCDate(shifted.getUTCDate() + days);
+  return shifted.toISOString();
+}
+
+// A local date is less than a day away from the UTC date, so a normalized ISO timestamp
+// (24 characters, compared as text) a full day inside or outside the window needs no
+// time zone conversion; only timestamps near an edge are converted.
+function createDateWindowPrefilter(
+  since: string | undefined,
+  until: string | undefined,
+): (timestamp: string) => 'inside' | 'outside' | 'near-edge' {
+  const outsideBefore = since ? shiftUtcDate(since, -1) : undefined;
+  const insideFrom = since ? shiftUtcDate(since, 1) : undefined;
+  const insideBefore = until ? shiftUtcDate(until, 0) : undefined;
+  const outsideFrom = until ? shiftUtcDate(until, 2) : undefined;
+
+  return (timestamp) => {
+    if (timestamp.length !== 24) {
+      return 'near-edge';
+    }
+
+    if ((outsideBefore && timestamp < outsideBefore) || (outsideFrom && timestamp >= outsideFrom)) {
+      return 'outside';
+    }
+
+    return (!insideFrom || timestamp >= insideFrom) && (!insideBefore || timestamp < insideBefore)
+      ? 'inside'
+      : 'near-edge';
+  };
+}
+
 function collectProviderAndDateFilteredEvents(
   eventGroups: Iterable<readonly UsageEvent[]>,
   options: UsageEventFilterOptions,
 ): UsageEvent[] {
   const filteredEvents: UsageEvent[] = [];
   const hasDateRange = Boolean(options.since ?? options.until);
+  const prefilterDate = createDateWindowPrefilter(options.since, options.until);
   const dateByTimestamp = new Map<string, string>();
 
   for (const events of eventGroups) {
@@ -91,7 +125,13 @@ function collectProviderAndDateFilteredEvents(
         continue;
       }
 
-      if (hasDateRange) {
+      const datePosition = hasDateRange ? prefilterDate(event.timestamp) : 'inside';
+
+      if (datePosition === 'outside') {
+        continue;
+      }
+
+      if (datePosition === 'near-edge') {
         let eventDate = dateByTimestamp.get(event.timestamp);
 
         if (!eventDate) {

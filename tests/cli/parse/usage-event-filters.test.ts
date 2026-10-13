@@ -70,6 +70,42 @@ describe('usage-event-filters', () => {
     expect(vi.mocked(getPeriodKey)).toHaveBeenCalledTimes(2);
   });
 
+  it('keeps exactly the events whose local date is in the window, in every time zone', () => {
+    // Every 37 minutes across ten days around the window edges.
+    const events = Array.from({ length: 390 }, (_, index) =>
+      createUsageEvent({
+        source: 'pi',
+        sessionId: `event-${index}`,
+        timestamp: new Date(Date.parse('2026-02-26T00:00:00.000Z') + index * 37 * 60_000),
+        totalTokens: 1,
+      }),
+    );
+    const windows = [
+      { since: '2026-03-01' },
+      { until: '2026-03-03' },
+      { since: '2026-03-01', until: '2026-03-03' },
+      { since: '2026-03-02', until: '2026-03-02' },
+    ];
+
+    for (const timezone of [
+      'UTC',
+      'Pacific/Kiritimati',
+      'Etc/GMT+12',
+      'Asia/Kathmandu',
+      'Pacific/Chatham',
+      'America/St_Johns',
+    ]) {
+      for (const window of windows) {
+        const expected = events.filter((event) => {
+          const date = getPeriodKey(event.timestamp, 'daily', timezone);
+          return (!window.since || date >= window.since) && (!window.until || date <= window.until);
+        });
+
+        expect(filterUsageEvents(events, { timezone, ...window })).toEqual(expected);
+      }
+    }
+  });
+
   it('filters out events without model data when a model filter is active', () => {
     const filtered = filterUsageEvents(
       [
