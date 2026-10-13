@@ -552,6 +552,33 @@ function readMetaValues(database: EventStoreDatabase): Map<string, string> {
   return meta;
 }
 
+// Above this share of the rows, walking the file index in result order beats a timestamp
+// index (machine caches have one), which must sort every row it returns.
+const WIDE_WINDOW_ROW_SHARE = 0.1;
+
+/** Whether the window holds a large share of the rows; counts at most that share. */
+function isWideWindow(
+  database: EventStoreDatabase,
+  fromTimestamp: string,
+  toTimestamp: string,
+): boolean {
+  const lastId = toNonNegativeInteger(
+    database.prepare('SELECT max(id) AS id FROM events').get()?.id,
+  );
+  const threshold = Math.ceil((lastId ?? 0) * WIDE_WINDOW_ROW_SHARE);
+  const row = database
+    .prepare(
+      [
+        'SELECT count(*) AS count FROM (',
+        '  SELECT 1 FROM events WHERE timestamp >= ? AND timestamp < ? LIMIT ?',
+        ')',
+      ].join('\n'),
+    )
+    .get(fromTimestamp, toTimestamp, threshold);
+
+  return (toNonNegativeInteger(row?.count) ?? 0) >= threshold;
+}
+
 /**
  * Reads the meta table and every stored event, optionally only those with
  * `fromTimestamp <= timestamp < toTimestamp` (ISO strings), from a store opened
@@ -581,12 +608,16 @@ export async function readEventStoreEvents(
       meta.get('schemaVersion') === EVENT_STORE_SCHEMA_VERSION
         ? 'cache_write_1h_tokens'
         : '0 AS cache_write_1h_tokens';
+    const fromTimestamp = window.fromTimestamp ?? '';
+    const toTimestamp = window.toTimestamp ?? '\uFFFF';
     const statement = database.prepare(
       [
         'SELECT source, session_id, timestamp, model, provider, repo_root,',
         '  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,',
         `  cache_write_tokens, ${cacheWrite1hColumn}, total_tokens, cost_usd, cost_mode`,
-        'FROM events',
+        isWideWindow(database, fromTimestamp, toTimestamp)
+          ? 'FROM events INDEXED BY events_file'
+          : 'FROM events',
         'WHERE timestamp >= ? AND timestamp < ?',
         'ORDER BY source, file_path, event_index',
       ].join('\n'),
@@ -594,10 +625,7 @@ export async function readEventStoreEvents(
     statement.setReturnArrays(true);
     // StatementSync's return type does not narrow after setReturnArrays(true).
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-    const rows = statement.all(
-      window.fromTimestamp ?? '',
-      window.toTimestamp ?? '\uFFFF',
-    ) as unknown as StoredEventTuple[];
+    const rows = statement.all(fromTimestamp, toTimestamp) as unknown as StoredEventTuple[];
     const events: UsageEvent[] = [];
 
     for (const row of rows) {
