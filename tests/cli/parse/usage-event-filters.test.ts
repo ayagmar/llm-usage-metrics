@@ -119,7 +119,16 @@ describe('usage-event-filters', () => {
     expect(
       filterUsageEvents([event], { timezone: 'UTC', since: '0000-01-01', until: '9999-12-31' }),
     ).toEqual([event]);
-    expect(filterUsageEvents([event], { timezone: 'UTC', since: '9999-12-31' })).toEqual([]);
+
+    const dayBeforeLastDay = createUsageEvent({
+      source: 'pi',
+      sessionId: 'far-future',
+      timestamp: '9999-12-30T05:00:00.000Z',
+      totalTokens: 1,
+    });
+    expect(filterUsageEvents([dayBeforeLastDay], { timezone: 'UTC', since: '9999-12-31' })).toEqual(
+      [],
+    );
   });
 
   it('filters out events without model data when a model filter is active', () => {
