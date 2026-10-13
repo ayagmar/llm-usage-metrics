@@ -2,7 +2,7 @@ import { markdownTable } from 'markdown-table';
 
 import type { WrappedRecap, WrappedTopItem } from '../wrapped/wrapped-recap.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
-import { renderReportHeader } from './report-header.js';
+import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { formatApproxUsd, formatInteger } from './share-svg-theme.js';
 import { resolveTtyColumns, visibleWidth } from './table-text-layout.js';
 import {
@@ -20,6 +20,8 @@ export type WrappedReportFormat = 'terminal' | 'markdown' | 'json';
 export type RenderWrappedReportOptions = {
   useColor?: boolean;
   palette?: TerminalStylePalette;
+  /** Whether the command line narrowed the report; names the filters in the empty message. */
+  filtered?: boolean;
 };
 
 export const wrappedReportFormats = [
@@ -173,6 +175,14 @@ function renderTopTable(headerCells: readonly string[], bodyRows: string[][]): s
   });
 }
 
+function toEmptyMessage(recap: WrappedRecap, filtered: boolean): string | undefined {
+  if (recap.eventCount > 0) {
+    return undefined;
+  }
+
+  return filtered ? formatNoUsageMessage(true) : `No usage in ${recap.year}.`;
+}
+
 function renderWrappedTerminalReport(
   recap: WrappedRecap,
   options: RenderWrappedReportOptions,
@@ -180,11 +190,19 @@ function renderWrappedTerminalReport(
   const useColor = options.useColor ?? shouldUseColorByDefault();
   const palette = options.palette ?? defaultTerminalStylePalette;
   const paint: Paint = (styler) => (text) => (useColor ? styler(text) : text);
-
-  return [
+  const heading = [
     renderReportHeader({ title: `Wrapped ${recap.year}`, useColor }),
     paint(palette.dim)(`${recap.from} to ${recap.to} (${recap.timezone})`),
     '',
+  ];
+  const emptyMessage = toEmptyMessage(recap, options.filtered ?? false);
+
+  if (emptyMessage) {
+    return [...heading, emptyMessage].join('\n');
+  }
+
+  return [
+    ...heading,
     renderStatLines(recap, paint, palette),
     '',
     'Monthly activity',
@@ -252,7 +270,19 @@ function renderMarkdownTopTable(title: string, items: readonly WrappedTopItem[])
   ].join('\n');
 }
 
-function renderMarkdownWrappedReport(recap: WrappedRecap): string {
+function renderMarkdownWrappedReport(recap: WrappedRecap, filtered: boolean): string {
+  const heading = [
+    `### Wrapped ${recap.year}`,
+    '',
+    `${recap.from} to ${recap.to} (${recap.timezone})`,
+    '',
+  ];
+  const emptyMessage = toEmptyMessage(recap, filtered);
+
+  if (emptyMessage) {
+    return [...heading, emptyMessage].join('\n');
+  }
+
   const statTable = markdownTable(
     [['Stat', 'Value'], ...toMarkdownStatRows(recap)].map((row) =>
       row.map((cell) => toMarkdownSafeCell(cell)),
@@ -261,10 +291,7 @@ function renderMarkdownWrappedReport(recap: WrappedRecap): string {
   );
 
   return [
-    `### Wrapped ${recap.year}`,
-    '',
-    `${recap.from} to ${recap.to} (${recap.timezone})`,
-    '',
+    ...heading,
     statTable,
     '',
     renderMarkdownTopTable('Top models', recap.topModels),
@@ -282,7 +309,7 @@ export function renderWrappedReport(
     case 'json':
       return renderReportJson('wrapped', recap);
     case 'markdown':
-      return renderMarkdownWrappedReport(recap);
+      return renderMarkdownWrappedReport(recap, options.filtered ?? false);
     case 'terminal':
       return renderWrappedTerminalReport(recap, options);
   }

@@ -185,7 +185,7 @@ function renderSummaryOnly(
 
   if (trendsData.totalSeries.summary.observedDayCount === 0) {
     lines.push('No usage data found for the selected date range.');
-    lines.push('');
+    return lines.join('\n');
   }
 
   if (shouldShowNoResolvedCostDataNote(trendsData)) {
@@ -424,8 +424,10 @@ function renderTerminalTrendsReport(
   const accent = trendsData.metric === 'cost' ? pc.green : pc.cyan;
   const minimumChartWidth = 40;
 
-  if (terminalWidth !== undefined && terminalWidth < minimumChartWidth) {
-    return renderSummaryOnly(trendsData, { useColor, narrowNote: true });
+  const isEmpty = trendsData.totalSeries.summary.observedDayCount === 0;
+
+  if (isEmpty || (terminalWidth !== undefined && terminalWidth < minimumChartWidth)) {
+    return renderSummaryOnly(trendsData, { useColor, narrowNote: !isEmpty });
   }
 
   const lines = [
@@ -435,11 +437,6 @@ function renderTerminalTrendsReport(
     }),
     '',
   ];
-
-  if (trendsData.totalSeries.summary.observedDayCount === 0) {
-    lines.push('No usage data found for the selected date range.');
-    lines.push('');
-  }
 
   if (shouldShowNoResolvedCostDataNote(trendsData)) {
     lines.push(

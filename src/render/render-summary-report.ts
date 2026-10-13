@@ -78,6 +78,18 @@ function hasAnyUsage(summaryData: SummaryDataResult): boolean {
   return summaryData.periods.some((period) => period.totals.events > 0);
 }
 
+function toNoRecentUsageMessage(summaryData: SummaryDataResult): string {
+  const filesFound = summaryData.diagnostics.sessionStats.some((stat) => stat.filesFound > 0);
+
+  if (!filesFound) {
+    return 'No usage found in the last 7 days or this month. Run `llm-usage doctor` to see which sources were found.';
+  }
+
+  const latestDay = summaryData.activity.days.filter((day) => day.totalTokens > 0).at(-1);
+  const latest = latestDay ? ` Latest usage: ${latestDay.date}.` : ' No usage in the past year.';
+  return `No usage in the last 7 days or this month.${latest} Try \`llm-usage monthly --all\`.`;
+}
+
 function getTitle(summaryData: SummaryDataResult): string {
   const today = summaryData.periods[0]?.until ?? '';
   return `Usage summary for ${today} (${summaryData.timezone})`;
@@ -266,10 +278,7 @@ function renderTerminalSummaryReport(
   ];
 
   if (!hasAnyUsage(summaryData)) {
-    lines.push(
-      'No usage found in the last 7 days or this month. Run `llm-usage doctor` to see which sources were found.',
-    );
-    lines.push('');
+    lines.push(toNoRecentUsageMessage(summaryData), '');
   }
 
   lines.push(

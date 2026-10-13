@@ -144,32 +144,35 @@ describe('render-wrapped-report', () => {
     expect(output).toContain('pi');
   });
 
-  it('renders markdown dashes for an empty recap', () => {
-    const output = renderWrappedReport(
-      createRecap({
-        totalTokens: 0,
-        costUsd: undefined,
-        activeDays: 0,
-        longestStreak: 0,
-        activeMs: 0,
-        peakHour: undefined,
-        weekdayTokens: 0,
-        weekendTokens: 0,
-        busiestDay: undefined,
-        estimatedCacheSavingsUsd: undefined,
-        eventCount: 0,
-        sessionCount: 0,
-        topModels: [],
-        topSources: [],
-      }),
-      'markdown',
-    );
+  it('prints one message instead of dashed stats and tables for an empty year', () => {
+    const recap = createRecap({
+      totalTokens: 0,
+      costUsd: undefined,
+      activeDays: 0,
+      longestStreak: 0,
+      activeMs: 0,
+      peakHour: undefined,
+      weekdayTokens: 0,
+      weekendTokens: 0,
+      busiestDay: undefined,
+      estimatedCacheSavingsUsd: undefined,
+      eventCount: 0,
+      sessionCount: 0,
+      topModels: [],
+      topSources: [],
+    });
 
-    expect(output).toContain('0h');
-    expect(output).toMatch(/\| Peak hour\s+\|\s+- \|/);
-    expect(output).toMatch(/\| Weekday split\s+\|\s+- \|/);
-    expect(output).toMatch(/\| Busiest day\s+\|\s+- \|/);
-    expect(output).toMatch(/\| Cache savings\s+\|\s+- \|/);
+    for (const format of ['terminal', 'markdown'] as const) {
+      const output = renderWrappedReport(recap, format, { useColor: false });
+
+      expect(output).toContain(`No usage in ${recap.year}.`);
+      expect(output).not.toContain('Top models');
+      expect(output).not.toContain('Cost');
+    }
+
+    expect(renderWrappedReport(recap, 'terminal', { useColor: false, filtered: true })).toContain(
+      'No usage data found for the selected filters.',
+    );
   });
 
   it('returns the recap as JSON for the json format', () => {

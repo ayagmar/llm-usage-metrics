@@ -1,7 +1,7 @@
 import type { UsageDataResult } from '../cli/usage-data-contracts.js';
 import type { ReportGranularity } from '../utils/time-buckets.js';
 import { renderMarkdownTable } from './markdown-table.js';
-import { renderReportHeader } from './report-header.js';
+import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { renderReportJson } from './report-json.js';
 import {
   compactHiddenUsageColumns,
@@ -25,6 +25,8 @@ export type RenderUsageReportOptions = {
   /** `--no-cost`: leave out the Cost column. */
   hideCost?: boolean;
   terminalWidth?: number;
+  /** Whether the command line narrowed the report; names the filters in the empty message. */
+  filtered?: boolean;
 };
 
 export type RenderedUsageReport = {
@@ -107,8 +109,9 @@ function renderTerminalUsageReport(
 
   outputLines.push('');
 
-  if (usageData.rows.length === 0) {
-    outputLines.push('No usage data found for the selected filters.');
+  // An empty report still carries its zero grand total row.
+  if (usageData.rows.every((row) => row.rowType === 'grand_total')) {
+    outputLines.push(formatNoUsageMessage(options.filtered ?? false));
     return { output: outputLines.join('\n'), notes: [] };
   }
 

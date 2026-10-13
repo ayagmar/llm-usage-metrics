@@ -7,7 +7,7 @@ import type { SessionRepoRow, SessionRow } from '../session/session-row.js';
 import { getPeriodKey } from '../utils/time-buckets.js';
 import { formatDuration } from './format-duration.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
-import { renderReportHeader } from './report-header.js';
+import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
 import { renderReportJson } from './report-json.js';
@@ -19,6 +19,8 @@ export type RenderSessionReportOptions = {
   timezone: string;
   useColor?: boolean;
   truncateSessionIds?: boolean;
+  /** Whether the command line narrowed the report; names the filters in the empty message. */
+  filtered?: boolean;
 };
 
 const MODELS_COLUMN_WIDTH = 32;
@@ -161,7 +163,7 @@ function renderTerminalSessionReport(
   ];
 
   if (bodyRows.length === 0) {
-    outputLines.push('No usage data found for the selected filters.');
+    outputLines.push(formatNoUsageMessage(options.filtered ?? false));
     return outputLines.join('\n');
   }
 

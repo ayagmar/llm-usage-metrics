@@ -12,6 +12,7 @@ import type {
   SessionCommandOptions,
   UsageDiagnostics,
 } from './usage-data-contracts.js';
+import { hasCliFilters } from './filter-match-warnings.js';
 
 const sessionReportFormats = STANDARD_REPORT_FORMATS satisfies readonly SessionReportFormat[];
 
@@ -36,6 +37,7 @@ async function prepareSessionReport(
       renderSessionReport(sessionData, format, {
         timezone: sessionData.diagnostics.timezone,
         truncateSessionIds: !options.id?.length,
+        filtered: hasCliFilters(options),
       }),
   });
 }

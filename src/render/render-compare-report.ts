@@ -7,7 +7,7 @@ import type {
   CompareSourceRow,
 } from '../cli/usage-data-contracts.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
-import { renderReportHeader } from './report-header.js';
+import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { resolveTtyColumns } from './table-text-layout.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
@@ -17,6 +17,8 @@ export type CompareReportFormat = 'terminal' | 'markdown' | 'json';
 
 export type RenderCompareReportOptions = {
   useColor?: boolean;
+  /** Whether the command line narrowed the report; names the filters in the empty message. */
+  filtered?: boolean;
 };
 
 const integerFormatter = new Intl.NumberFormat('en-US');
@@ -159,6 +161,10 @@ function renderTerminalTable(options: {
   });
 }
 
+function hasNoUsage(compareData: CompareDataResult): boolean {
+  return compareData.current.totals.events === 0 && compareData.baseline.totals.events === 0;
+}
+
 function renderTerminalCompareReport(
   compareData: CompareDataResult,
   options: RenderCompareReportOptions,
@@ -174,9 +180,9 @@ function renderTerminalCompareReport(
   );
   lines.push('');
 
-  if (compareData.current.totals.events === 0 && compareData.baseline.totals.events === 0) {
-    lines.push('No usage data found for the selected filters.');
-    lines.push('');
+  if (hasNoUsage(compareData)) {
+    lines.push(formatNoUsageMessage(options.filtered ?? false));
+    return lines.join('\n');
   }
 
   lines.push(
@@ -206,12 +212,20 @@ function renderMarkdownRows(headers: readonly string[], rows: string[][]): strin
   );
 }
 
-function renderMarkdownCompareReport(compareData: CompareDataResult): string {
-  return [
+function renderMarkdownCompareReport(compareData: CompareDataResult, filtered: boolean): string {
+  const heading = [
     `### Compare: ${toMarkdownSafeCell(compareData.current.window.label)} vs ${toMarkdownSafeCell(
       compareData.baseline.window.label,
     )}`,
     '',
+  ];
+
+  if (hasNoUsage(compareData)) {
+    return [...heading, formatNoUsageMessage(filtered)].join('\n');
+  }
+
+  return [
+    ...heading,
     renderMarkdownRows(
       compareTableHeaders,
       compareData.totals.map((row) => toMetricTableRow(row, false)),
@@ -240,7 +254,7 @@ export function renderCompareReport(
         sources: compareData.sources,
       });
     case 'markdown':
-      return renderMarkdownCompareReport(compareData);
+      return renderMarkdownCompareReport(compareData, options.filtered ?? false);
     case 'terminal':
       return renderTerminalCompareReport(compareData, options);
   }

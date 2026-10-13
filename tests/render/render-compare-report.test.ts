@@ -133,7 +133,7 @@ describe('renderCompareReport', () => {
     expect(output).toContain('co|dex');
   });
 
-  it('renders an empty-state message above the zeroed table when both windows are empty', () => {
+  it('prints one message instead of zeroed tables when both windows are empty', () => {
     const data = createCompareData();
     const zeroedData: CompareDataResult = {
       ...data,
@@ -148,12 +148,13 @@ describe('renderCompareReport', () => {
     };
 
     const output = renderCompareReport(zeroedData, 'terminal', { useColor: false });
+    const markdown = renderCompareReport(zeroedData, 'markdown', { filtered: true });
 
-    expect(output).toContain('No usage data found for the selected filters.');
-    expect(output.indexOf('No usage data found for the selected filters.')).toBeLessThan(
-      output.indexOf('Metric'),
-    );
-    expect(output).toContain('Metric');
+    expect(output).toContain('No usage data found.');
+    expect(output).not.toContain('Metric');
+    expect(output).not.toContain('By source');
+    expect(markdown).toContain('No usage data found for the selected filters.');
+    expect(markdown).not.toContain('| Metric');
   });
 
   it('renders markdown output with escaped table cells', () => {

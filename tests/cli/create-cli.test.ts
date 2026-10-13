@@ -244,7 +244,7 @@ describe('createCli', () => {
     }
   });
 
-  it('runs daily command and prints terminal table output', async () => {
+  it('runs daily command and prints terminal output', async () => {
     const emptySessionsDir = await mkdtemp(path.join(os.tmpdir(), 'usage-cli-empty-'));
     tempDirs.push(emptySessionsDir);
 
@@ -269,7 +269,9 @@ describe('createCli', () => {
     );
 
     expect(consoleSpy).toHaveBeenCalledTimes(1);
-    expect(String(consoleSpy.mock.calls[0]?.[0])).toContain('Period');
+    expect(String(consoleSpy.mock.calls[0]?.[0])).toContain(
+      'No usage data found for the selected filters.',
+    );
     consoleSpy.mockRestore();
   });
 

@@ -217,6 +217,9 @@ describe('renderTrendsReport', () => {
 
     expect(output).toContain('No usage data found for the selected date range.');
     expect(output).not.toContain('Peak:');
+    // An empty range draws no chart axis and no zero totals.
+    expect(output).not.toContain('┤');
+    expect(output).not.toContain('Total:');
   });
 
   it('falls back to summary-only output on narrow terminals', () => {

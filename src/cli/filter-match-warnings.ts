@@ -133,3 +133,30 @@ export function findUnmatchedFilterWarnings(input: FilterMatchInput): string[] {
     ...findUnmatchedModelWarnings(eventsInRange, input.modelFilter, scope),
   ];
 }
+
+type CliFilterOptions = {
+  source?: string | string[];
+  provider?: string;
+  model?: string | string[];
+  machine?: string | string[];
+  since?: string;
+  until?: string;
+  id?: string[];
+};
+
+function hasValue(value: string | readonly string[] | undefined): boolean {
+  return Array.isArray(value) ? value.length > 0 : Boolean(value);
+}
+
+/** Whether the command line narrowed the report, so an empty result can name the filters. */
+export function hasCliFilters(options: CliFilterOptions): boolean {
+  return [
+    options.source,
+    options.provider,
+    options.model,
+    options.machine,
+    options.since,
+    options.until,
+    options.id,
+  ].some(hasValue);
+}

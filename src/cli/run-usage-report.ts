@@ -13,6 +13,7 @@ import {
 import { renderUsageShareSvg } from '../render/render-usage-share-svg.js';
 import type { UsageTableLayout } from '../render/row-cells.js';
 import type { ReportGranularity } from '../utils/time-buckets.js';
+import { hasCliFilters } from './filter-match-warnings.js';
 
 const usageReportFormats = STANDARD_REPORT_FORMATS satisfies readonly UsageReportFormat[];
 
@@ -78,6 +79,7 @@ async function prepareUsageReport(
         tableLayout,
         compact: options.compact,
         hideCost,
+        filtered: hasCliFilters(options),
       });
 
       return { output, hintsAfterOutput: notes };
