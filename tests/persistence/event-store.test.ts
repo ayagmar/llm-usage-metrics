@@ -681,6 +681,51 @@ describe('event-store', () => {
     }
   });
 
+  it('reads the events of a narrow or a wide window in file order', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-read-window-'));
+    tempDirs.push(tempDir);
+    const dbPath = path.join(tempDir, 'events.db');
+    const store = await openEventStore(dbPath);
+    // Days interleave across the files, so timestamp order differs from file order.
+    const eventsByFile = ['/tmp/b.jsonl', '/tmp/a.jsonl'].map((filePath, fileIndex) => ({
+      filePath,
+      events: Array.from({ length: 14 }, (_, index) =>
+        createEvent({
+          sessionId: filePath,
+          timestamp: `2026-02-${String(2 * index + fileIndex + 1).padStart(2, '0')}T00:00:00.000Z`,
+        }),
+      ),
+    }));
+
+    try {
+      // Machine caches index timestamps, which a narrow window uses.
+      store.database.exec('CREATE INDEX events_timestamp ON events (timestamp)');
+
+      for (const { filePath, events } of eventsByFile) {
+        replaceCodexFile(store, { filePath, events });
+      }
+    } finally {
+      closeEventStore(store);
+    }
+
+    const inFileOrder = [...eventsByFile]
+      .sort((left, right) => left.filePath.localeCompare(right.filePath))
+      .flatMap((file) => file.events);
+    const inWindow = (fromTimestamp: string, toTimestamp: string) =>
+      inFileOrder.filter(
+        (event) => event.timestamp >= fromTimestamp && event.timestamp < toTimestamp,
+      );
+
+    for (const window of [
+      { fromTimestamp: '2026-02-03T00:00:00.000Z', toTimestamp: '2026-02-04T00:00:00.000Z' },
+      { fromTimestamp: '2026-02-02T00:00:00.000Z', toTimestamp: '2026-03-01T00:00:00.000Z' },
+    ]) {
+      const { events } = await readEventStoreEvents(dbPath, window);
+
+      expect(events).toEqual(inWindow(window.fromTimestamp, window.toTimestamp));
+    }
+  });
+
   it('reads a v3 store opened read-only without migrating it', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-v3-read-only-'));
     tempDirs.push(tempDir);
