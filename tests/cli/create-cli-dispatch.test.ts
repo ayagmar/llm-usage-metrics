@@ -138,10 +138,15 @@ describe('createCli dispatch', () => {
     },
     {
       runner: runTrendsReport,
-      argv: ['trends', '--days', '7', '--metric', 'tokens', '--by-source', '--json'],
+      argv: ['trends', '--last', '7', '--metric', 'tokens', '--by-source', '--json'],
       expected: [
-        expect.objectContaining({ days: '7', metric: 'tokens', bySource: true, json: true }),
+        expect.objectContaining({ last: '7', metric: 'tokens', bySource: true, json: true }),
       ],
+    },
+    {
+      runner: runTrendsReport,
+      argv: ['trends', '--days', '3'],
+      expected: [expect.objectContaining({ days: '3' })],
     },
     {
       runner: runUsageReport,

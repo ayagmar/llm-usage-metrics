@@ -1,4 +1,4 @@
-import { Argument, Command } from 'commander';
+import { Argument, Command, Option } from 'commander';
 
 import type {
   EventsCommandOptions,
@@ -392,7 +392,7 @@ const trendsReportDefinition: ReportRuntimeDefinition = {
         includeInCliReference: true,
       },
       {
-        command: 'llm-usage trends --metric tokens --days 7',
+        command: 'llm-usage trends --metric tokens --last 7',
         includeInCliReference: true,
       },
       {
@@ -404,9 +404,10 @@ const trendsReportDefinition: ReportRuntimeDefinition = {
   register(command) {
     command
       .option(
-        '--days <n>',
-        'Trailing local calendar days to chart; defaults to 30 when no date flags are provided',
+        '--last <n>',
+        'Chart the last N local calendar days, counting today; defaults to 30 when no date flags are provided',
       )
+      .addOption(new Option('--days <n>', 'Alias of --last').hideHelp())
       .option('--metric <name>', 'Trend metric: cost | tokens | active-hours', 'cost')
       .option(
         '--by-source',

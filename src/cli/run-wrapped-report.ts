@@ -4,6 +4,7 @@ import { buildWrappedData, parseWrappedYearOption } from './build-wrapped-data.j
 import { prepareReport, runStandardPreparedReport } from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
 import type { BuildWrappedDataDeps, WrappedCommandOptions } from './usage-data-contracts.js';
+import { hasCliFilters } from './filter-match-warnings.js';
 
 async function prepareWrappedReport(
   options: WrappedCommandOptions,
@@ -26,7 +27,8 @@ async function prepareWrappedReport(
           render: (theme) => renderWrappedShareSvg(wrappedData.recap, theme),
         })
       : undefined,
-    render: (wrappedData, format) => renderWrappedReport(wrappedData.recap, format),
+    render: (wrappedData, format) =>
+      renderWrappedReport(wrappedData.recap, format, { filtered: hasCliFilters(options) }),
   });
 }
 

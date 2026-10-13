@@ -45,3 +45,8 @@ export function renderReportHeader(options: ReportHeaderOptions): string {
 
   return lines.join('\n');
 }
+
+/** The line a report prints instead of an empty table; filters are named only when passed. */
+export function formatNoUsageMessage(filtered: boolean): string {
+  return filtered ? 'No usage data found for the selected filters.' : 'No usage data found.';
+}

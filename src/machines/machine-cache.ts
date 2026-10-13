@@ -1,3 +1,4 @@
+import { toTerminalLine } from '../domain/normalization.js';
 import { rm } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -194,6 +195,11 @@ export function recordMachineSyncFailure(cache: EventStore, reason: string, now:
   writeEventStoreMeta(cache, { attemptedAt: String(now), lastError: reason });
 }
 
+/** The cache file can be edited or come from an older version: clean what reports print. */
+function toStoredError(value: string | undefined): string | undefined {
+  return value === undefined ? undefined : toTerminalLine(value);
+}
+
 function toEpochMs(value: string | undefined): number | undefined {
   const parsed = value === undefined ? Number.NaN : Number(value);
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : undefined;
@@ -205,7 +211,7 @@ function toSyncState(readMeta: (key: string) => string | undefined): MachineSync
     cliVersion: readMeta('cliVersion'),
     syncedAt: toEpochMs(readMeta('syncedAt')),
     attemptedAt: toEpochMs(readMeta('attemptedAt')),
-    lastError: readMeta('lastError'),
+    lastError: toStoredError(readMeta('lastError')),
   };
 }
 

@@ -6,6 +6,7 @@ import {
   getPricingFetcherRuntimeConfig,
 } from '../config/runtime-overrides.js';
 import type { UsageEvent } from '../domain/usage-event.js';
+import { limitNamedModels } from '../render/format-model-list.js';
 import { countCopiedSessionEventsOnce } from './count-copied-session-events-once.js';
 import {
   closeEventStore,
@@ -38,7 +39,11 @@ import {
 } from './build-usage-data-parsing.js';
 import { filterParsedAdapterEvents } from './parse/usage-event-filters.js';
 import { loadMachineUsage, selectMachines } from '../machines/load-machine-usage.js';
-import { formatMachinesNote, formatRefreshFailure } from '../render/render-machines.js';
+import {
+  formatMachinesNote,
+  formatRefreshFailure,
+  formatStoredSyncFailure,
+} from '../render/render-machines.js';
 import { refreshDueMachines } from '../machines/refresh-machines.js';
 import { loadPackageMetadataFromRuntime } from './package-metadata.js';
 import {
@@ -430,6 +435,19 @@ export async function buildUsageEventDataset(
       );
       parseResultsForFiltering = appendMachineEvents(parseResultsForFiltering, machineUsage.events);
       machineWarnings.push(...machineUsage.warnings);
+
+      // A refresh that ran this time already said how it went.
+      const refreshedNames = new Set(refreshOutcomes.map((outcome) => outcome.name));
+
+      for (const machine of machineUsage.machines) {
+        const failure = refreshedNames.has(machine.name)
+          ? undefined
+          : formatStoredSyncFailure(machine, nowMs());
+
+        if (failure) {
+          (failure.stale ? machineWarnings : machineNotes).push(failure.text);
+        }
+      }
       machineNotes.push(
         formatMachinesNote(
           machineUsage.machines,
@@ -543,4 +561,34 @@ export async function applyPricingToUsageEventDataset(
       pricingLoadMode,
     ),
   );
+}
+
+const MAX_NAMED_UNPRICED_MODELS = 5;
+
+/**
+ * Reports leave an event without a cost out of cost totals and mark those totals with `~`.
+ * Returns the note explaining that marker for the events a report shows, if any lack a cost.
+ */
+function describeUnpricedEvents(events: readonly UsageEvent[]): string | undefined {
+  const unpricedEvents = events.filter((event) => event.costUsd === undefined);
+
+  if (unpricedEvents.length === 0) {
+    return undefined;
+  }
+
+  const models = [...new Set(unpricedEvents.map((event) => event.model ?? 'unknown'))].sort();
+  const eventCount = new Intl.NumberFormat('en-US').format(unpricedEvents.length);
+  const eventLabel = unpricedEvents.length === 1 ? 'event' : 'events';
+  const modelList = limitNamedModels(models, MAX_NAMED_UNPRICED_MODELS).join(', ');
+
+  return `~ marks costs that leave out ${eventCount} ${eventLabel} with no known price (models: ${modelList})`;
+}
+
+/** The dataset's notes plus the `~` explanation for the events a report shows. */
+export function withUnpricedEventsNote(
+  notes: readonly string[],
+  events: readonly UsageEvent[],
+): string[] {
+  const note = describeUnpricedEvents(events);
+  return note ? [...notes, note] : [...notes];
 }

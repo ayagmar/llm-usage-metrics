@@ -1,3 +1,4 @@
+import { hasControlCharacters } from '../../src/domain/normalization.js';
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
@@ -223,10 +224,65 @@ describe('reports refreshing other machines', () => {
     const dataset = await buildDataset({ timezone: 'UTC' }, { spawnSsh, now: later });
 
     expect(sourcesOf(dataset.filteredEvents)).toEqual(['codex', 'codex', 'pi', 'pi']);
-    expect(dataset.notes[0]).toBe(
+    expect(dataset.notes).toEqual([
       'Could not sync laptop (ssh failed: ssh: connect to host laptop port 22: No route to host); using its usage from 11 min ago.',
-    );
+      'Machines: laptop (synced 11 min ago); left out 2 event(s) already counted.',
+    ]);
     expect(dataset.warnings).toEqual([]);
+  });
+
+  it('say why the last sync failed when a report does not retry it', async () => {
+    const { spawnSsh } = createInProcessRemote({
+      ...remote,
+      fail: { exitCode: 255, stderr: 'ssh: connect to host laptop port 22: No route to host' },
+    });
+    await buildDataset({ timezone: 'UTC' }, { spawnSsh, now: later });
+
+    const dataset = await buildDataset({ timezone: 'UTC', sync: false }, { spawnSsh, now: later });
+
+    expect(dataset.notes).toEqual([
+      'laptop: last sync failed (ssh failed: ssh: connect to host laptop port 22: No route to host); using its usage from 11 min ago. Run llm-usage sync laptop to retry.',
+      'Machines: laptop (synced 11 min ago); left out 2 event(s) already counted.',
+    ]);
+  });
+
+  it('warn about a failed sync once the cached usage is a day old', async () => {
+    const { spawnSsh } = createInProcessRemote({
+      ...remote,
+      fail: { exitCode: 255, stderr: 'ssh: connect to host laptop port 22: No route to host' },
+    });
+    await buildDataset({ timezone: 'UTC' }, { spawnSsh, now: later });
+
+    const dataset = await buildDataset(
+      { timezone: 'UTC', sync: false },
+      { spawnSsh, now: () => new Date(Date.now() + 2 * 24 * 60 * 60_000) },
+    );
+
+    expect(dataset.warnings).toEqual([
+      'laptop: last sync failed (ssh failed: ssh: connect to host laptop port 22: No route to host); using its usage from 2 days ago. Run llm-usage sync laptop to retry.',
+    ]);
+  });
+
+  it('print a failed sync without the terminal escapes a remote path carries', async () => {
+    const { spawnSsh } = createInProcessRemote({
+      ...remote,
+      // A path listed twice is an error that names it.
+      rewrite: (bundle) => {
+        const entry = String.raw`["pi","\u001b]0;pwned\u0007x.jsonl","r"]`;
+        return bundle.replace('"files":[', `"files":[${entry},${entry},`);
+      },
+    });
+    await buildDataset({ timezone: 'UTC' }, { spawnSsh, now: later });
+
+    const dataset = await buildDataset({ timezone: 'UTC', sync: false }, { spawnSsh, now: later });
+    const lines = [...dataset.notes, ...dataset.warnings];
+
+    expect(
+      lines.some(
+        (line) => line.includes('last sync failed (') && line.includes('lists x.jsonl twice'),
+      ),
+    ).toBe(true);
+    expect(lines.filter(hasControlCharacters)).toEqual([]);
   });
 });
 
@@ -300,7 +356,7 @@ describe('reports with other machines', () => {
     const dataset = await buildDataset({ timezone: 'UTC' }, { spawnSsh: unreachable.spawnSsh });
 
     expect(dataset.notes).toEqual([
-      'Machines: laptop (synced just now), vps (never synced; run llm-usage sync vps); left out 2 event(s) already counted.',
+      'Machines: laptop (synced just now), vps (never synced); left out 2 event(s) already counted.',
     ]);
     expect(dataset.warnings).toEqual([
       'Could not sync vps (ssh failed: ssh: connect to host vps port 22: No route to host); it has no usage cached yet.',

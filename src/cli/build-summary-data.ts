@@ -2,12 +2,13 @@ import { aggregateDailyActivity, resolveActivityStart } from '../aggregate/daily
 import { LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
 import { estimateCacheSavingsUsd } from '../pricing/cache-savings.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
-import { getCurrentLocalDateKey, shiftLocalDateKey } from '../utils/time-buckets.js';
+import { getCurrentLocalDateKey, getPeriodKey, shiftLocalDateKey } from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
 import {
   applyPricingToUsageEventDataset,
+  withUnpricedEventsNote,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
@@ -82,6 +83,9 @@ export function resolveMonthEnd(
 }
 
 /**
+ * Unlike `hasCliFilters` (filter-match-warnings.ts), dates are not counted: the summary has
+ * no date flags, and this only decides whether the monthly budget applies.
+ *
  * The budget covers all usage, so a run narrowed by --source, --provider, or --model
  * cannot be measured against it. A `sources` list in the config file is the user's
  * standing view, not a narrowing, so it keeps the budget.
@@ -203,6 +207,14 @@ export async function buildSummaryData(
         )
       : undefined;
 
+  // The `~` marks only appear on the windows and on the best day's cost.
+  const bestDay = activity.bestDay?.costUsd === undefined ? undefined : activity.bestDay.date;
+  const shownCostEvents = pricedEvents.filter(
+    (event) =>
+      windows.some((window) => isEventWithinWindow(event, window, timezone)) ||
+      getPeriodKey(event.timestamp, 'daily', timezone) === bestDay,
+  );
+
   return {
     timezone,
     periods,
@@ -222,7 +234,7 @@ export async function buildSummaryData(
       pricingOrigin,
       pricingWarning,
       warnings: dataset.warnings,
-      notes: dataset.notes,
+      notes: withUnpricedEventsNote(dataset.notes, shownCostEvents),
       activeEnvOverrides: dataset.readEnvVarOverrides(),
       activeConfig: dataset.activeConfig,
       timezone,

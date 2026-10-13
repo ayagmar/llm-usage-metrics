@@ -320,8 +320,9 @@ describe('buildUsageReport', () => {
     expect(report).not.toContain('LLM_USAGE_PARSE_WORKERS=0');
     expect(report).toContain('Monthly Token Usage Report');
     expect(report).not.toContain('Timezone');
-    expect(report).toContain('│ Period');
-    expect(report).toContain('│ ALL');
+    // --source narrowed the run, so the empty message names the filters.
+    expect(report).toContain('No usage data found for the selected filters.');
+    expect(report).not.toContain('│ ALL');
     expect(report.startsWith('\n')).toBe(false);
 
     const headerIndex = report.indexOf('┌');
@@ -576,12 +577,43 @@ describe('buildUsageReport', () => {
   });
 
   it('lists rows instead of a table when even the narrowest table cannot fit', async () => {
-    const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'usage-run-overflow-hint-'));
-    tempDirs.push(emptyDir);
-
     // Narrower than the most compact table (Period, Source, Cache Read, Total, Cost).
     const restoreStdout = overrideStdoutTty(30);
 
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    try {
+      await runUsageReport('daily', {
+        all: true,
+        piDir: path.resolve('tests/fixtures/pi'),
+        codexDir: path.resolve('tests/fixtures/codex'),
+        source: directoryBackedSources,
+        timezone: 'UTC',
+        pricingOffline: true,
+      });
+
+      expect(
+        errorSpy.mock.calls.some((call) => String(call[0]).includes('wider than terminal')),
+      ).toBe(false);
+      expect(
+        errorSpy.mock.calls.some((call) =>
+          String(call[0]).includes('Listed rows instead of a table'),
+        ),
+      ).toBe(true);
+      expect(logSpy).toHaveBeenCalledTimes(1);
+      expect(String(logSpy.mock.calls[0][0])).not.toContain('╭');
+    } finally {
+      restoreStdout();
+      errorSpy.mockRestore();
+      logSpy.mockRestore();
+    }
+  });
+
+  it('prints one message and no fit note when a narrow terminal has nothing to show', async () => {
+    const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'usage-run-empty-narrow-'));
+    tempDirs.push(emptyDir);
+    const restoreStdout = overrideStdoutTty(30);
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 
@@ -594,19 +626,12 @@ describe('buildUsageReport', () => {
         timezone: 'UTC',
       });
 
+      const output = String(logSpy.mock.calls[0][0]);
+      expect(output).toContain('No usage data found for the selected filters.');
+      expect(output).not.toContain('ALL');
       expect(
-        errorSpy.mock.calls.some((call) => String(call[0]).includes('No session files found')),
-      ).toBe(true);
-      expect(
-        errorSpy.mock.calls.some((call) => String(call[0]).includes('wider than terminal')),
+        errorSpy.mock.calls.some((call) => /Fitted the table|Listed rows/u.test(String(call[0]))),
       ).toBe(false);
-      expect(
-        errorSpy.mock.calls.some((call) =>
-          String(call[0]).includes('Listed rows instead of a table'),
-        ),
-      ).toBe(true);
-      expect(logSpy).toHaveBeenCalledTimes(1);
-      expect(String(logSpy.mock.calls[0][0])).not.toContain('╭');
     } finally {
       restoreStdout();
       errorSpy.mockRestore();
@@ -669,6 +694,112 @@ describe('buildUsageReport', () => {
     await expect(buildUsageReport('daily', { all: true, cost: false, json: true })).rejects.toThrow(
       '--no-cost applies to tables and the share card; drop it with --json',
     );
+  });
+
+  async function writePiSession(models: { model: string; cost?: number }[]): Promise<string> {
+    const piDir = await mkdtemp(path.join(os.tmpdir(), 'usage-approximate-cost-'));
+    tempDirs.push(piDir);
+    const lines = [
+      JSON.stringify({ type: 'session', id: 'pi-approx', timestamp: '2026-02-14T10:00:00.000Z' }),
+      ...models.map((entry, index) =>
+        JSON.stringify({
+          type: 'message',
+          timestamp: `2026-02-14T10:00:0${String(index + 1)}.000Z`,
+          provider: 'openai',
+          model: entry.model,
+          usage: {
+            input: 10,
+            output: 5,
+            totalTokens: 15,
+            ...(entry.cost === undefined ? {} : { cost: { total: entry.cost } }),
+          },
+        }),
+      ),
+    ];
+    await writeFile(path.join(piDir, 'session.jsonl'), lines.join('\n'), 'utf8');
+    return piDir;
+  }
+
+  async function runWithUnreachablePricing(
+    piDir: string,
+    extraOptions: { cost?: boolean } = {},
+  ): Promise<{
+    stderr: string[];
+    stdout: string;
+  }> {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('network unavailable');
+      }),
+    );
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    await runUsageReport('daily', {
+      all: true,
+      piDir,
+      source: 'pi',
+      timezone: 'UTC',
+      pricingUrl: 'https://example.test/approximate-cost-pricing.json',
+      ignorePricingFailures: true,
+      ...extraOptions,
+    });
+
+    return {
+      stderr: errorSpy.mock.calls.map((call) => String(call[0])),
+      stdout: logSpy.mock.calls.map((call) => String(call[0])).join('\n'),
+    };
+  }
+
+  it('explains the ~ cost marker once on stderr, naming the unpriced models', async () => {
+    const piDir = await writePiSession([
+      { model: 'gpt-4.1', cost: 0.5 },
+      { model: 'mystery-model' },
+      { model: 'mystery-model' },
+    ]);
+
+    const { stderr, stdout } = await runWithUnreachablePricing(piDir);
+
+    expect(stdout).toContain('~$0.50');
+    expect(stdout).not.toContain('no known price');
+    expect(stderr.filter((line) => line.includes('~ marks costs'))).toEqual([
+      expect.stringContaining(
+        '~ marks costs that leave out 2 events with no known price (models: mystery-model)',
+      ),
+    ]);
+  });
+
+  it('names at most five unpriced models in the ~ note', async () => {
+    const piDir = await writePiSession(
+      ['m-a', 'm-b', 'm-c', 'm-d', 'm-e', 'm-f', 'm-g'].map((model) => ({ model })),
+    );
+
+    const { stderr } = await runWithUnreachablePricing(piDir);
+
+    expect(stderr).toContainEqual(
+      expect.stringContaining('(models: m-a, m-b, m-c, m-d, m-e, +2 more)'),
+    );
+  });
+
+  it('does not explain the ~ cost marker when --no-cost hides cost', async () => {
+    const piDir = await writePiSession([
+      { model: 'gpt-4.1', cost: 0.5 },
+      { model: 'mystery-model' },
+    ]);
+
+    const { stderr } = await runWithUnreachablePricing(piDir, { cost: false });
+
+    expect(stderr.some((line) => line.includes('~ marks costs'))).toBe(false);
+  });
+
+  it('does not explain the ~ cost marker when every event has a cost', async () => {
+    const piDir = await writePiSession([{ model: 'gpt-4.1', cost: 0.5 }]);
+
+    const { stderr, stdout } = await runWithUnreachablePricing(piDir);
+
+    expect(stdout).not.toContain('~$');
+    expect(stderr.some((line) => line.includes('~ marks costs'))).toBe(false);
   });
 
   it('keeps runUsageReport JSON output data-only on stdout while still emitting diagnostics', async () => {

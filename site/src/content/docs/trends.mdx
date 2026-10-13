@@ -16,7 +16,7 @@ llm-usage trends [options]
 llm-usage trends
 
 # Last 7 days of token usage
-llm-usage trends --metric tokens --days 7
+llm-usage trends --metric tokens --last 7
 
 # Combined date window
 llm-usage trends --since 2026-02-01 --until 2026-02-28
@@ -25,12 +25,12 @@ llm-usage trends --since 2026-02-01 --until 2026-02-28
 llm-usage trends --by-source --json
 
 # Write the combined series as an SVG
-llm-usage trends --days 14 --share
+llm-usage trends --last 14 --share
 ```
 
 ## Options
 
-- `--days <n>`: trailing local calendar days to chart
+- `--last <n>`: chart the last n local calendar days, counting today (`--days <n>` is an alias)
 - `--metric <name>`: `cost`, `tokens`, or `active-hours`
 - `--by-source`: render one sparkline row per source
 - `--share`: write the combined series to `trends-share.svg` and a `trends-share.html` page with PNG export
@@ -38,11 +38,11 @@ llm-usage trends --days 14 --share
 
 `trends` supports terminal output, `--json`, `--markdown` (one row per date plus a Total row), and `--share`. The share renderer needs the combined series, so `--share` cannot be combined with `--by-source`.
 
-## `--days` vs `--since` / `--until`
+## `--last` vs `--since` / `--until`
 
-- If you pass `--days`, the range is `today - (days - 1)` through local today.
-- If you pass neither `--days` nor explicit date flags, the command defaults to the last 30 local calendar days.
-- `--days` cannot be combined with `--since` or `--until`.
+- If you pass `--last <n>`, the range is `today - (n - 1)` through local today.
+- If you pass neither `--last` nor explicit date flags, the command defaults to the last 30 local calendar days.
+- `--last` cannot be combined with `--since` or `--until`.
 - `--until` without `--since` expands back to the earliest observed day after filtering.
 
 ## Metric semantics

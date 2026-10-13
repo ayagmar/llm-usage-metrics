@@ -167,14 +167,22 @@ describe('renderUsageReportWithNotes output', () => {
     expect(rendered).toContain('$1.25<br>$1.50<br>**$2.75**');
   });
 
-  it('renders an empty-state message instead of an empty table', () => {
-    const rendered = renderUsageReportWithNotes({ ...sampleUsageData, rows: [] }, 'terminal', {
+  it('renders an empty-state message instead of a table holding only the zero total', () => {
+    // An empty report still carries its grand total row.
+    const emptyData = {
+      ...sampleUsageData,
+      rows: sampleUsageData.rows.filter((row) => row.rowType === 'grand_total'),
+    };
+    const { output: rendered, notes } = renderUsageReportWithNotes(emptyData, 'terminal', {
       granularity: 'daily',
       useColor: false,
-    }).output;
+      terminalWidth: 40,
+      filtered: true,
+    });
 
     expect(rendered).toContain('Daily Token Usage Report');
     expect(rendered).toContain('No usage data found for the selected filters.');
+    expect(notes).toEqual([]);
     expect(rendered).not.toContain('╭');
     expect(rendered).not.toContain('│ Period');
   });

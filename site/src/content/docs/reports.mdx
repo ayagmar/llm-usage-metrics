@@ -13,7 +13,7 @@ Start with a question, then narrow the result with source, model, provider, or d
 | How much did I use each day?        | `llm-usage daily`                            | [Usage totals](/llm-usage-metrics/usage/)          |
 | How did the weeks or months add up? | `llm-usage weekly` or `llm-usage monthly`    | [CLI reference](/llm-usage-metrics/cli-reference/) |
 | What changed from last month?       | `llm-usage compare`                          | [Compare periods](/llm-usage-metrics/compare/)     |
-| Is usage rising or falling?         | `llm-usage trends --metric tokens --days 14` | [Trends](/llm-usage-metrics/trends/)               |
+| Is usage rising or falling?         | `llm-usage trends --metric tokens --last 14` | [Trends](/llm-usage-metrics/trends/)               |
 | What did the year look like?        | `llm-usage wrapped`                          | [Wrapped recap](/llm-usage-metrics/wrapped/)       |
 
 Without a date range, `daily` covers the last 7 days and `weekly` the last 8 weeks, while `monthly` covers all matching local history; `--last N` reports the last N days, weeks, or months, and `--all` (daily and weekly only) reports full history. `compare` defaults to the current local month to date versus the same days of the previous month; explicit current ranges require both date bounds. Check each guide for the command's defaults.

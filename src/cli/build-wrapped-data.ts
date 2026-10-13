@@ -5,6 +5,7 @@ import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import { validateTimezone } from './build-usage-data-inputs.js';
 import {
   applyPricingToUsageEventDataset,
+  withUnpricedEventsNote,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
@@ -98,7 +99,7 @@ export async function buildWrappedData(
     pricingOrigin,
     pricingWarning,
     warnings: dataset.warnings,
-    notes: dataset.notes,
+    notes: withUnpricedEventsNote(dataset.notes, pricedEvents),
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,

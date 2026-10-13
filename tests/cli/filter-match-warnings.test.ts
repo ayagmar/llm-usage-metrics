@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { AdapterParseResult } from '../../src/cli/build-usage-data-parsing.js';
 import { validateSourceFilterValues } from '../../src/cli/build-usage-data-inputs.js';
-import { findUnmatchedFilterWarnings } from '../../src/cli/filter-match-warnings.js';
+import { findUnmatchedFilterWarnings, hasCliFilters } from '../../src/cli/filter-match-warnings.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 
 function createResult(
@@ -114,5 +114,25 @@ describe('validateSourceFilterValues', () => {
     }).toThrow(
       'Unknown --source value(s): cladue (did you mean claude?), zzz. Allowed values: claude, codex, pi',
     );
+  });
+});
+
+describe('hasCliFilters', () => {
+  it('treats a run with only default options as unfiltered', () => {
+    expect(hasCliFilters({})).toBe(false);
+    expect(hasCliFilters({ source: [], model: [], id: [] })).toBe(false);
+  });
+
+  it('treats any narrowing flag, dates included, as a filter', () => {
+    expect(hasCliFilters({ source: 'codex' })).toBe(true);
+    expect(hasCliFilters({ provider: 'openai' })).toBe(true);
+    expect(hasCliFilters({ model: ['gpt-5'] })).toBe(true);
+    expect(hasCliFilters({ machine: 'laptop' })).toBe(true);
+    expect(hasCliFilters({ since: '2026-01-01' })).toBe(true);
+    expect(hasCliFilters({ until: '2026-01-31' })).toBe(true);
+    expect(hasCliFilters({ id: ['session-1'] })).toBe(true);
+    expect(hasCliFilters({ last: '3' })).toBe(true);
+    expect(hasCliFilters({ vsSince: '2026-01-01' })).toBe(true);
+    expect(hasCliFilters({ vsUntil: '2026-01-31' })).toBe(true);
   });
 });

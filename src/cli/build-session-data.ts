@@ -1,8 +1,10 @@
 import { aggregateSessions, aggregateSessionsByRepo } from '../session/aggregate-sessions.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
+import { getEventSessionKey, type UsageEvent } from '../domain/usage-event.js';
 import {
   applyPricingToUsageEventDataset,
   buildUsageEventDataset,
+  withUnpricedEventsNote,
 } from './build-usage-event-dataset.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 import type {
@@ -98,31 +100,36 @@ export async function buildSessionData(
     since: options.since,
     until: options.until,
   };
-  const diagnostics = buildUsageDiagnostics({
-    adaptersToParse: dataset.adaptersToParse,
-    successfulParseResults: dataset.successfulParseResults,
-    sourceFailures: dataset.sourceFailures,
-    pricingOrigin,
-    pricingWarning,
-    warnings: dataset.warnings,
-    notes: dataset.notes,
-    activeEnvOverrides: dataset.readEnvVarOverrides(),
-    activeConfig: dataset.activeConfig,
-    timezone: dataset.normalizedInputs.timezone,
-    runtimeProfile: deps.runtimeProfile?.snapshot(),
-  });
+  // Only the shown rows carry `~`, so only their events explain it.
+  const buildDiagnostics = (shownEvents: UsageEvent[]) =>
+    buildUsageDiagnostics({
+      adaptersToParse: dataset.adaptersToParse,
+      successfulParseResults: dataset.successfulParseResults,
+      sourceFailures: dataset.sourceFailures,
+      pricingOrigin,
+      pricingWarning,
+      warnings: dataset.warnings,
+      notes: withUnpricedEventsNote(dataset.notes, shownEvents),
+      activeEnvOverrides: dataset.readEnvVarOverrides(),
+      activeConfig: dataset.activeConfig,
+      timezone: dataset.normalizedInputs.timezone,
+      runtimeProfile: deps.runtimeProfile?.snapshot(),
+    });
 
   if (options.byRepo) {
     const repoRows = measureRuntimeProfileStageSync(deps.runtimeProfile, 'session.aggregate', () =>
       aggregateSessionsByRepo(pricedEvents, aggregateOptions),
     );
     const limited = limitRows(repoRows, limit, 'repos');
+    const shownRepos = new Set(limited.rows.map((row) => row.repoRoot ?? ''));
 
     return {
       grouping: 'repo',
       rows: limited.rows,
       limitNote: limited.limitNote,
-      diagnostics,
+      diagnostics: buildDiagnostics(
+        pricedEvents.filter((event) => shownRepos.has(event.repoRoot ?? '')),
+      ),
     };
   }
 
@@ -130,11 +137,14 @@ export async function buildSessionData(
     aggregateSessions(pricedEvents, { ...aggregateOptions, ids: idFilters }),
   );
   const limited = limitRows(sessionRows, limit, 'sessions');
+  const shownSessions = new Set(limited.rows.map((row) => getEventSessionKey(row)));
 
   return {
     grouping: 'session',
     rows: limited.rows,
     limitNote: limited.limitNote,
-    diagnostics,
+    diagnostics: buildDiagnostics(
+      pricedEvents.filter((event) => shownSessions.has(getEventSessionKey(event))),
+    ),
   };
 }

@@ -91,7 +91,7 @@ llm-usage session --top 10
 llm-usage session --by-repo
 
 # Last 14 local days as a token series
-llm-usage trends --metric tokens --days 14
+llm-usage trends --metric tokens --last 14
 
 # Candidate-model pricing against observed usage
 llm-usage optimize monthly \
@@ -167,6 +167,8 @@ Cost rendering makes incomplete data visible:
 - `$12.34` means the full row has resolved cost.
 - `~$12.34` means the known cost is partial.
 - `-` means no contributing event has a resolved cost.
+
+When any cost is marked `~`, stderr names how many of the shown events have no known price and their models. `--quiet` and `--no-cost` hide that line.
 
 The pricing request never includes session content. See [Pricing](https://ayagmar.github.io/llm-usage-metrics/pricing/) for rate matching, overrides, and error behavior.
 

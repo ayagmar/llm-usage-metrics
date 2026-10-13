@@ -7,8 +7,10 @@ import { getCurrentLocalDateKey, getPeriodKey, shiftLocalDateKey } from '../util
 import { resolveUserConfigForOptions } from './apply-user-config.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import { validateDateInput, validateTimezone } from './build-usage-data-inputs.js';
+import { parseLastOption } from './build-usage-data.js';
 import {
   applyPricingToUsageEventDataset,
+  withUnpricedEventsNote,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
 import type {
@@ -23,20 +25,6 @@ type ResolvedDateRange = {
   from: string;
   to: string;
 };
-
-function parseDaysOption(days: string | undefined): number | undefined {
-  if (days === undefined) {
-    return undefined;
-  }
-
-  const trimmedDays = days.trim();
-
-  if (!/^[1-9]\d*$/u.test(trimmedDays)) {
-    throw new Error('--days must be a positive integer');
-  }
-
-  return Number.parseInt(trimmedDays, 10);
-}
 
 function resolveMetric(metric: string | undefined): TrendsMetric {
   if (metric === undefined || metric.trim() === '') {
@@ -147,8 +135,15 @@ function resolveTrendsOptions(
   fetchDateRange: ResolvedDateRange | undefined;
   today: string;
 } {
-  if (options.days !== undefined && (options.since || options.until)) {
-    throw new Error('--days cannot be combined with --since or --until');
+  if (options.last !== undefined && options.days !== undefined) {
+    throw new Error('--days is an alias of --last; pass only --last');
+  }
+
+  const daysFlag = options.days === undefined ? '--last' : '--days';
+  const daysValue = options.last ?? options.days;
+
+  if (daysValue !== undefined && (options.since || options.until)) {
+    throw new Error(`${daysFlag} cannot be combined with --since or --until`);
   }
 
   if (options.since) {
@@ -164,7 +159,7 @@ function resolveTrendsOptions(
   }
 
   const metric = resolveMetric(options.metric);
-  const days = parseDaysOption(options.days);
+  const days = parseLastOption(daysValue, daysFlag);
   const today = getCurrentLocalDateKey(timezone, now);
 
   return {
@@ -305,6 +300,14 @@ export async function buildTrendsData(
       sourceOrder: dataset.adaptersToParse.map((adapter) => adapter.id),
     }),
   );
+  // Only cost trends show `~`, and only for the days in the chart.
+  const chartedEvents =
+    resolved.metric === 'cost'
+      ? pricingResult.pricedEvents.filter((event) => {
+          const day = getPeriodKey(event.timestamp, 'daily', dataset.normalizedInputs.timezone);
+          return day >= outputDateRange.from && day <= outputDateRange.to;
+        })
+      : [];
   const diagnostics = buildUsageDiagnostics({
     adaptersToParse: dataset.adaptersToParse,
     successfulParseResults: dataset.successfulParseResults,
@@ -312,7 +315,7 @@ export async function buildTrendsData(
     pricingOrigin: pricingResult.pricingOrigin,
     pricingWarning: pricingResult.pricingWarning,
     warnings: dataset.warnings,
-    notes: dataset.notes,
+    notes: withUnpricedEventsNote(dataset.notes, chartedEvents),
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,

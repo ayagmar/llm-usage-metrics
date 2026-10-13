@@ -10,6 +10,7 @@ import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
 import { assembleUsageDataResult, buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import {
   applyPricingToUsageEventDataset,
+  withUnpricedEventsNote,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
@@ -43,7 +44,7 @@ export const DEFAULT_REPORT_WINDOWS: Partial<Record<ReportGranularity, DefaultRe
 
 const MAX_LAST_PERIODS = 10_000;
 
-function parseLastOption(last: string | undefined): number | undefined {
+export function parseLastOption(last: string | undefined, flag = '--last'): number | undefined {
   if (last === undefined) {
     return undefined;
   }
@@ -52,7 +53,7 @@ function parseLastOption(last: string | undefined): number | undefined {
   const periods = Number.parseInt(normalized, 10);
 
   if (!/^[1-9]\d*$/u.test(normalized) || periods > MAX_LAST_PERIODS) {
-    throw new Error(`--last must be a whole number from 1 to ${String(MAX_LAST_PERIODS)}`);
+    throw new Error(`${flag} must be a whole number from 1 to ${String(MAX_LAST_PERIODS)}`);
   }
 
   return periods;
@@ -179,7 +180,8 @@ export async function buildUsageData(
     pricingOrigin,
     pricingWarning,
     warnings: dataset.warnings,
-    notes: dataset.notes,
+    notes:
+      options.cost === false ? dataset.notes : withUnpricedEventsNote(dataset.notes, pricedEvents),
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,

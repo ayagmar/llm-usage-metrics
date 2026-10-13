@@ -4,6 +4,7 @@ import {
   writeEventStoreMeta,
   type EventStore,
 } from '../persistence/event-store.js';
+import { toTerminalLine } from '../domain/normalization.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
 import {
   applyMachineExport,
@@ -84,7 +85,8 @@ export async function syncMachine(
 
     return { name, ok: true, result, remoteWarnings, state: readMachineSyncState(cache) };
   } catch (error) {
-    const reason = getErrorReason(error);
+    // Remote-controlled text (paths, messages) is stored and printed by every report.
+    const reason = toTerminalLine(getErrorReason(error));
 
     let state: MachineSyncState = {};
 
