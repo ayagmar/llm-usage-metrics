@@ -162,6 +162,25 @@ describe('buildOptimizeData', () => {
     );
   });
 
+  it('does not suggest a provider that is absent from the data', async () => {
+    await expect(
+      buildOptimizeData(
+        'daily',
+        { candidateModel: ['gpt-4.1'] },
+        runtimeDeps({
+          adapters: [
+            createAdapter('pi', {
+              '/tmp/a.jsonl': [createBaseEvent({ provider: 'anthropic' })],
+              '/tmp/b.jsonl': [createBaseEvent({ provider: 'azure-openai-responses' })],
+            }),
+          ],
+        }),
+      ),
+    ).rejects.toThrow(
+      'Optimize requires a single provider; found providers: anthropic, azure-openai-responses. Narrow with --provider.',
+    );
+  });
+
   it('normalizes provider variants to a single billing provider scope', async () => {
     const result = await buildOptimizeData(
       'daily',
