@@ -137,7 +137,7 @@ describe('buildOptimizeData', () => {
         }),
       ),
     ).rejects.toThrow(
-      'Optimize requires a single provider; found providers: anthropic, openai. Narrow with --provider.',
+      'Optimize requires a single provider; found providers: anthropic, openai. Narrow with --provider openai.',
     );
 
     expect(pricingLoaderSpy).not.toHaveBeenCalled();
@@ -172,7 +172,8 @@ describe('buildOptimizeData', () => {
       buildOptimizeData(
         'daily',
         {
-          candidateModel: ['gpt-4.1'],
+          // Its provider is not among the detected ones, so no provider is suggested.
+          candidateModel: ['claude-sonnet-4-5'],
         },
         runtimeDeps({
           adapters: [

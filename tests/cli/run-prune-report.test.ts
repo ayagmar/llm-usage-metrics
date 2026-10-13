@@ -740,7 +740,7 @@ describe('run-prune-report', () => {
       'prune requires at least one selector',
     );
     await expect(buildPruneReport({ departedBefore: '2026-1-1' }, deps)).rejects.toThrow(
-      '--departed-before must use format YYYY-MM-DD',
+      '--departed-before "2026-1-1" is not a date; use YYYY-MM-DD',
     );
     await expect(
       buildPruneReport(

@@ -169,4 +169,21 @@ describe('createCli dispatch', () => {
       'Invalid granularity: yearly. Expected one of: daily, weekly, monthly',
     );
   });
+
+  it.each(['efficiency', 'optimize'])(
+    'lists the granularity choices when %s has none',
+    async (command) => {
+      const cli = createCli();
+      cli.commands.find((subcommand) => subcommand.name() === command)?.exitOverride();
+      const stderrWrite = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+
+      try {
+        await expect(cli.parseAsync([command], { from: 'user' })).rejects.toThrow(
+          "error: missing required argument 'granularity' (choose daily, weekly, monthly)",
+        );
+      } finally {
+        stderrWrite.mockRestore();
+      }
+    },
+  );
 });

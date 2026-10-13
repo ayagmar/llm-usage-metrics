@@ -44,6 +44,8 @@ export type GitOutcomeCollectionResult = {
   periodOutcomes: Map<string, EfficiencyOutcomeTotals>;
   totalOutcomes: EfficiencyOutcomeTotals;
   diagnostics: GitOutcomeCollectionDiagnostics;
+  /** Set when there was no usage to match and the repo directory is not a git repository. */
+  warning?: string;
 };
 
 type MutableGitOutcomeEvent = {
@@ -130,17 +132,16 @@ async function assertRepoDirReadable(repoDir: string): Promise<void> {
   }
 }
 
-async function assertGitRepository(
+async function isGitRepository(
   repoDir: string,
   runCommand: (repoDir: string, args: string[]) => Promise<GitCommandResult>,
-): Promise<void> {
+): Promise<boolean> {
   const gitRepoResult = await runCommand(repoDir, ['rev-parse', '--is-inside-work-tree']);
+  return gitRepoResult.exitCode === 0;
+}
 
-  if (gitRepoResult.exitCode === 0) {
-    return;
-  }
-
-  throw new Error(`Repository is not a git repository: ${repoDir}`);
+function notGitRepositoryMessage(repoDir: string): string {
+  return `${repoDir} is not a git repository; pass --repo-dir <path>`;
 }
 
 function isNoCommitHistoryFailure(result: GitCommandResult): boolean {
@@ -546,12 +547,25 @@ export async function collectGitOutcomes(
   const runCommand = deps.runGitCommand ?? runGitCommand;
 
   if (options.activeUsageDays?.size === 0) {
-    return createEmptyOutcomeCollection(repoDir, includeMergeCommits);
+    const emptyCollection = createEmptyOutcomeCollection(repoDir, includeMergeCommits);
+
+    if (!deps.runGitCommand) {
+      await assertRepoDirReadable(repoDir);
+
+      if (!(await isGitRepository(repoDir, runCommand))) {
+        emptyCollection.warning = notGitRepositoryMessage(repoDir);
+      }
+    }
+
+    return emptyCollection;
   }
 
   if (!deps.runGitCommand) {
     await assertRepoDirReadable(repoDir);
-    await assertGitRepository(repoDir, runCommand);
+
+    if (!(await isGitRepository(repoDir, runCommand))) {
+      throw new Error(notGitRepositoryMessage(repoDir));
+    }
   }
 
   let authorEmail: string;

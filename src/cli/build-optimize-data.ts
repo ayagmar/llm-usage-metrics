@@ -4,6 +4,7 @@ import { normalizeProviderFilter } from './build-usage-data-inputs.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import {
   collectCanonicalProviderRoots,
+  inferCanonicalProviderRootsFromModels,
   matchesCanonicalProviderFilter,
 } from '../domain/provider-normalization.js';
 import {
@@ -27,6 +28,7 @@ export type BuildOptimizeDataDeps = BuildUsageDataDeps;
 function resolveOptimizeProvider(
   providers: Set<string>,
   providerFilter: string | undefined,
+  candidateModels: string[],
 ): string {
   const distinctProviders = collectCanonicalProviderRoots(providers);
   const normalizedProviderFilter = normalizeProviderFilter(providerFilter);
@@ -54,8 +56,14 @@ function resolveOptimizeProvider(
       }
     }
 
+    const candidateProviders = inferCanonicalProviderRootsFromModels(candidateModels);
+    const suggestedProvider =
+      candidateProviders?.length === 1 && distinctProviders.includes(candidateProviders[0])
+        ? ` ${candidateProviders[0]}`
+        : '';
+
     throw new Error(
-      `Optimize requires a single provider; found providers: ${distinctProviders.join(', ')}. Narrow with --provider.`,
+      `Optimize requires a single provider; found providers: ${distinctProviders.join(', ')}. Narrow with --provider${suggestedProvider}.`,
     );
   }
 
@@ -87,7 +95,12 @@ export async function buildOptimizeData(
   const provider = measureRuntimeProfileStageSync(
     deps.runtimeProfile,
     'optimize.resolve_provider',
-    () => resolveOptimizeProvider(detectedProviders, dataset.normalizedInputs.providerFilter),
+    () =>
+      resolveOptimizeProvider(
+        detectedProviders,
+        dataset.normalizedInputs.providerFilter,
+        candidateModels,
+      ),
   );
 
   const { pricedEvents, pricingOrigin, pricingWarning, pricingSource } =
