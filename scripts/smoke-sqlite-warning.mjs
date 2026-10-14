@@ -9,8 +9,37 @@ import path from 'node:path';
 
 const require = createRequire(import.meta.url);
 
+// The fixture setup loads node:sqlite in this process too; keep its own warning out of
+// the output so only the CLI's stderr is judged.
+function requireSqliteQuietly() {
+  const emitWarning = process.emitWarning;
+  process.emitWarning = function (warning, ...args) {
+    const message = warning instanceof Error ? warning.message : String(warning);
+
+    if (message.includes('SQLite is an experimental feature')) {
+      return;
+    }
+
+    return Reflect.apply(emitWarning, this, [warning, ...args]);
+  };
+
+  try {
+    return require('node:sqlite');
+  } finally {
+    process.emitWarning = emitWarning;
+  }
+}
+
+function readGrandTotalTokens(stdout) {
+  try {
+    return JSON.parse(stdout).data?.find((row) => row.rowType === 'grand_total')?.totalTokens;
+  } catch {
+    return undefined;
+  }
+}
+
 function createOpenCodeFixture(dbPath) {
-  const { DatabaseSync } = require('node:sqlite');
+  const { DatabaseSync } = requireSqliteQuietly();
   const database = new DatabaseSync(dbPath);
 
   try {
@@ -75,9 +104,13 @@ async function main() {
         },
       );
       const label = `LLM_USAGE_EVENT_STORE=${eventStore} on Node ${process.version}`;
+      const totalTokens = readGrandTotalTokens(result.stdout);
 
       if (result.status !== 0) {
         failures.push(`${label}: exit ${String(result.status)}\n${result.stderr}`);
+      } else if (totalTokens !== 15) {
+        // The fixture row holds 15 tokens; anything else means SQLite was never read.
+        failures.push(`${label}: expected 15 total tokens, got ${String(totalTokens)}`);
       } else if (result.stderr.includes('ExperimentalWarning')) {
         failures.push(`${label}: stderr carries ExperimentalWarning\n${result.stderr}`);
       } else {
