@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import { MultiDirectorySourceAdapter } from '../../src/sources/multi-directory-source-adapter.js';
+import { recordSkippedRow } from '../../src/sources/parse-diagnostics.js';
 import type { SourceAdapter } from '../../src/sources/source-adapter.js';
+import { collect, collectFile } from '../../src/stream/collect.js';
 
 function createEvent(sessionId: string) {
   return createUsageEvent({
@@ -73,6 +75,65 @@ describe('MultiDirectorySourceAdapter', () => {
     await expect(adapter.getParseDependencies('/b/two.jsonl')).resolves.toEqual([
       '/b/two.jsonl.meta',
     ]);
+  });
+
+  it('reads each file through its own adapter, converted or legacy', async () => {
+    const legacy = createAdapter(['/a/one.jsonl'], {
+      parseFileWithDiagnostics: async (filePath) => ({
+        events: [createEvent(filePath)],
+        skippedRows: 1,
+        skippedRowReasons: [{ reason: 'no_usage', count: 1 }],
+      }),
+    });
+    const converted = createAdapter(['/b/two.jsonl'], {
+      async *read(filePath, options) {
+        if (options?.diagnostics) {
+          recordSkippedRow(options.diagnostics, 'bad_timestamp');
+        }
+
+        yield createEvent(`${filePath}#1`);
+        yield createEvent(`${filePath}#2`);
+      },
+    });
+    const adapter = new MultiDirectorySourceAdapter([legacy, converted]);
+    await adapter.discoverFiles();
+
+    await expect(collectFile(adapter, '/a/one.jsonl')).resolves.toEqual({
+      events: [createEvent('/a/one.jsonl')],
+      skippedRows: 1,
+      skippedRowReasons: [{ reason: 'no_usage', count: 1 }],
+    });
+    await expect(adapter.parseFileWithDiagnostics('/b/two.jsonl')).resolves.toEqual({
+      events: [createEvent('/b/two.jsonl#1'), createEvent('/b/two.jsonl#2')],
+      skippedRows: 1,
+      skippedRowReasons: [{ reason: 'bad_timestamp', count: 1 }],
+    });
+    await expect(collect(adapter.read('/b/two.jsonl'))).resolves.toHaveLength(2);
+    expect(legacy.parsed).toEqual([]);
+    expect(converted.parsed).toEqual([]);
+  });
+
+  it("returns the inner adapter's read when the consumer stops early", async () => {
+    let finished = false;
+    const converted = createAdapter(['/a/one.jsonl'], {
+      async *read(filePath) {
+        try {
+          yield createEvent(`${filePath}#1`);
+          yield createEvent(`${filePath}#2`);
+        } finally {
+          finished = true;
+        }
+      },
+    });
+    const adapter = new MultiDirectorySourceAdapter([converted]);
+    await adapter.discoverFiles();
+
+    for await (const event of adapter.read('/a/one.jsonl')) {
+      expect(event.sessionId).toBe('/a/one.jsonl#1');
+      break;
+    }
+
+    expect(finished).toBe(true);
   });
 
   it('returns the current files on every discovery, not only the first', async () => {
