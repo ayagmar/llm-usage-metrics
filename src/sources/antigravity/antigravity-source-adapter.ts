@@ -10,6 +10,7 @@ import type {
   SourceAdapterPathOptions,
   SourceParseFileDiagnostics,
 } from '../source-adapter.js';
+import { createSourceContext } from '../source-context.js';
 import { loadNodeSqliteModule, type SqliteModule } from '../opencode/node-sqlite-loader.js';
 import { getDefaultAntigravityConversationsDir } from './antigravity-path-resolver.js';
 import {
@@ -24,8 +25,6 @@ type AntigravitySqliteRow = {
 };
 
 export type AntigravitySourceAdapterOptions = SourceAdapterPathOptions & {
-  env?: NodeJS.ProcessEnv;
-  homeDir?: string;
   pathExists?: PathPredicate;
   pathReadable?: PathPredicate;
   pathIsDirectory?: PathPredicate;
@@ -82,10 +81,7 @@ export class AntigravitySourceAdapter implements SourceAdapter {
   public constructor(options: AntigravitySourceAdapterOptions = {}) {
     this.conversationsDir =
       options.dir ??
-      getDefaultAntigravityConversationsDir({
-        env: options.env,
-        homeDir: options.homeDir,
-      });
+      getDefaultAntigravityConversationsDir(options.context ?? createSourceContext());
     this.requireDir = options.requireDir ?? false;
     this.pathExists = options.pathExists ?? pathExists;
     this.pathReadable = options.pathReadable ?? pathReadable;

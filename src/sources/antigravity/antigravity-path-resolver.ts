@@ -1,24 +1,11 @@
-import os from 'node:os';
 import path from 'node:path';
 
-import { asTrimmedText } from '../parsing-utils.js';
+import { readEnvPath, type SourceContext } from '../source-context.js';
 
-export type AntigravityPathResolverOptions = {
-  env?: NodeJS.ProcessEnv;
-  homeDir?: string;
-};
-
-function resolveGeminiCliHome(options: Required<AntigravityPathResolverOptions>): string {
-  return asTrimmedText(options.env.GEMINI_CLI_HOME) ?? path.join(options.homeDir, '.gemini');
+function resolveGeminiCliHome(context: SourceContext): string {
+  return readEnvPath(context, 'GEMINI_CLI_HOME') ?? path.join(context.homeDir, '.gemini');
 }
 
-export function getDefaultAntigravityConversationsDir(
-  options: AntigravityPathResolverOptions = {},
-): string {
-  const resolvedOptions = {
-    env: options.env ?? process.env,
-    homeDir: options.homeDir ?? os.homedir(),
-  };
-
-  return path.join(resolveGeminiCliHome(resolvedOptions), 'antigravity-cli', 'conversations');
+export function getDefaultAntigravityConversationsDir(context: SourceContext): string {
+  return path.join(resolveGeminiCliHome(context), 'antigravity-cli', 'conversations');
 }
