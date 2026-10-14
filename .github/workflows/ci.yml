@@ -276,6 +276,8 @@ jobs:
       - name: Assert the core package has no dependencies
         run: node -e "const p=require('./packages/core/package.json'); if (p.dependencies||p.devDependencies) process.exit(1)"
 
+  # Not in ci-status yet: its ceilings come from a 32-core dev machine. Add it to ci-status
+  # once it has run green on a GitHub runner.
   core-memory:
     name: Core - Memory
     runs-on: ubuntu-latest
@@ -379,7 +381,6 @@ jobs:
         main-test-matrix,
         main-bun,
         core-verify,
-        core-memory,
         site-format,
         site-check,
         site-build,
@@ -394,7 +395,6 @@ jobs:
       MAIN_TEST_MATRIX_RESULT: ${{ needs.main-test-matrix.result }}
       MAIN_BUN_RESULT: ${{ needs.main-bun.result }}
       CORE_VERIFY_RESULT: ${{ needs.core-verify.result }}
-      CORE_MEMORY_RESULT: ${{ needs.core-memory.result }}
       SITE_FORMAT_RESULT: ${{ needs.site-format.result }}
       SITE_CHECK_RESULT: ${{ needs.site-check.result }}
       SITE_BUILD_RESULT: ${{ needs.site-build.result }}
@@ -409,7 +409,6 @@ jobs:
              [ "$MAIN_TEST_MATRIX_RESULT" != "success" ] || \
              [ "$MAIN_BUN_RESULT" != "success" ] || \
              [ "$CORE_VERIFY_RESULT" != "success" ] || \
-             [ "$CORE_MEMORY_RESULT" != "success" ] || \
              [ "$SITE_FORMAT_RESULT" != "success" ] || \
              [ "$SITE_CHECK_RESULT" != "success" ] || \
              [ "$SITE_BUILD_RESULT" != "success" ]; then
