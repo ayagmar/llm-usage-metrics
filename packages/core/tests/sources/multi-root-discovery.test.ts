@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   discoverFilesAcrossRoots,
+  isPathWithinRoots,
   resolveRootDirs,
 } from '../../src/sources/multi-root-discovery.js';
 
@@ -114,5 +115,21 @@ describe('multi-root discovery helpers', () => {
       '/root-b/1.jsonl',
       '/root-b/2.jsonl',
     ]);
+  });
+});
+
+describe('isPathWithinRoots', () => {
+  const root = path.resolve('agent-root');
+
+  it('accepts files below a root, including roots given with padding', () => {
+    expect(isPathWithinRoots(path.join(root, 'project', 'a.jsonl'), [root])).toBe(true);
+    expect(isPathWithinRoots(path.join(root, 'a.jsonl'), ['/elsewhere', ` ${root} `])).toBe(true);
+  });
+
+  it('rejects the root itself, siblings sharing a prefix and paths outside every root', () => {
+    expect(isPathWithinRoots(root, [root])).toBe(false);
+    expect(isPathWithinRoots(`${root}-copy${path.sep}a.jsonl`, [root])).toBe(false);
+    expect(isPathWithinRoots(path.resolve('other', 'a.jsonl'), [root])).toBe(false);
+    expect(isPathWithinRoots(path.join(root, 'a.jsonl'), [])).toBe(false);
   });
 });

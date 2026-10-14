@@ -10,6 +10,16 @@ import tseslint from 'typescript-eslint';
 const tsconfigRootDir = path.dirname(fileURLToPath(import.meta.url));
 const tsFiles = ['**/*.ts', '**/*.tsx', '**/*.mts', '**/*.cts'];
 const hostStateMessage = 'The core package reads host state only through an injected context.';
+const coreCliTreeImportPattern = {
+  regex: String.raw`^(?:\.\./){2,}src(?:/|$)`,
+  message: 'The core package must not import from the CLI tree.',
+};
+const coreAlwaysRestrictedProperties = [
+  { object: 'process', property: 'cwd', message: hostStateMessage },
+  { object: 'process', property: 'stdout', message: 'The core package prints nothing.' },
+  { object: 'process', property: 'stderr', message: 'The core package prints nothing.' },
+  { object: 'globalThis', property: 'process', message: hostStateMessage },
+];
 
 function scopeToFiles(configs, files) {
   return configs.map((config) => ({
@@ -110,12 +120,7 @@ export default tseslint.config(
             { name: 'node:process', message: hostStateMessage },
             { name: 'process', message: hostStateMessage },
           ],
-          patterns: [
-            {
-              regex: String.raw`^(?:\.\./){2,}src(?:/|$)`,
-              message: 'The core package must not import from the CLI tree.',
-            },
-          ],
+          patterns: [coreCliTreeImportPattern],
         },
       ],
       'no-restricted-properties': [
@@ -123,11 +128,17 @@ export default tseslint.config(
         { object: 'process', property: 'env', message: hostStateMessage },
         { object: 'process', property: 'platform', message: hostStateMessage },
         { object: 'os', property: 'homedir', message: hostStateMessage },
-        { object: 'process', property: 'cwd', message: hostStateMessage },
-        { object: 'process', property: 'stdout', message: 'The core package prints nothing.' },
-        { object: 'process', property: 'stderr', message: 'The core package prints nothing.' },
-        { object: 'globalThis', property: 'process', message: hostStateMessage },
+        ...coreAlwaysRestrictedProperties,
       ],
+    },
+  },
+  {
+    // The one host reader: `createSourceContext` fills the context from the home directory,
+    // environment and platform. Everything else in the core block still applies.
+    files: ['packages/core/src/sources/source-context.ts'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [coreCliTreeImportPattern] }],
+      'no-restricted-properties': ['error', ...coreAlwaysRestrictedProperties],
     },
   },
   {

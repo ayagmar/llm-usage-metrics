@@ -7,8 +7,10 @@ import {
   normalizeTimestampCandidate,
   resolveTotalTokens,
   resolveUsageTotalTokens,
+  splitPromptIncludingCachedTokens,
   toFiniteNumber,
   toNumberLike,
+  toTokenCount,
 } from '../../src/sources/parsing-utils.js';
 
 describe('source parsing helpers', () => {
@@ -92,5 +94,28 @@ describe('source parsing helpers', () => {
       500,
     );
     expect(resolveUsageTotalTokens({ cacheWriteTokens: null })).toBe(0);
+  });
+});
+
+describe('token count helpers', () => {
+  it('splits a prompt count that includes cache reads into disjoint buckets', () => {
+    expect(splitPromptIncludingCachedTokens(1200, 1000)).toEqual({
+      inputTokens: 200,
+      cacheReadTokens: 1000,
+    });
+    // A cached count above the prompt count never yields negative input.
+    expect(splitPromptIncludingCachedTokens(100, 150)).toEqual({
+      inputTokens: 0,
+      cacheReadTokens: 150,
+    });
+  });
+
+  it('reads token counts from numbers and numeric text, and 0 for anything else', () => {
+    expect(toTokenCount(42)).toBe(42);
+    expect(toTokenCount(' 17 ')).toBe(17);
+    expect(toTokenCount(-3)).toBe(0);
+    expect(toTokenCount('many')).toBe(0);
+    expect(toTokenCount(undefined)).toBe(0);
+    expect(toTokenCount({ tokens: 5 })).toBe(0);
   });
 });

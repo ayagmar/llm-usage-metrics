@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { hasErrorCode } from '../../src/utils/error-code.js';
+import { hasErrorCode } from '../src/utils/error-code.js';
 
 function createErrnoError(code: string): Error {
   return Object.assign(new Error(`failed: ${code}`), { code });

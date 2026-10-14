@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { loadNodeSqliteModuleFromRequire } from '../../src/sources/sqlite/node-sqlite-loader.js';
+import {
+  loadNodeSqliteModule,
+  loadNodeSqliteModuleFromRequire,
+} from '../../src/sources/sqlite/node-sqlite-loader.js';
+import { withSuppressedSqliteExperimentalWarning } from '../helpers/sqlite.js';
 
 describe('loadNodeSqliteModuleFromRequire', () => {
   it('wraps loader failures with actionable runtime guidance', () => {
@@ -23,5 +27,20 @@ describe('loadNodeSqliteModuleFromRequire', () => {
     expect(() => loadNodeSqliteModuleFromRequire(() => ({ DatabaseSync: undefined }))).toThrow(
       'node:sqlite loaded but did not expose a DatabaseSync constructor',
     );
+  });
+});
+
+describe('loadNodeSqliteModule', () => {
+  it('loads a node:sqlite that can open and query a database', async () => {
+    const sqlite = await withSuppressedSqliteExperimentalWarning(() =>
+      loadNodeSqliteModule('Event store'),
+    );
+    const database = new sqlite.DatabaseSync(':memory:');
+
+    try {
+      expect(database.prepare('SELECT 1 + 1 AS total').all()).toEqual([{ total: 2 }]);
+    } finally {
+      database.close();
+    }
   });
 });

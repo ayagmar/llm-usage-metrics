@@ -93,4 +93,14 @@ describe('MultiDirectorySourceAdapter', () => {
   it('needs at least one adapter', () => {
     expect(() => new MultiDirectorySourceAdapter([])).toThrow('needs at least one adapter');
   });
+
+  it('lists the search paths of every directory, skipping adapters without any', () => {
+    const adapter = new MultiDirectorySourceAdapter([
+      createAdapter([], { getSearchPaths: () => ['/a'] }),
+      createAdapter([]),
+      createAdapter([], { getSearchPaths: () => ['/b', '/c'] }),
+    ]);
+
+    expect(adapter.getSearchPaths()).toEqual(['/a', '/b', '/c']);
+  });
 });
