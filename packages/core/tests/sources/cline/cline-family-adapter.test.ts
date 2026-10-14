@@ -8,11 +8,14 @@ import {
   CLINE_EXTENSION_IDS,
   createClineFamilyAdapter,
   getDefaultClineTaskRootCandidates,
-} from '../../src/sources/cline/cline-family-adapter.js';
-import { getClineTaskHistoryPath } from '../../src/sources/cline/cline-task-parser.js';
-import { createSourceContext } from '../../src/sources/source-context.js';
+} from '../../../src/sources/cline/index.js';
+import { getClineTaskHistoryPath } from '../../../src/sources/cline/cline-task-parser.js';
+import { createSourceContext } from '../../../src/sources/source-context.js';
+import * as kilocodeSource from '../../../src/sources/kilocode/index.js';
+import * as roocodeSource from '../../../src/sources/roocode/index.js';
+import { fixturePath } from '../../helpers/fixtures.js';
 
-const fixtureTasksDir = path.resolve('tests/fixtures/cline/tasks');
+const fixtureTasksDir = fixturePath(import.meta.url, '../../fixtures/cline/tasks');
 const fixtureUiMessagesPath = path.join(fixtureTasksDir, 'task-a', 'ui_messages.json');
 const tempDirs: string[] = [];
 
@@ -305,8 +308,13 @@ describe('ClineFamilyAdapter', () => {
       'utf8',
     );
 
+    const subpaths = { roocode: roocodeSource, kilocode: kilocodeSource };
     for (const id of ['roocode', 'kilocode'] as const) {
-      const adapter = createClineFamilyAdapter({ id, extensionId: CLINE_EXTENSION_IDS[id] });
+      const source = subpaths[id];
+      const adapter = source.createClineFamilyAdapter({
+        id,
+        extensionId: source.CLINE_EXTENSION_IDS[id],
+      });
       const events = await adapter.parseFile(uiMessagesPath);
 
       expect(

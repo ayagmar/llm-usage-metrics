@@ -7,9 +7,10 @@ import {
   CodexSourceAdapter,
   LEGACY_CODEX_MODEL_FALLBACK,
   resolveDefaultCodexSessionsDir,
-} from '../../src/sources/codex/codex-source-adapter.js';
-import { createSourceContext } from '../../src/sources/source-context.js';
-import { canonicalTmpdir } from '../helpers/tmp.js';
+} from '../../../src/sources/codex/index.js';
+import { createSourceContext } from '../../../src/sources/source-context.js';
+import { repoFixturePath } from '../../helpers/fixtures.js';
+import { canonicalTmpdir } from '../../helpers/tmp.js';
 
 const tempDirs: string[] = [];
 
@@ -47,7 +48,7 @@ describe('CodexSourceAdapter', () => {
   });
 
   it('parses token_count lines and derives deltas without negatives', async () => {
-    const fixturePath = path.resolve('tests/fixtures/codex/session-token-count.jsonl');
+    const fixturePath = repoFixturePath('codex', 'session-token-count.jsonl');
     const adapter = new CodexSourceAdapter();
 
     const events = await adapter.parseFile(fixturePath);
@@ -471,7 +472,7 @@ describe('CodexSourceAdapter', () => {
   });
 
   it('uses legacy model fallback when no model metadata exists', async () => {
-    const fixturePath = path.resolve('tests/fixtures/codex/session-legacy-model.jsonl');
+    const fixturePath = repoFixturePath('codex', 'session-legacy-model.jsonl');
     const adapter = new CodexSourceAdapter();
 
     const events = await adapter.parseFile(fixturePath);
@@ -818,7 +819,7 @@ describe('CodexSourceAdapter', () => {
     expect(diagnostics.skippedRowReasons).toEqual([]);
   });
   it('prefers per-response token_usage_record rows and keeps the compaction response', async () => {
-    const fixturePath = path.resolve('tests/fixtures/codex/session-token-usage-record.jsonl');
+    const fixturePath = repoFixturePath('codex', 'session-token-usage-record.jsonl');
     const adapter = new CodexSourceAdapter();
 
     const diagnostics = await adapter.parseFileWithDiagnostics(fixturePath);
