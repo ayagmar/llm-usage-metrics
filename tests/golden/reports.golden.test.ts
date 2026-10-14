@@ -34,39 +34,28 @@ import {
   freezeDate,
   normalizePaths,
   pinMtimes,
+  REPORT_CASE_FORMATS,
+  type ReportCaseName,
+  type ReportFormat,
+  reportGoldenName,
   type SourceOptions,
   useGoldenUpdateCheck,
   WINDOWS_SKIP_REASON,
 } from './golden-harness.js';
 
-type Format = 'json' | 'markdown' | 'terminal';
-
-const FORMAT_EXTENSIONS: Record<Format, string> = {
-  json: 'json',
-  markdown: 'md',
-  terminal: 'txt',
-};
-
 /** Fixed width for terminal goldens; colour is off through NO_COLOR. */
 const TERMINAL_COLUMNS = 120;
-
-const ALL_FORMATS: readonly Format[] = ['json', 'markdown', 'terminal'];
-const JSON_ONLY: readonly Format[] = ['json'];
-const NO_MARKDOWN: readonly Format[] = ['json', 'terminal'];
 
 type FormatFlags = { json?: boolean; markdown?: boolean };
 
 type ReportCase = {
-  /** `<command>[-<granularity>][-<variant>]` */
-  name: string;
-  formats: readonly Format[];
   /** Returns the report's stdout. */
   render: (flags: FormatFlags) => Promise<string>;
   /** Checks the parsed JSON output before it is compared. */
   checkJson?: (json: string) => void;
 };
 
-function formatFlags(format: Format): FormatFlags {
+function formatFlags(format: ReportFormat): FormatFlags {
   if (format === 'json') {
     return { json: true };
   }
@@ -212,43 +201,47 @@ describe.skipIf(process.platform === 'win32')(`report goldens (${WINDOWS_SKIP_RE
   const firstHalf = { since: '2026-01-01', until: '2026-06-30' } as const;
   const priced = { pricingOffline: true } as const;
 
-  const cases: ReportCase[] = [
-    ...(['daily', 'weekly'] as const).map((granularity) => ({
-      name: `usage-${granularity}`,
-      formats: ALL_FORMATS,
-      render: (flags: FormatFlags) =>
-        buildUsageReport(granularity, { ...sources, ...priced, ...flags, all: true }),
-    })),
-    {
-      name: 'usage-monthly',
-      formats: ALL_FORMATS,
+  function renderUsage(granularity: 'daily' | 'weekly') {
+    return (flags: FormatFlags) =>
+      buildUsageReport(granularity, { ...sources, ...priced, ...flags, all: true });
+  }
+
+  function efficiencyCase(granularity: 'daily' | 'weekly' | 'monthly'): ReportCase {
+    return {
+      render: (flags) =>
+        buildEfficiencyReport(granularity, {
+          ...sources,
+          claudeDir: attributedClaudeDir,
+          ...priced,
+          ...flags,
+          ...firstHalf,
+          repoDir,
+        }),
+      checkJson: expectAttributedEfficiency,
+    };
+  }
+
+  const cases: Record<ReportCaseName, ReportCase> = {
+    'usage-daily': { render: renderUsage('daily') },
+    'usage-weekly': { render: renderUsage('weekly') },
+    'usage-monthly': {
       render: (flags) =>
         buildUsageReport('monthly', { ...sources, ...priced, ...flags, ...firstHalf }),
     },
-    {
-      name: 'usage-daily-compact',
-      formats: ['terminal'],
+    'usage-daily-compact': {
       render: () => buildUsageReport('daily', { ...sources, ...priced, all: true, compact: true }),
     },
-    {
-      name: 'usage-daily-per-model-columns',
-      formats: ['terminal'],
+    'usage-daily-per-model-columns': {
       render: () =>
         buildUsageReport('daily', { ...sources, ...priced, all: true, perModelColumns: true }),
     },
-    {
-      name: 'usage-daily-no-cost',
-      formats: ['terminal'],
+    'usage-daily-no-cost': {
       render: () => buildUsageReport('daily', { ...sources, ...priced, all: true, cost: false }),
     },
-    {
-      name: 'summary',
-      formats: ALL_FORMATS,
+    summary: {
       render: (flags) => buildSummaryReport({ ...sources, ...priced, ...flags }, { now: fixedNow }),
     },
-    {
-      name: 'compare',
-      formats: ALL_FORMATS,
+    compare: {
       render: (flags) =>
         buildCompareReport({
           ...sources,
@@ -260,15 +253,11 @@ describe.skipIf(process.platform === 'win32')(`report goldens (${WINDOWS_SKIP_RE
           vsUntil: '2026-05-31',
         }),
     },
-    {
-      name: 'trends-tokens',
-      formats: ALL_FORMATS,
+    'trends-tokens': {
       render: (flags) =>
         buildTrendsReport({ ...sources, ...priced, ...flags, ...firstHalf, metric: 'tokens' }),
     },
-    {
-      name: 'trends-active-hours',
-      formats: JSON_ONLY,
+    'trends-active-hours': {
       render: (flags) =>
         buildTrendsReport({
           ...sources,
@@ -278,9 +267,7 @@ describe.skipIf(process.platform === 'win32')(`report goldens (${WINDOWS_SKIP_RE
           metric: 'active-hours',
         }),
     },
-    {
-      name: 'trends-by-source',
-      formats: JSON_ONLY,
+    'trends-by-source': {
       render: (flags) =>
         buildTrendsReport({
           ...sources,
@@ -291,38 +278,19 @@ describe.skipIf(process.platform === 'win32')(`report goldens (${WINDOWS_SKIP_RE
           bySource: true,
         }),
     },
-    {
-      name: 'session',
-      formats: ALL_FORMATS,
+    session: {
       render: (flags) => buildSessionReport({ ...sources, ...priced, ...flags }),
     },
-    {
-      name: 'session-top-5',
-      formats: JSON_ONLY,
+    'session-top-5': {
       render: (flags) => buildSessionReport({ ...sources, ...priced, ...flags, top: '5' }),
     },
-    {
-      name: 'session-by-repo',
-      formats: JSON_ONLY,
+    'session-by-repo': {
       render: (flags) => buildSessionReport({ ...sources, ...priced, ...flags, byRepo: true }),
     },
-    ...(['daily', 'weekly', 'monthly'] as const).map((granularity) => ({
-      name: `efficiency-${granularity}`,
-      formats: granularity === 'monthly' ? ALL_FORMATS : JSON_ONLY,
-      render: (flags: FormatFlags) =>
-        buildEfficiencyReport(granularity, {
-          ...sources,
-          claudeDir: attributedClaudeDir,
-          ...priced,
-          ...flags,
-          ...firstHalf,
-          repoDir,
-        }),
-      checkJson: expectAttributedEfficiency,
-    })),
-    {
-      name: 'optimize-monthly',
-      formats: ALL_FORMATS,
+    'efficiency-daily': efficiencyCase('daily'),
+    'efficiency-weekly': efficiencyCase('weekly'),
+    'efficiency-monthly': efficiencyCase('monthly'),
+    'optimize-monthly': {
       render: (flags) =>
         buildOptimizeReport('monthly', {
           ...openAiScopedSources(),
@@ -333,14 +301,10 @@ describe.skipIf(process.platform === 'win32')(`report goldens (${WINDOWS_SKIP_RE
           ignorePricingFailures: true,
         }),
     },
-    {
-      name: 'wrapped',
-      formats: ALL_FORMATS,
+    wrapped: {
       render: (flags) => buildWrappedReport({ ...sources, ...priced, ...flags, year: '2026' }),
     },
-    {
-      name: 'doctor',
-      formats: NO_MARKDOWN,
+    doctor: {
       render: (flags) =>
         captureStdout(() =>
           runDoctorReport(
@@ -356,9 +320,7 @@ describe.skipIf(process.platform === 'win32')(`report goldens (${WINDOWS_SKIP_RE
           ),
         ),
     },
-    {
-      name: 'prune',
-      formats: NO_MARKDOWN,
+    prune: {
       render: (flags) =>
         captureStdout(() =>
           runPruneReport(
@@ -370,11 +332,13 @@ describe.skipIf(process.platform === 'win32')(`report goldens (${WINDOWS_SKIP_RE
           ),
         ),
     },
-  ];
+  };
 
-  for (const reportCase of cases) {
-    for (const format of reportCase.formats) {
-      const goldenName = `reports/${reportCase.name}.${FORMAT_EXTENSIONS[format]}`;
+  for (const [caseName, formats] of Object.entries(REPORT_CASE_FORMATS)) {
+    const reportCase = cases[caseName as ReportCaseName];
+
+    for (const format of formats) {
+      const goldenName = reportGoldenName(caseName as ReportCaseName, format);
 
       it(`freezes ${goldenName}`, async () => {
         const restoreStdout =

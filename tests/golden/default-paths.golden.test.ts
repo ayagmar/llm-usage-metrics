@@ -6,7 +6,7 @@ import { promisify } from 'node:util';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { canonicalTmpdir } from '../helpers/tmp.js';
-import { expectGolden, useGoldenUpdateCheck } from './golden-harness.js';
+import { expectGolden, FIXED_GOLDENS, useGoldenUpdateCheck } from './golden-harness.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -61,7 +61,7 @@ describe.skipIf(process.platform !== 'linux')(
       );
 
       expect(stdout).not.toContain(process.cwd());
-      await expectGolden('default-paths/doctor.json', replaceRoot(stdout, rootDir));
+      await expectGolden(FIXED_GOLDENS.defaultPathsDoctor, replaceRoot(stdout, rootDir));
     });
   },
 );

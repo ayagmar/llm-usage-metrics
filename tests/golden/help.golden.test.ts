@@ -3,7 +3,13 @@ import { describe, expect, it } from 'vitest';
 
 import { createCli } from '../../src/cli/create-cli.js';
 import { useIsolatedEnvironment } from '../helpers/isolated-env.js';
-import { expectGolden, useGoldenUpdateCheck, WINDOWS_SKIP_REASON } from './golden-harness.js';
+import {
+  COMMAND_NAMES,
+  expectGolden,
+  helpGoldenName,
+  useGoldenUpdateCheck,
+  WINDOWS_SKIP_REASON,
+} from './golden-harness.js';
 
 /** Fixed width for help text; commander otherwise reads the terminal's. */
 const HELP_COLUMNS = 100;
@@ -41,10 +47,6 @@ async function captureHelp(args: string[]): Promise<string> {
   return chunks.join('');
 }
 
-const commandNames = createCli()
-  .commands.map((command) => command.name())
-  .sort();
-
 // Skipped on Windows: paths and newline handling differ there; the Linux leg guards behaviour.
 describe.skipIf(process.platform === 'win32')(`help goldens (${WINDOWS_SKIP_REASON})`, () => {
   useIsolatedEnvironment();
@@ -54,15 +56,15 @@ describe.skipIf(process.platform === 'win32')(`help goldens (${WINDOWS_SKIP_REAS
     const help = await captureHelp([]);
 
     expect(help).toContain('Usage: llm-usage');
-    await expectGolden('help/root.txt', help);
+    await expectGolden(helpGoldenName(undefined), help);
   });
 
-  for (const name of commandNames) {
-    it(`freezes help/${name}.txt`, async () => {
+  for (const name of COMMAND_NAMES) {
+    it(`freezes ${helpGoldenName(name)}`, async () => {
       const help = await captureHelp([name]);
 
       expect(help).toContain(`Usage: llm-usage ${name}`);
-      await expectGolden(`help/${name}.txt`, help);
+      await expectGolden(helpGoldenName(name), help);
     });
   }
 });

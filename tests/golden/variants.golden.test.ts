@@ -7,6 +7,7 @@ import {
   ALL_SOURCE_IDS,
   createE2eSourceOptions,
   expectGolden,
+  FIXED_GOLDENS,
   fixedNow,
   freezeDate,
   normalizePaths,
@@ -41,7 +42,7 @@ describe.skipIf(process.platform === 'win32')(
       const output = `${await buildStatusline(sources, { now: fixedNow })}\n`;
 
       await expectGolden(
-        'variants/statusline-all-sources.txt',
+        FIXED_GOLDENS.variantsStatuslineAllSources,
         normalizePaths(output, environment.rootDir),
       );
     });

@@ -11,6 +11,7 @@ import { createInProcessRemote } from '../helpers/machine-remote.js';
 import { useBundledPricingOnly } from '../helpers/offline-pricing.js';
 import {
   expectGolden,
+  FIXED_GOLDENS,
   FIXED_NOW,
   fixedNow,
   freezeDate,
@@ -99,7 +100,7 @@ describe.skipIf(process.platform === 'win32')(`machine goldens (${WINDOWS_SKIP_R
     expect(output).toContain('"machine": "laptop"');
 
     await expectGolden(
-      'machines/usage-monthly-by-machine.json',
+      FIXED_GOLDENS.machinesUsageMonthlyByMachine,
       normalizePaths(output, environment.rootDir),
     );
   });
@@ -110,7 +111,7 @@ describe.skipIf(process.platform === 'win32')(`machine goldens (${WINDOWS_SKIP_R
       now: fixedNow,
     });
 
-    await expectGolden('machines/summary.json', normalizePaths(output, environment.rootDir));
+    await expectGolden(FIXED_GOLDENS.machinesSummary, normalizePaths(output, environment.rootDir));
   });
 
   it('syncs once, in the priming refresh, and never reaches the network', () => {

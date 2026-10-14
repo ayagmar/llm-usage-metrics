@@ -6,10 +6,7 @@ import { format } from 'node:util';
 import { afterAll, expect, vi } from 'vitest';
 
 import type { EventsCommandOptions } from '../../src/cli/usage-data-contracts.js';
-import {
-  getDefaultSourceIds,
-  getSourceOverrideOptions,
-} from '../../src/sources/create-default-adapters.js';
+import { getSourceOverrideOptions } from '../../src/sources/create-default-adapters.js';
 import {
   createAntigravityFixtureDb,
   E2E_ANTIGRAVITY_FIXTURE,
@@ -29,8 +26,53 @@ const FIXTURES_ROOT = path.resolve('tests/fixtures');
 const E2E_FIXTURES_ROOT = path.join(FIXTURES_ROOT, 'e2e');
 const GOLDEN_FIXTURES_ROOT = path.join(FIXTURES_ROOT, 'golden');
 
-/** Every registered source, in registration order. */
-export const ALL_SOURCE_IDS = getDefaultSourceIds();
+/**
+ * Every registered source, in registration order. Written out rather than read from the
+ * registry so that adding, dropping or renaming a source fails `orphans.golden.test.ts`
+ * instead of silently adding or orphaning goldens.
+ */
+export const ALL_SOURCE_IDS: readonly string[] = [
+  'pi',
+  'codex',
+  'gemini',
+  'droid',
+  'opencode',
+  'openclaw',
+  'claude',
+  'copilot',
+  'goose',
+  'amp',
+  'qwen',
+  'kimi',
+  'cline',
+  'roocode',
+  'kilocode',
+  'antigravity',
+  'dsh',
+];
+
+/** Every top-level command, in registration order; written out for the same reason. */
+export const COMMAND_NAMES: readonly string[] = [
+  'summary',
+  'daily',
+  'weekly',
+  'monthly',
+  'compare',
+  'efficiency',
+  'optimize',
+  'trends',
+  'session',
+  'wrapped',
+  'events',
+  'statusline',
+  'doctor',
+  'prune',
+  'config',
+  'machine',
+  'sync',
+  'schema',
+  'completion',
+];
 
 const updateGoldens = process.env.UPDATE_GOLDENS === '1';
 const writtenGoldens: string[] = [];
@@ -338,4 +380,96 @@ export function getFixtureSetOptions(
 
 export function getFixtureSetLabel(set: FixtureSet): string {
   return set.name === undefined ? set.source : `${set.source}-${set.name}`;
+}
+
+/*
+ * Golden names. Every test passes `expectGolden` a name from here, and
+ * `orphans.golden.test.ts` checks that `listExpectedGoldenNames` matches the files on disk,
+ * so a golden nothing writes any more cannot linger.
+ */
+
+/** Goldens whose name does not depend on a source, command or report case. */
+export const FIXED_GOLDENS = {
+  eventsAllSourcesJsonl: 'events/all-sources.jsonl',
+  eventsAllSourcesCsv: 'events/all-sources.csv',
+  eventsAllSourcesHashes: 'events/all-sources.hashes.txt',
+  eventsOpencodeAppendedBefore: 'events/opencode-appended-before.jsonl',
+  eventsOpencodeAppendedAfter: 'events/opencode-appended-after.jsonl',
+  eventsStoreWarm: 'events/store-warm.jsonl',
+  historyEventsWithDeparted: 'history/events-with-departed.jsonl',
+  historyUsageMonthlyWithHistory: 'history/usage-monthly-with-history.json',
+  historyUsageMonthlyWithoutHistory: 'history/usage-monthly-without-history.json',
+  machinesExport: 'machines/export.jsonl',
+  machinesUsageMonthlyByMachine: 'machines/usage-monthly-by-machine.json',
+  machinesSummary: 'machines/summary.json',
+  defaultPathsDoctor: 'default-paths/doctor.json',
+  variantsStatuslineAllSources: 'variants/statusline-all-sources.txt',
+} as const;
+
+export function eventsGoldenName(set: FixtureSet): string {
+  return `events/${getFixtureSetLabel(set)}.jsonl`;
+}
+
+/** `help/root.txt` for the root command, `help/<command>.txt` otherwise. */
+export function helpGoldenName(command: string | undefined): string {
+  return `help/${command ?? 'root'}.txt`;
+}
+
+export type ReportFormat = 'json' | 'markdown' | 'terminal';
+
+const REPORT_FORMAT_EXTENSIONS: Record<ReportFormat, string> = {
+  json: 'json',
+  markdown: 'md',
+  terminal: 'txt',
+};
+
+const ALL_FORMATS: readonly ReportFormat[] = ['json', 'markdown', 'terminal'];
+const JSON_ONLY: readonly ReportFormat[] = ['json'];
+const NO_MARKDOWN: readonly ReportFormat[] = ['json', 'terminal'];
+const TERMINAL_ONLY: readonly ReportFormat[] = ['terminal'];
+
+/** Each report case, `<command>[-<granularity>][-<variant>]`, and the formats it is frozen in. */
+export const REPORT_CASE_FORMATS = {
+  'usage-daily': ALL_FORMATS,
+  'usage-weekly': ALL_FORMATS,
+  'usage-monthly': ALL_FORMATS,
+  'usage-daily-compact': TERMINAL_ONLY,
+  'usage-daily-per-model-columns': TERMINAL_ONLY,
+  'usage-daily-no-cost': TERMINAL_ONLY,
+  summary: ALL_FORMATS,
+  compare: ALL_FORMATS,
+  'trends-tokens': ALL_FORMATS,
+  'trends-active-hours': JSON_ONLY,
+  'trends-by-source': JSON_ONLY,
+  session: ALL_FORMATS,
+  'session-top-5': JSON_ONLY,
+  'session-by-repo': JSON_ONLY,
+  'efficiency-daily': JSON_ONLY,
+  'efficiency-weekly': JSON_ONLY,
+  'efficiency-monthly': ALL_FORMATS,
+  'optimize-monthly': ALL_FORMATS,
+  wrapped: ALL_FORMATS,
+  doctor: NO_MARKDOWN,
+  prune: NO_MARKDOWN,
+} as const satisfies Record<string, readonly ReportFormat[]>;
+
+export type ReportCaseName = keyof typeof REPORT_CASE_FORMATS;
+
+export function reportGoldenName(caseName: ReportCaseName, format: ReportFormat): string {
+  return `reports/${caseName}.${REPORT_FORMAT_EXTENSIONS[format]}`;
+}
+
+/** Every golden name the golden tests write, sorted. */
+export async function listExpectedGoldenNames(): Promise<string[]> {
+  const reportNames = Object.entries(REPORT_CASE_FORMATS).flatMap(([caseName, formats]) =>
+    formats.map((format) => reportGoldenName(caseName as ReportCaseName, format)),
+  );
+
+  return [
+    ...Object.values(FIXED_GOLDENS),
+    ...(await listFixtureSets()).map(eventsGoldenName),
+    helpGoldenName(undefined),
+    ...COMMAND_NAMES.map(helpGoldenName),
+    ...reportNames,
+  ].sort();
 }
