@@ -37,8 +37,9 @@ month hold data. Every command passes
 `--source pi,codex --pi-dir <dir> --codex-dir <dir>`, and runs with a temp `HOME`,
 `XDG_CACHE_HOME`, `XDG_CONFIG_HOME` and `XDG_DATA_HOME`, `LLM_USAGE_CONFIG_PATH`
 pointing at a missing file, `LLM_USAGE_SKIP_UPDATE_CHECK=1`, `TZ=UTC`, and no
-inherited `LLM_USAGE_*` variable. Stdin is ignored. `NODE_COMPILE_CACHE` points at a temp
-directory that one untimed priming run fills before any timed run. Nothing outside the
+inherited `LLM_USAGE_*` or `NODE_*` variable, so a `NODE_OPTIONS` in your shell does not
+reach the CLI. Stdin is ignored. `NODE_COMPILE_CACHE`, the one `NODE_*` variable the script
+sets, points at a temp directory that one untimed priming run fills before any timed run. Nothing outside the
 temp directory is read.
 
 | Scenario       | What is timed                                                                                                                                                                                             |
