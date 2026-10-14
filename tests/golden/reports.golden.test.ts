@@ -33,6 +33,7 @@ import {
   FIXED_NOW,
   freezeDate,
   normalizePaths,
+  pinMtimes,
   type SourceOptions,
   useGoldenUpdateCheck,
   WINDOWS_SKIP_REASON,
@@ -175,6 +176,7 @@ describe.skipIf(process.platform === 'win32')(`report goldens (${WINDOWS_SKIP_RE
     repoDir = gitRepo.repoDir;
     attributedClaudeDir = path.join(environment.rootDir, 'claude-attributed');
     await writeAttributedClaudeSession(attributedClaudeDir, repoDir);
+    await pinMtimes(attributedClaudeDir);
 
     for (const [name, value] of Object.entries(isolatedGitEnv(gitRepo.globalConfigPath))) {
       vi.stubEnv(name, value);

@@ -1,5 +1,5 @@
 import { realpathSync } from 'node:fs';
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readdir, readFile, stat, utimes, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { format } from 'node:util';
 
@@ -185,8 +185,57 @@ function getOptionKey(sourceId: string): SourceOptionKey {
   return option.optionKey;
 }
 
-/** Builds the e2e option for each source, generating the SQLite and dsh fixtures under `tempRoot`. */
+/** Sets the mtime of every file and directory under `dir` to `FIXED_NOW`, and checks every file's. */
+export async function pinMtimes(dir: string): Promise<void> {
+  const entries = await readdir(dir, { recursive: true, withFileTypes: true });
+  const paths = entries.map((entry) => path.join(entry.parentPath, entry.name));
+
+  for (const entryPath of [...paths, dir]) {
+    await utimes(entryPath, FIXED_NOW, FIXED_NOW);
+  }
+
+  for (const entry of entries.filter((candidate) => candidate.isFile())) {
+    const filePath = path.join(entry.parentPath, entry.name);
+    const { mtimeMs } = await stat(filePath);
+
+    if (mtimeMs !== FIXED_NOW.getTime()) {
+      throw new Error(`${filePath}: mtime ${mtimeMs}, expected ${FIXED_NOW.getTime()}`);
+    }
+  }
+}
+
+function copiedFixturesRoot(tempRoot: string): string {
+  return path.join(tempRoot, 'fixtures');
+}
+
+/**
+ * Copies `tests/fixtures/e2e` and `tests/fixtures/golden` under `tempRoot` with every mtime
+ * at `FIXED_NOW`. Most adapters declare `eventsPrecedeFileMtime` (`rg eventsPrecedeFileMtime
+ * src/sources`), and a windowed run skips their files whose newest mtime predates `since`
+ * minus a day, so checkout mtimes would otherwise decide what an old clone reports.
+ */
+async function copyFixtures(tempRoot: string): Promise<void> {
+  const copyRoot = copiedFixturesRoot(tempRoot);
+
+  await cp(E2E_FIXTURES_ROOT, path.join(copyRoot, 'e2e'), { recursive: true });
+  await mkdir(path.join(copyRoot, 'golden'));
+
+  for (const source of await listDirectories(GOLDEN_FIXTURES_ROOT)) {
+    await cp(path.join(GOLDEN_FIXTURES_ROOT, source), path.join(copyRoot, 'golden', source), {
+      recursive: true,
+    });
+  }
+
+  await pinMtimes(copyRoot);
+}
+
+/**
+ * Builds the e2e option for each source from a copy of the fixtures under `tempRoot` (see
+ * `copyFixtures`), generating the SQLite and dsh fixtures there too.
+ */
 export async function createE2eSourceOptions(tempRoot: string): Promise<SourceOptions> {
+  await copyFixtures(tempRoot);
+  const e2eRoot = path.join(copiedFixturesRoot(tempRoot), 'e2e');
   const generatedDir = path.join(tempRoot, 'e2e-generated');
   const antigravityDir = path.join(generatedDir, 'antigravity');
   const dshDir = path.join(generatedDir, 'dsh');
@@ -204,12 +253,12 @@ export async function createE2eSourceOptions(tempRoot: string): Promise<SourceOp
     goose: gooseDb,
     antigravity: antigravityDir,
     dsh: dshDir,
-    qwen: path.join(E2E_FIXTURES_ROOT, 'qwen', 'projects'),
+    qwen: path.join(e2eRoot, 'qwen', 'projects'),
   };
   const options: SourceOptions = {};
 
   for (const sourceId of ALL_SOURCE_IDS) {
-    options[getOptionKey(sourceId)] = generated[sourceId] ?? path.join(E2E_FIXTURES_ROOT, sourceId);
+    options[getOptionKey(sourceId)] = generated[sourceId] ?? path.join(e2eRoot, sourceId);
   }
 
   return options;
@@ -261,8 +310,15 @@ export async function listFixtureSets(): Promise<FixtureSet[]> {
   ];
 }
 
-/** The options that point the set's source at the set. */
-export function getFixtureSetOptions(set: FixtureSet, e2eOptions: SourceOptions): SourceOptions {
+/**
+ * The options that point the set's source at the set: `e2eOptions` for the e2e set, the
+ * copy `createE2eSourceOptions(tempRoot)` made for a golden set.
+ */
+export function getFixtureSetOptions(
+  set: FixtureSet,
+  e2eOptions: SourceOptions,
+  tempRoot: string,
+): SourceOptions {
   const optionKey = getOptionKey(set.source);
 
   if (set.name === undefined) {
@@ -277,7 +333,7 @@ export function getFixtureSetOptions(set: FixtureSet, e2eOptions: SourceOptions)
     );
   }
 
-  return { [optionKey]: path.join(GOLDEN_FIXTURES_ROOT, set.source, set.name) };
+  return { [optionKey]: path.join(copiedFixturesRoot(tempRoot), 'golden', set.source, set.name) };
 }
 
 export function getFixtureSetLabel(set: FixtureSet): string {

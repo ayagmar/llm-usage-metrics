@@ -78,7 +78,7 @@ describe.skipIf(process.platform === 'win32')(`events goldens (${WINDOWS_SKIP_RE
 
     it(`freezes the ${label} events`, async () => {
       const output = await captureEvents({
-        ...getFixtureSetOptions(set, e2eOptions),
+        ...getFixtureSetOptions(set, e2eOptions, environment.rootDir),
         source: set.source,
         format: 'jsonl',
       });
