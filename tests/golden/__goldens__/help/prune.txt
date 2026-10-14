@@ -1,0 +1,28 @@
+Usage: llm-usage prune [options]
+
+Preview or delete departed files from the local event store
+
+Options:
+  --help-all                      Display help including the per-source path flags
+  --source-dir <source-id=path>   Override source directory for directory-backed sources
+                                  (repeatable)
+  --source <name>                 Filter by source id (repeatable or comma-separated, supported
+                                  sources (17): pi, codex, gemini, droid, opencode, openclaw,
+                                  claude, copilot, goose, amp, qwen, kimi, cline, roocode, kilocode,
+                                  antigravity, dsh)
+  --json                          Render output as JSON
+  --quiet                         Suppress informational stderr output (warnings still print)
+  --verbose                       Print detailed diagnostics on stderr (per-source counts, routine
+                                  skips, config, env)
+  --suppressed                    Select departed files that --history already suppresses
+  --departed-before <YYYY-MM-DD>  Select departed files whose newest event timestamp is strictly
+                                  before this UTC date
+  --apply                         Delete selected departed files and vacuum the event store
+  -h, --help                      display help for command
+
+Per-source path flags (--claude-dir, ...)
+are listed by --help-all.
+
+Examples:
+  $ llm-usage prune --suppressed
+  $ llm-usage prune --departed-before 2026-01-01 --apply

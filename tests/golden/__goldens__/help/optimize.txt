@@ -1,0 +1,51 @@
+Usage: llm-usage optimize [options] <granularity>
+
+Show counterfactual pricing report for candidate model(s)
+
+Arguments:
+  granularity                    Report period (choices: "daily", "weekly", "monthly")
+
+Options:
+  --help-all                     Display help including the per-source path flags
+  --source-dir <source-id=path>  Override source directory for directory-backed sources (repeatable)
+  --source <name>                Filter by source id (repeatable or comma-separated, supported
+                                 sources (17): pi, codex, gemini, droid, opencode, openclaw, claude,
+                                 copilot, goose, amp, qwen, kimi, cline, roocode, kilocode,
+                                 antigravity, dsh)
+  --json                         Render output as JSON
+  --quiet                        Suppress informational stderr output (warnings still print)
+  --verbose                      Print detailed diagnostics on stderr (per-source counts, routine
+                                 skips, config, env)
+  --since <YYYY-MM-DD>           Inclusive start date filter
+  --until <YYYY-MM-DD>           Inclusive end date filter
+  --timezone <iana>              Timezone for bucketing (default: system timezone)
+  --provider <name>              Billing-provider filter (normalized to billing entity; e.g. openai,
+                                 anthropic, google, moonshot)
+  --model <name>                 Filter by model (repeatable/comma-separated; exact when exact match
+                                 exists after source/provider/date filters, otherwise substring)
+  --pricing-url <url>            Override LiteLLM pricing source URL
+  --pricing-overrides <path>     Path to a JSON file of per-model pricing overrides (takes
+                                 precedence over LiteLLM)
+  --pricing-offline              Use cached LiteLLM pricing only (no network fetch)
+  --ignore-pricing-failures      Continue without estimated costs when pricing cannot be loaded
+  --history                      Include usage from files that no longer exist on disk (on by
+                                 default; when passed, fails if the event store is unavailable)
+  --no-history                   Leave out usage from files that no longer exist on disk
+  --machine <name>               Count only these machines (repeatable or comma-separated; local is
+                                 this one; default: all)
+  --no-sync                      Use other machines' cached usage without refreshing it over ssh
+  --markdown                     Render output as markdown table
+  --share                        Write a share card (SVG and an HTML page with PNG export) to the
+                                 current directory
+  --no-open                      With --share, write the files without opening the page
+  --candidate-model <name>       Candidate model for counterfactual pricing (repeatable or
+                                 comma-separated)
+  --top <n>                      Show only the top N cheapest candidates (positive integer)
+  -h, --help                     display help for command
+
+Per-source path flags (--claude-dir, ...)
+are listed by --help-all.
+
+Examples:
+  $ llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candidate-model gpt-5-codex --json
+  $ llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candidate-model gpt-5-codex --share

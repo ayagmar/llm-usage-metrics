@@ -1,0 +1,14 @@
+Usage: llm-usage completion [options] <shell>
+
+Print a shell completion script (bash, zsh, or fish)
+
+Arguments:
+  shell       Shell: bash | zsh | fish
+
+Options:
+  -h, --help  display help for command
+
+Examples:
+  $ source <(llm-usage completion bash)   # in ~/.bashrc
+  $ source <(llm-usage completion zsh)    # in ~/.zshrc
+  $ for name in llm-usage llm-usage-metrics; llm-usage completion fish > ~/.config/fish/completions/$name.fish; end

@@ -1,0 +1,45 @@
+Usage: llm-usage wrapped [options]
+
+Show a yearly usage recap with an optional share card
+
+Options:
+  --help-all                     Display help including the per-source path flags
+  --source-dir <source-id=path>  Override source directory for directory-backed sources (repeatable)
+  --source <name>                Filter by source id (repeatable or comma-separated, supported
+                                 sources (17): pi, codex, gemini, droid, opencode, openclaw, claude,
+                                 copilot, goose, amp, qwen, kimi, cline, roocode, kilocode,
+                                 antigravity, dsh)
+  --json                         Render output as JSON
+  --quiet                        Suppress informational stderr output (warnings still print)
+  --verbose                      Print detailed diagnostics on stderr (per-source counts, routine
+                                 skips, config, env)
+  --timezone <iana>              Timezone for bucketing (default: system timezone)
+  --provider <name>              Billing-provider filter (normalized to billing entity; e.g. openai,
+                                 anthropic, google, moonshot)
+  --model <name>                 Filter by model (repeatable/comma-separated; exact when exact match
+                                 exists after source/provider/date filters, otherwise substring)
+  --pricing-url <url>            Override LiteLLM pricing source URL
+  --pricing-overrides <path>     Path to a JSON file of per-model pricing overrides (takes
+                                 precedence over LiteLLM)
+  --pricing-offline              Use cached LiteLLM pricing only (no network fetch)
+  --ignore-pricing-failures      Continue without estimated costs when pricing cannot be loaded
+  --history                      Include usage from files that no longer exist on disk (on by
+                                 default; when passed, fails if the event store is unavailable)
+  --no-history                   Leave out usage from files that no longer exist on disk
+  --machine <name>               Count only these machines (repeatable or comma-separated; local is
+                                 this one; default: all)
+  --no-sync                      Use other machines' cached usage without refreshing it over ssh
+  --markdown                     Render output as markdown table
+  --share                        Write a share card (SVG and an HTML page with PNG export) to the
+                                 current directory
+  --no-open                      With --share, write the files without opening the page
+  --year <YYYY>                  Year to recap (2020-2100; defaults to current local year)
+  -h, --help                     display help for command
+
+Per-source path flags (--claude-dir, ...)
+are listed by --help-all.
+
+Examples:
+  $ llm-usage wrapped
+  $ llm-usage wrapped --year 2026 --share
+  $ llm-usage wrapped --year 2026 --json
