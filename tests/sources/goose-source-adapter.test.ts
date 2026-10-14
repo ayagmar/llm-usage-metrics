@@ -5,6 +5,7 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { createDefaultAdapters } from '../../src/sources/create-default-adapters.js';
 import { getDefaultGooseDbPathCandidates } from '../../src/sources/goose/goose-db-path-resolver.js';
 import { GooseSourceAdapter } from '../../src/sources/goose/goose-source-adapter.js';
 import { withSuppressedSqliteExperimentalWarning } from '../helpers/sqlite-fixture-db.js';
@@ -334,6 +335,12 @@ describe.skipIf(!DatabaseSync)('GooseSourceAdapter', () => {
 
     await expect(directoryAdapter.discoverFiles()).rejects.toThrow(
       'Goose DB path is not a file: /tmp/goose-dir',
+    );
+  });
+
+  it('rejects a blank --goose-db in the CLI validation before the adapter sees it', () => {
+    expect(() => createDefaultAdapters({ gooseDb: '  ' })).toThrow(
+      '--goose-db must be a non-empty path',
     );
   });
 
