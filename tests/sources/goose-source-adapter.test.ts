@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createDefaultAdapters } from '../../src/sources/create-default-adapters.js';
 import { getDefaultGooseDbPathCandidates } from '../../src/sources/goose/goose-db-path-resolver.js';
 import { GooseSourceAdapter } from '../../src/sources/goose/goose-source-adapter.js';
+import { createSourceContext } from '../../src/sources/source-context.js';
 import { withSuppressedSqliteExperimentalWarning } from '../helpers/sqlite-fixture-db.js';
 
 type FixtureDatabaseSync = new (filePath: string) => {
@@ -119,11 +120,13 @@ const DatabaseSync = loadDatabaseSync();
 describe('getDefaultGooseDbPathCandidates', () => {
   it('resolves Linux candidates from XDG data home and legacy Block path', () => {
     expect(
-      getDefaultGooseDbPathCandidates({
-        homeDir: '/home/tester',
-        platform: 'linux',
-        env: { XDG_DATA_HOME: '/xdg-data' },
-      }),
+      getDefaultGooseDbPathCandidates(
+        createSourceContext({
+          homeDir: '/home/tester',
+          platform: 'linux',
+          env: { XDG_DATA_HOME: '/xdg-data' },
+        }),
+      ),
     ).toEqual([
       path.join('/xdg-data', 'goose', 'sessions', 'sessions.db'),
       path.join('/home/tester', '.local', 'share', 'Block', 'goose', 'sessions', 'sessions.db'),
@@ -132,11 +135,13 @@ describe('getDefaultGooseDbPathCandidates', () => {
 
   it('resolves macOS candidates from Application Support and legacy Block path', () => {
     expect(
-      getDefaultGooseDbPathCandidates({
-        homeDir: '/Users/tester',
-        platform: 'darwin',
-        env: {},
-      }),
+      getDefaultGooseDbPathCandidates(
+        createSourceContext({
+          homeDir: '/Users/tester',
+          platform: 'darwin',
+          env: {},
+        }),
+      ),
     ).toEqual([
       path.join(
         '/Users/tester',
@@ -152,22 +157,26 @@ describe('getDefaultGooseDbPathCandidates', () => {
 
   it('resolves Windows candidates from APPDATA or USERPROFILE fallback', () => {
     expect(
-      getDefaultGooseDbPathCandidates({
-        homeDir: '/home/tester',
-        platform: 'win32',
-        env: { APPDATA: '/roaming' },
-      }),
+      getDefaultGooseDbPathCandidates(
+        createSourceContext({
+          homeDir: '/home/tester',
+          platform: 'win32',
+          env: { APPDATA: '/roaming' },
+        }),
+      ),
     ).toEqual([
       path.join('/roaming', 'goose', 'sessions', 'sessions.db'),
       path.join('/home/tester', '.local', 'share', 'Block', 'goose', 'sessions', 'sessions.db'),
     ]);
 
     expect(
-      getDefaultGooseDbPathCandidates({
-        homeDir: '/home/tester',
-        platform: 'win32',
-        env: { USERPROFILE: '/profile' },
-      })[0],
+      getDefaultGooseDbPathCandidates(
+        createSourceContext({
+          homeDir: '/home/tester',
+          platform: 'win32',
+          env: { USERPROFILE: '/profile' },
+        }),
+      )[0],
     ).toBe(path.join('/profile', 'AppData', 'Roaming', 'goose', 'sessions', 'sessions.db'));
   });
 });
@@ -292,14 +301,16 @@ describe.skipIf(!DatabaseSync)('GooseSourceAdapter', () => {
 
     const adapter = new GooseSourceAdapter({
       resolveDefaultDbPaths: () =>
-        getDefaultGooseDbPathCandidates({
-          homeDir: tempDir,
-          platform: 'linux',
-          env: {
-            GOOSE_PATH_ROOT: goosePathRoot,
-            XDG_DATA_HOME: xdgDataHome,
-          },
-        }),
+        getDefaultGooseDbPathCandidates(
+          createSourceContext({
+            homeDir: tempDir,
+            platform: 'linux',
+            env: {
+              GOOSE_PATH_ROOT: goosePathRoot,
+              XDG_DATA_HOME: xdgDataHome,
+            },
+          }),
+        ),
     });
 
     await expect(adapter.discoverFiles()).resolves.toEqual([envDbPath]);
@@ -347,9 +358,7 @@ describe.skipIf(!DatabaseSync)('GooseSourceAdapter', () => {
   it('fails discovery when explicit --goose-db path is blank or missing', async () => {
     const blankAdapter = new GooseSourceAdapter({ dbPath: '   ' });
 
-    await expect(blankAdapter.discoverFiles()).rejects.toThrow(
-      '--goose-db must be a non-empty path',
-    );
+    await expect(blankAdapter.discoverFiles()).rejects.toThrow('dbPath must be a non-empty path');
 
     const missingAdapter = new GooseSourceAdapter({
       dbPath: path.join(os.tmpdir(), `missing-goose-${Date.now()}.db`),

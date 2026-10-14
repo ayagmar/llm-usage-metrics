@@ -1,31 +1,19 @@
-import os from 'node:os';
 import path from 'node:path';
 
-export type GooseDbPathResolverOptions = {
-  platform?: NodeJS.Platform;
-  homeDir?: string;
-  env?: NodeJS.ProcessEnv;
-};
+import { readEnvPath, type SourceContext } from '../source-context.js';
 
 function deduplicate(paths: string[]): string[] {
   return [...new Set(paths)];
-}
-
-function normalizeEnvPath(value: string | undefined): string | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  const normalized = value.trim();
-  return normalized || undefined;
 }
 
 function getGooseDbPath(rootDir: string): string {
   return path.join(rootDir, 'goose', 'sessions', 'sessions.db');
 }
 
-function getLinuxLikeCandidates(homeDir: string, env: NodeJS.ProcessEnv): string[] {
-  const xdgDataHome = normalizeEnvPath(env.XDG_DATA_HOME) ?? path.join(homeDir, '.local', 'share');
+function getLinuxLikeCandidates(context: SourceContext): string[] {
+  const { homeDir } = context;
+  const xdgDataHome =
+    readEnvPath(context, 'XDG_DATA_HOME') ?? path.join(homeDir, '.local', 'share');
 
   return [
     getGooseDbPath(xdgDataHome),
@@ -40,11 +28,12 @@ function getMacOsCandidates(homeDir: string): string[] {
   ];
 }
 
-function getWindowsCandidates(homeDir: string, env: NodeJS.ProcessEnv): string[] {
-  const userProfile = normalizeEnvPath(env.USERPROFILE);
+function getWindowsCandidates(context: SourceContext): string[] {
+  const { homeDir } = context;
+  const userProfile = readEnvPath(context, 'USERPROFILE');
   const roamingBase =
-    normalizeEnvPath(env.APPDATA) ??
-    normalizeEnvPath(env.LOCALAPPDATA) ??
+    readEnvPath(context, 'APPDATA') ??
+    readEnvPath(context, 'LOCALAPPDATA') ??
     (userProfile ? path.join(userProfile, 'AppData', 'Roaming') : undefined);
   const roamingCandidates = roamingBase ? [getGooseDbPath(roamingBase)] : [];
 
@@ -54,23 +43,18 @@ function getWindowsCandidates(homeDir: string, env: NodeJS.ProcessEnv): string[]
   ];
 }
 
-export function getDefaultGooseDbPathCandidates(
-  options: GooseDbPathResolverOptions = {},
-): string[] {
-  const platform = options.platform ?? process.platform;
-  const homeDir = options.homeDir ?? os.homedir();
-  const env = options.env ?? process.env;
-  const goosePathRoot = normalizeEnvPath(env.GOOSE_PATH_ROOT);
+export function getDefaultGooseDbPathCandidates(context: SourceContext): string[] {
+  const goosePathRoot = readEnvPath(context, 'GOOSE_PATH_ROOT');
   const envCandidates = goosePathRoot
     ? [path.join(goosePathRoot, 'data', 'sessions', 'sessions.db')]
     : [];
 
-  switch (platform) {
+  switch (context.platform) {
     case 'win32':
-      return deduplicate([...envCandidates, ...getWindowsCandidates(homeDir, env)]);
+      return deduplicate([...envCandidates, ...getWindowsCandidates(context)]);
     case 'darwin':
-      return deduplicate([...envCandidates, ...getMacOsCandidates(homeDir)]);
+      return deduplicate([...envCandidates, ...getMacOsCandidates(context.homeDir)]);
     default:
-      return deduplicate([...envCandidates, ...getLinuxLikeCandidates(homeDir, env)]);
+      return deduplicate([...envCandidates, ...getLinuxLikeCandidates(context)]);
   }
 }

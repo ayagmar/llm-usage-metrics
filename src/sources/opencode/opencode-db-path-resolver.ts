@@ -1,28 +1,13 @@
 import { readdirSync } from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 
 import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
-
-export type OpenCodeDbPathResolverOptions = {
-  platform?: NodeJS.Platform;
-  homeDir?: string;
-  env?: NodeJS.ProcessEnv;
-};
+import { readEnvPath, type SourceContext } from '../source-context.js';
 
 const CHANNEL_DB_FILE_PATTERN = /^opencode-.+\.db$/u;
 
 function deduplicate(paths: string[]): string[] {
   return [...new Set(paths)];
-}
-
-function normalizeEnvPath(value: string | undefined): string | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  const normalized = value.trim();
-  return normalized || undefined;
 }
 
 function listChannelDbFileNames(directory: string): string[] {
@@ -48,8 +33,10 @@ function getDirectoryCandidates(directory: string): string[] {
   ];
 }
 
-function getLinuxLikeCandidates(homeDir: string, env: NodeJS.ProcessEnv): string[] {
-  const xdgDataHome = normalizeEnvPath(env.XDG_DATA_HOME) ?? path.join(homeDir, '.local', 'share');
+function getLinuxLikeCandidates(context: SourceContext): string[] {
+  const { homeDir } = context;
+  const xdgDataHome =
+    readEnvPath(context, 'XDG_DATA_HOME') ?? path.join(homeDir, '.local', 'share');
 
   return [
     ...getDirectoryCandidates(path.join(xdgDataHome, 'opencode')),
@@ -66,11 +53,12 @@ function getMacOsCandidates(homeDir: string): string[] {
   ];
 }
 
-function getWindowsCandidates(homeDir: string, env: NodeJS.ProcessEnv): string[] {
-  const userProfile = normalizeEnvPath(env.USERPROFILE);
+function getWindowsCandidates(context: SourceContext): string[] {
+  const { homeDir } = context;
+  const userProfile = readEnvPath(context, 'USERPROFILE');
   const roamingBase =
-    normalizeEnvPath(env.APPDATA) ??
-    normalizeEnvPath(env.LOCALAPPDATA) ??
+    readEnvPath(context, 'APPDATA') ??
+    readEnvPath(context, 'LOCALAPPDATA') ??
     (userProfile ? path.join(userProfile, 'AppData', 'Roaming') : undefined);
 
   const roamingCandidates = roamingBase
@@ -80,19 +68,13 @@ function getWindowsCandidates(homeDir: string, env: NodeJS.ProcessEnv): string[]
   return [...roamingCandidates, ...getDirectoryCandidates(path.join(homeDir, '.opencode'))];
 }
 
-export function getDefaultOpenCodeDbPathCandidates(
-  options: OpenCodeDbPathResolverOptions = {},
-): string[] {
-  const platform = options.platform ?? process.platform;
-  const homeDir = options.homeDir ?? os.homedir();
-  const env = options.env ?? process.env;
-
-  switch (platform) {
+export function getDefaultOpenCodeDbPathCandidates(context: SourceContext): string[] {
+  switch (context.platform) {
     case 'win32':
-      return deduplicate(getWindowsCandidates(homeDir, env));
+      return deduplicate(getWindowsCandidates(context));
     case 'darwin':
-      return deduplicate(getMacOsCandidates(homeDir));
+      return deduplicate(getMacOsCandidates(context.homeDir));
     default:
-      return deduplicate(getLinuxLikeCandidates(homeDir, env));
+      return deduplicate(getLinuxLikeCandidates(context));
   }
 }

@@ -98,7 +98,7 @@ describe('OpenCodeSourceAdapter', () => {
       dbPath: '   ',
     });
 
-    await expect(adapter.discoverFiles()).rejects.toThrow('--opencode-db must be a non-empty path');
+    await expect(adapter.discoverFiles()).rejects.toThrow('dbPath must be a non-empty path');
   });
 
   it('reports parse dependencies for configured and blank db paths', async () => {
