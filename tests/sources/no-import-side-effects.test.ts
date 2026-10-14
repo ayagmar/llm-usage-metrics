@@ -1,9 +1,21 @@
 import { readdir } from 'node:fs/promises';
-import os from 'node:os';
+import type * as NodeOs from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
+// Counts `os.homedir()` and a named `homedir()` import alike: both resolve here.
+const { homedirCalls } = vi.hoisted(() => ({ homedirCalls: { count: 0 } }));
+
+vi.mock('node:os', async (importOriginal) => {
+  const actual = await importOriginal<typeof NodeOs>();
+  const homedir = () => {
+    homedirCalls.count += 1;
+    return actual.homedir();
+  };
+  return { ...actual, homedir, default: { ...actual, homedir } };
+});
 
 const sourcesDir = path.resolve('src/sources');
 
@@ -26,7 +38,7 @@ describe('src/sources import side effects', () => {
     expect(modules).toContain(path.join(sourcesDir, 'create-default-adapters.ts'));
 
     vi.resetModules();
-    const homedir = vi.spyOn(os, 'homedir');
+    homedirCalls.count = 0;
     // eslint-disable-next-line @typescript-eslint/unbound-method -- compared by identity only
     const emitWarning = process.emitWarning;
 
@@ -35,7 +47,7 @@ describe('src/sources import side effects', () => {
       await import(pathToFileURL(modulePath).href);
     }
 
-    expect(homedir).not.toHaveBeenCalled();
+    expect(homedirCalls.count).toBe(0);
     // eslint-disable-next-line @typescript-eslint/unbound-method -- compared by identity only
     expect(process.emitWarning).toBe(emitWarning);
   });
