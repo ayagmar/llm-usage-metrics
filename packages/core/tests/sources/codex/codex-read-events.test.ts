@@ -398,8 +398,15 @@ describe('CodexSourceAdapter.readEvents', () => {
 
     expect(events).toEqual([
       { kind: 'session_meta', ...base, cwd: '/work/held', rawProvider: 'openai' },
-      // Answered while held: no completedAt, since its result logged no timestamp.
-      { kind: 'tool_call', ...base, toolCallId: 'call-held', name: 'exec_command', status: 'ok' },
+      // Answered while held: its result completes at the timestamp that releases both.
+      {
+        kind: 'tool_call',
+        ...base,
+        toolCallId: 'call-held',
+        name: 'exec_command',
+        status: 'ok',
+        completedAt: base.timestamp,
+      },
       { kind: 'message', ...base, role: 'user', textLength: 21, text: 'Before any timestamp.' },
       { kind: 'session_meta', ...base, model: 'gpt-5.5' },
       {
@@ -410,7 +417,18 @@ describe('CodexSourceAdapter.readEvents', () => {
         textLength: 8,
         text: 'Carried.',
       },
-      { kind: 'tool_call', ...base, name: 'web_search', status: 'ok' },
+      // A web search is its own result, so it completes at its carried timestamp.
+      { kind: 'tool_call', ...base, name: 'web_search', status: 'ok', completedAt: base.timestamp },
+      // A result with no timestamp of its own completes at the carried one.
+      {
+        kind: 'tool_call',
+        ...base,
+        timestamp: '2026-10-03T08:00:05.000Z',
+        toolCallId: 'call-timed',
+        name: 'exec_command',
+        status: 'ok',
+        completedAt: '2026-10-03T08:00:05.000Z',
+      },
       {
         kind: 'tool_call',
         ...base,

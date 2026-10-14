@@ -280,6 +280,11 @@ export class TimestampCarry<Held> {
     return this.lastTimestamp;
   }
 
+  /** The last valid timestamp seen, without holding anything. */
+  public current(): string | undefined {
+    return this.lastTimestamp;
+  }
+
   /** At end of file: what is still held, to count as `<kind>_invalid_timestamp`. */
   public takeUnreleased(): Held[] {
     const unreleased = this.held;

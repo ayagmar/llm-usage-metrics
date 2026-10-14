@@ -177,7 +177,7 @@ A session_meta event carries partial facts. A field is set when a record states 
 
 ### Tool calls
 
-A call is paired with its result by call id; the first call with an id wins. `status` is `error` when the result says so, `ok` when it does not, and `unknown` when the file has no result for the call or the source logs a status that is not recognised:
+A call is paired with its result by call id; the first call with an id wins. `completedAt` is the result record's timestamp, resolved as any record's is: a result with none takes the carried one. `status` is `error` when the result says so, `ok` when it does not, and `unknown` when the file has no result for the call or the source logs a status that is not recognised:
 
 - claude: `tool_result.is_error`; `durationMs` from `toolUseResult.durationMs` when the row holds one result.
 - codex: an output record means `ok` (Codex logs no error flag). `web_search_call` is a call named `web_search` that completes at its own record: `completed` is `ok`, `failed` is `error`, anything else is `unknown`. No `durationMs`.

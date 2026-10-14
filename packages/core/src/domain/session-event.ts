@@ -66,7 +66,7 @@ export type ToolCallEvent = EventBase & {
   name: string;
   /** `unknown`: no result in this file, or a status the source logs that is not recognised. */
   status: ToolCallStatus;
-  /** The result record's timestamp. */
+  /** The result record's timestamp, or the carried one when the record has none. */
   completedAt?: string;
   /** Only when the source logs a duration. */
   durationMs?: number;

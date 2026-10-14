@@ -39,8 +39,10 @@ type CodexKindReaderOptions = {
 
 type ToolCallResult = {
   status: ToolCallStatus;
+  /** The result record's resolved timestamp; set on release when the call is held. */
   completedAt?: string;
-  record: Record<string, unknown>;
+  /** The result record, only when the read asked for `raw`. */
+  record?: Record<string, unknown>;
 };
 
 type PendingToolCall = {
@@ -48,7 +50,8 @@ type PendingToolCall = {
   timestamp?: string;
   toolCallId?: string;
   name: string;
-  call: Record<string, unknown>;
+  /** The call record, only when the read asked for `raw`. */
+  call?: Record<string, unknown>;
   /** Set once the result is seen; the call waits for a timestamp to be yielded. */
   result?: ToolCallResult;
 };
@@ -313,7 +316,13 @@ export class CodexKindReader {
       return;
     }
 
-    const call: PendingToolCall = { sessionId, timestamp, toolCallId, name, call: line };
+    const call: PendingToolCall = {
+      sessionId,
+      timestamp,
+      toolCallId,
+      name,
+      call: this.raw ? line : undefined,
+    };
 
     if (!this.pairing.start(toolCallId, call) || timestamp !== undefined) {
       return;
@@ -323,8 +332,14 @@ export class CodexKindReader {
       kind: 'tool_call',
       release: (resolved) => {
         call.timestamp = resolved;
-        // A call answered while it was held completes now.
-        return call.result ? this.toolCallEvent(call, resolved) : undefined;
+
+        if (!call.result) {
+          return undefined;
+        }
+
+        // A call answered while it was held completes now, its result at the same time.
+        call.result.completedAt ??= resolved;
+        return this.toolCallEvent(call, resolved);
       },
     });
   }
@@ -347,8 +362,13 @@ export class CodexKindReader {
       return;
     }
 
-    // Codex logs no error flag on a result: a result seen is a call that ran.
-    call.result = { status: 'ok', completedAt: timestamp, record: line };
+    // Codex logs no error flag on a result: a result seen is a call that ran. A result
+    // without a timestamp completes at the carried one; before any, with its held call.
+    call.result = {
+      status: 'ok',
+      completedAt: timestamp ?? this.carry.current(),
+      record: this.raw ? line : undefined,
+    };
 
     if (call.timestamp !== undefined) {
       const event = this.toolCallEvent(call, call.timestamp);
@@ -376,7 +396,7 @@ export class CodexKindReader {
           toolCallId: asTrimmedText(payload.id),
           name: WEB_SEARCH_TOOL_NAME,
           status,
-          completedAt: status === 'unknown' ? undefined : timestamp,
+          completedAt: status === 'unknown' ? undefined : resolved,
           raw: this.raw ? { call: line } : undefined,
         }),
       ),
