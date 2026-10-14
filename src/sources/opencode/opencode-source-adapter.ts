@@ -4,6 +4,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import type { UsageEvent } from '../../domain/usage-event.js';
 import { pathExists, pathIsFile, pathReadable } from '../../utils/fs-helpers.js';
 import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
+import type { SourceContext } from '../source-context.js';
 import { getDefaultOpenCodeDbPathCandidates } from './opencode-db-path-resolver.js';
 import { loadNodeSqliteModule, type SqliteModule } from './node-sqlite-loader.js';
 import { parseOpenCodeMessageRows } from './opencode-row-parser.js';
@@ -26,6 +27,7 @@ export type OpenCodeSourceAdapterOptions = {
   maxBusyRetries?: number;
   busyRetryDelayMs?: number;
   sleep?: SleepFn;
+  context?: SourceContext;
 };
 
 // `-wal` holds commits that are not checkpointed into the database file yet. `-shm` is

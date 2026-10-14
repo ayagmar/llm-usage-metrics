@@ -14,6 +14,7 @@ import { OpenClawSourceAdapter } from './openclaw/openclaw-source-adapter.js';
 import { PiSourceAdapter } from './pi/pi-source-adapter.js';
 import { QwenSourceAdapter } from './qwen/qwen-source-adapter.js';
 import type { SourceAdapter } from './source-adapter.js';
+import { createSourceContext, type SourceContext } from './source-context.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import {
   parseSourceDirectoryOverrides,
@@ -63,18 +64,24 @@ type SourceRegistration = {
    * Builds one adapter over several directories. Without it, each directory gets its own
    * adapter behind MultiDirectorySourceAdapter.
    */
-  createForDirectories?: (directories: readonly string[]) => SourceAdapter;
+  createForDirectories?: (directories: readonly string[], context: SourceContext) => SourceAdapter;
+  /**
+   * Parse workers may build this source's adapter with default roots: parsing a file must
+   * not read the adapter's roots. Pi and Claude read them for fork parents.
+   */
+  parseInWorker: boolean;
   option: {
     key: SourceOverrideOptionKey;
     flag: string;
     help: string;
   };
-  create: (resolved: ResolvedSourcePath) => SourceAdapter;
+  create: (resolved: ResolvedSourcePath, context: SourceContext) => SourceAdapter;
 };
 
-const dirOptions = ({ path, requireExistingPath }: ResolvedSourcePath) => ({
+const dirOptions = ({ path, requireExistingPath }: ResolvedSourcePath, context: SourceContext) => ({
   dir: path,
   requireDir: requireExistingPath,
+  context,
 });
 
 const sourceRegistrations: readonly SourceRegistration[] = [
@@ -82,178 +89,195 @@ const sourceRegistrations: readonly SourceRegistration[] = [
     id: 'pi',
     format: 'jsonl',
     supportsSourceDir: true,
+    parseInWorker: false,
     option: { key: 'piDir', flag: '--pi-dir <path>', help: 'Path to .pi sessions directory' },
-    create: (resolved) => new PiSourceAdapter(dirOptions(resolved)),
+    create: (resolved, context) => new PiSourceAdapter(dirOptions(resolved, context)),
   },
   {
     id: 'codex',
     format: 'jsonl',
     supportsSourceDir: true,
+    parseInWorker: true,
     option: {
       key: 'codexDir',
       flag: '--codex-dir <path>',
       help: 'Path to .codex sessions directory',
     },
-    create: (resolved) => new CodexSourceAdapter(dirOptions(resolved)),
+    create: (resolved, context) => new CodexSourceAdapter(dirOptions(resolved, context)),
   },
   {
     id: 'gemini',
     format: 'json',
     supportsSourceDir: true,
+    parseInWorker: false,
     option: { key: 'geminiDir', flag: '--gemini-dir <path>', help: 'Path to .gemini directory' },
-    create: (resolved) => new GeminiSourceAdapter(dirOptions(resolved)),
+    create: (resolved, context) => new GeminiSourceAdapter(dirOptions(resolved, context)),
   },
   {
     id: 'droid',
     format: 'json',
     supportsSourceDir: true,
+    parseInWorker: false,
     option: {
       key: 'droidDir',
       flag: '--droid-dir <path>',
       help: 'Path to Droid sessions directory',
     },
-    create: (resolved) => new DroidSourceAdapter(dirOptions(resolved)),
+    create: (resolved, context) => new DroidSourceAdapter(dirOptions(resolved, context)),
   },
   {
     id: 'opencode',
     format: 'sqlite',
     supportsSourceDir: false,
+    parseInWorker: false,
     option: {
       key: 'opencodeDb',
       flag: '--opencode-db <path>',
       help: 'Path to OpenCode SQLite DB',
     },
-    create: ({ path }) => new OpenCodeSourceAdapter({ dbPath: path }),
+    create: ({ path }, context) => new OpenCodeSourceAdapter({ dbPath: path, context }),
   },
   {
     id: 'openclaw',
     format: 'jsonl',
     supportsSourceDir: true,
+    parseInWorker: false,
     option: {
       key: 'openclawDir',
       flag: '--openclaw-dir <path>',
       help: 'Path to OpenClaw agents directory',
     },
-    create: (resolved) => new OpenClawSourceAdapter(dirOptions(resolved)),
+    create: (resolved, context) => new OpenClawSourceAdapter(dirOptions(resolved, context)),
   },
   {
     id: 'claude',
     format: 'jsonl',
     supportsSourceDir: true,
+    parseInWorker: false,
     option: {
       key: 'claudeDir',
       flag: '--claude-dir <path>',
       help: 'Path to Claude projects directory',
     },
-    create: (resolved) => new ClaudeSourceAdapter(dirOptions(resolved)),
+    create: (resolved, context) => new ClaudeSourceAdapter(dirOptions(resolved, context)),
     // Fork deduplication needs every root in one adapter to find a parent transcript.
-    createForDirectories: (directories) =>
-      new ClaudeSourceAdapter({ dir: directories, requireDir: true }),
+    createForDirectories: (directories, context) =>
+      new ClaudeSourceAdapter({ dir: directories, requireDir: true, context }),
   },
   {
     id: 'copilot',
     format: 'jsonl',
     supportsSourceDir: true,
+    parseInWorker: false,
     option: {
       key: 'copilotDir',
       flag: '--copilot-dir <path>',
       help: 'Path to GitHub Copilot OTEL directory',
     },
-    create: (resolved) => new CopilotSourceAdapter(dirOptions(resolved)),
+    create: (resolved, context) => new CopilotSourceAdapter(dirOptions(resolved, context)),
   },
   {
     id: 'goose',
     format: 'sqlite',
     supportsSourceDir: false,
+    parseInWorker: false,
     option: { key: 'gooseDb', flag: '--goose-db <path>', help: 'Path to Goose SQLite DB' },
-    create: ({ path }) => new GooseSourceAdapter({ dbPath: path }),
+    create: ({ path }, context) => new GooseSourceAdapter({ dbPath: path, context }),
   },
   {
     id: 'amp',
     format: 'json',
     supportsSourceDir: true,
+    parseInWorker: false,
     option: { key: 'ampDir', flag: '--amp-dir <path>', help: 'Path to Amp threads directory' },
-    create: (resolved) => new AmpSourceAdapter(dirOptions(resolved)),
+    create: (resolved, context) => new AmpSourceAdapter(dirOptions(resolved, context)),
   },
   {
     id: 'qwen',
     format: 'jsonl',
     supportsSourceDir: true,
+    parseInWorker: false,
     option: { key: 'qwenDir', flag: '--qwen-dir <path>', help: 'Path to Qwen projects directory' },
-    create: (resolved) => new QwenSourceAdapter(dirOptions(resolved)),
+    create: (resolved, context) => new QwenSourceAdapter(dirOptions(resolved, context)),
   },
   {
     id: 'kimi',
     format: 'jsonl',
     supportsSourceDir: true,
+    parseInWorker: false,
     option: { key: 'kimiDir', flag: '--kimi-dir <path>', help: 'Path to Kimi sessions directory' },
-    create: (resolved) => new KimiSourceAdapter(dirOptions(resolved)),
+    create: (resolved, context) => new KimiSourceAdapter(dirOptions(resolved, context)),
   },
   {
     id: 'cline',
     format: 'json',
     supportsSourceDir: true,
+    parseInWorker: false,
     option: { key: 'clineDir', flag: '--cline-dir <path>', help: 'Path to Cline tasks directory' },
-    create: (resolved) =>
+    create: (resolved, context) =>
       createClineFamilyAdapter({
         id: 'cline',
         extensionId: CLINE_EXTENSION_IDS.cline,
-        ...dirOptions(resolved),
+        ...dirOptions(resolved, context),
       }),
   },
   {
     id: 'roocode',
     format: 'json',
     supportsSourceDir: true,
+    parseInWorker: false,
     option: {
       key: 'roocodeDir',
       flag: '--roocode-dir <path>',
       help: 'Path to RooCode tasks directory',
     },
-    create: (resolved) =>
+    create: (resolved, context) =>
       createClineFamilyAdapter({
         id: 'roocode',
         extensionId: CLINE_EXTENSION_IDS.roocode,
-        ...dirOptions(resolved),
+        ...dirOptions(resolved, context),
       }),
   },
   {
     id: 'kilocode',
     format: 'json',
     supportsSourceDir: true,
+    parseInWorker: false,
     option: {
       key: 'kilocodeDir',
       flag: '--kilocode-dir <path>',
       help: 'Path to KiloCode tasks directory',
     },
-    create: (resolved) =>
+    create: (resolved, context) =>
       createClineFamilyAdapter({
         id: 'kilocode',
         extensionId: CLINE_EXTENSION_IDS.kilocode,
-        ...dirOptions(resolved),
+        ...dirOptions(resolved, context),
       }),
   },
   {
     id: 'antigravity',
     format: 'sqlite',
     supportsSourceDir: true,
+    parseInWorker: false,
     option: {
       key: 'antigravityDir',
       flag: '--antigravity-dir <path>',
       help: 'Path to Antigravity conversations directory',
     },
-    create: (resolved) => new AntigravitySourceAdapter(dirOptions(resolved)),
+    create: (resolved, context) => new AntigravitySourceAdapter(dirOptions(resolved, context)),
   },
   {
     id: 'dsh',
     format: 'jsonl',
     supportsSourceDir: true,
+    parseInWorker: false,
     option: {
       key: 'dshDir',
       flag: '--dsh-dir <path>',
       help: 'Path to DeepSeek Harness sessions directory',
     },
-    create: (resolved) => new DshSourceAdapter(dirOptions(resolved)),
+    create: (resolved, context) => new DshSourceAdapter(dirOptions(resolved, context)),
   },
 ];
 
@@ -384,19 +408,22 @@ function resolveDirectories(
 function createDirectoryBackedAdapter(
   source: SourceRegistration,
   directories: readonly string[],
+  context: SourceContext,
 ): SourceAdapter {
   if (directories.length === 0) {
-    return source.create({ path: undefined, requireExistingPath: false });
+    return source.create({ path: undefined, requireExistingPath: false }, context);
   }
 
   if (directories.length === 1) {
-    return source.create({ path: directories[0], requireExistingPath: true });
+    return source.create({ path: directories[0], requireExistingPath: true }, context);
   }
 
   return (
-    source.createForDirectories?.(directories) ??
+    source.createForDirectories?.(directories, context) ??
     new MultiDirectorySourceAdapter(
-      directories.map((directory) => source.create({ path: directory, requireExistingPath: true })),
+      directories.map((directory) =>
+        source.create({ path: directory, requireExistingPath: true }, context),
+      ),
     )
   );
 }
@@ -415,7 +442,30 @@ export function getSourceStorageFormat(sourceId: string): SourceStorageFormat {
   return registration.format;
 }
 
-export function createDefaultAdapters(options: CreateDefaultAdaptersOptions): SourceAdapter[] {
+/** Whether a parse worker can build this source's adapter and parse its files. */
+export function canParseSourceOnWorker(sourceId: string): boolean {
+  return sourceRegistrations.some((source) => source.id === sourceId && source.parseInWorker);
+}
+
+/**
+ * The adapter a parse worker parses with: default roots and a context from the worker's own
+ * process. Undefined when the source is not registered for worker parsing.
+ */
+export function createWorkerParseAdapter(sourceId: string): SourceAdapter | undefined {
+  const registration = sourceRegistrations.find(
+    (source) => source.id === sourceId && source.parseInWorker,
+  );
+
+  return registration?.create(
+    { path: undefined, requireExistingPath: false },
+    createSourceContext(),
+  );
+}
+
+export function createDefaultAdapters(
+  options: CreateDefaultAdaptersOptions,
+  context: SourceContext = createSourceContext(),
+): SourceAdapter[] {
   for (const source of sourceRegistrations) {
     validateOverridePath(
       dedicatedFlagName(source.option.flag),
@@ -430,12 +480,13 @@ export function createDefaultAdapters(options: CreateDefaultAdaptersOptions): So
   return sourceRegistrations.map((source) => {
     if (!source.supportsSourceDir) {
       const [dbPath] = toSourceDirectoryList(options[source.option.key]);
-      return source.create({ path: dbPath, requireExistingPath: false });
+      return source.create({ path: dbPath, requireExistingPath: false }, context);
     }
 
     return createDirectoryBackedAdapter(
       source,
       resolveDirectories(source.id, options[source.option.key], sourceDirectoryOverrides),
+      context,
     );
   });
 }

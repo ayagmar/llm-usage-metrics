@@ -4,6 +4,7 @@ import { pathExists, pathIsFile, pathReadable } from '../../utils/fs-helpers.js'
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
 import { asTrimmedText, isBlankText, normalizeTimestampCandidate } from '../parsing-utils.js';
 import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
+import type { SourceContext } from '../source-context.js';
 import { getDefaultGooseDbPathCandidates } from './goose-db-path-resolver.js';
 import { loadNodeSqliteModule, type SqliteModule } from '../opencode/node-sqlite-loader.js';
 
@@ -34,6 +35,7 @@ export type GooseSourceAdapterOptions = {
   pathReadable?: PathPredicate;
   pathIsFile?: PathPredicate;
   loadSqliteModule?: () => Promise<SqliteModule>;
+  context?: SourceContext;
 };
 
 const gooseSessionsQuery = `

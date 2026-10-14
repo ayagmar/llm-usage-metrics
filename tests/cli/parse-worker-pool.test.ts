@@ -1,10 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  canParseSourceOnWorker,
   createParseWorkerPool,
   type ParseWorkerLike,
   type ParseWorkerRequestMessage,
 } from '../../src/cli/parse-worker-pool.js';
+import {
+  createWorkerParseAdapter,
+  getDefaultSourceIds,
+} from '../../src/sources/create-default-adapters.js';
 import type { SourceParseFileDiagnostics } from '../../src/sources/source-adapter.js';
 
 const entryUrl = new URL('file:///tmp/dist/index.js');
@@ -382,5 +387,22 @@ describe('parse-worker-pool', () => {
     await pool.terminate();
 
     expect(worker.terminateCalls).toBe(1);
+  });
+});
+
+describe('parse worker source registry', () => {
+  // Pi and Claude parsing reads the adapter's roots for fork parents, which a worker
+  // adapter built with default roots does not have; only codex parses on workers.
+  it('admits codex alone among the default sources', () => {
+    expect(getDefaultSourceIds().filter((sourceId) => canParseSourceOnWorker(sourceId))).toEqual([
+      'codex',
+    ]);
+    expect(canParseSourceOnWorker('unknown-source')).toBe(false);
+  });
+
+  it('builds a worker adapter only for sources that parse on workers', () => {
+    expect(createWorkerParseAdapter('codex')?.id).toBe('codex');
+    expect(createWorkerParseAdapter('claude')).toBeUndefined();
+    expect(createWorkerParseAdapter('unknown-source')).toBeUndefined();
   });
 });

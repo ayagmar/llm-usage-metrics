@@ -2,8 +2,11 @@ import { parentPort, Worker } from 'node:worker_threads';
 import type { WorkerOptions } from 'node:worker_threads';
 
 import type { SourceId } from '../domain/usage-event.js';
-import { CodexSourceAdapter } from '../sources/codex/codex-source-adapter.js';
-import type { SourceAdapter, SourceParseFileDiagnostics } from '../sources/source-adapter.js';
+import {
+  canParseSourceOnWorker,
+  createWorkerParseAdapter,
+} from '../sources/create-default-adapters.js';
+import type { SourceParseFileDiagnostics } from '../sources/source-adapter.js';
 import { asRecord } from '../utils/as-record.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
 
@@ -57,12 +60,6 @@ type WorkerSlot = {
   worker: ParseWorkerLike;
   currentTask?: PendingParseTask;
 };
-
-type WorkerSourceFactory = () => SourceAdapter;
-
-const parseWorkerSourceRegistry = new Map<SourceId, WorkerSourceFactory>([
-  ['codex', () => new CodexSourceAdapter()],
-]);
 
 /* v8 ignore start -- Worker-entry helpers run only inside the built CLI bundle. */
 function getDefaultParseFileDiagnostics(events: SourceParseFileDiagnostics['events']) {
@@ -165,12 +162,10 @@ function createFallbackParseWorkerPool(): ParseWorkerPool {
   };
 }
 
+export { canParseSourceOnWorker };
+
 export function isParseWorkerRequest(workerData: unknown): boolean {
   return asRecord(workerData)?.llmUsageParseWorker === true;
-}
-
-export function canParseSourceOnWorker(sourceId: SourceId): boolean {
-  return parseWorkerSourceRegistry.has(sourceId);
 }
 
 export function createParseWorkerPool(options: {
@@ -351,9 +346,9 @@ export async function runParseWorker(): Promise<never> {
         return;
       }
 
-      const adapterFactory = parseWorkerSourceRegistry.get(request.sourceId);
+      const adapter = createWorkerParseAdapter(request.sourceId);
 
-      if (!adapterFactory) {
+      if (!adapter) {
         port.postMessage({
           taskId: request.taskId,
           ok: false,
@@ -361,8 +356,6 @@ export async function runParseWorker(): Promise<never> {
         } satisfies ParseWorkerResponseMessage);
         return;
       }
-
-      const adapter = adapterFactory();
 
       try {
         const diagnostics = adapter.parseFileWithDiagnostics
