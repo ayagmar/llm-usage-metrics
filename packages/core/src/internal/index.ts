@@ -12,7 +12,6 @@ export * from '../sources/read-json-file.js';
 export * from '../sources/sqlite/node-sqlite-loader.js';
 export * from '../sources/sqlite/retry-policy.js';
 export * from '../sources/sqlite/sqlite-errors.js';
-export { readAdapterFile } from '../stream/collect.js';
 export * from '../utils/as-record.js';
 export * from '../utils/compare-by-code-point.js';
 export * from '../utils/discover-files.js';

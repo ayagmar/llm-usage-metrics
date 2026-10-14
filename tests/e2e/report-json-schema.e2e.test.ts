@@ -24,6 +24,7 @@ import {
   replaceFileEvents,
 } from '../../src/persistence/event-store.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
+import { readFrom } from '../helpers/fake-read.js';
 
 const piDir = path.resolve('tests/fixtures/e2e/pi');
 const codexDir = path.resolve('tests/fixtures/e2e/codex');
@@ -135,7 +136,7 @@ async function createStoreWithDepartedEvent(dbPath: string): Promise<void> {
 const noFilesAdapter: SourceAdapter = {
   id: 'codex',
   discoverFiles: async () => [],
-  parseFile: async () => [],
+  read: readFrom(async () => []),
 };
 
 beforeAll(async () => {
@@ -288,7 +289,7 @@ describe('report json schema e2e', () => {
     const adapter: SourceAdapter = {
       id: 'codex',
       discoverFiles: async () => [],
-      parseFile: async () => [],
+      read: readFrom(async () => []),
     };
     const output = await captureJsonStdout(() =>
       runPruneReport(

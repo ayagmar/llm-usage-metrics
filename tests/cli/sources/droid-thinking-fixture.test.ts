@@ -2,6 +2,7 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { collectFile } from '@ayagmar/agent-sessions';
 import { DroidSourceAdapter } from '@ayagmar/agent-sessions/sources/droid';
 
 // Freezes v0.11.0 parsing of a Droid session that reports thinking tokens (KI-6).
@@ -11,7 +12,8 @@ describe('Droid session with thinking tokens', () => {
   it('keeps thinking tokens beside output tokens and out of the total', async () => {
     const adapter = new DroidSourceAdapter({ dir: fixtureDir });
 
-    const result = await adapter.parseFileWithDiagnostics(
+    const result = await collectFile(
+      adapter,
       path.join(fixtureDir, 'session-thinking.settings.json'),
     );
 

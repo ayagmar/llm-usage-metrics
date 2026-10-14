@@ -8,7 +8,6 @@ import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import { pathExists } from '../../utils/fs-helpers.js';
 import { readFirstLine } from '../../utils/read-first-line.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
-import { collectFile } from '../../stream/collect.js';
 import {
   discoverFilesAcrossRoots,
   isPathWithinRoots,
@@ -25,7 +24,6 @@ import {
 import type {
   SourceAdapter,
   SourceAdapterPathOptions,
-  SourceParseFileDiagnostics,
   SourceReadOptions,
 } from '../source-adapter.js';
 import { createSourceContext, type SourceContext } from '../source-context.js';
@@ -362,13 +360,5 @@ export class PiSourceAdapter implements SourceAdapter {
 
       yield event;
     }
-  }
-
-  public async parseFile(filePath: string): Promise<UsageEvent[]> {
-    return (await collectFile(this, filePath)).events;
-  }
-
-  public parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
-    return collectFile(this, filePath);
   }
 }

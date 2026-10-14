@@ -7,7 +7,6 @@ import { asRecord } from '../../utils/as-record.js';
 import { discoverFiles } from '../../utils/discover-files.js';
 import { pathIsDirectory, pathReadable } from '../../utils/fs-helpers.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
-import { collectFile } from '../../stream/collect.js';
 import {
   asTrimmedText,
   isBlankText,
@@ -19,7 +18,6 @@ import { readJsonTranscriptFile } from '../read-json-file.js';
 import type {
   SourceAdapter,
   SourceAdapterPathOptions,
-  SourceParseFileDiagnostics,
   SourceReadOptions,
 } from '../source-adapter.js';
 import { createSourceContext, type SourceContext } from '../source-context.js';
@@ -213,13 +211,5 @@ export class DroidSourceAdapter implements SourceAdapter {
     }
 
     yield event;
-  }
-
-  public async parseFile(filePath: string): Promise<UsageEvent[]> {
-    return (await collectFile(this, filePath)).events;
-  }
-
-  public parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
-    return collectFile(this, filePath);
   }
 }

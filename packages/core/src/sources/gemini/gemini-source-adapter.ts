@@ -16,13 +16,11 @@ import {
   resolveTotalTokens,
   splitPromptIncludingCachedTokens,
 } from '../parsing-utils.js';
-import { collectFile } from '../../stream/collect.js';
 import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import { readJsonTranscriptFile } from '../read-json-file.js';
 import type {
   SourceAdapter,
   SourceAdapterPathOptions,
-  SourceParseFileDiagnostics,
   SourceReadOptions,
 } from '../source-adapter.js';
 import { createSourceContext, readEnvPath, type SourceContext } from '../source-context.js';
@@ -370,13 +368,5 @@ export class GeminiSourceAdapter implements SourceAdapter {
 
       yield event;
     }
-  }
-
-  public async parseFile(filePath: string): Promise<UsageEvent[]> {
-    return (await collectFile(this, filePath)).events;
-  }
-
-  public parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
-    return collectFile(this, filePath);
   }
 }

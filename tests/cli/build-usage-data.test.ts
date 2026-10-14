@@ -19,6 +19,7 @@ import type { PricingLoadResult } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { createDefaultOpenAiPricingSource } from '../helpers/static-pricing-source.js';
+import { readFrom, readWithDiagnostics } from '../helpers/fake-read.js';
 
 const tempDirs: string[] = [];
 const originalXdgCacheHome = process.env.XDG_CACHE_HOME;
@@ -47,7 +48,7 @@ function createAdapter(
     id,
     capabilities,
     discoverFiles: async () => files,
-    parseFile: async (filePath) => eventsByFile[filePath] ?? [],
+    read: readFrom(async (filePath) => eventsByFile[filePath] ?? []),
   };
 }
 
@@ -65,9 +66,9 @@ function createFailingAdapter(
 
       return ['/tmp/failing-source.jsonl'];
     },
-    parseFile: async () => {
+    read: readFrom(async () => {
       throw new Error(errorMessage);
-    },
+    }),
   };
 }
 
@@ -89,9 +90,9 @@ function createAdapterWithDiagnostics(
   return {
     id,
     discoverFiles: async () => files,
-    parseFile: async (filePath) => parseDiagnosticsByFile[filePath]?.events ?? [],
-    parseFileWithDiagnostics: async (filePath) =>
-      parseDiagnosticsByFile[filePath] ?? { events: [], skippedRows: 0 },
+    read: readWithDiagnostics(
+      async (filePath) => parseDiagnosticsByFile[filePath] ?? { events: [], skippedRows: 0 },
+    ),
   };
 }
 
@@ -682,7 +683,7 @@ describe('buildUsageData', () => {
             discoverFiles: async () => {
               throw new Error('gemini should have been pruned');
             },
-            parseFile: async () => [],
+            read: readFrom(async () => []),
           },
           createAdapter(
             'codex',
@@ -720,7 +721,7 @@ describe('buildUsageData', () => {
             discoverFiles: async () => {
               throw new Error('gemini should have been pruned');
             },
-            parseFile: async () => [],
+            read: readFrom(async () => []),
           },
           createAdapter(
             'codex',

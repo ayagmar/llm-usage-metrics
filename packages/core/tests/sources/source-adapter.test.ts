@@ -8,6 +8,8 @@ import {
   type SourceAdapter,
   type SourceCapabilities,
 } from '../../src/sources/source-adapter.js';
+import { collect } from '../../src/stream/collect.js';
+import { readFrom } from '../helpers/fake-read.js';
 
 describe('SourceAdapter contract', () => {
   it('supports strongly typed adapter implementations', async () => {
@@ -18,21 +20,19 @@ describe('SourceAdapter contract', () => {
         return Promise.resolve(['/tmp/session.jsonl']);
       }
 
-      public parseFile(filePath: string): Promise<UsageEvent[]> {
-        return Promise.resolve([
-          createUsageEvent({
-            source: 'pi',
-            sessionId: filePath,
-            timestamp: '2026-02-12T10:00:00Z',
-            inputTokens: 10,
-            outputTokens: 5,
-          }),
-        ]);
+      public async *read(filePath: string): AsyncGenerator<UsageEvent> {
+        yield createUsageEvent({
+          source: 'pi',
+          sessionId: filePath,
+          timestamp: '2026-02-12T10:00:00Z',
+          inputTokens: 10,
+          outputTokens: 5,
+        });
       }
     }
 
     const adapter = new MockPiAdapter();
-    const events = await adapter.parseFile('/tmp/session.jsonl');
+    const events = await collect(adapter.read('/tmp/session.jsonl'));
 
     expect(adapter.id).toBe('pi');
     expect(events).toHaveLength(1);
@@ -50,7 +50,7 @@ describe('source capability helpers', () => {
       id,
       capabilities,
       discoverFiles: () => Promise.resolve([]),
-      parseFile: () => Promise.resolve([]),
+      read: readFrom(() => []),
     };
   }
 

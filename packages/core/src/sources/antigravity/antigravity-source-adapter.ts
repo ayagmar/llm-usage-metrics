@@ -1,7 +1,6 @@
 import path from 'node:path';
 
 import type { UsageEvent } from '../../domain/usage-event.js';
-import { collectFile } from '../../stream/collect.js';
 import { discoverFiles } from '../../utils/discover-files.js';
 import { pathExists, pathIsDirectory, pathIsFile, pathReadable } from '../../utils/fs-helpers.js';
 import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
@@ -9,7 +8,6 @@ import { isBlankText } from '../parsing-utils.js';
 import type {
   SourceAdapter,
   SourceAdapterPathOptions,
-  SourceParseFileDiagnostics,
   SourceReadOptions,
 } from '../source-adapter.js';
 import { createSourceContext } from '../source-context.js';
@@ -202,13 +200,5 @@ export class AntigravitySourceAdapter implements SourceAdapter {
     } finally {
       database.close();
     }
-  }
-
-  public async parseFile(dbPath: string): Promise<UsageEvent[]> {
-    return (await collectFile(this, dbPath)).events;
-  }
-
-  public parseFileWithDiagnostics(dbPath: string): Promise<SourceParseFileDiagnostics> {
-    return collectFile(this, dbPath);
   }
 }

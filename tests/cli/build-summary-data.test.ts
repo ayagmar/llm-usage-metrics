@@ -8,6 +8,7 @@ import {
 import type { SummaryPeriod } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
+import { readFrom } from '../helpers/fake-read.js';
 
 function createAdapter(
   id: SourceAdapter['id'],
@@ -16,7 +17,7 @@ function createAdapter(
   return {
     id,
     discoverFiles: async () => [`/tmp/${id}.jsonl`],
-    parseFile: async () => events,
+    read: readFrom(async () => events),
   };
 }
 
@@ -355,7 +356,7 @@ describe('buildSummaryData', () => {
       discoverFiles: async () => {
         throw new Error('gemini should have been pruned');
       },
-      parseFile: async () => [],
+      read: readFrom(async () => []),
     };
     const deps = {
       ...runtimeDeps(

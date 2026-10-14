@@ -606,25 +606,6 @@ describe('DshSourceAdapter', () => {
     expect(result.skippedRowReasons).toEqual([]);
   });
 
-  it('exposes parseFile as a thin wrapper over diagnostics', async () => {
-    const root = await createTempRoot('dsh-wrapper-');
-    const logPath = resolveDshSessionLogPath(path.join(root, '--proj--', 'session-wrapper'));
-
-    await writeDshSessionLog({
-      filePath: logPath,
-      lines: [
-        sessionHeaderLine(),
-        usageLine({ seq: 1, time: SESSION_HEADER.createdAt + 60, inputTokens: 1, outputTokens: 1 }),
-      ],
-    });
-
-    const adapter = new DshSourceAdapter();
-    const events = await adapter.parseFile(logPath);
-
-    expect(events).toHaveLength(1);
-    expect(events[0]).toMatchObject({ sessionId: SESSION_HEADER.id, totalTokens: 2 });
-  });
-
   it('keeps usage events ordered by their log position', async () => {
     const root = await createTempRoot('dsh-order-');
     const logPath = resolveDshSessionLogPath(path.join(root, '--proj--', 'session-order'));

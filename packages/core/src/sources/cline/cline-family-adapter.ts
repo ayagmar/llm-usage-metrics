@@ -1,13 +1,11 @@
 import path from 'node:path';
 
 import type { SourceId, UsageEvent } from '../../domain/usage-event.js';
-import { collectFile } from '../../stream/collect.js';
 import { discoverFiles } from '../../utils/discover-files.js';
 import { discoverFilesAcrossRoots, resolveRootDirs } from '../multi-root-discovery.js';
 import type {
   SourceAdapter,
   SourceAdapterPathOptions,
-  SourceParseFileDiagnostics,
   SourceReadOptions,
 } from '../source-adapter.js';
 import { createSourceContext, readEnvPath, type SourceContext } from '../source-context.js';
@@ -116,14 +114,6 @@ export class ClineFamilyAdapter implements SourceAdapter {
 
   public read(filePath: string, options?: SourceReadOptions): AsyncGenerator<UsageEvent> {
     return readClineTaskFile(this.id, filePath, options);
-  }
-
-  public async parseFile(filePath: string): Promise<UsageEvent[]> {
-    return (await collectFile(this, filePath)).events;
-  }
-
-  public parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
-    return collectFile(this, filePath);
   }
 }
 

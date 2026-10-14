@@ -2,7 +2,6 @@ import path from 'node:path';
 
 import { createUsageEvent } from '../../domain/usage-event.js';
 import type { UsageEvent } from '../../domain/usage-event.js';
-import { collectFile } from '../../stream/collect.js';
 import { asRecord } from '../../utils/as-record.js';
 import { discoverFiles } from '../../utils/discover-files.js';
 import { pathIsDirectory, pathReadable } from '../../utils/fs-helpers.js';
@@ -18,7 +17,6 @@ import { readJsonTranscriptFile } from '../read-json-file.js';
 import type {
   SourceAdapter,
   SourceAdapterPathOptions,
-  SourceParseFileDiagnostics,
   SourceReadDiagnostics,
   SourceReadOptions,
 } from '../source-adapter.js';
@@ -375,13 +373,5 @@ export class AmpSourceAdapter implements SourceAdapter {
     } else {
       yield* parseMessageUsage(context);
     }
-  }
-
-  public async parseFile(filePath: string): Promise<UsageEvent[]> {
-    return (await collectFile(this, filePath)).events;
-  }
-
-  public parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
-    return collectFile(this, filePath);
   }
 }

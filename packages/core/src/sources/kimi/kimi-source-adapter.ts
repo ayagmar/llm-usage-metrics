@@ -6,7 +6,6 @@ import type { UsageEvent, UsageEventInput } from '../../domain/usage-event.js';
 import { asRecord } from '../../utils/as-record.js';
 import { discoverFiles } from '../../utils/discover-files.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
-import { collectFile } from '../../stream/collect.js';
 import { discoverFilesAcrossRoots, resolveRootDirs } from '../multi-root-discovery.js';
 import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import {
@@ -18,7 +17,6 @@ import {
 import type {
   SourceAdapter,
   SourceAdapterPathOptions,
-  SourceParseFileDiagnostics,
   SourceReadDiagnostics,
   SourceReadOptions,
 } from '../source-adapter.js';
@@ -370,13 +368,5 @@ export class KimiSourceAdapter implements SourceAdapter {
         yield event;
       }
     }
-  }
-
-  public async parseFile(filePath: string): Promise<UsageEvent[]> {
-    return (await collectFile(this, filePath)).events;
-  }
-
-  public parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
-    return collectFile(this, filePath);
   }
 }

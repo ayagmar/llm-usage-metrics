@@ -95,7 +95,7 @@ describe('AmpSourceAdapter', () => {
     });
   });
 
-  describe('parseFileWithDiagnostics', () => {
+  describe('collectFile', () => {
     it('parses ledger events, resolves cache tokens from messages, and ignores credits', async () => {
       const adapter = new AmpSourceAdapter({ dir: fixturesDir });
       const result = await collectFile(adapter, await fixturePath('ledger-thread.json'));
