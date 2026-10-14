@@ -204,7 +204,6 @@ export class QwenSourceAdapter implements SourceAdapter {
             sessionId: asTrimmedText(line.sessionId) ?? fallbackSessionId,
             timestamp,
             model: asTrimmedText(line.model),
-            costMode: 'estimated',
             ...usage,
           }),
         );

@@ -230,7 +230,6 @@ describe('ClineFamilyAdapter', () => {
       cacheWriteTokens: 5,
       totalTokens: 165,
       costUsd: 0.25,
-      costMode: 'explicit',
     });
     expect(result.events[1]).toMatchObject({
       source: 'cline',
@@ -244,7 +243,6 @@ describe('ClineFamilyAdapter', () => {
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
       totalTokens: 30,
-      costMode: 'estimated',
     });
     expect(result.events[1]?.costUsd).toBeUndefined();
   });
@@ -324,7 +322,6 @@ describe('ClineFamilyAdapter', () => {
           cacheWriteTokens: event.cacheWriteTokens,
           totalTokens: event.totalTokens,
           costUsd: event.costUsd,
-          costMode: event.costMode,
         })),
       ).toEqual([
         {
@@ -333,7 +330,6 @@ describe('ClineFamilyAdapter', () => {
           cacheWriteTokens: 500,
           totalTokens: 10_550,
           costUsd: 0.25,
-          costMode: 'explicit',
         },
         {
           inputTokens: 1_000,
@@ -341,7 +337,6 @@ describe('ClineFamilyAdapter', () => {
           cacheWriteTokens: 500,
           totalTokens: 10_520,
           costUsd: undefined,
-          costMode: 'estimated',
         },
       ]);
     }

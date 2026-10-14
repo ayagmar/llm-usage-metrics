@@ -313,7 +313,6 @@ describe('OpenCodeSourceAdapter', () => {
       cacheWriteTokens: 10,
       totalTokens: 175,
       costUsd: 1.5,
-      costMode: 'explicit',
     });
   });
 
@@ -436,7 +435,6 @@ describe('OpenCodeSourceAdapter', () => {
       inputTokens: 10,
       outputTokens: 20,
       totalTokens: 30,
-      costMode: 'estimated',
     });
     expect(seenQueries.some((query) => query.includes('json_extract'))).toBe(true);
     expect(

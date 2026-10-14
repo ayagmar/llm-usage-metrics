@@ -106,7 +106,6 @@ describe('QwenSourceAdapter', () => {
       cacheReadTokens: 5,
       cacheWriteTokens: 0,
       totalTokens: 140,
-      costMode: 'estimated',
     });
     expect(result.events[0]?.provider).toBeUndefined();
     expect(result.events[0]?.repoRoot).toBeUndefined();
@@ -121,7 +120,6 @@ describe('QwenSourceAdapter', () => {
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
       totalTokens: 15,
-      costMode: 'estimated',
     });
 
     expect(result.skippedRows).toBe(2);

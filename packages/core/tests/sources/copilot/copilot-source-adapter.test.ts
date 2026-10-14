@@ -82,7 +82,6 @@ describe('CopilotSourceAdapter', () => {
       cacheReadTokens: 10,
       cacheWriteTokens: 3,
       totalTokens: 39,
-      costMode: 'estimated',
     });
     expect(diagnostics.events[0]?.timestamp).toBe('2026-04-01T12:00:00.000Z');
 

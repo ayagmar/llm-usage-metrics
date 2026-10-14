@@ -393,7 +393,6 @@ export class CodexSourceAdapter implements SourceAdapter {
             cacheReadTokens: record.usage.cacheReadTokens,
             cacheWriteTokens: record.usage.cacheWriteTokens,
             totalTokens: record.usage.totalTokens,
-            costMode: 'estimated',
           }),
         );
       } catch {

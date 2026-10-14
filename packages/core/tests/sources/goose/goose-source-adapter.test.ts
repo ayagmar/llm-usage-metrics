@@ -256,7 +256,6 @@ describe.skipIf(!DatabaseSync)('GooseSourceAdapter', () => {
       outputTokens: 50,
       reasoningTokens: 20,
       totalTokens: 150,
-      costMode: 'estimated',
     });
     expect(diagnostics.events[1]).toMatchObject({
       sessionId: 'goose-plain',

@@ -1,4 +1,4 @@
-import type { UsageEvent } from '../../domain/usage-event.js';
+import type { ParseFileDiagnostics, UsageEvent } from '../../domain/usage-event.js';
 import type {
   claimOverrideOnlyFiles as claimDefaultOverrideOnlyFiles,
   replaceFilesEvents as replaceDefaultFilesEvents,
@@ -9,10 +9,7 @@ import {
   type EventStoreFileEntry,
   type EventStoreFileFingerprint,
 } from '../../persistence/event-store.js';
-import type {
-  SourceParseFileDiagnostics,
-  SourceSkippedRowReasonStat,
-} from '@ayagmar/agent-sessions';
+import type { SourceSkippedRowReasonStat } from '@ayagmar/agent-sessions';
 import type { RuntimeProfileCollector } from '../runtime-profile.js';
 import { getErrorReason } from '../../utils/get-error-reason.js';
 
@@ -89,7 +86,7 @@ export function readParsedFileFromEventStore(
     fingerprint: EventStoreFileFingerprint;
     runtimeProfile?: RuntimeProfileCollector;
   },
-): SourceParseFileDiagnostics | undefined {
+): ParseFileDiagnostics | undefined {
   if (context.failureState.disabled) {
     return undefined;
   }

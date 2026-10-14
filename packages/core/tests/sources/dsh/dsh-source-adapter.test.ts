@@ -223,7 +223,6 @@ describe('DshSourceAdapter', () => {
       cacheReadTokens: 10_624,
       cacheWriteTokens: 0,
       totalTokens: 11_702,
-      costMode: 'estimated',
     });
     expect(result.events[1]).toMatchObject({
       timestamp: new Date(SESSION_HEADER.createdAt + 2_000).toISOString(),

@@ -207,7 +207,6 @@ describe('GeminiSourceAdapter', () => {
         reasoningTokens: 25,
         cacheReadTokens: 10,
         totalTokens: 180,
-        costMode: 'estimated',
         repoRoot: '/home/user/projects/my-app',
       });
 

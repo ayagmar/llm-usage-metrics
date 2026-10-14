@@ -282,7 +282,6 @@ function parseUsageRecordLine(
     timestamp,
     provider: KIMI_PROVIDER,
     model: normalizeKimiCodeModel(line.model),
-    costMode: 'estimated',
     ...usageResult.usage,
   });
 }
@@ -362,7 +361,6 @@ export class KimiSourceAdapter implements SourceAdapter {
         timestamp: candidate.timestamp,
         provider: KIMI_PROVIDER,
         model: configModel ?? getCliFallbackModel(candidate.timestamp),
-        costMode: 'estimated',
         ...candidate.usage,
       });
     }

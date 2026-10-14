@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { runEventsReport } from '../../src/cli/run-events-report.js';
 import { buildUsageReport } from '../../src/cli/run-usage-report.js';
-import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.js';
+import { createUsageEvent, withCostMode, type UsageEvent } from '../../src/domain/usage-event.js';
 import {
   closeEventStore,
   openEventStore,
@@ -99,7 +99,7 @@ describe.skipIf(process.platform === 'win32')(`history goldens (${WINDOWS_SKIP_R
     await storeDepartedFile(
       dbPath,
       path.join(environment.rootDir, 'departed', 'moved.jsonl'),
-      liveCodexEvents,
+      liveCodexEvents.map(withCostMode),
     );
   });
 

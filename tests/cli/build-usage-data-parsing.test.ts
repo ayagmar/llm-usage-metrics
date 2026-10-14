@@ -308,6 +308,43 @@ describe('build-usage-data-parsing', () => {
     },
   );
 
+  it('gives adapter events the cost mode their cost implies and keeps one already set', async () => {
+    const adapterEvent = (sessionId: string, costUsd?: number) => ({
+      source: 'pi',
+      sessionId,
+      timestamp: '2026-02-01T00:00:00.000Z',
+      inputTokens: 1,
+      outputTokens: 0,
+      reasoningTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      cacheWrite1hTokens: 0,
+      totalTokens: 1,
+      costUsd,
+    });
+    const storedMode = { ...adapterEvent('stored', 0.5), costMode: 'estimated' as const };
+    const adapter: SourceAdapter = {
+      id: 'pi',
+      discoverFiles: async () => ['/tmp/a.jsonl'],
+      parseFile: async () => [adapterEvent('unpriced'), adapterEvent('logged', 0.25), storedMode],
+    };
+
+    const result = await parseSelectedAdapters([adapter], 1);
+    const events = result.successfulParseResults[0].events;
+
+    expect(events.map((event) => [event.sessionId, event.costUsd, event.costMode])).toEqual([
+      ['unpriced', undefined, 'estimated'],
+      ['logged', 0.25, 'explicit'],
+      ['stored', 0.5, 'estimated'],
+    ]);
+    // Event JSON feeds the events output and machine-export revisions.
+    expect(events.map((event) => Object.keys(event).slice(-2))).toEqual([
+      ['costUsd', 'costMode'],
+      ['costUsd', 'costMode'],
+      ['costUsd', 'costMode'],
+    ]);
+  });
+
   it('reports a source failure when every file fails to parse', async () => {
     const adapter: SourceAdapter = {
       id: 'pi',

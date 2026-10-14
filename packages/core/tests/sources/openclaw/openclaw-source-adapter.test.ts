@@ -115,7 +115,6 @@ describe('OpenClawSourceAdapter', () => {
       cacheWriteTokens: 3,
       totalTokens: 133,
       costUsd: 0.0123,
-      costMode: 'explicit',
     });
 
     expect(events[1]).toMatchObject({
@@ -130,7 +129,6 @@ describe('OpenClawSourceAdapter', () => {
       cacheReadTokens: 5,
       totalTokens: 25,
       costUsd: 0.0042,
-      costMode: 'explicit',
     });
 
     expect(events[2]).toMatchObject({
@@ -142,7 +140,6 @@ describe('OpenClawSourceAdapter', () => {
       inputTokens: 3,
       outputTokens: 4,
       totalTokens: 7,
-      costMode: 'estimated',
     });
     // A row without its own timestamp takes the session header's, never the file mtime.
     expect(events[2]?.timestamp).toBe('2026-04-01T10:00:00.000Z');
@@ -218,7 +215,6 @@ describe('OpenClawSourceAdapter', () => {
       outputTokens: 6,
       totalTokens: 10,
       costUsd: 0.006,
-      costMode: 'explicit',
     });
   });
 
@@ -417,7 +413,6 @@ describe('OpenClawSourceAdapter', () => {
       outputTokens: 4,
       totalTokens: 14,
       costUsd: 0.0025,
-      costMode: 'explicit',
     });
   });
 

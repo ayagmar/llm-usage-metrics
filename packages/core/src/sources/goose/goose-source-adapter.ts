@@ -149,7 +149,6 @@ function parseGooseRow(row: GooseSqliteRow): GooseParsedRow {
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
       totalTokens: resolvedTotalTokens,
-      costMode: 'estimated',
     }),
     skippedReason: invalidModelConfig ? 'invalid_model_config' : undefined,
   };

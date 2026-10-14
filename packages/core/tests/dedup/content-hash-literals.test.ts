@@ -23,8 +23,7 @@ describe('computeEventContentHash literals', () => {
       totalTokens: 465,
     });
 
-    expect(event.costMode).toBe('estimated');
-    expect(computeEventContentHash(event)).toBe('35605898314e1698');
+    expect(computeEventContentHash({ ...event, costMode: 'estimated' })).toBe('35605898314e1698');
   });
 
   it('hashes an explicit-cost event', () => {
@@ -42,7 +41,6 @@ describe('computeEventContentHash literals', () => {
       costUsd: 0.0125,
     });
 
-    expect(event.costMode).toBe('explicit');
-    expect(computeEventContentHash(event)).toBe('23ac394ec7b9a54a');
+    expect(computeEventContentHash({ ...event, costMode: 'explicit' })).toBe('23ac394ec7b9a54a');
   });
 });
