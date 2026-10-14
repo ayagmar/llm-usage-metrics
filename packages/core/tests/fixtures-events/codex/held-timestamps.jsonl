@@ -1,0 +1,8 @@
+{"type":"session_meta","payload":{"id":"codex-held-session","cwd":"/work/held","model_provider":"openai"}}
+{"type":"response_item","payload":{"type":"function_call","name":"exec_command","arguments":"{}","call_id":"call-held"}}
+{"type":"response_item","payload":{"type":"function_call_output","call_id":"call-held","output":"ok"}}
+{"type":"response_item","payload":{"type":"function_call","name":"exec_command","arguments":"{}","call_id":"call-held-open"}}
+{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Before any timestamp."}]}}
+{"timestamp":"2026-10-03T08:00:00.000Z","type":"turn_context","payload":{"cwd":"/work/held","model":"gpt-5.5"}}
+{"type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Carried."}]}}
+{"timestamp":"not a time","type":"response_item","payload":{"type":"web_search_call","status":"completed"}}

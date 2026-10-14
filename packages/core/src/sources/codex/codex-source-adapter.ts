@@ -1,12 +1,18 @@
 import path from 'node:path';
 
+import {
+  createUsageRecord,
+  type EventKind,
+  type SessionEvent,
+  type UsageRecord,
+} from '../../domain/session-event.js';
 import { createUsageEvent } from '../../domain/usage-event.js';
-import type { UsageEvent } from '../../domain/usage-event.js';
+import type { UsageEvent, UsageEventInput } from '../../domain/usage-event.js';
 import { normalizeNonNegativeInteger } from '../../domain/normalization.js';
 import { asRecord } from '../../utils/as-record.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import { pathStat } from '../../utils/fs-helpers.js';
-import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
+import { readClassifiedJsonlObjects, readJsonlObjects } from '../../utils/read-jsonl-objects.js';
 import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
@@ -15,12 +21,24 @@ import {
   splitPromptIncludingCachedTokens,
   toNumberLike,
 } from '../parsing-utils.js';
+import {
+  getDeclaredKinds,
+  recordMalformedLine,
+  resolveReadKinds,
+} from '../session-event-helpers.js';
 import type {
+  ReadEventsOptions,
   SourceAdapter,
   SourceAdapterPathOptions,
+  SourceReadDiagnostics,
   SourceReadOptions,
 } from '../source-adapter.js';
 import { createSourceContext, readEnvPath, type SourceContext } from '../source-context.js';
+import {
+  CodexKindReader,
+  resolveCodexRepoRoot,
+  type CodexRecordContext,
+} from './codex-session-events.js';
 
 /** Codex keeps its state in CODEX_HOME (default ~/.codex); sessions live under it. */
 export function resolveDefaultCodexSessionsDir(context: SourceContext): string {
@@ -47,6 +65,10 @@ type PendingUsageRecord = {
   usage: CodexUsage;
   repoRoot?: string;
   model?: string;
+  /** The logged response id, kept only when the read asks for ids. */
+  messageId?: string;
+  /** The record whose tokens this is, kept only when the read asks for raw. */
+  raw?: Record<string, unknown>;
 };
 
 type CodexSessionState = {
@@ -56,8 +78,16 @@ type CodexSessionState = {
   model?: string;
   previousTotalUsage?: CodexUsage;
   previousLastUsageOnlyKey?: string;
+  /** The provider as `session_meta` logged it; `provider` falls back to `openai`. */
+  loggedProvider?: string;
   pendingUsageRecords: PendingUsageRecord[];
   seenResponseIds: Set<string>;
+};
+
+/** What a usage record keeps beyond `read`'s fields; both are off for `read`. */
+type UsageCapture = {
+  ids: boolean;
+  raw: boolean;
 };
 
 export type CodexSourceAdapterOptions = SourceAdapterPathOptions;
@@ -72,6 +102,8 @@ const SESSION_META_TYPE_BYTES = Buffer.from('session_meta"');
 const TURN_CONTEXT_TYPE_BYTES = Buffer.from('turn_context"');
 const TOKEN_USAGE_RECORD_TYPE_BYTES = Buffer.from('token_usage_record"');
 const EVENT_MSG_TYPE_BYTES = Buffer.from('event_msg"');
+const RESPONSE_ITEM_BYTES = Buffer.from('"response_item"');
+const RESPONSE_ITEM_TYPE_BYTES = Buffer.from('response_item"');
 
 function shouldParseCodexJsonlLineBytes(lineBytes: Buffer): boolean {
   const typeFieldIndex = lineBytes.indexOf(TYPE_FIELD_BYTES);
@@ -261,22 +293,6 @@ function getFallbackSessionId(filePath: string): string {
   return path.basename(filePath, '.jsonl');
 }
 
-function resolveRepoRootFromPayload(
-  payload: Record<string, unknown> | undefined,
-): string | undefined {
-  if (!payload) {
-    return undefined;
-  }
-
-  return (
-    asTrimmedText(payload.cwd) ??
-    asTrimmedText(payload.repo_root) ??
-    asTrimmedText(payload.repoRoot) ??
-    asTrimmedText(payload.project_root) ??
-    asTrimmedText(payload.projectRoot)
-  );
-}
-
 // Newer Codex writes one `token_usage_record` per API response before the cumulative
 // `token_count` event. The cumulative totals never include the response that triggered an
 // auto-compaction (the `token_count` after `compacted` repeats the previous totals), so the
@@ -288,6 +304,7 @@ function resolveRepoRootFromPayload(
 function parseUsageRecord(
   line: Record<string, unknown>,
   state: CodexSessionState,
+  capture: UsageCapture,
 ): { record?: PendingUsageRecord; invalidTimestamp?: boolean } {
   const payload = asRecord(line.payload);
   const usage = toUsage(payload?.usage);
@@ -312,8 +329,186 @@ function parseUsageRecord(
     state.seenResponseIds.add(responseId);
   }
 
-  return { record: { timestamp, usage, repoRoot: state.repoRoot, model: state.model } };
+  const record: PendingUsageRecord = {
+    timestamp,
+    usage,
+    repoRoot: state.repoRoot,
+    model: state.model,
+  };
+
+  if (capture.ids && responseId) {
+    record.messageId = responseId;
+  }
+
+  if (capture.raw) {
+    record.raw = line;
+  }
+
+  return { record };
 }
+
+const NO_USAGE: readonly PendingUsageRecord[] = [];
+
+/**
+ * Takes one line the usage prefilter accepted into the session state, and returns the
+ * usage records it releases, in order. `diagnostics` is undefined when the read yields no
+ * usage, so it records no usage reason codes.
+ */
+function takeUsageLine(
+  line: Record<string, unknown>,
+  state: CodexSessionState,
+  capture: UsageCapture,
+  diagnostics: SourceReadDiagnostics | undefined,
+): readonly PendingUsageRecord[] {
+  if (line.type === 'session_meta') {
+    const payload = asRecord(line.payload);
+    const loggedProvider = asTrimmedText(payload?.model_provider);
+    state.sessionId = asTrimmedText(payload?.id) ?? state.sessionId;
+    state.provider = loggedProvider ?? state.provider;
+    state.loggedProvider = loggedProvider ?? state.loggedProvider;
+    state.repoRoot = resolveCodexRepoRoot(payload) ?? state.repoRoot;
+    return NO_USAGE;
+  }
+
+  if (line.type === 'turn_context') {
+    const payload = asRecord(line.payload);
+    state.model = asTrimmedText(payload?.model) ?? state.model;
+    state.repoRoot = resolveCodexRepoRoot(payload) ?? state.repoRoot;
+    return NO_USAGE;
+  }
+
+  if (line.type === 'token_usage_record') {
+    const { record, invalidTimestamp } = parseUsageRecord(line, state, capture);
+
+    if (record) {
+      state.pendingUsageRecords.push(record);
+    } else if (invalidTimestamp && diagnostics) {
+      recordSkippedRow(diagnostics, 'invalid_timestamp');
+    }
+
+    return NO_USAGE;
+  }
+
+  if (line.type !== 'event_msg') {
+    return NO_USAGE;
+  }
+
+  const payload = asRecord(line.payload);
+
+  if (payload?.type !== 'token_count') {
+    return NO_USAGE;
+  }
+
+  const info = asRecord(payload.info);
+
+  if (!info) {
+    return NO_USAGE;
+  }
+
+  const { deltaUsage, latestTotalUsage, fromLastUsageOnly } = deriveDeltaUsage(
+    info,
+    state.previousTotalUsage,
+  );
+
+  if (!deltaUsage || !hasUsageSignal(deltaUsage)) {
+    if (!fromLastUsageOnly) {
+      state.previousLastUsageOnlyKey = undefined;
+    }
+
+    state.previousTotalUsage = latestTotalUsage ?? state.previousTotalUsage;
+    return NO_USAGE;
+  }
+
+  const timestamp = normalizeTimestampCandidate(line.timestamp);
+
+  if (!timestamp) {
+    if (!fromLastUsageOnly) {
+      state.previousLastUsageOnlyKey = undefined;
+    }
+
+    if (diagnostics) {
+      recordSkippedRow(diagnostics, 'invalid_timestamp');
+    }
+
+    return NO_USAGE;
+  }
+
+  if (fromLastUsageOnly) {
+    const currentLastUsageOnlyKey = createLastUsageOnlyKey(timestamp, deltaUsage);
+
+    if (state.previousLastUsageOnlyKey === currentLastUsageOnlyKey) {
+      return NO_USAGE;
+    }
+
+    state.previousLastUsageOnlyKey = currentLastUsageOnlyKey;
+  } else {
+    state.previousLastUsageOnlyKey = undefined;
+  }
+
+  let released: readonly PendingUsageRecord[];
+
+  if (state.pendingUsageRecords.length > 0) {
+    released = state.pendingUsageRecords;
+    state.pendingUsageRecords = [];
+  } else {
+    const record: PendingUsageRecord = {
+      timestamp,
+      usage: deltaUsage,
+      repoRoot: state.repoRoot,
+      model: state.model,
+    };
+
+    if (capture.raw) {
+      record.raw = line;
+    }
+
+    released = [record];
+  }
+
+  if (latestTotalUsage) {
+    state.previousTotalUsage = latestTotalUsage;
+  } else if (state.previousTotalUsage) {
+    state.previousTotalUsage = addUsage(state.previousTotalUsage, deltaUsage);
+  } else {
+    state.previousTotalUsage = deltaUsage;
+  }
+
+  return released;
+}
+
+function shouldParseCodexEventLineBytes(lineBytes: Buffer): boolean {
+  const typeFieldIndex = lineBytes.indexOf(TYPE_FIELD_BYTES);
+  const isResponseItem =
+    typeFieldIndex === -1
+      ? lineBytes.includes(RESPONSE_ITEM_BYTES)
+      : lineBytesIncludesAt(
+          lineBytes,
+          RESPONSE_ITEM_TYPE_BYTES,
+          typeFieldIndex + TYPE_FIELD_BYTES.length,
+        );
+
+  return isResponseItem || shouldParseCodexJsonlLineBytes(lineBytes);
+}
+
+type CodexReadOptions<Usage> = UsageCapture & {
+  /** The kinds the read yields; the usage state follows every line either way. */
+  kinds: ReadonlySet<EventKind>;
+  diagnostics: SourceReadDiagnostics;
+  createUsage: (
+    input: UsageEventInput,
+    record: PendingUsageRecord,
+    state: CodexSessionState,
+  ) => Usage;
+};
+
+/** The non-usage kinds of a read, fed every parsed line after the usage state. */
+type CodexKindEvents<Kind> = {
+  advance(timestamp: string | undefined): Iterable<Kind>;
+  record(line: Record<string, unknown>, context: CodexRecordContext): Iterable<Kind>;
+  finish(): Iterable<Kind>;
+};
+
+const USAGE_ONLY: ReadonlySet<EventKind> = new Set(['usage']);
 
 export class CodexSourceAdapter implements SourceAdapter {
   public readonly id = 'codex' as const;
@@ -321,7 +516,7 @@ export class CodexSourceAdapter implements SourceAdapter {
   public readonly capabilities = {
     fixedProviderRoots: ['openai'],
     eventsPrecedeFileMtime: true,
-    kinds: ['usage'],
+    kinds: ['usage', 'message', 'tool_call', 'session_meta'],
   } as const;
 
   private readonly sessionsDir: string;
@@ -361,11 +556,66 @@ export class CodexSourceAdapter implements SourceAdapter {
     return discoverJsonlFiles(normalizedSessionsDir);
   }
 
-  public async *read(
+  public read(filePath: string, options: SourceReadOptions = {}): AsyncGenerator<UsageEvent> {
+    return this.readFile<UsageEvent, never>(
+      filePath,
+      {
+        kinds: USAGE_ONLY,
+        ids: false,
+        raw: false,
+        diagnostics: options.diagnostics ?? createReadDiagnostics(),
+        createUsage: (input) => createUsageEvent(input),
+      },
+      undefined,
+    );
+  }
+
+  public async *readEvents(
     filePath: string,
-    options: SourceReadOptions = {},
-  ): AsyncGenerator<UsageEvent> {
+    options: ReadEventsOptions = {},
+  ): AsyncGenerator<SessionEvent> {
+    const kinds = resolveReadKinds(options.kinds, getDeclaredKinds(this));
+
+    if (kinds.size === 0) {
+      return;
+    }
+
     const diagnostics = options.diagnostics ?? createReadDiagnostics();
+    const raw = options.raw === true;
+    const kindReader = [...kinds].some((kind) => kind !== 'usage')
+      ? new CodexKindReader({ kinds, text: options.text === true, raw, diagnostics })
+      : undefined;
+
+    yield* this.readFile<UsageRecord, SessionEvent>(
+      filePath,
+      {
+        kinds,
+        ids: true,
+        raw,
+        diagnostics,
+        createUsage: (input, record, state) =>
+          createUsageRecord({
+            ...input,
+            messageId: record.messageId,
+            rawProvider: state.loggedProvider,
+            raw: record.raw,
+          }),
+      },
+      kindReader,
+    );
+  }
+
+  // One parser for both reads. Without non-usage kinds it takes `read`'s prefilter and
+  // per-line work. With them it reads through one union prefilter: the usage state takes
+  // only the lines the usage prefilter accepts, and the kind reader sees every line after.
+  private async *readFile<Usage, Kind>(
+    filePath: string,
+    options: CodexReadOptions<Usage>,
+    kindReader: CodexKindEvents<Kind> | undefined,
+  ): AsyncGenerator<Usage | Kind> {
+    const { diagnostics, kinds } = options;
+    const yieldsUsage = kinds.has('usage');
+    const usageDiagnostics = yieldsUsage ? diagnostics : undefined;
 
     const state: CodexSessionState = {
       sessionId: getFallbackSessionId(filePath),
@@ -374,152 +624,83 @@ export class CodexSourceAdapter implements SourceAdapter {
       seenResponseIds: new Set(),
     };
 
-    const toEvent = (record: PendingUsageRecord): UsageEvent | undefined => {
-      try {
-        return createUsageEvent({
-          source: this.id,
-          sessionId: state.sessionId,
-          timestamp: record.timestamp,
-          repoRoot: record.repoRoot,
-          provider: state.provider,
-          model: record.model ?? LEGACY_CODEX_MODEL_FALLBACK,
-          inputTokens: record.usage.inputTokens,
-          outputTokens: record.usage.outputTokens,
-          reasoningTokens: record.usage.reasoningTokens,
-          cacheReadTokens: record.usage.cacheReadTokens,
-          cacheWriteTokens: record.usage.cacheWriteTokens,
-          totalTokens: record.usage.totalTokens,
-        });
-      } catch {
-        recordSkippedRow(diagnostics, 'event_creation_failed');
-        return undefined;
+    // Released records take the session id and provider current at flush time.
+    const toEvents = function* (records: readonly PendingUsageRecord[]): Generator<Usage> {
+      if (!yieldsUsage) {
+        return;
       }
-    };
-
-    // Pending records take the session id and provider current at flush time.
-    const flushPendingUsageRecords = function* (): Generator<UsageEvent> {
-      const records = state.pendingUsageRecords;
-      state.pendingUsageRecords = [];
 
       for (const record of records) {
-        const event = toEvent(record);
+        let event: Usage;
 
-        if (event) {
-          yield event;
-        }
-      }
-    };
-
-    for await (const line of readJsonlObjects(filePath, {
-      shouldParseLineBytes: shouldParseCodexJsonlLineBytes,
-      onMalformedLine: () => {
-        recordSkippedRow(diagnostics, 'json_parse_error');
-      },
-    })) {
-      if (line.type === 'session_meta') {
-        const payload = asRecord(line.payload);
-        state.sessionId = asTrimmedText(payload?.id) ?? state.sessionId;
-        state.provider = asTrimmedText(payload?.model_provider) ?? state.provider;
-        state.repoRoot = resolveRepoRootFromPayload(payload) ?? state.repoRoot;
-        continue;
-      }
-
-      if (line.type === 'turn_context') {
-        const payload = asRecord(line.payload);
-        state.model = asTrimmedText(payload?.model) ?? state.model;
-        state.repoRoot = resolveRepoRootFromPayload(payload) ?? state.repoRoot;
-        continue;
-      }
-
-      if (line.type === 'token_usage_record') {
-        const { record, invalidTimestamp } = parseUsageRecord(line, state);
-
-        if (record) {
-          state.pendingUsageRecords.push(record);
-        } else if (invalidTimestamp) {
-          recordSkippedRow(diagnostics, 'invalid_timestamp');
-        }
-
-        continue;
-      }
-
-      if (line.type !== 'event_msg') {
-        continue;
-      }
-
-      const payload = asRecord(line.payload);
-
-      if (payload?.type !== 'token_count') {
-        continue;
-      }
-
-      const info = asRecord(payload.info);
-
-      if (!info) {
-        continue;
-      }
-
-      const { deltaUsage, latestTotalUsage, fromLastUsageOnly } = deriveDeltaUsage(
-        info,
-        state.previousTotalUsage,
-      );
-
-      if (!deltaUsage || !hasUsageSignal(deltaUsage)) {
-        if (!fromLastUsageOnly) {
-          state.previousLastUsageOnlyKey = undefined;
-        }
-
-        state.previousTotalUsage = latestTotalUsage ?? state.previousTotalUsage;
-        continue;
-      }
-
-      const timestamp = normalizeTimestampCandidate(line.timestamp);
-
-      if (!timestamp) {
-        if (!fromLastUsageOnly) {
-          state.previousLastUsageOnlyKey = undefined;
-        }
-
-        recordSkippedRow(diagnostics, 'invalid_timestamp');
-        continue;
-      }
-
-      if (fromLastUsageOnly) {
-        const currentLastUsageOnlyKey = createLastUsageOnlyKey(timestamp, deltaUsage);
-
-        if (state.previousLastUsageOnlyKey === currentLastUsageOnlyKey) {
+        try {
+          event = options.createUsage(
+            {
+              source: 'codex',
+              sessionId: state.sessionId,
+              timestamp: record.timestamp,
+              repoRoot: record.repoRoot,
+              provider: state.provider,
+              model: record.model ?? LEGACY_CODEX_MODEL_FALLBACK,
+              inputTokens: record.usage.inputTokens,
+              outputTokens: record.usage.outputTokens,
+              reasoningTokens: record.usage.reasoningTokens,
+              cacheReadTokens: record.usage.cacheReadTokens,
+              cacheWriteTokens: record.usage.cacheWriteTokens,
+              totalTokens: record.usage.totalTokens,
+            },
+            record,
+            state,
+          );
+        } catch {
+          recordSkippedRow(diagnostics, 'event_creation_failed');
           continue;
         }
 
-        state.previousLastUsageOnlyKey = currentLastUsageOnlyKey;
-      } else {
-        state.previousLastUsageOnlyKey = undefined;
+        yield event;
       }
+    };
 
-      if (state.pendingUsageRecords.length > 0) {
-        yield* flushPendingUsageRecords();
-      } else {
-        const event = toEvent({
-          timestamp,
-          usage: deltaUsage,
-          repoRoot: state.repoRoot,
-          model: state.model,
-        });
+    if (!kindReader) {
+      for await (const line of readJsonlObjects(filePath, {
+        shouldParseLineBytes: shouldParseCodexJsonlLineBytes,
+        onMalformedLine: () => {
+          recordSkippedRow(diagnostics, 'json_parse_error');
+        },
+      })) {
+        const released = takeUsageLine(line, state, options, diagnostics);
 
-        if (event) {
-          yield event;
+        if (released.length > 0) {
+          yield* toEvents(released);
         }
       }
+    } else {
+      for await (const { record: line, isUsageLine } of readClassifiedJsonlObjects(filePath, {
+        shouldParseLineBytes: shouldParseCodexEventLineBytes,
+        isUsageLineBytes: shouldParseCodexJsonlLineBytes,
+        onMalformedLine: (lineBytes) => {
+          recordMalformedLine(diagnostics, kinds, shouldParseCodexJsonlLineBytes(lineBytes));
+        },
+      })) {
+        const timestamp = normalizeTimestampCandidate(line.timestamp);
+        yield* kindReader.advance(timestamp);
 
-      if (latestTotalUsage) {
-        state.previousTotalUsage = latestTotalUsage;
-      } else if (state.previousTotalUsage) {
-        state.previousTotalUsage = addUsage(state.previousTotalUsage, deltaUsage);
-      } else {
-        state.previousTotalUsage = deltaUsage;
+        if (isUsageLine) {
+          yield* toEvents(takeUsageLine(line, state, options, usageDiagnostics));
+        }
+
+        yield* kindReader.record(line, {
+          sessionId: state.sessionId,
+          model: state.model,
+          timestamp,
+        });
       }
+
+      yield* kindReader.finish();
     }
 
-    yield* flushPendingUsageRecords();
+    const pending = state.pendingUsageRecords;
+    state.pendingUsageRecords = [];
+    yield* toEvents(pending);
   }
 }
