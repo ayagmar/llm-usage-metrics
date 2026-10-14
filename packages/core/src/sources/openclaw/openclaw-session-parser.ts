@@ -5,7 +5,7 @@ import type { SourceId, UsageEvent } from '../../domain/usage-event.js';
 import type { NumberLike } from '../../domain/normalization.js';
 import { asRecord } from '../../utils/as-record.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
-import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
+import { recordSkippedRow } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
   hasPositiveUsageOrCostSignal,
@@ -15,7 +15,7 @@ import {
   toNumberLike,
   toTokenCount,
 } from '../parsing-utils.js';
-import type { SourceParseFileDiagnostics } from '../source-adapter.js';
+import type { SourceReadDiagnostics } from '../source-adapter.js';
 
 type OpenClawSessionState = {
   sessionId: string;
@@ -266,13 +266,11 @@ function updateRuntimeStateFromRecord(
     resolveRepoRootFromRecord(record) ?? resolveRepoRootFromRecord(nested) ?? state.repoRoot;
 }
 
-export async function parseOpenClawSessionFile(
+export async function* readOpenClawSessionFile(
   sourceId: SourceId,
   filePath: string,
-): Promise<SourceParseFileDiagnostics> {
-  const events: UsageEvent[] = [];
-  let skippedRows = 0;
-  const skippedRowReasons = new Map<string, number>();
+  diagnostics: SourceReadDiagnostics,
+): AsyncGenerator<UsageEvent> {
   const state: OpenClawSessionState = {
     sessionId: getFallbackSessionId(filePath),
   };
@@ -280,8 +278,7 @@ export async function parseOpenClawSessionFile(
   for await (const line of readJsonlObjects(filePath, {
     shouldParseLine: shouldParseOpenClawJsonlLine,
     onMalformedLine: () => {
-      skippedRows += 1;
-      incrementSkippedReason(skippedRowReasons, 'json_parse_error');
+      recordSkippedRow(diagnostics, 'json_parse_error');
     },
   })) {
     const message = asRecord(line.message) ?? line;
@@ -343,30 +340,28 @@ export async function parseOpenClawSessionFile(
     const timestamp = resolveTimestamp(line, message, state);
 
     if (!timestamp) {
-      skippedRows += 1;
-      incrementSkippedReason(skippedRowReasons, 'invalid_timestamp');
+      recordSkippedRow(diagnostics, 'invalid_timestamp');
       continue;
     }
+
+    let event: UsageEvent;
 
     try {
-      events.push(
-        createUsageEvent({
-          source: sourceId,
-          sessionId: state.sessionId,
-          timestamp,
-          repoRoot: state.repoRoot,
-          provider,
-          model,
-          ...usage,
-          totalTokens: resolveUsageTotalTokens(usage),
-        }),
-      );
+      event = createUsageEvent({
+        source: sourceId,
+        sessionId: state.sessionId,
+        timestamp,
+        repoRoot: state.repoRoot,
+        provider,
+        model,
+        ...usage,
+        totalTokens: resolveUsageTotalTokens(usage),
+      });
     } catch {
-      skippedRows += 1;
-      incrementSkippedReason(skippedRowReasons, 'invalid_usage_event');
+      recordSkippedRow(diagnostics, 'invalid_usage_event');
       continue;
     }
-  }
 
-  return toParseDiagnostics(events, skippedRows, skippedRowReasons);
+    yield event;
+  }
 }
