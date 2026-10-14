@@ -282,7 +282,7 @@ describe('ClaudeSourceAdapter.readEvents', () => {
     // A row with a parent uuid but a message key the parent lacks: usage keeps it (it keys
     // replays on the message key), the other kinds skip it (they also key on the uuid).
     // The parent's spawning call, re-logged under a new uuid, is skipped by its message
-    // key, so its result in the fork's directive row is an orphan.
+    // key, and its result in the fork's directive row is dropped without counting.
     expect(events.map((event) => [event.kind, event.timestamp])).toEqual([
       ['session_meta', '2026-07-03T08:00:04.000Z'],
       ['message', '2026-07-03T08:00:04.000Z'],
@@ -291,7 +291,7 @@ describe('ClaudeSourceAdapter.readEvents', () => {
       ['usage', '2026-07-03T08:00:02.000Z'],
       ['usage', '2026-07-03T08:01:01.000Z'],
     ]);
-    expect(reasons).toEqual({ tool_call_orphan_result: 1 });
+    expect(reasons).toEqual({});
   });
 
   it('attaches the source rows only when raw is requested', async () => {

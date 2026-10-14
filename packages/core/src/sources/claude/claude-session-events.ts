@@ -96,6 +96,8 @@ export class ClaudeSessionEvents {
   private readonly pairing: ToolCallPairing<ToolCall>;
   private readonly meta: SessionMetaTracker;
   private readonly messageRowUuids = new Set<string>();
+  // Calls in rows replayed from a fork's parent: a result for one is not an orphan.
+  private readonly replayedCallIds = new Set<string>();
 
   public constructor(private readonly options: ClaudeSessionEventsOptions) {
     this.pairing = new ToolCallPairing(options.diagnostics, options.kinds);
@@ -112,6 +114,7 @@ export class ClaudeSessionEvents {
     const uuid = asTrimmedText(line.uuid);
 
     if ((uuid && this.options.replayedRowUuids.has(uuid)) || this.isReplayedCall(type, line)) {
+      this.noteReplayedCalls(type, line);
       return;
     }
 
@@ -137,6 +140,20 @@ export class ClaudeSessionEvents {
     const message = type === 'assistant' ? asRecord(line.message) : undefined;
     const messageKey = message ? getClaudeMessageKey(line, message) : undefined;
     return messageKey !== undefined && this.options.replayedMessageKeys.has(messageKey);
+  }
+
+  private noteReplayedCalls(type: string, line: Record<string, unknown>): void {
+    if (type !== 'assistant') {
+      return;
+    }
+
+    for (const block of contentBlocks(asRecord(line.message)?.content)) {
+      const toolCallId = block.type === 'tool_use' ? asTrimmedText(block.id) : undefined;
+
+      if (toolCallId) {
+        this.replayedCallIds.add(toolCallId);
+      }
+    }
   }
 
   /** At end of file: the calls never answered, as `unknown`. */
@@ -270,6 +287,10 @@ export class ClaudeSessionEvents {
 
       if (!toolCallId) {
         this.recordSkipped('tool_call', 'invalid_tool_result');
+        continue;
+      }
+
+      if (this.replayedCallIds.has(toolCallId)) {
         continue;
       }
 
