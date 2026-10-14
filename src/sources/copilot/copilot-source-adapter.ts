@@ -1,4 +1,3 @@
-import os from 'node:os';
 import path from 'node:path';
 import { realpath } from 'node:fs/promises';
 
@@ -21,8 +20,12 @@ import type {
   SourceAdapterPathOptions,
   SourceParseFileDiagnostics,
 } from '../source-adapter.js';
+import { createSourceContext, readEnvPath, type SourceContext } from '../source-context.js';
 
-const defaultOtelDir = path.join(os.homedir(), '.copilot', 'otel');
+export function resolveDefaultCopilotOtelDir(context: SourceContext): string {
+  return path.join(context.homeDir, '.copilot', 'otel');
+}
+
 type CopilotCandidate = {
   priority: number;
   lineIndex: number;
@@ -40,9 +43,7 @@ type CopilotCandidate = {
   totalTokens: number | undefined;
 };
 
-export type CopilotSourceAdapterOptions = SourceAdapterPathOptions & {
-  env?: NodeJS.ProcessEnv;
-};
+export type CopilotSourceAdapterOptions = SourceAdapterPathOptions;
 
 function shouldParseCopilotJsonlLine(lineText: string): boolean {
   return lineText.includes('"attributes"');
@@ -391,10 +392,9 @@ export class CopilotSourceAdapter implements SourceAdapter {
   private readonly requireDir: boolean;
 
   public constructor(options: CopilotSourceAdapterOptions = {}) {
-    const env = options.env ?? process.env;
-    const envFilePath = asTrimmedText(env.COPILOT_OTEL_FILE_EXPORTER_PATH);
-    this.rootDirs = [options.dir ?? defaultOtelDir];
-    this.envFilePath = envFilePath;
+    const context = options.context ?? createSourceContext();
+    this.rootDirs = [options.dir ?? resolveDefaultCopilotOtelDir(context)];
+    this.envFilePath = readEnvPath(context, 'COPILOT_OTEL_FILE_EXPORTER_PATH');
     this.requireDir = options.requireDir ?? false;
   }
 

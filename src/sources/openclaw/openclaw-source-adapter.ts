@@ -1,4 +1,3 @@
-import os from 'node:os';
 import path from 'node:path';
 
 import type { UsageEvent } from '../../domain/usage-event.js';
@@ -9,15 +8,17 @@ import type {
   SourceAdapterPathOptions,
   SourceParseFileDiagnostics,
 } from '../source-adapter.js';
+import { createSourceContext, type SourceContext } from '../source-context.js';
 import { parseOpenClawSessionFile } from './openclaw-session-parser.js';
 
-const defaultAgentsDir = path.join(os.homedir(), '.openclaw', 'agents');
-const defaultOpenClawRootDirs = [
-  defaultAgentsDir,
-  path.join(os.homedir(), '.clawdbot', 'agents'),
-  path.join(os.homedir(), '.moltbot', 'agents'),
-  path.join(os.homedir(), '.moldbot', 'agents'),
-];
+export function resolveDefaultOpenClawRootDirs(context: SourceContext): string[] {
+  return [
+    path.join(context.homeDir, '.openclaw', 'agents'),
+    path.join(context.homeDir, '.clawdbot', 'agents'),
+    path.join(context.homeDir, '.moltbot', 'agents'),
+    path.join(context.homeDir, '.moldbot', 'agents'),
+  ];
+}
 
 export type OpenClawSourceAdapterOptions = SourceAdapterPathOptions & {
   /** Test seam: default roots scanned when no dir override is given. */
@@ -35,7 +36,8 @@ export class OpenClawSourceAdapter implements SourceAdapter {
   public constructor(options: OpenClawSourceAdapterOptions = {}) {
     this.rootDirs = resolveRootDirs(
       options.dir,
-      options.defaultRootDirs ?? defaultOpenClawRootDirs,
+      options.defaultRootDirs ??
+        resolveDefaultOpenClawRootDirs(options.context ?? createSourceContext()),
     );
     this.requireDir = options.requireDir ?? false;
   }

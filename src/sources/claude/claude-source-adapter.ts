@@ -1,4 +1,3 @@
-import os from 'node:os';
 import path from 'node:path';
 
 import { normalizeNonNegativeInteger } from '../../domain/normalization.js';
@@ -28,6 +27,7 @@ import type {
   SourceAdapterPathOptions,
   SourceParseFileDiagnostics,
 } from '../source-adapter.js';
+import { createSourceContext, type SourceContext } from '../source-context.js';
 
 function getClaudeRootDirsForConfigDir(configDir: string): string[] {
   return [path.join(configDir, 'projects'), path.join(configDir, 'transcripts')];
@@ -37,17 +37,14 @@ function getClaudeRootDirsForConfigDir(configDir: string): string[] {
  * Claude Code reads CLAUDE_CONFIG_DIR instead of ~/.claude. Like other usage tools, a
  * comma-separated value lists several config directories.
  */
-export function resolveDefaultClaudeRootDirs(
-  env: NodeJS.ProcessEnv = process.env,
-  homeDir: string = os.homedir(),
-): string[] {
-  const configDirs = (env.CLAUDE_CONFIG_DIR ?? '')
+export function resolveDefaultClaudeRootDirs(context: SourceContext): string[] {
+  const configDirs = (context.env.CLAUDE_CONFIG_DIR ?? '')
     .split(',')
     .map((configDir) => configDir.trim())
     .filter((configDir) => configDir.length > 0);
 
   if (configDirs.length === 0) {
-    return getClaudeRootDirsForConfigDir(path.join(homeDir, '.claude'));
+    return getClaudeRootDirsForConfigDir(path.join(context.homeDir, '.claude'));
   }
 
   return configDirs.flatMap((configDir) => getClaudeRootDirsForConfigDir(configDir));
@@ -80,7 +77,6 @@ export type ClaudeSourceAdapterOptions = Omit<SourceAdapterPathOptions, 'dir'> &
   dir?: string | readonly string[];
   /** Test seam: default roots scanned when no dir override is given. */
   defaultRootDirs?: string[];
-  env?: NodeJS.ProcessEnv;
 };
 
 function shouldParseClaudeJsonlLineBytes(lineBytes: Buffer): boolean {
@@ -188,7 +184,8 @@ export class ClaudeSourceAdapter implements SourceAdapter {
   public constructor(options: ClaudeSourceAdapterOptions = {}) {
     this.rootDirs = resolveRootDirs(
       options.dir,
-      options.defaultRootDirs ?? resolveDefaultClaudeRootDirs(options.env),
+      options.defaultRootDirs ??
+        resolveDefaultClaudeRootDirs(options.context ?? createSourceContext()),
     );
     this.requireDir = options.requireDir ?? false;
   }
