@@ -8,6 +8,11 @@ import type { SourceAdapter } from '../../src/sources/source-adapter.js';
 import { mulberry32, pick, randomInt, shuffle, type Random } from '../helpers/seeded-random.js';
 
 const ITERATIONS = 200;
+/**
+ * The fewest iterations of a property whose generated data must hold copies (the output is
+ * shorter than the input); without them the property could pass on copy-free data.
+ */
+const MIN_ITERATIONS_WITH_COPIES = 50;
 const FIXED_NOW = new Date('2026-07-01T12:00:00.000Z');
 
 // A small alphabet, so generated sessions often hold the same timestamp, model and usage.
@@ -135,27 +140,39 @@ describe('countCopiedSessionEventsOnce properties', () => {
     const seed = 0x5eed_0001;
     const random = mulberry32(seed);
 
+    let withCopies = 0;
+
     for (let iteration = 0; iteration < ITERATIONS; iteration += 1) {
-      const once = countCopiedSessionEventsOnce(generateSessions(random));
+      const events = generateSessions(random);
+      const once = countCopiedSessionEventsOnce(events);
       const twice = countCopiedSessionEventsOnce(once);
+      withCopies += once.length < events.length ? 1 : 0;
 
       expect(keysOf(twice), failureMessage(seed, iteration)).toEqual(keysOf(once));
     }
+
+    expect(withCopies, `seed ${seed}`).toBeGreaterThanOrEqual(MIN_ITERATIONS_WITH_COPIES);
   });
 
   it('keeps the same events whatever order the input arrives in', () => {
     const seed = 0x5eed_0002;
     const random = mulberry32(seed);
 
+    let withCopies = 0;
+
     for (let iteration = 0; iteration < ITERATIONS; iteration += 1) {
       const events = generateSessions(random);
       const reordered = shuffle(events, random);
+      const original = countCopiedSessionEventsOnce(events);
+      withCopies += original.length < events.length ? 1 : 0;
 
       expect(
         keysOf(countCopiedSessionEventsOnce(reordered)),
         failureMessage(seed, iteration),
-      ).toEqual(keysOf(countCopiedSessionEventsOnce(events)));
+      ).toEqual(keysOf(original));
     }
+
+    expect(withCopies, `seed ${seed}`).toBeGreaterThanOrEqual(MIN_ITERATIONS_WITH_COPIES);
   });
 
   it('returns input events in input order, keeping one of each copied event', () => {
@@ -232,7 +249,14 @@ describe('countCopiedSessionEventsOnce properties', () => {
     // The newer session's first copy is the older session's event; its second is its own.
     // A second pass would then drop that one too: the max-count rule is why the
     // generated sessions above never repeat an identity within a session.
-    expect(countCopiedSessionEventsOnce(events)).toEqual([olderStart, events[1], events[3]]);
+    const result = countCopiedSessionEventsOnce(events);
+
+    // By reference: events[2] and events[3] are deep-equal, so toEqual could not tell
+    // which of them was kept.
+    expect(result).toHaveLength(3);
+    expect(result[0]).toBe(olderStart);
+    expect(result[1]).toBe(events[1]);
+    expect(result[2]).toBe(events[3]);
   });
 });
 
@@ -389,30 +413,40 @@ describe('events repeated across files are counted once (runEventsReport)', () =
     const seed = 0x5eed_0011;
     const random = mulberry32(seed);
 
+    let withRepeats = 0;
+
     for (let iteration = 0; iteration < ITERATIONS; iteration += 1) {
       const files = generateFiles(random);
       const once = await exportJsonlLines(files);
       const twice = await exportJsonlLines(regroupIntoFiles(files, once));
+      withRepeats += once.length < linesOf(files).length ? 1 : 0;
 
       expect(toSortedMultiset(twice), failureMessage(seed, iteration)).toEqual(
         toSortedMultiset(once),
       );
     }
+
+    expect(withRepeats, `seed ${seed}`).toBeGreaterThanOrEqual(MIN_ITERATIONS_WITH_COPIES);
   });
 
   it('keeps the same events whatever the file order and the event order within files', async () => {
     const seed = 0x5eed_0012;
     const random = mulberry32(seed);
 
+    let withRepeats = 0;
+
     for (let iteration = 0; iteration < ITERATIONS; iteration += 1) {
       const files = generateFiles(random);
       const original = await exportJsonlLines(files);
       const reordered = await exportJsonlLines(shuffleFiles(files, random));
+      withRepeats += original.length < linesOf(files).length ? 1 : 0;
 
       expect(toSortedMultiset(reordered), failureMessage(seed, iteration)).toEqual(
         toSortedMultiset(original),
       );
     }
+
+    expect(withRepeats, `seed ${seed}`).toBeGreaterThanOrEqual(MIN_ITERATIONS_WITH_COPIES);
   });
 
   it('exports each event the files hold exactly once', async () => {
