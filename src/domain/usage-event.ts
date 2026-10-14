@@ -54,12 +54,13 @@ function hasCostMode(event: AdapterEvent): event is UsageEvent {
 
 /**
  * Adapter output carries no cost mode: a cost the source logged is explicit, any other
- * is estimated by pricing later. An event that already has a mode keeps it.
+ * is estimated by pricing later. The mode is added to the event itself, after `costUsd`,
+ * since a copy of every parsed event costs memory; an event that has a mode keeps it.
  */
 export function withCostMode(event: AdapterEvent): UsageEvent {
   return hasCostMode(event)
     ? event
-    : { ...event, costMode: event.costUsd === undefined ? 'estimated' : 'explicit' };
+    : Object.assign(event, { costMode: event.costUsd === undefined ? 'estimated' : 'explicit' });
 }
 
 export function withCostModes(diagnostics: core.SourceParseFileDiagnostics): ParseFileDiagnostics {
