@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { createUsageEvent } from '../../src/domain/usage-event.js';
-import { incrementSkippedReason, toParseDiagnostics } from '../../src/sources/parse-diagnostics.js';
+import {
+  createReadDiagnostics,
+  incrementSkippedReason,
+  recordSkippedRow,
+  toParseDiagnostics,
+} from '../../src/sources/parse-diagnostics.js';
 
 describe('parse diagnostics', () => {
   it('counts each skipped reason and lists the reasons in code-point order', () => {
@@ -35,6 +40,22 @@ describe('parse diagnostics', () => {
       events: [],
       skippedRows: 0,
       skippedRowReasons: [],
+    });
+  });
+
+  it('records a skipped row together with its reason', () => {
+    const diagnostics = createReadDiagnostics();
+
+    recordSkippedRow(diagnostics, 'no_usage');
+    recordSkippedRow(diagnostics, 'bad_timestamp');
+    recordSkippedRow(diagnostics, 'no_usage');
+
+    expect(diagnostics).toEqual({
+      skippedRows: 3,
+      skippedRowReasons: new Map([
+        ['no_usage', 2],
+        ['bad_timestamp', 1],
+      ]),
     });
   });
 });

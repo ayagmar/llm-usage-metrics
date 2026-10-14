@@ -1,10 +1,23 @@
 import type { UsageEvent } from '../domain/usage-event.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
-import type { SourceParseFileDiagnostics, SourceSkippedRowReasonStat } from './source-adapter.js';
+import type {
+  SourceParseFileDiagnostics,
+  SourceReadDiagnostics,
+  SourceSkippedRowReasonStat,
+} from './source-adapter.js';
 
 export function incrementSkippedReason(reasons: Map<string, number>, reason: string): void {
   const current = reasons.get(reason) ?? 0;
   reasons.set(reason, current + 1);
+}
+
+export function createReadDiagnostics(): SourceReadDiagnostics {
+  return { skippedRows: 0, skippedRowReasons: new Map() };
+}
+
+export function recordSkippedRow(diagnostics: SourceReadDiagnostics, reason: string): void {
+  diagnostics.skippedRows++;
+  incrementSkippedReason(diagnostics.skippedRowReasons, reason);
 }
 
 function toSkippedRowReasonStats(reasons: Map<string, number>): SourceSkippedRowReasonStat[] {

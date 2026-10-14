@@ -5,7 +5,9 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { QwenSourceAdapter } from '../../../src/sources/qwen/index.js';
+import { collect, collectFile } from '../../../src/stream/collect.js';
 import { fixturePath } from '../../helpers/fixtures.js';
+import { canCountOpenFds, countOpenFds, waitForOpenFdCount } from '../../helpers/open-fds.js';
 
 const tempDirs: string[] = [];
 
@@ -91,7 +93,7 @@ describe('QwenSourceAdapter', () => {
     );
     const adapter = new QwenSourceAdapter();
 
-    const result = await adapter.parseFileWithDiagnostics(usagePath);
+    const result = await collectFile(adapter, usagePath);
 
     expect(result.events).toHaveLength(2);
     expect(result.events[0]).toMatchObject({
@@ -151,7 +153,7 @@ describe('QwenSourceAdapter', () => {
       'utf8',
     );
 
-    const events = await new QwenSourceAdapter().parseFile(filePath);
+    const events = await collect(new QwenSourceAdapter().read(filePath));
 
     expect(events[0]).toMatchObject({
       inputTokens: 70,
@@ -184,7 +186,7 @@ describe('QwenSourceAdapter', () => {
       'utf8',
     );
 
-    const events = await new QwenSourceAdapter().parseFile(filePath);
+    const events = await collect(new QwenSourceAdapter().read(filePath));
 
     expect(events.map((event) => event.outputTokens)).toEqual([55, 40]);
   });
@@ -197,7 +199,7 @@ describe('QwenSourceAdapter', () => {
     await writeFile(filePath, '{"usageMetadata":', 'utf8');
 
     const adapter = new QwenSourceAdapter({ dir: root });
-    const result = await adapter.parseFileWithDiagnostics(filePath);
+    const result = await collectFile(adapter, filePath);
 
     expect(result.events).toEqual([]);
     expect(result.skippedRows).toBe(1);
@@ -224,7 +226,7 @@ describe('QwenSourceAdapter', () => {
     );
 
     const adapter = new QwenSourceAdapter({ dir: root });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
@@ -260,7 +262,7 @@ describe('QwenSourceAdapter', () => {
       'utf8',
     );
 
-    const events = await new QwenSourceAdapter().parseFile(filePath);
+    const events = await collect(new QwenSourceAdapter().read(filePath));
 
     // Gemini-native thoughts sit outside candidates (output 110); OpenAI-style reasoning
     // sits inside them (output 80). Neither total counts reasoning a second time.
@@ -288,5 +290,31 @@ describe('QwenSourceAdapter', () => {
         totalTokens: 180,
       },
     ]);
+  });
+
+  it.runIf(canCountOpenFds)('closes the file when the consumer stops early', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'qwen-early-return-'));
+    tempDirs.push(root);
+    const filePath = path.join(root, 'larger-than-a-chunk.jsonl');
+    const row = JSON.stringify({
+      type: 'assistant',
+      model: 'qwen3-coder',
+      timestamp: '2026-03-01T10:00:00.000Z',
+      sessionId: 'qwen-early-return',
+      usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 5 },
+      padding: 'x'.repeat(1000),
+    });
+    const rowCount = 3000;
+    await writeFile(filePath, `${row}\n`.repeat(rowCount), 'utf8');
+    const adapter = new QwenSourceAdapter();
+    const before = countOpenFds();
+
+    for await (const event of adapter.read(filePath)) {
+      expect(event.sessionId).toBe('qwen-early-return');
+      break;
+    }
+
+    await waitForOpenFdCount(before);
+    await expect(collect(adapter.read(filePath))).resolves.toHaveLength(rowCount);
   });
 });
