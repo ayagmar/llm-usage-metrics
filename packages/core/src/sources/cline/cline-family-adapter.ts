@@ -1,15 +1,17 @@
 import path from 'node:path';
 
 import type { SourceId, UsageEvent } from '../../domain/usage-event.js';
+import { collectFile } from '../../stream/collect.js';
 import { discoverFiles } from '../../utils/discover-files.js';
 import { discoverFilesAcrossRoots, resolveRootDirs } from '../multi-root-discovery.js';
 import type {
   SourceAdapter,
   SourceAdapterPathOptions,
   SourceParseFileDiagnostics,
+  SourceReadOptions,
 } from '../source-adapter.js';
 import { createSourceContext, readEnvPath, type SourceContext } from '../source-context.js';
-import { getClineTaskHistoryPath, parseClineTaskFile } from './cline-task-parser.js';
+import { getClineTaskHistoryPath, readClineTaskFile } from './cline-task-parser.js';
 
 export const CLINE_EXTENSION_IDS = {
   cline: 'saoudrizwan.claude-dev',
@@ -112,13 +114,16 @@ export class ClineFamilyAdapter implements SourceAdapter {
     return [getClineTaskHistoryPath(filePath)];
   }
 
-  public async parseFile(filePath: string): Promise<UsageEvent[]> {
-    const { events } = await this.parseFileWithDiagnostics(filePath);
-    return events;
+  public read(filePath: string, options?: SourceReadOptions): AsyncGenerator<UsageEvent> {
+    return readClineTaskFile(this.id, filePath, options);
   }
 
-  public async parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
-    return parseClineTaskFile(this.id, filePath);
+  public async parseFile(filePath: string): Promise<UsageEvent[]> {
+    return (await collectFile(this, filePath)).events;
+  }
+
+  public parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
+    return collectFile(this, filePath);
   }
 }
 

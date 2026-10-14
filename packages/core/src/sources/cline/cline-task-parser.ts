@@ -1,27 +1,25 @@
-import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { normalizeUsdCost } from '../../domain/normalization.js';
 import { createUsageEvent } from '../../domain/usage-event.js';
 import type { SourceId, UsageEvent, UsageEventInput } from '../../domain/usage-event.js';
 import { asRecord } from '../../utils/as-record.js';
-import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
-import { readJsonTranscriptFile } from '../read-json-file.js';
+import { readJsonArrayElements } from '../../utils/read-json-array-elements.js';
+import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
   normalizeTimestampCandidate,
   toNumberLike,
   toTokenCount,
 } from '../parsing-utils.js';
-import type { SourceParseFileDiagnostics } from '../source-adapter.js';
+import type { SourceReadDiagnostics, SourceReadOptions } from '../source-adapter.js';
+import { loadHistoryModel } from './cline-history-model.js';
 
 type ClineParseContext = {
   sourceId: SourceId;
   sessionId: string;
   model: string | undefined;
-  events: UsageEvent[];
-  skippedRows: number;
-  skippedRowReasons: Map<string, number>;
+  diagnostics: SourceReadDiagnostics;
 };
 
 type ClineTokenUsage = {
@@ -31,59 +29,6 @@ type ClineTokenUsage = {
   cacheReadTokens: number;
   cacheWriteTokens: number;
 };
-
-const ENVIRONMENT_DETAILS_OPEN_TAG = '<environment_details>';
-const ENVIRONMENT_DETAILS_CLOSE_TAG = '</environment_details>';
-const MODEL_OPEN_TAG = '<model>';
-const MODEL_CLOSE_TAG = '</model>';
-
-// Conversation history is untrusted, multi-megabyte text; lazy `[\s\S]*?` regexes over it
-// go quadratic on repeated unclosed tags, so tagged blocks are found with indexOf scans.
-function findLastTaggedBlock(
-  content: string,
-  openTag: string,
-  closeTag: string,
-): string | undefined {
-  let lastBlock: string | undefined;
-  let searchFrom = 0;
-
-  for (;;) {
-    const start = content.indexOf(openTag, searchFrom);
-
-    if (start === -1) {
-      return lastBlock;
-    }
-
-    const end = content.indexOf(closeTag, start + openTag.length);
-
-    if (end === -1) {
-      return lastBlock;
-    }
-
-    searchFrom = end + closeTag.length;
-    lastBlock = content.slice(start, searchFrom);
-  }
-}
-
-function findFirstTaggedText(
-  content: string,
-  openTag: string,
-  closeTag: string,
-): string | undefined {
-  const start = content.indexOf(openTag);
-
-  if (start === -1) {
-    return undefined;
-  }
-
-  const end = content.indexOf(closeTag, start + openTag.length);
-  return end === -1 ? undefined : content.slice(start + openTag.length, end);
-}
-
-function incrementContextSkippedReason(context: ClineParseContext, reason: string): void {
-  context.skippedRows++;
-  incrementSkippedReason(context.skippedRowReasons, reason);
-}
 
 function getTaskId(filePath: string): string {
   return path.basename(path.dirname(filePath));
@@ -166,71 +111,49 @@ function parsePayload(entry: Record<string, unknown>): Record<string, unknown> |
   }
 }
 
-function pushClineEvent(
+function createClineEvent(
   context: ClineParseContext,
   input: Omit<UsageEventInput, 'source' | 'sessionId'>,
-): void {
+): UsageEvent | undefined {
   try {
-    context.events.push(
-      createUsageEvent({
-        source: context.sourceId,
-        sessionId: context.sessionId,
-        ...input,
-      }),
-    );
+    return createUsageEvent({
+      source: context.sourceId,
+      sessionId: context.sessionId,
+      ...input,
+    });
   } catch {
-    incrementContextSkippedReason(context, 'event_creation_failed');
-  }
-}
-
-async function loadHistoryModel(historyPath: string): Promise<string | undefined> {
-  let content: string;
-
-  try {
-    content = await readFile(historyPath, 'utf8');
-  } catch {
+    recordSkippedRow(context.diagnostics, 'event_creation_failed');
     return undefined;
   }
-
-  const lastEnvironmentDetails = findLastTaggedBlock(
-    content,
-    ENVIRONMENT_DETAILS_OPEN_TAG,
-    ENVIRONMENT_DETAILS_CLOSE_TAG,
-  );
-
-  if (!lastEnvironmentDetails) {
-    return undefined;
-  }
-
-  return asTrimmedText(
-    findFirstTaggedText(lastEnvironmentDetails, MODEL_OPEN_TAG, MODEL_CLOSE_TAG),
-  );
 }
 
 function isUsageEntry(entry: Record<string, unknown>): boolean {
   return entry.type === 'say' && entry.say === 'api_req_started';
 }
 
-function parseUsageEntry(context: ClineParseContext, entry: Record<string, unknown>): void {
+function parseUsageEntry(
+  context: ClineParseContext,
+  entry: Record<string, unknown>,
+): UsageEvent | undefined {
   const payload = parsePayload(entry);
 
   if (!payload) {
-    incrementContextSkippedReason(context, 'invalid_payload');
-    return;
+    recordSkippedRow(context.diagnostics, 'invalid_payload');
+    return undefined;
   }
 
   const { usage, costUsd, hasUsageSignal } = extractUsage(context.sourceId, payload);
 
   if (!hasUsageSignal) {
-    incrementContextSkippedReason(context, 'no_token_usage');
-    return;
+    recordSkippedRow(context.diagnostics, 'no_token_usage');
+    return undefined;
   }
 
   const timestamp = normalizeTimestampCandidate(entry.ts);
 
   if (!timestamp) {
-    incrementContextSkippedReason(context, 'invalid_timestamp');
-    return;
+    recordSkippedRow(context.diagnostics, 'invalid_timestamp');
+    return undefined;
   }
 
   const eventInput = {
@@ -241,48 +164,46 @@ function parseUsageEntry(context: ClineParseContext, entry: Record<string, unkno
   };
 
   if (costUsd !== undefined) {
-    pushClineEvent(context, {
+    return createClineEvent(context, {
       ...eventInput,
       costUsd,
     });
-    return;
   }
 
-  pushClineEvent(context, {
+  return createClineEvent(context, {
     ...eventInput,
   });
 }
 
-export async function parseClineTaskFile(
+export async function* readClineTaskFile(
   sourceId: SourceId,
   filePath: string,
-): Promise<SourceParseFileDiagnostics> {
+  options: SourceReadOptions = {},
+): AsyncGenerator<UsageEvent, void, undefined> {
   const context: ClineParseContext = {
     sourceId,
     sessionId: getTaskId(filePath),
     model: await loadHistoryModel(getClineTaskHistoryPath(filePath)),
-    events: [],
-    skippedRows: 0,
-    skippedRowReasons: new Map(),
+    diagnostics: options.diagnostics ?? createReadDiagnostics(),
   };
-
-  const parsed = await readJsonTranscriptFile(filePath);
 
   // A document of the wrong shape fails the file, like unreadable JSON, so its stored
   // events stay.
-  if (!Array.isArray(parsed)) {
-    throw new Error(`Task history is not a JSON array: ${filePath}`);
-  }
+  const entries = readJsonArrayElements(filePath, {
+    notArrayMessage: `Task history is not a JSON array: ${filePath}`,
+  });
 
-  for (const entry of parsed) {
+  for await (const entry of entries) {
     const record = asRecord(entry);
 
     if (!record || !isUsageEntry(record)) {
       continue;
     }
 
-    parseUsageEntry(context, record);
-  }
+    const event = parseUsageEntry(context, record);
 
-  return toParseDiagnostics(context.events, context.skippedRows, context.skippedRowReasons);
+    if (event) {
+      yield event;
+    }
+  }
 }
