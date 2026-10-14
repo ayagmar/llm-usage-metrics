@@ -128,6 +128,9 @@ describe('countCopiedSessionEventsOnce properties', () => {
     return shuffle(events, random);
   }
 
+  // Idempotent only because no generated session holds two events with the same
+  // identity. In general it is not: a session holding an identity twice keeps its second
+  // copy on the first pass and loses it on the next (KI-9; see the max-count example below).
   it('is idempotent: counting copies once a second time removes nothing more', () => {
     const seed = 0x5eed_0001;
     const random = mulberry32(seed);
@@ -188,6 +191,26 @@ describe('countCopiedSessionEventsOnce properties', () => {
       const events = generateSessionsWithoutCopies(random);
 
       expect(countCopiedSessionEventsOnce(events), failureMessage(seed, iteration)).toEqual(events);
+    }
+  });
+
+  it('ignores a later session that copies an existing session verbatim', () => {
+    const seed = 0x5eed_0005;
+    const random = mulberry32(seed);
+
+    for (let iteration = 0; iteration < ITERATIONS; iteration += 1) {
+      const events = generateSessions(random);
+      const copiedSessionId = pick(random, events).sessionId;
+      // Verbatim timestamps give the copy the same start as the session it copies, so it
+      // starts later through the tie-break: "session-copy" sorts after every "session-<n>".
+      const copy = events
+        .filter((event) => event.sessionId === copiedSessionId)
+        .map((event) => ({ ...event, sessionId: 'session-copy' }));
+
+      expect(
+        keysOf(countCopiedSessionEventsOnce([...events, ...copy])),
+        failureMessage(seed, iteration),
+      ).toEqual(keysOf(countCopiedSessionEventsOnce(events)));
     }
   });
 
@@ -402,6 +425,22 @@ describe('events repeated across files are counted once (runEventsReport)', () =
 
       expect(toSortedMultiset(lines), failureMessage(seed, iteration)).toEqual(
         toSortedMultiset([...new Set(linesOf(files))]),
+      );
+    }
+  });
+
+  it('exports the same events when a file is duplicated under a new name', async () => {
+    const seed = 0x5eed_0015;
+    const random = mulberry32(seed);
+
+    for (let iteration = 0; iteration < ITERATIONS; iteration += 1) {
+      const files = generateFiles(random);
+      const duplicate = { ...pick(random, files), path: `/virtual/${SOURCE_ID}/duplicate.jsonl` };
+      const original = await exportJsonlLines(files);
+      const withDuplicate = await exportJsonlLines([...files, duplicate]);
+
+      expect(toSortedMultiset(withDuplicate), failureMessage(seed, iteration)).toEqual(
+        toSortedMultiset(original),
       );
     }
   });
