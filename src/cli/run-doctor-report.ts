@@ -11,7 +11,7 @@ import {
   type EventStoreSummary,
 } from '../persistence/event-store.js';
 import { getSourceStorageFormat, type SourceStorageFormat } from '@ayagmar/agent-sessions/registry';
-import type { SourceAdapter } from '@ayagmar/agent-sessions';
+import { collectFile, type SourceAdapter } from '@ayagmar/agent-sessions';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { logger } from '../utils/logger.js';
 import {
@@ -92,9 +92,7 @@ async function sortNewestFirst(files: readonly string[]): Promise<string[]> {
 }
 
 async function parseFileEvents(adapter: SourceAdapter, filePath: string) {
-  return adapter.parseFileWithDiagnostics
-    ? (await adapter.parseFileWithDiagnostics(filePath)).events
-    : adapter.parseFile(filePath);
+  return (await collectFile(adapter, filePath)).events;
 }
 
 async function probeForUsage(

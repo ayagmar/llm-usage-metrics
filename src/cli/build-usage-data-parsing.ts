@@ -1,4 +1,4 @@
-import { dedupeRepeatedAcrossFiles } from '@ayagmar/agent-sessions';
+import { collectFile, dedupeRepeatedAcrossFiles } from '@ayagmar/agent-sessions';
 
 import type { EventStoreRuntimeConfig } from '../config/runtime-overrides.js';
 import {
@@ -197,11 +197,7 @@ export async function parseAdapterEvents(
   }
 
   async function parseFileInline(filePath: string): Promise<ParseFileDiagnostics> {
-    return withCostModes(
-      adapter.parseFileWithDiagnostics
-        ? await adapter.parseFileWithDiagnostics(filePath)
-        : { events: await adapter.parseFile(filePath), skippedRows: 0, skippedRowReasons: [] },
-    );
+    return withCostModes(await collectFile(adapter, filePath));
   }
 
   function recordParsedFile(params: {

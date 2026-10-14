@@ -3,7 +3,7 @@ import type { WorkerOptions } from 'node:worker_threads';
 
 import { withCostModes, type ParseFileDiagnostics, type SourceId } from '../domain/usage-event.js';
 import { canParseSourceOnWorker, createWorkerParseAdapter } from '@ayagmar/agent-sessions/registry';
-import type { SourceParseFileDiagnostics } from '@ayagmar/agent-sessions';
+import { collectFile, type SourceParseFileDiagnostics } from '@ayagmar/agent-sessions';
 import { asRecord } from '../utils/as-record.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
 
@@ -57,12 +57,6 @@ type WorkerSlot = {
   worker: ParseWorkerLike;
   currentTask?: PendingParseTask;
 };
-
-/* v8 ignore start -- Worker-entry helpers run only inside the built CLI bundle. */
-function getDefaultParseFileDiagnostics(events: SourceParseFileDiagnostics['events']) {
-  return { events, skippedRows: 0, skippedRowReasons: [] } satisfies SourceParseFileDiagnostics;
-}
-/* v8 ignore stop */
 
 function isSourceParseFileDiagnostics(value: unknown): value is SourceParseFileDiagnostics {
   const diagnostics = asRecord(value);
@@ -355,9 +349,7 @@ export async function runParseWorker(): Promise<never> {
       }
 
       try {
-        const diagnostics = adapter.parseFileWithDiagnostics
-          ? await adapter.parseFileWithDiagnostics(request.filePath)
-          : getDefaultParseFileDiagnostics(await adapter.parseFile(request.filePath));
+        const diagnostics = await collectFile(adapter, request.filePath);
 
         port.postMessage({
           taskId: request.taskId,
