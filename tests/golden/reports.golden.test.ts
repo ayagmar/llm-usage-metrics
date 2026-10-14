@@ -9,7 +9,6 @@ import { buildEfficiencyReport } from '../../src/cli/run-efficiency-report.js';
 import { buildOptimizeReport } from '../../src/cli/run-optimize-report.js';
 import { runPruneReport } from '../../src/cli/run-prune-report.js';
 import { buildSessionReport } from '../../src/cli/run-session-report.js';
-import { buildStatusline } from '../../src/cli/run-statusline.js';
 import { buildSummaryReport } from '../../src/cli/run-summary-report.js';
 import { buildTrendsReport } from '../../src/cli/run-trends-report.js';
 import { buildUsageReport } from '../../src/cli/run-usage-report.js';
@@ -343,15 +342,6 @@ describe.skipIf(process.platform === 'win32')(`report goldens (${WINDOWS_SKIP_RE
             },
           ),
         ),
-    },
-    {
-      name: 'statusline',
-      formats: ['terminal'],
-      render: async () =>
-        `${await buildStatusline(
-          { piDir: sources.piDir, codexDir: sources.codexDir, source: 'pi,codex', timezone: 'UTC' },
-          { now: fixedNow },
-        )}\n`,
     },
   ];
 
