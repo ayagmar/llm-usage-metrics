@@ -6,7 +6,6 @@ import type { NumberLike } from '../../domain/normalization.js';
 import { asRecord } from '../../utils/as-record.js';
 import { discoverFiles } from '../../utils/discover-files.js';
 import { discoverFilesAcrossRoots, resolveRootDirs } from '../multi-root-discovery.js';
-import { collectFile } from '../../stream/collect.js';
 import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
@@ -19,7 +18,6 @@ import { getDefaultDshSessionsDir } from './dsh-path-resolver.js';
 import type {
   SourceAdapter,
   SourceAdapterPathOptions,
-  SourceParseFileDiagnostics,
   SourceReadOptions,
 } from '../source-adapter.js';
 import { createSourceContext } from '../source-context.js';
@@ -252,14 +250,6 @@ export class DshSourceAdapter implements SourceAdapter {
 
       yield event;
     }
-  }
-
-  public async parseFile(filePath: string): Promise<UsageEvent[]> {
-    return (await collectFile(this, filePath)).events;
-  }
-
-  public parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
-    return collectFile(this, filePath);
   }
 }
 

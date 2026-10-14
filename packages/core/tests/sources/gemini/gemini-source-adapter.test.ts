@@ -189,7 +189,7 @@ describe('GeminiSourceAdapter', () => {
     });
   });
 
-  describe('parseFile', () => {
+  describe('read', () => {
     it('parses usage and maps token fields correctly', async () => {
       const adapter = new GeminiSourceAdapter({ dir: fixturesDir });
       const filePath = path.join(fixturesDir, 'session-with-usage.json');
@@ -591,7 +591,7 @@ describe('GeminiSourceAdapter', () => {
     });
   });
 
-  describe('parseFileWithDiagnostics', () => {
+  describe('collectFile', () => {
     it('tracks skipped reason counts', async () => {
       const adapter = new GeminiSourceAdapter({ dir: fixturesDir });
       const result = await collectFile(adapter, path.join(fixturesDir, 'session-with-usage.json'));

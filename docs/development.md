@@ -289,8 +289,7 @@ Optional but recommended:
    `packages/core/src/sources/<name>/index.ts` and a `./sources/<name>` entry in
    `packages/core/package.json`
 2. Implement `SourceAdapter`
-   - required: `discoverFiles()` and `parseFile(filePath)`
-   - optional: `parseFileWithDiagnostics(filePath)` when you need per-file skipped-row counters
+   - required: `discoverFiles()` and `read(filePath, options)`, an `async function*` that yields the file's events in order and records each skipped row with `recordSkippedRow(options.diagnostics, reason)`; breaking out of the loop must close every handle the read opened (`packages/core/README.md` has the full contract)
    - optional: `getParseDependencies(filePath)` when parsing reads sidecar files (the event store fingerprints them)
    - optional: `parserVersion` (defaults to 1); bump it whenever the same unchanged file would parse into different events, so stored events are re-parsed
    - the event store caches a file's events by its fingerprint, so parsing must depend only on the file, its declared parse dependencies, and `parserVersion`; anything else that changes the result (a parent transcript, a decision based on the adapter's roots) must be returned from `getParseDependencies`

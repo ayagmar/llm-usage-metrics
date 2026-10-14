@@ -15,6 +15,7 @@ import {
   type EventStoreFileFingerprint,
 } from '../../src/sources/parse-fingerprint.js';
 import type { SourceAdapter } from '../../src/sources/source-adapter.js';
+import { readFrom } from '../helpers/fake-read.js';
 
 const tempDirs: string[] = [];
 
@@ -39,7 +40,7 @@ function createAdapter(options: {
     id: 'pi',
     parserVersion: options.parserVersion,
     discoverFiles: () => Promise.resolve([]),
-    parseFile: () => Promise.resolve([]),
+    read: readFrom(() => []),
     ...(dependencies
       ? { getParseDependencies: (filePath: string) => Promise.resolve(dependencies(filePath)) }
       : {}),

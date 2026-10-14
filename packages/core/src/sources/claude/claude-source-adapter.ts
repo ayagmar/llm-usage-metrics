@@ -9,7 +9,6 @@ import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import { pathStat } from '../../utils/fs-helpers.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
-import { collectFile } from '../../stream/collect.js';
 import {
   discoverFilesAcrossRoots,
   isPathWithinRoots,
@@ -26,7 +25,6 @@ import { asTrimmedText, normalizeTimestampCandidate, toNumberLike } from '../par
 import type {
   SourceAdapter,
   SourceAdapterPathOptions,
-  SourceParseFileDiagnostics,
   SourceReadOptions,
 } from '../source-adapter.js';
 import { createSourceContext, type SourceContext } from '../source-context.js';
@@ -205,10 +203,6 @@ export class ClaudeSourceAdapter implements SourceAdapter {
     });
   }
 
-  public async parseFile(filePath: string): Promise<UsageEvent[]> {
-    return (await collectFile(this, filePath)).events;
-  }
-
   public async getParseDependencies(filePath: string): Promise<string[]> {
     const metaPath = getClaudeSubagentMetaPath(filePath);
 
@@ -240,10 +234,6 @@ export class ClaudeSourceAdapter implements SourceAdapter {
     }
 
     return messageKeys;
-  }
-
-  public parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
-    return collectFile(this, filePath);
   }
 
   public async *read(

@@ -8,6 +8,7 @@ import type {
 } from '../../src/cli/build-usage-event-dataset.js';
 import type { UsageEvent } from '../../src/domain/usage-event.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
+import { readFrom } from '../helpers/fake-read.js';
 
 type CollectGitOutcomesFn = (options: { activeUsageDays?: ReadonlySet<string> }) => Promise<{
   periodOutcomes: Map<
@@ -34,7 +35,7 @@ function createAdapter(id: SourceAdapter['id']): SourceAdapter {
   return {
     id,
     discoverFiles: async () => [],
-    parseFile: async () => [],
+    read: readFrom(async () => []),
   };
 }
 
