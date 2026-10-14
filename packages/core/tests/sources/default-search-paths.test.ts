@@ -2,8 +2,8 @@ import type * as NodeOs from 'node:os';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createDefaultAdapters } from '@ayagmar/agent-sessions/registry';
-import { createSourceContext } from '@ayagmar/agent-sessions';
+import { createDefaultAdapters } from '../../src/registry/index.js';
+import { createSourceContext } from '../../src/sources/source-context.js';
 
 const HOME_DIR = '/home/tester';
 
