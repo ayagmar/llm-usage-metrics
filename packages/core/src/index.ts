@@ -13,3 +13,4 @@ export * from './sources/source-adapter.js';
 export * from './sources/source-context.js';
 export * from './dedup/content-hash.js';
 export * from './dedup/repeated-across-files.js';
+export * from './dedup/copied-session.js';
