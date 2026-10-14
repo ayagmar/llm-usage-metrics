@@ -173,6 +173,34 @@ pnpm run pack:check
 - Fixture-based parser tests: `tests/fixtures/**`
 - End-to-end report tests: `tests/e2e/**`
 
+## Goldens
+
+`tests/golden` compares current output byte for byte with files committed under `tests/golden/__goldens__/`. They freeze:
+
+- `events/`: the normalized events of each source's e2e fixtures, and of each set under `tests/fixtures/golden/<source>/<set>/` when that directory exists; all sources at once as JSONL, CSV and content hashes; OpenCode events before and after rows are appended to a stored database; a warm event-store run.
+- `reports/`: every report command as JSON, markdown and plain terminal text (no colour, 120 columns), over all sources' e2e fixtures.
+- `help/`: `--help` for the root command and each top-level command, at 100 columns.
+- `machines/`: the machine export bundle for the pi and codex fixtures.
+
+Each test file runs with a fixed clock (2026-06-21T12:00Z), `TZ=UTC`, bundled pricing only (no network), and an environment where source variables are unset and the config, data and cache dirs point into a temp root. In output, the temp root reads `<tmp>` and the fixture root `<fixtures>`. Nothing else is rewritten.
+
+Run them:
+
+```bash
+TZ=UTC pnpm exec vitest run tests/golden
+```
+
+When a change is meant to move output, regenerate and rerun:
+
+```bash
+UPDATE_GOLDENS=1 TZ=UTC pnpm exec vitest run tests/golden
+TZ=UTC pnpm exec vitest run tests/golden
+```
+
+The update run rewrites only files whose content differs and then fails, listing them, so it passes only when nothing moved. Review the diff and commit the regenerated files on their own, in a commit titled `goldens: <why>`.
+
+Goldens are skipped on Windows, where paths and newline handling differ; the Linux and macOS legs guard behaviour.
+
 ## CI
 
 Workflow file: `.github/workflows/ci.yml`

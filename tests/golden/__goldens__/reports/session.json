@@ -1,0 +1,393 @@
+{
+  "schemaVersion": 1,
+  "report": "session",
+  "data": [
+    {
+      "rowType": "session",
+      "source": "pi",
+      "sessionId": "pi-e2e-session",
+      "firstActivity": "2026-01-04T09:10:00.000Z",
+      "lastActivity": "2026-02-01T10:10:00.000Z",
+      "durationMs": 2422800000,
+      "activeMs": 300000,
+      "eventCount": 2,
+      "models": [
+        "gpt-4.1"
+      ],
+      "inputTokens": 120,
+      "outputTokens": 60,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "totalTokens": 180,
+      "costUsd": 0.6
+    },
+    {
+      "rowType": "session",
+      "source": "kilocode",
+      "sessionId": "task-kilocode",
+      "firstActivity": "2026-06-15T12:40:00.000Z",
+      "lastActivity": "2026-06-15T12:40:00.000Z",
+      "durationMs": 0,
+      "activeMs": 0,
+      "eventCount": 1,
+      "models": [
+        "claude-kilocode-e2e"
+      ],
+      "inputTokens": 25,
+      "outputTokens": 20,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "totalTokens": 45,
+      "costUsd": 0.03
+    },
+    {
+      "rowType": "session",
+      "source": "roocode",
+      "sessionId": "task-roocode",
+      "firstActivity": "2026-06-15T12:35:00.000Z",
+      "lastActivity": "2026-06-15T12:35:00.000Z",
+      "durationMs": 0,
+      "activeMs": 0,
+      "eventCount": 1,
+      "models": [
+        "gpt-roocode-e2e"
+      ],
+      "inputTokens": 35,
+      "outputTokens": 15,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 5,
+      "totalTokens": 55,
+      "costUsd": 0.02
+    },
+    {
+      "rowType": "session",
+      "source": "cline",
+      "sessionId": "task-cline",
+      "firstActivity": "2026-06-15T12:30:00.000Z",
+      "lastActivity": "2026-06-15T12:30:00.000Z",
+      "durationMs": 0,
+      "activeMs": 0,
+      "eventCount": 1,
+      "models": [
+        "claude-sonnet-cline-e2e"
+      ],
+      "inputTokens": 30,
+      "outputTokens": 10,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 5,
+      "cacheWriteTokens": 0,
+      "totalTokens": 45,
+      "costUsd": 0.01
+    },
+    {
+      "rowType": "session",
+      "source": "codex",
+      "sessionId": "codex-e2e-session",
+      "firstActivity": "2026-01-05T08:00:02.000Z",
+      "lastActivity": "2026-02-02T08:00:02.000Z",
+      "durationMs": 2419200000,
+      "activeMs": 300000,
+      "eventCount": 2,
+      "models": [
+        "gpt-5.2-codex"
+      ],
+      "inputTokens": 190,
+      "outputTokens": 130,
+      "reasoningTokens": 30,
+      "cacheReadTokens": 70,
+      "cacheWriteTokens": 0,
+      "totalTokens": 390,
+      "costUsd": 0.00216475
+    },
+    {
+      "rowType": "session",
+      "source": "claude",
+      "sessionId": "claude-e2e-session",
+      "repoRoot": "/tmp/claude-e2e",
+      "firstActivity": "2026-06-20T12:00:00.000Z",
+      "lastActivity": "2026-06-20T12:05:00.000Z",
+      "durationMs": 300000,
+      "activeMs": 300000,
+      "eventCount": 2,
+      "models": [
+        "claude-sonnet-4-5"
+      ],
+      "inputTokens": 130,
+      "outputTokens": 65,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 10,
+      "cacheWriteTokens": 15,
+      "totalTokens": 220,
+      "costUsd": 0.00142425
+    },
+    {
+      "rowType": "session",
+      "source": "openclaw",
+      "sessionId": "openclaw-e2e",
+      "repoRoot": "/tmp/openclaw-e2e",
+      "firstActivity": "2026-05-01T12:00:00.000Z",
+      "lastActivity": "2026-05-01T12:00:00.000Z",
+      "durationMs": 0,
+      "activeMs": 0,
+      "eventCount": 1,
+      "models": [
+        "claude-sonnet-4-6"
+      ],
+      "inputTokens": 10,
+      "outputTokens": 5,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "totalTokens": 15,
+      "costUsd": 0.001
+    },
+    {
+      "rowType": "session",
+      "source": "gemini",
+      "sessionId": "gemini-e2e-session",
+      "repoRoot": "/tmp/gemini-e2e",
+      "firstActivity": "2026-06-03T10:05:00.000Z",
+      "lastActivity": "2026-06-03T10:15:00.000Z",
+      "durationMs": 600000,
+      "activeMs": 300000,
+      "eventCount": 2,
+      "models": [
+        "gemini-2.5-pro"
+      ],
+      "inputTokens": 90,
+      "outputTokens": 75,
+      "reasoningTokens": 25,
+      "cacheReadTokens": 15,
+      "cacheWriteTokens": 0,
+      "totalTokens": 195,
+      "costUsd": 0.000864375
+    },
+    {
+      "rowType": "session",
+      "source": "droid",
+      "sessionId": "session-001",
+      "repoRoot": "/tmp/droid-e2e",
+      "firstActivity": "2026-06-10T09:00:00.000Z",
+      "lastActivity": "2026-06-10T09:00:00.000Z",
+      "durationMs": 0,
+      "activeMs": 0,
+      "eventCount": 1,
+      "models": [
+        "claude-3-7-sonnet-20250219"
+      ],
+      "inputTokens": 70,
+      "outputTokens": 30,
+      "reasoningTokens": 20,
+      "cacheReadTokens": 10,
+      "cacheWriteTokens": 5,
+      "totalTokens": 115,
+      "costUsd": 0.00068175
+    },
+    {
+      "rowType": "session",
+      "source": "dsh",
+      "sessionId": "session-e2e-dsh-a",
+      "repoRoot": "/home/dev/projects/dsh-e2e",
+      "firstActivity": "2026-09-11T14:30:46.495Z",
+      "lastActivity": "2026-09-11T14:30:47.495Z",
+      "durationMs": 1000,
+      "activeMs": 1000,
+      "eventCount": 2,
+      "models": [
+        "deepseek-flash"
+      ],
+      "inputTokens": 1000,
+      "outputTokens": 250,
+      "reasoningTokens": 20,
+      "cacheReadTokens": 750,
+      "cacheWriteTokens": 0,
+      "totalTokens": 2000,
+      "costUsd": 0.0006045
+    },
+    {
+      "rowType": "session",
+      "source": "droid",
+      "sessionId": "session-002",
+      "repoRoot": "/tmp/droid-e2e",
+      "firstActivity": "2026-06-11T09:00:00.000Z",
+      "lastActivity": "2026-06-11T09:00:00.000Z",
+      "durationMs": 0,
+      "activeMs": 0,
+      "eventCount": 1,
+      "models": [
+        "claude-3-7-sonnet-20250219"
+      ],
+      "inputTokens": 50,
+      "outputTokens": 25,
+      "reasoningTokens": 10,
+      "cacheReadTokens": 5,
+      "cacheWriteTokens": 5,
+      "totalTokens": 85,
+      "costUsd": 0.00054525
+    },
+    {
+      "rowType": "session",
+      "source": "dsh",
+      "sessionId": "session-e2e-dsh-b",
+      "repoRoot": "/home/dev/projects/dsh-e2e",
+      "firstActivity": "2026-09-11T14:30:46.995Z",
+      "lastActivity": "2026-09-11T14:30:46.995Z",
+      "durationMs": 0,
+      "activeMs": 0,
+      "eventCount": 1,
+      "models": [
+        "deepseek-flash"
+      ],
+      "inputTokens": 200,
+      "outputTokens": 80,
+      "reasoningTokens": 10,
+      "cacheReadTokens": 160,
+      "cacheWriteTokens": 0,
+      "totalTokens": 440,
+      "costUsd": 0.00015696
+    },
+    {
+      "rowType": "session",
+      "source": "kimi",
+      "sessionId": "session-kimi",
+      "firstActivity": "2026-06-15T12:25:00.000Z",
+      "lastActivity": "2026-06-15T12:25:00.000Z",
+      "durationMs": 0,
+      "activeMs": 0,
+      "eventCount": 1,
+      "models": [
+        "kimi-k2.6"
+      ],
+      "inputTokens": 40,
+      "outputTokens": 20,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 5,
+      "cacheWriteTokens": 5,
+      "totalTokens": 70,
+      "costIncomplete": true
+    },
+    {
+      "rowType": "session",
+      "source": "amp",
+      "sessionId": "amp-e2e-thread",
+      "firstActivity": "2026-06-15T12:20:00.000Z",
+      "lastActivity": "2026-06-15T12:20:00.000Z",
+      "durationMs": 0,
+      "activeMs": 0,
+      "eventCount": 1,
+      "models": [
+        "claude-amp-e2e"
+      ],
+      "inputTokens": 80,
+      "outputTokens": 30,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 10,
+      "cacheWriteTokens": 0,
+      "totalTokens": 120,
+      "costIncomplete": true
+    },
+    {
+      "rowType": "session",
+      "source": "qwen",
+      "sessionId": "qwen-e2e-session",
+      "firstActivity": "2026-06-15T12:20:00.000Z",
+      "lastActivity": "2026-06-15T12:20:00.000Z",
+      "durationMs": 0,
+      "activeMs": 0,
+      "eventCount": 1,
+      "models": [
+        "qwen3-coder-e2e"
+      ],
+      "inputTokens": 55,
+      "outputTokens": 25,
+      "reasoningTokens": 5,
+      "cacheReadTokens": 5,
+      "cacheWriteTokens": 0,
+      "totalTokens": 90,
+      "costIncomplete": true
+    },
+    {
+      "rowType": "session",
+      "source": "goose",
+      "sessionId": "goose-e2e-session",
+      "firstActivity": "2026-06-15T12:15:00.000Z",
+      "lastActivity": "2026-06-15T12:15:00.000Z",
+      "durationMs": 0,
+      "activeMs": 0,
+      "eventCount": 1,
+      "models": [
+        "gpt-goose-e2e"
+      ],
+      "inputTokens": 100,
+      "outputTokens": 80,
+      "reasoningTokens": 30,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "totalTokens": 180,
+      "costIncomplete": true
+    },
+    {
+      "rowType": "session",
+      "source": "copilot",
+      "sessionId": "copilot-e2e-session",
+      "firstActivity": "2026-06-15T12:10:00.000Z",
+      "lastActivity": "2026-06-15T12:10:00.000Z",
+      "durationMs": 0,
+      "activeMs": 0,
+      "eventCount": 1,
+      "models": [
+        "gpt-4.1-copilot"
+      ],
+      "inputTokens": 50,
+      "outputTokens": 30,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 10,
+      "cacheWriteTokens": 0,
+      "totalTokens": 100,
+      "costIncomplete": true
+    },
+    {
+      "rowType": "session",
+      "source": "opencode",
+      "sessionId": "opencode-e2e-session",
+      "firstActivity": "2026-06-15T12:00:00.000Z",
+      "lastActivity": "2026-06-15T12:05:00.000Z",
+      "durationMs": 300000,
+      "activeMs": 300000,
+      "eventCount": 2,
+      "models": [
+        "gpt-4.1-opencode"
+      ],
+      "inputTokens": 125,
+      "outputTokens": 60,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 15,
+      "cacheWriteTokens": 0,
+      "totalTokens": 200,
+      "costIncomplete": true
+    },
+    {
+      "rowType": "session",
+      "source": "antigravity",
+      "sessionId": "conversation",
+      "firstActivity": "2026-06-15T08:00:00.000Z",
+      "lastActivity": "2026-06-15T08:00:00.000Z",
+      "durationMs": 0,
+      "activeMs": 0,
+      "eventCount": 1,
+      "models": [
+        "gemini-antigravity-e2e"
+      ],
+      "inputTokens": 40,
+      "outputTokens": 20,
+      "reasoningTokens": 5,
+      "cacheReadTokens": 5,
+      "cacheWriteTokens": 0,
+      "totalTokens": 65,
+      "costIncomplete": true
+    }
+  ]
+}

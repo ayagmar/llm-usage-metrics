@@ -1,0 +1,178 @@
+{
+  "schemaVersion": 1,
+  "report": "doctor",
+  "data": {
+    "sources": [
+      {
+        "id": "pi",
+        "format": "jsonl",
+        "status": "ok",
+        "itemsFound": 1,
+        "state": "found",
+        "searchedPaths": [
+          "<fixtures>/e2e/pi"
+        ]
+      },
+      {
+        "id": "codex",
+        "format": "jsonl",
+        "status": "ok",
+        "itemsFound": 1,
+        "state": "found",
+        "searchedPaths": [
+          "<fixtures>/e2e/codex"
+        ]
+      },
+      {
+        "id": "gemini",
+        "format": "json",
+        "status": "ok",
+        "itemsFound": 1,
+        "state": "found",
+        "searchedPaths": [
+          "<fixtures>/e2e/gemini"
+        ]
+      },
+      {
+        "id": "droid",
+        "format": "json",
+        "status": "ok",
+        "itemsFound": 2,
+        "state": "found",
+        "searchedPaths": [
+          "<fixtures>/e2e/droid"
+        ]
+      },
+      {
+        "id": "opencode",
+        "format": "sqlite",
+        "status": "ok",
+        "itemsFound": 1,
+        "state": "found",
+        "searchedPaths": [
+          "<tmp>/e2e-generated/opencode.db"
+        ]
+      },
+      {
+        "id": "openclaw",
+        "format": "jsonl",
+        "status": "ok",
+        "itemsFound": 1,
+        "state": "found",
+        "searchedPaths": [
+          "<fixtures>/e2e/openclaw"
+        ]
+      },
+      {
+        "id": "claude",
+        "format": "jsonl",
+        "status": "ok",
+        "itemsFound": 1,
+        "state": "found",
+        "searchedPaths": [
+          "<fixtures>/e2e/claude"
+        ]
+      },
+      {
+        "id": "copilot",
+        "format": "jsonl",
+        "status": "ok",
+        "itemsFound": 1,
+        "state": "found",
+        "searchedPaths": [
+          "<fixtures>/e2e/copilot"
+        ]
+      },
+      {
+        "id": "goose",
+        "format": "sqlite",
+        "status": "ok",
+        "itemsFound": 1,
+        "state": "found",
+        "searchedPaths": [
+          "<tmp>/e2e-generated/goose.db"
+        ]
+      },
+      {
+        "id": "amp",
+        "format": "json",
+        "status": "ok",
+        "itemsFound": 1,
+        "state": "found",
+        "searchedPaths": [
+          "<fixtures>/e2e/amp"
+        ]
+      },
+      {
+        "id": "qwen",
+        "format": "jsonl",
+        "status": "ok",
+        "itemsFound": 1,
+        "state": "found",
+        "searchedPaths": [
+          "<fixtures>/e2e/qwen/projects"
+        ]
+      },
+      {
+        "id": "kimi",
+        "format": "jsonl",
+        "status": "ok",
+        "itemsFound": 1,
+        "state": "found",
+        "searchedPaths": [
+          "<fixtures>/e2e/kimi"
+        ]
+      },
+      {
+        "id": "cline",
+        "format": "json",
+        "status": "ok",
+        "itemsFound": 1,
+        "state": "found",
+        "searchedPaths": [
+          "<fixtures>/e2e/cline"
+        ]
+      },
+      {
+        "id": "roocode",
+        "format": "json",
+        "status": "ok",
+        "itemsFound": 1,
+        "state": "found",
+        "searchedPaths": [
+          "<fixtures>/e2e/roocode"
+        ]
+      },
+      {
+        "id": "kilocode",
+        "format": "json",
+        "status": "ok",
+        "itemsFound": 1,
+        "state": "found",
+        "searchedPaths": [
+          "<fixtures>/e2e/kilocode"
+        ]
+      },
+      {
+        "id": "antigravity",
+        "format": "sqlite",
+        "status": "ok",
+        "itemsFound": 1,
+        "state": "found",
+        "searchedPaths": [
+          "<tmp>/e2e-generated/antigravity"
+        ]
+      },
+      {
+        "id": "dsh",
+        "format": "jsonl",
+        "status": "ok",
+        "itemsFound": 2,
+        "state": "found",
+        "searchedPaths": [
+          "<tmp>/e2e-generated/dsh"
+        ]
+      }
+    ]
+  }
+}

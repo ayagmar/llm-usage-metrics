@@ -1,0 +1,64 @@
+┌─────────────────────────┐
+│ Monthly Optimize Report │
+└─────────────────────────┘
+
+Provider scope: openai
+ALL baseline cost: ~$0.62
+ALL best candidate: unavailable (missing baseline or candidate pricing)
+Savings = Baseline - Hypothetical (positive means cheaper candidate)
+
+2026-01 · BASELINE
+  Hypothetical Cost                                                 -
+  Baseline Cost                                                 $0.50
+  Savings                                                           -
+  Savings %                                                         -
+  Notes                                                             -
+
+2026-01 · gpt-4.1
+  Hypothetical Cost                                             $0.00
+  Baseline Cost                                                 $0.50
+  Savings                                                       $0.50
+  Savings %                                                    99.66%
+  Notes                                                             -
+
+2026-02 · BASELINE
+  Hypothetical Cost                                                 -
+  Baseline Cost                                                 $0.10
+  Savings                                                           -
+  Savings %                                                         -
+  Notes                                                             -
+
+2026-02 · gpt-4.1
+  Hypothetical Cost                                             $0.00
+  Baseline Cost                                                 $0.10
+  Savings                                                       $0.10
+  Savings %                                                    99.55%
+  Notes                                                             -
+
+2026-06 · BASELINE
+  Hypothetical Cost                                                 -
+  Baseline Cost                                                ~$0.02
+  Savings                                                           -
+  Savings %                                                         -
+  Notes                                                             -
+
+2026-06 · gpt-4.1
+  Hypothetical Cost                                             $0.00
+  Baseline Cost                                                ~$0.02
+  Savings                                                           -
+  Savings %                                                         -
+  Notes              baseline_incomplete, cache_write_priced_as_input
+
+ALL · BASELINE
+  Hypothetical Cost                                                 -
+  Baseline Cost                                                ~$0.62
+  Savings                                                           -
+  Savings %                                                         -
+  Notes                                                             -
+
+ALL · gpt-4.1
+  Hypothetical Cost                                             $0.00
+  Baseline Cost                                                ~$0.62
+  Savings                                                           -
+  Savings %                                                         -
+  Notes              baseline_incomplete, cache_write_priced_as_input

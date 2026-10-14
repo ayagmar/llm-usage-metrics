@@ -1,0 +1,37 @@
+✔ pi           jsonl   1 file(s)
+    <fixtures>/e2e/pi
+✔ codex        jsonl   1 file(s)
+    <fixtures>/e2e/codex
+✔ gemini       json    1 file(s)
+    <fixtures>/e2e/gemini
+✔ droid        json    2 file(s)
+    <fixtures>/e2e/droid
+✔ opencode     sqlite  1 file(s)
+    <tmp>/e2e-generated/opencode.db
+✔ openclaw     jsonl   1 file(s)
+    <fixtures>/e2e/openclaw
+✔ claude       jsonl   1 file(s)
+    <fixtures>/e2e/claude
+✔ copilot      jsonl   1 file(s)
+    <fixtures>/e2e/copilot
+✔ goose        sqlite  1 file(s)
+    <tmp>/e2e-generated/goose.db
+✔ amp          json    1 file(s)
+    <fixtures>/e2e/amp
+✔ qwen         jsonl   1 file(s)
+    <fixtures>/e2e/qwen/projects
+✔ kimi         jsonl   1 file(s)
+    <fixtures>/e2e/kimi
+✔ cline        json    1 file(s)
+    <fixtures>/e2e/cline
+✔ roocode      json    1 file(s)
+    <fixtures>/e2e/roocode
+✔ kilocode     json    1 file(s)
+    <fixtures>/e2e/kilocode
+✔ antigravity  sqlite  1 file(s)
+    <tmp>/e2e-generated/antigravity
+✔ dsh          jsonl   2 file(s)
+    <tmp>/e2e-generated/dsh
+
+Sources: 17 found
+Tip: add your other machines to every report with llm-usage machine add <name> [user@host]

@@ -1,0 +1,20 @@
+### Usage summary for 2026-06-21 (UTC)
+
+| Period        | Dates                    |    Cost | Tokens | Top source         |
+| :------------ | :----------------------- | ------: | -----: | :----------------- |
+| Today         | 2026-06-21               |   $0.00 |      0 | -                  |
+| Last 7 days   | 2026-06-15 to 2026-06-21 | \~$0.06 |  1,190 | kilocode \(\~49%\) |
+| Month to date | 2026-06-01 to 2026-06-21 | \~$0.06 |  1,585 | kilocode \(\~47%\) |
+
+On pace for ~$0.09 this month
+
+Prompt caching saved you ~$0.00 this month
+
+#### Activity since 2025-06-16
+
+| Stat           |                             Value |
+| :------------- | --------------------------------: |
+| Current streak |                             1 day |
+| Longest streak |                            2 days |
+| Best day       | 2026-06-15 · \~$0.06 · 970 tokens |
+| Active days    |                                10 |

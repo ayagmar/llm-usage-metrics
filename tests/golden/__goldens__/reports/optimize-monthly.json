@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "report": "optimize",
+  "data": [
+    {
+      "rowType": "baseline",
+      "periodKey": "2026-01",
+      "provider": "openai",
+      "inputTokens": 250,
+      "outputTokens": 150,
+      "reasoningTokens": 20,
+      "cacheReadTokens": 50,
+      "cacheWriteTokens": 0,
+      "totalTokens": 450,
+      "baselineCostUsd": 0.50167125,
+      "baselineCostIncomplete": false
+    },
+    {
+      "rowType": "candidate",
+      "periodKey": "2026-01",
+      "provider": "openai",
+      "inputTokens": 250,
+      "outputTokens": 150,
+      "reasoningTokens": 20,
+      "cacheReadTokens": 50,
+      "cacheWriteTokens": 0,
+      "totalTokens": 450,
+      "candidateModel": "gpt-4.1",
+      "candidateResolvedModel": "gpt-4.1",
+      "hypotheticalCostUsd": 0.001725,
+      "hypotheticalCostIncomplete": false,
+      "savingsUsd": 0.49994625,
+      "savingsRatio": 0.996561493208949
+    },
+    {
+      "rowType": "baseline",
+      "periodKey": "2026-02",
+      "provider": "openai",
+      "inputTokens": 60,
+      "outputTokens": 40,
+      "reasoningTokens": 10,
+      "cacheReadTokens": 20,
+      "cacheWriteTokens": 0,
+      "totalTokens": 120,
+      "baselineCostUsd": 0.1004935,
+      "baselineCostIncomplete": false
+    },
+    {
+      "rowType": "candidate",
+      "periodKey": "2026-02",
+      "provider": "openai",
+      "inputTokens": 60,
+      "outputTokens": 40,
+      "reasoningTokens": 10,
+      "cacheReadTokens": 20,
+      "cacheWriteTokens": 0,
+      "totalTokens": 120,
+      "candidateModel": "gpt-4.1",
+      "candidateResolvedModel": "gpt-4.1",
+      "hypotheticalCostUsd": 0.00045,
+      "hypotheticalCostIncomplete": false,
+      "savingsUsd": 0.1000435,
+      "savingsRatio": 0.9955220984441779
+    },
+    {
+      "rowType": "baseline",
+      "periodKey": "2026-06",
+      "provider": "openai",
+      "inputTokens": 260,
+      "outputTokens": 155,
+      "reasoningTokens": 30,
+      "cacheReadTokens": 15,
+      "cacheWriteTokens": 5,
+      "totalTokens": 435,
+      "baselineCostUsd": 0.02,
+      "baselineCostIncomplete": true
+    },
+    {
+      "rowType": "candidate",
+      "periodKey": "2026-06",
+      "provider": "openai",
+      "inputTokens": 260,
+      "outputTokens": 155,
+      "reasoningTokens": 30,
+      "cacheReadTokens": 15,
+      "cacheWriteTokens": 5,
+      "totalTokens": 435,
+      "candidateModel": "gpt-4.1",
+      "candidateResolvedModel": "gpt-4.1",
+      "hypotheticalCostUsd": 0.0017775,
+      "hypotheticalCostIncomplete": false,
+      "notes": [
+        "baseline_incomplete",
+        "cache_write_priced_as_input"
+      ]
+    },
+    {
+      "rowType": "baseline",
+      "periodKey": "ALL",
+      "provider": "openai",
+      "inputTokens": 570,
+      "outputTokens": 345,
+      "reasoningTokens": 60,
+      "cacheReadTokens": 85,
+      "cacheWriteTokens": 5,
+      "totalTokens": 1005,
+      "baselineCostUsd": 0.62216475,
+      "baselineCostIncomplete": true
+    },
+    {
+      "rowType": "candidate",
+      "periodKey": "ALL",
+      "provider": "openai",
+      "inputTokens": 570,
+      "outputTokens": 345,
+      "reasoningTokens": 60,
+      "cacheReadTokens": 85,
+      "cacheWriteTokens": 5,
+      "totalTokens": 1005,
+      "candidateModel": "gpt-4.1",
+      "candidateResolvedModel": "gpt-4.1",
+      "hypotheticalCostUsd": 0.0039525,
+      "hypotheticalCostIncomplete": false,
+      "notes": [
+        "baseline_incomplete",
+        "cache_write_priced_as_input"
+      ]
+    }
+  ]
+}

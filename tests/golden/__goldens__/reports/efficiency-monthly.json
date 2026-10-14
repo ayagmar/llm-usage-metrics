@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "report": "efficiency",
+  "data": {
+    "grouping": "period",
+    "rows": [
+      {
+        "rowType": "grand_total",
+        "periodKey": "ALL",
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 0,
+        "costUsd": 0,
+        "commitCount": 0,
+        "linesAdded": 0,
+        "linesDeleted": 0,
+        "linesChanged": 0
+      }
+    ]
+  }
+}

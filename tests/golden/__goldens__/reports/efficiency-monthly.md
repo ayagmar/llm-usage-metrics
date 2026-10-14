@@ -1,0 +1,3 @@
+| Period | Commits | +Lines | -Lines | ΔLines | Input | Output | Reasoning | Cache Read | Cache Write | Total |  Cost | $/Commit | $/1k Lines | Tokens/Commit | Commits/$ |
+| :----- | ------: | -----: | -----: | -----: | ----: | -----: | --------: | ---------: | ----------: | ----: | ----: | -------: | ---------: | ------------: | --------: |
+| ALL    |       0 |      0 |      0 |      0 |     0 |      0 |         0 |          0 |           0 |     0 | $0.00 |        - |          - |             - |         - |
