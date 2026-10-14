@@ -8,29 +8,29 @@ const filterMarker = Symbol.for('llm-usage-metrics.sqliteWarningFilter');
 
 type MarkedEmitWarning = typeof process.emitWarning & { [filterMarker]?: true };
 
-function readWarningType(warning: unknown, firstArgument: unknown): string | undefined {
-  if (typeof firstArgument === 'string') {
-    return firstArgument;
+function readWarningType(warning: unknown, typeOrOptions: unknown): string | undefined {
+  if (typeof typeOrOptions === 'string') {
+    return typeOrOptions;
   }
 
   if (
-    typeof firstArgument === 'object' &&
-    firstArgument !== null &&
-    'type' in firstArgument &&
-    typeof firstArgument.type === 'string'
+    typeof typeOrOptions === 'object' &&
+    typeOrOptions !== null &&
+    'type' in typeOrOptions &&
+    typeof typeOrOptions.type === 'string'
   ) {
-    return firstArgument.type;
+    return typeOrOptions.type;
   }
 
   return warning instanceof Error ? warning.name : undefined;
 }
 
-function isSqliteExperimentalWarning(warning: unknown, firstArgument: unknown): boolean {
+function isSqliteExperimentalWarning(warning: unknown, typeOrOptions: unknown): boolean {
   const message =
     warning instanceof Error ? warning.message : typeof warning === 'string' ? warning : '';
 
   return (
-    readWarningType(warning, firstArgument) === 'ExperimentalWarning' &&
+    readWarningType(warning, typeOrOptions) === 'ExperimentalWarning' &&
     message.includes(sqliteExperimentalWarningText)
   );
 }
