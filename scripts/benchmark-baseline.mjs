@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, '..');
-const llmEntryPath = path.join(repoRoot, 'dist', 'index.js');
+const llmEntryPath = path.join(repoRoot, 'dist', 'bin.js');
 
 const BENCHMARK_TIMEZONE = 'UTC';
 const GNU_TIME_PATH = '/usr/bin/time';
@@ -15,28 +15,41 @@ const ACTIVE_APPEND_LINES = 1_000;
 const LINE_INTERVAL_MS = 60_000;
 const APPEND_INTERVAL_MS = 1_000;
 const WRITE_CHUNK_LINES = 10_000;
+const FILES_PER_SOURCE = 4;
+// Each file starts with two header lines and needs at least one usage line.
+const MIN_LINES = FILES_PER_SOURCE * 3;
+
+const SCENARIO_LABELS = {
+  cold: 'cold (store off, OS page cache warm)',
+  warm: 'warm (store on)',
+  statusline: 'statusline (store on)',
+  'active-jsonl': 'active-jsonl (store on, pi file grows)',
+};
 
 const METHODOLOGY_LINES = [
   'Methodology:',
-  '  - Runs the built CLI (node dist/index.js) directly; timing excludes pnpm/npx',
-  '    launcher overhead. Build first: pnpm run build.',
-  '  - Corpus: one synthetic pi session and one synthetic codex session, generated in',
-  '    a temp dir with the line shapes of tests/fixtures/e2e-large. One usage line per',
+  '  - Runs the built CLI entry (node dist/bin.js, with the V8 compile cache) directly;',
+  '    timing excludes pnpm/npx launcher overhead. Build first: pnpm run build.',
+  '    NODE_COMPILE_CACHE points at a temp dir that one untimed priming run fills.',
+  `  - Corpus: synthetic pi and codex sessions, ${FILES_PER_SOURCE} files per source, generated`,
+  '    in a temp dir with the line shapes of tests/fixtures/e2e-large. One usage line per',
   '    minute, ending minutes before the run starts, so today and this month hold data.',
   '  - Environment: temp HOME, XDG_CACHE_HOME, XDG_CONFIG_HOME, XDG_DATA_HOME, a',
   '    missing LLM_USAGE_CONFIG_PATH, LLM_USAGE_SKIP_UPDATE_CHECK=1, TZ=UTC; every',
   '    inherited LLM_USAGE_* variable is removed. Every command passes',
-  '    --source pi,codex --pi-dir <dir> --codex-dir <dir>.',
-  '  - cold: LLM_USAGE_EVENT_STORE=0, fresh cache dir per run,',
-  '    daily --all --json --pricing-offline.',
+  '    --source pi,codex --pi-dir <dir> --codex-dir <dir>; stdin is ignored.',
+  '  - cold (store off, OS page cache warm): LLM_USAGE_EVENT_STORE=0, fresh cache dir',
+  '    per run, daily --all --json --pricing-offline. The corpus was just written, so',
+  '    its files are in the OS page cache; this is not a cold-disk number.',
   '  - warm: event store on, one priming run, then timed repeats of the cold command.',
   '  - statusline: event store on, one priming run, then timed repeats of statusline',
-  '    (no --pricing-offline: the statusline never fetches; stdin is /dev/null).',
+  '    (no --pricing-offline: the statusline never fetches).',
   '  - active-jsonl: event store on, one priming run on a copy of the corpus; each run',
-  `    appends ${ACTIVE_APPEND_LINES} lines (one second apart) to the pi file, then times`,
-  '    the cold command.',
-  '  - Max RSS comes from /usr/bin/time -f %M when that works (GNU time), else n/a.',
-  '    The OS page cache is not flushed.',
+  `    appends ${ACTIVE_APPEND_LINES} new rows with later timestamps to the newest pi file, then`,
+  '    times the cold command. An untimed session --json run after each timed run',
+  '    checks that the event count grew by the appended rows.',
+  '  - Max RSS comes from /usr/bin/time -f %M only if the probe /usr/bin/time -f %M true',
+  '    succeeds, else n/a. The OS page cache is not flushed.',
 ];
 
 function printHelp() {
@@ -49,7 +62,7 @@ ${METHODOLOGY_LINES.join('\n')}
 
 Options:
   --runs <count>      Number of timed runs per scenario (default: 5)
-  --lines <count>     Lines per synthetic session file (default: 200000)
+  --lines <count>     Lines per source, spread over ${FILES_PER_SOURCE} files (default: 200000)
   --out <dir>         Directory for <date>-baseline.json and <date>-baseline.md
                       (default: docs/benchmarks)
   --keep-temp         Keep the temp corpus and state directory for inspection
@@ -94,8 +107,8 @@ function parseCliArgs(argv) {
       case '--lines': {
         const lines = parsePositiveInteger('--lines', argv[index + 1]);
 
-        if (lines < 3) {
-          throw new Error('--lines must be at least 3');
+        if (lines < MIN_LINES) {
+          throw new Error(`--lines must be at least ${MIN_LINES}`);
         }
 
         args.lines = lines;
@@ -177,7 +190,8 @@ async function measureCli(cliArgs, env, context) {
   return { elapsedMs, maxRssMb: rssKib / 1024, stdout };
 }
 
-function buildBaselineEnv(stateRoot, eventStorePath) {
+// The child sees no inherited LLM_USAGE_* variable and no HOME outside the temp dir.
+function buildBaselineEnv(context, stateRoot, eventStorePath) {
   const env = {};
 
   for (const [name, value] of Object.entries(process.env)) {
@@ -194,6 +208,7 @@ function buildBaselineEnv(stateRoot, eventStorePath) {
     ...env,
     TZ: BENCHMARK_TIMEZONE,
     HOME: path.join(stateRoot, 'home'),
+    NODE_COMPILE_CACHE: context.compileCacheDir,
     XDG_CACHE_HOME: path.join(stateRoot, 'cache'),
     XDG_CONFIG_HOME: path.join(stateRoot, 'config'),
     XDG_DATA_HOME: path.join(stateRoot, 'data'),
@@ -287,56 +302,83 @@ async function writeLines(filePath, header, lineCount, buildLine) {
   }
 }
 
-// Each file holds `lines` lines in total: two header lines, then usage lines one minute apart.
+// Splits `lines` per source over FILES_PER_SOURCE files: two header lines each, then usage
+// lines one minute apart. Line indexes run across files, so each file covers its own span.
+function planCorpusFiles(lines) {
+  const usageLines = lines - FILES_PER_SOURCE * 2;
+  const baseCount = Math.floor(usageLines / FILES_PER_SOURCE);
+  const files = [];
+  let firstLineIndex = 0;
+
+  for (let fileIndex = 0; fileIndex < FILES_PER_SOURCE; fileIndex += 1) {
+    const lineCount = fileIndex === FILES_PER_SOURCE - 1 ? usageLines - firstLineIndex : baseCount;
+    files.push({ name: `session-${fileIndex + 1}.jsonl`, fileIndex, firstLineIndex, lineCount });
+    firstLineIndex += lineCount;
+  }
+
+  return { files, usageLines };
+}
+
 async function generateCorpus(corpusRoot, cliArgs, clock) {
   const piDir = path.join(corpusRoot, 'pi');
   const codexDir = path.join(corpusRoot, 'codex');
-  const piFile = path.join(piDir, 'session-baseline.jsonl');
-  const usageLines = cliArgs.lines - 2;
+  const { files, usageLines } = planCorpusFiles(cliArgs.lines);
 
   await mkdir(piDir, { recursive: true });
   await mkdir(codexDir, { recursive: true });
 
-  await writeLines(
-    piFile,
-    [
-      JSON.stringify({
-        type: 'session',
-        id: 'pi-baseline-session',
-        timestamp: toTimestamp(clock, 0),
-      }),
-      JSON.stringify({ type: 'model_change', provider: 'openai', modelId: 'gpt-4.1' }),
-    ],
-    usageLines,
-    (lineIndex) => piMessageLine(toTimestamp(clock, lineIndex), lineIndex),
-  );
+  for (const file of files) {
+    const startTimestamp = toTimestamp(clock, file.firstLineIndex);
+    const buildLineIndex = (offset) => file.firstLineIndex + offset;
 
-  const codexTotals = {
-    input_tokens: 0,
-    cached_input_tokens: 0,
-    output_tokens: 0,
-    reasoning_output_tokens: 0,
-    total_tokens: 0,
+    await writeLines(
+      path.join(piDir, file.name),
+      [
+        JSON.stringify({
+          type: 'session',
+          id: `pi-baseline-session-${file.fileIndex + 1}`,
+          timestamp: startTimestamp,
+        }),
+        JSON.stringify({ type: 'model_change', provider: 'openai', modelId: 'gpt-4.1' }),
+      ],
+      file.lineCount,
+      (offset) => piMessageLine(toTimestamp(clock, buildLineIndex(offset)), buildLineIndex(offset)),
+    );
+
+    const codexTotals = {
+      input_tokens: 0,
+      cached_input_tokens: 0,
+      output_tokens: 0,
+      reasoning_output_tokens: 0,
+      total_tokens: 0,
+    };
+    await writeLines(
+      path.join(codexDir, file.name),
+      [
+        JSON.stringify({
+          timestamp: startTimestamp,
+          type: 'session_meta',
+          payload: { id: `codex-baseline-session-${file.fileIndex + 1}`, model_provider: 'openai' },
+        }),
+        JSON.stringify({
+          timestamp: startTimestamp,
+          type: 'turn_context',
+          payload: { model: 'gpt-5.2-codex' },
+        }),
+      ],
+      file.lineCount,
+      (offset) => codexTokenCountLine(clock, buildLineIndex(offset), codexTotals),
+    );
+  }
+
+  return {
+    piDir,
+    codexDir,
+    // The newest pi session is the one still being written.
+    piFile: path.join(piDir, files[files.length - 1].name),
+    firstAppendLineIndex: usageLines,
+    nextPiLineIndex: usageLines,
   };
-  await writeLines(
-    path.join(codexDir, 'session-baseline.jsonl'),
-    [
-      JSON.stringify({
-        timestamp: toTimestamp(clock, 0),
-        type: 'session_meta',
-        payload: { id: 'codex-baseline-session', model_provider: 'openai' },
-      }),
-      JSON.stringify({
-        timestamp: toTimestamp(clock, 0),
-        type: 'turn_context',
-        payload: { model: 'gpt-5.2-codex' },
-      }),
-    ],
-    usageLines,
-    (lineIndex) => codexTokenCountLine(clock, lineIndex, codexTotals),
-  );
-
-  return { piDir, codexDir, piFile, firstAppendLineIndex: usageLines, nextPiLineIndex: usageLines };
 }
 
 async function appendPiLines(corpus, clock) {
@@ -371,6 +413,24 @@ function readDailyTotals(stdout) {
   return { periods, totalTokens };
 }
 
+function sessionArgs(corpus) {
+  return [
+    'session',
+    '--top',
+    '0',
+    '--json',
+    '--pricing-offline',
+    '--timezone',
+    BENCHMARK_TIMEZONE,
+    ...sourceArgs(corpus),
+  ];
+}
+
+function readEventCount(stdout) {
+  const report = JSON.parse(stdout);
+  return report.data.reduce((sum, row) => sum + row.eventCount, 0);
+}
+
 function summarize(samples) {
   const sorted = samples.map((sample) => sample.elapsedMs).sort((left, right) => left - right);
   const middle = Math.floor(sorted.length / 2);
@@ -391,23 +451,36 @@ function toFixed(value, digits = 2) {
   return Number(value.toFixed(digits));
 }
 
+// Fills NODE_COMPILE_CACHE, so every timed run starts from compiled CLI code.
+// Also returns the corpus totals the report prints.
+async function primeCompileCache(corpus, context) {
+  const stateRoot = await createStateRoot(context.tempRoot, 'compile-cache-priming');
+  const env = buildBaselineEnv(context, stateRoot);
+  const totals = readDailyTotals((await measureCli(dailyArgs(corpus), env, context)).stdout);
+  const events = readEventCount((await measureCli(sessionArgs(corpus), env, context)).stdout);
+  return { ...totals, events };
+}
+
 async function runColdScenario(corpus, cliArgs, context) {
   const samples = [];
-  let totals;
 
   for (let runIndex = 1; runIndex <= cliArgs.runs; runIndex += 1) {
     const stateRoot = await createStateRoot(context.tempRoot, `cold-${runIndex}`);
-    const sample = await measureCli(dailyArgs(corpus), buildBaselineEnv(stateRoot), context);
-    totals = readDailyTotals(sample.stdout);
+    const sample = await measureCli(
+      dailyArgs(corpus),
+      buildBaselineEnv(context, stateRoot),
+      context,
+    );
+    readDailyTotals(sample.stdout);
     samples.push(sample);
   }
 
-  return { corpus, command: dailyArgs(corpus), samples, totals };
+  return { corpus, command: dailyArgs(corpus), samples };
 }
 
 async function runRepeatScenario(corpus, cliArgs, context, name, commandArgs) {
   const stateRoot = await createStateRoot(context.tempRoot, name);
-  const env = buildBaselineEnv(stateRoot, path.join(stateRoot, 'events.sqlite'));
+  const env = buildBaselineEnv(context, stateRoot, path.join(stateRoot, 'events.sqlite'));
 
   await measureCli(commandArgs, env, context);
 
@@ -430,23 +503,30 @@ async function runActiveJsonlScenario(sourceCorpus, cliArgs, context, clock) {
     piFile: path.join(corpusRoot, 'pi', path.basename(sourceCorpus.piFile)),
   };
   const stateRoot = await createStateRoot(context.tempRoot, 'active-jsonl');
-  const env = buildBaselineEnv(stateRoot, path.join(stateRoot, 'events.sqlite'));
+  const env = buildBaselineEnv(context, stateRoot, path.join(stateRoot, 'events.sqlite'));
+  const countEvents = async () =>
+    readEventCount((await measureCli(sessionArgs(corpus), env, context)).stdout);
 
+  await measureCli(dailyArgs(corpus), env, context);
+  let previousEventCount = await countEvents();
   const samples = [];
-  let previousTotals = readDailyTotals((await measureCli(dailyArgs(corpus), env, context)).stdout);
 
   for (let runIndex = 1; runIndex <= cliArgs.runs; runIndex += 1) {
     await appendPiLines(corpus, clock);
     const sample = await measureCli(dailyArgs(corpus), env, context);
-    const totals = readDailyTotals(sample.stdout);
+    readDailyTotals(sample.stdout);
+    samples.push(sample);
 
-    // The appended lines must show up, or the run timed a stale cache hit.
-    if (totals.totalTokens <= previousTotals.totalTokens) {
-      throw new Error('active-jsonl run did not count the lines appended before it');
+    // The appended rows must all count, or the timed run may have hit a stale cache.
+    const eventCount = await countEvents();
+
+    if (eventCount !== previousEventCount + ACTIVE_APPEND_LINES) {
+      throw new Error(
+        `active-jsonl run ${runIndex}: expected ${previousEventCount + ACTIVE_APPEND_LINES} events after appending ${ACTIVE_APPEND_LINES} rows, got ${eventCount}`,
+      );
     }
 
-    previousTotals = totals;
-    samples.push(sample);
+    previousEventCount = eventCount;
   }
 
   return { corpus, command: dailyArgs(corpus), samples };
@@ -491,7 +571,7 @@ function buildMarkdownSummary(report) {
     '',
     '### Corpus',
     '',
-    `- ${report.config.lines} lines per file (pi and codex), ${report.corpus.periods} daily periods, ${report.corpus.totalTokens} total tokens.`,
+    `- ${report.config.lines} lines per source (pi and codex) over ${report.config.filesPerSource} files each: ${report.corpus.events} events, ${report.corpus.periods} daily periods, ${report.corpus.totalTokens} total tokens.`,
     `- ${report.config.runs} timed runs per scenario.`,
     '',
     '### Results',
@@ -500,7 +580,7 @@ function buildMarkdownSummary(report) {
     '| --- | --- | ---: | ---: | ---: | ---: |',
     ...report.scenarios.map(
       (scenario) =>
-        `| ${scenario.name} | \`${scenario.command}\` | ${toSeconds(scenario.summary.medianMs)} | ${toSeconds(scenario.summary.minMs)} | ${toSeconds(scenario.summary.maxMs)} | ${formatRss(scenario.summary.maxRssMb)} |`,
+        `| ${scenario.label} | \`${scenario.command}\` | ${toSeconds(scenario.summary.medianMs)} | ${toSeconds(scenario.summary.minMs)} | ${toSeconds(scenario.summary.maxMs)} | ${formatRss(scenario.summary.maxRssMb)} |`,
     ),
     '',
     '```text',
@@ -515,8 +595,9 @@ function toSeconds(valueMs) {
   return Number((valueMs / 1_000).toFixed(3));
 }
 
-function resolveMachineSpecs() {
+async function resolveMachineSpecs(context) {
   const cpu = os.cpus()?.[0];
+  const stateRoot = await createStateRoot(context.tempRoot, 'version');
 
   return {
     os: `${os.type()} ${os.release()} (${os.arch()})`,
@@ -525,7 +606,8 @@ function resolveMachineSpecs() {
     totalMemoryGiB: toFixed(os.totalmem() / 1024 ** 3, 1),
     nodeVersion: process.version,
     llmUsageVersion: runCommand(process.execPath, [llmEntryPath, '--version'], {
-      env: { ...process.env, LLM_USAGE_SKIP_UPDATE_CHECK: '1' },
+      env: buildBaselineEnv(context, stateRoot),
+      cwd: context.tempRoot,
     }),
     llmUsageGitHead: runCommand('git', ['rev-parse', '--short', 'HEAD'], { cwd: repoRoot }),
   };
@@ -546,17 +628,29 @@ async function main() {
   const appendStartMs =
     generatedAt.getTime() - (cliArgs.runs * ACTIVE_APPEND_LINES + 1) * APPEND_INTERVAL_MS;
   const clock = {
-    startMs: appendStartMs - (cliArgs.lines - 2) * LINE_INTERVAL_MS,
+    startMs: appendStartMs - planCorpusFiles(cliArgs.lines).usageLines * LINE_INTERVAL_MS,
     appendStartMs,
   };
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'llm-usage-baseline-benchmark-'));
   const gnuTime = probeGnuTime();
-  const context = { tempRoot, gnuTime, rssFile: path.join(tempRoot, 'rss') };
+  const context = {
+    tempRoot,
+    gnuTime,
+    rssFile: path.join(tempRoot, 'rss'),
+    compileCacheDir: path.join(tempRoot, 'node-compile-cache'),
+  };
   let results;
+  let corpusTotals;
+  let machine;
 
   try {
     const corpus = await generateCorpus(path.join(tempRoot, 'corpus'), cliArgs, clock);
-    console.log(`Generated corpus: ${cliArgs.lines} lines per file in ${tempRoot}`);
+    console.log(
+      `Generated corpus: ${cliArgs.lines} lines per source over ${FILES_PER_SOURCE} files in ${tempRoot}`,
+    );
+
+    machine = await resolveMachineSpecs(context);
+    corpusTotals = await primeCompileCache(corpus, context);
 
     const cold = await runColdScenario(corpus, cliArgs, context);
     console.log('Finished cold');
@@ -588,14 +682,16 @@ async function main() {
     config: {
       runs: cliArgs.runs,
       lines: cliArgs.lines,
+      filesPerSource: FILES_PER_SOURCE,
       activeAppendLines: ACTIVE_APPEND_LINES,
       timezone: BENCHMARK_TIMEZONE,
       maxRssSource: gnuTime ? `${GNU_TIME_PATH} -f %M` : 'n/a',
     },
-    machine: resolveMachineSpecs(),
-    corpus: results.cold.totals,
+    machine,
+    corpus: corpusTotals,
     scenarios: Object.entries(results).map(([name, result]) => ({
       name,
+      label: SCENARIO_LABELS[name],
       command: displayCommand(result.command, result.corpus),
       timingsMs: result.samples.map((sample) => toFixed(sample.elapsedMs)),
       summary: summarize(result.samples),
@@ -604,7 +700,7 @@ async function main() {
 
   console.table(
     report.scenarios.map((scenario) => ({
-      Scenario: scenario.name,
+      Scenario: scenario.label,
       'Median (s)': toSeconds(scenario.summary.medianMs),
       'Min (s)': toSeconds(scenario.summary.minMs),
       'Max (s)': toSeconds(scenario.summary.maxMs),
