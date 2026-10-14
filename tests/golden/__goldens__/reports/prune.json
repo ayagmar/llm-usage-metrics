@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "report": "prune",
+  "data": {
+    "candidates": [
+      {
+        "source": "codex",
+        "filePath": "/llm-usage-golden-missing/departed.jsonl",
+        "eventCount": 1,
+        "newestTimestamp": "2025-01-01T00:00:00.000Z",
+        "reasons": [
+          "aged"
+        ]
+      }
+    ],
+    "summary": {
+      "storePath": "<tmp>/prune/events.db",
+      "applied": false,
+      "candidateFileCount": 1,
+      "candidateEventCount": 1
+    }
+  }
+}
