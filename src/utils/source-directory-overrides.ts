@@ -8,6 +8,3 @@ export function toSourceDirectoryList(value: SourceDirectoryValue | undefined): 
 
   return typeof value === 'string' ? [value] : [...value];
 }
-
-// Moved to the CLI, which owns the `--source-dir` wording; re-exported until M3.
-export { parseSourceDirectoryOverrides } from '../cli/source-cli-options.js';
