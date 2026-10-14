@@ -634,8 +634,9 @@ const CASES: MemoryCase[] = [
     options: (dir) => ({ id: 'cline', extensionId: 'saoudrizwan.claude-dev', dir }),
     generate: (dir, scale) =>
       generateCline(dir, scale, CLINE_REQUESTS_AT_N * scale, CLINE_HISTORY_ENTRIES_FIXED),
-    checkFixture: (fixture, [uiMessagesSize]) => {
+    checkFixture: (fixture, [uiMessagesSize, historySize]) => {
       expect(uiMessagesSize).toBeLessThan(64 * MiB);
+      expect(historySize).toBeLessThan(2 * MiB);
       expect(fixture.events).toBeGreaterThanOrEqual(100_000);
     },
     // The history file stays at ~1 MiB. One element at a time: 2N peaks 131-144 MiB and
@@ -652,7 +653,8 @@ const CASES: MemoryCase[] = [
     options: (dir) => ({ id: 'cline', extensionId: 'saoudrizwan.claude-dev', dir }),
     generate: (dir, scale) =>
       generateCline(dir, scale, CLINE_REQUESTS_FIXED, CLINE_HISTORY_ENTRIES_AT_N * scale),
-    checkFixture: (_fixture, [, historySize]) => {
+    checkFixture: (_fixture, [uiMessagesSize, historySize]) => {
+      expect(uiMessagesSize).toBeLessThan(2 * MiB);
       expect(historySize).toBeGreaterThanOrEqual(200_000_000);
     },
     // ui_messages.json stays at ~1 MiB. The scanner keeps only its carried text: 2N peaks
