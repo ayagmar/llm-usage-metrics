@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { open } from 'node:fs/promises';
 import { Readable, Writable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { createZstdDecompress } from 'node:zlib';
@@ -10,6 +10,8 @@ export type DshSessionLogReadOptions = {
   shouldParseLine: (lineText: string) => boolean;
   /** Called once per malformed line or damaged frame, with the skip reason. */
   onSkippedRow: (reason: string) => void;
+  /** Bytes per read of a `.zstd` log; a test seam, defaults to 1 MiB. */
+  readChunkBytes?: number;
 };
 
 export class DshSessionLogUnreadableError extends Error {
@@ -27,39 +29,97 @@ const UNDECODABLE_FRAME_REASON = 'undecodable_jsonl_frame';
 /** One flush is a handful of lines; a frame inflating past this is damage or a zstd bomb. */
 const MAX_DECODED_FRAME_BYTES = 64 * 1024 * 1024;
 
+const DEFAULT_READ_CHUNK_BYTES = 1024 * 1024;
+
 /**
  * DeepSeek Harness appends one independently compressed zstd frame per flush,
  * so a whole-file decode would silently stop at the first frame. Frame starts
  * are located by the zstd magic number, because a torn tail frame still decodes
  * "successfully" to a truncated prefix and would otherwise hide the damage.
  *
- * A slice without the frame magic is damage rather than a frame, and is
- * reported the same way as a frame that fails to decode.
+ * The file is cut into slices as it is read: each slice runs from its start to
+ * the next magic found at least four bytes past that start, or to the end of
+ * the file. Yields each slice that starts with the magic, and `null` for one
+ * that does not: that is damage rather than a frame, reported the same way as a
+ * frame that fails to decode. Only the first slice can be damaged; its bytes are
+ * dropped as they are read, so only a frame slice is ever held whole.
  */
-function collectFrameSlices(compressed: Buffer): { frames: Buffer[]; damagedSlices: number } {
-  const frames: Buffer[] = [];
-  let damagedSlices = 0;
-  let offset = 0;
+async function* readFrameSlices(
+  filePath: string,
+  chunkBytes: number,
+): AsyncGenerator<Buffer | null, void, undefined> {
+  const handle = await open(filePath, 'r');
 
-  while (offset < compressed.length) {
-    const nextOffset = compressed.indexOf(ZSTD_FRAME_MAGIC, offset + ZSTD_FRAME_MAGIC.length);
-    const slice =
-      nextOffset === -1 ? compressed.subarray(offset) : compressed.subarray(offset, nextOffset);
+  try {
+    // buffer[sliceStart, held) holds the current slice's bytes after the first
+    // `dropped` ones. Yielded frames are views into earlier bytes of a buffer,
+    // which later reads never overwrite: reads append past `held`, into a fresh
+    // buffer when this one is full.
+    let buffer = Buffer.alloc(0);
+    let held = 0;
+    let sliceStart = 0;
+    let dropped = 0;
+    let startsWithMagic: boolean | undefined;
 
-    if (slice.subarray(0, ZSTD_FRAME_MAGIC.length).equals(ZSTD_FRAME_MAGIC)) {
-      frames.push(slice);
-    } else {
-      damagedSlices += 1;
+    for (;;) {
+      const liveBytes = held - sliceStart;
+
+      if (buffer.length - held < chunkBytes) {
+        const grown = Buffer.allocUnsafe(Math.max(liveBytes * 2, liveBytes + chunkBytes));
+        buffer.copy(grown, 0, sliceStart, held);
+        buffer = grown;
+        held = liveBytes;
+        sliceStart = 0;
+      }
+
+      const { bytesRead } = await handle.read(buffer, held, chunkBytes, null);
+
+      if (bytesRead === 0) {
+        break;
+      }
+
+      // Magic starts before held - 3 were ruled out by the previous search.
+      let searchFrom = Math.max(
+        sliceStart + ZSTD_FRAME_MAGIC.length - dropped,
+        held - (ZSTD_FRAME_MAGIC.length - 1),
+      );
+      held += bytesRead;
+
+      for (;;) {
+        if (startsWithMagic === undefined && held - sliceStart >= ZSTD_FRAME_MAGIC.length) {
+          startsWithMagic = buffer
+            .subarray(sliceStart, sliceStart + ZSTD_FRAME_MAGIC.length)
+            .equals(ZSTD_FRAME_MAGIC);
+        }
+
+        const nextOffset = buffer.subarray(0, held).indexOf(ZSTD_FRAME_MAGIC, searchFrom);
+
+        if (nextOffset === -1) {
+          break;
+        }
+
+        yield startsWithMagic === true ? buffer.subarray(sliceStart, nextOffset) : null;
+        sliceStart = nextOffset;
+        dropped = 0;
+        startsWithMagic = true;
+        searchFrom = nextOffset + ZSTD_FRAME_MAGIC.length;
+      }
+
+      // Keep three bytes of a damaged slice: a magic may continue in the next read.
+      const keptBytes = ZSTD_FRAME_MAGIC.length - 1;
+
+      if (startsWithMagic === false && held - sliceStart > keptBytes) {
+        dropped += held - keptBytes - sliceStart;
+        sliceStart = held - keptBytes;
+      }
     }
 
-    if (nextOffset === -1) {
-      break;
+    if (held - sliceStart + dropped > 0) {
+      yield startsWithMagic === true ? buffer.subarray(sliceStart, held) : null;
     }
-
-    offset = nextOffset;
+  } finally {
+    await handle.close();
   }
-
-  return { frames, damagedSlices };
 }
 
 async function decodeFrame(frameBytes: Buffer): Promise<Buffer> {
@@ -102,11 +162,15 @@ async function decodeFrame(frameBytes: Buffer): Promise<Buffer> {
 }
 
 function* parseJsonlLines(
-  text: string,
+  decoded: Buffer,
   options: DshSessionLogReadOptions,
 ): Generator<Record<string, unknown>, void, undefined> {
-  for (const rawLine of text.split('\n')) {
-    const line = rawLine.trim();
+  // Lines never continue across frames: each frame is walked on its own.
+  for (let lineStart = 0; lineStart <= decoded.length;) {
+    const newline = decoded.indexOf(0x0a, lineStart);
+    const lineEnd = newline === -1 ? decoded.length : newline;
+    const line = decoded.toString('utf8', lineStart, lineEnd).trim();
+    lineStart = lineEnd + 1;
 
     if (line.length === 0 || !options.shouldParseLine(line)) {
       continue;
@@ -151,14 +215,17 @@ export async function* readDshSessionLogRecords(
     return;
   }
 
-  const { frames, damagedSlices } = collectFrameSlices(await readFile(filePath));
   let decodedFrames = 0;
 
-  for (let index = 0; index < damagedSlices; index += 1) {
-    options.onSkippedRow(UNDECODABLE_FRAME_REASON);
-  }
+  for await (const frameBytes of readFrameSlices(
+    filePath,
+    options.readChunkBytes ?? DEFAULT_READ_CHUNK_BYTES,
+  )) {
+    if (!frameBytes) {
+      options.onSkippedRow(UNDECODABLE_FRAME_REASON);
+      continue;
+    }
 
-  for (const frameBytes of frames) {
     let decoded: Buffer;
 
     try {
@@ -169,7 +236,7 @@ export async function* readDshSessionLogRecords(
     }
 
     decodedFrames += 1;
-    yield* parseJsonlLines(decoded.toString('utf8'), options);
+    yield* parseJsonlLines(decoded, options);
   }
 
   if (decodedFrames === 0) {
