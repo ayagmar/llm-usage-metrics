@@ -20,7 +20,7 @@ import {
   type EventStoreHistoryDiscoveredFile,
   type EventStoreHistoryResult,
 } from '../persistence/event-store-history.js';
-import { createDefaultAdapters } from '../sources/create-default-adapters.js';
+import { createAdaptersFromOptions } from './source-cli-options.js';
 import {
   normalizeBuildUsageInputs,
   resolveCliDirectorySourceIds,
@@ -197,7 +197,7 @@ export async function buildUsageEventDataset(
   const readPricingRuntimeConfig =
     deps.getPricingFetcherRuntimeConfig ?? getPricingFetcherRuntimeConfig;
   const readEventStoreRuntimeConfig = deps.getEventStoreRuntimeConfig ?? getEventStoreRuntimeConfig;
-  const makeAdapters = deps.createAdapters ?? createDefaultAdapters;
+  const makeAdapters = deps.createAdapters ?? createAdaptersFromOptions;
   const config = userConfigResolution.loadedConfig.config;
   const parsingRuntimeConfig = readParsingRuntimeConfig(process.env, config);
   const pricingRuntimeConfig = readPricingRuntimeConfig(config);

@@ -1,9 +1,7 @@
 import { type Command, Option } from 'commander';
 
-import {
-  getDefaultSourceIds,
-  getSourceOverrideOptions,
-} from '../../sources/create-default-adapters.js';
+import { getDefaultSourceIds } from '../../sources/create-default-adapters.js';
+import { getSourceOverrideOptions } from '../source-cli-options.js';
 import type { SharedOptionProfile } from './report-definition-types.js';
 
 export type SharedOptionProfileConfig = {

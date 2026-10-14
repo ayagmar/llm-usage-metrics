@@ -6,7 +6,7 @@ import { format } from 'node:util';
 import { afterAll, expect, vi } from 'vitest';
 
 import type { EventsCommandOptions } from '../../src/cli/usage-data-contracts.js';
-import { getSourceOverrideOptions } from '../../src/sources/create-default-adapters.js';
+import { getSourceOverrideOptions } from '../../src/cli/source-cli-options.js';
 import {
   createAntigravityFixtureDb,
   E2E_ANTIGRAVITY_FIXTURE,
