@@ -198,12 +198,6 @@ export class ToolCallPairing<Call> {
   }
 }
 
-/**
- * Turns the session facts each record states into partial session_meta fields: a field
- * is kept when it differs from the last value emitted for it in this file. Titles are
- * kept only when the read asked for text, and once a custom title is seen, AI titles
- * are ignored for the rest of the file.
- */
 const SESSION_META_FIELDS = [
   'cwd',
   'title',
@@ -214,6 +208,12 @@ const SESSION_META_FIELDS = [
   'rawProvider',
 ] as const satisfies readonly (keyof SessionMetaFields)[];
 
+/**
+ * Turns the session facts each record states into partial session_meta fields: a field
+ * is kept when it differs from the last value emitted for it in this session. Titles are
+ * kept only when the read asked for text, and once a custom title is seen, AI titles
+ * are ignored for the rest of the session.
+ */
 export class SessionMetaTracker {
   private readonly emitted: SessionMetaFields = {};
   private customTitleSeen = false;
@@ -245,6 +245,33 @@ export class SessionMetaTracker {
     }
 
     return changed;
+  }
+}
+
+/**
+ * One session_meta change tracker per session id, so a file whose records carry more than
+ * one session id states each session's facts under that session, and `source` plus
+ * `sessionId` joins them to the session's other events.
+ */
+export class SessionMetaTrackers {
+  private readonly bySessionId = new Map<string, SessionMetaTracker>();
+
+  public constructor(private readonly text: boolean) {}
+
+  /** The fields that changed for `sessionId`, or undefined when nothing changed. */
+  public changes(
+    sessionId: string,
+    stated: SessionMetaFields,
+    options?: { aiTitle?: boolean },
+  ): SessionMetaFields | undefined {
+    let tracker = this.bySessionId.get(sessionId);
+
+    if (!tracker) {
+      tracker = new SessionMetaTracker(this.text);
+      this.bySessionId.set(sessionId, tracker);
+    }
+
+    return tracker.changes(stated, options);
   }
 }
 

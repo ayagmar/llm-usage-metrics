@@ -14,7 +14,7 @@ import {
   joinTextBlocks,
   recordKindSkippedRow,
   recordToolCallSkippedRow,
-  SessionMetaTracker,
+  SessionMetaTrackers,
   TimestampCarry,
   TOOL_CALL_REASONS,
   ToolCallPairing,
@@ -131,7 +131,7 @@ export class CodexKindReader {
   private readonly raw: boolean;
   private readonly diagnostics: SourceReadDiagnostics;
   private readonly pairing: ToolCallPairing<PendingToolCall>;
-  private readonly meta: SessionMetaTracker;
+  private readonly meta: SessionMetaTrackers;
   private readonly carry = new TimestampCarry<HeldEvent>();
 
   public constructor(options: CodexKindReaderOptions) {
@@ -140,7 +140,7 @@ export class CodexKindReader {
     this.raw = options.raw;
     this.diagnostics = options.diagnostics;
     this.pairing = new ToolCallPairing(options.diagnostics, options.kinds);
-    this.meta = new SessionMetaTracker(options.text);
+    this.meta = new SessionMetaTrackers(options.text);
   }
 
   /** Events held for a timestamp, released by a record that has one, ahead of its own. */
@@ -243,7 +243,7 @@ export class CodexKindReader {
     { sessionId, timestamp }: CodexRecordContext,
     stated: SessionMetaFields,
   ): Generator<SessionEvent> {
-    const changes = this.meta.changes(stated);
+    const changes = this.meta.changes(sessionId, stated);
 
     if (!changes) {
       return;

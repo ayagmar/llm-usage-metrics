@@ -473,6 +473,32 @@ describe('CodexSourceAdapter.readEvents', () => {
     });
   });
 
+  it('states session facts per session id when a file logs a second session', async () => {
+    const filePath = await writeSession([
+      '{"timestamp":"2026-10-04T13:00:00.000Z","type":"session_meta","payload":{"id":"s-first","cwd":"/work/shared","cli_version":"0.9.0"}}',
+      '{"timestamp":"2026-10-04T13:00:01.000Z","type":"session_meta","payload":{"id":"s-second","cwd":"/work/shared","cli_version":"0.9.0"}}',
+    ]);
+    const facts = { source: 'codex', cwd: '/work/shared', agentVersion: '0.9.0' };
+
+    await expect(read(filePath)).resolves.toEqual({
+      events: [
+        {
+          kind: 'session_meta',
+          ...facts,
+          sessionId: 's-first',
+          timestamp: '2026-10-04T13:00:00.000Z',
+        },
+        {
+          kind: 'session_meta',
+          ...facts,
+          sessionId: 's-second',
+          timestamp: '2026-10-04T13:00:01.000Z',
+        },
+      ],
+      reasons: {},
+    });
+  });
+
   it('skips a message whose role only an object prototype knows', async () => {
     const filePath = await writeSession(
       ['constructor', 'toString', '__proto__'].map(

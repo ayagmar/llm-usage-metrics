@@ -173,7 +173,7 @@ Sources that only declare `['usage']` carry no ids and no `rawProvider`.
 
 ### session_meta
 
-A session_meta event carries partial facts. A field is set when a record states it and its value differs from the last one emitted for that field in the file; a later value overrides an earlier one. Claude states `cwd`, `gitBranch` and its version on every row, so most rows add nothing. No event is emitted with no fields. Once a Claude file has a custom title, later AI titles in it are ignored.
+A session_meta event carries partial facts. A field is set when a record states it and its value differs from the last one emitted for that field in the same session; a later value overrides an earlier one. The state is kept per session id, so when a file's records carry more than one session id (a pi fork of an uncounted parent, say), each session gets its own facts and `source` plus `sessionId` finds them. Claude states `cwd`, `gitBranch` and its version on every row, so most rows add nothing. No event is emitted with no fields. Once a Claude session has a custom title, later AI titles in it are ignored.
 
 ### Tool calls
 

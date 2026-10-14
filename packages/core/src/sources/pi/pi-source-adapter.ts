@@ -39,7 +39,7 @@ import {
   recordMalformedLine,
   recordToolCallSkippedRow,
   resolveReadKinds,
-  SessionMetaTracker,
+  SessionMetaTrackers,
   TimestampCarry,
   TOOL_CALL_REASONS,
   ToolCallPairing,
@@ -338,9 +338,9 @@ class PiSessionEvents {
   private readonly kinds: ReadonlySet<EventKind>;
   private readonly pairing: ToolCallPairing<PiPendingToolCall>;
   private readonly carry = new TimestampCarry<Record<string, unknown>>();
-  // One tracker per session: a fork of an uncounted parent states the parent's facts
-  // under the parent's id and its own under its id.
-  private readonly metaTrackers = new Map<string, SessionMetaTracker>();
+  // A fork of an uncounted parent states the parent's facts under the parent's id and its
+  // own under its id.
+  private readonly meta: SessionMetaTrackers;
 
   public constructor(
     private readonly source: 'pi',
@@ -350,6 +350,7 @@ class PiSessionEvents {
   ) {
     this.kinds = request.kinds;
     this.pairing = new ToolCallPairing(diagnostics, request.kinds);
+    this.meta = new SessionMetaTrackers(request.text);
   }
 
   /** The events a record completes, after those of records held for its timestamp. */
@@ -436,14 +437,7 @@ class PiSessionEvents {
     timestamp: string,
     stated: SessionMetaFields,
   ): Generator<SessionEvent> {
-    let tracker = this.metaTrackers.get(sessionId);
-
-    if (!tracker) {
-      tracker = new SessionMetaTracker(this.request.text);
-      this.metaTrackers.set(sessionId, tracker);
-    }
-
-    const changes = tracker.changes(stated);
+    const changes = this.meta.changes(sessionId, stated);
 
     if (!changes) {
       return;

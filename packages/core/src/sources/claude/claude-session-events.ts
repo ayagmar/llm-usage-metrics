@@ -15,7 +15,7 @@ import {
   joinTextBlocks,
   recordKindSkippedRow,
   recordToolCallSkippedRow,
-  SessionMetaTracker,
+  SessionMetaTrackers,
   TimestampCarry,
   TOOL_CALL_REASONS,
   ToolCallPairing,
@@ -97,14 +97,14 @@ function contentBlocks(content: unknown): ContentBlock[] {
 export class ClaudeSessionEvents {
   private readonly carry = new TimestampCarry<RowAction>();
   private readonly pairing: ToolCallPairing<ToolCall>;
-  private readonly meta: SessionMetaTracker;
+  private readonly meta: SessionMetaTrackers;
   private readonly messageRowUuids = new Set<string>();
   // Calls in rows replayed from a fork's parent: a result for one is not an orphan.
   private readonly replayedCallIds = new Set<string>();
 
   public constructor(private readonly options: ClaudeSessionEventsOptions) {
     this.pairing = new ToolCallPairing(options.diagnostics, options.kinds);
-    this.meta = new SessionMetaTracker(options.text);
+    this.meta = new SessionMetaTrackers(options.text);
   }
 
   public *add(line: Record<string, unknown>): Generator<SessionEvent> {
@@ -234,7 +234,7 @@ export class ClaudeSessionEvents {
     return {
       kind: 'session_meta',
       run: (timestamp) => {
-        const changes = this.meta.changes(stated, { aiTitle });
+        const changes = this.meta.changes(sessionId, stated, { aiTitle });
 
         return changes
           ? this.createKind('session_meta', () =>

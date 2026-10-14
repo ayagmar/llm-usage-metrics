@@ -294,6 +294,28 @@ describe('ClaudeSourceAdapter.readEvents', () => {
     });
   });
 
+  it('states session facts per session id when a file carries more than one', async () => {
+    const { events } = await readFixture('two-sessions.jsonl', { kinds: ['session_meta'] });
+    const facts = { cwd: '/work/shared', gitBranch: 'main', agentVersion: '2.1.0' };
+
+    expect(events).toStrictEqual([
+      {
+        kind: 'session_meta',
+        source: 'claude',
+        sessionId: 'first-session',
+        timestamp: '2026-07-05T10:00:00.000Z',
+        ...facts,
+      },
+      {
+        kind: 'session_meta',
+        source: 'claude',
+        sessionId: 'second-session',
+        timestamp: '2026-07-05T10:00:01.000Z',
+        ...facts,
+      },
+    ]);
+  });
+
   it('does not count titles a read without text could never emit', async () => {
     expect(await readFixture('untimed-titles.jsonl')).toEqual({ events: [], reasons: {} });
   });
