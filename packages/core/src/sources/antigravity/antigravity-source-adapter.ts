@@ -1,16 +1,19 @@
 import path from 'node:path';
 
 import type { UsageEvent } from '../../domain/usage-event.js';
+import { collectFile } from '../../stream/collect.js';
 import { discoverFiles } from '../../utils/discover-files.js';
 import { pathExists, pathIsDirectory, pathIsFile, pathReadable } from '../../utils/fs-helpers.js';
-import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
+import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import { isBlankText } from '../parsing-utils.js';
 import type {
   SourceAdapter,
   SourceAdapterPathOptions,
   SourceParseFileDiagnostics,
+  SourceReadOptions,
 } from '../source-adapter.js';
 import { createSourceContext } from '../source-context.js';
+import { iterateRows } from '../sqlite/iterate-rows.js';
 import { loadNodeSqliteModule, type SqliteModule } from '../sqlite/node-sqlite-loader.js';
 import { getDefaultAntigravityConversationsDir } from './antigravity-path-resolver.js';
 import {
@@ -50,8 +53,10 @@ function hasSqliteTable(
   return rows.length > 0;
 }
 
-function queryRows(database: InstanceType<SqliteModule['DatabaseSync']>): AntigravitySqliteRow[] {
-  return database.prepare('SELECT data FROM gen_metadata ORDER BY idx').all();
+function queryRows(
+  database: InstanceType<SqliteModule['DatabaseSync']>,
+): Iterable<AntigravitySqliteRow> {
+  return iterateRows(database.prepare('SELECT data FROM gen_metadata ORDER BY idx'));
 }
 
 function querySessionCreatedAt(
@@ -134,11 +139,6 @@ export class AntigravitySourceAdapter implements SourceAdapter {
     });
   }
 
-  public async parseFile(dbPath: string): Promise<UsageEvent[]> {
-    const parseDiagnostics = await this.parseFileWithDiagnostics(dbPath);
-    return parseDiagnostics.events;
-  }
-
   public async getParseDependencies(dbPath: string): Promise<string[]> {
     if (isBlankText(dbPath)) {
       return [];
@@ -147,7 +147,9 @@ export class AntigravitySourceAdapter implements SourceAdapter {
     return getAntigravityParseDependencies(dbPath.trim());
   }
 
-  public async parseFileWithDiagnostics(dbPath: string): Promise<SourceParseFileDiagnostics> {
+  public async *read(dbPath: string, options: SourceReadOptions = {}): AsyncGenerator<UsageEvent> {
+    const diagnostics = options.diagnostics ?? createReadDiagnostics();
+
     if (isBlankText(dbPath)) {
       throw new Error('Antigravity DB path must be a non-empty path');
     }
@@ -168,19 +170,19 @@ export class AntigravitySourceAdapter implements SourceAdapter {
 
     try {
       if (!hasSqliteTable(database, 'gen_metadata')) {
-        return toParseDiagnostics([], 0, new Map());
+        return;
       }
 
+      // The first gen_metadata row is pulled before the fallback timestamp query, so its
+      // errors take precedence as they did when every row was read up front.
       const rows = queryRows(database);
       const fallbackTimestamp = querySessionCreatedAt(database);
-      const events: UsageEvent[] = [];
+      const sessionId = path.basename(normalizedDbPath, path.extname(normalizedDbPath));
       const seenResponseIds = new Set<string>();
-      let skippedRows = 0;
-      const skippedRowReasons = new Map<string, number>();
 
       for (const row of rows) {
         const parsedRow = parseAntigravityMetadataBlob(row.data, {
-          sessionId: path.basename(normalizedDbPath, path.extname(normalizedDbPath)),
+          sessionId,
           fallbackTimestamp,
           seenResponseIds,
         });
@@ -189,19 +191,24 @@ export class AntigravitySourceAdapter implements SourceAdapter {
           seenResponseIds.add(parsedRow.responseId);
         }
 
-        if (parsedRow.event) {
-          events.push(parsedRow.event);
+        if (parsedRow.skippedReason) {
+          recordSkippedRow(diagnostics, parsedRow.skippedReason);
         }
 
-        if (parsedRow.skippedReason) {
-          skippedRows++;
-          incrementSkippedReason(skippedRowReasons, parsedRow.skippedReason);
+        if (parsedRow.event) {
+          yield parsedRow.event;
         }
       }
-
-      return toParseDiagnostics(events, skippedRows, skippedRowReasons);
     } finally {
       database.close();
     }
+  }
+
+  public async parseFile(dbPath: string): Promise<UsageEvent[]> {
+    return (await collectFile(this, dbPath)).events;
+  }
+
+  public parseFileWithDiagnostics(dbPath: string): Promise<SourceParseFileDiagnostics> {
+    return collectFile(this, dbPath);
   }
 }
