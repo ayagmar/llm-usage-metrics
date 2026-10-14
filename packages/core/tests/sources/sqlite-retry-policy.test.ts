@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { runWithBusyRetries } from '../../src/sources/opencode/opencode-retry-policy.js';
+import { runWithBusyRetries } from '../../src/sources/sqlite/retry-policy.js';
 import {
   formatSqliteError,
   isBusyOrLockedSqliteError,
-} from '../../src/sources/opencode/opencode-sqlite-errors.js';
+} from '../../src/sources/sqlite/sqlite-errors.js';
 
 function createBusyError(message = 'database is locked'): Error {
   const error = new Error(message) as Error & { code?: string };
