@@ -9,7 +9,10 @@ import {
   getDefaultSourceIds,
   getSourceOverrideOptions,
 } from '../../src/sources/create-default-adapters.js';
-import { createAntigravityFixtureDb } from '../helpers/antigravity-fixtures.js';
+import {
+  createAntigravityFixtureDb,
+  E2E_ANTIGRAVITY_FIXTURE,
+} from '../helpers/antigravity-fixtures.js';
 import { createDshSessionsFixture } from '../helpers/dsh-fixtures.js';
 import { createGooseFixtureDb, E2E_GOOSE_SESSIONS } from '../helpers/goose-fixtures.js';
 import { createOpenCodeFixtureDb, E2E_OPENCODE_MESSAGES } from '../helpers/opencode-fixtures.js';
@@ -180,26 +183,6 @@ function getOptionKey(sourceId: string): SourceOptionKey {
 
   return option.optionKey;
 }
-
-// Mirrors the antigravity turn inline in tests/e2e/multi-source.e2e.test.ts; it belongs in
-// tests/helpers/antigravity-fixtures.ts, which this task does not own.
-const E2E_ANTIGRAVITY_FIXTURE = {
-  turns: [
-    {
-      model: 'gemini-antigravity-e2e',
-      timestamp: { seconds: 1_781_510_400 },
-      usage: {
-        modelEnum: 1016,
-        inputTokens: 40,
-        cacheReadTokens: 5,
-        totalOutputTokens: 20,
-        outputTokens: 15,
-        reasoningTokens: 5,
-        responseId: 'antigravity-e2e-response',
-      },
-    },
-  ],
-};
 
 /** Builds the e2e option for each source, generating the SQLite and dsh fixtures under `tempRoot`. */
 export async function createE2eSourceOptions(tempRoot: string): Promise<SourceOptions> {
