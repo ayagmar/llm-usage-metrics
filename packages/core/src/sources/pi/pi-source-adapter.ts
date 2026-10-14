@@ -8,12 +8,13 @@ import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import { pathExists } from '../../utils/fs-helpers.js';
 import { readFirstLine } from '../../utils/read-first-line.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
+import { collectFile } from '../../stream/collect.js';
 import {
   discoverFilesAcrossRoots,
   isPathWithinRoots,
   resolveRootDirs,
 } from '../multi-root-discovery.js';
-import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
+import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
   hasPositiveUsageOrCostSignal,
@@ -25,6 +26,7 @@ import type {
   SourceAdapter,
   SourceAdapterPathOptions,
   SourceParseFileDiagnostics,
+  SourceReadOptions,
 } from '../source-adapter.js';
 import { createSourceContext, type SourceContext } from '../source-context.js';
 
@@ -269,22 +271,17 @@ export class PiSourceAdapter implements SourceAdapter {
       : [];
   }
 
-  public async parseFile(filePath: string): Promise<UsageEvent[]> {
-    const { events } = await this.parseFileWithDiagnostics(filePath);
-    return events;
-  }
-
-  public async parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
-    const events: UsageEvent[] = [];
-    let skippedRows = 0;
-    const skippedRowReasons = new Map<string, number>();
+  public async *read(
+    filePath: string,
+    options: SourceReadOptions = {},
+  ): AsyncGenerator<UsageEvent> {
+    const diagnostics = options.diagnostics ?? createReadDiagnostics();
     const state: PiSessionState = { sessionId: getFallbackSessionId(filePath) };
 
     for await (const line of readJsonlObjects(filePath, {
       shouldParseLine: shouldParsePiJsonlLine,
       onMalformedLine: () => {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'json_parse_error');
+        recordSkippedRow(diagnostics, 'json_parse_error');
       },
     })) {
       if (line.type === 'session') {
@@ -313,8 +310,7 @@ export class PiSourceAdapter implements SourceAdapter {
         const hasUsageRecord = Boolean(asRecord(line.usage) ?? asRecord(message?.usage));
 
         if (hasUsageRecord) {
-          skippedRows++;
-          incrementSkippedReason(skippedRowReasons, 'no_token_usage');
+          recordSkippedRow(diagnostics, 'no_token_usage');
         }
 
         continue;
@@ -326,8 +322,7 @@ export class PiSourceAdapter implements SourceAdapter {
       const timestamp = resolveTimestamp(line, message, state);
 
       if (!timestamp || !state.sessionId) {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'invalid_timestamp');
+        recordSkippedRow(diagnostics, 'invalid_timestamp');
         continue;
       }
 
@@ -347,26 +342,33 @@ export class PiSourceAdapter implements SourceAdapter {
       const repoRoot =
         resolveRepoRootFromRecord(line) ?? resolveRepoRootFromRecord(message) ?? state.repoRoot;
 
+      let event: UsageEvent;
+
       try {
-        events.push(
-          createUsageEvent({
-            source: this.id,
-            sessionId: copiedFrom?.parentSessionId ?? state.sessionId,
-            timestamp,
-            repoRoot,
-            provider,
-            model,
-            ...usage,
-            totalTokens: resolveUsageTotalTokens(usage),
-          }),
-        );
+        event = createUsageEvent({
+          source: this.id,
+          sessionId: copiedFrom?.parentSessionId ?? state.sessionId,
+          timestamp,
+          repoRoot,
+          provider,
+          model,
+          ...usage,
+          totalTokens: resolveUsageTotalTokens(usage),
+        });
       } catch {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'event_creation_failed');
+        recordSkippedRow(diagnostics, 'event_creation_failed');
         continue;
       }
-    }
 
-    return toParseDiagnostics(events, skippedRows, skippedRowReasons);
+      yield event;
+    }
+  }
+
+  public async parseFile(filePath: string): Promise<UsageEvent[]> {
+    return (await collectFile(this, filePath)).events;
+  }
+
+  public parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
+    return collectFile(this, filePath);
   }
 }

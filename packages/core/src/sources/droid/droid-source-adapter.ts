@@ -7,18 +7,20 @@ import { asRecord } from '../../utils/as-record.js';
 import { discoverFiles } from '../../utils/discover-files.js';
 import { pathIsDirectory, pathReadable } from '../../utils/fs-helpers.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
+import { collectFile } from '../../stream/collect.js';
 import {
   asTrimmedText,
   isBlankText,
   normalizeTimestampCandidate,
   toNumberLike,
 } from '../parsing-utils.js';
-import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
+import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import { readJsonTranscriptFile } from '../read-json-file.js';
 import type {
   SourceAdapter,
   SourceAdapterPathOptions,
   SourceParseFileDiagnostics,
+  SourceReadOptions,
 } from '../source-adapter.js';
 import { createSourceContext, type SourceContext } from '../source-context.js';
 
@@ -102,15 +104,11 @@ export class DroidSourceAdapter implements SourceAdapter {
     return [getSiblingJsonlPath(filePath)];
   }
 
-  public async parseFile(filePath: string): Promise<UsageEvent[]> {
-    const { events } = await this.parseFileWithDiagnostics(filePath);
-    return events;
-  }
-
-  public async parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
-    const events: UsageEvent[] = [];
-    let skippedRows = 0;
-    const skippedRowReasons = new Map<string, number>();
+  public async *read(
+    filePath: string,
+    options: SourceReadOptions = {},
+  ): AsyncGenerator<UsageEvent> {
+    const diagnostics = options.diagnostics ?? createReadDiagnostics();
 
     const settingsJson = await readJsonTranscriptFile(filePath);
 
@@ -125,9 +123,8 @@ export class DroidSourceAdapter implements SourceAdapter {
     const tokenUsage = asRecord(settings.tokenUsage);
 
     if (!tokenUsage) {
-      skippedRows++;
-      incrementSkippedReason(skippedRowReasons, 'no_token_usage');
-      return toParseDiagnostics(events, skippedRows, skippedRowReasons);
+      recordSkippedRow(diagnostics, 'no_token_usage');
+      return;
     }
 
     const inputTokens = normalizeNonNegativeInteger(toNumberLike(tokenUsage.inputTokens));
@@ -141,9 +138,8 @@ export class DroidSourceAdapter implements SourceAdapter {
     const hasUsageSignal = billableTokens > 0 || reasoningTokens > 0;
 
     if (!hasUsageSignal) {
-      skippedRows++;
-      incrementSkippedReason(skippedRowReasons, 'no_token_usage');
-      return toParseDiagnostics(events, skippedRows, skippedRowReasons);
+      recordSkippedRow(diagnostics, 'no_token_usage');
+      return;
     }
 
     const provider = asTrimmedText(settings.providerLock);
@@ -162,8 +158,7 @@ export class DroidSourceAdapter implements SourceAdapter {
       for await (const line of readJsonlObjects(jsonlPath, {
         shouldParseLine: shouldParseDroidJsonlLine,
         onMalformedLine: () => {
-          skippedRows++;
-          incrementSkippedReason(skippedRowReasons, 'json_parse_error');
+          recordSkippedRow(diagnostics, 'json_parse_error');
         },
       })) {
         if (!repoRoot && isSessionStartRecord(line)) {
@@ -191,33 +186,40 @@ export class DroidSourceAdapter implements SourceAdapter {
     const timestamp = primaryTimestamp ?? fallbackMessageTimestamp;
 
     if (!timestamp) {
-      skippedRows++;
-      incrementSkippedReason(skippedRowReasons, 'invalid_timestamp');
-      return toParseDiagnostics(events, skippedRows, skippedRowReasons);
+      recordSkippedRow(diagnostics, 'invalid_timestamp');
+      return;
     }
+
+    let event: UsageEvent;
 
     try {
-      events.push(
-        createUsageEvent({
-          source: this.id,
-          sessionId: getSettingsSessionId(filePath),
-          timestamp,
-          repoRoot,
-          provider,
-          model,
-          inputTokens,
-          outputTokens,
-          reasoningTokens,
-          cacheReadTokens,
-          cacheWriteTokens,
-          totalTokens,
-        }),
-      );
+      event = createUsageEvent({
+        source: this.id,
+        sessionId: getSettingsSessionId(filePath),
+        timestamp,
+        repoRoot,
+        provider,
+        model,
+        inputTokens,
+        outputTokens,
+        reasoningTokens,
+        cacheReadTokens,
+        cacheWriteTokens,
+        totalTokens,
+      });
     } catch {
-      skippedRows++;
-      incrementSkippedReason(skippedRowReasons, 'event_creation_failed');
+      recordSkippedRow(diagnostics, 'event_creation_failed');
+      return;
     }
 
-    return toParseDiagnostics(events, skippedRows, skippedRowReasons);
+    yield event;
+  }
+
+  public async parseFile(filePath: string): Promise<UsageEvent[]> {
+    return (await collectFile(this, filePath)).events;
+  }
+
+  public parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
+    return collectFile(this, filePath);
   }
 }
