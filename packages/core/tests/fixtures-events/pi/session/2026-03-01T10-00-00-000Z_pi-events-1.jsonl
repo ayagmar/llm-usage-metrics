@@ -1,0 +1,22 @@
+{"type":"session","version":3,"id":"pi-events-1","timestamp":"2026-03-01T10:00:00.000Z","cwd":"/work/demo"}
+{"type":"model_change","id":"e01","parentId":null,"timestamp":"2026-03-01T10:00:01.000Z","provider":"Anthropic","modelId":"claude-sonnet-4-5"}
+{"type":"thinking_level_change","id":"e02","parentId":"e01","timestamp":"2026-03-01T10:00:01.500Z","thinkingLevel":"high"}
+{"type":"session_info","id":"e03","parentId":"e02","timestamp":"2026-03-01T10:00:02.000Z","name":"Demo session"}
+{"type":"message","id":"e04","parentId":"e03","timestamp":"2026-03-01T10:00:03.000Z","message":{"role":"user","content":[{"type":"text","text":"List the files."},{"type":"image","data":"AAAA","mimeType":"image/png"},{"type":"text","text":"Then check the build."}],"timestamp":1772359203000}}
+{"type":"message","id":"e05","parentId":"e04","timestamp":"2026-03-01T10:00:05.000Z","message":{"role":"assistant","content":[{"type":"thinking","thinking":"Plan the steps."},{"type":"text","text":"I will look."},{"type":"toolCall","id":"call-1","name":"read","arguments":{"path":"a.txt"}},{"type":"toolCall","id":"call-2","name":"bash","arguments":{"command":"make"}}],"api":"anthropic-messages","provider":"anthropic","model":"claude-sonnet-4-5","responseId":"resp-1","usage":{"input":100,"output":40,"cacheRead":20,"cacheWrite":5,"totalTokens":165,"cost":{"total":0.002}},"stopReason":"toolUse","timestamp":1772359205000}}
+{"type":"message","id":"e06","parentId":"e05","timestamp":"2026-03-01T10:00:06.000Z","message":{"role":"toolResult","toolCallId":"call-1","toolName":"read","content":[{"type":"text","text":"alpha"}],"isError":false,"durationMs":12,"timestamp":1772359206000}}
+{"type":"message","id":"e07","parentId":"e06","timestamp":"2026-03-01T10:00:07.000Z","message":{"role":"toolResult","toolCallId":"call-2","toolName":"bash","content":[{"type":"text","text":"make: error"}],"isError":true,"timestamp":1772359207000}}
+{"type":"message","id":"e08","parentId":"e07","timestamp":"2026-03-01T10:00:08.000Z","message":{"role":"toolResult","toolCallId":"call-unknown","toolName":"read","content":[],"isError":false,"timestamp":1772359208000}}
+{"type":"message","id":"e09","parentId":"e08","timestamp":"2026-03-01T10:00:09.000Z","message":{"role":"toolResult","toolCallId":"call-1","toolName":"read","content":[],"isError":false,"timestamp":1772359209000}}
+{"type":"message","id":"e10","parentId":"e09","timestamp":"2026-03-01T10:00:10.000Z","message":{"role":"assistant","content":[{"type":"toolCall","id":"","name":"read","arguments":{}},{"type":"toolCall","id":"call-1","name":"read","arguments":{}},{"type":"toolCall","id":"call-3","name":"grep","arguments":{"pattern":"x"}},{"type":"toolCall","id":"call-4","name":"","arguments":{}}],"provider":"anthropic","model":"claude-sonnet-4-5","usage":{"input":50,"output":10,"totalTokens":60},"timestamp":1772359210000}}
+{"type":"message",
+{"type":"session_info",
+{"type":"message","id":"e11","parentId":"e10","timestamp":"2026-03-01T10:00:11.000Z","message":{"role":"toolResult","toolCallId":"call-4","toolName":"","content":[],"isError":false,"timestamp":1772359211000}}
+{"type":"message","id":"e12","parentId":"e11","timestamp":"2026-03-01T10:00:12.000Z","message":{"role":"toolResult","content":[],"isError":false,"timestamp":1772359212000}}
+{"type":"message","id":"e13","parentId":"e12","timestamp":"2026-03-01T10:00:13.000Z","message":{"role":"system","content":"Tools changed.","timestamp":1772359213000}}
+{"type":"message","id":"e14","parentId":"e13","timestamp":"2026-03-01T10:00:14.000Z","message":{"role":"bashExecution","command":"ls","output":"a.txt","exitCode":0,"timestamp":1772359214000}}
+{"type":"message","id":"e15","parentId":"e14","timestamp":"2026-03-01T10:00:15.000Z","message":{"role":"user","content":[],"timestamp":1772359215000}}
+{"type":"model_change","id":"e16","parentId":"e15","timestamp":"2026-03-01T10:00:16.000Z","provider":"Anthropic","modelId":"claude-sonnet-4-5"}
+{"type":"model_change","id":"e17","parentId":"e16","timestamp":"2026-03-01T10:00:17.000Z","provider":"Anthropic","modelId":"claude-opus-4-1"}
+{"type":"message","id":"e18","parentId":"e17","timestamp":"2026-03-01T10:00:18.000Z","message":{"role":"assistant","content":[{"type":"text","text":"Done."},{"type":"text","text":" Two files."}],"provider":"anthropic","model":"claude-opus-4-1","responseId":"resp-3","usage":{"input":0,"output":0,"totalTokens":0,"cost":{"total":0}},"timestamp":1772359218000}}
+{"type":"session_info","id":"e19","parentId":"e18","timestamp":"2026-03-01T10:00:19.000Z","name":"Demo session renamed"}
