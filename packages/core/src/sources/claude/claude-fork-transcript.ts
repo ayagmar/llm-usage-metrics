@@ -91,3 +91,29 @@ export async function readClaudeMessageKeys(filePath: string): Promise<Set<strin
 
   return messageKeys;
 }
+
+const CLAUDE_UUID_BYTES = Buffer.from('"uuid"');
+
+/**
+ * Row uuids of every row in a transcript; empty when it cannot be read. A fork replays its
+ * parent's rows under their uuids, so these mark the replayed rows that hold no API call.
+ */
+export async function readClaudeRowUuids(filePath: string): Promise<Set<string>> {
+  const rowUuids = new Set<string>();
+
+  try {
+    for await (const line of readJsonlObjects(filePath, {
+      shouldParseLineBytes: (lineBytes) => lineBytes.includes(CLAUDE_UUID_BYTES),
+    })) {
+      const uuid = asTrimmedText(line.uuid);
+
+      if (uuid) {
+        rowUuids.add(uuid);
+      }
+    }
+  } catch {
+    // A missing or unreadable parent leaves the fork's rows counted.
+  }
+
+  return rowUuids;
+}

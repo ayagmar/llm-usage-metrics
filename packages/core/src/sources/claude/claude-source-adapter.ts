@@ -2,13 +2,20 @@ import path from 'node:path';
 
 import { normalizeNonNegativeInteger } from '../../domain/normalization.js';
 import { inferCanonicalProviderRootFromModel } from '../../domain/provider-normalization.js';
+import {
+  createUsageRecord,
+  EVENT_KINDS,
+  type EventKind,
+  type SessionEvent,
+  type UsageRecord,
+} from '../../domain/session-event.js';
 import { createUsageEvent } from '../../domain/usage-event.js';
 import type { UsageEvent } from '../../domain/usage-event.js';
 import { asRecord } from '../../utils/as-record.js';
 import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import { pathStat } from '../../utils/fs-helpers.js';
-import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
+import { readClassifiedJsonlObjects, readJsonlObjects } from '../../utils/read-jsonl-objects.js';
 import {
   discoverFilesAcrossRoots,
   isPathWithinRoots,
@@ -18,13 +25,18 @@ import {
   getClaudeMessageKey,
   getClaudeSubagentMetaPath,
   readClaudeMessageKeys,
+  readClaudeRowUuids,
   resolveClaudeForkParentPath,
 } from './claude-fork-transcript.js';
+import { ClaudeSessionEvents, shouldParseClaudeSessionLineBytes } from './claude-session-events.js';
 import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import { asTrimmedText, normalizeTimestampCandidate, toNumberLike } from '../parsing-utils.js';
+import { recordMalformedLine, resolveReadKinds } from '../session-event-helpers.js';
 import type {
+  ReadEventsOptions,
   SourceAdapter,
   SourceAdapterPathOptions,
+  SourceReadDiagnostics,
   SourceReadOptions,
 } from '../source-adapter.js';
 import { createSourceContext, type SourceContext } from '../source-context.js';
@@ -70,7 +82,22 @@ type ClaudePendingEvent = {
   model?: string;
   usage: ClaudeUsage;
   sequence: number;
+  // Set only when the read yields usage records.
+  messageId?: string;
+  requestId?: string;
+  rawProvider?: string;
+  raw?: Record<string, unknown>;
 };
+
+/** One read of a file: `read` is usage-only, without the record fields. */
+type ClaudeReadPlan = {
+  kinds: ReadonlySet<EventKind>;
+  text: boolean;
+  raw: boolean;
+  diagnostics: SourceReadDiagnostics;
+};
+
+const USAGE_ONLY: ReadonlySet<EventKind> = new Set(['usage']);
 
 export type ClaudeSourceAdapterOptions = Omit<SourceAdapterPathOptions, 'dir'> & {
   /** One projects directory, or several that share fork deduplication. */
@@ -168,19 +195,157 @@ function comparePendingEvents(left: ClaudePendingEvent, right: ClaudePendingEven
   return left.sequence - right.sequence;
 }
 
+/** A parent transcript's ids, read once per parent version. */
+async function readParentVersion(
+  parentPath: string,
+  cache: Map<string, Promise<Set<string>>>,
+  read: (parentPath: string) => Promise<Set<string>>,
+): Promise<Set<string>> {
+  const parentStats = await pathStat(parentPath);
+
+  if (!parentStats) {
+    return new Set();
+  }
+
+  const versionKey = `${parentPath}\0${parentStats.size}\0${parentStats.mtimeMs}`;
+  let ids = cache.get(versionKey);
+
+  if (!ids) {
+    ids = read(parentPath);
+    cache.set(versionKey, ids);
+  }
+
+  return ids;
+}
+
+/** The usage of a file's assistant rows: last row per dedup key, sorted at the end. */
+class ClaudeUsageRows {
+  private readonly eventsByDedupKey = new Map<string, ClaudePendingEvent>();
+  private sequence = 0;
+
+  public constructor(
+    private readonly filePath: string,
+    private readonly parentMessageKeys: ReadonlySet<string>,
+    private readonly plan: ClaudeReadPlan & { records: boolean },
+  ) {}
+
+  public add(line: Record<string, unknown>): void {
+    const { diagnostics } = this.plan;
+
+    if (asTrimmedText(line.type) !== 'assistant') {
+      return;
+    }
+
+    const message = asRecord(line.message);
+
+    if (!message || asTrimmedText(message.role) !== 'assistant') {
+      recordSkippedRow(diagnostics, 'invalid_assistant_message');
+      return;
+    }
+
+    const model = asTrimmedText(message.model);
+
+    if (model === '<synthetic>') {
+      recordSkippedRow(diagnostics, 'synthetic_message');
+      return;
+    }
+
+    const messageKey = getClaudeMessageKey(line, message);
+
+    if (messageKey && this.parentMessageKeys.has(messageKey)) {
+      return;
+    }
+
+    const usage = parseUsage(asRecord(message.usage) ?? {});
+
+    if (!usage) {
+      recordSkippedRow(diagnostics, 'no_token_usage');
+      return;
+    }
+
+    const timestamp = normalizeTimestampCandidate(line.timestamp);
+
+    if (!timestamp) {
+      recordSkippedRow(diagnostics, 'invalid_timestamp');
+      return;
+    }
+
+    const dedupKey = createDedupKey(this.filePath, line, message, timestamp, model);
+
+    const sessionId = asTrimmedText(line.sessionId) ?? getFallbackSessionId(this.filePath);
+    const repoRoot = asTrimmedText(line.cwd);
+    const provider = resolveProvider(message, model);
+
+    this.sequence += 1;
+    const pendingEvent: ClaudePendingEvent = {
+      sessionId,
+      timestamp,
+      repoRoot,
+      provider,
+      model,
+      usage,
+      sequence: this.sequence,
+    };
+
+    if (this.plan.records) {
+      pendingEvent.messageId = asTrimmedText(message.id);
+      pendingEvent.requestId = asTrimmedText(line.requestId) ?? asTrimmedText(line.request_id);
+      pendingEvent.rawProvider = asTrimmedText(message.provider);
+      pendingEvent.raw = this.plan.raw ? line : undefined;
+    }
+
+    this.eventsByDedupKey.set(dedupKey, pendingEvent);
+  }
+
+  public *flush(): Generator<UsageEvent | UsageRecord> {
+    // Keep-last by dedup key and the timestamp sort need the whole file before any event.
+    for (const pendingEvent of [...this.eventsByDedupKey.values()].sort(comparePendingEvents)) {
+      const input = {
+        source: 'claude',
+        sessionId: pendingEvent.sessionId,
+        timestamp: pendingEvent.timestamp,
+        repoRoot: pendingEvent.repoRoot,
+        provider: pendingEvent.provider,
+        model: pendingEvent.model,
+        ...pendingEvent.usage,
+      };
+      let event: UsageEvent | UsageRecord;
+
+      try {
+        event = this.plan.records
+          ? createUsageRecord({
+              ...input,
+              messageId: pendingEvent.messageId,
+              requestId: pendingEvent.requestId,
+              rawProvider: pendingEvent.rawProvider,
+              raw: pendingEvent.raw,
+            })
+          : createUsageEvent(input);
+      } catch {
+        recordSkippedRow(this.plan.diagnostics, 'event_creation_failed');
+        continue;
+      }
+
+      yield event;
+    }
+  }
+}
+
 export class ClaudeSourceAdapter implements SourceAdapter {
   public readonly id = 'claude' as const;
   public readonly parserVersion = 4;
   public readonly capabilities = {
     eventsPrecedeFileMtime: true,
     sessionsCopyEvents: true,
-    kinds: ['usage'],
+    kinds: EVENT_KINDS,
   } as const;
 
   private readonly rootDirs: readonly string[];
   private readonly requireDir: boolean;
   // Sibling forks share a parent; read its message keys once per parent version.
   private readonly parentMessageKeysByVersion = new Map<string, Promise<Set<string>>>();
+  // Read only for non-usage kinds, so `read` never reads them.
+  private readonly parentRowUuidsByVersion = new Map<string, Promise<Set<string>>>();
 
   public constructor(options: ClaudeSourceAdapterOptions = {}) {
     this.rootDirs = resolveRootDirs(
@@ -220,120 +385,113 @@ export class ClaudeSourceAdapter implements SourceAdapter {
   }
 
   private async readParentMessageKeys(parentPath: string): Promise<Set<string>> {
-    const parentStats = await pathStat(parentPath);
-
-    if (!parentStats) {
-      return new Set();
-    }
-
-    const versionKey = `${parentPath}\0${parentStats.size}\0${parentStats.mtimeMs}`;
-    let messageKeys = this.parentMessageKeysByVersion.get(versionKey);
-
-    if (!messageKeys) {
-      messageKeys = readClaudeMessageKeys(parentPath);
-      this.parentMessageKeysByVersion.set(versionKey, messageKeys);
-    }
-
-    return messageKeys;
+    return readParentVersion(parentPath, this.parentMessageKeysByVersion, readClaudeMessageKeys);
   }
 
-  public async *read(
+  private async readParentRowUuids(parentPath: string): Promise<Set<string>> {
+    return readParentVersion(parentPath, this.parentRowUuidsByVersion, readClaudeRowUuids);
+  }
+
+  public read(filePath: string, options: SourceReadOptions = {}): AsyncGenerator<UsageEvent> {
+    return this.parse(filePath, {
+      kinds: USAGE_ONLY,
+      text: false,
+      raw: false,
+      diagnostics: options.diagnostics ?? createReadDiagnostics(),
+      records: false,
+    });
+  }
+
+  public readEvents(
     filePath: string,
-    options: SourceReadOptions = {},
-  ): AsyncGenerator<UsageEvent> {
-    const diagnostics = options.diagnostics ?? createReadDiagnostics();
+    options: ReadEventsOptions = {},
+  ): AsyncGenerator<SessionEvent> {
+    return this.parse(filePath, {
+      kinds: resolveReadKinds(options.kinds, this.capabilities.kinds),
+      text: options.text ?? false,
+      raw: options.raw ?? false,
+      diagnostics: options.diagnostics ?? createReadDiagnostics(),
+      records: true,
+    });
+  }
+
+  private parse(
+    filePath: string,
+    plan: ClaudeReadPlan & { records: false },
+  ): AsyncGenerator<UsageEvent>;
+  private parse(
+    filePath: string,
+    plan: ClaudeReadPlan & { records: true },
+  ): AsyncGenerator<SessionEvent>;
+  private async *parse(
+    filePath: string,
+    plan: ClaudeReadPlan & { records: boolean },
+  ): AsyncGenerator<UsageEvent | SessionEvent> {
+    const { kinds, diagnostics } = plan;
+    const readsUsage = kinds.has('usage');
+    const readsSessionEvents = kinds.size > (readsUsage ? 1 : 0);
+
+    if (!readsUsage && !readsSessionEvents) {
+      return;
+    }
+
     const forkParentPath = await resolveClaudeForkParentPath(filePath);
     // Rows a forked subagent replayed from its parent are counted in the parent transcript,
     // provided this adapter's discovery covers the parent.
-    const parentMessageKeys =
+    const countedForkParentPath =
       forkParentPath && isPathWithinRoots(forkParentPath, this.rootDirs)
-        ? await this.readParentMessageKeys(forkParentPath)
-        : new Set<string>();
-    const eventsByDedupKey = new Map<string, ClaudePendingEvent>();
-    let sequence = 0;
+        ? forkParentPath
+        : undefined;
+    const parentMessageKeys = countedForkParentPath
+      ? await this.readParentMessageKeys(countedForkParentPath)
+      : new Set<string>();
+    const usageRows = new ClaudeUsageRows(filePath, parentMessageKeys, plan);
 
-    for await (const line of readJsonlObjects(filePath, {
-      shouldParseLineBytes: shouldParseClaudeJsonlLineBytes,
-      onMalformedLine: () => {
-        recordSkippedRow(diagnostics, 'json_parse_error');
-      },
-    })) {
-      if (asTrimmedText(line.type) !== 'assistant') {
-        continue;
+    if (!readsSessionEvents) {
+      for await (const line of readJsonlObjects(filePath, {
+        shouldParseLineBytes: shouldParseClaudeJsonlLineBytes,
+        onMalformedLine: () => {
+          recordSkippedRow(diagnostics, 'json_parse_error');
+        },
+      })) {
+        usageRows.add(line);
       }
 
-      const message = asRecord(line.message);
-
-      if (!message || asTrimmedText(message.role) !== 'assistant') {
-        recordSkippedRow(diagnostics, 'invalid_assistant_message');
-        continue;
-      }
-
-      const model = asTrimmedText(message.model);
-
-      if (model === '<synthetic>') {
-        recordSkippedRow(diagnostics, 'synthetic_message');
-        continue;
-      }
-
-      const messageKey = getClaudeMessageKey(line, message);
-
-      if (messageKey && parentMessageKeys.has(messageKey)) {
-        continue;
-      }
-
-      const usage = parseUsage(asRecord(message.usage) ?? {});
-
-      if (!usage) {
-        recordSkippedRow(diagnostics, 'no_token_usage');
-        continue;
-      }
-
-      const timestamp = normalizeTimestampCandidate(line.timestamp);
-
-      if (!timestamp) {
-        recordSkippedRow(diagnostics, 'invalid_timestamp');
-        continue;
-      }
-
-      const dedupKey = createDedupKey(filePath, line, message, timestamp, model);
-
-      const sessionId = asTrimmedText(line.sessionId) ?? getFallbackSessionId(filePath);
-      const repoRoot = asTrimmedText(line.cwd);
-      const provider = resolveProvider(message, model);
-
-      sequence += 1;
-      eventsByDedupKey.set(dedupKey, {
-        sessionId,
-        timestamp,
-        repoRoot,
-        provider,
-        model,
-        usage,
-        sequence,
-      });
+      yield* usageRows.flush();
+      return;
     }
 
-    // Keep-last by dedup key and the timestamp sort need the whole file before any event.
-    for (const pendingEvent of [...eventsByDedupKey.values()].sort(comparePendingEvents)) {
-      let event: UsageEvent;
+    const sessionEvents = new ClaudeSessionEvents({
+      fallbackSessionId: getFallbackSessionId(filePath),
+      kinds,
+      text: plan.text,
+      raw: plan.raw,
+      diagnostics,
+      replayedRowUuids: countedForkParentPath
+        ? await this.readParentRowUuids(countedForkParentPath)
+        : new Set<string>(),
+      replayedMessageKeys: parentMessageKeys,
+    });
 
-      try {
-        event = createUsageEvent({
-          source: this.id,
-          sessionId: pendingEvent.sessionId,
-          timestamp: pendingEvent.timestamp,
-          repoRoot: pendingEvent.repoRoot,
-          provider: pendingEvent.provider,
-          model: pendingEvent.model,
-          ...pendingEvent.usage,
-        });
-      } catch {
-        recordSkippedRow(diagnostics, 'event_creation_failed');
-        continue;
+    for await (const { record, isUsageLine } of readClassifiedJsonlObjects(filePath, {
+      shouldParseLineBytes: shouldParseClaudeSessionLineBytes,
+      isUsageLineBytes: shouldParseClaudeJsonlLineBytes,
+      onMalformedLine: (lineBytes) => {
+        recordMalformedLine(diagnostics, kinds, shouldParseClaudeJsonlLineBytes(lineBytes));
+      },
+    })) {
+      if (readsUsage && isUsageLine) {
+        usageRows.add(record);
       }
 
-      yield event;
+      yield* sessionEvents.add(record);
+    }
+
+    // Unanswered tool calls come before the usage, which is sorted at the end of the file.
+    yield* sessionEvents.finish();
+
+    if (readsUsage) {
+      yield* usageRows.flush();
     }
   }
 }
