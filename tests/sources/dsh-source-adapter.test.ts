@@ -19,6 +19,7 @@ import {
   writeDshSessionLog,
   type DshSessionHeaderFixture,
 } from '../fixtures/dsh/dsh-session-fixtures.js';
+import { createSourceContext } from '../../src/sources/source-context.js';
 
 const tempDirs: string[] = [];
 
@@ -74,24 +75,32 @@ describe('DshSourceAdapter', () => {
     const adapter = new DshSourceAdapter();
 
     expect(adapter.id).toBe('dsh');
-    expect(getDefaultDshSessionsDir({ env: {}, homeDir: '/home/dev' })).toBe(
+    expect(getDefaultDshSessionsDir(createSourceContext({ env: {}, homeDir: '/home/dev' }))).toBe(
       path.join('/home/dev', '.dsh', 'sessions'),
     );
   });
 
   it('resolves the default sessions directory from DSH_HOME', () => {
-    expect(getDefaultDshSessionsDir({ env: { DSH_HOME: '/srv/dsh' }, homeDir: '/home/dev' })).toBe(
-      path.join('/srv/dsh', 'sessions'),
-    );
-    expect(getDefaultDshSessionsDir({ env: { DSH_HOME: '~/harness' }, homeDir: '/home/dev' })).toBe(
-      path.join('/home/dev', 'harness', 'sessions'),
-    );
-    expect(getDefaultDshSessionsDir({ env: { DSH_HOME: '  ' }, homeDir: '/home/dev' })).toBe(
-      path.join('/home/dev', '.dsh', 'sessions'),
-    );
-    expect(getDefaultDshSessionsDir({ env: { DSH_HOME: '~' }, homeDir: '/home/dev' })).toBe(
-      path.join('/home/dev', 'sessions'),
-    );
+    expect(
+      getDefaultDshSessionsDir(
+        createSourceContext({ env: { DSH_HOME: '/srv/dsh' }, homeDir: '/home/dev' }),
+      ),
+    ).toBe(path.join('/srv/dsh', 'sessions'));
+    expect(
+      getDefaultDshSessionsDir(
+        createSourceContext({ env: { DSH_HOME: '~/harness' }, homeDir: '/home/dev' }),
+      ),
+    ).toBe(path.join('/home/dev', 'harness', 'sessions'));
+    expect(
+      getDefaultDshSessionsDir(
+        createSourceContext({ env: { DSH_HOME: '  ' }, homeDir: '/home/dev' }),
+      ),
+    ).toBe(path.join('/home/dev', '.dsh', 'sessions'));
+    expect(
+      getDefaultDshSessionsDir(
+        createSourceContext({ env: { DSH_HOME: '~' }, homeDir: '/home/dev' }),
+      ),
+    ).toBe(path.join('/home/dev', 'sessions'));
   });
 
   it('discovers canonical session logs across roots in deterministic order', async () => {

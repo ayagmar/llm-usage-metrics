@@ -8,6 +8,7 @@ import {
   LEGACY_CODEX_MODEL_FALLBACK,
   resolveDefaultCodexSessionsDir,
 } from '../../src/sources/codex/codex-source-adapter.js';
+import { createSourceContext } from '../../src/sources/source-context.js';
 import { canonicalTmpdir } from '../helpers/tmp.js';
 
 const tempDirs: string[] = [];
@@ -911,15 +912,21 @@ describe('CodexSourceAdapter', () => {
 
 describe('codex source helpers', () => {
   it('returns default codex sessions path', () => {
-    expect(resolveDefaultCodexSessionsDir({})).toContain(path.join('.codex', 'sessions'));
+    expect(resolveDefaultCodexSessionsDir(createSourceContext({ env: {} }))).toContain(
+      path.join('.codex', 'sessions'),
+    );
   });
 
   it('reads sessions from CODEX_HOME when it is set', () => {
-    expect(resolveDefaultCodexSessionsDir({ CODEX_HOME: ' /opt/codex ' }, '/home/me')).toBe(
-      path.join('/opt/codex', 'sessions'),
-    );
-    expect(resolveDefaultCodexSessionsDir({ CODEX_HOME: '  ' }, '/home/me')).toBe(
-      path.join('/home/me', '.codex', 'sessions'),
-    );
+    expect(
+      resolveDefaultCodexSessionsDir(
+        createSourceContext({ env: { CODEX_HOME: ' /opt/codex ' }, homeDir: '/home/me' }),
+      ),
+    ).toBe(path.join('/opt/codex', 'sessions'));
+    expect(
+      resolveDefaultCodexSessionsDir(
+        createSourceContext({ env: { CODEX_HOME: '  ' }, homeDir: '/home/me' }),
+      ),
+    ).toBe(path.join('/home/me', '.codex', 'sessions'));
   });
 });

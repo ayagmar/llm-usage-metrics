@@ -10,6 +10,7 @@ import {
   getDefaultClineTaskRootCandidates,
 } from '../../src/sources/cline/cline-family-adapter.js';
 import { getClineTaskHistoryPath } from '../../src/sources/cline/cline-task-parser.js';
+import { createSourceContext } from '../../src/sources/source-context.js';
 
 const fixtureTasksDir = path.resolve('tests/fixtures/cline/tasks');
 const fixtureUiMessagesPath = path.join(fixtureTasksDir, 'task-a', 'ui_messages.json');
@@ -34,9 +35,7 @@ describe('getDefaultClineTaskRootCandidates', () => {
     expect(
       getDefaultClineTaskRootCandidates({
         extensionId: CLINE_EXTENSION_IDS.cline,
-        platform: 'linux',
-        homeDir: '/home/tester',
-        env: {},
+        context: createSourceContext({ platform: 'linux', homeDir: '/home/tester', env: {} }),
       }),
     ).toEqual([
       path.join(
@@ -64,9 +63,7 @@ describe('getDefaultClineTaskRootCandidates', () => {
     expect(
       getDefaultClineTaskRootCandidates({
         extensionId: CLINE_EXTENSION_IDS.cline,
-        platform: 'darwin',
-        homeDir: '/Users/tester',
-        env: {},
+        context: createSourceContext({ platform: 'darwin', homeDir: '/Users/tester', env: {} }),
       })[0],
     ).toBe(
       path.join(
@@ -84,9 +81,11 @@ describe('getDefaultClineTaskRootCandidates', () => {
     expect(
       getDefaultClineTaskRootCandidates({
         extensionId: CLINE_EXTENSION_IDS.cline,
-        platform: 'win32',
-        homeDir: '/home/tester',
-        env: { APPDATA: '/roaming' },
+        context: createSourceContext({
+          platform: 'win32',
+          homeDir: '/home/tester',
+          env: { APPDATA: '/roaming' },
+        }),
       })[0],
     ).toBe(
       path.join('/roaming', 'Code', 'User', 'globalStorage', CLINE_EXTENSION_IDS.cline, 'tasks'),
@@ -97,9 +96,7 @@ describe('getDefaultClineTaskRootCandidates', () => {
     expect(
       getDefaultClineTaskRootCandidates({
         extensionId: CLINE_EXTENSION_IDS.roocode,
-        platform: 'linux',
-        homeDir: '/home/tester',
-        env: {},
+        context: createSourceContext({ platform: 'linux', homeDir: '/home/tester', env: {} }),
       })[0],
     ).toBe(
       path.join(
@@ -116,9 +113,7 @@ describe('getDefaultClineTaskRootCandidates', () => {
     expect(
       getDefaultClineTaskRootCandidates({
         extensionId: CLINE_EXTENSION_IDS.kilocode,
-        platform: 'linux',
-        homeDir: '/home/tester',
-        env: {},
+        context: createSourceContext({ platform: 'linux', homeDir: '/home/tester', env: {} }),
       })[0],
     ).toBe(
       path.join(
