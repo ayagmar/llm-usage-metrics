@@ -79,8 +79,8 @@ The `src/persistence/event-store-*.ts` modules own a local SQLite ledger (`event
 - `src/cli/report-definitions`: command metadata and shared option profiles
 - `src/cli/report-runtime`: shared report lifecycle
 - `src/config`: TOML user-config loading and runtime override/env-var resolution
-- `src/sources`: adapter discovery and parsing
-- `src/domain`: canonical normalized contracts
+- `packages/core/src/sources` (`@ayagmar/agent-sessions`): adapter discovery and parsing, with the registry in `packages/core/src/registry` and dedup stages in `packages/core/src/dedup`
+- `src/domain`: CLI view of the normalized contracts (re-exports the core domain)
 - `src/pricing`: LiteLLM pricing loader/cache/cost engine
 - `src/persistence`: SQLite event-store ledger, schema migrations, history suppression
 - `src/aggregate`: period/source usage aggregation
