@@ -1,0 +1,2 @@
+{"timestamp":"2026-10-02T10:00:00.000Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":500,"cached_input_tokens":100,"output_tokens":20,"reasoning_output_tokens":5,"total_tokens":520}}}}
+{"timestamp":"2026-10-02T10:00:05.000Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":900,"cached_input_tokens":300,"output_tokens":50,"reasoning_output_tokens":5,"total_tokens":950}}}}
