@@ -99,6 +99,7 @@ describe('source subpath isolation', () => {
 // The built entries, after `core:build`: tsup splits shared code into chunks, so follow
 // each entry's static imports and read which source files its source maps cover.
 const STATIC_IMPORT = /^(?:import|export)\s[^;]*?\sfrom\s*"(\.{1,2}\/[^"]+)";?$/gm;
+const SIDE_EFFECT_IMPORT = /^import\s*"(\.{1,2}\/[^"]+)";?$/gm;
 
 function staticImportClosure(entryFile: string): string[] {
   const seen = new Set<string>();
@@ -108,7 +109,8 @@ function staticImportClosure(entryFile: string): string[] {
     if (seen.has(file)) continue;
     seen.add(file);
 
-    for (const match of readFileSync(file, 'utf8').matchAll(STATIC_IMPORT)) {
+    const code = readFileSync(file, 'utf8');
+    for (const match of [...code.matchAll(STATIC_IMPORT), ...code.matchAll(SIDE_EFFECT_IMPORT)]) {
       pending.push(path.resolve(path.dirname(file), match[1]));
     }
   }
