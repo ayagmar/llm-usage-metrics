@@ -3,8 +3,8 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { discoverFiles } from '../../src/utils/discover-files.js';
-import { canonicalTmpdir } from '../helpers/tmp.js';
+import { discoverFiles } from '../src/utils/discover-files.js';
+import { canonicalTmpdir } from './helpers/tmp.js';
 
 const tempDirs: string[] = [];
 

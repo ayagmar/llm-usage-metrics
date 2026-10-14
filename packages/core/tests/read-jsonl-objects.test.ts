@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { readJsonlObjects } from '../../src/utils/read-jsonl-objects.js';
+import { readJsonlObjects } from '../src/utils/read-jsonl-objects.js';
 
 const tempDirs: string[] = [];
 

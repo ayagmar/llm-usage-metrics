@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   createUsageEvent,
+  getEventSessionKey,
   hasBillableTokenBuckets,
   isPriceableEvent,
-} from '../../src/domain/usage-event.js';
+} from '../src/domain/usage-event.js';
 
 describe('createUsageEvent', () => {
   it('normalizes counters and trusts declared total tokens when provided', () => {
@@ -236,5 +237,20 @@ describe('createUsageEvent', () => {
     expect(isPriceableEvent(totalOnlyEvent)).toBe(false);
     expect(hasBillableTokenBuckets(billableEvent)).toBe(true);
     expect(isPriceableEvent(billableEvent)).toBe(true);
+  });
+});
+
+describe('getEventSessionKey', () => {
+  it('keeps equal session ids from different sources apart', () => {
+    const piKey = getEventSessionKey({ source: 'pi', sessionId: 'session-1' });
+
+    expect(getEventSessionKey({ source: 'pi', sessionId: 'session-1' })).toBe(piKey);
+    expect(getEventSessionKey({ source: 'codex', sessionId: 'session-1' })).not.toBe(piKey);
+  });
+
+  it('cannot be forged by a source or session id that contains the separator text', () => {
+    expect(getEventSessionKey({ source: 'pi', sessionId: 'a:b' })).not.toBe(
+      getEventSessionKey({ source: 'pi:a', sessionId: 'b' }),
+    );
   });
 });

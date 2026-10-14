@@ -3,8 +3,8 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { discoverJsonlFiles } from '../../src/utils/discover-jsonl-files.js';
-import { canonicalTmpdir } from '../helpers/tmp.js';
+import { discoverJsonlFiles } from '../src/utils/discover-jsonl-files.js';
+import { canonicalTmpdir } from './helpers/tmp.js';
 
 const tempDirs: string[] = [];
 const itWhenUnix = process.platform === 'win32' ? it.skip : it;
