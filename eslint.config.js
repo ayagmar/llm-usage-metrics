@@ -107,6 +107,8 @@ export default tseslint.config(
           paths: [
             { name: 'node:os', message: hostStateMessage },
             { name: 'os', message: hostStateMessage },
+            { name: 'node:process', message: hostStateMessage },
+            { name: 'process', message: hostStateMessage },
           ],
           patterns: [
             {
@@ -121,6 +123,10 @@ export default tseslint.config(
         { object: 'process', property: 'env', message: hostStateMessage },
         { object: 'process', property: 'platform', message: hostStateMessage },
         { object: 'os', property: 'homedir', message: hostStateMessage },
+        { object: 'process', property: 'cwd', message: hostStateMessage },
+        { object: 'process', property: 'stdout', message: 'The core package prints nothing.' },
+        { object: 'process', property: 'stderr', message: 'The core package prints nothing.' },
+        { object: 'globalThis', property: 'process', message: hostStateMessage },
       ],
     },
   },
