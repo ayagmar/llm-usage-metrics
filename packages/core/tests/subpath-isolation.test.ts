@@ -66,6 +66,23 @@ describe('source subpath isolation', () => {
     expect(sourceIds).toContain('roocode');
   });
 
+  // Positive controls: the check sees a source module that the entry does load.
+  it('sees roocode load cline', async () => {
+    const entry = path.join(sourcesRoot, 'roocode', 'index.ts');
+
+    expect(await modulesLoadedBy(entry, ['cline'])).toContainEqual(
+      expect.stringMatching(/^cline\//),
+    );
+  });
+
+  it('sees the registry load codex', async () => {
+    const entry = path.join(packageRoot, 'src', 'registry', 'index.ts');
+
+    expect(await modulesLoadedBy(entry, ['codex'])).toContainEqual(
+      expect.stringMatching(/^codex\//),
+    );
+  });
+
   it('importing "." evaluates no source module', async () => {
     const entry = path.join(packageRoot, 'src', 'index.ts');
 
@@ -82,6 +99,7 @@ describe('source subpath isolation', () => {
 // The built entries, after `core:build`: tsup splits shared code into chunks, so follow
 // each entry's static imports and read which source files its source maps cover.
 const STATIC_IMPORT = /^(?:import|export)\s[^;]*?\sfrom\s*"(\.{1,2}\/[^"]+)";?$/gm;
+const SIDE_EFFECT_IMPORT = /^import\s*"(\.{1,2}\/[^"]+)";?$/gm;
 
 function staticImportClosure(entryFile: string): string[] {
   const seen = new Set<string>();
@@ -91,7 +109,8 @@ function staticImportClosure(entryFile: string): string[] {
     if (seen.has(file)) continue;
     seen.add(file);
 
-    for (const match of readFileSync(file, 'utf8').matchAll(STATIC_IMPORT)) {
+    const code = readFileSync(file, 'utf8');
+    for (const match of [...code.matchAll(STATIC_IMPORT), ...code.matchAll(SIDE_EFFECT_IMPORT)]) {
       pending.push(path.resolve(path.dirname(file), match[1]));
     }
   }
@@ -104,7 +123,20 @@ function mappedSources(jsFile: string): string[] {
   return map.sources.map((source) => path.resolve(path.dirname(jsFile), source));
 }
 
-describe.skipIf(!existsSync(distSourcesRoot))('built source subpath isolation', () => {
+// CI sets REQUIRE_CORE_DIST=1 after building, so a missing dist fails instead of skipping.
+const distBuilt = existsSync(distSourcesRoot);
+const distRequired = process.env.REQUIRE_CORE_DIST === '1';
+
+describe.skipIf(!distBuilt && !distRequired)('built source subpath isolation', () => {
+  if (!distBuilt) {
+    it('needs the built package', () => {
+      expect.fail(
+        'REQUIRE_CORE_DIST=1 but packages/core/dist is missing: run `pnpm run core:build` first',
+      );
+    });
+    return;
+  }
+
   it.each(sourceIds)('dist/sources/%s bundles no other source module', (id) => {
     const files = staticImportClosure(path.join(distSourcesRoot, id, 'index.js'));
     const sources = new Set(files.flatMap(mappedSources));

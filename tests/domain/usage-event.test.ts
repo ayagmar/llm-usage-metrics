@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
+import * as activeTime from '../../src/domain/active-time.js';
+import * as normalization from '../../src/domain/normalization.js';
+import * as providerNormalization from '../../src/domain/provider-normalization.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 
 describe('createUsageEvent cost mode', () => {
@@ -89,5 +92,18 @@ describe('createUsageEvent cost mode', () => {
     });
 
     expect(Object.keys(event).slice(-2)).toEqual(['costUsd', 'costMode']);
+  });
+});
+
+// The domain shims re-export the core package, whose event factory sets no cost mode.
+describe('domain shims', () => {
+  it.each([
+    ['active-time', activeTime.createUsageEvent],
+    ['normalization', normalization.createUsageEvent],
+    ['provider-normalization', providerNormalization.createUsageEvent],
+  ])('%s exports the event factory that sets a cost mode', (_shim, create) => {
+    const event = create({ source: 'codex', sessionId: 's', timestamp: '2026-02-12T10:00:00Z' });
+
+    expect(event.costMode).toBe('estimated');
   });
 });
