@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { readFirstLine } from '../../src/utils/read-first-line.js';
+import { readFirstLine } from '../src/utils/read-first-line.js';
 
 const tempDirs: string[] = [];
 

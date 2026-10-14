@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { compareByCodePoint } from '../../src/utils/compare-by-code-point.js';
+import { compareByCodePoint } from '../src/utils/compare-by-code-point.js';
 
 describe('compareByCodePoint', () => {
   it('returns 0 for identical strings', () => {

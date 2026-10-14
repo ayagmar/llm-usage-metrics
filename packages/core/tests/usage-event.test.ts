@@ -4,7 +4,7 @@ import {
   createUsageEvent,
   hasBillableTokenBuckets,
   isPriceableEvent,
-} from '../../src/domain/usage-event.js';
+} from '../src/domain/usage-event.js';
 
 describe('createUsageEvent', () => {
   it('normalizes counters and trusts declared total tokens when provided', () => {

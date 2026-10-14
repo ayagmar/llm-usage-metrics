@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { asRecord } from '../../src/utils/as-record.js';
+import { asRecord } from '../src/utils/as-record.js';
 
 describe('asRecord', () => {
   it('returns plain objects and rejects non-record values', () => {

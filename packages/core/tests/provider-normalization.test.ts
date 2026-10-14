@@ -6,7 +6,7 @@ import {
   matchesCanonicalProviderFilter,
   normalizeProviderToBillingEntity,
   resolveExplicitProviderRoots,
-} from '../../src/domain/provider-normalization.js';
+} from '../src/domain/provider-normalization.js';
 
 describe('provider-normalization', () => {
   it('normalizes provider filters before canonical matching', () => {

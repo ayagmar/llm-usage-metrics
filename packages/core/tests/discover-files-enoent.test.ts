@@ -21,7 +21,7 @@ vi.mock('node:fs/promises', async () => {
   };
 });
 
-import { discoverFiles } from '../../src/utils/discover-files.js';
+import { discoverFiles } from '../src/utils/discover-files.js';
 
 function createDirent(name: string, kind: 'file' | 'directory'): Dirent {
   return {

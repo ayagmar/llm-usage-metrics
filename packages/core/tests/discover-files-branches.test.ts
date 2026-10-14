@@ -12,7 +12,7 @@ vi.mock('node:fs/promises', () => ({
   stat: fsMocks.stat,
 }));
 
-import { discoverFiles } from '../../src/utils/discover-files.js';
+import { discoverFiles } from '../src/utils/discover-files.js';
 
 type MockDirent = {
   name: string;

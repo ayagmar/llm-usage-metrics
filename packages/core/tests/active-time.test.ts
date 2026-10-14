@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { computeActiveMs, IDLE_GAP_CAP_MS } from '../../src/domain/active-time.js';
+import { computeActiveMs, IDLE_GAP_CAP_MS } from '../src/domain/active-time.js';
 
 const MINUTE_MS = 60_000;
 

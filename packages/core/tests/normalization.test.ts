@@ -5,7 +5,7 @@ import {
   normalizeTimestamp,
   normalizeUsdCost,
   stripControlCharacters,
-} from '../../src/domain/normalization.js';
+} from '../src/domain/normalization.js';
 
 describe('normalizeNonNegativeInteger', () => {
   it('returns zero for undefined, null and invalid values', () => {
