@@ -2,14 +2,15 @@ import path from 'node:path';
 
 import type { UsageEvent } from '../../domain/usage-event.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
+import { createReadDiagnostics } from '../parse-diagnostics.js';
 import { discoverFilesAcrossRoots, resolveRootDirs } from '../multi-root-discovery.js';
 import type {
   SourceAdapter,
   SourceAdapterPathOptions,
-  SourceParseFileDiagnostics,
+  SourceReadOptions,
 } from '../source-adapter.js';
 import { createSourceContext, type SourceContext } from '../source-context.js';
-import { parseOpenClawSessionFile } from './openclaw-session-parser.js';
+import { readOpenClawSessionFile } from './openclaw-session-parser.js';
 
 export function resolveDefaultOpenClawRootDirs(context: SourceContext): string[] {
   return [
@@ -55,11 +56,11 @@ export class OpenClawSourceAdapter implements SourceAdapter {
     });
   }
 
-  public async parseFile(filePath: string): Promise<UsageEvent[]> {
-    return (await this.parseFileWithDiagnostics(filePath)).events;
-  }
-
-  public async parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
-    return parseOpenClawSessionFile(this.id, filePath);
+  public read(filePath: string, options: SourceReadOptions = {}): AsyncGenerator<UsageEvent> {
+    return readOpenClawSessionFile(
+      this.id,
+      filePath,
+      options.diagnostics ?? createReadDiagnostics(),
+    );
   }
 }

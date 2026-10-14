@@ -21,6 +21,7 @@ import {
 } from '../../src/persistence/event-store.js';
 import type { SourceAdapter, SourceParseFileDiagnostics } from '@ayagmar/agent-sessions';
 import { RuntimeProfileCollector } from '../../src/cli/runtime-profile.js';
+import { readFrom, readWithDiagnostics } from '../helpers/fake-read.js';
 
 const tempDirs: string[] = [];
 
@@ -37,7 +38,7 @@ function createDelayedAdapter(
   return {
     id,
     discoverFiles: async () => [filePath],
-    parseFile: async () => {
+    read: readFrom(async () => {
       stats.current += 1;
       stats.max = Math.max(stats.max, stats.current);
 
@@ -58,7 +59,7 @@ function createDelayedAdapter(
       } finally {
         stats.current -= 1;
       }
-    },
+    }),
   };
 }
 
@@ -72,7 +73,7 @@ function createStoreBackedAdapter(id: string, files: string[]): SourceAdapter {
   return {
     id,
     discoverFiles: async () => files,
-    parseFile: async (filePath) => [
+    read: readFrom(async (filePath) => [
       createUsageEvent({
         source: id,
         sessionId: path.basename(filePath, '.jsonl'),
@@ -80,7 +81,7 @@ function createStoreBackedAdapter(id: string, files: string[]): SourceAdapter {
         inputTokens: 1,
         totalTokens: 1,
       }),
-    ],
+    ]),
   };
 }
 
@@ -92,7 +93,7 @@ function createCountingJsonlAdapter(
   return {
     id,
     discoverFiles: async () => files,
-    parseFile: async (filePath) => {
+    read: readFrom(async (filePath) => {
       parseCallCounter.count += 1;
       const content = await readFile(filePath, 'utf8');
       const totalTokens =
@@ -110,7 +111,7 @@ function createCountingJsonlAdapter(
           totalTokens,
         }),
       ];
-    },
+    }),
   };
 }
 
@@ -124,7 +125,7 @@ function createAuxiliaryDependencyAdapter(
     id,
     discoverFiles: async () => files,
     getParseDependencies: async (filePath) => [getDependencyPath(filePath)],
-    parseFile: async (filePath) => {
+    read: readFrom(async (filePath) => {
       parseCallCounter.count += 1;
       const dependencyPath = getDependencyPath(filePath);
 
@@ -165,7 +166,7 @@ function createAuxiliaryDependencyAdapter(
 
         throw error;
       }
-    },
+    }),
   };
 }
 
@@ -178,9 +179,9 @@ function createAdapterWithDiagnostics(
   return {
     id,
     discoverFiles: async () => files,
-    parseFile: async (filePath) => parseDiagnosticsByFile[filePath]?.events ?? [],
-    parseFileWithDiagnostics: async (filePath) =>
-      parseDiagnosticsByFile[filePath] ?? { events: [], skippedRows: 0 },
+    read: readWithDiagnostics(
+      async (filePath) => parseDiagnosticsByFile[filePath] ?? { events: [], skippedRows: 0 },
+    ),
   };
 }
 
@@ -222,12 +223,12 @@ describe('build-usage-data-parsing', () => {
     const failingAdapter: SourceAdapter = {
       id: 'CoDex',
       discoverFiles: () => rejectWithUnknown('plain failure'),
-      parseFile: async () => [],
+      read: readFrom(async () => []),
     };
     const succeedingAdapter: SourceAdapter = {
       id: 'codex',
       discoverFiles: async () => [],
-      parseFile: async () => [],
+      read: readFrom(async () => []),
     };
 
     const result = await parseSelectedAdapters([failingAdapter, succeedingAdapter], 1);
@@ -240,7 +241,7 @@ describe('build-usage-data-parsing', () => {
     const adapter: SourceAdapter = {
       id: 'pi',
       discoverFiles: async () => ['/tmp/a.jsonl', '/tmp/b.jsonl', '/tmp/c.jsonl'],
-      parseFile: async (filePath) => {
+      read: readFrom(async (filePath) => {
         if (filePath === '/tmp/b.jsonl') {
           throw new Error('file vanished mid-run');
         }
@@ -254,7 +255,7 @@ describe('build-usage-data-parsing', () => {
             totalTokens: 1,
           }),
         ];
-      },
+      }),
     };
 
     const result = await parseSelectedAdapters([adapter], 1);
@@ -326,7 +327,11 @@ describe('build-usage-data-parsing', () => {
     const adapter: SourceAdapter = {
       id: 'pi',
       discoverFiles: async () => ['/tmp/a.jsonl'],
-      parseFile: async () => [adapterEvent('unpriced'), adapterEvent('logged', 0.25), storedMode],
+      read: readFrom(async () => [
+        adapterEvent('unpriced'),
+        adapterEvent('logged', 0.25),
+        storedMode,
+      ]),
     };
 
     const result = await parseSelectedAdapters([adapter], 1);
@@ -349,9 +354,9 @@ describe('build-usage-data-parsing', () => {
     const adapter: SourceAdapter = {
       id: 'pi',
       discoverFiles: async () => ['/tmp/a.jsonl', '/tmp/b.jsonl'],
-      parseFile: async () => {
+      read: readFrom(async () => {
         throw new Error('permission denied');
-      },
+      }),
     };
 
     const result = await parseSelectedAdapters([adapter], 1);
@@ -462,7 +467,7 @@ describe('build-usage-data-parsing', () => {
     const adapter: SourceAdapter = {
       id: 'pi',
       discoverFiles: async () => files,
-      parseFile: async (filePath) =>
+      read: readFrom(async (filePath) =>
         Array.from({ length: 3_000 }, (_, index) =>
           createUsageEvent({
             source: 'pi',
@@ -472,6 +477,7 @@ describe('build-usage-data-parsing', () => {
             totalTokens: 1,
           }),
         ),
+      ),
     };
     const batches: string[][] = [];
     const replaceFilesEvents = vi.fn(
@@ -829,10 +835,7 @@ describe('build-usage-data-parsing', () => {
     const adapter: SourceAdapter = {
       id: 'pi',
       discoverFiles: async () => [filePath],
-      parseFile: async () => {
-        throw new Error('parseFile should not be used');
-      },
-      parseFileWithDiagnostics: async () => {
+      read: readWithDiagnostics(async () => {
         if (!allowParse) {
           throw new Error('store hit should skip adapter parse');
         }
@@ -851,7 +854,7 @@ describe('build-usage-data-parsing', () => {
           skippedRows: 2,
           skippedRowReasons: [{ reason: 'no_token_usage', count: 2 }],
         };
-      },
+      }),
     };
 
     await parseSelectedAdapters([adapter], 1, {

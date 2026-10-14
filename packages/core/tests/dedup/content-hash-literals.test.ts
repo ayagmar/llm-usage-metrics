@@ -43,4 +43,39 @@ describe('computeEventContentHash literals', () => {
 
     expect(computeEventContentHash({ ...event, costMode: 'explicit' })).toBe('23ac394ec7b9a54a');
   });
+
+  // KI-12: adapter output has no cost mode, and the CLI derives it from costUsd, so a
+  // mode-less event must hash as the CLI's copy of it does.
+  it('hashes an event without a cost mode like the mode the CLI derives', () => {
+    const estimated = createUsageEvent({
+      source: 'codex',
+      sessionId: 'session-estimated',
+      timestamp: '2026-02-12T10:00:00.000Z',
+      provider: 'openai',
+      model: 'gpt-5.2',
+      repoRoot: '/repos/project',
+      inputTokens: 120,
+      outputTokens: 45,
+      reasoningTokens: 15,
+      cacheReadTokens: 300,
+      cacheWriteTokens: 0,
+      totalTokens: 465,
+    });
+    const explicit = createUsageEvent({
+      source: 'claude',
+      sessionId: 'session-explicit',
+      timestamp: '2026-02-12T11:30:00.000Z',
+      provider: 'anthropic',
+      model: 'claude-sonnet-4-5',
+      inputTokens: 10,
+      outputTokens: 20,
+      cacheReadTokens: 400,
+      cacheWriteTokens: 50,
+      cacheWrite1hTokens: 30,
+      costUsd: 0.0125,
+    });
+
+    expect(computeEventContentHash(estimated)).toBe('35605898314e1698');
+    expect(computeEventContentHash(explicit)).toBe('23ac394ec7b9a54a');
+  });
 });

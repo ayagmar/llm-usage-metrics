@@ -11,6 +11,7 @@ import {
   openEventStore,
   replaceFileEvents,
 } from '../../src/persistence/event-store.js';
+import { collectFile } from '@ayagmar/agent-sessions';
 import { CodexSourceAdapter } from '@ayagmar/agent-sessions/sources/codex';
 import { useIsolatedEnvironment } from '../helpers/isolated-env.js';
 import { useBundledPricingOnly } from '../helpers/offline-pricing.js';
@@ -93,9 +94,12 @@ describe.skipIf(process.platform === 'win32')(`history goldens (${WINDOWS_SKIP_R
     ]);
     // A departed copy of the live codex session, as left by a moved file: history
     // suppresses it so the session is counted once.
-    const liveCodexEvents = await new CodexSourceAdapter({ dir: codexDir }).parseFile(
-      path.join(codexDir, 'session.jsonl'),
-    );
+    const liveCodexEvents = (
+      await collectFile(
+        new CodexSourceAdapter({ dir: codexDir }),
+        path.join(codexDir, 'session.jsonl'),
+      )
+    ).events;
     await storeDepartedFile(
       dbPath,
       path.join(environment.rootDir, 'departed', 'moved.jsonl'),

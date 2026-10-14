@@ -26,6 +26,7 @@ import {
   type EventStoreFileFingerprint,
 } from '../../src/persistence/event-store.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
+import { readFrom } from '../helpers/fake-read.js';
 
 const tempDirs: string[] = [];
 
@@ -122,8 +123,8 @@ function createAdapter(options: {
 
       return options.files;
     },
-    async parseFile(filePath) {
-      return options.eventsByFile?.get(filePath) ?? [];
+    async *read(filePath) {
+      yield* options.eventsByFile?.get(filePath) ?? [];
     },
   };
 }
@@ -690,16 +691,12 @@ describe('run-prune-report', () => {
       {
         id: 'codex',
         discoverFiles: codexDiscover,
-        async parseFile() {
-          return [];
-        },
+        read: readFrom(() => []),
       },
       {
         id: 'pi',
         discoverFiles: piDiscover,
-        async parseFile() {
-          return [];
-        },
+        read: readFrom(() => []),
       },
     ];
 

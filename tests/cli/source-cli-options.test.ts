@@ -9,6 +9,7 @@ import {
   parseSourceDirectoryOverrides,
 } from '../../src/cli/source-cli-options.js';
 import { ClaudeSourceAdapter } from '@ayagmar/agent-sessions/sources/claude';
+import { collectFile } from '@ayagmar/agent-sessions';
 import { MultiDirectorySourceAdapter } from '@ayagmar/agent-sessions/internal';
 import { canonicalTmpdir } from '../helpers/tmp.js';
 
@@ -199,7 +200,7 @@ describe('createAdaptersFromOptions', () => {
     expect(codex).toBeInstanceOf(MultiDirectorySourceAdapter);
     expect(files.filter((file) => file.startsWith(fixturesDir))).toHaveLength(3);
     expect(files).toContain(copiedFile);
-    expect((await codex?.parseFile(copiedFile))?.length).toBeGreaterThan(0);
+    expect(codex ? (await collectFile(codex, copiedFile)).events.length : 0).toBeGreaterThan(0);
   });
 
   it('prefers repeated dedicated directory flags over --source-dir', async () => {

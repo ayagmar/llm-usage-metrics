@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { buildUsageData } from '../../../src/cli/build-usage-data.js';
 import { buildUsageReport } from '../../../src/cli/run-usage-report.js';
+import { collectFile } from '@ayagmar/agent-sessions';
 import { ClaudeSourceAdapter } from '@ayagmar/agent-sessions/sources/claude';
 import { canonicalTmpdir } from '../../helpers/tmp.js';
 
@@ -45,12 +46,8 @@ describe('Claude session continued into a second file', () => {
   it('parses every row of each file on its own', async () => {
     const adapter = new ClaudeSourceAdapter({ dir: fixtureDir });
 
-    const original = await adapter.parseFileWithDiagnostics(
-      path.join(projectDir, 'session-a.jsonl'),
-    );
-    const continued = await adapter.parseFileWithDiagnostics(
-      path.join(projectDir, 'session-b.jsonl'),
-    );
+    const original = await collectFile(adapter, path.join(projectDir, 'session-a.jsonl'));
+    const continued = await collectFile(adapter, path.join(projectDir, 'session-b.jsonl'));
 
     expect(original.skippedRows).toBe(0);
     expect(original.events.map((event) => event.sessionId)).toEqual(['cont-a', 'cont-a', 'cont-a']);

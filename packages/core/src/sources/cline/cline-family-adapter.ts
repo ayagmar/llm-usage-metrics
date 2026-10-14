@@ -6,10 +6,10 @@ import { discoverFilesAcrossRoots, resolveRootDirs } from '../multi-root-discove
 import type {
   SourceAdapter,
   SourceAdapterPathOptions,
-  SourceParseFileDiagnostics,
+  SourceReadOptions,
 } from '../source-adapter.js';
 import { createSourceContext, readEnvPath, type SourceContext } from '../source-context.js';
-import { getClineTaskHistoryPath, parseClineTaskFile } from './cline-task-parser.js';
+import { getClineTaskHistoryPath, readClineTaskFile } from './cline-task-parser.js';
 
 export const CLINE_EXTENSION_IDS = {
   cline: 'saoudrizwan.claude-dev',
@@ -112,13 +112,8 @@ export class ClineFamilyAdapter implements SourceAdapter {
     return [getClineTaskHistoryPath(filePath)];
   }
 
-  public async parseFile(filePath: string): Promise<UsageEvent[]> {
-    const { events } = await this.parseFileWithDiagnostics(filePath);
-    return events;
-  }
-
-  public async parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
-    return parseClineTaskFile(this.id, filePath);
+  public read(filePath: string, options?: SourceReadOptions): AsyncGenerator<UsageEvent> {
+    return readClineTaskFile(this.id, filePath, options);
   }
 }
 

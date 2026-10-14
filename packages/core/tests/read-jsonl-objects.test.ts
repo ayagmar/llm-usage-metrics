@@ -5,6 +5,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { readJsonlObjects } from '../src/utils/read-jsonl-objects.js';
+import { canCountOpenFds, countOpenFds } from './helpers/open-fds.js';
 
 const tempDirs: string[] = [];
 
@@ -318,5 +319,22 @@ describe('readJsonlObjects', () => {
 
     expect(firstByte).toBe('{'.charCodeAt(0));
     expect(records).toEqual([{ type: 'session', id: 'bom' }]);
+  });
+
+  it.runIf(canCountOpenFds)('closes the file before an early return resolves', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'read-jsonl-early-return-'));
+    tempDirs.push(rootDir);
+    const filePath = path.join(rootDir, 'larger-than-a-chunk.jsonl');
+    const line = JSON.stringify({ type: 'message', text: 'x'.repeat(1000) });
+    await writeFile(filePath, `${line}\n`.repeat(3000), 'utf8');
+    const before = countOpenFds();
+
+    for await (const record of readJsonlObjects(filePath)) {
+      expect(record.type).toBe('message');
+      break;
+    }
+
+    // No polling: the generator's return() must not resolve while the fd is open.
+    expect(countOpenFds()).toBe(before);
   });
 });

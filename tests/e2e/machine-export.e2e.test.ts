@@ -24,6 +24,7 @@ import type {
   MachineExportFileLine,
   MachineExportLine,
 } from '../../src/machines/machine-export-bundle.js';
+import { readFrom } from '../helpers/fake-read.js';
 
 let rootDir: string;
 
@@ -268,7 +269,7 @@ describe('machine export e2e', () => {
     const adapter: SourceAdapter = {
       id: 'codex',
       discoverFiles: async () => [goodFile, badFile],
-      parseFile: async (filePath) => {
+      read: readFrom(async (filePath) => {
         const sessionId = (await readFile(filePath, 'utf8')).trim();
 
         if (sessionId === 'FAIL') {
@@ -284,7 +285,7 @@ describe('machine export e2e', () => {
             costMode: 'estimated',
           }),
         ];
-      },
+      }),
     };
     const deps = { createAdapters: () => [adapter] };
     await writeFile(path.join(rootDir, 'config.toml'), 'sources = ["codex"]\n');
@@ -313,7 +314,7 @@ describe('machine export e2e', () => {
     const adapter: SourceAdapter = {
       id: 'codex',
       discoverFiles: async () => [parentFile, forkFile].filter((filePath) => existsSync(filePath)),
-      parseFile: async (filePath) =>
+      read: readFrom(async (filePath) =>
         (await readFile(filePath, 'utf8'))
           .trim()
           .split('\n')
@@ -326,6 +327,7 @@ describe('machine export e2e', () => {
               costMode: 'estimated',
             }),
           ),
+      ),
     };
     const deps = { createAdapters: () => [adapter] };
     await writeFile(path.join(rootDir, 'config.toml'), 'sources = ["codex"]\n');
@@ -391,7 +393,7 @@ describe('machine export e2e', () => {
       id: 'pi',
       capabilities: { eventsRepeatAcrossFiles: true },
       discoverFiles: async () => [firstFile, secondFile],
-      parseFile: async (filePath) =>
+      read: readFrom(async (filePath) =>
         (await readFile(filePath, 'utf8'))
           .trim()
           .split('\n')
@@ -404,6 +406,7 @@ describe('machine export e2e', () => {
               costMode: 'estimated',
             }),
           ),
+      ),
     };
     await writeFile(path.join(rootDir, 'config.toml'), 'sources = ["pi"]\n');
     await writeFile(firstFile, 'parent\nfork-a');

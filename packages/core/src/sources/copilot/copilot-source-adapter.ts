@@ -8,7 +8,7 @@ import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import { pathIsFile, pathReadable } from '../../utils/fs-helpers.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
 import { discoverFilesAcrossRoots } from '../multi-root-discovery.js';
-import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
+import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
   normalizeTimestampCandidate,
@@ -18,7 +18,7 @@ import {
 import type {
   SourceAdapter,
   SourceAdapterPathOptions,
-  SourceParseFileDiagnostics,
+  SourceReadOptions,
 } from '../source-adapter.js';
 import { createSourceContext, readEnvPath, type SourceContext } from '../source-context.js';
 
@@ -428,22 +428,18 @@ export class CopilotSourceAdapter implements SourceAdapter {
     return realpath(filePath);
   }
 
-  public async parseFile(filePath: string): Promise<UsageEvent[]> {
-    const { events } = await this.parseFileWithDiagnostics(filePath);
-    return events;
-  }
-
-  public async parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
+  public async *read(
+    filePath: string,
+    options: SourceReadOptions = {},
+  ): AsyncGenerator<UsageEvent> {
+    const diagnostics = options.diagnostics ?? createReadDiagnostics();
     const candidates: CopilotCandidate[] = [];
-    const skippedRowReasons = new Map<string, number>();
-    let skippedRows = 0;
     let lineIndex = 0;
 
     for await (const record of readJsonlObjects(filePath, {
       shouldParseLine: shouldParseCopilotJsonlLine,
       onMalformedLine: () => {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'json_parse_error');
+        recordSkippedRow(diagnostics, 'json_parse_error');
       },
     })) {
       const candidate = extractCandidate(record, filePath, lineIndex);
@@ -454,24 +450,23 @@ export class CopilotSourceAdapter implements SourceAdapter {
       }
 
       if (!hasTokenUsage(candidate)) {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'no_token_usage');
+        recordSkippedRow(diagnostics, 'no_token_usage');
         continue;
       }
 
       if (!candidate.timestamp) {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'invalid_timestamp');
+        recordSkippedRow(diagnostics, 'invalid_timestamp');
         continue;
       }
 
       candidates.push(candidate);
     }
 
+    // A later higher-priority line cancels an earlier candidate, so events wait for EOF.
     const events = dedupeCandidates(filePath, applyClassPriorityGuard(candidates)).map(
       toUsageEvent,
     );
 
-    return toParseDiagnostics(events, skippedRows, skippedRowReasons);
+    yield* events;
   }
 }

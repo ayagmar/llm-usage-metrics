@@ -1,12 +1,10 @@
 import { asTrimmedText } from '../parsing-utils.js';
+import { iterateRows, type SqliteRow, type SqliteRowStatement } from '../sqlite/iterate-rows.js';
 
-export type OpenCodeSqliteRow = Record<string, unknown>;
+export type OpenCodeSqliteRow = SqliteRow;
 
 type OpenCodeSqliteDatabase = {
-  prepare: (sql: string) => {
-    all: (...anonymousParameters: unknown[]) => OpenCodeSqliteRow[];
-    iterate?: (...anonymousParameters: unknown[]) => IterableIterator<OpenCodeSqliteRow>;
-  };
+  prepare: (sql: string) => SqliteRowStatement;
 };
 
 type MessageQueryColumns = {
@@ -147,42 +145,21 @@ function resolveMessageQueryColumns(
   return resolveRequiredMessageColumns(messageColumns);
 }
 
-function executeQueryRows(
-  database: OpenCodeSqliteDatabase,
-  query: string,
-): Iterable<OpenCodeSqliteRow> {
-  const statement = database.prepare(query);
-
-  if (statement.iterate) {
-    const iterator = statement.iterate();
-    const firstResult = iterator.next();
-
-    return (function* iterRows(): IterableIterator<OpenCodeSqliteRow> {
-      if (!firstResult.done) {
-        yield firstResult.value;
-      }
-
-      yield* iterator;
-    })();
-  }
-
-  return statement.all();
-}
-
+/** The assistant message rows, with the first row already pulled (see `iterateRows`). */
 export function queryOpenCodeMessageRows(
   database: OpenCodeSqliteDatabase,
-): Iterable<OpenCodeSqliteRow> {
+): IterableIterator<OpenCodeSqliteRow> {
   const messageTableName = resolveMessageTableName(database);
   const columns = resolveMessageQueryColumns(database, messageTableName);
   const primaryQuery = createPrimaryQuery(messageTableName, columns);
 
   try {
-    return executeQueryRows(database, primaryQuery);
+    return iterateRows(database.prepare(primaryQuery));
   } catch (error) {
     if (!shouldFallbackToNonJsonExtractQuery(error)) {
       throw error;
     }
 
-    return executeQueryRows(database, createFallbackQuery(messageTableName, columns));
+    return iterateRows(database.prepare(createFallbackQuery(messageTableName, columns)));
   }
 }

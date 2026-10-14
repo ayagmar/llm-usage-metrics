@@ -5,7 +5,9 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { OpenClawSourceAdapter } from '../../../src/sources/openclaw/index.js';
+import { collect, collectFile } from '../../../src/stream/collect.js';
 import { fixturePath as packageFixturePath } from '../../helpers/fixtures.js';
+import { canCountOpenFds, countOpenFds, waitForOpenFdCount } from '../../helpers/open-fds.js';
 
 const tempDirs: string[] = [];
 
@@ -64,8 +66,8 @@ describe('OpenClawSourceAdapter', () => {
       await realpath(openclawFile),
       await realpath(clawdbotFile),
     ]);
-    await expect(adapter.parseFile(openclawFile)).resolves.toHaveLength(1);
-    await expect(adapter.parseFile(clawdbotFile)).resolves.toHaveLength(1);
+    await expect(collect(adapter.read(openclawFile))).resolves.toHaveLength(1);
+    await expect(collect(adapter.read(clawdbotFile))).resolves.toHaveLength(1);
   });
 
   it('scans only the explicit directory when a dir override is provided', async () => {
@@ -99,7 +101,7 @@ describe('OpenClawSourceAdapter', () => {
     await utimes(fixturePath, fileMtime, fileMtime);
 
     const adapter = new OpenClawSourceAdapter();
-    const events = await adapter.parseFile(fixturePath);
+    const events = await collect(adapter.read(fixturePath));
 
     expect(events).toHaveLength(3);
     expect(events[0]).toMatchObject({
@@ -166,7 +168,7 @@ describe('OpenClawSourceAdapter', () => {
       'utf8',
     );
 
-    const diagnostics = await new OpenClawSourceAdapter().parseFileWithDiagnostics(filePath);
+    const diagnostics = await collectFile(new OpenClawSourceAdapter(), filePath);
 
     expect(diagnostics.events).toEqual([]);
     expect(diagnostics.skippedRowReasons).toEqual([{ reason: 'invalid_timestamp', count: 1 }]);
@@ -207,7 +209,7 @@ describe('OpenClawSourceAdapter', () => {
     );
 
     const adapter = new OpenClawSourceAdapter({ dir: root });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
@@ -255,7 +257,7 @@ describe('OpenClawSourceAdapter', () => {
     );
 
     const adapter = new OpenClawSourceAdapter({ dir: root });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
@@ -312,7 +314,7 @@ describe('OpenClawSourceAdapter', () => {
     );
 
     const adapter = new OpenClawSourceAdapter({ dir: root });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toHaveLength(3);
     expect(events[0]).toMatchObject({
@@ -357,7 +359,7 @@ describe('OpenClawSourceAdapter', () => {
     );
 
     const adapter = new OpenClawSourceAdapter({ dir: root });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
@@ -405,7 +407,7 @@ describe('OpenClawSourceAdapter', () => {
     );
 
     const adapter = new OpenClawSourceAdapter({ dir: root });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
@@ -443,7 +445,7 @@ describe('OpenClawSourceAdapter', () => {
       'utf8',
     );
 
-    const events = await new OpenClawSourceAdapter({ dir: root }).parseFile(filePath);
+    const events = await collect(new OpenClawSourceAdapter({ dir: root }).read(filePath));
 
     expect(events).toHaveLength(2);
     expect(events[0]).toMatchObject({ inputTokens: 200, cacheReadTokens: 800, totalTokens: 1050 });
@@ -458,7 +460,7 @@ describe('OpenClawSourceAdapter', () => {
     await writeFile(filePath, '{"type":"message",', 'utf8');
 
     const adapter = new OpenClawSourceAdapter({ dir: root });
-    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+    const diagnostics = await collectFile(adapter, filePath);
 
     expect(diagnostics.events).toEqual([]);
     expect(diagnostics.skippedRows).toBe(1);
@@ -488,7 +490,7 @@ describe('OpenClawSourceAdapter', () => {
 
     const adapter = new OpenClawSourceAdapter({ dir: root });
     Object.defineProperty(adapter, 'id', { value: ' ' });
-    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+    const diagnostics = await collectFile(adapter, filePath);
 
     expect(diagnostics.events).toEqual([]);
     expect(diagnostics.skippedRows).toBe(1);
@@ -566,7 +568,7 @@ describe('OpenClawSourceAdapter', () => {
       'utf8',
     );
 
-    const events = await new OpenClawSourceAdapter().parseFile(filePath);
+    const events = await collect(new OpenClawSourceAdapter().read(filePath));
 
     expect(events).toHaveLength(2);
     expect(events.map((event) => event.totalTokens)).toEqual([200, 200]);
@@ -576,5 +578,30 @@ describe('OpenClawSourceAdapter', () => {
       reasoningTokens: 30,
       cacheReadTokens: 20,
     });
+  });
+
+  it.runIf(canCountOpenFds)('closes the file when the consumer stops early', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'openclaw-early-return-'));
+    tempDirs.push(root);
+    const filePath = path.join(root, 'larger-than-a-chunk.jsonl');
+    const row = JSON.stringify({
+      type: 'message',
+      role: 'assistant',
+      timestamp: '2026-04-01T10:00:20.000Z',
+      usage: { input: 10, output: 5 },
+      padding: 'x'.repeat(1000),
+    });
+    const rowCount = 3000;
+    await writeFile(filePath, `${row}\n`.repeat(rowCount), 'utf8');
+    const adapter = new OpenClawSourceAdapter();
+    const before = countOpenFds();
+
+    for await (const event of adapter.read(filePath)) {
+      expect(event.totalTokens).toBe(15);
+      break;
+    }
+
+    await waitForOpenFdCount(before);
+    await expect(collect(adapter.read(filePath))).resolves.toHaveLength(rowCount);
   });
 });

@@ -1,8 +1,25 @@
+import { mkdtemp, rm } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { OpenCodeSourceAdapter } from '../../../src/sources/opencode/index.js';
+import { collect, collectFile } from '../../../src/stream/collect.js';
+import { canCountOpenFds, countOpenFds, waitForOpenFdCount } from '../../helpers/open-fds.js';
+import {
+  canBeginExclusive,
+  loadDatabaseSync,
+  readJournalMode,
+  requireDatabaseSync,
+} from '../../helpers/sqlite.js';
+
+const tempDirs: string[] = [];
+
+afterEach(async () => {
+  await Promise.all(tempDirs.map((dir) => rm(dir, { recursive: true, force: true })));
+  tempDirs.length = 0;
+});
 
 type FakeSqliteScenario = {
   tables?: string[];
@@ -10,8 +27,19 @@ type FakeSqliteScenario = {
   primaryRows?: Record<string, unknown>[];
   fallbackRows?: Record<string, unknown>[];
   primaryQueryErrors?: Error[];
+  /**
+   * One entry per primary query: the statement gets `iterate`, which throws `error` after
+   * `afterRows` rows (an undefined entry reads every row).
+   */
+  primaryRowErrors?: ({ afterRows: number; error: Error } | undefined)[];
   openErrors?: Error[];
   seenQueries?: string[];
+  calls?: string[];
+};
+
+type FakeStatement = {
+  all: () => Record<string, unknown>[];
+  iterate?: () => IterableIterator<Record<string, unknown>>;
 };
 
 type TestSqliteModule = {
@@ -22,7 +50,7 @@ type TestSqliteModule = {
       timeout?: number;
     },
   ) => {
-    prepare: (sql: string) => { all: () => Record<string, unknown>[] };
+    prepare: (sql: string) => FakeStatement;
     close: () => void;
   };
 };
@@ -33,6 +61,23 @@ function createBusyError(message = 'database is locked'): Error {
   return error;
 }
 
+function* iterateUntilError(
+  rows: Record<string, unknown>[],
+  rowError: { afterRows: number; error: Error } | undefined,
+): Generator<Record<string, unknown>> {
+  for (const [index, row] of rows.entries()) {
+    if (index === rowError?.afterRows) {
+      break;
+    }
+
+    yield row;
+  }
+
+  if (rowError) {
+    throw rowError.error;
+  }
+}
+
 function createSqliteLoader(scenario: FakeSqliteScenario): () => Promise<TestSqliteModule> {
   class FakeDatabase {
     public constructor() {
@@ -41,9 +86,11 @@ function createSqliteLoader(scenario: FakeSqliteScenario): () => Promise<TestSql
       if (openError) {
         throw openError;
       }
+
+      scenario.calls?.push('open');
     }
 
-    public prepare(sql: string): { all: () => Record<string, unknown>[] } {
+    public prepare(sql: string): FakeStatement {
       scenario.seenQueries?.push(sql);
 
       if (sql.includes('sqlite_master')) {
@@ -67,6 +114,17 @@ function createSqliteLoader(scenario: FakeSqliteScenario): () => Promise<TestSql
           throw queryError;
         }
 
+        if (scenario.primaryRowErrors) {
+          const rowError = scenario.primaryRowErrors.shift();
+
+          return {
+            all: () => {
+              throw new Error('all() should not be used when iterate() is available');
+            },
+            iterate: () => iterateUntilError(scenario.primaryRows ?? [], rowError),
+          };
+        }
+
         return {
           all: () => scenario.primaryRows ?? [],
         };
@@ -78,7 +136,7 @@ function createSqliteLoader(scenario: FakeSqliteScenario): () => Promise<TestSql
     }
 
     public close(): void {
-      // no-op in fake sqlite database
+      scenario.calls?.push('close');
     }
   }
 
@@ -291,7 +349,7 @@ describe('OpenCodeSourceAdapter', () => {
       }),
     });
 
-    const parseDiagnostics = await adapter.parseFileWithDiagnostics('/tmp/opencode.db');
+    const parseDiagnostics = await collectFile(adapter, '/tmp/opencode.db');
 
     expect(parseDiagnostics.events).toHaveLength(1);
     expect(parseDiagnostics.skippedRows).toBe(4);
@@ -323,7 +381,7 @@ describe('OpenCodeSourceAdapter', () => {
       pathIsFile: async () => false,
     });
 
-    await expect(adapter.parseFileWithDiagnostics('/tmp/opencode-directory')).rejects.toThrow(
+    await expect(collectFile(adapter, '/tmp/opencode-directory')).rejects.toThrow(
       'OpenCode DB path is not a file: /tmp/opencode-directory',
     );
   });
@@ -353,7 +411,7 @@ describe('OpenCodeSourceAdapter', () => {
       }),
     });
 
-    const events = await adapter.parseFile('/tmp/opencode.db');
+    const events = await collect(adapter.read('/tmp/opencode.db'));
 
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
@@ -385,7 +443,7 @@ describe('OpenCodeSourceAdapter', () => {
       }),
     });
 
-    const events = await adapter.parseFile('/tmp/opencode.db');
+    const events = await collect(adapter.read('/tmp/opencode.db'));
 
     expect(events).toHaveLength(1);
     expect(seenQueries.some((query) => query.includes('$.role') && query.includes('$.type'))).toBe(
@@ -425,7 +483,7 @@ describe('OpenCodeSourceAdapter', () => {
       }),
     });
 
-    const events = await adapter.parseFile('/tmp/opencode.db');
+    const events = await collect(adapter.read('/tmp/opencode.db'));
 
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
@@ -452,7 +510,7 @@ describe('OpenCodeSourceAdapter', () => {
       }),
     });
 
-    await expect(adapter.parseFile('/tmp/opencode.db')).rejects.toThrow(
+    await expect(collect(adapter.read('/tmp/opencode.db'))).rejects.toThrow(
       'OpenCode schema drift: required "message" table not found.',
     );
   });
@@ -465,7 +523,7 @@ describe('OpenCodeSourceAdapter', () => {
       }),
     });
 
-    await expect(adapter.parseFile('/tmp/opencode.db')).rejects.toThrow(
+    await expect(collect(adapter.read('/tmp/opencode.db'))).rejects.toThrow(
       'OpenCode schema drift: "message.data" column not found.',
     );
   });
@@ -478,7 +536,7 @@ describe('OpenCodeSourceAdapter', () => {
       }),
     });
 
-    await expect(adapter.parseFile('/tmp/opencode.db')).rejects.toThrow(
+    await expect(collect(adapter.read('/tmp/opencode.db'))).rejects.toThrow(
       'OpenCode schema drift: required message id/timestamp columns are unavailable.',
     );
   });
@@ -506,7 +564,7 @@ describe('OpenCodeSourceAdapter', () => {
       }),
     });
 
-    const events = await adapter.parseFile('/tmp/opencode.db');
+    const events = await collect(adapter.read('/tmp/opencode.db'));
 
     expect(events).toHaveLength(1);
     expect(events[0]?.sessionId).toBe('session-from-payload');
@@ -544,7 +602,7 @@ describe('OpenCodeSourceAdapter', () => {
       }),
     });
 
-    const parseDiagnostics = await adapter.parseFileWithDiagnostics('/tmp/opencode.db');
+    const parseDiagnostics = await collectFile(adapter, '/tmp/opencode.db');
 
     expect(parseDiagnostics.events).toHaveLength(1);
     expect(parseDiagnostics.events[0]?.sessionId).toBe('msg-fallback-id');
@@ -579,7 +637,7 @@ describe('OpenCodeSourceAdapter', () => {
       }),
     });
 
-    const events = await adapter.parseFile('/tmp/opencode.db');
+    const events = await collect(adapter.read('/tmp/opencode.db'));
 
     expect(events).toHaveLength(1);
     expect(sleepSpy).toHaveBeenCalledTimes(1);
@@ -609,7 +667,7 @@ describe('OpenCodeSourceAdapter', () => {
       }),
     });
 
-    const events = await adapter.parseFile('/tmp/opencode.db');
+    const events = await collect(adapter.read('/tmp/opencode.db'));
     expect(events).toHaveLength(1);
   });
 
@@ -624,8 +682,211 @@ describe('OpenCodeSourceAdapter', () => {
       }),
     });
 
-    await expect(adapter.parseFile('/tmp/opencode.db')).rejects.toThrow(
+    await expect(collect(adapter.read('/tmp/opencode.db'))).rejects.toThrow(
       'OpenCode DB is busy/locked: /tmp/opencode.db. Retries exhausted after 3 attempt(s).',
     );
   });
+
+  describe('busy retry boundary (open, prepare and the first row)', () => {
+    const dbPath = '/tmp/opencode.db';
+    const assistantRow = (id: string): Record<string, unknown> => ({
+      row_id: id,
+      row_session_id: 'session-1',
+      row_time: 1_737_000_000_000,
+      data_json: JSON.stringify({ role: 'assistant', tokens: { input: 1, output: 2 } }),
+    });
+    const busyMessage = (attempts: number): string =>
+      `OpenCode DB is busy/locked: ${dbPath}. Retries exhausted after ${attempts} attempt(s). Close active OpenCode processes and retry.`;
+    const ioError = (): Error =>
+      Object.assign(new Error('disk I/O error'), { code: 'SQLITE_IOERR' });
+    const ioMessage = `Could not read OpenCode DB at ${dbPath}: SQLITE_IOERR: disk I/O error`;
+
+    async function readUntilError(
+      scenario: FakeSqliteScenario,
+      calls: string[],
+    ): Promise<{ eventIds: string[]; error: Error; skippedRows: number }> {
+      const adapter = new OpenCodeSourceAdapter({
+        pathReadable: async () => true,
+        maxBusyRetries: 2,
+        busyRetryDelayMs: 5,
+        sleep: async (delayMs) => {
+          calls.push(`sleep ${delayMs}`);
+        },
+        loadSqliteModule: createSqliteLoader({ ...scenario, calls }),
+      });
+      const diagnostics = { skippedRows: 0, skippedRowReasons: new Map<string, number>() };
+      const eventIds: string[] = [];
+
+      try {
+        for await (const event of adapter.read(dbPath, { diagnostics })) {
+          eventIds.push(event.sessionId);
+        }
+      } catch (error) {
+        return { eventIds, error: error as Error, skippedRows: diagnostics.skippedRows };
+      }
+
+      throw new Error('expected the read to fail');
+    }
+
+    it('retries a busy first row, closing each failed attempt before waiting', async () => {
+      const calls: string[] = [];
+      const adapter = new OpenCodeSourceAdapter({
+        pathReadable: async () => true,
+        maxBusyRetries: 2,
+        busyRetryDelayMs: 5,
+        sleep: async (delayMs) => {
+          calls.push(`sleep ${delayMs}`);
+        },
+        loadSqliteModule: createSqliteLoader({
+          primaryRows: [assistantRow('msg-1'), assistantRow('msg-2')],
+          primaryRowErrors: [
+            { afterRows: 0, error: createBusyError() },
+            { afterRows: 0, error: createBusyError() },
+            undefined,
+          ],
+          calls,
+        }),
+      });
+
+      await expect(collect(adapter.read(dbPath))).resolves.toHaveLength(2);
+      expect(calls).toEqual([
+        'open',
+        'close',
+        'sleep 5',
+        'open',
+        'close',
+        'sleep 10',
+        'open',
+        'close',
+      ]);
+    });
+
+    it('rewrites a busy first row that exhausts the retries', async () => {
+      const calls: string[] = [];
+      const busyError = createBusyError();
+      const result = await readUntilError(
+        {
+          primaryRows: [assistantRow('msg-1')],
+          primaryRowErrors: [
+            { afterRows: 0, error: createBusyError() },
+            { afterRows: 0, error: createBusyError() },
+            { afterRows: 0, error: busyError },
+          ],
+        },
+        calls,
+      );
+
+      expect(result.error.message).toBe(busyMessage(3));
+      expect(result.error.cause).toBe(busyError);
+      expect(result.eventIds).toEqual([]);
+      expect(calls.filter((call) => call === 'close')).toHaveLength(3);
+    });
+
+    it('rewrites a non-busy first row without retrying', async () => {
+      const calls: string[] = [];
+      const rowError = ioError();
+      const result = await readUntilError(
+        {
+          primaryRows: [assistantRow('msg-1')],
+          primaryRowErrors: [{ afterRows: 0, error: rowError }],
+        },
+        calls,
+      );
+
+      expect(result.error.message).toBe(ioMessage);
+      expect(result.error.cause).toBe(rowError);
+      expect(calls).toEqual(['open', 'close']);
+    });
+
+    it('does not retry a busy row after the first, counting the attempts the open took', async () => {
+      const firstTry = await readUntilError(
+        {
+          primaryRows: [assistantRow('msg-1'), assistantRow('msg-2'), assistantRow('msg-3')],
+          primaryRowErrors: [{ afterRows: 2, error: createBusyError() }],
+        },
+        [],
+      );
+
+      expect(firstTry.error.message).toBe(busyMessage(1));
+      expect(firstTry.eventIds).toEqual(['session-1', 'session-1']);
+
+      const calls: string[] = [];
+      const busyError = createBusyError();
+      const secondTry = await readUntilError(
+        {
+          primaryQueryErrors: [createBusyError()],
+          primaryRows: [assistantRow('msg-1'), { row_id: 'msg-2', data_json: '' }],
+          primaryRowErrors: [{ afterRows: 2, error: busyError }],
+        },
+        calls,
+      );
+
+      expect(secondTry.error.message).toBe(busyMessage(2));
+      expect(secondTry.error.cause).toBe(busyError);
+      expect(secondTry.eventIds).toEqual(['session-1']);
+      expect(secondTry.skippedRows).toBe(1);
+      expect(calls).toEqual(['open', 'close', 'sleep 5', 'open', 'close']);
+    });
+
+    it('rewrites a non-busy row after the first without retrying', async () => {
+      const calls: string[] = [];
+      const rowError = ioError();
+      const result = await readUntilError(
+        {
+          primaryRows: [assistantRow('msg-1'), assistantRow('msg-2')],
+          primaryRowErrors: [{ afterRows: 1, error: rowError }],
+        },
+        calls,
+      );
+
+      expect(result.error.message).toBe(ioMessage);
+      expect(result.error.cause).toBe(rowError);
+      expect(result.eventIds).toEqual(['session-1']);
+      expect(calls).toEqual(['open', 'close']);
+    });
+  });
+
+  it.runIf(loadDatabaseSync() && canCountOpenFds)(
+    'closes the database and frees it for a writer when the consumer stops early',
+    async () => {
+      const root = await mkdtemp(path.join(os.tmpdir(), 'opencode-early-return-'));
+      tempDirs.push(root);
+      const dbPath = path.join(root, 'opencode.db');
+      const rowCount = 3;
+      const database = new (requireDatabaseSync())(dbPath);
+
+      try {
+        database.exec(
+          'CREATE TABLE message (id TEXT PRIMARY KEY, session_id TEXT, time_created INTEGER, data TEXT)',
+        );
+        const insert = database.prepare(
+          'INSERT INTO message (id, session_id, time_created, data) VALUES (?, ?, ?, ?)',
+        );
+
+        for (let index = 0; index < rowCount; index += 1) {
+          insert.run(
+            `msg-${index}`,
+            'session-early',
+            1_737_000_000_000 + index,
+            JSON.stringify({ role: 'assistant', tokens: { input: 10, output: 5 } }),
+          );
+        }
+      } finally {
+        database.close();
+      }
+
+      expect(readJournalMode(dbPath)).toBe('delete');
+      const adapter = new OpenCodeSourceAdapter({ dbPath });
+      const before = countOpenFds();
+
+      for await (const event of adapter.read(dbPath)) {
+        expect(event.sessionId).toBe('session-early');
+        break;
+      }
+
+      await waitForOpenFdCount(before);
+      expect(canBeginExclusive(dbPath)).toBe(true);
+      await expect(collect(adapter.read(dbPath))).resolves.toHaveLength(rowCount);
+    },
+  );
 });

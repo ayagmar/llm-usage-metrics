@@ -3,19 +3,25 @@ import { setTimeout as sleep } from 'node:timers/promises';
 
 import type { UsageEvent } from '../../domain/usage-event.js';
 import { pathExists, pathIsFile, pathReadable } from '../../utils/fs-helpers.js';
-import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
+import { createReadDiagnostics } from '../parse-diagnostics.js';
+import type { SourceAdapter, SourceReadOptions } from '../source-adapter.js';
 import { createSourceContext, type SourceContext } from '../source-context.js';
 import { getDefaultOpenCodeDbPathCandidates } from './opencode-db-path-resolver.js';
 import { loadNodeSqliteModule, type SqliteModule } from '../sqlite/node-sqlite-loader.js';
-import { parseOpenCodeMessageRows } from './opencode-row-parser.js';
-import { runWithBusyRetries, type SleepFn } from '../sqlite/retry-policy.js';
-import { queryOpenCodeMessageRows } from './opencode-sqlite-query.js';
+import { parseOpenCodeMessageRow } from './opencode-row-parser.js';
+import { runWithBusyRetries, toOpenCodeDbReadError, type SleepFn } from '../sqlite/retry-policy.js';
+import { queryOpenCodeMessageRows, type OpenCodeSqliteRow } from './opencode-sqlite-query.js';
 import { isBlankText } from '../parsing-utils.js';
 
 const DEFAULT_BUSY_RETRY_COUNT = 2;
 const DEFAULT_BUSY_RETRY_DELAY_MS = 50;
 
 type PathPredicate = (filePath: string) => Promise<boolean>;
+
+type OpenCodeMessageRows = {
+  database: InstanceType<SqliteModule['DatabaseSync']>;
+  rows: IterableIterator<OpenCodeSqliteRow>;
+};
 
 export type OpenCodeSourceAdapterOptions = {
   dbPath?: string;
@@ -135,11 +141,6 @@ export class OpenCodeSourceAdapter implements SourceAdapter {
     return [];
   }
 
-  public async parseFile(dbPath: string): Promise<UsageEvent[]> {
-    const parseDiagnostics = await this.parseFileWithDiagnostics(dbPath);
-    return parseDiagnostics.events;
-  }
-
   public async getParseDependencies(dbPath: string): Promise<string[]> {
     if (isBlankText(dbPath)) {
       return [];
@@ -148,7 +149,14 @@ export class OpenCodeSourceAdapter implements SourceAdapter {
     return getOpenCodeParseDependencies(dbPath.trim());
   }
 
-  public async parseFileWithDiagnostics(dbPath: string): Promise<SourceParseFileDiagnostics> {
+  /**
+   * Busy retries cover opening the database, preparing the query and pulling its first
+   * row, before anything is yielded or recorded. An error after that is not retried; it
+   * is rewritten with the number of attempts the open took.
+   */
+  public async *read(dbPath: string, options: SourceReadOptions = {}): AsyncGenerator<UsageEvent> {
+    const diagnostics = options.diagnostics ?? createReadDiagnostics();
+
     if (isBlankText(dbPath)) {
       throw new Error('OpenCode DB path must be a non-empty path');
     }
@@ -164,23 +172,46 @@ export class OpenCodeSourceAdapter implements SourceAdapter {
       throw new Error(`OpenCode DB path is not a file: ${normalizedDbPath}`);
     }
 
-    return runWithBusyRetries(() => this.parseFileOnce(normalizedDbPath), {
-      dbPath: normalizedDbPath,
-      maxBusyRetries: this.maxBusyRetries,
-      busyRetryDelayMs: this.busyRetryDelayMs,
-      sleep: this.sleep,
-    });
+    let attempts = 0;
+    const { database, rows } = await runWithBusyRetries(
+      (attempt) => {
+        attempts = attempt + 1;
+        return this.openMessageRows(normalizedDbPath);
+      },
+      {
+        dbPath: normalizedDbPath,
+        maxBusyRetries: this.maxBusyRetries,
+        busyRetryDelayMs: this.busyRetryDelayMs,
+        sleep: this.sleep,
+      },
+    );
+
+    try {
+      try {
+        for (const row of rows) {
+          const event = parseOpenCodeMessageRow(row, this.id, diagnostics);
+
+          if (event) {
+            yield event;
+          }
+        }
+      } finally {
+        database.close();
+      }
+    } catch (error) {
+      throw toOpenCodeDbReadError(error, normalizedDbPath, attempts);
+    }
   }
 
-  private async parseFileOnce(dbPath: string): Promise<SourceParseFileDiagnostics> {
+  private async openMessageRows(dbPath: string): Promise<OpenCodeMessageRows> {
     const sqlite = await this.loadSqliteModule();
     const database = new sqlite.DatabaseSync(dbPath, { readOnly: true, timeout: 0 });
 
     try {
-      const messageRows = queryOpenCodeMessageRows(database);
-      return parseOpenCodeMessageRows(messageRows, this.id);
-    } finally {
+      return { database, rows: queryOpenCodeMessageRows(database) };
+    } catch (error) {
       database.close();
+      throw error;
     }
   }
 }

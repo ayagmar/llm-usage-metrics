@@ -19,6 +19,7 @@ import type {
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { logger, setLogLevel } from '../../src/utils/logger.js';
+import { readFrom } from '../helpers/fake-read.js';
 
 function totals(overrides: Partial<UsageWindowTotals> = {}): UsageWindowTotals {
   return {
@@ -191,7 +192,7 @@ describe('buildStatusline', () => {
     const adapter: SourceAdapter = {
       id: 'codex',
       discoverFiles: async () => ['/tmp/codex.jsonl'],
-      parseFile: async () => [
+      read: readFrom(async () => [
         createUsageEvent({
           source: 'codex',
           sessionId: 'session-1',
@@ -203,7 +204,7 @@ describe('buildStatusline', () => {
           totalTokens: 1_000_000,
           costMode: 'estimated',
         }),
-      ],
+      ]),
     };
 
     // gpt-4.1 bundled pricing: $2.00 per 1M input tokens.

@@ -8,6 +8,7 @@ import {
   createDefaultOpenAiPricingSource,
   StaticPricingSource,
 } from '../helpers/static-pricing-source.js';
+import { readFrom } from '../helpers/fake-read.js';
 
 function createAdapter(
   id: SourceAdapter['id'],
@@ -18,7 +19,7 @@ function createAdapter(
   return {
     id,
     discoverFiles: async () => files,
-    parseFile: async (filePath) => eventsByFile[filePath] ?? [],
+    read: readFrom(async (filePath) => eventsByFile[filePath] ?? []),
   };
 }
 
