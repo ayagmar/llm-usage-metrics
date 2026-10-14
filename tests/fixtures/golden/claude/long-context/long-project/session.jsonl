@@ -1,0 +1,1 @@
+{"type":"assistant","timestamp":"2026-06-19T15:00:00.000Z","sessionId":"long-context","cwd":"/tmp/claude-long-context","uuid":"long-row-1","requestId":"long-req-1","message":{"id":"long-msg-1","role":"assistant","model":"claude-sonnet-4-5","usage":{"input_tokens":250000,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":0}}}
