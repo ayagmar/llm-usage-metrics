@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { GeminiSourceAdapter } from '../../src/sources/gemini/gemini-source-adapter.js';
 import { MAX_JSON_TRANSCRIPT_BYTES } from '../../src/sources/read-json-file.js';
+import { createSourceContext } from '../../src/sources/source-context.js';
 import { canonicalTmpdir } from '../helpers/tmp.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -63,7 +64,9 @@ describe('GeminiSourceAdapter', () => {
       const sessionFile = path.join(chatsDir, 'session.json');
       await writeFile(sessionFile, '{}', 'utf8');
 
-      const adapter = new GeminiSourceAdapter({ env: { GEMINI_CLI_HOME: geminiHome } });
+      const adapter = new GeminiSourceAdapter({
+        context: createSourceContext({ env: { GEMINI_CLI_HOME: geminiHome } }),
+      });
 
       await expect(adapter.discoverFiles()).resolves.toEqual([sessionFile]);
       await expect(adapter.getParseDependencies()).resolves.toEqual([
@@ -74,7 +77,7 @@ describe('GeminiSourceAdapter', () => {
     it('prefers an explicit geminiDir over GEMINI_CLI_HOME', async () => {
       const adapter = new GeminiSourceAdapter({
         dir: '/tmp/explicit-gemini',
-        env: { GEMINI_CLI_HOME: '/tmp/env-gemini' },
+        context: createSourceContext({ env: { GEMINI_CLI_HOME: '/tmp/env-gemini' } }),
       });
 
       await expect(adapter.getParseDependencies()).resolves.toEqual([
@@ -83,10 +86,12 @@ describe('GeminiSourceAdapter', () => {
     });
 
     it('ignores blank GEMINI_CLI_HOME values', async () => {
-      const adapter = new GeminiSourceAdapter({ env: { GEMINI_CLI_HOME: '   ' } });
+      const adapter = new GeminiSourceAdapter({
+        context: createSourceContext({ homeDir: '/home/tester', env: { GEMINI_CLI_HOME: '   ' } }),
+      });
 
       await expect(adapter.getParseDependencies()).resolves.toEqual([
-        path.join(new GeminiSourceAdapter().getSearchPaths()[0], 'projects.json'),
+        path.join('/home/tester', '.gemini', 'projects.json'),
       ]);
     });
 

@@ -1,4 +1,3 @@
-import os from 'node:os';
 import path from 'node:path';
 
 import { createUsageEvent } from '../../domain/usage-event.js';
@@ -21,8 +20,12 @@ import type {
   SourceAdapterPathOptions,
   SourceParseFileDiagnostics,
 } from '../source-adapter.js';
+import { createSourceContext, type SourceContext } from '../source-context.js';
 
-const defaultProjectsDir = path.join(os.homedir(), '.qwen', 'projects');
+function resolveDefaultQwenProjectsDir(context: SourceContext): string {
+  return path.join(context.homeDir, '.qwen', 'projects');
+}
+
 const QWEN_USAGE_LINE_TEXT = '"usageMetadata"';
 
 export type QwenSourceAdapterOptions = SourceAdapterPathOptions;
@@ -125,7 +128,8 @@ export class QwenSourceAdapter implements SourceAdapter {
   private readonly requireDir: boolean;
 
   public constructor(options: QwenSourceAdapterOptions = {}) {
-    this.projectsDir = options.dir ?? defaultProjectsDir;
+    this.projectsDir =
+      options.dir ?? resolveDefaultQwenProjectsDir(options.context ?? createSourceContext());
     this.requireDir = options.requireDir ?? false;
   }
 
