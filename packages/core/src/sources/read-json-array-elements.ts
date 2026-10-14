@@ -1,9 +1,8 @@
-import { open, stat } from 'node:fs/promises';
+import { stat } from 'node:fs/promises';
 import { StringDecoder } from 'node:string_decoder';
 
-import { MAX_JSON_TRANSCRIPT_BYTES, readJsonTranscriptFile } from '../sources/read-json-file.js';
-
-const DEFAULT_CHUNK_SIZE_BYTES = 1024 * 1024;
+import { DEFAULT_CHUNK_SIZE_BYTES, readFileChunks } from '../utils/read-file-chunks.js';
+import { MAX_JSON_TRANSCRIPT_BYTES, readJsonTranscriptFile } from './read-json-file.js';
 
 const SPACE = 0x20;
 const TAB = 0x09;
@@ -26,32 +25,6 @@ export type ReadJsonArrayElementsOptions = {
 /** JSON whitespace only; `JSON.parse` skips nothing else (no BOM, NBSP or U+2028). */
 function isJsonWhitespace(code: number): boolean {
   return code === SPACE || code === TAB || code === LINE_FEED || code === CARRIAGE_RETURN;
-}
-
-/**
- * Yields a file's chunks and closes the file before a return or throw finishes, so a
- * consumer that stops early leaves no fd open.
- */
-export async function* readFileChunks(
-  filePath: string,
-  chunkSize: number = DEFAULT_CHUNK_SIZE_BYTES,
-): AsyncGenerator<Buffer, void, undefined> {
-  const handle = await open(filePath, 'r');
-
-  try {
-    for (;;) {
-      const buffer = Buffer.allocUnsafe(chunkSize);
-      const { bytesRead } = await handle.read(buffer, 0, chunkSize);
-
-      if (bytesRead === 0) {
-        return;
-      }
-
-      yield buffer.subarray(0, bytesRead);
-    }
-  } finally {
-    await handle.close();
-  }
 }
 
 type ScanPhase = 'before-array' | 'before-element' | 'after-comma' | 'after-element' | 'done';

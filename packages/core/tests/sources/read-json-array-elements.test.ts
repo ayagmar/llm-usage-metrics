@@ -6,11 +6,11 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { MAX_JSON_TRANSCRIPT_BYTES } from '../src/sources/read-json-file.js';
-import { collect } from '../src/stream/collect.js';
-import { readJsonArrayElements } from '../src/utils/read-json-array-elements.js';
-import { canCountOpenFds, countOpenFds, waitForOpenFdCount } from './helpers/open-fds.js';
-import { mulberry32, pick, randomInt, type Random } from './helpers/seeded-random.js';
+import { MAX_JSON_TRANSCRIPT_BYTES } from '../../src/sources/read-json-file.js';
+import { collect } from '../../src/stream/collect.js';
+import { readJsonArrayElements } from '../../src/sources/read-json-array-elements.js';
+import { canCountOpenFds, countOpenFds, waitForOpenFdCount } from '../helpers/open-fds.js';
+import { mulberry32, pick, randomInt, type Random } from '../helpers/seeded-random.js';
 
 // Fails every `read` on a file handle after `failReadsAfter` successful reads.
 const ioFault = vi.hoisted(() => ({ failReadsAfter: undefined as number | undefined }));

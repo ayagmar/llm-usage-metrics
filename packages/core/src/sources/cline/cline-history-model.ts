@@ -1,6 +1,6 @@
 import { StringDecoder } from 'node:string_decoder';
 
-import { readFileChunks } from '../../utils/read-json-array-elements.js';
+import { readFileChunks } from '../../utils/read-file-chunks.js';
 import { asTrimmedText } from '../parsing-utils.js';
 
 const ENVIRONMENT_DETAILS_OPEN_TAG = '<environment_details>';

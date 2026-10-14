@@ -4,7 +4,7 @@ import { normalizeUsdCost } from '../../domain/normalization.js';
 import { createUsageEvent } from '../../domain/usage-event.js';
 import type { SourceId, UsageEvent, UsageEventInput } from '../../domain/usage-event.js';
 import { asRecord } from '../../utils/as-record.js';
-import { readJsonArrayElements } from '../../utils/read-json-array-elements.js';
+import { readJsonArrayElements } from '../read-json-array-elements.js';
 import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
