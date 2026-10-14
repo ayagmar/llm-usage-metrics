@@ -37,11 +37,11 @@ export type IsolatedEnvironment = {
  * vars unset, config, data and Windows profile dirs inside the root, the event store off,
  * colour off, `TZ=UTC`.
  *
- * Module-level defaults read `os.homedir()` at import time, before this runs, so tests
- * must pass every source's directory explicitly. File mtimes matter too: most adapters
- * declare `eventsPrecedeFileMtime`, so a windowed run skips their files whose mtime
- * predates `--since` minus a day. The golden harness reads fixtures from a temp copy
- * with pinned mtimes for that reason.
+ * Adapters resolve their default directories when constructed, not at import, so with
+ * `HOME` stubbed here those defaults point inside the temp root. File mtimes matter too:
+ * most adapters declare `eventsPrecedeFileMtime`, so a windowed run skips their files
+ * whose mtime predates `--since` minus a day. The golden harness reads fixtures from a
+ * temp copy with pinned mtimes for that reason.
  */
 export function useIsolatedEnvironment(): IsolatedEnvironment {
   let rootDir: string | undefined;

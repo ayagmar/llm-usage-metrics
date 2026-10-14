@@ -5,14 +5,11 @@ import {
   normalizeProviderToBillingEntity,
   resolveExplicitProviderRoots,
 } from '../domain/provider-normalization.js';
-import {
-  getDefaultSourceIds,
-  getSourceOverrideOptions,
-} from '../sources/create-default-adapters.js';
+import { getDefaultSourceIds } from '../sources/create-default-adapters.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
-import { parseSourceDirectoryOverrides } from '../utils/source-directory-overrides.js';
 import { suggestClosest } from '../utils/suggest-closest.js';
 import type { RuntimeProfileCollector } from './runtime-profile.js';
+import { getSourceOverrideOptions, parseSourceDirectoryOverrides } from './source-cli-options.js';
 
 import type { ReportCommandOptions } from './usage-data-contracts.js';
 

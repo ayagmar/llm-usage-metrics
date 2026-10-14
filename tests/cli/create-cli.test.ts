@@ -11,7 +11,7 @@ import {
   getCliReferenceExamples,
   getReportDefinitionMetas,
 } from '../../src/cli/report-definitions/report-definitions.js';
-import { getSourceOverrideOptions } from '../../src/sources/create-default-adapters.js';
+import { getSourceOverrideOptions } from '../../src/cli/source-cli-options.js';
 
 const tempDirs: string[] = [];
 

@@ -21,7 +21,7 @@ import {
   type ClassifiedDepartedFile,
   type EventStoreHistoryDiscoveredFile,
 } from '../persistence/event-store-history.js';
-import { createDefaultAdapters } from '../sources/create-default-adapters.js';
+import { createAdaptersFromOptions } from './source-cli-options.js';
 import { getRepeatingSourceIds, type SourceAdapter } from '../sources/source-adapter.js';
 import { renderPruneReport } from '../render/render-prune-report.js';
 import { validateDateInput, selectAdaptersBySourceFilter } from './build-usage-data-inputs.js';
@@ -354,7 +354,7 @@ export async function buildPruneReport(
     );
   }
 
-  const makeAdapters = deps.createAdapters ?? createDefaultAdapters;
+  const makeAdapters = deps.createAdapters ?? createAdaptersFromOptions;
   const adapters = selectAdaptersBySourceFilter(
     makeAdapters(configuredOptions),
     configuredOptions.source,

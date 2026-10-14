@@ -5,7 +5,7 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { createDefaultAdapters } from '../../src/sources/create-default-adapters.js';
+import { createAdaptersFromOptions } from '../../src/cli/source-cli-options.js';
 import { getDefaultGooseDbPathCandidates } from '../../src/sources/goose/goose-db-path-resolver.js';
 import { GooseSourceAdapter } from '../../src/sources/goose/goose-source-adapter.js';
 import { createSourceContext } from '../../src/sources/source-context.js';
@@ -350,7 +350,7 @@ describe.skipIf(!DatabaseSync)('GooseSourceAdapter', () => {
   });
 
   it('rejects a blank --goose-db in the CLI validation before the adapter sees it', () => {
-    expect(() => createDefaultAdapters({ gooseDb: '  ' })).toThrow(
+    expect(() => createAdaptersFromOptions({ gooseDb: '  ' })).toThrow(
       '--goose-db must be a non-empty path',
     );
   });

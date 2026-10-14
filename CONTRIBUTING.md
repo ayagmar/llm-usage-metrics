@@ -74,9 +74,13 @@ Normalize raw data with `createUsageEvent` so downstream code receives consisten
 ### 2) Wire it into reporting
 
 Add one entry to `sourceRegistrations` in `src/sources/create-default-adapters.ts`. That entry
-drives `getDefaultSourceIds()` (and so `--source` filtering and the docs sidebar), the dedicated
-`--<source>-dir`/`--<source>-db` flag, and, for directory-backed sources, the generic
-`--source-dir <source-id=path>` override. Then add the config key and docs (see
+drives `getDefaultSourceIds()` (and so `--source` filtering and the docs sidebar) and, for
+directory-backed sources, the generic `--source-dir <source-id=path>` override. Then add the
+dedicated `--<source>-dir`/`--<source>-db` flag to `sourceCliOptions` and `dedicatedOptionOrderIds`
+in `src/cli/source-cli-options.ts`, which keeps every flag name and help text out of
+`src/sources`. Adapters resolve their default paths from the `SourceContext` they are given when
+constructed; never read `os.homedir()`, `process.env` or `process.platform` at module load. Then
+add the config key and docs (see
 `docs/development.md`, "Adding a new source adapter"), plus CLI examples:
 
 ```bash

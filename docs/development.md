@@ -296,14 +296,18 @@ Optional but recommended:
 3. Normalize output through `createUsageEvent`
 4. Add fixture tests under `tests/sources`
 5. Add one entry to `sourceRegistrations` in `src/sources/create-default-adapters.ts`
-   (id, storage format, `supportsSourceDir`, the dedicated `option` metadata
-   `{ key, flag, help }`, and the constructor). That single entry drives the
-   dedicated `--<source>-dir`/`--<source>-db` flag and its help text, the
-   `--source-dir` participation (directory-backed) or rejection (db-backed), the
-   explicit-source detection in `resolveExplicitSourceIds`, blank-path validation,
-   and the config `sourceDirs.<id>` → option-key mapping. Add the id to
-   `dedicatedOptionOrderIds` only if you need it to appear in a specific `--help`
-   position (the default is registration order).
+   (id, storage format, `supportsSourceDir`, `parseInWorker`, and the constructor,
+   which receives the `SourceContext`). Resolve default paths from that context when
+   the adapter is constructed; never read `os.homedir()`, `process.env` or
+   `process.platform` at module load (`tests/sources/no-import-side-effects.test.ts`
+   checks this). Then add the CLI metadata in `src/cli/source-cli-options.ts`: an
+   entry in `sourceCliOptions` (`{ key, flag, help }`) and the id in
+   `dedicatedOptionOrderIds`, which sets the flag's position in `--help` and the CLI
+   reference. Together they drive the dedicated `--<source>-dir`/`--<source>-db`
+   flag and its help text, the `--source-dir` participation (directory-backed) or
+   rejection (db-backed), the explicit-source detection in
+   `resolveExplicitSourceIds`, blank-path validation, and the config
+   `sourceDirs.<id>` → option-key mapping.
 6. Wire the config surface (each mirror is guarded by a manifest parity test that
    fails if it drifts):
    - add the source id to `USER_CONFIG_SOURCE_DIR_KEYS` in `src/config/user-config.ts`
