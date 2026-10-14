@@ -96,7 +96,15 @@ async function main() {
         {
           encoding: 'utf8',
           env: {
-            ...process.env,
+            // The developer's shell must not leak a config, source dirs or LLM_USAGE_* knobs
+            // into the run, now that stdout totals are asserted.
+            ...Object.fromEntries(
+              Object.entries(process.env).filter(([name]) => !name.startsWith('LLM_USAGE_')),
+            ),
+            HOME: tempDir,
+            USERPROFILE: tempDir,
+            XDG_CONFIG_HOME: path.join(tempDir, 'config'),
+            XDG_DATA_HOME: path.join(tempDir, 'data'),
             LLM_USAGE_EVENT_STORE: eventStore,
             LLM_USAGE_PARSE_WORKERS: '2',
             LLM_USAGE_EVENT_STORE_PATH: path.join(tempDir, 'events.db'),
