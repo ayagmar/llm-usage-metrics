@@ -7,8 +7,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { GeminiSourceAdapter } from '../../../src/sources/gemini/index.js';
 import { MAX_JSON_TRANSCRIPT_BYTES } from '../../../src/sources/read-json-file.js';
 import { createSourceContext } from '../../../src/sources/source-context.js';
+import { collect, collectFile } from '../../../src/stream/collect.js';
 import { fixturePath as packageFixturePath } from '../../helpers/fixtures.js';
 import { canonicalTmpdir } from '../../helpers/tmp.js';
+import { canCountOpenFds, countOpenFds, waitForOpenFdCount } from '../../helpers/open-fds.js';
 
 const fixturesDir = packageFixturePath(import.meta.url, '../../fixtures/gemini');
 const tempDirs: string[] = [];
@@ -191,7 +193,7 @@ describe('GeminiSourceAdapter', () => {
     it('parses usage and maps token fields correctly', async () => {
       const adapter = new GeminiSourceAdapter({ dir: fixturesDir });
       const filePath = path.join(fixturesDir, 'session-with-usage.json');
-      const events = await adapter.parseFile(filePath);
+      const events = await collect(adapter.read(filePath));
 
       expect(events).toHaveLength(2);
 
@@ -222,7 +224,7 @@ describe('GeminiSourceAdapter', () => {
     it('computes total tokens when source total is missing', async () => {
       const adapter = new GeminiSourceAdapter({ dir: fixturesDir });
       const filePath = path.join(fixturesDir, 'session-no-project-hash.json');
-      const events = await adapter.parseFile(filePath);
+      const events = await collect(adapter.read(filePath));
 
       expect(events).toHaveLength(1);
       expect(events[0].totalTokens).toBe(80);
@@ -256,7 +258,7 @@ describe('GeminiSourceAdapter', () => {
       );
 
       const adapter = new GeminiSourceAdapter({ dir: tempDir });
-      const events = await adapter.parseFile(filePath);
+      const events = await collect(adapter.read(filePath));
 
       expect(events).toHaveLength(1);
       expect(events[0]?.timestamp).toBe('2024-02-12T20:00:00.000Z');
@@ -265,7 +267,7 @@ describe('GeminiSourceAdapter', () => {
     it('does not fabricate repoRoot when project mapping is unavailable', async () => {
       const adapter = new GeminiSourceAdapter({ dir: fixturesDir });
       const filePath = path.join(fixturesDir, 'session-no-project-hash.json');
-      const events = await adapter.parseFile(filePath);
+      const events = await collect(adapter.read(filePath));
 
       expect(events[0].repoRoot).toBeUndefined();
     });
@@ -300,7 +302,7 @@ describe('GeminiSourceAdapter', () => {
       );
 
       const adapter = new GeminiSourceAdapter({ dir: geminiDir });
-      const events = await adapter.parseFile(filePath);
+      const events = await collect(adapter.read(filePath));
 
       expect(events).toHaveLength(1);
       expect(events[0]).toMatchObject({
@@ -345,7 +347,7 @@ describe('GeminiSourceAdapter', () => {
       );
 
       const adapter = new GeminiSourceAdapter({ dir: geminiDir });
-      const events = await adapter.parseFile(filePath);
+      const events = await collect(adapter.read(filePath));
 
       expect(events).toHaveLength(1);
       expect(events[0]?.repoRoot).toBeUndefined();
@@ -360,7 +362,7 @@ describe('GeminiSourceAdapter', () => {
         'chats',
         'nested-no-project-hash.json',
       );
-      const events = await adapter.parseFile(filePath);
+      const events = await collect(adapter.read(filePath));
 
       expect(events).toHaveLength(1);
       expect(events[0].repoRoot).toBe('/home/user/projects/legacy');
@@ -421,7 +423,7 @@ describe('GeminiSourceAdapter', () => {
 
         const adapter = new GeminiSourceAdapter({ dir: geminiDir });
         const [discoveredFilePath] = await adapter.discoverFiles();
-        const events = await adapter.parseFile(discoveredFilePath);
+        const events = await collect(adapter.read(discoveredFilePath));
 
         expect(discoveredFilePath).toBe(sessionFilePath);
         expect(events).toHaveLength(1);
@@ -433,20 +435,20 @@ describe('GeminiSourceAdapter', () => {
       const adapter = new GeminiSourceAdapter({ dir: fixturesDir });
 
       await expect(
-        adapter.parseFile(path.join(fixturesDir, 'session-zero-tokens.json')),
+        collect(adapter.read(path.join(fixturesDir, 'session-zero-tokens.json'))),
       ).resolves.toHaveLength(0);
       await expect(
-        adapter.parseFile(path.join(fixturesDir, 'session-no-tokens.json')),
+        collect(adapter.read(path.join(fixturesDir, 'session-no-tokens.json'))),
       ).resolves.toHaveLength(0);
       await expect(
-        adapter.parseFile(path.join(fixturesDir, 'session-invalid-token-types.json')),
+        collect(adapter.read(path.join(fixturesDir, 'session-invalid-token-types.json'))),
       ).resolves.toHaveLength(0);
     });
 
     it('falls back to filename when sessionId is missing', async () => {
       const adapter = new GeminiSourceAdapter({ dir: fixturesDir });
-      const events = await adapter.parseFile(
-        path.join(fixturesDir, 'session-missing-sessionid.json'),
+      const events = await collect(
+        adapter.read(path.join(fixturesDir, 'session-missing-sessionid.json')),
       );
 
       expect(events).toHaveLength(1);
@@ -455,7 +457,7 @@ describe('GeminiSourceAdapter', () => {
 
     it('can parse files even when geminiDir option is blank', async () => {
       const adapter = new GeminiSourceAdapter({ dir: '   ' });
-      const events = await adapter.parseFile(path.join(fixturesDir, 'session-with-usage.json'));
+      const events = await collect(adapter.read(path.join(fixturesDir, 'session-with-usage.json')));
 
       expect(events).toHaveLength(2);
       expect(events[0].repoRoot).toBeUndefined();
@@ -500,7 +502,7 @@ describe('GeminiSourceAdapter', () => {
         'utf8',
       );
 
-      const firstParse = await adapter.parseFile(sessionFilePath);
+      const firstParse = await collect(adapter.read(sessionFilePath));
       expect(firstParse[0]?.repoRoot).toBe('/tmp/first-repo');
 
       await writeFile(
@@ -515,11 +517,11 @@ describe('GeminiSourceAdapter', () => {
         'utf8',
       );
 
-      const secondParse = await adapter.parseFile(sessionFilePath);
+      const secondParse = await collect(adapter.read(sessionFilePath));
       expect(secondParse[0]?.repoRoot).toBe('/tmp/first-repo');
 
       const nextAdapter = new GeminiSourceAdapter({ dir: tempDir });
-      const nextAdapterParse = await nextAdapter.parseFile(sessionFilePath);
+      const nextAdapterParse = await collect(nextAdapter.read(sessionFilePath));
       expect(nextAdapterParse[0]?.repoRoot).toBe('/tmp/second-repo');
     });
 
@@ -565,10 +567,10 @@ describe('GeminiSourceAdapter', () => {
 
       const adapter = new GeminiSourceAdapter({ dir: tempDir });
 
-      expect((await adapter.parseFile(byHash))[0]?.repoRoot).toBe('/home/dev/real-repo');
-      expect((await adapter.parseFile(byTmpName))[0]?.repoRoot).toBe('/home/dev/other-repo');
+      expect((await collect(adapter.read(byHash)))[0]?.repoRoot).toBe('/home/dev/real-repo');
+      expect((await collect(adapter.read(byTmpName)))[0]?.repoRoot).toBe('/home/dev/other-repo');
       // The tmp name is ambiguous, so the last mapping written for it wins.
-      expect((await adapter.parseFile(unknownHash))[0]?.repoRoot).toBe('/srv/real-repo');
+      expect((await collect(adapter.read(unknownHash)))[0]?.repoRoot).toBe('/srv/real-repo');
     });
 
     it('rethrows non-missing projects.json errors', async () => {
@@ -585,16 +587,14 @@ describe('GeminiSourceAdapter', () => {
 
       const adapter = new GeminiSourceAdapter({ dir: tempDir });
 
-      await expect(adapter.parseFile(sessionFilePath)).rejects.toThrow();
+      await expect(collect(adapter.read(sessionFilePath))).rejects.toThrow();
     });
   });
 
   describe('parseFileWithDiagnostics', () => {
     it('tracks skipped reason counts', async () => {
       const adapter = new GeminiSourceAdapter({ dir: fixturesDir });
-      const result = await adapter.parseFileWithDiagnostics(
-        path.join(fixturesDir, 'session-with-usage.json'),
-      );
+      const result = await collectFile(adapter, path.join(fixturesDir, 'session-with-usage.json'));
 
       expect(result.events).toHaveLength(2);
       expect(result.skippedRows).toBe(1);
@@ -605,17 +605,18 @@ describe('GeminiSourceAdapter', () => {
       const adapter = new GeminiSourceAdapter({ dir: fixturesDir });
 
       await expect(
-        adapter.parseFileWithDiagnostics(path.join(fixturesDir, 'invalid-json.txt')),
+        collectFile(adapter, path.join(fixturesDir, 'invalid-json.txt')),
       ).rejects.toThrow('Transcript is not readable JSON');
 
       await expect(
-        adapter.parseFileWithDiagnostics(path.join(fixturesDir, 'session-invalid-root.json')),
+        collectFile(adapter, path.join(fixturesDir, 'session-invalid-root.json')),
       ).rejects.toThrow('Gemini session is not a JSON object');
       await expect(
-        adapter.parseFileWithDiagnostics(path.join(fixturesDir, 'session-invalid-messages.json')),
+        collectFile(adapter, path.join(fixturesDir, 'session-invalid-messages.json')),
       ).rejects.toThrow('Gemini session has no messages array');
 
-      const invalidTokenTypes = await adapter.parseFileWithDiagnostics(
+      const invalidTokenTypes = await collectFile(
+        adapter,
         path.join(fixturesDir, 'session-invalid-token-types.json'),
       );
       expect(invalidTokenTypes.skippedRowReasons).toEqual([{ reason: 'no_token_usage', count: 1 }]);
@@ -630,14 +631,15 @@ describe('GeminiSourceAdapter', () => {
       await truncate(sessionPath, MAX_JSON_TRANSCRIPT_BYTES + 1);
 
       const adapter = new GeminiSourceAdapter({ dir: tempDir });
-      await expect(adapter.parseFileWithDiagnostics(sessionPath)).rejects.toThrow(
+      await expect(collectFile(adapter, sessionPath)).rejects.toThrow(
         `Transcript is larger than 64 MiB: ${sessionPath}`,
       );
     });
 
     it('reports invalid timestamp rows', async () => {
       const adapter = new GeminiSourceAdapter({ dir: fixturesDir });
-      const result = await adapter.parseFileWithDiagnostics(
+      const result = await collectFile(
+        adapter,
         path.join(fixturesDir, 'session-invalid-timestamp.json'),
       );
 
@@ -659,7 +661,7 @@ describe('GeminiSourceAdapter', () => {
       );
 
       const adapter = new GeminiSourceAdapter({ dir: fixturesDir });
-      const result = await adapter.parseFileWithDiagnostics(filePath);
+      const result = await collectFile(adapter, filePath);
 
       expect(result.events).toHaveLength(0);
       expect(result.skippedRowReasons).toEqual([{ reason: 'invalid_message', count: 1 }]);
@@ -667,11 +669,43 @@ describe('GeminiSourceAdapter', () => {
 
     it('reports event creation failures when fallback sessionId is invalid', async () => {
       const adapter = new GeminiSourceAdapter({ dir: fixturesDir });
-      const result = await adapter.parseFileWithDiagnostics(path.join(fixturesDir, '   .json'));
+      const result = await collectFile(adapter, path.join(fixturesDir, '   .json'));
 
       expect(result.events).toHaveLength(0);
       expect(result.skippedRows).toBe(1);
       expect(result.skippedRowReasons).toEqual([{ reason: 'event_creation_failed', count: 1 }]);
     });
+  });
+
+  it.runIf(canCountOpenFds)('closes the file when the consumer stops early', async () => {
+    const tempDir = await mkdtemp(path.join(canonicalTmpdir(), 'gemini-early-return-'));
+    tempDirs.push(tempDir);
+    const filePath = path.join(tempDir, 'tmp', 'project', 'chats', 'session-early-return.json');
+    await mkdir(path.dirname(filePath), { recursive: true });
+    const messageCount = 2000;
+    await writeFile(
+      filePath,
+      JSON.stringify({
+        sessionId: 'gemini-early-return',
+        messages: Array.from({ length: messageCount }, () => ({
+          type: 'gemini',
+          timestamp: '2026-03-01T10:00:00.000Z',
+          model: 'gemini-2.5-pro',
+          tokens: { input: 10, output: 5 },
+          content: 'x'.repeat(1000),
+        })),
+      }),
+      'utf8',
+    );
+    const adapter = new GeminiSourceAdapter({ dir: tempDir });
+    const before = countOpenFds();
+
+    for await (const event of adapter.read(filePath)) {
+      expect(event.sessionId).toBe('gemini-early-return');
+      break;
+    }
+
+    await waitForOpenFdCount(before);
+    await expect(collect(adapter.read(filePath))).resolves.toHaveLength(messageCount);
   });
 });

@@ -16,12 +16,14 @@ import {
   resolveTotalTokens,
   splitPromptIncludingCachedTokens,
 } from '../parsing-utils.js';
-import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
+import { collectFile } from '../../stream/collect.js';
+import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import { readJsonTranscriptFile } from '../read-json-file.js';
 import type {
   SourceAdapter,
   SourceAdapterPathOptions,
   SourceParseFileDiagnostics,
+  SourceReadOptions,
 } from '../source-adapter.js';
 import { createSourceContext, readEnvPath, type SourceContext } from '../source-context.js';
 
@@ -288,16 +290,11 @@ export class GeminiSourceAdapter implements SourceAdapter {
     return [getProjectsJsonPath(this.getNormalizedGeminiDir())];
   }
 
-  public async parseFile(filePath: string): Promise<UsageEvent[]> {
-    const { events } = await this.parseFileWithDiagnostics(filePath);
-
-    return events;
-  }
-
-  public async parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
-    const events: UsageEvent[] = [];
-    let skippedRows = 0;
-    const skippedRowReasons = new Map<string, number>();
+  public async *read(
+    filePath: string,
+    options: SourceReadOptions = {},
+  ): AsyncGenerator<UsageEvent> {
+    const diagnostics = options.diagnostics ?? createReadDiagnostics();
 
     const sessionData = await readJsonTranscriptFile(filePath);
 
@@ -325,15 +322,13 @@ export class GeminiSourceAdapter implements SourceAdapter {
       const message = asRecord(rawMessage);
 
       if (!message) {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'invalid_message');
+        recordSkippedRow(diagnostics, 'invalid_message');
 
         continue;
       }
 
       if (message.type !== 'gemini') {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'non_gemini_message');
+        recordSkippedRow(diagnostics, 'non_gemini_message');
 
         continue;
       }
@@ -341,8 +336,7 @@ export class GeminiSourceAdapter implements SourceAdapter {
       const tokens = extractTokenUsage(asRecord(message.tokens));
 
       if (!tokens) {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'no_token_usage');
+        recordSkippedRow(diagnostics, 'no_token_usage');
 
         continue;
       }
@@ -350,32 +344,39 @@ export class GeminiSourceAdapter implements SourceAdapter {
       const timestamp = normalizeTimestampCandidate(message.timestamp);
 
       if (!timestamp) {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'invalid_timestamp');
+        recordSkippedRow(diagnostics, 'invalid_timestamp');
 
         continue;
       }
 
       const model = asTrimmedText(message.model);
 
-      try {
-        events.push(
-          createUsageEvent({
-            source: this.id,
-            sessionId,
-            timestamp,
-            repoRoot,
-            provider: 'google',
-            model,
-            ...tokens,
-          }),
-        );
-      } catch {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'event_creation_failed');
-      }
-    }
+      let event: UsageEvent;
 
-    return toParseDiagnostics(events, skippedRows, skippedRowReasons);
+      try {
+        event = createUsageEvent({
+          source: this.id,
+          sessionId,
+          timestamp,
+          repoRoot,
+          provider: 'google',
+          model,
+          ...tokens,
+        });
+      } catch {
+        recordSkippedRow(diagnostics, 'event_creation_failed');
+        continue;
+      }
+
+      yield event;
+    }
+  }
+
+  public async parseFile(filePath: string): Promise<UsageEvent[]> {
+    return (await collectFile(this, filePath)).events;
+  }
+
+  public parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
+    return collectFile(this, filePath);
   }
 }

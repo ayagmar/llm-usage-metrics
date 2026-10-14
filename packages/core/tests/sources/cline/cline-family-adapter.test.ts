@@ -13,7 +13,9 @@ import { getClineTaskHistoryPath } from '../../../src/sources/cline/cline-task-p
 import { createSourceContext } from '../../../src/sources/source-context.js';
 import * as kilocodeSource from '../../../src/sources/kilocode/index.js';
 import * as roocodeSource from '../../../src/sources/roocode/index.js';
+import { collect, collectFile } from '../../../src/stream/collect.js';
 import { fixturePath } from '../../helpers/fixtures.js';
+import { canCountOpenFds, countOpenFds, waitForOpenFdCount } from '../../helpers/open-fds.js';
 
 const fixtureTasksDir = fixturePath(import.meta.url, '../../fixtures/cline/tasks');
 const fixtureUiMessagesPath = path.join(fixtureTasksDir, 'task-a', 'ui_messages.json');
@@ -208,7 +210,7 @@ describe('ClineFamilyAdapter', () => {
       extensionId: CLINE_EXTENSION_IDS.cline,
     });
 
-    const result = await adapter.parseFileWithDiagnostics(fixtureUiMessagesPath);
+    const result = await collectFile(adapter, fixtureUiMessagesPath);
 
     expect(result.skippedRows).toBe(3);
     expect(result.skippedRowReasons).toEqual([
@@ -264,7 +266,7 @@ describe('ClineFamilyAdapter', () => {
       extensionId: CLINE_EXTENSION_IDS.cline,
     });
     const startedAt = performance.now();
-    const result = await adapter.parseFileWithDiagnostics(uiMessagesPath);
+    const result = await collectFile(adapter, uiMessagesPath);
 
     expect(result.events[0]?.model).toBe('claude-3.7-sonnet');
     expect(performance.now() - startedAt).toBeLessThan(2_000);
@@ -313,7 +315,7 @@ describe('ClineFamilyAdapter', () => {
         id,
         extensionId: source.CLINE_EXTENSION_IDS[id],
       });
-      const events = await adapter.parseFile(uiMessagesPath);
+      const events = await collect(adapter.read(uiMessagesPath));
 
       expect(
         events.map((event) => ({
@@ -345,8 +347,47 @@ describe('ClineFamilyAdapter', () => {
       id: 'cline',
       extensionId: CLINE_EXTENSION_IDS.cline,
     });
-    const clineEvents = await clineAdapter.parseFile(uiMessagesPath);
+    const clineEvents = await collect(clineAdapter.read(uiMessagesPath));
 
     expect(clineEvents.map((event) => event.inputTokens)).toEqual([10_500, 1_000]);
+  });
+
+  it.runIf(canCountOpenFds)('closes both files when the consumer stops early', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'cline-early-return-'));
+    tempDirs.push(tempDir);
+    const uiMessagesPath = path.join(tempDir, 'task-early-return', 'ui_messages.json');
+    await mkdir(path.dirname(uiMessagesPath), { recursive: true });
+    await writeFile(
+      getClineTaskHistoryPath(uiMessagesPath),
+      `${'x'.repeat(2 * 1024 * 1024)}<environment_details><model>m</model></environment_details>`,
+      'utf8',
+    );
+    const entryCount = 2000;
+    await writeFile(
+      uiMessagesPath,
+      JSON.stringify(
+        Array.from({ length: entryCount }, (_, index) => ({
+          type: 'say',
+          say: 'api_req_started',
+          ts: 1_772_445_600_000 + index,
+          text: JSON.stringify({ tokensIn: 10, tokensOut: 5 }),
+          padding: 'x'.repeat(1000),
+        })),
+      ),
+      'utf8',
+    );
+    const adapter = createClineFamilyAdapter({
+      id: 'cline',
+      extensionId: CLINE_EXTENSION_IDS.cline,
+    });
+    const before = countOpenFds();
+
+    for await (const event of adapter.read(uiMessagesPath)) {
+      expect(event.model).toBe('m');
+      break;
+    }
+
+    await waitForOpenFdCount(before);
+    await expect(collect(adapter.read(uiMessagesPath))).resolves.toHaveLength(entryCount);
   });
 });

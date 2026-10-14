@@ -6,7 +6,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { AmpSourceAdapter } from '../../../src/sources/amp/index.js';
 import { createSourceContext } from '../../../src/sources/source-context.js';
+import { collect, collectFile } from '../../../src/stream/collect.js';
 import { fixturePath as packageFixturePath } from '../../helpers/fixtures.js';
+import { canCountOpenFds, countOpenFds, waitForOpenFdCount } from '../../helpers/open-fds.js';
 
 const fixturesDir = packageFixturePath(import.meta.url, '../../fixtures/amp');
 const tempDirs: string[] = [];
@@ -96,9 +98,7 @@ describe('AmpSourceAdapter', () => {
   describe('parseFileWithDiagnostics', () => {
     it('parses ledger events, resolves cache tokens from messages, and ignores credits', async () => {
       const adapter = new AmpSourceAdapter({ dir: fixturesDir });
-      const result = await adapter.parseFileWithDiagnostics(
-        await fixturePath('ledger-thread.json'),
-      );
+      const result = await collectFile(adapter, await fixturePath('ledger-thread.json'));
 
       expect(result.skippedRows).toBe(0);
       expect(result.events).toHaveLength(2);
@@ -128,9 +128,7 @@ describe('AmpSourceAdapter', () => {
 
     it('falls back to assistant message usage when the ledger is absent', async () => {
       const adapter = new AmpSourceAdapter({ dir: fixturesDir });
-      const result = await adapter.parseFileWithDiagnostics(
-        await fixturePath('legacy-messages-thread.json'),
-      );
+      const result = await collectFile(adapter, await fixturePath('legacy-messages-thread.json'));
 
       expect(result.skippedRows).toBe(0);
       expect(result.events).toHaveLength(1);
@@ -149,7 +147,7 @@ describe('AmpSourceAdapter', () => {
 
     it('prefers ledger events over message usage when both are present', async () => {
       const adapter = new AmpSourceAdapter({ dir: fixturesDir });
-      const events = await adapter.parseFile(await fixturePath('both-thread.json'));
+      const events = await collect(adapter.read(await fixturePath('both-thread.json')));
 
       expect(events).toHaveLength(1);
       expect(events[0]).toMatchObject({
@@ -164,7 +162,7 @@ describe('AmpSourceAdapter', () => {
 
     it('uses thread created timestamp when a usage entry timestamp is missing', async () => {
       const adapter = new AmpSourceAdapter({ dir: fixturesDir });
-      const events = await adapter.parseFile(await fixturePath('created-fallback-thread.json'));
+      const events = await collect(adapter.read(await fixturePath('created-fallback-thread.json')));
 
       expect(events).toHaveLength(1);
       expect(events[0]).toMatchObject({
@@ -179,9 +177,7 @@ describe('AmpSourceAdapter', () => {
 
     it('reports zero-usage and bad-timestamp diagnostics', async () => {
       const adapter = new AmpSourceAdapter({ dir: fixturesDir });
-      const result = await adapter.parseFileWithDiagnostics(
-        await fixturePath('diagnostics-thread.json'),
-      );
+      const result = await collectFile(adapter, await fixturePath('diagnostics-thread.json'));
 
       expect(result.events).toEqual([]);
       expect(result.skippedRows).toBe(3);
@@ -198,9 +194,40 @@ describe('AmpSourceAdapter', () => {
       await writeFile(filePath, '{', 'utf8');
 
       const adapter = new AmpSourceAdapter({ dir: tempDir });
-      await expect(adapter.parseFileWithDiagnostics(filePath)).rejects.toThrow(
+      await expect(collectFile(adapter, filePath)).rejects.toThrow(
         `Transcript is not readable JSON: ${filePath}`,
       );
     });
+  });
+
+  it.runIf(canCountOpenFds)('closes the file when the consumer stops early', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'amp-early-return-'));
+    tempDirs.push(tempDir);
+    const filePath = path.join(tempDir, 'T-early-return.json');
+    const messageCount = 2000;
+    await writeFile(
+      filePath,
+      JSON.stringify({
+        id: 'T-early-return',
+        created: 1_772_445_600_000,
+        messages: Array.from({ length: messageCount }, (_, index) => ({
+          role: 'assistant',
+          id: index,
+          usage: { model: 'claude-sonnet-4', inputTokens: 10, outputTokens: 5 },
+          padding: 'x'.repeat(1000),
+        })),
+      }),
+      'utf8',
+    );
+    const adapter = new AmpSourceAdapter({ dir: tempDir });
+    const before = countOpenFds();
+
+    for await (const event of adapter.read(filePath)) {
+      expect(event.sessionId).toBe('T-early-return');
+      break;
+    }
+
+    await waitForOpenFdCount(before);
+    await expect(collect(adapter.read(filePath))).resolves.toHaveLength(messageCount);
   });
 });

@@ -2,6 +2,7 @@ import path from 'node:path';
 
 import { createUsageEvent } from '../../domain/usage-event.js';
 import type { UsageEvent } from '../../domain/usage-event.js';
+import { collectFile } from '../../stream/collect.js';
 import { asRecord } from '../../utils/as-record.js';
 import { discoverFiles } from '../../utils/discover-files.js';
 import { pathIsDirectory, pathReadable } from '../../utils/fs-helpers.js';
@@ -12,12 +13,14 @@ import {
   resolveTotalTokens,
   toTokenCount,
 } from '../parsing-utils.js';
-import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
+import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import { readJsonTranscriptFile } from '../read-json-file.js';
 import type {
   SourceAdapter,
   SourceAdapterPathOptions,
   SourceParseFileDiagnostics,
+  SourceReadDiagnostics,
+  SourceReadOptions,
 } from '../source-adapter.js';
 import { createSourceContext, readEnvPath, type SourceContext } from '../source-context.js';
 
@@ -36,9 +39,7 @@ type AmpParseContext = {
   sessionId: string;
   threadCreatedTimestamp: string | undefined;
   messages: Record<string, unknown>[];
-  events: UsageEvent[];
-  skippedRows: number;
-  skippedRowReasons: Map<string, number>;
+  diagnostics: SourceReadDiagnostics;
 };
 
 function resolveDefaultAmpThreadsDir(context: SourceContext): string {
@@ -106,11 +107,6 @@ function hasUsageSignal(usage: AmpTokenUsage): boolean {
   );
 }
 
-function incrementContextSkippedReason(context: AmpParseContext, reason: string): void {
-  context.skippedRows++;
-  incrementSkippedReason(context.skippedRowReasons, reason);
-}
-
 function getThreadMessages(thread: Record<string, unknown>): Record<string, unknown>[] {
   if (!Array.isArray(thread.messages)) {
     return [];
@@ -172,33 +168,32 @@ function resolveTimestamp(
   return normalizeTimestampCandidate(timestampCandidate) ?? context.threadCreatedTimestamp;
 }
 
-function pushAmpEvent(
+function createAmpEvent(
   context: AmpParseContext,
   input: {
     timestamp: string;
     model: string | undefined;
     usage: AmpTokenUsage;
   },
-): void {
+): UsageEvent | undefined {
   try {
-    context.events.push(
-      createUsageEvent({
-        source: 'amp',
-        sessionId: context.sessionId,
-        timestamp: input.timestamp,
-        model: input.model,
-        ...input.usage,
-      }),
-    );
+    return createUsageEvent({
+      source: 'amp',
+      sessionId: context.sessionId,
+      timestamp: input.timestamp,
+      model: input.model,
+      ...input.usage,
+    });
   } catch {
-    incrementContextSkippedReason(context, 'event_creation_failed');
+    recordSkippedRow(context.diagnostics, 'event_creation_failed');
+    return undefined;
   }
 }
 
-function parseLedgerEvents(
+function* parseLedgerEvents(
   context: AmpParseContext,
   ledgerEvents: readonly Record<string, unknown>[],
-): void {
+): Generator<UsageEvent, void, undefined> {
   const seenEventIds = new Set<string>();
   const messageCacheUsageById = getMessageCacheUsageById(context.messages);
 
@@ -229,26 +224,30 @@ function parseLedgerEvents(
     };
 
     if (!hasUsageSignal(usageWithCache)) {
-      incrementContextSkippedReason(context, 'no_token_usage');
+      recordSkippedRow(context.diagnostics, 'no_token_usage');
       continue;
     }
 
     const timestamp = resolveTimestamp(context, event.timestamp);
 
     if (!timestamp) {
-      incrementContextSkippedReason(context, 'invalid_timestamp');
+      recordSkippedRow(context.diagnostics, 'invalid_timestamp');
       continue;
     }
 
-    pushAmpEvent(context, {
+    const usageEvent = createAmpEvent(context, {
       timestamp,
       model: asTrimmedText(event.model),
       usage: usageWithCache,
     });
+
+    if (usageEvent) {
+      yield usageEvent;
+    }
   }
 }
 
-function parseMessageUsage(context: AmpParseContext): void {
+function* parseMessageUsage(context: AmpParseContext): Generator<UsageEvent, void, undefined> {
   const seenMessageIds = new Set<string>();
 
   for (const message of context.messages) {
@@ -275,22 +274,26 @@ function parseMessageUsage(context: AmpParseContext): void {
     const usage = extractUsageFromMessageUsage(usageRecord);
 
     if (!hasUsageSignal(usage)) {
-      incrementContextSkippedReason(context, 'no_token_usage');
+      recordSkippedRow(context.diagnostics, 'no_token_usage');
       continue;
     }
 
     const timestamp = resolveTimestamp(context, message.timestamp);
 
     if (!timestamp) {
-      incrementContextSkippedReason(context, 'invalid_timestamp');
+      recordSkippedRow(context.diagnostics, 'invalid_timestamp');
       continue;
     }
 
-    pushAmpEvent(context, {
+    const usageEvent = createAmpEvent(context, {
       timestamp,
       model: asTrimmedText(usageRecord.model) ?? asTrimmedText(message.model),
       usage,
     });
+
+    if (usageEvent) {
+      yield usageEvent;
+    }
   }
 }
 
@@ -334,16 +337,10 @@ export class AmpSourceAdapter implements SourceAdapter {
     return discoverFiles(normalizedDir, { extension: '.json' });
   }
 
-  public async parseFile(filePath: string): Promise<UsageEvent[]> {
-    const { events } = await this.parseFileWithDiagnostics(filePath);
-
-    return events;
-  }
-
-  public async parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
-    const events: UsageEvent[] = [];
-    const skippedRowReasons = new Map<string, number>();
-
+  public async *read(
+    filePath: string,
+    options: SourceReadOptions = {},
+  ): AsyncGenerator<UsageEvent> {
     const threadData = await readJsonTranscriptFile(filePath);
 
     const thread = asRecord(threadData);
@@ -370,17 +367,21 @@ export class AmpSourceAdapter implements SourceAdapter {
       sessionId,
       threadCreatedTimestamp: normalizeTimestampCandidate(thread.created),
       messages: getThreadMessages(thread),
-      events,
-      skippedRows: 0,
-      skippedRowReasons,
+      diagnostics: options.diagnostics ?? createReadDiagnostics(),
     };
 
     if (ledgerEvents) {
-      parseLedgerEvents(context, ledgerEvents);
+      yield* parseLedgerEvents(context, ledgerEvents);
     } else {
-      parseMessageUsage(context);
+      yield* parseMessageUsage(context);
     }
+  }
 
-    return toParseDiagnostics(context.events, context.skippedRows, context.skippedRowReasons);
+  public async parseFile(filePath: string): Promise<UsageEvent[]> {
+    return (await collectFile(this, filePath)).events;
+  }
+
+  public parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
+    return collectFile(this, filePath);
   }
 }
