@@ -1,6 +1,6 @@
 import { type Command, Option } from 'commander';
 
-import { getDefaultSourceIds } from '../../sources/create-default-adapters.js';
+import { getDefaultSourceIds } from '@ayagmar/agent-sessions/registry';
 import { getSourceOverrideOptions } from '../source-cli-options.js';
 import type { SharedOptionProfile } from './report-definition-types.js';
 

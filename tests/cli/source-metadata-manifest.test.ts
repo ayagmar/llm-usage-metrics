@@ -10,7 +10,7 @@ import {
 } from '../../src/config/user-config.js';
 import type { LoadedUserConfig } from '../../src/config/user-config.js';
 import { getSourceOverrideOptions } from '../../src/cli/source-cli-options.js';
-import { getDefaultSourceIds } from '../../src/sources/create-default-adapters.js';
+import { getDefaultSourceIds } from '@ayagmar/agent-sessions/registry';
 
 const EXPECTED_OVERRIDE_OPTIONS = [
   { id: 'pi', optionKey: 'piDir', flag: '--pi-dir <path>', help: 'Path to .pi sessions directory' },

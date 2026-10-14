@@ -19,10 +19,7 @@ import {
   type EventStoreFileEntry,
   type ReplaceFileEventsInput,
 } from '../../src/persistence/event-store.js';
-import type {
-  SourceAdapter,
-  SourceParseFileDiagnostics,
-} from '../../src/sources/source-adapter.js';
+import type { SourceAdapter, SourceParseFileDiagnostics } from '@ayagmar/agent-sessions';
 import { RuntimeProfileCollector } from '../../src/cli/runtime-profile.js';
 
 const tempDirs: string[] = [];

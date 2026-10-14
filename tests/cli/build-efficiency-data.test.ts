@@ -7,7 +7,7 @@ import type {
   UsageEventDatasetPricingResult,
 } from '../../src/cli/build-usage-event-dataset.js';
 import type { UsageEvent } from '../../src/domain/usage-event.js';
-import type { SourceAdapter } from '../../src/sources/source-adapter.js';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
 
 type CollectGitOutcomesFn = (options: { activeUsageDays?: ReadonlySet<string> }) => Promise<{
   periodOutcomes: Map<

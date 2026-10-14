@@ -3,10 +3,7 @@ import path from 'node:path';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import {
-  createDefaultAdapters,
-  getDefaultSourceIds,
-} from '../../src/sources/create-default-adapters.js';
+import { createDefaultAdapters, getDefaultSourceIds } from '../../src/registry/index.js';
 import { getParseFileFingerprint } from '../../src/sources/parse-fingerprint.js';
 import { createSourceContext } from '../../src/sources/source-context.js';
 import { canonicalTmpdir } from '../helpers/tmp.js';

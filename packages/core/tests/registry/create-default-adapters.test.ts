@@ -3,8 +3,7 @@ import path from 'node:path';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { selectAdaptersForParsing } from '../../src/cli/build-usage-data-inputs.js';
-import { createDefaultAdapters } from '../../src/sources/create-default-adapters.js';
+import { createDefaultAdapters } from '../../src/registry/index.js';
 import { createSourceContext } from '../../src/sources/source-context.js';
 import { canonicalTmpdir } from '../helpers/tmp.js';
 
@@ -44,16 +43,6 @@ describe('createDefaultAdapters', () => {
       fixedProviderRoots: ['google'],
       eventsPrecedeFileMtime: true,
     });
-  });
-
-  it('keeps antigravity for a Claude model scope, since it serves Claude models too', () => {
-    const selected = selectAdaptersForParsing(createDefaultAdapters({}), {
-      sourceFilter: undefined,
-      candidateProviderRoots: ['anthropic'],
-    }).map((adapter) => adapter.id);
-
-    expect(selected).toContain('antigravity');
-    expect(selected).not.toContain('gemini');
   });
 
   it('lets only file-per-session sources skip files by mtime', () => {

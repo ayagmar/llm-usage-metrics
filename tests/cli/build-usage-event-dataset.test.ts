@@ -13,8 +13,8 @@ import {
   type EventStoreFileFingerprint,
 } from '../../src/persistence/event-store.js';
 import { loadHistoryEvents } from '../../src/persistence/event-store-history.js';
-import { ClaudeSourceAdapter } from '../../src/sources/claude/claude-source-adapter.js';
-import type { SourceAdapter } from '../../src/sources/source-adapter.js';
+import { ClaudeSourceAdapter } from '@ayagmar/agent-sessions/sources/claude';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
 
 const tempDirs: string[] = [];
 

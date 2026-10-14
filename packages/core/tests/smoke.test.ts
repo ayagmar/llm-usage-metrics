@@ -31,6 +31,10 @@ describe('package exports', () => {
     },
   );
 
+  it('exports the adapter registry', () => {
+    expect(Object.keys(packageJson.exports)).toContain('./registry');
+  });
+
   it('exports every source directory', () => {
     // Shared infrastructure (`sqlite/`, loose modules) sits beside the adapters without an
     // entry of its own; only directories with an `index.ts` are sources.

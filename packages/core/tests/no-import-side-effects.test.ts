@@ -1,7 +1,7 @@
 import { readdir } from 'node:fs/promises';
 import type * as NodeOs from 'node:os';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -17,7 +17,7 @@ vi.mock('node:os', async (importOriginal) => {
   return { ...actual, homedir, default: { ...actual, homedir } };
 });
 
-const sourcesDir = path.resolve('src/sources');
+const sourcesDir = fileURLToPath(new URL('../src', import.meta.url));
 
 async function listSourceModules(): Promise<string[]> {
   const entries = await readdir(sourcesDir, { recursive: true });
@@ -35,7 +35,7 @@ afterEach(() => {
 describe('src/sources import side effects', () => {
   it('reads no home directory and patches no process warning hook at import', async () => {
     const modules = await listSourceModules();
-    expect(modules).toContain(path.join(sourcesDir, 'create-default-adapters.ts'));
+    expect(modules).toContain(path.join(sourcesDir, 'registry', 'index.ts'));
 
     vi.resetModules();
     homedirCalls.count = 0;

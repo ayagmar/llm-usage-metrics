@@ -9,7 +9,7 @@ import {
 import { RuntimeProfileCollector } from '../../src/cli/runtime-profile.js';
 import type { ReportCommandOptions } from '../../src/cli/usage-data-contracts.js';
 import { getSourceOverrideOptions } from '../../src/cli/source-cli-options.js';
-import type { SourceAdapter } from '../../src/sources/source-adapter.js';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
 
 afterEach(() => {
   vi.restoreAllMocks();

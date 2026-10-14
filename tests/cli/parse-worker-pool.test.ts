@@ -6,11 +6,8 @@ import {
   type ParseWorkerLike,
   type ParseWorkerRequestMessage,
 } from '../../src/cli/parse-worker-pool.js';
-import {
-  createWorkerParseAdapter,
-  getDefaultSourceIds,
-} from '../../src/sources/create-default-adapters.js';
-import type { SourceParseFileDiagnostics } from '../../src/sources/source-adapter.js';
+import { createWorkerParseAdapter, getDefaultSourceIds } from '@ayagmar/agent-sessions/registry';
+import type { SourceParseFileDiagnostics } from '@ayagmar/agent-sessions';
 
 const entryUrl = new URL('file:///tmp/dist/index.js');
 

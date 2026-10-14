@@ -726,7 +726,7 @@ describe('run-doctor-report', () => {
       path.join(brokenGeminiDir, 'tmp', 'project', 'chats', 'session.json'),
       'not json',
     );
-    const piDir = path.resolve('tests/fixtures/pi');
+    const piDir = path.resolve('packages/core/tests/fixtures/pi');
 
     const results = await buildDoctorResults(
       {
@@ -805,7 +805,7 @@ describe('run-doctor-report', () => {
     const usageFile = path.join(rootDir, 'usage.jsonl');
     await writeFile(
       usageFile,
-      await readFile(path.resolve('tests/fixtures/pi/session-mixed.jsonl'), 'utf8'),
+      await readFile(path.resolve('packages/core/tests/fixtures/pi/session-mixed.jsonl'), 'utf8'),
     );
     await utimes(usageFile, new Date('2020-01-01'), new Date('2020-01-01'));
 
@@ -833,7 +833,7 @@ describe('run-doctor-report', () => {
   });
 
   it('lists every directory of a source scanned in several directories', async () => {
-    const piDir = path.resolve('tests/fixtures/pi');
+    const piDir = path.resolve('packages/core/tests/fixtures/pi');
     const otherDir = await mkdtemp(path.join(canonicalTmpdir(), 'doctor-pi-other-'));
     tempDirs.push(otherDir);
 

@@ -5,9 +5,9 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { DroidSourceAdapter } from '../../../src/sources/droid/index.js';
-import { repoFixturePath } from '../../helpers/fixtures.js';
+import { fixturePath as packageFixturePath } from '../../helpers/fixtures.js';
 
-const fixturesDir = repoFixturePath('droid');
+const fixturesDir = packageFixturePath(import.meta.url, '../../fixtures/droid');
 
 const tempDirs: string[] = [];
 

@@ -7,10 +7,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { GeminiSourceAdapter } from '../../../src/sources/gemini/index.js';
 import { MAX_JSON_TRANSCRIPT_BYTES } from '../../../src/sources/read-json-file.js';
 import { createSourceContext } from '../../../src/sources/source-context.js';
-import { repoFixturePath } from '../../helpers/fixtures.js';
+import { fixturePath as packageFixturePath } from '../../helpers/fixtures.js';
 import { canonicalTmpdir } from '../../helpers/tmp.js';
 
-const fixturesDir = repoFixturePath('gemini');
+const fixturesDir = packageFixturePath(import.meta.url, '../../fixtures/gemini');
 const tempDirs: string[] = [];
 
 afterEach(async () => {

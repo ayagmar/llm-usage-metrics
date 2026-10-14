@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { buildTrendsData } from '../../src/cli/build-trends-data.js';
 import type { PricingLoadResult } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
-import type { SourceAdapter } from '../../src/sources/source-adapter.js';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { createDefaultOpenAiPricingSource } from '../helpers/static-pricing-source.js';
 
 function createAdapter(

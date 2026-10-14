@@ -22,6 +22,10 @@
       "types": "./dist/internal/index.d.ts",
       "import": "./dist/internal/index.js"
     },
+    "./registry": {
+      "types": "./dist/registry/index.d.ts",
+      "import": "./dist/registry/index.js"
+    },
     "./sources/amp": {
       "types": "./dist/sources/amp/index.d.ts",
       "import": "./dist/sources/amp/index.js"

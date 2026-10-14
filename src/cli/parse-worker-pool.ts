@@ -2,11 +2,8 @@ import { parentPort, Worker } from 'node:worker_threads';
 import type { WorkerOptions } from 'node:worker_threads';
 
 import type { SourceId } from '../domain/usage-event.js';
-import {
-  canParseSourceOnWorker,
-  createWorkerParseAdapter,
-} from '../sources/create-default-adapters.js';
-import type { SourceParseFileDiagnostics } from '../sources/source-adapter.js';
+import { canParseSourceOnWorker, createWorkerParseAdapter } from '@ayagmar/agent-sessions/registry';
+import type { SourceParseFileDiagnostics } from '@ayagmar/agent-sessions';
 import { asRecord } from '../utils/as-record.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
 

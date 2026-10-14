@@ -17,7 +17,7 @@ import type {
   SourceAdapter,
   SourceParseFileDiagnostics,
   SourceSkippedRowReasonStat,
-} from '../sources/source-adapter.js';
+} from '@ayagmar/agent-sessions';
 import { normalizeSkippedRowReasons } from './normalize-skipped-row-reasons.js';
 import {
   claimFilesInUsualLocations,

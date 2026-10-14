@@ -37,7 +37,7 @@ pnpm run format:check
 Main directories:
 
 - `src/cli`: command wiring and report orchestration
-- `src/sources`: source adapters (`pi`, `codex`, etc.)
+- `packages/core/src/sources`: source adapters (`pi`, `codex`, etc.), in the `@ayagmar/agent-sessions` package
 - `src/domain`: normalized event/report types
 - `src/pricing`: pricing loaders + cost engine
 - `src/persistence`: SQLite event store, migrations, and departed-file history
@@ -61,7 +61,9 @@ The codebase supports this through `SourceAdapter`.
 
 ### 1) Create an adapter
 
-Add `src/sources/<name>/<name>-source-adapter.ts` implementing:
+Add `packages/core/src/sources/<name>/<name>-source-adapter.ts`, exported from
+`packages/core/src/sources/<name>/index.ts` and a `./sources/<name>` entry in
+`packages/core/package.json`, implementing:
 
 - `id`
 - `discoverFiles()`
@@ -73,12 +75,12 @@ Normalize raw data with `createUsageEvent` so downstream code receives consisten
 
 ### 2) Wire it into reporting
 
-Add one entry to `sourceRegistrations` in `src/sources/create-default-adapters.ts`. That entry
+Add one entry to `sourceRegistrations` in `packages/core/src/registry/index.ts`. That entry
 drives `getDefaultSourceIds()` (and so `--source` filtering and the docs sidebar) and, for
 directory-backed sources, the generic `--source-dir <source-id=path>` override. Then add the
 dedicated `--<source>-dir`/`--<source>-db` flag to `sourceCliOptions` and `dedicatedOptionOrderIds`
 in `src/cli/source-cli-options.ts`, which keeps every flag name and help text out of
-`src/sources`. Adapters resolve their default paths from the `SourceContext` they are given when
+the adapters. Adapters resolve their default paths from the `SourceContext` they are given when
 constructed; never read `os.homedir()`, `process.env` or `process.platform` at module load. Then
 add the config key and docs (see
 `docs/development.md`, "Adding a new source adapter"), plus CLI examples:
@@ -91,7 +93,7 @@ For file/DB-backed sources, add only a dedicated flag (for example `--opencode-d
 
 ### 3) Add tests
 
-- fixture-based parser tests in `tests/sources`
+- fixture-based parser tests in `packages/core/tests/sources/<name>` (fixtures in `packages/core/tests/fixtures/<name>`)
 - integration coverage if CLI behavior changes
 
 ### 4) Verify source filter behavior
