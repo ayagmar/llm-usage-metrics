@@ -298,7 +298,7 @@ function* parseMessageUsage(context: AmpParseContext): Generator<UsageEvent, voi
 export class AmpSourceAdapter implements SourceAdapter {
   public readonly id = 'amp' as const;
   public readonly parserVersion = 2;
-  public readonly capabilities = { eventsPrecedeFileMtime: true } as const;
+  public readonly capabilities = { eventsPrecedeFileMtime: true, kinds: ['usage'] } as const;
 
   private readonly threadsDir: string;
   private readonly requireDir: boolean;

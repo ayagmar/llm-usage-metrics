@@ -29,7 +29,7 @@ export type OpenClawSourceAdapterOptions = SourceAdapterPathOptions & {
 export class OpenClawSourceAdapter implements SourceAdapter {
   public readonly id = 'openclaw' as const;
   public readonly parserVersion = 4;
-  public readonly capabilities = { eventsPrecedeFileMtime: true } as const;
+  public readonly capabilities = { eventsPrecedeFileMtime: true, kinds: ['usage'] } as const;
 
   private readonly rootDirs: readonly string[];
   private readonly requireDir: boolean;

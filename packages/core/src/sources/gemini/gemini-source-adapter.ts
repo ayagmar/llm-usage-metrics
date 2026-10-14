@@ -232,6 +232,7 @@ export class GeminiSourceAdapter implements SourceAdapter {
   public readonly capabilities = {
     fixedProviderRoots: ['google'],
     eventsPrecedeFileMtime: true,
+    kinds: ['usage'],
   } as const;
 
   private readonly geminiDir: string;

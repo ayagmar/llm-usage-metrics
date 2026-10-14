@@ -321,6 +321,7 @@ export class CodexSourceAdapter implements SourceAdapter {
   public readonly capabilities = {
     fixedProviderRoots: ['openai'],
     eventsPrecedeFileMtime: true,
+    kinds: ['usage'],
   } as const;
 
   private readonly sessionsDir: string;

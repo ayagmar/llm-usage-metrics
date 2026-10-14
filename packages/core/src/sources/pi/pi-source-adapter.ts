@@ -234,6 +234,7 @@ export class PiSourceAdapter implements SourceAdapter {
   public readonly capabilities = {
     eventsPrecedeFileMtime: true,
     eventsRepeatAcrossFiles: true,
+    kinds: ['usage'],
   } as const;
 
   private readonly rootDirs: readonly string[];
