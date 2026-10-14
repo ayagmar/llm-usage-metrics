@@ -1,0 +1,3 @@
+{"type":"assistant","uuid":"r-a1","sessionId":"reasons-session","timestamp":"2026-07-04T10:00:00.000Z","message":{"id":"r-msg-1","role":"assistant","model":"claude-sonnet-4-5","content":[{"type":"tool_use","id":"r-tool-1","name":"Bash","input":{}},{"type":"tool_use","id":"r-tool-2","input":{}}]}}
+{"type":"assistant","uuid":"r-a2","sessionId":"reasons-session","timestamp":"2026-07-04T10:00:01.000Z","message":{"id":"r-msg-2","role":"assistant","model":"claude-sonnet-4-5","content":[{"type":"tool_use","id":"r-tool-1","name":"Read","input":{}}]}}
+{"type":"user","uuid":"r-u1","sessionId":"reasons-session","timestamp":"2026-07-04T10:00:02.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"r-tool-1","content":"ok"}]}}

@@ -76,7 +76,7 @@ async function discoverUiMessageFiles(rootDir: string): Promise<string[]> {
 export class ClineFamilyAdapter implements SourceAdapter {
   public readonly id: SourceId;
   public readonly parserVersion = 3;
-  public readonly capabilities = { eventsPrecedeFileMtime: true } as const;
+  public readonly capabilities = { eventsPrecedeFileMtime: true, kinds: ['usage'] } as const;
 
   private readonly rootDirs: readonly string[];
   private readonly requireDir: boolean;

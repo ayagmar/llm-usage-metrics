@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { readJsonlObjects } from '../src/utils/read-jsonl-objects.js';
+import { readClassifiedJsonlObjects, readJsonlObjects } from '../src/utils/read-jsonl-objects.js';
 import { canCountOpenFds, countOpenFds } from './helpers/open-fds.js';
 
 const tempDirs: string[] = [];
@@ -336,5 +336,99 @@ describe('readJsonlObjects', () => {
 
     // No polling: the generator's return() must not resolve while the fd is open.
     expect(countOpenFds()).toBe(before);
+  });
+
+  it('hands a malformed line to the callback as the predicate saw it', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'read-jsonl-malformed-input-'));
+    tempDirs.push(rootDir);
+    const filePath = path.join(rootDir, 'session.jsonl');
+    await writeFile(filePath, '\uFEFF {"bad": \r\n{"ok":1}\n', 'utf8');
+    const malformedBytes: string[] = [];
+    const malformedTexts: string[] = [];
+
+    await collectAll(
+      readJsonlObjects(filePath, {
+        shouldParseLineBytes: () => true,
+        onMalformedLine: (lineBytes) => {
+          malformedBytes.push(lineBytes.toString('utf8'));
+        },
+      }),
+    );
+    await collectAll(
+      readJsonlObjects(filePath, {
+        shouldParseLine: () => true,
+        onMalformedLine: (lineText) => {
+          malformedTexts.push(lineText);
+        },
+      }),
+    );
+
+    // Bytes without the BOM and line ending; text trimmed as well.
+    expect(malformedBytes).toEqual([' {"bad": ']);
+    expect(malformedTexts).toEqual(['{"bad":']);
+  });
+});
+
+async function collectAll<T>(source: AsyncIterable<T>): Promise<T[]> {
+  const items: T[] = [];
+
+  for await (const item of source) {
+    items.push(item);
+  }
+
+  return items;
+}
+
+describe('readClassifiedJsonlObjects', () => {
+  const lines = [
+    '{"type":"assistant","usage":{}}',
+    '{"type":"user"}',
+    '{"type":"skip"}',
+    '{"type":"assistant","usage":',
+  ];
+
+  async function writeLines(): Promise<string> {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'read-jsonl-classified-'));
+    tempDirs.push(rootDir);
+    const filePath = path.join(rootDir, 'session.jsonl');
+    await writeFile(filePath, lines.join('\n'), 'utf8');
+    return filePath;
+  }
+
+  const usageBytes = Buffer.from('"usage"');
+  const skipBytes = Buffer.from('"skip"');
+
+  it('reports whether the usage prefilter accepted each line, by bytes', async () => {
+    const filePath = await writeLines();
+    const malformed: boolean[] = [];
+
+    const items = await collectAll(
+      readClassifiedJsonlObjects(filePath, {
+        shouldParseLineBytes: (lineBytes) => !lineBytes.includes(skipBytes),
+        isUsageLineBytes: (lineBytes) => lineBytes.includes(usageBytes),
+        onMalformedLine: (lineBytes) => {
+          malformed.push(lineBytes.includes(usageBytes));
+        },
+      }),
+    );
+
+    expect(items).toEqual([
+      { record: { type: 'assistant', usage: {} }, isUsageLine: true },
+      { record: { type: 'user' }, isUsageLine: false },
+    ]);
+    expect(malformed).toEqual([true]);
+  });
+
+  it('reports whether the usage prefilter accepted each line, by text', async () => {
+    const filePath = await writeLines();
+
+    const items = await collectAll(
+      readClassifiedJsonlObjects(filePath, {
+        shouldParseLine: (lineText) => !lineText.includes('"skip"'),
+        isUsageLine: (lineText) => lineText.includes('"usage"'),
+      }),
+    );
+
+    expect(items.map((item) => item.isUsageLine)).toEqual([true, false]);
   });
 });

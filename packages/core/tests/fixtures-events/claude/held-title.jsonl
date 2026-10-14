@@ -1,0 +1,4 @@
+{"type":"ai-title","aiTitle":"Early title","sessionId":"held-session"}
+{"type":"custom-title","customTitle":"Named session","sessionId":"held-session"}
+{"type":"assistant","timestamp":"2026-07-02T09:00:00.000Z","uuid":"h-a-1","requestId":"h-req-1","sessionId":"held-session","cwd":"/work/demo","gitBranch":"main","version":"2.1.0","message":{"id":"h-msg-1","role":"assistant","model":"claude-sonnet-4-5","content":[{"type":"tool_use","id":"h-tool-1","name":"Bash","input":{}}],"usage":{"input_tokens":10,"cache_creation_input_tokens":2,"cache_read_input_tokens":3,"output_tokens":4}}}
+{"type":"user","timestamp":"2026-07-02T09:00:05.000Z","uuid":"h-u-1","sessionId":"held-session","cwd":"/work/demo","gitBranch":"main","version":"2.1.0","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"h-tool-1","content":"done"}]}}

@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
+import { createMessageEvent, createUsageRecord } from '../../src/domain/session-event.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import { MultiDirectorySourceAdapter } from '../../src/sources/multi-directory-source-adapter.js';
 import { recordSkippedRow } from '../../src/sources/parse-diagnostics.js';
 import type { SourceAdapter } from '../../src/sources/source-adapter.js';
 import { collect, collectFile } from '../../src/stream/collect.js';
+import { readEvents } from '../../src/stream/read-events.js';
 
 function createEvent(sessionId: string) {
   return createUsageEvent({
@@ -141,5 +143,34 @@ describe('MultiDirectorySourceAdapter', () => {
     ]);
 
     expect(adapter.getSearchPaths()).toEqual(['/a', '/b', '/c']);
+  });
+
+  it('reads events through the adapter that discovered the file', async () => {
+    const message = createMessageEvent({
+      source: 'pi',
+      sessionId: 'b',
+      timestamp: '2026-02-14T10:00:00.000Z',
+      role: 'user',
+      textLength: 0,
+    });
+    const first = createAdapter(['/a/one.jsonl']);
+    const second = createAdapter(['/b/two.jsonl'], {
+      capabilities: { kinds: ['usage', 'message'] },
+      async *readEvents() {
+        yield message;
+      },
+    });
+    const adapter = new MultiDirectorySourceAdapter([first, second]);
+    await adapter.discoverFiles();
+
+    await expect(collect(adapter.readEvents('/b/two.jsonl'))).resolves.toEqual([message]);
+    // The first adapter has no readEvents and declares no kinds: usage-only, through read.
+    await expect(collect(adapter.readEvents('/a/one.jsonl'))).resolves.toEqual([
+      createUsageRecord(createEvent('/a/one.jsonl')),
+    ]);
+    await expect(
+      collect(readEvents(adapter, '/a/one.jsonl', { kinds: ['message'] })),
+    ).resolves.toEqual([]);
+    expect(first.parsed).toEqual(['/a/one.jsonl']);
   });
 });

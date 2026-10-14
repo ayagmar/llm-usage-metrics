@@ -1,3 +1,4 @@
+import type { EventKind, SessionEvent } from '../domain/session-event.js';
 import type { UsageEvent, SourceId } from '../domain/usage-event.js';
 import type { SourceContext } from './source-context.js';
 
@@ -27,8 +28,12 @@ export type SourceCapabilities = {
    * several sessions hold with the same timestamp, model and usage is counted once.
    */
   sessionsCopyEvents?: boolean;
+  /**
+   * The event kinds `readEvents` can yield. An adapter that leaves it unset is read as
+   * `['usage']`.
+   */
+  kinds?: readonly EventKind[];
   /** Declared for later milestones; nothing reads these yet. */
-  kinds?: readonly string[];
   sqlite?: boolean;
   incremental?: boolean;
 };
@@ -55,6 +60,16 @@ export type SourceReadOptions = {
   diagnostics?: SourceReadDiagnostics;
 };
 
+export type ReadEventsOptions = {
+  /** The kinds to yield; every kind the adapter declares when omitted. */
+  kinds?: readonly EventKind[];
+  /** Include message text and session titles. Off by default: they are private data. */
+  text?: boolean;
+  /** Attach the parsed source record to each event as `raw`, text included. */
+  raw?: boolean;
+  diagnostics?: SourceReadDiagnostics;
+};
+
 export interface SourceAdapter<Event extends UsageEvent = UsageEvent> {
   readonly id: SourceId;
   /**
@@ -73,6 +88,12 @@ export interface SourceAdapter<Event extends UsageEvent = UsageEvent> {
    * every handle the read opened before `return()` resolves.
    */
   read(filePath: string, options?: SourceReadOptions): AsyncIterable<Event>;
+  /**
+   * Yields the file's events of the requested kinds. Usage records keep `read`'s order;
+   * every other kind is yielded when its event completes. Read it through the core
+   * `readEvents`, which falls back to `read` for an adapter without this method.
+   */
+  readEvents?(filePath: string, options?: ReadEventsOptions): AsyncIterable<SessionEvent>;
   getParseDependencies?(filePath: string): Promise<string[]>;
 }
 

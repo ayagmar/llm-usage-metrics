@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { EVENT_KINDS } from '../../src/domain/session-event.js';
 import { createDefaultAdapters } from '../../src/registry/index.js';
 import { createSourceContext } from '../../src/sources/source-context.js';
 import { canonicalTmpdir } from '../helpers/tmp.js';
@@ -32,17 +33,43 @@ describe('createDefaultAdapters', () => {
     ]);
   });
 
-  it('exposes source capabilities for provider pruning', () => {
-    const adapters = createDefaultAdapters({});
+  // Any `kinds` with usage passes here: sources widen it as they gain event kinds.
+  function getCapabilitiesBesidesKinds(sourceId: string) {
+    const adapter = createDefaultAdapters({}).find((candidate) => candidate.id === sourceId);
+    const { kinds, ...capabilities } = adapter?.capabilities ?? {};
 
-    expect(adapters.find((adapter) => adapter.id === 'codex')?.capabilities).toEqual({
+    expect(kinds, sourceId).toContain('usage');
+    return capabilities;
+  }
+
+  it('exposes source capabilities for provider pruning', () => {
+    expect(getCapabilitiesBesidesKinds('codex')).toEqual({
       fixedProviderRoots: ['openai'],
       eventsPrecedeFileMtime: true,
     });
-    expect(adapters.find((adapter) => adapter.id === 'gemini')?.capabilities).toEqual({
+    expect(getCapabilitiesBesidesKinds('gemini')).toEqual({
       fixedProviderRoots: ['google'],
       eventsPrecedeFileMtime: true,
     });
+  });
+
+  it('declares the event kinds of every source, usage included', () => {
+    for (const adapter of createDefaultAdapters({})) {
+      const kinds = adapter.capabilities?.kinds ?? [];
+
+      expect(kinds, adapter.id).toContain('usage');
+      expect(
+        kinds.filter((kind) => !EVENT_KINDS.includes(kind)),
+        adapter.id,
+      ).toEqual([]);
+      expect(new Set(kinds).size, adapter.id).toBe(kinds.length);
+    }
+  });
+
+  it('gives the SQLite sources no capability but kinds, so none skips files by mtime', () => {
+    for (const sourceId of ['goose', 'opencode', 'antigravity']) {
+      expect(getCapabilitiesBesidesKinds(sourceId), sourceId).toEqual({});
+    }
   });
 
   it('lets only file-per-session sources skip files by mtime', () => {

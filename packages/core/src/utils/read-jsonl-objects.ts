@@ -2,10 +2,36 @@ import { createReadStream } from 'node:fs';
 
 import { asRecord } from './as-record.js';
 
-type ReadJsonlObjectsOptions = {
-  onMalformedLine?: () => void;
+// A line predicate sees either the line's bytes or its trimmed text; the malformed-line
+// callback and the usage classifier receive the same input as the predicate.
+type BytesLineOptions = {
+  shouldParseLineBytes: (lineBytes: Buffer) => boolean;
+  shouldParseLine?: never;
+  onMalformedLine?: (lineBytes: Buffer) => void;
+};
+
+type TextLineOptions = {
+  shouldParseLineBytes?: never;
   shouldParseLine?: (lineText: string) => boolean;
-  shouldParseLineBytes?: (lineBytes: Buffer) => boolean;
+  onMalformedLine?: (lineText: string) => void;
+};
+
+export type ReadJsonlObjectsOptions = BytesLineOptions | TextLineOptions;
+
+/** Classifies each parsed line by whether the usage prefilter accepts it. */
+export type ReadClassifiedJsonlObjectsOptions =
+  | (BytesLineOptions & { isUsageLineBytes: (lineBytes: Buffer) => boolean })
+  | (TextLineOptions & { isUsageLine: (lineText: string) => boolean });
+
+export type ClassifiedJsonlObject = {
+  record: Record<string, unknown>;
+  /** Whether the usage prefilter accepted the line, so the usage branch may read it. */
+  isUsageLine: boolean;
+};
+
+// A classified read is told each record's line before the record is yielded.
+type LineReader = ReadJsonlObjectsOptions & {
+  onRecordLine?: (lineBytes: Buffer, lineText: string) => void;
 };
 
 const LINE_FEED = 0x0a;
@@ -13,9 +39,69 @@ const CARRIAGE_RETURN = 0x0d;
 const STREAM_CHUNK_SIZE_BYTES = 1024 * 1024;
 const UTF8_BOM = [0xef, 0xbb, 0xbf] as const;
 
-export async function* readJsonlObjects(
+// Overloads, so each form's callbacks are typed from the predicate the caller passes.
+export function readJsonlObjects(
+  filePath: string,
+  options: BytesLineOptions,
+): AsyncGenerator<Record<string, unknown>, void, undefined>;
+export function readJsonlObjects(
+  filePath: string,
+  options?: TextLineOptions,
+): AsyncGenerator<Record<string, unknown>, void, undefined>;
+export function readJsonlObjects(
   filePath: string,
   options: ReadJsonlObjectsOptions = {},
+): AsyncGenerator<Record<string, unknown>, void, undefined> {
+  return readJsonlItems(filePath, options);
+}
+
+/**
+ * `readJsonlObjects` that also reports, per object, whether the usage prefilter accepted
+ * its line. The line predicate is the union prefilter of every kind the read wants.
+ */
+export function readClassifiedJsonlObjects(
+  filePath: string,
+  options: BytesLineOptions & { isUsageLineBytes: (lineBytes: Buffer) => boolean },
+): AsyncGenerator<ClassifiedJsonlObject, void, undefined>;
+export function readClassifiedJsonlObjects(
+  filePath: string,
+  // eslint-disable-next-line @typescript-eslint/unified-signatures -- a union leaves the callbacks untyped
+  options: TextLineOptions & { isUsageLine: (lineText: string) => boolean },
+): AsyncGenerator<ClassifiedJsonlObject, void, undefined>;
+export function readClassifiedJsonlObjects(
+  filePath: string,
+  options: ReadClassifiedJsonlObjectsOptions,
+): AsyncGenerator<ClassifiedJsonlObject, void, undefined> {
+  const isUsageLineInput: (lineBytes: Buffer, lineText: string) => boolean =
+    'isUsageLineBytes' in options
+      ? (lineBytes) => options.isUsageLineBytes(lineBytes)
+      : (_lineBytes, lineText) => options.isUsageLine(lineText);
+
+  return classifyJsonlObjects(filePath, options, isUsageLineInput);
+}
+
+async function* classifyJsonlObjects(
+  filePath: string,
+  options: ReadJsonlObjectsOptions,
+  isUsageLineInput: (lineBytes: Buffer, lineText: string) => boolean,
+): AsyncGenerator<ClassifiedJsonlObject, void, undefined> {
+  let isUsageLine = false;
+  const records = readJsonlItems(filePath, {
+    ...options,
+    onRecordLine: (lineBytes, lineText) => {
+      isUsageLine = isUsageLineInput(lineBytes, lineText);
+    },
+  });
+
+  // Each record is yielded right after its line is classified.
+  for await (const record of records) {
+    yield { record, isUsageLine };
+  }
+}
+
+async function* readJsonlItems(
+  filePath: string,
+  options: LineReader,
 ): AsyncGenerator<Record<string, unknown>, void, undefined> {
   const stream = createReadStream(filePath, {
     highWaterMark: STREAM_CHUNK_SIZE_BYTES,
@@ -81,7 +167,7 @@ function takeLineBytes(lineEndBytes: Buffer, carriedChunks: Buffer[]): Buffer {
 function parseJsonlLine(
   lineBytes: Buffer,
   isFirstLine: boolean,
-  options: ReadJsonlObjectsOptions,
+  options: LineReader,
 ): Record<string, unknown> | undefined {
   let lineStart = 0;
   let lineEnd = lineBytes.length;
@@ -119,11 +205,22 @@ function parseJsonlLine(
   try {
     parsed = JSON.parse(lineText);
   } catch {
-    options.onMalformedLine?.();
+    if (options.shouldParseLineBytes) {
+      options.onMalformedLine?.(parseLineBytes);
+    } else {
+      options.onMalformedLine?.(lineText);
+    }
+
     return undefined;
   }
 
-  return asRecord(parsed) ?? undefined;
+  const record = asRecord(parsed);
+
+  if (record && options.onRecordLine) {
+    options.onRecordLine(parseLineBytes, lineText);
+  }
+
+  return record ?? undefined;
 }
 
 function hasUtf8Bom(lineBytes: Buffer, lineStart: number, lineEnd: number): boolean {

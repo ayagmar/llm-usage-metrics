@@ -1,7 +1,9 @@
 import path from 'node:path';
 
+import type { SessionEvent } from '../domain/session-event.js';
 import type { UsageEvent } from '../domain/usage-event.js';
-import type { SourceAdapter, SourceReadOptions } from './source-adapter.js';
+import { readEvents } from '../stream/read-events.js';
+import type { ReadEventsOptions, SourceAdapter, SourceReadOptions } from './source-adapter.js';
 
 /**
  * Reports several directories of a single-directory source as one source: one adapter per
@@ -61,6 +63,14 @@ export class MultiDirectorySourceAdapter implements SourceAdapter {
 
   public async *read(filePath: string, options?: SourceReadOptions): AsyncGenerator<UsageEvent> {
     yield* this.getAdapterForFile(filePath).read(filePath, options);
+  }
+
+  /** Always defined: an inner adapter without `readEvents` falls back to its `read`. */
+  public async *readEvents(
+    filePath: string,
+    options?: ReadEventsOptions,
+  ): AsyncGenerator<SessionEvent> {
+    yield* readEvents(this.getAdapterForFile(filePath), filePath, options);
   }
 
   public async getParseDependencies(filePath: string): Promise<string[]> {
