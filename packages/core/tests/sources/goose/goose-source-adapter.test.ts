@@ -8,7 +8,13 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { getDefaultGooseDbPathCandidates } from '../../../src/sources/goose/goose-db-path-resolver.js';
 import { GooseSourceAdapter } from '../../../src/sources/goose/index.js';
 import { createSourceContext } from '../../../src/sources/source-context.js';
-import { withSuppressedSqliteExperimentalWarning } from '../../helpers/sqlite.js';
+import { collect, collectFile } from '../../../src/stream/collect.js';
+import { canCountOpenFds, countOpenFds, waitForOpenFdCount } from '../../helpers/open-fds.js';
+import {
+  canBeginExclusive,
+  readJournalMode,
+  withSuppressedSqliteExperimentalWarning,
+} from '../../helpers/sqlite.js';
 
 type FixtureDatabaseSync = new (filePath: string) => {
   exec: (sql: string) => void;
@@ -238,7 +244,7 @@ describe.skipIf(!DatabaseSync)('GooseSourceAdapter', () => {
     ]);
 
     const adapter = new GooseSourceAdapter({ dbPath });
-    const diagnostics = await adapter.parseFileWithDiagnostics(dbPath);
+    const diagnostics = await collectFile(adapter, dbPath);
 
     expect(diagnostics.skippedRows).toBe(3);
     expect(diagnostics.skippedRowReasons).toEqual([
@@ -364,7 +370,7 @@ describe.skipIf(!DatabaseSync)('GooseSourceAdapter', () => {
   it('validates parse DB paths before opening sqlite', async () => {
     const adapter = new GooseSourceAdapter();
 
-    await expect(adapter.parseFileWithDiagnostics('   ')).rejects.toThrow(
+    await expect(collectFile(adapter, '   ')).rejects.toThrow(
       'Goose DB path must be a non-empty path',
     );
 
@@ -372,7 +378,7 @@ describe.skipIf(!DatabaseSync)('GooseSourceAdapter', () => {
       pathReadable: async () => false,
     });
 
-    await expect(unreadableAdapter.parseFileWithDiagnostics('/tmp/goose.db')).rejects.toThrow(
+    await expect(collectFile(unreadableAdapter, '/tmp/goose.db')).rejects.toThrow(
       'Goose DB path is unreadable: /tmp/goose.db',
     );
 
@@ -382,8 +388,42 @@ describe.skipIf(!DatabaseSync)('GooseSourceAdapter', () => {
       pathIsFile: async () => false,
     });
 
-    await expect(directoryAdapter.parseFileWithDiagnostics('/tmp/goose-dir')).rejects.toThrow(
+    await expect(collectFile(directoryAdapter, '/tmp/goose-dir')).rejects.toThrow(
       'Goose DB path is not a file: /tmp/goose-dir',
     );
   });
+
+  it.runIf(canCountOpenFds)(
+    'closes the database and frees it for a writer when the consumer stops early',
+    async () => {
+      const tempDir = await mkdtemp(path.join(os.tmpdir(), 'goose-early-return-'));
+      tempDirs.push(tempDir);
+      const dbPath = path.join(tempDir, 'sessions.db');
+      const rowCount = 3;
+      createGooseFixtureDb(
+        dbPath,
+        Array.from({ length: rowCount }, (_, index) => ({
+          id: `goose-${index}`,
+          modelConfigJson: JSON.stringify({ model_name: 'gpt-goose' }),
+          providerName: 'openai',
+          createdAt: '2026-04-01T10:00:00.000Z',
+          totalTokens: 15,
+          inputTokens: 10,
+          outputTokens: 5,
+        })),
+      );
+      expect(readJournalMode(dbPath)).toBe('delete');
+      const adapter = new GooseSourceAdapter({ dbPath });
+      const before = countOpenFds();
+
+      for await (const event of adapter.read(dbPath)) {
+        expect(event.source).toBe('goose');
+        break;
+      }
+
+      await waitForOpenFdCount(before);
+      expect(canBeginExclusive(dbPath)).toBe(true);
+      await expect(collect(adapter.read(dbPath))).resolves.toHaveLength(rowCount);
+    },
+  );
 });

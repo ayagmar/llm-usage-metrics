@@ -8,11 +8,13 @@ import { getParseFileFingerprint } from '../../../src/sources/parse-fingerprint.
 import { getDefaultAntigravityConversationsDir } from '../../../src/sources/antigravity/antigravity-path-resolver.js';
 import { AntigravitySourceAdapter } from '../../../src/sources/antigravity/index.js';
 import { createSourceContext } from '../../../src/sources/source-context.js';
+import { collect, collectFile } from '../../../src/stream/collect.js';
 import {
   createAntigravityFixtureDb,
   encodeAntigravityGenMetadataBlob,
 } from '../../helpers/antigravity-fixtures.js';
-import { loadDatabaseSync } from '../../helpers/sqlite.js';
+import { canCountOpenFds, countOpenFds, waitForOpenFdCount } from '../../helpers/open-fds.js';
+import { canBeginExclusive, loadDatabaseSync, readJournalMode } from '../../helpers/sqlite.js';
 
 const tempDirs: string[] = [];
 const DatabaseSync = loadDatabaseSync();
@@ -69,7 +71,7 @@ describe.skipIf(!DatabaseSync)('AntigravitySourceAdapter', () => {
     });
 
     const adapter = new AntigravitySourceAdapter({ dir: tempDir });
-    const diagnostics = await adapter.parseFileWithDiagnostics(dbPath);
+    const diagnostics = await collectFile(adapter, dbPath);
 
     expect(diagnostics).toMatchObject({
       skippedRows: 0,
@@ -114,7 +116,7 @@ describe.skipIf(!DatabaseSync)('AntigravitySourceAdapter', () => {
     });
 
     const adapter = new AntigravitySourceAdapter();
-    const events = await adapter.parseFile(dbPath);
+    const events = await collect(adapter.read(dbPath));
 
     expect(events).toHaveLength(1);
     expect(events[0]?.timestamp).toBe('2026-04-02T12:00:00.000Z');
@@ -180,7 +182,7 @@ describe.skipIf(!DatabaseSync)('AntigravitySourceAdapter', () => {
     });
 
     const adapter = new AntigravitySourceAdapter();
-    const diagnostics = await adapter.parseFileWithDiagnostics(dbPath);
+    const diagnostics = await collectFile(adapter, dbPath);
 
     expect(diagnostics.events.map((event) => event.model)).toEqual(['gemini-first']);
     expect(diagnostics.skippedRows).toBe(3);
@@ -203,7 +205,7 @@ describe.skipIf(!DatabaseSync)('AntigravitySourceAdapter', () => {
 
     const adapter = new AntigravitySourceAdapter();
 
-    await expect(adapter.parseFileWithDiagnostics(dbPath)).resolves.toEqual({
+    await expect(collectFile(adapter, dbPath)).resolves.toEqual({
       events: [],
       skippedRows: 0,
       skippedRowReasons: [],
@@ -286,7 +288,7 @@ describe.skipIf(!DatabaseSync)('AntigravitySourceAdapter', () => {
   it('validates parse DB paths before opening sqlite', async () => {
     const adapter = new AntigravitySourceAdapter();
 
-    await expect(adapter.parseFileWithDiagnostics('   ')).rejects.toThrow(
+    await expect(collectFile(adapter, '   ')).rejects.toThrow(
       'Antigravity DB path must be a non-empty path',
     );
 
@@ -294,7 +296,7 @@ describe.skipIf(!DatabaseSync)('AntigravitySourceAdapter', () => {
       pathReadable: async () => false,
     });
 
-    await expect(unreadableAdapter.parseFileWithDiagnostics('/tmp/antigravity.db')).rejects.toThrow(
+    await expect(collectFile(unreadableAdapter, '/tmp/antigravity.db')).rejects.toThrow(
       'Antigravity DB path is unreadable: /tmp/antigravity.db',
     );
 
@@ -304,7 +306,7 @@ describe.skipIf(!DatabaseSync)('AntigravitySourceAdapter', () => {
       pathIsFile: async () => false,
     });
 
-    await expect(directoryAdapter.parseFileWithDiagnostics('/tmp/antigravity-dir')).rejects.toThrow(
+    await expect(collectFile(directoryAdapter, '/tmp/antigravity-dir')).rejects.toThrow(
       'Antigravity DB path is not a file: /tmp/antigravity-dir',
     );
   });
@@ -348,7 +350,7 @@ describe.skipIf(!DatabaseSync)('AntigravitySourceAdapter', () => {
     const before = await getParseFileFingerprint(adapter, dbPath);
 
     await new Promise((resolve) => setTimeout(resolve, 20));
-    expect((await adapter.parseFileWithDiagnostics(dbPath)).events).toHaveLength(2);
+    expect((await collectFile(adapter, dbPath)).events).toHaveLength(2);
     expect(await getParseFileFingerprint(adapter, dbPath)).toEqual(before);
 
     const appender = new Database(dbPath);
@@ -362,7 +364,7 @@ describe.skipIf(!DatabaseSync)('AntigravitySourceAdapter', () => {
       // The new commit is only in -wal, so -wal must stay part of the cache key.
       expect((await stat(dbPath)).mtimeMs).toBe(dbMtimeMs);
       expect(await getParseFileFingerprint(adapter, dbPath)).not.toEqual(before);
-      expect((await adapter.parseFileWithDiagnostics(dbPath)).events).toHaveLength(3);
+      expect((await collectFile(adapter, dbPath)).events).toHaveLength(3);
     } finally {
       appender.close();
     }
@@ -376,5 +378,78 @@ describe.skipIf(!DatabaseSync)('AntigravitySourceAdapter', () => {
       '/tmp/conversation.db-journal',
     ]);
     await expect(adapter.getParseDependencies('   ')).resolves.toEqual([]);
+  });
+
+  it.runIf(canCountOpenFds)(
+    'closes the database and frees it for a writer when the consumer stops early',
+    async () => {
+      const tempDir = await mkdtemp(path.join(os.tmpdir(), 'antigravity-early-return-'));
+      tempDirs.push(tempDir);
+      const dbPath = path.join(tempDir, 'conversation-early.db');
+      const turnCount = 3;
+      createAntigravityFixtureDb(dbPath, {
+        sessionCreatedAt: { seconds: 1_775_044_800 },
+        turns: Array.from({ length: turnCount }, (_, index) => ({
+          model: 'gemini-3-pro',
+          usage: { inputTokens: 100, outputTokens: 10, responseId: `response-${index}` },
+        })),
+      });
+      expect(readJournalMode(dbPath)).toBe('delete');
+      const adapter = new AntigravitySourceAdapter({ dir: tempDir });
+      const before = countOpenFds();
+
+      for await (const event of adapter.read(dbPath)) {
+        expect(event.sessionId).toBe('conversation-early');
+        break;
+      }
+
+      await waitForOpenFdCount(before);
+      expect(canBeginExclusive(dbPath)).toBe(true);
+      await expect(collect(adapter.read(dbPath))).resolves.toHaveLength(turnCount);
+    },
+  );
+
+  it('reports a failing first gen_metadata row before the session timestamp query', async () => {
+    const rowError = new Error('gen_metadata row failed');
+    const queries: string[] = [];
+    const adapter = new AntigravitySourceAdapter({
+      pathReadable: async () => true,
+      pathExists: async () => true,
+      pathIsFile: async () => true,
+      loadSqliteModule: async () => ({
+        DatabaseSync: class {
+          public prepare(sql: string) {
+            queries.push(sql);
+
+            if (sql.includes('sqlite_master')) {
+              return { all: () => [{ name: 'gen_metadata' }] };
+            }
+
+            if (sql.includes('trajectory_metadata_blob')) {
+              throw new Error('session timestamp query failed');
+            }
+
+            return {
+              all: () => [],
+              iterate: (): IterableIterator<Record<string, unknown>> => ({
+                next(): IteratorResult<Record<string, unknown>> {
+                  throw rowError;
+                },
+                [Symbol.iterator]() {
+                  return this;
+                },
+              }),
+            };
+          }
+
+          public close(): void {
+            // nothing to release in the fake database
+          }
+        },
+      }),
+    });
+
+    await expect(collect(adapter.read('/tmp/conversation.db'))).rejects.toThrow(rowError);
+    expect(queries.some((query) => query.includes('trajectory_metadata_blob'))).toBe(false);
   });
 });
