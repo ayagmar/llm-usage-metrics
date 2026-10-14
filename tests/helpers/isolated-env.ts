@@ -54,6 +54,12 @@ export function useIsolatedEnvironment(): IsolatedEnvironment {
       vi.stubEnv(name, undefined);
     }
 
+    // The efficiency report runs git with this environment; an inherited GIT_DIR,
+    // GIT_WORK_TREE or GIT_AUTHOR_* would point it elsewhere or change its output.
+    for (const name of Object.keys(process.env).filter((key) => key.startsWith('GIT_'))) {
+      vi.stubEnv(name, undefined);
+    }
+
     vi.stubEnv('HOME', homeDir);
     vi.stubEnv('USERPROFILE', homeDir);
     vi.stubEnv('APPDATA', path.join(homeDir, 'AppData', 'Roaming'));
