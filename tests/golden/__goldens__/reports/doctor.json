@@ -10,7 +10,7 @@
         "itemsFound": 1,
         "state": "found",
         "searchedPaths": [
-          "<fixtures>/e2e/pi"
+          "<tmp>/fixtures/e2e/pi"
         ]
       },
       {
@@ -20,7 +20,7 @@
         "itemsFound": 1,
         "state": "found",
         "searchedPaths": [
-          "<fixtures>/e2e/codex"
+          "<tmp>/fixtures/e2e/codex"
         ]
       },
       {
@@ -30,7 +30,7 @@
         "itemsFound": 1,
         "state": "found",
         "searchedPaths": [
-          "<fixtures>/e2e/gemini"
+          "<tmp>/fixtures/e2e/gemini"
         ]
       },
       {
@@ -40,7 +40,7 @@
         "itemsFound": 2,
         "state": "found",
         "searchedPaths": [
-          "<fixtures>/e2e/droid"
+          "<tmp>/fixtures/e2e/droid"
         ]
       },
       {
@@ -60,7 +60,7 @@
         "itemsFound": 1,
         "state": "found",
         "searchedPaths": [
-          "<fixtures>/e2e/openclaw"
+          "<tmp>/fixtures/e2e/openclaw"
         ]
       },
       {
@@ -70,7 +70,7 @@
         "itemsFound": 1,
         "state": "found",
         "searchedPaths": [
-          "<fixtures>/e2e/claude"
+          "<tmp>/fixtures/e2e/claude"
         ]
       },
       {
@@ -80,7 +80,7 @@
         "itemsFound": 1,
         "state": "found",
         "searchedPaths": [
-          "<fixtures>/e2e/copilot"
+          "<tmp>/fixtures/e2e/copilot"
         ]
       },
       {
@@ -100,7 +100,7 @@
         "itemsFound": 1,
         "state": "found",
         "searchedPaths": [
-          "<fixtures>/e2e/amp"
+          "<tmp>/fixtures/e2e/amp"
         ]
       },
       {
@@ -110,7 +110,7 @@
         "itemsFound": 1,
         "state": "found",
         "searchedPaths": [
-          "<fixtures>/e2e/qwen/projects"
+          "<tmp>/fixtures/e2e/qwen/projects"
         ]
       },
       {
@@ -120,7 +120,7 @@
         "itemsFound": 1,
         "state": "found",
         "searchedPaths": [
-          "<fixtures>/e2e/kimi"
+          "<tmp>/fixtures/e2e/kimi"
         ]
       },
       {
@@ -130,7 +130,7 @@
         "itemsFound": 1,
         "state": "found",
         "searchedPaths": [
-          "<fixtures>/e2e/cline"
+          "<tmp>/fixtures/e2e/cline"
         ]
       },
       {
@@ -140,7 +140,7 @@
         "itemsFound": 1,
         "state": "found",
         "searchedPaths": [
-          "<fixtures>/e2e/roocode"
+          "<tmp>/fixtures/e2e/roocode"
         ]
       },
       {
@@ -150,7 +150,7 @@
         "itemsFound": 1,
         "state": "found",
         "searchedPaths": [
-          "<fixtures>/e2e/kilocode"
+          "<tmp>/fixtures/e2e/kilocode"
         ]
       },
       {
