@@ -224,8 +224,10 @@ That keeps sorting and separator behavior deterministic without coupling the gen
   Shared report execution lifecycle
 - `src/config`
   TOML config loading (`user-config.ts`) and flag/env/config/default resolution (`runtime-overrides.ts`)
-- `src/sources`
-  Source adapters, discovery, parsing
+- `packages/core/src/sources`
+  Source adapters, discovery, parsing, in the `@ayagmar/agent-sessions` package; the CLI imports them through the package specifiers
+- `packages/core/src/registry`
+  The adapter registry (`createDefaultAdapters`, `getDefaultSourceIds`), exported as `@ayagmar/agent-sessions/registry`; `src/sources/create-default-adapters.ts` re-exports it for the docs site
 - `src/domain`
   Canonical usage contracts and normalization
 - `src/pricing`

@@ -32,7 +32,7 @@ Before opening a PR:
 ## Architecture Boundaries
 
 - `src/cli`: command wiring and report orchestration
-- `src/sources`: source adapters + discovery/parsing
+- `packages/core/src/sources`: source adapters + discovery/parsing (package `@ayagmar/agent-sessions`; registry in `packages/core/src/registry`)
 - `src/domain`: normalized data contracts
 - `src/pricing`: pricing source + cost engine
 - `src/aggregate`: usage bucketing/totals
@@ -87,7 +87,7 @@ Keep source-specific parsing logic inside adapters. Keep pricing logic in `src/p
 - Every functional change should include or update tests.
 - Place tests by area:
   - `tests/cli`
-  - `tests/sources`
+  - `packages/core/tests/sources`
   - `tests/pricing`
   - `tests/render`
   - `tests/e2e`

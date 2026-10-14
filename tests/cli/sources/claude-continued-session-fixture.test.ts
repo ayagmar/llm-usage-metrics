@@ -70,7 +70,7 @@ describe('Claude session continued into a second file', () => {
     };
     const grandTotal = report.data.find((row) => row.rowType === 'grand_total');
 
-    // KI-4 not reproduced at the report level: countCopiedSessionEventsOnce keeps the
+    // KI-4 not reproduced at the report level: dedupeCopiedSessions keeps the
     // 3 copied rows once (cont-a starts first), so 3 + 2 new rows.
     expect(usageData.events).toHaveLength(5);
     expect(usageData.events.map((event) => event.sessionId)).toEqual([
