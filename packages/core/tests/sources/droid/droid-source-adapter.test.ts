@@ -5,7 +5,9 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { DroidSourceAdapter } from '../../../src/sources/droid/index.js';
+import { collect, collectFile } from '../../../src/stream/collect.js';
 import { fixturePath as packageFixturePath } from '../../helpers/fixtures.js';
+import { canCountOpenFds, countOpenFds, waitForOpenFdCount } from '../../helpers/open-fds.js';
 
 const fixturesDir = packageFixturePath(import.meta.url, '../../fixtures/droid');
 
@@ -69,11 +71,11 @@ describe('DroidSourceAdapter', () => {
     });
   });
 
-  describe('parseFile', () => {
+  describe('read', () => {
     it('parses settings-only sessions and computes billable totalTokens', async () => {
       const adapter = new DroidSourceAdapter({ dir: fixturesDir });
       const filePath = path.join(fixturesDir, 'parsing', 'settings-only.settings.json');
-      const events = await adapter.parseFile(filePath);
+      const events = await collect(adapter.read(filePath));
 
       expect(events).toHaveLength(1);
       expect(events[0]).toMatchObject({
@@ -94,7 +96,7 @@ describe('DroidSourceAdapter', () => {
     it('enriches repoRoot from sibling JSONL session_start', async () => {
       const adapter = new DroidSourceAdapter({ dir: fixturesDir });
       const filePath = path.join(fixturesDir, 'parsing', 'with-jsonl.settings.json');
-      const events = await adapter.parseFile(filePath);
+      const events = await collect(adapter.read(filePath));
 
       expect(events).toHaveLength(1);
       expect(events[0]?.repoRoot).toBe('/home/user/projects/my-app');
@@ -103,7 +105,7 @@ describe('DroidSourceAdapter', () => {
     it('falls back to first JSONL message timestamp when settings timestamp is missing', async () => {
       const adapter = new DroidSourceAdapter({ dir: fixturesDir });
       const filePath = path.join(fixturesDir, 'parsing', 'fallback-timestamp.settings.json');
-      const events = await adapter.parseFile(filePath);
+      const events = await collect(adapter.read(filePath));
 
       expect(events).toHaveLength(1);
       expect(events[0]?.timestamp).toBe('2026-02-24T10:00:11.000Z');
@@ -133,7 +135,7 @@ describe('DroidSourceAdapter', () => {
         'utf8',
       );
 
-      const events = await adapter.parseFile(settingsPath);
+      const events = await collect(adapter.read(settingsPath));
 
       expect(events).toHaveLength(1);
       expect(events[0]?.timestamp).toBe('2024-02-12T20:00:00.000Z');
@@ -171,7 +173,7 @@ describe('DroidSourceAdapter', () => {
         'utf8',
       );
 
-      const events = await adapter.parseFile(settingsPath);
+      const events = await collect(adapter.read(settingsPath));
       expect(events).toHaveLength(1);
       expect(events[0]?.timestamp).toBe('2026-02-24T10:00:22.000Z');
       expect(events[0]?.repoRoot).toBe('/tmp/repo');
@@ -180,13 +182,13 @@ describe('DroidSourceAdapter', () => {
     it('fails open when sibling JSONL is missing, unreadable, or malformed', async () => {
       const adapter = new DroidSourceAdapter({ dir: fixturesDir });
 
-      const missingJsonlEvents = await adapter.parseFile(
-        path.join(fixturesDir, 'parsing', 'settings-only.settings.json'),
+      const missingJsonlEvents = await collect(
+        adapter.read(path.join(fixturesDir, 'parsing', 'settings-only.settings.json')),
       );
       expect(missingJsonlEvents).toHaveLength(1);
 
-      const malformedJsonlEvents = await adapter.parseFile(
-        path.join(fixturesDir, 'parsing', 'malformed-jsonl.settings.json'),
+      const malformedJsonlEvents = await collect(
+        adapter.read(path.join(fixturesDir, 'parsing', 'malformed-jsonl.settings.json')),
       );
       expect(malformedJsonlEvents).toHaveLength(1);
 
@@ -213,15 +215,15 @@ describe('DroidSourceAdapter', () => {
       await writeFile(jsonlPath, '{"type":"session_start"}\n', 'utf8');
       await chmod(jsonlPath, 0);
 
-      const events = await adapter.parseFile(settingsPath);
+      const events = await collect(adapter.read(settingsPath));
       expect(events).toHaveLength(1);
       expect(events[0]?.timestamp).toBe('2026-02-24T10:00:00.000Z');
     });
 
     it('stops JSONL scan after session_start when primary timestamp is valid', async () => {
       const adapter = new DroidSourceAdapter({ dir: fixturesDir });
-      const events = await adapter.parseFile(
-        path.join(fixturesDir, 'parsing', 'early-exit.settings.json'),
+      const events = await collect(
+        adapter.read(path.join(fixturesDir, 'parsing', 'early-exit.settings.json')),
       );
 
       expect(events).toHaveLength(1);
@@ -230,8 +232,8 @@ describe('DroidSourceAdapter', () => {
 
     it('keeps reasoning-only sessions even when billable totals are zero', async () => {
       const adapter = new DroidSourceAdapter({ dir: fixturesDir });
-      const events = await adapter.parseFile(
-        path.join(fixturesDir, 'parsing', 'reasoning-only.settings.json'),
+      const events = await collect(
+        adapter.read(path.join(fixturesDir, 'parsing', 'reasoning-only.settings.json')),
       );
 
       expect(events).toHaveLength(1);
@@ -246,25 +248,24 @@ describe('DroidSourceAdapter', () => {
     });
   });
 
-  describe('parseFileWithDiagnostics', () => {
+  describe('diagnostics', () => {
     it('reports parse errors and invalid shapes', async () => {
       const adapter = new DroidSourceAdapter({ dir: fixturesDir });
 
       await expect(
-        adapter.parseFileWithDiagnostics(path.join(fixturesDir, 'parsing', 'invalid-json.txt')),
+        collectFile(adapter, path.join(fixturesDir, 'parsing', 'invalid-json.txt')),
       ).rejects.toThrow('Transcript is not readable JSON');
 
       await expect(
-        adapter.parseFileWithDiagnostics(
-          path.join(fixturesDir, 'parsing', 'invalid-root.settings.json'),
-        ),
+        collectFile(adapter, path.join(fixturesDir, 'parsing', 'invalid-root.settings.json')),
       ).rejects.toThrow('Droid settings are not a JSON object');
     });
 
     it('reports missing/zero usage as no_token_usage', async () => {
       const adapter = new DroidSourceAdapter({ dir: fixturesDir });
 
-      const missingUsage = await adapter.parseFileWithDiagnostics(
+      const missingUsage = await collectFile(
+        adapter,
         path.join(fixturesDir, 'parsing', 'missing-token-usage.settings.json'),
       );
       expect(missingUsage.events).toHaveLength(0);
@@ -294,7 +295,7 @@ describe('DroidSourceAdapter', () => {
         'utf8',
       );
 
-      const result = await adapter.parseFileWithDiagnostics(settingsPath);
+      const result = await collectFile(adapter, settingsPath);
 
       expect(result.events).toHaveLength(0);
       expect(result.skippedRowReasons).toEqual([{ reason: 'no_token_usage', count: 1 }]);
@@ -302,7 +303,8 @@ describe('DroidSourceAdapter', () => {
 
     it('reports invalid timestamp rows when neither primary nor fallback are valid', async () => {
       const adapter = new DroidSourceAdapter({ dir: fixturesDir });
-      const result = await adapter.parseFileWithDiagnostics(
+      const result = await collectFile(
+        adapter,
         path.join(fixturesDir, 'parsing', 'invalid-timestamp.settings.json'),
       );
 
@@ -332,7 +334,7 @@ describe('DroidSourceAdapter', () => {
       await writeFile(jsonlPath, '{"type":"message",', 'utf8');
 
       const adapter = new DroidSourceAdapter({ dir: tempDir });
-      const result = await adapter.parseFileWithDiagnostics(settingsPath);
+      const result = await collectFile(adapter, settingsPath);
 
       expect(result.events).toHaveLength(1);
       expect(result.skippedRows).toBe(1);
@@ -342,7 +344,8 @@ describe('DroidSourceAdapter', () => {
     it('reports event creation failures when sessionId is invalid', async () => {
       const adapter = new DroidSourceAdapter({ dir: fixturesDir });
       Object.defineProperty(adapter, 'id', { value: '   ' });
-      const result = await adapter.parseFileWithDiagnostics(
+      const result = await collectFile(
+        adapter,
         path.join(fixturesDir, 'parsing', 'settings-only.settings.json'),
       );
 
@@ -350,4 +353,44 @@ describe('DroidSourceAdapter', () => {
       expect(result.skippedRowReasons).toEqual([{ reason: 'event_creation_failed', count: 1 }]);
     });
   });
+
+  // A settings file yields at most one event, so stopping after it is the earliest return.
+  it.runIf(canCountOpenFds)(
+    'closes the settings and JSONL files when the consumer stops early',
+    async () => {
+      const tempDir = await mkdtemp(path.join(os.tmpdir(), 'droid-early-return-'));
+      tempDirs.push(tempDir);
+      const settingsPath = path.join(tempDir, 'early-return.settings.json');
+      await writeFile(
+        settingsPath,
+        JSON.stringify({
+          providerLock: 'openai',
+          model: 'gpt-4.1',
+          tokenUsage: { inputTokens: 10, outputTokens: 5 },
+        }),
+        'utf8',
+      );
+      // The usable message timestamp sits past the first read chunk of the sibling JSONL.
+      const paddingRow = JSON.stringify({ type: 'message', padding: 'x'.repeat(1000) });
+      await writeFile(
+        path.join(tempDir, 'early-return.jsonl'),
+        [
+          ...Array.from({ length: 3000 }, () => paddingRow),
+          JSON.stringify({ type: 'message', timestamp: '2026-02-24T10:00:22.000Z' }),
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      const adapter = new DroidSourceAdapter({ dir: tempDir });
+      const before = countOpenFds();
+
+      for await (const event of adapter.read(settingsPath)) {
+        expect(event.timestamp).toBe('2026-02-24T10:00:22.000Z');
+        break;
+      }
+
+      await waitForOpenFdCount(before);
+      await expect(collect(adapter.read(settingsPath))).resolves.toHaveLength(1);
+    },
+  );
 });
