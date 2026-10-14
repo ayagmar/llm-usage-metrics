@@ -5,7 +5,9 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { KimiSourceAdapter } from '../../../src/sources/kimi/index.js';
+import { collect, collectFile } from '../../../src/stream/collect.js';
 import { fixturePath as packageFixturePath } from '../../helpers/fixtures.js';
+import { canCountOpenFds, countOpenFds, waitForOpenFdCount } from '../../helpers/open-fds.js';
 
 const tempDirs: string[] = [];
 
@@ -137,7 +139,7 @@ describe('KimiSourceAdapter', () => {
     );
     const adapter = new KimiSourceAdapter();
 
-    const result = await adapter.parseFileWithDiagnostics(fixturePath);
+    const result = await collectFile(adapter, fixturePath);
 
     expect(result.events).toHaveLength(3);
     expect(result.events[0]).toMatchObject({
@@ -229,7 +231,7 @@ describe('KimiSourceAdapter', () => {
     );
 
     const adapter = new KimiSourceAdapter({ dir: root });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
@@ -261,7 +263,7 @@ describe('KimiSourceAdapter', () => {
     );
 
     const adapter = new KimiSourceAdapter({ dir: path.join(root, 'sessions') });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events.map((event) => event.model)).toEqual(['kimi-latest', 'kimi-latest']);
   });
@@ -283,7 +285,7 @@ describe('KimiSourceAdapter', () => {
     );
 
     const adapter = new KimiSourceAdapter({ dir: path.join(root, 'sessions') });
-    const result = await adapter.parseFileWithDiagnostics(filePath);
+    const result = await collectFile(adapter, filePath);
 
     expect(result.events.map((event) => event.model)).toEqual(['kimi-k2.5', 'kimi-k2.6']);
     expect(result.skippedRows).toBe(0);
@@ -299,7 +301,7 @@ describe('KimiSourceAdapter', () => {
     await writeFile(filePath, cliStatusUpdateLine('message-1', 1772445600), 'utf8');
 
     const adapter = new KimiSourceAdapter({ dir: path.join(root, 'sessions') });
-    const result = await adapter.parseFileWithDiagnostics(filePath);
+    const result = await collectFile(adapter, filePath);
 
     expect(result.events.map((event) => event.model)).toEqual(['kimi-k2.5']);
     expect(result.skippedRows).toBe(0);
@@ -313,7 +315,7 @@ describe('KimiSourceAdapter', () => {
     await writeFile(filePath, '{"type":"StatusUpdate",', 'utf8');
 
     const adapter = new KimiSourceAdapter({ dir: path.join(root, 'sessions') });
-    const result = await adapter.parseFileWithDiagnostics(filePath);
+    const result = await collectFile(adapter, filePath);
 
     expect(result.events).toEqual([]);
     expect(result.skippedRows).toBe(1);
@@ -346,7 +348,7 @@ describe('KimiSourceAdapter', () => {
     );
     const adapter = new KimiSourceAdapter();
 
-    const result = await adapter.parseFileWithDiagnostics(fixturePath);
+    const result = await collectFile(adapter, fixturePath);
 
     expect(result.events).toHaveLength(1);
     expect(result.events[0]).toMatchObject({
@@ -368,5 +370,35 @@ describe('KimiSourceAdapter', () => {
       { reason: 'invalid_timestamp', count: 1 },
       { reason: 'no_token_usage', count: 1 },
     ]);
+  });
+
+  it.runIf(canCountOpenFds)('closes the file when the consumer stops early', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'kimi-early-return-'));
+    tempDirs.push(root);
+    const agentDir = path.join(root, 'sessions', 'workspace', 'kimi-early-return', 'agents', 'a');
+    await mkdir(agentDir, { recursive: true });
+    const filePath = path.join(agentDir, 'wire.jsonl');
+    const rowCount = 3000;
+    const rows = Array.from({ length: rowCount }, (_, index) =>
+      JSON.stringify({
+        type: 'usage.record',
+        model: 'kimi-code/moonshot-v1-128k',
+        usageScope: 'turn',
+        time: 1772445660000 + index,
+        usage: { inputOther: 11, output: 7, inputCacheRead: 2, inputCacheCreation: 3 },
+        padding: 'x'.repeat(1000),
+      }),
+    );
+    await writeFile(filePath, `${rows.join('\n')}\n`, 'utf8');
+    const adapter = new KimiSourceAdapter({ dir: root });
+    const before = countOpenFds();
+
+    for await (const event of adapter.read(filePath)) {
+      expect(event.sessionId).toBe('kimi-early-return');
+      break;
+    }
+
+    await waitForOpenFdCount(before);
+    await expect(collect(adapter.read(filePath))).resolves.toHaveLength(rowCount);
   });
 });

@@ -6,6 +6,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { ClaudeSourceAdapter } from '../../../src/sources/claude/index.js';
 import { resolveDefaultClaudeRootDirs } from '../../../src/sources/claude/claude-source-adapter.js';
 import { createSourceContext } from '../../../src/sources/source-context.js';
+import { collect, collectFile } from '../../../src/stream/collect.js';
+import { canCountOpenFds, countOpenFds, waitForOpenFdCount } from '../../helpers/open-fds.js';
 import { canonicalTmpdir } from '../../helpers/tmp.js';
 
 const tempDirs: string[] = [];
@@ -170,8 +172,8 @@ describe('ClaudeSourceAdapter', () => {
       await realpath(projectFile),
       await realpath(transcriptFile),
     ]);
-    await expect(adapter.parseFile(projectFile)).resolves.toHaveLength(1);
-    await expect(adapter.parseFile(transcriptFile)).resolves.toHaveLength(1);
+    await expect(collect(adapter.read(projectFile))).resolves.toHaveLength(1);
+    await expect(collect(adapter.read(transcriptFile))).resolves.toHaveLength(1);
   });
 
   it('scans only the explicit directory when a dir override is provided', async () => {
@@ -225,7 +227,7 @@ describe('ClaudeSourceAdapter', () => {
       'utf8',
     );
 
-    const events = await new ClaudeSourceAdapter({ dir: projectsDir }).parseFile(filePath);
+    const events = await collect(new ClaudeSourceAdapter({ dir: projectsDir }).read(filePath));
 
     expect(events[0]).toMatchObject({
       outputTokens: 177,
@@ -272,7 +274,7 @@ describe('ClaudeSourceAdapter', () => {
       'utf8',
     );
 
-    const events = await new ClaudeSourceAdapter({ dir: projectsDir }).parseFile(filePath);
+    const events = await collect(new ClaudeSourceAdapter({ dir: projectsDir }).read(filePath));
 
     expect(events.map((event) => [event.cacheWriteTokens, event.cacheWrite1hTokens])).toEqual([
       [626, 600],
@@ -330,7 +332,7 @@ describe('ClaudeSourceAdapter', () => {
     );
 
     const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toHaveLength(2);
     expect(events[0]).toMatchObject({
@@ -372,7 +374,7 @@ describe('ClaudeSourceAdapter', () => {
     );
 
     const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toHaveLength(3);
     expect(events.map((event) => event.provider)).toEqual(['anthropic', 'openai', 'google']);
@@ -407,7 +409,7 @@ describe('ClaudeSourceAdapter', () => {
     );
 
     const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
-    const result = await adapter.parseFileWithDiagnostics(filePath);
+    const result = await collectFile(adapter, filePath);
 
     expect(result.events).toEqual([]);
     expect(result.skippedRows).toBe(3);
@@ -454,7 +456,7 @@ describe('ClaudeSourceAdapter', () => {
     );
 
     const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toHaveLength(2);
     expect(events[0]).toMatchObject({
@@ -495,7 +497,7 @@ describe('ClaudeSourceAdapter', () => {
     );
 
     const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({ outputTokens: 6, totalTokens: 16 });
@@ -545,7 +547,7 @@ describe('ClaudeSourceAdapter', () => {
 
     const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
     const countEvents = async (fileName: string) =>
-      (await adapter.parseFile(path.join(subagentsDir, fileName))).length;
+      (await collect(adapter.read(path.join(subagentsDir, fileName)))).length;
 
     expect(await countEvents('agent-a1.jsonl')).toBe(1);
     expect(await countEvents('agent-a2.jsonl')).toBe(1);
@@ -559,9 +561,9 @@ describe('ClaudeSourceAdapter', () => {
     // Scanning only the subagents directory leaves the main-thread parent uncounted, so
     // the fork's replayed rows stay.
     const narrowedAdapter = new ClaudeSourceAdapter({ dir: subagentsDir });
-    expect(await narrowedAdapter.parseFile(path.join(subagentsDir, 'agent-a1.jsonl'))).toHaveLength(
-      2,
-    );
+    expect(
+      await collect(narrowedAdapter.read(path.join(subagentsDir, 'agent-a1.jsonl'))),
+    ).toHaveLength(2);
     expect(
       await narrowedAdapter.getParseDependencies(path.join(subagentsDir, 'agent-a1.jsonl')),
     ).toEqual([path.join(subagentsDir, 'agent-a1.meta.json')]);
@@ -594,7 +596,7 @@ describe('ClaudeSourceAdapter', () => {
     );
 
     const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toHaveLength(2);
     expect(events[0]).toMatchObject({ outputTokens: 1, totalTokens: 11 });
@@ -626,7 +628,7 @@ describe('ClaudeSourceAdapter', () => {
     );
 
     const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({ outputTokens: 8, totalTokens: 18 });
@@ -640,7 +642,7 @@ describe('ClaudeSourceAdapter', () => {
     await writeFile(filePath, '{"type":"assistant","usage":', 'utf8');
 
     const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
-    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+    const diagnostics = await collectFile(adapter, filePath);
 
     expect(diagnostics.events).toEqual([]);
     expect(diagnostics.skippedRows).toBe(1);
@@ -660,5 +662,32 @@ describe('ClaudeSourceAdapter', () => {
     await expect(missingAdapter.discoverFiles()).rejects.toThrow(
       'Claude projects directory is missing or unreadable',
     );
+  });
+
+  it.runIf(canCountOpenFds)('closes the file when the consumer stops early', async () => {
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'claude-early-return-'));
+    tempDirs.push(root);
+    const filePath = path.join(root, 'larger-than-a-chunk.jsonl');
+    const rowCount = 3000;
+    const rows = Array.from({ length: rowCount }, (_, index) =>
+      assistantRow({
+        timestamp: new Date(Date.UTC(2026, 5, 23, 10, 0, index)).toISOString(),
+        sessionId: 'claude-early-return',
+        cwd: `/tmp/repo/${'x'.repeat(1000)}`,
+        messageId: `msg_${index}`,
+        uuid: `row-${index}`,
+      }),
+    );
+    await writeFile(filePath, `${rows.join('\n')}\n`, 'utf8');
+    const adapter = new ClaudeSourceAdapter({ dir: root });
+    const before = countOpenFds();
+
+    for await (const event of adapter.read(filePath)) {
+      expect(event.sessionId).toBe('claude-early-return');
+      break;
+    }
+
+    await waitForOpenFdCount(before);
+    await expect(collect(adapter.read(filePath))).resolves.toHaveLength(rowCount);
   });
 });

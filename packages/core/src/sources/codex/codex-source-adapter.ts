@@ -7,7 +7,8 @@ import { asRecord } from '../../utils/as-record.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import { pathStat } from '../../utils/fs-helpers.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
-import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
+import { collectFile } from '../../stream/collect.js';
+import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
   isBlankText,
@@ -19,6 +20,7 @@ import type {
   SourceAdapter,
   SourceAdapterPathOptions,
   SourceParseFileDiagnostics,
+  SourceReadOptions,
 } from '../source-adapter.js';
 import { createSourceContext, readEnvPath, type SourceContext } from '../source-context.js';
 
@@ -360,15 +362,11 @@ export class CodexSourceAdapter implements SourceAdapter {
     return discoverJsonlFiles(normalizedSessionsDir);
   }
 
-  public async parseFile(filePath: string): Promise<UsageEvent[]> {
-    const { events } = await this.parseFileWithDiagnostics(filePath);
-    return events;
-  }
-
-  public async parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
-    const events: UsageEvent[] = [];
-    let skippedRows = 0;
-    const skippedRowReasons = new Map<string, number>();
+  public async *read(
+    filePath: string,
+    options: SourceReadOptions = {},
+  ): AsyncGenerator<UsageEvent> {
+    const diagnostics = options.diagnostics ?? createReadDiagnostics();
 
     const state: CodexSessionState = {
       sessionId: getFallbackSessionId(filePath),
@@ -377,43 +375,46 @@ export class CodexSourceAdapter implements SourceAdapter {
       seenResponseIds: new Set(),
     };
 
-    const pushEvent = (record: PendingUsageRecord): void => {
+    const toEvent = (record: PendingUsageRecord): UsageEvent | undefined => {
       try {
-        events.push(
-          createUsageEvent({
-            source: this.id,
-            sessionId: state.sessionId,
-            timestamp: record.timestamp,
-            repoRoot: record.repoRoot,
-            provider: state.provider,
-            model: record.model ?? LEGACY_CODEX_MODEL_FALLBACK,
-            inputTokens: record.usage.inputTokens,
-            outputTokens: record.usage.outputTokens,
-            reasoningTokens: record.usage.reasoningTokens,
-            cacheReadTokens: record.usage.cacheReadTokens,
-            cacheWriteTokens: record.usage.cacheWriteTokens,
-            totalTokens: record.usage.totalTokens,
-          }),
-        );
+        return createUsageEvent({
+          source: this.id,
+          sessionId: state.sessionId,
+          timestamp: record.timestamp,
+          repoRoot: record.repoRoot,
+          provider: state.provider,
+          model: record.model ?? LEGACY_CODEX_MODEL_FALLBACK,
+          inputTokens: record.usage.inputTokens,
+          outputTokens: record.usage.outputTokens,
+          reasoningTokens: record.usage.reasoningTokens,
+          cacheReadTokens: record.usage.cacheReadTokens,
+          cacheWriteTokens: record.usage.cacheWriteTokens,
+          totalTokens: record.usage.totalTokens,
+        });
       } catch {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'event_creation_failed');
+        recordSkippedRow(diagnostics, 'event_creation_failed');
+        return undefined;
       }
     };
 
-    const flushPendingUsageRecords = (): void => {
-      for (const record of state.pendingUsageRecords) {
-        pushEvent(record);
-      }
-
+    // Pending records take the session id and provider current at flush time.
+    const flushPendingUsageRecords = function* (): Generator<UsageEvent> {
+      const records = state.pendingUsageRecords;
       state.pendingUsageRecords = [];
+
+      for (const record of records) {
+        const event = toEvent(record);
+
+        if (event) {
+          yield event;
+        }
+      }
     };
 
     for await (const line of readJsonlObjects(filePath, {
       shouldParseLineBytes: shouldParseCodexJsonlLineBytes,
       onMalformedLine: () => {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'json_parse_error');
+        recordSkippedRow(diagnostics, 'json_parse_error');
       },
     })) {
       if (line.type === 'session_meta') {
@@ -437,8 +438,7 @@ export class CodexSourceAdapter implements SourceAdapter {
         if (record) {
           state.pendingUsageRecords.push(record);
         } else if (invalidTimestamp) {
-          skippedRows++;
-          incrementSkippedReason(skippedRowReasons, 'invalid_timestamp');
+          recordSkippedRow(diagnostics, 'invalid_timestamp');
         }
 
         continue;
@@ -481,8 +481,7 @@ export class CodexSourceAdapter implements SourceAdapter {
           state.previousLastUsageOnlyKey = undefined;
         }
 
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'invalid_timestamp');
+        recordSkippedRow(diagnostics, 'invalid_timestamp');
         continue;
       }
 
@@ -499,14 +498,18 @@ export class CodexSourceAdapter implements SourceAdapter {
       }
 
       if (state.pendingUsageRecords.length > 0) {
-        flushPendingUsageRecords();
+        yield* flushPendingUsageRecords();
       } else {
-        pushEvent({
+        const event = toEvent({
           timestamp,
           usage: deltaUsage,
           repoRoot: state.repoRoot,
           model: state.model,
         });
+
+        if (event) {
+          yield event;
+        }
       }
 
       if (latestTotalUsage) {
@@ -518,8 +521,14 @@ export class CodexSourceAdapter implements SourceAdapter {
       }
     }
 
-    flushPendingUsageRecords();
+    yield* flushPendingUsageRecords();
+  }
 
-    return toParseDiagnostics(events, skippedRows, skippedRowReasons);
+  public async parseFile(filePath: string): Promise<UsageEvent[]> {
+    return (await collectFile(this, filePath)).events;
+  }
+
+  public parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
+    return collectFile(this, filePath);
   }
 }

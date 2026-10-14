@@ -9,6 +9,7 @@ import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import { pathStat } from '../../utils/fs-helpers.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
+import { collectFile } from '../../stream/collect.js';
 import {
   discoverFilesAcrossRoots,
   isPathWithinRoots,
@@ -20,12 +21,13 @@ import {
   readClaudeMessageKeys,
   resolveClaudeForkParentPath,
 } from './claude-fork-transcript.js';
-import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
+import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import { asTrimmedText, normalizeTimestampCandidate, toNumberLike } from '../parsing-utils.js';
 import type {
   SourceAdapter,
   SourceAdapterPathOptions,
   SourceParseFileDiagnostics,
+  SourceReadOptions,
 } from '../source-adapter.js';
 import { createSourceContext, type SourceContext } from '../source-context.js';
 
@@ -204,8 +206,7 @@ export class ClaudeSourceAdapter implements SourceAdapter {
   }
 
   public async parseFile(filePath: string): Promise<UsageEvent[]> {
-    const { events } = await this.parseFileWithDiagnostics(filePath);
-    return events;
+    return (await collectFile(this, filePath)).events;
   }
 
   public async getParseDependencies(filePath: string): Promise<string[]> {
@@ -241,7 +242,15 @@ export class ClaudeSourceAdapter implements SourceAdapter {
     return messageKeys;
   }
 
-  public async parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
+  public parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
+    return collectFile(this, filePath);
+  }
+
+  public async *read(
+    filePath: string,
+    options: SourceReadOptions = {},
+  ): AsyncGenerator<UsageEvent> {
+    const diagnostics = options.diagnostics ?? createReadDiagnostics();
     const forkParentPath = await resolveClaudeForkParentPath(filePath);
     // Rows a forked subagent replayed from its parent are counted in the parent transcript,
     // provided this adapter's discovery covers the parent.
@@ -250,15 +259,12 @@ export class ClaudeSourceAdapter implements SourceAdapter {
         ? await this.readParentMessageKeys(forkParentPath)
         : new Set<string>();
     const eventsByDedupKey = new Map<string, ClaudePendingEvent>();
-    let skippedRows = 0;
     let sequence = 0;
-    const skippedRowReasons = new Map<string, number>();
 
     for await (const line of readJsonlObjects(filePath, {
       shouldParseLineBytes: shouldParseClaudeJsonlLineBytes,
       onMalformedLine: () => {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'json_parse_error');
+        recordSkippedRow(diagnostics, 'json_parse_error');
       },
     })) {
       if (asTrimmedText(line.type) !== 'assistant') {
@@ -268,16 +274,14 @@ export class ClaudeSourceAdapter implements SourceAdapter {
       const message = asRecord(line.message);
 
       if (!message || asTrimmedText(message.role) !== 'assistant') {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'invalid_assistant_message');
+        recordSkippedRow(diagnostics, 'invalid_assistant_message');
         continue;
       }
 
       const model = asTrimmedText(message.model);
 
       if (model === '<synthetic>') {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'synthetic_message');
+        recordSkippedRow(diagnostics, 'synthetic_message');
         continue;
       }
 
@@ -290,16 +294,14 @@ export class ClaudeSourceAdapter implements SourceAdapter {
       const usage = parseUsage(asRecord(message.usage) ?? {});
 
       if (!usage) {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'no_token_usage');
+        recordSkippedRow(diagnostics, 'no_token_usage');
         continue;
       }
 
       const timestamp = normalizeTimestampCandidate(line.timestamp);
 
       if (!timestamp) {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'invalid_timestamp');
+        recordSkippedRow(diagnostics, 'invalid_timestamp');
         continue;
       }
 
@@ -321,27 +323,26 @@ export class ClaudeSourceAdapter implements SourceAdapter {
       });
     }
 
-    const events: UsageEvent[] = [];
-
+    // Keep-last by dedup key and the timestamp sort need the whole file before any event.
     for (const pendingEvent of [...eventsByDedupKey.values()].sort(comparePendingEvents)) {
-      try {
-        events.push(
-          createUsageEvent({
-            source: this.id,
-            sessionId: pendingEvent.sessionId,
-            timestamp: pendingEvent.timestamp,
-            repoRoot: pendingEvent.repoRoot,
-            provider: pendingEvent.provider,
-            model: pendingEvent.model,
-            ...pendingEvent.usage,
-          }),
-        );
-      } catch {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'event_creation_failed');
-      }
-    }
+      let event: UsageEvent;
 
-    return toParseDiagnostics(events, skippedRows, skippedRowReasons);
+      try {
+        event = createUsageEvent({
+          source: this.id,
+          sessionId: pendingEvent.sessionId,
+          timestamp: pendingEvent.timestamp,
+          repoRoot: pendingEvent.repoRoot,
+          provider: pendingEvent.provider,
+          model: pendingEvent.model,
+          ...pendingEvent.usage,
+        });
+      } catch {
+        recordSkippedRow(diagnostics, 'event_creation_failed');
+        continue;
+      }
+
+      yield event;
+    }
   }
 }

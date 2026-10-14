@@ -6,8 +6,9 @@ import type { UsageEvent, UsageEventInput } from '../../domain/usage-event.js';
 import { asRecord } from '../../utils/as-record.js';
 import { discoverFiles } from '../../utils/discover-files.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
+import { collectFile } from '../../stream/collect.js';
 import { discoverFilesAcrossRoots, resolveRootDirs } from '../multi-root-discovery.js';
-import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
+import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
   normalizeTimestampCandidate,
@@ -18,6 +19,8 @@ import type {
   SourceAdapter,
   SourceAdapterPathOptions,
   SourceParseFileDiagnostics,
+  SourceReadDiagnostics,
+  SourceReadOptions,
 } from '../source-adapter.js';
 import { createSourceContext, type SourceContext } from '../source-context.js';
 
@@ -62,9 +65,7 @@ type KimiStatusUpdateCandidate = {
 
 type KimiParseContext = {
   statusUpdates: Map<string, KimiStatusUpdateCandidate>;
-  events: UsageEvent[];
-  skippedRows: number;
-  skippedRowReasons: Map<string, number>;
+  diagnostics: SourceReadDiagnostics;
 };
 
 function shouldParseKimiJsonlLine(lineText: string): boolean {
@@ -117,8 +118,7 @@ function createTokenUsage(fields: {
 }
 
 function incrementContextSkippedReason(context: KimiParseContext, reason: string): void {
-  context.skippedRows++;
-  incrementSkippedReason(context.skippedRowReasons, reason);
+  recordSkippedRow(context.diagnostics, reason);
 }
 
 function getCliSessionId(filePath: string): string {
@@ -186,11 +186,12 @@ function isNewerStatusUpdate(
   return next.timestamp > current.timestamp;
 }
 
-function pushUsageEvent(context: KimiParseContext, input: UsageEventInput): void {
+function toUsageEvent(context: KimiParseContext, input: UsageEventInput): UsageEvent | undefined {
   try {
-    context.events.push(createUsageEvent(input));
+    return createUsageEvent(input);
   } catch {
     incrementContextSkippedReason(context, 'event_creation_failed');
+    return undefined;
   }
 }
 
@@ -251,9 +252,9 @@ function parseUsageRecordLine(
   context: KimiParseContext,
   filePath: string,
   line: Record<string, unknown>,
-): void {
+): UsageEvent | undefined {
   if (line.type !== 'usage.record' || line.usageScope !== 'turn') {
-    return;
+    return undefined;
   }
 
   const usage = asRecord(line.usage);
@@ -266,17 +267,17 @@ function parseUsageRecordLine(
 
   if (!usageResult) {
     incrementContextSkippedReason(context, 'no_token_usage');
-    return;
+    return undefined;
   }
 
   const timestamp = normalizeTimestampCandidate(line.time);
 
   if (!timestamp) {
     incrementContextSkippedReason(context, 'invalid_timestamp');
-    return;
+    return undefined;
   }
 
-  pushUsageEvent(context, {
+  return toUsageEvent(context, {
     source: 'kimi',
     sessionId: getCodeSessionId(filePath),
     timestamp,
@@ -328,17 +329,13 @@ export class KimiSourceAdapter implements SourceAdapter {
     return isCodeWireFile(filePath) ? [] : [getCliConfigPath(filePath)];
   }
 
-  public async parseFile(filePath: string): Promise<UsageEvent[]> {
-    const { events } = await this.parseFileWithDiagnostics(filePath);
-    return events;
-  }
-
-  public async parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
+  public async *read(
+    filePath: string,
+    options: SourceReadOptions = {},
+  ): AsyncGenerator<UsageEvent> {
     const context: KimiParseContext = {
       statusUpdates: new Map(),
-      events: [],
-      skippedRows: 0,
-      skippedRowReasons: new Map(),
+      diagnostics: options.diagnostics ?? createReadDiagnostics(),
     };
 
     for await (const line of readJsonlObjects(filePath, {
@@ -348,14 +345,19 @@ export class KimiSourceAdapter implements SourceAdapter {
       },
     })) {
       parseStatusUpdateLine(context, line);
-      parseUsageRecordLine(context, filePath, line);
+      const usageRecordEvent = parseUsageRecordLine(context, filePath, line);
+
+      if (usageRecordEvent) {
+        yield usageRecordEvent;
+      }
     }
 
+    // StatusUpdate keeps the largest update per message id, so those events wait for EOF.
     const configModel =
       context.statusUpdates.size > 0 ? await readCliConfigModel(filePath) : undefined;
 
     for (const candidate of context.statusUpdates.values()) {
-      pushUsageEvent(context, {
+      const event = toUsageEvent(context, {
         source: this.id,
         sessionId: getCliSessionId(filePath),
         timestamp: candidate.timestamp,
@@ -363,8 +365,18 @@ export class KimiSourceAdapter implements SourceAdapter {
         model: configModel ?? getCliFallbackModel(candidate.timestamp),
         ...candidate.usage,
       });
-    }
 
-    return toParseDiagnostics(context.events, context.skippedRows, context.skippedRowReasons);
+      if (event) {
+        yield event;
+      }
+    }
+  }
+
+  public async parseFile(filePath: string): Promise<UsageEvent[]> {
+    return (await collectFile(this, filePath)).events;
+  }
+
+  public parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
+    return collectFile(this, filePath);
   }
 }
