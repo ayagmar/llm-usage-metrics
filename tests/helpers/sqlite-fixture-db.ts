@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module';
 
-import { withSuppressedSqliteExperimentalWarning } from '../../src/sources/opencode/sqlite-warning-suppression.js';
+import { installSqliteWarningFilter } from '../../src/cli/sqlite-warning-filter.js';
 
 export type FixtureDatabaseSync = new (filePath: string) => {
   exec: (sql: string) => void;
@@ -9,6 +9,15 @@ export type FixtureDatabaseSync = new (filePath: string) => {
 };
 
 const require = createRequire(import.meta.url);
+
+/**
+ * Runs a `node:sqlite` load with the CLI's warning filter in place, as the CLI entry does;
+ * in-process tests never run that entry.
+ */
+export function withSuppressedSqliteExperimentalWarning<T>(load: () => T): T {
+  installSqliteWarningFilter();
+  return load();
+}
 
 /** `node:sqlite`'s DatabaseSync, or undefined on a runtime without it. */
 export function loadDatabaseSync(): FixtureDatabaseSync | undefined {

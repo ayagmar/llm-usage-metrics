@@ -8,7 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildSessionData } from '../../src/cli/build-session-data.js';
 import type { SessionCommandOptions } from '../../src/cli/usage-data-contracts.js';
 import type { SessionRow } from '../../src/session/session-row.js';
-import { withSuppressedSqliteExperimentalWarning } from '../../src/sources/opencode/sqlite-warning-suppression.js';
+import { withSuppressedSqliteExperimentalWarning } from '../helpers/sqlite-fixture-db.js';
 import { createAntigravityFixtureDb } from '../helpers/antigravity-fixtures.js';
 import { createDshSessionsFixture } from '../helpers/dsh-fixtures.js';
 import { StaticPricingSource } from '../helpers/static-pricing-source.js';

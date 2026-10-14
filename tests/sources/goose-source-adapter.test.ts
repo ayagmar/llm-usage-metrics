@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { getDefaultGooseDbPathCandidates } from '../../src/sources/goose/goose-db-path-resolver.js';
 import { GooseSourceAdapter } from '../../src/sources/goose/goose-source-adapter.js';
-import { withSuppressedSqliteExperimentalWarning } from '../../src/sources/opencode/sqlite-warning-suppression.js';
+import { withSuppressedSqliteExperimentalWarning } from '../helpers/sqlite-fixture-db.js';
 
 type FixtureDatabaseSync = new (filePath: string) => {
   exec: (sql: string) => void;
