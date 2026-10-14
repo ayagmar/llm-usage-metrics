@@ -1,0 +1,1 @@
+{"source":"claude","sessionId":"long-context","timestamp":"2026-06-19T15:00:00.000Z","repoRoot":"/tmp/claude-long-context","provider":"anthropic","model":"claude-sonnet-4-5","inputTokens":250000,"outputTokens":0,"reasoningTokens":0,"cacheReadTokens":0,"cacheWriteTokens":0,"cacheWrite1hTokens":0,"totalTokens":250000,"costUsd":0.75,"costMode":"estimated"}

@@ -1,0 +1,1 @@
+{"source":"droid","sessionId":"session-thinking","timestamp":"2026-06-12T09:00:00.000Z","repoRoot":"/tmp/droid-thinking","provider":"anthropic","model":"claude-3-7-sonnet-20250219","inputTokens":1000,"outputTokens":100,"reasoningTokens":400,"cacheReadTokens":0,"cacheWriteTokens":0,"cacheWrite1hTokens":0,"totalTokens":1100,"costUsd":0.0045000000000000005,"costMode":"estimated"}
