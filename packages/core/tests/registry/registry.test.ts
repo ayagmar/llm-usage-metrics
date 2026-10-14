@@ -63,6 +63,6 @@ describe('source registry', () => {
       context,
     );
 
-    expect(opencode?.getSearchPaths?.()).toEqual(['/db/one.db']);
+    expect(opencode.getSearchPaths?.()).toEqual(['/db/one.db']);
   });
 });
