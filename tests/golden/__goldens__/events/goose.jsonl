@@ -1,0 +1,1 @@
+{"source":"goose","sessionId":"goose-e2e-session","timestamp":"2026-06-15T12:15:00.000Z","provider":"openai","model":"gpt-goose-e2e","inputTokens":100,"outputTokens":80,"reasoningTokens":30,"cacheReadTokens":0,"cacheWriteTokens":0,"cacheWrite1hTokens":0,"totalTokens":180,"costMode":"estimated"}
