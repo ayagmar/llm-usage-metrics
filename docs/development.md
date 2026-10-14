@@ -180,7 +180,10 @@ pnpm run pack:check
 - `events/`: the normalized events of each source's e2e fixtures, and of each set under `tests/fixtures/golden/<source>/<set>/` when that directory exists; all sources at once as JSONL, CSV and content hashes; OpenCode events before and after rows are appended to a stored database; a warm event-store run.
 - `reports/`: every report command as JSON, markdown and plain terminal text (no colour, 120 columns), over all sources' e2e fixtures.
 - `help/`: `--help` for the root command and each top-level command, at 100 columns.
-- `machines/`: the machine export bundle for the pi and codex fixtures.
+- `machines/`: the machine export bundle for the pi and codex fixtures, and usage by machine plus the summary after a synced machine's bundle is merged.
+- `history/`: events and monthly usage with and without `--history`, over a store holding a departed file and a moved copy of a live file.
+- `default-paths/`: `doctor --json` from a child process whose home, XDG and Windows profile variables each point at their own empty directory, so each source's default search paths are frozen.
+- `variants/`: efficiency with events attributed to a temp git repo, and the statusline over all sources.
 
 Each test file runs with a fixed clock (2026-06-21T12:00Z), `TZ=UTC`, bundled pricing only (no network), and an environment where source variables are unset and the config, data and cache dirs point into a temp root. In output, the temp root reads `<tmp>` and the fixture root `<fixtures>`. Nothing else is rewritten.
 
