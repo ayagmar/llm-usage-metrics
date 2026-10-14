@@ -4,18 +4,18 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { getParseFileFingerprint } from '../../src/cli/parse/parse-fingerprint.js';
-import { getDefaultAntigravityConversationsDir } from '../../src/sources/antigravity/antigravity-path-resolver.js';
-import { AntigravitySourceAdapter } from '../../src/sources/antigravity/antigravity-source-adapter.js';
-import { createSourceContext } from '../../src/sources/source-context.js';
+import { getParseFileFingerprint } from '../../../src/sources/parse-fingerprint.js';
+import { getDefaultAntigravityConversationsDir } from '../../../src/sources/antigravity/antigravity-path-resolver.js';
+import { AntigravitySourceAdapter } from '../../../src/sources/antigravity/index.js';
+import { createSourceContext } from '../../../src/sources/source-context.js';
 import {
   createAntigravityFixtureDb,
   encodeAntigravityGenMetadataBlob,
-  loadAntigravityFixtureDatabaseSync,
-} from '../helpers/antigravity-fixtures.js';
+} from '../../helpers/antigravity-fixtures.js';
+import { loadDatabaseSync } from '../../helpers/sqlite.js';
 
 const tempDirs: string[] = [];
-const DatabaseSync = loadAntigravityFixtureDatabaseSync();
+const DatabaseSync = loadDatabaseSync();
 
 afterEach(async () => {
   await Promise.all(tempDirs.map((tempDir) => rm(tempDir, { recursive: true, force: true })));

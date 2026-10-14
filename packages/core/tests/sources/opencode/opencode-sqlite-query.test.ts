@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { queryOpenCodeMessageRows } from '../../src/sources/opencode/opencode-sqlite-query.js';
+import { queryOpenCodeMessageRows } from '../../../src/sources/opencode/opencode-sqlite-query.js';
 
 type FakeScenario = {
   tables?: string[];
