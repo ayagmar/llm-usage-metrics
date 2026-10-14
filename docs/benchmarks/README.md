@@ -10,14 +10,15 @@ pnpm run build
 pnpm run bench:baseline
 ```
 
-The script runs `node dist/index.js` directly, so build first. It writes
+The script runs `node dist/bin.js`, the real entry with the V8 compile cache, so build
+first. It writes
 `<date>-baseline.json` and `<date>-baseline.md` to `docs/benchmarks/` unless you pass
 `--out <dir>`.
 
 Options:
 
 - `--runs <count>`: timed runs per scenario (default 5).
-- `--lines <count>`: lines per synthetic session file (default 200000).
+- `--lines <count>`: lines per source, spread over 4 files (default 200000).
 - `--out <dir>`: where to write the two report files.
 - `--keep-temp`: keep the temp corpus and state directory for inspection.
 
@@ -29,29 +30,33 @@ pnpm run bench:baseline -- --runs 2 --lines 20000 --out /tmp/bench-smoke
 
 ## What it measures
 
-The script generates one pi session and one codex session in a temp directory, in the
-line shapes of `tests/fixtures/e2e-large`. Usage lines are one minute apart and end a
-few minutes before the run, so today and this month hold data. Every command passes
+The script generates pi and codex sessions in a temp directory, 4 files per source so
+file-level parallelism is exercised, in the line shapes of `tests/fixtures/e2e-large`.
+Usage lines are one minute apart and end a few minutes before the run, so today and this
+month hold data. Every command passes
 `--source pi,codex --pi-dir <dir> --codex-dir <dir>`, and runs with a temp `HOME`,
 `XDG_CACHE_HOME`, `XDG_CONFIG_HOME` and `XDG_DATA_HOME`, `LLM_USAGE_CONFIG_PATH`
 pointing at a missing file, `LLM_USAGE_SKIP_UPDATE_CHECK=1`, `TZ=UTC`, and no
-inherited `LLM_USAGE_*` variable. Nothing outside the temp directory is read.
+inherited `LLM_USAGE_*` variable. Stdin is ignored. `NODE_COMPILE_CACHE` points at a temp
+directory that one untimed priming run fills before any timed run. Nothing outside the
+temp directory is read.
 
-| Scenario       | What is timed                                                                                                     |
-| -------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `cold`         | `daily --all --json --pricing-offline` with `LLM_USAGE_EVENT_STORE=0` and a fresh cache directory per run.        |
-| `warm`         | The same command with the event store on, after one priming run.                                                  |
-| `statusline`   | `statusline` with the event store on, after one priming run. It takes no `--pricing-offline` and reads no stdin.  |
-| `active-jsonl` | After one priming run on a copy of the corpus, each run appends 1000 lines to the pi file and times `daily` once. |
+| Scenario       | What is timed                                                                                                                                                                                             |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cold`         | Store off, OS page cache warm: `daily --all --json --pricing-offline` with `LLM_USAGE_EVENT_STORE=0` and a fresh cache directory per run. The corpus was just written, so this is not a cold-disk number. |
+| `warm`         | The same command with the event store on, after one priming run.                                                                                                                                          |
+| `statusline`   | `statusline` with the event store on, after one priming run. It takes no `--pricing-offline` and reads no stdin.                                                                                          |
+| `active-jsonl` | After one priming run on a copy of the corpus, each run appends 1000 new rows with later timestamps to the newest pi file and times `daily` once.                                                         |
 
 Each scenario reports the median, minimum and maximum wall time over `--runs`, and the
-maximum RSS in MB. RSS comes from `/usr/bin/time -f %M`; where that fails (macOS ships a
-`time` without `-f`, and some Linux installs have no `/usr/bin/time`), the column says
-`n/a`. The OS page cache is not flushed between runs.
+maximum RSS in MB. RSS comes from `/usr/bin/time -f %M`, used only when the probe
+`/usr/bin/time -f %M true` succeeds; otherwise (macOS ships a `time` without `-f`, and
+some Linux installs have no `/usr/bin/time`) the column says `n/a`. The OS page cache is not flushed between runs.
 
-The script fails if a report has no pi or codex usage, or if an `active-jsonl` run does
-not count the lines appended before it, so a parser that skips the synthetic lines
-cannot produce a fast but meaningless number.
+The script fails if a report has no pi or codex usage, or if the event count from an
+untimed `session --json` run after an `active-jsonl` run did not grow by the 1000
+appended rows. A parser that skips the synthetic lines, or a stale cache hit, cannot
+produce a fast but meaningless number.
 
 ## Committed results
 
