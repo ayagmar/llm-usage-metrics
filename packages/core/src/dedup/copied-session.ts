@@ -1,4 +1,6 @@
 import type { UsageEvent } from '../domain/usage-event.js';
+import { collect } from '../stream/collect.js';
+import type { Stage } from '../stream/pipe.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 
 // Everything but the session: a copied event keeps its timestamp, model and usage.
@@ -135,4 +137,14 @@ export function dedupeCopiedSessions<E extends UsageEvent>(events: readonly E[])
   }
 
   return events.filter((event) => !copies.has(event));
+}
+
+/**
+ * The stage form of `dedupeCopiedSessions`. It buffers its whole input before yielding,
+ * since which session keeps a copy depends on every session's first event.
+ */
+export function copiedSessions<E extends UsageEvent>(): Stage<E, E> {
+  return async function* (source) {
+    yield* dedupeCopiedSessions(await collect(source));
+  };
 }
