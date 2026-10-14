@@ -1,4 +1,5 @@
 import type { CostMode, UsageEvent } from '../domain/usage-event.js';
+import type { Stage } from '../stream/pipe.js';
 import { computeEventContentHash } from './content-hash.js';
 
 type HashedEvent = UsageEvent & { costMode?: CostMode };
@@ -71,4 +72,20 @@ export function dedupeRepeatedAcrossFiles<E extends HashedEvent>(
       ? takeUncountedEvents(events, countedHashes)
       : events,
   );
+}
+
+/**
+ * The stage form of `dedupeRepeatedAcrossFiles`: one batch per file, in file order. It
+ * hashes every file and yields a batch's kept events before pulling the next batch, so it
+ * keeps only the running hash counts. Equal to the array form as long as different
+ * sessions never share a content hash, which the hash already assumes.
+ */
+export function repeatedAcrossFiles<E extends HashedEvent>(): Stage<readonly E[], E> {
+  return async function* (batches) {
+    const countedHashes = new Map<string, number>();
+
+    for await (const events of batches) {
+      yield* takeUncountedEvents(events, countedHashes);
+    }
+  };
 }
