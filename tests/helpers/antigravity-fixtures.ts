@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module';
 
-import { withSuppressedSqliteExperimentalWarning } from '../../src/sources/opencode/sqlite-warning-suppression.js';
+import { withSuppressedSqliteExperimentalWarning } from './sqlite-fixture-db.js';
 
 type FixtureDatabaseSync = new (filePath: string) => {
   exec: (sql: string) => void;

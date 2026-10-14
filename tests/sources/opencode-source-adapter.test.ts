@@ -2,6 +2,7 @@ import path from 'node:path';
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { createDefaultAdapters } from '../../src/sources/create-default-adapters.js';
 import { OpenCodeSourceAdapter } from '../../src/sources/opencode/opencode-source-adapter.js';
 
 type FakeSqliteScenario = {
@@ -86,12 +87,18 @@ function createSqliteLoader(scenario: FakeSqliteScenario): () => Promise<TestSql
 }
 
 describe('OpenCodeSourceAdapter', () => {
+  it('rejects a blank --opencode-db in the CLI validation before the adapter sees it', () => {
+    expect(() => createDefaultAdapters({ opencodeDb: '  ' })).toThrow(
+      '--opencode-db must be a non-empty path',
+    );
+  });
+
   it('fails discovery when explicit --opencode-db path is blank', async () => {
     const adapter = new OpenCodeSourceAdapter({
       dbPath: '   ',
     });
 
-    await expect(adapter.discoverFiles()).rejects.toThrow('--opencode-db must be a non-empty path');
+    await expect(adapter.discoverFiles()).rejects.toThrow('dbPath must be a non-empty path');
   });
 
   it('reports parse dependencies for configured and blank db paths', async () => {

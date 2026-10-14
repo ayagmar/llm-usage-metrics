@@ -1,4 +1,3 @@
-import os from 'node:os';
 import path from 'node:path';
 
 import { createUsageEvent } from '../../domain/usage-event.js';
@@ -20,11 +19,9 @@ import type {
   SourceAdapterPathOptions,
   SourceParseFileDiagnostics,
 } from '../source-adapter.js';
+import { createSourceContext, readEnvPath, type SourceContext } from '../source-context.js';
 
-export type AmpSourceAdapterOptions = SourceAdapterPathOptions & {
-  env?: NodeJS.ProcessEnv;
-  homeDir?: string;
-};
+export type AmpSourceAdapterOptions = SourceAdapterPathOptions;
 
 type AmpTokenUsage = {
   inputTokens: number;
@@ -44,17 +41,9 @@ type AmpParseContext = {
   skippedRowReasons: Map<string, number>;
 };
 
-function normalizeEnvPath(value: string | undefined): string | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  const normalized = value.trim();
-  return normalized || undefined;
-}
-
-function resolveDefaultAmpThreadsDir(env: NodeJS.ProcessEnv, homeDir: string): string {
-  const dataHome = normalizeEnvPath(env.XDG_DATA_HOME) ?? path.join(homeDir, '.local', 'share');
+function resolveDefaultAmpThreadsDir(context: SourceContext): string {
+  const dataHome =
+    readEnvPath(context, 'XDG_DATA_HOME') ?? path.join(context.homeDir, '.local', 'share');
 
   return path.join(dataHome, 'amp', 'threads');
 }
@@ -316,8 +305,7 @@ export class AmpSourceAdapter implements SourceAdapter {
 
   public constructor(options: AmpSourceAdapterOptions = {}) {
     this.threadsDir =
-      options.dir ??
-      resolveDefaultAmpThreadsDir(options.env ?? process.env, options.homeDir ?? os.homedir());
+      options.dir ?? resolveDefaultAmpThreadsDir(options.context ?? createSourceContext());
     this.requireDir = options.requireDir ?? false;
   }
 

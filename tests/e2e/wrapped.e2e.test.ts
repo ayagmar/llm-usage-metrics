@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { buildWrappedData } from '../../src/cli/build-wrapped-data.js';
 import type { WrappedCommandOptions } from '../../src/cli/usage-data-contracts.js';
-import { withSuppressedSqliteExperimentalWarning } from '../../src/sources/opencode/sqlite-warning-suppression.js';
+import { withSuppressedSqliteExperimentalWarning } from '../helpers/sqlite-fixture-db.js';
 import { createAntigravityFixtureDb } from '../helpers/antigravity-fixtures.js';
 import { StaticPricingSource } from '../helpers/static-pricing-source.js';
 

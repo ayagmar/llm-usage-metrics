@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import './sqlite-warning-filter.js';
+
 import { isMainThread, workerData } from 'node:worker_threads';
 
 import { getUpdateNotifierRuntimeConfig } from '../config/runtime-overrides.js';

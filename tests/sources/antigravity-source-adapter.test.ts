@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { getParseFileFingerprint } from '../../src/cli/parse/parse-fingerprint.js';
 import { getDefaultAntigravityConversationsDir } from '../../src/sources/antigravity/antigravity-path-resolver.js';
 import { AntigravitySourceAdapter } from '../../src/sources/antigravity/antigravity-source-adapter.js';
+import { createSourceContext } from '../../src/sources/source-context.js';
 import {
   createAntigravityFixtureDb,
   encodeAntigravityGenMetadataBlob,
@@ -24,17 +25,21 @@ afterEach(async () => {
 describe('getDefaultAntigravityConversationsDir', () => {
   it('uses GEMINI_CLI_HOME before the default .gemini directory', () => {
     expect(
-      getDefaultAntigravityConversationsDir({
-        homeDir: '/home/tester',
-        env: { GEMINI_CLI_HOME: '/custom/gemini' },
-      }),
+      getDefaultAntigravityConversationsDir(
+        createSourceContext({
+          homeDir: '/home/tester',
+          env: { GEMINI_CLI_HOME: '/custom/gemini' },
+        }),
+      ),
     ).toBe(path.join('/custom/gemini', 'antigravity-cli', 'conversations'));
 
     expect(
-      getDefaultAntigravityConversationsDir({
-        homeDir: '/home/tester',
-        env: { GEMINI_CLI_HOME: '   ' },
-      }),
+      getDefaultAntigravityConversationsDir(
+        createSourceContext({
+          homeDir: '/home/tester',
+          env: { GEMINI_CLI_HOME: '   ' },
+        }),
+      ),
     ).toBe(path.join('/home/tester', '.gemini', 'antigravity-cli', 'conversations'));
   });
 });
@@ -226,8 +231,7 @@ describe.skipIf(!DatabaseSync)('AntigravitySourceAdapter', () => {
       requireDir: true,
     });
     const defaultAdapter = new AntigravitySourceAdapter({
-      homeDir: tempDir,
-      env: {},
+      context: createSourceContext({ homeDir: tempDir, env: {} }),
     });
 
     await expect(explicitAdapter.discoverFiles()).resolves.toEqual([
@@ -238,8 +242,10 @@ describe.skipIf(!DatabaseSync)('AntigravitySourceAdapter', () => {
 
   it('returns no discovered files when the default conversation directory is missing', async () => {
     const adapter = new AntigravitySourceAdapter({
-      homeDir: path.join(os.tmpdir(), `missing-antigravity-${Date.now()}`),
-      env: {},
+      context: createSourceContext({
+        homeDir: path.join(os.tmpdir(), `missing-antigravity-${Date.now()}`),
+        env: {},
+      }),
     });
 
     await expect(adapter.discoverFiles()).resolves.toEqual([]);

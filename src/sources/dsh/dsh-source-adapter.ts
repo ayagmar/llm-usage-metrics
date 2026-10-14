@@ -20,6 +20,7 @@ import type {
   SourceAdapterPathOptions,
   SourceParseFileDiagnostics,
 } from '../source-adapter.js';
+import { createSourceContext } from '../source-context.js';
 
 /**
  * Committed session log names the harness writes: `session.jsonl` for format
@@ -52,8 +53,6 @@ type DshUsageExtract = {
 export type DshSourceAdapterOptions = SourceAdapterPathOptions & {
   /** Test seam: default root scanned when no dir override is given. */
   defaultRootDirs?: string[];
-  env?: NodeJS.ProcessEnv;
-  homeDir?: string;
 };
 
 function shouldParseDshJsonlLine(lineText: string): boolean {
@@ -145,7 +144,7 @@ export class DshSourceAdapter implements SourceAdapter {
     this.rootDirs = resolveRootDirs(
       options.dir,
       options.defaultRootDirs ?? [
-        getDefaultDshSessionsDir({ env: options.env, homeDir: options.homeDir }),
+        getDefaultDshSessionsDir(options.context ?? createSourceContext()),
       ],
     );
     this.requireDir = options.requireDir ?? false;

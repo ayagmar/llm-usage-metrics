@@ -1,4 +1,3 @@
-import os from 'node:os';
 import path from 'node:path';
 
 import type { SourceId, UsageEvent } from '../../domain/usage-event.js';
@@ -9,6 +8,7 @@ import type {
   SourceAdapterPathOptions,
   SourceParseFileDiagnostics,
 } from '../source-adapter.js';
+import { createSourceContext, readEnvPath, type SourceContext } from '../source-context.js';
 import { getClineTaskHistoryPath, parseClineTaskFile } from './cline-task-parser.js';
 
 export const CLINE_EXTENSION_IDS = {
@@ -21,9 +21,7 @@ export type ClineFamilySourceId = keyof typeof CLINE_EXTENSION_IDS;
 
 export type ClineTaskRootResolverOptions = {
   extensionId: string;
-  platform?: NodeJS.Platform;
-  homeDir?: string;
-  env?: NodeJS.ProcessEnv;
+  context: SourceContext;
 };
 
 export type ClineFamilyAdapterOptions = SourceAdapterPathOptions & {
@@ -32,24 +30,15 @@ export type ClineFamilyAdapterOptions = SourceAdapterPathOptions & {
   defaultRootDirs?: string[];
 };
 
-function normalizeEnvPath(value: string | undefined): string | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  const normalized = value.trim();
-  return normalized || undefined;
-}
-
 function getExtensionTasksDir(codeRoot: string, extensionId: string): string {
   return path.join(codeRoot, 'User', 'globalStorage', extensionId, 'tasks');
 }
 
-function getWindowsCodeRoot(homeDir: string, env: NodeJS.ProcessEnv): string {
+function getWindowsCodeRoot(context: SourceContext): string {
   const appDataRoot =
-    normalizeEnvPath(env.APPDATA) ??
-    normalizeEnvPath(env.USERPROFILE) ??
-    path.join(homeDir, 'AppData', 'Roaming');
+    readEnvPath(context, 'APPDATA') ??
+    readEnvPath(context, 'USERPROFILE') ??
+    path.join(context.homeDir, 'AppData', 'Roaming');
 
   if (appDataRoot.endsWith(`${path.sep}Code`) || path.basename(appDataRoot) === 'Code') {
     return appDataRoot;
@@ -58,27 +47,20 @@ function getWindowsCodeRoot(homeDir: string, env: NodeJS.ProcessEnv): string {
   return path.join(appDataRoot, 'Code');
 }
 
-function getPlatformCodeRoots(
-  platform: NodeJS.Platform,
-  homeDir: string,
-  env: NodeJS.ProcessEnv,
-): string[] {
-  switch (platform) {
+function getPlatformCodeRoots(context: SourceContext): string[] {
+  switch (context.platform) {
     case 'win32':
-      return [getWindowsCodeRoot(homeDir, env)];
+      return [getWindowsCodeRoot(context)];
     case 'darwin':
-      return [path.join(homeDir, 'Library', 'Application Support', 'Code')];
+      return [path.join(context.homeDir, 'Library', 'Application Support', 'Code')];
     default:
-      return [path.join(homeDir, '.config', 'Code')];
+      return [path.join(context.homeDir, '.config', 'Code')];
   }
 }
 
 export function getDefaultClineTaskRootCandidates(options: ClineTaskRootResolverOptions): string[] {
-  const platform = options.platform ?? process.platform;
-  const homeDir = options.homeDir ?? os.homedir();
-  const env = options.env ?? process.env;
-  const localRoots = getPlatformCodeRoots(platform, homeDir, env);
-  const remoteRoots = [path.join(homeDir, '.vscode-server', 'data')];
+  const localRoots = getPlatformCodeRoots(options.context);
+  const remoteRoots = [path.join(options.context.homeDir, '.vscode-server', 'data')];
   const tasksDirs = [...localRoots, ...remoteRoots].map((root) =>
     getExtensionTasksDir(root, options.extensionId),
   );
@@ -104,7 +86,10 @@ export class ClineFamilyAdapter implements SourceAdapter {
     this.rootDirs = resolveRootDirs(
       options.dir,
       options.defaultRootDirs ??
-        getDefaultClineTaskRootCandidates({ extensionId: options.extensionId }),
+        getDefaultClineTaskRootCandidates({
+          extensionId: options.extensionId,
+          context: options.context ?? createSourceContext(),
+        }),
     );
     this.requireDir = options.requireDir ?? false;
   }
