@@ -6,7 +6,8 @@ import { asRecord } from '../../utils/as-record.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import { pathIsDirectory, pathReadable } from '../../utils/fs-helpers.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
-import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
+import { collectFile } from '../../stream/collect.js';
+import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
   isBlankText,
@@ -19,6 +20,7 @@ import type {
   SourceAdapter,
   SourceAdapterPathOptions,
   SourceParseFileDiagnostics,
+  SourceReadOptions,
 } from '../source-adapter.js';
 import { createSourceContext, type SourceContext } from '../source-context.js';
 
@@ -159,22 +161,17 @@ export class QwenSourceAdapter implements SourceAdapter {
     return discoverJsonlFiles(normalizedDir);
   }
 
-  public async parseFile(filePath: string): Promise<UsageEvent[]> {
-    const { events } = await this.parseFileWithDiagnostics(filePath);
-    return events;
-  }
-
-  public async parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
-    const events: UsageEvent[] = [];
-    let skippedRows = 0;
-    const skippedRowReasons = new Map<string, number>();
+  public async *read(
+    filePath: string,
+    options: SourceReadOptions = {},
+  ): AsyncGenerator<UsageEvent> {
+    const diagnostics = options.diagnostics ?? createReadDiagnostics();
     const fallbackSessionId = getFallbackSessionId(filePath);
 
     for await (const line of readJsonlObjects(filePath, {
       shouldParseLine: shouldParseQwenJsonlLine,
       onMalformedLine: () => {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'json_parse_error');
+        recordSkippedRow(diagnostics, 'json_parse_error');
       },
     })) {
       if (line.type !== 'assistant') {
@@ -184,36 +181,41 @@ export class QwenSourceAdapter implements SourceAdapter {
       const usage = extractTokenUsage(asRecord(line.usageMetadata), asTrimmedText(line.model));
 
       if (!usage) {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'no_token_usage');
+        recordSkippedRow(diagnostics, 'no_token_usage');
         continue;
       }
 
       const timestamp = normalizeTimestampCandidate(line.timestamp);
 
       if (!timestamp) {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'invalid_timestamp');
+        recordSkippedRow(diagnostics, 'invalid_timestamp');
         continue;
       }
+
+      let event: UsageEvent;
 
       try {
-        events.push(
-          createUsageEvent({
-            source: this.id,
-            sessionId: asTrimmedText(line.sessionId) ?? fallbackSessionId,
-            timestamp,
-            model: asTrimmedText(line.model),
-            ...usage,
-          }),
-        );
+        event = createUsageEvent({
+          source: this.id,
+          sessionId: asTrimmedText(line.sessionId) ?? fallbackSessionId,
+          timestamp,
+          model: asTrimmedText(line.model),
+          ...usage,
+        });
       } catch {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'event_creation_failed');
+        recordSkippedRow(diagnostics, 'event_creation_failed');
         continue;
       }
-    }
 
-    return toParseDiagnostics(events, skippedRows, skippedRowReasons);
+      yield event;
+    }
+  }
+
+  public async parseFile(filePath: string): Promise<UsageEvent[]> {
+    return (await collectFile(this, filePath)).events;
+  }
+
+  public parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
+    return collectFile(this, filePath);
   }
 }
