@@ -278,7 +278,7 @@ async function generateDsh(dir: string, scale: 1 | 2): Promise<Fixture> {
   return { readPath: filePath, files: [filePath], events, totalTokens };
 }
 
-// SQLite cases: 2N = 1M rows each.
+// opencode and goose: 2N = 1M rows each.
 const SQLITE_ROWS_AT_N = 500_000;
 
 function openCodeUsage(index: number) {
@@ -395,6 +395,9 @@ async function generateGoose(dir: string, scale: 1 | 2): Promise<Fixture> {
 // antigravity: ~1 KB blobs. The padding is an unknown length-delimited field (15) after
 // the chat model, which the parser skips, so a reader buffering rows would hold ~1 KB per
 // row against the ~tens of bytes per response id its Set keeps.
+// 2N is 500k rows; opencode and goose cover 1M rows. At 1M the Set of ids alone puts
+// Node 22.16 within ~8 MiB of the 256 MiB ceiling.
+const ANTIGRAVITY_ROWS_AT_N = 250_000;
 const ANTIGRAVITY_PADDING_BYTES = 960;
 const ANTIGRAVITY_PADDING_FIELD = Buffer.concat([
   Buffer.from([
@@ -418,7 +421,7 @@ function antigravityUsage(index: number) {
 }
 
 async function generateAntigravity(dir: string, scale: 1 | 2): Promise<Fixture> {
-  const rows = SQLITE_ROWS_AT_N * scale;
+  const rows = ANTIGRAVITY_ROWS_AT_N * scale;
   const dbPath = path.join(dir, `antigravity-${scale}n.db`);
   // The gen_metadata schema of tests/helpers/antigravity-fixtures.ts.
   writeDatabase(
@@ -568,7 +571,7 @@ const CASES: MemoryCase[] = [
     checkFixture: (_fixture, [size]) => {
       expect(size).toBeGreaterThanOrEqual(200_000_000);
     },
-    // Peaks 123-145 MiB. One compressed frame (~50 KB) and its decoded text at a time:
+    // Peaks 123-147 MiB. One compressed frame (~50 KB) and its decoded text at a time:
     // growth is under 4 MiB, against the ~98 MiB of compressed input N adds.
     ceilingKiB: 192 * KiB_PER_MiB,
     growthAllowanceKiB: 16 * KiB_PER_MiB,
@@ -596,7 +599,7 @@ const CASES: MemoryCase[] = [
     checkFixture: (fixture) => {
       expect(fixture.events).toBe(1_000_000);
     },
-    // Peaks 79-88 MiB. One row at a time: growth is under 7 MiB.
+    // Peaks 79-89 MiB. One row at a time: growth is under 7 MiB.
     ceilingKiB: 128 * KiB_PER_MiB,
     growthAllowanceKiB: 16 * KiB_PER_MiB,
   },
@@ -607,15 +610,15 @@ const CASES: MemoryCase[] = [
     options: (dir) => ({ dir }),
     generate: generateAntigravity,
     checkFixture: (fixture, [size]) => {
-      expect(fixture.events).toBe(1_000_000);
-      expect(size).toBeGreaterThanOrEqual(1_000_000_000);
+      expect(fixture.events).toBe(500_000);
+      expect(size).toBeGreaterThanOrEqual(500_000_000);
     },
-    // The documented state is the Set of seen response ids: 500k more ids grow the median
-    // peak by 35-39 MiB on Node 24 and 62-85 MiB on Node 22.16 (old-space headroom over
-    // ~58 MB live at 1M ids), with 2N peaks of 189-194 MiB and 222-248 MiB; without ids the
-    // read stays at ~100 MiB. Buffering the rows would add ~480 MiB.
-    ceilingKiB: 256 * KiB_PER_MiB,
-    growthAllowanceKiB: 112 * KiB_PER_MiB,
+    // The documented state is the Set of seen response ids: 250k more ids grow the median
+    // peak by 20-22 MiB on Node 24 and 33-35 MiB on Node 22.16, with 2N peaks of 141-158 MiB
+    // and 160-166 MiB; without ids the read stays at ~100 MiB. Buffering the rows would add
+    // ~240 MiB.
+    ceilingKiB: 208 * KiB_PER_MiB,
+    growthAllowanceKiB: 72 * KiB_PER_MiB,
   },
   {
     name: 'cline task',
@@ -628,7 +631,7 @@ const CASES: MemoryCase[] = [
       expect(fixture.events).toBeGreaterThanOrEqual(100_000);
       expect(historySize).toBeGreaterThanOrEqual(200_000_000);
     },
-    // Peaks 126-152 MiB, single N runs on Node 22.16 spreading 27 MiB. One ui_messages
+    // Peaks 126-161 MiB, single N runs on Node 22.16 spreading 27 MiB. One ui_messages
     // element and the history scanner's carried text at a time: median growth -14 to 10 MiB,
     // against the ~32 + 100 MiB of input N adds.
     ceilingKiB: 192 * KiB_PER_MiB,
@@ -642,8 +645,10 @@ async function runChild(memoryCase: MemoryCase, dir: string, home: string, readP
     process.execPath,
     [
       // Node 24 grows the young generation from 64 to 128 MiB after enough garbage,
-      // whatever the input size; Node 22 keeps 32 MiB. Pinning it to Node 22's size keeps
-      // that heuristic out of the peaks, which then show only what the reader holds.
+      // whatever the input size; Node 22 keeps 32 MiB. Unpinned, dsh on Node 24 peaked at
+      // 181, 259 and 264 MB for 2100, 4200 and 8400 frames with ~5 MB live after a full GC;
+      // pinned to Node 22's size it reads 145-149 MB at all three. The peaks then show only
+      // what the reader holds, and a reader that buffers input still fails.
       '--max-semi-space-size=16',
       '--input-type=module',
       '-e',
