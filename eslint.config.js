@@ -9,6 +9,7 @@ import tseslint from 'typescript-eslint';
 
 const tsconfigRootDir = path.dirname(fileURLToPath(import.meta.url));
 const tsFiles = ['**/*.ts', '**/*.tsx', '**/*.mts', '**/*.cts'];
+const hostStateMessage = 'The core package reads host state only through an injected context.';
 
 function scopeToFiles(configs, files) {
   return configs.map((config) => ({
@@ -92,6 +93,35 @@ export default tseslint.config(
     plugins: { redos: redosPlugin },
     rules: {
       'redos/no-vulnerable': 'error',
+    },
+  },
+  {
+    // The core package prints nothing, reads host state only through an injected context,
+    // and never reaches into the CLI tree.
+    files: ['packages/core/src/**/*.ts'],
+    rules: {
+      'no-console': 'error',
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            { name: 'node:os', message: hostStateMessage },
+            { name: 'os', message: hostStateMessage },
+          ],
+          patterns: [
+            {
+              regex: String.raw`^(?:\.\./){2,}src(?:/|$)`,
+              message: 'The core package must not import from the CLI tree.',
+            },
+          ],
+        },
+      ],
+      'no-restricted-properties': [
+        'error',
+        { object: 'process', property: 'env', message: hostStateMessage },
+        { object: 'process', property: 'platform', message: hostStateMessage },
+        { object: 'os', property: 'homedir', message: hostStateMessage },
+      ],
     },
   },
   {
