@@ -45,6 +45,16 @@ export type SourceParseFileDiagnostics<Event extends UsageEvent = UsageEvent> = 
   skippedRowReasons?: SourceSkippedRowReasonStat[];
 };
 
+/** Skipped-row counts a read adds to as it goes; complete only once the read finishes. */
+export type SourceReadDiagnostics = {
+  skippedRows: number;
+  skippedRowReasons: Map<string, number>;
+};
+
+export type SourceReadOptions = {
+  diagnostics?: SourceReadDiagnostics;
+};
+
 export interface SourceAdapter<Event extends UsageEvent = UsageEvent> {
   readonly id: SourceId;
   /**
@@ -57,6 +67,12 @@ export interface SourceAdapter<Event extends UsageEvent = UsageEvent> {
   /** Directories or database files discovery looks in, for `doctor`. */
   getSearchPaths?(): readonly string[];
   discoverFiles(): Promise<string[]>;
+  /**
+   * Yields the file's events in order and adds skipped rows to `options.diagnostics` as
+   * they happen. A read that throws may already have yielded events; breaking out closes
+   * every handle the read opened before `return()` resolves.
+   */
+  read?(filePath: string, options?: SourceReadOptions): AsyncIterable<Event>;
   parseFile(filePath: string): Promise<Event[]>;
   parseFileWithDiagnostics?(filePath: string): Promise<SourceParseFileDiagnostics<Event>>;
   getParseDependencies?(filePath: string): Promise<string[]>;

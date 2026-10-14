@@ -1,6 +1,12 @@
 import path from 'node:path';
 
-import type { SourceAdapter, SourceParseFileDiagnostics } from './source-adapter.js';
+import type { UsageEvent } from '../domain/usage-event.js';
+import { collectFile, readAdapterFile } from '../stream/collect.js';
+import type {
+  SourceAdapter,
+  SourceParseFileDiagnostics,
+  SourceReadOptions,
+} from './source-adapter.js';
 
 /**
  * Reports several directories of a single-directory source as one source: one adapter per
@@ -58,18 +64,16 @@ export class MultiDirectorySourceAdapter implements SourceAdapter {
     return this.adapterByFile.get(filePath) ?? this.adapters[0];
   }
 
-  public async parseFile(filePath: string) {
-    return this.getAdapterForFile(filePath).parseFile(filePath);
+  public async *read(filePath: string, options?: SourceReadOptions): AsyncGenerator<UsageEvent> {
+    yield* readAdapterFile(this.getAdapterForFile(filePath), filePath, options);
   }
 
-  public async parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
-    const adapter = this.getAdapterForFile(filePath);
+  public async parseFile(filePath: string): Promise<UsageEvent[]> {
+    return (await collectFile(this, filePath)).events;
+  }
 
-    if (adapter.parseFileWithDiagnostics) {
-      return adapter.parseFileWithDiagnostics(filePath);
-    }
-
-    return { events: await adapter.parseFile(filePath), skippedRows: 0, skippedRowReasons: [] };
+  public parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
+    return collectFile(this, filePath);
   }
 
   public async getParseDependencies(filePath: string): Promise<string[]> {

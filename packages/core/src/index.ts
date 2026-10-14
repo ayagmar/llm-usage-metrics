@@ -11,6 +11,7 @@ export {
 } from './sources/parse-fingerprint.js';
 export * from './sources/source-adapter.js';
 export * from './sources/source-context.js';
+export { collect, collectFile } from './stream/collect.js';
 export * from './dedup/content-hash.js';
 export { dedupeRepeatedAcrossFiles } from './dedup/repeated-across-files.js';
 export * from './dedup/copied-session.js';
