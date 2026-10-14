@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createUsageEvent } from '../../src/domain/usage-event.js';
-import { computeEventContentHash } from '../../src/persistence/event-store-codec.js';
+import { computeEventContentHash } from '../../src/dedup/content-hash.js';
 
 // Stored events carry these hashes, and history and machine merges match on them, so a
 // change to the hash input or its encoding would stop stored events matching their

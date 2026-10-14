@@ -11,3 +11,4 @@ export {
 } from './sources/parse-fingerprint.js';
 export * from './sources/source-adapter.js';
 export * from './sources/source-context.js';
+export * from './dedup/content-hash.js';
