@@ -22,6 +22,8 @@ export default tseslint.config(
     ignores: [
       'dist/**',
       'coverage/**',
+      'packages/*/dist/**',
+      'packages/*/coverage/**',
       'site/**',
       '.github/scripts/**',
       'scripts/**',
@@ -86,14 +88,14 @@ export default tseslint.config(
   {
     // recheck finds ReDoS that static rules miss, e.g. alternatives that overlap across
     // iterations of a repeated group. Model names and log text are untrusted input.
-    files: ['src/**/*.ts'],
+    files: ['src/**/*.ts', 'packages/core/src/**/*.ts'],
     plugins: { redos: redosPlugin },
     rules: {
       'redos/no-vulnerable': 'error',
     },
   },
   {
-    files: ['tests/**/*.ts', 'tests/**/*.tsx', 'tests/**/*.mts', 'tests/**/*.cts'],
+    files: ['tests/**/*.{ts,tsx,mts,cts}', 'packages/*/tests/**/*.{ts,tsx,mts,cts}'],
     rules: {
       '@typescript-eslint/no-unsafe-type-assertion': 'off',
     },

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-const inputPath = 'coverage/coverage-summary.json';
+const inputPath = process.argv[2] ?? 'coverage/coverage-summary.json';
 
 const minimumCoveragePercent = {
   lines: 90,
