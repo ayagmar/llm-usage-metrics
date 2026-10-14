@@ -6,7 +6,7 @@ import {
   getFirstProtoStringField,
   getFirstProtoVarintField,
   readAntigravityProtoFields,
-} from '../../src/sources/antigravity/antigravity-proto-reader.js';
+} from '../../../src/sources/antigravity/antigravity-proto-reader.js';
 
 function encodeVarint(value: number): number[] {
   return encodeBigVarint(BigInt(value));

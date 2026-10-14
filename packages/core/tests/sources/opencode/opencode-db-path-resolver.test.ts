@@ -4,8 +4,8 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { getDefaultOpenCodeDbPathCandidates } from '../../src/sources/opencode/opencode-db-path-resolver.js';
-import { createSourceContext } from '../../src/sources/source-context.js';
+import { getDefaultOpenCodeDbPathCandidates } from '../../../src/sources/opencode/opencode-db-path-resolver.js';
+import { createSourceContext } from '../../../src/sources/source-context.js';
 
 const tempDirs: string[] = [];
 

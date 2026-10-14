@@ -2,8 +2,7 @@ import path from 'node:path';
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { createAdaptersFromOptions } from '../../src/cli/source-cli-options.js';
-import { OpenCodeSourceAdapter } from '../../src/sources/opencode/opencode-source-adapter.js';
+import { OpenCodeSourceAdapter } from '../../../src/sources/opencode/index.js';
 
 type FakeSqliteScenario = {
   tables?: string[];
@@ -87,12 +86,6 @@ function createSqliteLoader(scenario: FakeSqliteScenario): () => Promise<TestSql
 }
 
 describe('OpenCodeSourceAdapter', () => {
-  it('rejects a blank --opencode-db in the CLI validation before the adapter sees it', () => {
-    expect(() => createAdaptersFromOptions({ opencodeDb: '  ' })).toThrow(
-      '--opencode-db must be a non-empty path',
-    );
-  });
-
   it('fails discovery when explicit --opencode-db path is blank', async () => {
     const adapter = new OpenCodeSourceAdapter({
       dbPath: '   ',

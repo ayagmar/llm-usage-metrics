@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseOpenCodeMessageRows } from '../../src/sources/opencode/opencode-row-parser.js';
+import { parseOpenCodeMessageRows } from '../../../src/sources/opencode/opencode-row-parser.js';
 
 describe('opencode row parser', () => {
   it('parses valid assistant rows and skips malformed/non-usable rows with diagnostics', () => {
