@@ -67,7 +67,7 @@ Add `packages/core/src/sources/<name>/<name>-source-adapter.ts`, exported from
 
 - `id`
 - `discoverFiles()`
-- `parseFile(filePath)`
+- `read(filePath, options)`: an `async function*` that yields the file's events in order and records skipped rows in `options.diagnostics`
 - `parserVersion`: bump it when unchanged input would parse differently, so the parse cache drops events stored by the old parser
 - `getParseDependencies(filePath)`, when the result depends on other files (sidecars, a parent transcript): return their paths so a change to them reparses the file
 

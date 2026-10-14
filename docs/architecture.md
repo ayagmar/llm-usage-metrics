@@ -225,7 +225,9 @@ That keeps sorting and separator behavior deterministic without coupling the gen
 - `src/config`
   TOML config loading (`user-config.ts`) and flag/env/config/default resolution (`runtime-overrides.ts`)
 - `packages/core/src/sources`
-  Source adapters, discovery, parsing, in the `@ayagmar/agent-sessions` package; the CLI imports them through the package specifiers
+  Source adapters, discovery, parsing, in the `@ayagmar/agent-sessions` package; the CLI imports them through the package specifiers. Each adapter's `read(filePath, options)` yields a file's events as an async iterable; the CLI parse path, the parse worker and `doctor` read whole files through `collectFile`
+- `packages/core/src/stream`
+  `collect`/`collectFile` (an async iterable to an array, a file to its events and sorted skipped-row counts) and `pipe` with the `Stage` type that the dedup stage forms (`repeatedAcrossFiles`, `copiedSessions` in `packages/core/src/dedup`) plug into
 - `packages/core/src/registry`
   The adapter registry (`createDefaultAdapters`, `getDefaultSourceIds`), exported as `@ayagmar/agent-sessions/registry`; `src/sources/create-default-adapters.ts` re-exports it for the docs site
 - `src/domain`
