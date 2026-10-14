@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  hasControlCharacters,
   normalizeNonNegativeInteger,
   normalizeTimestamp,
   normalizeUsdCost,
   stripControlCharacters,
+  toTerminalLine,
 } from '../src/domain/normalization.js';
 
 describe('normalizeNonNegativeInteger', () => {
@@ -68,5 +70,19 @@ describe('stripControlCharacters', () => {
 
   it('leaves normal unicode intact', () => {
     expect(stripControlCharacters('café 東京')).toBe('café 東京');
+  });
+});
+
+describe('toTerminalLine', () => {
+  it('collapses whitespace and strips escape sequences into one trimmed line', () => {
+    expect(toTerminalLine('  host\u001B[31m-a\n\tlaptop\u202E  ')).toBe('host-a laptop');
+  });
+});
+
+describe('hasControlCharacters', () => {
+  it('flags text that would spoof or break terminal output', () => {
+    expect(hasControlCharacters('a\u202Eb')).toBe(true);
+    expect(hasControlCharacters('a\nb')).toBe(true);
+    expect(hasControlCharacters('café 東京')).toBe(false);
   });
 });

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   collectCanonicalProviderRoots,
   inferCanonicalProviderRootsFromModels,
+  intersectCanonicalProviderRoots,
   matchesCanonicalProviderFilter,
   normalizeProviderToBillingEntity,
   resolveExplicitProviderRoots,
@@ -42,5 +43,15 @@ describe('provider-normalization', () => {
     expect(
       collectCanonicalProviderRoots(['OpenAI-Codex', ' google ', undefined, 'openai']),
     ).toEqual(['google', 'openai']);
+  });
+
+  it('treats a missing side as unconstrained when intersecting provider roots', () => {
+    expect(intersectCanonicalProviderRoots(undefined, ['openai'])).toEqual(['openai']);
+    expect(intersectCanonicalProviderRoots(['anthropic'], undefined)).toEqual(['anthropic']);
+    expect(intersectCanonicalProviderRoots(undefined, undefined)).toBeUndefined();
+    expect(
+      intersectCanonicalProviderRoots(['openai', 'anthropic', 'google'], ['google', 'openai']),
+    ).toEqual(['openai', 'google']);
+    expect(intersectCanonicalProviderRoots(['openai'], ['anthropic'])).toEqual([]);
   });
 });
