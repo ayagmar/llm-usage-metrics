@@ -4,7 +4,8 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { OpenClawSourceAdapter } from '../../src/sources/openclaw/openclaw-source-adapter.js';
+import { OpenClawSourceAdapter } from '../../../src/sources/openclaw/index.js';
+import { fixturePath as packageFixturePath } from '../../helpers/fixtures.js';
 
 const tempDirs: string[] = [];
 
@@ -90,7 +91,10 @@ describe('OpenClawSourceAdapter', () => {
 
     // Copy the fixture so the mtime tweak never touches the checked-in file.
     const fixturePath = path.join(root, 'session-mixed.jsonl');
-    await copyFile(path.resolve('tests/fixtures/openclaw/session-mixed.jsonl'), fixturePath);
+    await copyFile(
+      packageFixturePath(import.meta.url, '../../fixtures/openclaw/session-mixed.jsonl'),
+      fixturePath,
+    );
     const fileMtime = new Date('2026-04-01T10:03:00.000Z');
     await utimes(fixturePath, fileMtime, fileMtime);
 

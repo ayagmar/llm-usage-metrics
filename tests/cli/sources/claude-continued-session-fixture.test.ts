@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { buildUsageData } from '../../../src/cli/build-usage-data.js';
 import { buildUsageReport } from '../../../src/cli/run-usage-report.js';
-import { ClaudeSourceAdapter } from '../../../src/sources/claude/claude-source-adapter.js';
+import { ClaudeSourceAdapter } from '@ayagmar/agent-sessions/sources/claude';
 import { canonicalTmpdir } from '../../helpers/tmp.js';
 
 // Freezes v0.11.0 behaviour for a Claude session continued into a second file (KI-4).

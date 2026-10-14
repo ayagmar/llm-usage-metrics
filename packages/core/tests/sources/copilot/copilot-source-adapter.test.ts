@@ -4,8 +4,9 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { CopilotSourceAdapter } from '../../src/sources/copilot/copilot-source-adapter.js';
-import { createSourceContext } from '../../src/sources/source-context.js';
+import { CopilotSourceAdapter } from '../../../src/sources/copilot/index.js';
+import { createSourceContext } from '../../../src/sources/source-context.js';
+import { fixturePath } from '../../helpers/fixtures.js';
 
 const tempDirs: string[] = [];
 
@@ -56,7 +57,7 @@ describe('CopilotSourceAdapter', () => {
 
   it('parses usage candidates with class priority and cached-input subtraction', async () => {
     const adapter = new CopilotSourceAdapter();
-    const filePath = path.resolve('tests/fixtures/copilot/otel.jsonl');
+    const filePath = fixturePath(import.meta.url, '../../fixtures/copilot/otel.jsonl');
 
     const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
 
@@ -103,7 +104,7 @@ describe('CopilotSourceAdapter', () => {
 
   it('keeps same-priority chat spans sharing a trace while dropping lower-priority records', async () => {
     const adapter = new CopilotSourceAdapter();
-    const filePath = path.resolve('tests/fixtures/copilot/otel-same-trace.jsonl');
+    const filePath = fixturePath(import.meta.url, '../../fixtures/copilot/otel-same-trace.jsonl');
 
     const events = await adapter.parseFile(filePath);
 

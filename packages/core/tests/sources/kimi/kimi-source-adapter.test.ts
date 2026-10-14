@@ -4,7 +4,8 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { KimiSourceAdapter } from '../../src/sources/kimi/kimi-source-adapter.js';
+import { KimiSourceAdapter } from '../../../src/sources/kimi/index.js';
+import { fixturePath as packageFixturePath } from '../../helpers/fixtures.js';
 
 const tempDirs: string[] = [];
 
@@ -130,7 +131,10 @@ describe('KimiSourceAdapter', () => {
   });
 
   it('deduplicates progressive CLI StatusUpdate rows by largest total tokens', async () => {
-    const fixturePath = path.resolve('tests/fixtures/kimi/cli/group-a/session-a/wire.jsonl');
+    const fixturePath = packageFixturePath(
+      import.meta.url,
+      '../../fixtures/kimi/cli/group-a/session-a/wire.jsonl',
+    );
     const adapter = new KimiSourceAdapter();
 
     const result = await adapter.parseFileWithDiagnostics(fixturePath);
@@ -337,8 +341,9 @@ describe('KimiSourceAdapter', () => {
   });
 
   it('parses Kimi Code turn-scoped usage records and skips bookkeeping scopes', async () => {
-    const fixturePath = path.resolve(
-      'tests/fixtures/kimi/code/workspace-a/session-code/agents/agent-a/wire.jsonl',
+    const fixturePath = packageFixturePath(
+      import.meta.url,
+      '../../fixtures/kimi/code/workspace-a/session-code/agents/agent-a/wire.jsonl',
     );
     const adapter = new KimiSourceAdapter();
 

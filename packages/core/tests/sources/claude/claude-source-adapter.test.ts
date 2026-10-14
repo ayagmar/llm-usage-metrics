@@ -3,12 +3,10 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import {
-  ClaudeSourceAdapter,
-  resolveDefaultClaudeRootDirs,
-} from '../../src/sources/claude/claude-source-adapter.js';
-import { createSourceContext } from '../../src/sources/source-context.js';
-import { canonicalTmpdir } from '../helpers/tmp.js';
+import { ClaudeSourceAdapter } from '../../../src/sources/claude/index.js';
+import { resolveDefaultClaudeRootDirs } from '../../../src/sources/claude/claude-source-adapter.js';
+import { createSourceContext } from '../../../src/sources/source-context.js';
+import { canonicalTmpdir } from '../../helpers/tmp.js';
 
 const tempDirs: string[] = [];
 
