@@ -6,7 +6,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { CopilotSourceAdapter } from '../../../src/sources/copilot/index.js';
 import { createSourceContext } from '../../../src/sources/source-context.js';
+import { collect, collectFile } from '../../../src/stream/collect.js';
 import { fixturePath } from '../../helpers/fixtures.js';
+import { canCountOpenFds, countOpenFds, waitForOpenFdCount } from '../../helpers/open-fds.js';
 
 const tempDirs: string[] = [];
 
@@ -59,7 +61,7 @@ describe('CopilotSourceAdapter', () => {
     const adapter = new CopilotSourceAdapter();
     const filePath = fixturePath(import.meta.url, '../../fixtures/copilot/otel.jsonl');
 
-    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+    const diagnostics = await collectFile(adapter, filePath);
 
     expect(diagnostics.skippedRows).toBe(2);
     expect(diagnostics.skippedRowReasons).toEqual([
@@ -105,7 +107,7 @@ describe('CopilotSourceAdapter', () => {
     const adapter = new CopilotSourceAdapter();
     const filePath = fixturePath(import.meta.url, '../../fixtures/copilot/otel-same-trace.jsonl');
 
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toHaveLength(2);
     expect(events.map((event) => event.totalTokens)).toEqual([50, 20]);
@@ -134,7 +136,7 @@ describe('CopilotSourceAdapter', () => {
     );
 
     const adapter = new CopilotSourceAdapter({ dir: root });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toHaveLength(1);
     expect(events[0]?.sessionId).toBe('fallback');
@@ -148,7 +150,7 @@ describe('CopilotSourceAdapter', () => {
     await writeFile(filePath, '{"attributes":', 'utf8');
 
     const adapter = new CopilotSourceAdapter({ dir: root });
-    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+    const diagnostics = await collectFile(adapter, filePath);
 
     expect(diagnostics.events).toEqual([]);
     expect(diagnostics.skippedRows).toBe(1);
@@ -185,10 +187,12 @@ describe('CopilotSourceAdapter', () => {
       'utf8',
     );
 
-    const events = await new CopilotSourceAdapter({
-      dir: root,
-      context: createSourceContext({ env: {} }),
-    }).parseFile(filePath);
+    const events = await collect(
+      new CopilotSourceAdapter({
+        dir: root,
+        context: createSourceContext({ env: {} }),
+      }).read(filePath),
+    );
 
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
@@ -199,5 +203,39 @@ describe('CopilotSourceAdapter', () => {
       cacheWriteTokens: 0,
       totalTokens: 180,
     });
+  });
+
+  it.runIf(canCountOpenFds)('closes the file when the consumer stops early', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'copilot-early-return-'));
+    tempDirs.push(root);
+    const filePath = path.join(root, 'larger-than-a-chunk.jsonl');
+    const rowCount = 3000;
+    const rows = Array.from({ length: rowCount }, (_, index) =>
+      JSON.stringify({
+        name: 'chat completion',
+        traceId: `trace-${index}`,
+        spanId: `span-${index}`,
+        timestamp: '2026-04-01T12:00:00.000Z',
+        attributes: {
+          'gen_ai.operation.name': 'chat',
+          'gen_ai.usage.input_tokens': 100,
+          'gen_ai.usage.output_tokens': 80,
+          'gen_ai.response.model': 'gpt-5-copilot',
+          'gen_ai.conversation.id': 'copilot-early-return',
+        },
+        padding: 'x'.repeat(1000),
+      }),
+    );
+    await writeFile(filePath, `${rows.join('\n')}\n`, 'utf8');
+    const adapter = new CopilotSourceAdapter({ dir: root });
+    const before = countOpenFds();
+
+    for await (const event of adapter.read(filePath)) {
+      expect(event.sessionId).toBe('copilot-early-return');
+      break;
+    }
+
+    await waitForOpenFdCount(before);
+    await expect(collect(adapter.read(filePath))).resolves.toHaveLength(rowCount);
   });
 });
