@@ -195,10 +195,16 @@ function comparePendingEvents(left: ClaudePendingEvent, right: ClaudePendingEven
   return left.sequence - right.sequence;
 }
 
-/** A parent transcript's ids, read once per parent version. */
+/** A parent transcript's ids at one version of the file. */
+type ParentVersionIds = { versionKey: string; ids: Promise<Set<string>> };
+
+/**
+ * A parent transcript's ids, read once per parent version. Only the latest version per
+ * parent path is kept, so a parent that grows does not leave one set per version behind.
+ */
 async function readParentVersion(
   parentPath: string,
-  cache: Map<string, Promise<Set<string>>>,
+  cache: Map<string, ParentVersionIds>,
   read: (parentPath: string) => Promise<Set<string>>,
 ): Promise<Set<string>> {
   const parentStats = await pathStat(parentPath);
@@ -207,14 +213,15 @@ async function readParentVersion(
     return new Set();
   }
 
-  const versionKey = `${parentPath}\0${parentStats.size}\0${parentStats.mtimeMs}`;
-  let ids = cache.get(versionKey);
+  const versionKey = `${parentStats.size}\0${parentStats.mtimeMs}`;
+  const cached = cache.get(parentPath);
 
-  if (!ids) {
-    ids = read(parentPath);
-    cache.set(versionKey, ids);
+  if (cached?.versionKey === versionKey) {
+    return cached.ids;
   }
 
+  const ids = read(parentPath);
+  cache.set(parentPath, { versionKey, ids });
   return ids;
 }
 
@@ -343,9 +350,9 @@ export class ClaudeSourceAdapter implements SourceAdapter {
   private readonly rootDirs: readonly string[];
   private readonly requireDir: boolean;
   // Sibling forks share a parent; read its message keys once per parent version.
-  private readonly parentMessageKeysByVersion = new Map<string, Promise<Set<string>>>();
+  private readonly parentMessageKeysByPath = new Map<string, ParentVersionIds>();
   // Read only for non-usage kinds, so `read` never reads them.
-  private readonly parentRowUuidsByVersion = new Map<string, Promise<Set<string>>>();
+  private readonly parentRowUuidsByPath = new Map<string, ParentVersionIds>();
 
   public constructor(options: ClaudeSourceAdapterOptions = {}) {
     this.rootDirs = resolveRootDirs(
@@ -385,11 +392,11 @@ export class ClaudeSourceAdapter implements SourceAdapter {
   }
 
   private async readParentMessageKeys(parentPath: string): Promise<Set<string>> {
-    return readParentVersion(parentPath, this.parentMessageKeysByVersion, readClaudeMessageKeys);
+    return readParentVersion(parentPath, this.parentMessageKeysByPath, readClaudeMessageKeys);
   }
 
   private async readParentRowUuids(parentPath: string): Promise<Set<string>> {
-    return readParentVersion(parentPath, this.parentRowUuidsByVersion, readClaudeRowUuids);
+    return readParentVersion(parentPath, this.parentRowUuidsByPath, readClaudeRowUuids);
   }
 
   public read(filePath: string, options: SourceReadOptions = {}): AsyncGenerator<UsageEvent> {
