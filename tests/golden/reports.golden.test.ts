@@ -1,4 +1,4 @@
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -61,6 +61,8 @@ type ReportCase = {
   formats: readonly Format[];
   /** Returns the report's stdout. */
   render: (flags: FormatFlags) => Promise<string>;
+  /** Checks the parsed JSON output before it is compared. */
+  checkJson?: (json: string) => void;
 };
 
 function formatFlags(format: Format): FormatFlags {
@@ -69,6 +71,34 @@ function formatFlags(format: Format): FormatFlags {
   }
 
   return format === 'markdown' ? { markdown: true } : {};
+}
+
+const claudeFixture = path.resolve('tests/fixtures/e2e/claude/e2e-project/session.jsonl');
+
+/** Copies the Claude e2e session under `claudeDir` with every row's cwd set to `repoDir`. */
+async function writeAttributedClaudeSession(claudeDir: string, repoDir: string): Promise<void> {
+  const projectDir = path.join(claudeDir, 'e2e-project');
+  const rows = (await readFile(claudeFixture, 'utf8'))
+    .trimEnd()
+    .split('\n')
+    .map((line) => JSON.stringify({ ...(JSON.parse(line) as object), cwd: repoDir }));
+
+  await mkdir(projectDir, { recursive: true });
+  await writeFile(path.join(projectDir, 'session.jsonl'), `${rows.join('\n')}\n`);
+}
+
+type EfficiencyTotals = {
+  data: { rows: { rowType: string; commitCount: number; totalTokens: number }[] };
+};
+
+/** Fails unless the efficiency JSON counts both commits and tokens, so the golden is not all zeros. */
+function expectAttributedEfficiency(json: string): void {
+  const total = (JSON.parse(json) as EfficiencyTotals).data.rows.find(
+    (row) => row.rowType === 'grand_total',
+  );
+
+  expect(total?.commitCount).toBeGreaterThan(0);
+  expect(total?.totalTokens).toBeGreaterThan(0);
 }
 
 const noFilesAdapter: SourceAdapter = {
@@ -112,6 +142,8 @@ describe.skipIf(process.platform === 'win32')(`report goldens (${WINDOWS_SKIP_RE
   useGoldenUpdateCheck();
   let sources: SourceOptions & { source: string; timezone: 'UTC' };
   let repoDir: string;
+  /** The Claude e2e session with its cwd in `repoDir`, so efficiency counts the repo's commits. */
+  let attributedClaudeDir: string;
   let pruneStorePath: string;
 
   beforeAll(async () => {
@@ -122,24 +154,27 @@ describe.skipIf(process.platform === 'win32')(`report goldens (${WINDOWS_SKIP_RE
       timezone: 'UTC',
     };
 
+    // The Claude session runs on 2026-06-20; only the last commit falls on that day.
     const gitRepo = await createGitFixtureRepo(path.join(environment.rootDir, 'git'), [
       {
-        date: '2026-01-05T10:00:00Z',
-        message: 'first',
+        date: '2026-05-28T10:00:00Z',
+        message: 'before the session',
         files: { 'notes.txt': 'one\ntwo\n' },
       },
       {
-        date: '2026-03-10T10:00:00Z',
-        message: 'second',
+        date: '2026-06-19T10:00:00Z',
+        message: 'day before',
         files: { 'notes.txt': 'one\ntwo\nthree\n', 'src/app.ts': 'export {};\n' },
       },
       {
-        date: '2026-06-15T10:00:00Z',
-        message: 'third',
-        files: { 'notes.txt': 'one\nthree\n' },
+        date: '2026-06-20T12:30:00Z',
+        message: 'after the session',
+        files: { 'notes.txt': 'one\nthree\nfour\n' },
       },
     ]);
     repoDir = gitRepo.repoDir;
+    attributedClaudeDir = path.join(environment.rootDir, 'claude-attributed');
+    await writeAttributedClaudeSession(attributedClaudeDir, repoDir);
 
     for (const [name, value] of Object.entries(isolatedGitEnv(gitRepo.globalConfigPath))) {
       vi.stubEnv(name, value);
@@ -269,30 +304,20 @@ describe.skipIf(process.platform === 'win32')(`report goldens (${WINDOWS_SKIP_RE
       formats: JSON_ONLY,
       render: (flags) => buildSessionReport({ ...sources, ...priced, ...flags, byRepo: true }),
     },
-    ...(['daily', 'weekly'] as const).map((granularity) => ({
+    ...(['daily', 'weekly', 'monthly'] as const).map((granularity) => ({
       name: `efficiency-${granularity}`,
-      formats: JSON_ONLY,
+      formats: granularity === 'monthly' ? ALL_FORMATS : JSON_ONLY,
       render: (flags: FormatFlags) =>
         buildEfficiencyReport(granularity, {
           ...sources,
+          claudeDir: attributedClaudeDir,
           ...priced,
           ...flags,
           ...firstHalf,
           repoDir,
         }),
+      checkJson: expectAttributedEfficiency,
     })),
-    {
-      name: 'efficiency-monthly',
-      formats: ALL_FORMATS,
-      render: (flags) =>
-        buildEfficiencyReport('monthly', {
-          ...sources,
-          ...priced,
-          ...flags,
-          ...firstHalf,
-          repoDir,
-        }),
-    },
     {
       name: 'optimize-monthly',
       formats: ALL_FORMATS,
@@ -362,6 +387,10 @@ describe.skipIf(process.platform === 'win32')(`report goldens (${WINDOWS_SKIP_RE
 
         if (format === 'terminal') {
           expect(output).not.toContain('\u001B[');
+        }
+
+        if (format === 'json') {
+          reportCase.checkJson?.(output);
         }
 
         await expectGolden(goldenName, normalizePaths(output, environment.rootDir));
