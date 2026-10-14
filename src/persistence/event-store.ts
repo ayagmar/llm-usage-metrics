@@ -25,14 +25,16 @@ export {
   writeEventStoreMeta,
   type DeleteStoredFilesInput,
   type DeleteStoredFilesResult,
-  type EventStoreDependencyFingerprint,
   type EventStoreFileEntry,
-  type EventStoreFileFingerprint,
   type EventStoreFileSnapshot,
   type EventStoreStoredFile,
   type EventStoreSummary,
   type ReplaceFileEventsInput,
 } from './event-store-administration.js';
+export type {
+  EventStoreDependencyFingerprint,
+  EventStoreFileFingerprint,
+} from '../sources/parse-fingerprint.js';
 export { computeEventContentHash, normalizeStoredEvent } from './event-store-codec.js';
 export {
   runTransaction,
