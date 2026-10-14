@@ -225,9 +225,9 @@ That keeps sorting and separator behavior deterministic without coupling the gen
 - `src/config`
   TOML config loading (`user-config.ts`) and flag/env/config/default resolution (`runtime-overrides.ts`)
 - `packages/core/src/sources`
-  Source adapters, discovery, parsing, in the `@ayagmar/agent-sessions` package; the CLI imports them through the package specifiers. Each adapter's `read(filePath, options)` yields a file's events as an async iterable; the CLI parse path, the parse worker and `doctor` read whole files through `collectFile`
+  Source adapters, discovery, parsing, in the `@ayagmar/agent-sessions` package; the CLI imports them through the package specifiers. Each adapter's `read(filePath, options)` yields a file's events as an async iterable; the CLI parse path, the parse worker and `doctor` read whole files through `collectFile`. `capabilities.kinds` lists the event kinds an adapter produces: claude, codex and pi also implement `readEvents(filePath, options)`, which yields usage records, messages, tool calls and session facts (`SessionEvent` in `packages/core/src/domain/session-event.ts`); every other adapter declares `['usage']`. The CLI uses only `read`, whose output `readEvents` leaves unchanged
 - `packages/core/src/stream`
-  `collect`/`collectFile` (an async iterable to an array, a file to its events and sorted skipped-row counts) and `pipe` with the `Stage` type that the dedup stage forms (`repeatedAcrossFiles`, `copiedSessions` in `packages/core/src/dedup`) plug into
+  `collect`/`collectFile` (an async iterable to an array, a file to its events and sorted skipped-row counts), `readEvents` (an adapter's `readEvents`, or its `read` events as usage records when it has none), the `kinds()` stage, and `pipe` with the `Stage` type that the dedup stage forms (`repeatedAcrossFiles`, `copiedSessions` in `packages/core/src/dedup`, which dedupe usage and pass other kinds through) plug into
 - `packages/core/src/registry`
   The adapter registry (`createDefaultAdapters`, `getDefaultSourceIds`), exported as `@ayagmar/agent-sessions/registry`; `src/sources/create-default-adapters.ts` re-exports it for the docs site
 - `src/domain`
