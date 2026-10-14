@@ -625,39 +625,29 @@ export class CodexSourceAdapter implements SourceAdapter {
     };
 
     // Released records take the session id and provider current at flush time.
-    const toEvents = function* (records: readonly PendingUsageRecord[]): Generator<Usage> {
-      if (!yieldsUsage) {
-        return;
-      }
-
-      for (const record of records) {
-        let event: Usage;
-
-        try {
-          event = options.createUsage(
-            {
-              source: 'codex',
-              sessionId: state.sessionId,
-              timestamp: record.timestamp,
-              repoRoot: record.repoRoot,
-              provider: state.provider,
-              model: record.model ?? LEGACY_CODEX_MODEL_FALLBACK,
-              inputTokens: record.usage.inputTokens,
-              outputTokens: record.usage.outputTokens,
-              reasoningTokens: record.usage.reasoningTokens,
-              cacheReadTokens: record.usage.cacheReadTokens,
-              cacheWriteTokens: record.usage.cacheWriteTokens,
-              totalTokens: record.usage.totalTokens,
-            },
-            record,
-            state,
-          );
-        } catch {
-          recordSkippedRow(diagnostics, 'event_creation_failed');
-          continue;
-        }
-
-        yield event;
+    const toEvent = (record: PendingUsageRecord): Usage | undefined => {
+      try {
+        return options.createUsage(
+          {
+            source: 'codex',
+            sessionId: state.sessionId,
+            timestamp: record.timestamp,
+            repoRoot: record.repoRoot,
+            provider: state.provider,
+            model: record.model ?? LEGACY_CODEX_MODEL_FALLBACK,
+            inputTokens: record.usage.inputTokens,
+            outputTokens: record.usage.outputTokens,
+            reasoningTokens: record.usage.reasoningTokens,
+            cacheReadTokens: record.usage.cacheReadTokens,
+            cacheWriteTokens: record.usage.cacheWriteTokens,
+            totalTokens: record.usage.totalTokens,
+          },
+          record,
+          state,
+        );
+      } catch {
+        recordSkippedRow(diagnostics, 'event_creation_failed');
+        return undefined;
       }
     };
 
@@ -668,10 +658,12 @@ export class CodexSourceAdapter implements SourceAdapter {
           recordSkippedRow(diagnostics, 'json_parse_error');
         },
       })) {
-        const released = takeUsageLine(line, state, options, diagnostics);
+        for (const record of takeUsageLine(line, state, options, diagnostics)) {
+          const event = toEvent(record);
 
-        if (released.length > 0) {
-          yield* toEvents(released);
+          if (event !== undefined) {
+            yield event;
+          }
         }
       }
     } else {
@@ -685,8 +677,16 @@ export class CodexSourceAdapter implements SourceAdapter {
         const timestamp = normalizeTimestampCandidate(line.timestamp);
         yield* kindReader.advance(timestamp);
 
-        if (isUsageLine) {
-          yield* toEvents(takeUsageLine(line, state, options, usageDiagnostics));
+        const released = isUsageLine
+          ? takeUsageLine(line, state, options, usageDiagnostics)
+          : NO_USAGE;
+
+        for (const record of yieldsUsage ? released : NO_USAGE) {
+          const event = toEvent(record);
+
+          if (event !== undefined) {
+            yield event;
+          }
         }
 
         yield* kindReader.record(line, {
@@ -699,8 +699,12 @@ export class CodexSourceAdapter implements SourceAdapter {
       yield* kindReader.finish();
     }
 
-    const pending = state.pendingUsageRecords;
-    state.pendingUsageRecords = [];
-    yield* toEvents(pending);
+    for (const record of yieldsUsage ? state.pendingUsageRecords : NO_USAGE) {
+      const event = toEvent(record);
+
+      if (event !== undefined) {
+        yield event;
+      }
+    }
   }
 }
