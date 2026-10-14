@@ -273,20 +273,25 @@ describe('ClaudeSourceAdapter.readEvents', () => {
   });
 
   it('skips fork rows replayed from the parent for every kind', async () => {
-    const { events } = await readFixture(
+    const { events, reasons } = await readFixture(
       'fork-session/subagents/agent-f1.jsonl',
-      { kinds: ['message', 'usage'] },
+      {},
       forkDir,
     );
 
-    // The third row reuses a parent uuid under a message key the parent lacks: usage keeps
-    // it (it keys replays on the message key), messages skip it (they key on the uuid).
+    // A row with a parent uuid but a message key the parent lacks: usage keeps it (it keys
+    // replays on the message key), the other kinds skip it (they also key on the uuid).
+    // The parent's spawning call, re-logged under a new uuid, is skipped by its message
+    // key, so its result in the fork's directive row is an orphan.
     expect(events.map((event) => [event.kind, event.timestamp])).toEqual([
+      ['session_meta', '2026-07-03T08:00:04.000Z'],
+      ['message', '2026-07-03T08:00:04.000Z'],
       ['message', '2026-07-03T08:01:00.000Z'],
       ['message', '2026-07-03T08:01:01.000Z'],
       ['usage', '2026-07-03T08:00:02.000Z'],
       ['usage', '2026-07-03T08:01:01.000Z'],
     ]);
+    expect(reasons).toEqual({ tool_call_orphan_result: 1 });
   });
 
   it('attaches the source rows only when raw is requested', async () => {

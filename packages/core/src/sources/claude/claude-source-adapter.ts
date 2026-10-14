@@ -442,10 +442,9 @@ export class ClaudeSourceAdapter implements SourceAdapter {
       forkParentPath && isPathWithinRoots(forkParentPath, this.rootDirs)
         ? forkParentPath
         : undefined;
-    const parentMessageKeys =
-      readsUsage && countedForkParentPath
-        ? await this.readParentMessageKeys(countedForkParentPath)
-        : new Set<string>();
+    const parentMessageKeys = countedForkParentPath
+      ? await this.readParentMessageKeys(countedForkParentPath)
+      : new Set<string>();
     const usageRows = new ClaudeUsageRows(filePath, parentMessageKeys, plan);
 
     if (!readsSessionEvents) {
@@ -471,6 +470,7 @@ export class ClaudeSourceAdapter implements SourceAdapter {
       replayedRowUuids: countedForkParentPath
         ? await this.readParentRowUuids(countedForkParentPath)
         : new Set<string>(),
+      replayedMessageKeys: parentMessageKeys,
     });
 
     for await (const { record, isUsageLine } of readClassifiedJsonlObjects(filePath, {

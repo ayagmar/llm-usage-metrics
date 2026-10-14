@@ -9,6 +9,7 @@ import {
 } from '../../domain/session-event.js';
 import { asRecord } from '../../utils/as-record.js';
 import { asTrimmedText, normalizeTimestampCandidate } from '../parsing-utils.js';
+import { getClaudeMessageKey } from './claude-fork-transcript.js';
 import {
   createKindEvent,
   joinTextBlocks,
@@ -42,8 +43,13 @@ export type ClaudeSessionEventsOptions = {
   text: boolean;
   raw: boolean;
   diagnostics: SourceReadDiagnostics;
-  /** Uuids of the rows a fork replayed from its parent transcript; those rows are skipped. */
+  /**
+   * A fork's parent transcript: its row uuids, and the message keys of its assistant rows.
+   * A row the fork replayed from it is skipped. Forks also re-log the parent's last call
+   * under a new uuid, so an assistant row is replayed when its message key is the parent's.
+   */
   replayedRowUuids: ReadonlySet<string>;
+  replayedMessageKeys: ReadonlySet<string>;
 };
 
 type ToolCall = {
@@ -105,7 +111,7 @@ export class ClaudeSessionEvents {
 
     const uuid = asTrimmedText(line.uuid);
 
-    if (uuid && this.options.replayedRowUuids.has(uuid)) {
+    if ((uuid && this.options.replayedRowUuids.has(uuid)) || this.isReplayedCall(type, line)) {
       return;
     }
 
@@ -125,6 +131,12 @@ export class ClaudeSessionEvents {
         yield* this.run(action, actionTimestamp);
       }
     }
+  }
+
+  private isReplayedCall(type: string, line: Record<string, unknown>): boolean {
+    const message = type === 'assistant' ? asRecord(line.message) : undefined;
+    const messageKey = message ? getClaudeMessageKey(line, message) : undefined;
+    return messageKey !== undefined && this.options.replayedMessageKeys.has(messageKey);
   }
 
   /** At end of file: the calls never answered, as `unknown`. */
