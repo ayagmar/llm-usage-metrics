@@ -4,7 +4,10 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { buildUsageReport } from '../../src/cli/run-usage-report.js';
-import { createAntigravityFixtureDb } from '../helpers/antigravity-fixtures.js';
+import {
+  createAntigravityFixtureDb,
+  E2E_ANTIGRAVITY_FIXTURE,
+} from '../helpers/antigravity-fixtures.js';
 import { createDshSessionsFixture } from '../helpers/dsh-fixtures.js';
 import { createGooseFixtureDb, E2E_GOOSE_SESSIONS } from '../helpers/goose-fixtures.js';
 import { createOpenCodeFixtureDb, E2E_OPENCODE_MESSAGES } from '../helpers/opencode-fixtures.js';
@@ -64,23 +67,10 @@ describe.skipIf(!DatabaseSync)('multi-source usage report e2e', () => {
     createOpenCodeFixtureDb(opencodeDbPath, E2E_OPENCODE_MESSAGES);
     createGooseFixtureDb(gooseDbPath, E2E_GOOSE_SESSIONS);
 
-    createAntigravityFixtureDb(path.join(antigravityDir, 'conversation.db'), {
-      turns: [
-        {
-          model: 'gemini-antigravity-e2e',
-          timestamp: { seconds: 1_781_510_400 },
-          usage: {
-            modelEnum: 1016,
-            inputTokens: 40,
-            cacheReadTokens: 5,
-            totalOutputTokens: 20,
-            outputTokens: 15,
-            reasoningTokens: 5,
-            responseId: 'antigravity-e2e-response',
-          },
-        },
-      ],
-    });
+    createAntigravityFixtureDb(
+      path.join(antigravityDir, 'conversation.db'),
+      E2E_ANTIGRAVITY_FIXTURE,
+    );
   });
 
   afterAll(async () => {
