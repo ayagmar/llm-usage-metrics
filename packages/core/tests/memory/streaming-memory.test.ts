@@ -453,11 +453,14 @@ async function generateAntigravity(dir: string, scale: 1 | 2): Promise<Fixture> 
   return { readPath: dbPath, files: [dbPath], events: rows, totalTokens };
 }
 
-// cline: ui_messages.json just under 64 MiB at 2N, and a history file of 200+ MB whose last
-// complete <environment_details> block names the model.
+// cline: two cases, each growing one of a task's two files while the other stays small.
+// ui_messages.json is just under 64 MiB at 2N; the history file is 200+ MB at 2N, and its
+// last complete <environment_details> block names the model.
 const CLINE_REQUESTS_AT_N = 52_000;
+const CLINE_REQUESTS_FIXED = 2_000;
 const CLINE_TEXT_PADDING = 'All set. '.repeat(44);
 const CLINE_HISTORY_ENTRIES_AT_N = 800;
+const CLINE_HISTORY_ENTRIES_FIXED = 8;
 const CLINE_HISTORY_FILLER = 'Reading the repository layout before editing files. '.repeat(1_260);
 const CLINE_MODEL = 'claude-memory-model';
 
@@ -522,14 +525,18 @@ function* clineHistory(entries: number): Generator<string> {
   yield '\n]\n';
 }
 
-async function generateCline(dir: string, scale: 1 | 2): Promise<Fixture> {
+async function generateCline(
+  dir: string,
+  scale: 1 | 2,
+  requests: number,
+  historyEntries: number,
+): Promise<Fixture> {
   const taskDir = path.join(dir, `cline-${scale}n`, `task-memory-${scale}n`);
   await mkdir(taskDir, { recursive: true });
   const uiMessagesPath = path.join(taskDir, 'ui_messages.json');
   const historyPath = path.join(taskDir, 'api_conversation_history.json');
-  const requests = CLINE_REQUESTS_AT_N * scale;
   await writeTextStreamed(uiMessagesPath, clineUiMessages(requests));
-  await writeTextStreamed(historyPath, clineHistory(CLINE_HISTORY_ENTRIES_AT_N * scale));
+  await writeTextStreamed(historyPath, clineHistory(historyEntries));
   let totalTokens = 0;
 
   for (let index = 0; index < requests; index += 1) {
@@ -621,20 +628,37 @@ const CASES: MemoryCase[] = [
     growthAllowanceKiB: 72 * KiB_PER_MiB,
   },
   {
-    name: 'cline task',
+    name: 'cline ui_messages',
     sourceId: 'cline',
     exportName: 'ClineFamilyAdapter',
     options: (dir) => ({ id: 'cline', extensionId: 'saoudrizwan.claude-dev', dir }),
-    generate: generateCline,
-    checkFixture: (fixture, [uiMessagesSize, historySize]) => {
+    generate: (dir, scale) =>
+      generateCline(dir, scale, CLINE_REQUESTS_AT_N * scale, CLINE_HISTORY_ENTRIES_FIXED),
+    checkFixture: (fixture, [uiMessagesSize]) => {
       expect(uiMessagesSize).toBeLessThan(64 * MiB);
       expect(fixture.events).toBeGreaterThanOrEqual(100_000);
+    },
+    // The history file stays at ~1 MiB. One element at a time: 2N peaks 131-144 MiB and
+    // median growth 10-20 MiB, from V8 letting the heap grow with the garbage. Also holding
+    // the file (a planted control) peaked at 187-207 MiB and grew 41-51 MiB, failing both
+    // checks on Node 22.16 and 24.
+    ceilingKiB: 168 * KiB_PER_MiB,
+    growthAllowanceKiB: 32 * KiB_PER_MiB,
+  },
+  {
+    name: 'cline history',
+    sourceId: 'cline',
+    exportName: 'ClineFamilyAdapter',
+    options: (dir) => ({ id: 'cline', extensionId: 'saoudrizwan.claude-dev', dir }),
+    generate: (dir, scale) =>
+      generateCline(dir, scale, CLINE_REQUESTS_FIXED, CLINE_HISTORY_ENTRIES_AT_N * scale),
+    checkFixture: (_fixture, [, historySize]) => {
       expect(historySize).toBeGreaterThanOrEqual(200_000_000);
     },
-    // Peaks 126-161 MiB, single N runs on Node 22.16 spreading 27 MiB. One ui_messages
-    // element and the history scanner's carried text at a time: median growth -14 to 10 MiB,
-    // against the ~32 + 100 MiB of input N adds.
-    ceilingKiB: 192 * KiB_PER_MiB,
+    // ui_messages.json stays at ~1 MiB. The scanner keeps only its carried text: 2N peaks
+    // 97-122 MiB and median growth -15 to 12 MiB. Also holding the history file (a planted
+    // control) peaked at 299-326 MiB and grew 93-115 MiB.
+    ceilingKiB: 160 * KiB_PER_MiB,
     growthAllowanceKiB: 32 * KiB_PER_MiB,
   },
 ];
