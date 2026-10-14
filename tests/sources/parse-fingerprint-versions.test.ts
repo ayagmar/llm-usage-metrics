@@ -8,6 +8,7 @@ import {
   getDefaultSourceIds,
 } from '../../src/sources/create-default-adapters.js';
 import { getParseFileFingerprint } from '../../src/sources/parse-fingerprint.js';
+import { createSourceContext } from '../../src/sources/source-context.js';
 import { canonicalTmpdir } from '../helpers/tmp.js';
 
 // The parse cache key of every source. A change here re-parses every stored file of that
@@ -48,7 +49,11 @@ afterAll(async () => {
 
 describe('parse fingerprint versions', () => {
   it('keeps the cache key of every registered source', async () => {
-    const adapters = createDefaultAdapters({});
+    // A temp home and an empty env keep the user's own source dirs out of the run.
+    const adapters = createDefaultAdapters(
+      {},
+      createSourceContext({ homeDir: rootDir, env: {}, platform: 'linux' }),
+    );
     const parserVersions: Record<string, string | undefined> = {};
 
     for (const adapter of adapters) {
