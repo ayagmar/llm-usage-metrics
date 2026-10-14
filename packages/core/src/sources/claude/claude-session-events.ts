@@ -219,11 +219,8 @@ export class ClaudeSessionEvents {
       cwd: asText(line.cwd),
       gitBranch: asText(line.gitBranch),
       agentVersion: asText(line.version),
-      title: aiTitle
-        ? asText(line.aiTitle)
-        : type === 'custom-title'
-          ? asText(line.customTitle)
-          : undefined,
+      // Without text a title row states nothing, so it holds no action for a timestamp.
+      title: this.options.text ? statedTitle(type, line) : undefined,
     };
 
     if (
@@ -465,6 +462,14 @@ export class ClaudeSessionEvents {
   private recordToolCallSkipped(reason: ToolCallReason): void {
     recordToolCallSkippedRow(this.options.diagnostics, this.options.kinds, reason);
   }
+}
+
+function statedTitle(type: string, line: Record<string, unknown>): string | undefined {
+  if (type === 'ai-title') {
+    return asText(line.aiTitle);
+  }
+
+  return type === 'custom-title' ? asText(line.customTitle) : undefined;
 }
 
 function asText(value: unknown): string | undefined {

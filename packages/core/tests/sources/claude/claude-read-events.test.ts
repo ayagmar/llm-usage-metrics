@@ -294,6 +294,10 @@ describe('ClaudeSourceAdapter.readEvents', () => {
     });
   });
 
+  it('does not count titles a read without text could never emit', async () => {
+    expect(await readFixture('untimed-titles.jsonl')).toEqual({ events: [], reasons: {} });
+  });
+
   it('skips fork rows replayed from the parent for every kind', async () => {
     const { events, reasons } = await readFixture(
       'fork-session/subagents/agent-f1.jsonl',
