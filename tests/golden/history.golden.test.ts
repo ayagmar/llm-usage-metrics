@@ -17,6 +17,7 @@ import { useBundledPricingOnly } from '../helpers/offline-pricing.js';
 import {
   captureStdout,
   expectGolden,
+  FIXED_GOLDENS,
   fixedNow,
   freezeDate,
   normalizePaths,
@@ -98,7 +99,7 @@ describe.skipIf(process.platform === 'win32')(`history goldens (${WINDOWS_SKIP_R
 
     expect(output).toContain('golden-departed-session');
     await expectGolden(
-      'history/events-with-departed.jsonl',
+      FIXED_GOLDENS.historyEventsWithDeparted,
       normalizePaths(output, environment.rootDir),
     );
   });
@@ -108,7 +109,7 @@ describe.skipIf(process.platform === 'win32')(`history goldens (${WINDOWS_SKIP_R
 
     expect(output).toContain('2025-01');
     await expectGolden(
-      'history/usage-monthly-with-history.json',
+      FIXED_GOLDENS.historyUsageMonthlyWithHistory,
       normalizePaths(output, environment.rootDir),
     );
   });
@@ -119,7 +120,7 @@ describe.skipIf(process.platform === 'win32')(`history goldens (${WINDOWS_SKIP_R
 
     expect(output).not.toContain('2025-01');
     await expectGolden(
-      'history/usage-monthly-without-history.json',
+      FIXED_GOLDENS.historyUsageMonthlyWithoutHistory,
       normalizePaths(output, environment.rootDir),
     );
   });

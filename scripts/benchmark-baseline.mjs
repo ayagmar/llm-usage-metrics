@@ -40,7 +40,8 @@ const METHODOLOGY_LINES = [
   '    minute, ending minutes before the run starts, so today and this month hold data.',
   '  - Environment: temp HOME, XDG_CACHE_HOME, XDG_CONFIG_HOME, XDG_DATA_HOME, a',
   '    missing LLM_USAGE_CONFIG_PATH, LLM_USAGE_SKIP_UPDATE_CHECK=1, TZ=UTC; every',
-  '    inherited LLM_USAGE_* variable is removed. Every command passes',
+  '    inherited LLM_USAGE_* and NODE_* variable (NODE_OPTIONS included) is removed;',
+  '    the script sets only NODE_COMPILE_CACHE. Every command passes',
   '    --source pi,codex --pi-dir <dir> --codex-dir <dir>; stdin is ignored.',
   '  - cold (store off, OS page cache warm): LLM_USAGE_EVENT_STORE=0, fresh cache dir',
   '    per run, daily --all --json --pricing-offline. The corpus was just written, so',
@@ -229,12 +230,13 @@ async function measureRss(cliArgs, env, context) {
   return { maxRssMb, stdout };
 }
 
-// The child sees no inherited LLM_USAGE_* variable and no HOME outside the temp dir.
+// The child sees no inherited LLM_USAGE_* or NODE_* variable (NODE_OPTIONS could load
+// hooks or change heap limits) and no HOME outside the temp dir.
 function buildBaselineEnv(context, stateRoot, eventStorePath) {
   const env = {};
 
   for (const [name, value] of Object.entries(process.env)) {
-    if (!name.startsWith('LLM_USAGE_') && value !== undefined) {
+    if (!name.startsWith('LLM_USAGE_') && !name.startsWith('NODE_') && value !== undefined) {
       env[name] = value;
     }
   }

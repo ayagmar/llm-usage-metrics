@@ -10,6 +10,7 @@ import { runMachineExport } from '../../src/cli/run-machine-export.js';
 import { useIsolatedEnvironment } from '../helpers/isolated-env.js';
 import {
   expectGolden,
+  FIXED_GOLDENS,
   fixedNow,
   freezeDate,
   normalizePaths,
@@ -69,7 +70,7 @@ describe.skipIf(process.platform === 'win32')(
       const bundle = Buffer.concat(chunks).toString('utf8');
 
       expect(bundle).toContain('"hostname":"golden-host"');
-      await expectGolden('machines/export.jsonl', normalizePaths(bundle, environment.rootDir));
+      await expectGolden(FIXED_GOLDENS.machinesExport, normalizePaths(bundle, environment.rootDir));
     });
   },
 );

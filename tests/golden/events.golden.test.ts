@@ -21,7 +21,9 @@ import {
   ALL_SOURCE_IDS,
   captureStdout,
   createE2eSourceOptions,
+  eventsGoldenName,
   expectGolden,
+  FIXED_GOLDENS,
   FIXED_NOW,
   fixedNow,
   freezeDate,
@@ -74,17 +76,15 @@ describe.skipIf(process.platform === 'win32')(`events goldens (${WINDOWS_SKIP_RE
   }
 
   for (const set of fixtureSets) {
-    const label = getFixtureSetLabel(set);
-
-    it(`freezes the ${label} events`, async () => {
+    it(`freezes the ${getFixtureSetLabel(set)} events`, async () => {
       const output = await captureEvents({
-        ...getFixtureSetOptions(set, e2eOptions),
+        ...getFixtureSetOptions(set, e2eOptions, environment.rootDir),
         source: set.source,
         format: 'jsonl',
       });
 
       expect(output.length).toBeGreaterThan(0);
-      await expectGolden(`events/${label}.jsonl`, output);
+      await expectGolden(eventsGoldenName(set), output);
     });
   }
 
@@ -105,13 +105,13 @@ describe.skipIf(process.platform === 'win32')(`events goldens (${WINDOWS_SKIP_RE
     );
     expect([...sourcesAfterNow]).toEqual(['dsh']);
 
-    await expectGolden('events/all-sources.jsonl', jsonl);
+    await expectGolden(FIXED_GOLDENS.eventsAllSourcesJsonl, jsonl);
     await expectGolden(
-      'events/all-sources.csv',
+      FIXED_GOLDENS.eventsAllSourcesCsv,
       await captureEvents({ ...allSourcesOptions(), format: 'csv' }),
     );
     await expectGolden(
-      'events/all-sources.hashes.txt',
+      FIXED_GOLDENS.eventsAllSourcesHashes,
       `${events.map((event) => computeEventContentHash(event)).join('\n')}\n`,
     );
   });
@@ -124,7 +124,10 @@ describe.skipIf(process.platform === 'win32')(`events goldens (${WINDOWS_SKIP_RE
     createOpenCodeFixtureDb(dbPath, E2E_OPENCODE_MESSAGES);
     const options: EventsCommandOptions = { opencodeDb: dbPath, source: 'opencode' };
 
-    await expectGolden('events/opencode-appended-before.jsonl', await captureEvents(options, deps));
+    await expectGolden(
+      FIXED_GOLDENS.eventsOpencodeAppendedBefore,
+      await captureEvents(options, deps),
+    );
 
     appendOpenCodeMessages(dbPath, [
       {
@@ -154,7 +157,10 @@ describe.skipIf(process.platform === 'win32')(`events goldens (${WINDOWS_SKIP_RE
     const later = new Date(mtime.getTime() + 60_000);
     await utimes(dbPath, later, later);
 
-    await expectGolden('events/opencode-appended-after.jsonl', await captureEvents(options, deps));
+    await expectGolden(
+      FIXED_GOLDENS.eventsOpencodeAppendedAfter,
+      await captureEvents(options, deps),
+    );
   });
 
   it('prints the same events from a warm event store as from a fresh parse', async () => {
@@ -167,7 +173,7 @@ describe.skipIf(process.platform === 'win32')(`events goldens (${WINDOWS_SKIP_RE
     const warm = await captureEvents(options, deps);
 
     expect(warm).toBe(await captureEvents(options));
-    await expectGolden('events/store-warm.jsonl', warm);
+    await expectGolden(FIXED_GOLDENS.eventsStoreWarm, warm);
   });
 
   it('never reaches the network', () => {

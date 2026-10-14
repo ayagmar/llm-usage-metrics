@@ -5,19 +5,42 @@
     "grouping": "period",
     "rows": [
       {
+        "rowType": "period",
+        "periodKey": "2026-W25",
+        "inputTokens": 130,
+        "outputTokens": 65,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 10,
+        "cacheWriteTokens": 15,
+        "totalTokens": 220,
+        "costUsd": 0.00142425,
+        "commitCount": 1,
+        "linesAdded": 1,
+        "linesDeleted": 1,
+        "linesChanged": 2,
+        "usdPerCommit": 0.00142425,
+        "usdPer1kLinesChanged": 0.712125,
+        "tokensPerCommit": 195,
+        "commitsPerUsd": 702.1239248727401
+      },
+      {
         "rowType": "grand_total",
         "periodKey": "ALL",
-        "inputTokens": 0,
-        "outputTokens": 0,
+        "inputTokens": 130,
+        "outputTokens": 65,
         "reasoningTokens": 0,
-        "cacheReadTokens": 0,
-        "cacheWriteTokens": 0,
-        "totalTokens": 0,
-        "costUsd": 0,
-        "commitCount": 0,
-        "linesAdded": 0,
-        "linesDeleted": 0,
-        "linesChanged": 0
+        "cacheReadTokens": 10,
+        "cacheWriteTokens": 15,
+        "totalTokens": 220,
+        "costUsd": 0.00142425,
+        "commitCount": 1,
+        "linesAdded": 1,
+        "linesDeleted": 1,
+        "linesChanged": 2,
+        "usdPerCommit": 0.00142425,
+        "usdPer1kLinesChanged": 0.712125,
+        "tokensPerCommit": 195,
+        "commitsPerUsd": 702.1239248727401
       }
     ]
   }

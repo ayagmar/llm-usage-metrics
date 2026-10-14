@@ -38,9 +38,10 @@ export type IsolatedEnvironment = {
  * colour off, `TZ=UTC`.
  *
  * Module-level defaults read `os.homedir()` at import time, before this runs, so tests
- * must pass every source's directory explicitly. Fixture file mtimes are left alone:
- * Claude and Copilot skip files whose mtime predates `--since`, and checkout mtimes are
- * later than every window the goldens use.
+ * must pass every source's directory explicitly. File mtimes matter too: most adapters
+ * declare `eventsPrecedeFileMtime`, so a windowed run skips their files whose mtime
+ * predates `--since` minus a day. The golden harness reads fixtures from a temp copy
+ * with pinned mtimes for that reason.
  */
 export function useIsolatedEnvironment(): IsolatedEnvironment {
   let rootDir: string | undefined;
@@ -51,6 +52,12 @@ export function useIsolatedEnvironment(): IsolatedEnvironment {
     await mkdir(homeDir);
 
     for (const name of UNSET_VARIABLES) {
+      vi.stubEnv(name, undefined);
+    }
+
+    // The efficiency report runs git with this environment; an inherited GIT_DIR,
+    // GIT_WORK_TREE or GIT_AUTHOR_* would point it elsewhere or change its output.
+    for (const name of Object.keys(process.env).filter((key) => key.startsWith('GIT_'))) {
       vi.stubEnv(name, undefined);
     }
 

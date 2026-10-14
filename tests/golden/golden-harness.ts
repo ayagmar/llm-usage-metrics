@@ -1,14 +1,12 @@
 import { realpathSync } from 'node:fs';
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readdir, readFile, stat, utimes, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { format } from 'node:util';
 
 import { afterAll, expect, vi } from 'vitest';
 
 import type { EventsCommandOptions } from '../../src/cli/usage-data-contracts.js';
-import {
-  getDefaultSourceIds,
-  getSourceOverrideOptions,
-} from '../../src/sources/create-default-adapters.js';
+import { getSourceOverrideOptions } from '../../src/sources/create-default-adapters.js';
 import {
   createAntigravityFixtureDb,
   E2E_ANTIGRAVITY_FIXTURE,
@@ -28,8 +26,53 @@ const FIXTURES_ROOT = path.resolve('tests/fixtures');
 const E2E_FIXTURES_ROOT = path.join(FIXTURES_ROOT, 'e2e');
 const GOLDEN_FIXTURES_ROOT = path.join(FIXTURES_ROOT, 'golden');
 
-/** Every registered source, in registration order. */
-export const ALL_SOURCE_IDS = getDefaultSourceIds();
+/**
+ * Every registered source, in registration order. Written out rather than read from the
+ * registry so that adding, dropping or renaming a source fails `orphans.golden.test.ts`
+ * instead of silently adding or orphaning goldens.
+ */
+export const ALL_SOURCE_IDS: readonly string[] = [
+  'pi',
+  'codex',
+  'gemini',
+  'droid',
+  'opencode',
+  'openclaw',
+  'claude',
+  'copilot',
+  'goose',
+  'amp',
+  'qwen',
+  'kimi',
+  'cline',
+  'roocode',
+  'kilocode',
+  'antigravity',
+  'dsh',
+];
+
+/** Every top-level command, in registration order; written out for the same reason. */
+export const COMMAND_NAMES: readonly string[] = [
+  'summary',
+  'daily',
+  'weekly',
+  'monthly',
+  'compare',
+  'efficiency',
+  'optimize',
+  'trends',
+  'session',
+  'wrapped',
+  'events',
+  'statusline',
+  'doctor',
+  'prune',
+  'config',
+  'machine',
+  'sync',
+  'schema',
+  'completion',
+];
 
 const updateGoldens = process.env.UPDATE_GOLDENS === '1';
 const writtenGoldens: string[] = [];
@@ -123,10 +166,10 @@ export const fixedNow = (): Date => FIXED_NOW;
 export async function captureStdout(run: () => Promise<void>): Promise<string> {
   const chunks: string[] = [];
   const logSpy = vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
-    chunks.push(`${args.map(String).join(' ')}\n`);
+    chunks.push(`${format(...args)}\n`);
   });
   const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-    chunks.push(String(chunk));
+    chunks.push(typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8'));
     return true;
   });
   const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -184,8 +227,57 @@ function getOptionKey(sourceId: string): SourceOptionKey {
   return option.optionKey;
 }
 
-/** Builds the e2e option for each source, generating the SQLite and dsh fixtures under `tempRoot`. */
+/** Sets the mtime of every file and directory under `dir` to `FIXED_NOW`, and checks every file's. */
+export async function pinMtimes(dir: string): Promise<void> {
+  const entries = await readdir(dir, { recursive: true, withFileTypes: true });
+  const paths = entries.map((entry) => path.join(entry.parentPath, entry.name));
+
+  for (const entryPath of [...paths, dir]) {
+    await utimes(entryPath, FIXED_NOW, FIXED_NOW);
+  }
+
+  for (const entry of entries.filter((candidate) => candidate.isFile())) {
+    const filePath = path.join(entry.parentPath, entry.name);
+    const { mtimeMs } = await stat(filePath);
+
+    if (mtimeMs !== FIXED_NOW.getTime()) {
+      throw new Error(`${filePath}: mtime ${mtimeMs}, expected ${FIXED_NOW.getTime()}`);
+    }
+  }
+}
+
+function copiedFixturesRoot(tempRoot: string): string {
+  return path.join(tempRoot, 'fixtures');
+}
+
+/**
+ * Copies `tests/fixtures/e2e` and `tests/fixtures/golden` under `tempRoot` with every mtime
+ * at `FIXED_NOW`. Most adapters declare `eventsPrecedeFileMtime` (`rg eventsPrecedeFileMtime
+ * src/sources`), and a windowed run skips their files whose newest mtime predates `since`
+ * minus a day, so checkout mtimes would otherwise decide what an old clone reports.
+ */
+async function copyFixtures(tempRoot: string): Promise<void> {
+  const copyRoot = copiedFixturesRoot(tempRoot);
+
+  await cp(E2E_FIXTURES_ROOT, path.join(copyRoot, 'e2e'), { recursive: true });
+  await mkdir(path.join(copyRoot, 'golden'));
+
+  for (const source of await listDirectories(GOLDEN_FIXTURES_ROOT)) {
+    await cp(path.join(GOLDEN_FIXTURES_ROOT, source), path.join(copyRoot, 'golden', source), {
+      recursive: true,
+    });
+  }
+
+  await pinMtimes(copyRoot);
+}
+
+/**
+ * Builds the e2e option for each source from a copy of the fixtures under `tempRoot` (see
+ * `copyFixtures`), generating the SQLite and dsh fixtures there too.
+ */
 export async function createE2eSourceOptions(tempRoot: string): Promise<SourceOptions> {
+  await copyFixtures(tempRoot);
+  const e2eRoot = path.join(copiedFixturesRoot(tempRoot), 'e2e');
   const generatedDir = path.join(tempRoot, 'e2e-generated');
   const antigravityDir = path.join(generatedDir, 'antigravity');
   const dshDir = path.join(generatedDir, 'dsh');
@@ -203,12 +295,12 @@ export async function createE2eSourceOptions(tempRoot: string): Promise<SourceOp
     goose: gooseDb,
     antigravity: antigravityDir,
     dsh: dshDir,
-    qwen: path.join(E2E_FIXTURES_ROOT, 'qwen', 'projects'),
+    qwen: path.join(e2eRoot, 'qwen', 'projects'),
   };
   const options: SourceOptions = {};
 
   for (const sourceId of ALL_SOURCE_IDS) {
-    options[getOptionKey(sourceId)] = generated[sourceId] ?? path.join(E2E_FIXTURES_ROOT, sourceId);
+    options[getOptionKey(sourceId)] = generated[sourceId] ?? path.join(e2eRoot, sourceId);
   }
 
   return options;
@@ -260,8 +352,15 @@ export async function listFixtureSets(): Promise<FixtureSet[]> {
   ];
 }
 
-/** The options that point the set's source at the set. */
-export function getFixtureSetOptions(set: FixtureSet, e2eOptions: SourceOptions): SourceOptions {
+/**
+ * The options that point the set's source at the set: `e2eOptions` for the e2e set, the
+ * copy `createE2eSourceOptions(tempRoot)` made for a golden set.
+ */
+export function getFixtureSetOptions(
+  set: FixtureSet,
+  e2eOptions: SourceOptions,
+  tempRoot: string,
+): SourceOptions {
   const optionKey = getOptionKey(set.source);
 
   if (set.name === undefined) {
@@ -276,9 +375,101 @@ export function getFixtureSetOptions(set: FixtureSet, e2eOptions: SourceOptions)
     );
   }
 
-  return { [optionKey]: path.join(GOLDEN_FIXTURES_ROOT, set.source, set.name) };
+  return { [optionKey]: path.join(copiedFixturesRoot(tempRoot), 'golden', set.source, set.name) };
 }
 
 export function getFixtureSetLabel(set: FixtureSet): string {
   return set.name === undefined ? set.source : `${set.source}-${set.name}`;
+}
+
+/*
+ * Golden names. Every test passes `expectGolden` a name from here, and
+ * `orphans.golden.test.ts` checks that `listExpectedGoldenNames` matches the files on disk,
+ * so a golden nothing writes any more cannot linger.
+ */
+
+/** Goldens whose name does not depend on a source, command or report case. */
+export const FIXED_GOLDENS = {
+  eventsAllSourcesJsonl: 'events/all-sources.jsonl',
+  eventsAllSourcesCsv: 'events/all-sources.csv',
+  eventsAllSourcesHashes: 'events/all-sources.hashes.txt',
+  eventsOpencodeAppendedBefore: 'events/opencode-appended-before.jsonl',
+  eventsOpencodeAppendedAfter: 'events/opencode-appended-after.jsonl',
+  eventsStoreWarm: 'events/store-warm.jsonl',
+  historyEventsWithDeparted: 'history/events-with-departed.jsonl',
+  historyUsageMonthlyWithHistory: 'history/usage-monthly-with-history.json',
+  historyUsageMonthlyWithoutHistory: 'history/usage-monthly-without-history.json',
+  machinesExport: 'machines/export.jsonl',
+  machinesUsageMonthlyByMachine: 'machines/usage-monthly-by-machine.json',
+  machinesSummary: 'machines/summary.json',
+  defaultPathsDoctor: 'default-paths/doctor.json',
+  variantsStatuslineAllSources: 'variants/statusline-all-sources.txt',
+} as const;
+
+export function eventsGoldenName(set: FixtureSet): string {
+  return `events/${getFixtureSetLabel(set)}.jsonl`;
+}
+
+/** `help/root.txt` for the root command, `help/<command>.txt` otherwise. */
+export function helpGoldenName(command: string | undefined): string {
+  return `help/${command ?? 'root'}.txt`;
+}
+
+export type ReportFormat = 'json' | 'markdown' | 'terminal';
+
+const REPORT_FORMAT_EXTENSIONS: Record<ReportFormat, string> = {
+  json: 'json',
+  markdown: 'md',
+  terminal: 'txt',
+};
+
+const ALL_FORMATS: readonly ReportFormat[] = ['json', 'markdown', 'terminal'];
+const JSON_ONLY: readonly ReportFormat[] = ['json'];
+const NO_MARKDOWN: readonly ReportFormat[] = ['json', 'terminal'];
+const TERMINAL_ONLY: readonly ReportFormat[] = ['terminal'];
+
+/** Each report case, `<command>[-<granularity>][-<variant>]`, and the formats it is frozen in. */
+export const REPORT_CASE_FORMATS = {
+  'usage-daily': ALL_FORMATS,
+  'usage-weekly': ALL_FORMATS,
+  'usage-monthly': ALL_FORMATS,
+  'usage-daily-compact': TERMINAL_ONLY,
+  'usage-daily-per-model-columns': TERMINAL_ONLY,
+  'usage-daily-no-cost': TERMINAL_ONLY,
+  summary: ALL_FORMATS,
+  compare: ALL_FORMATS,
+  'trends-tokens': ALL_FORMATS,
+  'trends-active-hours': JSON_ONLY,
+  'trends-by-source': JSON_ONLY,
+  session: ALL_FORMATS,
+  'session-top-5': JSON_ONLY,
+  'session-by-repo': JSON_ONLY,
+  'efficiency-daily': JSON_ONLY,
+  'efficiency-weekly': JSON_ONLY,
+  'efficiency-monthly': ALL_FORMATS,
+  'optimize-monthly': ALL_FORMATS,
+  wrapped: ALL_FORMATS,
+  doctor: NO_MARKDOWN,
+  prune: NO_MARKDOWN,
+} as const satisfies Record<string, readonly ReportFormat[]>;
+
+export type ReportCaseName = keyof typeof REPORT_CASE_FORMATS;
+
+export function reportGoldenName(caseName: ReportCaseName, format: ReportFormat): string {
+  return `reports/${caseName}.${REPORT_FORMAT_EXTENSIONS[format]}`;
+}
+
+/** Every golden name the golden tests write, sorted. */
+export async function listExpectedGoldenNames(): Promise<string[]> {
+  const reportNames = Object.entries(REPORT_CASE_FORMATS).flatMap(([caseName, formats]) =>
+    formats.map((format) => reportGoldenName(caseName as ReportCaseName, format)),
+  );
+
+  return [
+    ...Object.values(FIXED_GOLDENS),
+    ...(await listFixtureSets()).map(eventsGoldenName),
+    helpGoldenName(undefined),
+    ...COMMAND_NAMES.map(helpGoldenName),
+    ...reportNames,
+  ].sort();
 }

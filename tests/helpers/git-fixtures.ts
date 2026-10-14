@@ -26,8 +26,15 @@ export function isolatedGitEnv(emptyGlobalConfigPath: string): Record<string, st
   };
 }
 
+/** The inherited environment without `GIT_*`, so `GIT_DIR`, `GIT_AUTHOR_*` and the like cannot redirect git. */
+function withoutGitVariables(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return Object.fromEntries(Object.entries(env).filter(([name]) => !name.startsWith('GIT_')));
+}
+
 async function runGit(repoDir: string, args: string[], env: Record<string, string>): Promise<void> {
-  await execFileAsync('git', ['-C', repoDir, ...args], { env: { ...process.env, ...env } });
+  await execFileAsync('git', ['-C', repoDir, ...args], {
+    env: { ...withoutGitVariables(process.env), ...env },
+  });
 }
 
 /**
