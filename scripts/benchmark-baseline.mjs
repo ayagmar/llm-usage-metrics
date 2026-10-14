@@ -15,6 +15,10 @@ const ACTIVE_APPEND_LINES = 1_000;
 const LINE_INTERVAL_MS = 60_000;
 const APPEND_INTERVAL_MS = 1_000;
 const WRITE_CHUNK_LINES = 10_000;
+const PYTHON_RUSAGE_WRAPPER =
+  'import resource,subprocess,sys; p=subprocess.run(sys.argv[1:]); ' +
+  'print(resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss, file=sys.stderr); ' +
+  'sys.exit(p.returncode)';
 const FILES_PER_SOURCE = 4;
 // Each file starts with two header lines and needs at least one usage line.
 const MIN_LINES = FILES_PER_SOURCE * 3;
@@ -48,8 +52,11 @@ const METHODOLOGY_LINES = [
   `    appends ${ACTIVE_APPEND_LINES} new rows with later timestamps to the newest pi file, then`,
   '    times the cold command. An untimed session --json run after each timed run',
   '    checks that the event count grew by the appended rows.',
-  '  - Max RSS comes from /usr/bin/time -f %M only if the probe /usr/bin/time -f %M true',
-  '    succeeds, else n/a. The OS page cache is not flushed.',
+  '  - Max RSS: one extra untimed run per scenario (for active-jsonl, after one more',
+  '    append), under the first method whose probe succeeds: gnu-time',
+  '    (/usr/bin/time -f %M true), python-rusage (python3 -c "import resource", reading',
+  '    RUSAGE_CHILDREN ru_maxrss), else n/a. Timings always come from direct node spawns.',
+  '  - The OS page cache is not flushed.',
 ];
 
 function printHelp() {
@@ -163,31 +170,63 @@ function runCommand(command, commandArgs, options = {}) {
     );
   }
 
-  return (result.stdout ?? '').trim();
+  return { stdout: (result.stdout ?? '').trim(), stderr: result.stderr ?? '' };
 }
 
-function probeGnuTime() {
-  const result = spawnSync(GNU_TIME_PATH, ['-f', '%M', 'true'], { stdio: 'ignore' });
+function probeSucceeds(command, commandArgs) {
+  const result = spawnSync(command, commandArgs, { stdio: 'ignore' });
   return !result.error && result.status === 0;
 }
 
-// Times one CLI run. With GNU time, the run is wrapped so its max RSS (KiB) lands in rssFile.
-async function measureCli(cliArgs, env, context) {
-  const command = context.gnuTime ? GNU_TIME_PATH : process.execPath;
-  const commandArgs = context.gnuTime
-    ? ['-f', '%M', '-o', context.rssFile, process.execPath, llmEntryPath, ...cliArgs]
-    : [llmEntryPath, ...cliArgs];
-
-  const startedAt = process.hrtime.bigint();
-  const stdout = runCommand(command, commandArgs, { env, cwd: context.tempRoot });
-  const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
-
-  if (!context.gnuTime) {
-    return { elapsedMs, maxRssMb: undefined, stdout };
+// GNU time first; python3's resource module where it is missing (stock macOS, minimal Linux).
+function probeRssMethod() {
+  if (probeSucceeds(GNU_TIME_PATH, ['-f', '%M', 'true'])) {
+    return 'gnu-time';
   }
 
-  const rssKib = Number.parseInt((await readFile(context.rssFile, 'utf8')).trim(), 10);
-  return { elapsedMs, maxRssMb: rssKib / 1024, stdout };
+  if (probeSucceeds('python3', ['-c', 'import resource'])) {
+    return 'python-rusage';
+  }
+
+  return 'n/a';
+}
+
+// Times one direct CLI run; RSS wrappers never add to the timings.
+function measureCli(cliArgs, env, context) {
+  const startedAt = process.hrtime.bigint();
+  const { stdout } = runCommand(process.execPath, [llmEntryPath, ...cliArgs], {
+    env,
+    cwd: context.tempRoot,
+  });
+  const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+  return { elapsedMs, stdout };
+}
+
+// Runs the CLI once under the RSS method. The wrapper passes the CLI's stdout through and
+// writes the peak RSS as the last stderr line (python) or to rssFile (GNU time).
+async function measureRss(cliArgs, env, context) {
+  const nodeCommand = [process.execPath, llmEntryPath, ...cliArgs];
+  const runOptions = { env, cwd: context.tempRoot };
+
+  if (context.rssMethod === 'gnu-time') {
+    const { stdout } = runCommand(
+      GNU_TIME_PATH,
+      ['-f', '%M', '-o', context.rssFile, ...nodeCommand],
+      runOptions,
+    );
+    const rssKib = Number.parseInt((await readFile(context.rssFile, 'utf8')).trim(), 10);
+    return { maxRssMb: rssKib / 1024, stdout };
+  }
+
+  const { stdout, stderr } = runCommand(
+    'python3',
+    ['-c', PYTHON_RUSAGE_WRAPPER, ...nodeCommand],
+    runOptions,
+  );
+  const maxRss = Number.parseInt(stderr.trim().split('\n').at(-1), 10);
+  // ru_maxrss is KiB on Linux and bytes on macOS.
+  const maxRssMb = process.platform === 'darwin' ? maxRss / 1024 ** 2 : maxRss / 1024;
+  return { maxRssMb, stdout };
 }
 
 // The child sees no inherited LLM_USAGE_* variable and no HOME outside the temp dir.
@@ -431,19 +470,18 @@ function readEventCount(stdout) {
   return report.data.reduce((sum, row) => sum + row.eventCount, 0);
 }
 
-function summarize(samples) {
+function summarize(samples, maxRssMb) {
   const sorted = samples.map((sample) => sample.elapsedMs).sort((left, right) => left - right);
   const middle = Math.floor(sorted.length / 2);
   const medianMs =
     sorted.length % 2 === 1 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
-  const rssValues = samples.map((sample) => sample.maxRssMb).filter((value) => value !== undefined);
 
   return {
     runs: sorted.length,
     medianMs: toFixed(medianMs),
     minMs: toFixed(sorted[0]),
     maxMs: toFixed(sorted[sorted.length - 1]),
-    maxRssMb: rssValues.length > 0 ? toFixed(Math.max(...rssValues), 1) : null,
+    maxRssMb: maxRssMb === undefined ? null : toFixed(maxRssMb, 1),
   };
 }
 
@@ -475,7 +513,20 @@ async function runColdScenario(corpus, cliArgs, context) {
     samples.push(sample);
   }
 
-  return { corpus, command: dailyArgs(corpus), samples };
+  let maxRssMb;
+
+  if (context.rssMethod !== 'n/a') {
+    const stateRoot = await createStateRoot(context.tempRoot, 'cold-rss');
+    const measured = await measureRss(
+      dailyArgs(corpus),
+      buildBaselineEnv(context, stateRoot),
+      context,
+    );
+    readDailyTotals(measured.stdout);
+    maxRssMb = measured.maxRssMb;
+  }
+
+  return { corpus, command: dailyArgs(corpus), samples, maxRssMb };
 }
 
 async function runRepeatScenario(corpus, cliArgs, context, name, commandArgs) {
@@ -490,7 +541,12 @@ async function runRepeatScenario(corpus, cliArgs, context, name, commandArgs) {
     samples.push(await measureCli(commandArgs, env, context));
   }
 
-  return { corpus, command: commandArgs, samples };
+  const maxRssMb =
+    context.rssMethod === 'n/a'
+      ? undefined
+      : (await measureRss(commandArgs, env, context)).maxRssMb;
+
+  return { corpus, command: commandArgs, samples, maxRssMb };
 }
 
 async function runActiveJsonlScenario(sourceCorpus, cliArgs, context, clock) {
@@ -510,12 +566,22 @@ async function runActiveJsonlScenario(sourceCorpus, cliArgs, context, clock) {
   await measureCli(dailyArgs(corpus), env, context);
   let previousEventCount = await countEvents();
   const samples = [];
+  let maxRssMb;
+  // With an RSS method, one more append is measured untimed after the timed runs.
+  const iterations = cliArgs.runs + (context.rssMethod === 'n/a' ? 0 : 1);
 
-  for (let runIndex = 1; runIndex <= cliArgs.runs; runIndex += 1) {
+  for (let runIndex = 1; runIndex <= iterations; runIndex += 1) {
     await appendPiLines(corpus, clock);
-    const sample = await measureCli(dailyArgs(corpus), env, context);
-    readDailyTotals(sample.stdout);
-    samples.push(sample);
+
+    if (runIndex <= cliArgs.runs) {
+      const sample = await measureCli(dailyArgs(corpus), env, context);
+      readDailyTotals(sample.stdout);
+      samples.push(sample);
+    } else {
+      const measured = await measureRss(dailyArgs(corpus), env, context);
+      readDailyTotals(measured.stdout);
+      maxRssMb = measured.maxRssMb;
+    }
 
     // The appended rows must all count, or the timed run may have hit a stale cache.
     const eventCount = await countEvents();
@@ -529,7 +595,7 @@ async function runActiveJsonlScenario(sourceCorpus, cliArgs, context, clock) {
     previousEventCount = eventCount;
   }
 
-  return { corpus, command: dailyArgs(corpus), samples };
+  return { corpus, command: dailyArgs(corpus), samples, maxRssMb };
 }
 
 // Shows commands with the temp corpus paths replaced, so reports from different runs compare.
@@ -573,6 +639,7 @@ function buildMarkdownSummary(report) {
     '',
     `- ${report.config.lines} lines per source (pi and codex) over ${report.config.filesPerSource} files each: ${report.corpus.events} events, ${report.corpus.periods} daily periods, ${report.corpus.totalTokens} total tokens.`,
     `- ${report.config.runs} timed runs per scenario.`,
+    `- Max RSS method: ${report.config.rssMethod}.`,
     '',
     '### Results',
     '',
@@ -608,8 +675,8 @@ async function resolveMachineSpecs(context) {
     llmUsageVersion: runCommand(process.execPath, [llmEntryPath, '--version'], {
       env: buildBaselineEnv(context, stateRoot),
       cwd: context.tempRoot,
-    }),
-    llmUsageGitHead: runCommand('git', ['rev-parse', '--short', 'HEAD'], { cwd: repoRoot }),
+    }).stdout,
+    llmUsageGitHead: runCommand('git', ['rev-parse', '--short', 'HEAD'], { cwd: repoRoot }).stdout,
   };
 }
 
@@ -626,16 +693,16 @@ async function main() {
   // The corpus ends a little before now, leaving room for the lines active-jsonl appends one
   // second apart, so no line is in the future and today holds data for the statusline.
   const appendStartMs =
-    generatedAt.getTime() - (cliArgs.runs * ACTIVE_APPEND_LINES + 1) * APPEND_INTERVAL_MS;
+    generatedAt.getTime() - ((cliArgs.runs + 1) * ACTIVE_APPEND_LINES + 1) * APPEND_INTERVAL_MS;
   const clock = {
     startMs: appendStartMs - planCorpusFiles(cliArgs.lines).usageLines * LINE_INTERVAL_MS,
     appendStartMs,
   };
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'llm-usage-baseline-benchmark-'));
-  const gnuTime = probeGnuTime();
+  const rssMethod = probeRssMethod();
   const context = {
     tempRoot,
-    gnuTime,
+    rssMethod,
     rssFile: path.join(tempRoot, 'rss'),
     compileCacheDir: path.join(tempRoot, 'node-compile-cache'),
   };
@@ -685,7 +752,7 @@ async function main() {
       filesPerSource: FILES_PER_SOURCE,
       activeAppendLines: ACTIVE_APPEND_LINES,
       timezone: BENCHMARK_TIMEZONE,
-      maxRssSource: gnuTime ? `${GNU_TIME_PATH} -f %M` : 'n/a',
+      rssMethod,
     },
     machine,
     corpus: corpusTotals,
@@ -694,7 +761,7 @@ async function main() {
       label: SCENARIO_LABELS[name],
       command: displayCommand(result.command, result.corpus),
       timingsMs: result.samples.map((sample) => toFixed(sample.elapsedMs)),
-      summary: summarize(result.samples),
+      summary: summarize(result.samples, result.maxRssMb),
     })),
   };
 
