@@ -16,12 +16,18 @@ import {
 async function listGoldenFiles(): Promise<string[]> {
   const entries = await readdir(GOLDENS_DIR, { recursive: true, withFileTypes: true });
 
-  return entries
-    .filter((entry) => entry.isFile())
-    .map((entry) =>
-      path.relative(GOLDENS_DIR, path.join(entry.parentPath, entry.name)).split(path.sep).join('/'),
-    )
-    .sort();
+  return (
+    entries
+      // Dotfiles (a macOS .DS_Store) are not goldens.
+      .filter((entry) => entry.isFile() && !entry.name.startsWith('.'))
+      .map((entry) =>
+        path
+          .relative(GOLDENS_DIR, path.join(entry.parentPath, entry.name))
+          .split(path.sep)
+          .join('/'),
+      )
+      .sort()
+  );
 }
 
 // Skipped on Windows: paths and newline handling differ there; the Linux leg guards behaviour.

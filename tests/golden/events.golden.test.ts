@@ -42,7 +42,14 @@ const fixtureSets = await listFixtureSets();
 describe.skipIf(process.platform === 'win32')(`events goldens (${WINDOWS_SKIP_REASON})`, () => {
   const environment = useIsolatedEnvironment();
   const pricing = useBundledPricingOnly();
-  useGoldenUpdateCheck();
+  useGoldenUpdateCheck([
+    FIXED_GOLDENS.eventsAllSourcesJsonl,
+    FIXED_GOLDENS.eventsAllSourcesCsv,
+    FIXED_GOLDENS.eventsAllSourcesHashes,
+    FIXED_GOLDENS.eventsOpencodeAppendedBefore,
+    FIXED_GOLDENS.eventsOpencodeAppendedAfter,
+    FIXED_GOLDENS.eventsStoreWarm,
+  ]);
   let e2eOptions: SourceOptions;
 
   beforeAll(async () => {

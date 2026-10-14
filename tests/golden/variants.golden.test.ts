@@ -22,7 +22,7 @@ describe.skipIf(process.platform === 'win32')(
   () => {
     const environment = useIsolatedEnvironment();
     const pricing = useBundledPricingOnly();
-    useGoldenUpdateCheck();
+    useGoldenUpdateCheck([FIXED_GOLDENS.variantsStatuslineAllSources]);
     let sources: SourceOptions & { source: string; timezone: 'UTC' };
 
     beforeAll(async () => {

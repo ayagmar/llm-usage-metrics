@@ -22,7 +22,7 @@ const LINUX_ONLY_REASON = 'default search paths differ per platform; the Linux l
 describe.skipIf(process.platform !== 'linux')(
   `default search path goldens (${LINUX_ONLY_REASON})`,
   () => {
-    useGoldenUpdateCheck();
+    useGoldenUpdateCheck([FIXED_GOLDENS.defaultPathsDoctor]);
     let rootDir: string;
 
     beforeAll(async () => {

@@ -16,6 +16,7 @@ import { useIsolatedEnvironment } from '../helpers/isolated-env.js';
 import { useBundledPricingOnly } from '../helpers/offline-pricing.js';
 import {
   captureStdout,
+  copyFixtures,
   expectGolden,
   FIXED_GOLDENS,
   fixedNow,
@@ -24,9 +25,6 @@ import {
   useGoldenUpdateCheck,
   WINDOWS_SKIP_REASON,
 } from './golden-harness.js';
-
-const piDir = path.resolve('tests/fixtures/e2e/pi');
-const codexDir = path.resolve('tests/fixtures/e2e/codex');
 
 async function storeDepartedFile(
   dbPath: string,
@@ -53,11 +51,28 @@ async function storeDepartedFile(
 describe.skipIf(process.platform === 'win32')(`history goldens (${WINDOWS_SKIP_REASON})`, () => {
   const environment = useIsolatedEnvironment();
   const pricing = useBundledPricingOnly();
-  useGoldenUpdateCheck();
-  const sources = { piDir, codexDir, source: 'pi,codex', timezone: 'UTC', pricingOffline: true };
+  useGoldenUpdateCheck([
+    FIXED_GOLDENS.historyEventsWithDeparted,
+    FIXED_GOLDENS.historyUsageMonthlyWithHistory,
+    FIXED_GOLDENS.historyUsageMonthlyWithoutHistory,
+  ]);
+  let piDir: string;
+  let codexDir: string;
+  let sources: {
+    piDir: string;
+    codexDir: string;
+    source: string;
+    timezone: string;
+    pricingOffline: boolean;
+  };
 
   beforeAll(async () => {
     freezeDate();
+    // Live files come from the pinned fixture copy, never the checkout (see copyFixtures).
+    const { e2eRoot } = await copyFixtures(environment.rootDir);
+    piDir = path.join(e2eRoot, 'pi');
+    codexDir = path.join(e2eRoot, 'codex');
+    sources = { piDir, codexDir, source: 'pi,codex', timezone: 'UTC', pricingOffline: true };
     const storeDir = path.join(environment.rootDir, 'store');
     const dbPath = path.join(storeDir, 'events.db');
     await mkdir(storeDir);

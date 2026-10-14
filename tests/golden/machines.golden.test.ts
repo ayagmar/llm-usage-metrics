@@ -10,6 +10,7 @@ import { useIsolatedEnvironment } from '../helpers/isolated-env.js';
 import { createInProcessRemote } from '../helpers/machine-remote.js';
 import { useBundledPricingOnly } from '../helpers/offline-pricing.js';
 import {
+  copyFixtures,
   expectGolden,
   FIXED_GOLDENS,
   FIXED_NOW,
@@ -20,19 +21,23 @@ import {
   WINDOWS_SKIP_REASON,
 } from './golden-harness.js';
 
-const piFixtureDir = path.resolve('tests/fixtures/e2e/pi');
-const codexFixtureDir = path.resolve('tests/fixtures/e2e/codex');
-
 // Skipped on Windows: paths and newline handling differ there; the Linux leg guards behaviour.
 describe.skipIf(process.platform === 'win32')(`machine goldens (${WINDOWS_SKIP_REASON})`, () => {
   const environment = useIsolatedEnvironment();
   const pricing = useBundledPricingOnly();
-  useGoldenUpdateCheck();
+  useGoldenUpdateCheck([
+    FIXED_GOLDENS.machinesUsageMonthlyByMachine,
+    FIXED_GOLDENS.machinesSummary,
+  ]);
   // Reports read the synced cache only; a sync attempt would go through this stand-in.
   let remote: ReturnType<typeof createInProcessRemote>;
 
   beforeAll(async () => {
     freezeDate();
+    // Both machines read the pinned fixture copy, never the checkout (see copyFixtures).
+    const { e2eRoot } = await copyFixtures(environment.rootDir);
+    const piFixtureDir = path.join(e2eRoot, 'pi');
+    const codexFixtureDir = path.join(e2eRoot, 'codex');
     const localDir = path.join(environment.rootDir, 'local');
     const remoteDir = path.join(environment.rootDir, 'remote');
     await mkdir(localDir);

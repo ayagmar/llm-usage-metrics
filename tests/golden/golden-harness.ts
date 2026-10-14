@@ -76,6 +76,7 @@ export const COMMAND_NAMES: readonly string[] = [
 
 const updateGoldens = process.env.UPDATE_GOLDENS === '1';
 const writtenGoldens: string[] = [];
+const checkedGoldens = new Set<string>();
 
 /**
  * Compares `text` byte for byte with `tests/golden/__goldens__/<name>`. With
@@ -83,6 +84,7 @@ const writtenGoldens: string[] = [];
  * `useGoldenUpdateCheck` then fails the file so an update run only passes when nothing moved.
  */
 export async function expectGolden(name: string, text: string): Promise<void> {
+  checkedGoldens.add(name);
   const goldenPath = path.join(GOLDENS_DIR, name);
   let expected: string | undefined;
 
@@ -111,13 +113,23 @@ export async function expectGolden(name: string, text: string): Promise<void> {
   expect(text, `golden ${name}`).toBe(expected);
 }
 
-/** Registers the `afterAll` that fails an update run which wrote any golden. */
-export function useGoldenUpdateCheck(): void {
+/**
+ * Registers the `afterAll` that fails an update run which wrote any golden, and fails a run
+ * that did not check every name in `expected` (so a fixed-name golden a test stops writing
+ * cannot linger on disk unchecked).
+ */
+export function useGoldenUpdateCheck(expected: readonly string[] = []): void {
   afterAll(() => {
     if (writtenGoldens.length > 0) {
       throw new Error(
         `goldens updated: ${writtenGoldens.join(', ')}; rerun without UPDATE_GOLDENS`,
       );
+    }
+
+    const unchecked = expected.filter((name) => !checkedGoldens.has(name));
+
+    if (unchecked.length > 0) {
+      throw new Error(`goldens never checked in this file: ${unchecked.join(', ')}`);
     }
   });
 }
@@ -256,7 +268,7 @@ function copiedFixturesRoot(tempRoot: string): string {
  * src/sources`), and a windowed run skips their files whose newest mtime predates `since`
  * minus a day, so checkout mtimes would otherwise decide what an old clone reports.
  */
-async function copyFixtures(tempRoot: string): Promise<void> {
+export async function copyFixtures(tempRoot: string): Promise<{ e2eRoot: string }> {
   const copyRoot = copiedFixturesRoot(tempRoot);
 
   await cp(E2E_FIXTURES_ROOT, path.join(copyRoot, 'e2e'), { recursive: true });
@@ -269,6 +281,7 @@ async function copyFixtures(tempRoot: string): Promise<void> {
   }
 
   await pinMtimes(copyRoot);
+  return { e2eRoot: path.join(copyRoot, 'e2e') };
 }
 
 /**
@@ -276,8 +289,7 @@ async function copyFixtures(tempRoot: string): Promise<void> {
  * `copyFixtures`), generating the SQLite and dsh fixtures there too.
  */
 export async function createE2eSourceOptions(tempRoot: string): Promise<SourceOptions> {
-  await copyFixtures(tempRoot);
-  const e2eRoot = path.join(copiedFixturesRoot(tempRoot), 'e2e');
+  const { e2eRoot } = await copyFixtures(tempRoot);
   const generatedDir = path.join(tempRoot, 'e2e-generated');
   const antigravityDir = path.join(generatedDir, 'antigravity');
   const dshDir = path.join(generatedDir, 'dsh');

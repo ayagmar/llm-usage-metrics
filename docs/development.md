@@ -206,7 +206,7 @@ TZ=UTC pnpm exec vitest run tests/golden
 
 The update run rewrites only files whose content differs and then fails, listing them, so it passes only when nothing moved. Review the diff and commit the regenerated files on their own, in a commit titled `goldens: <why>`.
 
-Goldens are skipped on Windows, where paths and newline handling differ; the Linux and macOS legs guard behaviour.
+Goldens are skipped on Windows, where paths and newline handling differ; CI's Linux and macOS jobs run them (verified locally on Linux under Node 22.16 and 24).
 
 ## CI
 

@@ -9,6 +9,7 @@ import type * as PackageMetadataModule from '../../src/cli/package-metadata.js';
 import { runMachineExport } from '../../src/cli/run-machine-export.js';
 import { useIsolatedEnvironment } from '../helpers/isolated-env.js';
 import {
+  copyFixtures,
   expectGolden,
   FIXED_GOLDENS,
   fixedNow,
@@ -32,18 +33,20 @@ describe.skipIf(process.platform === 'win32')(
   `machine export golden (${WINDOWS_SKIP_REASON})`,
   () => {
     const environment = useIsolatedEnvironment();
-    useGoldenUpdateCheck();
+    useGoldenUpdateCheck([FIXED_GOLDENS.machinesExport]);
 
     beforeAll(async () => {
       freezeDate();
+      // The export reads the pinned fixture copy, never the checkout (see copyFixtures).
+      const { e2eRoot } = await copyFixtures(environment.rootDir);
       const configPath = path.join(environment.rootDir, 'config.toml');
       await writeFile(
         configPath,
         [
           'sources = ["pi", "codex"]',
           '[sourceDirs]',
-          `pi = ${JSON.stringify(path.resolve('tests/fixtures/e2e/pi'))}`,
-          `codex = ${JSON.stringify(path.resolve('tests/fixtures/e2e/codex'))}`,
+          `pi = ${JSON.stringify(path.join(e2eRoot, 'pi'))}`,
+          `codex = ${JSON.stringify(path.join(e2eRoot, 'codex'))}`,
           '',
         ].join('\n'),
       );
