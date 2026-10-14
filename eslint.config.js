@@ -15,7 +15,16 @@ const coreCliTreeImportPattern = {
   message: 'The core package must not import from the CLI tree.',
 };
 const networkMessage = 'The core package makes no network calls';
-const coreNetworkImportPaths = ['http', 'https', 'http2', 'net', 'tls', 'dgram'].flatMap((name) => [
+const coreNetworkImportPaths = [
+  'http',
+  'https',
+  'http2',
+  'net',
+  'tls',
+  'dgram',
+  'dns',
+  'child_process',
+].flatMap((name) => [
   { name: `node:${name}`, message: networkMessage },
   { name, message: networkMessage },
 ]);
@@ -28,6 +37,8 @@ const coreAlwaysRestrictedProperties = [
   { object: 'process', property: 'stdout', message: 'The core package prints nothing.' },
   { object: 'process', property: 'stderr', message: 'The core package prints nothing.' },
   { object: 'globalThis', property: 'process', message: hostStateMessage },
+  { object: 'globalThis', property: 'fetch', message: networkMessage },
+  { object: 'globalThis', property: 'WebSocket', message: networkMessage },
 ];
 
 function scopeToFiles(configs, files) {
