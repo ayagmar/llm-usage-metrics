@@ -8,6 +8,7 @@ import {
   createUsageRecord,
   isUsageEvent,
   isUsageRecord,
+  type EventKind,
   type SessionEvent,
 } from '../../src/domain/session-event.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
@@ -17,6 +18,13 @@ const base = { source: 'claude', sessionId: 'session-1', timestamp: '2026-06-01T
 describe('EVENT_KINDS', () => {
   it('lists the four kinds, usage first', () => {
     expect(EVENT_KINDS).toEqual(['usage', 'message', 'tool_call', 'session_meta']);
+  });
+
+  it('cannot be changed at runtime, so no caller changes what an adapter declares', () => {
+    expect(() => {
+      (EVENT_KINDS as EventKind[]).push('usage');
+    }).toThrow(TypeError);
+    expect(EVENT_KINDS).toHaveLength(4);
   });
 });
 

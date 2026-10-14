@@ -15,7 +15,13 @@ import {
 
 export type EventKind = 'usage' | 'message' | 'tool_call' | 'session_meta';
 
-export const EVENT_KINDS: readonly EventKind[] = ['usage', 'message', 'tool_call', 'session_meta'];
+// Frozen: adapters share it as their declared kinds.
+export const EVENT_KINDS: readonly EventKind[] = Object.freeze([
+  'usage',
+  'message',
+  'tool_call',
+  'session_meta',
+]);
 
 type EventBase = {
   source: SourceId;
