@@ -9,7 +9,9 @@ import {
   resolveDefaultCodexSessionsDir,
 } from '../../../src/sources/codex/index.js';
 import { createSourceContext } from '../../../src/sources/source-context.js';
+import { collect, collectFile } from '../../../src/stream/collect.js';
 import { fixturePath as packageFixturePath } from '../../helpers/fixtures.js';
+import { canCountOpenFds, countOpenFds, waitForOpenFdCount } from '../../helpers/open-fds.js';
 import { canonicalTmpdir } from '../../helpers/tmp.js';
 
 const tempDirs: string[] = [];
@@ -55,7 +57,7 @@ describe('CodexSourceAdapter', () => {
     );
     const adapter = new CodexSourceAdapter();
 
-    const events = await adapter.parseFile(fixturePath);
+    const events = await collect(adapter.read(fixturePath));
 
     expect(events).toHaveLength(3);
 
@@ -175,7 +177,7 @@ describe('CodexSourceAdapter', () => {
     );
 
     const adapter = new CodexSourceAdapter({ dir: root });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toHaveLength(3);
     expect(events[0]?.totalTokens).toBe(15);
@@ -243,7 +245,7 @@ describe('CodexSourceAdapter', () => {
     );
 
     const adapter = new CodexSourceAdapter({ dir: root });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
@@ -328,7 +330,7 @@ describe('CodexSourceAdapter', () => {
     );
 
     const adapter = new CodexSourceAdapter({ dir: root });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
@@ -410,7 +412,7 @@ describe('CodexSourceAdapter', () => {
     );
 
     const adapter = new CodexSourceAdapter({ dir: root });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toHaveLength(2);
     expect(events[1]).toMatchObject({
@@ -465,7 +467,7 @@ describe('CodexSourceAdapter', () => {
     );
 
     const adapter = new CodexSourceAdapter({ dir: root });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toHaveLength(1);
     expect(events[0]?.timestamp).toBe('2024-02-12T20:00:02.000Z');
@@ -479,7 +481,7 @@ describe('CodexSourceAdapter', () => {
     );
     const adapter = new CodexSourceAdapter();
 
-    const events = await adapter.parseFile(fixturePath);
+    const events = await collect(adapter.read(fixturePath));
 
     expect(events).toHaveLength(1);
     expect(events[0]?.model).toBe(LEGACY_CODEX_MODEL_FALLBACK);
@@ -562,7 +564,7 @@ describe('CodexSourceAdapter', () => {
     );
 
     const adapter = new CodexSourceAdapter({ dir: root });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
@@ -609,7 +611,7 @@ describe('CodexSourceAdapter', () => {
     );
 
     const adapter = new CodexSourceAdapter({ dir: root });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toEqual([]);
   });
@@ -685,7 +687,7 @@ describe('CodexSourceAdapter', () => {
     );
 
     const adapter = new CodexSourceAdapter({ dir: root });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toHaveLength(2);
     expect(events[0]).toMatchObject({
@@ -744,7 +746,7 @@ describe('CodexSourceAdapter', () => {
     );
 
     const adapter = new CodexSourceAdapter({ dir: root });
-    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+    const diagnostics = await collectFile(adapter, filePath);
 
     expect(diagnostics.events).toEqual([]);
     expect(diagnostics.skippedRows).toBe(1);
@@ -759,7 +761,7 @@ describe('CodexSourceAdapter', () => {
     await writeFile(filePath, '{"type":"session_meta",', 'utf8');
 
     const adapter = new CodexSourceAdapter({ dir: root });
-    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+    const diagnostics = await collectFile(adapter, filePath);
 
     expect(diagnostics.events).toEqual([]);
     expect(diagnostics.skippedRows).toBe(1);
@@ -816,7 +818,7 @@ describe('CodexSourceAdapter', () => {
     );
 
     const adapter = new CodexSourceAdapter({ dir: root });
-    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+    const diagnostics = await collectFile(adapter, filePath);
 
     expect(diagnostics.events).toHaveLength(1);
     expect(diagnostics.skippedRows).toBe(0);
@@ -830,7 +832,7 @@ describe('CodexSourceAdapter', () => {
     );
     const adapter = new CodexSourceAdapter();
 
-    const diagnostics = await adapter.parseFileWithDiagnostics(fixturePath);
+    const diagnostics = await collectFile(adapter, fixturePath);
 
     expect(diagnostics.skippedRows).toBe(1);
     expect(diagnostics.skippedRowReasons).toEqual([{ reason: 'invalid_timestamp', count: 1 }]);
@@ -937,5 +939,37 @@ describe('codex source helpers', () => {
         createSourceContext({ env: { CODEX_HOME: '  ' }, homeDir: '/home/me' }),
       ),
     ).toBe(path.join('/home/me', '.codex', 'sessions'));
+  });
+
+  it.runIf(canCountOpenFds)('closes the file when the consumer stops early', async () => {
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'codex-early-return-'));
+    tempDirs.push(root);
+    const filePath = path.join(root, 'larger-than-a-chunk.jsonl');
+    const rowCount = 3000;
+    const rows = [
+      JSON.stringify({ type: 'session_meta', payload: { id: 'codex-early-return' } }),
+      ...Array.from({ length: rowCount }, (_, index) =>
+        JSON.stringify({
+          timestamp: new Date(Date.UTC(2026, 1, 14, 10, 0, index)).toISOString(),
+          type: 'event_msg',
+          payload: {
+            type: 'token_count',
+            info: { last_token_usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 } },
+          },
+          padding: 'x'.repeat(1000),
+        }),
+      ),
+    ];
+    await writeFile(filePath, `${rows.join('\n')}\n`, 'utf8');
+    const adapter = new CodexSourceAdapter({ dir: root });
+    const before = countOpenFds();
+
+    for await (const event of adapter.read(filePath)) {
+      expect(event.sessionId).toBe('codex-early-return');
+      break;
+    }
+
+    await waitForOpenFdCount(before);
+    await expect(collect(adapter.read(filePath))).resolves.toHaveLength(rowCount);
   });
 });
