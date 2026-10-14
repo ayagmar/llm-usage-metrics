@@ -13,6 +13,7 @@ import { OpenCodeSourceAdapter } from './opencode/opencode-source-adapter.js';
 import { OpenClawSourceAdapter } from './openclaw/openclaw-source-adapter.js';
 import { PiSourceAdapter } from './pi/pi-source-adapter.js';
 import { QwenSourceAdapter } from './qwen/qwen-source-adapter.js';
+import type { SourceId } from '../domain/usage-event.js';
 import type { SourceAdapter } from './source-adapter.js';
 import { createSourceContext, type SourceContext } from './source-context.js';
 import { MultiDirectorySourceAdapter } from './multi-directory-source-adapter.js';
@@ -24,11 +25,11 @@ export type SourceStorageFormat = 'jsonl' | 'json' | 'sqlite';
  * roots searches its default locations.
  */
 export type SourceSelection = {
-  roots?: ReadonlyMap<string, readonly string[]>;
+  roots?: ReadonlyMap<SourceId, readonly string[]>;
   /** Sources whose roots must exist; the others skip a missing root quietly. */
-  requireExistingRoots?: ReadonlySet<string>;
+  requireExistingRoots?: ReadonlySet<SourceId>;
   /** Sources to build, kept in registration order; every source when omitted. */
-  sourceIds?: readonly string[];
+  sourceIds?: readonly SourceId[];
 };
 
 type ResolvedSourcePath = {
@@ -45,7 +46,11 @@ type SourceRegistration = {
    * Builds one adapter over several directories. Without it, each directory gets its own
    * adapter behind MultiDirectorySourceAdapter.
    */
-  createForDirectories?: (directories: readonly string[], context: SourceContext) => SourceAdapter;
+  createForDirectories?: (
+    directories: readonly string[],
+    requireExistingPath: boolean,
+    context: SourceContext,
+  ) => SourceAdapter;
   /**
    * Parse workers may build this source's adapter with default roots: parsing a file must
    * not read the adapter's roots. Pi and Claude read them for fork parents.
@@ -110,8 +115,8 @@ const sourceRegistrations: readonly SourceRegistration[] = [
     parseInWorker: false,
     create: (resolved, context) => new ClaudeSourceAdapter(dirOptions(resolved, context)),
     // Fork deduplication needs every root in one adapter to find a parent transcript.
-    createForDirectories: (directories, context) =>
-      new ClaudeSourceAdapter({ dir: directories, requireDir: true, context }),
+    createForDirectories: (directories, requireExistingPath, context) =>
+      new ClaudeSourceAdapter({ dir: directories, requireDir: requireExistingPath, context }),
   },
   {
     id: 'copilot',
@@ -215,7 +220,7 @@ function createDirectoryBackedAdapter(
   }
 
   return (
-    source.createForDirectories?.(directories, context) ??
+    source.createForDirectories?.(directories, requireExistingPath, context) ??
     new MultiDirectorySourceAdapter(
       directories.map((directory) =>
         source.create({ path: directory, requireExistingPath }, context),
