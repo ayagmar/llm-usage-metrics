@@ -42,10 +42,13 @@ describe('KimiSourceAdapter', () => {
     const defaultDirs = new KimiSourceAdapter().getSearchPaths();
 
     expect(adapter.id).toBe('kimi');
-    expect(adapter.capabilities).toEqual({
+    // Any `kinds` with usage passes here; the registry tests check it for every adapter.
+    const { kinds, ...capabilities } = adapter.capabilities;
+    expect(capabilities).toEqual({
       fixedProviderRoots: ['moonshot'],
       eventsPrecedeFileMtime: true,
     });
+    expect(kinds).toContain('usage');
     expect(defaultDirs).toEqual([
       path.join(os.homedir(), '.kimi', 'sessions'),
       path.join(os.homedir(), '.kimi-code', 'sessions'),

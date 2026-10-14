@@ -174,6 +174,7 @@ export class ClaudeSourceAdapter implements SourceAdapter {
   public readonly capabilities = {
     eventsPrecedeFileMtime: true,
     sessionsCopyEvents: true,
+    kinds: ['usage'],
   } as const;
 
   private readonly rootDirs: readonly string[];

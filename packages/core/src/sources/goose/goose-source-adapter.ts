@@ -157,6 +157,7 @@ function parseGooseRow(row: GooseSqliteRow): GooseParsedRow {
 
 export class GooseSourceAdapter implements SourceAdapter {
   public readonly id = 'goose' as const;
+  public readonly capabilities = { kinds: ['usage'] } as const;
   public readonly parserVersion = 2;
 
   private readonly explicitDbPath?: string;

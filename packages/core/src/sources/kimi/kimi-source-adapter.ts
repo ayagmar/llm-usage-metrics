@@ -295,6 +295,7 @@ export class KimiSourceAdapter implements SourceAdapter {
   public readonly capabilities = {
     fixedProviderRoots: [KIMI_PROVIDER],
     eventsPrecedeFileMtime: true,
+    kinds: ['usage'] as const,
   };
 
   private readonly rootDirs: readonly string[];
