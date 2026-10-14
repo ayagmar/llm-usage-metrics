@@ -11,7 +11,7 @@ import type {
   SourceParseFileDiagnostics,
 } from '../source-adapter.js';
 import { createSourceContext } from '../source-context.js';
-import { loadNodeSqliteModule, type SqliteModule } from '../opencode/node-sqlite-loader.js';
+import { loadNodeSqliteModule, type SqliteModule } from '../sqlite/node-sqlite-loader.js';
 import { getDefaultAntigravityConversationsDir } from './antigravity-path-resolver.js';
 import {
   parseAntigravityMetadataBlob,

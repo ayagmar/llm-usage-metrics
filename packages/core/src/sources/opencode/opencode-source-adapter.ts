@@ -6,9 +6,9 @@ import { pathExists, pathIsFile, pathReadable } from '../../utils/fs-helpers.js'
 import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
 import { createSourceContext, type SourceContext } from '../source-context.js';
 import { getDefaultOpenCodeDbPathCandidates } from './opencode-db-path-resolver.js';
-import { loadNodeSqliteModule, type SqliteModule } from './node-sqlite-loader.js';
+import { loadNodeSqliteModule, type SqliteModule } from '../sqlite/node-sqlite-loader.js';
 import { parseOpenCodeMessageRows } from './opencode-row-parser.js';
-import { runWithBusyRetries, type SleepFn } from './opencode-retry-policy.js';
+import { runWithBusyRetries, type SleepFn } from '../sqlite/retry-policy.js';
 import { queryOpenCodeMessageRows } from './opencode-sqlite-query.js';
 import { isBlankText } from '../parsing-utils.js';
 

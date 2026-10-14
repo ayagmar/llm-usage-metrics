@@ -6,7 +6,7 @@ import { asTrimmedText, isBlankText, normalizeTimestampCandidate } from '../pars
 import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
 import { createSourceContext, type SourceContext } from '../source-context.js';
 import { getDefaultGooseDbPathCandidates } from './goose-db-path-resolver.js';
-import { loadNodeSqliteModule, type SqliteModule } from '../opencode/node-sqlite-loader.js';
+import { loadNodeSqliteModule, type SqliteModule } from '../sqlite/node-sqlite-loader.js';
 
 type PathPredicate = (filePath: string) => Promise<boolean>;
 
