@@ -1,6 +1,8 @@
 // Runs the built CLI over an OpenCode fixture and fails if its stderr carries Node's
 // SQLite ExperimentalWarning (Node 22 prints it; the CLI's warning filter must drop it),
-// with the event store off and on and parse workers enabled.
+// with the event store off and on. LLM_USAGE_PARSE_WORKERS=2 starts no worker here:
+// opencode never parses on a worker (only codex does), so this covers the main thread
+// only. Once a SQLite source parses on workers, run it there too.
 import { spawnSync } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { createRequire } from 'node:module';
