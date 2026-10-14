@@ -1,14 +1,9 @@
 import { createUsageEvent, type UsageEvent } from '../../domain/usage-event.js';
-import { collectFile } from '../../stream/collect.js';
 import { asRecord } from '../../utils/as-record.js';
 import { pathExists, pathIsFile, pathReadable } from '../../utils/fs-helpers.js';
 import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import { asTrimmedText, isBlankText, normalizeTimestampCandidate } from '../parsing-utils.js';
-import type {
-  SourceAdapter,
-  SourceParseFileDiagnostics,
-  SourceReadOptions,
-} from '../source-adapter.js';
+import type { SourceAdapter, SourceReadOptions } from '../source-adapter.js';
 import { createSourceContext, type SourceContext } from '../source-context.js';
 import { getDefaultGooseDbPathCandidates } from './goose-db-path-resolver.js';
 import { iterateRows } from '../sqlite/iterate-rows.js';
@@ -279,13 +274,5 @@ export class GooseSourceAdapter implements SourceAdapter {
     } finally {
       database.close();
     }
-  }
-
-  public async parseFile(dbPath: string): Promise<UsageEvent[]> {
-    return (await collectFile(this, dbPath)).events;
-  }
-
-  public parseFileWithDiagnostics(dbPath: string): Promise<SourceParseFileDiagnostics> {
-    return collectFile(this, dbPath);
   }
 }

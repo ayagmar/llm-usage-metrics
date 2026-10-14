@@ -2,14 +2,9 @@ import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 import type { UsageEvent } from '../../domain/usage-event.js';
-import { collectFile } from '../../stream/collect.js';
 import { pathExists, pathIsFile, pathReadable } from '../../utils/fs-helpers.js';
 import { createReadDiagnostics } from '../parse-diagnostics.js';
-import type {
-  SourceAdapter,
-  SourceParseFileDiagnostics,
-  SourceReadOptions,
-} from '../source-adapter.js';
+import type { SourceAdapter, SourceReadOptions } from '../source-adapter.js';
 import { createSourceContext, type SourceContext } from '../source-context.js';
 import { getDefaultOpenCodeDbPathCandidates } from './opencode-db-path-resolver.js';
 import { loadNodeSqliteModule, type SqliteModule } from '../sqlite/node-sqlite-loader.js';
@@ -206,14 +201,6 @@ export class OpenCodeSourceAdapter implements SourceAdapter {
     } catch (error) {
       throw toOpenCodeDbReadError(error, normalizedDbPath, attempts);
     }
-  }
-
-  public async parseFile(dbPath: string): Promise<UsageEvent[]> {
-    return (await collectFile(this, dbPath)).events;
-  }
-
-  public parseFileWithDiagnostics(dbPath: string): Promise<SourceParseFileDiagnostics> {
-    return collectFile(this, dbPath);
   }
 
   private async openMessageRows(dbPath: string): Promise<OpenCodeMessageRows> {

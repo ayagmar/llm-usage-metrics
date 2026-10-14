@@ -15,6 +15,7 @@ import {
 import { loadHistoryEvents } from '../../src/persistence/event-store-history.js';
 import { ClaudeSourceAdapter } from '@ayagmar/agent-sessions/sources/claude';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
+import { readFrom } from '../helpers/fake-read.js';
 
 const tempDirs: string[] = [];
 
@@ -57,7 +58,7 @@ function createAdapter(
   return {
     id,
     discoverFiles: async () => files,
-    parseFile: async (filePath) => eventsByFile[filePath] ?? [],
+    read: readFrom(async (filePath) => eventsByFile[filePath] ?? []),
   };
 }
 
@@ -384,7 +385,7 @@ describe('buildUsageEventDataset history', () => {
       discoverFiles: async () => {
         throw new Error('pi discovery failed');
       },
-      parseFile: async () => [],
+      read: readFrom(async () => []),
     };
     const loadHistoryEventsSpy = vi.fn(loadHistoryEvents);
 
@@ -612,12 +613,12 @@ describe('buildUsageEventDataset history', () => {
     // The stored event sits inside the window only so a wrongly departed file would show.
     const liveEvent = createEvent({ sessionId: 'live' });
     const departedEvent = createEvent({ sessionId: 'departed' });
-    const parseFile = vi.fn(async () => [liveEvent]);
+    const parse = vi.fn(async () => [liveEvent]);
     const adapter: SourceAdapter = {
       id: 'codex',
       capabilities: { eventsPrecedeFileMtime: true },
       discoverFiles: async () => [liveFilePath],
-      parseFile,
+      read: readFrom(parse),
     };
     const deps = { ...createDatasetDeps(eventStorePath), createAdapters: () => [adapter] };
 
@@ -635,7 +636,7 @@ describe('buildUsageEventDataset history', () => {
       deps,
     );
 
-    expect(parseFile).toHaveBeenCalledTimes(1);
+    expect(parse).toHaveBeenCalledTimes(1);
     expect(dataset.filteredEvents).toEqual([departedEvent]);
     expect(dataset.warnings).toEqual([]);
     expect(dataset.notes).toEqual([

@@ -42,6 +42,7 @@ import {
   useGoldenUpdateCheck,
   WINDOWS_SKIP_REASON,
 } from './golden-harness.js';
+import { readFrom } from '../helpers/fake-read.js';
 
 /** Fixed width for terminal goldens; colour is off through NO_COLOR. */
 const TERMINAL_COLUMNS = 120;
@@ -94,7 +95,7 @@ function expectAttributedEfficiency(json: string): void {
 const noFilesAdapter: SourceAdapter = {
   id: 'codex',
   discoverFiles: async () => [],
-  parseFile: async () => [],
+  read: readFrom(async () => []),
 };
 
 async function seedStoreWithDepartedFile(dbPath: string, departedPath: string): Promise<void> {

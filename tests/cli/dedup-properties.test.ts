@@ -6,6 +6,7 @@ import type { BuildUsageDataDeps } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { mulberry32, pick, randomInt, shuffle, type Random } from '../helpers/seeded-random.js';
+import { readFrom } from '../helpers/fake-read.js';
 
 const ITERATIONS = 200;
 /**
@@ -273,7 +274,7 @@ describe('events repeated across files are counted once (runEventsReport)', () =
       id: SOURCE_ID,
       capabilities: { eventsRepeatAcrossFiles: true },
       discoverFiles: async () => files.map((file) => file.path),
-      parseFile: async (filePath) => eventsByPath.get(filePath) ?? [],
+      read: readFrom(async (filePath) => eventsByPath.get(filePath) ?? []),
     };
   }
 

@@ -72,9 +72,7 @@ export interface SourceAdapter<Event extends UsageEvent = UsageEvent> {
    * they happen. A read that throws may already have yielded events; breaking out closes
    * every handle the read opened before `return()` resolves.
    */
-  read?(filePath: string, options?: SourceReadOptions): AsyncIterable<Event>;
-  parseFile(filePath: string): Promise<Event[]>;
-  parseFileWithDiagnostics?(filePath: string): Promise<SourceParseFileDiagnostics<Event>>;
+  read(filePath: string, options?: SourceReadOptions): AsyncIterable<Event>;
   getParseDependencies?(filePath: string): Promise<string[]>;
 }
 
