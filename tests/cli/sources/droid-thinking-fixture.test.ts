@@ -2,7 +2,7 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { DroidSourceAdapter } from '../../../src/sources/droid/droid-source-adapter.js';
+import { DroidSourceAdapter } from '@ayagmar/agent-sessions/sources/droid';
 
 // Freezes v0.11.0 parsing of a Droid session that reports thinking tokens (KI-6).
 const fixtureDir = path.resolve('tests/fixtures/golden/droid/thinking');

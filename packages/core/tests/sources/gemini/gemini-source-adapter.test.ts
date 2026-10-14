@@ -1,17 +1,16 @@
 import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, rm, symlink, truncate, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { GeminiSourceAdapter } from '../../src/sources/gemini/gemini-source-adapter.js';
-import { MAX_JSON_TRANSCRIPT_BYTES } from '../../src/sources/read-json-file.js';
-import { createSourceContext } from '../../src/sources/source-context.js';
-import { canonicalTmpdir } from '../helpers/tmp.js';
+import { GeminiSourceAdapter } from '../../../src/sources/gemini/index.js';
+import { MAX_JSON_TRANSCRIPT_BYTES } from '../../../src/sources/read-json-file.js';
+import { createSourceContext } from '../../../src/sources/source-context.js';
+import { repoFixturePath } from '../../helpers/fixtures.js';
+import { canonicalTmpdir } from '../../helpers/tmp.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const fixturesDir = path.join(__dirname, '..', 'fixtures', 'gemini');
+const fixturesDir = repoFixturePath('gemini');
 const tempDirs: string[] = [];
 
 afterEach(async () => {

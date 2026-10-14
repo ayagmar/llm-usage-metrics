@@ -1,0 +1,382 @@
+import { createHash } from 'node:crypto';
+import { readdir, readFile } from 'node:fs/promises';
+import path from 'node:path';
+import type { Dirent } from 'node:fs';
+
+import { createUsageEvent } from '../../domain/usage-event.js';
+import type { UsageEvent } from '../../domain/usage-event.js';
+import { asRecord } from '../../utils/as-record.js';
+import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
+import { discoverFiles } from '../../utils/discover-files.js';
+import { pathIsDirectory, pathReadable } from '../../utils/fs-helpers.js';
+import {
+  asTrimmedText,
+  isBlankText,
+  normalizeTimestampCandidate,
+  resolveTotalTokens,
+  splitPromptIncludingCachedTokens,
+} from '../parsing-utils.js';
+import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
+import { readJsonTranscriptFile } from '../read-json-file.js';
+import type {
+  SourceAdapter,
+  SourceAdapterPathOptions,
+  SourceParseFileDiagnostics,
+} from '../source-adapter.js';
+import { createSourceContext, readEnvPath, type SourceContext } from '../source-context.js';
+
+export type GeminiSourceAdapterOptions = SourceAdapterPathOptions;
+
+function resolveDefaultGeminiDir(context: SourceContext): string {
+  return readEnvPath(context, 'GEMINI_CLI_HOME') ?? path.join(context.homeDir, '.gemini');
+}
+
+function getProjectsJsonPath(geminiDir: string): string {
+  return path.join(geminiDir, 'projects.json');
+}
+
+/** Gemini CLI derives a session's `projectHash` from the project root path. */
+function hashProjectPath(projectPath: string): string {
+  return createHash('sha256').update(projectPath).digest('hex');
+}
+
+/**
+ * Maps session identifiers (`projectHash`, or the `tmp/<name>` directory name) to project
+ * roots. Gemini CLI writes `projects.json` as `{"projects": {"<root path>": "<tmp name>"}}`;
+ * the older `{"projects": {"<id>": {"absolutePath": "<root path>"}}}` layout is still
+ * accepted.
+ */
+function parseProjectsJson(data: unknown): Map<string, string> {
+  const mapping = new Map<string, string>();
+  const record = asRecord(data);
+
+  if (!record) {
+    return mapping;
+  }
+
+  const projects = asRecord(record.projects);
+
+  if (!projects) {
+    return mapping;
+  }
+
+  for (const [key, value] of Object.entries(projects)) {
+    const projectEntry = asRecord(value);
+
+    if (projectEntry) {
+      const absolutePath = asTrimmedText(projectEntry.absolutePath);
+
+      if (absolutePath) {
+        mapping.set(key, absolutePath);
+      }
+
+      continue;
+    }
+
+    const projectPath = asTrimmedText(key);
+    const projectName = asTrimmedText(value);
+
+    if (projectPath && projectName) {
+      mapping.set(projectName, projectPath);
+      mapping.set(hashProjectPath(projectPath), projectPath);
+    }
+  }
+
+  return mapping;
+}
+
+async function loadProjectsJson(geminiDir: string): Promise<Map<string, string>> {
+  const projectsPath = getProjectsJsonPath(geminiDir);
+
+  try {
+    const content = await readFile(projectsPath, 'utf8');
+    const parsed = JSON.parse(content) as unknown;
+
+    return parseProjectsJson(parsed);
+  } catch (error) {
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT') {
+      return new Map();
+    }
+
+    throw error;
+  }
+}
+
+async function discoverSessionFiles(geminiDir: string): Promise<string[]> {
+  const tmpDir = path.join(geminiDir, 'tmp');
+  let projectEntries: Dirent[];
+
+  try {
+    projectEntries = await readdir(tmpDir, { withFileTypes: true, encoding: 'utf8' });
+  } catch (error) {
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT') {
+      return [];
+    }
+
+    throw error;
+  }
+
+  const allSessionFiles: string[] = [];
+
+  for (const projectEntry of projectEntries.sort((left, right) =>
+    compareByCodePoint(left.name, right.name),
+  )) {
+    if (!projectEntry.isDirectory() && !projectEntry.isSymbolicLink()) {
+      continue;
+    }
+
+    const chatsDir = path.join(tmpDir, projectEntry.name, 'chats');
+    const discoveredChatFiles = await discoverFiles(chatsDir, { extension: '.json' });
+    allSessionFiles.push(...discoveredChatFiles);
+  }
+
+  // A symlinked project alias resolves to files another project entry already found.
+  return [...new Set(allSessionFiles)].sort(compareByCodePoint);
+}
+
+function resolveRepoRoot(
+  filePath: string,
+  sessionData: Record<string, unknown>,
+  projectMapping: Map<string, string>,
+): string | undefined {
+  const projectHash = asTrimmedText(sessionData.projectHash);
+
+  if (projectHash) {
+    const mappedRoot = projectMapping.get(projectHash);
+
+    if (mappedRoot) {
+      return mappedRoot;
+    }
+  }
+
+  const chatsDir = path.dirname(filePath);
+  const projectDir = path.dirname(chatsDir);
+  const projectIdentifier = path.basename(projectDir);
+
+  return projectMapping.get(projectIdentifier);
+}
+
+function toFiniteNumber(value: unknown): number | undefined {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : undefined;
+  }
+
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const parsed = Number(trimmed);
+
+  if (!Number.isFinite(parsed)) {
+    return undefined;
+  }
+
+  return parsed;
+}
+
+function extractTokenUsage(tokens: Record<string, unknown> | undefined): {
+  inputTokens: number;
+  outputTokens: number;
+  reasoningTokens: number;
+  cacheReadTokens: number;
+  totalTokens: number;
+} | null {
+  if (!tokens) {
+    return null;
+  }
+
+  const input = Math.max(0, toFiniteNumber(tokens.input) ?? 0);
+  const tool = Math.max(0, toFiniteNumber(tokens.tool) ?? 0);
+  const output = Math.max(0, toFiniteNumber(tokens.output) ?? 0);
+  const thoughts = Math.max(0, toFiniteNumber(tokens.thoughts) ?? 0);
+  const cached = Math.max(0, toFiniteNumber(tokens.cached) ?? 0);
+
+  // Gemini CLI records the API usage metadata: `input` already includes `cached`, and
+  // `output` excludes `thoughts` (total = input + output + thoughts + tool). Thinking
+  // tokens are billed at the output rate, so they are folded into output and kept in
+  // reasoningTokens as a breakdown, matching the other sources.
+  const splitInput = splitPromptIncludingCachedTokens(input, cached);
+  const inputTokens = splitInput.inputTokens + tool;
+  const outputTokens = output + thoughts;
+  const reasoningTokens = thoughts;
+  const cacheReadTokens = splitInput.cacheReadTokens;
+
+  const declaredTotal = Math.max(0, toFiniteNumber(tokens.total) ?? 0);
+  const componentTotal = inputTokens + outputTokens + cacheReadTokens;
+  const totalTokens = resolveTotalTokens(declaredTotal, componentTotal);
+
+  if (inputTokens === 0 && outputTokens === 0 && reasoningTokens === 0 && cached === 0) {
+    return null;
+  }
+
+  return {
+    inputTokens,
+    outputTokens,
+    reasoningTokens,
+    cacheReadTokens,
+    totalTokens,
+  };
+}
+
+// diagnostics helpers live in ../parse-diagnostics.ts
+
+export class GeminiSourceAdapter implements SourceAdapter {
+  public readonly id = 'gemini' as const;
+  public readonly parserVersion = 4;
+  public readonly capabilities = {
+    fixedProviderRoots: ['google'],
+    eventsPrecedeFileMtime: true,
+  } as const;
+
+  private readonly geminiDir: string;
+  private readonly requireDir: boolean;
+  private projectMappingPromise?: Promise<Map<string, string>>;
+
+  public constructor(options: GeminiSourceAdapterOptions = {}) {
+    this.geminiDir =
+      options.dir ?? resolveDefaultGeminiDir(options.context ?? createSourceContext());
+    this.requireDir = options.requireDir ?? false;
+  }
+
+  private getNormalizedGeminiDir(): string {
+    if (isBlankText(this.geminiDir)) {
+      throw new Error('Gemini directory must be a non-empty path');
+    }
+
+    return this.geminiDir.trim();
+  }
+
+  private async getProjectMappingForParse(): Promise<Map<string, string>> {
+    if (isBlankText(this.geminiDir)) {
+      return new Map();
+    }
+
+    this.projectMappingPromise ??= loadProjectsJson(this.geminiDir.trim());
+
+    return this.projectMappingPromise;
+  }
+
+  public getSearchPaths(): string[] {
+    return [this.geminiDir].map((searchPath) => searchPath.trim());
+  }
+
+  public async discoverFiles(): Promise<string[]> {
+    const normalizedDir = this.getNormalizedGeminiDir();
+
+    if (this.requireDir && !(await pathReadable(normalizedDir))) {
+      throw new Error(`Gemini directory is missing or unreadable: ${normalizedDir}`);
+    }
+
+    if (this.requireDir && !(await pathIsDirectory(normalizedDir))) {
+      throw new Error(`Gemini directory is not a directory: ${normalizedDir}`);
+    }
+
+    return discoverSessionFiles(normalizedDir);
+  }
+
+  public async getParseDependencies(): Promise<string[]> {
+    if (isBlankText(this.geminiDir)) {
+      return [];
+    }
+
+    return [getProjectsJsonPath(this.getNormalizedGeminiDir())];
+  }
+
+  public async parseFile(filePath: string): Promise<UsageEvent[]> {
+    const { events } = await this.parseFileWithDiagnostics(filePath);
+
+    return events;
+  }
+
+  public async parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
+    const events: UsageEvent[] = [];
+    let skippedRows = 0;
+    const skippedRowReasons = new Map<string, number>();
+
+    const sessionData = await readJsonTranscriptFile(filePath);
+
+    const sessionDataRecord = asRecord(sessionData);
+
+    // A document of the wrong shape fails the file, like unreadable JSON, so its stored
+    // events stay.
+    if (!sessionDataRecord) {
+      throw new Error(`Gemini session is not a JSON object: ${filePath}`);
+    }
+
+    const sessionId =
+      asTrimmedText(sessionDataRecord.sessionId) ?? path.basename(filePath, '.json');
+
+    const projectMapping = await this.getProjectMappingForParse();
+    const repoRoot = resolveRepoRoot(filePath, sessionDataRecord, projectMapping);
+
+    if (!Array.isArray(sessionDataRecord.messages)) {
+      throw new Error(`Gemini session has no messages array: ${filePath}`);
+    }
+
+    const messages = sessionDataRecord.messages;
+
+    for (const rawMessage of messages) {
+      const message = asRecord(rawMessage);
+
+      if (!message) {
+        skippedRows++;
+        incrementSkippedReason(skippedRowReasons, 'invalid_message');
+
+        continue;
+      }
+
+      if (message.type !== 'gemini') {
+        skippedRows++;
+        incrementSkippedReason(skippedRowReasons, 'non_gemini_message');
+
+        continue;
+      }
+
+      const tokens = extractTokenUsage(asRecord(message.tokens));
+
+      if (!tokens) {
+        skippedRows++;
+        incrementSkippedReason(skippedRowReasons, 'no_token_usage');
+
+        continue;
+      }
+
+      const timestamp = normalizeTimestampCandidate(message.timestamp);
+
+      if (!timestamp) {
+        skippedRows++;
+        incrementSkippedReason(skippedRowReasons, 'invalid_timestamp');
+
+        continue;
+      }
+
+      const model = asTrimmedText(message.model);
+
+      try {
+        events.push(
+          createUsageEvent({
+            source: this.id,
+            sessionId,
+            timestamp,
+            repoRoot,
+            provider: 'google',
+            model,
+            ...tokens,
+            costMode: 'estimated',
+          }),
+        );
+      } catch {
+        skippedRows++;
+        incrementSkippedReason(skippedRowReasons, 'event_creation_failed');
+      }
+    }
+
+    return toParseDiagnostics(events, skippedRows, skippedRowReasons);
+  }
+}
