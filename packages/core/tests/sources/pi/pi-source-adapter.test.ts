@@ -4,7 +4,9 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { PiSourceAdapter } from '../../../src/sources/pi/index.js';
+import { collect, collectFile } from '../../../src/stream/collect.js';
 import { fixturePath as packageFixturePath } from '../../helpers/fixtures.js';
+import { canCountOpenFds, countOpenFds, waitForOpenFdCount } from '../../helpers/open-fds.js';
 import { canonicalTmpdir } from '../../helpers/tmp.js';
 
 const tempDirs: string[] = [];
@@ -53,8 +55,8 @@ describe('PiSourceAdapter', () => {
     const adapter = new PiSourceAdapter({ defaultRootDirs: [piRoot, ompRoot, missingRoot] });
 
     await expect(adapter.discoverFiles()).resolves.toEqual([piFile, ompFile]);
-    await expect(adapter.parseFile(piFile)).resolves.toHaveLength(1);
-    await expect(adapter.parseFile(ompFile)).resolves.toHaveLength(1);
+    await expect(collect(adapter.read(piFile))).resolves.toHaveLength(1);
+    await expect(collect(adapter.read(ompFile))).resolves.toHaveLength(1);
   });
 
   it('scans only the explicit directory and errors when it is required but missing', async () => {
@@ -91,7 +93,7 @@ describe('PiSourceAdapter', () => {
     );
     const adapter = new PiSourceAdapter();
 
-    const events = await adapter.parseFile(fixturePath);
+    const events = await collect(adapter.read(fixturePath));
 
     expect(events).toHaveLength(3);
     expect(events[0]).toMatchObject({
@@ -178,7 +180,7 @@ describe('PiSourceAdapter', () => {
     );
 
     const adapter = new PiSourceAdapter({ dir: root });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toHaveLength(2);
     expect(events[0]).toMatchObject({
@@ -224,7 +226,7 @@ describe('PiSourceAdapter', () => {
     );
 
     const adapter = new PiSourceAdapter({ dir: root });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toHaveLength(1);
     expect(events[0]?.timestamp).toBe('2026-02-12T20:01:00.000Z');
@@ -258,7 +260,7 @@ describe('PiSourceAdapter', () => {
     );
 
     const adapter = new PiSourceAdapter({ dir: root });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toHaveLength(1);
     expect(events[0]?.timestamp).toBe('2024-02-12T20:00:00.000Z');
@@ -292,7 +294,7 @@ describe('PiSourceAdapter', () => {
     );
 
     const adapter = new PiSourceAdapter({ dir: root });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toHaveLength(1);
     expect(events[0]?.timestamp).toBe('2024-02-12T20:00:00.000Z');
@@ -325,7 +327,7 @@ describe('PiSourceAdapter', () => {
     );
 
     const adapter = new PiSourceAdapter({ dir: root });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
@@ -369,7 +371,7 @@ describe('PiSourceAdapter', () => {
     );
 
     const adapter = new PiSourceAdapter({ dir: root });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toHaveLength(1);
     expect(events[0]?.timestamp).toBe('2000-01-01T00:00:00.000Z');
@@ -403,7 +405,7 @@ describe('PiSourceAdapter', () => {
     );
 
     const adapter = new PiSourceAdapter({ dir: root });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toEqual([]);
   });
@@ -440,7 +442,7 @@ describe('PiSourceAdapter', () => {
     );
 
     const adapter = new PiSourceAdapter({ dir: root });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toEqual([]);
   });
@@ -473,7 +475,7 @@ describe('PiSourceAdapter', () => {
     );
 
     const adapter = new PiSourceAdapter({ dir: root });
-    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+    const diagnostics = await collectFile(adapter, filePath);
 
     expect(diagnostics.events).toEqual([]);
     expect(diagnostics.skippedRows).toBe(1);
@@ -508,7 +510,7 @@ describe('PiSourceAdapter', () => {
     );
 
     const adapter = new PiSourceAdapter({ dir: root });
-    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+    const diagnostics = await collectFile(adapter, filePath);
 
     expect(diagnostics.events).toEqual([]);
     expect(diagnostics.skippedRows).toBe(1);
@@ -542,7 +544,7 @@ describe('PiSourceAdapter', () => {
     );
 
     const adapter = new PiSourceAdapter({ dir: root });
-    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+    const diagnostics = await collectFile(adapter, filePath);
 
     expect(diagnostics.events).toEqual([]);
     expect(diagnostics.skippedRows).toBe(0);
@@ -589,8 +591,8 @@ describe('PiSourceAdapter', () => {
     );
 
     const adapter = new PiSourceAdapter({ dir: root });
-    const parentDiagnostics = await adapter.parseFileWithDiagnostics(parentPath);
-    const forkDiagnostics = await adapter.parseFileWithDiagnostics(forkPath);
+    const parentDiagnostics = await collectFile(adapter, parentPath);
+    const forkDiagnostics = await collectFile(adapter, forkPath);
 
     expect(parentDiagnostics.events).toHaveLength(2);
     expect(forkDiagnostics.events.map((event) => event.timestamp)).toEqual([
@@ -608,15 +610,15 @@ describe('PiSourceAdapter', () => {
     await writeFile(forkOnlyPath, await readFile(forkPath, 'utf8'), 'utf8');
     const forkOnlyAdapter = new PiSourceAdapter({ dir: forkOnlyDir });
     // A parent name outside pi's <timestamp>_<id> form gives no id, so copies keep the fork's.
-    expect((await forkOnlyAdapter.parseFile(forkOnlyPath)).map((event) => event.sessionId)).toEqual(
-      ['fork', 'fork', 'fork'],
-    );
+    expect(
+      (await collect(forkOnlyAdapter.read(forkOnlyPath))).map((event) => event.sessionId),
+    ).toEqual(['fork', 'fork', 'fork']);
     expect(await forkOnlyAdapter.getParseDependencies(forkOnlyPath)).toEqual([]);
 
     // Once the parent is gone, the fork's copies are the only record of that usage.
     await rm(parentPath);
     expect(
-      (await adapter.parseFile(forkPath)).map((event) => [event.sessionId, event.timestamp]),
+      (await collect(adapter.read(forkPath))).map((event) => [event.sessionId, event.timestamp]),
     ).toEqual([
       ['fork', '2026-02-12T20:01:00.000Z'],
       ['fork', '2026-02-12T20:02:00.000Z'],
@@ -647,7 +649,7 @@ describe('PiSourceAdapter', () => {
       'utf8',
     );
 
-    const events = await new PiSourceAdapter({ dir: root }).parseFile(forkPath);
+    const events = await collect(new PiSourceAdapter({ dir: root }).read(forkPath));
 
     expect(events.map((event) => event.sessionId)).toEqual(['parent-id']);
   });
@@ -675,7 +677,7 @@ describe('PiSourceAdapter', () => {
       'utf8',
     );
 
-    const diagnostics = await new PiSourceAdapter({ dir: root }).parseFileWithDiagnostics(forkPath);
+    const diagnostics = await collectFile(new PiSourceAdapter({ dir: root }), forkPath);
 
     expect(diagnostics.events.map((event) => event.sessionId)).toEqual(['fork-id']);
     expect(diagnostics.skippedRows).toBe(0);
@@ -689,7 +691,7 @@ describe('PiSourceAdapter', () => {
     await writeFile(filePath, ['{"type":"message",', '{"type":"ignored",'].join('\n'), 'utf8');
 
     const adapter = new PiSourceAdapter({ dir: root });
-    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+    const diagnostics = await collectFile(adapter, filePath);
 
     expect(diagnostics.events).toEqual([]);
     expect(diagnostics.skippedRows).toBe(1);
@@ -725,7 +727,7 @@ describe('PiSourceAdapter', () => {
     );
 
     const adapter = new PiSourceAdapter({ dir: root });
-    const events = await adapter.parseFile(filePath);
+    const events = await collect(adapter.read(filePath));
 
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
@@ -766,7 +768,7 @@ describe('pi source helpers', () => {
       'utf8',
     );
 
-    const events = await new PiSourceAdapter().parseFile(filePath);
+    const events = await collect(new PiSourceAdapter().read(filePath));
 
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
@@ -776,5 +778,31 @@ describe('pi source helpers', () => {
       cacheReadTokens: 20,
       totalTokens: 200,
     });
+  });
+
+  it.runIf(canCountOpenFds)('closes the file when the consumer stops early', async () => {
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-early-return-'));
+    tempDirs.push(root);
+    const filePath = path.join(root, 'larger-than-a-chunk.jsonl');
+    const row = JSON.stringify({
+      type: 'message',
+      timestamp: '2026-02-12T20:01:00.000Z',
+      provider: 'openai',
+      model: 'gpt-5.3-codex',
+      usage: { input: 10, output: 5 },
+      padding: 'x'.repeat(1000),
+    });
+    const rowCount = 3000;
+    await writeFile(filePath, `${row}\n`.repeat(rowCount), 'utf8');
+    const adapter = new PiSourceAdapter();
+    const before = countOpenFds();
+
+    for await (const event of adapter.read(filePath)) {
+      expect(event.totalTokens).toBe(15);
+      break;
+    }
+
+    await waitForOpenFdCount(before);
+    await expect(collect(adapter.read(filePath))).resolves.toHaveLength(rowCount);
   });
 });
