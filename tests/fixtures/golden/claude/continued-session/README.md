@@ -4,4 +4,4 @@ Imitates a Claude Desktop session that was continued in a new session. Claude Co
 
 `session-a.jsonl` holds 3 assistant rows. `session-b.jsonl` holds those 3 rows under `cont-b` plus 2 new ones.
 
-Freezes KI-4. The adapter returns 3 and 5 events because it parses each file on its own. A report counts 5 events because `countCopiedSessionEventsOnce` drops the copies, so KI-4 is not reproduced at report level. Test: `tests/sources/claude/claude-continued-session-fixture.test.ts`.
+Freezes KI-4. The adapter returns 3 and 5 events because it parses each file on its own. A report counts 5 events because `countCopiedSessionEventsOnce` drops the copies, so KI-4 is not reproduced at report level. Test: `tests/cli/sources/claude-continued-session-fixture.test.ts`.

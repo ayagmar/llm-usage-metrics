@@ -8,7 +8,7 @@ import {
   getClaudeSubagentMetaPath,
   readClaudeMessageKeys,
   resolveClaudeForkParentPath,
-} from '../../src/sources/claude/claude-fork-transcript.js';
+} from '../../../src/sources/claude/claude-fork-transcript.js';
 
 const tempDirs: string[] = [];
 
