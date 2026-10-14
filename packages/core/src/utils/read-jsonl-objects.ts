@@ -61,7 +61,12 @@ export async function* readJsonlObjects(
       }
     }
   } finally {
-    stream.destroy();
+    // Wait for the fd to close, so breaking out of a read leaves no file open.
+    if (!stream.closed) {
+      const closed = new Promise((resolve) => stream.once('close', resolve));
+      stream.destroy();
+      await closed;
+    }
   }
 }
 
