@@ -6,11 +6,8 @@ import {
   type ParseWorkerLike,
   type ParseWorkerRequestMessage,
 } from '../../src/cli/parse-worker-pool.js';
-import {
-  createWorkerParseAdapter,
-  getDefaultSourceIds,
-} from '../../src/sources/create-default-adapters.js';
-import type { SourceParseFileDiagnostics } from '../../src/sources/source-adapter.js';
+import { createWorkerParseAdapter, getDefaultSourceIds } from '@ayagmar/agent-sessions/registry';
+import type { ParseFileDiagnostics } from '../../src/domain/usage-event.js';
 
 const entryUrl = new URL('file:///tmp/dist/index.js');
 
@@ -74,7 +71,7 @@ class ThrowingPostWorker extends FakeWorker {
   }
 }
 
-function createDiagnostics(skippedRows: number): SourceParseFileDiagnostics {
+function createDiagnostics(skippedRows: number): ParseFileDiagnostics {
   return {
     events: [],
     skippedRows,
@@ -143,6 +140,47 @@ describe('parse-worker-pool', () => {
     await expect(secondResult).resolves.toEqual(createDiagnostics(2));
   });
 
+  it('gives the events a worker parsed the cost mode their cost implies', async () => {
+    const worker = new FakeWorker();
+    const pool = createParseWorkerPool({
+      entryUrl,
+      workerCount: 1,
+      spawnWorker: () => worker,
+    });
+    const workerEvent = {
+      source: 'codex',
+      sessionId: 'session',
+      timestamp: '2026-02-01T00:00:00.000Z',
+      inputTokens: 1,
+      outputTokens: 0,
+      reasoningTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      cacheWrite1hTokens: 0,
+      totalTokens: 1,
+      costUsd: undefined,
+    };
+
+    const result = pool.parse({ sourceId: 'codex', filePath: '/tmp/a.jsonl' }, async () =>
+      createDiagnostics(99),
+    );
+    worker.emitMessage({
+      taskId: 1,
+      ok: true,
+      diagnostics: {
+        events: [workerEvent, { ...workerEvent, costUsd: 0.25 }],
+        skippedRows: 0,
+        skippedRowReasons: [],
+      },
+    });
+
+    const diagnostics = await result;
+    expect(diagnostics.events.map((event) => [event.costUsd, event.costMode])).toEqual([
+      [undefined, 'estimated'],
+      [0.25, 'explicit'],
+    ]);
+  });
+
   it('falls back inline when a worker replies with a mismatched task id', async () => {
     const worker = new FakeWorker();
     const inlineParse = vi.fn(async () => createDiagnostics(4));
@@ -197,7 +235,7 @@ describe('parse-worker-pool', () => {
 
     const result = pool.parse(
       { sourceId: 'codex', filePath: '/tmp/a.jsonl' },
-      async (): Promise<SourceParseFileDiagnostics> => {
+      async (): Promise<ParseFileDiagnostics> => {
         throw new Error('inline failed');
       },
     );

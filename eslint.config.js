@@ -10,6 +10,36 @@ import tseslint from 'typescript-eslint';
 const tsconfigRootDir = path.dirname(fileURLToPath(import.meta.url));
 const tsFiles = ['**/*.ts', '**/*.tsx', '**/*.mts', '**/*.cts'];
 const hostStateMessage = 'The core package reads host state only through an injected context.';
+const coreCliTreeImportPattern = {
+  regex: String.raw`^(?:\.\./){2,}src(?:/|$)`,
+  message: 'The core package must not import from the CLI tree.',
+};
+const networkMessage = 'The core package makes no network calls';
+const coreNetworkImportPaths = [
+  'http',
+  'https',
+  'http2',
+  'net',
+  'tls',
+  'dgram',
+  'dns',
+  'child_process',
+].flatMap((name) => [
+  { name: `node:${name}`, message: networkMessage },
+  { name, message: networkMessage },
+]);
+const coreNetworkGlobals = [
+  { name: 'fetch', message: networkMessage },
+  { name: 'WebSocket', message: networkMessage },
+];
+const coreAlwaysRestrictedProperties = [
+  { object: 'process', property: 'cwd', message: hostStateMessage },
+  { object: 'process', property: 'stdout', message: 'The core package prints nothing.' },
+  { object: 'process', property: 'stderr', message: 'The core package prints nothing.' },
+  { object: 'globalThis', property: 'process', message: hostStateMessage },
+  { object: 'globalThis', property: 'fetch', message: networkMessage },
+  { object: 'globalThis', property: 'WebSocket', message: networkMessage },
+];
 
 function scopeToFiles(configs, files) {
   return configs.map((config) => ({
@@ -96,8 +126,8 @@ export default tseslint.config(
     },
   },
   {
-    // The core package prints nothing, reads host state only through an injected context,
-    // and never reaches into the CLI tree.
+    // The core package prints nothing, makes no network calls, reads host state only through
+    // an injected context, and never reaches into the CLI tree.
     files: ['packages/core/src/**/*.ts'],
     rules: {
       'no-console': 'error',
@@ -109,25 +139,32 @@ export default tseslint.config(
             { name: 'os', message: hostStateMessage },
             { name: 'node:process', message: hostStateMessage },
             { name: 'process', message: hostStateMessage },
+            ...coreNetworkImportPaths,
           ],
-          patterns: [
-            {
-              regex: String.raw`^(?:\.\./){2,}src(?:/|$)`,
-              message: 'The core package must not import from the CLI tree.',
-            },
-          ],
+          patterns: [coreCliTreeImportPattern],
         },
       ],
+      'no-restricted-globals': ['error', ...coreNetworkGlobals],
       'no-restricted-properties': [
         'error',
         { object: 'process', property: 'env', message: hostStateMessage },
         { object: 'process', property: 'platform', message: hostStateMessage },
         { object: 'os', property: 'homedir', message: hostStateMessage },
-        { object: 'process', property: 'cwd', message: hostStateMessage },
-        { object: 'process', property: 'stdout', message: 'The core package prints nothing.' },
-        { object: 'process', property: 'stderr', message: 'The core package prints nothing.' },
-        { object: 'globalThis', property: 'process', message: hostStateMessage },
+        ...coreAlwaysRestrictedProperties,
       ],
+    },
+  },
+  {
+    // The one host reader: `createSourceContext` fills the context from the home directory,
+    // environment and platform. Everything else in the core block still applies.
+    files: ['packages/core/src/sources/source-context.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        { paths: coreNetworkImportPaths, patterns: [coreCliTreeImportPattern] },
+      ],
+      'no-restricted-globals': ['error', ...coreNetworkGlobals],
+      'no-restricted-properties': ['error', ...coreAlwaysRestrictedProperties],
     },
   },
   {

@@ -1,0 +1,780 @@
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+
+import { afterEach, describe, expect, it } from 'vitest';
+
+import { PiSourceAdapter } from '../../../src/sources/pi/index.js';
+import { fixturePath as packageFixturePath } from '../../helpers/fixtures.js';
+import { canonicalTmpdir } from '../../helpers/tmp.js';
+
+const tempDirs: string[] = [];
+
+afterEach(async () => {
+  await Promise.all(tempDirs.map((dir) => rm(dir, { recursive: true, force: true })));
+  tempDirs.length = 0;
+});
+
+describe('PiSourceAdapter', () => {
+  it('discovers jsonl files recursively in deterministic order', async () => {
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-adapter-'));
+    tempDirs.push(root);
+
+    const nested = path.join(root, 'nested');
+    await mkdir(nested, { recursive: true });
+
+    const first = path.join(root, 'a.jsonl');
+    const second = path.join(nested, 'b.jsonl');
+
+    await writeFile(path.join(root, 'ignore.txt'), 'noop', 'utf8');
+    await writeFile(second, '{}\n', 'utf8');
+    await writeFile(first, '{}\n', 'utf8');
+
+    const adapter = new PiSourceAdapter({ dir: root });
+
+    await expect(adapter.discoverFiles()).resolves.toEqual([first, second]);
+  });
+
+  it('scans all default roots and silently skips missing ones', async () => {
+    const piRoot = await mkdtemp(path.join(canonicalTmpdir(), 'pi-default-root-'));
+    const ompRoot = await mkdtemp(path.join(canonicalTmpdir(), 'omp-default-root-'));
+    tempDirs.push(piRoot, ompRoot);
+
+    const piFile = path.join(piRoot, 'a.jsonl');
+    const ompFile = path.join(ompRoot, 'b.jsonl');
+    const messageRow = JSON.stringify({
+      type: 'message',
+      timestamp: '2026-02-12T20:01:00.000Z',
+      usage: { input: 4, output: 6, totalTokens: 10 },
+    });
+    await writeFile(piFile, messageRow, 'utf8');
+    await writeFile(ompFile, messageRow, 'utf8');
+    const missingRoot = path.join(ompRoot, 'missing');
+
+    const adapter = new PiSourceAdapter({ defaultRootDirs: [piRoot, ompRoot, missingRoot] });
+
+    await expect(adapter.discoverFiles()).resolves.toEqual([piFile, ompFile]);
+    await expect(adapter.parseFile(piFile)).resolves.toHaveLength(1);
+    await expect(adapter.parseFile(ompFile)).resolves.toHaveLength(1);
+  });
+
+  it('scans only the explicit directory and errors when it is required but missing', async () => {
+    const piRoot = await mkdtemp(path.join(canonicalTmpdir(), 'pi-explicit-root-'));
+    const ompRoot = await mkdtemp(path.join(canonicalTmpdir(), 'omp-explicit-root-'));
+    tempDirs.push(piRoot, ompRoot);
+
+    const piFile = path.join(piRoot, 'a.jsonl');
+    await writeFile(piFile, '{}\n', 'utf8');
+    await writeFile(path.join(ompRoot, 'b.jsonl'), '{}\n', 'utf8');
+
+    const adapter = new PiSourceAdapter({
+      dir: piRoot,
+      defaultRootDirs: [piRoot, ompRoot],
+    });
+
+    await expect(adapter.discoverFiles()).resolves.toEqual([piFile]);
+
+    const missingAdapter = new PiSourceAdapter({
+      dir: path.join(ompRoot, 'missing'),
+      requireDir: true,
+    });
+
+    await expect(missingAdapter.discoverFiles()).rejects.toThrow(
+      'PI sessions directory is missing or unreadable',
+    );
+  });
+
+  it('parses usage events without provider filtering by default', async () => {
+    const fixturePath = packageFixturePath(
+      import.meta.url,
+      '../../fixtures/pi',
+      'session-mixed.jsonl',
+    );
+    const adapter = new PiSourceAdapter();
+
+    const events = await adapter.parseFile(fixturePath);
+
+    expect(events).toHaveLength(3);
+    expect(events[0]).toMatchObject({
+      source: 'pi',
+      sessionId: 'session-pi-1',
+      repoRoot: '/tmp/pi-repo',
+      provider: 'openai',
+      model: 'gpt-5.3-codex',
+      inputTokens: 100,
+      outputTokens: 20,
+      reasoningTokens: 5,
+      cacheReadTokens: 10,
+      cacheWriteTokens: 3,
+      totalTokens: 120,
+      costUsd: 0.01,
+    });
+
+    expect(events[1]).toMatchObject({
+      source: 'pi',
+      sessionId: 'session-pi-1',
+      provider: 'anthropic',
+      model: 'claude-3.7-sonnet',
+      inputTokens: 10,
+      outputTokens: 10,
+      totalTokens: 20,
+    });
+
+    expect(events[2]).toMatchObject({
+      source: 'pi',
+      sessionId: 'session-pi-1',
+      repoRoot: '/tmp/pi-repo',
+      provider: 'openai',
+      model: 'gpt-4.1',
+      inputTokens: 2,
+      outputTokens: 3,
+      totalTokens: 5,
+    });
+
+    expect(events[2]?.timestamp).toBe('2026-02-12T20:01:00.000Z');
+  });
+
+  it('falls back to message.usage when line-level usage is malformed or empty', async () => {
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-message-usage-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'pi-message-usage',
+          timestamp: '2026-02-12T20:00:00.000Z',
+        }),
+        JSON.stringify({
+          type: 'message',
+          timestamp: '2026-02-12T20:01:00.000Z',
+          provider: 'openai',
+          usage: 'unexpected-string',
+          message: {
+            usage: {
+              input: 4,
+              output: 6,
+              totalTokens: 10,
+            },
+          },
+        }),
+        JSON.stringify({
+          type: 'message',
+          timestamp: '2026-02-12T20:02:00.000Z',
+          provider: 'openai',
+          usage: {},
+          message: {
+            usage: {
+              input: 3,
+              output: 2,
+              totalTokens: 5,
+            },
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new PiSourceAdapter({ dir: root });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toHaveLength(2);
+    expect(events[0]).toMatchObject({
+      inputTokens: 4,
+      outputTokens: 6,
+      totalTokens: 10,
+    });
+    expect(events[1]).toMatchObject({
+      inputTokens: 3,
+      outputTokens: 2,
+      totalTokens: 5,
+    });
+  });
+
+  it('falls back to message timestamp when line timestamp is malformed', async () => {
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-malformed-line-timestamp-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'pi-malformed-line-timestamp',
+        }),
+        JSON.stringify({
+          type: 'message',
+          timestamp: 'not-a-date',
+          message: {
+            timestamp: '2026-02-12T20:01:00.000Z',
+          },
+          provider: 'openai',
+          usage: {
+            input: 1,
+            output: 2,
+            totalTokens: 3,
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new PiSourceAdapter({ dir: root });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toHaveLength(1);
+    expect(events[0]?.timestamp).toBe('2026-02-12T20:01:00.000Z');
+  });
+
+  it('supports unix-second timestamps in message events', async () => {
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-unix-seconds-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'pi-unix-seconds',
+        }),
+        JSON.stringify({
+          type: 'message',
+          timestamp: 1_707_768_000,
+          provider: 'openai',
+          usage: {
+            input: 1,
+            output: 2,
+            totalTokens: 3,
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new PiSourceAdapter({ dir: root });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toHaveLength(1);
+    expect(events[0]?.timestamp).toBe('2024-02-12T20:00:00.000Z');
+  });
+
+  it('supports numeric-string epoch timestamps in message events', async () => {
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-epoch-string-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'pi-epoch-string',
+        }),
+        JSON.stringify({
+          type: 'message',
+          timestamp: '1707768000',
+          provider: 'openai',
+          usage: {
+            input: 1,
+            output: 2,
+            totalTokens: 3,
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new PiSourceAdapter({ dir: root });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toHaveLength(1);
+    expect(events[0]?.timestamp).toBe('2024-02-12T20:00:00.000Z');
+  });
+
+  it('preserves total-only usage without inventing billable buckets', async () => {
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-total-only-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'pi-total-only',
+        }),
+        JSON.stringify({
+          type: 'message',
+          timestamp: '2026-02-12T20:01:00.000Z',
+          provider: 'openai',
+          model: 'gpt-5.2',
+          usage: {
+            totalTokens: 33,
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new PiSourceAdapter({ dir: root });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      provider: 'openai',
+      model: 'gpt-5.2',
+      inputTokens: 0,
+      outputTokens: 0,
+      reasoningTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      totalTokens: 33,
+      costUsd: undefined,
+    });
+  });
+
+  it('treats millisecond timestamps as milliseconds (without multiplying by 1000)', async () => {
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-unix-milliseconds-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'pi-unix-milliseconds',
+        }),
+        JSON.stringify({
+          type: 'message',
+          timestamp: 946_684_800_000,
+          provider: 'openai',
+          usage: {
+            input: 1,
+            output: 2,
+            totalTokens: 3,
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new PiSourceAdapter({ dir: root });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toHaveLength(1);
+    expect(events[0]?.timestamp).toBe('2000-01-01T00:00:00.000Z');
+  });
+
+  it('ignores out-of-range numeric timestamps instead of crashing', async () => {
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-invalid-numeric-ts-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'pi-invalid-numeric-ts',
+        }),
+        JSON.stringify({
+          type: 'message',
+          timestamp: Number.MAX_VALUE,
+          provider: 'openai',
+          usage: {
+            input: 1,
+            output: 2,
+            totalTokens: 3,
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new PiSourceAdapter({ dir: root });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toEqual([]);
+  });
+
+  it('skips message entries that only carry zero usage and zero cost', async () => {
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-zero-usage-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'pi-zero-usage',
+        }),
+        JSON.stringify({
+          type: 'message',
+          timestamp: '2026-02-12T20:01:00.000Z',
+          provider: 'openai',
+          usage: {
+            input: 0,
+            output: 0,
+            reasoning: 0,
+            cacheRead: 0,
+            cacheWrite: 0,
+            totalTokens: 0,
+            cost: { total: 0 },
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new PiSourceAdapter({ dir: root });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toEqual([]);
+  });
+
+  it('counts a skip when a usage record exists but carries no positive signal', async () => {
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-skip-no-usage-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'pi-skip-no-usage',
+        }),
+        JSON.stringify({
+          type: 'message',
+          timestamp: '2026-02-12T20:01:00.000Z',
+          provider: 'openai',
+          usage: {
+            input: 0,
+            output: 0,
+            totalTokens: 0,
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new PiSourceAdapter({ dir: root });
+    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+
+    expect(diagnostics.events).toEqual([]);
+    expect(diagnostics.skippedRows).toBe(1);
+    expect(diagnostics.skippedRowReasons).toEqual([{ reason: 'no_token_usage', count: 1 }]);
+  });
+
+  it('counts a skip when usage is valid but no timestamp can be resolved', async () => {
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-skip-invalid-ts-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'pi-skip-invalid-ts',
+        }),
+        JSON.stringify({
+          type: 'message',
+          timestamp: 'not-a-date',
+          provider: 'openai',
+          usage: {
+            input: 1,
+            output: 2,
+            totalTokens: 3,
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new PiSourceAdapter({ dir: root });
+    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+
+    expect(diagnostics.events).toEqual([]);
+    expect(diagnostics.skippedRows).toBe(1);
+    expect(diagnostics.skippedRowReasons).toEqual([{ reason: 'invalid_timestamp', count: 1 }]);
+  });
+
+  it('does not count user messages without any usage record as skips', async () => {
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-no-skip-user-message-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'pi-user-message',
+          timestamp: '2026-02-12T20:00:00.000Z',
+        }),
+        JSON.stringify({
+          type: 'message',
+          timestamp: '2026-02-12T20:01:00.000Z',
+          message: {
+            role: 'user',
+            content: 'hello there',
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new PiSourceAdapter({ dir: root });
+    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+
+    expect(diagnostics.events).toEqual([]);
+    expect(diagnostics.skippedRows).toBe(0);
+    expect(diagnostics.skippedRowReasons).toEqual([]);
+  });
+
+  it('skips parent entries copied into a forked session', async () => {
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-fork-'));
+    tempDirs.push(root);
+
+    const usageRow = (id: string, timestamp: string) =>
+      JSON.stringify({
+        type: 'message',
+        id,
+        timestamp,
+        message: { role: 'assistant', usage: { input: 10, output: 5, totalTokens: 15 } },
+      });
+    const parentPath = path.join(root, 'parent.jsonl');
+    const forkPath = path.join(root, 'fork.jsonl');
+
+    await writeFile(
+      parentPath,
+      [
+        JSON.stringify({ type: 'session', id: 'parent', timestamp: '2026-02-12T20:00:00.000Z' }),
+        usageRow('a1', '2026-02-12T20:01:00.000Z'),
+        usageRow('a2', '2026-02-12T20:02:00.000Z'),
+      ].join('\n'),
+      'utf8',
+    );
+    await writeFile(
+      forkPath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'fork',
+          timestamp: '2026-02-12T20:05:00.000Z',
+          parentSession: parentPath,
+        }),
+        usageRow('a1', '2026-02-12T20:01:00.000Z'),
+        usageRow('a2', '2026-02-12T20:02:00.000Z'),
+        usageRow('b1', '2026-02-12T20:06:00.000Z'),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new PiSourceAdapter({ dir: root });
+    const parentDiagnostics = await adapter.parseFileWithDiagnostics(parentPath);
+    const forkDiagnostics = await adapter.parseFileWithDiagnostics(forkPath);
+
+    expect(parentDiagnostics.events).toHaveLength(2);
+    expect(forkDiagnostics.events.map((event) => event.timestamp)).toEqual([
+      '2026-02-12T20:06:00.000Z',
+    ]);
+    expect(forkDiagnostics.events[0]?.sessionId).toBe('fork');
+    expect(forkDiagnostics.skippedRows).toBe(0);
+    expect(await adapter.getParseDependencies(forkPath)).toEqual([parentPath]);
+    expect(await adapter.getParseDependencies(parentPath)).toEqual([]);
+
+    // A scan root that excludes the parent leaves it uncounted, so the copies stay.
+    const forkOnlyDir = path.join(root, 'fork-only');
+    const forkOnlyPath = path.join(forkOnlyDir, 'fork.jsonl');
+    await mkdir(forkOnlyDir);
+    await writeFile(forkOnlyPath, await readFile(forkPath, 'utf8'), 'utf8');
+    const forkOnlyAdapter = new PiSourceAdapter({ dir: forkOnlyDir });
+    // A parent name outside pi's <timestamp>_<id> form gives no id, so copies keep the fork's.
+    expect((await forkOnlyAdapter.parseFile(forkOnlyPath)).map((event) => event.sessionId)).toEqual(
+      ['fork', 'fork', 'fork'],
+    );
+    expect(await forkOnlyAdapter.getParseDependencies(forkOnlyPath)).toEqual([]);
+
+    // Once the parent is gone, the fork's copies are the only record of that usage.
+    await rm(parentPath);
+    expect(
+      (await adapter.parseFile(forkPath)).map((event) => [event.sessionId, event.timestamp]),
+    ).toEqual([
+      ['fork', '2026-02-12T20:01:00.000Z'],
+      ['fork', '2026-02-12T20:02:00.000Z'],
+      ['fork', '2026-02-12T20:06:00.000Z'],
+    ]);
+  });
+
+  it("takes a missing parent's session id from pi's <timestamp>_<id> file name", async () => {
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-fork-name-'));
+    tempDirs.push(root);
+    const forkPath = path.join(root, '2026-02-12T20-05-00-000Z_fork-id.jsonl');
+
+    await writeFile(
+      forkPath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'fork-id',
+          timestamp: '2026-02-12T20:05:00.000Z',
+          parentSession: path.join(root, '2026-02-12T20-00-00-000Z_parent-id.jsonl'),
+        }),
+        JSON.stringify({
+          type: 'message',
+          timestamp: '2026-02-12T20:01:00.000Z',
+          message: { role: 'assistant', usage: { input: 10, output: 5, totalTokens: 15 } },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const events = await new PiSourceAdapter({ dir: root }).parseFile(forkPath);
+
+    expect(events.map((event) => event.sessionId)).toEqual(['parent-id']);
+  });
+
+  it('keeps copies under the fork id when the parent name gives no session id', async () => {
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-fork-renamed-'));
+    tempDirs.push(root);
+    const forkPath = path.join(root, '2026-02-12T20-05-00-000Z_fork-id.jsonl');
+
+    await writeFile(
+      forkPath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'fork-id',
+          timestamp: '2026-02-12T20:05:00.000Z',
+          parentSession: path.join(root, 'archive_.jsonl'),
+        }),
+        JSON.stringify({
+          type: 'message',
+          timestamp: '2026-02-12T20:01:00.000Z',
+          message: { role: 'assistant', usage: { input: 10, output: 5, totalTokens: 15 } },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const diagnostics = await new PiSourceAdapter({ dir: root }).parseFileWithDiagnostics(forkPath);
+
+    expect(diagnostics.events.map((event) => event.sessionId)).toEqual(['fork-id']);
+    expect(diagnostics.skippedRows).toBe(0);
+  });
+
+  it('reports malformed JSONL lines that pass its prefilter', async () => {
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-malformed-jsonl-'));
+    tempDirs.push(root);
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(filePath, ['{"type":"message",', '{"type":"ignored",'].join('\n'), 'utf8');
+
+    const adapter = new PiSourceAdapter({ dir: root });
+    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+
+    expect(diagnostics.events).toEqual([]);
+    expect(diagnostics.skippedRows).toBe(1);
+    expect(diagnostics.skippedRowReasons).toEqual([{ reason: 'json_parse_error', count: 1 }]);
+  });
+
+  it('keeps cost-only usage entries when explicit non-zero cost exists', async () => {
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-source-cost-only-'));
+    tempDirs.push(root);
+
+    const filePath = path.join(root, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'pi-cost-only',
+        }),
+        JSON.stringify({
+          type: 'message',
+          timestamp: '2026-02-12T20:01:00.000Z',
+          provider: 'openai',
+          usage: {
+            input: 0,
+            output: 0,
+            totalTokens: 0,
+            cost: { total: 0.42 },
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new PiSourceAdapter({ dir: root });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      totalTokens: 0,
+      costUsd: 0.42,
+    });
+  });
+});
+
+describe('pi source helpers', () => {
+  it('returns the default pi sessions path', () => {
+    expect(new PiSourceAdapter().getSearchPaths()[0]).toContain(
+      path.join('.pi', 'agent', 'sessions'),
+    );
+  });
+
+  it('keeps reasoning inside the total when usage declares no total', async () => {
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'pi-reasoning-total-'));
+    tempDirs.push(root);
+    const filePath = path.join(root, 'reasoning.jsonl');
+    await writeFile(
+      filePath,
+      [
+        JSON.stringify({
+          type: 'session',
+          id: 'session-pi-reasoning',
+          timestamp: '2026-02-12T20:00:00.000Z',
+        }),
+        JSON.stringify({
+          type: 'message',
+          timestamp: '2026-02-12T20:01:00.000Z',
+          provider: 'openai',
+          model: 'gpt-5.3-codex',
+          usage: { input: 100, output: 80, reasoning: 30, cacheRead: 20 },
+        }),
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+
+    const events = await new PiSourceAdapter().parseFile(filePath);
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      inputTokens: 100,
+      outputTokens: 80,
+      reasoningTokens: 30,
+      cacheReadTokens: 20,
+      totalTokens: 200,
+    });
+  });
+});

@@ -1,5 +1,5 @@
 import type { UsageReportRow } from '../domain/usage-report-row.js';
-import type { SourceAdapter } from '../sources/source-adapter.js';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
 
 import type { AdapterParseResult } from './build-usage-data-parsing.js';
 import type {

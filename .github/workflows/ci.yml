@@ -269,6 +269,8 @@ jobs:
       - run: pnpm run core:lint
       - run: pnpm run core:typecheck
       - run: pnpm run core:test
+        env:
+          REQUIRE_CORE_DIST: '1'
       - name: Enforce core coverage threshold
         run: node .github/scripts/check-coverage-threshold.mjs packages/core/coverage/coverage-summary.json
       - name: Assert the core package has no dependencies

@@ -17,7 +17,7 @@ import {
   readStoredFileSnapshots,
   replaceFileEvents,
 } from '../../src/persistence/event-store.js';
-import type { SourceAdapter } from '../../src/sources/source-adapter.js';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { canonicalTmpdir } from '../helpers/tmp.js';
 import type {
   MachineExportEndLine,

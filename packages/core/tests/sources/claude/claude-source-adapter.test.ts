@@ -1,0 +1,664 @@
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+
+import { afterEach, describe, expect, it } from 'vitest';
+
+import { ClaudeSourceAdapter } from '../../../src/sources/claude/index.js';
+import { resolveDefaultClaudeRootDirs } from '../../../src/sources/claude/claude-source-adapter.js';
+import { createSourceContext } from '../../../src/sources/source-context.js';
+import { canonicalTmpdir } from '../../helpers/tmp.js';
+
+const tempDirs: string[] = [];
+
+afterEach(async () => {
+  await Promise.all(tempDirs.map((tempDir) => rm(tempDir, { recursive: true, force: true })));
+  tempDirs.length = 0;
+});
+
+function assistantRow(
+  overrides: {
+    timestamp?: string;
+    sessionId?: string;
+    cwd?: string;
+    messageId?: string;
+    model?: string;
+    provider?: string;
+    usage?: Record<string, unknown>;
+    uuid?: string;
+    requestId?: string;
+  } = {},
+): string {
+  const message: Record<string, unknown> = {
+    role: 'assistant',
+    model: overrides.model ?? 'claude-opus-4-8',
+    provider: overrides.provider,
+    usage: overrides.usage ?? {
+      input_tokens: 10,
+      cache_creation_input_tokens: 2,
+      cache_read_input_tokens: 3,
+      output_tokens: 4,
+    },
+  };
+
+  if (overrides.messageId !== undefined) {
+    message.id = overrides.messageId;
+  } else {
+    message.id = 'msg_1';
+  }
+
+  const row: Record<string, unknown> = {
+    type: 'assistant',
+    timestamp: overrides.timestamp ?? '2026-06-23T10:00:00.000Z',
+    sessionId: overrides.sessionId ?? 'claude-session-1',
+    cwd: overrides.cwd ?? '/tmp/repo',
+    message,
+  };
+
+  if (overrides.uuid !== undefined) {
+    row.uuid = overrides.uuid;
+  } else {
+    row.uuid = 'row-uuid-1';
+  }
+
+  if (overrides.requestId !== undefined) {
+    row.requestId = overrides.requestId;
+  }
+
+  return JSON.stringify(row);
+}
+
+describe('ClaudeSourceAdapter', () => {
+  it('exposes stable source id and default directory', () => {
+    const adapter = new ClaudeSourceAdapter();
+
+    expect(adapter.id).toBe('claude');
+    expect(
+      path.basename(
+        path.dirname(resolveDefaultClaudeRootDirs(createSourceContext({ env: {} }))[0]),
+      ),
+    ).toBe('.claude');
+    expect(path.basename(resolveDefaultClaudeRootDirs(createSourceContext({ env: {} }))[0])).toBe(
+      'projects',
+    );
+    expect(path.isAbsolute(resolveDefaultClaudeRootDirs(createSourceContext({ env: {} }))[0])).toBe(
+      true,
+    );
+  });
+
+  it('reads every comma-separated CLAUDE_CONFIG_DIR instead of ~/.claude', async () => {
+    expect(
+      resolveDefaultClaudeRootDirs(createSourceContext({ env: {}, homeDir: '/home/me' })),
+    ).toEqual([
+      path.join('/home/me', '.claude', 'projects'),
+      path.join('/home/me', '.claude', 'transcripts'),
+    ]);
+    expect(
+      resolveDefaultClaudeRootDirs(
+        createSourceContext({ env: { CLAUDE_CONFIG_DIR: '/a, ,/b ' }, homeDir: '/home/me' }),
+      ),
+    ).toEqual([
+      path.join('/a', 'projects'),
+      path.join('/a', 'transcripts'),
+      path.join('/b', 'projects'),
+      path.join('/b', 'transcripts'),
+    ]);
+
+    const configDir = await mkdtemp(path.join(canonicalTmpdir(), 'claude-config-dir-'));
+    tempDirs.push(configDir);
+    const sessionPath = path.join(configDir, 'projects', 'repo', 'session.jsonl');
+    await mkdir(path.dirname(sessionPath), { recursive: true });
+    await writeFile(sessionPath, '');
+
+    const adapter = new ClaudeSourceAdapter({
+      context: createSourceContext({ env: { CLAUDE_CONFIG_DIR: configDir } }),
+    });
+
+    await expect(adapter.discoverFiles()).resolves.toEqual([sessionPath]);
+  });
+
+  it('lists each file once when roots overlap or name the same directory', async () => {
+    const root = await mkdtemp(path.join(canonicalTmpdir(), 'claude-overlap-'));
+    tempDirs.push(root);
+    const sessionPath = path.join(root, 'repo', 'session.jsonl');
+    await mkdir(path.dirname(sessionPath), { recursive: true });
+    await writeFile(sessionPath, '');
+
+    const adapter = new ClaudeSourceAdapter({
+      dir: [root, `${root}${path.sep}`, path.join(root, 'repo')],
+    });
+
+    await expect(adapter.discoverFiles()).resolves.toEqual([sessionPath]);
+  });
+
+  it('discovers project and subagent JSONL files recursively', async () => {
+    const projectsDir = await mkdtemp(path.join(canonicalTmpdir(), 'claude-projects-'));
+    tempDirs.push(projectsDir);
+
+    const projectDir = path.join(projectsDir, '-tmp-repo');
+    const subagentsDir = path.join(projectDir, 'session-1', 'subagents');
+    await mkdir(subagentsDir, { recursive: true });
+
+    const sessionFile = path.join(projectDir, 'session-1.jsonl');
+    const subagentFile = path.join(subagentsDir, 'agent-a.jsonl');
+    await writeFile(sessionFile, '{}\n', 'utf8');
+    await writeFile(subagentFile, '{}\n', 'utf8');
+
+    const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
+
+    await expect(adapter.discoverFiles()).resolves.toEqual([
+      await realpath(sessionFile),
+      await realpath(subagentFile),
+    ]);
+  });
+
+  it('scans all default roots and silently skips missing ones', async () => {
+    const projectsRoot = await mkdtemp(path.join(canonicalTmpdir(), 'claude-root-projects-'));
+    const transcriptsRoot = await mkdtemp(path.join(canonicalTmpdir(), 'claude-root-transcripts-'));
+    tempDirs.push(projectsRoot, transcriptsRoot);
+
+    const projectFile = path.join(projectsRoot, 'session-a.jsonl');
+    const transcriptFile = path.join(transcriptsRoot, 'session-b.jsonl');
+    await writeFile(projectFile, assistantRow({ messageId: 'msg_a' }), 'utf8');
+    await writeFile(transcriptFile, assistantRow({ messageId: 'msg_b' }), 'utf8');
+    const missingRoot = path.join(transcriptsRoot, 'missing');
+
+    const adapter = new ClaudeSourceAdapter({
+      defaultRootDirs: [projectsRoot, transcriptsRoot, missingRoot],
+    });
+
+    await expect(adapter.discoverFiles()).resolves.toEqual([
+      await realpath(projectFile),
+      await realpath(transcriptFile),
+    ]);
+    await expect(adapter.parseFile(projectFile)).resolves.toHaveLength(1);
+    await expect(adapter.parseFile(transcriptFile)).resolves.toHaveLength(1);
+  });
+
+  it('scans only the explicit directory when a dir override is provided', async () => {
+    const projectsRoot = await mkdtemp(path.join(canonicalTmpdir(), 'claude-explicit-projects-'));
+    const transcriptsRoot = await mkdtemp(
+      path.join(canonicalTmpdir(), 'claude-explicit-transcripts-'),
+    );
+    tempDirs.push(projectsRoot, transcriptsRoot);
+
+    const projectFile = path.join(projectsRoot, 'session-a.jsonl');
+    await writeFile(projectFile, assistantRow({ messageId: 'msg_a' }), 'utf8');
+    await writeFile(path.join(transcriptsRoot, 'session-b.jsonl'), assistantRow(), 'utf8');
+
+    const adapter = new ClaudeSourceAdapter({
+      dir: projectsRoot,
+      defaultRootDirs: [projectsRoot, transcriptsRoot],
+    });
+
+    await expect(adapter.discoverFiles()).resolves.toEqual([await realpath(projectFile)]);
+  });
+
+  it('breaks thinking tokens out of output without changing output or total', async () => {
+    const projectsDir = await mkdtemp(path.join(canonicalTmpdir(), 'claude-thinking-'));
+    tempDirs.push(projectsDir);
+    const filePath = path.join(projectsDir, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        assistantRow({
+          messageId: 'msg_thinking',
+          uuid: 'row-1',
+          usage: {
+            input_tokens: 2,
+            cache_creation_input_tokens: 10,
+            cache_read_input_tokens: 20,
+            output_tokens: 177,
+            output_tokens_details: { thinking_tokens: 91 },
+          },
+        }),
+        assistantRow({
+          messageId: 'msg_overreported',
+          uuid: 'row-2',
+          usage: {
+            input_tokens: 1,
+            output_tokens: 5,
+            output_tokens_details: { thinking_tokens: 9 },
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const events = await new ClaudeSourceAdapter({ dir: projectsDir }).parseFile(filePath);
+
+    expect(events[0]).toMatchObject({
+      outputTokens: 177,
+      reasoningTokens: 91,
+      totalTokens: 209,
+    });
+    expect(events[1]).toMatchObject({ outputTokens: 5, reasoningTokens: 5, totalTokens: 6 });
+  });
+
+  it('splits one-hour cache writes out of the cache-write count', async () => {
+    const projectsDir = await mkdtemp(path.join(canonicalTmpdir(), 'claude-cache-write-1h-'));
+    tempDirs.push(projectsDir);
+    const filePath = path.join(projectsDir, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        assistantRow({
+          messageId: 'msg_one_hour',
+          uuid: 'row-1',
+          usage: {
+            input_tokens: 2,
+            cache_creation_input_tokens: 626,
+            cache_creation: { ephemeral_5m_input_tokens: 26, ephemeral_1h_input_tokens: 600 },
+            output_tokens: 10,
+          },
+        }),
+        assistantRow({
+          messageId: 'msg_no_split',
+          uuid: 'row-2',
+          usage: { input_tokens: 1, cache_creation_input_tokens: 50, output_tokens: 5 },
+        }),
+        assistantRow({
+          messageId: 'msg_overreported',
+          uuid: 'row-3',
+          usage: {
+            input_tokens: 1,
+            cache_creation_input_tokens: 40,
+            cache_creation: { ephemeral_1h_input_tokens: 90 },
+            output_tokens: 5,
+          },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const events = await new ClaudeSourceAdapter({ dir: projectsDir }).parseFile(filePath);
+
+    expect(events.map((event) => [event.cacheWriteTokens, event.cacheWrite1hTokens])).toEqual([
+      [626, 600],
+      [50, 0],
+      [40, 40],
+    ]);
+    expect(events[0]?.totalTokens).toBe(638);
+  });
+
+  it('keeps only the final row per message id and maps token buckets', async () => {
+    const projectsDir = await mkdtemp(path.join(canonicalTmpdir(), 'claude-final-row-'));
+    tempDirs.push(projectsDir);
+    const filePath = path.join(projectsDir, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        assistantRow({
+          timestamp: '2026-06-23T10:00:00.000Z',
+          messageId: 'msg_streaming',
+          usage: {
+            input_tokens: 10,
+            cache_creation_input_tokens: 2,
+            cache_read_input_tokens: 3,
+            output_tokens: 1,
+          },
+          uuid: 'row-1',
+        }),
+        assistantRow({
+          timestamp: '2026-06-23T10:00:01.000Z',
+          messageId: 'msg_streaming',
+          usage: {
+            input_tokens: 10,
+            cache_creation_input_tokens: 2,
+            cache_read_input_tokens: 3,
+            output_tokens: 7,
+          },
+          uuid: 'row-2',
+        }),
+        assistantRow({
+          timestamp: '2026-06-23T10:00:02.000Z',
+          messageId: 'msg_2',
+          model: 'google/gemma-4-31b-it-20260402',
+          provider: 'Parasail',
+          usage: {
+            input_tokens: 20,
+            cache_creation_input_tokens: 0,
+            cache_read_input_tokens: 1,
+            output_tokens: 5,
+          },
+          uuid: 'row-3',
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toHaveLength(2);
+    expect(events[0]).toMatchObject({
+      source: 'claude',
+      sessionId: 'claude-session-1',
+      timestamp: '2026-06-23T10:00:01.000Z',
+      repoRoot: '/tmp/repo',
+      provider: 'anthropic',
+      model: 'claude-opus-4-8',
+      inputTokens: 10,
+      cacheWriteTokens: 2,
+      cacheReadTokens: 3,
+      outputTokens: 7,
+      totalTokens: 22,
+    });
+    expect(events[1]).toMatchObject({
+      provider: 'parasail',
+      model: 'google/gemma-4-31b-it-20260402',
+      inputTokens: 20,
+      cacheReadTokens: 1,
+      outputTokens: 5,
+      totalTokens: 26,
+    });
+  });
+
+  it('infers provider roots from model when provider is missing', async () => {
+    const projectsDir = await mkdtemp(path.join(canonicalTmpdir(), 'claude-provider-inference-'));
+    tempDirs.push(projectsDir);
+    const filePath = path.join(projectsDir, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        assistantRow({ messageId: 'msg_claude', model: 'claude-sonnet-4-5' }),
+        assistantRow({ messageId: 'msg_gpt', model: 'gpt-5.2' }),
+        assistantRow({ messageId: 'msg_gemini', model: 'gemini-3-flash' }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toHaveLength(3);
+    expect(events.map((event) => event.provider)).toEqual(['anthropic', 'openai', 'google']);
+  });
+
+  it('reports skipped synthetic and invalid rows', async () => {
+    const projectsDir = await mkdtemp(path.join(canonicalTmpdir(), 'claude-skipped-'));
+    tempDirs.push(projectsDir);
+    const filePath = path.join(projectsDir, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        assistantRow({ model: '<synthetic>', uuid: 'synthetic-row' }),
+        assistantRow({
+          timestamp: 'not-a-date',
+          messageId: 'msg_invalid_timestamp',
+          uuid: 'invalid-timestamp-row',
+        }),
+        assistantRow({
+          usage: {
+            input_tokens: 0,
+            cache_creation_input_tokens: 0,
+            cache_read_input_tokens: 0,
+            output_tokens: 0,
+          },
+          messageId: 'msg_no_usage',
+          uuid: 'no-usage-row',
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
+    const result = await adapter.parseFileWithDiagnostics(filePath);
+
+    expect(result.events).toEqual([]);
+    expect(result.skippedRows).toBe(3);
+    expect(result.skippedRowReasons).toEqual([
+      { reason: 'invalid_timestamp', count: 1 },
+      { reason: 'no_token_usage', count: 1 },
+      { reason: 'synthetic_message', count: 1 },
+    ]);
+  });
+
+  it('counts id-less usage rows via a content-based fallback dedup key', async () => {
+    const projectsDir = await mkdtemp(path.join(canonicalTmpdir(), 'claude-idless-'));
+    tempDirs.push(projectsDir);
+    const filePath = path.join(projectsDir, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        // No message.id and no uuid: previously dropped as missing_message_id.
+        assistantRow({
+          messageId: '',
+          uuid: '',
+          timestamp: '2026-06-23T10:00:00.000Z',
+          usage: { input_tokens: 9, output_tokens: 1 },
+        }),
+        // Same timestamp + model collapses to the same fallback key, so the
+        // second row replaces the first (last-row-wins), not double-counted.
+        assistantRow({
+          messageId: '',
+          uuid: '',
+          timestamp: '2026-06-23T10:00:00.000Z',
+          usage: { input_tokens: 9, output_tokens: 4 },
+        }),
+        // Different timestamp -> distinct fallback key -> separate event.
+        assistantRow({
+          messageId: '',
+          uuid: '',
+          timestamp: '2026-06-23T11:00:00.000Z',
+          model: 'claude-sonnet-4-5',
+          usage: { input_tokens: 5, output_tokens: 2 },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toHaveLength(2);
+    expect(events[0]).toMatchObject({
+      model: 'claude-opus-4-8',
+      outputTokens: 4,
+      totalTokens: 13,
+    });
+    expect(events[1]).toMatchObject({
+      model: 'claude-sonnet-4-5',
+      totalTokens: 7,
+    });
+  });
+
+  it('still deduplicates streamed rows sharing message id and request id', async () => {
+    const projectsDir = await mkdtemp(path.join(canonicalTmpdir(), 'claude-request-dedup-'));
+    tempDirs.push(projectsDir);
+    const filePath = path.join(projectsDir, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        assistantRow({
+          timestamp: '2026-06-23T10:00:00.000Z',
+          messageId: 'msg_streamed',
+          requestId: 'req_1',
+          usage: { input_tokens: 10, output_tokens: 1 },
+          uuid: 'row-1',
+        }),
+        assistantRow({
+          timestamp: '2026-06-23T10:00:01.000Z',
+          messageId: 'msg_streamed',
+          requestId: 'req_1',
+          usage: { input_tokens: 10, output_tokens: 6 },
+          uuid: 'row-2',
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ outputTokens: 6, totalTokens: 16 });
+  });
+
+  it('skips rows a forked subagent replayed from its parent transcript', async () => {
+    const projectsDir = await mkdtemp(path.join(canonicalTmpdir(), 'claude-fork-replay-'));
+    tempDirs.push(projectsDir);
+    const sessionPath = path.join(projectsDir, 'session-1.jsonl');
+    const subagentsDir = path.join(projectsDir, 'session-1', 'subagents');
+    await mkdir(subagentsDir, { recursive: true });
+
+    const parentRow = assistantRow({ messageId: 'msg_parent', requestId: 'req_parent' });
+    const childRow = (messageId: string) =>
+      assistantRow({ messageId, requestId: `req_${messageId}`, uuid: messageId });
+
+    await writeFile(sessionPath, parentRow, 'utf8');
+    // Main-thread fork: parent is the session transcript.
+    await writeFile(
+      path.join(subagentsDir, 'agent-a1.jsonl'),
+      [parentRow, childRow('msg_a1')].join('\n'),
+      'utf8',
+    );
+    await writeFile(
+      path.join(subagentsDir, 'agent-a1.meta.json'),
+      JSON.stringify({ agentType: 'fork', isFork: true }),
+      'utf8',
+    );
+    // Nested fork: parent is another subagent, whose replayed rows are skipped too.
+    await writeFile(
+      path.join(subagentsDir, 'agent-a2.jsonl'),
+      [parentRow, childRow('msg_a1'), childRow('msg_a2')].join('\n'),
+      'utf8',
+    );
+    await writeFile(
+      path.join(subagentsDir, 'agent-a2.meta.json'),
+      JSON.stringify({ agentType: 'fork', isFork: true, parentAgentId: 'a1' }),
+      'utf8',
+    );
+    // A fresh (non-fork) subagent keeps every row.
+    await writeFile(path.join(subagentsDir, 'agent-a3.jsonl'), parentRow, 'utf8');
+    await writeFile(
+      path.join(subagentsDir, 'agent-a3.meta.json'),
+      JSON.stringify({ agentType: 'general-purpose' }),
+      'utf8',
+    );
+
+    const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
+    const countEvents = async (fileName: string) =>
+      (await adapter.parseFile(path.join(subagentsDir, fileName))).length;
+
+    expect(await countEvents('agent-a1.jsonl')).toBe(1);
+    expect(await countEvents('agent-a2.jsonl')).toBe(1);
+    expect(await countEvents('agent-a3.jsonl')).toBe(1);
+    expect(await adapter.getParseDependencies(path.join(subagentsDir, 'agent-a2.jsonl'))).toEqual([
+      path.join(subagentsDir, 'agent-a2.meta.json'),
+      path.join(subagentsDir, 'agent-a1.jsonl'),
+    ]);
+    expect(await adapter.getParseDependencies(sessionPath)).toEqual([]);
+
+    // Scanning only the subagents directory leaves the main-thread parent uncounted, so
+    // the fork's replayed rows stay.
+    const narrowedAdapter = new ClaudeSourceAdapter({ dir: subagentsDir });
+    expect(await narrowedAdapter.parseFile(path.join(subagentsDir, 'agent-a1.jsonl'))).toHaveLength(
+      2,
+    );
+    expect(
+      await narrowedAdapter.getParseDependencies(path.join(subagentsDir, 'agent-a1.jsonl')),
+    ).toEqual([path.join(subagentsDir, 'agent-a1.meta.json')]);
+  });
+
+  it('counts retries with the same message id but different request ids separately', async () => {
+    const projectsDir = await mkdtemp(path.join(canonicalTmpdir(), 'claude-retry-dedup-'));
+    tempDirs.push(projectsDir);
+    const filePath = path.join(projectsDir, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        assistantRow({
+          timestamp: '2026-06-23T10:00:00.000Z',
+          messageId: 'msg_retried',
+          requestId: 'req_1',
+          usage: { input_tokens: 10, output_tokens: 1 },
+          uuid: 'row-1',
+        }),
+        assistantRow({
+          timestamp: '2026-06-23T10:00:01.000Z',
+          messageId: 'msg_retried',
+          requestId: 'req_2',
+          usage: { input_tokens: 10, output_tokens: 6 },
+          uuid: 'row-2',
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toHaveLength(2);
+    expect(events[0]).toMatchObject({ outputTokens: 1, totalTokens: 11 });
+    expect(events[1]).toMatchObject({ outputTokens: 6, totalTokens: 16 });
+  });
+
+  it('deduplicates by uuid when message id is absent', async () => {
+    const projectsDir = await mkdtemp(path.join(canonicalTmpdir(), 'claude-uuid-dedup-'));
+    tempDirs.push(projectsDir);
+    const filePath = path.join(projectsDir, 'session.jsonl');
+
+    await writeFile(
+      filePath,
+      [
+        assistantRow({
+          messageId: '',
+          uuid: 'row-uuid-shared',
+          timestamp: '2026-06-23T10:00:00.000Z',
+          usage: { input_tokens: 10, output_tokens: 1 },
+        }),
+        assistantRow({
+          messageId: '',
+          uuid: 'row-uuid-shared',
+          timestamp: '2026-06-23T10:00:01.000Z',
+          usage: { input_tokens: 10, output_tokens: 8 },
+        }),
+      ].join('\n'),
+      'utf8',
+    );
+
+    const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
+    const events = await adapter.parseFile(filePath);
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ outputTokens: 8, totalTokens: 18 });
+  });
+
+  it('reports malformed JSONL lines that pass its byte prefilter', async () => {
+    const projectsDir = await mkdtemp(path.join(canonicalTmpdir(), 'claude-malformed-jsonl-'));
+    tempDirs.push(projectsDir);
+    const filePath = path.join(projectsDir, 'session.jsonl');
+
+    await writeFile(filePath, '{"type":"assistant","usage":', 'utf8');
+
+    const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
+    const diagnostics = await adapter.parseFileWithDiagnostics(filePath);
+
+    expect(diagnostics.events).toEqual([]);
+    expect(diagnostics.skippedRows).toBe(1);
+    expect(diagnostics.skippedRowReasons).toEqual([{ reason: 'json_parse_error', count: 1 }]);
+  });
+
+  it('validates explicit directory overrides', async () => {
+    const blankAdapter = new ClaudeSourceAdapter({ dir: '   ' });
+    await expect(blankAdapter.discoverFiles()).rejects.toThrow(
+      'Claude projects directory must be a non-empty path',
+    );
+
+    const missingAdapter = new ClaudeSourceAdapter({
+      dir: path.join(canonicalTmpdir(), `missing-claude-${Date.now()}`),
+      requireDir: true,
+    });
+    await expect(missingAdapter.discoverFiles()).rejects.toThrow(
+      'Claude projects directory is missing or unreadable',
+    );
+  });
+});

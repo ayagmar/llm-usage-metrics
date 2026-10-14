@@ -31,8 +31,19 @@ describe('package exports', () => {
     },
   );
 
+  it('exports the adapter registry', () => {
+    expect(Object.keys(packageJson.exports)).toContain('./registry');
+  });
+
   it('exports every source directory', () => {
-    const sourceDirectories = readdirSync(path.join(packageRoot, 'src', 'sources')).sort();
+    // Shared infrastructure (`sqlite/`, loose modules) sits beside the adapters without an
+    // entry of its own; only directories with an `index.ts` are sources.
+    const sourcesRoot = path.join(packageRoot, 'src', 'sources');
+    const sourceDirectories = readdirSync(sourcesRoot, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .filter((entry) => existsSync(path.join(sourcesRoot, entry.name, 'index.ts')))
+      .map((entry) => entry.name)
+      .sort();
     const sourceSubpaths = Object.keys(packageJson.exports)
       .filter((subpath) => subpath.startsWith('./sources/'))
       .map((subpath) => subpath.slice('./sources/'.length))

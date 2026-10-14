@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { revealHiddenOptions } from '../../src/cli/report-definitions/shared-report-options.js';
 import { createCli } from '../../src/cli/create-cli.js';
-import { getDefaultSourceIds } from '../../src/sources/create-default-adapters.js';
+import { getDefaultSourceIds } from '@ayagmar/agent-sessions/registry';
 
 const docsRoot = path.resolve('site/src/content/docs');
 

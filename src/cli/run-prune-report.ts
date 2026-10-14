@@ -22,7 +22,7 @@ import {
   type EventStoreHistoryDiscoveredFile,
 } from '../persistence/event-store-history.js';
 import { createAdaptersFromOptions } from './source-cli-options.js';
-import { getRepeatingSourceIds, type SourceAdapter } from '../sources/source-adapter.js';
+import { getRepeatingSourceIds, type SourceAdapter } from '@ayagmar/agent-sessions';
 import { renderPruneReport } from '../render/render-prune-report.js';
 import { validateDateInput, selectAdaptersBySourceFilter } from './build-usage-data-inputs.js';
 import { resolveUserConfigForOptions, type UserConfigResolutionDeps } from './apply-user-config.js';

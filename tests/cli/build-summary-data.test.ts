@@ -7,7 +7,7 @@ import {
 } from '../../src/cli/build-summary-data.js';
 import type { SummaryPeriod } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
-import type { SourceAdapter } from '../../src/sources/source-adapter.js';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
 
 function createAdapter(
   id: SourceAdapter['id'],

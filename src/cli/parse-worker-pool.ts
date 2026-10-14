@@ -1,12 +1,9 @@
 import { parentPort, Worker } from 'node:worker_threads';
 import type { WorkerOptions } from 'node:worker_threads';
 
-import type { SourceId } from '../domain/usage-event.js';
-import {
-  canParseSourceOnWorker,
-  createWorkerParseAdapter,
-} from '../sources/create-default-adapters.js';
-import type { SourceParseFileDiagnostics } from '../sources/source-adapter.js';
+import { withCostModes, type ParseFileDiagnostics, type SourceId } from '../domain/usage-event.js';
+import { canParseSourceOnWorker, createWorkerParseAdapter } from '@ayagmar/agent-sessions/registry';
+import type { SourceParseFileDiagnostics } from '@ayagmar/agent-sessions';
 import { asRecord } from '../utils/as-record.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
 
@@ -42,8 +39,8 @@ export type ParseWorkerSpawner = (entryUrl: URL, options: WorkerOptions) => Pars
 export type ParseWorkerPool = {
   parse(
     task: ParseWorkerTask,
-    inlineParse: () => Promise<SourceParseFileDiagnostics>,
-  ): Promise<SourceParseFileDiagnostics>;
+    inlineParse: () => Promise<ParseFileDiagnostics>,
+  ): Promise<ParseFileDiagnostics>;
   status(): 'ready' | 'fallback';
   terminate(): Promise<void>;
 };
@@ -51,8 +48,8 @@ export type ParseWorkerPool = {
 type PendingParseTask = {
   id: number;
   task: ParseWorkerTask;
-  inlineParse: () => Promise<SourceParseFileDiagnostics>;
-  resolve: (diagnostics: SourceParseFileDiagnostics) => void;
+  inlineParse: () => Promise<ParseFileDiagnostics>;
+  resolve: (diagnostics: ParseFileDiagnostics) => void;
   reject: (error: unknown) => void;
 };
 
@@ -267,7 +264,7 @@ export function createParseWorkerPool(options: {
     slot.currentTask = undefined;
 
     if (response.ok) {
-      currentTask.resolve(response.diagnostics);
+      currentTask.resolve(withCostModes(response.diagnostics));
     } else {
       resolveInline(currentTask);
     }
@@ -305,7 +302,7 @@ export function createParseWorkerPool(options: {
         return inlineParse();
       }
 
-      return new Promise<SourceParseFileDiagnostics>((resolve, reject) => {
+      return new Promise<ParseFileDiagnostics>((resolve, reject) => {
         queue.push({
           id: nextTaskId,
           task,

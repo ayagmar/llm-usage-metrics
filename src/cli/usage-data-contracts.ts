@@ -19,7 +19,7 @@ import type {
 } from '../persistence/event-store-history.js';
 import type { EventStore } from '../persistence/event-store.js';
 import type { SessionRepoRow, SessionRow } from '../session/session-row.js';
-import type { SourceAdapter } from '../sources/source-adapter.js';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import type { TrendSeries, TrendsMetric } from '../trends/trends-series.js';
 import type { SourceDirectoryValue } from '../utils/source-directory-overrides.js';
 import type { WrappedRecap } from '../wrapped/wrapped-recap.js';

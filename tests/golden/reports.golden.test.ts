@@ -19,7 +19,7 @@ import {
   openEventStore,
   replaceFileEvents,
 } from '../../src/persistence/event-store.js';
-import type { SourceAdapter } from '../../src/sources/source-adapter.js';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { createGitFixtureRepo, isolatedGitEnv } from '../helpers/git-fixtures.js';
 import { useIsolatedEnvironment } from '../helpers/isolated-env.js';
 import { useBundledPricingOnly } from '../helpers/offline-pricing.js';

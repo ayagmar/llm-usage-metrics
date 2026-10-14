@@ -16,7 +16,7 @@ import { emitDiagnostics } from './emit-diagnostics.js';
 import { loadPackageMetadataFromRuntime } from './package-metadata.js';
 import { emitReportRunDiagnostics } from './report-runtime/report-lifecycle.js';
 import { logger } from '../utils/logger.js';
-import { getRepeatingSourceIds } from '../sources/source-adapter.js';
+import { getRepeatingSourceIds } from '@ayagmar/agent-sessions';
 import type { BuildUsageDataDeps } from './usage-data-contracts.js';
 
 export type MachineExportCommandOptions = {

@@ -47,7 +47,7 @@ describe('buildUsageReport', () => {
     try {
       const report = await buildUsageReport('daily', {
         all: true,
-        droidDir: path.resolve('tests/fixtures/droid/report'),
+        droidDir: path.resolve('packages/core/tests/fixtures/droid/report'),
         source: 'droid',
         timezone: 'UTC',
         json: true,
@@ -95,8 +95,8 @@ describe('buildUsageReport', () => {
   it('builds markdown report with source-separated rows', async () => {
     const report = await buildUsageReport('daily', {
       all: true,
-      piDir: path.resolve('tests/fixtures/pi'),
-      codexDir: path.resolve('tests/fixtures/codex'),
+      piDir: path.resolve('packages/core/tests/fixtures/pi'),
+      codexDir: path.resolve('packages/core/tests/fixtures/codex'),
       source: directoryBackedSources,
       timezone: 'UTC',
       markdown: true,
@@ -115,8 +115,8 @@ describe('buildUsageReport', () => {
   it('builds markdown report with per-model column layout when requested', async () => {
     const report = await buildUsageReport('daily', {
       all: true,
-      piDir: path.resolve('tests/fixtures/pi'),
-      codexDir: path.resolve('tests/fixtures/codex'),
+      piDir: path.resolve('packages/core/tests/fixtures/pi'),
+      codexDir: path.resolve('packages/core/tests/fixtures/codex'),
       source: directoryBackedSources,
       timezone: 'UTC',
       markdown: true,
@@ -130,8 +130,8 @@ describe('buildUsageReport', () => {
   it('builds json report when --json semantics are requested', async () => {
     const report = await buildUsageReport('weekly', {
       all: true,
-      piDir: path.resolve('tests/fixtures/pi'),
-      codexDir: path.resolve('tests/fixtures/codex'),
+      piDir: path.resolve('packages/core/tests/fixtures/pi'),
+      codexDir: path.resolve('packages/core/tests/fixtures/codex'),
       source: directoryBackedSources,
       timezone: 'UTC',
       json: true,
@@ -152,8 +152,8 @@ describe('buildUsageReport', () => {
   it('filters rows to a single source when --source is provided', async () => {
     const report = await buildUsageReport('daily', {
       all: true,
-      piDir: path.resolve('tests/fixtures/pi'),
-      codexDir: path.resolve('tests/fixtures/codex'),
+      piDir: path.resolve('packages/core/tests/fixtures/pi'),
+      codexDir: path.resolve('packages/core/tests/fixtures/codex'),
       timezone: 'UTC',
       source: 'codex',
       json: true,
@@ -173,8 +173,8 @@ describe('buildUsageReport', () => {
   it('supports comma-separated source filters', async () => {
     const report = await buildUsageReport('daily', {
       all: true,
-      piDir: path.resolve('tests/fixtures/pi'),
-      codexDir: path.resolve('tests/fixtures/codex'),
+      piDir: path.resolve('packages/core/tests/fixtures/pi'),
+      codexDir: path.resolve('packages/core/tests/fixtures/codex'),
       timezone: 'UTC',
       source: 'pi,codex',
       json: true,
@@ -586,8 +586,8 @@ describe('buildUsageReport', () => {
     try {
       await runUsageReport('daily', {
         all: true,
-        piDir: path.resolve('tests/fixtures/pi'),
-        codexDir: path.resolve('tests/fixtures/codex'),
+        piDir: path.resolve('packages/core/tests/fixtures/pi'),
+        codexDir: path.resolve('packages/core/tests/fixtures/codex'),
         source: directoryBackedSources,
         timezone: 'UTC',
         pricingOffline: true,
@@ -652,8 +652,8 @@ describe('buildUsageReport', () => {
     try {
       await runUsageReport('daily', {
         all: true,
-        piDir: path.resolve('tests/fixtures/pi'),
-        codexDir: path.resolve('tests/fixtures/codex'),
+        piDir: path.resolve('packages/core/tests/fixtures/pi'),
+        codexDir: path.resolve('packages/core/tests/fixtures/codex'),
         source: directoryBackedSources,
         timezone: 'UTC',
         pricingOffline: true,

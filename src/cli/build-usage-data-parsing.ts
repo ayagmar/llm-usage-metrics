@@ -1,5 +1,11 @@
+import { dedupeRepeatedAcrossFiles } from '@ayagmar/agent-sessions';
+
 import type { EventStoreRuntimeConfig } from '../config/runtime-overrides.js';
-import type { UsageEvent } from '../domain/usage-event.js';
+import {
+  withCostModes,
+  type ParseFileDiagnostics,
+  type UsageEvent,
+} from '../domain/usage-event.js';
 import {
   claimOverrideOnlyFiles as claimDefaultOverrideOnlyFiles,
   closeEventStore as closeDefaultEventStore,
@@ -10,13 +16,8 @@ import {
   type EventStore,
   type EventStoreFileFingerprint,
 } from '../persistence/event-store.js';
-import { takeUncountedEvents } from '../persistence/event-store-history.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
-import type {
-  SourceAdapter,
-  SourceParseFileDiagnostics,
-  SourceSkippedRowReasonStat,
-} from '../sources/source-adapter.js';
+import type { SourceAdapter, SourceSkippedRowReasonStat } from '@ayagmar/agent-sessions';
 import { normalizeSkippedRowReasons } from './normalize-skipped-row-reasons.js';
 import {
   claimFilesInUsualLocations,
@@ -110,7 +111,7 @@ type FileLookup =
   | {
       kind: 'hit';
       fileFingerprint: EventStoreFileFingerprint;
-      diagnostics: SourceParseFileDiagnostics;
+      diagnostics: ParseFileDiagnostics;
     }
   | { kind: 'miss'; fileFingerprint?: EventStoreFileFingerprint };
 
@@ -120,38 +121,6 @@ type MissedParseFile = {
   fileFingerprint?: EventStoreFileFingerprint;
   byteSize: number;
 };
-
-/** Counts an event that several files repeat once, from the first file holding it. */
-function countRepeatedEventsOnce(eventsByFile: readonly UsageEvent[][]): UsageEvent[] {
-  // Only an event whose session has events in another file can be a repeat, so only
-  // the files holding such sessions are hashed.
-  const fileIndexBySession = new Map<string, number>();
-  const sharedSessions = new Set<string>();
-
-  eventsByFile.forEach((events, fileIndex) => {
-    for (const event of events) {
-      const ownerIndex = fileIndexBySession.get(event.sessionId);
-
-      if (ownerIndex === undefined) {
-        fileIndexBySession.set(event.sessionId, fileIndex);
-      } else if (ownerIndex !== fileIndex) {
-        sharedSessions.add(event.sessionId);
-      }
-    }
-  });
-
-  const countedHashes = new Map<string, number>();
-
-  return eventsByFile.flatMap((events) =>
-    events.some((event) => sharedSessions.has(event.sessionId))
-      ? takeUncountedEvents(events, countedHashes)
-      : events,
-  );
-}
-
-function getDefaultParseFileDiagnostics(events: UsageEvent[]): SourceParseFileDiagnostics {
-  return { events, skippedRows: 0, skippedRowReasons: [] };
-}
 
 function normalizeSkippedRowsCount(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
@@ -227,17 +196,19 @@ export async function parseAdapterEvents(
     );
   }
 
-  async function parseFileInline(filePath: string): Promise<SourceParseFileDiagnostics> {
-    return adapter.parseFileWithDiagnostics
-      ? await adapter.parseFileWithDiagnostics(filePath)
-      : getDefaultParseFileDiagnostics(await adapter.parseFile(filePath));
+  async function parseFileInline(filePath: string): Promise<ParseFileDiagnostics> {
+    return withCostModes(
+      adapter.parseFileWithDiagnostics
+        ? await adapter.parseFileWithDiagnostics(filePath)
+        : { events: await adapter.parseFile(filePath), skippedRows: 0, skippedRowReasons: [] },
+    );
   }
 
   function recordParsedFile(params: {
     fileIndex: number;
     filePath: string;
     fileFingerprint?: EventStoreFileFingerprint;
-    diagnostics: SourceParseFileDiagnostics;
+    diagnostics: ParseFileDiagnostics;
     servedFromEventStore: boolean;
   }): void {
     const skippedRows = normalizeSkippedRowsCount(params.diagnostics.skippedRows);
@@ -539,7 +510,7 @@ export async function parseAdapterEvents(
   const result = {
     source: adapter.id,
     events: adapter.capabilities?.eventsRepeatAcrossFiles
-      ? countRepeatedEventsOnce(parsedByFile)
+      ? dedupeRepeatedAcrossFiles(parsedByFile)
       : parsedByFile.flat(),
     filePaths: files,
     parsedFilePaths: files.filter((_, fileIndex) => parsedFileIndexes.has(fileIndex)),

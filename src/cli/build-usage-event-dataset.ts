@@ -7,7 +7,6 @@ import {
 } from '../config/runtime-overrides.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { limitNamedModels } from '../render/format-model-list.js';
-import { countCopiedSessionEventsOnce } from './count-copied-session-events-once.js';
 import {
   closeEventStore,
   openEventStore,
@@ -58,10 +57,11 @@ import type {
   UsageSourceFailure,
 } from './usage-data-contracts.js';
 import {
+  dedupeCopiedSessions,
   getRepeatingSourceIds,
   getSessionCopyingSourceIds,
   type SourceAdapter,
-} from '../sources/source-adapter.js';
+} from '@ayagmar/agent-sessions';
 import type { EnvVarOverride } from '../config/env-var-display.js';
 import type { PricingSource } from '../pricing/types.js';
 import { findUnmatchedFilterWarnings } from './filter-match-warnings.js';
@@ -468,7 +468,7 @@ export async function buildUsageEventDataset(
             return result;
           }
 
-          const events = countCopiedSessionEventsOnce(result.events);
+          const events = dedupeCopiedSessions(result.events);
 
           if (ledger) {
             ledger.copiedEventCount += result.events.length - events.length;

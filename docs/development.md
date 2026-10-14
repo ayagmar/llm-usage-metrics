@@ -285,7 +285,9 @@ Optional but recommended:
 
 ## Adding a new source adapter
 
-1. Create `src/sources/<name>/<name>-source-adapter.ts`
+1. Create `packages/core/src/sources/<name>/<name>-source-adapter.ts`, exported from
+   `packages/core/src/sources/<name>/index.ts` and a `./sources/<name>` entry in
+   `packages/core/package.json`
 2. Implement `SourceAdapter`
    - required: `discoverFiles()` and `parseFile(filePath)`
    - optional: `parseFileWithDiagnostics(filePath)` when you need per-file skipped-row counters
@@ -294,12 +296,12 @@ Optional but recommended:
    - the event store caches a file's events by its fingerprint, so parsing must depend only on the file, its declared parse dependencies, and `parserVersion`; anything else that changes the result (a parent transcript, a decision based on the adapter's roots) must be returned from `getParseDependencies`
    - for JSONL sources, consider `readJsonlObjects(filePath, { shouldParseLine })` — or the faster byte-level `shouldParseLineBytes` — to skip irrelevant lines before `JSON.parse`
 3. Normalize output through `createUsageEvent`
-4. Add fixture tests under `tests/sources`
-5. Add one entry to `sourceRegistrations` in `src/sources/create-default-adapters.ts`
+4. Add fixture tests under `packages/core/tests/sources/<name>`
+5. Add one entry to `sourceRegistrations` in `packages/core/src/registry/index.ts`
    (id, storage format, `supportsSourceDir`, `parseInWorker`, and the constructor,
    which receives the `SourceContext`). Resolve default paths from that context when
    the adapter is constructed; never read `os.homedir()`, `process.env` or
-   `process.platform` at module load (`tests/sources/no-import-side-effects.test.ts`
+   `process.platform` at module load (`packages/core/tests/no-import-side-effects.test.ts`
    checks this). Then add the CLI metadata in `src/cli/source-cli-options.ts`: an
    entry in `sourceCliOptions` (`{ key, flag, help }`) and the id in
    `dedicatedOptionOrderIds`, which sets the flag's position in `--help` and the CLI

@@ -32,7 +32,6 @@ describe('createUsageEvent', () => {
       cacheWriteTokens: 0,
       totalTokens: 20,
       costUsd: 0.15,
-      costMode: 'explicit',
     });
   });
 
@@ -61,30 +60,6 @@ describe('createUsageEvent', () => {
 
     expect(event.totalTokens).toBe(0);
     expect(event.reasoningTokens).toBe(5);
-  });
-
-  it('defaults to estimated mode when cost is missing', () => {
-    const event = createUsageEvent({
-      source: 'codex',
-      sessionId: 'session-2',
-      timestamp: '2026-02-12T10:00:00Z',
-      inputTokens: 1,
-      outputTokens: 2,
-    });
-
-    expect(event.costMode).toBe('estimated');
-    expect(event.costUsd).toBeUndefined();
-  });
-
-  it('throws when explicit costMode has no cost', () => {
-    expect(() =>
-      createUsageEvent({
-        source: 'pi',
-        sessionId: 'session-3',
-        timestamp: '2026-02-12T10:00:00Z',
-        costMode: 'explicit',
-      }),
-    ).toThrow('requires costUsd');
   });
 
   it('throws on empty source or session id', () => {

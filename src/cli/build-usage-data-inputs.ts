@@ -1,11 +1,11 @@
-import type { SourceAdapter } from '../sources/source-adapter.js';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import {
   inferCanonicalProviderRootsFromModels,
   intersectCanonicalProviderRoots,
   normalizeProviderToBillingEntity,
   resolveExplicitProviderRoots,
 } from '../domain/provider-normalization.js';
-import { getDefaultSourceIds } from '../sources/create-default-adapters.js';
+import { getDefaultSourceIds } from '@ayagmar/agent-sessions/registry';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { suggestClosest } from '../utils/suggest-closest.js';
 import type { RuntimeProfileCollector } from './runtime-profile.js';

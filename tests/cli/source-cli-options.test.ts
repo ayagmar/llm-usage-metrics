@@ -8,8 +8,8 @@ import {
   getSourceOverrideOptions,
   parseSourceDirectoryOverrides,
 } from '../../src/cli/source-cli-options.js';
-import { ClaudeSourceAdapter } from '../../src/sources/claude/claude-source-adapter.js';
-import { MultiDirectorySourceAdapter } from '../../src/sources/multi-directory-source-adapter.js';
+import { ClaudeSourceAdapter } from '@ayagmar/agent-sessions/sources/claude';
+import { MultiDirectorySourceAdapter } from '@ayagmar/agent-sessions/internal';
 import { canonicalTmpdir } from '../helpers/tmp.js';
 
 const tempDirs: string[] = [];
@@ -182,7 +182,7 @@ describe('createAdaptersFromOptions', () => {
   it('scans every directory given for one source and parses each file once', async () => {
     const extraDir = await mkdtemp(path.join(canonicalTmpdir(), 'codex-extra-'));
     tempDirs.push(extraDir);
-    const fixturesDir = path.resolve('tests/fixtures/codex');
+    const fixturesDir = path.resolve('packages/core/tests/fixtures/codex');
     const copiedFile = path.join(extraDir, 'copied.jsonl');
     await writeFile(
       copiedFile,
@@ -203,7 +203,7 @@ describe('createAdaptersFromOptions', () => {
   });
 
   it('prefers repeated dedicated directory flags over --source-dir', async () => {
-    const fixturesDir = path.resolve('tests/fixtures/pi');
+    const fixturesDir = path.resolve('packages/core/tests/fixtures/pi');
     const adapters = createAdaptersFromOptions({
       piDir: [fixturesDir, fixturesDir],
       sourceDir: ['pi=/tmp/ignored'],

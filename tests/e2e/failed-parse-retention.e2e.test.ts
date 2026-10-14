@@ -7,7 +7,7 @@ import { buildUsageData } from '../../src/cli/build-usage-data.js';
 import { buildPruneReport } from '../../src/cli/run-prune-report.js';
 import { canonicalTmpdir } from '../helpers/tmp.js';
 
-const sessionFixture = path.resolve('tests/fixtures/gemini/session-with-usage.json');
+const sessionFixture = path.resolve('packages/core/tests/fixtures/gemini/session-with-usage.json');
 const tempDirs: string[] = [];
 
 afterEach(async () => {
