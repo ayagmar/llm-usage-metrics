@@ -178,14 +178,18 @@ pnpm run pack:check
 `tests/golden` compares current output byte for byte with files committed under `tests/golden/__goldens__/`. They freeze:
 
 - `events/`: the normalized events of each source's e2e fixtures, and of each set under `tests/fixtures/golden/<source>/<set>/` when that directory exists; all sources at once as JSONL, CSV and content hashes; OpenCode events before and after rows are appended to a stored database; a warm event-store run.
-- `reports/`: every report command as JSON, markdown and plain terminal text (no colour, 120 columns), over all sources' e2e fixtures.
+- `reports/`: every report command as JSON, markdown and plain terminal text (no colour, 120 columns), over all sources' e2e fixtures. Efficiency reads the Claude session with its `cwd` pointed at a temp git repo, so its goldens count commits and tokens.
 - `help/`: `--help` for the root command and each top-level command, at 100 columns.
 - `machines/`: the machine export bundle for the pi and codex fixtures, and usage by machine plus the summary after a synced machine's bundle is merged.
 - `history/`: events and monthly usage with and without `--history`, over a store holding a departed file and a moved copy of a live file.
-- `default-paths/`: `doctor --json` from a child process whose home, XDG and Windows profile variables each point at their own empty directory, so each source's default search paths are frozen.
-- `variants/`: efficiency with events attributed to a temp git repo, and the statusline over all sources.
+- `default-paths/`: `doctor --json` from a child process whose home, XDG and Windows profile variables each point at their own empty directory, so each source's default search paths are frozen. It runs on Linux only, since the defaults differ per platform.
+- `variants/`: the statusline over all sources.
 
 Each test file runs with a fixed clock (2026-06-21T12:00Z), `TZ=UTC`, bundled pricing only (no network), and an environment where source variables are unset and the config, data and cache dirs point into a temp root. In output, the temp root reads `<tmp>` and the fixture root `<fixtures>`. Nothing else is rewritten.
+
+The report and events goldens read fixtures from a copy under the temp root with every mtime set to the fixed clock: most adapters skip files whose mtime predates `--since` minus a day, so checkout dates would otherwise change windowed reports. The dsh e2e fixture is dated 2026-09-11, after the fixed clock, on purpose: it appears in goldens that cover all dates but not in the summary, statusline or compare windows.
+
+The harness writes out the 17 source ids and the top-level commands, and every golden name comes from a harness export. `orphans.golden.test.ts` fails when those lists drift from the source registry or the CLI, or when a file under `__goldens__/` is not one the tests write.
 
 Run them:
 
