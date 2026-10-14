@@ -1,0 +1,687 @@
+{
+  "schemaVersion": 1,
+  "report": "compare",
+  "data": {
+    "current": {
+      "window": {
+        "since": "2026-06-01",
+        "until": "2026-06-30",
+        "label": "2026-06"
+      },
+      "totals": {
+        "inputTokens": 920,
+        "outputTokens": 505,
+        "reasoningTokens": 95,
+        "cacheReadTokens": 95,
+        "cacheWriteTokens": 35,
+        "totalTokens": 1585,
+        "events": 17,
+        "activeDays": 5,
+        "costUsd": 0.063515625,
+        "costIncomplete": true
+      }
+    },
+    "baseline": {
+      "window": {
+        "since": "2026-05-01",
+        "until": "2026-05-31",
+        "label": "2026-05"
+      },
+      "totals": {
+        "inputTokens": 10,
+        "outputTokens": 5,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 15,
+        "events": 1,
+        "activeDays": 1,
+        "costUsd": 0.001
+      }
+    },
+    "totals": [
+      {
+        "key": "inputTokens",
+        "label": "Input",
+        "valueType": "integer",
+        "current": 920,
+        "baseline": 10,
+        "delta": 910,
+        "deltaRatio": 91
+      },
+      {
+        "key": "outputTokens",
+        "label": "Output",
+        "valueType": "integer",
+        "current": 505,
+        "baseline": 5,
+        "delta": 500,
+        "deltaRatio": 100
+      },
+      {
+        "key": "reasoningTokens",
+        "label": "Reasoning",
+        "valueType": "integer",
+        "current": 95,
+        "baseline": 0,
+        "delta": 95
+      },
+      {
+        "key": "cacheReadTokens",
+        "label": "Cache read",
+        "valueType": "integer",
+        "current": 95,
+        "baseline": 0,
+        "delta": 95
+      },
+      {
+        "key": "cacheWriteTokens",
+        "label": "Cache write",
+        "valueType": "integer",
+        "current": 35,
+        "baseline": 0,
+        "delta": 35
+      },
+      {
+        "key": "totalTokens",
+        "label": "Total tokens",
+        "valueType": "integer",
+        "current": 1585,
+        "baseline": 15,
+        "delta": 1570,
+        "deltaRatio": 104.66666666666667
+      },
+      {
+        "key": "costUsd",
+        "label": "Cost",
+        "valueType": "usd",
+        "current": 0.063515625,
+        "baseline": 0.001,
+        "delta": 0.062515625,
+        "deltaRatio": 62.51562500000001,
+        "currentCostIncomplete": true,
+        "deltaCostIncomplete": true
+      },
+      {
+        "key": "events",
+        "label": "Events",
+        "valueType": "integer",
+        "current": 17,
+        "baseline": 1,
+        "delta": 16,
+        "deltaRatio": 16
+      },
+      {
+        "key": "activeDays",
+        "label": "Active days",
+        "valueType": "integer",
+        "current": 5,
+        "baseline": 1,
+        "delta": 4,
+        "deltaRatio": 4
+      }
+    ],
+    "sources": [
+      {
+        "source": "kilocode",
+        "current": {
+          "inputTokens": 25,
+          "outputTokens": 20,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 45,
+          "events": 1,
+          "activeDays": 1,
+          "costUsd": 0.03
+        },
+        "baseline": {
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 0,
+          "events": 0,
+          "activeDays": 0,
+          "costUsd": 0
+        },
+        "delta": {
+          "inputTokens": 25,
+          "outputTokens": 20,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 45,
+          "costUsd": 0.03,
+          "events": 1,
+          "activeDays": 1
+        },
+        "deltaRatio": {
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0
+        }
+      },
+      {
+        "source": "roocode",
+        "current": {
+          "inputTokens": 35,
+          "outputTokens": 15,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 5,
+          "totalTokens": 55,
+          "events": 1,
+          "activeDays": 1,
+          "costUsd": 0.02
+        },
+        "baseline": {
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 0,
+          "events": 0,
+          "activeDays": 0,
+          "costUsd": 0
+        },
+        "delta": {
+          "inputTokens": 35,
+          "outputTokens": 15,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 5,
+          "totalTokens": 55,
+          "costUsd": 0.02,
+          "events": 1,
+          "activeDays": 1
+        },
+        "deltaRatio": {
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0
+        }
+      },
+      {
+        "source": "cline",
+        "current": {
+          "inputTokens": 30,
+          "outputTokens": 10,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 5,
+          "cacheWriteTokens": 0,
+          "totalTokens": 45,
+          "events": 1,
+          "activeDays": 1,
+          "costUsd": 0.01
+        },
+        "baseline": {
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 0,
+          "events": 0,
+          "activeDays": 0,
+          "costUsd": 0
+        },
+        "delta": {
+          "inputTokens": 30,
+          "outputTokens": 10,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 5,
+          "cacheWriteTokens": 0,
+          "totalTokens": 45,
+          "costUsd": 0.01,
+          "events": 1,
+          "activeDays": 1
+        },
+        "deltaRatio": {
+          "reasoningTokens": 0,
+          "cacheWriteTokens": 0
+        }
+      },
+      {
+        "source": "claude",
+        "current": {
+          "inputTokens": 130,
+          "outputTokens": 65,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 10,
+          "cacheWriteTokens": 15,
+          "totalTokens": 220,
+          "events": 2,
+          "activeDays": 1,
+          "costUsd": 0.00142425
+        },
+        "baseline": {
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 0,
+          "events": 0,
+          "activeDays": 0,
+          "costUsd": 0
+        },
+        "delta": {
+          "inputTokens": 130,
+          "outputTokens": 65,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 10,
+          "cacheWriteTokens": 15,
+          "totalTokens": 220,
+          "costUsd": 0.00142425,
+          "events": 2,
+          "activeDays": 1
+        },
+        "deltaRatio": {
+          "reasoningTokens": 0
+        }
+      },
+      {
+        "source": "droid",
+        "current": {
+          "inputTokens": 120,
+          "outputTokens": 55,
+          "reasoningTokens": 30,
+          "cacheReadTokens": 15,
+          "cacheWriteTokens": 10,
+          "totalTokens": 200,
+          "events": 2,
+          "activeDays": 2,
+          "costUsd": 0.001227
+        },
+        "baseline": {
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 0,
+          "events": 0,
+          "activeDays": 0,
+          "costUsd": 0
+        },
+        "delta": {
+          "inputTokens": 120,
+          "outputTokens": 55,
+          "reasoningTokens": 30,
+          "cacheReadTokens": 15,
+          "cacheWriteTokens": 10,
+          "totalTokens": 200,
+          "costUsd": 0.001227,
+          "events": 2,
+          "activeDays": 2
+        },
+        "deltaRatio": {}
+      },
+      {
+        "source": "openclaw",
+        "current": {
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 0,
+          "events": 0,
+          "activeDays": 0,
+          "costUsd": 0
+        },
+        "baseline": {
+          "inputTokens": 10,
+          "outputTokens": 5,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 15,
+          "events": 1,
+          "activeDays": 1,
+          "costUsd": 0.001
+        },
+        "delta": {
+          "inputTokens": -10,
+          "outputTokens": -5,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": -15,
+          "costUsd": -0.001,
+          "events": -1,
+          "activeDays": -1
+        },
+        "deltaRatio": {
+          "inputTokens": -1,
+          "outputTokens": -1,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": -1,
+          "costUsd": -1,
+          "events": -1,
+          "activeDays": -1
+        }
+      },
+      {
+        "source": "gemini",
+        "current": {
+          "inputTokens": 90,
+          "outputTokens": 75,
+          "reasoningTokens": 25,
+          "cacheReadTokens": 15,
+          "cacheWriteTokens": 0,
+          "totalTokens": 195,
+          "events": 2,
+          "activeDays": 1,
+          "costUsd": 0.000864375
+        },
+        "baseline": {
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 0,
+          "events": 0,
+          "activeDays": 0,
+          "costUsd": 0
+        },
+        "delta": {
+          "inputTokens": 90,
+          "outputTokens": 75,
+          "reasoningTokens": 25,
+          "cacheReadTokens": 15,
+          "cacheWriteTokens": 0,
+          "totalTokens": 195,
+          "costUsd": 0.000864375,
+          "events": 2,
+          "activeDays": 1
+        },
+        "deltaRatio": {
+          "cacheWriteTokens": 0
+        }
+      },
+      {
+        "source": "amp",
+        "current": {
+          "inputTokens": 80,
+          "outputTokens": 30,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 10,
+          "cacheWriteTokens": 0,
+          "totalTokens": 120,
+          "events": 1,
+          "activeDays": 1,
+          "costIncomplete": true
+        },
+        "baseline": {
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 0,
+          "events": 0,
+          "activeDays": 0,
+          "costUsd": 0
+        },
+        "delta": {
+          "inputTokens": 80,
+          "outputTokens": 30,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 10,
+          "cacheWriteTokens": 0,
+          "totalTokens": 120,
+          "costIncomplete": true,
+          "events": 1,
+          "activeDays": 1
+        },
+        "deltaRatio": {
+          "reasoningTokens": 0,
+          "cacheWriteTokens": 0
+        }
+      },
+      {
+        "source": "antigravity",
+        "current": {
+          "inputTokens": 40,
+          "outputTokens": 20,
+          "reasoningTokens": 5,
+          "cacheReadTokens": 5,
+          "cacheWriteTokens": 0,
+          "totalTokens": 65,
+          "events": 1,
+          "activeDays": 1,
+          "costIncomplete": true
+        },
+        "baseline": {
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 0,
+          "events": 0,
+          "activeDays": 0,
+          "costUsd": 0
+        },
+        "delta": {
+          "inputTokens": 40,
+          "outputTokens": 20,
+          "reasoningTokens": 5,
+          "cacheReadTokens": 5,
+          "cacheWriteTokens": 0,
+          "totalTokens": 65,
+          "costIncomplete": true,
+          "events": 1,
+          "activeDays": 1
+        },
+        "deltaRatio": {
+          "cacheWriteTokens": 0
+        }
+      },
+      {
+        "source": "copilot",
+        "current": {
+          "inputTokens": 50,
+          "outputTokens": 30,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 10,
+          "cacheWriteTokens": 0,
+          "totalTokens": 100,
+          "events": 1,
+          "activeDays": 1,
+          "costIncomplete": true
+        },
+        "baseline": {
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 0,
+          "events": 0,
+          "activeDays": 0,
+          "costUsd": 0
+        },
+        "delta": {
+          "inputTokens": 50,
+          "outputTokens": 30,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 10,
+          "cacheWriteTokens": 0,
+          "totalTokens": 100,
+          "costIncomplete": true,
+          "events": 1,
+          "activeDays": 1
+        },
+        "deltaRatio": {
+          "reasoningTokens": 0,
+          "cacheWriteTokens": 0
+        }
+      },
+      {
+        "source": "goose",
+        "current": {
+          "inputTokens": 100,
+          "outputTokens": 80,
+          "reasoningTokens": 30,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 180,
+          "events": 1,
+          "activeDays": 1,
+          "costIncomplete": true
+        },
+        "baseline": {
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 0,
+          "events": 0,
+          "activeDays": 0,
+          "costUsd": 0
+        },
+        "delta": {
+          "inputTokens": 100,
+          "outputTokens": 80,
+          "reasoningTokens": 30,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 180,
+          "costIncomplete": true,
+          "events": 1,
+          "activeDays": 1
+        },
+        "deltaRatio": {
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0
+        }
+      },
+      {
+        "source": "kimi",
+        "current": {
+          "inputTokens": 40,
+          "outputTokens": 20,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 5,
+          "cacheWriteTokens": 5,
+          "totalTokens": 70,
+          "events": 1,
+          "activeDays": 1,
+          "costIncomplete": true
+        },
+        "baseline": {
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 0,
+          "events": 0,
+          "activeDays": 0,
+          "costUsd": 0
+        },
+        "delta": {
+          "inputTokens": 40,
+          "outputTokens": 20,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 5,
+          "cacheWriteTokens": 5,
+          "totalTokens": 70,
+          "costIncomplete": true,
+          "events": 1,
+          "activeDays": 1
+        },
+        "deltaRatio": {
+          "reasoningTokens": 0
+        }
+      },
+      {
+        "source": "opencode",
+        "current": {
+          "inputTokens": 125,
+          "outputTokens": 60,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 15,
+          "cacheWriteTokens": 0,
+          "totalTokens": 200,
+          "events": 2,
+          "activeDays": 1,
+          "costIncomplete": true
+        },
+        "baseline": {
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 0,
+          "events": 0,
+          "activeDays": 0,
+          "costUsd": 0
+        },
+        "delta": {
+          "inputTokens": 125,
+          "outputTokens": 60,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 15,
+          "cacheWriteTokens": 0,
+          "totalTokens": 200,
+          "costIncomplete": true,
+          "events": 2,
+          "activeDays": 1
+        },
+        "deltaRatio": {
+          "reasoningTokens": 0,
+          "cacheWriteTokens": 0
+        }
+      },
+      {
+        "source": "qwen",
+        "current": {
+          "inputTokens": 55,
+          "outputTokens": 25,
+          "reasoningTokens": 5,
+          "cacheReadTokens": 5,
+          "cacheWriteTokens": 0,
+          "totalTokens": 90,
+          "events": 1,
+          "activeDays": 1,
+          "costIncomplete": true
+        },
+        "baseline": {
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 0,
+          "events": 0,
+          "activeDays": 0,
+          "costUsd": 0
+        },
+        "delta": {
+          "inputTokens": 55,
+          "outputTokens": 25,
+          "reasoningTokens": 5,
+          "cacheReadTokens": 5,
+          "cacheWriteTokens": 0,
+          "totalTokens": 90,
+          "costIncomplete": true,
+          "events": 1,
+          "activeDays": 1
+        },
+        "deltaRatio": {
+          "cacheWriteTokens": 0
+        }
+      }
+    ]
+  }
+}
