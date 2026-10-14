@@ -248,9 +248,18 @@ describe('getEventSessionKey', () => {
     expect(getEventSessionKey({ source: 'codex', sessionId: 'session-1' })).not.toBe(piKey);
   });
 
-  it('cannot be forged by a source or session id that contains the separator text', () => {
+  it('keeps the source and session id apart when an id contains a colon', () => {
     expect(getEventSessionKey({ source: 'pi', sessionId: 'a:b' })).not.toBe(
       getEventSessionKey({ source: 'pi:a', sessionId: 'b' }),
     );
+  });
+
+  it('cannot be forged through createUsageEvent by ids that contain the NUL separator', () => {
+    const timestamp = '2026-02-12T10:00:00Z';
+    const nulInSessionId = createUsageEvent({ source: 'pi', sessionId: 'a\0b', timestamp });
+    const nulInSource = createUsageEvent({ source: 'pi\0a', sessionId: 'b', timestamp });
+
+    expect(getEventSessionKey(nulInSessionId)).toBe('pi\0ab');
+    expect(getEventSessionKey(nulInSource)).toBe('pia\0b');
   });
 });
