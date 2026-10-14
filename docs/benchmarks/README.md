@@ -71,4 +71,5 @@ produce a fast but meaningless number.
 
 `docs/benchmarks/<date>-baseline.md` files are this script's output, committed as a
 record of the numbers on the machine named in each file. Compare runs from the same
-machine only.
+machine only. The `<date>-baseline.json` written next to them is ignored by git
+(`docs/benchmarks/*.json` in `.gitignore`); commit the markdown only.
