@@ -48,10 +48,18 @@ temp directory is read.
 | `statusline`   | `statusline` with the event store on, after one priming run. It takes no `--pricing-offline` and reads no stdin.                                                                                          |
 | `active-jsonl` | After one priming run on a copy of the corpus, each run appends 1000 new rows with later timestamps to the newest pi file and times `daily` once.                                                         |
 
-Each scenario reports the median, minimum and maximum wall time over `--runs`, and the
-maximum RSS in MB. RSS comes from `/usr/bin/time -f %M`, used only when the probe
-`/usr/bin/time -f %M true` succeeds; otherwise (macOS ships a `time` without `-f`, and
-some Linux installs have no `/usr/bin/time`) the column says `n/a`. The OS page cache is not flushed between runs.
+Each scenario reports the median, minimum and maximum wall time over `--runs`, timed from
+direct `node dist/bin.js` spawns, and the maximum RSS in MB from one extra untimed run (for
+`active-jsonl`, after one more append). The RSS method is the first whose probe succeeds,
+and the markdown names it:
+
+- `gnu-time`: `/usr/bin/time -f %M`, when `/usr/bin/time -f %M true` succeeds.
+- `python-rusage`: a `python3` wrapper that runs the CLI and reads `ru_maxrss` for
+  `RUSAGE_CHILDREN`, when `python3 -c "import resource"` succeeds. `ru_maxrss` is KiB on
+  Linux and bytes on macOS; the script converts by platform.
+- `n/a`: neither works, so no RSS run happens.
+
+The OS page cache is not flushed between runs.
 
 The script fails if a report has no pi or codex usage, or if the event count from an
 untimed `session --json` run after an `active-jsonl` run did not grow by the 1000
