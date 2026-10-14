@@ -1,4 +1,5 @@
 import type { UsageEvent, SourceId } from '../domain/usage-event.js';
+import type { SourceContext } from './source-context.js';
 
 export type SourceSkippedRowReasonStat = {
   reason: string;
@@ -9,7 +10,7 @@ export type SourceCapabilities = {
   fixedProviderRoots?: readonly string[];
   /**
    * Every event a file yields is timestamped no later than the newest mtime of the file
-   * and its parse dependencies, so a `--since` run may skip files last modified before
+   * and its parse dependencies, so a windowed run may skip files last modified before
    * the window. Leave it unset for SQLite sources: their events live in a shared database
    * whose sidecars and checkpoints do not track when each row was written.
    */
@@ -26,11 +27,16 @@ export type SourceCapabilities = {
    * several sessions hold with the same timestamp, model and usage is counted once.
    */
   sessionsCopyEvents?: boolean;
+  /** Declared for later milestones; nothing reads these yet. */
+  kinds?: readonly string[];
+  sqlite?: boolean;
+  incremental?: boolean;
 };
 
 export type SourceAdapterPathOptions = {
   dir?: string;
   requireDir?: boolean;
+  context?: SourceContext;
 };
 
 export type SourceParseFileDiagnostics<Event extends UsageEvent = UsageEvent> = {

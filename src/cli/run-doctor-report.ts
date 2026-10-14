@@ -11,7 +11,6 @@ import {
   type EventStoreSummary,
 } from '../persistence/event-store.js';
 import {
-  createDefaultAdapters,
   getSourceStorageFormat,
   type SourceStorageFormat,
 } from '../sources/create-default-adapters.js';
@@ -24,6 +23,7 @@ import {
 } from './build-usage-data-inputs.js';
 import { resolveUserConfigForOptions, type UserConfigResolutionDeps } from './apply-user-config.js';
 import { emitUserConfigResolution } from './emit-active-config.js';
+import { createAdaptersFromOptions } from './source-cli-options.js';
 import { formatByteSize } from '../render/format-byte-size.js';
 import { renderDoctorText } from '../render/render-doctor-report.js';
 import { describeMachineStatus } from '../render/render-machines.js';
@@ -193,7 +193,7 @@ export async function buildDoctorResults(
   const userConfigResolution = await resolveUserConfigForOptions(options, deps);
   const configuredOptions = userConfigResolution.options;
   const adapters = selectAdaptersBySourceFilter(
-    createDefaultAdapters(configuredOptions),
+    createAdaptersFromOptions(configuredOptions),
     configuredOptions.source,
   );
   // Doctor is the one caller that treats config sourceDirs as path overrides: it passes the

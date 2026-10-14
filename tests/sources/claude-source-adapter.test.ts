@@ -7,6 +7,7 @@ import {
   ClaudeSourceAdapter,
   resolveDefaultClaudeRootDirs,
 } from '../../src/sources/claude/claude-source-adapter.js';
+import { createSourceContext } from '../../src/sources/source-context.js';
 import { canonicalTmpdir } from '../helpers/tmp.js';
 
 const tempDirs: string[] = [];
@@ -73,17 +74,31 @@ describe('ClaudeSourceAdapter', () => {
     const adapter = new ClaudeSourceAdapter();
 
     expect(adapter.id).toBe('claude');
-    expect(path.basename(path.dirname(resolveDefaultClaudeRootDirs({})[0]))).toBe('.claude');
-    expect(path.basename(resolveDefaultClaudeRootDirs({})[0])).toBe('projects');
-    expect(path.isAbsolute(resolveDefaultClaudeRootDirs({})[0])).toBe(true);
+    expect(
+      path.basename(
+        path.dirname(resolveDefaultClaudeRootDirs(createSourceContext({ env: {} }))[0]),
+      ),
+    ).toBe('.claude');
+    expect(path.basename(resolveDefaultClaudeRootDirs(createSourceContext({ env: {} }))[0])).toBe(
+      'projects',
+    );
+    expect(path.isAbsolute(resolveDefaultClaudeRootDirs(createSourceContext({ env: {} }))[0])).toBe(
+      true,
+    );
   });
 
   it('reads every comma-separated CLAUDE_CONFIG_DIR instead of ~/.claude', async () => {
-    expect(resolveDefaultClaudeRootDirs({}, '/home/me')).toEqual([
+    expect(
+      resolveDefaultClaudeRootDirs(createSourceContext({ env: {}, homeDir: '/home/me' })),
+    ).toEqual([
       path.join('/home/me', '.claude', 'projects'),
       path.join('/home/me', '.claude', 'transcripts'),
     ]);
-    expect(resolveDefaultClaudeRootDirs({ CLAUDE_CONFIG_DIR: '/a, ,/b ' }, '/home/me')).toEqual([
+    expect(
+      resolveDefaultClaudeRootDirs(
+        createSourceContext({ env: { CLAUDE_CONFIG_DIR: '/a, ,/b ' }, homeDir: '/home/me' }),
+      ),
+    ).toEqual([
       path.join('/a', 'projects'),
       path.join('/a', 'transcripts'),
       path.join('/b', 'projects'),
@@ -96,7 +111,9 @@ describe('ClaudeSourceAdapter', () => {
     await mkdir(path.dirname(sessionPath), { recursive: true });
     await writeFile(sessionPath, '');
 
-    const adapter = new ClaudeSourceAdapter({ env: { CLAUDE_CONFIG_DIR: configDir } });
+    const adapter = new ClaudeSourceAdapter({
+      context: createSourceContext({ env: { CLAUDE_CONFIG_DIR: configDir } }),
+    });
 
     await expect(adapter.discoverFiles()).resolves.toEqual([sessionPath]);
   });

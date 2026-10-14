@@ -5,6 +5,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { CopilotSourceAdapter } from '../../src/sources/copilot/copilot-source-adapter.js';
+import { createSourceContext } from '../../src/sources/source-context.js';
 
 const tempDirs: string[] = [];
 
@@ -32,7 +33,7 @@ describe('CopilotSourceAdapter', () => {
 
     const adapter = new CopilotSourceAdapter({
       dir: root,
-      env: { COPILOT_OTEL_FILE_EXPORTER_PATH: envFile },
+      context: createSourceContext({ env: { COPILOT_OTEL_FILE_EXPORTER_PATH: envFile } }),
     });
 
     await expect(adapter.discoverFiles()).resolves.toEqual([
@@ -184,7 +185,10 @@ describe('CopilotSourceAdapter', () => {
       'utf8',
     );
 
-    const events = await new CopilotSourceAdapter({ dir: root, env: {} }).parseFile(filePath);
+    const events = await new CopilotSourceAdapter({
+      dir: root,
+      context: createSourceContext({ env: {} }),
+    }).parseFile(filePath);
 
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({

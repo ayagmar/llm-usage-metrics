@@ -4,6 +4,7 @@ import { pathExists, pathIsFile, pathReadable } from '../../utils/fs-helpers.js'
 import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
 import { asTrimmedText, isBlankText, normalizeTimestampCandidate } from '../parsing-utils.js';
 import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
+import { createSourceContext, type SourceContext } from '../source-context.js';
 import { getDefaultGooseDbPathCandidates } from './goose-db-path-resolver.js';
 import { loadNodeSqliteModule, type SqliteModule } from '../opencode/node-sqlite-loader.js';
 
@@ -34,6 +35,7 @@ export type GooseSourceAdapterOptions = {
   pathReadable?: PathPredicate;
   pathIsFile?: PathPredicate;
   loadSqliteModule?: () => Promise<SqliteModule>;
+  context?: SourceContext;
 };
 
 const gooseSessionsQuery = `
@@ -165,8 +167,11 @@ export class GooseSourceAdapter implements SourceAdapter {
   private readonly loadSqliteModule: () => Promise<SqliteModule>;
 
   public constructor(options: GooseSourceAdapterOptions = {}) {
+    const context = options.context ?? createSourceContext();
+
     this.explicitDbPath = options.dbPath;
-    this.resolveDefaultDbPaths = options.resolveDefaultDbPaths ?? getDefaultGooseDbPathCandidates;
+    this.resolveDefaultDbPaths =
+      options.resolveDefaultDbPaths ?? (() => getDefaultGooseDbPathCandidates(context));
     this.pathExists = options.pathExists ?? pathExists;
     this.pathReadable = options.pathReadable ?? pathReadable;
     this.pathIsFile = options.pathIsFile ?? pathIsFile;
@@ -182,7 +187,7 @@ export class GooseSourceAdapter implements SourceAdapter {
   public async discoverFiles(): Promise<string[]> {
     if (this.explicitDbPath !== undefined) {
       if (isBlankText(this.explicitDbPath)) {
-        throw new Error('--goose-db must be a non-empty path');
+        throw new Error('dbPath must be a non-empty path');
       }
 
       const explicitDbPath = this.explicitDbPath.trim();

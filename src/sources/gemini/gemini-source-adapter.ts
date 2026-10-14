@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import type { Dirent } from 'node:fs';
 
@@ -24,15 +23,12 @@ import type {
   SourceAdapterPathOptions,
   SourceParseFileDiagnostics,
 } from '../source-adapter.js';
+import { createSourceContext, readEnvPath, type SourceContext } from '../source-context.js';
 
-const defaultGeminiDir = path.join(os.homedir(), '.gemini');
+export type GeminiSourceAdapterOptions = SourceAdapterPathOptions;
 
-export type GeminiSourceAdapterOptions = SourceAdapterPathOptions & {
-  env?: NodeJS.ProcessEnv;
-};
-
-function resolveDefaultGeminiDir(env: NodeJS.ProcessEnv): string {
-  return asTrimmedText(env.GEMINI_CLI_HOME) ?? defaultGeminiDir;
+function resolveDefaultGeminiDir(context: SourceContext): string {
+  return readEnvPath(context, 'GEMINI_CLI_HOME') ?? path.join(context.homeDir, '.gemini');
 }
 
 function getProjectsJsonPath(geminiDir: string): string {
@@ -243,7 +239,8 @@ export class GeminiSourceAdapter implements SourceAdapter {
   private projectMappingPromise?: Promise<Map<string, string>>;
 
   public constructor(options: GeminiSourceAdapterOptions = {}) {
-    this.geminiDir = options.dir ?? resolveDefaultGeminiDir(options.env ?? process.env);
+    this.geminiDir =
+      options.dir ?? resolveDefaultGeminiDir(options.context ?? createSourceContext());
     this.requireDir = options.requireDir ?? false;
   }
 

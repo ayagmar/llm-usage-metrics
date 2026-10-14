@@ -1,5 +1,4 @@
 import { readFile } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 
 import { createUsageEvent } from '../../domain/usage-event.js';
@@ -20,10 +19,15 @@ import type {
   SourceAdapterPathOptions,
   SourceParseFileDiagnostics,
 } from '../source-adapter.js';
+import { createSourceContext, type SourceContext } from '../source-context.js';
 
-const defaultKimiCliSessionsDir = path.join(os.homedir(), '.kimi', 'sessions');
-const defaultKimiCodeSessionsDir = path.join(os.homedir(), '.kimi-code', 'sessions');
-const defaultRootDirs = [defaultKimiCliSessionsDir, defaultKimiCodeSessionsDir];
+export function resolveDefaultKimiRootDirs(context: SourceContext): string[] {
+  return [
+    path.join(context.homeDir, '.kimi', 'sessions'),
+    path.join(context.homeDir, '.kimi-code', 'sessions'),
+  ];
+}
+
 const KIMI_STATUS_UPDATE_LINE_TEXT = '"StatusUpdate"';
 const KIMI_USAGE_RECORD_LINE_TEXT = '"usage.record"';
 const KIMI_CODE_MODEL_PREFIX = 'kimi-code/';
@@ -299,7 +303,11 @@ export class KimiSourceAdapter implements SourceAdapter {
   private readonly requireDir: boolean;
 
   public constructor(options: KimiSourceAdapterOptions = {}) {
-    this.rootDirs = resolveRootDirs(options.dir, options.defaultRootDirs ?? defaultRootDirs);
+    this.rootDirs = resolveRootDirs(
+      options.dir,
+      options.defaultRootDirs ??
+        resolveDefaultKimiRootDirs(options.context ?? createSourceContext()),
+    );
     this.requireDir = options.requireDir ?? false;
   }
 

@@ -4,6 +4,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import type { UsageEvent } from '../../domain/usage-event.js';
 import { pathExists, pathIsFile, pathReadable } from '../../utils/fs-helpers.js';
 import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
+import { createSourceContext, type SourceContext } from '../source-context.js';
 import { getDefaultOpenCodeDbPathCandidates } from './opencode-db-path-resolver.js';
 import { loadNodeSqliteModule, type SqliteModule } from './node-sqlite-loader.js';
 import { parseOpenCodeMessageRows } from './opencode-row-parser.js';
@@ -26,6 +27,7 @@ export type OpenCodeSourceAdapterOptions = {
   maxBusyRetries?: number;
   busyRetryDelayMs?: number;
   sleep?: SleepFn;
+  context?: SourceContext;
 };
 
 // `-wal` holds commits that are not checkpointed into the database file yet. `-shm` is
@@ -50,9 +52,11 @@ export class OpenCodeSourceAdapter implements SourceAdapter {
   private readonly sleep: SleepFn;
 
   public constructor(options: OpenCodeSourceAdapterOptions = {}) {
+    const context = options.context ?? createSourceContext();
+
     this.explicitDbPath = options.dbPath;
     this.resolveDefaultDbPaths =
-      options.resolveDefaultDbPaths ?? getDefaultOpenCodeDbPathCandidates;
+      options.resolveDefaultDbPaths ?? (() => getDefaultOpenCodeDbPathCandidates(context));
     this.pathExists = options.pathExists ?? pathExists;
     this.pathReadable = options.pathReadable ?? pathReadable;
     this.pathIsFile = options.pathIsFile ?? pathIsFile;
@@ -71,7 +75,7 @@ export class OpenCodeSourceAdapter implements SourceAdapter {
   public async discoverFiles(): Promise<string[]> {
     if (this.explicitDbPath !== undefined) {
       if (isBlankText(this.explicitDbPath)) {
-        throw new Error('--opencode-db must be a non-empty path');
+        throw new Error('dbPath must be a non-empty path');
       }
 
       const explicitDbPath = this.explicitDbPath.trim();
