@@ -4,6 +4,7 @@ import { EVENT_KINDS, type EventKind } from '../../src/domain/session-event.js';
 import { createReadDiagnostics, toParseDiagnostics } from '../../src/sources/parse-diagnostics.js';
 import {
   SessionMetaTracker,
+  SessionMetaTrackers,
   TimestampCarry,
   ToolCallPairing,
   createKindEvent,
@@ -175,6 +176,23 @@ describe('ToolCallPairing', () => {
     expect(pairing.takeUnanswered()).toEqual([]);
   });
 
+  it('counts each repeated call id as a duplicate, only when tool calls are read', () => {
+    const diagnostics = createReadDiagnostics();
+    const reading = new ToolCallPairing<string>(diagnostics, ALL);
+    const notReading = new ToolCallPairing<string>(diagnostics, USAGE);
+
+    for (const pairing of [reading, notReading]) {
+      pairing.start('a', 'first');
+      pairing.start('a', 'second');
+      pairing.finish('a');
+      pairing.start('a', 'third');
+    }
+
+    expect(reasons(diagnostics).skippedRowReasons).toEqual([
+      { reason: 'tool_call_duplicate_id', count: 2 },
+    ]);
+  });
+
   it('drops a result for an unknown id as an orphan, only when tool calls are read', () => {
     const diagnostics = createReadDiagnostics();
     const reading = new ToolCallPairing<string>(diagnostics, ALL);
@@ -258,6 +276,26 @@ describe('SessionMetaTracker', () => {
       cwd: '/r',
     });
     expect(tracker.changes({ title: 'Mine again' })).toEqual({ title: 'Mine again' });
+  });
+});
+
+describe('SessionMetaTrackers', () => {
+  it('tracks each session id on its own', () => {
+    const trackers = new SessionMetaTrackers(false);
+
+    expect(trackers.changes('one', { cwd: '/repo' })).toEqual({ cwd: '/repo' });
+    expect(trackers.changes('two', { cwd: '/repo' })).toEqual({ cwd: '/repo' });
+    expect(trackers.changes('one', { cwd: '/repo' })).toBeUndefined();
+    expect(trackers.changes('two', { cwd: '/other' })).toEqual({ cwd: '/other' });
+    expect(trackers.changes('one', { cwd: '/repo' })).toBeUndefined();
+  });
+
+  it('ignores AI titles only in the session that has a custom title', () => {
+    const trackers = new SessionMetaTrackers(true);
+
+    trackers.changes('one', { title: 'Mine' });
+    expect(trackers.changes('one', { title: 'AI' }, { aiTitle: true })).toBeUndefined();
+    expect(trackers.changes('two', { title: 'AI' }, { aiTitle: true })).toEqual({ title: 'AI' });
   });
 });
 

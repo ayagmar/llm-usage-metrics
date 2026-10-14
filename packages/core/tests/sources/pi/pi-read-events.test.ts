@@ -180,10 +180,11 @@ describe('PiSourceAdapter.readEvents', () => {
       other_json_parse_error: 1,
       no_token_usage: 1,
       tool_call_missing_id: 1,
+      // call-4 has no name, so it is never started and its result is an orphan.
+      tool_call_missing_name: 1,
       tool_call_duplicate_id: 1,
-      tool_call_orphan_result: 1,
+      tool_call_orphan_result: 2,
       tool_call_result_missing_id: 1,
-      tool_call_event_creation_failed: 1,
     });
   });
 

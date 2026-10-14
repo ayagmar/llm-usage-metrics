@@ -37,9 +37,11 @@ import {
   joinTextBlocks,
   recordKindSkippedRow,
   recordMalformedLine,
+  recordToolCallSkippedRow,
   resolveReadKinds,
-  SessionMetaTracker,
+  SessionMetaTrackers,
   TimestampCarry,
+  TOOL_CALL_REASONS,
   ToolCallPairing,
 } from '../session-event-helpers.js';
 import type {
@@ -336,9 +338,9 @@ class PiSessionEvents {
   private readonly kinds: ReadonlySet<EventKind>;
   private readonly pairing: ToolCallPairing<PiPendingToolCall>;
   private readonly carry = new TimestampCarry<Record<string, unknown>>();
-  // One tracker per session: a fork of an uncounted parent states the parent's facts
-  // under the parent's id and its own under its id.
-  private readonly metaTrackers = new Map<string, SessionMetaTracker>();
+  // A fork of an uncounted parent states the parent's facts under the parent's id and its
+  // own under its id.
+  private readonly meta: SessionMetaTrackers;
 
   public constructor(
     private readonly source: 'pi',
@@ -348,6 +350,7 @@ class PiSessionEvents {
   ) {
     this.kinds = request.kinds;
     this.pairing = new ToolCallPairing(diagnostics, request.kinds);
+    this.meta = new SessionMetaTrackers(request.text);
   }
 
   /** The events a record completes, after those of records held for its timestamp. */
@@ -434,14 +437,7 @@ class PiSessionEvents {
     timestamp: string,
     stated: SessionMetaFields,
   ): Generator<SessionEvent> {
-    let tracker = this.metaTrackers.get(sessionId);
-
-    if (!tracker) {
-      tracker = new SessionMetaTracker(this.request.text);
-      this.metaTrackers.set(sessionId, tracker);
-    }
-
-    const changes = tracker.changes(stated);
+    const changes = this.meta.changes(sessionId, stated);
 
     if (!changes) {
       return;
@@ -528,24 +524,25 @@ class PiSessionEvents {
       }
 
       const toolCallId = asTrimmedText(toolCall.id);
+      const name = asTrimmedText(toolCall.name);
 
-      if (!toolCallId) {
-        recordKindSkippedRow(this.diagnostics, this.kinds, 'tool_call', 'missing_id');
+      if (!toolCallId || !name) {
+        recordToolCallSkippedRow(
+          this.diagnostics,
+          this.kinds,
+          toolCallId ? TOOL_CALL_REASONS.missingName : TOOL_CALL_REASONS.missingId,
+        );
         continue;
       }
 
-      const started = this.pairing.start(toolCallId, {
+      this.pairing.start(toolCallId, {
         sessionId,
         timestamp,
         toolCallId,
-        name: typeof toolCall.name === 'string' ? toolCall.name : '',
+        name,
         messageId,
         line: this.request.raw ? line : undefined,
       });
-
-      if (!started) {
-        recordKindSkippedRow(this.diagnostics, this.kinds, 'tool_call', 'duplicate_id');
-      }
     }
   }
 
@@ -557,7 +554,7 @@ class PiSessionEvents {
     const toolCallId = asTrimmedText(message?.toolCallId);
 
     if (!toolCallId) {
-      recordKindSkippedRow(this.diagnostics, this.kinds, 'tool_call', 'result_missing_id');
+      recordToolCallSkippedRow(this.diagnostics, this.kinds, TOOL_CALL_REASONS.resultMissingId);
       return undefined;
     }
 

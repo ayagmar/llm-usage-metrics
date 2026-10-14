@@ -29,50 +29,15 @@ export type ClassifiedJsonlObject = {
   isUsageLine: boolean;
 };
 
-type LineReader<Item> = {
-  shouldParseLineBytes?: (lineBytes: Buffer) => boolean;
-  shouldParseLine?: (lineText: string) => boolean;
-  onMalformedLine?: (lineBytes: Buffer, lineText: string) => void;
-  toItem: (record: Record<string, unknown>, lineBytes: Buffer, lineText: string) => Item;
+// A classified read is told each record's line before the record is yielded.
+type LineReader = ReadJsonlObjectsOptions & {
+  onRecordLine?: (lineBytes: Buffer, lineText: string) => void;
 };
 
 const LINE_FEED = 0x0a;
 const CARRIAGE_RETURN = 0x0d;
 const STREAM_CHUNK_SIZE_BYTES = 1024 * 1024;
 const UTF8_BOM = [0xef, 0xbb, 0xbf] as const;
-
-function toRecord(record: Record<string, unknown>): Record<string, unknown> {
-  return record;
-}
-
-function toLineReader<Item>(
-  options: ReadJsonlObjectsOptions,
-  toItem: LineReader<Item>['toItem'],
-): LineReader<Item> {
-  if (options.shouldParseLineBytes) {
-    const { shouldParseLineBytes, onMalformedLine } = options;
-    return {
-      shouldParseLineBytes,
-      onMalformedLine:
-        onMalformedLine &&
-        ((lineBytes) => {
-          onMalformedLine(lineBytes);
-        }),
-      toItem,
-    };
-  }
-
-  const { shouldParseLine, onMalformedLine } = options;
-  return {
-    shouldParseLine,
-    onMalformedLine:
-      onMalformedLine &&
-      ((_lineBytes, lineText) => {
-        onMalformedLine(lineText);
-      }),
-    toItem,
-  };
-}
 
 // Overloads, so each form's callbacks are typed from the predicate the caller passes.
 export function readJsonlObjects(
@@ -87,7 +52,7 @@ export function readJsonlObjects(
   filePath: string,
   options: ReadJsonlObjectsOptions = {},
 ): AsyncGenerator<Record<string, unknown>, void, undefined> {
-  return readJsonlItems(filePath, toLineReader(options, toRecord));
+  return readJsonlItems(filePath, options);
 }
 
 /**
@@ -107,24 +72,37 @@ export function readClassifiedJsonlObjects(
   filePath: string,
   options: ReadClassifiedJsonlObjectsOptions,
 ): AsyncGenerator<ClassifiedJsonlObject, void, undefined> {
-  const isUsageLine: (lineBytes: Buffer, lineText: string) => boolean =
+  const isUsageLineInput: (lineBytes: Buffer, lineText: string) => boolean =
     'isUsageLineBytes' in options
       ? (lineBytes) => options.isUsageLineBytes(lineBytes)
       : (_lineBytes, lineText) => options.isUsageLine(lineText);
 
-  return readJsonlItems(
-    filePath,
-    toLineReader(options, (record, lineBytes, lineText) => ({
-      record,
-      isUsageLine: isUsageLine(lineBytes, lineText),
-    })),
-  );
+  return classifyJsonlObjects(filePath, options, isUsageLineInput);
 }
 
-async function* readJsonlItems<Item>(
+async function* classifyJsonlObjects(
   filePath: string,
-  options: LineReader<Item>,
-): AsyncGenerator<Item, void, undefined> {
+  options: ReadJsonlObjectsOptions,
+  isUsageLineInput: (lineBytes: Buffer, lineText: string) => boolean,
+): AsyncGenerator<ClassifiedJsonlObject, void, undefined> {
+  let isUsageLine = false;
+  const records = readJsonlItems(filePath, {
+    ...options,
+    onRecordLine: (lineBytes, lineText) => {
+      isUsageLine = isUsageLineInput(lineBytes, lineText);
+    },
+  });
+
+  // Each record is yielded right after its line is classified.
+  for await (const record of records) {
+    yield { record, isUsageLine };
+  }
+}
+
+async function* readJsonlItems(
+  filePath: string,
+  options: LineReader,
+): AsyncGenerator<Record<string, unknown>, void, undefined> {
   const stream = createReadStream(filePath, {
     highWaterMark: STREAM_CHUNK_SIZE_BYTES,
   });
@@ -186,11 +164,11 @@ function takeLineBytes(lineEndBytes: Buffer, carriedChunks: Buffer[]): Buffer {
   return Buffer.concat([...carriedChunks, lineEndBytes]);
 }
 
-function parseJsonlLine<Item>(
+function parseJsonlLine(
   lineBytes: Buffer,
   isFirstLine: boolean,
-  options: LineReader<Item>,
-): Item | undefined {
+  options: LineReader,
+): Record<string, unknown> | undefined {
   let lineStart = 0;
   let lineEnd = lineBytes.length;
 
@@ -227,12 +205,22 @@ function parseJsonlLine<Item>(
   try {
     parsed = JSON.parse(lineText);
   } catch {
-    options.onMalformedLine?.(parseLineBytes, lineText);
+    if (options.shouldParseLineBytes) {
+      options.onMalformedLine?.(parseLineBytes);
+    } else {
+      options.onMalformedLine?.(lineText);
+    }
+
     return undefined;
   }
 
   const record = asRecord(parsed);
-  return record ? options.toItem(record, parseLineBytes, lineText) : undefined;
+
+  if (record && options.onRecordLine) {
+    options.onRecordLine(parseLineBytes, lineText);
+  }
+
+  return record ?? undefined;
 }
 
 function hasUtf8Bom(lineBytes: Buffer, lineStart: number, lineEnd: number): boolean {

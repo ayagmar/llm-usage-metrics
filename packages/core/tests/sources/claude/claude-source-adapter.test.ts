@@ -569,6 +569,57 @@ describe('ClaudeSourceAdapter', () => {
     ).toEqual([path.join(subagentsDir, 'agent-a1.meta.json')]);
   });
 
+  it('rereads a fork parent that changed since the last read of a sibling fork', async () => {
+    const projectsDir = await mkdtemp(path.join(canonicalTmpdir(), 'claude-fork-parent-version-'));
+    tempDirs.push(projectsDir);
+    const sessionPath = path.join(projectsDir, 'session-1.jsonl');
+    const subagentsDir = path.join(projectsDir, 'session-1', 'subagents');
+    const forkPath = path.join(subagentsDir, 'agent-a1.jsonl');
+    await mkdir(subagentsDir, { recursive: true });
+
+    const row = (messageId: string) =>
+      JSON.stringify({
+        type: 'assistant',
+        uuid: messageId,
+        sessionId: 'session-1',
+        timestamp: '2026-06-23T10:00:00.000Z',
+        requestId: `req_${messageId}`,
+        message: {
+          id: messageId,
+          role: 'assistant',
+          model: 'claude-opus-4-8',
+          content: [{ type: 'text', text: 'Done.' }],
+          usage: { input_tokens: 10, output_tokens: 4 },
+        },
+      });
+    const shortParent = row('msg_p1');
+    const longParent = [row('msg_p1'), row('msg_p2')].join('\n');
+
+    await writeFile(forkPath, [row('msg_p1'), row('msg_p2'), row('msg_f1')].join('\n'), 'utf8');
+    await writeFile(
+      path.join(subagentsDir, 'agent-a1.meta.json'),
+      JSON.stringify({ agentType: 'fork', isFork: true }),
+      'utf8',
+    );
+
+    const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
+    const countEvents = async () => (await collect(adapter.read(forkPath))).length;
+    const countMessages = async () =>
+      (await collect(adapter.readEvents(forkPath, { kinds: ['message'] }))).length;
+
+    // Each parent version decides which rows are replays: the parent grows, then shrinks
+    // back, and every read follows the version on disk.
+    for (const [parent, expected] of [
+      [shortParent, 2],
+      [longParent, 1],
+      [shortParent, 2],
+    ] as const) {
+      await writeFile(sessionPath, parent, 'utf8');
+      expect(await countEvents()).toBe(expected);
+      expect(await countMessages()).toBe(expected);
+    }
+  });
+
   it('counts retries with the same message id but different request ids separately', async () => {
     const projectsDir = await mkdtemp(path.join(canonicalTmpdir(), 'claude-retry-dedup-'));
     tempDirs.push(projectsDir);

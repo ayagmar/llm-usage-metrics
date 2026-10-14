@@ -31,7 +31,22 @@ export function resolveReadKinds(
 const NON_USAGE_REASON_PREFIXES = ['message_', 'tool_call_', 'session_meta_', 'other_'];
 
 export const OTHER_JSON_PARSE_ERROR = 'other_json_parse_error';
-export const TOOL_CALL_ORPHAN_RESULT = 'tool_call_orphan_result';
+
+/** The tool_call reason codes, the same in every adapter. */
+export const TOOL_CALL_REASONS = {
+  /** A call with no call id. */
+  missingId: 'tool_call_missing_id',
+  /** A call with an id but no name. */
+  missingName: 'tool_call_missing_name',
+  /** A call whose id an earlier call in the file already had; the first one wins. */
+  duplicateId: 'tool_call_duplicate_id',
+  /** A result with no call id. */
+  resultMissingId: 'tool_call_result_missing_id',
+  /** A result whose id no call in the file had. */
+  orphanResult: 'tool_call_orphan_result',
+} as const;
+
+export type ToolCallReason = (typeof TOOL_CALL_REASONS)[keyof typeof TOOL_CALL_REASONS];
 
 /** Whether `read` can record `reason`: the reason codes I7 compares. */
 export function isReadReasonCode(reason: string): boolean {
@@ -47,6 +62,17 @@ export function recordKindSkippedRow(
 ): void {
   if (kinds.has(kind)) {
     recordSkippedRow(diagnostics, `${kind}_${reason}`);
+  }
+}
+
+/** Records a tool_call reason code, only when the read yields tool calls. */
+export function recordToolCallSkippedRow(
+  diagnostics: SourceReadDiagnostics,
+  kinds: ReadonlySet<EventKind>,
+  reason: ToolCallReason,
+): void {
+  if (kinds.has('tool_call')) {
+    recordSkippedRow(diagnostics, reason);
   }
 }
 
@@ -122,9 +148,10 @@ export function joinTextBlocks(
 }
 
 /**
- * Pairs tool calls with their results by call id. The first call with an id wins; a
- * result with no pending call is dropped, and counted as an orphan when no call with its
- * id was seen. Memory holds the calls still waiting plus one id per call.
+ * Pairs tool calls with their results by call id. The first call with an id wins, and a
+ * later one is counted as a duplicate; a result with no pending call is dropped, and
+ * counted as an orphan when no call with its id was seen. Memory holds the calls still
+ * waiting plus one id per call.
  */
 export class ToolCallPairing<Call> {
   private readonly pending = new Map<string, Call>();
@@ -135,9 +162,10 @@ export class ToolCallPairing<Call> {
     private readonly kinds: ReadonlySet<EventKind>,
   ) {}
 
-  /** Starts a call; false when a call with this id was already seen. */
+  /** Starts a call; false, counted as a duplicate, when a call with this id was seen. */
   public start(callId: string, call: Call): boolean {
     if (this.seenCallIds.has(callId)) {
+      recordToolCallSkippedRow(this.diagnostics, this.kinds, TOOL_CALL_REASONS.duplicateId);
       return false;
     }
 
@@ -151,8 +179,8 @@ export class ToolCallPairing<Call> {
     const call = this.pending.get(callId);
 
     if (call === undefined) {
-      if (!this.seenCallIds.has(callId) && this.kinds.has('tool_call')) {
-        recordSkippedRow(this.diagnostics, TOOL_CALL_ORPHAN_RESULT);
+      if (!this.seenCallIds.has(callId)) {
+        recordToolCallSkippedRow(this.diagnostics, this.kinds, TOOL_CALL_REASONS.orphanResult);
       }
 
       return undefined;
@@ -170,12 +198,6 @@ export class ToolCallPairing<Call> {
   }
 }
 
-/**
- * Turns the session facts each record states into partial session_meta fields: a field
- * is kept when it differs from the last value emitted for it in this file. Titles are
- * kept only when the read asked for text, and once a custom title is seen, AI titles
- * are ignored for the rest of the file.
- */
 const SESSION_META_FIELDS = [
   'cwd',
   'title',
@@ -186,6 +208,12 @@ const SESSION_META_FIELDS = [
   'rawProvider',
 ] as const satisfies readonly (keyof SessionMetaFields)[];
 
+/**
+ * Turns the session facts each record states into partial session_meta fields: a field
+ * is kept when it differs from the last value emitted for it in this session. Titles are
+ * kept only when the read asked for text, and once a custom title is seen, AI titles
+ * are ignored for the rest of the session.
+ */
 export class SessionMetaTracker {
   private readonly emitted: SessionMetaFields = {};
   private customTitleSeen = false;
@@ -221,6 +249,33 @@ export class SessionMetaTracker {
 }
 
 /**
+ * One session_meta change tracker per session id, so a file whose records carry more than
+ * one session id states each session's facts under that session, and `source` plus
+ * `sessionId` joins them to the session's other events.
+ */
+export class SessionMetaTrackers {
+  private readonly bySessionId = new Map<string, SessionMetaTracker>();
+
+  public constructor(private readonly text: boolean) {}
+
+  /** The fields that changed for `sessionId`, or undefined when nothing changed. */
+  public changes(
+    sessionId: string,
+    stated: SessionMetaFields,
+    options?: { aiTitle?: boolean },
+  ): SessionMetaFields | undefined {
+    let tracker = this.bySessionId.get(sessionId);
+
+    if (!tracker) {
+      tracker = new SessionMetaTracker(this.text);
+      this.bySessionId.set(sessionId, tracker);
+    }
+
+    return tracker.changes(stated, options);
+  }
+}
+
+/**
  * Timestamps for records that have none after the adapter's own fallback: such a record
  * takes the last valid timestamp seen earlier in the file. Before any, it is held, and
  * released when a record supplies a valid timestamp, ahead of anything that record
@@ -249,6 +304,11 @@ export class TimestampCarry<Held> {
       this.held.push(item);
     }
 
+    return this.lastTimestamp;
+  }
+
+  /** The last valid timestamp seen, without holding anything. */
+  public current(): string | undefined {
     return this.lastTimestamp;
   }
 

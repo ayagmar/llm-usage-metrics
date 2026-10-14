@@ -14,9 +14,12 @@ import {
   createKindEvent,
   joinTextBlocks,
   recordKindSkippedRow,
-  SessionMetaTracker,
+  recordToolCallSkippedRow,
+  SessionMetaTrackers,
   TimestampCarry,
+  TOOL_CALL_REASONS,
   ToolCallPairing,
+  type ToolCallReason,
 } from '../session-event-helpers.js';
 import type { SourceReadDiagnostics } from '../source-adapter.js';
 
@@ -94,14 +97,14 @@ function contentBlocks(content: unknown): ContentBlock[] {
 export class ClaudeSessionEvents {
   private readonly carry = new TimestampCarry<RowAction>();
   private readonly pairing: ToolCallPairing<ToolCall>;
-  private readonly meta: SessionMetaTracker;
+  private readonly meta: SessionMetaTrackers;
   private readonly messageRowUuids = new Set<string>();
   // Calls in rows replayed from a fork's parent: a result for one is not an orphan.
   private readonly replayedCallIds = new Set<string>();
 
   public constructor(private readonly options: ClaudeSessionEventsOptions) {
     this.pairing = new ToolCallPairing(options.diagnostics, options.kinds);
-    this.meta = new SessionMetaTracker(options.text);
+    this.meta = new SessionMetaTrackers(options.text);
   }
 
   public *add(line: Record<string, unknown>): Generator<SessionEvent> {
@@ -216,11 +219,8 @@ export class ClaudeSessionEvents {
       cwd: asText(line.cwd),
       gitBranch: asText(line.gitBranch),
       agentVersion: asText(line.version),
-      title: aiTitle
-        ? asText(line.aiTitle)
-        : type === 'custom-title'
-          ? asText(line.customTitle)
-          : undefined,
+      // Without text a title row states nothing, so it holds no action for a timestamp.
+      title: this.options.text ? statedTitle(type, line) : undefined,
     };
 
     if (
@@ -234,7 +234,7 @@ export class ClaudeSessionEvents {
     return {
       kind: 'session_meta',
       run: (timestamp) => {
-        const changes = this.meta.changes(stated, { aiTitle });
+        const changes = this.meta.changes(sessionId, stated, { aiTitle });
 
         return changes
           ? this.createKind('session_meta', () =>
@@ -286,7 +286,7 @@ export class ClaudeSessionEvents {
       const toolCallId = asTrimmedText(result.tool_use_id);
 
       if (!toolCallId) {
-        this.recordSkipped('tool_call', 'invalid_tool_result');
+        this.recordToolCallSkipped(TOOL_CALL_REASONS.resultMissingId);
         continue;
       }
 
@@ -352,7 +352,9 @@ export class ClaudeSessionEvents {
       const name = asTrimmedText(block.name);
 
       if (!toolCallId || !name) {
-        this.recordSkipped('tool_call', 'invalid_tool_use');
+        this.recordToolCallSkipped(
+          toolCallId ? TOOL_CALL_REASONS.missingName : TOOL_CALL_REASONS.missingId,
+        );
         continue;
       }
 
@@ -456,6 +458,18 @@ export class ClaudeSessionEvents {
   private recordSkipped(kind: NonUsageKind, reason: string): void {
     recordKindSkippedRow(this.options.diagnostics, this.options.kinds, kind, reason);
   }
+
+  private recordToolCallSkipped(reason: ToolCallReason): void {
+    recordToolCallSkippedRow(this.options.diagnostics, this.options.kinds, reason);
+  }
+}
+
+function statedTitle(type: string, line: Record<string, unknown>): string | undefined {
+  if (type === 'ai-title') {
+    return asText(line.aiTitle);
+  }
+
+  return type === 'custom-title' ? asText(line.customTitle) : undefined;
 }
 
 function asText(value: unknown): string | undefined {

@@ -173,11 +173,11 @@ Sources that only declare `['usage']` carry no ids and no `rawProvider`.
 
 ### session_meta
 
-A session_meta event carries partial facts. A field is set when a record states it and its value differs from the last one emitted for that field in the file; a later value overrides an earlier one. Claude states `cwd`, `gitBranch` and its version on every row, so most rows add nothing. No event is emitted with no fields. Once a Claude file has a custom title, later AI titles in it are ignored.
+A session_meta event carries partial facts. A field is set when a record states it and its value differs from the last one emitted for that field in the same session; a later value overrides an earlier one. The state is kept per session id, so when a file's records carry more than one session id (a pi fork of an uncounted parent, say), each session gets its own facts and `source` plus `sessionId` finds them. Claude states `cwd`, `gitBranch` and its version on every row, so most rows add nothing. No event is emitted with no fields. Once a Claude session has a custom title, later AI titles in it are ignored.
 
 ### Tool calls
 
-A call is paired with its result by call id; the first call with an id wins. `status` is `error` when the result says so, `ok` when it does not, and `unknown` when the file has no result for the call or the source logs a status that is not recognised:
+A call is paired with its result by call id; the first call with an id wins. `completedAt` is the result record's timestamp, resolved as any record's is: a result with none takes the carried one. `status` is `error` when the result says so, `ok` when it does not, and `unknown` when the file has no result for the call or the source logs a status that is not recognised:
 
 - claude: `tool_result.is_error`; `durationMs` from `toolUseResult.durationMs` when the row holds one result.
 - codex: an output record means `ok` (Codex logs no error flag). `web_search_call` is a call named `web_search` that completes at its own record: `completed` is `ok`, `failed` is `error`, anything else is `unknown`. No `durationMs`.
@@ -187,9 +187,14 @@ A call is paired with its result by call id; the first call with an id wins. `st
 
 A usage-only `readEvents` records the same skipped rows as `read`. Asking for other kinds adds reason codes in three families:
 
-- `<kind>_<reason>` for a row malformed for that kind, such as `message_invalid_user_message`, `tool_call_missing_call_id` or `session_meta_invalid_timestamp`. A record with no timestamp (Claude titles have none) takes the last earlier one in the file, or waits for the next one; it is skipped as `<kind>_invalid_timestamp` only when no later record has one either. A constructor that throws counts as `<kind>_event_creation_failed`;
+- `<kind>_<reason>` for a row malformed for that kind, such as `message_invalid_user_message` or `session_meta_invalid_timestamp`. A record with no timestamp (Claude titles have none) takes the last earlier one in the file, or waits for the next one; it is skipped as `<kind>_invalid_timestamp` only when no later record has one either. A constructor that throws counts as `<kind>_event_creation_failed`;
 - `other_json_parse_error` for a malformed line the usage prefilter would not have read; one it would have read counts as `json_parse_error`, and only when usage is requested;
-- `tool_call_orphan_result` for a result whose call id never appeared in the file, recorded only when `tool_call` is requested. A second result for a call that already has one is dropped without a count.
+- the tool-call codes, the same for every source and recorded only when `tool_call` is requested:
+  - `tool_call_missing_id`: a call with no call id;
+  - `tool_call_missing_name`: a call with an id but no name;
+  - `tool_call_duplicate_id`: a call whose id an earlier call in the file had; the first call wins;
+  - `tool_call_result_missing_id`: a result with no call id;
+  - `tool_call_orphan_result`: a result whose call id no started call had, including a call skipped for a missing name. A second result for a call that already has one is dropped without a count.
 
 The codes `read` can record are the ones without a `message_`, `tool_call_`, `session_meta_` or `other_` prefix. A read without `usage` records none of them.
 

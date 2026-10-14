@@ -6,3 +6,5 @@
 {"timestamp":"2026-10-03T08:00:00.000Z","type":"turn_context","payload":{"cwd":"/work/held","model":"gpt-5.5"}}
 {"type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Carried."}]}}
 {"timestamp":"not a time","type":"response_item","payload":{"type":"web_search_call","status":"completed"}}
+{"timestamp":"2026-10-03T08:00:05.000Z","type":"response_item","payload":{"type":"function_call","name":"exec_command","arguments":"{}","call_id":"call-timed"}}
+{"type":"response_item","payload":{"type":"function_call_output","call_id":"call-timed","output":"ok"}}

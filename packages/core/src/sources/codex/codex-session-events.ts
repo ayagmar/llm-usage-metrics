@@ -13,8 +13,10 @@ import {
   createKindEvent,
   joinTextBlocks,
   recordKindSkippedRow,
-  SessionMetaTracker,
+  recordToolCallSkippedRow,
+  SessionMetaTrackers,
   TimestampCarry,
+  TOOL_CALL_REASONS,
   ToolCallPairing,
 } from '../session-event-helpers.js';
 import { asTrimmedText } from '../parsing-utils.js';
@@ -37,8 +39,10 @@ type CodexKindReaderOptions = {
 
 type ToolCallResult = {
   status: ToolCallStatus;
+  /** The result record's resolved timestamp; set on release when the call is held. */
   completedAt?: string;
-  record: Record<string, unknown>;
+  /** The result record, only when the read asked for `raw`. */
+  record?: Record<string, unknown>;
 };
 
 type PendingToolCall = {
@@ -46,7 +50,8 @@ type PendingToolCall = {
   timestamp?: string;
   toolCallId?: string;
   name: string;
-  call: Record<string, unknown>;
+  /** The call record, only when the read asked for `raw`. */
+  call?: Record<string, unknown>;
   /** Set once the result is seen; the call waits for a timestamp to be yielded. */
   result?: ToolCallResult;
 };
@@ -70,11 +75,12 @@ const INJECTED_CONTEXT_PREFIXES = [
   '<user_shell_command>',
 ];
 
-const MESSAGE_ROLES: Readonly<Record<string, MessageEvent['role']>> = {
-  user: 'user',
-  assistant: 'assistant',
-  developer: 'system',
-};
+// A Map, so a logged role such as "constructor" finds no inherited value.
+const MESSAGE_ROLES: ReadonlyMap<string, MessageEvent['role']> = new Map([
+  ['user', 'user'],
+  ['assistant', 'assistant'],
+  ['developer', 'system'],
+]);
 
 const TOOL_CALL_TYPES = new Set(['function_call', 'custom_tool_call']);
 const TOOL_RESULT_TYPES = new Set(['function_call_output', 'custom_tool_call_output']);
@@ -125,7 +131,7 @@ export class CodexKindReader {
   private readonly raw: boolean;
   private readonly diagnostics: SourceReadDiagnostics;
   private readonly pairing: ToolCallPairing<PendingToolCall>;
-  private readonly meta: SessionMetaTracker;
+  private readonly meta: SessionMetaTrackers;
   private readonly carry = new TimestampCarry<HeldEvent>();
 
   public constructor(options: CodexKindReaderOptions) {
@@ -134,7 +140,7 @@ export class CodexKindReader {
     this.raw = options.raw;
     this.diagnostics = options.diagnostics;
     this.pairing = new ToolCallPairing(options.diagnostics, options.kinds);
-    this.meta = new SessionMetaTracker(options.text);
+    this.meta = new SessionMetaTrackers(options.text);
   }
 
   /** Events held for a timestamp, released by a record that has one, ahead of its own. */
@@ -237,7 +243,7 @@ export class CodexKindReader {
     { sessionId, timestamp }: CodexRecordContext,
     stated: SessionMetaFields,
   ): Generator<SessionEvent> {
-    const changes = this.meta.changes(stated);
+    const changes = this.meta.changes(sessionId, stated);
 
     if (!changes) {
       return;
@@ -261,7 +267,7 @@ export class CodexKindReader {
     payload: Record<string, unknown>,
     { sessionId, model, timestamp }: CodexRecordContext,
   ): Generator<SessionEvent> {
-    const role = typeof payload.role === 'string' ? MESSAGE_ROLES[payload.role] : undefined;
+    const role = typeof payload.role === 'string' ? MESSAGE_ROLES.get(payload.role) : undefined;
 
     if (!role) {
       recordKindSkippedRow(this.diagnostics, this.kinds, 'message', 'unknown_role');
@@ -302,16 +308,21 @@ export class CodexKindReader {
     const name = asTrimmedText(payload.name);
 
     if (!toolCallId || !name) {
-      recordKindSkippedRow(
+      recordToolCallSkippedRow(
         this.diagnostics,
         this.kinds,
-        'tool_call',
-        toolCallId ? 'missing_name' : 'missing_call_id',
+        toolCallId ? TOOL_CALL_REASONS.missingName : TOOL_CALL_REASONS.missingId,
       );
       return;
     }
 
-    const call: PendingToolCall = { sessionId, timestamp, toolCallId, name, call: line };
+    const call: PendingToolCall = {
+      sessionId,
+      timestamp,
+      toolCallId,
+      name,
+      call: this.raw ? line : undefined,
+    };
 
     if (!this.pairing.start(toolCallId, call) || timestamp !== undefined) {
       return;
@@ -321,8 +332,14 @@ export class CodexKindReader {
       kind: 'tool_call',
       release: (resolved) => {
         call.timestamp = resolved;
-        // A call answered while it was held completes now.
-        return call.result ? this.toolCallEvent(call, resolved) : undefined;
+
+        if (!call.result) {
+          return undefined;
+        }
+
+        // A call answered while it was held completes now, its result at the same time.
+        call.result.completedAt ??= resolved;
+        return this.toolCallEvent(call, resolved);
       },
     });
   }
@@ -335,7 +352,7 @@ export class CodexKindReader {
     const toolCallId = asTrimmedText(payload.call_id);
 
     if (!toolCallId) {
-      recordKindSkippedRow(this.diagnostics, this.kinds, 'tool_call', 'missing_call_id');
+      recordToolCallSkippedRow(this.diagnostics, this.kinds, TOOL_CALL_REASONS.resultMissingId);
       return;
     }
 
@@ -345,8 +362,13 @@ export class CodexKindReader {
       return;
     }
 
-    // Codex logs no error flag on a result: a result seen is a call that ran.
-    call.result = { status: 'ok', completedAt: timestamp, record: line };
+    // Codex logs no error flag on a result: a result seen is a call that ran. A result
+    // without a timestamp completes at the carried one; before any, with its held call.
+    call.result = {
+      status: 'ok',
+      completedAt: timestamp ?? this.carry.current(),
+      record: this.raw ? line : undefined,
+    };
 
     if (call.timestamp !== undefined) {
       const event = this.toolCallEvent(call, call.timestamp);
@@ -374,7 +396,7 @@ export class CodexKindReader {
           toolCallId: asTrimmedText(payload.id),
           name: WEB_SEARCH_TOOL_NAME,
           status,
-          completedAt: status === 'unknown' ? undefined : timestamp,
+          completedAt: status === 'unknown' ? undefined : resolved,
           raw: this.raw ? { call: line } : undefined,
         }),
       ),

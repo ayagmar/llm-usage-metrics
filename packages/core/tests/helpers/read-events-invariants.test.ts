@@ -42,7 +42,7 @@ const ROWS: readonly Row[] = [
   { type: 'usage', session: 's2', ts: '2026-06-01T10:00:06Z', tokens: 20, id: 'msg-2' },
 ];
 
-type Plant = 'I1' | 'I2' | 'I3' | 'I4' | 'I5' | 'I6' | 'I7';
+type Plant = 'I1' | 'I2' | 'I2-reasons' | 'I3' | 'I4' | 'I5' | 'I6' | 'I7';
 
 /** An adapter with all four kinds over `ROWS`, breaking the invariant `plant` names. */
 function createFakeAdapter(plant?: Plant): SourceAdapter {
@@ -129,7 +129,8 @@ function createFakeAdapter(plant?: Plant): SourceAdapter {
             }
             break;
           case 'usage_without_tokens':
-            if (kinds.has('usage')) {
+            // The I2-reasons plant records read's reason without being asked for usage.
+            if (kinds.has('usage') || plant === 'I2-reasons') {
               recordSkippedRow(diagnostics, 'no_token_usage');
             }
             break;
@@ -167,6 +168,14 @@ describe('assertReadEventsInvariants', () => {
       ).rejects.toThrow(new RegExp(`^${plant}: `, 'u'));
     },
   );
+
+  it('fails an adapter whose read without usage records a reason code of read, as I2', async () => {
+    await expect(
+      assertReadEventsInvariants(createFakeAdapter('I2-reasons'), '/fake.jsonl', {
+        deriveSessionId: deriveFakeSessionId,
+      }),
+    ).rejects.toThrow(/^I2: a message-only read records no reason code of read/u);
+  });
 
   it('passes qwen through the read fallback', async () => {
     const projectsDir = fixturePath(import.meta.url, '../fixtures/qwen/projects');

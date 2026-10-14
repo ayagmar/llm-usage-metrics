@@ -216,8 +216,8 @@ describe('ClaudeSourceAdapter.readEvents', () => {
       message_invalid_user_message: 1,
       message_invalid_assistant_message: 1,
       tool_call_invalid_assistant_message: 1,
-      tool_call_invalid_tool_use: 1,
-      tool_call_invalid_tool_result: 1,
+      tool_call_missing_id: 1,
+      tool_call_result_missing_id: 1,
       tool_call_orphan_result: 1,
     });
   });
@@ -229,6 +229,28 @@ describe('ClaudeSourceAdapter.readEvents', () => {
       message_invalid_assistant_message: 1,
     });
     expect((await readFixture('session-events.jsonl', { kinds: [] })).events).toEqual([]);
+  });
+
+  it('counts a nameless call and a repeated call id with the shared tool_call codes', async () => {
+    const { events, reasons } = await readFixture('tool-call-reasons.jsonl', {
+      kinds: ['tool_call'],
+    });
+
+    // The first call with an id wins; the repeat is counted, not paired.
+    expect(events).toStrictEqual([
+      {
+        kind: 'tool_call',
+        source: 'claude',
+        sessionId: 'reasons-session',
+        timestamp: '2026-07-04T10:00:00.000Z',
+        name: 'Bash',
+        status: 'ok',
+        toolCallId: 'r-tool-1',
+        completedAt: '2026-07-04T10:00:02.000Z',
+        messageId: 'r-msg-1',
+      },
+    ]);
+    expect(reasons).toEqual({ tool_call_missing_name: 1, tool_call_duplicate_id: 1 });
   });
 
   it('yields titles held for a timestamp when the next timestamped row is processed', async () => {
@@ -270,6 +292,32 @@ describe('ClaudeSourceAdapter.readEvents', () => {
       events: [],
       reasons: { session_meta_invalid_timestamp: 2 },
     });
+  });
+
+  it('states session facts per session id when a file carries more than one', async () => {
+    const { events } = await readFixture('two-sessions.jsonl', { kinds: ['session_meta'] });
+    const facts = { cwd: '/work/shared', gitBranch: 'main', agentVersion: '2.1.0' };
+
+    expect(events).toStrictEqual([
+      {
+        kind: 'session_meta',
+        source: 'claude',
+        sessionId: 'first-session',
+        timestamp: '2026-07-05T10:00:00.000Z',
+        ...facts,
+      },
+      {
+        kind: 'session_meta',
+        source: 'claude',
+        sessionId: 'second-session',
+        timestamp: '2026-07-05T10:00:01.000Z',
+        ...facts,
+      },
+    ]);
+  });
+
+  it('does not count titles a read without text could never emit', async () => {
+    expect(await readFixture('untimed-titles.jsonl')).toEqual({ events: [], reasons: {} });
   });
 
   it('skips fork rows replayed from the parent for every kind', async () => {

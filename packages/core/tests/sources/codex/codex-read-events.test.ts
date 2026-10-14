@@ -270,12 +270,15 @@ describe('CodexSourceAdapter.readEvents', () => {
         rawProvider: 'Azure-East',
       },
     ]);
-    // The repeated call-ls pair is dropped without a count; the stray result is an orphan.
+    // The repeated call-ls call is a duplicate and its result is dropped; the stray result
+    // is an orphan.
     expect(reasons).toEqual({
       json_parse_error: 1,
+      invalid_timestamp: 1,
       other_json_parse_error: 1,
       message_unknown_role: 1,
-      tool_call_missing_call_id: 1,
+      tool_call_missing_id: 1,
+      tool_call_duplicate_id: 1,
       tool_call_orphan_result: 1,
     });
   });
@@ -309,11 +312,14 @@ describe('CodexSourceAdapter.readEvents', () => {
   });
 
   it('records only the reason codes of the kinds it yields', async () => {
-    await expect(read(SESSION_EVENTS, { kinds: ['message'] })).resolves.toMatchObject({
-      reasons: { other_json_parse_error: 2, message_unknown_role: 1 },
+    // The last line is a token_count with a delta and no timestamp: only usage counts it.
+    expect((await read(SESSION_EVENTS, { kinds: ['message'] })).reasons).toEqual({
+      other_json_parse_error: 2,
+      message_unknown_role: 1,
     });
-    await expect(read(SESSION_EVENTS, { kinds: ['usage'] })).resolves.toMatchObject({
-      reasons: { json_parse_error: 1 },
+    expect((await read(SESSION_EVENTS, { kinds: ['usage'] })).reasons).toEqual({
+      json_parse_error: 1,
+      invalid_timestamp: 1,
     });
     await expect(read(SESSION_EVENTS, { kinds: [] })).resolves.toEqual({
       events: [],
@@ -396,8 +402,15 @@ describe('CodexSourceAdapter.readEvents', () => {
 
     expect(events).toEqual([
       { kind: 'session_meta', ...base, cwd: '/work/held', rawProvider: 'openai' },
-      // Answered while held: no completedAt, since its result logged no timestamp.
-      { kind: 'tool_call', ...base, toolCallId: 'call-held', name: 'exec_command', status: 'ok' },
+      // Answered while held: its result completes at the timestamp that releases both.
+      {
+        kind: 'tool_call',
+        ...base,
+        toolCallId: 'call-held',
+        name: 'exec_command',
+        status: 'ok',
+        completedAt: base.timestamp,
+      },
       { kind: 'message', ...base, role: 'user', textLength: 21, text: 'Before any timestamp.' },
       { kind: 'session_meta', ...base, model: 'gpt-5.5' },
       {
@@ -408,7 +421,18 @@ describe('CodexSourceAdapter.readEvents', () => {
         textLength: 8,
         text: 'Carried.',
       },
-      { kind: 'tool_call', ...base, name: 'web_search', status: 'ok' },
+      // A web search is its own result, so it completes at its carried timestamp.
+      { kind: 'tool_call', ...base, name: 'web_search', status: 'ok', completedAt: base.timestamp },
+      // A result with no timestamp of its own completes at the carried one.
+      {
+        kind: 'tool_call',
+        ...base,
+        timestamp: '2026-10-03T08:00:05.000Z',
+        toolCallId: 'call-timed',
+        name: 'exec_command',
+        status: 'ok',
+        completedAt: '2026-10-03T08:00:05.000Z',
+      },
       {
         kind: 'tool_call',
         ...base,
@@ -449,7 +473,47 @@ describe('CodexSourceAdapter.readEvents', () => {
 
     await expect(read(filePath)).resolves.toEqual({
       events: [],
-      reasons: { tool_call_missing_name: 1, tool_call_missing_call_id: 1 },
+      reasons: { tool_call_missing_name: 1, tool_call_result_missing_id: 1 },
+    });
+  });
+
+  it('states session facts per session id when a file logs a second session', async () => {
+    const filePath = await writeSession([
+      '{"timestamp":"2026-10-04T13:00:00.000Z","type":"session_meta","payload":{"id":"s-first","cwd":"/work/shared","cli_version":"0.9.0"}}',
+      '{"timestamp":"2026-10-04T13:00:01.000Z","type":"session_meta","payload":{"id":"s-second","cwd":"/work/shared","cli_version":"0.9.0"}}',
+    ]);
+    const facts = { source: 'codex', cwd: '/work/shared', agentVersion: '0.9.0' };
+
+    await expect(read(filePath)).resolves.toEqual({
+      events: [
+        {
+          kind: 'session_meta',
+          ...facts,
+          sessionId: 's-first',
+          timestamp: '2026-10-04T13:00:00.000Z',
+        },
+        {
+          kind: 'session_meta',
+          ...facts,
+          sessionId: 's-second',
+          timestamp: '2026-10-04T13:00:01.000Z',
+        },
+      ],
+      reasons: {},
+    });
+  });
+
+  it('skips a message whose role only an object prototype knows', async () => {
+    const filePath = await writeSession(
+      ['constructor', 'toString', '__proto__'].map(
+        (role, index) =>
+          `{"timestamp":"2026-10-04T11:30:0${index}.000Z","type":"response_item","payload":{"type":"message","role":"${role}","content":[{"type":"input_text","text":"x"}]}}`,
+      ),
+    );
+
+    await expect(read(filePath)).resolves.toEqual({
+      events: [],
+      reasons: { message_unknown_role: 3 },
     });
   });
 
