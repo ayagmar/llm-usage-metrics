@@ -69,7 +69,7 @@ describe('opencode sqlite query', () => {
       }),
     );
 
-    expect(rows).toEqual([{ row_id: 'msg-1', data_json: '{}' }]);
+    expect([...rows]).toEqual([{ row_id: 'msg-1', data_json: '{}' }]);
     expect(seenQueries.some((query) => query.includes('$.role') && query.includes('$.type'))).toBe(
       true,
     );
@@ -85,7 +85,7 @@ describe('opencode sqlite query', () => {
       }),
     );
 
-    expect(rows).toEqual([{ row_id: 'msg-fallback', data_json: '{}' }]);
+    expect([...rows]).toEqual([{ row_id: 'msg-fallback', data_json: '{}' }]);
     expect(seenQueries.some((query) => query.includes('json_extract'))).toBe(true);
     expect(
       seenQueries.some(
@@ -102,7 +102,7 @@ describe('opencode sqlite query', () => {
       }),
     );
 
-    expect(rows).toEqual([{ row_id: 'msg-fallback-2', data_json: '{}' }]);
+    expect([...rows]).toEqual([{ row_id: 'msg-fallback-2', data_json: '{}' }]);
   });
 
   it('falls back to non-json_extract query when json_valid is unavailable', () => {
@@ -113,7 +113,7 @@ describe('opencode sqlite query', () => {
       }),
     );
 
-    expect(rows).toEqual([{ row_id: 'msg-fallback-3', data_json: '{}' }]);
+    expect([...rows]).toEqual([{ row_id: 'msg-fallback-3', data_json: '{}' }]);
   });
 
   it('throws actionable schema drift error when message table is missing', () => {
@@ -196,7 +196,7 @@ describe('opencode sqlite query', () => {
     };
 
     const rows = [...queryOpenCodeMessageRows(database)];
-    expect(rows).toEqual([
+    expect([...rows]).toEqual([
       { row_id: 'iter-1', data_json: '{}' },
       { row_id: 'iter-2', data_json: '{}' },
     ]);
@@ -259,7 +259,7 @@ describe('opencode sqlite query', () => {
 
     const rows = [...queryOpenCodeMessageRows(database)];
 
-    expect(rows).toEqual([{ row_id: 'iter-fallback', data_json: '{}' }]);
+    expect([...rows]).toEqual([{ row_id: 'iter-fallback', data_json: '{}' }]);
     expect(seenQueries.some((query) => query.includes('json_extract('))).toBe(true);
     expect(
       seenQueries.some(

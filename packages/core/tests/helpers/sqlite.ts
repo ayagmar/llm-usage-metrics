@@ -1,8 +1,16 @@
 import { createRequire } from 'node:module';
 
-export type FixtureDatabaseSync = new (filePath: string) => {
+export type FixtureDatabaseSync = new (
+  filePath: string,
+  options?: { timeout?: number },
+) => {
   exec: (sql: string) => void;
-  prepare: (sql: string) => { run: (...args: unknown[]) => void };
+  prepare: (sql: string) => {
+    run: (...args: unknown[]) => void;
+    all: (...args: unknown[]) => Record<string, unknown>[];
+    get: (...args: unknown[]) => Record<string, unknown> | undefined;
+    iterate: (...args: unknown[]) => IterableIterator<Record<string, unknown>>;
+  };
   close: () => void;
 };
 
@@ -55,4 +63,48 @@ export function loadDatabaseSync(): FixtureDatabaseSync | undefined {
   }
 
   return moduleRecord.DatabaseSync as FixtureDatabaseSync;
+}
+
+/** `node:sqlite`'s DatabaseSync; throws on a runtime without it. */
+export function requireDatabaseSync(): FixtureDatabaseSync {
+  const DatabaseSync = loadDatabaseSync();
+
+  if (!DatabaseSync) {
+    throw new Error('SQLite fixtures require node:sqlite DatabaseSync support.');
+  }
+
+  return DatabaseSync;
+}
+
+/** The database's journal mode, read on a connection of its own. */
+export function readJournalMode(dbPath: string): unknown {
+  const database = new (requireDatabaseSync())(dbPath);
+
+  try {
+    return database.prepare('PRAGMA journal_mode').get()?.journal_mode;
+  } finally {
+    database.close();
+  }
+}
+
+/**
+ * Whether another connection can take `BEGIN EXCLUSIVE` without waiting. In
+ * `journal_mode=DELETE`, a reader that still holds a statement keeps it from doing so.
+ */
+export function canBeginExclusive(dbPath: string): boolean {
+  const database = new (requireDatabaseSync())(dbPath, { timeout: 0 });
+
+  try {
+    database.exec('BEGIN EXCLUSIVE');
+    database.exec('ROLLBACK');
+    return true;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('database is locked')) {
+      return false;
+    }
+
+    throw error;
+  } finally {
+    database.close();
+  }
 }
