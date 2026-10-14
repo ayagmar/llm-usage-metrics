@@ -88,7 +88,7 @@ The source trees were copied to a filesystem snapshot immediately before the run
 
 Before the parse-pipeline work, a fresh Codex run over this corpus took 8.7 s; the current measured median is 1.527 s. The mechanisms, in pipeline order:
 
-1. Byte prefilters and a buffer-based JSONL reader (`src/utils/read-jsonl-objects.ts`) skip irrelevant lines before any JSON parsing.
+1. Byte prefilters and a buffer-based JSONL reader (`packages/core/src/utils/read-jsonl-objects.ts`) skip irrelevant lines before any JSON parsing.
 2. A per-timezone local-date window cache for period bucketing (`src/utils/time-buckets.ts`) avoids repeated date math per event.
 3. An event-store warm read path serves already-parsed events.
 4. A worker-thread parse pool (`src/cli/parse-worker-pool.ts`) parses large JSONL files in parallel.

@@ -23,7 +23,7 @@ Sources with multiple home directories (claude, pi, openclaw, kimi, the cline fa
 
 ## Reading JSONL fast
 
-`src/utils/read-jsonl-objects.ts` streams files in 1 MiB buffer chunks and splits lines at the byte level — line-feed scan, carriage-return trim, BOM and blank-line handling all happen on bytes, so a line is only decoded to a string when it survives filtering. Two optional predicates gate the expensive steps:
+`packages/core/src/utils/read-jsonl-objects.ts` streams files in 1 MiB buffer chunks and splits lines at the byte level — line-feed scan, carriage-return trim, BOM and blank-line handling all happen on bytes, so a line is only decoded to a string when it survives filtering. Two optional predicates gate the expensive steps:
 
 - `shouldParseLineBytes` runs on the raw line bytes, **before** UTF-8 decoding. The codex adapter accepts `session_meta` and `turn_context` lines and takes `event_msg` lines only when `token_count` bytes appear; the claude adapter requires both `"assistant"` and `"usage"` byte sequences.
 - `shouldParseLine` runs on the decoded string, before `JSON.parse`. The pi, droid, openclaw, copilot, qwen, and kimi adapters filter here.

@@ -6,6 +6,9 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     include: ['tests/**/*.test.ts'],
+    // Windows CI runners are several times slower at SQLite and child-process work; the
+    // defaults (5 s per test, 10 s per hook) time out tests that pass everywhere else.
+    ...(process.platform === 'win32' ? { testTimeout: 30_000, hookTimeout: 30_000 } : {}),
     // Same isolation as the root config: no core test may read or write the host's
     // cache, data or config, even through code that later moves here from the CLI.
     env: {
