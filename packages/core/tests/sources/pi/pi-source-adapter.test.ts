@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { PiSourceAdapter } from '../../../src/sources/pi/index.js';
-import { repoFixturePath } from '../../helpers/fixtures.js';
+import { fixturePath as packageFixturePath } from '../../helpers/fixtures.js';
 import { canonicalTmpdir } from '../../helpers/tmp.js';
 
 const tempDirs: string[] = [];
@@ -84,7 +84,11 @@ describe('PiSourceAdapter', () => {
   });
 
   it('parses usage events without provider filtering by default', async () => {
-    const fixturePath = repoFixturePath('pi', 'session-mixed.jsonl');
+    const fixturePath = packageFixturePath(
+      import.meta.url,
+      '../../fixtures/pi',
+      'session-mixed.jsonl',
+    );
     const adapter = new PiSourceAdapter();
 
     const events = await adapter.parseFile(fixturePath);
