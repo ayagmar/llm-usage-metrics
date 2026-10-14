@@ -100,7 +100,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run --coverage",
-    "test:fast": "vitest run --coverage.enabled=false"
+    "test:fast": "vitest run --coverage.enabled=false",
+    "test:memory": "vitest run --coverage.enabled=false --silent=false tests/memory"
   },
   "license": "MIT",
   "repository": {

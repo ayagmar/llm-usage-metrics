@@ -30,6 +30,7 @@
     "core:test": "pnpm --filter @ayagmar/agent-sessions run test",
     "core:lint": "pnpm --filter @ayagmar/agent-sessions run lint",
     "core:test:fast": "pnpm --filter @ayagmar/agent-sessions run test:fast",
+    "core:test:memory": "pnpm --filter @ayagmar/agent-sessions run test:memory",
     "format:check": "prettier --check .",
     "format:write": "prettier --write .",
     "verify": "pnpm run lint && pnpm run typecheck && pnpm run core:typecheck && pnpm run test && node .github/scripts/check-coverage-threshold.mjs && pnpm run core:test && node .github/scripts/check-coverage-threshold.mjs packages/core/coverage/coverage-summary.json && pnpm run format:check",
