@@ -13,8 +13,10 @@ import {
   createKindEvent,
   joinTextBlocks,
   recordKindSkippedRow,
+  recordToolCallSkippedRow,
   SessionMetaTracker,
   TimestampCarry,
+  TOOL_CALL_REASONS,
   ToolCallPairing,
 } from '../session-event-helpers.js';
 import { asTrimmedText } from '../parsing-utils.js';
@@ -303,11 +305,10 @@ export class CodexKindReader {
     const name = asTrimmedText(payload.name);
 
     if (!toolCallId || !name) {
-      recordKindSkippedRow(
+      recordToolCallSkippedRow(
         this.diagnostics,
         this.kinds,
-        'tool_call',
-        toolCallId ? 'missing_name' : 'missing_call_id',
+        toolCallId ? TOOL_CALL_REASONS.missingName : TOOL_CALL_REASONS.missingId,
       );
       return;
     }
@@ -336,7 +337,7 @@ export class CodexKindReader {
     const toolCallId = asTrimmedText(payload.call_id);
 
     if (!toolCallId) {
-      recordKindSkippedRow(this.diagnostics, this.kinds, 'tool_call', 'missing_call_id');
+      recordToolCallSkippedRow(this.diagnostics, this.kinds, TOOL_CALL_REASONS.resultMissingId);
       return;
     }
 

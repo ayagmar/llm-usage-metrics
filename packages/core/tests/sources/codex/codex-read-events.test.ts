@@ -270,12 +270,14 @@ describe('CodexSourceAdapter.readEvents', () => {
         rawProvider: 'Azure-East',
       },
     ]);
-    // The repeated call-ls pair is dropped without a count; the stray result is an orphan.
+    // The repeated call-ls call is a duplicate and its result is dropped; the stray result
+    // is an orphan.
     expect(reasons).toEqual({
       json_parse_error: 1,
       other_json_parse_error: 1,
       message_unknown_role: 1,
-      tool_call_missing_call_id: 1,
+      tool_call_missing_id: 1,
+      tool_call_duplicate_id: 1,
       tool_call_orphan_result: 1,
     });
   });
@@ -449,7 +451,7 @@ describe('CodexSourceAdapter.readEvents', () => {
 
     await expect(read(filePath)).resolves.toEqual({
       events: [],
-      reasons: { tool_call_missing_name: 1, tool_call_missing_call_id: 1 },
+      reasons: { tool_call_missing_name: 1, tool_call_result_missing_id: 1 },
     });
   });
 

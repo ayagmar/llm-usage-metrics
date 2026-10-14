@@ -216,8 +216,8 @@ describe('ClaudeSourceAdapter.readEvents', () => {
       message_invalid_user_message: 1,
       message_invalid_assistant_message: 1,
       tool_call_invalid_assistant_message: 1,
-      tool_call_invalid_tool_use: 1,
-      tool_call_invalid_tool_result: 1,
+      tool_call_missing_id: 1,
+      tool_call_result_missing_id: 1,
       tool_call_orphan_result: 1,
     });
   });
@@ -229,6 +229,28 @@ describe('ClaudeSourceAdapter.readEvents', () => {
       message_invalid_assistant_message: 1,
     });
     expect((await readFixture('session-events.jsonl', { kinds: [] })).events).toEqual([]);
+  });
+
+  it('counts a nameless call and a repeated call id with the shared tool_call codes', async () => {
+    const { events, reasons } = await readFixture('tool-call-reasons.jsonl', {
+      kinds: ['tool_call'],
+    });
+
+    // The first call with an id wins; the repeat is counted, not paired.
+    expect(events).toStrictEqual([
+      {
+        kind: 'tool_call',
+        source: 'claude',
+        sessionId: 'reasons-session',
+        timestamp: '2026-07-04T10:00:00.000Z',
+        name: 'Bash',
+        status: 'ok',
+        toolCallId: 'r-tool-1',
+        completedAt: '2026-07-04T10:00:02.000Z',
+        messageId: 'r-msg-1',
+      },
+    ]);
+    expect(reasons).toEqual({ tool_call_missing_name: 1, tool_call_duplicate_id: 1 });
   });
 
   it('yields titles held for a timestamp when the next timestamped row is processed', async () => {

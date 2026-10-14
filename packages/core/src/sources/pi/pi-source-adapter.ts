@@ -37,9 +37,11 @@ import {
   joinTextBlocks,
   recordKindSkippedRow,
   recordMalformedLine,
+  recordToolCallSkippedRow,
   resolveReadKinds,
   SessionMetaTracker,
   TimestampCarry,
+  TOOL_CALL_REASONS,
   ToolCallPairing,
 } from '../session-event-helpers.js';
 import type {
@@ -528,24 +530,25 @@ class PiSessionEvents {
       }
 
       const toolCallId = asTrimmedText(toolCall.id);
+      const name = asTrimmedText(toolCall.name);
 
-      if (!toolCallId) {
-        recordKindSkippedRow(this.diagnostics, this.kinds, 'tool_call', 'missing_id');
+      if (!toolCallId || !name) {
+        recordToolCallSkippedRow(
+          this.diagnostics,
+          this.kinds,
+          toolCallId ? TOOL_CALL_REASONS.missingName : TOOL_CALL_REASONS.missingId,
+        );
         continue;
       }
 
-      const started = this.pairing.start(toolCallId, {
+      this.pairing.start(toolCallId, {
         sessionId,
         timestamp,
         toolCallId,
-        name: typeof toolCall.name === 'string' ? toolCall.name : '',
+        name,
         messageId,
         line: this.request.raw ? line : undefined,
       });
-
-      if (!started) {
-        recordKindSkippedRow(this.diagnostics, this.kinds, 'tool_call', 'duplicate_id');
-      }
     }
   }
 
@@ -557,7 +560,7 @@ class PiSessionEvents {
     const toolCallId = asTrimmedText(message?.toolCallId);
 
     if (!toolCallId) {
-      recordKindSkippedRow(this.diagnostics, this.kinds, 'tool_call', 'result_missing_id');
+      recordToolCallSkippedRow(this.diagnostics, this.kinds, TOOL_CALL_REASONS.resultMissingId);
       return undefined;
     }
 

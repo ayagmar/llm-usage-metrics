@@ -187,9 +187,14 @@ A call is paired with its result by call id; the first call with an id wins. `st
 
 A usage-only `readEvents` records the same skipped rows as `read`. Asking for other kinds adds reason codes in three families:
 
-- `<kind>_<reason>` for a row malformed for that kind, such as `message_invalid_user_message`, `tool_call_missing_call_id` or `session_meta_invalid_timestamp`. A record with no timestamp (Claude titles have none) takes the last earlier one in the file, or waits for the next one; it is skipped as `<kind>_invalid_timestamp` only when no later record has one either. A constructor that throws counts as `<kind>_event_creation_failed`;
+- `<kind>_<reason>` for a row malformed for that kind, such as `message_invalid_user_message` or `session_meta_invalid_timestamp`. A record with no timestamp (Claude titles have none) takes the last earlier one in the file, or waits for the next one; it is skipped as `<kind>_invalid_timestamp` only when no later record has one either. A constructor that throws counts as `<kind>_event_creation_failed`;
 - `other_json_parse_error` for a malformed line the usage prefilter would not have read; one it would have read counts as `json_parse_error`, and only when usage is requested;
-- `tool_call_orphan_result` for a result whose call id never appeared in the file, recorded only when `tool_call` is requested. A second result for a call that already has one is dropped without a count.
+- the tool-call codes, the same for every source and recorded only when `tool_call` is requested:
+  - `tool_call_missing_id`: a call with no call id;
+  - `tool_call_missing_name`: a call with an id but no name;
+  - `tool_call_duplicate_id`: a call whose id an earlier call in the file had; the first call wins;
+  - `tool_call_result_missing_id`: a result with no call id;
+  - `tool_call_orphan_result`: a result whose call id no started call had, including a call skipped for a missing name. A second result for a call that already has one is dropped without a count.
 
 The codes `read` can record are the ones without a `message_`, `tool_call_`, `session_meta_` or `other_` prefix. A read without `usage` records none of them.
 

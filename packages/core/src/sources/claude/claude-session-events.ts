@@ -14,9 +14,12 @@ import {
   createKindEvent,
   joinTextBlocks,
   recordKindSkippedRow,
+  recordToolCallSkippedRow,
   SessionMetaTracker,
   TimestampCarry,
+  TOOL_CALL_REASONS,
   ToolCallPairing,
+  type ToolCallReason,
 } from '../session-event-helpers.js';
 import type { SourceReadDiagnostics } from '../source-adapter.js';
 
@@ -286,7 +289,7 @@ export class ClaudeSessionEvents {
       const toolCallId = asTrimmedText(result.tool_use_id);
 
       if (!toolCallId) {
-        this.recordSkipped('tool_call', 'invalid_tool_result');
+        this.recordToolCallSkipped(TOOL_CALL_REASONS.resultMissingId);
         continue;
       }
 
@@ -352,7 +355,9 @@ export class ClaudeSessionEvents {
       const name = asTrimmedText(block.name);
 
       if (!toolCallId || !name) {
-        this.recordSkipped('tool_call', 'invalid_tool_use');
+        this.recordToolCallSkipped(
+          toolCallId ? TOOL_CALL_REASONS.missingName : TOOL_CALL_REASONS.missingId,
+        );
         continue;
       }
 
@@ -455,6 +460,10 @@ export class ClaudeSessionEvents {
 
   private recordSkipped(kind: NonUsageKind, reason: string): void {
     recordKindSkippedRow(this.options.diagnostics, this.options.kinds, kind, reason);
+  }
+
+  private recordToolCallSkipped(reason: ToolCallReason): void {
+    recordToolCallSkippedRow(this.options.diagnostics, this.options.kinds, reason);
   }
 }
 
