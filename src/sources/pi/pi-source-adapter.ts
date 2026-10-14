@@ -1,4 +1,3 @@
-import os from 'node:os';
 import path from 'node:path';
 
 import { createUsageEvent } from '../../domain/usage-event.js';
@@ -27,12 +26,14 @@ import type {
   SourceAdapterPathOptions,
   SourceParseFileDiagnostics,
 } from '../source-adapter.js';
+import { createSourceContext, type SourceContext } from '../source-context.js';
 
-const defaultSessionsDir = path.join(os.homedir(), '.pi', 'agent', 'sessions');
-const defaultPiRootDirs = [
-  defaultSessionsDir,
-  path.join(os.homedir(), '.omp', 'agent', 'sessions'),
-];
+function resolveDefaultPiRootDirs(context: SourceContext): string[] {
+  return [
+    path.join(context.homeDir, '.pi', 'agent', 'sessions'),
+    path.join(context.homeDir, '.omp', 'agent', 'sessions'),
+  ];
+}
 
 type PiSessionState = {
   sessionId?: string;
@@ -239,7 +240,10 @@ export class PiSourceAdapter implements SourceAdapter {
   private readonly requireDir: boolean;
 
   public constructor(options: PiSourceAdapterOptions = {}) {
-    this.rootDirs = resolveRootDirs(options.dir, options.defaultRootDirs ?? defaultPiRootDirs);
+    this.rootDirs = resolveRootDirs(
+      options.dir,
+      options.defaultRootDirs ?? resolveDefaultPiRootDirs(options.context ?? createSourceContext()),
+    );
     this.requireDir = options.requireDir ?? false;
   }
 

@@ -1,4 +1,3 @@
-import os from 'node:os';
 import path from 'node:path';
 
 import { createUsageEvent } from '../../domain/usage-event.js';
@@ -21,8 +20,11 @@ import type {
   SourceAdapterPathOptions,
   SourceParseFileDiagnostics,
 } from '../source-adapter.js';
+import { createSourceContext, type SourceContext } from '../source-context.js';
 
-const defaultSessionsDir = path.join(os.homedir(), '.factory', 'sessions');
+function resolveDefaultDroidSessionsDir(context: SourceContext): string {
+  return path.join(context.homeDir, '.factory', 'sessions');
+}
 
 export type DroidSourceAdapterOptions = SourceAdapterPathOptions;
 
@@ -65,7 +67,8 @@ export class DroidSourceAdapter implements SourceAdapter {
   private readonly requireDir: boolean;
 
   public constructor(options: DroidSourceAdapterOptions = {}) {
-    this.sessionsDir = options.dir ?? defaultSessionsDir;
+    this.sessionsDir =
+      options.dir ?? resolveDefaultDroidSessionsDir(options.context ?? createSourceContext());
     this.requireDir = options.requireDir ?? false;
   }
 
