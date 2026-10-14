@@ -200,7 +200,7 @@ The codes `read` can record are the ones without a `message_`, `tool_call_`, `se
 Forks:
 
 - pi: a fork of a counted parent skips the entries it copied, for every kind. A fork of a parent that is not counted relabels them with the parent's session id, so two such forks of the same parent both yield the parent's messages and tool calls. That is the one cross-file repeat of other kinds left, and no stage drops it.
-- Claude: rows a fork replays from its parent are skipped for every kind. Each fork still yields about one extra user message, its own instructions, which is not a copy of a parent row. The fork's result for the parent's spawning call has no call in the file, so it counts as `tool_call_orphan_result`.
+- Claude: rows a fork replays from its parent are skipped for every kind. Each fork still yields about one extra user message, its own instructions, which is not a copy of a parent row. The fork re-logs the parent's spawning call under a new row id; it is skipped as replayed, and the fork's result for it is dropped without a count.
 
 ### Mapping per source
 
