@@ -1,7 +1,7 @@
 import type { CostMode, UsageEvent } from '../domain/usage-event.js';
 import { computeEventContentHash } from './content-hash.js';
 
-type HashedEvent = UsageEvent & { costMode: CostMode };
+type HashedEvent = UsageEvent & { costMode?: CostMode };
 
 export function addHashCount(target: Map<string, number>, hash: string, count: number): void {
   if (count <= 0) {

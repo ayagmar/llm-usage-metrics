@@ -2,7 +2,12 @@ import { createHash } from 'node:crypto';
 
 import type { CostMode, UsageEvent } from '../domain/usage-event.js';
 
-export function computeEventContentHash(event: UsageEvent & { costMode: CostMode }): string {
+/**
+ * An event without a cost mode hashes as the CLI derives it for adapter output: a logged
+ * cost is explicit, anything else estimated. So an adapter event hashes the same with or
+ * without that boundary.
+ */
+export function computeEventContentHash(event: UsageEvent & { costMode?: CostMode }): string {
   const fields = [
     event.source.toLowerCase(),
     event.sessionId,
@@ -18,7 +23,7 @@ export function computeEventContentHash(event: UsageEvent & { costMode: CostMode
     // cacheWrite1hTokens is left out: it only splits cacheWriteTokens, and leaving it out
     // keeps events stored before it existed matching their reparsed copies.
     event.totalTokens,
-    event.costMode,
+    event.costMode ?? (event.costUsd === undefined ? 'estimated' : 'explicit'),
     event.costUsd ?? '',
   ];
 
