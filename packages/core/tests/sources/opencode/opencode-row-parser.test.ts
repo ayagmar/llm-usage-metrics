@@ -1,6 +1,23 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseOpenCodeMessageRows } from '../../../src/sources/opencode/opencode-row-parser.js';
+import type { UsageEvent } from '../../../src/domain/usage-event.js';
+import { parseOpenCodeMessageRow } from '../../../src/sources/opencode/opencode-row-parser.js';
+import type { OpenCodeSqliteRow } from '../../../src/sources/opencode/opencode-sqlite-query.js';
+import {
+  createReadDiagnostics,
+  toParseDiagnostics,
+} from '../../../src/sources/parse-diagnostics.js';
+import type { SourceParseFileDiagnostics } from '../../../src/sources/source-adapter.js';
+
+function parseOpenCodeMessageRows(
+  rows: OpenCodeSqliteRow[],
+  sourceId: UsageEvent['source'],
+): SourceParseFileDiagnostics {
+  const diagnostics = createReadDiagnostics();
+  const events = rows.flatMap((row) => parseOpenCodeMessageRow(row, sourceId, diagnostics) ?? []);
+
+  return toParseDiagnostics(events, diagnostics.skippedRows, diagnostics.skippedRowReasons);
+}
 
 describe('opencode row parser', () => {
   it('parses valid assistant rows and skips malformed/non-usable rows with diagnostics', () => {
