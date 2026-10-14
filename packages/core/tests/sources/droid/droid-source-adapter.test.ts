@@ -1,14 +1,13 @@
 import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { DroidSourceAdapter } from '../../src/sources/droid/droid-source-adapter.js';
+import { DroidSourceAdapter } from '../../../src/sources/droid/index.js';
+import { repoFixturePath } from '../../helpers/fixtures.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const fixturesDir = path.join(__dirname, '..', 'fixtures', 'droid');
+const fixturesDir = repoFixturePath('droid');
 
 const tempDirs: string[] = [];
 

@@ -4,7 +4,8 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { QwenSourceAdapter } from '../../src/sources/qwen/qwen-source-adapter.js';
+import { QwenSourceAdapter } from '../../../src/sources/qwen/index.js';
+import { fixturePath } from '../../helpers/fixtures.js';
 
 const tempDirs: string[] = [];
 
@@ -84,10 +85,13 @@ describe('QwenSourceAdapter', () => {
   });
 
   it('parses assistant usageMetadata rows and reports skipped usage rows', async () => {
-    const fixturePath = path.resolve('tests/fixtures/qwen/projects/demo/chats/usage.jsonl');
+    const usagePath = fixturePath(
+      import.meta.url,
+      '../../fixtures/qwen/projects/demo/chats/usage.jsonl',
+    );
     const adapter = new QwenSourceAdapter();
 
-    const result = await adapter.parseFileWithDiagnostics(fixturePath);
+    const result = await adapter.parseFileWithDiagnostics(usagePath);
 
     expect(result.events).toHaveLength(2);
     expect(result.events[0]).toMatchObject({
