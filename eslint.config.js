@@ -9,6 +9,7 @@ import tseslint from 'typescript-eslint';
 
 const tsconfigRootDir = path.dirname(fileURLToPath(import.meta.url));
 const tsFiles = ['**/*.ts', '**/*.tsx', '**/*.mts', '**/*.cts'];
+const hostStateMessage = 'The core package reads host state only through an injected context.';
 
 function scopeToFiles(configs, files) {
   return configs.map((config) => ({
@@ -22,6 +23,8 @@ export default tseslint.config(
     ignores: [
       'dist/**',
       'coverage/**',
+      'packages/*/dist/**',
+      'packages/*/coverage/**',
       'site/**',
       '.github/scripts/**',
       'scripts/**',
@@ -86,14 +89,49 @@ export default tseslint.config(
   {
     // recheck finds ReDoS that static rules miss, e.g. alternatives that overlap across
     // iterations of a repeated group. Model names and log text are untrusted input.
-    files: ['src/**/*.ts'],
+    files: ['src/**/*.ts', 'packages/core/src/**/*.ts'],
     plugins: { redos: redosPlugin },
     rules: {
       'redos/no-vulnerable': 'error',
     },
   },
   {
-    files: ['tests/**/*.ts', 'tests/**/*.tsx', 'tests/**/*.mts', 'tests/**/*.cts'],
+    // The core package prints nothing, reads host state only through an injected context,
+    // and never reaches into the CLI tree.
+    files: ['packages/core/src/**/*.ts'],
+    rules: {
+      'no-console': 'error',
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            { name: 'node:os', message: hostStateMessage },
+            { name: 'os', message: hostStateMessage },
+            { name: 'node:process', message: hostStateMessage },
+            { name: 'process', message: hostStateMessage },
+          ],
+          patterns: [
+            {
+              regex: String.raw`^(?:\.\./){2,}src(?:/|$)`,
+              message: 'The core package must not import from the CLI tree.',
+            },
+          ],
+        },
+      ],
+      'no-restricted-properties': [
+        'error',
+        { object: 'process', property: 'env', message: hostStateMessage },
+        { object: 'process', property: 'platform', message: hostStateMessage },
+        { object: 'os', property: 'homedir', message: hostStateMessage },
+        { object: 'process', property: 'cwd', message: hostStateMessage },
+        { object: 'process', property: 'stdout', message: 'The core package prints nothing.' },
+        { object: 'process', property: 'stderr', message: 'The core package prints nothing.' },
+        { object: 'globalThis', property: 'process', message: hostStateMessage },
+      ],
+    },
+  },
+  {
+    files: ['tests/**/*.{ts,tsx,mts,cts}', 'packages/*/tests/**/*.{ts,tsx,mts,cts}'],
     rules: {
       '@typescript-eslint/no-unsafe-type-assertion': 'off',
     },

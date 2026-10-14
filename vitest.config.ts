@@ -3,7 +3,22 @@ import path from 'node:path';
 
 import { defineConfig } from 'vitest/config';
 
+// Forward slashes on every platform: the `$1` splice below must yield a valid specifier on
+// Windows too.
+const coreSourceRoot = path.resolve(import.meta.dirname, 'packages/core/src').replaceAll('\\', '/');
+
 export default defineConfig({
+  // Mirrors the tsconfig `paths`: the CLI resolves the core package to its source, never
+  // to a built dist or a root dependency.
+  resolve: {
+    alias: [
+      { find: /^@ayagmar\/agent-sessions$/, replacement: `${coreSourceRoot}/index.ts` },
+      {
+        find: /^@ayagmar\/agent-sessions\/(.+)$/,
+        replacement: `${coreSourceRoot}/$1/index.ts`,
+      },
+    ],
+  },
   test: {
     include: ['tests/**/*.test.ts'],
     // Windows CI runners are several times slower at SQLite and child-process work; the

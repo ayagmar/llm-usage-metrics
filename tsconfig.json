@@ -9,7 +9,11 @@
     "skipLibCheck": true,
     "outDir": "dist",
     "rootDir": ".",
-    "types": ["node", "vitest/globals"]
+    "types": ["node", "vitest/globals"],
+    "paths": {
+      "@ayagmar/agent-sessions": ["./packages/core/src/index.ts"],
+      "@ayagmar/agent-sessions/*": ["./packages/core/src/*/index.ts"]
+    }
   },
   "include": ["src", "tests", "vitest.config.ts", "eslint.config.js"]
 }

@@ -1,0 +1,119 @@
+import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+
+import { afterEach, describe, expect, it } from 'vitest';
+
+import { discoverJsonlFiles } from '../src/utils/discover-jsonl-files.js';
+import { canonicalTmpdir } from './helpers/tmp.js';
+
+const tempDirs: string[] = [];
+const itWhenUnix = process.platform === 'win32' ? it.skip : it;
+
+afterEach(async () => {
+  await Promise.all(tempDirs.map((dir) => rm(dir, { recursive: true, force: true })));
+  tempDirs.length = 0;
+});
+
+describe('discoverJsonlFiles', () => {
+  it('recursively discovers jsonl files in deterministic order', async () => {
+    const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'discover-jsonl-'));
+    tempDirs.push(rootDir);
+
+    const alphaDir = path.join(rootDir, 'alpha');
+    const alphaNestedDir = path.join(alphaDir, 'nested');
+    const betaDir = path.join(rootDir, 'beta');
+
+    await mkdir(alphaNestedDir, { recursive: true });
+    await mkdir(betaDir, { recursive: true });
+
+    const alphaFile = path.join(alphaDir, 'first.jsonl');
+    const alphaNestedFile = path.join(alphaNestedDir, 'second.jsonl');
+    const betaFile = path.join(betaDir, 'third.jsonl');
+
+    await writeFile(alphaFile, '{}\n', 'utf8');
+    await writeFile(alphaNestedFile, '{}\n', 'utf8');
+    await writeFile(betaFile, '{}\n', 'utf8');
+    await writeFile(path.join(rootDir, 'ignore.txt'), 'not-jsonl\n', 'utf8');
+
+    const discoveredFiles = await discoverJsonlFiles(rootDir);
+
+    expect(discoveredFiles).toEqual([alphaFile, alphaNestedFile, betaFile]);
+  });
+
+  it('sorts file names by code point for locale-independent ordering', async () => {
+    const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'discover-jsonl-code-point-'));
+    tempDirs.push(rootDir);
+
+    // B (66) sorts before a (97) by code point but after it in locale order; unlike A/a,
+    // the two names stay distinct on case-insensitive filesystems (macOS, Windows).
+    const upperFile = path.join(rootDir, 'B.jsonl');
+    const lowerFile = path.join(rootDir, 'a.jsonl');
+
+    await writeFile(lowerFile, '{}\n', 'utf8');
+    await writeFile(upperFile, '{}\n', 'utf8');
+
+    const discoveredFiles = await discoverJsonlFiles(rootDir);
+
+    expect(discoveredFiles).toEqual([upperFile, lowerFile]);
+  });
+
+  it('discovers jsonl files case-insensitively by extension', async () => {
+    const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'discover-jsonl-extension-case-'));
+    tempDirs.push(rootDir);
+
+    const lowerFile = path.join(rootDir, 'lower.jsonl');
+    const upperFile = path.join(rootDir, 'upper.JSONL');
+
+    await writeFile(lowerFile, '{}\n', 'utf8');
+    await writeFile(upperFile, '{}\n', 'utf8');
+
+    const discoveredFiles = await discoverJsonlFiles(rootDir);
+
+    expect(discoveredFiles).toEqual([lowerFile, upperFile]);
+  });
+
+  it('returns an empty list when the root directory does not exist', async () => {
+    const missingDir = path.join(canonicalTmpdir(), `discover-jsonl-missing-${Date.now()}`);
+
+    await expect(discoverJsonlFiles(missingDir)).resolves.toEqual([]);
+  });
+
+  it('propagates non-ENOENT discovery errors', async () => {
+    const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'discover-jsonl-errors-'));
+    tempDirs.push(rootDir);
+
+    const regularFile = path.join(rootDir, 'file.jsonl');
+    await writeFile(regularFile, '{}\n', 'utf8');
+
+    await expect(discoverJsonlFiles(regularFile)).rejects.toThrow();
+  });
+
+  itWhenUnix(
+    'skips unreadable nested directories and continues walking readable paths',
+    async () => {
+      const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'discover-jsonl-permissions-'));
+      tempDirs.push(rootDir);
+
+      const readableDir = path.join(rootDir, 'readable');
+      const blockedDir = path.join(rootDir, 'blocked');
+
+      await mkdir(readableDir, { recursive: true });
+      await mkdir(blockedDir, { recursive: true });
+
+      const readableFile = path.join(readableDir, 'keep.jsonl');
+      const blockedFile = path.join(blockedDir, 'hidden.jsonl');
+
+      await writeFile(readableFile, '{}\n', 'utf8');
+      await writeFile(blockedFile, '{}\n', 'utf8');
+
+      await chmod(blockedDir, 0o000);
+
+      try {
+        const discoveredFiles = await discoverJsonlFiles(rootDir);
+        expect(discoveredFiles).toEqual([readableFile]);
+      } finally {
+        await chmod(blockedDir, 0o755);
+      }
+    },
+  );
+});
