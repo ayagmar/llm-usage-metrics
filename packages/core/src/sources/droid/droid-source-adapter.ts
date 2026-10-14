@@ -211,7 +211,6 @@ export class DroidSourceAdapter implements SourceAdapter {
           cacheReadTokens,
           cacheWriteTokens,
           totalTokens,
-          costMode: 'estimated',
         }),
       );
     } catch {

@@ -88,7 +88,6 @@ describe('DroidSourceAdapter', () => {
         cacheReadTokens: 3,
         cacheWriteTokens: 2,
         totalTokens: 20,
-        costMode: 'estimated',
       });
     });
 

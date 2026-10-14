@@ -107,7 +107,6 @@ describe('PiSourceAdapter', () => {
       cacheWriteTokens: 3,
       totalTokens: 120,
       costUsd: 0.01,
-      costMode: 'explicit',
     });
 
     expect(events[1]).toMatchObject({
@@ -118,7 +117,6 @@ describe('PiSourceAdapter', () => {
       inputTokens: 10,
       outputTokens: 10,
       totalTokens: 20,
-      costMode: 'explicit',
     });
 
     expect(events[2]).toMatchObject({
@@ -130,7 +128,6 @@ describe('PiSourceAdapter', () => {
       inputTokens: 2,
       outputTokens: 3,
       totalTokens: 5,
-      costMode: 'estimated',
     });
 
     expect(events[2]?.timestamp).toBe('2026-02-12T20:01:00.000Z');
@@ -341,7 +338,6 @@ describe('PiSourceAdapter', () => {
       cacheWriteTokens: 0,
       totalTokens: 33,
       costUsd: undefined,
-      costMode: 'estimated',
     });
   });
 
@@ -735,7 +731,6 @@ describe('PiSourceAdapter', () => {
     expect(events[0]).toMatchObject({
       totalTokens: 0,
       costUsd: 0.42,
-      costMode: 'explicit',
     });
   });
 });

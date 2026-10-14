@@ -16,10 +16,12 @@ export type SourceId = 'pi' | 'codex' | (string & {});
  */
 export const USAGE_EVENT_NORMALIZATION_VERSION = 2;
 
+/**
+ * How a consumer marks an event's cost: `explicit` when the source logged `costUsd`,
+ * `estimated` when it is priced from tokens. Events leave adapters without one; the
+ * content hash takes it as input.
+ */
 export type CostMode = 'explicit' | 'estimated';
-
-/** How reports and `--machine` name this machine, next to the configured ones. */
-export const LOCAL_MACHINE_NAME = 'local';
 
 export type UsageEvent = {
   source: SourceId;
@@ -39,10 +41,6 @@ export type UsageEvent = {
   totalTokens: number;
 
   costUsd?: number;
-  costMode: CostMode;
-
-  /** The configured machine the event came from; undefined for this machine's own usage. */
-  machine?: string;
 };
 
 export type BillableTokenUsage = Pick<
@@ -67,7 +65,6 @@ export type UsageEventInput = {
   totalTokens?: NumberLike;
 
   costUsd?: NumberLike;
-  costMode?: CostMode;
 };
 
 export function normalizeSourceId(value: unknown): SourceId | undefined {
@@ -121,18 +118,6 @@ export function normalizeOptionalModel(value: string | undefined): string | unde
   return normalized || undefined;
 }
 
-function resolveCostMode(costMode: CostMode | undefined, costUsd: number | undefined): CostMode {
-  if (costMode === 'explicit' && costUsd === undefined) {
-    throw new Error('UsageEvent with costMode "explicit" requires costUsd');
-  }
-
-  if (costMode) {
-    return costMode;
-  }
-
-  return costUsd === undefined ? 'estimated' : 'explicit';
-}
-
 export function getEventSessionKey(event: Pick<UsageEvent, 'source' | 'sessionId'>): string {
   return `${event.source}\0${event.sessionId}`;
 }
@@ -159,7 +144,6 @@ export function createUsageEvent(input: UsageEventInput): UsageEvent {
   const totalTokens = input.totalTokens === undefined ? componentTotalTokens : declaredTotalTokens;
 
   const costUsd = normalizeUsdCost(input.costUsd);
-  const costMode = resolveCostMode(input.costMode, costUsd);
 
   return {
     source,
@@ -176,7 +160,6 @@ export function createUsageEvent(input: UsageEventInput): UsageEvent {
     cacheWrite1hTokens,
     totalTokens,
     costUsd,
-    costMode,
   };
 }
 

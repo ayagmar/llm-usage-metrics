@@ -368,7 +368,6 @@ export class GeminiSourceAdapter implements SourceAdapter {
             provider: 'google',
             model,
             ...tokens,
-            costMode: 'estimated',
           }),
         );
       } catch {

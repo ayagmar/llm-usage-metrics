@@ -105,7 +105,6 @@ describe('opencode row parser', () => {
       cacheWriteTokens: 10,
       totalTokens: 175,
       costUsd: 1.5,
-      costMode: 'explicit',
     });
   });
 
@@ -144,7 +143,6 @@ describe('opencode row parser', () => {
     expect(parseDiagnostics.events[0]).toMatchObject({
       sessionId: 'msg-fallback-id',
       totalTokens: 5,
-      costMode: 'estimated',
     });
     expect(parseDiagnostics.events[1]).toMatchObject({
       sessionId: 'session-from-payload',
@@ -204,7 +202,6 @@ describe('opencode row parser', () => {
       sessionId: 'session-explicit-zero',
       totalTokens: 0,
       costUsd: 0,
-      costMode: 'explicit',
     });
   });
 
@@ -240,7 +237,6 @@ describe('opencode row parser', () => {
       cacheWriteTokens: 0,
       totalTokens: 21,
       costUsd: undefined,
-      costMode: 'estimated',
     });
   });
 

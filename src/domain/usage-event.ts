@@ -40,3 +40,28 @@ export function createUsageEvent(input: UsageEventInput): UsageEvent {
 
   return Object.assign(core.createUsageEvent(input), { costMode });
 }
+
+/** A parsed file's diagnostics as the CLI holds them: every event carries a cost mode. */
+export type ParseFileDiagnostics = Omit<core.SourceParseFileDiagnostics, 'events'> & {
+  events: UsageEvent[];
+};
+
+type AdapterEvent = core.UsageEvent & { costMode?: core.CostMode };
+
+function hasCostMode(event: AdapterEvent): event is UsageEvent {
+  return event.costMode !== undefined;
+}
+
+/**
+ * Adapter output carries no cost mode: a cost the source logged is explicit, any other
+ * is estimated by pricing later. An event that already has a mode keeps it.
+ */
+export function withCostMode(event: AdapterEvent): UsageEvent {
+  return hasCostMode(event)
+    ? event
+    : { ...event, costMode: event.costUsd === undefined ? 'estimated' : 'explicit' };
+}
+
+export function withCostModes(diagnostics: core.SourceParseFileDiagnostics): ParseFileDiagnostics {
+  return { ...diagnostics, events: diagnostics.events.map(withCostMode) };
+}

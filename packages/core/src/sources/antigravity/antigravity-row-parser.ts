@@ -201,7 +201,6 @@ export function parseAntigravityMetadataBlob(
         cacheWriteTokens: 0,
         // Reasoning is already inside output, so it must not be added to the total again.
         totalTokens: usage.inputTokens + usage.outputTokens + usage.cacheReadTokens,
-        costMode: 'estimated',
       }),
     };
   } catch {

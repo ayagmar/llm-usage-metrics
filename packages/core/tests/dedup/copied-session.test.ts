@@ -18,7 +18,6 @@ function createEvent(
     inputTokens: 10,
     outputTokens,
     cacheReadTokens: 100,
-    costMode: 'estimated',
   });
 }
 

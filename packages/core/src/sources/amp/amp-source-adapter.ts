@@ -188,7 +188,6 @@ function pushAmpEvent(
         timestamp: input.timestamp,
         model: input.model,
         ...input.usage,
-        costMode: 'estimated',
       }),
     );
   } catch {

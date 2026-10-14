@@ -1,7 +1,11 @@
 import { dedupeRepeatedAcrossFiles } from '@ayagmar/agent-sessions';
 
 import type { EventStoreRuntimeConfig } from '../config/runtime-overrides.js';
-import type { UsageEvent } from '../domain/usage-event.js';
+import {
+  withCostModes,
+  type ParseFileDiagnostics,
+  type UsageEvent,
+} from '../domain/usage-event.js';
 import {
   claimOverrideOnlyFiles as claimDefaultOverrideOnlyFiles,
   closeEventStore as closeDefaultEventStore,
@@ -13,11 +17,7 @@ import {
   type EventStoreFileFingerprint,
 } from '../persistence/event-store.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
-import type {
-  SourceAdapter,
-  SourceParseFileDiagnostics,
-  SourceSkippedRowReasonStat,
-} from '@ayagmar/agent-sessions';
+import type { SourceAdapter, SourceSkippedRowReasonStat } from '@ayagmar/agent-sessions';
 import { normalizeSkippedRowReasons } from './normalize-skipped-row-reasons.js';
 import {
   claimFilesInUsualLocations,
@@ -111,7 +111,7 @@ type FileLookup =
   | {
       kind: 'hit';
       fileFingerprint: EventStoreFileFingerprint;
-      diagnostics: SourceParseFileDiagnostics;
+      diagnostics: ParseFileDiagnostics;
     }
   | { kind: 'miss'; fileFingerprint?: EventStoreFileFingerprint };
 
@@ -121,10 +121,6 @@ type MissedParseFile = {
   fileFingerprint?: EventStoreFileFingerprint;
   byteSize: number;
 };
-
-function getDefaultParseFileDiagnostics(events: UsageEvent[]): SourceParseFileDiagnostics {
-  return { events, skippedRows: 0, skippedRowReasons: [] };
-}
 
 function normalizeSkippedRowsCount(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
@@ -200,17 +196,19 @@ export async function parseAdapterEvents(
     );
   }
 
-  async function parseFileInline(filePath: string): Promise<SourceParseFileDiagnostics> {
-    return adapter.parseFileWithDiagnostics
-      ? await adapter.parseFileWithDiagnostics(filePath)
-      : getDefaultParseFileDiagnostics(await adapter.parseFile(filePath));
+  async function parseFileInline(filePath: string): Promise<ParseFileDiagnostics> {
+    return withCostModes(
+      adapter.parseFileWithDiagnostics
+        ? await adapter.parseFileWithDiagnostics(filePath)
+        : { events: await adapter.parseFile(filePath), skippedRows: 0, skippedRowReasons: [] },
+    );
   }
 
   function recordParsedFile(params: {
     fileIndex: number;
     filePath: string;
     fileFingerprint?: EventStoreFileFingerprint;
-    diagnostics: SourceParseFileDiagnostics;
+    diagnostics: ParseFileDiagnostics;
     servedFromEventStore: boolean;
   }): void {
     const skippedRows = normalizeSkippedRowsCount(params.diagnostics.skippedRows);

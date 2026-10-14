@@ -152,7 +152,6 @@ describe('KimiSourceAdapter', () => {
       cacheReadTokens: 10,
       cacheWriteTokens: 5,
       totalTokens: 80,
-      costMode: 'estimated',
     });
 
     expect(result.events[1]).toMatchObject({
@@ -362,7 +361,6 @@ describe('KimiSourceAdapter', () => {
       cacheReadTokens: 2,
       cacheWriteTokens: 3,
       totalTokens: 23,
-      costMode: 'estimated',
     });
 
     expect(result.skippedRows).toBe(2);

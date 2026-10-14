@@ -113,7 +113,6 @@ describe('AmpSourceAdapter', () => {
         cacheReadTokens: 30,
         cacheWriteTokens: 20,
         totalTokens: 190,
-        costMode: 'estimated',
       });
       expect(result.events[0].costUsd).toBeUndefined();
       expect(result.events[1]).toMatchObject({

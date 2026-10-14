@@ -334,7 +334,6 @@ export class ClaudeSourceAdapter implements SourceAdapter {
             provider: pendingEvent.provider,
             model: pendingEvent.model,
             ...pendingEvent.usage,
-            costMode: 'estimated',
           }),
         );
       } catch {

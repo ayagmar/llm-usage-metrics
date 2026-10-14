@@ -69,7 +69,6 @@ describe('CodexSourceAdapter', () => {
       outputTokens: 50,
       reasoningTokens: 10,
       totalTokens: 150,
-      costMode: 'estimated',
     });
 
     expect(events[1]).toMatchObject({
@@ -82,7 +81,6 @@ describe('CodexSourceAdapter', () => {
       outputTokens: 15,
       reasoningTokens: 5,
       totalTokens: 65,
-      costMode: 'estimated',
     });
 
     expect(events[2]).toMatchObject({
@@ -95,7 +93,6 @@ describe('CodexSourceAdapter', () => {
       outputTokens: 60,
       reasoningTokens: 12,
       totalTokens: 180,
-      costMode: 'estimated',
     });
 
     expect(events.every((event) => event.inputTokens >= 0)).toBe(true);
@@ -344,7 +341,6 @@ describe('CodexSourceAdapter', () => {
       outputTokens: 30,
       reasoningTokens: 5,
       totalTokens: 130,
-      costMode: 'estimated',
     });
   });
 

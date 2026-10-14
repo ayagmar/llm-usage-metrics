@@ -222,7 +222,6 @@ export function parseOpenCodeMessageRows(
           cacheWriteTokens,
           totalTokens,
           costUsd: explicitCost,
-          costMode: explicitCost === undefined ? 'estimated' : 'explicit',
         }),
       );
     } catch {

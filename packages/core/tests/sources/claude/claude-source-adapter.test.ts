@@ -345,7 +345,6 @@ describe('ClaudeSourceAdapter', () => {
       cacheReadTokens: 3,
       outputTokens: 7,
       totalTokens: 22,
-      costMode: 'estimated',
     });
     expect(events[1]).toMatchObject({
       provider: 'parasail',

@@ -9,15 +9,18 @@ import {
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 
 function createEvent(sessionId: string, timestamp: string, outputTokens = 5) {
-  return createUsageEvent({
-    source: 'pi',
-    sessionId,
-    timestamp,
-    provider: 'anthropic',
-    model: 'claude-sonnet-4-5',
-    inputTokens: 10,
-    outputTokens,
-  });
+  return {
+    ...createUsageEvent({
+      source: 'pi',
+      sessionId,
+      timestamp,
+      provider: 'anthropic',
+      model: 'claude-sonnet-4-5',
+      inputTokens: 10,
+      outputTokens,
+    }),
+    costMode: 'estimated' as const,
+  };
 }
 
 describe('addHashCount', () => {
@@ -77,9 +80,9 @@ describe('dedupeRepeatedAcrossFiles', () => {
   });
 
   it('returns the caller event type with its extra fields', () => {
-    const event = { ...createEvent('shared', '2026-10-09T10:00:00.000Z'), machine: 'laptop' };
-    const result = dedupeRepeatedAcrossFiles([[event], [{ ...event, machine: 'desktop' }]]);
+    const event = { ...createEvent('shared', '2026-10-09T10:00:00.000Z'), origin: 'laptop' };
+    const result = dedupeRepeatedAcrossFiles([[event], [{ ...event, origin: 'desktop' }]]);
 
-    expect(result.map((kept) => kept.machine)).toEqual(['laptop']);
+    expect(result.map((kept) => kept.origin)).toEqual(['laptop']);
   });
 });

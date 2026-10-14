@@ -378,7 +378,6 @@ function toUsageEvent(candidate: CopilotCandidate): UsageEvent {
     cacheReadTokens: candidate.cacheReadTokens,
     cacheWriteTokens: candidate.cacheWriteTokens,
     totalTokens: resolveUsageTotalTokens(candidate),
-    costMode: 'estimated',
   });
 }
 

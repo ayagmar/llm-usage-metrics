@@ -250,7 +250,6 @@ function parseUsageEntry(context: ClineParseContext, entry: Record<string, unkno
 
   pushClineEvent(context, {
     ...eventInput,
-    costMode: 'estimated',
   });
 }
 

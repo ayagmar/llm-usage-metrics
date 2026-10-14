@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { dedupeCopiedSessions } from '../../src/dedup/copied-session.js';
 import { dedupeRepeatedAcrossFiles } from '../../src/dedup/repeated-across-files.js';
-import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.js';
+import { createUsageEvent, type CostMode, type UsageEvent } from '../../src/domain/usage-event.js';
 import { mulberry32, pick, randomInt, shuffle, type Random } from '../helpers/seeded-random.js';
 
 const ITERATIONS = 200;
@@ -257,7 +257,8 @@ describe('dedupeCopiedSessions properties', () => {
 });
 
 describe('dedupeRepeatedAcrossFiles properties', () => {
-  type EventFile = UsageEvent[];
+  type HashedEvent = UsageEvent & { costMode: CostMode };
+  type EventFile = HashedEvent[];
 
   function linesOf(events: readonly UsageEvent[]): string[] {
     return events.map((event) => JSON.stringify(event));
@@ -269,18 +270,20 @@ describe('dedupeRepeatedAcrossFiles properties', () => {
 
   // The content hash covers repoRoot, costMode and costUsd, so they follow the session
   // and the shape: a repeated event is identical in every file that holds it.
-  function createFileEvent(sessionIndex: number, shape: EventShape): UsageEvent {
-    return createUsageEvent({
-      source: 'pi',
-      sessionId: `session-${sessionIndex}`,
-      timestamp: shape.timestamp,
-      provider: 'anthropic',
-      model: shape.model,
-      ...shape.usage,
-      repoRoot: `/repos/project-${sessionIndex}`,
-      costUsd: (shape.usage.inputTokens + shape.usage.outputTokens) / 1000,
+  function createFileEvent(sessionIndex: number, shape: EventShape): HashedEvent {
+    return {
+      ...createUsageEvent({
+        source: 'pi',
+        sessionId: `session-${sessionIndex}`,
+        timestamp: shape.timestamp,
+        provider: 'anthropic',
+        model: shape.model,
+        ...shape.usage,
+        repoRoot: `/repos/project-${sessionIndex}`,
+        costUsd: (shape.usage.inputTokens + shape.usage.outputTokens) / 1000,
+      }),
       costMode: 'explicit',
-    });
+    };
   }
 
   // Each file holds a few sessions' events, drawn without repeats within the file; files

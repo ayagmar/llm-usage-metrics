@@ -89,7 +89,6 @@ describe.skipIf(!DatabaseSync)('AntigravitySourceAdapter', () => {
       cacheReadTokens: 20,
       cacheWriteTokens: 0,
       totalTokens: 1_259,
-      costMode: 'estimated',
     });
   });
 
