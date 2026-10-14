@@ -1,3 +1,4 @@
+export { addHashCount, takeUncountedEvents } from '../dedup/repeated-across-files.js';
 export * from '../sources/multi-directory-source-adapter.js';
 export * from '../sources/multi-root-discovery.js';
 export * from '../sources/parse-diagnostics.js';

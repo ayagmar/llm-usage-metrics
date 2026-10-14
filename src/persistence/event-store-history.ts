@@ -1,4 +1,4 @@
-import { addHashCount, takeUncountedEvents } from '@ayagmar/agent-sessions';
+import { addHashCount, takeUncountedEvents } from '@ayagmar/agent-sessions/internal';
 
 import type { UsageEvent } from '../domain/usage-event.js';
 import { normalizeSourceId } from '../domain/usage-event.js';
