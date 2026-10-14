@@ -138,12 +138,20 @@ export async function assertReadEventsInvariants(
     expect(declared, `I4: ${event.kind} is a declared kind`).toContain(event.kind);
   }
 
-  // I2: a one-kind read is the all-kinds read filtered to that kind.
+  // I2: a one-kind read is the all-kinds read filtered to that kind, and a read without
+  // usage records none of read's reason codes (rule 4).
   for (const kind of declared) {
     const single = await readWith(adapter, filePath, { kinds: [kind], text: true, raw: true });
     expect(single.events, `I2: a ${kind}-only read is the all-kinds read filtered`).toStrictEqual(
       full.events.filter((event) => event.kind === kind),
     );
+
+    if (kind !== 'usage') {
+      expect(
+        Object.keys(single.diagnostics.skippedRowReasons).filter(isReadReasonCode),
+        `I2: a ${kind}-only read records no reason code of read`,
+      ).toEqual([]);
+    }
   }
 
   // I5: every event's session id is its record's usage derivation.

@@ -274,6 +274,7 @@ describe('CodexSourceAdapter.readEvents', () => {
     // is an orphan.
     expect(reasons).toEqual({
       json_parse_error: 1,
+      invalid_timestamp: 1,
       other_json_parse_error: 1,
       message_unknown_role: 1,
       tool_call_missing_id: 1,
@@ -311,11 +312,14 @@ describe('CodexSourceAdapter.readEvents', () => {
   });
 
   it('records only the reason codes of the kinds it yields', async () => {
-    await expect(read(SESSION_EVENTS, { kinds: ['message'] })).resolves.toMatchObject({
-      reasons: { other_json_parse_error: 2, message_unknown_role: 1 },
+    // The last line is a token_count with a delta and no timestamp: only usage counts it.
+    expect((await read(SESSION_EVENTS, { kinds: ['message'] })).reasons).toEqual({
+      other_json_parse_error: 2,
+      message_unknown_role: 1,
     });
-    await expect(read(SESSION_EVENTS, { kinds: ['usage'] })).resolves.toMatchObject({
-      reasons: { json_parse_error: 1 },
+    expect((await read(SESSION_EVENTS, { kinds: ['usage'] })).reasons).toEqual({
+      json_parse_error: 1,
+      invalid_timestamp: 1,
     });
     await expect(read(SESSION_EVENTS, { kinds: [] })).resolves.toEqual({
       events: [],
