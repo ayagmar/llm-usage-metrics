@@ -1,15 +1,14 @@
 import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { AmpSourceAdapter } from '../../src/sources/amp/amp-source-adapter.js';
-import { createSourceContext } from '../../src/sources/source-context.js';
+import { AmpSourceAdapter } from '../../../src/sources/amp/index.js';
+import { createSourceContext } from '../../../src/sources/source-context.js';
+import { fixturePath as packageFixturePath } from '../../helpers/fixtures.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const fixturesDir = path.join(__dirname, '..', 'fixtures', 'amp');
+const fixturesDir = packageFixturePath(import.meta.url, '../../fixtures/amp');
 const tempDirs: string[] = [];
 
 afterEach(async () => {

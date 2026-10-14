@@ -5,11 +5,8 @@ import { zstdCompressSync } from 'node:zlib';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import {
-  DshSourceAdapter,
-  getDefaultDshSessionsDir,
-} from '../../src/sources/dsh/dsh-source-adapter.js';
-import { DshSessionLogUnreadableError } from '../../src/sources/dsh/dsh-session-log-reader.js';
+import { DshSourceAdapter, getDefaultDshSessionsDir } from '../../../src/sources/dsh/index.js';
+import { DshSessionLogUnreadableError } from '../../../src/sources/dsh/dsh-session-log-reader.js';
 import {
   createTornTailBytes,
   dshAssistantMessageFixture,
@@ -18,8 +15,8 @@ import {
   resolveDshSessionLogPath,
   writeDshSessionLog,
   type DshSessionHeaderFixture,
-} from '../fixtures/dsh/dsh-session-fixtures.js';
-import { createSourceContext } from '../../src/sources/source-context.js';
+} from '../../fixtures/dsh/dsh-session-fixtures.js';
+import { createSourceContext } from '../../../src/sources/source-context.js';
 
 const tempDirs: string[] = [];
 
