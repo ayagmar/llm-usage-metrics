@@ -1,11 +1,17 @@
 import { createUsageEvent, type UsageEvent } from '../../domain/usage-event.js';
+import { collectFile } from '../../stream/collect.js';
 import { asRecord } from '../../utils/as-record.js';
 import { pathExists, pathIsFile, pathReadable } from '../../utils/fs-helpers.js';
-import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
+import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import { asTrimmedText, isBlankText, normalizeTimestampCandidate } from '../parsing-utils.js';
-import type { SourceAdapter, SourceParseFileDiagnostics } from '../source-adapter.js';
+import type {
+  SourceAdapter,
+  SourceParseFileDiagnostics,
+  SourceReadOptions,
+} from '../source-adapter.js';
 import { createSourceContext, type SourceContext } from '../source-context.js';
 import { getDefaultGooseDbPathCandidates } from './goose-db-path-resolver.js';
+import { iterateRows } from '../sqlite/iterate-rows.js';
 import { loadNodeSqliteModule, type SqliteModule } from '../sqlite/node-sqlite-loader.js';
 
 type PathPredicate = (filePath: string) => Promise<boolean>;
@@ -226,11 +232,6 @@ export class GooseSourceAdapter implements SourceAdapter {
     return [];
   }
 
-  public async parseFile(dbPath: string): Promise<UsageEvent[]> {
-    const parseDiagnostics = await this.parseFileWithDiagnostics(dbPath);
-    return parseDiagnostics.events;
-  }
-
   public async getParseDependencies(dbPath: string): Promise<string[]> {
     if (isBlankText(dbPath)) {
       return [];
@@ -240,7 +241,9 @@ export class GooseSourceAdapter implements SourceAdapter {
     return [`${normalizedDbPath}-wal`, `${normalizedDbPath}-journal`];
   }
 
-  public async parseFileWithDiagnostics(dbPath: string): Promise<SourceParseFileDiagnostics> {
+  public async *read(dbPath: string, options: SourceReadOptions = {}): AsyncGenerator<UsageEvent> {
+    const diagnostics = options.diagnostics ?? createReadDiagnostics();
+
     if (isBlankText(dbPath)) {
       throw new Error('Goose DB path must be a non-empty path');
     }
@@ -260,27 +263,29 @@ export class GooseSourceAdapter implements SourceAdapter {
     const database = new sqlite.DatabaseSync(normalizedDbPath, { readOnly: true, timeout: 0 });
 
     try {
-      const rows = database.prepare(gooseSessionsQuery).all() as GooseSqliteRow[];
-      const events: UsageEvent[] = [];
-      let skippedRows = 0;
-      const skippedRowReasons = new Map<string, number>();
+      const rows: Iterable<GooseSqliteRow> = iterateRows(database.prepare(gooseSessionsQuery));
 
       for (const row of rows) {
         const parsedRow = parseGooseRow(row);
 
-        if (parsedRow.event) {
-          events.push(parsedRow.event);
+        if (parsedRow.skippedReason) {
+          recordSkippedRow(diagnostics, parsedRow.skippedReason);
         }
 
-        if (parsedRow.skippedReason) {
-          skippedRows++;
-          incrementSkippedReason(skippedRowReasons, parsedRow.skippedReason);
+        if (parsedRow.event) {
+          yield parsedRow.event;
         }
       }
-
-      return toParseDiagnostics(events, skippedRows, skippedRowReasons);
     } finally {
       database.close();
     }
+  }
+
+  public async parseFile(dbPath: string): Promise<UsageEvent[]> {
+    return (await collectFile(this, dbPath)).events;
+  }
+
+  public parseFileWithDiagnostics(dbPath: string): Promise<SourceParseFileDiagnostics> {
+    return collectFile(this, dbPath);
   }
 }
