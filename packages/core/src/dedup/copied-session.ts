@@ -1,3 +1,4 @@
+import { isUsageEvent, type SessionEvent } from '../domain/session-event.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { collect } from '../stream/collect.js';
 import type { Stage } from '../stream/pipe.js';
@@ -86,17 +87,22 @@ function findEventsOtherSessionsHold<E extends UsageEvent>(events: readonly E[])
  * identical events all count, as they would without copies. Kept events stay in their
  * input order.
  */
-export function dedupeCopiedSessions<E extends UsageEvent>(events: readonly E[]): E[] {
-  const candidates = findEventsOtherSessionsHold(events);
+export function dedupeCopiedSessions<E extends UsageEvent | SessionEvent>(
+  events: readonly E[],
+): E[] {
+  // Only usage is deduplicated; session starts come from usage too, so other kinds in the
+  // input never change which session keeps a copy.
+  const usageEvents = events.filter((event) => isUsageEvent(event));
+  const candidates = findEventsOtherSessionsHold(usageEvents);
 
   if (candidates.size === 0) {
     return [...events];
   }
 
   const sessionStarts = new Map<string, string>();
-  const candidatesBySession = new Map<string, E[]>();
+  const candidatesBySession = new Map<string, (E & UsageEvent)[]>();
 
-  for (const event of events) {
+  for (const event of usageEvents) {
     const start = sessionStarts.get(event.sessionId);
 
     if (start === undefined || compareByCodePoint(event.timestamp, start) < 0) {
@@ -116,7 +122,7 @@ export function dedupeCopiedSessions<E extends UsageEvent>(events: readonly E[])
       compareByCodePoint(left, right),
   );
   const countedIdentities = new Map<string, number>();
-  const copies = new Set<E>();
+  const copies = new Set<E & UsageEvent>();
 
   for (const sessionId of sessionsOldestFirst) {
     const sessionCounts = new Map<string, number>();
@@ -136,14 +142,15 @@ export function dedupeCopiedSessions<E extends UsageEvent>(events: readonly E[])
     }
   }
 
-  return events.filter((event) => !copies.has(event));
+  return events.filter((event) => !isUsageEvent(event) || !copies.has(event));
 }
 
 /**
  * The stage form of `dedupeCopiedSessions`. It buffers its whole input before yielding,
- * since which session keeps a copy depends on every session's first event.
+ * since which session keeps a copy depends on every session's first event; with message
+ * text requested, that includes every message body.
  */
-export function copiedSessions<E extends UsageEvent>(): Stage<E, E> {
+export function copiedSessions<E extends UsageEvent | SessionEvent>(): Stage<E, E> {
   return async function* (source) {
     yield* dedupeCopiedSessions(await collect(source));
   };

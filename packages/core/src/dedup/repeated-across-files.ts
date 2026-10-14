@@ -1,8 +1,15 @@
+import { isUsageEvent, type SessionEvent } from '../domain/session-event.js';
 import type { CostMode, UsageEvent } from '../domain/usage-event.js';
 import type { Stage } from '../stream/pipe.js';
 import { computeEventContentHash } from './content-hash.js';
 
 type HashedEvent = UsageEvent & { costMode?: CostMode };
+// Usage events are deduplicated; other kinds pass through where they are.
+type DedupedEvent = HashedEvent | SessionEvent;
+
+function isHashedEvent<E extends DedupedEvent>(event: E): event is E & HashedEvent {
+  return isUsageEvent(event);
+}
 
 export function addHashCount(target: Map<string, number>, hash: string, count: number): void {
   if (count <= 0) {
@@ -18,13 +25,17 @@ export function addHashCount(target: Map<string, number>, hash: string, count: n
  * covers the session id and timestamp, so it is the same event, not a lookalike: e.g. a
  * pi fork's copy of a parent session that is also counted from the parent or another fork.
  */
-export function takeUncountedEvents<E extends HashedEvent>(
+export function takeUncountedEvents<E extends DedupedEvent>(
   events: readonly E[],
   countedHashes: Map<string, number>,
 ): E[] {
   const fileHashCounts = new Map<string, number>();
   const keptHashes: string[] = [];
   const keptEvents = events.filter((event) => {
+    if (!isHashedEvent(event)) {
+      return true;
+    }
+
     const hash = computeEventContentHash(event);
     const seen = (fileHashCounts.get(hash) ?? 0) + 1;
     fileHashCounts.set(hash, seen);
@@ -45,7 +56,7 @@ export function takeUncountedEvents<E extends HashedEvent>(
 }
 
 /** Counts an event that several files repeat once, from the first file holding it. */
-export function dedupeRepeatedAcrossFiles<E extends HashedEvent>(
+export function dedupeRepeatedAcrossFiles<E extends DedupedEvent>(
   eventsByFile: readonly (readonly E[])[],
 ): E[] {
   // Only an event whose session has events in another file can be a repeat, so only
@@ -55,6 +66,10 @@ export function dedupeRepeatedAcrossFiles<E extends HashedEvent>(
 
   eventsByFile.forEach((events, fileIndex) => {
     for (const event of events) {
+      if (!isHashedEvent(event)) {
+        continue;
+      }
+
       const ownerIndex = fileIndexBySession.get(event.sessionId);
 
       if (ownerIndex === undefined) {
@@ -68,7 +83,7 @@ export function dedupeRepeatedAcrossFiles<E extends HashedEvent>(
   const countedHashes = new Map<string, number>();
 
   return eventsByFile.flatMap((events) =>
-    events.some((event) => sharedSessions.has(event.sessionId))
+    events.some((event) => isHashedEvent(event) && sharedSessions.has(event.sessionId))
       ? takeUncountedEvents(events, countedHashes)
       : events,
   );
@@ -80,7 +95,7 @@ export function dedupeRepeatedAcrossFiles<E extends HashedEvent>(
  * keeps only the running hash counts. Equal to the array form as long as different
  * sessions never share a content hash, which the hash already assumes.
  */
-export function repeatedAcrossFiles<E extends HashedEvent>(): Stage<readonly E[], E> {
+export function repeatedAcrossFiles<E extends DedupedEvent>(): Stage<readonly E[], E> {
   return async function* (batches) {
     const countedHashes = new Map<string, number>();
 
