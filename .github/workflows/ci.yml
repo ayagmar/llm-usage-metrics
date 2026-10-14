@@ -263,6 +263,8 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm run core:build
+      - name: Assert every core export target was built
+        run: node -e "const fs=require('node:fs'); const p=require('./packages/core/package.json'); const missing=Object.values(p.exports).flatMap((e)=>[e.types,e.import]).filter((f)=>!fs.existsSync('packages/core/'+f)); if (missing.length) { console.error('Missing core export targets:', missing.join(', ')); process.exit(1); }"
       - run: pnpm run core:lint
       - run: pnpm run core:typecheck
       - run: pnpm run core:test
