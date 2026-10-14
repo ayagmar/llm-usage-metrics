@@ -66,6 +66,23 @@ describe('source subpath isolation', () => {
     expect(sourceIds).toContain('roocode');
   });
 
+  // Positive controls: the check sees a source module that the entry does load.
+  it('sees roocode load cline', async () => {
+    const entry = path.join(sourcesRoot, 'roocode', 'index.ts');
+
+    expect(await modulesLoadedBy(entry, ['cline'])).toContainEqual(
+      expect.stringMatching(/^cline\//),
+    );
+  });
+
+  it('sees the registry load codex', async () => {
+    const entry = path.join(packageRoot, 'src', 'registry', 'index.ts');
+
+    expect(await modulesLoadedBy(entry, ['codex'])).toContainEqual(
+      expect.stringMatching(/^codex\//),
+    );
+  });
+
   it('importing "." evaluates no source module', async () => {
     const entry = path.join(packageRoot, 'src', 'index.ts');
 
