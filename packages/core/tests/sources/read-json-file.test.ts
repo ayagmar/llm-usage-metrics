@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   MAX_JSON_TRANSCRIPT_BYTES,
   readBoundedJsonFile,
+  readJsonTranscriptFile,
 } from '../../src/sources/read-json-file.js';
 
 const tempDirs: string[] = [];
@@ -65,5 +66,36 @@ describe('readBoundedJsonFile', () => {
       ok: false,
       reason: 'file_too_large',
     });
+  });
+});
+
+describe('readJsonTranscriptFile', () => {
+  it('returns the parsed document', async () => {
+    const tempDir = await createTempDir();
+    const filePath = path.join(tempDir, 'session.json');
+    await writeFile(filePath, '{"messages":[]}', 'utf8');
+
+    await expect(readJsonTranscriptFile(filePath)).resolves.toEqual({ messages: [] });
+  });
+
+  it('fails the parse, naming the file, when the document is not readable JSON', async () => {
+    const tempDir = await createTempDir();
+    const filePath = path.join(tempDir, 'partial.json');
+    await writeFile(filePath, '{"messages":[', 'utf8');
+
+    await expect(readJsonTranscriptFile(filePath)).rejects.toThrow(
+      `Transcript is not readable JSON: ${filePath}`,
+    );
+  });
+
+  it('fails the parse with the size cap when the document is too large', async () => {
+    const tempDir = await createTempDir();
+    const filePath = path.join(tempDir, 'huge.json');
+    await writeFile(filePath, '{}', 'utf8');
+    await truncate(filePath, MAX_JSON_TRANSCRIPT_BYTES + 1);
+
+    await expect(readJsonTranscriptFile(filePath)).rejects.toThrow(
+      `Transcript is larger than 64 MiB: ${filePath}`,
+    );
   });
 });
