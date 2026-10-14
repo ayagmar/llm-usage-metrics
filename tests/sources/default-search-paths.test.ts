@@ -5,13 +5,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createDefaultAdapters } from '../../src/sources/create-default-adapters.js';
 import { createSourceContext } from '../../src/sources/source-context.js';
 
-const { HOME_DIR } = vi.hoisted(() => ({ HOME_DIR: '/home/tester' }));
+const HOME_DIR = '/home/tester';
 
-// Some adapters still read the home directory when their module loads; the mock makes
-// them see HOME_DIR as well as the injected context does.
+// The host (home dir, platform, env) is set to values unlike the injected context, so
+// these paths only come out when every adapter reads the context and not the host.
+const { HOST_HOME_DIR } = vi.hoisted(() => ({ HOST_HOME_DIR: '/host/elsewhere' }));
+const HOST_PLATFORM: NodeJS.Platform = 'aix';
+
 vi.mock('node:os', async (importOriginal) => {
   const actual = await importOriginal<typeof NodeOs>();
-  const homedir = () => HOME_DIR;
+  const homedir = () => HOST_HOME_DIR;
   return { ...actual, homedir, default: { ...actual, homedir } };
 });
 
@@ -58,10 +61,9 @@ afterEach(() => {
 function getDefaultSearchPaths(platform: Platform, envCase: EnvCase): SearchPaths {
   const env = envFor(envCase);
 
-  // Adapters that do not take a context yet read the host process instead.
-  Object.defineProperty(process, 'platform', { value: platform });
+  Object.defineProperty(process, 'platform', { value: HOST_PLATFORM });
   for (const name of Object.keys(OVERRIDE_VARIABLES)) {
-    vi.stubEnv(name, env[name]);
+    vi.stubEnv(name, `/host/${name.toLowerCase()}`);
   }
 
   const context = createSourceContext({ homeDir: HOME_DIR, env, platform });

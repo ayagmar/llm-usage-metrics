@@ -214,6 +214,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
       - run: pnpm run smoke:dist-opencode
+      - run: pnpm run smoke:sqlite-warning
       - run: pnpm exec vitest run --coverage.enabled=false
       - run: pnpm run core:test:fast
 
