@@ -388,7 +388,7 @@ class PiSessionEvents {
     }
 
     for (const line of this.carry.takeUnreleased()) {
-      for (const kind of getStatedKinds(line)) {
+      for (const kind of getStatedKinds(line, this.request.text)) {
         recordKindSkippedRow(this.diagnostics, this.kinds, kind, 'invalid_timestamp');
       }
     }
@@ -599,8 +599,18 @@ function isPiEventRecord(line: Record<string, unknown>): boolean {
   );
 }
 
-/** The kinds a record would yield, to count it when no timestamp ever reached it. */
-function getStatedKinds(line: Record<string, unknown>): Exclude<EventKind, 'usage'>[] {
+/**
+ * The kinds a record would yield, to count it when no timestamp ever reached it. A
+ * `session_info` record states only a title, which a read without text never yields.
+ */
+function getStatedKinds(
+  line: Record<string, unknown>,
+  text: boolean | undefined,
+): Exclude<EventKind, 'usage'>[] {
+  if (line.type === 'session_info' && !text) {
+    return [];
+  }
+
   if (line.type !== 'message') {
     return ['session_meta'];
   }

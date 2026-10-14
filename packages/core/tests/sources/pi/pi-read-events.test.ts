@@ -333,6 +333,18 @@ describe('PiSourceAdapter.readEvents', () => {
       tool_call_invalid_timestamp: 1,
     });
   });
+
+  it('counts an untimed title only when the read yields text', async () => {
+    const file = path.join(timestampsDir, '2026-03-03T09-00-00-000Z_pi-none.jsonl');
+    const withText = await readPiEvents(timestampsDir, file, {
+      kinds: ['session_meta'],
+      text: true,
+    });
+    const withoutText = await readPiEvents(timestampsDir, file, { kinds: ['session_meta'] });
+
+    expect(withText.reasons).toEqual({ session_meta_invalid_timestamp: 2 });
+    expect(withoutText.reasons).toEqual({ session_meta_invalid_timestamp: 1 });
+  });
 });
 
 // Rule 1: the core pi fixtures, the root e2e pi fixtures read in place, and the new ones.
