@@ -453,6 +453,20 @@ describe('CodexSourceAdapter.readEvents', () => {
     });
   });
 
+  it('skips a message whose role only an object prototype knows', async () => {
+    const filePath = await writeSession(
+      ['constructor', 'toString', '__proto__'].map(
+        (role, index) =>
+          `{"timestamp":"2026-10-04T11:30:0${index}.000Z","type":"response_item","payload":{"type":"message","role":"${role}","content":[{"type":"input_text","text":"x"}]}}`,
+      ),
+    );
+
+    await expect(read(filePath)).resolves.toEqual({
+      events: [],
+      reasons: { message_unknown_role: 3 },
+    });
+  });
+
   it('keeps a user message with a real prompt beside injected context as user', async () => {
     const filePath = await writeSession([
       '{"timestamp":"2026-10-04T12:00:00.000Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"<environment_context></environment_context>"},{"type":"input_text","text":"Fix the bug."}]}}',

@@ -9,7 +9,9 @@ import {
   isUsageEvent,
   isUsageRecord,
   type EventKind,
+  type MessageEvent,
   type SessionEvent,
+  type ToolCallStatus,
 } from '../../src/domain/session-event.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 
@@ -127,6 +129,14 @@ describe('createMessageEvent', () => {
     );
     expect(() => createMessageEvent({ ...base, ...message, timestamp: 'later' })).toThrow();
   });
+
+  it('rejects a role outside the union, such as one read from an untrusted record', () => {
+    for (const role of ['constructor', 'developer', '']) {
+      expect(() =>
+        createMessageEvent({ ...base, role: role as MessageEvent['role'], textLength: 1 }),
+      ).toThrow(/role/);
+    }
+  });
 });
 
 describe('createToolCallEvent', () => {
@@ -170,6 +180,14 @@ describe('createToolCallEvent', () => {
 
   it('needs a name', () => {
     expect(() => createToolCallEvent({ ...base, name: ' ', status: 'ok' })).toThrow(/name/);
+  });
+
+  it('rejects a status outside the union', () => {
+    for (const status of ['completed', 'toString']) {
+      expect(() =>
+        createToolCallEvent({ ...base, name: 'Read', status: status as ToolCallStatus }),
+      ).toThrow(/status/);
+    }
   });
 });
 

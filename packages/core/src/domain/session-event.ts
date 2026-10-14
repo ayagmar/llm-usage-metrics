@@ -53,6 +53,13 @@ export type MessageEvent = EventBase & {
 
 export type ToolCallStatus = 'ok' | 'error' | 'unknown';
 
+const MESSAGE_ROLES: ReadonlySet<string> = new Set<MessageEvent['role']>([
+  'user',
+  'assistant',
+  'system',
+]);
+const TOOL_CALL_STATUSES: ReadonlySet<string> = new Set<ToolCallStatus>(['ok', 'error', 'unknown']);
+
 export type ToolCallEvent = EventBase & {
   kind: 'tool_call';
   toolCallId?: string;
@@ -134,6 +141,20 @@ function requireText(value: string, kind: EventKind, fieldName: string): string 
   return normalized;
 }
 
+/** Rejects a value outside its union, such as a role read from an untrusted record. */
+function requireOneOf<T extends string>(
+  value: T,
+  allowed: ReadonlySet<string>,
+  kind: EventKind,
+  fieldName: string,
+): T {
+  if (!allowed.has(value)) {
+    throw new Error(`${kind} event ${fieldName} is not one of ${[...allowed].join(', ')}`);
+  }
+
+  return value;
+}
+
 function createEventBase(
   kind: Exclude<EventKind, 'usage'>,
   input: EventBaseInput,
@@ -199,7 +220,7 @@ export function createMessageEvent(input: MessageEventInput): MessageEvent {
     {
       kind: 'message',
       ...createEventBase('message', input),
-      role: input.role,
+      role: requireOneOf(input.role, MESSAGE_ROLES, 'message', 'role'),
       textLength: normalizeNonNegativeInteger(input.textLength),
     },
     {
@@ -218,7 +239,7 @@ export function createToolCallEvent(input: ToolCallEventInput): ToolCallEvent {
       kind: 'tool_call',
       ...createEventBase('tool_call', input),
       name: requireText(input.name, 'tool_call', 'name'),
-      status: input.status,
+      status: requireOneOf(input.status, TOOL_CALL_STATUSES, 'tool_call', 'status'),
     },
     {
       toolCallId: normalizeOptionalText(input.toolCallId),

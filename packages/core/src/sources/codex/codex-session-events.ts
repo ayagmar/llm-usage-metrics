@@ -70,11 +70,12 @@ const INJECTED_CONTEXT_PREFIXES = [
   '<user_shell_command>',
 ];
 
-const MESSAGE_ROLES: Readonly<Record<string, MessageEvent['role']>> = {
-  user: 'user',
-  assistant: 'assistant',
-  developer: 'system',
-};
+// A Map, so a logged role such as "constructor" finds no inherited value.
+const MESSAGE_ROLES: ReadonlyMap<string, MessageEvent['role']> = new Map([
+  ['user', 'user'],
+  ['assistant', 'assistant'],
+  ['developer', 'system'],
+]);
 
 const TOOL_CALL_TYPES = new Set(['function_call', 'custom_tool_call']);
 const TOOL_RESULT_TYPES = new Set(['function_call_output', 'custom_tool_call_output']);
@@ -261,7 +262,7 @@ export class CodexKindReader {
     payload: Record<string, unknown>,
     { sessionId, model, timestamp }: CodexRecordContext,
   ): Generator<SessionEvent> {
-    const role = typeof payload.role === 'string' ? MESSAGE_ROLES[payload.role] : undefined;
+    const role = typeof payload.role === 'string' ? MESSAGE_ROLES.get(payload.role) : undefined;
 
     if (!role) {
       recordKindSkippedRow(this.diagnostics, this.kinds, 'message', 'unknown_role');
