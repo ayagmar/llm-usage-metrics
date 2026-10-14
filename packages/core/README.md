@@ -21,7 +21,17 @@ Every adapter has one read method:
 read(filePath: string, options?: { diagnostics?: SourceReadDiagnostics }): AsyncIterable<Event>;
 ```
 
-It yields the file's events in file order. Nothing is opened until the first `next()`. Rows the adapter skips go into `options.diagnostics` as they are found: `skippedRows` grows by one per row and `skippedRowReasons` counts each reason. Pass a sink from `createReadDiagnostics()` (in `./internal`) to read the counts; without one the adapter keeps them to itself. The counts are complete only once the read finishes.
+It yields the file's events in file order. Nothing is opened until the first `next()`. Rows the adapter skips go into `options.diagnostics` as they are found: `skippedRows` grows by one per row and `skippedRowReasons` counts each reason. To read the counts, pass your own sink; without one the adapter keeps them to itself. The counts are complete only once the read finishes.
+
+```ts
+import type { SourceReadDiagnostics } from '@ayagmar/agent-sessions';
+
+const diagnostics: SourceReadDiagnostics = { skippedRows: 0, skippedRowReasons: new Map() };
+
+for await (const event of adapter.read(filePath, { diagnostics })) {
+  // ...
+}
+```
 
 A read can throw after it has yielded events. Those events are valid, but the file was not read to the end, and the sink counts after a throw mean nothing. When you need a file's events all or nothing, use `collectFile`:
 
