@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Read-only parsers that normalize local coding-agent session logs into usage events",
   "type": "module",
-  "private": false,
+  "private": true,
   "engines": {
     "node": ">=22.16 <23 || >=24"
   },
