@@ -36,9 +36,9 @@ function isCopyOf(left: UsageEvent, right: UsageEvent): boolean {
 // The events that another session holds with the same timestamp and usage. Only events
 // sharing a timestamp are compared, field by field, so a dataset whose sessions merely
 // share timestamps builds no identities.
-function findEventsOtherSessionsHold(events: readonly UsageEvent[]): Set<UsageEvent> {
-  const firstByTimestamp = new Map<string, UsageEvent>();
-  const sameTimestampGroups = new Map<string, UsageEvent[]>();
+function findEventsOtherSessionsHold<E extends UsageEvent>(events: readonly E[]): Set<E> {
+  const firstByTimestamp = new Map<string, E>();
+  const sameTimestampGroups = new Map<string, E[]>();
 
   for (const event of events) {
     const first = firstByTimestamp.get(event.timestamp);
@@ -57,7 +57,7 @@ function findEventsOtherSessionsHold(events: readonly UsageEvent[]): Set<UsageEv
     }
   }
 
-  const candidates = new Set<UsageEvent>();
+  const candidates = new Set<E>();
 
   for (const group of sameTimestampGroups.values()) {
     for (let left = 0; left < group.length; left += 1) {
@@ -84,7 +84,7 @@ function findEventsOtherSessionsHold(events: readonly UsageEvent[]): Set<UsageEv
  * identical events all count, as they would without copies. Kept events stay in their
  * input order.
  */
-export function countCopiedSessionEventsOnce(events: readonly UsageEvent[]): UsageEvent[] {
+export function dedupeCopiedSessions<E extends UsageEvent>(events: readonly E[]): E[] {
   const candidates = findEventsOtherSessionsHold(events);
 
   if (candidates.size === 0) {
@@ -92,7 +92,7 @@ export function countCopiedSessionEventsOnce(events: readonly UsageEvent[]): Usa
   }
 
   const sessionStarts = new Map<string, string>();
-  const candidatesBySession = new Map<string, UsageEvent[]>();
+  const candidatesBySession = new Map<string, E[]>();
 
   for (const event of events) {
     const start = sessionStarts.get(event.sessionId);
@@ -114,7 +114,7 @@ export function countCopiedSessionEventsOnce(events: readonly UsageEvent[]): Usa
       compareByCodePoint(left, right),
   );
   const countedIdentities = new Map<string, number>();
-  const copies = new Set<UsageEvent>();
+  const copies = new Set<E>();
 
   for (const sessionId of sessionsOldestFirst) {
     const sessionCounts = new Map<string, number>();

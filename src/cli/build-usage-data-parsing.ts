@@ -1,3 +1,5 @@
+import { dedupeRepeatedAcrossFiles } from '@ayagmar/agent-sessions';
+
 import type { EventStoreRuntimeConfig } from '../config/runtime-overrides.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import {
@@ -10,7 +12,6 @@ import {
   type EventStore,
   type EventStoreFileFingerprint,
 } from '../persistence/event-store.js';
-import { takeUncountedEvents } from '../persistence/event-store-history.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import type {
   SourceAdapter,
@@ -120,34 +121,6 @@ type MissedParseFile = {
   fileFingerprint?: EventStoreFileFingerprint;
   byteSize: number;
 };
-
-/** Counts an event that several files repeat once, from the first file holding it. */
-function countRepeatedEventsOnce(eventsByFile: readonly UsageEvent[][]): UsageEvent[] {
-  // Only an event whose session has events in another file can be a repeat, so only
-  // the files holding such sessions are hashed.
-  const fileIndexBySession = new Map<string, number>();
-  const sharedSessions = new Set<string>();
-
-  eventsByFile.forEach((events, fileIndex) => {
-    for (const event of events) {
-      const ownerIndex = fileIndexBySession.get(event.sessionId);
-
-      if (ownerIndex === undefined) {
-        fileIndexBySession.set(event.sessionId, fileIndex);
-      } else if (ownerIndex !== fileIndex) {
-        sharedSessions.add(event.sessionId);
-      }
-    }
-  });
-
-  const countedHashes = new Map<string, number>();
-
-  return eventsByFile.flatMap((events) =>
-    events.some((event) => sharedSessions.has(event.sessionId))
-      ? takeUncountedEvents(events, countedHashes)
-      : events,
-  );
-}
 
 function getDefaultParseFileDiagnostics(events: UsageEvent[]): SourceParseFileDiagnostics {
   return { events, skippedRows: 0, skippedRowReasons: [] };
@@ -539,7 +512,7 @@ export async function parseAdapterEvents(
   const result = {
     source: adapter.id,
     events: adapter.capabilities?.eventsRepeatAcrossFiles
-      ? countRepeatedEventsOnce(parsedByFile)
+      ? dedupeRepeatedAcrossFiles(parsedByFile)
       : parsedByFile.flat(),
     filePaths: files,
     parsedFilePaths: files.filter((_, fileIndex) => parsedFileIndexes.has(fileIndex)),

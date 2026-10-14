@@ -1,9 +1,9 @@
-import { createHash } from 'node:crypto';
-
 import { hasControlCharacters } from '../domain/normalization.js';
 import { normalizeProviderToBillingEntity } from '../domain/provider-normalization.js';
 import { createUsageEvent, type UsageEvent, type UsageEventInput } from '../domain/usage-event.js';
 import { toNonNegativeInteger, toNonNegativeNumber, toText } from './event-store-database.js';
+
+export { computeEventContentHash } from '@ayagmar/agent-sessions';
 
 const NORMALIZED_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
 const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const;
@@ -276,27 +276,4 @@ function toStoredCostUsd(
   }
 
   return value;
-}
-
-export function computeEventContentHash(event: UsageEvent): string {
-  const fields = [
-    event.source.toLowerCase(),
-    event.sessionId,
-    event.timestamp,
-    event.model ?? '',
-    event.provider ?? '',
-    event.repoRoot ?? '',
-    event.inputTokens,
-    event.outputTokens,
-    event.reasoningTokens,
-    event.cacheReadTokens,
-    event.cacheWriteTokens,
-    // cacheWrite1hTokens is left out: it only splits cacheWriteTokens, and leaving it out
-    // keeps events stored before it existed matching their reparsed copies.
-    event.totalTokens,
-    event.costMode,
-    event.costUsd ?? '',
-  ];
-
-  return createHash('sha256').update(fields.map(String).join('\x1f')).digest('hex').slice(0, 16);
 }

@@ -1,6 +1,6 @@
+import { dedupeCopiedSessions as countCopiedSessionEventsOnce } from '@ayagmar/agent-sessions';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { countCopiedSessionEventsOnce } from '../../src/cli/count-copied-session-events-once.js';
 import { runEventsReport } from '../../src/cli/run-events-report.js';
 import type { BuildUsageDataDeps } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.js';

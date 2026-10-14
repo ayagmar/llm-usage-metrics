@@ -1,3 +1,5 @@
+import { dedupeCopiedSessions } from '@ayagmar/agent-sessions';
+
 import { getActiveEnvVarOverrides } from '../config/env-var-display.js';
 import type { ActiveConfig } from '../config/active-config-display.js';
 import {
@@ -7,7 +9,6 @@ import {
 } from '../config/runtime-overrides.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { limitNamedModels } from '../render/format-model-list.js';
-import { countCopiedSessionEventsOnce } from './count-copied-session-events-once.js';
 import {
   closeEventStore,
   openEventStore,
@@ -468,7 +469,7 @@ export async function buildUsageEventDataset(
             return result;
           }
 
-          const events = countCopiedSessionEventsOnce(result.events);
+          const events = dedupeCopiedSessions(result.events);
 
           if (ledger) {
             ledger.copiedEventCount += result.events.length - events.length;
