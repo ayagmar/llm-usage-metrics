@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { zstdCompressSync } from 'node:zlib';
@@ -17,6 +17,9 @@ import {
   type DshSessionHeaderFixture,
 } from '../../fixtures/dsh/dsh-session-fixtures.js';
 import { createSourceContext } from '../../../src/sources/source-context.js';
+import { canCountOpenFds, countOpenFds, waitForOpenFdCount } from '../../helpers/open-fds.js';
+import { mulberry32 } from '../../helpers/seeded-random.js';
+import { collect, collectFile } from '../../../src/stream/collect.js';
 
 const tempDirs: string[] = [];
 
@@ -205,7 +208,7 @@ describe('DshSourceAdapter', () => {
     });
 
     const adapter = new DshSourceAdapter();
-    const result = await adapter.parseFileWithDiagnostics(logPath);
+    const result = await collectFile(adapter, logPath);
 
     expect(result.skippedRows).toBe(0);
     expect(result.skippedRowReasons).toEqual([]);
@@ -253,7 +256,7 @@ describe('DshSourceAdapter', () => {
     });
 
     const adapter = new DshSourceAdapter();
-    const result = await adapter.parseFileWithDiagnostics(logPath.replace(/\.zstd$/u, ''));
+    const result = await collectFile(adapter, logPath.replace(/\.zstd$/u, ''));
 
     expect(result.events).toHaveLength(1);
     expect(result.events[0]).toMatchObject({
@@ -285,7 +288,7 @@ describe('DshSourceAdapter', () => {
     });
 
     const adapter = new DshSourceAdapter();
-    const result = await adapter.parseFileWithDiagnostics(logPath);
+    const result = await collectFile(adapter, logPath);
 
     expect(result.events).toHaveLength(1);
     expect(result.events[0]).toMatchObject({
@@ -326,7 +329,7 @@ describe('DshSourceAdapter', () => {
     });
 
     const adapter = new DshSourceAdapter();
-    const result = await adapter.parseFileWithDiagnostics(logPath);
+    const result = await collectFile(adapter, logPath);
 
     expect(result.events).toEqual([]);
     expect(result.skippedRows).toBe(3);
@@ -355,7 +358,7 @@ describe('DshSourceAdapter', () => {
       trailingBytes: zstdCompressSync(Buffer.alloc(65 * 1024 * 1024, 0x20)),
     });
 
-    const result = await new DshSourceAdapter().parseFileWithDiagnostics(logPath);
+    const result = await collectFile(new DshSourceAdapter(), logPath);
 
     expect(result.events).toHaveLength(1);
     expect(result.skippedRowReasons).toEqual([{ reason: 'undecodable_jsonl_frame', count: 1 }]);
@@ -382,7 +385,7 @@ describe('DshSourceAdapter', () => {
     });
 
     const adapter = new DshSourceAdapter();
-    const result = await adapter.parseFileWithDiagnostics(logPath);
+    const result = await collectFile(adapter, logPath);
 
     expect(result.events).toHaveLength(1);
     expect(result.events[0]).toMatchObject({ inputTokens: 11, outputTokens: 4, totalTokens: 15 });
@@ -396,7 +399,7 @@ describe('DshSourceAdapter', () => {
     await mkdir(path.dirname(logPath), { recursive: true });
     await writeFile(logPath, createTornTailBytes(sessionHeaderLine()));
 
-    await expect(new DshSourceAdapter().parseFileWithDiagnostics(logPath)).rejects.toThrow(
+    await expect(collectFile(new DshSourceAdapter(), logPath)).rejects.toThrow(
       DshSessionLogUnreadableError,
     );
   });
@@ -424,7 +427,7 @@ describe('DshSourceAdapter', () => {
     });
 
     const adapter = new DshSourceAdapter();
-    const result = await adapter.parseFileWithDiagnostics(logPath);
+    const result = await collectFile(adapter, logPath);
 
     expect(result.events).toHaveLength(1);
     expect(result.events[0]).toMatchObject({ inputTokens: 5, outputTokens: 6, totalTokens: 11 });
@@ -441,7 +444,7 @@ describe('DshSourceAdapter', () => {
       Buffer.concat([zstdCompressSync(Buffer.from('')), zstdCompressSync(Buffer.from(''))]),
     );
 
-    await expect(new DshSourceAdapter().parseFileWithDiagnostics(logPath)).rejects.toThrow(
+    await expect(collectFile(new DshSourceAdapter(), logPath)).rejects.toThrow(
       DshSessionLogUnreadableError,
     );
   });
@@ -451,7 +454,7 @@ describe('DshSourceAdapter', () => {
     const adapter = new DshSourceAdapter();
 
     await expect(
-      adapter.parseFileWithDiagnostics(path.join(root, 'session-absent', 'session.v3.jsonl.zstd')),
+      collectFile(adapter, path.join(root, 'session-absent', 'session.v3.jsonl.zstd')),
     ).rejects.toThrow(/ENOENT/u);
   });
 
@@ -468,7 +471,7 @@ describe('DshSourceAdapter', () => {
     });
 
     const adapter = new DshSourceAdapter();
-    const result = await adapter.parseFileWithDiagnostics(logPath);
+    const result = await collectFile(adapter, logPath);
 
     expect(result.events).toHaveLength(1);
     expect(result.events[0]).toMatchObject({ sessionId: 'session-non-object', totalTokens: 6 });
@@ -495,7 +498,7 @@ describe('DshSourceAdapter', () => {
     });
 
     const adapter = new DshSourceAdapter();
-    const result = await adapter.parseFileWithDiagnostics(logPath);
+    const result = await collectFile(adapter, logPath);
 
     expect(result.events).toHaveLength(2);
     expect(result.events[0]).toMatchObject({
@@ -520,7 +523,7 @@ describe('DshSourceAdapter', () => {
     await mkdir(path.dirname(logPath), { recursive: true });
     await writeFile(logPath, Buffer.from('not a zstd frame at all'), 'binary');
 
-    await expect(new DshSourceAdapter().parseFileWithDiagnostics(logPath)).rejects.toThrow(
+    await expect(collectFile(new DshSourceAdapter(), logPath)).rejects.toThrow(
       DshSessionLogUnreadableError,
     );
   });
@@ -549,7 +552,7 @@ describe('DshSourceAdapter', () => {
     });
 
     const adapter = new DshSourceAdapter();
-    const result = await adapter.parseFileWithDiagnostics(logPath);
+    const result = await collectFile(adapter, logPath);
 
     expect(result.events).toEqual([]);
     expect(result.skippedRows).toBe(0);
@@ -568,7 +571,7 @@ describe('DshSourceAdapter', () => {
     });
 
     const adapter = new DshSourceAdapter();
-    const result = await adapter.parseFileWithDiagnostics(logPath);
+    const result = await collectFile(adapter, logPath);
 
     expect(result.events).toHaveLength(1);
     expect(result.events[0]).toMatchObject({ sessionId: 'session.v3.jsonl', totalTokens: 6 });
@@ -596,7 +599,7 @@ describe('DshSourceAdapter', () => {
     });
 
     const adapter = new DshSourceAdapter();
-    const result = await adapter.parseFileWithDiagnostics(logPath);
+    const result = await collectFile(adapter, logPath);
 
     expect(result.events).toEqual([]);
     expect(result.skippedRows).toBe(0);
@@ -652,7 +655,7 @@ describe('DshSourceAdapter', () => {
     });
 
     const adapter = new DshSourceAdapter();
-    const result = await adapter.parseFileWithDiagnostics(logPath);
+    const result = await collectFile(adapter, logPath);
 
     expect(result.events.map((event) => event.timestamp)).toEqual([
       new Date(SESSION_HEADER.createdAt + 100).toISOString(),
@@ -681,9 +684,7 @@ describe('DshSourceAdapter', () => {
       ],
     });
 
-    const result = await new DshSourceAdapter().parseFileWithDiagnostics(
-      logPath.replace(/\.zstd$/u, ''),
-    );
+    const result = await collectFile(new DshSourceAdapter(), logPath.replace(/\.zstd$/u, ''));
 
     expect(result.events).toHaveLength(1);
     expect(result.events[0]).toMatchObject({
@@ -693,5 +694,40 @@ describe('DshSourceAdapter', () => {
       cacheReadTokens: 20,
       totalTokens: 200,
     });
+  });
+
+  it.runIf(canCountOpenFds)('closes the log when the consumer stops early', async () => {
+    const root = await createTempRoot('dsh-early-return-');
+    const logPath = resolveDshSessionLogPath(path.join(root, '--proj--', 'session-early-return'));
+    const random = mulberry32(0x5eed);
+    const frameCount = 2000;
+    // Random hex padding keeps each frame large after compression, so the log spans
+    // more than one read chunk.
+    const frames = Array.from({ length: frameCount }, (_, index) => {
+      const line = JSON.parse(
+        usageLine({
+          seq: index + 1,
+          time: SESSION_HEADER.createdAt + index,
+          inputTokens: 10,
+          outputTokens: 5,
+        }),
+      ) as Record<string, unknown>;
+      line.padding = Array.from({ length: 1000 }, () =>
+        Math.floor(random() * 16).toString(16),
+      ).join('');
+      return [JSON.stringify(line)];
+    });
+    await writeDshSessionLog({ filePath: logPath, frames: [[sessionHeaderLine()], ...frames] });
+    expect((await stat(logPath)).size).toBeGreaterThan(1024 * 1024);
+    const adapter = new DshSourceAdapter();
+    const before = countOpenFds();
+
+    for await (const event of adapter.read(logPath)) {
+      expect(event.totalTokens).toBe(15);
+      break;
+    }
+
+    await waitForOpenFdCount(before);
+    await expect(collect(adapter.read(logPath))).resolves.toHaveLength(frameCount);
   });
 });

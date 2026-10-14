@@ -6,7 +6,8 @@ import type { NumberLike } from '../../domain/normalization.js';
 import { asRecord } from '../../utils/as-record.js';
 import { discoverFiles } from '../../utils/discover-files.js';
 import { discoverFilesAcrossRoots, resolveRootDirs } from '../multi-root-discovery.js';
-import { incrementSkippedReason, toParseDiagnostics } from '../parse-diagnostics.js';
+import { collectFile } from '../../stream/collect.js';
+import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
   hasPositiveUsageOrCostSignal,
@@ -19,6 +20,7 @@ import type {
   SourceAdapter,
   SourceAdapterPathOptions,
   SourceParseFileDiagnostics,
+  SourceReadOptions,
 } from '../source-adapter.js';
 import { createSourceContext } from '../source-context.js';
 
@@ -171,22 +173,17 @@ export class DshSourceAdapter implements SourceAdapter {
     });
   }
 
-  public async parseFile(filePath: string): Promise<UsageEvent[]> {
-    const { events } = await this.parseFileWithDiagnostics(filePath);
-    return events;
-  }
-
-  public async parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
-    const events: UsageEvent[] = [];
-    const skippedRowReasons = new Map<string, number>();
+  public async *read(
+    filePath: string,
+    options: SourceReadOptions = {},
+  ): AsyncGenerator<UsageEvent> {
+    const diagnostics = options.diagnostics ?? createReadDiagnostics();
     const state: DshSessionState = { sessionId: getFallbackSessionId(filePath) };
-    let skippedRows = 0;
 
     const records = readDshSessionLogRecords(filePath, {
       shouldParseLine: shouldParseDshJsonlLine,
       onSkippedRow: (reason) => {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, reason);
+        recordSkippedRow(diagnostics, reason);
       },
     });
 
@@ -220,16 +217,14 @@ export class DshSourceAdapter implements SourceAdapter {
       const extractedUsage = extractUsage(usage);
 
       if (!extractedUsage) {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'no_token_usage');
+        recordSkippedRow(diagnostics, 'no_token_usage');
         continue;
       }
 
       const timestamp = resolveTimestamp(line);
 
       if (!timestamp || !state.sessionId) {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'invalid_timestamp');
+        recordSkippedRow(diagnostics, 'invalid_timestamp');
         continue;
       }
 
@@ -237,27 +232,34 @@ export class DshSourceAdapter implements SourceAdapter {
       const provider = asTrimmedText(source?.provider) ?? state.provider;
       const model = asTrimmedText(source?.model) ?? state.model;
 
+      let event: UsageEvent;
+
       try {
-        events.push(
-          createUsageEvent({
-            source: this.id,
-            sessionId: state.sessionId,
-            timestamp,
-            repoRoot: state.repoRoot,
-            provider,
-            model,
-            ...extractedUsage,
-            totalTokens: resolveUsageTotalTokens(extractedUsage),
-          }),
-        );
+        event = createUsageEvent({
+          source: this.id,
+          sessionId: state.sessionId,
+          timestamp,
+          repoRoot: state.repoRoot,
+          provider,
+          model,
+          ...extractedUsage,
+          totalTokens: resolveUsageTotalTokens(extractedUsage),
+        });
       } catch {
-        skippedRows++;
-        incrementSkippedReason(skippedRowReasons, 'event_creation_failed');
+        recordSkippedRow(diagnostics, 'event_creation_failed');
         continue;
       }
-    }
 
-    return toParseDiagnostics(events, skippedRows, skippedRowReasons);
+      yield event;
+    }
+  }
+
+  public async parseFile(filePath: string): Promise<UsageEvent[]> {
+    return (await collectFile(this, filePath)).events;
+  }
+
+  public parseFileWithDiagnostics(filePath: string): Promise<SourceParseFileDiagnostics> {
+    return collectFile(this, filePath);
   }
 }
 
