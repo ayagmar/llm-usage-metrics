@@ -1,0 +1,12 @@
+{
+  "providerLock": "anthropic",
+  "model": "claude-3-7-sonnet-20250219",
+  "providerLockTimestamp": "2026-06-12T09:00:00.000Z",
+  "tokenUsage": {
+    "inputTokens": 1000,
+    "outputTokens": 100,
+    "thinkingTokens": 400,
+    "cacheReadTokens": 0,
+    "cacheCreationTokens": 0
+  }
+}
