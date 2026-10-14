@@ -4,12 +4,12 @@ import path from 'node:path';
 
 import { normalizeSkippedRowReasons } from '../cli/normalize-skipped-row-reasons.js';
 import { createUsageEvent, normalizeSourceId, type UsageEvent } from '../domain/usage-event.js';
-import { loadNodeSqliteModule } from '../sources/opencode/node-sqlite-loader.js';
+import { loadNodeSqliteModule } from '@ayagmar/agent-sessions/internal';
 import type {
   EventStoreDependencyFingerprint,
   EventStoreFileFingerprint,
-} from '../sources/parse-fingerprint.js';
-import type { SourceSkippedRowReasonStat } from '../sources/source-adapter.js';
+  SourceSkippedRowReasonStat,
+} from '@ayagmar/agent-sessions';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { getUserDataRootDir } from '../utils/data-root-dir.js';

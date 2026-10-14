@@ -12,7 +12,7 @@ import {
 import type {
   SourceParseFileDiagnostics,
   SourceSkippedRowReasonStat,
-} from '../../sources/source-adapter.js';
+} from '@ayagmar/agent-sessions';
 import type { RuntimeProfileCollector } from '../runtime-profile.js';
 import { getErrorReason } from '../../utils/get-error-reason.js';
 

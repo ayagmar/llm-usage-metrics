@@ -3,12 +3,8 @@ import path from 'node:path';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import {
-  createDefaultAdapters,
-  getDefaultSourceIds,
-} from '../../src/sources/create-default-adapters.js';
-import { getParseFileFingerprint } from '../../src/sources/parse-fingerprint.js';
-import { createSourceContext } from '../../src/sources/source-context.js';
+import { createDefaultAdapters, getDefaultSourceIds } from '@ayagmar/agent-sessions/registry';
+import { createSourceContext, getParseFileFingerprint } from '@ayagmar/agent-sessions';
 import { canonicalTmpdir } from '../helpers/tmp.js';
 
 // The parse cache key of every source. A change here re-parses every stored file of that

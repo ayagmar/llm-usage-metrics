@@ -25,7 +25,7 @@ import {
   type EventStore,
   type EventStoreFileFingerprint,
 } from '../../src/persistence/event-store.js';
-import type { SourceAdapter } from '../../src/sources/source-adapter.js';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
 
 const tempDirs: string[] = [];
 

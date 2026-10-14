@@ -1,5 +1,3 @@
-import { dedupeCopiedSessions } from '@ayagmar/agent-sessions';
-
 import { getActiveEnvVarOverrides } from '../config/env-var-display.js';
 import type { ActiveConfig } from '../config/active-config-display.js';
 import {
@@ -59,10 +57,11 @@ import type {
   UsageSourceFailure,
 } from './usage-data-contracts.js';
 import {
+  dedupeCopiedSessions,
   getRepeatingSourceIds,
   getSessionCopyingSourceIds,
   type SourceAdapter,
-} from '../sources/source-adapter.js';
+} from '@ayagmar/agent-sessions';
 import type { EnvVarOverride } from '../config/env-var-display.js';
 import type { PricingSource } from '../pricing/types.js';
 import { findUnmatchedFilterWarnings } from './filter-match-warnings.js';

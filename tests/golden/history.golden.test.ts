@@ -11,7 +11,7 @@ import {
   openEventStore,
   replaceFileEvents,
 } from '../../src/persistence/event-store.js';
-import { CodexSourceAdapter } from '../../src/sources/codex/codex-source-adapter.js';
+import { CodexSourceAdapter } from '@ayagmar/agent-sessions/sources/codex';
 import { useIsolatedEnvironment } from '../helpers/isolated-env.js';
 import { useBundledPricingOnly } from '../helpers/offline-pricing.js';
 import {

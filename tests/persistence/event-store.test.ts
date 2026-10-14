@@ -32,7 +32,7 @@ import {
   vacuumEventStore,
 } from '../../src/persistence/event-store.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
-import { loadNodeSqliteModule } from '../../src/sources/opencode/node-sqlite-loader.js';
+import { loadNodeSqliteModule } from '@ayagmar/agent-sessions/internal';
 
 const tempDirs: string[] = [];
 const originalXdgDataHome = process.env.XDG_DATA_HOME;

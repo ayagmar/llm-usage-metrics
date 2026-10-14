@@ -34,7 +34,7 @@ export {
 export type {
   EventStoreDependencyFingerprint,
   EventStoreFileFingerprint,
-} from '../sources/parse-fingerprint.js';
+} from '@ayagmar/agent-sessions';
 export { computeEventContentHash, normalizeStoredEvent } from './event-store-codec.js';
 export {
   runTransaction,

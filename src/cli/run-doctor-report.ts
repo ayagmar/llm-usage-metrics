@@ -10,11 +10,8 @@ import {
   type EventStoreStoredFile,
   type EventStoreSummary,
 } from '../persistence/event-store.js';
-import {
-  getSourceStorageFormat,
-  type SourceStorageFormat,
-} from '../sources/create-default-adapters.js';
-import type { SourceAdapter } from '../sources/source-adapter.js';
+import { getSourceStorageFormat, type SourceStorageFormat } from '@ayagmar/agent-sessions/registry';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { logger } from '../utils/logger.js';
 import {

@@ -8,8 +8,8 @@ import {
   getSourceOverrideOptions,
   parseSourceDirectoryOverrides,
 } from '../../src/cli/source-cli-options.js';
-import { ClaudeSourceAdapter } from '../../src/sources/claude/claude-source-adapter.js';
-import { MultiDirectorySourceAdapter } from '../../src/sources/multi-directory-source-adapter.js';
+import { ClaudeSourceAdapter } from '@ayagmar/agent-sessions/sources/claude';
+import { MultiDirectorySourceAdapter } from '@ayagmar/agent-sessions/internal';
 import { canonicalTmpdir } from '../helpers/tmp.js';
 
 const tempDirs: string[] = [];

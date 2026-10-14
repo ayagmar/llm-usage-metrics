@@ -3,8 +3,8 @@ import {
   getDefaultSourceIds,
   type SourceSelection,
   sourceSupportsDirectories,
-} from '../sources/create-default-adapters.js';
-import type { SourceAdapter } from '../sources/source-adapter.js';
+} from '@ayagmar/agent-sessions/registry';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import {
   type SourceDirectoryValue,
