@@ -123,7 +123,20 @@ function mappedSources(jsFile: string): string[] {
   return map.sources.map((source) => path.resolve(path.dirname(jsFile), source));
 }
 
-describe.skipIf(!existsSync(distSourcesRoot))('built source subpath isolation', () => {
+// CI sets REQUIRE_CORE_DIST=1 after building, so a missing dist fails instead of skipping.
+const distBuilt = existsSync(distSourcesRoot);
+const distRequired = process.env.REQUIRE_CORE_DIST === '1';
+
+describe.skipIf(!distBuilt && !distRequired)('built source subpath isolation', () => {
+  if (!distBuilt) {
+    it('needs the built package', () => {
+      expect.fail(
+        'REQUIRE_CORE_DIST=1 but packages/core/dist is missing: run `pnpm run core:build` first',
+      );
+    });
+    return;
+  }
+
   it.each(sourceIds)('dist/sources/%s bundles no other source module', (id) => {
     const files = staticImportClosure(path.join(distSourcesRoot, id, 'index.js'));
     const sources = new Set(files.flatMap(mappedSources));
