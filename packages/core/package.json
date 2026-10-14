@@ -95,7 +95,8 @@
     "build": "tsup",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "vitest run --coverage"
+    "test": "vitest run --coverage",
+    "test:fast": "vitest run --coverage.enabled=false"
   },
   "license": "MIT",
   "repository": {

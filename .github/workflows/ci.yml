@@ -215,7 +215,7 @@ jobs:
       - run: pnpm run build
       - run: pnpm run smoke:dist-opencode
       - run: pnpm exec vitest run --coverage.enabled=false
-      - run: pnpm run core:test --coverage.enabled=false
+      - run: pnpm run core:test:fast
 
   main-bun:
     name: Main - Bun smoke
