@@ -6,7 +6,7 @@ import { promisify } from 'node:util';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { canonicalTmpdir } from '../helpers/tmp.js';
-import { expectGolden, useGoldenUpdateCheck, WINDOWS_SKIP_REASON } from './golden-harness.js';
+import { expectGolden, useGoldenUpdateCheck } from './golden-harness.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -14,9 +14,13 @@ function replaceRoot(text: string, rootDir: string): string {
   return text.replaceAll(rootDir, '<home>');
 }
 
-// Skipped on Windows: paths and newline handling differ there; the Linux leg guards behaviour.
-describe.skipIf(process.platform === 'win32')(
-  `default search path goldens (${WINDOWS_SKIP_REASON})`,
+const LINUX_ONLY_REASON = 'default search paths differ per platform; the Linux leg freezes them';
+
+// Linux only: default search paths differ per platform (macOS and Windows use other
+// dirs for cline, roocode, kilocode, goose and opencode); the Linux leg freezes them.
+// This also covers the Windows skip the other goldens make.
+describe.skipIf(process.platform !== 'linux')(
+  `default search path goldens (${LINUX_ONLY_REASON})`,
   () => {
     useGoldenUpdateCheck();
     let rootDir: string;
