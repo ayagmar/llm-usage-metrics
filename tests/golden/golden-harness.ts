@@ -1,6 +1,7 @@
 import { realpathSync } from 'node:fs';
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { format } from 'node:util';
 
 import { afterAll, expect, vi } from 'vitest';
 
@@ -123,10 +124,10 @@ export const fixedNow = (): Date => FIXED_NOW;
 export async function captureStdout(run: () => Promise<void>): Promise<string> {
   const chunks: string[] = [];
   const logSpy = vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
-    chunks.push(`${args.map(String).join(' ')}\n`);
+    chunks.push(`${format(...args)}\n`);
   });
   const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-    chunks.push(String(chunk));
+    chunks.push(typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8'));
     return true;
   });
   const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
