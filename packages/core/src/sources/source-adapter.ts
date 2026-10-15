@@ -1,5 +1,6 @@
 import type { EventKind, SessionEvent } from '../domain/session-event.js';
 import type { UsageEvent, SourceId } from '../domain/usage-event.js';
+import type { ReadResume } from '../stream/cursor.js';
 import type { SourceContext } from './source-context.js';
 
 export type SourceSkippedRowReasonStat = {
@@ -33,7 +34,10 @@ export type SourceCapabilities = {
    * `['usage']`.
    */
   kinds?: readonly EventKind[];
-  /** Declared for later milestones; nothing reads these yet. */
+  /**
+   * The adapter honours `resume`: it reads on from a valid cursor and reports a new one.
+   * Check this before passing `resume`; any other adapter ignores it.
+   */
   incremental?: boolean;
 };
 
@@ -57,6 +61,8 @@ export type SourceReadDiagnostics = {
 
 export type SourceReadOptions = {
   diagnostics?: SourceReadDiagnostics;
+  /** Resumes from a cursor; honoured only when `capabilities.incremental` is true. */
+  resume?: ReadResume;
 };
 
 export type ReadEventsOptions = {
@@ -67,6 +73,11 @@ export type ReadEventsOptions = {
   /** Attach the parsed source record to each event as `raw`, text included. */
   raw?: boolean;
   diagnostics?: SourceReadDiagnostics;
+  /**
+   * Resumes from a cursor; honoured only when `capabilities.incremental` is true, and
+   * only when the read includes usage.
+   */
+  resume?: ReadResume;
 };
 
 export interface SourceAdapter<Event extends UsageEvent = UsageEvent> {

@@ -21,7 +21,10 @@ export async function* readEvents(
     return;
   }
 
-  for await (const event of adapter.read(filePath, { diagnostics: options.diagnostics })) {
+  for await (const event of adapter.read(filePath, {
+    diagnostics: options.diagnostics,
+    resume: options.resume,
+  })) {
     yield { kind: 'usage', ...event };
   }
 }

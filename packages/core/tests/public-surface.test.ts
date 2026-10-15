@@ -69,6 +69,10 @@ const EXPECTED_SURFACE: Record<string, readonly string[]> = {
     'readEvents',
     'repeatedAcrossFiles',
     'toParseDiagnostics',
+    // T-cursor
+    'JsonlReadCursor',
+    'ReadCursor',
+    'ReadResume',
   ],
   './internal': [
     // T0
@@ -146,6 +150,9 @@ const EXPECTED_SURFACE: Record<string, readonly string[]> = {
     'toOpenCodeDbReadError',
     'toTerminalLine',
     'toTokenCount',
+    // T-cursor
+    'JsonlReadPosition',
+    'readJsonlFromCursor',
   ],
   './registry': [
     // T0
