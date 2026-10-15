@@ -1,6 +1,23 @@
 import { createReadStream } from 'node:fs';
+import type { FileHandle } from 'node:fs/promises';
 
 import { asRecord } from './as-record.js';
+
+/**
+ * A read that starts at a byte offset and reports where each complete line ends, for a
+ * resumable read. Under a position, a final line without a line feed is neither parsed
+ * nor reported: it is read whole once its line feed arrives.
+ */
+export type JsonlReadPosition = {
+  /** An open handle to read from. The read leaves it open; its owner closes it. */
+  handle: FileHandle;
+  /** The byte offset to start at. A BOM is stripped only when it is 0. */
+  start: number;
+  /** Every chunk read, in order, starting at `start`. */
+  onChunk: (chunk: Buffer) => void;
+  /** The offset just past each complete line's line feed, before its record is yielded. */
+  onLineEnd: (lineEndOffset: number) => void;
+};
 
 // A line predicate sees either the line's bytes or its trimmed text; the malformed-line
 // callback and the usage classifier receive the same input as the predicate.
@@ -8,12 +25,14 @@ type BytesLineOptions = {
   shouldParseLineBytes: (lineBytes: Buffer) => boolean;
   shouldParseLine?: never;
   onMalformedLine?: (lineBytes: Buffer) => void;
+  position?: JsonlReadPosition;
 };
 
 type TextLineOptions = {
   shouldParseLineBytes?: never;
   shouldParseLine?: (lineText: string) => boolean;
   onMalformedLine?: (lineText: string) => void;
+  position?: JsonlReadPosition;
 };
 
 export type ReadJsonlObjectsOptions = BytesLineOptions | TextLineOptions;
@@ -103,16 +122,25 @@ async function* readJsonlItems(
   filePath: string,
   options: LineReader,
 ): AsyncGenerator<Record<string, unknown>, void, undefined> {
-  const stream = createReadStream(filePath, {
-    highWaterMark: STREAM_CHUNK_SIZE_BYTES,
-  });
+  const { position } = options;
+  const stream = position
+    ? position.handle.createReadStream({
+        start: position.start,
+        highWaterMark: STREAM_CHUNK_SIZE_BYTES,
+        autoClose: false,
+      })
+    : createReadStream(filePath, {
+        highWaterMark: STREAM_CHUNK_SIZE_BYTES,
+      });
 
-  let isFirstLine = true;
+  let isFirstLine = !position || position.start === 0;
   let carriedChunks: Buffer[] = [];
+  let chunkOffset = position?.start ?? 0;
 
   try {
     for await (const chunk of stream as AsyncIterable<Buffer>) {
       let lineStart = 0;
+      position?.onChunk(chunk);
 
       while (lineStart < chunk.length) {
         const lineEnd = chunk.indexOf(LINE_FEED, lineStart);
@@ -128,6 +156,10 @@ async function* readJsonlItems(
         const parsedObject = parseJsonlLine(lineBytes, isFirstLine, options);
         isFirstLine = false;
 
+        if (position) {
+          position.onLineEnd(chunkOffset + lineStart);
+        }
+
         if (parsedObject) {
           yield parsedObject;
         }
@@ -136,9 +168,12 @@ async function* readJsonlItems(
       if (lineStart < chunk.length) {
         carriedChunks.push(chunk.subarray(lineStart));
       }
+
+      chunkOffset += chunk.length;
     }
 
-    if (carriedChunks.length > 0) {
+    // A resumable read leaves an unterminated final line for the read after its line feed.
+    if (carriedChunks.length > 0 && !position) {
       const lineBytes = takeLineBytes(Buffer.alloc(0), carriedChunks);
       const parsedObject = parseJsonlLine(lineBytes, isFirstLine, options);
 
@@ -147,7 +182,8 @@ async function* readJsonlItems(
       }
     }
   } finally {
-    // Wait for the fd to close, so breaking out of a read leaves no file open.
+    // Wait for the fd to close, so breaking out of a read leaves no file open. A
+    // positioned read's stream does not own its handle and only stops reading.
     if (!stream.closed) {
       const closed = new Promise((resolve) => stream.once('close', resolve));
       stream.destroy();
