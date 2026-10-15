@@ -31,10 +31,15 @@ type GooseParsedRow = {
 
 export type GooseSourceAdapterOptions = {
   dbPath?: string;
+  /** Test seam: default database paths tried when no dbPath is given. @internal */
   resolveDefaultDbPaths?: () => string[];
+  /** Test seam: replaces the file system check. @internal */
   pathExists?: PathPredicate;
+  /** Test seam: replaces the file system check. @internal */
   pathReadable?: PathPredicate;
+  /** Test seam: replaces the file system check. @internal */
   pathIsFile?: PathPredicate;
+  /** Test seam: replaces the node:sqlite loader. @internal */
   loadSqliteModule?: () => Promise<SqliteModule>;
   context?: SourceContext;
 };

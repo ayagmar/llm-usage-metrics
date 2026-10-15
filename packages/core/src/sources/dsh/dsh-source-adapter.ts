@@ -51,7 +51,7 @@ type DshUsageExtract = {
 };
 
 export type DshSourceAdapterOptions = SourceAdapterPathOptions & {
-  /** Test seam: default root scanned when no dir override is given. */
+  /** Test seam: default root scanned when no dir override is given. @internal */
   defaultRootDirs?: string[];
 };
 

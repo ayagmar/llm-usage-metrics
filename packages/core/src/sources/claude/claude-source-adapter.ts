@@ -102,7 +102,7 @@ const USAGE_ONLY: ReadonlySet<EventKind> = new Set(['usage']);
 export type ClaudeSourceAdapterOptions = Omit<SourceAdapterPathOptions, 'dir'> & {
   /** One projects directory, or several that share fork deduplication. */
   dir?: string | readonly string[];
-  /** Test seam: default roots scanned when no dir override is given. */
+  /** Test seam: default roots scanned when no dir override is given. @internal */
   defaultRootDirs?: string[];
 };
 

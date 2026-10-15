@@ -81,7 +81,7 @@ type PiUsageExtract = {
 };
 
 export type PiSourceAdapterOptions = SourceAdapterPathOptions & {
-  /** Test seam: default roots scanned when no dir override is given. */
+  /** Test seam: default roots scanned when no dir override is given. @internal */
   defaultRootDirs?: string[];
 };
 

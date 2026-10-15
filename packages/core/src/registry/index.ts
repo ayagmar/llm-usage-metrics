@@ -233,7 +233,11 @@ export function getDefaultSourceIds(): string[] {
   return sourceRegistrations.map((source) => source.id);
 }
 
-/** Whether the source reads directories (and may take several) rather than one file. */
+/**
+ * Whether the source reads directories (and may take several) rather than one file.
+ *
+ * @internal
+ */
 export function sourceSupportsDirectories(sourceId: string): boolean {
   return sourceRegistrations.some((source) => source.id === sourceId && source.supportsSourceDir);
 }
@@ -248,7 +252,11 @@ export function getSourceStorageFormat(sourceId: string): SourceStorageFormat {
   return registration.format;
 }
 
-/** Whether a parse worker can build this source's adapter and parse its files. */
+/**
+ * Whether a parse worker can build this source's adapter and parse its files.
+ *
+ * @internal
+ */
 export function canParseSourceOnWorker(sourceId: string): boolean {
   return sourceRegistrations.some((source) => source.id === sourceId && source.parseInWorker);
 }
@@ -256,6 +264,8 @@ export function canParseSourceOnWorker(sourceId: string): boolean {
 /**
  * The adapter a parse worker parses with: default roots and a context from the worker's own
  * process. Undefined when the source is not registered for worker parsing.
+ *
+ * @internal
  */
 export function createWorkerParseAdapter(sourceId: string): SourceAdapter | undefined {
   const registration = sourceRegistrations.find(

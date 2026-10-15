@@ -27,6 +27,7 @@ export type ClineTaskRootResolverOptions = {
 export type ClineFamilyAdapterOptions = SourceAdapterPathOptions & {
   id: ClineFamilySourceId;
   extensionId: string;
+  /** Test seam: default roots scanned when no dir override is given. @internal */
   defaultRootDirs?: string[];
 };
 

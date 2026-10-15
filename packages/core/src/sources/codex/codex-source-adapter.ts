@@ -48,6 +48,11 @@ export function resolveDefaultCodexSessionsDir(context: SourceContext): string {
   );
 }
 
+/**
+ * Model name recorded for legacy Codex sessions that never name their model.
+ *
+ * @internal
+ */
 export const LEGACY_CODEX_MODEL_FALLBACK = 'legacy-codex-unknown';
 
 type CodexUsage = {
