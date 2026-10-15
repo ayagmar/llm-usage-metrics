@@ -74,6 +74,8 @@ Some models charge more for a request with a long prompt. Claude Haiku 5.5 bills
 
 Pricing caches written before tiers existed are discarded once: with the default pricing URL, the next run fetches fresh pricing, and if the fetch fails or the run is offline it uses the bundled snapshot instead of the old cache. A custom `--pricing-url` keeps using its old cache until a refresh succeeds, since it has no bundled snapshot to fall back on.
 
+An older and a newer `llm-usage` that share one pricing cache (for example a global install that runs `statusline` and an `npx` run of a later version) each treat the other's cache as out of date. An online run then refetches pricing and rewrites the cache whenever the other version wrote it last, rather than once a day. Updating both to the same version stops it.
+
 ## Priority rates
 
 When LiteLLM lists only a priority rate (`*_priority`) for a model's input, output, cache read or cache write, that rate prices that bucket. stderr counts the events that have tokens in such a bucket; an event of the same model that uses only standard-priced buckets is not counted:
