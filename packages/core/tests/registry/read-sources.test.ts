@@ -7,7 +7,11 @@ import { dedupeCopiedSessions } from '../../src/dedup/copied-session.js';
 import { dedupeRepeatedAcrossFiles } from '../../src/dedup/repeated-across-files.js';
 import type { SessionEvent } from '../../src/domain/session-event.js';
 import type { UsageEvent } from '../../src/domain/usage-event.js';
-import { createDefaultAdapters, readSources } from '../../src/registry/index.js';
+import {
+  createDefaultAdapters,
+  getDefaultSourceIds,
+  readSources,
+} from '../../src/registry/index.js';
 import { createReadDiagnostics } from '../../src/sources/parse-diagnostics.js';
 import { PiSourceAdapter } from '../../src/sources/pi/index.js';
 import {
@@ -256,7 +260,7 @@ describe('readSources', () => {
   it('reports nothing and yields nothing for missing default roots', async () => {
     const onDiagnostic = vi.fn<(diagnostic: SourceDiagnostic) => void>();
     const context = contextFor(await makeHome('empty-home'), { onDiagnostic });
-    const allIds = createDefaultAdapters({}).map((adapter) => adapter.id);
+    const allIds = getDefaultSourceIds();
 
     await expect(collect(readSources(context, allIds))).resolves.toEqual([]);
     expect(onDiagnostic).not.toHaveBeenCalled();

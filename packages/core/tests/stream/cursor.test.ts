@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
-import { appendFile, mkdir, mkdtemp, rm, truncate, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, mkdtemp, open, rm, truncate, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createReadDiagnostics } from '../../src/sources/parse-diagnostics.js';
 import { CodexSourceAdapter } from '../../src/sources/codex/index.js';
@@ -11,7 +11,13 @@ import { MultiDirectorySourceAdapter } from '../../src/sources/multi-directory-s
 import { getParserVersion } from '../../src/sources/parse-fingerprint.js';
 import { QwenSourceAdapter } from '../../src/sources/qwen/index.js';
 import type { SourceAdapter, SourceReadDiagnostics } from '../../src/sources/source-adapter.js';
-import type { ReadCursor, ReadResume } from '../../src/stream/cursor.js';
+import { createSourceContext } from '../../src/sources/source-context.js';
+import {
+  getCursorParser,
+  validateJsonlCursor,
+  type ReadCursor,
+  type ReadResume,
+} from '../../src/stream/cursor.js';
 import { readEvents } from '../../src/stream/read-events.js';
 import { fixturePath } from '../helpers/fixtures.js';
 import { LineLocalAdapter } from '../helpers/line-local-adapter.js';
@@ -22,6 +28,12 @@ const WINDOW = 64 * 1024;
 const SEEDS_PER_ADAPTER = 40;
 
 const tempDirs: string[] = [];
+
+// A home that is never created and an empty environment, so no adapter sees the host's.
+const context = createSourceContext({
+  homeDir: path.join(os.tmpdir(), 'read-cursor-no-home'),
+  env: {},
+});
 
 afterEach(async () => {
   await Promise.all(tempDirs.map((dir) => rm(dir, { recursive: true, force: true })));
@@ -199,7 +211,7 @@ async function readInPieces(
 }
 
 const adapters: Array<[string, () => SourceAdapter]> = [
-  ['qwen', () => new QwenSourceAdapter({ dir: os.tmpdir() })],
+  ['qwen', () => new QwenSourceAdapter({ dir: os.tmpdir(), context })],
   ['line-local', () => new LineLocalAdapter()],
 ];
 
@@ -312,6 +324,26 @@ describe('cursor invalidation', () => {
     await expectRestart(new LineLocalAdapter(), filePath, cursor);
   });
 
+  it('rejects a cursor when the file shrinks between its size check and the window reads', async () => {
+    const { filePath, cursor } = await readHalf();
+    const parser = getCursorParser(new LineLocalAdapter());
+    const handle = await open(filePath, 'r');
+
+    try {
+      const statBeforeCut = await handle.stat();
+      await expect(validateJsonlCursor(handle, cursor, parser)).resolves.toBeDefined();
+
+      // The size check passes, then the tail window comes up short: the head stays whole.
+      vi.spyOn(handle, 'stat').mockResolvedValue(statBeforeCut);
+      await truncate(filePath, cursor.offset - 100);
+
+      expect(cursor.offset - 100).toBeGreaterThan(WINDOW);
+      await expect(validateJsonlCursor(handle, cursor, parser)).resolves.toBeUndefined();
+    } finally {
+      await handle.close();
+    }
+  });
+
   it('restarts when the parser version changed', async () => {
     const { filePath, cursor } = await readHalf();
 
@@ -321,7 +353,7 @@ describe('cursor invalidation', () => {
   it('restarts when the cursor came from another source', async () => {
     const { filePath, cursor } = await readHalf();
 
-    await expectRestart(new QwenSourceAdapter({ dir: os.tmpdir() }), filePath, cursor);
+    await expectRestart(new QwenSourceAdapter({ dir: os.tmpdir(), context }), filePath, cursor);
   });
 
   it.each<[string, (cursor: ReadCursor) => unknown]>([
@@ -343,7 +375,7 @@ describe('cursor invalidation', () => {
 describe('resume callbacks', () => {
   it('reports a zero cursor for an empty file', async () => {
     const filePath = await createSessionFile();
-    const adapter = new QwenSourceAdapter({ dir: os.tmpdir() });
+    const adapter = new QwenSourceAdapter({ dir: os.tmpdir(), context });
     const read = await readWith(adapter, filePath);
 
     expect(read.startCalls).toEqual([{ restarted: true }]);
@@ -361,7 +393,7 @@ describe('resume callbacks', () => {
     const line = `{"type":"assistant","sessionId":"s1","timestamp":"${timestamp(0)}","usageMetadata":{"promptTokenCount":5}}`;
     const filePath = await createSessionFile(`${line}\n{"type":"assistant","usageMetadata":`);
     const diagnostics = createReadDiagnostics();
-    const read = await readWith(new QwenSourceAdapter({ dir: os.tmpdir() }), filePath, {
+    const read = await readWith(new QwenSourceAdapter({ dir: os.tmpdir(), context }), filePath, {
       diagnostics,
     });
 
@@ -381,9 +413,13 @@ describe('resume callbacks', () => {
       },
     };
 
-    for await (const event of readEvents(new QwenSourceAdapter({ dir: os.tmpdir() }), filePath, {
-      resume,
-    })) {
+    for await (const event of readEvents(
+      new QwenSourceAdapter({ dir: os.tmpdir(), context }),
+      filePath,
+      {
+        resume,
+      },
+    )) {
       expect(event.kind).toBe('usage');
       break;
     }
@@ -414,10 +450,14 @@ describe('resume callbacks', () => {
     const filePath = await createSessionFile(generateContent(mulberry32(5), 5_000));
     const calls: string[] = [];
 
-    for await (const event of readEvents(new QwenSourceAdapter({ dir: os.tmpdir() }), filePath, {
-      kinds: ['message'],
-      resume: { onStart: () => calls.push('start'), onCursor: () => calls.push('cursor') },
-    })) {
+    for await (const event of readEvents(
+      new QwenSourceAdapter({ dir: os.tmpdir(), context }),
+      filePath,
+      {
+        kinds: ['message'],
+        resume: { onStart: () => calls.push('start'), onCursor: () => calls.push('cursor') },
+      },
+    )) {
       calls.push(event.kind);
     }
 
@@ -425,7 +465,7 @@ describe('resume callbacks', () => {
   });
 
   it('is ignored by an adapter that is not incremental', async () => {
-    const adapter = new CodexSourceAdapter({ dir: os.tmpdir() });
+    const adapter = new CodexSourceAdapter({ dir: os.tmpdir(), context });
     const filePath = fixturePath(import.meta.url, '../fixtures/codex/session-token-count.jsonl');
     const calls: string[] = [];
     const withResume: string[] = [];
@@ -447,8 +487,8 @@ describe('resume callbacks', () => {
     const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'read-cursor-empty-'));
     tempDirs.push(emptyDir);
     const adapter = new MultiDirectorySourceAdapter([
-      new QwenSourceAdapter({ dir: emptyDir }),
-      new QwenSourceAdapter({ dir: path.dirname(path.dirname(path.dirname(filePath))) }),
+      new QwenSourceAdapter({ dir: emptyDir, context }),
+      new QwenSourceAdapter({ dir: path.dirname(path.dirname(path.dirname(filePath))), context }),
     ]);
     await adapter.discoverFiles();
 
