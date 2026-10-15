@@ -14,6 +14,13 @@ import {
 import { createDshSessionsFixture } from '../helpers/dsh-fixtures.js';
 import { createGooseFixtureDb, E2E_GOOSE_SESSIONS } from '../helpers/goose-fixtures.js';
 import { createOpenCodeFixtureDb, E2E_OPENCODE_MESSAGES } from '../helpers/opencode-fixtures.js';
+import { M9_BLOCKS_GOLDEN_NAMES } from './m9-blocks-names.js';
+import { M9_HOURLY_GOLDEN_NAMES } from './m9-hourly-names.js';
+import { M9_PRICING_GOLDEN_NAMES } from './m9-pricing-names.js';
+import { M9_PROJECTS_GOLDEN_NAMES } from './m9-projects-names.js';
+import { M9_TC_GOLDEN_NAMES } from './m9-tc-names.js';
+import { M9_USAGE_GOLDEN_NAMES } from './m9-usage-names.js';
+import { M9_VALUE_GOLDEN_NAMES } from './m9-value-names.js';
 
 /** The day after the latest fixture event, so summary's windows hold June data. */
 export const FIXED_NOW = new Date('2026-06-21T12:00:00.000Z');
@@ -483,5 +490,13 @@ export async function listExpectedGoldenNames(): Promise<string[]> {
     helpGoldenName(undefined),
     ...COMMAND_NAMES.map(helpGoldenName),
     ...reportNames,
+    // Each M9 card's goldens, listed in its own file and checked by its own golden test.
+    ...M9_USAGE_GOLDEN_NAMES,
+    ...M9_HOURLY_GOLDEN_NAMES,
+    ...M9_BLOCKS_GOLDEN_NAMES,
+    ...M9_PRICING_GOLDEN_NAMES,
+    ...M9_PROJECTS_GOLDEN_NAMES,
+    ...M9_VALUE_GOLDEN_NAMES,
+    ...M9_TC_GOLDEN_NAMES,
   ].sort();
 }
