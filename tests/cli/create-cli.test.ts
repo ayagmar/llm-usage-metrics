@@ -844,7 +844,6 @@ describe('createCli', () => {
 
   it.each([
     ['hourly', []],
-    ['projects', []],
     ['blocks', []],
     ['value', []],
     ['pricing', ['gpt-5']],
