@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ayagmar.github.io/llm-usage-metrics/report-pricing.v1.schema.json",
   "title": "llm-usage-metrics pricing report output (v1)",
-  "description": "Envelope and payload for pricing --json output.",
+  "description": "Envelope and payload for pricing --json output: how each model name resolves to the prices the cost engine applies.",
   "type": "object",
   "allOf": [
     {
@@ -10,10 +10,219 @@
     }
   ],
   "properties": {
-    "report": { "const": "pricing" },
+    "report": {
+      "const": "pricing"
+    },
     "data": {
-      "description": "How model names resolve to prices. The payload is not specified yet.",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["models", "perRequestSources"],
+      "properties": {
+        "models": {
+          "description": "One entry per name, in the order given.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/model"
+          }
+        },
+        "perRequestSources": {
+          "description": "Sources whose events each record one request; tiers apply only to their events.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "nullableRate": {
+      "description": "USD per 1M tokens; null when the pricing lists no rate.",
+      "type": ["number", "null"],
+      "minimum": 0
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model",
+        "normalizedModel",
+        "pricingKey",
+        "rule",
+        "canonicalModel",
+        "strippedModel",
+        "fuzzyDistance",
+        "override",
+        "origin",
+        "retired",
+        "rates",
+        "tiers",
+        "priorityFallback"
+      ],
+      "properties": {
+        "model": {
+          "description": "The name as given.",
+          "type": "string"
+        },
+        "normalizedModel": {
+          "description": "The name as the matcher sees it: trimmed and lowercased.",
+          "type": "string"
+        },
+        "pricingKey": {
+          "description": "The key whose prices apply; null when the name is unpriced.",
+          "type": ["string", "null"]
+        },
+        "rule": {
+          "description": "How the matcher found the key; null when no key matched or an override keyed on the name applies.",
+          "enum": [
+            "preferred-key",
+            "direct",
+            "effort-suffix",
+            "provider-prefixed",
+            "release-suffix",
+            "fuzzy",
+            null
+          ]
+        },
+        "canonicalModel": {
+          "description": "The model the model map turned the name into before the rule matched it.",
+          "type": ["string", "null"]
+        },
+        "strippedModel": {
+          "description": "The form that matched when the rule dropped a provider prefix or an effort suffix.",
+          "type": ["string", "null"]
+        },
+        "fuzzyDistance": {
+          "description": "Edit distance of a fuzzy match.",
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "override": {
+          "description": "Whether a --pricing-overrides entry applies: keyed on the name (raw), on its pricing key (resolved), or none.",
+          "enum": ["raw", "resolved", "none"]
+        },
+        "origin": {
+          "description": "Where the LiteLLM prices came from; null when an override prices the name.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "fetchedAt", "url"],
+              "properties": {
+                "kind": {
+                  "enum": ["cache", "network", "bundled-snapshot"]
+                },
+                "fetchedAt": {
+                  "description": "ISO timestamp of the fetch the prices came from.",
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        },
+        "retired": {
+          "description": "The prices come from models LiteLLM no longer lists.",
+          "type": "boolean"
+        },
+        "rates": {
+          "description": "Base rates; null when the name is unpriced.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "inputPer1MUsd",
+                "outputPer1MUsd",
+                "cacheReadPer1MUsd",
+                "cacheWritePer1MUsd",
+                "cacheWrite1hPer1MUsd",
+                "reasoningPer1MUsd",
+                "reasoningBilling"
+              ],
+              "properties": {
+                "inputPer1MUsd": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "outputPer1MUsd": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "cacheReadPer1MUsd": {
+                  "$ref": "#/$defs/nullableRate"
+                },
+                "cacheWritePer1MUsd": {
+                  "$ref": "#/$defs/nullableRate"
+                },
+                "cacheWrite1hPer1MUsd": {
+                  "description": "One-hour cache writes; null bills them at cacheWritePer1MUsd.",
+                  "$ref": "#/$defs/nullableRate"
+                },
+                "reasoningPer1MUsd": {
+                  "$ref": "#/$defs/nullableRate"
+                },
+                "reasoningBilling": {
+                  "description": "Whether reasoning tokens bill as output or at reasoningPer1MUsd.",
+                  "enum": ["included-in-output", "separate"]
+                }
+              }
+            }
+          ]
+        },
+        "tiers": {
+          "description": "Long-context rates, highest threshold first. A request whose prompt (input, cache read and cache write tokens) is above aboveTokens bills at the highest such tier.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "aboveTokens",
+              "inputPer1MUsd",
+              "outputPer1MUsd",
+              "cacheReadPer1MUsd",
+              "cacheWritePer1MUsd",
+              "cacheWrite1hPer1MUsd"
+            ],
+            "properties": {
+              "aboveTokens": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "inputPer1MUsd": {
+                "$ref": "#/$defs/nullableRate"
+              },
+              "outputPer1MUsd": {
+                "$ref": "#/$defs/nullableRate"
+              },
+              "cacheReadPer1MUsd": {
+                "$ref": "#/$defs/nullableRate"
+              },
+              "cacheWritePer1MUsd": {
+                "$ref": "#/$defs/nullableRate"
+              },
+              "cacheWrite1hPer1MUsd": {
+                "$ref": "#/$defs/nullableRate"
+              }
+            }
+          }
+        },
+        "priorityFallback": {
+          "description": "Buckets LiteLLM lists no standard rate for, so their priority-tier rate stands in.",
+          "type": "array",
+          "items": {
+            "enum": ["input", "output", "cacheRead", "cacheWrite"]
+          }
+        }
+      }
     }
   }
 }
