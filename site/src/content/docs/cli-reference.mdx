@@ -124,6 +124,15 @@ Options:
                                  PNG export) to the current directory
   --no-open                      With --share, write the files without opening
                                  the page
+  --repo <project>               Count only these projects (repeatable or
+                                 comma-separated, so a value cannot contain a
+                                 comma). A path (absolute, or ./, ../, ~/ on
+                                 this machine) matches that repository root and
+                                 the roots under it; a name or path tail such as
+                                 work/api matches the end of a root, not the
+                                 roots under it; (unattributed) matches usage
+                                 without a root. Applied after --model picks
+                                 exact or substring matching
   -h, --help                     display help for command
 ```
 
@@ -1982,7 +1991,7 @@ Search across root and command help. See Command help above to check which flags
 | `--provider` | - | `<name>` | Billing-provider filter \(normalized to billing entity; e.g. openai, anthropic, google, moonshot\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline only\) |
 | `--quiet` | - | - | Suppress informational stderr output \(warnings still print\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, pricing, doctor, prune, machine only\) |
 | `--qwen-dir` | - | `<path>` | Path to Qwen projects directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline, doctor, prune only\) |
-| `--repo` | - | `<project>` | hourly, daily, weekly, monthly, projects, compare, optimize, trends, session, blocks, value, events: Count only these projects \(repeatable or comma-separated, so a value cannot contain a comma\). A path \(absolute, or ./, ../, \~/ on this machine\) matches that repository root and the roots under it; a name or path tail such as work/api matches the end of a root, not the roots under it; \(unattributed\) matches usage without a root. Applied after --model picks exact or substring matching; efficiency: Count only these projects \(repeatable or comma-separated, so a value cannot contain a comma\). A path \(absolute, or ./, ../, \~/ on this machine\) matches that repository root and the roots under it; a name or path tail such as work/api matches the end of a root, not the roots under it; \(unattributed\) matches usage without a root. Applied after --model picks exact or substring matching. It filters usage events; --repo-dir picks the Git repository for outcomes |
+| `--repo` | - | `<project>` | summary, hourly, daily, weekly, monthly, projects, compare, optimize, trends, session, blocks, value, events: Count only these projects \(repeatable or comma-separated, so a value cannot contain a comma\). A path \(absolute, or ./, ../, \~/ on this machine\) matches that repository root and the roots under it; a name or path tail such as work/api matches the end of a root, not the roots under it; \(unattributed\) matches usage without a root. Applied after --model picks exact or substring matching; efficiency: Count only these projects \(repeatable or comma-separated, so a value cannot contain a comma\). A path \(absolute, or ./, ../, \~/ on this machine\) matches that repository root and the roots under it; a name or path tail such as work/api matches the end of a root, not the roots under it; \(unattributed\) matches usage without a root. Applied after --model picks exact or substring matching. It filters usage events; --repo-dir picks the Git repository for outcomes |
 | `--repo-dir` | - | `<path>` | Path to repository for Git outcome metrics \(efficiency only\) |
 | `--roocode-dir` | - | `<path>` | Path to RooCode tasks directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline, doctor, prune only\) |
 | `--share` | - | - | Write a share card \(SVG and an HTML page with PNG export\) to the current directory \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, wrapped only\) |
