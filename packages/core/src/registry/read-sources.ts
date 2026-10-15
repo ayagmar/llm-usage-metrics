@@ -10,7 +10,7 @@ import type { SourceContext } from '../sources/source-context.js';
 import { collect } from '../stream/collect.js';
 import { readEvents } from '../stream/read-events.js';
 import { since, until } from '../stream/window.js';
-import { createDefaultAdapters, getDefaultSourceIds } from './index.js';
+import { createDefaultAdapters, getDefaultSourceIds } from './adapters.js';
 
 /** Options for `readSources`. */
 export type ReadSourcesOptions = {

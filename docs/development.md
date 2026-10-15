@@ -296,7 +296,7 @@ Optional but recommended:
    - for JSONL sources, consider `readJsonlObjects(filePath, { shouldParseLine })` — or the faster byte-level `shouldParseLineBytes` — to skip irrelevant lines before `JSON.parse`
 3. Normalize output through `createUsageEvent`
 4. Add fixture tests under `packages/core/tests/sources/<name>`
-5. Add one entry to `sourceRegistrations` in `packages/core/src/registry/index.ts`
+5. Add one entry to `sourceRegistrations` in `packages/core/src/registry/adapters.ts`
    (id, storage format, `supportsSourceDir`, `parseInWorker`, and the constructor,
    which receives the `SourceContext`). Resolve default paths from that context when
    the adapter is constructed; never read `os.homedir()`, `process.env` or

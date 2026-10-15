@@ -75,7 +75,7 @@ Normalize raw data with `createUsageEvent` so downstream code receives consisten
 
 ### 2) Wire it into reporting
 
-Add one entry to `sourceRegistrations` in `packages/core/src/registry/index.ts`. That entry
+Add one entry to `sourceRegistrations` in `packages/core/src/registry/adapters.ts`. That entry
 drives `getDefaultSourceIds()` (and so `--source` filtering and the docs sidebar) and, for
 directory-backed sources, the generic `--source-dir <source-id=path>` override. Then add the
 dedicated `--<source>-dir`/`--<source>-db` flag to `sourceCliOptions` and `dedicatedOptionOrderIds`
