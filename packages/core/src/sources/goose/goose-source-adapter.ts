@@ -1,3 +1,5 @@
+import { setTimeout as sleep } from 'node:timers/promises';
+
 import { createUsageEvent, type UsageEvent } from '../../domain/usage-event.js';
 import { asRecord } from '../../utils/as-record.js';
 import { pathExists, pathIsFile, pathReadable } from '../../utils/fs-helpers.js';
@@ -8,6 +10,10 @@ import { createSourceContext, type SourceContext } from '../source-context.js';
 import { getDefaultGooseDbPathCandidates } from './goose-db-path-resolver.js';
 import { iterateRows } from '../sqlite/iterate-rows.js';
 import { loadNodeSqliteModule, type SqliteModule } from '../sqlite/node-sqlite-loader.js';
+import { runWithBusyRetries, toSqliteDbReadError, type SleepFn } from '../sqlite/retry-policy.js';
+
+const DEFAULT_BUSY_RETRY_COUNT = 2;
+const DEFAULT_BUSY_RETRY_DELAY_MS = 50;
 
 type PathPredicate = (filePath: string) => Promise<boolean>;
 
@@ -22,6 +28,11 @@ type GooseSqliteRow = {
   accumulated_total_tokens?: unknown;
   accumulated_input_tokens?: unknown;
   accumulated_output_tokens?: unknown;
+};
+
+type GooseSessionRows = {
+  database: InstanceType<SqliteModule['DatabaseSync']>;
+  rows: IterableIterator<GooseSqliteRow>;
 };
 
 type GooseParsedRow = {
@@ -43,6 +54,12 @@ export type GooseSourceAdapterOptions = {
   pathIsFile?: PathPredicate;
   /** Test seam: replaces the node:sqlite loader. @internal */
   loadSqliteModule?: () => Promise<SqliteModule>;
+  /** Retries of a read that finds the database busy or locked. */
+  maxBusyRetries?: number;
+  /** Delay between those retries. */
+  busyRetryDelayMs?: number;
+  /** Test seam: replaces the busy-retry delay. @internal */
+  sleep?: SleepFn;
   context?: SourceContext;
 };
 
@@ -177,6 +194,9 @@ export class GooseSourceAdapter implements SourceAdapter {
   private readonly pathReadable: PathPredicate;
   private readonly pathIsFile: PathPredicate;
   private readonly loadSqliteModule: () => Promise<SqliteModule>;
+  private readonly maxBusyRetries: number;
+  private readonly busyRetryDelayMs: number;
+  private readonly sleep: SleepFn;
 
   public constructor(options: GooseSourceAdapterOptions = {}) {
     const context = options.context ?? createSourceContext();
@@ -188,6 +208,9 @@ export class GooseSourceAdapter implements SourceAdapter {
     this.pathReadable = options.pathReadable ?? pathReadable;
     this.pathIsFile = options.pathIsFile ?? pathIsFile;
     this.loadSqliteModule = options.loadSqliteModule ?? loadNodeSqliteModule;
+    this.maxBusyRetries = Math.max(0, options.maxBusyRetries ?? DEFAULT_BUSY_RETRY_COUNT);
+    this.busyRetryDelayMs = Math.max(1, options.busyRetryDelayMs ?? DEFAULT_BUSY_RETRY_DELAY_MS);
+    this.sleep = options.sleep ?? sleep;
   }
 
   public getSearchPaths(): string[] {
@@ -266,25 +289,53 @@ export class GooseSourceAdapter implements SourceAdapter {
       throw new Error(`Goose DB path is not a file: ${normalizedDbPath}`);
     }
 
-    const sqlite = await this.loadSqliteModule();
-    const database = new sqlite.DatabaseSync(normalizedDbPath, { readOnly: true, timeout: 0 });
+    let attempts = 0;
+    const { database, rows } = await runWithBusyRetries(
+      (attempt) => {
+        attempts = attempt + 1;
+        return this.openSessionRows(normalizedDbPath);
+      },
+      {
+        source: 'Goose',
+        dbPath: normalizedDbPath,
+        maxBusyRetries: this.maxBusyRetries,
+        busyRetryDelayMs: this.busyRetryDelayMs,
+        sleep: this.sleep,
+      },
+    );
 
     try {
-      const rows: Iterable<GooseSqliteRow> = iterateRows(database.prepare(gooseSessionsQuery));
+      try {
+        for (const row of rows) {
+          const parsedRow = parseGooseRow(row);
 
-      for (const row of rows) {
-        const parsedRow = parseGooseRow(row);
+          if (parsedRow.skippedReason) {
+            recordSkippedRow(diagnostics, parsedRow.skippedReason);
+          }
 
-        if (parsedRow.skippedReason) {
-          recordSkippedRow(diagnostics, parsedRow.skippedReason);
+          if (parsedRow.event) {
+            yield parsedRow.event;
+          }
         }
-
-        if (parsedRow.event) {
-          yield parsedRow.event;
-        }
+      } finally {
+        database.close();
       }
-    } finally {
+    } catch (error) {
+      throw toSqliteDbReadError(error, 'Goose', normalizedDbPath, attempts);
+    }
+  }
+
+  // Opens the database and pulls the first row, so a busy database fails here, inside
+  // the retry, rather than after a row was yielded.
+  private async openSessionRows(dbPath: string): Promise<GooseSessionRows> {
+    const sqlite = await this.loadSqliteModule();
+    const database = new sqlite.DatabaseSync(dbPath, { readOnly: true, timeout: 0 });
+
+    try {
+      return { database, rows: iterateRows(database.prepare(gooseSessionsQuery)) };
+    } catch (error) {
       database.close();
+      throw error;
     }
   }
 }

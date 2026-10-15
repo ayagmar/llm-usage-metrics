@@ -6,7 +6,8 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { buildUsageReport } from '../../../src/cli/run-usage-report.js';
 import { canonicalTmpdir } from '../../helpers/tmp.js';
 
-// Freezes v0.11.0 pricing of one Claude request above 200k input tokens (KI-1).
+// One Claude Haiku 5.5 request whose 150k-token prompt is over the 100k long-context
+// threshold (KI-1).
 const fixtureDir = path.resolve('tests/fixtures/golden/claude/long-context');
 
 let tempRoot: string;
@@ -30,8 +31,8 @@ afterAll(async () => {
   await rm(tempRoot, { recursive: true, force: true });
 });
 
-describe('Claude request above 200k input tokens', () => {
-  it('prices the whole request at the base input rate', async () => {
+describe('Claude request with a prompt above 100k tokens', () => {
+  it('prices the whole request at the long-context rates', async () => {
     const report = JSON.parse(
       await buildUsageReport('monthly', {
         claudeDir: fixtureDir,
@@ -40,12 +41,25 @@ describe('Claude request above 200k input tokens', () => {
         pricingOffline: true,
         timezone: 'UTC',
       }),
-    ) as { data: { rowType: string; inputTokens: number; costUsd: number }[] };
+    ) as {
+      data: {
+        rowType: string;
+        inputTokens: number;
+        cacheReadTokens: number;
+        cacheWriteTokens: number;
+        costUsd: number;
+      }[];
+    };
     const grandTotal = report.data.find((row) => row.rowType === 'grand_total');
 
-    expect(grandTotal?.inputTokens).toBe(250_000);
-    // KNOWN ISSUE KI-1: the >200k tier is not applied. 0.75 is 250k x $3/M, the base
-    // claude-sonnet-4-5 input rate in the bundled snapshot.
-    expect(grandTotal?.costUsd).toBe(0.75);
+    // The prompt counts cache reads and writes: 50k + 90k + 10k = 150k > 100k.
+    expect(grandTotal).toMatchObject({
+      inputTokens: 50_000,
+      cacheReadTokens: 90_000,
+      cacheWriteTokens: 10_000,
+    });
+    // Bundled-snapshot rates above 100k tokens for claude-haiku-5-5, per 1M: $0.50 input,
+    // $0.05 cache read, $0.625 cache write, $2.50 output. Base rates would give $0.00765.
+    expect(grandTotal?.costUsd).toBeCloseTo(0.025 + 0.0045 + 0.00625 + 0.0025, 10);
   });
 });

@@ -1,5 +1,20 @@
 export type ReasoningBillingMode = 'included-in-output' | 'separate';
 
+/**
+ * Rates for a request whose prompt (input, cache read and cache write tokens) is strictly
+ * above `aboveTokens`. A bucket without a rate here bills at the model's base rate.
+ */
+export type PricingTier = {
+  aboveTokens: number;
+  inputPer1MUsd?: number;
+  outputPer1MUsd?: number;
+  cacheReadPer1MUsd?: number;
+  cacheWritePer1MUsd?: number;
+  cacheWrite1hPer1MUsd?: number;
+};
+
+export type PriorityFallbackBucket = 'input' | 'output' | 'cacheRead' | 'cacheWrite';
+
 export type ModelPricing = {
   inputPer1MUsd: number;
   outputPer1MUsd: number;
@@ -9,6 +24,10 @@ export type ModelPricing = {
   cacheWrite1hPer1MUsd?: number;
   reasoningPer1MUsd?: number;
   reasoningBilling?: ReasoningBillingMode;
+  /** Buckets LiteLLM lists no standard rate for, so their priority rate stands in. */
+  priorityFallback?: PriorityFallbackBucket[];
+  /** Long-context rates, highest `aboveTokens` first. They apply per request only. */
+  tiers?: PricingTier[];
 };
 
 export interface PricingSource {

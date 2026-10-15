@@ -2,7 +2,10 @@ import { type Command, Option } from 'commander';
 
 import { getDefaultSourceIds } from '@ayagmar/agent-sessions/registry';
 import { getSourceOverrideOptions } from '../source-cli-options.js';
+import type { PricingCostMode } from '../../pricing/cost-engine.js';
 import type { SharedOptionProfile } from './report-definition-types.js';
+
+const COST_MODES = ['explicit', 'estimated', 'both'] as const satisfies readonly PricingCostMode[];
 
 export type SharedOptionProfileConfig = {
   includeJson: boolean;
@@ -374,6 +377,14 @@ export function registerSharedReportOptions(
     configuredCommand.option(
       '--ignore-pricing-failures',
       'Continue without estimated costs when pricing cannot be loaded',
+    );
+
+    // No default here: `both` applies downstream, so --no-cost conflicts only with a passed mode.
+    configuredCommand.addOption(
+      new Option(
+        '--cost-mode <mode>',
+        'Costs to report: explicit (logged by the source), estimated (from LiteLLM), or both (logged, else estimated; default)',
+      ).choices(COST_MODES),
     );
   }
 

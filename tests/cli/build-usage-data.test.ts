@@ -18,7 +18,10 @@ import { shouldLoadPricingSource } from '../../src/cli/build-usage-data-pricing.
 import type { PricingLoadResult } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
-import { createDefaultOpenAiPricingSource } from '../helpers/static-pricing-source.js';
+import {
+  createDefaultOpenAiPricingSource,
+  StaticPricingSource,
+} from '../helpers/static-pricing-source.js';
 import { readFrom, readWithDiagnostics } from '../helpers/fake-read.js';
 
 const tempDirs: string[] = [];
@@ -1241,6 +1244,133 @@ describe('buildUsageData', () => {
         cacheTtlMs: 1_000,
         fetchTimeoutMs: 1_000,
       }),
+    );
+  });
+
+  it('applies long-context tier rates only to sources that report usage per request', async () => {
+    const pricingLoaderSpy = vi.fn(async (): Promise<PricingLoadResult> => ({
+      source: new StaticPricingSource({
+        pricingByModel: {
+          'gpt-4.1': {
+            inputPer1MUsd: 2,
+            outputPer1MUsd: 8,
+            tiers: [{ aboveTokens: 272_000, inputPer1MUsd: 4, outputPer1MUsd: 16 }],
+          },
+        },
+      }),
+      origin: 'cache',
+    }));
+    const longPrompt = {
+      costMode: 'estimated' as const,
+      costUsd: undefined,
+      inputTokens: 300_000,
+      outputTokens: 0,
+      totalTokens: 300_000,
+    };
+
+    const result = await buildUsageData(
+      'daily',
+      { all: true, timezone: 'UTC' },
+      {
+        ...withDeterministicRuntimeDeps(),
+        createAdapters: () => [
+          createAdapter(
+            'pi',
+            { '/tmp/pi-tier.jsonl': [createEvent({ ...longPrompt, source: 'pi' })] },
+            { usagePerRequest: true },
+          ),
+          createAdapter('droid', {
+            '/tmp/droid-tier.jsonl': [createEvent({ ...longPrompt, source: 'droid' })],
+          }),
+        ],
+        resolvePricingSource: pricingLoaderSpy,
+      },
+    );
+
+    const costBySource = Object.fromEntries(
+      result.rows
+        .filter((row) => row.rowType === 'period_source')
+        .map((row) => [row.source, row.costUsd]),
+    );
+    // 300k input at the tier's $4 per 1M for pi; droid's summed usage stays at $2.
+    expect(costBySource.pi).toBeCloseTo(1.2, 10);
+    expect(costBySource.droid).toBeCloseTo(0.6, 10);
+  });
+
+  it('keeps --cost-mode and per-request tier rates together', async () => {
+    const pricingLoaderSpy = vi.fn(async (): Promise<PricingLoadResult> => ({
+      source: new StaticPricingSource({
+        pricingByModel: {
+          'gpt-4.1': {
+            inputPer1MUsd: 2,
+            outputPer1MUsd: 8,
+            tiers: [{ aboveTokens: 272_000, inputPer1MUsd: 4 }],
+          },
+        },
+      }),
+      origin: 'cache',
+    }));
+
+    const result = await buildUsageData(
+      'daily',
+      { all: true, timezone: 'UTC', costMode: 'estimated' },
+      {
+        ...withDeterministicRuntimeDeps(),
+        createAdapters: () => [
+          createAdapter(
+            'pi',
+            {
+              '/tmp/pi-tier-mode.jsonl': [
+                createEvent({ inputTokens: 300_000, outputTokens: 0, totalTokens: 300_000 }),
+              ],
+            },
+            { usagePerRequest: true },
+          ),
+        ],
+        resolvePricingSource: pricingLoaderSpy,
+      },
+    );
+
+    // The logged $0.03 is replaced by the estimate at the tier's $4 per 1M input.
+    expect(result.rows.find((row) => row.rowType === 'grand_total')?.costUsd).toBeCloseTo(1.2, 10);
+  });
+
+  it('notes the shown events priced at priority rates, naming their models', async () => {
+    const pricingLoaderSpy = vi.fn(async (): Promise<PricingLoadResult> => ({
+      source: new StaticPricingSource({
+        pricingByModel: {
+          'priority-only': {
+            inputPer1MUsd: 1,
+            outputPer1MUsd: 4,
+            priorityFallback: ['input', 'output'],
+          },
+          'gpt-4.1': { inputPer1MUsd: 2, outputPer1MUsd: 8 },
+        },
+      }),
+      origin: 'cache',
+    }));
+    const estimated = { costMode: 'estimated' as const, costUsd: undefined };
+
+    const result = await buildUsageData(
+      'daily',
+      { all: true, timezone: 'UTC' },
+      {
+        ...withDeterministicRuntimeDeps(),
+        createAdapters: () => [
+          createAdapter('pi', {
+            '/tmp/pi-priority.jsonl': [
+              createEvent({ ...estimated, model: 'priority-only' }),
+              createEvent({ ...estimated, model: 'priority-only', sessionId: 'session-2' }),
+              createEvent({ ...estimated, model: 'gpt-4.1', sessionId: 'session-3' }),
+            ],
+          }),
+        ],
+        resolvePricingSource: pricingLoaderSpy,
+      },
+    );
+
+    expect(result.diagnostics.notes).toContain(
+      '2 events priced at LiteLLM priority rates because no standard rate is listed (models: priority-only)',
     );
   });
 

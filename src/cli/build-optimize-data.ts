@@ -9,7 +9,7 @@ import {
 } from '../domain/provider-normalization.js';
 import {
   applyPricingToUsageEventDataset,
-  withUnpricedEventsNote,
+  withPricingNotes,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
 import type {
@@ -109,8 +109,12 @@ export async function buildOptimizeData(
       ),
   );
 
-  const { pricedEvents, pricingOrigin, pricingWarning, pricingSource } =
-    await applyPricingToUsageEventDataset(dataset, deps, 'force');
+  // Candidates are priced from period totals at base rates, so the baseline skips
+  // per-request tier rates too; otherwise a tier premium would read as savings.
+  const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'force', {
+    perRequestRates: false,
+  });
+  const { pricedEvents, pricingOrigin, pricingWarning, pricingSource } = pricingResult;
 
   const usageRows = measureRuntimeProfileStageSync(
     deps.runtimeProfile,
@@ -162,7 +166,7 @@ export async function buildOptimizeData(
     pricingOrigin,
     pricingWarning,
     warnings: dataset.warnings,
-    notes: withUnpricedEventsNote(dataset.notes, pricedEvents),
+    notes: withPricingNotes(dataset.notes, pricedEvents, pricingResult),
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,

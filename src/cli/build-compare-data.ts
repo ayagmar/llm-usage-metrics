@@ -5,7 +5,7 @@ import { normalizeBuildUsageInputs, validateDateInput } from './build-usage-data
 import { resolveUserConfigForOptions } from './apply-user-config.js';
 import {
   applyPricingToUsageEventDataset,
-  withUnpricedEventsNote,
+  withPricingNotes,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
@@ -365,11 +365,8 @@ export async function buildCompareData(
         },
       }),
   );
-  const { pricedEvents, pricingOrigin, pricingWarning } = await applyPricingToUsageEventDataset(
-    dataset,
-    deps,
-    'auto',
-  );
+  const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'auto');
+  const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
   const currentEvents = pricedEvents.filter((event) =>
     isEventWithinWindow(event, windows.current, dataset.normalizedInputs.timezone),
   );
@@ -394,7 +391,7 @@ export async function buildCompareData(
     pricingOrigin,
     pricingWarning,
     warnings: dataset.warnings,
-    notes: withUnpricedEventsNote(dataset.notes, [...currentEvents, ...baselineEvents]),
+    notes: withPricingNotes(dataset.notes, [...currentEvents, ...baselineEvents], pricingResult),
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,

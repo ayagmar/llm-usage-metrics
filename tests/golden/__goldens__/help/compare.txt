@@ -25,6 +25,9 @@ Options:
                                  precedence over LiteLLM)
   --pricing-offline              Use cached LiteLLM pricing only (no network fetch)
   --ignore-pricing-failures      Continue without estimated costs when pricing cannot be loaded
+  --cost-mode <mode>             Costs to report: explicit (logged by the source), estimated (from
+                                 LiteLLM), or both (logged, else estimated; default) (choices:
+                                 "explicit", "estimated", "both")
   --history                      Include usage from files that no longer exist on disk (on by
                                  default; when passed, fails if the event store is unavailable)
   --no-history                   Leave out usage from files that no longer exist on disk

@@ -12,7 +12,7 @@ description: How pricing is loaded and how row costs are computed.
 - fallback: stale cache is used when live refresh fails
 - bundled snapshot: the default LiteLLM pricing URL can fall back to a bundled snapshot
 - offline mode: `--pricing-offline` skips network and uses cache, stale cache, or the bundled snapshot
-- retired models: LiteLLM eventually drops retired models (for example `claude-sonnet-4-20250514`); their last published prices are bundled and back-fill the default source, so historical usage stays priced
+- retired models: LiteLLM eventually drops retired models (for example `claude-sonnet-4-20250514`); their last published prices are bundled and back-fill the default source, so historical usage stays priced. A retired price is dropped when a live LiteLLM key prices the same names at the same rates (including names with a release or effort suffix or a provider prefix, but not misspellings that only fuzzy matching reaches), so those names follow that live key, which may be a reseller's, until the next snapshot refresh re-checks them
 
 ```bash
 llm-usage monthly --pricing-offline
@@ -48,11 +48,43 @@ Each event is either:
 - `explicit`: source included a valid cost
 - `estimated`: cost derived from pricing data
 
-Explicit `costUsd: 0` events are re-priced from LiteLLM when model pricing exists.
+`--cost-mode` picks which of these costs a report uses:
+
+- `both` (the default): the logged cost when the source has one, otherwise an estimate. An event that logged `$0` but used tokens is estimated from LiteLLM when the model has pricing. Unless `--cost-mode` was passed, stderr then says how many shown events that affected and which sources logged them.
+- `explicit`: logged costs only. A logged `$0` stays `$0`, and events without a logged cost stay unpriced, so totals are marked `~` and the stderr note counts the events with no logged cost. LiteLLM pricing is not loaded to price events. Reports that need prices beyond event costs still load it: `optimize` for its candidate models, and `summary`, `statusline` and `wrapped` for the cache-savings estimate. `--pricing-url`, `--pricing-offline` and `--pricing-overrides` apply to those prices.
+- `estimated`: every event is priced from its tokens and logged costs are ignored. An event that cannot be priced is left unpriced (`~`) rather than shown with its logged cost.
+
+`--cost-mode` cannot be combined with `--no-cost`.
 
 ## Cache writes
 
 Claude caches a prompt for five minutes or one hour, and a one-hour write costs more (2x the input rate instead of 1.25x). Claude logs record how many written tokens used each lifetime, so one-hour writes are priced at LiteLLM's one-hour rate. Models without a one-hour rate, and events stored before 0.10.2 whose log file is gone, price every write at the standard cache-write rate. When history has two stored copies of such a file, one from before the upgrade, it may serve the older copy at that rate.
+
+## Long-context tiers
+
+Some models charge more for a request with a long prompt. Claude Haiku 5.5 bills a prompt over 100,000 tokens at higher rates, Gemini 2.5 Pro over 200,000, and GPT-5.4 and later over 272,000. LiteLLM lists these as `*_above_<N>k_tokens` rates, and the bundled snapshot and the pricing cache keep them as tiers.
+
+- A request's prompt is its input, cache read and cache write tokens together. When the prompt is strictly over a tier's threshold, the whole request bills at that tier: input, output, cache reads, cache writes and one-hour cache writes. When several thresholds are crossed, the highest one wins. A bucket the tier gives no rate bills at its base rate.
+- Tiers apply only to sources whose events each record one request: claude, gemini, pi, opencode and antigravity. Other sources can sum several requests into one event (droid and goose log session totals, and a codex event can span several requests), so their events always bill at base rates rather than crossing a threshold on a total.
+- `optimize` prices candidate models on each period's totals, which are not requests, so it uses base rates. It prices your actual usage, the baseline, at base rates too, so a tier premium never shows up as savings. Its baseline cost can therefore be lower than the cost the other reports show for the same period.
+- The threshold is always strict (`>`). LiteLLM's own calculator treats xAI thresholds as inclusive (`>=`), so a prompt of exactly the threshold can differ there.
+- The estimated cache savings in `summary` and `wrapped` use the same per-event rates.
+- Service-tier variants (`_batches`, `_priority`, `_flex` and similar) and LiteLLM's `tiered_pricing` ranges are not used.
+- `--pricing-overrides` entries carry no tiers, so an overridden model bills at its flat rates.
+
+Pricing caches written before tiers existed are discarded once: with the default pricing URL, the next run fetches fresh pricing, and if the fetch fails or the run is offline it uses the bundled snapshot instead of the old cache. A custom `--pricing-url` keeps using its old cache until a refresh succeeds, since it has no bundled snapshot to fall back on.
+
+An older and a newer `llm-usage` that share one pricing cache (for example a global install that runs `statusline` and an `npx` run of a later version) each treat the other's cache as out of date. An online run then refetches pricing and rewrites the cache whenever the other version wrote it last, rather than once a day. Updating both to the same version stops it.
+
+## Priority rates
+
+When LiteLLM lists only a priority rate (`*_priority`) for a model's input, output, cache read or cache write, that rate prices that bucket. stderr counts the events that have tokens in such a bucket; an event of the same model that uses only standard-priced buckets is not counted:
+
+```text
+2 events priced at LiteLLM priority rates because no standard rate is listed (models: minimax-m2p7)
+```
+
+`--quiet` and `--no-cost` hide that line.
 
 ## Row cost rendering
 
@@ -93,5 +125,7 @@ Illustrative file shape (these are example rates, not a provider rate card):
 ```
 
 Only `inputPer1MUsd` and `outputPer1MUsd` are required; `cacheReadPer1MUsd`, `cacheWritePer1MUsd`, `cacheWrite1hPer1MUsd`, `reasoningPer1MUsd`, and `reasoningBilling` are optional. `cacheWrite1hPer1MUsd` prices one-hour cache writes (Claude); without it they bill at `cacheWritePer1MUsd`. `reasoningBilling: "included-in-output"` (the default) bills all output tokens at `outputPer1MUsd`; `"separate"` bills the reasoning share of output at `reasoningPer1MUsd` and only the remainder at `outputPer1MUsd`, since `outputTokens` already includes reasoning. Rates must be finite, non-negative numbers. A missing required rate, an invalid rate, an unknown key, or an unknown `reasoningBilling` value fails the run with an error naming each bad entry, so a typo never leaves a model silently priced from LiteLLM. Model names match case-insensitively, and an override on a name short-circuits LiteLLM alias resolution for that name.
+
+An override has no long-context tiers, so every request of an overridden model bills at the file's rates.
 
 Overrides can price a model absent from your current cache or bundled snapshot, or select rates for a specific workload. The [DeepSeek Harness guide](/llm-usage-metrics/sources/dsh/#pricing) explains refreshed pricing, legacy model names, and peak versus off-peak estimates.

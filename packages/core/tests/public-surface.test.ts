@@ -152,12 +152,13 @@ const EXPECTED_SURFACE: Record<string, readonly string[]> = {
     'takeUncountedEvents',
     'toFiniteNumber',
     'toNumberLike',
-    'toOpenCodeDbReadError',
     'toTerminalLine',
     'toTokenCount',
     // T-cursor
     'JsonlReadPosition',
     'readJsonlFromCursor',
+    // M7-G
+    'toSqliteDbReadError',
   ],
   './otel': [
     // T-otel

@@ -6,7 +6,10 @@ import type {
   UsageEventDataset,
   UsageEventDatasetPricingResult,
 } from '../../src/cli/build-usage-event-dataset.js';
-import type { UsageEvent } from '../../src/domain/usage-event.js';
+import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.js';
+import { resolveAndApplyPricingToEvents } from '../../src/cli/build-usage-data-pricing.js';
+import { StaticPricingSource } from '../helpers/static-pricing-source.js';
+import { createPricingRunStats, DEFAULT_PRICING_POLICY } from '../../src/pricing/cost-engine.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { readFrom } from '../helpers/fake-read.js';
 
@@ -154,6 +157,8 @@ function createPricingResult(
     pricedEvents,
     pricingOrigin: 'cache',
     pricingWarning: undefined,
+    pricingPolicy: DEFAULT_PRICING_POLICY,
+    pricingStats: createPricingRunStats(),
   };
 }
 
@@ -663,6 +668,58 @@ describe('buildEfficiencyData', () => {
       { activeUsageDays?: ReadonlySet<string> } | undefined;
 
     expect(options?.activeUsageDays).toEqual(new Set(['2026-02-10', '2026-02-11']));
+  });
+
+  it('notes logged $0 events that pricing estimated, though attribution copies the events', async () => {
+    const loggedZeroEvent = createUsageEvent({
+      source: 'pi',
+      sessionId: 'session-zero',
+      timestamp: '2026-02-11T10:00:00.000Z',
+      repoRoot: '/tmp/repo',
+      model: 'gpt-4.1',
+      inputTokens: 100,
+      outputTokens: 50,
+      costUsd: 0,
+      costMode: 'explicit',
+    });
+
+    const result = await buildEfficiencyData(
+      'daily',
+      { repoDir: '/tmp/repo' },
+      {
+        buildUsageEventDataset: async (options) => createUsageEventDataset(options),
+        applyPricingToUsageEventDataset: async () =>
+          resolveAndApplyPricingToEvents(
+            [loggedZeroEvent],
+            {},
+            {
+              loadPricingSource: async () => ({
+                source: new StaticPricingSource({
+                  pricingByModel: { 'gpt-4.1': { inputPer1MUsd: 2, outputPer1MUsd: 8 } },
+                }),
+                origin: 'cache',
+              }),
+            },
+          ),
+        collectGitOutcomes: async () => ({
+          periodOutcomes: new Map(),
+          totalOutcomes: { commitCount: 0, linesAdded: 0, linesDeleted: 0, linesChanged: 0 },
+          diagnostics: {
+            repoDir: '/tmp/repo',
+            includeMergeCommits: false,
+            commitsCollected: 0,
+            malformedCommitLines: 0,
+            linesAdded: 0,
+            linesDeleted: 0,
+          },
+        }),
+        resolveRepoRoot: async () => '/tmp/repo',
+      },
+    );
+
+    expect(result.diagnostics.notes).toContain(
+      '1 event logged $0 by pi was estimated from LiteLLM; use --cost-mode explicit to keep $0',
+    );
   });
 
   it('rejects blank --repo-dir values before building usage or running git outcomes', async () => {

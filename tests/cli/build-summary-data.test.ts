@@ -13,9 +13,11 @@ import { readFrom } from '../helpers/fake-read.js';
 function createAdapter(
   id: SourceAdapter['id'],
   events: ReturnType<typeof createUsageEvent>[],
+  capabilities?: SourceAdapter['capabilities'],
 ): SourceAdapter {
   return {
     id,
+    capabilities,
     discoverFiles: async () => [`/tmp/${id}.jsonl`],
     read: readFrom(async () => events),
   };
@@ -200,6 +202,56 @@ describe('buildSummaryData', () => {
     expect(result.monthEnd).toMatchObject({ daysElapsed: 10, daysInMonth: 31, budgetUsd: 25 });
     expect(result.monthEnd.projectedCostUsd).toBeCloseTo(monthToDateCost * 3.1, 6);
     // gpt-4.1 bundled pricing: $2.00 input vs $0.50 cache read per 1M tokens.
+    expect(result.monthToDateCacheSavingsUsd).toBeCloseTo(1.5, 6);
+  });
+
+  it('estimates cache savings at long-context rates for a per-request source', async () => {
+    const run = (capabilities?: SourceAdapter['capabilities']) =>
+      buildSummaryData(
+        { timezone: 'UTC', pricingOffline: true },
+        runtimeDeps(
+          [
+            createAdapter(
+              'codex',
+              [
+                createEvent('2026-03-05T09:00:00.000Z', {
+                  model: 'gpt-5.4',
+                  costMode: 'estimated',
+                  costUsd: undefined,
+                  cacheReadTokens: 300_000,
+                }),
+              ],
+              capabilities,
+            ),
+          ],
+          '2026-03-10T18:00:00.000Z',
+        ),
+      );
+
+    // gpt-5.4 bundled pricing above 272k prompt tokens: $5.00 input vs $0.50 cache read per
+    // 1M; at the base rates, $2.50 vs $0.25.
+    expect((await run({ usagePerRequest: true })).monthToDateCacheSavingsUsd).toBeCloseTo(1.35, 6);
+    expect((await run()).monthToDateCacheSavingsUsd).toBeCloseTo(0.675, 6);
+  });
+
+  it('still estimates cache savings under --cost-mode explicit, without pricing unlogged events', async () => {
+    const result = await buildSummaryData(
+      { timezone: 'UTC', pricingOffline: true, costMode: 'explicit' },
+      runtimeDeps(
+        [
+          createAdapter('codex', [
+            createEvent('2026-03-05T09:00:00.000Z', {
+              costMode: 'estimated',
+              costUsd: undefined,
+              cacheReadTokens: 1_000_000,
+            }),
+          ]),
+        ],
+        '2026-03-10T18:00:00.000Z',
+      ),
+    );
+
+    expect(result.periods[2]?.totals.costUsd).toBeUndefined();
     expect(result.monthToDateCacheSavingsUsd).toBeCloseTo(1.5, 6);
   });
 

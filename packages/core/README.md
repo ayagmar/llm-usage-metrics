@@ -214,6 +214,10 @@ for await (const event of qwen.read(filePath, {
 
 The cursor is plain JSON, so it can be stored as is. `JsonlReadCursor` reserves `state` for adapter-defined state; no adapter sets it yet.
 
+## Per-request usage
+
+An adapter whose `capabilities.usagePerRequest` is true yields usage events that each record a single model request: claude, gemini, pi, opencode and antigravity. Prices that depend on one request's prompt size, such as long-context tiers, can be applied to those events one by one. Other sources can sum several requests into one event: droid and goose report session totals, and a codex event is the change in running totals between two `token_count` rows, which can span more than one request. Leave the flag unset on an adapter unless every event it yields is a single request.
+
 ## OpenTelemetry attributes
 
 `@ayagmar/agent-sessions/otel` maps events to OpenTelemetry GenAI semantic-convention attributes: `usageRecordAttributes`, `toolCallAttributes` and `sessionAttributes`, each returning a plain `Record<string, string | number | boolean>`. It is experimental: the GenAI conventions have no release, so names follow the commit pinned in `SEMCONV_GENAI_REF` and can change when the pin moves, in any version. The helpers never emit message text, titles or raw records; paths and the git branch appear only with `includePaths: true`.

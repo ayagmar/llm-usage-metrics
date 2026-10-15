@@ -115,6 +115,51 @@ describe('buildOptimizeData', () => {
     expect(candidateRows.at(-1)).toMatchObject({ hypotheticalCostUsd: 12 });
   });
 
+  // Candidates are priced at base rates, so the baseline must be too, even for a
+  // per-request source whose request is above a long-context tier.
+  it('shows no savings for the model already in use when a request is above a tier', async () => {
+    const adapter: SourceAdapter = {
+      ...createAdapter('claude', {
+        '/tmp/a.jsonl': [
+          createBaseEvent({
+            source: 'claude',
+            provider: 'anthropic',
+            model: 'claude-tiered',
+            inputTokens: 150_000,
+            outputTokens: 1_000,
+            totalTokens: 151_000,
+          }),
+        ],
+      }),
+      capabilities: { usagePerRequest: true },
+    };
+
+    const result = await buildOptimizeData(
+      'daily',
+      { candidateModel: ['claude-tiered'], timezone: 'UTC' },
+      runtimeDeps({
+        adapters: [adapter],
+        resolvePricingSource: async () => ({
+          source: new StaticPricingSource({
+            pricingByModel: {
+              'claude-tiered': {
+                inputPer1MUsd: 1,
+                outputPer1MUsd: 5,
+                tiers: [{ aboveTokens: 100_000, inputPer1MUsd: 5, outputPer1MUsd: 25 }],
+              },
+            },
+          }),
+          origin: 'cache',
+        }),
+      }),
+    );
+    const allCandidate = result.rows.find(
+      (row) => row.rowType === 'candidate' && row.periodKey === 'ALL',
+    );
+
+    expect(allCandidate).toMatchObject({ hypotheticalCostUsd: 0.155, savingsUsd: 0 });
+  });
+
   it('fails on multiple providers after filtering and before pricing load', async () => {
     const pricingLoaderSpy = vi.fn(async () => ({
       source: createDefaultOpenAiPricingSource(),

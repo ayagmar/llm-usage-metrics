@@ -134,10 +134,13 @@ function describeIncludedMachine(
 
   const details = [`synced ${formatAge(now - state.syncedAt)}`];
 
-  // Parsers change between versions, so a session copied to both machines may not match.
+  // Parsers change between versions, so a session copied to both machines may not match
+  // exactly. With the machine's parser versions recorded, the merge detects that.
   if (state.cliVersion && state.cliVersion !== localVersion) {
     details.push(
-      `llm-usage-metrics ${state.cliVersion} there; shared sessions may count twice until both run the same version`,
+      state.parserVersions
+        ? `llm-usage-metrics ${state.cliVersion} there; sessions it parses with other parser versions are matched by timestamp`
+        : `llm-usage-metrics ${state.cliVersion} there; shared sessions may count twice until it is synced after updating llm-usage`,
     );
   }
 
@@ -150,10 +153,13 @@ export function formatMachinesNote(
   now: number,
   localVersion: string,
 ): string {
-  const duplicateCount = machines.reduce((sum, machine) => sum + machine.duplicateCount, 0);
+  const leftOutCount = machines.reduce(
+    (sum, machine) => sum + machine.duplicateCount + machine.skewDroppedCount,
+    0,
+  );
   const duplicates =
-    duplicateCount > 0
-      ? `; left out ${integerFormat.format(duplicateCount)} event(s) already counted`
+    leftOutCount > 0
+      ? `; left out ${integerFormat.format(leftOutCount)} event(s) already counted`
       : '';
 
   return `Machines: ${machines.map((machine) => describeIncludedMachine(machine, now, localVersion)).join(', ')}${duplicates}.`;

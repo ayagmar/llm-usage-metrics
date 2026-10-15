@@ -100,6 +100,8 @@ describe('machine export e2e', () => {
     }
 
     expect(lines[0]).toMatchObject({ type: 'header', hostname: os.hostname() });
+    // Version 1 headers can gain fields; a reader built on this schema must still accept them.
+    expect(validate({ ...lines[0], addedLater: true }), JSON.stringify(validate.errors)).toBe(true);
     expect(fileLines(lines).map((line) => line.source)).toEqual(['pi', 'codex']);
 
     const exportedEvents = fileLines(lines).flatMap((line) => line.events);
