@@ -56,6 +56,14 @@
           "description": "With --by-machine, per-source rows only: the machine the usage came from (local for this one).",
           "type": "string"
         },
+        "repoRoot": {
+          "description": "With --by-repo, per-source rows only: the project's repository root, or null for usage without one.",
+          "type": ["string", "null"]
+        },
+        "project": {
+          "description": "With --by-repo, per-source rows only: the project's display label.",
+          "type": "string"
+        },
         "models": {
           "description": "Model identifiers active in the row.",
           "type": "array",

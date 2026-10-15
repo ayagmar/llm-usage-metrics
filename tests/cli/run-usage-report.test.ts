@@ -690,6 +690,12 @@ describe('buildUsageReport', () => {
     ).rejects.toThrow('--by-machine splits the table only; drop it with --share');
   });
 
+  it('rejects --by-repo with --share', async () => {
+    await expect(
+      buildUsageReport('daily', { all: true, byRepo: true, share: true }),
+    ).rejects.toThrow('--by-repo splits the table only; drop it with --share');
+  });
+
   it('rejects --no-cost with --json', async () => {
     await expect(buildUsageReport('daily', { all: true, cost: false, json: true })).rejects.toThrow(
       '--no-cost applies to tables and the share card; drop it with --json',

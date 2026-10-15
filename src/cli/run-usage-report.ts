@@ -72,6 +72,10 @@ async function prepareUsageReport(
       if (options.byMachine && options.share) {
         throw new Error('--by-machine splits the table only; drop it with --share');
       }
+
+      if (options.byRepo && options.share) {
+        throw new Error('--by-repo splits the table only; drop it with --share');
+      }
     },
     render: (usageData, format) => {
       const { output, notes } = renderUsageReportWithNotes(usageData, format, {
@@ -94,8 +98,9 @@ async function prepareUsageReport(
 export async function buildUsageReport(
   granularity: ReportGranularity,
   options: ReportCommandOptions,
+  deps: BuildUsageDataDeps = {},
 ): Promise<string> {
-  const preparedReport = await prepareUsageReport(granularity, options);
+  const preparedReport = await prepareUsageReport(granularity, options, deps);
   return preparedReport.output;
 }
 
