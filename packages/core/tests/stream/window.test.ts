@@ -109,6 +109,7 @@ describe('since and until', () => {
       '2026-06-01T10:00:00.000+0200',
       '2026-06-01T10:00:00-05:00',
       'Mon, 01 Jun 2026 10:00:00 GMT',
+      'Mon Jun 01 2026 10:00:00 GMT+0200 (Central European Summer Time)',
     ]) {
       expect(() => since(bound)).not.toThrow();
     }

@@ -4,7 +4,8 @@ type Timestamped = { timestamp: string };
 
 // Date.parse reads a time of day without an offset in the host's time zone.
 const TIME_OF_DAY_PATTERN = /\d:\d/u;
-const UTC_OFFSET_PATTERN = /(?:z|[+-]\d{2}:?\d{2}|gmt|utc)$/iu;
+// `String(date)` ends its offset with a zone name in parentheses.
+const UTC_OFFSET_PATTERN = /(?:z|[+-]\d{2}:?\d{2}|gmt|utc)(?: \([^()]*\))?$/iu;
 
 function toBoundMs(name: 'since' | 'until', bound: string | Date): number {
   const ms = typeof bound === 'string' ? Date.parse(bound) : bound.getTime();
