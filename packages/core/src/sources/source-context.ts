@@ -14,7 +14,13 @@ export type SourceContext = {
   /** Held by reference (process.env by default), so adapters see later env changes. */
   env: NodeJS.ProcessEnv;
   platform: NodeJS.Platform;
-  /** Receives non-fatal problems; without it they are dropped. */
+  /**
+   * Receives non-fatal problems; without it an adapter drops them. Setting it also changes
+   * `readSources`: without a listener it rethrows a failed discovery or read, and with one
+   * it reports the failure here as a warning and skips that source or file. See the
+   * "Failures" bullet under `readSources` in the
+   * {@link https://github.com/ayagmar/llm-usage-metrics/tree/master/packages/core#stages | package README}.
+   */
   onDiagnostic?: (diagnostic: SourceDiagnostic) => void;
 };
 
