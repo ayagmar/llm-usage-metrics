@@ -8,6 +8,7 @@ Run `llm-usage <command> --help` to see command options (e.g. --json, --source).
 
 Examples:
   $ llm-usage
+  $ llm-usage hourly
   $ llm-usage daily
   $ llm-usage daily --help
   $ llm-usage daily --source-dir pi=/tmp/pi-sessions --source-dir gemini=/tmp/.gemini --source-dir
@@ -19,14 +20,18 @@ droid=/tmp/droid-sessions --source-dir openclaw=/tmp/openclaw-agents
   $ llm-usage monthly --source opencode --opencode-db /path/to/opencode.db --json
   $ llm-usage monthly --model claude --per-model-columns
   $ llm-usage monthly --last 3
+  $ llm-usage projects
   $ llm-usage compare
   $ llm-usage efficiency weekly --repo-dir /path/to/repo --json
   $ llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candidate-model
 gpt-5-codex --json
   $ llm-usage trends
   $ llm-usage session
+  $ llm-usage blocks
+  $ llm-usage value
   $ llm-usage wrapped
   $ llm-usage events --format jsonl > events.jsonl
+  $ llm-usage pricing claude-sonnet-4-5
   $ llm-usage doctor
   $ llm-usage prune --suppressed
   $ npx --yes llm-usage-metrics@latest
@@ -38,19 +43,34 @@ Options:
 Commands:
   summary [options]                   Show cost and tokens for today, the last 7 days, and month to
                                       date, plus activity streaks (default command)
+  hourly [options]                    Show hourly usage report (today unless --last, --since, or
+                                      --until)
   daily [options]                     Show daily usage report (last 7 days unless --last, --since,
                                       --until, or --all)
   weekly [options]                    Show weekly usage report (week starts Monday; last 8 weeks
                                       unless --last, --since, --until, or --all)
   monthly [options]                   Show monthly usage report
+  projects [options]                  Show cost, tokens, events, active days and top models per
+                                      project (repository root), costliest first (full history
+                                      unless --last, --since, or --until)
   compare [options]                   Compare usage and cost between two date windows
   efficiency [options] <granularity>  Show efficiency report by correlating usage metrics with local
                                       Git outcomes
   optimize [options] <granularity>    Show counterfactual pricing report for candidate model(s)
   trends [options]                    Show daily cost or token usage trends
   session [options]                   Show usage grouped by conversation session
+  blocks [options]                    Show estimated 5-hour usage blocks per source, across
+                                      machines, with the active block (last 7 days unless --last,
+                                      --since, --until, or --all; only meaningful for subscription
+                                      plans)
+  value [options]                     Compare the API-priced cost of each month with subscription
+                                      plan prices, per plan and project (full history unless --last,
+                                      --since, or --until)
   wrapped [options]                   Show a yearly usage recap with an optional share card
   events [options]                    Export normalized usage events as JSONL or CSV
+  pricing [options] <model...>        Explain how model names resolve to prices: the matched pricing
+                                      key and rule, overrides, where the prices came from, rates per
+                                      1M tokens and tiers (never reads usage)
   statusline [options]                Print one line with today's cost, your streak, and month to
                                       date, led by the session's cost and context use under Claude
                                       Code (for status bars; never fetches)

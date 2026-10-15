@@ -33,7 +33,31 @@ const usageReportFlags = [
   '--history',
   '--machine',
   '--by-machine',
+  '--by-repo',
+  '--repo',
   '--last',
+  '--no-cost',
+  ...sourcePathFlags,
+];
+
+/** The usage-profile flags projects, blocks and value keep, beside their own. */
+const rollupReportFlags = [
+  '--json',
+  '--markdown',
+  '--source',
+  '--since',
+  '--until',
+  '--timezone',
+  '--provider',
+  '--model',
+  '--cost-mode',
+  '--history',
+  '--machine',
+  '--no-sync',
+  '--repo',
+  '--last',
+  '--all',
+  '--compact',
   '--no-cost',
   ...sourcePathFlags,
 ];
@@ -43,22 +67,27 @@ function getLongFlags(command: Command | undefined): string[] {
 }
 
 describe('createCli', () => {
-  it('registers summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline, doctor, prune, config, machine, sync, schema, and completion commands', () => {
+  it('registers the report commands, then config, machine, sync, schema, and completion', () => {
     const cli = createCli();
 
     expect(cli.name()).toBe('llm-usage');
     expect(cli.commands.map((command) => command.name())).toEqual([
       'summary',
+      'hourly',
       'daily',
       'weekly',
       'monthly',
+      'projects',
       'compare',
       'efficiency',
       'optimize',
       'trends',
       'session',
+      'blocks',
+      'value',
       'wrapped',
       'events',
+      'pricing',
       'statusline',
       'doctor',
       'prune',
@@ -76,9 +105,70 @@ describe('createCli', () => {
     { command: 'weekly', present: usageReportFlags, absent: [] },
     { command: 'monthly', present: usageReportFlags, absent: [] },
     {
+      command: 'hourly',
+      present: [
+        '--by-repo',
+        '--repo',
+        '--by-machine',
+        '--compact',
+        '--no-cost',
+        '--last',
+        '--per-model-columns',
+        '--json',
+        '--markdown',
+        '--since',
+        '--history',
+        '--no-sync',
+        ...sourcePathFlags,
+      ],
+      absent: ['--all', '--share', '--no-open'],
+    },
+    {
+      command: 'projects',
+      present: [...rollupReportFlags, '--granularity', '--top'],
+      absent: ['--share', '--no-open', '--per-model-columns', '--by-repo', '--by-machine'],
+    },
+    {
+      command: 'blocks',
+      present: [...rollupReportFlags, '--top'],
+      absent: ['--share', '--no-open', '--per-model-columns', '--by-repo', '--by-machine'],
+    },
+    {
+      command: 'value',
+      present: [...rollupReportFlags, '--plan', '--plan-price'],
+      absent: ['--share', '--no-open', '--per-model-columns', '--by-repo', '--by-machine'],
+    },
+    {
+      // Explains prices only: no usage is read, so no source, date or cost flags.
+      command: 'pricing',
+      present: [
+        '--pricing-url',
+        '--pricing-overrides',
+        '--pricing-offline',
+        '--json',
+        '--markdown',
+        '--quiet',
+      ],
+      absent: [
+        '--source',
+        '--source-dir',
+        '--help-all',
+        '--verbose',
+        '--since',
+        '--timezone',
+        '--model',
+        '--ignore-pricing-failures',
+        '--cost-mode',
+        '--history',
+        '--no-sync',
+        '--share',
+        ...sourcePathFlags,
+      ],
+    },
+    {
       command: 'optimize',
-      present: ['--candidate-model', '--top', '--share', '--history'],
-      absent: ['--repo-dir', '--per-model-columns'],
+      present: ['--candidate-model', '--top', '--share', '--history', '--repo'],
+      absent: ['--repo-dir', '--per-model-columns', '--by-repo'],
     },
     {
       command: 'trends',
@@ -87,6 +177,8 @@ describe('createCli', () => {
         '--days',
         '--metric',
         '--by-source',
+        '--by-repo',
+        '--repo',
         '--json',
         '--share',
         '--history',
@@ -100,6 +192,7 @@ describe('createCli', () => {
         '--top',
         '--id',
         '--by-repo',
+        '--repo',
         '--json',
         '--markdown',
         '--source',
@@ -118,6 +211,8 @@ describe('createCli', () => {
       present: [
         '--vs-since',
         '--vs-until',
+        '--by-repo',
+        '--repo',
         '--source',
         '--timezone',
         '--pricing-url',
@@ -150,8 +245,14 @@ describe('createCli', () => {
     },
     {
       command: 'efficiency',
-      present: ['--repo-dir', '--include-merge-commits', '--share', '--ignore-pricing-failures'],
-      absent: ['--per-model-columns'],
+      present: [
+        '--repo-dir',
+        '--repo',
+        '--include-merge-commits',
+        '--share',
+        '--ignore-pricing-failures',
+      ],
+      absent: ['--per-model-columns', '--by-repo'],
     },
     {
       command: 'doctor',
@@ -171,14 +272,31 @@ describe('createCli', () => {
     {
       // Export stream: --format replaces --json.
       command: 'events',
-      present: ['--format', '--source', '--since', '--pricing-url', '--history', '--no-sync'],
-      absent: ['--json', '--markdown', '--share'],
+      present: [
+        '--format',
+        '--source',
+        '--since',
+        '--pricing-url',
+        '--history',
+        '--no-sync',
+        '--repo',
+      ],
+      absent: ['--json', '--markdown', '--share', '--by-repo'],
     },
     {
       // Always offline and silent, and never syncs over ssh.
       command: 'statusline',
       present: ['--source', '--verbose', '--pricing-overrides', '--history', '--machine'],
-      absent: ['--json', '--quiet', '--pricing-url', '--pricing-offline', '--no-sync', '--since'],
+      absent: [
+        '--json',
+        '--quiet',
+        '--pricing-url',
+        '--pricing-offline',
+        '--no-sync',
+        '--since',
+        '--repo',
+        '--by-repo',
+      ],
     },
     {
       command: 'prune',
@@ -241,7 +359,10 @@ describe('createCli', () => {
 
     for (const command of reportCommands) {
       expect(command.options.some((option) => option.long === '--quiet')).toBe(true);
-      expect(command.options.some((option) => option.long === '--verbose')).toBe(true);
+      // pricing reads no usage, so it has no per-source diagnostics to show.
+      expect(command.options.some((option) => option.long === '--verbose')).toBe(
+        command.name() !== 'pricing',
+      );
     }
   });
 
@@ -376,16 +497,21 @@ describe('createCli', () => {
   it('exports shared report metadata and CLI reference examples', () => {
     expect(getReportDefinitionMetas().map((meta) => meta.commandName)).toEqual([
       'summary',
+      'hourly',
       'daily',
       'weekly',
       'monthly',
+      'projects',
       'compare',
       'efficiency',
       'optimize',
       'trends',
       'session',
+      'blocks',
+      'value',
       'wrapped',
       'events',
+      'pricing',
       'statusline',
       'doctor',
       'prune',
@@ -636,6 +762,101 @@ describe('createCli', () => {
     expect(dailyAction.mock.calls[1]?.[0]).toMatchObject({ cost: true, costMode: 'explicit' });
   });
 
+  function findCommand(cli: ReturnType<typeof createCli>, name: string): Command {
+    const command = cli.commands.find((candidate) => candidate.name() === name);
+
+    if (!command) {
+      throw new Error(`${name} command missing`);
+    }
+
+    return command;
+  }
+
+  it('collects repeated --plan ids and rejects an unknown one with the plan ids', async () => {
+    const cli = createCli();
+    captureOutput(cli);
+    const valueAction = vi.fn();
+    findCommand(cli, 'value').action(valueAction);
+
+    await cli.parseAsync(['value', '--plan', 'claude-pro', '--plan', 'chatgpt-plus'], {
+      from: 'user',
+    });
+    await cli.parseAsync(['value'], { from: 'user' });
+
+    expect(valueAction.mock.calls[0]?.[0]).toMatchObject({
+      plan: ['claude-pro', 'chatgpt-plus'],
+    });
+    // No commander default: the value report applies its own, so a passed plan replaces it.
+    expect(valueAction.mock.calls[1]?.[0]).not.toHaveProperty('plan');
+
+    const value = findCommand(createCli(), 'value');
+    const output = captureOutput(value);
+    await expect(
+      value.parseAsync(['--plan', 'claude-ultra'], { from: 'user' }),
+    ).rejects.toMatchObject({ exitCode: 1 });
+    expect(output.text()).toContain(
+      'Allowed choices are claude-pro, claude-max-5x, claude-max-20x, chatgpt-go, chatgpt-plus, chatgpt-pro-100, chatgpt-pro-200, chatgpt-pro-500.',
+    );
+  });
+
+  it('collects --repo values and limits --granularity to daily, weekly and monthly', async () => {
+    const cli = createCli();
+    captureOutput(cli);
+    const projectsAction = vi.fn();
+    findCommand(cli, 'projects').action(projectsAction);
+
+    await cli.parseAsync(
+      ['projects', '--repo', 'api,./web', '--repo', '(unattributed)', '--granularity', 'weekly'],
+      { from: 'user' },
+    );
+
+    expect(projectsAction.mock.calls[0]?.[0]).toMatchObject({
+      repo: ['api,./web', '(unattributed)'],
+      granularity: 'weekly',
+    });
+
+    const projects = findCommand(createCli(), 'projects');
+    const output = captureOutput(projects);
+    await expect(
+      projects.parseAsync(['--granularity', 'hourly'], { from: 'user' }),
+    ).rejects.toMatchObject({ exitCode: 1 });
+    expect(output.text()).toContain('Allowed choices are daily, weekly, monthly.');
+  });
+
+  it('passes every model name to pricing and requires at least one', async () => {
+    const cli = createCli();
+    captureOutput(cli);
+    const pricingAction = vi.fn();
+    findCommand(cli, 'pricing').action(pricingAction);
+
+    await cli.parseAsync(['pricing', 'gpt-5', 'claude-sonnet-4-5', '--json'], { from: 'user' });
+
+    expect(pricingAction.mock.calls[0]?.[0]).toEqual(['gpt-5', 'claude-sonnet-4-5']);
+    expect(pricingAction.mock.calls[0]?.[1]).toMatchObject({ json: true });
+
+    const pricing = findCommand(createCli(), 'pricing');
+    const output = captureOutput(pricing);
+    await expect(pricing.parseAsync([], { from: 'user' })).rejects.toMatchObject({
+      exitCode: 1,
+    });
+    expect(output.text()).toContain("missing required argument 'model'");
+  });
+
+  it.each([
+    ['hourly', []],
+    ['projects', []],
+    ['blocks', []],
+    ['value', []],
+    ['pricing', ['gpt-5']],
+  ])('fails %s with "not implemented" until its report lands', async (name, args) => {
+    const cli = createCli();
+    captureOutput(cli);
+
+    await expect(cli.parseAsync([name, ...args], { from: 'user' })).rejects.toThrow(
+      `The ${name} report is not implemented yet`,
+    );
+  });
+
   it('accepts repeated directory flags and keeps database flags single', async () => {
     const cli = createCli();
     captureOutput(cli);
@@ -669,13 +890,13 @@ describe('createCli', () => {
     expect(output.text()).not.toContain('Did you mean');
   });
 
-  it('offers --all on daily and weekly only', () => {
+  it('offers --all on daily, weekly, projects, blocks and value only', () => {
     const cli = createCli();
     const commandsWithAll = cli.commands
       .filter((command) => command.options.some((option) => option.long === '--all'))
       .map((command) => command.name());
 
-    expect(commandsWithAll).toEqual(['daily', 'weekly']);
+    expect(commandsWithAll).toEqual(['daily', 'weekly', 'projects', 'blocks', 'value']);
   });
 
   it('rejects --quiet together with --verbose', async () => {

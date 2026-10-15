@@ -40,6 +40,13 @@ Options:
   --no-open                      With --share, write the files without opening the page
   --vs-since <date>              Inclusive start date for the baseline comparison window
   --vs-until <date>              Inclusive end date for the baseline comparison window
+  --by-repo                      Also compare each project (repository root)
+  --repo <project>               Count only these projects (repeatable or comma-separated, so a
+                                 value cannot contain a comma). A path (absolute, or ./, ../, ~/ on
+                                 this machine) matches that repository root and the roots under it;
+                                 a name or path tail such as work/api matches the end of a root, not
+                                 the roots under it; (unattributed) matches usage without a root.
+                                 Applied after --model picks exact or substring matching
   -h, --help                     display help for command
 
 Per-source path flags (--claude-dir, ...)

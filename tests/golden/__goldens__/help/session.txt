@@ -39,6 +39,12 @@ Options:
   --id <session-id>              Show only sessions whose id contains the value (case-insensitive;
                                  repeatable or comma-separated)
   --by-repo                      Group usage by repository root instead of by session
+  --repo <project>               Count only these projects (repeatable or comma-separated, so a
+                                 value cannot contain a comma). A path (absolute, or ./, ../, ~/ on
+                                 this machine) matches that repository root and the roots under it;
+                                 a name or path tail such as work/api matches the end of a root, not
+                                 the roots under it; (unattributed) matches usage without a root.
+                                 Applied after --model picks exact or substring matching
   -h, --help                     display help for command
 
 Per-source path flags (--claude-dir, ...)
