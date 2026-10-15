@@ -91,3 +91,16 @@ export function buildProjectLabels(
 
   return labels;
 }
+
+/** Project labels for every repository root in a report's events (see `buildProjectLabels`). */
+export function buildEventProjectLabels(
+  events: Iterable<{ repoRoot?: string }>,
+): Map<string | undefined, string> {
+  const keys: (string | undefined)[] = [];
+
+  for (const event of events) {
+    keys.push(toProjectKey(event.repoRoot));
+  }
+
+  return buildProjectLabels(keys);
+}

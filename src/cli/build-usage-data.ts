@@ -1,5 +1,5 @@
 import { aggregateUsage } from '../aggregate/aggregate-usage.js';
-import { buildProjectLabels, toProjectKey } from '../aggregate/project-key.js';
+import { buildEventProjectLabels } from '../aggregate/project-key.js';
 import {
   getCurrentLocalDateKey,
   getIsoDayOfWeekFromDateKey,
@@ -171,9 +171,7 @@ export async function buildUsageData(
       split: { machine: options.byMachine === true, repo: byRepo },
       ...(byRepo
         ? {
-            projectLabels: buildProjectLabels(
-              pricedEvents.map((event) => toProjectKey(event.repoRoot)),
-            ),
+            projectLabels: buildEventProjectLabels(pricedEvents),
           }
         : {}),
     }),

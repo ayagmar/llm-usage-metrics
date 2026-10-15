@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildProjectLabels, toProjectKey } from '../../src/aggregate/project-key.js';
+import {
+  buildEventProjectLabels,
+  buildProjectLabels,
+  toProjectKey,
+} from '../../src/aggregate/project-key.js';
 
 function labelsOf(keys: (string | undefined)[]): Record<string, string> {
   return Object.fromEntries(
@@ -67,5 +71,20 @@ describe('buildProjectLabels', () => {
     expect(labels.size).toBe(6);
     expect(new Set(labels.values()).size).toBe(6);
     expect([...reversed].sort()).toEqual([...labels].sort());
+  });
+});
+
+describe('buildEventProjectLabels', () => {
+  it('labels the keys of the events, trailing separators folded and missing roots unattributed', () => {
+    const labels = buildEventProjectLabels([
+      { repoRoot: '/w/a/api/' },
+      { repoRoot: '/w/b/api' },
+      {},
+    ]);
+
+    expect(labels).toEqual(
+      buildProjectLabels([toProjectKey('/w/a/api'), toProjectKey('/w/b/api'), undefined]),
+    );
+    expect(labels.get(undefined)).toBe('(unattributed)');
   });
 });
