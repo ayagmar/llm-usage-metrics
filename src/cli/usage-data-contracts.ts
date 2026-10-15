@@ -12,6 +12,7 @@ import type { UsageReportRow, UsageTotals } from '../domain/usage-report-row.js'
 import type { UsageEvent } from '../domain/usage-event.js';
 import type { EfficiencyRow } from '../efficiency/efficiency-row.js';
 import type { OptimizeRow } from '../optimize/optimize-row.js';
+import type { PricingCostMode } from '../pricing/cost-engine.js';
 import type { PricingSource } from '../pricing/types.js';
 import type {
   EventStoreHistoryResult,
@@ -84,6 +85,8 @@ type PerModelColumnsOption = {
 type PricingOptions = {
   pricingOverrides?: string;
   ignorePricingFailures?: boolean;
+  /** `--cost-mode`; undefined when not passed, which prices as `both`. */
+  costMode?: PricingCostMode;
 };
 
 type PricingFetchOptions = {

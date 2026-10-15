@@ -160,7 +160,32 @@ export function canEstimateUsageCost(usage: BillableTokenUsage, pricing: ModelPr
   return hasNonReasoningPricedBuckets(usage);
 }
 
+/** The event with no cost: reports leave it out of cost totals and mark them with `~`. */
+function withoutCost(event: UsageEvent): UsageEvent {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- dropped on purpose
+  const { costUsd, ...unpricedEvent } = event;
+  return { ...unpricedEvent, costMode: 'estimated' };
+}
+
 function applyResolvedPricingToEvent(
+  event: UsageEvent,
+  pricing: ModelPricing | undefined,
+  run: PricingRun,
+): UsageEvent {
+  if (run.policy.costMode === 'explicit') {
+    return event.costMode === 'explicit' ? event : withoutCost(event);
+  }
+
+  if (run.policy.costMode === 'estimated') {
+    // Drop the logged cost first so an event we cannot price is unpriced, never a logged
+    // cost presented as an estimate.
+    return applyEstimatedPricingToEvent(withoutCost(event), pricing, run.stats);
+  }
+
+  return applyEstimatedPricingToEvent(event, pricing, run.stats);
+}
+
+function applyEstimatedPricingToEvent(
   event: UsageEvent,
   pricing: ModelPricing | undefined,
   stats: PricingRunStats,
@@ -219,7 +244,7 @@ export function applyPricingToEvents(
     const model = event.model;
     let pricing: ModelPricing | undefined;
 
-    if (model && isPriceableEvent(event)) {
+    if (model && isPriceableEvent(event) && run.policy.costMode !== 'explicit') {
       const resolvedModel = pricingSource.resolveModelAlias(model);
       pricing = pricingByModel.get(resolvedModel);
 
@@ -229,6 +254,6 @@ export function applyPricingToEvents(
       }
     }
 
-    return applyResolvedPricingToEvent(event, pricing, run.stats);
+    return applyResolvedPricingToEvent(event, pricing, run);
   });
 }

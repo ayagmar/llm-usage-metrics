@@ -78,7 +78,7 @@ export async function buildWrappedData(
         },
       }),
   );
-  const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'auto');
+  const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'cache-savings');
   const { pricedEvents, pricingOrigin, pricingWarning, pricingSource } = pricingResult;
   const recap = measureRuntimeProfileStageSync(deps.runtimeProfile, 'wrapped.aggregate', () =>
     aggregateWrapped(pricedEvents, {
