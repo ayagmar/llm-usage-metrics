@@ -220,7 +220,8 @@ describe('loadHistoryModel', () => {
 
     // Enough histories have a model that a scanner returning nothing could not pass.
     expect(modelsFound).toBeGreaterThan(150);
-  });
+    // 600 generated histories at every chunk size exceed the 5 s default under load.
+  }, 30_000);
 
   it('returns the last complete block model, ignoring an unclosed block after it', async () => {
     const tempDir = await createTempDir();

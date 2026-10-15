@@ -303,5 +303,7 @@ describe('readDshSessionLogRecords on .zstd logs', () => {
     for (let index = 0; index < GENERATED_CASES; index += 1) {
       await expectSameAsOracle(generateLog(random), `generated case ${index}`);
     }
-  });
+    // Generated-input sweeps take a few seconds alone and exceed the 5 s default when
+    // parallel gate runs load the machine.
+  }, 30_000);
 });
