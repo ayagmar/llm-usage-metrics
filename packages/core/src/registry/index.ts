@@ -18,6 +18,8 @@ import type { SourceAdapter } from '../sources/source-adapter.js';
 import { createSourceContext, type SourceContext } from '../sources/source-context.js';
 import { MultiDirectorySourceAdapter } from '../sources/multi-directory-source-adapter.js';
 
+export { readSources, type ReadSourcesOptions } from './read-sources.js';
+
 export type SourceStorageFormat = 'jsonl' | 'json' | 'sqlite';
 
 /**

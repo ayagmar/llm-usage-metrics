@@ -48,6 +48,8 @@ export { pipe, type Stage } from './stream/pipe.js';
 export { readEvents } from './stream/read-events.js';
 export type { JsonlReadCursor, ReadCursor, ReadResume } from './stream/cursor.js';
 export { kinds } from './stream/kinds.js';
+export { since, until } from './stream/window.js';
+export { bySession, type SessionGroup } from './stream/by-session.js';
 export * from './dedup/content-hash.js';
 export { dedupeRepeatedAcrossFiles, repeatedAcrossFiles } from './dedup/repeated-across-files.js';
 export * from './dedup/copied-session.js';

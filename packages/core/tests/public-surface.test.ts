@@ -73,6 +73,11 @@ const EXPECTED_SURFACE: Record<string, readonly string[]> = {
     'JsonlReadCursor',
     'ReadCursor',
     'ReadResume',
+    // T-stages
+    'SessionGroup',
+    'bySession',
+    'since',
+    'until',
   ],
   './internal': [
     // T0
@@ -173,6 +178,9 @@ const EXPECTED_SURFACE: Record<string, readonly string[]> = {
     'getDefaultSourceIds',
     'getSourceStorageFormat',
     'sourceSupportsDirectories',
+    // T-stages
+    'ReadSourcesOptions',
+    'readSources',
   ],
   './sources/amp': [
     // T0
