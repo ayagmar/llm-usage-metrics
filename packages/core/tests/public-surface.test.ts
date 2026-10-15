@@ -147,6 +147,15 @@ const EXPECTED_SURFACE: Record<string, readonly string[]> = {
     'toTerminalLine',
     'toTokenCount',
   ],
+  './otel': [
+    // T-otel
+    'OtelAttributeOptions',
+    'OtelAttributes',
+    'SEMCONV_GENAI_REF',
+    'sessionAttributes',
+    'toolCallAttributes',
+    'usageRecordAttributes',
+  ],
   './registry': [
     // T0
     'SourceSelection',
