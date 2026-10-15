@@ -1,7 +1,11 @@
+import { mkdtemp, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { buildValueReportOutput } from '../../src/cli/run-value-report.js';
+import { buildValueReportOutput, runValueReport } from '../../src/cli/run-value-report.js';
 import type { ValueCommandOptions } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import type { ValueReportData } from '../../src/value/build-value-report.js';
@@ -164,5 +168,24 @@ describe('value report', () => {
     );
 
     expect(output).toBe('No usage data found for the selected filters.');
+  });
+
+  it('prints only JSON on stdout and diagnostics on stderr', async () => {
+    const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'value-run-'));
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    try {
+      await runValueReport({ ...baseOptions, claudeDir: emptyDir, sync: false, json: true });
+
+      expect(logSpy).toHaveBeenCalledTimes(1);
+      const parsed = JSON.parse(String(logSpy.mock.calls[0]?.[0])) as { report: string };
+      expect(parsed.report).toBe('value');
+      expect(errorSpy).toHaveBeenCalled();
+    } finally {
+      logSpy.mockRestore();
+      errorSpy.mockRestore();
+      await rm(emptyDir, { recursive: true, force: true });
+    }
   });
 });
