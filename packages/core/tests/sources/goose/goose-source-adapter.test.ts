@@ -13,6 +13,7 @@ import { canCountOpenFds, countOpenFds, waitForOpenFdCount } from '../../helpers
 import {
   canBeginExclusive,
   readJournalMode,
+  requireDatabaseSync,
   withSuppressedSqliteExperimentalWarning,
 } from '../../helpers/sqlite.js';
 
@@ -426,4 +427,218 @@ describe.skipIf(!DatabaseSync)('GooseSourceAdapter', () => {
       await expect(collect(adapter.read(dbPath))).resolves.toHaveLength(rowCount);
     },
   );
+
+  it('waits out a writer that holds the database locked', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'goose-locked-'));
+    tempDirs.push(tempDir);
+    const dbPath = path.join(tempDir, 'sessions.db');
+    createGooseFixtureDb(dbPath, [
+      {
+        id: 'goose-locked',
+        modelConfigJson: JSON.stringify({ model_name: 'gpt-goose' }),
+        providerName: 'openai',
+        createdAt: '2026-04-01T10:00:00.000Z',
+        totalTokens: 15,
+        inputTokens: 10,
+        outputTokens: 5,
+      },
+    ]);
+    const writer = new (requireDatabaseSync())(dbPath);
+    writer.exec('BEGIN EXCLUSIVE');
+    const delays: number[] = [];
+    const adapter = new GooseSourceAdapter({
+      dbPath,
+      sleep: async (delayMs) => {
+        delays.push(delayMs);
+        writer.exec('COMMIT');
+      },
+    });
+
+    try {
+      const events = await collect(adapter.read(dbPath));
+
+      expect(events.map((event) => event.sessionId)).toEqual(['goose-locked']);
+      expect(delays).toEqual([50]);
+    } finally {
+      writer.close();
+    }
+  });
+});
+
+type FakeGooseScenario = {
+  rows: Record<string, unknown>[];
+  openErrors?: Error[];
+  /** One entry per query: `iterate` throws `error` after `afterRows` rows (undefined reads all). */
+  rowErrors?: ({ afterRows: number; error: Error } | undefined)[];
+  calls: string[];
+};
+
+function createBusyError(): Error {
+  return Object.assign(new Error('database is locked'), { code: 'ERR_SQLITE_BUSY' });
+}
+
+function* iterateUntilError(
+  rows: Record<string, unknown>[],
+  rowError: { afterRows: number; error: Error } | undefined,
+): Generator<Record<string, unknown>> {
+  for (const [index, row] of rows.entries()) {
+    if (index === rowError?.afterRows) {
+      break;
+    }
+
+    yield row;
+  }
+
+  if (rowError) {
+    throw rowError.error;
+  }
+}
+
+function createFakeGooseAdapter(scenario: FakeGooseScenario): GooseSourceAdapter {
+  class FakeDatabase {
+    public constructor() {
+      const openError = scenario.openErrors?.shift();
+
+      if (openError) {
+        throw openError;
+      }
+
+      scenario.calls.push('open');
+    }
+
+    public prepare() {
+      const rowError = scenario.rowErrors?.shift();
+
+      return {
+        all: () => scenario.rows,
+        iterate: () => iterateUntilError(scenario.rows, rowError),
+      };
+    }
+
+    public close(): void {
+      scenario.calls.push('close');
+    }
+  }
+
+  return new GooseSourceAdapter({
+    pathReadable: async () => true,
+    pathExists: async () => true,
+    pathIsFile: async () => true,
+    maxBusyRetries: 2,
+    busyRetryDelayMs: 5,
+    sleep: async (delayMs) => {
+      scenario.calls.push(`sleep ${delayMs}`);
+    },
+    loadSqliteModule: async () => ({ DatabaseSync: FakeDatabase }),
+  });
+}
+
+describe('GooseSourceAdapter busy retry boundary (open and the first row)', () => {
+  const dbPath = '/tmp/goose.db';
+  const sessionRow = (id: string): Record<string, unknown> => ({
+    id,
+    model_config_json: JSON.stringify({ model_name: 'gpt-goose' }),
+    provider_name: 'openai',
+    created_at: '2026-04-01T10:00:00.000Z',
+    total_tokens: 15,
+    input_tokens: 10,
+    output_tokens: 5,
+  });
+  const busyMessage = (attempts: number): string =>
+    `Goose DB is busy/locked: ${dbPath}. Retries exhausted after ${attempts} attempt(s). Close active Goose processes and retry.`;
+  const ioError = (): Error => Object.assign(new Error('disk I/O error'), { code: 'SQLITE_IOERR' });
+  const ioMessage = `Could not read Goose DB at ${dbPath}: SQLITE_IOERR: disk I/O error`;
+
+  async function readUntilError(
+    scenario: FakeGooseScenario,
+  ): Promise<{ sessionIds: string[]; error: Error }> {
+    const sessionIds: string[] = [];
+
+    try {
+      for await (const event of createFakeGooseAdapter(scenario).read(dbPath)) {
+        sessionIds.push(event.sessionId);
+      }
+    } catch (error) {
+      return { sessionIds, error: error as Error };
+    }
+
+    throw new Error('expected the read to fail');
+  }
+
+  it('retries a busy open and a busy first row, closing each failed attempt before waiting', async () => {
+    const calls: string[] = [];
+    const adapter = createFakeGooseAdapter({
+      rows: [sessionRow('s-1'), sessionRow('s-2')],
+      openErrors: [createBusyError()],
+      rowErrors: [{ afterRows: 0, error: createBusyError() }, undefined],
+      calls,
+    });
+
+    const events = await collect(adapter.read(dbPath));
+
+    expect(events.map((event) => event.sessionId)).toEqual(['s-1', 's-2']);
+    expect(calls).toEqual(['sleep 5', 'open', 'close', 'sleep 10', 'open', 'close']);
+  });
+
+  it('rewrites a busy first row that exhausts the retries', async () => {
+    const calls: string[] = [];
+    const busyError = createBusyError();
+    const result = await readUntilError({
+      rows: [sessionRow('s-1')],
+      rowErrors: [
+        { afterRows: 0, error: createBusyError() },
+        { afterRows: 0, error: createBusyError() },
+        { afterRows: 0, error: busyError },
+      ],
+      calls,
+    });
+
+    expect(result.error.message).toBe(busyMessage(3));
+    expect(result.error.cause).toBe(busyError);
+    expect(result.sessionIds).toEqual([]);
+    expect(calls.filter((call) => call === 'close')).toHaveLength(3);
+  });
+
+  it('rewrites a non-busy open error without retrying', async () => {
+    const calls: string[] = [];
+    const openError = ioError();
+    const result = await readUntilError({ rows: [], openErrors: [openError], calls });
+
+    expect(result.error.message).toBe(ioMessage);
+    expect(result.error.cause).toBe(openError);
+    expect(calls).toEqual([]);
+  });
+
+  it('does not retry a busy row after the first, so no row is yielded twice', async () => {
+    const calls: string[] = [];
+    const busyError = createBusyError();
+    const result = await readUntilError({
+      rows: [sessionRow('s-1'), sessionRow('s-2'), sessionRow('s-3')],
+      rowErrors: [
+        { afterRows: 0, error: createBusyError() },
+        { afterRows: 2, error: busyError },
+      ],
+      calls,
+    });
+
+    expect(result.error.message).toBe(busyMessage(2));
+    expect(result.error.cause).toBe(busyError);
+    expect(result.sessionIds).toEqual(['s-1', 's-2']);
+    expect(calls).toEqual(['open', 'close', 'sleep 5', 'open', 'close']);
+  });
+
+  it('rewrites a non-busy row after the first without retrying', async () => {
+    const calls: string[] = [];
+    const rowError = ioError();
+    const result = await readUntilError({
+      rows: [sessionRow('s-1'), sessionRow('s-2')],
+      rowErrors: [{ afterRows: 1, error: rowError }],
+      calls,
+    });
+
+    expect(result.error.message).toBe(ioMessage);
+    expect(result.error.cause).toBe(rowError);
+    expect(result.sessionIds).toEqual(['s-1']);
+    expect(calls).toEqual(['open', 'close']);
+  });
 });
