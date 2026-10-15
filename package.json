@@ -31,6 +31,8 @@
     "core:lint": "pnpm --filter @ayagmar/agent-sessions run lint",
     "core:test:fast": "pnpm --filter @ayagmar/agent-sessions run test:fast",
     "core:test:memory": "pnpm --filter @ayagmar/agent-sessions run test:memory",
+    "core:pack:check": "node scripts/check-core-pack.mjs",
+    "core:version": "changeset version",
     "format:check": "prettier --check .",
     "format:write": "prettier --write .",
     "verify": "pnpm run lint && pnpm run typecheck && pnpm run core:typecheck && pnpm run test && node .github/scripts/check-coverage-threshold.mjs && pnpm run core:test && node .github/scripts/check-coverage-threshold.mjs packages/core/coverage/coverage-summary.json && pnpm run format:check",
@@ -94,6 +96,7 @@
     "picocolors": "1.1.1"
   },
   "devDependencies": {
+    "@changesets/cli": "3.0.3",
     "@eslint/js": "10.0.1",
     "@release-it/conventional-changelog": "12.0.2",
     "@types/node": "26.6.4",
