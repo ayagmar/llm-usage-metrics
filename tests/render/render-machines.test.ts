@@ -103,6 +103,7 @@ describe('formatMachinesNote', () => {
             enabled: true,
             state: { syncedAt: NOW - 2 * MINUTE, cliVersion: '0.9.0', parserVersions },
             duplicateCount: 0,
+            skewDroppedCount: 0,
           },
         ],
         NOW,
@@ -115,12 +116,13 @@ describe('formatMachinesNote', () => {
     expect(
       formatMachinesNote(
         [
-          { name: 'old', enabled: false, duplicateCount: 0 },
+          { name: 'old', enabled: false, duplicateCount: 0, skewDroppedCount: 0 },
           {
             name: 'vps',
             enabled: false,
             state: { syncedAt: NOW - 3 * 60 * MINUTE },
             duplicateCount: 0,
+            skewDroppedCount: 0,
           },
         ],
         NOW,

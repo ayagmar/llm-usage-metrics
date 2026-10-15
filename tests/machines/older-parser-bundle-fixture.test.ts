@@ -96,6 +96,10 @@ describe('machine bundle from an older parser version', () => {
         /^laptop parses with other parser versions \(codex n2\.p1 there, n\d+\.p\d+ on this machine\): left out 2 event\(s\) .*; update llm-usage on both machines$/,
       ),
     );
+    // Those events count toward what the machines note says was left out.
+    expect(usageData.diagnostics.notes).toContainEqual(
+      expect.stringMatching(/^Machines: laptop .*; left out 2 event\(s\) already counted\.$/),
+    );
   });
 
   it('matches on timestamp alone, since a newer parser can resolve another model', async () => {

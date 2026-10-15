@@ -51,6 +51,8 @@ export type MachineUsageSummary = {
   /** Undefined when the machine was never synced. */
   state?: MachineSyncState;
   duplicateCount: number;
+  /** Events left out because a differently parsed copy of them is already counted. */
+  skewDroppedCount: number;
 };
 
 export type LoadedMachineUsage = {
@@ -153,6 +155,7 @@ export async function loadMachineUsage(params: {
       enabled: !params.disabledNames?.has(name),
       state: usage?.state,
       duplicateCount: merged[index].duplicateCount,
+      skewDroppedCount: merged[index].skewDroppedCount,
     })),
     warnings,
     notes,
