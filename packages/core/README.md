@@ -220,7 +220,7 @@ The cursor is plain JSON, so it can be stored as is. `JsonlReadCursor` reserves 
 
 ## Example: session forensics
 
-[`examples/session-forensics.ts`](examples/session-forensics.ts) reports, per claude, codex and pi session, the fresh input, cache read, cache write and output tokens, the recorded cost, the cache hit ratio, the count of system messages (Claude compaction summaries; Codex developer and injected-context messages), and how often the same user prompt was repeated in the session. It also counts prompts repeated across sessions. It reads with `text: true` but prints only counts and sha256 fingerprints. Its core is one `pipe(readSources(...), kinds('usage', 'message'), bySession())` loop.
+[`examples/session-forensics.ts`](examples/session-forensics.ts) reports, per claude, codex and pi session, the fresh input, cache read, cache write and output tokens, the recorded cost, the cache hit ratio (cache read / (fresh input + cache read); cache writes are left out), the count of system messages (Claude compaction summaries; Codex developer and injected-context messages), and how often the same user prompt was repeated in the session. It also counts prompts repeated across sessions. It reads with `text: true` but prints only counts and sha256 fingerprints. The fingerprints are unsalted, so a short or common prompt can be recovered by hashing guesses; do not share the output where the prompts themselves would be sensitive. Its core is one `pipe(readSources(...), kinds('usage', 'message'), bySession())` loop.
 
 ## Event kinds
 
