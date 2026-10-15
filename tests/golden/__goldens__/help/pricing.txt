@@ -8,6 +8,7 @@ Arguments:
 
 Options:
   --json                      Render output as JSON
+  --quiet                     Suppress informational stderr output (warnings still print)
   --pricing-url <url>         Override LiteLLM pricing source URL
   --pricing-overrides <path>  Path to a JSON file of per-model pricing overrides (takes precedence
                               over LiteLLM)
