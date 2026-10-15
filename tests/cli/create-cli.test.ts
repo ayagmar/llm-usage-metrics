@@ -846,7 +846,6 @@ describe('createCli', () => {
     ['hourly', []],
     ['projects', []],
     ['blocks', []],
-    ['value', []],
     ['pricing', ['gpt-5']],
   ])('fails %s with "not implemented" until its report lands', async (name, args) => {
     const cli = createCli();
