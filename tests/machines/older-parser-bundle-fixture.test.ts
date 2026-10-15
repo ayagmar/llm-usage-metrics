@@ -5,6 +5,8 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { buildUsageData } from '../../src/cli/build-usage-data.js';
 import { loadMachineUsage } from '../../src/machines/load-machine-usage.js';
+import { openMachineCache, recordMachineSyncFailure } from '../../src/machines/machine-cache.js';
+import { closeEventStore } from '../../src/persistence/event-store.js';
 import { syncMachine } from '../../src/machines/sync-machine.js';
 import { createInProcessRemote } from '../helpers/machine-remote.js';
 import { canonicalTmpdir } from '../helpers/tmp.js';
@@ -140,5 +142,19 @@ describe('machine bundle from an older parser version', () => {
     expect(usageData.diagnostics.warnings ?? []).not.toEqual(
       expect.arrayContaining([expect.stringContaining('parser versions')]),
     );
+  });
+
+  it('asks a machine that never synced for nothing about parser versions', async () => {
+    const cache = await openMachineCache('desk');
+    recordMachineSyncFailure(cache, 'ssh: connect to host desk: Connection refused', 0);
+    closeEventStore(cache);
+
+    const usage = await loadMachineUsage({
+      names: ['desk'],
+      servedEvents: [],
+      adapters: [{ id: 'codex', parserVersion: 2 }],
+    });
+
+    expect(usage.notes).toEqual([]);
   });
 });
