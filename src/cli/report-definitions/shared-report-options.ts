@@ -240,12 +240,12 @@ export const sharedOptionProfileConfig = {
     includeShare: false,
     includeTimezone: false,
   },
-  // pricing <model...>: only what decides which prices load, and the output format.
+  // pricing <model...>: only what decides which prices load, the output format and --quiet.
   pricing: {
     includeSources: false,
     includeVerbose: false,
     includeJson: true,
-    includeQuiet: false,
+    includeQuiet: true,
     includeDateFilters: false,
     includeMarkdown: true,
     includePerModelColumns: false,

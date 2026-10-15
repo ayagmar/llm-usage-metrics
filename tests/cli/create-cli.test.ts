@@ -147,12 +147,12 @@ describe('createCli', () => {
         '--pricing-offline',
         '--json',
         '--markdown',
+        '--quiet',
       ],
       absent: [
         '--source',
         '--source-dir',
         '--help-all',
-        '--quiet',
         '--verbose',
         '--since',
         '--timezone',
@@ -348,18 +348,21 @@ describe('createCli', () => {
     ]);
   });
 
-  it('includes quiet on every report command except the always-silent statusline and pricing', () => {
+  it('includes quiet on every report command except the always-silent statusline', () => {
     const cli = createCli();
     const reportCommands = cli.commands.filter(
       (command) =>
-        !['config', 'machine', 'sync', 'schema', 'completion', 'statusline', 'pricing'].includes(
+        !['config', 'machine', 'sync', 'schema', 'completion', 'statusline'].includes(
           command.name(),
         ),
     );
 
     for (const command of reportCommands) {
       expect(command.options.some((option) => option.long === '--quiet')).toBe(true);
-      expect(command.options.some((option) => option.long === '--verbose')).toBe(true);
+      // pricing reads no usage, so it has no per-source diagnostics to show.
+      expect(command.options.some((option) => option.long === '--verbose')).toBe(
+        command.name() !== 'pricing',
+      );
     }
   });
 
