@@ -39,7 +39,10 @@ function describeMatch(model: ExplainedModelPricing): string {
   }
 
   if (model.rule === null) {
-    return 'no pricing key matched';
+    // No key matched, so the override is keyed on the normalized name itself.
+    return model.override === 'resolved'
+      ? 'override keyed on the normalized name'
+      : 'no pricing key matched';
   }
 
   const stripped = model.strippedModel === null ? '' : ` (as ${model.strippedModel})`;

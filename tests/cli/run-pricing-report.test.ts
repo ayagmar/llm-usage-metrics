@@ -110,6 +110,18 @@ describe('pricing report', () => {
     ).rejects.toThrow('Choose either --markdown or --json, not both');
   });
 
+  it('names the override a padded name reaches only once normalized', async () => {
+    // The override source matches the raw name untrimmed; the matcher then trims it.
+    const output = await buildPricingReport(['  acme-internal-model'], {
+      pricingOffline: true,
+      pricingOverrides: overridesPath,
+    });
+
+    expect(output).toContain('Rule            override keyed on the normalized name');
+    expect(output).toContain('Override        yes, keyed on the pricing key');
+    expect(output).toContain('Input           $1.00 / 1M');
+  });
+
   it('lists the per-request sources only when a name has tiers', async () => {
     const tiered = await buildPricingReport(['gemini-2.5-pro'], { pricingOffline: true });
     const flat = await buildPricingReport(['claude-sonnet-4-5-20250929'], {
