@@ -69,6 +69,16 @@ describe('renderCompletionScript', () => {
     );
   });
 
+  it('completes declared choices after a value flag such as --cost-mode', () => {
+    expect(render('bash')).toContain(
+      '--cost-mode) COMPREPLY=($(compgen -W "explicit estimated both" -- "$cur")); return ;;',
+    );
+    expect(render('zsh')).toContain('--cost-mode) compadd -- explicit estimated both; return ;;');
+    expect(render('fish')).toMatch(
+      /__fish_seen_subcommand_from daily' -l cost-mode -d '[^']*' -r -a 'explicit estimated both'/u,
+    );
+  });
+
   it('offers argument values, subcommands, and subcommand options', () => {
     const bash = render('bash');
 

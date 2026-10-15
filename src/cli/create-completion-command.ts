@@ -13,6 +13,8 @@ type CompletionOption = {
   flag: string;
   description: string;
   takesValue: boolean;
+  /** Allowed values, from Commander's `.choices()`. */
+  choices: string[];
 };
 
 type CompletionCommand = {
@@ -24,11 +26,12 @@ type CompletionCommand = {
   subcommands: CompletionCommand[];
 };
 
-/** Option values worth completing: source ids for --source, files for paths. */
+/** Option values worth completing: source ids for --source, files for paths, declared choices. */
 type ValueCompletions = {
   sourceFlags: string[];
   pathFlags: string[];
   sourceIds: string[];
+  choiceFlags: Record<string, string[]>;
 };
 
 // Flags named for a directory or database take a path. `--source-dir` is the exception:
@@ -53,6 +56,7 @@ function describeCommand(
             flag: option.long,
             description: option.description,
             takesValue: option.required || option.optional,
+            choices: option.argChoices ?? [],
           },
         ]
       : [],
@@ -64,7 +68,10 @@ function describeCommand(
   return {
     name: command.name(),
     description: command.description().split('\n')[0] ?? '',
-    options: [...options, { flag: '--help', description: 'Display help', takesValue: false }],
+    options: [
+      ...options,
+      { flag: '--help', description: 'Display help', takesValue: false, choices: [] },
+    ],
     words: [
       ...subcommands.map((subcommand) => subcommand.name),
       ...(argumentValues[command.name()] ?? []),
@@ -80,17 +87,33 @@ function collectValueCompletions(commands: readonly CompletionCommand[]): ValueC
       ...command.subcommands.flatMap((subcommand) => subcommand.options),
     ]),
   );
-  const valueFlags = [...flags].filter((option) => option.takesValue).map((option) => option.flag);
+  const valueOptions = [...flags].filter((option) => option.takesValue);
+  const valueFlags = valueOptions.map((option) => option.flag);
+  const choiceFlags: Record<string, string[]> = {};
+
+  for (const option of valueOptions) {
+    if (option.choices.length > 0) {
+      choiceFlags[option.flag] = [
+        ...new Set([...(choiceFlags[option.flag] ?? []), ...option.choices]),
+      ];
+    }
+  }
 
   return {
     sourceFlags: valueFlags.includes('--source') ? ['--source'] : [],
     pathFlags: [...new Set(valueFlags.filter(isPathFlag))].sort(),
     sourceIds: getSupportedSourceIds(),
+    choiceFlags,
   };
 }
 
 function words(values: readonly string[]): string {
   return [...new Set(values)].join(' ');
+}
+
+/** Flags with declared choices, in a stable order. */
+function choiceEntries(values: ValueCompletions): [string, string[]][] {
+  return Object.entries(values.choiceFlags).sort(([left], [right]) => left.localeCompare(right));
 }
 
 /** A command's subcommands, argument values, and own options. */
@@ -158,7 +181,12 @@ _llm_usage() {
       compopt -o filenames 2>/dev/null
       mapfile -t COMPREPLY < <(compgen -f -- "$cur")
       return ;;
-  esac
+${choiceEntries(values)
+  .map(
+    ([flag, choices]) =>
+      `    ${flag}) COMPREPLY=($(compgen -W "${words(choices)}" -- "$cur")); return ;;\n`,
+  )
+  .join('')}  esac
 
   case "$(_llm_usage_key "\${COMP_WORDS[@]:1:COMP_CWORD-1}")" in
     "") words="${rootWords(commands)}" ;;
@@ -190,7 +218,9 @@ _llm_usage() {
   case "$prev" in
     ${values.sourceFlags.join('|') || '--source'}) compadd -- ${words(values.sourceIds)}; return ;;
     ${values.pathFlags.join('|') || '--repo-dir'}) _files; return ;;
-  esac
+${choiceEntries(values)
+  .map(([flag, choices]) => `    ${flag}) compadd -- ${words(choices)}; return ;;\n`)
+  .join('')}  esac
 
   case "$(_llm_usage_key "\${(@)words[2,CURRENT-1]}")" in
     "") compadd -- ${rootWords(commands)} ;;
@@ -221,6 +251,8 @@ function renderFishOption(
     parts.push('-r', `-a ${quoteFish(words(values.sourceIds))}`);
   } else if (values.pathFlags.includes(option.flag)) {
     parts.push('-r', '-F');
+  } else if (option.choices.length > 0) {
+    parts.push('-r', `-a ${quoteFish(words(option.choices))}`);
   } else if (option.takesValue) {
     parts.push('-r');
   }
