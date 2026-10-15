@@ -13,6 +13,8 @@ export type PricingTier = {
   cacheWrite1hPer1MUsd?: number;
 };
 
+export type PriorityFallbackBucket = 'input' | 'output' | 'cacheRead' | 'cacheWrite';
+
 export type ModelPricing = {
   inputPer1MUsd: number;
   outputPer1MUsd: number;
@@ -22,8 +24,8 @@ export type ModelPricing = {
   cacheWrite1hPer1MUsd?: number;
   reasoningPer1MUsd?: number;
   reasoningBilling?: ReasoningBillingMode;
-  /** LiteLLM lists no standard rate for some bucket, so its priority rate stands in. */
-  priorityFallback?: true;
+  /** Buckets LiteLLM lists no standard rate for, so their priority rate stands in. */
+  priorityFallback?: PriorityFallbackBucket[];
   /** Long-context rates, highest `aboveTokens` first. They apply per request only. */
   tiers?: PricingTier[];
 };

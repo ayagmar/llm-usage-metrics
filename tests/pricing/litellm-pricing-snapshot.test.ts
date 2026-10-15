@@ -106,6 +106,19 @@ describe('LiteLLM pricing snapshot', () => {
     ]);
   });
 
+  it('keeps which buckets of a model fell back to a priority rate', async () => {
+    const fetcher = new LiteLLMPricingFetcher({
+      offline: true,
+      cacheFilePath: '/nonexistent/llm-usage-metrics-snapshot-priority-cache.json',
+    });
+    await fetcher.load();
+
+    // LiteLLM lists only `*_priority` rates for this model's input, output and cache reads.
+    expect(
+      fetcher.getPricing('fireworks_ai/accounts/fireworks/models/minimax-m2p7')?.priorityFallback,
+    ).toEqual(['input', 'output', 'cacheRead']);
+  });
+
   it('back-fills retired models into default-source pricing only', async () => {
     const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-retired-pricing-'));
     tempDirs.push(rootDir);

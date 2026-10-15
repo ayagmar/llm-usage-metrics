@@ -76,7 +76,7 @@ Pricing caches written before tiers existed are discarded once: with the default
 
 ## Priority rates
 
-When LiteLLM lists only a priority rate (`*_priority`) for a model's input, output, cache read or cache write, that rate prices the model, and stderr notes it:
+When LiteLLM lists only a priority rate (`*_priority`) for a model's input, output, cache read or cache write, that rate prices that bucket. stderr counts the events that have tokens in such a bucket; an event of the same model that uses only standard-priced buckets is not counted:
 
 ```text
 2 events priced at LiteLLM priority rates because no standard rate is listed (models: minimax-m2p7)

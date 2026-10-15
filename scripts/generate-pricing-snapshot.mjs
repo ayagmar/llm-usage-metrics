@@ -4,6 +4,7 @@ import { readFile, mkdir, stat, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { format, resolveConfig } from 'prettier';
 import { tsImport } from 'tsx/esm/api';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -56,8 +57,8 @@ function orderModelPricing(pricing) {
     orderedPricing.reasoningBilling = 'separate';
   }
 
-  if (pricing.priorityFallback === true) {
-    orderedPricing.priorityFallback = true;
+  if (pricing.priorityFallback !== undefined) {
+    orderedPricing.priorityFallback = [...pricing.priorityFallback];
   }
 
   if (pricing.tiers !== undefined) {
@@ -116,6 +117,13 @@ function logUnusedThresholdKeys(payload) {
   )) {
     console.log(`  - ${key} (${modelCount} model(s))`);
   }
+}
+
+// Prettier keeps short arrays (such as `priorityFallback`) on one line, so a regenerated
+// file passes `format:check` as written.
+async function writeJsonFile(filePath, payload) {
+  const options = { ...(await resolveConfig(filePath)), filepath: filePath };
+  await writeFile(filePath, await format(JSON.stringify(payload, null, 2), options), 'utf8');
 }
 
 function toSortedPricingRecord(pricingByModel) {
@@ -229,11 +237,9 @@ async function writeRetiredPricing(upstreamPricingByModel) {
     }
   }
 
-  await writeFile(
-    retiredPricingPath,
-    `${JSON.stringify({ pricingByModel: toSortedPricingRecord(retiredPricing) }, null, 2)}\n`,
-    'utf8',
-  );
+  await writeJsonFile(retiredPricingPath, {
+    pricingByModel: toSortedPricingRecord(retiredPricing),
+  });
 
   return retiredPricing.size;
 }
@@ -294,7 +300,7 @@ async function generateSnapshot(fromFilePath) {
 
   await mkdir(dirname(snapshotPath), { recursive: true });
   const retiredModelCount = await writeRetiredPricing(pricingByModel);
-  await writeFile(snapshotPath, `${JSON.stringify(snapshotPayload, null, 2)}\n`, 'utf8');
+  await writeJsonFile(snapshotPath, snapshotPayload);
 
   console.log(
     `Wrote ${snapshotPath}: ${modelCount} model(s), fetched ${new Date(fetchedAt).toISOString()}; ${retiredModelCount} retired model(s) kept`,

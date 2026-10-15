@@ -3,7 +3,7 @@ import {
   type BillableTokenUsage,
   type UsageEvent,
 } from '../domain/usage-event.js';
-import type { ModelPricing, PricingSource, PricingTier } from './types.js';
+import type { ModelPricing, PriorityFallbackBucket, PricingSource, PricingTier } from './types.js';
 
 const ONE_MILLION = 1_000_000;
 
@@ -282,11 +282,30 @@ function applyEstimatedPricingToEvent(
     stats.reestimatedExplicitZero.add(pricedEvent);
   }
 
-  if (pricing.priorityFallback) {
+  if (usesPriorityFallbackRate(event, pricing)) {
     stats.priorityPriced.add(pricedEvent);
   }
 
   return pricedEvent;
+}
+
+const TOKENS_BY_PRIORITY_FALLBACK_BUCKET: Record<
+  PriorityFallbackBucket,
+  (event: UsageEvent) => number
+> = {
+  input: (event) => event.inputTokens,
+  output: (event) => event.outputTokens,
+  cacheRead: (event) => event.cacheReadTokens,
+  cacheWrite: (event) => event.cacheWriteTokens,
+};
+
+/** Whether the event has tokens in a bucket that LiteLLM prices only at a priority rate. */
+function usesPriorityFallbackRate(event: UsageEvent, pricing: ModelPricing): boolean {
+  return (
+    pricing.priorityFallback?.some(
+      (bucket) => TOKENS_BY_PRIORITY_FALLBACK_BUCKET[bucket](event) > 0,
+    ) ?? false
+  );
 }
 
 export function applyPricingToEvents(

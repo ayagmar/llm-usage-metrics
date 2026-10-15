@@ -190,7 +190,7 @@ describe('LiteLLMPricingFetcher', () => {
 
     expect(loadedFromCache).toBe(false);
     expect(fetcher.getPricing('gpt-5.2-codex')?.cacheWritePer1MUsd).toBeCloseTo(0.4, 10);
-    expect(fetcher.getPricing('gpt-5.2-codex')?.priorityFallback).toBe(true);
+    expect(fetcher.getPricing('gpt-5.2-codex')?.priorityFallback).toEqual(['cacheWrite']);
   });
 
   it('flags priority-rate fallback only where a standard rate is missing', () => {
@@ -210,7 +210,7 @@ describe('LiteLLMPricingFetcher', () => {
     expect(pricing.get('priority-only')).toEqual({
       inputPer1MUsd: 1,
       outputPer1MUsd: 4,
-      priorityFallback: true,
+      priorityFallback: ['input', 'output'],
     });
     expect(pricing.get('standard-and-priority')).toEqual({ inputPer1MUsd: 0.5, outputPer1MUsd: 2 });
   });
@@ -220,13 +220,22 @@ describe('LiteLLMPricingFetcher', () => {
       fetchedAt: 1,
       sourceUrl: DEFAULT_LITELLM_PRICING_URL,
       pricingByModel: {
-        'priority-only': { inputPer1MUsd: 1, outputPer1MUsd: 4, priorityFallback: true },
-        'not-flagged': { inputPer1MUsd: 1, outputPer1MUsd: 4, priorityFallback: 'yes' },
+        'priority-only': {
+          inputPer1MUsd: 1,
+          outputPer1MUsd: 4,
+          priorityFallback: ['output', 'cacheRead', 'output'],
+        },
+        'not-flagged': { inputPer1MUsd: 1, outputPer1MUsd: 4, priorityFallback: true },
+        'unknown-bucket': { inputPer1MUsd: 1, outputPer1MUsd: 4, priorityFallback: ['reasoning'] },
       },
     });
 
-    expect(payload?.pricingByModel['priority-only']?.priorityFallback).toBe(true);
+    expect(payload?.pricingByModel['priority-only']?.priorityFallback).toEqual([
+      'output',
+      'cacheRead',
+    ]);
     expect(payload?.pricingByModel['not-flagged']?.priorityFallback).toBeUndefined();
+    expect(payload?.pricingByModel['unknown-bucket']?.priorityFallback).toBeUndefined();
   });
 
   it('throws when LiteLLM payload is not a JSON object and no cache is available', async () => {
