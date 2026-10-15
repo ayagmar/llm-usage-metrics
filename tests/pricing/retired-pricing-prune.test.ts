@@ -1,11 +1,20 @@
+import { isDeepStrictEqual } from 'node:util';
+
 import { describe, expect, it } from 'vitest';
 
-import { pruneRetiredPricing } from '../../scripts/lib/prune-retired-pricing.mjs';
+import {
+  namesReachingPricing,
+  pruneRetiredPricing,
+  pricingProbeNames,
+} from '../../scripts/lib/prune-retired-pricing.mjs';
 import {
   normalizeKey,
   resolveCanonicalModelKey,
 } from '../../src/pricing/litellm-model-matching.js';
+import snapshotPayload from '../../src/pricing/litellm-pricing-snapshot.json' with { type: 'json' };
+import retiredPricingPayload from '../../src/pricing/litellm-retired-pricing.json' with { type: 'json' };
 import type { ModelPricing } from '../../src/pricing/types.js';
+import prunedRetiredPricingPayload from '../fixtures/pricing/pruned-retired-pricing.json' with { type: 'json' };
 
 function toPricingMap(pricingByModel: Record<string, ModelPricing>): Map<string, ModelPricing> {
   return new Map(
@@ -41,4 +50,43 @@ describe('pruneRetiredPricing', () => {
       'or/aa/baz-model',
     ]);
   });
+
+  // The generator writes the entries it prunes to the fixture, so old = committed + pruned.
+  it('prices every name the pruned retired entries priced as before', () => {
+    const live = toPricingMap(snapshotPayload.pricingByModel as Record<string, ModelPricing>);
+    const committed = toPricingMap(
+      retiredPricingPayload.pricingByModel as Record<string, ModelPricing>,
+    );
+    const pruned = toPricingMap(
+      prunedRetiredPricingPayload.pricingByModel as Record<string, ModelPricing>,
+    );
+    const old = new Map(
+      [...committed, ...pruned].sort(([left], [right]) => (left < right ? -1 : 1)),
+    );
+    const withBackfill = (retired: ReadonlyMap<string, ModelPricing>) =>
+      new Map([...live, ...[...retired].filter(([model]) => !live.has(model))]);
+    const oldPricing = withBackfill(old);
+    const newPricing = withBackfill(committed);
+    const resolve = (name: string, pricingByModel: ReadonlyMap<string, ModelPricing>) =>
+      pricingByModel.get(resolveCanonicalModelKey(name, pricingByModel) ?? name);
+
+    expect(pruned.size).toBeGreaterThan(0);
+    expect([...pruned.keys()].filter((model) => committed.has(model) || live.has(model))).toEqual(
+      [],
+    );
+
+    // A name no pruned entry can match on its own resolves the same with or without them,
+    // so only the names that can reach one are compared.
+    const names = namesReachingPricing(
+      new Set([...live.keys(), ...old.keys()].flatMap(pricingProbeNames)),
+      pruned,
+      resolveCanonicalModelKey,
+    );
+    const moved = names.filter(
+      (name) => !isDeepStrictEqual(resolve(name, newPricing), resolve(name, oldPricing)),
+    );
+
+    expect(names.length).toBeGreaterThan(0);
+    expect(moved).toEqual([]);
+  }, 30_000);
 });

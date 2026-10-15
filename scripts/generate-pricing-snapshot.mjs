@@ -15,6 +15,16 @@ const rootDir = join(__dirname, '..');
 const snapshotPath = join(rootDir, 'src', 'pricing', 'litellm-pricing-snapshot.json');
 const retiredPricingPath = join(rootDir, 'src', 'pricing', 'litellm-retired-pricing.json');
 const modelMapPath = join(rootDir, 'src', 'pricing', 'litellm-model-map.json');
+// Retired prices the live pricing already covers. They are not bundled, but each refresh
+// considers them again, and tests/pricing/retired-pricing-prune.test.ts checks that
+// dropping them changes no resolved price.
+const prunedRetiredPricingPath = join(
+  rootDir,
+  'tests',
+  'fixtures',
+  'pricing',
+  'pruned-retired-pricing.json',
+);
 
 const {
   DEFAULT_LITELLM_PRICING_URL,
@@ -208,12 +218,17 @@ async function readPricingRecord(filePath) {
 
 // LiteLLM drops retired models, but their prices still apply to historical usage. Keys
 // that leave upstream move from the snapshot into the retired-pricing file and stay there
-// until upstream lists them again, unless the live pricing already resolves them (and
-// the shorter names they may be reported as) to the same rates.
+// until upstream lists them again, unless the live pricing already resolves every name
+// they price to the same rates; those go to the pruned file instead.
 async function writeRetiredPricing(upstreamPricingByModel) {
+  const previousPrunedPricing = await readPricingRecord(prunedRetiredPricingPath);
   const previousRetiredPricing = await readPricingRecord(retiredPricingPath);
   const previousSnapshotPricing = await readPricingRecord(snapshotPath);
-  const previousPricing = { ...previousRetiredPricing, ...previousSnapshotPricing };
+  const previousPricing = {
+    ...previousPrunedPricing,
+    ...previousRetiredPricing,
+    ...previousSnapshotPricing,
+  };
   const leftUpstreamPricing = new Map(
     Object.entries(previousPricing)
       .filter(([modelName]) => !upstreamPricingByModel.has(modelName))
@@ -251,11 +266,19 @@ async function writeRetiredPricing(upstreamPricingByModel) {
     }
   }
 
+  const prunedPricing = new Map(
+    [...leftUpstreamPricing].filter(([modelName]) => !retiredPricing.has(modelName)),
+  );
+
   await writeJsonFile(retiredPricingPath, {
     pricingByModel: toSortedPricingRecord(retiredPricing),
   });
+  await mkdir(dirname(prunedRetiredPricingPath), { recursive: true });
+  await writeJsonFile(prunedRetiredPricingPath, {
+    pricingByModel: toSortedPricingRecord(prunedPricing),
+  });
 
-  return { kept: retiredPricing.size, pruned: leftUpstreamPricing.size - retiredPricing.size };
+  return { kept: retiredPricing.size, pruned: prunedPricing.size };
 }
 
 async function fetchUpstreamPayload() {
