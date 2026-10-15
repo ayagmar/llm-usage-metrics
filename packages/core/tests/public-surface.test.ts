@@ -69,6 +69,11 @@ const EXPECTED_SURFACE: Record<string, readonly string[]> = {
     'readEvents',
     'repeatedAcrossFiles',
     'toParseDiagnostics',
+    // T-stages
+    'SessionGroup',
+    'bySession',
+    'since',
+    'until',
   ],
   './internal': [
     // T0
