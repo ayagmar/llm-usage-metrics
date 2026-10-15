@@ -1,9 +1,34 @@
 import { isDeepStrictEqual } from 'node:util';
 
-// A model name and the shorter names a harness may report for it: a retired
-// `openrouter/anthropic/claude-sonnet-4.5` also prices `anthropic/claude-sonnet-4.5` and
-// `claude-sonnet-4.5`.
-function reportedNames(modelName) {
+// One suffix of each kind the matcher folds back onto a priced name
+// (`isReleaseSuffix` and `resolveEffortSuffixMatch` in litellm-model-matching.ts): short
+// and long dates, ISO dates, -latest, effort labels, Vertex @versions, revisions, Claude's
+// -thinking and Bedrock -vN:n.
+const RELEASE_SUFFIX_PROBES = [
+  '-0613',
+  '-20250101',
+  '-2025-01-01',
+  '-latest',
+  '-high',
+  '@20250101',
+  ':0',
+  ':latest',
+  '-thinking',
+  '-v1:0',
+];
+
+/**
+ * The names a harness may report that a pricing key can price: the key, its shorter
+ * forms (`openrouter/anthropic/claude-sonnet-4.5` also prices `anthropic/claude-sonnet-4.5`
+ * and `claude-sonnet-4.5`), and each of those with a release or effort suffix. A name with
+ * an extra provider prefix (`eu/gpt-4o-realtime-preview`) resolves through its last
+ * segment, so its prefix only matters when another key ends with it; probing the shorter
+ * forms of every key covers those names.
+ *
+ * @param {string} modelName
+ * @returns {string[]}
+ */
+export function pricingProbeNames(modelName) {
   const names = [modelName];
 
   for (
@@ -14,7 +39,7 @@ function reportedNames(modelName) {
     names.push(modelName.slice(index + 1));
   }
 
-  return names;
+  return names.flatMap((name) => [name, ...RELEASE_SUFFIX_PROBES.map((suffix) => name + suffix)]);
 }
 
 // Back-fills in the retired file's order, as the pricing fetcher does: fuzzy matching
@@ -32,13 +57,28 @@ function withRetiredPricing(livePricingByModel, retiredPricingByModel, keptModel
 }
 
 /**
+ * Names whose resolution can depend on the given keys. Each matcher step picks among the
+ * keys that pass its filter, so when a name resolves to nothing against these keys alone,
+ * none of them passes any step's filter, and adding them to other pricing leaves the
+ * name's resolution unchanged.
+ *
+ * @param {Iterable<string>} names
+ * @param {ReadonlyMap<string, object>} pricingByModel
+ * @param {(modelName: string, pricingByModel: ReadonlyMap<string, object>) => string | undefined} resolveCanonicalModelKey
+ * @returns {string[]}
+ */
+export function namesReachingPricing(names, pricingByModel, resolveCanonicalModelKey) {
+  return [...names].filter((name) => resolveCanonicalModelKey(name, pricingByModel) !== undefined);
+}
+
+/**
  * Drops retired entries whose name the live pricing alone already resolves to the same
  * rates. The retired entries back-fill the live pricing before matching, so a dropped
  * entry can also change what another name resolves to. Each name that resolves to
- * different rates gets back the entry it resolved to with every retired entry present;
- * the pruned pricing is a subset of that, so the same match wins again. This repeats
- * until every retired name, and every shorter name it may be reported as, resolves to
- * its old rates. Keys are normalized pricing keys.
+ * different rates, or to none, gets back the entry it resolved to with every retired
+ * entry present; the pruned pricing is a subset of that, so the same match wins again.
+ * This repeats until every name from `pricingProbeNames`, for live and retired keys,
+ * resolves as it did with every retired entry present. Keys are normalized pricing keys.
  *
  * @param {ReadonlyMap<string, object>} livePricingByModel
  * @param {ReadonlyMap<string, object>} retiredPricingByModel
@@ -58,10 +98,18 @@ export function pruneRetiredPricing(
     retiredPricingByModel,
     new Set(retiredModels),
   );
-  const fullMatches = retiredModels.flatMap(reportedNames).map((name) => {
-    const key = resolveKey(name, fullPricingByModel);
-    return { name, key, pricing: fullPricingByModel.get(key) };
-  });
+  const probeNames = new Set(
+    [...livePricingByModel.keys(), ...retiredModels].flatMap(pricingProbeNames),
+  );
+  const fullMatchByName = new Map();
+  const getFullMatch = (name) => {
+    if (!fullMatchByName.has(name)) {
+      const key = resolveKey(name, fullPricingByModel);
+      fullMatchByName.set(name, { key, pricing: fullPricingByModel.get(key) });
+    }
+
+    return fullMatchByName.get(name);
+  };
   const keptModels = new Set(
     retiredModels.filter(
       (modelName) =>
@@ -73,20 +121,29 @@ export function pruneRetiredPricing(
   );
 
   for (;;) {
+    const droppedPricingByModel = new Map(
+      retiredModels
+        .filter((modelName) => !keptModels.has(modelName))
+        .map((modelName) => [modelName, retiredPricingByModel.get(modelName)]),
+    );
     const prunedPricingByModel = withRetiredPricing(
       livePricingByModel,
       retiredPricingByModel,
       keptModels,
     );
-    const missingKeys = fullMatches
+    const missingKeys = namesReachingPricing(
+      probeNames,
+      droppedPricingByModel,
+      resolveCanonicalModelKey,
+    )
       .filter(
-        ({ name, pricing }) =>
+        (name) =>
           !isDeepStrictEqual(
             prunedPricingByModel.get(resolveKey(name, prunedPricingByModel)),
-            pricing,
+            getFullMatch(name).pricing,
           ),
       )
-      .map(({ key }) => key);
+      .map((name) => getFullMatch(name).key);
 
     if (missingKeys.length === 0) {
       break;
