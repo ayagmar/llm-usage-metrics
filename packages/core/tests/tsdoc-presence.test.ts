@@ -5,8 +5,9 @@ import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
-// Every name a public subpath exports has a doc comment on its declaration. A comment that
-// only carries `@internal` counts: it marks the name as outside the semver promise.
+// Every name a public subpath exports has a doc comment with text on its declaration. A
+// comment that only carries `@internal` counts: it marks the name as outside the semver
+// promise. Other tag-only comments (`@experimental`) and empty ones do not.
 // `./internal` makes no promise and is not checked.
 const UNCHECKED_SUBPATHS = new Set(['./internal']);
 
@@ -23,15 +24,25 @@ function sourceEntry(target: string): string {
   return path.join(packageRoot, target.replace(/^\.\/dist\//u, 'src/').replace(/\.js$/u, '.ts'));
 }
 
-function hasDocComment(declaration: ts.Declaration): boolean {
-  return ts.getJSDocCommentsAndTags(declaration).length > 0;
+function isInternalTag(tag: ts.JSDocTag): boolean {
+  return tag.tagName.text === 'internal';
 }
 
-/** `subpath: name` for every public export whose declarations carry no doc comment. */
-function readUndocumented(): string[] {
-  const entries = Object.entries(packageExports)
-    .filter(([subpath]) => !UNCHECKED_SUBPATHS.has(subpath))
-    .map(([subpath, target]) => [subpath, sourceEntry(target.import)] as const);
+function hasDocComment(declaration: ts.Declaration): boolean {
+  return ts
+    .getJSDocCommentsAndTags(declaration)
+    .some((node) =>
+      ts.isJSDoc(node)
+        ? (ts.getTextOfJSDocComment(node.comment)?.trim() ?? '') !== '' ||
+          (node.tags ?? []).some(isInternalTag)
+        : isInternalTag(node),
+    );
+}
+
+/** `subpath: name` for every export of `entries` whose declarations carry no doc comment. */
+function readUndocumented(
+  entries: ReadonlyArray<readonly [subpath: string, file: string]>,
+): string[] {
   const program = ts.createProgram(
     entries.map(([, file]) => file),
     {
@@ -71,6 +82,20 @@ function readUndocumented(): string[] {
 
 describe('TSDoc presence', () => {
   it('documents every export of the public subpaths', () => {
-    expect(readUndocumented()).toEqual([]);
+    const entries = Object.entries(packageExports)
+      .filter(([subpath]) => !UNCHECKED_SUBPATHS.has(subpath))
+      .map(([subpath, target]) => [subpath, sourceEntry(target.import)] as const);
+
+    expect(readUndocumented(entries)).toEqual([]);
+  }, 60_000);
+
+  it('reports undocumented, empty and tag-only comments', () => {
+    const fixture = path.join(packageRoot, 'tests/fixtures/tsdoc/undocumented.ts');
+
+    expect(readUndocumented([['fixture', fixture]])).toEqual([
+      'fixture: emptyComment',
+      'fixture: tagOnly',
+      'fixture: undocumented',
+    ]);
   }, 60_000);
 });

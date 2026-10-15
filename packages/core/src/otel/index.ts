@@ -25,10 +25,18 @@ export const SEMCONV_GENAI_REF = Object.freeze({
   schemaUrl: 'https://opentelemetry.io/schemas/gen-ai-dev/1.42.0-dev',
 });
 
-/** @experimental */
+/**
+ * Flat OTel attributes, keyed by attribute name, ready to set on a span or log record.
+ *
+ * @experimental
+ */
 export type OtelAttributes = Record<string, string | number | boolean>;
 
-/** @experimental */
+/**
+ * Options for the attribute helpers.
+ *
+ * @experimental
+ */
 export type OtelAttributeOptions = {
   /** Emit `cwd`, `repoRoot` and the git branch. Off by default. */
   includePaths?: boolean;
