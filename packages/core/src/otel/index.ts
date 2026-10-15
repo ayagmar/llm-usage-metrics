@@ -43,11 +43,28 @@ const WELL_KNOWN_PROVIDER_NAMES = new Map<string, string>([
   ['xai', 'x_ai'],
 ]);
 
+// Provider id prefixes for the cloud-hosted endpoints, such as pi's `amazon-bedrock`,
+// `google-vertex` and `azure-openai-responses`.
+const WELL_KNOWN_PROVIDER_PREFIXES: ReadonlyArray<[prefix: string, name: string]> = [
+  ['amazon-bedrock', 'aws.bedrock'],
+  ['google-vertex', 'gcp.vertex_ai'],
+  ['azure-openai', 'azure.ai.openai'],
+];
+
 function toProviderName(provider: string | undefined): string | undefined {
   const normalized = normalizeProviderToBillingEntity(provider);
-  return normalized === undefined
-    ? undefined
-    : (WELL_KNOWN_PROVIDER_NAMES.get(normalized) ?? normalized);
+
+  if (normalized === undefined) {
+    return undefined;
+  }
+
+  for (const [prefix, name] of WELL_KNOWN_PROVIDER_PREFIXES) {
+    if (normalized.startsWith(prefix)) {
+      return name;
+    }
+  }
+
+  return WELL_KNOWN_PROVIDER_NAMES.get(normalized) ?? normalized;
 }
 
 /** Copies the defined values of `fields` onto `target`, so undefined keys stay absent. */
@@ -68,6 +85,8 @@ function withDefined(
  * Attributes for one inference (`gen_ai.operation.name` = `chat`). `gen_ai.usage.input_tokens`
  * counts cache reads and writes, as the convention asks; `gen_ai.usage.output_tokens`
  * already includes reasoning. `gen_ai.provider.name` is omitted when the provider is unknown.
+ * The record's model is the lowercased response model; `gen_ai.request.model` is not emitted,
+ * since the logs do not say what was requested.
  *
  * @experimental
  */
@@ -89,7 +108,6 @@ export function usageRecordAttributes(
     },
     {
       'gen_ai.provider.name': toProviderName(record.provider),
-      'gen_ai.request.model': record.model,
       'gen_ai.response.model': record.model,
       'gen_ai.response.id': record.messageId,
       'llm_usage.cost_usd': record.costUsd,
