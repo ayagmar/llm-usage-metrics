@@ -35,8 +35,11 @@ async function prepareCompareReport(
   });
 }
 
-export async function buildCompareReport(options: CompareCommandOptions): Promise<string> {
-  const preparedReport = await prepareCompareReport(options);
+export async function buildCompareReport(
+  options: CompareCommandOptions,
+  deps: BuildCompareDataDeps = {},
+): Promise<string> {
+  const preparedReport = await prepareCompareReport(options, deps);
   return preparedReport.output;
 }
 

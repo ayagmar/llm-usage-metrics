@@ -1,7 +1,7 @@
 import { markdownTable } from 'markdown-table';
 import pc from 'picocolors';
 
-import type { TrendsDataResult } from '../cli/usage-data-contracts.js';
+import type { TrendsReportData } from '../cli/build-trends-data.js';
 import type { TrendBucket, TrendSeries, TrendsMetric } from '../trends/trends-series.js';
 import { formatDuration } from './format-duration.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
@@ -83,14 +83,18 @@ function getMetricTitleLabel(metric: TrendsMetric): string {
   return metric === 'active-hours' ? 'Active Hours' : 'Token Usage';
 }
 
-function getReportTitle(trendsData: TrendsDataResult): string {
+function getReportTitle(trendsData: TrendsReportData): string {
   const metricLabel = getMetricTitleLabel(trendsData.metric);
   const bucketCount = trendsData.totalSeries.buckets.length;
   const dayLabel = bucketCount === 1 ? 'day' : 'days';
-  const sourceSuffix =
-    trendsData.sourceSeries && trendsData.sourceSeries.length > 0 ? ' by Source' : '';
+  const splitSuffix =
+    trendsData.sourceSeries && trendsData.sourceSeries.length > 0
+      ? ' by Source'
+      : trendsData.projectSeries && trendsData.projectSeries.length > 0
+        ? ' by Project'
+        : '';
 
-  return `Daily ${metricLabel} Trend${sourceSuffix} (${bucketCount} ${dayLabel})`;
+  return `Daily ${metricLabel} Trend${splitSuffix} (${bucketCount} ${dayLabel})`;
 }
 
 function downsampleBuckets(buckets: TrendBucket[], maxColumns: number): TrendBucket[] {
@@ -139,7 +143,7 @@ function isApproximatePeak(series: TrendSeries, metric: TrendsMetric): boolean {
   );
 }
 
-function shouldShowNoResolvedCostDataNote(trendsData: TrendsDataResult): boolean {
+function shouldShowNoResolvedCostDataNote(trendsData: TrendsReportData): boolean {
   return (
     trendsData.metric === 'cost' &&
     trendsData.totalSeries.summary.observedDayCount > 0 &&
@@ -167,7 +171,7 @@ function renderSummary(series: TrendSeries, metric: TrendsMetric): string {
 }
 
 function renderSummaryOnly(
-  trendsData: TrendsDataResult,
+  trendsData: TrendsReportData,
   options: { useColor: boolean; narrowNote: boolean },
 ): string {
   const lines = [
@@ -375,13 +379,25 @@ function renderCombinedChart(
   return lines;
 }
 
-function renderSourceLines(
-  sourceSeries: TrendSeries[],
+/** A series drawn as one sparkline row, under its source id or project label. */
+type LabelledSeries = Pick<TrendSeries, 'buckets' | 'summary'> & { label: string };
+
+/** The per-source or per-project series to draw one row each, if the report is split. */
+function getSplitSeries(trendsData: TrendsReportData): LabelledSeries[] {
+  if (trendsData.sourceSeries && trendsData.sourceSeries.length > 0) {
+    return trendsData.sourceSeries.map((series) => ({ ...series, label: series.source }));
+  }
+
+  return (trendsData.projectSeries ?? []).map((series) => ({ ...series, label: series.project }));
+}
+
+function renderSplitLines(
+  sourceSeries: LabelledSeries[],
   metric: TrendsMetric,
   width: number,
 ): string[] {
   const labelWidth = sourceSeries.reduce(
-    (maxWidth, series) => Math.max(maxWidth, visibleWidth(series.source)),
+    (maxWidth, series) => Math.max(maxWidth, visibleWidth(series.label)),
     'Source'.length,
   );
   const totalWidth = sourceSeries.reduce(
@@ -411,12 +427,12 @@ function renderSourceLines(
       })
       .join('');
 
-    return `${series.source.padEnd(labelWidth)} ${sparkline} ${formatMetricValue(series.summary.total, metric, series.summary.incomplete).padStart(totalWidth)}`;
+    return `${series.label.padEnd(labelWidth)} ${sparkline} ${formatMetricValue(series.summary.total, metric, series.summary.incomplete).padStart(totalWidth)}`;
   });
 }
 
 function renderTerminalTrendsReport(
-  trendsData: TrendsDataResult,
+  trendsData: TrendsReportData,
   options: RenderTrendsReportOptions,
 ): string {
   const useColor = options.useColor ?? shouldUseColorByDefault();
@@ -445,10 +461,10 @@ function renderTerminalTrendsReport(
     lines.push('');
   }
 
-  if (trendsData.sourceSeries && trendsData.sourceSeries.length > 0) {
-    lines.push(
-      ...renderSourceLines(trendsData.sourceSeries, trendsData.metric, terminalWidth ?? 80),
-    );
+  const splitSeries = getSplitSeries(trendsData);
+
+  if (splitSeries.length > 0) {
+    lines.push(...renderSplitLines(splitSeries, trendsData.metric, terminalWidth ?? 80));
   } else {
     const chartView = getCombinedChartView(trendsData.totalSeries);
     if (chartView.notes.length > 0) {
@@ -486,7 +502,10 @@ function formatMarkdownMetricValue(bucket: TrendBucket | undefined, metric: Tren
   return markdownIntegerFormatter.format(bucket.value);
 }
 
-function formatMarkdownSummaryTotal(series: TrendSeries, metric: TrendsMetric): string {
+function formatMarkdownSummaryTotal(
+  series: Pick<TrendSeries, 'summary'>,
+  metric: TrendsMetric,
+): string {
   if (metric === 'cost') {
     const formatted = usdFormatter.format(series.summary.total);
     return series.summary.incomplete ? `~${formatted}` : formatted;
@@ -499,19 +518,19 @@ function formatMarkdownSummaryTotal(series: TrendSeries, metric: TrendsMetric): 
   return markdownIntegerFormatter.format(series.summary.total);
 }
 
-function renderMarkdownTrendsReport(trendsData: TrendsDataResult): string {
+function renderMarkdownTrendsReport(trendsData: TrendsReportData): string {
   const metricLabel =
     trendsData.metric === 'cost'
       ? 'Cost'
       : trendsData.metric === 'active-hours'
         ? 'Active'
         : 'Tokens';
-  const sourceSeries = trendsData.sourceSeries ?? [];
+  const splitSeries = getSplitSeries(trendsData);
   const seriesColumns =
-    sourceSeries.length > 0 ? [trendsData.totalSeries, ...sourceSeries] : [trendsData.totalSeries];
+    splitSeries.length > 0 ? [trendsData.totalSeries, ...splitSeries] : [trendsData.totalSeries];
   const headers =
-    sourceSeries.length > 0
-      ? ['Date', 'combined', ...sourceSeries.map((series) => series.source)]
+    splitSeries.length > 0
+      ? ['Date', 'combined', ...splitSeries.map((series) => series.label)]
       : ['Date', metricLabel];
   const bucketsByDate = seriesColumns.map(
     (series) => new Map(series.buckets.map((bucket) => [bucket.date, bucket])),
@@ -534,7 +553,7 @@ function renderMarkdownTrendsReport(trendsData: TrendsDataResult): string {
 }
 
 export function renderTrendsReport(
-  trendsData: TrendsDataResult,
+  trendsData: TrendsReportData,
   format: TrendsReportFormat,
   options: RenderTrendsReportOptions = {},
 ): string {
@@ -545,6 +564,7 @@ export function renderTrendsReport(
         dateRange: trendsData.dateRange,
         totalSeries: trendsData.totalSeries,
         sourceSeries: trendsData.sourceSeries,
+        projectSeries: trendsData.projectSeries,
       });
     case 'markdown':
       return renderMarkdownTrendsReport(trendsData);

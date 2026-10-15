@@ -1,8 +1,9 @@
 import { aggregateUsage } from '../aggregate/aggregate-usage.js';
+import { buildEventProjectLabels, toProjectKey } from '../aggregate/project-key.js';
 import { computeActiveMs } from '../domain/active-time.js';
 import { getEventSessionKey, type UsageEvent } from '../domain/usage-event.js';
-import type { UsageReportRow } from '../domain/usage-report-row.js';
-import { aggregateTrends } from '../trends/aggregate-trends.js';
+import type { ProjectUsageReportRow, UsageReportRow } from '../domain/usage-report-row.js';
+import { aggregateProjectTrends, aggregateTrends } from '../trends/aggregate-trends.js';
 import { createPricingRunStats, DEFAULT_PRICING_POLICY } from '../pricing/cost-engine.js';
 import { getCurrentLocalDateKey, getPeriodKey, shiftLocalDateKey } from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
@@ -19,8 +20,18 @@ import type {
   TrendsCommandOptions,
   TrendsDataResult,
 } from './usage-data-contracts.js';
-import type { TrendsMetric, TrendValueRow } from '../trends/trends-series.js';
+import type {
+  ProjectTrendSeries,
+  ProjectTrendValueRow,
+  TrendsMetric,
+  TrendValueRow,
+} from '../trends/trends-series.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
+
+/** Trends data, with one series per project under `--by-repo`. */
+export type TrendsReportData = TrendsDataResult & {
+  projectSeries?: ProjectTrendSeries[];
+};
 
 type ResolvedDateRange = {
   from: string;
@@ -136,6 +147,10 @@ function resolveTrendsOptions(
   fetchDateRange: ResolvedDateRange | undefined;
   today: string;
 } {
+  if (options.byRepo && options.bySource) {
+    throw new Error('--by-repo cannot be combined with --by-source; pass one of them');
+  }
+
   if (options.last !== undefined && options.days !== undefined) {
     throw new Error('--days is an alias of --last; pass only --last');
   }
@@ -171,7 +186,10 @@ function resolveTrendsOptions(
   };
 }
 
-function filterRowsToDateRange(rows: TrendValueRow[], dateRange: ResolvedDateRange) {
+function filterRowsToDateRange<Row extends { periodKey: string }>(
+  rows: Row[],
+  dateRange: ResolvedDateRange,
+): Row[] {
   return rows.filter(
     (row) =>
       row.periodKey !== 'ALL' && row.periodKey >= dateRange.from && row.periodKey <= dateRange.to,
@@ -187,16 +205,35 @@ function toTrendValueRows(rows: UsageReportRow[], metric: 'cost' | 'tokens'): Tr
   }));
 }
 
-// Per-day gap-capped active time: group a day's events by session, run
-// computeActiveMs per group, and sum per source. A session crossing midnight
-// splits at the day boundary.
-type ActiveTimeSessionGroup = {
-  source: string;
-  timestampsMs: number[];
-};
+function toProjectTrendValueRows(
+  rows: ProjectUsageReportRow[],
+  metric: 'cost' | 'tokens',
+): ProjectTrendValueRow[] {
+  return rows.flatMap((row) =>
+    row.rowType === 'period_project'
+      ? [
+          {
+            periodKey: row.periodKey,
+            repoRoot: row.repoRoot,
+            project: row.project,
+            value: metric === 'tokens' ? row.totalTokens : (row.costUsd ?? 0),
+            incomplete: metric === 'cost' ? row.costIncomplete : undefined,
+          },
+        ]
+      : [],
+  );
+}
 
-function toActiveTimeValueRows(events: readonly UsageEvent[], timezone: string): TrendValueRow[] {
-  const groupsByDate = new Map<string, Map<string, ActiveTimeSessionGroup>>();
+// Per-day gap-capped active time: group a day's events by session, run
+// computeActiveMs per group, and sum per source (or per project). A session crossing
+// midnight splits at the day boundary; with --by-repo, a session that moves between
+// projects splits at each project.
+function sumActiveMsByDay<Group>(
+  events: readonly UsageEvent[],
+  timezone: string,
+  groupOf: (event: UsageEvent) => Group,
+): { periodKey: string; group: Group; value: number }[] {
+  const timestampsByDate = new Map<string, Map<Group, Map<string, number[]>>>();
 
   for (const event of events) {
     const timestampMs = Date.parse(event.timestamp);
@@ -206,38 +243,62 @@ function toActiveTimeValueRows(events: readonly UsageEvent[], timezone: string):
     }
 
     const dateKey = getPeriodKey(event.timestamp, 'daily', timezone);
-    const sessions = groupsByDate.get(dateKey) ?? new Map<string, ActiveTimeSessionGroup>();
-    const group = sessions.get(getEventSessionKey(event)) ?? {
-      source: event.source,
-      timestampsMs: [],
-    };
-    group.timestampsMs.push(timestampMs);
-    sessions.set(getEventSessionKey(event), group);
-    groupsByDate.set(dateKey, sessions);
+    const groups = timestampsByDate.get(dateKey) ?? new Map<Group, Map<string, number[]>>();
+    const group = groupOf(event);
+    const sessions = groups.get(group) ?? new Map<string, number[]>();
+    const sessionKey = getEventSessionKey(event);
+    const timestampsMs = sessions.get(sessionKey) ?? [];
+    timestampsMs.push(timestampMs);
+    sessions.set(sessionKey, timestampsMs);
+    groups.set(group, sessions);
+    timestampsByDate.set(dateKey, groups);
   }
 
-  const rows: TrendValueRow[] = [];
+  const rows: { periodKey: string; group: Group; value: number }[] = [];
 
-  for (const [dateKey, sessions] of groupsByDate) {
-    const activeMsBySource = new Map<string, number>();
+  for (const [periodKey, groups] of timestampsByDate) {
+    for (const [group, sessions] of groups) {
+      let activeMs = 0;
 
-    for (const group of sessions.values()) {
-      const activeMs = computeActiveMs(group.timestampsMs);
-      activeMsBySource.set(group.source, (activeMsBySource.get(group.source) ?? 0) + activeMs);
-    }
+      for (const timestampsMs of sessions.values()) {
+        activeMs += computeActiveMs(timestampsMs);
+      }
 
-    for (const [source, activeMs] of activeMsBySource) {
-      rows.push({ periodKey: dateKey, source, value: activeMs });
+      rows.push({ periodKey, group, value: activeMs });
     }
   }
 
   return rows;
 }
 
+function toActiveTimeValueRows(events: readonly UsageEvent[], timezone: string): TrendValueRow[] {
+  return sumActiveMsByDay(events, timezone, (event) => event.source).map((row) => ({
+    periodKey: row.periodKey,
+    source: row.group,
+    value: row.value,
+  }));
+}
+
+function toActiveTimeProjectValueRows(
+  events: readonly UsageEvent[],
+  timezone: string,
+  projectLabels: ReadonlyMap<string | undefined, string>,
+): ProjectTrendValueRow[] {
+  return sumActiveMsByDay(events, timezone, (event) => toProjectKey(event.repoRoot)).map((row) => {
+    const project = projectLabels.get(row.group);
+
+    if (project === undefined) {
+      throw new Error(`No project label for ${row.group ?? 'unattributed usage'}`);
+    }
+
+    return { periodKey: row.periodKey, repoRoot: row.group ?? null, project, value: row.value };
+  });
+}
+
 export async function buildTrendsData(
   options: TrendsCommandOptions,
   deps: BuildTrendsDataDeps = {},
-): Promise<TrendsDataResult> {
+): Promise<TrendsReportData> {
   const userConfigResolution = await resolveUserConfigForOptions(options, deps);
   const configuredOptions = userConfigResolution.options as TrendsCommandOptions;
   const now = deps.now?.() ?? new Date();
@@ -303,6 +364,34 @@ export async function buildTrendsData(
       sourceOrder: dataset.adaptersToParse.map((adapter) => adapter.id),
     }),
   );
+  const projectSeries = options.byRepo
+    ? measureRuntimeProfileStageSync(deps.runtimeProfile, 'trends.aggregate_projects', () => {
+        // One label set over the whole range, so a project keeps its label on every day.
+        const projectLabels = buildEventProjectLabels(dataset.filteredEvents);
+        const projectRows =
+          resolved.metric === 'active-hours'
+            ? toActiveTimeProjectValueRows(
+                dataset.filteredEvents,
+                dataset.normalizedInputs.timezone,
+                projectLabels,
+              )
+            : toProjectTrendValueRows(
+                aggregateUsage(pricingResult.pricedEvents, {
+                  granularity: 'daily',
+                  timezone: dataset.normalizedInputs.timezone,
+                  includeModelBreakdown: false,
+                  primary: 'repo',
+                  projectLabels,
+                }),
+                resolved.metric,
+              );
+
+        return aggregateProjectTrends(
+          filterRowsToDateRange(projectRows, outputDateRange),
+          outputDateRange,
+        );
+      })
+    : undefined;
   // Only cost trends show `~`, and only for the days in the chart.
   const chartedEvents =
     resolved.metric === 'cost'
@@ -330,6 +419,7 @@ export async function buildTrendsData(
     dateRange: outputDateRange,
     totalSeries: trends.totalSeries,
     sourceSeries: options.bySource ? (trends.sourceSeries ?? []) : undefined,
+    projectSeries,
     diagnostics,
   };
 }
