@@ -99,6 +99,7 @@ type ClaudeReadPlan = {
 
 const USAGE_ONLY: ReadonlySet<EventKind> = new Set(['usage']);
 
+/** Options for `ClaudeSourceAdapter`. */
 export type ClaudeSourceAdapterOptions = Omit<SourceAdapterPathOptions, 'dir'> & {
   /** One projects directory, or several that share fork deduplication. */
   dir?: string | readonly string[];
@@ -338,6 +339,11 @@ class ClaudeUsageRows {
   }
 }
 
+/**
+ * Claude Code transcripts (JSONL), from `projects` and `transcripts` under each directory in
+ * `$CLAUDE_CONFIG_DIR` (comma-separated; default `~/.claude`). Yields every event kind. A
+ * forked session's events depend on its parent transcript, found under the same roots.
+ */
 export class ClaudeSourceAdapter implements SourceAdapter {
   public readonly id = 'claude' as const;
   public readonly parserVersion = 4;

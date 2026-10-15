@@ -22,6 +22,7 @@ import type {
 } from '../source-adapter.js';
 import { createSourceContext, readEnvPath, type SourceContext } from '../source-context.js';
 
+/** Options for `AmpSourceAdapter`. */
 export type AmpSourceAdapterOptions = SourceAdapterPathOptions;
 
 type AmpTokenUsage = {
@@ -295,6 +296,7 @@ function* parseMessageUsage(context: AmpParseContext): Generator<UsageEvent, voi
   }
 }
 
+/** Amp thread files (JSON), from `$XDG_DATA_HOME/amp/threads` (default `~/.local/share/amp/threads`). */
 export class AmpSourceAdapter implements SourceAdapter {
   public readonly id = 'amp' as const;
   public readonly parserVersion = 2;

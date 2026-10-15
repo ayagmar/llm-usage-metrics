@@ -50,6 +50,7 @@ type DshUsageExtract = {
   totalTokens?: NumberLike;
 };
 
+/** Options for `DshSourceAdapter`. */
 export type DshSourceAdapterOptions = SourceAdapterPathOptions & {
   /** Test seam: default root scanned when no dir override is given. @internal */
   defaultRootDirs?: string[];
@@ -132,6 +133,7 @@ function resolveTimestamp(line: Record<string, unknown>): string | undefined {
   return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
 }
 
+/** DeepSeek Harness session logs (JSONL, plain or zstd), from `getDefaultDshSessionsDir`. */
 export class DshSourceAdapter implements SourceAdapter {
   public readonly id = 'dsh' as const;
   public readonly parserVersion = 4;

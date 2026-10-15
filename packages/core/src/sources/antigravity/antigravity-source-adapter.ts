@@ -25,6 +25,7 @@ type AntigravitySqliteRow = {
   data?: unknown;
 };
 
+/** Options for `AntigravitySourceAdapter`. */
 export type AntigravitySourceAdapterOptions = SourceAdapterPathOptions & {
   /** Test seam: replaces the file system check. @internal */
   pathExists?: PathPredicate;
@@ -74,6 +75,10 @@ function querySessionCreatedAt(
   return parseAntigravitySessionCreatedAt(rows[0]?.data);
 }
 
+/**
+ * Antigravity CLI conversations (SQLite), from `$GEMINI_CLI_HOME/antigravity-cli/conversations`
+ * (default `~/.gemini/antigravity-cli/conversations`). Needs `node:sqlite`.
+ */
 export class AntigravitySourceAdapter implements SourceAdapter {
   public readonly id = 'antigravity' as const;
   public readonly capabilities = { kinds: ['usage'] } as const;

@@ -1,9 +1,22 @@
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { defineConfig } from 'vitest/config';
 
+const srcRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), 'src');
+
 export default defineConfig({
+  // Examples import the package by name; resolve it to the sources, not dist.
+  resolve: {
+    alias: [
+      { find: /^@ayagmar\/agent-sessions$/u, replacement: path.join(srcRoot, 'index.ts') },
+      {
+        find: /^@ayagmar\/agent-sessions\/(.+)$/u,
+        replacement: path.join(srcRoot, '$1', 'index.ts'),
+      },
+    ],
+  },
   test: {
     include: ['tests/**/*.test.ts'],
     // Windows CI runners are several times slower at SQLite and child-process work; the

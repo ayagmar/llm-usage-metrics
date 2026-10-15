@@ -1,5 +1,6 @@
 import { stripVTControlCharacters } from 'node:util';
 
+/** A count or amount as a source may log it. Constructors treat null, undefined and non-finite values as missing. */
 export type NumberLike = number | string | null | undefined;
 
 // C0/C1 controls, plus bidi controls and line/paragraph separators, which can reorder
@@ -53,6 +54,7 @@ export function normalizeUsdCost(value: NumberLike): number | undefined {
   return Math.max(0, parsed);
 }
 
+/** Parses a timestamp into an ISO 8601 UTC string. Throws on a value `Date` cannot parse. */
 export function normalizeTimestamp(value: string | Date): string {
   const date = value instanceof Date ? value : new Date(value);
 

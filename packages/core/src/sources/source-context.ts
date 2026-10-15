@@ -1,5 +1,6 @@
 import os from 'node:os';
 
+/** A problem an adapter reports through `SourceContext.onDiagnostic` instead of throwing. */
 export type SourceDiagnostic = {
   source: string;
   level: 'warn' | 'info';
@@ -13,6 +14,7 @@ export type SourceContext = {
   /** Held by reference (process.env by default), so adapters see later env changes. */
   env: NodeJS.ProcessEnv;
   platform: NodeJS.Platform;
+  /** Receives non-fatal problems; without it they are dropped. */
   onDiagnostic?: (diagnostic: SourceDiagnostic) => void;
 };
 

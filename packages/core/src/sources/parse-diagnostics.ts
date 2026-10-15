@@ -11,6 +11,7 @@ export function incrementSkippedReason(reasons: Map<string, number>, reason: str
   reasons.set(reason, current + 1);
 }
 
+/** An empty sink to pass as `diagnostics` to a read. */
 export function createReadDiagnostics(): SourceReadDiagnostics {
   return { skippedRows: 0, skippedRowReasons: new Map() };
 }
@@ -26,6 +27,7 @@ function toSkippedRowReasonStats(reasons: Map<string, number>): SourceSkippedRow
     .sort((left, right) => compareByCodePoint(left.reason, right.reason));
 }
 
+/** Packs a file's events and skipped-row counts into `SourceParseFileDiagnostics`, reasons sorted. */
 export function toParseDiagnostics<Event extends UsageEvent>(
   events: Event[],
   skippedRows: number,

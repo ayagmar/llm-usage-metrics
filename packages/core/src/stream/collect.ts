@@ -2,6 +2,7 @@ import type { UsageEvent } from '../domain/usage-event.js';
 import { createReadDiagnostics, toParseDiagnostics } from '../sources/parse-diagnostics.js';
 import type { SourceAdapter, SourceParseFileDiagnostics } from '../sources/source-adapter.js';
 
+/** Reads an async iterable to the end into an array. */
 export async function collect<T>(source: AsyncIterable<T>): Promise<T[]> {
   const items: T[] = [];
 

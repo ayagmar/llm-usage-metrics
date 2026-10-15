@@ -1,0 +1,2 @@
+{"type":"user","timestamp":"2026-08-02T09:00:00.000Z","uuid":"u-1","sessionId":"fx-claude-lint","cwd":"/work/fx","message":{"role":"user","content":"Fix the lint errors"}}
+{"type":"assistant","timestamp":"2026-08-02T09:00:03.000Z","uuid":"a-1","requestId":"req-1","sessionId":"fx-claude-lint","cwd":"/work/fx","message":{"id":"msg-1","role":"assistant","model":"claude-sonnet-4-5","content":[{"type":"text","text":"Fixing."}],"usage":{"input_tokens":200,"cache_creation_input_tokens":100,"cache_read_input_tokens":0,"output_tokens":50}}}
