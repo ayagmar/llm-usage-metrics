@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, utimes, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -89,6 +89,27 @@ describe('getFileFingerprint', () => {
     ]);
     expect(fingerprint?.dependencies.every((dependency) => dependency.mtimeMs !== undefined)).toBe(
       true,
+    );
+  });
+
+  // The event store keys stored events on this JSON: renaming a field, reordering it or
+  // changing the parser version format would re-parse every file once for every user.
+  it('serializes to the JSON the event store keys on', async () => {
+    const tempDir = await createTempDir();
+    const filePath = path.join(tempDir, 'session.jsonl');
+    const missingDependency = path.join(tempDir, 'parent.jsonl');
+    await writeFile(filePath, 'abc', 'utf8');
+    await utimes(filePath, 1_700_000_000, 1_700_000_000);
+
+    const fingerprint = await getFileFingerprint(
+      createAdapter({ parserVersion: 3, dependencies: () => [missingDependency] }),
+      filePath,
+    );
+
+    expect(JSON.stringify(fingerprint)).toBe(
+      `{"parserVersion":"n2.p3","dependencies":[` +
+        `{"path":${JSON.stringify(filePath)},"exists":true,"size":3,"mtimeMs":1700000000000},` +
+        `{"path":${JSON.stringify(missingDependency)},"exists":false}]}`,
     );
   });
 
