@@ -104,40 +104,49 @@ function toNonNegativeNumber(value: unknown): number | undefined {
   return undefined;
 }
 
-function normalizeModelPricing(rawModelPricing: Record<string, unknown>): ModelPricing | undefined {
-  const inputPerToken =
-    toNonNegativeNumber(rawModelPricing.input_cost_per_token) ??
-    toNonNegativeNumber(rawModelPricing.input_cost_per_token_priority);
-  const outputPerToken =
-    toNonNegativeNumber(rawModelPricing.output_cost_per_token) ??
-    toNonNegativeNumber(rawModelPricing.output_cost_per_token_priority);
+type RateWithOrigin = { perToken: number; priority: boolean };
 
-  if (inputPerToken === undefined || outputPerToken === undefined) {
+/** A standard rate, or the priority rate when LiteLLM lists only that one. */
+function readStandardOrPriorityRate(
+  rawModelPricing: Record<string, unknown>,
+  key: string,
+): RateWithOrigin | undefined {
+  const standard = toNonNegativeNumber(rawModelPricing[key]);
+
+  if (standard !== undefined) {
+    return { perToken: standard, priority: false };
+  }
+
+  const priority = toNonNegativeNumber(rawModelPricing[`${key}_priority`]);
+  return priority === undefined ? undefined : { perToken: priority, priority: true };
+}
+
+function normalizeModelPricing(rawModelPricing: Record<string, unknown>): ModelPricing | undefined {
+  const input = readStandardOrPriorityRate(rawModelPricing, 'input_cost_per_token');
+  const output = readStandardOrPriorityRate(rawModelPricing, 'output_cost_per_token');
+
+  if (input === undefined || output === undefined) {
     return undefined;
   }
 
-  const cacheReadPerToken =
-    toNonNegativeNumber(rawModelPricing.cache_read_input_token_cost) ??
-    toNonNegativeNumber(rawModelPricing.cache_read_input_token_cost_priority);
-  const cacheWritePerToken =
-    toNonNegativeNumber(rawModelPricing.cache_creation_input_token_cost) ??
-    toNonNegativeNumber(rawModelPricing.cache_creation_input_token_cost_priority);
+  const cacheRead = readStandardOrPriorityRate(rawModelPricing, 'cache_read_input_token_cost');
+  const cacheWrite = readStandardOrPriorityRate(rawModelPricing, 'cache_creation_input_token_cost');
   const cacheWrite1hPerToken = toNonNegativeNumber(
     rawModelPricing.cache_creation_input_token_cost_above_1hr,
   );
   const reasoningPerToken = toNonNegativeNumber(rawModelPricing.output_cost_per_reasoning_token);
 
   const modelPricing: ModelPricing = {
-    inputPer1MUsd: inputPerToken * ONE_MILLION,
-    outputPer1MUsd: outputPerToken * ONE_MILLION,
+    inputPer1MUsd: input.perToken * ONE_MILLION,
+    outputPer1MUsd: output.perToken * ONE_MILLION,
   };
 
-  if (cacheReadPerToken !== undefined) {
-    modelPricing.cacheReadPer1MUsd = cacheReadPerToken * ONE_MILLION;
+  if (cacheRead !== undefined) {
+    modelPricing.cacheReadPer1MUsd = cacheRead.perToken * ONE_MILLION;
   }
 
-  if (cacheWritePerToken !== undefined) {
-    modelPricing.cacheWritePer1MUsd = cacheWritePerToken * ONE_MILLION;
+  if (cacheWrite !== undefined) {
+    modelPricing.cacheWritePer1MUsd = cacheWrite.perToken * ONE_MILLION;
   }
 
   if (cacheWrite1hPerToken !== undefined) {
@@ -147,6 +156,10 @@ function normalizeModelPricing(rawModelPricing: Record<string, unknown>): ModelP
   if (reasoningPerToken !== undefined) {
     modelPricing.reasoningPer1MUsd = reasoningPerToken * ONE_MILLION;
     modelPricing.reasoningBilling = 'separate';
+  }
+
+  if (input.priority || output.priority || cacheRead?.priority || cacheWrite?.priority) {
+    modelPricing.priorityFallback = true;
   }
 
   return modelPricing;
@@ -226,6 +239,10 @@ function normalizeCachedPricing(rawPricing: unknown): ModelPricing | undefined {
   if (reasoningPer1MUsd !== undefined) {
     modelPricing.reasoningPer1MUsd = reasoningPer1MUsd;
     modelPricing.reasoningBilling = 'separate';
+  }
+
+  if (pricingRecord.priorityFallback === true) {
+    modelPricing.priorityFallback = true;
   }
 
   return modelPricing;

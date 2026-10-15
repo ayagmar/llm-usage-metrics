@@ -9,6 +9,8 @@ export type ModelPricing = {
   cacheWrite1hPer1MUsd?: number;
   reasoningPer1MUsd?: number;
   reasoningBilling?: ReasoningBillingMode;
+  /** LiteLLM lists no standard rate for some bucket, so its priority rate stands in. */
+  priorityFallback?: true;
 };
 
 export interface PricingSource {

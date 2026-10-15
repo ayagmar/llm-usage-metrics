@@ -18,7 +18,10 @@ import { shouldLoadPricingSource } from '../../src/cli/build-usage-data-pricing.
 import type { PricingLoadResult } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
-import { createDefaultOpenAiPricingSource } from '../helpers/static-pricing-source.js';
+import {
+  createDefaultOpenAiPricingSource,
+  StaticPricingSource,
+} from '../helpers/static-pricing-source.js';
 import { readFrom, readWithDiagnostics } from '../helpers/fake-read.js';
 
 const tempDirs: string[] = [];
@@ -1241,6 +1244,41 @@ describe('buildUsageData', () => {
         cacheTtlMs: 1_000,
         fetchTimeoutMs: 1_000,
       }),
+    );
+  });
+
+  it('notes the shown events priced at priority rates, naming their models', async () => {
+    const pricingLoaderSpy = vi.fn(async (): Promise<PricingLoadResult> => ({
+      source: new StaticPricingSource({
+        pricingByModel: {
+          'priority-only': { inputPer1MUsd: 1, outputPer1MUsd: 4, priorityFallback: true },
+          'gpt-4.1': { inputPer1MUsd: 2, outputPer1MUsd: 8 },
+        },
+      }),
+      origin: 'cache',
+    }));
+    const estimated = { costMode: 'estimated' as const, costUsd: undefined };
+
+    const result = await buildUsageData(
+      'daily',
+      { all: true, timezone: 'UTC' },
+      {
+        ...withDeterministicRuntimeDeps(),
+        createAdapters: () => [
+          createAdapter('pi', {
+            '/tmp/pi-priority.jsonl': [
+              createEvent({ ...estimated, model: 'priority-only' }),
+              createEvent({ ...estimated, model: 'priority-only', sessionId: 'session-2' }),
+              createEvent({ ...estimated, model: 'gpt-4.1', sessionId: 'session-3' }),
+            ],
+          }),
+        ],
+        resolvePricingSource: pricingLoaderSpy,
+      },
+    );
+
+    expect(result.diagnostics.notes).toContain(
+      '2 events priced at LiteLLM priority rates because no standard rate is listed (models: priority-only)',
     );
   });
 

@@ -95,6 +95,42 @@ describe('cost engine', () => {
     expect(pricedEvents.some((event) => stats.priorityPriced.has(event))).toBe(false);
   });
 
+  it('records the events it prices at a priority-fallback rate', () => {
+    const source = new StaticPricingSource({
+      pricingByModel: {
+        'priority-only': { inputPer1MUsd: 1, outputPer1MUsd: 4, priorityFallback: true },
+        'gpt-5-codex': { inputPer1MUsd: 1, outputPer1MUsd: 2 },
+      },
+    });
+    const baseEvent = {
+      source: 'pi',
+      sessionId: 'session-1',
+      timestamp: '2026-02-16T10:00:00Z',
+      inputTokens: 100,
+      outputTokens: 50,
+    };
+    const events = [
+      createUsageEvent({ ...baseEvent, model: 'priority-only', costMode: 'estimated' }),
+      createUsageEvent({ ...baseEvent, model: 'priority-only', costUsd: 0, costMode: 'explicit' }),
+      createUsageEvent({ ...baseEvent, model: 'priority-only', costUsd: 2, costMode: 'explicit' }),
+      createUsageEvent({ ...baseEvent, model: 'gpt-5-codex', costMode: 'estimated' }),
+    ];
+    const stats = createPricingRunStats();
+
+    const pricedEvents = applyPricingToEvents(events, source, {
+      policy: DEFAULT_PRICING_POLICY,
+      stats,
+    });
+
+    // A logged non-zero cost is kept, so no priority rate priced it.
+    expect(pricedEvents.map((event) => stats.priorityPriced.has(event))).toEqual([
+      true,
+      true,
+      false,
+      false,
+    ]);
+  });
+
   it('estimates cost using alias mapping without double charging reasoning by default', () => {
     const source = new StaticPricingSource({
       pricingByModel: {

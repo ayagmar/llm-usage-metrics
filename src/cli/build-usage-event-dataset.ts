@@ -575,6 +575,25 @@ function describeUnpricedEvents(events: readonly UsageEvent[]): string | undefin
   return `~ marks costs that leave out ${eventCount} ${eventLabel} with no known price (models: ${modelList})`;
 }
 
+/** The note naming events priced at a model's priority rates, if any are shown. */
+function describePriorityPricedEvents(
+  events: readonly UsageEvent[],
+  priorityPriced: PricedEventsResult['pricingStats']['priorityPriced'],
+): string | undefined {
+  const priorityEvents = events.filter((event) => priorityPriced.has(event));
+
+  if (priorityEvents.length === 0) {
+    return undefined;
+  }
+
+  const models = [...new Set(priorityEvents.map((event) => event.model ?? 'unknown'))].sort();
+  const eventCount = new Intl.NumberFormat('en-US').format(priorityEvents.length);
+  const eventLabel = priorityEvents.length === 1 ? 'event' : 'events';
+  const modelList = limitNamedModels(models, MAX_NAMED_UNPRICED_MODELS).join(', ');
+
+  return `${eventCount} ${eventLabel} priced at LiteLLM priority rates because no standard rate is listed (models: ${modelList})`;
+}
+
 /**
  * The dataset's notes plus the pricing notes for the events a report shows. Notes count only
  * `shownEvents`; `pricingResult` gives the policy and stats of the run that priced them.
@@ -582,9 +601,12 @@ function describeUnpricedEvents(events: readonly UsageEvent[]): string | undefin
 export function withPricingNotes(
   notes: readonly string[],
   shownEvents: readonly UsageEvent[],
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- the cost-mode and priority notes read it
   pricingResult: Pick<UsageEventDatasetPricingResult, 'pricingPolicy' | 'pricingStats'>,
 ): string[] {
-  const note = describeUnpricedEvents(shownEvents);
-  return note ? [...notes, note] : [...notes];
+  const pricingNotes = [
+    describeUnpricedEvents(shownEvents),
+    describePriorityPricedEvents(shownEvents, pricingResult.pricingStats.priorityPriced),
+  ].filter((note) => note !== undefined);
+
+  return [...notes, ...pricingNotes];
 }

@@ -55,6 +55,10 @@ function orderModelPricing(pricing) {
     orderedPricing.reasoningBilling = 'separate';
   }
 
+  if (pricing.priorityFallback === true) {
+    orderedPricing.priorityFallback = true;
+  }
+
   return orderedPricing;
 }
 

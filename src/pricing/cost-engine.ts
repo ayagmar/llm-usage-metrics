@@ -205,6 +205,10 @@ function applyResolvedPricingToEvent(
     stats.reestimatedExplicitZero.add(pricedEvent);
   }
 
+  if (pricing.priorityFallback) {
+    stats.priorityPriced.add(pricedEvent);
+  }
+
   return pricedEvent;
 }
 
