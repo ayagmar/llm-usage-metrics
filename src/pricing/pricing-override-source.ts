@@ -2,7 +2,13 @@ import { asRecord } from '../utils/as-record.js';
 import { readRegularTextFile } from '../utils/fs-helpers.js';
 import { asTrimmedText, toNumberLike } from '@ayagmar/agent-sessions/internal';
 import type { NumberLike } from '../domain/normalization.js';
-import type { ModelPricing, PricingSource, ReasoningBillingMode } from './types.js';
+import { normalizeKey } from './litellm-model-matching.js';
+import type {
+  ModelPricing,
+  ModelPricingExplanation,
+  PricingSource,
+  ReasoningBillingMode,
+} from './types.js';
 
 // A user-maintained JSON file of per-model pricing that takes precedence over
 // the LiteLLM pricing source. Useful for internal/custom models, discounted
@@ -201,5 +207,53 @@ export class PricingOverrideSource implements PricingSource {
     }
 
     return this.delegate.getPricing(model);
+  }
+
+  public explainModel(model: string): ModelPricingExplanation {
+    const resolvedModel = this.resolveModelAlias(model);
+    const pricing = this.getPricing(resolvedModel);
+    const delegated = this.explainDelegatedModel(model);
+
+    if (this.overrides.has(model.toLowerCase())) {
+      // The delegate never sees the name, so no matcher rule or LiteLLM origin applies.
+      return {
+        normalizedModel: delegated.normalizedModel,
+        resolvedModel,
+        override: 'raw',
+        retired: false,
+        ...(pricing ? { pricing } : {}),
+      };
+    }
+
+    if (this.overrides.has(resolvedModel.toLowerCase())) {
+      // An override keyed on the resolved key prices every alias that resolves to it.
+      return {
+        normalizedModel: delegated.normalizedModel,
+        resolvedModel,
+        ...(delegated.match ? { match: delegated.match } : {}),
+        override: 'resolved',
+        retired: false,
+        ...(pricing ? { pricing } : {}),
+      };
+    }
+
+    return delegated;
+  }
+
+  private explainDelegatedModel(model: string): ModelPricingExplanation {
+    if (this.delegate.explainModel) {
+      return this.delegate.explainModel(model);
+    }
+
+    const resolvedModel = this.delegate.resolveModelAlias(model);
+    const pricing = this.delegate.getPricing(resolvedModel);
+
+    return {
+      normalizedModel: normalizeKey(model),
+      resolvedModel,
+      override: 'none',
+      retired: false,
+      ...(pricing ? { pricing } : {}),
+    };
   }
 }
