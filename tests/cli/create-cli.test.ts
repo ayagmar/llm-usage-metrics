@@ -844,7 +844,6 @@ describe('createCli', () => {
 
   it.each([
     ['hourly', []],
-    ['blocks', []],
   ])('fails %s with "not implemented" until its report lands', async (name, args) => {
     const cli = createCli();
     captureOutput(cli);
