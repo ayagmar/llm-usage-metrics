@@ -75,5 +75,5 @@ Deviations from the convention:
 
 - `gen_ai.provider.name` is required, but it is left out when the provider is unknown rather than guessed.
 - A provider with no well-known value (`github`, for example) is passed through as a custom value. For `google` the helpers pick `gcp.gemini`; the source logs do not say which Google endpoint served the call. Other Google and Azure ids (`google-gemini-cli` or a custom `azure-east`, for example) pass through too, since they do not name a well-known endpoint.
-- `gen_ai.response.model` is the model name lowercased, not the exact string the provider returned. `gen_ai.request.model` is not set, since the logs record only the model that answered.
+- `gen_ai.response.model` is the model name lowercased, not the exact string the provider returned. Usage records do not set `gen_ai.request.model`, since the logs record only the model that answered. Session attributes do set it, to the model the session was configured with.
 - `gen_ai.conversation.id` is set even where a source has no session id and the file name stands in for it (qwen, openclaw), which the convention discourages.

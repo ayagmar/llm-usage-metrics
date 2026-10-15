@@ -19,7 +19,7 @@ export type SourceContext = {
    * `readSources`: without a listener it rethrows a failed discovery or read, and with one
    * it reports the failure here as a warning and skips that source or file. See the
    * "Failures" bullet under `readSources` in the
-   * {@link https://github.com/ayagmar/llm-usage-metrics/tree/master/packages/core#stages | package README}.
+   * {@link https://github.com/ayagmar/llm-usage-metrics/tree/master/packages/core#reading-every-source | package README}.
    */
   onDiagnostic?: (diagnostic: SourceDiagnostic) => void;
 };

@@ -43,8 +43,9 @@ function keepWhere<E extends Timestamped>(keep: (timestampMs: number) => boolean
  * timestamp does not parse is dropped, by `until` as well.
  *
  * An invalid bound throws here, not on the first event, and so does a string bound with a
- * time of day but no UTC offset (`'2026-06-01T10:00'`). A date alone (`'2026-06-01'`) is
- * midnight UTC.
+ * time of day but no UTC offset (`'2026-06-01T10:00'`). An ISO date alone (`'2026-06-01'`) is
+ * midnight UTC; other date-only strings (`'2026/06/01'`) follow `Date.parse` and mean local
+ * midnight, so prefer the ISO form.
  */
 export function since<E extends Timestamped>(bound: string | Date): Stage<E, E> {
   const boundMs = toBoundMs('since', bound);
