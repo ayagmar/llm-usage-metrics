@@ -845,7 +845,6 @@ describe('createCli', () => {
   it.each([
     ['hourly', []],
     ['projects', []],
-    ['blocks', []],
     ['value', []],
     ['pricing', ['gpt-5']],
   ])('fails %s with "not implemented" until its report lands', async (name, args) => {
