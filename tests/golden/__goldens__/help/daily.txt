@@ -46,6 +46,13 @@ Options:
                                  columns (terminal/markdown)
   --no-cost                      Leave cost out of the table and share card, e.g. for screenshots
   --by-machine                   Split each source row by the machine its usage came from
+  --by-repo                      Split each source row by project (repository root)
+  --repo <project>               Count only these projects (repeatable or comma-separated, so a
+                                 value cannot contain a comma). A path (absolute, or ./, ../, ~/ on
+                                 this machine) matches that repository root and the roots under it;
+                                 a name or path tail such as work/api matches the end of a root, not
+                                 the roots under it; (unattributed) matches usage without a root.
+                                 Applied after --model picks exact or substring matching
   -h, --help                     display help for command
 
 Per-source path flags (--claude-dir, ...)
