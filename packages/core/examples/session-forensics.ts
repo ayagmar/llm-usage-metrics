@@ -1,6 +1,8 @@
 // Per-session token, cache and cost forensics over claude, codex and pi, plus repeated user
 // prompts within and across sessions. Prompts are compared by sha256 fingerprint: the
-// output holds counts and hashes only, never text, paths or session ids.
+// output holds counts and hashes, not text, paths or session ids. The fingerprints are
+// unsalted, so a short or common prompt can be recovered by hashing guesses; treat the
+// output as you would the prompts.
 //
 //   pnpm exec tsx examples/session-forensics.ts
 import { createHash } from 'node:crypto';
@@ -38,6 +40,8 @@ export async function sessionForensics(context: SourceContext) {
     }
 
     const system = group.events.filter((e) => e.kind === 'message' && e.role === 'system');
+    // Cache hit ratio = cache read / (fresh input + cache read). Cache writes are left out
+    // of the denominator, as in the session-cost-forensics skill.
     const prompted = tokens.inputTokens + tokens.cacheReadTokens;
     sessions.push({
       source: group.source,
