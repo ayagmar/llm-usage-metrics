@@ -206,6 +206,8 @@ export type ResolveAndApplyPricingOptions = {
   loadPricingSource?: PricingSourceResolver;
   pricingLoadMode?: PricingLoadMode;
   policy?: PricingPolicy;
+  /** The events that decide whether prices load; the priced events when not given. */
+  loadDecisionEvents?: UsageEvent[];
 };
 
 export type PricedEventsResult = {
@@ -229,6 +231,7 @@ export async function resolveAndApplyPricingToEvents(
     loadPricingSource = resolvePricingSource,
     pricingLoadMode = 'auto',
     policy = resolvePricingPolicy(options),
+    loadDecisionEvents = events,
   }: ResolveAndApplyPricingOptions = {},
 ): Promise<PricedEventsResult> {
   const pricingStats = createPricingRunStats();
@@ -236,7 +239,7 @@ export async function resolveAndApplyPricingToEvents(
 
   const costModeOption = options.costMode;
 
-  if (!shouldLoadPricingSourceForMode(events, pricingLoadMode, policy.costMode)) {
+  if (!shouldLoadPricingSourceForMode(loadDecisionEvents, pricingLoadMode, policy.costMode)) {
     return {
       pricedEvents: applyPolicyWithoutPricing(events, policy, pricingStats),
       costModeOption,
