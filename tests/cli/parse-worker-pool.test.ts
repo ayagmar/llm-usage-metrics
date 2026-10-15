@@ -385,7 +385,8 @@ describe('parse-worker-pool', () => {
 
   it('falls back inline when worker creation fails', async () => {
     const firstWorker = new FakeWorker();
-    const inlineParse = vi.fn(async () => createDiagnostics(4));
+    const firstInlineParse = vi.fn(async () => createDiagnostics(4));
+    const secondInlineParse = vi.fn(async () => createDiagnostics(5));
     let spawnCount = 0;
     const pool = createParseWorkerPool({
       entryUrl,
@@ -401,12 +402,89 @@ describe('parse-worker-pool', () => {
       }),
     });
 
-    await expect(
-      pool.parse({ sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'] }, inlineParse),
-    ).resolves.toEqual(createDiagnostics(4));
-    expect(inlineParse).toHaveBeenCalledTimes(1);
+    const firstResult = pool.parse(
+      { sourceId: 'codex', filePath: '/tmp/a.jsonl', roots: ['/tmp'] },
+      firstInlineParse,
+    );
+    const secondResult = pool.parse(
+      { sourceId: 'codex', filePath: '/tmp/b.jsonl', roots: ['/tmp'] },
+      secondInlineParse,
+    );
+
+    await expect(firstResult).resolves.toEqual(createDiagnostics(4));
+    await expect(secondResult).resolves.toEqual(createDiagnostics(5));
+    expect(firstInlineParse).toHaveBeenCalledTimes(1);
+    expect(secondInlineParse).toHaveBeenCalledTimes(1);
     expect(firstWorker.terminateCalls).toBe(1);
     expect(pool.status()).toBe('fallback');
+  });
+
+  it('spawns no worker until a task is dispatched', async () => {
+    const spawnWorker = vi.fn(() => new FakeWorker());
+    const pool = createParseWorkerPool({ entryUrl, workerCount: 4, spawnWorker });
+
+    expect(pool.status()).toBe('ready');
+    await pool.terminate();
+
+    expect(spawnWorker).not.toHaveBeenCalled();
+  });
+
+  it('reuses an idle worker instead of spawning another', async () => {
+    const workers: FakeWorker[] = [];
+    const pool = createParseWorkerPool({
+      entryUrl,
+      workerCount: 4,
+      spawnWorker: () => {
+        const worker = new FakeWorker();
+        workers.push(worker);
+        return worker;
+      },
+    });
+
+    const firstResult = pool.parse(
+      { sourceId: 'claude', filePath: '/tmp/a.jsonl', roots: ['/claude'] },
+      async () => createDiagnostics(99),
+    );
+    workers[0].emitMessage({ taskId: 1, ok: true, diagnostics: createDiagnostics(1) });
+    await expect(firstResult).resolves.toEqual(createDiagnostics(1));
+
+    const secondResult = pool.parse(
+      { sourceId: 'pi', filePath: '/tmp/b.jsonl', roots: ['/pi'] },
+      async () => createDiagnostics(99),
+    );
+    workers[0].emitMessage({ taskId: 2, ok: true, diagnostics: createDiagnostics(2) });
+    await expect(secondResult).resolves.toEqual(createDiagnostics(2));
+
+    expect(workers).toHaveLength(1);
+    expect(workers[0].postedMessages.map((message) => message.sourceId)).toEqual(['claude', 'pi']);
+  });
+
+  it('queues tasks beyond the pool size until a worker frees up', async () => {
+    const workers: FakeWorker[] = [];
+    const pool = createParseWorkerPool({
+      entryUrl,
+      workerCount: 2,
+      spawnWorker: () => {
+        const worker = new FakeWorker();
+        workers.push(worker);
+        return worker;
+      },
+    });
+
+    const results = ['a', 'b', 'c'].map((name) =>
+      pool.parse({ sourceId: 'codex', filePath: `/tmp/${name}.jsonl`, roots: ['/tmp'] }, async () =>
+        createDiagnostics(99),
+      ),
+    );
+
+    expect(workers).toHaveLength(2);
+    workers[1].emitMessage({ taskId: 2, ok: true, diagnostics: createDiagnostics(2) });
+    expect(workers).toHaveLength(2);
+    expect(workers[1].postedMessages.map((message) => message.taskId)).toEqual([2, 3]);
+    workers[0].emitMessage({ taskId: 1, ok: true, diagnostics: createDiagnostics(1) });
+    workers[1].emitMessage({ taskId: 3, ok: true, diagnostics: createDiagnostics(3) });
+
+    await expect(Promise.all(results)).resolves.toEqual([1, 2, 3].map(createDiagnostics));
   });
 
   it('falls back queued work when terminated before completion', async () => {

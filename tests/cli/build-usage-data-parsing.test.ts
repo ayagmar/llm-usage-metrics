@@ -8,7 +8,11 @@ import {
   parseAdapterEvents,
   parseSelectedAdapters,
 } from '../../src/cli/build-usage-data-parsing.js';
-import type { ParseWorkerPool } from '../../src/cli/parse-worker-pool.js';
+import {
+  createParseWorkerPool,
+  type ParseWorkerLike,
+  type ParseWorkerPool,
+} from '../../src/cli/parse-worker-pool.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import {
   closeEventStore,
@@ -200,6 +204,50 @@ function createInlineWorkerPool(status: 'ready' | 'fallback' = 'ready'): ParseWo
     status: () => status,
     terminate: async () => undefined,
   };
+}
+
+/** A worker that declines every task, so the pool reruns it inline. */
+function createDecliningWorker(): ParseWorkerLike {
+  let onMessage: ((message: unknown) => void) | undefined;
+  const worker: ParseWorkerLike = {
+    postMessage: (message) => {
+      setTimeout(() => onMessage?.({ taskId: message.taskId, ok: false, error: 'declined' }), 1);
+    },
+    terminate: async () => 0,
+    on: (event, listener) => {
+      if (event === 'message') {
+        onMessage = listener;
+      }
+
+      return worker;
+    },
+  };
+
+  return worker;
+}
+
+function createWorkerSourceAdapters(sourceIds: readonly string[], filesPerSource: number) {
+  return sourceIds.map((sourceId) =>
+    createAdapterWithDiagnostics(
+      sourceId,
+      Object.fromEntries(
+        Array.from({ length: filesPerSource }, (_, index) => [
+          `/data/${sourceId}/${index}.jsonl`,
+          {
+            events: [
+              createUsageEvent({
+                source: sourceId,
+                sessionId: `${sourceId}-${index}`,
+                timestamp: '2026-02-01T00:00:00.000Z',
+                totalTokens: 1,
+              }),
+            ],
+            skippedRows: 0,
+          },
+        ]),
+      ),
+    ),
+  );
 }
 
 describe('build-usage-data-parsing', () => {
@@ -1004,6 +1052,78 @@ describe('build-usage-data-parsing', () => {
 
     expect(createPool).not.toHaveBeenCalled();
     expect(parseCalls.count).toBe(3);
+  });
+
+  it('shares one parse pool, bounded by the worker count, across every worker source', async () => {
+    const spawnWorker = vi.fn(createDecliningWorker);
+    let terminateCalls = 0;
+    const createPool = vi.fn((options: Parameters<typeof createParseWorkerPool>[0]) => {
+      const pool = createParseWorkerPool({ ...options, spawnWorker });
+      return {
+        ...pool,
+        terminate: async () => {
+          terminateCalls += 1;
+          await pool.terminate();
+        },
+      };
+    });
+    const runtimeProfile = new RuntimeProfileCollector(() => 0);
+    const sourceIds = ['claude', 'pi', 'codex'];
+
+    const result = await parseSelectedAdapters(createWorkerSourceAdapters(sourceIds, 4), 8, {
+      parseWorkers: { workerCount: 3, minBytes: 0, createPool },
+      runtimeProfile,
+    });
+
+    expect(createPool).toHaveBeenCalledTimes(1);
+    expect(createPool).toHaveBeenCalledWith(expect.objectContaining({ workerCount: 3 }));
+    expect(spawnWorker).toHaveBeenCalledTimes(3);
+    expect(terminateCalls).toBe(1);
+    expect(result.sourceFailures).toEqual([]);
+    expect(
+      result.successfulParseResults.map((parseResult) =>
+        parseResult.events.map((event) => event.sessionId),
+      ),
+    ).toEqual(sourceIds.map((sourceId) => [0, 1, 2, 3].map((index) => `${sourceId}-${index}`)));
+    expect(
+      runtimeProfile.snapshot().sourceStats.map((stats) => [stats.source, stats.parseWorkers]),
+    ).toEqual([
+      ['claude', 'engaged'],
+      ['codex', 'engaged'],
+      ['pi', 'engaged'],
+    ]);
+  });
+
+  it('creates no parse pool when no source sends it work', async () => {
+    const createPool = vi.fn(() => createInlineWorkerPool());
+
+    await parseSelectedAdapters(createWorkerSourceAdapters(['claude', 'pi'], 2), 4, {
+      parseWorkers: { workerCount: 3, minBytes: Number.MAX_SAFE_INTEGER, createPool },
+    });
+
+    expect(createPool).not.toHaveBeenCalled();
+  });
+
+  it('terminates the shared parse pool when a source fails', async () => {
+    const terminate = vi.fn(async () => undefined);
+    const createPool = vi.fn(() => ({ ...createInlineWorkerPool(), terminate }));
+    const failingAdapter: SourceAdapter = {
+      id: 'claude',
+      discoverFiles: async () => ['/data/claude/broken.jsonl'],
+      read: readWithDiagnostics(async () => {
+        throw new Error('broken file');
+      }),
+    };
+
+    const result = await parseSelectedAdapters(
+      [failingAdapter, ...createWorkerSourceAdapters(['pi'], 2)],
+      4,
+      { parseWorkers: { workerCount: 2, minBytes: 0, createPool } },
+    );
+
+    expect(result.sourceFailures.map((failure) => failure.source)).toEqual(['claude']);
+    expect(createPool).toHaveBeenCalledTimes(1);
+    expect(terminate).toHaveBeenCalledTimes(1);
   });
 
   it('dispatches largest misses first while preserving inline output order', async () => {
