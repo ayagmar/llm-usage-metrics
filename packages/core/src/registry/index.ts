@@ -20,6 +20,7 @@ import { MultiDirectorySourceAdapter } from '../sources/multi-directory-source-a
 
 export { readSources, type ReadSourcesOptions } from './read-sources.js';
 
+/** How a source stores its sessions on disk. */
 export type SourceStorageFormat = 'jsonl' | 'json' | 'sqlite';
 
 /**
@@ -231,6 +232,7 @@ function createDirectoryBackedAdapter(
   );
 }
 
+/** Every registered source id, in registry order. */
 export function getDefaultSourceIds(): string[] {
   return sourceRegistrations.map((source) => source.id);
 }
@@ -244,6 +246,7 @@ export function sourceSupportsDirectories(sourceId: string): boolean {
   return sourceRegistrations.some((source) => source.id === sourceId && source.supportsSourceDir);
 }
 
+/** The storage format of a registered source. Throws on an unknown id. */
 export function getSourceStorageFormat(sourceId: string): SourceStorageFormat {
   const registration = sourceRegistrations.find((source) => source.id === sourceId);
 
@@ -280,6 +283,11 @@ export function createWorkerParseAdapter(sourceId: string): SourceAdapter | unde
   );
 }
 
+/**
+ * Builds the selected sources' adapters, in registry order. A source given several roots
+ * reads them all through one adapter. Pass a context to control the home directory and
+ * environment adapters resolve their default locations from; the host's by default.
+ */
 export function createDefaultAdapters(
   selection: SourceSelection,
   context: SourceContext = createSourceContext(),

@@ -24,23 +24,34 @@ export const USAGE_EVENT_NORMALIZATION_VERSION = 2;
  */
 export type CostMode = 'explicit' | 'estimated';
 
+/**
+ * One normalized usage event: the tokens of one model response, as `read` yields it. Token
+ * counts are non-negative integers.
+ */
 export type UsageEvent = {
   source: SourceId;
   sessionId: string;
+  /** ISO 8601 in UTC. */
   timestamp: string;
   repoRoot?: string;
+  /** The billing provider, normalized (`anthropic`, `openai`, `google` and so on). */
   provider?: string;
+  /** Lowercased and trimmed. */
   model?: string;
 
+  /** Fresh input: excludes cache reads and writes. */
   inputTokens: number;
+  /** Includes reasoning; `reasoningTokens` is a breakdown of it. */
   outputTokens: number;
   reasoningTokens: number;
   cacheReadTokens: number;
   cacheWriteTokens: number;
   /** The part of `cacheWriteTokens` cached for one hour, billed at a higher rate. */
   cacheWrite1hTokens: number;
+  /** The total the source logged, or the sum of the token fields when it logged none. */
   totalTokens: number;
 
+  /** The cost the source recorded, in USD. Undefined when it recorded none. */
   costUsd?: number;
 };
 
@@ -49,6 +60,11 @@ export type BillableTokenUsage = Pick<
   'inputTokens' | 'outputTokens' | 'reasoningTokens' | 'cacheReadTokens' | 'cacheWriteTokens'
 >;
 
+/**
+ * What `createUsageEvent` takes, before normalization. Missing or non-finite counts become 0.
+ * Pass `totalTokens` when `reasoningTokens` is part of `outputTokens`, since the computed
+ * total adds it again.
+ */
 export type UsageEventInput = {
   source: SourceId;
   sessionId: string;
@@ -68,6 +84,7 @@ export type UsageEventInput = {
   costUsd?: NumberLike;
 };
 
+/** A trimmed source id with control characters removed, or undefined when empty or not a string. */
 export function normalizeSourceId(value: unknown): SourceId | undefined {
   if (typeof value !== 'string') {
     return undefined;
@@ -119,10 +136,17 @@ export function normalizeOptionalModel(value: string | undefined): string | unde
   return normalized || undefined;
 }
 
+/** A key that identifies a session across sources: `source` and `sessionId` joined by a NUL. */
 export function getEventSessionKey(event: Pick<UsageEvent, 'source' | 'sessionId'>): string {
   return `${event.source}\0${event.sessionId}`;
 }
 
+/**
+ * Builds a normalized usage event. Throws when the source or session id is empty or the
+ * timestamp is invalid. Counts are truncated to non-negative integers, `cacheWrite1hTokens`
+ * is capped at `cacheWriteTokens`, the provider is normalized to its billing entity and the
+ * model is lowercased.
+ */
 export function createUsageEvent(input: UsageEventInput): UsageEvent {
   const source = normalizeSourceId(input.source);
 

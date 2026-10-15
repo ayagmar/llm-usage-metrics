@@ -11,6 +11,7 @@ import type {
 import { createSourceContext, readEnvPath, type SourceContext } from '../source-context.js';
 import { getClineTaskHistoryPath, readClineTaskFile } from './cline-task-parser.js';
 
+/** The VS Code extension id of each Cline-family source, which names its storage directory. */
 export const CLINE_EXTENSION_IDS = {
   cline: 'saoudrizwan.claude-dev',
   roocode: 'rooveterinaryinc.roo-cline',
@@ -24,8 +25,11 @@ export type ClineTaskRootResolverOptions = {
   context: SourceContext;
 };
 
+/** Options for `createClineFamilyAdapter`. */
 export type ClineFamilyAdapterOptions = SourceAdapterPathOptions & {
+  /** `cline`, `roocode` or `kilocode`. */
   id: ClineFamilySourceId;
+  /** The extension whose task storage to read, usually `CLINE_EXTENSION_IDS[id]`. */
   extensionId: string;
   /** Test seam: default roots scanned when no dir override is given. @internal */
   defaultRootDirs?: string[];
@@ -74,6 +78,11 @@ async function discoverUiMessageFiles(rootDir: string): Promise<string[]> {
   return jsonFiles.filter((filePath) => path.basename(filePath) === 'ui_messages.json');
 }
 
+/**
+ * Cline, Roo Code or Kilo Code tasks (`ui_messages.json`, with the model from
+ * `api_conversation_history.json`), from the extension's VS Code global storage, local and
+ * `~/.vscode-server`.
+ */
 export class ClineFamilyAdapter implements SourceAdapter {
   public readonly id: SourceId;
   public readonly parserVersion = 3;
@@ -118,6 +127,7 @@ export class ClineFamilyAdapter implements SourceAdapter {
   }
 }
 
+/** Builds the adapter for one Cline-family source. */
 export function createClineFamilyAdapter(options: ClineFamilyAdapterOptions): ClineFamilyAdapter {
   return new ClineFamilyAdapter(options);
 }

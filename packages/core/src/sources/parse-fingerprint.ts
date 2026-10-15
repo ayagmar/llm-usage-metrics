@@ -46,6 +46,10 @@ async function createFileDependencyFingerprint(
   }
 }
 
+/**
+ * The version string of the events an adapter produces, `n<normalization>.p<parser>`.
+ * Events stored under one version are stale under any other.
+ */
 export function getParserVersion(adapter: Pick<SourceAdapter, 'parserVersion'>): string {
   return `n${USAGE_EVENT_NORMALIZATION_VERSION}.p${adapter.parserVersion ?? 1}`;
 }

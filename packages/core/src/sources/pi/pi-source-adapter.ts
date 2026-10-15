@@ -80,6 +80,7 @@ type PiUsageExtract = {
   costUsd?: NumberLike;
 };
 
+/** Options for `PiSourceAdapter`. */
 export type PiSourceAdapterOptions = SourceAdapterPathOptions & {
   /** Test seam: default roots scanned when no dir override is given. @internal */
   defaultRootDirs?: string[];
@@ -637,6 +638,10 @@ function getStatedKinds(
   return kinds;
 }
 
+/**
+ * pi sessions (JSONL), from `~/.pi/agent/sessions` and `~/.omp/agent/sessions`. Yields every
+ * event kind. A fork's events depend on its parent session, found under the same roots.
+ */
 export class PiSourceAdapter implements SourceAdapter {
   public readonly id = 'pi' as const;
   public readonly parserVersion = 5;

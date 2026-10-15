@@ -12,6 +12,7 @@ import { readEvents } from '../stream/read-events.js';
 import { since, until } from '../stream/window.js';
 import { createDefaultAdapters, getDefaultSourceIds } from './index.js';
 
+/** Options for `readSources`. */
 export type ReadSourcesOptions = {
   /** The kinds to yield; every kind each source declares when omitted. */
   kinds?: readonly EventKind[];

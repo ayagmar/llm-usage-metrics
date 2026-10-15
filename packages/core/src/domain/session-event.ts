@@ -13,9 +13,10 @@ import {
   type UsageEventInput,
 } from './usage-event.js';
 
+/** The kind of a `SessionEvent`: its `kind` field. */
 export type EventKind = 'usage' | 'message' | 'tool_call' | 'session_meta';
 
-// Frozen: adapters share it as their declared kinds.
+/** Every event kind, in a fixed order. Frozen: adapters share it as their declared kinds. */
 export const EVENT_KINDS: readonly EventKind[] = Object.freeze([
   'usage',
   'message',
@@ -31,6 +32,10 @@ type EventBase = {
   raw?: unknown;
 };
 
+/**
+ * A usage event as a `SessionEvent` (`kind: 'usage'`): the `UsageEvent` fields, in the same
+ * order, followed by the ids and the logged provider when the source has them.
+ */
 export type UsageRecord = EventBase & { kind: 'usage' } & Omit<UsageEvent, keyof EventBase> & {
     /** The provider's response or message id, as logged. */
     messageId?: string;
@@ -40,6 +45,7 @@ export type UsageRecord = EventBase & { kind: 'usage' } & Omit<UsageEvent, keyof
     rawProvider?: string;
   };
 
+/** One user, assistant or system message. Its text is set only when the read asked for `text`. */
 export type MessageEvent = EventBase & {
   kind: 'message';
   role: 'user' | 'assistant' | 'system';
@@ -51,6 +57,7 @@ export type MessageEvent = EventBase & {
   text?: string;
 };
 
+/** How a tool call ended, as its result records it. */
 export type ToolCallStatus = 'ok' | 'error' | 'unknown';
 
 const MESSAGE_ROLES: ReadonlySet<string> = new Set<MessageEvent['role']>([
@@ -60,6 +67,7 @@ const MESSAGE_ROLES: ReadonlySet<string> = new Set<MessageEvent['role']>([
 ]);
 const TOOL_CALL_STATUSES: ReadonlySet<string> = new Set<ToolCallStatus>(['ok', 'error', 'unknown']);
 
+/** One tool call, yielded when its result is seen or, without a result, at the end of the file. */
 export type ToolCallEvent = EventBase & {
   kind: 'tool_call';
   toolCallId?: string;
@@ -74,6 +82,7 @@ export type ToolCallEvent = EventBase & {
   messageId?: string;
 };
 
+/** The facts a `session_meta` event can carry. Each is set only when a record states it. */
 export type SessionMetaFields = {
   cwd?: string;
   /** Only with `{ text: true }`: titles summarise content. */
@@ -85,8 +94,10 @@ export type SessionMetaFields = {
   rawProvider?: string;
 };
 
+/** Facts about a session that changed at this record: any subset of `SessionMetaFields`. */
 export type SessionMetaEvent = EventBase & { kind: 'session_meta' } & SessionMetaFields;
 
+/** Any event `readEvents` yields; narrow on `kind`. */
 export type SessionEvent = UsageRecord | MessageEvent | ToolCallEvent | SessionMetaEvent;
 
 type EventBaseInput = {
@@ -96,6 +107,7 @@ type EventBaseInput = {
   raw?: unknown;
 };
 
+/** What `createUsageRecord` takes: a `UsageEventInput` plus the optional ids and raw record. */
 export type UsageRecordInput = UsageEventInput & {
   messageId?: string;
   requestId?: string;
@@ -103,6 +115,7 @@ export type UsageRecordInput = UsageEventInput & {
   raw?: unknown;
 };
 
+/** What `createMessageEvent` takes, before normalization. */
 export type MessageEventInput = EventBaseInput & {
   role: MessageEvent['role'];
   messageId?: string;
@@ -111,6 +124,7 @@ export type MessageEventInput = EventBaseInput & {
   text?: string;
 };
 
+/** What `createToolCallEvent` takes, before normalization. */
 export type ToolCallEventInput = EventBaseInput & {
   toolCallId?: string;
   name: string;
@@ -120,6 +134,7 @@ export type ToolCallEventInput = EventBaseInput & {
   messageId?: string;
 };
 
+/** What `createSessionMetaEvent` takes, before normalization. */
 export type SessionMetaEventInput = EventBaseInput & SessionMetaFields;
 
 function normalizeOptionalText(value: string | undefined): string | undefined {
@@ -215,6 +230,11 @@ export function createUsageRecord(input: UsageRecordInput): UsageRecord {
   );
 }
 
+/**
+ * Builds a normalized message event. Throws when the source or session id is empty, the
+ * role is not `user`, `assistant` or `system`, or the timestamp is invalid. The text is kept
+ * as logged; ids and model are trimmed, and empty ones are left out.
+ */
 export function createMessageEvent(input: MessageEventInput): MessageEvent {
   return assignDefined<MessageEvent>(
     {
@@ -233,6 +253,10 @@ export function createMessageEvent(input: MessageEventInput): MessageEvent {
   );
 }
 
+/**
+ * Builds a normalized tool call event. Throws when the source, session id or name is empty,
+ * the status is not one of `ToolCallStatus`, or a timestamp is invalid.
+ */
 export function createToolCallEvent(input: ToolCallEventInput): ToolCallEvent {
   return assignDefined<ToolCallEvent>(
     {
@@ -255,6 +279,10 @@ export function createToolCallEvent(input: ToolCallEventInput): ToolCallEvent {
   );
 }
 
+/**
+ * Builds a normalized session_meta event. Fields are trimmed, and empty ones are left out.
+ * Throws when the source or session id is empty or the timestamp is invalid.
+ */
 export function createSessionMetaEvent(input: SessionMetaEventInput): SessionMetaEvent {
   return assignDefined<SessionMetaEvent>(
     {
@@ -266,6 +294,7 @@ export function createSessionMetaEvent(input: SessionMetaEventInput): SessionMet
   );
 }
 
+/** Narrows a `SessionEvent` to a usage record. */
 export function isUsageRecord(event: SessionEvent): event is UsageRecord {
   return event.kind === 'usage';
 }

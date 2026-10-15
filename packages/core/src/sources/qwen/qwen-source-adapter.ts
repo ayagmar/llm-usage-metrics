@@ -29,6 +29,7 @@ function resolveDefaultQwenProjectsDir(context: SourceContext): string {
 
 const QWEN_USAGE_LINE_TEXT = '"usageMetadata"';
 
+/** Options for `QwenSourceAdapter`. */
 export type QwenSourceAdapterOptions = SourceAdapterPathOptions;
 
 type QwenTokenUsage = {
@@ -120,6 +121,7 @@ function getFallbackSessionId(filePath: string): string {
   return `${projectName}-${fileStem}`;
 }
 
+/** Qwen Code chats (JSONL), from `~/.qwen/projects`. Incremental: honours `resume`. */
 export class QwenSourceAdapter implements SourceAdapter {
   public readonly id = 'qwen' as const;
   public readonly parserVersion = 4;
