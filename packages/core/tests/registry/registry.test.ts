@@ -5,6 +5,7 @@ import {
   createDefaultAdapters,
   createWorkerParseAdapter,
   getDefaultSourceIds,
+  getParseWorkerRoots,
   getSourceStorageFormat,
   sourceSupportsDirectories,
 } from '../../src/registry/index.js';
@@ -30,13 +31,40 @@ describe('source registry', () => {
     expect(sourceSupportsDirectories('nope')).toBe(false);
   });
 
-  it('parses only codex on workers, since pi and claude read their roots for fork parents', () => {
+  it('parses claude, codex and pi on workers, over the roots each task carries', () => {
     const workerSources = getDefaultSourceIds().filter(canParseSourceOnWorker);
 
-    expect(workerSources).toEqual(['codex']);
-    expect(createWorkerParseAdapter('codex')?.id).toBe('codex');
-    expect(createWorkerParseAdapter('pi')).toBeUndefined();
-    expect(createWorkerParseAdapter('nope')).toBeUndefined();
+    expect(workerSources).toEqual(['pi', 'codex', 'claude']);
+    // One adapter over every root, never re-resolved from the worker's own home.
+    expect(createWorkerParseAdapter('pi', ['/data/a', '/data/b'])?.getSearchPaths?.()).toEqual([
+      '/data/a',
+      '/data/b',
+    ]);
+    expect(createWorkerParseAdapter('claude', ['/data/a'])?.getSearchPaths?.()).toEqual([
+      '/data/a',
+    ]);
+    expect(createWorkerParseAdapter('gemini', ['/data/a'])).toBeUndefined();
+    expect(createWorkerParseAdapter('nope', [])).toBeUndefined();
+  });
+
+  it('sends a worker the roots of the directory that owns the file', async () => {
+    const [pi] = createDefaultAdapters(
+      { sourceIds: ['pi'], roots: new Map([['pi', ['/data/a', '/data/b']]]) },
+      context,
+    );
+    const [claude] = createDefaultAdapters(
+      { sourceIds: ['claude'], roots: new Map([['claude', ['/data/a', '/data/b']]]) },
+      context,
+    );
+    const [defaultPi] = createDefaultAdapters({ sourceIds: ['pi'] }, context);
+
+    // Undiscovered files fall back to the first directory, as reads do.
+    expect(getParseWorkerRoots(pi, '/data/b/x.jsonl')).toEqual(['/data/a']);
+    expect(getParseWorkerRoots(claude, '/data/b/x.jsonl')).toEqual(['/data/a', '/data/b']);
+    expect(getParseWorkerRoots(defaultPi, '/x.jsonl')).toEqual([
+      '/home/tester/.pi/agent/sessions',
+      '/home/tester/.omp/agent/sessions',
+    ]);
   });
 
   it('builds one claude adapter over several roots, and one adapter per root otherwise', () => {
