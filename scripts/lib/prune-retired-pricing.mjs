@@ -23,7 +23,9 @@ const RELEASE_SUFFIX_PROBES = [
  * and `claude-sonnet-4.5`), and each of those with a release or effort suffix. A name with
  * an extra provider prefix (`eu/gpt-4o-realtime-preview`) resolves through its last
  * segment, so its prefix only matters when another key ends with it; probing the shorter
- * forms of every key covers those names.
+ * forms of every key covers those names. Misspellings that only fuzzy matching reaches
+ * (`gpt-4.0314`) are not probed: they have no fixed set, so a pruned key can leave them
+ * unpriced.
  *
  * @param {string} modelName
  * @returns {string[]}
