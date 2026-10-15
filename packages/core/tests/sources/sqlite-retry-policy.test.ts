@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { runWithBusyRetries } from '../../src/sources/sqlite/retry-policy.js';
+import { runWithBusyRetries, toSqliteDbReadError } from '../../src/sources/sqlite/retry-policy.js';
 import {
   formatSqliteError,
   isBusyOrLockedSqliteError,
@@ -12,7 +12,7 @@ function createBusyError(message = 'database is locked'): Error {
   return error;
 }
 
-describe('opencode sqlite error helpers', () => {
+describe('sqlite error helpers', () => {
   it('detects busy/locked errors by code and message patterns', () => {
     expect(isBusyOrLockedSqliteError(createBusyError())).toBe(true);
     expect(isBusyOrLockedSqliteError({ code: 'SQLITE_LOCKED' })).toBe(true);
@@ -28,10 +28,11 @@ describe('opencode sqlite error helpers', () => {
   });
 });
 
-describe('opencode retry policy', () => {
+describe('sqlite retry policy', () => {
   it('returns operation result without sleeping when first attempt succeeds', async () => {
     const sleepSpy = vi.fn(async () => undefined);
     const result = await runWithBusyRetries(async () => 'ok', {
+      source: 'OpenCode',
       dbPath: '/tmp/opencode.db',
       maxBusyRetries: 2,
       busyRetryDelayMs: 10,
@@ -57,6 +58,7 @@ describe('opencode retry policy', () => {
         return 'recovered';
       },
       {
+        source: 'OpenCode',
         dbPath: '/tmp/opencode.db',
         maxBusyRetries: 2,
         busyRetryDelayMs: 5,
@@ -78,6 +80,7 @@ describe('opencode retry policy', () => {
           throw createBusyError();
         },
         {
+          source: 'OpenCode',
           dbPath: '/tmp/opencode.db',
           maxBusyRetries: 2,
           busyRetryDelayMs: 5,
@@ -103,6 +106,7 @@ describe('opencode retry policy', () => {
           throw sqliteError;
         },
         {
+          source: 'OpenCode',
           dbPath: '/tmp/opencode.db',
           maxBusyRetries: 2,
           busyRetryDelayMs: 5,
@@ -114,5 +118,22 @@ describe('opencode retry policy', () => {
     );
 
     expect(sleepSpy).not.toHaveBeenCalled();
+  });
+
+  it('names the source in both message templates', () => {
+    const busyError = createBusyError();
+    const ioError = Object.assign(new Error('disk I/O error'), { code: 'SQLITE_IOERR' });
+
+    const busy = toSqliteDbReadError(busyError, 'Goose', '/tmp/goose.db', 3);
+    const io = toSqliteDbReadError(ioError, 'Antigravity', '/tmp/a.db', 1);
+
+    expect(busy.message).toBe(
+      'Goose DB is busy/locked: /tmp/goose.db. Retries exhausted after 3 attempt(s). Close active Goose processes and retry.',
+    );
+    expect(busy.cause).toBe(busyError);
+    expect(io.message).toBe(
+      'Could not read Antigravity DB at /tmp/a.db: SQLITE_IOERR: disk I/O error',
+    );
+    expect(io.cause).toBe(ioError);
   });
 });
