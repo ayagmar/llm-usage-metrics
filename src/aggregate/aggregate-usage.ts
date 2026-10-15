@@ -146,7 +146,9 @@ function compareModelUsageBreakdown(left: ModelUsageBreakdown, right: ModelUsage
   return compareByCodePoint(left.model, right.model);
 }
 
-function toRankedModelUsage(modelTotals: ReadonlyMap<string, UsageTotals>): RankedModelUsage {
+export function toRankedModelUsage(
+  modelTotals: ReadonlyMap<string, UsageTotals>,
+): RankedModelUsage {
   const modelBreakdown = [...modelTotals.entries()]
     .map(([model, totals]) => ({
       model,
