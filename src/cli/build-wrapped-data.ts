@@ -5,7 +5,7 @@ import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import { validateTimezone } from './build-usage-data-inputs.js';
 import {
   applyPricingToUsageEventDataset,
-  withUnpricedEventsNote,
+  withPricingNotes,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
@@ -78,8 +78,8 @@ export async function buildWrappedData(
         },
       }),
   );
-  const { pricedEvents, pricingOrigin, pricingWarning, pricingSource } =
-    await applyPricingToUsageEventDataset(dataset, deps, 'auto');
+  const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'auto');
+  const { pricedEvents, pricingOrigin, pricingWarning, pricingSource } = pricingResult;
   const recap = measureRuntimeProfileStageSync(deps.runtimeProfile, 'wrapped.aggregate', () =>
     aggregateWrapped(pricedEvents, {
       year,
@@ -99,7 +99,7 @@ export async function buildWrappedData(
     pricingOrigin,
     pricingWarning,
     warnings: dataset.warnings,
-    notes: withUnpricedEventsNote(dataset.notes, pricedEvents),
+    notes: withPricingNotes(dataset.notes, pricedEvents, pricingResult),
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,

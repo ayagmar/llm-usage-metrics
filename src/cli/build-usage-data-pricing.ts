@@ -3,7 +3,13 @@ import {
   getPricingFetcherRuntimeConfig,
   type PricingFetcherRuntimeConfig,
 } from '../config/runtime-overrides.js';
-import { applyPricingToEvents } from '../pricing/cost-engine.js';
+import {
+  applyPricingToEvents,
+  createPricingRunStats,
+  DEFAULT_PRICING_POLICY,
+  type PricingPolicy,
+  type PricingRunStats,
+} from '../pricing/cost-engine.js';
 import { PricingOverrideSource, loadPricingOverrides } from '../pricing/pricing-override-source.js';
 import type { ModelPricing, PricingSource } from '../pricing/types.js';
 import { LiteLLMPricingFetcher } from '../pricing/litellm-pricing-fetcher.js';
@@ -130,24 +136,43 @@ type PricingSourceResolver = (
   runtimeConfig: PricingFetcherRuntimeConfig,
 ) => Promise<PricingLoadResult>;
 
-export async function resolveAndApplyPricingToEvents(
-  events: UsageEvent[],
-  options: ReportCommandOptions,
-  runtimeConfig: PricingFetcherRuntimeConfig = getPricingFetcherRuntimeConfig(),
-  loadPricingSource: PricingSourceResolver = resolvePricingSource,
-  pricingLoadMode: PricingLoadMode = 'auto',
-): Promise<{
+export type ResolveAndApplyPricingOptions = {
+  runtimeConfig?: PricingFetcherRuntimeConfig;
+  loadPricingSource?: PricingSourceResolver;
+  pricingLoadMode?: PricingLoadMode;
+  policy?: PricingPolicy;
+};
+
+export type PricedEventsResult = {
   pricedEvents: UsageEvent[];
   pricingOrigin: UsagePricingOrigin;
   pricingWarning?: string;
   pricingSource?: PricingSource;
-}> {
+  /** The policy the events were priced under. */
+  pricingPolicy: PricingPolicy;
+  /** What the run recorded about the priced events; empty when pricing did not run. */
+  pricingStats: PricingRunStats;
+};
+
+export async function resolveAndApplyPricingToEvents(
+  events: UsageEvent[],
+  options: ReportCommandOptions,
+  {
+    runtimeConfig = getPricingFetcherRuntimeConfig(),
+    loadPricingSource = resolvePricingSource,
+    pricingLoadMode = 'auto',
+    policy = DEFAULT_PRICING_POLICY,
+  }: ResolveAndApplyPricingOptions = {},
+): Promise<PricedEventsResult> {
+  const pricingStats = createPricingRunStats();
   let pricingOrigin: UsagePricingOrigin = 'none';
 
   if (!shouldLoadPricingSourceForMode(events, pricingLoadMode)) {
     return {
       pricedEvents: events,
       pricingOrigin,
+      pricingPolicy: policy,
+      pricingStats,
     };
   }
 
@@ -169,15 +194,22 @@ export async function resolveAndApplyPricingToEvents(
       pricedEvents: events,
       pricingOrigin,
       pricingWarning,
+      pricingPolicy: policy,
+      pricingStats,
     };
   }
 
   pricingOrigin = pricingResult.origin;
 
   return {
-    pricedEvents: applyPricingToEvents(events, pricingResult.source),
+    pricedEvents: applyPricingToEvents(events, pricingResult.source, {
+      policy,
+      stats: pricingStats,
+    }),
     pricingOrigin,
     pricingWarning: pricingResult.warning,
     pricingSource: pricingResult.source,
+    pricingPolicy: policy,
+    pricingStats,
   };
 }

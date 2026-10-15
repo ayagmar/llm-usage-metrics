@@ -48,12 +48,12 @@ import { loadPackageMetadataFromRuntime } from './package-metadata.js';
 import {
   resolveAndApplyPricingToEvents,
   resolvePricingSource,
+  type PricedEventsResult,
   type PricingLoadMode,
 } from './build-usage-data-pricing.js';
 import type {
   BuildUsageDataDeps,
   ReportCommandOptions,
-  UsagePricingOrigin,
   UsageSourceFailure,
 } from './usage-data-contracts.js';
 import { dedupeCopiedSessions, type SourceAdapter } from '@ayagmar/agent-sessions';
@@ -62,7 +62,6 @@ import {
   getSessionCopyingSourceIds,
 } from '@ayagmar/agent-sessions/internal';
 import type { EnvVarOverride } from '../config/env-var-display.js';
-import type { PricingSource } from '../pricing/types.js';
 import { findUnmatchedFilterWarnings } from './filter-match-warnings.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
@@ -173,12 +172,7 @@ export type UsageEventDataset = {
   readEnvVarOverrides: () => EnvVarOverride[];
 };
 
-export type UsageEventDatasetPricingResult = {
-  pricedEvents: UsageEvent[];
-  pricingOrigin: UsagePricingOrigin;
-  pricingWarning?: string;
-  pricingSource?: PricingSource;
-};
+export type UsageEventDatasetPricingResult = PricedEventsResult;
 
 export async function buildUsageEventDataset(
   options: ReportCommandOptions,
@@ -552,13 +546,11 @@ export async function applyPricingToUsageEventDataset(
   );
 
   return measureRuntimeProfileStage(deps.runtimeProfile, 'usage.pricing.apply', () =>
-    resolveAndApplyPricingToEvents(
-      dataset.filteredEvents,
-      pricingOptions,
-      dataset.pricingRuntimeConfig,
+    resolveAndApplyPricingToEvents(dataset.filteredEvents, pricingOptions, {
+      runtimeConfig: dataset.pricingRuntimeConfig,
       loadPricingSource,
       pricingLoadMode,
-    ),
+    }),
   );
 }
 
@@ -583,11 +575,16 @@ function describeUnpricedEvents(events: readonly UsageEvent[]): string | undefin
   return `~ marks costs that leave out ${eventCount} ${eventLabel} with no known price (models: ${modelList})`;
 }
 
-/** The dataset's notes plus the `~` explanation for the events a report shows. */
-export function withUnpricedEventsNote(
+/**
+ * The dataset's notes plus the pricing notes for the events a report shows. Notes count only
+ * `shownEvents`; `pricingResult` gives the policy and stats of the run that priced them.
+ */
+export function withPricingNotes(
   notes: readonly string[],
-  events: readonly UsageEvent[],
+  shownEvents: readonly UsageEvent[],
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- the cost-mode and priority notes read it
+  pricingResult: Pick<UsageEventDatasetPricingResult, 'pricingPolicy' | 'pricingStats'>,
 ): string[] {
-  const note = describeUnpricedEvents(events);
+  const note = describeUnpricedEvents(shownEvents);
   return note ? [...notes, note] : [...notes];
 }

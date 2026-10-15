@@ -11,7 +11,7 @@ import { getPeriodKey, type ReportGranularity } from '../utils/time-buckets.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import {
   applyPricingToUsageEventDataset,
-  withUnpricedEventsNote,
+  withPricingNotes,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
 import type {
@@ -173,7 +173,8 @@ export async function buildEfficiencyData(
     'efficiency.dataset.total',
     () => buildDataset(options, deps),
   );
-  const { pricedEvents, pricingOrigin, pricingWarning } = await applyPricing(dataset, deps, 'auto');
+  const pricingResult = await applyPricing(dataset, deps, 'auto');
+  const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
   const attribution = await measureRuntimeProfileStage(
     deps.runtimeProfile,
     'efficiency.attribute_repo',
@@ -227,7 +228,7 @@ export async function buildEfficiencyData(
     pricingOrigin,
     pricingWarning,
     warnings: gitOutcomes.warning ? [...dataset.warnings, gitOutcomes.warning] : dataset.warnings,
-    notes: withUnpricedEventsNote(dataset.notes, matchedEventsWithSignal),
+    notes: withPricingNotes(dataset.notes, matchedEventsWithSignal, pricingResult),
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,

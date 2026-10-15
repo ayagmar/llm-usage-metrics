@@ -7,6 +7,45 @@ import type { ModelPricing, PricingSource } from './types.js';
 
 const ONE_MILLION = 1_000_000;
 
+/**
+ * Which cost an event reports: `both` keeps a logged cost and estimates the rest, `explicit`
+ * uses logged costs only, and `estimated` prices every event from its tokens.
+ */
+export type PricingCostMode = 'both' | 'explicit' | 'estimated';
+
+/** How a pricing run prices events. */
+export type PricingPolicy = {
+  costMode: PricingCostMode;
+  /** Sources whose events each record a single model request, so per-request rates apply. */
+  perRequestSourceIds: ReadonlySet<string>;
+};
+
+/**
+ * Priced events a run treated specially, keyed by the priced event's identity so the events
+ * themselves carry nothing extra.
+ */
+export type PricingRunStats = {
+  /** Events that logged $0 with tokens and were estimated instead. */
+  reestimatedExplicitZero: WeakSet<UsageEvent>;
+  /** Events priced at a model's priority rates because it lists no standard rate. */
+  priorityPriced: WeakSet<UsageEvent>;
+};
+
+export const DEFAULT_PRICING_POLICY: PricingPolicy = {
+  costMode: 'both',
+  perRequestSourceIds: new Set(),
+};
+
+export function createPricingRunStats(): PricingRunStats {
+  return { reestimatedExplicitZero: new WeakSet(), priorityPriced: new WeakSet() };
+}
+
+/** One pricing run: the policy it applies and the stats it records. */
+export type PricingRun = {
+  policy: PricingPolicy;
+  stats: PricingRunStats;
+};
+
 function estimateTokenGroupCost(tokens: number, per1MUsd: number | undefined): number {
   if (!per1MUsd || tokens <= 0) {
     return 0;
@@ -124,6 +163,7 @@ export function canEstimateUsageCost(usage: BillableTokenUsage, pricing: ModelPr
 function applyResolvedPricingToEvent(
   event: UsageEvent,
   pricing: ModelPricing | undefined,
+  stats: PricingRunStats,
 ): UsageEvent {
   const shouldRepriceExplicitZero =
     event.costMode === 'explicit' &&
@@ -155,16 +195,23 @@ function applyResolvedPricingToEvent(
     return { ...event, costMode: 'estimated' };
   }
 
-  return {
+  const pricedEvent: UsageEvent = {
     ...event,
     costUsd: calculateEstimatedCostUsd(event, pricing),
     costMode: 'estimated',
   };
+
+  if (shouldRepriceExplicitZero) {
+    stats.reestimatedExplicitZero.add(pricedEvent);
+  }
+
+  return pricedEvent;
 }
 
 export function applyPricingToEvents(
   events: UsageEvent[],
   pricingSource: PricingSource,
+  run: PricingRun = { policy: DEFAULT_PRICING_POLICY, stats: createPricingRunStats() },
 ): UsageEvent[] {
   const pricingByModel = new Map<string, ModelPricing | undefined>();
 
@@ -182,6 +229,6 @@ export function applyPricingToEvents(
       }
     }
 
-    return applyResolvedPricingToEvent(event, pricing);
+    return applyResolvedPricingToEvent(event, pricing, run.stats);
   });
 }

@@ -8,7 +8,7 @@ import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
 import {
   applyPricingToUsageEventDataset,
-  withUnpricedEventsNote,
+  withPricingNotes,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
@@ -163,8 +163,8 @@ export async function buildSummaryData(
         userConfigResolution: { ...userConfigResolution, options: datasetOptions },
       }),
   );
-  const { pricedEvents, pricingOrigin, pricingWarning, pricingSource } =
-    await applyPricingToUsageEventDataset(dataset, deps, 'auto');
+  const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'auto');
+  const { pricedEvents, pricingOrigin, pricingWarning, pricingSource } = pricingResult;
   const sourceOrder = dataset.adaptersToParse.map((adapter) => adapter.id);
   // Other machines' events carry their name; this machine's carry none.
   const countsOtherMachines = pricedEvents.some((event) => event.machine !== undefined);
@@ -234,7 +234,7 @@ export async function buildSummaryData(
       pricingOrigin,
       pricingWarning,
       warnings: dataset.warnings,
-      notes: withUnpricedEventsNote(dataset.notes, shownCostEvents),
+      notes: withPricingNotes(dataset.notes, shownCostEvents, pricingResult),
       activeEnvOverrides: dataset.readEnvVarOverrides(),
       activeConfig: dataset.activeConfig,
       timezone,
