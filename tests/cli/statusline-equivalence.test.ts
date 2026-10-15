@@ -292,6 +292,15 @@ describe('statusline equivalence', () => {
       },
     );
 
+    it('matches the summary with no usage at all', async () => {
+      const line = await expectSameLine(
+        { timezone: 'UTC' },
+        deps({ now: new Date('2026-03-15T15:00:00.000Z'), codex: [], claude: [] }),
+      );
+
+      expect(line).toBe('$0.00 today · $0.00 this month');
+    });
+
     it('keeps a streak that crosses the month start', async () => {
       const line = await expectSameLine(
         { timezone: 'UTC' },
