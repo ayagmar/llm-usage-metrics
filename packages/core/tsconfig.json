@@ -9,7 +9,12 @@
     "skipLibCheck": true,
     "outDir": "dist",
     "rootDir": ".",
-    "types": ["node", "vitest/globals"]
+    "types": ["node", "vitest/globals"],
+    // Examples import the package by name; resolve it to the sources, not dist.
+    "paths": {
+      "@ayagmar/agent-sessions": ["./src/index.ts"],
+      "@ayagmar/agent-sessions/*": ["./src/*/index.ts"]
+    }
   },
-  "include": ["src", "tests", "tsup.config.ts", "vitest.config.ts"]
+  "include": ["src", "tests", "examples", "tsup.config.ts", "vitest.config.ts"]
 }
