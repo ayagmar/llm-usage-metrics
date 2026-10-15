@@ -43,8 +43,11 @@ async function prepareTrendsReport(options: TrendsCommandOptions, deps: BuildTre
   });
 }
 
-export async function buildTrendsReport(options: TrendsCommandOptions): Promise<string> {
-  const preparedReport = await prepareTrendsReport(options);
+export async function buildTrendsReport(
+  options: TrendsCommandOptions,
+  deps: BuildTrendsDataDeps = {},
+): Promise<string> {
+  const preparedReport = await prepareTrendsReport(options, deps);
   return preparedReport.output;
 }
 

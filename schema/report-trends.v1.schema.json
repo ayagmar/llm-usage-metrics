@@ -35,6 +35,11 @@
           "description": "Per-source series; present with --by-source.",
           "type": "array",
           "items": { "$ref": "#/$defs/trendSeries" }
+        },
+        "projectSeries": {
+          "description": "Per-project series, by total then label; present with --by-repo.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/projectTrendSeries" }
         }
       },
       "required": ["metric", "dateRange", "totalSeries"],
@@ -74,45 +79,68 @@
           "type": "array",
           "items": { "$ref": "#/$defs/trendBucket" }
         },
-        "summary": {
-          "description": "Aggregates over the observed days.",
-          "type": "object",
-          "properties": {
-            "total": {
-              "description": "Metric total for the range.",
-              "type": "number",
-              "minimum": 0
-            },
-            "average": {
-              "description": "Average per observed day.",
-              "type": "number",
-              "minimum": 0
-            },
-            "peak": {
-              "description": "Highest-value day.",
-              "type": "object",
-              "properties": {
-                "date": { "description": "Peak date (YYYY-MM-DD).", "type": "string" },
-                "value": { "description": "Peak value.", "type": "number", "minimum": 0 }
-              },
-              "required": ["date", "value"],
-              "additionalProperties": false
-            },
-            "incomplete": {
-              "description": "True when some cost values are missing pricing.",
-              "type": "boolean"
-            },
-            "observedDayCount": {
-              "description": "Days with at least one event.",
-              "type": "integer",
-              "minimum": 0
-            }
-          },
-          "required": ["total", "average", "peak", "incomplete", "observedDayCount"],
-          "additionalProperties": false
-        }
+        "summary": { "$ref": "#/$defs/trendSummary" }
       },
       "required": ["source", "buckets", "summary"],
+      "additionalProperties": false
+    },
+    "projectTrendSeries": {
+      "description": "One project's (repository root's) daily series.",
+      "type": "object",
+      "properties": {
+        "repoRoot": {
+          "description": "Project key (repository root without trailing separators), or null for usage without a root.",
+          "type": ["string", "null"]
+        },
+        "project": {
+          "description": "Project display label, unique within the report.",
+          "type": "string"
+        },
+        "buckets": {
+          "description": "One bucket per day in the range.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/trendBucket" }
+        },
+        "summary": { "$ref": "#/$defs/trendSummary" }
+      },
+      "required": ["repoRoot", "project", "buckets", "summary"],
+      "additionalProperties": false
+    },
+    "trendSummary": {
+      "description": "Aggregates over the observed days.",
+      "type": "object",
+      "properties": {
+        "total": {
+          "description": "Metric total for the range.",
+          "type": "number",
+          "minimum": 0
+        },
+        "average": {
+          "description": "Average per observed day.",
+          "type": "number",
+          "minimum": 0
+        },
+        "peak": {
+          "description": "Highest-value day.",
+          "type": "object",
+          "properties": {
+            "date": { "description": "Peak date (YYYY-MM-DD).", "type": "string" },
+            "value": { "description": "Peak value.", "type": "number", "minimum": 0 }
+          },
+          "required": ["date", "value"],
+          "additionalProperties": false
+        },
+        "incomplete": {
+          "description": "True when some cost values are missing pricing.",
+          "type": "boolean"
+        },
+        "observedDayCount": {
+          "description": "Days with at least one event.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": ["total", "average", "peak", "incomplete", "observedDayCount"],
       "additionalProperties": false
     }
   }
