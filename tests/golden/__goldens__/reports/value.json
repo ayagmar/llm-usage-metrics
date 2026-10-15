@@ -1,0 +1,193 @@
+{
+  "schemaVersion": 1,
+  "report": "value",
+  "data": {
+    "asOf": "2026-10-15",
+    "window": {
+      "since": "2026-05-01",
+      "until": "2026-06-21"
+    },
+    "plans": [
+      {
+        "id": "claude-max-20x",
+        "priceUsdPerMonth": 200,
+        "listPriceUsdPerMonth": 200,
+        "priceSource": "list",
+        "sources": [
+          "claude"
+        ],
+        "checkAt": [
+          "https://claude.com/pricing"
+        ],
+        "references": [
+          "https://www.morphllm.com/claude-code-pricing",
+          "https://www.wearetandem.ai/en/blog/tools/claude-max-pro-pricing-plans"
+        ],
+        "months": [
+          {
+            "month": "2026-05",
+            "partial": false,
+            "totalTokens": 1500,
+            "apiCostUsd": 0.0081,
+            "costIncomplete": false,
+            "planPriceUsd": 200,
+            "ratio": 0.00004,
+            "differenceUsd": -199.9919,
+            "projects": [
+              {
+                "repoRoot": "/w/a/api",
+                "project": "a/api",
+                "totalTokens": 1500,
+                "costUsd": 0.0081,
+                "costIncomplete": false,
+                "share": 1
+              }
+            ]
+          },
+          {
+            "month": "2026-06",
+            "partial": true,
+            "totalTokens": 20050,
+            "apiCostUsd": 0.05895,
+            "costIncomplete": false,
+            "planPriceUsd": 200,
+            "ratio": 0.000295,
+            "differenceUsd": -199.94105,
+            "projects": [
+              {
+                "repoRoot": "/w/a/api",
+                "project": "a/api",
+                "totalTokens": 16400,
+                "costUsd": 0.039,
+                "costIncomplete": false,
+                "share": 0.661578
+              },
+              {
+                "repoRoot": "/w/b/api",
+                "project": "b/api",
+                "totalTokens": 1900,
+                "costUsd": 0.0105,
+                "costIncomplete": false,
+                "share": 0.178117
+              },
+              {
+                "repoRoot": "/w/a/api/src",
+                "project": "src",
+                "totalTokens": 1000,
+                "costUsd": 0.0054,
+                "costIncomplete": false,
+                "share": 0.091603
+              },
+              {
+                "repoRoot": null,
+                "project": "(unattributed)",
+                "totalTokens": 750,
+                "costUsd": 0.00405,
+                "costIncomplete": false,
+                "share": 0.068702
+              }
+            ]
+          }
+        ],
+        "total": {
+          "totalTokens": 21550,
+          "apiCostUsd": 0.06705,
+          "costIncomplete": false,
+          "planPriceUsd": 400,
+          "ratio": 0.000168,
+          "differenceUsd": -399.93295
+        }
+      },
+      {
+        "id": "chatgpt-plus",
+        "priceUsdPerMonth": 20,
+        "listPriceUsdPerMonth": 20,
+        "priceSource": "list",
+        "sources": [
+          "codex"
+        ],
+        "checkAt": [
+          "https://chatgpt.com/pricing",
+          "https://developers.openai.com/codex/pricing"
+        ],
+        "references": [
+          "https://www.morphllm.com/codex-pricing"
+        ],
+        "months": [
+          {
+            "month": "2026-05",
+            "partial": false,
+            "totalTokens": 1250,
+            "apiCostUsd": 0.00375,
+            "costIncomplete": false,
+            "planPriceUsd": 20,
+            "ratio": 0.000188,
+            "differenceUsd": -19.99625,
+            "projects": [
+              {
+                "repoRoot": "C:\\src\\web",
+                "project": "web",
+                "totalTokens": 1250,
+                "costUsd": 0.00375,
+                "costIncomplete": false,
+                "share": 1
+              }
+            ]
+          },
+          {
+            "month": "2026-06",
+            "partial": true,
+            "totalTokens": 13690,
+            "apiCostUsd": 0.030525,
+            "costIncomplete": false,
+            "planPriceUsd": 20,
+            "ratio": 0.001526,
+            "differenceUsd": -19.969475,
+            "projects": [
+              {
+                "repoRoot": "/w/b/api",
+                "project": "b/api",
+                "totalTokens": 9800,
+                "costUsd": 0.021375,
+                "costIncomplete": false,
+                "share": 0.700246
+              },
+              {
+                "repoRoot": "C:\\src\\web",
+                "project": "web",
+                "totalTokens": 2100,
+                "costUsd": 0.00525,
+                "costIncomplete": false,
+                "share": 0.17199
+              },
+              {
+                "repoRoot": null,
+                "project": "(unattributed)",
+                "totalTokens": 1000,
+                "costUsd": 0.002125,
+                "costIncomplete": false,
+                "share": 0.069615
+              },
+              {
+                "repoRoot": "/w/c/tools",
+                "project": "tools",
+                "totalTokens": 790,
+                "costUsd": 0.001775,
+                "costIncomplete": false,
+                "share": 0.058149
+              }
+            ]
+          }
+        ],
+        "total": {
+          "totalTokens": 14940,
+          "apiCostUsd": 0.034275,
+          "costIncomplete": false,
+          "planPriceUsd": 40,
+          "ratio": 0.000857,
+          "differenceUsd": -39.965725
+        }
+      }
+    ]
+  }
+}
