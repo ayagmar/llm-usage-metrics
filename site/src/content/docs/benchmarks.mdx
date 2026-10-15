@@ -111,9 +111,22 @@ The cold run is still 4% slower than M0. Per-round numbers, load averages, RSS a
 
 ## Real logs (owner's machine)
 
-{/* TODO(orchestrator): replace this section with the real-data before/after table (T0 on core/m7 a21b847 vs the M8 head): machine, Node version, corpus (files, size, events per source), method, and cold/warm statusline and warm daily timings. */}
+The synthetic corpus above has dense usage lines. Real logs are mostly conversation text, so M8 was also checked on the maintainer's own logs on 2026-10-15, on the same machine as the synthetic baseline:
 
-_Pending: the real-log before/after table for M8 is not published yet._
+- **Corpus:** 1,923 files, about 3.9 GiB. Claude Code has 1,416 files (3.2 GiB), pi 342, Codex 154, Antigravity 6 and Gemini 5.
+- **Method:**
+  - Each run uses a temp `HOME` that links to the log directories read-only, plus temp cache, data and config directories, `TZ=Europe/Paris` and the bundled pricing snapshot.
+  - "Cold" starts from an empty event store. "Warm" is the next run against the store that run filled.
+  - The pre-M8 (`abe3ace`) and M8 builds alternate. The table shows the minimum of three rounds for cold and two rounds for warm.
+
+| Run               |     pre-M8 |             M8 |     Change |
+| ----------------- | ---------: | -------------: | ---------: |
+| Cold `statusline` |    4.343 s |        1.793 s |       −59% |
+| Warm `statusline` |     496 ms |         355 ms |       −28% |
+| Warm `daily`      |     322 ms |         291 ms |       −10% |
+| Cold peak RSS     | 637–693 MB | 1,167–1,260 MB | about +85% |
+
+Most of the cold gain comes from parsing Claude Code and pi files on the worker pool. The cost is memory, because a cold run keeps several parse workers busy at once. The RSS row gives the range over the three cold rounds. Cold runs happen only on the first run and after a parser update. Warm runs read unchanged files from the event store and parse only files that changed.
 
 ## Reproduce it
 
