@@ -12,6 +12,7 @@ import {
 } from '../../src/cli/usage-window-summary.js';
 import { createDateWindowPrefilter } from '../../src/cli/parse/usage-event-filters.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
+import { renderSummaryReport } from '../../src/render/render-summary-report.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { readFrom } from '../helpers/fake-read.js';
 
@@ -247,6 +248,15 @@ describe('buildSummaryData', () => {
     expect((await run({ source: 'codex' })).monthEnd.budgetUsd).toBeUndefined();
     expect((await run({ provider: 'openai' })).monthEnd.budgetUsd).toBeUndefined();
     expect((await run({ model: ['gpt-4.1'] })).monthEnd.budgetUsd).toBeUndefined();
+
+    // One project is not measured against the whole budget, even when it holds all usage.
+    const oneProject = await run({ repo: ['(unattributed)'] });
+    expect(oneProject.periods.find((period) => period.key === 'monthToDate')?.totals.events).toBe(
+      1,
+    );
+    expect(oneProject.monthEnd.budgetUsd).toBeUndefined();
+    expect(renderSummaryReport(oneProject, 'terminal')).not.toContain('budget');
+    expect(renderSummaryReport(await run({}), 'terminal')).toContain('budget');
   });
 
   it('projects the month against the config budget and estimates month-to-date cache savings', async () => {

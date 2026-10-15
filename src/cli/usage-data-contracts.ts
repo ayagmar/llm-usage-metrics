@@ -210,7 +210,7 @@ export type ValueCommandOptions = RollupCommandOptions & {
 
 export type PricingCommandOptions = SharedOptionsForProfile<'pricing'>;
 
-export type SummaryCommandOptions = SharedOptionsForProfile<'summary'>;
+export type SummaryCommandOptions = SharedOptionsForProfile<'summary'> & RepoFilterOption;
 
 export type StatuslineCommandOptions = SharedOptionsForProfile<'statusline'>;
 

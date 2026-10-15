@@ -319,7 +319,9 @@ const summaryReportDefinition: ReportRuntimeDefinition = {
     ],
   },
   register(command) {
-    command.action((options: SummaryCommandOptions) => runSummaryReport(options));
+    addRepoFilterOption(command).action((options: SummaryCommandOptions) =>
+      runSummaryReport(options),
+    );
 
     return command;
   },
