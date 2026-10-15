@@ -100,6 +100,10 @@ Options:
                                  fetch)
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
+  --cost-mode <mode>             Costs to report: explicit (logged by the
+                                 source), estimated (from LiteLLM), or both
+                                 (logged, else estimated; default) (choices:
+                                 "explicit", "estimated", "both")
   --history                      Include usage from files that no longer exist
                                  on disk (on by default; when passed, fails if
                                  the event store is unavailable)
@@ -181,6 +185,10 @@ Options:
                                  fetch)
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
+  --cost-mode <mode>             Costs to report: explicit (logged by the
+                                 source), estimated (from LiteLLM), or both
+                                 (logged, else estimated; default) (choices:
+                                 "explicit", "estimated", "both")
   --history                      Include usage from files that no longer exist
                                  on disk (on by default; when passed, fails if
                                  the event store is unavailable)
@@ -274,6 +282,10 @@ Options:
                                  fetch)
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
+  --cost-mode <mode>             Costs to report: explicit (logged by the
+                                 source), estimated (from LiteLLM), or both
+                                 (logged, else estimated; default) (choices:
+                                 "explicit", "estimated", "both")
   --history                      Include usage from files that no longer exist
                                  on disk (on by default; when passed, fails if
                                  the event store is unavailable)
@@ -366,6 +378,10 @@ Options:
                                  fetch)
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
+  --cost-mode <mode>             Costs to report: explicit (logged by the
+                                 source), estimated (from LiteLLM), or both
+                                 (logged, else estimated; default) (choices:
+                                 "explicit", "estimated", "both")
   --history                      Include usage from files that no longer exist
                                  on disk (on by default; when passed, fails if
                                  the event store is unavailable)
@@ -457,6 +473,10 @@ Options:
                                  fetch)
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
+  --cost-mode <mode>             Costs to report: explicit (logged by the
+                                 source), estimated (from LiteLLM), or both
+                                 (logged, else estimated; default) (choices:
+                                 "explicit", "estimated", "both")
   --history                      Include usage from files that no longer exist
                                  on disk (on by default; when passed, fails if
                                  the event store is unavailable)
@@ -546,6 +566,10 @@ Options:
                                  fetch)
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
+  --cost-mode <mode>             Costs to report: explicit (logged by the
+                                 source), estimated (from LiteLLM), or both
+                                 (logged, else estimated; default) (choices:
+                                 "explicit", "estimated", "both")
   --history                      Include usage from files that no longer exist
                                  on disk (on by default; when passed, fails if
                                  the event store is unavailable)
@@ -634,6 +658,10 @@ Options:
                                  fetch)
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
+  --cost-mode <mode>             Costs to report: explicit (logged by the
+                                 source), estimated (from LiteLLM), or both
+                                 (logged, else estimated; default) (choices:
+                                 "explicit", "estimated", "both")
   --history                      Include usage from files that no longer exist
                                  on disk (on by default; when passed, fails if
                                  the event store is unavailable)
@@ -719,6 +747,10 @@ Options:
                                  fetch)
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
+  --cost-mode <mode>             Costs to report: explicit (logged by the
+                                 source), estimated (from LiteLLM), or both
+                                 (logged, else estimated; default) (choices:
+                                 "explicit", "estimated", "both")
   --history                      Include usage from files that no longer exist
                                  on disk (on by default; when passed, fails if
                                  the event store is unavailable)
@@ -808,6 +840,10 @@ Options:
                                  fetch)
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
+  --cost-mode <mode>             Costs to report: explicit (logged by the
+                                 source), estimated (from LiteLLM), or both
+                                 (logged, else estimated; default) (choices:
+                                 "explicit", "estimated", "both")
   --history                      Include usage from files that no longer exist
                                  on disk (on by default; when passed, fails if
                                  the event store is unavailable)
@@ -890,6 +926,10 @@ Options:
                                  fetch)
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
+  --cost-mode <mode>             Costs to report: explicit (logged by the
+                                 source), estimated (from LiteLLM), or both
+                                 (logged, else estimated; default) (choices:
+                                 "explicit", "estimated", "both")
   --history                      Include usage from files that no longer exist
                                  on disk (on by default; when passed, fails if
                                  the event store is unavailable)
@@ -972,6 +1012,10 @@ Options:
                                  fetch)
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
+  --cost-mode <mode>             Costs to report: explicit (logged by the
+                                 source), estimated (from LiteLLM), or both
+                                 (logged, else estimated; default) (choices:
+                                 "explicit", "estimated", "both")
   --history                      Include usage from files that no longer exist
                                  on disk (on by default; when passed, fails if
                                  the event store is unavailable)
@@ -1043,6 +1087,10 @@ Options:
                                  overrides (takes precedence over LiteLLM)
   --ignore-pricing-failures      Continue without estimated costs when pricing
                                  cannot be loaded
+  --cost-mode <mode>             Costs to report: explicit (logged by the
+                                 source), estimated (from LiteLLM), or both
+                                 (logged, else estimated; default) (choices:
+                                 "explicit", "estimated", "both")
   --history                      Include usage from files that no longer exist
                                  on disk (on by default; when passed, fails if
                                  the event store is unavailable)
@@ -1352,6 +1400,7 @@ Search across root and command help. See Command help above to check which flags
 | `--command` | - | `<command>` | How llm-usage-metrics is launched there \(default: llm-usage\) \(machine only\) |
 | `--compact` | - | - | Abbreviate token counts and hide the Reasoning and Cache Write columns \(terminal/Markdown\) \(usage reports only\) |
 | `--copilot-dir` | - | `<path>` | Path to GitHub Copilot OTEL directory \(repeatable\) |
+| `--cost-mode` | - | `<mode>` | Costs to report: explicit \(logged by the source\), estimated \(from LiteLLM\), or both \(logged, else estimated; default\) \(choices: "explicit", "estimated", "both"\) \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, session, wrapped, events, statusline only\) |
 | `--days` | - | `<n>` | Alias of --last \(trends only\) |
 | `--departed-before` | - | `<YYYY-MM-DD>` | Select departed files whose newest event timestamp is strictly before this UTC date \(prune only\) |
 | `--droid-dir` | - | `<path>` | Path to Droid sessions directory \(repeatable\) |

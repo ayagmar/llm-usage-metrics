@@ -163,7 +163,7 @@ export async function buildSummaryData(
         userConfigResolution: { ...userConfigResolution, options: datasetOptions },
       }),
   );
-  const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'auto');
+  const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'cache-savings');
   const { pricedEvents, pricingOrigin, pricingWarning, pricingSource } = pricingResult;
   const sourceOrder = dataset.adaptersToParse.map((adapter) => adapter.id);
   // Other machines' events carry their name; this machine's carry none.

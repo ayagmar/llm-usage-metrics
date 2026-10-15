@@ -51,6 +51,7 @@ import {
   type PricedEventsResult,
   type PricingLoadMode,
 } from './build-usage-data-pricing.js';
+import type { PricingCostMode } from '../pricing/cost-engine.js';
 import type {
   BuildUsageDataDeps,
   ReportCommandOptions,
@@ -556,35 +557,81 @@ export async function applyPricingToUsageEventDataset(
 
 const MAX_NAMED_UNPRICED_MODELS = 5;
 
+function formatEventCount(count: number): string {
+  const eventLabel = count === 1 ? 'event' : 'events';
+  return `${new Intl.NumberFormat('en-US').format(count)} ${eventLabel}`;
+}
+
 /**
  * Reports leave an event without a cost out of cost totals and mark those totals with `~`.
  * Returns the note explaining that marker for the events a report shows, if any lack a cost.
  */
-function describeUnpricedEvents(events: readonly UsageEvent[]): string | undefined {
+function describeUnpricedEvents(
+  events: readonly UsageEvent[],
+  costMode: PricingCostMode,
+): string | undefined {
   const unpricedEvents = events.filter((event) => event.costUsd === undefined);
 
   if (unpricedEvents.length === 0) {
     return undefined;
   }
 
+  const eventCount = formatEventCount(unpricedEvents.length);
+
+  if (costMode === 'explicit') {
+    return `~ marks costs that leave out ${eventCount} with no logged cost (--cost-mode explicit)`;
+  }
+
   const models = [...new Set(unpricedEvents.map((event) => event.model ?? 'unknown'))].sort();
-  const eventCount = new Intl.NumberFormat('en-US').format(unpricedEvents.length);
-  const eventLabel = unpricedEvents.length === 1 ? 'event' : 'events';
   const modelList = limitNamedModels(models, MAX_NAMED_UNPRICED_MODELS).join(', ');
 
-  return `~ marks costs that leave out ${eventCount} ${eventLabel} with no known price (models: ${modelList})`;
+  return `~ marks costs that leave out ${eventCount} with no known price (models: ${modelList})`;
 }
 
 /**
+ * A source can log $0 for a request that used tokens; `both` estimates those events instead.
+ * Returns the note naming those sources, unless the user chose a cost mode.
+ */
+function describeReestimatedExplicitZero(
+  events: readonly UsageEvent[],
+  pricingResult: PricingNotesInput,
+): string | undefined {
+  if (pricingResult.costModeOption !== undefined) {
+    return undefined;
+  }
+
+  const reestimated = pricingResult.pricingStats.reestimatedExplicitZero;
+  const reestimatedEvents = events.filter((event) => reestimated.has(event));
+
+  if (reestimatedEvents.length === 0) {
+    return undefined;
+  }
+
+  const sources = [...new Set(reestimatedEvents.map((event) => event.source))].sort().join(', ');
+  const verb = reestimatedEvents.length === 1 ? 'was' : 'were';
+
+  return `${formatEventCount(reestimatedEvents.length)} logged $0 by ${sources} ${verb} estimated from LiteLLM; use --cost-mode explicit to keep $0`;
+}
+
+type PricingNotesInput = Pick<
+  UsageEventDatasetPricingResult,
+  'pricingPolicy' | 'pricingStats' | 'costModeOption'
+>;
+
+/**
  * The dataset's notes plus the pricing notes for the events a report shows. Notes count only
- * `shownEvents`; `pricingResult` gives the policy and stats of the run that priced them.
+ * `shownEvents`, which must be the priced events themselves (the stats are keyed by identity);
+ * `pricingResult` gives the policy and stats of the run that priced them.
  */
 export function withPricingNotes(
   notes: readonly string[],
   shownEvents: readonly UsageEvent[],
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- the cost-mode and priority notes read it
-  pricingResult: Pick<UsageEventDatasetPricingResult, 'pricingPolicy' | 'pricingStats'>,
+  pricingResult: PricingNotesInput,
 ): string[] {
-  const note = describeUnpricedEvents(shownEvents);
-  return note ? [...notes, note] : [...notes];
+  const pricingNotes = [
+    describeUnpricedEvents(shownEvents, pricingResult.pricingPolicy.costMode),
+    describeReestimatedExplicitZero(shownEvents, pricingResult),
+  ].filter((note) => note !== undefined);
+
+  return [...notes, ...pricingNotes];
 }

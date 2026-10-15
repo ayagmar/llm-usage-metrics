@@ -154,7 +154,7 @@ The config precedence order is CLI flags, environment variables, TOML config, th
 
 ## Pricing
 
-The CLI keeps a valid cost supplied by a source. When a source has no cost, it estimates one from LiteLLM pricing.
+The CLI keeps a valid cost supplied by a source. When a source has no cost, it estimates one from LiteLLM pricing. A source that logs `$0` for a request that used tokens gets an estimate too, and stderr names those sources. `--cost-mode explicit` reports logged costs only and keeps `$0`; `--cost-mode estimated` prices every event from its tokens.
 
 Pricing loads from a fresh cache, a network refresh, a stale cache, or the bundled snapshot. Use offline mode to skip the network request:
 

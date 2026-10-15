@@ -203,6 +203,27 @@ describe('buildSummaryData', () => {
     expect(result.monthToDateCacheSavingsUsd).toBeCloseTo(1.5, 6);
   });
 
+  it('still estimates cache savings under --cost-mode explicit, without pricing unlogged events', async () => {
+    const result = await buildSummaryData(
+      { timezone: 'UTC', pricingOffline: true, costMode: 'explicit' },
+      runtimeDeps(
+        [
+          createAdapter('codex', [
+            createEvent('2026-03-05T09:00:00.000Z', {
+              costMode: 'estimated',
+              costUsd: undefined,
+              cacheReadTokens: 1_000_000,
+            }),
+          ]),
+        ],
+        '2026-03-10T18:00:00.000Z',
+      ),
+    );
+
+    expect(result.periods[2]?.totals.costUsd).toBeUndefined();
+    expect(result.monthToDateCacheSavingsUsd).toBeCloseTo(1.5, 6);
+  });
+
   it('sums each period and ranks its sources by cost', async () => {
     const codexEvents = [
       createEvent('2026-03-10T09:00:00.000Z'),

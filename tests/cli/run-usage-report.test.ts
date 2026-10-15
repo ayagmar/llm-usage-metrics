@@ -802,6 +802,81 @@ describe('buildUsageReport', () => {
     expect(stderr.some((line) => line.includes('~ marks costs'))).toBe(false);
   });
 
+  async function runWithBundledPricing(
+    piDir: string,
+    extraOptions: { cost?: boolean; costMode?: 'explicit' | 'estimated' | 'both' } = {},
+  ): Promise<{ stderr: string[]; stdout: string }> {
+    // The default URL falls back to the bundled snapshot when the fetch fails.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('network unavailable');
+      }),
+    );
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    await runUsageReport('daily', {
+      all: true,
+      piDir,
+      source: 'pi',
+      timezone: 'UTC',
+      ...extraOptions,
+    });
+
+    return {
+      stderr: errorSpy.mock.calls.map((call) => String(call[0])),
+      stdout: logSpy.mock.calls.map((call) => String(call[0])).join('\n'),
+    };
+  }
+
+  const explicitZeroNote =
+    '2 events logged $0 by pi were estimated from LiteLLM; use --cost-mode explicit to keep $0';
+
+  it('notes the logged $0 events it estimated, by source', async () => {
+    const piDir = await writePiSession([
+      { model: 'gpt-4.1', cost: 0 },
+      { model: 'gpt-4.1', cost: 0 },
+      { model: 'gpt-4.1', cost: 0.5 },
+    ]);
+
+    const { stderr, stdout } = await runWithBundledPricing(piDir);
+
+    expect(stderr).toContainEqual(expect.stringContaining(explicitZeroNote));
+    expect(stdout).not.toContain('logged $0');
+  });
+
+  it('drops the logged $0 note once a cost mode is chosen or cost is hidden', async () => {
+    const piDir = await writePiSession([
+      { model: 'gpt-4.1', cost: 0 },
+      { model: 'gpt-4.1', cost: 0 },
+    ]);
+
+    for (const options of [{ costMode: 'both' as const }, { cost: false }]) {
+      const { stderr } = await runWithBundledPricing(piDir, options);
+      expect(stderr.some((line) => line.includes('logged $0'))).toBe(false);
+      vi.restoreAllMocks();
+    }
+  });
+
+  it('keeps logged $0 under --cost-mode explicit and marks events without a logged cost', async () => {
+    const piDir = await writePiSession([
+      { model: 'gpt-4.1', cost: 0 },
+      { model: 'gpt-4.1', cost: 0.5 },
+      { model: 'gpt-4.1' },
+    ]);
+
+    const { stderr, stdout } = await runWithBundledPricing(piDir, { costMode: 'explicit' });
+
+    expect(stdout).toContain('~$0.50');
+    expect(stderr.filter((line) => line.includes('~ marks costs'))).toEqual([
+      expect.stringContaining(
+        '~ marks costs that leave out 1 event with no logged cost (--cost-mode explicit)',
+      ),
+    ]);
+    expect(stderr.some((line) => line.includes('logged $0'))).toBe(false);
+  });
+
   it('keeps runUsageReport JSON output data-only on stdout while still emitting diagnostics', async () => {
     const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'usage-run-json-no-logs-'));
     tempDirs.push(emptyDir);

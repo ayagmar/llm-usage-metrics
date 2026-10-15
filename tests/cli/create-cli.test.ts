@@ -608,6 +608,34 @@ describe('createCli', () => {
     expect(daily.options.find((option) => option.long === '--claude-dir')?.hidden).toBe(true);
   });
 
+  it('rejects --cost-mode with --no-cost and leaves the mode unset when not passed', async () => {
+    const cli = createCli();
+    const daily = cli.commands.find((command) => command.name() === 'daily');
+
+    if (!daily) {
+      throw new Error('daily command missing');
+    }
+
+    const output = captureOutput(daily);
+    await expect(
+      daily.parseAsync(['--no-cost', '--cost-mode', 'both'], { from: 'user' }),
+    ).rejects.toMatchObject({ exitCode: 1 });
+    expect(output.text()).toContain(
+      "error: option '--no-cost' cannot be used with option '--cost-mode <mode>'",
+    );
+
+    const dailyAction = vi.fn();
+    const accepting = createCli();
+    captureOutput(accepting);
+    accepting.commands.find((command) => command.name() === 'daily')?.action(dailyAction);
+    await accepting.parseAsync(['daily', '--no-cost'], { from: 'user' });
+    await accepting.parseAsync(['daily', '--cost-mode', 'explicit'], { from: 'user' });
+
+    expect(dailyAction.mock.calls[0]?.[0]).toMatchObject({ cost: false });
+    expect(dailyAction.mock.calls[0]?.[0]).not.toHaveProperty('costMode');
+    expect(dailyAction.mock.calls[1]?.[0]).toMatchObject({ cost: true, costMode: 'explicit' });
+  });
+
   it('accepts repeated directory flags and keeps database flags single', async () => {
     const cli = createCli();
     captureOutput(cli);

@@ -48,7 +48,13 @@ Each event is either:
 - `explicit`: source included a valid cost
 - `estimated`: cost derived from pricing data
 
-Explicit `costUsd: 0` events are re-priced from LiteLLM when model pricing exists.
+`--cost-mode` picks which of these costs a report uses:
+
+- `both` (the default): the logged cost when the source has one, otherwise an estimate. An event that logged `$0` but used tokens is estimated from LiteLLM when the model has pricing. Unless `--cost-mode` was passed, stderr then says how many shown events that affected and which sources logged them.
+- `explicit`: logged costs only. A logged `$0` stays `$0`, and events without a logged cost stay unpriced, so totals are marked `~` and the stderr note counts the events with no logged cost. LiteLLM pricing is not loaded to price events. Reports that need prices beyond event costs still load it: `optimize` for its candidate models, and `summary`, `statusline` and `wrapped` for the cache-savings estimate. `--pricing-url`, `--pricing-offline` and `--pricing-overrides` apply to those prices.
+- `estimated`: every event is priced from its tokens and logged costs are ignored. An event that cannot be priced is left unpriced (`~`) rather than shown with its logged cost.
+
+`--cost-mode` cannot be combined with `--no-cost`.
 
 ## Cache writes
 
