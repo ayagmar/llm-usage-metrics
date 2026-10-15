@@ -43,6 +43,9 @@ describe('source registry', () => {
     expect(createWorkerParseAdapter('claude', ['/data/a'])?.getSearchPaths?.()).toEqual([
       '/data/a',
     ]);
+    expect(createWorkerParseAdapter('codex', ['/data/codex'])?.getSearchPaths?.()).toEqual([
+      '/data/codex',
+    ]);
     expect(createWorkerParseAdapter('gemini', ['/data/a'])).toBeUndefined();
     expect(createWorkerParseAdapter('nope', [])).toBeUndefined();
   });
