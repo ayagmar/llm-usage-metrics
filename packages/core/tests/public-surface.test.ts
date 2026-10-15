@@ -162,6 +162,9 @@ const EXPECTED_SURFACE: Record<string, readonly string[]> = {
     'getDefaultSourceIds',
     'getSourceStorageFormat',
     'sourceSupportsDirectories',
+    // T-stages
+    'ReadSourcesOptions',
+    'readSources',
   ],
   './sources/amp': [
     // T0
