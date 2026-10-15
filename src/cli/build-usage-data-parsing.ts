@@ -42,6 +42,7 @@ import type { RuntimeProfileCollector } from './runtime-profile.js';
 import {
   canParseSourceOnWorker,
   createParseWorkerPool,
+  getParseWorkerRoots,
   type ParseWorkerPool,
 } from './parse-worker-pool.js';
 
@@ -409,6 +410,7 @@ export async function parseAdapterEvents(
         {
           sourceId: adapter.id,
           filePath: missedFile.filePath,
+          roots: getParseWorkerRoots(adapter, missedFile.filePath),
         },
         () => parseFileInline(missedFile.filePath),
       );

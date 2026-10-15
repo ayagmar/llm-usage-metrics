@@ -3,6 +3,7 @@ export {
   createDefaultAdapters,
   createWorkerParseAdapter,
   getDefaultSourceIds,
+  getParseWorkerRoots,
   getSourceStorageFormat,
   sourceSupportsDirectories,
   type SourceSelection,
