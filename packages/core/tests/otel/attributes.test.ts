@@ -69,7 +69,6 @@ describe('usageRecordAttributes mapping', () => {
   it.each([
     ['gen_ai.operation.name', 'chat'],
     ['gen_ai.provider.name', 'openai'],
-    ['gen_ai.request.model', 'gpt-5.2-codex'],
     ['gen_ai.response.model', 'gpt-5.2-codex'],
     ['gen_ai.response.id', 'resp-1'],
     ['gen_ai.conversation.id', 'session-1'],
@@ -92,7 +91,6 @@ describe('usageRecordAttributes mapping', () => {
       'gen_ai.conversation.id',
       'gen_ai.operation.name',
       'gen_ai.provider.name',
-      'gen_ai.request.model',
       'gen_ai.response.id',
       'gen_ai.response.model',
       'gen_ai.usage.cache_read.input_tokens',
@@ -112,7 +110,6 @@ describe('usageRecordAttributes mapping', () => {
 
     for (const key of [
       'gen_ai.provider.name',
-      'gen_ai.request.model',
       'gen_ai.response.model',
       'gen_ai.response.id',
       'llm_usage.cost_usd',
@@ -120,6 +117,10 @@ describe('usageRecordAttributes mapping', () => {
     ]) {
       expect(keys).not.toContain(key);
     }
+  });
+
+  it('never emits gen_ai.request.model: the logs record only the response model', () => {
+    expect(attributes).not.toHaveProperty('gen_ai.request.model');
   });
 
   it.each<CostMode>(['explicit', 'estimated'])('passes costMode %s through', (costMode) => {
@@ -150,6 +151,16 @@ describe('gen_ai.provider.name', () => {
     ['mistral', 'mistral'],
     ['deepseek', 'deepseek'],
     ['groq', 'groq'],
+    // Cloud-hosted endpoints, matched by prefix after lowercasing.
+    ['amazon-bedrock', 'aws.bedrock'],
+    ['Amazon-Bedrock-Converse', 'aws.bedrock'],
+    ['google-vertex', 'gcp.vertex_ai'],
+    ['google-vertex-anthropic', 'gcp.vertex_ai'],
+    ['azure-openai', 'azure.ai.openai'],
+    ['azure-openai-responses', 'azure.ai.openai'],
+    // Other Google and Azure ids do not say which well-known endpoint they are.
+    ['google-gemini-cli', 'google-gemini-cli'],
+    ['azure-east', 'azure-east'],
     // No well-known value: passes through as a custom value.
     ['github', 'github'],
     ['openrouter', 'openrouter'],

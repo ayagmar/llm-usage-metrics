@@ -46,6 +46,7 @@ describe('example: session forensics', () => {
         session: sha('fx-pi'),
         tokens: { inputTokens: 100, cacheReadTokens: 20, cacheWriteTokens: 5, outputTokens: 40 },
         costUsd: 0.002,
+        // cache read / (fresh input + cache read): the 5 cache-write tokens are left out.
         cacheHitRatio: 20 / 120,
         systemMessages: 0,
         repeatedPrompts: 0,

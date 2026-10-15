@@ -148,7 +148,7 @@ for await (const event of pipe(fileBatches(), repeatedAcrossFiles())) {
 }
 ```
 
-`since(bound)` and `until(bound)` keep events timestamped at or after `bound`, and before it. `since(t)` and `until(t)` split a stream in two, except that both drop an event whose timestamp does not parse. Bounds are compared as instants. An invalid bound throws when the stage is built, and so does a string bound with a time of day but no UTC offset (`'2026-06-01T10:00'`), which would mean different instants in different time zones. A date alone (`'2026-06-01'`) is midnight UTC. `bySession()` groups events into `{ source, sessionId, events }`, in the order each session first appears; it buffers its whole input.
+`since(bound)` and `until(bound)` keep events timestamped at or after `bound`, and before it. `since(t)` and `until(t)` split a stream in two, except that both drop an event whose timestamp does not parse. Bounds are compared as instants. An invalid bound throws when the stage is built, and so does a string bound with a time of day but no UTC offset (`'2026-06-01T10:00'`), which would mean different instants in different time zones. An ISO date alone (`'2026-06-01'`) is midnight UTC; other date-only strings (`'2026/06/01'`) follow `Date.parse` and mean local midnight, so prefer the ISO form. `bySession()` groups events into `{ source, sessionId, events }`, in the order each session first appears; it buffers its whole input.
 
 ## Reading every source
 
@@ -220,7 +220,7 @@ The cursor is plain JSON, so it can be stored as is. `JsonlReadCursor` reserves 
 
 ## Example: session forensics
 
-[`examples/session-forensics.ts`](examples/session-forensics.ts) reports, per claude, codex and pi session, the fresh input, cache read, cache write and output tokens, the recorded cost, the cache hit ratio, the count of system messages (Claude compaction summaries; Codex developer and injected-context messages), and how often the same user prompt was repeated in the session. It also counts prompts repeated across sessions. It reads with `text: true` but prints only counts and sha256 fingerprints. Its core is one `pipe(readSources(...), kinds('usage', 'message'), bySession())` loop.
+[`examples/session-forensics.ts`](examples/session-forensics.ts) reports, per claude, codex and pi session, the fresh input, cache read, cache write and output tokens, the recorded cost, the cache hit ratio (cache read / (fresh input + cache read); cache writes are left out), the count of system messages (Claude compaction summaries; Codex developer and injected-context messages), and how often the same user prompt was repeated in the session. It also counts prompts repeated across sessions. It reads with `text: true` but prints only counts and sha256 fingerprints. The fingerprints are unsalted, so a short or common prompt can be recovered by hashing guesses; do not share the output where the prompts themselves would be sensitive. Its core is one `pipe(readSources(...), kinds('usage', 'message'), bySession())` loop.
 
 ## Event kinds
 
