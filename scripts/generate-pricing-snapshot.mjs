@@ -207,13 +207,23 @@ async function checkSnapshot() {
   );
 }
 
+// A missing file reads as empty. Any other failure stops the refresh: the pruned and
+// retired files hold prices upstream no longer lists, so reading a damaged one as empty
+// would drop them for good.
 async function readPricingRecord(filePath) {
+  let content;
+
   try {
-    const payload = JSON.parse(await readFile(filePath, 'utf8'));
-    return payload.pricingByModel ?? {};
-  } catch {
-    return {};
+    content = await readFile(filePath, 'utf8');
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      return {};
+    }
+
+    throw error;
   }
+
+  return JSON.parse(content).pricingByModel ?? {};
 }
 
 // LiteLLM drops retired models, but their prices still apply to historical usage. Keys

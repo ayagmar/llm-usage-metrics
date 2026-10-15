@@ -69,7 +69,9 @@ Keep source-specific parsing logic inside adapters. Keep pricing logic in `src/p
   resolve. When the matcher, model map, or snapshot changes, review every moved row and
   update it deliberately. A snapshot refresh lists models removed upstream; review that
   list, since those prices move to `litellm-retired-pricing.json` unless a live key
-  already resolves the name to the same rates.
+  already resolves the name to the same rates. Those pruned prices go to
+  `tests/fixtures/pricing/pruned-retired-pricing.json`, which the next refresh reads
+  back: review and commit it with the snapshot.
 - Regexes: lint runs ReDoS checks (`eslint-plugin-regexp` everywhere; `eslint-plugin-redos`
   on regex literals in `src/`, not `new RegExp(...)`). Do not run lazy or greedy wildcards
   over large untrusted text; scan with `indexOf` instead.
