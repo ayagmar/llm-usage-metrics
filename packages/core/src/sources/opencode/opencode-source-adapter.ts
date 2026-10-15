@@ -9,7 +9,7 @@ import { createSourceContext, type SourceContext } from '../source-context.js';
 import { getDefaultOpenCodeDbPathCandidates } from './opencode-db-path-resolver.js';
 import { loadNodeSqliteModule, type SqliteModule } from '../sqlite/node-sqlite-loader.js';
 import { parseOpenCodeMessageRow } from './opencode-row-parser.js';
-import { runWithBusyRetries, toOpenCodeDbReadError, type SleepFn } from '../sqlite/retry-policy.js';
+import { runWithBusyRetries, toSqliteDbReadError, type SleepFn } from '../sqlite/retry-policy.js';
 import { queryOpenCodeMessageRows, type OpenCodeSqliteRow } from './opencode-sqlite-query.js';
 import { isBlankText } from '../parsing-utils.js';
 
@@ -195,6 +195,7 @@ export class OpenCodeSourceAdapter implements SourceAdapter {
         return this.openMessageRows(normalizedDbPath);
       },
       {
+        source: 'OpenCode',
         dbPath: normalizedDbPath,
         maxBusyRetries: this.maxBusyRetries,
         busyRetryDelayMs: this.busyRetryDelayMs,
@@ -215,7 +216,7 @@ export class OpenCodeSourceAdapter implements SourceAdapter {
         database.close();
       }
     } catch (error) {
-      throw toOpenCodeDbReadError(error, normalizedDbPath, attempts);
+      throw toSqliteDbReadError(error, 'OpenCode', normalizedDbPath, attempts);
     }
   }
 
