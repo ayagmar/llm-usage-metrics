@@ -53,10 +53,11 @@ type SourceRegistration = {
     context: SourceContext,
   ) => SourceAdapter;
   /**
-   * Parse workers may build this source's adapter with default roots: parsing a file must
-   * not read the adapter's roots. Pi and Claude read them for fork parents.
+   * Builds the adapter a parse worker parses this source's files with, over the resolved
+   * roots of the adapter that discovered them. Pi and Claude read their roots to find fork
+   * parents, so the worker must not re-resolve them. Unset: files parse inline only.
    */
-  parseInWorker: boolean;
+  createParseWorkerAdapter?: (roots: readonly string[]) => SourceAdapter;
   create: (resolved: ResolvedSourcePath, context: SourceContext) => SourceAdapter;
 };
 
@@ -71,50 +72,47 @@ const sourceRegistrations: readonly SourceRegistration[] = [
     id: 'pi',
     format: 'jsonl',
     supportsSourceDir: true,
-    parseInWorker: false,
     create: (resolved, context) => new PiSourceAdapter(dirOptions(resolved, context)),
+    createParseWorkerAdapter: (roots) => new PiSourceAdapter({ defaultRootDirs: [...roots] }),
   },
   {
     id: 'codex',
     format: 'jsonl',
     supportsSourceDir: true,
-    parseInWorker: true,
+    // Parsing a Codex file never reads its roots.
+    createParseWorkerAdapter: (roots) => new CodexSourceAdapter({ dir: roots[0] }),
     create: (resolved, context) => new CodexSourceAdapter(dirOptions(resolved, context)),
   },
   {
     id: 'gemini',
     format: 'json',
     supportsSourceDir: true,
-    parseInWorker: false,
     create: (resolved, context) => new GeminiSourceAdapter(dirOptions(resolved, context)),
   },
   {
     id: 'droid',
     format: 'json',
     supportsSourceDir: true,
-    parseInWorker: false,
     create: (resolved, context) => new DroidSourceAdapter(dirOptions(resolved, context)),
   },
   {
     id: 'opencode',
     format: 'sqlite',
     supportsSourceDir: false,
-    parseInWorker: false,
     create: ({ path }, context) => new OpenCodeSourceAdapter({ dbPath: path, context }),
   },
   {
     id: 'openclaw',
     format: 'jsonl',
     supportsSourceDir: true,
-    parseInWorker: false,
     create: (resolved, context) => new OpenClawSourceAdapter(dirOptions(resolved, context)),
   },
   {
     id: 'claude',
     format: 'jsonl',
     supportsSourceDir: true,
-    parseInWorker: false,
     create: (resolved, context) => new ClaudeSourceAdapter(dirOptions(resolved, context)),
+    createParseWorkerAdapter: (roots) => new ClaudeSourceAdapter({ defaultRootDirs: [...roots] }),
     // Fork deduplication needs every root in one adapter to find a parent transcript.
     createForDirectories: (directories, requireExistingPath, context) =>
       new ClaudeSourceAdapter({ dir: directories, requireDir: requireExistingPath, context }),
@@ -123,42 +121,36 @@ const sourceRegistrations: readonly SourceRegistration[] = [
     id: 'copilot',
     format: 'jsonl',
     supportsSourceDir: true,
-    parseInWorker: false,
     create: (resolved, context) => new CopilotSourceAdapter(dirOptions(resolved, context)),
   },
   {
     id: 'goose',
     format: 'sqlite',
     supportsSourceDir: false,
-    parseInWorker: false,
     create: ({ path }, context) => new GooseSourceAdapter({ dbPath: path, context }),
   },
   {
     id: 'amp',
     format: 'json',
     supportsSourceDir: true,
-    parseInWorker: false,
     create: (resolved, context) => new AmpSourceAdapter(dirOptions(resolved, context)),
   },
   {
     id: 'qwen',
     format: 'jsonl',
     supportsSourceDir: true,
-    parseInWorker: false,
     create: (resolved, context) => new QwenSourceAdapter(dirOptions(resolved, context)),
   },
   {
     id: 'kimi',
     format: 'jsonl',
     supportsSourceDir: true,
-    parseInWorker: false,
     create: (resolved, context) => new KimiSourceAdapter(dirOptions(resolved, context)),
   },
   {
     id: 'cline',
     format: 'json',
     supportsSourceDir: true,
-    parseInWorker: false,
     create: (resolved, context) =>
       createClineFamilyAdapter({
         id: 'cline',
@@ -170,7 +162,6 @@ const sourceRegistrations: readonly SourceRegistration[] = [
     id: 'roocode',
     format: 'json',
     supportsSourceDir: true,
-    parseInWorker: false,
     create: (resolved, context) =>
       createClineFamilyAdapter({
         id: 'roocode',
@@ -182,7 +173,6 @@ const sourceRegistrations: readonly SourceRegistration[] = [
     id: 'kilocode',
     format: 'json',
     supportsSourceDir: true,
-    parseInWorker: false,
     create: (resolved, context) =>
       createClineFamilyAdapter({
         id: 'kilocode',
@@ -194,14 +184,12 @@ const sourceRegistrations: readonly SourceRegistration[] = [
     id: 'antigravity',
     format: 'sqlite',
     supportsSourceDir: true,
-    parseInWorker: false,
     create: (resolved, context) => new AntigravitySourceAdapter(dirOptions(resolved, context)),
   },
   {
     id: 'dsh',
     format: 'jsonl',
     supportsSourceDir: true,
-    parseInWorker: false,
     create: (resolved, context) => new DshSourceAdapter(dirOptions(resolved, context)),
   },
 ];
@@ -261,24 +249,38 @@ export function getSourceStorageFormat(sourceId: string): SourceStorageFormat {
  * @internal
  */
 export function canParseSourceOnWorker(sourceId: string): boolean {
-  return sourceRegistrations.some((source) => source.id === sourceId && source.parseInWorker);
+  return sourceRegistrations.some(
+    (source) => source.id === sourceId && source.createParseWorkerAdapter !== undefined,
+  );
 }
 
 /**
- * The adapter a parse worker parses with: default roots and a context from the worker's own
- * process. Undefined when the source is not registered for worker parsing.
+ * The roots a parse worker needs to parse `filePath` exactly as `adapter` does: those of
+ * the adapter that owns the file, defaults included.
  *
  * @internal
  */
-export function createWorkerParseAdapter(sourceId: string): SourceAdapter | undefined {
-  const registration = sourceRegistrations.find(
-    (source) => source.id === sourceId && source.parseInWorker,
-  );
+export function getParseWorkerRoots(adapter: SourceAdapter, filePath: string): readonly string[] {
+  if (adapter instanceof MultiDirectorySourceAdapter) {
+    return adapter.getSearchPathsForFile(filePath);
+  }
 
-  return registration?.create(
-    { path: undefined, requireExistingPath: false },
-    createSourceContext(),
-  );
+  return adapter.getSearchPaths?.() ?? [];
+}
+
+/**
+ * The adapter a parse worker parses with, over the roots from `getParseWorkerRoots`.
+ * Undefined when the source is not registered for worker parsing.
+ *
+ * @internal
+ */
+export function createWorkerParseAdapter(
+  sourceId: string,
+  roots: readonly string[],
+): SourceAdapter | undefined {
+  return sourceRegistrations
+    .find((source) => source.id === sourceId)
+    ?.createParseWorkerAdapter?.(roots);
 }
 
 /**

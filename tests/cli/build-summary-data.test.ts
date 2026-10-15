@@ -6,6 +6,11 @@ import {
   resolveSummaryWindows,
 } from '../../src/cli/build-summary-data.js';
 import type { SummaryPeriod } from '../../src/cli/usage-data-contracts.js';
+import {
+  createWindowEventFilter,
+  isEventWithinWindow,
+} from '../../src/cli/usage-window-summary.js';
+import { createDateWindowPrefilter } from '../../src/cli/parse/usage-event-filters.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { readFrom } from '../helpers/fake-read.js';
@@ -71,6 +76,81 @@ describe('resolveSummaryWindows', () => {
       { key: 'last7Days', label: 'Last 7 days', since: '2026-02-26', until: '2026-03-04' },
       { key: 'monthToDate', label: 'Month to date', since: '2026-03-01', until: '2026-03-04' },
     ]);
+  });
+});
+
+describe('createWindowEventFilter', () => {
+  it('keeps the events whose local date is in the window, in every offset', () => {
+    const timezones = [
+      'UTC',
+      'Pacific/Kiritimati',
+      'Pacific/Pago_Pago',
+      'Asia/Kolkata',
+      'Asia/Kathmandu',
+      'America/St_Johns',
+      'Australia/Lord_Howe',
+      'Europe/Paris',
+    ];
+    const windows = [
+      { since: '2026-03-29', until: '2026-03-29' },
+      { since: '2026-03-01', until: '2026-03-31' },
+      { since: '2025-12-30', until: '2026-01-02' },
+    ];
+    // Every 7 minutes from 3 days before to 3 days after each window, plus timestamps in
+    // other shapes. `createUsageEvent` stores the canonical form, so those are spread over a
+    // created event, as a stored event built elsewhere can carry them.
+    const nonCanonicalTimestamps = windows.flatMap((window) => [
+      `${window.since}T00:30:00Z`,
+      `${window.since}T00:30:00+00:00`,
+      // The day before `since` in UTC, read as `since` by its text.
+      `${window.since}T00:30:00+14:00`,
+      // The day after `until` in UTC, read as `until` by its text.
+      `${window.until}T23:30:00-11:00`,
+    ]);
+    const events = [
+      ...windows.flatMap((window) => {
+        const from = Date.parse(`${window.since}T00:00:00.000Z`) - 3 * 86_400_000;
+        const to = Date.parse(`${window.until}T00:00:00.000Z`) + 4 * 86_400_000;
+        const timestamps: string[] = [];
+
+        for (let time = from; time < to; time += 7 * 60_000) {
+          timestamps.push(new Date(time).toISOString());
+        }
+
+        return timestamps.map((timestamp) =>
+          createEvent('2026-03-05T09:00:00.000Z', { timestamp }),
+        );
+      }),
+      ...nonCanonicalTimestamps.map((timestamp) => ({
+        ...createEvent('2026-03-05T09:00:00.000Z'),
+        timestamp,
+      })),
+    ];
+
+    // Those shapes skip the text comparison and are converted to a local date.
+    for (const window of windows) {
+      const prefilterDate = createDateWindowPrefilter(window.since, window.until);
+
+      for (const timestamp of nonCanonicalTimestamps) {
+        expect(prefilterDate(timestamp), timestamp).toBe('near-edge');
+      }
+    }
+
+    const utcSingleDay = createWindowEventFilter(windows[0], 'UTC');
+    expect(utcSingleDay({ ...events[0], timestamp: '2026-03-29T00:30:00+00:00' })).toBe(true);
+    expect(utcSingleDay({ ...events[0], timestamp: '2026-03-29T00:30:00+14:00' })).toBe(false);
+    expect(utcSingleDay({ ...events[0], timestamp: '2026-03-29T23:30:00-11:00' })).toBe(false);
+
+    for (const timezone of timezones) {
+      for (const window of windows) {
+        const isInWindow = createWindowEventFilter(window, timezone);
+        const mismatches = events.filter(
+          (event) => isInWindow(event) !== isEventWithinWindow(event, window, timezone),
+        );
+
+        expect(mismatches, `${timezone} ${window.since}..${window.until}`).toEqual([]);
+      }
+    }
   });
 });
 

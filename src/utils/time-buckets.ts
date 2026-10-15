@@ -30,6 +30,7 @@ type LocalDateWindowCache = {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SECOND_MS = 1000;
+const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const;
 
 const dateTimeFormatterCache = new Map<string, Intl.DateTimeFormat>();
 const localDateWindowCaches = new Map<string, LocalDateWindowCache>();
@@ -62,9 +63,34 @@ function getDateTimeFormatter(timezone: string): Intl.DateTimeFormat {
 // usage across several machines reaches ~300k, and a memo that starts over mid-run
 // recomputes every pass.
 const MAX_MEMOIZED_TIMESTAMPS = 1_000_000;
+let maxMemoizedTimestamps = MAX_MEMOIZED_TIMESTAMPS;
 const localDatePartsByTimestamp = new Map<string, Map<string, KeyedLocalDate>>();
 
+/**
+ * Test seam: sets the memo cap (the default when undefined), empties the memo, and reports
+ * how many timestamps one timezone's memo holds.
+ *
+ * @internal
+ */
+export const timestampMemoForTesting = {
+  setCap(cap: number | undefined): void {
+    maxMemoizedTimestamps = cap ?? MAX_MEMOIZED_TIMESTAMPS;
+    localDatePartsByTimestamp.clear();
+  },
+  size(timezone: string): number {
+    return localDatePartsByTimestamp.get(timezone)?.size ?? 0;
+  },
+};
+
 function extractLocalDateParts(timestampIso: string, timezone: string): KeyedLocalDate {
+  // The day windows below answer a canonical timestamp in a few comparisons, so it skips
+  // the per-string memo, which would hold every event's timestamp.
+  const canonicalMs = parseCanonicalTimestampMs(timestampIso);
+
+  if (canonicalMs !== undefined) {
+    return getCachedLocalDateParts(canonicalMs, timezone, timestampIso);
+  }
+
   let partsByTimestamp = localDatePartsByTimestamp.get(timezone);
 
   if (!partsByTimestamp) {
@@ -80,12 +106,82 @@ function extractLocalDateParts(timestampIso: string, timezone: string): KeyedLoc
 
   const parts = parseLocalDateParts(timestampIso, timezone);
 
-  if (partsByTimestamp.size >= MAX_MEMOIZED_TIMESTAMPS) {
+  if (partsByTimestamp.size >= maxMemoizedTimestamps) {
     partsByTimestamp.clear();
   }
 
   partsByTimestamp.set(timestampIso, parts);
   return parts;
+}
+
+/**
+ * The instant of a canonical `YYYY-MM-DDTHH:MM:SS.mmmZ` timestamp, read from char codes,
+ * or undefined for any other string. It returns a value only where `Date.parse` returns
+ * the same one: every field in range, and a year of at least 100 (`Date.UTC` maps years
+ * 0–99 to 1900–1999). Callers handle undefined with their general path.
+ */
+function parseCanonicalTimestampMs(value: string): number | undefined {
+  if (
+    value.length !== 24 ||
+    value.charCodeAt(4) !== 45 ||
+    value.charCodeAt(7) !== 45 ||
+    value.charCodeAt(10) !== 84 ||
+    value.charCodeAt(13) !== 58 ||
+    value.charCodeAt(16) !== 58 ||
+    value.charCodeAt(19) !== 46 ||
+    value.charCodeAt(23) !== 90
+  ) {
+    return undefined;
+  }
+
+  const year = readDigits(value, 0, 4);
+  const month = readDigits(value, 5, 2);
+  const day = readDigits(value, 8, 2);
+  const hour = readDigits(value, 11, 2);
+  const minute = readDigits(value, 14, 2);
+  const second = readDigits(value, 17, 2);
+  const millisecond = readDigits(value, 20, 3);
+
+  if (
+    year < 100 ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > getDaysInMonth(year, month) ||
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59 ||
+    second < 0 ||
+    second > 59 ||
+    millisecond < 0
+  ) {
+    return undefined;
+  }
+
+  return Date.UTC(year, month - 1, day, hour, minute, second, millisecond);
+}
+
+/** The decimal value of `length` ASCII digits at `start`, or -1 if any is not a digit. */
+function readDigits(value: string, start: number, length: number): number {
+  let result = 0;
+
+  for (let index = start; index < start + length; index += 1) {
+    const digit = value.charCodeAt(index) - 48;
+
+    if (digit < 0 || digit > 9) {
+      return -1;
+    }
+
+    result = result * 10 + digit;
+  }
+
+  return result;
+}
+
+function getDaysInMonth(year: number, month: number): number {
+  const isLeapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  return month === 2 && isLeapYear ? 29 : DAYS_IN_MONTH[month - 1];
 }
 
 function parseLocalDateParts(timestampIso: string, timezone: string): KeyedLocalDate {

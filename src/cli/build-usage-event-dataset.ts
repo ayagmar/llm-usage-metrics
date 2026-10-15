@@ -544,11 +544,18 @@ export async function buildUsageEventDataset(
   }
 }
 
+/**
+ * Prices the dataset's events, or only `events`, a subset of them. Whether prices load
+ * still depends on all of the dataset's events, so the load and its failure do not change.
+ */
 export async function applyPricingToUsageEventDataset(
   dataset: UsageEventDataset,
   deps: BuildUsageDataDeps = {},
   pricingLoadMode: PricingLoadMode = 'auto',
-  { perRequestRates = true }: { perRequestRates?: boolean } = {},
+  {
+    perRequestRates = true,
+    events = dataset.filteredEvents,
+  }: { perRequestRates?: boolean; events?: UsageEvent[] } = {},
 ): Promise<UsageEventDatasetPricingResult> {
   const loadPricingSource = deps.resolvePricingSource ?? resolvePricingSource;
   const pricingOptions = withNormalizedPricingUrl(
@@ -557,10 +564,11 @@ export async function applyPricingToUsageEventDataset(
   );
 
   return measureRuntimeProfileStage(deps.runtimeProfile, 'usage.pricing.apply', () =>
-    resolveAndApplyPricingToEvents(dataset.filteredEvents, pricingOptions, {
+    resolveAndApplyPricingToEvents(events, pricingOptions, {
       runtimeConfig: dataset.pricingRuntimeConfig,
       loadPricingSource,
       pricingLoadMode,
+      loadDecisionEvents: dataset.filteredEvents,
       policy: resolvePricingPolicy(
         pricingOptions,
         perRequestRates ? getPerRequestSourceIds(dataset.adaptersToParse) : new Set(),

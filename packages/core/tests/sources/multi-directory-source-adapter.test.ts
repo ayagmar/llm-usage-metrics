@@ -145,6 +145,19 @@ describe('MultiDirectorySourceAdapter', () => {
     expect(adapter.getSearchPaths()).toEqual(['/a', '/b', '/c']);
   });
 
+  it('gives the search paths of the directory that discovered a file', async () => {
+    const adapter = new MultiDirectorySourceAdapter([
+      createAdapter(['/a/one.jsonl'], { getSearchPaths: () => ['/a'] }),
+      createAdapter(['/b/two.jsonl'], { getSearchPaths: () => ['/b'] }),
+      createAdapter(['/c/three.jsonl']),
+    ]);
+    await adapter.discoverFiles();
+
+    expect(adapter.getSearchPathsForFile('/a/one.jsonl')).toEqual(['/a']);
+    expect(adapter.getSearchPathsForFile('/b/two.jsonl')).toEqual(['/b']);
+    expect(adapter.getSearchPathsForFile('/c/three.jsonl')).toEqual([]);
+  });
+
   it('reads events through the adapter that discovered the file', async () => {
     const message = createMessageEvent({
       source: 'pi',
