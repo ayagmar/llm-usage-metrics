@@ -85,7 +85,11 @@
             "optimize",
             "wrapped",
             "doctor",
-            "prune"
+            "prune",
+            "projects",
+            "blocks",
+            "pricing",
+            "value"
           ]
         },
         "data": {

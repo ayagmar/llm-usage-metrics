@@ -2,6 +2,9 @@ import type { Command } from 'commander';
 
 export type SharedOptionProfile =
   | 'usage'
+  | 'hourly'
+  | 'rollup'
+  | 'pricing'
   | 'summary'
   | 'specialized'
   | 'compare'

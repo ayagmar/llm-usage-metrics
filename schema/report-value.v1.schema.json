@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ayagmar.github.io/llm-usage-metrics/report-value.v1.schema.json",
+  "title": "llm-usage-metrics value report output (v1)",
+  "description": "Envelope and payload for value --json output.",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope"
+    }
+  ],
+  "properties": {
+    "report": { "const": "value" },
+    "data": {
+      "description": "API-priced cost per month compared with subscription plan prices. The payload is not specified yet.",
+      "type": "object"
+    }
+  }
+}

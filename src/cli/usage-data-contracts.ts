@@ -22,6 +22,7 @@ import type { EventStore } from '../persistence/event-store.js';
 import type { SessionRepoRow, SessionRow } from '../session/session-row.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import type { TrendSeries, TrendsMetric } from '../trends/trends-series.js';
+import type { ReportGranularity } from '../utils/time-buckets.js';
 import type { SourceDirectoryValue } from '../utils/source-directory-overrides.js';
 import type { WrappedRecap } from '../wrapped/wrapped-recap.js';
 import type { UserConfigResolution } from './apply-user-config.js';
@@ -29,7 +30,7 @@ import type { SharedOptionProfile } from './report-definitions/report-definition
 import type { sharedOptionProfileConfig } from './report-definitions/shared-report-options.js';
 import type { RuntimeProfileCollector, RuntimeProfileSnapshot } from './runtime-profile.js';
 
-type AlwaysOnCommandOptions = {
+type SourceSelectionOptions = {
   piDir?: SourceDirectoryValue;
   codexDir?: SourceDirectoryValue;
   copilotDir?: SourceDirectoryValue;
@@ -49,6 +50,9 @@ type AlwaysOnCommandOptions = {
   dshDir?: SourceDirectoryValue;
   sourceDir?: string[];
   source?: string | string[];
+};
+
+type VerboseOption = {
   verbose?: boolean;
 };
 
@@ -84,6 +88,9 @@ type PerModelColumnsOption = {
 
 type PricingOptions = {
   pricingOverrides?: string;
+};
+
+type CostOptions = {
   ignorePricingFailures?: boolean;
   /** `--cost-mode`; undefined when not passed, which prices as `both`. */
   costMode?: PricingCostMode;
@@ -114,27 +121,46 @@ type ShareOption = {
 type ProfileConfig = typeof sharedOptionProfileConfig;
 
 // Keep command option types derived from the same profile booleans that register the flags.
-type SharedOptionsForProfile<P extends SharedOptionProfile> = AlwaysOnCommandOptions &
-  (ProfileConfig[P]['includeJson'] extends true ? JsonOption : unknown) &
-  (ProfileConfig[P]['includeQuiet'] extends true ? QuietOption : unknown) &
-  (ProfileConfig[P]['includeDateFilters'] extends true ? DateFilterOptions : unknown) &
-  (ProfileConfig[P]['includeTimezone'] extends true ? TimezoneOption : unknown) &
-  (ProfileConfig[P]['includeProviderModelFilters'] extends true ? ProviderModelOptions : unknown) &
-  (ProfileConfig[P]['includePricing'] extends true ? PricingOptions : unknown) &
-  (ProfileConfig[P]['includePricingFetch'] extends true ? PricingFetchOptions : unknown) &
-  (ProfileConfig[P]['includeHistory'] extends true ? HistoryOption : unknown) &
-  (ProfileConfig[P]['includeSync'] extends true ? SyncOption : unknown) &
-  (ProfileConfig[P]['includeMarkdown'] extends true ? MarkdownOption : unknown) &
-  (ProfileConfig[P]['includePerModelColumns'] extends true ? PerModelColumnsOption : unknown) &
-  (ProfileConfig[P]['includeShare'] extends true ? ShareOption : unknown);
+type SharedOptionsForProfile<P extends SharedOptionProfile> =
+  (ProfileConfig[P]['includeSources'] extends true ? SourceSelectionOptions : unknown) &
+    (ProfileConfig[P]['includeVerbose'] extends true ? VerboseOption : unknown) &
+    (ProfileConfig[P]['includeJson'] extends true ? JsonOption : unknown) &
+    (ProfileConfig[P]['includeQuiet'] extends true ? QuietOption : unknown) &
+    (ProfileConfig[P]['includeDateFilters'] extends true ? DateFilterOptions : unknown) &
+    (ProfileConfig[P]['includeTimezone'] extends true ? TimezoneOption : unknown) &
+    (ProfileConfig[P]['includeProviderModelFilters'] extends true
+      ? ProviderModelOptions
+      : unknown) &
+    (ProfileConfig[P]['includePricing'] extends true ? PricingOptions : unknown) &
+    (ProfileConfig[P]['includeCostOptions'] extends true ? CostOptions : unknown) &
+    (ProfileConfig[P]['includePricingFetch'] extends true ? PricingFetchOptions : unknown) &
+    (ProfileConfig[P]['includeHistory'] extends true ? HistoryOption : unknown) &
+    (ProfileConfig[P]['includeSync'] extends true ? SyncOption : unknown) &
+    (ProfileConfig[P]['includeMarkdown'] extends true ? MarkdownOption : unknown) &
+    (ProfileConfig[P]['includePerModelColumns'] extends true ? PerModelColumnsOption : unknown) &
+    (ProfileConfig[P]['includeShare'] extends true ? ShareOption : unknown);
 
 /** `--repo`: count only these projects (repeatable or comma-separated). */
 type RepoFilterOption = {
   repo?: string | string[];
 };
 
+/** `--by-repo`: split the report by project. */
+type ByRepoOption = {
+  byRepo?: boolean;
+};
+
+/** `--compact` and `--no-cost`, as on the usage reports. */
+type TableDisplayOptions = {
+  /** `false` with `--no-cost`: tables leave out cost. */
+  cost?: boolean;
+  /** Abbreviated token counts without the Reasoning and Cache Write columns. */
+  compact?: boolean;
+};
+
 export type ReportCommandOptions = SharedOptionsForProfile<'usage'> &
-  RepoFilterOption & {
+  RepoFilterOption &
+  ByRepoOption & {
     /** `daily` and `weekly`: report full history instead of the default recent window. */
     all?: boolean;
     /** `--last N`: the last N periods of the granularity, counting the current one. */
@@ -147,39 +173,83 @@ export type ReportCommandOptions = SharedOptionsForProfile<'usage'> &
     byMachine?: boolean;
   };
 
+export type HourlyCommandOptions = SharedOptionsForProfile<'hourly'> &
+  RepoFilterOption &
+  ByRepoOption &
+  TableDisplayOptions & {
+    /** `--last N`: the last N days (1-31), hour by hour, counting today. */
+    last?: string;
+    /** One row per source and machine instead of per source. */
+    byMachine?: boolean;
+  };
+
+/** Shared by projects, blocks and value: the window flags and the table display flags. */
+type RollupCommandOptions = SharedOptionsForProfile<'rollup'> &
+  RepoFilterOption &
+  TableDisplayOptions & {
+    /** `--last N`: the last N periods of the report's unit, counting the current one. */
+    last?: string;
+    all?: boolean;
+  };
+
+export type ProjectsCommandOptions = RollupCommandOptions & {
+  /** Adds rows per period and project. */
+  granularity?: ReportGranularity;
+  top?: string;
+};
+
+export type BlocksCommandOptions = RollupCommandOptions & {
+  top?: string;
+};
+
+export type ValueCommandOptions = RollupCommandOptions & {
+  /** Plan ids from `src/value/plans.ts`; undefined when not passed. */
+  plan?: string[];
+  planPrice?: string;
+};
+
+export type PricingCommandOptions = SharedOptionsForProfile<'pricing'>;
+
 export type SummaryCommandOptions = SharedOptionsForProfile<'summary'>;
 
 export type StatuslineCommandOptions = SharedOptionsForProfile<'statusline'>;
 
-export type EfficiencyCommandOptions = SharedOptionsForProfile<'specialized'> & {
-  repoDir?: string;
-  includeMergeCommits?: boolean;
-  bySource?: boolean;
-};
+export type EfficiencyCommandOptions = SharedOptionsForProfile<'specialized'> &
+  RepoFilterOption & {
+    repoDir?: string;
+    includeMergeCommits?: boolean;
+    bySource?: boolean;
+  };
 
-export type OptimizeCommandOptions = SharedOptionsForProfile<'specialized'> & {
-  candidateModel?: string | string[];
-  top?: string;
-};
+export type OptimizeCommandOptions = SharedOptionsForProfile<'specialized'> &
+  RepoFilterOption & {
+    candidateModel?: string | string[];
+    top?: string;
+  };
 
-export type TrendsCommandOptions = SharedOptionsForProfile<'trends'> & {
-  last?: string;
-  /** Hidden alias of `last`. */
-  days?: string;
-  metric?: string;
-  bySource?: boolean;
-};
+export type TrendsCommandOptions = SharedOptionsForProfile<'trends'> &
+  RepoFilterOption &
+  ByRepoOption & {
+    last?: string;
+    /** Hidden alias of `last`. */
+    days?: string;
+    metric?: string;
+    bySource?: boolean;
+  };
 
-export type SessionCommandOptions = SharedOptionsForProfile<'session'> & {
-  top?: string;
-  id?: string[];
-  byRepo?: boolean;
-};
+export type SessionCommandOptions = SharedOptionsForProfile<'session'> &
+  RepoFilterOption & {
+    top?: string;
+    id?: string[];
+    byRepo?: boolean;
+  };
 
-export type CompareCommandOptions = SharedOptionsForProfile<'compare'> & {
-  vsSince?: string;
-  vsUntil?: string;
-};
+export type CompareCommandOptions = SharedOptionsForProfile<'compare'> &
+  RepoFilterOption &
+  ByRepoOption & {
+    vsSince?: string;
+    vsUntil?: string;
+  };
 
 export type WrappedCommandOptions = SharedOptionsForProfile<'wrapped'> & {
   year?: string;
