@@ -404,6 +404,32 @@ describe('readSources', () => {
     );
   });
 
+  it('throws on an empty roots entry before reading, instead of requiring the default root', () => {
+    const context = contextFor(fixtureHome);
+
+    for (const id of ['opencode', 'qwen']) {
+      expect(() => readSources(context, [id], { roots: new Map([[id, []]]) })).toThrow(
+        `readSources: roots for ${id} is empty; give at least one root, or drop the entry to read its default locations`,
+      );
+    }
+  });
+
+  it('throws on several roots for a single-file source, not for a directory source', () => {
+    const context = contextFor(fixtureHome);
+
+    for (const id of ['opencode', 'goose']) {
+      expect(() =>
+        readSources(context, [id], { roots: new Map([[id, ['/a.db', '/b.db']]]) }),
+      ).toThrow(`readSources: ${id} reads one database file, so it takes one root, not 2`);
+    }
+
+    for (const id of ['qwen', 'antigravity']) {
+      expect(() =>
+        readSources(context, [id], { roots: new Map([[id, ['/a', '/b']]]) }),
+      ).not.toThrow();
+    }
+  });
+
   it('throws on roots for a source that ids does not select, before reading', () => {
     const context = contextFor(fixtureHome);
     const roots = new Map([

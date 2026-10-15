@@ -169,7 +169,7 @@ for await (const usage of pipe(readSources(context, ['claude', 'codex']), kinds(
 - `dedupe` (on by default) counts repeated usage once per source, as the CLI does: `repeatedAcrossFiles` for pi, then `copiedSessions` for claude. `since` and `until` apply after it.
 - Buffering: with `dedupe` on, each file's events are collected before they are yielded, and a claude source is held in full until its last file, message bodies included when `text` or `raw` is on. `dedupe: false` streams.
 - Failures: without `context.onDiagnostic`, a discovery or read failure is rethrown. With it, the failure is reported as a `warn` diagnostic and skipped: a failed discovery skips the source, a failed read skips the file. With `dedupe` on, a file whose read throws yields none of its events, as in the CLI. With `dedupe: false`, the events it yielded before the throw stay, which the CLI never counts.
-- `roots` maps a source id to the directories to read instead of its defaults. An explicit root must exist, so a missing one is a discovery failure; a missing default root yields nothing and reports nothing. An unknown id, a `roots` entry for a source not in `ids`, or an invalid bound throws before any read.
+- `roots` maps a source id to the directories to read instead of its defaults. An explicit root must exist, so a missing one is a discovery failure; a missing default root yields nothing and reports nothing. Each entry needs at least one root, and opencode and goose, which read one database file, take exactly one. An unknown id, a `roots` entry for a source not in `ids`, an empty entry, several roots for opencode or goose, or an invalid bound throws before any read.
 
 ### Another home directory
 
