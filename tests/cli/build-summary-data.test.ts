@@ -6,6 +6,10 @@ import {
   resolveSummaryWindows,
 } from '../../src/cli/build-summary-data.js';
 import type { SummaryPeriod } from '../../src/cli/usage-data-contracts.js';
+import {
+  createWindowEventFilter,
+  isEventWithinWindow,
+} from '../../src/cli/usage-window-summary.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { readFrom } from '../helpers/fake-read.js';
@@ -71,6 +75,50 @@ describe('resolveSummaryWindows', () => {
       { key: 'last7Days', label: 'Last 7 days', since: '2026-02-26', until: '2026-03-04' },
       { key: 'monthToDate', label: 'Month to date', since: '2026-03-01', until: '2026-03-04' },
     ]);
+  });
+});
+
+describe('createWindowEventFilter', () => {
+  it('keeps the events whose local date is in the window, in every offset', () => {
+    const timezones = [
+      'UTC',
+      'Pacific/Kiritimati',
+      'Pacific/Pago_Pago',
+      'Asia/Kolkata',
+      'Asia/Kathmandu',
+      'America/St_Johns',
+      'Australia/Lord_Howe',
+      'Europe/Paris',
+    ];
+    const windows = [
+      { since: '2026-03-29', until: '2026-03-29' },
+      { since: '2026-03-01', until: '2026-03-31' },
+      { since: '2025-12-30', until: '2026-01-02' },
+    ];
+    // Every 7 minutes from 3 days before to 3 days after each window, plus a timestamp in
+    // another shape, which the filter converts.
+    const events = windows.flatMap((window) => {
+      const from = Date.parse(`${window.since}T00:00:00.000Z`) - 3 * 86_400_000;
+      const to = Date.parse(`${window.until}T00:00:00.000Z`) + 4 * 86_400_000;
+      const timestamps: string[] = [`${window.since}T00:30:00Z`];
+
+      for (let time = from; time < to; time += 7 * 60_000) {
+        timestamps.push(new Date(time).toISOString());
+      }
+
+      return timestamps.map((timestamp) => createEvent('2026-03-05T09:00:00.000Z', { timestamp }));
+    });
+
+    for (const timezone of timezones) {
+      for (const window of windows) {
+        const isInWindow = createWindowEventFilter(window, timezone);
+        const mismatches = events.filter(
+          (event) => isInWindow(event) !== isEventWithinWindow(event, window, timezone),
+        );
+
+        expect(mismatches, `${timezone} ${window.since}..${window.until}`).toEqual([]);
+      }
+    }
   });
 });
 

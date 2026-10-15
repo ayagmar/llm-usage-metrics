@@ -86,7 +86,7 @@ function shiftUtcDate(date: string, days: number): string {
 // A local date is less than a day away from the UTC date, so a normalized ISO timestamp
 // (24 characters, compared as text) a full day inside or outside the window needs no
 // time zone conversion; only timestamps near an edge are converted.
-function createDateWindowPrefilter(
+export function createDateWindowPrefilter(
   since: string | undefined,
   until: string | undefined,
 ): (timestamp: string) => 'inside' | 'outside' | 'near-edge' {
