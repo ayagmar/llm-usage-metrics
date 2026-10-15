@@ -539,7 +539,17 @@
       "outputPer1MUsd": 0.5,
       "cacheReadPer1MUsd": 0.01,
       "cacheWritePer1MUsd": 0.125,
-      "cacheWrite1hPer1MUsd": 0.19999999999999998
+      "cacheWrite1hPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 100000,
+          "inputPer1MUsd": 0.5,
+          "outputPer1MUsd": 2.5,
+          "cacheReadPer1MUsd": 0.049999999999999996,
+          "cacheWritePer1MUsd": 0.625,
+          "cacheWrite1hPer1MUsd": 1
+        }
+      ]
     },
     "anthropic.claude-instant-v1": {
       "inputPer1MUsd": 0.7999999999999999,
@@ -617,14 +627,33 @@
       "inputPer1MUsd": 3,
       "outputPer1MUsd": 15,
       "cacheReadPer1MUsd": 0.3,
-      "cacheWritePer1MUsd": 3.75
+      "cacheWritePer1MUsd": 3.75,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 6,
+          "outputPer1MUsd": 22.5,
+          "cacheReadPer1MUsd": 0.6,
+          "cacheWritePer1MUsd": 7.5
+        }
+      ]
     },
     "anthropic.claude-sonnet-4-5-20250929-v1:0": {
       "inputPer1MUsd": 3,
       "outputPer1MUsd": 15,
       "cacheReadPer1MUsd": 0.3,
       "cacheWritePer1MUsd": 3.75,
-      "cacheWrite1hPer1MUsd": 6
+      "cacheWrite1hPer1MUsd": 6,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 6,
+          "outputPer1MUsd": 22.5,
+          "cacheReadPer1MUsd": 0.6,
+          "cacheWritePer1MUsd": 7.5,
+          "cacheWrite1hPer1MUsd": 12
+        }
+      ]
     },
     "anthropic.claude-sonnet-4-6": {
       "inputPer1MUsd": 3,
@@ -746,7 +775,17 @@
       "outputPer1MUsd": 0.55,
       "cacheReadPer1MUsd": 0.011,
       "cacheWritePer1MUsd": 0.1375,
-      "cacheWrite1hPer1MUsd": 0.22
+      "cacheWrite1hPer1MUsd": 0.22,
+      "tiers": [
+        {
+          "aboveTokens": 100000,
+          "inputPer1MUsd": 0.55,
+          "outputPer1MUsd": 2.75,
+          "cacheReadPer1MUsd": 0.055,
+          "cacheWritePer1MUsd": 0.6875,
+          "cacheWrite1hPer1MUsd": 1.1
+        }
+      ]
     },
     "apac.anthropic.claude-mythos-preview": {
       "inputPer1MUsd": 27.5,
@@ -787,7 +826,16 @@
       "inputPer1MUsd": 3,
       "outputPer1MUsd": 15,
       "cacheReadPer1MUsd": 0.3,
-      "cacheWritePer1MUsd": 3.75
+      "cacheWritePer1MUsd": 3.75,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 6,
+          "outputPer1MUsd": 22.5,
+          "cacheReadPer1MUsd": 0.6,
+          "cacheWritePer1MUsd": 7.5
+        }
+      ]
     },
     "apac.anthropic.claude-sonnet-4-6": {
       "inputPer1MUsd": 3.3000000000000003,
@@ -829,7 +877,17 @@
       "outputPer1MUsd": 0.55,
       "cacheReadPer1MUsd": 0.011,
       "cacheWritePer1MUsd": 0.1375,
-      "cacheWrite1hPer1MUsd": 0.22
+      "cacheWrite1hPer1MUsd": 0.22,
+      "tiers": [
+        {
+          "aboveTokens": 100000,
+          "inputPer1MUsd": 0.55,
+          "outputPer1MUsd": 2.75,
+          "cacheReadPer1MUsd": 0.055,
+          "cacheWritePer1MUsd": 0.6875,
+          "cacheWrite1hPer1MUsd": 1.1
+        }
+      ]
     },
     "au.anthropic.claude-mythos-preview": {
       "inputPer1MUsd": 27.5,
@@ -878,7 +936,17 @@
       "outputPer1MUsd": 16.5,
       "cacheReadPer1MUsd": 0.33,
       "cacheWritePer1MUsd": 4.125,
-      "cacheWrite1hPer1MUsd": 6.6000000000000005
+      "cacheWrite1hPer1MUsd": 6.6000000000000005,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 6.6000000000000005,
+          "outputPer1MUsd": 24.75,
+          "cacheReadPer1MUsd": 0.66,
+          "cacheWritePer1MUsd": 8.25,
+          "cacheWrite1hPer1MUsd": 13.200000000000001
+        }
+      ]
     },
     "au.anthropic.claude-sonnet-4-6": {
       "inputPer1MUsd": 3.3000000000000003,
@@ -909,7 +977,16 @@
       "inputPer1MUsd": 2.4,
       "outputPer1MUsd": 12,
       "cacheReadPer1MUsd": 0.12,
-      "cacheWritePer1MUsd": 3
+      "cacheWritePer1MUsd": 3,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4.8,
+          "outputPer1MUsd": 18,
+          "cacheReadPer1MUsd": 0.24,
+          "cacheWritePer1MUsd": 6
+        }
+      ]
     },
     "azure/chat-latest": {
       "inputPer1MUsd": 5,
@@ -1084,12 +1161,28 @@
     "azure/eu/gpt-5.4": {
       "inputPer1MUsd": 2.75,
       "outputPer1MUsd": 16.5,
-      "cacheReadPer1MUsd": 0.275
+      "cacheReadPer1MUsd": 0.275,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 5.5,
+          "outputPer1MUsd": 24.75,
+          "cacheReadPer1MUsd": 0.55
+        }
+      ]
     },
     "azure/eu/gpt-5.4-2026-03-05": {
       "inputPer1MUsd": 2.75,
       "outputPer1MUsd": 16.5,
-      "cacheReadPer1MUsd": 0.275
+      "cacheReadPer1MUsd": 0.275,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 5.5,
+          "outputPer1MUsd": 24.75,
+          "cacheReadPer1MUsd": 0.55
+        }
+      ]
     },
     "azure/eu/gpt-5.4-mini": {
       "inputPer1MUsd": 0.8250000000000001,
@@ -1103,70 +1196,173 @@
     },
     "azure/eu/gpt-5.4-pro": {
       "inputPer1MUsd": 33,
-      "outputPer1MUsd": 198
+      "outputPer1MUsd": 198,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 66,
+          "outputPer1MUsd": 297
+        }
+      ]
     },
     "azure/eu/gpt-5.5": {
       "inputPer1MUsd": 5.5,
       "outputPer1MUsd": 33,
-      "cacheReadPer1MUsd": 0.55
+      "cacheReadPer1MUsd": 0.55,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 11,
+          "outputPer1MUsd": 49.5,
+          "cacheReadPer1MUsd": 1.1
+        }
+      ]
     },
     "azure/eu/gpt-5.5-2026-04-23": {
       "inputPer1MUsd": 5.5,
       "outputPer1MUsd": 33,
-      "cacheReadPer1MUsd": 0.55
+      "cacheReadPer1MUsd": 0.55,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 11,
+          "outputPer1MUsd": 49.5,
+          "cacheReadPer1MUsd": 1.1
+        }
+      ]
     },
     "azure/eu/gpt-5.5-2026-04-24": {
       "inputPer1MUsd": 5.5,
       "outputPer1MUsd": 33,
-      "cacheReadPer1MUsd": 0.55
+      "cacheReadPer1MUsd": 0.55,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 11,
+          "outputPer1MUsd": 49.5,
+          "cacheReadPer1MUsd": 1.1
+        }
+      ]
     },
     "azure/eu/gpt-5.6": {
       "inputPer1MUsd": 4.4,
       "outputPer1MUsd": 22,
       "cacheReadPer1MUsd": 0.44,
-      "cacheWritePer1MUsd": 5.5
+      "cacheWritePer1MUsd": 5.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 8.8,
+          "outputPer1MUsd": 33,
+          "cacheReadPer1MUsd": 0.88,
+          "cacheWritePer1MUsd": 11
+        }
+      ]
     },
     "azure/eu/gpt-5.6-luna": {
       "inputPer1MUsd": 0.22,
       "outputPer1MUsd": 1.32,
       "cacheReadPer1MUsd": 0.022,
-      "cacheWritePer1MUsd": 0.275
+      "cacheWritePer1MUsd": 0.275,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 0.44,
+          "outputPer1MUsd": 1.9800000000000002,
+          "cacheReadPer1MUsd": 0.044,
+          "cacheWritePer1MUsd": 0.55
+        }
+      ]
     },
     "azure/eu/gpt-5.6-sol": {
       "inputPer1MUsd": 4.4,
       "outputPer1MUsd": 22,
       "cacheReadPer1MUsd": 0.44,
-      "cacheWritePer1MUsd": 5.5
+      "cacheWritePer1MUsd": 5.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 8.8,
+          "outputPer1MUsd": 33,
+          "cacheReadPer1MUsd": 0.88,
+          "cacheWritePer1MUsd": 11
+        }
+      ]
     },
     "azure/eu/gpt-5.6-terra": {
       "inputPer1MUsd": 2.2,
       "outputPer1MUsd": 13.200000000000001,
       "cacheReadPer1MUsd": 0.22,
-      "cacheWritePer1MUsd": 2.75
+      "cacheWritePer1MUsd": 2.75,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4.4,
+          "outputPer1MUsd": 19.8,
+          "cacheReadPer1MUsd": 0.44,
+          "cacheWritePer1MUsd": 5.5
+        }
+      ]
     },
     "azure/eu/gpt-6-astra": {
       "inputPer1MUsd": 12,
       "outputPer1MUsd": 60,
       "cacheReadPer1MUsd": 1.2,
-      "cacheWritePer1MUsd": 15
+      "cacheWritePer1MUsd": 15,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 24,
+          "outputPer1MUsd": 90,
+          "cacheReadPer1MUsd": 2.4,
+          "cacheWritePer1MUsd": 30
+        }
+      ]
     },
     "azure/eu/gpt-6-luna": {
       "inputPer1MUsd": 0.12,
       "outputPer1MUsd": 0.6,
       "cacheReadPer1MUsd": 0.012,
-      "cacheWritePer1MUsd": 0.15
+      "cacheWritePer1MUsd": 0.15,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 0.24,
+          "outputPer1MUsd": 0.8999999999999999,
+          "cacheReadPer1MUsd": 0.024,
+          "cacheWritePer1MUsd": 0.3
+        }
+      ]
     },
     "azure/eu/gpt-6-sol": {
       "inputPer1MUsd": 2.4,
       "outputPer1MUsd": 12,
       "cacheReadPer1MUsd": 0.24,
-      "cacheWritePer1MUsd": 3
+      "cacheWritePer1MUsd": 3,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4.8,
+          "outputPer1MUsd": 18,
+          "cacheReadPer1MUsd": 0.48,
+          "cacheWritePer1MUsd": 6
+        }
+      ]
     },
     "azure/eu/gpt-6.1-sol": {
       "inputPer1MUsd": 2.4,
       "outputPer1MUsd": 12,
       "cacheReadPer1MUsd": 0.12,
-      "cacheWritePer1MUsd": 3
+      "cacheWritePer1MUsd": 3,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4.8,
+          "outputPer1MUsd": 18,
+          "cacheReadPer1MUsd": 0.24,
+          "cacheWritePer1MUsd": 6
+        }
+      ]
     },
     "azure/eu/o1-2024-12-17": {
       "inputPer1MUsd": 16.5,
@@ -1539,12 +1735,28 @@
     "azure/gpt-5.4": {
       "inputPer1MUsd": 2.5,
       "outputPer1MUsd": 15,
-      "cacheReadPer1MUsd": 0.25
+      "cacheReadPer1MUsd": 0.25,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 5,
+          "outputPer1MUsd": 22.5,
+          "cacheReadPer1MUsd": 0.5
+        }
+      ]
     },
     "azure/gpt-5.4-2026-03-05": {
       "inputPer1MUsd": 2.5,
       "outputPer1MUsd": 15,
-      "cacheReadPer1MUsd": 0.25
+      "cacheReadPer1MUsd": 0.25,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 5,
+          "outputPer1MUsd": 22.5,
+          "cacheReadPer1MUsd": 0.5
+        }
+      ]
     },
     "azure/gpt-5.4-mini": {
       "inputPer1MUsd": 0.75,
@@ -1569,127 +1781,318 @@
     "azure/gpt-5.4-pro": {
       "inputPer1MUsd": 30,
       "outputPer1MUsd": 180,
-      "cacheReadPer1MUsd": 3
+      "cacheReadPer1MUsd": 3,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 60,
+          "outputPer1MUsd": 270,
+          "cacheReadPer1MUsd": 6
+        }
+      ]
     },
     "azure/gpt-5.4-pro-2026-03-05": {
       "inputPer1MUsd": 30,
       "outputPer1MUsd": 180,
-      "cacheReadPer1MUsd": 3
+      "cacheReadPer1MUsd": 3,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 60,
+          "outputPer1MUsd": 270,
+          "cacheReadPer1MUsd": 6
+        }
+      ]
     },
     "azure/gpt-5.5": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 30,
-      "cacheReadPer1MUsd": 0.5
+      "cacheReadPer1MUsd": 0.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 10,
+          "outputPer1MUsd": 45,
+          "cacheReadPer1MUsd": 1
+        }
+      ]
     },
     "azure/gpt-5.5-2026-04-23": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 30,
-      "cacheReadPer1MUsd": 0.5
+      "cacheReadPer1MUsd": 0.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 10,
+          "outputPer1MUsd": 45,
+          "cacheReadPer1MUsd": 1
+        }
+      ]
     },
     "azure/gpt-5.5-2026-04-24": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 30,
-      "cacheReadPer1MUsd": 0.5
+      "cacheReadPer1MUsd": 0.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 10,
+          "outputPer1MUsd": 45,
+          "cacheReadPer1MUsd": 1
+        }
+      ]
     },
     "azure/gpt-5.5-pro": {
       "inputPer1MUsd": 30,
       "outputPer1MUsd": 180,
-      "cacheReadPer1MUsd": 3
+      "cacheReadPer1MUsd": 3,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 60,
+          "outputPer1MUsd": 270,
+          "cacheReadPer1MUsd": 6
+        }
+      ]
     },
     "azure/gpt-5.5-pro-2026-04-23": {
       "inputPer1MUsd": 30,
       "outputPer1MUsd": 180,
-      "cacheReadPer1MUsd": 3
+      "cacheReadPer1MUsd": 3,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 60,
+          "outputPer1MUsd": 270,
+          "cacheReadPer1MUsd": 6
+        }
+      ]
     },
     "azure/gpt-5.6": {
       "inputPer1MUsd": 4,
       "outputPer1MUsd": 20,
       "cacheReadPer1MUsd": 0.39999999999999997,
-      "cacheWritePer1MUsd": 5
+      "cacheWritePer1MUsd": 5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 8,
+          "outputPer1MUsd": 30,
+          "cacheReadPer1MUsd": 0.7999999999999999,
+          "cacheWritePer1MUsd": 10
+        }
+      ]
     },
     "azure/gpt-5.6-luna": {
       "inputPer1MUsd": 0.19999999999999998,
       "outputPer1MUsd": 1.2,
       "cacheReadPer1MUsd": 0.02,
-      "cacheWritePer1MUsd": 0.25
+      "cacheWritePer1MUsd": 0.25,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 0.39999999999999997,
+          "outputPer1MUsd": 1.7999999999999998,
+          "cacheReadPer1MUsd": 0.04,
+          "cacheWritePer1MUsd": 0.5
+        }
+      ]
     },
     "azure/gpt-5.6-luna-2026-07-09": {
       "inputPer1MUsd": 0.19999999999999998,
       "outputPer1MUsd": 1.2,
       "cacheReadPer1MUsd": 0.02,
-      "cacheWritePer1MUsd": 0.25
+      "cacheWritePer1MUsd": 0.25,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 0.39999999999999997,
+          "outputPer1MUsd": 1.7999999999999998,
+          "cacheReadPer1MUsd": 0.04,
+          "cacheWritePer1MUsd": 0.5
+        }
+      ]
     },
     "azure/gpt-5.6-sol": {
       "inputPer1MUsd": 4,
       "outputPer1MUsd": 20,
       "cacheReadPer1MUsd": 0.39999999999999997,
-      "cacheWritePer1MUsd": 5
+      "cacheWritePer1MUsd": 5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 8,
+          "outputPer1MUsd": 30,
+          "cacheReadPer1MUsd": 0.7999999999999999,
+          "cacheWritePer1MUsd": 10
+        }
+      ]
     },
     "azure/gpt-5.6-sol-2026-07-09": {
       "inputPer1MUsd": 4,
       "outputPer1MUsd": 20,
       "cacheReadPer1MUsd": 0.39999999999999997,
-      "cacheWritePer1MUsd": 5
+      "cacheWritePer1MUsd": 5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 8,
+          "outputPer1MUsd": 30,
+          "cacheReadPer1MUsd": 0.7999999999999999,
+          "cacheWritePer1MUsd": 10
+        }
+      ]
     },
     "azure/gpt-5.6-terra": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 12,
       "cacheReadPer1MUsd": 0.19999999999999998,
-      "cacheWritePer1MUsd": 2.5
+      "cacheWritePer1MUsd": 2.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 18,
+          "cacheReadPer1MUsd": 0.39999999999999997,
+          "cacheWritePer1MUsd": 5
+        }
+      ]
     },
     "azure/gpt-5.6-terra-2026-07-09": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 12,
       "cacheReadPer1MUsd": 0.19999999999999998,
-      "cacheWritePer1MUsd": 2.5
+      "cacheWritePer1MUsd": 2.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 18,
+          "cacheReadPer1MUsd": 0.39999999999999997,
+          "cacheWritePer1MUsd": 5
+        }
+      ]
     },
     "azure/gpt-6-astra": {
       "inputPer1MUsd": 10,
       "outputPer1MUsd": 50,
       "cacheReadPer1MUsd": 1,
-      "cacheWritePer1MUsd": 12.5
+      "cacheWritePer1MUsd": 12.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 20,
+          "outputPer1MUsd": 75,
+          "cacheReadPer1MUsd": 2,
+          "cacheWritePer1MUsd": 25
+        }
+      ]
     },
     "azure/gpt-6-astra-2026-09-03": {
       "inputPer1MUsd": 10,
       "outputPer1MUsd": 50,
       "cacheReadPer1MUsd": 1,
-      "cacheWritePer1MUsd": 12.5
+      "cacheWritePer1MUsd": 12.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 20,
+          "outputPer1MUsd": 75,
+          "cacheReadPer1MUsd": 2,
+          "cacheWritePer1MUsd": 25
+        }
+      ]
     },
     "azure/gpt-6-luna": {
       "inputPer1MUsd": 0.09999999999999999,
       "outputPer1MUsd": 0.5,
       "cacheReadPer1MUsd": 0.01,
-      "cacheWritePer1MUsd": 0.125
+      "cacheWritePer1MUsd": 0.125,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 0.19999999999999998,
+          "outputPer1MUsd": 0.75,
+          "cacheReadPer1MUsd": 0.02,
+          "cacheWritePer1MUsd": 0.25
+        }
+      ]
     },
     "azure/gpt-6-luna-2026-09-22": {
       "inputPer1MUsd": 0.09999999999999999,
       "outputPer1MUsd": 0.5,
       "cacheReadPer1MUsd": 0.01,
-      "cacheWritePer1MUsd": 0.125
+      "cacheWritePer1MUsd": 0.125,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 0.19999999999999998,
+          "outputPer1MUsd": 0.75,
+          "cacheReadPer1MUsd": 0.02,
+          "cacheWritePer1MUsd": 0.25
+        }
+      ]
     },
     "azure/gpt-6-sol": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 10,
       "cacheReadPer1MUsd": 0.19999999999999998,
-      "cacheWritePer1MUsd": 2.5
+      "cacheWritePer1MUsd": 2.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 15,
+          "cacheReadPer1MUsd": 0.39999999999999997,
+          "cacheWritePer1MUsd": 5
+        }
+      ]
     },
     "azure/gpt-6-sol-2026-09-22": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 10,
       "cacheReadPer1MUsd": 0.19999999999999998,
-      "cacheWritePer1MUsd": 2.5
+      "cacheWritePer1MUsd": 2.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 15,
+          "cacheReadPer1MUsd": 0.39999999999999997,
+          "cacheWritePer1MUsd": 5
+        }
+      ]
     },
     "azure/gpt-6.1-sol": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 10,
       "cacheReadPer1MUsd": 0.09999999999999999,
-      "cacheWritePer1MUsd": 2.5
+      "cacheWritePer1MUsd": 2.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 15,
+          "cacheReadPer1MUsd": 0.19999999999999998,
+          "cacheWritePer1MUsd": 5
+        }
+      ]
     },
     "azure/gpt-6.1-sol-2026-09-29": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 10,
       "cacheReadPer1MUsd": 0.09999999999999999,
-      "cacheWritePer1MUsd": 2.5
+      "cacheWritePer1MUsd": 2.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 15,
+          "cacheReadPer1MUsd": 0.19999999999999998,
+          "cacheWritePer1MUsd": 5
+        }
+      ]
     },
     "azure/gpt-audio": {
       "inputPer1MUsd": 2.5,
@@ -2050,12 +2453,28 @@
     "azure/us/gpt-5.4": {
       "inputPer1MUsd": 2.75,
       "outputPer1MUsd": 16.5,
-      "cacheReadPer1MUsd": 0.275
+      "cacheReadPer1MUsd": 0.275,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 5.5,
+          "outputPer1MUsd": 24.75,
+          "cacheReadPer1MUsd": 0.55
+        }
+      ]
     },
     "azure/us/gpt-5.4-2026-03-05": {
       "inputPer1MUsd": 2.75,
       "outputPer1MUsd": 16.5,
-      "cacheReadPer1MUsd": 0.275
+      "cacheReadPer1MUsd": 0.275,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 5.5,
+          "outputPer1MUsd": 24.75,
+          "cacheReadPer1MUsd": 0.55
+        }
+      ]
     },
     "azure/us/gpt-5.4-mini": {
       "inputPer1MUsd": 0.8250000000000001,
@@ -2069,70 +2488,173 @@
     },
     "azure/us/gpt-5.4-pro": {
       "inputPer1MUsd": 33,
-      "outputPer1MUsd": 198
+      "outputPer1MUsd": 198,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 66,
+          "outputPer1MUsd": 297
+        }
+      ]
     },
     "azure/us/gpt-5.5": {
       "inputPer1MUsd": 5.5,
       "outputPer1MUsd": 33,
-      "cacheReadPer1MUsd": 0.55
+      "cacheReadPer1MUsd": 0.55,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 11,
+          "outputPer1MUsd": 49.5,
+          "cacheReadPer1MUsd": 1.1
+        }
+      ]
     },
     "azure/us/gpt-5.5-2026-04-23": {
       "inputPer1MUsd": 5.5,
       "outputPer1MUsd": 33,
-      "cacheReadPer1MUsd": 0.55
+      "cacheReadPer1MUsd": 0.55,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 11,
+          "outputPer1MUsd": 49.5,
+          "cacheReadPer1MUsd": 1.1
+        }
+      ]
     },
     "azure/us/gpt-5.5-2026-04-24": {
       "inputPer1MUsd": 5.5,
       "outputPer1MUsd": 33,
-      "cacheReadPer1MUsd": 0.55
+      "cacheReadPer1MUsd": 0.55,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 11,
+          "outputPer1MUsd": 49.5,
+          "cacheReadPer1MUsd": 1.1
+        }
+      ]
     },
     "azure/us/gpt-5.6": {
       "inputPer1MUsd": 4.4,
       "outputPer1MUsd": 22,
       "cacheReadPer1MUsd": 0.44,
-      "cacheWritePer1MUsd": 5.5
+      "cacheWritePer1MUsd": 5.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 8.8,
+          "outputPer1MUsd": 33,
+          "cacheReadPer1MUsd": 0.88,
+          "cacheWritePer1MUsd": 11
+        }
+      ]
     },
     "azure/us/gpt-5.6-luna": {
       "inputPer1MUsd": 0.22,
       "outputPer1MUsd": 1.32,
       "cacheReadPer1MUsd": 0.022,
-      "cacheWritePer1MUsd": 0.275
+      "cacheWritePer1MUsd": 0.275,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 0.44,
+          "outputPer1MUsd": 1.9800000000000002,
+          "cacheReadPer1MUsd": 0.044,
+          "cacheWritePer1MUsd": 0.55
+        }
+      ]
     },
     "azure/us/gpt-5.6-sol": {
       "inputPer1MUsd": 4.4,
       "outputPer1MUsd": 22,
       "cacheReadPer1MUsd": 0.44,
-      "cacheWritePer1MUsd": 5.5
+      "cacheWritePer1MUsd": 5.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 8.8,
+          "outputPer1MUsd": 33,
+          "cacheReadPer1MUsd": 0.88,
+          "cacheWritePer1MUsd": 11
+        }
+      ]
     },
     "azure/us/gpt-5.6-terra": {
       "inputPer1MUsd": 2.2,
       "outputPer1MUsd": 13.200000000000001,
       "cacheReadPer1MUsd": 0.22,
-      "cacheWritePer1MUsd": 2.75
+      "cacheWritePer1MUsd": 2.75,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4.4,
+          "outputPer1MUsd": 19.8,
+          "cacheReadPer1MUsd": 0.44,
+          "cacheWritePer1MUsd": 5.5
+        }
+      ]
     },
     "azure/us/gpt-6-astra": {
       "inputPer1MUsd": 11,
       "outputPer1MUsd": 55,
       "cacheReadPer1MUsd": 1.1,
-      "cacheWritePer1MUsd": 13.75
+      "cacheWritePer1MUsd": 13.75,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 22,
+          "outputPer1MUsd": 82.5,
+          "cacheReadPer1MUsd": 2.2,
+          "cacheWritePer1MUsd": 27.5
+        }
+      ]
     },
     "azure/us/gpt-6-luna": {
       "inputPer1MUsd": 0.11,
       "outputPer1MUsd": 0.55,
       "cacheReadPer1MUsd": 0.011,
-      "cacheWritePer1MUsd": 0.1375
+      "cacheWritePer1MUsd": 0.1375,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 0.22,
+          "outputPer1MUsd": 0.8250000000000001,
+          "cacheReadPer1MUsd": 0.022,
+          "cacheWritePer1MUsd": 0.275
+        }
+      ]
     },
     "azure/us/gpt-6-sol": {
       "inputPer1MUsd": 2.2,
       "outputPer1MUsd": 11,
       "cacheReadPer1MUsd": 0.22,
-      "cacheWritePer1MUsd": 2.75
+      "cacheWritePer1MUsd": 2.75,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4.4,
+          "outputPer1MUsd": 16.5,
+          "cacheReadPer1MUsd": 0.44,
+          "cacheWritePer1MUsd": 5.5
+        }
+      ]
     },
     "azure/us/gpt-6.1-sol": {
       "inputPer1MUsd": 2.2,
       "outputPer1MUsd": 11,
       "cacheReadPer1MUsd": 0.11,
-      "cacheWritePer1MUsd": 2.75
+      "cacheWritePer1MUsd": 2.75,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4.4,
+          "outputPer1MUsd": 16.5,
+          "cacheReadPer1MUsd": 0.22,
+          "cacheWritePer1MUsd": 5.5
+        }
+      ]
     },
     "azure/us/gpt-chat-latest": {
       "inputPer1MUsd": 5.5,
@@ -2205,7 +2727,17 @@
       "outputPer1MUsd": 0.5,
       "cacheReadPer1MUsd": 0.01,
       "cacheWritePer1MUsd": 0.125,
-      "cacheWrite1hPer1MUsd": 0.19999999999999998
+      "cacheWrite1hPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 100000,
+          "inputPer1MUsd": 0.5,
+          "outputPer1MUsd": 2.5,
+          "cacheReadPer1MUsd": 0.049999999999999996,
+          "cacheWritePer1MUsd": 0.625,
+          "cacheWrite1hPer1MUsd": 1
+        }
+      ]
     },
     "azure_ai/claude-opus-4-5": {
       "inputPer1MUsd": 5,
@@ -2477,12 +3009,28 @@
     "azure_ai/gpt-5.4": {
       "inputPer1MUsd": 2.5,
       "outputPer1MUsd": 15,
-      "cacheReadPer1MUsd": 0.25
+      "cacheReadPer1MUsd": 0.25,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 5,
+          "outputPer1MUsd": 22.5,
+          "cacheReadPer1MUsd": 0.5
+        }
+      ]
     },
     "azure_ai/gpt-5.4-2026-03-05": {
       "inputPer1MUsd": 2.5,
       "outputPer1MUsd": 15,
-      "cacheReadPer1MUsd": 0.25
+      "cacheReadPer1MUsd": 0.25,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 5,
+          "outputPer1MUsd": 22.5,
+          "cacheReadPer1MUsd": 0.5
+        }
+      ]
     },
     "azure_ai/gpt-5.4-mini": {
       "inputPer1MUsd": 0.75,
@@ -2507,51 +3055,127 @@
     "azure_ai/gpt-5.4-pro": {
       "inputPer1MUsd": 30,
       "outputPer1MUsd": 180,
-      "cacheReadPer1MUsd": 3
+      "cacheReadPer1MUsd": 3,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 60,
+          "outputPer1MUsd": 270,
+          "cacheReadPer1MUsd": 6
+        }
+      ]
     },
     "azure_ai/gpt-5.4-pro-2026-03-05": {
       "inputPer1MUsd": 30,
       "outputPer1MUsd": 180,
-      "cacheReadPer1MUsd": 3
+      "cacheReadPer1MUsd": 3,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 60,
+          "outputPer1MUsd": 270,
+          "cacheReadPer1MUsd": 6
+        }
+      ]
     },
     "azure_ai/gpt-5.5": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 30,
-      "cacheReadPer1MUsd": 0.5
+      "cacheReadPer1MUsd": 0.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 10,
+          "outputPer1MUsd": 45,
+          "cacheReadPer1MUsd": 1
+        }
+      ]
     },
     "azure_ai/gpt-5.5-2026-04-23": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 30,
-      "cacheReadPer1MUsd": 0.5
+      "cacheReadPer1MUsd": 0.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 10,
+          "outputPer1MUsd": 45,
+          "cacheReadPer1MUsd": 1
+        }
+      ]
     },
     "azure_ai/gpt-5.5-2026-04-24": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 30,
-      "cacheReadPer1MUsd": 0.5
+      "cacheReadPer1MUsd": 0.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 10,
+          "outputPer1MUsd": 45,
+          "cacheReadPer1MUsd": 1
+        }
+      ]
     },
     "azure_ai/gpt-6-astra": {
       "inputPer1MUsd": 10,
       "outputPer1MUsd": 50,
       "cacheReadPer1MUsd": 1,
-      "cacheWritePer1MUsd": 12.5
+      "cacheWritePer1MUsd": 12.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 20,
+          "outputPer1MUsd": 75,
+          "cacheReadPer1MUsd": 2,
+          "cacheWritePer1MUsd": 25
+        }
+      ]
     },
     "azure_ai/gpt-6-luna": {
       "inputPer1MUsd": 0.09999999999999999,
       "outputPer1MUsd": 0.5,
       "cacheReadPer1MUsd": 0.01,
-      "cacheWritePer1MUsd": 0.125
+      "cacheWritePer1MUsd": 0.125,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 0.19999999999999998,
+          "outputPer1MUsd": 0.75,
+          "cacheReadPer1MUsd": 0.02,
+          "cacheWritePer1MUsd": 0.25
+        }
+      ]
     },
     "azure_ai/gpt-6-sol": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 10,
       "cacheReadPer1MUsd": 0.19999999999999998,
-      "cacheWritePer1MUsd": 2.5
+      "cacheWritePer1MUsd": 2.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 15,
+          "cacheReadPer1MUsd": 0.39999999999999997,
+          "cacheWritePer1MUsd": 5
+        }
+      ]
     },
     "azure_ai/gpt-6.1-sol": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 10,
       "cacheReadPer1MUsd": 0.09999999999999999,
-      "cacheWritePer1MUsd": 2.5
+      "cacheWritePer1MUsd": 2.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 15,
+          "cacheReadPer1MUsd": 0.19999999999999998,
+          "cacheWritePer1MUsd": 5
+        }
+      ]
     },
     "azure_ai/gpt-chat-latest": {
       "inputPer1MUsd": 5,
@@ -2603,17 +3227,41 @@
     "azure_ai/grok-4.3": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "azure_ai/grok-4.6": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 6,
-      "cacheReadPer1MUsd": 0.5
+      "cacheReadPer1MUsd": 0.5,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 12,
+          "cacheReadPer1MUsd": 1
+        }
+      ]
     },
     "azure_ai/grok-4.7": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 6,
-      "cacheReadPer1MUsd": 0.5
+      "cacheReadPer1MUsd": 0.5,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 12,
+          "cacheReadPer1MUsd": 1
+        }
+      ]
     },
     "azure_ai/grok-code-fast-1": {
       "inputPer1MUsd": 0.19999999999999998,
@@ -3324,7 +3972,17 @@
       "outputPer1MUsd": 0.6,
       "cacheReadPer1MUsd": 0.012,
       "cacheWritePer1MUsd": 0.15,
-      "cacheWrite1hPer1MUsd": 0.24
+      "cacheWrite1hPer1MUsd": 0.24,
+      "tiers": [
+        {
+          "aboveTokens": 100000,
+          "inputPer1MUsd": 0.6,
+          "outputPer1MUsd": 3,
+          "cacheReadPer1MUsd": 0.06,
+          "cacheWritePer1MUsd": 0.75,
+          "cacheWrite1hPer1MUsd": 1.2
+        }
+      ]
     },
     "bedrock/us-gov-east-1/anthropic.claude-opus-4-8": {
       "inputPer1MUsd": 6,
@@ -3465,7 +4123,17 @@
       "outputPer1MUsd": 0.6,
       "cacheReadPer1MUsd": 0.012,
       "cacheWritePer1MUsd": 0.15,
-      "cacheWrite1hPer1MUsd": 0.24
+      "cacheWrite1hPer1MUsd": 0.24,
+      "tiers": [
+        {
+          "aboveTokens": 100000,
+          "inputPer1MUsd": 0.6,
+          "outputPer1MUsd": 3,
+          "cacheReadPer1MUsd": 0.06,
+          "cacheWritePer1MUsd": 0.75,
+          "cacheWrite1hPer1MUsd": 1.2
+        }
+      ]
     },
     "bedrock/us-gov-west-1/anthropic.claude-opus-4-8": {
       "inputPer1MUsd": 6,
@@ -3626,7 +4294,17 @@
       "outputPer1MUsd": 0.55,
       "cacheReadPer1MUsd": 0.011,
       "cacheWritePer1MUsd": 0.1375,
-      "cacheWrite1hPer1MUsd": 0.22
+      "cacheWrite1hPer1MUsd": 0.22,
+      "tiers": [
+        {
+          "aboveTokens": 100000,
+          "inputPer1MUsd": 0.55,
+          "outputPer1MUsd": 2.75,
+          "cacheReadPer1MUsd": 0.055,
+          "cacheWritePer1MUsd": 0.6875,
+          "cacheWrite1hPer1MUsd": 1.1
+        }
+      ]
     },
     "bedrock_mantle/anthropic.claude-opus-5-5": {
       "inputPer1MUsd": 4.4,
@@ -3665,12 +4343,28 @@
     "bedrock_mantle/openai.gpt-5.4": {
       "inputPer1MUsd": 2.75,
       "outputPer1MUsd": 16.5,
-      "cacheReadPer1MUsd": 0.275
+      "cacheReadPer1MUsd": 0.275,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 5.5,
+          "outputPer1MUsd": 24.75,
+          "cacheReadPer1MUsd": 0.55
+        }
+      ]
     },
     "bedrock_mantle/openai.gpt-5.5": {
       "inputPer1MUsd": 5.5,
       "outputPer1MUsd": 33,
-      "cacheReadPer1MUsd": 0.55
+      "cacheReadPer1MUsd": 0.55,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 11,
+          "outputPer1MUsd": 49.5,
+          "cacheReadPer1MUsd": 1.1
+        }
+      ]
     },
     "bedrock_mantle/openai.gpt-5.6-cyber": {
       "inputPer1MUsd": 13.75,
@@ -3682,49 +4376,121 @@
       "inputPer1MUsd": 0.22,
       "outputPer1MUsd": 1.32,
       "cacheReadPer1MUsd": 0.022,
-      "cacheWritePer1MUsd": 0.275
+      "cacheWritePer1MUsd": 0.275,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 0.44,
+          "outputPer1MUsd": 1.9800000000000002,
+          "cacheReadPer1MUsd": 0.044,
+          "cacheWritePer1MUsd": 0.55
+        }
+      ]
     },
     "bedrock_mantle/openai.gpt-5.6-sol": {
       "inputPer1MUsd": 4.4,
       "outputPer1MUsd": 22,
       "cacheReadPer1MUsd": 0.44,
-      "cacheWritePer1MUsd": 5.5
+      "cacheWritePer1MUsd": 5.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 8.8,
+          "outputPer1MUsd": 33,
+          "cacheReadPer1MUsd": 0.88,
+          "cacheWritePer1MUsd": 11
+        }
+      ]
     },
     "bedrock_mantle/openai.gpt-5.6-terra": {
       "inputPer1MUsd": 2.2,
       "outputPer1MUsd": 13.200000000000001,
       "cacheReadPer1MUsd": 0.22,
-      "cacheWritePer1MUsd": 2.75
+      "cacheWritePer1MUsd": 2.75,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4.4,
+          "outputPer1MUsd": 19.8,
+          "cacheReadPer1MUsd": 0.44,
+          "cacheWritePer1MUsd": 5.5
+        }
+      ]
     },
     "bedrock_mantle/openai.gpt-6-astra": {
       "inputPer1MUsd": 11,
       "outputPer1MUsd": 55,
       "cacheReadPer1MUsd": 1.1,
-      "cacheWritePer1MUsd": 13.75
+      "cacheWritePer1MUsd": 13.75,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 22,
+          "outputPer1MUsd": 82.5,
+          "cacheReadPer1MUsd": 2.2,
+          "cacheWritePer1MUsd": 27.5
+        }
+      ]
     },
     "bedrock_mantle/openai.gpt-6-luna": {
       "inputPer1MUsd": 0.11,
       "outputPer1MUsd": 0.55,
       "cacheReadPer1MUsd": 0.011,
-      "cacheWritePer1MUsd": 0.1375
+      "cacheWritePer1MUsd": 0.1375,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 0.22,
+          "outputPer1MUsd": 0.8250000000000001,
+          "cacheReadPer1MUsd": 0.022,
+          "cacheWritePer1MUsd": 0.275
+        }
+      ]
     },
     "bedrock_mantle/openai.gpt-6-sol": {
       "inputPer1MUsd": 2.2,
       "outputPer1MUsd": 11,
       "cacheReadPer1MUsd": 0.22,
-      "cacheWritePer1MUsd": 2.75
+      "cacheWritePer1MUsd": 2.75,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4.4,
+          "outputPer1MUsd": 16.5,
+          "cacheReadPer1MUsd": 0.44,
+          "cacheWritePer1MUsd": 5.5
+        }
+      ]
     },
     "bedrock_mantle/openai.gpt-6.1-sol": {
       "inputPer1MUsd": 2.2,
       "outputPer1MUsd": 11,
       "cacheReadPer1MUsd": 0.11,
-      "cacheWritePer1MUsd": 2.75
+      "cacheWritePer1MUsd": 2.75,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4.4,
+          "outputPer1MUsd": 16.5,
+          "cacheReadPer1MUsd": 0.22,
+          "cacheWritePer1MUsd": 5.5
+        }
+      ]
     },
     "bedrock_mantle/openai.gpt-daybreak-blue-5.6-sol": {
       "inputPer1MUsd": 4.4,
       "outputPer1MUsd": 22,
       "cacheReadPer1MUsd": 0.44,
-      "cacheWritePer1MUsd": 5.5
+      "cacheWritePer1MUsd": 5.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 8.8,
+          "outputPer1MUsd": 33,
+          "cacheReadPer1MUsd": 0.88,
+          "cacheWritePer1MUsd": 11
+        }
+      ]
     },
     "bedrock_mantle/openai.gpt-oss-120b": {
       "inputPer1MUsd": 0.15,
@@ -3789,7 +4555,17 @@
       "outputPer1MUsd": 0.6,
       "cacheReadPer1MUsd": 0.012,
       "cacheWritePer1MUsd": 0.15,
-      "cacheWrite1hPer1MUsd": 0.24
+      "cacheWrite1hPer1MUsd": 0.24,
+      "tiers": [
+        {
+          "aboveTokens": 100000,
+          "inputPer1MUsd": 0.6,
+          "outputPer1MUsd": 3,
+          "cacheReadPer1MUsd": 0.06,
+          "cacheWritePer1MUsd": 0.75,
+          "cacheWrite1hPer1MUsd": 1.2
+        }
+      ]
     },
     "bedrock_mantle/us-gov-west-1/anthropic.claude-opus-5-5": {
       "inputPer1MUsd": 4.8,
@@ -3826,13 +4602,31 @@
       "inputPer1MUsd": 0.27,
       "outputPer1MUsd": 1.6199999999999999,
       "cacheReadPer1MUsd": 0.027,
-      "cacheWritePer1MUsd": 0.3375
+      "cacheWritePer1MUsd": 0.3375,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 0.54,
+          "outputPer1MUsd": 2.43,
+          "cacheReadPer1MUsd": 0.054,
+          "cacheWritePer1MUsd": 0.675
+        }
+      ]
     },
     "bedrock_mantle/us-gov-west-1/openai.gpt-5.6-terra": {
       "inputPer1MUsd": 2.7,
       "outputPer1MUsd": 16.2,
       "cacheReadPer1MUsd": 0.27,
-      "cacheWritePer1MUsd": 3.375
+      "cacheWritePer1MUsd": 3.375,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 5.4,
+          "outputPer1MUsd": 24.3,
+          "cacheReadPer1MUsd": 0.54,
+          "cacheWritePer1MUsd": 6.75
+        }
+      ]
     },
     "bedrock_mantle/us-gov-west-1/openai.gpt-oss-120b": {
       "inputPer1MUsd": 0.18,
@@ -3953,7 +4747,17 @@
       "outputPer1MUsd": 0.5,
       "cacheReadPer1MUsd": 0.01,
       "cacheWritePer1MUsd": 0.125,
-      "cacheWrite1hPer1MUsd": 0.19999999999999998
+      "cacheWrite1hPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 100000,
+          "inputPer1MUsd": 0.5,
+          "outputPer1MUsd": 2.5,
+          "cacheReadPer1MUsd": 0.049999999999999996,
+          "cacheWritePer1MUsd": 0.625,
+          "cacheWrite1hPer1MUsd": 1
+        }
+      ]
     },
     "claude-mythos-5": {
       "inputPer1MUsd": 10,
@@ -4058,7 +4862,17 @@
       "outputPer1MUsd": 15,
       "cacheReadPer1MUsd": 0.3,
       "cacheWritePer1MUsd": 3.75,
-      "cacheWrite1hPer1MUsd": 6
+      "cacheWrite1hPer1MUsd": 6,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 6,
+          "outputPer1MUsd": 22.5,
+          "cacheReadPer1MUsd": 0.6,
+          "cacheWritePer1MUsd": 7.5,
+          "cacheWrite1hPer1MUsd": 12
+        }
+      ]
     },
     "claude-sonnet-4-6": {
       "inputPer1MUsd": 3,
@@ -4889,13 +5703,31 @@
       "inputPer1MUsd": 4,
       "outputPer1MUsd": 20,
       "cacheReadPer1MUsd": 0.39999999999999997,
-      "cacheWritePer1MUsd": 5
+      "cacheWritePer1MUsd": 5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 8,
+          "outputPer1MUsd": 30,
+          "cacheReadPer1MUsd": 0.7999999999999999,
+          "cacheWritePer1MUsd": 10
+        }
+      ]
     },
     "daybreak-red-latest": {
       "inputPer1MUsd": 12.5,
       "outputPer1MUsd": 75,
       "cacheReadPer1MUsd": 1.25,
-      "cacheWritePer1MUsd": 15.625
+      "cacheWritePer1MUsd": 15.625,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 25,
+          "outputPer1MUsd": 112.5,
+          "cacheReadPer1MUsd": 2.5,
+          "cacheWritePer1MUsd": 31.25
+        }
+      ]
     },
     "deep-research-pro-preview-12-2025": {
       "inputPer1MUsd": 2,
@@ -5715,7 +6547,17 @@
       "outputPer1MUsd": 0.55,
       "cacheReadPer1MUsd": 0.011,
       "cacheWritePer1MUsd": 0.1375,
-      "cacheWrite1hPer1MUsd": 0.22
+      "cacheWrite1hPer1MUsd": 0.22,
+      "tiers": [
+        {
+          "aboveTokens": 100000,
+          "inputPer1MUsd": 0.55,
+          "outputPer1MUsd": 2.75,
+          "cacheReadPer1MUsd": 0.055,
+          "cacheWritePer1MUsd": 0.6875,
+          "cacheWrite1hPer1MUsd": 1.1
+        }
+      ]
     },
     "eu.anthropic.claude-opus-4-1-20250805-v1:0": {
       "inputPer1MUsd": 15,
@@ -5775,14 +6617,33 @@
       "inputPer1MUsd": 3,
       "outputPer1MUsd": 15,
       "cacheReadPer1MUsd": 0.3,
-      "cacheWritePer1MUsd": 3.75
+      "cacheWritePer1MUsd": 3.75,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 6,
+          "outputPer1MUsd": 22.5,
+          "cacheReadPer1MUsd": 0.6,
+          "cacheWritePer1MUsd": 7.5
+        }
+      ]
     },
     "eu.anthropic.claude-sonnet-4-5-20250929-v1:0": {
       "inputPer1MUsd": 3.3000000000000003,
       "outputPer1MUsd": 16.5,
       "cacheReadPer1MUsd": 0.33,
       "cacheWritePer1MUsd": 4.125,
-      "cacheWrite1hPer1MUsd": 6.6000000000000005
+      "cacheWrite1hPer1MUsd": 6.6000000000000005,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 6.6000000000000005,
+          "outputPer1MUsd": 24.75,
+          "cacheReadPer1MUsd": 0.66,
+          "cacheWritePer1MUsd": 8.25,
+          "cacheWrite1hPer1MUsd": 13.200000000000001
+        }
+      ]
     },
     "eu.anthropic.claude-sonnet-4-6": {
       "inputPer1MUsd": 3.3000000000000003,
@@ -7358,7 +8219,14 @@
     },
     "gemini-2.5-computer-use-preview-10-2025": {
       "inputPer1MUsd": 1.25,
-      "outputPer1MUsd": 10
+      "outputPer1MUsd": 10,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 15
+        }
+      ]
     },
     "gemini-2.5-flash": {
       "inputPer1MUsd": 0.3,
@@ -7413,7 +8281,16 @@
     "gemini-2.5-pro": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 10,
-      "cacheReadPer1MUsd": 0.125
+      "cacheReadPer1MUsd": 0.125,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 15,
+          "cacheReadPer1MUsd": 0.25,
+          "cacheWritePer1MUsd": 0.25
+        }
+      ]
     },
     "gemini-2.5-pro-preview-tts": {
       "inputPer1MUsd": 1,
@@ -7430,12 +8307,28 @@
     "gemini-3-pro-image": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 12,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 18,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "gemini-3-pro-image-preview": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 12,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 18,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "gemini-3.1-flash-image": {
       "inputPer1MUsd": 0.5,
@@ -7473,12 +8366,30 @@
     "gemini-3.1-pro-preview": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 12,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 18,
+          "cacheReadPer1MUsd": 0.39999999999999997,
+          "cacheWritePer1MUsd": 0.25
+        }
+      ]
     },
     "gemini-3.1-pro-preview-customtools": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 12,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 18,
+          "cacheReadPer1MUsd": 0.39999999999999997,
+          "cacheWritePer1MUsd": 0.25
+        }
+      ]
     },
     "gemini-3.5-flash": {
       "inputPer1MUsd": 1.5,
@@ -7589,7 +8500,15 @@
     "gemini-pro-latest": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 12,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 18,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "gemini-robotics-er-1.5-preview": {
       "inputPer1MUsd": 0.3,
@@ -7623,7 +8542,14 @@
     },
     "gemini/gemini-2.5-computer-use-preview-10-2025": {
       "inputPer1MUsd": 1.25,
-      "outputPer1MUsd": 10
+      "outputPer1MUsd": 10,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 15
+        }
+      ]
     },
     "gemini/gemini-2.5-flash": {
       "inputPer1MUsd": 0.3,
@@ -7665,7 +8591,15 @@
     "gemini/gemini-2.5-pro": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 10,
-      "cacheReadPer1MUsd": 0.125
+      "cacheReadPer1MUsd": 0.125,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 15,
+          "cacheReadPer1MUsd": 0.25
+        }
+      ]
     },
     "gemini/gemini-2.5-pro-preview-tts": {
       "inputPer1MUsd": 1,
@@ -7724,12 +8658,28 @@
     "gemini/gemini-3.1-pro-preview": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 12,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 18,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "gemini/gemini-3.1-pro-preview-customtools": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 12,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 18,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "gemini/gemini-3.5-flash": {
       "inputPer1MUsd": 1.5,
@@ -7817,11 +8767,25 @@
     },
     "gemini/gemini-exp-1114": {
       "inputPer1MUsd": 0,
-      "outputPer1MUsd": 0
+      "outputPer1MUsd": 0,
+      "tiers": [
+        {
+          "aboveTokens": 128000,
+          "inputPer1MUsd": 0,
+          "outputPer1MUsd": 0
+        }
+      ]
     },
     "gemini/gemini-exp-1206": {
       "inputPer1MUsd": 0,
-      "outputPer1MUsd": 0
+      "outputPer1MUsd": 0,
+      "tiers": [
+        {
+          "aboveTokens": 128000,
+          "inputPer1MUsd": 0,
+          "outputPer1MUsd": 0
+        }
+      ]
     },
     "gemini/gemini-flash-latest": {
       "inputPer1MUsd": 0.75,
@@ -7868,7 +8832,15 @@
     "gemini/gemini-pro-latest": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 12,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 18,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "gemini/gemini-robotics-er-2-preview": {
       "inputPer1MUsd": 1,
@@ -7883,7 +8855,14 @@
     },
     "gemini/gemma-3-27b-it": {
       "inputPer1MUsd": 0,
-      "outputPer1MUsd": 0
+      "outputPer1MUsd": 0,
+      "tiers": [
+        {
+          "aboveTokens": 128000,
+          "inputPer1MUsd": 0,
+          "outputPer1MUsd": 0
+        }
+      ]
     },
     "gemini/gemma-4-26b-a4b-it": {
       "inputPer1MUsd": 0,
@@ -7895,7 +8874,14 @@
     },
     "gemini/learnlm-1.5-pro-experimental": {
       "inputPer1MUsd": 0,
-      "outputPer1MUsd": 0
+      "outputPer1MUsd": 0,
+      "tiers": [
+        {
+          "aboveTokens": 128000,
+          "inputPer1MUsd": 0,
+          "outputPer1MUsd": 0
+        }
+      ]
     },
     "gemini/lyria-3-clip-preview": {
       "inputPer1MUsd": 0,
@@ -7963,7 +8949,16 @@
       "inputPer1MUsd": 0.09999999999999999,
       "outputPer1MUsd": 0.5,
       "cacheReadPer1MUsd": 0.01,
-      "cacheWritePer1MUsd": 0.125
+      "cacheWritePer1MUsd": 0.125,
+      "tiers": [
+        {
+          "aboveTokens": 100000,
+          "inputPer1MUsd": 0.5,
+          "outputPer1MUsd": 2.5,
+          "cacheReadPer1MUsd": 0.049999999999999996,
+          "cacheWritePer1MUsd": 0.625
+        }
+      ]
     },
     "github_copilot/gemini-4-argon": {
       "inputPer1MUsd": 2,
@@ -8015,7 +9010,17 @@
       "outputPer1MUsd": 0.5,
       "cacheReadPer1MUsd": 0.01,
       "cacheWritePer1MUsd": 0.125,
-      "cacheWrite1hPer1MUsd": 0.19999999999999998
+      "cacheWrite1hPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 100000,
+          "inputPer1MUsd": 0.5,
+          "outputPer1MUsd": 2.5,
+          "cacheReadPer1MUsd": 0.049999999999999996,
+          "cacheWritePer1MUsd": 0.625,
+          "cacheWrite1hPer1MUsd": 1
+        }
+      ]
     },
     "global.anthropic.claude-mythos-5-1": {
       "inputPer1MUsd": 10,
@@ -8070,14 +9075,33 @@
       "inputPer1MUsd": 3,
       "outputPer1MUsd": 15,
       "cacheReadPer1MUsd": 0.3,
-      "cacheWritePer1MUsd": 3.75
+      "cacheWritePer1MUsd": 3.75,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 6,
+          "outputPer1MUsd": 22.5,
+          "cacheReadPer1MUsd": 0.6,
+          "cacheWritePer1MUsd": 7.5
+        }
+      ]
     },
     "global.anthropic.claude-sonnet-4-5-20250929-v1:0": {
       "inputPer1MUsd": 3,
       "outputPer1MUsd": 15,
       "cacheReadPer1MUsd": 0.3,
       "cacheWritePer1MUsd": 3.75,
-      "cacheWrite1hPer1MUsd": 6
+      "cacheWrite1hPer1MUsd": 6,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 6,
+          "outputPer1MUsd": 22.5,
+          "cacheReadPer1MUsd": 0.6,
+          "cacheWritePer1MUsd": 7.5,
+          "cacheWrite1hPer1MUsd": 12
+        }
+      ]
     },
     "global.anthropic.claude-sonnet-4-6": {
       "inputPer1MUsd": 3,
@@ -8113,54 +9137,133 @@
     "global.openai.gpt-5.4": {
       "inputPer1MUsd": 2.5,
       "outputPer1MUsd": 15,
-      "cacheReadPer1MUsd": 0.25
+      "cacheReadPer1MUsd": 0.25,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 5,
+          "outputPer1MUsd": 22.5,
+          "cacheReadPer1MUsd": 0.5
+        }
+      ]
     },
     "global.openai.gpt-5.5": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 30,
-      "cacheReadPer1MUsd": 0.5
+      "cacheReadPer1MUsd": 0.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 10,
+          "outputPer1MUsd": 45,
+          "cacheReadPer1MUsd": 1
+        }
+      ]
     },
     "global.openai.gpt-5.6-luna": {
       "inputPer1MUsd": 0.19999999999999998,
       "outputPer1MUsd": 1.2,
       "cacheReadPer1MUsd": 0.02,
-      "cacheWritePer1MUsd": 0.25
+      "cacheWritePer1MUsd": 0.25,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 0.39999999999999997,
+          "outputPer1MUsd": 1.7999999999999998,
+          "cacheReadPer1MUsd": 0.04,
+          "cacheWritePer1MUsd": 0.5
+        }
+      ]
     },
     "global.openai.gpt-5.6-sol": {
       "inputPer1MUsd": 4,
       "outputPer1MUsd": 20,
       "cacheReadPer1MUsd": 0.39999999999999997,
-      "cacheWritePer1MUsd": 5
+      "cacheWritePer1MUsd": 5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 8,
+          "outputPer1MUsd": 30,
+          "cacheReadPer1MUsd": 0.7999999999999999,
+          "cacheWritePer1MUsd": 10
+        }
+      ]
     },
     "global.openai.gpt-5.6-terra": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 12,
       "cacheReadPer1MUsd": 0.19999999999999998,
-      "cacheWritePer1MUsd": 2.5
+      "cacheWritePer1MUsd": 2.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 18,
+          "cacheReadPer1MUsd": 0.39999999999999997,
+          "cacheWritePer1MUsd": 5
+        }
+      ]
     },
     "global.openai.gpt-6-astra": {
       "inputPer1MUsd": 10,
       "outputPer1MUsd": 50,
       "cacheReadPer1MUsd": 1,
-      "cacheWritePer1MUsd": 12.5
+      "cacheWritePer1MUsd": 12.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 20,
+          "outputPer1MUsd": 75,
+          "cacheReadPer1MUsd": 2,
+          "cacheWritePer1MUsd": 25
+        }
+      ]
     },
     "global.openai.gpt-6-luna": {
       "inputPer1MUsd": 0.09999999999999999,
       "outputPer1MUsd": 0.5,
       "cacheReadPer1MUsd": 0.01,
-      "cacheWritePer1MUsd": 0.125
+      "cacheWritePer1MUsd": 0.125,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 0.19999999999999998,
+          "outputPer1MUsd": 0.75,
+          "cacheReadPer1MUsd": 0.02,
+          "cacheWritePer1MUsd": 0.25
+        }
+      ]
     },
     "global.openai.gpt-6-sol": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 10,
       "cacheReadPer1MUsd": 0.19999999999999998,
-      "cacheWritePer1MUsd": 2.5
+      "cacheWritePer1MUsd": 2.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 15,
+          "cacheReadPer1MUsd": 0.39999999999999997,
+          "cacheWritePer1MUsd": 5
+        }
+      ]
     },
     "global.openai.gpt-6.1-sol": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 10,
       "cacheReadPer1MUsd": 0.09999999999999999,
-      "cacheWritePer1MUsd": 2.5
+      "cacheWritePer1MUsd": 2.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 15,
+          "cacheReadPer1MUsd": 0.19999999999999998,
+          "cacheWritePer1MUsd": 5
+        }
+      ]
     },
     "global.xai.grok-4.6": {
       "inputPer1MUsd": 2,
@@ -8560,12 +9663,28 @@
     "gpt-5.4": {
       "inputPer1MUsd": 2.5,
       "outputPer1MUsd": 15,
-      "cacheReadPer1MUsd": 0.25
+      "cacheReadPer1MUsd": 0.25,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 5,
+          "outputPer1MUsd": 22.5,
+          "cacheReadPer1MUsd": 0.5
+        }
+      ]
     },
     "gpt-5.4-2026-03-05": {
       "inputPer1MUsd": 2.5,
       "outputPer1MUsd": 15,
-      "cacheReadPer1MUsd": 0.25
+      "cacheReadPer1MUsd": 0.25,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 5,
+          "outputPer1MUsd": 22.5,
+          "cacheReadPer1MUsd": 0.5
+        }
+      ]
     },
     "gpt-5.4-mini": {
       "inputPer1MUsd": 0.75,
@@ -8589,21 +9708,51 @@
     },
     "gpt-5.4-pro": {
       "inputPer1MUsd": 30,
-      "outputPer1MUsd": 180
+      "outputPer1MUsd": 180,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 60,
+          "outputPer1MUsd": 270
+        }
+      ]
     },
     "gpt-5.4-pro-2026-03-05": {
       "inputPer1MUsd": 30,
-      "outputPer1MUsd": 180
+      "outputPer1MUsd": 180,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 60,
+          "outputPer1MUsd": 270
+        }
+      ]
     },
     "gpt-5.5": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 30,
-      "cacheReadPer1MUsd": 0.5
+      "cacheReadPer1MUsd": 0.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 10,
+          "outputPer1MUsd": 45,
+          "cacheReadPer1MUsd": 1
+        }
+      ]
     },
     "gpt-5.5-2026-04-23": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 30,
-      "cacheReadPer1MUsd": 0.5
+      "cacheReadPer1MUsd": 0.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 10,
+          "outputPer1MUsd": 45,
+          "cacheReadPer1MUsd": 1
+        }
+      ]
     },
     "gpt-5.5-cyber": {
       "inputPer1MUsd": 12.5,
@@ -8612,65 +9761,160 @@
     },
     "gpt-5.5-pro": {
       "inputPer1MUsd": 30,
-      "outputPer1MUsd": 180
+      "outputPer1MUsd": 180,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 60,
+          "outputPer1MUsd": 270
+        }
+      ]
     },
     "gpt-5.5-pro-2026-04-23": {
       "inputPer1MUsd": 30,
-      "outputPer1MUsd": 180
+      "outputPer1MUsd": 180,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 60,
+          "outputPer1MUsd": 270
+        }
+      ]
     },
     "gpt-5.6": {
       "inputPer1MUsd": 4,
       "outputPer1MUsd": 20,
       "cacheReadPer1MUsd": 0.39999999999999997,
-      "cacheWritePer1MUsd": 5
+      "cacheWritePer1MUsd": 5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 8,
+          "outputPer1MUsd": 30,
+          "cacheReadPer1MUsd": 0.7999999999999999,
+          "cacheWritePer1MUsd": 10
+        }
+      ]
     },
     "gpt-5.6-cyber": {
       "inputPer1MUsd": 12.5,
       "outputPer1MUsd": 75,
       "cacheReadPer1MUsd": 1.25,
-      "cacheWritePer1MUsd": 15.625
+      "cacheWritePer1MUsd": 15.625,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 25,
+          "outputPer1MUsd": 112.5,
+          "cacheReadPer1MUsd": 2.5,
+          "cacheWritePer1MUsd": 31.25
+        }
+      ]
     },
     "gpt-5.6-luna": {
       "inputPer1MUsd": 0.19999999999999998,
       "outputPer1MUsd": 1.2,
       "cacheReadPer1MUsd": 0.02,
-      "cacheWritePer1MUsd": 0.25
+      "cacheWritePer1MUsd": 0.25,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 0.39999999999999997,
+          "outputPer1MUsd": 1.7999999999999998,
+          "cacheReadPer1MUsd": 0.04,
+          "cacheWritePer1MUsd": 0.5
+        }
+      ]
     },
     "gpt-5.6-sol": {
       "inputPer1MUsd": 4,
       "outputPer1MUsd": 20,
       "cacheReadPer1MUsd": 0.39999999999999997,
-      "cacheWritePer1MUsd": 5
+      "cacheWritePer1MUsd": 5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 8,
+          "outputPer1MUsd": 30,
+          "cacheReadPer1MUsd": 0.7999999999999999,
+          "cacheWritePer1MUsd": 10
+        }
+      ]
     },
     "gpt-5.6-terra": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 12,
       "cacheReadPer1MUsd": 0.19999999999999998,
-      "cacheWritePer1MUsd": 2.5
+      "cacheWritePer1MUsd": 2.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 18,
+          "cacheReadPer1MUsd": 0.39999999999999997,
+          "cacheWritePer1MUsd": 5
+        }
+      ]
     },
     "gpt-6-astra": {
       "inputPer1MUsd": 10,
       "outputPer1MUsd": 50,
       "cacheReadPer1MUsd": 1,
-      "cacheWritePer1MUsd": 12.5
+      "cacheWritePer1MUsd": 12.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 20,
+          "outputPer1MUsd": 75,
+          "cacheReadPer1MUsd": 2,
+          "cacheWritePer1MUsd": 25
+        }
+      ]
     },
     "gpt-6-luna": {
       "inputPer1MUsd": 0.09999999999999999,
       "outputPer1MUsd": 0.5,
       "cacheReadPer1MUsd": 0.01,
-      "cacheWritePer1MUsd": 0.125
+      "cacheWritePer1MUsd": 0.125,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 0.19999999999999998,
+          "outputPer1MUsd": 0.75,
+          "cacheReadPer1MUsd": 0.02,
+          "cacheWritePer1MUsd": 0.25
+        }
+      ]
     },
     "gpt-6-sol": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 10,
       "cacheReadPer1MUsd": 0.19999999999999998,
-      "cacheWritePer1MUsd": 2.5
+      "cacheWritePer1MUsd": 2.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 15,
+          "cacheReadPer1MUsd": 0.39999999999999997,
+          "cacheWritePer1MUsd": 5
+        }
+      ]
     },
     "gpt-6.1-sol": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 10,
       "cacheReadPer1MUsd": 0.09999999999999999,
-      "cacheWritePer1MUsd": 2.5
+      "cacheWritePer1MUsd": 2.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 15,
+          "cacheReadPer1MUsd": 0.19999999999999998,
+          "cacheWritePer1MUsd": 5
+        }
+      ]
     },
     "gpt-audio": {
       "inputPer1MUsd": 2.5,
@@ -8700,13 +9944,31 @@
       "inputPer1MUsd": 4,
       "outputPer1MUsd": 20,
       "cacheReadPer1MUsd": 0.39999999999999997,
-      "cacheWritePer1MUsd": 5
+      "cacheWritePer1MUsd": 5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 8,
+          "outputPer1MUsd": 30,
+          "cacheReadPer1MUsd": 0.7999999999999999,
+          "cacheWritePer1MUsd": 10
+        }
+      ]
     },
     "gpt-daybreak-red-latest": {
       "inputPer1MUsd": 12.5,
       "outputPer1MUsd": 75,
       "cacheReadPer1MUsd": 1.25,
-      "cacheWritePer1MUsd": 15.625
+      "cacheWritePer1MUsd": 15.625,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 25,
+          "outputPer1MUsd": 112.5,
+          "cacheReadPer1MUsd": 2.5,
+          "cacheWritePer1MUsd": 31.25
+        }
+      ]
     },
     "gpt-image-1.5": {
       "inputPer1MUsd": 5,
@@ -8983,7 +10245,17 @@
       "outputPer1MUsd": 0.55,
       "cacheReadPer1MUsd": 0.011,
       "cacheWritePer1MUsd": 0.1375,
-      "cacheWrite1hPer1MUsd": 0.22
+      "cacheWrite1hPer1MUsd": 0.22,
+      "tiers": [
+        {
+          "aboveTokens": 100000,
+          "inputPer1MUsd": 0.55,
+          "outputPer1MUsd": 2.75,
+          "cacheReadPer1MUsd": 0.055,
+          "cacheWritePer1MUsd": 0.6875,
+          "cacheWrite1hPer1MUsd": 1.1
+        }
+      ]
     },
     "jp.anthropic.claude-opus-4-7": {
       "inputPer1MUsd": 5.5,
@@ -9018,7 +10290,17 @@
       "outputPer1MUsd": 16.5,
       "cacheReadPer1MUsd": 0.33,
       "cacheWritePer1MUsd": 4.125,
-      "cacheWrite1hPer1MUsd": 6.6000000000000005
+      "cacheWrite1hPer1MUsd": 6.6000000000000005,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 6.6000000000000005,
+          "outputPer1MUsd": 24.75,
+          "cacheReadPer1MUsd": 0.66,
+          "cacheWritePer1MUsd": 8.25,
+          "cacheWrite1hPer1MUsd": 13.200000000000001
+        }
+      ]
     },
     "jp.anthropic.claude-sonnet-4-6": {
       "inputPer1MUsd": 3.3000000000000003,
@@ -9404,7 +10686,15 @@
     "minimax/minimax-m3": {
       "inputPer1MUsd": 0.3,
       "outputPer1MUsd": 1.2,
-      "cacheReadPer1MUsd": 0.06
+      "cacheReadPer1MUsd": 0.06,
+      "tiers": [
+        {
+          "aboveTokens": 512000,
+          "inputPer1MUsd": 0.6,
+          "outputPer1MUsd": 2.4,
+          "cacheReadPer1MUsd": 0.12
+        }
+      ]
     },
     "mistral.devstral-2-123b": {
       "inputPer1MUsd": 0.39999999999999997,
@@ -11080,13 +12370,31 @@
       "inputPer1MUsd": 0.09999999999999999,
       "outputPer1MUsd": 0.5,
       "cacheReadPer1MUsd": 0.01,
-      "cacheWritePer1MUsd": 0.125
+      "cacheWritePer1MUsd": 0.125,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 0.19999999999999998,
+          "outputPer1MUsd": 0.75,
+          "cacheReadPer1MUsd": 0.02,
+          "cacheWritePer1MUsd": 0.25
+        }
+      ]
     },
     "openai.gpt-6-sol": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 10,
       "cacheReadPer1MUsd": 0.19999999999999998,
-      "cacheWritePer1MUsd": 2.5
+      "cacheWritePer1MUsd": 2.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 15,
+          "cacheReadPer1MUsd": 0.39999999999999997,
+          "cacheWritePer1MUsd": 5
+        }
+      ]
     },
     "openai.gpt-oss-120b-1:0": {
       "inputPer1MUsd": 0.15,
@@ -11255,7 +12563,15 @@
     "perplexity/google/gemini-3.1-pro-preview": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 12,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 18,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "perplexity/google/gemini-3.5-flash": {
       "inputPer1MUsd": 1.5,
@@ -11335,7 +12651,14 @@
     "perplexity/openai/gpt-5.4": {
       "inputPer1MUsd": 2.5,
       "outputPer1MUsd": 15,
-      "cacheReadPer1MUsd": 0.25
+      "cacheReadPer1MUsd": 0.25,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 5,
+          "outputPer1MUsd": 22.5
+        }
+      ]
     },
     "perplexity/openai/gpt-5.4-mini": {
       "inputPer1MUsd": 0.75,
@@ -11350,22 +12673,53 @@
     "perplexity/openai/gpt-5.5": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 30,
-      "cacheReadPer1MUsd": 0.5
+      "cacheReadPer1MUsd": 0.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 10,
+          "outputPer1MUsd": 45
+        }
+      ]
     },
     "perplexity/openai/gpt-5.6-luna": {
       "inputPer1MUsd": 0.19999999999999998,
       "outputPer1MUsd": 1.2,
-      "cacheReadPer1MUsd": 0.02
+      "cacheReadPer1MUsd": 0.02,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 0.39999999999999997,
+          "outputPer1MUsd": 1.7999999999999998,
+          "cacheReadPer1MUsd": 0.04
+        }
+      ]
     },
     "perplexity/openai/gpt-5.6-sol": {
       "inputPer1MUsd": 4,
       "outputPer1MUsd": 20,
-      "cacheReadPer1MUsd": 0.39999999999999997
+      "cacheReadPer1MUsd": 0.39999999999999997,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 8,
+          "outputPer1MUsd": 30,
+          "cacheReadPer1MUsd": 0.7999999999999999
+        }
+      ]
     },
     "perplexity/openai/gpt-5.6-terra": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 12,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 18,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "perplexity/openai/gpt-6-astra": {
       "inputPer1MUsd": 10,
@@ -11376,17 +12730,41 @@
     "perplexity/openai/gpt-6-luna": {
       "inputPer1MUsd": 0.09999999999999999,
       "outputPer1MUsd": 0.5,
-      "cacheReadPer1MUsd": 0.01
+      "cacheReadPer1MUsd": 0.01,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 0.19999999999999998,
+          "outputPer1MUsd": 0.75,
+          "cacheReadPer1MUsd": 0.02
+        }
+      ]
     },
     "perplexity/openai/gpt-6-sol": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 10,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 15,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "perplexity/openai/gpt-6.1-sol": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 10,
-      "cacheReadPer1MUsd": 0.09999999999999999
+      "cacheReadPer1MUsd": 0.09999999999999999,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 15,
+          "cacheReadPer1MUsd": 0.19999999999999998
+        }
+      ]
     },
     "perplexity/perplexity/deepseek-v4-flash-0731": {
       "inputPer1MUsd": 0.13,
@@ -11519,37 +12897,89 @@
     "perplexity/xai/grok-4.20-multi-agent": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5
+        }
+      ]
     },
     "perplexity/xai/grok-4.20-non-reasoning": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5
+        }
+      ]
     },
     "perplexity/xai/grok-4.20-reasoning": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5
+        }
+      ]
     },
     "perplexity/xai/grok-4.3": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5
+        }
+      ]
     },
     "perplexity/xai/grok-4.5": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 6,
-      "cacheReadPer1MUsd": 0.3
+      "cacheReadPer1MUsd": 0.3,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 12,
+          "cacheReadPer1MUsd": 0.6
+        }
+      ]
     },
     "perplexity/xai/grok-4.6": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 6,
-      "cacheReadPer1MUsd": 0.5
+      "cacheReadPer1MUsd": 0.5,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 12,
+          "cacheReadPer1MUsd": 1
+        }
+      ]
     },
     "perplexity/xai/grok-4.7": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 6,
-      "cacheReadPer1MUsd": 0.5
+      "cacheReadPer1MUsd": 0.5,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 12,
+          "cacheReadPer1MUsd": 1
+        }
+      ]
     },
     "pinstripes/ps/deepseek-v4-flash": {
       "inputPer1MUsd": 0.09999999999999999,
@@ -11940,7 +13370,14 @@
     },
     "replicate/google/gemini-3-pro": {
       "inputPer1MUsd": 2,
-      "outputPer1MUsd": 12
+      "outputPer1MUsd": 12,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 18
+        }
+      ]
     },
     "replicate/ibm-granite/granite-3.3-8b-instruct": {
       "inputPer1MUsd": 0.03,
@@ -12976,7 +14413,17 @@
       "outputPer1MUsd": 0.6,
       "cacheReadPer1MUsd": 0.012,
       "cacheWritePer1MUsd": 0.15,
-      "cacheWrite1hPer1MUsd": 0.24
+      "cacheWrite1hPer1MUsd": 0.24,
+      "tiers": [
+        {
+          "aboveTokens": 100000,
+          "inputPer1MUsd": 0.6,
+          "outputPer1MUsd": 3,
+          "cacheReadPer1MUsd": 0.06,
+          "cacheWritePer1MUsd": 0.75,
+          "cacheWrite1hPer1MUsd": 1.2
+        }
+      ]
     },
     "us-gov.anthropic.claude-opus-4-8": {
       "inputPer1MUsd": 6,
@@ -13004,7 +14451,17 @@
       "outputPer1MUsd": 18,
       "cacheReadPer1MUsd": 0.36,
       "cacheWritePer1MUsd": 4.5,
-      "cacheWrite1hPer1MUsd": 7.199999999999999
+      "cacheWrite1hPer1MUsd": 7.199999999999999,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 7.199999999999999,
+          "outputPer1MUsd": 27,
+          "cacheReadPer1MUsd": 0.72,
+          "cacheWritePer1MUsd": 9,
+          "cacheWrite1hPer1MUsd": 14.399999999999999
+        }
+      ]
     },
     "us-gov.anthropic.claude-sonnet-5": {
       "inputPer1MUsd": 2.4,
@@ -13130,7 +14587,17 @@
       "outputPer1MUsd": 0.55,
       "cacheReadPer1MUsd": 0.011,
       "cacheWritePer1MUsd": 0.1375,
-      "cacheWrite1hPer1MUsd": 0.22
+      "cacheWrite1hPer1MUsd": 0.22,
+      "tiers": [
+        {
+          "aboveTokens": 100000,
+          "inputPer1MUsd": 0.55,
+          "outputPer1MUsd": 2.75,
+          "cacheReadPer1MUsd": 0.055,
+          "cacheWritePer1MUsd": 0.6875,
+          "cacheWrite1hPer1MUsd": 1.1
+        }
+      ]
     },
     "us.anthropic.claude-mythos-5": {
       "inputPer1MUsd": 11,
@@ -13211,14 +14678,33 @@
       "inputPer1MUsd": 3,
       "outputPer1MUsd": 15,
       "cacheReadPer1MUsd": 0.3,
-      "cacheWritePer1MUsd": 3.75
+      "cacheWritePer1MUsd": 3.75,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 6,
+          "outputPer1MUsd": 22.5,
+          "cacheReadPer1MUsd": 0.6,
+          "cacheWritePer1MUsd": 7.5
+        }
+      ]
     },
     "us.anthropic.claude-sonnet-4-5-20250929-v1:0": {
       "inputPer1MUsd": 3.3000000000000003,
       "outputPer1MUsd": 16.5,
       "cacheReadPer1MUsd": 0.33,
       "cacheWritePer1MUsd": 4.125,
-      "cacheWrite1hPer1MUsd": 6.6000000000000005
+      "cacheWrite1hPer1MUsd": 6.6000000000000005,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 6.6000000000000005,
+          "outputPer1MUsd": 24.75,
+          "cacheReadPer1MUsd": 0.66,
+          "cacheWritePer1MUsd": 8.25,
+          "cacheWrite1hPer1MUsd": 13.200000000000001
+        }
+      ]
     },
     "us.anthropic.claude-sonnet-4-6": {
       "inputPer1MUsd": 3.3000000000000003,
@@ -13306,54 +14792,133 @@
     "us.openai.gpt-5.4": {
       "inputPer1MUsd": 2.75,
       "outputPer1MUsd": 16.5,
-      "cacheReadPer1MUsd": 0.275
+      "cacheReadPer1MUsd": 0.275,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 5.5,
+          "outputPer1MUsd": 24.75,
+          "cacheReadPer1MUsd": 0.55
+        }
+      ]
     },
     "us.openai.gpt-5.5": {
       "inputPer1MUsd": 5.5,
       "outputPer1MUsd": 33,
-      "cacheReadPer1MUsd": 0.55
+      "cacheReadPer1MUsd": 0.55,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 11,
+          "outputPer1MUsd": 49.5,
+          "cacheReadPer1MUsd": 1.1
+        }
+      ]
     },
     "us.openai.gpt-5.6-luna": {
       "inputPer1MUsd": 0.22,
       "outputPer1MUsd": 1.32,
       "cacheReadPer1MUsd": 0.022,
-      "cacheWritePer1MUsd": 0.275
+      "cacheWritePer1MUsd": 0.275,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 0.44,
+          "outputPer1MUsd": 1.9800000000000002,
+          "cacheReadPer1MUsd": 0.044,
+          "cacheWritePer1MUsd": 0.55
+        }
+      ]
     },
     "us.openai.gpt-5.6-sol": {
       "inputPer1MUsd": 4.4,
       "outputPer1MUsd": 22,
       "cacheReadPer1MUsd": 0.44,
-      "cacheWritePer1MUsd": 5.5
+      "cacheWritePer1MUsd": 5.5,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 8.8,
+          "outputPer1MUsd": 33,
+          "cacheReadPer1MUsd": 0.88,
+          "cacheWritePer1MUsd": 11
+        }
+      ]
     },
     "us.openai.gpt-5.6-terra": {
       "inputPer1MUsd": 2.2,
       "outputPer1MUsd": 13.200000000000001,
       "cacheReadPer1MUsd": 0.22,
-      "cacheWritePer1MUsd": 2.75
+      "cacheWritePer1MUsd": 2.75,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4.4,
+          "outputPer1MUsd": 19.8,
+          "cacheReadPer1MUsd": 0.44,
+          "cacheWritePer1MUsd": 5.5
+        }
+      ]
     },
     "us.openai.gpt-6-astra": {
       "inputPer1MUsd": 11,
       "outputPer1MUsd": 55,
       "cacheReadPer1MUsd": 1.1,
-      "cacheWritePer1MUsd": 13.75
+      "cacheWritePer1MUsd": 13.75,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 22,
+          "outputPer1MUsd": 82.5,
+          "cacheReadPer1MUsd": 2.2,
+          "cacheWritePer1MUsd": 27.5
+        }
+      ]
     },
     "us.openai.gpt-6-luna": {
       "inputPer1MUsd": 0.11,
       "outputPer1MUsd": 0.55,
       "cacheReadPer1MUsd": 0.011,
-      "cacheWritePer1MUsd": 0.1375
+      "cacheWritePer1MUsd": 0.1375,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 0.22,
+          "outputPer1MUsd": 0.8250000000000001,
+          "cacheReadPer1MUsd": 0.022,
+          "cacheWritePer1MUsd": 0.275
+        }
+      ]
     },
     "us.openai.gpt-6-sol": {
       "inputPer1MUsd": 2.2,
       "outputPer1MUsd": 11,
       "cacheReadPer1MUsd": 0.22,
-      "cacheWritePer1MUsd": 2.75
+      "cacheWritePer1MUsd": 2.75,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4.4,
+          "outputPer1MUsd": 16.5,
+          "cacheReadPer1MUsd": 0.44,
+          "cacheWritePer1MUsd": 5.5
+        }
+      ]
     },
     "us.openai.gpt-6.1-sol": {
       "inputPer1MUsd": 2.2,
       "outputPer1MUsd": 11,
       "cacheReadPer1MUsd": 0.11,
-      "cacheWritePer1MUsd": 2.75
+      "cacheWritePer1MUsd": 2.75,
+      "tiers": [
+        {
+          "aboveTokens": 272000,
+          "inputPer1MUsd": 4.4,
+          "outputPer1MUsd": 16.5,
+          "cacheReadPer1MUsd": 0.22,
+          "cacheWritePer1MUsd": 5.5
+        }
+      ]
     },
     "us.writer.palmyra-x4-v1:0": {
       "inputPer1MUsd": 2.5,
@@ -13565,7 +15130,15 @@
     "vercel_ai_gateway/google/gemini-2.5-pro": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 10,
-      "cacheReadPer1MUsd": 0.125
+      "cacheReadPer1MUsd": 0.125,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 15,
+          "cacheReadPer1MUsd": 0.25
+        }
+      ]
     },
     "vercel_ai_gateway/google/gemini-embedding-001": {
       "inputPer1MUsd": 0.15,
@@ -13929,14 +15502,34 @@
       "outputPer1MUsd": 0.5,
       "cacheReadPer1MUsd": 0.01,
       "cacheWritePer1MUsd": 0.125,
-      "cacheWrite1hPer1MUsd": 0.19999999999999998
+      "cacheWrite1hPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 100000,
+          "inputPer1MUsd": 0.5,
+          "outputPer1MUsd": 2.5,
+          "cacheReadPer1MUsd": 0.049999999999999996,
+          "cacheWritePer1MUsd": 0.625,
+          "cacheWrite1hPer1MUsd": 1
+        }
+      ]
     },
     "vertex_ai/claude-haiku-5-5@default": {
       "inputPer1MUsd": 0.09999999999999999,
       "outputPer1MUsd": 0.5,
       "cacheReadPer1MUsd": 0.01,
       "cacheWritePer1MUsd": 0.125,
-      "cacheWrite1hPer1MUsd": 0.19999999999999998
+      "cacheWrite1hPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 100000,
+          "inputPer1MUsd": 0.5,
+          "outputPer1MUsd": 2.5,
+          "cacheReadPer1MUsd": 0.049999999999999996,
+          "cacheWritePer1MUsd": 0.625,
+          "cacheWrite1hPer1MUsd": 1
+        }
+      ]
     },
     "vertex_ai/claude-opus-4-5": {
       "inputPer1MUsd": 5,
@@ -14027,14 +15620,34 @@
       "outputPer1MUsd": 15,
       "cacheReadPer1MUsd": 0.3,
       "cacheWritePer1MUsd": 3.75,
-      "cacheWrite1hPer1MUsd": 6
+      "cacheWrite1hPer1MUsd": 6,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 6,
+          "outputPer1MUsd": 22.5,
+          "cacheReadPer1MUsd": 0.6,
+          "cacheWritePer1MUsd": 7.5,
+          "cacheWrite1hPer1MUsd": 12
+        }
+      ]
     },
     "vertex_ai/claude-sonnet-4-5@20250929": {
       "inputPer1MUsd": 3,
       "outputPer1MUsd": 15,
       "cacheReadPer1MUsd": 0.3,
       "cacheWritePer1MUsd": 3.75,
-      "cacheWrite1hPer1MUsd": 6
+      "cacheWrite1hPer1MUsd": 6,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 6,
+          "outputPer1MUsd": 22.5,
+          "cacheReadPer1MUsd": 0.6,
+          "cacheWritePer1MUsd": 7.5,
+          "cacheWrite1hPer1MUsd": 12
+        }
+      ]
     },
     "vertex_ai/claude-sonnet-4-6": {
       "inputPer1MUsd": 3,
@@ -14159,17 +15772,42 @@
     "vertex_ai/gemini-3-pro-image": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 12,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 18,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "vertex_ai/gemini-3-pro-image-preview": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 12,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 18,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "vertex_ai/gemini-3-pro-preview": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 12,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 18,
+          "cacheReadPer1MUsd": 0.39999999999999997,
+          "cacheWritePer1MUsd": 0.25
+        }
+      ]
     },
     "vertex_ai/gemini-3.1-flash-image": {
       "inputPer1MUsd": 0.5,
@@ -14207,12 +15845,30 @@
     "vertex_ai/gemini-3.1-pro-preview": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 12,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 18,
+          "cacheReadPer1MUsd": 0.39999999999999997,
+          "cacheWritePer1MUsd": 0.25
+        }
+      ]
     },
     "vertex_ai/gemini-3.1-pro-preview-customtools": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 12,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 18,
+          "cacheReadPer1MUsd": 0.39999999999999997,
+          "cacheWritePer1MUsd": 0.25
+        }
+      ]
     },
     "vertex_ai/gemini-3.5-flash": {
       "inputPer1MUsd": 1.5,
@@ -14549,27 +16205,67 @@
     "vertex_ai/xai/grok-4.20-non-reasoning": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "vertex_ai/xai/grok-4.20-reasoning": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "vertex_ai/xai/grok-4.3": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "vertex_ai/xai/grok-4.6": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 6,
-      "cacheReadPer1MUsd": 0.5
+      "cacheReadPer1MUsd": 0.5,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 12,
+          "cacheReadPer1MUsd": 1
+        }
+      ]
     },
     "vertex_ai/xai/grok-4.7": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 6,
-      "cacheReadPer1MUsd": 0.5
+      "cacheReadPer1MUsd": 0.5,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 12,
+          "cacheReadPer1MUsd": 1
+        }
+      ]
     },
     "vertex_ai/zai-org/glm-4.7-maas": {
       "inputPer1MUsd": 0.6,
@@ -14992,217 +16688,561 @@
     "xai/grok-4.20": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-0309": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-0309-non-reasoning": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-0309-reasoning": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-beta": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-beta-0309": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-beta-0309-non-reasoning": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-beta-0309-reasoning": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-beta-latest": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-beta-latest-non-reasoning": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-beta-latest-reasoning": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-beta-non-reasoning": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-beta-reasoning": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-experimental-beta-0304": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-experimental-beta-0304-non-reasoning": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-experimental-beta-0304-reasoning": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-experimental-beta-latest": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-experimental-beta-non-reasoning-latest": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-experimental-beta-reasoning-latest": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-multi-agent": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-multi-agent-0309": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-multi-agent-beta-0309": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-multi-agent-beta-latest": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-multi-agent-experimental-beta-0304": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-multi-agent-experimental-beta-latest": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-multi-agent-latest": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-non-reasoning": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-non-reasoning-gv2": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-non-reasoning-latest": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-reasoning": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-reasoning-gv2": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.20-reasoning-latest": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.3": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.3-latest": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2.5,
+          "outputPer1MUsd": 5,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-4.5": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 6,
-      "cacheReadPer1MUsd": 0.3
+      "cacheReadPer1MUsd": 0.3,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 12,
+          "cacheReadPer1MUsd": 0.6
+        }
+      ]
     },
     "xai/grok-4.5-latest": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 6,
-      "cacheReadPer1MUsd": 0.3
+      "cacheReadPer1MUsd": 0.3,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 12,
+          "cacheReadPer1MUsd": 0.6
+        }
+      ]
     },
     "xai/grok-4.6": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 6,
-      "cacheReadPer1MUsd": 0.5
+      "cacheReadPer1MUsd": 0.5,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 12,
+          "cacheReadPer1MUsd": 1
+        }
+      ]
     },
     "xai/grok-4.7": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 6,
-      "cacheReadPer1MUsd": 0.5
+      "cacheReadPer1MUsd": 0.5,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 12,
+          "cacheReadPer1MUsd": 1
+        }
+      ]
     },
     "xai/grok-build-0.1": {
       "inputPer1MUsd": 1,
       "outputPer1MUsd": 2,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2,
+          "outputPer1MUsd": 4,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-build-latest": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 6,
-      "cacheReadPer1MUsd": 0.3
+      "cacheReadPer1MUsd": 0.3,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 4,
+          "outputPer1MUsd": 12,
+          "cacheReadPer1MUsd": 0.6
+        }
+      ]
     },
     "xai/grok-code-fast": {
       "inputPer1MUsd": 1,
       "outputPer1MUsd": 2,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2,
+          "outputPer1MUsd": 4,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-code-fast-1": {
       "inputPer1MUsd": 1,
       "outputPer1MUsd": 2,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2,
+          "outputPer1MUsd": 4,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xai/grok-code-fast-1-0825": {
       "inputPer1MUsd": 1,
       "outputPer1MUsd": 2,
-      "cacheReadPer1MUsd": 0.19999999999999998
+      "cacheReadPer1MUsd": 0.19999999999999998,
+      "tiers": [
+        {
+          "aboveTokens": 200000,
+          "inputPer1MUsd": 2,
+          "outputPer1MUsd": 4,
+          "cacheReadPer1MUsd": 0.39999999999999997
+        }
+      ]
     },
     "xiaomi_mimo/mimo-v2.6-flash": {
       "inputPer1MUsd": 0.14,

@@ -16,6 +16,7 @@ const modelMapPath = join(rootDir, 'src', 'pricing', 'litellm-model-map.json');
 const {
   DEFAULT_LITELLM_PRICING_URL,
   MAX_LITELLM_PRICING_RESPONSE_BYTES,
+  isLiteLLMTierRateKey,
   normalizeLiteLLMCachePayload,
   normalizeLitellmPricingPayload,
 } = await tsImport(join(rootDir, 'src', 'pricing', 'litellm-pricing-fetcher.ts'), import.meta.url);
@@ -59,7 +60,62 @@ function orderModelPricing(pricing) {
     orderedPricing.priorityFallback = true;
   }
 
+  if (pricing.tiers !== undefined) {
+    orderedPricing.tiers = pricing.tiers.map(orderPricingTier);
+  }
+
   return orderedPricing;
+}
+
+const TIER_RATE_FIELDS = [
+  'inputPer1MUsd',
+  'outputPer1MUsd',
+  'cacheReadPer1MUsd',
+  'cacheWritePer1MUsd',
+  'cacheWrite1hPer1MUsd',
+];
+
+function orderPricingTier(tier) {
+  const orderedTier = { aboveTokens: tier.aboveTokens };
+
+  for (const field of TIER_RATE_FIELDS) {
+    if (tier[field] !== undefined) {
+      orderedTier[field] = tier[field];
+    }
+  }
+
+  return orderedTier;
+}
+
+// Threshold keys the tiers do not carry: service-tier variants (`_batches`, `_priority`,
+// ...) and per-character, image, audio or video rates. List them so a new standard key
+// upstream gets noticed.
+function logUnusedThresholdKeys(payload) {
+  const modelCountByKey = new Map();
+
+  for (const rawModelPricing of Object.values(payload)) {
+    if (rawModelPricing === null || typeof rawModelPricing !== 'object') {
+      continue;
+    }
+
+    for (const key of Object.keys(rawModelPricing)) {
+      if (/_above_\d+k_tokens/u.test(key) && !isLiteLLMTierRateKey(key)) {
+        modelCountByKey.set(key, (modelCountByKey.get(key) ?? 0) + 1);
+      }
+    }
+  }
+
+  if (modelCountByKey.size === 0) {
+    return;
+  }
+
+  console.log(`Token-threshold keys not used for tiers (${modelCountByKey.size}):`);
+
+  for (const [key, modelCount] of [...modelCountByKey].sort(([left], [right]) =>
+    compareByCodePoint(left, right),
+  )) {
+    console.log(`  - ${key} (${modelCount} model(s))`);
+  }
 }
 
 function toSortedPricingRecord(pricingByModel) {
@@ -228,6 +284,7 @@ async function generateSnapshot(fromFilePath) {
     ? await readUpstreamPayloadFromFile(fromFilePath)
     : await fetchUpstreamPayload();
   const pricingByModel = normalizeLitellmPricingPayload(payload);
+  logUnusedThresholdKeys(payload);
   const snapshotPayload = {
     fetchedAt: upstreamFetchedAt,
     sourceUrl: DEFAULT_LITELLM_PRICING_URL,

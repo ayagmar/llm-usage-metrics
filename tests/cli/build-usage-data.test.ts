@@ -1247,6 +1247,56 @@ describe('buildUsageData', () => {
     );
   });
 
+  it('applies long-context tier rates only to sources that report usage per request', async () => {
+    const pricingLoaderSpy = vi.fn(async (): Promise<PricingLoadResult> => ({
+      source: new StaticPricingSource({
+        pricingByModel: {
+          'gpt-4.1': {
+            inputPer1MUsd: 2,
+            outputPer1MUsd: 8,
+            tiers: [{ aboveTokens: 272_000, inputPer1MUsd: 4, outputPer1MUsd: 16 }],
+          },
+        },
+      }),
+      origin: 'cache',
+    }));
+    const longPrompt = {
+      costMode: 'estimated' as const,
+      costUsd: undefined,
+      inputTokens: 300_000,
+      outputTokens: 0,
+      totalTokens: 300_000,
+    };
+
+    const result = await buildUsageData(
+      'daily',
+      { all: true, timezone: 'UTC' },
+      {
+        ...withDeterministicRuntimeDeps(),
+        createAdapters: () => [
+          createAdapter(
+            'pi',
+            { '/tmp/pi-tier.jsonl': [createEvent({ ...longPrompt, source: 'pi' })] },
+            { usagePerRequest: true },
+          ),
+          createAdapter('droid', {
+            '/tmp/droid-tier.jsonl': [createEvent({ ...longPrompt, source: 'droid' })],
+          }),
+        ],
+        resolvePricingSource: pricingLoaderSpy,
+      },
+    );
+
+    const costBySource = Object.fromEntries(
+      result.rows
+        .filter((row) => row.rowType === 'period_source')
+        .map((row) => [row.source, row.costUsd]),
+    );
+    // 300k input at the tier's $4 per 1M for pi; droid's summed usage stays at $2.
+    expect(costBySource.pi).toBeCloseTo(1.2, 10);
+    expect(costBySource.droid).toBeCloseTo(0.6, 10);
+  });
+
   it('notes the shown events priced at priority rates, naming their models', async () => {
     const pricingLoaderSpy = vi.fn(async (): Promise<PricingLoadResult> => ({
       source: new StaticPricingSource({

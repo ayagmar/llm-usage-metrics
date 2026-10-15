@@ -351,6 +351,7 @@ export class ClaudeSourceAdapter implements SourceAdapter {
     eventsPrecedeFileMtime: true,
     sessionsCopyEvents: true,
     kinds: EVENT_KINDS,
+    usagePerRequest: true,
   } as const;
 
   private readonly rootDirs: readonly string[];

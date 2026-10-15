@@ -650,6 +650,7 @@ export class PiSourceAdapter implements SourceAdapter {
     eventsPrecedeFileMtime: true,
     eventsRepeatAcrossFiles: true,
     kinds: ['usage', 'message', 'tool_call', 'session_meta'],
+    usagePerRequest: true,
   } as const;
 
   private readonly rootDirs: readonly string[];

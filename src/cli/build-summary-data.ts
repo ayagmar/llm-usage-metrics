@@ -204,6 +204,7 @@ export async function buildSummaryData(
       ? estimateCacheSavingsUsd(
           pricedEvents.filter((event) => isEventWithinWindow(event, monthToDateWindow, timezone)),
           pricingSource,
+          pricingResult.pricingPolicy,
         )
       : undefined;
 

@@ -11,8 +11,18 @@ import {
   normalizeLitellmPricingPayload,
   type LiteLLMPricingFetcherOptions,
 } from '../../src/pricing/litellm-pricing-fetcher.js';
+import type { PricingTier } from '../../src/pricing/types.js';
 
 const tempDirs: string[] = [];
+
+/** Tier rates rounded past float noise, for exact comparison. */
+function roundTierRates(tiers: readonly PricingTier[] | undefined) {
+  return tiers?.map((tier) =>
+    Object.fromEntries(
+      Object.entries(tier).map(([field, value]) => [field, Number(value.toFixed(10))]),
+    ),
+  );
+}
 
 afterEach(async () => {
   await Promise.all(tempDirs.map((tempDir) => rm(tempDir, { recursive: true, force: true })));
@@ -271,7 +281,7 @@ describe('LiteLLMPricingFetcher', () => {
     await writeFile(
       cacheFilePath,
       JSON.stringify({
-        formatVersion: 2,
+        formatVersion: 3,
         fetchedAt: nowValue + 60_000,
         sourceUrl: 'https://example.test/litellm-pricing.json',
         pricingByModel: {
@@ -503,7 +513,7 @@ describe('LiteLLMPricingFetcher', () => {
     await writeFile(
       cacheFilePath,
       JSON.stringify({
-        formatVersion: 2,
+        formatVersion: 3,
         fetchedAt: nowValue - 10_000,
         sourceUrl: 'https://example.test/litellm-pricing.json',
         pricingByModel: {
@@ -621,7 +631,7 @@ describe('LiteLLMPricingFetcher', () => {
     expect(reloaded.getPricing('claude-opus-5-5')?.cacheWrite1hPer1MUsd).toBeCloseTo(8, 10);
   });
 
-  it('still prices offline from a cache written before one-hour rates were kept', async () => {
+  it('still prices offline from an older-format cache of a custom URL', async () => {
     const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-old-cache-offline-'));
     tempDirs.push(rootDir);
 
@@ -645,6 +655,172 @@ describe('LiteLLMPricingFetcher', () => {
     expect(fetcher.getPricing('claude-opus-5-5')?.inputPer1MUsd).toBe(4);
   });
 
+  it.each([
+    ['offline', { offline: true }],
+    ['after a failed fetch', { fetchRetryCount: 0 }],
+  ] as const)(
+    'replaces an older-format default-URL cache with the bundled snapshot %s',
+    async (_label, options) => {
+      const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-old-default-cache-'));
+      tempDirs.push(rootDir);
+      const cacheFilePath = path.join(rootDir, 'cache.json');
+      const nowValue = Date.UTC(2026, 9, 15);
+
+      // A fresh cache in the format before tiers: no tiers on claude-haiku-5-5.
+      await writeFile(
+        cacheFilePath,
+        JSON.stringify({
+          formatVersion: 2,
+          fetchedAt: nowValue,
+          sourceUrl: DEFAULT_LITELLM_PRICING_URL,
+          pricingByModel: { 'claude-haiku-5-5': { inputPer1MUsd: 0.1, outputPer1MUsd: 0.5 } },
+        }),
+        'utf8',
+      );
+
+      const fetcher = createFetcher({
+        sourceUrl: DEFAULT_LITELLM_PRICING_URL,
+        cacheFilePath,
+        now: () => nowValue,
+        fetchImpl: vi.fn(async () => {
+          throw new Error('network unavailable');
+        }),
+        ...options,
+      });
+
+      await expect(fetcher.load()).resolves.toBe(true);
+      expect(fetcher.getLoadOrigin()).toBe('bundled-snapshot');
+      expect(fetcher.getPricing('claude-haiku-5-5')?.tiers).toBeDefined();
+    },
+  );
+
+  it('keeps using an older-format custom-URL cache after a failed fetch', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-old-custom-cache-'));
+    tempDirs.push(rootDir);
+    const cacheFilePath = path.join(rootDir, 'cache.json');
+    const nowValue = 1_000_000;
+
+    await writeFile(
+      cacheFilePath,
+      JSON.stringify({
+        formatVersion: 2,
+        fetchedAt: nowValue,
+        sourceUrl: 'https://example.test/litellm-pricing.json',
+        pricingByModel: { 'gpt-5.2-codex': { inputPer1MUsd: 1.5, outputPer1MUsd: 10 } },
+      }),
+      'utf8',
+    );
+
+    const fetcher = createFetcher({
+      cacheFilePath,
+      now: () => nowValue,
+      fetchRetryCount: 0,
+      fetchImpl: vi.fn(async () => {
+        throw new Error('network unavailable');
+      }),
+    });
+
+    await expect(fetcher.load()).resolves.toBe(true);
+    expect(fetcher.getLoadOrigin()).toBe('cache');
+    expect(fetcher.getPricingWarning()).toContain('the LiteLLM refresh failed');
+    expect(fetcher.getPricing('gpt-5.2-codex')?.inputPer1MUsd).toBe(1.5);
+  });
+
+  it('reads long-context tiers from the five standard threshold keys only', () => {
+    const pricing = normalizeLitellmPricingPayload({
+      'tiered-model': {
+        input_cost_per_token: 0.000001,
+        output_cost_per_token: 0.000005,
+        cache_read_input_token_cost: 0.0000001,
+        cache_creation_input_token_cost: 0.00000125,
+        cache_creation_input_token_cost_above_1hr: 0.000002,
+        input_cost_per_token_above_128k_tokens: 0.000002,
+        input_cost_per_token_above_272k_tokens: 0.000004,
+        output_cost_per_token_above_272k_tokens: 0.00002,
+        cache_read_input_token_cost_above_272k_tokens: 0.0000004,
+        cache_creation_input_token_cost_above_272k_tokens: 0.000005,
+        cache_creation_input_token_cost_above_1hr_above_272k_tokens: 0.000008,
+        // Other service tiers and non-token rates stay out of standard billing.
+        input_cost_per_token_above_272k_tokens_priority: 0.00009,
+        input_cost_per_token_above_272k_tokens_batches: 0.00009,
+        input_cost_per_token_above_272k_tokens_flex: 0.00009,
+        output_cost_per_token_above_200k_tokens_ultrafast: 0.00009,
+        input_cost_per_character_above_128k_tokens: 0.00009,
+        tiered_pricing: [{ range: [0, 32_000], input_cost_per_token: 0.00009 }],
+      },
+      'flat-model': { input_cost_per_token: 0.000001, output_cost_per_token: 0.000005 },
+    });
+
+    expect(roundTierRates(pricing.get('tiered-model')?.tiers)).toEqual([
+      {
+        aboveTokens: 272_000,
+        inputPer1MUsd: 4,
+        outputPer1MUsd: 20,
+        cacheReadPer1MUsd: 0.4,
+        cacheWritePer1MUsd: 5,
+        cacheWrite1hPer1MUsd: 8,
+      },
+      { aboveTokens: 128_000, inputPer1MUsd: 2 },
+    ]);
+    expect(pricing.get('tiered-model')?.cacheWrite1hPer1MUsd).toBeCloseTo(2, 10);
+    expect(pricing.get('flat-model')?.tiers).toBeUndefined();
+  });
+
+  it('keeps long-context tiers through the pricing cache', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-tier-cache-'));
+    tempDirs.push(rootDir);
+    const cacheFilePath = path.join(rootDir, 'cache.json');
+    const payload = {
+      'tiered-model': {
+        input_cost_per_token: 0.000001,
+        output_cost_per_token: 0.000005,
+        input_cost_per_token_above_200k_tokens: 0.000002,
+        output_cost_per_token_above_200k_tokens: 0.00001,
+      },
+    };
+
+    const online = createFetcher({
+      cacheFilePath,
+      fetchImpl: vi.fn(async () => new Response(JSON.stringify(payload), { status: 200 })),
+    });
+    await online.load();
+    const offline = createFetcher({ cacheFilePath, offline: true });
+    await offline.load();
+
+    expect(offline.getLoadOrigin()).toBe('cache');
+    expect(offline.getPricing('tiered-model')?.tiers).toEqual([
+      { aboveTokens: 200_000, inputPer1MUsd: 2, outputPer1MUsd: 10 },
+    ]);
+  });
+
+  it('drops malformed cached tiers and sorts the rest, highest threshold first', () => {
+    const payload = normalizeLiteLLMCachePayload({
+      fetchedAt: 1,
+      sourceUrl: DEFAULT_LITELLM_PRICING_URL,
+      pricingByModel: {
+        'tiered-model': {
+          inputPer1MUsd: 1,
+          outputPer1MUsd: 5,
+          tiers: [
+            { aboveTokens: 128_000, inputPer1MUsd: 2 },
+            { aboveTokens: -1, inputPer1MUsd: 9 },
+            { aboveTokens: 1.5, inputPer1MUsd: 9 },
+            { inputPer1MUsd: 9 },
+            'not-a-tier',
+            { aboveTokens: 272_000, inputPer1MUsd: 4, outputPer1MUsd: 'bad' },
+          ],
+        },
+        'not-an-array': { inputPer1MUsd: 1, outputPer1MUsd: 5, tiers: { aboveTokens: 1 } },
+      },
+    });
+
+    expect(payload?.pricingByModel['tiered-model']?.tiers).toEqual([
+      { aboveTokens: 272_000, inputPer1MUsd: 4 },
+      { aboveTokens: 128_000, inputPer1MUsd: 2 },
+    ]);
+    expect(payload?.pricingByModel['not-an-array']?.tiers).toBeUndefined();
+  });
+
   it('falls back to stale cache when content-length exceeds the response byte limit', async () => {
     const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-content-length-cap-'));
     tempDirs.push(rootDir);
@@ -655,7 +831,7 @@ describe('LiteLLMPricingFetcher', () => {
     await writeFile(
       cacheFilePath,
       JSON.stringify({
-        formatVersion: 2,
+        formatVersion: 3,
         fetchedAt: nowValue - 10_000,
         sourceUrl: 'https://example.test/litellm-pricing.json',
         pricingByModel: {
@@ -780,7 +956,7 @@ describe('LiteLLMPricingFetcher', () => {
     await writeFile(
       cacheFilePath,
       JSON.stringify({
-        formatVersion: 2,
+        formatVersion: 3,
         fetchedAt: nowValue,
         sourceUrl: 'https://example.test/litellm-pricing.json',
         pricingByModel: {
@@ -832,7 +1008,7 @@ describe('LiteLLMPricingFetcher', () => {
     await writeFile(
       cacheFilePath,
       JSON.stringify({
-        formatVersion: 2,
+        formatVersion: 3,
         fetchedAt: nowValue,
         sourceUrl: 'https://example.test/litellm-pricing.json',
         pricingByModel: {
@@ -880,7 +1056,7 @@ describe('LiteLLMPricingFetcher', () => {
     await writeFile(
       cacheFilePath,
       JSON.stringify({
-        formatVersion: 2,
+        formatVersion: 3,
         fetchedAt: nowValue,
         sourceUrl: 'https://example.test/litellm-pricing.json',
         pricingByModel: 'not-an-object',
@@ -924,7 +1100,7 @@ describe('LiteLLMPricingFetcher', () => {
     await writeFile(
       cacheFilePath,
       JSON.stringify({
-        formatVersion: 2,
+        formatVersion: 3,
         fetchedAt: nowValue,
         sourceUrl: 'https://example.test/litellm-pricing.json',
         pricingByModel: {

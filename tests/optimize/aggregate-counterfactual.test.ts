@@ -101,6 +101,31 @@ describe('aggregate-counterfactual', () => {
     });
   });
 
+  // Candidates price whole-period totals, which are no single request, so long-context
+  // tiers never apply here: a 1M-token period stays at the base rates.
+  it('prices candidates flat even when a period total is above a tier threshold', () => {
+    const result = buildCounterfactualRows({
+      usageRows: createUsageRows(),
+      oneHourCacheWritesByPeriod: new Map(),
+      provider: 'openai',
+      candidateModels: ['gpt-tiered'],
+      pricingSource: new StaticPricingSource({
+        pricingByModel: {
+          'gpt-tiered': {
+            inputPer1MUsd: 2,
+            outputPer1MUsd: 8,
+            tiers: [{ aboveTokens: 272_000, inputPer1MUsd: 4, outputPer1MUsd: 16 }],
+          },
+        },
+      }),
+    });
+
+    // 1M input * $2 + 100k output * $8, per 1M.
+    expect(
+      result.rows.find((row) => row.rowType === 'candidate' && row.periodKey === 'ALL'),
+    ).toMatchObject({ candidateModel: 'gpt-tiered', hypotheticalCostUsd: 2.8 });
+  });
+
   it('prefers period_combined rows over source rows when both are present', () => {
     const usageRows: UsageReportRow[] = [
       {

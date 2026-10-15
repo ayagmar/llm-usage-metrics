@@ -1,3 +1,5 @@
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
+
 import { isPriceableEvent, type UsageEvent } from '../domain/usage-event.js';
 import {
   getPricingFetcherRuntimeConfig,
@@ -19,6 +21,13 @@ import type {
   ReportCommandOptions,
   UsagePricingOrigin,
 } from './usage-data-contracts.js';
+
+/** Sources whose usage events each record one request, so per-request rates apply. */
+export function getPerRequestSourceIds(adapters: readonly SourceAdapter[]): ReadonlySet<string> {
+  return new Set(
+    adapters.filter((adapter) => adapter.capabilities?.usagePerRequest).map((adapter) => adapter.id),
+  );
+}
 
 function wrapWithPricingOverrides(
   overrides: Map<string, ModelPricing> | undefined,

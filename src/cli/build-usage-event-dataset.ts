@@ -6,6 +6,7 @@ import {
   getPricingFetcherRuntimeConfig,
 } from '../config/runtime-overrides.js';
 import type { UsageEvent } from '../domain/usage-event.js';
+import { DEFAULT_PRICING_POLICY } from '../pricing/cost-engine.js';
 import { limitNamedModels } from '../render/format-model-list.js';
 import {
   closeEventStore,
@@ -46,6 +47,7 @@ import {
 import { refreshDueMachines } from '../machines/refresh-machines.js';
 import { loadPackageMetadataFromRuntime } from './package-metadata.js';
 import {
+  getPerRequestSourceIds,
   resolveAndApplyPricingToEvents,
   resolvePricingSource,
   type PricedEventsResult,
@@ -550,6 +552,10 @@ export async function applyPricingToUsageEventDataset(
       runtimeConfig: dataset.pricingRuntimeConfig,
       loadPricingSource,
       pricingLoadMode,
+      policy: {
+        ...DEFAULT_PRICING_POLICY,
+        perRequestSourceIds: getPerRequestSourceIds(dataset.adaptersToParse),
+      },
     }),
   );
 }

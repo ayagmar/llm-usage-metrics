@@ -16,9 +16,18 @@ import {
 } from '../../src/pricing/litellm-pricing-fetcher.js';
 import snapshotPayload from '../../src/pricing/litellm-pricing-snapshot.json' with { type: 'json' };
 import retiredPricingPayload from '../../src/pricing/litellm-retired-pricing.json' with { type: 'json' };
-import type { ModelPricing } from '../../src/pricing/types.js';
+import type { ModelPricing, PricingTier } from '../../src/pricing/types.js';
 
 const tempDirs: string[] = [];
+
+/** Tier rates rounded past float noise, for exact comparison. */
+function roundTierRates(tiers: readonly PricingTier[] | undefined) {
+  return tiers?.map((tier) =>
+    Object.fromEntries(
+      Object.entries(tier).map(([field, value]) => [field, Number(value.toFixed(10))]),
+    ),
+  );
+}
 
 afterEach(async () => {
   await Promise.all(tempDirs.map((tempDir) => rm(tempDir, { recursive: true, force: true })));
@@ -74,6 +83,27 @@ describe('LiteLLM pricing snapshot', () => {
 
     expect(retiredKeys.length).toBeGreaterThan(0);
     expect(retiredKeys.filter((model) => snapshotPricing.has(normalizeKey(model)))).toEqual([]);
+  });
+
+  it('keeps the long-context tiers of claude-haiku-5-5 from the generated snapshot', async () => {
+    const fetcher = new LiteLLMPricingFetcher({
+      offline: true,
+      cacheFilePath: '/nonexistent/llm-usage-metrics-snapshot-tiers-cache.json',
+    });
+    await fetcher.load();
+
+    expect(fetcher.getLoadOrigin()).toBe('bundled-snapshot');
+    // Anthropic: a Claude Haiku 5.5 request whose prompt is over 100,000 tokens pays more.
+    expect(roundTierRates(fetcher.getPricing('claude-haiku-5-5')?.tiers)).toEqual([
+      {
+        aboveTokens: 100_000,
+        inputPer1MUsd: 0.5,
+        outputPer1MUsd: 2.5,
+        cacheReadPer1MUsd: 0.05,
+        cacheWritePer1MUsd: 0.625,
+        cacheWrite1hPer1MUsd: 1,
+      },
+    ]);
   });
 
   it('back-fills retired models into default-source pricing only', async () => {
