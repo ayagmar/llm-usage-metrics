@@ -21,11 +21,13 @@ export function resolveDefaultOpenClawRootDirs(context: SourceContext): string[]
   ];
 }
 
+/** Options for `OpenClawSourceAdapter`. */
 export type OpenClawSourceAdapterOptions = SourceAdapterPathOptions & {
-  /** Test seam: default roots scanned when no dir override is given. */
+  /** Test seam: default roots scanned when no dir override is given. @internal */
   defaultRootDirs?: string[];
 };
 
+/** OpenClaw agent sessions (JSONL), from `resolveDefaultOpenClawRootDirs`. */
 export class OpenClawSourceAdapter implements SourceAdapter {
   public readonly id = 'openclaw' as const;
   public readonly parserVersion = 4;

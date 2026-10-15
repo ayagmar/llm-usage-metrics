@@ -5,6 +5,7 @@ import type { UsageEvent } from '../../domain/usage-event.js';
 import { asRecord } from '../../utils/as-record.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import { pathIsDirectory, pathReadable } from '../../utils/fs-helpers.js';
+import { readJsonlFromCursor } from '../../stream/cursor.js';
 import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
 import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import {
@@ -28,6 +29,7 @@ function resolveDefaultQwenProjectsDir(context: SourceContext): string {
 
 const QWEN_USAGE_LINE_TEXT = '"usageMetadata"';
 
+/** Options for `QwenSourceAdapter`. */
 export type QwenSourceAdapterOptions = SourceAdapterPathOptions;
 
 type QwenTokenUsage = {
@@ -119,10 +121,15 @@ function getFallbackSessionId(filePath: string): string {
   return `${projectName}-${fileStem}`;
 }
 
+/** Qwen Code chats (JSONL), from `~/.qwen/projects`. Incremental: honours `resume`. */
 export class QwenSourceAdapter implements SourceAdapter {
   public readonly id = 'qwen' as const;
   public readonly parserVersion = 4;
-  public readonly capabilities = { eventsPrecedeFileMtime: true, kinds: ['usage'] } as const;
+  public readonly capabilities = {
+    eventsPrecedeFileMtime: true,
+    incremental: true,
+    kinds: ['usage'],
+  } as const;
 
   private readonly projectsDir: string;
   private readonly requireDir: boolean;
@@ -165,13 +172,20 @@ export class QwenSourceAdapter implements SourceAdapter {
   ): AsyncGenerator<UsageEvent> {
     const diagnostics = options.diagnostics ?? createReadDiagnostics();
     const fallbackSessionId = getFallbackSessionId(filePath);
-
-    for await (const line of readJsonlObjects(filePath, {
+    const lineOptions = {
       shouldParseLine: shouldParseQwenJsonlLine,
       onMalformedLine: () => {
         recordSkippedRow(diagnostics, 'json_parse_error');
       },
-    })) {
+    };
+    // Each line parses on its own, so a resumed read only needs the lines after the cursor.
+    const lines = options.resume
+      ? readJsonlFromCursor(this, filePath, options.resume, (position) =>
+          readJsonlObjects(filePath, { ...lineOptions, position }),
+        )
+      : readJsonlObjects(filePath, lineOptions);
+
+    for await (const line of lines) {
       if (line.type !== 'assistant') {
         continue;
       }

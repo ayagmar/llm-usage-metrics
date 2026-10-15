@@ -264,8 +264,9 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm run core:build
-      - name: Assert every core export target was built
-        run: node -e "const fs=require('node:fs'); const p=require('./packages/core/package.json'); const missing=Object.values(p.exports).flatMap((e)=>[e.types,e.import]).filter((f)=>!fs.existsSync('packages/core/'+f)); if (missing.length) { console.error('Missing core export targets:', missing.join(', ')); process.exit(1); }"
+      # Packs core, checks its files, zero dependencies and exports targets, then installs the
+      # tarball and checks that every subpath loads alone and bundles no other source.
+      - run: pnpm run core:pack:check
       - run: pnpm run core:lint
       - run: pnpm run core:typecheck
       - run: pnpm run core:test
@@ -273,8 +274,6 @@ jobs:
           REQUIRE_CORE_DIST: '1'
       - name: Enforce core coverage threshold
         run: node .github/scripts/check-coverage-threshold.mjs packages/core/coverage/coverage-summary.json
-      - name: Assert the core package has no dependencies
-        run: node -e "const p=require('./packages/core/package.json'); if (p.dependencies||p.devDependencies) process.exit(1)"
 
   # Not in ci-status yet: its ceilings come from a 32-core dev machine. Add it to ci-status
   # once it has run green on a GitHub runner.

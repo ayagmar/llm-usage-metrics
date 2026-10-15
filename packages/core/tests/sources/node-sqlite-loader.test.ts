@@ -12,7 +12,7 @@ describe('loadNodeSqliteModuleFromRequire', () => {
       loadNodeSqliteModuleFromRequire(() => {
         throw new Error('mock sqlite load failure');
       }),
-    ).toThrow('OpenCode source requires Node.js 22.16+ or 24+ runtime with node:sqlite support');
+    ).toThrow('SQLite source requires Node.js 22.16+ or 24+ runtime with node:sqlite support');
   });
 
   it('labels loader failures with the consumer that triggered them', () => {

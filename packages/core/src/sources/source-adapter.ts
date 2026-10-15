@@ -1,13 +1,20 @@
 import type { EventKind, SessionEvent } from '../domain/session-event.js';
 import type { UsageEvent, SourceId } from '../domain/usage-event.js';
+import type { ReadResume } from '../stream/cursor.js';
 import type { SourceContext } from './source-context.js';
 
+/** How many rows a read skipped for one reason. */
 export type SourceSkippedRowReasonStat = {
   reason: string;
   count: number;
 };
 
+/** What an adapter declares about its source; every flag is optional and off when unset. */
 export type SourceCapabilities = {
+  /**
+   * The billing providers this source's events belong to, when fixed. A provider filter
+   * that matches none of them can skip the source.
+   */
   fixedProviderRoots?: readonly string[];
   /**
    * Every event a file yields is timestamped no later than the newest mtime of the file
@@ -33,20 +40,28 @@ export type SourceCapabilities = {
    * `['usage']`.
    */
   kinds?: readonly EventKind[];
-  /** Declared for later milestones; nothing reads these yet. */
-  sqlite?: boolean;
+  /**
+   * The adapter honours `resume`: it reads on from a valid cursor and reports a new one.
+   * Check this before passing `resume`; any other adapter ignores it.
+   */
   incremental?: boolean;
 };
 
+/** Constructor options shared by the directory-backed adapters. */
 export type SourceAdapterPathOptions = {
+  /** The directory to read; the source's default location when omitted. */
   dir?: string;
+  /** Fail discovery when `dir` is missing, instead of finding no files. */
   requireDir?: boolean;
+  /** Home directory, environment and platform; the host's when omitted. */
   context?: SourceContext;
 };
 
+/** A whole file's events and skipped rows, as `collectFile` returns them. */
 export type SourceParseFileDiagnostics<Event extends UsageEvent = UsageEvent> = {
   events: Event[];
   skippedRows: number;
+  /** Sorted by reason. */
   skippedRowReasons?: SourceSkippedRowReasonStat[];
 };
 
@@ -56,10 +71,14 @@ export type SourceReadDiagnostics = {
   skippedRowReasons: Map<string, number>;
 };
 
+/** Options for `SourceAdapter.read`. */
 export type SourceReadOptions = {
   diagnostics?: SourceReadDiagnostics;
+  /** Resumes from a cursor; honoured only when `capabilities.incremental` is true. */
+  resume?: ReadResume;
 };
 
+/** Options for `readEvents` and `SourceAdapter.readEvents`. */
 export type ReadEventsOptions = {
   /** The kinds to yield; every kind the adapter declares when omitted. */
   kinds?: readonly EventKind[];
@@ -68,8 +87,17 @@ export type ReadEventsOptions = {
   /** Attach the parsed source record to each event as `raw`, text included. */
   raw?: boolean;
   diagnostics?: SourceReadDiagnostics;
+  /**
+   * Resumes from a cursor; honoured only when `capabilities.incremental` is true, and
+   * only when the read includes usage.
+   */
+  resume?: ReadResume;
 };
 
+/**
+ * Reads one agent's local session store: finds its files and turns each into events.
+ * Adapters are read-only, and their constructors read nothing from disk.
+ */
 export interface SourceAdapter<Event extends UsageEvent = UsageEvent> {
   readonly id: SourceId;
   /**
@@ -81,6 +109,10 @@ export interface SourceAdapter<Event extends UsageEvent = UsageEvent> {
   readonly capabilities?: SourceCapabilities;
   /** Directories or database files discovery looks in, for `doctor`. */
   getSearchPaths?(): readonly string[];
+  /**
+   * The files to read, in a stable order. A missing default location finds none; a missing
+   * required one throws.
+   */
   discoverFiles(): Promise<string[]>;
   /**
    * Yields the file's events in order and adds skipped rows to `options.diagnostics` as
@@ -94,6 +126,10 @@ export interface SourceAdapter<Event extends UsageEvent = UsageEvent> {
    * `readEvents`, which falls back to `read` for an adapter without this method.
    */
   readEvents?(filePath: string, options?: ReadEventsOptions): AsyncIterable<SessionEvent>;
+  /**
+   * Other files the events of `filePath` depend on (a sidecar, a parent transcript). A
+   * cache keyed on a file must also check these.
+   */
   getParseDependencies?(filePath: string): Promise<string[]>;
 }
 

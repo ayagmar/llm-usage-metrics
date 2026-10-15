@@ -25,6 +25,7 @@ function resolveDshHome(context: SourceContext): string {
   return configuredHome;
 }
 
+/** `$DSH_HOME/sessions`, or `~/.dsh/sessions` when `DSH_HOME` is unset or blank. */
 export function getDefaultDshSessionsDir(context: SourceContext): string {
   return path.join(resolveDshHome(context), 'sessions');
 }

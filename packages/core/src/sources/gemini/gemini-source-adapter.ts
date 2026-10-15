@@ -25,6 +25,7 @@ import type {
 } from '../source-adapter.js';
 import { createSourceContext, readEnvPath, type SourceContext } from '../source-context.js';
 
+/** Options for `GeminiSourceAdapter`. */
 export type GeminiSourceAdapterOptions = SourceAdapterPathOptions;
 
 function resolveDefaultGeminiDir(context: SourceContext): string {
@@ -226,6 +227,7 @@ function extractTokenUsage(tokens: Record<string, unknown> | undefined): {
 
 // diagnostics helpers live in ../parse-diagnostics.ts
 
+/** Gemini CLI chats (JSON), from `$GEMINI_CLI_HOME/tmp/<project>/chats` (default `~/.gemini`). */
 export class GeminiSourceAdapter implements SourceAdapter {
   public readonly id = 'gemini' as const;
   public readonly parserVersion = 4;

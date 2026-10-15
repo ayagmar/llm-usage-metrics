@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, open, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -430,5 +430,81 @@ describe('readClassifiedJsonlObjects', () => {
     );
 
     expect(items.map((item) => item.isUsageLine)).toEqual([true, false]);
+  });
+});
+
+describe('readJsonlObjects with a position', () => {
+  const bigLine = JSON.stringify({ text: 'x'.repeat(1024 * 1024 + 10) });
+  const content = ['{"n":1}', bigLine, '{"n":3}', '{"n":4}'].join('\n') + '\n';
+
+  async function openContent(): Promise<Awaited<ReturnType<typeof open>>> {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'read-jsonl-position-'));
+    tempDirs.push(rootDir);
+    const filePath = path.join(rootDir, 'session.jsonl');
+    await writeFile(filePath, content, 'utf8');
+    return open(filePath, 'r');
+  }
+
+  function positionAt(handle: Awaited<ReturnType<typeof open>>, start: number) {
+    const lineEnds: number[] = [];
+    const chunks: Buffer[] = [];
+    return {
+      lineEnds,
+      chunks,
+      position: {
+        handle,
+        start,
+        onChunk: (chunk: Buffer) => chunks.push(chunk),
+        onLineEnd: (offset: number) => lineEnds.push(offset),
+      },
+    };
+  }
+
+  it('leaves a caller-owned handle open after a full read', async () => {
+    const handle = await openContent();
+
+    try {
+      const { lineEnds, chunks, position } = positionAt(handle, 0);
+      const records = await collectAll(readJsonlObjects('', { position }));
+
+      expect(records.map((record) => record.n)).toEqual([1, undefined, 3, 4]);
+      expect(lineEnds.at(-1)).toBe(Buffer.byteLength(content));
+      expect(Buffer.concat(chunks).toString('utf8')).toBe(content);
+      await expect(handle.stat()).resolves.toMatchObject({ size: Buffer.byteLength(content) });
+    } finally {
+      await handle.close();
+    }
+  });
+
+  it('leaves a caller-owned handle open after the consumer stops early', async () => {
+    const handle = await openContent();
+
+    try {
+      const { position } = positionAt(handle, 0);
+
+      for await (const record of readJsonlObjects('', { position })) {
+        expect(record).toEqual({ n: 1 });
+        break;
+      }
+
+      await expect(handle.stat()).resolves.toMatchObject({ size: Buffer.byteLength(content) });
+    } finally {
+      await handle.close();
+    }
+  });
+
+  it('starts at the given offset and reports line ends from there', async () => {
+    const handle = await openContent();
+
+    try {
+      const start = content.indexOf('{"n":3}');
+      const { lineEnds, position } = positionAt(handle, start);
+      const records = await collectAll(readJsonlObjects('', { position }));
+
+      expect(records).toEqual([{ n: 3 }, { n: 4 }]);
+      expect(lineEnds).toEqual([start + 8, start + 16]);
+    } finally {
+      await handle.close();
+    }
   });
 });

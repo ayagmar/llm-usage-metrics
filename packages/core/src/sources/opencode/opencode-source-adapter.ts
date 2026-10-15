@@ -23,15 +23,25 @@ type OpenCodeMessageRows = {
   rows: IterableIterator<OpenCodeSqliteRow>;
 };
 
+/** Options for `OpenCodeSourceAdapter`. */
 export type OpenCodeSourceAdapterOptions = {
+  /** The database to read; the platform's default locations when omitted. */
   dbPath?: string;
+  /** Test seam: default database paths tried when no dbPath is given. @internal */
   resolveDefaultDbPaths?: () => string[];
+  /** Test seam: replaces the file system check. @internal */
   pathExists?: PathPredicate;
+  /** Test seam: replaces the file system check. @internal */
   pathReadable?: PathPredicate;
+  /** Test seam: replaces the file system check. @internal */
   pathIsFile?: PathPredicate;
+  /** Test seam: replaces the node:sqlite loader. @internal */
   loadSqliteModule?: () => Promise<SqliteModule>;
+  /** Retries of a read that finds the database busy or locked. */
   maxBusyRetries?: number;
+  /** Delay between those retries. */
   busyRetryDelayMs?: number;
+  /** Test seam: replaces the busy-retry delay. @internal */
   sleep?: SleepFn;
   context?: SourceContext;
 };
@@ -43,6 +53,11 @@ function getOpenCodeParseDependencies(dbPath: string): string[] {
   return [`${dbPath}-wal`, `${dbPath}-journal`];
 }
 
+/**
+ * OpenCode's database (SQLite), from `dbPath` or the platform's default locations
+ * (`$XDG_DATA_HOME/opencode`, `~/.opencode`, Application Support or `%APPDATA%`). Needs
+ * `node:sqlite`.
+ */
 export class OpenCodeSourceAdapter implements SourceAdapter {
   public readonly id = 'opencode' as const;
   public readonly capabilities = { kinds: ['usage'] } as const;

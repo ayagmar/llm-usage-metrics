@@ -56,12 +56,11 @@ import type {
   UsagePricingOrigin,
   UsageSourceFailure,
 } from './usage-data-contracts.js';
+import { dedupeCopiedSessions, type SourceAdapter } from '@ayagmar/agent-sessions';
 import {
-  dedupeCopiedSessions,
   getRepeatingSourceIds,
   getSessionCopyingSourceIds,
-  type SourceAdapter,
-} from '@ayagmar/agent-sessions';
+} from '@ayagmar/agent-sessions/internal';
 import type { EnvVarOverride } from '../config/env-var-display.js';
 import type { PricingSource } from '../pricing/types.js';
 import { findUnmatchedFilterWarnings } from './filter-match-warnings.js';

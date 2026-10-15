@@ -22,13 +22,14 @@ import {
   type EventStoreHistoryDiscoveredFile,
 } from '../persistence/event-store-history.js';
 import { createAdaptersFromOptions } from './source-cli-options.js';
-import { getRepeatingSourceIds, type SourceAdapter } from '@ayagmar/agent-sessions';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
+import { getRepeatingSourceIds } from '@ayagmar/agent-sessions/internal';
 import { renderPruneReport } from '../render/render-prune-report.js';
 import { validateDateInput, selectAdaptersBySourceFilter } from './build-usage-data-inputs.js';
 import { resolveUserConfigForOptions, type UserConfigResolutionDeps } from './apply-user-config.js';
 import { emitUserConfigResolution } from './emit-active-config.js';
 import { addStoredFilesStillOnDisk, mapWithConcurrency } from './history-live-files.js';
-import { getParseFileFingerprint } from './parse/parse-fingerprint.js';
+import { getFileFingerprint } from './parse/parse-fingerprint.js';
 import { renderReportJson } from '../render/report-json.js';
 import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
 import { logger } from '../utils/logger.js';
@@ -151,7 +152,7 @@ async function readParseFingerprint(
   file: DiscoveredLiveFile,
 ): Promise<EventStoreFileFingerprint | undefined> {
   try {
-    return await getParseFileFingerprint(file.adapter, file.filePath);
+    return await getFileFingerprint(file.adapter, file.filePath);
   } catch {
     return undefined;
   }

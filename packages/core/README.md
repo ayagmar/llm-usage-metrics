@@ -2,16 +2,66 @@
 
 Parsers for the session logs that local coding agents (Claude Code, Codex, Gemini CLI, OpenCode and others) write to disk. Each source turns its agent's files into one normalized usage event shape, so tools can count tokens, sessions and active time across agents without knowing each log format. It is the parsing layer of [llm-usage-metrics](https://github.com/ayagmar/llm-usage-metrics), split out so other tools can use it.
 
-The package is read-only: it makes no network calls, never writes to the agents' stores, and reads nothing (environment, home directory, files) at import.
+The package is read-only: it makes no network calls, never writes to the agents' stores, and reads nothing (environment, home directory, files) at import. See [Security posture](#security-posture).
 
-This package is still being extracted from the CLI and has no stable API yet.
+The package is at 0.x: see [Versioning](#versioning) for what is stable.
 
 ## Contents
 
-- `@ayagmar/agent-sessions`: the usage event model and its normalization, the `SourceAdapter` contract, `SourceContext`, the parse fingerprint, `collect` and `collectFile`, `pipe`, the event kinds with `readEvents`, `kinds` and `isUsageRecord`, and the dedup steps (`dedupeRepeatedAcrossFiles`, `dedupeCopiedSessions` and their stage forms, `computeEventContentHash`).
-- `@ayagmar/agent-sessions/registry`: every source registered in a fixed order, with `createDefaultAdapters`, `getDefaultSourceIds` and per-source storage format and worker support.
+- `@ayagmar/agent-sessions`: the usage event model and its normalization, the `SourceAdapter` contract, `SourceContext`, `getParserVersion`, `collect` and `collectFile`, `pipe`, the event kinds with `readEvents`, `kinds` and `isUsageRecord`, the stages `since`, `until` and `bySession`, the dedup steps (`dedupeRepeatedAcrossFiles`, `dedupeCopiedSessions` and their stage forms, `computeEventContentHash`), and the read cursor types.
+- `@ayagmar/agent-sessions/registry`: every source registered in a fixed order, with `createDefaultAdapters`, `getDefaultSourceIds`, `getSourceStorageFormat` and `readSources`.
 - `@ayagmar/agent-sessions/sources/<id>`: one adapter per entry (`pi`, `codex`, `gemini`, `droid`, `opencode`, `openclaw`, `claude`, `copilot`, `goose`, `amp`, `qwen`, `kimi`, `cline`, `roocode`, `kilocode`, `antigravity`, `dsh`). Importing one entry loads no other source's code, except that `roocode` and `kilocode` load `cline`, whose family adapter builds them.
-- `@ayagmar/agent-sessions/internal`: helpers the CLI still uses (parsing and discovery utilities, the SQLite loader, fingerprint and hash-count helpers). Not a public API.
+- `@ayagmar/agent-sessions/otel`: experimental OpenTelemetry GenAI attributes for events. See [OpenTelemetry attributes](#opentelemetry-attributes).
+- `@ayagmar/agent-sessions/internal`: helpers the CLI still uses (parsing and discovery utilities, the SQLite loader, fingerprint and hash-count helpers, provider normalization, terminal text helpers). Not a public API.
+
+Importing `.` or `./internal` loads no source module; `./registry` loads them all.
+
+## Security posture
+
+- **Read-only.** Adapters open files and databases for reading only. SQLite databases are opened with `readOnly: true`; SQLite itself may still update a WAL database's `-shm` index, as any reader does. The core writes no data to an agent's store and no files of its own.
+- **No network.** The core imports no network module and calls no network API; lint enforces both.
+- **Nothing read at import.** Importing any entry reads no file, environment variable or home directory. Host state comes from a `SourceContext`, filled when you call `createSourceContext()` or build an adapter.
+- **Private text is opt-in.** Message text and session titles are set only with `text: true`, and the parsed source record only with `raw: true`. Without them, events carry counts, ids, models, timestamps, `cwd`, `repoRoot` and `gitBranch`. See [Privacy](#privacy).
+- **No console output.** Problems an adapter does not throw for go to `context.onDiagnostic`.
+
+What each source reads, by default. An explicit `dir` or `dbPath` replaces the default location.
+
+| Source                   | Default location                                                                                                  | Also reads                                                                    |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| pi                       | `~/.pi/agent/sessions`, `~/.omp/agent/sessions`                                                                   | a fork's parent session                                                       |
+| codex                    | `$CODEX_HOME/sessions` (default `~/.codex/sessions`)                                                              |                                                                               |
+| gemini                   | `$GEMINI_CLI_HOME/tmp/<project>/chats` (default `~/.gemini`)                                                      | `projects.json`, for each project's root                                      |
+| droid                    | `~/.factory/sessions`                                                                                             | the JSONL next to each settings file                                          |
+| opencode                 | `$XDG_DATA_HOME/opencode`, `~/.opencode`, Application Support or `%APPDATA%`                                      | the database's `-wal` and `-journal` files                                    |
+| openclaw                 | `agents` under `~/.openclaw`, `~/.clawdbot`, `~/.moltbot` and `~/.moldbot`                                        |                                                                               |
+| claude                   | `projects` and `transcripts` under each `$CLAUDE_CONFIG_DIR` entry (comma-separated; default `~/.claude`)         | a fork's parent transcript                                                    |
+| copilot                  | `~/.copilot/otel`, and the file `$COPILOT_OTEL_FILE_EXPORTER_PATH` names                                          |                                                                               |
+| goose                    | `$GOOSE_PATH_ROOT`, `$XDG_DATA_HOME`, Application Support or `%APPDATA%`                                          |                                                                               |
+| amp                      | `$XDG_DATA_HOME/amp/threads` (default `~/.local/share/amp/threads`)                                               |                                                                               |
+| qwen                     | `~/.qwen/projects`                                                                                                |                                                                               |
+| kimi                     | `~/.kimi/sessions`, `~/.kimi-code/sessions`                                                                       | `config.json` next to the sessions directory                                  |
+| cline, roocode, kilocode | the extension's VS Code global storage (`~/.config/Code`, Application Support or `%APPDATA%`, `~/.vscode-server`) | `api_conversation_history.json` beside each `ui_messages.json`, for the model |
+| antigravity              | `$GEMINI_CLI_HOME/antigravity-cli/conversations` (default `~/.gemini/antigravity-cli/conversations`)              |                                                                               |
+| dsh                      | `$DSH_HOME/sessions` (default `~/.dsh/sessions`)                                                                  |                                                                               |
+
+## Versioning
+
+The package follows semver over its public subpaths: `.`, `./registry` and `./sources/<id>`. While it is at 0.x, a minor version may break them; a patch may not. Releases are versioned with changesets, separately from the CLI.
+
+Outside that promise:
+
+- `./internal`: helpers for the CLI, changed whenever the CLI needs to.
+- `./otel`: experimental, see [OpenTelemetry attributes](#opentelemetry-attributes).
+- Names tagged `@internal` on a public subpath: `canParseSourceOnWorker`, `createWorkerParseAdapter` and `sourceSupportsDirectories` on `./registry`, `LEGACY_CODEX_MODEL_FALLBACK` on `./sources/codex`, and the test seams in the adapter options types (`defaultRootDirs`, `resolveDefaultDbPaths`, `pathExists`, `pathReadable`, `pathIsDirectory`, `pathIsFile`, `loadSqliteModule`, `sleep`).
+
+Two versions tell a cache when stored events are stale:
+
+- `CORE_EVENT_VERSION` goes up when shared normalization (`createUsageEvent` and the other constructors) would turn an unchanged file into different events.
+- An adapter's `parserVersion` goes up when that adapter would parse an unchanged file differently: token mapping, dedup, model resolution.
+
+`getParserVersion(adapter)` combines both. Key stored events on it, on the file, and on the files `getParseDependencies` returns.
+
+The published tarball holds `dist`, `README.md`, `LICENSE`, `package.json` and, once versioned, `CHANGELOG.md`; `pnpm run core:pack:check` verifies that, that the package has no dependencies, and that each subpath loads on its own from an installed tarball.
 
 ## Reading a file
 
@@ -98,6 +148,80 @@ for await (const event of pipe(fileBatches(), repeatedAcrossFiles())) {
 }
 ```
 
+`since(bound)` and `until(bound)` keep events timestamped at or after `bound`, and before it. `since(t)` and `until(t)` split a stream in two, except that both drop an event whose timestamp does not parse. Bounds are compared as instants. An invalid bound throws when the stage is built, and so does a string bound with a time of day but no UTC offset (`'2026-06-01T10:00'`), which would mean different instants in different time zones. An ISO date alone (`'2026-06-01'`) is midnight UTC; other date-only strings (`'2026/06/01'`) follow `Date.parse` and mean local midnight, so prefer the ISO form. `bySession()` groups events into `{ source, sessionId, events }`, in the order each session first appears; it buffers its whole input.
+
+## Reading every source
+
+`readSources(context, ids, options)` on `./registry` reads every file of the listed sources and yields `SessionEvent`s. It takes the `readEvents` options (`kinds`, `text`, `raw`) plus `since`, `until`, `dedupe`, `diagnostics` and `roots`:
+
+```ts
+import { createSourceContext, kinds, pipe } from '@ayagmar/agent-sessions';
+import { readSources } from '@ayagmar/agent-sessions/registry';
+
+const context = createSourceContext();
+
+for await (const usage of pipe(readSources(context, ['claude', 'codex']), kinds('usage'))) {
+  console.log(usage.source, usage.model, usage.totalTokens);
+}
+```
+
+- Sources come out in registry order, whatever order `ids` lists them in; files in discovery order; each file's events as `readEvents` yields them.
+- `dedupe` (on by default) counts repeated usage once per source, as the CLI does: `repeatedAcrossFiles` for pi, then `copiedSessions` for claude. `since` and `until` apply after it.
+- Buffering: with `dedupe` on, each file's events are collected before they are yielded, and a claude source is held in full until its last file, message bodies included when `text` or `raw` is on. `dedupe: false` streams.
+- Failures: without `context.onDiagnostic`, a discovery or read failure is rethrown. With it, the failure is reported as a `warn` diagnostic and skipped: a failed discovery skips the source, a failed read skips the file. With `dedupe` on, a file whose read throws yields none of its events, as in the CLI. With `dedupe: false`, the events it yielded before the throw stay, which the CLI never counts.
+- `roots` maps a source id to the directories to read instead of its defaults. An explicit root must exist, so a missing one is a discovery failure; a missing default root yields nothing and reports nothing. Each entry needs at least one root, and opencode and goose, which read one database file, take exactly one. An unknown id, a `roots` entry for a source not in `ids`, an empty entry, several roots for opencode or goose, or an invalid bound throws before any read.
+
+### Another home directory
+
+Adapters find their default locations from the context's home directory and environment. To read another user's home, or a copy of one:
+
+```ts
+const context = createSourceContext({ homeDir: '/mnt/backup/home/me', env: {} });
+```
+
+Pass `env: {}` as well when the home directory is all that should decide the locations. Without it the context holds `process.env`, and a `CODEX_HOME`, `CLAUDE_CONFIG_DIR`, `GEMINI_CLI_HOME`, `XDG_DATA_HOME` or similar variable set on this machine moves those sources away from the home directory you passed. The forensics example's test uses `env: {}` for that reason.
+
+## Resuming a read
+
+An adapter whose `capabilities.incremental` is true can resume a JSONL file where an earlier read stopped. qwen is the only one so far. Check the flag before passing `resume`: any other adapter ignores `resume` and calls neither callback.
+
+```ts
+import type { ReadCursor } from '@ayagmar/agent-sessions';
+
+let cursor: ReadCursor | undefined; // persisted between runs, per file
+
+for await (const event of qwen.read(filePath, {
+  resume: {
+    from: cursor,
+    onStart: ({ restarted }) => {
+      if (restarted) dropStoredEventsFor(filePath);
+    },
+    onCursor: (update) => {
+      cursor = update.cursor;
+    },
+  },
+})) {
+  store(event);
+}
+```
+
+- `onStart` fires once when the read of the file starts, before any event, including for an empty file. `restarted: true` means the read starts from byte 0, so its events replace what you stored for the file; append only when it is false.
+- `onCursor` fires once, when the read completes. A read you break out of, or that throws, does not call it: keep the cursor you had.
+- A cursor is valid when its `parser` matches the adapter's (`<source>@<getParserVersion>`), the file is at least `offset` bytes long, and the sha256 of the first 64 KiB and of the 64 KiB ending at `offset` both match. Anything else restarts.
+- `offset` is the end of the last line-feed-terminated line. A final line without a line feed is not parsed, yielded or counted under `resume`; the next read sees it whole once its line feed arrives.
+- `readEvents` forwards `resume` too, and honours it only when the read includes usage.
+- Stores are assumed append-only. A rewrite that keeps the file's size and changes only bytes between the two hashed windows passes validation, and the resumed read misses it.
+
+The cursor is plain JSON, so it can be stored as is. `JsonlReadCursor` reserves `state` for adapter-defined state; no adapter sets it yet.
+
+## OpenTelemetry attributes
+
+`@ayagmar/agent-sessions/otel` maps events to OpenTelemetry GenAI semantic-convention attributes: `usageRecordAttributes`, `toolCallAttributes` and `sessionAttributes`, each returning a plain `Record<string, string | number | boolean>`. It is experimental: the GenAI conventions have no release, so names follow the commit pinned in `SEMCONV_GENAI_REF` and can change when the pin moves, in any version. The helpers never emit message text, titles or raw records; paths and the git branch appear only with `includePaths: true`.
+
+## Example: session forensics
+
+[`examples/session-forensics.ts`](examples/session-forensics.ts) reports, per claude, codex and pi session, the fresh input, cache read, cache write and output tokens, the recorded cost, the cache hit ratio (cache read / (fresh input + cache read); cache writes are left out), the count of system messages (Claude compaction summaries; Codex developer and injected-context messages), and how often the same user prompt was repeated in the session. It also counts prompts repeated across sessions. It reads with `text: true` but prints only counts and sha256 fingerprints. The fingerprints are unsalted, so a short or common prompt can be recovered by hashing guesses; do not share the output where the prompts themselves would be sensitive. Its core is one `pipe(readSources(...), kinds('usage', 'message'), bySession())` loop.
+
 ## Event kinds
 
 `read` yields usage only. `readEvents(adapter, filePath, options)` reads the same file and yields `SessionEvent`, a union of four kinds. Every event has `kind`, `source`, `sessionId`, `timestamp` and, when asked for, `raw`:
@@ -117,6 +241,7 @@ type ReadEventsOptions = {
   text?: boolean; // message text and session titles; default false
   raw?: boolean; // the parsed source record on each event; default false
   diagnostics?: SourceReadDiagnostics;
+  resume?: ReadResume; // see Resuming a read
 };
 ```
 

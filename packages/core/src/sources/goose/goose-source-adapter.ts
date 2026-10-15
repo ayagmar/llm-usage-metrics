@@ -29,12 +29,19 @@ type GooseParsedRow = {
   skippedReason?: 'invalid_model_config' | 'invalid_timestamp' | 'no_token_usage';
 };
 
+/** Options for `GooseSourceAdapter`. */
 export type GooseSourceAdapterOptions = {
+  /** The database to read; the platform's default locations when omitted. */
   dbPath?: string;
+  /** Test seam: default database paths tried when no dbPath is given. @internal */
   resolveDefaultDbPaths?: () => string[];
+  /** Test seam: replaces the file system check. @internal */
   pathExists?: PathPredicate;
+  /** Test seam: replaces the file system check. @internal */
   pathReadable?: PathPredicate;
+  /** Test seam: replaces the file system check. @internal */
   pathIsFile?: PathPredicate;
+  /** Test seam: replaces the node:sqlite loader. @internal */
   loadSqliteModule?: () => Promise<SqliteModule>;
   context?: SourceContext;
 };
@@ -155,6 +162,10 @@ function parseGooseRow(row: GooseSqliteRow): GooseParsedRow {
   };
 }
 
+/**
+ * Goose's sessions database (SQLite), from `dbPath` or the platform's default locations
+ * (`$GOOSE_PATH_ROOT`, `$XDG_DATA_HOME`, Application Support or `%APPDATA%`). Needs `node:sqlite`.
+ */
 export class GooseSourceAdapter implements SourceAdapter {
   public readonly id = 'goose' as const;
   public readonly capabilities = { kinds: ['usage'] } as const;

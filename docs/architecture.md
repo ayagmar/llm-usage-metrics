@@ -227,9 +227,9 @@ That keeps sorting and separator behavior deterministic without coupling the gen
 - `packages/core/src/sources`
   Source adapters, discovery, parsing, in the `@ayagmar/agent-sessions` package; the CLI imports them through the package specifiers. Each adapter's `read(filePath, options)` yields a file's events as an async iterable; the CLI parse path, the parse worker and `doctor` read whole files through `collectFile`. `capabilities.kinds` lists the event kinds an adapter produces: claude, codex and pi also implement `readEvents(filePath, options)`, which yields usage records, messages, tool calls and session facts (`SessionEvent` in `packages/core/src/domain/session-event.ts`); every other adapter declares `['usage']`. The CLI uses only `read`, whose output `readEvents` leaves unchanged
 - `packages/core/src/stream`
-  `collect`/`collectFile` (an async iterable to an array, a file to its events and sorted skipped-row counts), `readEvents` (an adapter's `readEvents`, or its `read` events as usage records when it has none), the `kinds()` stage, and `pipe` with the `Stage` type that the dedup stage forms (`repeatedAcrossFiles`, `copiedSessions` in `packages/core/src/dedup`, which dedupe usage and pass other kinds through) plug into
+  `collect`/`collectFile` (an async iterable to an array, a file to its events and sorted skipped-row counts), `readEvents` (an adapter's `readEvents`, or its `read` events as usage records when it has none), the `kinds()`, `since()`, `until()` and `bySession()` stages, the JSONL read cursor (`cursor.ts`), and `pipe` with the `Stage` type that the dedup stage forms (`repeatedAcrossFiles`, `copiedSessions` in `packages/core/src/dedup`, which dedupe usage and pass other kinds through) plug into
 - `packages/core/src/registry`
-  The adapter registry (`createDefaultAdapters`, `getDefaultSourceIds`), exported as `@ayagmar/agent-sessions/registry`; `src/sources/create-default-adapters.ts` re-exports it for the docs site
+  The adapter registry (`createDefaultAdapters`, `getDefaultSourceIds`) and `readSources`, which reads and dedupes whole sources for library users (the CLI does not use it), exported as `@ayagmar/agent-sessions/registry`; `src/sources/create-default-adapters.ts` re-exports it for the docs site
 - `src/domain`
   Canonical usage contracts and normalization
 - `src/pricing`
@@ -256,6 +256,20 @@ That keeps sorting and separator behavior deterministic without coupling the gen
   Startup update check
 - `src/utils`
   Shared fs/discovery/time helpers and the leveled stderr logger (`logger.ts`)
+
+## Core package surface
+
+`@ayagmar/agent-sessions` (`packages/core`) has one entry per `exports` subpath, and `tsup.config.ts` derives its build entries from that map:
+
+| Subpath          | Tier         | Holds                                                                                                                                                                                                                                                                                                                                           |
+| ---------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.`              | public       | event types and constructors, the adapter contract, `SourceContext`, stages, dedup, versions, cursor types                                                                                                                                                                                                                                      |
+| `./registry`     | public       | `createDefaultAdapters`, `getDefaultSourceIds`, `getSourceStorageFormat`, `readSources`                                                                                                                                                                                                                                                         |
+| `./sources/<id>` | public       | one adapter and its options type (roocode and kilocode export the cline family's `createClineFamilyAdapter` factory instead of a class), plus `resolveDefaultCodexSessionsDir` and `LEGACY_CODEX_MODEL_FALLBACK` on codex, `getDefaultDshSessionsDir` on dsh and `CLINE_EXTENSION_IDS` on the cline family; `public-surface.test.ts` lists them |
+| `./otel`         | experimental | OpenTelemetry GenAI attribute helpers                                                                                                                                                                                                                                                                                                           |
+| `./internal`     | unstable     | what only the CLI uses: provider normalization, terminal text, pricing predicates, fingerprints, utilities                                                                                                                                                                                                                                      |
+
+Semver covers the public tiers, minus names tagged `@internal` (the parse-worker helpers on `./registry`, adapter test seams). The CLI imports `.`, `./registry` and `./internal`, some through `src/` shims that keep older import paths, and tsup bundles the core into `dist/index.js`. Importing `.` or `./internal` loads no source's code, and importing one `./sources/<id>` loads no other source's code, except that `roocode` and `kilocode` load `cline`, whose family adapter builds them. Tests in `packages/core/tests` pin this: `public-surface.test.ts` lists every exported name per subpath, `tsdoc-presence.test.ts` requires a doc comment on each public one, and `subpath-isolation.test.ts` checks module isolation in source and in `dist`.
 
 ## Deep dives
 

@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createDefaultAdapters, getDefaultSourceIds } from '../../src/registry/index.js';
-import { getParseFileFingerprint } from '../../src/sources/parse-fingerprint.js';
+import { getFileFingerprint } from '../../src/sources/parse-fingerprint.js';
 import { createSourceContext } from '../../src/sources/source-context.js';
 import { canonicalTmpdir } from '../helpers/tmp.js';
 
@@ -54,8 +54,7 @@ describe('parse fingerprint versions', () => {
     const parserVersions: Record<string, string | undefined> = {};
 
     for (const adapter of adapters) {
-      parserVersions[adapter.id] = (await getParseFileFingerprint(adapter, filePath))
-        ?.parserVersion;
+      parserVersions[adapter.id] = (await getFileFingerprint(adapter, filePath))?.parserVersion;
     }
 
     expect(Object.keys(parserVersions)).toEqual(getDefaultSourceIds());

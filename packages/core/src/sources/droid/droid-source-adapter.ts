@@ -26,6 +26,7 @@ function resolveDefaultDroidSessionsDir(context: SourceContext): string {
   return path.join(context.homeDir, '.factory', 'sessions');
 }
 
+/** Options for `DroidSourceAdapter`. */
 export type DroidSourceAdapterOptions = SourceAdapterPathOptions;
 
 const DROID_SESSION_START_LINE_PATTERN = /"type"\s*:\s*"session_start"/u;
@@ -58,6 +59,7 @@ function resolveRepoRootFromSessionStart(line: Record<string, unknown>): string 
   return asTrimmedText(payload?.cwd);
 }
 
+/** Factory Droid session settings (JSON) and their sibling JSONL, from `~/.factory/sessions`. */
 export class DroidSourceAdapter implements SourceAdapter {
   public readonly id = 'droid' as const;
   public readonly parserVersion = 2;

@@ -43,6 +43,7 @@ type CopilotCandidate = {
   totalTokens: number | undefined;
 };
 
+/** Options for `CopilotSourceAdapter`. */
 export type CopilotSourceAdapterOptions = SourceAdapterPathOptions;
 
 function shouldParseCopilotJsonlLine(lineText: string): boolean {
@@ -381,6 +382,10 @@ function toUsageEvent(candidate: CopilotCandidate): UsageEvent {
   });
 }
 
+/**
+ * GitHub Copilot CLI OpenTelemetry file exports (JSONL), from `~/.copilot/otel`, plus the
+ * file `$COPILOT_OTEL_FILE_EXPORTER_PATH` names when set.
+ */
 export class CopilotSourceAdapter implements SourceAdapter {
   public readonly id = 'copilot' as const;
   public readonly parserVersion = 2;

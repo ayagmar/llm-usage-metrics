@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, utimes, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -9,10 +9,10 @@ import {
   CORE_EVENT_VERSION,
   getFileByteSize,
   getNewestFingerprintMtimeMs,
-  getParseFileFingerprint,
+  getFileFingerprint,
   getParserVersion,
   getPrimaryFingerprintByteSize,
-  type EventStoreFileFingerprint,
+  type FileFingerprint,
 } from '../../src/sources/parse-fingerprint.js';
 import type { SourceAdapter } from '../../src/sources/source-adapter.js';
 import { readFrom } from '../helpers/fake-read.js';
@@ -57,7 +57,7 @@ describe('getParserVersion', () => {
   });
 });
 
-describe('getParseFileFingerprint', () => {
+describe('getFileFingerprint', () => {
   it('fingerprints the file first, then its distinct dependencies in code-point order', async () => {
     const tempDir = await createTempDir();
     const filePath = path.join(tempDir, 'session.jsonl');
@@ -67,7 +67,7 @@ describe('getParseFileFingerprint', () => {
     await writeFile(upperDependency, 'abcdef', 'utf8');
     await writeFile(lowerDependency, '', 'utf8');
 
-    const fingerprint = await getParseFileFingerprint(
+    const fingerprint = await getFileFingerprint(
       createAdapter({
         parserVersion: 2,
         dependencies: (primary) => [lowerDependency, primary, upperDependency, lowerDependency],
@@ -92,13 +92,34 @@ describe('getParseFileFingerprint', () => {
     );
   });
 
+  // The event store keys stored events on this JSON: renaming a field, reordering it or
+  // changing the parser version format would re-parse every file once for every user.
+  it('serializes to the JSON the event store keys on', async () => {
+    const tempDir = await createTempDir();
+    const filePath = path.join(tempDir, 'session.jsonl');
+    const missingDependency = path.join(tempDir, 'parent.jsonl');
+    await writeFile(filePath, 'abc', 'utf8');
+    await utimes(filePath, 1_700_000_000, 1_700_000_000);
+
+    const fingerprint = await getFileFingerprint(
+      createAdapter({ parserVersion: 3, dependencies: () => [missingDependency] }),
+      filePath,
+    );
+
+    expect(JSON.stringify(fingerprint)).toBe(
+      `{"parserVersion":"n2.p3","dependencies":[` +
+        `{"path":${JSON.stringify(filePath)},"exists":true,"size":3,"mtimeMs":1700000000000},` +
+        `{"path":${JSON.stringify(missingDependency)},"exists":false}]}`,
+    );
+  });
+
   it('records a missing dependency as absent so its later creation invalidates the file', async () => {
     const tempDir = await createTempDir();
     const filePath = path.join(tempDir, 'session.jsonl');
     const missingDependency = path.join(tempDir, 'missing-parent.jsonl');
     await writeFile(filePath, 'abc', 'utf8');
 
-    const fingerprint = await getParseFileFingerprint(
+    const fingerprint = await getFileFingerprint(
       createAdapter({ dependencies: () => [missingDependency] }),
       filePath,
     );
@@ -110,7 +131,7 @@ describe('getParseFileFingerprint', () => {
     const tempDir = await createTempDir();
 
     await expect(
-      getParseFileFingerprint(createAdapter({}), path.join(tempDir, 'gone.jsonl')),
+      getFileFingerprint(createAdapter({}), path.join(tempDir, 'gone.jsonl')),
     ).resolves.toBeUndefined();
   });
 
@@ -124,19 +145,14 @@ describe('getParseFileFingerprint', () => {
       const unreadableDependency = path.join(filePath, 'child.json');
 
       await expect(
-        getParseFileFingerprint(
-          createAdapter({ dependencies: () => [unreadableDependency] }),
-          filePath,
-        ),
+        getFileFingerprint(createAdapter({ dependencies: () => [unreadableDependency] }), filePath),
       ).resolves.toBeUndefined();
     },
   );
 });
 
 describe('fingerprint size and mtime helpers', () => {
-  function fingerprintOf(
-    dependencies: EventStoreFileFingerprint['dependencies'],
-  ): EventStoreFileFingerprint {
+  function fingerprintOf(dependencies: FileFingerprint['dependencies']): FileFingerprint {
     return { parserVersion: 'n1.p1', dependencies };
   }
 
