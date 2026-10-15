@@ -1,0 +1,95 @@
+┌───────────────────────────────┐
+│ Estimated 5-Hour Usage Blocks │
+└───────────────────────────────┘
+
+2026-06-15 08:00-13:00 · codex
+  Models       • gpt-5
+  Events                         2
+  Input                      6,500
+  Output                     1,300
+  Reasoning                      0
+  Cache Read                 2,000
+  Cache Write                    0
+  Total                      9,800
+  Cost                       $0.02
+
+2026-06-15 09:00-14:00 · claude
+  Models       • claude-sonnet-4-5
+  Events                         4
+  Input                      4,900
+  Output                     1,250
+  Reasoning                      0
+  Cache Read                10,000
+  Cache Write                    0
+  Total                     16,150
+  Cost                       $0.04
+
+2026-06-15 13:00-18:00 · codex
+  Models       • gpt-5
+  Events                         2
+  Input                      2,700
+  Output                       400
+  Reasoning                      0
+  Cache Read                     0
+  Cache Write                    0
+  Total                      3,100
+  Cost                       $0.01
+
+2026-06-15 18:00-23:00 · claude
+  Models       • claude-sonnet-4-5
+  Events                         1
+  Input                      3,000
+  Output                       900
+  Reasoning                      0
+  Cache Read                     0
+  Cache Write                    0
+  Total                      3,900
+  Cost                       $0.02
+
+2026-06-15 21:00-02:00 · codex
+  Models       • gpt-5
+  Events                         1
+  Input                        700
+  Output                        90
+  Reasoning                      0
+  Cache Read                     0
+  Cache Write                    0
+  Total                        790
+  Cost                       $0.00
+
+2026-06-20 22:00-03:00 · claude
+  Models       • claude-sonnet-4-5
+  Events                         2
+  Input                      3,200
+  Output                       650
+  Reasoning                      0
+  Cache Read                     0
+  Cache Write                    0
+  Total                      3,850
+  Cost                       $0.02
+
+2026-06-21 10:00-15:00 (active) · claude
+  Models       • claude-sonnet-4-5
+  Events                         1
+  Input                      5,000
+  Output                     1,200
+  Reasoning                      0
+  Cache Read                20,000
+  Cache Write                    0
+  Total                     26,200
+  Cost                       $0.04
+
+2026-06-21 10:00-15:00 (active) · codex
+  Models       • gpt-5
+  Events                         2
+  Input                      4,500
+  Output                       800
+  Reasoning                      0
+  Cache Read                     0
+  Cache Write                    0
+  Total                      5,300
+  Cost                       $0.01
+
+Blocks are estimated: each starts at the UTC hour of a source's first event after the previous block and lasts 5 hours (times in UTC), across machines.
+Active block (estimated), claude: ends 2026-06-21 15:00, 180 min left, burn rate $0.02/h, 13,100 tokens/h.
+Active block (estimated), codex: ends 2026-06-21 15:00, 180 min left, burn rate $0.01/h, 2,650 tokens/h.
