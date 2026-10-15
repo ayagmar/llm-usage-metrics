@@ -32,9 +32,9 @@ export {
   type ReplaceFileEventsInput,
 } from './event-store-administration.js';
 export type {
-  EventStoreDependencyFingerprint,
-  EventStoreFileFingerprint,
-} from '@ayagmar/agent-sessions';
+  FileDependencyFingerprint as EventStoreDependencyFingerprint,
+  FileFingerprint as EventStoreFileFingerprint,
+} from '@ayagmar/agent-sessions/internal';
 export { computeEventContentHash, normalizeStoredEvent } from './event-store-codec.js';
 export {
   runTransaction,

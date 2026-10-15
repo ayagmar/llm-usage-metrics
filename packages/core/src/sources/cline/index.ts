@@ -1,1 +1,6 @@
-export * from './cline-family-adapter.js';
+export {
+  CLINE_EXTENSION_IDS,
+  ClineFamilyAdapter,
+  createClineFamilyAdapter,
+  type ClineFamilyAdapterOptions,
+} from './cline-family-adapter.js';

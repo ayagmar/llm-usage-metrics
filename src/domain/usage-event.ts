@@ -1,6 +1,13 @@
 import * as core from '@ayagmar/agent-sessions';
+import { normalizeUsdCost } from '@ayagmar/agent-sessions/internal';
 
 export * from '@ayagmar/agent-sessions';
+export {
+  hasBillableTokenBuckets,
+  isPriceableEvent,
+  normalizeOptionalModel,
+  type BillableTokenUsage,
+} from '@ayagmar/agent-sessions/internal';
 
 /** How reports and `--machine` name this machine, next to the configured ones. */
 export const LOCAL_MACHINE_NAME = 'local';
@@ -36,7 +43,7 @@ export function createUsageEvent(input: UsageEventInput): UsageEvent {
     throw new Error('UsageEvent source must be a non-empty string');
   }
 
-  const costMode = resolveCostMode(input.costMode, core.normalizeUsdCost(input.costUsd));
+  const costMode = resolveCostMode(input.costMode, normalizeUsdCost(input.costUsd));
 
   return Object.assign(core.createUsageEvent(input), { costMode });
 }

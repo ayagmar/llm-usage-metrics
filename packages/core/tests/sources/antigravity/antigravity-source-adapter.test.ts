@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { getParseFileFingerprint } from '../../../src/sources/parse-fingerprint.js';
+import { getFileFingerprint } from '../../../src/sources/parse-fingerprint.js';
 import { getDefaultAntigravityConversationsDir } from '../../../src/sources/antigravity/antigravity-path-resolver.js';
 import { AntigravitySourceAdapter } from '../../../src/sources/antigravity/index.js';
 import { createSourceContext } from '../../../src/sources/source-context.js';
@@ -347,11 +347,11 @@ describe.skipIf(!DatabaseSync)('AntigravitySourceAdapter', () => {
     }
 
     const adapter = new AntigravitySourceAdapter({ dir: tempDir });
-    const before = await getParseFileFingerprint(adapter, dbPath);
+    const before = await getFileFingerprint(adapter, dbPath);
 
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect((await collectFile(adapter, dbPath)).events).toHaveLength(2);
-    expect(await getParseFileFingerprint(adapter, dbPath)).toEqual(before);
+    expect(await getFileFingerprint(adapter, dbPath)).toEqual(before);
 
     const appender = new Database(dbPath);
 
@@ -363,7 +363,7 @@ describe.skipIf(!DatabaseSync)('AntigravitySourceAdapter', () => {
 
       // The new commit is only in -wal, so -wal must stay part of the cache key.
       expect((await stat(dbPath)).mtimeMs).toBe(dbMtimeMs);
-      expect(await getParseFileFingerprint(adapter, dbPath)).not.toEqual(before);
+      expect(await getFileFingerprint(adapter, dbPath)).not.toEqual(before);
       expect((await collectFile(adapter, dbPath)).events).toHaveLength(3);
     } finally {
       appender.close();

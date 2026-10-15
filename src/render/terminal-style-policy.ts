@@ -284,7 +284,7 @@ export function colorizeUsageBodyRows(
     const bodyRow = bodyRows[index] ?? [];
     const sourceStyler =
       row.rowType === 'period_source'
-        ? resolveSourceStyler(String(row.source), palette)
+        ? resolveSourceStyler(row.source, palette)
         : passthroughStyler;
     const baseStyledCells =
       row.rowType === 'period_source'

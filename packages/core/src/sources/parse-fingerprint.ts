@@ -8,25 +8,23 @@ import type { SourceAdapter } from './source-adapter.js';
 /** Version of the normalized event shape; part of every parse cache key. */
 export const CORE_EVENT_VERSION = USAGE_EVENT_NORMALIZATION_VERSION;
 
-export type EventStoreDependencyFingerprint = {
+export type FileDependencyFingerprint = {
   path: string;
   exists: boolean;
   size?: number;
   mtimeMs?: number;
 };
 
-export type EventStoreFileFingerprint = {
+export type FileFingerprint = {
   /** Identifies the parser that produced the stored events; a change forces a re-parse. */
   parserVersion?: string;
-  dependencies: EventStoreDependencyFingerprint[];
+  dependencies: FileDependencyFingerprint[];
 };
 
-type ParseDependencyFingerprint = EventStoreDependencyFingerprint;
-
-async function createParseDependencyFingerprint(
+async function createFileDependencyFingerprint(
   filePath: string,
   options: { allowMissing: boolean },
-): Promise<ParseDependencyFingerprint | undefined> {
+): Promise<FileDependencyFingerprint | undefined> {
   try {
     const fileStat = await stat(filePath);
 
@@ -52,11 +50,11 @@ export function getParserVersion(adapter: Pick<SourceAdapter, 'parserVersion'>):
   return `n${USAGE_EVENT_NORMALIZATION_VERSION}.p${adapter.parserVersion ?? 1}`;
 }
 
-export async function getParseFileFingerprint(
+export async function getFileFingerprint(
   adapter: SourceAdapter,
   filePath: string,
-): Promise<EventStoreFileFingerprint | undefined> {
-  const primaryFingerprint = await createParseDependencyFingerprint(filePath, {
+): Promise<FileFingerprint | undefined> {
+  const primaryFingerprint = await createFileDependencyFingerprint(filePath, {
     allowMissing: false,
   });
 
@@ -70,10 +68,10 @@ export async function getParseFileFingerprint(
   const uniqueAdditionalDependencyPaths = [...new Set(additionalDependencyPaths)]
     .filter((dependencyPath) => dependencyPath !== filePath)
     .sort(compareByCodePoint);
-  const dependencyFingerprints: ParseDependencyFingerprint[] = [primaryFingerprint];
+  const dependencyFingerprints: FileDependencyFingerprint[] = [primaryFingerprint];
 
   for (const dependencyPath of uniqueAdditionalDependencyPaths) {
-    const dependencyFingerprint = await createParseDependencyFingerprint(dependencyPath, {
+    const dependencyFingerprint = await createFileDependencyFingerprint(dependencyPath, {
       allowMissing: true,
     });
 
@@ -99,7 +97,7 @@ export async function getFileByteSize(filePath: string): Promise<number> {
 }
 
 export function getPrimaryFingerprintByteSize(
-  fingerprint: EventStoreFileFingerprint | undefined,
+  fingerprint: FileFingerprint | undefined,
 ): number | undefined {
   const primaryFingerprint = fingerprint?.dependencies[0];
 
@@ -111,7 +109,7 @@ export function getPrimaryFingerprintByteSize(
 }
 
 /** Newest mtime among the file and its parse dependencies that exist. */
-export function getNewestFingerprintMtimeMs(fingerprint: EventStoreFileFingerprint): number {
+export function getNewestFingerprintMtimeMs(fingerprint: FileFingerprint): number {
   let newestMtimeMs = Number.NEGATIVE_INFINITY;
 
   for (const dependency of fingerprint.dependencies) {

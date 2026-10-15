@@ -34,7 +34,7 @@ import { createParseBudget, type RunWithParseBudget } from './parse/parse-budget
 import {
   getFileByteSize,
   getNewestFingerprintMtimeMs,
-  getParseFileFingerprint,
+  getFileFingerprint,
   getPrimaryFingerprintByteSize,
 } from './parse/parse-fingerprint.js';
 import { getSinceFileSkipCutoffMs } from './parse/since-file-skip.js';
@@ -300,7 +300,7 @@ export async function parseAdapterEvents(
     const storeEnabled = eventStore !== undefined && !eventStore.failureState.disabled;
     const fileFingerprint =
       storeEnabled || skipCutoffMs !== undefined
-        ? await getParseFileFingerprint(adapter, filePath)
+        ? await getFileFingerprint(adapter, filePath)
         : undefined;
 
     if (canSkipOutsideWindow(filePath, fileFingerprint)) {

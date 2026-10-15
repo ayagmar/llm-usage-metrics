@@ -10,7 +10,7 @@ import {
   runPruneReport,
   type PruneReportResult,
 } from '../../src/cli/run-prune-report.js';
-import { getParseFileFingerprint } from '../../src/cli/parse/parse-fingerprint.js';
+import { getFileFingerprint } from '../../src/cli/parse/parse-fingerprint.js';
 import { renderPruneReport } from '../../src/render/render-prune-report.js';
 import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.js';
 import {
@@ -92,7 +92,7 @@ async function writeLiveStoredFile(
   options: { filePath: string; events: UsageEvent[]; now?: number },
 ): Promise<void> {
   await writeFile(options.filePath, '{}\n', 'utf8');
-  const fingerprint = await getParseFileFingerprint(createAdapter({ files: [] }), options.filePath);
+  const fingerprint = await getFileFingerprint(createAdapter({ files: [] }), options.filePath);
 
   if (!fingerprint) {
     throw new Error(`cannot fingerprint ${options.filePath}`);

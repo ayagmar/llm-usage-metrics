@@ -465,7 +465,7 @@ describe('renderTerminalTable', () => {
         {
           rowType: 'period_source',
           periodKey: '2026-02-10',
-          source: 'other' as UsageReportRow['source'],
+          source: 'other',
           models: ['x-model'],
           modelBreakdown: [
             {
@@ -536,7 +536,7 @@ describe('renderTerminalTable', () => {
         {
           rowType: 'period_source',
           periodKey: '2026-02-10',
-          source: 'combined' as UsageReportRow['source'],
+          source: 'combined',
           models: ['gpt-4.1'],
           modelBreakdown: [],
           inputTokens: 1,
@@ -550,7 +550,7 @@ describe('renderTerminalTable', () => {
         {
           rowType: 'period_source',
           periodKey: '2026-02-10',
-          source: 'TOTAL' as UsageReportRow['source'],
+          source: 'TOTAL',
           models: ['gpt-4.1'],
           modelBreakdown: [],
           inputTokens: 2,

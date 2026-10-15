@@ -9,10 +9,10 @@ import {
   CORE_EVENT_VERSION,
   getFileByteSize,
   getNewestFingerprintMtimeMs,
-  getParseFileFingerprint,
+  getFileFingerprint,
   getParserVersion,
   getPrimaryFingerprintByteSize,
-  type EventStoreFileFingerprint,
+  type FileFingerprint,
 } from '../../src/sources/parse-fingerprint.js';
 import type { SourceAdapter } from '../../src/sources/source-adapter.js';
 import { readFrom } from '../helpers/fake-read.js';
@@ -57,7 +57,7 @@ describe('getParserVersion', () => {
   });
 });
 
-describe('getParseFileFingerprint', () => {
+describe('getFileFingerprint', () => {
   it('fingerprints the file first, then its distinct dependencies in code-point order', async () => {
     const tempDir = await createTempDir();
     const filePath = path.join(tempDir, 'session.jsonl');
@@ -67,7 +67,7 @@ describe('getParseFileFingerprint', () => {
     await writeFile(upperDependency, 'abcdef', 'utf8');
     await writeFile(lowerDependency, '', 'utf8');
 
-    const fingerprint = await getParseFileFingerprint(
+    const fingerprint = await getFileFingerprint(
       createAdapter({
         parserVersion: 2,
         dependencies: (primary) => [lowerDependency, primary, upperDependency, lowerDependency],
@@ -98,7 +98,7 @@ describe('getParseFileFingerprint', () => {
     const missingDependency = path.join(tempDir, 'missing-parent.jsonl');
     await writeFile(filePath, 'abc', 'utf8');
 
-    const fingerprint = await getParseFileFingerprint(
+    const fingerprint = await getFileFingerprint(
       createAdapter({ dependencies: () => [missingDependency] }),
       filePath,
     );
@@ -110,7 +110,7 @@ describe('getParseFileFingerprint', () => {
     const tempDir = await createTempDir();
 
     await expect(
-      getParseFileFingerprint(createAdapter({}), path.join(tempDir, 'gone.jsonl')),
+      getFileFingerprint(createAdapter({}), path.join(tempDir, 'gone.jsonl')),
     ).resolves.toBeUndefined();
   });
 
@@ -124,19 +124,14 @@ describe('getParseFileFingerprint', () => {
       const unreadableDependency = path.join(filePath, 'child.json');
 
       await expect(
-        getParseFileFingerprint(
-          createAdapter({ dependencies: () => [unreadableDependency] }),
-          filePath,
-        ),
+        getFileFingerprint(createAdapter({ dependencies: () => [unreadableDependency] }), filePath),
       ).resolves.toBeUndefined();
     },
   );
 });
 
 describe('fingerprint size and mtime helpers', () => {
-  function fingerprintOf(
-    dependencies: EventStoreFileFingerprint['dependencies'],
-  ): EventStoreFileFingerprint {
+  function fingerprintOf(dependencies: FileFingerprint['dependencies']): FileFingerprint {
     return { parserVersion: 'n1.p1', dependencies };
   }
 

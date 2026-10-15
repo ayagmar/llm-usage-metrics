@@ -1,11 +1,29 @@
+export * from '../domain/provider-normalization.js';
+export {
+  hasControlCharacters,
+  normalizeNonNegativeInteger,
+  normalizeUsdCost,
+  stripControlCharacters,
+  toTerminalLine,
+} from '../domain/normalization.js';
+export {
+  hasBillableTokenBuckets,
+  isPriceableEvent,
+  normalizeOptionalModel,
+  type BillableTokenUsage,
+} from '../domain/usage-event.js';
+export { getRepeatingSourceIds, getSessionCopyingSourceIds } from '../sources/source-adapter.js';
 export { addHashCount, takeUncountedEvents } from '../dedup/repeated-across-files.js';
 export * from '../sources/multi-directory-source-adapter.js';
 export * from '../sources/multi-root-discovery.js';
-export * from '../sources/parse-diagnostics.js';
+export { incrementSkippedReason, recordSkippedRow } from '../sources/parse-diagnostics.js';
 export {
   getFileByteSize,
+  getFileFingerprint,
   getNewestFingerprintMtimeMs,
   getPrimaryFingerprintByteSize,
+  type FileDependencyFingerprint,
+  type FileFingerprint,
 } from '../sources/parse-fingerprint.js';
 export * from '../sources/parsing-utils.js';
 export * from '../sources/read-json-file.js';
