@@ -31,6 +31,7 @@
     "core:lint": "pnpm --filter @ayagmar/agent-sessions run lint",
     "core:test:fast": "pnpm --filter @ayagmar/agent-sessions run test:fast",
     "core:test:memory": "pnpm --filter @ayagmar/agent-sessions run test:memory",
+    "core:pack:check": "node scripts/check-core-pack.mjs",
     "core:version": "changeset version",
     "format:check": "prettier --check .",
     "format:write": "prettier --write .",
