@@ -42,12 +42,13 @@ reach the CLI. Stdin is ignored. `NODE_COMPILE_CACHE`, the one `NODE_*` variable
 sets, points at a temp directory that one untimed priming run fills before any timed run. Nothing outside the
 temp directory is read.
 
-| Scenario       | What is timed                                                                                                                                                                                             |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `cold`         | Store off, OS page cache warm: `daily --all --json --pricing-offline` with `LLM_USAGE_EVENT_STORE=0` and a fresh cache directory per run. The corpus was just written, so this is not a cold-disk number. |
-| `warm`         | The same command with the event store on, after one priming run.                                                                                                                                          |
-| `statusline`   | `statusline` with the event store on, after one priming run. It takes no `--pricing-offline` and reads no stdin.                                                                                          |
-| `active-jsonl` | After one priming run on a copy of the corpus, each run appends 1000 new rows with later timestamps to the newest pi file and times `daily` once.                                                         |
+| Scenario          | What is timed                                                                                                                                                                                                                                                                                    |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `cold`            | Store off, OS page cache warm: `daily --all --json --pricing-offline` with `LLM_USAGE_EVENT_STORE=0` and a fresh cache directory per run. The corpus was just written, so this is not a cold-disk number.                                                                                        |
+| `warm`            | The same command with the event store on, after one priming run.                                                                                                                                                                                                                                 |
+| `statusline`      | `statusline` with the event store on, after one priming run. It takes no `--pricing-offline` and reads no stdin.                                                                                                                                                                                 |
+| `active-jsonl`    | After one priming run on a copy of the corpus, each run appends 1000 new rows with later timestamps to the newest pi file and times `daily` once.                                                                                                                                                |
+| `statusline-aged` | `statusline` with the event store on, after one priming run, over a second corpus with the same line counts where all but the newest file per source have their events and mtime shifted 60 weeks back. Those files fall before the statusline's 53-week window, so the CLI skips them by mtime. |
 
 Each scenario reports the median, minimum and maximum wall time over `--runs`, timed from
 direct `node dist/bin.js` spawns, and the maximum RSS in MB from one extra untimed run (for
@@ -62,12 +63,16 @@ and the markdown names it:
 
 The OS page cache is not flushed between runs.
 
-The script fails if a report has no pi or codex usage, or if the event count from an
+The script fails if a report has no pi or codex usage, if the event count from an
 untimed `session --json` run after an `active-jsonl` run did not grow by the 1000
-appended rows. A parser that skips the synthetic lines, or a stale cache hit, cannot
+appended rows, or if the `statusline-aged` corpus does not hold as many events as the
+main one (checked with the store off and no date window). A parser that skips the synthetic lines, or a stale cache hit, cannot
 produce a fast but meaningless number.
 
 ## Committed results
+
+`docs/benchmarks/<date>-m8.md` is an A/B record: the same script run against several
+builds, with the minimums of record across alternating rounds.
 
 `docs/benchmarks/<date>-baseline.md` files are this script's output, committed as a
 record of the numbers on the machine named in each file. Compare runs from the same

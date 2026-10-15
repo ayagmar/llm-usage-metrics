@@ -93,6 +93,28 @@ Before the parse-pipeline work, a fresh Codex run over this corpus took 8.7 s; t
 3. An event-store warm read path serves already-parsed events.
 4. A worker-thread parse pool (`src/cli/parse-worker-pool.ts`) parses large JSONL files in parallel.
 
+## Synthetic baseline
+
+`scripts/benchmark-baseline.mjs` times the built CLI over a generated pi and codex corpus (200,000 lines per source over 4 files, 399,984 events), with a temp `HOME` and the store, pricing and update check pinned. It measures what is cheap to repeat: a cold run with the store off, a warm `daily`, a statusline tick, a growing JSONL file, and a statusline tick where most files are older than its 53-week window (`statusline-aged`).
+
+The M8 performance work was checked with it on 2026-10-15: three alternating serial rounds of M0 (`78feb74`), pre-M8 (`abe3ace`) and the M8 head (`d2de9a0`) on one machine (AMD Ryzen 9 9950X3D, 32 logical CPUs, 62.2 GiB RAM, Linux 7.2.9, Node.js v24.21.0). Each figure is the minimum over 15 timed runs:
+
+| Scenario          | M0 (s) | pre-M8 (s) | M8 (s) | M8 vs pre-M8 |
+| ----------------- | -----: | ---------: | -----: | -----------: |
+| `cold`            |  1.174 |      1.275 |  1.224 |        −4.0% |
+| `warm`            |  0.653 |      0.662 |  0.548 |       −17.3% |
+| `statusline`      |  0.773 |      0.766 |  0.514 |       −32.8% |
+| `active-jsonl`    |  0.994 |      1.028 |  0.927 |        −9.9% |
+| `statusline-aged` |  0.272 |      0.265 |  0.199 |       −24.7% |
+
+The cold run is still 4% slower than M0. Per-round numbers, load averages, RSS and the full method are in [`docs/benchmarks/2026-10-15-m8.md`](https://github.com/ayagmar/llm-usage-metrics/blob/master/docs/benchmarks/2026-10-15-m8.md). These are synthetic files with dense usage lines, so they show relative change between builds, not what real logs cost.
+
+## Real logs (owner's machine)
+
+{/* TODO(orchestrator): replace this section with the real-data before/after table (T0 on core/m7 a21b847 vs the M8 head): machine, Node version, corpus (files, size, events per source), method, and cold/warm statusline and warm daily timings. */}
+
+_Pending: the real-log before/after table for M8 is not published yet._
+
 ## Reproduce it
 
 Build the current checkout and resolve the exact ccusage version without timing `npx` itself:
