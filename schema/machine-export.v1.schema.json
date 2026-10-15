@@ -27,7 +27,7 @@
         }
       },
       "required": ["type", "format", "version", "cliVersion", "hostname", "exportedAt"],
-      "additionalProperties": false
+      "additionalProperties": true
     },
     "file": {
       "description": "The events of one counted file the reader does not hold at this revision.",

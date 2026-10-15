@@ -1,7 +1,7 @@
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildUsageData } from '../../src/cli/build-usage-data.js';
 import { loadMachineUsage } from '../../src/machines/load-machine-usage.js';
@@ -20,8 +20,12 @@ let tempRoot: string;
 let bundleText: string;
 
 beforeAll(async () => {
-  tempRoot = await mkdtemp(path.join(canonicalTmpdir(), 'older-parser-bundle-fixture-'));
   bundleText = await readFile(bundlePath, 'utf8');
+});
+
+// A fresh root per test, so no test depends on a cache another one left behind.
+beforeEach(async () => {
+  tempRoot = await mkdtemp(path.join(canonicalTmpdir(), 'older-parser-bundle-fixture-'));
   const localDir = path.join(tempRoot, 'local');
   const remoteDir = path.join(tempRoot, 'remote');
 
@@ -63,7 +67,7 @@ beforeAll(async () => {
   vi.spyOn(console, 'error').mockImplementation(() => undefined);
 });
 
-afterAll(async () => {
+afterEach(async () => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -96,6 +100,10 @@ describe('machine bundle from an older parser version', () => {
         /^laptop parses with other parser versions \(codex n2\.p1 there, n\d+\.p\d+ on this machine\): left out 2 event\(s\) .*; update llm-usage on both machines$/,
       ),
     );
+    // Those events count toward what the machines note says was left out.
+    expect(usageData.diagnostics.notes).toContainEqual(
+      expect.stringMatching(/^Machines: laptop .*; left out 2 event\(s\) already counted\.$/),
+    );
   });
 
   it('matches on timestamp alone, since a newer parser can resolve another model', async () => {
@@ -124,8 +132,9 @@ describe('machine bundle from an older parser version', () => {
     ]);
   });
 
-  // Runs after a sync that recorded versions, so an older export must clear them.
   it('keeps the hash merge, with a note, for an export that records no parser versions', async () => {
+    // A sync that recorded versions first, so the older export must clear them.
+    await syncAndReport(() => bundleText);
     const usageData = await syncAndReport(() =>
       bundleText.replace(',"parserVersions":{"codex":"n2.p1"}', ''),
     );

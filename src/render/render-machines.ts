@@ -153,10 +153,13 @@ export function formatMachinesNote(
   now: number,
   localVersion: string,
 ): string {
-  const duplicateCount = machines.reduce((sum, machine) => sum + machine.duplicateCount, 0);
+  const leftOutCount = machines.reduce(
+    (sum, machine) => sum + machine.duplicateCount + machine.skewDroppedCount,
+    0,
+  );
   const duplicates =
-    duplicateCount > 0
-      ? `; left out ${integerFormat.format(duplicateCount)} event(s) already counted`
+    leftOutCount > 0
+      ? `; left out ${integerFormat.format(leftOutCount)} event(s) already counted`
       : '';
 
   return `Machines: ${machines.map((machine) => describeIncludedMachine(machine, now, localVersion)).join(', ')}${duplicates}.`;
