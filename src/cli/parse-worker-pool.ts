@@ -170,6 +170,10 @@ export function isParseWorkerRequest(workerData: unknown): boolean {
   return asRecord(workerData)?.llmUsageParseWorker === true;
 }
 
+/**
+ * One pool serves every worker-eligible source of a run: tasks carry their source and
+ * roots. Workers are spawned as tasks are dispatched, never more than `workerCount`.
+ */
 export function createParseWorkerPool(options: {
   entryUrl: URL;
   workerCount: number;
@@ -218,18 +222,50 @@ export function createParseWorkerPool(options: {
     void terminateWorkers();
   }
 
-  function dispatch(): void {
-    if (disabled) {
-      return;
+  function spawnSlot(): WorkerSlot {
+    const worker = spawnWorker(options.entryUrl, {
+      workerData: {
+        llmUsageParseWorker: true,
+      },
+    });
+    const slot: WorkerSlot = { worker };
+    worker.on('message', (message) => {
+      handleWorkerMessage(slot, message);
+    });
+    worker.on('error', () => {
+      disablePool();
+    });
+    worker.on('exit', () => {
+      disablePool();
+    });
+    slots.push(slot);
+    return slot;
+  }
+
+  /** Finds an idle worker, spawning one only while the pool is below its size. */
+  function takeIdleSlot(): WorkerSlot | undefined {
+    const idleSlot = slots.find((slot) => !slot.currentTask);
+
+    if (idleSlot || slots.length >= workerCount) {
+      return idleSlot;
     }
 
-    for (const slot of slots) {
-      if (queue.length === 0) {
+    return spawnSlot();
+  }
+
+  function dispatch(): void {
+    while (!disabled && queue.length > 0) {
+      let slot: WorkerSlot | undefined;
+
+      try {
+        slot = takeIdleSlot();
+      } catch {
+        disablePool();
         return;
       }
 
-      if (slot.currentTask) {
-        continue;
+      if (!slot) {
+        return;
       }
 
       const task = queue.shift();
@@ -276,30 +312,6 @@ export function createParseWorkerPool(options: {
     }
 
     dispatch();
-  }
-
-  try {
-    for (let index = 0; index < workerCount; index += 1) {
-      const worker = spawnWorker(options.entryUrl, {
-        workerData: {
-          llmUsageParseWorker: true,
-        },
-      });
-      const slot: WorkerSlot = { worker };
-      worker.on('message', (message) => {
-        handleWorkerMessage(slot, message);
-      });
-      worker.on('error', () => {
-        disablePool();
-      });
-      worker.on('exit', () => {
-        disablePool();
-      });
-      slots.push(slot);
-    }
-  } catch {
-    void terminateWorkers();
-    return createFallbackParseWorkerPool();
   }
 
   return {

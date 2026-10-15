@@ -100,6 +100,12 @@ type ParseWorkerRuntimeOptions = {
   createPool?: typeof createParseWorkerPool;
 };
 
+/** The run's one parse pool, created when a source first sends it work. */
+type SharedParseWorkerPool = {
+  get(): ParseWorkerPool;
+  terminate(): Promise<void>;
+};
+
 /**
  * Parse misses are written to the event store in batches: one transaction per file
  * fsyncs and rewrites the same index pages, while one per source holds the write lock
@@ -139,6 +145,26 @@ function getSafeWorkerCount(workerCount: number): number {
   return Math.floor(workerCount);
 }
 
+function createSharedParseWorkerPool(
+  parseWorkerOptions: ParseWorkerRuntimeOptions | undefined,
+): SharedParseWorkerPool {
+  let pool: ParseWorkerPool | undefined;
+
+  return {
+    get: () => {
+      const createPool = parseWorkerOptions?.createPool ?? createParseWorkerPool;
+      pool ??= createPool({
+        entryUrl: parseWorkerOptions?.entryUrl ?? new URL(import.meta.url),
+        workerCount: getSafeWorkerCount(parseWorkerOptions?.workerCount ?? 0),
+      });
+      return pool;
+    },
+    terminate: async () => {
+      await pool?.terminate();
+    },
+  };
+}
+
 function getSafeWorkerMinBytes(minBytes: number): number {
   if (!Number.isFinite(minBytes) || minBytes <= 0) {
     return 0;
@@ -155,6 +181,7 @@ export async function parseAdapterEvents(
   eventStore?: EventStoreParseContext,
   parseWorkerOptions?: ParseWorkerRuntimeOptions,
   since?: string,
+  sharedPool?: SharedParseWorkerPool,
 ): Promise<AdapterParseResultWithFiles> {
   const files = await adapter.discoverFiles();
   const skipCutoffMs = adapter.capabilities?.eventsPrecedeFileMtime
@@ -468,18 +495,17 @@ export async function parseAdapterEvents(
     }
 
     const workerCount = Math.min(safeWorkerCount, missedFiles.length);
-    const createPool = parseWorkerOptions?.createPool ?? createParseWorkerPool;
-    const pool = createPool({
-      entryUrl: parseWorkerOptions?.entryUrl ?? new URL(import.meta.url),
-      workerCount,
-    });
+    const runPool = sharedPool ?? createSharedParseWorkerPool(parseWorkerOptions);
+    const pool = runPool.get();
     let status: 'engaged' | 'fallback' = pool.status() === 'fallback' ? 'fallback' : 'engaged';
 
     try {
       await runTaskLoop(missedFiles, (missedFile) => parseMissedFileOnPool(pool, missedFile));
       status = pool.status() === 'fallback' ? 'fallback' : status;
     } finally {
-      await pool.terminate();
+      if (!sharedPool) {
+        await runPool.terminate();
+      }
     }
 
     runtimeProfile?.recordParseWorkerResult(adapter.id, {
@@ -561,6 +587,7 @@ export async function parseSelectedAdapters(
 
   let parseResults: Array<PromiseSettledResult<AdapterParseResultWithFiles>>;
   let claimWarning: string | undefined;
+  const sharedPool = createSharedParseWorkerPool(options.parseWorkers);
 
   try {
     parseResults = await Promise.allSettled(
@@ -575,6 +602,7 @@ export async function parseSelectedAdapters(
                 eventStoreContext,
                 options.parseWorkers,
                 options.since,
+                sharedPool,
               ),
             )
           : parseAdapterEvents(
@@ -585,6 +613,7 @@ export async function parseSelectedAdapters(
               eventStoreContext,
               options.parseWorkers,
               options.since,
+              sharedPool,
             ),
       ),
     );
@@ -611,6 +640,8 @@ export async function parseSelectedAdapters(
         recordEventStoreFailure(eventStoreFailureState, error);
       }
     }
+
+    await sharedPool.terminate();
   }
 
   const sourceFailures: UsageSourceFailure[] = [];
