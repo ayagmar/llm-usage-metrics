@@ -7,6 +7,7 @@ import type {
   UsageEventDatasetPricingResult,
 } from '../../src/cli/build-usage-event-dataset.js';
 import type { UsageEvent } from '../../src/domain/usage-event.js';
+import { createPricingRunStats, DEFAULT_PRICING_POLICY } from '../../src/pricing/cost-engine.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { readFrom } from '../helpers/fake-read.js';
 
@@ -154,6 +155,8 @@ function createPricingResult(
     pricedEvents,
     pricingOrigin: 'cache',
     pricingWarning: undefined,
+    pricingPolicy: DEFAULT_PRICING_POLICY,
+    pricingStats: createPricingRunStats(),
   };
 }
 

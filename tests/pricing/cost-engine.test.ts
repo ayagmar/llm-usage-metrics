@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { createUsageEvent } from '../../src/domain/usage-event.js';
-import { applyPricingToEvents, calculateEstimatedCostUsd } from '../../src/pricing/cost-engine.js';
+import {
+  applyPricingToEvents,
+  calculateEstimatedCostUsd,
+  createPricingRunStats,
+  DEFAULT_PRICING_POLICY,
+} from '../../src/pricing/cost-engine.js';
 import type { PricingSource } from '../../src/pricing/types.js';
 import { StaticPricingSource } from '../helpers/static-pricing-source.js';
 
@@ -52,6 +57,42 @@ describe('cost engine', () => {
 
     expect(pricedEvent.costMode).toBe('estimated');
     expect(pricedEvent.costUsd).toBeCloseTo(0.0002, 10);
+  });
+
+  it('records in the run stats only the explicit $0 events it re-estimates', () => {
+    const source = new StaticPricingSource({
+      pricingByModel: {
+        'gpt-5-codex': { inputPer1MUsd: 1, outputPer1MUsd: 2 },
+      },
+    });
+    const baseEvent = {
+      source: 'pi',
+      sessionId: 'session-1',
+      timestamp: '2026-02-16T10:00:00Z',
+      inputTokens: 100,
+      outputTokens: 50,
+    };
+    const events = [
+      createUsageEvent({ ...baseEvent, model: 'gpt-5-codex', costUsd: 0, costMode: 'explicit' }),
+      createUsageEvent({ ...baseEvent, model: 'unknown-model', costUsd: 0, costMode: 'explicit' }),
+      createUsageEvent({ ...baseEvent, model: 'gpt-5-codex', costUsd: 1.5, costMode: 'explicit' }),
+      createUsageEvent({ ...baseEvent, model: 'gpt-5-codex', costMode: 'estimated' }),
+    ];
+    const stats = createPricingRunStats();
+
+    const pricedEvents = applyPricingToEvents(events, source, {
+      policy: DEFAULT_PRICING_POLICY,
+      stats,
+    });
+
+    expect(pricedEvents.map((event) => stats.reestimatedExplicitZero.has(event))).toEqual([
+      true,
+      false,
+      false,
+      false,
+    ]);
+    expect(stats.reestimatedExplicitZero.has(events[0])).toBe(false);
+    expect(pricedEvents.some((event) => stats.priorityPriced.has(event))).toBe(false);
   });
 
   it('estimates cost using alias mapping without double charging reasoning by default', () => {

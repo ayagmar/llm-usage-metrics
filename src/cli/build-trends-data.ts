@@ -3,6 +3,7 @@ import { computeActiveMs } from '../domain/active-time.js';
 import { getEventSessionKey, type UsageEvent } from '../domain/usage-event.js';
 import type { UsageReportRow } from '../domain/usage-report-row.js';
 import { aggregateTrends } from '../trends/aggregate-trends.js';
+import { createPricingRunStats, DEFAULT_PRICING_POLICY } from '../pricing/cost-engine.js';
 import { getCurrentLocalDateKey, getPeriodKey, shiftLocalDateKey } from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
@@ -10,7 +11,7 @@ import { validateDateInput, validateTimezone } from './build-usage-data-inputs.j
 import { parseLastOption } from './build-usage-data.js';
 import {
   applyPricingToUsageEventDataset,
-  withUnpricedEventsNote,
+  withPricingNotes,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
 import type {
@@ -269,6 +270,8 @@ export async function buildTrendsData(
           pricedEvents: dataset.filteredEvents,
           pricingOrigin: 'none' as const,
           pricingWarning: undefined,
+          pricingPolicy: DEFAULT_PRICING_POLICY,
+          pricingStats: createPricingRunStats(),
         };
   const dailyValueRows = measureRuntimeProfileStageSync(
     deps.runtimeProfile,
@@ -315,7 +318,7 @@ export async function buildTrendsData(
     pricingOrigin: pricingResult.pricingOrigin,
     pricingWarning: pricingResult.pricingWarning,
     warnings: dataset.warnings,
-    notes: withUnpricedEventsNote(dataset.notes, chartedEvents),
+    notes: withPricingNotes(dataset.notes, chartedEvents, pricingResult),
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,

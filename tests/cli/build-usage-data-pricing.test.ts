@@ -36,7 +36,13 @@ vi.mock('../../src/pricing/litellm-pricing-fetcher.js', () => {
   };
 });
 
-import { resolvePricingSource } from '../../src/cli/build-usage-data-pricing.js';
+import {
+  resolveAndApplyPricingToEvents,
+  resolvePricingSource,
+} from '../../src/cli/build-usage-data-pricing.js';
+import { createUsageEvent } from '../../src/domain/usage-event.js';
+import { DEFAULT_PRICING_POLICY } from '../../src/pricing/cost-engine.js';
+import { StaticPricingSource } from '../helpers/static-pricing-source.js';
 
 const tempDirs: string[] = [];
 
@@ -142,5 +148,50 @@ describe('resolvePricingSource — pricing overrides wiring', () => {
         { cacheTtlMs: 60_000, fetchTimeoutMs: 1000 },
       ),
     ).rejects.toThrow(/Could not load --pricing-overrides from/);
+  });
+});
+
+describe('resolveAndApplyPricingToEvents — pricing run stats', () => {
+  const loadStaticPricing = () =>
+    Promise.resolve({
+      source: new StaticPricingSource({
+        pricingByModel: { 'gpt-4.1': { inputPer1MUsd: 2, outputPer1MUsd: 8 } },
+      }),
+      origin: 'cache' as const,
+    });
+  const explicitZeroEvent = createUsageEvent({
+    source: 'pi',
+    sessionId: 'session-1',
+    timestamp: '2026-02-16T10:00:00Z',
+    model: 'gpt-4.1',
+    inputTokens: 100,
+    outputTokens: 50,
+    costUsd: 0,
+    costMode: 'explicit',
+  });
+
+  it('returns the stats of the run that priced the events', async () => {
+    const result = await resolveAndApplyPricingToEvents(
+      [explicitZeroEvent],
+      {},
+      {
+        loadPricingSource: loadStaticPricing,
+      },
+    );
+
+    expect(result.pricingPolicy).toBe(DEFAULT_PRICING_POLICY);
+    expect(result.pricedEvents[0]?.costMode).toBe('estimated');
+    expect(result.pricingStats.reestimatedExplicitZero.has(result.pricedEvents[0])).toBe(true);
+  });
+
+  it('returns empty stats when pricing fails and failures are ignored', async () => {
+    const result = await resolveAndApplyPricingToEvents(
+      [explicitZeroEvent],
+      { ignorePricingFailures: true },
+      { loadPricingSource: () => Promise.reject(new Error('offline')) },
+    );
+
+    expect(result.pricedEvents).toEqual([explicitZeroEvent]);
+    expect(result.pricingStats.reestimatedExplicitZero.has(explicitZeroEvent)).toBe(false);
   });
 });

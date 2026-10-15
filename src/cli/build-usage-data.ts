@@ -10,7 +10,7 @@ import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
 import { assembleUsageDataResult, buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import {
   applyPricingToUsageEventDataset,
-  withUnpricedEventsNote,
+  withPricingNotes,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
@@ -158,11 +158,8 @@ export async function buildUsageData(
   const dataset = await measureRuntimeProfileStage(deps.runtimeProfile, 'usage.dataset.total', () =>
     buildUsageEventDataset(options, deps),
   );
-  const { pricedEvents, pricingOrigin, pricingWarning } = await applyPricingToUsageEventDataset(
-    dataset,
-    deps,
-    'auto',
-  );
+  const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'auto');
+  const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
 
   const rows = measureRuntimeProfileStageSync(deps.runtimeProfile, 'usage.aggregate', () =>
     aggregateUsage(pricedEvents, {
@@ -181,7 +178,9 @@ export async function buildUsageData(
     pricingWarning,
     warnings: dataset.warnings,
     notes:
-      options.cost === false ? dataset.notes : withUnpricedEventsNote(dataset.notes, pricedEvents),
+      options.cost === false
+        ? dataset.notes
+        : withPricingNotes(dataset.notes, pricedEvents, pricingResult),
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,
