@@ -427,13 +427,14 @@ export async function buildUsageEventDataset(
               machineSelection.names.filter((name) => config.machines?.[name]?.enabled === false),
             ),
             servedEvents: parseResultsForFiltering.flatMap((result) => result.events),
-            sources: new Set(adaptersToParse.map((adapter) => adapter.id)),
+            adapters: adaptersToParse,
             since: configuredOptions.since,
             until: configuredOptions.until,
           }),
       );
       parseResultsForFiltering = appendMachineEvents(parseResultsForFiltering, machineUsage.events);
       machineWarnings.push(...machineUsage.warnings);
+      machineNotes.push(...machineUsage.notes);
 
       // A refresh that ran this time already said how it went.
       const refreshedNames = new Set(refreshOutcomes.map((outcome) => outcome.name));

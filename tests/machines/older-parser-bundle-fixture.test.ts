@@ -4,12 +4,13 @@ import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { buildUsageData } from '../../src/cli/build-usage-data.js';
+import { loadMachineUsage } from '../../src/machines/load-machine-usage.js';
 import { syncMachine } from '../../src/machines/sync-machine.js';
 import { createInProcessRemote } from '../helpers/machine-remote.js';
 import { canonicalTmpdir } from '../helpers/tmp.js';
 
-// Freezes v0.11.0 merging of a machine bundle whose events an older codex parser made
-// (KI-3): same session and timestamps as the local file, a different token split.
+// A machine bundle whose events an older codex parser made (KI-3): same session and
+// timestamps as the local file, a different token split.
 const bundlePath = path.resolve('tests/fixtures/golden/_machines/older-parser-bundle.jsonl');
 const FIXED_NOW = new Date('2026-06-21T12:00:00.000Z');
 
@@ -67,28 +68,77 @@ afterAll(async () => {
   await rm(tempRoot, { recursive: true, force: true });
 });
 
-describe('machine bundle from an older parser version', () => {
-  it('counts the bundle events next to the local events of the same session', async () => {
-    const { spawnSsh } = createInProcessRemote({
-      configPath: path.join(tempRoot, 'remote', 'config.toml'),
-      eventStorePath: path.join(tempRoot, 'remote', 'events.db'),
-      rewrite: () => bundleText,
-    });
-    const outcome = await syncMachine('laptop', { ssh: 'me@laptop' }, { spawnSsh });
-    expect(outcome.ok).toBe(true);
+async function syncAndReport(rewrite: (bundle: string) => string) {
+  const { spawnSsh } = createInProcessRemote({
+    configPath: path.join(tempRoot, 'remote', 'config.toml'),
+    eventStorePath: path.join(tempRoot, 'remote', 'events.db'),
+    rewrite,
+  });
+  const outcome = await syncMachine('laptop', { ssh: 'me@laptop' }, { spawnSsh, full: true });
+  expect(outcome.ok).toBe(true);
 
-    const usageData = await buildUsageData(
-      'monthly',
-      { timezone: 'UTC', sync: false, pricingOffline: true },
-      { spawnSsh, now: () => FIXED_NOW },
+  return buildUsageData(
+    'monthly',
+    { timezone: 'UTC', sync: false, pricingOffline: true },
+    { spawnSsh, now: () => FIXED_NOW },
+  );
+}
+
+describe('machine bundle from an older parser version', () => {
+  it('counts each request once and warns that the machines parse codex differently', async () => {
+    const usageData = await syncAndReport(() => bundleText);
+
+    expect(usageData.events.map((event) => event.machine ?? 'local')).toEqual(['local', 'local']);
+    expect(usageData.diagnostics.warnings).toContainEqual(
+      expect.stringMatching(
+        /^laptop parses with other parser versions \(codex n2\.p1 there, n\d+\.p\d+ on this machine\): left out 2 event\(s\) .*; update llm-usage on both machines$/,
+      ),
+    );
+  });
+
+  it('matches on timestamp alone, since a newer parser can resolve another model', async () => {
+    const renamed = bundleText.replaceAll('"model":"gpt-5.2-codex"', '"model":"gpt-5.2-codex-max"');
+    expect(renamed).not.toBe(bundleText);
+
+    const usageData = await syncAndReport(() => renamed);
+
+    expect(usageData.events).toHaveLength(2);
+    expect(usageData.events.map((event) => event.machine ?? 'local')).toEqual(['local', 'local']);
+  });
+
+  it('notes rather than warns about a disabled machine parsing differently', async () => {
+    const usageData = await syncAndReport(() => bundleText);
+    const usage = await loadMachineUsage({
+      names: ['laptop'],
+      disabledNames: new Set(['laptop']),
+      servedEvents: usageData.events,
+      adapters: [{ id: 'codex', parserVersion: 2 }],
+    });
+
+    expect(usage.events).toEqual([]);
+    expect(usage.warnings).toEqual([]);
+    expect(usage.notes).toEqual([
+      expect.stringMatching(/^laptop parses with other parser versions \(codex n2\.p1 there, /),
+    ]);
+  });
+
+  // Runs after a sync that recorded versions, so an older export must clear them.
+  it('keeps the hash merge, with a note, for an export that records no parser versions', async () => {
+    const usageData = await syncAndReport(() =>
+      bundleText.replace(',"parserVersions":{"codex":"n2.p1"}', ''),
     );
     const machines = usageData.events.map((event) => event.machine ?? 'local');
 
-    // KNOWN ISSUE KI-3: expected 2 once per-source parser versions are checked. The
-    // bundle's events hash differently (cache reads folded into input), so the merge
-    // keeps both copies of each request.
+    // The bundle's events hash differently (cache reads folded into input), so without
+    // versions to compare the merge keeps both copies of each request.
     expect(usageData.events).toHaveLength(4);
     expect(machines.sort()).toEqual(['laptop', 'laptop', 'local', 'local']);
     expect(usageData.events.every((event) => event.sessionId === 'codex-e2e-session')).toBe(true);
+    expect(usageData.diagnostics.notes).toContain(
+      'sync laptop after updating llm-usage on it to record its parser versions',
+    );
+    expect(usageData.diagnostics.warnings ?? []).not.toEqual(
+      expect.arrayContaining([expect.stringContaining('parser versions')]),
+    );
   });
 });
