@@ -13,10 +13,12 @@ import {
 } from '../../src/cli/run-statusline.js';
 import type { StatuslineCommandOptions } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.js';
+import { openMachineCache } from '../../src/machines/machine-cache.js';
 import {
   closeEventStore,
   openEventStore,
   replaceFileEvents,
+  writeEventStoreMeta,
 } from '../../src/persistence/event-store.js';
 import { setLogLevel } from '../../src/utils/logger.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
@@ -93,6 +95,32 @@ describe('statusline equivalence', () => {
         ).resolves.toBeTypeOf('string');
       }
     });
+
+    // FIXED_NOW's day has no fixture usage, so these move `now` onto the fixtures' last
+    // active days, where today has usage and, on Jun 11, the streak spans two days.
+    // (New fixture events would move the goldens.)
+    it.each([
+      { now: '2026-06-11T20:00:00.000Z', timezone: 'UTC', streak: '2d' },
+      { now: '2026-06-11T12:00:00.000Z', timezone: 'Asia/Kolkata', streak: '2d' },
+      { now: '2026-06-20T20:00:00.000Z', timezone: 'UTC', streak: '1d' },
+      { now: '2026-06-20T20:00:00.000Z', timezone: 'America/St_Johns', streak: '1d' },
+    ])(
+      'matches the summary with usage today: $now in $timezone',
+      async ({ now, timezone, streak }) => {
+        const options = { ...e2eOptions, source: ALL_SOURCE_IDS.join(','), timezone };
+        const deps = { now: () => new Date(now) };
+        const line = await expectSameLine(options, deps);
+        const summary = await buildSummaryData(
+          { ...options, pricingOffline: true, sync: false },
+          deps,
+        );
+
+        // The fixtures' turns are small, so today's cost can round to $0.00.
+        expect(summary.periods[0].key).toBe('today');
+        expect(summary.periods[0].totals.events).toBeGreaterThan(0);
+        expect(line).toContain(` · ${streak} streak · `);
+      },
+    );
 
     it('adds the Claude Code session to the same line', async () => {
       const options = { ...e2eOptions, source: ALL_SOURCE_IDS.join(','), timezone: 'UTC' };
@@ -198,7 +226,11 @@ describe('statusline equivalence', () => {
       return { now, codex, claude: [...claude, ...copies] };
     }
 
-    function deps(generated: Generated, monthlyBudgetUsd?: number): Deps {
+    function deps(
+      generated: Generated,
+      monthlyBudgetUsd?: number,
+      machineNames: string[] = [],
+    ): Deps {
       const adapter = (
         id: string,
         events: UsageEvent[],
@@ -227,9 +259,12 @@ describe('statusline equivalence', () => {
           adapter('claude', generated.claude, { sessionsCopyEvents: true }),
         ],
         loadUserConfig: async () => ({
-          config: { monthlyBudgetUsd },
+          config: {
+            monthlyBudgetUsd,
+            machines: Object.fromEntries(machineNames.map((name) => [name, { ssh: name }])),
+          },
           path: '/generated/config.toml',
-          exists: monthlyBudgetUsd !== undefined,
+          exists: monthlyBudgetUsd !== undefined || machineNames.length > 0,
           warnings: [],
         }),
         now: () => generated.now,
@@ -317,6 +352,104 @@ describe('statusline equivalence', () => {
       );
 
       expect(line).toMatch(/^\$0\.00 today · 31d streak · /u);
+    });
+
+    /** A synced machine's cache, as `machine sync` leaves it; nothing here spawns ssh. */
+    async function seedMachineCache(
+      name: string,
+      events: UsageEvent[],
+      parserVersions?: Record<string, string>,
+    ): Promise<void> {
+      const cache = await openMachineCache(name);
+
+      try {
+        for (const source of new Set(events.map((event) => event.source))) {
+          const filePath = `/${name}/${source}.jsonl`;
+          replaceFileEvents(cache, {
+            source,
+            filePath,
+            fingerprint: { dependencies: [{ path: filePath, exists: true, size: 1, mtimeMs: 1 }] },
+            events: events.filter((event) => event.source === source),
+            skippedRows: 0,
+            now: 1_000,
+          });
+        }
+
+        writeEventStoreMeta(cache, {
+          parserVersions: parserVersions ? JSON.stringify(parserVersions) : undefined,
+          syncedAt: '1000',
+        });
+      } finally {
+        closeEventStore(cache);
+      }
+    }
+
+    it('matches the summary with other machines, their duplicates left out', async () => {
+      const now = '2026-03-15T15:00:00.000Z';
+      const generated = generateYear(now, { inactiveToday: true });
+      const localCodex = generated.codex.find(
+        (event) => event.sessionId === 'codex-0' && event.timestamp.startsWith('2026-03-1'),
+      );
+      const localClaude = generated.claude.find((event) => event.timestamp.startsWith('2026-03-1'));
+
+      if (!localCodex || !localClaude) {
+        throw new Error('the generated year has local March events');
+      }
+
+      const laptopEvent = (timestamp: string, overrides: Partial<UsageEvent> = {}) => ({
+        ...createUsageEvent({
+          source: 'codex',
+          sessionId: 'codex-0',
+          timestamp,
+          provider: 'openai',
+          model: 'gpt-4.1',
+          inputTokens: 40_000,
+          outputTokens: 2_000,
+          totalTokens: 42_000,
+          costMode: 'estimated',
+        }),
+        ...overrides,
+      });
+      // Another parser version on the laptop: its copy of a local turn has another token
+      // split, so it is matched by timestamp and left out. Its turn today and its turn on
+      // the local gap 32 days back are kept, which carries the streak to the next gap.
+      await seedMachineCache(
+        'laptop',
+        [
+          laptopEvent(localCodex.timestamp),
+          laptopEvent('2026-03-15T09:00:00.000Z'),
+          laptopEvent('2026-02-11T12:00:00.000Z', { sessionId: 'laptop-only' }),
+        ],
+        { codex: 'n0.p0' },
+      );
+      // Same parser on the desktop: an identical copy is left out by its hash.
+      await seedMachineCache('desktop', [
+        localClaude,
+        { ...localClaude, sessionId: 'desktop-only', timestamp: '2026-03-15T08:00:00.000Z' },
+      ]);
+
+      const machineDeps = deps(generated, undefined, ['laptop', 'desktop']);
+      const line = await expectSameLine({ timezone: 'UTC' }, machineDeps);
+      const summary = await buildSummaryData(
+        { timezone: 'UTC', pricingOffline: true, sync: false },
+        machineDeps,
+      );
+
+      // Local usage stops yesterday; the machines' turns today count.
+      expect(line).toMatch(/^\$(?!0\.00 )[\d.]+ today · 41d streak · /u);
+      expect(summary.diagnostics.warnings).toEqual(
+        expect.arrayContaining([expect.stringContaining('left out 1 event(s)')]),
+      );
+      // Month to date, each machine keeps one turn: its copy of a local one is left out.
+      const monthToDate = summary.periods.find((period) => period.key === 'monthToDate');
+      expect(
+        Object.fromEntries(
+          (monthToDate?.machines ?? [])
+            .filter((machine) => machine.machine !== 'local')
+            .map((machine) => [machine.machine, machine.events]),
+        ),
+      ).toEqual({ desktop: 1, laptop: 1 });
+      expect(line).not.toBe(await expectSameLine({ timezone: 'UTC' }, deps(generated)));
     });
 
     it('matches --model exactly when the exact name appears only before the month', async () => {

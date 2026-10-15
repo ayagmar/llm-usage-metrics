@@ -63,7 +63,24 @@ function getDateTimeFormatter(timezone: string): Intl.DateTimeFormat {
 // usage across several machines reaches ~300k, and a memo that starts over mid-run
 // recomputes every pass.
 const MAX_MEMOIZED_TIMESTAMPS = 1_000_000;
+let maxMemoizedTimestamps = MAX_MEMOIZED_TIMESTAMPS;
 const localDatePartsByTimestamp = new Map<string, Map<string, KeyedLocalDate>>();
+
+/**
+ * Test seam: sets the memo cap (the default when undefined), empties the memo, and reports
+ * how many timestamps one timezone's memo holds.
+ *
+ * @internal
+ */
+export const timestampMemoForTesting = {
+  setCap(cap: number | undefined): void {
+    maxMemoizedTimestamps = cap ?? MAX_MEMOIZED_TIMESTAMPS;
+    localDatePartsByTimestamp.clear();
+  },
+  size(timezone: string): number {
+    return localDatePartsByTimestamp.get(timezone)?.size ?? 0;
+  },
+};
 
 function extractLocalDateParts(timestampIso: string, timezone: string): KeyedLocalDate {
   // The day windows below answer a canonical timestamp in a few comparisons, so it skips
@@ -89,7 +106,7 @@ function extractLocalDateParts(timestampIso: string, timezone: string): KeyedLoc
 
   const parts = parseLocalDateParts(timestampIso, timezone);
 
-  if (partsByTimestamp.size >= MAX_MEMOIZED_TIMESTAMPS) {
+  if (partsByTimestamp.size >= maxMemoizedTimestamps) {
     partsByTimestamp.clear();
   }
 
