@@ -7318,7 +7318,7 @@
       "inputPer1MUsd": 1.2,
       "outputPer1MUsd": 1.2,
       "cacheReadPer1MUsd": 0.6,
-      "priorityFallback": true
+      "priorityFallback": ["input", "output", "cacheRead"]
     },
     "fireworks_ai/accounts/fireworks/models/minimax-m3": {
       "inputPer1MUsd": 0.3,

@@ -99,7 +99,17 @@ describe('cost engine', () => {
   it('records the events it prices at a priority-fallback rate', () => {
     const source = new StaticPricingSource({
       pricingByModel: {
-        'priority-only': { inputPer1MUsd: 1, outputPer1MUsd: 4, priorityFallback: true },
+        'priority-only': {
+          inputPer1MUsd: 1,
+          outputPer1MUsd: 4,
+          priorityFallback: ['input', 'output'],
+        },
+        'priority-cache-write': {
+          inputPer1MUsd: 1,
+          outputPer1MUsd: 4,
+          cacheWritePer1MUsd: 1.25,
+          priorityFallback: ['cacheWrite'],
+        },
         'gpt-5-codex': { inputPer1MUsd: 1, outputPer1MUsd: 2 },
       },
     });
@@ -115,6 +125,13 @@ describe('cost engine', () => {
       createUsageEvent({ ...baseEvent, model: 'priority-only', costUsd: 0, costMode: 'explicit' }),
       createUsageEvent({ ...baseEvent, model: 'priority-only', costUsd: 2, costMode: 'explicit' }),
       createUsageEvent({ ...baseEvent, model: 'gpt-5-codex', costMode: 'estimated' }),
+      createUsageEvent({ ...baseEvent, model: 'priority-cache-write', costMode: 'estimated' }),
+      createUsageEvent({
+        ...baseEvent,
+        model: 'priority-cache-write',
+        cacheWriteTokens: 10,
+        costMode: 'estimated',
+      }),
     ];
     const stats = createPricingRunStats();
 
@@ -123,12 +140,15 @@ describe('cost engine', () => {
       stats,
     });
 
-    // A logged non-zero cost is kept, so no priority rate priced it.
+    // A logged non-zero cost is kept, so no priority rate priced it. An event with no
+    // cache writes never used a model's priority-only cache-write rate.
     expect(pricedEvents.map((event) => stats.priorityPriced.has(event))).toEqual([
       true,
       true,
       false,
       false,
+      false,
+      true,
     ]);
   });
 

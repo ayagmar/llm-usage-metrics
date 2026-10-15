@@ -1339,7 +1339,11 @@ describe('buildUsageData', () => {
     const pricingLoaderSpy = vi.fn(async (): Promise<PricingLoadResult> => ({
       source: new StaticPricingSource({
         pricingByModel: {
-          'priority-only': { inputPer1MUsd: 1, outputPer1MUsd: 4, priorityFallback: true },
+          'priority-only': {
+            inputPer1MUsd: 1,
+            outputPer1MUsd: 4,
+            priorityFallback: ['input', 'output'],
+          },
           'gpt-4.1': { inputPer1MUsd: 2, outputPer1MUsd: 8 },
         },
       }),

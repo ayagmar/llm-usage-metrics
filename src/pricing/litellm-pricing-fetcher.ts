@@ -7,7 +7,7 @@ import { ensureDirectory, readRegularTextFile, writeFileAtomic } from '../utils/
 import { normalizeKey, resolveCanonicalModelKey } from './litellm-model-matching.js';
 import litellmPricingSnapshotPayload from './litellm-pricing-snapshot.json' with { type: 'json' };
 import litellmRetiredPricingPayload from './litellm-retired-pricing.json' with { type: 'json' };
-import type { ModelPricing, PricingSource, PricingTier } from './types.js';
+import type { ModelPricing, PriorityFallbackBucket, PricingSource, PricingTier } from './types.js';
 
 const ONE_MILLION = 1_000_000;
 const DEFAULT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -219,8 +219,19 @@ function normalizeModelPricing(rawModelPricing: Record<string, unknown>): ModelP
     modelPricing.reasoningBilling = 'separate';
   }
 
-  if (input.priority || output.priority || cacheRead?.priority || cacheWrite?.priority) {
-    modelPricing.priorityFallback = true;
+  const priorityFallback = (
+    [
+      ['input', input],
+      ['output', output],
+      ['cacheRead', cacheRead],
+      ['cacheWrite', cacheWrite],
+    ] as const
+  )
+    .filter(([, rate]) => rate?.priority)
+    .map(([bucket]) => bucket);
+
+  if (priorityFallback.length > 0) {
+    modelPricing.priorityFallback = priorityFallback;
   }
 
   const tiers = normalizeModelTiers(rawModelPricing);
@@ -303,6 +314,22 @@ function normalizeCachedTiers(rawTiers: unknown): PricingTier[] | undefined {
   return tiersByThreshold.size === 0 ? undefined : sortTiersDescending(tiersByThreshold);
 }
 
+const PRIORITY_FALLBACK_BUCKETS: readonly PriorityFallbackBucket[] = [
+  'input',
+  'output',
+  'cacheRead',
+  'cacheWrite',
+];
+
+function normalizeCachedPriorityFallback(value: unknown): PriorityFallbackBucket[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const buckets = PRIORITY_FALLBACK_BUCKETS.filter((bucket) => value.includes(bucket));
+  return buckets.length === 0 ? undefined : buckets;
+}
+
 function normalizeCachedPricing(rawPricing: unknown): ModelPricing | undefined {
   const pricingRecord = asRecord(rawPricing);
 
@@ -347,8 +374,10 @@ function normalizeCachedPricing(rawPricing: unknown): ModelPricing | undefined {
     modelPricing.reasoningBilling = 'separate';
   }
 
-  if (pricingRecord.priorityFallback === true) {
-    modelPricing.priorityFallback = true;
+  const priorityFallback = normalizeCachedPriorityFallback(pricingRecord.priorityFallback);
+
+  if (priorityFallback) {
+    modelPricing.priorityFallback = priorityFallback;
   }
 
   const tiers = normalizeCachedTiers(pricingRecord.tiers);
