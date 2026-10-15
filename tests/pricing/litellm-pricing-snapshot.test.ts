@@ -46,9 +46,16 @@ describe('LiteLLM pricing snapshot', () => {
     expect(Object.keys(normalizedPayload?.pricingByModel ?? {})).not.toHaveLength(0);
   });
 
-  it('contains every preferred pricing key from the model map', () => {
+  // A preferred key that left upstream still prices default-source events from the retired
+  // pricing, which the fetcher back-fills.
+  it('prices every preferred pricing key from the model map', () => {
+    const retiredPricing = toPricingMap(
+      retiredPricingPayload.pricingByModel as Record<string, ModelPricing>,
+    );
     const missingKeys = Object.values(modelMapPayload.preferredPricingKeyByCanonicalModel).filter(
-      (pricingKey) => !snapshotPricing.has(normalizeKey(pricingKey)),
+      (pricingKey) =>
+        !snapshotPricing.has(normalizeKey(pricingKey)) &&
+        !retiredPricing.has(normalizeKey(pricingKey)),
     );
 
     expect(missingKeys).toEqual([]);
