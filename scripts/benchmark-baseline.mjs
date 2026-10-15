@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { appendFile, cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { appendFile, cp, mkdir, mkdtemp, readFile, rm, utimes, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,6 +20,10 @@ const PYTHON_RUSAGE_WRAPPER =
   'print(resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss, file=sys.stderr); ' +
   'sys.exit(p.returncode)';
 const FILES_PER_SOURCE = 4;
+// statusline-aged shifts all but the newest file per source this far back, past the
+// statusline's 53-week activity window, so their mtime lets the CLI skip them.
+const AGED_WEEKS = 60;
+const AGED_OFFSET_MS = AGED_WEEKS * 7 * 24 * 60 * 60 * 1000;
 // Each file starts with two header lines and needs at least one usage line.
 const MIN_LINES = FILES_PER_SOURCE * 3;
 
@@ -28,6 +32,7 @@ const SCENARIO_LABELS = {
   warm: 'warm (store on)',
   statusline: 'statusline (store on)',
   'active-jsonl': 'active-jsonl (store on, pi file grows)',
+  'statusline-aged': `statusline-aged (store on, ${FILES_PER_SOURCE - 1} of ${FILES_PER_SOURCE} files per source ${AGED_WEEKS} weeks old)`,
 };
 
 const METHODOLOGY_LINES = [
@@ -53,6 +58,10 @@ const METHODOLOGY_LINES = [
   `    appends ${ACTIVE_APPEND_LINES} new rows with later timestamps to the newest pi file, then`,
   '    times the cold command. An untimed session --json run after each timed run',
   '    checks that the event count grew by the appended rows.',
+  '  - statusline-aged: a second corpus with the same line counts, where every file but',
+  `    the newest per source has its events and mtime shifted ${AGED_WEEKS} weeks back, past the`,
+  "    statusline's 53-week window. Event store on, one priming run, then timed repeats of",
+  '    statusline, so the skip of files older than the window is exercised.',
   '  - Max RSS: one extra untimed run per scenario (for active-jsonl, after one more',
   '    append), under the first method whose probe succeeds: gnu-time',
   '    (/usr/bin/time -f %M true), python-rusage (python3 -c "import resource", reading',
@@ -64,7 +73,8 @@ function printHelp() {
   console.log(`Usage: node scripts/benchmark-baseline.mjs [options]
 
 Time the built CLI over a synthetic pi + codex corpus: cold run, warm run,
-statusline tick, and a large active JSONL file that grows between runs.
+statusline tick, a large active JSONL file that grows between runs, and a
+statusline tick over a corpus whose older files fall outside its window.
 
 ${METHODOLOGY_LINES.join('\n')}
 
@@ -289,10 +299,6 @@ function statuslineArgs(corpus) {
   return ['statusline', '--timezone', BENCHMARK_TIMEZONE, ...sourceArgs(corpus)];
 }
 
-function toTimestamp(clock, lineIndex) {
-  return new Date(clock.startMs + lineIndex * LINE_INTERVAL_MS).toISOString();
-}
-
 // Same shape as tests/fixtures/e2e-large/pi/session-large.jsonl, with varied token counts.
 function piMessageLine(timestamp, lineIndex) {
   const input = 200 + (lineIndex % 97);
@@ -305,7 +311,7 @@ function piMessageLine(timestamp, lineIndex) {
   });
 }
 
-function codexTokenCountLine(clock, lineIndex, totals) {
+function codexTokenCountLine(timestamp, lineIndex, totals) {
   const last = {
     input_tokens: 400 + (lineIndex % 89),
     cached_input_tokens: 100,
@@ -319,7 +325,7 @@ function codexTokenCountLine(clock, lineIndex, totals) {
   }
 
   return JSON.stringify({
-    timestamp: toTimestamp(clock, lineIndex),
+    timestamp,
     type: 'event_msg',
     payload: {
       type: 'token_count',
@@ -360,7 +366,8 @@ function planCorpusFiles(lines) {
   return { files, usageLines };
 }
 
-async function generateCorpus(corpusRoot, cliArgs, clock) {
+// With `aged`, every file but the last per source moves AGED_OFFSET_MS back, events and mtime.
+async function generateCorpus(corpusRoot, cliArgs, clock, { aged = false } = {}) {
   const piDir = path.join(corpusRoot, 'pi');
   const codexDir = path.join(corpusRoot, 'codex');
   const { files, usageLines } = planCorpusFiles(cliArgs.lines);
@@ -369,11 +376,16 @@ async function generateCorpus(corpusRoot, cliArgs, clock) {
   await mkdir(codexDir, { recursive: true });
 
   for (const file of files) {
-    const startTimestamp = toTimestamp(clock, file.firstLineIndex);
+    const fileOffsetMs = aged && file.fileIndex < FILES_PER_SOURCE - 1 ? AGED_OFFSET_MS : 0;
+    const fileTimestamp = (lineIndex) =>
+      new Date(clock.startMs + lineIndex * LINE_INTERVAL_MS - fileOffsetMs).toISOString();
+    const startTimestamp = fileTimestamp(file.firstLineIndex);
     const buildLineIndex = (offset) => file.firstLineIndex + offset;
+    const piFile = path.join(piDir, file.name);
+    const codexFile = path.join(codexDir, file.name);
 
     await writeLines(
-      path.join(piDir, file.name),
+      piFile,
       [
         JSON.stringify({
           type: 'session',
@@ -383,7 +395,7 @@ async function generateCorpus(corpusRoot, cliArgs, clock) {
         JSON.stringify({ type: 'model_change', provider: 'openai', modelId: 'gpt-4.1' }),
       ],
       file.lineCount,
-      (offset) => piMessageLine(toTimestamp(clock, buildLineIndex(offset)), buildLineIndex(offset)),
+      (offset) => piMessageLine(fileTimestamp(buildLineIndex(offset)), buildLineIndex(offset)),
     );
 
     const codexTotals = {
@@ -394,7 +406,7 @@ async function generateCorpus(corpusRoot, cliArgs, clock) {
       total_tokens: 0,
     };
     await writeLines(
-      path.join(codexDir, file.name),
+      codexFile,
       [
         JSON.stringify({
           timestamp: startTimestamp,
@@ -408,8 +420,21 @@ async function generateCorpus(corpusRoot, cliArgs, clock) {
         }),
       ],
       file.lineCount,
-      (offset) => codexTokenCountLine(clock, buildLineIndex(offset), codexTotals),
+      (offset) =>
+        codexTokenCountLine(
+          fileTimestamp(buildLineIndex(offset)),
+          buildLineIndex(offset),
+          codexTotals,
+        ),
     );
+
+    if (fileOffsetMs > 0) {
+      const lastEventAt = new Date(fileTimestamp(file.firstLineIndex + file.lineCount - 1));
+
+      for (const filePath of [piFile, codexFile]) {
+        await utimes(filePath, lastEventAt, lastEventAt);
+      }
+    }
   }
 
   return {
@@ -600,6 +625,24 @@ async function runActiveJsonlScenario(sourceCorpus, cliArgs, context, clock) {
   return { corpus, command: dailyArgs(corpus), samples, maxRssMb };
 }
 
+// The aged corpus must still report pi and codex usage, with every event counted when no
+// window applies, before its statusline timings mean anything.
+async function runAgedStatuslineScenario(cliArgs, context, clock, expectedEvents) {
+  const corpus = await generateCorpus(path.join(context.tempRoot, 'aged-corpus'), cliArgs, clock, {
+    aged: true,
+  });
+  const checkRoot = await createStateRoot(context.tempRoot, 'statusline-aged-check');
+  const checkEnv = buildBaselineEnv(context, checkRoot);
+  readDailyTotals((await measureCli(dailyArgs(corpus), checkEnv, context)).stdout);
+  const events = readEventCount((await measureCli(sessionArgs(corpus), checkEnv, context)).stdout);
+
+  if (events !== expectedEvents) {
+    throw new Error(`statusline-aged corpus: expected ${expectedEvents} events, got ${events}`);
+  }
+
+  return runRepeatScenario(corpus, cliArgs, context, 'statusline-aged', statuslineArgs(corpus));
+}
+
 // Shows commands with the temp corpus paths replaced, so reports from different runs compare.
 function displayCommand(commandArgs, corpus) {
   return [
@@ -735,8 +778,10 @@ async function main() {
     console.log('Finished statusline');
     const active = await runActiveJsonlScenario(corpus, cliArgs, context, clock);
     console.log('Finished active-jsonl');
+    const aged = await runAgedStatuslineScenario(cliArgs, context, clock, corpusTotals.events);
+    console.log('Finished statusline-aged');
 
-    results = { cold, warm, statusline, 'active-jsonl': active };
+    results = { cold, warm, statusline, 'active-jsonl': active, 'statusline-aged': aged };
   } finally {
     if (cliArgs.keepTemp) {
       console.log(`Kept temp directory: ${tempRoot}`);
