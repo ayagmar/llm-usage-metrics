@@ -83,23 +83,32 @@ describe('renderSyncOutcome', () => {
 });
 
 describe('formatMachinesNote', () => {
-  it('warns about a machine running another version', () => {
+  it.each([
+    [
+      'records no parser versions',
+      undefined,
+      'shared sessions may count twice until it is synced after updating llm-usage',
+    ],
+    [
+      'records its parser versions',
+      { codex: 'n2.p1' },
+      'sessions it parses with other parser versions are matched by timestamp',
+    ],
+  ])('says how a machine running another version that %s is merged', (_, parserVersions, text) => {
     expect(
       formatMachinesNote(
         [
           {
             name: 'laptop',
             enabled: true,
-            state: { syncedAt: NOW - 2 * MINUTE, cliVersion: '0.9.0' },
+            state: { syncedAt: NOW - 2 * MINUTE, cliVersion: '0.9.0', parserVersions },
             duplicateCount: 0,
           },
         ],
         NOW,
         '0.10.0',
       ),
-    ).toBe(
-      'Machines: laptop (synced 2 min ago, llm-usage-metrics 0.9.0 there; shared sessions may count twice until both run the same version).',
-    );
+    ).toBe(`Machines: laptop (synced 2 min ago, llm-usage-metrics 0.9.0 there; ${text}).`);
   });
 
   it('says a disabled machine is not synced, instead of suggesting a sync', () => {

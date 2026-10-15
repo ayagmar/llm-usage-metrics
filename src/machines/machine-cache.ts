@@ -35,6 +35,8 @@ const REVISION_PREFIX = 'machine-export:';
 export type MachineSyncState = {
   hostname?: string;
   cliVersion?: string;
+  /** Source id → parser version the last sync's export recorded; undefined if it did not. */
+  parserVersions?: Record<string, string>;
   /** Epoch ms of the last successful sync. */
   syncedAt?: number;
   /** Epoch ms of the last sync attempt, successful or not. */
@@ -177,6 +179,9 @@ export function applyMachineExport(
     writeEventStoreMeta(cache, {
       hostname: bundle.header.hostname || undefined,
       cliVersion: bundle.header.cliVersion || undefined,
+      parserVersions: bundle.header.parserVersions
+        ? JSON.stringify(bundle.header.parserVersions)
+        : undefined,
       syncedAt: String(now),
       attemptedAt: String(now),
       lastError: undefined,
@@ -205,10 +210,33 @@ function toEpochMs(value: string | undefined): number | undefined {
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
+function toParserVersions(value: string | undefined): Record<string, string> | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(value);
+
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      return undefined;
+    }
+
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        (entry): entry is [string, string] => typeof entry[1] === 'string',
+      ),
+    );
+  } catch {
+    return undefined;
+  }
+}
+
 function toSyncState(readMeta: (key: string) => string | undefined): MachineSyncState {
   return {
     hostname: readMeta('hostname'),
     cliVersion: readMeta('cliVersion'),
+    parserVersions: toParserVersions(readMeta('parserVersions')),
     syncedAt: toEpochMs(readMeta('syncedAt')),
     attemptedAt: toEpochMs(readMeta('attemptedAt')),
     lastError: toStoredError(readMeta('lastError')),

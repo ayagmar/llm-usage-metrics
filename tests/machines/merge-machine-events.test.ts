@@ -3,7 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { LOCAL_MACHINE_NAME } from '../../src/config/user-config.js';
 import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.js';
 import { selectMachines } from '../../src/machines/load-machine-usage.js';
-import { mergeMachineEvents } from '../../src/machines/merge-machine-events.js';
+import {
+  mergeMachineEvents,
+  type ParserVersions,
+} from '../../src/machines/merge-machine-events.js';
 
 function event(sessionId: string, minute: number): UsageEvent {
   return createUsageEvent({
@@ -48,6 +51,140 @@ describe('mergeMachineEvents', () => {
 
     expect(laptop).toMatchObject({ events: [event('shared', 0)], duplicateCount: 1 });
     expect(vps).toMatchObject({ events: [event('vps', 0)], duplicateCount: 2 });
+  });
+});
+
+describe('mergeMachineEvents with parser versions', () => {
+  // Another parser version splits the same turn's tokens differently.
+  function reparsed(sessionId: string, minute: number): UsageEvent {
+    return createUsageEvent({ ...event(sessionId, minute), inputTokens: 90, cacheReadTokens: 10 });
+  }
+
+  const local = { claude: 'n2.p2' };
+
+  it('drops the turns a differently parsed copy already counts and keeps continuation turns', () => {
+    const [laptop] = mergeMachineEvents(
+      [event('s1', 0), event('s1', 1)],
+      [
+        {
+          name: 'laptop',
+          events: [reparsed('s1', 0), reparsed('s1', 1), reparsed('s1', 2), reparsed('s2', 0)],
+          parserVersions: { claude: 'n2.p1' },
+        },
+      ],
+      local,
+    );
+
+    expect(laptop).toEqual({
+      name: 'laptop',
+      events: [reparsed('s1', 2), reparsed('s2', 0)],
+      duplicateCount: 0,
+      skewDroppedCount: 2,
+      skews: [{ source: 'claude', version: 'n2.p1', servedBy: 'local', servedVersion: 'n2.p2' }],
+    });
+  });
+
+  it('matches turns on timestamp alone, whatever model each parser resolved', () => {
+    const [laptop] = mergeMachineEvents(
+      [event('s1', 0)],
+      [
+        {
+          name: 'laptop',
+          events: [{ ...reparsed('s1', 0), model: 'other-model' }],
+          parserVersions: { claude: 'n2.p1' },
+        },
+      ],
+      local,
+    );
+
+    expect(laptop).toMatchObject({ events: [], skewDroppedCount: 1 });
+  });
+
+  it('matches each counted turn once, so a repeated turn survives', () => {
+    const [laptop] = mergeMachineEvents(
+      [event('s1', 0)],
+      [
+        {
+          name: 'laptop',
+          events: [reparsed('s1', 0), reparsed('s1', 0)],
+          parserVersions: { claude: 'n2.p1' },
+        },
+      ],
+      local,
+    );
+
+    expect(laptop).toMatchObject({ events: [reparsed('s1', 0)], skewDroppedCount: 1 });
+  });
+
+  it('keeps the hash merge when the versions match or either side recorded none', () => {
+    const variants: (ParserVersions | undefined)[] = [
+      { claude: 'n2.p2' },
+      { codex: 'n2.p1' },
+      undefined,
+    ];
+
+    for (const parserVersions of variants) {
+      const [laptop] = mergeMachineEvents(
+        [event('s1', 0)],
+        [{ name: 'laptop', events: [reparsed('s1', 0), event('s1', 0)], parserVersions }],
+        local,
+      );
+
+      expect(laptop).toMatchObject({
+        events: [reparsed('s1', 0)],
+        duplicateCount: 1,
+        skewDroppedCount: 0,
+        skews: [],
+      });
+    }
+
+    const [laptop] = mergeMachineEvents(
+      [event('s1', 0)],
+      [{ name: 'laptop', events: [reparsed('s1', 0)], parserVersions: { claude: 'n2.p1' } }],
+    );
+    expect(laptop).toMatchObject({ events: [reparsed('s1', 0)], skews: [] });
+  });
+
+  it('compares a session with the machine that served it first', () => {
+    const [laptop, vps] = mergeMachineEvents(
+      [],
+      [
+        { name: 'laptop', events: [event('s1', 0)], parserVersions: { claude: 'n2.p2' } },
+        {
+          name: 'vps',
+          events: [reparsed('s1', 0), reparsed('s1', 1)],
+          parserVersions: { claude: 'n2.p1' },
+        },
+      ],
+      local,
+    );
+
+    expect(laptop.events).toEqual([event('s1', 0)]);
+    expect(vps).toMatchObject({
+      events: [reparsed('s1', 1)],
+      skewDroppedCount: 1,
+      skews: [{ source: 'claude', version: 'n2.p1', servedBy: 'laptop', servedVersion: 'n2.p2' }],
+    });
+  });
+
+  it('hashes later machines against the turns a skewed machine added', () => {
+    const [desk, laptop, vps] = mergeMachineEvents(
+      [event('s1', 0)],
+      [
+        { name: 'desk', events: [event('s1', 0)], parserVersions: local },
+        {
+          name: 'laptop',
+          events: [reparsed('s1', 0), reparsed('s1', 1)],
+          parserVersions: { claude: 'n2.p1' },
+        },
+        { name: 'vps', events: [event('s1', 0), reparsed('s1', 1)], parserVersions: local },
+      ],
+      local,
+    );
+
+    expect(desk).toMatchObject({ events: [], duplicateCount: 1 });
+    expect(laptop.events).toEqual([reparsed('s1', 1)]);
+    expect(vps).toMatchObject({ events: [], duplicateCount: 2, skewDroppedCount: 0 });
   });
 });
 
