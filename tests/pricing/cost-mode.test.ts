@@ -12,7 +12,6 @@ import { StaticPricingSource } from '../helpers/static-pricing-source.js';
 const pricingSource = new StaticPricingSource({
   pricingByModel: {
     'gpt-5-codex': { inputPer1MUsd: 1, outputPer1MUsd: 2 },
-    'input-only-model': { inputPer1MUsd: 1 },
   },
 });
 
@@ -92,8 +91,9 @@ describe('cost engine cost modes', () => {
 
   it('estimated leaves an event unpriced when it cannot price it, never keeping the logged cost', () => {
     const unknownModel = createEvent({ model: 'unknown-model', costUsd: 9, costMode: 'explicit' });
+    // gpt-5-codex lists no cache-read rate.
     const missingRate = createEvent({
-      model: 'input-only-model',
+      cacheReadTokens: 10,
       costUsd: 0,
       costMode: 'explicit',
     });
