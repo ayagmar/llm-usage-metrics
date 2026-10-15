@@ -842,16 +842,17 @@ describe('createCli', () => {
     expect(output.text()).toContain("missing required argument 'model'");
   });
 
-  it.each([
-    ['hourly', []],
-  ])('fails %s with "not implemented" until its report lands', async (name, args) => {
-    const cli = createCli();
-    captureOutput(cli);
+  it.each([['hourly', []]])(
+    'fails %s with "not implemented" until its report lands',
+    async (name, args) => {
+      const cli = createCli();
+      captureOutput(cli);
 
-    await expect(cli.parseAsync([name, ...args], { from: 'user' })).rejects.toThrow(
-      `The ${name} report is not implemented yet`,
-    );
-  });
+      await expect(cli.parseAsync([name, ...args], { from: 'user' })).rejects.toThrow(
+        `The ${name} report is not implemented yet`,
+      );
+    },
+  );
 
   it('accepts repeated directory flags and keeps database flags single', async () => {
     const cli = createCli();
