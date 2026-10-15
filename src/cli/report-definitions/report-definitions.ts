@@ -19,7 +19,11 @@ import type {
   ValueCommandOptions,
   WrappedCommandOptions,
 } from '../usage-data-contracts.js';
-import { DEFAULT_REPORT_WINDOWS, getReportPeriodName } from '../build-usage-data.js';
+import {
+  DEFAULT_REPORT_WINDOWS,
+  getReportPeriodName,
+  HOURLY_MAX_LAST_DAYS,
+} from '../build-usage-data.js';
 import { runBlocksReport } from '../run-blocks-report.js';
 import { runCompareReport } from '../run-compare-report.js';
 import { runEfficiencyReport } from '../run-efficiency-report.js';
@@ -315,7 +319,9 @@ const summaryReportDefinition: ReportRuntimeDefinition = {
     ],
   },
   register(command) {
-    command.action((options: SummaryCommandOptions) => runSummaryReport(options));
+    addRepoFilterOption(command).action((options: SummaryCommandOptions) =>
+      runSummaryReport(options),
+    );
 
     return command;
   },
@@ -668,8 +674,6 @@ const statuslineDefinition: ReportRuntimeDefinition = {
     return command;
   },
 };
-
-export const HOURLY_MAX_LAST_DAYS = 31;
 
 const hourlyReportDefinition: ReportRuntimeDefinition = {
   meta: {

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   getLocalHour,
+  getLocalHourBucket,
   getPeriodKey,
   type ReportGranularity,
 } from '../../src/utils/time-buckets.js';
@@ -231,5 +232,79 @@ describe('local date keys for canonical timestamps', () => {
     expect(getPeriodKey('2026-02-30T10:00:00.000Z', 'daily', 'UTC')).toBe('2026-03-02');
     expect(getPeriodKey('2026-01-10T24:00:00.000Z', 'daily', 'UTC')).toBe('2026-01-11');
     expect(getPeriodKey('2025-02-29T23:30:00.000Z', 'daily', 'Asia/Kolkata')).toBe('2025-03-02');
+  });
+});
+
+describe('hourly keys', () => {
+  for (const seed of [7, 0xb0b, 20261101]) {
+    it(`share the daily key's date and Intl's hour over DST, odd offsets and LMT (seed ${seed})`, () => {
+      const random = mulberry32(seed);
+
+      for (const timezone of timezones) {
+        for (const instant of collectInstants(random, timezone)) {
+          const canonical = new Date(instant).toISOString();
+          const general = canonical.replace('Z', '+00:00');
+          const label = `${timezone} ${canonical} (seed ${seed})`;
+          const hourlyKey = getPeriodKey(canonical, 'hourly', timezone);
+          const separator = hourlyKey.lastIndexOf(' ');
+
+          expect(hourlyKey.slice(0, separator), label).toBe(
+            getPeriodKey(canonical, 'daily', timezone),
+          );
+          expect(hourlyKey.slice(separator + 1), label).toBe(
+            `${String(getIntlParts(instant, timezone).hour).padStart(2, '0')}:00`,
+          );
+          expect(getPeriodKey(general, 'hourly', timezone), label).toBe(hourlyKey);
+          expect(getLocalHourBucket(canonical, timezone).offsetMs, label).toBe(
+            getOffsetMs(instant, timezone),
+          );
+        }
+      }
+    });
+  }
+
+  it('give a DST fall-back hour one key with two offsets, and the spring-forward hour none', () => {
+    const timezone = 'America/New_York';
+    // 2026-11-01 01:00 EDT is 05:00Z; 01:00 EST is 06:00Z.
+    const firstOccurrence = getLocalHourBucket('2026-11-01T05:30:00.000Z', timezone);
+    const secondOccurrence = getLocalHourBucket('2026-11-01T06:30:00.000Z', timezone);
+
+    expect(firstOccurrence.key).toBe('2026-11-01 01:00');
+    expect(secondOccurrence.key).toBe('2026-11-01 01:00');
+    expect(firstOccurrence.offsetMs - secondOccurrence.offsetMs).toBe(HOUR_MS);
+    expect(getPeriodKey('2026-11-01T04:59:59.999Z', 'hourly', timezone)).toBe('2026-11-01 00:00');
+    expect(getPeriodKey('2026-11-01T07:00:00.000Z', 'hourly', timezone)).toBe('2026-11-01 02:00');
+
+    // 2026-03-08: 01:59:59 EST (06:59:59Z) is followed by 03:00 EDT (07:00Z).
+    const springForwardKeys = new Set(
+      Array.from({ length: 24 * 60 }, (_, minute) =>
+        getPeriodKey(
+          new Date(Date.UTC(2026, 2, 8, 5) + minute * 60_000).toISOString(),
+          'hourly',
+          timezone,
+        ),
+      ).filter((key) => key.startsWith('2026-03-08')),
+    );
+
+    expect(springForwardKeys.has('2026-03-08 01:00')).toBe(true);
+    expect(springForwardKeys.has('2026-03-08 02:00')).toBe(false);
+    expect(springForwardKeys.has('2026-03-08 03:00')).toBe(true);
+  });
+
+  it('keeps the daily key and the hour for years below 1000 and in a 45-minute zone', () => {
+    expect(getPeriodKey('0050-03-01T12:00:00.000Z', 'hourly', 'UTC')).toBe('50-03-01 12:00');
+    // Kathmandu is +05:45: 18:14Z is 23:59, 18:15Z is midnight the next day.
+    expect(getPeriodKey('2026-06-15T18:14:59.999Z', 'hourly', 'Asia/Kathmandu')).toBe(
+      '2026-06-15 23:00',
+    );
+    expect(getPeriodKey('2026-06-15T18:15:00.000Z', 'hourly', 'Asia/Kathmandu')).toBe(
+      '2026-06-16 00:00',
+    );
+  });
+
+  it('rejects invalid timestamps as the other granularities do', () => {
+    expect(() => getPeriodKey('not a timestamp', 'hourly', 'UTC')).toThrow(
+      'Invalid event timestamp: not a timestamp',
+    );
   });
 });

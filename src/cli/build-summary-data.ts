@@ -87,17 +87,19 @@ export function resolveMonthEnd(
  * Unlike `hasCliFilters` (filter-match-warnings.ts), dates are not counted: the summary has
  * no date flags, and this only decides whether the monthly budget applies.
  *
- * The budget covers all usage, so a run narrowed by --source, --provider, or --model
- * cannot be measured against it. A `sources` list in the config file is the user's
+ * The budget covers all usage, so a run narrowed by --source, --provider, --model, or
+ * --repo cannot be measured against it. A `sources` list in the config file is the user's
  * standing view, not a narrowing, so it keeps the budget.
  */
 function isNarrowedByCliFilters(cliOptions: SummaryCommandOptions): boolean {
   const source = cliOptions.source;
   const model = cliOptions.model;
+  const repo = cliOptions.repo;
   const hasSource = Array.isArray(source) ? source.length > 0 : Boolean(source);
   const hasModel = Array.isArray(model) ? model.length > 0 : Boolean(model);
+  const hasRepo = Array.isArray(repo) ? repo.length > 0 : Boolean(repo);
 
-  return hasSource || hasModel || Boolean(cliOptions.provider);
+  return hasSource || hasModel || hasRepo || Boolean(cliOptions.provider);
 }
 
 /** The config's monthly budget, unless CLI filters narrow the run. */

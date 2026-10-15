@@ -10,12 +10,12 @@ import type {
   UsageTotals,
 } from '../domain/usage-report-row.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
-import { getPeriodKey, type ReportGranularity } from '../utils/time-buckets.js';
+import { getPeriodKey, type UsageGranularity } from '../utils/time-buckets.js';
 import { addUsd } from '../utils/usd-math.js';
 import { toProjectKey } from './project-key.js';
 
 export type AggregateUsageOptions = {
-  granularity: ReportGranularity;
+  granularity: UsageGranularity;
   timezone: string;
   sourceOrder?: string[];
   includeModelBreakdown?: boolean;

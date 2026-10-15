@@ -1,5 +1,5 @@
 import type { UsageDataResult } from '../cli/usage-data-contracts.js';
-import type { ReportGranularity } from '../utils/time-buckets.js';
+import type { UsageGranularity } from '../utils/time-buckets.js';
 import { renderMarkdownTable } from './markdown-table.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { renderReportJson } from './report-json.js';
@@ -17,7 +17,7 @@ import {
 export type UsageReportFormat = 'terminal' | 'markdown' | 'json';
 
 export type RenderUsageReportOptions = {
-  granularity: ReportGranularity;
+  granularity: UsageGranularity;
   useColor?: boolean;
   tableLayout?: UsageTableLayout;
   /** `--compact`: abbreviated token counts without the Reasoning and Cache Write columns. */
@@ -35,8 +35,10 @@ export type RenderedUsageReport = {
   notes: string[];
 };
 
-function getReportTitle(granularity: ReportGranularity): string {
+function getReportTitle(granularity: UsageGranularity): string {
   switch (granularity) {
+    case 'hourly':
+      return 'Hourly Token Usage Report';
     case 'daily':
       return 'Daily Token Usage Report';
     case 'weekly':
