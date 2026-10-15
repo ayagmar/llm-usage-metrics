@@ -8,6 +8,7 @@ import {
   getPeriodKey,
   getPeriodKeyRange,
   shiftLocalDateKey,
+  timestampMemoForTesting,
 } from '../../src/utils/time-buckets.js';
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -111,18 +112,40 @@ describe('getPeriodKeyRange', () => {
 });
 
 describe('time bucket helpers', () => {
-  it('stays correct after the timestamp memo fills and starts over', () => {
+  it('stays correct and bounded after the timestamp memo fills and starts over', () => {
+    const cap = 50;
     const base = Date.UTC(2026, 2, 10, 23, 30);
+    // Canonical `...Z` timestamps skip the memo, so these use an offset form.
+    const toMemoizedForm = (ms: number) => new Date(ms).toISOString().replace('Z', '+00:00');
 
-    // More distinct timestamps than the memo keeps (100k), all on one local day per zone.
-    for (let offset = 0; offset <= 100_000; offset += 1) {
-      getPeriodKey(new Date(base + offset).toISOString(), 'daily', 'UTC');
+    timestampMemoForTesting.setCap(cap);
+
+    try {
+      for (let offset = 0; offset < cap; offset += 1) {
+        getPeriodKey(toMemoizedForm(base + offset), 'daily', 'UTC');
+      }
+
+      expect(timestampMemoForTesting.size('UTC')).toBe(cap);
+
+      // The next new timestamp finds the memo full, so it starts over with just that one.
+      getPeriodKey(toMemoizedForm(base + cap), 'daily', 'UTC');
+      expect(timestampMemoForTesting.size('UTC')).toBe(1);
+
+      // Several more fills: the memo never holds more than the cap.
+      for (let offset = cap + 1; offset <= cap * 4; offset += 1) {
+        getPeriodKey(toMemoizedForm(base + offset), 'daily', 'UTC');
+        expect(timestampMemoForTesting.size('UTC')).toBeLessThanOrEqual(cap);
+      }
+
+      // Timestamps dropped by a reset, and new zones, still resolve to their local day.
+      expect(getPeriodKey(toMemoizedForm(base), 'daily', 'UTC')).toBe('2026-03-10');
+      expect(getPeriodKey(toMemoizedForm(base), 'daily', 'Pacific/Kiritimati')).toBe('2026-03-11');
+      expect(getPeriodKey(toMemoizedForm(base + cap * 4), 'daily', 'Pacific/Pago_Pago')).toBe(
+        '2026-03-10',
+      );
+    } finally {
+      timestampMemoForTesting.setCap(undefined);
     }
-
-    expect(getPeriodKey(new Date(base).toISOString(), 'daily', 'UTC')).toBe('2026-03-10');
-    expect(getPeriodKey(new Date(base).toISOString(), 'daily', 'Pacific/Kiritimati')).toBe(
-      '2026-03-11',
-    );
   });
 
   it('keeps repeated lookups of one timestamp correct for each timezone', () => {

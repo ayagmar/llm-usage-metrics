@@ -52,7 +52,7 @@ Outside that promise:
 
 - `./internal`: helpers for the CLI, changed whenever the CLI needs to.
 - `./otel`: experimental, see [OpenTelemetry attributes](#opentelemetry-attributes).
-- Names tagged `@internal` on a public subpath: `canParseSourceOnWorker`, `createWorkerParseAdapter` and `sourceSupportsDirectories` on `./registry`, `LEGACY_CODEX_MODEL_FALLBACK` on `./sources/codex`, and the test seams in the adapter options types (`defaultRootDirs`, `resolveDefaultDbPaths`, `pathExists`, `pathReadable`, `pathIsDirectory`, `pathIsFile`, `loadSqliteModule`, `sleep`).
+- Names tagged `@internal` on a public subpath: `canParseSourceOnWorker`, `createWorkerParseAdapter`, `getParseWorkerRoots` and `sourceSupportsDirectories` on `./registry`, `LEGACY_CODEX_MODEL_FALLBACK` on `./sources/codex`, and the test seams in the adapter options types (`defaultRootDirs`, `resolveDefaultDbPaths`, `pathExists`, `pathReadable`, `pathIsDirectory`, `pathIsFile`, `loadSqliteModule`, `sleep`).
 
 Two versions tell a cache when stored events are stale:
 

@@ -179,6 +179,8 @@ const EXPECTED_SURFACE: Record<string, readonly string[]> = {
     'getDefaultSourceIds',
     'getSourceStorageFormat',
     'sourceSupportsDirectories',
+    // M8
+    'getParseWorkerRoots',
     // T-stages
     'ReadSourcesOptions',
     'readSources',

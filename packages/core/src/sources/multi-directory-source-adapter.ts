@@ -61,6 +61,11 @@ export class MultiDirectorySourceAdapter implements SourceAdapter {
     return this.adapterByFile.get(filePath) ?? this.adapters[0];
   }
 
+  /** The search paths of the adapter that parses `filePath`. */
+  public getSearchPathsForFile(filePath: string): readonly string[] {
+    return this.getAdapterForFile(filePath).getSearchPaths?.() ?? [];
+  }
+
   public async *read(filePath: string, options?: SourceReadOptions): AsyncGenerator<UsageEvent> {
     yield* this.getAdapterForFile(filePath).read(filePath, options);
   }

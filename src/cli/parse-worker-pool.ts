@@ -2,14 +2,24 @@ import { parentPort, Worker } from 'node:worker_threads';
 import type { WorkerOptions } from 'node:worker_threads';
 
 import { withCostModes, type ParseFileDiagnostics, type SourceId } from '../domain/usage-event.js';
-import { canParseSourceOnWorker, createWorkerParseAdapter } from '@ayagmar/agent-sessions/registry';
-import { collectFile, type SourceParseFileDiagnostics } from '@ayagmar/agent-sessions';
+import {
+  canParseSourceOnWorker,
+  createWorkerParseAdapter,
+  getParseWorkerRoots,
+} from '@ayagmar/agent-sessions/registry';
+import {
+  collectFile,
+  type SourceAdapter,
+  type SourceParseFileDiagnostics,
+} from '@ayagmar/agent-sessions';
 import { asRecord } from '../utils/as-record.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
 
 export type ParseWorkerTask = {
   sourceId: SourceId;
   filePath: string;
+  /** The resolved roots of the adapter that owns the file; the worker never resolves its own. */
+  roots: readonly string[];
 };
 
 export type ParseWorkerRequestMessage = ParseWorkerTask & {
@@ -113,8 +123,7 @@ function readWorkerResponse(message: unknown): ParseWorkerResponseMessage | unde
   return undefined;
 }
 
-/* v8 ignore start -- Worker-entry parsing runs only inside the built CLI bundle. */
-function readWorkerRequest(message: unknown): ParseWorkerRequestMessage | undefined {
+export function readWorkerRequest(message: unknown): ParseWorkerRequestMessage | undefined {
   const request = asRecord(message);
 
   if (
@@ -122,7 +131,9 @@ function readWorkerRequest(message: unknown): ParseWorkerRequestMessage | undefi
     typeof request.taskId !== 'number' ||
     !Number.isInteger(request.taskId) ||
     typeof request.sourceId !== 'string' ||
-    typeof request.filePath !== 'string'
+    typeof request.filePath !== 'string' ||
+    !Array.isArray(request.roots) ||
+    !request.roots.every((root): root is string => typeof root === 'string')
   ) {
     return undefined;
   }
@@ -131,9 +142,9 @@ function readWorkerRequest(message: unknown): ParseWorkerRequestMessage | undefi
     taskId: request.taskId,
     sourceId: request.sourceId,
     filePath: request.filePath,
+    roots: request.roots,
   };
 }
-/* v8 ignore stop */
 
 function resolveInline(task: PendingParseTask): void {
   void (async () => {
@@ -153,12 +164,16 @@ function createFallbackParseWorkerPool(): ParseWorkerPool {
   };
 }
 
-export { canParseSourceOnWorker };
+export { canParseSourceOnWorker, getParseWorkerRoots };
 
 export function isParseWorkerRequest(workerData: unknown): boolean {
   return asRecord(workerData)?.llmUsageParseWorker === true;
 }
 
+/**
+ * One pool serves every worker-eligible source of a run: tasks carry their source and
+ * roots. Workers are spawned as tasks are dispatched, never more than `workerCount`.
+ */
 export function createParseWorkerPool(options: {
   entryUrl: URL;
   workerCount: number;
@@ -207,18 +222,50 @@ export function createParseWorkerPool(options: {
     void terminateWorkers();
   }
 
-  function dispatch(): void {
-    if (disabled) {
-      return;
+  function spawnSlot(): WorkerSlot {
+    const worker = spawnWorker(options.entryUrl, {
+      workerData: {
+        llmUsageParseWorker: true,
+      },
+    });
+    const slot: WorkerSlot = { worker };
+    worker.on('message', (message) => {
+      handleWorkerMessage(slot, message);
+    });
+    worker.on('error', () => {
+      disablePool();
+    });
+    worker.on('exit', () => {
+      disablePool();
+    });
+    slots.push(slot);
+    return slot;
+  }
+
+  /** Finds an idle worker, spawning one only while the pool is below its size. */
+  function takeIdleSlot(): WorkerSlot | undefined {
+    const idleSlot = slots.find((slot) => !slot.currentTask);
+
+    if (idleSlot || slots.length >= workerCount) {
+      return idleSlot;
     }
 
-    for (const slot of slots) {
-      if (queue.length === 0) {
+    return spawnSlot();
+  }
+
+  function dispatch(): void {
+    while (!disabled && queue.length > 0) {
+      let slot: WorkerSlot | undefined;
+
+      try {
+        slot = takeIdleSlot();
+      } catch {
+        disablePool();
         return;
       }
 
-      if (slot.currentTask) {
-        continue;
+      if (!slot) {
+        return;
       }
 
       const task = queue.shift();
@@ -234,6 +281,7 @@ export function createParseWorkerPool(options: {
           taskId: task.id,
           sourceId: task.task.sourceId,
           filePath: task.task.filePath,
+          roots: task.task.roots,
         });
       } catch {
         disablePool();
@@ -264,30 +312,6 @@ export function createParseWorkerPool(options: {
     }
 
     dispatch();
-  }
-
-  try {
-    for (let index = 0; index < workerCount; index += 1) {
-      const worker = spawnWorker(options.entryUrl, {
-        workerData: {
-          llmUsageParseWorker: true,
-        },
-      });
-      const slot: WorkerSlot = { worker };
-      worker.on('message', (message) => {
-        handleWorkerMessage(slot, message);
-      });
-      worker.on('error', () => {
-        disablePool();
-      });
-      worker.on('exit', () => {
-        disablePool();
-      });
-      slots.push(slot);
-    }
-  } catch {
-    void terminateWorkers();
-    return createFallbackParseWorkerPool();
   }
 
   return {
@@ -321,6 +345,46 @@ export function createParseWorkerPool(options: {
   };
 }
 
+/**
+ * Parses one request the way a worker does. Adapters are cached per source and roots for
+ * the worker's lifetime, so Claude reads a fork parent's keys once across tasks.
+ */
+export async function handleParseWorkerRequest(
+  request: ParseWorkerRequestMessage,
+  adapterCache: Map<string, SourceAdapter>,
+): Promise<ParseWorkerResponseMessage> {
+  const cacheKey = JSON.stringify([request.sourceId, request.roots]);
+  let adapter = adapterCache.get(cacheKey);
+
+  if (!adapter) {
+    adapter = createWorkerParseAdapter(request.sourceId, request.roots);
+
+    if (!adapter) {
+      return {
+        taskId: request.taskId,
+        ok: false,
+        error: `Source ${request.sourceId} is not registered for parse workers`,
+      };
+    }
+
+    adapterCache.set(cacheKey, adapter);
+  }
+
+  try {
+    return {
+      taskId: request.taskId,
+      ok: true,
+      diagnostics: await collectFile(adapter, request.filePath),
+    };
+  } catch (error) {
+    return {
+      taskId: request.taskId,
+      ok: false,
+      error: getErrorReason(error),
+    };
+  }
+}
+
 /* v8 ignore start -- The worker entry is exercised by built-binary e2e, not in-process Vitest. */
 export async function runParseWorker(): Promise<never> {
   const port = parentPort;
@@ -328,6 +392,8 @@ export async function runParseWorker(): Promise<never> {
   if (!port) {
     throw new Error('Parse worker requires a parent port');
   }
+
+  const adapterCache = new Map<string, SourceAdapter>();
 
   port.on('message', (message: unknown) => {
     void (async () => {
@@ -337,32 +403,7 @@ export async function runParseWorker(): Promise<never> {
         return;
       }
 
-      const adapter = createWorkerParseAdapter(request.sourceId);
-
-      if (!adapter) {
-        port.postMessage({
-          taskId: request.taskId,
-          ok: false,
-          error: `Source ${request.sourceId} is not registered for parse workers`,
-        } satisfies ParseWorkerResponseMessage);
-        return;
-      }
-
-      try {
-        const diagnostics = await collectFile(adapter, request.filePath);
-
-        port.postMessage({
-          taskId: request.taskId,
-          ok: true,
-          diagnostics,
-        } satisfies ParseWorkerResponseMessage);
-      } catch (error) {
-        port.postMessage({
-          taskId: request.taskId,
-          ok: false,
-          error: getErrorReason(error),
-        } satisfies ParseWorkerResponseMessage);
-      }
+      port.postMessage(await handleParseWorkerRequest(request, adapterCache));
     })();
   });
 

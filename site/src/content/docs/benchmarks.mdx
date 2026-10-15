@@ -93,6 +93,41 @@ Before the parse-pipeline work, a fresh Codex run over this corpus took 8.7 s; t
 3. An event-store warm read path serves already-parsed events.
 4. A worker-thread parse pool (`src/cli/parse-worker-pool.ts`) parses large JSONL files in parallel.
 
+## Synthetic baseline
+
+`scripts/benchmark-baseline.mjs` times the built CLI over a generated pi and codex corpus (200,000 lines per source over 4 files, 399,984 events), with a temp `HOME` and the store, pricing and update check pinned. It measures what is cheap to repeat: a cold run with the store off, a warm `daily`, a statusline tick, a growing JSONL file, and a statusline tick where most files are older than its 53-week window (`statusline-aged`).
+
+The M8 performance work was checked with it on 2026-10-15: three alternating serial rounds of M0 (`78feb74`), pre-M8 (`abe3ace`) and the M8 build `d2de9a0` (before the pool fix `8af5ed5`, which this corpus never exercises because no source reaches the worker threshold) on one machine (AMD Ryzen 9 9950X3D, 32 logical CPUs, 62.2 GiB RAM, Linux 7.2.9, Node.js v24.21.0). Each figure is the minimum over 15 timed runs:
+
+| Scenario          | M0 (s) | pre-M8 (s) | M8 (s) | M8 vs pre-M8 |
+| ----------------- | -----: | ---------: | -----: | -----------: |
+| `cold`            |  1.174 |      1.275 |  1.224 |        −4.0% |
+| `warm`            |  0.653 |      0.662 |  0.548 |       −17.3% |
+| `statusline`      |  0.773 |      0.766 |  0.514 |       −32.8% |
+| `active-jsonl`    |  0.994 |      1.028 |  0.927 |        −9.9% |
+| `statusline-aged` |  0.272 |      0.265 |  0.199 |       −24.7% |
+
+The cold run is still 4% slower than M0. Per-round numbers, load averages, RSS and the full method are in [`docs/benchmarks/2026-10-15-m8.md`](https://github.com/ayagmar/llm-usage-metrics/blob/master/docs/benchmarks/2026-10-15-m8.md). These are synthetic files with dense usage lines, so they show relative change between builds, not what real logs cost.
+
+## Real logs (owner's machine)
+
+The synthetic corpus above has dense usage lines. Real logs are mostly conversation text, so M8 was also checked on the maintainer's own logs on 2026-10-15, on the same machine as the synthetic baseline:
+
+- **Corpus:** 1,923 files, about 3.9 GiB. Claude Code has 1,416 files (3.2 GiB), pi 342, Codex 154, Antigravity 6 and Gemini 5.
+- **Method:**
+  - Each run uses a temp `HOME` that links to the log directories read-only, plus temp cache, data and config directories, `TZ=Europe/Paris` and the bundled pricing snapshot.
+  - "Cold" starts from an empty event store. "Warm" is the next run against the store that run filled.
+  - The pre-M8 (`abe3ace`) and M8 builds alternate. The table shows the minimum of three rounds for cold and two rounds for warm.
+
+| Run               |     pre-M8 |             M8 |     Change |
+| ----------------- | ---------: | -------------: | ---------: |
+| Cold `statusline` |    4.343 s |        1.793 s |       −59% |
+| Warm `statusline` |     496 ms |         355 ms |       −28% |
+| Warm `daily`      |     322 ms |         291 ms |       −10% |
+| Cold peak RSS     | 637–693 MB | 1,167–1,260 MB | about +82% |
+
+Most of the cold gain comes from parsing Claude Code and pi files on the worker pool. The cost is memory, because a cold run keeps several parse workers busy at once. The RSS row gives the range over the three cold rounds. Cold runs happen only on the first run and after a parser update. Warm runs read unchanged files from the event store and parse only files that changed.
+
 ## Reproduce it
 
 Build the current checkout and resolve the exact ccusage version without timing `npx` itself:
