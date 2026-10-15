@@ -12,18 +12,6 @@
       "cacheReadPer1MUsd": 0.3,
       "cacheWritePer1MUsd": 3.75
     },
-    "apac.anthropic.claude-3-5-sonnet-20240620-v1:0": {
-      "inputPer1MUsd": 3,
-      "outputPer1MUsd": 15,
-      "cacheReadPer1MUsd": 0.3,
-      "cacheWritePer1MUsd": 3.75
-    },
-    "apac.anthropic.claude-3-5-sonnet-20241022-v2:0": {
-      "inputPer1MUsd": 3,
-      "outputPer1MUsd": 15,
-      "cacheReadPer1MUsd": 0.3,
-      "cacheWritePer1MUsd": 3.75
-    },
     "apac.anthropic.claude-3-haiku-20240307-v1:0": {
       "inputPer1MUsd": 0.25,
       "outputPer1MUsd": 1.25,
@@ -41,15 +29,6 @@
       "outputPer1MUsd": 66,
       "cacheReadPer1MUsd": 8.25
     },
-    "azure/global/gpt-5.1-chat": {
-      "inputPer1MUsd": 1.25,
-      "outputPer1MUsd": 10,
-      "cacheReadPer1MUsd": 0.125
-    },
-    "azure/gpt-3.5-turbo-0125": {
-      "inputPer1MUsd": 0.5,
-      "outputPer1MUsd": 1.5
-    },
     "azure/gpt-35-turbo-0125": {
       "inputPer1MUsd": 0.5,
       "outputPer1MUsd": 1.5
@@ -57,11 +36,6 @@
     "azure/gpt-35-turbo-1106": {
       "inputPer1MUsd": 1,
       "outputPer1MUsd": 2
-    },
-    "azure/gpt-5-chat-latest": {
-      "inputPer1MUsd": 1.25,
-      "outputPer1MUsd": 10,
-      "cacheReadPer1MUsd": 0.125
     },
     "azure/gpt-5.1-chat-2025-11-13": {
       "inputPer1MUsd": 1.25,
@@ -249,10 +223,6 @@
       "inputPer1MUsd": 0.3,
       "outputPer1MUsd": 0.6
     },
-    "command-r": {
-      "inputPer1MUsd": 0.15,
-      "outputPer1MUsd": 0.6
-    },
     "command-r-plus": {
       "inputPer1MUsd": 2.5,
       "outputPer1MUsd": 10
@@ -398,13 +368,6 @@
       "reasoningPer1MUsd": 0.39999999999999997,
       "reasoningBilling": "separate"
     },
-    "gemini/gemini-2.5-flash-lite-preview-09-2025": {
-      "inputPer1MUsd": 0.09999999999999999,
-      "outputPer1MUsd": 0.39999999999999997,
-      "cacheReadPer1MUsd": 0.01,
-      "reasoningPer1MUsd": 0.39999999999999997,
-      "reasoningBilling": "separate"
-    },
     "gemini/gemini-2.5-flash-preview-09-2025": {
       "inputPer1MUsd": 0.3,
       "outputPer1MUsd": 2.5,
@@ -417,22 +380,9 @@
       "outputPer1MUsd": 12,
       "cacheReadPer1MUsd": 0.19999999999999998
     },
-    "gemini/gemini-robotics-er-1.5-preview": {
-      "inputPer1MUsd": 0.3,
-      "outputPer1MUsd": 2.5,
-      "cacheReadPer1MUsd": 0,
-      "reasoningPer1MUsd": 2.5,
-      "reasoningBilling": "separate"
-    },
     "gigachat/gigachat-2-lite": {
       "inputPer1MUsd": 0,
       "outputPer1MUsd": 0
-    },
-    "github_copilot/claude-sonnet-4": {
-      "inputPer1MUsd": 3,
-      "outputPer1MUsd": 15,
-      "cacheReadPer1MUsd": 0.3,
-      "cacheWritePer1MUsd": 3.75
     },
     "github_copilot/mai-code-1-flash": {
       "inputPer1MUsd": 0.75,
@@ -447,14 +397,6 @@
     "gmi/google/gemini-3-pro-preview": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 12
-    },
-    "gpt-4-0125-preview": {
-      "inputPer1MUsd": 10,
-      "outputPer1MUsd": 30
-    },
-    "gpt-4-0314": {
-      "inputPer1MUsd": 30,
-      "outputPer1MUsd": 60
     },
     "gpt-4-turbo-preview": {
       "inputPer1MUsd": 10,
@@ -478,11 +420,6 @@
       "outputPer1MUsd": 20,
       "cacheReadPer1MUsd": 2.5
     },
-    "gpt-4o-realtime-preview-2024-12-17": {
-      "inputPer1MUsd": 5,
-      "outputPer1MUsd": 20,
-      "cacheReadPer1MUsd": 2.5
-    },
     "gpt-4o-realtime-preview-2025-06-03": {
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 20,
@@ -497,11 +434,6 @@
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 10,
       "cacheReadPer1MUsd": 1.25
-    },
-    "gpt-realtime-mini-2025-10-06": {
-      "inputPer1MUsd": 0.6,
-      "outputPer1MUsd": 2.4,
-      "cacheReadPer1MUsd": 0.06
     },
     "groq/gemma-7b-it": {
       "inputPer1MUsd": 0.049999999999999996,
@@ -588,17 +520,9 @@
       "inputPer1MUsd": 3,
       "outputPer1MUsd": 9
     },
-    "mistral/mistral-large-2411": {
-      "inputPer1MUsd": 2,
-      "outputPer1MUsd": 6
-    },
     "mistral/mistral-medium-2312": {
       "inputPer1MUsd": 2.7,
       "outputPer1MUsd": 8.1
-    },
-    "mistral/mistral-medium-2505": {
-      "inputPer1MUsd": 0.39999999999999997,
-      "outputPer1MUsd": 2
     },
     "mistral/mistral-medium-2508": {
       "inputPer1MUsd": 0.39999999999999997,
@@ -741,22 +665,10 @@
       "inputPer1MUsd": 0.3,
       "outputPer1MUsd": 2.5
     },
-    "openrouter/amazon/nova-lite-v1": {
-      "inputPer1MUsd": 0.06,
-      "outputPer1MUsd": 0.24
-    },
-    "openrouter/amazon/nova-micro-v1": {
-      "inputPer1MUsd": 0.035,
-      "outputPer1MUsd": 0.14
-    },
     "openrouter/amazon/nova-premier-v1": {
       "inputPer1MUsd": 2.5,
       "outputPer1MUsd": 12.5,
       "cacheReadPer1MUsd": 0.625
-    },
-    "openrouter/amazon/nova-pro-v1": {
-      "inputPer1MUsd": 0.7999999999999999,
-      "outputPer1MUsd": 3.1999999999999997
     },
     "openrouter/anthracite-org/magnum-v4-72b": {
       "inputPer1MUsd": 2.5,
@@ -800,12 +712,6 @@
       "cacheReadPer1MUsd": 0.5,
       "cacheWritePer1MUsd": 6.25
     },
-    "openrouter/anthropic/claude-haiku-4.5": {
-      "inputPer1MUsd": 1,
-      "outputPer1MUsd": 5,
-      "cacheReadPer1MUsd": 0.09999999999999999,
-      "cacheWritePer1MUsd": 1.25
-    },
     "openrouter/anthropic/claude-haiku-4.5:batch": {
       "inputPer1MUsd": 0.5,
       "outputPer1MUsd": 2.5,
@@ -818,41 +724,17 @@
       "cacheReadPer1MUsd": 0.01,
       "cacheWritePer1MUsd": 0.125
     },
-    "openrouter/anthropic/claude-opus-4": {
-      "inputPer1MUsd": 15,
-      "outputPer1MUsd": 75,
-      "cacheReadPer1MUsd": 1.5,
-      "cacheWritePer1MUsd": 18.75
-    },
-    "openrouter/anthropic/claude-opus-4.1": {
-      "inputPer1MUsd": 15,
-      "outputPer1MUsd": 75,
-      "cacheReadPer1MUsd": 1.5,
-      "cacheWritePer1MUsd": 18.75
-    },
     "openrouter/anthropic/claude-opus-4.1:batch": {
       "inputPer1MUsd": 7.5,
       "outputPer1MUsd": 37.5,
       "cacheReadPer1MUsd": 0.75,
       "cacheWritePer1MUsd": 9.375
     },
-    "openrouter/anthropic/claude-opus-4.5": {
-      "inputPer1MUsd": 5,
-      "outputPer1MUsd": 25,
-      "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
-    },
     "openrouter/anthropic/claude-opus-4.5:batch": {
       "inputPer1MUsd": 2.5,
       "outputPer1MUsd": 12.5,
       "cacheReadPer1MUsd": 0.25,
       "cacheWritePer1MUsd": 3.125
-    },
-    "openrouter/anthropic/claude-opus-4.6": {
-      "inputPer1MUsd": 5,
-      "outputPer1MUsd": 25,
-      "cacheReadPer1MUsd": 0.5,
-      "cacheWritePer1MUsd": 6.25
     },
     "openrouter/anthropic/claude-opus-4.6:batch": {
       "inputPer1MUsd": 2.5,
@@ -908,18 +790,6 @@
       "cacheReadPer1MUsd": 0.25,
       "cacheWritePer1MUsd": 3.125
     },
-    "openrouter/anthropic/claude-sonnet-4": {
-      "inputPer1MUsd": 3,
-      "outputPer1MUsd": 15,
-      "cacheReadPer1MUsd": 0.3,
-      "cacheWritePer1MUsd": 3.75
-    },
-    "openrouter/anthropic/claude-sonnet-4.5": {
-      "inputPer1MUsd": 3,
-      "outputPer1MUsd": 15,
-      "cacheReadPer1MUsd": 0.3,
-      "cacheWritePer1MUsd": 3.75
-    },
     "openrouter/anthropic/claude-sonnet-4.5:batch": {
       "inputPer1MUsd": 1.5,
       "outputPer1MUsd": 7.5,
@@ -971,10 +841,6 @@
       "outputPer1MUsd": 0.7999999999999999,
       "cacheReadPer1MUsd": 0.06
     },
-    "openrouter/baidu/ernie-4.5-vl-424b-a47b": {
-      "inputPer1MUsd": 0.42,
-      "outputPer1MUsd": 1.25
-    },
     "openrouter/bytedance-seed/seed-1.6": {
       "inputPer1MUsd": 0.25,
       "outputPer1MUsd": 2
@@ -1008,26 +874,10 @@
       "inputPer1MUsd": 0.19999999999999998,
       "outputPer1MUsd": 0.8999999999999999
     },
-    "openrouter/cohere/command-a": {
-      "inputPer1MUsd": 2.5,
-      "outputPer1MUsd": 10
-    },
     "openrouter/cohere/command-a-plus": {
       "inputPer1MUsd": 0.3,
       "outputPer1MUsd": 1.5,
       "cacheReadPer1MUsd": 0.15
-    },
-    "openrouter/cohere/command-r-08-2024": {
-      "inputPer1MUsd": 0.15,
-      "outputPer1MUsd": 0.6
-    },
-    "openrouter/cohere/command-r-plus-08-2024": {
-      "inputPer1MUsd": 2.5,
-      "outputPer1MUsd": 10
-    },
-    "openrouter/cohere/command-r7b-12-2024": {
-      "inputPer1MUsd": 0.0375,
-      "outputPer1MUsd": 0.15
     },
     "openrouter/cohere/north-mini-code:free": {
       "inputPer1MUsd": 0,
@@ -1061,11 +911,6 @@
       "inputPer1MUsd": 0.7999999999999999,
       "outputPer1MUsd": 0.7999999999999999
     },
-    "openrouter/deepseek/deepseek-v3.1-terminus": {
-      "inputPer1MUsd": 0.27,
-      "outputPer1MUsd": 1,
-      "cacheReadPer1MUsd": 0.135
-    },
     "openrouter/deepseek/deepseek-v3.2": {
       "inputPer1MUsd": 0.28,
       "outputPer1MUsd": 0.42,
@@ -1096,11 +941,6 @@
       "outputPer1MUsd": 0.41759999999999997,
       "cacheReadPer1MUsd": 0.0174
     },
-    "openrouter/deepseek/deepseek-v4-pro-0813": {
-      "inputPer1MUsd": 1.32,
-      "outputPer1MUsd": 3.9600000000000004,
-      "cacheReadPer1MUsd": 0.044
-    },
     "openrouter/deepseek/deepseek-v4.1-flash": {
       "inputPer1MUsd": 0.044,
       "outputPer1MUsd": 0.3,
@@ -1114,11 +954,6 @@
     "openrouter/dots-studio/dots-3-note-preview:free": {
       "inputPer1MUsd": 0,
       "outputPer1MUsd": 0
-    },
-    "openrouter/fireworks/ember-1": {
-      "inputPer1MUsd": 3,
-      "outputPer1MUsd": 15,
-      "cacheReadPer1MUsd": 0.3
     },
     "openrouter/google/gemini-2.0-flash-001": {
       "inputPer1MUsd": 0.09999999999999999,
@@ -1354,19 +1189,10 @@
       "inputPer1MUsd": 0.08,
       "outputPer1MUsd": 0.11
     },
-    "openrouter/ibm-granite/granite-4.0-h-micro": {
-      "inputPer1MUsd": 0.017,
-      "outputPer1MUsd": 0.112
-    },
     "openrouter/ibm-granite/granite-4.2-8b": {
       "inputPer1MUsd": 0.06,
       "outputPer1MUsd": 0.25,
       "cacheReadPer1MUsd": 0.015
-    },
-    "openrouter/inception/mercury-2": {
-      "inputPer1MUsd": 0.25,
-      "outputPer1MUsd": 0.75,
-      "cacheReadPer1MUsd": 0.024999999999999998
     },
     "openrouter/inception/mercury-2.5": {
       "inputPer1MUsd": 0.04,
@@ -1463,10 +1289,6 @@
       "outputPer1MUsd": 0.6525,
       "cacheReadPer1MUsd": 0.049999999999999996
     },
-    "openrouter/meta-llama/llama-4-scout": {
-      "inputPer1MUsd": 0.09999999999999999,
-      "outputPer1MUsd": 0.3
-    },
     "openrouter/meta-llama/llama-guard-4-12b": {
       "inputPer1MUsd": 0.18,
       "outputPer1MUsd": 0.18
@@ -1476,38 +1298,9 @@
       "outputPer1MUsd": 1.2,
       "cacheReadPer1MUsd": 0.04
     },
-    "openrouter/meta/muse-spark-1.1": {
-      "inputPer1MUsd": 1.25,
-      "outputPer1MUsd": 4.25,
-      "cacheReadPer1MUsd": 0.15
-    },
-    "openrouter/meta/muse-spark-1.2": {
-      "inputPer1MUsd": 1.25,
-      "outputPer1MUsd": 4.25,
-      "cacheReadPer1MUsd": 0.15
-    },
-    "openrouter/meta/muse-spark-1.2-contributor": {
-      "inputPer1MUsd": 0.09999999999999999,
-      "outputPer1MUsd": 0.19999999999999998,
-      "cacheReadPer1MUsd": 0.002
-    },
-    "openrouter/meta/muse-spark-1.3": {
-      "inputPer1MUsd": 1.25,
-      "outputPer1MUsd": 4.25,
-      "cacheReadPer1MUsd": 0.15
-    },
-    "openrouter/meta/muse-spark-1.3-contributor": {
-      "inputPer1MUsd": 0.09999999999999999,
-      "outputPer1MUsd": 0.19999999999999998,
-      "cacheReadPer1MUsd": 0.002
-    },
     "openrouter/microsoft/phi-4": {
       "inputPer1MUsd": 0.07,
       "outputPer1MUsd": 0.14
-    },
-    "openrouter/microsoft/wizardlm-2-8x22b": {
-      "inputPer1MUsd": 0.62,
-      "outputPer1MUsd": 0.62
     },
     "openrouter/minimax/minimax-01": {
       "inputPer1MUsd": 0.19999999999999998,
@@ -1555,11 +1348,6 @@
       "inputPer1MUsd": 0,
       "outputPer1MUsd": 0
     },
-    "openrouter/mistralai/codestral-2508": {
-      "inputPer1MUsd": 0.3,
-      "outputPer1MUsd": 0.8999999999999999,
-      "cacheReadPer1MUsd": 0.03
-    },
     "openrouter/mistralai/codestral-2508:batch": {
       "inputPer1MUsd": 0.15,
       "outputPer1MUsd": 0.44999999999999996,
@@ -1569,21 +1357,6 @@
       "inputPer1MUsd": 0.39999999999999997,
       "outputPer1MUsd": 2,
       "cacheReadPer1MUsd": 0.04
-    },
-    "openrouter/mistralai/ministral-14b-2512": {
-      "inputPer1MUsd": 0.19999999999999998,
-      "outputPer1MUsd": 0.19999999999999998,
-      "cacheReadPer1MUsd": 0.02
-    },
-    "openrouter/mistralai/ministral-3b-2512": {
-      "inputPer1MUsd": 0.09999999999999999,
-      "outputPer1MUsd": 0.09999999999999999,
-      "cacheReadPer1MUsd": 0.01
-    },
-    "openrouter/mistralai/ministral-8b-2512": {
-      "inputPer1MUsd": 0.15,
-      "outputPer1MUsd": 0.15,
-      "cacheReadPer1MUsd": 0.015
     },
     "openrouter/mistralai/ministral-8b-2512:batch": {
       "inputPer1MUsd": 0.075,
@@ -1603,11 +1376,6 @@
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 6,
       "cacheReadPer1MUsd": 0.19999999999999998
-    },
-    "openrouter/mistralai/mistral-large-2512": {
-      "inputPer1MUsd": 0.5,
-      "outputPer1MUsd": 1.5,
-      "cacheReadPer1MUsd": 0.049999999999999996
     },
     "openrouter/mistralai/mistral-large-2512:batch": {
       "inputPer1MUsd": 0.25,
@@ -1651,23 +1419,10 @@
       "outputPer1MUsd": 0.6,
       "cacheReadPer1MUsd": 0.02
     },
-    "openrouter/mistralai/mistral-small-24b-instruct-2501": {
-      "inputPer1MUsd": 0.049999999999999996,
-      "outputPer1MUsd": 0.08
-    },
-    "openrouter/mistralai/mistral-small-2603": {
-      "inputPer1MUsd": 0.15,
-      "outputPer1MUsd": 0.6,
-      "cacheReadPer1MUsd": 0.015
-    },
     "openrouter/mistralai/mistral-small-2603:batch": {
       "inputPer1MUsd": 0.075,
       "outputPer1MUsd": 0.3,
       "cacheReadPer1MUsd": 0.0075
-    },
-    "openrouter/mistralai/mistral-small-3.1-24b-instruct": {
-      "inputPer1MUsd": 0.351,
-      "outputPer1MUsd": 0.5549999999999999
     },
     "openrouter/mistralai/mistral-small-3.2-24b-instruct": {
       "inputPer1MUsd": 0.09375,
@@ -1687,10 +1442,6 @@
       "inputPer1MUsd": 0.5700000000000001,
       "outputPer1MUsd": 2.3
     },
-    "openrouter/moonshotai/kimi-k2-0905": {
-      "inputPer1MUsd": 0.6,
-      "outputPer1MUsd": 2.5
-    },
     "openrouter/moonshotai/kimi-k2-thinking": {
       "inputPer1MUsd": 0.6,
       "outputPer1MUsd": 2.5,
@@ -1700,11 +1451,6 @@
       "inputPer1MUsd": 0.44999999999999996,
       "outputPer1MUsd": 2.25,
       "cacheReadPer1MUsd": 0.07
-    },
-    "openrouter/moonshotai/kimi-k2.6": {
-      "inputPer1MUsd": 0.95,
-      "outputPer1MUsd": 4,
-      "cacheReadPer1MUsd": 0.16
     },
     "openrouter/moonshotai/kimi-k2.7-code": {
       "inputPer1MUsd": 0.6712,
@@ -1720,14 +1466,6 @@
       "inputPer1MUsd": 2.2800000000000002,
       "outputPer1MUsd": 11.399999999999999,
       "cacheReadPer1MUsd": 0.228
-    },
-    "openrouter/morph/morph-v3-fast": {
-      "inputPer1MUsd": 0.7999999999999999,
-      "outputPer1MUsd": 1.2
-    },
-    "openrouter/morph/morph-v3-large": {
-      "inputPer1MUsd": 0.8999999999999999,
-      "outputPer1MUsd": 1.9
     },
     "openrouter/nex-agi/nex-n2.5-mini": {
       "inputPer1MUsd": 0.024999999999999998,
@@ -1750,14 +1488,6 @@
     "openrouter/nousresearch/hermes-3-llama-3.1-405b": {
       "inputPer1MUsd": 1,
       "outputPer1MUsd": 1
-    },
-    "openrouter/nousresearch/hermes-3-llama-3.1-70b": {
-      "inputPer1MUsd": 0.7,
-      "outputPer1MUsd": 0.7
-    },
-    "openrouter/nousresearch/hermes-4-405b": {
-      "inputPer1MUsd": 1,
-      "outputPer1MUsd": 3
     },
     "openrouter/nvidia/nemotron-3-nano-30b-a3b": {
       "inputPer1MUsd": 0.049999999999999996,
@@ -1802,33 +1532,13 @@
       "inputPer1MUsd": 0,
       "outputPer1MUsd": 0
     },
-    "openrouter/openai/gpt-3.5-turbo": {
-      "inputPer1MUsd": 0.5,
-      "outputPer1MUsd": 1.5
-    },
     "openrouter/openai/gpt-3.5-turbo-0613": {
       "inputPer1MUsd": 1,
-      "outputPer1MUsd": 2
-    },
-    "openrouter/openai/gpt-3.5-turbo-16k": {
-      "inputPer1MUsd": 3,
-      "outputPer1MUsd": 4
-    },
-    "openrouter/openai/gpt-3.5-turbo-instruct": {
-      "inputPer1MUsd": 1.5,
       "outputPer1MUsd": 2
     },
     "openrouter/openai/gpt-3.5-turbo:batch": {
       "inputPer1MUsd": 0.25,
       "outputPer1MUsd": 0.75
-    },
-    "openrouter/openai/gpt-4": {
-      "inputPer1MUsd": 30,
-      "outputPer1MUsd": 60
-    },
-    "openrouter/openai/gpt-4-turbo": {
-      "inputPer1MUsd": 10,
-      "outputPer1MUsd": 30
     },
     "openrouter/openai/gpt-4-turbo-preview": {
       "inputPer1MUsd": 10,
@@ -1838,25 +1548,10 @@
       "inputPer1MUsd": 5,
       "outputPer1MUsd": 15
     },
-    "openrouter/openai/gpt-4.1": {
-      "inputPer1MUsd": 2,
-      "outputPer1MUsd": 8,
-      "cacheReadPer1MUsd": 0.5
-    },
-    "openrouter/openai/gpt-4.1-mini": {
-      "inputPer1MUsd": 0.39999999999999997,
-      "outputPer1MUsd": 1.5999999999999999,
-      "cacheReadPer1MUsd": 0.09999999999999999
-    },
     "openrouter/openai/gpt-4.1-mini:batch": {
       "inputPer1MUsd": 0.19999999999999998,
       "outputPer1MUsd": 0.7999999999999999,
       "cacheReadPer1MUsd": 0.049999999999999996
-    },
-    "openrouter/openai/gpt-4.1-nano": {
-      "inputPer1MUsd": 0.09999999999999999,
-      "outputPer1MUsd": 0.39999999999999997,
-      "cacheReadPer1MUsd": 0.024999999999999998
     },
     "openrouter/openai/gpt-4.1-nano:batch": {
       "inputPer1MUsd": 0.049999999999999996,
@@ -1868,35 +1563,6 @@
       "outputPer1MUsd": 4,
       "cacheReadPer1MUsd": 0.25
     },
-    "openrouter/openai/gpt-4o": {
-      "inputPer1MUsd": 2.5,
-      "outputPer1MUsd": 10,
-      "cacheReadPer1MUsd": 1.25
-    },
-    "openrouter/openai/gpt-4o-2024-05-13": {
-      "inputPer1MUsd": 5,
-      "outputPer1MUsd": 15
-    },
-    "openrouter/openai/gpt-4o-2024-08-06": {
-      "inputPer1MUsd": 2.5,
-      "outputPer1MUsd": 10,
-      "cacheReadPer1MUsd": 1.25
-    },
-    "openrouter/openai/gpt-4o-2024-11-20": {
-      "inputPer1MUsd": 2.5,
-      "outputPer1MUsd": 10,
-      "cacheReadPer1MUsd": 1.25
-    },
-    "openrouter/openai/gpt-4o-mini": {
-      "inputPer1MUsd": 0.15,
-      "outputPer1MUsd": 0.6,
-      "cacheReadPer1MUsd": 0.075
-    },
-    "openrouter/openai/gpt-4o-mini-2024-07-18": {
-      "inputPer1MUsd": 0.15,
-      "outputPer1MUsd": 0.6,
-      "cacheReadPer1MUsd": 0.075
-    },
     "openrouter/openai/gpt-4o-mini:batch": {
       "inputPer1MUsd": 0.075,
       "outputPer1MUsd": 0.3,
@@ -1906,21 +1572,6 @@
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 5,
       "cacheReadPer1MUsd": 0.625
-    },
-    "openrouter/openai/gpt-5": {
-      "inputPer1MUsd": 1.25,
-      "outputPer1MUsd": 10,
-      "cacheReadPer1MUsd": 0.125
-    },
-    "openrouter/openai/gpt-5-chat": {
-      "inputPer1MUsd": 1.25,
-      "outputPer1MUsd": 10,
-      "cacheReadPer1MUsd": 0.125
-    },
-    "openrouter/openai/gpt-5-codex": {
-      "inputPer1MUsd": 1.25,
-      "outputPer1MUsd": 10,
-      "cacheReadPer1MUsd": 0.125
     },
     "openrouter/openai/gpt-5-image": {
       "inputPer1MUsd": 10,
@@ -1932,48 +1583,24 @@
       "outputPer1MUsd": 2,
       "cacheReadPer1MUsd": 0.25
     },
-    "openrouter/openai/gpt-5-mini": {
-      "inputPer1MUsd": 0.25,
-      "outputPer1MUsd": 2,
-      "cacheReadPer1MUsd": 0.024999999999999998
-    },
     "openrouter/openai/gpt-5-mini:batch": {
       "inputPer1MUsd": 0.125,
       "outputPer1MUsd": 1,
       "cacheReadPer1MUsd": 0.012499999999999999
-    },
-    "openrouter/openai/gpt-5-nano": {
-      "inputPer1MUsd": 0.049999999999999996,
-      "outputPer1MUsd": 0.39999999999999997,
-      "cacheReadPer1MUsd": 0.005
     },
     "openrouter/openai/gpt-5-nano:batch": {
       "inputPer1MUsd": 0.024999999999999998,
       "outputPer1MUsd": 0.19999999999999998,
       "cacheReadPer1MUsd": 0.0025
     },
-    "openrouter/openai/gpt-5-pro": {
-      "inputPer1MUsd": 15,
-      "outputPer1MUsd": 120
-    },
     "openrouter/openai/gpt-5-pro:batch": {
       "inputPer1MUsd": 7.5,
       "outputPer1MUsd": 60
-    },
-    "openrouter/openai/gpt-5.1": {
-      "inputPer1MUsd": 1.25,
-      "outputPer1MUsd": 10,
-      "cacheReadPer1MUsd": 0.125
     },
     "openrouter/openai/gpt-5.1-codex": {
       "inputPer1MUsd": 1.25,
       "outputPer1MUsd": 10,
       "cacheReadPer1MUsd": 0.13
-    },
-    "openrouter/openai/gpt-5.1-codex-max": {
-      "inputPer1MUsd": 1.25,
-      "outputPer1MUsd": 10,
-      "cacheReadPer1MUsd": 0.125
     },
     "openrouter/openai/gpt-5.1-codex-mini": {
       "inputPer1MUsd": 0.25,
@@ -1985,25 +1612,6 @@
       "outputPer1MUsd": 5,
       "cacheReadPer1MUsd": 0.0625
     },
-    "openrouter/openai/gpt-5.2": {
-      "inputPer1MUsd": 1.75,
-      "outputPer1MUsd": 14,
-      "cacheReadPer1MUsd": 0.175
-    },
-    "openrouter/openai/gpt-5.2-chat": {
-      "inputPer1MUsd": 1.75,
-      "outputPer1MUsd": 14,
-      "cacheReadPer1MUsd": 0.175
-    },
-    "openrouter/openai/gpt-5.2-codex": {
-      "inputPer1MUsd": 1.75,
-      "outputPer1MUsd": 14,
-      "cacheReadPer1MUsd": 0.175
-    },
-    "openrouter/openai/gpt-5.2-pro": {
-      "inputPer1MUsd": 21,
-      "outputPer1MUsd": 168
-    },
     "openrouter/openai/gpt-5.2-pro:batch": {
       "inputPer1MUsd": 10.5,
       "outputPer1MUsd": 84
@@ -2012,11 +1620,6 @@
       "inputPer1MUsd": 0.875,
       "outputPer1MUsd": 7,
       "cacheReadPer1MUsd": 0.0875
-    },
-    "openrouter/openai/gpt-5.3-codex": {
-      "inputPer1MUsd": 1.75,
-      "outputPer1MUsd": 14,
-      "cacheReadPer1MUsd": 0.175
     },
     "openrouter/openai/gpt-5.4": {
       "inputPer1MUsd": 2.5,
@@ -2028,20 +1631,10 @@
       "outputPer1MUsd": 15,
       "cacheReadPer1MUsd": 2
     },
-    "openrouter/openai/gpt-5.4-mini": {
-      "inputPer1MUsd": 0.75,
-      "outputPer1MUsd": 4.5,
-      "cacheReadPer1MUsd": 0.075
-    },
     "openrouter/openai/gpt-5.4-mini:batch": {
       "inputPer1MUsd": 0.375,
       "outputPer1MUsd": 2.25,
       "cacheReadPer1MUsd": 0.0375
-    },
-    "openrouter/openai/gpt-5.4-nano": {
-      "inputPer1MUsd": 0.19999999999999998,
-      "outputPer1MUsd": 1.25,
-      "cacheReadPer1MUsd": 0.02
     },
     "openrouter/openai/gpt-5.4-nano:batch": {
       "inputPer1MUsd": 0.09999999999999999,
@@ -2248,19 +1841,6 @@
       "cacheReadPer1MUsd": 0.049999999999999996,
       "cacheWritePer1MUsd": 1.25
     },
-    "openrouter/openai/gpt-audio": {
-      "inputPer1MUsd": 2.5,
-      "outputPer1MUsd": 10
-    },
-    "openrouter/openai/gpt-audio-mini": {
-      "inputPer1MUsd": 0.6,
-      "outputPer1MUsd": 2.4
-    },
-    "openrouter/openai/gpt-chat-latest": {
-      "inputPer1MUsd": 5,
-      "outputPer1MUsd": 30,
-      "cacheReadPer1MUsd": 0.5
-    },
     "openrouter/openai/gpt-oss-120b": {
       "inputPer1MUsd": 0.037,
       "outputPer1MUsd": 0.16999999999999998
@@ -2283,53 +1863,15 @@
       "outputPer1MUsd": 0.3,
       "cacheReadPer1MUsd": 0.0375
     },
-    "openrouter/openai/o1": {
-      "inputPer1MUsd": 15,
-      "outputPer1MUsd": 60,
-      "cacheReadPer1MUsd": 7.5
-    },
-    "openrouter/openai/o1-pro": {
-      "inputPer1MUsd": 150,
-      "outputPer1MUsd": 600
-    },
-    "openrouter/openai/o3": {
-      "inputPer1MUsd": 2,
-      "outputPer1MUsd": 8,
-      "cacheReadPer1MUsd": 0.5
-    },
-    "openrouter/openai/o3-mini": {
-      "inputPer1MUsd": 1.1,
-      "outputPer1MUsd": 4.4,
-      "cacheReadPer1MUsd": 0.55
-    },
-    "openrouter/openai/o3-mini-high": {
-      "inputPer1MUsd": 1.1,
-      "outputPer1MUsd": 4.4,
-      "cacheReadPer1MUsd": 0.55
-    },
     "openrouter/openai/o3-mini:batch": {
       "inputPer1MUsd": 0.55,
       "outputPer1MUsd": 2.2,
       "cacheReadPer1MUsd": 0.275
     },
-    "openrouter/openai/o3-pro": {
-      "inputPer1MUsd": 20,
-      "outputPer1MUsd": 80
-    },
     "openrouter/openai/o3:batch": {
       "inputPer1MUsd": 1,
       "outputPer1MUsd": 4,
       "cacheReadPer1MUsd": 0.25
-    },
-    "openrouter/openai/o4-mini": {
-      "inputPer1MUsd": 1.1,
-      "outputPer1MUsd": 4.4,
-      "cacheReadPer1MUsd": 0.275
-    },
-    "openrouter/openai/o4-mini-high": {
-      "inputPer1MUsd": 1.1,
-      "outputPer1MUsd": 4.4,
-      "cacheReadPer1MUsd": 0.275
     },
     "openrouter/openai/o4-mini:batch": {
       "inputPer1MUsd": 0.55,
@@ -2364,17 +1906,9 @@
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 8
     },
-    "openrouter/perplexity/sonar-pro": {
-      "inputPer1MUsd": 3,
-      "outputPer1MUsd": 15
-    },
     "openrouter/perplexity/sonar-pro-search": {
       "inputPer1MUsd": 3,
       "outputPer1MUsd": 15
-    },
-    "openrouter/perplexity/sonar-reasoning-pro": {
-      "inputPer1MUsd": 2,
-      "outputPer1MUsd": 8
     },
     "openrouter/poolside/laguna-s-2.1": {
       "inputPer1MUsd": 0.09,
@@ -2509,18 +2043,10 @@
       "outputPer1MUsd": 1.1,
       "cacheReadPer1MUsd": 0.07
     },
-    "openrouter/qwen/qwen3-next-80b-a3b-thinking": {
-      "inputPer1MUsd": 0.15,
-      "outputPer1MUsd": 1.2
-    },
     "openrouter/qwen/qwen3-vl-235b-a22b-instruct": {
       "inputPer1MUsd": 0.21,
       "outputPer1MUsd": 1.9,
       "cacheReadPer1MUsd": 0.09999999999999999
-    },
-    "openrouter/qwen/qwen3-vl-235b-a22b-thinking": {
-      "inputPer1MUsd": 0.39999999999999997,
-      "outputPer1MUsd": 4
     },
     "openrouter/qwen/qwen3-vl-30b-a3b-instruct": {
       "inputPer1MUsd": 0.15,
@@ -2554,15 +2080,6 @@
       "inputPer1MUsd": 0.15,
       "outputPer1MUsd": 1,
       "cacheReadPer1MUsd": 0.049999999999999996
-    },
-    "openrouter/qwen/qwen3.5-397b-a17b": {
-      "inputPer1MUsd": 0.44999999999999996,
-      "outputPer1MUsd": 3,
-      "cacheReadPer1MUsd": 0.22
-    },
-    "openrouter/qwen/qwen3.5-9b": {
-      "inputPer1MUsd": 0.09999999999999999,
-      "outputPer1MUsd": 0.15
     },
     "openrouter/qwen/qwen3.5-flash-02-23": {
       "inputPer1MUsd": 0.065,
@@ -2657,11 +2174,6 @@
       "inputPer1MUsd": 4,
       "outputPer1MUsd": 12,
       "cacheReadPer1MUsd": 0.5
-    },
-    "openrouter/qwen/qwen3.8-omni-flash": {
-      "inputPer1MUsd": 0.15,
-      "outputPer1MUsd": 0.47,
-      "cacheReadPer1MUsd": 0.016
     },
     "openrouter/rekaai/reka-edge": {
       "inputPer1MUsd": 0.09999999999999999,
@@ -2773,11 +2285,6 @@
       "inputPer1MUsd": 0.39999999999999997,
       "outputPer1MUsd": 0.39999999999999997
     },
-    "openrouter/thinkingmachines/inkling": {
-      "inputPer1MUsd": 1,
-      "outputPer1MUsd": 4.05,
-      "cacheReadPer1MUsd": 0.16999999999999998
-    },
     "openrouter/thinkingmachines/inkling-small": {
       "inputPer1MUsd": 0.44999999999999996,
       "outputPer1MUsd": 1.2,
@@ -2831,10 +2338,6 @@
     "openrouter/writer/palmyra-x5": {
       "inputPer1MUsd": 0.6,
       "outputPer1MUsd": 6
-    },
-    "openrouter/x-ai/grok-4": {
-      "inputPer1MUsd": 3,
-      "outputPer1MUsd": 15
     },
     "openrouter/x-ai/grok-4.20": {
       "inputPer1MUsd": 1.25,
@@ -2894,16 +2397,6 @@
       "cacheReadPer1MUsd": 0.0036,
       "cacheWritePer1MUsd": 0
     },
-    "openrouter/xiaomi/mimo-v2.6-flash": {
-      "inputPer1MUsd": 0.14,
-      "outputPer1MUsd": 0.28,
-      "cacheReadPer1MUsd": 0.0028
-    },
-    "openrouter/xiaomi/mimo-v2.6-pro": {
-      "inputPer1MUsd": 0.435,
-      "outputPer1MUsd": 0.87,
-      "cacheReadPer1MUsd": 0.0036
-    },
     "openrouter/xiaomi/mimo-v2.6-pro-ultraspeed": {
       "inputPer1MUsd": 4.35,
       "outputPer1MUsd": 8.7,
@@ -2938,12 +2431,6 @@
       "outputPer1MUsd": 0.8999999999999999,
       "cacheReadPer1MUsd": 0.049999999999999996
     },
-    "openrouter/z-ai/glm-4.7": {
-      "inputPer1MUsd": 0.6,
-      "outputPer1MUsd": 2.2,
-      "cacheReadPer1MUsd": 0.11,
-      "cacheWritePer1MUsd": 0
-    },
     "openrouter/z-ai/glm-4.7-flash": {
       "inputPer1MUsd": 0.060500000000000005,
       "outputPer1MUsd": 0.39999999999999997,
@@ -2954,11 +2441,6 @@
       "inputPer1MUsd": 0.6,
       "outputPer1MUsd": 1.92,
       "cacheReadPer1MUsd": 0.12
-    },
-    "openrouter/z-ai/glm-5-turbo": {
-      "inputPer1MUsd": 1.2,
-      "outputPer1MUsd": 4,
-      "cacheReadPer1MUsd": 0.24
     },
     "openrouter/z-ai/glm-5.1": {
       "inputPer1MUsd": 0.966,
@@ -3210,10 +2692,6 @@
       "inputPer1MUsd": 0,
       "outputPer1MUsd": 0
     },
-    "text-moderation-latest": {
-      "inputPer1MUsd": 0,
-      "outputPer1MUsd": 0
-    },
     "text-moderation-stable": {
       "inputPer1MUsd": 0,
       "outputPer1MUsd": 0
@@ -3296,12 +2774,6 @@
       "cacheReadPer1MUsd": 0.3,
       "cacheWritePer1MUsd": 3.75
     },
-    "vertex_ai/claude-opus-4": {
-      "inputPer1MUsd": 15,
-      "outputPer1MUsd": 75,
-      "cacheReadPer1MUsd": 1.5,
-      "cacheWritePer1MUsd": 18.75
-    },
     "vertex_ai/claude-opus-4-1": {
       "inputPer1MUsd": 15,
       "outputPer1MUsd": 75,
@@ -3319,12 +2791,6 @@
       "outputPer1MUsd": 75,
       "cacheReadPer1MUsd": 1.5,
       "cacheWritePer1MUsd": 18.75
-    },
-    "vertex_ai/claude-sonnet-4": {
-      "inputPer1MUsd": 3,
-      "outputPer1MUsd": 15,
-      "cacheReadPer1MUsd": 0.3,
-      "cacheWritePer1MUsd": 3.75
     },
     "vertex_ai/claude-sonnet-4@20250514": {
       "inputPer1MUsd": 3,
@@ -3377,19 +2843,11 @@
       "outputPer1MUsd": 6,
       "cacheReadPer1MUsd": 0.5
     },
-    "xai/grok-2": {
-      "inputPer1MUsd": 2,
-      "outputPer1MUsd": 10
-    },
     "xai/grok-2-1212": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 10
     },
     "xai/grok-2-latest": {
-      "inputPer1MUsd": 2,
-      "outputPer1MUsd": 10
-    },
-    "xai/grok-2-vision": {
       "inputPer1MUsd": 2,
       "outputPer1MUsd": 10
     },

@@ -19,7 +19,8 @@ const REFERENCE_RESOLUTIONS: ReadonlyArray<[model: string, pricingKey: string | 
   ['claude-sonnet-4-5@20250929', 'vertex_ai/claude-sonnet-4-5@20250929'],
   ['gpt-5.4-high', 'gpt-5.4'],
   ['anthropic.claude-sonnet-4-5-20250929-v1:0', 'anthropic.claude-sonnet-4-5-20250929-v1:0'],
-  ['anthropic/claude-sonnet-4.5', 'openrouter/anthropic/claude-sonnet-4.5'],
+  // The retired OpenRouter key had the same rates as this live one, so it was pruned.
+  ['anthropic/claude-sonnet-4.5', 'vercel_ai_gateway/anthropic/claude-sonnet-4.5'],
   ['claude-opus-5-5-medium', 'claude-opus-5-5'],
   ['claude-sonnet-4-5-thinking', 'claude-sonnet-4-5'],
   // OpenAI: variants must not borrow their parent's price.
@@ -56,6 +57,7 @@ const REFERENCE_RESOLUTIONS: ReadonlyArray<[model: string, pricingKey: string | 
   ['qwen3-max', 'openrouter/qwen/qwen3-max'],
   ['qwen3-coder-plus', 'openrouter/qwen/qwen3-coder-plus'],
   ['glm-4.7', 'zai/glm-4.7'],
+  ['minimax-m2.1', 'openrouter/minimax/minimax-m2.1'],
   ['minimax-m2.5', 'openrouter/minimax/minimax-m2.5'],
   ['grok-4', 'xai/grok-4'],
 ];

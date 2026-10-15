@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 import { format, resolveConfig } from 'prettier';
 import { tsImport } from 'tsx/esm/api';
 
+import { pruneRetiredPricing } from './lib/prune-retired-pricing.mjs';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const rootDir = join(__dirname, '..');
@@ -21,6 +23,10 @@ const {
   normalizeLiteLLMCachePayload,
   normalizeLitellmPricingPayload,
 } = await tsImport(join(rootDir, 'src', 'pricing', 'litellm-pricing-fetcher.ts'), import.meta.url);
+const { resolveCanonicalModelKey } = await tsImport(
+  join(rootDir, 'src', 'pricing', 'litellm-model-matching.ts'),
+  import.meta.url,
+);
 
 function compareByCodePoint(left, right) {
   if (left < right) {
@@ -202,13 +208,21 @@ async function readPricingRecord(filePath) {
 
 // LiteLLM drops retired models, but their prices still apply to historical usage. Keys
 // that leave upstream move from the snapshot into the retired-pricing file and stay there
-// until upstream lists them again.
+// until upstream lists them again, unless the live pricing already resolves them (and
+// the shorter names they may be reported as) to the same rates.
 async function writeRetiredPricing(upstreamPricingByModel) {
   const previousRetiredPricing = await readPricingRecord(retiredPricingPath);
   const previousSnapshotPricing = await readPricingRecord(snapshotPath);
   const previousPricing = { ...previousRetiredPricing, ...previousSnapshotPricing };
-  const retiredPricing = new Map(
-    Object.entries(previousPricing).filter(([modelName]) => !upstreamPricingByModel.has(modelName)),
+  const leftUpstreamPricing = new Map(
+    Object.entries(previousPricing)
+      .filter(([modelName]) => !upstreamPricingByModel.has(modelName))
+      .sort(([left], [right]) => compareByCodePoint(left, right)),
+  );
+  const retiredPricing = pruneRetiredPricing(
+    upstreamPricingByModel,
+    leftUpstreamPricing,
+    resolveCanonicalModelKey,
   );
   const newlyRetiredModels = Object.keys(previousSnapshotPricing)
     .filter((modelName) => !upstreamPricingByModel.has(modelName))
@@ -241,7 +255,7 @@ async function writeRetiredPricing(upstreamPricingByModel) {
     pricingByModel: toSortedPricingRecord(retiredPricing),
   });
 
-  return retiredPricing.size;
+  return { kept: retiredPricing.size, pruned: leftUpstreamPricing.size - retiredPricing.size };
 }
 
 async function fetchUpstreamPayload() {
@@ -299,11 +313,11 @@ async function generateSnapshot(fromFilePath) {
   const { modelCount, fetchedAt } = assertSnapshotPayload(snapshotPayload);
 
   await mkdir(dirname(snapshotPath), { recursive: true });
-  const retiredModelCount = await writeRetiredPricing(pricingByModel);
+  const retiredCounts = await writeRetiredPricing(pricingByModel);
   await writeJsonFile(snapshotPath, snapshotPayload);
 
   console.log(
-    `Wrote ${snapshotPath}: ${modelCount} model(s), fetched ${new Date(fetchedAt).toISOString()}; ${retiredModelCount} retired model(s) kept`,
+    `Wrote ${snapshotPath}: ${modelCount} model(s), fetched ${new Date(fetchedAt).toISOString()}; ${retiredCounts.kept} retired model(s) kept, ${retiredCounts.pruned} already priced the same by live keys`,
   );
 }
 
