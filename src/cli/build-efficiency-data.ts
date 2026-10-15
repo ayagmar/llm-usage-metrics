@@ -228,7 +228,12 @@ export async function buildEfficiencyData(
     pricingOrigin,
     pricingWarning,
     warnings: gitOutcomes.warning ? [...dataset.warnings, gitOutcomes.warning] : dataset.warnings,
-    notes: withPricingNotes(dataset.notes, matchedEventsWithSignal, pricingResult),
+    // The pricing stats are keyed by the priced events, not attribution's copies.
+    notes: withPricingNotes(
+      dataset.notes,
+      attribution.matchedSourceEvents.filter((event) => hasMeaningfulEfficiencyUsageSignal(event)),
+      pricingResult,
+    ),
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,

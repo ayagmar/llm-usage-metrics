@@ -118,9 +118,7 @@ const TIER_RATE_KEY_PATTERNS: ReadonlyArray<readonly [RegExp, TierRateField]> = 
   [/^cache_creation_input_token_cost_above_1hr_above_(\d+)k_tokens$/u, 'cacheWrite1hPer1MUsd'],
 ];
 
-function readTierRateKey(
-  key: string,
-): { field: TierRateField; aboveTokens: number } | undefined {
+function readTierRateKey(key: string): { field: TierRateField; aboveTokens: number } | undefined {
   if (!key.endsWith('k_tokens')) {
     return undefined;
   }

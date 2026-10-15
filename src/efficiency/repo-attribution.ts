@@ -5,6 +5,8 @@ import type { UsageEvent } from '../domain/usage-event.js';
 
 export type RepoAttributionResult = {
   matchedEvents: UsageEvent[];
+  /** The input events behind `matchedEvents`, in the same order, for identity lookups. */
+  matchedSourceEvents: UsageEvent[];
   matchedEventCount: number;
   excludedEventCount: number;
   unattributedEventCount: number;
@@ -72,6 +74,7 @@ export async function attributeUsageEventsToRepo(
     Promise<{ resolvedRoot: string; comparableRoot: string } | undefined>
   >();
   const matchedEvents: UsageEvent[] = [];
+  const matchedSourceEvents: UsageEvent[] = [];
   let excludedEventCount = 0;
   let unattributedEventCount = 0;
 
@@ -113,10 +116,12 @@ export async function attributeUsageEventsToRepo(
       ...event,
       repoRoot: resolvedRoot.resolvedRoot,
     });
+    matchedSourceEvents.push(event);
   }
 
   return {
     matchedEvents,
+    matchedSourceEvents,
     matchedEventCount: matchedEvents.length,
     excludedEventCount,
     unattributedEventCount,

@@ -1297,6 +1297,44 @@ describe('buildUsageData', () => {
     expect(costBySource.droid).toBeCloseTo(0.6, 10);
   });
 
+  it('keeps --cost-mode and per-request tier rates together', async () => {
+    const pricingLoaderSpy = vi.fn(async (): Promise<PricingLoadResult> => ({
+      source: new StaticPricingSource({
+        pricingByModel: {
+          'gpt-4.1': {
+            inputPer1MUsd: 2,
+            outputPer1MUsd: 8,
+            tiers: [{ aboveTokens: 272_000, inputPer1MUsd: 4 }],
+          },
+        },
+      }),
+      origin: 'cache',
+    }));
+
+    const result = await buildUsageData(
+      'daily',
+      { all: true, timezone: 'UTC', costMode: 'estimated' },
+      {
+        ...withDeterministicRuntimeDeps(),
+        createAdapters: () => [
+          createAdapter(
+            'pi',
+            {
+              '/tmp/pi-tier-mode.jsonl': [
+                createEvent({ inputTokens: 300_000, outputTokens: 0, totalTokens: 300_000 }),
+              ],
+            },
+            { usagePerRequest: true },
+          ),
+        ],
+        resolvePricingSource: pricingLoaderSpy,
+      },
+    );
+
+    // The logged $0.03 is replaced by the estimate at the tier's $4 per 1M input.
+    expect(result.rows.find((row) => row.rowType === 'grand_total')?.costUsd).toBeCloseTo(1.2, 10);
+  });
+
   it('notes the shown events priced at priority rates, naming their models', async () => {
     const pricingLoaderSpy = vi.fn(async (): Promise<PricingLoadResult> => ({
       source: new StaticPricingSource({

@@ -14,7 +14,12 @@ import {
   encodeAntigravityGenMetadataBlob,
 } from '../../helpers/antigravity-fixtures.js';
 import { canCountOpenFds, countOpenFds, waitForOpenFdCount } from '../../helpers/open-fds.js';
-import { canBeginExclusive, loadDatabaseSync, readJournalMode } from '../../helpers/sqlite.js';
+import {
+  canBeginExclusive,
+  loadDatabaseSync,
+  readJournalMode,
+  requireDatabaseSync,
+} from '../../helpers/sqlite.js';
 
 const tempDirs: string[] = [];
 const DatabaseSync = loadDatabaseSync();
@@ -449,7 +454,260 @@ describe.skipIf(!DatabaseSync)('AntigravitySourceAdapter', () => {
       }),
     });
 
-    await expect(collect(adapter.read('/tmp/conversation.db'))).rejects.toThrow(rowError);
+    const error = await collect(adapter.read('/tmp/conversation.db')).catch(
+      (readError: unknown) => readError as Error,
+    );
+
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toBe(
+      'Could not read Antigravity DB at /tmp/conversation.db: gen_metadata row failed',
+    );
+    expect((error as Error).cause).toBe(rowError);
     expect(queries.some((query) => query.includes('trajectory_metadata_blob'))).toBe(false);
+  });
+
+  it('waits out a writer that holds the database locked', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'antigravity-locked-'));
+    tempDirs.push(tempDir);
+    const dbPath = path.join(tempDir, 'locked.db');
+    createAntigravityFixtureDb(dbPath, {
+      sessionCreatedAt: { seconds: 1_775_131_200 },
+      turns: [{ model: 'gemini-locked', usage: { inputTokens: 5, outputTokens: 2 } }],
+    });
+    const writer = new (requireDatabaseSync())(dbPath);
+    writer.exec('BEGIN EXCLUSIVE');
+    const delays: number[] = [];
+    const adapter = new AntigravitySourceAdapter({
+      sleep: async (delayMs) => {
+        delays.push(delayMs);
+        writer.exec('COMMIT');
+      },
+    });
+
+    try {
+      const events = await collect(adapter.read(dbPath));
+
+      expect(events.map((event) => event.model)).toEqual(['gemini-locked']);
+      expect(delays).toEqual([50]);
+    } finally {
+      writer.close();
+    }
+  });
+});
+
+type FakeAntigravityStep = 'open' | 'tables' | 'trajectory';
+
+type FakeAntigravityScenario = {
+  tables?: string[];
+  models: string[];
+  /** Errors thrown, one per call, by each step before it succeeds. */
+  stepErrors?: Partial<Record<FakeAntigravityStep, Error[]>>;
+  /** One entry per gen_metadata query: `iterate` throws `error` after `afterRows` rows. */
+  rowErrors?: ({ afterRows: number; error: Error } | undefined)[];
+  calls: string[];
+};
+
+function createBusyError(): Error {
+  return Object.assign(new Error('database is locked'), { code: 'ERR_SQLITE_BUSY' });
+}
+
+function* iterateUntilError(
+  rows: Record<string, unknown>[],
+  rowError: { afterRows: number; error: Error } | undefined,
+): Generator<Record<string, unknown>> {
+  for (const [index, row] of rows.entries()) {
+    if (index === rowError?.afterRows) {
+      break;
+    }
+
+    yield row;
+  }
+
+  if (rowError) {
+    throw rowError.error;
+  }
+}
+
+function createFakeAntigravityAdapter(scenario: FakeAntigravityScenario): AntigravitySourceAdapter {
+  const tables = scenario.tables ?? ['gen_metadata', 'trajectory_metadata_blob'];
+  const rows = scenario.models.map((model, index) => ({
+    data: encodeAntigravityGenMetadataBlob({
+      model,
+      timestamp: { seconds: 1_775_044_800 },
+      usage: { inputTokens: 1, outputTokens: 2, responseId: `response-${index}` },
+    }),
+  }));
+  const failStep = (step: FakeAntigravityStep): void => {
+    const error = scenario.stepErrors?.[step]?.shift();
+
+    if (error) {
+      throw error;
+    }
+  };
+
+  class FakeDatabase {
+    public constructor() {
+      failStep('open');
+      scenario.calls.push('open');
+    }
+
+    public prepare(sql: string) {
+      if (sql.includes('sqlite_master')) {
+        return {
+          all: (tableName: unknown) => {
+            failStep('tables');
+            return tables.includes(String(tableName)) ? [{ name: tableName }] : [];
+          },
+        };
+      }
+
+      if (sql.includes('trajectory_metadata_blob')) {
+        return {
+          all: () => {
+            failStep('trajectory');
+            return [];
+          },
+        };
+      }
+
+      const rowError = scenario.rowErrors?.shift();
+
+      return {
+        all: () => rows,
+        iterate: () => iterateUntilError(rows, rowError),
+      };
+    }
+
+    public close(): void {
+      scenario.calls.push('close');
+    }
+  }
+
+  return new AntigravitySourceAdapter({
+    pathReadable: async () => true,
+    pathExists: async () => true,
+    pathIsFile: async () => true,
+    maxBusyRetries: 3,
+    busyRetryDelayMs: 5,
+    sleep: async (delayMs) => {
+      scenario.calls.push(`sleep ${delayMs}`);
+    },
+    loadSqliteModule: async () => ({ DatabaseSync: FakeDatabase }),
+  });
+}
+
+describe('AntigravitySourceAdapter busy retry boundary (every query before the first row)', () => {
+  const dbPath = '/tmp/conversation.db';
+  const busyMessage = (attempts: number): string =>
+    `Antigravity DB is busy/locked: ${dbPath}. Retries exhausted after ${attempts} attempt(s). Close active Antigravity processes and retry.`;
+  const ioError = (): Error => Object.assign(new Error('disk I/O error'), { code: 'SQLITE_IOERR' });
+
+  async function readUntilError(
+    scenario: FakeAntigravityScenario,
+  ): Promise<{ models: string[]; error: Error }> {
+    const models: string[] = [];
+
+    try {
+      for await (const event of createFakeAntigravityAdapter(scenario).read(dbPath)) {
+        models.push(event.model ?? '');
+      }
+    } catch (error) {
+      return { models, error: error as Error };
+    }
+
+    throw new Error('expected the read to fail');
+  }
+
+  it('retries a busy open, table check, first row and session timestamp query', async () => {
+    const calls: string[] = [];
+    const adapter = createFakeAntigravityAdapter({
+      models: ['m-1', 'm-2'],
+      stepErrors: { open: [createBusyError()], tables: [createBusyError()] },
+      rowErrors: [{ afterRows: 0, error: createBusyError() }, undefined],
+      calls,
+    });
+    const busyTimestampAdapter = createFakeAntigravityAdapter({
+      models: ['m-1'],
+      stepErrors: { trajectory: [createBusyError()] },
+      calls: [],
+    });
+
+    const events = await collect(adapter.read(dbPath));
+
+    expect(events.map((event) => event.model)).toEqual(['m-1', 'm-2']);
+    expect(calls).toEqual([
+      'sleep 5',
+      'open',
+      'close',
+      'sleep 10',
+      'open',
+      'close',
+      'sleep 15',
+      'open',
+      'close',
+    ]);
+    await expect(collect(busyTimestampAdapter.read(dbPath))).resolves.toHaveLength(1);
+  });
+
+  it('retries a busy table check that then finds no gen_metadata, closing every attempt', async () => {
+    const calls: string[] = [];
+    const adapter = createFakeAntigravityAdapter({
+      tables: [],
+      models: [],
+      stepErrors: { tables: [createBusyError()] },
+      calls,
+    });
+
+    await expect(collect(adapter.read(dbPath))).resolves.toEqual([]);
+    expect(calls).toEqual(['open', 'close', 'sleep 5', 'open', 'close']);
+  });
+
+  it('rewrites a busy session timestamp query that exhausts the retries', async () => {
+    const calls: string[] = [];
+    const busyError = createBusyError();
+    const result = await readUntilError({
+      models: ['m-1'],
+      stepErrors: {
+        trajectory: [createBusyError(), createBusyError(), createBusyError(), busyError],
+      },
+      calls,
+    });
+
+    expect(result.error.message).toBe(busyMessage(4));
+    expect(result.error.cause).toBe(busyError);
+    expect(result.models).toEqual([]);
+    expect(calls.filter((call) => call === 'close')).toHaveLength(4);
+  });
+
+  it('rewrites a non-busy table check without retrying', async () => {
+    const calls: string[] = [];
+    const tableError = ioError();
+    const result = await readUntilError({
+      models: ['m-1'],
+      stepErrors: { tables: [tableError] },
+      calls,
+    });
+
+    expect(result.error.message).toBe(
+      `Could not read Antigravity DB at ${dbPath}: SQLITE_IOERR: disk I/O error`,
+    );
+    expect(result.error.cause).toBe(tableError);
+    expect(calls).toEqual(['open', 'close']);
+  });
+
+  it('does not retry a busy row after the first, so no row is yielded twice', async () => {
+    const calls: string[] = [];
+    const busyError = createBusyError();
+    const result = await readUntilError({
+      models: ['m-1', 'm-2', 'm-3'],
+      stepErrors: { open: [createBusyError()] },
+      rowErrors: [{ afterRows: 2, error: busyError }],
+      calls,
+    });
+
+    expect(result.error.message).toBe(busyMessage(2));
+    expect(result.error.cause).toBe(busyError);
+    expect(result.models).toEqual(['m-1', 'm-2']);
+    expect(calls).toEqual(['sleep 5', 'open', 'close']);
   });
 });

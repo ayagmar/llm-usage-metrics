@@ -240,7 +240,12 @@ function createUsageReportDefinition(granularity: ReportGranularity): ReportRunt
           '--compact',
           'Abbreviate token counts and hide the Reasoning and Cache Write columns (terminal/markdown)',
         )
-        .option('--no-cost', 'Leave cost out of the table and share card, e.g. for screenshots')
+        .addOption(
+          new Option(
+            '--no-cost',
+            'Leave cost out of the table and share card, e.g. for screenshots',
+          ).conflicts('costMode'),
+        )
         .option('--by-machine', 'Split each source row by the machine its usage came from');
 
       command.action((options: ReportCommandOptions) => runUsageReport(granularity, options));
