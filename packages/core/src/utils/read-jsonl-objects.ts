@@ -1,4 +1,4 @@
-import { createReadStream } from 'node:fs';
+import { createReadStream, type ReadStream } from 'node:fs';
 import type { FileHandle } from 'node:fs/promises';
 
 import { asRecord } from './as-record.js';
@@ -9,7 +9,10 @@ import { asRecord } from './as-record.js';
  * nor reported: it is read whole once its line feed arrives.
  */
 export type JsonlReadPosition = {
-  /** An open handle to read from. The read leaves it open; its owner closes it. */
+  /**
+   * An open handle to read from. The read never closes it, even when the consumer stops
+   * early, so its owner can still use it and must close it.
+   */
   handle: FileHandle;
   /** The byte offset to start at. A BOM is stripped only when it is 0. */
   start: number;
@@ -118,27 +121,46 @@ async function* classifyJsonlObjects(
   }
 }
 
+// Reads through the caller's handle with positioned reads, so nothing here owns or closes
+// it: destroying a stream made by `handle.createReadStream` closes the handle.
+async function* readHandleChunks(handle: FileHandle, start: number): AsyncGenerator<Buffer> {
+  let offset = start;
+
+  for (;;) {
+    const buffer = Buffer.allocUnsafe(STREAM_CHUNK_SIZE_BYTES);
+    const { bytesRead } = await handle.read(buffer, 0, buffer.length, offset);
+
+    if (bytesRead === 0) {
+      return;
+    }
+
+    offset += bytesRead;
+    // A short read keeps only its bytes, so a held chunk does not pin the whole buffer.
+    yield bytesRead === buffer.length ? buffer : Buffer.from(buffer.subarray(0, bytesRead));
+  }
+}
+
 async function* readJsonlItems(
   filePath: string,
   options: LineReader,
 ): AsyncGenerator<Record<string, unknown>, void, undefined> {
   const { position } = options;
-  const stream = position
-    ? position.handle.createReadStream({
-        start: position.start,
-        highWaterMark: STREAM_CHUNK_SIZE_BYTES,
-        autoClose: false,
-      })
-    : createReadStream(filePath, {
-        highWaterMark: STREAM_CHUNK_SIZE_BYTES,
-      });
+  let stream: ReadStream | undefined;
+  let chunks: AsyncIterable<Buffer>;
+
+  if (position) {
+    chunks = readHandleChunks(position.handle, position.start);
+  } else {
+    stream = createReadStream(filePath, { highWaterMark: STREAM_CHUNK_SIZE_BYTES });
+    chunks = stream as AsyncIterable<Buffer>;
+  }
 
   let isFirstLine = !position || position.start === 0;
   let carriedChunks: Buffer[] = [];
   let chunkOffset = position?.start ?? 0;
 
   try {
-    for await (const chunk of stream as AsyncIterable<Buffer>) {
+    for await (const chunk of chunks) {
       let lineStart = 0;
       position?.onChunk(chunk);
 
@@ -182,9 +204,8 @@ async function* readJsonlItems(
       }
     }
   } finally {
-    // Wait for the fd to close, so breaking out of a read leaves no file open. A
-    // positioned read's stream does not own its handle and only stops reading.
-    if (!stream.closed) {
+    // Wait for the fd to close, so breaking out of a read leaves no file open.
+    if (stream && !stream.closed) {
       const closed = new Promise((resolve) => stream.once('close', resolve));
       stream.destroy();
       await closed;
