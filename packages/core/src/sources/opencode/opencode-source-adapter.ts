@@ -25,13 +25,19 @@ type OpenCodeMessageRows = {
 
 export type OpenCodeSourceAdapterOptions = {
   dbPath?: string;
+  /** Test seam: default database paths tried when no dbPath is given. @internal */
   resolveDefaultDbPaths?: () => string[];
+  /** Test seam: replaces the file system check. @internal */
   pathExists?: PathPredicate;
+  /** Test seam: replaces the file system check. @internal */
   pathReadable?: PathPredicate;
+  /** Test seam: replaces the file system check. @internal */
   pathIsFile?: PathPredicate;
+  /** Test seam: replaces the node:sqlite loader. @internal */
   loadSqliteModule?: () => Promise<SqliteModule>;
   maxBusyRetries?: number;
   busyRetryDelayMs?: number;
+  /** Test seam: replaces the busy-retry delay. @internal */
   sleep?: SleepFn;
   context?: SourceContext;
 };

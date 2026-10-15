@@ -41,7 +41,7 @@ const KIMI_K2_5_MODEL = 'kimi-k2.5';
 const KIMI_K2_6_MODEL = 'kimi-k2.6';
 
 export type KimiSourceAdapterOptions = SourceAdapterPathOptions & {
-  /** Test seam: default roots scanned when no dir override is given. */
+  /** Test seam: default roots scanned when no dir override is given. @internal */
   defaultRootDirs?: string[];
 };
 

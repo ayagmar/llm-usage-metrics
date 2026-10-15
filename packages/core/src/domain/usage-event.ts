@@ -7,7 +7,8 @@ import {
 } from './normalization.js';
 import { normalizeProviderToBillingEntity } from './provider-normalization.js';
 
-export type SourceId = 'pi' | 'codex' | (string & {});
+/** A source adapter id such as `codex` or `claude`; any string an adapter declares. */
+export type SourceId = string;
 
 /**
  * Bump whenever `createUsageEvent` or other shared normalization changes the events

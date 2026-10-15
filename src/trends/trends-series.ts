@@ -6,7 +6,8 @@ export type TrendsMetric = 'cost' | 'tokens' | 'active-hours';
 // source-spanning total that wins over summing the per-source rows.
 export type TrendValueRow = {
   periodKey: string;
-  source: 'combined' | SourceId;
+  /** A source id, or 'combined'. */
+  source: SourceId;
   value: number;
   incomplete?: boolean;
 };
@@ -27,7 +28,8 @@ export type TrendSummary = {
 };
 
 export type TrendSeries = {
-  source: 'combined' | SourceId;
+  /** A source id, or 'combined'. */
+  source: SourceId;
   buckets: TrendBucket[];
   summary: TrendSummary;
 };

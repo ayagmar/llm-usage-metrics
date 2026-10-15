@@ -26,10 +26,15 @@ type AntigravitySqliteRow = {
 };
 
 export type AntigravitySourceAdapterOptions = SourceAdapterPathOptions & {
+  /** Test seam: replaces the file system check. @internal */
   pathExists?: PathPredicate;
+  /** Test seam: replaces the file system check. @internal */
   pathReadable?: PathPredicate;
+  /** Test seam: replaces the file system check. @internal */
   pathIsDirectory?: PathPredicate;
+  /** Test seam: replaces the file system check. @internal */
   pathIsFile?: PathPredicate;
+  /** Test seam: replaces the node:sqlite loader. @internal */
   loadSqliteModule?: () => Promise<SqliteModule>;
 };
 

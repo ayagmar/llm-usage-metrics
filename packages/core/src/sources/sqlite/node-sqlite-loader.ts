@@ -29,7 +29,7 @@ function isSqliteModule(value: unknown): value is SqliteModule {
 
 export function loadNodeSqliteModuleFromRequire(
   requireFn: RequireFn,
-  consumerLabel = 'OpenCode source',
+  consumerLabel = 'SQLite source',
 ): SqliteModule {
   try {
     const moduleValue = requireFn('node:sqlite');

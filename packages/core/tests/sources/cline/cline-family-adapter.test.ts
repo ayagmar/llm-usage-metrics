@@ -8,7 +8,7 @@ import {
   CLINE_EXTENSION_IDS,
   createClineFamilyAdapter,
   getDefaultClineTaskRootCandidates,
-} from '../../../src/sources/cline/index.js';
+} from '../../../src/sources/cline/cline-family-adapter.js';
 import { getClineTaskHistoryPath } from '../../../src/sources/cline/cline-task-parser.js';
 import { createSourceContext } from '../../../src/sources/source-context.js';
 import * as kilocodeSource from '../../../src/sources/kilocode/index.js';

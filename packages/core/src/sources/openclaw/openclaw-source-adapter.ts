@@ -22,7 +22,7 @@ export function resolveDefaultOpenClawRootDirs(context: SourceContext): string[]
 }
 
 export type OpenClawSourceAdapterOptions = SourceAdapterPathOptions & {
-  /** Test seam: default roots scanned when no dir override is given. */
+  /** Test seam: default roots scanned when no dir override is given. @internal */
   defaultRootDirs?: string[];
 };
 

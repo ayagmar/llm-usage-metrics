@@ -34,7 +34,6 @@ export type SourceCapabilities = {
    */
   kinds?: readonly EventKind[];
   /** Declared for later milestones; nothing reads these yet. */
-  sqlite?: boolean;
   incremental?: boolean;
 };
 

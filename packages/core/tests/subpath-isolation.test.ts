@@ -89,6 +89,12 @@ describe('source subpath isolation', () => {
     expect(await modulesLoadedBy(entry, sourceIds)).toEqual([]);
   });
 
+  it('importing ./internal evaluates no source module', async () => {
+    const entry = path.join(packageRoot, 'src', 'internal', 'index.ts');
+
+    expect(await modulesLoadedBy(entry, sourceIds)).toEqual([]);
+  });
+
   it.each(sourceIds)('importing ./sources/%s evaluates no other source module', async (id) => {
     const entry = path.join(sourcesRoot, id, 'index.ts');
 
@@ -136,6 +142,17 @@ describe.skipIf(!distBuilt && !distRequired)('built source subpath isolation', (
     });
     return;
   }
+
+  it('dist/internal bundles no source module', () => {
+    const files = staticImportClosure(path.join(packageRoot, 'dist', 'internal', 'index.js'));
+    const sources = new Set(files.flatMap(mappedSources));
+    const leaked = sourceIds.flatMap((id) =>
+      [...sources].filter((source) => source.startsWith(path.join(sourcesRoot, id) + path.sep)),
+    );
+
+    expect(sources).toContain(path.join(packageRoot, 'src', 'utils', 'read-jsonl-objects.ts'));
+    expect(leaked.map((source) => path.relative(sourcesRoot, source))).toEqual([]);
+  });
 
   it.each(sourceIds)('dist/sources/%s bundles no other source module', (id) => {
     const files = staticImportClosure(path.join(distSourcesRoot, id, 'index.js'));
