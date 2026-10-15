@@ -148,7 +148,7 @@ for await (const event of pipe(fileBatches(), repeatedAcrossFiles())) {
 }
 ```
 
-`since(bound)` and `until(bound)` keep events timestamped at or after `bound`, and before it. `since(t)` and `until(t)` split a stream in two. Bounds are compared as instants, and an invalid bound throws when the stage is built. `bySession()` groups events into `{ source, sessionId, events }`, in the order each session first appears; it buffers its whole input.
+`since(bound)` and `until(bound)` keep events timestamped at or after `bound`, and before it. `since(t)` and `until(t)` split a stream in two, except that both drop an event whose timestamp does not parse. Bounds are compared as instants. An invalid bound throws when the stage is built, and so does a string bound with a time of day but no UTC offset (`'2026-06-01T10:00'`), which would mean different instants in different time zones. A date alone (`'2026-06-01'`) is midnight UTC. `bySession()` groups events into `{ source, sessionId, events }`, in the order each session first appears; it buffers its whole input.
 
 ## Reading every source
 
@@ -169,7 +169,7 @@ for await (const usage of pipe(readSources(context, ['claude', 'codex']), kinds(
 - `dedupe` (on by default) counts repeated usage once per source, as the CLI does: `repeatedAcrossFiles` for pi, then `copiedSessions` for claude. `since` and `until` apply after it.
 - Buffering: with `dedupe` on, each file's events are collected before they are yielded, and a claude source is held in full until its last file, message bodies included when `text` or `raw` is on. `dedupe: false` streams.
 - Failures: without `context.onDiagnostic`, a discovery or read failure is rethrown. With it, the failure is reported as a `warn` diagnostic and skipped: a failed discovery skips the source, a failed read skips the file. With `dedupe` on, a file whose read throws yields none of its events, as in the CLI. With `dedupe: false`, the events it yielded before the throw stay, which the CLI never counts.
-- `roots` maps a source id to the directories to read instead of its defaults. An explicit root must exist, so a missing one is a discovery failure; a missing default root yields nothing and reports nothing. An unknown id, a `roots` entry for a source not in `ids`, or an invalid bound throws before any read.
+- `roots` maps a source id to the directories to read instead of its defaults. An explicit root must exist, so a missing one is a discovery failure; a missing default root yields nothing and reports nothing. Each entry needs at least one root, and opencode and goose, which read one database file, take exactly one. An unknown id, a `roots` entry for a source not in `ids`, an empty entry, several roots for opencode or goose, or an invalid bound throws before any read.
 
 ### Another home directory
 

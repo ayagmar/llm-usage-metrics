@@ -95,6 +95,40 @@ describe('since and until', () => {
     expect(() => until(new Date(Number.NaN))).toThrow('until: invalid date');
   });
 
+  it('rejects a string bound with a time but no UTC offset, which would depend on TZ', () => {
+    for (const bound of ['2026-06-01T10:00', '2026-06-01T10:00:00.000', '2026-06-01 10:00']) {
+      expect(() => since(bound)).toThrow(
+        `since: ${JSON.stringify(bound)} has a time but no UTC offset`,
+      );
+      expect(() => until(bound)).toThrow('until:');
+    }
+
+    for (const bound of [
+      '2026-06-01',
+      '2026-06-01T10:00Z',
+      '2026-06-01T10:00:00.000+0200',
+      '2026-06-01T10:00:00-05:00',
+      'Mon, 01 Jun 2026 10:00:00 GMT',
+      'Mon Jun 01 2026 10:00:00 GMT+0200 (Central European Summer Time)',
+    ]) {
+      expect(() => since(bound)).not.toThrow();
+    }
+  });
+
+  it('reads a date-only bound as midnight UTC', async () => {
+    const events = [usageAt('2026-05-31T23:59:59.999Z'), usageAt('2026-06-01T00:00:00.000Z')];
+
+    await expect(collect(since('2026-06-01')(fromArray(events)))).resolves.toEqual([events[1]]);
+  });
+
+  it('drops an event whose timestamp does not parse, from both sides', async () => {
+    const events = [{ timestamp: 'not a time' }, { timestamp: '2026-06-01T10:00:00.000Z' }];
+    const bound = '2026-06-01T00:00:00.000Z';
+
+    await expect(collect(since(bound)(fromArray(events)))).resolves.toEqual([events[1]]);
+    await expect(collect(until(bound)(fromArray(events)))).resolves.toEqual([]);
+  });
+
   it('keep the stream type through pipe', async () => {
     const kept = await collect(
       pipe(

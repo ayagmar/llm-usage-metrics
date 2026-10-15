@@ -7,7 +7,11 @@ import { dedupeCopiedSessions } from '../../src/dedup/copied-session.js';
 import { dedupeRepeatedAcrossFiles } from '../../src/dedup/repeated-across-files.js';
 import type { SessionEvent } from '../../src/domain/session-event.js';
 import type { UsageEvent } from '../../src/domain/usage-event.js';
-import { createDefaultAdapters, readSources } from '../../src/registry/index.js';
+import {
+  createDefaultAdapters,
+  getDefaultSourceIds,
+  readSources,
+} from '../../src/registry/index.js';
 import { createReadDiagnostics } from '../../src/sources/parse-diagnostics.js';
 import { PiSourceAdapter } from '../../src/sources/pi/index.js';
 import {
@@ -256,7 +260,7 @@ describe('readSources', () => {
   it('reports nothing and yields nothing for missing default roots', async () => {
     const onDiagnostic = vi.fn<(diagnostic: SourceDiagnostic) => void>();
     const context = contextFor(await makeHome('empty-home'), { onDiagnostic });
-    const allIds = createDefaultAdapters({}).map((adapter) => adapter.id);
+    const allIds = getDefaultSourceIds();
 
     await expect(collect(readSources(context, allIds))).resolves.toEqual([]);
     expect(onDiagnostic).not.toHaveBeenCalled();
@@ -402,6 +406,32 @@ describe('readSources', () => {
     expect(() => readSources(context, ['pi'], { until: 'later' })).toThrow(
       'until: invalid date "later"',
     );
+  });
+
+  it('throws on an empty roots entry before reading, instead of requiring the default root', () => {
+    const context = contextFor(fixtureHome);
+
+    for (const id of ['opencode', 'qwen']) {
+      expect(() => readSources(context, [id], { roots: new Map([[id, []]]) })).toThrow(
+        `readSources: roots for ${id} is empty; give at least one root, or drop the entry to read its default locations`,
+      );
+    }
+  });
+
+  it('throws on several roots for a single-file source, not for a directory source', () => {
+    const context = contextFor(fixtureHome);
+
+    for (const id of ['opencode', 'goose']) {
+      expect(() =>
+        readSources(context, [id], { roots: new Map([[id, ['/a.db', '/b.db']]]) }),
+      ).toThrow(`readSources: ${id} reads one database file, so it takes one root, not 2`);
+    }
+
+    for (const id of ['qwen', 'antigravity']) {
+      expect(() =>
+        readSources(context, [id], { roots: new Map([[id, ['/a', '/b']]]) }),
+      ).not.toThrow();
+    }
   });
 
   it('throws on roots for a source that ids does not select, before reading', () => {

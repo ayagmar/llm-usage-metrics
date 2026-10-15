@@ -10,7 +10,11 @@ import type { SourceContext } from '../sources/source-context.js';
 import { collect } from '../stream/collect.js';
 import { readEvents } from '../stream/read-events.js';
 import { since, until } from '../stream/window.js';
-import { createDefaultAdapters, getDefaultSourceIds } from './index.js';
+import {
+  createDefaultAdapters,
+  getDefaultSourceIds,
+  sourceSupportsDirectories,
+} from './adapters.js';
 
 /** Options for `readSources`. */
 export type ReadSourcesOptions = {
@@ -38,7 +42,9 @@ export type ReadSourcesOptions = {
   diagnostics?: (sourceId: string) => SourceReadDiagnostics;
   /**
    * Roots per source id, instead of its default locations. An explicit root must exist; a
-   * missing one is a discovery failure. A missing default root yields nothing.
+   * missing one is a discovery failure. A missing default root yields nothing. Each entry
+   * needs at least one root, and exactly one for a source that reads a single database file
+   * (opencode, goose).
    */
   roots?: ReadonlyMap<string, readonly string[]>;
 };
@@ -164,8 +170,9 @@ async function* readAdapters(
  * With `dedupe` on, a failed file yields none of its events, as in the CLI; with it off,
  * the events it yielded before the throw stay.
  *
- * An unknown source id, a `roots` entry for a source not in `ids`, or an invalid window
- * bound throws here, before any read.
+ * An unknown source id, a `roots` entry for a source not in `ids`, an empty `roots` entry,
+ * several roots for a single-file source, or an invalid window bound throws here, before
+ * any read.
  */
 export function readSources(
   context: SourceContext,
@@ -188,6 +195,20 @@ export function readSources(
     throw new Error(
       `readSources: roots given for source id(s) ${unselectedRootIds.join(', ')} that ids does not select; add them to ids or drop their roots`,
     );
+  }
+
+  for (const [id, sourceRoots] of options.roots ?? []) {
+    if (sourceRoots.length === 0) {
+      throw new Error(
+        `readSources: roots for ${id} is empty; give at least one root, or drop the entry to read its default locations`,
+      );
+    }
+
+    if (sourceRoots.length > 1 && !sourceSupportsDirectories(id)) {
+      throw new Error(
+        `readSources: ${id} reads one database file, so it takes one root, not ${sourceRoots.length}`,
+      );
+    }
   }
 
   const keepSince = options.since === undefined ? undefined : since<SessionEvent>(options.since);
