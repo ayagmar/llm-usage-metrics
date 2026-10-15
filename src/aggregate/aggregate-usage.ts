@@ -52,7 +52,7 @@ type RankedModelUsage = {
   modelBreakdown: ModelUsageBreakdown[];
 };
 
-function createEmptyTotals(): UsageTotals {
+export function createEmptyTotals(): UsageTotals {
   return {
     inputTokens: 0,
     outputTokens: 0,
@@ -122,7 +122,7 @@ function addEventToAccumulator(
   accumulator.modelTotals.set(normalizedModel, existingTotals);
 }
 
-function addTotals(target: UsageTotals, source: UsageTotals): void {
+export function addTotals(target: UsageTotals, source: UsageTotals): void {
   target.inputTokens += source.inputTokens;
   target.outputTokens += source.outputTokens;
   target.reasoningTokens += source.reasoningTokens;

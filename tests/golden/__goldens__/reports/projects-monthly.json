@@ -1,0 +1,373 @@
+{
+  "schemaVersion": 1,
+  "report": "projects",
+  "data": {
+    "totals": {
+      "inputTokens": 20000,
+      "outputTokens": 4490,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 12000,
+      "cacheWriteTokens": 0,
+      "totalTokens": 36490,
+      "costUsd": 0.101325,
+      "projects": 6,
+      "events": 12,
+      "activeDays": 3
+    },
+    "projects": [
+      {
+        "repoRoot": "/w/a/api",
+        "project": "a/api",
+        "inputTokens": 6200,
+        "outputTokens": 1700,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 10000,
+        "cacheWriteTokens": 0,
+        "totalTokens": 17900,
+        "costUsd": 0.0471,
+        "costShare": 0.4648408586232421,
+        "events": 3,
+        "activeDays": 2,
+        "topModels": [
+          "claude-sonnet-4-5"
+        ]
+      },
+      {
+        "repoRoot": "/w/b/api",
+        "project": "b/api",
+        "inputTokens": 8000,
+        "outputTokens": 1700,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 2000,
+        "cacheWriteTokens": 0,
+        "totalTokens": 11700,
+        "costUsd": 0.031875,
+        "costShare": 0.3145817912657291,
+        "events": 3,
+        "activeDays": 1,
+        "topModels": [
+          "gpt-5",
+          "claude-sonnet-4-5"
+        ]
+      },
+      {
+        "repoRoot": "C:\\src\\web",
+        "project": "web",
+        "inputTokens": 2800,
+        "outputTokens": 550,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 3350,
+        "costUsd": 0.009,
+        "costShare": 0.08882309400444115,
+        "events": 2,
+        "activeDays": 2,
+        "topModels": [
+          "gpt-5"
+        ]
+      },
+      {
+        "repoRoot": null,
+        "project": "(unattributed)",
+        "inputTokens": 1500,
+        "outputTokens": 250,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 1750,
+        "costUsd": 0.006175,
+        "costShare": 0.06094251171971379,
+        "events": 2,
+        "activeDays": 1,
+        "topModels": [
+          "gpt-5",
+          "claude-sonnet-4-5"
+        ]
+      },
+      {
+        "repoRoot": "/w/a/api/src",
+        "project": "src",
+        "inputTokens": 800,
+        "outputTokens": 200,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 1000,
+        "costUsd": 0.0054,
+        "costShare": 0.053293856402664694,
+        "events": 1,
+        "activeDays": 1,
+        "topModels": [
+          "claude-sonnet-4-5"
+        ]
+      },
+      {
+        "repoRoot": "/w/c/tools",
+        "project": "tools",
+        "inputTokens": 700,
+        "outputTokens": 90,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 790,
+        "costUsd": 0.001775,
+        "costShare": 0.017517887984209227,
+        "events": 1,
+        "activeDays": 1,
+        "topModels": [
+          "gpt-5"
+        ]
+      }
+    ],
+    "granularity": "monthly",
+    "periods": [
+      {
+        "rowType": "period_project",
+        "periodKey": "2026-05",
+        "repoRoot": "/w/a/api",
+        "project": "a/api",
+        "models": [
+          "claude-sonnet-4-5"
+        ],
+        "modelBreakdown": [
+          {
+            "model": "claude-sonnet-4-5",
+            "inputTokens": 1200,
+            "outputTokens": 300,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "totalTokens": 1500,
+            "costUsd": 0.0081
+          }
+        ],
+        "inputTokens": 1200,
+        "outputTokens": 300,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 1500,
+        "costUsd": 0.0081
+      },
+      {
+        "rowType": "period_project",
+        "periodKey": "2026-05",
+        "repoRoot": "C:\\src\\web",
+        "project": "web",
+        "models": [
+          "gpt-5"
+        ],
+        "modelBreakdown": [
+          {
+            "model": "gpt-5",
+            "inputTokens": 1000,
+            "outputTokens": 250,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "totalTokens": 1250,
+            "costUsd": 0.00375
+          }
+        ],
+        "inputTokens": 1000,
+        "outputTokens": 250,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 1250,
+        "costUsd": 0.00375
+      },
+      {
+        "rowType": "period_project",
+        "periodKey": "2026-06",
+        "repoRoot": "/w/a/api",
+        "project": "a/api",
+        "models": [
+          "claude-sonnet-4-5"
+        ],
+        "modelBreakdown": [
+          {
+            "model": "claude-sonnet-4-5",
+            "inputTokens": 5000,
+            "outputTokens": 1400,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 10000,
+            "cacheWriteTokens": 0,
+            "totalTokens": 16400,
+            "costUsd": 0.039
+          }
+        ],
+        "inputTokens": 5000,
+        "outputTokens": 1400,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 10000,
+        "cacheWriteTokens": 0,
+        "totalTokens": 16400,
+        "costUsd": 0.039
+      },
+      {
+        "rowType": "period_project",
+        "periodKey": "2026-06",
+        "repoRoot": "/w/b/api",
+        "project": "b/api",
+        "models": [
+          "gpt-5",
+          "claude-sonnet-4-5"
+        ],
+        "modelBreakdown": [
+          {
+            "model": "gpt-5",
+            "inputTokens": 6500,
+            "outputTokens": 1300,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 2000,
+            "cacheWriteTokens": 0,
+            "totalTokens": 9800,
+            "costUsd": 0.021375
+          },
+          {
+            "model": "claude-sonnet-4-5",
+            "inputTokens": 1500,
+            "outputTokens": 400,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "totalTokens": 1900,
+            "costUsd": 0.0105
+          }
+        ],
+        "inputTokens": 8000,
+        "outputTokens": 1700,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 2000,
+        "cacheWriteTokens": 0,
+        "totalTokens": 11700,
+        "costUsd": 0.031875
+      },
+      {
+        "rowType": "period_project",
+        "periodKey": "2026-06",
+        "repoRoot": "/w/a/api/src",
+        "project": "src",
+        "models": [
+          "claude-sonnet-4-5"
+        ],
+        "modelBreakdown": [
+          {
+            "model": "claude-sonnet-4-5",
+            "inputTokens": 800,
+            "outputTokens": 200,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "totalTokens": 1000,
+            "costUsd": 0.0054
+          }
+        ],
+        "inputTokens": 800,
+        "outputTokens": 200,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 1000,
+        "costUsd": 0.0054
+      },
+      {
+        "rowType": "period_project",
+        "periodKey": "2026-06",
+        "repoRoot": "/w/c/tools",
+        "project": "tools",
+        "models": [
+          "gpt-5"
+        ],
+        "modelBreakdown": [
+          {
+            "model": "gpt-5",
+            "inputTokens": 700,
+            "outputTokens": 90,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "totalTokens": 790,
+            "costUsd": 0.001775
+          }
+        ],
+        "inputTokens": 700,
+        "outputTokens": 90,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 790,
+        "costUsd": 0.001775
+      },
+      {
+        "rowType": "period_project",
+        "periodKey": "2026-06",
+        "repoRoot": "C:\\src\\web",
+        "project": "web",
+        "models": [
+          "gpt-5"
+        ],
+        "modelBreakdown": [
+          {
+            "model": "gpt-5",
+            "inputTokens": 1800,
+            "outputTokens": 300,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "totalTokens": 2100,
+            "costUsd": 0.00525
+          }
+        ],
+        "inputTokens": 1800,
+        "outputTokens": 300,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 2100,
+        "costUsd": 0.00525
+      },
+      {
+        "rowType": "period_project",
+        "periodKey": "2026-06",
+        "repoRoot": null,
+        "project": "(unattributed)",
+        "models": [
+          "gpt-5",
+          "claude-sonnet-4-5"
+        ],
+        "modelBreakdown": [
+          {
+            "model": "gpt-5",
+            "inputTokens": 900,
+            "outputTokens": 100,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "totalTokens": 1000,
+            "costUsd": 0.002125
+          },
+          {
+            "model": "claude-sonnet-4-5",
+            "inputTokens": 600,
+            "outputTokens": 150,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "totalTokens": 750,
+            "costUsd": 0.00405
+          }
+        ],
+        "inputTokens": 1500,
+        "outputTokens": 250,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 1750,
+        "costUsd": 0.006175
+      }
+    ]
+  }
+}

@@ -101,7 +101,7 @@ type UsageDataRequest = {
  * Without dates, a granularity with a DEFAULT_REPORT_WINDOWS entry covers that recent
  * window; `--all` restores full history. Explicit dates and other granularities are unchanged.
  */
-async function resolveUsageDataRequest(
+export async function resolveUsageDataRequest(
   granularity: ReportGranularity,
   options: ReportCommandOptions,
   deps: BuildUsageDataDeps,
