@@ -460,7 +460,7 @@ export async function parseAdapterEvents(
     if (safeWorkerCount === 0) {
       runtimeProfile?.recordParseWorkerResult(adapter.id, {
         status: 'off',
-        workerCount: 0,
+        workerLimit: 0,
         missedBytes: 0,
       });
       await runTaskLoop(fileIndices, parseFileAtIndexInline);
@@ -487,7 +487,7 @@ export async function parseAdapterEvents(
     if (missedFiles.length === 0 || missedBytes < minWorkerBytes) {
       runtimeProfile?.recordParseWorkerResult(adapter.id, {
         status: 'off',
-        workerCount: safeWorkerCount,
+        workerLimit: safeWorkerCount,
         missedBytes,
       });
       await runTaskLoop(missedFiles, parseMissedFileInline);
@@ -510,7 +510,7 @@ export async function parseAdapterEvents(
 
     runtimeProfile?.recordParseWorkerResult(adapter.id, {
       status,
-      workerCount,
+      workerLimit: workerCount,
       missedBytes,
     });
   }
