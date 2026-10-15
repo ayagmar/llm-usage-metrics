@@ -3,8 +3,10 @@ import { buildEventProjectLabels } from '../aggregate/project-key.js';
 import {
   getCurrentLocalDateKey,
   getIsoDayOfWeekFromDateKey,
+  getLocalHourBucket,
   shiftLocalDateKey,
   type ReportGranularity,
+  type UsageGranularity,
 } from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
 import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
@@ -45,7 +47,14 @@ export const DEFAULT_REPORT_WINDOWS: Partial<Record<ReportGranularity, DefaultRe
 
 const MAX_LAST_PERIODS = 10_000;
 
-export function parseLastOption(last: string | undefined, flag = '--last'): number | undefined {
+/** `hourly --last N` covers at most this many days. */
+export const HOURLY_MAX_LAST_DAYS = 31;
+
+export function parseLastOption(
+  last: string | undefined,
+  flag = '--last',
+  maxPeriods = MAX_LAST_PERIODS,
+): number | undefined {
   if (last === undefined) {
     return undefined;
   }
@@ -53,8 +62,8 @@ export function parseLastOption(last: string | undefined, flag = '--last'): numb
   const normalized = last.trim();
   const periods = Number.parseInt(normalized, 10);
 
-  if (!/^[1-9]\d*$/u.test(normalized) || periods > MAX_LAST_PERIODS) {
-    throw new Error(`${flag} must be a whole number from 1 to ${String(MAX_LAST_PERIODS)}`);
+  if (!/^[1-9]\d*$/u.test(normalized) || periods > maxPeriods) {
+    throw new Error(`${flag} must be a whole number from 1 to ${String(maxPeriods)}`);
   }
 
   return periods;
@@ -65,11 +74,12 @@ export function parseLastOption(last: string | undefined, flag = '--last'): numb
  * Weeks start on Monday, matching the weekly buckets.
  */
 export function resolvePeriodsSince(
-  granularity: ReportGranularity,
+  granularity: UsageGranularity,
   today: string,
   periods: number,
 ): string {
   switch (granularity) {
+    case 'hourly':
     case 'daily':
       return shiftLocalDateKey(today, -(periods - 1));
     case 'weekly': {
@@ -96,21 +106,40 @@ type UsageDataRequest = {
   defaultWindowSince?: string;
 };
 
+/** Without dates, `hourly` covers today. */
+const HOURLY_DEFAULT_DAYS = 1;
+
+function getDefaultWindowPeriods(granularity: UsageGranularity): number | undefined {
+  return granularity === 'hourly'
+    ? HOURLY_DEFAULT_DAYS
+    : DEFAULT_REPORT_WINDOWS[granularity]?.periods;
+}
+
 /**
- * `--last N` covers the last N periods, counting the current one, in the report timezone.
- * Without dates, a granularity with a DEFAULT_REPORT_WINDOWS entry covers that recent
- * window; `--all` restores full history. Explicit dates and other granularities are unchanged.
+ * `--last N` covers the last N periods, counting the current one, in the report timezone
+ * (days for `hourly`). Without dates, `hourly` and a granularity with a
+ * DEFAULT_REPORT_WINDOWS entry cover that recent window; `--all` restores full history.
+ * Explicit dates and other granularities are unchanged.
  */
 export async function resolveUsageDataRequest(
-  granularity: ReportGranularity,
+  granularity: UsageGranularity,
   options: ReportCommandOptions,
   deps: BuildUsageDataDeps,
 ): Promise<UsageDataRequest> {
   const hasDates = options.since !== undefined || options.until !== undefined;
-  const lastPeriods = parseLastOption(options.last);
+  const isHourly = granularity === 'hourly';
+  const lastPeriods = parseLastOption(
+    options.last,
+    '--last',
+    isHourly ? HOURLY_MAX_LAST_DAYS : undefined,
+  );
 
   if (lastPeriods !== undefined && (hasDates || options.all)) {
-    throw new Error('--last cannot be combined with --since, --until, or --all');
+    throw new Error(
+      isHourly
+        ? '--last cannot be combined with --since or --until'
+        : '--last cannot be combined with --since, --until, or --all',
+    );
   }
 
   if (options.all && hasDates) {
@@ -118,8 +147,7 @@ export async function resolveUsageDataRequest(
   }
 
   const periods =
-    lastPeriods ??
-    (options.all || hasDates ? undefined : DEFAULT_REPORT_WINDOWS[granularity]?.periods);
+    lastPeriods ?? (options.all || hasDates ? undefined : getDefaultWindowPeriods(granularity));
 
   if (periods === undefined) {
     return { options, deps };
@@ -146,8 +174,32 @@ export async function resolveUsageDataRequest(
   };
 }
 
+/**
+ * The hourly keys that combine two occurrences of a local hour (a DST fall-back), sorted.
+ */
+export function findRepeatedLocalHours(
+  events: readonly { timestamp: string }[],
+  timezone: string,
+): string[] {
+  const offsetByKey = new Map<string, number>();
+  const repeated = new Set<string>();
+
+  for (const event of events) {
+    const { key, offsetMs } = getLocalHourBucket(event.timestamp, timezone);
+    const seenOffsetMs = offsetByKey.get(key);
+
+    if (seenOffsetMs === undefined) {
+      offsetByKey.set(key, offsetMs);
+    } else if (seenOffsetMs !== offsetMs) {
+      repeated.add(key);
+    }
+  }
+
+  return [...repeated].sort();
+}
+
 export async function buildUsageData(
-  granularity: ReportGranularity,
+  granularity: UsageGranularity,
   commandOptions: ReportCommandOptions,
   commandDeps: BuildUsageDataDeps = {},
 ): Promise<UsageDataResult> {

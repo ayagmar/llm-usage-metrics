@@ -1,5 +1,8 @@
 export type ReportGranularity = 'daily' | 'weekly' | 'monthly';
 
+/** The usage reports' granularities: the calendar periods plus `hourly`. */
+export type UsageGranularity = ReportGranularity | 'hourly';
+
 type LocalDateParts = {
   year: number;
   month: number;
@@ -20,6 +23,8 @@ type KeyedLocalDate = LocalDateParts & {
 type LocalDateWindow = {
   startMs: number;
   endMs: number;
+  /** Wall clock minus UTC across the window, so the local hour needs no `Intl` call. */
+  offsetMs: number;
   parts: KeyedLocalDate;
 };
 
@@ -28,7 +33,8 @@ type LocalDateWindowCache = {
   byDayIndex: Map<number, LocalDateWindow>;
 };
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
 const SECOND_MS = 1000;
 const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const;
 
@@ -200,10 +206,18 @@ function getCachedLocalDateParts(
   timezone: string,
   timestampIso: string,
 ): KeyedLocalDate {
+  return getCachedLocalDateWindow(timestampMs, timezone, timestampIso).parts;
+}
+
+function getCachedLocalDateWindow(
+  timestampMs: number,
+  timezone: string,
+  timestampIso: string,
+): LocalDateWindow {
   const cache = getLocalDateWindowCache(timezone);
 
   if (cache.last && coversTimestamp(cache.last, timestampMs)) {
-    return cache.last.parts;
+    return cache.last;
   }
 
   const localDateTime = resolveLocalDateTimeParts(timestampMs, timezone, timestampIso);
@@ -213,13 +227,13 @@ function getCachedLocalDateParts(
 
   if (cachedWindow && coversTimestamp(cachedWindow, timestampMs)) {
     cache.last = cachedWindow;
-    return cachedWindow.parts;
+    return cachedWindow;
   }
 
   const window = createLocalDateWindow(dayIndex, timestampMs, offsetMs, timezone, localDateTime);
   cache.byDayIndex.set(dayIndex, window);
   cache.last = window;
-  return window.parts;
+  return window;
 }
 
 function getLocalDateWindowCache(timezone: string): LocalDateWindowCache {
@@ -254,7 +268,7 @@ function createLocalDateWindow(
   const parts = { ...localDate, dateKey: formatLocalDateParts(localDate) };
 
   if (hasStableOffsetWindow(startMs, endMs, offsetMs, timezone)) {
-    return { startMs, endMs, parts };
+    return { startMs, endMs, offsetMs, parts };
   }
 
   const fallbackStartMs = floorToSecondMs(timestampMs);
@@ -262,6 +276,7 @@ function createLocalDateWindow(
   return {
     startMs: fallbackStartMs,
     endMs: fallbackStartMs + SECOND_MS,
+    offsetMs,
     parts,
   };
 }
@@ -399,11 +414,43 @@ function getIsoWeekParts(localDate: LocalDateParts): { weekYear: number; weekNum
   return { weekYear, weekNumber };
 }
 
+/** A local hour bucket: its `YYYY-MM-DD HH:00` key and the UTC offset it was read at. */
+export type LocalHourBucket = {
+  key: string;
+  offsetMs: number;
+};
+
+/**
+ * The local hour of a timestamp, from the same cached day window as the daily key, so the
+ * key's date always equals `getPeriodKey(…, 'daily')`. On a DST fall-back the repeated
+ * hour gets one key; `offsetMs` tells its two occurrences apart.
+ */
+export function getLocalHourBucket(timestampIso: string, timezone: string): LocalHourBucket {
+  const timestampMs = parseCanonicalTimestampMs(timestampIso) ?? Date.parse(timestampIso);
+
+  if (Number.isNaN(timestampMs)) {
+    throw new Error(`Invalid event timestamp: ${timestampIso}`);
+  }
+
+  const window = getCachedLocalDateWindow(timestampMs, timezone, timestampIso);
+  const wallClockMs = timestampMs + window.offsetMs;
+  const hour = Math.floor((((wallClockMs % DAY_MS) + DAY_MS) % DAY_MS) / HOUR_MS);
+
+  return {
+    key: `${window.parts.dateKey} ${String(hour).padStart(2, '0')}:00`,
+    offsetMs: window.offsetMs,
+  };
+}
+
 export function getPeriodKey(
   timestampIso: string,
-  granularity: ReportGranularity,
+  granularity: UsageGranularity,
   timezone: string,
 ): string {
+  if (granularity === 'hourly') {
+    return getLocalHourBucket(timestampIso, timezone).key;
+  }
+
   const localDate = extractLocalDateParts(timestampIso, timezone);
 
   if (granularity === 'daily') {

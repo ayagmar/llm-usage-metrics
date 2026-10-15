@@ -1,18 +1,27 @@
-import { buildUsageData, DEFAULT_REPORT_WINDOWS } from './build-usage-data.js';
+import {
+  buildUsageData,
+  DEFAULT_REPORT_WINDOWS,
+  findRepeatedLocalHours,
+  HOURLY_MAX_LAST_DAYS,
+} from './build-usage-data.js';
 import {
   prepareReport,
   runStandardPreparedReport,
   STANDARD_REPORT_FORMATS,
 } from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
-import type { BuildUsageDataDeps, ReportCommandOptions } from './usage-data-contracts.js';
+import type {
+  BuildUsageDataDeps,
+  ReportCommandOptions,
+  UsageDataResult,
+} from './usage-data-contracts.js';
 import {
   renderUsageReportWithNotes,
   type UsageReportFormat,
 } from '../render/render-usage-report.js';
 import { renderUsageShareSvg } from '../render/render-usage-share-svg.js';
 import type { UsageTableLayout } from '../render/row-cells.js';
-import type { ReportGranularity } from '../utils/time-buckets.js';
+import type { ReportGranularity, UsageGranularity } from '../utils/time-buckets.js';
 import { hasCliFilters } from './filter-match-warnings.js';
 
 const usageReportFormats = STANDARD_REPORT_FORMATS satisfies readonly UsageReportFormat[];
@@ -21,7 +30,13 @@ function resolveTableLayout(options: ReportCommandOptions): UsageTableLayout {
   return options.perModelColumns ? 'per_model_columns' : 'compact';
 }
 
-function getDefaultWindowHint(granularity: ReportGranularity, since: string): string[] {
+function getDefaultWindowHint(granularity: UsageGranularity, since: string): string[] {
+  if (granularity === 'hourly') {
+    return [
+      `Showing today (${since}) hour by hour. Use --last N (up to ${String(HOURLY_MAX_LAST_DAYS)} days) or --since YYYY-MM-DD for earlier hours.`,
+    ];
+  }
+
   const defaultWindow = DEFAULT_REPORT_WINDOWS[granularity];
 
   if (!defaultWindow) {
@@ -37,8 +52,23 @@ function resolveShareFileName(granularity: ReportGranularity): string {
   return `usage-${granularity}-share.svg`;
 }
 
+function getRepeatedHourNotes(usageData: UsageDataResult): string[] {
+  return findRepeatedLocalHours(usageData.events, usageData.diagnostics.timezone).map(
+    (key) => `${key} combines two hours: the clocks went back at the end of daylight saving time.`,
+  );
+}
+
+function getHintsAfterOutput(granularity: UsageGranularity, usageData: UsageDataResult): string[] {
+  return [
+    ...(granularity === 'hourly' ? getRepeatedHourNotes(usageData) : []),
+    ...(usageData.defaultWindowSince
+      ? getDefaultWindowHint(granularity, usageData.defaultWindowSince)
+      : []),
+  ];
+}
+
 async function prepareUsageReport(
-  granularity: ReportGranularity,
+  granularity: UsageGranularity,
   options: ReportCommandOptions,
   deps: BuildUsageDataDeps = {},
 ) {
@@ -51,14 +81,16 @@ async function prepareUsageReport(
     buildData: () => buildUsageData(granularity, options, deps),
     getDiagnostics: (usageData) => usageData.diagnostics,
     runtimeProfile: deps.runtimeProfile,
-    createShareArtifact: options.share
-      ? (usageData) => ({
-          fileName: resolveShareFileName(granularity),
-          logLabel: 'usage',
-          title: 'Usage share card',
-          render: (theme) => renderUsageShareSvg(usageData, granularity, theme, { hideCost }),
-        })
-      : undefined,
+    // hourly has no --share.
+    createShareArtifact:
+      options.share && granularity !== 'hourly'
+        ? (usageData) => ({
+            fileName: resolveShareFileName(granularity),
+            logLabel: 'usage',
+            title: 'Usage share card',
+            render: (theme) => renderUsageShareSvg(usageData, granularity, theme, { hideCost }),
+          })
+        : undefined,
     validate: () => {
       if (options.compact && options.json) {
         throw new Error('--compact applies to terminal and markdown tables; drop it with --json');
@@ -88,15 +120,12 @@ async function prepareUsageReport(
 
       return { output, hintsAfterOutput: notes };
     },
-    getHintsAfterOutput: (usageData) =>
-      usageData.defaultWindowSince
-        ? getDefaultWindowHint(granularity, usageData.defaultWindowSince)
-        : [],
+    getHintsAfterOutput: (usageData) => getHintsAfterOutput(granularity, usageData),
   });
 }
 
 export async function buildUsageReport(
-  granularity: ReportGranularity,
+  granularity: UsageGranularity,
   options: ReportCommandOptions,
   deps: BuildUsageDataDeps = {},
 ): Promise<string> {
@@ -105,7 +134,7 @@ export async function buildUsageReport(
 }
 
 export async function runUsageReport(
-  granularity: ReportGranularity,
+  granularity: UsageGranularity,
   options: ReportCommandOptions,
 ): Promise<void> {
   const runtimeProfile = createRuntimeProfileCollector();
