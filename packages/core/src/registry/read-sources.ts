@@ -163,7 +163,8 @@ async function* readAdapters(
  * With `dedupe` on, a failed file yields none of its events, as in the CLI; with it off,
  * the events it yielded before the throw stay.
  *
- * An unknown source id or an invalid window bound throws here, before any read.
+ * An unknown source id, a `roots` entry for a source not in `ids`, or an invalid window
+ * bound throws here, before any read.
  */
 export function readSources(
   context: SourceContext,
@@ -176,6 +177,15 @@ export function readSources(
   if (unknownIds.length > 0) {
     throw new Error(
       `readSources: unknown source id(s) ${unknownIds.join(', ')}; expected one of ${[...knownIds].join(', ')}`,
+    );
+  }
+
+  const selectedIds = new Set(ids);
+  const unselectedRootIds = [...(options.roots?.keys() ?? [])].filter((id) => !selectedIds.has(id));
+
+  if (unselectedRootIds.length > 0) {
+    throw new Error(
+      `readSources: roots given for source id(s) ${unselectedRootIds.join(', ')} that ids does not select; add them to ids or drop their roots`,
     );
   }
 

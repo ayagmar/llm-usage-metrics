@@ -403,4 +403,16 @@ describe('readSources', () => {
       'until: invalid date "later"',
     );
   });
+
+  it('throws on roots for a source that ids does not select, before reading', () => {
+    const context = contextFor(fixtureHome);
+    const roots = new Map([
+      ['qwen', [coreFixtures('qwen', 'projects')]],
+      ['codex', [coreFixtures('codex')]],
+    ]);
+
+    expect(() => readSources(context, ['pi', 'qwen'], { roots })).toThrow(
+      'readSources: roots given for source id(s) codex that ids does not select; add them to ids or drop their roots',
+    );
+  });
 });
