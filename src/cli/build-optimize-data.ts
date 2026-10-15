@@ -109,7 +109,11 @@ export async function buildOptimizeData(
       ),
   );
 
-  const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'force');
+  // Candidates are priced from period totals at base rates, so the baseline skips
+  // per-request tier rates too; otherwise a tier premium would read as savings.
+  const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'force', {
+    perRequestRates: false,
+  });
   const { pricedEvents, pricingOrigin, pricingWarning, pricingSource } = pricingResult;
 
   const usageRows = measureRuntimeProfileStageSync(

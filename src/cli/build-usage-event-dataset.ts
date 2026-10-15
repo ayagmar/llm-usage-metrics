@@ -542,6 +542,7 @@ export async function applyPricingToUsageEventDataset(
   dataset: UsageEventDataset,
   deps: BuildUsageDataDeps = {},
   pricingLoadMode: PricingLoadMode = 'auto',
+  { perRequestRates = true }: { perRequestRates?: boolean } = {},
 ): Promise<UsageEventDatasetPricingResult> {
   const loadPricingSource = deps.resolvePricingSource ?? resolvePricingSource;
   const pricingOptions = withNormalizedPricingUrl(
@@ -554,7 +555,10 @@ export async function applyPricingToUsageEventDataset(
       runtimeConfig: dataset.pricingRuntimeConfig,
       loadPricingSource,
       pricingLoadMode,
-      policy: resolvePricingPolicy(pricingOptions, getPerRequestSourceIds(dataset.adaptersToParse)),
+      policy: resolvePricingPolicy(
+        pricingOptions,
+        perRequestRates ? getPerRequestSourceIds(dataset.adaptersToParse) : new Set(),
+      ),
     }),
   );
 }
