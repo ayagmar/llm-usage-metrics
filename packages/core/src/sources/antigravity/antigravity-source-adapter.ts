@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
 
 import type { UsageEvent } from '../../domain/usage-event.js';
 import { discoverFiles } from '../../utils/discover-files.js';
@@ -13,16 +14,26 @@ import type {
 import { createSourceContext } from '../source-context.js';
 import { iterateRows } from '../sqlite/iterate-rows.js';
 import { loadNodeSqliteModule, type SqliteModule } from '../sqlite/node-sqlite-loader.js';
+import { runWithBusyRetries, toSqliteDbReadError, type SleepFn } from '../sqlite/retry-policy.js';
 import { getDefaultAntigravityConversationsDir } from './antigravity-path-resolver.js';
 import {
   parseAntigravityMetadataBlob,
   parseAntigravitySessionCreatedAt,
 } from './antigravity-row-parser.js';
 
+const DEFAULT_BUSY_RETRY_COUNT = 2;
+const DEFAULT_BUSY_RETRY_DELAY_MS = 50;
+
 type PathPredicate = (filePath: string) => Promise<boolean>;
 
 type AntigravitySqliteRow = {
   data?: unknown;
+};
+
+type AntigravityMetadataRows = {
+  database: InstanceType<SqliteModule['DatabaseSync']>;
+  rows: Iterable<AntigravitySqliteRow>;
+  fallbackTimestamp: string | undefined;
 };
 
 /** Options for `AntigravitySourceAdapter`. */
@@ -37,6 +48,12 @@ export type AntigravitySourceAdapterOptions = SourceAdapterPathOptions & {
   pathIsFile?: PathPredicate;
   /** Test seam: replaces the node:sqlite loader. @internal */
   loadSqliteModule?: () => Promise<SqliteModule>;
+  /** Retries of a read that finds the database busy or locked. */
+  maxBusyRetries?: number;
+  /** Delay between those retries. */
+  busyRetryDelayMs?: number;
+  /** Test seam: replaces the busy-retry delay. @internal */
+  sleep?: SleepFn;
 };
 
 // `-wal` holds commits that are not checkpointed into the database file yet. `-shm` is
@@ -91,6 +108,9 @@ export class AntigravitySourceAdapter implements SourceAdapter {
   private readonly pathIsDirectory: PathPredicate;
   private readonly pathIsFile: PathPredicate;
   private readonly loadSqliteModule: () => Promise<SqliteModule>;
+  private readonly maxBusyRetries: number;
+  private readonly busyRetryDelayMs: number;
+  private readonly sleep: SleepFn;
 
   public constructor(options: AntigravitySourceAdapterOptions = {}) {
     this.conversationsDir =
@@ -102,6 +122,9 @@ export class AntigravitySourceAdapter implements SourceAdapter {
     this.pathIsDirectory = options.pathIsDirectory ?? pathIsDirectory;
     this.pathIsFile = options.pathIsFile ?? pathIsFile;
     this.loadSqliteModule = options.loadSqliteModule ?? loadNodeSqliteModule;
+    this.maxBusyRetries = Math.max(0, options.maxBusyRetries ?? DEFAULT_BUSY_RETRY_COUNT);
+    this.busyRetryDelayMs = Math.max(1, options.busyRetryDelayMs ?? DEFAULT_BUSY_RETRY_DELAY_MS);
+    this.sleep = options.sleep ?? sleep;
   }
 
   private getNormalizedConversationsDir(): string {
@@ -174,42 +197,80 @@ export class AntigravitySourceAdapter implements SourceAdapter {
       throw new Error(`Antigravity DB path is not a file: ${normalizedDbPath}`);
     }
 
+    let attempts = 0;
+    const metadataRows = await runWithBusyRetries(
+      (attempt) => {
+        attempts = attempt + 1;
+        return this.openMetadataRows(normalizedDbPath);
+      },
+      {
+        source: 'Antigravity',
+        dbPath: normalizedDbPath,
+        maxBusyRetries: this.maxBusyRetries,
+        busyRetryDelayMs: this.busyRetryDelayMs,
+        sleep: this.sleep,
+      },
+    );
+
+    if (!metadataRows) {
+      return;
+    }
+
+    const { database, rows, fallbackTimestamp } = metadataRows;
+    const sessionId = path.basename(normalizedDbPath, path.extname(normalizedDbPath));
+    const seenResponseIds = new Set<string>();
+
+    try {
+      try {
+        for (const row of rows) {
+          const parsedRow = parseAntigravityMetadataBlob(row.data, {
+            sessionId,
+            fallbackTimestamp,
+            seenResponseIds,
+          });
+
+          if (parsedRow.responseId) {
+            seenResponseIds.add(parsedRow.responseId);
+          }
+
+          if (parsedRow.skippedReason) {
+            recordSkippedRow(diagnostics, parsedRow.skippedReason);
+          }
+
+          if (parsedRow.event) {
+            yield parsedRow.event;
+          }
+        }
+      } finally {
+        database.close();
+      }
+    } catch (error) {
+      throw toSqliteDbReadError(error, 'Antigravity', normalizedDbPath, attempts);
+    }
+  }
+
+  // Does every query that runs before the first yield, so a busy database fails here,
+  // inside the retry, rather than after a row was yielded. Undefined, with the database
+  // closed, when there is no gen_metadata table.
+  private async openMetadataRows(dbPath: string): Promise<AntigravityMetadataRows | undefined> {
     const sqlite = await this.loadSqliteModule();
-    const database = new sqlite.DatabaseSync(normalizedDbPath, { readOnly: true, timeout: 0 });
+    const database = new sqlite.DatabaseSync(dbPath, { readOnly: true, timeout: 0 });
 
     try {
       if (!hasSqliteTable(database, 'gen_metadata')) {
-        return;
+        database.close();
+        return undefined;
       }
 
       // The first gen_metadata row is pulled before the fallback timestamp query, so its
       // errors take precedence as they did when every row was read up front.
       const rows = queryRows(database);
       const fallbackTimestamp = querySessionCreatedAt(database);
-      const sessionId = path.basename(normalizedDbPath, path.extname(normalizedDbPath));
-      const seenResponseIds = new Set<string>();
 
-      for (const row of rows) {
-        const parsedRow = parseAntigravityMetadataBlob(row.data, {
-          sessionId,
-          fallbackTimestamp,
-          seenResponseIds,
-        });
-
-        if (parsedRow.responseId) {
-          seenResponseIds.add(parsedRow.responseId);
-        }
-
-        if (parsedRow.skippedReason) {
-          recordSkippedRow(diagnostics, parsedRow.skippedReason);
-        }
-
-        if (parsedRow.event) {
-          yield parsedRow.event;
-        }
-      }
-    } finally {
+      return { database, rows, fallbackTimestamp };
+    } catch (error) {
       database.close();
+      throw error;
     }
   }
 }
