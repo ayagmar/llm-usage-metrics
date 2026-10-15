@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { AdapterParseResult } from '../../src/cli/build-usage-data-parsing.js';
 import { validateSourceFilterValues } from '../../src/cli/build-usage-data-inputs.js';
 import { findUnmatchedFilterWarnings, hasCliFilters } from '../../src/cli/filter-match-warnings.js';
+import { normalizeRepoFilter } from '../../src/cli/repo-filter.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 
 function createResult(
@@ -85,6 +86,38 @@ describe('findUnmatchedFilterWarnings', () => {
     ).toEqual([]);
   });
 
+  it('warns for each --repo value that selects no project in the range, as typed', () => {
+    const repoEvent = (repoRoot: string | undefined, timestamp: string) =>
+      createUsageEvent({ source: 'claude', sessionId: 's', timestamp, repoRoot, inputTokens: 1 });
+    const repoResults: AdapterParseResult[] = [
+      {
+        source: 'claude',
+        filesFound: 1,
+        skippedRows: 0,
+        skippedRowReasons: [],
+        events: [
+          repoEvent('/w/a/api', '2026-02-14T10:00:00.000Z'),
+          repoEvent('/w/b/web', '2026-03-01T10:00:00.000Z'),
+        ],
+      },
+    ];
+    const warn = (repo: string, since?: string) =>
+      findUnmatchedFilterWarnings({
+        parseResults: repoResults,
+        timezone: 'UTC',
+        since,
+        repoFilter: normalizeRepoFilter(repo, { cwd: '/w', homeDir: '/home/dev' }),
+      });
+
+    expect(warn('api,/w/b,./a/api')).toEqual([]);
+    expect(warn('apu,(unattributed)')).toEqual([
+      '--repo apu matched no usage (did you mean api?)',
+      '--repo (unattributed) matched no usage',
+    ]);
+    expect(warn('web', '2026-03-01')).toEqual([]);
+    expect(warn('api', '2026-03-01')).toEqual(['--repo api matched no usage in this date range']);
+  });
+
   it('warns for a --source without files', () => {
     expect(
       findUnmatchedFilterWarnings({ ...base, cliSourceFilter: new Set(['claude', 'goose']) }),
@@ -128,6 +161,7 @@ describe('hasCliFilters', () => {
     expect(hasCliFilters({ provider: 'openai' })).toBe(true);
     expect(hasCliFilters({ model: ['gpt-5'] })).toBe(true);
     expect(hasCliFilters({ machine: 'laptop' })).toBe(true);
+    expect(hasCliFilters({ repo: ['api'] })).toBe(true);
     expect(hasCliFilters({ since: '2026-01-01' })).toBe(true);
     expect(hasCliFilters({ until: '2026-01-31' })).toBe(true);
     expect(hasCliFilters({ id: ['session-1'] })).toBe(true);

@@ -37,6 +37,7 @@ import {
   type AdapterParseResult,
 } from './build-usage-data-parsing.js';
 import { filterParsedAdapterEvents } from './parse/usage-event-filters.js';
+import { applyRepoFilter } from './repo-filter.js';
 import { loadMachineUsage, selectMachines } from '../machines/load-machine-usage.js';
 import {
   formatMachinesNote,
@@ -479,13 +480,17 @@ export async function buildUsageEventDataset(
       runtimeProfile,
       'usage.dataset.filter_events',
       () =>
-        filterParsedAdapterEvents(parseResultsForFiltering, {
-          timezone: normalizedInputs.timezone,
-          since: configuredOptions.since,
-          until: configuredOptions.until,
-          providerFilter: normalizedInputs.providerFilter,
-          modelFilter: normalizedInputs.modelFilter,
-        }),
+        // After the model filter, which picks exact or substring matching over all projects.
+        applyRepoFilter(
+          filterParsedAdapterEvents(parseResultsForFiltering, {
+            timezone: normalizedInputs.timezone,
+            since: configuredOptions.since,
+            until: configuredOptions.until,
+            providerFilter: normalizedInputs.providerFilter,
+            modelFilter: normalizedInputs.modelFilter,
+          }),
+          normalizedInputs.repoFilter,
+        ),
     );
 
     dataset = {
@@ -510,6 +515,7 @@ export async function buildUsageEventDataset(
             : normalizedInputs.sourceFilter,
           provider: configuredOptions.provider,
           modelFilter: normalizedInputs.modelFilter,
+          repoFilter: normalizedInputs.repoFilter,
           timezone: normalizedInputs.timezone,
           since: configuredOptions.since,
           until: configuredOptions.until,

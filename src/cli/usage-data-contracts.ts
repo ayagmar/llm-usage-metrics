@@ -128,18 +128,24 @@ type SharedOptionsForProfile<P extends SharedOptionProfile> = AlwaysOnCommandOpt
   (ProfileConfig[P]['includePerModelColumns'] extends true ? PerModelColumnsOption : unknown) &
   (ProfileConfig[P]['includeShare'] extends true ? ShareOption : unknown);
 
-export type ReportCommandOptions = SharedOptionsForProfile<'usage'> & {
-  /** `daily` and `weekly`: report full history instead of the default recent window. */
-  all?: boolean;
-  /** `--last N`: the last N periods of the granularity, counting the current one. */
-  last?: string;
-  /** `false` with `--no-cost`: tables and the share card leave out cost. */
-  cost?: boolean;
-  /** Abbreviated token counts without the Reasoning and Cache Write columns. */
-  compact?: boolean;
-  /** One row per source and machine instead of per source. */
-  byMachine?: boolean;
+/** `--repo`: count only these projects (repeatable or comma-separated). */
+type RepoFilterOption = {
+  repo?: string | string[];
 };
+
+export type ReportCommandOptions = SharedOptionsForProfile<'usage'> &
+  RepoFilterOption & {
+    /** `daily` and `weekly`: report full history instead of the default recent window. */
+    all?: boolean;
+    /** `--last N`: the last N periods of the granularity, counting the current one. */
+    last?: string;
+    /** `false` with `--no-cost`: tables and the share card leave out cost. */
+    cost?: boolean;
+    /** Abbreviated token counts without the Reasoning and Cache Write columns. */
+    compact?: boolean;
+    /** One row per source and machine instead of per source. */
+    byMachine?: boolean;
+  };
 
 export type SummaryCommandOptions = SharedOptionsForProfile<'summary'>;
 
@@ -179,9 +185,10 @@ export type WrappedCommandOptions = SharedOptionsForProfile<'wrapped'> & {
   year?: string;
 };
 
-export type EventsCommandOptions = SharedOptionsForProfile<'events'> & {
-  format?: string;
-};
+export type EventsCommandOptions = SharedOptionsForProfile<'events'> &
+  RepoFilterOption & {
+    format?: string;
+  };
 
 export type DoctorCommandOptions = SharedOptionsForProfile<'doctor'>;
 
