@@ -70,9 +70,12 @@ function formatSource(row: UsageReportRow): string {
     return 'TOTAL';
   }
 
-  return row.rowType === 'period_source' && row.machine !== undefined
-    ? `${row.source} (${row.machine})`
-    : row.source;
+  if (row.rowType !== 'period_source') {
+    return row.source;
+  }
+
+  const source = row.machine === undefined ? row.source : `${row.source} (${row.machine})`;
+  return row.project === undefined ? source : `${source} · ${row.project}`;
 }
 
 function formatFullTokenCount(value: number | undefined): string {

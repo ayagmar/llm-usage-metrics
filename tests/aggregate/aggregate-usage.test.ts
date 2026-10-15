@@ -470,7 +470,7 @@ describe('aggregateUsage', () => {
       sourceOrder: ['claude', 'codex'],
     };
 
-    const split = aggregateUsage(events, { ...options, byMachine: true });
+    const split = aggregateUsage(events, { ...options, split: { machine: true } });
     const combined = aggregateUsage(events, options);
 
     expect(

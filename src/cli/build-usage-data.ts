@@ -1,4 +1,5 @@
 import { aggregateUsage } from '../aggregate/aggregate-usage.js';
+import { buildProjectLabels, toProjectKey } from '../aggregate/project-key.js';
 import {
   getCurrentLocalDateKey,
   getIsoDayOfWeekFromDateKey,
@@ -161,12 +162,20 @@ export async function buildUsageData(
   const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'auto');
   const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
 
+  const byRepo = options.byRepo === true;
   const rows = measureRuntimeProfileStageSync(deps.runtimeProfile, 'usage.aggregate', () =>
     aggregateUsage(pricedEvents, {
       granularity,
       timezone: dataset.normalizedInputs.timezone,
       sourceOrder: dataset.adaptersToParse.map((adapter) => adapter.id),
-      byMachine: options.byMachine === true,
+      split: { machine: options.byMachine === true, repo: byRepo },
+      ...(byRepo
+        ? {
+            projectLabels: buildProjectLabels(
+              pricedEvents.map((event) => toProjectKey(event.repoRoot)),
+            ),
+          }
+        : {}),
     }),
   );
 

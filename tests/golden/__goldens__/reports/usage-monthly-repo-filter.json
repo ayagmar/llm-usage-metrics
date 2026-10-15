@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 1,
+  "report": "usage",
+  "data": [
+    {
+      "rowType": "period_source",
+      "periodKey": "2026-05",
+      "source": "claude",
+      "models": [
+        "claude-sonnet-4-5"
+      ],
+      "modelBreakdown": [
+        {
+          "model": "claude-sonnet-4-5",
+          "inputTokens": 1200,
+          "outputTokens": 300,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 1500,
+          "costUsd": 0.0081
+        }
+      ],
+      "inputTokens": 1200,
+      "outputTokens": 300,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "totalTokens": 1500,
+      "costUsd": 0.0081
+    },
+    {
+      "rowType": "period_source",
+      "periodKey": "2026-06",
+      "source": "claude",
+      "models": [
+        "claude-sonnet-4-5"
+      ],
+      "modelBreakdown": [
+        {
+          "model": "claude-sonnet-4-5",
+          "inputTokens": 6500,
+          "outputTokens": 1800,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 10000,
+          "cacheWriteTokens": 0,
+          "totalTokens": 18300,
+          "costUsd": 0.0495
+        }
+      ],
+      "inputTokens": 6500,
+      "outputTokens": 1800,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 10000,
+      "cacheWriteTokens": 0,
+      "totalTokens": 18300,
+      "costUsd": 0.0495
+    },
+    {
+      "rowType": "period_source",
+      "periodKey": "2026-06",
+      "source": "codex",
+      "models": [
+        "gpt-5"
+      ],
+      "modelBreakdown": [
+        {
+          "model": "gpt-5",
+          "inputTokens": 6500,
+          "outputTokens": 1300,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 2000,
+          "cacheWriteTokens": 0,
+          "totalTokens": 9800,
+          "costUsd": 0.021375
+        }
+      ],
+      "inputTokens": 6500,
+      "outputTokens": 1300,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 2000,
+      "cacheWriteTokens": 0,
+      "totalTokens": 9800,
+      "costUsd": 0.021375
+    },
+    {
+      "rowType": "period_combined",
+      "periodKey": "2026-06",
+      "source": "combined",
+      "models": [
+        "claude-sonnet-4-5",
+        "gpt-5"
+      ],
+      "modelBreakdown": [
+        {
+          "model": "claude-sonnet-4-5",
+          "inputTokens": 6500,
+          "outputTokens": 1800,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 10000,
+          "cacheWriteTokens": 0,
+          "totalTokens": 18300,
+          "costUsd": 0.0495
+        },
+        {
+          "model": "gpt-5",
+          "inputTokens": 6500,
+          "outputTokens": 1300,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 2000,
+          "cacheWriteTokens": 0,
+          "totalTokens": 9800,
+          "costUsd": 0.021375
+        }
+      ],
+      "inputTokens": 13000,
+      "outputTokens": 3100,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 12000,
+      "cacheWriteTokens": 0,
+      "totalTokens": 28100,
+      "costUsd": 0.070875
+    },
+    {
+      "rowType": "grand_total",
+      "periodKey": "ALL",
+      "source": "combined",
+      "models": [
+        "claude-sonnet-4-5",
+        "gpt-5"
+      ],
+      "modelBreakdown": [
+        {
+          "model": "claude-sonnet-4-5",
+          "inputTokens": 7700,
+          "outputTokens": 2100,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 10000,
+          "cacheWriteTokens": 0,
+          "totalTokens": 19800,
+          "costUsd": 0.0576
+        },
+        {
+          "model": "gpt-5",
+          "inputTokens": 6500,
+          "outputTokens": 1300,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 2000,
+          "cacheWriteTokens": 0,
+          "totalTokens": 9800,
+          "costUsd": 0.021375
+        }
+      ],
+      "inputTokens": 14200,
+      "outputTokens": 3400,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 12000,
+      "cacheWriteTokens": 0,
+      "totalTokens": 29600,
+      "costUsd": 0.078975
+    }
+  ]
+}
