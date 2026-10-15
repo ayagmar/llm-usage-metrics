@@ -12,8 +12,193 @@
   "properties": {
     "report": { "const": "value" },
     "data": {
-      "description": "API-priced cost per month compared with subscription plan prices. The payload is not specified yet.",
-      "type": "object"
+      "description": "API-priced cost per calendar month compared with subscription plan prices, one entry per plan.",
+      "type": "object",
+      "properties": {
+        "asOf": {
+          "description": "Date the plan list prices were checked (YYYY-MM-DD).",
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "window": {
+          "description": "Dates the report covers, in the report timezone.",
+          "type": "object",
+          "properties": {
+            "since": {
+              "description": "First day of the window; null without usage and without --since or --last.",
+              "type": ["string", "null"]
+            },
+            "until": {
+              "description": "Last day of the window: --until, else today.",
+              "type": "string"
+            }
+          },
+          "required": ["since", "until"],
+          "additionalProperties": false
+        },
+        "plans": {
+          "description": "Plans in --plan order.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/plan" }
+        }
+      },
+      "required": ["asOf", "window", "plans"],
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "usd": { "type": "number" },
+    "costFlags": {
+      "type": "object",
+      "properties": {
+        "costIncomplete": {
+          "description": "True when some events have no cost; the cost then counts only those that do.",
+          "type": "boolean"
+        }
+      }
+    },
+    "plan": {
+      "type": "object",
+      "properties": {
+        "id": { "description": "Plan id from the plan table.", "type": "string" },
+        "priceUsdPerMonth": {
+          "description": "Monthly price in USD the report uses.",
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "listPriceUsdPerMonth": {
+          "description": "Monthly list price in USD, excluding tax, as of asOf.",
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "priceSource": {
+          "description": "override when --plan-price replaced the list price.",
+          "enum": ["list", "override"]
+        },
+        "sources": {
+          "description": "Source ids the plan counts, after --source.",
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "checkAt": {
+          "description": "Vendor pages that list the current prices.",
+          "type": "array",
+          "items": { "type": "string", "pattern": "^https://" }
+        },
+        "references": {
+          "description": "Third-party summaries the list prices were taken from.",
+          "type": "array",
+          "items": { "type": "string", "pattern": "^https://" }
+        },
+        "months": {
+          "description": "Every calendar month in the window, months without usage included.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/month" }
+        },
+        "total": { "$ref": "#/$defs/total" }
+      },
+      "required": [
+        "id",
+        "priceUsdPerMonth",
+        "listPriceUsdPerMonth",
+        "priceSource",
+        "sources",
+        "checkAt",
+        "references",
+        "months",
+        "total"
+      ],
+      "additionalProperties": false
+    },
+    "month": {
+      "type": "object",
+      "allOf": [{ "$ref": "#/$defs/costFlags" }],
+      "properties": {
+        "month": {
+          "description": "Calendar month (YYYY-MM) in the report timezone.",
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}$"
+        },
+        "partial": {
+          "description": "True when the window does not cover the whole month or the month contains today; costs are not prorated.",
+          "type": "boolean"
+        },
+        "totalTokens": { "type": "integer", "minimum": 0 },
+        "apiCostUsd": {
+          "description": "Cost of the month's usage at API prices.",
+          "type": "number",
+          "minimum": 0
+        },
+        "planPriceUsd": { "description": "The plan's monthly price.", "type": "number" },
+        "ratio": { "description": "apiCostUsd divided by planPriceUsd.", "type": "number" },
+        "differenceUsd": {
+          "description": "apiCostUsd minus planPriceUsd; positive when the plan cost less than the API would.",
+          "$ref": "#/$defs/usd"
+        },
+        "projects": {
+          "description": "The month's projects by cost, then tokens, then label.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/project" }
+        }
+      },
+      "required": [
+        "month",
+        "partial",
+        "totalTokens",
+        "apiCostUsd",
+        "costIncomplete",
+        "planPriceUsd",
+        "ratio",
+        "differenceUsd",
+        "projects"
+      ],
+      "unevaluatedProperties": false
+    },
+    "project": {
+      "type": "object",
+      "allOf": [{ "$ref": "#/$defs/costFlags" }],
+      "properties": {
+        "repoRoot": {
+          "description": "Project key (the repository root); null for usage without one.",
+          "type": ["string", "null"]
+        },
+        "project": { "description": "Display label of the project.", "type": "string" },
+        "totalTokens": { "type": "integer", "minimum": 0 },
+        "costUsd": { "type": "number", "minimum": 0 },
+        "share": {
+          "description": "Share of the month's cost (0-1); null when the month cost nothing.",
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "required": ["repoRoot", "project", "totalTokens", "costUsd", "costIncomplete", "share"],
+      "unevaluatedProperties": false
+    },
+    "total": {
+      "type": "object",
+      "description": "Sums over the months; planPriceUsd counts partial months in full.",
+      "allOf": [{ "$ref": "#/$defs/costFlags" }],
+      "properties": {
+        "totalTokens": { "type": "integer", "minimum": 0 },
+        "apiCostUsd": { "type": "number", "minimum": 0 },
+        "planPriceUsd": { "type": "number", "minimum": 0 },
+        "ratio": {
+          "description": "apiCostUsd divided by planPriceUsd; null without months.",
+          "type": ["number", "null"]
+        },
+        "differenceUsd": { "$ref": "#/$defs/usd" }
+      },
+      "required": [
+        "totalTokens",
+        "apiCostUsd",
+        "costIncomplete",
+        "planPriceUsd",
+        "ratio",
+        "differenceUsd"
+      ],
+      "unevaluatedProperties": false
     }
   }
 }

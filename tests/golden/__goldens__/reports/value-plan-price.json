@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 1,
+  "report": "value",
+  "data": {
+    "asOf": "2026-10-15",
+    "window": {
+      "since": "2026-03-10",
+      "until": "2026-06-21"
+    },
+    "plans": [
+      {
+        "id": "claude-pro",
+        "priceUsdPerMonth": 18,
+        "listPriceUsdPerMonth": 20,
+        "priceSource": "override",
+        "sources": [
+          "claude"
+        ],
+        "checkAt": [
+          "https://claude.com/pricing"
+        ],
+        "references": [
+          "https://www.morphllm.com/claude-code-pricing",
+          "https://www.wearetandem.ai/en/blog/tools/claude-max-pro-pricing-plans"
+        ],
+        "months": [
+          {
+            "month": "2026-03",
+            "partial": true,
+            "totalTokens": 0,
+            "apiCostUsd": 0,
+            "costIncomplete": false,
+            "planPriceUsd": 18,
+            "ratio": 0,
+            "differenceUsd": -18,
+            "projects": []
+          },
+          {
+            "month": "2026-04",
+            "partial": false,
+            "totalTokens": 0,
+            "apiCostUsd": 0,
+            "costIncomplete": false,
+            "planPriceUsd": 18,
+            "ratio": 0,
+            "differenceUsd": -18,
+            "projects": []
+          },
+          {
+            "month": "2026-05",
+            "partial": false,
+            "totalTokens": 1500,
+            "apiCostUsd": 0.0081,
+            "costIncomplete": false,
+            "planPriceUsd": 18,
+            "ratio": 0.00045,
+            "differenceUsd": -17.9919,
+            "projects": [
+              {
+                "repoRoot": "/w/a/api",
+                "project": "a/api",
+                "totalTokens": 1500,
+                "costUsd": 0.0081,
+                "costIncomplete": false,
+                "share": 1
+              }
+            ]
+          },
+          {
+            "month": "2026-06",
+            "partial": true,
+            "totalTokens": 20050,
+            "apiCostUsd": 0.05895,
+            "costIncomplete": false,
+            "planPriceUsd": 18,
+            "ratio": 0.003275,
+            "differenceUsd": -17.94105,
+            "projects": [
+              {
+                "repoRoot": "/w/a/api",
+                "project": "a/api",
+                "totalTokens": 16400,
+                "costUsd": 0.039,
+                "costIncomplete": false,
+                "share": 0.661578
+              },
+              {
+                "repoRoot": "/w/b/api",
+                "project": "b/api",
+                "totalTokens": 1900,
+                "costUsd": 0.0105,
+                "costIncomplete": false,
+                "share": 0.178117
+              },
+              {
+                "repoRoot": "/w/a/api/src",
+                "project": "src",
+                "totalTokens": 1000,
+                "costUsd": 0.0054,
+                "costIncomplete": false,
+                "share": 0.091603
+              },
+              {
+                "repoRoot": null,
+                "project": "(unattributed)",
+                "totalTokens": 750,
+                "costUsd": 0.00405,
+                "costIncomplete": false,
+                "share": 0.068702
+              }
+            ]
+          }
+        ],
+        "total": {
+          "totalTokens": 21550,
+          "apiCostUsd": 0.06705,
+          "costIncomplete": false,
+          "planPriceUsd": 72,
+          "ratio": 0.000931,
+          "differenceUsd": -71.93295
+        }
+      }
+    ]
+  }
+}
