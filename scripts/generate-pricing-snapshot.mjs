@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { readFile, mkdir, writeFile } from 'node:fs/promises';
+import { readFile, mkdir, stat, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -178,17 +178,54 @@ async function writeRetiredPricing(upstreamPricingByModel) {
   return retiredPricing.size;
 }
 
-async function generateSnapshot() {
+async function fetchUpstreamPayload() {
   const response = await fetch(DEFAULT_LITELLM_PRICING_URL);
 
   if (!response.ok) {
     throw new Error(`Failed to fetch LiteLLM pricing: HTTP ${response.status}`);
   }
 
-  const payload = await readJsonWithByteLimit(response);
+  return { payload: await readJsonWithByteLimit(response), fetchedAt: Date.now() };
+}
+
+// `--from <file>` regenerates from a saved copy of the upstream JSON, so a refresh can be
+// repeated against the same input. The file's mtime stands in for the fetch time.
+async function readUpstreamPayloadFromFile(filePath) {
+  const fileStat = await stat(filePath);
+
+  if (fileStat.size > MAX_LITELLM_PRICING_RESPONSE_BYTES) {
+    throw new Error(`${filePath} exceeds ${MAX_LITELLM_PRICING_RESPONSE_BYTES} bytes`);
+  }
+
+  return {
+    payload: JSON.parse(await readFile(filePath, 'utf8')),
+    fetchedAt: Math.trunc(fileStat.mtimeMs),
+  };
+}
+
+function readFromOption() {
+  const index = process.argv.indexOf('--from');
+
+  if (index === -1) {
+    return undefined;
+  }
+
+  const filePath = process.argv[index + 1];
+
+  if (!filePath || filePath.startsWith('--')) {
+    throw new Error('--from needs a path to a LiteLLM model_prices_and_context_window.json file');
+  }
+
+  return filePath;
+}
+
+async function generateSnapshot(fromFilePath) {
+  const { payload, fetchedAt: upstreamFetchedAt } = fromFilePath
+    ? await readUpstreamPayloadFromFile(fromFilePath)
+    : await fetchUpstreamPayload();
   const pricingByModel = normalizeLitellmPricingPayload(payload);
   const snapshotPayload = {
-    fetchedAt: Date.now(),
+    fetchedAt: upstreamFetchedAt,
     sourceUrl: DEFAULT_LITELLM_PRICING_URL,
     pricingByModel: toSortedPricingRecord(pricingByModel),
   };
@@ -206,5 +243,5 @@ async function generateSnapshot() {
 if (process.argv.includes('--check')) {
   await checkSnapshot();
 } else {
-  await generateSnapshot();
+  await generateSnapshot(readFromOption());
 }
