@@ -1,3 +1,5 @@
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
+
 import { isPriceableEvent, type UsageEvent } from '../domain/usage-event.js';
 import {
   getPricingFetcherRuntimeConfig,
@@ -20,6 +22,15 @@ import type {
   ReportCommandOptions,
   UsagePricingOrigin,
 } from './usage-data-contracts.js';
+
+/** Sources whose usage events each record one request, so per-request rates apply. */
+export function getPerRequestSourceIds(adapters: readonly SourceAdapter[]): ReadonlySet<string> {
+  return new Set(
+    adapters
+      .filter((adapter) => adapter.capabilities?.usagePerRequest)
+      .map((adapter) => adapter.id),
+  );
+}
 
 function wrapWithPricingOverrides(
   overrides: Map<string, ModelPricing> | undefined,
@@ -157,11 +168,18 @@ const NO_PRICING_SOURCE: PricingSource = {
   getPricing: () => undefined,
 };
 
-/** The policy for the report options: `--cost-mode`, `both` when it is not passed. */
-export function resolvePricingPolicy(options: ReportCommandOptions): PricingPolicy {
-  return options.costMode === undefined
-    ? DEFAULT_PRICING_POLICY
-    : { ...DEFAULT_PRICING_POLICY, costMode: options.costMode };
+/**
+ * The policy for the report options: `--cost-mode`, `both` when it is not passed, and the
+ * sources whose events get per-request rates.
+ */
+export function resolvePricingPolicy(
+  options: ReportCommandOptions,
+  perRequestSourceIds: ReadonlySet<string> = DEFAULT_PRICING_POLICY.perRequestSourceIds,
+): PricingPolicy {
+  return {
+    costMode: options.costMode ?? DEFAULT_PRICING_POLICY.costMode,
+    perRequestSourceIds,
+  };
 }
 
 /**

@@ -179,7 +179,7 @@ describe('resolveAndApplyPricingToEvents — pricing run stats', () => {
       },
     );
 
-    expect(result.pricingPolicy).toBe(DEFAULT_PRICING_POLICY);
+    expect(result.pricingPolicy).toEqual(DEFAULT_PRICING_POLICY);
     expect(result.pricedEvents[0]?.costMode).toBe('estimated');
     expect(result.pricingStats.reestimatedExplicitZero.has(result.pricedEvents[0])).toBe(true);
   });

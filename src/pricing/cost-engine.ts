@@ -3,7 +3,7 @@ import {
   type BillableTokenUsage,
   type UsageEvent,
 } from '../domain/usage-event.js';
-import type { ModelPricing, PricingSource } from './types.js';
+import type { ModelPricing, PricingSource, PricingTier } from './types.js';
 
 const ONE_MILLION = 1_000_000;
 
@@ -102,6 +102,56 @@ export function calculateEstimatedCostUsd(event: UsageEvent, pricing: ModelPrici
   return inputCost + outputCost + cacheReadCost + cacheWriteCost + reasoningCost;
 }
 
+/** Flat rates per tier, so pricing an event above a threshold allocates nothing new. */
+const flatRatesByTier = new WeakMap<ModelPricing, WeakMap<PricingTier, ModelPricing>>();
+
+function toFlatTierRates(pricing: ModelPricing, tier: PricingTier): ModelPricing {
+  let ratesByTier = flatRatesByTier.get(pricing);
+
+  if (!ratesByTier) {
+    ratesByTier = new WeakMap();
+    flatRatesByTier.set(pricing, ratesByTier);
+  }
+
+  let rates = ratesByTier.get(tier);
+
+  if (!rates) {
+    rates = {
+      ...pricing,
+      inputPer1MUsd: tier.inputPer1MUsd ?? pricing.inputPer1MUsd,
+      outputPer1MUsd: tier.outputPer1MUsd ?? pricing.outputPer1MUsd,
+      cacheReadPer1MUsd: tier.cacheReadPer1MUsd ?? pricing.cacheReadPer1MUsd,
+      cacheWritePer1MUsd: tier.cacheWritePer1MUsd ?? pricing.cacheWritePer1MUsd,
+      cacheWrite1hPer1MUsd: tier.cacheWrite1hPer1MUsd ?? pricing.cacheWrite1hPer1MUsd,
+    };
+    delete rates.tiers;
+    ratesByTier.set(tier, rates);
+  }
+
+  return rates;
+}
+
+/**
+ * The flat rates for one event. A per-request event (`perRequest`) whose prompt (input,
+ * cache read and cache write tokens) is strictly above a tier's threshold bills at the
+ * highest such tier; any other event bills at the base rates. Events from sources that sum
+ * several requests must not cross a threshold on their totals, hence the gate.
+ */
+export function resolveRatesForEvent(
+  event: BillableTokenUsage,
+  pricing: ModelPricing,
+  perRequest: boolean,
+): ModelPricing {
+  if (!perRequest || !pricing.tiers) {
+    return pricing;
+  }
+
+  const promptTokens = event.inputTokens + event.cacheReadTokens + event.cacheWriteTokens;
+  const tier = pricing.tiers.find((candidate) => promptTokens > candidate.aboveTokens);
+
+  return tier ? toFlatTierRates(pricing, tier) : pricing;
+}
+
 function hasNonReasoningPricedBuckets(usage: BillableTokenUsage): boolean {
   return (
     usage.inputTokens > 0 ||
@@ -179,16 +229,16 @@ function applyResolvedPricingToEvent(
   if (run.policy.costMode === 'estimated') {
     // Drop the logged cost first so an event we cannot price is unpriced, never a logged
     // cost presented as an estimate.
-    return applyEstimatedPricingToEvent(withoutCost(event), pricing, run.stats);
+    return applyEstimatedPricingToEvent(withoutCost(event), pricing, run);
   }
 
-  return applyEstimatedPricingToEvent(event, pricing, run.stats);
+  return applyEstimatedPricingToEvent(event, pricing, run);
 }
 
 function applyEstimatedPricingToEvent(
   event: UsageEvent,
   pricing: ModelPricing | undefined,
-  stats: PricingRunStats,
+  { policy, stats }: PricingRun,
 ): UsageEvent {
   const shouldRepriceExplicitZero =
     event.costMode === 'explicit' &&
@@ -212,7 +262,9 @@ function applyEstimatedPricingToEvent(
     return { ...event, costMode: 'estimated' };
   }
 
-  if (!canEstimateUsageCost(event, pricing)) {
+  const rates = resolveRatesForEvent(event, pricing, policy.perRequestSourceIds.has(event.source));
+
+  if (!canEstimateUsageCost(event, rates)) {
     if (shouldRepriceExplicitZero) {
       return event;
     }
@@ -222,12 +274,16 @@ function applyEstimatedPricingToEvent(
 
   const pricedEvent: UsageEvent = {
     ...event,
-    costUsd: calculateEstimatedCostUsd(event, pricing),
+    costUsd: calculateEstimatedCostUsd(event, rates),
     costMode: 'estimated',
   };
 
   if (shouldRepriceExplicitZero) {
     stats.reestimatedExplicitZero.add(pricedEvent);
+  }
+
+  if (pricing.priorityFallback) {
+    stats.priorityPriced.add(pricedEvent);
   }
 
   return pricedEvent;

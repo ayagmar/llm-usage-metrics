@@ -46,7 +46,9 @@ import {
 import { refreshDueMachines } from '../machines/refresh-machines.js';
 import { loadPackageMetadataFromRuntime } from './package-metadata.js';
 import {
+  getPerRequestSourceIds,
   resolveAndApplyPricingToEvents,
+  resolvePricingPolicy,
   resolvePricingSource,
   type PricedEventsResult,
   type PricingLoadMode,
@@ -552,6 +554,7 @@ export async function applyPricingToUsageEventDataset(
       runtimeConfig: dataset.pricingRuntimeConfig,
       loadPricingSource,
       pricingLoadMode,
+      policy: resolvePricingPolicy(pricingOptions, getPerRequestSourceIds(dataset.adaptersToParse)),
     }),
   );
 }
@@ -587,6 +590,23 @@ function describeUnpricedEvents(
   const modelList = limitNamedModels(models, MAX_NAMED_UNPRICED_MODELS).join(', ');
 
   return `~ marks costs that leave out ${eventCount} with no known price (models: ${modelList})`;
+}
+
+/** The note naming events priced at a model's priority rates, if any are shown. */
+function describePriorityPricedEvents(
+  events: readonly UsageEvent[],
+  priorityPriced: PricedEventsResult['pricingStats']['priorityPriced'],
+): string | undefined {
+  const priorityEvents = events.filter((event) => priorityPriced.has(event));
+
+  if (priorityEvents.length === 0) {
+    return undefined;
+  }
+
+  const models = [...new Set(priorityEvents.map((event) => event.model ?? 'unknown'))].sort();
+  const modelList = limitNamedModels(models, MAX_NAMED_UNPRICED_MODELS).join(', ');
+
+  return `${formatEventCount(priorityEvents.length)} priced at LiteLLM priority rates because no standard rate is listed (models: ${modelList})`;
 }
 
 /**
@@ -632,6 +652,7 @@ export function withPricingNotes(
   const pricingNotes = [
     describeUnpricedEvents(shownEvents, pricingResult.pricingPolicy.costMode),
     describeReestimatedExplicitZero(shownEvents, pricingResult),
+    describePriorityPricedEvents(shownEvents, pricingResult.pricingStats.priorityPriced),
   ].filter((note) => note !== undefined);
 
   return [...notes, ...pricingNotes];

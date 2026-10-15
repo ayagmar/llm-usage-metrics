@@ -90,7 +90,7 @@ export async function buildWrappedData(
   // The dataset is already year-filtered via since/until above, so the same
   // events the aggregator consumed feed the counterfactual.
   recap.estimatedCacheSavingsUsd = pricingSource
-    ? estimateCacheSavingsUsd(pricedEvents, pricingSource)
+    ? estimateCacheSavingsUsd(pricedEvents, pricingSource, pricingResult.pricingPolicy)
     : undefined;
   const diagnostics = buildUsageDiagnostics({
     adaptersToParse: dataset.adaptersToParse,
