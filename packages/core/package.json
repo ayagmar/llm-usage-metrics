@@ -22,6 +22,10 @@
       "types": "./dist/internal/index.d.ts",
       "import": "./dist/internal/index.js"
     },
+    "./otel": {
+      "types": "./dist/otel/index.d.ts",
+      "import": "./dist/otel/index.js"
+    },
     "./registry": {
       "types": "./dist/registry/index.d.ts",
       "import": "./dist/registry/index.js"

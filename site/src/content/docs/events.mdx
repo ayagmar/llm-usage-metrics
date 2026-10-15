@@ -53,16 +53,26 @@ llm-usage events --source codex --since 2026-06-01 | jq '.totalTokens'
 
 ## OTel mapping
 
-No OpenTelemetry exporter is shipped or promised. The table documents how a consumer maps exported fields onto the OTel GenAI semantic conventions, so a future exporter (or your own pipeline) has a stable contract to build from:
+The CLI ships no OpenTelemetry exporter. The table maps export fields onto the OTel GenAI semantic conventions, which have no release yet. Names are checked against commit [`f3c6d0c`](https://github.com/open-telemetry/semantic-conventions-genai/tree/f3c6d0c9bb66ebd474668a3a0be25c61226f02c2/model/gen-ai) of `open-telemetry/semantic-conventions-genai` (schema URL `https://opentelemetry.io/schemas/gen-ai-dev/1.42.0-dev`) and may change when that moves. The experimental `@ayagmar/agent-sessions/otel` helpers implement this table.
 
 | export field | OTel mapping |
 | --- | --- |
-| `model` | `gen_ai.request.model` |
-| `provider` | `gen_ai.provider.name` |
-| `inputTokens` | `gen_ai.usage.input_tokens` |
-| `outputTokens` | `gen_ai.usage.output_tokens` |
+| (every event) | `gen_ai.operation.name` = `chat` |
+| `provider` | `gen_ai.provider.name`; `google` → `gcp.gemini`, `moonshot` → `moonshot_ai`, `xai` → `x_ai`, others unchanged; omitted when unknown |
+| `model` | `gen_ai.request.model` and `gen_ai.response.model` |
+| `sessionId` | `gen_ai.conversation.id` |
+| `inputTokens` + `cacheReadTokens` + `cacheWriteTokens` | `gen_ai.usage.input_tokens` (the convention counts cached tokens as input) |
+| `outputTokens` | `gen_ai.usage.output_tokens` (already includes reasoning) |
+| `reasoningTokens` | `gen_ai.usage.reasoning.output_tokens` |
 | `cacheReadTokens` | `gen_ai.usage.cache_read.input_tokens` |
-| `cacheWriteTokens` | `gen_ai.usage.cache_creation.input_tokens` |
-| `reasoningTokens` | no stable semconv; suggested `llm_usage.reasoning_tokens` |
-| `costUsd`, `costMode` | no semconv; suggested `llm_usage.cost_usd`, `llm_usage.cost_mode` |
-| `source`, `sessionId`, `repoRoot`, `timestamp` | resource/span attributes (`service.name`-like `source`; `session.id`; VCS path; event time) |
+| `cacheWriteTokens` | `gen_ai.usage.cache_write.input_tokens` |
+| `costUsd`, `costMode` | no convention yet; `llm_usage.cost_usd`, `llm_usage.cost_mode` |
+| `source` | `llm_usage.source` |
+| `repoRoot` | `llm_usage.repo_root`, only when paths are requested |
+| `timestamp` | the span or log record time |
+
+Deviations from the convention:
+
+- `gen_ai.provider.name` is required, but it is left out when the provider is unknown rather than guessed.
+- A provider with no well-known value (`github`, for example) is passed through as a custom value. For `google` the helpers pick `gcp.gemini`; the source logs do not say which Google endpoint served the call.
+- `gen_ai.conversation.id` is set even where a source has no session id and the file name stands in for it (qwen, openclaw), which the convention discourages.
