@@ -163,7 +163,7 @@ export type ShareBlocks = {
 /** The invoking command's report JSON, after path scrubbing and label mapping. */
 export type ShareEmbeddedEnvelope = {
   schemaVersion: 1;
-  report: 'compare' | 'efficiency' | 'optimize' | 'wrapped';
+  report: 'compare' | 'efficiency' | 'optimize' | 'summary' | 'trends' | 'wrapped';
   /** As the command's `--json` writes it: optimize's is an array of rows, the others objects. */
   data: Record<string, unknown> | unknown[];
 };

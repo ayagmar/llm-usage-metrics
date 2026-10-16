@@ -41,6 +41,14 @@ const IDENTIFIER_FIELDS: ReadonlySet<string> = new Set([
   'notes',
   'timezone',
   'topSources',
+  // Summary and trends: the metric name and local dates (a project named `2026` or `tokens`
+  // must not rewrite them).
+  'metric',
+  'date',
+  'since',
+  'until',
+  'from',
+  'to',
 ]);
 
 export type EnvelopeLabelMaps = {

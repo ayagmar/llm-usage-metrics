@@ -94,6 +94,7 @@ const SHARE_CASES: ShareCase[] = [
     // The activity grid: 53 ISO weeks ending today.
     window: { since: '2025-06-16', until: '2026-06-21' },
     initialView: { since: '2025-06-16', until: '2026-06-21', granularity: 'week' },
+    envelope: 'summary',
   },
   {
     args: ['compare'],
@@ -110,6 +111,7 @@ const SHARE_CASES: ShareCase[] = [
     command: 'trends',
     window: { since: '2026-05-23', until: '2026-06-21' },
     initialView: { since: '2026-05-23', until: '2026-06-21', granularity: 'day' },
+    envelope: 'trends',
   },
   {
     args: ['efficiency', 'weekly', '--since', '2026-01-01', '--until', '2026-06-21'],
@@ -446,7 +448,7 @@ describe.skipIf(process.platform === 'win32')(`share report e2e (${WINDOWS_SKIP_
     expectRedacted(plain, files.get('compare-share.html') ?? '');
   });
 
-  it('wrapped --share --redact leaves out another machine’s name and projects', async () => {
+  it('wrapped and summary --share --redact leave out another machine’s name and projects', async () => {
     const machine = 'laptop-secret';
     const remoteDir = path.join(environment.rootDir, 'remote');
     const remoteSession = path.join(remoteDir, 'claude', 'remote-project', 'session.jsonl');
@@ -500,6 +502,26 @@ describe.skipIf(process.platform === 'win32')(`share report e2e (${WINDOWS_SKIP_
       expect(readSharePayload(html).data.envelope?.report).toBe('wrapped');
       expect(html).not.toContain('remote-secret-session');
       expect(html).not.toContain('/srv/');
+
+      // Summary's month splits cost by machine: --redact maps those names too.
+      const summaryMachines = (data: ShareReportData | undefined) => {
+        const envelope = data?.envelope?.data as
+          { periods: { key: string; machines?: { machine: string }[] }[] } | undefined;
+        const month = envelope?.periods.find((period) => period.key === 'monthToDate');
+        return month?.machines?.map((entry) => entry.machine).sort();
+      };
+      const plainSummary = readSharePayload(
+        (await runShare('summary-plain', ['summary', ...machineArgs])).get('summary-share.html') ??
+          '',
+      ).data;
+      const summaryHtml =
+        (await runShare('summary-redacted', ['summary', '--redact', ...machineArgs])).get(
+          'summary-share.html',
+        ) ?? '';
+
+      expect(summaryMachines(plainSummary)).toEqual([machine, 'local'].sort());
+      expect(summaryMachines(readSharePayload(summaryHtml).data)).toEqual(['local', 'machine-1']);
+      expectRedacted(plainSummary, summaryHtml);
     } finally {
       vi.stubEnv('LLM_USAGE_CONFIG_PATH', path.join(environment.rootDir, 'missing-config.toml'));
       await deleteMachineCache(machine);
