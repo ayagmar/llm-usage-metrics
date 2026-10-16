@@ -1,3 +1,13 @@
+import {
+  getDateKeyRange,
+  getIsoDayOfWeek,
+  getIsoWeekKey,
+  getPeriodKeyRange as getDateKeyPeriodRange,
+  parseDateKey,
+  shiftDateKey,
+  type DateKeyGranularity,
+} from './date-key.js';
+
 export type ReportGranularity = 'daily' | 'weekly' | 'monthly';
 
 /** The usage reports' granularities: the calendar periods plus `hourly`. */
@@ -363,57 +373,8 @@ function toLocalDateParts(localDateTime: LocalDateTimeParts): LocalDateParts {
   };
 }
 
-function createUtcDate(localDate: LocalDateParts): Date {
-  return new Date(Date.UTC(localDate.year, localDate.month - 1, localDate.day));
-}
-
-function addDays(date: Date, days: number): Date {
-  return new Date(date.getTime() + days * DAY_MS);
-}
-
 function formatLocalDateParts(localDate: LocalDateParts): string {
   return `${localDate.year}-${String(localDate.month).padStart(2, '0')}-${String(localDate.day).padStart(2, '0')}`;
-}
-
-function parseLocalDateKey(value: string): LocalDateParts {
-  if (!/^\d{4}-\d{2}-\d{2}$/u.test(value)) {
-    throw new Error(`Invalid local date key: ${value}`);
-  }
-
-  const parsed = new Date(`${value}T00:00:00.000Z`);
-
-  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) {
-    throw new Error(`Invalid local date key: ${value}`);
-  }
-
-  return {
-    year: parsed.getUTCFullYear(),
-    month: parsed.getUTCMonth() + 1,
-    day: parsed.getUTCDate(),
-  };
-}
-
-function toIsoDayOfWeek(date: Date): number {
-  const utcDay = date.getUTCDay();
-  return utcDay === 0 ? 7 : utcDay;
-}
-
-function getIsoWeekParts(localDate: LocalDateParts): { weekYear: number; weekNumber: number } {
-  const localUtcDate = createUtcDate(localDate);
-  const isoDay = toIsoDayOfWeek(localUtcDate);
-
-  const currentWeekMonday = addDays(localUtcDate, -(isoDay - 1));
-  const currentWeekThursday = addDays(localUtcDate, 4 - isoDay);
-  const weekYear = currentWeekThursday.getUTCFullYear();
-
-  const jan4 = new Date(Date.UTC(weekYear, 0, 4));
-  const jan4IsoDay = toIsoDayOfWeek(jan4);
-  const firstWeekMonday = addDays(jan4, -(jan4IsoDay - 1));
-
-  const diffMs = currentWeekMonday.getTime() - firstWeekMonday.getTime();
-  const weekNumber = Math.floor(diffMs / (7 * DAY_MS)) + 1;
-
-  return { weekYear, weekNumber };
 }
 
 /** A local hour bucket: its `YYYY-MM-DD HH:00` key and the UTC offset it was read at. */
@@ -476,8 +437,7 @@ export function getPeriodKey(
     return `${localDate.year}-${String(localDate.month).padStart(2, '0')}`;
   }
 
-  const isoWeek = getIsoWeekParts(localDate);
-  return `${isoWeek.weekYear}-W${String(isoWeek.weekNumber).padStart(2, '0')}`;
+  return getIsoWeekKey(localDate);
 }
 
 export function getLocalHour(timestampIso: string, timezone: string): number {
@@ -492,7 +452,13 @@ export function getLocalHour(timestampIso: string, timezone: string): number {
 
 /** ISO day of week for a local date key: 1 = Monday … 7 = Sunday. */
 export function getIsoDayOfWeekFromDateKey(localDateKey: string): number {
-  return toIsoDayOfWeek(createUtcDate(parseLocalDateKey(localDateKey)));
+  const parts = parseDateKey(localDateKey);
+
+  if (!parts) {
+    throw new Error(`Invalid local date key: ${localDateKey}`);
+  }
+
+  return getIsoDayOfWeek(parts);
 }
 
 export function getCurrentLocalDateKey(timezone: string, now: Date = new Date()): string {
@@ -500,44 +466,18 @@ export function getCurrentLocalDateKey(timezone: string, now: Date = new Date())
 }
 
 export function shiftLocalDateKey(localDateKey: string, days: number): string {
-  return extractLocalDateParts(
-    addDays(createUtcDate(parseLocalDateKey(localDateKey)), days).toISOString(),
-    'UTC',
-  ).dateKey;
+  return shiftDateKey(localDateKey, days);
 }
 
 export function getLocalDateKeyRange(from: string, to: string): string[] {
-  if (from > to) {
-    return [];
-  }
-
-  const range: string[] = [];
-  let current = from;
-
-  while (current <= to) {
-    range.push(current);
-    current = shiftLocalDateKey(current, 1);
-  }
-
-  return range;
+  return getDateKeyRange(from, to);
 }
 
-function shiftMonthKey(monthKey: string, months: number): string {
-  const index = Number(monthKey.slice(0, 4)) * 12 + Number(monthKey.slice(5, 7)) - 1 + months;
-  return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, '0')}`;
-}
-
-/** Monday of an ISO week key such as `2026-W05`. */
-function getIsoWeekMonday(weekKey: string): string {
-  const weekYear = Number(weekKey.slice(0, 4));
-  const weekNumber = Number(weekKey.slice(6));
-  const jan4 = new Date(Date.UTC(weekYear, 0, 4));
-  const firstMonday = addDays(jan4, -(toIsoDayOfWeek(jan4) - 1));
-
-  return addDays(firstMonday, (weekNumber - 1) * 7)
-    .toISOString()
-    .slice(0, 10);
-}
+const DATE_KEY_GRANULARITY = {
+  daily: 'day',
+  weekly: 'week',
+  monthly: 'month',
+} as const satisfies Record<ReportGranularity, DateKeyGranularity>;
 
 /** Every period key from `first` to `last` (inclusive), including periods without data. */
 export function getPeriodKeyRange(
@@ -545,28 +485,5 @@ export function getPeriodKeyRange(
   last: string,
   granularity: ReportGranularity,
 ): string[] {
-  if (granularity === 'daily') {
-    return getLocalDateKeyRange(first, last);
-  }
-
-  const keys: string[] = [];
-
-  if (granularity === 'monthly') {
-    for (let key = first; key <= last; key = shiftMonthKey(key, 1)) {
-      keys.push(key);
-    }
-
-    return keys;
-  }
-
-  for (
-    let monday = getIsoWeekMonday(first), key = first;
-    key <= last;
-    monday = shiftLocalDateKey(monday, 7),
-      key = getPeriodKey(`${monday}T12:00:00.000Z`, 'weekly', 'UTC')
-  ) {
-    keys.push(key);
-  }
-
-  return keys;
+  return getDateKeyPeriodRange(first, last, DATE_KEY_GRANULARITY[granularity]);
 }
