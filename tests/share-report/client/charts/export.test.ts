@@ -75,7 +75,7 @@ describe('chart export', () => {
 
       expect(getSvgSize(root)?.width).toBe(720);
       expect(file).toMatch(
-        /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" width="720" height="\d+(\.\d+)?"/u,
+        /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" width="752" height="\d+(\.\d+)?" viewBox="-16 -16 752 /u,
       );
       expect(file).not.toMatch(/\sclass=|\sstyle=|var\(|\srole=|aria-/u);
 

@@ -4,6 +4,7 @@ import {
   getExportFileName,
   getRasterSize,
   getSvgSize,
+  getExportFrame,
   serializeSvgForExport,
   SVG_NAMESPACE,
   type ExportNode,
@@ -68,13 +69,25 @@ describe('serializeSvgForExport', () => {
     );
   });
 
-  it('is a standalone, sized file on the page background', () => {
+  it('is a standalone file on the page background, with a margin around the chart', () => {
+    // The 400×200 chart sits inside a viewBox 16 units wider on every side.
     expect(
       svg.startsWith(
-        `<svg xmlns="${SVG_NAMESPACE}" width="400" height="200" viewBox="0 0 400 200">`,
+        `<svg xmlns="${SVG_NAMESPACE}" width="432" height="232" viewBox="-16 -16 432 232">`,
       ),
     ).toBe(true);
-    expect(svg).toContain('<rect width="100%" height="100%" fill="rgb(251, 249, 244)"/>');
+    expect(svg).toContain(
+      '<rect x="-16" y="-16" width="432" height="232" fill="rgb(251, 249, 244)"/>',
+    );
+  });
+
+  it('grows the margin at the chart’s own scale, from any viewBox origin', () => {
+    const frame = getExportFrame(
+      node('svg', { width: '800', height: '400', viewBox: '10 20 400 200' }, {}),
+    );
+
+    expect(frame).toEqual({ viewBox: [-6, 4, 432, 232], width: 864, height: 464 });
+    expect(getExportFrame(node('svg', {}, {}))).toBeUndefined();
   });
 
   it('escapes text and drops what the page does not draw', () => {
@@ -92,7 +105,7 @@ describe('serializeSvgForExport', () => {
     );
 
     expect(gradient).toBe(
-      `<svg xmlns="${SVG_NAMESPACE}" width="10" height="10"><linearGradient id="g"><stop offset="0"/></linearGradient></svg>`,
+      `<svg xmlns="${SVG_NAMESPACE}" width="42" height="42" viewBox="-16 -16 42 42"><linearGradient id="g"><stop offset="0"/></linearGradient></svg>`,
     );
   });
 });
