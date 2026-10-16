@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -65,8 +67,8 @@ describe('source registry', () => {
     expect(getParseWorkerRoots(pi, '/data/b/x.jsonl')).toEqual(['/data/a']);
     expect(getParseWorkerRoots(claude, '/data/b/x.jsonl')).toEqual(['/data/a', '/data/b']);
     expect(getParseWorkerRoots(defaultPi, '/x.jsonl')).toEqual([
-      '/home/tester/.pi/agent/sessions',
-      '/home/tester/.omp/agent/sessions',
+      path.join('/home/tester', '.pi', 'agent', 'sessions'),
+      path.join('/home/tester', '.omp', 'agent', 'sessions'),
     ]);
   });
 

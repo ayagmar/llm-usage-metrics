@@ -1,10 +1,18 @@
-import { describe, expect, it } from 'vitest';
+import type * as NodePath from 'node:path';
+
+import { describe, expect, it, vi } from 'vitest';
 
 import type { AdapterParseResult } from '../../src/cli/build-usage-data-parsing.js';
 import { validateSourceFilterValues } from '../../src/cli/build-usage-data-inputs.js';
 import { findUnmatchedFilterWarnings, hasCliFilters } from '../../src/cli/filter-match-warnings.js';
 import { normalizeRepoFilter } from '../../src/cli/repo-filter.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
+
+// The fixtures are POSIX paths; repo-filter-win32.test.ts covers Windows resolution.
+vi.mock('node:path', async (importOriginal) => {
+  const { posix } = await importOriginal<typeof NodePath>();
+  return { ...posix, default: posix };
+});
 
 function createResult(
   source: string,
