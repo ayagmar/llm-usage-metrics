@@ -1,7 +1,8 @@
 // Runs the built CLI (the published dist/bin.js loader) under Bun and checks it against Node on the e2e fixtures:
 // identical report JSON on a cold run whose Codex files really parse in worker
 // threads, and on a warm run served from the SQLite event store, plus a one-line
-// statusline, and a `daily --share` page written under the same file names as Node's.
+// statusline, and a `daily --share` report written under the same file name as Node's
+// with the same embedded payload.
 // A node:sqlite preflight makes a missing SQLite fatal instead of the OpenCode smoke check
 // skipping.
 import { spawnSync } from 'node:child_process';
@@ -29,8 +30,6 @@ const dailyArgs = [
 ];
 const reportArgs = [...dailyArgs, '--json'];
 const shareArgs = [...dailyArgs, '--no-sync', '--share', '--no-open'];
-// Card M10-D turns this on once every share page embeds its payload.
-const compareSharePayload = false;
 
 function createEnv(root) {
   const env = { ...process.env };
@@ -118,10 +117,6 @@ function readSharePayload(html) {
 
 function assertSameShare(nodeFiles, bunFiles) {
   assertSame('share files', [...bunFiles.keys()], [...nodeFiles.keys()]);
-
-  if (!compareSharePayload) {
-    return;
-  }
 
   for (const [name, html] of nodeFiles) {
     if (name.endsWith('.html')) {
