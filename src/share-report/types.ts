@@ -164,7 +164,8 @@ export type ShareBlocks = {
 export type ShareEmbeddedEnvelope = {
   schemaVersion: 1;
   report: 'compare' | 'efficiency' | 'optimize' | 'wrapped';
-  data: Record<string, unknown>;
+  /** As the command's `--json` writes it: optimize's is an array of rows, the others objects. */
+  data: Record<string, unknown> | unknown[];
 };
 
 export type ShareReportData = {

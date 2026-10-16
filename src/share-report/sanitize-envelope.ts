@@ -93,10 +93,13 @@ function sanitizeRecord(
  * every other string scrubbed of paths.
  */
 export function sanitizeEmbeddedEnvelope(
-  envelope: { report: ShareEmbeddedEnvelope['report']; data: Record<string, unknown> },
+  envelope: Pick<ShareEmbeddedEnvelope, 'report' | 'data'>,
   maps: EnvelopeLabelMaps,
 ): ShareEmbeddedEnvelope {
-  return { schemaVersion: 1, report: envelope.report, data: sanitizeRecord(envelope.data, maps) };
+  const data = Array.isArray(envelope.data)
+    ? envelope.data.map((item) => sanitizeValue(item, maps))
+    : sanitizeRecord(envelope.data, maps);
+  return { schemaVersion: 1, report: envelope.report, data };
 }
 
 /** Every `repoRoot` in the envelope, as project keys, so they get labels with the file's own. */
