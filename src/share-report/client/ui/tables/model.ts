@@ -37,6 +37,11 @@ export type ColumnView = {
   numeric: boolean;
   /** The key a header click sorts by; undefined for a text column that does not sort. */
   sortKey: TableSortKey | undefined;
+  /**
+   * Kept on narrow screens: the label, tokens and cost (events without a cost). The breakdown
+   * columns go first, so a phone shows what people open the table for.
+   */
+  narrow: boolean;
   /** `aria-sort` for the header. */
   sort: 'ascending' | 'descending' | 'none';
 };
@@ -167,6 +172,10 @@ function toColumnViews<Row>(context: ShareViewContext, columns: Column<Row>[]): 
       label: column.label,
       numeric: column.numeric,
       sortKey,
+      narrow:
+        column.key === 'label' ||
+        column.key === 'totalTokens' ||
+        column.key === (context.view.costMode === null ? 'eventCount' : 'cost'),
       sort: active ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none',
     };
   });

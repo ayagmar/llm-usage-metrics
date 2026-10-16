@@ -2,7 +2,13 @@
 
 import type { TableSortKey } from '../../core/index.js';
 import { h } from '../shell/dom.js';
-import { describeOmittedSessions, describePage, type CellView, type TableView } from './model.js';
+import {
+  describeOmittedSessions,
+  describePage,
+  type CellView,
+  type ColumnView,
+  type TableView,
+} from './model.js';
 
 export type TableActions = {
   sort: (key: TableSortKey) => void;
@@ -10,9 +16,20 @@ export type TableActions = {
   page: (page: number) => void;
 };
 
-function cell(tag: 'td' | 'th', view: CellView, numeric: boolean, scope?: string): HTMLElement {
+/** `num` right-aligns a measure; `wide-only` hides a breakdown column on narrow screens. */
+function columnClass(column: ColumnView | undefined): string | undefined {
+  const names = [column?.numeric && 'num', column?.narrow === false && 'wide-only'].filter(Boolean);
+  return names.length > 0 ? names.join(' ') : undefined;
+}
+
+function cell(
+  tag: 'td' | 'th',
+  view: CellView,
+  column: ColumnView | undefined,
+  scope?: string,
+): HTMLElement {
   return h(tag, {
-    class: numeric ? 'num' : undefined,
+    class: columnClass(column),
     attrs: { title: view.note, scope },
     text: view.text,
   });
@@ -25,7 +42,7 @@ function header(table: TableView, actions: TableActions): HTMLElement {
       {},
       table.columns.map((column) => {
         const th = h('th', {
-          class: column.numeric ? 'num' : undefined,
+          class: columnClass(column),
           attrs: { scope: 'col', 'aria-sort': column.sortKey ? column.sort : undefined },
         });
         const key = column.sortKey;
@@ -59,13 +76,13 @@ function body(table: TableView, actions: TableActions): HTMLElement {
         'tr',
         {},
         row.cells.map((view, index) => {
-          const numeric = table.columns[index]?.numeric ?? false;
+          const column = table.columns[index];
 
           if (index > 0) {
-            return cell('td', view, numeric);
+            return cell('td', view, column);
           }
 
-          const th = cell('th', row.drill === undefined ? view : { text: '' }, false, 'row');
+          const th = cell('th', row.drill === undefined ? view : { text: '' }, column, 'row');
           const drill = row.drill;
 
           if (drill !== undefined) {
@@ -161,8 +178,8 @@ export function renderTable(table: TableView, actions: TableActions): HTMLElemen
                     {},
                     table.total.map((view, index) =>
                       index === 0
-                        ? cell('th', view, false, 'row')
-                        : cell('td', view, table.columns[index]?.numeric ?? false),
+                        ? cell('th', view, table.columns[index], 'row')
+                        : cell('td', view, table.columns[index]),
                     ),
                   ),
                 ])
