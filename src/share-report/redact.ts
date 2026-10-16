@@ -75,9 +75,12 @@ const STANDARD_HOME_PATTERN = new RegExp(
   'iu',
 );
 
-/** A standard home directory anywhere in free text (see `STANDARD_HOME_PATTERN`). */
+/**
+ * A standard home directory anywhere in free text (see `STANDARD_HOME_PATTERN`). A name ends
+ * at a space or punctuation, except in `\Users\<name>\`, where Windows names may hold spaces.
+ */
 const STANDARD_HOME_IN_TEXT_PATTERN = new RegExp(
-  String.raw`(?:\b[a-z]:|\/mnt\/[a-z]|\/(?:var|usr|export))?${HOME_ROOT_SOURCE}[^\s\\/"'\x60,;:()[\]{}<>]+|[\\/]root(?=[\\/\s]|$)`,
+  String.raw`(?:\b[a-z]:|\/mnt\/[a-z]|\/(?:var|usr|export))?(?:\\users\\[^\\/\r\n"'\x60<>:|?*]+(?=\\)|${HOME_ROOT_SOURCE}[^\s\\/"'\x60,;:()[\]{}<>]+)|[\\/]root(?=[\\/\s]|$)`,
   'giu',
 );
 

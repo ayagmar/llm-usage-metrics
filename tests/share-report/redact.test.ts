@@ -176,6 +176,16 @@ describe('createPathScrubber', () => {
     );
     expect(scrub('as /root on d:/USERS/Eve')).toBe('as ~ on ~');
     expect(scrub('on /mnt/c/Users/alicewsl and /export/home/bob')).toBe('on ~ and ~');
+  });
+
+  it('keeps a Windows profile name with a space inside the home it spells ~', () => {
+    const scrub = createPathScrubber(new Map());
+
+    expect(scrub('logs in C:\\Users\\John Smith\\AppData\\x.log')).toBe(
+      'logs in ~\\AppData\\x.log',
+    );
+    // A name with no separator after it ends at the space: the rest is prose.
+    expect(scrub('as C:\\Users\\bob and D:')).toBe('as ~ and D:');
     expect(scrub('see /rooted and /homes/x')).toBe('see /rooted and /homes/x');
   });
 });
