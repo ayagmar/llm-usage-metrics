@@ -448,6 +448,28 @@ describe.skipIf(process.platform === 'win32')(`share report e2e (${WINDOWS_SKIP_
     expectRedacted(plain, files.get('compare-share.html') ?? '');
   });
 
+  it('trends --by-repo --share --redact leaves out the project names its lead shows', async () => {
+    const plain = readSharePayload(
+      (await runShare('trends-plain', ['trends', '--by-repo'])).get('trends-share.html') ?? '',
+    ).data;
+    const html =
+      (await runShare('trends-redacted', ['trends', '--by-repo', '--redact'])).get(
+        'trends-share.html',
+      ) ?? '';
+    const projects = (data: ShareReportData) =>
+      (data.envelope?.data as { projectSeries?: { project: string }[] }).projectSeries?.map(
+        (series) => series.project,
+      ) ?? [];
+
+    expect(projects(plain).length).toBeGreaterThan(0);
+    expect(
+      projects(readSharePayload(html).data).every((label) =>
+        /^project-\d+$|^\(unattributed\)$/u.test(label),
+      ),
+    ).toBe(true);
+    expectRedacted(plain, html);
+  });
+
   it('wrapped and summary --share --redact leave out another machine’s name and projects', async () => {
     const machine = 'laptop-secret';
     const remoteDir = path.join(environment.rootDir, 'remote');
