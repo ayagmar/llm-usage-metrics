@@ -217,76 +217,125 @@ function withoutCost(event: UsageEvent): UsageEvent {
   return { ...unpricedEvent, costMode: 'estimated' };
 }
 
-function applyResolvedPricingToEvent(
+/** What a policy does to one event, decided without building the priced event. */
+type PricingOutcome =
+  /** The event as it is. */
+  | { type: 'unchanged' }
+  /** The event marked estimated, keeping whatever cost it has. */
+  | { type: 'relabelled' }
+  /** The event without a cost. */
+  | { type: 'unpriced' }
+  | {
+      type: 'priced';
+      costUsd: number;
+      reestimatedExplicitZero: boolean;
+      priorityPriced: boolean;
+    };
+
+// Shared, so deciding an unpriced event allocates nothing.
+const UNCHANGED: PricingOutcome = { type: 'unchanged' };
+const RELABELLED: PricingOutcome = { type: 'relabelled' };
+const UNPRICED: PricingOutcome = { type: 'unpriced' };
+
+function resolvePricingOutcome(
   event: UsageEvent,
   pricing: ModelPricing | undefined,
-  run: PricingRun,
-): UsageEvent {
-  if (run.policy.costMode === 'explicit') {
-    return event.costMode === 'explicit' ? event : withoutCost(event);
+  policy: PricingPolicy,
+): PricingOutcome {
+  if (policy.costMode === 'explicit') {
+    return event.costMode === 'explicit' ? UNCHANGED : UNPRICED;
   }
 
-  if (run.policy.costMode === 'estimated') {
-    // Drop the logged cost first so an event we cannot price is unpriced, never a logged
-    // cost presented as an estimate.
-    return applyEstimatedPricingToEvent(withoutCost(event), pricing, run);
-  }
-
-  return applyEstimatedPricingToEvent(event, pricing, run);
-}
-
-function applyEstimatedPricingToEvent(
-  event: UsageEvent,
-  pricing: ModelPricing | undefined,
-  { policy, stats }: PricingRun,
-): UsageEvent {
+  // `estimated` drops the logged cost first so an event we cannot price is unpriced, never
+  // a logged cost presented as an estimate.
+  const keepsLoggedCost = policy.costMode === 'both';
   const shouldRepriceExplicitZero =
+    keepsLoggedCost &&
     event.costMode === 'explicit' &&
     event.costUsd === 0 &&
     event.model !== undefined &&
     isPriceableEvent(event);
 
-  if (event.costMode === 'explicit' && event.costUsd !== undefined && !shouldRepriceExplicitZero) {
-    return event;
+  if (
+    keepsLoggedCost &&
+    event.costMode === 'explicit' &&
+    event.costUsd !== undefined &&
+    !shouldRepriceExplicitZero
+  ) {
+    return UNCHANGED;
   }
 
-  if (!event.model || !isPriceableEvent(event)) {
-    return { ...event, costMode: 'estimated' };
-  }
+  const notPriced = shouldRepriceExplicitZero ? UNCHANGED : keepsLoggedCost ? RELABELLED : UNPRICED;
 
-  if (!pricing) {
-    if (shouldRepriceExplicitZero) {
-      return event;
-    }
-
-    return { ...event, costMode: 'estimated' };
+  if (!event.model || !isPriceableEvent(event) || !pricing) {
+    return notPriced;
   }
 
   const rates = resolveRatesForEvent(event, pricing, policy.perRequestSourceIds.has(event.source));
 
   if (!canEstimateUsageCost(event, rates)) {
-    if (shouldRepriceExplicitZero) {
-      return event;
-    }
-
-    return { ...event, costMode: 'estimated' };
+    return notPriced;
   }
 
-  const pricedEvent: UsageEvent = {
-    ...event,
+  return {
+    type: 'priced',
     costUsd: calculateEstimatedCostUsd(event, rates),
-    costMode: 'estimated',
+    reestimatedExplicitZero: shouldRepriceExplicitZero,
+    priorityPriced: usesPriorityFallbackRate(event, pricing),
   };
+}
 
-  if (shouldRepriceExplicitZero) {
-    stats.reestimatedExplicitZero.add(pricedEvent);
+function applyResolvedPricingToEvent(
+  event: UsageEvent,
+  pricing: ModelPricing | undefined,
+  { policy, stats }: PricingRun,
+): UsageEvent {
+  const outcome = resolvePricingOutcome(event, pricing, policy);
+
+  switch (outcome.type) {
+    case 'unchanged':
+      return event;
+    case 'relabelled':
+      return { ...event, costMode: 'estimated' };
+    case 'unpriced':
+      return withoutCost(event);
+    case 'priced': {
+      const pricedEvent: UsageEvent = { ...event, costUsd: outcome.costUsd, costMode: 'estimated' };
+
+      if (outcome.reestimatedExplicitZero) {
+        stats.reestimatedExplicitZero.add(pricedEvent);
+      }
+
+      if (outcome.priorityPriced) {
+        stats.priorityPriced.add(pricedEvent);
+      }
+
+      return pricedEvent;
+    }
   }
+}
 
-  if (usesPriorityFallbackRate(event, pricing)) {
-    stats.priorityPriced.add(pricedEvent);
+/**
+ * The cost `applyPricingToEvents` gives `event` under `policy`, without building the priced
+ * event; undefined when the event has none, which reports count as incomplete. `pricing` is
+ * the model's rates from `createModelPricingLookup`, undefined when pricing did not load.
+ */
+export function costUnderPolicy(
+  event: UsageEvent,
+  pricing: ModelPricing | undefined,
+  policy: PricingPolicy,
+): number | undefined {
+  const outcome = resolvePricingOutcome(event, pricing, policy);
+
+  switch (outcome.type) {
+    case 'unchanged':
+    case 'relabelled':
+      return event.costUsd;
+    case 'unpriced':
+      return undefined;
+    case 'priced':
+      return outcome.costUsd;
   }
-
-  return pricedEvent;
 }
 
 const TOKENS_BY_PRIORITY_FALLBACK_BUCKET: Record<
@@ -308,27 +357,39 @@ function usesPriorityFallbackRate(event: UsageEvent, pricing: ModelPricing): boo
   );
 }
 
+/**
+ * The rates for an event's model, resolving each model once; undefined when the event is
+ * not priced from tokens under `costMode`.
+ */
+export function createModelPricingLookup(
+  pricingSource: PricingSource,
+  costMode: PricingCostMode,
+): (event: UsageEvent) => ModelPricing | undefined {
+  const pricingByModel = new Map<string, ModelPricing | undefined>();
+
+  return (event) => {
+    const model = event.model;
+
+    if (!model || !isPriceableEvent(event) || costMode === 'explicit') {
+      return undefined;
+    }
+
+    const resolvedModel = pricingSource.resolveModelAlias(model);
+
+    if (!pricingByModel.has(resolvedModel)) {
+      pricingByModel.set(resolvedModel, pricingSource.getPricing(resolvedModel));
+    }
+
+    return pricingByModel.get(resolvedModel);
+  };
+}
+
 export function applyPricingToEvents(
   events: UsageEvent[],
   pricingSource: PricingSource,
   run: PricingRun = { policy: DEFAULT_PRICING_POLICY, stats: createPricingRunStats() },
 ): UsageEvent[] {
-  const pricingByModel = new Map<string, ModelPricing | undefined>();
+  const lookupPricing = createModelPricingLookup(pricingSource, run.policy.costMode);
 
-  return events.map((event) => {
-    const model = event.model;
-    let pricing: ModelPricing | undefined;
-
-    if (model && isPriceableEvent(event) && run.policy.costMode !== 'explicit') {
-      const resolvedModel = pricingSource.resolveModelAlias(model);
-      pricing = pricingByModel.get(resolvedModel);
-
-      if (!pricingByModel.has(resolvedModel)) {
-        pricing = pricingSource.getPricing(resolvedModel);
-        pricingByModel.set(resolvedModel, pricing);
-      }
-    }
-
-    return applyResolvedPricingToEvent(event, pricing, run);
-  });
+  return events.map((event) => applyResolvedPricingToEvent(event, lookupPricing(event), run));
 }

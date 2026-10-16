@@ -146,7 +146,7 @@ function selectBlockEvents(events: readonly UsageEvent[], blocks: readonly Usage
  * Its warnings the report's own read did not give come back too, such as a machine whose
  * cache cannot be read: the windows were placed without it.
  */
-async function readWholeStreams(
+export async function readWholeStreams(
   dataset: UsageEventDataset,
   userConfigResolution: UserConfigResolution,
   deps: BuildUsageDataDeps,
