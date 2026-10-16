@@ -298,8 +298,8 @@ function wrapAtNameBreaks(line: string, width: number): string[] {
 
 /**
  * Lists each row as a title line (the identifying columns) followed by one label/value
- * line per remaining column, for terminals too narrow for the boxed table. A measure
- * field is right-aligned to its widest value across the rows; text is left unpadded.
+ * line per remaining column, for terminals too narrow for the boxed table. Measure
+ * values share one right edge, the widest measure value in the list; text is unpadded.
  */
 function renderStackedRows(options: {
   headerCells: readonly string[];
@@ -320,13 +320,18 @@ function renderStackedRows(options: {
   );
   const continuationIndent = ' '.repeat(2 + labelWidth + 2);
   const availableValueWidth = Math.max(1, options.terminalWidth - continuationIndent.length);
-  const valueWidths = options.headerCells.map((_, columnIndex) =>
-    Math.min(
-      availableValueWidth,
-      options.measureBodyRows.reduce(
-        (maxWidth, row) => Math.max(maxWidth, measureLinesWidth(row[columnIndex])),
-        0,
-      ),
+  const measureWidth = Math.min(
+    availableValueWidth,
+    options.measureBodyRows.reduce(
+      (maxWidth, row) =>
+        valueColumnIndexes.reduce(
+          (rowMax, columnIndex) =>
+            options.columnKinds[columnIndex] === 'measure'
+              ? Math.max(rowMax, measureLinesWidth(row[columnIndex]))
+              : rowMax,
+          maxWidth,
+        ),
+      0,
     ),
   );
 
@@ -357,7 +362,7 @@ function renderStackedRows(options: {
       );
 
       return lines.map((line, lineIndex) => {
-        const value = alignCellLine(line, valueWidths[columnIndex], alignment).trimEnd();
+        const value = alignCellLine(line, measureWidth, alignment).trimEnd();
         return lineIndex === 0 ? `  ${label}  ${value}` : `${continuationIndent}${value}`;
       });
     });

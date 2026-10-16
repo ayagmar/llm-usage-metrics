@@ -154,7 +154,7 @@ describe('renderUnicodeTable', () => {
     ]);
   });
 
-  it('pads each listed measure to its own widest value and leaves text unpadded', () => {
+  it('ends every listed measure at one shared right edge and leaves text unpadded', () => {
     const rows = [
       ['2026-01', '$0.50', '1', 'a long note that widens nothing else'],
       ['2026-02', '$12.25', '10', '-'],
@@ -174,12 +174,12 @@ describe('renderUnicodeTable', () => {
     expect(rendered.split('\n')).toEqual([
       '2026-01',
       '  Cost     $0.50',
-      '  Events   1',
+      '  Events       1',
       '  Notes   a long note that widens nothing else',
       '',
       '2026-02',
       '  Cost    $12.25',
-      '  Events  10',
+      '  Events      10',
       '  Notes   -',
     ]);
   });
