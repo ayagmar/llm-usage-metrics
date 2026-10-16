@@ -8,8 +8,14 @@ import { pluralize } from './format-number.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { renderReportHeader } from './report-header.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
-import { resolveTtyColumns, visibleWidth } from './table-text-layout.js';
+import {
+  padEndVisible,
+  padStartVisible,
+  resolveTtyColumns,
+  visibleWidth,
+} from './table-text-layout.js';
 import { renderReportJson } from './report-json.js';
+import { formatAbbreviatedTokenCount } from './row-cells.js';
 
 export type TrendsReportFormat = 'terminal' | 'markdown' | 'json';
 
@@ -23,11 +29,6 @@ const usdFormatter = new Intl.NumberFormat('en-US', {
   currency: 'USD',
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
-});
-
-const compactNumberFormatter = new Intl.NumberFormat('en-US', {
-  notation: 'compact',
-  maximumFractionDigits: 1,
 });
 
 const sparklineBlocks = [' ', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'] as const;
@@ -51,7 +52,7 @@ function formatMetricValue(value: number, metric: TrendsMetric, approximate = fa
     return formatDuration(value);
   }
 
-  return compactNumberFormatter.format(value);
+  return formatAbbreviatedTokenCount(value);
 }
 
 function formatAxisValue(value: number, metric: TrendsMetric): string {
@@ -63,7 +64,25 @@ function formatAxisValue(value: number, metric: TrendsMetric): string {
     return formatDuration(value);
   }
 
-  return compactNumberFormatter.format(value);
+  return formatAbbreviatedTokenCount(value);
+}
+
+/**
+ * The step between token ticks: the smallest round step (1, 1.5, 2, 2.5, 3, 4, 5, 6 or 8
+ * × 10^n, and at least 1) that covers `rawStep`, so every token tick is a whole number.
+ */
+function resolveTokenTickStep(rawStep: number): number {
+  if (rawStep <= 1) {
+    return 1;
+  }
+
+  const magnitude = 10 ** Math.floor(Math.log10(rawStep));
+  // 1.5 and 2.5 make whole steps only from 10 up.
+  const multipliers =
+    magnitude >= 10 ? [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10] : [1, 2, 3, 4, 5, 6, 8, 10];
+  const multiplier = multipliers.find((candidate) => magnitude * candidate >= rawStep) ?? 10;
+
+  return magnitude * multiplier;
 }
 
 function formatDateLabel(date: string): string {
@@ -313,9 +332,14 @@ function renderCombinedChart(
   plotWidth: number,
 ): string[] {
   const buckets = downsampleBuckets(series.buckets, plotWidth);
-  const maxValue = Math.max(...buckets.map((bucket) => bucket.value), 0);
   const lines: string[] = [];
   const chartRowCount = 4;
+  const peakValue = Math.max(...buckets.map((bucket) => bucket.value), 0);
+  // Token counts are whole, so the token axis tops out at a round multiple of its tick step.
+  const maxValue =
+    metric === 'tokens' && peakValue > 0
+      ? resolveTokenTickStep(peakValue / chartRowCount) * chartRowCount
+      : peakValue;
   const tickValues = Array.from({ length: chartRowCount + 1 }, (_, index) => {
     const inverseIndex = chartRowCount - index;
     return maxValue === 0 ? 0 : (maxValue * inverseIndex) / chartRowCount;
@@ -329,7 +353,7 @@ function renderCombinedChart(
   tickValues.forEach((tickValue, tickIndex) => {
     if (tickIndex === tickValues.length - 1) {
       lines.push(
-        `${formatAxisValue(0, metric).padStart(labelWidth)} ┼${'─'.repeat(buckets.length)}`,
+        `${padStartVisible(formatAxisValue(0, metric), labelWidth)} ┼${'─'.repeat(buckets.length)}`,
       );
       return;
     }
@@ -338,7 +362,9 @@ function renderCombinedChart(
       .map((barLevel) => renderCombinedChartCell(barLevel, tickIndex, chartRowCount))
       .join('');
 
-    lines.push(`${formatAxisValue(tickValue, metric).padStart(labelWidth)} ┤${glyphs}`);
+    lines.push(
+      `${padStartVisible(formatAxisValue(tickValue, metric), labelWidth)} ┤${glyphs}`.trimEnd(),
+    );
   });
 
   const startLabel = formatDateLabel(series.buckets[0]?.date ?? '');
@@ -428,7 +454,9 @@ function renderSplitLines(
       })
       .join('');
 
-    return `${series.label.padEnd(labelWidth)} ${sparkline} ${formatMetricValue(series.summary.total, metric, series.summary.incomplete).padStart(totalWidth)}`;
+    const total = formatMetricValue(series.summary.total, metric, series.summary.incomplete);
+
+    return `${padEndVisible(series.label, labelWidth)} ${sparkline} ${padStartVisible(total, totalWidth)}`;
   });
 }
 

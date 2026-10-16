@@ -299,7 +299,7 @@ describe('trends --by-repo', () => {
         .split('\n')
         .find((line) => line.startsWith('(unattributed)'))
         ?.trimEnd(),
-    ).toMatch(/1\.8K$/u);
+    ).toMatch(/1\.75K$/u);
     const lines = markdown.split('\n');
 
     expect(markdownCells(lines[0])).toEqual([
