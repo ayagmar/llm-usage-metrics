@@ -1,4 +1,8 @@
-import { buildProjectLabels, UNATTRIBUTED_PROJECT_LABEL } from '../aggregate/project-key.js';
+import {
+  buildProjectLabels,
+  stripTrailingSeparators,
+  UNATTRIBUTED_PROJECT_LABEL,
+} from '../aggregate/project-key.js';
 import { LOCAL_MACHINE_NAME } from '../domain/usage-event.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 
@@ -58,14 +62,45 @@ function isSegmentTail(key: string, label: string): boolean {
 }
 
 /**
- * Project labels as `buildProjectLabels` gives them, except that keys it could only tell apart
- * by their full path get their deepest segment tail numbered ` #2`, ` #3`… instead, so no label
- * is ever a full path (two drives holding the same folders, for example).
+ * A key with the home directory spelled `~` (and `/` as the separator after it), so no label
+ * can climb into or past the home directory, whose name is usually the user's.
+ */
+function toHomeRelativeKey(key: string, homeDir: string | undefined): string {
+  const home = homeDir === undefined ? '' : stripTrailingSeparators(homeDir);
+
+  // A home at a bare root (or none) would turn every path into `~/…` without hiding a name.
+  if (splitKeySegments(home).length === 0 || !key.startsWith(home)) {
+    return key;
+  }
+
+  const rest = key.slice(home.length);
+
+  if (rest === '') {
+    return '~';
+  }
+
+  return rest.startsWith('/') || rest.startsWith('\\')
+    ? `~/${splitKeySegments(rest).join('/')}`
+    : key;
+}
+
+/**
+ * Project labels as `buildProjectLabels` gives them, with two changes so no label names a
+ * path or the user: the home directory is `~` and roots under it extend no further than
+ * `~/…`; and keys it could only tell apart by their full path get their deepest segment tail
+ * numbered ` #2`, ` #3`… instead (two drives holding the same folders, for example).
  */
 export function buildShareProjectLabels(
   keys: Iterable<string | undefined>,
+  homeDir?: string,
 ): Map<string | undefined, string> {
-  const labels = buildProjectLabels(keys);
+  const shownKeys = new Map<string | undefined, string | undefined>();
+
+  for (const key of keys) {
+    shownKeys.set(key, key === undefined ? undefined : toHomeRelativeKey(key, homeDir));
+  }
+
+  const labels = buildProjectLabels(shownKeys.values());
   const taken = new Set<string>();
   const fullPathKeys: string[] = [];
 
@@ -92,7 +127,12 @@ export function buildShareProjectLabels(
     taken.add(label);
   }
 
-  return labels;
+  return new Map(
+    [...shownKeys].map(([key, shownKey]) => [
+      key,
+      labels.get(shownKey) ?? UNATTRIBUTED_PROJECT_LABEL,
+    ]),
+  );
 }
 
 /**

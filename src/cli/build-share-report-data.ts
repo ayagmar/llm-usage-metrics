@@ -256,7 +256,8 @@ export async function buildShareReportData(
     ...windowEvents.map((event) => toProjectKey(event.repoRoot)),
     ...envelopeKeys,
   ];
-  const shareLabels = buildShareProjectLabels(projectKeys);
+  const homeDir = os.homedir();
+  const shareLabels = buildShareProjectLabels(projectKeys, homeDir);
   const shareLabel = (key: string | undefined) =>
     shareLabels.get(key) ?? UNATTRIBUTED_PROJECT_LABEL;
   const machineFilter = [...(dataset.normalizedInputs.machineFilter ?? [])];
@@ -342,7 +343,7 @@ export async function buildShareReportData(
   // The command labelled projects over its own keys; map its labels to this file's.
   const commandLabels = buildProjectLabels(projectKeys);
   const keyByCommandLabel = new Map([...commandLabels].map(([key, label]) => [label, key]));
-  const pathReplacements = new Map<string, string>([[os.homedir(), '~']]);
+  const pathReplacements = new Map<string, string>([[homeDir, '~']]);
 
   for (const event of windowEvents) {
     if (event.repoRoot !== undefined) {

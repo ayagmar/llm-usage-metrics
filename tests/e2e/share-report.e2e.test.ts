@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, readFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -141,7 +141,52 @@ function toSourceArgs(sources: SourceOptions, source: string): string[] {
 type ForbiddenStrings = {
   paths: string[];
   sessionIds: string[];
+  /** The home directory's name, which no project label may show. */
+  homeName: string;
 };
+
+/** Claude rows run from the home directory and from a folder under it, beside a namesake. */
+function homeClaudeRows(): string {
+  const roots = [os.homedir(), path.join(os.homedir(), 'app'), '/work/app'];
+
+  return roots
+    .map((cwd, index) =>
+      JSON.stringify({
+        type: 'assistant',
+        timestamp: `2026-06-20T1${String(index)}:30:00.000Z`,
+        sessionId: `claude-home-session-${String(index)}`,
+        cwd,
+        uuid: `claude-home-row-${String(index)}`,
+        message: {
+          id: `claude-home-msg-${String(index)}`,
+          role: 'assistant',
+          model: 'claude-sonnet-4-5',
+          usage: { input_tokens: 30, output_tokens: 10 },
+        },
+      }),
+    )
+    .join('\n');
+}
+
+/** Every project label in the payload: its dictionary and the envelope's `project` fields. */
+function collectProjectLabels(data: ShareReportData): string[] {
+  const labels = [...data.dictionaries.projects];
+  const visit = (value: unknown): void => {
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+    } else if (typeof value === 'object' && value !== null) {
+      for (const [key, field] of Object.entries(value)) {
+        if (key === 'project' && typeof field === 'string') {
+          labels.push(field);
+        }
+        visit(field);
+      }
+    }
+  };
+
+  visit(data.envelope?.data);
+  return labels;
+}
 
 function expectSelfContained(html: string): void {
   const parts = readParts(html);
@@ -176,6 +221,12 @@ function expectNoForbiddenStrings(html: string, forbidden: ForbiddenStrings): vo
 
   // Path-like text anywhere in the file: a home or temp directory, a drive or UNC root.
   expect(html).not.toMatch(/(?:\/home\/|\/Users\/|\/tmp\/|\/private\/|[A-Za-z]:\\\\|\\\\\\\\)/u);
+
+  // The home directory is `~`: no label names it or climbs into it.
+  const segments = collectProjectLabels(readSharePayload(html).data).flatMap((label) =>
+    label.split('/'),
+  );
+  expect(segments, 'the home directory name').not.toContain(forbidden.homeName);
 }
 
 describe.skipIf(process.platform === 'win32')(`share report e2e (${WINDOWS_SKIP_REASON})`, () => {
@@ -232,6 +283,9 @@ describe.skipIf(process.platform === 'win32')(`share report e2e (${WINDOWS_SKIP_
     vi.setSystemTime(FIXED_NOW);
 
     sources = await createE2eSourceOptions(environment.rootDir);
+    const homeProjectDir = path.join(sources.claudeDir as string, 'home-projects');
+    await mkdir(homeProjectDir);
+    await writeFile(path.join(homeProjectDir, 'session.jsonl'), homeClaudeRows());
     sourceOptions = { ...sources, source: ALL_SOURCE_IDS.join(','), timezone: 'UTC' };
 
     // efficiency reads git outcomes from --repo-dir.
@@ -248,9 +302,10 @@ describe.skipIf(process.platform === 'win32')(`share report e2e (${WINDOWS_SKIP_
     const sessionIds = new Set(dataset.filteredEvents.map((event) => event.sessionId));
     const projectNames = new Set([...repoRoots].map((repoRoot) => path.basename(repoRoot)));
 
-    expect(repoRoots.size).toBeGreaterThan(0);
+    expect(repoRoots).toContain(os.homedir());
     forbidden = {
       paths: [...repoRoots, os.homedir(), environment.rootDir, repoDir],
+      homeName: path.basename(os.homedir()),
       // A fixture session may be named like its project, whose label the file does show.
       sessionIds: [...sessionIds].filter(
         (id) => id.length >= MIN_SCANNED_SESSION_ID_LENGTH && !projectNames.has(id),
@@ -300,12 +355,14 @@ describe.skipIf(process.platform === 'win32')(`share report e2e (${WINDOWS_SKIP_
     const html = files.get('compare-share.html') ?? '';
     const { data } = readSharePayload(html);
     const names = [
-      ...plain.dictionaries.projects.filter((label) => label !== '(unattributed)'),
+      // `~` names no one and occurs in the client code; the dictionary check covers it.
+      ...plain.dictionaries.projects.filter((label) => label !== '(unattributed)' && label !== '~'),
       ...plain.dictionaries.machines.filter((label) => label !== 'local'),
     ];
 
     expect([...files.keys()]).toEqual(['compare-share.html']);
     expect(names.length).toBeGreaterThan(0);
+    expect(plain.dictionaries.projects).toContain('~');
     expect(data.meta.redacted).toBe(true);
     expect(
       data.dictionaries.projects.every((label) => /^project-\d+$|^\(unattributed\)$/u.test(label)),

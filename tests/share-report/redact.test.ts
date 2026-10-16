@@ -32,6 +32,36 @@ describe('buildShareProjectLabels', () => {
     expect(labels.get('/')).toBe('(root)');
     expect([...labels.values()].some((label) => label.startsWith('/'))).toBe(false);
   });
+
+  it('spells the home directory ~ and never climbs into or past it', () => {
+    const home = '/home/alice';
+    const keys = [home, `${home}/projects`, `${home}/app`, '/work/app', `${home}/a/x`, '/srv/a/x'];
+    const labels = buildShareProjectLabels(keys, `${home}/`);
+
+    // The report labels name the user: `alice`, and `alice/app` against `work/app`.
+    expect(buildProjectLabels(keys).get(home)).toBe('alice');
+    expect(Object.fromEntries(labels)).toEqual({
+      [home]: '~',
+      [`${home}/projects`]: 'projects',
+      [`${home}/app`]: '~/app',
+      '/work/app': 'work/app',
+      [`${home}/a/x`]: '~/a/x',
+      '/srv/a/x': 'srv/a/x',
+    });
+  });
+
+  it('spells a Windows home ~ with forward slashes and leaves a lookalike sibling alone', () => {
+    const home = 'C:\\Users\\alice';
+    const labels = buildShareProjectLabels(
+      [home, `${home}\\app`, 'D:\\app', 'C:\\Users\\alice2'],
+      home,
+    );
+
+    expect(labels.get(home)).toBe('~');
+    expect(labels.get(`${home}\\app`)).toBe('~/app');
+    expect(labels.get('D:\\app')).toBe('app');
+    expect(labels.get('C:\\Users\\alice2')).toBe('alice2');
+  });
 });
 
 describe('toShareModelLabel', () => {
