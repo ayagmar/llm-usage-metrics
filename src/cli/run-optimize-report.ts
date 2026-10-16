@@ -12,6 +12,7 @@ import {
   runStandardPreparedReport,
   STANDARD_REPORT_FORMATS,
 } from './report-runtime/report-lifecycle.js';
+import { hasCliFilters } from './filter-match-warnings.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
 import type { OptimizeCommandOptions, OptimizeDiagnostics } from './usage-data-contracts.js';
 import type { BuildOptimizeDataDeps } from './build-optimize-data.js';
@@ -71,6 +72,7 @@ async function prepareOptimizeReport(
     render: (bundle, format) =>
       renderOptimizeReport(bundle.optimizeData, format, {
         granularity,
+        filtered: hasCliFilters(options),
       }),
   });
 }

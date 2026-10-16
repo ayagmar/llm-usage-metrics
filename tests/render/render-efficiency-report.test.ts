@@ -211,6 +211,19 @@ describe('renderEfficiencyReport', () => {
     expect(output).toContain('│ ALL');
   });
 
+  it('prints the no-usage message instead of a table of zeros when no period qualifies', () => {
+    const data = createEfficiencyDataResult();
+    data.rows = data.rows.filter((row) => row.rowType === 'grand_total');
+
+    const output = renderEfficiencyReport(data, 'terminal', {
+      granularity: 'monthly',
+      useColor: false,
+    });
+
+    expect(output).not.toContain('╭');
+    expect(output.split('\n').at(-1)).toBe('No usage data found in periods with commits.');
+  });
+
   it('renders terminal by-source rows under the period subtotal', () => {
     const output = renderEfficiencyReport(createBySourceEfficiencyDataResult(), 'terminal', {
       granularity: 'monthly',

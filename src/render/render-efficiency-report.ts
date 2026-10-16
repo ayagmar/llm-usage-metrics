@@ -5,7 +5,7 @@ import type { EfficiencyDataResult } from '../cli/usage-data-contracts.js';
 import type { EfficiencyRow } from '../efficiency/efficiency-row.js';
 import type { ReportGranularity } from '../utils/time-buckets.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
-import { renderReportHeader } from './report-header.js';
+import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { efficiencyTableHeaders, toEfficiencyTableCells } from './efficiency-row-cells.js';
 import { resolveTtyColumns, splitCellLines, visibleWidth } from './table-text-layout.js';
 import { selectColumns, type UsageTokenFormat } from './row-cells.js';
@@ -18,6 +18,8 @@ export type EfficiencyReportFormat = 'terminal' | 'markdown' | 'json';
 export type RenderEfficiencyReportOptions = {
   granularity: ReportGranularity;
   useColor?: boolean;
+  /** Whether the command line narrowed the report; names the filters in the empty message. */
+  filtered?: boolean;
 };
 
 const periodColumnIndex = 0;
@@ -434,6 +436,15 @@ function renderTerminalEfficiencyReport(
       useColor,
     }),
   );
+
+  // Only the ALL row: no period had both commits and usage.
+  if (efficiencyData.rows.every((row) => row.rowType === 'grand_total')) {
+    outputLines.push(
+      '',
+      formatNoUsageMessage(options.filtered ?? false, 'in periods with commits'),
+    );
+    return { output: outputLines.join('\n'), notes: [] };
+  }
 
   const table = renderTerminalEfficiencyTable(efficiencyData.rows, { useColor });
   outputLines.push('', table.output);
