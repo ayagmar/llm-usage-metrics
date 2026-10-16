@@ -84,6 +84,11 @@ describe('runSummaryReport', () => {
     expect(data.meta.initialView).toEqual({ since, until, granularity: 'week' });
     expect(until).toBe(new Date().toISOString().slice(0, 10));
     expect(daysBetween(since ?? '', until ?? '')).toBeGreaterThanOrEqual(52 * 7);
+    // The page leads with the --json report, over the same 53 weeks.
+    expect(data.envelope).toMatchObject({
+      report: 'summary',
+      data: { activity: { from: since, to: until } },
+    });
   });
 
   it('keeps JSON output free of the hint', async () => {
