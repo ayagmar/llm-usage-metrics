@@ -97,6 +97,24 @@ describe('buildShareProjectLabels', () => {
     // Not a home: the folder holding them.
     expect(labels.get('/home')).toBe('home');
   });
+
+  it('spells a home ~ under any root: WSL, Solaris, FreeBSD, a backup', () => {
+    const keys = [
+      '/mnt/c/Users/alicewsl',
+      '/mnt/c/Users/alicewsl/proj',
+      '/export/home/bobsolaris/app',
+      '/usr/home/carolbsd',
+      '/backup/home/dave/notes',
+    ];
+    const labels = buildShareProjectLabels(keys, '/srv/me');
+    const segments = [...labels.values()].flatMap((label) => label.split(/[ /]/u));
+
+    for (const name of ['alicewsl', 'bobsolaris', 'carolbsd', 'dave', 'mnt', 'export']) {
+      expect(segments, name).not.toContain(name);
+    }
+    expect(labels.get('/mnt/c/Users/alicewsl/proj')).toBe('proj');
+    expect(labels.get('/backup/home/dave/notes')).toBe('notes');
+  });
 });
 
 describe('toShareModelLabel', () => {
@@ -157,6 +175,7 @@ describe('createPathScrubber', () => {
       'ran in ~/app and ~, then ~\\x',
     );
     expect(scrub('as /root on d:/USERS/Eve')).toBe('as ~ on ~');
+    expect(scrub('on /mnt/c/Users/alicewsl and /export/home/bob')).toBe('on ~ and ~');
     expect(scrub('see /rooted and /homes/x')).toBe('see /rooted and /homes/x');
   });
 });

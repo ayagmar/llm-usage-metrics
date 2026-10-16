@@ -61,20 +61,28 @@ function isSegmentTail(key: string, label: string): boolean {
   return false;
 }
 
+/** Where a standard home layout starts: `…/home/`, `…/Users/` (either separator, any case). */
+const HOME_ROOT_SOURCE = String.raw`[\\/](?:home|users)[\\/]`;
+
 /**
- * A home directory by its standard layout, on any machine: `/home/<name>`, `/Users/<name>`,
- * `/root`, `/var/home/<name>` and `<drive>:\Users\<name>` (either separator, any case).
- * Events from other machines carry their own home, never the local one.
+ * A home directory by its standard layout, anywhere in a path: `…/home/<name>` (so
+ * `/var/home`, `/usr/home` and `/export/home` too), `…/Users/<name>` (`<drive>:\Users` and
+ * WSL's `/mnt/<drive>/Users` too) and `/root`, either separator, any case. Events from other
+ * machines carry their own home, never the local one.
  */
-const STANDARD_HOME_PATTERN =
-  /^(?:\/home\/[^\\/]+|\/users\/[^\\/]+|\/root|\/var\/home\/[^\\/]+|[a-z]:[\\/]users[\\/][^\\/]+)(?=[\\/]|$)/iu;
+const STANDARD_HOME_PATTERN = new RegExp(
+  String.raw`${HOME_ROOT_SOURCE}[^\\/]+|[\\/]root(?=[\\/]|$)`,
+  'iu',
+);
 
 /** A standard home directory anywhere in free text (see `STANDARD_HOME_PATTERN`). */
-const STANDARD_HOME_IN_TEXT_PATTERN =
-  /(?:\/home\/|\/users\/|\/var\/home\/|\b[a-z]:[\\/]users[\\/])[^\s\\/"'`,;:()[\]{}<>]+|\/root(?=[\\/\s]|$)/giu;
+const STANDARD_HOME_IN_TEXT_PATTERN = new RegExp(
+  String.raw`(?:\b[a-z]:|\/mnt\/[a-z]|\/(?:var|usr|export))?${HOME_ROOT_SOURCE}[^\s\\/"'\x60,;:()[\]{}<>]+|[\\/]root(?=[\\/\s]|$)`,
+  'giu',
+);
 
-/** The length of the home directory `key` starts with, if any: the local one, else a standard one. */
-function getHomePrefixLength(key: string, homeDir: string | undefined): number | undefined {
+/** Where the home directory in `key` ends, if it has one: the local one, else a standard one. */
+function getHomeEnd(key: string, homeDir: string | undefined): number | undefined {
   const home = homeDir === undefined ? '' : stripTrailingSeparators(homeDir);
   const next = key.charAt(home.length);
 
@@ -87,7 +95,8 @@ function getHomePrefixLength(key: string, homeDir: string | undefined): number |
     return home.length;
   }
 
-  return STANDARD_HOME_PATTERN.exec(key)?.[0].length;
+  const match = STANDARD_HOME_PATTERN.exec(key);
+  return match === null ? undefined : match.index + match[0].length;
 }
 
 /**
@@ -95,13 +104,13 @@ function getHomePrefixLength(key: string, homeDir: string | undefined): number |
  * can climb into or past a home directory, whose name is usually the user's.
  */
 function toHomeRelativeKey(key: string, homeDir: string | undefined): string {
-  const length = getHomePrefixLength(key, homeDir);
+  const end = getHomeEnd(key, homeDir);
 
-  if (length === undefined) {
+  if (end === undefined) {
     return key;
   }
 
-  const rest = splitKeySegments(key.slice(length));
+  const rest = splitKeySegments(key.slice(end));
   return rest.length === 0 ? '~' : `~/${rest.join('/')}`;
 }
 

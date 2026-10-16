@@ -146,11 +146,17 @@ type ForbiddenStrings = {
 };
 
 // A home directory by its standard layout, on this machine or another one.
-const HOME_LAYOUT_PATTERN =
-  /^(?:\/home\/|\/Users\/|\/var\/home\/|[a-z]:[\\/]Users[\\/])([^\\/]+)/iu;
+const HOME_LAYOUT_PATTERN = /[\\/](?:home|Users)[\\/]([^\\/]+)/iu;
 
-/** The user name a standard home directory in `repoRoot` gives away, if any. */
+/**
+ * The user name a standard home directory in `repoRoot` gives away, if any. The local home
+ * (the temp root's `home` folder here) is scanned for by its own name.
+ */
 function homeLayoutName(repoRoot: string): string | undefined {
+  if (repoRoot.startsWith(os.homedir())) {
+    return undefined;
+  }
+
   return repoRoot === '/root' || repoRoot.startsWith('/root/')
     ? 'root'
     : HOME_LAYOUT_PATTERN.exec(repoRoot)?.[1];
@@ -168,6 +174,8 @@ function homeClaudeRows(): string {
     '/home/otheruser/app',
     '/Users/bob',
     'C:\\users\\Dev\\winproj',
+    '/mnt/c/Users/alicewsl/wslrepo',
+    '/export/home/bobsolaris',
   ];
 
   return roots
@@ -327,7 +335,7 @@ describe.skipIf(process.platform === 'win32')(`share report e2e (${WINDOWS_SKIP_
 
     expect(repoRoots).toContain(os.homedir());
     expect([...repoRoots].flatMap((repoRoot) => homeLayoutName(repoRoot) ?? [])).toEqual(
-      expect.arrayContaining(['otheruser', 'bob', 'Dev']),
+      expect.arrayContaining(['otheruser', 'bob', 'Dev', 'alicewsl', 'bobsolaris']),
     );
     forbidden = {
       paths: [...repoRoots, os.homedir(), environment.rootDir, repoDir],
