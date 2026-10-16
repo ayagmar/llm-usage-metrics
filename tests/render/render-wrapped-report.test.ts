@@ -74,12 +74,13 @@ describe('render-wrapped-report', () => {
     expect(output).toContain('Busiest day');
     expect(output).toContain('2026-03-01 (400 tokens)');
     expect(output).toContain('Monthly activity');
+    // Months on the sparkline's eighths of the busiest month; an idle month is a dot.
     expect(output).toContain('Jan ·');
-    expect(output).toContain('Feb ▁');
-    expect(output).toContain('Mar ▂');
-    expect(output).toContain('Apr ▄');
+    expect(output).toContain('Feb ▂');
+    expect(output).toContain('Mar ▄');
+    expect(output).toContain('Apr ▆');
     expect(output).toContain('May █');
-    expect(output).toContain('Dec ▁');
+    expect(output).toContain('Dec ▂');
     expect(output).toContain('Top models');
     expect(output).toContain('Model');
     expect(output).toContain('gpt-4.1');

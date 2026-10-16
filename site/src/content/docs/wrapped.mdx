@@ -62,7 +62,7 @@ Top models
 ╰───┴───────────────────┴────────────┴────────╯
 ```
 
-The report uses the shared boxed header, tables, and color policy; set `NO_COLOR` for plain text. The monthly strip renders each month's relative intensity with block glyphs (`·▁▂▄█`, scaled against the busiest month). Terminal and JSON list the top five models and sources.
+The report uses the shared boxed header, tables, and color policy; set `NO_COLOR` for plain text. The monthly strip draws each month as a sparkline block (`▁` to `█`, the same eight levels as `trends`, scaled against the busiest month), and `·` for a month without usage. Terminal and JSON list the top five models and sources.
 
 The time stats read as follows. `Hours` estimates activity from event timing: per session, inter-event gaps are summed with each gap capped at 5 minutes, so a session left open overnight contributes at most 5 idle minutes per gap. It does not measure human working time. `Peak hour` is the hour of day (report timezone) with the most tokens. `Weekday split` is the share of tokens on Monday–Friday dates. `Busiest day` is the single date with the most tokens. `Cache savings` is an estimated counterfactual: what your cache-read tokens would have cost at each model's full input rate minus what they cost at its cache-read rate; only models with a published cache-read rate contribute, and cache-write costs are deliberately ignored (it answers "what did reads save").
 
