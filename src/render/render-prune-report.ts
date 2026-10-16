@@ -9,7 +9,7 @@ import { formatByteSize } from './format-byte-size.js';
 import { pluralize } from './format-number.js';
 import { renderReportHeader } from './report-header.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
-import { wrapTableColumn } from './table-text-layout.js';
+import { resolveTtyColumns, wrapTableColumn } from './table-text-layout.js';
 
 function formatStoreSize(size: StoreSizeSnapshot): string {
   return [
@@ -44,9 +44,10 @@ function renderCandidateTable(candidates: readonly PruneCandidate[]): string {
     measureBodyRows: wrappedRows,
     rowMetas: createRowMetas(candidates),
     layout: 'top_aligned',
-    multilineColumnIndex: 1,
     columnKinds: ['text', 'text', 'measure', 'text', 'text'],
+    multilineColumnIndex: 1,
     multilineColumnWidth: 56,
+    terminalWidth: resolveTtyColumns(process.stdout),
   });
 }
 
