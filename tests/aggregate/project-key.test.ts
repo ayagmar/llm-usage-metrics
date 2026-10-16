@@ -63,6 +63,16 @@ describe('buildProjectLabels', () => {
     });
   });
 
+  it('never gives a real project the (unattributed) label', () => {
+    expect(labelsOf([undefined, '/w/(unattributed)'])).toEqual({
+      undefined: '(unattributed)',
+      '/w/(unattributed)': 'w/(unattributed)',
+    });
+    // Reserved even when no event lacks a root, so a label never reads as missing roots.
+    expect(labelsOf(['/w/(unattributed)'])).toEqual({ '/w/(unattributed)': 'w/(unattributed)' });
+    expect(labelsOf(['/(unattributed)'])).toEqual({ '/(unattributed)': '/(unattributed)' });
+  });
+
   it('gives every distinct key a distinct label, whatever the order or repeats', () => {
     const keys = ['/a/x/api', '/b/x/api', '/api', '/c/api', 'D:\\x\\api', '/a/x/api', undefined];
     const labels = buildProjectLabels(keys);

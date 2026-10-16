@@ -40,7 +40,8 @@ function splitKeySegments(key: string): string[] {
 /**
  * Display labels for project keys: the last path segment, extended with parent segments
  * until it is unique. A key that runs out of segments while it still collides is labelled
- * with the full key. `undefined` (no repository root) is `(unattributed)`.
+ * with the full key. `undefined` (no repository root) is `(unattributed)`, a label no real
+ * project gets.
  *
  * Call it once per report over every key in its filtered events, so a project keeps one
  * label across periods and windows.
@@ -75,7 +76,7 @@ export function buildProjectLabels(
           continue;
         }
 
-        if (labelKeys.length === 1) {
+        if (labelKeys.length === 1 && label !== UNATTRIBUTED_PROJECT_LABEL) {
           labels.set(key, label);
           pending.delete(key);
         } else if (entry.depth >= entry.segments.length) {
