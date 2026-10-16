@@ -160,9 +160,7 @@ export function formatMachinesNote(
     0,
   );
   const duplicates =
-    leftOutCount > 0
-      ? `; left out ${pluralize(leftOutCount, 'event')} already counted`
-      : '';
+    leftOutCount > 0 ? `; left out ${pluralize(leftOutCount, 'event')} already counted` : '';
 
   return `Machines: ${machines.map((machine) => describeIncludedMachine(machine, now, localVersion)).join(', ')}${duplicates}.`;
 }
