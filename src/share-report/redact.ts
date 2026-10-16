@@ -240,9 +240,16 @@ export const KEPT_PROJECT_LABELS: ReadonlySet<string> = new Set([UNATTRIBUTED_PR
 export const KEPT_MACHINE_LABELS: ReadonlySet<string> = new Set([LOCAL_MACHINE_NAME]);
 
 /**
+ * A path inside free text: from the start of a word (or after a quote, bracket, `=`, `,` or
+ * `;`) to the next space or punctuation that ends it.
+ */
+const PATH_IN_TEXT_PATTERN =
+  /(?<=^|[\s"'`([{<=,;])(?:file:|~[\w.-]*[\\/]|[a-z]:[\\/]|\\\\|\.{1,2}[\\/]|\/)[^\s"'`<>()[\]{},;]*/giu;
+
+/**
  * Removes paths from free text: each known path (longest first) becomes its replacement, any
- * other standard home directory becomes `~`, and a value that is a path as a whole becomes its
- * basename.
+ * other standard home directory becomes `~`, and any other path becomes its basename (all of
+ * the value, when it is a path as a whole).
  */
 export function createPathScrubber(
   replacements: ReadonlyMap<string, string>,
@@ -263,6 +270,55 @@ export function createPathScrubber(
     // Homes no known path covered: other machines' and other users'.
     scrubbed = scrubbed.replace(STANDARD_HOME_IN_TEXT_PATTERN, '~');
 
-    return isPathLike(scrubbed) ? toPathName(scrubbed) : scrubbed;
+    return isPathLike(scrubbed)
+      ? toPathName(scrubbed)
+      : scrubbed.replace(PATH_IN_TEXT_PATTERN, (path) => toPathName(path));
+  };
+}
+
+const NAME_CHARACTER_PATTERN = /[\p{L}\p{N}_-]/u;
+
+function isNameBoundary(value: string, index: number): boolean {
+  return index < 0 || index >= value.length || !NAME_CHARACTER_PATTERN.test(value.charAt(index));
+}
+
+/**
+ * Replaces whole-word mentions of names in free text (project labels and machine names, with
+ * --redact), longest first, in one pass so no replacement is replaced again. Names with no
+ * letter or digit (`~`) name no one and are left alone.
+ */
+export function createNameReplacer(names: ReadonlyMap<string, string>): (value: string) => string {
+  const ordered = [...names.entries()]
+    .filter(([name, replacement]) => name !== replacement && /[\p{L}\p{N}]/u.test(name))
+    .sort(([left], [right]) => right.length - left.length || compareByCodePoint(left, right));
+
+  return (value) => {
+    const present = ordered.filter(([name]) => value.includes(name));
+
+    if (present.length === 0) {
+      return value;
+    }
+
+    let replaced = '';
+    let index = 0;
+
+    while (index < value.length) {
+      const match = present.find(
+        ([name]) =>
+          value.startsWith(name, index) &&
+          isNameBoundary(value, index - 1) &&
+          isNameBoundary(value, index + name.length),
+      );
+
+      if (match === undefined) {
+        replaced += value.charAt(index);
+        index += 1;
+      } else {
+        replaced += match[1];
+        index += match[0].length;
+      }
+    }
+
+    return replaced;
   };
 }

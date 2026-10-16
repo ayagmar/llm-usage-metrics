@@ -4,6 +4,7 @@ import { buildProjectLabels } from '../../src/aggregate/project-key.js';
 import {
   buildRedactionMap,
   buildShareProjectLabels,
+  createNameReplacer,
   createPathScrubber,
   KEPT_MACHINE_LABELS,
   toShareModelLabel,
@@ -177,21 +178,65 @@ describe('createPathScrubber', () => {
     const scrub = createPathScrubber(new Map());
 
     expect(scrub('ran in /home/otheruser/app and /Users/bob, then C:\\users\\Dev\\x')).toBe(
-      'ran in ~/app and ~, then ~\\x',
+      'ran in app and ~, then x',
     );
     expect(scrub('as /root on d:/USERS/Eve')).toBe('as ~ on ~');
     expect(scrub('on /mnt/c/Users/alicewsl and /export/home/bob')).toBe('on ~ and ~');
+    // Not homes, but paths all the same.
+    expect(scrub('see /rooted and /homes/x')).toBe('see rooted and x');
+  });
+
+  it('reduces every path in free text to its basename, wherever it stands', () => {
+    const scrub = createPathScrubber(new Map());
+
+    expect(scrub('review /opt/alice/private-data.json for x')).toBe(
+      'review private-data.json for x',
+    );
+    expect(
+      scrub('model="file:///opt/alice/m.gguf", dir=D:\\data\\alice (and \\\\nas\\alice\\x)'),
+    ).toBe('model="m.gguf", dir=alice (and x)');
+    expect(scrub('from ./alice/notes.md and ../bob/todo.txt; ~carol/x')).toBe(
+      'from notes.md and todo.txt; x',
+    );
+    // Not paths: ratios, URLs, approximations, a lone slash.
+    expect(scrub('tokens/s, https://example.test/a, ~5% and 1 / 2')).toBe(
+      'tokens/s, https://example.test/a, ~5% and 1 / 2',
+    );
+  });
+
+  it('keeps known paths as their labels, under redaction too', () => {
+    const scrub = createPathScrubber(new Map([['/srv/private-project', 'project-1']]));
+
+    expect(scrub('edited /srv/private-project/src/a.ts')).toBe('edited project-1/src/a.ts');
   });
 
   it('keeps a Windows profile name with a space inside the home it spells ~', () => {
     const scrub = createPathScrubber(new Map());
 
-    expect(scrub('logs in C:\\Users\\John Smith\\AppData\\x.log')).toBe(
-      'logs in ~\\AppData\\x.log',
-    );
+    expect(scrub('logs in C:\\Users\\John Smith\\AppData\\x.log')).toBe('logs in x.log');
     // A name with no separator after it ends at the space: the rest is prose.
     expect(scrub('as C:\\Users\\bob and D:')).toBe('as ~ and D:');
-    expect(scrub('see /rooted and /homes/x')).toBe('see /rooted and /homes/x');
+  });
+});
+
+describe('createNameReplacer', () => {
+  it('replaces whole-word names, longest first, never a replacement again', () => {
+    const replace = createNameReplacer(
+      new Map([
+        ['app', 'project-2'],
+        ['work/app', 'project-1'],
+        ['project-1', 'project-3'],
+        ['desk', 'machine-1'],
+        ['~', 'project-4'],
+        ['local', 'local'],
+      ]),
+    );
+
+    expect(replace('work/app and app on desk, not desktop or app-server; ~ and local')).toBe(
+      'project-1 and project-2 on machine-1, not desktop or app-server; ~ and local',
+    );
+    expect(replace('app.')).toBe('project-2.');
+    expect(replace('nothing here')).toBe('nothing here');
   });
 });
 
@@ -202,7 +247,26 @@ describe('sanitizeEmbeddedEnvelope', () => {
     projectLabelForLabel: (label: string) => (label === 'work/app' ? 'project-1' : undefined),
     machineLabel: (name: string) => (name === 'local' ? name : 'machine-1'),
     scrub: createPathScrubber(new Map([['/home/u/work/app', 'project-1']])),
+    names: new Map<string, string>(),
   };
+
+  it('replaces in free text the names the fields and the maps give', () => {
+    const envelope = sanitizeEmbeddedEnvelope(
+      {
+        report: 'compare',
+        data: {
+          rows: [{ project: 'work/app', machine: 'desk' }],
+          note: 'work/app ran on desk and on laptop',
+        },
+      },
+      { ...maps, names: new Map([['laptop', 'machine-2']]) },
+    );
+
+    expect(envelope.data).toEqual({
+      rows: [{ project: 'project-1', machine: 'machine-1' }],
+      note: 'project-1 ran on machine-1 and on machine-2',
+    });
+  });
 
   it('drops path fields, maps projects and machines, and scrubs other strings', () => {
     const envelope = sanitizeEmbeddedEnvelope(

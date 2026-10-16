@@ -1,5 +1,5 @@
 import { toProjectKey } from '../aggregate/project-key.js';
-import { toShareModelLabel } from './redact.js';
+import { createNameReplacer, toShareModelLabel } from './redact.js';
 import type { ShareEmbeddedEnvelope } from './types.js';
 
 /** Fields whose values are paths; they are dropped, never scrubbed. */
@@ -32,6 +32,12 @@ export type EnvelopeLabelMaps = {
   machineLabel: (name: string) => string;
   /** Removes paths from any other string (see `createPathScrubber`). */
   scrub: (value: string) => string;
+  /**
+   * Names free text may mention, each as the file shows it: the project labels the command
+   * printed and, with --redact, every project label and machine name. The envelope's own
+   * `project` and `machine` values are added to them.
+   */
+  names: ReadonlyMap<string, string>;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -114,18 +120,56 @@ function sanitizeRecord(
   return sanitized;
 }
 
+/** Each `project` and `machine` value in `value` that the file shows otherwise, with its label. */
+function collectFieldNames(value: unknown, maps: EnvelopeLabelMaps, names: Map<string, string>) {
+  if (Array.isArray(value)) {
+    value.forEach((item) => {
+      collectFieldNames(item, maps, names);
+    });
+    return;
+  }
+
+  if (!isRecord(value)) {
+    return;
+  }
+
+  if (typeof value.project === 'string') {
+    names.set(value.project, sanitizeProject(value, maps));
+  }
+
+  const listed: unknown[] = Array.isArray(value.machines) ? value.machines : [];
+
+  for (const machine of [value.machine, ...listed]) {
+    if (typeof machine === 'string') {
+      names.set(machine, maps.machineLabel(machine));
+    }
+  }
+
+  Object.values(value).forEach((field) => {
+    collectFieldNames(field, maps, names);
+  });
+}
+
 /**
  * The invoking command's report JSON made safe to embed: path fields dropped (`repoRoot` and
  * the like), `project` and `machine` mapped through the file's label and redaction maps, model
- * names labelled as the file labels them, and every other string scrubbed of paths.
+ * names labelled as the file labels them, and every other string scrubbed of paths and of the
+ * names the file shows otherwise.
  */
 export function sanitizeEmbeddedEnvelope(
   envelope: Pick<ShareEmbeddedEnvelope, 'report' | 'data'>,
   maps: EnvelopeLabelMaps,
 ): ShareEmbeddedEnvelope {
+  const names = new Map(maps.names);
+  collectFieldNames(envelope.data, maps, names);
+  const replaceNames = createNameReplacer(names);
+  const textMaps: EnvelopeLabelMaps = {
+    ...maps,
+    scrub: (value) => replaceNames(maps.scrub(value)),
+  };
   const data = Array.isArray(envelope.data)
-    ? envelope.data.map((item) => sanitizeValue(item, maps))
-    : sanitizeRecord(envelope.data, maps);
+    ? envelope.data.map((item) => sanitizeValue(item, textMaps))
+    : sanitizeRecord(envelope.data, textMaps);
   return { schemaVersion: 1, report: envelope.report, data };
 }
 

@@ -353,6 +353,29 @@ describe('buildShareReportData', () => {
       expect(JSON.stringify(data)).not.toContain('oscar');
     });
 
+    it('with --redact, scrubs paths and names out of the envelope’s free text', async () => {
+      const data = await buildShareReportData(
+        request({
+          options: { timezone: 'UTC', pricingOffline: true, redact: true },
+          envelope: {
+            report: 'compare',
+            data: {
+              note: 'review /opt/alice/private-data.json for private-project on alice-laptop',
+              machine: 'alice-laptop',
+              project: 'private-project',
+            },
+          },
+        }),
+        deps([usage({ repoRoot: '/srv/private-project' })]),
+      );
+
+      expect(data.envelope?.data).toEqual({
+        note: 'review private-data.json for project-1 on machine-1',
+        machine: 'machine-1',
+        project: 'project-1',
+      });
+    });
+
     it('maps the envelope’s projects to the file’s labels', async () => {
       const data = await buildShareReportData(request({ envelope: envelope() }), deps(corpus()));
       const envelopeData = data.envelope?.data as Record<string, unknown> | undefined;

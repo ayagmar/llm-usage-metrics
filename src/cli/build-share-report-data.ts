@@ -355,6 +355,24 @@ export async function buildShareReportData(
     pathReplacements.set(key, projectLabelForKey(key));
   }
 
+  // Names the envelope's free text may hold, as this file shows them.
+  const names = new Map(
+    [...commandLabels].map(([key, label]) => [label, projectLabelForKey(key)] as const),
+  );
+
+  if (redact) {
+    for (const label of shareLabels.values()) {
+      names.set(label, redactProject(label));
+    }
+
+    for (const machine of [
+      ...windowEvents.map((event) => event.machine ?? LOCAL_MACHINE_NAME),
+      ...machineFilter,
+    ]) {
+      names.set(machine, machineLabel(machine));
+    }
+  }
+
   return {
     ...data,
     envelope: sanitizeEmbeddedEnvelope(request.envelope, {
@@ -367,6 +385,7 @@ export async function buildShareReportData(
             : undefined,
       machineLabel,
       scrub: createPathScrubber(pathReplacements),
+      names,
     }),
   };
 }
