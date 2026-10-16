@@ -49,6 +49,12 @@ export const PLAN_IDS: readonly PlanId[] = SUBSCRIPTION_PLANS.map((plan) => plan
 
 export const DEFAULT_PLAN_ID: PlanId = 'claude-max-20x';
 
+/**
+ * The default plan without `--plan`, in order of preference: the first one whose sources
+ * the source filter keeps, so a filter that leaves out claude still gets a report.
+ */
+const DEFAULT_PLAN_IDS: readonly PlanId[] = [DEFAULT_PLAN_ID, 'chatgpt-pro-200'];
+
 /** A plan the report compares against, with the monthly price it uses. */
 export type SelectedPlan = {
   plan: SubscriptionPlan;
@@ -78,16 +84,39 @@ function parsePlanPrice(planPrice: string): number {
   return price;
 }
 
+function findDefaultPlanId(
+  sourceFilter: ReadonlySet<string> | undefined,
+  sourceFilterLabel: string,
+): PlanId {
+  const id = DEFAULT_PLAN_IDS.find((candidate) =>
+    findPlan(candidate).sources.some((source) => !sourceFilter || sourceFilter.has(source)),
+  );
+
+  if (id === undefined) {
+    const planSources = [...new Set(SUBSCRIPTION_PLANS.flatMap((plan) => plan.sources))];
+
+    throw new Error(
+      `No plan covers ${sourceFilterLabel} (${[...(sourceFilter ?? [])].join(', ')}); plans cover ${planSources.join(', ')}. Pass --plan <id> and keep its sources in ${sourceFilterLabel}`,
+    );
+  }
+
+  return id;
+}
+
 /**
- * The plans `--plan` names, in order and without repeats; `DEFAULT_PLAN_ID` when none is
- * given. `--plan-price` replaces the list price and needs exactly one plan, the default
- * counting as one.
+ * The plans `--plan` names, in order and without repeats. Without `--plan`, the first
+ * default plan whose sources the source filter (`--source` or config `sources`) keeps.
+ * `--plan-price` replaces the list price and needs exactly one plan, the default counting
+ * as one.
  */
 export function selectPlans(
   planIds: readonly string[] | undefined,
   planPrice: string | undefined,
+  sourceFilter?: ReadonlySet<string>,
+  sourceFilterLabel = '--source',
 ): SelectedPlan[] {
-  const requested = planIds && planIds.length > 0 ? planIds : [DEFAULT_PLAN_ID];
+  const requested =
+    planIds && planIds.length > 0 ? planIds : [findDefaultPlanId(sourceFilter, sourceFilterLabel)];
   const ids = [...new Set(requested.map((id) => id.trim()))];
   const plans = ids.map((id) => findPlan(id));
 

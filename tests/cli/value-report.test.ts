@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -30,7 +30,7 @@ async function buildJson(
 }
 
 describe('value report', () => {
-  useIsolatedEnvironment();
+  const environment = useIsolatedEnvironment();
   useBundledPricingOnly();
 
   beforeAll(() => {
@@ -72,11 +72,32 @@ describe('value report', () => {
     expect(createAdapters).not.toHaveBeenCalled();
   });
 
-  it('rejects a --source that leaves a plan without sources, and an unknown --source', async () => {
-    await expect(buildJson({ source: 'codex' })).rejects.toThrow(
-      '--source leaves out every source of plan claude-max-20x (claude)',
+  it('rejects a --source that leaves a named plan without sources, and an unknown --source', async () => {
+    await expect(buildJson({ plan: ['claude-pro'], source: 'codex' })).rejects.toThrow(
+      '--source leaves out every source of plan claude-pro (claude); pass a --plan <id> that covers',
     );
     await expect(buildJson({ source: 'claud' })).rejects.toThrow('Unknown --source value(s)');
+  });
+
+  it('defaults to a plan the source filter keeps when it leaves out claude', async () => {
+    const configPath = path.join(environment.rootDir, 'codex-only.toml');
+    await writeFile(configPath, 'sources = ["codex"]\n', 'utf8');
+    vi.stubEnv('LLM_USAGE_CONFIG_PATH', configPath);
+
+    try {
+      const fromConfig = await buildJson({});
+      expect(fromConfig.plans.map((plan) => [plan.id, plan.sources])).toEqual([
+        ['chatgpt-pro-200', ['codex']],
+      ]);
+    } finally {
+      vi.stubEnv('LLM_USAGE_CONFIG_PATH', path.join(environment.rootDir, 'missing-config.toml'));
+    }
+
+    const fromSource = await buildJson({ source: 'codex' });
+    expect(fromSource.plans.map((plan) => plan.id)).toEqual(['chatgpt-pro-200']);
+    await expect(buildJson({ source: 'pi' })).rejects.toThrow(
+      'No plan covers --source (pi); plans cover claude, codex. Pass --plan <id> and keep its sources in --source',
+    );
   });
 
   it('covers the last N months with --last, counting the current one', async () => {

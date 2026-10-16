@@ -95,7 +95,7 @@ export function resolvePlanScopes(
 
     if (sources.length === 0) {
       throw new Error(
-        `${sourceFilterLabel} leaves out every source of plan ${selected.plan.id} (${selected.plan.sources.join(', ')})`,
+        `${sourceFilterLabel} leaves out every source of plan ${selected.plan.id} (${selected.plan.sources.join(', ')}); pass a --plan <id> that covers a source it keeps`,
       );
     }
 

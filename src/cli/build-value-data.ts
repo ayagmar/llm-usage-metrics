@@ -68,7 +68,6 @@ export async function buildValueData(
   commandOptions: ValueCommandOptions,
   commandDeps: BuildUsageDataDeps = {},
 ): Promise<ValueDataResult> {
-  const plans = selectPlans(commandOptions.plan, commandOptions.planPrice);
   const userConfigResolution = await resolveUserConfigForOptions(commandOptions, commandDeps);
   const { timezone, sourceFilter, sourceFilterLabel } = normalizeBuildUsageInputs(
     userConfigResolution.options,
@@ -76,6 +75,12 @@ export async function buildValueData(
   );
   // Before narrowing to the plans' sources, so a mistyped --source still fails.
   validateSourceFilterValues(sourceFilter, new Set(getDefaultSourceIds()), sourceFilterLabel);
+  const plans = selectPlans(
+    commandOptions.plan,
+    commandOptions.planPrice,
+    sourceFilter,
+    sourceFilterLabel,
+  );
   const planScopes = resolvePlanScopes(plans, sourceFilter, sourceFilterLabel);
   const today = getCurrentLocalDateKey(timezone, commandDeps.now?.() ?? new Date());
   const window = resolveWindowDates(userConfigResolution.options, today);

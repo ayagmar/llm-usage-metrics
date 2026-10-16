@@ -15,6 +15,21 @@ describe('selectPlans', () => {
     ).toEqual([[DEFAULT_PLAN_ID, 200, 'list']]);
   });
 
+  it('defaults to the first default plan whose sources the source filter keeps', () => {
+    const ids = (filter?: ReadonlySet<string>) =>
+      selectPlans(undefined, undefined, filter).map((selected) => selected.plan.id);
+
+    expect(ids(new Set(['claude', 'codex']))).toEqual([DEFAULT_PLAN_ID]);
+    expect(ids(new Set(['codex', 'pi']))).toEqual(['chatgpt-pro-200']);
+    expect(() => selectPlans(undefined, undefined, new Set(['pi']), 'config `sources`')).toThrow(
+      'No plan covers config `sources` (pi); plans cover claude, codex. Pass --plan <id> and keep its sources in config `sources`',
+    );
+    // A named plan is kept as given; resolvePlanScopes rejects it if the filter drops it.
+    expect(
+      selectPlans(['claude-pro'], undefined, new Set(['codex'])).map(({ plan }) => plan.id),
+    ).toEqual(['claude-pro']);
+  });
+
   it('keeps --plan order and drops repeats', () => {
     const plans = selectPlans(['chatgpt-plus', 'claude-pro', ' chatgpt-plus'], undefined);
 
