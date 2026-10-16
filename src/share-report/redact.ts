@@ -254,11 +254,14 @@ export const KEPT_PROJECT_LABELS: ReadonlySet<string> = new Set([UNATTRIBUTED_PR
 export const KEPT_MACHINE_LABELS: ReadonlySet<string> = new Set([LOCAL_MACHINE_NAME]);
 
 /**
- * A path inside free text: from the start of a word (or after a quote, bracket, `=`, `,`, `;`
- * or `:`, though not a URL's `://`) to the next space or punctuation that ends it.
+ * A path inside free text: from the start of a word (or after a quote, bracket, `=`, `,`, `;`,
+ * `|`, `>`, `«` or `:`, though not a URL's `://`) to the next space or punctuation that ends
+ * it. In a drive path, folders may hold spaces (`C:\Program Files (x86)\…`): there it runs
+ * through every folder that ends at a separator, not a space, and holds no character Windows
+ * forbids in names.
  */
 const PATH_IN_TEXT_PATTERN =
-  /(?:(?<=^|[\s"'`([{<=,;])|(?<=:)(?!\/\/))(?:file:|~[\w.-]*[\\/]|[a-z]:[\\/]|\\\\|\.{1,2}[\\/]|\/)[^\s"'`<>()[\]{},;]*/giu;
+  /(?:(?<=^|[\s"'`([{<=,;|>«])|(?<=:)(?!\/\/))(?:[a-z]:[\\/](?:[^\s"'`<>|?*:\\/](?:[^\r\n"'`<>|?*:\\/]*[^\s"'`<>|?*:\\/])?[\\/])*|file:|~[\w.-]*[\\/]|\\\\|\.{1,2}[\\/]|\/)[^\s"'`<>()[\]{},;|«»]*/giu;
 
 /**
  * Removes paths from free text: each known path (longest first) becomes its replacement, any

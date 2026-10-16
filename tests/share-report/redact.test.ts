@@ -242,6 +242,23 @@ describe('createPathScrubber', () => {
     expect(scrub('as /Users/bob C:\\x')).toBe('as ~ x');
   });
 
+  it('reduces paths after a pipe, an angle bracket or a guillemet', () => {
+    const scrub = createPathScrubber(new Map());
+
+    expect(scrub('x|/opt/alice/y')).toBe('x|y');
+    expect(scrub('x>/opt/alice/y')).toBe('x>y');
+    expect(scrub('«/opt/alice/y»')).toBe('«y»');
+  });
+
+  it('runs a drive path with spaces to its last separator', () => {
+    const scrub = createPathScrubber(new Map());
+
+    expect(scrub('run C:\\Program Files\\alice\\x.exe now')).toBe('run x.exe now');
+    expect(scrub('run D:/Program Files/alice/x.exe now')).toBe('run x.exe now');
+    expect(scrub('in C:\\a b\\c and D:\\e\\f')).toBe('in c and f');
+    expect(scrub('in C:\\Program Files (x86)\\alice\\x.exe')).toBe('in x.exe');
+  });
+
   it('reduces a path after a colon, but leaves URLs alone', () => {
     const scrub = createPathScrubber(new Map());
 
