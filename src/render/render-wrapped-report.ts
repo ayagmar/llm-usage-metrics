@@ -193,6 +193,7 @@ function renderWrappedTerminalReport(
   const paint: Paint = (styler) => (text) => (useColor ? styler(text) : text);
   const heading = [
     renderReportHeader({ title: `Wrapped ${recap.year}`, useColor }),
+    '',
     paint(palette.dim)(`${recap.from} to ${recap.to} (${recap.timezone})`),
     '',
   ];
