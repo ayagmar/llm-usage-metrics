@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { findRepeatedLocalHours } from '../../src/cli/build-usage-data.js';
+import { buildUsageData, findRepeatedLocalHours } from '../../src/cli/build-usage-data.js';
 import { runHourlyReport } from '../../src/cli/run-hourly-report.js';
 import { useIsolatedEnvironment } from '../helpers/isolated-env.js';
 import { useBundledPricingOnly } from '../helpers/offline-pricing.js';
@@ -71,6 +71,23 @@ describe('runHourlyReport', () => {
     expect(stderr).toMatch(
       /Showing today \(\d{4}-\d{2}-\d{2}\) hour by hour\. Use --last N \(up to 31 days\) or --since YYYY-MM-DD/u,
     );
+  });
+
+  it('ends the default window today, so a future-dated event stays out', async () => {
+    const sourceOptions = await writePiSession('future', [
+      '2026-06-21T10:00:00.000Z',
+      '2026-07-01T10:00:00.000Z',
+    ]);
+    const data = await buildUsageData(
+      'hourly',
+      { ...sourceOptions, timezone: 'UTC' },
+      { now: () => new Date('2026-06-21T12:00:00.000Z') },
+    );
+
+    expect(data.defaultWindowSince).toBe('2026-06-21');
+    expect(
+      data.rows.filter((row) => row.rowType === 'period_source').map((row) => row.periodKey),
+    ).toEqual(['2026-06-21 10:00']);
   });
 
   it('merges both occurrences of a fall-back hour under one key and notes it', async () => {

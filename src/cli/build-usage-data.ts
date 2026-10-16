@@ -160,11 +160,12 @@ export async function resolveUsageDataRequest(
   );
   const today = getCurrentLocalDateKey(timezone, deps.now?.() ?? new Date());
   const since = resolvePeriodsSince(granularity, today, periods);
-  // `--last` also ends today, so events dated later (a clock set ahead) stay out.
+  // `--last` and hourly's default window also end today, so events dated later (a clock
+  // set ahead) stay out. The other default windows keep no upper bound.
   const windowedOptions = {
     ...userConfigResolution.options,
     since,
-    ...(lastPeriods === undefined ? {} : { until: today }),
+    ...(lastPeriods === undefined && !isHourly ? {} : { until: today }),
   };
 
   return {
