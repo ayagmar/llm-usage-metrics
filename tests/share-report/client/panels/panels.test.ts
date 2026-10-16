@@ -764,6 +764,15 @@ describe('summary lead', () => {
     expect(view.calendar.summary).toBe('Daily tokens since 16 Jun 2025: usage on 10 days of 371.');
   });
 
+  it('lists the calendar’s days with usage as its table', () => {
+    // summary.txt: 10 active days; best day 15 Jun 2026 with 970 tokens.
+    const { table } = view.calendar;
+
+    expect(table.columns.map((column) => column.label)).toEqual(['Day', 'Tokens']);
+    expect(table.rows).toHaveLength(10);
+    expect(table.rows.map(texts)).toContainEqual(['15 Jun 2026', '970']);
+  });
+
   it('words the budget as the terminal does', () => {
     const budget = (budgetUsd: number) =>
       summaryOf(

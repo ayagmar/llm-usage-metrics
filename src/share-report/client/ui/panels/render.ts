@@ -4,6 +4,7 @@
 
 import type { ShareViewContext } from '../state/context.js';
 import { h, s } from '../shell/dom.js';
+import { pluralize } from '../shell/format.js';
 import { buildCompareView } from './compare-model.js';
 import { buildEfficiencyView } from './efficiency-model.js';
 import type { CalendarView } from './calendar-model.js';
@@ -82,6 +83,20 @@ function renderTable(table: PanelTable): HTMLElement {
         table.foot.length > 0 && h('tfoot', {}, table.foot.map(row)),
       ]),
     ]),
+  ]);
+}
+
+/**
+ * A chart's table equivalent behind "Show as a table"; `open` keeps it as the reader left it
+ * when the panel draws again.
+ */
+function renderChartTable(table: PanelTable, focus: string, open: boolean): HTMLElement {
+  return h('details', { class: 'chart-table', attrs: { open } }, [
+    h('summary', {
+      attrs: { 'data-focus': focus },
+      text: `Show as a table (${pluralize(table.rows.length, 'day')} with usage)`,
+    }),
+    renderTable(table),
   ]);
 }
 
@@ -252,6 +267,8 @@ function renderSummaryView(body: HTMLElement, view: SummaryView | undefined) {
     return;
   }
 
+  const open = body.querySelector('details')?.open ?? false;
+
   fill(body, [
     renderLede(view.lede),
     view.month.length > 0 && renderFacts(view.month, 'This month'),
@@ -260,6 +277,8 @@ function renderSummaryView(body: HTMLElement, view: SummaryView | undefined) {
       h('h3', { text: 'Past year' }),
       renderFacts(view.activity, 'Past year'),
       renderYear(view.calendar),
+      view.calendar.table.rows.length > 0 &&
+        renderChartTable(view.calendar.table, 'summary-days', open),
     ]),
     renderNote(view.note),
   ]);
@@ -344,13 +363,7 @@ function renderTrendsView(body: HTMLElement, view: TrendsView | undefined) {
           { class: 'trend-dates', attrs: { 'aria-hidden': 'true' } },
           view.chart.dates.map((date) => h('span', { text: date })),
         ),
-        h('details', { class: 'chart-table', attrs: { open } }, [
-          h('summary', {
-            attrs: { 'data-focus': 'trends-days' },
-            text: `Show as a table (${String(view.days.rows.length)} days with usage)`,
-          }),
-          renderTable(view.days),
-        ]),
+        renderChartTable(view.days, 'trends-days', open),
       ]),
     ...view.tables.map(renderTable),
     renderNote(view.note),
