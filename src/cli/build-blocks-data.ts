@@ -11,7 +11,7 @@ import {
   type UsageBlock,
 } from '../blocks/aggregate-blocks.js';
 import { getLocalDayStartMs } from '../blocks/local-day-start.js';
-import type { UsageEvent } from '../domain/usage-event.js';
+import { LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
 import { getCurrentLocalDateKey, shiftLocalDateKey } from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions, type UserConfigResolution } from './apply-user-config.js';
 import { parseLastOption } from './build-usage-data.js';
@@ -152,13 +152,14 @@ async function readWholeStreams(
   const datasetOptions = userConfigResolution.options;
   const { timezone, providerFilter, modelFilter, repoFilter, machineFilter } =
     dataset.normalizedInputs;
-  const hasOtherMachines =
-    Object.keys(userConfigResolution.loadedConfig.config.machines ?? {}).length > 0;
+  const otherMachines = Object.keys(userConfigResolution.loadedConfig.config.machines ?? {});
 
-  if (machineFilter && hasOtherMachines) {
+  if (machineFilter && otherMachines.length > 0) {
     const wholeOptions: ReportCommandOptions = {
       ...datasetOptions,
-      machine: undefined,
+      // Named, not left unset: a run with a custom source directory and no --machine
+      // leaves other machines out.
+      machine: [LOCAL_MACHINE_NAME, ...otherMachines],
       provider: undefined,
       model: undefined,
       repo: undefined,
