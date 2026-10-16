@@ -123,6 +123,8 @@ describe('toShareModelLabel', () => {
     ['~/models/qwen.gguf', 'qwen.gguf'],
     ['C:\\Models\\Mistral.GGUF', 'mistral.gguf'],
     ['\\\\server\\share\\m.bin', 'm.bin'],
+    ['file:///opt/review-alice/models/private.gguf', 'private.gguf'],
+    ['FILE://host/share/Models/m.bin', 'm.bin'],
     ['Claude-Sonnet-4-5', 'claude-sonnet-4-5'],
     ['openai/gpt-5', 'openai/gpt-5'],
     [undefined, '(unknown)'],

@@ -317,6 +317,21 @@ describe('buildShareReportData', () => {
       ]);
     });
 
+    it('names a file-URI model by its basename, with or without --redact', async () => {
+      const model = 'file:///opt/review-alice/models/private.gguf';
+      const events = [usage({ model })];
+
+      for (const redact of [false, true]) {
+        const data = await buildShareReportData(
+          request({ options: { timezone: 'UTC', pricingOffline: true, redact } }),
+          deps(events),
+        );
+
+        expect(data.dictionaries.models).toEqual(['private.gguf']);
+        expect(JSON.stringify(data)).not.toContain('review-alice');
+      }
+    });
+
     it('maps the envelope’s projects to the file’s labels', async () => {
       const data = await buildShareReportData(request({ envelope: envelope() }), deps(corpus()));
       const envelopeData = data.envelope?.data as Record<string, unknown> | undefined;

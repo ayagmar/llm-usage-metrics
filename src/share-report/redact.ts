@@ -13,11 +13,13 @@ export const UNKNOWN_MODEL_LABEL = '(unknown)';
 const ROOT_PROJECT_LABEL = '(root)';
 
 const DRIVE_PATH_PATTERN = /^[A-Za-z]:[\\/]/u;
+const FILE_URI_PATTERN = /^file:/iu;
 
-/** Whether `value` reads as a path: `/…`, `~…`, `X:\…` (or `X:/…`), `\\…`. */
+/** Whether `value` reads as a path: `/…`, `~…`, `X:\…` (or `X:/…`), `\\…`, `file:…`. */
 export function isPathLike(value: string): boolean {
   return (
     value.startsWith('/') ||
+    FILE_URI_PATTERN.test(value) ||
     value.startsWith('~') ||
     value.startsWith('\\\\') ||
     DRIVE_PATH_PATTERN.test(value)
