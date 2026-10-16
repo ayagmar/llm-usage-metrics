@@ -918,6 +918,13 @@ th[aria-sort='none'] {
   text-decoration-color: currentColor;
 }
 
+/* On a phone the tables keep the label, tokens and cost; the breakdown columns go. */
+@media (max-width: 40rem) {
+  .wide-only {
+    display: none;
+  }
+}
+
 .pager {
   display: flex;
   flex-wrap: wrap;

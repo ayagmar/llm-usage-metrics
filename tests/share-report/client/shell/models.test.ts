@@ -442,6 +442,36 @@ describe('tables', () => {
     ).not.toContain('cost');
   });
 
+  it('keeps the label, tokens and cost on narrow screens, events without a cost', () => {
+    const narrow = (table: { columns: { key: string; narrow: boolean }[] }) =>
+      table.columns.filter((column) => column.narrow).map((column) => column.key);
+    const noCost = loadFixtureReport((data) => {
+      data.meta.costMode = null;
+      data.cube.costs = {};
+    });
+
+    expect(narrow(buildProjectTable(contextFor(report), 0))).toEqual([
+      'label',
+      'totalTokens',
+      'cost',
+    ]);
+    expect(narrow(buildSessionTable(contextFor(report), 0, 0))).toEqual([
+      'label',
+      'totalTokens',
+      'cost',
+    ]);
+    expect(narrow(buildProjectTable(contextFor(noCost), 0))).toEqual([
+      'label',
+      'totalTokens',
+      'eventCount',
+    ]);
+    expect(narrow(buildSessionTable(contextFor(noCost), 0, 0))).toEqual([
+      'label',
+      'totalTokens',
+      'eventCount',
+    ]);
+  });
+
   it('drills into a project: its sessions, newest first by last activity, and what was left out', () => {
     const table = buildSessionTable(
       contextFor(report, {
