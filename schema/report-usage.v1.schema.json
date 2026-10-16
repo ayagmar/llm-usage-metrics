@@ -64,6 +64,10 @@
           "description": "With --by-repo, per-source rows only: the project's display label.",
           "type": "string"
         },
+        "repeatedHour": {
+          "description": "Hourly only, on period rows: the local hour occurred twice (a DST fall-back), and the row covers both occurrences.",
+          "const": true
+        },
         "models": {
           "description": "Model identifiers active in the row.",
           "type": "array",

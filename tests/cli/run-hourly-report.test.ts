@@ -108,17 +108,18 @@ describe('runHourlyReport', () => {
     );
     const rows = (
       JSON.parse(stdout) as {
-        data: { rowType: string; periodKey: string; inputTokens: number }[];
+        data: { rowType: string; periodKey: string; inputTokens: number; repeatedHour?: true }[];
       }
     ).data.filter((row) => row.rowType === 'period_source');
 
-    expect(rows.map((row) => [row.periodKey, row.inputTokens])).toEqual([
-      ['2026-11-01 01:00', 300],
-      ['2026-11-01 02:00', 300],
+    expect(rows.map((row) => [row.periodKey, row.inputTokens, row.repeatedHour])).toEqual([
+      ['2026-11-01 01:00', 300, true],
+      ['2026-11-01 02:00', 300, undefined],
     ]);
     expect(stderr).toContain(
-      '2026-11-01 01:00 combines two hours: the clocks went back at the end of daylight saving time.',
+      '2026-11-01 01:00 repeats: the clocks went back at the end of daylight saving time, so its row covers both occurrences.',
     );
+    expect(stderr).not.toContain('two hours');
   });
 
   it('rejects --last outside 1-31 days and with dates', async () => {

@@ -1,5 +1,6 @@
 import { aggregateUsage } from '../aggregate/aggregate-usage.js';
 import { buildEventProjectLabels } from '../aggregate/project-key.js';
+import type { UsageReportRow } from '../domain/usage-report-row.js';
 import {
   getCurrentLocalDateKey,
   getIsoDayOfWeekFromDateKey,
@@ -199,6 +200,25 @@ export function findRepeatedLocalHours(
   return [...repeated].sort();
 }
 
+/** Flags the rows of a fall-back hour whose events fall on both of its occurrences. */
+function markRepeatedHourRows(
+  rows: UsageReportRow[],
+  events: readonly { timestamp: string }[],
+  timezone: string,
+): UsageReportRow[] {
+  const repeatedKeys = new Set(findRepeatedLocalHours(events, timezone));
+
+  if (repeatedKeys.size === 0) {
+    return rows;
+  }
+
+  return rows.map((row) =>
+    row.rowType !== 'grand_total' && repeatedKeys.has(row.periodKey)
+      ? { ...row, repeatedHour: true }
+      : row,
+  );
+}
+
 export async function buildUsageData(
   granularity: UsageGranularity,
   commandOptions: ReportCommandOptions,
@@ -247,6 +267,12 @@ export async function buildUsageData(
     runtimeProfile: deps.runtimeProfile?.snapshot(),
   });
 
-  const result = assembleUsageDataResult(pricedEvents, rows, diagnostics);
+  const result = assembleUsageDataResult(
+    pricedEvents,
+    granularity === 'hourly'
+      ? markRepeatedHourRows(rows, pricedEvents, dataset.normalizedInputs.timezone)
+      : rows,
+    diagnostics,
+  );
   return defaultWindowSince ? { ...result, defaultWindowSince } : result;
 }
