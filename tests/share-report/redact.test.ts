@@ -224,6 +224,41 @@ describe('createPathScrubber', () => {
     expect(scrub('as /Users/bob and also /tmp/x')).toBe('as ~ and also x');
   });
 
+  it('drops all of a spaced profile name with nothing after it, and its capitalised words in prose', () => {
+    const scrub = createPathScrubber(new Map());
+
+    // At the end of the value the whole spaced segment is the name.
+    expect(scrub('C:/Users/John Smith')).toBe('~');
+    expect(scrub('C:\\Users\\John Smith')).toBe('~');
+    expect(scrub('home: /Users/John Smith')).toBe('home: ~');
+    expect(scrub('home: /Users/john smith')).toBe('home: ~');
+    expect(scrub('/Users/John Smith went home')).toBe('~');
+    // Before other text, capitalised words after the name go with it: they may be a surname.
+    expect(scrub('opened /Users/John Smith in Finder, then /tmp/x')).toBe(
+      'opened ~ in Finder, then x',
+    );
+    // With no separator after it, a name runs to the end of the text (`;` may be in a name).
+    expect(scrub('at /Users/Jane Doe, then C:\\Users\\Ann Lee; done')).toBe('at ~, then ~');
+    expect(scrub('as /Users/bob C:\\x')).toBe('as ~ x');
+  });
+
+  it('reduces paths after a pipe, an angle bracket or a guillemet', () => {
+    const scrub = createPathScrubber(new Map());
+
+    expect(scrub('x|/opt/alice/y')).toBe('x|y');
+    expect(scrub('x>/opt/alice/y')).toBe('x>y');
+    expect(scrub('«/opt/alice/y»')).toBe('«y»');
+  });
+
+  it('runs a drive path with spaces to its last separator', () => {
+    const scrub = createPathScrubber(new Map());
+
+    expect(scrub('run C:\\Program Files\\alice\\x.exe now')).toBe('run x.exe now');
+    expect(scrub('run D:/Program Files/alice/x.exe now')).toBe('run x.exe now');
+    expect(scrub('in C:\\a b\\c and D:\\e\\f')).toBe('in c and f');
+    expect(scrub('in C:\\Program Files (x86)\\alice\\x.exe')).toBe('in x.exe');
+  });
+
   it('reduces a path after a colon, but leaves URLs alone', () => {
     const scrub = createPathScrubber(new Map());
 

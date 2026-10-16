@@ -1,5 +1,6 @@
 import { getDateKeyRange } from '../../../utils/date-key.js';
-import type { ShareBlock } from '../../types.js';
+import { addUsd } from '../../../utils/usd-math.js';
+import type { ShareBlock, ShareCost } from '../../types.js';
 import type { ShareReport } from './decode.js';
 import { hasBlockIgnoredFilters, type ShareFilters } from './filters.js';
 import { toLocalDateHour, type LocalDateHour } from './local-time.js';
@@ -27,6 +28,11 @@ export type ShareBlockMatrix = {
   values: number[][];
   /** `counts[row][hour]`: how many blocks start in that local hour. */
   counts: number[][];
+  /**
+   * With a cost metric, `costs[row][hour]`: the cost of those blocks, null when none had a
+   * price, and how many of their events had none. Empty with tokens.
+   */
+  costs: ShareCost[][];
   /**
    * True when a model, project or machine filter is set: blocks are per source, so they keep
    * every model, project and machine.
@@ -70,16 +76,41 @@ export function buildHourWeekdayMatrix(
   return { values, hourlyFrom: clipped ? report.data.meta.hourlyFrom : null, unavailable: false };
 }
 
-function getBlockMetric(
+/** A block's metric, and with a cost metric the cost it comes from. */
+type BlockValue = { value: number; cost: ShareCost | undefined };
+
+function getBlockValue(
   block: Pick<ShareBlock, 'totalTokens' | 'costs'>,
   metric: ShareMetric,
-): number | undefined {
+): BlockValue | undefined {
   if (metric.kind === 'tokens') {
-    return block.totalTokens;
+    return { value: block.totalTokens, cost: undefined };
   }
 
   const cost = block.costs[metric.mode];
-  return cost && (cost.costUsd ?? 0);
+  return cost && { value: cost.costUsd ?? 0, cost };
+}
+
+/** A sum of costs: null until one has a price, with every event that had none. */
+function addCost(left: ShareCost, right: ShareCost): ShareCost {
+  return {
+    costUsd:
+      left.costUsd === null || right.costUsd === null
+        ? (left.costUsd ?? right.costUsd)
+        : addUsd(left.costUsd, right.costUsd),
+    incompleteEvents: left.incompleteEvents + right.incompleteEvents,
+  };
+}
+
+function addBlockValues(
+  left: BlockValue,
+  right: BlockValue,
+  reader: ShareMetricReader,
+): BlockValue {
+  return {
+    value: reader.add(left.value, right.value),
+    cost: left.cost && right.cost && addCost(left.cost, right.cost),
+  };
 }
 
 /**
@@ -87,27 +118,27 @@ function getBlockMetric(
  * events after that date are left out. Undefined when the block has none up to then, or
  * lacks the cost mode.
  */
-function getBlockMetricUntil(
+function getBlockValueUntil(
   block: ShareBlock,
   metric: ShareMetric,
   last: string,
   reader: ShareMetricReader,
   timezone: string,
-): number | undefined {
+): BlockValue | undefined {
   if (block.days === undefined) {
     const firstEvent = toLocalDateHour(block.firstEventAt, timezone);
     return firstEvent === undefined || firstEvent.dateKey > last
       ? undefined
-      : getBlockMetric(block, metric);
+      : getBlockValue(block, metric);
   }
 
-  let total: number | undefined;
+  let total: BlockValue | undefined;
 
   for (const day of block.days) {
-    const value = getBlockMetric(day, metric);
+    const value = getBlockValue(day, metric);
 
     if (day.date <= last && value !== undefined) {
-      total = total === undefined ? value : reader.add(total, value);
+      total = total === undefined ? value : addBlockValues(total, value, reader);
     }
   }
 
@@ -135,6 +166,7 @@ export function buildBlockMatrix(
       days,
       values: createGrid(days.length),
       counts: createGrid(days.length),
+      costs: [],
       ignoresFilters,
       unavailable: true,
     };
@@ -142,14 +174,14 @@ export function buildBlockMatrix(
 
   const { timezone } = report.data.meta;
   const sources = new Set(filters.source);
-  const selected: { start: LocalDateHour; value: number }[] = [];
+  const selected: { start: LocalDateHour; value: BlockValue }[] = [];
   let first = span.first;
 
   for (const block of report.data.blocks.rows) {
     const start = toLocalDateHour(block.start, timezone);
     // The block's end is exclusive: the last date it covers is that of its last millisecond.
     const lastMoment = toLocalDateHour(Date.parse(block.end) - 1, timezone);
-    const value = getBlockMetricUntil(block, metric, span.last, reader, timezone);
+    const value = getBlockValueUntil(block, metric, span.last, reader, timezone);
 
     if (
       start === undefined ||
@@ -168,16 +200,26 @@ export function buildBlockMatrix(
   const days = getDateKeyRange(first, span.last);
   const values = createGrid(days.length);
   const counts = createGrid(days.length);
+  const costs =
+    metric.kind === 'cost'
+      ? days.map(() =>
+          Array.from({ length: 24 }, (): ShareCost => ({ costUsd: null, incompleteEvents: 0 })),
+        )
+      : [];
   const rowOf = new Map(days.map((day, row) => [day, row]));
 
   for (const { start, value } of selected) {
     const row = rowOf.get(start.dateKey);
 
     if (row !== undefined) {
-      values[row][start.hour] = reader.add(values[row][start.hour], value);
+      values[row][start.hour] = reader.add(values[row][start.hour], value.value);
       counts[row][start.hour] += 1;
+
+      if (value.cost) {
+        costs[row][start.hour] = addCost(costs[row][start.hour], value.cost);
+      }
     }
   }
 
-  return { days, values, counts, ignoresFilters, unavailable: false };
+  return { days, values, counts, costs, ignoresFilters, unavailable: false };
 }

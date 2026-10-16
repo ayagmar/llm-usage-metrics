@@ -1014,11 +1014,15 @@ describe('lead tables on a narrow screen', () => {
       buildOptimizeView(withEnvelope('optimize', readGolden('optimize-monthly'))),
     );
 
-    expect(kept(tableOf(compare, 'Totals'))).toEqual(['Metric', 'Change', 'Change %']);
-    expect(kept(tableOf(compare, 'By project (cost)'))).toEqual(['Project', 'Change', 'Change %']);
+    expect(kept(tableOf(compare, 'Totals'))).toEqual(['Metric', 'Current (2026-06)', 'Change']);
+    expect(kept(tableOf(compare, 'By project (cost)'))).toEqual(['Project', 'Current', 'Change']);
     expect(kept(summary.tables[0])).toEqual(['Period', 'Cost', 'Tokens']);
     expect(kept(trends.tables[0])).toEqual(['Source', 'Total', 'Peak']);
     expect(kept(efficiency.tables[0])).toEqual(['Period', 'Commits', 'Cost', 'Per commit']);
     expect(kept(optimize.tables[0])).toEqual(['Period', 'Candidate', 'Savings']);
+    // A dated candidate name is wide enough to push the savings off a phone screen.
+    expect(optimize.tables[0].columns.filter((column) => column.wrap)).toEqual([
+      { label: 'Candidate', numeric: false, wrap: true },
+    ]);
   });
 });

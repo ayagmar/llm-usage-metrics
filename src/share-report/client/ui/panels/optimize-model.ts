@@ -231,8 +231,9 @@ export function buildOptimizeView(report: ShareReport): PanelView | undefined {
               title: 'By period',
               columns: [
                 { label: 'Period', numeric: false },
-                { label: 'Candidate', numeric: false },
-                // A phone keeps the period, the candidate and its savings.
+                // A phone keeps the period, the candidate and its savings; a dated model name
+                // wraps rather than pushing the savings out of view.
+                { label: 'Candidate', numeric: false, wrap: true },
                 { label: 'Hypothetical cost', numeric: true, narrow: false },
                 { label: 'Baseline cost', numeric: true, narrow: false },
                 { label: 'Savings', numeric: true },

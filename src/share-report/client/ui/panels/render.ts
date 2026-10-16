@@ -48,9 +48,16 @@ function renderFacts(facts: PanelFact[], label?: string): HTMLElement {
   );
 }
 
-/** `num` right-aligns a measure; `wide-only` hides a secondary column on narrow screens. */
+/**
+ * `num` right-aligns a measure; `wide-only` hides a secondary column on narrow screens, where
+ * `wrap-narrow` lets a long name wrap.
+ */
 function columnClass(column: PanelColumn | undefined): string | undefined {
-  const names = [column?.numeric && 'num', column?.narrow === false && 'wide-only'].filter(Boolean);
+  const names = [
+    column?.numeric && 'num',
+    column?.narrow === false && 'wide-only',
+    column?.wrap === true && 'wrap-narrow',
+  ].filter(Boolean);
   return names.length > 0 ? names.join(' ') : undefined;
 }
 

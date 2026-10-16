@@ -98,13 +98,22 @@ const STANDARD_HOME_PATTERN = new RegExp(
 
 /**
  * A standard home directory anywhere in free text (see `STANDARD_HOME_PATTERN`). A name ends
- * at a space or punctuation, except in `/Users/<name>/` (either separator), where profile
- * names may hold spaces: there it runs to the next separator, unless a space comes just before.
+ * at a space or punctuation, except in `/Users/<name>` (either separator), where profile
+ * names may hold spaces: there it runs to the next separator or the end of the text, unless a
+ * space comes just before.
  */
 const STANDARD_HOME_IN_TEXT_PATTERN = new RegExp(
-  String.raw`(?:\b[a-z]:|\/mnt\/[a-z]|\/(?:var|usr|export))?(?:[\\/]users[\\/][^\s\\/"'\x60<>:|?*](?:[^\\/\r\n"'\x60<>:|?*]*[^\s\\/"'\x60<>:|?*])?(?=[\\/])|${HOME_ROOT_SOURCE}[^\s\\/"'\x60,;:()[\]{}<>]+)|[\\/]root(?=[\\/\s]|$)`,
+  String.raw`(?:\b[a-z]:|\/mnt\/[a-z]|\/(?:var|usr|export))?(?:[\\/]users[\\/][^\s\\/"'\x60<>:|?*](?:[^\\/\r\n"'\x60<>:|?*]*[^\s\\/"'\x60<>:|?*])?(?=[\\/]|$)|${HOME_ROOT_SOURCE}[^\s\\/"'\x60,;:()[\]{}<>]+)|[\\/]root(?=[\\/\s]|$)`,
   'giu',
 );
+
+/**
+ * `/Users/<name>` (either separator, `Users` in any case) and the capitalised words after it
+ * when prose follows, not a separator: in `/Users/John Smith in Finder`, `Smith` may be the
+ * rest of a spaced profile name, so it goes with the name (fail-safe). Group 1 is the home.
+ */
+const SPACED_PROFILE_IN_TEXT_PATTERN =
+  /([\\/][Uu][Ss][Ee][Rr][Ss][\\/][^\s\\/"'`,;:()[\]{}<>]+)(?:\x20\p{Lu}[^\s\\/"'`,;:()[\]{}<>]*(?=[\s"'`,;()[\]{}<>]|$))+/gu;
 
 /** Where the home directory in `key` ends, if it has one: the local one, else a standard one. */
 function getHomeEnd(key: string, homeDir: string | undefined): number | undefined {
@@ -245,11 +254,14 @@ export const KEPT_PROJECT_LABELS: ReadonlySet<string> = new Set([UNATTRIBUTED_PR
 export const KEPT_MACHINE_LABELS: ReadonlySet<string> = new Set([LOCAL_MACHINE_NAME]);
 
 /**
- * A path inside free text: from the start of a word (or after a quote, bracket, `=`, `,`, `;`
- * or `:`, though not a URL's `://`) to the next space or punctuation that ends it.
+ * A path inside free text: from the start of a word (or after a quote, bracket, `=`, `,`, `;`,
+ * `|`, `>`, `«` or `:`, though not a URL's `://`) to the next space or punctuation that ends
+ * it. In a drive path, folders may hold spaces (`C:\Program Files (x86)\…`): there it runs
+ * through every folder that ends at a separator, not a space, and holds no character Windows
+ * forbids in names.
  */
 const PATH_IN_TEXT_PATTERN =
-  /(?:(?<=^|[\s"'`([{<=,;])|(?<=:)(?!\/\/))(?:file:|~[\w.-]*[\\/]|[a-z]:[\\/]|\\\\|\.{1,2}[\\/]|\/)[^\s"'`<>()[\]{},;]*/giu;
+  /(?:(?<=^|[\s"'`([{<=,;|>«])|(?<=:)(?!\/\/))(?:[a-z]:[\\/](?:[^\s"'`<>|?*:\\/](?:[^\r\n"'`<>|?*:\\/]*[^\s"'`<>|?*:\\/])?[\\/])*|file:|~[\w.-]*[\\/]|\\\\|\.{1,2}[\\/]|\/)[^\s"'`<>()[\]{},;|«»]*/giu;
 
 /**
  * Removes paths from free text: each known path (longest first) becomes its replacement, any
@@ -273,7 +285,9 @@ export function createPathScrubber(
     }
 
     // Homes no known path covered: other machines' and other users'.
-    scrubbed = scrubbed.replace(STANDARD_HOME_IN_TEXT_PATTERN, '~');
+    scrubbed = scrubbed
+      .replace(SPACED_PROFILE_IN_TEXT_PATTERN, '$1')
+      .replace(STANDARD_HOME_IN_TEXT_PATTERN, '~');
 
     return isPathLike(scrubbed)
       ? toPathName(scrubbed)

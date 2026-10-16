@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { build } from 'esbuild';
 import { describe, expect, it } from 'vitest';
 
 import { renderShareClientBundle } from '../../scripts/build-share-client.mjs';
@@ -42,6 +43,33 @@ describe('share client bundle', () => {
 
     for (const sequence of ['</script', '</style', '<!--']) {
       expect(text.toLowerCase()).not.toContain(sequence);
+    }
+  });
+});
+
+describe('repo modules in the share client', () => {
+  it('are only helpers that import nothing, so they hold no module state of the CLI', async () => {
+    const result = await build({
+      entryPoints: ['src/share-report/client/ui/main.ts'],
+      bundle: true,
+      write: false,
+      metafile: true,
+      platform: 'browser',
+      logLevel: 'silent',
+      outfile: 'share-client.js',
+    });
+    const outside = Object.keys(result.metafile.inputs)
+      .filter((input) => !input.startsWith('src/share-report/client/'))
+      .sort();
+
+    expect(outside).toEqual([
+      'src/render/format-duration.ts',
+      'src/utils/date-key.ts',
+      'src/utils/usd-math.ts',
+    ]);
+
+    for (const input of outside) {
+      expect(readFileSync(input, 'utf8'), input).not.toMatch(/^import /mu);
     }
   });
 });
