@@ -254,10 +254,14 @@ function renderWrappedView(body: HTMLElement, view: WrappedView | undefined) {
     return;
   }
 
+  const open = body.querySelector('details')?.open ?? false;
+
   fill(body, [
     renderLede(view.lede),
     renderFacts(view.facts),
     renderYear(view.calendar),
+    view.calendar.table.rows.length > 0 &&
+      renderChartTable(view.calendar.table, 'wrapped-days', open),
     h('div', { class: 'recap-lists' }, [
       ...view.topLists.map(renderTopList),
       h('div', { class: 'recap-months' }, [renderTable(view.months)]),

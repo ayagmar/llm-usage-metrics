@@ -118,6 +118,15 @@ for (const timezone of HOST_TIMEZONES) {
       });
     });
 
+    it('lists the calendar’s days with usage as its table', () => {
+      // wrapped.txt: 11 active days; busiest day 2026-09-11 with 2,440 tokens.
+      const { table } = view.calendar;
+
+      expect(table.columns.map((column) => column.label)).toEqual(['Day', 'Tokens']);
+      expect(table.rows).toHaveLength(11);
+      expect(table.rows.map(texts)).toContainEqual(['11 Sep 2026', '2,440']);
+    });
+
     it('places every day of the year on its own weekday row, in Monday-first weeks', () => {
       const { calendar } = view;
 
