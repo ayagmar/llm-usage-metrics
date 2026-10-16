@@ -102,7 +102,7 @@ describe('machine bundle from an older parser version', () => {
     );
     // Those events count toward what the machines note says was left out.
     expect(usageData.diagnostics.notes).toContainEqual(
-      expect.stringMatching(/^Machines: laptop .*; left out 2 event\(s\) already counted\.$/),
+      expect.stringMatching(/^Machines: laptop .*; left out 2 events already counted\.$/),
     );
   });
 
