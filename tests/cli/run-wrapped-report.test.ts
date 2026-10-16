@@ -123,7 +123,7 @@ describe('run-wrapped-report', () => {
     ).rejects.toThrow('Choose either --markdown or --json, not both');
   });
 
-  it('writes a wrapped share SVG while keeping the report body on stdout', async () => {
+  it('writes a wrapped share report while keeping the report body on stdout', async () => {
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
@@ -133,14 +133,14 @@ describe('run-wrapped-report', () => {
         share: true,
       });
 
-      expect(writeShareFile).toHaveBeenCalledTimes(2);
-      const [fileName, svg] = vi.mocked(writeShareFile).mock.calls[0] ?? [];
-      expect(fileName).toBe('llm-usage-wrapped-2026.svg');
-      expect(svg).toContain('2026 Wrapped');
+      expect(writeShareFile).toHaveBeenCalledTimes(1);
+      const [fileName, page] = vi.mocked(writeShareFile).mock.calls[0] ?? [];
+      expect(fileName).toBe('llm-usage-wrapped-2026.html');
+      expect(page).toContain('2026 Wrapped');
 
       expect(consoleLogSpy).toHaveBeenCalledTimes(1);
       expect(String(consoleLogSpy.mock.calls[0]?.[0])).toContain('Wrapped 2026');
-      expect(consoleErrorSpy.mock.calls.flat().join('\n')).toContain('Wrote wrapped share SVG');
+      expect(consoleErrorSpy.mock.calls.flat().join('\n')).toContain('Wrote wrapped share report');
     } finally {
       consoleLogSpy.mockRestore();
       consoleErrorSpy.mockRestore();

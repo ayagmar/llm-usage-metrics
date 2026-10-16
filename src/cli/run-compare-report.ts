@@ -1,5 +1,6 @@
 import { renderCompareReport, type CompareReportFormat } from '../render/render-compare-report.js';
 import { renderCompareShareSvg } from '../render/render-compare-share-svg.js';
+import { createShareCardArtifact } from '../render/render-share-page.js';
 import { buildCompareData } from './build-compare-data.js';
 import {
   prepareReport,
@@ -22,14 +23,13 @@ async function prepareCompareReport(
     buildData: () => buildCompareData(options, deps),
     getDiagnostics: (compareData) => compareData.diagnostics,
     runtimeProfile: deps.runtimeProfile,
-    createShareArtifact: options.share
-      ? (compareData) => ({
-          fileName: 'compare-share.svg',
-          logLabel: 'compare',
-          title: 'Compare share card',
-          render: (theme) => renderCompareShareSvg(compareData, theme),
-        })
-      : undefined,
+    buildShare: async (compareData) =>
+      createShareCardArtifact({
+        fileBaseName: 'compare-share',
+        logLabel: 'compare',
+        title: 'Compare share card',
+        renderSvg: (theme) => renderCompareShareSvg(compareData, theme),
+      }),
     render: (compareData, format) =>
       renderCompareReport(compareData, format, { filtered: hasCliFilters(options) }),
   });

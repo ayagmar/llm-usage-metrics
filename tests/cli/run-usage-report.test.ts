@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -910,7 +910,7 @@ describe('buildUsageReport', () => {
     }
   });
 
-  it('writes usage share SVG when --share is enabled', async () => {
+  it('writes the usage share report when --share is enabled', async () => {
     const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'usage-share-sessions-'));
     const shareDir = await mkdtemp(path.join(os.tmpdir(), 'usage-share-output-'));
     tempDirs.push(emptyDir, shareDir);
@@ -941,17 +941,17 @@ describe('buildUsageReport', () => {
       errorSpy.mockRestore();
     }
 
-    const svgPath = path.join(shareDir, 'usage-monthly-share.svg');
-    const svgContent = await readFile(svgPath, 'utf8');
+    expect(await readdir(shareDir)).toEqual(['usage-monthly-share.html']);
+    const svgContent = await readFile(path.join(shareDir, 'usage-monthly-share.html'), 'utf8');
 
     expect(svgContent).toContain('<svg');
     expect(svgContent).toContain('Tokens');
     expect(svgContent).toContain('llm-usage monthly --share');
-    expect(stderrLines.some((line) => line.includes('Wrote usage share SVG'))).toBe(true);
+    expect(stderrLines.some((line) => line.includes('Wrote usage share report'))).toBe(true);
     expect(logCallCount).toBe(1);
   });
 
-  it('warns when usage share SVG cannot be opened after writing', async () => {
+  it('warns when the usage share report cannot be opened after writing', async () => {
     const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'usage-share-open-failure-sessions-'));
     tempDirs.push(emptyDir);
 
@@ -979,7 +979,9 @@ describe('buildUsageReport', () => {
       errorSpy.mockRestore();
     }
 
-    expect(stderrLines.some((line) => line.includes('Wrote usage share SVG'))).toBe(true);
-    expect(stderrLines.some((line) => line.includes('Could not open usage share page'))).toBe(true);
+    expect(stderrLines.some((line) => line.includes('Wrote usage share report'))).toBe(true);
+    expect(stderrLines.some((line) => line.includes('Could not open usage share report'))).toBe(
+      true,
+    );
   });
 });

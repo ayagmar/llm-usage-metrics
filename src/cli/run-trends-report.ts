@@ -1,5 +1,6 @@
 import { renderTrendsReport, type TrendsReportFormat } from '../render/render-trends-report.js';
 import { renderTrendsShareSvg } from '../render/render-trends-share-svg.js';
+import { createShareCardArtifact } from '../render/render-share-page.js';
 import { buildTrendsData } from './build-trends-data.js';
 import {
   prepareReport,
@@ -31,14 +32,13 @@ async function prepareTrendsReport(options: TrendsCommandOptions, deps: BuildTre
     buildData: () => buildTrendsData(options, deps),
     getDiagnostics: (trendsData) => trendsData.diagnostics,
     runtimeProfile: deps.runtimeProfile,
-    createShareArtifact: options.share
-      ? (trendsData) => ({
-          fileName: 'trends-share.svg',
-          logLabel: 'trends',
-          title: 'Trends share card',
-          render: (theme) => renderTrendsShareSvg(trendsData, theme),
-        })
-      : undefined,
+    buildShare: async (trendsData) =>
+      createShareCardArtifact({
+        fileBaseName: 'trends-share',
+        logLabel: 'trends',
+        title: 'Trends share card',
+        renderSvg: (theme) => renderTrendsShareSvg(trendsData, theme),
+      }),
     render: (trendsData, format) => renderTrendsReport(trendsData, format),
   });
 }

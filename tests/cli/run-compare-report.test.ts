@@ -127,17 +127,17 @@ describe('run-compare-report', () => {
     }
   });
 
-  it('writes a compare share SVG while keeping the report body on stdout', async () => {
+  it('writes a compare share report while keeping the report body on stdout', async () => {
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
     try {
       await runCompareReport({ share: true });
 
-      expect(writeShareFile).toHaveBeenCalledTimes(2);
-      const [fileName, svg] = vi.mocked(writeShareFile).mock.calls[0] ?? [];
-      expect(fileName).toBe('compare-share.svg');
-      expect(svg).toContain('2026-06 against 2026-05');
+      expect(writeShareFile).toHaveBeenCalledTimes(1);
+      const [fileName, page] = vi.mocked(writeShareFile).mock.calls[0] ?? [];
+      expect(fileName).toBe('compare-share.html');
+      expect(page).toContain('2026-06 against 2026-05');
 
       expect(consoleLogSpy).toHaveBeenCalledTimes(1);
       expect(String(consoleLogSpy.mock.calls[0]?.[0])).toContain('Compare: 2026-06 vs 2026-05');

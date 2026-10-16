@@ -284,7 +284,7 @@ function createUsageReportDefinition(granularity: ReportGranularity): ReportRunt
       const period = getReportPeriodName(granularity);
 
       command.option('--last <n>', `Report the last N ${period}s, counting the current ${period}`);
-      addTableDisplayOptions(command, 'the table and share card')
+      addTableDisplayOptions(command, 'the table and share report')
         .option('--by-machine', BY_MACHINE_DESCRIPTION)
         .option('--by-repo', BY_REPO_ROW_DESCRIPTION);
       addRepoFilterOption(command);
@@ -533,7 +533,7 @@ const wrappedReportDefinition: ReportRuntimeDefinition = {
     commandName: 'wrapped',
     docsLabel: 'wrapped',
     kind: 'specialized',
-    description: 'Show a yearly usage recap with an optional share card',
+    description: 'Show a yearly usage recap with an optional share report',
     sharedOptionProfile: 'wrapped',
     helpExamples: [
       {

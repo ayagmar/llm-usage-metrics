@@ -3,6 +3,7 @@ import {
   type OptimizeReportFormat,
 } from '../render/render-optimize-report.js';
 import { renderOptimizeMonthlyShareSvg } from '../render/render-optimize-share-svg.js';
+import { createShareCardArtifact } from '../render/render-share-page.js';
 import { logger } from '../utils/logger.js';
 import type { ReportGranularity } from '../utils/time-buckets.js';
 import { buildOptimizeData } from './build-optimize-data.js';
@@ -60,14 +61,13 @@ async function prepareOptimizeReport(
       candidateCount: bundle.candidateCount,
     }),
     runtimeProfile: deps.runtimeProfile,
-    createShareArtifact: options.share
-      ? (bundle) => ({
-          fileName: 'optimize-monthly-share.svg',
-          logLabel: 'optimize',
-          title: 'Optimize share card',
-          render: (theme) => renderOptimizeMonthlyShareSvg(bundle.optimizeData, theme),
-        })
-      : undefined,
+    buildShare: async (bundle) =>
+      createShareCardArtifact({
+        fileBaseName: 'optimize-monthly-share',
+        logLabel: 'optimize',
+        title: 'Optimize share card',
+        renderSvg: (theme) => renderOptimizeMonthlyShareSvg(bundle.optimizeData, theme),
+      }),
     render: (bundle, format) =>
       renderOptimizeReport(bundle.optimizeData, format, {
         granularity,

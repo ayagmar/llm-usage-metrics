@@ -35,9 +35,9 @@ Options:
                                  this one; default: all)
   --no-sync                      Use other machines' cached usage without refreshing it over ssh
   --markdown                     Render output as markdown table
-  --share                        Write a share card (SVG and an HTML page with PNG export) to the
-                                 current directory
-  --no-open                      With --share, write the files without opening the page
+  --share                        Write an interactive HTML report to the current directory
+  --no-open                      With --share, write the report without opening it
+  --redact                       With --share, label projects project-N and machines machine-N
   --vs-since <date>              Inclusive start date for the baseline comparison window
   --vs-until <date>              Inclusive end date for the baseline comparison window
   --by-repo                      Also compare each project (repository root)

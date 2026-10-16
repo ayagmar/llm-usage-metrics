@@ -3,7 +3,7 @@ import { markdownTable } from 'markdown-table';
 import type { WrappedRecap, WrappedTopItem } from '../wrapped/wrapped-recap.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
-import { formatApproxUsd, formatInteger } from './share-svg-theme.js';
+import { formatApproxUsd, formatInteger } from './format-number.js';
 import { resolveTtyColumns, visibleWidth } from './table-text-layout.js';
 import {
   defaultTerminalStylePalette,

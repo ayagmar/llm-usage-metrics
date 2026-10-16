@@ -4,9 +4,6 @@ import { getPeriodKeyRange, type ReportGranularity } from '../utils/time-buckets
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import {
   escapeSvg,
-  formatApproxUsd,
-  formatCompact,
-  formatInteger,
   getSourceColor,
   renderEmptyState,
   renderShareCard,
@@ -19,6 +16,7 @@ import {
   svgText,
   truncateLabel,
 } from './share-svg-theme.js';
+import { formatApproxUsd, formatInteger, formatStatuslineCompact } from './format-number.js';
 import { MONTH_LABELS } from './month-labels.js';
 
 const statsTop = 160;
@@ -228,7 +226,7 @@ export function renderUsageShareSvg(
           x: SHARE_MARGIN,
           y: statsTop,
           label: 'Tokens',
-          value: formatCompact(totalTokens),
+          value: formatStatuslineCompact(totalTokens),
           detail: tokensDetail,
           size: 44,
           accent: true,
@@ -249,7 +247,7 @@ export function renderUsageShareSvg(
           x: SHARE_MARGIN,
           y: statsTop + 108,
           label: 'Tokens',
-          value: formatCompact(totalTokens),
+          value: formatStatuslineCompact(totalTokens),
           detail: tokensDetail,
           size: 30,
         }),
@@ -263,7 +261,7 @@ export function renderUsageShareSvg(
           renderValueGridLines(
             maxY,
             { left: chartLeft, right: chartRight, top: chartTop, bottom: chartBottom },
-            formatCompact,
+            formatStatuslineCompact,
             theme,
           ),
           renderBars(series, periods.length, maxY),

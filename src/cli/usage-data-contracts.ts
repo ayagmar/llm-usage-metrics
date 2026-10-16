@@ -114,8 +114,10 @@ type SyncOption = {
 
 type ShareOption = {
   share?: boolean;
-  /** False with --no-open: write the share files without opening the page. */
+  /** False with --no-open: write the share report without opening it. */
   open?: boolean;
+  /** With --share: replace project and machine names in the report. */
+  redact?: boolean;
 };
 
 type ProfileConfig = typeof sharedOptionProfileConfig;

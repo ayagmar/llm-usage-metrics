@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -295,7 +295,7 @@ describe('run-optimize-report', () => {
     );
   });
 
-  it('writes monthly optimize share svg when --share is enabled', async () => {
+  it('writes the monthly optimize share report when --share is enabled', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'optimize-share-'));
     tempDirs.push(tempDir);
     const previousCwd = process.cwd();
@@ -313,13 +313,13 @@ describe('run-optimize-report', () => {
       process.chdir(previousCwd);
     }
 
-    const svgPath = path.join(tempDir, 'optimize-monthly-share.svg');
-    const svgContent = await readFile(svgPath, 'utf8');
+    expect(await readdir(tempDir)).toEqual(['optimize-monthly-share.html']);
+    const svgContent = await readFile(path.join(tempDir, 'optimize-monthly-share.html'), 'utf8');
     const stderrLines = consoleErrorSpy.mock.calls.map((call) => String(call[0]));
 
     expect(svgContent).toContain('<svg');
     expect(svgContent).toContain('>Optimize<');
-    expect(stderrLines.some((line) => line.includes('Wrote optimize share SVG'))).toBe(true);
+    expect(stderrLines.some((line) => line.includes('Wrote optimize share report'))).toBe(true);
     expect(consoleLogSpy).toHaveBeenCalledTimes(1);
   });
 

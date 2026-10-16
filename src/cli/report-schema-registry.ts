@@ -11,6 +11,7 @@ import pricingSchema from '../../schema/report-pricing.v1.schema.json' with { ty
 import projectsSchema from '../../schema/report-projects.v1.schema.json' with { type: 'json' };
 import pruneSchema from '../../schema/report-prune.v1.schema.json' with { type: 'json' };
 import sessionSchema from '../../schema/report-session.v1.schema.json' with { type: 'json' };
+import shareSchema from '../../schema/report-share.v1.schema.json' with { type: 'json' };
 import summarySchema from '../../schema/report-summary.v1.schema.json' with { type: 'json' };
 import trendsSchema from '../../schema/report-trends.v1.schema.json' with { type: 'json' };
 import usageSchema from '../../schema/report-usage.v1.schema.json' with { type: 'json' };
@@ -36,6 +37,7 @@ export const reportSchemas: Record<string, unknown> = {
   projects: bundleCommonDefinitions(projectsSchema),
   prune: bundleCommonDefinitions(pruneSchema),
   session: bundleCommonDefinitions(sessionSchema),
+  share: bundleCommonDefinitions(shareSchema),
   summary: bundleCommonDefinitions(summarySchema),
   trends: bundleCommonDefinitions(trendsSchema),
   usage: bundleCommonDefinitions(usageSchema),

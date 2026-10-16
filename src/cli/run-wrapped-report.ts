@@ -1,5 +1,6 @@
 import { renderWrappedReport, wrappedReportFormats } from '../render/render-wrapped-report.js';
 import { renderWrappedShareSvg } from '../render/render-wrapped-share-svg.js';
+import { createShareCardArtifact } from '../render/render-share-page.js';
 import { buildWrappedData, parseWrappedYearOption } from './build-wrapped-data.js';
 import { prepareReport, runStandardPreparedReport } from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
@@ -19,14 +20,13 @@ async function prepareWrappedReport(
     buildData: () => buildWrappedData(options, deps),
     getDiagnostics: (wrappedData) => wrappedData.diagnostics,
     runtimeProfile: deps.runtimeProfile,
-    createShareArtifact: options.share
-      ? (wrappedData) => ({
-          fileName: `llm-usage-wrapped-${wrappedData.recap.year}.svg`,
-          logLabel: 'wrapped',
-          title: `${wrappedData.recap.year} Wrapped share card`,
-          render: (theme) => renderWrappedShareSvg(wrappedData.recap, theme),
-        })
-      : undefined,
+    buildShare: async (wrappedData) =>
+      createShareCardArtifact({
+        fileBaseName: `llm-usage-wrapped-${wrappedData.recap.year}`,
+        logLabel: 'wrapped',
+        title: `${wrappedData.recap.year} Wrapped share card`,
+        renderSvg: (theme) => renderWrappedShareSvg(wrappedData.recap, theme),
+      }),
     render: (wrappedData, format) =>
       renderWrappedReport(wrappedData.recap, format, { filtered: hasCliFilters(options) }),
   });
