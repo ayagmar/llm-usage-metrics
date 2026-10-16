@@ -1,0 +1,7 @@
+┌─────────────────────────┐
+│ Monthly Optimize Report │
+└─────────────────────────┘
+
+Provider scope: openai
+
+No usage data found for the selected filters.
