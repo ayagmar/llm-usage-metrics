@@ -125,9 +125,15 @@ function valueMatchesKey(value: RepoFilterValue, key: string | undefined): boole
     : key === value.suffix || key.endsWith(`/${value.suffix}`);
 }
 
+/** A project key in the form `--repo` values take, so an absolute root matches itself. */
 function toComparableKey(repoRoot: string | undefined): string | undefined {
-  const key = toProjectKey(repoRoot);
-  return key === undefined ? undefined : normalizeSeparators(key);
+  const key = toProjectKey(repoRoot)?.replaceAll('\\', '/');
+
+  if (key === undefined) {
+    return undefined;
+  }
+
+  return ABSOLUTE_PATTERN.test(key) ? normalizeAbsolutePath(key) : normalizeSeparators(key);
 }
 
 /** Keeps the events of the selected projects; without a filter, returns `events` itself. */

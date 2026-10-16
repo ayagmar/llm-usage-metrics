@@ -150,3 +150,56 @@ describe('applyRepoFilter', () => {
     expect(select('(unattributed)', 'myapi')).toEqual(['/w/a/myapi', undefined]);
   });
 });
+
+describe('repo filter properties', () => {
+  const PREFIXES = ['/', 'C:\\', 'c:/', '\\\\host\\share\\', '//host/share/'];
+  const SEGMENTS = ['w', 'api', '.', '..', '', 'x y', '(unattributed)'];
+
+  /** Every absolute root of up to three segments over PREFIXES and SEGMENTS, with both separators. */
+  function* absoluteRoots(): Generator<string> {
+    for (const prefix of PREFIXES) {
+      const visit = function* (root: string, depth: number): Generator<string> {
+        yield root;
+
+        if (depth === 3) {
+          return;
+        }
+
+        for (const segment of SEGMENTS) {
+          yield* visit(`${root}${segment}`, depth + 1);
+          yield* visit(`${root}${segment}/`, depth + 1);
+          yield* visit(`${root}${segment}\\`, depth + 1);
+        }
+      };
+
+      yield* visit(prefix, 0);
+    }
+  }
+
+  it('keeps any absolute root when it is the --repo value', () => {
+    for (const repoRoot of absoluteRoots()) {
+      expect(
+        applyRepoFilter([{ repoRoot }], normalizeRepoFilter(repoRoot, context)),
+        repoRoot,
+      ).toHaveLength(1);
+    }
+  });
+
+  it('matches roots written with doubled separators or dot segments', () => {
+    for (const repoRoot of [
+      '/w//api',
+      '/w/a/../a/api',
+      'C:\\src\\.\\api',
+      '\\\\host\\share\\x\\..\\api',
+    ]) {
+      expect(applyRepoFilter([{ repoRoot }], normalizeRepoFilter(repoRoot, context))).toHaveLength(
+        1,
+      );
+    }
+
+    expect(select('/w/a/api')).toEqual(['/w/a/api', '/w/a/api/src']);
+    expect(
+      applyRepoFilter([{ repoRoot: '/w/a/./api//src' }], normalizeRepoFilter('/w/a/api', context)),
+    ).toHaveLength(1);
+  });
+});
