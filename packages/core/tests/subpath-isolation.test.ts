@@ -42,7 +42,7 @@ async function modulesLoadedBy(entry: string, directories: readonly string[]): P
   vi.resetModules();
   for (const modulePath of watched) {
     vi.doMock(modulePath, async (importOriginal) => {
-      loaded.push(path.relative(sourcesRoot, modulePath));
+      loaded.push(path.relative(sourcesRoot, modulePath).split(path.sep).join('/'));
       return importOriginal();
     });
   }
