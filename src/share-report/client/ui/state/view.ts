@@ -7,6 +7,7 @@ import { shiftDateKey } from '../../../../utils/date-key.js';
 import {
   decodeViewState,
   getDefaultViewState,
+  getWindowEnd,
   SHARE_DIMENSIONS,
   type ShareDimension,
   type ShareFilters,
@@ -125,24 +126,13 @@ export type PeriodPreset = {
   until: string | null;
 };
 
-/** The last date the file covers: the window's end, else the newest date with data. */
-export function getLastDate(report: ShareReport): string | undefined {
-  return (
-    report.data.meta.window.until ??
-    report.periods.reduce<string | undefined>(
-      (last, period) => (last === undefined || period.dateKey > last ? period.dateKey : last),
-      undefined,
-    )
-  );
-}
-
 /**
  * Shortcuts for the period: the command's own view, the last 7, 30 and 90 days that fit in
  * the window, and the whole window. Presets that equal an earlier one are left out.
  */
 export function getPeriodPresets(report: ShareReport): PeriodPreset[] {
   const { initialView, window } = report.data.meta;
-  const last = getLastDate(report);
+  const last = getWindowEnd(report);
   const presets: PeriodPreset[] = [
     { id: 'opening', label: 'Opening view', since: initialView.since, until: initialView.until },
   ];

@@ -36,8 +36,9 @@ export function resolveUntil(report: ShareReport, until: string | null): string 
 }
 
 /**
- * The dates the view spans: the filter range, with open ends taken from the window and then
- * from the data, so a chart axis has fixed ends whatever cells the filters keep.
+ * The dates the view spans: the filter range, with an open start taken from the window and then
+ * from the data, and the end resolved by `resolveUntil`, so a chart axis has fixed ends whatever
+ * cells the filters keep and never runs past the generation date.
  */
 export function getViewDateSpan(
   report: ShareReport,
@@ -46,7 +47,7 @@ export function getViewDateSpan(
   const { window } = report.data.meta;
   const dataDates = report.periods.map((period) => period.dateKey).sort();
   const first = filters.since ?? window.since ?? dataDates.at(0);
-  const last = filters.until ?? window.until ?? dataDates.at(-1);
+  const last = resolveUntil(report, filters.until) ?? undefined;
 
   return first !== undefined && last !== undefined && first <= last ? { first, last } : undefined;
 }
