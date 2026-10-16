@@ -4,7 +4,7 @@
 
 …-e2e-session
   Source         pi
-  Repo           -
+  Project        (unattributed)
   Last Activity  2026-02-01
   Duration       673h 0m
   Total              180
@@ -13,7 +13,7 @@
 
 …ask-kilocode
   Source         kilocode
-  Repo           -
+  Project        (unattributed)
   Last Activity  2026-06-15
   Duration             -
   Total               45
@@ -22,7 +22,7 @@
 
 task-roocode
   Source         roocode
-  Repo           -
+  Project        (unattributed)
   Last Activity  2026-06-15
   Duration             -
   Total               55
@@ -31,7 +31,7 @@ task-roocode
 
 task-cline
   Source         cline
-  Repo           -
+  Project        (unattributed)
   Last Activity  2026-06-15
   Duration             -
   Total               45
@@ -40,7 +40,7 @@ task-cline
 
 …-e2e-session
   Source         codex
-  Repo           -
+  Project        (unattributed)
   Last Activity  2026-02-02
   Duration       672h 0m
   Total              390
@@ -49,7 +49,7 @@ task-cline
 
 …-e2e-session
   Source         claude
-  Repo           claude-e2e
+  Project        claude-e2e
   Last Activity  2026-06-20
   Duration            5m
   Total              220
@@ -58,7 +58,7 @@ task-cline
 
 openclaw-e2e
   Source         openclaw
-  Repo           openclaw-e2e
+  Project        openclaw-e2e
   Last Activity  2026-05-01
   Duration             -
   Total               15
@@ -67,7 +67,7 @@ openclaw-e2e
 
 …-e2e-session
   Source         gemini
-  Repo           gemini-e2e
+  Project        gemini-e2e
   Last Activity  2026-06-03
   Duration           10m
   Total              195
@@ -76,7 +76,7 @@ openclaw-e2e
 
 session-001
   Source         droid
-  Repo           droid-e2e
+  Project        droid-e2e
   Last Activity  2026-06-10
   Duration             -
   Total              115
@@ -85,7 +85,7 @@ session-001
 
 …on-e2e-dsh-a
   Source         dsh
-  Repo           dsh-e2e
+  Project        dsh-e2e
   Last Activity  2026-09-11
   Duration           <1m
   Total            2,000
@@ -94,7 +94,7 @@ session-001
 
 session-002
   Source         droid
-  Repo           droid-e2e
+  Project        droid-e2e
   Last Activity  2026-06-11
   Duration             -
   Total               85
@@ -103,7 +103,7 @@ session-002
 
 …on-e2e-dsh-b
   Source         dsh
-  Repo           dsh-e2e
+  Project        dsh-e2e
   Last Activity  2026-09-11
   Duration             -
   Total              440
@@ -112,7 +112,7 @@ session-002
 
 session-kimi
   Source         kimi
-  Repo           -
+  Project        (unattributed)
   Last Activity  2026-06-15
   Duration             -
   Total               70
@@ -121,7 +121,7 @@ session-kimi
 
 …p-e2e-thread
   Source         amp
-  Repo           -
+  Project        (unattributed)
   Last Activity  2026-06-15
   Duration             -
   Total              120
@@ -130,7 +130,7 @@ session-kimi
 
 …-e2e-session
   Source         qwen
-  Repo           -
+  Project        (unattributed)
   Last Activity  2026-06-15
   Duration             -
   Total               90
@@ -139,7 +139,7 @@ session-kimi
 
 …-e2e-session
   Source         goose
-  Repo           -
+  Project        (unattributed)
   Last Activity  2026-06-15
   Duration             -
   Total              180
@@ -148,7 +148,7 @@ session-kimi
 
 …-e2e-session
   Source         copilot
-  Repo           -
+  Project        (unattributed)
   Last Activity  2026-06-15
   Duration             -
   Total              100
@@ -157,7 +157,7 @@ session-kimi
 
 …-e2e-session
   Source         opencode
-  Repo           -
+  Project        (unattributed)
   Last Activity  2026-06-15
   Duration            5m
   Total              200
@@ -166,7 +166,7 @@ session-kimi
 
 conversation
   Source         antigravity
-  Repo           -
+  Project        (unattributed)
   Last Activity  2026-06-15
   Duration             -
   Total               65
