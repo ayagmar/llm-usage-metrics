@@ -7,6 +7,7 @@ import * as shareArtifact from '../../src/cli/share-artifact.js';
 
 import { buildUsageReport, runUsageReport } from '../../src/cli/run-usage-report.js';
 import { visibleWidth } from '../../src/render/table-text-layout.js';
+import { readSharePayload } from '../helpers/share-html.js';
 import { overrideStdoutTty } from '../helpers/stdout.js';
 
 const tempDirs: string[] = [];
@@ -684,21 +685,26 @@ describe('buildUsageReport', () => {
     ).rejects.toThrow('--compact applies to terminal and markdown tables; drop it with --json');
   });
 
-  it('rejects --by-machine with --share', async () => {
-    await expect(
-      buildUsageReport('daily', { all: true, byMachine: true, share: true }),
-    ).rejects.toThrow('--by-machine splits the table only; drop it with --share');
-  });
+  it('accepts --by-machine and --by-repo with --share: the page splits by machine and project', async () => {
+    const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'usage-share-split-sessions-'));
+    tempDirs.push(emptyDir);
 
-  it('rejects --by-repo with --share', async () => {
     await expect(
-      buildUsageReport('daily', { all: true, byRepo: true, share: true }),
-    ).rejects.toThrow('--by-repo splits the table only; drop it with --share');
+      buildUsageReport('daily', {
+        all: true,
+        byMachine: true,
+        byRepo: true,
+        share: true,
+        piDir: emptyDir,
+        codexDir: emptyDir,
+        source: directoryBackedSources,
+      }),
+    ).resolves.toEqual(expect.any(String));
   });
 
   it('rejects --no-cost with --json', async () => {
     await expect(buildUsageReport('daily', { all: true, cost: false, json: true })).rejects.toThrow(
-      '--no-cost applies to tables and the share card; drop it with --json',
+      '--no-cost applies to tables and the share report; drop it with --json',
     );
   });
 
@@ -942,11 +948,14 @@ describe('buildUsageReport', () => {
     }
 
     expect(await readdir(shareDir)).toEqual(['usage-monthly-share.html']);
-    const svgContent = await readFile(path.join(shareDir, 'usage-monthly-share.html'), 'utf8');
+    const { data } = readSharePayload(
+      await readFile(path.join(shareDir, 'usage-monthly-share.html'), 'utf8'),
+    );
 
-    expect(svgContent).toContain('<svg');
-    expect(svgContent).toContain('Tokens');
-    expect(svgContent).toContain('llm-usage monthly --share');
+    expect(data.meta.command).toBe('monthly');
+    // monthly has no default window: the file holds all history and opens on it by month.
+    expect(data.meta.window).toEqual({ since: null, until: null });
+    expect(data.meta.initialView).toEqual({ since: null, until: null, granularity: 'month' });
     expect(stderrLines.some((line) => line.includes('Wrote usage share report'))).toBe(true);
     expect(logCallCount).toBe(1);
   });

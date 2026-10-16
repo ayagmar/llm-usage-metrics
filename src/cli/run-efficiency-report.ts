@@ -1,5 +1,3 @@
-import { renderEfficiencyMonthlyShareSvg } from '../render/render-efficiency-share-svg.js';
-import { createShareCardArtifact } from '../render/render-share-page.js';
 import {
   renderEfficiencyReportWithNotes,
   type EfficiencyReportFormat,
@@ -14,27 +12,16 @@ import {
 } from './report-runtime/report-lifecycle.js';
 import { hasCliFilters } from './filter-match-warnings.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
+import {
+  buildShareReportArtifact,
+  parseReportJsonEnvelope,
+  toShareDateRange,
+  toShareGranularity,
+} from './share-report-artifact.js';
 import type { EfficiencyCommandOptions, EfficiencyDiagnostics } from './usage-data-contracts.js';
 import type { BuildEfficiencyDataDeps } from './build-efficiency-data.js';
 
 const efficiencyReportFormats = STANDARD_REPORT_FORMATS satisfies readonly EfficiencyReportFormat[];
-
-function validateShareOption(
-  granularity: ReportGranularity,
-  options: EfficiencyCommandOptions,
-): void {
-  if (!options.share) {
-    return;
-  }
-
-  if (granularity !== 'monthly') {
-    throw new Error('--share is only supported for efficiency monthly');
-  }
-
-  if (options.bySource) {
-    throw new Error('--share cannot be combined with --by-source');
-  }
-}
 
 async function prepareEfficiencyReport(
   granularity: ReportGranularity,
@@ -44,19 +31,27 @@ async function prepareEfficiencyReport(
   return prepareReport({
     commandOptions: options,
     supportedFormats: efficiencyReportFormats,
-    validate: () => {
-      validateShareOption(granularity, options);
-    },
     buildData: () => buildEfficiencyData(granularity, options, deps),
     getDiagnostics: (efficiencyData) => efficiencyData.diagnostics,
     runtimeProfile: deps.runtimeProfile,
-    buildShare: async (efficiencyData) =>
-      createShareCardArtifact({
-        fileBaseName: 'efficiency-monthly-share',
-        logLabel: 'efficiency',
-        title: 'Efficiency share card',
-        renderSvg: (theme) => renderEfficiencyMonthlyShareSvg(efficiencyData, theme),
-      }),
+    buildShare: async (efficiencyData, { runtimeProfile }) => {
+      const window = toShareDateRange(options.since, options.until);
+
+      return buildShareReportArtifact(
+        {
+          command: 'efficiency',
+          options,
+          window,
+          initialView: { ...window, granularity: toShareGranularity(granularity) },
+          envelope: parseReportJsonEnvelope(
+            renderEfficiencyReportWithNotes(efficiencyData, 'json', { granularity }).output,
+          ),
+          fileBaseName: `efficiency-${granularity}-share`,
+          logLabel: 'efficiency',
+        },
+        { ...deps, runtimeProfile },
+      );
+    },
     render: (efficiencyData, format) => {
       const { output, notes } = renderEfficiencyReportWithNotes(efficiencyData, format, {
         granularity,

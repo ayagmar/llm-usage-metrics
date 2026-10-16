@@ -7,8 +7,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { runSummaryReport, SUMMARY_NEXT_STEPS_HINT } from '../../src/cli/run-summary-report.js';
 import * as shareArtifact from '../../src/cli/share-artifact.js';
 import { runUsageReport } from '../../src/cli/run-usage-report.js';
+import { readSharePayload } from '../helpers/share-html.js';
 
 const tempDirs: string[] = [];
+
+function daysBetween(since: string, until: string): number {
+  return (Date.parse(`${until}T00:00:00Z`) - Date.parse(`${since}T00:00:00Z`)) / 86_400_000;
+}
 
 afterEach(async () => {
   await Promise.all(tempDirs.map((dir) => rm(dir, { recursive: true, force: true })));
@@ -71,9 +76,14 @@ describe('runSummaryReport', () => {
     }
 
     expect(await readdir(shareDir)).toEqual(['summary-share.html']);
-    const page = await readFile(path.join(shareDir, 'summary-share.html'), 'utf8');
-    expect(page).toContain('No usage in the past year');
-    expect(page).toContain('data-theme="light"');
+    const { data } = readSharePayload(
+      await readFile(path.join(shareDir, 'summary-share.html'), 'utf8'),
+    );
+    // The activity grid's 53 weeks, ending today.
+    const { since, until } = data.meta.window;
+    expect(data.meta.initialView).toEqual({ since, until, granularity: 'week' });
+    expect(until).toBe(new Date().toISOString().slice(0, 10));
+    expect(daysBetween(since ?? '', until ?? '')).toBeGreaterThanOrEqual(52 * 7);
   });
 
   it('keeps JSON output free of the hint', async () => {

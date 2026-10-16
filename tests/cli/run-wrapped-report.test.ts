@@ -48,6 +48,10 @@ vi.mock('../../src/cli/build-wrapped-data.js', async (importOriginal) => {
   };
 });
 
+vi.mock('../../src/cli/build-share-report-data.js', () => ({
+  buildShareReportData: vi.fn(),
+}));
+
 vi.mock('../../src/cli/share-artifact.js', () => ({
   writeShareFile: vi.fn(async (fileName: string) => `/tmp/${fileName}`),
   openShareFile: vi.fn(async () => {
@@ -55,9 +59,11 @@ vi.mock('../../src/cli/share-artifact.js', () => ({
   }),
 }));
 
+import { buildShareReportData } from '../../src/cli/build-share-report-data.js';
 import { buildWrappedData } from '../../src/cli/build-wrapped-data.js';
 import { buildWrappedReport, runWrappedReport } from '../../src/cli/run-wrapped-report.js';
 import { writeShareFile } from '../../src/cli/share-artifact.js';
+import { readFixturePayload } from '../share-report/client/core/share-fixture.js';
 
 describe('run-wrapped-report', () => {
   afterEach(() => {
@@ -127,16 +133,27 @@ describe('run-wrapped-report', () => {
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
+    vi.mocked(buildShareReportData).mockResolvedValue(readFixturePayload().data);
+
     try {
       await runWrappedReport({
         year: '2026',
         share: true,
       });
 
+      // The page holds wrapped's year and opens on all of it, with the recap embedded.
+      const [request] = vi.mocked(buildShareReportData).mock.calls[0] ?? [];
+      expect(request).toMatchObject({
+        command: 'wrapped',
+        window: { since: '2026-01-01', until: '2026-12-31' },
+        initialView: { since: '2026-01-01', until: '2026-12-31', granularity: 'week' },
+        envelope: { report: 'wrapped', data: { year: 2026, totalTokens: 1_000 } },
+      });
+
       expect(writeShareFile).toHaveBeenCalledTimes(1);
       const [fileName, page] = vi.mocked(writeShareFile).mock.calls[0] ?? [];
       expect(fileName).toBe('llm-usage-wrapped-2026.html');
-      expect(page).toContain('2026 Wrapped');
+      expect(page).toContain('id="report-data"');
 
       expect(consoleLogSpy).toHaveBeenCalledTimes(1);
       expect(String(consoleLogSpy.mock.calls[0]?.[0])).toContain('Wrapped 2026');

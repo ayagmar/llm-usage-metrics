@@ -53,6 +53,10 @@ vi.mock('../../src/cli/build-compare-data.js', () => ({
   })),
 }));
 
+vi.mock('../../src/cli/build-share-report-data.js', () => ({
+  buildShareReportData: vi.fn(),
+}));
+
 vi.mock('../../src/cli/share-artifact.js', () => ({
   writeShareFile: vi.fn(async (fileName: string) => `/tmp/${fileName}`),
   openShareFile: vi.fn(async () => {
@@ -61,8 +65,11 @@ vi.mock('../../src/cli/share-artifact.js', () => ({
 }));
 
 import { buildCompareData } from '../../src/cli/build-compare-data.js';
+import { buildShareReportData } from '../../src/cli/build-share-report-data.js';
 import { buildCompareReport, runCompareReport } from '../../src/cli/run-compare-report.js';
 import { writeShareFile } from '../../src/cli/share-artifact.js';
+import { readSharePayload } from '../helpers/share-html.js';
+import { readFixturePayload } from '../share-report/client/core/share-fixture.js';
 
 describe('run-compare-report', () => {
   afterEach(() => {
@@ -131,13 +138,28 @@ describe('run-compare-report', () => {
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
+    const shareData = readFixturePayload().data;
+    vi.mocked(buildShareReportData).mockResolvedValue(shareData);
+
     try {
       await runCompareReport({ share: true });
+
+      // The file spans both windows, opens on the current one and embeds the --json report.
+      const [request] = vi.mocked(buildShareReportData).mock.calls[0] ?? [];
+      expect(request).toMatchObject({
+        command: 'compare',
+        window: { since: '2026-05-01', until: '2026-06-30' },
+        initialView: { since: '2026-06-01', until: '2026-06-30', granularity: 'day' },
+        envelope: {
+          report: 'compare',
+          data: { current: { window: { label: '2026-06' } }, baseline: { totals: { events: 1 } } },
+        },
+      });
 
       expect(writeShareFile).toHaveBeenCalledTimes(1);
       const [fileName, page] = vi.mocked(writeShareFile).mock.calls[0] ?? [];
       expect(fileName).toBe('compare-share.html');
-      expect(page).toContain('2026-06 against 2026-05');
+      expect(readSharePayload(page).data).toEqual(shareData);
 
       expect(consoleLogSpy).toHaveBeenCalledTimes(1);
       expect(String(consoleLogSpy.mock.calls[0]?.[0])).toContain('Compare: 2026-06 vs 2026-05');
