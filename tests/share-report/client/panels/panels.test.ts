@@ -226,6 +226,38 @@ describe('wrapped recap without optional figures', () => {
     expect(view.calendar).toMatchObject({ weeks: 0, days: [] });
   });
 
+  it('reads zeros and dashes, never NaN, when the recap leaves its figures out', () => {
+    const view = defined(
+      buildWrappedView(
+        withEnvelope('wrapped', {
+          year: 2026,
+          activeDays: 1,
+          topModels: [{}],
+          // A month key the page cannot name shows as written.
+          monthlyIntensity: [{ month: '2026-00' }],
+          busiestDay: {},
+        }),
+      ),
+    );
+    const shown = JSON.stringify(view);
+
+    expect(view.lede.map((part) => part.text).join('')).toBe(
+      '0 tokens across 1 active day in 2026.',
+    );
+    expect(shown).not.toMatch(/NaN|undefined/u);
+    expect(view.topLists[0].items[0]).toMatchObject({ name: '—', tokens: '0', share: 0 });
+    expect(texts(view.months.rows[0])).toEqual(['2026-00', '0', '—']);
+    expect(view.facts.find((fact) => fact.label === 'Busiest day')).toEqual({
+      label: 'Busiest day',
+      value: '—',
+      detail: '0 tokens',
+    });
+    // No timezone in the recap: the file's own.
+    expect(view.note).toBe(
+      'From wrapped for 2026, in Europe/Paris. The controls below do not change it.',
+    );
+  });
+
   it('scales top-list bars by tokens when the list has no cost', () => {
     const view = defined(
       buildWrappedView(
