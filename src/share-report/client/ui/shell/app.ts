@@ -32,6 +32,7 @@ import {
   resetView,
   resolveInitialView,
   resolveTheme,
+  toUrlHash,
   withView,
   type ShareUiState,
 } from '../state/view.js';
@@ -128,7 +129,7 @@ export function startApp(root: HTMLElement, report: ShareReport, pristine: Prist
     // A refused change still re-renders, so an input shows the state again, not what was typed.
     if (next !== state) {
       state = next;
-      writeHash(encodeViewState(state.view, report));
+      writeHash(toUrlHash(state.view, report, pristine.savedHash));
     }
 
     render();
