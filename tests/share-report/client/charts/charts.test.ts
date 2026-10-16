@@ -211,6 +211,20 @@ for (const host of HOST_TIMEZONES) {
       );
     });
 
+    it('write every cost tick in one format chosen from the step', () => {
+      // Costs ×5,000: the busiest day is $1,400, so the axis steps by $500.
+      const large = loadFixtureReport((data) => {
+        const both = data.cube.costs.both;
+        if (both) {
+          both.costUsd = both.costUsd.map((cost) => (cost === null ? null : cost * 5_000));
+        }
+      });
+      const labels = texts(chart('cost-over-time').build(contextFor(large), 1300).svg);
+
+      expect(labels).toEqual(expect.arrayContaining(['$0', '$500', '$1,000', '$1,500']));
+      expect(labels).not.toContain('$500.00');
+    });
+
     it('stack tokens by project, honour filters, and label each layer', () => {
       const view = chart('tokens-over-time').build(
         contextFor(report, { stackBy: 'project' }),

@@ -60,6 +60,40 @@ export function formatAxisValue(value: number, unit: 'tokens' | 'usd'): string {
   return value >= 1000 ? `$${formatCompact(value)}` : formatUsdOrNone(value);
 }
 
+/** The decimals a step needs to be written exactly (a nice step has few). */
+function stepDecimals(step: number): number {
+  let decimals = 0;
+  let scaled = step;
+
+  while (decimals < 12 && Math.abs(Math.round(scaled) - scaled) > 1e-9 * scaled) {
+    decimals += 1;
+    scaled = step * 10 ** decimals;
+  }
+
+  return decimals;
+}
+
+/**
+ * One format for every tick of a cost axis, chosen from its step: `$2K` when the step is $1,000
+ * or more, whole dollars for a whole-dollar step, else at least cents and as many decimals as
+ * the step needs, so no two ticks read alike.
+ */
+export function usdTickFormat(step: number): (value: number) => string {
+  if (step >= 1000) {
+    return (value) => `$${formatCompact(value)}`;
+  }
+
+  const decimals = step >= 1 && Number.isInteger(step) ? 0 : Math.max(2, stepDecimals(step));
+  const formatter = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+
+  return (value) => formatter.format(value);
+}
+
 const CAPTION_LINE = 16;
 
 /**

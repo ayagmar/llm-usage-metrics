@@ -3,6 +3,8 @@
 export type LinearScale = {
   /** The top of the domain: a tick value, at least the largest value drawn. */
   max: number;
+  /** The distance between two ticks. */
+  step: number;
   ticks: number[];
   /** A value's pixel position: 0 at `range[0]`, `max` at `range[1]`. */
   at: (value: number) => number;
@@ -42,7 +44,7 @@ export function linearScale(
   );
   const [start, end] = range;
 
-  return { max, ticks, at: (value) => start + ((end - start) * value) / max };
+  return { max, step, ticks, at: (value) => start + ((end - start) * value) / max };
 }
 
 export type BandScale = {

@@ -20,7 +20,7 @@ import type { ShareViewContext } from '../state/context.js';
 import {
   AXIS_SIZE,
   caption,
-  formatAxisValue,
+  usdTickFormat,
   formatPeriod,
   LABEL_SIZE,
   NARROW_WIDTH,
@@ -83,7 +83,8 @@ type LineSpec = {
   /** The y domain's top; the line's own maximum when undefined. */
   max?: number;
   format: (value: number | null) => string;
-  tickFormat: (value: number) => string;
+  /** The tick format for an axis with this step. */
+  tickFormat: (step: number) => (value: number) => string;
   context: ShareViewContext;
   width: number;
   notes: string[];
@@ -121,7 +122,8 @@ function buildLineChart(spec: LineSpec): ChartView {
     top + plotHeight,
     top + 30,
   ]);
-  const plot = { left: yAxisWidth(scale, spec.tickFormat), right: spec.width };
+  const tickFormat = spec.tickFormat(scale.step);
+  const plot = { left: yAxisWidth(scale, tickFormat), right: spec.width };
   const band = bandScale(spec.axis.length, [plot.left, plot.right], 0);
   const points = spec.values.map((value, slot) =>
     value === null ? null : { x: band.at(slot) + band.step / 2, y: scale.at(value) },
@@ -146,7 +148,7 @@ function buildLineChart(spec: LineSpec): ChartView {
     description: `${spec.description}. ${spec.caption}.`,
     svg: svgRoot(spec.width, top + plotHeight + X_AXIS_HEIGHT, spec.description, [
       heading.node,
-      yAxis(scale, plot, spec.tickFormat),
+      yAxis(scale, plot, tickFormat),
       el('line', {
         x1: plot.left,
         x2: plot.right,
@@ -220,7 +222,7 @@ export function buildCacheHitChart(context: ShareViewContext, width: number): Ch
     overall,
     max: 1,
     format: formatPercent,
-    tickFormat: (value) => `${Math.round(value * 100)}%`,
+    tickFormat: () => (value) => `${Math.round(value * 100)}%`,
     context,
     width,
     notes,
@@ -291,7 +293,7 @@ export function buildCostPerHourChart(context: ShareViewContext, width: number):
     values: valuesByAxis(axis, rollupByPeriod(report, hourlyCells, view.granularity).rows, perHour),
     overall,
     format: formatUsdOrNone,
-    tickFormat: (value) => formatAxisValue(value, 'usd'),
+    tickFormat: usdTickFormat,
     context,
     width,
     notes,
