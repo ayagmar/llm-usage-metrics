@@ -1,15 +1,19 @@
-// The optimize panel: what the same tokens would have cost on each candidate model, from the
+// The optimize lead: what the same tokens would have cost on each candidate model, from the
 // embedded `optimize --json` rows. Fixed at generation: the page's filters do not change it.
 
 import { NO_VALUE, type ShareReport } from '../../core/index.js';
 import { formatPercent } from '../shell/format.js';
 import {
+  figure,
+  FIXED_NOTE,
   formatEnvelopeCost,
   formatSignedCost,
   getEnvelopeData,
   readNumber,
   readRecords,
   readString,
+  words,
+  type LedePart,
   type PanelCell,
   type PanelFact,
   type PanelView,
@@ -26,8 +30,7 @@ const NOTE_TEXT: Record<string, string> = {
 
 const TOTAL_PERIOD = 'ALL';
 
-const NOTE =
-  'From the optimize command. Savings are the baseline cost minus the hypothetical one: positive means the candidate is cheaper. The controls above do not change it.';
+const NOTE = `From the optimize command. Savings are the baseline cost minus the hypothetical one: positive means the candidate is cheaper. ${FIXED_NOTE}`;
 
 function describeNotes(row: Record<string, unknown>): string {
   const notes = Array.isArray(row.notes)
@@ -66,39 +69,51 @@ function candidateCells(
   ];
 }
 
+/** The whole-window candidate with the largest savings, if any candidate has a savings figure. */
+function findBest(candidates: Record<string, unknown>[]): Record<string, unknown> | undefined {
+  return candidates
+    .filter((row) => readNumber(row, 'savingsUsd') !== undefined)
+    .reduce<Record<string, unknown> | undefined>(
+      (current, row) =>
+        current === undefined ||
+        (readNumber(row, 'savingsUsd') ?? 0) > (readNumber(current, 'savingsUsd') ?? 0)
+          ? row
+          : current,
+      undefined,
+    );
+}
+
+/** Why no candidate has a savings figure: the whole-window notes, in words. */
+function describeUnavailable(candidates: Record<string, unknown>[]): string {
+  const reasons = [...new Set(candidates.map(describeNotes).filter((text) => text !== ''))];
+  return reasons.length === 0 ? 'a baseline or candidate price is missing' : reasons.join('; ');
+}
+
+function baselineCost(baseline: Record<string, unknown> | undefined): string {
+  return baseline
+    ? formatEnvelopeCost(
+        readNumber(baseline, 'baselineCostUsd'),
+        baseline.baselineCostIncomplete === true,
+      ).text
+    : NO_VALUE;
+}
+
 function buildFacts(
   providers: string[],
   baseline: Record<string, unknown> | undefined,
+  best: Record<string, unknown> | undefined,
   candidates: Record<string, unknown>[],
 ): PanelFact[] {
-  const priced = candidates.filter((row) => readNumber(row, 'savingsUsd') !== undefined);
-  const best = priced.reduce<Record<string, unknown> | undefined>(
-    (current, row) =>
-      current === undefined ||
-      (readNumber(row, 'savingsUsd') ?? 0) > (readNumber(current, 'savingsUsd') ?? 0)
-        ? row
-        : current,
-    undefined,
-  );
   const facts: PanelFact[] = [
     { label: 'Provider', value: providers.length === 0 ? NO_VALUE : providers.join(', ') },
-    {
-      label: 'Baseline cost',
-      value: baseline
-        ? formatEnvelopeCost(
-            readNumber(baseline, 'baselineCostUsd'),
-            baseline.baselineCostIncomplete === true,
-          ).text
-        : NO_VALUE,
-      detail: 'The whole window',
-    },
+    { label: 'Baseline cost', value: baselineCost(baseline), detail: 'The whole window' },
   ];
 
   if (!best) {
     facts.push({
       label: 'Best candidate',
       value: 'Unavailable',
-      detail: 'Missing baseline or candidate pricing',
+      detail: describeUnavailable(candidates),
     });
     return facts;
   }
@@ -110,6 +125,51 @@ function buildFacts(
     detail: `${formatSignedCost(readNumber(best, 'savingsUsd')).text} saved${ratio === undefined ? '' : ` (${formatPercent(ratio)})`}`,
   });
   return facts;
+}
+
+/**
+ * `On gpt-4.1-mini the same tokens would have cost $0.10 instead of $0.62: $0.52 saved (84.0%).`,
+ * or why no candidate can be ranked.
+ */
+function buildLede(
+  baseline: Record<string, unknown> | undefined,
+  best: Record<string, unknown> | undefined,
+  candidates: Record<string, unknown>[],
+): LedePart[] {
+  if (candidates.length === 0) {
+    return [];
+  }
+
+  if (!best) {
+    return [
+      words('Baseline cost '),
+      figure(baselineCost(baseline)),
+      words(`. No candidate has a savings figure: ${describeUnavailable(candidates)}.`),
+    ];
+  }
+
+  const savings = readNumber(best, 'savingsUsd') ?? 0;
+  const ratio = readNumber(best, 'savingsRatio');
+  const hypothetical = formatEnvelopeCost(
+    readNumber(best, 'hypotheticalCostUsd'),
+    best.hypotheticalCostIncomplete === true,
+  ).text;
+
+  return [
+    words('On '),
+    figure(readString(best, 'candidateModel') ?? NO_VALUE),
+    words(' the same tokens would have cost '),
+    figure(hypothetical),
+    words(' instead of '),
+    figure(baselineCost(baseline)),
+    words(': '),
+    figure(formatEnvelopeCost(Math.abs(savings)).text),
+    words(savings >= 0 ? ' saved' : ' more'),
+    ...(ratio === undefined
+      ? []
+      : [words(' ('), figure(formatPercent(Math.abs(ratio))), words(')')]),
+    words('.'),
+  ];
 }
 
 /** The optimize panel, or undefined when the file's optimize data cannot be read. */
@@ -135,8 +195,11 @@ export function buildOptimizeView(report: ShareReport): PanelView | undefined {
   const totalBaseline = [...baselines.values()].find(isTotal);
   const cells = (row: Record<string, unknown>) => candidateCells(row, baselines.get(rowKey(row)));
 
+  const best = findBest(totals);
+
   return {
-    facts: buildFacts(providers, totalBaseline, totals),
+    lede: buildLede(totalBaseline, best, totals),
+    facts: buildFacts(providers, totalBaseline, best, totals),
     tables:
       candidates.length === 0
         ? []

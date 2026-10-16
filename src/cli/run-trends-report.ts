@@ -6,7 +6,7 @@ import {
   STANDARD_REPORT_FORMATS,
 } from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
-import { buildShareReportArtifact } from './share-report-artifact.js';
+import { buildShareReportArtifact, parseReportJsonEnvelope } from './share-report-artifact.js';
 import type { BuildTrendsDataDeps, TrendsCommandOptions } from './usage-data-contracts.js';
 
 const trendsReportFormats = STANDARD_REPORT_FORMATS satisfies readonly TrendsReportFormat[];
@@ -27,6 +27,7 @@ async function prepareTrendsReport(options: TrendsCommandOptions, deps: BuildTre
           options,
           window,
           initialView: { ...window, granularity: 'day' },
+          envelope: parseReportJsonEnvelope(renderTrendsReport(trendsData, 'json')),
           fileBaseName: 'trends-share',
           logLabel: 'trends',
         },

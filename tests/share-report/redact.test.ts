@@ -287,6 +287,24 @@ describe('sanitizeEmbeddedEnvelope', () => {
     );
   });
 
+  it('keeps trends’ metric and summary’s dates when a project is named like them', () => {
+    const names = new Map([
+      ['tokens', 'project-1'],
+      ['2026', 'project-2'],
+      ['06', 'project-3'],
+    ]);
+    const data = {
+      metric: 'tokens',
+      dateRange: { from: '2026-06-01', to: '2026-06-21' },
+      totalSeries: { buckets: [{ date: '2026-06-15', value: 3 }] },
+      periods: [{ key: 'today', since: '2026-06-21', until: '2026-06-21' }],
+    };
+
+    expect(sanitizeEmbeddedEnvelope({ report: 'trends', data }, { ...maps, names }).data).toEqual(
+      data,
+    );
+  });
+
   it('drops path fields, maps projects and machines, and scrubs other strings', () => {
     const envelope = sanitizeEmbeddedEnvelope(
       {

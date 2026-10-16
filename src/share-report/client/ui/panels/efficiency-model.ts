@@ -1,27 +1,51 @@
-// The efficiency panel: cost and tokens against git outcomes, from the embedded
+// The efficiency lead: cost and tokens against git outcomes, from the embedded
 // `efficiency --json` data. Fixed at generation: the page's filters do not change it.
 
 import { NO_VALUE, type ShareReport } from '../../core/index.js';
 import { formatCount } from '../shell/format.js';
 import {
+  figure,
+  FIXED_NOTE,
   formatCountOrNone,
   formatEnvelopeCost,
   getEnvelopeData,
   isRecord,
+  LOWER_BOUND_NOTE,
   readNumber,
   readRecords,
   readString,
+  words,
+  type LedePart,
   type PanelCell,
   type PanelColumn,
   type PanelFact,
   type PanelView,
 } from './model.js';
 
-const NOTE =
-  'From the efficiency command: commits and lines come from the git history of the repository it ran in. The controls above do not change it.';
+const NOTE = `From the efficiency command: commits and lines come from the git history of the repository it ran in. ${FIXED_NOTE}`;
 
 function costCell(row: Record<string, unknown>, key: string): PanelCell {
   return formatEnvelopeCost(readNumber(row, key), row.costIncomplete === true);
+}
+
+let rateFormatter: Intl.NumberFormat | undefined;
+
+/** A cost per commit or per 1k lines with four decimals, as the terminal prints it. */
+function rateCell(row: Record<string, unknown>, key: string): PanelCell {
+  const value = readNumber(row, key);
+
+  if (value === undefined) {
+    return { text: NO_VALUE };
+  }
+
+  rateFormatter ??= new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4,
+  });
+  const text = rateFormatter.format(value);
+  return row.costIncomplete === true ? { text: `~${text}`, note: LOWER_BOUND_NOTE } : { text };
 }
 
 function rowCells(row: Record<string, unknown>, bySource: boolean): PanelCell[] {
@@ -42,8 +66,8 @@ function rowCells(row: Record<string, unknown>, bySource: boolean): PanelCell[] 
     { text: formatCountOrNone(readNumber(row, 'linesDeleted')) },
     { text: formatCountOrNone(readNumber(row, 'totalTokens')) },
     costCell(row, 'costUsd'),
-    costCell(row, 'usdPerCommit'),
-    costCell(row, 'usdPer1kLinesChanged'),
+    rateCell(row, 'usdPerCommit'),
+    rateCell(row, 'usdPer1kLinesChanged'),
     { text: formatCountOrNone(readNumber(row, 'tokensPerCommit')) },
   ];
 }
@@ -59,9 +83,43 @@ function buildFacts(total: Record<string, unknown>): PanelFact[] {
       value: formatCountOrNone(readNumber(total, 'linesChanged')),
       detail: `${formatCount(added)} added, ${formatCount(deleted)} deleted`,
     },
-    { label: 'Cost per commit', value: costCell(total, 'usdPerCommit').text },
-    { label: 'Cost per 1k lines', value: costCell(total, 'usdPer1kLinesChanged').text },
+    { label: 'Cost per commit', value: rateCell(total, 'usdPerCommit').text },
+    { label: 'Cost per 1k lines', value: rateCell(total, 'usdPer1kLinesChanged').text },
     { label: 'Tokens per commit', value: formatCountOrNone(readNumber(total, 'tokensPerCommit')) },
+  ];
+}
+
+/** `3 commits for $0.12: $0.04 a commit, 1,200 tokens a commit.`, or one commit's cost and tokens. */
+function buildLede(total: Record<string, unknown>): LedePart[] {
+  const commits = readNumber(total, 'commitCount') ?? 0;
+  const cost = costCell(total, 'costUsd').text;
+
+  if (commits === 0) {
+    return [words('No commits in this window, against '), figure(cost), words(' of usage.')];
+  }
+
+  const tokens = figure(formatCountOrNone(readNumber(total, 'tokensPerCommit')));
+
+  if (commits === 1) {
+    return [
+      figure('1'),
+      words(' commit for '),
+      figure(cost),
+      words(' and '),
+      tokens,
+      words(' tokens.'),
+    ];
+  }
+
+  return [
+    figure(formatCount(commits)),
+    words(' commits for '),
+    figure(cost),
+    words(': '),
+    figure(rateCell(total, 'usdPerCommit').text),
+    words(' a commit, '),
+    tokens,
+    words(' tokens a commit.'),
   ];
 }
 
@@ -91,6 +149,7 @@ export function buildEfficiencyView(report: ShareReport): PanelView | undefined 
   ];
 
   return {
+    lede: total ? buildLede(total) : [],
     facts: total ? buildFacts(total) : [],
     tables:
       body.length === 0

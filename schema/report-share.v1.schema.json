@@ -680,7 +680,7 @@
           "const": 1
         },
         "report": {
-          "enum": ["compare", "efficiency", "optimize", "wrapped"]
+          "enum": ["compare", "efficiency", "optimize", "summary", "trends", "wrapped"]
         },
         "data": {
           "description": "The command's --json data: an array of rows for optimize, an object otherwise.",

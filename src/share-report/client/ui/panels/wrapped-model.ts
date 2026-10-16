@@ -1,8 +1,7 @@
 // The wrapped recap: the year's figures, the daily calendar and the top lists, from the
 // embedded `wrapped --json` data. Fixed at generation: the page's filters do not change it.
 
-import { getIsoDayOfWeek, parseDateKey } from '../../../../utils/date-key.js';
-import { getWindowEnd, NO_VALUE, WEEKDAY_LABELS, type ShareReport } from '../../core/index.js';
+import { getWindowEnd, NO_VALUE, type ShareReport } from '../../core/index.js';
 import {
   formatCompact,
   formatCount,
@@ -11,6 +10,7 @@ import {
   formatPercent,
   pluralize,
 } from '../shell/format.js';
+import { buildCalendar, MONTH_NAMES, type CalendarView } from './calendar-model.js';
 import {
   formatEnvelopeCost,
   getEnvelopeData,
@@ -18,28 +18,10 @@ import {
   readNumber,
   readRecords,
   readString,
+  type LedePart,
   type PanelFact,
   type PanelTable,
 } from './model.js';
-
-/** A day in the calendar: its week column, its weekday row (Monday 0) and its heat level. */
-export type CalendarDay = {
-  week: number;
-  weekday: number;
-  /** 0 for no usage, then 1–4 as the CLI's intensity levels. */
-  level: number;
-  label: string;
-};
-
-export type CalendarView = {
-  weeks: number;
-  days: CalendarDay[];
-  /** Month names over the week column holding their first day. */
-  months: { label: string; week: number }[];
-  weekdays: readonly string[];
-  /** One sentence for screen readers; the monthly table holds the figures. */
-  summary: string;
-};
 
 export type TopItem = {
   rank: number;
@@ -57,83 +39,13 @@ export type TopList = { title: string; nameLabel: string; items: TopItem[] };
 
 export type WrappedView = {
   year: string;
-  /** The lede: figures and the words between them. */
-  lede: { text: string; figure: boolean }[];
+  lede: LedePart[];
   facts: PanelFact[];
   calendar: CalendarView;
   months: PanelTable;
   topLists: TopList[];
   note: string;
 };
-
-const MONTH_NAMES = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
-
-function clampLevel(level: number | undefined): number {
-  return level === undefined ? 0 : Math.min(4, Math.max(0, Math.round(level)));
-}
-
-const DAY_MS = 86_400_000;
-
-/** Weeks run Monday to Sunday, as the CLI's ISO weeks; the first column holds the first day. */
-function buildCalendar(year: string, days: Record<string, unknown>[]): CalendarView {
-  const placed: CalendarDay[] = [];
-  const months: CalendarView['months'] = [];
-  // The Monday on or before the first day, as a day number; weeks count from it.
-  let firstMonday: number | undefined;
-  let activeDays = 0;
-
-  for (const day of days) {
-    const date = readString(day, 'date');
-    const parts = date === undefined ? undefined : parseDateKey(date);
-
-    if (date === undefined || parts === undefined) {
-      continue;
-    }
-
-    const weekday = getIsoDayOfWeek(parts) - 1;
-    const dayNumber = Date.UTC(parts.year, parts.month - 1, parts.day) / DAY_MS;
-    firstMonday ??= dayNumber - weekday;
-    const week = Math.floor((dayNumber - firstMonday) / 7);
-    const tokens = readNumber(day, 'totalTokens') ?? 0;
-    const level = clampLevel(readNumber(day, 'level'));
-
-    if (tokens > 0) {
-      activeDays += 1;
-    }
-
-    if (parts.day === 1) {
-      months.push({ label: MONTH_NAMES[parts.month - 1], week });
-    }
-
-    placed.push({
-      week,
-      weekday,
-      level,
-      label: `${formatDay(date)}: ${tokens > 0 ? `${formatCount(tokens)} tokens` : 'no usage'}`,
-    });
-  }
-
-  return {
-    weeks: Math.max(0, ...placed.map((day) => day.week + 1)),
-    days: placed,
-    months,
-    weekdays: WEEKDAY_LABELS,
-    summary: `Daily tokens in ${year}: usage on ${pluralize(activeDays, 'day')} of ${formatCount(placed.length)}. The monthly table holds the totals.`,
-  };
-}
 
 function buildMonths(months: Record<string, unknown>[]): PanelTable {
   return {
@@ -277,7 +189,11 @@ export function buildWrappedView(report: ShareReport): WrappedView | undefined {
     year,
     lede: buildLede(data, year),
     facts: buildFacts(data),
-    calendar: buildCalendar(year, days),
+    calendar: buildCalendar(
+      days,
+      (active, count) =>
+        `Daily tokens in ${year}: usage on ${pluralize(active, 'day')} of ${formatCount(count)}. The monthly table holds the totals.`,
+    ),
     months: buildMonths(months),
     topLists: [
       buildTopList('Top models', 'Model', readRecords(data.topModels)),

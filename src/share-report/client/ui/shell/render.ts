@@ -114,7 +114,7 @@ export function renderChartFrame(
   return { element, body };
 }
 
-/** A panel's frame: its heading and the body the panel draws into. */
+/** A lead's frame: its heading and the body the panel draws into, set on the page itself. */
 export function renderPanelFrame(
   id: string,
   title: string,
@@ -122,7 +122,7 @@ export function renderPanelFrame(
   const body = h('div', { class: 'panel-body' });
   const element = h(
     'section',
-    { class: 'panel', attrs: { id: `panel-${id}`, 'aria-labelledby': `panel-${id}-title` } },
+    { class: 'lead', attrs: { id: `panel-${id}`, 'aria-labelledby': `panel-${id}-title` } },
     [h('h2', { attrs: { id: `panel-${id}-title` }, text: title }), body],
   );
 

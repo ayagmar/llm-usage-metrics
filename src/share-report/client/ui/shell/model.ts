@@ -75,7 +75,9 @@ function describeCommandFilters(
 export function buildHeader(context: ShareViewContext): HeaderView {
   const { meta } = context.report.data;
   const facts = [
-    `File covers ${formatDateRange(meta.window.since, resolveUntil(context.report, meta.window.until))}`,
+    `From llm-usage ${meta.command}`,
+    // `All dates`, `Up to …` and `From …` continue the sentence in lower case.
+    `File covers ${formatDateRange(meta.window.since, resolveUntil(context.report, meta.window.until)).replace(/^[AUF](?=[a-z])/u, (letter) => letter.toLowerCase())}`,
     `Times in ${meta.timezone}`,
     `Generated ${formatTimestamp(meta.generatedAt, meta.timezone)}`,
     `llm-usage-metrics ${meta.toolVersion}`,
@@ -191,19 +193,12 @@ export function buildSummary(context: ShareViewContext): SummaryFigure[] {
   return figures;
 }
 
-/** Where a panel sits: `recap` above the controls, `section` after the charts. */
-export type PanelPlacement = 'recap' | 'section';
-
-/** The panels that apply to the file, by placement, in list order. */
-export function getPanelsFor<
-  Panel extends { placement: PanelPlacement; appliesTo: (report: ShareReport) => boolean },
->(report: ShareReport, panels: readonly Panel[]): Record<PanelPlacement, Panel[]> {
-  const applying = panels.filter((panel) => panel.appliesTo(report));
-
-  return {
-    recap: applying.filter((panel) => panel.placement === 'recap'),
-    section: applying.filter((panel) => panel.placement === 'section'),
-  };
+/** The panels that apply to the file, in list order: the leads above the controls. */
+export function getPanelsFor<Panel extends { appliesTo: (report: ShareReport) => boolean }>(
+  report: ShareReport,
+  panels: readonly Panel[],
+): Panel[] {
+  return panels.filter((panel) => panel.appliesTo(report));
 }
 
 export type EmptyState = {

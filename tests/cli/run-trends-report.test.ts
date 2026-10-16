@@ -122,8 +122,12 @@ describe('run-trends-report', () => {
         command: 'trends',
         window: { since: '2026-03-04', until: '2026-03-06' },
         initialView: { since: '2026-03-04', until: '2026-03-06', granularity: 'day' },
+        // The page leads with the --json report.
+        envelope: {
+          report: 'trends',
+          data: { metric: 'tokens', dateRange: { from: '2026-03-04', to: '2026-03-06' } },
+        },
       });
-      expect(request).not.toHaveProperty('envelope');
 
       expect(writeShareFile).toHaveBeenCalledTimes(1);
       const [fileName, page] = vi.mocked(writeShareFile).mock.calls[0] ?? [];
