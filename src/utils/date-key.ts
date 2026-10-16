@@ -112,17 +112,23 @@ export function shiftDateKey(dateKey: string, days: number): string {
   return formatDateKey(fromDayNumber(toDayNumber(parseDateKeyOrThrow(dateKey)) + days));
 }
 
-/** Every date key from `from` to `to`, both inclusive; empty when `from` is after `to`. */
+/**
+ * Every date key from `from` to `to`, both inclusive; empty when `from` is after `to`. Throws
+ * on an invalid `from`.
+ */
 export function getDateKeyRange(from: string, to: string): string[] {
   if (from > to) {
     return [];
   }
 
   const range: string[] = [];
-  const last = toDayNumber(parseDateKeyOrThrow(to));
 
-  for (let day = toDayNumber(parseDateKeyOrThrow(from)); day <= last; day += 1) {
-    range.push(formatDateKey(fromDayNumber(day)));
+  for (
+    let day = toDayNumber(parseDateKeyOrThrow(from)), key = from;
+    key <= to;
+    day += 1, key = formatDateKey(fromDayNumber(day))
+  ) {
+    range.push(key);
   }
 
   return range;
