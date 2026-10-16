@@ -1,4 +1,4 @@
-import { formatInteger } from './format-number.js';
+// Imports nothing and keeps no module state, so the share client can bundle it.
 
 export function formatDuration(durationMs: number): string {
   if (durationMs <= 0) {
@@ -24,5 +24,5 @@ export function formatHours(activeMs: number): string {
     return activeMs > 0 ? '<1h' : '0h';
   }
 
-  return `${formatInteger(hours)}h`;
+  return `${hours.toLocaleString('en-US')}h`;
 }
