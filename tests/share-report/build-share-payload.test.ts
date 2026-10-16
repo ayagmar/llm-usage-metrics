@@ -5,6 +5,7 @@ import { computeActiveMs } from '../../src/domain/active-time.js';
 import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.js';
 import {
   buildSharePayload,
+  listShareSizeWarnings,
   type SharePayloadInput,
 } from '../../src/share-report/build-share-payload.js';
 import { mulberry32, pick, randomInt } from '../helpers/seeded-random.js';
@@ -185,12 +186,39 @@ describe('buildSharePayload size guard', () => {
     expect(sum(payload.cube.eventCount)).toBe(events.length);
   });
 
+  it('measures the payload as the file holds it, after script escaping', () => {
+    // Each `<` is six bytes in the file, so the escaped payload outgrows the raw JSON.
+    const tagged = events.map((item) => ({ ...item, model: `${'<'.repeat(500)}model` }));
+    const hourly = buildSharePayload(payloadInput(tagged, { windowEnd: '2026-06-05' }));
+    const { dictionaries, cube, sessions, blocks } = hourly;
+    const rawBytes = Buffer.byteLength(JSON.stringify({ dictionaries, cube, sessions, blocks }));
+
+    const payload = buildSharePayload(
+      payloadInput(tagged, { windowEnd: '2026-06-05', targetBytes: rawBytes }),
+    );
+
+    expect(payload.hourlyFrom).toBe('2026-03-07');
+  });
+
   it('stays hourly when the window holds nothing older than 90 days', () => {
     const payload = buildSharePayload(
       payloadInput(events, { windowEnd: '2026-03-20', targetBytes: 1 }),
     );
 
     expect(payload.hourlyFrom).toBeNull();
+  });
+});
+
+describe('listShareSizeWarnings', () => {
+  it('says nothing for an hourly file under the target', () => {
+    expect(listShareSizeWarnings({ hourlyFrom: null, htmlBytes: 7_900_000 })).toEqual([]);
+  });
+
+  it('says where hourly detail starts and when the file is still over the target', () => {
+    expect(listShareSizeWarnings({ hourlyFrom: '2026-03-07', htmlBytes: 9_140_000 })).toEqual([
+      'Share report: hourly detail from 2026-03-07; earlier usage is by day to keep the file small.',
+      'Share report: the file is 9.1 MB, over the 8 MB target; a shorter window or narrower filters make it smaller.',
+    ]);
   });
 });
 

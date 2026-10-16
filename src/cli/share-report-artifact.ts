@@ -1,9 +1,11 @@
+import { listShareSizeWarnings } from '../share-report/build-share-payload.js';
 import { renderShareHtml } from '../share-report/render-share-html.js';
 import type {
   ShareDateRange,
   ShareEmbeddedEnvelope,
   ShareGranularity,
 } from '../share-report/types.js';
+import { logger } from '../utils/logger.js';
 import type { ReportGranularity } from '../utils/time-buckets.js';
 import { buildShareReportData, type ShareReportRequest } from './build-share-report-data.js';
 import type { ShareArtifact } from './share-artifact.js';
@@ -69,6 +71,19 @@ export async function buildShareReportArtifact(
   return {
     fileName: `${fileBaseName}.html`,
     logLabel,
-    render: () => renderShareHtml({ data, fileBaseName }),
+    // Warned as the file is written, after the command's own diagnostics.
+    render: () => {
+      const html = renderShareHtml({ data, fileBaseName });
+      const sizeWarnings = listShareSizeWarnings({
+        hourlyFrom: data.meta.hourlyFrom,
+        htmlBytes: Buffer.byteLength(html),
+      });
+
+      for (const warning of sizeWarnings) {
+        logger.warn(warning);
+      }
+
+      return html;
+    },
   };
 }

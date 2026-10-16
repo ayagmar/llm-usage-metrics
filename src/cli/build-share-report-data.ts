@@ -306,12 +306,6 @@ export async function buildShareReportData(
     }),
   );
 
-  if (payload.hourlyFrom !== null) {
-    logger.info(
-      `Share report: hourly detail from ${payload.hourlyFrom}; earlier usage is by day to keep the file small.`,
-    );
-  }
-
   const meta: ShareReportMeta = {
     generatedAt: now.toISOString(),
     toolVersion: loadPackageMetadataFromRuntime().packageVersion,
