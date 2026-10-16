@@ -106,7 +106,8 @@ for (const timezone of HOST_TIMEZONES) {
 
     it('lists the recap facts as the terminal recap states them', () => {
       expect(Object.fromEntries(view.facts.map((fact) => [fact.label, fact.value]))).toEqual({
-        'Active time': '25m',
+        // wrapped.txt: Hours <1h for activeMs 1,501,000.
+        'Active time': '<1h',
         'Longest streak': '2 days',
         'Peak hour': '14:00',
         Weekdays: '91.3%',
@@ -224,6 +225,19 @@ describe('wrapped recap without optional figures', () => {
     expect(view.facts.some((fact) => fact.label === 'Cache savings')).toBe(false);
     expect(view.topLists).toEqual([]);
     expect(view.calendar).toMatchObject({ weeks: 0, days: [] });
+  });
+
+  it('rounds active time to whole hours as the terminal’s Hours does', () => {
+    const hours = (activeMs: number) =>
+      defined(buildWrappedView(withEnvelope('wrapped', { year: 2026, activeMs }))).facts.find(
+        (fact) => fact.label === 'Active time',
+      )?.value;
+
+    // 1h 30m rounds up; the client's own duration would print `1h 30m`.
+    expect(hours(5_400_000)).toBe('2h');
+    expect(hours(1_000)).toBe('<1h');
+    expect(hours(0)).toBe('0h');
+    expect(hours(4_000 * 3_600_000)).toBe('4,000h');
   });
 
   it('reads zeros and dashes, never NaN, when the recap leaves its figures out', () => {
