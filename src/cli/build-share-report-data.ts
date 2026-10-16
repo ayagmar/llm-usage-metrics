@@ -204,9 +204,10 @@ export async function buildShareReportData(
     until: until ?? undefined,
     sync: false,
   };
+  const datasetConfigResolution = { ...userConfigResolution, options: datasetOptions };
   const datasetDeps: BuildUsageDataDeps = {
     ...deps,
-    userConfigResolution: { ...userConfigResolution, options: datasetOptions },
+    userConfigResolution: datasetConfigResolution,
   };
   const runtimeProfile = deps.runtimeProfile;
 
@@ -214,7 +215,7 @@ export async function buildShareReportData(
     buildUsageEventDataset(datasetOptions, datasetDeps),
   );
   const wholeStreams = await measureRuntimeProfileStage(runtimeProfile, 'share.whole_streams', () =>
-    readWholeStreams(dataset, datasetDeps.userConfigResolution ?? userConfigResolution, deps),
+    readWholeStreams(dataset, datasetConfigResolution, deps),
   );
   const allEvents = dataset.filteredEvents;
   const inWindow = allEvents.map(
