@@ -13,6 +13,13 @@
 import type { ShareReport } from '../../core/index.js';
 import type { PanelPlacement } from '../shell/model.js';
 import type { ShareViewContext } from '../state/context.js';
+import { embeds } from './model.js';
+import {
+  renderComparePanel,
+  renderEfficiencyPanel,
+  renderOptimizePanel,
+  renderWrappedPanel,
+} from './render.js';
 
 export type SharePanel = {
   /** Stable and URL-safe: names the section's element id. */
@@ -23,4 +30,33 @@ export type SharePanel = {
   render: (body: HTMLElement, context: ShareViewContext) => void;
 };
 
-export const SHARE_PANELS: readonly SharePanel[] = [];
+export const SHARE_PANELS: readonly SharePanel[] = [
+  {
+    id: 'wrapped-recap',
+    title: 'Year in review',
+    placement: 'recap',
+    appliesTo: embeds('wrapped'),
+    render: renderWrappedPanel,
+  },
+  {
+    id: 'compare',
+    title: 'Current against baseline',
+    placement: 'section',
+    appliesTo: embeds('compare'),
+    render: renderComparePanel,
+  },
+  {
+    id: 'efficiency',
+    title: 'Cost against commits',
+    placement: 'section',
+    appliesTo: embeds('efficiency'),
+    render: renderEfficiencyPanel,
+  },
+  {
+    id: 'optimize',
+    title: 'Candidate models',
+    placement: 'section',
+    appliesTo: embeds('optimize'),
+    render: renderOptimizePanel,
+  },
+];

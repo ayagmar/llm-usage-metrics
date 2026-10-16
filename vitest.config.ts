@@ -60,6 +60,7 @@ export default defineConfig({
         'src/share-report/client/ui/shell/render.ts',
         'src/share-report/client/ui/controls/render.ts',
         'src/share-report/client/ui/tables/render.ts',
+        'src/share-report/client/ui/panels/render.ts',
         'src/share-report/client/ui/export/browser.ts',
         'src/share-report/client/ui/state/browser.ts',
       ],
