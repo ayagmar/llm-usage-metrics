@@ -21,6 +21,7 @@ import {
   getCostModeOptions,
   getFilterGroups,
   getGranularityOptions,
+  getPeriodInputs,
   getStackOptions,
   type Option,
 } from './model.js';
@@ -123,16 +124,16 @@ function select<Value extends string>(
 }
 
 function periodControl(report: ShareReport, update: Update) {
-  const { window } = report.data.meta;
   const presets = getPeriodPresets(report);
+  const bounds = getPeriodInputs(report, report.data.meta.window);
   const dateInput = (id: string) =>
     h('input', {
       attrs: {
         id,
         type: 'date',
         'data-focus': id,
-        min: window.since ?? undefined,
-        max: window.until ?? undefined,
+        min: bounds.min || undefined,
+        max: bounds.max || undefined,
       },
     });
   const from = dateInput('period-from');
@@ -172,11 +173,11 @@ function periodControl(report: ShareReport, update: Update) {
       ),
     ]),
     sync: (state: ShareUiState) => {
-      from.value = state.view.since ?? '';
-      to.value = state.view.until ?? '';
-      // An open end of the view picks no date; keep the other end's bounds honest.
-      from.max = state.view.until ?? window.until ?? '';
-      to.min = state.view.since ?? window.since ?? '';
+      const inputs = getPeriodInputs(report, state.view);
+      from.value = inputs.from;
+      to.value = inputs.to;
+      from.max = inputs.fromMax;
+      to.min = inputs.toMin;
 
       for (const { preset, button } of buttons) {
         button.setAttribute(

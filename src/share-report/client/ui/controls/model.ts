@@ -7,6 +7,8 @@ import {
   COST_MODES,
   DIMENSION_DICTIONARY,
   getAvailableCostModes,
+  getWindowEnd,
+  resolveUntil,
   SHARE_DIMENSIONS,
   type ShareDimension,
   type ShareReport,
@@ -30,6 +32,37 @@ export type Option<Value extends string> = {
   /** A short line under the option. */
   detail?: string;
 };
+
+/** The period's date inputs: values, and bounds that keep each end inside the window. */
+export type PeriodInputs = {
+  from: string;
+  to: string;
+  fromMax: string;
+  toMin: string;
+  min: string;
+  max: string;
+};
+
+/**
+ * The date inputs for a view: an open end shows the date it resolves to (the generation date
+ * for an open-ended window), and neither input offers a date past the window's end.
+ */
+export function getPeriodInputs(
+  report: ShareReport,
+  view: { since: string | null; until: string | null },
+): PeriodInputs {
+  const { window } = report.data.meta;
+  const until = resolveUntil(report, view.until) ?? '';
+
+  return {
+    from: view.since ?? '',
+    to: until,
+    fromMax: until,
+    toMin: view.since ?? window.since ?? '',
+    min: window.since ?? '',
+    max: getWindowEnd(report) ?? '',
+  };
+}
 
 export function getGranularityOptions(report: ShareReport): Option<ShareGranularity>[] {
   const { hourlyFrom } = report.data.meta;

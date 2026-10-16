@@ -8,6 +8,7 @@ import {
   getCacheHitRate,
   getCost,
   getCostPerActiveHour,
+  resolveUntil,
   selectHourlyCells,
   sumCells,
   type ShareReport,
@@ -74,7 +75,7 @@ function describeCommandFilters(
 export function buildHeader(context: ShareViewContext): HeaderView {
   const { meta } = context.report.data;
   const facts = [
-    `File covers ${formatDateRange(meta.window.since, meta.window.until)}`,
+    `File covers ${formatDateRange(meta.window.since, resolveUntil(context.report, meta.window.until))}`,
     `Times in ${meta.timezone}`,
     `Generated ${formatTimestamp(meta.generatedAt, meta.timezone)}`,
     `llm-usage-metrics ${meta.toolVersion}`,
@@ -110,7 +111,7 @@ export function buildHeader(context: ShareViewContext): HeaderView {
 
   return {
     title: getReportTitle(meta),
-    period: formatDateRange(context.view.since, context.view.until),
+    period: formatDateRange(context.view.since, resolveUntil(context.report, context.view.until)),
     facts,
     badges,
   };
@@ -220,7 +221,7 @@ export function getEmptyState(context: ShareViewContext): EmptyState | undefined
     const { since, until } = report.data.meta.window;
     return {
       title: 'No usage in this file',
-      body: `The command found no usage for ${formatDateRange(since, until).replace(/^A/u, 'a')}. Run it again with a wider period to share one.`,
+      body: `The command found no usage for ${formatDateRange(since, resolveUntil(report, until)).replace(/^A/u, 'a')}. Run it again with a wider period to share one.`,
     };
   }
 
@@ -231,12 +232,12 @@ export function getEmptyState(context: ShareViewContext): EmptyState | undefined
   return hasLabelFilters(view)
     ? {
         title: 'Nothing matches these filters',
-        body: `No usage in ${formatDateRange(view.since, view.until)} matches the selected labels.`,
+        body: `No usage in ${formatDateRange(view.since, resolveUntil(report, view.until))} matches the selected labels.`,
         action: 'reset-filters',
       }
     : {
         title: 'No usage in this period',
-        body: `The file has no usage in ${formatDateRange(view.since, view.until)}. Pick another period or go back to the opening view.`,
+        body: `The file has no usage in ${formatDateRange(view.since, resolveUntil(report, view.until))}. Pick another period or go back to the opening view.`,
         action: 'reset-view',
       };
 }
