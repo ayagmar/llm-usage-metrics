@@ -111,6 +111,41 @@ describe('buildShareReportData', () => {
     expect(data.cube.costs.estimated?.costUsd[1]).not.toBe(0.5);
   });
 
+  it('spells the homes of other machines ~ in labels, envelopes and text', async () => {
+    const roots = ['/home/otheruser/app', '/Users/bob', 'C:\\users\\Dev\\x'];
+    const events = roots.map((repoRoot, index) =>
+      usage({
+        sessionId: `remote-${String(index)}`,
+        timestamp: `2026-06-1${String(index)}T09:00:00.000Z`,
+        repoRoot,
+        machine: 'remote-box',
+      }),
+    );
+    const data = await buildShareReportData(
+      request({
+        envelope: {
+          report: 'compare',
+          data: {
+            projects: roots.map((repoRoot) => ({ repoRoot, project: repoRoot })),
+            note: `ran in ${roots[0]}`,
+          },
+        },
+      }),
+      deps(events),
+    );
+    const json = JSON.stringify(data);
+
+    expect([...data.dictionaries.projects].sort()).toEqual(['app', 'x', '~']);
+    expect(data.dictionaries.machines).toEqual(['remote-box']);
+    expect(data.envelope?.data).toMatchObject({
+      projects: [{ project: 'app' }, { project: '~' }, { project: 'x' }],
+    });
+
+    for (const name of ['otheruser', 'bob', 'Dev']) {
+      expect(json, name).not.toContain(name);
+    }
+  });
+
   it('never syncs other machines, even when the command would', async () => {
     const spawnSsh = vi.fn(() => {
       throw new Error('ssh must not run for a share report');

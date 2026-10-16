@@ -50,7 +50,7 @@ describe('buildShareProjectLabels', () => {
     });
   });
 
-  it('spells a Windows home ~ with forward slashes and leaves a lookalike sibling alone', () => {
+  it('spells a Windows home ~ with forward slashes, and a sibling home ~ too', () => {
     const home = 'C:\\Users\\alice';
     const labels = buildShareProjectLabels(
       [home, `${home}\\app`, 'D:\\app', 'C:\\Users\\alice2'],
@@ -60,7 +60,42 @@ describe('buildShareProjectLabels', () => {
     expect(labels.get(home)).toBe('~');
     expect(labels.get(`${home}\\app`)).toBe('~/app');
     expect(labels.get('D:\\app')).toBe('app');
-    expect(labels.get('C:\\Users\\alice2')).toBe('alice2');
+    // Another user's home is a home all the same: it names that user.
+    expect(labels.get('C:\\Users\\alice2')).toBe('~ #2');
+  });
+
+  it('spells any standard home ~, whatever machine the events came from', () => {
+    const local = '/srv/me';
+    const keys = [
+      '/home/otheruser',
+      '/home/otheruser/projects',
+      '/home/otheruser/app',
+      '/Users/bob',
+      '/Users/bob/work/api',
+      '/root/tools',
+      '/var/home/carol/notes',
+      'C:\\users\\Dev\\x',
+      'd:/USERS/Eve/x',
+      '/srv/me/site',
+      '/work/app',
+      '/home',
+    ];
+    const labels = buildShareProjectLabels(keys, local);
+    const segments = [...labels.values()].flatMap((label) => label.split(/[ /]/u));
+
+    for (const name of ['otheruser', 'bob', 'root', 'carol', 'Dev', 'Eve', 'me']) {
+      expect(segments, name).not.toContain(name);
+    }
+    // Homes alike once spelled `~` stay apart: no two projects merge.
+    expect(new Set(labels.values()).size).toBe(keys.length);
+    expect([labels.get('/Users/bob'), labels.get('/home/otheruser')]).toEqual(['~', '~ #2']);
+    expect(labels.get('/home/otheruser/projects')).toBe('projects');
+    expect(labels.get('/home/otheruser/app')).toBe('~/app');
+    expect(labels.get('/work/app')).toBe('work/app');
+    expect(labels.get('/Users/bob/work/api')).toBe('api');
+    expect(labels.get('/srv/me/site')).toBe('site');
+    // Not a home: the folder holding them.
+    expect(labels.get('/home')).toBe('home');
   });
 });
 
@@ -113,6 +148,16 @@ describe('createPathScrubber', () => {
     expect(scrub('commits in /home/u/work/app since May')).toBe('commits in app since May');
     expect(scrub('/home/u/other/repo')).toBe('repo');
     expect(scrub('plain text')).toBe('plain text');
+  });
+
+  it('spells the homes of other machines and users ~ in free text', () => {
+    const scrub = createPathScrubber(new Map());
+
+    expect(scrub('ran in /home/otheruser/app and /Users/bob, then C:\\users\\Dev\\x')).toBe(
+      'ran in ~/app and ~, then ~\\x',
+    );
+    expect(scrub('as /root on d:/USERS/Eve')).toBe('as ~ on ~');
+    expect(scrub('see /rooted and /homes/x')).toBe('see /rooted and /homes/x');
   });
 });
 
