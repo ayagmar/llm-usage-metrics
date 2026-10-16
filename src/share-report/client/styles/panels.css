@@ -65,10 +65,15 @@
   color: var(--ink-2);
 }
 
-/* On a phone, headings wrap between words, so measures stay in view. */
+/* On a phone, headings wrap between words and long names anywhere, so measures stay in view. */
 @media (max-width: 40rem) {
   .panel-table thead th {
     white-space: normal;
+  }
+
+  .panel-table .wrap-narrow {
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 }
 

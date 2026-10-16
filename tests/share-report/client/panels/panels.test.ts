@@ -1020,5 +1020,9 @@ describe('lead tables on a narrow screen', () => {
     expect(kept(trends.tables[0])).toEqual(['Source', 'Total', 'Peak']);
     expect(kept(efficiency.tables[0])).toEqual(['Period', 'Commits', 'Cost', 'Per commit']);
     expect(kept(optimize.tables[0])).toEqual(['Period', 'Candidate', 'Savings']);
+    // A dated candidate name is wide enough to push the savings off a phone screen.
+    expect(optimize.tables[0].columns.filter((column) => column.wrap)).toEqual([
+      { label: 'Candidate', numeric: false, wrap: true },
+    ]);
   });
 });

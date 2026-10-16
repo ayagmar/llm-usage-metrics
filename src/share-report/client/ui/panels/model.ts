@@ -27,6 +27,8 @@ export type PanelColumn = {
    * the row's name and its key measures.
    */
   narrow?: boolean;
+  /** True lets a long name wrap on a narrow screen, so the key measures after it stay in view. */
+  wrap?: boolean;
 };
 
 /** A table: the first cell of each row heads it. */
