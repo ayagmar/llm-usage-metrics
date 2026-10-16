@@ -15,6 +15,8 @@ const ROOT_PROJECT_LABEL = '(root)';
 const DRIVE_PATH_PATTERN = /^[A-Za-z]:[\\/]/u;
 const FILE_URI_PATTERN = /^file:/iu;
 const RELATIVE_PATH_PATTERN = /^\.{1,2}[\\/]/u;
+/** A path after a colon, as in a prefixed id (`hf:/opt/…`, `local:C:\…`). */
+const PATH_AFTER_COLON_PATTERN = /:(?:[a-z]:)?[\\/]/iu;
 
 /** Whether `value` reads as a path: `/…`, `~…`, `X:\…`, `X:/…`, `\\…`, `file:…`, `./…`, `../…`. */
 export function isPathLike(value: string): boolean {
@@ -43,8 +45,8 @@ function toPathName(value: string): string {
 }
 
 /**
- * A model as the share report shows it: path-like names, and any holding a standard home
- * directory, become their basename.
+ * A model as the share report shows it: path-like names, and any holding a path after a
+ * colon or a standard home directory, become their basename.
  */
 export function toShareModelLabel(model: string | undefined): string {
   const normalized = model?.trim().toLowerCase();
@@ -53,7 +55,9 @@ export function toShareModelLabel(model: string | undefined): string {
     return UNKNOWN_MODEL_LABEL;
   }
 
-  return isPathLike(normalized) || STANDARD_HOME_PATTERN.test(normalized)
+  return isPathLike(normalized) ||
+    PATH_AFTER_COLON_PATTERN.test(normalized) ||
+    STANDARD_HOME_PATTERN.test(normalized)
     ? toPathName(normalized)
     : normalized;
 }
@@ -94,10 +98,11 @@ const STANDARD_HOME_PATTERN = new RegExp(
 
 /**
  * A standard home directory anywhere in free text (see `STANDARD_HOME_PATTERN`). A name ends
- * at a space or punctuation, except in `\Users\<name>\`, where Windows names may hold spaces.
+ * at a space or punctuation, except in `/Users/<name>/` (either separator), where profile
+ * names may hold spaces: there it runs to the next separator, unless a space comes just before.
  */
 const STANDARD_HOME_IN_TEXT_PATTERN = new RegExp(
-  String.raw`(?:\b[a-z]:|\/mnt\/[a-z]|\/(?:var|usr|export))?(?:\\users\\[^\\/\r\n"'\x60<>:|?*]+(?=\\)|${HOME_ROOT_SOURCE}[^\s\\/"'\x60,;:()[\]{}<>]+)|[\\/]root(?=[\\/\s]|$)`,
+  String.raw`(?:\b[a-z]:|\/mnt\/[a-z]|\/(?:var|usr|export))?(?:[\\/]users[\\/][^\s\\/"'\x60<>:|?*](?:[^\\/\r\n"'\x60<>:|?*]*[^\s\\/"'\x60<>:|?*])?(?=[\\/])|${HOME_ROOT_SOURCE}[^\s\\/"'\x60,;:()[\]{}<>]+)|[\\/]root(?=[\\/\s]|$)`,
   'giu',
 );
 
@@ -240,11 +245,11 @@ export const KEPT_PROJECT_LABELS: ReadonlySet<string> = new Set([UNATTRIBUTED_PR
 export const KEPT_MACHINE_LABELS: ReadonlySet<string> = new Set([LOCAL_MACHINE_NAME]);
 
 /**
- * A path inside free text: from the start of a word (or after a quote, bracket, `=`, `,` or
- * `;`) to the next space or punctuation that ends it.
+ * A path inside free text: from the start of a word (or after a quote, bracket, `=`, `,`, `;`
+ * or `:`, though not a URL's `://`) to the next space or punctuation that ends it.
  */
 const PATH_IN_TEXT_PATTERN =
-  /(?<=^|[\s"'`([{<=,;])(?:file:|~[\w.-]*[\\/]|[a-z]:[\\/]|\\\\|\.{1,2}[\\/]|\/)[^\s"'`<>()[\]{},;]*/giu;
+  /(?:(?<=^|[\s"'`([{<=,;])|(?<=:)(?!\/\/))(?:file:|~[\w.-]*[\\/]|[a-z]:[\\/]|\\\\|\.{1,2}[\\/]|\/)[^\s"'`<>()[\]{},;]*/giu;
 
 /**
  * Removes paths from free text: each known path (longest first) becomes its replacement, any

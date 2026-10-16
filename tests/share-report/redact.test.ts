@@ -129,7 +129,10 @@ describe('toShareModelLabel', () => {
     ['./models/home/oscar/m', 'm'],
     ['..\\Models\\Q.gguf', 'q.gguf'],
     ['mirror/home/oscar', '~'],
+    ['hf:/opt/review-carol/models/colon.gguf', 'colon.gguf'],
+    ['local:C:\\Models\\m.bin', 'm.bin'],
     ['Claude-Sonnet-4-5', 'claude-sonnet-4-5'],
+    ['openrouter:anthropic/claude-sonnet-4-5', 'openrouter:anthropic/claude-sonnet-4-5'],
     ['openai/gpt-5', 'openai/gpt-5'],
     [undefined, '(unknown)'],
     ['  ', '(unknown)'],
@@ -214,8 +217,21 @@ describe('createPathScrubber', () => {
     const scrub = createPathScrubber(new Map());
 
     expect(scrub('logs in C:\\Users\\John Smith\\AppData\\x.log')).toBe('logs in x.log');
+    expect(scrub('logs in C:/Users/John Smith/AppData/x.log')).toBe('logs in x.log');
+    expect(scrub('logs in /Users/John Smith/AppData/x.log')).toBe('logs in x.log');
     // A name with no separator after it ends at the space: the rest is prose.
     expect(scrub('as C:\\Users\\bob and D:')).toBe('as ~ and D:');
+    expect(scrub('as /Users/bob and also /tmp/x')).toBe('as ~ and also x');
+  });
+
+  it('reduces a path after a colon, but leaves URLs alone', () => {
+    const scrub = createPathScrubber(new Map());
+
+    expect(scrub('location:/opt/private-user/a.json')).toBe('location:a.json');
+    expect(scrub('at:C:\\data\\alice\\b.json, at:~/alice/c.md')).toBe('at:b.json, at:c.md');
+    expect(scrub('see https://example.test/a and file:///opt/alice/m.gguf')).toBe(
+      'see https://example.test/a and m.gguf',
+    );
   });
 });
 
