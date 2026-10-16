@@ -50,6 +50,10 @@ export default defineConfig({
         'src/pricing/types.ts',
         'src/trends/trends-series.ts',
         'src/wrapped/wrapped-recap.ts',
+        // Types only.
+        'src/share-report/types.ts',
+        // Browser entry: DOM glue with no logic, covered by visual QA.
+        'src/share-report/client/ui/main.ts',
       ],
       reporter: ['text', 'text-summary', 'json-summary', 'lcov'],
     },

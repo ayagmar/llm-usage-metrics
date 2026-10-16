@@ -21,7 +21,7 @@
     "build": "tsup src/cli/index.ts src/cli/bin.ts --format esm --clean --sourcemap",
     "cli": "tsx src/cli/index.ts",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p src/share-report/client/tsconfig.json",
     "test": "vitest run --coverage",
     "test:watch": "vitest --coverage.enabled=false",
     "test:fast": "vitest run --coverage.enabled=false",
