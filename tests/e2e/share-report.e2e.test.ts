@@ -1,3 +1,4 @@
+import type * as ChildProcess from 'node:child_process';
 import { mkdir, mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -10,6 +11,8 @@ import { createCli } from '../../src/cli/create-cli.js';
 import { getSourceOverrideOptions } from '../../src/cli/source-cli-options.js';
 import type { ReportCommandOptions } from '../../src/cli/usage-data-contracts.js';
 import { SVG_NAMESPACE } from '../../src/share-report/client/ui/export/svg-export.js';
+import { deleteMachineCache } from '../../src/machines/machine-cache.js';
+import { syncMachine } from '../../src/machines/sync-machine.js';
 import type { ShareReportData, ShareReportMeta } from '../../src/share-report/types.js';
 import {
   ALL_SOURCE_IDS,
@@ -20,6 +23,7 @@ import {
   type SourceOptions,
 } from '../golden/golden-harness.js';
 import { createGitFixtureRepo, isolatedGitEnv } from '../helpers/git-fixtures.js';
+import { createInProcessRemote } from '../helpers/machine-remote.js';
 import { useIsolatedEnvironment } from '../helpers/isolated-env.js';
 import { useBundledPricingOnly } from '../helpers/offline-pricing.js';
 import { compileReportValidators } from '../helpers/report-schema-validation.js';
@@ -30,6 +34,22 @@ import {
   readParts,
   readSharePayload,
 } from '../helpers/share-html.js';
+
+// A configured machine is read from its synced cache only; real ssh must never run here.
+vi.mock('node:child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof ChildProcess>();
+  const spawn = new Proxy(actual.spawn, {
+    apply(target, thisArg, args: unknown[]) {
+      if (args[0] === 'ssh') {
+        throw new Error('ssh must not run in the share report e2e');
+      }
+
+      return Reflect.apply(target, thisArg, args) as unknown;
+    },
+  });
+
+  return { ...actual, spawn };
+});
 
 type ShareCase = {
   args: string[];
@@ -388,12 +408,8 @@ describe.skipIf(process.platform === 'win32')(`share report e2e (${WINDOWS_SKIP_
     expectNoForbiddenStrings(html, forbidden);
   });
 
-  it('compare --by-repo --share --redact leaves out every project and machine name', async () => {
-    const plain = readSharePayload(
-      (await runShare('compare-plain', ['compare', '--by-repo'])).get('compare-share.html') ?? '',
-    ).data;
-    const files = await runShare('compare-redacted', ['compare', '--by-repo', '--redact']);
-    const html = files.get('compare-share.html') ?? '';
+  /** Every project label and machine name of `plain` the redacted `html` must not hold. */
+  function expectRedacted(plain: ShareReportData, html: string): void {
     const { data } = readSharePayload(html);
     const names = [
       // `~` names no one and occurs in the client code; the dictionary check covers it.
@@ -401,18 +417,90 @@ describe.skipIf(process.platform === 'win32')(`share report e2e (${WINDOWS_SKIP_
       ...plain.dictionaries.machines.filter((label) => label !== 'local'),
     ];
 
-    expect([...files.keys()]).toEqual(['compare-share.html']);
     expect(names.length).toBeGreaterThan(0);
-    expect(plain.dictionaries.projects).toContain('~');
     expect(data.meta.redacted).toBe(true);
     expect(
       data.dictionaries.projects.every((label) => /^project-\d+$|^\(unattributed\)$/u.test(label)),
     ).toBe(true);
+    expect(data.dictionaries.machines.every((label) => /^machine-\d+$|^local$/u.test(label))).toBe(
+      true,
+    );
     expectSelfContained(html);
     expectNoForbiddenStrings(html, forbidden);
 
     for (const name of names) {
       expect(html, 'a project or machine name').not.toContain(name);
+    }
+  }
+
+  it('compare --by-repo --share --redact leaves out every project and machine name', async () => {
+    const plain = readSharePayload(
+      (await runShare('compare-plain', ['compare', '--by-repo'])).get('compare-share.html') ?? '',
+    ).data;
+    const files = await runShare('compare-redacted', ['compare', '--by-repo', '--redact']);
+
+    expect([...files.keys()]).toEqual(['compare-share.html']);
+    expect(plain.dictionaries.projects).toContain('~');
+    expectRedacted(plain, files.get('compare-share.html') ?? '');
+  });
+
+  it('wrapped --share --redact leaves out another machine’s name and projects', async () => {
+    const machine = 'laptop-secret';
+    const remoteDir = path.join(environment.rootDir, 'remote');
+    const remoteSession = path.join(remoteDir, 'claude', 'remote-project', 'session.jsonl');
+    const configPath = path.join(environment.rootDir, 'machine-config.toml');
+    const ssh = 'share-e2e.invalid';
+    await mkdir(path.dirname(remoteSession), { recursive: true });
+    await writeFile(
+      remoteSession,
+      JSON.stringify({
+        type: 'assistant',
+        timestamp: '2026-06-19T09:30:00.000Z',
+        sessionId: 'remote-secret-session',
+        cwd: '/srv/remote-secret-repo',
+        uuid: 'remote-secret-row',
+        message: {
+          id: 'remote-secret-msg',
+          role: 'assistant',
+          model: 'claude-sonnet-4-5',
+          usage: { input_tokens: 500, output_tokens: 50 },
+        },
+      }),
+    );
+    await writeFile(
+      path.join(remoteDir, 'config.toml'),
+      'sources = ["claude"]\n[sourceDirs]\nclaude = "claude"\n',
+    );
+    await writeFile(configPath, `[machines.${machine}]\nssh = "${ssh}"\n`);
+    const remote = createInProcessRemote({
+      configPath: path.join(remoteDir, 'config.toml'),
+      eventStorePath: path.join(remoteDir, 'events.db'),
+    });
+    expect((await syncMachine(machine, { ssh }, { spawnSsh: remote.spawnSsh })).ok).toBe(true);
+    vi.stubEnv('LLM_USAGE_CONFIG_PATH', configPath);
+    // With source directories given, other machines are read only when --machine names them.
+    const machineArgs = ['--machine', `local,${machine}`];
+
+    try {
+      const plain = readSharePayload(
+        (await runShare('wrapped-plain', ['wrapped', ...machineArgs])).get(
+          'llm-usage-wrapped-2026.html',
+        ) ?? '',
+      ).data;
+      const files = await runShare('wrapped-redacted', ['wrapped', '--redact', ...machineArgs]);
+      const html = files.get('llm-usage-wrapped-2026.html') ?? '';
+
+      expect(plain.dictionaries.machines).toEqual(expect.arrayContaining(['local', machine]));
+      expect(plain.dictionaries.projects).toContain('remote-secret-repo');
+      expect(plain.envelope?.report).toBe('wrapped');
+      expect([...files.keys()]).toEqual(['llm-usage-wrapped-2026.html']);
+      expectRedacted(plain, html);
+      expect(readSharePayload(html).data.envelope?.report).toBe('wrapped');
+      expect(html).not.toContain('remote-secret-session');
+      expect(html).not.toContain('/srv/');
+    } finally {
+      vi.stubEnv('LLM_USAGE_CONFIG_PATH', path.join(environment.rootDir, 'missing-config.toml'));
+      await deleteMachineCache(machine);
     }
   });
 });
