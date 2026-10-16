@@ -7,8 +7,8 @@
   Repo           -
   Last Activity  2026-02-01
   Duration       673h 0m
-  Total            180
-  Cost           $0.60
+  Total              180
+  Cost             $0.60
   Models         gpt-4.1
 
 …ask-kilocode
@@ -16,8 +16,8 @@
   Repo           -
   Last Activity  2026-06-15
   Duration             -
-  Total             45
-  Cost           $0.03
+  Total               45
+  Cost             $0.03
   Models         claude-kilocode-e2e
 
 task-roocode
@@ -25,8 +25,8 @@ task-roocode
   Repo           -
   Last Activity  2026-06-15
   Duration             -
-  Total             55
-  Cost           $0.02
+  Total               55
+  Cost             $0.02
   Models         gpt-roocode-e2e
 
 task-cline
@@ -34,8 +34,8 @@ task-cline
   Repo           -
   Last Activity  2026-06-15
   Duration             -
-  Total             45
-  Cost           $0.01
+  Total               45
+  Cost             $0.01
   Models         claude-sonnet-cline-e2e
 
 …-e2e-session
@@ -43,8 +43,8 @@ task-cline
   Repo           -
   Last Activity  2026-02-02
   Duration       672h 0m
-  Total            390
-  Cost           $0.00
+  Total              390
+  Cost             $0.00
   Models         gpt-5.2-codex
 
 …-e2e-session
@@ -52,8 +52,8 @@ task-cline
   Repo           claude-e2e
   Last Activity  2026-06-20
   Duration            5m
-  Total            220
-  Cost           $0.00
+  Total              220
+  Cost             $0.00
   Models         claude-sonnet-4-5
 
 openclaw-e2e
@@ -61,8 +61,8 @@ openclaw-e2e
   Repo           openclaw-e2e
   Last Activity  2026-05-01
   Duration             -
-  Total             15
-  Cost           $0.00
+  Total               15
+  Cost             $0.00
   Models         claude-sonnet-4-6
 
 …-e2e-session
@@ -70,8 +70,8 @@ openclaw-e2e
   Repo           gemini-e2e
   Last Activity  2026-06-03
   Duration           10m
-  Total            195
-  Cost           $0.00
+  Total              195
+  Cost             $0.00
   Models         gemini-2.5-pro
 
 session-001
@@ -79,8 +79,8 @@ session-001
   Repo           droid-e2e
   Last Activity  2026-06-10
   Duration             -
-  Total            115
-  Cost           $0.00
+  Total              115
+  Cost             $0.00
   Models         claude-3-7-sonnet-20250219
 
 …on-e2e-dsh-a
@@ -88,8 +88,8 @@ session-001
   Repo           dsh-e2e
   Last Activity  2026-09-11
   Duration           <1m
-  Total          2,000
-  Cost           $0.00
+  Total            2,000
+  Cost             $0.00
   Models         deepseek-flash
 
 session-002
@@ -97,8 +97,8 @@ session-002
   Repo           droid-e2e
   Last Activity  2026-06-11
   Duration             -
-  Total             85
-  Cost           $0.00
+  Total               85
+  Cost             $0.00
   Models         claude-3-7-sonnet-20250219
 
 …on-e2e-dsh-b
@@ -106,8 +106,8 @@ session-002
   Repo           dsh-e2e
   Last Activity  2026-09-11
   Duration             -
-  Total            440
-  Cost           $0.00
+  Total              440
+  Cost             $0.00
   Models         deepseek-flash
 
 session-kimi
@@ -115,8 +115,8 @@ session-kimi
   Repo           -
   Last Activity  2026-06-15
   Duration             -
-  Total             70
-  Cost               -
+  Total               70
+  Cost                 -
   Models         kimi-k2.6
 
 …p-e2e-thread
@@ -124,8 +124,8 @@ session-kimi
   Repo           -
   Last Activity  2026-06-15
   Duration             -
-  Total            120
-  Cost               -
+  Total              120
+  Cost                 -
   Models         claude-amp-e2e
 
 …-e2e-session
@@ -133,8 +133,8 @@ session-kimi
   Repo           -
   Last Activity  2026-06-15
   Duration             -
-  Total             90
-  Cost               -
+  Total               90
+  Cost                 -
   Models         qwen3-coder-e2e
 
 …-e2e-session
@@ -142,8 +142,8 @@ session-kimi
   Repo           -
   Last Activity  2026-06-15
   Duration             -
-  Total            180
-  Cost               -
+  Total              180
+  Cost                 -
   Models         gpt-goose-e2e
 
 …-e2e-session
@@ -151,8 +151,8 @@ session-kimi
   Repo           -
   Last Activity  2026-06-15
   Duration             -
-  Total            100
-  Cost               -
+  Total              100
+  Cost                 -
   Models         gpt-4.1-copilot
 
 …-e2e-session
@@ -160,8 +160,8 @@ session-kimi
   Repo           -
   Last Activity  2026-06-15
   Duration            5m
-  Total            200
-  Cost               -
+  Total              200
+  Cost                 -
   Models         gpt-4.1-opencode
 
 conversation
@@ -169,6 +169,6 @@ conversation
   Repo           -
   Last Activity  2026-06-15
   Duration             -
-  Total             65
-  Cost               -
+  Total               65
+  Cost                 -
   Models         gemini-antigravity-e2e
