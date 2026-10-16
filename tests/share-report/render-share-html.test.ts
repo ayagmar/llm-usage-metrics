@@ -55,9 +55,9 @@ describe('renderShareHtml', () => {
     const { html } = renderFixture();
     const markup = markupOnly(html);
 
-    expect(markup.match(/<style\b/gu)).toHaveLength(1);
-    expect(markup.match(/<script>/gu)).toHaveLength(1);
-    expect(markup.match(/<script\b/gu)).toHaveLength(2);
+    expect(markup.match(/<style\b/giu)).toHaveLength(1);
+    expect(markup.match(/<script>/giu)).toHaveLength(1);
+    expect(markup.match(/<script\b/giu)).toHaveLength(2);
     expect(html).not.toMatch(/\sstyle\s*=/iu);
     expect(markup).not.toMatch(/\son[a-z]+\s*=/iu);
   });
