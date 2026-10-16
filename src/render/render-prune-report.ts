@@ -6,7 +6,7 @@ import type {
 } from '../cli/run-prune-report.js';
 import { stripControlCharacters } from '../domain/normalization.js';
 import { formatByteSize } from './format-byte-size.js';
-import { pluralize } from './format-number.js';
+import { formatInteger, pluralize } from './format-number.js';
 import { renderReportHeader } from './report-header.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
 import { resolveTtyColumns, wrapTableColumn } from './table-text-layout.js';
@@ -31,7 +31,7 @@ function renderCandidateTable(candidates: readonly PruneCandidate[]): string {
   const bodyRows = candidates.map((candidate) => [
     candidate.source,
     stripControlCharacters(candidate.filePath),
-    String(candidate.eventCount),
+    formatInteger(candidate.eventCount),
     candidate.newestTimestamp ?? '-',
     candidate.reasons.join(', '),
   ]);

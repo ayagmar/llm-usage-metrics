@@ -851,7 +851,7 @@ describe('run-prune-report', () => {
 
       expect(rendered.split('\n').slice(4, 9)).toEqual([
         'codex · /tmp/old.jsonl',
-        '  Events            1250',
+        '  Events            1,250',
         '  Newest timestamp  2025-01-01T00:00:00.000Z',
         '  Reason            aged',
         '',
