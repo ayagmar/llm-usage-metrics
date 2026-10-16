@@ -1,11 +1,16 @@
 // End to end: the payload a --share run embeds, decoded and rolled up by the page's own
 // client code, equals the report JSON for the same window and cost mode (invariant 3).
 
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { buildShareReportData } from '../../src/cli/build-share-report-data.js';
+import { buildEfficiencyReport, runEfficiencyReport } from '../../src/cli/run-efficiency-report.js';
 import { buildProjectsReport } from '../../src/cli/run-projects-report.js';
 import { buildUsageReport } from '../../src/cli/run-usage-report.js';
+import * as shareArtifact from '../../src/cli/share-artifact.js';
 import type {
   BuildUsageDataDeps,
   ReportCommandOptions,
@@ -30,6 +35,8 @@ import {
   FIXED_NOW,
   WINDOWS_SKIP_REASON,
 } from '../golden/golden-harness.js';
+import { createGitFixtureRepo, isolatedGitEnv } from '../helpers/git-fixtures.js';
+import { readSharePayload } from '../helpers/share-html.js';
 import { useIsolatedEnvironment } from '../helpers/isolated-env.js';
 import { useBundledPricingOnly } from '../helpers/offline-pricing.js';
 import { createCorpusAdapters, generateShareCorpus } from '../helpers/share-payload.js';
@@ -258,3 +265,110 @@ describe('share page roll-up parity with the report JSON', () => {
     });
   });
 });
+
+/** One Claude assistant row in `cwd` with `tokens` input tokens and no output. */
+function claudeRow(id: string, timestamp: string, cwd: string, tokens: number): string {
+  return JSON.stringify({
+    type: 'assistant',
+    timestamp,
+    sessionId: `efficiency-scope-${id}`,
+    cwd,
+    uuid: `efficiency-scope-row-${id}`,
+    message: {
+      id: `efficiency-scope-msg-${id}`,
+      role: 'assistant',
+      model: 'claude-sonnet-4-5',
+      usage: { input_tokens: tokens, output_tokens: 0 },
+    },
+  });
+}
+
+describe.skipIf(process.platform === 'win32')(
+  `efficiency share scope (${WINDOWS_SKIP_REASON})`,
+  () => {
+    const environment = useIsolatedEnvironment();
+    useBundledPricingOnly();
+
+    it('holds only the usage the report counts: its repository, in periods with commits', async () => {
+      const { rootDir } = environment;
+      const repoA = await createGitFixtureRepo(path.join(rootDir, 'a'), [
+        { date: '2026-06-12T09:00:00Z', message: 'feat: a', files: { 'a.txt': 'a\n' } },
+      ]);
+      const repoB = await createGitFixtureRepo(path.join(rootDir, 'b'), [
+        { date: '2026-06-12T09:00:00Z', message: 'feat: b', files: { 'b.txt': 'b\n' } },
+      ]);
+      for (const [name, value] of Object.entries(isolatedGitEnv(repoA.globalConfigPath))) {
+        vi.stubEnv(name, value);
+      }
+
+      const claudeDir = path.join(rootDir, 'claude');
+      await mkdir(path.join(claudeDir, 'p'), { recursive: true });
+      await writeFile(
+        path.join(claudeDir, 'p', 'session.jsonl'),
+        [
+          // Counted: repo A in June, which has a commit.
+          claudeRow('a-june', '2026-06-12T10:00:00.000Z', repoA.repoDir, 110),
+          // Another repository, and repo A in May, which has no commit.
+          claudeRow('b-june', '2026-06-12T11:00:00.000Z', repoB.repoDir, 220),
+          claudeRow('a-may', '2026-05-12T10:00:00.000Z', repoA.repoDir, 330),
+        ].join('\n') + '\n',
+      );
+
+      const options = {
+        claudeDir,
+        source: 'claude',
+        timezone: 'UTC',
+        since: '2026-05-01',
+        until: '2026-06-30',
+        repoDir: repoA.repoDir,
+        pricingOffline: true,
+        sync: false,
+      };
+      const json = JSON.parse(
+        await buildEfficiencyReport('monthly', { ...options, json: true }),
+      ) as {
+        data: { rows: { rowType: string; periodKey: string; totalTokens: number }[] };
+      };
+
+      const cwd = await mkdtemp(path.join(rootDir, 'cwd-'));
+      const previousCwd = process.cwd();
+      vi.spyOn(shareArtifact, 'openShareFile').mockResolvedValue();
+      vi.spyOn(console, 'log').mockImplementation(() => undefined);
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      process.chdir(cwd);
+
+      try {
+        await runEfficiencyReport('monthly', { ...options, share: true });
+      } finally {
+        process.chdir(previousCwd);
+        vi.restoreAllMocks();
+      }
+
+      const html = await readFile(path.join(cwd, 'efficiency-monthly-share.html'), 'utf8');
+      const decoded = decodeShareReport(readSharePayload(html));
+
+      if (!decoded.ok) {
+        throw new Error(decoded.error);
+      }
+
+      const { report } = decoded;
+      const window = { since: options.since, until: options.until };
+      const cells = selectCells(report, createFilters(window));
+      const months = rollupByPeriod(report, cells, 'month').rows.map((row) => [
+        row.key,
+        row.totalTokens,
+      ]);
+
+      expect(
+        json.data.rows
+          .filter((row) => row.rowType === 'period')
+          .map((row) => [row.periodKey, row.totalTokens]),
+      ).toEqual([['2026-06', 110]]);
+      expect(months).toEqual([['2026-06', 110]]);
+      expect(sumCells(report, cells).eventCount).toBe(1);
+      expect(report.data.dictionaries.projects).toHaveLength(1);
+      expect(report.data.sessions.rows.map((session) => session.eventCount)).toEqual([1]);
+      expect(report.data.blocks.rows.map((block) => block.totalTokens)).toEqual([110]);
+    });
+  },
+);

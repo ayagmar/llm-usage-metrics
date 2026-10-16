@@ -149,7 +149,7 @@ function resolveScopeNote(options: EfficiencyCommandOptions): string | undefined
   return `Usage filters (${activeFilters.join(', ')}) affect commit attribution too: only commit days with matching repo-attributed usage events are counted.`;
 }
 
-function hasMeaningfulEfficiencyUsageSignal(event: UsageEvent): boolean {
+export function hasMeaningfulEfficiencyUsageSignal(event: UsageEvent): boolean {
   return event.totalTokens > 0 || hasBillableTokenBuckets(event) || event.costUsd !== undefined;
 }
 
