@@ -32,11 +32,14 @@ export type ValueDataResult = {
   diagnostics: UsageDiagnostics;
 };
 
-/** `--last N` months, or the explicit dates; neither means full history. */
+/**
+ * `--last N` months, or the explicit dates; neither means full history. The window ends
+ * today at the latest: months that have not happened yet would count a full plan price.
+ */
 function resolveWindowDates(
   options: ValueCommandOptions,
   today: string,
-): { since?: string; until?: string } {
+): { since?: string; until: string } {
   const hasDates = options.since !== undefined || options.until !== undefined;
   const lastMonths = parseLastOption(options.last);
 
@@ -52,7 +55,13 @@ function resolveWindowDates(
     return { since: resolvePeriodsSince('monthly', today, lastMonths), until: today };
   }
 
-  return { since: options.since, until: options.until };
+  const until = options.until !== undefined && options.until < today ? options.until : today;
+
+  if (options.since !== undefined && options.since > until) {
+    throw new Error(`--since ${options.since} is after today (${today}); value has no months yet`);
+  }
+
+  return { since: options.since, until };
 }
 
 export async function buildValueData(

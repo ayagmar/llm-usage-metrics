@@ -93,6 +93,39 @@ describe('value report', () => {
     );
   });
 
+  it('leaves out events dated after today and months after today, with or without --until', async () => {
+    const createAdapters = (): SourceAdapter[] => [
+      {
+        id: 'claude',
+        discoverFiles: async () => ['/value-test/claude.jsonl'],
+        read: readFrom(async () =>
+          ['2026-06-20T10:00:00.000Z', '2026-07-01T10:00:00.000Z'].map((timestamp) =>
+            createUsageEvent({
+              source: 'claude',
+              sessionId: timestamp,
+              timestamp,
+              model: 'claude-sonnet-4-5',
+              inputTokens: 10,
+              outputTokens: 1,
+            }),
+          ),
+        ),
+      },
+    ];
+
+    for (const until of [undefined, '2026-08-31']) {
+      const data = await buildJson({ until }, { createAdapters });
+
+      expect(data.window).toEqual({ since: '2026-06-01', until: '2026-06-21' });
+      expect(data.plans[0]?.months.map((month) => [month.month, month.totalTokens])).toEqual([
+        ['2026-06', 11],
+      ]);
+    }
+    await expect(buildJson({ since: '2026-07-01' }, { createAdapters })).rejects.toThrow(
+      '--since 2026-07-01 is after today (2026-06-21)',
+    );
+  });
+
   it('marks costs incomplete with --cost-mode explicit when the sources log no cost', async () => {
     const data = await buildJson({ costMode: 'explicit', since: '2026-04-01' });
     const months = data.plans[0]?.months ?? [];
