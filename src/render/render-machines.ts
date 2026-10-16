@@ -3,6 +3,7 @@ import type { MachineSyncState } from '../machines/machine-cache.js';
 import type { MachineUsageSummary } from '../machines/load-machine-usage.js';
 import { MACHINE_EXPORT_TIMEOUT_MARK } from '../machines/machine-ssh.js';
 import type { MachineSyncOutcome } from '../machines/sync-machine.js';
+import { padEndVisible, visibleWidth } from './table-text-layout.js';
 
 const MAX_REASON_LENGTH = 300;
 
@@ -103,12 +104,12 @@ export function renderMachineList(entries: readonly MachineListEntry[], now: num
     return ['No machines configured.', 'Add one with: llm-usage machine add <name> [user@host]'];
   }
 
-  const nameWidth = Math.max(...entries.map((entry) => entry.name.length));
-  const sshWidth = Math.max(...entries.map((entry) => entry.machine.ssh.length));
+  const nameWidth = Math.max(...entries.map((entry) => visibleWidth(entry.name)));
+  const sshWidth = Math.max(...entries.map((entry) => visibleWidth(entry.machine.ssh)));
 
   return entries.map(
     (entry) =>
-      `${entry.name.padEnd(nameWidth)}  ${entry.machine.ssh.padEnd(sshWidth)}  ${describeMachineStatus(entry, now)}`,
+      `${padEndVisible(entry.name, nameWidth)}  ${padEndVisible(entry.machine.ssh, sshWidth)}  ${describeMachineStatus(entry, now)}`,
   );
 }
 

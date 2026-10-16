@@ -56,6 +56,32 @@ describe('renderMachineList', () => {
   });
 });
 
+describe('renderMachineList widths', () => {
+  it('lines up the ssh column by display width when a name has wide characters', () => {
+    const lines = renderMachineList(
+      [
+        {
+          name: 'ノート',
+          machine: { ssh: 'me@laptop' },
+          state: undefined,
+          fileCount: 0,
+          eventCount: 0,
+        },
+        {
+          name: 'vps',
+          machine: { ssh: 'root@vps' },
+          state: undefined,
+          fileCount: 0,
+          eventCount: 0,
+        },
+      ],
+      NOW,
+    );
+
+    expect(lines).toEqual(['ノート  me@laptop  never synced', 'vps     root@vps   never synced']);
+  });
+});
+
 describe('renderSyncOutcome', () => {
   it('reports a failure before any successful sync', () => {
     expect(
