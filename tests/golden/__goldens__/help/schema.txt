@@ -4,7 +4,8 @@ Print a bundled report JSON Schema
 
 Arguments:
   name        Schema name: blocks, compare, config, doctor, efficiency, events-line, machine-export,
-              optimize, pricing, projects, prune, session, summary, trends, usage, value, wrapped
+              optimize, pricing, projects, prune, session, share, summary, trends, usage, value,
+              wrapped
 
 Options:
   --list      List available schema names

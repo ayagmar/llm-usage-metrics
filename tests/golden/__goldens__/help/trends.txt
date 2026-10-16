@@ -35,9 +35,9 @@ Options:
                                  this one; default: all)
   --no-sync                      Use other machines' cached usage without refreshing it over ssh
   --markdown                     Render output as markdown table
-  --share                        Write a share card (SVG and an HTML page with PNG export) to the
-                                 current directory
-  --no-open                      With --share, write the files without opening the page
+  --share                        Write an interactive HTML report to the current directory
+  --no-open                      With --share, write the report without opening it
+  --redact                       With --share, label projects project-N and machines machine-N
   --last <n>                     Chart the last N local calendar days, counting today; defaults to
                                  30 when no date flags are provided
   --metric <name>                Trend metric: cost | tokens | active-hours (default: "cost")
