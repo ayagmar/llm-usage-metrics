@@ -136,18 +136,18 @@ describe('buildValueReport', () => {
     ]).plans;
     const projects = plan.months[0].projects;
 
-    expect(projects.map(({ project, share }) => [project, share])).toEqual([
+    expect(projects.map(({ project, costShare }) => [project, costShare])).toEqual([
       ['b/api', 0.75],
       ['a/api', 0.25],
       ['(unattributed)', 0],
     ]);
-    expect(projects.reduce((sum, project) => sum + (project.share ?? 0), 0)).toBeCloseTo(1, 9);
+    expect(projects.reduce((sum, project) => sum + (project.costShare ?? 0), 0)).toBeCloseTo(1, 9);
   });
 
   it('gives no share when the month cost nothing', () => {
     const [plan] = build([claudeEvent('2026-06-01T10:00:00.000Z', 0, '/w/api')]).plans;
 
-    expect(plan.months[0].projects[0].share).toBeNull();
+    expect(plan.months[0].projects[0].costShare).toBeNull();
   });
 
   it('counts only the plan sources, and the full cost for each plan that covers a source', () => {

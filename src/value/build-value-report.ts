@@ -14,8 +14,8 @@ export type ValueProjectRow = {
   /** Cost of the events that have one; `costIncomplete` when some have none. */
   costUsd: number;
   costIncomplete: boolean;
-  /** Share of the month's cost; `null` when the month cost nothing. */
-  share: number | null;
+  /** Share of the month's cost, rounded by `roundRatio`; `null` when the month cost nothing. */
+  costShare: number | null;
 };
 
 export type ValueMonthRow = {
@@ -118,7 +118,8 @@ export type BuildValueReportOptions = {
 
 const RATIO_SCALE = 1_000_000;
 
-function roundRatio(value: number): number {
+/** Ratios and cost shares in report JSON: 6 decimal places. */
+export function roundRatio(value: number): number {
   return Math.round(value * RATIO_SCALE) / RATIO_SCALE;
 }
 
@@ -154,7 +155,7 @@ function toProjectRows(rows: readonly PeriodProjectRow[], monthCostUsd: number):
         totalTokens: row.totalTokens,
         costUsd,
         costIncomplete: row.costIncomplete === true,
-        share: monthCostUsd > 0 ? roundRatio(costUsd / monthCostUsd) : null,
+        costShare: monthCostUsd > 0 ? roundRatio(costUsd / monthCostUsd) : null,
       };
     })
     .sort(compareProjectRows);
