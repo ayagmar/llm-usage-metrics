@@ -81,14 +81,20 @@ function formatCost(value: { costUsd?: number; costIncomplete?: boolean }): stri
   return value.costIncomplete ? `~${formatted}` : formatted;
 }
 
-/** `2026-06-15 09:00-14:00`, with the marks for an uncertain start and the active block. */
+/**
+ * `2026-06-15 09:00-14:00`, or `2026-06-15 21:00-2026-06-16 02:00` across midnight, with
+ * the marks for an uncertain start and the active block.
+ */
 function formatBlockSpan(row: BlockRow, timezone: string): string {
   const marks = [
     row.startUncertain ? UNCERTAIN_MARK : '',
     row.active ? ` ${ACTIVE_MARK}` : '',
   ].join('');
+  const start = formatLocalDateTime(row.start, timezone);
+  const end = formatLocalDateTime(row.end, timezone);
+  const sameDay = start.slice(0, 10) === end.slice(0, 10);
 
-  return `${formatLocalDateTime(row.start, timezone)}-${formatLocalDateTime(row.end, timezone).slice(11)}${marks}`;
+  return `${start}-${sameDay ? end.slice(11) : end}${marks}`;
 }
 
 const blockColumns: readonly BlockColumn[] = [
