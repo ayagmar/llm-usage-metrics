@@ -317,6 +317,65 @@ describe('buildShareReportData', () => {
       ]);
     });
 
+    it('names a file-URI model by its basename, with or without --redact', async () => {
+      const model = 'file:///opt/review-alice/models/private.gguf';
+      const events = [usage({ model })];
+
+      for (const redact of [false, true]) {
+        const data = await buildShareReportData(
+          request({ options: { timezone: 'UTC', pricingOffline: true, redact } }),
+          deps(events),
+        );
+
+        expect(data.dictionaries.models).toEqual(['private.gguf']);
+        expect(JSON.stringify(data)).not.toContain('review-alice');
+      }
+    });
+
+    it('labels the envelope’s models as the dictionary labels them', async () => {
+      const model = './models/home/oscar/m';
+      const data = await buildShareReportData(
+        request({
+          command: 'wrapped',
+          envelope: {
+            report: 'wrapped',
+            data: { topModels: [{ name: model, totalTokens: 1_100 }], candidateModel: model },
+          },
+        }),
+        deps([usage({ model })]),
+      );
+
+      expect(data.dictionaries.models).toEqual(['m']);
+      expect(data.envelope?.data).toEqual({
+        topModels: [{ name: 'm', totalTokens: 1_100 }],
+        candidateModel: 'm',
+      });
+      expect(JSON.stringify(data)).not.toContain('oscar');
+    });
+
+    it('with --redact, scrubs paths and names out of the envelope’s free text', async () => {
+      const data = await buildShareReportData(
+        request({
+          options: { timezone: 'UTC', pricingOffline: true, redact: true },
+          envelope: {
+            report: 'compare',
+            data: {
+              note: 'review /opt/alice/private-data.json for private-project on alice-laptop',
+              machine: 'alice-laptop',
+              project: 'private-project',
+            },
+          },
+        }),
+        deps([usage({ repoRoot: '/srv/private-project' })]),
+      );
+
+      expect(data.envelope?.data).toEqual({
+        note: 'review private-data.json for project-1 on machine-1',
+        machine: 'machine-1',
+        project: 'project-1',
+      });
+    });
+
     it('maps the envelope’s projects to the file’s labels', async () => {
       const data = await buildShareReportData(request({ envelope: envelope() }), deps(corpus()));
       const envelopeData = data.envelope?.data as Record<string, unknown> | undefined;

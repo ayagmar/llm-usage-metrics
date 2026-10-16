@@ -13,14 +13,18 @@ export const UNKNOWN_MODEL_LABEL = '(unknown)';
 const ROOT_PROJECT_LABEL = '(root)';
 
 const DRIVE_PATH_PATTERN = /^[A-Za-z]:[\\/]/u;
+const FILE_URI_PATTERN = /^file:/iu;
+const RELATIVE_PATH_PATTERN = /^\.{1,2}[\\/]/u;
 
-/** Whether `value` reads as a path: `/…`, `~…`, `X:\…` (or `X:/…`), `\\…`. */
+/** Whether `value` reads as a path: `/…`, `~…`, `X:\…`, `X:/…`, `\\…`, `file:…`, `./…`, `../…`. */
 export function isPathLike(value: string): boolean {
   return (
     value.startsWith('/') ||
+    FILE_URI_PATTERN.test(value) ||
     value.startsWith('~') ||
     value.startsWith('\\\\') ||
-    DRIVE_PATH_PATTERN.test(value)
+    DRIVE_PATH_PATTERN.test(value) ||
+    RELATIVE_PATH_PATTERN.test(value)
   );
 }
 
@@ -30,7 +34,18 @@ export function toBasename(value: string): string {
   return segments.at(-1) ?? value;
 }
 
-/** A model as the share report shows it: path-like names become their basename. */
+/** A path as one name: its basename, or `~` for a home directory, whose name is the user's. */
+function toPathName(value: string): string {
+  const homeEnd = getHomeEnd(value, undefined);
+  return homeEnd !== undefined && splitKeySegments(value.slice(homeEnd)).length === 0
+    ? '~'
+    : toBasename(value);
+}
+
+/**
+ * A model as the share report shows it: path-like names, and any holding a standard home
+ * directory, become their basename.
+ */
 export function toShareModelLabel(model: string | undefined): string {
   const normalized = model?.trim().toLowerCase();
 
@@ -38,7 +53,9 @@ export function toShareModelLabel(model: string | undefined): string {
     return UNKNOWN_MODEL_LABEL;
   }
 
-  return isPathLike(normalized) ? toBasename(normalized) : normalized;
+  return isPathLike(normalized) || STANDARD_HOME_PATTERN.test(normalized)
+    ? toPathName(normalized)
+    : normalized;
 }
 
 function splitKeySegments(key: string): string[] {
@@ -61,20 +78,31 @@ function isSegmentTail(key: string, label: string): boolean {
   return false;
 }
 
+/** Where a standard home layout starts: `…/home/`, `…/Users/` (either separator, any case). */
+const HOME_ROOT_SOURCE = String.raw`[\\/](?:home|users)[\\/]`;
+
 /**
- * A home directory by its standard layout, on any machine: `/home/<name>`, `/Users/<name>`,
- * `/root`, `/var/home/<name>` and `<drive>:\Users\<name>` (either separator, any case).
- * Events from other machines carry their own home, never the local one.
+ * A home directory by its standard layout, anywhere in a path: `…/home/<name>` (so
+ * `/var/home`, `/usr/home` and `/export/home` too), `…/Users/<name>` (`<drive>:\Users` and
+ * WSL's `/mnt/<drive>/Users` too) and `/root`, either separator, any case. Events from other
+ * machines carry their own home, never the local one.
  */
-const STANDARD_HOME_PATTERN =
-  /^(?:\/home\/[^\\/]+|\/users\/[^\\/]+|\/root|\/var\/home\/[^\\/]+|[a-z]:[\\/]users[\\/][^\\/]+)(?=[\\/]|$)/iu;
+const STANDARD_HOME_PATTERN = new RegExp(
+  String.raw`${HOME_ROOT_SOURCE}[^\\/]+|[\\/]root(?=[\\/]|$)`,
+  'iu',
+);
 
-/** A standard home directory anywhere in free text (see `STANDARD_HOME_PATTERN`). */
-const STANDARD_HOME_IN_TEXT_PATTERN =
-  /(?:\/home\/|\/users\/|\/var\/home\/|\b[a-z]:[\\/]users[\\/])[^\s\\/"'`,;:()[\]{}<>]+|\/root(?=[\\/\s]|$)/giu;
+/**
+ * A standard home directory anywhere in free text (see `STANDARD_HOME_PATTERN`). A name ends
+ * at a space or punctuation, except in `\Users\<name>\`, where Windows names may hold spaces.
+ */
+const STANDARD_HOME_IN_TEXT_PATTERN = new RegExp(
+  String.raw`(?:\b[a-z]:|\/mnt\/[a-z]|\/(?:var|usr|export))?(?:\\users\\[^\\/\r\n"'\x60<>:|?*]+(?=\\)|${HOME_ROOT_SOURCE}[^\s\\/"'\x60,;:()[\]{}<>]+)|[\\/]root(?=[\\/\s]|$)`,
+  'giu',
+);
 
-/** The length of the home directory `key` starts with, if any: the local one, else a standard one. */
-function getHomePrefixLength(key: string, homeDir: string | undefined): number | undefined {
+/** Where the home directory in `key` ends, if it has one: the local one, else a standard one. */
+function getHomeEnd(key: string, homeDir: string | undefined): number | undefined {
   const home = homeDir === undefined ? '' : stripTrailingSeparators(homeDir);
   const next = key.charAt(home.length);
 
@@ -87,7 +115,8 @@ function getHomePrefixLength(key: string, homeDir: string | undefined): number |
     return home.length;
   }
 
-  return STANDARD_HOME_PATTERN.exec(key)?.[0].length;
+  const match = STANDARD_HOME_PATTERN.exec(key);
+  return match === null ? undefined : match.index + match[0].length;
 }
 
 /**
@@ -95,13 +124,13 @@ function getHomePrefixLength(key: string, homeDir: string | undefined): number |
  * can climb into or past a home directory, whose name is usually the user's.
  */
 function toHomeRelativeKey(key: string, homeDir: string | undefined): string {
-  const length = getHomePrefixLength(key, homeDir);
+  const end = getHomeEnd(key, homeDir);
 
-  if (length === undefined) {
+  if (end === undefined) {
     return key;
   }
 
-  const rest = splitKeySegments(key.slice(length));
+  const rest = splitKeySegments(key.slice(end));
   return rest.length === 0 ? '~' : `~/${rest.join('/')}`;
 }
 
@@ -211,9 +240,16 @@ export const KEPT_PROJECT_LABELS: ReadonlySet<string> = new Set([UNATTRIBUTED_PR
 export const KEPT_MACHINE_LABELS: ReadonlySet<string> = new Set([LOCAL_MACHINE_NAME]);
 
 /**
+ * A path inside free text: from the start of a word (or after a quote, bracket, `=`, `,` or
+ * `;`) to the next space or punctuation that ends it.
+ */
+const PATH_IN_TEXT_PATTERN =
+  /(?<=^|[\s"'`([{<=,;])(?:file:|~[\w.-]*[\\/]|[a-z]:[\\/]|\\\\|\.{1,2}[\\/]|\/)[^\s"'`<>()[\]{},;]*/giu;
+
+/**
  * Removes paths from free text: each known path (longest first) becomes its replacement, any
- * other standard home directory becomes `~`, and a value that is a path as a whole becomes its
- * basename.
+ * other standard home directory becomes `~`, and any other path becomes its basename (all of
+ * the value, when it is a path as a whole).
  */
 export function createPathScrubber(
   replacements: ReadonlyMap<string, string>,
@@ -234,6 +270,55 @@ export function createPathScrubber(
     // Homes no known path covered: other machines' and other users'.
     scrubbed = scrubbed.replace(STANDARD_HOME_IN_TEXT_PATTERN, '~');
 
-    return isPathLike(scrubbed) ? toBasename(scrubbed) : scrubbed;
+    return isPathLike(scrubbed)
+      ? toPathName(scrubbed)
+      : scrubbed.replace(PATH_IN_TEXT_PATTERN, (path) => toPathName(path));
+  };
+}
+
+const NAME_CHARACTER_PATTERN = /[\p{L}\p{N}_-]/u;
+
+function isNameBoundary(value: string, index: number): boolean {
+  return index < 0 || index >= value.length || !NAME_CHARACTER_PATTERN.test(value.charAt(index));
+}
+
+/**
+ * Replaces whole-word mentions of names in free text (project labels and machine names, with
+ * --redact), longest first, in one pass so no replacement is replaced again. Names with no
+ * letter or digit (`~`) name no one and are left alone.
+ */
+export function createNameReplacer(names: ReadonlyMap<string, string>): (value: string) => string {
+  const ordered = [...names.entries()]
+    .filter(([name, replacement]) => name !== replacement && /[\p{L}\p{N}]/u.test(name))
+    .sort(([left], [right]) => right.length - left.length || compareByCodePoint(left, right));
+
+  return (value) => {
+    const present = ordered.filter(([name]) => value.includes(name));
+
+    if (present.length === 0) {
+      return value;
+    }
+
+    let replaced = '';
+    let index = 0;
+
+    while (index < value.length) {
+      const match = present.find(
+        ([name]) =>
+          value.startsWith(name, index) &&
+          isNameBoundary(value, index - 1) &&
+          isNameBoundary(value, index + name.length),
+      );
+
+      if (match === undefined) {
+        replaced += value.charAt(index);
+        index += 1;
+      } else {
+        replaced += match[1];
+        index += match[0].length;
+      }
+    }
+
+    return replaced;
   };
 }

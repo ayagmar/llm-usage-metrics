@@ -4,6 +4,7 @@ import { buildProjectLabels } from '../../src/aggregate/project-key.js';
 import {
   buildRedactionMap,
   buildShareProjectLabels,
+  createNameReplacer,
   createPathScrubber,
   KEPT_MACHINE_LABELS,
   toShareModelLabel,
@@ -97,6 +98,24 @@ describe('buildShareProjectLabels', () => {
     // Not a home: the folder holding them.
     expect(labels.get('/home')).toBe('home');
   });
+
+  it('spells a home ~ under any root: WSL, Solaris, FreeBSD, a backup', () => {
+    const keys = [
+      '/mnt/c/Users/alicewsl',
+      '/mnt/c/Users/alicewsl/proj',
+      '/export/home/bobsolaris/app',
+      '/usr/home/carolbsd',
+      '/backup/home/dave/notes',
+    ];
+    const labels = buildShareProjectLabels(keys, '/srv/me');
+    const segments = [...labels.values()].flatMap((label) => label.split(/[ /]/u));
+
+    for (const name of ['alicewsl', 'bobsolaris', 'carolbsd', 'dave', 'mnt', 'export']) {
+      expect(segments, name).not.toContain(name);
+    }
+    expect(labels.get('/mnt/c/Users/alicewsl/proj')).toBe('proj');
+    expect(labels.get('/backup/home/dave/notes')).toBe('notes');
+  });
 });
 
 describe('toShareModelLabel', () => {
@@ -105,6 +124,11 @@ describe('toShareModelLabel', () => {
     ['~/models/qwen.gguf', 'qwen.gguf'],
     ['C:\\Models\\Mistral.GGUF', 'mistral.gguf'],
     ['\\\\server\\share\\m.bin', 'm.bin'],
+    ['file:///opt/review-alice/models/private.gguf', 'private.gguf'],
+    ['FILE://host/share/Models/m.bin', 'm.bin'],
+    ['./models/home/oscar/m', 'm'],
+    ['..\\Models\\Q.gguf', 'q.gguf'],
+    ['mirror/home/oscar', '~'],
     ['Claude-Sonnet-4-5', 'claude-sonnet-4-5'],
     ['openai/gpt-5', 'openai/gpt-5'],
     [undefined, '(unknown)'],
@@ -154,10 +178,65 @@ describe('createPathScrubber', () => {
     const scrub = createPathScrubber(new Map());
 
     expect(scrub('ran in /home/otheruser/app and /Users/bob, then C:\\users\\Dev\\x')).toBe(
-      'ran in ~/app and ~, then ~\\x',
+      'ran in app and ~, then x',
     );
     expect(scrub('as /root on d:/USERS/Eve')).toBe('as ~ on ~');
-    expect(scrub('see /rooted and /homes/x')).toBe('see /rooted and /homes/x');
+    expect(scrub('on /mnt/c/Users/alicewsl and /export/home/bob')).toBe('on ~ and ~');
+    // Not homes, but paths all the same.
+    expect(scrub('see /rooted and /homes/x')).toBe('see rooted and x');
+  });
+
+  it('reduces every path in free text to its basename, wherever it stands', () => {
+    const scrub = createPathScrubber(new Map());
+
+    expect(scrub('review /opt/alice/private-data.json for x')).toBe(
+      'review private-data.json for x',
+    );
+    expect(
+      scrub('model="file:///opt/alice/m.gguf", dir=D:\\data\\alice (and \\\\nas\\alice\\x)'),
+    ).toBe('model="m.gguf", dir=alice (and x)');
+    expect(scrub('from ./alice/notes.md and ../bob/todo.txt; ~carol/x')).toBe(
+      'from notes.md and todo.txt; x',
+    );
+    // Not paths: ratios, URLs, approximations, a lone slash.
+    expect(scrub('tokens/s, https://example.test/a, ~5% and 1 / 2')).toBe(
+      'tokens/s, https://example.test/a, ~5% and 1 / 2',
+    );
+  });
+
+  it('keeps known paths as their labels, under redaction too', () => {
+    const scrub = createPathScrubber(new Map([['/srv/private-project', 'project-1']]));
+
+    expect(scrub('edited /srv/private-project/src/a.ts')).toBe('edited project-1/src/a.ts');
+  });
+
+  it('keeps a Windows profile name with a space inside the home it spells ~', () => {
+    const scrub = createPathScrubber(new Map());
+
+    expect(scrub('logs in C:\\Users\\John Smith\\AppData\\x.log')).toBe('logs in x.log');
+    // A name with no separator after it ends at the space: the rest is prose.
+    expect(scrub('as C:\\Users\\bob and D:')).toBe('as ~ and D:');
+  });
+});
+
+describe('createNameReplacer', () => {
+  it('replaces whole-word names, longest first, never a replacement again', () => {
+    const replace = createNameReplacer(
+      new Map([
+        ['app', 'project-2'],
+        ['work/app', 'project-1'],
+        ['project-1', 'project-3'],
+        ['desk', 'machine-1'],
+        ['~', 'project-4'],
+        ['local', 'local'],
+      ]),
+    );
+
+    expect(replace('work/app and app on desk, not desktop or app-server; ~ and local')).toBe(
+      'project-1 and project-2 on machine-1, not desktop or app-server; ~ and local',
+    );
+    expect(replace('app.')).toBe('project-2.');
+    expect(replace('nothing here')).toBe('nothing here');
   });
 });
 
@@ -168,7 +247,45 @@ describe('sanitizeEmbeddedEnvelope', () => {
     projectLabelForLabel: (label: string) => (label === 'work/app' ? 'project-1' : undefined),
     machineLabel: (name: string) => (name === 'local' ? name : 'machine-1'),
     scrub: createPathScrubber(new Map([['/home/u/work/app', 'project-1']])),
+    names: new Map<string, string>(),
   };
+
+  it('replaces in free text the names the fields and the maps give', () => {
+    const envelope = sanitizeEmbeddedEnvelope(
+      {
+        report: 'compare',
+        data: {
+          rows: [{ project: 'work/app', machine: 'desk' }],
+          note: 'work/app ran on desk and on laptop',
+        },
+      },
+      { ...maps, names: new Map([['laptop', 'machine-2']]) },
+    );
+
+    expect(envelope.data).toEqual({
+      rows: [{ project: 'project-1', machine: 'machine-1' }],
+      note: 'project-1 ran on machine-1 and on machine-2',
+    });
+  });
+
+  it('leaves identifiers alone when a project or machine shares their name', () => {
+    const names = new Map([
+      ['codex', 'project-1'],
+      ['tokens', 'project-2'],
+      ['openai', 'machine-1'],
+      ['ALL', 'project-3'],
+    ]);
+    const data = {
+      sources: [{ source: 'codex', provider: 'openai', periodKey: 'ALL' }],
+      metrics: [{ key: 'inputTokens', label: 'Input tokens', valueType: 'integer' }],
+      topSources: [{ name: 'codex', totalTokens: 1 }],
+      notes: ['missing_pricing'],
+    };
+
+    expect(sanitizeEmbeddedEnvelope({ report: 'compare', data }, { ...maps, names }).data).toEqual(
+      data,
+    );
+  });
 
   it('drops path fields, maps projects and machines, and scrubs other strings', () => {
     const envelope = sanitizeEmbeddedEnvelope(
@@ -185,6 +302,8 @@ describe('sanitizeEmbeddedEnvelope', () => {
           machines: ['local', 'desk'],
           note: 'read from /home/u/work/app',
           models: ['/opt/models/llama.gguf'],
+          topModels: [{ name: './models/home/oscar/M', totalTokens: 2 }],
+          candidateModel: '~/models/Qwen.gguf',
           count: 3,
           flag: null,
         },
@@ -205,6 +324,8 @@ describe('sanitizeEmbeddedEnvelope', () => {
         machines: ['local', 'machine-1'],
         note: 'read from project-1',
         models: ['llama.gguf'],
+        topModels: [{ name: 'm', totalTokens: 2 }],
+        candidateModel: 'qwen.gguf',
         count: 3,
         flag: null,
       },
