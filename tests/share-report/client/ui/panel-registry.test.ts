@@ -12,20 +12,20 @@ function reportWith(report: ShareEmbeddedEnvelope['report'] | undefined): ShareR
 }
 
 describe('panel registry', () => {
-  it('shows the wrapped recap above the controls and the other panels after the charts', () => {
-    expect(getPanelsFor(reportWith('wrapped'), SHARE_PANELS)).toMatchObject({
-      recap: [{ id: 'wrapped-recap' }],
-      section: [],
-    });
-
-    for (const report of ['compare', 'efficiency', 'optimize'] as const) {
-      const panels = getPanelsFor(reportWith(report), SHARE_PANELS);
-      expect(panels.recap).toEqual([]);
-      expect(panels.section.map((panel) => panel.id)).toEqual([report]);
+  it('gives each command with its own report one lead, above the controls', () => {
+    for (const [report, id] of [
+      ['wrapped', 'wrapped-recap'],
+      ['summary', 'summary'],
+      ['trends', 'trends'],
+      ['compare', 'compare'],
+      ['efficiency', 'efficiency'],
+      ['optimize', 'optimize'],
+    ] as const) {
+      expect(getPanelsFor(reportWith(report), SHARE_PANELS).map((panel) => panel.id)).toEqual([id]);
     }
   });
 
   it('adds no panel to a file without an envelope', () => {
-    expect(getPanelsFor(reportWith(undefined), SHARE_PANELS)).toEqual({ recap: [], section: [] });
+    expect(getPanelsFor(reportWith(undefined), SHARE_PANELS)).toEqual([]);
   });
 });

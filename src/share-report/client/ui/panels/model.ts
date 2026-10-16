@@ -30,12 +30,27 @@ export type PanelTable = {
   foot: PanelCell[][];
 };
 
+/** A sentence that leads a panel: figures and the words between them. */
+export type LedePart = { text: string; figure: boolean };
+
 /** A panel's body, top to bottom; `note` says where the figures come from. */
 export type PanelView = {
+  lede: LedePart[];
   facts: PanelFact[];
   tables: PanelTable[];
   note: string;
 };
+
+/** The words every lead ends its note with: the page's controls never change it. */
+export const FIXED_NOTE = 'The controls below do not change it.';
+
+export function words(text: string): LedePart {
+  return { text, figure: false };
+}
+
+export function figure(text: string): LedePart {
+  return { text, figure: true };
+}
 
 /** The envelope's data when the file embeds that command's report, else undefined. */
 export function getEnvelopeData(
@@ -75,7 +90,7 @@ export function formatCountOrNone(value: number | undefined): string {
   return value === undefined ? NO_VALUE : formatCount(value);
 }
 
-const LOWER_BOUND_NOTE = 'Some events had no price, so this is a lower bound';
+export const LOWER_BOUND_NOTE = 'Some events had no price, so this is a lower bound';
 
 /** `$1.23`, `~$1.23` when some events had no price (as the terminal marks it), or `—`. */
 export function formatEnvelopeCost(costUsd: number | undefined, incomplete = false): PanelCell {

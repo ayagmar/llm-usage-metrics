@@ -29,7 +29,6 @@ import {
   buildSummary,
   getEmptyState,
   getPanelsFor,
-  type PanelPlacement,
 } from '../../../../src/share-report/client/ui/shell/model.js';
 import { getReportTitle } from '../../../../src/share-report/client/ui/export/share-document.js';
 import {
@@ -132,6 +131,7 @@ describe('header', () => {
     expect(header.title).toBe('Daily usage');
     expect(header.period).toBe('20 Oct 2026 – 26 Oct 2026');
     expect(header.facts).toEqual([
+      'From llm-usage daily',
       'File covers 29 Dec 2025 – 26 Oct 2026',
       'Times in Europe/Paris',
       'Generated 2026-10-27 09:00',
@@ -152,7 +152,20 @@ describe('header', () => {
     const header = buildHeader(contextFor(open));
 
     expect(header.period).toBe('21 Oct 2026 – 27 Oct 2026');
-    expect(header.facts[0]).toBe('File covers 21 Oct 2026 – 27 Oct 2026');
+    expect(header.facts[1]).toBe('File covers 21 Oct 2026 – 27 Oct 2026');
+  });
+
+  it('continues the window sentence in lower case when the window has no start', () => {
+    // optimize and monthly --all write a window with no start.
+    const all = loadFixtureReport((data) => {
+      data.meta.command = 'optimize';
+      data.meta.window = { since: null, until: null };
+    });
+
+    expect(buildHeader(contextFor(all)).facts.slice(0, 2)).toEqual([
+      'From llm-usage optimize',
+      'File covers up to 27 Oct 2026',
+    ]);
   });
 
   it('says when the file is redacted, names are hidden, prices failed or the command filtered', () => {
@@ -603,23 +616,18 @@ describe('tables', () => {
   });
 });
 
-describe('panel placement', () => {
+describe('panels', () => {
   const report = loadFixtureReport();
 
-  it('keeps the panels that apply to the file, by placement and in list order', () => {
-    const panel = (id: string, placement: PanelPlacement, applies: boolean) => ({
-      id,
-      placement,
-      appliesTo: () => applies,
-    });
+  it('keeps the panels that apply to the file, in list order', () => {
+    const panel = (id: string, applies: boolean) => ({ id, appliesTo: () => applies });
     const placed = getPanelsFor(report, [
-      panel('a', 'section', true),
-      panel('b', 'recap', true),
-      panel('c', 'section', false),
-      panel('d', 'section', true),
+      panel('a', true),
+      panel('b', true),
+      panel('c', false),
+      panel('d', true),
     ]);
 
-    expect(placed.recap.map((entry) => entry.id)).toEqual(['b']);
-    expect(placed.section.map((entry) => entry.id)).toEqual(['a', 'd']);
+    expect(placed.map((entry) => entry.id)).toEqual(['a', 'b', 'd']);
   });
 });

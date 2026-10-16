@@ -731,7 +731,7 @@ input[type='date'] {
   }
 }
 
-/* Chart and panel frames: C2 and C3 draw inside .chart-body and .panel-body. */
+/* Chart frames: C2 draws inside .chart-body; the leads (panels.css) inside .panel-body. */
 
 .charts {
   display: grid;
@@ -739,8 +739,7 @@ input[type='date'] {
   gap: 1.5rem;
 }
 
-.chart,
-.panel {
+.chart {
   display: grid;
   align-content: start;
   gap: 0.875rem;

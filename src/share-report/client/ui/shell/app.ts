@@ -88,7 +88,7 @@ export function startApp(root: HTMLElement, report: ShareReport, pristine: Prist
       header.replaceChildren(...renderHeaderContent(buildHeader(current)));
       controls.sync(state, labels);
 
-      for (const panel of recapFrames) {
+      for (const panel of leadFrames) {
         panel.render(current);
       }
 
@@ -115,7 +115,7 @@ export function startApp(root: HTMLElement, report: ShareReport, pristine: Prist
 
       summary.replaceChildren(renderSummary(buildSummary(current)));
 
-      for (const frame of [...chartFrames, ...sectionFrames]) {
+      for (const frame of chartFrames) {
         frame.render(current);
       }
 
@@ -200,18 +200,15 @@ export function startApp(root: HTMLElement, report: ShareReport, pristine: Prist
     };
   });
 
-  const panelFrames = (list: typeof panels.recap) =>
-    list.map((panel) => {
-      const frame = renderPanelFrame(panel.id, panel.title);
-      return {
-        element: frame.element,
-        render: (current: ShareViewContext) => {
-          panel.render(frame.body, current);
-        },
-      };
-    });
-  const recapFrames = panelFrames(panels.recap);
-  const sectionFrames = panelFrames(panels.section);
+  const leadFrames = panels.map((panel) => {
+    const frame = renderPanelFrame(panel.id, panel.title);
+    return {
+      element: frame.element,
+      render: (current: ShareViewContext) => {
+        panel.render(frame.body, current);
+      },
+    };
+  });
 
   const saveView = () => {
     const html = renderShareDocument({
@@ -249,7 +246,6 @@ export function startApp(root: HTMLElement, report: ShareReport, pristine: Prist
         { class: 'charts' },
         chartFrames.map((frame) => frame.element),
       ),
-    ...sectionFrames.map((frame) => frame.element),
     tableSlot,
   ]);
   const main = h('main', { class: 'content', attrs: { id: 'main', tabindex: -1 } }, [
@@ -268,7 +264,7 @@ export function startApp(root: HTMLElement, report: ShareReport, pristine: Prist
         header,
         h('div', { class: 'masthead-actions' }, [saveButton, status]),
       ]),
-      ...recapFrames.map((frame) => frame.element),
+      ...leadFrames.map((frame) => frame.element),
       h('div', { class: 'toolbar' }, [controls.element]),
       main,
       h('footer', { class: 'colophon' }, [
