@@ -270,6 +270,12 @@ export function buildBlockChart(context: ShareViewContext, width: number): Chart
     notes.unshift('Blocks ignore model, project and machine filters.');
   }
 
+  if (tokens.days[0] < span.first) {
+    notes.push(
+      `The first row holds blocks that started on ${formatDay(tokens.days[0])} and run into the view.`,
+    );
+  }
+
   const rows = tokens.days.flatMap((day, row) =>
     tokens.counts[row].flatMap((count, hour) =>
       count === 0
@@ -333,9 +339,8 @@ export function buildBlockChart(context: ShareViewContext, width: number): Chart
     width,
     heading.height,
   );
-  const peakRow = daysAsRows ? peak.row : peak.column;
-  const peakHour = daysAsRows ? peak.column : peak.row;
-  const peakText = `Largest: ${dayLabel(tokens.days[peakRow])} ${hourLabel(peakHour)}:00, ${formatCompact(peak.value)} tokens`;
+  // The peak comes from the day × hour matrix, whichever way the grid is drawn.
+  const peakText = `Largest: ${dayLabel(tokens.days[peak.row])} ${hourLabel(peak.column)}:00, ${formatCompact(peak.value)} tokens`;
   const scale = heatLegend(heading.height + grid.height + 12, peakText, width);
 
   return {

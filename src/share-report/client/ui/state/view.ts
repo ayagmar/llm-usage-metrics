@@ -6,6 +6,7 @@
 import { shiftDateKey } from '../../../../utils/date-key.js';
 import {
   decodeViewState,
+  encodeViewState,
   getDefaultViewState,
   getWindowEnd,
   SHARE_DIMENSIONS,
@@ -17,6 +18,9 @@ import {
   type TableSort,
   type TableSortKey,
 } from '../../core/index.js';
+
+/** A hash with no field: it decodes to the command view instead of the saved one. */
+const DEFAULT_VIEW_HASH = 'default';
 
 export type ShareUiState = {
   view: ShareViewState;
@@ -37,6 +41,20 @@ export function resolveInitialView(
 ): ShareViewState {
   const own = hash.replace(/^#/u, '');
   return decodeViewState(own === '' ? (savedHash ?? '') : own, report);
+}
+
+/**
+ * The URL hash for a view: its fields that differ from the command view. When it has none but
+ * the file carries a saved view, a marker that decodes to the command view, since an empty
+ * hash reopens on the saved one.
+ */
+export function toUrlHash(
+  view: ShareViewState,
+  report: ShareReport,
+  savedHash: string | undefined,
+): string {
+  const hash = encodeViewState(view, report);
+  return hash === '' && savedHash !== undefined && savedHash !== '' ? DEFAULT_VIEW_HASH : hash;
 }
 
 /** A view change: the rows change, so the table goes back to its first page. */

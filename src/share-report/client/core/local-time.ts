@@ -25,11 +25,14 @@ function getFormatter(timezone: string): Intl.DateTimeFormat {
 }
 
 /**
- * The local date and hour of an ISO timestamp in an explicit timezone, never the browser's;
- * undefined for an unparsable timestamp.
+ * The local date and hour of an ISO timestamp or epoch milliseconds in an explicit timezone,
+ * never the browser's; undefined for an unparsable timestamp.
  */
-export function toLocalDateHour(timestampIso: string, timezone: string): LocalDateHour | undefined {
-  const timestampMs = Date.parse(timestampIso);
+export function toLocalDateHour(
+  timestamp: string | number,
+  timezone: string,
+): LocalDateHour | undefined {
+  const timestampMs = typeof timestamp === 'number' ? timestamp : Date.parse(timestamp);
 
   if (Number.isNaN(timestampMs)) {
     return undefined;

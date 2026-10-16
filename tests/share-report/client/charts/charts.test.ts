@@ -480,6 +480,29 @@ for (const host of HOST_TIMEZONES) {
       expect(filtered.table?.rows).toEqual(view.table?.rows);
     });
 
+    it('show a block that started the evening before the view on a leading row', () => {
+      const evening = loadFixtureReport((data) => {
+        // 23:00 on 19 Oct in Paris, running into 20 Oct.
+        data.blocks.rows[0] = {
+          ...data.blocks.rows[0],
+          start: '2026-10-19T21:00:00.000Z',
+          end: '2026-10-20T02:00:00.000Z',
+        };
+      });
+      const view = chart('blocks').build(
+        contextFor(evening, { since: '2026-10-20', until: '2026-10-26' }),
+        1300,
+      );
+
+      expect(view.table?.rows.map((row) => row[0])).toEqual([
+        '19 Oct 2026 23:00',
+        '26 Oct 2026 23:00',
+      ]);
+      expect(view.notes).toContain(
+        'The first row holds blocks that started on 19 Oct 2026 and run into the view.',
+      );
+    });
+
     it('lay a long span of blocks out with days as columns', () => {
       const view = chart('blocks').build(
         contextFor(report, { since: '2026-08-01', until: '2026-10-26' }),
@@ -488,6 +511,8 @@ for (const host of HOST_TIMEZONES) {
       const rowLabels = texts(view.svg).filter((entry) => /^\d\dh$/u.test(entry));
 
       expect(rowLabels).toEqual(['00h', '06h', '12h', '18h']);
+      // The largest block starts 20 Oct at 09:00 Paris time.
+      expect(view.description).toContain('Largest: 20 Oct 09:00, 24.3K tokens');
     });
 
     it('draw hourly bars from hourly detail and note the clipping', () => {

@@ -2,7 +2,7 @@
 // embedded `wrapped --json` data. Fixed at generation: the page's filters do not change it.
 
 import { getIsoDayOfWeek, parseDateKey } from '../../../../utils/date-key.js';
-import { NO_VALUE, WEEKDAY_LABELS, type ShareReport } from '../../core/index.js';
+import { getWindowEnd, NO_VALUE, WEEKDAY_LABELS, type ShareReport } from '../../core/index.js';
 import {
   formatCompact,
   formatCount,
@@ -266,13 +266,19 @@ export function buildWrappedView(report: ShareReport): WrappedView | undefined {
 
   const year = String(readNumber(data, 'year'));
   const timezone = readString(data, 'timezone') ?? report.data.meta.timezone;
+  // The current year stops at the generation date, as the page's charts do.
+  const end = getWindowEnd(report) ?? `${year}-12-31`;
+  const days = readRecords(data.dailyIntensity).filter((day) => String(day.date) <= end);
+  const months = readRecords(data.monthlyIntensity).filter(
+    (month) => String(month.month) <= end.slice(0, 7),
+  );
 
   return {
     year,
     lede: buildLede(data, year),
     facts: buildFacts(data),
-    calendar: buildCalendar(year, readRecords(data.dailyIntensity)),
-    months: buildMonths(readRecords(data.monthlyIntensity)),
+    calendar: buildCalendar(year, days),
+    months: buildMonths(months),
     topLists: [
       buildTopList('Top models', 'Model', readRecords(data.topModels)),
       buildTopList('Top sources', 'Source', readRecords(data.topSources)),

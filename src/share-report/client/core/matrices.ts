@@ -1,8 +1,8 @@
 import { getDateKeyRange } from '../../../utils/date-key.js';
 import type { ShareBlock } from '../../types.js';
 import type { ShareReport } from './decode.js';
-import { hasBlockIgnoredFilters, isInDateRange, type ShareFilters } from './filters.js';
-import { toLocalDateHour } from './local-time.js';
+import { hasBlockIgnoredFilters, type ShareFilters } from './filters.js';
+import { toLocalDateHour, type LocalDateHour } from './local-time.js';
 import type { ShareDateSpan } from './period-axis.js';
 import { getMetricReader, type ShareMetric } from './stack.js';
 
@@ -18,7 +18,10 @@ export type ShareHourWeekdayMatrix = {
 };
 
 export type ShareBlockMatrix = {
-  /** Every local date of the span, one row each. */
+  /**
+   * Every local date of the span, one row each, led by the day before it when a block that
+   * started then runs into the span.
+   */
   days: string[];
   /** `values[row][hour]`: the metric of the blocks starting in that local hour. */
   values: number[][];
@@ -77,8 +80,9 @@ function getBlockMetric(block: ShareBlock, metric: ShareMetric): number | undefi
 }
 
 /**
- * The 5-hour blocks by the local date and hour they start, over the span. Blocks honour the
- * date range and the source filter only.
+ * The 5-hour blocks by the local date and hour they start. Blocks honour the span (the date
+ * range) and the source filter only, and like `blocks` a block counts when it runs into the
+ * range: one that started the evening before the span gets a leading row for that day.
  */
 export function buildBlockMatrix(
   report: ShareReport,
@@ -86,37 +90,57 @@ export function buildBlockMatrix(
   span: ShareDateSpan,
   metric: ShareMetric,
 ): ShareBlockMatrix {
-  const days = getDateKeyRange(span.first, span.last);
-  const values = createGrid(days.length);
-  const counts = createGrid(days.length);
   const ignoresFilters = hasBlockIgnoredFilters(filters);
   const reader = getMetricReader(report, metric);
 
   if (!reader) {
-    return { days, values, counts, ignoresFilters, unavailable: true };
+    const days = getDateKeyRange(span.first, span.last);
+    return {
+      days,
+      values: createGrid(days.length),
+      counts: createGrid(days.length),
+      ignoresFilters,
+      unavailable: true,
+    };
   }
 
-  const rowOf = new Map(days.map((day, row) => [day, row]));
+  const { timezone } = report.data.meta;
   const sources = new Set(filters.source);
+  const selected: { start: LocalDateHour; value: number }[] = [];
+  let first = span.first;
 
   for (const block of report.data.blocks.rows) {
-    const local = toLocalDateHour(block.start, report.data.meta.timezone);
+    const start = toLocalDateHour(block.start, timezone);
+    // The block's end is exclusive: the last date it covers is that of its last millisecond.
+    const lastMoment = toLocalDateHour(Date.parse(block.end) - 1, timezone);
     const value = getBlockMetric(block, metric);
 
     if (
-      local === undefined ||
+      start === undefined ||
+      lastMoment === undefined ||
       value === undefined ||
-      !isInDateRange(local.dateKey, filters) ||
+      lastMoment.dateKey < span.first ||
+      start.dateKey > span.last ||
       (sources.size > 0 && !sources.has(block.source))
     ) {
       continue;
     }
 
-    const row = rowOf.get(local.dateKey);
+    selected.push({ start, value });
+    first = start.dateKey < first ? start.dateKey : first;
+  }
+
+  const days = getDateKeyRange(first, span.last);
+  const values = createGrid(days.length);
+  const counts = createGrid(days.length);
+  const rowOf = new Map(days.map((day, row) => [day, row]));
+
+  for (const { start, value } of selected) {
+    const row = rowOf.get(start.dateKey);
 
     if (row !== undefined) {
-      values[row][local.hour] = reader.add(values[row][local.hour], value);
-      counts[row][local.hour] += 1;
+      values[row][start.hour] = reader.add(values[row][start.hour], value);
+      counts[row][start.hour] += 1;
     }
   }
 

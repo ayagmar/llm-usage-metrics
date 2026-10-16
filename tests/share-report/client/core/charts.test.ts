@@ -193,15 +193,15 @@ describe('buildBlockMatrix', () => {
   });
 
   it('keeps blocks outside the date range out', () => {
-    const matrix = buildBlockMatrix(
-      report,
-      createFilters({ since: '2026-10-21', until: '2026-10-26' }),
-      span,
-      { kind: 'tokens' },
-    );
+    const filters = createFilters({ since: '2026-10-21', until: '2026-10-26' });
+    const matrix = buildBlockMatrix(report, filters, defined(getViewDateSpan(report, filters)), {
+      kind: 'tokens',
+    });
 
-    expect(matrix.counts[0][9]).toBe(0);
-    expect(matrix.counts[6][23]).toBe(1);
+    // The 20 Oct 09:00 block ends that day, before the range.
+    expect(matrix.days[0]).toBe('2026-10-21');
+    expect(matrix.counts.flat().reduce((sum, value) => sum + value, 0)).toBe(1);
+    expect(matrix.counts[5][23]).toBe(1);
   });
 
   it('marks a cost mode the file lacks as unavailable', () => {

@@ -26,6 +26,7 @@ import {
   resolveInitialView,
   resolveTheme,
   toggleIndex,
+  toUrlHash,
   withFilter,
   withPeriod,
   withView,
@@ -58,6 +59,20 @@ describe('the view a page opens on', () => {
     expect(view.source).toEqual([]);
     expect(view.project).toEqual([1]);
     expect(view.since).toBe('2026-10-20');
+  });
+
+  it('reopens on the command view after a saved file is reset to it', () => {
+    const saved = 'g=month';
+    const reset = resetView(
+      { ...initialState(), view: resolveInitialView('', saved, report) },
+      report,
+    );
+    const hash = toUrlHash(reset.view, report, saved);
+
+    expect(resolveInitialView(hash, saved, report)).toEqual(getDefaultViewState(report));
+    // Without a saved view, the command view keeps a clean URL.
+    expect(toUrlHash(reset.view, report, undefined)).toBe('');
+    expect(toUrlHash({ ...reset.view, granularity: 'week' }, report, saved)).toBe('g=week');
   });
 
   it('round-trips a saved view through its script element', () => {
