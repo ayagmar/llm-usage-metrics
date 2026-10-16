@@ -19,6 +19,8 @@
   --rule: light-dark(rgb(32 35 29 / 0.12), rgb(241 240 233 / 0.1));
   --rule-strong: light-dark(rgb(32 35 29 / 0.24), rgb(241 240 233 / 0.2));
   --accent: light-dark(#b65331, #df7b52);
+  /* Accent for text: the fill colour is too light for small text on paper (AA). */
+  --accent-text: light-dark(#9e4528, #df7b52);
   --accent-ink: light-dark(#fff8f2, #24130d);
   --accent-soft: light-dark(rgb(182 83 49 / 0.1), rgb(223 123 82 / 0.14));
   --focus: light-dark(#8f3d20, #f0a07e);
@@ -216,7 +218,7 @@ button:disabled {
 .period {
   font-family: var(--font-mono);
   font-size: 0.9375rem;
-  color: var(--accent);
+  color: var(--accent-text);
   font-variant-numeric: tabular-nums;
 }
 
@@ -252,7 +254,7 @@ button:disabled {
 .badge-notice {
   border-color: transparent;
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .masthead-actions {
@@ -306,7 +308,7 @@ button:disabled {
 .chip[aria-pressed='true'] {
   border-color: var(--accent);
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 600;
 }
 
@@ -318,7 +320,7 @@ button:disabled {
   padding: 0.25rem 0;
   border: 0;
   background: none;
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: 0.8125rem;
   font-weight: 560;
   text-decoration: underline;
@@ -701,7 +703,7 @@ input[type='date'] {
 }
 
 .figure[data-figure='cost'] .figure-value {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .figure-detail {
@@ -888,7 +890,7 @@ th[aria-sort='ascending'] .sort::after {
 
 th[aria-sort='ascending'],
 th[aria-sort='descending'] {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 th[aria-sort='none'] {
@@ -912,7 +914,7 @@ th[aria-sort='none'] {
 }
 
 .drill:hover {
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration-color: currentColor;
 }
 
