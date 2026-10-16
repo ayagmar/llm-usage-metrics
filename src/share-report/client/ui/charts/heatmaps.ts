@@ -270,6 +270,12 @@ export function buildBlockChart(context: ShareViewContext, width: number): Chart
     notes.unshift('Blocks ignore model, project and machine filters.');
   }
 
+  if (tokens.days[0] < span.first) {
+    notes.push(
+      `The first row holds blocks that started on ${formatDay(tokens.days[0])} and run into the view.`,
+    );
+  }
+
   const rows = tokens.days.flatMap((day, row) =>
     tokens.counts[row].flatMap((count, hour) =>
       count === 0
