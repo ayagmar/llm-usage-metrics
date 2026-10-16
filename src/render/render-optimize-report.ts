@@ -2,7 +2,11 @@ import { markdownTable } from 'markdown-table';
 import pc from 'picocolors';
 
 import type { OptimizeDataResult } from '../cli/usage-data-contracts.js';
-import type { OptimizeBaselineRow, OptimizeCandidateRow } from '../optimize/optimize-row.js';
+import type {
+  OptimizeBaselineRow,
+  OptimizeCandidateRow,
+  OptimizeRow,
+} from '../optimize/optimize-row.js';
 import type { ReportGranularity } from '../utils/time-buckets.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { resolveTtyColumns, visibleWidth } from './table-text-layout.js';
@@ -267,6 +271,14 @@ function resolveIncludeNotesColumn(optimizeData: OptimizeDataResult): boolean {
   );
 }
 
+/** As the optimize builder decides which periods have usage. */
+function hasBaselineUsage(row: OptimizeRow): boolean {
+  return (
+    row.rowType === 'baseline' &&
+    (row.totalTokens > 0 || row.baselineCostIncomplete || (row.baselineCostUsd ?? 0) > 0)
+  );
+}
+
 function renderTerminalOptimizeReport(
   optimizeData: OptimizeDataResult,
   options: RenderOptimizeReportOptions,
@@ -274,8 +286,8 @@ function renderTerminalOptimizeReport(
   const useColor = options.useColor ?? shouldUseColorByDefault();
   const header = renderReportHeader({ title: getReportTitle(options.granularity), useColor });
 
-  // No baseline tokens: the provider has no usage to price against the candidates.
-  if (!optimizeData.rows.some((row) => row.rowType === 'baseline' && row.totalTokens > 0)) {
+  // No baseline tokens, logged cost or unpriced usage: the provider has nothing to compare.
+  if (!optimizeData.rows.some(hasBaselineUsage)) {
     return [
       header,
       '',
