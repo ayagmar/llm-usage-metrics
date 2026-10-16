@@ -1,15 +1,13 @@
-/** The id of the `<script type="application/json">` element that holds the report payload. */
-export const REPORT_DATA_ELEMENT_ID = 'report-data';
-
-/** Parses the embedded payload text; returns undefined when it is missing or not JSON. */
-export function parseReportData(text: string | null | undefined): unknown {
-  if (!text) {
-    return undefined;
-  }
-
-  try {
-    return JSON.parse(text) as unknown;
-  } catch {
-    return undefined;
-  }
-}
+// The share report's DOM-free logic: decoding, filters, roll-ups, chart and table models and
+// the URL hash. The page (`../ui`) renders what these return.
+export * from './decode.js';
+export * from './filters.js';
+export * from './local-time.js';
+export * from './matrices.js';
+export * from './metrics.js';
+export * from './name-mask.js';
+export * from './period-axis.js';
+export * from './rollup.js';
+export * from './stack.js';
+export * from './table.js';
+export * from './view-state.js';
