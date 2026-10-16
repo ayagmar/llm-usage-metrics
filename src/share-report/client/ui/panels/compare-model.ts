@@ -105,12 +105,13 @@ function breakdownCells(
   ];
 }
 
-// A phone keeps the name and the change; the two sides go.
+// A phone keeps the name, the current value and the change: a row new in the current window has
+// no baseline or change % to show.
 const CHANGE_COLUMNS = [
-  { label: 'Current', numeric: true, narrow: false },
+  { label: 'Current', numeric: true },
   { label: 'Baseline', numeric: true, narrow: false },
   { label: 'Change', numeric: true },
-  { label: 'Change %', numeric: true },
+  { label: 'Change %', numeric: true, narrow: false },
 ];
 
 function breakdownTable({ kind, rows, nameOf }: Breakdown): PanelTable {
@@ -264,10 +265,10 @@ export function buildCompareView(report: ShareReport, labels: ShareLabels): Pane
       title: 'Totals',
       columns: [
         { label: 'Metric', numeric: false },
-        { label: `Current (${current.title})`, numeric: true, narrow: false },
+        { label: `Current (${current.title})`, numeric: true },
         { label: `Baseline (${baseline.title})`, numeric: true, narrow: false },
         { label: 'Change', numeric: true },
-        { label: 'Change %', numeric: true },
+        { label: 'Change %', numeric: true, narrow: false },
       ],
       rows: totals.map(metricCells),
       foot: [],

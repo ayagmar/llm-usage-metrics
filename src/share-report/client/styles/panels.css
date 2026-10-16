@@ -65,6 +65,13 @@
   color: var(--ink-2);
 }
 
+/* On a phone, headings wrap between words, so measures stay in view. */
+@media (max-width: 40rem) {
+  .panel-table thead th {
+    white-space: normal;
+  }
+}
+
 .panel-note {
   max-width: 72ch;
   font-size: 0.8125rem;

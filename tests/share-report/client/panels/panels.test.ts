@@ -1014,8 +1014,8 @@ describe('lead tables on a narrow screen', () => {
       buildOptimizeView(withEnvelope('optimize', readGolden('optimize-monthly'))),
     );
 
-    expect(kept(tableOf(compare, 'Totals'))).toEqual(['Metric', 'Change', 'Change %']);
-    expect(kept(tableOf(compare, 'By project (cost)'))).toEqual(['Project', 'Change', 'Change %']);
+    expect(kept(tableOf(compare, 'Totals'))).toEqual(['Metric', 'Current (2026-06)', 'Change']);
+    expect(kept(tableOf(compare, 'By project (cost)'))).toEqual(['Project', 'Current', 'Change']);
     expect(kept(summary.tables[0])).toEqual(['Period', 'Cost', 'Tokens']);
     expect(kept(trends.tables[0])).toEqual(['Source', 'Total', 'Peak']);
     expect(kept(efficiency.tables[0])).toEqual(['Period', 'Commits', 'Cost', 'Per commit']);
