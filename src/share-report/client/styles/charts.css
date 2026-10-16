@@ -1,1 +1,211 @@
-/* Chart styles (card C2). */
+/*
+ * Charts (card C2). Drawn with the series and heat tokens from styles.css; text in --ink and
+ * --muted only. Font sizes are SVG attributes, since label layout measures with them; the
+ * families come from here and export inlines them.
+ */
+
+/* Over-time charts and heatmaps need the row's whole width. */
+#chart-cost-over-time,
+#chart-tokens-over-time,
+#chart-hour-weekday,
+#chart-blocks {
+  grid-column: 1 / -1;
+}
+
+.chart-body {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.chart-svg {
+  overflow: visible;
+}
+
+.chart-svg text {
+  font-family: var(--font-sans);
+}
+
+.chart-caption {
+  fill: var(--muted);
+  font-weight: 500;
+}
+
+.chart-legend,
+.chart-label {
+  fill: var(--ink);
+}
+
+.chart-tick {
+  fill: var(--muted);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-svg .chart-tick,
+.chart-svg .chart-value,
+.chart-svg .chart-reference-label {
+  font-family: var(--font-mono);
+}
+
+.chart-value {
+  fill: var(--ink);
+}
+
+.chart-grid {
+  stroke: var(--rule);
+}
+
+.chart-baseline {
+  stroke: var(--rule-strong);
+}
+
+.series-1 {
+  fill: var(--series-1);
+}
+
+.series-2 {
+  fill: var(--series-2);
+}
+
+.series-3 {
+  fill: var(--series-3);
+}
+
+.series-4 {
+  fill: var(--series-4);
+}
+
+.series-5 {
+  fill: var(--series-5);
+}
+
+.series-6 {
+  fill: var(--series-6);
+}
+
+.series-7 {
+  fill: var(--series-7);
+}
+
+.series-8 {
+  fill: var(--series-8);
+}
+
+.series-other {
+  fill: var(--series-other);
+}
+
+/* The hatch over a series: lines in the card's own colour, so they read as texture. */
+.chart-hatch {
+  fill: none;
+  stroke: var(--surface);
+  stroke-width: 1.25px;
+  stroke-opacity: 0.6;
+}
+
+.chart-bars > :is(rect, g) {
+  transition: opacity 160ms var(--ease);
+}
+
+.chart-bars:hover > :is(rect, g):not(:hover) {
+  opacity: 0.55;
+}
+
+.chart-line {
+  fill: none;
+  stroke: var(--series-1);
+  stroke-width: 2px;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.chart-dot {
+  fill: var(--series-1);
+  stroke: var(--surface);
+  stroke-width: 1.5px;
+}
+
+.chart-reference {
+  stroke: var(--ink);
+  stroke-width: 1px;
+  stroke-dasharray: 4 4;
+  stroke-opacity: 0.55;
+}
+
+.chart-reference-label {
+  fill: var(--ink);
+}
+
+.heat-0 {
+  fill: var(--heat-0);
+}
+
+.heat-1 {
+  fill: var(--heat-1);
+}
+
+.heat-2 {
+  fill: var(--heat-2);
+}
+
+.heat-3 {
+  fill: var(--heat-3);
+}
+
+.heat-4 {
+  fill: var(--heat-4);
+}
+
+.chart-peak {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.5px;
+}
+
+.chart-message {
+  padding: 2rem 0;
+  border-block: 1px dashed var(--rule-strong);
+  color: var(--ink-2);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.chart-notes {
+  display: grid;
+  gap: 0.125rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.chart-table summary {
+  width: fit-content;
+  font-size: 0.8125rem;
+  font-weight: 560;
+  color: var(--ink-2);
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--rule-strong);
+  text-underline-offset: 0.25em;
+}
+
+.chart-table summary:hover {
+  color: var(--accent-text);
+  text-decoration-color: currentColor;
+}
+
+.chart-table[open] summary {
+  margin-bottom: 0.625rem;
+}
+
+.chart-table-caption {
+  padding-bottom: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-align: left;
+}
+
+@media print {
+  .chart-table {
+    display: none;
+  }
+}

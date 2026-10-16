@@ -1,4 +1,4 @@
-// The chart slot. Each chart registers here (C2 fills the list); the shell gives every entry a
+// The chart slot. Each chart registers here (`models.ts` holds the list); the shell gives every entry a
 // titled figure with PNG, SVG and copy-as-image buttons, in list order, and calls `render`
 // again whenever the view changes.
 //
@@ -12,6 +12,8 @@
 // - Each chart carries its numbers as text too: direct labels or a table equivalent in `body`.
 
 import type { ShareViewContext } from '../state/context.js';
+import { CHART_MODELS } from './models.js';
+import { chartRenderer } from './mount.js';
 
 export type ShareChart = {
   /** Stable and URL-safe: names the figure's element id and export file names. */
@@ -20,4 +22,8 @@ export type ShareChart = {
   render: (body: HTMLElement, context: ShareViewContext) => void;
 };
 
-export const SHARE_CHARTS: readonly ShareChart[] = [];
+export const SHARE_CHARTS: readonly ShareChart[] = CHART_MODELS.map((model) => ({
+  id: model.id,
+  title: model.title,
+  render: chartRenderer(model.build),
+}));
