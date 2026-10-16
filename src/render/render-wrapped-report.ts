@@ -169,6 +169,7 @@ function renderTopTable(headerCells: readonly string[], bodyRows: string[][]): s
     measureBodyRows: bodyRows,
     rowMetas,
     layout: 'compact',
+    columnKinds: ['text', 'text', 'measure', 'measure'],
     multilineColumnIndex: TOP_ITEM_NAME_COLUMN,
     multilineColumnWidth: nameColumnWidth,
     terminalWidth: resolveTtyColumns(process.stdout),
@@ -192,6 +193,7 @@ function renderWrappedTerminalReport(
   const paint: Paint = (styler) => (text) => (useColor ? styler(text) : text);
   const heading = [
     renderReportHeader({ title: `Wrapped ${recap.year}`, useColor }),
+    '',
     paint(palette.dim)(`${recap.from} to ${recap.to} (${recap.timezone})`),
     '',
   ];

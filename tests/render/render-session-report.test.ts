@@ -190,7 +190,7 @@ describe('renderSessionReport', () => {
     });
 
     const durationColumnRow = output.split('\n').find((line) => line.includes('…abcdef123456'));
-    expect(durationColumnRow).toContain('│ - ');
+    expect(durationColumnRow).toMatch(/│ +- │ 3,340 │/u);
   });
 
   it('renders a dash for sessions without a repo root', () => {

@@ -892,7 +892,7 @@ describe('renderDoctorText', () => {
     );
 
     expect(output.split('\n')).toEqual([
-      '✔ pi           jsonl   2 file(s)',
+      '✔ pi           jsonl   2 files',
       `    ~${path.sep}${path.join('.pi', 'agent', 'sessions')}`,
       '    /opt/pi',
       '○ goose        sqlite  not installed (no files found)',
@@ -929,7 +929,7 @@ describe('renderDoctorText', () => {
         { homeDir: '' },
       ).split('\n'),
     ).toEqual([
-      '✔ pi              jsonl  2 file(s)',
+      '✔ pi              jsonl  2 files',
       '✔ machine:laptop  ssh    me@laptop: synced 4 min ago, 2 file(s), 1,200 event(s)',
       '✖ machine:vps     ssh    vps: never synced: ssh failed: timed out',
       '',

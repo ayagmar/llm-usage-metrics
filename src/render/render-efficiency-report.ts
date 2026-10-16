@@ -395,6 +395,9 @@ function renderTerminalEfficiencyTable(
     measureBodyRows: fittedCells.bodyRows,
     rowMetas,
     layout: 'compact',
+    columnKinds: fittedCells.headerCells.map((_, index) =>
+      index === periodColumnIndex ? 'text' : 'measure',
+    ),
     multilineColumnIndex: periodColumnIndex,
     multilineColumnWidth:
       fittedCells.widths[periodColumnIndex] ?? efficiencyTableHeaders[periodColumnIndex].length,

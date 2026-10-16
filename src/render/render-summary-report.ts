@@ -304,8 +304,8 @@ function renderTerminalSummaryReport(
       rowMetas,
       layout: 'compact',
       multilineColumnIndex: 0,
+      columnKinds: ['text', 'measure', 'measure', 'text'],
       multilineColumnWidth: 13,
-      leftAlignedColumnIndexes: [3],
       terminalWidth: options.terminalWidth ?? resolveTtyColumns(process.stdout),
     }),
   );

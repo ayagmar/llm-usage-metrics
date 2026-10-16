@@ -10,7 +10,7 @@ import { limitNamedModels } from './format-model-list.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
-import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
+import { columnKindsFromAlign, renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
 import { renderReportJson } from './report-json.js';
 import { resolveTtyColumns, wrapTableColumn } from './table-text-layout.js';
 
@@ -109,7 +109,7 @@ function toRepoTableCells(row: SessionRepoRow, timezone: string): string[] {
 type SessionTableCells = {
   headers: string[];
   bodyRows: string[][];
-  markdownAlign: ('l' | 'r')[];
+  align: ('l' | 'r')[];
 };
 
 function buildTableCells(
@@ -120,7 +120,7 @@ function buildTableCells(
     return {
       headers: [...repoTableHeaders],
       bodyRows: sessionData.rows.map((row) => toRepoTableCells(row, options.timezone)),
-      markdownAlign: ['l', 'r', 'l', 'r', 'r', 'l'],
+      align: ['l', 'r', 'l', 'r', 'r', 'l'],
     };
   }
 
@@ -132,7 +132,7 @@ function buildTableCells(
         truncateSessionIds: options.truncateSessionIds ?? true,
       }),
     ),
-    markdownAlign: ['l', 'l', 'l', 'l', 'r', 'r', 'r', 'l'],
+    align: ['l', 'l', 'l', 'l', 'r', 'r', 'r', 'l'],
   };
 }
 
@@ -148,7 +148,7 @@ function renderTerminalSessionReport(
   options: RenderSessionReportOptions,
 ): string {
   const useColor = options.useColor ?? shouldUseColorByDefault();
-  const { headers, bodyRows } = buildTableCells(sessionData, options);
+  const { headers, bodyRows, align } = buildTableCells(sessionData, options);
   const outputLines = [
     renderReportHeader({
       title: 'Session Usage Report',
@@ -176,6 +176,7 @@ function renderTerminalSessionReport(
       measureBodyRows: wrappedRows,
       rowMetas: wrappedRows.map(() => toRowMeta()),
       layout: 'top_aligned',
+      columnKinds: columnKindsFromAlign(align),
       multilineColumnIndex: modelsColumnIndex,
       multilineColumnWidth: MODELS_COLUMN_WIDTH,
       terminalWidth: resolveTtyColumns(process.stdout),
@@ -190,11 +191,11 @@ function renderMarkdownSessionReport(
   sessionData: SessionDataResult,
   options: RenderSessionReportOptions,
 ): string {
-  const { headers, bodyRows, markdownAlign } = buildTableCells(sessionData, options);
+  const { headers, bodyRows, align } = buildTableCells(sessionData, options);
   const safeBodyRows = bodyRows.map((row) => row.map((cell) => toMarkdownSafeCell(cell)));
 
   return markdownTable([headers, ...safeBodyRows], {
-    align: markdownAlign,
+    align,
   });
 }
 

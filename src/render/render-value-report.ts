@@ -215,6 +215,9 @@ function renderTerminalValueReport(
         measureBodyRows: bodyRows,
         rowMetas: rows.map((row) => row.meta),
         layout: 'top_aligned',
+        columnKinds: columns.map((column) =>
+          column === 'month' || column === 'projects' ? 'text' : 'measure',
+        ),
         multilineColumnIndex: 1,
         terminalWidth: resolveTtyColumns(process.stdout),
       }),
