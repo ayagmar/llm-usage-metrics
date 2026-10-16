@@ -276,19 +276,23 @@ describe('buildShareReportData', () => {
       // Both machines have equal tokens, so laptop-beta, first by name, is machine-1.
       expect(data.meta.filters.machines).toEqual(['local', 'machine-2']);
       // A machine only the envelope names gets the next stand-in.
-      expect(data.envelope?.data.machines).toEqual(['local', 'machine-3']);
+      expect((data.envelope?.data as Record<string, unknown> | undefined)?.machines).toEqual([
+        'local',
+        'machine-3',
+      ]);
     });
 
     it('maps the envelope’s projects to the file’s labels', async () => {
       const data = await buildShareReportData(request({ envelope: envelope() }), deps(corpus()));
-      const projects = (data.envelope?.data.projects ?? []) as { project: string }[];
+      const envelopeData = data.envelope?.data as Record<string, unknown> | undefined;
+      const projects = (envelopeData?.projects ?? []) as { project: string }[];
 
       expect(data.envelope?.report).toBe('compare');
       expect(projects.map((row) => row.project).sort()).toEqual(
         [...data.dictionaries.projects].sort(),
       );
       expect(data.envelope?.data).not.toHaveProperty('repoDir');
-      expect(data.envelope?.data.note).toBe('compared in second-secret and ~');
+      expect(envelopeData?.note).toBe('compared in second-secret and ~');
     });
   });
 });

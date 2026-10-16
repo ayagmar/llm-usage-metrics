@@ -65,7 +65,7 @@ export type ShareReportRequest = {
   window: ShareDateRange;
   initialView: ShareReportMeta['initialView'];
   /** The command's own report JSON, for compare, efficiency, optimize and wrapped. */
-  envelope?: { report: ShareEmbeddedEnvelope['report']; data: Record<string, unknown> };
+  envelope?: Pick<ShareEmbeddedEnvelope, 'report' | 'data'>;
   /** Payload bytes above which older cells roll up to days; the default keeps the HTML under 8 MB. */
   targetBytes?: number;
 };

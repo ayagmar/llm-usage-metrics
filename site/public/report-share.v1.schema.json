@@ -683,7 +683,15 @@
           "enum": ["compare", "efficiency", "optimize", "wrapped"]
         },
         "data": {
-          "type": "object"
+          "description": "The command's --json data: an array of rows for optimize, an object otherwise.",
+          "oneOf": [
+            {
+              "type": "object"
+            },
+            {
+              "type": "array"
+            }
+          ]
         }
       },
       "required": ["schemaVersion", "report", "data"],

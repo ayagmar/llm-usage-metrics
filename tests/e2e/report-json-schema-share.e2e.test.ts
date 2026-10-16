@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+
 import type { ValidateFunction } from 'ajv';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -104,6 +106,27 @@ describe('share payload matches report-share.v1.schema.json', () => {
     expect(data.blocks.rows).toEqual([]);
   });
 
+  it('validates an optimize envelope, whose data is an array of rows', async () => {
+    const optimize = JSON.parse(
+      await readFile(
+        new URL('../golden/__goldens__/reports/optimize-monthly.json', import.meta.url),
+        'utf8',
+      ),
+    ) as { data: unknown[] };
+    const data = validate(
+      await buildShareReportData(
+        {
+          ...corpusRequest,
+          command: 'optimize',
+          envelope: { report: 'optimize', data: optimize.data },
+        },
+        corpusDeps,
+      ),
+    );
+
+    expect(data.envelope?.data).toEqual(optimize.data);
+  });
+
   describe.skipIf(process.platform === 'win32')(`golden fixture (${WINDOWS_SKIP_REASON})`, () => {
     it('validates a compare window with an embedded compare --by-repo envelope', async () => {
       const options = {
@@ -137,7 +160,7 @@ describe('share payload matches report-share.v1.schema.json', () => {
       );
 
       expect(data.envelope?.report).toBe('compare');
-      expect(data.envelope?.data.projects).toEqual(
+      expect((data.envelope?.data as Record<string, unknown> | undefined)?.projects).toEqual(
         expect.arrayContaining([expect.objectContaining({ project: 'project-1' })]),
       );
       expect(JSON.stringify(data.envelope)).not.toContain('repoRoot');
