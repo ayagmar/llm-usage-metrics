@@ -14,8 +14,8 @@ export type ValueProjectRow = {
   /** Cost of the events that have one; `costIncomplete` when some have none. */
   costUsd: number;
   costIncomplete: boolean;
-  /** Share of the month's cost; `null` when the month cost nothing. */
-  share: number | null;
+  /** Share of the month's cost, rounded by `roundRatio`; `null` when the month cost nothing. */
+  costShare: number | null;
 };
 
 export type ValueMonthRow = {
@@ -67,7 +67,7 @@ export type ValueReportData = {
   window: {
     /** First day of the window; `null` without usage and without --since or --last. */
     since: string | null;
-    /** Last day of the window: --until, else today. */
+    /** Last day of the window: --until or today, whichever comes first. */
     until: string;
   };
   plans: ValuePlanReport[];
@@ -95,7 +95,7 @@ export function resolvePlanScopes(
 
     if (sources.length === 0) {
       throw new Error(
-        `${sourceFilterLabel} leaves out every source of plan ${selected.plan.id} (${selected.plan.sources.join(', ')})`,
+        `${sourceFilterLabel} leaves out every source of plan ${selected.plan.id} (${selected.plan.sources.join(', ')}); pass a --plan <id> that covers a source it keeps`,
       );
     }
 
@@ -110,6 +110,7 @@ export type BuildValueReportOptions = {
   today: string;
   /** The window's dates (--since, --until, or what --last resolved to). */
   since?: string;
+  /** Today when absent or later: months after today never get a row. */
   until?: string;
   /** Labels from one `buildEventProjectLabels` call over every event of the report. */
   projectLabels: ReadonlyMap<string | undefined, string>;
@@ -117,7 +118,8 @@ export type BuildValueReportOptions = {
 
 const RATIO_SCALE = 1_000_000;
 
-function roundRatio(value: number): number {
+/** Ratios and cost shares in report JSON: 6 decimal places. */
+export function roundRatio(value: number): number {
   return Math.round(value * RATIO_SCALE) / RATIO_SCALE;
 }
 
@@ -131,10 +133,6 @@ function getLastDayOfMonth(monthKey: string): string {
   const day = new Date(Date.UTC(year, month, 0)).getUTCDate();
 
   return `${monthKey}-${String(day).padStart(2, '0')}`;
-}
-
-function maxKey(left: string, right: string): string {
-  return compareByCodePoint(left, right) >= 0 ? left : right;
 }
 
 /** Projects by cost, then tokens, then label. */
@@ -157,7 +155,7 @@ function toProjectRows(rows: readonly PeriodProjectRow[], monthCostUsd: number):
         totalTokens: row.totalTokens,
         costUsd,
         costIncomplete: row.costIncomplete === true,
-        share: monthCostUsd > 0 ? roundRatio(costUsd / monthCostUsd) : null,
+        costShare: monthCostUsd > 0 ? roundRatio(costUsd / monthCostUsd) : null,
       };
     })
     .sort(compareProjectRows);
@@ -219,8 +217,9 @@ function toPlanTotal(months: readonly ValueMonthRow[]): ValuePlanReport['total']
  * API-priced cost per calendar month next to each plan's price, over the plan's sources.
  *
  * The window starts at --since, else on the 1st of the first event's month, and ends at
- * --until, else today. Every month in it gets a row, idle months at $0; a month the window
- * cuts or that contains today is marked partial, not prorated.
+ * --until or today, whichever comes first, so months after today never get a row. Every
+ * month in it gets a row, idle months at $0; a month the window cuts or that contains
+ * today is marked partial, not prorated.
  */
 export function buildValueReport(
   events: readonly UsageEvent[],
@@ -249,12 +248,14 @@ export function buildValueReport(
     return rowsByMonth;
   });
 
+  const until =
+    options.until !== undefined && options.until < options.today ? options.until : options.today;
+  const lastMonth = getMonthKey(until);
   const usageMonths = rowsByPlan
     .flatMap((rowsByMonth) => [...rowsByMonth.keys()])
+    .filter((month) => month <= lastMonth)
     .sort(compareByCodePoint);
-  const until = options.until ?? options.today;
   const since = options.since ?? (usageMonths.length > 0 ? `${usageMonths[0]}-01` : undefined);
-  const lastMonth = maxKey(getMonthKey(until), usageMonths.at(-1) ?? '');
   const months =
     since === undefined ? [] : getPeriodKeyRange(getMonthKey(since), lastMonth, 'monthly');
   const isPartial = (month: string): boolean => {

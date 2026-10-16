@@ -5,6 +5,7 @@ import { getCurrentLocalDateKey } from '../utils/time-buckets.js';
 import {
   buildValueReport,
   resolvePlanScopes,
+  type PlanScope,
   type ValueReportData,
 } from '../value/build-value-report.js';
 import { selectPlans } from '../value/plans.js';
@@ -12,8 +13,10 @@ import { resolveUserConfigForOptions } from './apply-user-config.js';
 import { parseLastOption, resolvePeriodsSince } from './build-usage-data.js';
 import {
   normalizeBuildUsageInputs,
+  normalizeSourceFilter,
   validateSourceFilterValues,
 } from './build-usage-data-inputs.js';
+import type { AdapterParseResult } from './build-usage-data-parsing.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import {
   applyPricingToUsageEventDataset,
@@ -32,11 +35,14 @@ export type ValueDataResult = {
   diagnostics: UsageDiagnostics;
 };
 
-/** `--last N` months, or the explicit dates; neither means full history. */
+/**
+ * `--last N` months, or the explicit dates; neither means full history. The window ends
+ * today at the latest: months that have not happened yet would count a full plan price.
+ */
 function resolveWindowDates(
   options: ValueCommandOptions,
   today: string,
-): { since?: string; until?: string } {
+): { since?: string; until: string } {
   const hasDates = options.since !== undefined || options.until !== undefined;
   const lastMonths = parseLastOption(options.last);
 
@@ -52,14 +58,49 @@ function resolveWindowDates(
     return { since: resolvePeriodsSince('monthly', today, lastMonths), until: today };
   }
 
-  return { since: options.since, until: options.until };
+  const until = options.until !== undefined && options.until < today ? options.until : today;
+
+  if (options.since !== undefined && options.since > until) {
+    throw new Error(`--since ${options.since} is after today (${today}); value has no months yet`);
+  }
+
+  return { since: options.since, until };
+}
+
+/**
+ * A plan source without files, worded per plan. A source typed in --source is left out:
+ * the dataset already warns about it. When no source has files, the "No session files
+ * found" warning says so.
+ */
+function findPlanSourcesWithoutFiles(
+  planScopes: readonly PlanScope[],
+  parseResults: readonly AdapterParseResult[],
+  typedSourceFilter: ReadonlySet<string> | undefined,
+): string[] {
+  if (!parseResults.some((result) => result.filesFound > 0)) {
+    return [];
+  }
+
+  const sourcesWithoutFiles = new Set(
+    parseResults
+      .filter((result) => result.filesFound === 0)
+      .map((result) => result.source.toLowerCase()),
+  );
+
+  return planScopes.flatMap(({ selected, sources }) =>
+    sources
+      .filter((source) => sourcesWithoutFiles.has(source) && !typedSourceFilter?.has(source))
+      .map(
+        (source) =>
+          `plan ${selected.plan.id}: ${source} found no files; \`llm-usage doctor --source ${source}\` shows where it looks`,
+      ),
+  );
 }
 
 export async function buildValueData(
   commandOptions: ValueCommandOptions,
   commandDeps: BuildUsageDataDeps = {},
 ): Promise<ValueDataResult> {
-  const plans = selectPlans(commandOptions.plan, commandOptions.planPrice);
   const userConfigResolution = await resolveUserConfigForOptions(commandOptions, commandDeps);
   const { timezone, sourceFilter, sourceFilterLabel } = normalizeBuildUsageInputs(
     userConfigResolution.options,
@@ -67,6 +108,12 @@ export async function buildValueData(
   );
   // Before narrowing to the plans' sources, so a mistyped --source still fails.
   validateSourceFilterValues(sourceFilter, new Set(getDefaultSourceIds()), sourceFilterLabel);
+  const plans = selectPlans(
+    commandOptions.plan,
+    commandOptions.planPrice,
+    sourceFilter,
+    sourceFilterLabel,
+  );
   const planScopes = resolvePlanScopes(plans, sourceFilter, sourceFilterLabel);
   const today = getCurrentLocalDateKey(timezone, commandDeps.now?.() ?? new Date());
   const window = resolveWindowDates(userConfigResolution.options, today);
@@ -104,7 +151,14 @@ export async function buildValueData(
     sourceFailures: dataset.sourceFailures,
     pricingOrigin,
     pricingWarning,
-    warnings: dataset.warnings,
+    warnings: [
+      ...dataset.warnings,
+      ...findPlanSourcesWithoutFiles(
+        planScopes,
+        dataset.successfulParseResults,
+        normalizeSourceFilter(userConfigResolution.cliOptions.source),
+      ),
+    ],
     notes:
       options.cost === false
         ? dataset.notes

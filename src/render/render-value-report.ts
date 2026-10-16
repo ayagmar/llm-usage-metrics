@@ -78,7 +78,7 @@ function formatProjects(month: ValueMonthRow, options: RenderValueReportOptions)
     .map((project) =>
       options.hideCost
         ? `• ${project.project}`
-        : `• ${project.project} ${formatUsd(project.costUsd, project.costIncomplete)} (${formatShare(project.share)})`,
+        : `• ${project.project} ${formatUsd(project.costUsd, project.costIncomplete)} (${formatShare(project.costShare)})`,
     )
     .join('\n');
 }

@@ -166,14 +166,14 @@
         "project": { "description": "Display label of the project.", "type": "string" },
         "totalTokens": { "type": "integer", "minimum": 0 },
         "costUsd": { "type": "number", "minimum": 0 },
-        "share": {
-          "description": "Share of the month's cost (0-1); null when the month cost nothing.",
+        "costShare": {
+          "description": "Share of the month's cost (0-1), rounded to 6 decimal places; null when the month cost nothing.",
           "type": ["number", "null"],
           "minimum": 0,
           "maximum": 1
         }
       },
-      "required": ["repoRoot", "project", "totalTokens", "costUsd", "costIncomplete", "share"],
+      "required": ["repoRoot", "project", "totalTokens", "costUsd", "costIncomplete", "costShare"],
       "unevaluatedProperties": false
     },
     "total": {
