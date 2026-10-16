@@ -4,12 +4,20 @@ import {
   getMonthKey,
   parseDateKey,
 } from '../../../utils/date-key.js';
-import type { ShareCostMode, ShareCube, ShareDictionaries, ShareReportData } from '../../types.js';
+import type {
+  ShareCostMode,
+  ShareCube,
+  ShareDictionaries,
+  ShareGranularity,
+  ShareReportData,
+} from '../../types.js';
 
 /** The id of the `<script type="application/json">` element that holds the report payload. */
 export const REPORT_DATA_ELEMENT_ID = 'report-data';
 
 export const COST_MODES: readonly ShareCostMode[] = ['explicit', 'estimated', 'both'];
+
+export const GRANULARITIES: readonly ShareGranularity[] = ['hour', 'day', 'week', 'month'];
 
 /** A period key of the cube, parsed once: its date, roll-up keys and local hour. */
 export type SharePeriod = {
@@ -59,6 +67,14 @@ function isDictionaries(value: Json): value is ShareDictionaries {
   return ['periods', 'sources', 'models', 'projects', 'machines'].every((name) =>
     isStringArray(value[name]),
   );
+}
+
+function isOptionalDateKey(value: unknown): boolean {
+  return value === null || (typeof value === 'string' && parseDateKey(value) !== undefined);
+}
+
+function isDateRange(value: Json): boolean {
+  return isOptionalDateKey(value.since) && isOptionalDateKey(value.until);
 }
 
 function isNumberArray(value: unknown, length: number): value is number[] {
@@ -217,12 +233,22 @@ export function decodeShareReport(value: unknown): DecodeResult {
   }
 
   const meta = data.meta;
+  const initialView = meta.initialView;
 
   if (!isValidTimezone(meta.timezone)) {
     return { ok: false, error: 'meta.timezone is not a known timezone' };
   }
 
-  if (!isRecord(meta.window) || !isRecord(meta.initialView) || !isRecord(meta.filters)) {
+  if (
+    !isRecord(meta.window) ||
+    !isDateRange(meta.window) ||
+    !isRecord(initialView) ||
+    !isDateRange(initialView) ||
+    !GRANULARITIES.some((granularity) => granularity === initialView.granularity) ||
+    !isRecord(meta.filters) ||
+    !isOptionalDateKey(meta.hourlyFrom) ||
+    !(meta.costMode === null || COST_MODES.some((mode) => mode === meta.costMode))
+  ) {
     return { ok: false, error: 'meta is incomplete' };
   }
 
@@ -259,7 +285,11 @@ export function decodeShareReport(value: unknown): DecodeResult {
       (row) =>
         isRecord(row) &&
         isIndexArray([row.source], 1, sources.length) &&
-        isIndexArray([row.project], 1, projects.length),
+        isIndexArray([row.project], 1, projects.length) &&
+        Array.isArray(row.machines) &&
+        isIndexArray(row.machines, row.machines.length, dictionaries.machines.length) &&
+        Array.isArray(row.models) &&
+        isIndexArray(row.models, row.models.length, dictionaries.models.length),
     )
   ) {
     return { ok: false, error: 'A session refers to an unknown source or project' };

@@ -1,6 +1,6 @@
 import { parseDateKey } from '../../../utils/date-key.js';
 import type { ShareCostMode, ShareGranularity } from '../../types.js';
-import type { ShareReport } from './decode.js';
+import { GRANULARITIES, type ShareReport } from './decode.js';
 import {
   DIMENSION_DICTIONARY,
   SHARE_DIMENSIONS,
@@ -24,7 +24,6 @@ export type ShareViewState = ShareFilters & {
   drill: number | null;
 };
 
-const GRANULARITIES: readonly ShareGranularity[] = ['hour', 'day', 'week', 'month'];
 const THEMES: readonly ShareTheme[] = ['auto', 'light', 'dark'];
 
 // Short keys keep shared URLs readable; each is decoded on its own.

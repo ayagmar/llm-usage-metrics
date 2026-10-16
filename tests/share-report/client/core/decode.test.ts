@@ -79,6 +79,36 @@ describe('decodeShareReport', () => {
       },
     ],
     [
+      'an unknown initial granularity',
+      (payload: Payload) => {
+        Object.assign(payload.data.meta.initialView, { granularity: 'year' });
+      },
+    ],
+    [
+      'a window end that is not a date',
+      (payload: Payload) => {
+        payload.data.meta.window.until = '2026-10-32';
+      },
+    ],
+    [
+      'an unknown command cost mode',
+      (payload: Payload) => {
+        Object.assign(payload.data.meta, { costMode: 'list' });
+      },
+    ],
+    [
+      'an hourlyFrom that is not a date',
+      (payload: Payload) => {
+        payload.data.meta.hourlyFrom = 'soon';
+      },
+    ],
+    [
+      'a session of an unknown model',
+      (payload: Payload) => {
+        payload.data.sessions.rows[0].models = [3];
+      },
+    ],
+    [
       'a short column',
       (payload: Payload) => {
         payload.data.cube.totalTokens.pop();
