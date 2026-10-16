@@ -224,6 +224,24 @@ describe('createPathScrubber', () => {
     expect(scrub('as /Users/bob and also /tmp/x')).toBe('as ~ and also x');
   });
 
+  it('drops all of a spaced profile name with nothing after it, and its capitalised words in prose', () => {
+    const scrub = createPathScrubber(new Map());
+
+    // At the end of the value the whole spaced segment is the name.
+    expect(scrub('C:/Users/John Smith')).toBe('~');
+    expect(scrub('C:\\Users\\John Smith')).toBe('~');
+    expect(scrub('home: /Users/John Smith')).toBe('home: ~');
+    expect(scrub('home: /Users/john smith')).toBe('home: ~');
+    expect(scrub('/Users/John Smith went home')).toBe('~');
+    // Before other text, capitalised words after the name go with it: they may be a surname.
+    expect(scrub('opened /Users/John Smith in Finder, then /tmp/x')).toBe(
+      'opened ~ in Finder, then x',
+    );
+    // With no separator after it, a name runs to the end of the text (`;` may be in a name).
+    expect(scrub('at /Users/Jane Doe, then C:\\Users\\Ann Lee; done')).toBe('at ~, then ~');
+    expect(scrub('as /Users/bob C:\\x')).toBe('as ~ x');
+  });
+
   it('reduces a path after a colon, but leaves URLs alone', () => {
     const scrub = createPathScrubber(new Map());
 
