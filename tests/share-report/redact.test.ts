@@ -305,6 +305,30 @@ describe('sanitizeEmbeddedEnvelope', () => {
     );
   });
 
+  it('replaces names only in free text, never in a month, date or metric', () => {
+    // Projects labelled like a period key and a metric, as the file shows them under --redact.
+    const names = new Map([
+      ['2026-10', 'project-1'],
+      ['tokens', 'project-2'],
+    ]);
+    const data = {
+      metric: 'tokens',
+      monthlyIntensity: [{ month: '2026-10', totalTokens: 5 }],
+      dailyIntensity: [{ date: '2026-10-01', totalTokens: 5 }],
+      totalSeries: { buckets: [{ date: '2026-10', value: 'tokens' }] },
+      periods: [{ key: '2026-10', label: '2026-10', since: '2026-10-01', until: '2026-10-31' }],
+      newField: '2026-10 tokens',
+      note: 'most tokens went to 2026-10',
+      warnings: ['2026-10 lacks pricing'],
+    };
+
+    expect(sanitizeEmbeddedEnvelope({ report: 'wrapped', data }, { ...maps, names }).data).toEqual({
+      ...data,
+      note: 'most project-2 went to project-1',
+      warnings: ['project-1 lacks pricing'],
+    });
+  });
+
   it('drops path fields, maps projects and machines, and scrubs other strings', () => {
     const envelope = sanitizeEmbeddedEnvelope(
       {
