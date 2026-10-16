@@ -18,6 +18,7 @@ import {
   AXIS_SIZE,
   caption as captionBlock,
   formatAxisValue,
+  usdTickFormat,
   formatPeriod,
   legend,
   NARROW_WIDTH,
@@ -149,7 +150,8 @@ export function buildOverTimeChart(
   const plotTop = top + legendBlock.height + 10;
   const plotHeight = width < NARROW_WIDTH ? 170 : 230;
   const scale = linearScale(Math.max(...totals), [plotTop + plotHeight, plotTop]);
-  const plot = { left: yAxisWidth(scale, format), right: width };
+  const tickFormat = unit === 'usd' ? usdTickFormat(scale.step) : format;
+  const plot = { left: yAxisWidth(scale, tickFormat), right: width };
   const band = bandScale(axis.length, [plot.left, plot.right], 0.2, 64);
   const bars = axis.flatMap((_, slot) => {
     let base = 0;
@@ -182,7 +184,7 @@ export function buildOverTimeChart(
       hatchDefs(entries.map((entry) => entry.paint)),
       heading.node,
       legendBlock.node,
-      yAxis(scale, plot, format),
+      yAxis(scale, plot, tickFormat),
       el('g', { class: 'chart-bars' }, bars),
       xAxis(
         periods.map((period) => period.short),

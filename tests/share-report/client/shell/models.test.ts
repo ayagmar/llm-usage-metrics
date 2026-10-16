@@ -10,6 +10,7 @@ import {
   getCostModeOptions,
   getFilterGroups,
   getGranularityOptions,
+  getPeriodInputs,
   getStackOptions,
 } from '../../../../src/share-report/client/ui/controls/model.js';
 import {
@@ -140,6 +141,18 @@ describe('header', () => {
       { text: 'Shows project and machine names', tone: 'notice' },
       { text: 'Hourly detail from 20 Oct 2026', tone: 'neutral' },
     ]);
+  });
+
+  it('shows an open-ended window ending on the generation date', () => {
+    // The daily default: the last 7 days, open-ended. Generated 27 Oct in Europe/Paris.
+    const open = loadFixtureReport((data) => {
+      data.meta.window = { since: '2026-10-21', until: null };
+      data.meta.initialView = { since: '2026-10-21', until: null, granularity: 'day' };
+    });
+    const header = buildHeader(contextFor(open));
+
+    expect(header.period).toBe('21 Oct 2026 – 27 Oct 2026');
+    expect(header.facts[0]).toBe('File covers 21 Oct 2026 – 27 Oct 2026');
   });
 
   it('says when the file is redacted, names are hidden, prices failed or the command filtered', () => {
@@ -317,6 +330,27 @@ describe('controls', () => {
       data.cube.costs = {};
     });
     expect(getCostModeOptions(noCost)).toEqual([]);
+  });
+
+  it('fills the "to" date of an open-ended period and bounds both dates by the window end', () => {
+    const open = loadFixtureReport((data) => {
+      data.meta.window = { since: '2026-10-21', until: null };
+    });
+
+    expect(getPeriodInputs(open, { since: '2026-10-21', until: null })).toEqual({
+      from: '2026-10-21',
+      to: '2026-10-27',
+      fromMax: '2026-10-27',
+      toMin: '2026-10-21',
+      min: '2026-10-21',
+      max: '2026-10-27',
+    });
+    expect(getPeriodInputs(report, { since: null, until: '2026-10-22' })).toMatchObject({
+      from: '',
+      to: '2026-10-22',
+      toMin: '2025-12-29',
+      max: '2026-10-26',
+    });
   });
 
   it('stacks by every dimension', () => {

@@ -2,13 +2,43 @@ import { getDateKeyPeriod, getDateKeyRange, getPeriodKeyRange } from '../../../u
 import type { ShareGranularity } from '../../types.js';
 import type { ShareReport } from './decode.js';
 import type { ShareFilters } from './filters.js';
+import { toLocalDateHour } from './local-time.js';
 
 /** The first and last local date the view covers, both inclusive; undefined when it is empty. */
 export type ShareDateSpan = { first: string; last: string };
 
 /**
- * The dates the view spans: the filter range, with open ends taken from the window and then
- * from the data, so a chart axis has fixed ends whatever cells the filters keep.
+ * The last date the file covers: the window's end, or the local date it was generated on when
+ * the window is open or ends later (wrapped's 31 Dec), so no view runs into the future. Without
+ * a readable generation time, the window's end, else the newest date with data.
+ */
+export function getWindowEnd(report: ShareReport): string | undefined {
+  const { window, generatedAt, timezone } = report.data.meta;
+  const generated = toLocalDateHour(generatedAt, timezone)?.dateKey;
+
+  if (generated === undefined) {
+    return (
+      window.until ??
+      report.periods.reduce<string | undefined>(
+        (last, period) => (last === undefined || period.dateKey > last ? period.dateKey : last),
+        undefined,
+      )
+    );
+  }
+
+  return window.until !== null && window.until < generated ? window.until : generated;
+}
+
+/** A range's end as the page shows it: an open end or one past `getWindowEnd` is that date. */
+export function resolveUntil(report: ShareReport, until: string | null): string | null {
+  const end = getWindowEnd(report);
+  return end !== undefined && (until === null || until > end) ? end : until;
+}
+
+/**
+ * The dates the view spans: the filter range, with an open start taken from the window and then
+ * from the data, and the end resolved by `resolveUntil`, so a chart axis has fixed ends whatever
+ * cells the filters keep and never runs past the generation date.
  */
 export function getViewDateSpan(
   report: ShareReport,
@@ -17,7 +47,7 @@ export function getViewDateSpan(
   const { window } = report.data.meta;
   const dataDates = report.periods.map((period) => period.dateKey).sort();
   const first = filters.since ?? window.since ?? dataDates.at(0);
-  const last = filters.until ?? window.until ?? dataDates.at(-1);
+  const last = resolveUntil(report, filters.until) ?? undefined;
 
   return first !== undefined && last !== undefined && first <= last ? { first, last } : undefined;
 }

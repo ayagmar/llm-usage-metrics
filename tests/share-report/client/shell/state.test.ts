@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   encodeViewState,
   getDefaultViewState,
+  getWindowEnd,
 } from '../../../../src/share-report/client/core/index.js';
 import {
   escapeJsonForScript,
@@ -18,7 +19,6 @@ import {
 } from '../../../../src/share-report/client/ui/state/context.js';
 import {
   clearFilters,
-  getLastDate,
   getPeriodPresets,
   hasLabelFilters,
   nextSort,
@@ -155,12 +155,30 @@ describe('period presets', () => {
     expect(getPeriodPresets(short).map((preset) => preset.id)).toEqual(['opening', 'window']);
   });
 
-  it('uses the newest data date when the window is open-ended', () => {
+  it('counts back from the generation date when the window is open-ended or ends later', () => {
+    // Generated 2026-10-27 08:00 UTC, which is 27 Oct in Europe/Paris.
     const open = loadFixtureReport((data) => {
       data.meta.window.until = null;
     });
+    const year = loadFixtureReport((data) => {
+      data.meta.window = { since: '2026-01-01', until: '2026-12-31' };
+    });
 
-    expect(getLastDate(open)).toBe('2026-10-26');
+    expect(getWindowEnd(open)).toBe('2026-10-27');
+    expect(getWindowEnd(year)).toBe('2026-10-27');
+    expect(getPeriodPresets(year).find((preset) => preset.id === 'last-7')).toMatchObject({
+      since: '2026-10-21',
+      until: '2026-10-27',
+    });
+  });
+
+  it('falls back to the newest data date without a readable generation time', () => {
+    const open = loadFixtureReport((data) => {
+      data.meta.window.until = null;
+      data.meta.generatedAt = 'not a date';
+    });
+
+    expect(getWindowEnd(open)).toBe('2026-10-26');
   });
 });
 

@@ -26,9 +26,25 @@ describe('period axis', () => {
     const openWindow = loadFixtureReport((data) => {
       data.meta.window = { since: null, until: null };
     });
-    expect(getViewDateSpan(openWindow, ALL)).toEqual({ first: '2025-12-31', last: '2026-10-26' });
+    // An open end is the generation date: 2026-10-27 08:00 UTC, 27 Oct in Europe/Paris.
+    expect(getViewDateSpan(openWindow, ALL)).toEqual({ first: '2025-12-31', last: '2026-10-27' });
     expect(
       getViewDateSpan(report, createFilters({ since: '2026-10-26', until: '2026-10-20' })),
+    ).toBeUndefined();
+  });
+
+  it('stops at the generation date when the window or the filters end later', () => {
+    // Wrapped's window is its whole year.
+    const year = loadFixtureReport((data) => {
+      data.meta.window = { since: '2026-01-01', until: '2026-12-31' };
+    });
+    const span = defined(getViewDateSpan(year, createFilters(year.data.meta.window)));
+
+    expect(span).toEqual({ first: '2026-01-01', last: '2026-10-27' });
+    expect(getPeriodAxis(year, span, 'week').at(-1)).toBe('2026-W44');
+    expect(getPeriodAxis(year, span, 'month').at(-1)).toBe('2026-10');
+    expect(
+      getViewDateSpan(year, createFilters({ since: '2026-11-01', until: '2026-11-30' })),
     ).toBeUndefined();
   });
 

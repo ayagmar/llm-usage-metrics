@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { wrapCaption } from '../../../../src/share-report/client/ui/charts/frame.js';
+import { usdTickFormat, wrapCaption } from '../../../../src/share-report/client/ui/charts/frame.js';
 import {
   estimateTextWidth,
   fitText,
@@ -15,6 +15,37 @@ import {
   linearScale,
   niceStep,
 } from '../../../../src/share-report/client/ui/charts/scale.js';
+
+describe('cost axis ticks', () => {
+  const tickLabels = (max: number) => {
+    const scale = linearScale(max, [200, 0]);
+    return scale.ticks.map(usdTickFormat(scale.step));
+  };
+
+  it('formats every tick alike, from the step', () => {
+    expect(tickLabels(1_800)).toEqual(['$0', '$500', '$1,000', '$1,500', '$2,000']);
+    expect(tickLabels(7_000)).toEqual(['$0', '$2K', '$4K', '$6K', '$8K']);
+    expect(tickLabels(9.5)).toEqual(['$0.00', '$2.50', '$5.00', '$7.50', '$10.00']);
+    expect(tickLabels(0.36)).toEqual(['$0.00', '$0.10', '$0.20', '$0.30', '$0.40']);
+    expect(tickLabels(0.0036)).toEqual(['$0.000', '$0.001', '$0.002', '$0.003', '$0.004']);
+    expect(tickLabels(0.00009)).toEqual([
+      '$0.000000',
+      '$0.000025',
+      '$0.000050',
+      '$0.000075',
+      '$0.000100',
+    ]);
+  });
+
+  it('never shows two ticks alike, whatever the largest cost', () => {
+    for (let exponent = -6; exponent <= 7; exponent += 1) {
+      for (const mantissa of [1, 1.3, 2.2, 3.7, 4.9, 6.1, 9.5]) {
+        const labels = tickLabels(mantissa * 10 ** exponent);
+        expect(new Set(labels).size, labels.join(' ')).toBe(labels.length);
+      }
+    }
+  });
+});
 
 describe('linear scale', () => {
   it('rounds the top up to a tick that covers the largest value', () => {
