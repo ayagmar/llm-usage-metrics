@@ -10,6 +10,7 @@ import {
   type UsageTableColumnId,
   type UsageTableLayout,
   type UsageTokenFormat,
+  usageTableColumnKinds,
   usageTableHeaders,
 } from './row-cells.js';
 import {
@@ -453,6 +454,7 @@ function renderPreparedTable(
     measureBodyRows: preparedRows.map((row) => selectColumns(row, columns)),
     rowMetas: toRowMetas(rows),
     layout: options.tableLayout === 'per_model_columns' ? 'top_aligned' : 'compact',
+    columnKinds: selectColumns(usageTableColumnKinds, columns),
     multilineColumnIndex: prepared.showsModels
       ? columns.indexOf(modelsColumnIndex)
       : columns.indexOf(sourceColumnIndex),

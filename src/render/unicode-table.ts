@@ -3,6 +3,12 @@ import { splitCellLines, visibleWidth, wrapTableColumn } from './table-text-layo
 type TableAlignment = 'left' | 'right';
 type TableVerticalAlignment = 'top' | 'middle';
 
+/**
+ * `text` columns (keys, labels, names, dates) align left; `measure` columns (counts,
+ * tokens, money, durations) align right.
+ */
+export type TableColumnKind = 'text' | 'measure';
+
 export type UnicodeTableLayout = 'compact' | 'top_aligned';
 
 export type TableRowMeta = {
@@ -18,11 +24,12 @@ type RenderUnicodeTableOptions = {
   measureBodyRows: string[][];
   rowMetas: TableRowMeta[];
   layout: UnicodeTableLayout;
+  /** One kind per column; it sets the column's alignment. */
+  columnKinds: readonly TableColumnKind[];
+  /** The column that holds wrapped multi-line text. */
   multilineColumnIndex: number;
   /** Fixed width for the multiline column; measured from its content when omitted. */
   multilineColumnWidth?: number;
-  /** Columns after the multiline column that hold text rather than numbers. */
-  leftAlignedColumnIndexes?: readonly number[];
   /** When the boxed table is wider than this, each row is listed as label/value lines. */
   terminalWidth?: number;
   /** Leading columns that name a listed row; defaults to those up to the multiline column. */
@@ -42,24 +49,20 @@ type RenderableTableRow = {
   originalIndex: number;
 };
 
-function getColumnAlignment(
-  columnIndex: number,
-  multilineColumnIndex: number,
-  leftAlignedColumnIndexes: readonly number[] = [],
-): TableAlignment {
-  if (columnIndex <= multilineColumnIndex || leftAlignedColumnIndexes.includes(columnIndex)) {
-    return 'left';
-  }
+/** Converts markdown-style column alignment (`l`/`r`) to column kinds. */
+export function columnKindsFromAlign(align: readonly ('l' | 'r')[]): TableColumnKind[] {
+  return align.map((columnAlign) => (columnAlign === 'r' ? 'measure' : 'text'));
+}
 
-  return 'right';
+function getColumnAlignment(kind: TableColumnKind): TableAlignment {
+  return kind === 'measure' ? 'right' : 'left';
 }
 
 function getVerticalAlignment(
-  columnIndex: number,
+  kind: TableColumnKind,
   layout: UnicodeTableLayout,
-  multilineColumnIndex: number,
 ): TableVerticalAlignment {
-  if (columnIndex <= multilineColumnIndex) {
+  if (kind === 'text') {
     return 'top';
   }
 
@@ -106,25 +109,16 @@ function toRenderableRowLines(
   options: {
     widths: number[];
     layout: UnicodeTableLayout;
-    multilineColumnIndex: number;
-    leftAlignedColumnIndexes?: readonly number[];
+    columnKinds: readonly TableColumnKind[];
   },
 ): string[] {
   const cellLines = row.map((cell) => splitCellLines(cell));
   const rowHeight = cellLines.reduce((max, lines) => Math.max(max, lines.length), 1);
 
   const paddedAlignedColumns = cellLines.map((lines, columnIndex) => {
-    const verticalAlignment = getVerticalAlignment(
-      columnIndex,
-      options.layout,
-      options.multilineColumnIndex,
-    );
-    const alignedLines = padCellLines(lines, rowHeight, verticalAlignment);
-    const horizontalAlignment = getColumnAlignment(
-      columnIndex,
-      options.multilineColumnIndex,
-      options.leftAlignedColumnIndexes,
-    );
+    const kind = options.columnKinds[columnIndex];
+    const alignedLines = padCellLines(lines, rowHeight, getVerticalAlignment(kind, options.layout));
+    const horizontalAlignment = getColumnAlignment(kind);
 
     return alignedLines.map((line) =>
       alignCellLine(line, options.widths[columnIndex], horizontalAlignment),
@@ -304,7 +298,8 @@ function wrapAtNameBreaks(line: string, width: number): string[] {
 
 /**
  * Lists each row as a title line (the identifying columns) followed by one label/value
- * line per remaining column, for terminals too narrow for the boxed table.
+ * line per remaining column, for terminals too narrow for the boxed table. A measure
+ * field is right-aligned to its widest value across the rows; text is left unpadded.
  */
 function renderStackedRows(options: {
   headerCells: readonly string[];
@@ -312,8 +307,7 @@ function renderStackedRows(options: {
   bodyRows: string[][];
   measureBodyRows: string[][];
   titleColumnCount: number;
-  multilineColumnIndex: number;
-  leftAlignedColumnIndexes?: readonly number[];
+  columnKinds: readonly TableColumnKind[];
   terminalWidth: number;
 }): string {
   const valueColumnIndexes = options.headerCells
@@ -326,15 +320,13 @@ function renderStackedRows(options: {
   );
   const continuationIndent = ' '.repeat(2 + labelWidth + 2);
   const availableValueWidth = Math.max(1, options.terminalWidth - continuationIndent.length);
-  const valueWidth = Math.min(
-    availableValueWidth,
-    options.measureBodyRows.reduce(
-      (maxWidth, row) =>
-        valueColumnIndexes.reduce(
-          (rowMax, columnIndex) => Math.max(rowMax, measureLinesWidth(row[columnIndex])),
-          maxWidth,
-        ),
-      0,
+  const valueWidths = options.headerCells.map((_, columnIndex) =>
+    Math.min(
+      availableValueWidth,
+      options.measureBodyRows.reduce(
+        (maxWidth, row) => Math.max(maxWidth, measureLinesWidth(row[columnIndex])),
+        0,
+      ),
     ),
   );
 
@@ -357,11 +349,7 @@ function renderStackedRows(options: {
         return [];
       }
 
-      const alignment = getColumnAlignment(
-        columnIndex,
-        options.multilineColumnIndex,
-        options.leftAlignedColumnIndexes,
-      );
+      const alignment = getColumnAlignment(options.columnKinds[columnIndex]);
       const label = alignCellLine(
         joinCellLines(options.headerCells[columnIndex]),
         labelWidth,
@@ -369,7 +357,7 @@ function renderStackedRows(options: {
       );
 
       return lines.map((line, lineIndex) => {
-        const value = alignCellLine(line, valueWidth, alignment).trimEnd();
+        const value = alignCellLine(line, valueWidths[columnIndex], alignment).trimEnd();
         return lineIndex === 0 ? `  ${label}  ${value}` : `${continuationIndent}${value}`;
       });
     });
@@ -398,6 +386,11 @@ export function renderUnicodeTable(options: RenderUnicodeTableOptions): string {
     measureBodyRows: options.measureBodyRows,
     columnCount,
   });
+  // Cells past the declared kinds (ragged rows) are treated as text.
+  const columnKinds = Array.from(
+    { length: columnCount },
+    (_, columnIndex): TableColumnKind => options.columnKinds[columnIndex] ?? 'text',
+  );
   const normalizedHeaderRow = padRowToColumnCount([...options.headerCells], columnCount);
   const normalizedMeasureHeaderRow = padRowToColumnCount(
     [...options.measureHeaderCells],
@@ -425,8 +418,7 @@ export function renderUnicodeTable(options: RenderUnicodeTableOptions): string {
       measureBodyRows: renderableRows.map((row) => row.measureBodyRow),
       titleColumnCount: options.stackedTitleColumnCount ?? options.multilineColumnIndex + 1,
       terminalWidth: options.terminalWidth,
-      multilineColumnIndex: options.multilineColumnIndex,
-      leftAlignedColumnIndexes: options.leftAlignedColumnIndexes,
+      columnKinds,
     });
   }
 
@@ -443,8 +435,7 @@ export function renderUnicodeTable(options: RenderUnicodeTableOptions): string {
     ...toRenderableRowLines(normalizedHeaderRow, {
       widths,
       layout: options.layout,
-      multilineColumnIndex: options.multilineColumnIndex,
-      leftAlignedColumnIndexes: options.leftAlignedColumnIndexes,
+      columnKinds,
     }),
   );
   outputLines.push(
@@ -460,8 +451,7 @@ export function renderUnicodeTable(options: RenderUnicodeTableOptions): string {
       ...toRenderableRowLines(row, {
         widths,
         layout: options.layout,
-        multilineColumnIndex: options.multilineColumnIndex,
-        leftAlignedColumnIndexes: options.leftAlignedColumnIndexes,
+        columnKinds,
       }),
     );
 

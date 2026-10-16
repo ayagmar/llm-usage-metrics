@@ -21,6 +21,7 @@ describe('renderUnicodeTable', () => {
       measureBodyRows: [['…3b0277334e93', model]],
       rowMetas: [createRowMeta()],
       layout: 'top_aligned',
+      columnKinds: ['text', 'text'],
       multilineColumnIndex: 1,
       terminalWidth: 30,
       stackedTitleColumnCount: 1,
@@ -41,6 +42,7 @@ describe('renderUnicodeTable', () => {
       measureBodyRows: [['…3b0277334e93', 'codex', '', 'gpt-5.4\nclaude-opus-4-8']],
       rowMetas: [createRowMeta()],
       layout: 'top_aligned',
+      columnKinds: ['text', 'text', 'measure', 'text'],
       multilineColumnIndex: 3,
       terminalWidth: 30,
       stackedTitleColumnCount: 1,
@@ -62,6 +64,7 @@ describe('renderUnicodeTable', () => {
       measureBodyRows: [],
       rowMetas: [createRowMeta()],
       layout: 'compact',
+      columnKinds: ['text', 'text'],
       multilineColumnIndex: 1,
       multilineColumnWidth: 12,
     });
@@ -78,6 +81,7 @@ describe('renderUnicodeTable', () => {
       measureBodyRows: [['2026-02-22']],
       rowMetas: [createRowMeta()],
       layout: 'compact',
+      columnKinds: ['text', 'text'],
       multilineColumnIndex: 1,
       multilineColumnWidth: 12,
     });
@@ -99,6 +103,7 @@ describe('renderUnicodeTable', () => {
       ],
       rowMetas: [createRowMeta(), createRowMeta()],
       layout: 'compact',
+      columnKinds: ['text', 'text'],
       multilineColumnIndex: 1,
       multilineColumnWidth: 12,
     });
@@ -114,6 +119,7 @@ describe('renderUnicodeTable', () => {
       measureBodyRows: [['2026-02-22', 'opencode']],
       rowMetas: [createRowMeta()],
       layout: 'compact',
+      columnKinds: ['text', 'text'],
       multilineColumnIndex: 1,
       multilineColumnWidth: 12,
     });
@@ -121,5 +127,60 @@ describe('renderUnicodeTable', () => {
 
     expect((topBorder.match(/┬/g) ?? []).length).toBe(2);
     expect(rendered).not.toContain('undefined');
+  });
+
+  it('aligns columns by kind, not by their position after the multiline column', () => {
+    const rendered = renderUnicodeTable({
+      headerCells: ['Session', 'Total', 'Models', 'Newest'],
+      bodyRows: [
+        ['a', '5', 'gpt-5', '2026-06-15'],
+        ['b', '1,250', 'claude-sonnet-4-5', 'today'],
+      ],
+      measureHeaderCells: ['Session', 'Total', 'Models', 'Newest'],
+      measureBodyRows: [
+        ['a', '5', 'gpt-5', '2026-06-15'],
+        ['b', '1,250', 'claude-sonnet-4-5', 'today'],
+      ],
+      rowMetas: [createRowMeta(), createRowMeta()],
+      layout: 'compact',
+      columnKinds: ['text', 'measure', 'text', 'text'],
+      multilineColumnIndex: 2,
+    });
+
+    expect(rendered.split('\n').slice(3, 6)).toEqual([
+      '│ a       │     5 │ gpt-5             │ 2026-06-15 │',
+      '├─────────┼───────┼───────────────────┼────────────┤',
+      '│ b       │ 1,250 │ claude-sonnet-4-5 │ today      │',
+    ]);
+  });
+
+  it('pads each listed measure to its own widest value and leaves text unpadded', () => {
+    const rows = [
+      ['2026-01', '$0.50', '1', 'a long note that widens nothing else'],
+      ['2026-02', '$12.25', '10', '-'],
+    ];
+    const rendered = renderUnicodeTable({
+      headerCells: ['Period', 'Cost', 'Events', 'Notes'],
+      bodyRows: rows,
+      measureHeaderCells: ['Period', 'Cost', 'Events', 'Notes'],
+      measureBodyRows: rows,
+      rowMetas: [createRowMeta(), createRowMeta()],
+      layout: 'compact',
+      columnKinds: ['text', 'measure', 'measure', 'text'],
+      multilineColumnIndex: 0,
+      terminalWidth: 60,
+    });
+
+    expect(rendered.split('\n')).toEqual([
+      '2026-01',
+      '  Cost     $0.50',
+      '  Events   1',
+      '  Notes   a long note that widens nothing else',
+      '',
+      '2026-02',
+      '  Cost    $12.25',
+      '  Events  10',
+      '  Notes   -',
+    ]);
   });
 });

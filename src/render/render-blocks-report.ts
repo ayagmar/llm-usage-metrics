@@ -8,7 +8,7 @@ import { renderReportJson } from './report-json.js';
 import { formatAbbreviatedTokenCount } from './row-cells.js';
 import { resolveTtyColumns, wrapTableColumn } from './table-text-layout.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
-import { renderUnicodeTable } from './unicode-table.js';
+import { columnKindsFromAlign, renderUnicodeTable } from './unicode-table.js';
 
 export type BlocksReportFormat = 'terminal' | 'markdown' | 'json';
 
@@ -184,6 +184,11 @@ function buildFooterLines(data: BlocksReportData, options: RenderBlocksReportOpt
   return lines;
 }
 
+/** Block, source and models are text; the columns after them are measures. */
+function toColumnAlign(headers: readonly string[]): ('l' | 'r')[] {
+  return headers.map((_, index) => (index <= MODELS_COLUMN_INDEX ? 'l' : 'r'));
+}
+
 function renderTerminalBlocksReport(
   data: BlocksReportData,
   options: RenderBlocksReportOptions,
@@ -213,6 +218,7 @@ function renderTerminalBlocksReport(
       measureBodyRows: wrappedRows,
       rowMetas: wrappedRows.map(() => ({ periodKey: '', rowKind: 'detail' })),
       layout: 'top_aligned',
+      columnKinds: columnKindsFromAlign(toColumnAlign(headers)),
       multilineColumnIndex: MODELS_COLUMN_INDEX,
       multilineColumnWidth: MODELS_COLUMN_WIDTH,
       terminalWidth: resolveTtyColumns(process.stdout),
@@ -236,7 +242,7 @@ function renderMarkdownBlocksReport(
   const { headers, bodyRows } = buildTable(data, options);
   const safeBodyRows = bodyRows.map((row) => row.map((cell) => toMarkdownSafeCell(cell)));
   const table = markdownTable([headers, ...safeBodyRows], {
-    align: headers.map((_, index) => (index <= MODELS_COLUMN_INDEX ? 'l' : 'r')),
+    align: toColumnAlign(headers),
   });
 
   // One paragraph per line.

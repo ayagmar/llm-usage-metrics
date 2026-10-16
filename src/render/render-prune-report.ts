@@ -44,6 +44,7 @@ function renderCandidateTable(candidates: readonly PruneCandidate[]): string {
     rowMetas: createRowMetas(candidates),
     layout: 'top_aligned',
     multilineColumnIndex: 1,
+    columnKinds: ['text', 'text', 'measure', 'text', 'text'],
     multilineColumnWidth: 56,
   });
 }
