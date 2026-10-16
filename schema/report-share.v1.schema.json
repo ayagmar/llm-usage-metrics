@@ -639,6 +639,29 @@
         },
         "costs": {
           "$ref": "#/$defs/costs"
+        },
+        "days": {
+          "description": "The block's usage by the local date of its events, oldest first, so a window ending inside the block counts only the usage up to its end. Present only when the events fall on more than one date.",
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "properties": {
+              "date": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              "totalTokens": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "costs": {
+                "$ref": "#/$defs/costs"
+              }
+            },
+            "required": ["date", "totalTokens", "costs"],
+            "additionalProperties": false
+          }
         }
       },
       "required": [
@@ -683,7 +706,7 @@
           "enum": ["compare", "efficiency", "optimize", "summary", "trends", "wrapped"]
         },
         "data": {
-          "description": "The command's --json data: an array of rows for optimize, an object otherwise.",
+          "description": "A sanitized copy of the command's --json data (an array of rows for optimize, an object otherwise): path fields such as repoRoot are dropped, project, machine and model names are mapped to the labels the rest of the file uses, every other string is scrubbed of paths, and free text (note, message, warning, warnings) of names. It may therefore not validate against the command's own report schema.",
           "oneOf": [
             {
               "type": "object"

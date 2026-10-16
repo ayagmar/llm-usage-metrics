@@ -186,11 +186,13 @@ function homeLayoutName(repoRoot: string): string | undefined {
 
 /** A local model logged by its file URI; the file shows only its basename. */
 const FILE_URI_MODEL = 'file:///opt/review-alice/models/private.gguf';
+/** A local model logged by a path after a prefix; the file shows only its basename. */
+const COLON_PATH_MODEL = 'hf:/opt/review-carol/models/colon.gguf';
 
 /**
  * Claude rows run from the home directory and from a folder under it, beside a namesake, and
- * from the homes of other machines (as their events carry them). The last one ran a local
- * model named by its file URI.
+ * from the homes of other machines (as their events carry them). The last two ran local
+ * models named by a path after a prefix and by a file URI.
  */
 function homeClaudeRows(): string {
   const roots = [
@@ -215,7 +217,12 @@ function homeClaudeRows(): string {
         message: {
           id: `claude-home-msg-${String(index)}`,
           role: 'assistant',
-          model: index === roots.length - 1 ? FILE_URI_MODEL : 'claude-sonnet-4-5',
+          model:
+            index === roots.length - 1
+              ? FILE_URI_MODEL
+              : index === roots.length - 2
+                ? COLON_PATH_MODEL
+                : 'claude-sonnet-4-5',
           usage: { input_tokens: 30, output_tokens: 10 },
         },
       }),
@@ -364,7 +371,15 @@ describe.skipIf(process.platform === 'win32')(`share report e2e (${WINDOWS_SKIP_
       expect.arrayContaining(['otheruser', 'bob', 'Dev', 'alicewsl', 'bobsolaris']),
     );
     forbidden = {
-      paths: [...repoRoots, os.homedir(), environment.rootDir, repoDir, FILE_URI_MODEL],
+      paths: [
+        ...repoRoots,
+        os.homedir(),
+        environment.rootDir,
+        repoDir,
+        FILE_URI_MODEL,
+        COLON_PATH_MODEL,
+        '/opt/review-carol',
+      ],
       homeNames: [
         path.basename(os.homedir()),
         ...[...repoRoots].flatMap((repoRoot) => homeLayoutName(repoRoot) ?? []),

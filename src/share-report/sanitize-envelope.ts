@@ -24,32 +24,11 @@ const MODEL_FIELDS: ReadonlySet<string> = new Set([
 const MODEL_LIST_FIELDS: ReadonlySet<string> = new Set(['models', 'topModels']);
 
 /**
- * Fields holding identifiers and the tool's own words (source and provider ids, period keys,
- * metric keys and labels, note codes, the top sources): paths are scrubbed from them, but a
- * project or machine that shares a name with one (a repo called `codex`) never replaces it.
+ * Fields holding free text, the only ones where names a project or machine is called by are
+ * replaced. Every other string (ids, period keys, months, dates, metric names, labels) only
+ * loses its paths, so a project named `2026-10` or `tokens` never rewrites one.
  */
-const IDENTIFIER_FIELDS: ReadonlySet<string> = new Set([
-  'source',
-  'provider',
-  'periodKey',
-  'rowType',
-  'key',
-  'label',
-  'valueType',
-  'grouping',
-  'level',
-  'notes',
-  'timezone',
-  'topSources',
-  // Summary and trends: the metric name and local dates (a project named `2026` or `tokens`
-  // must not rewrite them).
-  'metric',
-  'date',
-  'since',
-  'until',
-  'from',
-  'to',
-]);
+const FREE_TEXT_FIELDS: ReadonlySet<string> = new Set(['note', 'message', 'warning', 'warnings']);
 
 export type EnvelopeLabelMaps = {
   /** The share label (redacted with --redact) of a project key; undefined for unknown keys. */
@@ -68,8 +47,8 @@ export type EnvelopeLabelMaps = {
   names: ReadonlyMap<string, string>;
 };
 
-/** The maps while sanitizing: `scrub` also replaces names, `scrubPaths` only paths. */
-type SanitizeMaps = EnvelopeLabelMaps & { scrubPaths: (value: string) => string };
+/** The maps while sanitizing: `scrubText` also replaces names, `scrub` only paths. */
+type SanitizeMaps = EnvelopeLabelMaps & { scrubText: (value: string) => string };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -105,7 +84,7 @@ function sanitizeProject(record: Record<string, unknown>, maps: SanitizeMaps): s
   }
 
   const label = String(project);
-  return maps.projectLabelForLabel(label) ?? maps.scrub(label);
+  return maps.projectLabelForLabel(label) ?? maps.scrubText(label);
 }
 
 function sanitizeModel(value: unknown, maps: SanitizeMaps): unknown {
@@ -143,8 +122,8 @@ function sanitizeRecord(
       sanitized[key] = value.map((name) =>
         typeof name === 'string' ? maps.machineLabel(name) : sanitizeValue(name, maps),
       );
-    } else if (IDENTIFIER_FIELDS.has(key)) {
-      sanitized[key] = sanitizeValue(value, { ...maps, scrub: maps.scrubPaths });
+    } else if (FREE_TEXT_FIELDS.has(key)) {
+      sanitized[key] = sanitizeValue(value, { ...maps, scrub: maps.scrubText });
     } else {
       sanitized[key] = sanitizeValue(value, maps);
     }
@@ -186,21 +165,23 @@ function collectFieldNames(value: unknown, maps: SanitizeMaps, names: Map<string
 /**
  * The invoking command's report JSON made safe to embed: path fields dropped (`repoRoot` and
  * the like), `project` and `machine` mapped through the file's label and redaction maps, model
- * names labelled as the file labels them, and every other string scrubbed of paths and of the
- * names the file shows otherwise.
+ * names labelled as the file labels them, every other string scrubbed of paths, and free text
+ * (`FREE_TEXT_FIELDS`) of the names the file shows otherwise.
  */
 export function sanitizeEmbeddedEnvelope(
   envelope: Pick<ShareEmbeddedEnvelope, 'report' | 'data'>,
   maps: EnvelopeLabelMaps,
 ): ShareEmbeddedEnvelope {
-  const pathMaps: SanitizeMaps = { ...maps, scrubPaths: maps.scrub };
   const names = new Map(maps.names);
-  collectFieldNames(envelope.data, pathMaps, names);
+  collectFieldNames(envelope.data, { ...maps, scrubText: maps.scrub }, names);
   const replaceNames = createNameReplacer(names);
-  const textMaps: SanitizeMaps = { ...pathMaps, scrub: (value) => replaceNames(maps.scrub(value)) };
+  const sanitizeMaps: SanitizeMaps = {
+    ...maps,
+    scrubText: (value) => replaceNames(maps.scrub(value)),
+  };
   const data = Array.isArray(envelope.data)
-    ? envelope.data.map((item) => sanitizeValue(item, textMaps))
-    : sanitizeRecord(envelope.data, textMaps);
+    ? envelope.data.map((item) => sanitizeValue(item, sanitizeMaps))
+    : sanitizeRecord(envelope.data, sanitizeMaps);
   return { schemaVersion: 1, report: envelope.report, data };
 }
 

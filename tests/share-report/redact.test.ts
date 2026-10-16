@@ -129,7 +129,10 @@ describe('toShareModelLabel', () => {
     ['./models/home/oscar/m', 'm'],
     ['..\\Models\\Q.gguf', 'q.gguf'],
     ['mirror/home/oscar', '~'],
+    ['hf:/opt/review-carol/models/colon.gguf', 'colon.gguf'],
+    ['local:C:\\Models\\m.bin', 'm.bin'],
     ['Claude-Sonnet-4-5', 'claude-sonnet-4-5'],
+    ['openrouter:anthropic/claude-sonnet-4-5', 'openrouter:anthropic/claude-sonnet-4-5'],
     ['openai/gpt-5', 'openai/gpt-5'],
     [undefined, '(unknown)'],
     ['  ', '(unknown)'],
@@ -214,8 +217,21 @@ describe('createPathScrubber', () => {
     const scrub = createPathScrubber(new Map());
 
     expect(scrub('logs in C:\\Users\\John Smith\\AppData\\x.log')).toBe('logs in x.log');
+    expect(scrub('logs in C:/Users/John Smith/AppData/x.log')).toBe('logs in x.log');
+    expect(scrub('logs in /Users/John Smith/AppData/x.log')).toBe('logs in x.log');
     // A name with no separator after it ends at the space: the rest is prose.
     expect(scrub('as C:\\Users\\bob and D:')).toBe('as ~ and D:');
+    expect(scrub('as /Users/bob and also /tmp/x')).toBe('as ~ and also x');
+  });
+
+  it('reduces a path after a colon, but leaves URLs alone', () => {
+    const scrub = createPathScrubber(new Map());
+
+    expect(scrub('location:/opt/private-user/a.json')).toBe('location:a.json');
+    expect(scrub('at:C:\\data\\alice\\b.json, at:~/alice/c.md')).toBe('at:b.json, at:c.md');
+    expect(scrub('see https://example.test/a and file:///opt/alice/m.gguf')).toBe(
+      'see https://example.test/a and m.gguf',
+    );
   });
 });
 
@@ -303,6 +319,30 @@ describe('sanitizeEmbeddedEnvelope', () => {
     expect(sanitizeEmbeddedEnvelope({ report: 'trends', data }, { ...maps, names }).data).toEqual(
       data,
     );
+  });
+
+  it('replaces names only in free text, never in a month, date or metric', () => {
+    // Projects labelled like a period key and a metric, as the file shows them under --redact.
+    const names = new Map([
+      ['2026-10', 'project-1'],
+      ['tokens', 'project-2'],
+    ]);
+    const data = {
+      metric: 'tokens',
+      monthlyIntensity: [{ month: '2026-10', totalTokens: 5 }],
+      dailyIntensity: [{ date: '2026-10-01', totalTokens: 5 }],
+      totalSeries: { buckets: [{ date: '2026-10', value: 'tokens' }] },
+      periods: [{ key: '2026-10', label: '2026-10', since: '2026-10-01', until: '2026-10-31' }],
+      newField: '2026-10 tokens',
+      note: 'most tokens went to 2026-10',
+      warnings: ['2026-10 lacks pricing'],
+    };
+
+    expect(sanitizeEmbeddedEnvelope({ report: 'wrapped', data }, { ...maps, names }).data).toEqual({
+      ...data,
+      note: 'most project-2 went to project-1',
+      warnings: ['project-1 lacks pricing'],
+    });
   });
 
   it('drops path fields, maps projects and machines, and scrubs other strings', () => {

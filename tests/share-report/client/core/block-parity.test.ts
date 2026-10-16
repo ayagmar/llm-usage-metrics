@@ -10,6 +10,7 @@ import {
   decodeShareReport,
 } from '../../../../src/share-report/client/core/index.js';
 import type { ShareDateRange } from '../../../../src/share-report/types.js';
+import { addUsd } from '../../../../src/utils/usd-math.js';
 import { useIsolatedEnvironment } from '../../../helpers/isolated-env.js';
 import { useBundledPricingOnly } from '../../../helpers/offline-pricing.js';
 import { createCorpusAdapters } from '../../../helpers/share-payload.js';
@@ -43,15 +44,29 @@ const EVENTS = [
   event('2026-06-15T19:30:00Z'),
 ];
 
-async function pageBlocks(window: ShareDateRange, view: ShareDateRange) {
+type Metric = { kind: 'tokens' } | { kind: 'cost'; mode: 'estimated' };
+
+const add = (left: number, right: number) => addUsd(left, right);
+
+async function pageBlocks(
+  window: ShareDateRange,
+  view: ShareDateRange,
+  metric: Metric = { kind: 'tokens' },
+  { timezone = 'UTC', events = EVENTS } = {},
+) {
   const data = await buildShareReportData(
     {
       command: 'daily',
-      options: { timezone: 'UTC', cost: false, sync: false },
+      options: {
+        timezone,
+        sync: false,
+        pricingOffline: true,
+        ...(metric.kind === 'tokens' ? { cost: false } : { costMode: 'estimated' }),
+      },
       window,
       initialView: { ...window, granularity: 'day' },
     },
-    deps(EVENTS),
+    deps(events),
   );
   const decoded = decodeShareReport({ schemaVersion: 1, report: 'share', data });
 
@@ -63,7 +78,7 @@ async function pageBlocks(window: ShareDateRange, view: ShareDateRange) {
     decoded.report,
     createFilters(view),
     { first: view.since ?? '', last: view.until ?? '' },
-    { kind: 'tokens' },
+    metric,
   );
   const starts = matrix.days.flatMap((day, row) =>
     matrix.counts[row].flatMap((count, hour) =>
@@ -71,21 +86,36 @@ async function pageBlocks(window: ShareDateRange, view: ShareDateRange) {
     ),
   );
 
-  return { starts, tokens: matrix.values.flat().reduce((sum, value) => sum + value, 0) };
+  return { starts, value: matrix.values.flat().reduce(add, 0) };
 }
 
-async function cliBlocks(range: { since: string; until: string }) {
+async function cliBlocks(
+  range: { since: string; until: string },
+  metric: Metric = { kind: 'tokens' },
+  { timezone = 'UTC', events = EVENTS } = {},
+) {
   const output = await buildBlocksReport(
-    { ...range, timezone: 'UTC', sync: false, pricingOffline: true, json: true },
-    deps(EVENTS),
+    {
+      ...range,
+      timezone,
+      sync: false,
+      pricingOffline: true,
+      json: true,
+      ...(metric.kind === 'cost' ? { costMode: 'estimated' } : {}),
+    },
+    deps(events),
   );
   const blocks = (
-    JSON.parse(output) as { data: { blocks: { start: string; totalTokens: number }[] } }
+    JSON.parse(output) as {
+      data: { blocks: { start: string; totalTokens: number; costUsd?: number }[] };
+    }
   ).data.blocks;
 
   return {
     starts: blocks.map((block) => block.start).sort(),
-    tokens: blocks.reduce((sum, block) => sum + block.totalTokens, 0),
+    value: blocks
+      .map((block) => (metric.kind === 'tokens' ? block.totalTokens : (block.costUsd ?? 0)))
+      .reduce(add, 0),
   };
 }
 
@@ -111,5 +141,33 @@ describe('the page blocks against blocks --json', () => {
 
     expect(await pageBlocks(window, view)).toEqual(await cliBlocks(view));
     expect((await pageBlocks(window, view)).starts).toEqual([]);
+  });
+
+  it('counts only the usage up to a narrowed end in a block running past it', async () => {
+    const window = { since: '2026-06-14', until: '2026-06-15' };
+    const view = { since: '2026-06-14', until: '2026-06-14' };
+    const cost = { kind: 'cost', mode: 'estimated' } as const;
+    const pageTokens = await pageBlocks(window, view);
+    const pageCost = await pageBlocks(window, view, cost);
+
+    expect(pageTokens).toEqual(await cliBlocks(view));
+    expect(pageTokens.value).toBe(110);
+    expect(pageCost).toEqual(await cliBlocks(view, cost));
+    expect(pageCost.value).toBeGreaterThan(0);
+    expect(pageCost.value).toBeLessThan((await pageBlocks(window, window, cost)).value);
+  });
+
+  it('leaves out a block whose hour starts before a narrowed end but whose usage is after it', async () => {
+    // In India (UTC+05:30) the block's UTC hour starts at 23:30 on 14 Jun, its event at 00:15
+    // on the 15th.
+    const scope = { timezone: 'Asia/Kolkata', events: [event('2026-06-14T18:45:00Z')] };
+    const window = { since: '2026-06-14', until: '2026-06-15' };
+    const view = { since: '2026-06-14', until: '2026-06-14' };
+    const page = await pageBlocks(window, view, { kind: 'tokens' }, scope);
+    const cli = await cliBlocks(view, { kind: 'tokens' }, scope);
+
+    expect(cli).toEqual({ starts: [], value: 0 });
+    expect(page).toEqual(cli);
+    expect((await pageBlocks(window, window, { kind: 'tokens' }, scope)).value).toBe(110);
   });
 });
