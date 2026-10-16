@@ -117,6 +117,33 @@ describe('aggregateBlocks', () => {
     expect(spans(blocks)).toEqual(['claude 2026-06-15T09:00:00.000Z 2026-06-15T14:00:00.000Z 3']);
   });
 
+  it('chains narrowed events over the whole stream, counting only them', () => {
+    const laptop = [
+      event('2026-06-15T10:00:00.000Z', { machine: 'laptop', tokens: 5 }),
+      event('2026-06-15T15:30:00.000Z', { machine: 'laptop', tokens: 7 }),
+    ];
+    const others = [
+      event('2026-06-15T09:10:00.000Z'),
+      event('2026-06-15T14:20:00.000Z', { machine: 'desktop' }),
+      // Starts a block without any laptop usage: left out.
+      event('2026-06-15T21:00:00.000Z', { machine: 'desktop' }),
+    ];
+    const blocks = aggregateBlocks(laptop, { contextEvents: [...others, ...laptop] });
+
+    expect(spans(blocks)).toEqual([
+      'claude 2026-06-15T09:00:00.000Z 2026-06-15T14:00:00.000Z 1',
+      'claude 2026-06-15T14:00:00.000Z 2026-06-15T19:00:00.000Z 1',
+    ]);
+    expect(blocks.map((block) => [block.firstEventAt, block.totalTokens])).toEqual([
+      ['2026-06-15T10:00:00.000Z', 5],
+      ['2026-06-15T15:30:00.000Z', 7],
+    ]);
+    // Without the rest of the stream, the laptop alone would start a block at 10:00.
+    expect(spans(aggregateBlocks(laptop))[0]).toBe(
+      'claude 2026-06-15T10:00:00.000Z 2026-06-15T15:00:00.000Z 1',
+    );
+  });
+
   it('sums tokens and cost, and marks a block whose cost is incomplete', () => {
     const [block] = aggregateBlocks([
       event('2026-06-15T09:10:00.000Z', { costUsd: 0.25, tokens: 100 }),
@@ -377,6 +404,37 @@ describe('block properties', () => {
         if (!block.startUncertain) {
           expect(full.has(blockKey(block)), `seed ${String(seed)} ${block.start}`).toBe(true);
         }
+      }
+    }
+  });
+
+  it('keeps the whole-stream windows when events are narrowed, and only their usage', () => {
+    for (let seed = 1; seed <= 40; seed += 1) {
+      const sinceMs = firstDayMs + 10 * DAY_MS;
+      const options = { sinceMs, rangeStartMs: sinceMs - 7 * DAY_MS };
+      const events = randomEvents(createRandom(seed), sinceMs - 7 * DAY_MS, 20);
+      const laptop = events.filter((candidate) => candidate.machine === 'laptop');
+      const whole = aggregateBlocks(events, options);
+      const narrowed = aggregateBlocks(laptop, { ...options, contextEvents: events });
+      const window = (block: UsageBlock) =>
+        `${block.source} ${block.start} ${String(block.startUncertain)}`;
+      const inBlock = (block: UsageBlock) =>
+        laptop.filter(
+          (candidate) =>
+            candidate.source === block.source &&
+            Date.parse(block.start) <= Date.parse(candidate.timestamp) &&
+            Date.parse(candidate.timestamp) < Date.parse(block.end),
+        );
+
+      expect(narrowed.map(window), `seed ${String(seed)}`).toEqual(
+        whole.filter((block) => inBlock(block).length > 0).map(window),
+      );
+
+      for (const block of narrowed) {
+        expect(block.eventCount).toBe(inBlock(block).length);
+        expect(block.totalTokens).toBe(
+          inBlock(block).reduce((sum, item) => sum + item.totalTokens, 0),
+        );
       }
     }
   });

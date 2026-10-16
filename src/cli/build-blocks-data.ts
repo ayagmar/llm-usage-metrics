@@ -13,7 +13,7 @@ import {
 import { getLocalDayStartMs } from '../blocks/local-day-start.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { getCurrentLocalDateKey, shiftLocalDateKey } from '../utils/time-buckets.js';
-import { resolveUserConfigForOptions } from './apply-user-config.js';
+import { resolveUserConfigForOptions, type UserConfigResolution } from './apply-user-config.js';
 import { parseLastOption } from './build-usage-data.js';
 import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
@@ -21,12 +21,15 @@ import {
   applyPricingToUsageEventDataset,
   buildUsageEventDataset,
   withPricingNotes,
+  type UsageEventDataset,
 } from './build-usage-event-dataset.js';
+import { filterParsedAdapterEvents } from './parse/usage-event-filters.js';
 import { BLOCKS_DEFAULT_LAST_DAYS } from './report-definitions/report-definitions.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 import type {
   BlocksCommandOptions,
   BuildUsageDataDeps,
+  ReportCommandOptions,
   UsageDiagnostics,
 } from './usage-data-contracts.js';
 
@@ -134,6 +137,51 @@ function selectBlockEvents(events: readonly UsageEvent[], blocks: readonly Usage
   });
 }
 
+/**
+ * Each source's whole stream over the dataset's dates when --repo, --model, --provider or
+ * --machine narrowed the events, so blocks keep the account's windows; undefined when
+ * nothing narrowed them. --machine leaves other machines out of the dataset, so it reads
+ * the dataset again, from the machines' cached usage without refreshing them (with no
+ * other machine configured, --machine can only name this one, which narrows nothing).
+ */
+async function readWholeStreams(
+  dataset: UsageEventDataset,
+  userConfigResolution: UserConfigResolution,
+  deps: BuildUsageDataDeps,
+): Promise<UsageEvent[] | undefined> {
+  const datasetOptions = userConfigResolution.options;
+  const { timezone, providerFilter, modelFilter, repoFilter, machineFilter } =
+    dataset.normalizedInputs;
+  const hasOtherMachines =
+    Object.keys(userConfigResolution.loadedConfig.config.machines ?? {}).length > 0;
+
+  if (machineFilter && hasOtherMachines) {
+    const wholeOptions: ReportCommandOptions = {
+      ...datasetOptions,
+      machine: undefined,
+      provider: undefined,
+      model: undefined,
+      repo: undefined,
+      sync: false,
+    };
+    const whole = await buildUsageEventDataset(wholeOptions, {
+      ...deps,
+      userConfigResolution: { ...userConfigResolution, options: wholeOptions },
+    });
+    return whole.filteredEvents;
+  }
+
+  if (providerFilter === undefined && modelFilter === undefined && repoFilter === undefined) {
+    return undefined;
+  }
+
+  return filterParsedAdapterEvents(dataset.successfulParseResults, {
+    timezone,
+    since: datasetOptions.since,
+    until: datasetOptions.until,
+  });
+}
+
 export async function buildBlocksData(
   options: BlocksCommandOptions,
   deps: BuildUsageDataDeps = {},
@@ -165,6 +213,11 @@ export async function buildBlocksData(
   );
   const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'auto');
   const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
+  const wholeStreams = await measureRuntimeProfileStage(
+    deps.runtimeProfile,
+    'blocks.whole_streams',
+    () => readWholeStreams(dataset, datasetDeps.userConfigResolution, deps),
+  );
 
   const blocks = measureRuntimeProfileStageSync(deps.runtimeProfile, 'blocks.aggregate', () =>
     aggregateBlocks(pricedEvents, {
@@ -172,6 +225,7 @@ export async function buildBlocksData(
       rangeStartMs:
         lookbackSince === undefined ? undefined : getLocalDayStartMs(lookbackSince, timezone),
       sourceOrder: dataset.adaptersToParse.map((adapter) => adapter.id),
+      contextEvents: wholeStreams,
     }),
   );
 

@@ -38,11 +38,20 @@ export type AggregateBlocksOptions = {
   rangeStartMs?: number;
   /** Order of sources for blocks that start at the same instant. */
   sourceOrder?: readonly string[];
+  /**
+   * The whole stream of each source, when `events` were narrowed (by project, model,
+   * provider or machine): these events start and extend blocks but are not counted, so the
+   * blocks keep the account's windows. It may hold `events` too. A block with none of
+   * `events` is left out.
+   */
+  contextEvents?: readonly UsageEvent[];
 };
 
 type TimedEvent = {
   event: UsageEvent;
   timeMs: number;
+  /** False for a context event, which only places blocks. */
+  counted: boolean;
 };
 
 type BlockAccumulator = {
@@ -52,18 +61,29 @@ type BlockAccumulator = {
   events: TimedEvent[];
 };
 
-function toTimedEvents(events: readonly UsageEvent[]): Map<string, TimedEvent[]> {
+function toTimedEvents(
+  events: readonly UsageEvent[],
+  contextEvents: readonly UsageEvent[] | undefined,
+): Map<string, TimedEvent[]> {
   const bySource = new Map<string, TimedEvent[]>();
-
-  for (const event of events) {
-    const timed = { event, timeMs: Date.parse(event.timestamp) };
+  const add = (event: UsageEvent, counted: boolean) => {
+    const timed = { event, timeMs: Date.parse(event.timestamp), counted };
     const sourceEvents = bySource.get(event.source);
 
     if (sourceEvents) {
       sourceEvents.push(timed);
-    } else {
+    } else if (counted) {
       bySource.set(event.source, [timed]);
     }
+  };
+
+  for (const event of events) {
+    add(event, true);
+  }
+
+  // After the counted events, so only the sources they have get a stream.
+  for (const event of contextEvents ?? []) {
+    add(event, false);
   }
 
   for (const sourceEvents of bySource.values()) {
@@ -135,15 +155,17 @@ function chainSourceBlocks(
       blocks.push(current);
     }
 
-    current.events.push(timed);
-  }
-
-  if (options.sinceMs === undefined) {
-    return blocks;
+    if (timed.counted) {
+      current.events.push(timed);
+    }
   }
 
   const sinceMs = options.sinceMs;
-  return blocks.filter((block) => block.startMs + BLOCK_DURATION_MS > sinceMs);
+  return blocks.filter(
+    (block) =>
+      block.events.length > 0 &&
+      (sinceMs === undefined || block.startMs + BLOCK_DURATION_MS > sinceMs),
+  );
 }
 
 function createEmptyTotals(): UsageTotals {
@@ -215,7 +237,8 @@ function compareSources(sourceOrder: readonly string[]): (left: string, right: s
 
 /**
  * Estimated 5-hour blocks, one chain per source across every machine, ordered by start and
- * then by `sourceOrder`. Events must already be priced and filtered.
+ * then by `sourceOrder`. Events must already be priced and filtered; see `contextEvents`
+ * for events narrowed below the whole stream.
  */
 export function aggregateBlocks(
   events: readonly UsageEvent[],
@@ -224,7 +247,7 @@ export function aggregateBlocks(
   const compare = compareSources(options.sourceOrder ?? []);
   const blocks: BlockAccumulator[] = [];
 
-  for (const [source, sourceEvents] of toTimedEvents(events)) {
+  for (const [source, sourceEvents] of toTimedEvents(events, options.contextEvents)) {
     blocks.push(...chainSourceBlocks(source, sourceEvents, options));
   }
 

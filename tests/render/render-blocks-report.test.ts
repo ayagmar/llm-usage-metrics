@@ -83,6 +83,14 @@ describe('renderBlocksReport', () => {
     );
   });
 
+  it('prints the end date of a block that crosses midnight', () => {
+    const data = { ...reportData(blockRows()), timezone: 'UTC' };
+    const output = renderBlocksReport(data, 'markdown');
+
+    expect(output).toContain('2026-06-20 22:00-2026-06-21 03:00\\*');
+    expect(output).toContain('2026-06-21 10:00-15:00 \\(active\\)');
+  });
+
   it('abbreviates tokens and leaves out minor columns and cost when asked', () => {
     restoreStdout = overrideStdoutTty(200);
     const output = renderBlocksReport(reportData(blockRows()), 'terminal', {
