@@ -60,6 +60,7 @@ export default tseslint.config(
       'scripts/**',
       '*.tgz',
       'eslint.config.js',
+      'src/share-report/client-bundle.generated.ts',
     ],
   },
   js.configs.recommended,
@@ -114,6 +115,18 @@ export default tseslint.config(
           message: 'Inline dynamic imports are forbidden; use top-level static imports instead.',
         },
       ],
+    },
+  },
+  {
+    // The share client and its UI tests type-check against the client tsconfig, whose DOM lib
+    // supplies the browser globals (no-undef is off for TypeScript files).
+    files: ['src/share-report/client/**/*.ts', 'tests/share-report/client/ui/**/*.ts'],
+    languageOptions: {
+      parserOptions: {
+        projectService: false,
+        project: './src/share-report/client/tsconfig.json',
+        tsconfigRootDir,
+      },
     },
   },
   {

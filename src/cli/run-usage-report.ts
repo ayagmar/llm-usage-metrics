@@ -2,6 +2,7 @@ import {
   buildUsageData,
   DEFAULT_REPORT_WINDOWS,
   HOURLY_MAX_LAST_DAYS,
+  resolveUsageDataRequest,
 } from './build-usage-data.js';
 import {
   prepareReport,
@@ -18,10 +19,14 @@ import {
   renderUsageReportWithNotes,
   type UsageReportFormat,
 } from '../render/render-usage-report.js';
-import { renderUsageShareSvg } from '../render/render-usage-share-svg.js';
 import type { UsageTableLayout } from '../render/row-cells.js';
 import type { ReportGranularity, UsageGranularity } from '../utils/time-buckets.js';
 import { hasCliFilters } from './filter-match-warnings.js';
+import {
+  buildShareReportArtifact,
+  toShareDateRange,
+  toShareGranularity,
+} from './share-report-artifact.js';
 
 const usageReportFormats = STANDARD_REPORT_FORMATS satisfies readonly UsageReportFormat[];
 
@@ -47,8 +52,8 @@ function getDefaultWindowHint(granularity: UsageGranularity, since: string): str
   ];
 }
 
-function resolveShareFileName(granularity: ReportGranularity): string {
-  return `usage-${granularity}-share.svg`;
+function resolveShareFileBaseName(granularity: ReportGranularity): string {
+  return `usage-${granularity}-share`;
 }
 
 function getRepeatedHourNotes(usageData: UsageDataResult): string[] {
@@ -88,31 +93,36 @@ async function prepareUsageReport(
     getDiagnostics: (usageData) => usageData.diagnostics,
     runtimeProfile: deps.runtimeProfile,
     // hourly has no --share.
-    createShareArtifact:
-      options.share && granularity !== 'hourly'
-        ? (usageData) => ({
-            fileName: resolveShareFileName(granularity),
-            logLabel: 'usage',
-            title: 'Usage share card',
-            render: (theme) => renderUsageShareSvg(usageData, granularity, theme, { hideCost }),
-          })
-        : undefined,
+    buildShare:
+      granularity === 'hourly'
+        ? undefined
+        : async (_usageData, { runtimeProfile }) => {
+            const { options: windowOptions } = await resolveUsageDataRequest(
+              granularity,
+              options,
+              deps,
+            );
+            const window = toShareDateRange(windowOptions.since, windowOptions.until);
+
+            return buildShareReportArtifact(
+              {
+                command: granularity,
+                options,
+                window,
+                initialView: { ...window, granularity: toShareGranularity(granularity) },
+                fileBaseName: resolveShareFileBaseName(granularity),
+                logLabel: 'usage',
+              },
+              { ...deps, runtimeProfile },
+            );
+          },
     validate: () => {
       if (options.compact && options.json) {
         throw new Error('--compact applies to terminal and markdown tables; drop it with --json');
       }
 
       if (hideCost && options.json) {
-        throw new Error('--no-cost applies to tables and the share card; drop it with --json');
-      }
-
-      // The card shows one series per source.
-      if (options.byMachine && options.share) {
-        throw new Error('--by-machine splits the table only; drop it with --share');
-      }
-
-      if (options.byRepo && options.share) {
-        throw new Error('--by-repo splits the table only; drop it with --share');
+        throw new Error('--no-cost applies to tables and the share report; drop it with --json');
       }
     },
     render: (usageData, format) => {

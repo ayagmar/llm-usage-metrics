@@ -66,7 +66,7 @@ Commands:
   value [options]                     Compare the API-priced cost of each month with subscription
                                       plan prices, per plan and project (full history unless --last,
                                       --since, or --until)
-  wrapped [options]                   Show a yearly usage recap with an optional share card
+  wrapped [options]                   Show a yearly usage recap with an optional share report
   events [options]                    Export normalized usage events as JSONL or CSV
   pricing [options] <model...>        Explain how model names resolve to prices: the matched pricing
                                       key and rule, overrides, where the prices came from, rates per

@@ -3,6 +3,8 @@ import type { MachineSyncState } from '../machines/machine-cache.js';
 import type { MachineUsageSummary } from '../machines/load-machine-usage.js';
 import { MACHINE_EXPORT_TIMEOUT_MARK } from '../machines/machine-ssh.js';
 import type { MachineSyncOutcome } from '../machines/sync-machine.js';
+import { pluralize } from './format-number.js';
+import { padEndVisible, visibleWidth } from './table-text-layout.js';
 
 const MAX_REASON_LENGTH = 300;
 
@@ -34,7 +36,7 @@ export function formatAge(ageMs: number): string {
 }
 
 function formatCachedTotals(fileCount: number, eventCount: number): string {
-  return `${integerFormat.format(fileCount)} file(s), ${integerFormat.format(eventCount)} event(s)`;
+  return `${pluralize(fileCount, 'file')}, ${pluralize(eventCount, 'event')}`;
 }
 
 function formatRemoteVersion(state: MachineSyncState): string {
@@ -54,7 +56,7 @@ export function renderSyncOutcome(outcome: MachineSyncOutcome, now: number): str
     const changes =
       result.receivedFileCount === 0 && result.removedFileCount === 0
         ? 'up to date'
-        : `${integerFormat.format(result.receivedFileCount)} file(s) updated, ${integerFormat.format(result.removedFileCount)} removed`;
+        : `${pluralize(result.receivedFileCount, 'file')} updated, ${integerFormat.format(result.removedFileCount)} removed`;
 
     return [
       `✓ ${outcome.name}: ${changes}; ${formatCachedTotals(result.fileCount, result.eventCount)} cached${formatRemoteVersion(outcome.state)}`,
@@ -103,12 +105,12 @@ export function renderMachineList(entries: readonly MachineListEntry[], now: num
     return ['No machines configured.', 'Add one with: llm-usage machine add <name> [user@host]'];
   }
 
-  const nameWidth = Math.max(...entries.map((entry) => entry.name.length));
-  const sshWidth = Math.max(...entries.map((entry) => entry.machine.ssh.length));
+  const nameWidth = Math.max(...entries.map((entry) => visibleWidth(entry.name)));
+  const sshWidth = Math.max(...entries.map((entry) => visibleWidth(entry.machine.ssh)));
 
   return entries.map(
     (entry) =>
-      `${entry.name.padEnd(nameWidth)}  ${entry.machine.ssh.padEnd(sshWidth)}  ${describeMachineStatus(entry, now)}`,
+      `${padEndVisible(entry.name, nameWidth)}  ${padEndVisible(entry.machine.ssh, sshWidth)}  ${describeMachineStatus(entry, now)}`,
   );
 }
 
@@ -158,9 +160,7 @@ export function formatMachinesNote(
     0,
   );
   const duplicates =
-    leftOutCount > 0
-      ? `; left out ${integerFormat.format(leftOutCount)} event(s) already counted`
-      : '';
+    leftOutCount > 0 ? `; left out ${pluralize(leftOutCount, 'event')} already counted` : '';
 
   return `Machines: ${machines.map((machine) => describeIncludedMachine(machine, now, localVersion)).join(', ')}${duplicates}.`;
 }

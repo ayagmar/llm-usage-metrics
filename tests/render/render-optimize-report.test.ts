@@ -109,6 +109,66 @@ describe('renderOptimizeReport', () => {
     expect(output).toContain('│ Hypothetical Cost');
   });
 
+  it('prints the provider and the no-usage message when the baseline has no usage', () => {
+    const data = createOptimizeDataResult();
+    // As an empty window builds it: zero tokens and a complete $0 baseline.
+    data.rows = data.rows.map((row) =>
+      row.rowType === 'baseline'
+        ? { ...row, totalTokens: 0, baselineCostUsd: 0 }
+        : { ...row, totalTokens: 0 },
+    );
+
+    const output = renderOptimizeReport(data, 'terminal', {
+      granularity: 'monthly',
+      useColor: false,
+      filtered: true,
+    });
+
+    expect(output).not.toContain('╭');
+    expect(output).not.toContain('ALL baseline cost');
+    expect(output.split('\n').slice(-3)).toEqual([
+      'Provider scope: openai',
+      '',
+      'No usage data found for the selected filters.',
+    ]);
+  });
+
+  it('shows logged spend from events without token counts instead of the no-usage message', () => {
+    const data = createOptimizeDataResult();
+    data.rows = data.rows.map((row) => ({
+      ...row,
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+      ...(row.rowType === 'baseline' ? { baselineCostUsd: 10 } : {}),
+    }));
+
+    const output = renderOptimizeReport(data, 'terminal', {
+      granularity: 'monthly',
+      useColor: false,
+    });
+
+    expect(output).not.toContain('No usage data found');
+    expect(output).toContain('ALL baseline cost: $10.00');
+    expect(output).toContain('╭');
+  });
+
+  it('shows a baseline whose cost is incomplete even with no tokens or priced cost', () => {
+    const data = createOptimizeDataResult();
+    data.rows = data.rows.map((row) =>
+      row.rowType === 'baseline'
+        ? { ...row, totalTokens: 0, baselineCostUsd: undefined, baselineCostIncomplete: true }
+        : { ...row, totalTokens: 0 },
+    );
+
+    const output = renderOptimizeReport(data, 'terminal', {
+      granularity: 'monthly',
+      useColor: false,
+    });
+
+    expect(output).not.toContain('No usage data found');
+  });
+
   it('renders missing-pricing context in terminal output', () => {
     const data = createOptimizeDataResult();
     data.diagnostics.candidatesWithMissingPricing = ['gpt-4.1-mini'];

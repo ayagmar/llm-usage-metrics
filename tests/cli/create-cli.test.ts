@@ -319,6 +319,35 @@ describe('createCli', () => {
     expect(absent.filter((flag) => flags.includes(flag))).toEqual([]);
   });
 
+  it('registers --share, --no-open and --redact together, only on the share commands', () => {
+    const shareCommands = createCli()
+      .commands.filter((command) => {
+        const flags = getLongFlags(command);
+        return ['--share', '--no-open', '--redact'].every((flag) => flags.includes(flag));
+      })
+      .map((command) => command.name())
+      .sort();
+    const anyShareFlag = createCli()
+      .commands.filter((command) =>
+        getLongFlags(command).some((flag) => ['--share', '--no-open', '--redact'].includes(flag)),
+      )
+      .map((command) => command.name())
+      .sort();
+
+    expect(shareCommands).toEqual([
+      'compare',
+      'daily',
+      'efficiency',
+      'monthly',
+      'optimize',
+      'summary',
+      'trends',
+      'weekly',
+      'wrapped',
+    ]);
+    expect(anyShareFlag).toEqual(shareCommands);
+  });
+
   it('registers dedicated source override flags in the frozen manifest order', () => {
     const cli = createCli();
     const dailyCommand = cli.commands.find((command) => command.name() === 'daily');

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
+import type { TrendsReportData } from '../../src/cli/build-trends-data.js';
 import type { TrendsDataResult } from '../../src/cli/usage-data-contracts.js';
 import { renderTrendsReport } from '../../src/render/render-trends-report.js';
+import { visibleWidth } from '../../src/render/table-text-layout.js';
 import { overrideStdoutTty } from '../helpers/stdout.js';
 
 function createTrendsDataResult(): TrendsDataResult {
@@ -478,8 +480,62 @@ describe('renderTrendsReport', () => {
     });
 
     expect(output).toContain('Daily Token Usage Trend (30 days)');
-    expect(output).toContain('Compressed 10 empty day(s) before first activity (Mar 01-Mar 10).');
+    expect(output).toContain('Compressed 10 empty days before first activity (Mar 01-Mar 10).');
     expect(output).toContain('Mar 11');
     expect(output).toContain('Mar 25');
+  });
+
+  it('labels the token axis with whole round ticks and leaves no trailing spaces', () => {
+    const data = createTrendsDataResult();
+    data.metric = 'tokens';
+    data.totalSeries.buckets = Array.from({ length: 20 }, (_, index) => ({
+      date: `2026-03-${String(index + 1).padStart(2, '0')}`,
+      value: index === 5 ? 970 : index === 10 ? 210 : 0,
+      observed: index === 5 || index === 10,
+    }));
+    data.totalSeries.summary = {
+      total: 1_180,
+      average: 59,
+      peak: { date: '2026-03-06', value: 970 },
+      incomplete: false,
+      observedDayCount: 2,
+    };
+
+    const lines = renderTrendsReport(data, 'terminal', {
+      useColor: false,
+      terminalWidth: 80,
+    }).split('\n');
+    const axisLabels = lines
+      .filter((line) => line.includes('┤') || line.includes('┼'))
+      .map((line) => line.split(/ [┤┼]/u)[0].trim());
+
+    expect(axisLabels).toEqual(['1K', '750', '500', '250', '0']);
+    expect(lines.filter((line) => line !== line.trimEnd())).toEqual([]);
+  });
+
+  it('lines up split rows by display width when a label has wide characters', () => {
+    const data: TrendsReportData = createTrendsDataResult();
+    data.metric = 'tokens';
+    const series = (label: string, value: number) => ({
+      repoRoot: `/repos/${label}`,
+      project: label,
+      buckets: [{ date: '2026-03-04', value, observed: true }],
+      summary: {
+        total: value,
+        average: value,
+        peak: { date: '2026-03-04', value },
+        incomplete: false,
+        observedDayCount: 1,
+      },
+    });
+    data.projectSeries = [series('项目', 1_000), series('api', 20)];
+
+    const lines = renderTrendsReport(data, 'terminal', { useColor: false, terminalWidth: 60 })
+      .split('\n')
+      .filter((line) => line.startsWith('项目') || line.startsWith('api'));
+
+    expect(lines).toHaveLength(2);
+    expect(visibleWidth(lines[0])).toBe(visibleWidth(lines[1]));
+    expect(lines.map((line) => visibleWidth(line.slice(0, line.indexOf('█') + 1)))).toEqual([8, 8]);
   });
 });

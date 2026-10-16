@@ -120,10 +120,12 @@ Options:
   --no-sync                      Use other machines' cached usage without
                                  refreshing it over ssh
   --markdown                     Render output as markdown table
-  --share                        Write a share card (SVG and an HTML page with
-                                 PNG export) to the current directory
-  --no-open                      With --share, write the files without opening
-                                 the page
+  --share                        Write an interactive HTML report to the current
+                                 directory
+  --no-open                      With --share, write the report without opening
+                                 it
+  --redact                       With --share, label projects project-N and
+                                 machines machine-N
   --repo <project>               Count only these projects (repeatable or
                                  comma-separated, so a value cannot contain a
                                  comma). A path (absolute, or ./, ../, ~/ on
@@ -318,16 +320,18 @@ Options:
   --markdown                     Render output as markdown table
   --per-model-columns            Render per-model metrics as multiline aligned
                                  table columns (terminal/markdown)
-  --share                        Write a share card (SVG and an HTML page with
-                                 PNG export) to the current directory
-  --no-open                      With --share, write the files without opening
-                                 the page
+  --share                        Write an interactive HTML report to the current
+                                 directory
+  --no-open                      With --share, write the report without opening
+                                 it
+  --redact                       With --share, label projects project-N and
+                                 machines machine-N
   --all                          Report every day instead of the last 7 days
   --last <n>                     Report the last N days, counting the current
                                  day
   --compact                      Abbreviate token counts and hide the Reasoning
                                  and Cache Write columns (terminal/markdown)
-  --no-cost                      Leave cost out of the table and share card,
+  --no-cost                      Leave cost out of the table and share report,
                                  e.g. for screenshots
   --by-machine                   Split each source row by the machine its usage
                                  came from
@@ -426,16 +430,18 @@ Options:
   --markdown                     Render output as markdown table
   --per-model-columns            Render per-model metrics as multiline aligned
                                  table columns (terminal/markdown)
-  --share                        Write a share card (SVG and an HTML page with
-                                 PNG export) to the current directory
-  --no-open                      With --share, write the files without opening
-                                 the page
+  --share                        Write an interactive HTML report to the current
+                                 directory
+  --no-open                      With --share, write the report without opening
+                                 it
+  --redact                       With --share, label projects project-N and
+                                 machines machine-N
   --all                          Report every week instead of the last 8 weeks
   --last <n>                     Report the last N weeks, counting the current
                                  week
   --compact                      Abbreviate token counts and hide the Reasoning
                                  and Cache Write columns (terminal/markdown)
-  --no-cost                      Leave cost out of the table and share card,
+  --no-cost                      Leave cost out of the table and share report,
                                  e.g. for screenshots
   --by-machine                   Split each source row by the machine its usage
                                  came from
@@ -533,15 +539,17 @@ Options:
   --markdown                     Render output as markdown table
   --per-model-columns            Render per-model metrics as multiline aligned
                                  table columns (terminal/markdown)
-  --share                        Write a share card (SVG and an HTML page with
-                                 PNG export) to the current directory
-  --no-open                      With --share, write the files without opening
-                                 the page
+  --share                        Write an interactive HTML report to the current
+                                 directory
+  --no-open                      With --share, write the report without opening
+                                 it
+  --redact                       With --share, label projects project-N and
+                                 machines machine-N
   --last <n>                     Report the last N months, counting the current
                                  month
   --compact                      Abbreviate token counts and hide the Reasoning
                                  and Cache Write columns (terminal/markdown)
-  --no-cost                      Leave cost out of the table and share card,
+  --no-cost                      Leave cost out of the table and share report,
                                  e.g. for screenshots
   --by-machine                   Split each source row by the machine its usage
                                  came from
@@ -740,10 +748,12 @@ Options:
   --no-sync                      Use other machines' cached usage without
                                  refreshing it over ssh
   --markdown                     Render output as markdown table
-  --share                        Write a share card (SVG and an HTML page with
-                                 PNG export) to the current directory
-  --no-open                      With --share, write the files without opening
-                                 the page
+  --share                        Write an interactive HTML report to the current
+                                 directory
+  --no-open                      With --share, write the report without opening
+                                 it
+  --redact                       With --share, label projects project-N and
+                                 machines machine-N
   --vs-since <date>              Inclusive start date for the baseline
                                  comparison window
   --vs-until <date>              Inclusive end date for the baseline comparison
@@ -843,10 +853,12 @@ Options:
   --no-sync                      Use other machines' cached usage without
                                  refreshing it over ssh
   --markdown                     Render output as markdown table
-  --share                        Write a share card (SVG and an HTML page with
-                                 PNG export) to the current directory
-  --no-open                      With --share, write the files without opening
-                                 the page
+  --share                        Write an interactive HTML report to the current
+                                 directory
+  --no-open                      With --share, write the report without opening
+                                 it
+  --redact                       With --share, label projects project-N and
+                                 machines machine-N
   --repo-dir <path>              Path to repository for Git outcome metrics
   --include-merge-commits        Include merge commits in Git outcome metrics
   --by-source                    Include per-source usage rows under each period
@@ -946,10 +958,12 @@ Options:
   --no-sync                      Use other machines' cached usage without
                                  refreshing it over ssh
   --markdown                     Render output as markdown table
-  --share                        Write a share card (SVG and an HTML page with
-                                 PNG export) to the current directory
-  --no-open                      With --share, write the files without opening
-                                 the page
+  --share                        Write an interactive HTML report to the current
+                                 directory
+  --no-open                      With --share, write the report without opening
+                                 it
+  --redact                       With --share, label projects project-N and
+                                 machines machine-N
   --candidate-model <name>       Candidate model for counterfactual pricing
                                  (repeatable or comma-separated)
   --top <n>                      Show only the top N cheapest candidates
@@ -1044,10 +1058,12 @@ Options:
   --no-sync                      Use other machines' cached usage without
                                  refreshing it over ssh
   --markdown                     Render output as markdown table
-  --share                        Write a share card (SVG and an HTML page with
-                                 PNG export) to the current directory
-  --no-open                      With --share, write the files without opening
-                                 the page
+  --share                        Write an interactive HTML report to the current
+                                 directory
+  --no-open                      With --share, write the report without opening
+                                 it
+  --redact                       With --share, label projects project-N and
+                                 machines machine-N
   --last <n>                     Chart the last N local calendar days, counting
                                  today; defaults to 30 when no date flags are
                                  provided
@@ -1386,7 +1402,7 @@ Options:
 ```text
 Usage: llm-usage wrapped [options]
 
-Show a yearly usage recap with an optional share card
+Show a yearly usage recap with an optional share report
 
 Options:
   --pi-dir <path>                Path to .pi sessions directory (repeatable)
@@ -1454,10 +1470,12 @@ Options:
   --no-sync                      Use other machines' cached usage without
                                  refreshing it over ssh
   --markdown                     Render output as markdown table
-  --share                        Write a share card (SVG and an HTML page with
-                                 PNG export) to the current directory
-  --no-open                      With --share, write the files without opening
-                                 the page
+  --share                        Write an interactive HTML report to the current
+                                 directory
+  --no-open                      With --share, write the report without opening
+                                 it
+  --redact                       With --share, label projects project-N and
+                                 machines machine-N
   --year <YYYY>                  Year to recap (2020-2100; defaults to current
                                  local year)
   -h, --help                     display help for command
@@ -1903,7 +1921,7 @@ Print a bundled report JSON Schema
 Arguments:
   name        Schema name: blocks, compare, config, doctor, efficiency,
               events-line, machine-export, optimize, pricing, projects, prune,
-              session, summary, trends, usage, value, wrapped
+              session, share, summary, trends, usage, value, wrapped
 
 Options:
   --list      List available schema names
@@ -1975,9 +1993,9 @@ Search across root and command help. See Command help above to check which flags
 | `--markdown` | - | - | Render output as Markdown table \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, pricing only\) |
 | `--metric` | - | `<name>` | Trend metric: cost \| tokens \| active-hours \(default: "cost"\) \(trends only\) |
 | `--model` | - | `<name>` | Filter by model \(repeatable/comma-separated; exact when exact match exists after source/provider/date filters, otherwise substring\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline only\) |
-| `--no-cost` | - | - | hourly, projects, blocks, value: Leave cost out of the table, e.g. for screenshots; daily, weekly, monthly: Leave cost out of the table and share card, e.g. for screenshots |
+| `--no-cost` | - | - | hourly, projects, blocks, value: Leave cost out of the table, e.g. for screenshots; daily, weekly, monthly: Leave cost out of the table and share report, e.g. for screenshots |
 | `--no-history` | - | - | Leave out usage from files that no longer exist on disk \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline only\) |
-| `--no-open` | - | - | With --share, write the files without opening the page \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, wrapped only\) |
+| `--no-open` | - | - | With --share, write the report without opening it \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, wrapped only\) |
 | `--no-sync` | - | - | Use other machines' cached usage without refreshing it over ssh \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events only\) |
 | `--openclaw-dir` | - | `<path>` | Path to OpenClaw agents directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline, doctor, prune only\) |
 | `--opencode-db` | - | `<path>` | Path to OpenCode SQLite DB \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline, doctor, prune only\) |
@@ -1991,10 +2009,11 @@ Search across root and command help. See Command help above to check which flags
 | `--provider` | - | `<name>` | Billing-provider filter \(normalized to billing entity; e.g. openai, anthropic, google, moonshot\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline only\) |
 | `--quiet` | - | - | Suppress informational stderr output \(warnings still print\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, pricing, doctor, prune, machine only\) |
 | `--qwen-dir` | - | `<path>` | Path to Qwen projects directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline, doctor, prune only\) |
+| `--redact` | - | - | With --share, label projects project-N and machines machine-N \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, wrapped only\) |
 | `--repo` | - | `<project>` | summary, hourly, daily, weekly, monthly, projects, compare, optimize, trends, session, blocks, value, events: Count only these projects \(repeatable or comma-separated, so a value cannot contain a comma\). A path \(absolute, or ./, ../, \~/ on this machine\) matches that repository root and the roots under it; a name or path tail such as work/api matches the end of a root, not the roots under it; \(unattributed\) matches usage without a root. Applied after --model picks exact or substring matching; efficiency: Count only these projects \(repeatable or comma-separated, so a value cannot contain a comma\). A path \(absolute, or ./, ../, \~/ on this machine\) matches that repository root and the roots under it; a name or path tail such as work/api matches the end of a root, not the roots under it; \(unattributed\) matches usage without a root. Applied after --model picks exact or substring matching. It filters usage events; --repo-dir picks the Git repository for outcomes |
 | `--repo-dir` | - | `<path>` | Path to repository for Git outcome metrics \(efficiency only\) |
 | `--roocode-dir` | - | `<path>` | Path to RooCode tasks directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline, doctor, prune only\) |
-| `--share` | - | - | Write a share card \(SVG and an HTML page with PNG export\) to the current directory \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, wrapped only\) |
+| `--share` | - | - | Write an interactive HTML report to the current directory \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, wrapped only\) |
 | `--since` | - | `<YYYY-MM-DD>` | Inclusive start date filter \(hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, events only\) |
 | `--source` | - | `<name>` | Filter by source id \(repeatable or comma-separated, supported sources \(17\): pi, codex, gemini, droid, opencode, openclaw, claude, copilot, goose, amp, qwen, kimi, cline, roocode, kilocode, antigravity, dsh\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline, doctor, prune only\) |
 | `--source-dir` | - | `<source-id=path>` | Override source directory for directory-backed sources \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline, doctor, prune only\) |

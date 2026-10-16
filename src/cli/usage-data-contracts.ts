@@ -114,8 +114,10 @@ type SyncOption = {
 
 type ShareOption = {
   share?: boolean;
-  /** False with --no-open: write the share files without opening the page. */
+  /** False with --no-open: write the share report without opening it. */
   open?: boolean;
+  /** With --share: replace project and machine names in the report. */
+  redact?: boolean;
 };
 
 type ProfileConfig = typeof sharedOptionProfileConfig;
@@ -165,7 +167,7 @@ export type ReportCommandOptions = SharedOptionsForProfile<'usage'> &
     all?: boolean;
     /** `--last N`: the last N periods of the granularity, counting the current one. */
     last?: string;
-    /** `false` with `--no-cost`: tables and the share card leave out cost. */
+    /** `false` with `--no-cost`: tables and the share report leave out cost. */
     cost?: boolean;
     /** Abbreviated token counts without the Reasoning and Cache Write columns. */
     compact?: boolean;

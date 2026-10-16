@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -8,8 +8,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as shareArtifact from '../../src/cli/share-artifact.js';
 
 import { buildEfficiencyReport, runEfficiencyReport } from '../../src/cli/run-efficiency-report.js';
+import { readSharePayload } from '../helpers/share-html.js';
 import { overrideStdoutTty } from '../helpers/stdout.js';
-import { visibleWidth } from '../../src/render/table-text-layout.js';
 
 const execFileAsync = promisify(execFile);
 const tempDirs: string[] = [];
@@ -144,7 +144,7 @@ describe('runEfficiencyReport', () => {
     expect(String(consoleLogSpy.mock.calls[0]?.[0])).toContain('Daily Efficiency Report');
   });
 
-  it('lists rows instead of an overflowing table on a narrow terminal', async () => {
+  it('prints the no-usage message instead of an all-zero table on a narrow terminal', async () => {
     const repoDir = await createGitRepoWithCommit('2026-02-14T10:00:00Z');
     const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'efficiency-overflow-sessions-'));
     tempDirs.push(emptyDir);
@@ -170,7 +170,9 @@ describe('runEfficiencyReport', () => {
     expect(consoleLogSpy).toHaveBeenCalledTimes(1);
     const outputLines = String(consoleLogSpy.mock.calls[0][0]).split('\n');
     expect(outputLines.some((line) => line.includes('╭'))).toBe(false);
-    expect(Math.max(...outputLines.map((line) => visibleWidth(line)))).toBeLessThanOrEqual(40);
+    expect(outputLines.at(-1)).toBe(
+      'No usage data found in periods with commits for the selected filters.',
+    );
     const stderrLines = consoleErrorSpy.mock.calls.map((call) => String(call[0]));
     expect(stderrLines.some((line) => line.includes('Report table is wider than terminal'))).toBe(
       false,
@@ -241,7 +243,7 @@ describe('runEfficiencyReport', () => {
     expect(stderrLines.some((line) => /\d+ env overrides?/u.test(line))).toBe(true);
   });
 
-  it('writes monthly efficiency share svg when --share is enabled', async () => {
+  it('writes the efficiency share report for any granularity and --by-source', async () => {
     const repoDir = await createGitRepoWithCommit('2026-02-14T10:00:00Z');
     const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'efficiency-share-empty-sessions-'));
     const shareDir = await mkdtemp(path.join(os.tmpdir(), 'efficiency-share-output-'));
@@ -254,7 +256,7 @@ describe('runEfficiencyReport', () => {
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
     try {
-      await runEfficiencyReport('monthly', {
+      await runEfficiencyReport('weekly', {
         piDir: emptyDir,
         codexDir: emptyDir,
         source: 'pi,codex',
@@ -262,36 +264,26 @@ describe('runEfficiencyReport', () => {
         since: '2026-02-14',
         until: '2026-02-14',
         repoDir,
+        bySource: true,
         share: true,
       });
     } finally {
       process.chdir(previousCwd);
     }
 
-    const svgPath = path.join(shareDir, 'efficiency-monthly-share.svg');
-    const svgContent = await readFile(svgPath, 'utf8');
+    expect(await readdir(shareDir)).toEqual(['efficiency-weekly-share.html']);
+    const html = await readFile(path.join(shareDir, 'efficiency-weekly-share.html'), 'utf8');
+    const { data } = readSharePayload(html);
     const stderrLines = consoleErrorSpy.mock.calls.map((call) => String(call[0]));
 
-    expect(svgContent).toContain('<svg');
-    expect(svgContent).toContain('>Efficiency<');
-    expect(stderrLines.some((line) => line.includes('Wrote efficiency share SVG'))).toBe(true);
+    expect(data.meta.initialView).toEqual({
+      since: '2026-02-14',
+      until: '2026-02-14',
+      granularity: 'week',
+    });
+    expect(data.envelope?.report).toBe('efficiency');
+    expect(html).not.toContain(repoDir);
+    expect(stderrLines.some((line) => line.includes('Wrote efficiency share report'))).toBe(true);
     expect(consoleLogSpy).toHaveBeenCalledTimes(1);
-  });
-
-  it('rejects --share for non-monthly efficiency reports', async () => {
-    await expect(
-      buildEfficiencyReport('weekly', {
-        share: true,
-      }),
-    ).rejects.toThrow('--share is only supported for efficiency monthly');
-  });
-
-  it('rejects --share with --by-source', async () => {
-    await expect(
-      buildEfficiencyReport('monthly', {
-        share: true,
-        bySource: true,
-      }),
-    ).rejects.toThrow('--share cannot be combined with --by-source');
   });
 });

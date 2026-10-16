@@ -50,9 +50,35 @@ describe('renderMachineList', () => {
       'laptop  me@laptop  never synced',
       'laptop  me@laptop  never synced: ssh failed: timed out',
       'laptop  me@laptop  disabled (cached usage stays in reports)',
-      'laptop  me@laptop  synced 1 h ago, 2 file(s), 1,200 event(s); last attempt failed 1 min ago: ssh failed',
-      'laptop  me@laptop  synced 2 min ago, 2 file(s), 1,200 event(s)',
+      'laptop  me@laptop  synced 1 h ago, 2 files, 1,200 events; last attempt failed 1 min ago: ssh failed',
+      'laptop  me@laptop  synced 2 min ago, 2 files, 1,200 events',
     ]);
+  });
+});
+
+describe('renderMachineList widths', () => {
+  it('lines up the ssh column by display width when a name has wide characters', () => {
+    const lines = renderMachineList(
+      [
+        {
+          name: 'ノート',
+          machine: { ssh: 'me@laptop' },
+          state: undefined,
+          fileCount: 0,
+          eventCount: 0,
+        },
+        {
+          name: 'vps',
+          machine: { ssh: 'root@vps' },
+          state: undefined,
+          fileCount: 0,
+          eventCount: 0,
+        },
+      ],
+      NOW,
+    );
+
+    expect(lines).toEqual(['ノート  me@laptop  never synced', 'vps     root@vps   never synced']);
   });
 });
 
@@ -76,7 +102,7 @@ describe('renderSyncOutcome', () => {
         NOW,
       ),
     ).toEqual([
-      '✓ vps: 3,072 file(s) updated, 1 removed; 3,072 file(s), 10 event(s) cached (llm-usage-metrics 1.0.0)',
+      '✓ vps: 3,072 files updated, 1 removed; 3,072 files, 10 events cached (llm-usage-metrics 1.0.0)',
       '  vps warned: ⚠ machine export left out 2 event(s)',
     ]);
   });

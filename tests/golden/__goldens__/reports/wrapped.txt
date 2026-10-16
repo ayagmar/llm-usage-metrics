@@ -1,6 +1,7 @@
 ┌──────────────┐
 │ Wrapped 2026 │
 └──────────────┘
+
 2026-01-01 to 2026-12-31 (UTC)
 
 Tokens          4,610
@@ -16,7 +17,7 @@ Events          25
 Sessions        19
 
 Monthly activity
-Jan ▁  Feb ▁  Mar ·  Apr ·  May ▁  Jun ▄  Jul ·  Aug ·  Sep █  Oct ·  Nov ·  Dec ·
+Jan ▁  Feb ▁  Mar ·  Apr ·  May ▁  Jun ▅  Jul ·  Aug ·  Sep █  Oct ·  Nov ·  Dec ·
 
 Top models
 ╭───┬─────────────────────────┬────────┬───────╮

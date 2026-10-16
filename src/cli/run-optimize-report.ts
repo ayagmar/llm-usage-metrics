@@ -2,7 +2,6 @@ import {
   renderOptimizeReport,
   type OptimizeReportFormat,
 } from '../render/render-optimize-report.js';
-import { renderOptimizeMonthlyShareSvg } from '../render/render-optimize-share-svg.js';
 import { logger } from '../utils/logger.js';
 import type { ReportGranularity } from '../utils/time-buckets.js';
 import { buildOptimizeData } from './build-optimize-data.js';
@@ -11,7 +10,14 @@ import {
   runStandardPreparedReport,
   STANDARD_REPORT_FORMATS,
 } from './report-runtime/report-lifecycle.js';
+import { hasCliFilters } from './filter-match-warnings.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
+import {
+  buildShareReportArtifact,
+  parseReportJsonEnvelope,
+  toShareDateRange,
+  toShareGranularity,
+} from './share-report-artifact.js';
 import type { OptimizeCommandOptions, OptimizeDiagnostics } from './usage-data-contracts.js';
 import type { BuildOptimizeDataDeps } from './build-optimize-data.js';
 
@@ -21,19 +27,6 @@ type OptimizePreparedDiagnostics = OptimizeDiagnostics & {
   candidateCount: number;
 };
 
-function validateShareOption(
-  granularity: ReportGranularity,
-  options: OptimizeCommandOptions,
-): void {
-  if (!options.share) {
-    return;
-  }
-
-  if (granularity !== 'monthly') {
-    throw new Error('--share is only supported for optimize monthly');
-  }
-}
-
 async function prepareOptimizeReport(
   granularity: ReportGranularity,
   options: OptimizeCommandOptions,
@@ -42,9 +35,6 @@ async function prepareOptimizeReport(
   return prepareReport({
     commandOptions: options,
     supportedFormats: optimizeReportFormats,
-    validate: () => {
-      validateShareOption(granularity, options);
-    },
     buildData: async () => {
       const optimizeData = await buildOptimizeData(granularity, options, deps);
 
@@ -60,17 +50,28 @@ async function prepareOptimizeReport(
       candidateCount: bundle.candidateCount,
     }),
     runtimeProfile: deps.runtimeProfile,
-    createShareArtifact: options.share
-      ? (bundle) => ({
-          fileName: 'optimize-monthly-share.svg',
+    buildShare: async (bundle, { runtimeProfile }) => {
+      const window = toShareDateRange(options.since, options.until);
+
+      return buildShareReportArtifact(
+        {
+          command: 'optimize',
+          options,
+          window,
+          initialView: { ...window, granularity: toShareGranularity(granularity) },
+          envelope: parseReportJsonEnvelope(
+            renderOptimizeReport(bundle.optimizeData, 'json', { granularity }),
+          ),
+          fileBaseName: `optimize-${granularity}-share`,
           logLabel: 'optimize',
-          title: 'Optimize share card',
-          render: (theme) => renderOptimizeMonthlyShareSvg(bundle.optimizeData, theme),
-        })
-      : undefined,
+        },
+        { ...deps, runtimeProfile },
+      );
+    },
     render: (bundle, format) =>
       renderOptimizeReport(bundle.optimizeData, format, {
         granularity,
+        filtered: hasCliFilters(options),
       }),
   });
 }

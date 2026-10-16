@@ -3,7 +3,8 @@ import { markdownTable } from 'markdown-table';
 import type { WrappedRecap, WrappedTopItem } from '../wrapped/wrapped-recap.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
-import { formatApproxUsd, formatInteger } from './share-svg-theme.js';
+import { formatHours } from './format-duration.js';
+import { formatApproxUsd, formatInteger } from './format-number.js';
 import { resolveTtyColumns, visibleWidth } from './table-text-layout.js';
 import {
   defaultTerminalStylePalette,
@@ -14,6 +15,7 @@ import { shouldUseColorByDefault } from './terminal-table.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
 import { renderReportJson } from './report-json.js';
 import { MONTH_LABELS } from './month-labels.js';
+import { SPARKLINE_GLYPHS, SPARKLINE_TOP_LEVEL, sparklineLevel } from './sparkline.js';
 
 export type WrappedReportFormat = 'terminal' | 'markdown' | 'json';
 
@@ -30,24 +32,14 @@ export const wrappedReportFormats = [
   'json',
 ] as const satisfies readonly WrappedReportFormat[];
 
-// Block glyphs for monthly intensity levels 0..4.
-const INTENSITY_GLYPHS = ['·', '▁', '▂', '▄', '█'];
+// A month without usage; the sparkline's blank would read as a gap in the strip.
+const IDLE_MONTH_GLYPH = '·';
 const TOP_MODELS_HEADERS = ['#', 'Model', 'Tokens', 'Cost'] as const;
 const TOP_SOURCES_HEADERS = ['#', 'Source', 'Tokens', 'Cost'] as const;
 const TOP_ITEM_NAME_COLUMN = 1;
 
 /** Gates a styler behind the color policy so `useColor: false` never emits ANSI. */
 type Paint = (styler: TextStyler) => TextStyler;
-
-function formatHours(activeMs: number): string {
-  const hours = Math.round(activeMs / 3_600_000);
-
-  if (hours === 0) {
-    return activeMs > 0 ? '<1h' : '0h';
-  }
-
-  return `${formatInteger(hours)}h`;
-}
 
 function formatPeakHour(peakHour: WrappedRecap['peakHour']): string {
   return peakHour === undefined ? '-' : `${String(peakHour.hour).padStart(2, '0')}:00`;
@@ -125,13 +117,15 @@ function renderMonthlyStrip(
   palette: TerminalStylePalette,
 ): string {
   const boldGreen: TextStyler = (text) => palette.bold(palette.green(text));
+  const maxTokens = Math.max(0, ...recap.monthlyIntensity.map((month) => month.totalTokens));
 
   return recap.monthlyIntensity
     .map((month, index) => {
-      const glyph = INTENSITY_GLYPHS[month.level] ?? '·';
+      const level = sparklineLevel(month.totalTokens, maxTokens);
+      const glyph = level === 0 ? IDLE_MONTH_GLYPH : SPARKLINE_GLYPHS[level];
       const label = MONTH_LABELS[index] ?? month.month;
       const glyphStyler =
-        month.level === 0 ? palette.dim : month.level >= 3 ? boldGreen : palette.green;
+        level === 0 ? palette.dim : level > SPARKLINE_TOP_LEVEL / 2 ? boldGreen : palette.green;
 
       return `${paint(palette.dim)(label)} ${paint(glyphStyler)(glyph)}`;
     })
@@ -169,6 +163,7 @@ function renderTopTable(headerCells: readonly string[], bodyRows: string[][]): s
     measureBodyRows: bodyRows,
     rowMetas,
     layout: 'compact',
+    columnKinds: ['text', 'text', 'measure', 'measure'],
     multilineColumnIndex: TOP_ITEM_NAME_COLUMN,
     multilineColumnWidth: nameColumnWidth,
     terminalWidth: resolveTtyColumns(process.stdout),
@@ -180,7 +175,7 @@ function toEmptyMessage(recap: WrappedRecap, filtered: boolean): string | undefi
     return undefined;
   }
 
-  return filtered ? formatNoUsageMessage(true) : `No usage in ${recap.year}.`;
+  return formatNoUsageMessage(filtered, `in ${recap.year}`);
 }
 
 function renderWrappedTerminalReport(
@@ -192,6 +187,7 @@ function renderWrappedTerminalReport(
   const paint: Paint = (styler) => (text) => (useColor ? styler(text) : text);
   const heading = [
     renderReportHeader({ title: `Wrapped ${recap.year}`, useColor }),
+    '',
     paint(palette.dim)(`${recap.from} to ${recap.to} (${recap.timezone})`),
     '',
   ];

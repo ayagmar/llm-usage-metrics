@@ -2,11 +2,15 @@ import { markdownTable } from 'markdown-table';
 import pc from 'picocolors';
 
 import type { OptimizeDataResult } from '../cli/usage-data-contracts.js';
-import type { OptimizeBaselineRow, OptimizeCandidateRow } from '../optimize/optimize-row.js';
+import type {
+  OptimizeBaselineRow,
+  OptimizeCandidateRow,
+  OptimizeRow,
+} from '../optimize/optimize-row.js';
 import type { ReportGranularity } from '../utils/time-buckets.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { resolveTtyColumns, visibleWidth } from './table-text-layout.js';
-import { renderReportHeader } from './report-header.js';
+import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
 import { renderReportJson } from './report-json.js';
@@ -16,6 +20,8 @@ export type OptimizeReportFormat = 'terminal' | 'markdown' | 'json';
 export type RenderOptimizeReportOptions = {
   granularity: ReportGranularity;
   useColor?: boolean;
+  /** Whether the command line narrowed the report; names the filters in the empty message. */
+  filtered?: boolean;
 };
 
 const optimizeTableHeadersWithNotes = [
@@ -132,6 +138,11 @@ function formatAbsoluteUsd(value: number): string {
   return usdFormatter.format(Math.abs(value));
 }
 
+function renderProviderLine(optimizeData: OptimizeDataResult, useColor: boolean): string {
+  const providerLine = `Provider scope: ${optimizeData.diagnostics.provider}`;
+  return useColor ? pc.cyan(providerLine) : providerLine;
+}
+
 function resolveTerminalContextLines(
   optimizeData: OptimizeDataResult,
   options: { useColor: boolean },
@@ -144,8 +155,7 @@ function resolveTerminalContextLines(
   );
   const lines: string[] = [];
 
-  const providerLine = `Provider scope: ${optimizeData.diagnostics.provider}`;
-  lines.push(options.useColor ? pc.cyan(providerLine) : providerLine);
+  lines.push(renderProviderLine(optimizeData, options.useColor));
 
   if (allBaselineRow) {
     lines.push(
@@ -261,11 +271,32 @@ function resolveIncludeNotesColumn(optimizeData: OptimizeDataResult): boolean {
   );
 }
 
+/** As the optimize builder decides which periods have usage. */
+function hasBaselineUsage(row: OptimizeRow): boolean {
+  return (
+    row.rowType === 'baseline' &&
+    (row.totalTokens > 0 || row.baselineCostIncomplete || (row.baselineCostUsd ?? 0) > 0)
+  );
+}
+
 function renderTerminalOptimizeReport(
   optimizeData: OptimizeDataResult,
   options: RenderOptimizeReportOptions,
 ): string {
   const useColor = options.useColor ?? shouldUseColorByDefault();
+  const header = renderReportHeader({ title: getReportTitle(options.granularity), useColor });
+
+  // No baseline tokens, logged cost or unpriced usage: the provider has nothing to compare.
+  if (!optimizeData.rows.some(hasBaselineUsage)) {
+    return [
+      header,
+      '',
+      renderProviderLine(optimizeData, useColor),
+      '',
+      formatNoUsageMessage(options.filtered ?? false),
+    ].join('\n');
+  }
+
   const includeNotesColumn = resolveIncludeNotesColumn(optimizeData);
   const tableCells = toTableCells(optimizeData, { useColor, includeNotesColumn });
   const candidateColumnWidth = resolveCandidateColumnWidth(tableCells);
@@ -275,12 +306,7 @@ function renderTerminalOptimizeReport(
     : [...optimizeTableHeadersWithoutNotes];
   const outputLines: string[] = [];
 
-  outputLines.push(
-    renderReportHeader({
-      title: getReportTitle(options.granularity),
-      useColor,
-    }),
-  );
+  outputLines.push(header);
   outputLines.push('');
   outputLines.push(...contextLines);
   outputLines.push('');
@@ -292,6 +318,9 @@ function renderTerminalOptimizeReport(
       measureBodyRows: tableCells,
       rowMetas: optimizeData.rows.map((row) => toTableRowMeta(row)),
       layout: 'compact',
+      columnKinds: headerCells.map((header, index) =>
+        index <= 1 || header === 'Notes' ? 'text' : 'measure',
+      ),
       multilineColumnIndex: 1,
       multilineColumnWidth: candidateColumnWidth,
       terminalWidth: resolveTtyColumns(process.stdout),

@@ -3,9 +3,9 @@
 └───────────────────┘
 
 ╭────────┬──────────────────────────────────────────────────────────┬────────┬──────────────────────────┬────────╮
-│ Source │ Path                                                     │ Events │         Newest timestamp │ Reason │
+│ Source │ Path                                                     │ Events │ Newest timestamp         │ Reason │
 ├────────┼──────────────────────────────────────────────────────────┼────────┼──────────────────────────┼────────┤
-│ codex  │ /llm-usage-golden-missing/departed.jsonl                 │      1 │ 2025-01-01T00:00:00.000Z │   aged │
+│ codex  │ /llm-usage-golden-missing/departed.jsonl                 │      1 │ 2025-01-01T00:00:00.000Z │ aged   │
 ╰────────┴──────────────────────────────────────────────────────────┴────────┴──────────────────────────┴────────╯
 
-Would delete 1 file(s) / 1 event(s). Re-run with --apply.
+Would delete 1 file / 1 event. Re-run with --apply.

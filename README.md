@@ -233,11 +233,11 @@ llm-usage monthly --share
 llm-usage weekly --last 1 --no-cost
 ```
 
-Terminal tables fit the terminal width: on a narrow terminal, token counts are abbreviated and less-used columns are hidden, with a `stderr` note saying what was left out. When no table fits, as on a phone, each row is listed as labelled values instead. `--compact` asks for the short table directly. `--last N` covers the last N days, weeks, or months, counting the current one, and `--no-cost` leaves spend out of tables and share cards.
+Terminal tables fit the terminal width: on a narrow terminal, token counts are abbreviated and less-used columns are hidden, with a `stderr` note saying what was left out. When no table fits, as on a phone, each row is listed as labelled values instead. `--compact` asks for the short table directly. `--last N` covers the last N days, weeks, or months, counting the current one, and `--no-cost` leaves spend out of tables and share reports.
 
 Report data goes to `stdout`. Diagnostics go to `stderr` as one summary line plus any warnings, which keeps JSON and Markdown safe to redirect; `--quiet` keeps only warnings and `--verbose` adds per-source and skipped-row detail. JSON output is wrapped in a versioned envelope: `{ "schemaVersion": 1, "report": "usage", "data": ... }`. Scripts written against pre-0.8.0 JSON should follow the [migration guide](https://ayagmar.github.io/llm-usage-metrics/migrating-to-0-8/).
 
-Terminal, JSON, and Markdown availability varies by report. Summary, usage, compare, trends, wrapped, efficiency, and optimize can write a 1200×630 share card: an SVG plus an HTML page that shows it in dark and light and exports a PNG in your browser. `--share --no-open` writes the files without opening the page. The [output guide](https://ayagmar.github.io/llm-usage-metrics/output-formats/) contains the format matrix and file names.
+Terminal, JSON, and Markdown availability varies by report. Summary, usage, compare, trends, wrapped, efficiency, and optimize can write a share report with `--share`: one self-contained HTML file with charts, filters, sortable tables, and a drill-down from projects to sessions, that exports each chart as PNG or SVG in your browser and loads nothing from the network. `--redact` replaces project and machine names in the file, and `--share --no-open` writes it without opening it. The [output guide](https://ayagmar.github.io/llm-usage-metrics/output-formats/) contains the format matrix and file names.
 
 ## Performance
 

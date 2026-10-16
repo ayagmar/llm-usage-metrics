@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -7,6 +7,7 @@ import * as shareArtifact from '../../src/cli/share-artifact.js';
 
 import { buildUsageReport, runUsageReport } from '../../src/cli/run-usage-report.js';
 import { visibleWidth } from '../../src/render/table-text-layout.js';
+import { readSharePayload } from '../helpers/share-html.js';
 import { overrideStdoutTty } from '../helpers/stdout.js';
 
 const tempDirs: string[] = [];
@@ -684,21 +685,26 @@ describe('buildUsageReport', () => {
     ).rejects.toThrow('--compact applies to terminal and markdown tables; drop it with --json');
   });
 
-  it('rejects --by-machine with --share', async () => {
-    await expect(
-      buildUsageReport('daily', { all: true, byMachine: true, share: true }),
-    ).rejects.toThrow('--by-machine splits the table only; drop it with --share');
-  });
+  it('accepts --by-machine and --by-repo with --share: the page splits by machine and project', async () => {
+    const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'usage-share-split-sessions-'));
+    tempDirs.push(emptyDir);
 
-  it('rejects --by-repo with --share', async () => {
     await expect(
-      buildUsageReport('daily', { all: true, byRepo: true, share: true }),
-    ).rejects.toThrow('--by-repo splits the table only; drop it with --share');
+      buildUsageReport('daily', {
+        all: true,
+        byMachine: true,
+        byRepo: true,
+        share: true,
+        piDir: emptyDir,
+        codexDir: emptyDir,
+        source: directoryBackedSources,
+      }),
+    ).resolves.toEqual(expect.any(String));
   });
 
   it('rejects --no-cost with --json', async () => {
     await expect(buildUsageReport('daily', { all: true, cost: false, json: true })).rejects.toThrow(
-      '--no-cost applies to tables and the share card; drop it with --json',
+      '--no-cost applies to tables and the share report; drop it with --json',
     );
   });
 
@@ -910,7 +916,7 @@ describe('buildUsageReport', () => {
     }
   });
 
-  it('writes usage share SVG when --share is enabled', async () => {
+  it('writes the usage share report when --share is enabled', async () => {
     const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'usage-share-sessions-'));
     const shareDir = await mkdtemp(path.join(os.tmpdir(), 'usage-share-output-'));
     tempDirs.push(emptyDir, shareDir);
@@ -941,17 +947,20 @@ describe('buildUsageReport', () => {
       errorSpy.mockRestore();
     }
 
-    const svgPath = path.join(shareDir, 'usage-monthly-share.svg');
-    const svgContent = await readFile(svgPath, 'utf8');
+    expect(await readdir(shareDir)).toEqual(['usage-monthly-share.html']);
+    const { data } = readSharePayload(
+      await readFile(path.join(shareDir, 'usage-monthly-share.html'), 'utf8'),
+    );
 
-    expect(svgContent).toContain('<svg');
-    expect(svgContent).toContain('Tokens');
-    expect(svgContent).toContain('llm-usage monthly --share');
-    expect(stderrLines.some((line) => line.includes('Wrote usage share SVG'))).toBe(true);
+    expect(data.meta.command).toBe('monthly');
+    // monthly has no default window: the file holds all history and opens on it by month.
+    expect(data.meta.window).toEqual({ since: null, until: null });
+    expect(data.meta.initialView).toEqual({ since: null, until: null, granularity: 'month' });
+    expect(stderrLines.some((line) => line.includes('Wrote usage share report'))).toBe(true);
     expect(logCallCount).toBe(1);
   });
 
-  it('warns when usage share SVG cannot be opened after writing', async () => {
+  it('warns when the usage share report cannot be opened after writing', async () => {
     const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'usage-share-open-failure-sessions-'));
     tempDirs.push(emptyDir);
 
@@ -979,7 +988,9 @@ describe('buildUsageReport', () => {
       errorSpy.mockRestore();
     }
 
-    expect(stderrLines.some((line) => line.includes('Wrote usage share SVG'))).toBe(true);
-    expect(stderrLines.some((line) => line.includes('Could not open usage share page'))).toBe(true);
+    expect(stderrLines.some((line) => line.includes('Wrote usage share report'))).toBe(true);
+    expect(stderrLines.some((line) => line.includes('Could not open usage share report'))).toBe(
+      true,
+    );
   });
 });

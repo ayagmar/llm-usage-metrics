@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -7,8 +7,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { runSummaryReport, SUMMARY_NEXT_STEPS_HINT } from '../../src/cli/run-summary-report.js';
 import * as shareArtifact from '../../src/cli/share-artifact.js';
 import { runUsageReport } from '../../src/cli/run-usage-report.js';
+import { readSharePayload } from '../helpers/share-html.js';
 
 const tempDirs: string[] = [];
+
+function daysBetween(since: string, until: string): number {
+  return (Date.parse(`${until}T00:00:00Z`) - Date.parse(`${since}T00:00:00Z`)) / 86_400_000;
+}
 
 afterEach(async () => {
   await Promise.all(tempDirs.map((dir) => rm(dir, { recursive: true, force: true })));
@@ -52,7 +57,7 @@ describe('runSummaryReport', () => {
     ).toBe(true);
   });
 
-  it('writes the activity share card and page with --share', async () => {
+  it('writes the activity share report with --share', async () => {
     const options = await emptySourceOptions();
     const shareDir = await mkdtemp(path.join(os.tmpdir(), 'summary-share-'));
     tempDirs.push(shareDir);
@@ -70,11 +75,20 @@ describe('runSummaryReport', () => {
       openSpy.mockRestore();
     }
 
-    const svg = await readFile(path.join(shareDir, 'summary-share.svg'), 'utf8');
-    const page = await readFile(path.join(shareDir, 'summary-share.html'), 'utf8');
-    expect(svg).toContain('data-theme="dark"');
-    expect(svg).toContain('No usage in the past year');
-    expect(page).toContain('data-theme="light"');
+    expect(await readdir(shareDir)).toEqual(['summary-share.html']);
+    const { data } = readSharePayload(
+      await readFile(path.join(shareDir, 'summary-share.html'), 'utf8'),
+    );
+    // The activity grid's 53 weeks, ending today.
+    const { since, until } = data.meta.window;
+    expect(data.meta.initialView).toEqual({ since, until, granularity: 'week' });
+    expect(until).toBe(new Date().toISOString().slice(0, 10));
+    expect(daysBetween(since ?? '', until ?? '')).toBeGreaterThanOrEqual(52 * 7);
+    // The page leads with the --json report, over the same 53 weeks.
+    expect(data.envelope).toMatchObject({
+      report: 'summary',
+      data: { activity: { from: since, to: until } },
+    });
   });
 
   it('keeps JSON output free of the hint', async () => {

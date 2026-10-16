@@ -4,11 +4,25 @@ import pc from 'picocolors';
 import type { TrendsReportData } from '../cli/build-trends-data.js';
 import type { TrendBucket, TrendSeries, TrendsMetric } from '../trends/trends-series.js';
 import { formatDuration } from './format-duration.js';
+import { pluralize } from './format-number.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
-import { renderReportHeader } from './report-header.js';
+import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
-import { resolveTtyColumns, visibleWidth } from './table-text-layout.js';
+import {
+  padEndVisible,
+  padStartVisible,
+  resolveTtyColumns,
+  visibleWidth,
+} from './table-text-layout.js';
 import { renderReportJson } from './report-json.js';
+import { formatAbbreviatedTokenCount } from './row-cells.js';
+import {
+  downsamplePeaks,
+  renderSparkline,
+  SPARKLINE_GLYPHS,
+  SPARKLINE_TOP_LEVEL,
+  sparklineLevel,
+} from './sparkline.js';
 
 export type TrendsReportFormat = 'terminal' | 'markdown' | 'json';
 
@@ -24,12 +38,6 @@ const usdFormatter = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 2,
 });
 
-const compactNumberFormatter = new Intl.NumberFormat('en-US', {
-  notation: 'compact',
-  maximumFractionDigits: 1,
-});
-
-const sparklineBlocks = [' ', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'] as const;
 const minimumCompressedEmptyEdgeDays = 7;
 
 function resolveTerminalWidth(override: number | undefined): number | undefined {
@@ -50,7 +58,7 @@ function formatMetricValue(value: number, metric: TrendsMetric, approximate = fa
     return formatDuration(value);
   }
 
-  return compactNumberFormatter.format(value);
+  return formatAbbreviatedTokenCount(value);
 }
 
 function formatAxisValue(value: number, metric: TrendsMetric): string {
@@ -62,7 +70,25 @@ function formatAxisValue(value: number, metric: TrendsMetric): string {
     return formatDuration(value);
   }
 
-  return compactNumberFormatter.format(value);
+  return formatAbbreviatedTokenCount(value);
+}
+
+/**
+ * The step between token ticks: the smallest round step (1, 1.5, 2, 2.5, 3, 4, 5, 6 or 8
+ * × 10^n, and at least 1) that covers `rawStep`, so every token tick is a whole number.
+ */
+function resolveTokenTickStep(rawStep: number): number {
+  if (rawStep <= 1) {
+    return 1;
+  }
+
+  const magnitude = 10 ** Math.floor(Math.log10(rawStep));
+  // 1.5 and 2.5 make whole steps only from 10 up.
+  const multipliers =
+    magnitude >= 10 ? [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10] : [1, 2, 3, 4, 5, 6, 8, 10];
+  const multiplier = multipliers.find((candidate) => magnitude * candidate >= rawStep) ?? 10;
+
+  return magnitude * multiplier;
 }
 
 function formatDateLabel(date: string): string {
@@ -97,39 +123,11 @@ function getReportTitle(trendsData: TrendsReportData): string {
   return `Daily ${metricLabel} Trend${splitSuffix} (${bucketCount} ${dayLabel})`;
 }
 
-function downsampleBuckets(buckets: TrendBucket[], maxColumns: number): TrendBucket[] {
-  if (maxColumns <= 0 || buckets.length <= maxColumns) {
-    return buckets;
-  }
-
-  return Array.from({ length: maxColumns }, (_, columnIndex) => {
-    const startIndex = Math.floor((columnIndex * buckets.length) / maxColumns);
-    const endIndex = Math.floor(((columnIndex + 1) * buckets.length) / maxColumns);
-    const slice = buckets.slice(startIndex, Math.max(startIndex + 1, endIndex));
-    const peakValue = slice.reduce((maxValue, bucket) => Math.max(maxValue, bucket.value), 0);
-
-    return {
-      date: slice[0]?.date ?? '',
-      value: peakValue,
-      observed: slice.some((bucket) => bucket.observed),
-      incomplete: slice.some((bucket) => bucket.incomplete === true) || undefined,
-    };
-  });
-}
-
-function getBarLevel(value: number, maxValue: number, rowCount: number): number {
-  if (value <= 0 || maxValue <= 0 || rowCount <= 0) {
-    return 0;
-  }
-
-  return Math.max(1, Math.min(rowCount * 8, Math.round((value / maxValue) * rowCount * 8)));
-}
-
 function renderCombinedChartCell(barLevel: number, rowIndex: number, rowCount: number): string {
-  const rowBaseLevel = (rowCount - rowIndex - 1) * 8;
-  const cellLevel = Math.max(0, Math.min(8, barLevel - rowBaseLevel));
+  const rowBaseLevel = (rowCount - rowIndex - 1) * SPARKLINE_TOP_LEVEL;
+  const cellLevel = Math.max(0, Math.min(SPARKLINE_TOP_LEVEL, barLevel - rowBaseLevel));
 
-  return sparklineBlocks[cellLevel];
+  return SPARKLINE_GLYPHS[cellLevel];
 }
 
 function isApproximatePeak(series: TrendSeries, metric: TrendsMetric): boolean {
@@ -188,7 +186,7 @@ function renderSummaryOnly(
   }
 
   if (trendsData.totalSeries.summary.observedDayCount === 0) {
-    lines.push('No usage data found for the selected date range.');
+    lines.push(formatNoUsageMessage(false, 'for the selected date range'));
     return lines.join('\n');
   }
 
@@ -239,7 +237,7 @@ function formatCompressedEdgeNote(
       : `${formatDateLabel(startDate)}-${formatDateLabel(endDate)}`;
   const activityLabel = position === 'before' ? 'before first activity' : 'after last activity';
 
-  return `Compressed ${count} empty day(s) ${activityLabel} (${rangeLabel}).`;
+  return `Compressed ${pluralize(count, 'empty day')} ${activityLabel} (${rangeLabel}).`;
 }
 
 function getCombinedChartView(series: TrendSeries): {
@@ -311,10 +309,18 @@ function renderCombinedChart(
   metric: TrendsMetric,
   plotWidth: number,
 ): string[] {
-  const buckets = downsampleBuckets(series.buckets, plotWidth);
-  const maxValue = Math.max(...buckets.map((bucket) => bucket.value), 0);
+  const columns = downsamplePeaks(
+    series.buckets.map((bucket) => bucket.value),
+    plotWidth,
+  );
   const lines: string[] = [];
   const chartRowCount = 4;
+  const peakValue = Math.max(0, ...columns);
+  // Token counts are whole, so the token axis tops out at a round multiple of its tick step.
+  const maxValue =
+    metric === 'tokens' && peakValue > 0
+      ? resolveTokenTickStep(peakValue / chartRowCount) * chartRowCount
+      : peakValue;
   const tickValues = Array.from({ length: chartRowCount + 1 }, (_, index) => {
     const inverseIndex = chartRowCount - index;
     return maxValue === 0 ? 0 : (maxValue * inverseIndex) / chartRowCount;
@@ -323,12 +329,14 @@ function renderCombinedChart(
     (maxWidth, value) => Math.max(maxWidth, visibleWidth(formatAxisValue(value, metric))),
     0,
   );
-  const barLevels = buckets.map((bucket) => getBarLevel(bucket.value, maxValue, chartRowCount));
+  const barLevels = columns.map((value) =>
+    sparklineLevel(value, maxValue, chartRowCount * SPARKLINE_TOP_LEVEL),
+  );
 
   tickValues.forEach((tickValue, tickIndex) => {
     if (tickIndex === tickValues.length - 1) {
       lines.push(
-        `${formatAxisValue(0, metric).padStart(labelWidth)} ┼${'─'.repeat(buckets.length)}`,
+        `${padStartVisible(formatAxisValue(0, metric), labelWidth)} ┼${'─'.repeat(columns.length)}`,
       );
       return;
     }
@@ -337,7 +345,9 @@ function renderCombinedChart(
       .map((barLevel) => renderCombinedChartCell(barLevel, tickIndex, chartRowCount))
       .join('');
 
-    lines.push(`${formatAxisValue(tickValue, metric).padStart(labelWidth)} ┤${glyphs}`);
+    lines.push(
+      `${padStartVisible(formatAxisValue(tickValue, metric), labelWidth)} ┤${glyphs}`.trimEnd(),
+    );
   });
 
   const startLabel = formatDateLabel(series.buckets[0]?.date ?? '');
@@ -347,7 +357,7 @@ function renderCombinedChart(
       ? formatDateLabel(series.buckets[Math.floor(series.buckets.length / 2)]?.date ?? '')
       : '';
   const xAxisWidth = Math.max(
-    buckets.length,
+    columns.length,
     visibleWidth(startLabel) + visibleWidth(endLabel) + 1,
   );
   let xAxisLine = ` ${' '.repeat(labelWidth)}  ${startLabel}`;
@@ -411,23 +421,13 @@ function renderSplitLines(
   const sparklineWidth = Math.max(8, width - labelWidth - totalWidth - 4);
 
   return sourceSeries.map((series) => {
-    const buckets = downsampleBuckets(series.buckets, sparklineWidth);
-    const maxValue = Math.max(...buckets.map((bucket) => bucket.value), 0);
-    const sparkline = buckets
-      .map((bucket) => {
-        if (maxValue === 0) {
-          return ' ';
-        }
+    const sparkline = renderSparkline(
+      series.buckets.map((bucket) => bucket.value),
+      sparklineWidth,
+    );
+    const total = formatMetricValue(series.summary.total, metric, series.summary.incomplete);
 
-        const level =
-          bucket.value > 0
-            ? Math.max(1, Math.min(8, Math.round((bucket.value / maxValue) * 8)))
-            : 0;
-        return sparklineBlocks[level];
-      })
-      .join('');
-
-    return `${series.label.padEnd(labelWidth)} ${sparkline} ${formatMetricValue(series.summary.total, metric, series.summary.incomplete).padStart(totalWidth)}`;
+    return `${padEndVisible(series.label, labelWidth)} ${sparkline} ${padStartVisible(total, totalWidth)}`;
   });
 }
 

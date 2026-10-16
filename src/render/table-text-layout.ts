@@ -155,6 +155,16 @@ export function visibleWidth(value: string): number {
   return width;
 }
 
+/** `padEnd` by display width, so wide and colored text lines up. */
+export function padEndVisible(value: string, width: number): string {
+  return value + ' '.repeat(Math.max(0, width - visibleWidth(value)));
+}
+
+/** `padStart` by display width, so wide and colored text lines up. */
+export function padStartVisible(value: string, width: number): string {
+  return ' '.repeat(Math.max(0, width - visibleWidth(value))) + value;
+}
+
 export function splitCellLines(value: string): string[] {
   return normalizeLineBreaks(value).split('\n');
 }

@@ -1,36 +1,36 @@
-✔ pi           jsonl   1 file(s)
+✔ pi           jsonl   1 file
     <tmp>/fixtures/e2e/pi
-✔ codex        jsonl   1 file(s)
+✔ codex        jsonl   1 file
     <tmp>/fixtures/e2e/codex
-✔ gemini       json    1 file(s)
+✔ gemini       json    1 file
     <tmp>/fixtures/e2e/gemini
-✔ droid        json    2 file(s)
+✔ droid        json    2 files
     <tmp>/fixtures/e2e/droid
-✔ opencode     sqlite  1 file(s)
+✔ opencode     sqlite  1 file
     <tmp>/e2e-generated/opencode.db
-✔ openclaw     jsonl   1 file(s)
+✔ openclaw     jsonl   1 file
     <tmp>/fixtures/e2e/openclaw
-✔ claude       jsonl   1 file(s)
+✔ claude       jsonl   1 file
     <tmp>/fixtures/e2e/claude
-✔ copilot      jsonl   1 file(s)
+✔ copilot      jsonl   1 file
     <tmp>/fixtures/e2e/copilot
-✔ goose        sqlite  1 file(s)
+✔ goose        sqlite  1 file
     <tmp>/e2e-generated/goose.db
-✔ amp          json    1 file(s)
+✔ amp          json    1 file
     <tmp>/fixtures/e2e/amp
-✔ qwen         jsonl   1 file(s)
+✔ qwen         jsonl   1 file
     <tmp>/fixtures/e2e/qwen/projects
-✔ kimi         jsonl   1 file(s)
+✔ kimi         jsonl   1 file
     <tmp>/fixtures/e2e/kimi
-✔ cline        json    1 file(s)
+✔ cline        json    1 file
     <tmp>/fixtures/e2e/cline
-✔ roocode      json    1 file(s)
+✔ roocode      json    1 file
     <tmp>/fixtures/e2e/roocode
-✔ kilocode     json    1 file(s)
+✔ kilocode     json    1 file
     <tmp>/fixtures/e2e/kilocode
-✔ antigravity  sqlite  1 file(s)
+✔ antigravity  sqlite  1 file
     <tmp>/e2e-generated/antigravity
-✔ dsh          jsonl   2 file(s)
+✔ dsh          jsonl   2 files
     <tmp>/e2e-generated/dsh
 
 Sources: 17 found

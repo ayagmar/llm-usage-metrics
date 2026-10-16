@@ -50,6 +50,20 @@ export default defineConfig({
         'src/pricing/types.ts',
         'src/trends/trends-series.ts',
         'src/wrapped/wrapped-recap.ts',
+        // Types only.
+        'src/share-report/types.ts',
+        // Browser entry and DOM glue: they lay out what the tested models return and wire
+        // events, with no logic of their own; covered by visual QA.
+        'src/share-report/client/ui/main.ts',
+        'src/share-report/client/ui/shell/app.ts',
+        'src/share-report/client/ui/shell/dom.ts',
+        'src/share-report/client/ui/shell/render.ts',
+        'src/share-report/client/ui/controls/render.ts',
+        'src/share-report/client/ui/tables/render.ts',
+        'src/share-report/client/ui/panels/render.ts',
+        'src/share-report/client/ui/export/browser.ts',
+        'src/share-report/client/ui/state/browser.ts',
+        'src/share-report/client/ui/charts/mount.ts',
       ],
       reporter: ['text', 'text-summary', 'json-summary', 'lcov'],
     },

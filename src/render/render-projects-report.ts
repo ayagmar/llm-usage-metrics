@@ -8,7 +8,7 @@ import { renderReportJson } from './report-json.js';
 import { formatAbbreviatedTokenCount } from './row-cells.js';
 import { resolveTtyColumns } from './table-text-layout.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
-import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
+import { columnKindsFromAlign, renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
 
 export type ProjectsReportFormat = 'terminal' | 'markdown' | 'json';
 
@@ -51,7 +51,7 @@ const TOP_MODEL_COUNT = 3;
 
 const PERIOD_NAMES = { daily: 'Day', weekly: 'Week', monthly: 'Month' } as const;
 
-/** The column after which numbers are right-aligned in terminal tables. */
+/** The column that wraps; the columns before it name a stacked row. */
 const MODELS_HEADER = 'Models';
 
 function formatCost(totals: UsageTotals): string {
@@ -203,6 +203,7 @@ function renderTerminalTable(table: Table, terminalWidth: number | undefined): s
     measureBodyRows: table.rows,
     rowMetas: table.rowMetas,
     layout: 'top_aligned',
+    columnKinds: columnKindsFromAlign(table.align),
     multilineColumnIndex: modelsColumnIndex,
     terminalWidth,
     stackedTitleColumnCount: modelsColumnIndex,

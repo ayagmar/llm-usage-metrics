@@ -38,14 +38,14 @@ Options:
   --markdown                     Render output as markdown table
   --per-model-columns            Render per-model metrics as multiline aligned table columns
                                  (terminal/markdown)
-  --share                        Write a share card (SVG and an HTML page with PNG export) to the
-                                 current directory
-  --no-open                      With --share, write the files without opening the page
+  --share                        Write an interactive HTML report to the current directory
+  --no-open                      With --share, write the report without opening it
+  --redact                       With --share, label projects project-N and machines machine-N
   --all                          Report every week instead of the last 8 weeks
   --last <n>                     Report the last N weeks, counting the current week
   --compact                      Abbreviate token counts and hide the Reasoning and Cache Write
                                  columns (terminal/markdown)
-  --no-cost                      Leave cost out of the table and share card, e.g. for screenshots
+  --no-cost                      Leave cost out of the table and share report, e.g. for screenshots
   --by-machine                   Split each source row by the machine its usage came from
   --by-repo                      Split each source row by project (repository root)
   --repo <project>               Count only these projects (repeatable or comma-separated, so a
