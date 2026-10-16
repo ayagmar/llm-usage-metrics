@@ -28,6 +28,8 @@ export type PeriodSourceRow = UsageTotals & {
   repoRoot?: string | null;
   /** With --by-repo: the project's display label. */
   project?: string;
+  /** Hourly only: the local hour occurred twice (a DST fall-back) and the row covers both. */
+  repeatedHour?: true;
   models: string[];
   modelBreakdown: ModelUsageBreakdown[];
 };
@@ -47,6 +49,8 @@ export type PeriodCombinedRow = UsageTotals & {
   rowType: 'period_combined';
   periodKey: string;
   source: 'combined';
+  /** Hourly only: the local hour occurred twice (a DST fall-back) and the row covers both. */
+  repeatedHour?: true;
   models: string[];
   modelBreakdown: ModelUsageBreakdown[];
 };

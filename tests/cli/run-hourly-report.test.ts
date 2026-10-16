@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { findRepeatedLocalHours } from '../../src/cli/build-usage-data.js';
+import { buildUsageData, findRepeatedLocalHours } from '../../src/cli/build-usage-data.js';
 import { runHourlyReport } from '../../src/cli/run-hourly-report.js';
 import { useIsolatedEnvironment } from '../helpers/isolated-env.js';
 import { useBundledPricingOnly } from '../helpers/offline-pricing.js';
@@ -73,6 +73,23 @@ describe('runHourlyReport', () => {
     );
   });
 
+  it('ends the default window today, so a future-dated event stays out', async () => {
+    const sourceOptions = await writePiSession('future', [
+      '2026-06-21T10:00:00.000Z',
+      '2026-07-01T10:00:00.000Z',
+    ]);
+    const data = await buildUsageData(
+      'hourly',
+      { ...sourceOptions, timezone: 'UTC' },
+      { now: () => new Date('2026-06-21T12:00:00.000Z') },
+    );
+
+    expect(data.defaultWindowSince).toBe('2026-06-21');
+    expect(
+      data.rows.filter((row) => row.rowType === 'period_source').map((row) => row.periodKey),
+    ).toEqual(['2026-06-21 10:00']);
+  });
+
   it('merges both occurrences of a fall-back hour under one key and notes it', async () => {
     const sourceOptions = await writePiSession('fall-back', [
       // 01:30 EDT, then 01:30 EST an hour later, then 02:10 EST.
@@ -91,17 +108,18 @@ describe('runHourlyReport', () => {
     );
     const rows = (
       JSON.parse(stdout) as {
-        data: { rowType: string; periodKey: string; inputTokens: number }[];
+        data: { rowType: string; periodKey: string; inputTokens: number; repeatedHour?: true }[];
       }
     ).data.filter((row) => row.rowType === 'period_source');
 
-    expect(rows.map((row) => [row.periodKey, row.inputTokens])).toEqual([
-      ['2026-11-01 01:00', 300],
-      ['2026-11-01 02:00', 300],
+    expect(rows.map((row) => [row.periodKey, row.inputTokens, row.repeatedHour])).toEqual([
+      ['2026-11-01 01:00', 300, true],
+      ['2026-11-01 02:00', 300, undefined],
     ]);
     expect(stderr).toContain(
-      '2026-11-01 01:00 combines two hours: the clocks went back at the end of daylight saving time.',
+      '2026-11-01 01:00 repeats: the clocks went back at the end of daylight saving time, so its row covers both occurrences.',
     );
+    expect(stderr).not.toContain('two hours');
   });
 
   it('rejects --last outside 1-31 days and with dates', async () => {

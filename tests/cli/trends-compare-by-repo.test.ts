@@ -169,6 +169,62 @@ describe('trends --by-repo', () => {
     expect(data.totalSeries.summary.total).toBe(8 * 60_000);
   });
 
+  it('does not bridge a return to a project across the visit in between', async () => {
+    const events = ['/w/one', '/w/two', '/w/one', '/w/two'].map((repoRoot, minute) =>
+      createUsageEvent({
+        source: 'codex',
+        sessionId: 'shared',
+        timestamp: `2026-06-01T10:0${minute}:00.000Z`,
+        repoRoot,
+        provider: 'openai',
+        model: 'gpt-5',
+        inputTokens: 10,
+        outputTokens: 1,
+      }),
+    );
+    const data = await buildTrendsData(
+      {
+        ...options,
+        since: '2026-06-01',
+        until: '2026-06-01',
+        metric: 'active-hours',
+        byRepo: true,
+      },
+      { createAdapters: adaptersFor(events) },
+    );
+
+    // Each visit is a single event, so no project has time of its own.
+    expect(data.projectSeries?.map((series) => [series.project, series.summary.total])).toEqual([
+      ['one', 0],
+      ['two', 0],
+    ]);
+    expect(data.totalSeries.summary.total).toBe(3 * 60_000);
+  });
+
+  it('never gives the projects more active time than the combined series', async () => {
+    for (const seed of [3, 17, 101, 9_001]) {
+      const events = generateEvents(seed, 400);
+      const data = await buildTrendsData(
+        {
+          ...options,
+          since: '2026-06-01',
+          until: '2026-06-10',
+          metric: 'active-hours',
+          byRepo: true,
+        },
+        { createAdapters: adaptersFor(events) },
+      );
+
+      data.totalSeries.buckets.forEach((bucket, index) => {
+        const projectSum = (data.projectSeries ?? []).reduce(
+          (sum, series) => sum + series.buckets[index].value,
+          0,
+        );
+        expect(projectSum).toBeLessThanOrEqual(bucket.value);
+      });
+    }
+  });
+
   it('keeps only the projects --repo selects', async () => {
     const data = await buildTrendsData(
       {
