@@ -676,7 +676,7 @@ describe('run-prune-report', () => {
       },
     });
     await expect(stat(dbPath)).rejects.toMatchObject({ code: 'ENOENT' });
-    expect(renderPruneReport(result)).toContain('Deleted 0 file(s) / 0 event(s).');
+    expect(renderPruneReport(result)).toContain('Deleted 0 files / 0 events.');
   });
 
   it('limits discovery to the requested source filter', async () => {
@@ -799,7 +799,7 @@ describe('run-prune-report', () => {
       },
     };
 
-    expect(renderPruneReport(result)).toContain('Would delete 1 file(s) / 1 event(s)');
+    expect(renderPruneReport(result)).toContain('Would delete 1 file / 1 event');
     expect(renderPruneReport(result)).toContain('/tmp/old.jsonl');
   });
 
@@ -872,7 +872,7 @@ describe('run-prune-report', () => {
     }
 
     expect(stdout.getOutput()).toContain('Event Store Prune');
-    expect(stdout.getOutput()).toContain('Would delete 0 file(s) / 0 event(s)');
+    expect(stdout.getOutput()).toContain('Would delete 0 files / 0 events');
   });
 
   it('surfaces the Active config block and unknown-key warnings on prune', async () => {

@@ -4,6 +4,7 @@ import pc from 'picocolors';
 import type { TrendsReportData } from '../cli/build-trends-data.js';
 import type { TrendBucket, TrendSeries, TrendsMetric } from '../trends/trends-series.js';
 import { formatDuration } from './format-duration.js';
+import { pluralize } from './format-number.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { renderReportHeader } from './report-header.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
@@ -239,7 +240,7 @@ function formatCompressedEdgeNote(
       : `${formatDateLabel(startDate)}-${formatDateLabel(endDate)}`;
   const activityLabel = position === 'before' ? 'before first activity' : 'after last activity';
 
-  return `Compressed ${count} empty day(s) ${activityLabel} (${rangeLabel}).`;
+  return `Compressed ${pluralize(count, 'empty day')} ${activityLabel} (${rangeLabel}).`;
 }
 
 function getCombinedChartView(series: TrendSeries): {

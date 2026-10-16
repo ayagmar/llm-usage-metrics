@@ -6,6 +6,7 @@ import type {
 } from '../cli/run-prune-report.js';
 import { stripControlCharacters } from '../domain/normalization.js';
 import { formatByteSize } from './format-byte-size.js';
+import { pluralize } from './format-number.js';
 import { renderReportHeader } from './report-header.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
 import { wrapTableColumn } from './table-text-layout.js';
@@ -51,7 +52,7 @@ function renderCandidateTable(candidates: readonly PruneCandidate[]): string {
 
 function renderSummary(summary: PruneSummary): string {
   if (!summary.applied) {
-    return `Would delete ${summary.candidateFileCount} file(s) / ${summary.candidateEventCount} event(s). Re-run with --apply.`;
+    return `Would delete ${pluralize(summary.candidateFileCount, 'file')} / ${pluralize(summary.candidateEventCount, 'event')}. Re-run with --apply.`;
   }
 
   const sizeSuffix =
@@ -59,7 +60,7 @@ function renderSummary(summary: PruneSummary): string {
       ? ` Reclaimed ${formatByteSize(summary.reclaimedBytes)} (${formatStoreSize(summary.sizeBefore)} before; ${formatStoreSize(summary.sizeAfter)} after).`
       : '';
 
-  return `Deleted ${summary.deletedFileCount ?? 0} file(s) / ${summary.deletedEventCount ?? 0} event(s).${sizeSuffix}`;
+  return `Deleted ${pluralize(summary.deletedFileCount ?? 0, 'file')} / ${pluralize(summary.deletedEventCount ?? 0, 'event')}.${sizeSuffix}`;
 }
 
 export function renderPruneReport(result: PruneReportResult): string {

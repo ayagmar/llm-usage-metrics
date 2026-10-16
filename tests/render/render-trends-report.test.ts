@@ -478,7 +478,7 @@ describe('renderTrendsReport', () => {
     });
 
     expect(output).toContain('Daily Token Usage Trend (30 days)');
-    expect(output).toContain('Compressed 10 empty day(s) before first activity (Mar 01-Mar 10).');
+    expect(output).toContain('Compressed 10 empty days before first activity (Mar 01-Mar 10).');
     expect(output).toContain('Mar 11');
     expect(output).toContain('Mar 25');
   });
