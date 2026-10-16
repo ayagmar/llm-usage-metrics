@@ -1,6 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import type * as NodePath from 'node:path';
+
+import { describe, expect, it, vi } from 'vitest';
 
 import { applyRepoFilter, normalizeRepoFilter } from '../../src/cli/repo-filter.js';
+
+// The fixtures are POSIX paths; repo-filter-win32.test.ts covers Windows resolution.
+vi.mock('node:path', async (importOriginal) => {
+  const { posix } = await importOriginal<typeof NodePath>();
+  return { ...posix, default: posix };
+});
 
 const context = { cwd: '/w/a', homeDir: '/home/dev' };
 

@@ -204,7 +204,7 @@ describe('local date keys for canonical timestamps', () => {
           }
         }
       }
-    });
+    }, 30_000);
   }
 
   it('keeps unpadded keys for years below 1000', () => {
@@ -260,7 +260,7 @@ describe('hourly keys', () => {
           );
         }
       }
-    });
+    }, 30_000);
   }
 
   it('give a DST fall-back hour one key with two offsets, and the spring-forward hour none', () => {

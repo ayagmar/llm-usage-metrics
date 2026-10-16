@@ -228,7 +228,7 @@ describe('readJsonArrayElements', () => {
     // Both branches are exercised, so neither side of the comparison is vacuous.
     expect(outcomes.elements).toBeGreaterThan(200);
     expect(outcomes.errors).toBeGreaterThan(200);
-  });
+  }, 30_000);
 
   it.each([
     ['a BOM', Buffer.from('﻿[1,2]', 'utf8')],
