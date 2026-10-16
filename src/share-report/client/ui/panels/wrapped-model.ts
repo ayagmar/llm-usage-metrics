@@ -1,12 +1,12 @@
 // The wrapped recap: the year's figures, the daily calendar and the top lists, from the
 // embedded `wrapped --json` data. Fixed at generation: the page's filters do not change it.
 
+import { formatHours } from '../../../../render/format-duration.js';
 import { getWindowEnd, NO_VALUE, type ShareReport } from '../../core/index.js';
 import {
   formatCompact,
   formatCount,
   formatDay,
-  formatDuration,
   formatPercent,
   pluralize,
 } from '../shell/format.js';
@@ -96,7 +96,8 @@ function buildFacts(data: Record<string, unknown>): PanelFact[] {
   const facts: PanelFact[] = [
     {
       label: 'Active time',
-      value: formatDuration(readNumber(data, 'activeMs') ?? 0),
+      // The terminal's Hours: whole hours, `<1h` under half an hour.
+      value: formatHours(readNumber(data, 'activeMs') ?? 0),
       detail: '5-minute gaps at most',
     },
     { label: 'Longest streak', value: pluralize(readNumber(data, 'longestStreak') ?? 0, 'day') },

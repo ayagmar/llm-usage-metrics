@@ -3,6 +3,7 @@ import { markdownTable } from 'markdown-table';
 import type { WrappedRecap, WrappedTopItem } from '../wrapped/wrapped-recap.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
+import { formatHours } from './format-duration.js';
 import { formatApproxUsd, formatInteger } from './format-number.js';
 import { resolveTtyColumns, visibleWidth } from './table-text-layout.js';
 import {
@@ -39,16 +40,6 @@ const TOP_ITEM_NAME_COLUMN = 1;
 
 /** Gates a styler behind the color policy so `useColor: false` never emits ANSI. */
 type Paint = (styler: TextStyler) => TextStyler;
-
-function formatHours(activeMs: number): string {
-  const hours = Math.round(activeMs / 3_600_000);
-
-  if (hours === 0) {
-    return activeMs > 0 ? '<1h' : '0h';
-  }
-
-  return `${formatInteger(hours)}h`;
-}
 
 function formatPeakHour(peakHour: WrappedRecap['peakHour']): string {
   return peakHour === undefined ? '-' : `${String(peakHour.hour).padStart(2, '0')}:00`;

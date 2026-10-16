@@ -19,7 +19,15 @@ export type PanelCell = {
   note?: string;
 };
 
-export type PanelColumn = { label: string; numeric: boolean };
+export type PanelColumn = {
+  label: string;
+  numeric: boolean;
+  /**
+   * False hides the column on a narrow screen, as the explorer's breakdown columns: a phone keeps
+   * the row's name and its key measures.
+   */
+  narrow?: boolean;
+};
 
 /** A table: the first cell of each row heads it. */
 export type PanelTable = {

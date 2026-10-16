@@ -48,6 +48,21 @@ function rateCell(row: Record<string, unknown>, key: string): PanelCell {
   return row.costIncomplete === true ? { text: `~${text}`, note: LOWER_BOUND_NOTE } : { text };
 }
 
+let decimalFormatter: Intl.NumberFormat | undefined;
+
+/** Tokens per commit with two decimals, as the terminal prints it: `4,699.80`. */
+function formatTokenRate(value: number | undefined): string {
+  if (value === undefined) {
+    return NO_VALUE;
+  }
+
+  decimalFormatter ??= new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return decimalFormatter.format(value);
+}
+
 function rowCells(row: Record<string, unknown>, bySource: boolean): PanelCell[] {
   const period = readString(row, 'periodKey') ?? NO_VALUE;
   const lead: PanelCell[] =
@@ -68,7 +83,7 @@ function rowCells(row: Record<string, unknown>, bySource: boolean): PanelCell[] 
     costCell(row, 'costUsd'),
     rateCell(row, 'usdPerCommit'),
     rateCell(row, 'usdPer1kLinesChanged'),
-    { text: formatCountOrNone(readNumber(row, 'tokensPerCommit')) },
+    { text: formatTokenRate(readNumber(row, 'tokensPerCommit')) },
   ];
 }
 
@@ -85,11 +100,11 @@ function buildFacts(total: Record<string, unknown>): PanelFact[] {
     },
     { label: 'Cost per commit', value: rateCell(total, 'usdPerCommit').text },
     { label: 'Cost per 1k lines', value: rateCell(total, 'usdPer1kLinesChanged').text },
-    { label: 'Tokens per commit', value: formatCountOrNone(readNumber(total, 'tokensPerCommit')) },
+    { label: 'Tokens per commit', value: formatTokenRate(readNumber(total, 'tokensPerCommit')) },
   ];
 }
 
-/** `3 commits for $0.12: $0.04 a commit, 1,200 tokens a commit.`, or one commit's cost and tokens. */
+/** `3 commits for $0.12: $0.0400 a commit, 1,200.00 tokens a commit.`, or one commit's cost and tokens. */
 function buildLede(total: Record<string, unknown>): LedePart[] {
   const commits = readNumber(total, 'commitCount') ?? 0;
   const cost = costCell(total, 'costUsd').text;
@@ -98,7 +113,7 @@ function buildLede(total: Record<string, unknown>): LedePart[] {
     return [words('No commits in this window, against '), figure(cost), words(' of usage.')];
   }
 
-  const tokens = figure(formatCountOrNone(readNumber(total, 'tokensPerCommit')));
+  const tokens = figure(formatTokenRate(readNumber(total, 'tokensPerCommit')));
 
   if (commits === 1) {
     return [
@@ -139,13 +154,14 @@ export function buildEfficiencyView(report: ShareReport): PanelView | undefined 
     { label: 'Period', numeric: false },
     ...(bySource ? [{ label: 'Source', numeric: false }] : []),
     { label: 'Commits', numeric: true },
-    { label: 'Lines added', numeric: true },
-    { label: 'Lines deleted', numeric: true },
-    { label: 'Tokens', numeric: true },
+    // A phone keeps commits, cost and cost per commit.
+    { label: 'Lines added', numeric: true, narrow: false },
+    { label: 'Lines deleted', numeric: true, narrow: false },
+    { label: 'Tokens', numeric: true, narrow: false },
     { label: 'Cost', numeric: true },
     { label: 'Per commit', numeric: true },
-    { label: 'Per 1k lines', numeric: true },
-    { label: 'Tokens per commit', numeric: true },
+    { label: 'Per 1k lines', numeric: true, narrow: false },
+    { label: 'Tokens per commit', numeric: true, narrow: false },
   ];
 
   return {

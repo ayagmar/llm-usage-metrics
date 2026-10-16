@@ -106,7 +106,8 @@ for (const timezone of HOST_TIMEZONES) {
 
     it('lists the recap facts as the terminal recap states them', () => {
       expect(Object.fromEntries(view.facts.map((fact) => [fact.label, fact.value]))).toEqual({
-        'Active time': '25m',
+        // wrapped.txt: Hours <1h for activeMs 1,501,000.
+        'Active time': '<1h',
         'Longest streak': '2 days',
         'Peak hour': '14:00',
         Weekdays: '91.3%',
@@ -115,6 +116,15 @@ for (const timezone of HOST_TIMEZONES) {
         Events: '25',
         Sessions: '19',
       });
+    });
+
+    it('lists the calendar’s days with usage as its table', () => {
+      // wrapped.txt: 11 active days; busiest day 2026-09-11 with 2,440 tokens.
+      const { table } = view.calendar;
+
+      expect(table.columns.map((column) => column.label)).toEqual(['Day', 'Tokens']);
+      expect(table.rows).toHaveLength(11);
+      expect(table.rows.map(texts)).toContainEqual(['11 Sep 2026', '2,440']);
     });
 
     it('places every day of the year on its own weekday row, in Monday-first weeks', () => {
@@ -226,6 +236,19 @@ describe('wrapped recap without optional figures', () => {
     expect(view.calendar).toMatchObject({ weeks: 0, days: [] });
   });
 
+  it('rounds active time to whole hours as the terminal’s Hours does', () => {
+    const hours = (activeMs: number) =>
+      defined(buildWrappedView(withEnvelope('wrapped', { year: 2026, activeMs }))).facts.find(
+        (fact) => fact.label === 'Active time',
+      )?.value;
+
+    // 1h 30m rounds up; the client's own duration would print `1h 30m`.
+    expect(hours(5_400_000)).toBe('2h');
+    expect(hours(1_000)).toBe('<1h');
+    expect(hours(0)).toBe('0h');
+    expect(hours(4_000 * 3_600_000)).toBe('4,000h');
+  });
+
   it('reads zeros and dashes, never NaN, when the recap leaves its figures out', () => {
     const view = defined(
       buildWrappedView(
@@ -290,7 +313,8 @@ describe('efficiency lead', () => {
       // efficiency-monthly.txt: $/Commit $0.0014, $/1k Lines $0.7121.
       ['Cost per commit', '$0.0014'],
       ['Cost per 1k lines', '$0.7121'],
-      ['Tokens per commit', '195'],
+      // The terminal's full-width table: Tokens/Commit with two decimals.
+      ['Tokens per commit', '195.00'],
     ]);
     expect(view.facts[1].detail).toBe('1 added, 1 deleted');
 
@@ -305,7 +329,7 @@ describe('efficiency lead', () => {
       '$0.00',
       '$0.0014',
       '$0.7121',
-      '195',
+      '195.00',
     ]);
     expect(texts(table.foot[0])[0]).toBe('Total');
   });
@@ -328,10 +352,21 @@ describe('efficiency lead', () => {
       ),
     );
 
-    expect(ledeText(one)).toBe('1 commit for $0.00 and 195 tokens.');
-    expect(ledeText(four)).toBe('4 commits for $2.00: $0.5000 a commit, 195 tokens a commit.');
+    expect(ledeText(one)).toBe('1 commit for $0.00 and 195.00 tokens.');
+    expect(ledeText(four)).toBe('4 commits for $2.00: $0.5000 a commit, 195.00 tokens a commit.');
     expect(ledeText(none)).toBe('No commits in this window, against ~$2.00 of usage.');
     expect(none.facts.slice(2, 4).map((fact) => fact.value)).toEqual(['~$0.5000', '~$0.7121']);
+  });
+
+  it('keeps the fraction of a token per commit that --json and the terminal print', () => {
+    const rows = record(readGolden('efficiency-monthly')).rows as Record<string, unknown>[];
+    const total = { ...defined(rows.at(-1)), commitCount: 5, tokensPerCommit: 4699.8 };
+    const view = defined(
+      buildEfficiencyView(withEnvelope('efficiency', { grouping: 'period', rows: [total] })),
+    );
+
+    expect(ledeFigures(view).at(-1)).toBe('4,699.80');
+    expect(view.facts.at(-1)?.value).toBe('4,699.80');
   });
 
   it('adds a source column with --by-source rows', () => {
@@ -439,8 +474,32 @@ describe('optimize lead', () => {
     const view = defined(buildOptimizeView(withEnvelope('optimize', [])));
 
     expect(view.tables).toEqual([]);
-    expect(view.lede).toEqual([]);
+    expect(ledeText(view)).toBe('No usage data found.');
     expect(view.note).toMatch(/^No usage to compare in this window\./u);
+  });
+
+  it('claims no comparison for a window whose rows hold no usage', () => {
+    // optimize-empty-window.txt: the provider, then "No usage data found …", and nothing else.
+    const empty = golden
+      .filter((row) => row.periodKey === 'ALL')
+      .map((row): Record<string, unknown> =>
+        row.rowType === 'baseline'
+          ? { ...row, totalTokens: 0, baselineCostUsd: 0, baselineCostIncomplete: false }
+          : { ...row, hypotheticalCostUsd: 0, savingsUsd: 0, savingsRatio: undefined, notes: [] },
+      );
+    const view = defined(buildOptimizeView(withEnvelope('optimize', empty)));
+
+    expect(ledeText(view)).toBe('No usage data found.');
+    expect(view.facts).toEqual([{ label: 'Provider', value: 'openai' }]);
+    expect(view.tables).toEqual([]);
+
+    // Unpriced usage alone is still usage, as the terminal counts it.
+    const unpriced = empty.map((row) =>
+      row.rowType === 'baseline' ? { ...row, baselineCostIncomplete: true } : row,
+    );
+    expect(ledeText(defined(buildOptimizeView(withEnvelope('optimize', unpriced))))).toMatch(
+      /^On gpt-4\.1 /u,
+    );
   });
 });
 
@@ -489,6 +548,64 @@ describe('compare lead', () => {
 
     expect(ledeText(lede)).toBe(
       '33,740 tokens in 1 Jun 2026 – 30 Jun 2026, up 30,990 (+1,126.9%) against 1 May 2026 – 31 May 2026.',
+    );
+  });
+
+  it('leads with tokens, never "the same", when the cost change is unknown', () => {
+    // compare --json with unpriced current events: no current cost and no cost delta.
+    const data = record(readGolden('compare-by-repo'));
+    const unpricedCost = (rows: Record<string, unknown>[]) =>
+      rows.map((row) =>
+        row.key === 'costUsd'
+          ? { ...row, current: undefined, delta: undefined, deltaRatio: undefined, baseline: 0 }
+          : row,
+      );
+    const unpriced = withEnvelope('compare', {
+      ...data,
+      totals: unpricedCost(data.totals as Record<string, unknown>[]),
+    });
+    const unpricedView = defined(buildCompareView(unpriced, createLabels(unpriced, undefined)));
+    const lede = ledeText(unpricedView);
+
+    expect(unpricedView.facts[0]).toEqual({
+      label: 'Cost change',
+      value: '—',
+      detail: 'change unknown · — against $0.00',
+    });
+
+    expect(lede).toBe(
+      '33,740 tokens in 1 Jun 2026 – 30 Jun 2026, up 30,990 (+1,126.9%) against 1 May 2026 – 31 May 2026.',
+    );
+
+    const costOnly = withEnvelope('compare', {
+      ...data,
+      totals: unpricedCost(
+        (data.totals as Record<string, unknown>[]).filter((row) => row.key !== 'totalTokens'),
+      ),
+    });
+    expect(ledeText(defined(buildCompareView(costOnly, createLabels(costOnly, undefined))))).toBe(
+      '— spent in 1 Jun 2026 – 30 Jun 2026, the change against 1 May 2026 – 31 May 2026 is unknown.',
+    );
+  });
+
+  it('says a percentage is left out only when the baseline was zero and the current was not', () => {
+    // A 0 → 0 row keeps its 0.0%, as --json's deltaRatio 0 and the terminal's 0%.
+    const data = record(readGolden('compare-by-repo'));
+    const empty = withEnvelope('compare', {
+      ...data,
+      totals: (data.totals as Record<string, unknown>[]).map((row) => ({
+        ...row,
+        current: 0,
+        baseline: 0,
+        delta: 0,
+        deltaRatio: 0,
+      })),
+    });
+    const flat = defined(buildCompareView(empty, createLabels(empty, undefined)));
+
+    expect(tableOf(flat, 'Totals').rows.every((cells) => cells[4].text === '0.0%')).toBe(true);
+    expect(flat.note).toMatch(
+      /left out when the baseline was zero and the current value was not\./u,
     );
   });
 
@@ -677,6 +794,15 @@ describe('summary lead', () => {
     expect(view.calendar.summary).toBe('Daily tokens since 16 Jun 2025: usage on 10 days of 371.');
   });
 
+  it('lists the calendar’s days with usage as its table', () => {
+    // summary.txt: 10 active days; best day 15 Jun 2026 with 970 tokens.
+    const { table } = view.calendar;
+
+    expect(table.columns.map((column) => column.label)).toEqual(['Day', 'Tokens']);
+    expect(table.rows).toHaveLength(10);
+    expect(table.rows.map(texts)).toContainEqual(['15 Jun 2026', '970']);
+  });
+
   it('words the budget as the terminal does', () => {
     const budget = (budgetUsd: number) =>
       summaryOf(
@@ -819,6 +945,26 @@ describe('trends lead', () => {
     );
   });
 
+  it('rounds active minutes as the terminal does', () => {
+    const data = structuredClone(record(readGolden('trends-active-hours')));
+    const series = record(data.totalSeries);
+    const [bucket] = series.buckets as Record<string, unknown>[];
+    series.buckets = [{ ...bucket, value: 119_000 }];
+    series.summary = {
+      ...record(series.summary),
+      total: 119_000,
+      average: 119_000,
+      observedDayCount: 1,
+      peak: { date: bucket.date, value: 119_000 },
+    };
+    const report = withEnvelope('trends', data);
+    const view = defined(buildTrendsView(report, createLabels(report, undefined)));
+
+    // trends --metric active-hours: 119,000 ms prints as 2m.
+    expect(ledeFigures(view)).toEqual(['2m', '2m', '2m']);
+    expect(ledeText(view)).toMatch(/^2m active over 1 day, /u);
+  });
+
   it('marks lower-bound costs and draws nothing for a series of zeros', () => {
     const data = structuredClone(record(readGolden('trends-by-repo')));
     const series = record(data.totalSeries);
@@ -841,5 +987,38 @@ describe('trends lead', () => {
 
     expect(none.chart).toBeUndefined();
     expect(ledeText(none)).toBe('No token usage in these 181 days.');
+
+    total.buckets = (total.buckets as Record<string, unknown>[]).slice(0, 1);
+    const oneDay = withEnvelope('trends', empty);
+    expect(ledeText(defined(buildTrendsView(oneDay, createLabels(oneDay, undefined))))).toBe(
+      'No token usage on this day.',
+    );
+  });
+});
+
+describe('lead tables on a narrow screen', () => {
+  const kept = (table: PanelTable) =>
+    table.columns.filter((column) => column.narrow !== false).map((column) => column.label);
+
+  it('keep each row’s name and its key measures, as the explorer tables do', () => {
+    const compareReport = withEnvelope('compare', readGolden('compare-by-repo'));
+    const compare = defined(
+      buildCompareView(compareReport, createLabels(compareReport, undefined)),
+    );
+    const summary = summaryOf(withEnvelope('summary', readGolden('summary')));
+    const trends = trendsOf('trends-by-source');
+    const efficiency = defined(
+      buildEfficiencyView(withEnvelope('efficiency', readGolden('efficiency-monthly'))),
+    );
+    const optimize = defined(
+      buildOptimizeView(withEnvelope('optimize', readGolden('optimize-monthly'))),
+    );
+
+    expect(kept(tableOf(compare, 'Totals'))).toEqual(['Metric', 'Change', 'Change %']);
+    expect(kept(tableOf(compare, 'By project (cost)'))).toEqual(['Project', 'Change', 'Change %']);
+    expect(kept(summary.tables[0])).toEqual(['Period', 'Cost', 'Tokens']);
+    expect(kept(trends.tables[0])).toEqual(['Source', 'Total', 'Peak']);
+    expect(kept(efficiency.tables[0])).toEqual(['Period', 'Commits', 'Cost', 'Per commit']);
+    expect(kept(optimize.tables[0])).toEqual(['Period', 'Candidate', 'Savings']);
   });
 });

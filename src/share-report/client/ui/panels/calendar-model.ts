@@ -4,7 +4,7 @@
 import { getIsoDayOfWeek, parseDateKey } from '../../../../utils/date-key.js';
 import { WEEKDAY_LABELS } from '../../core/index.js';
 import { formatCount, formatDay } from '../shell/format.js';
-import { readNumber, readString } from './model.js';
+import { readNumber, readString, type PanelTable } from './model.js';
 
 /** A day in the calendar: its week column, its weekday row (Monday 0) and its heat level. */
 export type CalendarDay = {
@@ -21,8 +21,10 @@ export type CalendarView = {
   /** Month names over the week column holding their first day. */
   months: { label: string; week: number }[];
   weekdays: readonly string[];
-  /** One sentence for screen readers. */
+  /** One sentence for screen readers; the table holds every day with usage. */
   summary: string;
+  /** The days with usage and their tokens: the calendar's table equivalent. */
+  table: PanelTable;
 };
 
 export const MONTH_NAMES = [
@@ -58,7 +60,7 @@ export function buildCalendar(
   const months: CalendarView['months'] = [];
   // The Monday on or before the first day, as a day number; weeks count from it.
   let firstMonday: number | undefined;
-  let activeDays = 0;
+  const active: PanelTable['rows'] = [];
 
   for (const day of days) {
     const date = readString(day, 'date');
@@ -76,7 +78,7 @@ export function buildCalendar(
     const level = clampLevel(readNumber(day, 'level'));
 
     if (tokens > 0) {
-      activeDays += 1;
+      active.push([{ text: formatDay(date) }, { text: formatCount(tokens) }]);
     }
 
     if (parts.day === 1) {
@@ -96,6 +98,15 @@ export function buildCalendar(
     days: placed,
     months,
     weekdays: WEEKDAY_LABELS,
-    summary: describe(activeDays, placed.length),
+    summary: describe(active.length, placed.length),
+    table: {
+      title: 'Days with usage',
+      columns: [
+        { label: 'Day', numeric: false },
+        { label: 'Tokens', numeric: true },
+      ],
+      rows: active,
+      foot: [],
+    },
   };
 }
