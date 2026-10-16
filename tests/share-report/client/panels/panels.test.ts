@@ -35,6 +35,19 @@ function withEnvelope(report: Report, data: unknown): ShareReport {
   });
 }
 
+/** A wrapped file for 2026 as the CLI writes it: the window is the year. */
+function wrappedReport(generatedAt: string, data: unknown = readGolden('wrapped')): ShareReport {
+  return loadFixtureReport((payload) => {
+    payload.meta.window = { since: '2026-01-01', until: '2026-12-31' };
+    payload.meta.generatedAt = generatedAt;
+    payload.envelope = {
+      schemaVersion: 1,
+      report: 'wrapped',
+      data: data as ShareEmbeddedEnvelope['data'],
+    };
+  });
+}
+
 function record(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
@@ -59,7 +72,7 @@ describe('panel models', () => {
 for (const timezone of HOST_TIMEZONES) {
   describe(`wrapped recap (host ${timezone})`, () => {
     useHostTimezone(timezone);
-    const view = defined(buildWrappedView(withEnvelope('wrapped', readGolden('wrapped'))));
+    const view = defined(buildWrappedView(wrappedReport('2027-01-02T08:00:00.000Z')));
 
     it('leads with the year’s tokens, cost and active days', () => {
       expect(view.lede.map((part) => part.text).join('')).toBe(
@@ -143,6 +156,23 @@ for (const timezone of HOST_TIMEZONES) {
     });
   });
 }
+
+describe('wrapped recap of the current year', () => {
+  it('stops the calendar and the monthly table at the generation date', () => {
+    // 27 Oct 2026, 09:00 in Europe/Paris.
+    const view = defined(buildWrappedView(wrappedReport('2026-10-27T08:00:00.000Z')));
+
+    expect(view.calendar.days).toHaveLength(300);
+    expect(view.calendar.days.at(-1)?.label).toMatch(/^27 Oct 2026: /u);
+    expect(view.calendar.weeks).toBe(44);
+    expect(view.calendar.months.map((month) => month.label).at(-1)).toBe('Oct');
+    expect(view.calendar.summary).toBe(
+      'Daily tokens in 2026: usage on 11 days of 300. The monthly table holds the totals.',
+    );
+    expect(view.months.rows.map((row) => row[0].text).at(-1)).toBe('Oct');
+    expect(view.months.rows).toHaveLength(10);
+  });
+});
 
 describe('wrapped recap without optional figures', () => {
   it('shows dashes for a --no-cost year with no usage instead of failing', () => {
