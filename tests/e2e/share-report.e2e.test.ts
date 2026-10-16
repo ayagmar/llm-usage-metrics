@@ -262,7 +262,7 @@ function expectSelfContained(html: string): void {
   expect(cspSource(parts.csp, 'default-src')).toBe("'none'");
   expect(cspSource(parts.csp, 'script-src')).toBe(`'${cspHash(parts.script)}'`);
   expect(cspSource(parts.csp, 'style-src')).toBe(`'${cspHash(parts.style)}'`);
-  expect(markup.match(/<script>/gu)).toHaveLength(1);
+  expect(markup.match(/<script>/giu)).toHaveLength(1);
   expect(html).not.toMatch(/\sstyle\s*=/iu);
   expect(markup).not.toMatch(/\son[a-z]+\s*=/iu);
 
