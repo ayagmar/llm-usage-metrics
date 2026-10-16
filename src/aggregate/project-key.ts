@@ -80,8 +80,9 @@ export function buildProjectLabels(
           labels.set(key, label);
           pending.delete(key);
         } else if (entry.depth >= entry.segments.length) {
-          // Out of segments while still colliding: only the full key is unambiguous.
-          labels.set(key, key);
+          // Out of segments while still colliding: only the full key is unambiguous, and a
+          // rootless key spelled like the reserved label reads as a relative path.
+          labels.set(key, key === UNATTRIBUTED_PROJECT_LABEL ? `./${key}` : key);
           pending.delete(key);
         } else {
           entry.depth += 1;
