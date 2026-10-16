@@ -511,6 +511,8 @@ for (const host of HOST_TIMEZONES) {
       const rowLabels = texts(view.svg).filter((entry) => /^\d\dh$/u.test(entry));
 
       expect(rowLabels).toEqual(['00h', '06h', '12h', '18h']);
+      // The largest block starts 20 Oct at 09:00 Paris time.
+      expect(view.description).toContain('Largest: 20 Oct 09:00, 24.3K tokens');
     });
 
     it('draw hourly bars from hourly detail and note the clipping', () => {
