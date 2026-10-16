@@ -98,7 +98,7 @@ describe('run-trends-report', () => {
     }
   });
 
-  it('writes a share SVG while keeping the report body on stdout', async () => {
+  it('writes a share report while keeping the report body on stdout', async () => {
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
@@ -107,14 +107,14 @@ describe('run-trends-report', () => {
         share: true,
       });
 
-      expect(writeShareFile).toHaveBeenCalledTimes(2);
-      const [fileName, svg] = vi.mocked(writeShareFile).mock.calls[0] ?? [];
-      expect(fileName).toBe('trends-share.svg');
-      expect(svg).toContain('Daily tokens');
+      expect(writeShareFile).toHaveBeenCalledTimes(1);
+      const [fileName, page] = vi.mocked(writeShareFile).mock.calls[0] ?? [];
+      expect(fileName).toBe('trends-share.html');
+      expect(page).toContain('Daily tokens');
 
       expect(consoleLogSpy).toHaveBeenCalledTimes(1);
       expect(String(consoleLogSpy.mock.calls[0]?.[0])).toContain('Daily Token Usage Trend');
-      expect(consoleErrorSpy.mock.calls.flat().join('\n')).toContain('Wrote trends share SVG');
+      expect(consoleErrorSpy.mock.calls.flat().join('\n')).toContain('Wrote trends share report');
     } finally {
       consoleLogSpy.mockRestore();
       consoleErrorSpy.mockRestore();

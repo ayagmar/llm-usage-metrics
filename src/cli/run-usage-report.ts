@@ -19,6 +19,7 @@ import {
   type UsageReportFormat,
 } from '../render/render-usage-report.js';
 import { renderUsageShareSvg } from '../render/render-usage-share-svg.js';
+import { createShareCardArtifact } from '../render/render-share-page.js';
 import type { UsageTableLayout } from '../render/row-cells.js';
 import type { ReportGranularity, UsageGranularity } from '../utils/time-buckets.js';
 import { hasCliFilters } from './filter-match-warnings.js';
@@ -47,8 +48,8 @@ function getDefaultWindowHint(granularity: UsageGranularity, since: string): str
   ];
 }
 
-function resolveShareFileName(granularity: ReportGranularity): string {
-  return `usage-${granularity}-share.svg`;
+function resolveShareFileBaseName(granularity: ReportGranularity): string {
+  return `usage-${granularity}-share`;
 }
 
 function getRepeatedHourNotes(usageData: UsageDataResult): string[] {
@@ -88,15 +89,17 @@ async function prepareUsageReport(
     getDiagnostics: (usageData) => usageData.diagnostics,
     runtimeProfile: deps.runtimeProfile,
     // hourly has no --share.
-    createShareArtifact:
-      options.share && granularity !== 'hourly'
-        ? (usageData) => ({
-            fileName: resolveShareFileName(granularity),
-            logLabel: 'usage',
-            title: 'Usage share card',
-            render: (theme) => renderUsageShareSvg(usageData, granularity, theme, { hideCost }),
-          })
-        : undefined,
+    buildShare:
+      granularity === 'hourly'
+        ? undefined
+        : async (usageData) =>
+            createShareCardArtifact({
+              fileBaseName: resolveShareFileBaseName(granularity),
+              logLabel: 'usage',
+              title: 'Usage share card',
+              renderSvg: (theme) =>
+                renderUsageShareSvg(usageData, granularity, theme, { hideCost }),
+            }),
     validate: () => {
       if (options.compact && options.json) {
         throw new Error('--compact applies to terminal and markdown tables; drop it with --json');

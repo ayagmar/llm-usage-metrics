@@ -1,4 +1,5 @@
 import { renderEfficiencyMonthlyShareSvg } from '../render/render-efficiency-share-svg.js';
+import { createShareCardArtifact } from '../render/render-share-page.js';
 import {
   renderEfficiencyReportWithNotes,
   type EfficiencyReportFormat,
@@ -48,14 +49,13 @@ async function prepareEfficiencyReport(
     buildData: () => buildEfficiencyData(granularity, options, deps),
     getDiagnostics: (efficiencyData) => efficiencyData.diagnostics,
     runtimeProfile: deps.runtimeProfile,
-    createShareArtifact: options.share
-      ? (efficiencyData) => ({
-          fileName: 'efficiency-monthly-share.svg',
-          logLabel: 'efficiency',
-          title: 'Efficiency share card',
-          render: (theme) => renderEfficiencyMonthlyShareSvg(efficiencyData, theme),
-        })
-      : undefined,
+    buildShare: async (efficiencyData) =>
+      createShareCardArtifact({
+        fileBaseName: 'efficiency-monthly-share',
+        logLabel: 'efficiency',
+        title: 'Efficiency share card',
+        renderSvg: (theme) => renderEfficiencyMonthlyShareSvg(efficiencyData, theme),
+      }),
     render: (efficiencyData, format) => {
       const { output, notes } = renderEfficiencyReportWithNotes(efficiencyData, format, {
         granularity,

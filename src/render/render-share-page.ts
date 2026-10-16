@@ -1,9 +1,11 @@
+import type { ShareArtifact } from '../cli/share-artifact.js';
 import {
   escapeSvg,
   SHARE_HEIGHT,
   SHARE_WIDTH,
   shareFonts,
   shareThemes,
+  type ShareTheme,
   type ShareThemeName,
 } from './share-svg-theme.js';
 
@@ -179,4 +181,29 @@ ${options.svgs.light}
 </body>
 </html>
 `;
+}
+
+export type ShareCardArtifactOptions = {
+  /** File name without extension; the report is `<fileBaseName>.html`. */
+  fileBaseName: string;
+  logLabel: string;
+  title: string;
+  renderSvg: (theme: ShareTheme) => string;
+};
+
+/** Today's card page as the one-file share report, until the interactive report replaces it. */
+export function createShareCardArtifact(options: ShareCardArtifactOptions): ShareArtifact {
+  return {
+    fileName: `${options.fileBaseName}.html`,
+    logLabel: options.logLabel,
+    render: () =>
+      renderSharePage({
+        title: options.title,
+        fileBaseName: options.fileBaseName,
+        svgs: {
+          dark: options.renderSvg(shareThemes.dark),
+          light: options.renderSvg(shareThemes.light),
+        },
+      }),
+  };
 }

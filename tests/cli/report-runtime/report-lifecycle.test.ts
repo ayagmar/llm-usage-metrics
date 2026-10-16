@@ -149,18 +149,17 @@ describe('report-lifecycle', () => {
       buildData: async () => ({}),
       getDiagnostics: () => ({}),
       render: () => 'report body',
-      createShareArtifact: () => ({
-        fileName: 'usage-share.svg',
+      buildShare: async () => ({
+        fileName: 'usage-share.html',
         logLabel: 'usage',
-        title: 'Usage share card',
-        render: (theme) => `<svg data-theme="${theme.name}"/>`,
+        render: () => '<!doctype html><title>report</title>',
       }),
     });
 
     await runPreparedReport({ preparedReport });
   }
 
-  it('writes the dark SVG and a page with both themes, then opens the page', async () => {
+  it('writes one HTML report, then opens it', async () => {
     const writeSpy = vi
       .spyOn(shareArtifact, 'writeShareFile')
       .mockImplementation(async (fileName) => `/tmp/${fileName}`);
@@ -171,24 +170,65 @@ describe('report-lifecycle', () => {
     try {
       await runShareReport(undefined);
 
-      expect(writeSpy).toHaveBeenCalledTimes(2);
-      expect(writeSpy).toHaveBeenNthCalledWith(1, 'usage-share.svg', '<svg data-theme="dark"/>');
-      const [pageName, page] = writeSpy.mock.calls[1] ?? [];
-      expect(pageName).toBe('usage-share.html');
-      expect(page).toContain('<svg data-theme="dark"/>');
-      expect(page).toContain('<svg data-theme="light"/>');
-      expect(page).toContain('data-file-base-name="usage-share"');
+      expect(writeSpy.mock.calls).toEqual([
+        ['usage-share.html', '<!doctype html><title>report</title>'],
+      ]);
       expect(openSpy).toHaveBeenCalledWith('/tmp/usage-share.html');
+      expect(consoleLogSpy).toHaveBeenCalledWith('report body');
       const stderr = consoleErrorSpy.mock.calls.map((call) => String(call[0])).join('\n');
-      expect(stderr).toContain('Wrote usage share SVG: /tmp/usage-share.svg');
-      expect(stderr).toContain('Wrote usage share page: /tmp/usage-share.html');
-      expect(stderr).toContain('Opened usage share page: /tmp/usage-share.html');
+      expect(stderr).toContain('Wrote usage share report: /tmp/usage-share.html');
+      expect(stderr).toContain('Opened usage share report: /tmp/usage-share.html');
     } finally {
       writeSpy.mockRestore();
       openSpy.mockRestore();
       consoleErrorSpy.mockRestore();
       consoleLogSpy.mockRestore();
     }
+  });
+
+  it('builds the share report in its own profiled stage, from the report data', async () => {
+    let nowTick = 0;
+    const runtimeProfile = new RuntimeProfileCollector(() => {
+      nowTick += 1;
+      return nowTick;
+    });
+    const buildShare = vi.fn(async (data: { rows: number }) => ({
+      fileName: 'usage-share.html',
+      logLabel: 'usage',
+      render: () => `<p>${data.rows}</p>`,
+    }));
+
+    const preparedReport = await prepareReport({
+      commandOptions: { share: true },
+      supportedFormats: ['terminal'] as const,
+      runtimeProfile,
+      buildData: async () => ({ rows: 3 }),
+      getDiagnostics: () => ({}),
+      render: () => 'report body',
+      buildShare,
+    });
+
+    expect(buildShare).toHaveBeenCalledWith({ rows: 3 }, { runtimeProfile });
+    expect(preparedReport.shareArtifact?.render()).toBe('<p>3</p>');
+    expect(runtimeProfile.snapshot().stageTimings.map((stage) => stage.name)).toContain(
+      'report.prepare.build_share',
+    );
+  });
+
+  it('does no share work without --share', async () => {
+    const buildShare = vi.fn();
+
+    const preparedReport = await prepareReport({
+      commandOptions: {},
+      supportedFormats: ['terminal'] as const,
+      buildData: async () => ({}),
+      getDiagnostics: () => ({}),
+      render: () => 'report body',
+      buildShare,
+    });
+
+    expect(buildShare).not.toHaveBeenCalled();
+    expect(preparedReport.shareArtifact).toBeUndefined();
   });
 
   it('writes the share files without opening them for --no-open', async () => {
@@ -202,7 +242,7 @@ describe('report-lifecycle', () => {
     try {
       await runShareReport(false);
 
-      expect(writeSpy).toHaveBeenCalledTimes(2);
+      expect(writeSpy).toHaveBeenCalledTimes(1);
       expect(openSpy).not.toHaveBeenCalled();
     } finally {
       writeSpy.mockRestore();
@@ -225,7 +265,7 @@ describe('report-lifecycle', () => {
 
       expect(consoleLogSpy).toHaveBeenCalledWith('report body');
       expect(consoleErrorSpy.mock.calls.map((call) => String(call[0])).join('\n')).toContain(
-        'Could not open usage share page: /tmp/usage-share.html (no opener)',
+        'Could not open usage share report: /tmp/usage-share.html (no opener)',
       );
     } finally {
       writeSpy.mockRestore();
@@ -245,5 +285,17 @@ describe('report-lifecycle', () => {
         render: () => 'report body',
       }),
     ).rejects.toThrow('--no-open only applies with --share');
+  });
+
+  it('rejects --redact without --share', async () => {
+    await expect(
+      prepareReport({
+        commandOptions: { redact: true },
+        supportedFormats: ['terminal'] as const,
+        buildData: async () => ({}),
+        getDiagnostics: () => ({}),
+        render: () => 'report body',
+      }),
+    ).rejects.toThrow('--redact only applies with --share');
   });
 });

@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -241,7 +241,7 @@ describe('runEfficiencyReport', () => {
     expect(stderrLines.some((line) => /\d+ env overrides?/u.test(line))).toBe(true);
   });
 
-  it('writes monthly efficiency share svg when --share is enabled', async () => {
+  it('writes the monthly efficiency share report when --share is enabled', async () => {
     const repoDir = await createGitRepoWithCommit('2026-02-14T10:00:00Z');
     const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'efficiency-share-empty-sessions-'));
     const shareDir = await mkdtemp(path.join(os.tmpdir(), 'efficiency-share-output-'));
@@ -268,13 +268,13 @@ describe('runEfficiencyReport', () => {
       process.chdir(previousCwd);
     }
 
-    const svgPath = path.join(shareDir, 'efficiency-monthly-share.svg');
-    const svgContent = await readFile(svgPath, 'utf8');
+    expect(await readdir(shareDir)).toEqual(['efficiency-monthly-share.html']);
+    const svgContent = await readFile(path.join(shareDir, 'efficiency-monthly-share.html'), 'utf8');
     const stderrLines = consoleErrorSpy.mock.calls.map((call) => String(call[0]));
 
     expect(svgContent).toContain('<svg');
     expect(svgContent).toContain('>Efficiency<');
-    expect(stderrLines.some((line) => line.includes('Wrote efficiency share SVG'))).toBe(true);
+    expect(stderrLines.some((line) => line.includes('Wrote efficiency share report'))).toBe(true);
     expect(consoleLogSpy).toHaveBeenCalledTimes(1);
   });
 

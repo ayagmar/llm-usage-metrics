@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -52,7 +52,7 @@ describe('runSummaryReport', () => {
     ).toBe(true);
   });
 
-  it('writes the activity share card and page with --share', async () => {
+  it('writes the activity share report with --share', async () => {
     const options = await emptySourceOptions();
     const shareDir = await mkdtemp(path.join(os.tmpdir(), 'summary-share-'));
     tempDirs.push(shareDir);
@@ -70,10 +70,9 @@ describe('runSummaryReport', () => {
       openSpy.mockRestore();
     }
 
-    const svg = await readFile(path.join(shareDir, 'summary-share.svg'), 'utf8');
+    expect(await readdir(shareDir)).toEqual(['summary-share.html']);
     const page = await readFile(path.join(shareDir, 'summary-share.html'), 'utf8');
-    expect(svg).toContain('data-theme="dark"');
-    expect(svg).toContain('No usage in the past year');
+    expect(page).toContain('No usage in the past year');
     expect(page).toContain('data-theme="light"');
   });
 
