@@ -34,13 +34,13 @@ llm-usage session --markdown
 
 ## Output
 
-The terminal report is a boxed **Session Usage Report** table with `Session`, `Source`, `Repo`, `Last Activity`, `Duration`, `Total`, `Cost`, and `Models` columns, sorted by cost. `Duration` is the raw span from a session's first to last event (`-` for single-event sessions). Sessions have no `TOTAL` row because each row is a conversation, not a calendar period. When the list is truncated, a note is printed on `stderr`:
+The terminal report is a boxed **Session Usage Report** table with `Session`, `Source`, `Project`, `Last Activity`, `Duration`, `Total`, `Cost`, and `Models` columns, sorted by cost. `Project` uses the same labels as `llm-usage projects`: the repository's folder name, with parent folders added when two repositories share it, and `(unattributed)` for sessions without one. `Duration` is the raw span from a session's first to last event (`-` for single-event sessions). Sessions have no `TOTAL` row because each row is a conversation, not a calendar period. When the list is truncated, a note is printed on `stderr`:
 
 ```text
 Showing top 20 of 1653 sessions by cost. Use --top 0 for all.
 ```
 
-`--by-repo` replaces the per-session rows with one row per repository (`Repo`, `Sessions`, `Last Activity`, `Total`, `Cost`, `Sources`). Sessions without a detectable repository are grouped under `(no repo)`.
+`--by-repo` replaces the per-session rows with one row per repository (`Project`, `Sessions`, `Last Activity`, `Total`, `Cost`, `Sources`). Sessions without a detectable repository are grouped under `(unattributed)`.
 
 ## JSON shape
 

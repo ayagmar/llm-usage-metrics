@@ -1,7 +1,10 @@
-import path from 'node:path';
-
 import { markdownTable } from 'markdown-table';
 
+import {
+  buildProjectLabels,
+  toProjectKey,
+  UNATTRIBUTED_PROJECT_LABEL,
+} from '../aggregate/project-key.js';
 import type { SessionDataResult } from '../cli/usage-data-contracts.js';
 import type { SessionRepoRow, SessionRow } from '../session/session-row.js';
 import { getPeriodKey } from '../utils/time-buckets.js';
@@ -29,7 +32,7 @@ const MODELS_COLUMN_WIDTH = 32;
 const sessionTableHeaders = [
   'Session',
   'Source',
-  'Repo',
+  'Project',
   'Last Activity',
   'Duration',
   'Total',
@@ -37,7 +40,14 @@ const sessionTableHeaders = [
   'Models',
 ] as const;
 
-const repoTableHeaders = ['Repo', 'Sessions', 'Last Activity', 'Total', 'Cost', 'Sources'] as const;
+const repoTableHeaders = [
+  'Project',
+  'Sessions',
+  'Last Activity',
+  'Total',
+  'Cost',
+  'Sources',
+] as const;
 
 const MAX_NAMED_MODELS = 2;
 
@@ -79,14 +89,25 @@ function formatModels(models: readonly string[]): string {
   return limitNamedModels(models, MAX_NAMED_MODELS).join('\n');
 }
 
+type ProjectLabels = ReadonlyMap<string | undefined, string>;
+
+/** Project labels for the rows' repository roots, as the projects report gives them. */
+function buildRowProjectLabels(rows: readonly { repoRoot?: string }[]): ProjectLabels {
+  return buildProjectLabels(rows.map((row) => toProjectKey(row.repoRoot)));
+}
+
+function toProjectLabel(repoRoot: string | undefined, projectLabels: ProjectLabels): string {
+  return projectLabels.get(toProjectKey(repoRoot)) ?? UNATTRIBUTED_PROJECT_LABEL;
+}
+
 function toSessionTableCells(
   row: SessionRow,
-  options: { timezone: string; truncateSessionIds: boolean },
+  options: { timezone: string; truncateSessionIds: boolean; projectLabels: ProjectLabels },
 ): string[] {
   return [
     options.truncateSessionIds ? truncateSessionId(row.sessionId) : row.sessionId,
     row.source,
-    row.repoRoot ? path.basename(row.repoRoot) : '-',
+    toProjectLabel(row.repoRoot, options.projectLabels),
     getPeriodKey(row.lastActivity, 'daily', options.timezone),
     formatDuration(row.durationMs),
     formatInteger(row.totalTokens),
@@ -95,9 +116,13 @@ function toSessionTableCells(
   ];
 }
 
-function toRepoTableCells(row: SessionRepoRow, timezone: string): string[] {
+function toRepoTableCells(
+  row: SessionRepoRow,
+  timezone: string,
+  projectLabels: ProjectLabels,
+): string[] {
   return [
-    row.repoRoot ? path.basename(row.repoRoot) : '(no repo)',
+    toProjectLabel(row.repoRoot, projectLabels),
     formatInteger(row.sessionCount),
     getPeriodKey(row.lastActivity, 'daily', timezone),
     formatInteger(row.totalTokens),
@@ -116,10 +141,14 @@ function buildTableCells(
   sessionData: SessionDataResult,
   options: RenderSessionReportOptions,
 ): SessionTableCells {
+  const projectLabels = buildRowProjectLabels(sessionData.rows);
+
   if (sessionData.grouping === 'repo') {
     return {
       headers: [...repoTableHeaders],
-      bodyRows: sessionData.rows.map((row) => toRepoTableCells(row, options.timezone)),
+      bodyRows: sessionData.rows.map((row) =>
+        toRepoTableCells(row, options.timezone, projectLabels),
+      ),
       align: ['l', 'r', 'l', 'r', 'r', 'l'],
     };
   }
@@ -130,6 +159,7 @@ function buildTableCells(
       toSessionTableCells(row, {
         timezone: options.timezone,
         truncateSessionIds: options.truncateSessionIds ?? true,
+        projectLabels,
       }),
     ),
     align: ['l', 'l', 'l', 'l', 'r', 'r', 'r', 'l'],
