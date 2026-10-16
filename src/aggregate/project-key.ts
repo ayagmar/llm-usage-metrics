@@ -1,0 +1,129 @@
+import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+
+/** The label of usage without a repository root. */
+export const UNATTRIBUTED_PROJECT_LABEL = '(unattributed)';
+
+const DRIVE_ROOT_PATTERN = /^[A-Za-z]:[\\/]$/u;
+const DRIVE_PREFIX_PATTERN = /^[A-Za-z]:/u;
+
+function isSeparator(character: string | undefined): boolean {
+  return character === '/' || character === '\\';
+}
+
+/** Whether `value` is a bare root such as `/`, `\` or `C:\`, which keeps its separator. */
+function isBareRoot(value: string): boolean {
+  return value.length === 1 ? isSeparator(value) : DRIVE_ROOT_PATTERN.test(value);
+}
+
+/** Drops trailing `/` and `\`, except the one of a bare root. */
+export function stripTrailingSeparators(value: string): string {
+  let end = value.length;
+
+  while (end > 1 && isSeparator(value[end - 1]) && !isBareRoot(value.slice(0, end))) {
+    end -= 1;
+  }
+
+  return value.slice(0, end);
+}
+
+/** The project key of an event: its raw `repoRoot` without trailing separators. */
+export function toProjectKey(repoRoot: string | undefined): string | undefined {
+  return repoRoot === undefined ? undefined : stripTrailingSeparators(repoRoot);
+}
+
+/** Path segments of a key, without a drive letter, which belongs to the root. */
+function splitKeySegments(key: string): string[] {
+  return key
+    .replace(DRIVE_PREFIX_PATTERN, '')
+    .split(/[\\/]/u)
+    .filter((segment) => segment.length > 0);
+}
+
+type PendingKey = { segments: string[]; depth: number };
+
+/**
+ * Display labels for project keys: the last path segment, extended with parent segments
+ * until no other key and no label already given shares it. A key that runs out of segments
+ * while it still collides is labelled with the full key, numbered ` #2`, ` #3`… if that
+ * is taken too. `undefined` (no repository root) is `(unattributed)`, a label no real
+ * project gets.
+ *
+ * Call it once per report over every key in its filtered events, so a project keeps one
+ * label across periods and windows.
+ */
+export function buildProjectLabels(
+  keys: Iterable<string | undefined>,
+): Map<string | undefined, string> {
+  const labels = new Map<string | undefined, string>();
+  const pending = new Map<string, PendingKey>();
+  // Labels given so far; the reserved one is never given to a real project.
+  const taken = new Set([UNATTRIBUTED_PROJECT_LABEL]);
+  const give = (key: string, label: string) => {
+    labels.set(key, label);
+    taken.add(label);
+    pending.delete(key);
+  };
+
+  for (const key of keys) {
+    if (key === undefined) {
+      labels.set(undefined, UNATTRIBUTED_PROJECT_LABEL);
+    } else if (!pending.has(key)) {
+      pending.set(key, { segments: splitKeySegments(key), depth: 1 });
+    }
+  }
+
+  while (pending.size > 0) {
+    const keysByLabel = new Map<string, [string, PendingKey][]>();
+    const outOfSegments: string[] = [];
+
+    for (const [key, entry] of pending) {
+      const { segments, depth } = entry;
+      const label = depth > segments.length ? key : segments.slice(-depth).join('/');
+      keysByLabel.set(label, [...(keysByLabel.get(label) ?? []), [key, entry]]);
+    }
+
+    for (const [label, labelKeys] of keysByLabel) {
+      if (labelKeys.length === 1 && !taken.has(label)) {
+        give(labelKeys[0][0], label);
+        continue;
+      }
+
+      for (const [key, entry] of labelKeys) {
+        if (entry.depth >= entry.segments.length) {
+          outOfSegments.push(key);
+        } else {
+          entry.depth += 1;
+        }
+      }
+    }
+
+    // Out of segments while still colliding: the full key, which a rootless key spelled like
+    // the reserved label reads as a relative path, numbered if even that is taken. Sorted, so
+    // the numbers do not depend on the input order.
+    for (const key of outOfSegments.sort(compareByCodePoint)) {
+      const label = key === UNATTRIBUTED_PROJECT_LABEL ? `./${key}` : key;
+      let numbered = label;
+
+      for (let number = 2; taken.has(numbered); number += 1) {
+        numbered = `${label} #${String(number)}`;
+      }
+
+      give(key, numbered);
+    }
+  }
+
+  return labels;
+}
+
+/** Project labels for every repository root in a report's events (see `buildProjectLabels`). */
+export function buildEventProjectLabels(
+  events: Iterable<{ repoRoot?: string }>,
+): Map<string | undefined, string> {
+  const keys: (string | undefined)[] = [];
+
+  for (const event of events) {
+    keys.push(toProjectKey(event.repoRoot));
+  }
+
+  return buildProjectLabels(keys);
+}

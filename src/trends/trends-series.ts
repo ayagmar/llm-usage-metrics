@@ -33,3 +33,22 @@ export type TrendSeries = {
   buckets: TrendBucket[];
   summary: TrendSummary;
 };
+
+/** One project's metric value on one day (`--by-repo`). */
+export type ProjectTrendValueRow = {
+  periodKey: string;
+  /** The project key, `null` for usage without a repository root. */
+  repoRoot: string | null;
+  project: string;
+  value: number;
+  incomplete?: boolean;
+};
+
+/** One project's daily series (`--by-repo`). */
+export type ProjectTrendSeries = {
+  /** The project key, `null` for usage without a repository root. */
+  repoRoot: string | null;
+  project: string;
+  buckets: TrendBucket[];
+  summary: TrendSummary;
+};

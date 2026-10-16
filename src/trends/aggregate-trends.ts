@@ -1,6 +1,12 @@
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { getLocalDateKeyRange } from '../utils/time-buckets.js';
-import type { TrendBucket, TrendSeries, TrendValueRow } from './trends-series.js';
+import type {
+  ProjectTrendSeries,
+  ProjectTrendValueRow,
+  TrendBucket,
+  TrendSeries,
+  TrendValueRow,
+} from './trends-series.js';
 
 type AggregateTrendsOptions = {
   dateRange: {
@@ -26,7 +32,9 @@ function divideValue(value: number, divisor: number): number {
   return Math.round((value / divisor) * VALUE_PRECISION_SCALE) / VALUE_PRECISION_SCALE;
 }
 
-function toTrendBucket(row: TrendValueRow): TrendBucket {
+type DayValue = Pick<TrendValueRow, 'periodKey' | 'value' | 'incomplete'>;
+
+function toTrendBucket(row: DayValue): TrendBucket {
   return {
     date: row.periodKey,
     value: row.value,
@@ -91,20 +99,29 @@ function buildTrendSummary(buckets: TrendBucket[]) {
   };
 }
 
-function buildSeries(
-  source: TrendSeries['source'],
-  rowsByDate: ReadonlyMap<string, TrendValueRow>,
+function buildSeriesBuckets(
+  rowsByDate: ReadonlyMap<string, DayValue>,
   dateKeys: readonly string[],
-): TrendSeries {
+): Pick<TrendSeries, 'buckets' | 'summary'> {
   const buckets = dateKeys.map((date) => {
     const row = rowsByDate.get(date);
     return row ? toTrendBucket(row) : createGapBucket(date);
   });
 
   return {
-    source,
     buckets,
     summary: buildTrendSummary(buckets),
+  };
+}
+
+function buildSeries(
+  source: TrendSeries['source'],
+  rowsByDate: ReadonlyMap<string, TrendValueRow>,
+  dateKeys: readonly string[],
+): TrendSeries {
+  return {
+    source,
+    ...buildSeriesBuckets(rowsByDate, dateKeys),
   };
 }
 
@@ -209,4 +226,47 @@ export function aggregateTrends(
     totalSeries: buildSeries('combined', toCombinedRowsByDate(rows), dateKeys),
     sourceSeries: toSourceSeries(rows, dateKeys, options),
   };
+}
+
+/**
+ * One series per project with a row in the range, by total (highest first), then label.
+ * Rows of the same project and day add up.
+ */
+export function aggregateProjectTrends(
+  rows: readonly ProjectTrendValueRow[],
+  dateRange: AggregateTrendsOptions['dateRange'],
+): ProjectTrendSeries[] {
+  const dateKeys = getLocalDateKeyRange(dateRange.from, dateRange.to);
+  const rowsByProject = new Map<string | null, Map<string, ProjectTrendValueRow>>();
+
+  for (const row of rows) {
+    const projectRows = rowsByProject.get(row.repoRoot) ?? new Map<string, ProjectTrendValueRow>();
+    const existingRow = projectRows.get(row.periodKey);
+    projectRows.set(
+      row.periodKey,
+      existingRow
+        ? {
+            ...existingRow,
+            value: addValue(existingRow.value, row.value),
+            incomplete: existingRow.incomplete === true || row.incomplete === true || undefined,
+          }
+        : row,
+    );
+    rowsByProject.set(row.repoRoot, projectRows);
+  }
+
+  return [...rowsByProject.values()]
+    .map((projectRows): ProjectTrendSeries => {
+      const [firstRow] = projectRows.values();
+
+      return {
+        repoRoot: firstRow.repoRoot,
+        project: firstRow.project,
+        ...buildSeriesBuckets(projectRows, dateKeys),
+      };
+    })
+    .sort(
+      (left, right) =>
+        right.summary.total - left.summary.total || compareByCodePoint(left.project, right.project),
+    );
 }

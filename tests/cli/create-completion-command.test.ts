@@ -69,6 +69,17 @@ describe('renderCompletionScript', () => {
     );
   });
 
+  it('completes the plan ids after --plan and the periods after --granularity', () => {
+    const bash = render('bash');
+
+    expect(bash).toContain(
+      '--plan) COMPREPLY=($(compgen -W "claude-pro claude-max-5x claude-max-20x chatgpt-go chatgpt-plus chatgpt-pro-100 chatgpt-pro-200 chatgpt-pro-500" -- "$cur")); return ;;',
+    );
+    expect(bash).toContain(
+      '--granularity) COMPREPLY=($(compgen -W "daily weekly monthly" -- "$cur")); return ;;',
+    );
+  });
+
   it('completes declared choices after a value flag such as --cost-mode', () => {
     expect(render('bash')).toContain(
       '--cost-mode) COMPREPLY=($(compgen -W "explicit estimated both" -- "$cur")); return ;;',

@@ -1,0 +1,353 @@
+{
+  "schemaVersion": 1,
+  "report": "blocks",
+  "data": {
+    "estimated": true,
+    "blockHours": 5,
+    "timezone": "UTC",
+    "since": "2026-06-15",
+    "until": null,
+    "top": null,
+    "blockCount": 8,
+    "blocks": [
+      {
+        "source": "codex",
+        "start": "2026-06-15T08:00:00.000Z",
+        "end": "2026-06-15T13:00:00.000Z",
+        "startUncertain": false,
+        "firstEventAt": "2026-06-15T08:00:00.000Z",
+        "lastEventAt": "2026-06-15T12:15:00.000Z",
+        "eventCount": 2,
+        "inputTokens": 6500,
+        "outputTokens": 1300,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 2000,
+        "cacheWriteTokens": 0,
+        "totalTokens": 9800,
+        "costUsd": 0.021375,
+        "models": [
+          "gpt-5"
+        ],
+        "modelBreakdown": [
+          {
+            "model": "gpt-5",
+            "inputTokens": 6500,
+            "outputTokens": 1300,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 2000,
+            "cacheWriteTokens": 0,
+            "totalTokens": 9800,
+            "costUsd": 0.021375
+          }
+        ],
+        "active": null
+      },
+      {
+        "source": "claude",
+        "start": "2026-06-15T09:00:00.000Z",
+        "end": "2026-06-15T14:00:00.000Z",
+        "startUncertain": false,
+        "firstEventAt": "2026-06-15T09:10:00.000Z",
+        "lastEventAt": "2026-06-15T11:05:00.000Z",
+        "eventCount": 4,
+        "inputTokens": 4900,
+        "outputTokens": 1250,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 10000,
+        "cacheWriteTokens": 0,
+        "totalTokens": 16150,
+        "costUsd": 0.03645,
+        "models": [
+          "claude-sonnet-4-5"
+        ],
+        "modelBreakdown": [
+          {
+            "model": "claude-sonnet-4-5",
+            "inputTokens": 4900,
+            "outputTokens": 1250,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 10000,
+            "cacheWriteTokens": 0,
+            "totalTokens": 16150,
+            "costUsd": 0.03645
+          }
+        ],
+        "active": null
+      },
+      {
+        "source": "codex",
+        "start": "2026-06-15T13:00:00.000Z",
+        "end": "2026-06-15T18:00:00.000Z",
+        "startUncertain": false,
+        "firstEventAt": "2026-06-15T13:50:00.000Z",
+        "lastEventAt": "2026-06-15T14:30:00.000Z",
+        "eventCount": 2,
+        "inputTokens": 2700,
+        "outputTokens": 400,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 3100,
+        "costUsd": 0.007375,
+        "models": [
+          "gpt-5"
+        ],
+        "modelBreakdown": [
+          {
+            "model": "gpt-5",
+            "inputTokens": 2700,
+            "outputTokens": 400,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "totalTokens": 3100,
+            "costUsd": 0.007375
+          }
+        ],
+        "active": null
+      },
+      {
+        "source": "claude",
+        "start": "2026-06-15T18:00:00.000Z",
+        "end": "2026-06-15T23:00:00.000Z",
+        "startUncertain": false,
+        "firstEventAt": "2026-06-15T18:30:00.000Z",
+        "lastEventAt": "2026-06-15T18:30:00.000Z",
+        "eventCount": 1,
+        "inputTokens": 3000,
+        "outputTokens": 900,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 3900,
+        "costUsd": 0.0225,
+        "models": [
+          "claude-sonnet-4-5"
+        ],
+        "modelBreakdown": [
+          {
+            "model": "claude-sonnet-4-5",
+            "inputTokens": 3000,
+            "outputTokens": 900,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "totalTokens": 3900,
+            "costUsd": 0.0225
+          }
+        ],
+        "active": null
+      },
+      {
+        "source": "codex",
+        "start": "2026-06-15T21:00:00.000Z",
+        "end": "2026-06-16T02:00:00.000Z",
+        "startUncertain": false,
+        "firstEventAt": "2026-06-15T21:00:00.000Z",
+        "lastEventAt": "2026-06-15T21:00:00.000Z",
+        "eventCount": 1,
+        "inputTokens": 700,
+        "outputTokens": 90,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 790,
+        "costUsd": 0.001775,
+        "models": [
+          "gpt-5"
+        ],
+        "modelBreakdown": [
+          {
+            "model": "gpt-5",
+            "inputTokens": 700,
+            "outputTokens": 90,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "totalTokens": 790,
+            "costUsd": 0.001775
+          }
+        ],
+        "active": null
+      },
+      {
+        "source": "claude",
+        "start": "2026-06-20T22:00:00.000Z",
+        "end": "2026-06-21T03:00:00.000Z",
+        "startUncertain": false,
+        "firstEventAt": "2026-06-20T22:30:00.000Z",
+        "lastEventAt": "2026-06-21T01:40:00.000Z",
+        "eventCount": 2,
+        "inputTokens": 3200,
+        "outputTokens": 650,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 3850,
+        "costUsd": 0.01935,
+        "models": [
+          "claude-sonnet-4-5"
+        ],
+        "modelBreakdown": [
+          {
+            "model": "claude-sonnet-4-5",
+            "inputTokens": 3200,
+            "outputTokens": 650,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "totalTokens": 3850,
+            "costUsd": 0.01935
+          }
+        ],
+        "active": null
+      },
+      {
+        "source": "claude",
+        "start": "2026-06-21T10:00:00.000Z",
+        "end": "2026-06-21T15:00:00.000Z",
+        "startUncertain": false,
+        "firstEventAt": "2026-06-21T10:15:00.000Z",
+        "lastEventAt": "2026-06-21T10:15:00.000Z",
+        "eventCount": 1,
+        "inputTokens": 5000,
+        "outputTokens": 1200,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 20000,
+        "cacheWriteTokens": 0,
+        "totalTokens": 26200,
+        "costUsd": 0.039,
+        "models": [
+          "claude-sonnet-4-5"
+        ],
+        "modelBreakdown": [
+          {
+            "model": "claude-sonnet-4-5",
+            "inputTokens": 5000,
+            "outputTokens": 1200,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 20000,
+            "cacheWriteTokens": 0,
+            "totalTokens": 26200,
+            "costUsd": 0.039
+          }
+        ],
+        "active": {
+          "remainingMinutes": 180,
+          "tokensPerHour": 13100,
+          "costUsdPerHour": 0.0195
+        }
+      },
+      {
+        "source": "codex",
+        "start": "2026-06-21T10:00:00.000Z",
+        "end": "2026-06-21T15:00:00.000Z",
+        "startUncertain": false,
+        "firstEventAt": "2026-06-21T10:50:00.000Z",
+        "lastEventAt": "2026-06-21T11:20:00.000Z",
+        "eventCount": 2,
+        "inputTokens": 4500,
+        "outputTokens": 800,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 5300,
+        "costUsd": 0.013625,
+        "models": [
+          "gpt-5"
+        ],
+        "modelBreakdown": [
+          {
+            "model": "gpt-5",
+            "inputTokens": 4500,
+            "outputTokens": 800,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "totalTokens": 5300,
+            "costUsd": 0.013625
+          }
+        ],
+        "active": {
+          "remainingMinutes": 180,
+          "tokensPerHour": 2650,
+          "costUsdPerHour": 0.0068125
+        }
+      }
+    ],
+    "activeBlocks": [
+      {
+        "source": "claude",
+        "start": "2026-06-21T10:00:00.000Z",
+        "end": "2026-06-21T15:00:00.000Z",
+        "startUncertain": false,
+        "firstEventAt": "2026-06-21T10:15:00.000Z",
+        "lastEventAt": "2026-06-21T10:15:00.000Z",
+        "eventCount": 1,
+        "inputTokens": 5000,
+        "outputTokens": 1200,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 20000,
+        "cacheWriteTokens": 0,
+        "totalTokens": 26200,
+        "costUsd": 0.039,
+        "models": [
+          "claude-sonnet-4-5"
+        ],
+        "modelBreakdown": [
+          {
+            "model": "claude-sonnet-4-5",
+            "inputTokens": 5000,
+            "outputTokens": 1200,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 20000,
+            "cacheWriteTokens": 0,
+            "totalTokens": 26200,
+            "costUsd": 0.039
+          }
+        ],
+        "active": {
+          "remainingMinutes": 180,
+          "tokensPerHour": 13100,
+          "costUsdPerHour": 0.0195
+        }
+      },
+      {
+        "source": "codex",
+        "start": "2026-06-21T10:00:00.000Z",
+        "end": "2026-06-21T15:00:00.000Z",
+        "startUncertain": false,
+        "firstEventAt": "2026-06-21T10:50:00.000Z",
+        "lastEventAt": "2026-06-21T11:20:00.000Z",
+        "eventCount": 2,
+        "inputTokens": 4500,
+        "outputTokens": 800,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 5300,
+        "costUsd": 0.013625,
+        "models": [
+          "gpt-5"
+        ],
+        "modelBreakdown": [
+          {
+            "model": "gpt-5",
+            "inputTokens": 4500,
+            "outputTokens": 800,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "totalTokens": 5300,
+            "costUsd": 0.013625
+          }
+        ],
+        "active": {
+          "remainingMinutes": 180,
+          "tokensPerHour": 2650,
+          "costUsdPerHour": 0.0068125
+        }
+      }
+    ]
+  }
+}

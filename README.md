@@ -62,8 +62,13 @@ llm-usage doctor
 | --------------------------------------------------------- | ----------------------------------------- |
 | What did I spend today, this week, and this month?        | `llm-usage`                               |
 | How much did I use by day, week, or month?                | `llm-usage daily`, `weekly`, `monthly`    |
+| How did today go, hour by hour?                           | `llm-usage hourly`                        |
 | How did one period change from another?                   | `llm-usage compare`                       |
 | Which conversations or repositories used the most?        | `llm-usage session`                       |
+| What did each project cost?                               | `llm-usage projects`                      |
+| Which estimated 5-hour plan windows did I use?            | `llm-usage blocks`                        |
+| How does API-priced usage compare with my plan price?     | `llm-usage value`                         |
+| Which price does a model name get, and why?               | `llm-usage pricing <model>`               |
 | How is daily usage moving?                                | `llm-usage trends`                        |
 | How does repo-attributed usage line up with Git activity? | `llm-usage efficiency monthly`            |
 | What would the same token mix cost on another model?      | `llm-usage optimize monthly`              |
@@ -89,6 +94,19 @@ llm-usage session --top 10
 
 # Usage grouped by repository
 llm-usage session --by-repo
+
+# Cost per project, and daily rows split by project
+llm-usage projects --top 10
+llm-usage daily --by-repo
+
+# Estimated 5-hour blocks for Claude Code today, including the active one
+llm-usage blocks --source claude --last 1
+
+# API-priced cost per month against a subscription price
+llm-usage value --plan claude-max-5x
+
+# How a model name resolves to a LiteLLM price
+llm-usage pricing claude-sonnet-4-5
 
 # Last 14 local days as a token series
 llm-usage trends --metric tokens --last 14
@@ -143,6 +161,9 @@ llm-usage monthly --provider openai
 
 # Filter by exact model or substring
 llm-usage monthly --model codex
+
+# Filter by project: a path matches that root and the roots under it, a name matches the end of a root
+llm-usage monthly --repo ~/work/api --repo web
 
 # Create a commented TOML config with editor schema support
 llm-usage config init

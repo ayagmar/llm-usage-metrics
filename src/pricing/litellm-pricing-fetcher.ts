@@ -4,10 +4,21 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { asRecord } from '../utils/as-record.js';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
 import { ensureDirectory, readRegularTextFile, writeFileAtomic } from '../utils/fs-helpers.js';
-import { normalizeKey, resolveCanonicalModelKey } from './litellm-model-matching.js';
+import {
+  explainCanonicalModelKey,
+  normalizeKey,
+  resolveCanonicalModelKey,
+} from './litellm-model-matching.js';
 import litellmPricingSnapshotPayload from './litellm-pricing-snapshot.json' with { type: 'json' };
 import litellmRetiredPricingPayload from './litellm-retired-pricing.json' with { type: 'json' };
-import type { ModelPricing, PriorityFallbackBucket, PricingSource, PricingTier } from './types.js';
+import type {
+  ModelPricing,
+  ModelPricingExplanation,
+  PricingDataOrigin,
+  PriorityFallbackBucket,
+  PricingSource,
+  PricingTier,
+} from './types.js';
 
 const ONE_MILLION = 1_000_000;
 const DEFAULT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -501,6 +512,9 @@ export class LiteLLMPricingFetcher implements PricingSource {
   private pricingByModel = new Map<string, ModelPricing>();
   private resolvedAliasCache = new Map<string, string>();
   private loadOrigin: LiteLLMPricingLoadOrigin | undefined;
+  private dataOrigin: PricingDataOrigin | undefined;
+  /** Keys the retired prices back-filled into the loaded pricing. */
+  private retiredModelKeys = new Set<string>();
   private pricingWarning: string | undefined;
 
   public constructor(options: LiteLLMPricingFetcherOptions = {}) {
@@ -529,6 +543,7 @@ export class LiteLLMPricingFetcher implements PricingSource {
    */
   public async load(): Promise<boolean> {
     this.loadOrigin = undefined;
+    this.dataOrigin = undefined;
     this.pricingWarning = undefined;
 
     const cacheLoaded = await this.loadFromCache({ allowStale: false });
@@ -586,6 +601,23 @@ export class LiteLLMPricingFetcher implements PricingSource {
 
   public getPricingWarning(): string | undefined {
     return this.pricingWarning;
+  }
+
+  public explainModel(model: string): ModelPricingExplanation {
+    const normalizedModel = normalizeKey(model);
+    const resolvedModel = this.resolveModelAlias(model);
+    const pricing = this.getPricing(resolvedModel);
+    const match = explainCanonicalModelKey(normalizedModel, this.pricingByModel);
+
+    return {
+      normalizedModel,
+      resolvedModel,
+      ...(match ? { match } : {}),
+      override: 'none',
+      ...(this.dataOrigin ? { origin: this.dataOrigin } : {}),
+      retired: pricing !== undefined && this.retiredModelKeys.has(resolvedModel),
+      ...(pricing ? { pricing } : {}),
+    };
   }
 
   public resolveModelAlias(model: string): string {
@@ -690,6 +722,7 @@ export class LiteLLMPricingFetcher implements PricingSource {
     this.pricingByModel = normalizedPricing;
     this.resolvedAliasCache.clear();
     this.loadOrigin = 'network';
+    this.dataOrigin = { kind: 'network', fetchedAt: this.now(), url: this.sourceUrl };
     this.pricingWarning = undefined;
 
     try {
@@ -745,6 +778,11 @@ export class LiteLLMPricingFetcher implements PricingSource {
     }
 
     this.loadOrigin = 'cache';
+    this.dataOrigin = {
+      kind: 'cache',
+      fetchedAt: cacheFileContent.fetchedAt,
+      url: cacheFileContent.sourceUrl,
+    };
     this.pricingWarning = isStale
       ? formatStaleCacheWarning(cacheFileContent.fetchedAt, options.fetchError)
       : undefined;
@@ -753,6 +791,8 @@ export class LiteLLMPricingFetcher implements PricingSource {
   }
 
   private backfillRetiredModels(): void {
+    this.retiredModelKeys = new Set();
+
     if (this.sourceUrl !== DEFAULT_LITELLM_PRICING_URL) {
       return;
     }
@@ -760,6 +800,7 @@ export class LiteLLMPricingFetcher implements PricingSource {
     for (const [modelName, pricing] of getRetiredLiteLLMPricing()) {
       if (!this.pricingByModel.has(modelName)) {
         this.pricingByModel.set(modelName, pricing);
+        this.retiredModelKeys.add(modelName);
       }
     }
   }
@@ -788,6 +829,11 @@ export class LiteLLMPricingFetcher implements PricingSource {
     }
 
     this.loadOrigin = 'bundled-snapshot';
+    this.dataOrigin = {
+      kind: 'bundled-snapshot',
+      fetchedAt: snapshot.fetchedAt,
+      url: snapshot.sourceUrl,
+    };
     this.pricingWarning = formatBundledSnapshotWarning(snapshot.fetchedAt);
     this.backfillRetiredModels();
     return true;

@@ -1,7 +1,7 @@
 import { asRecord } from '../utils/as-record.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import litellmModelMapPayload from './litellm-model-map.json' with { type: 'json' };
-import type { ModelPricing } from './types.js';
+import type { CanonicalModelKeyExplanation, CanonicalModelKeyRule, ModelPricing } from './types.js';
 
 type LiteLLMModelMapPayload = {
   aliases?: unknown;
@@ -235,10 +235,63 @@ function levenshteinDistance(left: string, right: string): number {
   return matrix[leftLength][rightLength];
 }
 
-function resolveMappedModelAlias(
+type KeyMatch = Omit<CanonicalModelKeyExplanation, 'rule' | 'canonicalModel'>;
+
+function withRule(
+  match: KeyMatch | undefined,
+  rule: CanonicalModelKeyRule,
+  canonicalModel: string | undefined,
+): CanonicalModelKeyExplanation | undefined {
+  // An empty key is no match, as the matcher has always treated it.
+  if (!match?.key) {
+    return undefined;
+  }
+
+  return canonicalModel === undefined ? { ...match, rule } : { ...match, rule, canonicalModel };
+}
+
+function strippedForm(candidate: string, normalizedModel: string): KeyMatch['strippedModel'] {
+  return candidate === normalizedModel ? undefined : candidate;
+}
+
+/**
+ * The rules a name is matched with, in order. The model map's canonical model goes through
+ * the same rules except the effort suffix.
+ */
+function explainKeyMatch(
   normalizedModel: string,
   pricingByModel: ReadonlyMap<string, ModelPricing>,
-): string | undefined {
+  canonicalModel?: string,
+): CanonicalModelKeyExplanation | undefined {
+  return (
+    withRule(resolveDirectModelMatch(normalizedModel, pricingByModel), 'direct', canonicalModel) ??
+    (canonicalModel === undefined
+      ? withRule(
+          resolveEffortSuffixMatch(normalizedModel, pricingByModel),
+          'effort-suffix',
+          undefined,
+        )
+      : undefined) ??
+    withRule(
+      resolveProviderPrefixedModelMatch(normalizedModel, pricingByModel),
+      'provider-prefixed',
+      canonicalModel,
+    ) ??
+    withRule(
+      resolvePrefixModelMatch(normalizedModel, pricingByModel),
+      'release-suffix',
+      canonicalModel,
+    ) ??
+    (shouldSkipFuzzyModelMatch(normalizedModel)
+      ? undefined
+      : withRule(resolveFuzzyModelMatch(normalizedModel, pricingByModel), 'fuzzy', canonicalModel))
+  );
+}
+
+function explainMappedModelAlias(
+  normalizedModel: string,
+  pricingByModel: ReadonlyMap<string, ModelPricing>,
+): CanonicalModelKeyExplanation | undefined {
   const canonicalModel = resolveCanonicalModelName(normalizedModel);
   if (!canonicalModel) {
     return undefined;
@@ -246,26 +299,9 @@ function resolveMappedModelAlias(
   const preferredPricingKey =
     litellmModelMap.preferredPricingKeyByCanonicalModel.get(canonicalModel);
   if (preferredPricingKey && pricingByModel.has(preferredPricingKey)) {
-    return preferredPricingKey;
+    return { key: preferredPricingKey, rule: 'preferred-key', canonicalModel };
   }
-  const directCanonicalMatch = resolveDirectModelMatch(canonicalModel, pricingByModel);
-  if (directCanonicalMatch) {
-    return directCanonicalMatch;
-  }
-  const providerPrefixedCanonicalMatch = resolveProviderPrefixedModelMatch(
-    canonicalModel,
-    pricingByModel,
-  );
-  if (providerPrefixedCanonicalMatch) {
-    return providerPrefixedCanonicalMatch;
-  }
-  const prefixCanonicalMatch = resolvePrefixModelMatch(canonicalModel, pricingByModel);
-  if (prefixCanonicalMatch) {
-    return prefixCanonicalMatch;
-  }
-  return shouldSkipFuzzyModelMatch(canonicalModel)
-    ? undefined
-    : resolveFuzzyModelMatch(canonicalModel, pricingByModel);
+  return explainKeyMatch(canonicalModel, pricingByModel, canonicalModel);
 }
 
 function resolveCanonicalModelName(normalizedModel: string): string | undefined {
@@ -287,13 +323,13 @@ function resolveCanonicalModelName(normalizedModel: string): string | undefined 
 function resolveDirectModelMatch(
   normalizedModel: string,
   pricingByModel: ReadonlyMap<string, ModelPricing>,
-): string | undefined {
+): KeyMatch | undefined {
   if (pricingByModel.has(normalizedModel)) {
-    return normalizedModel;
+    return { key: normalizedModel };
   }
   const strippedModel = stripProviderPrefix(normalizedModel);
   if (pricingByModel.has(strippedModel)) {
-    return strippedModel;
+    return { key: strippedModel, strippedModel };
   }
   return undefined;
 }
@@ -305,17 +341,19 @@ const EFFORT_SUFFIX_PATTERN = /-(?:minimal|low|medium|high|xhigh)$/u;
 function resolveEffortSuffixMatch(
   normalizedModel: string,
   pricingByModel: ReadonlyMap<string, ModelPricing>,
-): string | undefined {
+): KeyMatch | undefined {
   const baseModel = normalizedModel.replace(EFFORT_SUFFIX_PATTERN, '');
-  return baseModel === normalizedModel
-    ? undefined
-    : resolveDirectModelMatch(baseModel, pricingByModel);
+  if (baseModel === normalizedModel) {
+    return undefined;
+  }
+  const baseMatch = resolveDirectModelMatch(baseModel, pricingByModel);
+  return baseMatch && { key: baseMatch.key, strippedModel: baseMatch.strippedModel ?? baseModel };
 }
 
 function resolveProviderPrefixedModelMatch(
   normalizedModel: string,
   pricingByModel: ReadonlyMap<string, ModelPricing>,
-): string | undefined {
+): KeyMatch | undefined {
   const candidates = [normalizedModel, stripProviderPrefix(normalizedModel)];
   for (const candidate of candidates) {
     const matches = [...pricingByModel.keys()].filter(
@@ -326,7 +364,7 @@ function resolveProviderPrefixedModelMatch(
     }
     // Several hosts often price the same model: prefer the model's own provider, then
     // the key that defines the most rates, then the shortest key.
-    return matches
+    const key = matches
       .map((modelName) => ({
         modelName,
         rank: getProviderPrefixedKeyRank(modelName, candidate),
@@ -339,6 +377,7 @@ function resolveProviderPrefixedModelMatch(
           left.modelName.length - right.modelName.length ||
           compareByCodePoint(left.modelName, right.modelName),
       )[0].modelName;
+    return { key, strippedModel: strippedForm(candidate, normalizedModel) };
   }
   return undefined;
 }
@@ -346,7 +385,7 @@ function resolveProviderPrefixedModelMatch(
 function resolvePrefixModelMatch(
   normalizedModel: string,
   pricingByModel: ReadonlyMap<string, ModelPricing>,
-): string | undefined {
+): KeyMatch | undefined {
   const candidates = [normalizedModel, stripProviderPrefix(normalizedModel)];
   for (const candidate of candidates) {
     let bestMatch: string | undefined;
@@ -363,7 +402,7 @@ function resolvePrefixModelMatch(
       }
     }
     if (bestMatch) {
-      return bestMatch;
+      return { key: bestMatch, strippedModel: strippedForm(candidate, normalizedModel) };
     }
   }
   return undefined;
@@ -380,7 +419,7 @@ function shouldSkipFuzzyModelMatch(normalizedModel: string): boolean {
 function resolveFuzzyModelMatch(
   normalizedModel: string,
   pricingByModel: ReadonlyMap<string, ModelPricing>,
-): string | undefined {
+): KeyMatch | undefined {
   const strippedModel = stripProviderPrefix(normalizedModel);
   const fuzzyTarget = canonicalizeForFuzzy(strippedModel);
   if (!fuzzyTarget) {
@@ -412,34 +451,27 @@ function resolveFuzzyModelMatch(
   if (bestMatch.distance > maxDistance) {
     return undefined;
   }
-  return bestMatch.modelName;
+  return {
+    key: bestMatch.modelName,
+    strippedModel: strippedForm(strippedModel, normalizedModel),
+    fuzzyDistance: bestMatch.distance,
+  };
+}
+
+/** The pricing key a normalized model name resolves to, the rule that found it, and how. */
+export function explainCanonicalModelKey(
+  normalizedModel: string,
+  pricingByModel: ReadonlyMap<string, ModelPricing>,
+): CanonicalModelKeyExplanation | undefined {
+  return (
+    explainMappedModelAlias(normalizedModel, pricingByModel) ??
+    explainKeyMatch(normalizedModel, pricingByModel)
+  );
 }
 
 export function resolveCanonicalModelKey(
   normalizedModel: string,
   pricingByModel: ReadonlyMap<string, ModelPricing>,
 ): string | undefined {
-  const mappedAlias = resolveMappedModelAlias(normalizedModel, pricingByModel);
-  if (mappedAlias) {
-    return mappedAlias;
-  }
-  const directMatch = resolveDirectModelMatch(normalizedModel, pricingByModel);
-  if (directMatch) {
-    return directMatch;
-  }
-  const effortSuffixMatch = resolveEffortSuffixMatch(normalizedModel, pricingByModel);
-  if (effortSuffixMatch) {
-    return effortSuffixMatch;
-  }
-  const providerPrefixedMatch = resolveProviderPrefixedModelMatch(normalizedModel, pricingByModel);
-  if (providerPrefixedMatch) {
-    return providerPrefixedMatch;
-  }
-  const prefixMatch = resolvePrefixModelMatch(normalizedModel, pricingByModel);
-  if (prefixMatch) {
-    return prefixMatch;
-  }
-  return shouldSkipFuzzyModelMatch(normalizedModel)
-    ? undefined
-    : resolveFuzzyModelMatch(normalizedModel, pricingByModel);
+  return explainCanonicalModelKey(normalizedModel, pricingByModel)?.key;
 }

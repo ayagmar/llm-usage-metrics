@@ -1,0 +1,21 @@
+claude-max-20x: $200.00/month list price as of 2026-10-15, sources: claude
+
+| Month     | Projects                                                                                                        | Tokens | API Cost |    Plan | API / Plan | Difference |
+| :-------- | :-------------------------------------------------------------------------------------------------------------- | -----: | -------: | ------: | ---------: | ---------: |
+| 2026-05   | • a/api $0.01 \(100.0%\)                                                                                        |  1,500 |    $0.01 | $200.00 |      0.00x |   -$199.99 |
+| 2026-06\* | • a/api $0.04 \(66.2%\)<br>• b/api $0.01 \(17.8%\)<br>• src $0.01 \(9.2%\)<br>• \(unattributed\) $0.00 \(6.9%\) | 20,050 |    $0.06 | $200.00 |      0.00x |   -$199.94 |
+| ALL       | TOTAL                                                                                                           | 21,550 |    $0.07 | $400.00 |      0.00x |   -$399.93 |
+
+chatgpt-plus: $20.00/month list price as of 2026-10-15, sources: codex
+
+| Month     | Projects                                                                                                        | Tokens | API Cost |   Plan | API / Plan | Difference |
+| :-------- | :-------------------------------------------------------------------------------------------------------------- | -----: | -------: | -----: | ---------: | ---------: |
+| 2026-05   | • web $0.00 \(100.0%\)                                                                                          |  1,250 |    $0.00 | $20.00 |      0.00x |    -$20.00 |
+| 2026-06\* | • b/api $0.02 \(70.0%\)<br>• web $0.01 \(17.2%\)<br>• \(unattributed\) $0.00 \(7.0%\)<br>• tools $0.00 \(5.8%\) | 13,690 |    $0.03 | $20.00 |      0.00x |    -$19.97 |
+| ALL       | TOTAL                                                                                                           | 14,940 |    $0.03 | $40.00 |      0.00x |    -$39.97 |
+
+Months marked * are partial: the window does not cover all of the month, or it is the current month (not prorated)
+
+API Cost is the estimated pay-as-you-go price of the same usage; Difference = API Cost - Plan (positive: the plan cost less)
+
+Plan prices as of 2026-10-15, USD per month excluding tax; check current prices at https://claude.com/pricing, https://chatgpt.com/pricing, https://developers.openai.com/codex/pricing
