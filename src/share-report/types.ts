@@ -164,7 +164,11 @@ export type ShareBlocks = {
 export type ShareEmbeddedEnvelope = {
   schemaVersion: 1;
   report: 'compare' | 'efficiency' | 'optimize' | 'summary' | 'trends' | 'wrapped';
-  /** As the command's `--json` writes it: optimize's is an array of rows, the others objects. */
+  /**
+   * A sanitized copy of the command's `--json` data (optimize's is an array of rows, the
+   * others objects): path fields such as `repoRoot` are dropped and names mapped to the
+   * file's labels, so it may not validate against the command's own report schema.
+   */
   data: Record<string, unknown> | unknown[];
 };
 

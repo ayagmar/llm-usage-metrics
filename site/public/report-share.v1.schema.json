@@ -683,7 +683,7 @@
           "enum": ["compare", "efficiency", "optimize", "summary", "trends", "wrapped"]
         },
         "data": {
-          "description": "The command's --json data: an array of rows for optimize, an object otherwise.",
+          "description": "A sanitized copy of the command's --json data (an array of rows for optimize, an object otherwise): path fields such as repoRoot are dropped, project, machine and model names are mapped to the labels the rest of the file uses, every other string is scrubbed of paths, and free text (note, message, warning, warnings) of names. It may therefore not validate against the command's own report schema.",
           "oneOf": [
             {
               "type": "object"
