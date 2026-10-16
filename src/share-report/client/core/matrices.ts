@@ -81,8 +81,8 @@ function getBlockMetric(block: ShareBlock, metric: ShareMetric): number | undefi
 
 /**
  * The 5-hour blocks by the local date and hour they start. Blocks honour the span (the date
- * range) and the source filter only, and like `blocks` a block counts when it runs into the range: one
- * that started the evening before the span gets a leading row for that day.
+ * range) and the source filter only, and like `blocks` a block counts when it runs into the
+ * range: one that started the evening before the span gets a leading row for that day.
  */
 export function buildBlockMatrix(
   report: ShareReport,
