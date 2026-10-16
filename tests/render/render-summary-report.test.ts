@@ -127,7 +127,7 @@ describe('renderSummaryReport', () => {
     );
 
     expect(output).toContain(
-      'No usage found in the last 7 days or this month. Run `llm-usage doctor`',
+      'No usage data found in the last 7 days or this month. Run `llm-usage doctor`',
     );
     // An empty year draws no activity section.
     expect(output).not.toContain('Activity');
@@ -147,7 +147,7 @@ describe('renderSummaryReport', () => {
     const output = renderSummaryReport(data, 'terminal', { useColor: false });
 
     expect(output).toContain(
-      'No usage in the last 7 days or this month. Latest usage: 2026-01-17. Try `llm-usage monthly --all`.',
+      'No usage data found in the last 7 days or this month. Latest usage: 2026-01-17. Try `llm-usage monthly --all`.',
     );
     expect(output).not.toContain('llm-usage doctor');
   });
@@ -181,7 +181,9 @@ describe('renderSummaryReport', () => {
 
     const output = renderSummaryReport(data, 'terminal', { useColor: false, filtered: true });
 
-    expect(output).toContain('No usage in the last 7 days or this month for the selected filters.');
+    expect(output).toContain(
+      'No usage data found in the last 7 days or this month for the selected filters.',
+    );
     expect(output).not.toContain('monthly --all');
     expect(output).not.toContain('llm-usage doctor');
   });

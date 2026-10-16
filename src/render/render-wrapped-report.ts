@@ -184,7 +184,7 @@ function toEmptyMessage(recap: WrappedRecap, filtered: boolean): string | undefi
     return undefined;
   }
 
-  return filtered ? formatNoUsageMessage(true) : `No usage in ${recap.year}.`;
+  return formatNoUsageMessage(filtered, `in ${recap.year}`);
 }
 
 function renderWrappedTerminalReport(

@@ -12,6 +12,7 @@ import {
   runStandardPreparedReport,
   STANDARD_REPORT_FORMATS,
 } from './report-runtime/report-lifecycle.js';
+import { hasCliFilters } from './filter-match-warnings.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
 import type { EfficiencyCommandOptions, EfficiencyDiagnostics } from './usage-data-contracts.js';
 import type { BuildEfficiencyDataDeps } from './build-efficiency-data.js';
@@ -59,6 +60,7 @@ async function prepareEfficiencyReport(
     render: (efficiencyData, format) => {
       const { output, notes } = renderEfficiencyReportWithNotes(efficiencyData, format, {
         granularity,
+        filtered: hasCliFilters(options),
       });
 
       return { output, hintsAfterOutput: notes };

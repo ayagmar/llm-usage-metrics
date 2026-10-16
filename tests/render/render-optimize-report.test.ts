@@ -109,6 +109,25 @@ describe('renderOptimizeReport', () => {
     expect(output).toContain('│ Hypothetical Cost');
   });
 
+  it('prints the provider and the no-usage message when the baseline has no tokens', () => {
+    const data = createOptimizeDataResult();
+    data.rows = data.rows.map((row) => ({ ...row, totalTokens: 0 }));
+
+    const output = renderOptimizeReport(data, 'terminal', {
+      granularity: 'monthly',
+      useColor: false,
+      filtered: true,
+    });
+
+    expect(output).not.toContain('╭');
+    expect(output).not.toContain('ALL baseline cost');
+    expect(output.split('\n').slice(-3)).toEqual([
+      'Provider scope: openai',
+      '',
+      'No usage data found for the selected filters.',
+    ]);
+  });
+
   it('renders missing-pricing context in terminal output', () => {
     const data = createOptimizeDataResult();
     data.diagnostics.candidatesWithMissingPricing = ['gpt-4.1-mini'];

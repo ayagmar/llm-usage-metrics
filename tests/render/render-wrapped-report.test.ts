@@ -165,12 +165,12 @@ describe('render-wrapped-report', () => {
 
     const output = renderWrappedReport(recap, 'terminal', { useColor: false });
 
-    expect(output).toContain(`No usage in ${recap.year}.`);
+    expect(output).toContain(`No usage data found in ${recap.year}.`);
     expect(output).not.toContain('Top models');
     expect(output).not.toContain('Cost');
 
     expect(renderWrappedReport(recap, 'terminal', { useColor: false, filtered: true })).toContain(
-      'No usage data found for the selected filters.',
+      `No usage data found in ${recap.year} for the selected filters.`,
     );
 
     const markdown = renderWrappedReport(recap, 'markdown');

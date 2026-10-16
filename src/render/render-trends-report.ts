@@ -6,7 +6,7 @@ import type { TrendBucket, TrendSeries, TrendsMetric } from '../trends/trends-se
 import { formatDuration } from './format-duration.js';
 import { pluralize } from './format-number.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
-import { renderReportHeader } from './report-header.js';
+import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import {
   padEndVisible,
@@ -186,7 +186,7 @@ function renderSummaryOnly(
   }
 
   if (trendsData.totalSeries.summary.observedDayCount === 0) {
-    lines.push('No usage data found for the selected date range.');
+    lines.push(formatNoUsageMessage(false, 'for the selected date range'));
     return lines.join('\n');
   }
 
