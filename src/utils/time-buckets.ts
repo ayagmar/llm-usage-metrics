@@ -26,6 +26,8 @@ type LocalDateWindow = {
   /** Wall clock minus UTC across the window, so the local hour needs no `Intl` call. */
   offsetMs: number;
   parts: KeyedLocalDate;
+  /** The window's `YYYY-MM-DD HH:00` keys by local hour, built on first use. */
+  hourKeys?: string[];
 };
 
 type LocalDateWindowCache = {
@@ -426,20 +428,29 @@ export type LocalHourBucket = {
  * hour gets one key; `offsetMs` tells its two occurrences apart.
  */
 export function getLocalHourBucket(timestampIso: string, timezone: string): LocalHourBucket {
+  const timestampMs = parseEventTimestampMs(timestampIso);
+  const window = getCachedLocalDateWindow(timestampMs, timezone, timestampIso);
+
+  return { key: getLocalHourKey(window, timestampMs), offsetMs: window.offsetMs };
+}
+
+function parseEventTimestampMs(timestampIso: string): number {
   const timestampMs = parseCanonicalTimestampMs(timestampIso) ?? Date.parse(timestampIso);
 
   if (Number.isNaN(timestampMs)) {
     throw new Error(`Invalid event timestamp: ${timestampIso}`);
   }
 
-  const window = getCachedLocalDateWindow(timestampMs, timezone, timestampIso);
+  return timestampMs;
+}
+
+// One key string per window and hour, so an hourly report does not build a key per event.
+function getLocalHourKey(window: LocalDateWindow, timestampMs: number): string {
   const wallClockMs = timestampMs + window.offsetMs;
   const hour = Math.floor((((wallClockMs % DAY_MS) + DAY_MS) % DAY_MS) / HOUR_MS);
+  const hourKeys = (window.hourKeys ??= []);
 
-  return {
-    key: `${window.parts.dateKey} ${String(hour).padStart(2, '0')}:00`,
-    offsetMs: window.offsetMs,
-  };
+  return (hourKeys[hour] ??= `${window.parts.dateKey} ${String(hour).padStart(2, '0')}:00`);
 }
 
 export function getPeriodKey(
@@ -448,7 +459,11 @@ export function getPeriodKey(
   timezone: string,
 ): string {
   if (granularity === 'hourly') {
-    return getLocalHourBucket(timestampIso, timezone).key;
+    const timestampMs = parseEventTimestampMs(timestampIso);
+    return getLocalHourKey(
+      getCachedLocalDateWindow(timestampMs, timezone, timestampIso),
+      timestampMs,
+    );
   }
 
   const localDate = extractLocalDateParts(timestampIso, timezone);
