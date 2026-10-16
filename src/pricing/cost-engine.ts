@@ -232,13 +232,18 @@ type PricingOutcome =
       priorityPriced: boolean;
     };
 
+// Shared, so deciding an unpriced event allocates nothing.
+const UNCHANGED: PricingOutcome = { type: 'unchanged' };
+const RELABELLED: PricingOutcome = { type: 'relabelled' };
+const UNPRICED: PricingOutcome = { type: 'unpriced' };
+
 function resolvePricingOutcome(
   event: UsageEvent,
   pricing: ModelPricing | undefined,
   policy: PricingPolicy,
 ): PricingOutcome {
   if (policy.costMode === 'explicit') {
-    return event.costMode === 'explicit' ? { type: 'unchanged' } : { type: 'unpriced' };
+    return event.costMode === 'explicit' ? UNCHANGED : UNPRICED;
   }
 
   // `estimated` drops the logged cost first so an event we cannot price is unpriced, never
@@ -257,14 +262,10 @@ function resolvePricingOutcome(
     event.costUsd !== undefined &&
     !shouldRepriceExplicitZero
   ) {
-    return { type: 'unchanged' };
+    return UNCHANGED;
   }
 
-  const notPriced: PricingOutcome = shouldRepriceExplicitZero
-    ? { type: 'unchanged' }
-    : keepsLoggedCost
-      ? { type: 'relabelled' }
-      : { type: 'unpriced' };
+  const notPriced = shouldRepriceExplicitZero ? UNCHANGED : keepsLoggedCost ? RELABELLED : UNPRICED;
 
   if (!event.model || !isPriceableEvent(event) || !pricing) {
     return notPriced;
