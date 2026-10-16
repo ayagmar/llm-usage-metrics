@@ -104,6 +104,26 @@ function findDefaultPlanId(
 }
 
 /**
+ * The stderr note when no `--plan` is given and the default falls back from
+ * `DEFAULT_PLAN_ID`, which the help names as the default; otherwise `undefined`.
+ */
+export function describeDefaultPlanFallback(
+  planIds: readonly string[] | undefined,
+  selected: readonly SelectedPlan[],
+  sourceFilterLabel = '--source',
+): string | undefined {
+  const [chosen] = selected;
+
+  if ((planIds && planIds.length > 0) || chosen.plan.id === DEFAULT_PLAN_ID) {
+    return undefined;
+  }
+
+  const defaultPlan = findPlan(DEFAULT_PLAN_ID);
+
+  return `no --plan given; comparing with ${chosen.plan.id}, since ${sourceFilterLabel} leaves out every source of ${DEFAULT_PLAN_ID} (${defaultPlan.sources.join(', ')})`;
+}
+
+/**
  * The plans `--plan` names, in order and without repeats. Without `--plan`, the first
  * default plan whose sources the source filter (`--source` or config `sources`) keeps.
  * `--plan-price` replaces the list price and needs exactly one plan, the default counting

@@ -101,6 +101,23 @@ describe('value report', () => {
     );
   });
 
+  it('says on stderr which plan it fell back to, --plan-price included', async () => {
+    const note =
+      'no --plan given; comparing with chatgpt-pro-200, since --source leaves out every source of claude-max-20x (claude)';
+    const notesOf = async (options: ValueCommandOptions) =>
+      (await buildValueData({ ...baseOptions, ...options }, deps)).diagnostics.notes ?? [];
+
+    expect(await notesOf({ source: 'codex' })).toContain(note);
+    expect(await notesOf({ source: 'codex', planPrice: '50' })).toContain(note);
+    // The usual default and a named plan need no note.
+    expect((await notesOf({})).filter((line) => line.includes('--plan'))).toEqual([]);
+    expect(
+      (await notesOf({ source: 'codex', plan: ['chatgpt-plus'] })).filter((line) =>
+        line.includes('--plan'),
+      ),
+    ).toEqual([]);
+  });
+
   it('covers the last N months with --last, counting the current one', async () => {
     const data = await buildJson({ last: '3' });
 

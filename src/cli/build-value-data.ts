@@ -8,7 +8,7 @@ import {
   type PlanScope,
   type ValueReportData,
 } from '../value/build-value-report.js';
-import { selectPlans } from '../value/plans.js';
+import { describeDefaultPlanFallback, selectPlans } from '../value/plans.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
 import { parseLastOption, resolvePeriodsSince } from './build-usage-data.js';
 import {
@@ -115,6 +115,11 @@ export async function buildValueData(
     sourceFilterLabel,
   );
   const planScopes = resolvePlanScopes(plans, sourceFilter, sourceFilterLabel);
+  const planFallbackNote = describeDefaultPlanFallback(
+    commandOptions.plan,
+    plans,
+    sourceFilterLabel,
+  );
   const today = getCurrentLocalDateKey(timezone, commandDeps.now?.() ?? new Date());
   const window = resolveWindowDates(userConfigResolution.options, today);
   const options = {
@@ -159,10 +164,12 @@ export async function buildValueData(
         normalizeSourceFilter(userConfigResolution.cliOptions.source),
       ),
     ],
-    notes:
-      options.cost === false
+    notes: [
+      ...(planFallbackNote === undefined ? [] : [planFallbackNote]),
+      ...(options.cost === false
         ? dataset.notes
-        : withPricingNotes(dataset.notes, pricedEvents, pricingResult),
+        : withPricingNotes(dataset.notes, pricedEvents, pricingResult)),
+    ],
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,
