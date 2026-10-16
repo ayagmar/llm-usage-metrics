@@ -71,6 +71,11 @@ describe('buildProjectLabels', () => {
     // Reserved even when no event lacks a root, so a label never reads as missing roots.
     expect(labelsOf(['/w/(unattributed)'])).toEqual({ '/w/(unattributed)': 'w/(unattributed)' });
     expect(labelsOf(['/(unattributed)'])).toEqual({ '/(unattributed)': '/(unattributed)' });
+    // A rootless key with no parent segment to add.
+    expect(labelsOf([undefined, '(unattributed)'])).toEqual({
+      undefined: '(unattributed)',
+      '(unattributed)': './(unattributed)',
+    });
   });
 
   it('gives every distinct key a distinct label, whatever the order or repeats', () => {
