@@ -141,13 +141,34 @@ function toSourceArgs(sources: SourceOptions, source: string): string[] {
 type ForbiddenStrings = {
   paths: string[];
   sessionIds: string[];
-  /** The home directory's name, which no project label may show. */
-  homeName: string;
+  /** The names of the home directories in the events (the local one and any standard one). */
+  homeNames: string[];
 };
 
-/** Claude rows run from the home directory and from a folder under it, beside a namesake. */
+// A home directory by its standard layout, on this machine or another one.
+const HOME_LAYOUT_PATTERN =
+  /^(?:\/home\/|\/Users\/|\/var\/home\/|[a-z]:[\\/]Users[\\/])([^\\/]+)/iu;
+
+/** The user name a standard home directory in `repoRoot` gives away, if any. */
+function homeLayoutName(repoRoot: string): string | undefined {
+  return repoRoot === '/root' || repoRoot.startsWith('/root/')
+    ? 'root'
+    : HOME_LAYOUT_PATTERN.exec(repoRoot)?.[1];
+}
+
+/**
+ * Claude rows run from the home directory and from a folder under it, beside a namesake, and
+ * from the homes of other machines (as their events carry them).
+ */
 function homeClaudeRows(): string {
-  const roots = [os.homedir(), path.join(os.homedir(), 'app'), '/work/app'];
+  const roots = [
+    os.homedir(),
+    path.join(os.homedir(), 'app'),
+    '/work/app',
+    '/home/otheruser/app',
+    '/Users/bob',
+    'C:\\users\\Dev\\winproj',
+  ];
 
   return roots
     .map((cwd, index) =>
@@ -222,11 +243,13 @@ function expectNoForbiddenStrings(html: string, forbidden: ForbiddenStrings): vo
   // Path-like text anywhere in the file: a home or temp directory, a drive or UNC root.
   expect(html).not.toMatch(/(?:\/home\/|\/Users\/|\/tmp\/|\/private\/|[A-Za-z]:\\\\|\\\\\\\\)/u);
 
-  // The home directory is `~`: no label names it or climbs into it.
+  // Every home directory is `~`: no label names one or climbs into one.
   const segments = collectProjectLabels(readSharePayload(html).data).flatMap((label) =>
-    label.split('/'),
+    label.split(/[ /]/u),
   );
-  expect(segments, 'the home directory name').not.toContain(forbidden.homeName);
+  for (const name of forbidden.homeNames) {
+    expect(segments, 'a home directory name').not.toContain(name);
+  }
 }
 
 describe.skipIf(process.platform === 'win32')(`share report e2e (${WINDOWS_SKIP_REASON})`, () => {
@@ -303,9 +326,15 @@ describe.skipIf(process.platform === 'win32')(`share report e2e (${WINDOWS_SKIP_
     const projectNames = new Set([...repoRoots].map((repoRoot) => path.basename(repoRoot)));
 
     expect(repoRoots).toContain(os.homedir());
+    expect([...repoRoots].flatMap((repoRoot) => homeLayoutName(repoRoot) ?? [])).toEqual(
+      expect.arrayContaining(['otheruser', 'bob', 'Dev']),
+    );
     forbidden = {
       paths: [...repoRoots, os.homedir(), environment.rootDir, repoDir],
-      homeName: path.basename(os.homedir()),
+      homeNames: [
+        path.basename(os.homedir()),
+        ...[...repoRoots].flatMap((repoRoot) => homeLayoutName(repoRoot) ?? []),
+      ],
       // A fixture session may be named like its project, whose label the file does show.
       sessionIds: [...sessionIds].filter(
         (id) => id.length >= MIN_SCANNED_SESSION_ID_LENGTH && !projectNames.has(id),
