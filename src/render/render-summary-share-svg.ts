@@ -6,10 +6,7 @@ import type {
 import {
   activityGridWidth,
   countActivityWeeks,
-  formatApproxUsd,
-  formatCompact,
   formatDayUnit,
-  formatInteger,
   renderActivityGrid,
   renderEmptyState,
   renderHeatLegend,
@@ -21,6 +18,7 @@ import {
   truncateLabel,
   type ShareTheme,
 } from './share-svg-theme.js';
+import { formatApproxUsd, formatInteger, formatStatuslineCompact } from './format-number.js';
 import { MONTH_LABELS } from './month-labels.js';
 
 const right = SHARE_WIDTH - SHARE_MARGIN;
@@ -73,7 +71,7 @@ function renderStats(data: SummaryDataResult, theme: ShareTheme): string {
         bestDay === undefined
           ? undefined
           : bestDay.costUsd === undefined
-            ? `${formatCompact(bestDay.totalTokens)} tokens`
+            ? `${formatStatuslineCompact(bestDay.totalTokens)} tokens`
             : formatApproxUsd(bestDay.costUsd, bestDay.costIncomplete),
     }),
     renderStat({
@@ -85,7 +83,7 @@ function renderStats(data: SummaryDataResult, theme: ShareTheme): string {
       detail:
         monthToDate === undefined
           ? undefined
-          : `${formatCompact(monthToDate.totals.totalTokens)} tokens`,
+          : `${formatStatuslineCompact(monthToDate.totals.totalTokens)} tokens`,
     }),
   ].join('\n');
 }

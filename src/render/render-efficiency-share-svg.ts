@@ -6,9 +6,6 @@ import type {
 } from '../efficiency/efficiency-row.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import {
-  formatCompact,
-  formatInteger,
-  formatUsd,
   renderEmptyState,
   renderShareCard,
   renderStat,
@@ -18,6 +15,7 @@ import {
   svgText,
   type ShareTheme,
 } from './share-svg-theme.js';
+import { formatInteger, formatStatuslineCompact, formatUsd } from './format-number.js';
 
 const statsTop = 160;
 const statPitch = 268;
@@ -56,7 +54,7 @@ function renderSummaryStats(
       value:
         allRow?.tokensPerCommit === undefined
           ? '-'
-          : formatCompact(Math.round(allRow.tokensPerCommit)),
+          : formatStatuslineCompact(Math.round(allRow.tokensPerCommit)),
     },
   ];
 

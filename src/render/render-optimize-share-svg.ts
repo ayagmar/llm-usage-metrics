@@ -2,8 +2,6 @@ import type { OptimizeDataResult } from '../cli/usage-data-contracts.js';
 import type { OptimizeBaselineRow, OptimizeCandidateRow } from '../optimize/optimize-row.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import {
-  formatApproxUsd,
-  formatUsd,
   renderEmptyState,
   renderShareCard,
   renderStat,
@@ -13,6 +11,7 @@ import {
   truncateLabel,
   type ShareTheme,
 } from './share-svg-theme.js';
+import { formatApproxUsd, formatUsd } from './format-number.js';
 
 const statsTop = 160;
 const statPitch = 300;

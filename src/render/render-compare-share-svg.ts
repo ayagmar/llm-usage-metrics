@@ -4,9 +4,6 @@ import type {
   CompareMetricRow,
 } from '../cli/usage-data-contracts.js';
 import {
-  formatApproxUsd,
-  formatCompact,
-  formatInteger,
   renderEmptyState,
   renderShareCard,
   renderStat,
@@ -15,6 +12,7 @@ import {
   svgText,
   type ShareTheme,
 } from './share-svg-theme.js';
+import { formatApproxUsd, formatInteger, formatStatuslineCompact } from './format-number.js';
 
 const right = SHARE_WIDTH - SHARE_MARGIN;
 const heroTop = 176;
@@ -45,7 +43,7 @@ function formatMetricValue(row: CompareMetricRow, value: number | undefined): st
     return formatApproxUsd(value, false);
   }
 
-  return row.key === 'totalTokens' ? formatCompact(value) : formatInteger(value);
+  return row.key === 'totalTokens' ? formatStatuslineCompact(value) : formatInteger(value);
 }
 
 function formatSignedRatio(deltaRatio: number | undefined): string {

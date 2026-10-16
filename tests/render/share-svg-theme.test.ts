@@ -3,9 +3,6 @@ import { describe, expect, it } from 'vitest';
 import {
   countActivityWeeks,
   escapeSvg,
-  formatCompact,
-  formatInteger,
-  formatUsd,
   getSourceColor,
   renderActivityGrid,
   renderShareCard,
@@ -157,46 +154,6 @@ describe('share-svg-theme', () => {
       expect(renderActivityGrid({ theme: shareThemes.dark, days: [], x: 0, y: 0, pitch: 20 })).toBe(
         '',
       );
-    });
-  });
-
-  describe('formatCompact', () => {
-    it('formats billions', () => {
-      expect(formatCompact(13_600_000_000)).toBe('13.6B');
-    });
-
-    it('formats millions', () => {
-      expect(formatCompact(3_800_000)).toBe('3.8M');
-    });
-
-    it('formats thousands', () => {
-      expect(formatCompact(71_800)).toBe('71.8k');
-    });
-
-    it('formats small numbers as-is', () => {
-      expect(formatCompact(999)).toBe('999');
-      expect(formatCompact(0)).toBe('0');
-    });
-
-    it('drops trailing .0', () => {
-      expect(formatCompact(1_000_000_000)).toBe('1B');
-      expect(formatCompact(2_000_000)).toBe('2M');
-    });
-  });
-
-  describe('formatInteger', () => {
-    it('formats with commas', () => {
-      expect(formatInteger(1234567)).toBe('1,234,567');
-    });
-  });
-
-  describe('formatUsd', () => {
-    it('formats as currency', () => {
-      expect(formatUsd(13)).toBe('$13.00');
-    });
-
-    it('returns dash for undefined', () => {
-      expect(formatUsd(undefined)).toBe('-');
     });
   });
 

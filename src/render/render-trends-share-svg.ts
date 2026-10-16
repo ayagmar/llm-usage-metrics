@@ -4,8 +4,6 @@ import type { TrendBucket, TrendsMetric } from '../trends/trends-series.js';
 import { formatDuration } from './format-duration.js';
 import {
   escapeSvg,
-  formatCompact,
-  formatUsd,
   renderEmptyState,
   renderShareCard,
   renderStat,
@@ -16,6 +14,7 @@ import {
   type ShareTheme,
   svgText,
 } from './share-svg-theme.js';
+import { formatStatuslineCompact, formatUsd } from './format-number.js';
 
 const statsTop = 160;
 const statPitch = 268;
@@ -38,7 +37,7 @@ function formatMetricValue(value: number, metric: TrendsMetric, approximate = fa
       ? formatUsd(value)
       : metric === 'active-hours'
         ? formatDuration(value)
-        : formatCompact(Math.round(value));
+        : formatStatuslineCompact(Math.round(value));
   return approximate ? `~${formatted}` : formatted;
 }
 

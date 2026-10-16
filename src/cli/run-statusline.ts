@@ -1,6 +1,6 @@
 import { calculateCurrentStreak, type DailyActivity } from '../aggregate/daily-activity.js';
 import type { UsageEvent } from '../domain/usage-event.js';
-import { formatApproxUsd, formatCompact, formatUsd } from '../render/share-svg-theme.js';
+import { formatApproxUsd, formatStatuslineCompact, formatUsd } from '../render/format-number.js';
 import { asRecord } from '../utils/as-record.js';
 import { setLogLevel } from '../utils/logger.js';
 import { getPeriodKey } from '../utils/time-buckets.js';
@@ -118,7 +118,7 @@ function findPeriod(
 /** Cost when known, otherwise tokens, so a day of unpriced usage still shows something. */
 function formatPeriodAmount(period: StatuslinePeriod | undefined): string {
   if (period?.totals.costUsd === undefined) {
-    return `${formatCompact(period?.totals.totalTokens ?? 0)} tokens`;
+    return `${formatStatuslineCompact(period?.totals.totalTokens ?? 0)} tokens`;
   }
 
   return formatApproxUsd(period.totals.costUsd, period.totals.costIncomplete);

@@ -3,10 +3,7 @@ import {
   activityGridWidth,
   countActivityWeeks,
   escapeSvg,
-  formatApproxUsd,
-  formatCompact,
   formatDayUnit,
-  formatInteger,
   renderActivityGrid,
   renderEmptyState,
   renderHeatLegend,
@@ -18,6 +15,7 @@ import {
   truncateLabel,
   type ShareTheme,
 } from './share-svg-theme.js';
+import { formatApproxUsd, formatInteger, formatStatuslineCompact } from './format-number.js';
 
 const right = SHARE_WIDTH - SHARE_MARGIN;
 const statsTop = 150;
@@ -55,7 +53,7 @@ function renderStats(data: WrappedRecap, theme: ShareTheme): string {
     },
     {
       label: 'Tokens',
-      value: formatCompact(data.totalTokens),
+      value: formatStatuslineCompact(data.totalTokens),
       detail: `${formatInteger(data.eventCount)} events`,
     },
     {
@@ -94,7 +92,7 @@ function renderTopList(
 
     return `<g data-top-item="${escapeSvg(title)}-${index + 1}">
 ${svgText(x, y, truncateLabel(item.name, 34), { size: 17, fill: theme.text })}
-${svgText(x + listWidth, y, `${formatCompact(item.totalTokens)}  ${cost}`, {
+${svgText(x + listWidth, y, `${formatStatuslineCompact(item.totalTokens)}  ${cost}`, {
   size: 15,
   fill: theme.textSecondary,
   mono: true,
