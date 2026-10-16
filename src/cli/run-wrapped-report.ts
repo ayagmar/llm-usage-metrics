@@ -1,11 +1,10 @@
 import { renderWrappedReport, wrappedReportFormats } from '../render/render-wrapped-report.js';
-import { renderWrappedShareSvg } from '../render/render-wrapped-share-svg.js';
-import { createShareCardArtifact } from '../render/render-share-page.js';
 import { buildWrappedData, parseWrappedYearOption } from './build-wrapped-data.js';
 import { prepareReport, runStandardPreparedReport } from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
 import type { BuildWrappedDataDeps, WrappedCommandOptions } from './usage-data-contracts.js';
 import { hasCliFilters } from './filter-match-warnings.js';
+import { buildShareReportArtifact, parseReportJsonEnvelope } from './share-report-artifact.js';
 
 async function prepareWrappedReport(
   options: WrappedCommandOptions,
@@ -20,13 +19,24 @@ async function prepareWrappedReport(
     buildData: () => buildWrappedData(options, deps),
     getDiagnostics: (wrappedData) => wrappedData.diagnostics,
     runtimeProfile: deps.runtimeProfile,
-    buildShare: async (wrappedData) =>
-      createShareCardArtifact({
-        fileBaseName: `llm-usage-wrapped-${wrappedData.recap.year}`,
-        logLabel: 'wrapped',
-        title: `${wrappedData.recap.year} Wrapped share card`,
-        renderSvg: (theme) => renderWrappedShareSvg(wrappedData.recap, theme),
-      }),
+    buildShare: async (wrappedData, { runtimeProfile }) => {
+      const { year } = wrappedData.recap;
+      // The file holds the year and opens on all of it.
+      const window = { since: `${year}-01-01`, until: `${year}-12-31` };
+
+      return buildShareReportArtifact(
+        {
+          command: 'wrapped',
+          options,
+          window,
+          initialView: { ...window, granularity: 'week' },
+          envelope: parseReportJsonEnvelope(renderWrappedReport(wrappedData.recap, 'json')),
+          fileBaseName: `llm-usage-wrapped-${year}`,
+          logLabel: 'wrapped',
+        },
+        { ...deps, runtimeProfile },
+      );
+    },
     render: (wrappedData, format) =>
       renderWrappedReport(wrappedData.recap, format, { filtered: hasCliFilters(options) }),
   });

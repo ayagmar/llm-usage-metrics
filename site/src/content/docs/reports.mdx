@@ -54,14 +54,14 @@ llm-usage optimize monthly \
 
 ## Exports and automation
 
-| Need                              | Command                           | Guide                                                     |
-| --------------------------------- | --------------------------------- | --------------------------------------------------------- |
-| An aggregated report for a script | `llm-usage daily --json`          | [Output formats](/llm-usage-metrics/output-formats/)      |
-| A table for a document            | `llm-usage daily --markdown`      | [Output formats](/llm-usage-metrics/output-formats/)      |
-| A share card (SVG and PNG)        | `llm-usage monthly --share`       | [Share cards](/llm-usage-metrics/output-formats/#share-cards) |
-| Individual normalized events      | `llm-usage events --format jsonl` | [Events export](/llm-usage-metrics/events/)               |
-| Events for a spreadsheet          | `llm-usage events --format csv`   | [Events export](/llm-usage-metrics/events/)               |
-| The installed report's schema     | `llm-usage schema usage`          | [JSON contracts](/llm-usage-metrics/output-formats/#json) |
+| Need                              | Command                           | Guide                                                             |
+| --------------------------------- | --------------------------------- | ----------------------------------------------------------------- |
+| An aggregated report for a script | `llm-usage daily --json`          | [Output formats](/llm-usage-metrics/output-formats/)              |
+| A table for a document            | `llm-usage daily --markdown`      | [Output formats](/llm-usage-metrics/output-formats/)              |
+| An interactive HTML report        | `llm-usage monthly --share`       | [Share reports](/llm-usage-metrics/output-formats/#share-reports) |
+| Individual normalized events      | `llm-usage events --format jsonl` | [Events export](/llm-usage-metrics/events/)                       |
+| Events for a spreadsheet          | `llm-usage events --format csv`   | [Events export](/llm-usage-metrics/events/)                       |
+| The installed report's schema     | `llm-usage schema usage`          | [JSON contracts](/llm-usage-metrics/output-formats/#json)         |
 
 Report JSON uses a versioned envelope. Event JSONL is one event per line without that envelope. Diagnostics go to `stderr`, so you can redirect report data safely.
 

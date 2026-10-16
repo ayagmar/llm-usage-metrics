@@ -41,7 +41,7 @@ The tool makes exactly two kinds of HTTP request. Neither sends any of your usag
 
 ## Other processes it starts
 
-- **`--share`** writes an SVG and an HTML page to the current directory, then opens the HTML page in your browser. Nothing is uploaded. Pass `--no-open` to skip opening the browser.
+- **`--share`** writes an HTML report to the current directory, then opens it in your browser. Nothing is uploaded, and the page loads nothing from the network. It holds project folder names but never full paths or session IDs; `--redact` replaces project and machine names too. Pass `--no-open` to skip opening the browser.
 - **Multiple machines:** `machine add` and machine sync run your system `ssh` to reach machines you added yourself. The remote machine runs `llm-usage machine export` and sends back its usage events (the same fields as the ledger) plus its hostname. Nothing goes anywhere else. See [Multiple machines](/llm-usage-metrics/machines/).
 - **`git log`** for `efficiency` reports, as described above.
 

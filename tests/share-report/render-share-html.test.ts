@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -15,56 +13,8 @@ import {
 } from '../../src/share-report/client/ui/export/share-document.js';
 import { SVG_NAMESPACE } from '../../src/share-report/client/ui/export/svg-export.js';
 import { renderShareHtml } from '../../src/share-report/render-share-html.js';
+import { between, cspHash, cspSource, markupOnly, readParts } from '../helpers/share-html.js';
 import { readFixturePayload } from './client/core/share-fixture.js';
-
-function cspHash(text: string): string {
-  return `sha256-${createHash('sha256').update(text, 'utf8').digest('base64')}`;
-}
-
-function between(html: string, open: string, close: string): string {
-  const start = html.indexOf(open);
-  const end = html.indexOf(close, start + open.length);
-
-  if (start < 0 || end < 0) {
-    throw new Error(`Missing ${open}`);
-  }
-
-  return html.slice(start + open.length, end);
-}
-
-/** What the browser reads back: the CSP, the one style, the one executable script, the JSON blocks. */
-function readParts(html: string) {
-  return {
-    csp: decodeAttribute(
-      between(html, '<meta http-equiv="Content-Security-Policy" content="', '">'),
-    ),
-    style: between(html, '<style>', '</style>'),
-    script: between(html, '\n<script>', '</script>'),
-    payload: between(html, '<script type="application/json" id="report-data">', '</script>'),
-    title: between(html, '<title>', '</title>'),
-  };
-}
-
-/** An attribute value as the browser reads it. */
-function decodeAttribute(value: string): string {
-  return value
-    .replaceAll('&#39;', "'")
-    .replaceAll('&quot;', '"')
-    .replaceAll('&lt;', '<')
-    .replaceAll('&gt;', '>')
-    .replaceAll('&amp;', '&');
-}
-
-/** The markup with the executable script's text left out: what the HTML parser sees as tags. */
-function markupOnly(html: string): string {
-  const parts = readParts(html);
-  return html.replace(parts.script, '');
-}
-
-function cspSource(csp: string, directive: string): string {
-  const entry = csp.split('; ').find((part) => part.startsWith(`${directive} `));
-  return (entry ?? '').slice(directive.length + 1);
-}
 
 function renderFixture(edit?: (data: ReturnType<typeof readFixturePayload>['data']) => void) {
   const payload = readFixturePayload();

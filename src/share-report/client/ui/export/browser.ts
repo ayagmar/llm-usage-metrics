@@ -4,8 +4,8 @@
 
 import {
   EXPORT_STYLE_PROPERTIES,
+  getExportFrame,
   getRasterSize,
-  getSvgSize,
   serializeSvgForExport,
   type ExportNode,
 } from './svg-export.js';
@@ -38,7 +38,7 @@ export function exportSvg(svg: SVGSVGElement, backgroundOf: Element): string {
 
 export async function renderPng(svg: SVGSVGElement, backgroundOf: Element): Promise<Blob> {
   const root = readNode(svg);
-  const size = getSvgSize(root) ?? svg.getBoundingClientRect();
+  const size = getExportFrame(root) ?? svg.getBoundingClientRect();
   const raster = getRasterSize({ width: size.width, height: size.height });
   const xml = serializeSvgForExport(root, getComputedStyle(backgroundOf).backgroundColor);
   const url = URL.createObjectURL(new Blob([xml], { type: 'image/svg+xml' }));

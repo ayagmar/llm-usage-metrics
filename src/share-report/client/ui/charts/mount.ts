@@ -140,10 +140,16 @@ function mountChart(body: HTMLElement, context: ShareViewContext, build: ChartBu
     const created: Mounted = { context, build, width: 0 };
     state = created;
     mounted.set(body, created);
+    let frame = 0;
+    // Redraw on the next frame, not inside the callback: a redraw that changes the page height
+    // can toggle the scrollbar and resize the body again, which the browser reports as an error.
     new ResizeObserver(() => {
-      if (measure(body) !== created.width) {
-        draw(body, created);
-      }
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (measure(body) !== created.width) {
+          draw(body, created);
+        }
+      });
     }).observe(body);
   }
 

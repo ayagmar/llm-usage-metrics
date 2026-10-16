@@ -3,8 +3,9 @@
 // new size, set it to that plus 10%, and say why in the commit.
 import { readFileSync, statSync } from 'node:fs';
 
-// Measured 1,727,434 bytes with the stub share client, plus 10%.
-const DIST_BUDGET_BYTES = 1_900_000;
+// Measured 1,835,923 bytes with the full share client wired into the seven share commands and
+// the SVG cards removed, plus 10%.
+const DIST_BUDGET_BYTES = 2_020_000;
 
 const { files } = JSON.parse(readFileSync('package.json', 'utf8'));
 const distFiles = files.filter((file) => file.startsWith('dist/'));

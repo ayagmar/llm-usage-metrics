@@ -1,6 +1,4 @@
 import { renderSummaryReport, type SummaryReportFormat } from '../render/render-summary-report.js';
-import { renderSummaryShareSvg } from '../render/render-summary-share-svg.js';
-import { createShareCardArtifact } from '../render/render-share-page.js';
 import { buildSummaryData } from './build-summary-data.js';
 import {
   prepareReport,
@@ -10,6 +8,7 @@ import {
 import { createRuntimeProfileCollector } from './runtime-profile.js';
 import type { BuildSummaryDataDeps, SummaryCommandOptions } from './usage-data-contracts.js';
 import { hasCliFilters } from './filter-match-warnings.js';
+import { buildShareReportArtifact } from './share-report-artifact.js';
 
 const summaryReportFormats = STANDARD_REPORT_FORMATS satisfies readonly SummaryReportFormat[];
 
@@ -26,13 +25,22 @@ async function prepareSummaryReport(
     buildData: () => buildSummaryData(options, deps),
     getDiagnostics: (summaryData) => summaryData.diagnostics,
     runtimeProfile: deps.runtimeProfile,
-    buildShare: async (summaryData) =>
-      createShareCardArtifact({
-        fileBaseName: 'summary-share',
-        logLabel: 'summary',
-        title: 'Activity share card',
-        renderSvg: (theme) => renderSummaryShareSvg(summaryData, theme),
-      }),
+    buildShare: async (summaryData, { runtimeProfile }) => {
+      // The page holds the activity grid's 53 weeks and opens on all of them.
+      const window = { since: summaryData.activity.from, until: summaryData.activity.to };
+
+      return buildShareReportArtifact(
+        {
+          command: 'summary',
+          options,
+          window,
+          initialView: { ...window, granularity: 'week' },
+          fileBaseName: 'summary-share',
+          logLabel: 'summary',
+        },
+        { ...deps, runtimeProfile },
+      );
+    },
     render: (summaryData, format) =>
       renderSummaryReport(summaryData, format, { filtered: hasCliFilters(options) }),
     getHintsAfterOutput: (_summaryData, format) =>

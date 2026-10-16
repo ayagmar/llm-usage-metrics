@@ -149,49 +149,100 @@ function renderNode(node: ExportNode): string {
     : `<${node.tag}${renderAttributes(attributes)}>${children}</${node.tag}>`;
 }
 
-/** The pixel size of an SVG: its width and height attributes, else its viewBox. */
-export function getSvgSize(node: ExportNode): { width: number; height: number } | undefined {
-  const attribute = (name: string) => node.attributes.find(([key]) => key === name)?.[1];
-  const width = Number.parseFloat(attribute('width') ?? '');
-  const height = Number.parseFloat(attribute('height') ?? '');
+function readAttribute(node: ExportNode, name: string): string | undefined {
+  return node.attributes.find(([key]) => key === name)?.[1];
+}
 
-  if (width > 0 && height > 0) {
-    return { width, height };
-  }
-
-  const viewBox = (attribute('viewBox') ?? '')
+/** The viewBox as `[x, y, width, height]`; undefined when absent or empty. */
+function readViewBox(node: ExportNode): [number, number, number, number] | undefined {
+  const viewBox = (readAttribute(node, 'viewBox') ?? '')
     .trim()
     .split(/[\s,]+/u)
     .map(Number);
 
   return viewBox.length === 4 && viewBox[2] > 0 && viewBox[3] > 0
-    ? { width: viewBox[2], height: viewBox[3] }
+    ? [viewBox[0], viewBox[1], viewBox[2], viewBox[3]]
     : undefined;
 }
 
+/** The pixel size of an SVG: its width and height attributes, else its viewBox. */
+export function getSvgSize(node: ExportNode): { width: number; height: number } | undefined {
+  const width = Number.parseFloat(readAttribute(node, 'width') ?? '');
+  const height = Number.parseFloat(readAttribute(node, 'height') ?? '');
+
+  if (width > 0 && height > 0) {
+    return { width, height };
+  }
+
+  const viewBox = readViewBox(node);
+
+  return viewBox ? { width: viewBox[2], height: viewBox[3] } : undefined;
+}
+
+/** Space around the chart in an exported file, in the chart's own units. */
+export const EXPORT_MARGIN = 16;
+
+/** The box of an exported file: the chart's own box with {@link EXPORT_MARGIN} on every side. */
+export type ExportFrame = {
+  viewBox: [number, number, number, number];
+  /** Pixel size, grown with the margin at the chart's own scale. */
+  width: number;
+  height: number;
+};
+
+function roundSize(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+export function getExportFrame(root: ExportNode): ExportFrame | undefined {
+  const size = getSvgSize(root);
+
+  if (!size) {
+    return undefined;
+  }
+
+  const [x, y, width, height] = readViewBox(root) ?? [0, 0, size.width, size.height];
+  const margin = EXPORT_MARGIN;
+
+  return {
+    viewBox: [x - margin, y - margin, width + 2 * margin, height + 2 * margin],
+    width: roundSize((size.width * (width + 2 * margin)) / width),
+    height: roundSize((size.height * (height + 2 * margin)) / height),
+  };
+}
+
 /**
- * A standalone SVG file of a chart: namespaced, sized, on the page's background colour, with
- * computed styling as attributes and no class, CSS variable or `style` left.
+ * A standalone SVG file of a chart: namespaced, sized, with a margin around the chart, on the
+ * page's background colour, with computed styling as attributes and no class, CSS variable or
+ * `style` left.
  */
 export function serializeSvgForExport(root: ExportNode, background: string): string {
-  const size = getSvgSize(root);
-  const sizeAttributes: [string, string][] = size
+  const frame = getExportFrame(root);
+  const frameAttributes: [string, string][] = frame
     ? [
-        ['width', String(size.width)],
-        ['height', String(size.height)],
+        ['width', String(frame.width)],
+        ['height', String(frame.height)],
+        ['viewBox', frame.viewBox.join(' ')],
       ]
     : [];
   const attributes = [
     ['xmlns', SVG_NAMESPACE] as const,
-    ...sizeAttributes,
+    ...frameAttributes,
     ...root.attributes.filter(
-      ([name, value]) => name !== 'width' && name !== 'height' && !isDroppedAttribute(name, value),
+      ([name, value]) =>
+        name !== 'width' &&
+        name !== 'height' &&
+        name !== 'viewBox' &&
+        !isDroppedAttribute(name, value),
     ),
   ];
+  const backdropBox = frame
+    ? `x="${String(frame.viewBox[0])}" y="${String(frame.viewBox[1])}" width="${String(frame.viewBox[2])}" height="${String(frame.viewBox[3])}"`
+    : 'width="100%" height="100%"';
   const backdrop =
     background === '' || background.includes('var(')
       ? ''
-      : `<rect width="100%" height="100%" fill="${escapeHtml(background)}"/>`;
+      : `<rect ${backdropBox} fill="${escapeHtml(background)}"/>`;
   const children = root.children
     .map((child) => (typeof child === 'string' ? escapeHtml(child) : renderNode(child)))
     .join('');

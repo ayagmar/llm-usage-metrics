@@ -1,6 +1,6 @@
 ---
 title: Trends
-description: Chart daily cost or token usage in the terminal, JSON, or a share card.
+description: Chart daily cost or token usage in the terminal, JSON, or an interactive share report.
 ---
 
 `trends` shows daily movement over time instead of a tabular aggregate.
@@ -24,7 +24,7 @@ llm-usage trends --since 2026-02-01 --until 2026-02-28
 # Per-source JSON output
 llm-usage trends --by-source --json
 
-# Write the combined series as an SVG
+# Write an interactive HTML report of the last 14 days
 llm-usage trends --last 14 --share
 ```
 
@@ -33,10 +33,10 @@ llm-usage trends --last 14 --share
 - `--last <n>`: chart the last n local calendar days, counting today (`--days <n>` is an alias)
 - `--metric <name>`: `cost`, `tokens`, or `active-hours`
 - `--by-source`: render one sparkline row per source
-- `--share`: write the combined series to `trends-share.svg` and a `trends-share.html` page with PNG export
+- `--share`: write an interactive `trends-share.html` report of the date range
 - shared filters apply: `--source`, `--provider`, `--model`, `--since`, `--until`, `--timezone`, source-path overrides, pricing flags, and `--history`
 
-`trends` supports terminal output, `--json`, `--markdown` (one row per date plus a Total row), and `--share`. The share renderer needs the combined series, so `--share` cannot be combined with `--by-source`.
+`trends` supports terminal output, `--json`, `--markdown` (one row per date plus a Total row), and `--share`. `--share` works with `--by-source`; the report can stack its charts by source.
 
 ## `--last` vs `--since` / `--until`
 
