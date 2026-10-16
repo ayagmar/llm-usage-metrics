@@ -63,7 +63,7 @@ describe('normalizeRepoFilter', () => {
     ).toEqual([
       { kind: 'path', input: '/w/a/', path: '/w/a' },
       { kind: 'path', input: 'C:\\src\\', path: 'C:/src' },
-      { kind: 'path', input: 'c:/', path: 'c:/' },
+      { kind: 'path', input: 'c:/', path: 'C:/' },
       { kind: 'path', input: '\\\\server\\share', path: '//server/share' },
       { kind: 'suffix', input: 'work/api', suffix: 'work/api' },
     ]);
@@ -83,9 +83,36 @@ describe('applyRepoFilter', () => {
 
   it('matches a bare root against every root on it', () => {
     expect(select('C:\\')).toEqual(['C:\\src\\web', 'C:\\src\\web\\ui\\']);
-    expect(select('/')).toEqual(
-      ROOTS.filter((root) => root?.startsWith('/') === true || root?.startsWith('\\\\') === true),
-    );
+    expect(select('/')).toEqual(ROOTS.filter((root) => root?.startsWith('/') === true));
+  });
+
+  it('treats \\\\host\\share as its own root, out of reach of /', () => {
+    expect(select('/')).not.toContain('\\\\server\\share\\api');
+    expect(select('//server/share')).toEqual(['\\\\server\\share\\api']);
+    expect(select('/server/share')).toEqual([]);
+  });
+
+  it('compares drive letters in either case, and nothing else', () => {
+    expect(select('c:\\src\\web')).toEqual(['C:\\src\\web', 'C:\\src\\web\\ui\\']);
+    expect(select('c:/')).toEqual(['C:\\src\\web', 'C:\\src\\web\\ui\\']);
+    expect(select('C:\\SRC\\web')).toEqual([]);
+    expect(
+      applyRepoFilter([{ repoRoot: 'c:\\src\\web' }], normalizeRepoFilter('C:\\src', context)),
+    ).toHaveLength(1);
+  });
+
+  it('normalizes . and .. inside absolute values, clamped at their root', () => {
+    expect(select('/w/a/../a/api')).toEqual(['/w/a/api', '/w/a/api/src']);
+    expect(select('/w/./b//')).toEqual(['/w/b/api/']);
+    expect(select('C:\\src\\..\\src\\web\\ui')).toEqual(['C:\\src\\web\\ui\\']);
+    expect(select('C:\\..\\src\\web\\ui')).toEqual(['C:\\src\\web\\ui\\']);
+    expect(select('\\\\server\\share\\x\\..\\api')).toEqual(['\\\\server\\share\\api']);
+    expect(select('/w/a/api/src/../..')).toEqual([
+      '/w/a/api',
+      '/w/a/api/src',
+      '/w/a/apix',
+      '/w/a/myapi',
+    ]);
   });
 
   it('matches Windows roots with either separator and a trailing one', () => {
