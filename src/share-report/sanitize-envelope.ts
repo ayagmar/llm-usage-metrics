@@ -1,4 +1,5 @@
 import { toProjectKey } from '../aggregate/project-key.js';
+import { toShareModelLabel } from './redact.js';
 import type { ShareEmbeddedEnvelope } from './types.js';
 
 /** Fields whose values are paths; they are dropped, never scrubbed. */
@@ -11,6 +12,16 @@ const PATH_FIELDS: ReadonlySet<string> = new Set([
   'filePath',
   'configPath',
 ]);
+
+/** Fields whose values are model names; they get the labels the rest of the file gives them. */
+const MODEL_FIELDS: ReadonlySet<string> = new Set([
+  'model',
+  'candidateModel',
+  'candidateResolvedModel',
+]);
+
+/** Fields holding lists of models: names, or records naming one (`{ name, … }`). */
+const MODEL_LIST_FIELDS: ReadonlySet<string> = new Set(['models', 'topModels']);
 
 export type EnvelopeLabelMaps = {
   /** The share label (redacted with --redact) of a project key; undefined for unknown keys. */
@@ -60,6 +71,18 @@ function sanitizeProject(record: Record<string, unknown>, maps: EnvelopeLabelMap
   return maps.projectLabelForLabel(label) ?? maps.scrub(label);
 }
 
+function sanitizeModel(value: unknown, maps: EnvelopeLabelMaps): unknown {
+  if (typeof value === 'string') {
+    return toShareModelLabel(value);
+  }
+
+  if (isRecord(value) && typeof value.name === 'string') {
+    return { ...sanitizeRecord(value, maps), name: toShareModelLabel(value.name) };
+  }
+
+  return sanitizeValue(value, maps);
+}
+
 function sanitizeRecord(
   record: Record<string, unknown>,
   maps: EnvelopeLabelMaps,
@@ -73,6 +96,10 @@ function sanitizeRecord(
 
     if (key === 'project' && typeof value === 'string') {
       sanitized[key] = sanitizeProject(record, maps);
+    } else if (MODEL_FIELDS.has(key) && typeof value === 'string') {
+      sanitized[key] = toShareModelLabel(value);
+    } else if (MODEL_LIST_FIELDS.has(key) && Array.isArray(value)) {
+      sanitized[key] = value.map((model) => sanitizeModel(model, maps));
     } else if (key === 'machine' && typeof value === 'string') {
       sanitized[key] = maps.machineLabel(value);
     } else if (key === 'machines' && Array.isArray(value)) {
@@ -89,8 +116,8 @@ function sanitizeRecord(
 
 /**
  * The invoking command's report JSON made safe to embed: path fields dropped (`repoRoot` and
- * the like), `project` and `machine` mapped through the file's label and redaction maps, and
- * every other string scrubbed of paths.
+ * the like), `project` and `machine` mapped through the file's label and redaction maps, model
+ * names labelled as the file labels them, and every other string scrubbed of paths.
  */
 export function sanitizeEmbeddedEnvelope(
   envelope: Pick<ShareEmbeddedEnvelope, 'report' | 'data'>,

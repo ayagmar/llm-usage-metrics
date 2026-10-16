@@ -332,6 +332,27 @@ describe('buildShareReportData', () => {
       }
     });
 
+    it('labels the envelope’s models as the dictionary labels them', async () => {
+      const model = './models/home/oscar/m';
+      const data = await buildShareReportData(
+        request({
+          command: 'wrapped',
+          envelope: {
+            report: 'wrapped',
+            data: { topModels: [{ name: model, totalTokens: 1_100 }], candidateModel: model },
+          },
+        }),
+        deps([usage({ model })]),
+      );
+
+      expect(data.dictionaries.models).toEqual(['m']);
+      expect(data.envelope?.data).toEqual({
+        topModels: [{ name: 'm', totalTokens: 1_100 }],
+        candidateModel: 'm',
+      });
+      expect(JSON.stringify(data)).not.toContain('oscar');
+    });
+
     it('maps the envelope’s projects to the file’s labels', async () => {
       const data = await buildShareReportData(request({ envelope: envelope() }), deps(corpus()));
       const envelopeData = data.envelope?.data as Record<string, unknown> | undefined;

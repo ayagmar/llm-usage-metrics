@@ -14,15 +14,17 @@ const ROOT_PROJECT_LABEL = '(root)';
 
 const DRIVE_PATH_PATTERN = /^[A-Za-z]:[\\/]/u;
 const FILE_URI_PATTERN = /^file:/iu;
+const RELATIVE_PATH_PATTERN = /^\.{1,2}[\\/]/u;
 
-/** Whether `value` reads as a path: `/…`, `~…`, `X:\…` (or `X:/…`), `\\…`, `file:…`. */
+/** Whether `value` reads as a path: `/…`, `~…`, `X:\…`, `X:/…`, `\\…`, `file:…`, `./…`, `../…`. */
 export function isPathLike(value: string): boolean {
   return (
     value.startsWith('/') ||
     FILE_URI_PATTERN.test(value) ||
     value.startsWith('~') ||
     value.startsWith('\\\\') ||
-    DRIVE_PATH_PATTERN.test(value)
+    DRIVE_PATH_PATTERN.test(value) ||
+    RELATIVE_PATH_PATTERN.test(value)
   );
 }
 
@@ -32,7 +34,18 @@ export function toBasename(value: string): string {
   return segments.at(-1) ?? value;
 }
 
-/** A model as the share report shows it: path-like names become their basename. */
+/** A path as one name: its basename, or `~` for a home directory, whose name is the user's. */
+function toPathName(value: string): string {
+  const homeEnd = getHomeEnd(value, undefined);
+  return homeEnd !== undefined && splitKeySegments(value.slice(homeEnd)).length === 0
+    ? '~'
+    : toBasename(value);
+}
+
+/**
+ * A model as the share report shows it: path-like names, and any holding a standard home
+ * directory, become their basename.
+ */
 export function toShareModelLabel(model: string | undefined): string {
   const normalized = model?.trim().toLowerCase();
 
@@ -40,7 +53,9 @@ export function toShareModelLabel(model: string | undefined): string {
     return UNKNOWN_MODEL_LABEL;
   }
 
-  return isPathLike(normalized) ? toBasename(normalized) : normalized;
+  return isPathLike(normalized) || STANDARD_HOME_PATTERN.test(normalized)
+    ? toPathName(normalized)
+    : normalized;
 }
 
 function splitKeySegments(key: string): string[] {
@@ -248,6 +263,6 @@ export function createPathScrubber(
     // Homes no known path covered: other machines' and other users'.
     scrubbed = scrubbed.replace(STANDARD_HOME_IN_TEXT_PATTERN, '~');
 
-    return isPathLike(scrubbed) ? toBasename(scrubbed) : scrubbed;
+    return isPathLike(scrubbed) ? toPathName(scrubbed) : scrubbed;
   };
 }
