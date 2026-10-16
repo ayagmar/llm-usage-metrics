@@ -517,11 +517,9 @@ export function registerSharedReportOptions(
 
   if (profileConfig.includeShare) {
     configuredCommand
-      .option(
-        '--share',
-        'Write a share card (SVG and an HTML page with PNG export) to the current directory',
-      )
-      .option('--no-open', 'With --share, write the files without opening the page');
+      .option('--share', 'Write an interactive HTML report to the current directory')
+      .option('--no-open', 'With --share, write the report without opening it')
+      .option('--redact', 'With --share, label projects project-N and machines machine-N');
   }
 
   return configuredCommand;
