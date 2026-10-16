@@ -1,3 +1,5 @@
+import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+
 /** The label of usage without a repository root. */
 export const UNATTRIBUTED_PROJECT_LABEL = '(unattributed)';
 
@@ -37,10 +39,14 @@ function splitKeySegments(key: string): string[] {
     .filter((segment) => segment.length > 0);
 }
 
+type PendingKey = { segments: string[]; depth: number };
+
 /**
  * Display labels for project keys: the last path segment, extended with parent segments
- * until it is unique. A key that runs out of segments while it still collides is labelled
- * with the full key. `undefined` (no repository root) is `(unattributed)`.
+ * until no other key and no label already given shares it. A key that runs out of segments
+ * while it still collides is labelled with the full key, numbered ` #2`, ` #3`… if that
+ * is taken too. `undefined` (no repository root) is `(unattributed)`, a label no real
+ * project gets.
  *
  * Call it once per report over every key in its filtered events, so a project keeps one
  * label across periods and windows.
@@ -49,7 +55,14 @@ export function buildProjectLabels(
   keys: Iterable<string | undefined>,
 ): Map<string | undefined, string> {
   const labels = new Map<string | undefined, string>();
-  const pending = new Map<string, { segments: string[]; depth: number }>();
+  const pending = new Map<string, PendingKey>();
+  // Labels given so far; the reserved one is never given to a real project.
+  const taken = new Set([UNATTRIBUTED_PROJECT_LABEL]);
+  const give = (key: string, label: string) => {
+    labels.set(key, label);
+    taken.add(label);
+    pending.delete(key);
+  };
 
   for (const key of keys) {
     if (key === undefined) {
@@ -60,32 +73,42 @@ export function buildProjectLabels(
   }
 
   while (pending.size > 0) {
-    const keysByLabel = new Map<string, string[]>();
+    const keysByLabel = new Map<string, [string, PendingKey][]>();
+    const outOfSegments: string[] = [];
 
-    for (const [key, { segments, depth }] of pending) {
+    for (const [key, entry] of pending) {
+      const { segments, depth } = entry;
       const label = depth > segments.length ? key : segments.slice(-depth).join('/');
-      keysByLabel.set(label, [...(keysByLabel.get(label) ?? []), key]);
+      keysByLabel.set(label, [...(keysByLabel.get(label) ?? []), [key, entry]]);
     }
 
     for (const [label, labelKeys] of keysByLabel) {
-      for (const key of labelKeys) {
-        const entry = pending.get(key);
+      if (labelKeys.length === 1 && !taken.has(label)) {
+        give(labelKeys[0][0], label);
+        continue;
+      }
 
-        if (!entry) {
-          continue;
-        }
-
-        if (labelKeys.length === 1) {
-          labels.set(key, label);
-          pending.delete(key);
-        } else if (entry.depth >= entry.segments.length) {
-          // Out of segments while still colliding: only the full key is unambiguous.
-          labels.set(key, key);
-          pending.delete(key);
+      for (const [key, entry] of labelKeys) {
+        if (entry.depth >= entry.segments.length) {
+          outOfSegments.push(key);
         } else {
           entry.depth += 1;
         }
       }
+    }
+
+    // Out of segments while still colliding: the full key, which a rootless key spelled like
+    // the reserved label reads as a relative path, numbered if even that is taken. Sorted, so
+    // the numbers do not depend on the input order.
+    for (const key of outOfSegments.sort(compareByCodePoint)) {
+      const label = key === UNATTRIBUTED_PROJECT_LABEL ? `./${key}` : key;
+      let numbered = label;
+
+      for (let number = 2; taken.has(numbered); number += 1) {
+        numbered = `${label} #${String(number)}`;
+      }
+
+      give(key, numbered);
     }
   }
 

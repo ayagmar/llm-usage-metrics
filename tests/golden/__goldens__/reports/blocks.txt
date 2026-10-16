@@ -46,7 +46,7 @@
   Total                      3,900
   Cost                       $0.02
 
-2026-06-15 21:00-02:00 · codex
+2026-06-15 21:00-2026-06-16 02:00 · codex
   Models       • gpt-5
   Events                         1
   Input                        700
@@ -57,7 +57,7 @@
   Total                        790
   Cost                       $0.00
 
-2026-06-20 22:00-03:00 · claude
+2026-06-20 22:00-2026-06-21 03:00 · claude
   Models       • claude-sonnet-4-5
   Events                         2
   Input                      3,200

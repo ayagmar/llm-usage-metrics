@@ -11,12 +11,19 @@ import { useBundledPricingOnly } from '../helpers/offline-pricing.js';
 
 const NOW = new Date('2026-06-21T12:00:00.000Z');
 
-function event(timestamp: string, source = 'claude', model = 'claude-sonnet-4-5'): UsageEvent {
+function event(
+  timestamp: string,
+  source = 'claude',
+  model = 'claude-sonnet-4-5',
+  repoRoot?: string,
+  provider = source === 'claude' ? 'anthropic' : 'openai',
+): UsageEvent {
   return createUsageEvent({
     source,
     sessionId: 's',
     timestamp,
-    provider: source === 'claude' ? 'anthropic' : 'openai',
+    repoRoot,
+    provider,
     model,
     inputTokens: 1_000,
     outputTokens: 100,
@@ -120,6 +127,67 @@ describe('buildBlocksData', () => {
     expect(result.data.blockCount).toBe(2);
     expect(result.data.blocks.map((block) => block.start)).toEqual(['2026-06-20T01:00:00.000Z']);
     expect(result.data.activeBlocks.map((block) => block.source)).toEqual(['codex']);
+  });
+
+  it.each([
+    ['--model', { model: 'claude-sonnet-4-5' }],
+    ['--repo', { repo: 'api' }],
+    ['--provider', { provider: 'anthropic' }],
+  ] satisfies [string, BlocksCommandOptions][])(
+    'keeps the account window when %s narrows the events',
+    async (_flag, options) => {
+      const events = [
+        // Starts the block the selected event falls in, though it is not selected.
+        event('2026-06-21T08:30:00.000Z', 'claude', 'claude-opus-4-1', '/w/web', 'openrouter'),
+        event('2026-06-21T10:15:00.000Z', 'claude', 'claude-sonnet-4-5', '/w/api'),
+        event('2026-06-21T09:00:00.000Z', 'codex', 'gpt-5', '/w/web'),
+      ];
+      const result = await build(events, options);
+
+      expect(result.data.blockCount).toBe(1);
+      expect(result.data.blocks[0]).toMatchObject({
+        source: 'claude',
+        start: '2026-06-21T08:00:00.000Z',
+        startUncertain: false,
+        eventCount: 1,
+        totalTokens: 1_100,
+        models: ['claude-sonnet-4-5'],
+        // 60 min left of the 08:00 block; 1,100 tokens over the 4 h since it started.
+        active: { remainingMinutes: 60, tokensPerHour: 275 },
+      });
+    },
+  );
+
+  it('reads the dataset once for --machine local when no other machine is configured', async () => {
+    let reads = 0;
+    const createAdapters = adaptersFor([event('2026-06-21T10:15:00.000Z')]);
+    const result = await buildBlocksData(
+      { timezone: 'UTC', pricingOffline: true, machine: 'local' },
+      {
+        now: () => NOW,
+        createAdapters: () => {
+          reads += 1;
+          return createAdapters();
+        },
+        getEventStoreRuntimeConfig: () => ({
+          enabled: false,
+          path: '',
+          disabledBy: 'configuration',
+        }),
+      },
+    );
+
+    expect(result.data.blocks.map((block) => block.eventCount)).toEqual([1]);
+    expect(reads).toBe(1);
+  });
+
+  it('leaves the blocks of unfiltered runs alone', async () => {
+    const events = [
+      event('2026-06-21T08:30:00.000Z', 'claude', 'claude-opus-4-1'),
+      event('2026-06-21T10:15:00.000Z'),
+    ];
+
+    expect((await build(events)).data.blocks.map((block) => block.eventCount)).toEqual([2]);
   });
 
   it('rejects invalid and conflicting window flags', async () => {

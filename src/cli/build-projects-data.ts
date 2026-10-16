@@ -13,6 +13,7 @@ import type {
 } from '../domain/usage-report-row.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { getPeriodKey, type ReportGranularity } from '../utils/time-buckets.js';
+import { roundRatio } from '../value/build-value-report.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import { resolveUsageDataRequest } from './build-usage-data.js';
 import {
@@ -34,7 +35,10 @@ export type ProjectRow = UsageTotals & {
   /** The project key, `null` for usage without a repository root. */
   repoRoot: string | null;
   project: string;
-  /** The project's part of the window's cost (0-1); null when the window cost is not positive. */
+  /**
+   * The project's part of the window's cost (0-1), rounded as value's `costShare`; null when
+   * the window cost is not positive.
+   */
   costShare: number | null;
   events: number;
   /** Distinct local dates (report timezone) with usage. */
@@ -169,7 +173,7 @@ function toProjectRow(
     ...accumulator.totals,
     costShare:
       windowCostUsd !== undefined && windowCostUsd > 0 && costUsd !== undefined
-        ? costUsd / windowCostUsd
+        ? roundRatio(costUsd / windowCostUsd)
         : null,
     events: activity?.events ?? 0,
     activeDays: activity?.days.size ?? 0,

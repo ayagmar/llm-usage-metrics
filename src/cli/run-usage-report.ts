@@ -1,7 +1,6 @@
 import {
   buildUsageData,
   DEFAULT_REPORT_WINDOWS,
-  findRepeatedLocalHours,
   HOURLY_MAX_LAST_DAYS,
 } from './build-usage-data.js';
 import {
@@ -53,8 +52,15 @@ function resolveShareFileName(granularity: ReportGranularity): string {
 }
 
 function getRepeatedHourNotes(usageData: UsageDataResult): string[] {
-  return findRepeatedLocalHours(usageData.events, usageData.diagnostics.timezone).map(
-    (key) => `${key} combines two hours: the clocks went back at the end of daylight saving time.`,
+  const repeatedKeys = new Set(
+    usageData.rows
+      .filter((row) => row.rowType !== 'grand_total' && row.repeatedHour === true)
+      .map((row) => row.periodKey),
+  );
+
+  return [...repeatedKeys].map(
+    (key) =>
+      `${key} repeats: the clocks went back at the end of daylight saving time, so its row covers both occurrences.`,
   );
 }
 

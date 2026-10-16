@@ -215,7 +215,8 @@ describe('aggregateProjects', () => {
 
     expect(data.projects.map((project) => project.project)).toEqual(['steady']);
     expect(data.totals).toMatchObject({ costUsd: 7.5, projects: 3 });
-    expect(data.projects[0].costShare).toBeCloseTo(4 / 7.5, 12);
+    // Rounded to 6 places, as value's costShare.
+    expect(data.projects[0].costShare).toBe(0.533333);
     expect(data.periods?.map((row) => [row.periodKey, row.project, row.costUsd])).toEqual([
       ['2026-05', 'steady', 2],
       ['2026-06', 'steady', 2],

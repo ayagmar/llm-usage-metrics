@@ -91,7 +91,7 @@
       ],
       "properties": {
         "costShare": {
-          "description": "The project's part of the window's cost, from 0 to 1; null when the window has no positive cost or the project no resolved cost.",
+          "description": "The project's part of the window's cost, from 0 to 1, rounded to 6 decimal places; null when the window has no positive cost or the project no resolved cost.",
           "type": ["number", "null"],
           "minimum": 0
         },

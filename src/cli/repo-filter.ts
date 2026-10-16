@@ -28,9 +28,23 @@ const ABSOLUTE_PATTERN = /^(?:\/|[A-Za-z]:)/u;
 const RELATIVE_PATTERN = /^\.\.?(?:\/|$)/u;
 const HOME_PATTERN = /^~(?:\/|$)/u;
 
-/** Forward slashes, no trailing separator except a bare root (`/`, `C:/`). */
+const DRIVE_PREFIX_PATTERN = /^[A-Za-z]:/u;
+const UNC_ROOT_PATTERN = /^\/\/[^/]+(?:\/[^/]+)?/u;
+
+/**
+ * Forward slashes, an upper-case drive letter (Windows ignores its case), no trailing
+ * separator except a bare root (`/`, `C:/`).
+ */
 function normalizeSeparators(value: string): string {
-  return stripTrailingSeparators(value.replaceAll('\\', '/'));
+  return stripTrailingSeparators(
+    value.replaceAll('\\', '/').replace(DRIVE_PREFIX_PATTERN, (drive) => drive.toUpperCase()),
+  );
+}
+
+/** Resolves `.` and `..` below the root (`/`, `C:`, `//host/share`) of a `/`-separated path. */
+function normalizeAbsolutePath(value: string): string {
+  const root = UNC_ROOT_PATTERN.exec(value)?.[0] ?? DRIVE_PREFIX_PATTERN.exec(value)?.[0] ?? '';
+  return normalizeSeparators(root + path.posix.normalize(`/${value.slice(root.length)}`));
 }
 
 function toRepoFilterValue(input: string, context: RepoFilterContext): RepoFilterValue {
@@ -57,7 +71,7 @@ function toRepoFilterValue(input: string, context: RepoFilterContext): RepoFilte
   }
 
   if (ABSOLUTE_PATTERN.test(value)) {
-    return { kind: 'path', input, path: normalizeSeparators(value) };
+    return { kind: 'path', input, path: normalizeAbsolutePath(value) };
   }
 
   return { kind: 'suffix', input, suffix: normalizeSeparators(value) };
@@ -87,7 +101,12 @@ export function normalizeRepoFilter(
   return [...new Set(inputs)].map((input) => toRepoFilterValue(input, context));
 }
 
+/** Whether `key` is `root` or under it; a UNC key (`//host/share`) is never under `/`. */
 function matchesPath(key: string, root: string): boolean {
+  if (key.startsWith('//') !== root.startsWith('//')) {
+    return false;
+  }
+
   return key === root || key.startsWith(root.endsWith('/') ? root : `${root}/`);
 }
 
@@ -106,9 +125,15 @@ function valueMatchesKey(value: RepoFilterValue, key: string | undefined): boole
     : key === value.suffix || key.endsWith(`/${value.suffix}`);
 }
 
+/** A project key in the form `--repo` values take, so an absolute root matches itself. */
 function toComparableKey(repoRoot: string | undefined): string | undefined {
-  const key = toProjectKey(repoRoot);
-  return key === undefined ? undefined : normalizeSeparators(key);
+  const key = toProjectKey(repoRoot)?.replaceAll('\\', '/');
+
+  if (key === undefined) {
+    return undefined;
+  }
+
+  return ABSOLUTE_PATTERN.test(key) ? normalizeAbsolutePath(key) : normalizeSeparators(key);
 }
 
 /** Keeps the events of the selected projects; without a filter, returns `events` itself. */

@@ -224,16 +224,17 @@ function toProjectTrendValueRows(
   );
 }
 
-// Per-day gap-capped active time: group a day's events by session, run
-// computeActiveMs per group, and sum per source (or per project). A session crossing
-// midnight splits at the day boundary; with --by-repo, a session that moves between
-// projects splits at each project.
+// Per-day gap-capped active time: order a day's events by session, split each session
+// into runs of consecutive events in one group, run computeActiveMs per run, and sum per
+// source (or per project). A session crossing midnight splits at the day boundary; with
+// --by-repo, a session splits at each project switch, so a return to a project is a new
+// run and the projects never sum to more than the combined time.
 function sumActiveMsByDay<Group>(
   events: readonly UsageEvent[],
   timezone: string,
   groupOf: (event: UsageEvent) => Group,
 ): { periodKey: string; group: Group; value: number }[] {
-  const timestampsByDate = new Map<string, Map<Group, Map<string, number[]>>>();
+  const sessionsByDate = new Map<string, Map<string, { timestampMs: number; group: Group }[]>>();
 
   for (const event of events) {
     const timestampMs = Date.parse(event.timestamp);
@@ -243,28 +244,41 @@ function sumActiveMsByDay<Group>(
     }
 
     const dateKey = getPeriodKey(event.timestamp, 'daily', timezone);
-    const groups = timestampsByDate.get(dateKey) ?? new Map<Group, Map<string, number[]>>();
-    const group = groupOf(event);
-    const sessions = groups.get(group) ?? new Map<string, number[]>();
+    const sessions =
+      sessionsByDate.get(dateKey) ?? new Map<string, { timestampMs: number; group: Group }[]>();
     const sessionKey = getEventSessionKey(event);
-    const timestampsMs = sessions.get(sessionKey) ?? [];
-    timestampsMs.push(timestampMs);
-    sessions.set(sessionKey, timestampsMs);
-    groups.set(group, sessions);
-    timestampsByDate.set(dateKey, groups);
+    const sessionEvents = sessions.get(sessionKey) ?? [];
+    sessionEvents.push({ timestampMs, group: groupOf(event) });
+    sessions.set(sessionKey, sessionEvents);
+    sessionsByDate.set(dateKey, sessions);
   }
 
   const rows: { periodKey: string; group: Group; value: number }[] = [];
 
-  for (const [periodKey, groups] of timestampsByDate) {
-    for (const [group, sessions] of groups) {
-      let activeMs = 0;
+  for (const [periodKey, sessions] of sessionsByDate) {
+    const activeMsByGroup = new Map<Group, number>();
 
-      for (const timestampsMs of sessions.values()) {
-        activeMs += computeActiveMs(timestampsMs);
+    for (const sessionEvents of sessions.values()) {
+      sessionEvents.sort((left, right) => left.timestampMs - right.timestampMs);
+      let runStart = 0;
+
+      for (let index = 1; index <= sessionEvents.length; index += 1) {
+        const group = sessionEvents[runStart].group;
+
+        if (index < sessionEvents.length && sessionEvents[index].group === group) {
+          continue;
+        }
+
+        const runMs = computeActiveMs(
+          sessionEvents.slice(runStart, index).map((entry) => entry.timestampMs),
+        );
+        activeMsByGroup.set(group, (activeMsByGroup.get(group) ?? 0) + runMs);
+        runStart = index;
       }
+    }
 
-      rows.push({ periodKey, group, value: activeMs });
+    for (const [group, value] of activeMsByGroup) {
+      rows.push({ periodKey, group, value });
     }
   }
 
