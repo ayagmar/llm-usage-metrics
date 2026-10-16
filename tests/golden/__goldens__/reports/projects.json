@@ -25,7 +25,7 @@
         "cacheWriteTokens": 0,
         "totalTokens": 17900,
         "costUsd": 0.0471,
-        "costShare": 0.4648408586232421,
+        "costShare": 0.464841,
         "events": 3,
         "activeDays": 2,
         "topModels": [
@@ -42,7 +42,7 @@
         "cacheWriteTokens": 0,
         "totalTokens": 11700,
         "costUsd": 0.031875,
-        "costShare": 0.3145817912657291,
+        "costShare": 0.314582,
         "events": 3,
         "activeDays": 1,
         "topModels": [
@@ -60,7 +60,7 @@
         "cacheWriteTokens": 0,
         "totalTokens": 3350,
         "costUsd": 0.009,
-        "costShare": 0.08882309400444115,
+        "costShare": 0.088823,
         "events": 2,
         "activeDays": 2,
         "topModels": [
@@ -77,7 +77,7 @@
         "cacheWriteTokens": 0,
         "totalTokens": 1750,
         "costUsd": 0.006175,
-        "costShare": 0.06094251171971379,
+        "costShare": 0.060943,
         "events": 2,
         "activeDays": 1,
         "topModels": [
@@ -95,7 +95,7 @@
         "cacheWriteTokens": 0,
         "totalTokens": 1000,
         "costUsd": 0.0054,
-        "costShare": 0.053293856402664694,
+        "costShare": 0.053294,
         "events": 1,
         "activeDays": 1,
         "topModels": [
@@ -112,7 +112,7 @@
         "cacheWriteTokens": 0,
         "totalTokens": 790,
         "costUsd": 0.001775,
-        "costShare": 0.017517887984209227,
+        "costShare": 0.017518,
         "events": 1,
         "activeDays": 1,
         "topModels": [

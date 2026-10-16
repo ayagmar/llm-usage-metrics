@@ -40,7 +40,7 @@
                 "totalTokens": 1500,
                 "costUsd": 0.0081,
                 "costIncomplete": false,
-                "share": 1
+                "costShare": 1
               }
             ]
           },
@@ -60,7 +60,7 @@
                 "totalTokens": 16400,
                 "costUsd": 0.039,
                 "costIncomplete": false,
-                "share": 0.661578
+                "costShare": 0.661578
               },
               {
                 "repoRoot": "/w/b/api",
@@ -68,7 +68,7 @@
                 "totalTokens": 1900,
                 "costUsd": 0.0105,
                 "costIncomplete": false,
-                "share": 0.178117
+                "costShare": 0.178117
               },
               {
                 "repoRoot": "/w/a/api/src",
@@ -76,7 +76,7 @@
                 "totalTokens": 1000,
                 "costUsd": 0.0054,
                 "costIncomplete": false,
-                "share": 0.091603
+                "costShare": 0.091603
               },
               {
                 "repoRoot": null,
@@ -84,7 +84,7 @@
                 "totalTokens": 750,
                 "costUsd": 0.00405,
                 "costIncomplete": false,
-                "share": 0.068702
+                "costShare": 0.068702
               }
             ]
           }
@@ -130,7 +130,7 @@
                 "totalTokens": 1250,
                 "costUsd": 0.00375,
                 "costIncomplete": false,
-                "share": 1
+                "costShare": 1
               }
             ]
           },
@@ -150,7 +150,7 @@
                 "totalTokens": 9800,
                 "costUsd": 0.021375,
                 "costIncomplete": false,
-                "share": 0.700246
+                "costShare": 0.700246
               },
               {
                 "repoRoot": "C:\\src\\web",
@@ -158,7 +158,7 @@
                 "totalTokens": 2100,
                 "costUsd": 0.00525,
                 "costIncomplete": false,
-                "share": 0.17199
+                "costShare": 0.17199
               },
               {
                 "repoRoot": null,
@@ -166,7 +166,7 @@
                 "totalTokens": 1000,
                 "costUsd": 0.002125,
                 "costIncomplete": false,
-                "share": 0.069615
+                "costShare": 0.069615
               },
               {
                 "repoRoot": "/w/c/tools",
@@ -174,7 +174,7 @@
                 "totalTokens": 790,
                 "costUsd": 0.001775,
                 "costIncomplete": false,
-                "share": 0.058149
+                "costShare": 0.058149
               }
             ]
           }
