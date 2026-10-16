@@ -268,6 +268,25 @@ describe('sanitizeEmbeddedEnvelope', () => {
     });
   });
 
+  it('leaves identifiers alone when a project or machine shares their name', () => {
+    const names = new Map([
+      ['codex', 'project-1'],
+      ['tokens', 'project-2'],
+      ['openai', 'machine-1'],
+      ['ALL', 'project-3'],
+    ]);
+    const data = {
+      sources: [{ source: 'codex', provider: 'openai', periodKey: 'ALL' }],
+      metrics: [{ key: 'inputTokens', label: 'Input tokens', valueType: 'integer' }],
+      topSources: [{ name: 'codex', totalTokens: 1 }],
+      notes: ['missing_pricing'],
+    };
+
+    expect(sanitizeEmbeddedEnvelope({ report: 'compare', data }, { ...maps, names }).data).toEqual(
+      data,
+    );
+  });
+
   it('drops path fields, maps projects and machines, and scrubs other strings', () => {
     const envelope = sanitizeEmbeddedEnvelope(
       {
