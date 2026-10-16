@@ -3,6 +3,7 @@
 // totals, from the embedded `trends --json` data. Fixed at generation: the page's filters do
 // not change it.
 
+import { formatDuration } from '../../../../render/format-duration.js';
 import { NO_VALUE, type ShareReport } from '../../core/index.js';
 import type { ShareLabels } from '../state/context.js';
 import {
@@ -10,7 +11,7 @@ import {
   formatCount,
   formatDateRange,
   formatDay,
-  formatDuration,
+  pluralize,
 } from '../shell/format.js';
 import {
   figure,
@@ -74,7 +75,7 @@ function readMetric(data: Record<string, unknown>): Metric | undefined {
   return metric === 'tokens' || metric === 'cost' || metric === 'active-hours' ? metric : undefined;
 }
 
-/** A value as the terminal prints it: compact tokens, dollars, or a duration from ms. */
+/** A value as the terminal prints it: compact tokens, dollars, or its duration from ms. */
 function formatValue(value: number, metric: Metric, approximate = false): string {
   if (metric === 'cost') {
     return formatEnvelopeCost(value, approximate).text;
@@ -166,7 +167,7 @@ function buildChart(series: Series, metric: Metric, name: string): TrendChart | 
     average: { y: yOf(series.average), label: `Average ${average}/day` },
     peak: `Peak ${peak}`,
     dates: [...new Set([0, Math.floor(last / 2), last])].map((index) => formatDay(dateOf(index))),
-    summary: `Daily ${name} over ${formatCount(values.length)} days: peak ${peak}, average ${average} a day.`,
+    summary: `Daily ${name} over ${pluralize(values.length, 'day')}: peak ${peak}, average ${average} a day.`,
   };
 }
 
@@ -243,7 +244,8 @@ function splitTable(
 /** `2.17K tokens over 181 days, 12 a day on average, peaking at 970 on 15 Jun 2026.` */
 function buildLede(series: Series, metric: Metric, days: number): LedePart[] {
   if (series.observedDays === 0) {
-    return [words(`No ${METRIC_NAMES[metric]} in these ${formatCount(days)} days.`)];
+    const span = days === 1 ? 'on this day' : `in these ${formatCount(days)} days`;
+    return [words(`No ${METRIC_NAMES[metric]} ${span}.`)];
   }
 
   const approximate = metric === 'cost' && series.incomplete;
@@ -251,7 +253,7 @@ function buildLede(series: Series, metric: Metric, days: number): LedePart[] {
 
   return [
     figure(formatValue(series.total, metric, approximate)),
-    words(`${unit} over ${formatCount(days)} days, `),
+    words(`${unit} over ${pluralize(days, 'day')}, `),
     figure(formatValue(series.average, metric, approximate)),
     words(' a day on average'),
     ...(series.peak

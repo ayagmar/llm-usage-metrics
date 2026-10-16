@@ -180,23 +180,30 @@ function buildFacts(totals: Record<string, unknown>[]): PanelFact[] {
 
 /**
  * `~$0.06 spent in 1 Jun 2026 – 30 Jun 2026, up ~$0.06 (+6,251.6%) against 1 May 2026 –
- * 31 May 2026.`: cost when the file has it, else tokens, in the terminal's figures.
+ * 31 May 2026.`: cost when the CLI could compare it, else tokens, in the terminal's figures.
  */
 function buildLede(current: Side, baseline: Side, totals: Record<string, unknown>[]): LedePart[] {
+  const cost = totals.find((entry) => entry.key === 'costUsd');
+  // The CLI leaves the cost change out when a side has no price; that is not "the same".
   const row =
-    totals.find((entry) => entry.key === 'costUsd') ??
-    totals.find((entry) => entry.key === 'totalTokens');
+    cost && readNumber(cost, 'delta') !== undefined
+      ? cost
+      : (totals.find((entry) => entry.key === 'totalTokens') ?? cost);
 
   if (!row) {
     return [];
   }
 
   const [, now, , change, ratio] = metricCells(row);
-  const delta = readNumber(row, 'delta') ?? 0;
+  const delta = readNumber(row, 'delta');
   const lede = [
     figure(now.text),
     words(`${row.key === 'costUsd' ? ' spent' : ' tokens'} in ${current.range}, `),
   ];
+
+  if (delta === undefined) {
+    return [...lede, words(`the change against ${baseline.range} is unknown.`)];
+  }
 
   if (delta === 0) {
     return [...lede, words(`the same as in ${baseline.range}.`)];
@@ -265,6 +272,6 @@ export function buildCompareView(report: ShareReport, labels: ShareLabels): Pane
     lede: buildLede(current, baseline, totals),
     facts: buildFacts(totals),
     tables,
-    note: `From the compare command. A change in percent is left out when the baseline was zero. ${FIXED_NOTE}`,
+    note: `From the compare command. A change in percent is left out when the baseline was zero and the current value was not. ${FIXED_NOTE}`,
   };
 }

@@ -89,6 +89,15 @@ function describeUnavailable(candidates: Record<string, unknown>[]): string {
   return reasons.length === 0 ? 'a baseline or candidate price is missing' : reasons.join('; ');
 }
 
+/** As the CLI decides a period has usage: tokens, a logged cost or unpriced events. */
+function hasBaselineUsage(row: Record<string, unknown>): boolean {
+  return (
+    (readNumber(row, 'totalTokens') ?? 0) > 0 ||
+    row.baselineCostIncomplete === true ||
+    (readNumber(row, 'baselineCostUsd') ?? 0) > 0
+  );
+}
+
 function baselineCost(baseline: Record<string, unknown> | undefined): string {
   return baseline
     ? formatEnvelopeCost(
@@ -98,6 +107,10 @@ function baselineCost(baseline: Record<string, unknown> | undefined): string {
     : NO_VALUE;
 }
 
+function providerFact(providers: string[]): PanelFact {
+  return { label: 'Provider', value: providers.length === 0 ? NO_VALUE : providers.join(', ') };
+}
+
 function buildFacts(
   providers: string[],
   baseline: Record<string, unknown> | undefined,
@@ -105,7 +118,7 @@ function buildFacts(
   candidates: Record<string, unknown>[],
 ): PanelFact[] {
   const facts: PanelFact[] = [
-    { label: 'Provider', value: providers.length === 0 ? NO_VALUE : providers.join(', ') },
+    providerFact(providers),
     { label: 'Baseline cost', value: baselineCost(baseline), detail: 'The whole window' },
   ];
 
@@ -196,6 +209,16 @@ export function buildOptimizeView(report: ShareReport): PanelView | undefined {
   const cells = (row: Record<string, unknown>) => candidateCells(row, baselines.get(rowKey(row)));
 
   const best = findBest(totals);
+
+  // The terminal prints only the provider and this line when no period has usage.
+  if (![...baselines.values()].some(hasBaselineUsage)) {
+    return {
+      lede: [words('No usage data found.')],
+      facts: [providerFact(providers)],
+      tables: [],
+      note: `No usage to compare in this window. ${NOTE}`,
+    };
+  }
 
   return {
     lede: buildLede(totalBaseline, best, totals),
