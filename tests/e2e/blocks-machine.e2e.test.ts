@@ -1,4 +1,4 @@
-import { cp, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -151,6 +151,33 @@ describe('blocks with other machines', () => {
     expect(
       await blocks({ machine: 'local', codexDir: path.join(rootDir, 'local', 'codex') }),
     ).toEqual(['2026-01-05T06:00:00.000Z 1', '2026-02-02T08:00:00.000Z 1']);
+  });
+
+  it('warn when a machine left out by --machine cannot place the account windows', async () => {
+    const configPath = path.join(rootDir, 'local', 'config.toml');
+    await writeFile(
+      configPath,
+      `${await readFile(configPath, 'utf8')}[machines.desk]\nssh = "desk"\n`,
+    );
+    await writeFile(
+      path.join(rootDir, 'local', 'data', 'llm-usage-metrics', 'machines', 'desk.db'),
+      'not sqlite',
+    );
+    const run = (options: BlocksCommandOptions) =>
+      buildBlocksData(
+        { timezone: 'UTC', all: true, pricingOffline: true, sync: false, ...options },
+        { spawnSsh: createInProcessRemote(remote).spawnSsh },
+      );
+
+    expect((await run({ machine: 'laptop' })).diagnostics.warnings).toEqual([
+      expect.stringMatching(
+        /^Account window \(blocks across every machine\): Left out machine desk: its cache cannot be read/u,
+      ),
+    ]);
+    // A run that reads desk itself warns once, in the usual words.
+    expect((await run({})).diagnostics.warnings).toEqual([
+      expect.stringMatching(/^Left out machine desk: its cache cannot be read/u),
+    ]);
   });
 
   it('never refresh a machine --machine leaves out', async () => {

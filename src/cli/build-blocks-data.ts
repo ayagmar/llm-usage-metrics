@@ -143,12 +143,14 @@ function selectBlockEvents(events: readonly UsageEvent[], blocks: readonly Usage
  * nothing narrowed them. --machine leaves other machines out of the dataset, so it reads
  * the dataset again, from the machines' cached usage without refreshing them (with no
  * other machine configured, --machine can only name this one, which narrows nothing).
+ * Its warnings the report's own read did not give come back too, such as a machine whose
+ * cache cannot be read: the windows were placed without it.
  */
 async function readWholeStreams(
   dataset: UsageEventDataset,
   userConfigResolution: UserConfigResolution,
   deps: BuildUsageDataDeps,
-): Promise<UsageEvent[] | undefined> {
+): Promise<{ events?: UsageEvent[]; warnings: string[] }> {
   const datasetOptions = userConfigResolution.options;
   const { timezone, providerFilter, modelFilter, repoFilter, machineFilter } =
     dataset.normalizedInputs;
@@ -169,18 +171,28 @@ async function readWholeStreams(
       ...deps,
       userConfigResolution: { ...userConfigResolution, options: wholeOptions },
     });
-    return whole.filteredEvents;
+    const reported = new Set(dataset.warnings);
+
+    return {
+      events: whole.filteredEvents,
+      warnings: whole.warnings
+        .filter((warning) => !reported.has(warning))
+        .map((warning) => `Account window (blocks across every machine): ${warning}`),
+    };
   }
 
   if (providerFilter === undefined && modelFilter === undefined && repoFilter === undefined) {
-    return undefined;
+    return { warnings: [] };
   }
 
-  return filterParsedAdapterEvents(dataset.successfulParseResults, {
-    timezone,
-    since: datasetOptions.since,
-    until: datasetOptions.until,
-  });
+  return {
+    events: filterParsedAdapterEvents(dataset.successfulParseResults, {
+      timezone,
+      since: datasetOptions.since,
+      until: datasetOptions.until,
+    }),
+    warnings: [],
+  };
 }
 
 export async function buildBlocksData(
@@ -226,7 +238,7 @@ export async function buildBlocksData(
       rangeStartMs:
         lookbackSince === undefined ? undefined : getLocalDayStartMs(lookbackSince, timezone),
       sourceOrder: dataset.adaptersToParse.map((adapter) => adapter.id),
-      contextEvents: wholeStreams,
+      contextEvents: wholeStreams.events,
     }),
   );
 
@@ -248,7 +260,7 @@ export async function buildBlocksData(
     sourceFailures: dataset.sourceFailures,
     pricingOrigin,
     pricingWarning,
-    warnings: dataset.warnings,
+    warnings: [...dataset.warnings, ...wholeStreams.warnings],
     notes: hideCost
       ? dataset.notes
       : withPricingNotes(dataset.notes, selectBlockEvents(pricedEvents, shownRows), pricingResult),
