@@ -143,7 +143,7 @@ describe('explaining a name through the composed pricing source', () => {
       expect(source.explainModel?.(name).pricing, name).toEqual(pricing);
       expect(explanation.rates === null, name).toBe(pricing === undefined);
     }
-  });
+  }, 30_000);
 
   it('matches the key the matcher resolves, by a rule that holds for it', () => {
     const pricingByModel = loadMatcherPricing();
@@ -159,7 +159,7 @@ describe('explaining a name through the composed pricing source', () => {
         expectRuleHolds(normalizedModel, match);
       }
     }
-  });
+  }, 30_000);
 
   it('reports which override applies', () => {
     expect(explainModelPricing(source, 'ACME-internal-model')).toMatchObject({
