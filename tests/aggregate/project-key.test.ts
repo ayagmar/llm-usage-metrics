@@ -87,6 +87,93 @@ describe('buildProjectLabels', () => {
     expect(new Set(labels.values()).size).toBe(6);
     expect([...reversed].sort()).toEqual([...labels].sort());
   });
+
+  it('never reuses a label already given, a fallback included', () => {
+    for (const third of ['/./(unattributed)', './(unattributed)']) {
+      const keys = [undefined, '(unattributed)', third];
+      const labels = labelsOf(keys);
+
+      expect(new Set(Object.values(labels)).size, third).toBe(3);
+      expect(labelsOf([...keys].reverse())).toEqual(labels);
+    }
+
+    expect(labelsOf([undefined, '(unattributed)', '/./(unattributed)'])).toEqual({
+      undefined: '(unattributed)',
+      '(unattributed)': './(unattributed)',
+      '/./(unattributed)': '/./(unattributed)',
+    });
+    // Even the full key is taken: numbered, as elsewhere.
+    expect(labelsOf([undefined, '(unattributed)', './(unattributed)'])).toEqual({
+      undefined: '(unattributed)',
+      '(unattributed)': './(unattributed)',
+      './(unattributed)': './(unattributed) #2',
+    });
+  });
+});
+
+/** Deterministic pseudo-random numbers (mulberry32). */
+function createRandom(seed: number): () => number {
+  let state = seed;
+
+  return () => {
+    state = (state + 0x6d2b79f5) | 0;
+    let value = Math.imul(state ^ (state >>> 15), 1 | state);
+    value = (value + Math.imul(value ^ (value >>> 7), 61 | value)) ^ value;
+    return ((value ^ (value >>> 14)) >>> 0) / 4_294_967_296;
+  };
+}
+
+const SEGMENTS = ['.', '..', '(unattributed)', 'a', 'b'];
+const PREFIXES = ['', '/', './', 'C:\\'];
+
+/** A relative or absolute root of one to three segments, short ones the most likely. */
+function randomKey(random: () => number): string {
+  const pick = <Item>(items: readonly Item[]) => items[Math.floor(random() * items.length)];
+  const length = random() < 0.5 ? 1 : random() < 0.7 ? 2 : 3;
+  const prefix = pick(PREFIXES);
+  const segments = Array.from({ length }, () => pick(SEGMENTS));
+
+  return `${prefix}${segments.join(prefix === 'C:\\' ? '\\' : '/')}`;
+}
+
+describe('project label properties', () => {
+  it('labels distinct keys distinctly, keeps (unattributed) for missing roots, ignores order', () => {
+    for (let seed = 1; seed <= 2_000; seed += 1) {
+      const random = createRandom(seed);
+      const keys: (string | undefined)[] = Array.from(
+        { length: 1 + Math.floor(random() * 16) },
+        () => (random() < 0.1 ? undefined : randomKey(random)),
+      );
+      const labels = buildProjectLabels(keys);
+      const message = `seed ${String(seed)}: ${JSON.stringify(keys)}`;
+
+      expect(labels.size, message).toBe(new Set(keys).size);
+      expect(new Set(labels.values()).size, message).toBe(labels.size);
+
+      for (const [key, label] of labels) {
+        expect(label === '(unattributed)', message).toBe(key === undefined);
+      }
+
+      expect([...buildProjectLabels([...keys].reverse())].sort(), message).toEqual(
+        [...labels].sort(),
+      );
+    }
+  });
+
+  it('labels a key by its last segment when no other key shares it', () => {
+    for (let seed = 1; seed <= 300; seed += 1) {
+      const random = createRandom(seed);
+      const keys = Array.from(
+        { length: 1 + Math.floor(random() * 6) },
+        () => `/w/${['api', 'web', 'cli', 'docs', 'site', 'core'][Math.floor(random() * 6)]}`,
+      );
+      const labels = buildProjectLabels(keys);
+
+      for (const key of keys) {
+        expect(labels.get(key)).toBe(key.slice('/w/'.length));
+      }
+    }
+  });
 });
 
 describe('buildEventProjectLabels', () => {
