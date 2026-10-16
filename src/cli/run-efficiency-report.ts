@@ -2,9 +2,13 @@ import {
   renderEfficiencyReportWithNotes,
   type EfficiencyReportFormat,
 } from '../render/render-efficiency-report.js';
+import { attributeUsageEventsToRepo } from '../efficiency/repo-attribution.js';
 import { logger } from '../utils/logger.js';
-import type { ReportGranularity } from '../utils/time-buckets.js';
-import { buildEfficiencyData } from './build-efficiency-data.js';
+import { getPeriodKey, type ReportGranularity } from '../utils/time-buckets.js';
+import {
+  buildEfficiencyData,
+  hasMeaningfulEfficiencyUsageSignal,
+} from './build-efficiency-data.js';
 import {
   prepareReport,
   runStandardPreparedReport,
@@ -48,6 +52,23 @@ async function prepareEfficiencyReport(
           ),
           fileBaseName: `efficiency-${granularity}-share`,
           logLabel: 'efficiency',
+          // The report counts its repository's usage in periods with commits; so does the file.
+          scopeEvents: async (events, timezone) => {
+            const reportedPeriods = new Set(
+              efficiencyData.rows.flatMap((row) => (row.rowType === 'period' ? row.periodKey : [])),
+            );
+            const { matchedSourceEvents } = await attributeUsageEventsToRepo(
+              events,
+              options.repoDir?.trim() ?? process.cwd(),
+              deps.resolveRepoRoot,
+            );
+
+            return matchedSourceEvents.filter(
+              (event) =>
+                hasMeaningfulEfficiencyUsageSignal(event) &&
+                reportedPeriods.has(getPeriodKey(event.timestamp, granularity, timezone)),
+            );
+          },
         },
         { ...deps, runtimeProfile },
       );

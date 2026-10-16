@@ -68,6 +68,12 @@ export type ShareReportRequest = {
   envelope?: Pick<ShareEmbeddedEnvelope, 'report' | 'data'>;
   /** Payload bytes above which older cells roll up to days; the default keeps the HTML under 8 MB. */
   targetBytes?: number;
+  /**
+   * The events the command reports out of those its filters select, when it narrows them
+   * further (efficiency: its repository, in periods with commits). Blocks still place
+   * against every selected event.
+   */
+  scopeEvents?: (events: UsageEvent[], timezone: string) => Promise<UsageEvent[]>;
 };
 
 type ModeCosts = {
@@ -217,7 +223,9 @@ export async function buildShareReportData(
   const wholeStreams = await measureRuntimeProfileStage(runtimeProfile, 'share.whole_streams', () =>
     readWholeStreams(dataset, datasetConfigResolution, deps),
   );
-  const allEvents = dataset.filteredEvents;
+  const allEvents = request.scopeEvents
+    ? await request.scopeEvents(dataset.filteredEvents, timezone)
+    : dataset.filteredEvents;
   const inWindow = allEvents.map(
     (event) => since === null || getPeriodKey(event.timestamp, 'daily', timezone) >= since,
   );
@@ -247,7 +255,8 @@ export async function buildShareReportData(
       rangeStartMs:
         lookbackSince === undefined ? undefined : getLocalDayStartMs(lookbackSince, timezone),
       sourceOrder,
-      contextEvents: wholeStreams.events,
+      contextEvents:
+        wholeStreams.events ?? (request.scopeEvents ? dataset.filteredEvents : undefined),
     }),
   );
 
@@ -296,12 +305,6 @@ export async function buildShareReportData(
       targetBytes: request.targetBytes,
     }),
   );
-
-  if (payload.hourlyFrom !== null) {
-    logger.info(
-      `Share report: hourly detail from ${payload.hourlyFrom}; earlier usage is by day to keep the file small.`,
-    );
-  }
 
   const meta: ShareReportMeta = {
     generatedAt: now.toISOString(),

@@ -4,6 +4,7 @@ import type { UsageBlock } from '../blocks/aggregate-blocks.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { getLocalHourBucket, getPeriodKey, shiftLocalDateKey } from '../utils/time-buckets.js';
 import { addUsd } from '../utils/usd-math.js';
+import { escapeJsonForScript } from './client/ui/export/share-document.js';
 import { toShareModelLabel } from './redact.js';
 import type {
   ShareBlock,
@@ -600,7 +601,10 @@ function assemble(
     blocks,
   };
 
-  return { ...parts, hourlyFrom, bytes: Buffer.byteLength(JSON.stringify(parts)) };
+  // As the file holds it: script escaping makes some characters longer.
+  const bytes = Buffer.byteLength(escapeJsonForScript(JSON.stringify(parts)));
+
+  return { ...parts, hourlyFrom, bytes };
 }
 
 /**
@@ -630,4 +634,30 @@ export function buildSharePayload(input: SharePayloadInput): SharePayload {
   );
 
   return rollsUpAnything ? assemble(input, dims, dictionaries, hourlyFrom, blocks) : hourly;
+}
+
+/**
+ * What stderr says about a written share file's size: where hourly detail starts when older
+ * cells rolled up to days, and the size when the file is still over the target.
+ */
+export function listShareSizeWarnings(file: {
+  hourlyFrom: string | null;
+  htmlBytes: number;
+}): string[] {
+  const warnings: string[] = [];
+
+  if (file.hourlyFrom !== null) {
+    warnings.push(
+      `Share report: hourly detail from ${file.hourlyFrom}; earlier usage is by day to keep the file small.`,
+    );
+  }
+
+  if (file.htmlBytes > SHARE_HTML_TARGET_BYTES) {
+    const toMegabytes = (bytes: number) => bytes / 1_000_000;
+    warnings.push(
+      `Share report: the file is ${toMegabytes(file.htmlBytes).toFixed(1)} MB, over the ${String(toMegabytes(SHARE_HTML_TARGET_BYTES))} MB target; a shorter window or narrower filters make it smaller.`,
+    );
+  }
+
+  return warnings;
 }

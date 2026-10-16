@@ -371,7 +371,9 @@ describe.skipIf(process.platform === 'win32')(`share report e2e (${WINDOWS_SKIP_
       redacted: false,
     });
     expect(payload.data.envelope?.report).toBe(shareCase.envelope);
-    expect(payload.data.cube.eventCount.reduce((sum, count) => sum + count, 0)).toBeGreaterThan(0);
+    // No fixture usage is in --repo-dir's repository, so efficiency counts none and nor does its file.
+    const events = payload.data.cube.eventCount.reduce((sum, count) => sum + count, 0);
+    expect(shareCase.command === 'efficiency' ? events === 0 : events > 0).toBe(true);
     expectSelfContained(html);
     expectNoForbiddenStrings(html, forbidden);
   });
