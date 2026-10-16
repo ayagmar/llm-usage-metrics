@@ -78,6 +78,12 @@ type CostAccumulator = Partial<Record<ShareCostMode, ModeTotals>>;
 
 type TokenAccumulator = ShareTokenBuckets & { eventCount: number };
 
+/** A block's costs, and its tokens and costs per local date of its events. */
+type BlockAccumulator = {
+  costs: CostAccumulator;
+  days: Map<string, { totalTokens: number; costs: CostAccumulator }>;
+};
+
 type Cell = TokenAccumulator & {
   period: number;
   source: number;
@@ -536,8 +542,9 @@ function buildSessions(
 }
 
 /**
- * The blocks with a cost per mode. Blocks of one source never overlap, so each counted event
- * lies in at most one, found from its hour back to 5 h earlier.
+ * The blocks with a cost per mode, and their usage per local date of their events. Blocks of
+ * one source never overlap, so each counted event lies in at most one, found from its hour
+ * back to 5 h earlier.
  */
 function buildBlocks(
   input: SharePayloadInput,
@@ -545,10 +552,14 @@ function buildBlocks(
   modes: readonly ShareCostMode[],
 ): ShareBlocks {
   const blockDurationMs = input.blockHours * HOUR_MS;
-  const costsByBlock = new Map<string, CostAccumulator>();
+  const byBlock = new Map<string, BlockAccumulator>();
+  const blockKey = (source: string, startMs: number) => `${source}\0${String(startMs)}`;
 
   for (const block of input.blocks) {
-    costsByBlock.set(`${block.source}\0${String(Date.parse(block.start))}`, createCosts(modes));
+    byBlock.set(blockKey(block.source, Date.parse(block.start)), {
+      costs: createCosts(modes),
+      days: new Map(),
+    });
   }
 
   input.blockEvents.forEach((event, index) => {
@@ -556,31 +567,57 @@ function buildBlocks(
     const hourMs = Math.floor(timeMs / HOUR_MS) * HOUR_MS;
 
     for (let startMs = hourMs; startMs > timeMs - blockDurationMs; startMs -= HOUR_MS) {
-      const costs = costsByBlock.get(`${event.source}\0${String(startMs)}`);
+      const accumulator = byBlock.get(blockKey(event.source, startMs));
 
-      if (costs) {
-        addCosts(costs, input.blockCosts, index);
+      if (accumulator) {
+        const date = getPeriodKey(event.timestamp, 'daily', input.timezone);
+        let day = accumulator.days.get(date);
+
+        if (!day) {
+          day = { totalTokens: 0, costs: createCosts(modes) };
+          accumulator.days.set(date, day);
+        }
+
+        addCosts(accumulator.costs, input.blockCosts, index);
+        day.totalTokens += event.totalTokens;
+        addCosts(day.costs, input.blockCosts, index);
         return;
       }
     }
   });
 
-  const rows: ShareBlock[] = input.blocks.map((block) => ({
-    source: lookup(dictionaries.source, block.source),
-    start: block.start,
-    end: block.end,
-    startUncertain: block.startUncertain,
-    firstEventAt: block.firstEventAt,
-    lastEventAt: block.lastEventAt,
-    eventCount: block.eventCount,
-    models: [
-      ...new Set(block.models.map((model) => lookup(dictionaries.model, toShareModelLabel(model)))),
-    ],
-    ...toTokenBuckets(block),
-    costs: toShareCosts(
-      costsByBlock.get(`${block.source}\0${String(Date.parse(block.start))}`) ?? {},
-    ),
-  }));
+  const rows: ShareBlock[] = input.blocks.map((block) => {
+    const accumulator = byBlock.get(blockKey(block.source, Date.parse(block.start)));
+    const days = [...(accumulator?.days ?? [])].sort(([left], [right]) =>
+      compareByCodePoint(left, right),
+    );
+
+    return {
+      source: lookup(dictionaries.source, block.source),
+      start: block.start,
+      end: block.end,
+      startUncertain: block.startUncertain,
+      firstEventAt: block.firstEventAt,
+      lastEventAt: block.lastEventAt,
+      eventCount: block.eventCount,
+      models: [
+        ...new Set(
+          block.models.map((model) => lookup(dictionaries.model, toShareModelLabel(model))),
+        ),
+      ],
+      ...toTokenBuckets(block),
+      costs: toShareCosts(accumulator?.costs ?? {}),
+      ...(days.length > 1
+        ? {
+            days: days.map(([date, day]) => ({
+              date,
+              totalTokens: day.totalTokens,
+              costs: toShareCosts(day.costs),
+            })),
+          }
+        : {}),
+    };
+  });
 
   return { blockHours: input.blockHours, rows };
 }

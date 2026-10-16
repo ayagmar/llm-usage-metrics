@@ -64,6 +64,7 @@ describe('share payload matches report-share.v1.schema.json', () => {
     expect(data.cube.period.length).toBeGreaterThan(0);
     expect(data.sessions.rows.length).toBeGreaterThan(0);
     expect(data.blocks.rows.length).toBeGreaterThan(0);
+    expect(data.blocks.rows.some((block) => block.days !== undefined)).toBe(true);
     expect(Object.keys(data.cube.costs)).toEqual(['explicit', 'estimated', 'both']);
   });
 

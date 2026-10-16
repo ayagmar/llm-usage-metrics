@@ -14,7 +14,7 @@ import type {
   ShareDateRange,
   ShareReportData,
 } from '../../src/share-report/types.js';
-import { roundUsd } from '../../src/utils/usd-math.js';
+import { addUsd, roundUsd } from '../../src/utils/usd-math.js';
 import {
   ALL_SOURCE_IDS,
   createE2eSourceOptions,
@@ -239,6 +239,8 @@ async function expectBlocksParity(
   expect(
     data.blocks.rows.map((row) => ({
       ...row,
+      // Checked below: blocks --json has no split by date.
+      days: undefined,
       source: sources[row.source],
       models: row.models.map((model) => models[model]),
       cost: row.costs[mode],
@@ -270,6 +272,21 @@ async function expectBlocksParity(
   for (const [index, row] of data.blocks.rows.entries()) {
     expect((row.costs[mode]?.incompleteEvents ?? 0) > 0).toBe(
       blocks.blocks[index].costIncomplete === true,
+    );
+  }
+
+  // A block over two local dates splits into days that add up to it.
+  const split = data.blocks.rows.filter((row) => row.days !== undefined);
+  expect(split.length).toBeGreaterThan(0);
+
+  for (const row of split) {
+    const days = row.days ?? [];
+    expect(days.reduce((sum, day) => sum + day.totalTokens, 0)).toBe(row.totalTokens);
+    expect(
+      days.map((day) => day.costs[mode]?.costUsd ?? 0).reduce((sum, cost) => addUsd(sum, cost), 0),
+    ).toBe(row.costs[mode]?.costUsd ?? 0);
+    expect(days.reduce((sum, day) => sum + (day.costs[mode]?.incompleteEvents ?? 0), 0)).toBe(
+      row.costs[mode]?.incompleteEvents ?? 0,
     );
   }
 }

@@ -142,6 +142,13 @@ export type ShareSessions = {
   omitted: { project: number; count: number }[];
 };
 
+/** A block's usage from the events of one local date. */
+export type ShareBlockDay = {
+  date: string;
+  totalTokens: number;
+  costs: ShareCosts;
+};
+
 /** One estimated 5-hour block, as in `blocks --json`, per source across machines. */
 export type ShareBlock = ShareTokenBuckets & {
   source: number;
@@ -153,6 +160,12 @@ export type ShareBlock = ShareTokenBuckets & {
   eventCount: number;
   models: number[];
   costs: ShareCosts;
+  /**
+   * The block's usage by the local date of its events, oldest first, so a window ending
+   * inside the block counts only the usage up to its end; present only when the events fall
+   * on more than one date.
+   */
+  days?: ShareBlockDay[];
 };
 
 export type ShareBlocks = {

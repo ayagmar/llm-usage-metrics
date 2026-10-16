@@ -4,7 +4,7 @@ import type { ShareReport } from './decode.js';
 import { hasBlockIgnoredFilters, type ShareFilters } from './filters.js';
 import { toLocalDateHour, type LocalDateHour } from './local-time.js';
 import type { ShareDateSpan } from './period-axis.js';
-import { getMetricReader, type ShareMetric } from './stack.js';
+import { getMetricReader, type ShareMetric, type ShareMetricReader } from './stack.js';
 
 /** ISO weekdays, Monday first, as the hour × weekday rows. */
 export const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
@@ -70,7 +70,10 @@ export function buildHourWeekdayMatrix(
   return { values, hourlyFrom: clipped ? report.data.meta.hourlyFrom : null, unavailable: false };
 }
 
-function getBlockMetric(block: ShareBlock, metric: ShareMetric): number | undefined {
+function getBlockMetric(
+  block: Pick<ShareBlock, 'totalTokens' | 'costs'>,
+  metric: ShareMetric,
+): number | undefined {
   if (metric.kind === 'tokens') {
     return block.totalTokens;
   }
@@ -80,9 +83,42 @@ function getBlockMetric(block: ShareBlock, metric: ShareMetric): number | undefi
 }
 
 /**
+ * The metric of a block's usage up to the end of `last`, as `blocks --until` counts it:
+ * events after that date are left out. Undefined when the block has none up to then, or
+ * lacks the cost mode.
+ */
+function getBlockMetricUntil(
+  block: ShareBlock,
+  metric: ShareMetric,
+  last: string,
+  reader: ShareMetricReader,
+  timezone: string,
+): number | undefined {
+  if (block.days === undefined) {
+    const firstEvent = toLocalDateHour(block.firstEventAt, timezone);
+    return firstEvent === undefined || firstEvent.dateKey > last
+      ? undefined
+      : getBlockMetric(block, metric);
+  }
+
+  let total: number | undefined;
+
+  for (const day of block.days) {
+    const value = getBlockMetric(day, metric);
+
+    if (day.date <= last && value !== undefined) {
+      total = total === undefined ? value : reader.add(total, value);
+    }
+  }
+
+  return total;
+}
+
+/**
  * The 5-hour blocks by the local date and hour they start. Blocks honour the span (the date
  * range) and the source filter only, and like `blocks` a block counts when it runs into the
- * range: one that started the evening before the span gets a leading row for that day.
+ * range: one that started the evening before the span gets a leading row for that day. A
+ * block running past the span's end counts only its usage up to that end.
  */
 export function buildBlockMatrix(
   report: ShareReport,
@@ -113,14 +149,13 @@ export function buildBlockMatrix(
     const start = toLocalDateHour(block.start, timezone);
     // The block's end is exclusive: the last date it covers is that of its last millisecond.
     const lastMoment = toLocalDateHour(Date.parse(block.end) - 1, timezone);
-    const value = getBlockMetric(block, metric);
+    const value = getBlockMetricUntil(block, metric, span.last, reader, timezone);
 
     if (
       start === undefined ||
       lastMoment === undefined ||
       value === undefined ||
       lastMoment.dateKey < span.first ||
-      start.dateKey > span.last ||
       (sources.size > 0 && !sources.has(block.source))
     ) {
       continue;

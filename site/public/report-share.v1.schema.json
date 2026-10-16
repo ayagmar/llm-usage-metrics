@@ -639,6 +639,29 @@
         },
         "costs": {
           "$ref": "#/$defs/costs"
+        },
+        "days": {
+          "description": "The block's usage by the local date of its events, oldest first, so a window ending inside the block counts only the usage up to its end. Present only when the events fall on more than one date.",
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "properties": {
+              "date": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              "totalTokens": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "costs": {
+                "$ref": "#/$defs/costs"
+              }
+            },
+            "required": ["date", "totalTokens", "costs"],
+            "additionalProperties": false
+          }
         }
       },
       "required": [
