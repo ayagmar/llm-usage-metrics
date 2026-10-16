@@ -63,6 +63,7 @@ export default defineConfig({
         'src/share-report/client/ui/panels/render.ts',
         'src/share-report/client/ui/export/browser.ts',
         'src/share-report/client/ui/state/browser.ts',
+        'src/share-report/client/ui/charts/mount.ts',
       ],
       reporter: ['text', 'text-summary', 'json-summary', 'lcov'],
     },
