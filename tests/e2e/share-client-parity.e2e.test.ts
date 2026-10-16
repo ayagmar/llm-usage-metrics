@@ -28,6 +28,7 @@ import {
 } from '../../src/share-report/client/core/index.js';
 import { isPathLike } from '../../src/share-report/redact.js';
 import type { ShareCostMode, ShareDateRange } from '../../src/share-report/types.js';
+import { createUsageEvent } from '../../src/domain/usage-event.js';
 import { roundUsd } from '../../src/utils/usd-math.js';
 import {
   ALL_SOURCE_IDS,
@@ -47,6 +48,8 @@ const GRANULARITIES = [
   ['weekly', 'week'],
   ['monthly', 'month'],
 ] as const;
+// The hourly report is for short windows, so it is checked on the narrowed period only.
+const SUB_WINDOW_GRANULARITIES = [...GRANULARITIES, ['hourly', 'hour']] as const;
 
 type ReportTotals = {
   inputTokens: number;
@@ -69,6 +72,8 @@ type Fixture = {
   deps: () => BuildUsageDataDeps;
   window: ShareDateRange;
   windowOptions: { all: true } | { since: string; until: string };
+  /** A period the page narrows to inside the window. */
+  subWindow?: { since: string; until: string };
 };
 
 const noEventStore: BuildUsageDataDeps = {
@@ -113,9 +118,10 @@ async function reportJson<Data>(
   build: (options: ReportCommandOptions, deps: BuildUsageDataDeps) => Promise<string>,
   fixture: Fixture,
   mode: ShareCostMode,
+  windowOptions: Fixture['windowOptions'] = fixture.windowOptions,
 ): Promise<Data> {
   const output = await build(
-    { ...fixture.options(), ...fixture.windowOptions, costMode: mode, json: true },
+    { ...fixture.options(), ...windowOptions, costMode: mode, json: true },
     fixture.deps(),
   );
   return (JSON.parse(output) as { data: Data }).data;
@@ -149,42 +155,71 @@ function describeClientParity(fixture: Fixture) {
     expect(allCells.length).toBe(report.cellCount);
   });
 
+  /** The page's roll-up by period and source over `range` equals the report JSON for it. */
+  async function expectSourceRollupParity(
+    name: (typeof SUB_WINDOW_GRANULARITIES)[number][0],
+    granularity: (typeof SUB_WINDOW_GRANULARITIES)[number][1],
+    mode: ShareCostMode,
+    range: ShareDateRange,
+    windowOptions: Fixture['windowOptions'],
+  ) {
+    const rows = await reportJson<UsageJsonRow[]>(
+      (options, deps) => buildUsageReport(name, options, deps),
+      fixture,
+      mode,
+      windowOptions,
+    );
+    const sourceRows = rows.filter((row) => row.rowType === 'period_source');
+    const client = new Map<string, ReturnType<typeof toReportTotals>>();
+
+    report.data.dictionaries.sources.forEach((source, index) => {
+      const cells = selectCells(report, { ...createFilters(range), source: [index] });
+
+      for (const row of rollupByPeriod(report, cells, granularity).rows) {
+        client.set(`${row.key} ${source}`, toReportTotals(report, row, mode));
+      }
+    });
+
+    expect(sourceRows.length).toBeGreaterThan(1);
+    expect(client.size).toBe(sourceRows.length);
+
+    for (const row of sourceRows) {
+      expect(
+        client.get(`${row.periodKey} ${row.source}`),
+        `${row.periodKey} ${row.source}`,
+      ).toEqual(fromReportJson(row));
+    }
+
+    const grandTotals = rows.filter((row) => row.rowType === 'grand_total');
+    expect(grandTotals.map(fromReportJson)).toEqual([
+      toReportTotals(report, sumCells(report, selectCells(report, createFilters(range))), mode),
+    ]);
+  }
+
   describe.each(MODES)(`${fixture.name}, %s costs`, (mode) => {
     it.each(GRANULARITIES)(
       'the page’s %s roll-up by source equals the JSON',
       async (name, granularity) => {
-        const rows = await reportJson<UsageJsonRow[]>(
-          (options, deps) => buildUsageReport(name, options, deps),
-          fixture,
+        await expectSourceRollupParity(
+          name,
+          granularity,
           mode,
+          fixture.window,
+          fixture.windowOptions,
         );
-        const sourceRows = rows.filter((row) => row.rowType === 'period_source');
-        const client = new Map<string, ReturnType<typeof toReportTotals>>();
-
-        report.data.dictionaries.sources.forEach((source, index) => {
-          const cells = selectCells(report, { ...createFilters(fixture.window), source: [index] });
-
-          for (const row of rollupByPeriod(report, cells, granularity).rows) {
-            client.set(`${row.key} ${source}`, toReportTotals(report, row, mode));
-          }
-        });
-
-        expect(sourceRows.length).toBeGreaterThan(1);
-        expect(client.size).toBe(sourceRows.length);
-
-        for (const row of sourceRows) {
-          expect(
-            client.get(`${row.periodKey} ${row.source}`),
-            `${row.periodKey} ${row.source}`,
-          ).toEqual(fromReportJson(row));
-        }
-
-        const grandTotals = rows.filter((row) => row.rowType === 'grand_total');
-        expect(grandTotals.map(fromReportJson)).toEqual([
-          toReportTotals(report, sumCells(report, allCells), mode),
-        ]);
       },
     );
+
+    const { subWindow } = fixture;
+
+    if (subWindow) {
+      it.each(SUB_WINDOW_GRANULARITIES)(
+        `narrowed to ${subWindow.since}..${subWindow.until}, the page’s %s roll-up by source equals the JSON`,
+        async (name, granularity) => {
+          await expectSourceRollupParity(name, granularity, mode, subWindow, subWindow);
+        },
+      );
+    }
 
     it('the page’s project roll-up equals the projects JSON', async () => {
       const { projects } = await reportJson<{ projects: ProjectJsonRow[] }>(
@@ -236,12 +271,38 @@ describe('share page roll-up parity with the report JSON', () => {
 
   const corpus = generateShareCorpus(23, 160);
 
+  // Paris moves its clocks forward on 2026-03-29.
   describeClientParity({
     name: 'generated corpus',
     options: () => ({ timezone: 'Europe/Paris', pricingOffline: true }),
     deps: () => ({ ...noEventStore, createAdapters: createCorpusAdapters(corpus) }),
-    window: { since: '2026-04-01', until: '2026-06-15' },
-    windowOptions: { since: '2026-04-01', until: '2026-06-15' },
+    window: { since: '2026-03-15', until: '2026-06-15' },
+    windowOptions: { since: '2026-03-15', until: '2026-06-15' },
+    subWindow: { since: '2026-03-22', until: '2026-04-05' },
+  });
+
+  // Sydney moves its clocks back on 2026-04-05: 02:00–03:00 local happens twice, here once
+  // in each offset.
+  const fallBackCorpus = [
+    ...corpus,
+    ...['2026-04-04T15:30:00.000Z', '2026-04-04T16:30:00.000Z'].map((timestamp, index) =>
+      createUsageEvent({
+        source: index === 0 ? 'claude' : 'codex',
+        sessionId: `fall-back-${String(index)}`,
+        timestamp,
+        model: index === 0 ? 'claude-sonnet-4-5' : 'gpt-5',
+        inputTokens: 1_000,
+        outputTokens: 100,
+      }),
+    ),
+  ];
+  describeClientParity({
+    name: 'generated corpus in Australia/Sydney',
+    options: () => ({ timezone: 'Australia/Sydney', pricingOffline: true }),
+    deps: () => ({ ...noEventStore, createAdapters: createCorpusAdapters(fallBackCorpus) }),
+    window: { since: '2026-03-01', until: '2026-06-20' },
+    windowOptions: { since: '2026-03-01', until: '2026-06-20' },
+    subWindow: { since: '2026-03-30', until: '2026-04-12' },
   });
 
   describe.skipIf(process.platform === 'win32')(`golden fixture (${WINDOWS_SKIP_REASON})`, () => {
