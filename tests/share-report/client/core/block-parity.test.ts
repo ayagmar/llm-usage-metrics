@@ -18,7 +18,7 @@ import { createCorpusAdapters } from '../../../helpers/share-payload.js';
 useIsolatedEnvironment();
 useBundledPricingOnly();
 
-const event = (timestamp: string): UsageEvent =>
+const event = (timestamp: string, costUsd?: number): UsageEvent =>
   createUsageEvent({
     source: 'claude',
     sessionId: 'session-1',
@@ -27,6 +27,7 @@ const event = (timestamp: string): UsageEvent =>
     model: 'claude-sonnet-4-5',
     inputTokens: 100,
     outputTokens: 10,
+    ...(costUsd === undefined ? {} : { costUsd, costMode: 'explicit' as const }),
   });
 
 const deps = (events: UsageEvent[]): BuildUsageDataDeps => ({
@@ -44,7 +45,7 @@ const EVENTS = [
   event('2026-06-15T19:30:00Z'),
 ];
 
-type Metric = { kind: 'tokens' } | { kind: 'cost'; mode: 'estimated' };
+type Metric = { kind: 'tokens' } | { kind: 'cost'; mode: 'estimated' | 'explicit' };
 
 const add = (left: number, right: number) => addUsd(left, right);
 
@@ -61,7 +62,7 @@ async function pageBlocks(
         timezone,
         sync: false,
         pricingOffline: true,
-        ...(metric.kind === 'tokens' ? { cost: false } : { costMode: 'estimated' }),
+        ...(metric.kind === 'tokens' ? { cost: false } : { costMode: metric.mode }),
       },
       window,
       initialView: { ...window, granularity: 'day' },
@@ -80,13 +81,27 @@ async function pageBlocks(
     { first: view.since ?? '', last: view.until ?? '' },
     metric,
   );
-  const starts = matrix.days.flatMap((day, row) =>
+  const cells = matrix.days.flatMap((day, row) =>
     matrix.counts[row].flatMap((count, hour) =>
-      count === 0 ? [] : [`${day}T${String(hour).padStart(2, '0')}:00:00.000Z`],
+      count === 0
+        ? []
+        : [{ start: `${day}T${String(hour).padStart(2, '0')}:00:00.000Z`, row, hour }],
     ),
   );
 
-  return { starts, value: matrix.values.flat().reduce(add, 0) };
+  return {
+    starts: cells.map((cell) => cell.start),
+    value: matrix.values.flat().reduce(add, 0),
+    // Each start holds one block here, so a cell's cost is that block's.
+    costs: cells.map(({ row, hour }) => {
+      if (metric.kind === 'tokens') {
+        return undefined;
+      }
+
+      const cost = matrix.costs[row][hour];
+      return { costUsd: cost.costUsd, incomplete: cost.incompleteEvents > 0 };
+    }),
+  };
 }
 
 async function cliBlocks(
@@ -101,21 +116,34 @@ async function cliBlocks(
       sync: false,
       pricingOffline: true,
       json: true,
-      ...(metric.kind === 'cost' ? { costMode: 'estimated' } : {}),
+      ...(metric.kind === 'cost' ? { costMode: metric.mode } : {}),
     },
     deps(events),
   );
   const blocks = (
     JSON.parse(output) as {
-      data: { blocks: { start: string; totalTokens: number; costUsd?: number }[] };
+      data: {
+        blocks: {
+          start: string;
+          totalTokens: number;
+          costUsd?: number;
+          costIncomplete?: boolean;
+        }[];
+      };
     }
-  ).data.blocks;
+  ).data.blocks.sort((left, right) => left.start.localeCompare(right.start));
 
   return {
-    starts: blocks.map((block) => block.start).sort(),
+    starts: blocks.map((block) => block.start),
     value: blocks
       .map((block) => (metric.kind === 'tokens' ? block.totalTokens : (block.costUsd ?? 0)))
       .reduce(add, 0),
+    // An omitted `costUsd` is an unknown cost, not $0.
+    costs: blocks.map((block) =>
+      metric.kind === 'tokens'
+        ? undefined
+        : { costUsd: block.costUsd ?? null, incomplete: block.costIncomplete === true },
+    ),
   };
 }
 
@@ -166,8 +194,42 @@ describe('the page blocks against blocks --json', () => {
     const page = await pageBlocks(window, view, { kind: 'tokens' }, scope);
     const cli = await cliBlocks(view, { kind: 'tokens' }, scope);
 
-    expect(cli).toEqual({ starts: [], value: 0 });
+    expect(cli).toEqual({ starts: [], value: 0, costs: [] });
     expect(page).toEqual(cli);
     expect((await pageBlocks(window, window, { kind: 'tokens' }, scope)).value).toBe(110);
+  });
+
+  it('keeps unknown and lower-bound block costs in explicit mode', async () => {
+    const explicit = { kind: 'cost', mode: 'explicit' } as const;
+    const day = { since: '2026-06-15', until: '2026-06-15' };
+    const unpriced = { events: [event('2026-06-15T10:00:00Z'), event('2026-06-15T11:00:00Z')] };
+    const partly = {
+      events: [event('2026-06-15T10:00:00Z', 0.5), event('2026-06-15T11:00:00Z')],
+    };
+    const page = await pageBlocks(day, day, explicit, unpriced);
+
+    expect(page).toEqual(await cliBlocks(day, explicit, unpriced));
+    expect(page.costs).toEqual([{ costUsd: null, incomplete: true }]);
+    expect((await pageBlocks(day, day, explicit, partly)).costs).toEqual(
+      (await cliBlocks(day, explicit, partly)).costs,
+    );
+    expect((await pageBlocks(day, day, explicit, partly)).costs).toEqual([
+      { costUsd: 0.5, incomplete: true },
+    ]);
+  });
+
+  it("keeps an unknown cost when a narrowed end leaves out a block's priced usage", async () => {
+    const explicit = { kind: 'cost', mode: 'explicit' } as const;
+    // The block runs from 14 Jun 23:00: unpriced before midnight, priced after it.
+    const scope = { events: [event('2026-06-14T23:30:00Z'), event('2026-06-15T00:30:00Z', 0.5)] };
+    const window = { since: '2026-06-14', until: '2026-06-15' };
+    const view = { since: '2026-06-14', until: '2026-06-14' };
+    const page = await pageBlocks(window, view, explicit, scope);
+
+    expect(page).toEqual(await cliBlocks(view, explicit, scope));
+    expect(page.costs).toEqual([{ costUsd: null, incomplete: true }]);
+    expect((await pageBlocks(window, window, explicit, scope)).costs).toEqual([
+      { costUsd: 0.5, incomplete: true },
+    ]);
   });
 });

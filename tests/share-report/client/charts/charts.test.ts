@@ -503,6 +503,22 @@ for (const host of HOST_TIMEZONES) {
       );
     });
 
+    it('show an unpriced block cost as unknown and a partly priced one as a lower bound', () => {
+      const unpriced = loadFixtureReport((data) => {
+        const [first, second] = data.blocks.rows;
+        data.blocks.rows[0] = { ...first, costs: { both: { costUsd: null, incompleteEvents: 2 } } };
+        data.blocks.rows[1] = {
+          ...second,
+          costs: { both: { costUsd: 0.5, incompleteEvents: 1 } },
+        };
+      });
+      const view = chart('blocks').build(contextFor(unpriced), 1300);
+
+      expect(view.table?.rows.map((row) => row[3])).toEqual(['—', '~$0.50']);
+      expect(view.notes).toContain('3 events had no price, so these costs are lower bounds.');
+      expect(allWords(view)).not.toContain('$0.00');
+    });
+
     it('lay a long span of blocks out with days as columns', () => {
       const view = chart('blocks').build(
         contextFor(report, { since: '2026-08-01', until: '2026-10-26' }),

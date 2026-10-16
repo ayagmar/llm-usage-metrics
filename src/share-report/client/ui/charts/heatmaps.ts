@@ -2,19 +2,16 @@
 // start. Five heat levels from the `--heat-*` tokens; the busiest cell is outlined and named in
 // words, and every cell has a tooltip.
 
-import {
-  buildBlockMatrix,
-  buildHourWeekdayMatrix,
-  formatUsdOrNone,
-  WEEKDAY_LABELS,
-} from '../../core/index.js';
+import { buildBlockMatrix, buildHourWeekdayMatrix, WEEKDAY_LABELS } from '../../core/index.js';
 import {
   formatCompact,
+  formatCost,
   formatCount,
   formatDateRange,
   formatDay,
   pluralize,
 } from '../shell/format.js';
+import type { ShareCost } from '../../../types.js';
 import { COST_MODE_LABELS } from '../shell/model.js';
 import type { ShareViewContext } from '../state/context.js';
 import { AXIS_SIZE, caption as captionBlock } from './frame.js';
@@ -270,12 +267,26 @@ export function buildBlockChart(context: ShareViewContext, width: number): Chart
     notes.unshift('Blocks ignore model, project and machine filters.');
   }
 
+  const incompleteEvents = (costs?.costs.flat() ?? []).reduce(
+    (sum, cost) => sum + cost.incompleteEvents,
+    0,
+  );
+
+  if (incompleteEvents > 0) {
+    notes.push(
+      `${pluralize(incompleteEvents, 'event')} had no price, so these costs are lower bounds.`,
+    );
+  }
+
   if (tokens.days[0] < span.first) {
     notes.push(
       `The first row holds blocks that started on ${formatDay(tokens.days[0])} and run into the view.`,
     );
   }
 
+  // `—` when no block of the hour had a price, `~$0.50` when some of their events had none.
+  const costText = (cells: ShareCost[][], row: number, hour: number) =>
+    formatCost({ kind: 'value', ...cells[row][hour] }).text;
   const rows = tokens.days.flatMap((day, row) =>
     tokens.counts[row].flatMap((count, hour) =>
       count === 0
@@ -285,7 +296,7 @@ export function buildBlockChart(context: ShareViewContext, width: number): Chart
               `${formatDay(day)} ${hourLabel(hour)}:00`,
               formatCount(count),
               formatCount(tokens.values[row][hour]),
-              ...(costs ? [formatUsdOrNone(costs.values[row][hour])] : []),
+              ...(costs ? [costText(costs.costs, row, hour)] : []),
             ],
           ],
     ),
@@ -313,7 +324,7 @@ export function buildBlockChart(context: ShareViewContext, width: number): Chart
     const count = tokens.counts[row][hour];
     return count === 0
       ? `${formatDay(tokens.days[row])} ${hourLabel(hour)}:00: no block starts`
-      : `${formatDay(tokens.days[row])} ${hourLabel(hour)}:00: ${pluralize(count, 'block')}, ${formatCount(tokens.values[row][hour])} tokens${costs ? `, ${formatUsdOrNone(costs.values[row][hour])}` : ''}`;
+      : `${formatDay(tokens.days[row])} ${hourLabel(hour)}:00: ${pluralize(count, 'block')}, ${formatCount(tokens.values[row][hour])} tokens${costs ? `, ${costText(costs.costs, row, hour)}` : ''}`;
   };
   const dayLabel = (day: string) => formatDay(day).slice(0, -5);
   const hours = Array.from({ length: 24 }, (_, hour) => hourLabel(hour));
