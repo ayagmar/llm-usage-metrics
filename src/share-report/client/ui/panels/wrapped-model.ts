@@ -267,12 +267,10 @@ export function buildWrappedView(report: ShareReport): WrappedView | undefined {
   const year = String(readNumber(data, 'year'));
   const timezone = readString(data, 'timezone') ?? report.data.meta.timezone;
   // The current year stops at the generation date, as the page's charts do.
-  const end = getWindowEnd(report) ?? '9999-12-31';
-  const days = readRecords(data.dailyIntensity).filter(
-    (day) => (readString(day, 'date') ?? '') <= end,
-  );
+  const end = getWindowEnd(report) ?? `${year}-12-31`;
+  const days = readRecords(data.dailyIntensity).filter((day) => String(day.date) <= end);
   const months = readRecords(data.monthlyIntensity).filter(
-    (month) => (readString(month, 'month') ?? '') <= end.slice(0, 7),
+    (month) => String(month.month) <= end.slice(0, 7),
   );
 
   return {
