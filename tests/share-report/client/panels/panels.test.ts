@@ -541,7 +541,14 @@ describe('compare lead', () => {
       ...data,
       totals: unpricedCost(data.totals as Record<string, unknown>[]),
     });
-    const lede = ledeText(defined(buildCompareView(unpriced, createLabels(unpriced, undefined))));
+    const unpricedView = defined(buildCompareView(unpriced, createLabels(unpriced, undefined)));
+    const lede = ledeText(unpricedView);
+
+    expect(unpricedView.facts[0]).toEqual({
+      label: 'Cost change',
+      value: '—',
+      detail: 'change unknown · — against $0.00',
+    });
 
     expect(lede).toBe(
       '33,740 tokens in 1 Jun 2026 – 30 Jun 2026, up 30,990 (+1,126.9%) against 1 May 2026 – 31 May 2026.',

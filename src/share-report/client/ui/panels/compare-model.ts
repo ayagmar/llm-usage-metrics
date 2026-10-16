@@ -167,7 +167,14 @@ function buildFacts(totals: Record<string, unknown>[]): PanelFact[] {
 
     if (row) {
       const [label, now, then, change, ratio] = metricCells(row);
-      const percent = ratio.text === NO_VALUE ? 'nothing before' : ratio.text;
+      // The CLI leaves the percentage out after a zero baseline, and the whole change out when a
+      // side has no price: only the first means there was nothing before.
+      const percent =
+        ratio.text !== NO_VALUE
+          ? ratio.text
+          : readNumber(row, 'delta') === undefined
+            ? 'change unknown'
+            : 'nothing before';
       facts.push({
         label: `${label.text} change`,
         value: change.text,
