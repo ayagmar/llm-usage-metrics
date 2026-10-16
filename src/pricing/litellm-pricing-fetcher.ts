@@ -701,7 +701,7 @@ export class LiteLLMPricingFetcher implements PricingSource {
     const chunks: Uint8Array[] = [];
     let receivedBytes = 0;
 
-    for await (const chunk of response.body) {
+    for await (const chunk of response.body as ReadableStream<Uint8Array>) {
       receivedBytes += chunk.byteLength;
 
       if (receivedBytes > this.maxResponseBytes) {

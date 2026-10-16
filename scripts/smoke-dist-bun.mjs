@@ -1,16 +1,18 @@
 // Runs the built CLI (the published dist/bin.js loader) under Bun and checks it against Node on the e2e fixtures:
 // identical report JSON on a cold run whose Codex files really parse in worker
 // threads, and on a warm run served from the SQLite event store, plus a one-line
-// statusline. A node:sqlite preflight makes a missing SQLite fatal instead of the
-// OpenCode smoke check skipping.
+// statusline, and a `daily --share` page written under the same file names as Node's.
+// A node:sqlite preflight makes a missing SQLite fatal instead of the OpenCode smoke check
+// skipping.
 import { spawnSync } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
 const fixturesDir = path.resolve('tests/fixtures/e2e');
-const reportArgs = [
-  'dist/bin.js',
+const binPath = path.resolve('dist/bin.js');
+const dailyArgs = [
+  binPath,
   'daily',
   '--all',
   '--source',
@@ -24,8 +26,11 @@ const reportArgs = [
   '--timezone',
   'UTC',
   '--pricing-offline',
-  '--json',
 ];
+const reportArgs = [...dailyArgs, '--json'];
+const shareArgs = [...dailyArgs, '--no-sync', '--share', '--no-open'];
+// Card M10-D turns this on once every share page embeds its payload.
+const compareSharePayload = false;
 
 function createEnv(root) {
   const env = { ...process.env };
@@ -41,6 +46,8 @@ function createEnv(root) {
     XDG_CACHE_HOME: path.join(root, 'cache'),
     XDG_DATA_HOME: path.join(root, 'data'),
     XDG_CONFIG_HOME: path.join(root, 'config'),
+    HOME: path.join(root, 'home'),
+    LLM_USAGE_CONFIG_PATH: path.join(root, 'missing-config.toml'),
     LLM_USAGE_SKIP_UPDATE_CHECK: '1',
     LLM_USAGE_PARSE_WORKERS: '2',
     LLM_USAGE_PARSE_WORKER_MIN_BYTES: '0',
@@ -49,8 +56,8 @@ function createEnv(root) {
 }
 
 /** Runs the CLI and returns stdout and stderr, failing loudly on a non-zero exit. */
-function run(runtime, args, env) {
-  const result = spawnSync(runtime, args, { env, encoding: 'utf8', timeout: 60_000 });
+function run(runtime, args, env, cwd) {
+  const result = spawnSync(runtime, args, { env, cwd, encoding: 'utf8', timeout: 60_000 });
 
   if (result.error) {
     throw new Error(`Could not run ${runtime}: ${result.error.message}`, { cause: result.error });
@@ -77,6 +84,56 @@ function assertSame(label, actual, expected) {
   }
 }
 
+/** Writes the daily share page in a fresh directory and returns its files by name. */
+async function runShare(runtime, env, dir) {
+  await mkdir(dir, { recursive: true });
+  run(runtime, shareArgs, env, dir);
+  const names = (await readdir(dir)).sort();
+
+  if (!names.some((name) => name.endsWith('.html'))) {
+    throw new Error(`${runtime} --share wrote no .html file: ${names.join(', ')}`);
+  }
+
+  return new Map(
+    await Promise.all(
+      names.map(async (name) => [name, await readFile(path.join(dir, name), 'utf8')]),
+    ),
+  );
+}
+
+/** The embedded share payload without its generation time, which differs between runs. */
+function readSharePayload(html) {
+  const openTag = '<script type="application/json" id="report-data">';
+  const start = html.indexOf(openTag);
+  const end = start === -1 ? -1 : html.indexOf('</script>', start);
+
+  if (end === -1) {
+    throw new Error('The share page embeds no report-data payload');
+  }
+
+  return JSON.parse(html.slice(start + openTag.length, end), (key, value) =>
+    key === 'generatedAt' ? undefined : value,
+  );
+}
+
+function assertSameShare(nodeFiles, bunFiles) {
+  assertSame('share files', [...bunFiles.keys()], [...nodeFiles.keys()]);
+
+  if (!compareSharePayload) {
+    return;
+  }
+
+  for (const [name, html] of nodeFiles) {
+    if (name.endsWith('.html')) {
+      assertSame(
+        `share payload in ${name}`,
+        readSharePayload(bunFiles.get(name)),
+        readSharePayload(html),
+      );
+    }
+  }
+}
+
 async function main() {
   const root = await mkdtemp(path.join(os.tmpdir(), 'llm-usage-bun-smoke-'));
 
@@ -91,7 +148,8 @@ async function main() {
       process.env,
     );
 
-    const nodeData = runReport('node', createEnv(path.join(root, 'node'))).data;
+    const nodeEnv = createEnv(path.join(root, 'node'));
+    const nodeData = runReport('node', nodeEnv).data;
     const bunEnv = createEnv(path.join(root, 'bun'));
     const cold = runReport('bun', bunEnv);
     const coldData = cold.data;
@@ -126,8 +184,11 @@ async function main() {
       throw new Error(`Unexpected Bun statusline output: ${JSON.stringify(statusline)}`);
     }
 
+    const shareFiles = await runShare('bun', bunEnv, path.join(root, 'bun-share'));
+    assertSameShare(await runShare('node', nodeEnv, path.join(root, 'node-share')), shareFiles);
+
     console.log(
-      `Bun smoke check passed: ${nodeData.length} report rows match Node (cold and warm); statusline: ${statusline}`,
+      `Bun smoke check passed: ${nodeData.length} report rows match Node (cold and warm); share files: ${[...shareFiles.keys()].join(', ')}; statusline: ${statusline}`,
     );
   } finally {
     await rm(root, { recursive: true, force: true });
