@@ -218,9 +218,10 @@ function splitTable(
     columns: [
       { label: kind, numeric: false },
       { label: 'Total', numeric: true },
-      { label: 'Average a day', numeric: true },
+      // A phone keeps the name, the total and the peak.
+      { label: 'Average a day', numeric: true, narrow: false },
       { label: 'Peak', numeric: true },
-      { label: 'Peak day', numeric: false },
+      { label: 'Peak day', numeric: false, narrow: false },
     ],
     rows: rows.map((row) => {
       const series = readSeries(row);

@@ -965,3 +965,30 @@ describe('trends lead', () => {
     );
   });
 });
+
+describe('lead tables on a narrow screen', () => {
+  const kept = (table: PanelTable) =>
+    table.columns.filter((column) => column.narrow !== false).map((column) => column.label);
+
+  it('keep each row’s name and its key measures, as the explorer tables do', () => {
+    const compareReport = withEnvelope('compare', readGolden('compare-by-repo'));
+    const compare = defined(
+      buildCompareView(compareReport, createLabels(compareReport, undefined)),
+    );
+    const summary = summaryOf(withEnvelope('summary', readGolden('summary')));
+    const trends = trendsOf('trends-by-source');
+    const efficiency = defined(
+      buildEfficiencyView(withEnvelope('efficiency', readGolden('efficiency-monthly'))),
+    );
+    const optimize = defined(
+      buildOptimizeView(withEnvelope('optimize', readGolden('optimize-monthly'))),
+    );
+
+    expect(kept(tableOf(compare, 'Totals'))).toEqual(['Metric', 'Change', 'Change %']);
+    expect(kept(tableOf(compare, 'By project (cost)'))).toEqual(['Project', 'Change', 'Change %']);
+    expect(kept(summary.tables[0])).toEqual(['Period', 'Cost', 'Tokens']);
+    expect(kept(trends.tables[0])).toEqual(['Source', 'Total', 'Peak']);
+    expect(kept(efficiency.tables[0])).toEqual(['Period', 'Commits', 'Cost', 'Per commit']);
+    expect(kept(optimize.tables[0])).toEqual(['Period', 'Candidate', 'Savings']);
+  });
+});

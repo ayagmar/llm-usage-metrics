@@ -8,7 +8,7 @@ import { pluralize } from '../shell/format.js';
 import { buildCompareView } from './compare-model.js';
 import { buildEfficiencyView } from './efficiency-model.js';
 import type { CalendarView } from './calendar-model.js';
-import type { LedePart, PanelFact, PanelTable, PanelView } from './model.js';
+import type { LedePart, PanelColumn, PanelFact, PanelTable, PanelView } from './model.js';
 import { buildOptimizeView } from './optimize-model.js';
 import { buildSummaryView, type SummaryView } from './summary-model.js';
 import { buildTrendsView, type TrendChart, type TrendsView } from './trends-model.js';
@@ -48,6 +48,12 @@ function renderFacts(facts: PanelFact[], label?: string): HTMLElement {
   );
 }
 
+/** `num` right-aligns a measure; `wide-only` hides a secondary column on narrow screens. */
+function columnClass(column: PanelColumn | undefined): string | undefined {
+  const names = [column?.numeric && 'num', column?.narrow === false && 'wide-only'].filter(Boolean);
+  return names.length > 0 ? names.join(' ') : undefined;
+}
+
 function renderTable(table: PanelTable): HTMLElement {
   const row = (cells: PanelTable['rows'][number]) =>
     h(
@@ -55,7 +61,7 @@ function renderTable(table: PanelTable): HTMLElement {
       {},
       cells.map((cell, index) =>
         h(index === 0 ? 'th' : 'td', {
-          class: table.columns[index]?.numeric ? 'num' : undefined,
+          class: columnClass(table.columns[index]),
           attrs: { scope: index === 0 ? 'row' : undefined, title: cell.note },
           text: cell.text,
         }),
@@ -72,7 +78,7 @@ function renderTable(table: PanelTable): HTMLElement {
             {},
             table.columns.map((column) =>
               h('th', {
-                class: column.numeric ? 'num' : undefined,
+                class: columnClass(column),
                 attrs: { scope: 'col' },
                 text: column.label,
               }),

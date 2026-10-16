@@ -232,11 +232,12 @@ export function buildOptimizeView(report: ShareReport): PanelView | undefined {
               columns: [
                 { label: 'Period', numeric: false },
                 { label: 'Candidate', numeric: false },
-                { label: 'Hypothetical cost', numeric: true },
-                { label: 'Baseline cost', numeric: true },
+                // A phone keeps the period, the candidate and its savings.
+                { label: 'Hypothetical cost', numeric: true, narrow: false },
+                { label: 'Baseline cost', numeric: true, narrow: false },
                 { label: 'Savings', numeric: true },
-                { label: 'Savings %', numeric: true },
-                { label: 'Notes', numeric: false },
+                { label: 'Savings %', numeric: true, narrow: false },
+                { label: 'Notes', numeric: false, narrow: false },
               ],
               rows: candidates.filter((row) => !isTotal(row)).map(cells),
               foot: totals.map(cells),

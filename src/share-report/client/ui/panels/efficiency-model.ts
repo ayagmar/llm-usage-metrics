@@ -154,13 +154,14 @@ export function buildEfficiencyView(report: ShareReport): PanelView | undefined 
     { label: 'Period', numeric: false },
     ...(bySource ? [{ label: 'Source', numeric: false }] : []),
     { label: 'Commits', numeric: true },
-    { label: 'Lines added', numeric: true },
-    { label: 'Lines deleted', numeric: true },
-    { label: 'Tokens', numeric: true },
+    // A phone keeps commits, cost and cost per commit.
+    { label: 'Lines added', numeric: true, narrow: false },
+    { label: 'Lines deleted', numeric: true, narrow: false },
+    { label: 'Tokens', numeric: true, narrow: false },
     { label: 'Cost', numeric: true },
     { label: 'Per commit', numeric: true },
-    { label: 'Per 1k lines', numeric: true },
-    { label: 'Tokens per commit', numeric: true },
+    { label: 'Per 1k lines', numeric: true, narrow: false },
+    { label: 'Tokens per commit', numeric: true, narrow: false },
   ];
 
   return {

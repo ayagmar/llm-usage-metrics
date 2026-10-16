@@ -84,7 +84,7 @@ function periodsTable(periods: Period[]): PanelTable {
       { label: 'Period', numeric: false },
       { label: 'Cost', numeric: true },
       { label: 'Tokens', numeric: true },
-      { label: 'Top source', numeric: false },
+      { label: 'Top source', numeric: false, narrow: false },
     ],
     rows: periods.map((period) => [
       { text: period.label },
