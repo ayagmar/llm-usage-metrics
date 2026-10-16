@@ -5,6 +5,7 @@ import path from 'node:path';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { buildValueData } from '../../src/cli/build-value-data.js';
 import { buildValueReportOutput, runValueReport } from '../../src/cli/run-value-report.js';
 import type { ValueCommandOptions } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
@@ -145,6 +146,42 @@ describe('value report', () => {
     await expect(buildJson({ since: '2026-07-01' }, { createAdapters })).rejects.toThrow(
       '--since 2026-07-01 is after today (2026-06-21)',
     );
+  });
+
+  it('words a plan source without files per plan, not as a typed --source', async () => {
+    const createAdapters = (): SourceAdapter[] => [
+      {
+        id: 'claude',
+        discoverFiles: async () => ['/value-test/claude.jsonl'],
+        read: readFrom(async () => [
+          createUsageEvent({
+            source: 'claude',
+            sessionId: 's',
+            timestamp: '2026-06-01T10:00:00.000Z',
+            model: 'claude-sonnet-4-5',
+            inputTokens: 10,
+            outputTokens: 1,
+          }),
+        ]),
+      },
+      { id: 'codex', discoverFiles: async () => [], read: readFrom(async () => []) },
+    ];
+    const planWarning =
+      'plan chatgpt-plus: codex found no files; `llm-usage doctor --source codex` shows where it looks';
+
+    const { diagnostics } = await buildValueData(
+      { ...baseOptions, plan: ['claude-max-20x', 'chatgpt-plus'] },
+      { createAdapters },
+    );
+    expect(diagnostics.warnings).toEqual([planWarning]);
+
+    const typed = await buildValueData(
+      { ...baseOptions, plan: ['claude-max-20x', 'chatgpt-plus'], source: 'codex,claude' },
+      { createAdapters },
+    );
+    expect(typed.diagnostics.warnings).toEqual([
+      '--source codex found no files; `llm-usage doctor --source codex` shows where it looks',
+    ]);
   });
 
   it('marks costs incomplete with --cost-mode explicit when the sources log no cost', async () => {

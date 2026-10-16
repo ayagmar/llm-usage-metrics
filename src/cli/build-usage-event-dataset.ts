@@ -22,6 +22,7 @@ import {
 import { createAdaptersFromOptions } from './source-cli-options.js';
 import {
   normalizeBuildUsageInputs,
+  normalizeSourceFilter,
   resolveCliDirectorySourceIds,
   selectAdaptersForParsing,
   throwOnExplicitSourceScopeConflicts,
@@ -507,12 +508,9 @@ export async function buildUsageEventDataset(
         ...machineWarnings,
         ...findUnmatchedFilterWarnings({
           parseResults: parseResultsForFiltering,
-          // A `sources` list from config.toml is a standing default, not a typed filter.
-          cliSourceFilter: userConfigResolution.activeConfig?.entries.some(
-            (entry) => entry.key === 'sources',
-          )
-            ? undefined
-            : normalizedInputs.sourceFilter,
+          // Only a typed --source: a `sources` list from config.toml is a standing default,
+          // and value narrows `source` to its plans' sources.
+          cliSourceFilter: normalizeSourceFilter(userConfigResolution.cliOptions.source),
           provider: configuredOptions.provider,
           modelFilter: normalizedInputs.modelFilter,
           repoFilter: normalizedInputs.repoFilter,

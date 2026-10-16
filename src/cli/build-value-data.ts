@@ -5,6 +5,7 @@ import { getCurrentLocalDateKey } from '../utils/time-buckets.js';
 import {
   buildValueReport,
   resolvePlanScopes,
+  type PlanScope,
   type ValueReportData,
 } from '../value/build-value-report.js';
 import { selectPlans } from '../value/plans.js';
@@ -12,8 +13,10 @@ import { resolveUserConfigForOptions } from './apply-user-config.js';
 import { parseLastOption, resolvePeriodsSince } from './build-usage-data.js';
 import {
   normalizeBuildUsageInputs,
+  normalizeSourceFilter,
   validateSourceFilterValues,
 } from './build-usage-data-inputs.js';
+import type { AdapterParseResult } from './build-usage-data-parsing.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import {
   applyPricingToUsageEventDataset,
@@ -62,6 +65,36 @@ function resolveWindowDates(
   }
 
   return { since: options.since, until };
+}
+
+/**
+ * A plan source without files, worded per plan. A source typed in --source is left out:
+ * the dataset already warns about it. When no source has files, the "No session files
+ * found" warning says so.
+ */
+function findPlanSourcesWithoutFiles(
+  planScopes: readonly PlanScope[],
+  parseResults: readonly AdapterParseResult[],
+  typedSourceFilter: ReadonlySet<string> | undefined,
+): string[] {
+  if (!parseResults.some((result) => result.filesFound > 0)) {
+    return [];
+  }
+
+  const sourcesWithoutFiles = new Set(
+    parseResults
+      .filter((result) => result.filesFound === 0)
+      .map((result) => result.source.toLowerCase()),
+  );
+
+  return planScopes.flatMap(({ selected, sources }) =>
+    sources
+      .filter((source) => sourcesWithoutFiles.has(source) && !typedSourceFilter?.has(source))
+      .map(
+        (source) =>
+          `plan ${selected.plan.id}: ${source} found no files; \`llm-usage doctor --source ${source}\` shows where it looks`,
+      ),
+  );
 }
 
 export async function buildValueData(
@@ -118,7 +151,14 @@ export async function buildValueData(
     sourceFailures: dataset.sourceFailures,
     pricingOrigin,
     pricingWarning,
-    warnings: dataset.warnings,
+    warnings: [
+      ...dataset.warnings,
+      ...findPlanSourcesWithoutFiles(
+        planScopes,
+        dataset.successfulParseResults,
+        normalizeSourceFilter(userConfigResolution.cliOptions.source),
+      ),
+    ],
     notes:
       options.cost === false
         ? dataset.notes
