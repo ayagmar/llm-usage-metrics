@@ -1,4 +1,4 @@
-import { access, writeFile } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { Command } from 'commander';
@@ -18,9 +18,13 @@ import { getDefaultEventStorePath } from '../persistence/event-store.js';
 import { DEFAULT_LITELLM_PRICING_URL } from '../pricing/litellm-pricing-fetcher.js';
 import { ensureDirectory } from '../utils/fs-helpers.js';
 import { logger } from '../utils/logger.js';
-import { resolveUserConfigForOptions } from './apply-user-config.js';
+import { renderConfigReportText } from '../render/render-config-report.js';
+import { renderReportJson } from '../render/report-json.js';
+import { buildConfigReport, type BuildConfigReportDeps } from './build-config-report.js';
 import { formatHelpExamples } from './report-definitions/report-definitions.js';
-import { buildActiveConfigLines } from './emit-active-config.js';
+import { registerSharedReportOptions } from './report-definitions/shared-report-options.js';
+import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
+import type { ConfigShowCommandOptions } from './usage-data-contracts.js';
 import { hasErrorCode } from '../utils/error-code.js';
 
 type ConfigInitOptions = {
@@ -107,13 +111,27 @@ async function writeConfigTemplate(configPath: string, options: ConfigInitOption
   }
 }
 
-async function configFileExists(configPath: string): Promise<boolean> {
-  try {
-    await access(configPath);
-    return true;
-  } catch {
-    return false;
+export async function runConfigShow(
+  options: ConfigShowCommandOptions,
+  deps: BuildConfigReportDeps & { now?: () => number } = {},
+): Promise<void> {
+  const { data, warnings } = await buildConfigReport(options, deps);
+
+  for (const warning of warnings) {
+    logger.warn(warning);
   }
+
+  const preparedReport = await prepareReport({
+    commandOptions: options,
+    supportedFormats: ['terminal', 'json'] as const,
+    buildData: async () => data,
+    render: (reportData, format) =>
+      format === 'json'
+        ? renderReportJson('config', reportData)
+        : renderConfigReportText(reportData, { now: (deps.now ?? Date.now)() }),
+    getDiagnostics: () => undefined,
+  });
+  await runPreparedReport({ preparedReport });
 }
 
 export function createConfigCommand(): Command {
@@ -148,29 +166,23 @@ export function createConfigCommand(): Command {
     .action(() => {
       console.log(resolveUserConfigPath(process.env));
     });
-  const showCommand = new Command('show')
-    .description('Print the effective configuration and where each value comes from')
+  const showCommand = registerSharedReportOptions(
+    new Command('show').description(
+      'Print the effective configuration and where each value comes from',
+    ),
+    'config',
+  )
     .addHelpText(
       'after',
       formatHelpExamples([
         'llm-usage config show',
+        'llm-usage config show --json',
+        'llm-usage config show --claude-dir ~/work/.claude/projects',
         'LLM_USAGE_CONFIG_PATH=./work.toml llm-usage config show',
       ]),
     )
-    .action(async () => {
-      const configPath = resolveUserConfigPath(process.env);
-      const missingSuffix = (await configFileExists(configPath)) ? '' : ' (missing)';
-      const userConfigResolution = await resolveUserConfigForOptions({});
-
-      console.log(`Config file: ${configPath}${missingSuffix}`);
-
-      for (const line of buildActiveConfigLines(userConfigResolution)) {
-        console.log(line);
-      }
-
-      for (const warning of userConfigResolution.loadedConfig.warnings) {
-        logger.warn(warning);
-      }
+    .action(async (options: ConfigShowCommandOptions) => {
+      await runConfigShow(options);
     });
 
   configCommand.addCommand(initCommand);

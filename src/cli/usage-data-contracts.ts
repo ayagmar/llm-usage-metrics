@@ -264,6 +264,8 @@ export type EventsCommandOptions = SharedOptionsForProfile<'events'> &
 
 export type DoctorCommandOptions = SharedOptionsForProfile<'doctor'>;
 
+export type ConfigShowCommandOptions = SharedOptionsForProfile<'config'>;
+
 export type PruneCommandOptions = DoctorCommandOptions & {
   suppressed?: boolean;
   departedBefore?: string;

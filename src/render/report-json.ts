@@ -10,6 +10,7 @@ export type ReportJsonName =
   | 'optimize'
   | 'wrapped'
   | 'doctor'
+  | 'config'
   | 'prune'
   | 'projects'
   | 'blocks'

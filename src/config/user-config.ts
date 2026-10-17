@@ -177,7 +177,7 @@ export function resolveUserConfigPath(env: NodeJS.ProcessEnv = process.env): str
   return getDefaultUserConfigPath(env);
 }
 
-function hasConfigPathOverride(env: NodeJS.ProcessEnv): boolean {
+export function hasConfigPathOverride(env: NodeJS.ProcessEnv): boolean {
   return Boolean(env.LLM_USAGE_CONFIG_PATH?.trim());
 }
 

@@ -240,6 +240,24 @@ export const sharedOptionProfileConfig = {
     includeShare: false,
     includeTimezone: false,
   },
+  // config show: every flag that changes a setting it reports, and --json.
+  config: {
+    includeSources: true,
+    includeVerbose: false,
+    includeJson: true,
+    includeQuiet: false,
+    includeDateFilters: false,
+    includeMarkdown: false,
+    includePerModelColumns: false,
+    includePricing: true,
+    includeCostOptions: false,
+    includePricingFetch: true,
+    includeProviderModelFilters: false,
+    includeHistory: false,
+    includeSync: false,
+    includeShare: false,
+    includeTimezone: true,
+  },
   // pricing <model...>: only what decides which prices load, the output format and --quiet.
   pricing: {
     includeSources: false,
