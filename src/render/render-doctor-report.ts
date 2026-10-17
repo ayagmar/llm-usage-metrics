@@ -21,7 +21,7 @@ const summaryStates: readonly { state: DoctorSourceState; label: string }[] = [
   { state: 'not_installed', label: 'not installed' },
 ];
 
-function abbreviateHome(searchPath: string, homeDir: string): string {
+export function abbreviateHome(searchPath: string, homeDir: string): string {
   if (
     homeDir.length === 0 ||
     (searchPath !== homeDir && !searchPath.startsWith(homeDir + path.sep))
@@ -30,6 +30,13 @@ function abbreviateHome(searchPath: string, homeDir: string): string {
   }
 
   return `~${searchPath.slice(homeDir.length)}`;
+}
+
+/** The event store line when its file does not exist yet. */
+export function describeMissingEventStore(legacyPath: string | undefined): string {
+  return legacyPath === undefined
+    ? 'not yet created'
+    : `still at ${legacyPath}; the next report copies it here`;
 }
 
 function getGlyph(result: DoctorSourceResult): string {

@@ -12,7 +12,7 @@ import {
   applyPricingToUsageEventDataset,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
-import { limitRows, parseSessionTopOption, resolveSessionRowLimit } from './build-session-data.js';
+import { limitRows, parseTopRowsOption, resolveSessionRowLimit } from './build-session-data.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 import type {
   BuildUsageDataDeps,
@@ -38,7 +38,7 @@ export async function buildContextData(
   commandOptions: ContextCommandOptions,
   commandDeps: BuildUsageDataDeps = {},
 ): Promise<ContextDataResult> {
-  const top = parseSessionTopOption(commandOptions.top);
+  const top = parseTopRowsOption(commandOptions.top);
   // Without date flags, the last 7 days, as `daily` reports them.
   const { options, deps, defaultWindowSince } = await resolveUsageDataRequest(
     'daily',

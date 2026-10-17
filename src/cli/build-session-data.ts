@@ -16,7 +16,8 @@ import type {
 
 const DEFAULT_SESSION_TOP = 20;
 
-export function parseSessionTopOption(top: string | undefined): number | undefined {
+/** `--top N` where 0 shows every row; undefined when not passed. */
+export function parseTopRowsOption(top: string | undefined): number | undefined {
   if (top === undefined) {
     return undefined;
   }
@@ -59,11 +60,11 @@ export function resolveSessionRowLimit(
   return hasIdFilters ? undefined : DEFAULT_SESSION_TOP;
 }
 
-/** The first `limit` rows, already ranked by `rankedBy`, and a note when some are left out. */
+/** The first `limit` rows, with the note naming what --top left out. */
 export function limitRows<Row>(
   rows: Row[],
   limit: number | undefined,
-  rowNoun: 'sessions' | 'repos',
+  rowNoun: string,
   rankedBy = 'cost',
 ): { rows: Row[]; limitNote?: string } {
   if (limit === undefined || rows.length <= limit) {
@@ -86,7 +87,7 @@ export async function buildSessionData(
     throw new Error('--id cannot be combined with --by-repo');
   }
 
-  const top = parseSessionTopOption(options.top);
+  const top = parseTopRowsOption(options.top);
   const limit = resolveSessionRowLimit(top, idFilters !== undefined);
   const dataset = await measureRuntimeProfileStage(
     deps.runtimeProfile,

@@ -13,7 +13,9 @@ import {
 // The reader reads 1 MiB at a time; a padding line this long puts a chunk boundary inside
 // the lines after it, often inside a multi-byte character.
 const CHUNK_BYTES = 1024 * 1024;
-const CASES = 40;
+// Each case may hold a line of nearly one chunk; 20 cases stay well inside the timeout when
+// gates run in parallel.
+const CASES = 20;
 
 let rootDir: string;
 

@@ -1,0 +1,152 @@
+{
+  "schemaVersion": 1,
+  "report": "config",
+  "data": {
+    "configFile": {
+      "path": "<tmp>/config.toml",
+      "origin": "env",
+      "exists": true
+    },
+    "sources": [
+      {
+        "id": "pi",
+        "format": "jsonl",
+        "origin": "default",
+        "paths": [
+          {
+            "path": "<tmp>/home/.pi/agent/sessions",
+            "exists": false
+          },
+          {
+            "path": "<tmp>/home/.omp/agent/sessions",
+            "exists": false
+          }
+        ]
+      },
+      {
+        "id": "codex",
+        "format": "jsonl",
+        "origin": "cli",
+        "paths": [
+          {
+            "path": "<tmp>/codex",
+            "exists": true
+          }
+        ]
+      },
+      {
+        "id": "gemini",
+        "format": "json",
+        "origin": "env",
+        "paths": [
+          {
+            "path": "<tmp>/gemini",
+            "exists": false
+          }
+        ]
+      },
+      {
+        "id": "claude",
+        "format": "jsonl",
+        "origin": "config",
+        "paths": [
+          {
+            "path": "<tmp>/claude",
+            "exists": true
+          }
+        ]
+      }
+    ],
+    "eventStore": {
+      "enabled": {
+        "value": true,
+        "origin": "default"
+      },
+      "path": {
+        "value": "<tmp>/store/events.db",
+        "origin": "config"
+      },
+      "file": {
+        "state": "missing"
+      }
+    },
+    "machines": [
+      {
+        "name": "laptop",
+        "enabled": true
+      },
+      {
+        "name": "old-desktop",
+        "enabled": false
+      }
+    ],
+    "pricing": {
+      "url": {
+        "value": "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json",
+        "origin": "default"
+      },
+      "offline": {
+        "value": false,
+        "origin": "default"
+      },
+      "cacheTtlMs": {
+        "value": 86400000,
+        "origin": "default"
+      },
+      "cache": {
+        "path": "<tmp>/cache/llm-usage-metrics/litellm-pricing-cache.json",
+        "state": "fresh",
+        "fetchedAt": "2026-06-21T09:00:00.000Z"
+      },
+      "pricesFrom": "cache",
+      "pricesFetchedAt": "2026-06-21T09:00:00.000Z",
+      "overrides": {
+        "path": {
+          "value": "<tmp>/overrides.json",
+          "origin": "cli"
+        },
+        "exists": false
+      }
+    },
+    "defaults": {
+      "timezone": {
+        "value": "UTC",
+        "origin": "default"
+      },
+      "sources": {
+        "value": [
+          "claude",
+          "codex",
+          "gemini",
+          "pi"
+        ],
+        "origin": "config"
+      },
+      "parseWorkers": {
+        "value": 2,
+        "origin": "config"
+      },
+      "parseMaxParallel": {
+        "value": 8,
+        "origin": "default"
+      },
+      "parseWorkerMinBytes": {
+        "value": 268435456,
+        "origin": "default"
+      },
+      "history": true
+    },
+    "environment": [
+      {
+        "name": "LLM_USAGE_CONFIG_PATH",
+        "value": "<tmp>/config.toml",
+        "description": "user config file path"
+      },
+      {
+        "name": "LLM_USAGE_SKIP_UPDATE_CHECK",
+        "value": "1",
+        "description": "skip startup update check"
+      }
+    ]
+  }
+}

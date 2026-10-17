@@ -40,8 +40,7 @@ export function emitActiveConfig(
   emitActiveConfigLines(formatActiveConfig(activeConfig), diagnosticsLogger);
 }
 
-// The provenance block shared by report diagnostics and `config show`.
-export function buildActiveConfigLines(userConfigResolution: UserConfigResolution): string[] {
+function buildActiveConfigLines(userConfigResolution: UserConfigResolution): string[] {
   const activeConfig = mergeActiveConfigEntries(userConfigResolution.loadedConfig, [
     ...(userConfigResolution.activeConfig?.entries ?? []),
     ...collectRuntimeConfigEntries(userConfigResolution.loadedConfig),

@@ -3,7 +3,7 @@ import type { UsageEvent } from '../domain/usage-event.js';
 import type { UsageReportRow, UsageTotals } from '../domain/usage-report-row.js';
 import { getPeriodKey } from '../utils/time-buckets.js';
 import { addUsd } from '../utils/usd-math.js';
-import { createDateWindowPrefilter } from './parse/usage-event-filters.js';
+import { createTimestampWindowFilter } from './parse/usage-event-filters.js';
 import type { UsageWindowTotals } from './usage-data-contracts.js';
 
 export type UsageDateWindow = {
@@ -25,23 +25,14 @@ export function isEventWithinWindow(
   return eventDate >= window.since && eventDate <= window.until;
 }
 
-/**
- * `isEventWithinWindow` for filtering many events: only an event within a day of the
- * window's edges needs its local date.
- */
+/** `isEventWithinWindow` for filtering many events (see `createTimestampWindowFilter`). */
 export function createWindowEventFilter(
   window: UsageDateWindow,
   timezone: string,
 ): (event: UsageEvent) => boolean {
-  const prefilterDate = createDateWindowPrefilter(window.since, window.until);
+  const isInWindow = createTimestampWindowFilter({ timezone, ...window });
 
-  return (event) => {
-    const datePosition = prefilterDate(event.timestamp);
-
-    return datePosition === 'near-edge'
-      ? isEventWithinWindow(event, window, timezone)
-      : datePosition === 'inside';
-  };
+  return (event) => isInWindow(event.timestamp);
 }
 
 export function createEmptyWindowTotals(): UsageWindowTotals {
