@@ -1,10 +1,6 @@
 import { markdownTable } from 'markdown-table';
 
-import {
-  buildProjectLabels,
-  toProjectKey,
-  UNATTRIBUTED_PROJECT_LABEL,
-} from '../aggregate/project-key.js';
+import { toProjectKey, UNATTRIBUTED_PROJECT_LABEL } from '../aggregate/project-key.js';
 import type { SessionDataResult } from '../cli/usage-data-contracts.js';
 import type { SessionRepoRow, SessionRow } from '../session/session-row.js';
 import { getPeriodKey } from '../utils/time-buckets.js';
@@ -91,11 +87,6 @@ function formatModels(models: readonly string[]): string {
 
 type ProjectLabels = ReadonlyMap<string | undefined, string>;
 
-/** Project labels for the rows' repository roots, as the projects report gives them. */
-function buildRowProjectLabels(rows: readonly { repoRoot?: string }[]): ProjectLabels {
-  return buildProjectLabels(rows.map((row) => toProjectKey(row.repoRoot)));
-}
-
 function toProjectLabel(repoRoot: string | undefined, projectLabels: ProjectLabels): string {
   return projectLabels.get(toProjectKey(repoRoot)) ?? UNATTRIBUTED_PROJECT_LABEL;
 }
@@ -141,7 +132,7 @@ function buildTableCells(
   sessionData: SessionDataResult,
   options: RenderSessionReportOptions,
 ): SessionTableCells {
-  const projectLabels = buildRowProjectLabels(sessionData.rows);
+  const { projectLabels } = sessionData;
 
   if (sessionData.grouping === 'repo') {
     return {

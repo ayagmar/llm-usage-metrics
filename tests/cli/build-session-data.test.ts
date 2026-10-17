@@ -278,6 +278,50 @@ describe('buildSessionData', () => {
     expect(result.limitNote).toBe('Showing top 1 of 2 repos by cost. Use --top 0 for all.');
   });
 
+  it('labels projects from every session, not only the ones --top shows', async () => {
+    const result = await buildSessionData(
+      { top: '1', timezone: 'UTC' },
+      runtimeDeps({
+        adapters: [
+          createAdapter('pi', {
+            '/tmp/pi.jsonl': [
+              createBaseEvent({
+                sessionId: 'shown',
+                outputTokens: 1_000_000,
+                totalTokens: 1_000_010,
+                repoRoot: '/home/user/work/app',
+              }),
+              createBaseEvent({ sessionId: 'hidden', repoRoot: '/home/user/oss/app' }),
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(sessionRowsOf(result).map((row) => row.sessionId)).toEqual(['shown']);
+    expect(result.projectLabels.get('/home/user/work/app')).toBe('work/app');
+  });
+
+  it('groups repo roots that differ only by a trailing separator into one row', async () => {
+    const result = await buildSessionData(
+      { byRepo: true, timezone: 'UTC' },
+      runtimeDeps({
+        adapters: [
+          createAdapter('pi', {
+            '/tmp/pi.jsonl': [
+              createBaseEvent({ sessionId: 'a', repoRoot: '/home/user/app' }),
+              createBaseEvent({ sessionId: 'b', repoRoot: '/home/user/app/' }),
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]).toMatchObject({ repoRoot: '/home/user/app', sessionCount: 2 });
+    expect(result.projectLabels.get('/home/user/app')).toBe('app');
+  });
+
   it('applies source, date, provider, and model filters before grouping', async () => {
     const result = await buildSessionData(
       {

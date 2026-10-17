@@ -22,6 +22,7 @@ vi.mock('../../src/cli/build-session-data.js', () => ({
         costUsd: 0.01,
       },
     ],
+    projectLabels: new Map([['/home/user/project-alpha', 'project-alpha']]),
     limitNote: 'Showing top 1 of 2 sessions by cost. Use --top 0 for all.',
     diagnostics: {
       sessionStats: [],
@@ -123,6 +124,7 @@ describe('run-session-report', () => {
     vi.mocked(buildSessionData).mockResolvedValueOnce({
       grouping: 'session',
       rows: [],
+      projectLabels: new Map(),
       diagnostics: {
         sessionStats: [],
         sourceFailures: [],

@@ -1,3 +1,4 @@
+import { buildEventProjectLabels, toProjectKey } from '../aggregate/project-key.js';
 import { aggregateSessions, aggregateSessionsByRepo } from '../session/aggregate-sessions.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import { getEventSessionKey, type UsageEvent } from '../domain/usage-event.js';
@@ -92,6 +93,8 @@ export async function buildSessionData(
   );
   const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'auto');
   const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
+  // From every event, as `projects` labels them, so a label does not depend on --top or --id.
+  const projectLabels = buildEventProjectLabels(pricedEvents);
   const aggregateOptions = {
     timezone: dataset.normalizedInputs.timezone,
     since: options.since,
@@ -118,14 +121,15 @@ export async function buildSessionData(
       aggregateSessionsByRepo(pricedEvents, aggregateOptions),
     );
     const limited = limitRows(repoRows, limit, 'repos');
-    const shownRepos = new Set(limited.rows.map((row) => row.repoRoot ?? ''));
+    const shownRepos = new Set(limited.rows.map((row) => row.repoRoot));
 
     return {
       grouping: 'repo',
       rows: limited.rows,
+      projectLabels,
       limitNote: limited.limitNote,
       diagnostics: buildDiagnostics(
-        pricedEvents.filter((event) => shownRepos.has(event.repoRoot ?? '')),
+        pricedEvents.filter((event) => shownRepos.has(toProjectKey(event.repoRoot))),
       ),
     };
   }
@@ -139,6 +143,7 @@ export async function buildSessionData(
   return {
     grouping: 'session',
     rows: limited.rows,
+    projectLabels,
     limitNote: limited.limitNote,
     diagnostics: buildDiagnostics(
       pricedEvents.filter((event) => shownSessions.has(getEventSessionKey(event))),

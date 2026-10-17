@@ -40,6 +40,7 @@ function createSessionData(): SessionDataResult {
         costIncomplete: true,
       },
     ],
+    projectLabels: new Map([['/home/user/project-alpha', 'project-alpha']]),
     diagnostics: createDiagnostics('America/New_York'),
   };
 }
@@ -78,6 +79,10 @@ function createRepoData(): SessionDataResult {
         costIncomplete: true,
       },
     ],
+    projectLabels: new Map([
+      ['/home/user/project-alpha', 'project-alpha'],
+      [undefined, '(unattributed)'],
+    ]),
     diagnostics: createDiagnostics('UTC'),
   };
 }
@@ -211,7 +216,7 @@ describe('renderSessionReport', () => {
     expect(output).toContain('(unattributed)');
   });
 
-  it('labels two repos with one basename apart, as the projects report does', () => {
+  it('prints the labels the result carries, which can cover rows it does not show', () => {
     const data = createSessionData();
 
     if (data.grouping !== 'session') {
@@ -219,15 +224,15 @@ describe('renderSessionReport', () => {
     }
 
     const [row] = data.rows;
-    data.rows = [
-      { ...row, sessionId: 'session-work', repoRoot: '/home/user/work/app' },
-      { ...row, sessionId: 'session-oss', repoRoot: '/home/user/oss/app/' },
-    ];
+    data.rows = [{ ...row, repoRoot: '/home/user/work/app/' }];
+    data.projectLabels = new Map([
+      ['/home/user/work/app', 'work/app'],
+      ['/home/user/oss/app', 'oss/app'],
+    ]);
 
     const output = renderSessionReport(data, 'markdown', { timezone: 'UTC' });
 
     expect(output).toContain('| work/app');
-    expect(output).toContain('| oss/app');
   });
 
   it('renders markdown output with session columns and escaped model lines', () => {
