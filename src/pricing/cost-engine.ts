@@ -281,7 +281,7 @@ function resolvePricingOutcome(
     type: 'priced',
     costUsd: calculateEstimatedCostUsd(event, rates),
     reestimatedExplicitZero: shouldRepriceExplicitZero,
-    priorityPriced: usesPriorityFallbackRate(event, pricing),
+    priorityPriced: usesPriorityFallbackRate(event, pricing, rates),
   };
 }
 
@@ -338,21 +338,43 @@ export function costUnderPolicy(
   }
 }
 
-const TOKENS_BY_PRIORITY_FALLBACK_BUCKET: Record<
+/** A bucket's tokens billed at the model's base rate, not a tier rate or the 1h write rate. */
+const TOKENS_AT_BASE_RATE: Record<
   PriorityFallbackBucket,
-  (event: UsageEvent) => number
+  (event: UsageEvent, pricing: ModelPricing, rates: ModelPricing) => number
 > = {
-  input: (event) => event.inputTokens,
-  output: (event) => event.outputTokens,
-  cacheRead: (event) => event.cacheReadTokens,
-  cacheWrite: (event) => event.cacheWriteTokens,
+  input: (event, pricing, rates) =>
+    rates.inputPer1MUsd === pricing.inputPer1MUsd ? event.inputTokens : 0,
+  output: (event, pricing, rates) =>
+    rates.outputPer1MUsd === pricing.outputPer1MUsd
+      ? splitOutputForBilling(event, rates).outputTokens
+      : 0,
+  cacheRead: (event, pricing, rates) =>
+    rates.cacheReadPer1MUsd === pricing.cacheReadPer1MUsd ? event.cacheReadTokens : 0,
+  cacheWrite: (event, pricing, rates) => {
+    if (rates.cacheWritePer1MUsd !== pricing.cacheWritePer1MUsd) {
+      return 0;
+    }
+
+    const fiveMinuteTokens = event.cacheWriteTokens - event.cacheWrite1hTokens;
+    return rates.cacheWrite1hPer1MUsd === undefined
+      ? fiveMinuteTokens + event.cacheWrite1hTokens
+      : fiveMinuteTokens;
+  },
 };
 
-/** Whether the event has tokens in a bucket that LiteLLM prices only at a priority rate. */
-function usesPriorityFallbackRate(event: UsageEvent, pricing: ModelPricing): boolean {
+/**
+ * Whether the event bills tokens at a rate LiteLLM lists only as a priority rate: tokens in
+ * a fallback bucket priced at the base rate, not by a long-context tier or the 1h write rate.
+ */
+function usesPriorityFallbackRate(
+  event: UsageEvent,
+  pricing: ModelPricing,
+  rates: ModelPricing,
+): boolean {
   return (
     pricing.priorityFallback?.some(
-      (bucket) => TOKENS_BY_PRIORITY_FALLBACK_BUCKET[bucket](event) > 0,
+      (bucket) => TOKENS_AT_BASE_RATE[bucket](event, pricing, rates) > 0,
     ) ?? false
   );
 }
