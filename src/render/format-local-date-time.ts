@@ -1,8 +1,10 @@
+type DateTimePrecision = 'minute' | 'second';
+
 const dateTimeFormatters = new Map<string, Intl.DateTimeFormat>();
 
-/** `2026-06-15 09:05`: the timestamp's wall-clock minute in `timezone`. */
-export function formatLocalDateTime(isoTimestamp: string, timezone: string): string {
-  let formatter = dateTimeFormatters.get(timezone);
+function getDateTimeFormatter(timezone: string, precision: DateTimePrecision) {
+  const key = `${precision}\0${timezone}`;
+  let formatter = dateTimeFormatters.get(key);
 
   if (!formatter) {
     formatter = new Intl.DateTimeFormat('en-US', {
@@ -13,15 +15,28 @@ export function formatLocalDateTime(isoTimestamp: string, timezone: string): str
       day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
+      ...(precision === 'second' ? { second: '2-digit' } : {}),
     });
-    dateTimeFormatters.set(timezone, formatter);
+    dateTimeFormatters.set(key, formatter);
   }
 
-  const parts = Object.fromEntries(
-    formatter.formatToParts(new Date(isoTimestamp)).map((part) => [part.type, part.value]),
-  );
+  return formatter;
+}
 
-  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
+/** `2026-06-15 09:05` (or `09:05:30` to the second): the wall-clock time in `timezone`. */
+export function formatLocalDateTime(
+  isoTimestamp: string,
+  timezone: string,
+  precision: DateTimePrecision = 'minute',
+): string {
+  const parts = Object.fromEntries(
+    getDateTimeFormatter(timezone, precision)
+      .formatToParts(new Date(isoTimestamp))
+      .map((part) => [part.type, part.value]),
+  );
+  const time = `${parts.hour}:${parts.minute}`;
+
+  return `${parts.year}-${parts.month}-${parts.day} ${precision === 'second' ? `${time}:${parts.second}` : time}`;
 }
 
 /** `2026-06-15 09:00-14:00`, or `2026-06-15 21:00-2026-06-16 02:00` across midnight. */

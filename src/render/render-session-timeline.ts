@@ -23,7 +23,7 @@ export type RenderSessionTimelineOptions = {
 };
 
 const EVENT_COLUMN_INDEX = 1;
-const EVENT_COLUMN_WIDTH = 40;
+const EVENT_COLUMN_WIDTH = 32;
 
 const timelineHeaders = [
   'Time',
@@ -113,22 +113,13 @@ function formatFoldedRows(rows: readonly LiveRow[]): string {
   return parts.join(' · ');
 }
 
-function toTableCells(row: DisplayRow, timezone: string): string[] {
+function toTableCells(row: DisplayRow, time: string): string[] {
   if (row.kind === 'folded') {
-    return [
-      formatLocalDateTime(row.rows[0].timestamp, timezone),
-      formatFoldedRows(row.rows),
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-    ];
+    return [time, formatFoldedRows(row.rows), '', '', '', '', '', ''];
   }
 
   return [
-    formatLocalDateTime(row.timestamp, timezone),
+    time,
     row.model ?? '-',
     formatInteger(row.inputTokens),
     formatInteger(row.cacheReadTokens),
@@ -139,8 +130,26 @@ function toTableCells(row: DisplayRow, timezone: string): string[] {
   ];
 }
 
-function buildBodyRows(rows: readonly SessionTimelineRow[], timezone: string): string[][] {
-  return foldLiveRows(rows).map((row) => toTableCells(row, timezone));
+/**
+ * Times of day, since the header names the session's first day; a row on another day than
+ * the row before it (or than the first day) shows its date too.
+ */
+function buildBodyRows(
+  session: SessionRow,
+  rows: readonly SessionTimelineRow[],
+  timezone: string,
+): string[][] {
+  let previousDay = formatLocalDateTime(session.firstActivity, timezone).slice(0, 10);
+
+  return foldLiveRows(rows).map((row) => {
+    const timestamp = row.kind === 'folded' ? row.rows[0].timestamp : row.timestamp;
+    const dateTime = formatLocalDateTime(timestamp, timezone, 'second');
+    const day = dateTime.slice(0, 10);
+    const time = day === previousDay ? dateTime.slice(11) : dateTime;
+
+    previousDay = day;
+    return toTableCells(row, time);
+  });
 }
 
 /** `claude · <id> · <project>` and the span, request count and cost. */
@@ -166,7 +175,7 @@ export function renderTerminalSessionTimeline(
   rows: readonly SessionTimelineRow[],
   options: RenderSessionTimelineOptions,
 ): string {
-  const bodyRows = wrapTableColumn(buildBodyRows(rows, options.timezone), {
+  const bodyRows = wrapTableColumn(buildBodyRows(session, rows, options.timezone), {
     columnIndex: EVENT_COLUMN_INDEX,
     width: EVENT_COLUMN_WIDTH,
   });
@@ -187,16 +196,17 @@ export function renderTerminalSessionTimeline(
       multilineColumnIndex: EVENT_COLUMN_INDEX,
       multilineColumnWidth: EVENT_COLUMN_WIDTH,
       terminalWidth: resolveTtyColumns(process.stdout),
-      stackedTitleColumnCount: 2,
+      stackedTitleColumnCount: 1,
     }),
   ].join('\n');
 }
 
 export function renderMarkdownSessionTimeline(
+  session: SessionRow,
   rows: readonly SessionTimelineRow[],
   timezone: string,
 ): string {
-  const bodyRows = buildBodyRows(rows, timezone).map((row) => row.map(toMarkdownSafeCell));
+  const bodyRows = buildBodyRows(session, rows, timezone).map((row) => row.map(toMarkdownSafeCell));
 
   return markdownTable([[...timelineHeaders], ...bodyRows], { align: timelineAlign });
 }

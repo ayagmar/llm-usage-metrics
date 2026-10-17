@@ -2,6 +2,7 @@ import { buildEventProjectLabels, toProjectKey } from '../aggregate/project-key.
 import { aggregateSessions, aggregateSessionsByRepo } from '../session/aggregate-sessions.js';
 import type { SessionRow } from '../session/session-row.js';
 import { buildSessionTimeline } from '../session/session-timeline.js';
+import { countToolCallsOnce } from '../tools/aggregate-tools.js';
 import { getPeriodKey } from '../utils/time-buckets.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import { getEventSessionKey, type UsageEvent } from '../domain/usage-event.js';
@@ -10,6 +11,11 @@ import {
   buildUsageEventDataset,
   withPricingNotes,
 } from './build-usage-event-dataset.js';
+import {
+  formatFailedLiveReads,
+  formatLiveEventsNote,
+  readLiveSessionEvents,
+} from './read-live-session-events.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 import type {
   BuildSessionDataDeps,
@@ -19,6 +25,7 @@ import type {
 
 const DEFAULT_SESSION_TOP = 20;
 const MAX_LISTED_TIMELINE_MATCHES = 10;
+const LIVE_TIMELINE_SUBJECT = 'Tool calls and turns';
 
 /** `--top N` where 0 shows every row; undefined when not passed. */
 export function parseTopRowsOption(top: string | undefined): number | undefined {
@@ -161,15 +168,18 @@ export async function buildSessionData(
     until: options.until,
   };
   // Only the shown rows carry `~`, so only their events explain it.
-  const buildDiagnostics = (shownEvents: UsageEvent[]) =>
+  const buildDiagnostics = (
+    shownEvents: UsageEvent[],
+    live: { warnings: string[]; notes: string[] } = { warnings: [], notes: [] },
+  ) =>
     buildUsageDiagnostics({
       adaptersToParse: dataset.adaptersToParse,
       successfulParseResults: dataset.successfulParseResults,
       sourceFailures: dataset.sourceFailures,
       pricingOrigin,
       pricingWarning,
-      warnings: dataset.warnings,
-      notes: withPricingNotes(dataset.notes, shownEvents, pricingResult),
+      warnings: [...dataset.warnings, ...live.warnings],
+      notes: [...withPricingNotes(dataset.notes, shownEvents, pricingResult), ...live.notes],
       activeEnvOverrides: dataset.readEnvVarOverrides(),
       activeConfig: dataset.activeConfig,
       timezone: dataset.normalizedInputs.timezone,
@@ -206,13 +216,25 @@ export async function buildSessionData(
     );
     const sessionKey = getEventSessionKey(session);
     const sessionEvents = pricedEvents.filter((event) => getEventSessionKey(event) === sessionKey);
+    const live = await measureRuntimeProfileStage(deps.runtimeProfile, 'session.read_live', () =>
+      readLiveSessionEvents(dataset, {
+        kinds: ['tool_call', 'message'],
+        sessionKeys: new Set([sessionKey]),
+      }),
+    );
+    // Counted once across copies, as `tools` counts them.
+    const toolCalls = countToolCallsOnce(live.events.filter((event) => event.kind === 'tool_call'));
+    const messages = live.events.filter((event) => event.kind === 'message');
 
     return {
       grouping: 'timeline',
       session,
-      rows: buildSessionTimeline(sessionEvents, []),
+      rows: buildSessionTimeline(sessionEvents, [...toolCalls, ...messages]),
       projectLabels,
-      diagnostics: buildDiagnostics(sessionEvents),
+      diagnostics: buildDiagnostics(sessionEvents, {
+        warnings: formatFailedLiveReads(LIVE_TIMELINE_SUBJECT, live.failedFilePaths),
+        notes: [formatLiveEventsNote(LIVE_TIMELINE_SUBJECT)],
+      }),
     };
   }
 

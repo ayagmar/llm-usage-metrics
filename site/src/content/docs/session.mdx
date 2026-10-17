@@ -52,7 +52,7 @@ Showing top 20 of 1653 sessions by cost. Use --top 0 for all.
 
 ## Timeline
 
-`--id <session-id> --timeline` shows one session in time order: each request with its time, model, input, cache read, cache write and output tokens, its cost, and the running total of the session's cost so far. It answers "why did this session cost $12": the running total shows where the cost climbed, and the requests around it show what the model was doing.
+`--id <session-id> --timeline` shows one session in time order: each request with its time of day (the date heads the table, and a row on a later day shows its date), model, input, cache read, cache write and output tokens, its cost, and the running total of the session's cost so far. It answers "why did this session cost $12": the running total shows where the cost climbed, and the requests around it show what the model was doing.
 
 The `--id` value must match exactly one session in the window. When it matches several, the error lists up to 10 of them with their source and last-activity date, so you can pass more of the id:
 

@@ -221,7 +221,7 @@ function renderSessionTimelineReport(
     case 'json':
       return renderReportJson('session', { session, rows });
     case 'markdown':
-      return renderMarkdownSessionTimeline(rows, options.timezone);
+      return renderMarkdownSessionTimeline(session, rows, options.timezone);
     case 'terminal':
       return renderTerminalSessionTimeline(session, rows, {
         timezone: options.timezone,

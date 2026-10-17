@@ -398,7 +398,7 @@ describe('renderSessionReport --timeline', () => {
       .map((line) => line.replaceAll(/ +/gu, ' '));
 
     expect(lines).toHaveLength(4);
-    expect(lines[0]).toContain('| 2026-01-02 00:59 | 1 user turn |');
+    expect(lines[0]).toContain('| 00:59:00 | 1 user turn |');
     expect(lines[1]).toContain('| gpt-5-codex | 1,000 | 3,000 | 0 | 200 | $0.50 | $0.50 |');
     expect(lines[2]).toContain('6 tool calls: Bash ×4, Read ×2, 1 error');
     expect(lines[3]).toContain('$0.25 | $0.75 |');
@@ -425,10 +425,31 @@ describe('renderSessionReport --timeline', () => {
       });
 
       expect(output.split('\n').every((line) => visibleWidth(line) <= 60)).toBe(true);
-      expect(output).toContain('2026-01-02 01:01 · 6 tool calls: Bash ×4, Read ×2, 1 error');
+      expect(output).toContain(
+        '01:01:00\n  Event        6 tool calls: Bash ×4, Read ×2,\n               1 error',
+      );
     } finally {
       restoreStdout();
     }
+  });
+
+  it('prints times of day, with the date on the first row of each later day', () => {
+    const output = renderSessionReport(
+      createTimelineData([
+        usageRow('2026-01-02T23:59:00.000Z', 0.5, 0.5),
+        usageRow('2026-01-03T00:01:00.000Z', 0.25, 0.75),
+        usageRow('2026-01-03T00:02:00.000Z', 0.25, 1),
+      ]),
+      'markdown',
+      { timezone: 'UTC' },
+    );
+
+    expect(
+      output
+        .split('\n')
+        .slice(2)
+        .map((line) => line.split(' | ')[0].trimEnd()),
+    ).toEqual(['| 23:59:00', '| 2026-01-03 00:01:00', '| 00:02:00']);
   });
 
   it('renders JSON with every row and its kind, unfolded', () => {
