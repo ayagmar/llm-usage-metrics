@@ -1,4 +1,4 @@
-import { Command, Help } from 'commander';
+import { Command, Help, Option } from 'commander';
 
 import { setLogLevel } from '../utils/logger.js';
 import { suggestClosest } from '../utils/suggest-closest.js';
@@ -127,6 +127,29 @@ function wrapHelpOnNarrowTerminals(command: Command): void {
   }
 }
 
+/**
+ * Report commands take `--help-all` to list their hidden per-source flags, and the docs
+ * tell users to type it on any command. Commands without hidden flags print their
+ * usual help for it; the option stays out of their help since it adds nothing there.
+ */
+function addHelpAllOption(command: Command): void {
+  if (!command.options.some((option) => option.long === '--help-all')) {
+    command
+      .addOption(new Option('--help-all', 'Display help for command').hideHelp())
+      .on('option:help-all', () => {
+        command.help();
+      });
+  }
+
+  if (command.commands.length > 0) {
+    command.enablePositionalOptions();
+  }
+
+  for (const subcommand of command.commands) {
+    addHelpAllOption(subcommand);
+  }
+}
+
 export function createCli(options: CreateCliOptions = {}): Command {
   const program = new Command();
 
@@ -180,6 +203,13 @@ export function createCli(options: CreateCliOptions = {}): Command {
       setLogLevel('debug');
     }
   });
+
+  // Every parent passes the rest of the line to the subcommand it names, so a group
+  // sees `config init --help-all` as `init --help-all`, not as its own `--help-all`.
+  program.enablePositionalOptions();
+  for (const command of program.commands) {
+    addHelpAllOption(command);
+  }
 
   wrapHelpOnNarrowTerminals(program);
 

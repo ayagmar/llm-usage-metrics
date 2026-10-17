@@ -152,7 +152,6 @@ describe('createCli', () => {
       absent: [
         '--source',
         '--source-dir',
-        '--help-all',
         '--verbose',
         '--since',
         '--timezone',
@@ -481,6 +480,39 @@ describe('createCli', () => {
 
         expect(overflowing, `${command.name()} at ${String(columns)}`).toEqual([]);
       }
+    }
+  });
+
+  it('prints the help for --help-all on every command and subcommand', async () => {
+    const commandPaths = (command: Command, parents: string[]): string[][] =>
+      command.commands.flatMap((subcommand) => {
+        const commandPath = [...parents, subcommand.name()];
+        return [commandPath, ...commandPaths(subcommand, commandPath)];
+      });
+    const paths = commandPaths(createCli(), []);
+
+    expect(paths).toContainEqual(['config', 'show']);
+    expect(paths).toContainEqual(['machine']);
+
+    for (const commandPath of paths) {
+      const cli = createCli();
+      let output = '';
+      const capture = (command: Command): void => {
+        command.exitOverride().configureOutput({
+          writeOut: (chunk) => (output += chunk),
+          writeErr: (chunk) => (output += chunk),
+        });
+        command.commands.forEach(capture);
+      };
+      capture(cli);
+
+      await expect(
+        cli.parseAsync([...commandPath, '--help-all'], { from: 'user' }),
+        commandPath.join(' '),
+      ).rejects.toMatchObject({ exitCode: 0 });
+      expect(output, commandPath.join(' ')).toMatch(
+        new RegExp(`^Usage: llm-usage ${commandPath.join(' ')} `, 'u'),
+      );
     }
   });
 

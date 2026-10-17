@@ -1596,6 +1596,7 @@ Options:
                               (takes precedence over LiteLLM)
   --pricing-offline           Use cached LiteLLM pricing only (no network fetch)
   --markdown                  Render output as markdown table
+  --help-all                  Display help for command
   -h, --help                  display help for command
 ```
 
@@ -1786,13 +1787,14 @@ Usage: llm-usage config [options] [command]
 Manage user configuration
 
 Options:
+  --help-all      Display help for command
   -h, --help      display help for command
 
 Commands:
   init [options]  Write a commented config template
-  show            Print the effective configuration and where each value comes
+  show [options]  Print the effective configuration and where each value comes
                   from
-  path            Print the resolved config file path
+  path [options]  Print the resolved config file path
   help [command]  display help for command
 
 Usage: llm-usage config init [options]
@@ -1809,6 +1811,7 @@ Usage: llm-usage config show [options]
 Print the effective configuration and where each value comes from
 
 Options:
+  --help-all  Display help for command
   -h, --help  display help for command
 
 Usage: llm-usage config path [options]
@@ -1816,6 +1819,7 @@ Usage: llm-usage config path [options]
 Print the resolved config file path
 
 Options:
+  --help-all  Display help for command
   -h, --help  display help for command
 ```
 
@@ -1830,15 +1834,16 @@ Usage: llm-usage machine [options] [command]
 Combine usage from your other machines over ssh
 
 Options:
+  --help-all                         Display help for command
   -h, --help                         display help for command
 
 Commands:
   add [options] <name> [ssh-target]  Sync a machine over ssh and add it to
                                      config.toml; it needs llm-usage-metrics
                                      installed and ssh login without a prompt
-  list                               Show each machine, when it last synced, and
+  list [options]                     Show each machine, when it last synced, and
                                      how much usage is cached
-  remove <name>                      Remove a machine from config.toml and
+  remove [options] <name>            Remove a machine from config.toml and
                                      delete its cached usage
   export [options]                   Print the usage this machine's reports
                                      count, as a versioned NDJSON bundle that
@@ -1859,6 +1864,7 @@ Arguments:
 Options:
   --command <command>  How llm-usage-metrics is launched there (default:
                        llm-usage)
+  --help-all           Display help for command
   -h, --help           display help for command
 
 Usage: llm-usage machine list [options]
@@ -1866,6 +1872,7 @@ Usage: llm-usage machine list [options]
 Show each machine, when it last synced, and how much usage is cached
 
 Options:
+  --help-all  Display help for command
   -h, --help  display help for command
 
 Usage: llm-usage machine remove [options] <name>
@@ -1876,6 +1883,7 @@ Arguments:
   name        Machine name
 
 Options:
+  --help-all  Display help for command
   -h, --help  display help for command
 
 Usage: llm-usage machine export [options]
@@ -1889,6 +1897,7 @@ Options:
   --quiet         Suppress informational stderr output (warnings still print)
   --verbose       Print detailed diagnostics on stderr (per-source counts,
                   routine skips, config, env)
+  --help-all      Display help for command
   -h, --help      display help for command
 ```
 
@@ -1908,6 +1917,7 @@ Arguments:
 
 Options:
   --full      Fetch every file again instead of only the changed ones
+  --help-all  Display help for command
   -h, --help  display help for command
 ```
 
@@ -1928,6 +1938,7 @@ Arguments:
 
 Options:
   --list      List available schema names
+  --help-all  Display help for command
   -h, --help  display help for command
 ```
 
@@ -1945,6 +1956,7 @@ Arguments:
   shell       Shell: bash | zsh | fish
 
 Options:
+  --help-all  Display help for command
   -h, --help  display help for command
 ```
 
@@ -1981,7 +1993,7 @@ Search across root and command help. See Command help above to check which flags
 | `--gemini-dir` | - | `<path>` | Path to .gemini directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline, doctor, prune only\) |
 | `--goose-db` | - | `<path>` | Path to Goose SQLite DB \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline, doctor, prune only\) |
 | `--granularity` | - | `<period>` | Add rows per period and project \(choices: "daily", "weekly", "monthly"\) \(projects only\) |
-| `--help-all` | - | - | summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline, doctor, prune: Display help including the per-source path flags; config: Display help for command |
+| `--help-all` | - | - | summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline, doctor, prune: Display help including the per-source path flags; pricing, config, machine, sync, schema, completion: Display help for command |
 | `--history` | - | - | Include usage from files that no longer exist on disk \(on by default; when passed, fails if the event store is unavailable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline only\) |
 | `--id` | - | `<session-id>` | Show only sessions whose id contains the value \(case-insensitive; repeatable or comma-separated\) \(session only\) |
 | `--ignore-pricing-failures` | - | - | Continue without estimated costs when pricing cannot be loaded \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline only\) |
