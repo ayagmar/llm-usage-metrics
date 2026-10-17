@@ -1,6 +1,6 @@
 import type { UsageEvent } from '../domain/usage-event.js';
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
-import { getLocalDateKeyRange, shiftLocalDateKey } from '../utils/time-buckets.js';
+import { getDateKeyRange, shiftDateKey } from '../utils/date-key.js';
 import { addUsd } from '../utils/usd-math.js';
 import { toProjectKey } from './project-key.js';
 
@@ -29,7 +29,7 @@ export type SpendSpike = {
 
 /** The first day the spike check of days from `from` on needs a cost for. */
 export function resolveSpikeBaselineStart(from: string): string {
-  return shiftLocalDateKey(from, -SPIKE_BASELINE_DAYS);
+  return shiftDateKey(from, -SPIKE_BASELINE_DAYS);
 }
 
 function median(values: readonly number[]): number {
@@ -47,7 +47,7 @@ export function findSpendSpikes(
   dailyCostUsd: ReadonlyMap<string, number>,
   range: { from: string; to: string },
 ): SpendSpike[] {
-  const dates = getLocalDateKeyRange(resolveSpikeBaselineStart(range.from), range.to);
+  const dates = getDateKeyRange(resolveSpikeBaselineStart(range.from), range.to);
   const costs = dates.map((date) => dailyCostUsd.get(date) ?? 0);
   const spikes: SpendSpike[] = [];
 

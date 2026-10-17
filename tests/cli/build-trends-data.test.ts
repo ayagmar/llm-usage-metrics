@@ -5,7 +5,7 @@ import type { PricingLoadResult } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { createDefaultOpenAiPricingSource } from '../helpers/static-pricing-source.js';
-import { shiftLocalDateKey } from '../../src/utils/time-buckets.js';
+import { shiftDateKey } from '../../src/utils/date-key.js';
 import { readFrom } from '../helpers/fake-read.js';
 
 function createAdapter(
@@ -442,7 +442,7 @@ describe('buildTrendsData', () => {
           createAdapter('pi', {
             '/tmp/a.jsonl': [
               ...Array.from({ length: 28 }, (_, index) =>
-                costOn(shiftLocalDateKey('2026-02-06', index), 2),
+                costOn(shiftDateKey('2026-02-06', index), 2),
               ),
               // A project with the same folder name, before the chart only.
               costOn('2026-02-10', 1, '/old/app'),

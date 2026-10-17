@@ -1,7 +1,7 @@
 import { matchesCanonicalProviderFilter } from '@ayagmar/agent-sessions/internal';
 import type { UsageEvent } from '../../domain/usage-event.js';
-import { getUtcMidnightIso } from '../../utils/date-key.js';
-import { getPeriodKey, shiftLocalDateKey } from '../../utils/time-buckets.js';
+import { getUtcMidnightIso, shiftDateKey } from '../../utils/date-key.js';
+import { getPeriodKey } from '../../utils/time-buckets.js';
 import type { AdapterParseResult } from '../build-usage-data-parsing.js';
 
 function isEventWithinDateRange(
@@ -195,7 +195,7 @@ export function filterParsedAdapterEventsWithLookback(
       ? collectProviderAndDateFilteredEvents(eventGroups, {
           ...options,
           since: options.lookbackSince,
-          until: shiftLocalDateKey(options.since, -1),
+          until: shiftDateKey(options.since, -1),
         })
       : [];
 

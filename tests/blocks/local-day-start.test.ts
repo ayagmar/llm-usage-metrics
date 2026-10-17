@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { getLocalDayStartMs } from '../../src/blocks/local-day-start.js';
-import { getCurrentLocalDateKey, shiftLocalDateKey } from '../../src/utils/time-buckets.js';
+import { shiftDateKey } from '../../src/utils/date-key.js';
+import { getCurrentLocalDateKey } from '../../src/utils/time-buckets.js';
 
 describe('getLocalDayStartMs', () => {
   it('is local midnight', () => {
@@ -34,7 +35,7 @@ describe('getLocalDayStartMs', () => {
       'Pacific/Apia',
     ]) {
       for (let day = 0; day < 366; day += 1) {
-        const dateKey = shiftLocalDateKey('2026-01-01', day);
+        const dateKey = shiftDateKey('2026-01-01', day);
         const startMs = getLocalDayStartMs(dateKey, timezone);
 
         expect(getCurrentLocalDateKey(timezone, new Date(startMs)), `${timezone} ${dateKey}`).toBe(

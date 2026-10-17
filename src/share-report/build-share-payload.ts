@@ -2,7 +2,8 @@ import { IDLE_GAP_CAP_MS } from '@ayagmar/agent-sessions';
 import { getEventSessionKey, LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
 import { findEventBlockKey, toBlockKey, type UsageBlock } from '../blocks/aggregate-blocks.js';
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
-import { getLocalHourBucket, getPeriodKey, shiftLocalDateKey } from '../utils/time-buckets.js';
+import { shiftDateKey } from '../utils/date-key.js';
+import { getLocalHourBucket, getPeriodKey } from '../utils/time-buckets.js';
 import { addUsd } from '../utils/usd-math.js';
 import { escapeJsonForScript } from './client/ui/export/share-document.js';
 import { toShareModelLabel } from './redact.js';
@@ -655,7 +656,7 @@ export function buildSharePayload(input: SharePayloadInput): SharePayload {
     return hourly;
   }
 
-  const hourlyFrom = shiftLocalDateKey(input.windowEnd, -HOURLY_DETAIL_DAYS);
+  const hourlyFrom = shiftDateKey(input.windowEnd, -HOURLY_DETAIL_DAYS);
   const rollsUpAnything = input.events.some(
     (event) => getPeriodKey(event.timestamp, 'daily', input.timezone) < hourlyFrom,
   );

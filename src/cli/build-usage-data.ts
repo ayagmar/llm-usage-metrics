@@ -1,11 +1,11 @@
 import { aggregateUsage } from '../aggregate/aggregate-usage.js';
 import { buildEventProjectLabels } from '../aggregate/project-key.js';
 import type { UsageReportRow } from '../domain/usage-report-row.js';
+import { shiftDateKey } from '../utils/date-key.js';
 import {
   getCurrentLocalDateKey,
   getIsoDayOfWeekFromDateKey,
   getLocalHourBucket,
-  shiftLocalDateKey,
   type ReportGranularity,
   type UsageGranularity,
 } from '../utils/time-buckets.js';
@@ -85,10 +85,10 @@ export function resolvePeriodsSince(
   switch (granularity) {
     case 'hourly':
     case 'daily':
-      return shiftLocalDateKey(today, -(periods - 1));
+      return shiftDateKey(today, -(periods - 1));
     case 'weekly': {
-      const currentWeekMonday = shiftLocalDateKey(today, -(getIsoDayOfWeekFromDateKey(today) - 1));
-      return shiftLocalDateKey(currentWeekMonday, -7 * (periods - 1));
+      const currentWeekMonday = shiftDateKey(today, -(getIsoDayOfWeekFromDateKey(today) - 1));
+      return shiftDateKey(currentWeekMonday, -7 * (periods - 1));
     }
     case 'monthly': {
       const monthIndex =

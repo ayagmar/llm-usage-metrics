@@ -1,12 +1,10 @@
 import {
-  getDateKeyRange,
   getDaysInMonth,
   getIsoDayOfWeek,
   getIsoWeekKey,
   getPeriodKeyRange as getDateKeyPeriodRange,
   parseDateKey,
   readDigits,
-  shiftDateKey,
   type DateKeyGranularity,
 } from './date-key.js';
 
@@ -444,14 +442,6 @@ export function getIsoDayOfWeekFromDateKey(localDateKey: string): number {
 
 export function getCurrentLocalDateKey(timezone: string, now: Date = new Date()): string {
   return extractLocalDateParts(now.toISOString(), timezone).dateKey;
-}
-
-export function shiftLocalDateKey(localDateKey: string, days: number): string {
-  return shiftDateKey(localDateKey, days);
-}
-
-export function getLocalDateKeyRange(from: string, to: string): string[] {
-  return getDateKeyRange(from, to);
 }
 
 const DATE_KEY_GRANULARITY = {

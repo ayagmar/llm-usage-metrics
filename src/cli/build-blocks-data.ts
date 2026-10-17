@@ -13,7 +13,8 @@ import {
 } from '../blocks/aggregate-blocks.js';
 import { getLocalDayStartMs } from '../blocks/local-day-start.js';
 import { LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
-import { getCurrentLocalDateKey, shiftLocalDateKey } from '../utils/time-buckets.js';
+import { shiftDateKey } from '../utils/date-key.js';
+import { getCurrentLocalDateKey } from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions, type UserConfigResolution } from './apply-user-config.js';
 import { resolveUsageDataRequest } from './build-usage-data.js';
 import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
@@ -154,7 +155,7 @@ export async function buildBlocksData(
   const today = getCurrentLocalDateKey(timezone, now);
   // Read a week before the window, once, to find where the blocks running into it started.
   const lookbackSince =
-    window.since === undefined ? undefined : shiftLocalDateKey(window.since, -BLOCKS_LOOKBACK_DAYS);
+    window.since === undefined ? undefined : shiftDateKey(window.since, -BLOCKS_LOOKBACK_DAYS);
   const datasetOptions = { ...configuredOptions, since: lookbackSince, until: window.until };
   const datasetDeps = {
     ...deps,
