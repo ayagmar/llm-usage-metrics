@@ -57,7 +57,7 @@
           "type": "string"
         },
         "repoRoot": {
-          "description": "With --by-repo, per-source rows only: the project's repository root, or null for usage without one.",
+          "description": "With --by-repo, per-source rows only: the project's recorded working directory, or null for usage without one.",
           "type": ["string", "null"]
         },
         "project": {
