@@ -7,6 +7,7 @@ import {
 } from '@ayagmar/agent-sessions';
 
 import { LOCAL_MACHINE_NAME } from '../domain/usage-event.js';
+import { pluralize } from '../render/format-number.js';
 import type { UsageEventDataset } from './build-usage-event-dataset.js';
 import { mapWithConcurrency } from './history-live-files.js';
 import { createTimestampWindowFilter } from './parse/usage-event-filters.js';
@@ -34,6 +35,23 @@ export type LiveSessionEvents<K extends LiveEventKind> = {
 };
 
 const MAX_CONCURRENT_FILE_READS = 8;
+
+/** The stderr note of a report built on live reads, naming what they cannot see. */
+export function formatLiveEventsNote(subject: string): string {
+  return `${subject} are read from session files on disk (claude, codex, pi): files that no longer exist and other machines are not counted.`;
+}
+
+/** The warning for the live reads that threw, or none. */
+export function formatFailedLiveReads(
+  subject: string,
+  failedFilePaths: readonly string[],
+): string[] {
+  return failedFilePaths.length === 0
+    ? []
+    : [
+        `${subject} left out of ${pluralize(failedFilePaths.length, 'file')} that could not be read`,
+      ];
+}
 
 /**
  * Reads `kinds` events live from the dataset's local files: the files its usage parse counted
