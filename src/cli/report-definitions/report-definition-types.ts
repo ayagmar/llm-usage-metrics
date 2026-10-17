@@ -10,6 +10,7 @@ export type SharedOptionProfile =
   | 'compare'
   | 'trends'
   | 'session'
+  | 'tools'
   | 'wrapped'
   | 'events'
   | 'statusline'

@@ -40,7 +40,7 @@ Usage tables fit the terminal width. When the full table is too wide, the render
 llm-usage daily --compact
 ```
 
-`--compact` starts from the abbreviated table without Reasoning and Cache Write, even when the terminal is wide or the output is piped. It works with terminal and Markdown output, not JSON. If even the narrowest table is wider than the terminal, as on a phone, each row is listed on its own instead: a title line with the period and source, then one `label value` line each for Input, Output, Cache Read, Total, and Cost (abbreviated; Models, Reasoning, and Cache Write are left out). The other terminal reports (summary, projects, session, compare, blocks, value, efficiency, optimize, pricing, wrapped) switch to the same list when their table does not fit, and a report title too wide for its box prints without one. `--per-model-columns` tables keep the table and warn on `stderr` instead, since their metric lines only make sense next to the model names.
+`--compact` starts from the abbreviated table without Reasoning and Cache Write, even when the terminal is wide or the output is piped. It works with terminal and Markdown output, not JSON. If even the narrowest table is wider than the terminal, as on a phone, each row is listed on its own instead: a title line with the period and source, then one `label value` line each for Input, Output, Cache Read, Total, and Cost (abbreviated; Models, Reasoning, and Cache Write are left out). The other terminal reports (summary, projects, session, tools, compare, blocks, value, efficiency, optimize, pricing, wrapped) switch to the same list when their table does not fit, and a report title too wide for its box prints without one. `--per-model-columns` tables keep the table and warn on `stderr` instead, since their metric lines only make sense next to the model names.
 
 ```bash
 llm-usage daily --no-cost
@@ -65,7 +65,7 @@ Use JSON for scripts and pipelines. Without date bounds, `daily` and `weekly` co
 }
 ```
 
-`report` identifies the report family (`summary`, `usage`, `projects`, `compare`, `session`, `trends`, `blocks`, `value`, `efficiency`, `optimize`, `wrapped`, `pricing`, `doctor`, or `prune`; `hourly`, `daily`, `weekly`, and `monthly` all use `usage`) and `data` carries the report-specific payload documented on each report page. `schemaVersion` increments only on breaking JSON changes; additive fields inside `data` are safe and do not bump it. Diagnostics never enter the JSON body. The envelope arrived in 0.8.0; [Upgrading to 0.8](/llm-usage-metrics/upgrading/0-8/) maps the old field names to the new ones.
+`report` identifies the report family (`summary`, `usage`, `projects`, `compare`, `session`, `tools`, `trends`, `blocks`, `value`, `efficiency`, `optimize`, `wrapped`, `pricing`, `doctor`, or `prune`; `hourly`, `daily`, `weekly`, and `monthly` all use `usage`) and `data` carries the report-specific payload documented on each report page. `schemaVersion` increments only on breaking JSON changes; additive fields inside `data` are safe and do not bump it. Diagnostics never enter the JSON body. The envelope arrived in 0.8.0; [Upgrading to 0.8](/llm-usage-metrics/upgrading/0-8/) maps the old field names to the new ones.
 
 Every payload has a published JSON Schema (draft 2020-12) validated in CI against real CLI output:
 
@@ -77,6 +77,7 @@ Every payload has a published JSON Schema (draft 2020-12) validated in CI agains
 | projects            | [report-projects.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-projects.v1.schema.json)     |
 | compare             | [report-compare.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-compare.v1.schema.json)       |
 | session             | [report-session.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-session.v1.schema.json)       |
+| tools               | [report-tools.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-tools.v1.schema.json)           |
 | trends              | [report-trends.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-trends.v1.schema.json)         |
 | blocks              | [report-blocks.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-blocks.v1.schema.json)         |
 | value               | [report-value.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-value.v1.schema.json)           |
@@ -117,7 +118,7 @@ A bundle without its `end` line is incomplete. `--known <path>` (or `-` for stdi
 llm-usage daily --markdown > usage.md
 ```
 
-Markdown works for summary, usage (hourly to monthly), projects, compare, session, trends, blocks, value, efficiency, optimize, wrapped, and pricing reports. It does not work for doctor, prune, or events.
+Markdown works for summary, usage (hourly to monthly), projects, compare, session, tools, trends, blocks, value, efficiency, optimize, wrapped, and pricing reports. It does not work for doctor, prune, or events.
 
 Usage and session output keep the same ordering and row limits as the terminal renderer. `--per-model-columns` and `--compact` also work with Markdown usage reports.
 

@@ -42,7 +42,7 @@ describe('createSchemaCommand', () => {
     await createSchemaCommand().parseAsync(['--list'], { from: 'user' });
 
     const names = stdout.mock.calls.map((call) => String(call[0]));
-    expect(names).toHaveLength(18);
+    expect(names).toHaveLength(19);
     expect(names).toContain('usage');
     expect(names).toContain('share');
     expect(names).toContain('events-line');

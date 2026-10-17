@@ -4,6 +4,7 @@ export type ReportJsonName =
   | 'usage'
   | 'summary'
   | 'session'
+  | 'tools'
   | 'trends'
   | 'compare'
   | 'efficiency'

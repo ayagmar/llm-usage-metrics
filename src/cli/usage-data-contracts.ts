@@ -204,6 +204,16 @@ export type BlocksCommandOptions = RollupCommandOptions & {
   top?: string;
 };
 
+export type ToolsCommandOptions = SharedOptionsForProfile<'tools'> &
+  RepoFilterOption &
+  ByRepoOption & {
+    /** `--last N`: the last N days, counting today. */
+    last?: string;
+    all?: boolean;
+    top?: string;
+    bySource?: boolean;
+  };
+
 export type ValueCommandOptions = RollupCommandOptions & {
   /** Plan ids from `src/value/plans.ts`; undefined when not passed. */
   plan?: string[];
