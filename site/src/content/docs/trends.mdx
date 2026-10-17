@@ -3,13 +3,16 @@ title: Trends
 description: Chart daily cost or token usage in the terminal, JSON, or an interactive share report.
 ---
 
+import TerminalShot from '../../components/TerminalShot.astro';
+import termTrends from '../../assets/screenshots/term-trends.webp';
+
 `trends` shows daily movement over time instead of a tabular aggregate.
 
 ```text
 llm-usage trends [options]
 ```
 
-![Terminal output of llm-usage trends: a bar chart of daily cost over the last 30 days, with the total, the daily average, and the peak day underneath](../../assets/screenshots/term-trends.webp)
+<TerminalShot src={termTrends} label="llm-usage trends output" alt="Terminal output of llm-usage trends: a bar chart of daily cost over the last 30 days, with the total, the daily average, and the peak day underneath" />
 
 ## Examples
 

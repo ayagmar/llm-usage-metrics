@@ -3,13 +3,16 @@ title: 'Projects'
 description: 'Cost, tokens, and activity per repository.'
 ---
 
+import TerminalShot from '../../components/TerminalShot.astro';
+import termProjects from '../../assets/screenshots/term-projects.webp';
+
 `llm-usage projects` lists every project in your usage, costliest first, with its share of the cost, tokens, events, active days, and top models.
 
 ```bash
 llm-usage projects
 ```
 
-![Terminal output of llm-usage projects: four projects ranked by cost, each with its models, cost, share of the cost, tokens, events, and active days, and a TOTAL row](../../assets/screenshots/term-projects.webp)
+<TerminalShot src={termProjects} label="llm-usage projects output" alt="Terminal output of llm-usage projects: four projects ranked by cost, each with its models, cost, share of the cost, tokens, events, and active days, and a TOTAL row" />
 
 ```text
 ╭────────────────┬─────────────────────┬───────┬────────┬────────┬────────┬─────────────╮

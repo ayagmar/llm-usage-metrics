@@ -3,6 +3,9 @@ title: 'Plan value'
 description: 'Compare API-priced cost with subscription plan prices.'
 ---
 
+import TerminalShot from '../../components/TerminalShot.astro';
+import termValue from '../../assets/screenshots/term-value.webp';
+
 `llm-usage value` prices each calendar month of your usage at pay-as-you-go API rates and sets it beside a subscription plan's monthly price, with the projects that used it. It answers "would the API have cost more or less than my plan?", not "what did I pay".
 
 ```bash
@@ -37,7 +40,7 @@ llm-usage value --plan claude-pro --plan-price 18 --last 6 --json
 
 ## Read the table
 
-![Terminal output of llm-usage value: for each month, the projects, tokens, and API-priced cost of claude usage beside the $200 claude-max-20x price, with the API-to-plan ratio and the difference](../../assets/screenshots/term-value.webp)
+<TerminalShot src={termValue} label="llm-usage value output" alt="Terminal output of llm-usage value: for each month, the projects, tokens, and API-priced cost of claude usage beside the $200 claude-max-20x price, with the API-to-plan ratio and the difference" />
 
 | Column     | Meaning                                                                  |
 | ---------- | ------------------------------------------------------------------------ |

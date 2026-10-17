@@ -1,5 +1,4 @@
 ---
-import { Image } from 'astro:assets';
 import {
   getDefaultSourceIds,
   getSourceStorageFormat,
@@ -7,6 +6,7 @@ import {
 import { version } from '../../../package.json';
 import EventFlow from '../components/diagrams/EventFlow.astro';
 import PackageLayers from '../components/diagrams/PackageLayers.astro';
+import TerminalShot from '../components/TerminalShot.astro';
 import projectsShot from '../assets/screenshots/term-projects.webp';
 import summaryShot from '../assets/screenshots/term-summary.webp';
 import '../styles/tokens.css';
@@ -217,10 +217,9 @@ const machineRows = [
           </p>
         </div>
         <figure class="hero-shot">
-          <Image
+          <TerminalShot
             src={summaryShot}
-            widths={[520, summaryShot.width]}
-            sizes="(max-width: 800px) 100vw, 520px"
+            label="llm-usage summary output"
             loading="eager"
             fetchpriority="high"
             alt="Terminal output of llm-usage summary: cost, tokens, and top source for today, the last 7 days, and month to date, a month-end projection and caching savings, then streaks and a year-long activity heatmap."
@@ -284,11 +283,10 @@ const machineRows = [
             How projects are named →
           </a>
         </div>
-        <figure class="shot" tabindex="0" role="region" aria-label="llm-usage projects output">
-          <Image
+        <figure class="shot">
+          <TerminalShot
             src={projectsShot}
-            widths={[720, projectsShot.width]}
-            sizes="(max-width: 800px) 100vw, 720px"
+            label="llm-usage projects output"
             alt="Terminal output of llm-usage projects: four projects ranked by cost, each with its models, cost, share of the cost, tokens, events, and active days, and a TOTAL row."
           />
         </figure>
@@ -801,26 +799,23 @@ const machineRows = [
   figure {
     margin: 0;
   }
-  figure img {
-    display: block;
-    width: 100%;
-    height: auto;
+  .hero-shot,
+  .shot {
+    /* Grid items: let the terminal shots scroll instead of widening the column. */
+    min-width: 0;
   }
   .hero-shot {
     justify-self: center;
     width: min(100%, 520px);
   }
-  .hero-shot img,
-  .shot img {
+  .hero-shot :global(.term-shot),
+  .shot :global(.term-shot) {
     filter: drop-shadow(0 22px 40px var(--shadow-elevated));
   }
   figcaption {
     margin-top: 0.9rem;
     font-size: 0.75rem;
     color: var(--color-text-muted);
-  }
-  .shot:focus-visible {
-    outline-offset: 2px;
   }
   .hero-shot figcaption {
     text-align: center;
@@ -977,7 +972,7 @@ const machineRows = [
   }
   .projects {
     display: grid;
-    grid-template-columns: 0.85fr 1.15fr;
+    grid-template-columns: 0.75fr 1.25fr;
     gap: 4rem;
     align-items: center;
     border-bottom: 1px solid var(--border-default);
@@ -1268,14 +1263,6 @@ const machineRows = [
     }
     .live-frame {
       aspect-ratio: 3 / 4;
-    }
-    .shot {
-      overflow-x: auto;
-      padding-bottom: 0.5rem;
-    }
-    .shot img {
-      min-width: 600px;
-      filter: none;
     }
     .section {
       padding-block: 3rem;

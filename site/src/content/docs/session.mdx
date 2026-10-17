@@ -3,6 +3,9 @@ title: Session Report
 description: Per-conversation usage, cost, and repository attribution across sources.
 ---
 
+import TerminalShot from '../../components/TerminalShot.astro';
+import termSession from '../../assets/screenshots/term-session.webp';
+
 `llm-usage session` lists usage per conversation (session) rather than per calendar period, so you can find your most expensive or most active sessions and where they ran.
 
 ## Command structure
@@ -41,7 +44,7 @@ The terminal report is a boxed **Session Usage Report** table with `Session`, `S
 Showing top 20 of 1653 sessions by cost. Use --top 0 for all.
 ```
 
-![Terminal output of llm-usage session --top 5: the five costliest sessions with their source, project, last activity, duration, total tokens, cost, and models](../../assets/screenshots/term-session.webp)
+<TerminalShot src={termSession} label="llm-usage session --top 5 output" alt="Terminal output of llm-usage session --top 5: the five costliest sessions with their source, project, last activity, duration, total tokens, cost, and models" />
 
 `--by-repo` replaces the per-session rows with one row per repository (`Project`, `Sessions`, `Last Activity`, `Total`, `Cost`, `Sources`). Sessions without a detectable repository are grouped under `(unattributed)`.
 
