@@ -1,6 +1,6 @@
 import { markdownTable } from 'markdown-table';
 
-import { toProjectKey, UNATTRIBUTED_PROJECT_LABEL } from '../aggregate/project-key.js';
+import { toProjectLabel } from '../aggregate/project-key.js';
 import type { SessionDataResult } from '../cli/usage-data-contracts.js';
 import type { SessionRepoRow, SessionRow } from '../session/session-row.js';
 import { getPeriodKey } from '../utils/time-buckets.js';
@@ -73,10 +73,6 @@ export function formatModels(models: readonly string[]): string {
 }
 
 type ProjectLabels = ReadonlyMap<string | undefined, string>;
-
-export function toProjectLabel(repoRoot: string | undefined, projectLabels: ProjectLabels): string {
-  return projectLabels.get(toProjectKey(repoRoot)) ?? UNATTRIBUTED_PROJECT_LABEL;
-}
 
 function toSessionTableCells(
   row: SessionRow,

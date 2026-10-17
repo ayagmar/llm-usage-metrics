@@ -2,6 +2,7 @@ import { getEventSessionKey, type UsageEvent } from '../domain/usage-event.js';
 import { estimateLongContextExtraUsd, getPromptTokens } from '../pricing/cost-engine.js';
 import type { ModelPricing } from '../pricing/types.js';
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
+import { mapSessionRepoRoots } from '../session/aggregate-sessions.js';
 import { addUsd } from '../utils/usd-math.js';
 
 /** A request whose prompt is above this many tokens counts as long-context. */
@@ -151,8 +152,6 @@ export function aggregateContextPressure(
       sessionModels.set(sessionRow, new Set());
     }
 
-    sessionRow.repoRoot ??= event.repoRoot;
-
     if (event.model !== undefined) {
       sessionModels.get(sessionRow)?.add(event.model);
     }
@@ -163,6 +162,12 @@ export function aggregateContextPressure(
 
   for (const [sessionRow, models] of sessionModels) {
     sessionRow.models = [...models].sort(compareByCodePoint);
+  }
+
+  const repoRoots = mapSessionRepoRoots(events);
+
+  for (const [sessionKey, sessionRow] of sessionRows) {
+    sessionRow.repoRoot = repoRoots.get(sessionKey);
   }
 
   return {

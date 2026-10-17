@@ -123,11 +123,6 @@ export async function buildSessionData(
   const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
   // From every event, as `projects` labels them, so a label does not depend on --top or --id.
   const projectLabels = buildEventProjectLabels(pricedEvents);
-  const aggregateOptions = {
-    timezone: dataset.normalizedInputs.timezone,
-    since: options.since,
-    until: options.until,
-  };
   // Only the shown rows carry `~`, so only their events explain it.
   const buildDiagnostics = (
     shownEvents: UsageEvent[],
@@ -149,7 +144,7 @@ export async function buildSessionData(
 
   if (options.byRepo) {
     const repoRows = measureRuntimeProfileStageSync(deps.runtimeProfile, 'session.aggregate', () =>
-      aggregateSessionsByRepo(pricedEvents, aggregateOptions),
+      aggregateSessionsByRepo(pricedEvents),
     );
     const limited = limitRows(repoRows, limit, 'repos');
     const shownRepos = new Set(limited.rows.map((row) => row.repoRoot));
@@ -166,7 +161,7 @@ export async function buildSessionData(
   }
 
   const sessionRows = measureRuntimeProfileStageSync(deps.runtimeProfile, 'session.aggregate', () =>
-    aggregateSessions(pricedEvents, { ...aggregateOptions, ids: idFilters }),
+    aggregateSessions(pricedEvents, { ids: idFilters }),
   );
 
   if (options.timeline && idFilters) {

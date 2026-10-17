@@ -2,6 +2,8 @@ import { getEventSessionKey, type ToolCallEvent } from '@ayagmar/agent-sessions'
 
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 
+import { toProjectKey } from '../aggregate/project-key.js';
+
 /** Call counts shared by a tool row and the totals. */
 export type ToolCallCounts = {
   calls: number;
@@ -31,7 +33,7 @@ export type ToolTotals = ToolCallCounts & {
 };
 
 export type AggregateToolsOptions = {
-  /** Session key (`getEventSessionKey`) to project key; a session missing here has no root. */
+  /** Session key (`getEventSessionKey`) to repository root; a session missing here has none. */
   sessionRepoRoots: ReadonlyMap<string, string | undefined>;
   bySource?: boolean;
   byRepo?: boolean;
@@ -117,7 +119,7 @@ export function aggregateTools(
 
   for (const call of calls) {
     const sessionKey = getEventSessionKey(call);
-    const repoRoot = options.sessionRepoRoots.get(sessionKey) ?? null;
+    const repoRoot = toProjectKey(options.sessionRepoRoots.get(sessionKey)) ?? null;
     const source = options.bySource ? call.source : undefined;
     const rowRepoRoot = options.byRepo ? repoRoot : undefined;
     const key = [call.name, source ?? '', rowRepoRoot ?? ''].join('\0');
