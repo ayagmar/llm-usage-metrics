@@ -255,7 +255,7 @@ describe('terminal-style-policy', () => {
       {
         rowType: 'period_source',
         periodKey: 'period',
-        source: 'other' as UsageReportRow['source'],
+        source: 'other',
         models: ['model'],
         modelBreakdown: [
           {
@@ -302,7 +302,7 @@ describe('terminal-style-policy', () => {
       {
         rowType: 'period_source',
         periodKey: 'period',
-        source: 'combined' as UsageReportRow['source'],
+        source: 'combined',
         models: ['model'],
         modelBreakdown: [],
         inputTokens: 1,
@@ -316,7 +316,7 @@ describe('terminal-style-policy', () => {
       {
         rowType: 'period_source',
         periodKey: 'period',
-        source: 'TOTAL' as UsageReportRow['source'],
+        source: 'TOTAL',
         models: ['model'],
         modelBreakdown: [],
         inputTokens: 2,

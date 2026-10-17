@@ -1,0 +1,299 @@
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+
+import { buildValueData } from '../../src/cli/build-value-data.js';
+import { buildValueReportOutput, runValueReport } from '../../src/cli/run-value-report.js';
+import type { ValueCommandOptions } from '../../src/cli/usage-data-contracts.js';
+import { createUsageEvent } from '../../src/domain/usage-event.js';
+import type { ValueReportData } from '../../src/value/build-value-report.js';
+import { freezeDate } from '../golden/golden-harness.js';
+import { createProjectFixtureAdapters } from '../golden/m9-project-fixture.js';
+import { readFrom } from '../helpers/fake-read.js';
+import { useIsolatedEnvironment } from '../helpers/isolated-env.js';
+import { useBundledPricingOnly } from '../helpers/offline-pricing.js';
+
+const deps = { createAdapters: createProjectFixtureAdapters };
+const baseOptions = { timezone: 'UTC', pricingOffline: true } as const;
+
+async function buildJson(
+  options: ValueCommandOptions,
+  overrideDeps: typeof deps = deps,
+): Promise<ValueReportData> {
+  const output = await buildValueReportOutput(
+    { ...baseOptions, ...options, json: true },
+    overrideDeps,
+  );
+  return (JSON.parse(output) as { data: ValueReportData }).data;
+}
+
+describe('value report', () => {
+  const environment = useIsolatedEnvironment();
+  useBundledPricingOnly();
+
+  beforeAll(() => {
+    freezeDate();
+  });
+
+  afterAll(() => {
+    vi.useRealTimers();
+  });
+
+  it('compares with claude-max-20x over claude usage when no plan is given', async () => {
+    const data = await buildJson({});
+
+    expect(data.plans.map((plan) => [plan.id, plan.priceUsdPerMonth, plan.sources])).toEqual([
+      ['claude-max-20x', 200, ['claude']],
+    ]);
+    // Codex-only projects stay out.
+    const projects = data.plans[0]?.months.flatMap((month) => month.projects) ?? [];
+    expect(projects.map((project) => project.project)).not.toContain('tools');
+  });
+
+  it('carries the price date and the vendor pages', async () => {
+    const data = await buildJson({ plan: ['chatgpt-plus'] });
+
+    expect(data.asOf).toBe('2026-10-15');
+    expect(data.plans[0]?.checkAt).toContain('https://chatgpt.com/pricing');
+    expect(data.plans[0]?.references).toContain('https://www.morphllm.com/codex-pricing');
+  });
+
+  it('rejects --plan-price with several plans before reading usage', async () => {
+    const createAdapters = vi.fn(createProjectFixtureAdapters);
+
+    await expect(
+      buildValueReportOutput(
+        { ...baseOptions, plan: ['claude-pro', 'claude-max-5x'], planPrice: '50' },
+        { createAdapters },
+      ),
+    ).rejects.toThrow('--plan-price sets the price of one plan');
+    expect(createAdapters).not.toHaveBeenCalled();
+  });
+
+  it('rejects a --source that leaves a named plan without sources, and an unknown --source', async () => {
+    await expect(buildJson({ plan: ['claude-pro'], source: 'codex' })).rejects.toThrow(
+      '--source leaves out every source of plan claude-pro (claude); pass a --plan <id> that covers',
+    );
+    await expect(buildJson({ source: 'claud' })).rejects.toThrow('Unknown --source value(s)');
+  });
+
+  it('defaults to a plan the source filter keeps when it leaves out claude', async () => {
+    const configPath = path.join(environment.rootDir, 'codex-only.toml');
+    await writeFile(configPath, 'sources = ["codex"]\n', 'utf8');
+    vi.stubEnv('LLM_USAGE_CONFIG_PATH', configPath);
+
+    try {
+      const fromConfig = await buildJson({});
+      expect(fromConfig.plans.map((plan) => [plan.id, plan.sources])).toEqual([
+        ['chatgpt-pro-200', ['codex']],
+      ]);
+    } finally {
+      vi.stubEnv('LLM_USAGE_CONFIG_PATH', path.join(environment.rootDir, 'missing-config.toml'));
+    }
+
+    const fromSource = await buildJson({ source: 'codex' });
+    expect(fromSource.plans.map((plan) => plan.id)).toEqual(['chatgpt-pro-200']);
+    await expect(buildJson({ source: 'pi' })).rejects.toThrow(
+      'No plan covers --source (pi); plans cover claude, codex. Pass --plan <id> and keep its sources in --source',
+    );
+  });
+
+  it('says on stderr which plan it fell back to, --plan-price included', async () => {
+    const note =
+      'no --plan given; comparing with chatgpt-pro-200, since --source leaves out every source of claude-max-20x (claude)';
+    const notesOf = async (options: ValueCommandOptions) =>
+      (await buildValueData({ ...baseOptions, ...options }, deps)).diagnostics.notes ?? [];
+
+    expect(await notesOf({ source: 'codex' })).toContain(note);
+    expect(await notesOf({ source: 'codex', planPrice: '50' })).toContain(note);
+    // The usual default and a named plan need no note.
+    expect((await notesOf({})).filter((line) => line.includes('--plan'))).toEqual([]);
+    expect(
+      (await notesOf({ source: 'codex', plan: ['chatgpt-plus'] })).filter((line) =>
+        line.includes('--plan'),
+      ),
+    ).toEqual([]);
+  });
+
+  it('covers the last N months with --last, counting the current one', async () => {
+    const data = await buildJson({ last: '3' });
+
+    expect(data.window).toEqual({ since: '2026-04-01', until: '2026-06-21' });
+    expect(data.plans[0]?.months.map((month) => [month.month, month.totalTokens > 0])).toEqual([
+      ['2026-04', false],
+      ['2026-05', true],
+      ['2026-06', true],
+    ]);
+    await expect(buildJson({ last: '3', all: true })).rejects.toThrow(
+      '--last cannot be combined with --since, --until, or --all',
+    );
+  });
+
+  it('leaves out events dated after today and months after today, with or without --until', async () => {
+    const createAdapters = (): SourceAdapter[] => [
+      {
+        id: 'claude',
+        discoverFiles: async () => ['/value-test/claude.jsonl'],
+        read: readFrom(async () =>
+          ['2026-06-20T10:00:00.000Z', '2026-07-01T10:00:00.000Z'].map((timestamp) =>
+            createUsageEvent({
+              source: 'claude',
+              sessionId: timestamp,
+              timestamp,
+              model: 'claude-sonnet-4-5',
+              inputTokens: 10,
+              outputTokens: 1,
+            }),
+          ),
+        ),
+      },
+    ];
+
+    for (const until of [undefined, '2026-08-31']) {
+      const data = await buildJson({ until }, { createAdapters });
+
+      expect(data.window).toEqual({ since: '2026-06-01', until: '2026-06-21' });
+      expect(data.plans[0]?.months.map((month) => [month.month, month.totalTokens])).toEqual([
+        ['2026-06', 11],
+      ]);
+    }
+    await expect(buildJson({ since: '2026-07-01' }, { createAdapters })).rejects.toThrow(
+      '--since 2026-07-01 is after today (2026-06-21)',
+    );
+  });
+
+  it('words a plan source without files per plan, not as a typed --source', async () => {
+    const createAdapters = (): SourceAdapter[] => [
+      {
+        id: 'claude',
+        discoverFiles: async () => ['/value-test/claude.jsonl'],
+        read: readFrom(async () => [
+          createUsageEvent({
+            source: 'claude',
+            sessionId: 's',
+            timestamp: '2026-06-01T10:00:00.000Z',
+            model: 'claude-sonnet-4-5',
+            inputTokens: 10,
+            outputTokens: 1,
+          }),
+        ]),
+      },
+      { id: 'codex', discoverFiles: async () => [], read: readFrom(async () => []) },
+    ];
+    const planWarning =
+      'plan chatgpt-plus: codex found no files; `llm-usage doctor --source codex` shows where it looks';
+
+    const { diagnostics } = await buildValueData(
+      { ...baseOptions, plan: ['claude-max-20x', 'chatgpt-plus'] },
+      { createAdapters },
+    );
+    expect(diagnostics.warnings).toEqual([planWarning]);
+
+    const typed = await buildValueData(
+      { ...baseOptions, plan: ['claude-max-20x', 'chatgpt-plus'], source: 'codex,claude' },
+      { createAdapters },
+    );
+    expect(typed.diagnostics.warnings).toEqual([
+      '--source codex found no files; `llm-usage doctor --source codex` shows where it looks',
+    ]);
+  });
+
+  it('marks costs incomplete with --cost-mode explicit when the sources log no cost', async () => {
+    const data = await buildJson({ costMode: 'explicit', since: '2026-04-01' });
+    const months = data.plans[0]?.months ?? [];
+
+    expect(months.map((month) => [month.month, month.apiCostUsd, month.costIncomplete])).toEqual([
+      ['2026-04', 0, false],
+      ['2026-05', 0, true],
+      ['2026-06', 0, true],
+    ]);
+  });
+
+  it('shows ~ on costs that leave out unpriced events', async () => {
+    const createAdapters = (): SourceAdapter[] => [
+      {
+        id: 'claude',
+        discoverFiles: async () => ['/value-test/claude.jsonl'],
+        read: readFrom(async () => [
+          createUsageEvent({
+            source: 'claude',
+            sessionId: 's',
+            timestamp: '2026-06-01T10:00:00.000Z',
+            model: 'unknown-model-xyz',
+            inputTokens: 10,
+            outputTokens: 1,
+          }),
+        ]),
+      },
+    ];
+    const output = await buildValueReportOutput(
+      { ...baseOptions, markdown: true },
+      { createAdapters },
+    );
+
+    expect(output).toContain('~$0.00');
+    expect(output).toContain('~0.00x');
+  });
+
+  it('counts only the --repo projects', async () => {
+    const data = await buildJson({ repo: 'api' });
+    const projects = new Set(
+      data.plans[0]?.months.flatMap((month) => month.projects.map((project) => project.project)),
+    );
+
+    expect([...projects].sort()).toEqual(['a/api', 'b/api']);
+  });
+
+  it('leaves cost out with --no-cost and abbreviates tokens with --compact', async () => {
+    const noCost = await buildValueReportOutput(
+      { ...baseOptions, markdown: true, cost: false },
+      deps,
+    );
+    const compact = await buildValueReportOutput(
+      { ...baseOptions, markdown: true, compact: true },
+      deps,
+    );
+
+    expect(noCost).not.toContain('$');
+    expect(noCost).toContain('Plan prices as of 2026-10-15');
+    expect(compact).toContain('20.1K');
+    expect(compact).not.toContain('Difference');
+    await expect(
+      buildValueReportOutput({ ...baseOptions, json: true, compact: true }, deps),
+    ).rejects.toThrow('--compact applies to terminal and markdown tables');
+    await expect(
+      buildValueReportOutput({ ...baseOptions, json: true, cost: false }, deps),
+    ).rejects.toThrow('--no-cost applies to tables');
+  });
+
+  it('says there is no usage instead of printing empty tables', async () => {
+    const output = await buildValueReportOutput(
+      { ...baseOptions, markdown: true, repo: 'no-such-project' },
+      deps,
+    );
+
+    expect(output).toBe('No usage data found for the selected filters.');
+  });
+
+  it('prints only JSON on stdout and diagnostics on stderr', async () => {
+    const emptyDir = await mkdtemp(path.join(os.tmpdir(), 'value-run-'));
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    try {
+      await runValueReport({ ...baseOptions, claudeDir: emptyDir, sync: false, json: true });
+
+      expect(logSpy).toHaveBeenCalledTimes(1);
+      const parsed = JSON.parse(String(logSpy.mock.calls[0]?.[0])) as { report: string };
+      expect(parsed.report).toBe('value');
+      expect(errorSpy).toHaveBeenCalled();
+    } finally {
+      logSpy.mockRestore();
+      errorSpy.mockRestore();
+      await rm(emptyDir, { recursive: true, force: true });
+    }
+  });
+});

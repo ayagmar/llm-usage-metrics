@@ -10,12 +10,8 @@ import {
   type EventStoreStoredFile,
   type EventStoreSummary,
 } from '../persistence/event-store.js';
-import {
-  createDefaultAdapters,
-  getSourceStorageFormat,
-  type SourceStorageFormat,
-} from '../sources/create-default-adapters.js';
-import type { SourceAdapter } from '../sources/source-adapter.js';
+import { getSourceStorageFormat, type SourceStorageFormat } from '@ayagmar/agent-sessions/registry';
+import { collectFile, type SourceAdapter } from '@ayagmar/agent-sessions';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { logger } from '../utils/logger.js';
 import {
@@ -24,6 +20,7 @@ import {
 } from './build-usage-data-inputs.js';
 import { resolveUserConfigForOptions, type UserConfigResolutionDeps } from './apply-user-config.js';
 import { emitUserConfigResolution } from './emit-active-config.js';
+import { createAdaptersFromOptions } from './source-cli-options.js';
 import { formatByteSize } from '../render/format-byte-size.js';
 import { renderDoctorText } from '../render/render-doctor-report.js';
 import { describeMachineStatus } from '../render/render-machines.js';
@@ -95,9 +92,7 @@ async function sortNewestFirst(files: readonly string[]): Promise<string[]> {
 }
 
 async function parseFileEvents(adapter: SourceAdapter, filePath: string) {
-  return adapter.parseFileWithDiagnostics
-    ? (await adapter.parseFileWithDiagnostics(filePath)).events
-    : adapter.parseFile(filePath);
+  return (await collectFile(adapter, filePath)).events;
 }
 
 async function probeForUsage(
@@ -193,7 +188,7 @@ export async function buildDoctorResults(
   const userConfigResolution = await resolveUserConfigForOptions(options, deps);
   const configuredOptions = userConfigResolution.options;
   const adapters = selectAdaptersBySourceFilter(
-    createDefaultAdapters(configuredOptions),
+    createAdaptersFromOptions(configuredOptions),
     configuredOptions.source,
   );
   // Doctor is the one caller that treats config sourceDirs as path overrides: it passes the

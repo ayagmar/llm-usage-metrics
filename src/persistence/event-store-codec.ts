@@ -1,15 +1,30 @@
-import { createHash } from 'node:crypto';
-
 import { hasControlCharacters } from '../domain/normalization.js';
 import { normalizeProviderToBillingEntity } from '../domain/provider-normalization.js';
 import { createUsageEvent, type UsageEvent, type UsageEventInput } from '../domain/usage-event.js';
 import { toNonNegativeInteger, toNonNegativeNumber, toText } from './event-store-database.js';
+
+export { computeEventContentHash } from '@ayagmar/agent-sessions';
 
 const NORMALIZED_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
 const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const;
 const FAST_PATH_REJECT = Symbol('fast path reject');
 
 type OptionalStoredText = string | undefined | typeof FAST_PATH_REJECT;
+type AcceptedTextSlot = { value: string | undefined };
+
+// The rows of a file mostly repeat one session, model, provider and repo root. Each
+// text column keeps the last value that passed its checks, which are pure functions of
+// the value, and accepts an equal string without running them again.
+const acceptedText: Record<
+  'source' | 'sessionId' | 'repoRoot' | 'provider' | 'model',
+  AcceptedTextSlot
+> = {
+  source: { value: undefined },
+  sessionId: { value: undefined },
+  repoRoot: { value: undefined },
+  provider: { value: undefined },
+  model: { value: undefined },
+};
 
 export type StoredEventTuple = [
   source: unknown,
@@ -136,12 +151,12 @@ function materializeStoredEvent(
     return undefined;
   }
 
-  const source = toStoredRequiredText(sourceValue);
-  const sessionId = toStoredRequiredText(sessionIdValue);
+  const source = toStoredRequiredText(sourceValue, acceptedText.source);
+  const sessionId = toStoredRequiredText(sessionIdValue, acceptedText.sessionId);
   const timestamp = toStoredTimestamp(timestampValue);
-  const repoRoot = toStoredOptionalText(repoRootValue);
-  const provider = toStoredOptionalText(providerValue);
-  const model = toStoredOptionalText(modelValue);
+  const repoRoot = toStoredOptionalText(repoRootValue, acceptedText.repoRoot);
+  const provider = toStoredOptionalText(providerValue, acceptedText.provider, isBillingEntity);
+  const model = toStoredOptionalText(modelValue, acceptedText.model, isLowerCase);
   const inputTokens = toStoredNonNegativeInteger(inputTokensValue);
   const outputTokens = toStoredNonNegativeInteger(outputTokensValue);
   const reasoningTokens = toStoredNonNegativeInteger(reasoningTokensValue);
@@ -171,14 +186,6 @@ function materializeStoredEvent(
     return undefined;
   }
 
-  if (provider && normalizeProviderToBillingEntity(provider) !== provider) {
-    return undefined;
-  }
-
-  if (model && model !== model.toLowerCase()) {
-    return undefined;
-  }
-
   return {
     source,
     sessionId,
@@ -198,7 +205,24 @@ function materializeStoredEvent(
   };
 }
 
-function toStoredRequiredText(value: unknown): string | undefined {
+function isBillingEntity(provider: string): boolean {
+  return normalizeProviderToBillingEntity(provider) === provider;
+}
+
+function isLowerCase(model: string): boolean {
+  return model === model.toLowerCase();
+}
+
+function toStoredRequiredText(
+  value: unknown,
+  slot: AcceptedTextSlot,
+  isCanonical?: (value: string) => boolean,
+): string | undefined {
+  // Only an accepted string is ever stored, so a match is a string that passes.
+  if (value === slot.value) {
+    return slot.value;
+  }
+
   if (typeof value !== 'string' || value.length === 0) {
     return undefined;
   }
@@ -207,15 +231,24 @@ function toStoredRequiredText(value: unknown): string | undefined {
     return undefined;
   }
 
+  if (isCanonical && !isCanonical(value)) {
+    return undefined;
+  }
+
+  slot.value = value;
   return value;
 }
 
-function toStoredOptionalText(value: unknown): OptionalStoredText {
+function toStoredOptionalText(
+  value: unknown,
+  slot: AcceptedTextSlot,
+  isCanonical?: (value: string) => boolean,
+): OptionalStoredText {
   if (value === null) {
     return undefined;
   }
 
-  return toStoredRequiredText(value) ?? FAST_PATH_REJECT;
+  return toStoredRequiredText(value, slot, isCanonical) ?? FAST_PATH_REJECT;
 }
 
 function toStoredTimestamp(value: unknown): string | undefined {
@@ -276,27 +309,4 @@ function toStoredCostUsd(
   }
 
   return value;
-}
-
-export function computeEventContentHash(event: UsageEvent): string {
-  const fields = [
-    event.source.toLowerCase(),
-    event.sessionId,
-    event.timestamp,
-    event.model ?? '',
-    event.provider ?? '',
-    event.repoRoot ?? '',
-    event.inputTokens,
-    event.outputTokens,
-    event.reasoningTokens,
-    event.cacheReadTokens,
-    event.cacheWriteTokens,
-    // cacheWrite1hTokens is left out: it only splits cacheWriteTokens, and leaving it out
-    // keeps events stored before it existed matching their reparsed copies.
-    event.totalTokens,
-    event.costMode,
-    event.costUsd ?? '',
-  ];
-
-  return createHash('sha256').update(fields.map(String).join('\x1f')).digest('hex').slice(0, 16);
 }

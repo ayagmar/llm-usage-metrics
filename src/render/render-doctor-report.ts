@@ -2,6 +2,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import type { DoctorSourceResult, DoctorSourceState } from '../cli/run-doctor-report.js';
+import { pluralize } from './format-number.js';
 
 const doctorStatusGlyphs = { ok: '✔', error: '✖' } as const;
 
@@ -44,7 +45,7 @@ function getDetail(result: DoctorSourceResult): string {
     return result.detail ?? 'not installed (no files found)';
   }
 
-  return result.detail ?? `${result.itemsFound ?? 0} file(s)`;
+  return result.detail ?? pluralize(result.itemsFound ?? 0, 'file');
 }
 
 function formatSummary(sourceResults: readonly DoctorSourceResult[]): string {

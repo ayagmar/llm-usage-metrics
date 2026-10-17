@@ -29,7 +29,7 @@ The tool makes exactly two kinds of HTTP request. Neither sends any of your usag
 ### Pricing refresh
 
 - **What:** a GET request for `https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json`.
-- **When:** when a report needs prices and the pricing cache is older than its TTL (24 hours by default, `pricing.cacheTtlMs`).
+- **When:** when a report or `llm-usage pricing` needs prices and the pricing cache is older than its TTL (24 hours by default, `pricing.cacheTtlMs`).
 - **Turn it off:** pass `--pricing-offline` or set `pricing.offline = true`. The tool then uses the cached prices, or the pricing snapshot bundled with the package if there is no cache.
 - **Change it:** `--pricing-url` points it at another URL. See [Pricing](/llm-usage-metrics/pricing/).
 
@@ -41,7 +41,7 @@ The tool makes exactly two kinds of HTTP request. Neither sends any of your usag
 
 ## Other processes it starts
 
-- **`--share`** writes an SVG and an HTML page to the current directory, then opens the HTML page in your browser. Nothing is uploaded. Pass `--no-open` to skip opening the browser.
+- **`--share`** writes an HTML report to the current directory, then opens it in your browser. Nothing is uploaded, and the page loads nothing from the network. It holds project folder names, machine names and model names, but never full paths, session IDs or message text; `--redact` replaces project and machine names with `project-N` and `machine-N`. Pass `--no-open` to skip opening the browser.
 - **Multiple machines:** `machine add` and machine sync run your system `ssh` to reach machines you added yourself. The remote machine runs `llm-usage machine export` and sends back its usage events (the same fields as the ledger) plus its hostname. Nothing goes anywhere else. See [Multiple machines](/llm-usage-metrics/machines/).
 - **`git log`** for `efficiency` reports, as described above.
 

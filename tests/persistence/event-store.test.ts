@@ -32,7 +32,8 @@ import {
   vacuumEventStore,
 } from '../../src/persistence/event-store.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
-import { loadNodeSqliteModule } from '../../src/sources/opencode/node-sqlite-loader.js';
+import { loadNodeSqliteModule } from '@ayagmar/agent-sessions/internal';
+import { mulberry32, pick } from '../helpers/seeded-random.js';
 
 const tempDirs: string[] = [];
 const originalXdgDataHome = process.env.XDG_DATA_HOME;
@@ -997,6 +998,66 @@ describe('event-store', () => {
 
     for (const row of rows) {
       expect(normalizeStoredEvent(row)).toEqual(slowNormalizeStoredEventFromRow(row));
+    }
+  });
+
+  it('matches the slow oracle for any sequence of repeated and changing text columns', () => {
+    // Rows of one file repeat their text columns. Each pool mixes accepted values,
+    // values only the slow path normalizes, invalid ones, and values shared across
+    // columns ('codex', 'OpenAI'), so a row is checked right after rows that differ
+    // from it in one column only.
+    const pools: Record<string, readonly unknown[]> = {
+      source: ['codex', 'pi', ' codex', '', 'OpenAI'],
+      session_id: [
+        'session-1',
+        'session-1 ',
+        '',
+        'bad\u0000session',
+        'safe\u202Espoof',
+        'codex',
+        'OpenAI',
+      ],
+      provider: ['openai', 'anthropic', 'OpenAI', 'openai ', '', null, 'codex'],
+      model: ['gpt-5', 'GPT-5', 'gpt-5\u2066', '', null, 'codex', 'OpenAI'],
+      repo_root: ['/workspace/repo', '/workspace/repo ', '', null, 'codex'],
+    };
+
+    for (const seed of [7, 0xc0dec]) {
+      const random = mulberry32(seed);
+      // With every column present, accepted rows take the fast path.
+      let row = createStoredEventRow({ cache_write_1h_tokens: 0, total_tokens: 10 });
+
+      for (let index = 0; index < 2_000; index += 1) {
+        const column = pick(random, Object.keys(pools));
+        row = { ...row, [column]: pick(random, pools[column]) };
+
+        expect(normalizeStoredEvent(row), `seed ${seed} row ${index}`).toEqual(
+          slowNormalizeStoredEventFromRow(row),
+        );
+      }
+    }
+  });
+
+  it('reads a file whose rows repeat a session after one is invalid or unnormalized', async () => {
+    const store = await createTempStore('event-store-repeated-text-columns-');
+    const events = [0, 1, 2].map((index) =>
+      createEvent({ provider: 'openai', inputTokens: index + 1, totalTokens: index + 3 }),
+    );
+
+    try {
+      replaceCodexFile(store, { events });
+      // An older build stored the provider unnormalized; a later row lost its session.
+      store.database.prepare("UPDATE events SET provider = 'OpenAI' WHERE event_index = 1").run();
+      store.database.prepare("UPDATE events SET session_id = '' WHERE event_index = 2").run();
+
+      expect(readDepartedFileEvents(store, 'codex', '/tmp/session.jsonl')).toEqual([
+        events[0],
+        events[1],
+      ]);
+      expect(readFileEvents(store, 'codex', '/tmp/session.jsonl')).toBeUndefined();
+      expect(getFileEntry(store, 'codex', '/tmp/session.jsonl')).toBeUndefined();
+    } finally {
+      closeEventStore(store);
     }
   });
 

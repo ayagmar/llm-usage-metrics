@@ -1,127 +1,32 @@
-import {
-  normalizeNonNegativeInteger,
-  normalizeTimestamp,
-  normalizeUsdCost,
-  stripControlCharacters,
-  type NumberLike,
-} from './normalization.js';
-import { normalizeProviderToBillingEntity } from './provider-normalization.js';
+import * as core from '@ayagmar/agent-sessions';
+import { normalizeUsdCost } from '@ayagmar/agent-sessions/internal';
 
-export type SourceId = 'pi' | 'codex' | (string & {});
-
-/**
- * Bump whenever `createUsageEvent` or other shared normalization changes the events
- * produced from unchanged source files. Like adapter parser versions, it is part of
- * the event-store cache key so stored events are re-parsed after the change.
- */
-export const USAGE_EVENT_NORMALIZATION_VERSION = 2;
-
-export type CostMode = 'explicit' | 'estimated';
+export * from '@ayagmar/agent-sessions';
+export {
+  hasBillableTokenBuckets,
+  isPriceableEvent,
+  normalizeOptionalModel,
+  type BillableTokenUsage,
+} from '@ayagmar/agent-sessions/internal';
 
 /** How reports and `--machine` name this machine, next to the configured ones. */
 export const LOCAL_MACHINE_NAME = 'local';
 
-export type UsageEvent = {
-  source: SourceId;
-  sessionId: string;
-  timestamp: string;
-  repoRoot?: string;
-  provider?: string;
-  model?: string;
-
-  inputTokens: number;
-  outputTokens: number;
-  reasoningTokens: number;
-  cacheReadTokens: number;
-  cacheWriteTokens: number;
-  /** The part of `cacheWriteTokens` cached for one hour, billed at a higher rate. */
-  cacheWrite1hTokens: number;
-  totalTokens: number;
-
-  costUsd?: number;
-  costMode: CostMode;
+export type UsageEvent = core.UsageEvent & {
+  costMode: core.CostMode;
 
   /** The configured machine the event came from; undefined for this machine's own usage. */
   machine?: string;
 };
 
-export type BillableTokenUsage = Pick<
-  UsageEvent,
-  'inputTokens' | 'outputTokens' | 'reasoningTokens' | 'cacheReadTokens' | 'cacheWriteTokens'
->;
-
-export type UsageEventInput = {
-  source: SourceId;
-  sessionId: string;
-  timestamp: string | Date;
-  repoRoot?: string;
-  provider?: string;
-  model?: string;
-
-  inputTokens?: NumberLike;
-  outputTokens?: NumberLike;
-  reasoningTokens?: NumberLike;
-  cacheReadTokens?: NumberLike;
-  cacheWriteTokens?: NumberLike;
-  cacheWrite1hTokens?: NumberLike;
-  totalTokens?: NumberLike;
-
-  costUsd?: NumberLike;
-  costMode?: CostMode;
+export type UsageEventInput = core.UsageEventInput & {
+  costMode?: core.CostMode;
 };
 
-export function normalizeSourceId(value: unknown): SourceId | undefined {
-  if (typeof value !== 'string') {
-    return undefined;
-  }
-
-  const normalized = stripControlCharacters(value).trim();
-  return normalized || undefined;
-}
-
-function requireText(value: string, fieldName: string): string {
-  const normalized = stripControlCharacters(value).trim();
-
-  if (!normalized) {
-    throw new Error(`UsageEvent ${fieldName} must be a non-empty string`);
-  }
-
-  return normalized;
-}
-
-function normalizeOptionalText(value: string | undefined): string | undefined {
-  if (!value) {
-    return undefined;
-  }
-
-  const normalized = stripControlCharacters(value).trim();
-  return normalized || undefined;
-}
-
-function normalizeOptionalProvider(value: string | undefined): string | undefined {
-  return normalizeProviderToBillingEntity(normalizeOptionalText(value));
-}
-
-function normalizeOptionalPath(value: string | undefined): string | undefined {
-  return normalizeOptionalText(value);
-}
-
-const MODEL_KEY_MAX_LENGTH = 256;
-
-function normalizeModelKey(value: string): string {
-  return stripControlCharacters(value).trim().toLowerCase().slice(0, MODEL_KEY_MAX_LENGTH);
-}
-
-export function normalizeOptionalModel(value: string | undefined): string | undefined {
-  if (!value) {
-    return undefined;
-  }
-
-  const normalized = normalizeModelKey(value);
-  return normalized || undefined;
-}
-
-function resolveCostMode(costMode: CostMode | undefined, costUsd: number | undefined): CostMode {
+function resolveCostMode(
+  costMode: core.CostMode | undefined,
+  costUsd: number | undefined,
+): core.CostMode {
   if (costMode === 'explicit' && costUsd === undefined) {
     throw new Error('UsageEvent with costMode "explicit" requires costUsd');
   }
@@ -133,63 +38,38 @@ function resolveCostMode(costMode: CostMode | undefined, costUsd: number | undef
   return costUsd === undefined ? 'estimated' : 'explicit';
 }
 
-export function getEventSessionKey(event: Pick<UsageEvent, 'source' | 'sessionId'>): string {
-  return `${event.source}\0${event.sessionId}`;
-}
-
 export function createUsageEvent(input: UsageEventInput): UsageEvent {
-  const source = normalizeSourceId(input.source);
-
-  if (!source) {
+  if (!core.normalizeSourceId(input.source)) {
     throw new Error('UsageEvent source must be a non-empty string');
   }
 
-  const inputTokens = normalizeNonNegativeInteger(input.inputTokens);
-  const outputTokens = normalizeNonNegativeInteger(input.outputTokens);
-  const reasoningTokens = normalizeNonNegativeInteger(input.reasoningTokens);
-  const cacheReadTokens = normalizeNonNegativeInteger(input.cacheReadTokens);
-  const cacheWriteTokens = normalizeNonNegativeInteger(input.cacheWriteTokens);
-  const cacheWrite1hTokens = Math.min(
-    cacheWriteTokens,
-    normalizeNonNegativeInteger(input.cacheWrite1hTokens),
-  );
-  const declaredTotalTokens = normalizeNonNegativeInteger(input.totalTokens);
-  const componentTotalTokens =
-    inputTokens + outputTokens + reasoningTokens + cacheReadTokens + cacheWriteTokens;
-  const totalTokens = input.totalTokens === undefined ? componentTotalTokens : declaredTotalTokens;
+  const costMode = resolveCostMode(input.costMode, normalizeUsdCost(input.costUsd));
 
-  const costUsd = normalizeUsdCost(input.costUsd);
-  const costMode = resolveCostMode(input.costMode, costUsd);
-
-  return {
-    source,
-    sessionId: requireText(input.sessionId, 'sessionId'),
-    timestamp: normalizeTimestamp(input.timestamp),
-    repoRoot: normalizeOptionalPath(input.repoRoot),
-    provider: normalizeOptionalProvider(input.provider),
-    model: normalizeOptionalModel(input.model),
-    inputTokens,
-    outputTokens,
-    reasoningTokens,
-    cacheReadTokens,
-    cacheWriteTokens,
-    cacheWrite1hTokens,
-    totalTokens,
-    costUsd,
-    costMode,
-  };
+  return Object.assign(core.createUsageEvent(input), { costMode });
 }
 
-export function hasBillableTokenBuckets(usage: BillableTokenUsage): boolean {
-  return (
-    usage.inputTokens > 0 ||
-    usage.outputTokens > 0 ||
-    usage.reasoningTokens > 0 ||
-    usage.cacheReadTokens > 0 ||
-    usage.cacheWriteTokens > 0
-  );
+/** A parsed file's diagnostics as the CLI holds them: every event carries a cost mode. */
+export type ParseFileDiagnostics = Omit<core.SourceParseFileDiagnostics, 'events'> & {
+  events: UsageEvent[];
+};
+
+type AdapterEvent = core.UsageEvent & { costMode?: core.CostMode };
+
+function hasCostMode(event: AdapterEvent): event is UsageEvent {
+  return event.costMode !== undefined;
 }
 
-export function isPriceableEvent(event: UsageEvent): boolean {
-  return hasBillableTokenBuckets(event);
+/**
+ * Adapter output carries no cost mode: a cost the source logged is explicit, any other
+ * is estimated by pricing later. The mode is added to the event itself, after `costUsd`,
+ * since a copy of every parsed event costs memory; an event that has a mode keeps it.
+ */
+export function withCostMode(event: AdapterEvent): UsageEvent {
+  return hasCostMode(event)
+    ? event
+    : Object.assign(event, { costMode: event.costUsd === undefined ? 'estimated' : 'explicit' });
+}
+
+export function withCostModes(diagnostics: core.SourceParseFileDiagnostics): ParseFileDiagnostics {
+  return { ...diagnostics, events: diagnostics.events.map(withCostMode) };
 }

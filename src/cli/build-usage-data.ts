@@ -1,16 +1,20 @@
 import { aggregateUsage } from '../aggregate/aggregate-usage.js';
+import { buildEventProjectLabels } from '../aggregate/project-key.js';
+import type { UsageReportRow } from '../domain/usage-report-row.js';
 import {
   getCurrentLocalDateKey,
   getIsoDayOfWeekFromDateKey,
+  getLocalHourBucket,
   shiftLocalDateKey,
   type ReportGranularity,
+  type UsageGranularity,
 } from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
 import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
 import { assembleUsageDataResult, buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import {
   applyPricingToUsageEventDataset,
-  withUnpricedEventsNote,
+  withPricingNotes,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
@@ -44,7 +48,14 @@ export const DEFAULT_REPORT_WINDOWS: Partial<Record<ReportGranularity, DefaultRe
 
 const MAX_LAST_PERIODS = 10_000;
 
-export function parseLastOption(last: string | undefined, flag = '--last'): number | undefined {
+/** `hourly --last N` covers at most this many days. */
+export const HOURLY_MAX_LAST_DAYS = 31;
+
+export function parseLastOption(
+  last: string | undefined,
+  flag = '--last',
+  maxPeriods = MAX_LAST_PERIODS,
+): number | undefined {
   if (last === undefined) {
     return undefined;
   }
@@ -52,8 +63,8 @@ export function parseLastOption(last: string | undefined, flag = '--last'): numb
   const normalized = last.trim();
   const periods = Number.parseInt(normalized, 10);
 
-  if (!/^[1-9]\d*$/u.test(normalized) || periods > MAX_LAST_PERIODS) {
-    throw new Error(`${flag} must be a whole number from 1 to ${String(MAX_LAST_PERIODS)}`);
+  if (!/^[1-9]\d*$/u.test(normalized) || periods > maxPeriods) {
+    throw new Error(`${flag} must be a whole number from 1 to ${String(maxPeriods)}`);
   }
 
   return periods;
@@ -64,11 +75,12 @@ export function parseLastOption(last: string | undefined, flag = '--last'): numb
  * Weeks start on Monday, matching the weekly buckets.
  */
 export function resolvePeriodsSince(
-  granularity: ReportGranularity,
+  granularity: UsageGranularity,
   today: string,
   periods: number,
 ): string {
   switch (granularity) {
+    case 'hourly':
     case 'daily':
       return shiftLocalDateKey(today, -(periods - 1));
     case 'weekly': {
@@ -95,21 +107,40 @@ type UsageDataRequest = {
   defaultWindowSince?: string;
 };
 
+/** Without dates, `hourly` covers today. */
+const HOURLY_DEFAULT_DAYS = 1;
+
+function getDefaultWindowPeriods(granularity: UsageGranularity): number | undefined {
+  return granularity === 'hourly'
+    ? HOURLY_DEFAULT_DAYS
+    : DEFAULT_REPORT_WINDOWS[granularity]?.periods;
+}
+
 /**
- * `--last N` covers the last N periods, counting the current one, in the report timezone.
- * Without dates, a granularity with a DEFAULT_REPORT_WINDOWS entry covers that recent
- * window; `--all` restores full history. Explicit dates and other granularities are unchanged.
+ * `--last N` covers the last N periods, counting the current one, in the report timezone
+ * (days for `hourly`). Without dates, `hourly` and a granularity with a
+ * DEFAULT_REPORT_WINDOWS entry cover that recent window; `--all` restores full history.
+ * Explicit dates and other granularities are unchanged.
  */
-async function resolveUsageDataRequest(
-  granularity: ReportGranularity,
+export async function resolveUsageDataRequest(
+  granularity: UsageGranularity,
   options: ReportCommandOptions,
   deps: BuildUsageDataDeps,
 ): Promise<UsageDataRequest> {
   const hasDates = options.since !== undefined || options.until !== undefined;
-  const lastPeriods = parseLastOption(options.last);
+  const isHourly = granularity === 'hourly';
+  const lastPeriods = parseLastOption(
+    options.last,
+    '--last',
+    isHourly ? HOURLY_MAX_LAST_DAYS : undefined,
+  );
 
   if (lastPeriods !== undefined && (hasDates || options.all)) {
-    throw new Error('--last cannot be combined with --since, --until, or --all');
+    throw new Error(
+      isHourly
+        ? '--last cannot be combined with --since or --until'
+        : '--last cannot be combined with --since, --until, or --all',
+    );
   }
 
   if (options.all && hasDates) {
@@ -117,8 +148,7 @@ async function resolveUsageDataRequest(
   }
 
   const periods =
-    lastPeriods ??
-    (options.all || hasDates ? undefined : DEFAULT_REPORT_WINDOWS[granularity]?.periods);
+    lastPeriods ?? (options.all || hasDates ? undefined : getDefaultWindowPeriods(granularity));
 
   if (periods === undefined) {
     return { options, deps };
@@ -131,11 +161,12 @@ async function resolveUsageDataRequest(
   );
   const today = getCurrentLocalDateKey(timezone, deps.now?.() ?? new Date());
   const since = resolvePeriodsSince(granularity, today, periods);
-  // `--last` also ends today, so events dated later (a clock set ahead) stay out.
+  // `--last` and hourly's default window also end today, so events dated later (a clock
+  // set ahead) stay out. The other default windows keep no upper bound.
   const windowedOptions = {
     ...userConfigResolution.options,
     since,
-    ...(lastPeriods === undefined ? {} : { until: today }),
+    ...(lastPeriods === undefined && !isHourly ? {} : { until: today }),
   };
 
   return {
@@ -145,8 +176,51 @@ async function resolveUsageDataRequest(
   };
 }
 
+/**
+ * The hourly keys that combine two occurrences of a local hour (a DST fall-back), sorted.
+ */
+export function findRepeatedLocalHours(
+  events: readonly { timestamp: string }[],
+  timezone: string,
+): string[] {
+  const offsetByKey = new Map<string, number>();
+  const repeated = new Set<string>();
+
+  for (const event of events) {
+    const { key, offsetMs } = getLocalHourBucket(event.timestamp, timezone);
+    const seenOffsetMs = offsetByKey.get(key);
+
+    if (seenOffsetMs === undefined) {
+      offsetByKey.set(key, offsetMs);
+    } else if (seenOffsetMs !== offsetMs) {
+      repeated.add(key);
+    }
+  }
+
+  return [...repeated].sort();
+}
+
+/** Flags the rows of a fall-back hour whose events fall on both of its occurrences. */
+function markRepeatedHourRows(
+  rows: UsageReportRow[],
+  events: readonly { timestamp: string }[],
+  timezone: string,
+): UsageReportRow[] {
+  const repeatedKeys = new Set(findRepeatedLocalHours(events, timezone));
+
+  if (repeatedKeys.size === 0) {
+    return rows;
+  }
+
+  return rows.map((row) =>
+    row.rowType !== 'grand_total' && repeatedKeys.has(row.periodKey)
+      ? { ...row, repeatedHour: true }
+      : row,
+  );
+}
+
 export async function buildUsageData(
-  granularity: ReportGranularity,
+  granularity: UsageGranularity,
   commandOptions: ReportCommandOptions,
   commandDeps: BuildUsageDataDeps = {},
 ): Promise<UsageDataResult> {
@@ -158,18 +232,21 @@ export async function buildUsageData(
   const dataset = await measureRuntimeProfileStage(deps.runtimeProfile, 'usage.dataset.total', () =>
     buildUsageEventDataset(options, deps),
   );
-  const { pricedEvents, pricingOrigin, pricingWarning } = await applyPricingToUsageEventDataset(
-    dataset,
-    deps,
-    'auto',
-  );
+  const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'auto');
+  const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
 
+  const byRepo = options.byRepo === true;
   const rows = measureRuntimeProfileStageSync(deps.runtimeProfile, 'usage.aggregate', () =>
     aggregateUsage(pricedEvents, {
       granularity,
       timezone: dataset.normalizedInputs.timezone,
       sourceOrder: dataset.adaptersToParse.map((adapter) => adapter.id),
-      byMachine: options.byMachine === true,
+      split: { machine: options.byMachine === true, repo: byRepo },
+      ...(byRepo
+        ? {
+            projectLabels: buildEventProjectLabels(pricedEvents),
+          }
+        : {}),
     }),
   );
 
@@ -181,13 +258,21 @@ export async function buildUsageData(
     pricingWarning,
     warnings: dataset.warnings,
     notes:
-      options.cost === false ? dataset.notes : withUnpricedEventsNote(dataset.notes, pricedEvents),
+      options.cost === false
+        ? dataset.notes
+        : withPricingNotes(dataset.notes, pricedEvents, pricingResult),
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,
     runtimeProfile: deps.runtimeProfile?.snapshot(),
   });
 
-  const result = assembleUsageDataResult(pricedEvents, rows, diagnostics);
+  const result = assembleUsageDataResult(
+    pricedEvents,
+    granularity === 'hourly'
+      ? markRepeatedHourRows(rows, pricedEvents, dataset.normalizedInputs.timezone)
+      : rows,
+    diagnostics,
+  );
   return defaultWindowSince ? { ...result, defaultWindowSince } : result;
 }

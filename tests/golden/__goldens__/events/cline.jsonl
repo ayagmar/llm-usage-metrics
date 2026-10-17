@@ -1,0 +1,1 @@
+{"source":"cline","sessionId":"task-cline","timestamp":"2026-06-15T12:30:00.000Z","provider":"anthropic","model":"claude-sonnet-cline-e2e","inputTokens":30,"outputTokens":10,"reasoningTokens":0,"cacheReadTokens":5,"cacheWriteTokens":0,"cacheWrite1hTokens":0,"totalTokens":45,"costUsd":0.01,"costMode":"explicit"}

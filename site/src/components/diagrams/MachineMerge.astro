@@ -1,0 +1,185 @@
+---
+import './diagrams.css';
+
+// src/machines/*: machine-ssh.ts, machine-cache.ts, refresh-machines.ts, merge-machine-events.ts.
+const left = { x: 12, w: 200 };
+const right = { x: 228, w: 200 };
+---
+
+<figure class="dg" style="--dg-max-width: 32rem">
+  <div
+    class="dg-scroll"
+    tabindex="0"
+    role="region"
+    aria-label="How another machine's usage reaches a report (scrolls sideways on narrow screens)"
+  >
+    <svg
+      viewBox="0 0 440 486"
+      role="img"
+      aria-labelledby="dg-machine-merge-title dg-machine-merge-desc"
+    >
+      <title id="dg-machine-merge-title">How another machine's usage reaches a report</title>
+      <desc id="dg-machine-merge-desc">
+        Over ssh, the other machine runs llm-usage machine export --known - --quiet. This machine
+        sends the files and revisions it already holds; the export answers with an NDJSON bundle of
+        the events that machine counts, sending only files whose revision changed. The bundle
+        replaces the per-machine cache, machines/name.db, in one transaction. A sync runs on sync,
+        on machine add, or during a report when the last attempt is at least ten minutes old, with a
+        30 second limit; --no-sync skips it. At report time this machine's events, including
+        history, and each machine's cached events are merged: for a session both sides hold, an
+        event whose content hash was already served is dropped, matching by timestamp when the two
+        sides recorded different parser versions. Merged events carry the machine name, then
+        copied-session dedup, filters, pricing and rendering run as usual.
+      </desc>
+      <defs>
+        <marker
+          id="dg-machine-merge-arrow"
+          viewBox="0 0 10 10"
+          refX="9"
+          refY="5"
+          markerWidth="7"
+          markerHeight="7"
+          orient="auto-start-reverse"
+        >
+          <path class="dg-arrowhead" d="M0 0 L10 5 L0 10 z"></path>
+        </marker>
+      </defs>
+
+      <rect class="dg-box dg-box--cyan" x="12" y="4" width="416" height="82" rx="10"></rect>
+      <text class="dg-t dg-t--label" x="28" y="26">
+        other machine
+      </text>
+      <text class="dg-t dg-t--mono" x="28" y="50" style="font-size: 13px">
+        llm-usage machine export --known -
+      </text>
+      <text class="dg-t dg-t--sm" x="28" y="72">
+        NDJSON: header, changed files, end
+      </text>
+
+      <line
+        class="dg-line"
+        x1={right.x + 100}
+        y1="88"
+        x2={right.x + 100}
+        y2="170"
+        marker-end="url(#dg-machine-merge-arrow)"
+      ></line>
+      <text class="dg-t dg-t--sm" x={right.x + 112} y="116">
+        ssh
+      </text>
+      <line
+        class="dg-line dg-line--dashed"
+        x1={right.x + 60}
+        y1="168"
+        x2={right.x + 60}
+        y2="90"
+        marker-end="url(#dg-machine-merge-arrow)"
+      ></line>
+      <text class="dg-t dg-t--sm" x={right.x + 52} y="136" text-anchor="end">
+        known files
+      </text>
+      <text class="dg-t dg-t--sm" x={right.x + 52} y="153" text-anchor="end">
+        and revisions
+      </text>
+
+      <rect
+        class="dg-box dg-box--accent"
+        x={left.x}
+        y="172"
+        width={left.w}
+        height="96"
+        rx="10"
+      ></rect>
+      <text class="dg-t dg-t--label" x={left.x + 16} y="194">
+        this machine
+      </text>
+      <text class="dg-t" x={left.x + 16} y="218">
+        local parse
+      </text>
+      <text class="dg-t dg-t--sm" x={left.x + 16} y="238">
+        event store,
+      </text>
+      <text class="dg-t dg-t--sm" x={left.x + 16} y="256">
+        history replay
+      </text>
+
+      <rect
+        class="dg-box dg-box--cyan"
+        x={right.x}
+        y="172"
+        width={right.w}
+        height="96"
+        rx="10"
+      ></rect>
+      <text class="dg-t dg-t--label" x={right.x + 16} y="194">
+        per-machine cache
+      </text>
+      <text class="dg-t dg-t--mono" x={right.x + 16} y="218" style="font-size: 13px">
+        machines/&lt;name&gt;.db
+      </text>
+      <text class="dg-t dg-t--sm" x={right.x + 16} y="238">
+        replaced in one
+      </text>
+      <text class="dg-t dg-t--sm" x={right.x + 16} y="256">
+        transaction per sync
+      </text>
+
+      <text class="dg-t dg-t--label" x="28" y="108">
+        sync runs on
+      </text>
+      <text class="dg-t dg-t--sm" x="28" y="127">
+        sync, machine add, or a
+      </text>
+      <text class="dg-t dg-t--sm" x="28" y="144">
+        report 10+ min after the
+      </text>
+      <text class="dg-t dg-t--sm" x="28" y="161">
+        last try (30 s limit)
+      </text>
+
+      <line
+        class="dg-line"
+        x1={left.x + 100}
+        y1="270"
+        x2={left.x + 100}
+        y2="298"
+        marker-end="url(#dg-machine-merge-arrow)"
+      ></line>
+      <line
+        class="dg-line"
+        x1={right.x + 100}
+        y1="270"
+        x2={right.x + 100}
+        y2="298"
+        marker-end="url(#dg-machine-merge-arrow)"
+      ></line>
+
+      <rect class="dg-box dg-box--accent" x="12" y="300" width="416" height="104" rx="10"></rect>
+      <text class="dg-t dg-t--label" x="28" y="324">
+        merge
+      </text>
+      <text class="dg-t" x="28" y="348" style="font-size: 14px">
+        Sessions only one side holds: kept whole.
+      </text>
+      <text class="dg-t" x="28" y="370" style="font-size: 14px">
+        Sessions both hold: drop events already served,
+      </text>
+      <text class="dg-t dg-t--sm" x="28" y="391">
+        by content hash; by timestamp on parser skew
+      </text>
+
+      <line
+        class="dg-line"
+        x1="220"
+        y1="406"
+        x2="220"
+        y2="432"
+        marker-end="url(#dg-machine-merge-arrow)"
+      ></line>
+      <rect class="dg-box dg-box--plain" x="12" y="434" width="416" height="48" rx="10"></rect>
+      <text class="dg-t dg-t--sm" x="28" y="463">
+        tagged with machine → copied sessions, filters, price
+      </text>
+    </svg>
+  </div>
+</figure>

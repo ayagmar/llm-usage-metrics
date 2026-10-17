@@ -1,0 +1,191 @@
+{
+  "schemaVersion": 1,
+  "report": "doctor",
+  "data": {
+    "sources": [
+      {
+        "id": "pi",
+        "format": "jsonl",
+        "status": "ok",
+        "itemsFound": 0,
+        "state": "not_installed",
+        "searchedPaths": [
+          "<home>/home/.pi/agent/sessions",
+          "<home>/home/.omp/agent/sessions"
+        ]
+      },
+      {
+        "id": "codex",
+        "format": "jsonl",
+        "status": "ok",
+        "itemsFound": 0,
+        "state": "not_installed",
+        "searchedPaths": [
+          "<home>/home/.codex/sessions"
+        ]
+      },
+      {
+        "id": "gemini",
+        "format": "json",
+        "status": "ok",
+        "itemsFound": 0,
+        "state": "not_installed",
+        "searchedPaths": [
+          "<home>/home/.gemini"
+        ]
+      },
+      {
+        "id": "droid",
+        "format": "json",
+        "status": "ok",
+        "itemsFound": 0,
+        "state": "not_installed",
+        "searchedPaths": [
+          "<home>/home/.factory/sessions"
+        ]
+      },
+      {
+        "id": "opencode",
+        "format": "sqlite",
+        "status": "ok",
+        "itemsFound": 0,
+        "state": "not_installed",
+        "searchedPaths": [
+          "<home>/xdg-data/opencode/opencode.db",
+          "<home>/xdg-data/opencode/db.sqlite",
+          "<home>/home/.opencode/opencode.db",
+          "<home>/home/.opencode/db.sqlite"
+        ]
+      },
+      {
+        "id": "openclaw",
+        "format": "jsonl",
+        "status": "ok",
+        "itemsFound": 0,
+        "state": "not_installed",
+        "searchedPaths": [
+          "<home>/home/.openclaw/agents",
+          "<home>/home/.clawdbot/agents",
+          "<home>/home/.moltbot/agents",
+          "<home>/home/.moldbot/agents"
+        ]
+      },
+      {
+        "id": "claude",
+        "format": "jsonl",
+        "status": "ok",
+        "itemsFound": 0,
+        "state": "not_installed",
+        "searchedPaths": [
+          "<home>/home/.claude/projects",
+          "<home>/home/.claude/transcripts"
+        ]
+      },
+      {
+        "id": "copilot",
+        "format": "jsonl",
+        "status": "ok",
+        "itemsFound": 0,
+        "state": "not_installed",
+        "searchedPaths": [
+          "<home>/home/.copilot/otel"
+        ]
+      },
+      {
+        "id": "goose",
+        "format": "sqlite",
+        "status": "ok",
+        "itemsFound": 0,
+        "state": "not_installed",
+        "searchedPaths": [
+          "<home>/xdg-data/goose/sessions/sessions.db",
+          "<home>/home/.local/share/Block/goose/sessions/sessions.db"
+        ]
+      },
+      {
+        "id": "amp",
+        "format": "json",
+        "status": "ok",
+        "itemsFound": 0,
+        "state": "not_installed",
+        "searchedPaths": [
+          "<home>/xdg-data/amp/threads"
+        ]
+      },
+      {
+        "id": "qwen",
+        "format": "jsonl",
+        "status": "ok",
+        "itemsFound": 0,
+        "state": "not_installed",
+        "searchedPaths": [
+          "<home>/home/.qwen/projects"
+        ]
+      },
+      {
+        "id": "kimi",
+        "format": "jsonl",
+        "status": "ok",
+        "itemsFound": 0,
+        "state": "not_installed",
+        "searchedPaths": [
+          "<home>/home/.kimi/sessions",
+          "<home>/home/.kimi-code/sessions"
+        ]
+      },
+      {
+        "id": "cline",
+        "format": "json",
+        "status": "ok",
+        "itemsFound": 0,
+        "state": "not_installed",
+        "searchedPaths": [
+          "<home>/home/.config/Code/User/globalStorage/saoudrizwan.claude-dev/tasks",
+          "<home>/home/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/tasks"
+        ]
+      },
+      {
+        "id": "roocode",
+        "format": "json",
+        "status": "ok",
+        "itemsFound": 0,
+        "state": "not_installed",
+        "searchedPaths": [
+          "<home>/home/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline/tasks",
+          "<home>/home/.vscode-server/data/User/globalStorage/rooveterinaryinc.roo-cline/tasks"
+        ]
+      },
+      {
+        "id": "kilocode",
+        "format": "json",
+        "status": "ok",
+        "itemsFound": 0,
+        "state": "not_installed",
+        "searchedPaths": [
+          "<home>/home/.config/Code/User/globalStorage/kilocode.kilo-code/tasks",
+          "<home>/home/.vscode-server/data/User/globalStorage/kilocode.kilo-code/tasks"
+        ]
+      },
+      {
+        "id": "antigravity",
+        "format": "sqlite",
+        "status": "ok",
+        "itemsFound": 0,
+        "state": "not_installed",
+        "searchedPaths": [
+          "<home>/home/.gemini/antigravity-cli/conversations"
+        ]
+      },
+      {
+        "id": "dsh",
+        "format": "jsonl",
+        "status": "ok",
+        "itemsFound": 0,
+        "state": "not_installed",
+        "searchedPaths": [
+          "<home>/home/.dsh/sessions"
+        ]
+      }
+    ]
+  }
+}

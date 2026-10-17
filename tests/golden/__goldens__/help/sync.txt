@@ -1,0 +1,14 @@
+Usage: llm-usage sync [options] [names...]
+
+Fetch your other machines' usage now (reports also fetch it when it is 10 minutes old)
+
+Arguments:
+  names       Machines to sync (default: every enabled machine)
+
+Options:
+  --full      Fetch every file again instead of only the changed ones
+  -h, --help  display help for command
+
+Examples:
+  $ llm-usage sync
+  $ llm-usage sync laptop --full

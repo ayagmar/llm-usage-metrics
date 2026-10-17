@@ -4,10 +4,21 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { asRecord } from '../utils/as-record.js';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
 import { ensureDirectory, readRegularTextFile, writeFileAtomic } from '../utils/fs-helpers.js';
-import { normalizeKey, resolveCanonicalModelKey } from './litellm-model-matching.js';
+import {
+  explainCanonicalModelKey,
+  normalizeKey,
+  resolveCanonicalModelKey,
+} from './litellm-model-matching.js';
 import litellmPricingSnapshotPayload from './litellm-pricing-snapshot.json' with { type: 'json' };
 import litellmRetiredPricingPayload from './litellm-retired-pricing.json' with { type: 'json' };
-import type { ModelPricing, PricingSource } from './types.js';
+import type {
+  ModelPricing,
+  ModelPricingExplanation,
+  PricingDataOrigin,
+  PriorityFallbackBucket,
+  PricingSource,
+  PricingTier,
+} from './types.js';
 
 const ONE_MILLION = 1_000_000;
 const DEFAULT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -19,9 +30,11 @@ export const MAX_LITELLM_PRICING_RESPONSE_BYTES = 33_554_432;
 export const DEFAULT_LITELLM_PRICING_URL =
   'https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json';
 
-// Bumped when a cached model's pricing gains a rate. A cache an older version wrote lacks
-// it, so it counts as stale: refetched when online, still used when the fetch fails.
-const CACHE_FORMAT_VERSION = 2;
+// Bumped when a cached model's pricing gains a rate. A default-source cache an older version
+// wrote lacks it, so it is refetched, and the bundled snapshot replaces it when the fetch
+// fails or pricing is offline. A custom-URL cache has no snapshot to fall back on, so it
+// still serves as stale pricing.
+const CACHE_FORMAT_VERSION = 3;
 
 export type LiteLLMCachePayload = {
   fetchedAt: number;
@@ -104,40 +117,108 @@ function toNonNegativeNumber(value: unknown): number | undefined {
   return undefined;
 }
 
-function normalizeModelPricing(rawModelPricing: Record<string, unknown>): ModelPricing | undefined {
-  const inputPerToken =
-    toNonNegativeNumber(rawModelPricing.input_cost_per_token) ??
-    toNonNegativeNumber(rawModelPricing.input_cost_per_token_priority);
-  const outputPerToken =
-    toNonNegativeNumber(rawModelPricing.output_cost_per_token) ??
-    toNonNegativeNumber(rawModelPricing.output_cost_per_token_priority);
+type TierRateField = Exclude<keyof PricingTier, 'aboveTokens'>;
 
-  if (inputPerToken === undefined || outputPerToken === undefined) {
+// LiteLLM's standard long-context keys. Suffixed variants (`_batches`, `_priority`, `_flex`,
+// ...) price other service tiers, and the anchors keep them out.
+const TIER_RATE_KEY_PATTERNS: ReadonlyArray<readonly [RegExp, TierRateField]> = [
+  [/^input_cost_per_token_above_(\d+)k_tokens$/u, 'inputPer1MUsd'],
+  [/^output_cost_per_token_above_(\d+)k_tokens$/u, 'outputPer1MUsd'],
+  [/^cache_read_input_token_cost_above_(\d+)k_tokens$/u, 'cacheReadPer1MUsd'],
+  [/^cache_creation_input_token_cost_above_(\d+)k_tokens$/u, 'cacheWritePer1MUsd'],
+  [/^cache_creation_input_token_cost_above_1hr_above_(\d+)k_tokens$/u, 'cacheWrite1hPer1MUsd'],
+];
+
+function readTierRateKey(key: string): { field: TierRateField; aboveTokens: number } | undefined {
+  if (!key.endsWith('k_tokens')) {
     return undefined;
   }
 
-  const cacheReadPerToken =
-    toNonNegativeNumber(rawModelPricing.cache_read_input_token_cost) ??
-    toNonNegativeNumber(rawModelPricing.cache_read_input_token_cost_priority);
-  const cacheWritePerToken =
-    toNonNegativeNumber(rawModelPricing.cache_creation_input_token_cost) ??
-    toNonNegativeNumber(rawModelPricing.cache_creation_input_token_cost_priority);
+  for (const [pattern, field] of TIER_RATE_KEY_PATTERNS) {
+    const match = pattern.exec(key);
+    const aboveTokens = match ? Number(match[1]) * 1000 : Number.NaN;
+
+    if (Number.isSafeInteger(aboveTokens)) {
+      return { field, aboveTokens };
+    }
+  }
+
+  return undefined;
+}
+
+/** Whether a LiteLLM key is one of the long-context rates the tiers carry. */
+export function isLiteLLMTierRateKey(key: string): boolean {
+  return readTierRateKey(key) !== undefined;
+}
+
+function sortTiersDescending(tiersByThreshold: Map<number, PricingTier>): PricingTier[] {
+  return [...tiersByThreshold.values()].sort((left, right) => right.aboveTokens - left.aboveTokens);
+}
+
+function normalizeModelTiers(rawModelPricing: Record<string, unknown>): PricingTier[] | undefined {
+  const tiersByThreshold = new Map<number, PricingTier>();
+
+  for (const [key, value] of Object.entries(rawModelPricing)) {
+    const tierRateKey = readTierRateKey(key);
+    const perToken = tierRateKey ? toNonNegativeNumber(value) : undefined;
+
+    if (!tierRateKey || perToken === undefined) {
+      continue;
+    }
+
+    const tier = tiersByThreshold.get(tierRateKey.aboveTokens) ?? {
+      aboveTokens: tierRateKey.aboveTokens,
+    };
+    tier[tierRateKey.field] = perToken * ONE_MILLION;
+    tiersByThreshold.set(tierRateKey.aboveTokens, tier);
+  }
+
+  return tiersByThreshold.size === 0 ? undefined : sortTiersDescending(tiersByThreshold);
+}
+
+type RateWithOrigin = { perToken: number; priority: boolean };
+
+/** A standard rate, or the priority rate when LiteLLM lists only that one. */
+function readStandardOrPriorityRate(
+  rawModelPricing: Record<string, unknown>,
+  key: string,
+): RateWithOrigin | undefined {
+  const standard = toNonNegativeNumber(rawModelPricing[key]);
+
+  if (standard !== undefined) {
+    return { perToken: standard, priority: false };
+  }
+
+  const priority = toNonNegativeNumber(rawModelPricing[`${key}_priority`]);
+  return priority === undefined ? undefined : { perToken: priority, priority: true };
+}
+
+function normalizeModelPricing(rawModelPricing: Record<string, unknown>): ModelPricing | undefined {
+  const input = readStandardOrPriorityRate(rawModelPricing, 'input_cost_per_token');
+  const output = readStandardOrPriorityRate(rawModelPricing, 'output_cost_per_token');
+
+  if (input === undefined || output === undefined) {
+    return undefined;
+  }
+
+  const cacheRead = readStandardOrPriorityRate(rawModelPricing, 'cache_read_input_token_cost');
+  const cacheWrite = readStandardOrPriorityRate(rawModelPricing, 'cache_creation_input_token_cost');
   const cacheWrite1hPerToken = toNonNegativeNumber(
     rawModelPricing.cache_creation_input_token_cost_above_1hr,
   );
   const reasoningPerToken = toNonNegativeNumber(rawModelPricing.output_cost_per_reasoning_token);
 
   const modelPricing: ModelPricing = {
-    inputPer1MUsd: inputPerToken * ONE_MILLION,
-    outputPer1MUsd: outputPerToken * ONE_MILLION,
+    inputPer1MUsd: input.perToken * ONE_MILLION,
+    outputPer1MUsd: output.perToken * ONE_MILLION,
   };
 
-  if (cacheReadPerToken !== undefined) {
-    modelPricing.cacheReadPer1MUsd = cacheReadPerToken * ONE_MILLION;
+  if (cacheRead !== undefined) {
+    modelPricing.cacheReadPer1MUsd = cacheRead.perToken * ONE_MILLION;
   }
 
-  if (cacheWritePerToken !== undefined) {
-    modelPricing.cacheWritePer1MUsd = cacheWritePerToken * ONE_MILLION;
+  if (cacheWrite !== undefined) {
+    modelPricing.cacheWritePer1MUsd = cacheWrite.perToken * ONE_MILLION;
   }
 
   if (cacheWrite1hPerToken !== undefined) {
@@ -147,6 +228,27 @@ function normalizeModelPricing(rawModelPricing: Record<string, unknown>): ModelP
   if (reasoningPerToken !== undefined) {
     modelPricing.reasoningPer1MUsd = reasoningPerToken * ONE_MILLION;
     modelPricing.reasoningBilling = 'separate';
+  }
+
+  const priorityFallback = (
+    [
+      ['input', input],
+      ['output', output],
+      ['cacheRead', cacheRead],
+      ['cacheWrite', cacheWrite],
+    ] as const
+  )
+    .filter(([, rate]) => rate?.priority)
+    .map(([bucket]) => bucket);
+
+  if (priorityFallback.length > 0) {
+    modelPricing.priorityFallback = priorityFallback;
+  }
+
+  const tiers = normalizeModelTiers(rawModelPricing);
+
+  if (tiers) {
+    modelPricing.tiers = tiers;
   }
 
   return modelPricing;
@@ -182,6 +284,61 @@ export function normalizeLitellmPricingPayload(payload: unknown): Map<string, Mo
   }
 
   return normalizedPricing;
+}
+
+const TIER_RATE_FIELDS: readonly TierRateField[] = [
+  'inputPer1MUsd',
+  'outputPer1MUsd',
+  'cacheReadPer1MUsd',
+  'cacheWritePer1MUsd',
+  'cacheWrite1hPer1MUsd',
+];
+
+function normalizeCachedTiers(rawTiers: unknown): PricingTier[] | undefined {
+  if (!Array.isArray(rawTiers)) {
+    return undefined;
+  }
+
+  const tiersByThreshold = new Map<number, PricingTier>();
+
+  for (const rawTier of rawTiers) {
+    const tierRecord = asRecord(rawTier);
+    const aboveTokens = toNonNegativeNumber(tierRecord?.aboveTokens);
+
+    if (!tierRecord || aboveTokens === undefined || !Number.isSafeInteger(aboveTokens)) {
+      continue;
+    }
+
+    const tier: PricingTier = { aboveTokens };
+
+    for (const field of TIER_RATE_FIELDS) {
+      const rate = toNonNegativeNumber(tierRecord[field]);
+
+      if (rate !== undefined) {
+        tier[field] = rate;
+      }
+    }
+
+    tiersByThreshold.set(aboveTokens, tier);
+  }
+
+  return tiersByThreshold.size === 0 ? undefined : sortTiersDescending(tiersByThreshold);
+}
+
+const PRIORITY_FALLBACK_BUCKETS: readonly PriorityFallbackBucket[] = [
+  'input',
+  'output',
+  'cacheRead',
+  'cacheWrite',
+];
+
+function normalizeCachedPriorityFallback(value: unknown): PriorityFallbackBucket[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const buckets = PRIORITY_FALLBACK_BUCKETS.filter((bucket) => value.includes(bucket));
+  return buckets.length === 0 ? undefined : buckets;
 }
 
 function normalizeCachedPricing(rawPricing: unknown): ModelPricing | undefined {
@@ -226,6 +383,18 @@ function normalizeCachedPricing(rawPricing: unknown): ModelPricing | undefined {
   if (reasoningPer1MUsd !== undefined) {
     modelPricing.reasoningPer1MUsd = reasoningPer1MUsd;
     modelPricing.reasoningBilling = 'separate';
+  }
+
+  const priorityFallback = normalizeCachedPriorityFallback(pricingRecord.priorityFallback);
+
+  if (priorityFallback) {
+    modelPricing.priorityFallback = priorityFallback;
+  }
+
+  const tiers = normalizeCachedTiers(pricingRecord.tiers);
+
+  if (tiers) {
+    modelPricing.tiers = tiers;
   }
 
   return modelPricing;
@@ -343,6 +512,9 @@ export class LiteLLMPricingFetcher implements PricingSource {
   private pricingByModel = new Map<string, ModelPricing>();
   private resolvedAliasCache = new Map<string, string>();
   private loadOrigin: LiteLLMPricingLoadOrigin | undefined;
+  private dataOrigin: PricingDataOrigin | undefined;
+  /** Keys the retired prices back-filled into the loaded pricing. */
+  private retiredModelKeys = new Set<string>();
   private pricingWarning: string | undefined;
 
   public constructor(options: LiteLLMPricingFetcherOptions = {}) {
@@ -371,6 +543,7 @@ export class LiteLLMPricingFetcher implements PricingSource {
    */
   public async load(): Promise<boolean> {
     this.loadOrigin = undefined;
+    this.dataOrigin = undefined;
     this.pricingWarning = undefined;
 
     const cacheLoaded = await this.loadFromCache({ allowStale: false });
@@ -428,6 +601,23 @@ export class LiteLLMPricingFetcher implements PricingSource {
 
   public getPricingWarning(): string | undefined {
     return this.pricingWarning;
+  }
+
+  public explainModel(model: string): ModelPricingExplanation {
+    const normalizedModel = normalizeKey(model);
+    const resolvedModel = this.resolveModelAlias(model);
+    const pricing = this.getPricing(resolvedModel);
+    const match = explainCanonicalModelKey(normalizedModel, this.pricingByModel);
+
+    return {
+      normalizedModel,
+      resolvedModel,
+      ...(match ? { match } : {}),
+      override: 'none',
+      ...(this.dataOrigin ? { origin: this.dataOrigin } : {}),
+      retired: pricing !== undefined && this.retiredModelKeys.has(resolvedModel),
+      ...(pricing ? { pricing } : {}),
+    };
   }
 
   public resolveModelAlias(model: string): string {
@@ -511,7 +701,7 @@ export class LiteLLMPricingFetcher implements PricingSource {
     const chunks: Uint8Array[] = [];
     let receivedBytes = 0;
 
-    for await (const chunk of response.body) {
+    for await (const chunk of response.body as ReadableStream<Uint8Array>) {
       receivedBytes += chunk.byteLength;
 
       if (receivedBytes > this.maxResponseBytes) {
@@ -532,6 +722,7 @@ export class LiteLLMPricingFetcher implements PricingSource {
     this.pricingByModel = normalizedPricing;
     this.resolvedAliasCache.clear();
     this.loadOrigin = 'network';
+    this.dataOrigin = { kind: 'network', fetchedAt: this.now(), url: this.sourceUrl };
     this.pricingWarning = undefined;
 
     try {
@@ -557,9 +748,16 @@ export class LiteLLMPricingFetcher implements PricingSource {
       return false;
     }
 
+    const isCurrentFormat = cacheFileContent.formatVersion === CACHE_FORMAT_VERSION;
+
+    // An older-format default-source cache lacks rates the bundled snapshot carries.
+    if (!isCurrentFormat && this.sourceUrl === DEFAULT_LITELLM_PRICING_URL) {
+      return false;
+    }
+
     const nowTimestamp = this.now();
     const isStale =
-      cacheFileContent.formatVersion !== CACHE_FORMAT_VERSION ||
+      !isCurrentFormat ||
       cacheFileContent.fetchedAt > nowTimestamp ||
       nowTimestamp - cacheFileContent.fetchedAt > this.cacheTtlMs;
 
@@ -580,6 +778,11 @@ export class LiteLLMPricingFetcher implements PricingSource {
     }
 
     this.loadOrigin = 'cache';
+    this.dataOrigin = {
+      kind: 'cache',
+      fetchedAt: cacheFileContent.fetchedAt,
+      url: cacheFileContent.sourceUrl,
+    };
     this.pricingWarning = isStale
       ? formatStaleCacheWarning(cacheFileContent.fetchedAt, options.fetchError)
       : undefined;
@@ -588,6 +791,8 @@ export class LiteLLMPricingFetcher implements PricingSource {
   }
 
   private backfillRetiredModels(): void {
+    this.retiredModelKeys = new Set();
+
     if (this.sourceUrl !== DEFAULT_LITELLM_PRICING_URL) {
       return;
     }
@@ -595,6 +800,7 @@ export class LiteLLMPricingFetcher implements PricingSource {
     for (const [modelName, pricing] of getRetiredLiteLLMPricing()) {
       if (!this.pricingByModel.has(modelName)) {
         this.pricingByModel.set(modelName, pricing);
+        this.retiredModelKeys.add(modelName);
       }
     }
   }
@@ -623,6 +829,11 @@ export class LiteLLMPricingFetcher implements PricingSource {
     }
 
     this.loadOrigin = 'bundled-snapshot';
+    this.dataOrigin = {
+      kind: 'bundled-snapshot',
+      fetchedAt: snapshot.fetchedAt,
+      url: snapshot.sourceUrl,
+    };
     this.pricingWarning = formatBundledSnapshotWarning(snapshot.fetchedAt);
     this.backfillRetiredModels();
     return true;

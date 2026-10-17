@@ -2,14 +2,15 @@ import { aggregateDailyActivity, resolveActivityStart } from '../aggregate/daily
 import { LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
 import { estimateCacheSavingsUsd } from '../pricing/cache-savings.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
-import { getCurrentLocalDateKey, getPeriodKey, shiftLocalDateKey } from '../utils/time-buckets.js';
-import { resolveUserConfigForOptions } from './apply-user-config.js';
+import { getCurrentLocalDateKey, shiftLocalDateKey } from '../utils/time-buckets.js';
+import { resolveUserConfigForOptions, type UserConfigResolution } from './apply-user-config.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
 import {
   applyPricingToUsageEventDataset,
-  withUnpricedEventsNote,
+  withPricingNotes,
   buildUsageEventDataset,
+  type UsageEventDataset,
 } from './build-usage-event-dataset.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 import type {
@@ -24,12 +25,12 @@ import type {
   UsageWindowTotals,
 } from './usage-data-contracts.js';
 import {
-  isEventWithinWindow,
+  createWindowEventFilter,
   summarizeUsageWindow,
   type UsageDateWindow,
 } from './usage-window-summary.js';
 
-type SummaryWindow = UsageDateWindow & {
+export type SummaryWindow = UsageDateWindow & {
   key: SummaryPeriodKey;
   label: string;
 };
@@ -56,7 +57,7 @@ const MIN_PROJECTION_DAYS = 3;
 
 export function resolveMonthEnd(
   today: string,
-  monthToDate: SummaryPeriod | undefined,
+  monthToDate: Pick<SummaryPeriod, 'totals'> | undefined,
   budgetUsd: number | undefined,
 ): SummaryMonthEnd {
   const daysElapsed = Number(today.slice(8, 10));
@@ -86,17 +87,28 @@ export function resolveMonthEnd(
  * Unlike `hasCliFilters` (filter-match-warnings.ts), dates are not counted: the summary has
  * no date flags, and this only decides whether the monthly budget applies.
  *
- * The budget covers all usage, so a run narrowed by --source, --provider, or --model
- * cannot be measured against it. A `sources` list in the config file is the user's
+ * The budget covers all usage, so a run narrowed by --source, --provider, --model, or
+ * --repo cannot be measured against it. A `sources` list in the config file is the user's
  * standing view, not a narrowing, so it keeps the budget.
  */
 function isNarrowedByCliFilters(cliOptions: SummaryCommandOptions): boolean {
   const source = cliOptions.source;
   const model = cliOptions.model;
+  const repo = cliOptions.repo;
   const hasSource = Array.isArray(source) ? source.length > 0 : Boolean(source);
   const hasModel = Array.isArray(model) ? model.length > 0 : Boolean(model);
+  const hasRepo = Array.isArray(repo) ? repo.length > 0 : Boolean(repo);
 
-  return hasSource || hasModel || Boolean(cliOptions.provider);
+  return hasSource || hasModel || hasRepo || Boolean(cliOptions.provider);
+}
+
+/** The config's monthly budget, unless CLI filters narrow the run. */
+export function resolveMonthlyBudgetUsd(
+  userConfigResolution: UserConfigResolution,
+): number | undefined {
+  return isNarrowedByCliFilters(userConfigResolution.cliOptions)
+    ? undefined
+    : userConfigResolution.loadedConfig.config.monthlyBudgetUsd;
 }
 
 function compareByCost(left: UsageWindowTotals, right: UsageWindowTotals): number {
@@ -139,10 +151,21 @@ function summarizeMachines(
     .sort(compareMachinesByCost);
 }
 
-export async function buildSummaryData(
+export type SummaryDataset = {
+  userConfigResolution: UserConfigResolution;
+  timezone: string;
+  windows: SummaryWindow[];
+  today: string;
+  /** First day of the activity grid, a year back, which covers every summary window. */
+  since: string;
+  dataset: UsageEventDataset;
+};
+
+/** The unpriced events of the summary's year, shared by the summary and the statusline. */
+export async function buildSummaryDataset(
   options: SummaryCommandOptions,
   deps: BuildSummaryDataDeps = {},
-): Promise<SummaryDataResult> {
+): Promise<SummaryDataset> {
   const userConfigResolution = await resolveUserConfigForOptions(options, deps);
   const configuredOptions = userConfigResolution.options;
   const { timezone } = normalizeBuildUsageInputs(
@@ -151,7 +174,6 @@ export async function buildSummaryData(
   );
   const windows = resolveSummaryWindows(timezone, deps.now?.() ?? new Date());
   const today = windows[0].until;
-  // The activity grid reaches back a year, which covers every summary window.
   const since = resolveActivityStart(today);
   const datasetOptions = { ...configuredOptions, since, until: today, timezone };
   const dataset = await measureRuntimeProfileStage(
@@ -163,16 +185,26 @@ export async function buildSummaryData(
         userConfigResolution: { ...userConfigResolution, options: datasetOptions },
       }),
   );
-  const { pricedEvents, pricingOrigin, pricingWarning, pricingSource } =
-    await applyPricingToUsageEventDataset(dataset, deps, 'auto');
+
+  return { userConfigResolution, timezone, windows, today, since, dataset };
+}
+
+export async function buildSummaryData(
+  options: SummaryCommandOptions,
+  deps: BuildSummaryDataDeps = {},
+): Promise<SummaryDataResult> {
+  const { userConfigResolution, timezone, windows, today, since, dataset } =
+    await buildSummaryDataset(options, deps);
+  const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'cache-savings');
+  const { pricedEvents, pricingOrigin, pricingWarning, pricingSource } = pricingResult;
   const sourceOrder = dataset.adaptersToParse.map((adapter) => adapter.id);
   // Other machines' events carry their name; this machine's carry none.
   const countsOtherMachines = pricedEvents.some((event) => event.machine !== undefined);
+  const eventsByWindow = new Map<SummaryPeriodKey, UsageEvent[]>();
   const periods = measureRuntimeProfileStageSync(deps.runtimeProfile, 'summary.aggregate', () =>
     windows.map((window): SummaryPeriod => {
-      const windowEvents = pricedEvents.filter((event) =>
-        isEventWithinWindow(event, window, timezone),
-      );
+      const windowEvents = pricedEvents.filter(createWindowEventFilter(window, timezone));
+      eventsByWindow.set(window.key, windowEvents);
       const summary = summarizeUsageWindow(windowEvents, timezone, sourceOrder);
       const period: SummaryPeriod = {
         key: window.key,
@@ -198,33 +230,36 @@ export async function buildSummaryData(
   );
 
   const monthToDate = periods.find((period) => period.key === 'monthToDate');
-  const monthToDateWindow = windows.find((window) => window.key === 'monthToDate');
+  const monthToDateEvents = eventsByWindow.get('monthToDate');
   const monthToDateCacheSavingsUsd =
-    pricingSource && monthToDateWindow
-      ? estimateCacheSavingsUsd(
-          pricedEvents.filter((event) => isEventWithinWindow(event, monthToDateWindow, timezone)),
-          pricingSource,
-        )
+    pricingSource && monthToDateEvents
+      ? estimateCacheSavingsUsd(monthToDateEvents, pricingSource, pricingResult.pricingPolicy)
       : undefined;
 
-  // The `~` marks only appear on the windows and on the best day's cost.
+  // The `~` marks only appear on the windows and on the best day's cost. Every window ends
+  // today, so together they span one range from the earliest window start.
   const bestDay = activity.bestDay?.costUsd === undefined ? undefined : activity.bestDay.date;
+  const isInSomeWindow = createWindowEventFilter(
+    {
+      since: windows.reduce(
+        (earliest, window) => (window.since < earliest ? window.since : earliest),
+        today,
+      ),
+      until: today,
+    },
+    timezone,
+  );
+  const isOnBestDay = bestDay
+    ? createWindowEventFilter({ since: bestDay, until: bestDay }, timezone)
+    : () => false;
   const shownCostEvents = pricedEvents.filter(
-    (event) =>
-      windows.some((window) => isEventWithinWindow(event, window, timezone)) ||
-      getPeriodKey(event.timestamp, 'daily', timezone) === bestDay,
+    (event) => isInSomeWindow(event) || isOnBestDay(event),
   );
 
   return {
     timezone,
     periods,
-    monthEnd: resolveMonthEnd(
-      today,
-      monthToDate,
-      isNarrowedByCliFilters(userConfigResolution.cliOptions)
-        ? undefined
-        : userConfigResolution.loadedConfig.config.monthlyBudgetUsd,
-    ),
+    monthEnd: resolveMonthEnd(today, monthToDate, resolveMonthlyBudgetUsd(userConfigResolution)),
     monthToDateCacheSavingsUsd,
     activity,
     diagnostics: buildUsageDiagnostics({
@@ -234,7 +269,7 @@ export async function buildSummaryData(
       pricingOrigin,
       pricingWarning,
       warnings: dataset.warnings,
-      notes: withUnpricedEventsNote(dataset.notes, shownCostEvents),
+      notes: withPricingNotes(dataset.notes, shownCostEvents, pricingResult),
       activeEnvOverrides: dataset.readEnvVarOverrides(),
       activeConfig: dataset.activeConfig,
       timezone,

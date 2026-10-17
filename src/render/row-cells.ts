@@ -1,4 +1,5 @@
 import type { ModelUsageBreakdown, UsageReportRow } from '../domain/usage-report-row.js';
+import type { TableColumnKind } from './unicode-table.js';
 
 export type UsageTableLayout = 'compact' | 'per_model_columns';
 
@@ -32,6 +33,12 @@ export const usageTableHeaders = [
   'Total',
   'Cost',
 ] as const;
+
+/** Period, source and models are text; every other usage column is a measure. */
+export const usageTableColumnKinds: readonly TableColumnKind[] = usageTableColumnIds.map(
+  (columnId) =>
+    columnId === 'period' || columnId === 'source' || columnId === 'models' ? 'text' : 'measure',
+);
 
 /** Columns `--compact` leaves out of terminal and markdown tables. */
 export const compactHiddenUsageColumns: readonly UsageTableColumnId[] = ['reasoning', 'cacheWrite'];
@@ -70,9 +77,12 @@ function formatSource(row: UsageReportRow): string {
     return 'TOTAL';
   }
 
-  return row.rowType === 'period_source' && row.machine !== undefined
-    ? `${row.source} (${row.machine})`
-    : row.source;
+  if (row.rowType !== 'period_source') {
+    return row.source;
+  }
+
+  const source = row.machine === undefined ? row.source : `${row.source} (${row.machine})`;
+  return row.project === undefined ? source : `${source} · ${row.project}`;
 }
 
 function formatFullTokenCount(value: number | undefined): string {

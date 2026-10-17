@@ -1,15 +1,28 @@
-import { formatApproxUsd, formatCompact, formatUsd } from '../render/share-svg-theme.js';
+import { calculateCurrentStreak, type DailyActivity } from '../aggregate/daily-activity.js';
+import type { UsageEvent } from '../domain/usage-event.js';
+import { formatApproxUsd, formatStatuslineCompact, formatUsd } from '../render/format-number.js';
 import { asRecord } from '../utils/as-record.js';
 import { setLogLevel } from '../utils/logger.js';
-import { buildSummaryData } from './build-summary-data.js';
+import { getPeriodKey } from '../utils/time-buckets.js';
+import {
+  buildSummaryDataset,
+  resolveMonthEnd,
+  resolveMonthlyBudgetUsd,
+} from './build-summary-data.js';
+import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
+import { applyPricingToUsageEventDataset, withPricingNotes } from './build-usage-event-dataset.js';
 import { emitDiagnostics } from './emit-diagnostics.js';
 import { emitReportRunDiagnostics } from './report-runtime/report-lifecycle.js';
+import { measureRuntimeProfileStageSync } from './runtime-profile.js';
 import type {
   BuildSummaryDataDeps,
   StatuslineCommandOptions,
-  SummaryDataResult,
+  SummaryMonthEnd,
   SummaryPeriod,
+  SummaryPeriodKey,
+  UsageDiagnostics,
 } from './usage-data-contracts.js';
+import { createWindowEventFilter, summarizeUsageWindow } from './usage-window-summary.js';
 
 const SEPARATOR = ' · ';
 
@@ -84,23 +97,34 @@ async function readPipedInput(stdin: StatuslineStdin): Promise<string> {
   });
 }
 
+type StatuslinePeriod = Pick<SummaryPeriod, 'key' | 'totals'>;
+
+/** What the line shows. A `SummaryDataResult` is one, so the summary gives the same line. */
+export type StatuslineSummary = {
+  periods: readonly StatuslinePeriod[];
+  monthEnd: SummaryMonthEnd;
+  activity: Pick<DailyActivity, 'currentStreak'>;
+};
+
+export type StatuslineData = StatuslineSummary & { diagnostics: UsageDiagnostics };
+
 function findPeriod(
-  summary: SummaryDataResult,
-  key: SummaryPeriod['key'],
-): SummaryPeriod | undefined {
+  summary: StatuslineSummary,
+  key: SummaryPeriodKey,
+): StatuslinePeriod | undefined {
   return summary.periods.find((period) => period.key === key);
 }
 
 /** Cost when known, otherwise tokens, so a day of unpriced usage still shows something. */
-function formatPeriodAmount(period: SummaryPeriod | undefined): string {
+function formatPeriodAmount(period: StatuslinePeriod | undefined): string {
   if (period?.totals.costUsd === undefined) {
-    return `${formatCompact(period?.totals.totalTokens ?? 0)} tokens`;
+    return `${formatStatuslineCompact(period?.totals.totalTokens ?? 0)} tokens`;
   }
 
   return formatApproxUsd(period.totals.costUsd, period.totals.costIncomplete);
 }
 
-function formatMonth(summary: SummaryDataResult): string {
+function formatMonth(summary: StatuslineSummary): string {
   const monthToDate = findPeriod(summary, 'monthToDate');
   const { budgetUsd, projectedCostUsd } = summary.monthEnd;
 
@@ -129,7 +153,7 @@ function formatSession(session: ClaudeCodeSession | undefined): string[] {
  * One short line: under Claude Code, the session's cost and context use first; then
  * today's cost, the current streak, and month to date.
  */
-export function formatStatusline(summary: SummaryDataResult, session?: ClaudeCodeSession): string {
+export function formatStatusline(summary: StatuslineSummary, session?: ClaudeCodeSession): string {
   const parts = [
     ...formatSession(session),
     `${formatPeriodAmount(findPeriod(summary, 'today'))} today`,
@@ -143,20 +167,97 @@ export function formatStatusline(summary: SummaryDataResult, session?: ClaudeCod
   return parts.join(SEPARATOR);
 }
 
-async function buildStatuslineSummary(
+/** Local days with usage, zero-token events included, as the summary's activity counts them. */
+function collectActiveDays(events: readonly UsageEvent[], timezone: string): Set<string> {
+  const activeDays = new Set<string>();
+
+  for (const event of events) {
+    activeDays.add(getPeriodKey(event.timestamp, 'daily', timezone));
+  }
+
+  return activeDays;
+}
+
+/**
+ * The summary's line without the rest of the summary. It reads the summary's year of events,
+ * which the streak needs, but prices only month to date: pricing maps each event to one
+ * priced event (`applyPricingToEvents`), so the line's totals do not change. Prices load
+ * when the year's events need them, as for the summary, so a load failure does not change.
+ */
+export async function buildStatuslineData(
   options: StatuslineCommandOptions,
   deps: BuildSummaryDataDeps,
-): Promise<SummaryDataResult> {
+): Promise<StatuslineData> {
   // A status line refreshes often: cached or bundled prices and other machines' cached
   // usage only, never a network fetch or an ssh connection.
-  return buildSummaryData({ ...options, pricingOffline: true, sync: false }, deps);
+  const { userConfigResolution, timezone, windows, today, dataset } = await buildSummaryDataset(
+    { ...options, pricingOffline: true, sync: false },
+    deps,
+  );
+  // Today, the last 7 days, then month to date (resolveSummaryWindows).
+  const [todayWindow, , monthToDateWindow] = windows;
+  const monthToDateEvents = dataset.filteredEvents.filter(
+    createWindowEventFilter(monthToDateWindow, timezone),
+  );
+  const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'cache-savings', {
+    events: monthToDateEvents,
+  });
+  const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
+  const sourceOrder = dataset.adaptersToParse.map((adapter) => adapter.id);
+
+  const { periods, currentStreak } = measureRuntimeProfileStageSync(
+    deps.runtimeProfile,
+    'statusline.aggregate',
+    () => ({
+      periods: [
+        {
+          key: todayWindow.key,
+          totals: summarizeUsageWindow(
+            pricedEvents.filter(createWindowEventFilter(todayWindow, timezone)),
+            timezone,
+            sourceOrder,
+          ).totals,
+        },
+        {
+          key: monthToDateWindow.key,
+          totals: summarizeUsageWindow(pricedEvents, timezone, sourceOrder).totals,
+        },
+      ],
+      // The dataset holds the year the summary's activity covers, so the streak has the
+      // same cap.
+      currentStreak: calculateCurrentStreak(
+        collectActiveDays(dataset.filteredEvents, timezone),
+        today,
+      ),
+    }),
+  );
+
+  return {
+    periods,
+    monthEnd: resolveMonthEnd(today, periods[1], resolveMonthlyBudgetUsd(userConfigResolution)),
+    activity: { currentStreak },
+    diagnostics: buildUsageDiagnostics({
+      adaptersToParse: dataset.adaptersToParse,
+      successfulParseResults: dataset.successfulParseResults,
+      sourceFailures: dataset.sourceFailures,
+      pricingOrigin,
+      pricingWarning,
+      warnings: dataset.warnings,
+      // Unlike the summary's, these notes count month-to-date events only.
+      notes: withPricingNotes(dataset.notes, pricedEvents, pricingResult),
+      activeEnvOverrides: dataset.readEnvVarOverrides(),
+      activeConfig: dataset.activeConfig,
+      timezone,
+      runtimeProfile: deps.runtimeProfile?.snapshot(),
+    }),
+  };
 }
 
 export async function buildStatusline(
   options: StatuslineCommandOptions,
   deps: BuildSummaryDataDeps = {},
 ): Promise<string> {
-  return formatStatusline(await buildStatuslineSummary(options, deps));
+  return formatStatusline(await buildStatuslineData(options, deps));
 }
 
 export async function runStatusline(
@@ -171,7 +272,7 @@ export async function runStatusline(
 
   // Read while the summary builds, so waiting on stdin adds no time.
   const input = readPipedInput(deps.stdin ?? process.stdin);
-  const summary = await buildStatuslineSummary(options, {});
+  const summary = await buildStatuslineData(options, {});
   const session = parseClaudeCodeSession(await input);
 
   if (options.verbose) {

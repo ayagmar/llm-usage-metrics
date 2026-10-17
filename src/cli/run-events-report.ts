@@ -12,10 +12,10 @@ import type { BuildUsageDataDeps, EventsCommandOptions } from './usage-data-cont
 const eventsExportFormats = ['jsonl', 'csv'] as const;
 type EventsExportFormat = (typeof eventsExportFormats)[number];
 
-// Column order is the UsageEvent declaration order and is frozen: new fields
-// append LAST, never reorder.
+// Column order is frozen: fields present at the first release follow the
+// UsageEvent declaration order, and newer fields append LAST, never reorder.
 const CSV_HEADER =
-  'source,sessionId,timestamp,repoRoot,provider,model,inputTokens,outputTokens,reasoningTokens,cacheReadTokens,cacheWriteTokens,totalTokens,costUsd,costMode,machine';
+  'source,sessionId,timestamp,repoRoot,provider,model,inputTokens,outputTokens,reasoningTokens,cacheReadTokens,cacheWriteTokens,totalTokens,costUsd,costMode,machine,cacheWrite1hTokens';
 
 function resolveEventsFormat(options: EventsCommandOptions): EventsExportFormat {
   const format = options.format ?? 'jsonl';
@@ -70,6 +70,7 @@ function toCsvLine(event: UsageEvent): string {
     event.costUsd,
     event.costMode,
     event.machine,
+    event.cacheWrite1hTokens,
   ]
     .map(toCsvField)
     .join(',');

@@ -17,13 +17,14 @@ import {
   readStoredFileSnapshots,
   replaceFileEvents,
 } from '../../src/persistence/event-store.js';
-import type { SourceAdapter } from '../../src/sources/source-adapter.js';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { canonicalTmpdir } from '../helpers/tmp.js';
 import type {
   MachineExportEndLine,
   MachineExportFileLine,
   MachineExportLine,
 } from '../../src/machines/machine-export-bundle.js';
+import { readFrom } from '../helpers/fake-read.js';
 
 let rootDir: string;
 
@@ -99,6 +100,8 @@ describe('machine export e2e', () => {
     }
 
     expect(lines[0]).toMatchObject({ type: 'header', hostname: os.hostname() });
+    // Version 1 headers can gain fields; a reader built on this schema must still accept them.
+    expect(validate({ ...lines[0], addedLater: true }), JSON.stringify(validate.errors)).toBe(true);
     expect(fileLines(lines).map((line) => line.source)).toEqual(['pi', 'codex']);
 
     const exportedEvents = fileLines(lines).flatMap((line) => line.events);
@@ -268,7 +271,7 @@ describe('machine export e2e', () => {
     const adapter: SourceAdapter = {
       id: 'codex',
       discoverFiles: async () => [goodFile, badFile],
-      parseFile: async (filePath) => {
+      read: readFrom(async (filePath) => {
         const sessionId = (await readFile(filePath, 'utf8')).trim();
 
         if (sessionId === 'FAIL') {
@@ -284,7 +287,7 @@ describe('machine export e2e', () => {
             costMode: 'estimated',
           }),
         ];
-      },
+      }),
     };
     const deps = { createAdapters: () => [adapter] };
     await writeFile(path.join(rootDir, 'config.toml'), 'sources = ["codex"]\n');
@@ -313,7 +316,7 @@ describe('machine export e2e', () => {
     const adapter: SourceAdapter = {
       id: 'codex',
       discoverFiles: async () => [parentFile, forkFile].filter((filePath) => existsSync(filePath)),
-      parseFile: async (filePath) =>
+      read: readFrom(async (filePath) =>
         (await readFile(filePath, 'utf8'))
           .trim()
           .split('\n')
@@ -326,6 +329,7 @@ describe('machine export e2e', () => {
               costMode: 'estimated',
             }),
           ),
+      ),
     };
     const deps = { createAdapters: () => [adapter] };
     await writeFile(path.join(rootDir, 'config.toml'), 'sources = ["codex"]\n');
@@ -391,7 +395,7 @@ describe('machine export e2e', () => {
       id: 'pi',
       capabilities: { eventsRepeatAcrossFiles: true },
       discoverFiles: async () => [firstFile, secondFile],
-      parseFile: async (filePath) =>
+      read: readFrom(async (filePath) =>
         (await readFile(filePath, 'utf8'))
           .trim()
           .split('\n')
@@ -404,6 +408,7 @@ describe('machine export e2e', () => {
               costMode: 'estimated',
             }),
           ),
+      ),
     };
     await writeFile(path.join(rootDir, 'config.toml'), 'sources = ["pi"]\n');
     await writeFile(firstFile, 'parent\nfork-a');

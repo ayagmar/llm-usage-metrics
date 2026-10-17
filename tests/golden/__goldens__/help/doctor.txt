@@ -1,0 +1,23 @@
+Usage: llm-usage doctor [options]
+
+Show where each source is searched, whether its usage is readable, and ledger health
+
+Options:
+  --help-all                     Display help including the per-source path flags
+  --source-dir <source-id=path>  Override source directory for directory-backed sources (repeatable)
+  --source <name>                Filter by source id (repeatable or comma-separated, supported
+                                 sources (17): pi, codex, gemini, droid, opencode, openclaw, claude,
+                                 copilot, goose, amp, qwen, kimi, cline, roocode, kilocode,
+                                 antigravity, dsh)
+  --json                         Render output as JSON
+  --quiet                        Suppress informational stderr output (warnings still print)
+  --verbose                      Print detailed diagnostics on stderr (per-source counts, routine
+                                 skips, config, env)
+  -h, --help                     display help for command
+
+Per-source path flags (--claude-dir, ...)
+are listed by --help-all.
+
+Examples:
+  $ llm-usage doctor
+  $ llm-usage doctor --json

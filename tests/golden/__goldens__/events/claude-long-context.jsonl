@@ -1,0 +1,1 @@
+{"source":"claude","sessionId":"long-context","timestamp":"2026-06-19T15:00:00.000Z","repoRoot":"/tmp/claude-long-context","provider":"anthropic","model":"claude-haiku-5-5","inputTokens":50000,"outputTokens":1000,"reasoningTokens":0,"cacheReadTokens":90000,"cacheWriteTokens":10000,"cacheWrite1hTokens":0,"totalTokens":151000,"costUsd":0.03825,"costMode":"estimated"}

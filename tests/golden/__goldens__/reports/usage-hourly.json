@@ -1,0 +1,287 @@
+{
+  "schemaVersion": 1,
+  "report": "usage",
+  "data": [
+    {
+      "rowType": "period_source",
+      "periodKey": "2026-06-15 08:00",
+      "source": "codex",
+      "models": [
+        "gpt-5"
+      ],
+      "modelBreakdown": [
+        {
+          "model": "gpt-5",
+          "inputTokens": 4000,
+          "outputTokens": 600,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 2000,
+          "cacheWriteTokens": 0,
+          "totalTokens": 6600,
+          "costUsd": 0.01125
+        }
+      ],
+      "inputTokens": 4000,
+      "outputTokens": 600,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 2000,
+      "cacheWriteTokens": 0,
+      "totalTokens": 6600,
+      "costUsd": 0.01125
+    },
+    {
+      "rowType": "period_source",
+      "periodKey": "2026-06-15 09:00",
+      "source": "claude",
+      "models": [
+        "claude-sonnet-4-5"
+      ],
+      "modelBreakdown": [
+        {
+          "model": "claude-sonnet-4-5",
+          "inputTokens": 2800,
+          "outputTokens": 700,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 10000,
+          "cacheWriteTokens": 0,
+          "totalTokens": 13500,
+          "costUsd": 0.0219
+        }
+      ],
+      "inputTokens": 2800,
+      "outputTokens": 700,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 10000,
+      "cacheWriteTokens": 0,
+      "totalTokens": 13500,
+      "costUsd": 0.0219
+    },
+    {
+      "rowType": "period_source",
+      "periodKey": "2026-06-15 10:00",
+      "source": "claude",
+      "models": [
+        "claude-sonnet-4-5"
+      ],
+      "modelBreakdown": [
+        {
+          "model": "claude-sonnet-4-5",
+          "inputTokens": 1500,
+          "outputTokens": 400,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 1900,
+          "costUsd": 0.0105
+        }
+      ],
+      "inputTokens": 1500,
+      "outputTokens": 400,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "totalTokens": 1900,
+      "costUsd": 0.0105
+    },
+    {
+      "rowType": "period_source",
+      "periodKey": "2026-06-15 11:00",
+      "source": "claude",
+      "models": [
+        "claude-sonnet-4-5"
+      ],
+      "modelBreakdown": [
+        {
+          "model": "claude-sonnet-4-5",
+          "inputTokens": 600,
+          "outputTokens": 150,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 750,
+          "costUsd": 0.00405
+        }
+      ],
+      "inputTokens": 600,
+      "outputTokens": 150,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "totalTokens": 750,
+      "costUsd": 0.00405
+    },
+    {
+      "rowType": "period_source",
+      "periodKey": "2026-06-15 12:00",
+      "source": "codex",
+      "models": [
+        "gpt-5"
+      ],
+      "modelBreakdown": [
+        {
+          "model": "gpt-5",
+          "inputTokens": 2500,
+          "outputTokens": 700,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 3200,
+          "costUsd": 0.010125
+        }
+      ],
+      "inputTokens": 2500,
+      "outputTokens": 700,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "totalTokens": 3200,
+      "costUsd": 0.010125
+    },
+    {
+      "rowType": "period_source",
+      "periodKey": "2026-06-15 13:00",
+      "source": "codex",
+      "models": [
+        "gpt-5"
+      ],
+      "modelBreakdown": [
+        {
+          "model": "gpt-5",
+          "inputTokens": 1800,
+          "outputTokens": 300,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 2100,
+          "costUsd": 0.00525
+        }
+      ],
+      "inputTokens": 1800,
+      "outputTokens": 300,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "totalTokens": 2100,
+      "costUsd": 0.00525
+    },
+    {
+      "rowType": "period_source",
+      "periodKey": "2026-06-15 14:00",
+      "source": "codex",
+      "models": [
+        "gpt-5"
+      ],
+      "modelBreakdown": [
+        {
+          "model": "gpt-5",
+          "inputTokens": 900,
+          "outputTokens": 100,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 1000,
+          "costUsd": 0.002125
+        }
+      ],
+      "inputTokens": 900,
+      "outputTokens": 100,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "totalTokens": 1000,
+      "costUsd": 0.002125
+    },
+    {
+      "rowType": "period_source",
+      "periodKey": "2026-06-15 18:00",
+      "source": "claude",
+      "models": [
+        "claude-sonnet-4-5"
+      ],
+      "modelBreakdown": [
+        {
+          "model": "claude-sonnet-4-5",
+          "inputTokens": 3000,
+          "outputTokens": 900,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 3900,
+          "costUsd": 0.0225
+        }
+      ],
+      "inputTokens": 3000,
+      "outputTokens": 900,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "totalTokens": 3900,
+      "costUsd": 0.0225
+    },
+    {
+      "rowType": "period_source",
+      "periodKey": "2026-06-15 21:00",
+      "source": "codex",
+      "models": [
+        "gpt-5"
+      ],
+      "modelBreakdown": [
+        {
+          "model": "gpt-5",
+          "inputTokens": 700,
+          "outputTokens": 90,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 790,
+          "costUsd": 0.001775
+        }
+      ],
+      "inputTokens": 700,
+      "outputTokens": 90,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "totalTokens": 790,
+      "costUsd": 0.001775
+    },
+    {
+      "rowType": "grand_total",
+      "periodKey": "ALL",
+      "source": "combined",
+      "models": [
+        "claude-sonnet-4-5",
+        "gpt-5"
+      ],
+      "modelBreakdown": [
+        {
+          "model": "claude-sonnet-4-5",
+          "inputTokens": 7900,
+          "outputTokens": 2150,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 10000,
+          "cacheWriteTokens": 0,
+          "totalTokens": 20050,
+          "costUsd": 0.05895
+        },
+        {
+          "model": "gpt-5",
+          "inputTokens": 9900,
+          "outputTokens": 1790,
+          "reasoningTokens": 0,
+          "cacheReadTokens": 2000,
+          "cacheWriteTokens": 0,
+          "totalTokens": 13690,
+          "costUsd": 0.030525
+        }
+      ],
+      "inputTokens": 17800,
+      "outputTokens": 3940,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 12000,
+      "cacheWriteTokens": 0,
+      "totalTokens": 33740,
+      "costUsd": 0.089475
+    }
+  ]
+}

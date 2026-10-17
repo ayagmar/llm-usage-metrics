@@ -190,10 +190,10 @@ describe('renderSessionReport', () => {
     });
 
     const durationColumnRow = output.split('\n').find((line) => line.includes('…abcdef123456'));
-    expect(durationColumnRow).toContain('│ - ');
+    expect(durationColumnRow).toMatch(/│ +- │ 3,340 │/u);
   });
 
-  it('renders a dash for sessions without a repo root', () => {
+  it('labels sessions without a repo root as unattributed', () => {
     const data = createSessionData();
 
     if (data.grouping !== 'session') {
@@ -208,7 +208,26 @@ describe('renderSessionReport', () => {
     });
 
     expect(output).not.toContain('project-alpha');
-    expect(output).toContain('│ -');
+    expect(output).toContain('(unattributed)');
+  });
+
+  it('labels two repos with one basename apart, as the projects report does', () => {
+    const data = createSessionData();
+
+    if (data.grouping !== 'session') {
+      throw new Error('expected session grouping');
+    }
+
+    const [row] = data.rows;
+    data.rows = [
+      { ...row, sessionId: 'session-work', repoRoot: '/home/user/work/app' },
+      { ...row, sessionId: 'session-oss', repoRoot: '/home/user/oss/app/' },
+    ];
+
+    const output = renderSessionReport(data, 'markdown', { timezone: 'UTC' });
+
+    expect(output).toContain('| work/app');
+    expect(output).toContain('| oss/app');
   });
 
   it('renders markdown output with session columns and escaped model lines', () => {
@@ -226,7 +245,7 @@ describe('renderSessionReport', () => {
 
     expect(output).toContain('| Session');
     expect(output).toContain('| Source');
-    expect(output).toContain('| Repo');
+    expect(output).toContain('| Project');
     expect(output).toContain('| Duration');
     expect(output).toContain('1h 0m');
     expect(output).toContain('…abcdef123456');
@@ -259,17 +278,17 @@ describe('renderSessionReport', () => {
     expect(parsed.data[0]).not.toHaveProperty('diagnostics');
   });
 
-  it('renders repo rows with basenames, a no-repo bucket, and comma-joined sources', () => {
+  it('renders repo rows with project labels, an unattributed bucket, and comma-joined sources', () => {
     const output = renderSessionReport(createRepoData(), 'terminal', {
       timezone: 'UTC',
       useColor: false,
     });
 
     expect(output).toContain('Session Usage Report');
-    expect(output).toContain('Repo');
+    expect(output).toContain('Project');
     expect(output).toContain('Sessions');
     expect(output).toContain('project-alpha');
-    expect(output).toContain('(no repo)');
+    expect(output).toContain('(unattributed)');
     expect(output).toContain('codex, pi');
     expect(output).toContain('$4.56');
     expect(output).not.toContain('/home/user/project-alpha');

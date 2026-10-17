@@ -1,0 +1,1 @@
+{"source":"openclaw","sessionId":"openclaw-e2e","timestamp":"2026-05-01T12:00:00.000Z","repoRoot":"/tmp/openclaw-e2e","provider":"anthropic","model":"claude-sonnet-4-6","inputTokens":10,"outputTokens":5,"reasoningTokens":0,"cacheReadTokens":0,"cacheWriteTokens":0,"cacheWrite1hTokens":0,"totalTokens":15,"costUsd":0.001,"costMode":"explicit"}

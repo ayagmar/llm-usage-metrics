@@ -1,5 +1,4 @@
 import { renderTrendsReport, type TrendsReportFormat } from '../render/render-trends-report.js';
-import { renderTrendsShareSvg } from '../render/render-trends-share-svg.js';
 import { buildTrendsData } from './build-trends-data.js';
 import {
   prepareReport,
@@ -7,44 +6,43 @@ import {
   STANDARD_REPORT_FORMATS,
 } from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
+import { buildShareReportArtifact, parseReportJsonEnvelope } from './share-report-artifact.js';
 import type { BuildTrendsDataDeps, TrendsCommandOptions } from './usage-data-contracts.js';
 
 const trendsReportFormats = STANDARD_REPORT_FORMATS satisfies readonly TrendsReportFormat[];
-
-function validateShareOption(options: TrendsCommandOptions): void {
-  if (!options.share) {
-    return;
-  }
-
-  if (options.bySource) {
-    throw new Error('--share does not support --by-source yet; run without --by-source');
-  }
-}
 
 async function prepareTrendsReport(options: TrendsCommandOptions, deps: BuildTrendsDataDeps = {}) {
   return prepareReport({
     commandOptions: options,
     supportedFormats: trendsReportFormats,
-    validate: () => {
-      validateShareOption(options);
-    },
     buildData: () => buildTrendsData(options, deps),
     getDiagnostics: (trendsData) => trendsData.diagnostics,
     runtimeProfile: deps.runtimeProfile,
-    createShareArtifact: options.share
-      ? (trendsData) => ({
-          fileName: 'trends-share.svg',
+    buildShare: async (trendsData, { runtimeProfile }) => {
+      const window = { since: trendsData.dateRange.from, until: trendsData.dateRange.to };
+
+      return buildShareReportArtifact(
+        {
+          command: 'trends',
+          options,
+          window,
+          initialView: { ...window, granularity: 'day' },
+          envelope: parseReportJsonEnvelope(renderTrendsReport(trendsData, 'json')),
+          fileBaseName: 'trends-share',
           logLabel: 'trends',
-          title: 'Trends share card',
-          render: (theme) => renderTrendsShareSvg(trendsData, theme),
-        })
-      : undefined,
+        },
+        { ...deps, runtimeProfile },
+      );
+    },
     render: (trendsData, format) => renderTrendsReport(trendsData, format),
   });
 }
 
-export async function buildTrendsReport(options: TrendsCommandOptions): Promise<string> {
-  const preparedReport = await prepareTrendsReport(options);
+export async function buildTrendsReport(
+  options: TrendsCommandOptions,
+  deps: BuildTrendsDataDeps = {},
+): Promise<string> {
+  const preparedReport = await prepareTrendsReport(options, deps);
   return preparedReport.output;
 }
 

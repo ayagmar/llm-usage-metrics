@@ -3,8 +3,9 @@ import { describe, expect, it } from 'vitest';
 import { buildWrappedData } from '../../src/cli/build-wrapped-data.js';
 import type { PricingLoadResult } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
-import type { SourceAdapter } from '../../src/sources/source-adapter.js';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { createDefaultOpenAiPricingSource } from '../helpers/static-pricing-source.js';
+import { readFrom } from '../helpers/fake-read.js';
 
 function createAdapter(
   id: SourceAdapter['id'],
@@ -15,7 +16,7 @@ function createAdapter(
   return {
     id,
     discoverFiles: async () => files,
-    parseFile: async (filePath) => eventsByFile[filePath] ?? [],
+    read: readFrom(async (filePath) => eventsByFile[filePath] ?? []),
   };
 }
 

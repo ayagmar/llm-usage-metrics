@@ -1,50 +1,16 @@
 import { randomUUID } from 'node:crypto';
-import type { Stats } from 'node:fs';
-import { access, constants, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-export async function pathExists(filePath: string): Promise<boolean> {
-  try {
-    await access(filePath, constants.F_OK);
-    return true;
-  } catch {
-    return false;
-  }
-}
+import { pathIsDirectory } from '@ayagmar/agent-sessions/internal';
 
-export async function pathReadable(filePath: string): Promise<boolean> {
-  try {
-    await access(filePath, constants.R_OK);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export async function pathIsDirectory(filePath: string): Promise<boolean> {
-  try {
-    return (await stat(filePath)).isDirectory();
-  } catch {
-    return false;
-  }
-}
-
-export async function pathIsFile(filePath: string): Promise<boolean> {
-  try {
-    return (await stat(filePath)).isFile();
-  } catch {
-    return false;
-  }
-}
-
-export async function pathStat(filePath: string): Promise<Stats | undefined> {
-  try {
-    return await stat(filePath);
-  } catch {
-    return undefined;
-  }
-}
-
+export {
+  pathExists,
+  pathIsDirectory,
+  pathIsFile,
+  pathReadable,
+  pathStat,
+} from '@ayagmar/agent-sessions/internal';
 /**
  * `mkdir -p` that always settles. Node's `mkdir(..., { recursive: true })` never
  * resolves for a path under /proc, where mkdir fails with ENOENT although the

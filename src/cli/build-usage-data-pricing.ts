@@ -1,9 +1,18 @@
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
+
 import { isPriceableEvent, type UsageEvent } from '../domain/usage-event.js';
 import {
   getPricingFetcherRuntimeConfig,
   type PricingFetcherRuntimeConfig,
 } from '../config/runtime-overrides.js';
-import { applyPricingToEvents } from '../pricing/cost-engine.js';
+import {
+  applyPricingToEvents,
+  createPricingRunStats,
+  DEFAULT_PRICING_POLICY,
+  type PricingCostMode,
+  type PricingPolicy,
+  type PricingRunStats,
+} from '../pricing/cost-engine.js';
 import { PricingOverrideSource, loadPricingOverrides } from '../pricing/pricing-override-source.js';
 import type { ModelPricing, PricingSource } from '../pricing/types.js';
 import { LiteLLMPricingFetcher } from '../pricing/litellm-pricing-fetcher.js';
@@ -13,6 +22,15 @@ import type {
   ReportCommandOptions,
   UsagePricingOrigin,
 } from './usage-data-contracts.js';
+
+/** Sources whose usage events each record one request, so per-request rates apply. */
+export function getPerRequestSourceIds(adapters: readonly SourceAdapter[]): ReadonlySet<string> {
+  return new Set(
+    adapters
+      .filter((adapter) => adapter.capabilities?.usagePerRequest)
+      .map((adapter) => adapter.id),
+  );
+}
 
 function wrapWithPricingOverrides(
   overrides: Map<string, ModelPricing> | undefined,
@@ -92,7 +110,7 @@ export async function resolvePricingSource(
   }
 }
 
-function eventNeedsPricingLookup(event: UsageEvent): boolean {
+function eventNeedsPricingLookup(event: UsageEvent, costMode: PricingCostMode): boolean {
   if (!event.model) {
     return false;
   }
@@ -101,28 +119,81 @@ function eventNeedsPricingLookup(event: UsageEvent): boolean {
     return false;
   }
 
+  if (costMode === 'estimated') {
+    return true;
+  }
+
   return event.costMode !== 'explicit' || event.costUsd === undefined || event.costUsd === 0;
 }
 
-export function shouldLoadPricingSource(events: UsageEvent[]): boolean {
+export function shouldLoadPricingSource(
+  events: UsageEvent[],
+  costMode: PricingCostMode = 'both',
+): boolean {
   if (events.length === 0) {
     return false;
   }
 
-  return events.some((event) => eventNeedsPricingLookup(event));
+  return events.some((event) => eventNeedsPricingLookup(event, costMode));
 }
 
-export type PricingLoadMode = 'auto' | 'force';
+/**
+ * When a report loads prices:
+ * - `auto`: only to estimate event costs, so never under `--cost-mode explicit`.
+ * - `cache-savings`: as `auto`, and under `--cost-mode explicit` still when `both` would
+ *   load, for the cache-savings estimate.
+ * - `force`: whenever an event is priceable, for prices beyond event costs (optimize).
+ */
+export type PricingLoadMode = 'auto' | 'cache-savings' | 'force';
 
 function shouldLoadPricingSourceForMode(
   events: UsageEvent[],
   pricingLoadMode: PricingLoadMode,
+  costMode: PricingCostMode,
 ): boolean {
   if (pricingLoadMode === 'force') {
     return events.some((event) => isPriceableEvent(event));
   }
 
-  return shouldLoadPricingSource(events);
+  if (costMode === 'explicit') {
+    return pricingLoadMode === 'cache-savings' && shouldLoadPricingSource(events, 'both');
+  }
+
+  return shouldLoadPricingSource(events, costMode);
+}
+
+/** Prices nothing: applying it gives each event its cost under the policy without LiteLLM. */
+const NO_PRICING_SOURCE: PricingSource = {
+  resolveModelAlias: (model) => model,
+  getPricing: () => undefined,
+};
+
+/**
+ * The policy for the report options: `--cost-mode`, `both` when it is not passed, and the
+ * sources whose events get per-request rates.
+ */
+export function resolvePricingPolicy(
+  options: ReportCommandOptions,
+  perRequestSourceIds: ReadonlySet<string> = DEFAULT_PRICING_POLICY.perRequestSourceIds,
+): PricingPolicy {
+  return {
+    costMode: options.costMode ?? DEFAULT_PRICING_POLICY.costMode,
+    perRequestSourceIds,
+  };
+}
+
+/**
+ * Events left unpriced because pricing did not load. `both` keeps them as they are; the other
+ * modes still drop the costs they do not report.
+ */
+function applyPolicyWithoutPricing(
+  events: UsageEvent[],
+  policy: PricingPolicy,
+  stats: PricingRunStats,
+): UsageEvent[] {
+  return policy.costMode === 'both'
+    ? events
+    : applyPricingToEvents(events, NO_PRICING_SOURCE, { policy, stats });
 }
 
 type PricingSourceResolver = (
@@ -130,24 +201,51 @@ type PricingSourceResolver = (
   runtimeConfig: PricingFetcherRuntimeConfig,
 ) => Promise<PricingLoadResult>;
 
-export async function resolveAndApplyPricingToEvents(
-  events: UsageEvent[],
-  options: ReportCommandOptions,
-  runtimeConfig: PricingFetcherRuntimeConfig = getPricingFetcherRuntimeConfig(),
-  loadPricingSource: PricingSourceResolver = resolvePricingSource,
-  pricingLoadMode: PricingLoadMode = 'auto',
-): Promise<{
+export type ResolveAndApplyPricingOptions = {
+  runtimeConfig?: PricingFetcherRuntimeConfig;
+  loadPricingSource?: PricingSourceResolver;
+  pricingLoadMode?: PricingLoadMode;
+  policy?: PricingPolicy;
+  /** The events that decide whether prices load; the priced events when not given. */
+  loadDecisionEvents?: UsageEvent[];
+};
+
+export type PricedEventsResult = {
   pricedEvents: UsageEvent[];
   pricingOrigin: UsagePricingOrigin;
   pricingWarning?: string;
   pricingSource?: PricingSource;
-}> {
+  /** The policy the events were priced under. */
+  pricingPolicy: PricingPolicy;
+  /** What the run recorded about the priced events; empty when pricing did not run. */
+  pricingStats: PricingRunStats;
+  /** The `--cost-mode` passed, if any; the explicit-$0 note shows only without it. */
+  costModeOption?: PricingCostMode;
+};
+
+export async function resolveAndApplyPricingToEvents(
+  events: UsageEvent[],
+  options: ReportCommandOptions,
+  {
+    runtimeConfig = getPricingFetcherRuntimeConfig(),
+    loadPricingSource = resolvePricingSource,
+    pricingLoadMode = 'auto',
+    policy = resolvePricingPolicy(options),
+    loadDecisionEvents = events,
+  }: ResolveAndApplyPricingOptions = {},
+): Promise<PricedEventsResult> {
+  const pricingStats = createPricingRunStats();
   let pricingOrigin: UsagePricingOrigin = 'none';
 
-  if (!shouldLoadPricingSourceForMode(events, pricingLoadMode)) {
+  const costModeOption = options.costMode;
+
+  if (!shouldLoadPricingSourceForMode(loadDecisionEvents, pricingLoadMode, policy.costMode)) {
     return {
-      pricedEvents: events,
+      pricedEvents: applyPolicyWithoutPricing(events, policy, pricingStats),
+      costModeOption,
       pricingOrigin,
+      pricingPolicy: policy,
+      pricingStats,
     };
   }
 
@@ -166,18 +264,27 @@ export async function resolveAndApplyPricingToEvents(
       : `Could not load pricing; continuing without estimated costs: ${reason}`;
 
     return {
-      pricedEvents: events,
+      pricedEvents: applyPolicyWithoutPricing(events, policy, pricingStats),
+      costModeOption,
       pricingOrigin,
       pricingWarning,
+      pricingPolicy: policy,
+      pricingStats,
     };
   }
 
   pricingOrigin = pricingResult.origin;
 
   return {
-    pricedEvents: applyPricingToEvents(events, pricingResult.source),
+    pricedEvents: applyPricingToEvents(events, pricingResult.source, {
+      policy,
+      stats: pricingStats,
+    }),
+    costModeOption,
     pricingOrigin,
     pricingWarning: pricingResult.warning,
     pricingSource: pricingResult.source,
+    pricingPolicy: policy,
+    pricingStats,
   };
 }

@@ -64,7 +64,9 @@ The regular CI workflow in `.github/workflows/ci.yml` enforces the normal qualit
 - [Privacy](https://ayagmar.github.io/llm-usage-metrics/privacy/) lists every network request the CLI makes.
 - Startup update checks only query the npm registry for the latest package version and are cached/skippable with `LLM_USAGE_SKIP_UPDATE_CHECK=1`.
 - Pricing refreshes only fetch the LiteLLM pricing JSON; `--pricing-offline` runs from cache or the bundled LiteLLM snapshot.
-- OpenCode parsing opens the SQLite database in read-only mode.
+- The SQLite sources (OpenCode, Goose, Antigravity) open their databases read-only.
+- The parsers live in `packages/core` (`@ayagmar/agent-sessions`). Lint forbids network modules and APIs there, the package has no dependencies (`pnpm run core:pack:check` fails if one appears), and importing it reads no file, environment variable or home directory. See the [library overview](https://ayagmar.github.io/llm-usage-metrics/library/).
+- `--share` writes a self-contained HTML file to the current directory and opens it with the system opener (`xdg-open` on Linux, `open` on macOS, `rundll32.exe` on Windows); `--no-open` skips that.
 - The event store retains usage, session, and repository metadata. On POSIX systems, the default directory uses mode `0700`, and the database plus present WAL/SHM files use mode `0600`. Custom store parent-directory permissions remain the user's responsibility. Deleting the ledger deletes its retained history.
 
 ### Publishing and CI identity

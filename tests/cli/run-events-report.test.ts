@@ -3,8 +3,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { runEventsReport } from '../../src/cli/run-events-report.js';
 import type { PricingLoadResult } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
-import type { SourceAdapter } from '../../src/sources/source-adapter.js';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { createDefaultOpenAiPricingSource } from '../helpers/static-pricing-source.js';
+import { readFrom } from '../helpers/fake-read.js';
 
 function createAdapter(
   id: SourceAdapter['id'],
@@ -15,7 +16,7 @@ function createAdapter(
   return {
     id,
     discoverFiles: async () => files,
-    parseFile: async (filePath) => eventsByFile[filePath] ?? [],
+    read: readFrom(async (filePath) => eventsByFile[filePath] ?? []),
   };
 }
 
@@ -158,7 +159,7 @@ describe('run-events-report', () => {
     const lines = output.stdout().trimEnd().split('\n');
 
     expect(lines[0]).toBe(
-      'source,sessionId,timestamp,repoRoot,provider,model,inputTokens,outputTokens,reasoningTokens,cacheReadTokens,cacheWriteTokens,totalTokens,costUsd,costMode,machine',
+      'source,sessionId,timestamp,repoRoot,provider,model,inputTokens,outputTokens,reasoningTokens,cacheReadTokens,cacheWriteTokens,totalTokens,costUsd,costMode,machine,cacheWrite1hTokens',
     );
     expect(lines).toHaveLength(4);
     expect(lines[1]).toContain('"/home/user/repo,with-comma"');
@@ -217,6 +218,41 @@ describe('run-events-report', () => {
     expect(stdout).toContain('"/home/user/repo""with\nnewline"');
     // Numeric cells never gain an apostrophe prefix.
     expect(stdout).toContain(',20,10,0,0,0,30,0.2,explicit');
+  });
+
+  it('appends the one-hour cache writes as the last csv column', async () => {
+    const adapters = [
+      createAdapter('claude', {
+        '/tmp/claude-1h.jsonl': [
+          createUsageEvent({
+            source: 'claude',
+            sessionId: 'cache-1h-session',
+            timestamp: '2026-03-02T10:00:00.000Z',
+            provider: 'anthropic',
+            model: 'claude-sonnet-4-5',
+            inputTokens: 10,
+            outputTokens: 5,
+            cacheWriteTokens: 600,
+            cacheWrite1hTokens: 400,
+            costUsd: 0.3,
+          }),
+        ],
+      }),
+    ];
+    const output = captureOutput();
+
+    try {
+      await runEventsReport({ timezone: 'UTC', format: 'csv' }, runtimeDeps(adapters));
+    } finally {
+      output.restore();
+    }
+
+    const [header, row] = output.stdout().trimEnd().split('\n');
+
+    expect(header.split(',').at(-1)).toBe('cacheWrite1hTokens');
+    // Header and row stay the same width; `machine` is empty for local events.
+    expect(row.split(',')).toHaveLength(header.split(',').length);
+    expect(row.endsWith(',600,615,0.3,explicit,,400')).toBe(true);
   });
 
   it('rejects unknown formats', async () => {

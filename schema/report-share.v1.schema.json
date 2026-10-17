@@ -1,0 +1,724 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ayagmar.github.io/llm-usage-metrics/report-share.v1.schema.json",
+  "title": "llm-usage-metrics share report payload (v1)",
+  "description": "Envelope and payload embedded in a --share HTML report: dictionaries, an hourly usage cube, sessions and blocks. Labels only; never full paths or session IDs.",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope"
+    }
+  ],
+  "properties": {
+    "report": {
+      "const": "share"
+    },
+    "data": {
+      "description": "The share report payload.",
+      "type": "object",
+      "properties": {
+        "meta": {
+          "$ref": "#/$defs/meta"
+        },
+        "dictionaries": {
+          "$ref": "#/$defs/dictionaries"
+        },
+        "cube": {
+          "$ref": "#/$defs/cube"
+        },
+        "sessions": {
+          "$ref": "#/$defs/sessions"
+        },
+        "blocks": {
+          "$ref": "#/$defs/blocks"
+        },
+        "envelope": {
+          "$ref": "#/$defs/embeddedEnvelope"
+        }
+      },
+      "required": ["meta", "dictionaries", "cube", "sessions", "blocks"],
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "costMode": {
+      "enum": ["explicit", "estimated", "both"]
+    },
+    "dateRange": {
+      "description": "A window of local dates.",
+      "type": "object",
+      "properties": {
+        "since": {
+          "description": "First local date (YYYY-MM-DD); null when open.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          ]
+        },
+        "until": {
+          "description": "Last local date (YYYY-MM-DD), inclusive; null when open.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          ]
+        }
+      },
+      "required": ["since", "until"],
+      "additionalProperties": false
+    },
+    "cost": {
+      "description": "One cost mode's cost.",
+      "type": "object",
+      "properties": {
+        "costUsd": {
+          "description": "Cost in USD; null when no event had a cost in this mode.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "number",
+              "minimum": 0
+            }
+          ]
+        },
+        "incompleteEvents": {
+          "description": "Events without a cost in this mode; above 0 the cost is a lower bound.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": ["costUsd", "incompleteEvents"],
+      "additionalProperties": false
+    },
+    "costs": {
+      "description": "One entry per available cost mode; empty with --no-cost.",
+      "type": "object",
+      "properties": {
+        "explicit": {
+          "$ref": "#/$defs/cost"
+        },
+        "estimated": {
+          "$ref": "#/$defs/cost"
+        },
+        "both": {
+          "$ref": "#/$defs/cost"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "meta": {
+      "description": "How and when the file was generated, and what it holds.",
+      "type": "object",
+      "properties": {
+        "generatedAt": {
+          "description": "ISO timestamp of generation.",
+          "type": "string"
+        },
+        "toolVersion": {
+          "description": "The llm-usage-metrics version that wrote the file.",
+          "type": "string"
+        },
+        "command": {
+          "description": "The command that wrote the file.",
+          "enum": [
+            "daily",
+            "weekly",
+            "monthly",
+            "summary",
+            "compare",
+            "trends",
+            "efficiency",
+            "optimize",
+            "wrapped"
+          ]
+        },
+        "timezone": {
+          "description": "IANA timezone of every period key and date.",
+          "type": "string"
+        },
+        "window": {
+          "description": "The window the file holds (compare: baseline start to current end).",
+          "$ref": "#/$defs/dateRange"
+        },
+        "initialView": {
+          "description": "The window and granularity the page opens on.",
+          "type": "object",
+          "properties": {
+            "since": {
+              "description": "First local date (YYYY-MM-DD); null when open.",
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                }
+              ]
+            },
+            "until": {
+              "description": "Last local date (YYYY-MM-DD), inclusive; null when open.",
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                }
+              ]
+            },
+            "granularity": {
+              "enum": ["hour", "day", "week", "month"]
+            }
+          },
+          "required": ["since", "until", "granularity"],
+          "additionalProperties": false
+        },
+        "hourlyFrom": {
+          "description": "First local date with hourly cells; earlier cells are daily. Null when every cell is hourly.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          ]
+        },
+        "costMode": {
+          "description": "The command's cost mode; null with --no-cost.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/costMode"
+            }
+          ]
+        },
+        "unavailableCostModes": {
+          "description": "Cost modes that could not be computed; absent from every costs object.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/costMode"
+          },
+          "uniqueItems": true
+        },
+        "redacted": {
+          "description": "True with --redact: projects and machines are labelled project-N and machine-N.",
+          "type": "boolean"
+        },
+        "filters": {
+          "description": "The command's filters as values, never paths.",
+          "type": "object",
+          "properties": {
+            "sources": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "providers": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "models": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "machines": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "repo": {
+              "description": "True when --repo narrowed the projects; its values are not embedded.",
+              "type": "boolean"
+            }
+          },
+          "required": ["sources", "providers", "models", "machines", "repo"],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "generatedAt",
+        "toolVersion",
+        "command",
+        "timezone",
+        "window",
+        "initialView",
+        "hourlyFrom",
+        "costMode",
+        "unavailableCostModes",
+        "redacted",
+        "filters"
+      ],
+      "additionalProperties": false
+    },
+    "dictionaries": {
+      "description": "Labels the cube, sessions and blocks refer to by index.",
+      "type": "object",
+      "properties": {
+        "periods": {
+          "description": "Local period keys: YYYY-MM-DD HH:00 from hourlyFrom, YYYY-MM-DD before it.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}( \\d{2}:00)?$"
+          }
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "models": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "projects": {
+          "description": "Project labels, never full paths.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "machines": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": ["periods", "sources", "models", "projects", "machines"],
+      "additionalProperties": false
+    },
+    "cubeCostColumns": {
+      "description": "One cost mode's columns, one value per cell.",
+      "type": "object",
+      "properties": {
+        "costUsd": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "number",
+                "minimum": 0
+              }
+            ]
+          }
+        },
+        "incompleteEvents": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "required": ["costUsd", "incompleteEvents"],
+      "additionalProperties": false
+    },
+    "cube": {
+      "description": "Usage by (period, source, model, project, machine) in columns: every array has one value per cell.",
+      "type": "object",
+      "properties": {
+        "period": {
+          "description": "Index into dictionaries.periods.",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "source": {
+          "description": "Index into dictionaries.sources.",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "model": {
+          "description": "Index into dictionaries.models.",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "project": {
+          "description": "Index into dictionaries.projects.",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "machine": {
+          "description": "Index into dictionaries.machines.",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "inputTokens": {
+          "description": "Per cell.",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "outputTokens": {
+          "description": "Per cell.",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "reasoningTokens": {
+          "description": "Per cell.",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "cacheReadTokens": {
+          "description": "Per cell.",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "cacheWriteTokens": {
+          "description": "Per cell.",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "totalTokens": {
+          "description": "Per cell.",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "eventCount": {
+          "description": "Per cell.",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "activeMs": {
+          "description": "Approximate active time per cell; sums over any dimension equal the per-session value.",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "costs": {
+          "description": "Cost columns per available mode; empty with --no-cost.",
+          "type": "object",
+          "properties": {
+            "explicit": {
+              "$ref": "#/$defs/cubeCostColumns"
+            },
+            "estimated": {
+              "$ref": "#/$defs/cubeCostColumns"
+            },
+            "both": {
+              "$ref": "#/$defs/cubeCostColumns"
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "period",
+        "source",
+        "model",
+        "project",
+        "machine",
+        "inputTokens",
+        "outputTokens",
+        "reasoningTokens",
+        "cacheReadTokens",
+        "cacheWriteTokens",
+        "totalTokens",
+        "eventCount",
+        "activeMs",
+        "costs"
+      ],
+      "additionalProperties": false
+    },
+    "session": {
+      "description": "One session.",
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/tokenBuckets"
+        }
+      ],
+      "properties": {
+        "label": {
+          "description": "source · start time, with #n on collisions; never the session ID.",
+          "type": "string"
+        },
+        "source": {
+          "description": "Index into dictionaries.sources.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "project": {
+          "description": "Index into dictionaries.projects.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "machines": {
+          "description": "Indexes into dictionaries.machines.",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "firstActivityAt": {
+          "type": "string"
+        },
+        "lastActivityAt": {
+          "type": "string"
+        },
+        "eventCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "activeMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "models": {
+          "description": "Indexes into dictionaries.models.",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "costs": {
+          "$ref": "#/$defs/costs"
+        }
+      },
+      "required": [
+        "label",
+        "source",
+        "project",
+        "machines",
+        "firstActivityAt",
+        "lastActivityAt",
+        "eventCount",
+        "activeMs",
+        "models",
+        "costs"
+      ],
+      "unevaluatedProperties": false
+    },
+    "sessions": {
+      "description": "Sessions, capped per project.",
+      "type": "object",
+      "properties": {
+        "rows": {
+          "description": "The newest sessions of each project.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/session"
+          }
+        },
+        "omitted": {
+          "description": "Projects with sessions left out by the per-project cap.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "project": {
+                "description": "Index into dictionaries.projects.",
+                "type": "integer",
+                "minimum": 0
+              },
+              "count": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": ["project", "count"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["rows", "omitted"],
+      "additionalProperties": false
+    },
+    "block": {
+      "description": "One estimated block, as in blocks --json.",
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/tokenBuckets"
+        }
+      ],
+      "properties": {
+        "source": {
+          "description": "Index into dictionaries.sources.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "start": {
+          "description": "ISO timestamp of the block start.",
+          "type": "string"
+        },
+        "end": {
+          "description": "ISO timestamp of the block end (exclusive).",
+          "type": "string"
+        },
+        "startUncertain": {
+          "type": "boolean"
+        },
+        "firstEventAt": {
+          "type": "string"
+        },
+        "lastEventAt": {
+          "type": "string"
+        },
+        "eventCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "models": {
+          "description": "Indexes into dictionaries.models.",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "costs": {
+          "$ref": "#/$defs/costs"
+        },
+        "days": {
+          "description": "The block's usage by the local date of its events, oldest first, so a window ending inside the block counts only the usage up to its end. Present only when the events fall on more than one date.",
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "properties": {
+              "date": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              "totalTokens": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "costs": {
+                "$ref": "#/$defs/costs"
+              }
+            },
+            "required": ["date", "totalTokens", "costs"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "source",
+        "start",
+        "end",
+        "startUncertain",
+        "firstEventAt",
+        "lastEventAt",
+        "eventCount",
+        "models",
+        "costs"
+      ],
+      "unevaluatedProperties": false
+    },
+    "blocks": {
+      "description": "Estimated blocks per source across machines.",
+      "type": "object",
+      "properties": {
+        "blockHours": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/block"
+          }
+        }
+      },
+      "required": ["blockHours", "rows"],
+      "additionalProperties": false
+    },
+    "embeddedEnvelope": {
+      "description": "The invoking command's report JSON, with paths removed and labels mapped as in the rest of the file.",
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "report": {
+          "enum": ["compare", "efficiency", "optimize", "summary", "trends", "wrapped"]
+        },
+        "data": {
+          "description": "A sanitized copy of the command's --json data (an array of rows for optimize, an object otherwise): path fields such as repoRoot are dropped, project, machine and model names are mapped to the labels the rest of the file uses, every other string is scrubbed of paths, and free text (note, message, warning, warnings) of names. It may therefore not validate against the command's own report schema.",
+          "oneOf": [
+            {
+              "type": "object"
+            },
+            {
+              "type": "array"
+            }
+          ]
+        }
+      },
+      "required": ["schemaVersion", "report", "data"],
+      "additionalProperties": false
+    }
+  }
+}

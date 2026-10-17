@@ -3,8 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { buildSessionData } from '../../src/cli/build-session-data.js';
 import type { PricingLoadResult } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
-import type { SourceAdapter } from '../../src/sources/source-adapter.js';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { createDefaultOpenAiPricingSource } from '../helpers/static-pricing-source.js';
+import { readFrom } from '../helpers/fake-read.js';
 
 function createAdapter(
   id: SourceAdapter['id'],
@@ -15,7 +16,7 @@ function createAdapter(
   return {
     id,
     discoverFiles: async () => files,
-    parseFile: async (filePath) => eventsByFile[filePath] ?? [],
+    read: readFrom(async (filePath) => eventsByFile[filePath] ?? []),
   };
 }
 
@@ -130,7 +131,7 @@ describe('buildSessionData', () => {
             {
               id: 'pi',
               discoverFiles,
-              parseFile: async () => [],
+              read: readFrom(async () => []),
             },
           ],
         }),
@@ -221,7 +222,7 @@ describe('buildSessionData', () => {
       buildSessionData(
         { id: [' , '], timezone: 'UTC' },
         runtimeDeps({
-          adapters: [{ id: 'pi', discoverFiles, parseFile: async () => [] }],
+          adapters: [{ id: 'pi', discoverFiles, read: readFrom(async () => []) }],
         }),
       ),
     ).rejects.toThrow('--id must contain at least one non-empty session id filter');
@@ -236,7 +237,7 @@ describe('buildSessionData', () => {
       buildSessionData(
         { id: ['486c'], byRepo: true, timezone: 'UTC' },
         runtimeDeps({
-          adapters: [{ id: 'pi', discoverFiles, parseFile: async () => [] }],
+          adapters: [{ id: 'pi', discoverFiles, read: readFrom(async () => []) }],
         }),
       ),
     ).rejects.toThrow('--id cannot be combined with --by-repo');

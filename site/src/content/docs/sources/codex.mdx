@@ -19,4 +19,6 @@ llm-usage daily --codex-dir /path/one/sessions --codex-dir /path/two/sessions
 
 ## Parsing notes
 
-The adapter handles Codex token-count events and computes deterministic usage deltas for cumulative counters. Newer Codex releases also write one `token_usage_record` row per API response; when a session has them, the adapter emits those records (deduplicated by `response_id`) instead of the deltas, which recovers the response that triggers an auto-compaction (the cumulative counters never include it) and maps `cache_write_input_tokens`.
+The adapter handles Codex token-count events and computes deterministic usage deltas for cumulative counters. Newer Codex releases also write one `token_usage_record` row per API response; the adapter emits the records collected before each `token_count` row (deduplicated by `response_id`) in place of that row's delta, and a `token_count` with no records before it still emits its delta. This recovers the response that triggers an auto-compaction (the cumulative counters never include it) and maps `cache_write_input_tokens`.
+
+The project (`repoRoot`) comes from the `cwd` of the latest `session_meta` or `turn_context` row, and the provider from `session_meta`'s `model_provider` (`openai` when it is not logged).

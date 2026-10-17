@@ -5,8 +5,10 @@ import { PassThrough, Readable } from 'node:stream';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { buildSummaryData } from '../../src/cli/build-summary-data.js';
 import {
   buildStatusline,
+  buildStatuslineData,
   formatStatusline,
   parseClaudeCodeSession,
   runStatusline,
@@ -17,8 +19,9 @@ import type {
   UsageWindowTotals,
 } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
-import type { SourceAdapter } from '../../src/sources/source-adapter.js';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { logger, setLogLevel } from '../../src/utils/logger.js';
+import { readFrom } from '../helpers/fake-read.js';
 
 function totals(overrides: Partial<UsageWindowTotals> = {}): UsageWindowTotals {
   return {
@@ -191,7 +194,7 @@ describe('buildStatusline', () => {
     const adapter: SourceAdapter = {
       id: 'codex',
       discoverFiles: async () => ['/tmp/codex.jsonl'],
-      parseFile: async () => [
+      read: readFrom(async () => [
         createUsageEvent({
           source: 'codex',
           sessionId: 'session-1',
@@ -203,7 +206,7 @@ describe('buildStatusline', () => {
           totalTokens: 1_000_000,
           costMode: 'estimated',
         }),
-      ],
+      ]),
     };
 
     // gpt-4.1 bundled pricing: $2.00 per 1M input tokens.
@@ -211,6 +214,88 @@ describe('buildStatusline', () => {
       '$2.00 today · 1d streak · $2.00 this month',
     );
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  function codexAdapter(events: Parameters<typeof createUsageEvent>[0][]): SourceAdapter {
+    return {
+      id: 'codex',
+      discoverFiles: async () => ['/tmp/codex.jsonl'],
+      read: readFrom(async () => events.map((event) => createUsageEvent(event))),
+    };
+  }
+
+  function codexEvent(
+    timestamp: string,
+    overrides: Partial<Parameters<typeof createUsageEvent>[0]> = {},
+  ): Parameters<typeof createUsageEvent>[0] {
+    return {
+      source: 'codex',
+      sessionId: 'session-1',
+      timestamp,
+      provider: 'openai',
+      model: 'gpt-4.1',
+      inputTokens: 1_000,
+      outputTokens: 0,
+      totalTokens: 1_000,
+      ...overrides,
+    };
+  }
+
+  it('counts only month-to-date events in the pricing notes, unlike the summary', async () => {
+    // Mar 3: the summary's last 7 days reach back into February.
+    const runDeps = {
+      ...deps([
+        codexAdapter([
+          codexEvent('2026-03-03T09:00:00.000Z', { model: 'unpriced-model-x' }),
+          codexEvent('2026-02-27T09:00:00.000Z', { model: 'unpriced-model-x' }),
+        ]),
+      ]),
+      now: () => new Date('2026-03-03T18:00:00.000Z'),
+    };
+
+    const statusline = await buildStatuslineData({ timezone: 'UTC' }, runDeps);
+    const summary = await buildSummaryData({ timezone: 'UTC', pricingOffline: true }, runDeps);
+
+    expect(statusline.diagnostics.notes).toEqual([
+      '~ marks costs that leave out 1 event with no known price (models: unpriced-model-x)',
+    ]);
+    expect(summary.diagnostics.notes).toEqual([
+      '~ marks costs that leave out 2 events with no known price (models: unpriced-model-x)',
+    ]);
+  });
+
+  it('loads prices when only events before the month need them, as the summary does', async () => {
+    const resolvePricingSource = vi.fn(async () => {
+      throw new Error('pricing source is down');
+    });
+    const runDeps = {
+      ...deps([
+        codexAdapter([
+          // Logged costs this month need no prices; February's estimate does.
+          codexEvent('2026-03-10T09:00:00.000Z', { costMode: 'explicit', costUsd: 1 }),
+          codexEvent('2026-02-10T09:00:00.000Z', { costMode: 'estimated' }),
+        ]),
+      ]),
+      resolvePricingSource,
+    };
+
+    await expect(buildStatusline({ timezone: 'UTC' }, runDeps)).rejects.toThrow(
+      'pricing source is down',
+    );
+    await expect(
+      buildSummaryData({ timezone: 'UTC', pricingOffline: true }, runDeps),
+    ).rejects.toThrow('pricing source is down');
+
+    const ignoring = { timezone: 'UTC', ignorePricingFailures: true };
+    const statusline = await buildStatuslineData(ignoring, runDeps);
+    const summary = await buildSummaryData({ ...ignoring, pricingOffline: true }, runDeps);
+
+    expect(statusline.diagnostics.pricingWarning).toBe(
+      'Could not load pricing; continuing without estimated costs: pricing source is down',
+    );
+    expect(statusline.diagnostics.pricingWarning).toBe(summary.diagnostics.pricingWarning);
+    expect(formatStatusline(statusline)).toBe('$1.00 today · 1d streak · $1.00 this month');
+    expect(resolvePricingSource).toHaveBeenCalledTimes(4);
   });
 });
 

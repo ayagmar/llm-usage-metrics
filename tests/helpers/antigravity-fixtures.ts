@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module';
 
-import { withSuppressedSqliteExperimentalWarning } from '../../src/sources/opencode/sqlite-warning-suppression.js';
+import { withSuppressedSqliteExperimentalWarning } from './sqlite-fixture-db.js';
 
 type FixtureDatabaseSync = new (filePath: string) => {
   exec: (sql: string) => void;
@@ -178,3 +178,22 @@ export function createAntigravityFixtureDb(dbPath: string, fixture: AntigravityD
     database.close();
   }
 }
+
+/** The one turn the multi-source e2e and the goldens put in the antigravity conversation db. */
+export const E2E_ANTIGRAVITY_FIXTURE: AntigravityDbFixture = {
+  turns: [
+    {
+      model: 'gemini-antigravity-e2e',
+      timestamp: { seconds: 1_781_510_400 },
+      usage: {
+        modelEnum: 1016,
+        inputTokens: 40,
+        cacheReadTokens: 5,
+        totalOutputTokens: 20,
+        outputTokens: 15,
+        reasoningTokens: 5,
+        responseId: 'antigravity-e2e-response',
+      },
+    },
+  ],
+};

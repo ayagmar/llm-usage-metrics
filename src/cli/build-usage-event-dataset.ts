@@ -7,7 +7,6 @@ import {
 } from '../config/runtime-overrides.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { limitNamedModels } from '../render/format-model-list.js';
-import { countCopiedSessionEventsOnce } from './count-copied-session-events-once.js';
 import {
   closeEventStore,
   openEventStore,
@@ -20,9 +19,10 @@ import {
   type EventStoreHistoryDiscoveredFile,
   type EventStoreHistoryResult,
 } from '../persistence/event-store-history.js';
-import { createDefaultAdapters } from '../sources/create-default-adapters.js';
+import { createAdaptersFromOptions } from './source-cli-options.js';
 import {
   normalizeBuildUsageInputs,
+  normalizeSourceFilter,
   resolveCliDirectorySourceIds,
   selectAdaptersForParsing,
   throwOnExplicitSourceScopeConflicts,
@@ -38,6 +38,7 @@ import {
   type AdapterParseResult,
 } from './build-usage-data-parsing.js';
 import { filterParsedAdapterEvents } from './parse/usage-event-filters.js';
+import { applyRepoFilter } from './repo-filter.js';
 import { loadMachineUsage, selectMachines } from '../machines/load-machine-usage.js';
 import {
   formatMachinesNote,
@@ -47,23 +48,25 @@ import {
 import { refreshDueMachines } from '../machines/refresh-machines.js';
 import { loadPackageMetadataFromRuntime } from './package-metadata.js';
 import {
+  getPerRequestSourceIds,
   resolveAndApplyPricingToEvents,
+  resolvePricingPolicy,
   resolvePricingSource,
+  type PricedEventsResult,
   type PricingLoadMode,
 } from './build-usage-data-pricing.js';
+import type { PricingCostMode } from '../pricing/cost-engine.js';
 import type {
   BuildUsageDataDeps,
   ReportCommandOptions,
-  UsagePricingOrigin,
   UsageSourceFailure,
 } from './usage-data-contracts.js';
+import { dedupeCopiedSessions, type SourceAdapter } from '@ayagmar/agent-sessions';
 import {
   getRepeatingSourceIds,
   getSessionCopyingSourceIds,
-  type SourceAdapter,
-} from '../sources/source-adapter.js';
+} from '@ayagmar/agent-sessions/internal';
 import type { EnvVarOverride } from '../config/env-var-display.js';
-import type { PricingSource } from '../pricing/types.js';
 import { findUnmatchedFilterWarnings } from './filter-match-warnings.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
@@ -174,12 +177,7 @@ export type UsageEventDataset = {
   readEnvVarOverrides: () => EnvVarOverride[];
 };
 
-export type UsageEventDatasetPricingResult = {
-  pricedEvents: UsageEvent[];
-  pricingOrigin: UsagePricingOrigin;
-  pricingWarning?: string;
-  pricingSource?: PricingSource;
-};
+export type UsageEventDatasetPricingResult = PricedEventsResult;
 
 export async function buildUsageEventDataset(
   options: ReportCommandOptions,
@@ -197,7 +195,7 @@ export async function buildUsageEventDataset(
   const readPricingRuntimeConfig =
     deps.getPricingFetcherRuntimeConfig ?? getPricingFetcherRuntimeConfig;
   const readEventStoreRuntimeConfig = deps.getEventStoreRuntimeConfig ?? getEventStoreRuntimeConfig;
-  const makeAdapters = deps.createAdapters ?? createDefaultAdapters;
+  const makeAdapters = deps.createAdapters ?? createAdaptersFromOptions;
   const config = userConfigResolution.loadedConfig.config;
   const parsingRuntimeConfig = readParsingRuntimeConfig(process.env, config);
   const pricingRuntimeConfig = readPricingRuntimeConfig(config);
@@ -428,13 +426,14 @@ export async function buildUsageEventDataset(
               machineSelection.names.filter((name) => config.machines?.[name]?.enabled === false),
             ),
             servedEvents: parseResultsForFiltering.flatMap((result) => result.events),
-            sources: new Set(adaptersToParse.map((adapter) => adapter.id)),
+            adapters: adaptersToParse,
             since: configuredOptions.since,
             until: configuredOptions.until,
           }),
       );
       parseResultsForFiltering = appendMachineEvents(parseResultsForFiltering, machineUsage.events);
       machineWarnings.push(...machineUsage.warnings);
+      machineNotes.push(...machineUsage.notes);
 
       // A refresh that ran this time already said how it went.
       const refreshedNames = new Set(refreshOutcomes.map((outcome) => outcome.name));
@@ -468,7 +467,7 @@ export async function buildUsageEventDataset(
             return result;
           }
 
-          const events = countCopiedSessionEventsOnce(result.events);
+          const events = dedupeCopiedSessions(result.events);
 
           if (ledger) {
             ledger.copiedEventCount += result.events.length - events.length;
@@ -482,13 +481,17 @@ export async function buildUsageEventDataset(
       runtimeProfile,
       'usage.dataset.filter_events',
       () =>
-        filterParsedAdapterEvents(parseResultsForFiltering, {
-          timezone: normalizedInputs.timezone,
-          since: configuredOptions.since,
-          until: configuredOptions.until,
-          providerFilter: normalizedInputs.providerFilter,
-          modelFilter: normalizedInputs.modelFilter,
-        }),
+        // After the model filter, which picks exact or substring matching over all projects.
+        applyRepoFilter(
+          filterParsedAdapterEvents(parseResultsForFiltering, {
+            timezone: normalizedInputs.timezone,
+            since: configuredOptions.since,
+            until: configuredOptions.until,
+            providerFilter: normalizedInputs.providerFilter,
+            modelFilter: normalizedInputs.modelFilter,
+          }),
+          normalizedInputs.repoFilter,
+        ),
     );
 
     dataset = {
@@ -505,14 +508,12 @@ export async function buildUsageEventDataset(
         ...machineWarnings,
         ...findUnmatchedFilterWarnings({
           parseResults: parseResultsForFiltering,
-          // A `sources` list from config.toml is a standing default, not a typed filter.
-          cliSourceFilter: userConfigResolution.activeConfig?.entries.some(
-            (entry) => entry.key === 'sources',
-          )
-            ? undefined
-            : normalizedInputs.sourceFilter,
+          // Only a typed --source: a `sources` list from config.toml is a standing default,
+          // and value narrows `source` to its plans' sources.
+          cliSourceFilter: normalizeSourceFilter(userConfigResolution.cliOptions.source),
           provider: configuredOptions.provider,
           modelFilter: normalizedInputs.modelFilter,
+          repoFilter: normalizedInputs.repoFilter,
           timezone: normalizedInputs.timezone,
           since: configuredOptions.since,
           until: configuredOptions.until,
@@ -541,10 +542,18 @@ export async function buildUsageEventDataset(
   }
 }
 
+/**
+ * Prices the dataset's events, or only `events`, a subset of them. Whether prices load
+ * still depends on all of the dataset's events, so the load and its failure do not change.
+ */
 export async function applyPricingToUsageEventDataset(
   dataset: UsageEventDataset,
   deps: BuildUsageDataDeps = {},
   pricingLoadMode: PricingLoadMode = 'auto',
+  {
+    perRequestRates = true,
+    events = dataset.filteredEvents,
+  }: { perRequestRates?: boolean; events?: UsageEvent[] } = {},
 ): Promise<UsageEventDatasetPricingResult> {
   const loadPricingSource = deps.resolvePricingSource ?? resolvePricingSource;
   const pricingOptions = withNormalizedPricingUrl(
@@ -553,42 +562,114 @@ export async function applyPricingToUsageEventDataset(
   );
 
   return measureRuntimeProfileStage(deps.runtimeProfile, 'usage.pricing.apply', () =>
-    resolveAndApplyPricingToEvents(
-      dataset.filteredEvents,
-      pricingOptions,
-      dataset.pricingRuntimeConfig,
+    resolveAndApplyPricingToEvents(events, pricingOptions, {
+      runtimeConfig: dataset.pricingRuntimeConfig,
       loadPricingSource,
       pricingLoadMode,
-    ),
+      loadDecisionEvents: dataset.filteredEvents,
+      policy: resolvePricingPolicy(
+        pricingOptions,
+        perRequestRates ? getPerRequestSourceIds(dataset.adaptersToParse) : new Set(),
+      ),
+    }),
   );
 }
 
 const MAX_NAMED_UNPRICED_MODELS = 5;
 
+function formatEventCount(count: number): string {
+  const eventLabel = count === 1 ? 'event' : 'events';
+  return `${new Intl.NumberFormat('en-US').format(count)} ${eventLabel}`;
+}
+
 /**
  * Reports leave an event without a cost out of cost totals and mark those totals with `~`.
  * Returns the note explaining that marker for the events a report shows, if any lack a cost.
  */
-function describeUnpricedEvents(events: readonly UsageEvent[]): string | undefined {
+function describeUnpricedEvents(
+  events: readonly UsageEvent[],
+  costMode: PricingCostMode,
+): string | undefined {
   const unpricedEvents = events.filter((event) => event.costUsd === undefined);
 
   if (unpricedEvents.length === 0) {
     return undefined;
   }
 
+  const eventCount = formatEventCount(unpricedEvents.length);
+
+  if (costMode === 'explicit') {
+    return `~ marks costs that leave out ${eventCount} with no logged cost (--cost-mode explicit)`;
+  }
+
   const models = [...new Set(unpricedEvents.map((event) => event.model ?? 'unknown'))].sort();
-  const eventCount = new Intl.NumberFormat('en-US').format(unpricedEvents.length);
-  const eventLabel = unpricedEvents.length === 1 ? 'event' : 'events';
   const modelList = limitNamedModels(models, MAX_NAMED_UNPRICED_MODELS).join(', ');
 
-  return `~ marks costs that leave out ${eventCount} ${eventLabel} with no known price (models: ${modelList})`;
+  return `~ marks costs that leave out ${eventCount} with no known price (models: ${modelList})`;
 }
 
-/** The dataset's notes plus the `~` explanation for the events a report shows. */
-export function withUnpricedEventsNote(
-  notes: readonly string[],
+/** The note naming events priced at a model's priority rates, if any are shown. */
+function describePriorityPricedEvents(
   events: readonly UsageEvent[],
+  priorityPriced: PricedEventsResult['pricingStats']['priorityPriced'],
+): string | undefined {
+  const priorityEvents = events.filter((event) => priorityPriced.has(event));
+
+  if (priorityEvents.length === 0) {
+    return undefined;
+  }
+
+  const models = [...new Set(priorityEvents.map((event) => event.model ?? 'unknown'))].sort();
+  const modelList = limitNamedModels(models, MAX_NAMED_UNPRICED_MODELS).join(', ');
+
+  return `${formatEventCount(priorityEvents.length)} priced at LiteLLM priority rates because no standard rate is listed (models: ${modelList})`;
+}
+
+/**
+ * A source can log $0 for a request that used tokens; `both` estimates those events instead.
+ * Returns the note naming those sources, unless the user chose a cost mode.
+ */
+function describeReestimatedExplicitZero(
+  events: readonly UsageEvent[],
+  pricingResult: PricingNotesInput,
+): string | undefined {
+  if (pricingResult.costModeOption !== undefined) {
+    return undefined;
+  }
+
+  const reestimated = pricingResult.pricingStats.reestimatedExplicitZero;
+  const reestimatedEvents = events.filter((event) => reestimated.has(event));
+
+  if (reestimatedEvents.length === 0) {
+    return undefined;
+  }
+
+  const sources = [...new Set(reestimatedEvents.map((event) => event.source))].sort().join(', ');
+  const verb = reestimatedEvents.length === 1 ? 'was' : 'were';
+
+  return `${formatEventCount(reestimatedEvents.length)} logged $0 by ${sources} ${verb} estimated from LiteLLM; use --cost-mode explicit to keep $0`;
+}
+
+type PricingNotesInput = Pick<
+  UsageEventDatasetPricingResult,
+  'pricingPolicy' | 'pricingStats' | 'costModeOption'
+>;
+
+/**
+ * The dataset's notes plus the pricing notes for the events a report shows. Notes count only
+ * `shownEvents`, which must be the priced events themselves (the stats are keyed by identity);
+ * `pricingResult` gives the policy and stats of the run that priced them.
+ */
+export function withPricingNotes(
+  notes: readonly string[],
+  shownEvents: readonly UsageEvent[],
+  pricingResult: PricingNotesInput,
 ): string[] {
-  const note = describeUnpricedEvents(events);
-  return note ? [...notes, note] : [...notes];
+  const pricingNotes = [
+    describeUnpricedEvents(shownEvents, pricingResult.pricingPolicy.costMode),
+    describeReestimatedExplicitZero(shownEvents, pricingResult),
+    describePriorityPricedEvents(shownEvents, pricingResult.pricingStats.priorityPriced),
+  ].filter((note) => note !== undefined);
+
+  return [...notes, ...pricingNotes];
 }

@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -71,8 +71,15 @@ vi.mock('../../src/cli/build-optimize-data.js', () => ({
   })),
 }));
 
+vi.mock('../../src/cli/build-share-report-data.js', () => ({
+  buildShareReportData: vi.fn(),
+}));
+
 import { buildOptimizeData } from '../../src/cli/build-optimize-data.js';
+import { buildShareReportData } from '../../src/cli/build-share-report-data.js';
 import { buildOptimizeReport, runOptimizeReport } from '../../src/cli/run-optimize-report.js';
+import { readSharePayload } from '../helpers/share-html.js';
+import { readFixturePayload } from '../share-report/client/core/share-fixture.js';
 
 describe('run-optimize-report', () => {
   const tempDirs: string[] = [];
@@ -295,40 +302,43 @@ describe('run-optimize-report', () => {
     );
   });
 
-  it('writes monthly optimize share svg when --share is enabled', async () => {
+  it('writes the optimize share report for any granularity, embedding the --json rows', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'optimize-share-'));
     tempDirs.push(tempDir);
     const previousCwd = process.cwd();
     process.chdir(tempDir);
+    vi.mocked(buildShareReportData).mockResolvedValue(readFixturePayload().data);
 
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
     try {
-      await runOptimizeReport('monthly', {
+      await runOptimizeReport('weekly', {
         candidateModel: ['gpt-4.1'],
+        since: '2026-02-01',
         share: true,
       });
     } finally {
       process.chdir(previousCwd);
     }
 
-    const svgPath = path.join(tempDir, 'optimize-monthly-share.svg');
-    const svgContent = await readFile(svgPath, 'utf8');
+    const [request] = vi.mocked(buildShareReportData).mock.calls[0] ?? [];
+    const json = JSON.parse(
+      await buildOptimizeReport('weekly', { candidateModel: ['gpt-4.1'], json: true }),
+    ) as { data: unknown };
+
+    expect(request).toMatchObject({
+      command: 'optimize',
+      window: { since: '2026-02-01', until: null },
+      initialView: { since: '2026-02-01', until: null, granularity: 'week' },
+      envelope: { report: 'optimize', data: json.data },
+    });
+    expect(await readdir(tempDir)).toEqual(['optimize-weekly-share.html']);
+    const html = await readFile(path.join(tempDir, 'optimize-weekly-share.html'), 'utf8');
+    expect(readSharePayload(html).data).toEqual(readFixturePayload().data);
     const stderrLines = consoleErrorSpy.mock.calls.map((call) => String(call[0]));
 
-    expect(svgContent).toContain('<svg');
-    expect(svgContent).toContain('>Optimize<');
-    expect(stderrLines.some((line) => line.includes('Wrote optimize share SVG'))).toBe(true);
+    expect(stderrLines.some((line) => line.includes('Wrote optimize share report'))).toBe(true);
     expect(consoleLogSpy).toHaveBeenCalledTimes(1);
-  });
-
-  it('rejects --share for non-monthly optimize reports', async () => {
-    await expect(
-      buildOptimizeReport('weekly', {
-        candidateModel: ['gpt-4.1'],
-        share: true,
-      }),
-    ).rejects.toThrow('--share is only supported for optimize monthly');
   });
 });

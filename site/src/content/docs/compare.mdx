@@ -3,6 +3,9 @@ title: Compare Periods
 description: Compare tokens, cost, events, and active days between two date windows.
 ---
 
+import TerminalShot from '../../components/TerminalShot.astro';
+import termCompare from '../../assets/screenshots/term-compare.webp';
+
 `llm-usage compare` summarizes two windows with the same source, provider, model, timezone, history, and pricing settings. It reports the current value, baseline value, absolute delta, and percentage change for each metric.
 
 ## Default comparison
@@ -12,6 +15,8 @@ llm-usage compare
 ```
 
 With no date flags, the current window is the current local month to date and the baseline is the same days of the previous month (clamped to that month's last day), so a partial month is never compared against a full one. On 6 October the report compares 1–6 October with 1–6 September. The report timezone decides those boundaries.
+
+<TerminalShot src={termCompare} label="llm-usage compare output" alt="Terminal output of llm-usage compare: month to date against the same days of last month, with current, baseline, delta, and percentage change for each token type, cost, events, and active days, then the cost by source" />
 
 ## Compare a chosen range
 
@@ -57,7 +62,15 @@ llm-usage compare --source codex --model codex
 llm-usage compare --provider anthropic --no-history
 ```
 
-Filters apply once to the combined dataset before the command separates events into the current and baseline windows. This keeps the scope consistent.
+Filters apply once to the combined dataset before the command separates events into the current and baseline windows. This keeps the scope consistent. `--repo` keeps some [projects](/llm-usage-metrics/projects/) only, and `--machine` some [machines](/llm-usage-metrics/machines/).
+
+## Compare each project
+
+```bash
+llm-usage compare --by-repo
+```
+
+`--by-repo` adds a **By project (cost)** table under the source table: each project's cost in both windows, the delta, and the percentage change, ordered by the size of the change. A project keeps one label in both windows. In `--json`, the rows are under `data.projects`, each with `repoRoot`, `project`, and `current`, `baseline`, `delta`, and `deltaRatio` totals.
 
 ## Export
 
@@ -66,4 +79,8 @@ llm-usage compare --json
 llm-usage compare --markdown
 ```
 
-Compare supports terminal, JSON, Markdown, and `--share` (a cost-headline card written as `compare-share.svg` plus a `compare-share.html` page with PNG export). Diagnostics stay on `stderr` in every format.
+Compare supports terminal, JSON, Markdown, and `--share`. The [interactive report](/llm-usage-metrics/share/) `compare-share.html` holds both windows, opens on the current one, and shows the comparison as a panel. Diagnostics stay on `stderr` in every format.
+
+```bash
+llm-usage compare --share --no-open
+```

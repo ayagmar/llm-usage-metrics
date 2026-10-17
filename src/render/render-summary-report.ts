@@ -3,9 +3,14 @@ import { markdownTable } from 'markdown-table';
 import type { SummaryDataResult, SummaryPeriod } from '../cli/usage-data-contracts.js';
 import { renderActivityHeatmap } from './activity-heatmap.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
-import { renderReportHeader } from './report-header.js';
+import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { renderReportJson } from './report-json.js';
-import { formatApproxUsd, formatCompact, formatInteger, formatUsd } from './share-svg-theme.js';
+import {
+  formatApproxUsd,
+  formatInteger,
+  formatStatuslineCompact,
+  formatUsd,
+} from './format-number.js';
 import { resolveTtyColumns } from './table-text-layout.js';
 import {
   defaultTerminalStylePalette,
@@ -81,22 +86,24 @@ function hasAnyUsage(summaryData: SummaryDataResult): boolean {
 }
 
 function toNoRecentUsageMessage(summaryData: SummaryDataResult, filtered: boolean): string {
+  const recentScope = 'in the last 7 days or this month';
+
   if (filtered) {
-    return 'No usage in the last 7 days or this month for the selected filters.';
+    return formatNoUsageMessage(true, recentScope);
   }
 
   // Synced machines can supply usage even when this machine has no files.
   const latestDay = summaryData.activity.days.filter((day) => day.totalTokens > 0).at(-1);
 
   if (latestDay) {
-    return `No usage in the last 7 days or this month. Latest usage: ${latestDay.date}. Try \`llm-usage monthly --all\`.`;
+    return `${formatNoUsageMessage(false, recentScope)} Latest usage: ${latestDay.date}. Try \`llm-usage monthly --all\`.`;
   }
 
   if (summaryData.diagnostics.sessionStats.some((stat) => stat.filesFound > 0)) {
-    return 'No usage in the past year. Try `llm-usage monthly --all`.';
+    return `${formatNoUsageMessage(false, 'in the past year')} Try \`llm-usage monthly --all\`.`;
   }
 
-  return 'No usage found in the last 7 days or this month. Run `llm-usage doctor` to see which sources were found.';
+  return `${formatNoUsageMessage(false, recentScope)} Run \`llm-usage doctor\` to see which sources were found.`;
 }
 
 function getTitle(summaryData: SummaryDataResult): string {
@@ -119,7 +126,7 @@ function formatBestDay(activity: SummaryDataResult['activity']): string {
     bestDay.costUsd === undefined
       ? ''
       : ` · ${formatApproxUsd(bestDay.costUsd, bestDay.costIncomplete)}`;
-  return `${bestDay.date}${cost} · ${formatCompact(bestDay.totalTokens)} tokens`;
+  return `${bestDay.date}${cost} · ${formatStatuslineCompact(bestDay.totalTokens)} tokens`;
 }
 
 function toActivityStats(activity: SummaryDataResult['activity']): [string, string][] {
@@ -198,7 +205,7 @@ function formatMachinesNote(monthToDate: SummaryPeriod | undefined): string | un
   const parts = monthToDate.machines.map((machine) => {
     if (!byCost) {
       const share = formatTokenShare(machine.totalTokens, monthToDate.totals.totalTokens);
-      return `${machine.machine} ${formatCompact(machine.totalTokens)} tokens (${share})`;
+      return `${machine.machine} ${formatStatuslineCompact(machine.totalTokens)} tokens (${share})`;
     }
 
     const cost = formatApproxUsd(machine.costUsd, machine.costIncomplete);
@@ -299,8 +306,8 @@ function renderTerminalSummaryReport(
       rowMetas,
       layout: 'compact',
       multilineColumnIndex: 0,
+      columnKinds: ['text', 'measure', 'measure', 'text'],
       multilineColumnWidth: 13,
-      leftAlignedColumnIndexes: [3],
       terminalWidth: options.terminalWidth ?? resolveTtyColumns(process.stdout),
     }),
   );

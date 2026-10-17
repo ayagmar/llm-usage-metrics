@@ -1,8 +1,7 @@
-import { mkdir, readdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { Ajv2020 } from 'ajv/dist/2020.js';
 import type { ValidateFunction } from 'ajv';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -23,7 +22,15 @@ import {
   openEventStore,
   replaceFileEvents,
 } from '../../src/persistence/event-store.js';
-import type { SourceAdapter } from '../../src/sources/source-adapter.js';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
+import { readFrom } from '../helpers/fake-read.js';
+import {
+  captureJsonStdout,
+  compactJson,
+  compileReportValidators,
+  listReportSchemaNamesOnDisk,
+  validateReportOutput,
+} from '../helpers/report-schema-validation.js';
 
 const piDir = path.resolve('tests/fixtures/e2e/pi');
 const codexDir = path.resolve('tests/fixtures/e2e/codex');
@@ -35,66 +42,12 @@ const fixtureOptions = {
   json: true,
 } as const;
 
-const validators = new Map<string, ValidateFunction>();
+let validators: Map<string, ValidateFunction>;
+let reportNamesOnDisk: string[];
 const tempDirs: string[] = [];
 
-const reportNamesOnDisk: string[] = [];
-
-async function loadValidators(): Promise<void> {
-  const schemaFiles = (await readdir(path.resolve('schema'))).filter(
-    (name) => name.startsWith('report-') && name.endsWith('.v1.schema.json'),
-  );
-
-  for (const name of schemaFiles) {
-    const reportName = name.replace('report-', '').replace('.v1.schema.json', '');
-
-    if (reportName !== 'common') {
-      reportNamesOnDisk.push(reportName);
-    }
-  }
-
-  // Compile what `llm-usage schema <report>` prints, alone and in strict mode, so the
-  // printed schemas are proven self-contained against real report output.
-  for (const [reportName, schema] of Object.entries(reportSchemas)) {
-    const ajv = new Ajv2020({ allErrors: true, strict: true });
-    validators.set(reportName, ajv.compile(schema as object));
-  }
-}
-
 function validateReport(reportName: string, output: string): unknown {
-  const validate = validators.get(reportName);
-
-  if (!validate) {
-    throw new Error(`No validator for report ${reportName}`);
-  }
-
-  const parsed: unknown = JSON.parse(output);
-  const valid = validate(parsed);
-
-  expect(validate.errors, JSON.stringify(validate.errors, null, 2)).toBeNull();
-  expect(valid).toBe(true);
-  return parsed;
-}
-
-async function captureJsonStdout(run: () => Promise<void>): Promise<string> {
-  const chunks: string[] = [];
-  const logSpy = vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
-    chunks.push(String(args[0]));
-  });
-  const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-
-  try {
-    await run();
-  } finally {
-    logSpy.mockRestore();
-    errorSpy.mockRestore();
-  }
-
-  return chunks.join('');
-}
-
-function compactJson(output: string): string {
-  return JSON.stringify(JSON.parse(output));
+  return validateReportOutput(validators, reportName, output);
 }
 
 async function createTempDir(prefix: string): Promise<string> {
@@ -135,11 +88,12 @@ async function createStoreWithDepartedEvent(dbPath: string): Promise<void> {
 const noFilesAdapter: SourceAdapter = {
   id: 'codex',
   discoverFiles: async () => [],
-  parseFile: async () => [],
+  read: readFrom(async () => []),
 };
 
 beforeAll(async () => {
-  await loadValidators();
+  validators = compileReportValidators();
+  reportNamesOnDisk = await listReportSchemaNamesOnDisk();
 });
 
 afterAll(async () => {
@@ -288,7 +242,7 @@ describe('report json schema e2e', () => {
     const adapter: SourceAdapter = {
       id: 'codex',
       discoverFiles: async () => [],
-      parseFile: async () => [],
+      read: readFrom(async () => []),
     };
     const output = await captureJsonStdout(() =>
       runPruneReport(

@@ -21,6 +21,11 @@ export type MachineExportHeaderLine = {
   cliVersion: string;
   hostname: string;
   exportedAt: string;
+  /**
+   * Source id → the parser version (`getParserVersion`) the export read it with. Older
+   * exports leave it out; readers ignore it if they predate it.
+   */
+  parserVersions?: Record<string, string>;
 };
 
 export type MachineExportFileLine = {
@@ -157,6 +162,21 @@ function parseBundleLine(line: string, lineNumber: number): Record<string, unkno
   return record;
 }
 
+/** Keeps the text entries of a remote's `parserVersions`; anything else counts as unrecorded. */
+function readParserVersions(value: unknown): Record<string, string> | undefined {
+  const record = asRecord(value);
+
+  if (!record) {
+    return undefined;
+  }
+
+  return Object.fromEntries(
+    Object.entries(record).filter(
+      (entry): entry is [string, string] => isNonEmptyText(entry[0]) && isNonEmptyText(entry[1]),
+    ),
+  );
+}
+
 function readHeader(record: Record<string, unknown>): MachineExportHeaderLine {
   if (record.type !== 'header' || record.format !== MACHINE_EXPORT_FORMAT) {
     throw new Error('the output is not a machine export (no header line)');
@@ -175,6 +195,7 @@ function readHeader(record: Record<string, unknown>): MachineExportHeaderLine {
     cliVersion: typeof record.cliVersion === 'string' ? record.cliVersion : '',
     hostname: typeof record.hostname === 'string' ? record.hostname : '',
     exportedAt: typeof record.exportedAt === 'string' ? record.exportedAt : '',
+    parserVersions: readParserVersions(record.parserVersions),
   };
 }
 

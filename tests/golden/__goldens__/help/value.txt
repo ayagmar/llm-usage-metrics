@@ -1,0 +1,67 @@
+Usage: llm-usage value [options]
+
+Compare the API-priced cost of each month with subscription plan prices, per plan and project (full
+history unless --last, --since, or --until)
+
+Options:
+  --help-all                     Display help including the per-source path flags
+  --source-dir <source-id=path>  Override source directory for directory-backed sources (repeatable)
+  --source <name>                Filter by source id (repeatable or comma-separated, supported
+                                 sources (17): pi, codex, gemini, droid, opencode, openclaw, claude,
+                                 copilot, goose, amp, qwen, kimi, cline, roocode, kilocode,
+                                 antigravity, dsh)
+  --json                         Render output as JSON
+  --quiet                        Suppress informational stderr output (warnings still print)
+  --verbose                      Print detailed diagnostics on stderr (per-source counts, routine
+                                 skips, config, env)
+  --since <YYYY-MM-DD>           Inclusive start date filter
+  --until <YYYY-MM-DD>           Inclusive end date filter
+  --timezone <iana>              Timezone for bucketing (default: system timezone)
+  --provider <name>              Billing-provider filter (normalized to billing entity; e.g. openai,
+                                 anthropic, google, moonshot)
+  --model <name>                 Filter by model (repeatable/comma-separated; exact when exact match
+                                 exists after source/provider/date filters, otherwise substring)
+  --pricing-url <url>            Override LiteLLM pricing source URL
+  --pricing-overrides <path>     Path to a JSON file of per-model pricing overrides (takes
+                                 precedence over LiteLLM)
+  --pricing-offline              Use cached LiteLLM pricing only (no network fetch)
+  --ignore-pricing-failures      Continue without estimated costs when pricing cannot be loaded
+  --cost-mode <mode>             Costs to report: explicit (logged by the source), estimated (from
+                                 LiteLLM), or both (logged, else estimated; default) (choices:
+                                 "explicit", "estimated", "both")
+  --history                      Include usage from files that no longer exist on disk (on by
+                                 default; when passed, fails if the event store is unavailable)
+  --no-history                   Leave out usage from files that no longer exist on disk
+  --machine <name>               Count only these machines (repeatable or comma-separated; local is
+                                 this one; default: all)
+  --no-sync                      Use other machines' cached usage without refreshing it over ssh
+  --markdown                     Render output as markdown table
+  --plan <id>                    Plan to compare with, over the sources it covers (repeatable;
+                                 default claude-max-20x, or chatgpt-pro-200 when the source filter
+                                 leaves out claude). Two plans that cover the same source each count
+                                 its full cost (choices: "claude-pro", "claude-max-5x",
+                                 "claude-max-20x", "chatgpt-go", "chatgpt-plus", "chatgpt-pro-100",
+                                 "chatgpt-pro-200", "chatgpt-pro-500")
+  --plan-price <usd>             Monthly plan price in USD to use instead of the plan's list price
+                                 (one plan only)
+  --last <n>                     Report the last N months, counting the current month
+  --all                          Report every month since the first usage (the default without date
+                                 flags)
+  --compact                      Abbreviate token counts and leave out minor columns
+                                 (terminal/markdown)
+  --no-cost                      Leave cost out of the table, e.g. for screenshots
+  --repo <project>               Count only these projects (repeatable or comma-separated, so a
+                                 value cannot contain a comma). A path (absolute, or ./, ../, ~/ on
+                                 this machine) matches that repository root and the roots under it;
+                                 a name or path tail such as work/api matches the end of a root, not
+                                 the roots under it; (unattributed) matches usage without a root.
+                                 Applied after --model picks exact or substring matching
+  -h, --help                     display help for command
+
+Per-source path flags (--claude-dir, ...)
+are listed by --help-all.
+
+Examples:
+  $ llm-usage value
+  $ llm-usage value --plan claude-max-5x --plan chatgpt-plus
+  $ llm-usage value --plan claude-pro --plan-price 18 --last 6 --json

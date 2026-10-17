@@ -7,7 +7,9 @@
     "paths": {
       "@/*": ["src/*"],
       "@components/*": ["src/components/*"],
-      "@layouts/*": ["src/layouts/*"]
+      "@layouts/*": ["src/layouts/*"],
+      "@ayagmar/agent-sessions": ["../packages/core/src/index.ts"],
+      "@ayagmar/agent-sessions/*": ["../packages/core/src/*/index.ts"]
     },
     "verbatimModuleSyntax": true
   },

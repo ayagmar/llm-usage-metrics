@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ayagmar.github.io/llm-usage-metrics/report-projects.v1.schema.json",
+  "title": "llm-usage-metrics projects report output (v1)",
+  "description": "Envelope and payload for projects --json output.",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope"
+    }
+  ],
+  "properties": {
+    "report": { "const": "projects" },
+    "data": {
+      "description": "Per-project usage totals over the window, costliest first.",
+      "type": "object",
+      "properties": {
+        "totals": { "$ref": "#/$defs/totals" },
+        "projects": {
+          "description": "Projects by cost, then tokens, then label; with --top, only the top N.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/projectRow" }
+        },
+        "granularity": {
+          "description": "With --granularity: the period of the periods rows.",
+          "enum": ["daily", "weekly", "monthly"]
+        },
+        "periods": {
+          "description": "With --granularity: the listed projects' usage per period, by period, then label, unattributed usage last.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/periodProjectRow" }
+        }
+      },
+      "required": ["totals", "projects"],
+      "dependentRequired": { "granularity": ["periods"], "periods": ["granularity"] },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "projectFields": {
+      "type": "object",
+      "description": "The project of a row.",
+      "properties": {
+        "repoRoot": {
+          "description": "The project's repository root (trailing separators removed), or null for usage without one.",
+          "type": ["string", "null"]
+        },
+        "project": {
+          "description": "The project's display label, unique within the report.",
+          "type": "string"
+        }
+      },
+      "required": ["repoRoot", "project"]
+    },
+    "totals": {
+      "type": "object",
+      "description": "Totals over every project in the window, also those --top leaves out.",
+      "allOf": [
+        {
+          "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/usageTotals"
+        }
+      ],
+      "properties": {
+        "projects": {
+          "description": "Number of projects in the window, before --top.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "events": {
+          "description": "Number of usage events in the window.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "activeDays": {
+          "description": "Distinct local dates (report timezone) with usage.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": ["projects", "events", "activeDays"],
+      "unevaluatedProperties": false
+    },
+    "projectRow": {
+      "type": "object",
+      "description": "One project's usage over the window.",
+      "allOf": [
+        {
+          "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/usageTotals"
+        },
+        { "$ref": "#/$defs/projectFields" }
+      ],
+      "properties": {
+        "costShare": {
+          "description": "The project's part of the window's cost, from 0 to 1, rounded to 6 decimal places; null when the window has no positive cost or the project no resolved cost.",
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "events": {
+          "description": "Number of usage events of the project.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "activeDays": {
+          "description": "Distinct local dates (report timezone) with usage of the project.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "topModels": {
+          "description": "The project's models with the most tokens, at most three.",
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 3
+        }
+      },
+      "required": ["costShare", "events", "activeDays", "topModels"],
+      "unevaluatedProperties": false
+    },
+    "modelBreakdown": {
+      "type": "object",
+      "description": "Per-model usage totals inside a row.",
+      "allOf": [
+        {
+          "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/usageTotals"
+        }
+      ],
+      "properties": {
+        "model": {
+          "description": "Normalized model identifier.",
+          "type": "string"
+        }
+      },
+      "required": ["model"],
+      "unevaluatedProperties": false
+    },
+    "periodProjectRow": {
+      "type": "object",
+      "description": "One project's usage in one period.",
+      "allOf": [
+        {
+          "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/usageTotals"
+        },
+        { "$ref": "#/$defs/projectFields" }
+      ],
+      "properties": {
+        "rowType": { "const": "period_project" },
+        "periodKey": {
+          "description": "The period: YYYY-MM-DD, YYYY-Www or YYYY-MM in the report timezone.",
+          "type": "string"
+        },
+        "models": {
+          "description": "The row's models, most tokens first.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "modelBreakdown": {
+          "description": "Per-model totals for the row.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/modelBreakdown" }
+        }
+      },
+      "required": ["rowType", "periodKey", "models", "modelBreakdown"],
+      "unevaluatedProperties": false
+    }
+  }
+}

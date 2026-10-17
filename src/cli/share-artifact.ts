@@ -3,6 +3,15 @@ import { constants } from 'node:fs';
 import { access, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
+/** What a `--share` run writes: one self-contained HTML report in the current directory. */
+export type ShareArtifact = {
+  /** The `.html` file name. */
+  fileName: string;
+  /** Names the report in the stderr lines, e.g. `usage`. */
+  logLabel: string;
+  render: () => string;
+};
+
 export async function writeShareFile(fileName: string, content: string): Promise<string> {
   const outputPath = path.resolve(process.cwd(), fileName);
   await writeFile(outputPath, content, 'utf8');

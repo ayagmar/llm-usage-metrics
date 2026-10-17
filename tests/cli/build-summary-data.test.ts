@@ -6,17 +6,26 @@ import {
   resolveSummaryWindows,
 } from '../../src/cli/build-summary-data.js';
 import type { SummaryPeriod } from '../../src/cli/usage-data-contracts.js';
+import {
+  createWindowEventFilter,
+  isEventWithinWindow,
+} from '../../src/cli/usage-window-summary.js';
+import { createDateWindowPrefilter } from '../../src/cli/parse/usage-event-filters.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
-import type { SourceAdapter } from '../../src/sources/source-adapter.js';
+import { renderSummaryReport } from '../../src/render/render-summary-report.js';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
+import { readFrom } from '../helpers/fake-read.js';
 
 function createAdapter(
   id: SourceAdapter['id'],
   events: ReturnType<typeof createUsageEvent>[],
+  capabilities?: SourceAdapter['capabilities'],
 ): SourceAdapter {
   return {
     id,
+    capabilities,
     discoverFiles: async () => [`/tmp/${id}.jsonl`],
-    parseFile: async () => events,
+    read: readFrom(async () => events),
   };
 }
 
@@ -68,6 +77,81 @@ describe('resolveSummaryWindows', () => {
       { key: 'last7Days', label: 'Last 7 days', since: '2026-02-26', until: '2026-03-04' },
       { key: 'monthToDate', label: 'Month to date', since: '2026-03-01', until: '2026-03-04' },
     ]);
+  });
+});
+
+describe('createWindowEventFilter', () => {
+  it('keeps the events whose local date is in the window, in every offset', () => {
+    const timezones = [
+      'UTC',
+      'Pacific/Kiritimati',
+      'Pacific/Pago_Pago',
+      'Asia/Kolkata',
+      'Asia/Kathmandu',
+      'America/St_Johns',
+      'Australia/Lord_Howe',
+      'Europe/Paris',
+    ];
+    const windows = [
+      { since: '2026-03-29', until: '2026-03-29' },
+      { since: '2026-03-01', until: '2026-03-31' },
+      { since: '2025-12-30', until: '2026-01-02' },
+    ];
+    // Every 7 minutes from 3 days before to 3 days after each window, plus timestamps in
+    // other shapes. `createUsageEvent` stores the canonical form, so those are spread over a
+    // created event, as a stored event built elsewhere can carry them.
+    const nonCanonicalTimestamps = windows.flatMap((window) => [
+      `${window.since}T00:30:00Z`,
+      `${window.since}T00:30:00+00:00`,
+      // The day before `since` in UTC, read as `since` by its text.
+      `${window.since}T00:30:00+14:00`,
+      // The day after `until` in UTC, read as `until` by its text.
+      `${window.until}T23:30:00-11:00`,
+    ]);
+    const events = [
+      ...windows.flatMap((window) => {
+        const from = Date.parse(`${window.since}T00:00:00.000Z`) - 3 * 86_400_000;
+        const to = Date.parse(`${window.until}T00:00:00.000Z`) + 4 * 86_400_000;
+        const timestamps: string[] = [];
+
+        for (let time = from; time < to; time += 7 * 60_000) {
+          timestamps.push(new Date(time).toISOString());
+        }
+
+        return timestamps.map((timestamp) =>
+          createEvent('2026-03-05T09:00:00.000Z', { timestamp }),
+        );
+      }),
+      ...nonCanonicalTimestamps.map((timestamp) => ({
+        ...createEvent('2026-03-05T09:00:00.000Z'),
+        timestamp,
+      })),
+    ];
+
+    // Those shapes skip the text comparison and are converted to a local date.
+    for (const window of windows) {
+      const prefilterDate = createDateWindowPrefilter(window.since, window.until);
+
+      for (const timestamp of nonCanonicalTimestamps) {
+        expect(prefilterDate(timestamp), timestamp).toBe('near-edge');
+      }
+    }
+
+    const utcSingleDay = createWindowEventFilter(windows[0], 'UTC');
+    expect(utcSingleDay({ ...events[0], timestamp: '2026-03-29T00:30:00+00:00' })).toBe(true);
+    expect(utcSingleDay({ ...events[0], timestamp: '2026-03-29T00:30:00+14:00' })).toBe(false);
+    expect(utcSingleDay({ ...events[0], timestamp: '2026-03-29T23:30:00-11:00' })).toBe(false);
+
+    for (const timezone of timezones) {
+      for (const window of windows) {
+        const isInWindow = createWindowEventFilter(window, timezone);
+        const mismatches = events.filter(
+          (event) => isInWindow(event) !== isEventWithinWindow(event, window, timezone),
+        );
+
+        expect(mismatches, `${timezone} ${window.since}..${window.until}`).toEqual([]);
+      }
+    }
   });
 });
 
@@ -164,6 +248,15 @@ describe('buildSummaryData', () => {
     expect((await run({ source: 'codex' })).monthEnd.budgetUsd).toBeUndefined();
     expect((await run({ provider: 'openai' })).monthEnd.budgetUsd).toBeUndefined();
     expect((await run({ model: ['gpt-4.1'] })).monthEnd.budgetUsd).toBeUndefined();
+
+    // One project is not measured against the whole budget, even when it holds all usage.
+    const oneProject = await run({ repo: ['(unattributed)'] });
+    expect(oneProject.periods.find((period) => period.key === 'monthToDate')?.totals.events).toBe(
+      1,
+    );
+    expect(oneProject.monthEnd.budgetUsd).toBeUndefined();
+    expect(renderSummaryReport(oneProject, 'terminal')).not.toContain('budget');
+    expect(renderSummaryReport(await run({}), 'terminal')).toContain('budget');
   });
 
   it('projects the month against the config budget and estimates month-to-date cache savings', async () => {
@@ -199,6 +292,56 @@ describe('buildSummaryData', () => {
     expect(result.monthEnd).toMatchObject({ daysElapsed: 10, daysInMonth: 31, budgetUsd: 25 });
     expect(result.monthEnd.projectedCostUsd).toBeCloseTo(monthToDateCost * 3.1, 6);
     // gpt-4.1 bundled pricing: $2.00 input vs $0.50 cache read per 1M tokens.
+    expect(result.monthToDateCacheSavingsUsd).toBeCloseTo(1.5, 6);
+  });
+
+  it('estimates cache savings at long-context rates for a per-request source', async () => {
+    const run = (capabilities?: SourceAdapter['capabilities']) =>
+      buildSummaryData(
+        { timezone: 'UTC', pricingOffline: true },
+        runtimeDeps(
+          [
+            createAdapter(
+              'codex',
+              [
+                createEvent('2026-03-05T09:00:00.000Z', {
+                  model: 'gpt-5.4',
+                  costMode: 'estimated',
+                  costUsd: undefined,
+                  cacheReadTokens: 300_000,
+                }),
+              ],
+              capabilities,
+            ),
+          ],
+          '2026-03-10T18:00:00.000Z',
+        ),
+      );
+
+    // gpt-5.4 bundled pricing above 272k prompt tokens: $5.00 input vs $0.50 cache read per
+    // 1M; at the base rates, $2.50 vs $0.25.
+    expect((await run({ usagePerRequest: true })).monthToDateCacheSavingsUsd).toBeCloseTo(1.35, 6);
+    expect((await run()).monthToDateCacheSavingsUsd).toBeCloseTo(0.675, 6);
+  });
+
+  it('still estimates cache savings under --cost-mode explicit, without pricing unlogged events', async () => {
+    const result = await buildSummaryData(
+      { timezone: 'UTC', pricingOffline: true, costMode: 'explicit' },
+      runtimeDeps(
+        [
+          createAdapter('codex', [
+            createEvent('2026-03-05T09:00:00.000Z', {
+              costMode: 'estimated',
+              costUsd: undefined,
+              cacheReadTokens: 1_000_000,
+            }),
+          ]),
+        ],
+        '2026-03-10T18:00:00.000Z',
+      ),
+    );
+
+    expect(result.periods[2]?.totals.costUsd).toBeUndefined();
     expect(result.monthToDateCacheSavingsUsd).toBeCloseTo(1.5, 6);
   });
 
@@ -355,7 +498,7 @@ describe('buildSummaryData', () => {
       discoverFiles: async () => {
         throw new Error('gemini should have been pruned');
       },
-      parseFile: async () => [],
+      read: readFrom(async () => []),
     };
     const deps = {
       ...runtimeDeps(

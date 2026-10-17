@@ -1,0 +1,6 @@
+{"timestamp":"2026-08-03T08:00:00.000Z","type":"session_meta","payload":{"id":"fx-codex","timestamp":"2026-08-03T08:00:00.000Z","cwd":"/work/fx","originator":"codex_cli_rs","cli_version":"0.99.0","model_provider":"openai"}}
+{"timestamp":"2026-08-03T08:00:00.100Z","type":"response_item","payload":{"type":"message","role":"developer","content":[{"type":"input_text","text":"Be brief."}]}}
+{"timestamp":"2026-08-03T08:00:01.000Z","type":"turn_context","payload":{"cwd":"/work/fx","model":"gpt-5.5-codex"}}
+{"timestamp":"2026-08-03T08:00:01.100Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Fix the lint errors"}]}}
+{"timestamp":"2026-08-03T08:00:03.000Z","type":"token_usage_record","payload":{"response_id":"resp-1","usage":{"input_tokens":1000,"cached_input_tokens":600,"output_tokens":40,"reasoning_output_tokens":10,"total_tokens":1040}}}
+{"timestamp":"2026-08-03T08:00:03.100Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":1000,"cached_input_tokens":600,"output_tokens":40,"reasoning_output_tokens":10,"total_tokens":1040},"last_token_usage":{"input_tokens":1000,"cached_input_tokens":600,"output_tokens":40,"reasoning_output_tokens":10,"total_tokens":1040}}}}

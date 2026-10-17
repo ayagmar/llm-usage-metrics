@@ -1,0 +1,217 @@
+import path from 'node:path';
+
+import { createUsageEvent } from '../../domain/usage-event.js';
+import type { UsageEvent } from '../../domain/usage-event.js';
+import { normalizeNonNegativeInteger } from '../../domain/normalization.js';
+import { asRecord } from '../../utils/as-record.js';
+import { discoverFiles } from '../../utils/discover-files.js';
+import { pathIsDirectory, pathReadable } from '../../utils/fs-helpers.js';
+import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
+import {
+  asTrimmedText,
+  isBlankText,
+  normalizeTimestampCandidate,
+  toNumberLike,
+} from '../parsing-utils.js';
+import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
+import { readJsonTranscriptFile } from '../read-json-file.js';
+import type {
+  SourceAdapter,
+  SourceAdapterPathOptions,
+  SourceReadOptions,
+} from '../source-adapter.js';
+import { createSourceContext, type SourceContext } from '../source-context.js';
+
+function resolveDefaultDroidSessionsDir(context: SourceContext): string {
+  return path.join(context.homeDir, '.factory', 'sessions');
+}
+
+/** Options for `DroidSourceAdapter`. */
+export type DroidSourceAdapterOptions = SourceAdapterPathOptions;
+
+const DROID_SESSION_START_LINE_PATTERN = /"type"\s*:\s*"session_start"/u;
+const DROID_MESSAGE_LINE_PATTERN = /"type"\s*:\s*"message"/u;
+
+function shouldParseDroidJsonlLine(lineText: string): boolean {
+  return (
+    DROID_SESSION_START_LINE_PATTERN.test(lineText) || DROID_MESSAGE_LINE_PATTERN.test(lineText)
+  );
+}
+
+function getSettingsSessionId(filePath: string): string {
+  return path.basename(filePath, '.settings.json');
+}
+
+function getSiblingJsonlPath(settingsPath: string): string {
+  return path.join(path.dirname(settingsPath), `${getSettingsSessionId(settingsPath)}.jsonl`);
+}
+
+function isSessionStartRecord(line: Record<string, unknown>): boolean {
+  return asTrimmedText(line.type) === 'session_start';
+}
+
+function isMessageRecord(line: Record<string, unknown>): boolean {
+  return asTrimmedText(line.type) === 'message';
+}
+
+function resolveRepoRootFromSessionStart(line: Record<string, unknown>): string | undefined {
+  const payload = asRecord(line.session_start);
+  return asTrimmedText(payload?.cwd);
+}
+
+/** Factory Droid session settings (JSON) and their sibling JSONL, from `~/.factory/sessions`. */
+export class DroidSourceAdapter implements SourceAdapter {
+  public readonly id = 'droid' as const;
+  public readonly parserVersion = 2;
+  public readonly capabilities = { eventsPrecedeFileMtime: true, kinds: ['usage'] } as const;
+
+  private readonly sessionsDir: string;
+  private readonly requireDir: boolean;
+
+  public constructor(options: DroidSourceAdapterOptions = {}) {
+    this.sessionsDir =
+      options.dir ?? resolveDefaultDroidSessionsDir(options.context ?? createSourceContext());
+    this.requireDir = options.requireDir ?? false;
+  }
+
+  private getNormalizedSessionsDir(): string {
+    if (isBlankText(this.sessionsDir)) {
+      throw new Error('Droid sessions directory must be a non-empty path');
+    }
+
+    return this.sessionsDir.trim();
+  }
+
+  public getSearchPaths(): string[] {
+    return [this.sessionsDir].map((searchPath) => searchPath.trim());
+  }
+
+  public async discoverFiles(): Promise<string[]> {
+    const normalizedDir = this.getNormalizedSessionsDir();
+
+    if (this.requireDir && !(await pathReadable(normalizedDir))) {
+      throw new Error(`Droid sessions directory is missing or unreadable: ${normalizedDir}`);
+    }
+
+    if (this.requireDir && !(await pathIsDirectory(normalizedDir))) {
+      throw new Error(`Droid sessions directory is not a directory: ${normalizedDir}`);
+    }
+
+    return discoverFiles(normalizedDir, { extension: '.settings.json' });
+  }
+
+  public async getParseDependencies(filePath: string): Promise<string[]> {
+    return [getSiblingJsonlPath(filePath)];
+  }
+
+  public async *read(
+    filePath: string,
+    options: SourceReadOptions = {},
+  ): AsyncGenerator<UsageEvent> {
+    const diagnostics = options.diagnostics ?? createReadDiagnostics();
+
+    const settingsJson = await readJsonTranscriptFile(filePath);
+
+    const settings = asRecord(settingsJson);
+
+    // A document of the wrong shape fails the file, like unreadable JSON, so its stored
+    // events stay.
+    if (!settings) {
+      throw new Error(`Droid settings are not a JSON object: ${filePath}`);
+    }
+
+    const tokenUsage = asRecord(settings.tokenUsage);
+
+    if (!tokenUsage) {
+      recordSkippedRow(diagnostics, 'no_token_usage');
+      return;
+    }
+
+    const inputTokens = normalizeNonNegativeInteger(toNumberLike(tokenUsage.inputTokens));
+    const outputTokens = normalizeNonNegativeInteger(toNumberLike(tokenUsage.outputTokens));
+    const reasoningTokens = normalizeNonNegativeInteger(toNumberLike(tokenUsage.thinkingTokens));
+    const cacheReadTokens = normalizeNonNegativeInteger(toNumberLike(tokenUsage.cacheReadTokens));
+    const cacheWriteTokens = normalizeNonNegativeInteger(
+      toNumberLike(tokenUsage.cacheCreationTokens),
+    );
+    const billableTokens = inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens;
+    const hasUsageSignal = billableTokens > 0 || reasoningTokens > 0;
+
+    if (!hasUsageSignal) {
+      recordSkippedRow(diagnostics, 'no_token_usage');
+      return;
+    }
+
+    const provider = asTrimmedText(settings.providerLock);
+    const model = asTrimmedText(settings.model);
+    const totalTokens = billableTokens;
+
+    const primaryTimestamp = normalizeTimestampCandidate(settings.providerLockTimestamp);
+    const hasValidPrimaryTimestamp = Boolean(primaryTimestamp);
+
+    const jsonlPath = getSiblingJsonlPath(filePath);
+
+    let repoRoot: string | undefined;
+    let fallbackMessageTimestamp: string | undefined;
+
+    try {
+      for await (const line of readJsonlObjects(jsonlPath, {
+        shouldParseLine: shouldParseDroidJsonlLine,
+        onMalformedLine: () => {
+          recordSkippedRow(diagnostics, 'json_parse_error');
+        },
+      })) {
+        if (!repoRoot && isSessionStartRecord(line)) {
+          repoRoot = resolveRepoRootFromSessionStart(line) ?? repoRoot;
+
+          if (hasValidPrimaryTimestamp) {
+            break;
+          }
+
+          continue;
+        }
+
+        if (!hasValidPrimaryTimestamp && isMessageRecord(line)) {
+          fallbackMessageTimestamp = normalizeTimestampCandidate(line.timestamp);
+
+          if (fallbackMessageTimestamp) {
+            break;
+          }
+        }
+      }
+    } catch {
+      // fail-open: JSONL enrichment is optional
+    }
+
+    const timestamp = primaryTimestamp ?? fallbackMessageTimestamp;
+
+    if (!timestamp) {
+      recordSkippedRow(diagnostics, 'invalid_timestamp');
+      return;
+    }
+
+    let event: UsageEvent;
+
+    try {
+      event = createUsageEvent({
+        source: this.id,
+        sessionId: getSettingsSessionId(filePath),
+        timestamp,
+        repoRoot,
+        provider,
+        model,
+        inputTokens,
+        outputTokens,
+        reasoningTokens,
+        cacheReadTokens,
+        cacheWriteTokens,
+        totalTokens,
+      });
+    } catch {
+      recordSkippedRow(diagnostics, 'event_creation_failed');
+      return;
+    }
+
+    yield event;
+  }
+}

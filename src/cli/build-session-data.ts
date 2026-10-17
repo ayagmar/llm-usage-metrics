@@ -4,7 +4,7 @@ import { getEventSessionKey, type UsageEvent } from '../domain/usage-event.js';
 import {
   applyPricingToUsageEventDataset,
   buildUsageEventDataset,
-  withUnpricedEventsNote,
+  withPricingNotes,
 } from './build-usage-event-dataset.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 import type {
@@ -90,11 +90,8 @@ export async function buildSessionData(
     'session.dataset.total',
     () => buildUsageEventDataset(options, deps),
   );
-  const { pricedEvents, pricingOrigin, pricingWarning } = await applyPricingToUsageEventDataset(
-    dataset,
-    deps,
-    'auto',
-  );
+  const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'auto');
+  const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
   const aggregateOptions = {
     timezone: dataset.normalizedInputs.timezone,
     since: options.since,
@@ -109,7 +106,7 @@ export async function buildSessionData(
       pricingOrigin,
       pricingWarning,
       warnings: dataset.warnings,
-      notes: withUnpricedEventsNote(dataset.notes, shownEvents),
+      notes: withPricingNotes(dataset.notes, shownEvents, pricingResult),
       activeEnvOverrides: dataset.readEnvVarOverrides(),
       activeConfig: dataset.activeConfig,
       timezone: dataset.normalizedInputs.timezone,

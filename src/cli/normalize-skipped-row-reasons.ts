@@ -1,4 +1,4 @@
-import type { SourceSkippedRowReasonStat } from '../sources/source-adapter.js';
+import type { SourceSkippedRowReasonStat } from '@ayagmar/agent-sessions';
 import { asRecord } from '../utils/as-record.js';
 
 function toPositiveInteger(value: unknown): number | undefined {

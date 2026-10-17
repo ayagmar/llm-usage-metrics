@@ -4,11 +4,19 @@ import {
   getSourceStorageFormat,
 } from '../../../src/sources/create-default-adapters';
 import { version } from '../../../package.json';
+import EventFlow from '../components/diagrams/EventFlow.astro';
+import PackageLayers from '../components/diagrams/PackageLayers.astro';
+import TerminalShot from '../components/TerminalShot.astro';
+import projectsShot from '../assets/screenshots/term-projects.webp';
+import summaryShot from '../assets/screenshots/term-summary.webp';
 import '../styles/tokens.css';
 
 const base = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/`;
 const link = (slug: string) => `${base}${slug}/`;
 const github = 'https://github.com/ayagmar/llm-usage-metrics';
+const demoReport = `${base}demo/report.html`;
+const demoTitle =
+  'Demo interactive report: 90 days of generated usage across four sources and four projects';
 const sources = getDefaultSourceIds();
 const reports = [
   {
@@ -21,32 +29,53 @@ const reports = [
   },
   {
     name: 'Usage',
-    command: 'monthly',
+    command: 'daily',
     question: 'Where did the tokens go?',
     detail:
-      'Daily, weekly, and monthly totals by source, with model breakdowns and estimated cost.',
+      'Hourly, daily, weekly, and monthly totals by source, with model breakdowns and estimated cost.',
     slug: 'usage',
+  },
+  {
+    name: 'Projects',
+    command: 'projects',
+    question: 'Which project costs the most?',
+    detail: 'Every project in your history, costliest first, with its models and active days.',
+    slug: 'projects',
+  },
+  {
+    name: 'Sessions',
+    command: 'session --top 10',
+    question: 'Which conversations used the most?',
+    detail: 'Rank sessions by cost, or group them into one row per project.',
+    slug: 'session',
   },
   {
     name: 'Compare',
     command: 'compare',
     question: 'What changed this month?',
-    detail: 'Compare two periods with tokens, cost, events, and active days side by side.',
+    detail: 'Two periods side by side: tokens, cost, events, and active days, with the deltas.',
     slug: 'compare',
-  },
-  {
-    name: 'Sessions',
-    command: 'session --top 10',
-    question: 'Which work used the most?',
-    detail: 'Rank conversations by cost or group usage by repository.',
-    slug: 'session',
   },
   {
     name: 'Trends',
     command: 'trends --metric tokens --last 14',
     question: 'Is usage climbing?',
-    detail: 'Inspect a daily series over a chosen window, combined or split by source.',
+    detail: 'A daily series over a chosen window, combined, by source, or by project.',
     slug: 'trends',
+  },
+  {
+    name: '5-hour blocks',
+    command: 'blocks',
+    question: 'How much of this window is left?',
+    detail: 'Estimated 5-hour windows per source, with the active block’s time left and burn rate.',
+    slug: 'blocks',
+  },
+  {
+    name: 'Plan value',
+    command: 'value',
+    question: 'Is the subscription worth it?',
+    detail: 'Each month priced at API rates next to a plan’s monthly price, split by project.',
+    slug: 'value',
   },
   {
     name: 'Status line',
@@ -63,43 +92,6 @@ const machineRows = [
   { label: 'codex (devbox)', tokens: '6,410,000', cost: '$14.82' },
   { label: 'TOTAL', tokens: '34,530,000', cost: '$162.29' },
 ];
-const examples = [
-  {
-    id: 'usage',
-    title: 'Monthly usage',
-    command: 'llm-usage monthly --source codex,claude',
-    heading: 'Usage by source',
-    rows: [
-      { label: 'codex', tokens: '8,420,000', cost: '$18.42' },
-      { label: 'claude', tokens: '6,180,000', cost: '~$24.16' },
-      { label: 'ALL', tokens: '14,600,000', cost: '~$42.58' },
-    ],
-    note: 'A tilde marks partial cost. Unpriced events still count toward token totals.',
-    slug: 'pricing',
-  },
-  {
-    id: 'sessions',
-    title: 'Top sessions',
-    command: 'llm-usage session --top 3',
-    heading: 'Sessions ranked by cost',
-    rows: [
-      { label: 'claude / session-a', tokens: '2,310,000', cost: '$9.84' },
-      { label: 'codex / session-b', tokens: '1,820,000', cost: '$4.62' },
-      { label: 'codex / session-c', tokens: '940,000', cost: '$2.18' },
-    ],
-    note: 'Switch to session --by-repo to group the same history by repository.',
-    slug: 'session',
-  },
-  {
-    id: 'export',
-    title: 'Export',
-    command: 'llm-usage daily --json > usage.json',
-    heading: 'Versioned JSON for your scripts',
-    rows: [],
-    note: 'Report data goes to stdout. Diagnostics stay on stderr.',
-    slug: 'output-formats',
-  },
-];
 ---
 
 <!doctype html>
@@ -109,21 +101,21 @@ const examples = [
     <meta name="viewport" content="width=device-width" />
     <meta
       name="description"
-      content={`Track tokens, estimated cost, and sessions across ${sources.length} AI coding tools on all your machines. Read the logs on your disks, compare reports, and export your data.`}
+      content={`Tokens, estimated cost, projects, and sessions for ${sources.length} AI coding agents, across all your machines. Reads the logs on your disks and opens any report as an interactive page.`}
     />
     <meta name="theme-color" content="#11130f" />
     <meta property="og:title" content="LLM Usage Metrics — your agents, accounted for" />
     <meta
       property="og:description"
-      content="One usage history for your AI coding tools, across all your machines. Tokens, estimated cost, sessions, and exports."
+      content={`One usage history for ${sources.length} AI coding agents, across all your machines. Tokens, estimated cost, projects, sessions, and an interactive report.`}
     />
     <meta property="og:type" content="website" />
     <meta property="og:image" content={new URL(`${base}og.png`, Astro.site)} />
-    <meta property="og:image:width" content="1280" />
-    <meta property="og:image:height" content="640" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
     <meta
       property="og:image:alt"
-      content="llm-usage-metrics: a monthly cost report across claude, codex, gemini, and pi, from three machines over ssh."
+      content="llm-usage-metrics: a projects report ranking four projects by cost, and the command that writes the interactive HTML report."
     />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content={new URL(`${base}og.png`, Astro.site)} />
@@ -169,7 +161,17 @@ const examples = [
           GitHub <span aria-hidden="true">↗</span>
         </a>
         <button class="theme-toggle" type="button" aria-label="Use light theme" data-theme-toggle>
-          <span aria-hidden="true">◐</span>
+          <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
+            <circle
+              cx="10"
+              cy="10"
+              r="7.25"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+            ></circle>
+            <path d="M10 2.75a7.25 7.25 0 0 1 0 14.5z" fill="currentColor"></path>
+          </svg>
         </button>
       </nav>
     </header>
@@ -181,23 +183,22 @@ const examples = [
             <span aria-hidden="true">●</span> v{version} <span class="muted">/ open source</span>{' '}
             <span aria-hidden="true">↗</span>
           </a>
-          <p class="eyebrow">Your agents, accounted for</p>
           <h1 id="hero-title">
             Follow the work.
             <br />
             <em>Count the tokens.</em>
           </h1>
           <p class="summary">
-            One usage history for {sources.length} AI coding tools, across every machine you work
-            on. Read the logs already on your disks to see tokens, estimated cost, and the sessions
-            behind them.
+            One CLI for the session logs of {sources.length} AI coding agents. See tokens and
+            estimated cost by day, project, and session, across every machine you work on, and open
+            any report as an interactive page.
           </p>
           <div class="actions">
             <a class="button primary" href={link('getting-started')}>
               Get your first report <span aria-hidden="true">→</span>
             </a>
-            <a class="text-link" href={link('reports')}>
-              Explore the reports
+            <a class="text-link" href="#live-report">
+              Try the demo report
             </a>
           </div>
           <div class="install">
@@ -215,78 +216,30 @@ const examples = [
             <span aria-hidden="true">·</span> MIT
           </p>
         </div>
-        <div class="report-preview">
-          <div class="window-bar">
-            <span class="window-dot" aria-hidden="true"></span>
-            <span>~/usage</span>
-            <span class="sample-label">Illustrative data</span>
-          </div>
-          <div class="preview-controls" aria-label="Choose a report preview">
-            {examples.map((example, i) => (
-              <button
-                type="button"
-                data-preview={example.id}
-                aria-pressed={i === 0}
-                aria-controls={`preview-${example.id}`}
-              >
-                {example.title}
-              </button>
-            ))}
-          </div>
-          {examples.map((example, i) => (
-            <section
-              id={`preview-${example.id}`}
-              class="preview-panel"
-              hidden={i !== 0}
-              aria-label={example.title}
-            >
-              <p class="command">
-                <span aria-hidden="true">❯</span> <code>{example.command}</code>
-              </p>
-              <h2>{example.heading}</h2>
-              {example.id === 'export' ? (
-                <pre><code>{`{\n  "schemaVersion": 1,\n  "report": "usage",\n  "data": []\n}`}</code></pre>
-              ) : (
-                <table>
-                  <thead>
-                    <tr>
-                      <th scope="col">{example.id === 'usage' ? 'Source' : 'Session'}</th>
-                      <th scope="col">Tokens</th>
-                      <th scope="col">Cost (USD)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {example.rows.map((row) => (
-                      <tr>
-                        <th scope="row">{row.label}</th>
-                        <td>{row.tokens}</td>
-                        <td>{row.cost}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-              <p class="preview-note">{example.note}</p>
-              <a class="text-link" href={link(example.slug)}>
-                Read the guide <span aria-hidden="true">→</span>
-              </a>
-            </section>
-          ))}
-          <div class="window-footer">
-            <span class="status-dot" aria-hidden="true"></span>Session content stays local
-            <span class="muted">/ no account needed</span>
-          </div>
-        </div>
+        <figure class="hero-shot">
+          <TerminalShot
+            src={summaryShot}
+            label="llm-usage summary output"
+            loading="eager"
+            fetchpriority="high"
+            alt="Terminal output of llm-usage summary: cost, tokens, and top source for today, the last 7 days, and month to date, a month-end projection and caching savings, then streaks and a year-long activity heatmap."
+          />
+          <figcaption>
+            <code>llm-usage</code> on demo data
+          </figcaption>
+        </figure>
       </section>
 
       <section class="sources-strip" aria-labelledby="sources-title">
         <div>
-          <p class="eyebrow">Works across your toolchain</p>
           <h2 id="sources-title">
-            {sources.length} sources.
-            <br />
+            {sources.length} agents. <br />
             One reporting language.
           </h2>
+          <p>
+            Each tool’s logs are read in place and turned into the same events, so every report
+            covers all of them.
+          </p>
           <a class="text-link" href={link('sources')}>
             Check paths &amp; setup →
           </a>
@@ -303,9 +256,84 @@ const examples = [
         </ul>
       </section>
 
+      <section class="section projects" aria-labelledby="projects-title">
+        <div class="projects-copy">
+          <h2 id="projects-title">See which project the tokens went to.</h2>
+          <p>
+            Every session records the folder it ran in. <code>llm-usage projects</code> ranks those
+            projects by cost, with their models, share of the cost, events, and active days.
+          </p>
+          <ul class="command-list">
+            <li>
+              <code>--by-repo</code>
+              <span>
+                splits hourly, daily, weekly, monthly, compare, session, and trends by project
+              </span>
+            </li>
+            <li>
+              <code>--repo atlas-api</code>
+              <span>keeps one project in most reports, by name or by path</span>
+            </li>
+            <li>
+              <code>llm-usage value</code>
+              <span>shows each month’s projects next to your subscription’s price</span>
+            </li>
+          </ul>
+          <a class="text-link" href={link('projects')}>
+            How projects are named →
+          </a>
+        </div>
+        <figure class="shot">
+          <TerminalShot
+            src={projectsShot}
+            label="llm-usage projects output"
+            alt="Terminal output of llm-usage projects: four projects ranked by cost, each with its models, cost, share of the cost, tokens, events, and active days, and a TOTAL row."
+          />
+        </figure>
+      </section>
+
+      <section class="section live" id="live-report" aria-labelledby="live-title">
+        <div class="section-heading">
+          <div>
+            <h2 id="live-title">Open any report as an interactive page.</h2>
+            <p>
+              Add <code>--share</code> to summary, daily, weekly, monthly, compare, trends, wrapped,
+              efficiency, or optimize. The CLI writes one HTML file you can filter by source, model,
+              and project, regroup by hour, day, week, or month, and export chart by chart. The file
+              loads nothing from the network, and <code>--redact</code> replaces project and machine
+              names before you send it on.
+            </p>
+          </div>
+          <a class="text-link" href={link('share')}>
+            What the page offers →
+          </a>
+        </div>
+        <figure class="live-figure">
+          <div class="live-frame">
+            <iframe
+              title={demoTitle}
+              loading="lazy"
+              data-demo-report
+              data-src={demoReport}
+            ></iframe>
+            <noscript>
+              <iframe src={demoReport} title={demoTitle} loading="lazy"></iframe>
+            </noscript>
+          </div>
+          <figcaption>
+            <span>
+              <code>llm-usage daily --last 90 --share</code> on generated demo data: four sources,
+              four projects, 90 days.
+            </span>
+            <a class="text-link" href={demoReport}>
+              Open it full page <span aria-hidden="true">↗</span>
+            </a>
+          </figcaption>
+        </figure>
+      </section>
+
       <section class="section machines" aria-labelledby="machines-title">
         <div>
-          <p class="eyebrow">Every machine, one history</p>
           <h2 id="machines-title">Your laptop, your desktop, your dev box. One report.</h2>
           <p>
             Add a machine you can reach over ssh and its usage joins every report. Each machine
@@ -320,7 +348,7 @@ const examples = [
             Set up machines →
           </a>
         </div>
-        <div class="report-preview flat">
+        <div class="report-preview">
           <div class="window-bar">
             <span class="window-dot" aria-hidden="true"></span>
             <span>~/usage</span>
@@ -357,10 +385,7 @@ const examples = [
 
       <section class="section" aria-labelledby="reports-title">
         <div class="section-heading">
-          <div>
-            <p class="eyebrow">Ask a better question</p>
-            <h2 id="reports-title">Start with what you want to know.</h2>
-          </div>
+          <h2 id="reports-title">Start with what you want to know.</h2>
           <a class="text-link" href={link('reports')}>
             All reports →
           </a>
@@ -369,7 +394,7 @@ const examples = [
           {reports.map((report) => (
             <a class="report-card" href={link(report.slug)}>
               <div class="card-top">
-                <span class="eyebrow">{report.name}</span>
+                <span class="card-name">{report.name}</span>
                 <span aria-hidden="true">↗</span>
               </div>
               <h3>{report.question}</h3>
@@ -385,9 +410,33 @@ const examples = [
         </p>
       </section>
 
+      <section class="section inside" aria-labelledby="inside-title">
+        <div class="section-heading">
+          <div>
+            <h2 id="inside-title">A parsing library under a reporting CLI.</h2>
+            <p>
+              The {sources.length} source adapters live in <code>@ayagmar/agent-sessions</code>, a
+              package with no runtime dependencies that finds the logs, reads them, and yields one
+              event shape. The CLI adds the event store, pricing, other machines, and the reports.
+            </p>
+          </div>
+          <div class="inside-links">
+            <a class="text-link" href={link('architecture')}>
+              Read the architecture →
+            </a>
+            <a class="text-link" href={link('library')}>
+              Use the library →
+            </a>
+          </div>
+        </div>
+        <div class="diagrams">
+          <PackageLayers />
+          <EventFlow />
+        </div>
+      </section>
+
       <section class="section principles" aria-labelledby="principles-title">
         <div>
-          <p class="eyebrow">Know what you’re measuring</p>
           <h2 id="principles-title">
             Useful numbers.
             <br />
@@ -403,9 +452,7 @@ const examples = [
         </div>
         <dl>
           <div>
-            <dt>
-              <span>01</span> Your sessions stay on your machines
-            </dt>
+            <dt>Your sessions stay on your machines</dt>
             <dd>
               Parsing and reporting happen on your machines, and other machines are reached only
               over your own ssh. Online runs fetch pricing and check npm for updates; neither
@@ -413,20 +460,16 @@ const examples = [
             </dd>
           </div>
           <div>
-            <dt>
-              <span>02</span> Cost coverage is explicit
-            </dt>
+            <dt>Cost coverage is explicit</dt>
             <dd>
               Source-recorded cost is kept. Other events use available model pricing. A tilde marks
               partial cost; a dash means unresolved cost. Estimates may differ from your bill.
             </dd>
           </div>
           <div>
-            <dt>
-              <span>03</span> Keep the data useful outside the terminal
-            </dt>
+            <dt>Keep the data useful outside the terminal</dt>
             <dd>
-              Export versioned JSON, Markdown, normalized events, or supported share SVGs.
+              Export versioned JSON, Markdown, normalized events, or an interactive HTML report.
               Diagnostics stay separate from report data.{' '}
               <a href={link('output-formats')}>Choose an output format</a>.
             </dd>
@@ -436,7 +479,6 @@ const examples = [
 
       <section class="section quickstart" aria-labelledby="quickstart-title">
         <div>
-          <p class="eyebrow">From logs to a report</p>
           <h2 id="quickstart-title">Your first report is one command away.</h2>
           <p>Try it without installing. Standard source locations are discovered automatically.</p>
           <a class="button primary" href={link('getting-started')}>
@@ -444,7 +486,7 @@ const examples = [
           </a>
         </div>
         <div class="quickstart-code">
-          <span class="eyebrow">Try it now</span>
+          <span class="code-label">Try it now</span>
           <div class="install">
             <code>npx --yes llm-usage-metrics@latest</code>
             <button
@@ -471,6 +513,7 @@ const examples = [
       <nav aria-label="Footer">
         <a href={link('docs')}>Documentation</a>
         <a href={link('cli-reference')}>CLI reference</a>
+        <a href={link('library')}>Library</a>
         <a href={link('privacy')}>Privacy</a>
         <a href={`${base}llms.txt`}>llms.txt</a>
         <a href={link('benchmarks')}>Benchmarks</a>
@@ -482,6 +525,29 @@ const examples = [
 
     <script>
       const toggle = document.querySelector<HTMLButtonElement>('[data-theme-toggle]');
+      const demoReport = document.querySelector<HTMLIFrameElement>('[data-demo-report]');
+
+      // The demo report reads its theme from the URL hash (`theme=light|dark`), so it follows
+      // this page's theme and keeps the rest of the visitor's view when the theme changes.
+      function withTheme(hash: string, theme: string) {
+        const fields = hash
+          .replace(/^#/, '')
+          .split('&')
+          .filter((field) => field !== '' && !field.startsWith('theme='));
+        return `#${[...fields, `theme=${theme}`].join('&')}`;
+      }
+      function syncDemoTheme(theme: string) {
+        const view = demoReport?.contentWindow?.location;
+        if (!demoReport || !view) return;
+        // Until the report loads, the frame still shows its first blank page, and setting src
+        // replaces it. Afterwards location.replace keeps the visitor's history clean.
+        if (view.href === 'about:blank') {
+          demoReport.src = `${demoReport.dataset.src}${withTheme('', theme)}`;
+        } else {
+          view.replace(`${view.pathname}${withTheme(view.hash, theme)}`);
+        }
+      }
+
       function updateThemeControl() {
         const dark = document.documentElement.dataset.theme === 'dark';
         toggle?.setAttribute('aria-label', dark ? 'Use light theme' : 'Use dark theme');
@@ -498,8 +564,10 @@ const examples = [
           /* Theme still works without storage. */
         }
         updateThemeControl();
+        syncDemoTheme(theme);
       });
       updateThemeControl();
+      syncDemoTheme(document.documentElement.dataset.theme ?? 'dark');
       for (const button of document.querySelectorAll<HTMLButtonElement>('[data-copy]')) {
         let timeout: ReturnType<typeof setTimeout>;
         button.addEventListener('click', async () => {
@@ -516,15 +584,6 @@ const examples = [
           timeout = setTimeout(() => {
             button.textContent = 'Copy';
           }, 2500);
-        });
-      }
-      const controls = document.querySelectorAll<HTMLButtonElement>('[data-preview]');
-      for (const button of controls) {
-        button.addEventListener('click', () => {
-          for (const control of controls)
-            control.setAttribute('aria-pressed', String(control === button));
-          for (const panel of document.querySelectorAll<HTMLElement>('.preview-panel'))
-            panel.hidden = panel.id !== `preview-${button.dataset.preview}`;
         });
       }
     </script>
@@ -598,13 +657,17 @@ const examples = [
     color: var(--color-accent-hover);
   }
   .theme-toggle {
+    display: grid;
+    place-items: center;
     width: 40px;
     height: 40px;
     border: 1px solid var(--border-default);
     border-radius: 50%;
     background: var(--color-bg-card);
     color: var(--color-text);
-    font-size: 1.4rem;
+  }
+  .theme-toggle:hover {
+    border-color: var(--border-strong);
   }
   .skip-link {
     position: fixed;
@@ -640,8 +703,8 @@ const examples = [
     color: var(--color-accent);
     font-size: 0.6rem;
   }
-  .eyebrow {
-    margin: 0 0 1rem;
+  .code-label,
+  .card-name {
     font-family: var(--font-mono);
     font-size: 0.7rem;
     letter-spacing: 0.08em;
@@ -651,7 +714,7 @@ const examples = [
   h1 {
     margin: 0;
     font-size: clamp(2.7rem, 4.8vw, 4.4rem);
-    letter-spacing: -0.065em;
+    letter-spacing: -0.04em;
     line-height: 1.06;
     font-weight: 500;
   }
@@ -733,6 +796,33 @@ const examples = [
   .setup-note span {
     margin-inline: 0.35rem;
   }
+  figure {
+    margin: 0;
+  }
+  .hero-shot,
+  .shot {
+    /* Grid items: let the terminal shots scroll instead of widening the column. */
+    min-width: 0;
+  }
+  .hero-shot {
+    justify-self: center;
+    width: min(100%, 520px);
+  }
+  .hero-shot :global(.term-shot),
+  .shot :global(.term-shot) {
+    filter: drop-shadow(0 22px 40px var(--shadow-elevated));
+  }
+  figcaption {
+    margin-top: 0.9rem;
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+  }
+  .hero-shot figcaption {
+    text-align: center;
+  }
+  figcaption code {
+    color: var(--color-text-secondary);
+  }
   .report-preview {
     min-width: 0;
     border: 1px solid var(--border-strong);
@@ -740,10 +830,8 @@ const examples = [
     overflow: hidden;
     background: var(--color-bg-card);
     box-shadow: 0 24px 70px var(--shadow-color);
-    transform: rotate(-1deg);
   }
-  .window-bar,
-  .window-footer {
+  .window-bar {
     display: flex;
     align-items: center;
     gap: 0.6rem;
@@ -762,31 +850,8 @@ const examples = [
   .sample-label {
     margin-left: auto;
   }
-  .preview-controls {
-    display: flex;
-    gap: 0.2rem;
-    border-bottom: 1px solid var(--border-default);
-    padding: 0.7rem 1rem;
-  }
-  .preview-controls button {
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: 0.3rem;
-    padding: 0.5rem 0.7rem;
-    font-size: 0.75rem;
-    color: var(--color-text-muted);
-  }
-  .preview-controls button[aria-pressed='true'] {
-    color: var(--color-accent-hover);
-    border-color: var(--border-default);
-    background: var(--color-accent-subtle);
-  }
   .preview-panel {
     padding: 1.4rem;
-    min-height: 330px;
-  }
-  .preview-panel[hidden] {
-    display: none;
   }
   .command {
     margin: 0 0 1.8rem;
@@ -796,13 +861,6 @@ const examples = [
   }
   .command span {
     color: var(--color-accent);
-  }
-  .preview-panel h2 {
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    font-weight: 500;
-    margin: 0 0 1rem;
-    color: var(--color-text-muted);
   }
   table {
     border-collapse: collapse;
@@ -827,30 +885,6 @@ const examples = [
   tbody tr:last-child {
     color: var(--color-accent-hover);
   }
-  .preview-note {
-    margin-block: 1.2rem 0.8rem;
-    font-size: 0.74rem;
-    color: var(--color-text-muted);
-  }
-  pre {
-    font-size: 0.9rem;
-    color: var(--color-cyan);
-    line-height: 1.9;
-  }
-  .window-footer {
-    border-top: 1px solid var(--border-default);
-    font-family: var(--font-sans);
-    flex-wrap: wrap;
-  }
-  .window-footer .muted {
-    margin-left: auto;
-  }
-  .status-dot {
-    width: 0.35rem;
-    height: 0.35rem;
-    background: var(--color-cyan);
-    border-radius: 50%;
-  }
   .muted {
     color: var(--color-text-muted);
   }
@@ -865,8 +899,14 @@ const examples = [
     font-size: 1.5rem;
     font-weight: 500;
     line-height: 1.3;
-    letter-spacing: -0.035em;
-    margin-block: 0 1rem;
+    letter-spacing: -0.03em;
+    margin-block: 0 0.8rem;
+  }
+  .sources-strip p {
+    margin: 0 0 1rem;
+    max-width: 30ch;
+    font-size: 0.86rem;
+    color: var(--color-text-muted);
   }
   .sources-strip ul {
     list-style: none;
@@ -893,7 +933,7 @@ const examples = [
   }
   .sources-strip li span {
     color: var(--color-text-muted);
-    font-size: 0.55rem;
+    font-size: 0.62rem;
     align-self: center;
   }
   .section {
@@ -909,13 +949,89 @@ const examples = [
   .section h2 {
     font-size: clamp(1.8rem, 3vw, 2.5rem);
     line-height: 1.16;
-    letter-spacing: -0.045em;
+    letter-spacing: -0.04em;
     font-weight: 500;
     margin: 0;
     text-wrap: balance;
   }
-  .section-heading > a {
+  .section-heading > a,
+  .inside-links {
     flex-shrink: 0;
+  }
+  .section-heading p,
+  .projects-copy p {
+    max-width: 62ch;
+    margin: 1rem 0 0;
+    color: var(--color-text-muted);
+    font-size: 0.93rem;
+  }
+  p code,
+  .command-list code {
+    font-size: 0.85em;
+    color: var(--color-text-secondary);
+  }
+  .projects {
+    display: grid;
+    grid-template-columns: 0.75fr 1.25fr;
+    gap: 4rem;
+    align-items: center;
+    border-bottom: 1px solid var(--border-default);
+  }
+  .command-list {
+    list-style: none;
+    margin: 1.6rem 0;
+    padding: 0;
+    font-size: 0.86rem;
+    color: var(--color-text-muted);
+  }
+  .command-list li {
+    display: grid;
+    gap: 0.2rem;
+    padding-block: 0.75rem;
+    border-top: 1px solid var(--border-default);
+  }
+  .command-list code {
+    color: var(--color-accent-hover);
+  }
+  .live {
+    border-bottom: 1px solid var(--border-default);
+  }
+  .live-frame {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--color-bg-card);
+    box-shadow: 0 24px 70px var(--shadow-color);
+  }
+  .live-frame iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+  .live-figure figcaption {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.6rem 1.5rem;
+  }
+  .inside-links {
+    display: grid;
+    gap: 0.6rem;
+    justify-items: end;
+  }
+  .diagrams {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2rem;
+    align-items: start;
+  }
+  .diagrams :global(.dg) {
+    margin: 0;
+    max-width: none;
   }
   .report-grid {
     display: grid;
@@ -942,6 +1058,9 @@ const examples = [
     align-items: start;
     justify-content: space-between;
     color: var(--color-accent);
+  }
+  .card-name {
+    font-size: 0.66rem;
   }
   .report-card h3 {
     font-size: 1.25rem;
@@ -981,6 +1100,9 @@ const examples = [
     align-items: center;
     border-bottom: 1px solid var(--border-default);
   }
+  .machines h2 {
+    margin-bottom: 1rem;
+  }
   .machines p {
     color: var(--color-text-muted);
     font-size: 0.93rem;
@@ -991,9 +1113,6 @@ const examples = [
   }
   .machines table {
     margin-top: 1.2rem;
-  }
-  .report-preview.flat {
-    transform: none;
   }
   .principles {
     display: grid;
@@ -1013,14 +1132,8 @@ const examples = [
     font-weight: 500;
     font-size: 1rem;
   }
-  dt span {
-    font-family: var(--font-mono);
-    color: var(--color-accent);
-    font-size: 0.72rem;
-    margin-right: 0.8rem;
-  }
   dd {
-    margin: 0.6rem 0 0 2rem;
+    margin: 0.6rem 0 0;
     color: var(--color-text-muted);
     font-size: 0.86rem;
   }
@@ -1030,9 +1143,16 @@ const examples = [
     gap: 4rem;
     align-items: center;
   }
+  .quickstart h2 {
+    margin-bottom: 1rem;
+  }
   .quickstart p {
     color: var(--color-text-muted);
     font-size: 0.93rem;
+  }
+  .code-label {
+    display: block;
+    margin-bottom: 1rem;
   }
   .quickstart .button {
     margin-top: 0.7rem;
@@ -1093,8 +1213,14 @@ const examples = [
       grid-template-columns: repeat(3, 1fr);
     }
     .principles,
-    .machines {
+    .machines,
+    .projects {
       gap: 2.5rem;
+    }
+    .diagrams {
+      grid-template-columns: minmax(0, 1fr);
+      max-width: 34rem;
+      margin-inline: auto;
     }
   }
   @media (max-width: 800px) {
@@ -1108,12 +1234,6 @@ const examples = [
     }
     .hero-copy {
       max-width: 620px;
-    }
-    .report-preview {
-      transform: none;
-    }
-    .preview-panel {
-      min-height: 300px;
     }
     .sources-strip {
       grid-template-columns: 1fr;
@@ -1129,9 +1249,20 @@ const examples = [
     }
     .principles,
     .machines,
+    .projects,
     .quickstart {
       grid-template-columns: 1fr;
       gap: 2.5rem;
+    }
+    .section-heading {
+      align-items: start;
+      flex-direction: column;
+    }
+    .inside-links {
+      justify-items: start;
+    }
+    .live-frame {
+      aspect-ratio: 3 / 4;
     }
     .section {
       padding-block: 3rem;
@@ -1155,27 +1286,14 @@ const examples = [
     .report-grid {
       grid-template-columns: 1fr;
     }
-    .section-heading {
-      align-items: start;
-      flex-direction: column;
-    }
     .preview-panel {
       padding: 1rem;
-    }
-    .preview-controls {
-      padding-inline: 0.5rem;
-    }
-    .preview-controls button {
-      padding-inline: 0.6rem;
     }
     table {
       font-size: 0.65rem;
     }
     .quickstart-code {
       padding: 1.1rem;
-    }
-    .window-footer .muted {
-      margin-left: 0;
     }
   }
 </style>

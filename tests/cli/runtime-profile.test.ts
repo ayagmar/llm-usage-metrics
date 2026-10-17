@@ -33,7 +33,7 @@ describe('runtime-profile', () => {
     profile.recordParseResult('codex', { filesFound: 1, eventsParsed: 3 });
     profile.recordParseWorkerResult('codex', {
       status: 'engaged',
-      workerCount: 2,
+      workerLimit: 2,
       missedBytes: 1024,
     });
     profile.recordStageDuration('usage.dataset.parse', 12.34);
@@ -49,7 +49,7 @@ describe('runtime-profile', () => {
     expect(diagnosticsLogger.dim).toHaveBeenCalledWith('  event store: hits=1; misses=1');
     expect(diagnosticsLogger.dim).toHaveBeenCalledWith('  parse totals: files=3; events=8');
     expect(diagnosticsLogger.dim).toHaveBeenCalledWith(
-      '  source codex: files=1; events=3; eventStoreHits=0; eventStoreMisses=1; parseWorkers=engaged; parseWorkerCount=2; parseWorkerMissedBytes=1024',
+      '  source codex: files=1; events=3; eventStoreHits=0; eventStoreMisses=1; parseWorkers=engaged; parseWorkerLimit=2; parseWorkerMissedBytes=1024',
     );
     expect(diagnosticsLogger.dim).toHaveBeenCalledWith(
       '  source pi: files=2; events=5; eventStoreHits=1; eventStoreMisses=0',

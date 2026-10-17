@@ -1,11 +1,8 @@
 import { markdownTable } from 'markdown-table';
 import pc from 'picocolors';
 
-import type {
-  CompareDataResult,
-  CompareMetricRow,
-  CompareSourceRow,
-} from '../cli/usage-data-contracts.js';
+import type { CompareProjectRow, CompareReportData } from '../cli/build-compare-data.js';
+import type { CompareMetricRow, CompareSourceRow } from '../cli/usage-data-contracts.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { resolveTtyColumns } from './table-text-layout.js';
@@ -36,6 +33,7 @@ const percentFormatter = new Intl.NumberFormat('en-US', {
 
 const compareTableHeaders = ['Metric', 'Current', 'Baseline', 'Δ', 'Δ%'] as const;
 const sourceTableHeaders = ['Source', 'Current', 'Baseline', 'Δ', 'Δ%'] as const;
+const projectTableHeaders = ['Project', 'Current', 'Baseline', 'Δ', 'Δ%'] as const;
 
 function formatInteger(value: number | undefined, options: { signed?: boolean } = {}): string {
   if (value === undefined) {
@@ -121,6 +119,18 @@ function toMetricTableRow(row: CompareMetricRow, useColor: boolean): string[] {
 }
 
 function toSourceTableRow(row: CompareSourceRow, useColor: boolean): string[] {
+  return toCostTableRow(row.source, row, useColor);
+}
+
+function toProjectTableRow(row: CompareProjectRow, useColor: boolean): string[] {
+  return toCostTableRow(row.project, row, useColor);
+}
+
+function toCostTableRow(
+  name: string,
+  row: Omit<CompareSourceRow, 'source'>,
+  useColor: boolean,
+): string[] {
   const delta = formatUsd(row.delta.costUsd, {
     approximate: row.delta.costIncomplete,
     signed: true,
@@ -128,7 +138,7 @@ function toSourceTableRow(row: CompareSourceRow, useColor: boolean): string[] {
   const deltaRatio = formatPercent(row.deltaRatio.costUsd);
 
   return [
-    row.source,
+    name,
     formatUsd(row.current.costUsd, { approximate: row.current.costIncomplete }),
     formatUsd(row.baseline.costUsd, { approximate: row.baseline.costIncomplete }),
     colorizeDelta(delta, row.delta.costUsd, useColor),
@@ -155,18 +165,19 @@ function renderTerminalTable(options: {
     measureBodyRows: options.bodyRows,
     rowMetas: createRowMetas(options.bodyRows.length),
     layout: 'compact',
+    columnKinds: options.headerCells.map((_, index) => (index === 0 ? 'text' : 'measure')),
     multilineColumnIndex: 0,
     multilineColumnWidth: options.firstColumnWidth,
     terminalWidth: resolveTtyColumns(process.stdout),
   });
 }
 
-function hasNoUsage(compareData: CompareDataResult): boolean {
+function hasNoUsage(compareData: CompareReportData): boolean {
   return compareData.current.totals.events === 0 && compareData.baseline.totals.events === 0;
 }
 
 function renderTerminalCompareReport(
-  compareData: CompareDataResult,
+  compareData: CompareReportData,
   options: RenderCompareReportOptions,
 ): string {
   const useColor = options.useColor ?? shouldUseColorByDefault();
@@ -202,6 +213,18 @@ function renderTerminalCompareReport(
     }),
   );
 
+  if (compareData.projects) {
+    lines.push('');
+    lines.push('By project (cost)');
+    lines.push(
+      renderTerminalTable({
+        headerCells: projectTableHeaders,
+        bodyRows: compareData.projects.map((row) => toProjectTableRow(row, useColor)),
+        firstColumnWidth: 14,
+      }),
+    );
+  }
+
   return lines.join('\n');
 }
 
@@ -212,7 +235,19 @@ function renderMarkdownRows(headers: readonly string[], rows: string[][]): strin
   );
 }
 
-function renderMarkdownCompareReport(compareData: CompareDataResult): string {
+function renderMarkdownCompareReport(compareData: CompareReportData): string {
+  const projectSection = compareData.projects
+    ? [
+        '',
+        '### By project (cost)',
+        '',
+        renderMarkdownRows(
+          projectTableHeaders,
+          compareData.projects.map((row) => toProjectTableRow(row, false)),
+        ),
+      ]
+    : [];
+
   return [
     `### Compare: ${toMarkdownSafeCell(compareData.current.window.label)} vs ${toMarkdownSafeCell(
       compareData.baseline.window.label,
@@ -229,11 +264,12 @@ function renderMarkdownCompareReport(compareData: CompareDataResult): string {
       sourceTableHeaders,
       compareData.sources.map((row) => toSourceTableRow(row, false)),
     ),
+    ...projectSection,
   ].join('\n');
 }
 
 export function renderCompareReport(
-  compareData: CompareDataResult,
+  compareData: CompareReportData,
   format: CompareReportFormat,
   options: RenderCompareReportOptions = {},
 ): string {
@@ -244,6 +280,7 @@ export function renderCompareReport(
         baseline: compareData.baseline,
         totals: compareData.totals,
         sources: compareData.sources,
+        projects: compareData.projects,
       });
     case 'markdown':
       return renderMarkdownCompareReport(compareData);

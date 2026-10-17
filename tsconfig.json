@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2022",
+    "lib": ["ES2022"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "strict": true,
@@ -9,7 +10,12 @@
     "skipLibCheck": true,
     "outDir": "dist",
     "rootDir": ".",
-    "types": ["node", "vitest/globals"]
+    "types": ["node", "vitest/globals"],
+    "paths": {
+      "@ayagmar/agent-sessions": ["./packages/core/src/index.ts"],
+      "@ayagmar/agent-sessions/*": ["./packages/core/src/*/index.ts"]
+    }
   },
-  "include": ["src", "tests", "vitest.config.ts", "eslint.config.js"]
+  "include": ["src", "tests", "vitest.config.ts", "eslint.config.js"],
+  "exclude": ["src/share-report/client/ui/**", "tests/share-report/client/ui/**"]
 }

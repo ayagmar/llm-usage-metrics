@@ -6,7 +6,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { buildUsageReport, runUsageReport } from '../../src/cli/run-usage-report.js';
-import { withSuppressedSqliteExperimentalWarning } from '../../src/sources/opencode/sqlite-warning-suppression.js';
+import { withSuppressedSqliteExperimentalWarning } from '../helpers/sqlite-fixture-db.js';
 
 type OpenCodeMessageFixture = {
   id: string;

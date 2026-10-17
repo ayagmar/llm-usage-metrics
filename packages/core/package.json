@@ -1,0 +1,116 @@
+{
+  "name": "@ayagmar/agent-sessions",
+  "version": "0.1.0",
+  "description": "Read-only parsers that normalize local coding-agent session logs into usage events",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22.16 <23 || >=24"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./internal": {
+      "types": "./dist/internal/index.d.ts",
+      "import": "./dist/internal/index.js"
+    },
+    "./otel": {
+      "types": "./dist/otel/index.d.ts",
+      "import": "./dist/otel/index.js"
+    },
+    "./registry": {
+      "types": "./dist/registry/index.d.ts",
+      "import": "./dist/registry/index.js"
+    },
+    "./sources/amp": {
+      "types": "./dist/sources/amp/index.d.ts",
+      "import": "./dist/sources/amp/index.js"
+    },
+    "./sources/antigravity": {
+      "types": "./dist/sources/antigravity/index.d.ts",
+      "import": "./dist/sources/antigravity/index.js"
+    },
+    "./sources/claude": {
+      "types": "./dist/sources/claude/index.d.ts",
+      "import": "./dist/sources/claude/index.js"
+    },
+    "./sources/cline": {
+      "types": "./dist/sources/cline/index.d.ts",
+      "import": "./dist/sources/cline/index.js"
+    },
+    "./sources/codex": {
+      "types": "./dist/sources/codex/index.d.ts",
+      "import": "./dist/sources/codex/index.js"
+    },
+    "./sources/copilot": {
+      "types": "./dist/sources/copilot/index.d.ts",
+      "import": "./dist/sources/copilot/index.js"
+    },
+    "./sources/droid": {
+      "types": "./dist/sources/droid/index.d.ts",
+      "import": "./dist/sources/droid/index.js"
+    },
+    "./sources/dsh": {
+      "types": "./dist/sources/dsh/index.d.ts",
+      "import": "./dist/sources/dsh/index.js"
+    },
+    "./sources/gemini": {
+      "types": "./dist/sources/gemini/index.d.ts",
+      "import": "./dist/sources/gemini/index.js"
+    },
+    "./sources/goose": {
+      "types": "./dist/sources/goose/index.d.ts",
+      "import": "./dist/sources/goose/index.js"
+    },
+    "./sources/kilocode": {
+      "types": "./dist/sources/kilocode/index.d.ts",
+      "import": "./dist/sources/kilocode/index.js"
+    },
+    "./sources/kimi": {
+      "types": "./dist/sources/kimi/index.d.ts",
+      "import": "./dist/sources/kimi/index.js"
+    },
+    "./sources/openclaw": {
+      "types": "./dist/sources/openclaw/index.d.ts",
+      "import": "./dist/sources/openclaw/index.js"
+    },
+    "./sources/opencode": {
+      "types": "./dist/sources/opencode/index.d.ts",
+      "import": "./dist/sources/opencode/index.js"
+    },
+    "./sources/pi": {
+      "types": "./dist/sources/pi/index.d.ts",
+      "import": "./dist/sources/pi/index.js"
+    },
+    "./sources/qwen": {
+      "types": "./dist/sources/qwen/index.d.ts",
+      "import": "./dist/sources/qwen/index.js"
+    },
+    "./sources/roocode": {
+      "types": "./dist/sources/roocode/index.d.ts",
+      "import": "./dist/sources/roocode/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run --coverage",
+    "test:fast": "vitest run --coverage.enabled=false",
+    "test:memory": "vitest run --coverage.enabled=false --silent=false tests/memory"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ayagmar/llm-usage-metrics",
+    "directory": "packages/core"
+  }
+}

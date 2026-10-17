@@ -1,8 +1,12 @@
+import { addHashCount, takeUncountedEvents } from '@ayagmar/agent-sessions/internal';
+
 import type { UsageEvent } from '../domain/usage-event.js';
 import { normalizeSourceId } from '../domain/usage-event.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
-import { computeEventContentHash, normalizeStoredEvent } from './event-store-codec.js';
+import { normalizeStoredEvent } from './event-store-codec.js';
 import { toNonNegativeInteger, toText, type EventStore } from './event-store-database.js';
+
+export { takeUncountedEvents };
 
 export type EventStoreHistoryDiscoveredFile = {
   source: string;
@@ -205,14 +209,6 @@ export function readUndiscoveredStoredFiles(
   }
 
   return undiscoveredFiles;
-}
-
-function addHashCount(target: Map<string, number>, hash: string, count: number): void {
-  if (count <= 0) {
-    return;
-  }
-
-  target.set(hash, (target.get(hash) ?? 0) + count);
 }
 
 // The live events reports count, per content hash, for the hashes departed files hold:
@@ -447,38 +443,6 @@ function addServedFileHashCounts(
   for (const [hash, count] of fileHashCounts.counts.entries()) {
     servedHashCounts.set(hash, Math.max(count, servedHashCounts.get(hash) ?? 0));
   }
-}
-
-/**
- * Leaves out a file's events that `countedHashes` already counts, per content hash, and
- * adds the rest to it; repeats within the file are kept. An identical content hash
- * covers the session id and timestamp, so it is the same event, not a lookalike: e.g. a
- * pi fork's copy of a parent session that is also counted from the parent or another fork.
- */
-export function takeUncountedEvents(
-  events: readonly UsageEvent[],
-  countedHashes: Map<string, number>,
-): UsageEvent[] {
-  const fileHashCounts = new Map<string, number>();
-  const keptHashes: string[] = [];
-  const keptEvents = events.filter((event) => {
-    const hash = computeEventContentHash(event);
-    const seen = (fileHashCounts.get(hash) ?? 0) + 1;
-    fileHashCounts.set(hash, seen);
-
-    if (seen <= (countedHashes.get(hash) ?? 0)) {
-      return false;
-    }
-
-    keptHashes.push(hash);
-    return true;
-  });
-
-  for (const hash of keptHashes) {
-    addHashCount(countedHashes, hash, 1);
-  }
-
-  return keptEvents;
 }
 
 // One joined read of every served file's events, ordered by the classification

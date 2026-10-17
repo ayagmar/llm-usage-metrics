@@ -19,10 +19,15 @@
           "type": "string"
         },
         "hostname": { "description": "Host name of the exporting machine.", "type": "string" },
-        "exportedAt": { "description": "ISO 8601 time of the export.", "type": "string" }
+        "exportedAt": { "description": "ISO 8601 time of the export.", "type": "string" },
+        "parserVersions": {
+          "description": "Source id to the parser version the export read it with. Optional: older exports leave it out, and readers that predate it ignore it.",
+          "type": "object",
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        }
       },
       "required": ["type", "format", "version", "cliVersion", "hostname", "exportedAt"],
-      "additionalProperties": false
+      "additionalProperties": true
     },
     "file": {
       "description": "The events of one counted file the reader does not hold at this revision.",

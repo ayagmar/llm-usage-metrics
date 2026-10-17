@@ -8,8 +8,9 @@ import {
 } from '../../src/cli/build-usage-data-inputs.js';
 import { RuntimeProfileCollector } from '../../src/cli/runtime-profile.js';
 import type { ReportCommandOptions } from '../../src/cli/usage-data-contracts.js';
-import { getSourceOverrideOptions } from '../../src/sources/create-default-adapters.js';
-import type { SourceAdapter } from '../../src/sources/source-adapter.js';
+import { getSourceOverrideOptions } from '../../src/cli/source-cli-options.js';
+import type { SourceAdapter } from '@ayagmar/agent-sessions';
+import { readFrom } from '../helpers/fake-read.js';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -221,19 +222,19 @@ describe('build-usage-data-inputs', () => {
       {
         id: 'pi',
         discoverFiles: async () => [],
-        parseFile: async () => [],
+        read: readFrom(async () => []),
       },
       {
         id: 'codex',
         capabilities: { fixedProviderRoots: ['openai'] },
         discoverFiles: async () => [],
-        parseFile: async () => [],
+        read: readFrom(async () => []),
       },
       {
         id: 'gemini',
         capabilities: { fixedProviderRoots: ['google'] },
         discoverFiles: async () => [],
-        parseFile: async () => [],
+        read: readFrom(async () => []),
       },
     ];
 
@@ -250,19 +251,19 @@ describe('build-usage-data-inputs', () => {
       {
         id: 'pi',
         discoverFiles: async () => [],
-        parseFile: async () => [],
+        read: readFrom(async () => []),
       },
       {
         id: 'claude',
         capabilities: { fixedProviderRoots: ['anthropic'] },
         discoverFiles: async () => [],
-        parseFile: async () => [],
+        read: readFrom(async () => []),
       },
       {
         id: 'kimi',
         capabilities: { fixedProviderRoots: ['moonshot'] },
         discoverFiles: async () => [],
-        parseFile: async () => [],
+        read: readFrom(async () => []),
       },
     ];
 
@@ -288,13 +289,13 @@ describe('build-usage-data-inputs', () => {
       {
         id: 'pi',
         discoverFiles: async () => [],
-        parseFile: async () => [],
+        read: readFrom(async () => []),
       },
       {
         id: 'gemini',
         capabilities: { fixedProviderRoots: ['google'] },
         discoverFiles: async () => [],
-        parseFile: async () => [],
+        read: readFrom(async () => []),
       },
     ];
     const runtimeProfile = new RuntimeProfileCollector();
@@ -318,7 +319,7 @@ describe('build-usage-data-inputs', () => {
         id: 'gemini',
         capabilities: { fixedProviderRoots: ['google'] },
         discoverFiles: async () => [],
-        parseFile: async () => [],
+        read: readFrom(async () => []),
       },
     ];
 

@@ -117,6 +117,28 @@ describe('readMachineExport', () => {
   });
 
   it.each([
+    [{ codex: 'n2.p1', pi: 5, '': 'n1.p1' }, { codex: 'n2.p1' }],
+    [{}, {}],
+    ['n2.p1', undefined],
+    [undefined, undefined],
+  ])('reads the parser versions %j of the header as %j', async (parserVersions, expected) => {
+    const bundle = await readMachineExport(
+      linesOf(
+        JSON.stringify({
+          type: 'header',
+          ...header,
+          format: MACHINE_EXPORT_FORMAT,
+          version: 1,
+          parserVersions,
+        }),
+        endLine([], 0),
+      ),
+    );
+
+    expect(bundle.header.parserVersions).toEqual(expected);
+  });
+
+  it.each([
     ['no lines', [], 'no header line'],
     ['no end line', [headerLine, fileLine()], 'ended early (no end line)'],
     [

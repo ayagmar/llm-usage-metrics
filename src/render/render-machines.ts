@@ -3,6 +3,8 @@ import type { MachineSyncState } from '../machines/machine-cache.js';
 import type { MachineUsageSummary } from '../machines/load-machine-usage.js';
 import { MACHINE_EXPORT_TIMEOUT_MARK } from '../machines/machine-ssh.js';
 import type { MachineSyncOutcome } from '../machines/sync-machine.js';
+import { pluralize } from './format-number.js';
+import { padEndVisible, visibleWidth } from './table-text-layout.js';
 
 const MAX_REASON_LENGTH = 300;
 
@@ -34,7 +36,7 @@ export function formatAge(ageMs: number): string {
 }
 
 function formatCachedTotals(fileCount: number, eventCount: number): string {
-  return `${integerFormat.format(fileCount)} file(s), ${integerFormat.format(eventCount)} event(s)`;
+  return `${pluralize(fileCount, 'file')}, ${pluralize(eventCount, 'event')}`;
 }
 
 function formatRemoteVersion(state: MachineSyncState): string {
@@ -54,7 +56,7 @@ export function renderSyncOutcome(outcome: MachineSyncOutcome, now: number): str
     const changes =
       result.receivedFileCount === 0 && result.removedFileCount === 0
         ? 'up to date'
-        : `${integerFormat.format(result.receivedFileCount)} file(s) updated, ${integerFormat.format(result.removedFileCount)} removed`;
+        : `${pluralize(result.receivedFileCount, 'file')} updated, ${integerFormat.format(result.removedFileCount)} removed`;
 
     return [
       `✓ ${outcome.name}: ${changes}; ${formatCachedTotals(result.fileCount, result.eventCount)} cached${formatRemoteVersion(outcome.state)}`,
@@ -103,12 +105,12 @@ export function renderMachineList(entries: readonly MachineListEntry[], now: num
     return ['No machines configured.', 'Add one with: llm-usage machine add <name> [user@host]'];
   }
 
-  const nameWidth = Math.max(...entries.map((entry) => entry.name.length));
-  const sshWidth = Math.max(...entries.map((entry) => entry.machine.ssh.length));
+  const nameWidth = Math.max(...entries.map((entry) => visibleWidth(entry.name)));
+  const sshWidth = Math.max(...entries.map((entry) => visibleWidth(entry.machine.ssh)));
 
   return entries.map(
     (entry) =>
-      `${entry.name.padEnd(nameWidth)}  ${entry.machine.ssh.padEnd(sshWidth)}  ${describeMachineStatus(entry, now)}`,
+      `${padEndVisible(entry.name, nameWidth)}  ${padEndVisible(entry.machine.ssh, sshWidth)}  ${describeMachineStatus(entry, now)}`,
   );
 }
 
@@ -134,10 +136,13 @@ function describeIncludedMachine(
 
   const details = [`synced ${formatAge(now - state.syncedAt)}`];
 
-  // Parsers change between versions, so a session copied to both machines may not match.
+  // Parsers change between versions, so a session copied to both machines may not match
+  // exactly. With the machine's parser versions recorded, the merge detects that.
   if (state.cliVersion && state.cliVersion !== localVersion) {
     details.push(
-      `llm-usage-metrics ${state.cliVersion} there; shared sessions may count twice until both run the same version`,
+      state.parserVersions
+        ? `llm-usage-metrics ${state.cliVersion} there; sessions it parses with other parser versions are matched by timestamp`
+        : `llm-usage-metrics ${state.cliVersion} there; shared sessions may count twice until it is synced after updating llm-usage`,
     );
   }
 
@@ -150,11 +155,12 @@ export function formatMachinesNote(
   now: number,
   localVersion: string,
 ): string {
-  const duplicateCount = machines.reduce((sum, machine) => sum + machine.duplicateCount, 0);
+  const leftOutCount = machines.reduce(
+    (sum, machine) => sum + machine.duplicateCount + machine.skewDroppedCount,
+    0,
+  );
   const duplicates =
-    duplicateCount > 0
-      ? `; left out ${integerFormat.format(duplicateCount)} event(s) already counted`
-      : '';
+    leftOutCount > 0 ? `; left out ${pluralize(leftOutCount, 'event')} already counted` : '';
 
   return `Machines: ${machines.map((machine) => describeIncludedMachine(machine, now, localVersion)).join(', ')}${duplicates}.`;
 }

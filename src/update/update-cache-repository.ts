@@ -213,7 +213,7 @@ async function fetchLatestVersion(
   let payload: unknown;
 
   try {
-    payload = (await response.json()) as unknown;
+    payload = await response.json();
   } catch {
     return undefined;
   }

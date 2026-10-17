@@ -7,7 +7,7 @@ description: Check where each source is searched, whether usage is readable, and
 
 ## Command structure
 
-```bash
+```text
 llm-usage doctor [options]
 ```
 
@@ -25,12 +25,13 @@ llm-usage doctor --json
 - `--source <name>`: probe only the named sources (repeatable or comma-separated)
 - source-path overrides (`--pi-dir`, `--codex-dir`, `--opencode-db`, `--source-dir`, …): probe a custom location
 - `--json`: emit the result as JSON
+- `--quiet` and `--verbose`: less or more on `stderr`
 
 `doctor` reads the same user config as the reports, so configured `sourceDirs` and `eventStore` paths are probed and its resolved config is printed on `stderr`.
 
 ## Output
 
-Doctor prints one line per source — a state glyph, the source id, its storage format (`jsonl`, `json`, or `sqlite`), and what was found — followed by the paths it searched, then a summary. Each source is in one of four states:
+Doctor prints one line per source (a state glyph, the source id, its storage format `jsonl`, `json`, or `sqlite`, and what was found), followed by the paths it searched, then a summary. Each source is in one of four states:
 
 | Glyph | State           | Meaning                                                                                                                                                   |
 | ----- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -74,8 +75,8 @@ Each machine added with [`machine add`](/llm-usage-metrics/machines/) gets a `ma
         "id": "pi",
         "format": "jsonl",
         "status": "ok",
-        "state": "found",
         "itemsFound": 519,
+        "state": "found",
         "searchedPaths": ["/home/me/.pi/agent/sessions", "/home/me/.omp/agent/sessions"]
       },
       {

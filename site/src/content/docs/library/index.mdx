@@ -1,0 +1,63 @@
+---
+title: 'Library overview'
+description: 'Read local AI coding agent sessions from Node.js with @ayagmar/agent-sessions.'
+---
+
+`@ayagmar/agent-sessions` is the parsing layer of `llm-usage-metrics`, as its own package. It finds the session logs and databases that 17 coding agents write to disk, and turns each into one event shape: token usage, and for claude, codex and pi also messages, tool calls and session facts. Use it when you want those numbers in your own script or tool without the CLI's pricing, ledger and reports.
+
+```ts
+import { createSourceContext, kinds, pipe } from '@ayagmar/agent-sessions';
+import { readSources } from '@ayagmar/agent-sessions/registry';
+
+const context = createSourceContext();
+
+for await (const usage of pipe(readSources(context, ['claude', 'codex']), kinds('usage'))) {
+  console.log(usage.source, usage.model, usage.totalTokens);
+}
+```
+
+## Install
+
+The package is not on npm yet: its `package.json` is marked `private` while the 0.x API settles. To use it now, build and pack it from a checkout of the repository:
+
+```bash
+git clone https://github.com/ayagmar/llm-usage-metrics.git
+cd llm-usage-metrics
+pnpm install
+pnpm run core:build
+cd packages/core
+pnpm pack
+```
+
+`pnpm pack` writes `ayagmar-agent-sessions-<version>.tgz`. Install that file in your project with `npm install /path/to/ayagmar-agent-sessions-<version>.tgz`.
+
+- **No dependencies.** The manifest lists none, and `pnpm run core:pack:check` fails if one appears.
+- **Node.js 22.16+ or 24+**, not 23 (`engines` in its `package.json`). The SQLite sources (opencode, goose, antigravity) use the built-in `node:sqlite`.
+- **ESM only**, with TypeScript declarations for every entry point.
+
+## Entry points
+
+| Import                                 | What it holds                                                                                                                                                                                         |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@ayagmar/agent-sessions`              | The event types and constructors, the `SourceAdapter` contract, `createSourceContext`, `readEvents`, `collect`, `collectFile`, `pipe` and its stages (`kinds`, `since`, `until`, `bySession`, the dedup stages), and the version helpers. Loads no source. |
+| `@ayagmar/agent-sessions/registry`     | Every source in a fixed order: `readSources`, `createDefaultAdapters`, `getDefaultSourceIds` and `getSourceStorageFormat`. Loads every source.                                                       |
+| `@ayagmar/agent-sessions/sources/<id>` | One adapter class per source, such as `ClaudeSourceAdapter` from `sources/claude`. Loads no other source, except that `roocode` and `kilocode` load `cline`, which builds them.                       |
+| `@ayagmar/agent-sessions/otel`         | Experimental OpenTelemetry GenAI attributes for events.                                                                                                                                                |
+| `@ayagmar/agent-sessions/internal`     | Helpers the CLI uses. Not a public API.                                                                                                                                                                |
+
+The source ids are `pi`, `codex`, `gemini`, `droid`, `opencode`, `openclaw`, `claude`, `copilot`, `goose`, `amp`, `qwen`, `kimi`, `cline`, `roocode`, `kilocode`, `antigravity` and `dsh`. Where each one reads by default is on its [source page](/llm-usage-metrics/sources/) and in the package README.
+
+## What it reads, and what it does not do
+
+- **Read-only.** Adapters open files and databases for reading only. SQLite databases are opened read-only; SQLite itself may still update a WAL database's `-shm` index, as any reader does. The package writes no files.
+- **No network.** It imports no network module and calls no network API, and lint enforces both.
+- **Nothing read at import.** Importing any entry point reads no file, environment variable or home directory. The home directory, environment and platform come from a `SourceContext`, filled when you call `createSourceContext()` or build an adapter.
+- **Private text is opt-in.** Message text and session titles are set only with `text: true`, and the parsed source record only with `raw: true`. Without them, events carry counts, ids, models, timestamps, `cwd`, `repoRoot` and `gitBranch`.
+- **No console output.** Problems an adapter does not throw for go to `context.onDiagnostic`, when you set one.
+
+## Where to go next
+
+- [Reading and composing](/llm-usage-metrics/library/guide/): read one file or every source, pick event kinds, and compose the dedup stages yourself.
+- [Versioning and cursors](/llm-usage-metrics/library/contracts/): what semver covers, when stored events go stale, and resuming a read.
+- The [package README](https://github.com/ayagmar/llm-usage-metrics/tree/master/packages/core#readme) has the full reference: per-source memory use, event field tables, diagnostic codes and the mapping from each agent's records.
+- [`examples/session-forensics.ts`](https://github.com/ayagmar/llm-usage-metrics/blob/master/packages/core/examples/session-forensics.ts) reports tokens, cache hit ratio and repeated prompts per session.

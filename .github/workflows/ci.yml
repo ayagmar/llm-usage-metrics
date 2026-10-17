@@ -112,6 +112,7 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
+      - run: pnpm run dist:size
       - run: pnpm run pack:check
 
   main-test:
@@ -214,7 +215,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
       - run: pnpm run smoke:dist-opencode
+      - run: pnpm run smoke:sqlite-warning
       - run: pnpm exec vitest run --coverage.enabled=false
+      - run: pnpm run core:test:fast
 
   main-bun:
     name: Main - Bun smoke
@@ -242,6 +245,61 @@ jobs:
       - run: pnpm run smoke:dist-bun
       # The OpenCode source reads SQLite through node:sqlite, which Bun provides.
       - run: bun scripts/smoke-dist-opencode.mjs
+
+  # Core package (@ayagmar/agent-sessions): its own build, lint, types, tests and gate.
+  core-verify:
+    name: Core - Verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 12.9.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.21.0'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run core:build
+      # Packs core, checks its files, zero dependencies and exports targets, then installs the
+      # tarball and checks that every subpath loads alone and bundles no other source.
+      - run: pnpm run core:pack:check
+      - run: pnpm run core:lint
+      - run: pnpm run core:typecheck
+      - run: pnpm run core:test
+        env:
+          REQUIRE_CORE_DIST: '1'
+      - name: Enforce core coverage threshold
+        run: node .github/scripts/check-coverage-threshold.mjs packages/core/coverage/coverage-summary.json
+
+  # Not in ci-status yet: its ceilings come from a 32-core dev machine. Add it to ci-status
+  # once it has run green on a GitHub runner.
+  core-memory:
+    name: Core - Memory
+    runs-on: ubuntu-latest
+    # ~1.5 min of tests on a 32-core dev machine with a tmpfs temp dir; fixtures peak at ~2 GB.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 12.9.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.21.0'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run core:build
+      - run: pnpm run core:test:memory
+        env:
+          CORE_MEMORY_TEST: '1'
 
   # Site validation (parallel)
   site-format:
@@ -303,6 +361,7 @@ jobs:
       - run: pnpm run site:docs:generate -- --rebuild
       - run: git diff --exit-code -- site/src/content/docs/cli-reference.mdx site/src/content/docs/security.mdx
       - run: pnpm run site:build
+      - run: pnpm run site:links
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: site-dist
@@ -322,6 +381,7 @@ jobs:
         main-test,
         main-test-matrix,
         main-bun,
+        core-verify,
         site-format,
         site-check,
         site-build,
@@ -335,6 +395,7 @@ jobs:
       MAIN_TEST_RESULT: ${{ needs.main-test.result }}
       MAIN_TEST_MATRIX_RESULT: ${{ needs.main-test-matrix.result }}
       MAIN_BUN_RESULT: ${{ needs.main-bun.result }}
+      CORE_VERIFY_RESULT: ${{ needs.core-verify.result }}
       SITE_FORMAT_RESULT: ${{ needs.site-format.result }}
       SITE_CHECK_RESULT: ${{ needs.site-check.result }}
       SITE_BUILD_RESULT: ${{ needs.site-build.result }}
@@ -348,6 +409,7 @@ jobs:
              [ "$MAIN_TEST_RESULT" != "success" ] || \
              [ "$MAIN_TEST_MATRIX_RESULT" != "success" ] || \
              [ "$MAIN_BUN_RESULT" != "success" ] || \
+             [ "$CORE_VERIFY_RESULT" != "success" ] || \
              [ "$SITE_FORMAT_RESULT" != "success" ] || \
              [ "$SITE_CHECK_RESULT" != "success" ] || \
              [ "$SITE_BUILD_RESULT" != "success" ]; then
