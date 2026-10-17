@@ -22,6 +22,7 @@ import type {
   ToolsCommandOptions,
 } from '../usage-data-contracts.js';
 import {
+  DEFAULT_RECENT_DAYS,
   DEFAULT_REPORT_WINDOWS,
   getReportPeriodName,
   HOURLY_MAX_LAST_DAYS,
@@ -36,7 +37,6 @@ import { runPricingReport } from '../run-pricing-report.js';
 import { runProjectsReport } from '../run-projects-report.js';
 import { runSessionReport } from '../run-session-report.js';
 import { runToolsReport } from '../run-tools-report.js';
-import { TOOLS_DEFAULT_LAST_DAYS } from '../build-tools-data.js';
 import { runSummaryReport } from '../run-summary-report.js';
 import { runStatusline } from '../run-statusline.js';
 import { runTrendsReport } from '../run-trends-report.js';
@@ -284,7 +284,7 @@ function createUsageReportDefinition(granularity: ReportGranularity): ReportRunt
   };
 
   const descriptionByGranularity: Record<ReportGranularity, string> = {
-    daily: 'Show daily usage report (last 7 days unless --last, --since, --until, or --all)',
+    daily: `Show daily usage report (last ${String(DEFAULT_RECENT_DAYS)} days unless --last, --since, --until, or --all)`,
     weekly:
       'Show weekly usage report (week starts Monday; last 8 weeks unless --last, --since, --until, or --all)',
     monthly: 'Show monthly usage report',
@@ -558,8 +558,7 @@ const contextReportDefinition: ReportRuntimeDefinition = {
     commandName: 'context',
     docsLabel: 'context',
     kind: 'specialized',
-    description:
-      'Show peak prompt sizes per model or session, long-context requests and what their tier rates added (last 7 days unless --last, --since, --until, or --all)',
+    description: `Show peak prompt sizes per model or session, long-context requests and what their tier rates added (last ${String(DEFAULT_RECENT_DAYS)} days unless --last, --since, --until, or --all)`,
     sharedOptionProfile: 'session',
     helpExamples: [
       {
@@ -786,7 +785,7 @@ const toolsReportDefinition: ReportRuntimeDefinition = {
     commandName: 'tools',
     docsLabel: 'tools',
     kind: 'specialized',
-    description: `Show tool calls per tool with errors, error rate and sessions, most calls first, read from claude, codex and pi session files on disk (last ${String(TOOLS_DEFAULT_LAST_DAYS)} days unless --last, --since, --until, or --all)`,
+    description: `Show tool calls per tool with errors, error rate and sessions, most calls first, read from claude, codex and pi session files on disk (last ${String(DEFAULT_RECENT_DAYS)} days unless --last, --since, --until, or --all)`,
     sharedOptionProfile: 'tools',
     helpExamples: [
       {
@@ -815,11 +814,11 @@ const toolsReportDefinition: ReportRuntimeDefinition = {
       .option('--by-repo', 'Split each tool row by project (repository root)')
       .option(
         '--last <n>',
-        `Report the last N days, counting today (default ${String(TOOLS_DEFAULT_LAST_DAYS)})`,
+        `Report the last N days, counting today (default ${String(DEFAULT_RECENT_DAYS)})`,
       )
       .option(
         '--all',
-        `Report every tool call on disk instead of the last ${String(TOOLS_DEFAULT_LAST_DAYS)} days`,
+        `Report every tool call on disk instead of the last ${String(DEFAULT_RECENT_DAYS)} days`,
       );
     command
       .option(
@@ -875,15 +874,12 @@ const projectsReportDefinition: ReportRuntimeDefinition = {
   },
 };
 
-export const BLOCKS_DEFAULT_LAST_DAYS = 7;
-
 const blocksReportDefinition: ReportRuntimeDefinition = {
   meta: {
     commandName: 'blocks',
     docsLabel: 'blocks',
     kind: 'specialized',
-    description:
-      'Show estimated 5-hour usage blocks per source, across machines, with the active block (last 7 days unless --last, --since, --until, or --all; only meaningful for subscription plans)',
+    description: `Show estimated 5-hour usage blocks per source, across machines, with the active block (last ${String(DEFAULT_RECENT_DAYS)} days unless --last, --since, --until, or --all; only meaningful for subscription plans)`,
     sharedOptionProfile: 'rollup',
     helpExamples: [
       {
@@ -909,11 +905,11 @@ const blocksReportDefinition: ReportRuntimeDefinition = {
       )
       .option(
         '--last <n>',
-        `Report the last N days, counting today (default ${String(BLOCKS_DEFAULT_LAST_DAYS)})`,
+        `Report the last N days, counting today (default ${String(DEFAULT_RECENT_DAYS)})`,
       )
       .option(
         '--all',
-        `Report every block instead of the last ${String(BLOCKS_DEFAULT_LAST_DAYS)} days`,
+        `Report every block instead of the last ${String(DEFAULT_RECENT_DAYS)} days`,
       );
     addTableDisplayOptions(command, 'the table', ROLLUP_COMPACT_DESCRIPTION);
     addRepoFilterOption(command).action((options: BlocksCommandOptions) =>

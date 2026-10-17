@@ -34,7 +34,15 @@ function resolveTableLayout(options: ReportCommandOptions): UsageTableLayout {
   return options.perModelColumns ? 'per_model_columns' : 'compact';
 }
 
-export function getDefaultWindowHint(granularity: UsageGranularity, since: string): string[] {
+/**
+ * The hint after a report that covered its default window. `subject` names what a
+ * non-usage report shows (`blocks`, `tool calls`) and what is older (`usage`, `calls`).
+ */
+export function getDefaultWindowHint(
+  granularity: UsageGranularity,
+  since: string,
+  subject?: { label: string; older: string },
+): string[] {
   if (granularity === 'hourly') {
     return [
       `Showing today (${since}) hour by hour. Use --last N (up to ${String(HOURLY_MAX_LAST_DAYS)} days) or --since YYYY-MM-DD for earlier hours.`,
@@ -48,7 +56,7 @@ export function getDefaultWindowHint(granularity: UsageGranularity, since: strin
   }
 
   return [
-    `Showing the last ${String(defaultWindow.periods)} ${defaultWindow.period}s (since ${since}). Use --since YYYY-MM-DD or --all for older usage.`,
+    `Showing ${subject ? `${subject.label} of ` : ''}the last ${String(defaultWindow.periods)} ${defaultWindow.period}s (since ${since}). Use --since YYYY-MM-DD or --all for older ${subject?.older ?? 'usage'}.`,
   ];
 }
 

@@ -1,6 +1,5 @@
 import { renderBlocksReport, type BlocksReportFormat } from '../render/render-blocks-report.js';
 import { buildBlocksData } from './build-blocks-data.js';
-import { BLOCKS_DEFAULT_LAST_DAYS } from './report-definitions/report-definitions.js';
 import { hasCliFilters } from './filter-match-warnings.js';
 import {
   prepareReport,
@@ -8,6 +7,7 @@ import {
   STANDARD_REPORT_FORMATS,
 } from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
+import { getDefaultWindowHint } from './run-usage-report.js';
 import type { BlocksCommandOptions, BuildUsageDataDeps } from './usage-data-contracts.js';
 
 const blocksReportFormats = STANDARD_REPORT_FORMATS satisfies readonly BlocksReportFormat[];
@@ -38,9 +38,10 @@ async function prepareBlocksReport(options: BlocksCommandOptions, deps: BuildUsa
       }),
     getHintsAfterOutput: (blocksData) =>
       blocksData.defaultWindowSince
-        ? [
-            `Showing blocks of the last ${String(BLOCKS_DEFAULT_LAST_DAYS)} days (since ${blocksData.defaultWindowSince}). Use --since YYYY-MM-DD or --all for older usage.`,
-          ]
+        ? getDefaultWindowHint('daily', blocksData.defaultWindowSince, {
+            label: 'blocks',
+            older: 'usage',
+          })
         : [],
   });
 }

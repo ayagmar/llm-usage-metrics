@@ -37,12 +37,15 @@ type DefaultReportWindow = {
   period: ReportPeriodName;
 };
 
+/** Days `daily` and the day-window reports (`blocks`, `tools`, `context`) cover without dates. */
+export const DEFAULT_RECENT_DAYS = 7;
+
 /**
  * Granularities that report a recent window when no dates are given. `monthly` keeps full
  * history.
  */
 export const DEFAULT_REPORT_WINDOWS: Partial<Record<ReportGranularity, DefaultReportWindow>> = {
-  daily: { periods: 7, period: 'day' },
+  daily: { periods: DEFAULT_RECENT_DAYS, period: 'day' },
   weekly: { periods: 8, period: 'week' },
 };
 
