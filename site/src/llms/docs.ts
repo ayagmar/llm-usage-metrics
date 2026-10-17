@@ -1,10 +1,10 @@
 import { getCollection, type CollectionEntry } from 'astro:content';
+import { getDefaultSourceIds } from '../../../src/sources/create-default-adapters';
 import { sidebar } from '../sidebar.mjs';
 
 export const SITE_URL = 'https://ayagmar.github.io/llm-usage-metrics';
 
-export const SUMMARY =
-  'llm-usage-metrics is a local CLI that reads usage logs from AI coding tools and reports tokens, estimated cost, sessions, trends, and comparisons. Install with `npm i -g llm-usage-metrics` and run `llm-usage`.';
+export const SUMMARY = `llm-usage-metrics is a local CLI that reads session logs from ${getDefaultSourceIds().length} AI coding tools and reports tokens and estimated cost by day, hour, project, session, 5-hour block and subscription plan, with trends, comparisons and a self-contained interactive HTML report. Install with \`npm i -g llm-usage-metrics\` and run \`llm-usage\`. Its parsers are also a Node.js library, \`@ayagmar/agent-sessions\`, that reads the same logs as events.`;
 
 export type DocsSection = { label: string; entries: CollectionEntry<'docs'>[] };
 
