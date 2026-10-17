@@ -101,40 +101,24 @@ function resolveFetchDateRange(
   return undefined;
 }
 
+/** The fetch range, or for --until alone, from the earliest observed date to --until. */
 function resolveOutputDateRange(
   options: TrendsCommandOptions,
   today: string,
   days: number | undefined,
   observedDates: readonly string[],
 ): ResolvedDateRange {
-  if (days !== undefined) {
-    return resolveTrailingDateRange(today, days);
+  const fetchDateRange = resolveFetchDateRange(options, today, days);
+
+  if (fetchDateRange) {
+    return fetchDateRange;
   }
 
-  if (!options.since && !options.until) {
-    return resolveTrailingDateRange(today, 30);
-  }
-
-  if (options.since && options.until) {
-    return {
-      from: options.since,
-      to: options.until,
-    };
-  }
-
-  if (options.since) {
-    return {
-      from: options.since,
-      to: options.since > today ? options.since : today,
-    };
-  }
-
-  const earliestObservedDate = observedDates.at(0);
   const { until } = options;
   assertUntilDefined(until);
 
   return {
-    from: earliestObservedDate ?? until,
+    from: observedDates.at(0) ?? until,
     to: until,
   };
 }
