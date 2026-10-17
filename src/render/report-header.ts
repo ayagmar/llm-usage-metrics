@@ -48,11 +48,16 @@ export function renderReportHeader(options: ReportHeaderOptions): string {
 
 /**
  * The line a report prints instead of an empty table. `scope` names the window searched
- * (`in 2026`, `for the selected date range`); filters are named only when passed.
+ * (`in 2026`, `for the selected date range`); filters are named only when passed. `subject`
+ * names what was looked for.
  */
-export function formatNoUsageMessage(filtered: boolean, scope?: string): string {
+export function formatNoUsageMessage(
+  filtered: boolean,
+  scope?: string,
+  subject = 'usage data',
+): string {
   const scopeText = scope === undefined ? '' : ` ${scope}`;
   const filterText = filtered ? ' for the selected filters' : '';
 
-  return `No usage data found${scopeText}${filterText}.`;
+  return `No ${subject} found${scopeText}${filterText}.`;
 }
