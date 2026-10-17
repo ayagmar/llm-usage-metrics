@@ -107,7 +107,7 @@ On usage events, `inputTokens` excludes cache reads and writes, `outputTokens` i
 
 A stage is a function from one async iterable to another (`Stage<In, Out>`). `pipe(source, ...stages)` chains up to six.
 
-- `since(bound)` keeps events at or after `bound`, and `until(bound)` events before it. Bounds are compared as instants. A string with a time of day but no UTC offset (`'2026-06-01T10:00'`) throws, since it means different instants in different time zones. A bare ISO date is midnight UTC.
+- `since(bound)` keeps events at or after `bound`, and `until(bound)` events before it. Bounds are compared as instants. A string with a time of day but no UTC offset (`'2026-06-01T10:00'`) throws, since it means different instants in different time zones. A bare ISO date is midnight UTC; a date alone in another form (`'June 1, 2026'`) throws for the same reason.
 - `bySession()` groups events into `{ source, sessionId, events }` in the order each session first appears. It buffers its whole input.
 - `repeatedAcrossFiles()` takes one array of events per file, in file order, and drops usage an earlier file already yielded. Use it for sources with `capabilities.eventsRepeatAcrossFiles` (pi: forks of one parent each copy its entries).
 - `copiedSessions()` drops usage that a continued session copied from the session it continues, for sources with `capabilities.sessionsCopyEvents` (claude). It buffers its whole input, since which copy is kept depends on every session's first event.
