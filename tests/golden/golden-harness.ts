@@ -22,6 +22,7 @@ import { M9_TC_GOLDEN_NAMES } from './m9-tc-names.js';
 import { M9_USAGE_GOLDEN_NAMES } from './m9-usage-names.js';
 import { M9_VALUE_GOLDEN_NAMES } from './m9-value-names.js';
 import { M10_E2_GOLDEN_NAMES } from './m10-e2-names.js';
+import { M12_CONFIG_SHOW_GOLDEN_NAMES } from './m12-config-show-names.js';
 
 /** The day after the latest fixture event, so summary's windows hold June data. */
 export const FIXED_NOW = new Date('2026-06-21T12:00:00.000Z');
@@ -506,5 +507,7 @@ export async function listExpectedGoldenNames(): Promise<string[]> {
     ...M9_TC_GOLDEN_NAMES,
     // M10 cards' goldens, the same way.
     ...M10_E2_GOLDEN_NAMES,
+    // M12 cards' goldens.
+    ...M12_CONFIG_SHOW_GOLDEN_NAMES,
   ].sort();
 }

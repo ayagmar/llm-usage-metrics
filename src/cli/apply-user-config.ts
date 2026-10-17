@@ -129,7 +129,7 @@ function buildActiveConfig(
   };
 }
 
-function hasEnvOverride(env: NodeJS.ProcessEnv, name: string): boolean {
+export function hasEnvOverride(env: NodeJS.ProcessEnv, name: string): boolean {
   return env[name] !== undefined && env[name] !== '';
 }
 

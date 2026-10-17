@@ -13,7 +13,8 @@ export type SharedOptionProfile =
   | 'wrapped'
   | 'events'
   | 'statusline'
-  | 'doctor';
+  | 'doctor'
+  | 'config';
 
 export type ReportHelpExample = {
   command: string;
