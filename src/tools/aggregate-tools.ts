@@ -104,35 +104,6 @@ function compareRepoRoots(left: string | null, right: string | null): number {
 }
 
 /**
- * Counts a call a session copied from another (a resumed or forked transcript repeats the
- * same tool call id) once: the first copy read, with the status of the first copy that
- * has a result.
- */
-export function countToolCallsOnce(calls: readonly ToolCallEvent[]): ToolCallEvent[] {
-  const byId = new Map<string, number>();
-  const counted: ToolCallEvent[] = [];
-
-  for (const call of calls) {
-    if (call.toolCallId === undefined) {
-      counted.push(call);
-      continue;
-    }
-
-    const key = `${call.source}\0${call.toolCallId}`;
-    const index = byId.get(key);
-
-    if (index === undefined) {
-      byId.set(key, counted.length);
-      counted.push(call);
-    } else if (counted[index].status === 'unknown' && call.status !== 'unknown') {
-      counted[index] = { ...counted[index], status: call.status };
-    }
-  }
-
-  return counted;
-}
-
-/**
  * One row per tool name (split by source and project when asked), most calls first, then
  * by name, source and project; and the totals over every call.
  */

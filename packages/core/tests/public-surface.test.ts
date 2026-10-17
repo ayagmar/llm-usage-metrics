@@ -78,6 +78,8 @@ const EXPECTED_SURFACE: Record<string, readonly string[]> = {
     'bySession',
     'since',
     'until',
+    // M12
+    'dedupeToolCalls',
   ],
   './internal': [
     // T0

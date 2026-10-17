@@ -2,7 +2,7 @@ import { buildEventProjectLabels, toProjectKey } from '../aggregate/project-key.
 import { aggregateSessions, aggregateSessionsByRepo } from '../session/aggregate-sessions.js';
 import type { SessionRow } from '../session/session-row.js';
 import { buildSessionTimeline } from '../session/session-timeline.js';
-import { countToolCallsOnce } from '../tools/aggregate-tools.js';
+import { dedupeToolCalls } from '@ayagmar/agent-sessions';
 import { getPeriodKey } from '../utils/time-buckets.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import { getEventSessionKey, type UsageEvent } from '../domain/usage-event.js';
@@ -188,7 +188,7 @@ export async function buildSessionData(
       }),
     );
     // Counted once across copies, as `tools` counts them.
-    const toolCalls = countToolCallsOnce(live.events.filter((event) => event.kind === 'tool_call'));
+    const toolCalls = dedupeToolCalls(live.events.filter((event) => event.kind === 'tool_call'));
     const messages = live.events.filter((event) => event.kind === 'message');
 
     return {

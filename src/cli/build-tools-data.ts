@@ -1,4 +1,4 @@
-import { getEventSessionKey } from '@ayagmar/agent-sessions';
+import { dedupeToolCalls, getEventSessionKey } from '@ayagmar/agent-sessions';
 
 import {
   buildEventProjectLabels,
@@ -6,12 +6,7 @@ import {
   UNATTRIBUTED_PROJECT_LABEL,
 } from '../aggregate/project-key.js';
 import { LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
-import {
-  aggregateTools,
-  countToolCallsOnce,
-  type ToolRow,
-  type ToolTotals,
-} from '../tools/aggregate-tools.js';
+import { aggregateTools, type ToolRow, type ToolTotals } from '../tools/aggregate-tools.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
 import { resolveUsageDataRequest } from './build-usage-data.js';
 import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
@@ -114,7 +109,7 @@ export async function buildToolsData(
   const live = await measureRuntimeProfileStage(deps.runtimeProfile, 'tools.read_live', () =>
     readLiveSessionEvents(dataset, { kinds: ['tool_call'] }),
   );
-  const { rows, totals } = aggregateTools(countToolCallsOnce(live.events), {
+  const { rows, totals } = aggregateTools(dedupeToolCalls(live.events), {
     sessionRepoRoots: mapSessionRepoRoots(dataset.filteredEvents),
     bySource: options.bySource,
     byRepo: options.byRepo,

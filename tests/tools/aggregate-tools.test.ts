@@ -1,7 +1,7 @@
 import { createToolCallEvent, type ToolCallEvent } from '@ayagmar/agent-sessions';
 import { describe, expect, it } from 'vitest';
 
-import { aggregateTools, countToolCallsOnce } from '../../src/tools/aggregate-tools.js';
+import { aggregateTools } from '../../src/tools/aggregate-tools.js';
 
 function call(
   name: string,
@@ -129,28 +129,5 @@ describe('aggregateTools', () => {
     );
 
     expect(rows.map((row) => row.name)).toEqual(['c', 'a', 'b']);
-  });
-});
-
-describe('countToolCallsOnce', () => {
-  it('counts a call another session copied once, taking the status of the copy with a result', () => {
-    const calls = countToolCallsOnce([
-      call('Bash', 'unknown', { sessionId: 's1', toolCallId: 't1' }),
-      call('Bash', 'error', { sessionId: 's2', toolCallId: 't1' }),
-      call('Bash', 'ok', { sessionId: 's2', toolCallId: 't1' }),
-    ]);
-
-    expect(calls).toEqual([expect.objectContaining({ sessionId: 's1', status: 'error' })]);
-  });
-
-  it('keeps calls without an id, and the same id from two sources', () => {
-    const calls = countToolCallsOnce([
-      call('Bash', 'ok'),
-      call('Bash', 'ok'),
-      call('Bash', 'ok', { toolCallId: 't1' }),
-      call('Bash', 'ok', { source: 'codex', toolCallId: 't1' }),
-    ]);
-
-    expect(calls).toHaveLength(4);
   });
 });
