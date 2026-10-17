@@ -95,7 +95,7 @@ describe('config show: config file', () => {
     const stdout = await captureJsonStdout(() => runConfigShow({ json: true }));
 
     expect(JSON.parse(stdout)).toMatchObject({
-      report: 'config',
+      report: 'config-show',
       data: { configFile: { exists: true } },
     });
     expect(stdout).not.toContain('notAKey');
@@ -335,6 +335,6 @@ describe('config show: json', () => {
       runConfigShow({ json: true, pricingOverrides: path.join(caseDir, 'missing.json') }),
     );
 
-    validateReportOutput(compileReportValidators(), 'config', stdout);
+    validateReportOutput(compileReportValidators(), 'config-show', stdout);
   });
 });

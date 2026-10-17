@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://ayagmar.github.io/llm-usage-metrics/report-config.v1.schema.json",
+  "$id": "https://ayagmar.github.io/llm-usage-metrics/report-config-show.v1.schema.json",
   "title": "llm-usage-metrics config show output (v1)",
   "description": "Envelope and payload for config show --json output.",
   "type": "object",
@@ -11,7 +11,7 @@
   ],
   "properties": {
     "report": {
-      "const": "config"
+      "const": "config-show"
     },
     "data": {
       "description": "The effective setup: config file, source paths, event store, machines, pricing and defaults.",
