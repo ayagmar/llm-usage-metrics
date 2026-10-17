@@ -21,6 +21,21 @@
           "costUsd": 0
         },
         "sources": [],
+        "previous": {
+          "since": "2026-06-20",
+          "until": "2026-06-20",
+          "totals": {
+            "inputTokens": 0,
+            "outputTokens": 0,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "totalTokens": 0,
+            "events": 0,
+            "activeDays": 0,
+            "costUsd": 0
+          }
+        },
         "machines": []
       },
       {
@@ -40,6 +55,21 @@
           "costUsd": 0
         },
         "sources": [],
+        "previous": {
+          "since": "2026-06-08",
+          "until": "2026-06-14",
+          "totals": {
+            "inputTokens": 0,
+            "outputTokens": 0,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "totalTokens": 0,
+            "events": 0,
+            "activeDays": 0,
+            "costUsd": 0
+          }
+        },
         "machines": []
       },
       {
@@ -59,6 +89,21 @@
           "costUsd": 0
         },
         "sources": [],
+        "previous": {
+          "since": "2026-05-11",
+          "until": "2026-05-31",
+          "totals": {
+            "inputTokens": 0,
+            "outputTokens": 0,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "totalTokens": 0,
+            "events": 0,
+            "activeDays": 0,
+            "costUsd": 0
+          }
+        },
         "machines": []
       }
     ],
