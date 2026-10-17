@@ -218,6 +218,13 @@ function detectDefaultTimezone(): string {
   return 'UTC';
 }
 
+/** `--timezone` trimmed, else the system timezone (UTC when none is detected); validated. */
+export function resolveReportTimezone(timezone: string | undefined): string {
+  const resolved = timezone !== undefined ? timezone.trim() : detectDefaultTimezone();
+  validateTimezone(resolved);
+  return resolved;
+}
+
 export function normalizeBuildUsageInputs(
   options: ReportCommandOptions,
   /** The options as given on the command line, before config defaults were applied. */
@@ -225,9 +232,7 @@ export function normalizeBuildUsageInputs(
 ): NormalizedBuildUsageInputs {
   const { normalizedPricingUrl } = validateBuildOptions(options);
 
-  const timezone =
-    options.timezone !== undefined ? options.timezone.trim() : detectDefaultTimezone();
-  validateTimezone(timezone);
+  const timezone = resolveReportTimezone(options.timezone);
 
   const providerFilter = normalizeProviderFilter(options.provider);
   const sourceFilter = normalizeSourceFilter(options.source);

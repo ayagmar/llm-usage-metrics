@@ -9,7 +9,7 @@ import { createPricingRunStats, DEFAULT_PRICING_POLICY } from '../pricing/cost-e
 import { getCurrentLocalDateKey, getPeriodKey, shiftLocalDateKey } from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
-import { validateDateInput, validateTimezone } from './build-usage-data-inputs.js';
+import { resolveReportTimezone, validateDateInput } from './build-usage-data-inputs.js';
 import { parseLastOption } from './build-usage-data.js';
 import {
   applyPricingToUsageEventDataset,
@@ -348,9 +348,7 @@ export async function buildTrendsData(
   const userConfigResolution = await resolveUserConfigForOptions(options, deps);
   const configuredOptions = userConfigResolution.options as TrendsCommandOptions;
   const now = deps.now?.() ?? new Date();
-  const timezone =
-    configuredOptions.timezone?.trim() ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
-  validateTimezone(timezone);
+  const timezone = resolveReportTimezone(configuredOptions.timezone);
   const resolved = resolveTrendsOptions(configuredOptions, timezone, now);
   // Spike days need the cost of the days before the chart.
   const fetchFrom =

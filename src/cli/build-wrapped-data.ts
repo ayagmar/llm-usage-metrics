@@ -2,7 +2,7 @@ import { estimateCacheSavingsUsd } from '../pricing/cache-savings.js';
 import { aggregateWrapped } from '../wrapped/aggregate-wrapped.js';
 import { getCurrentLocalDateKey } from '../utils/time-buckets.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
-import { validateTimezone } from './build-usage-data-inputs.js';
+import { resolveReportTimezone } from './build-usage-data-inputs.js';
 import {
   applyPricingToUsageEventDataset,
   withPricingNotes,
@@ -55,9 +55,7 @@ export async function buildWrappedData(
   const userConfigResolution = await resolveUserConfigForOptions(options, deps);
   const configuredOptions = userConfigResolution.options as WrappedCommandOptions;
   const now = deps.now?.() ?? new Date();
-  const timezone =
-    configuredOptions.timezone?.trim() ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
-  validateTimezone(timezone);
+  const timezone = resolveReportTimezone(configuredOptions.timezone);
   const year = resolveWrappedYear(configuredOptions.year, timezone, now);
   const range = getWrappedYearRange(year);
   const datasetOptions = {
