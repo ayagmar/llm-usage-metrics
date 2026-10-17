@@ -107,7 +107,7 @@ function codePointDisplayWidth(character: string): number {
   return 1;
 }
 
-export function segmentGraphemes(value: string): string[] {
+function segmentGraphemes(value: string): string[] {
   return Array.from(graphemeSegmenter.segment(value), (segment) => segment.segment);
 }
 

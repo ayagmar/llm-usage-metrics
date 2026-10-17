@@ -53,7 +53,7 @@ export type MachineSyncResult = {
   eventCount: number;
 };
 
-export function getMachineCacheDirectory(): string {
+function getMachineCacheDirectory(): string {
   return path.join(path.dirname(getDefaultEventStorePath()), 'machines');
 }
 

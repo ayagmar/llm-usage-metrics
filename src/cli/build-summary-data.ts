@@ -68,7 +68,7 @@ export function resolveSummaryWindows(timezone: string, now: Date): SummaryWindo
  * The window a period is set against, by `compare`'s rules: month to date against the same days
  * of the previous month (clamped to its last day), the others against as many days just before.
  */
-export function resolvePreviousWindow(window: SummaryWindow): UsageDateWindow {
+function resolvePreviousWindow(window: SummaryWindow): UsageDateWindow {
   const { since, until } =
     window.key === 'monthToDate'
       ? createPreviousMonthToDateWindow(window)

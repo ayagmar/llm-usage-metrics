@@ -302,7 +302,7 @@ function resolveDirectories(
  * to the roots each source reads. A directory given on the command line must exist; a DB path
  * may be missing.
  */
-export function resolveSourceSelection(options: CreateDefaultAdaptersOptions): SourceSelection {
+function resolveSourceSelection(options: CreateDefaultAdaptersOptions): SourceSelection {
   const sourceIds = getDefaultSourceIds();
 
   for (const sourceId of sourceIds) {

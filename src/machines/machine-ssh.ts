@@ -14,7 +14,7 @@ import {
   type ParsedMachineExport,
 } from './machine-export-bundle.js';
 
-export const DEFAULT_MACHINE_COMMAND = 'llm-usage';
+const DEFAULT_MACHINE_COMMAND = 'llm-usage';
 /** Ends a timeout error, so callers can tell it from other failures. */
 export const MACHINE_EXPORT_TIMEOUT_MARK = 'timed out';
 
@@ -59,7 +59,7 @@ function buildSshArgs(target: string, remoteCommand: string): string[] {
   ];
 }
 
-export function buildSshExportArgs(machine: MachineConfig): string[] {
+function buildSshExportArgs(machine: MachineConfig): string[] {
   return buildSshArgs(
     machine.ssh,
     `${machine.command ?? DEFAULT_MACHINE_COMMAND} machine export --known - --quiet`,

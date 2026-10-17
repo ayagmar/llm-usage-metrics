@@ -31,7 +31,7 @@ export function isPathLike(value: string): boolean {
 }
 
 /** The last segment of a path, ignoring trailing separators; the value itself when it has none. */
-export function toBasename(value: string): string {
+function toBasename(value: string): string {
   const segments = value.split(/[\\/]/u).filter((segment) => segment.length > 0);
   return segments.at(-1) ?? value;
 }

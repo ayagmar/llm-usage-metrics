@@ -125,7 +125,7 @@ function toDailyLevel(
 }
 
 /** Intensity level of each value: 0 when not positive, else 1-4 by quartile of the positive values. */
-export function toActivityLevels(values: readonly number[]): ActivityLevel[] {
+function toActivityLevels(values: readonly number[]): ActivityLevel[] {
   const thresholds = toDailyLevelThresholds(values.filter((value) => value > 0));
   return values.map((value) => toDailyLevel(value, thresholds));
 }
