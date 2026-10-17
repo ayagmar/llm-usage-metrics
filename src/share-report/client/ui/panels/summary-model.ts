@@ -45,7 +45,7 @@ type Period = {
   totals: Record<string, unknown>;
   sources: Record<string, unknown>[];
   machines: Record<string, unknown>[];
-  /** The same number of days just before; absent in files from releases before it. */
+  /** The window the period is set against; absent in files from releases before it. */
   previous?: { since: string; until: string; totals: Record<string, unknown> };
 };
 
@@ -97,7 +97,7 @@ function topSource(period: Period): string {
   return share === undefined ? name : `${name} (${share})`;
 }
 
-/** The period's cost against the same number of days before it, as `compare` words a change. */
+/** The period's cost against its previous window, as `compare` words a change. */
 function costChange(period: Period): PanelCell {
   const { previous } = period;
   const costUsd = readNumber(period.totals, 'costUsd');

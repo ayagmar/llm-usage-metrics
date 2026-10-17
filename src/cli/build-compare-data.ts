@@ -132,7 +132,9 @@ function createDefaultCurrentWindow(timezone: string, now: Date): CompareWindowR
  * current window (clamped to that month's last day), so a partial month is never
  * compared against a full one.
  */
-function createPreviousMonthToDateWindow(current: CompareWindowRange): CompareWindowRange {
+export function createPreviousMonthToDateWindow(
+  current: Pick<CompareWindowRange, 'since' | 'until'>,
+): CompareWindowRange {
   const previousMonth = getPreviousMonthRange(current.since);
   const { day } = parseDateKey(current.until);
   const { year, month } = parseDateKey(previousMonth.since);
@@ -142,7 +144,9 @@ function createPreviousMonthToDateWindow(current: CompareWindowRange): CompareWi
   return createRange(previousMonth.since, until);
 }
 
-function createPreviousSameLengthWindow(current: CompareWindowRange): CompareWindowRange {
+export function createPreviousSameLengthWindow(
+  current: Pick<CompareWindowRange, 'since' | 'until'>,
+): CompareWindowRange {
   const dayCount = countInclusiveDays(current.since, current.until);
   const until = shiftLocalDateKey(current.since, -1);
   const since = shiftLocalDateKey(current.since, -dayCount);

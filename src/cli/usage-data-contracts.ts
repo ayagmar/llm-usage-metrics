@@ -411,7 +411,10 @@ export type SummaryPeriod = {
    * when the report counts other machines' usage (after its filters) in the past year.
    */
   machines?: SummaryMachineTotals[];
-  /** The same number of days immediately before the period; always set by `buildSummaryData`. */
+  /**
+   * The window the period is set against, as `compare` picks it; always set by
+   * `buildSummaryData`.
+   */
   previous?: SummaryPreviousPeriod;
 };
 
