@@ -96,7 +96,7 @@ describe('renderCompletionScript', () => {
     expect(bash).toMatch(/"efficiency"\|"efficiency "\*\) words="daily weekly monthly /u);
     expect(bash).toMatch(/"schema"\|"schema "\*\) words="summary usage /u);
     // A subcommand's options belong to it, matched before its parent.
-    expect(bash).toMatch(/"config init"\|"config init "\*\) words="--force --help"/u);
+    expect(bash).toMatch(/"config init"\|"config init "\*\) words="--force --help-all --help"/u);
     expect(bash).toMatch(/"config"\|"config "\*\) words="init show path --help"/u);
     expect(bash.indexOf('"config init"')).toBeLessThan(bash.indexOf('"config"|'));
     expect(render('fish')).toMatch(/__fish_seen_subcommand_from init' -l force/u);
