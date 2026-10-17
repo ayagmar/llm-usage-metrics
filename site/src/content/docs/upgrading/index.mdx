@@ -26,13 +26,11 @@ These changes are on the main branch and not yet in a release.
 
 ### Reports and output
 
-- **`value` default plan.** Without `--plan`, `value` compared against `claude-max-20x` and failed when a source filter left claude out. It now uses the first of `claude-max-20x` and `chatgpt-pro-200` whose sources the filter keeps.
 - **`events` CSV** gains a `cacheWrite1hTokens` column, appended after `machine`. Scripts that read columns by position keep working; scripts that check the column count need one more.
 - **`session` table.** The `Repo` column is now `Project`, labelled as the [projects report](/llm-usage-metrics/projects/) labels it: folders with the same name stay apart, and sessions with no repository read `(unattributed)`.
 - **Terminal tables** align text left and numbers right in every report, including the stacked list on narrow terminals. `prune` and `doctor` say `1 file` and `2 files` instead of `file(s)`. `trends` uses whole token ticks on its axis and the tables' compact number style. Efficiency and optimize print the shared no-usage message instead of an all-zero table.
-- **`hourly` JSON** marks the row of a local hour that occurs twice (a DST fall-back) with `repeatedHour: true`.
 
-New commands: `hourly`, `projects`, `blocks`, `value` and `pricing <model...>`. `hourly`, `daily`, `weekly`, `monthly`, `trends` and `compare` gain `--by-repo`, and `--repo` counts only some projects in `summary`, the usage reports, `projects`, `compare`, `trends`, `session`, `blocks`, `value`, `efficiency`, `optimize` and `events`. See [Choose a report](/llm-usage-metrics/reports/).
+New commands: `hourly`, `projects`, `blocks`, `value` and `pricing <model...>`. `daily`, `weekly`, `monthly`, `trends` and `compare` gain `--by-repo` (as does the new `hourly`), and `--repo` counts only some projects in `summary`, the usage reports, `projects`, `compare`, `trends`, `session`, `blocks`, `value`, `efficiency`, `optimize` and `events`. See [Choose a report](/llm-usage-metrics/reports/).
 
 ### Multiple machines
 
