@@ -4,6 +4,7 @@ import {
   classifyLink,
   extractIds,
   extractLinks,
+  splitSrcset,
   toDistCandidates,
 } from '../../site/scripts/lib/links.mjs';
 
@@ -43,6 +44,28 @@ describe('extractLinks', () => {
   it('does not read href= inside another attribute value', () => {
     const html = `<a title="see href=/nope/" data-x='src = "/nope/"' href="/llm-usage-metrics/ok/">ok</a>`;
     expect(extractLinks(html)).toEqual(['/llm-usage-metrics/ok/']);
+  });
+
+  it('reads every candidate URL of srcset on img and source', () => {
+    const html = `<picture><source type="image/avif" srcset="/llm-usage-metrics/_astro/a.avif 1x, /llm-usage-metrics/_astro/a@2.avif 2x">
+      <img src="/llm-usage-metrics/_astro/a.webp" srcset="/llm-usage-metrics/_astro/a-640.webp 640w,/llm-usage-metrics/_astro/a-1280.webp 1280w"></picture>`;
+    expect(extractLinks(html)).toEqual([
+      '/llm-usage-metrics/_astro/a.webp',
+      '/llm-usage-metrics/_astro/a.avif',
+      '/llm-usage-metrics/_astro/a@2.avif',
+      '/llm-usage-metrics/_astro/a-640.webp',
+      '/llm-usage-metrics/_astro/a-1280.webp',
+    ]);
+  });
+});
+
+describe('splitSrcset', () => {
+  it('keeps commas inside a URL and drops descriptors and trailing commas', () => {
+    expect(splitSrcset(' /a.webp?x=1,2 2x ,/b.webp,, /c.webp 640w, ')).toEqual([
+      '/a.webp?x=1,2',
+      '/b.webp',
+      '/c.webp',
+    ]);
   });
 });
 
