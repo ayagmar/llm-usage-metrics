@@ -209,6 +209,10 @@ export class PricingOverrideSource implements PricingSource {
     return this.delegate.getPricing(model);
   }
 
+  public getMaxInputTokens(model: string): number | undefined {
+    return this.delegate.getMaxInputTokens?.(model);
+  }
+
   public explainModel(model: string): ModelPricingExplanation {
     const resolvedModel = this.resolveModelAlias(model);
     const pricing = this.getPricing(resolvedModel);

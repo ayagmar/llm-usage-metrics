@@ -25,6 +25,18 @@ function fakeDelegate(pricingByModel: Record<string, ModelPricing>): PricingSour
 }
 
 describe('PricingOverrideSource', () => {
+  it('keeps the delegate context limit for an overridden model', () => {
+    const override = new Map<string, ModelPricing>([
+      ['claude-opus-4-8', { inputPer1MUsd: 12, outputPer1MUsd: 60 }],
+    ]);
+    const source = new PricingOverrideSource(override, {
+      ...fakeDelegate({}),
+      getMaxInputTokens: (model) => (model === 'claude-opus-4-8' ? 200_000 : undefined),
+    });
+
+    expect(source.getMaxInputTokens('claude-opus-4-8')).toBe(200_000);
+  });
+
   it('returns override pricing when the model name matches', () => {
     const override = new Map<string, ModelPricing>([
       ['claude-opus-4-8', { inputPer1MUsd: 12, outputPer1MUsd: 60 }],
