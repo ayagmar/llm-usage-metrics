@@ -1,11 +1,12 @@
 import {
   aggregateBlocks,
-  BLOCK_DURATION_MS,
   BLOCK_HOURS,
   computeBurnRate,
+  findEventBlockKey,
   isBlockActive,
   resolveBlockRanking,
   selectTopBlocks,
+  toBlockKey,
   type BlockBurnRate,
   type BlockRanking,
   type UsageBlock,
@@ -32,8 +33,6 @@ import type {
   UsageDiagnostics,
 } from './usage-data-contracts.js';
 import { parsePositiveTopOption } from './top-option.js';
-
-const HOUR_MS = 60 * 60 * 1000;
 
 /** Days read before `since` to find where the chain of blocks running into it started. */
 export const BLOCKS_LOOKBACK_DAYS = 7;
@@ -71,19 +70,8 @@ export type BlocksDataResult = {
 
 /** The events counted in `blocks`: each lies in one block of its source, at most 5 h after its start. */
 function selectBlockEvents(events: readonly UsageEvent[], blocks: readonly UsageBlock[]) {
-  const blockKeys = new Set(blocks.map((block) => `${block.source}\0${Date.parse(block.start)}`));
-
-  return events.filter((event) => {
-    const hourMs = Math.floor(Date.parse(event.timestamp) / HOUR_MS) * HOUR_MS;
-
-    for (let startMs = hourMs; startMs > hourMs - BLOCK_DURATION_MS; startMs -= HOUR_MS) {
-      if (blockKeys.has(`${event.source}\0${startMs}`)) {
-        return true;
-      }
-    }
-
-    return false;
-  });
+  const blockKeys = new Set(blocks.map(toBlockKey));
+  return events.filter((event) => findEventBlockKey(event, blockKeys) !== undefined);
 }
 
 /**
