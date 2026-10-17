@@ -190,6 +190,27 @@ describe('header', () => {
     ]);
   });
 
+  it('shortens a long filter list in the badge and keeps every name in its title', () => {
+    const sources = ['amp', 'claude', 'cline', 'codex', 'gemini', 'goose', 'pi'];
+    const edited = loadFixtureReport((data) => {
+      data.meta.filters = {
+        sources,
+        providers: [],
+        models: ['a', 'b', 'c', 'd'],
+        machines: [],
+        repo: false,
+      };
+    });
+
+    expect(
+      buildHeader(contextFor(edited)).badges.find((badge) => badge.text.startsWith('Generated')),
+    ).toEqual({
+      text: 'Generated for source amp, claude, cline and 4 more; model a, b, c, d',
+      tone: 'neutral',
+      title: `Generated for source ${sources.join(', ')}; model a, b, c, d`,
+    });
+  });
+
   it('hides a machine name the command filtered on while names are hidden', () => {
     const edited = loadFixtureReport((data) => {
       data.meta.filters.machines = ['laptop'];
