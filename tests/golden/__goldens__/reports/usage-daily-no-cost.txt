@@ -59,8 +59,8 @@
 │ ALL        │ TOTAL       │ • deepseek-flash          │       │        │           │            │             │       │
 │            │             │ • gpt-5.2-codex           │       │        │           │            │             │       │
 │            │             │ • claude-sonnet-4-5       │       │        │           │            │             │       │
-│            │             │ • claude-3-7…net-20250219 │       │        │           │            │             │       │
 │            │             │ • gpt-4.1-opencode        │       │        │           │            │             │       │
+│            │             │ • claude-3-7…net-20250219 │       │        │           │            │             │       │
 │            │             │ • gemini-2.5-pro          │       │        │           │            │             │       │
 │            │             │ • gpt-4.1                 │       │        │           │            │             │       │
 │            │             │ • gpt-goose-e2e           │       │        │           │            │             │       │
