@@ -5,7 +5,7 @@ import { createUsageEvent } from '../../domain/usage-event.js';
 import type { UsageEvent, UsageEventInput } from '../../domain/usage-event.js';
 import { asRecord } from '../../utils/as-record.js';
 import { discoverFiles } from '../../utils/discover-files.js';
-import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
+import { readJsonlObjectBatches } from '../../utils/read-jsonl-objects.js';
 import { discoverFilesAcrossRoots, resolveRootDirs } from '../multi-root-discovery.js';
 import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import {
@@ -339,17 +339,19 @@ export class KimiSourceAdapter implements SourceAdapter {
       diagnostics: options.diagnostics ?? createReadDiagnostics(),
     };
 
-    for await (const line of readJsonlObjects(filePath, {
+    for await (const lines of readJsonlObjectBatches(filePath, {
       shouldParseLine: shouldParseKimiJsonlLine,
       onMalformedLine: () => {
         incrementContextSkippedReason(context, 'json_parse_error');
       },
     })) {
-      parseStatusUpdateLine(context, line);
-      const usageRecordEvent = parseUsageRecordLine(context, filePath, line);
+      for (const line of lines) {
+        parseStatusUpdateLine(context, line);
+        const usageRecordEvent = parseUsageRecordLine(context, filePath, line);
 
-      if (usageRecordEvent) {
-        yield usageRecordEvent;
+        if (usageRecordEvent) {
+          yield usageRecordEvent;
+        }
       }
     }
 

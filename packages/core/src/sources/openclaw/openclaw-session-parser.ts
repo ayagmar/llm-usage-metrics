@@ -4,7 +4,7 @@ import { createUsageEvent } from '../../domain/usage-event.js';
 import type { SourceId, UsageEvent } from '../../domain/usage-event.js';
 import type { NumberLike } from '../../domain/normalization.js';
 import { asRecord } from '../../utils/as-record.js';
-import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
+import { readJsonlObjectBatches } from '../../utils/read-jsonl-objects.js';
 import { recordSkippedRow } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
@@ -275,93 +275,95 @@ export async function* readOpenClawSessionFile(
     sessionId: getFallbackSessionId(filePath),
   };
 
-  for await (const line of readJsonlObjects(filePath, {
+  for await (const lines of readJsonlObjectBatches(filePath, {
     shouldParseLine: shouldParseOpenClawJsonlLine,
     onMalformedLine: () => {
       recordSkippedRow(diagnostics, 'json_parse_error');
     },
   })) {
-    const message = asRecord(line.message) ?? line;
+    for (const line of lines) {
+      const message = asRecord(line.message) ?? line;
 
-    if (line.type === 'session') {
-      state.sessionId = firstText(line.id, line.sessionId, line.session_id) ?? state.sessionId;
-      state.sessionTimestamp =
-        normalizeTimestampCandidate(line.timestamp) ?? state.sessionTimestamp;
+      if (line.type === 'session') {
+        state.sessionId = firstText(line.id, line.sessionId, line.session_id) ?? state.sessionId;
+        state.sessionTimestamp =
+          normalizeTimestampCandidate(line.timestamp) ?? state.sessionTimestamp;
+        updateRuntimeStateFromRecord(state, line, message);
+        continue;
+      }
+
+      if (line.type === 'model_change') {
+        updateRuntimeStateFromRecord(state, line, message);
+        continue;
+      }
+
+      if (line.type !== 'message' || !isAssistantMessage(line, message)) {
+        updateRuntimeStateFromRecord(state, line, message);
+        continue;
+      }
+
+      const rowProvider = firstText(
+        line.provider,
+        message.provider,
+        line.modelProvider,
+        message.modelProvider,
+        line.model_provider,
+        message.model_provider,
+      );
+      const rowModel = firstText(
+        line.model,
+        message.model,
+        line.modelId,
+        message.modelId,
+        line.model_id,
+        message.model_id,
+      );
+
+      // Delivery-mirror rows carry their own openclaw/delivery-mirror markers, so
+      // detect them from row-local values only (state-inherited values would both
+      // miss real usage after a mirror row and drop real usage in openclaw-provider
+      // sessions), and skip them before touching runtime state.
+      if (isDeliveryMirror(rowProvider, rowModel, message)) {
+        continue;
+      }
+
       updateRuntimeStateFromRecord(state, line, message);
-      continue;
+
+      const provider = rowProvider ?? state.provider;
+      const model = rowModel ?? state.model;
+
+      const usage = extractUsage(line, message);
+
+      if (!usage) {
+        continue;
+      }
+
+      const timestamp = resolveTimestamp(line, message, state);
+
+      if (!timestamp) {
+        recordSkippedRow(diagnostics, 'invalid_timestamp');
+        continue;
+      }
+
+      let event: UsageEvent;
+
+      try {
+        event = createUsageEvent({
+          source: sourceId,
+          sessionId: state.sessionId,
+          timestamp,
+          repoRoot: state.repoRoot,
+          provider,
+          model,
+          ...usage,
+          totalTokens: resolveUsageTotalTokens(usage),
+        });
+      } catch {
+        recordSkippedRow(diagnostics, 'invalid_usage_event');
+        continue;
+      }
+
+      yield event;
     }
-
-    if (line.type === 'model_change') {
-      updateRuntimeStateFromRecord(state, line, message);
-      continue;
-    }
-
-    if (line.type !== 'message' || !isAssistantMessage(line, message)) {
-      updateRuntimeStateFromRecord(state, line, message);
-      continue;
-    }
-
-    const rowProvider = firstText(
-      line.provider,
-      message.provider,
-      line.modelProvider,
-      message.modelProvider,
-      line.model_provider,
-      message.model_provider,
-    );
-    const rowModel = firstText(
-      line.model,
-      message.model,
-      line.modelId,
-      message.modelId,
-      line.model_id,
-      message.model_id,
-    );
-
-    // Delivery-mirror rows carry their own openclaw/delivery-mirror markers, so
-    // detect them from row-local values only (state-inherited values would both
-    // miss real usage after a mirror row and drop real usage in openclaw-provider
-    // sessions), and skip them before touching runtime state.
-    if (isDeliveryMirror(rowProvider, rowModel, message)) {
-      continue;
-    }
-
-    updateRuntimeStateFromRecord(state, line, message);
-
-    const provider = rowProvider ?? state.provider;
-    const model = rowModel ?? state.model;
-
-    const usage = extractUsage(line, message);
-
-    if (!usage) {
-      continue;
-    }
-
-    const timestamp = resolveTimestamp(line, message, state);
-
-    if (!timestamp) {
-      recordSkippedRow(diagnostics, 'invalid_timestamp');
-      continue;
-    }
-
-    let event: UsageEvent;
-
-    try {
-      event = createUsageEvent({
-        source: sourceId,
-        sessionId: state.sessionId,
-        timestamp,
-        repoRoot: state.repoRoot,
-        provider,
-        model,
-        ...usage,
-        totalTokens: resolveUsageTotalTokens(usage),
-      });
-    } catch {
-      recordSkippedRow(diagnostics, 'invalid_usage_event');
-      continue;
-    }
-
-    yield event;
   }
 }
