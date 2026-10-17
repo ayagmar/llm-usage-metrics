@@ -1,5 +1,6 @@
 import { getEventSessionKey, LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
-import { computeEventContentHash } from '../persistence/event-store.js';
+import { computeEventContentHash } from '@ayagmar/agent-sessions';
+import { addHashCount, takeUncountedEvents } from '@ayagmar/agent-sessions/internal';
 
 /** Source id → the parser version a machine read it with (`getParserVersion`). */
 export type ParserVersions = Readonly<Record<string, string>>;
@@ -141,8 +142,7 @@ export function mergeMachineEvents(
           served.push(event);
 
           if (servedHashes) {
-            const hash = computeEventContentHash(event);
-            servedHashes.set(hash, (servedHashes.get(hash) ?? 0) + 1);
+            addHashCount(servedHashes, computeEventContentHash(event), 1);
           }
         }
 
@@ -155,22 +155,10 @@ export function mergeMachineEvents(
       }
 
       // Matched against what was served before this machine, one served event each.
-      const available = new Map(servedHashes);
-
-      for (const event of events) {
-        const hash = computeEventContentHash(event);
-        const count = available.get(hash) ?? 0;
-
-        if (count > 0) {
-          available.set(hash, count - 1);
-          duplicateCount += 1;
-          continue;
-        }
-
-        kept.push(event);
-        served.push(event);
-        servedHashes.set(hash, (servedHashes.get(hash) ?? 0) + 1);
-      }
+      const uncounted = takeUncountedEvents(events, servedHashes);
+      duplicateCount += events.length - uncounted.length;
+      kept.push(...uncounted);
+      served.push(...uncounted);
     }
 
     merged.push({
