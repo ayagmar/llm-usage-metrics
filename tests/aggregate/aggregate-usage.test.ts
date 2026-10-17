@@ -426,6 +426,35 @@ describe('aggregateUsage', () => {
     ]);
   });
 
+  it('orders token-tied models without a cost (--no-cost) by input tokens, then name', () => {
+    const unpriced = (model: string, inputTokens: number) =>
+      createUsageEvent({
+        source: 'pi',
+        sessionId: model,
+        timestamp: '2026-02-10T10:00:00Z',
+        model,
+        inputTokens,
+        outputTokens: 10 - inputTokens,
+        totalTokens: 10,
+      });
+    const rows = aggregateUsage(
+      [
+        unpriced('c-model', 1),
+        unpriced('b-model', 1),
+        unpriced('a-model', 1),
+        unpriced('d-model', 2),
+      ],
+      { granularity: 'daily', timezone: 'UTC' },
+    );
+
+    expect(rows.find((row) => row.rowType === 'grand_total')?.models).toEqual([
+      'd-model',
+      'a-model',
+      'b-model',
+      'c-model',
+    ]);
+  });
+
   it('keeps grand-total cost at zero when there are no events', () => {
     const rows = aggregateUsage([], { granularity: 'daily', timezone: 'UTC' });
 
