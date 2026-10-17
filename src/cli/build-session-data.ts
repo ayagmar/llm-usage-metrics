@@ -58,7 +58,10 @@ function validateTimelineOptions(options: SessionCommandOptions, hasIdFilters: b
   }
 }
 
-/** The one session `--id` names, or an error listing what it matched instead. */
+/**
+ * The one session `--id` names: the only match, or the only row whose id equals a filter
+ * when several match. Otherwise an error listing what it matched.
+ */
 function requireOneTimelineSession(
   sessionRows: readonly SessionRow[],
   idFilters: readonly string[],
@@ -72,7 +75,9 @@ function requireOneTimelineSession(
     );
   }
 
-  if (sessionRows.length > 1) {
+  const exactRows = sessionRows.filter((row) => idFilters.includes(row.sessionId.toLowerCase()));
+
+  if (sessionRows.length > 1 && exactRows.length !== 1) {
     const listedRows = sessionRows.slice(0, MAX_LISTED_TIMELINE_MATCHES);
     const sourceWidth = Math.max(...listedRows.map((row) => row.source.length));
     const idWidth = Math.max(...listedRows.map((row) => row.sessionId.length));
@@ -87,12 +92,12 @@ function requireOneTimelineSession(
         `--timeline needs exactly one session, but --id ${idText} matches ${sessionRows.length}:`,
         ...listed,
         ...(unlisted > 0 ? [`  and ${unlisted} more`] : []),
-        'Pass more of the session id to --id.',
+        'Pass more of the session id to --id, or narrow with --source.',
       ].join('\n'),
     );
   }
 
-  return sessionRows[0];
+  return sessionRows.length === 1 ? sessionRows[0] : exactRows[0];
 }
 
 export async function buildSessionData(

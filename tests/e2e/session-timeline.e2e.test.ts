@@ -208,7 +208,7 @@ describe('session --timeline on real source logs', () => {
         '--timeline needs exactly one session, but --id session matches 2:',
         '  claude  evt-session           2026-07-01',
         '  codex   codex-events-session  2026-10-01',
-        'Pass more of the session id to --id.',
+        'Pass more of the session id to --id, or narrow with --source.',
       ].join('\n'),
     );
   });

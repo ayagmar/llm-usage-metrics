@@ -429,7 +429,44 @@ describe('buildSessionData --timeline', () => {
       '  pi  shared-10  2026-03-11',
     ]);
     expect(lines.filter((line) => line.includes('shared-'))).toHaveLength(10);
-    expect(lines.slice(-2)).toEqual(['  and 2 more', 'Pass more of the session id to --id.']);
+    expect(lines.slice(-2)).toEqual([
+      '  and 2 more',
+      'Pass more of the session id to --id, or narrow with --source.',
+    ]);
+  });
+
+  it('takes the session whose id equals --id when the id is also part of a longer one', async () => {
+    const result = await buildSessionData(
+      { id: ['abc'], timeline: true, timezone: 'UTC' },
+      runtimeDeps({
+        adapters: [
+          createAdapter('pi', {
+            '/tmp/pi.jsonl': [
+              createBaseEvent({ sessionId: 'abc' }),
+              createBaseEvent({ sessionId: 'abc-resumed' }),
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(result.grouping === 'timeline' && result.session.sessionId).toBe('abc');
+  });
+
+  it('refuses an id two sources share exactly, pointing at --source', async () => {
+    await expect(
+      buildSessionData(
+        { id: ['abc'], timeline: true, timezone: 'UTC' },
+        runtimeDeps({
+          adapters: [
+            createAdapter('pi', { '/tmp/pi.jsonl': [createBaseEvent({ sessionId: 'abc' })] }),
+            createAdapter('codex', {
+              '/tmp/codex.jsonl': [createBaseEvent({ source: 'codex', sessionId: 'abc' })],
+            }),
+          ],
+        }),
+      ),
+    ).rejects.toThrow('Pass more of the session id to --id, or narrow with --source.');
   });
 
   it('names a way forward when --id matches no session', async () => {
