@@ -42,12 +42,28 @@ describe('createSchemaCommand', () => {
     await createSchemaCommand().parseAsync(['--list'], { from: 'user' });
 
     const names = stdout.mock.calls.map((call) => String(call[0]));
-    expect(names).toHaveLength(18);
+    expect(names).toHaveLength(19);
     expect(names).toContain('usage');
     expect(names).toContain('share');
     expect(names).toContain('events-line');
     expect(names).toContain('machine-export');
     expect(names).toContain('config');
+    expect(names).toContain('config-show');
+  });
+
+  it('keeps config for the config file and config-show for the config show report', async () => {
+    const printSchemaId = async (name: string): Promise<unknown> => {
+      const stdout = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+      await createSchemaCommand().parseAsync([name], { from: 'user' });
+      const output = String(stdout.mock.calls[0]?.[0]);
+      stdout.mockRestore();
+      return (JSON.parse(output) as { $id?: unknown }).$id;
+    };
+
+    await expect(printSchemaId('config')).resolves.toMatch(/config-schema\.json$/u);
+    await expect(printSchemaId('config-show')).resolves.toMatch(
+      /report-config\.v1\.schema\.json$/u,
+    );
   });
 
   it('rejects unknown names with the valid-name list', async () => {

@@ -65,7 +65,7 @@ Use JSON for scripts and pipelines. Without date bounds, `daily` and `weekly` co
 }
 ```
 
-`report` identifies the report family (`summary`, `usage`, `projects`, `compare`, `session`, `trends`, `blocks`, `value`, `efficiency`, `optimize`, `wrapped`, `pricing`, `doctor`, or `prune`; `hourly`, `daily`, `weekly`, and `monthly` all use `usage`) and `data` carries the report-specific payload documented on each report page. `schemaVersion` increments only on breaking JSON changes; additive fields inside `data` are safe and do not bump it. Diagnostics never enter the JSON body. The envelope arrived in 0.8.0; [Upgrading to 0.8](/llm-usage-metrics/upgrading/0-8/) maps the old field names to the new ones.
+`report` identifies the report family (`summary`, `usage`, `projects`, `compare`, `session`, `trends`, `blocks`, `value`, `efficiency`, `optimize`, `wrapped`, `pricing`, `doctor`, `prune`, or `config` for `config show`; `hourly`, `daily`, `weekly`, and `monthly` all use `usage`) and `data` carries the report-specific payload documented on each report page. `schemaVersion` increments only on breaking JSON changes; additive fields inside `data` are safe and do not bump it. Diagnostics never enter the JSON body. The envelope arrived in 0.8.0; [Upgrading to 0.8](/llm-usage-metrics/upgrading/0-8/) maps the old field names to the new ones.
 
 Every payload has a published JSON Schema (draft 2020-12) validated in CI against real CLI output:
 
@@ -87,6 +87,7 @@ Every payload has a published JSON Schema (draft 2020-12) validated in CI agains
 | share (in the HTML) | [report-share.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-share.v1.schema.json)           |
 | doctor              | [report-doctor.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-doctor.v1.schema.json)         |
 | prune               | [report-prune.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-prune.v1.schema.json)           |
+| config show         | [report-config.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-config.v1.schema.json)         |
 
 The installed CLI also carries these schemas, so pipelines can validate against the exact contract of their installed version without the network:
 
@@ -95,7 +96,7 @@ llm-usage schema usage > report-usage.schema.json
 llm-usage schema --list
 ```
 
-`schema` accepts every report name plus `share`, `events-line`, `machine-export` and `config`, and prints the schema document itself (not wrapped in the report envelope). Report, `events-line` and `machine-export` schemas embed the shared definitions under `$defs`, so the printed file compiles on its own in any JSON Schema 2020-12 validator.
+`schema` accepts every report name plus `share`, `events-line`, `machine-export`, `config` (the config file) and `config-show` (the `config show` report), and prints the schema document itself (not wrapped in the report envelope). Report, `events-line` and `machine-export` schemas embed the shared definitions under `$defs`, so the printed file compiles on its own in any JSON Schema 2020-12 validator.
 
 ## Machine export
 
@@ -117,7 +118,7 @@ A bundle without its `end` line is incomplete. `--known <path>` (or `-` for stdi
 llm-usage daily --markdown > usage.md
 ```
 
-Markdown works for summary, usage (hourly to monthly), projects, compare, session, trends, blocks, value, efficiency, optimize, wrapped, and pricing reports. It does not work for doctor, prune, or events.
+Markdown works for summary, usage (hourly to monthly), projects, compare, session, trends, blocks, value, efficiency, optimize, wrapped, and pricing reports. It does not work for doctor, prune, config show, or events.
 
 Usage and session output keep the same ordering and row limits as the terminal renderer. `--per-model-columns` and `--compact` also work with Markdown usage reports.
 

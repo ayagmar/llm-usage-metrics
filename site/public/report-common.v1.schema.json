@@ -90,7 +90,8 @@
             "blocks",
             "pricing",
             "value",
-            "share"
+            "share",
+            "config"
           ]
         },
         "data": {
