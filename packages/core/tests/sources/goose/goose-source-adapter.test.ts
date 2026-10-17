@@ -545,7 +545,7 @@ describe('GooseSourceAdapter busy retry boundary (open and the first row)', () =
     output_tokens: 5,
   });
   const busyMessage = (attempts: number): string =>
-    `Goose DB is busy/locked: ${dbPath}. Retries exhausted after ${attempts} attempt(s). Close active Goose processes and retry.`;
+    `Goose DB is busy/locked: ${dbPath}. Retries exhausted after ${attempts === 1 ? '1 attempt' : `${attempts} attempts`}. Close active Goose processes and retry.`;
   const ioError = (): Error => Object.assign(new Error('disk I/O error'), { code: 'SQLITE_IOERR' });
   const ioMessage = `Could not read Goose DB at ${dbPath}: SQLITE_IOERR: disk I/O error`;
 

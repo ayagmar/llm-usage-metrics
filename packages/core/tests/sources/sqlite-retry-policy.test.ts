@@ -91,7 +91,7 @@ describe('sqlite retry policy', () => {
         },
       ),
     ).rejects.toThrow(
-      'OpenCode DB is busy/locked: /tmp/opencode.db. Retries exhausted after 3 attempt(s).',
+      'OpenCode DB is busy/locked: /tmp/opencode.db. Retries exhausted after 3 attempts.',
     );
 
     expect(sleepSpy).toHaveBeenCalledTimes(2);
@@ -131,7 +131,7 @@ describe('sqlite retry policy', () => {
     const io = toSqliteDbReadError(ioError, 'Antigravity', '/tmp/a.db', 1);
 
     expect(busy.message).toBe(
-      'Goose DB is busy/locked: /tmp/goose.db. Retries exhausted after 3 attempt(s). Close active Goose processes and retry.',
+      'Goose DB is busy/locked: /tmp/goose.db. Retries exhausted after 3 attempts. Close active Goose processes and retry.',
     );
     expect(busy.cause).toBe(busyError);
     expect(io.message).toBe(

@@ -599,7 +599,7 @@ function createFakeAntigravityAdapter(scenario: FakeAntigravityScenario): Antigr
 describe('AntigravitySourceAdapter busy retry boundary (every query before the first row)', () => {
   const dbPath = '/tmp/conversation.db';
   const busyMessage = (attempts: number): string =>
-    `Antigravity DB is busy/locked: ${dbPath}. Retries exhausted after ${attempts} attempt(s). Close active Antigravity processes and retry.`;
+    `Antigravity DB is busy/locked: ${dbPath}. Retries exhausted after ${attempts === 1 ? '1 attempt' : `${attempts} attempts`}. Close active Antigravity processes and retry.`;
   const ioError = (): Error => Object.assign(new Error('disk I/O error'), { code: 'SQLITE_IOERR' });
 
   async function readUntilError(

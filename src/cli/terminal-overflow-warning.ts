@@ -3,6 +3,7 @@ import {
   type TerminalColumnsSource,
   visibleWidth,
 } from '../render/table-text-layout.js';
+import { pluralize } from '../render/format-number.js';
 
 function detectTerminalOverflowColumns(
   reportOutput: string,
@@ -43,7 +44,7 @@ export function warnIfTerminalTableOverflows(
 
   if (overflowColumns !== undefined) {
     warn(
-      `Report table is wider than terminal by ${overflowColumns} column(s). Use fullscreen/maximized terminal for better readability.`,
+      `Report table is wider than terminal by ${pluralize(overflowColumns, 'column')}. Use fullscreen/maximized terminal for better readability.`,
     );
   }
 }

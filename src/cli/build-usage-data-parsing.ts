@@ -48,6 +48,7 @@ import {
 
 import type { UsageSourceFailure } from './usage-data-contracts.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
+import { pluralize } from '../render/format-number.js';
 
 export type AdapterParseResult = {
   source: string;
@@ -543,7 +544,7 @@ export async function parseAdapterEvents(
 
   if (failedFileIndexes.size === files.length) {
     throw new Error(
-      `All ${files.length} file(s) failed to parse for source ${adapter.id}: ${lastErrorMessage}`,
+      `All ${pluralize(files.length, 'file')} failed to parse for source ${adapter.id}: ${lastErrorMessage}`,
     );
   }
 
