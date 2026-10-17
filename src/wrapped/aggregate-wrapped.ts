@@ -21,7 +21,8 @@ type TotalsAccumulator = {
   costIncomplete?: boolean;
 };
 
-function toDateKeyRange(year: number): { from: string; to: string } {
+/** The first and last date keys of a calendar year. */
+export function getYearDateRange(year: number): { from: string; to: string } {
   return {
     from: `${year}-01-01`,
     to: `${year}-12-31`,
@@ -139,7 +140,7 @@ export function aggregateWrapped(
   events: readonly UsageEvent[],
   options: AggregateWrappedOptions,
 ): WrappedRecap {
-  const range = toDateKeyRange(options.year);
+  const range = getYearDateRange(options.year);
   const monthKeys = createMonthKeys(options.year);
   const activeDateKeys = new Set<string>();
   const sessionTimestamps = new Map<string, number[]>();

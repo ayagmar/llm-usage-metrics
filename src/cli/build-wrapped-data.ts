@@ -1,5 +1,5 @@
 import { estimateCacheSavingsUsd } from '../pricing/cache-savings.js';
-import { aggregateWrapped } from '../wrapped/aggregate-wrapped.js';
+import { aggregateWrapped, getYearDateRange } from '../wrapped/aggregate-wrapped.js';
 import { getCurrentLocalDateKey } from '../utils/time-buckets.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import { resolveReportTimezone } from './build-usage-data-inputs.js';
@@ -31,13 +31,6 @@ export function parseWrappedYearOption(year: string | undefined): number | undef
   return parsed;
 }
 
-function getWrappedYearRange(year: number): { from: string; to: string } {
-  return {
-    from: `${year}-01-01`,
-    to: `${year}-12-31`,
-  };
-}
-
 function resolveWrappedYear(year: string | undefined, timezone: string, now: Date): number {
   const parsedYear = parseWrappedYearOption(year);
 
@@ -57,7 +50,7 @@ export async function buildWrappedData(
   const now = deps.now?.() ?? new Date();
   const timezone = resolveReportTimezone(configuredOptions.timezone);
   const year = resolveWrappedYear(configuredOptions.year, timezone, now);
-  const range = getWrappedYearRange(year);
+  const range = getYearDateRange(year);
   const datasetOptions = {
     ...configuredOptions,
     timezone,
