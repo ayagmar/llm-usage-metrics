@@ -1,5 +1,3 @@
-import { stat } from 'node:fs/promises';
-
 import { createSourceContext, type SourceAdapter } from '@ayagmar/agent-sessions';
 import {
   createDefaultAdapters,
@@ -31,7 +29,12 @@ import {
   resolveCliDirectorySourceIds,
   selectAdaptersBySourceFilter,
 } from './build-usage-data-inputs.js';
-import { inspectEventStore, type EventStoreReadDeps } from './run-doctor-report.js';
+import {
+  inspectEventStore,
+  type EventStoreInspection,
+  type EventStoreReadDeps,
+} from './run-doctor-report.js';
+import { pathExists } from '../utils/fs-helpers.js';
 import { createAdaptersFromOptions } from './source-cli-options.js';
 import type { ConfigShowCommandOptions } from './usage-data-contracts.js';
 
@@ -47,12 +50,6 @@ export type ConfigReportSource = {
   paths: { path: string; exists: boolean }[];
 };
 
-export type ConfigReportEventStoreFile =
-  | { state: 'missing'; legacyPath?: string }
-  | { state: 'ok'; sizeBytes: number; schemaVersion: string; eventCount: number }
-  | { state: 'unsupported'; sizeBytes: number; schemaVersion?: string; error: string }
-  | { state: 'error'; error: string };
-
 /**
  * cache: the cache file (fresh, or stale with --pricing-offline). network: the next report
  * fetches the URL. bundled-snapshot: offline with no usable cache. none: offline with a
@@ -67,7 +64,7 @@ export type ConfigReportData = {
     enabled: ConfigSetting<boolean>;
     path: ConfigSetting<string>;
     /** Absent when the store is disabled: it is not read then. */
-    file?: ConfigReportEventStoreFile;
+    file?: EventStoreInspection;
   };
   machines: { name: string; enabled: boolean }[];
   pricing: {
@@ -125,15 +122,6 @@ function createOriginResolver(
 
     return configKeys.has(configKey) ? 'config' : 'default';
   };
-}
-
-async function pathExists(filePath: string): Promise<boolean> {
-  try {
-    await stat(filePath);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 function getSearchPaths(adapter: SourceAdapter): readonly string[] {
