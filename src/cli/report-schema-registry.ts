@@ -4,6 +4,7 @@ import machineExportSchema from '../../schema/machine-export.v1.schema.json' wit
 import blocksSchema from '../../schema/report-blocks.v1.schema.json' with { type: 'json' };
 import commonSchema from '../../schema/report-common.v1.schema.json' with { type: 'json' };
 import compareSchema from '../../schema/report-compare.v1.schema.json' with { type: 'json' };
+import contextSchema from '../../schema/report-context.v1.schema.json' with { type: 'json' };
 import doctorSchema from '../../schema/report-doctor.v1.schema.json' with { type: 'json' };
 import efficiencySchema from '../../schema/report-efficiency.v1.schema.json' with { type: 'json' };
 import optimizeSchema from '../../schema/report-optimize.v1.schema.json' with { type: 'json' };
@@ -30,6 +31,7 @@ function bundleCommonDefinitions(schema: { [key: string]: unknown; $defs?: objec
 export const reportSchemas: Record<string, unknown> = {
   blocks: bundleCommonDefinitions(blocksSchema),
   compare: bundleCommonDefinitions(compareSchema),
+  context: bundleCommonDefinitions(contextSchema),
   doctor: bundleCommonDefinitions(doctorSchema),
   efficiency: bundleCommonDefinitions(efficiencySchema),
   optimize: bundleCommonDefinitions(optimizeSchema),

@@ -16,7 +16,7 @@ import type {
 
 const DEFAULT_SESSION_TOP = 20;
 
-function parseSessionTopOption(top: string | undefined): number | undefined {
+export function parseSessionTopOption(top: string | undefined): number | undefined {
   if (top === undefined) {
     return undefined;
   }
@@ -48,7 +48,7 @@ function normalizeSessionIdFilters(id: string[] | undefined): string[] | undefin
   return [...new Set(normalizedIds)];
 }
 
-function resolveSessionRowLimit(
+export function resolveSessionRowLimit(
   top: number | undefined,
   hasIdFilters: boolean,
 ): number | undefined {
@@ -59,10 +59,12 @@ function resolveSessionRowLimit(
   return hasIdFilters ? undefined : DEFAULT_SESSION_TOP;
 }
 
-function limitRows<Row>(
+/** The first `limit` rows, already ranked by `rankedBy`, and a note when some are left out. */
+export function limitRows<Row>(
   rows: Row[],
   limit: number | undefined,
   rowNoun: 'sessions' | 'repos',
+  rankedBy = 'cost',
 ): { rows: Row[]; limitNote?: string } {
   if (limit === undefined || rows.length <= limit) {
     return { rows };
@@ -70,7 +72,7 @@ function limitRows<Row>(
 
   return {
     rows: rows.slice(0, limit),
-    limitNote: `Showing top ${limit} of ${rows.length} ${rowNoun} by cost. Use --top 0 for all.`,
+    limitNote: `Showing top ${limit} of ${rows.length} ${rowNoun} by ${rankedBy}. Use --top 0 for all.`,
   };
 }
 

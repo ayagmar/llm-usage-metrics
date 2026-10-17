@@ -131,6 +131,11 @@ function toFlatTierRates(pricing: ModelPricing, tier: PricingTier): ModelPricing
   return rates;
 }
 
+/** The prompt a request sent: input, cache read and cache write tokens. */
+export function getPromptTokens(usage: BillableTokenUsage): number {
+  return usage.inputTokens + usage.cacheReadTokens + usage.cacheWriteTokens;
+}
+
 /**
  * The flat rates for one event. A per-request event (`perRequest`) whose prompt (input,
  * cache read and cache write tokens) is strictly above a tier's threshold bills at the
@@ -146,10 +151,32 @@ export function resolveRatesForEvent(
     return pricing;
   }
 
-  const promptTokens = event.inputTokens + event.cacheReadTokens + event.cacheWriteTokens;
+  const promptTokens = getPromptTokens(event);
   const tier = pricing.tiers.find((candidate) => promptTokens > candidate.aboveTokens);
 
   return tier ? toFlatTierRates(pricing, tier) : pricing;
+}
+
+/**
+ * What a long-context tier added to a per-request event's estimate: its cost at the tier's
+ * rates minus its cost at the base rates. 0 when no tier applies; undefined when the event
+ * cannot be estimated at either.
+ */
+export function estimateLongContextExtraUsd(
+  event: UsageEvent,
+  pricing: ModelPricing,
+): number | undefined {
+  const rates = resolveRatesForEvent(event, pricing, true);
+
+  if (rates === pricing) {
+    return 0;
+  }
+
+  if (!canEstimateUsageCost(event, rates) || !canEstimateUsageCost(event, pricing)) {
+    return undefined;
+  }
+
+  return calculateEstimatedCostUsd(event, rates) - calculateEstimatedCostUsd(event, pricing);
 }
 
 function hasNonReasoningPricedBuckets(usage: BillableTokenUsage): boolean {

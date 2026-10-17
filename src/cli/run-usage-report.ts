@@ -34,7 +34,7 @@ function resolveTableLayout(options: ReportCommandOptions): UsageTableLayout {
   return options.perModelColumns ? 'per_model_columns' : 'compact';
 }
 
-function getDefaultWindowHint(granularity: UsageGranularity, since: string): string[] {
+export function getDefaultWindowHint(granularity: UsageGranularity, since: string): string[] {
   if (granularity === 'hourly') {
     return [
       `Showing today (${since}) hour by hour. Use --last N (up to ${String(HOURLY_MAX_LAST_DAYS)} days) or --since YYYY-MM-DD for earlier hours.`,
