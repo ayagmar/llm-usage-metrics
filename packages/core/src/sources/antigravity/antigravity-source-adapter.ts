@@ -52,7 +52,7 @@ export type AntigravitySourceAdapterOptions = SourceAdapterPathOptions & {
   /** Test seam: replaces the file system check. @internal */
   pathIsFile?: PathPredicate;
   /** Test seam: replaces the node:sqlite loader. @internal */
-  loadSqliteModule?: () => Promise<SqliteModule>;
+  loadSqliteModule?: (consumerLabel: string) => Promise<SqliteModule>;
   /** Retries of a read that finds the database busy or locked. */
   maxBusyRetries?: number;
   /** Delay between those retries. */
@@ -112,7 +112,7 @@ export class AntigravitySourceAdapter implements SourceAdapter {
   private readonly pathReadable: PathPredicate;
   private readonly pathIsDirectory: PathPredicate;
   private readonly pathIsFile: PathPredicate;
-  private readonly loadSqliteModule: () => Promise<SqliteModule>;
+  private readonly loadSqliteModule: (consumerLabel: string) => Promise<SqliteModule>;
   private readonly maxBusyRetries: number;
   private readonly busyRetryDelayMs: number;
   private readonly sleep: SleepFn;
@@ -262,7 +262,7 @@ export class AntigravitySourceAdapter implements SourceAdapter {
   // inside the retry, rather than after a row was yielded. Undefined, with the database
   // closed, when there is no gen_metadata table.
   private async openMetadataRows(dbPath: string): Promise<AntigravityMetadataRows | undefined> {
-    const sqlite = await this.loadSqliteModule();
+    const sqlite = await this.loadSqliteModule('Antigravity');
     const database = new sqlite.DatabaseSync(dbPath, { readOnly: true, timeout: 0 });
 
     try {

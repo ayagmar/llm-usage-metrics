@@ -16,6 +16,7 @@ import { emitDiagnostics } from './emit-diagnostics.js';
 import { loadPackageMetadataFromRuntime } from './package-metadata.js';
 import { emitReportRunDiagnostics } from './report-runtime/report-lifecycle.js';
 import { logger } from '../utils/logger.js';
+import { pluralize } from '../render/format-number.js';
 import { getParserVersion } from '@ayagmar/agent-sessions';
 import { getRepeatingSourceIds } from '@ayagmar/agent-sessions/internal';
 import type { BuildUsageDataDeps } from './usage-data-contracts.js';
@@ -122,7 +123,7 @@ export async function runMachineExport(
   // counted by reports but never stored, so it cannot be exported.
   if (missingEventCount > 0) {
     logger.warn(
-      `machine export left out ${missingEventCount} event(s) that reports count but the event store does not hold`,
+      `machine export left out ${pluralize(missingEventCount, 'event')} that reports count but the event store does not hold`,
     );
   }
 

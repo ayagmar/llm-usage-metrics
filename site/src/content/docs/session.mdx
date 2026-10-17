@@ -46,7 +46,7 @@ Showing top 20 of 1653 sessions by cost. Use --top 0 for all.
 
 <TerminalShot src={termSession} label="llm-usage session --top 5 output" alt="Terminal output of llm-usage session --top 5: the five costliest sessions with their source, project, last activity, duration, total tokens, cost, and models" />
 
-`--by-repo` replaces the per-session rows with one row per repository (`Project`, `Sessions`, `Last Activity`, `Total`, `Cost`, `Sources`). Sessions without a detectable repository are grouped under `(unattributed)`.
+`--by-repo` replaces the per-session rows with one row per project, the working directory the tool recorded (`Project`, `Sessions`, `Last Activity`, `Total`, `Cost`, `Sources`). Sessions without a recorded directory are grouped under `(unattributed)`.
 
 ## JSON shape
 

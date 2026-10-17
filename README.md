@@ -97,7 +97,7 @@ llm-usage compare
 # Ten highest-cost conversations
 llm-usage session --top 10
 
-# Usage grouped by repository
+# Usage grouped by project
 llm-usage session --by-repo
 
 # Cost per project, and daily rows split by project

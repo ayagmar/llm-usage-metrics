@@ -7,6 +7,7 @@ import {
 } from '../config/runtime-overrides.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { limitNamedModels } from '../render/format-model-list.js';
+import { pluralize } from '../render/format-number.js';
 import {
   closeEventStore,
   openEventStore,
@@ -87,8 +88,8 @@ function withNormalizedPricingUrl(
 
 function formatHistoryNote(historyResult: EventStoreHistoryResult): string {
   return [
-    `History: included ${historyResult.servedEventCount} event(s)`,
-    `from ${historyResult.servedFileCount} departed file(s)`,
+    `History: included ${pluralize(historyResult.servedEventCount, 'event')}`,
+    `from ${pluralize(historyResult.servedFileCount, 'departed file')}`,
     `(${historyResult.suppressedFileCount} suppressed as moved or duplicated).`,
   ].join(' ');
 }

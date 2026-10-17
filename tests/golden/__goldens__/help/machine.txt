@@ -8,9 +8,9 @@ Options:
 Commands:
   add [options] <name> [ssh-target]  Sync a machine over ssh and add it to config.toml; it needs
                                      llm-usage-metrics installed and ssh login without a prompt
-  list                               Show each machine, when it last synced, and how much usage is
+  list [options]                     Show each machine, when it last synced, and how much usage is
                                      cached
-  remove <name>                      Remove a machine from config.toml and delete its cached usage
+  remove [options] <name>            Remove a machine from config.toml and delete its cached usage
   export [options]                   Print the usage this machine's reports count, as a versioned
                                      NDJSON bundle that sync reads
   help [command]                     display help for command

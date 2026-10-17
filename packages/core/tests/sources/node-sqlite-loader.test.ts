@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
+import { AntigravitySourceAdapter } from '../../src/sources/antigravity/antigravity-source-adapter.js';
+import { GooseSourceAdapter } from '../../src/sources/goose/goose-source-adapter.js';
+import { OpenCodeSourceAdapter } from '../../src/sources/opencode/opencode-source-adapter.js';
 import {
   loadNodeSqliteModule,
   loadNodeSqliteModuleFromRequire,
@@ -42,5 +45,33 @@ describe('loadNodeSqliteModule', () => {
     } finally {
       database.close();
     }
+  });
+});
+
+describe('SQLite adapters without node:sqlite', () => {
+  const missingSqlite = (consumerLabel: string) =>
+    Promise.resolve().then(() =>
+      loadNodeSqliteModuleFromRequire(() => {
+        throw new Error('No such built-in module: node:sqlite');
+      }, consumerLabel),
+    );
+  const fileChecks = {
+    pathExists: async () => true,
+    pathReadable: async () => true,
+    pathIsFile: async () => true,
+    maxBusyRetries: 0,
+  };
+
+  it.each([
+    ['OpenCode', new OpenCodeSourceAdapter({ ...fileChecks, loadSqliteModule: missingSqlite })],
+    ['Goose', new GooseSourceAdapter({ ...fileChecks, loadSqliteModule: missingSqlite })],
+    [
+      'Antigravity',
+      new AntigravitySourceAdapter({ ...fileChecks, loadSqliteModule: missingSqlite }),
+    ],
+  ])('names %s in the runtime error', async (sourceName, adapter) => {
+    await expect(adapter.read('/missing/source.db').next()).rejects.toThrow(
+      `${sourceName} requires Node.js 22.16+ or 24+ runtime with node:sqlite support`,
+    );
   });
 });

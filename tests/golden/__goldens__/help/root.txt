@@ -51,8 +51,8 @@ Commands:
                                       unless --last, --since, --until, or --all)
   monthly [options]                   Show monthly usage report
   projects [options]                  Show cost, tokens, events, active days and top models per
-                                      project (repository root), costliest first (full history
-                                      unless --last, --since, or --until)
+                                      project (the working directory the tool recorded), costliest
+                                      first (full history unless --last, --since, or --until)
   compare [options]                   Compare usage and cost between two date windows
   efficiency [options] <granularity>  Show efficiency report by correlating usage metrics with local
                                       Git outcomes
@@ -77,10 +77,10 @@ Commands:
   doctor [options]                    Show where each source is searched, whether its usage is
                                       readable, and ledger health
   prune [options]                     Preview or delete departed files from the local event store
-  config                              Manage user configuration
-  machine                             Combine usage from your other machines over ssh
+  config [options]                    Manage user configuration
+  machine [options]                   Combine usage from your other machines over ssh
   sync [options] [names...]           Fetch your other machines' usage now (reports also fetch it
                                       when it is 10 minutes old)
   schema [options] [name]             Print a bundled report JSON Schema
-  completion <shell>                  Print a shell completion script (bash, zsh, or fish)
+  completion [options] <shell>        Print a shell completion script (bash, zsh, or fish)
   help [command]                      display help for command

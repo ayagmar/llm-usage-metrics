@@ -129,12 +129,13 @@ Options:
   --repo <project>               Count only these projects (repeatable or
                                  comma-separated, so a value cannot contain a
                                  comma). A path (absolute, or ./, ../, ~/ on
-                                 this machine) matches that repository root and
-                                 the roots under it; a name or path tail such as
-                                 work/api matches the end of a root, not the
-                                 roots under it; (unattributed) matches usage
-                                 without a root. Applied after --model picks
-                                 exact or substring matching
+                                 this machine) matches that project directory
+                                 and the projects under it; a name or path tail
+                                 such as work/api matches the end of a project
+                                 directory, not the projects under it;
+                                 (unattributed) matches usage without a recorded
+                                 directory. Applied after --model picks exact or
+                                 substring matching
   -h, --help                     display help for command
 ```
 
@@ -226,17 +227,18 @@ Options:
                                  screenshots
   --by-machine                   Split each source row by the machine its usage
                                  came from
-  --by-repo                      Split each source row by project (repository
-                                 root)
+  --by-repo                      Split each source row by project (the working
+                                 directory the tool recorded)
   --repo <project>               Count only these projects (repeatable or
                                  comma-separated, so a value cannot contain a
                                  comma). A path (absolute, or ./, ../, ~/ on
-                                 this machine) matches that repository root and
-                                 the roots under it; a name or path tail such as
-                                 work/api matches the end of a root, not the
-                                 roots under it; (unattributed) matches usage
-                                 without a root. Applied after --model picks
-                                 exact or substring matching
+                                 this machine) matches that project directory
+                                 and the projects under it; a name or path tail
+                                 such as work/api matches the end of a project
+                                 directory, not the projects under it;
+                                 (unattributed) matches usage without a recorded
+                                 directory. Applied after --model picks exact or
+                                 substring matching
   -h, --help                     display help for command
 ```
 
@@ -335,17 +337,18 @@ Options:
                                  e.g. for screenshots
   --by-machine                   Split each source row by the machine its usage
                                  came from
-  --by-repo                      Split each source row by project (repository
-                                 root)
+  --by-repo                      Split each source row by project (the working
+                                 directory the tool recorded)
   --repo <project>               Count only these projects (repeatable or
                                  comma-separated, so a value cannot contain a
                                  comma). A path (absolute, or ./, ../, ~/ on
-                                 this machine) matches that repository root and
-                                 the roots under it; a name or path tail such as
-                                 work/api matches the end of a root, not the
-                                 roots under it; (unattributed) matches usage
-                                 without a root. Applied after --model picks
-                                 exact or substring matching
+                                 this machine) matches that project directory
+                                 and the projects under it; a name or path tail
+                                 such as work/api matches the end of a project
+                                 directory, not the projects under it;
+                                 (unattributed) matches usage without a recorded
+                                 directory. Applied after --model picks exact or
+                                 substring matching
   -h, --help                     display help for command
 ```
 
@@ -445,17 +448,18 @@ Options:
                                  e.g. for screenshots
   --by-machine                   Split each source row by the machine its usage
                                  came from
-  --by-repo                      Split each source row by project (repository
-                                 root)
+  --by-repo                      Split each source row by project (the working
+                                 directory the tool recorded)
   --repo <project>               Count only these projects (repeatable or
                                  comma-separated, so a value cannot contain a
                                  comma). A path (absolute, or ./, ../, ~/ on
-                                 this machine) matches that repository root and
-                                 the roots under it; a name or path tail such as
-                                 work/api matches the end of a root, not the
-                                 roots under it; (unattributed) matches usage
-                                 without a root. Applied after --model picks
-                                 exact or substring matching
+                                 this machine) matches that project directory
+                                 and the projects under it; a name or path tail
+                                 such as work/api matches the end of a project
+                                 directory, not the projects under it;
+                                 (unattributed) matches usage without a recorded
+                                 directory. Applied after --model picks exact or
+                                 substring matching
   -h, --help                     display help for command
 ```
 
@@ -553,17 +557,18 @@ Options:
                                  e.g. for screenshots
   --by-machine                   Split each source row by the machine its usage
                                  came from
-  --by-repo                      Split each source row by project (repository
-                                 root)
+  --by-repo                      Split each source row by project (the working
+                                 directory the tool recorded)
   --repo <project>               Count only these projects (repeatable or
                                  comma-separated, so a value cannot contain a
                                  comma). A path (absolute, or ./, ../, ~/ on
-                                 this machine) matches that repository root and
-                                 the roots under it; a name or path tail such as
-                                 work/api matches the end of a root, not the
-                                 roots under it; (unattributed) matches usage
-                                 without a root. Applied after --model picks
-                                 exact or substring matching
+                                 this machine) matches that project directory
+                                 and the projects under it; a name or path tail
+                                 such as work/api matches the end of a project
+                                 directory, not the projects under it;
+                                 (unattributed) matches usage without a recorded
+                                 directory. Applied after --model picks exact or
+                                 substring matching
   -h, --help                     display help for command
 ```
 
@@ -575,8 +580,9 @@ Options:
 ```text
 Usage: llm-usage projects [options]
 
-Show cost, tokens, events, active days and top models per project (repository
-root), costliest first (full history unless --last, --since, or --until)
+Show cost, tokens, events, active days and top models per project (the working
+directory the tool recorded), costliest first (full history unless --last,
+--since, or --until)
 
 Options:
   --pi-dir <path>                Path to .pi sessions directory (repeatable)
@@ -661,12 +667,13 @@ Options:
   --repo <project>               Count only these projects (repeatable or
                                  comma-separated, so a value cannot contain a
                                  comma). A path (absolute, or ./, ../, ~/ on
-                                 this machine) matches that repository root and
-                                 the roots under it; a name or path tail such as
-                                 work/api matches the end of a root, not the
-                                 roots under it; (unattributed) matches usage
-                                 without a root. Applied after --model picks
-                                 exact or substring matching
+                                 this machine) matches that project directory
+                                 and the projects under it; a name or path tail
+                                 such as work/api matches the end of a project
+                                 directory, not the projects under it;
+                                 (unattributed) matches usage without a recorded
+                                 directory. Applied after --model picks exact or
+                                 substring matching
   -h, --help                     display help for command
 ```
 
@@ -758,16 +765,18 @@ Options:
                                  comparison window
   --vs-until <date>              Inclusive end date for the baseline comparison
                                  window
-  --by-repo                      Also compare each project (repository root)
+  --by-repo                      Also compare each project (the working
+                                 directory the tool recorded)
   --repo <project>               Count only these projects (repeatable or
                                  comma-separated, so a value cannot contain a
                                  comma). A path (absolute, or ./, ../, ~/ on
-                                 this machine) matches that repository root and
-                                 the roots under it; a name or path tail such as
-                                 work/api matches the end of a root, not the
-                                 roots under it; (unattributed) matches usage
-                                 without a root. Applied after --model picks
-                                 exact or substring matching
+                                 this machine) matches that project directory
+                                 and the projects under it; a name or path tail
+                                 such as work/api matches the end of a project
+                                 directory, not the projects under it;
+                                 (unattributed) matches usage without a recorded
+                                 directory. Applied after --model picks exact or
+                                 substring matching
   -h, --help                     display help for command
 ```
 
@@ -865,13 +874,14 @@ Options:
   --repo <project>               Count only these projects (repeatable or
                                  comma-separated, so a value cannot contain a
                                  comma). A path (absolute, or ./, ../, ~/ on
-                                 this machine) matches that repository root and
-                                 the roots under it; a name or path tail such as
-                                 work/api matches the end of a root, not the
-                                 roots under it; (unattributed) matches usage
-                                 without a root. Applied after --model picks
-                                 exact or substring matching. It filters usage
-                                 events; --repo-dir picks the Git repository for
+                                 this machine) matches that project directory
+                                 and the projects under it; a name or path tail
+                                 such as work/api matches the end of a project
+                                 directory, not the projects under it;
+                                 (unattributed) matches usage without a recorded
+                                 directory. Applied after --model picks exact or
+                                 substring matching. It filters usage events;
+                                 --repo-dir picks the Git repository for
                                  outcomes
   -h, --help                     display help for command
 ```
@@ -971,12 +981,13 @@ Options:
   --repo <project>               Count only these projects (repeatable or
                                  comma-separated, so a value cannot contain a
                                  comma). A path (absolute, or ./, ../, ~/ on
-                                 this machine) matches that repository root and
-                                 the roots under it; a name or path tail such as
-                                 work/api matches the end of a root, not the
-                                 roots under it; (unattributed) matches usage
-                                 without a root. Applied after --model picks
-                                 exact or substring matching
+                                 this machine) matches that project directory
+                                 and the projects under it; a name or path tail
+                                 such as work/api matches the end of a project
+                                 directory, not the projects under it;
+                                 (unattributed) matches usage without a recorded
+                                 directory. Applied after --model picks exact or
+                                 substring matching
   -h, --help                     display help for command
 ```
 
@@ -1072,17 +1083,19 @@ Options:
                                  (default: "cost")
   --by-source                    Render one sparkline row per source instead of
                                  a single combined chart
-  --by-repo                      Render one sparkline row per project
-                                 (repository root); not with --by-source
+  --by-repo                      Render one sparkline row per project (the
+                                 working directory the tool recorded); not with
+                                 --by-source
   --repo <project>               Count only these projects (repeatable or
                                  comma-separated, so a value cannot contain a
                                  comma). A path (absolute, or ./, ../, ~/ on
-                                 this machine) matches that repository root and
-                                 the roots under it; a name or path tail such as
-                                 work/api matches the end of a root, not the
-                                 roots under it; (unattributed) matches usage
-                                 without a root. Applied after --model picks
-                                 exact or substring matching
+                                 this machine) matches that project directory
+                                 and the projects under it; a name or path tail
+                                 such as work/api matches the end of a project
+                                 directory, not the projects under it;
+                                 (unattributed) matches usage without a recorded
+                                 directory. Applied after --model picks exact or
+                                 substring matching
   -h, --help                     display help for command
 ```
 
@@ -1169,17 +1182,18 @@ Options:
   --id <session-id>              Show only sessions whose id contains the value
                                  (case-insensitive; repeatable or
                                  comma-separated)
-  --by-repo                      Group usage by repository root instead of by
-                                 session
+  --by-repo                      Group usage by project (the working directory
+                                 the tool recorded) instead of by session
   --repo <project>               Count only these projects (repeatable or
                                  comma-separated, so a value cannot contain a
                                  comma). A path (absolute, or ./, ../, ~/ on
-                                 this machine) matches that repository root and
-                                 the roots under it; a name or path tail such as
-                                 work/api matches the end of a root, not the
-                                 roots under it; (unattributed) matches usage
-                                 without a root. Applied after --model picks
-                                 exact or substring matching
+                                 this machine) matches that project directory
+                                 and the projects under it; a name or path tail
+                                 such as work/api matches the end of a project
+                                 directory, not the projects under it;
+                                 (unattributed) matches usage without a recorded
+                                 directory. Applied after --model picks exact or
+                                 substring matching
   -h, --help                     display help for command
 ```
 
@@ -1276,12 +1290,13 @@ Options:
   --repo <project>               Count only these projects (repeatable or
                                  comma-separated, so a value cannot contain a
                                  comma). A path (absolute, or ./, ../, ~/ on
-                                 this machine) matches that repository root and
-                                 the roots under it; a name or path tail such as
-                                 work/api matches the end of a root, not the
-                                 roots under it; (unattributed) matches usage
-                                 without a root. Applied after --model picks
-                                 exact or substring matching
+                                 this machine) matches that project directory
+                                 and the projects under it; a name or path tail
+                                 such as work/api matches the end of a project
+                                 directory, not the projects under it;
+                                 (unattributed) matches usage without a recorded
+                                 directory. Applied after --model picks exact or
+                                 substring matching
   -h, --help                     display help for command
 ```
 
@@ -1386,12 +1401,13 @@ Options:
   --repo <project>               Count only these projects (repeatable or
                                  comma-separated, so a value cannot contain a
                                  comma). A path (absolute, or ./, ../, ~/ on
-                                 this machine) matches that repository root and
-                                 the roots under it; a name or path tail such as
-                                 work/api matches the end of a root, not the
-                                 roots under it; (unattributed) matches usage
-                                 without a root. Applied after --model picks
-                                 exact or substring matching
+                                 this machine) matches that project directory
+                                 and the projects under it; a name or path tail
+                                 such as work/api matches the end of a project
+                                 directory, not the projects under it;
+                                 (unattributed) matches usage without a recorded
+                                 directory. Applied after --model picks exact or
+                                 substring matching
   -h, --help                     display help for command
 ```
 
@@ -1562,12 +1578,13 @@ Options:
   --repo <project>               Count only these projects (repeatable or
                                  comma-separated, so a value cannot contain a
                                  comma). A path (absolute, or ./, ../, ~/ on
-                                 this machine) matches that repository root and
-                                 the roots under it; a name or path tail such as
-                                 work/api matches the end of a root, not the
-                                 roots under it; (unattributed) matches usage
-                                 without a root. Applied after --model picks
-                                 exact or substring matching
+                                 this machine) matches that project directory
+                                 and the projects under it; a name or path tail
+                                 such as work/api matches the end of a project
+                                 directory, not the projects under it;
+                                 (unattributed) matches usage without a recorded
+                                 directory. Applied after --model picks exact or
+                                 substring matching
   -h, --help                     display help for command
 ```
 
@@ -1595,6 +1612,7 @@ Options:
                               (takes precedence over LiteLLM)
   --pricing-offline           Use cached LiteLLM pricing only (no network fetch)
   --markdown                  Render output as markdown table
+  --help-all                  Display help for command
   -h, --help                  display help for command
 ```
 
@@ -1785,13 +1803,14 @@ Usage: llm-usage config [options] [command]
 Manage user configuration
 
 Options:
+  --help-all      Display help for command
   -h, --help      display help for command
 
 Commands:
   init [options]  Write a commented config template
-  show            Print the effective configuration and where each value comes
+  show [options]  Print the effective configuration and where each value comes
                   from
-  path            Print the resolved config file path
+  path [options]  Print the resolved config file path
   help [command]  display help for command
 
 Usage: llm-usage config init [options]
@@ -1800,6 +1819,7 @@ Write a commented config template
 
 Options:
   --force     Overwrite an existing config file
+  --help-all  Display help for command
   -h, --help  display help for command
 
 Usage: llm-usage config show [options]
@@ -1807,6 +1827,7 @@ Usage: llm-usage config show [options]
 Print the effective configuration and where each value comes from
 
 Options:
+  --help-all  Display help for command
   -h, --help  display help for command
 
 Usage: llm-usage config path [options]
@@ -1814,6 +1835,7 @@ Usage: llm-usage config path [options]
 Print the resolved config file path
 
 Options:
+  --help-all  Display help for command
   -h, --help  display help for command
 ```
 
@@ -1828,15 +1850,16 @@ Usage: llm-usage machine [options] [command]
 Combine usage from your other machines over ssh
 
 Options:
+  --help-all                         Display help for command
   -h, --help                         display help for command
 
 Commands:
   add [options] <name> [ssh-target]  Sync a machine over ssh and add it to
                                      config.toml; it needs llm-usage-metrics
                                      installed and ssh login without a prompt
-  list                               Show each machine, when it last synced, and
+  list [options]                     Show each machine, when it last synced, and
                                      how much usage is cached
-  remove <name>                      Remove a machine from config.toml and
+  remove [options] <name>            Remove a machine from config.toml and
                                      delete its cached usage
   export [options]                   Print the usage this machine's reports
                                      count, as a versioned NDJSON bundle that
@@ -1857,6 +1880,7 @@ Arguments:
 Options:
   --command <command>  How llm-usage-metrics is launched there (default:
                        llm-usage)
+  --help-all           Display help for command
   -h, --help           display help for command
 
 Usage: llm-usage machine list [options]
@@ -1864,6 +1888,7 @@ Usage: llm-usage machine list [options]
 Show each machine, when it last synced, and how much usage is cached
 
 Options:
+  --help-all  Display help for command
   -h, --help  display help for command
 
 Usage: llm-usage machine remove [options] <name>
@@ -1874,6 +1899,7 @@ Arguments:
   name        Machine name
 
 Options:
+  --help-all  Display help for command
   -h, --help  display help for command
 
 Usage: llm-usage machine export [options]
@@ -1887,6 +1913,7 @@ Options:
   --quiet         Suppress informational stderr output (warnings still print)
   --verbose       Print detailed diagnostics on stderr (per-source counts,
                   routine skips, config, env)
+  --help-all      Display help for command
   -h, --help      display help for command
 ```
 
@@ -1906,6 +1933,7 @@ Arguments:
 
 Options:
   --full      Fetch every file again instead of only the changed ones
+  --help-all  Display help for command
   -h, --help  display help for command
 ```
 
@@ -1926,6 +1954,7 @@ Arguments:
 
 Options:
   --list      List available schema names
+  --help-all  Display help for command
   -h, --help  display help for command
 ```
 
@@ -1943,6 +1972,7 @@ Arguments:
   shell       Shell: bash | zsh | fish
 
 Options:
+  --help-all  Display help for command
   -h, --help  display help for command
 ```
 
@@ -1959,7 +1989,7 @@ Search across root and command help. See Command help above to check which flags
 | `--antigravity-dir` | - | `<path>` | Path to Antigravity conversations directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline, doctor, prune only\) |
 | `--apply` | - | - | Delete selected departed files and vacuum the event store \(prune only\) |
 | `--by-machine` | - | - | Split each source row by the machine its usage came from \(usage reports only\) |
-| `--by-repo` | - | - | hourly, daily, weekly, monthly: Split each source row by project \(repository root\); compare: Also compare each project \(repository root\); trends: Render one sparkline row per project \(repository root\); not with --by-source; session: Group usage by repository root instead of by session |
+| `--by-repo` | - | - | hourly, daily, weekly, monthly: Split each source row by project \(the working directory the tool recorded\); compare: Also compare each project \(the working directory the tool recorded\); trends: Render one sparkline row per project \(the working directory the tool recorded\); not with --by-source; session: Group usage by project \(the working directory the tool recorded\) instead of by session |
 | `--by-source` | - | - | efficiency: Include per-source usage rows under each period; trends: Render one sparkline row per source instead of a single combined chart |
 | `--candidate-model` | - | `<name>` | Candidate model for counterfactual pricing \(repeatable or comma-separated\) \(optimize only\) |
 | `--claude-dir` | - | `<path>` | Path to Claude projects directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline, doctor, prune only\) |
@@ -1979,7 +2009,7 @@ Search across root and command help. See Command help above to check which flags
 | `--gemini-dir` | - | `<path>` | Path to .gemini directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline, doctor, prune only\) |
 | `--goose-db` | - | `<path>` | Path to Goose SQLite DB \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline, doctor, prune only\) |
 | `--granularity` | - | `<period>` | Add rows per period and project \(choices: "daily", "weekly", "monthly"\) \(projects only\) |
-| `--help-all` | - | - | Display help including the per-source path flags \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline, doctor, prune only\) |
+| `--help-all` | - | - | summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline, doctor, prune: Display help including the per-source path flags; pricing, config, machine, sync, schema, completion: Display help for command |
 | `--history` | - | - | Include usage from files that no longer exist on disk \(on by default; when passed, fails if the event store is unavailable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline only\) |
 | `--id` | - | `<session-id>` | Show only sessions whose id contains the value \(case-insensitive; repeatable or comma-separated\) \(session only\) |
 | `--ignore-pricing-failures` | - | - | Continue without estimated costs when pricing cannot be loaded \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline only\) |
@@ -2011,7 +2041,7 @@ Search across root and command help. See Command help above to check which flags
 | `--quiet` | - | - | Suppress informational stderr output \(warnings still print\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, pricing, doctor, prune, machine only\) |
 | `--qwen-dir` | - | `<path>` | Path to Qwen projects directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline, doctor, prune only\) |
 | `--redact` | - | - | With --share, label projects project-N and machines machine-N \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, wrapped only\) |
-| `--repo` | - | `<project>` | summary, hourly, daily, weekly, monthly, projects, compare, optimize, trends, session, blocks, value, events: Count only these projects \(repeatable or comma-separated, so a value cannot contain a comma\). A path \(absolute, or ./, ../, \~/ on this machine\) matches that repository root and the roots under it; a name or path tail such as work/api matches the end of a root, not the roots under it; \(unattributed\) matches usage without a root. Applied after --model picks exact or substring matching; efficiency: Count only these projects \(repeatable or comma-separated, so a value cannot contain a comma\). A path \(absolute, or ./, ../, \~/ on this machine\) matches that repository root and the roots under it; a name or path tail such as work/api matches the end of a root, not the roots under it; \(unattributed\) matches usage without a root. Applied after --model picks exact or substring matching. It filters usage events; --repo-dir picks the Git repository for outcomes |
+| `--repo` | - | `<project>` | summary, hourly, daily, weekly, monthly, projects, compare, optimize, trends, session, blocks, value, events: Count only these projects \(repeatable or comma-separated, so a value cannot contain a comma\). A path \(absolute, or ./, ../, \~/ on this machine\) matches that project directory and the projects under it; a name or path tail such as work/api matches the end of a project directory, not the projects under it; \(unattributed\) matches usage without a recorded directory. Applied after --model picks exact or substring matching; efficiency: Count only these projects \(repeatable or comma-separated, so a value cannot contain a comma\). A path \(absolute, or ./, ../, \~/ on this machine\) matches that project directory and the projects under it; a name or path tail such as work/api matches the end of a project directory, not the projects under it; \(unattributed\) matches usage without a recorded directory. Applied after --model picks exact or substring matching. It filters usage events; --repo-dir picks the Git repository for outcomes |
 | `--repo-dir` | - | `<path>` | Path to repository for Git outcome metrics \(efficiency only\) |
 | `--roocode-dir` | - | `<path>` | Path to RooCode tasks directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline, doctor, prune only\) |
 | `--share` | - | - | Write an interactive HTML report to the current directory \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, wrapped only\) |
