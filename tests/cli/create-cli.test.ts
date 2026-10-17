@@ -513,6 +513,9 @@ describe('createCli', () => {
       expect(output, commandPath.join(' ')).toMatch(
         new RegExp(`^Usage: llm-usage ${commandPath.join(' ')} `, 'u'),
       );
+      if (commandPath[0] === 'daily') {
+        expect(output).toContain('--claude-dir');
+      }
     }
   });
 
