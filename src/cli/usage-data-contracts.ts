@@ -414,6 +414,17 @@ export type SummaryPeriod = {
    * when the report counts other machines' usage (after its filters) in the past year.
    */
   machines?: SummaryMachineTotals[];
+  /**
+   * The window the period is set against, as `compare` picks it; always set by
+   * `buildSummaryData`.
+   */
+  previous?: SummaryPreviousPeriod;
+};
+
+export type SummaryPreviousPeriod = {
+  since: string;
+  until: string;
+  totals: UsageWindowTotals;
 };
 
 /** Month-to-date run rate and the configured budget. */

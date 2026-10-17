@@ -36,6 +36,21 @@ export function resolveUntil(report: ShareReport, until: string | null): string 
 }
 
 /**
+ * A range's start as the page shows it: an open start is the window's, else the first date with
+ * data (a file made with `--all` has no window start).
+ */
+export function resolveSince(report: ShareReport, since: string | null): string | undefined {
+  return (
+    since ??
+    report.data.meta.window.since ??
+    report.periods.reduce<string | undefined>(
+      (first, period) => (first === undefined || period.dateKey < first ? period.dateKey : first),
+      undefined,
+    )
+  );
+}
+
+/**
  * The dates the view spans: the filter range, with an open start taken from the window and then
  * from the data, and the end resolved by `resolveUntil`, so a chart axis has fixed ends whatever
  * cells the filters keep and never runs past the generation date.
@@ -44,9 +59,7 @@ export function getViewDateSpan(
   report: ShareReport,
   filters: ShareFilters,
 ): ShareDateSpan | undefined {
-  const { window } = report.data.meta;
-  const dataDates = report.periods.map((period) => period.dateKey).sort();
-  const first = filters.since ?? window.since ?? dataDates.at(0);
+  const first = resolveSince(report, filters.since);
   const last = resolveUntil(report, filters.until) ?? undefined;
 
   return first !== undefined && last !== undefined && first <= last ? { first, last } : undefined;

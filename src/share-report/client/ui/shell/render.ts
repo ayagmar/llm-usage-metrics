@@ -19,7 +19,11 @@ export function renderHeaderContent(header: HeaderView): HTMLElement[] {
       'ul',
       { class: 'badges', attrs: { 'aria-label': 'About this file' } },
       header.badges.map((badge) =>
-        h('li', { class: `badge badge-${badge.tone}`, text: badge.text }),
+        h('li', {
+          class: `badge badge-${badge.tone}`,
+          attrs: { title: badge.title },
+          text: badge.text,
+        }),
       ),
     ),
   ];
