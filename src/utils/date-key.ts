@@ -128,6 +128,11 @@ export function shiftDateKey(dateKey: string, days: number): string {
   return formatDateKey(fromDayNumber(toDayNumber(parseDateKeyOrThrow(dateKey)) + days));
 }
 
+/** UTC midnight `days` after a date key, as an ISO timestamp; throws on an invalid key. */
+export function getUtcMidnightIso(dateKey: string, days = 0): string {
+  return `${shiftDateKey(dateKey, days)}T00:00:00.000Z`;
+}
+
 /**
  * Every date key from `from` to `to`, both inclusive; empty when `from` is after `to`. Throws
  * on an invalid `from`.
