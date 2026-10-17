@@ -20,7 +20,8 @@ Options:
   --markdown                     Render output as markdown table
   --top <n>                      Show only the top N tools by calls (default 20; 0 shows all)
   --by-source                    Split each tool row by source
-  --by-repo                      Split each tool row by project (repository root)
+  --by-repo                      Split each tool row by project (the working directory the tool
+                                 recorded)
   --last <n>                     Report the last N days, counting today (default 7)
   --all                          Report every tool call on disk instead of the last 7 days
   --repo <project>               Count only these projects (repeatable or comma-separated, so a
