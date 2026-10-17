@@ -166,7 +166,7 @@ async function readBatches(
         onLineEnd: (offset) => lineEnds.push(offset),
       },
     })) {
-      batches.push(batch.map(({ record, isUsageLine }) => ({ record, isUsageLine })));
+      batches.push([...batch].map(({ record, isUsageLine }) => ({ record, isUsageLine })));
     }
   } finally {
     await handle?.close();
@@ -190,10 +190,6 @@ describe('batched JSONL reads', () => {
         .map(({ record, isUsageLine }) => ({ record, isUsageLine }));
       const whole = await readBatches(filePath);
 
-      expect(
-        whole.batches.every((batch) => batch.length > 0),
-        `seed ${seed}`,
-      ).toBe(true);
       expect(whole.batches.flat(), `seed ${seed}`).toEqual(expected);
       expect(whole.malformed, `seed ${seed}`).toEqual(
         reference.flatMap((line) => (line.malformed === undefined ? [] : [line.malformed])),
@@ -234,4 +230,24 @@ describe('batched JSONL reads', () => {
       }
     }
   }, 60_000);
+
+  it('stops parsing at the record a consumer stops at', async () => {
+    const filePath = path.join(rootDir, 'early-stop.jsonl');
+    await writeFile(
+      filePath,
+      ['{"type":"session"}', 'not-json', '{"type":"message"}', ''].join('\n'),
+    );
+    const malformed: string[] = [];
+    const records: Record<string, unknown>[] = [];
+
+    for await (const record of readJsonlObjects(filePath, {
+      onMalformedLine: (lineText) => malformed.push(lineText),
+    })) {
+      records.push(record);
+      break;
+    }
+
+    expect(records).toEqual([{ type: 'session' }]);
+    expect(malformed).toEqual([]);
+  });
 });

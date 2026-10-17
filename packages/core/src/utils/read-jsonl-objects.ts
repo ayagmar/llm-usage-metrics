@@ -76,23 +76,23 @@ export function readJsonlObjects(
 }
 
 /**
- * `readJsonlObjects` in batches: one array per chunk read, holding that chunk's records in
- * file order, so a consumer awaits once per chunk instead of once per record. The line
- * callbacks run as each chunk is split, before its batch is yielded, so a consumer that
- * stops early may have seen them called for lines after the record it stopped at.
+ * `readJsonlObjects` in batches: one iterable per chunk read, yielding that chunk's records
+ * in file order, so a consumer awaits once per chunk instead of once per record. Iterate
+ * each batch before asking for the next; records left in a batch are skipped. A batch may
+ * be empty.
  */
 export function readJsonlObjectBatches(
   filePath: string,
   options: BytesLineOptions,
-): AsyncGenerator<Record<string, unknown>[], void, undefined>;
+): AsyncGenerator<Iterable<Record<string, unknown>>, void, undefined>;
 export function readJsonlObjectBatches(
   filePath: string,
   options?: TextLineOptions,
-): AsyncGenerator<Record<string, unknown>[], void, undefined>;
+): AsyncGenerator<Iterable<Record<string, unknown>>, void, undefined>;
 export function readJsonlObjectBatches(
   filePath: string,
   options: ReadJsonlObjectsOptions = {},
-): AsyncGenerator<Record<string, unknown>[], void, undefined> {
+): AsyncGenerator<Iterable<Record<string, unknown>>, void, undefined> {
   return readJsonlBatches(filePath, options, toRecord);
 }
 
@@ -120,16 +120,16 @@ export function readClassifiedJsonlObjects(
 export function readClassifiedJsonlObjectBatches(
   filePath: string,
   options: BytesLineOptions & { isUsageLineBytes: (lineBytes: Buffer) => boolean },
-): AsyncGenerator<ClassifiedJsonlObject[], void, undefined>;
+): AsyncGenerator<Iterable<ClassifiedJsonlObject>, void, undefined>;
 export function readClassifiedJsonlObjectBatches(
   filePath: string,
   // eslint-disable-next-line @typescript-eslint/unified-signatures -- a union leaves the callbacks untyped
   options: TextLineOptions & { isUsageLine: (lineText: string) => boolean },
-): AsyncGenerator<ClassifiedJsonlObject[], void, undefined>;
+): AsyncGenerator<Iterable<ClassifiedJsonlObject>, void, undefined>;
 export function readClassifiedJsonlObjectBatches(
   filePath: string,
   options: ReadClassifiedJsonlObjectsOptions,
-): AsyncGenerator<ClassifiedJsonlObject[], void, undefined> {
+): AsyncGenerator<Iterable<ClassifiedJsonlObject>, void, undefined> {
   return readJsonlBatches(filePath, options, toClassifiedItem(options));
 }
 
@@ -144,7 +144,7 @@ function toClassifiedItem(
 }
 
 async function* flattenBatches<T>(
-  batches: AsyncGenerator<T[], void, undefined>,
+  batches: AsyncGenerator<Iterable<T>, void, undefined>,
 ): AsyncGenerator<T, void, undefined> {
   for await (const batch of batches) {
     yield* batch;
@@ -174,7 +174,7 @@ async function* readJsonlBatches<T>(
   filePath: string,
   options: ReadJsonlObjectsOptions,
   toItem: ToItem<T>,
-): AsyncGenerator<T[], void, undefined> {
+): AsyncGenerator<Iterable<T>, void, undefined> {
   const { position } = options;
   let stream: ReadStream | undefined;
   let chunks: AsyncIterable<Buffer>;
@@ -190,43 +190,50 @@ async function* readJsonlBatches<T>(
   let carriedChunks: Buffer[] = [];
   let chunkOffset = position?.start ?? 0;
 
+  // Parses a chunk's lines as the consumer reaches them, so a read stopped early never
+  // parses or reports the lines after the record it stopped at.
+  function* parseChunkLines(chunk: Buffer): Generator<T, void, undefined> {
+    let lineStart = 0;
+
+    while (lineStart < chunk.length) {
+      const lineEnd = chunk.indexOf(LINE_FEED, lineStart);
+
+      if (lineEnd === -1) {
+        break;
+      }
+
+      const lineBytes = takeLineBytes(chunk.subarray(lineStart, lineEnd), carriedChunks);
+      carriedChunks = [];
+      lineStart = lineEnd + 1;
+
+      const item = parseJsonlLine(lineBytes, isFirstLine, options, toItem);
+      isFirstLine = false;
+
+      if (position) {
+        position.onLineEnd(chunkOffset + lineStart);
+      }
+
+      if (item !== undefined) {
+        yield item;
+      }
+    }
+
+    if (lineStart < chunk.length) {
+      carriedChunks.push(chunk.subarray(lineStart));
+    }
+
+    chunkOffset += chunk.length;
+  }
+
   try {
     for await (const chunk of chunks) {
-      const batch: T[] = [];
-      let lineStart = 0;
       position?.onChunk(chunk);
+      const batch = parseChunkLines(chunk);
+      yield batch;
 
-      while (lineStart < chunk.length) {
-        const lineEnd = chunk.indexOf(LINE_FEED, lineStart);
-
-        if (lineEnd === -1) {
-          break;
-        }
-
-        const lineBytes = takeLineBytes(chunk.subarray(lineStart, lineEnd), carriedChunks);
-        carriedChunks = [];
-        lineStart = lineEnd + 1;
-
-        const item = parseJsonlLine(lineBytes, isFirstLine, options, toItem);
-        isFirstLine = false;
-
-        if (position) {
-          position.onLineEnd(chunkOffset + lineStart);
-        }
-
-        if (item !== undefined) {
-          batch.push(item);
-        }
-      }
-
-      if (lineStart < chunk.length) {
-        carriedChunks.push(chunk.subarray(lineStart));
-      }
-
-      chunkOffset += chunk.length;
-
-      if (batch.length > 0) {
-        yield batch;
+      // Lines a consumer skipped are still read, so the next chunk starts after them.
+      while (!batch.next().done) {
+        // Each step parses one more line.
       }
     }
 
