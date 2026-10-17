@@ -145,6 +145,7 @@ const EXPECTED_SURFACE: Record<string, readonly string[]> = {
     'readJsonlObjects',
     'recordSkippedRow',
     'resolveExplicitProviderRoots',
+    'resolveMaxBusyRetries',
     'resolveRootDirs',
     'resolveTotalTokens',
     'resolveUsageTotalTokens',

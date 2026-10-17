@@ -152,6 +152,67 @@ describe('cost engine', () => {
     ]);
   });
 
+  it('counts as priority-priced only tokens billed at the flat priority rate', () => {
+    const source = new StaticPricingSource({
+      pricingByModel: {
+        'priority-tiered': {
+          inputPer1MUsd: 2,
+          outputPer1MUsd: 8,
+          cacheReadPer1MUsd: 0.2,
+          cacheWritePer1MUsd: 2.5,
+          cacheWrite1hPer1MUsd: 4,
+          priorityFallback: ['input', 'cacheRead', 'cacheWrite'],
+          tiers: [{ aboveTokens: 200_000, inputPer1MUsd: 4, cacheWritePer1MUsd: 5 }],
+        },
+        'priority-no-1h-rate': {
+          inputPer1MUsd: 2,
+          outputPer1MUsd: 8,
+          cacheWritePer1MUsd: 2.5,
+          priorityFallback: ['cacheWrite'],
+        },
+      },
+    });
+    const baseEvent = {
+      source: 'claude',
+      sessionId: 'session-1',
+      timestamp: '2026-02-16T10:00:00Z',
+      outputTokens: 50,
+      costMode: 'estimated' as const,
+    };
+    const tiered = { ...baseEvent, model: 'priority-tiered' };
+    const events = [
+      // Above the tier: input and cache writes bill at the tier's standard rates.
+      createUsageEvent({ ...tiered, inputTokens: 150_000, cacheWriteTokens: 60_000 }),
+      // Below the tier, all cache writes at the 1h rate, which is not a priority rate.
+      createUsageEvent({ ...tiered, cacheWriteTokens: 1_000, cacheWrite1hTokens: 1_000 }),
+      // Below the tier, 5m cache writes at the priority rate.
+      createUsageEvent({ ...tiered, cacheWriteTokens: 1_000 }),
+      // Above the tier, which sets no cache-read rate: those bill at the priority rate.
+      createUsageEvent({ ...tiered, inputTokens: 150_000, cacheReadTokens: 60_000 }),
+      // No 1h rate: 1h writes bill at the priority 5m rate.
+      createUsageEvent({
+        ...baseEvent,
+        model: 'priority-no-1h-rate',
+        cacheWriteTokens: 1_000,
+        cacheWrite1hTokens: 1_000,
+      }),
+    ];
+    const stats = createPricingRunStats();
+
+    const pricedEvents = applyPricingToEvents(events, source, {
+      policy: { costMode: 'estimated', perRequestSourceIds: new Set(['claude']) },
+      stats,
+    });
+
+    expect(pricedEvents.map((event) => stats.priorityPriced.has(event))).toEqual([
+      false,
+      false,
+      true,
+      true,
+      true,
+    ]);
+  });
+
   it('estimates cost using alias mapping without double charging reasoning by default', () => {
     const source = new StaticPricingSource({
       pricingByModel: {

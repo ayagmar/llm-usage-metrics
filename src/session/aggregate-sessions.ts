@@ -1,3 +1,4 @@
+import { toProjectKey } from '../aggregate/project-key.js';
 import { computeActiveMs } from '../domain/active-time.js';
 import { getEventSessionKey, normalizeOptionalModel } from '../domain/usage-event.js';
 import type { UsageEvent } from '../domain/usage-event.js';
@@ -206,9 +207,9 @@ export function aggregateSessions(
   return [...sessions.values()].map(toSessionRow).sort(compareSessionRows);
 }
 
-function createRepoAccumulator(event: UsageEvent): RepoAccumulator {
+function createRepoAccumulator(repoRoot: string | undefined, event: UsageEvent): RepoAccumulator {
   return {
-    repoRoot: event.repoRoot,
+    repoRoot,
     firstActivity: event.timestamp,
     lastActivity: event.timestamp,
     sessionKeys: new Set(),
@@ -259,15 +260,16 @@ export function aggregateSessionsByRepo(
   events: readonly UsageEvent[],
   options: AggregateSessionsByRepoOptions = {},
 ): SessionRepoRow[] {
-  const repos = new Map<string, RepoAccumulator>();
+  const repos = new Map<string | undefined, RepoAccumulator>();
 
   for (const event of events) {
     if (!isEventWithinDateRange(event, options)) {
       continue;
     }
 
-    const key = event.repoRoot ?? '';
-    const accumulator = repos.get(key) ?? createRepoAccumulator(event);
+    // Keyed like `projects`, so `/x/app` and `/x/app/` are one row.
+    const key = toProjectKey(event.repoRoot);
+    const accumulator = repos.get(key) ?? createRepoAccumulator(key, event);
     addEventToRepoAccumulator(accumulator, event);
     repos.set(key, accumulator);
   }

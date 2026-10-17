@@ -6,6 +6,8 @@ type Timestamped = { timestamp: string };
 const TIME_OF_DAY_PATTERN = /\d:\d/u;
 // `String(date)` ends its offset with a zone name in parentheses.
 const UTC_OFFSET_PATTERN = /(?:z|[+-]\d{2}:?\d{2}|gmt|utc)(?: \([^()]*\))?$/iu;
+// The only date-only forms Date.parse reads as UTC: `2026`, `2026-06`, `2026-06-01`.
+const ISO_DATE_PATTERN = /^(?:[+-]\d{6}|\d{4})(?:-\d{2}){0,2}$/u;
 
 function toBoundMs(name: 'since' | 'until', bound: string | Date): number {
   const ms = typeof bound === 'string' ? Date.parse(bound) : bound.getTime();
@@ -14,13 +16,20 @@ function toBoundMs(name: 'since' | 'until', bound: string | Date): number {
     throw new TypeError(`${name}: invalid date ${JSON.stringify(String(bound))}`);
   }
 
-  if (
-    typeof bound === 'string' &&
-    TIME_OF_DAY_PATTERN.test(bound) &&
-    !UTC_OFFSET_PATTERN.test(bound.trim())
-  ) {
+  if (typeof bound !== 'string' || UTC_OFFSET_PATTERN.test(bound.trim())) {
+    return ms;
+  }
+
+  if (TIME_OF_DAY_PATTERN.test(bound)) {
     throw new TypeError(
       `${name}: ${JSON.stringify(bound)} has a time but no UTC offset, so its instant depends on the host time zone; add "Z" or an offset such as "+02:00"`,
+    );
+  }
+
+  // Untrimmed: V8 reads `' 2026-06-01 '` as local midnight.
+  if (!ISO_DATE_PATTERN.test(bound)) {
+    throw new TypeError(
+      `${name}: ${JSON.stringify(bound)} is a date in a non-ISO form, which means local midnight, so its instant depends on the host time zone; use an ISO date such as "2026-06-01" (midnight UTC) or a date-time with "Z" or an offset`,
     );
   }
 
@@ -42,10 +51,11 @@ function keepWhere<E extends Timestamped>(keep: (timestampMs: number) => boolean
  * not strings, so years past 9999 (`+010000-...`) order correctly. An event whose
  * timestamp does not parse is dropped, by `until` as well.
  *
- * An invalid bound throws here, not on the first event, and so does a string bound with a
- * time of day but no UTC offset (`'2026-06-01T10:00'`). An ISO date alone (`'2026-06-01'`) is
- * midnight UTC; other date-only strings (`'2026/06/01'`) follow `Date.parse` and mean local
- * midnight, so prefer the ISO form.
+ * An invalid bound throws here, not on the first event, and so does a string bound whose
+ * instant depends on the host time zone: a time of day without a UTC offset
+ * (`'2026-06-01T10:00'`), or a date alone in a non-ISO form (`'2026/06/01'`,
+ * `'June 1, 2026'`), which `Date.parse` reads as local midnight. An ISO date alone
+ * (`'2026-06-01'`) is midnight UTC.
  */
 export function since<E extends Timestamped>(bound: string | Date): Stage<E, E> {
   const boundMs = toBoundMs('since', bound);

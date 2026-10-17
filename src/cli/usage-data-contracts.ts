@@ -364,12 +364,15 @@ export type SessionDataResult =
   | {
       grouping: 'session';
       rows: SessionRow[];
+      /** Labels over every project in the report's events, not only the shown rows. */
+      projectLabels: ReadonlyMap<string | undefined, string>;
       limitNote?: string;
       diagnostics: UsageDiagnostics;
     }
   | {
       grouping: 'repo';
       rows: SessionRepoRow[];
+      projectLabels: ReadonlyMap<string | undefined, string>;
       limitNote?: string;
       diagnostics: UsageDiagnostics;
     };

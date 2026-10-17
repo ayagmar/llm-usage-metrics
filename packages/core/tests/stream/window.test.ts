@@ -115,6 +115,19 @@ describe('since and until', () => {
     }
   });
 
+  it('rejects a date-only bound in a non-ISO form, which would be local midnight', () => {
+    for (const bound of ['June 1, 2026', '2026/06/01', '06/01/2026', ' 2026-06-01 ']) {
+      expect(() => since(bound)).toThrow(
+        `since: ${JSON.stringify(bound)} is a date in a non-ISO form`,
+      );
+      expect(() => until(bound)).toThrow('use an ISO date such as "2026-06-01"');
+    }
+
+    for (const bound of ['2026', '2026-06', '+010000-01-01', '01 Jun 2026 GMT', new Date(0)]) {
+      expect(() => since(bound)).not.toThrow();
+    }
+  });
+
   it('reads a date-only bound as midnight UTC', async () => {
     const events = [usageAt('2026-05-31T23:59:59.999Z'), usageAt('2026-06-01T00:00:00.000Z')];
 

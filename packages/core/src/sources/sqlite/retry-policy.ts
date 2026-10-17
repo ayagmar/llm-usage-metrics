@@ -25,6 +25,28 @@ export function toSqliteDbReadError(
 }
 
 /**
+ * The adapter's `maxBusyRetries` option, or `fallback` when unset. Anything but a
+ * non-negative integer throws, naming the source.
+ */
+export function resolveMaxBusyRetries(
+  source: string,
+  value: number | undefined,
+  fallback: number,
+): number {
+  if (value === undefined) {
+    return fallback;
+  }
+
+  if (!Number.isInteger(value) || value < 0) {
+    throw new TypeError(
+      `${source} maxBusyRetries must be a non-negative integer (0 disables retries), got ${String(value)}`,
+    );
+  }
+
+  return value;
+}
+
+/**
  * Runs `operation` until it succeeds or fails with an error that is not busy/locked, then
  * rewrites the error with `toSqliteDbReadError`. Wrap only work done before the first
  * yield, so a retry never yields a row twice.
