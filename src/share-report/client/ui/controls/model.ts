@@ -8,6 +8,7 @@ import {
   DIMENSION_DICTIONARY,
   getAvailableCostModes,
   getWindowEnd,
+  resolveSince,
   resolveUntil,
   SHARE_DIMENSIONS,
   type ShareDimension,
@@ -44,22 +45,23 @@ export type PeriodInputs = {
 };
 
 /**
- * The date inputs for a view: an open end shows the date it resolves to (the generation date
- * for an open-ended window), and neither input offers a date past the window's end.
+ * The date inputs for a view: an open end shows the date it resolves to (the window's start, else
+ * the first date with data, as for `--all`; the generation date for an open-ended window), and
+ * neither input offers a date outside the window.
  */
 export function getPeriodInputs(
   report: ShareReport,
   view: { since: string | null; until: string | null },
 ): PeriodInputs {
-  const { window } = report.data.meta;
+  const since = resolveSince(report, view.since) ?? '';
   const until = resolveUntil(report, view.until) ?? '';
 
   return {
-    from: view.since ?? '',
+    from: since,
     to: until,
     fromMax: until,
-    toMin: view.since ?? window.since ?? '',
-    min: window.since ?? '',
+    toMin: since,
+    min: resolveSince(report, null) ?? '',
     max: getWindowEnd(report) ?? '',
   };
 }

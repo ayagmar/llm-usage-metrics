@@ -139,7 +139,18 @@ function periodControl(report: ShareReport, update: Update) {
   const from = dateInput('period-from');
   const to = dateInput('period-to');
   const onDates = () => {
-    update((state) => withPeriod(state, report, from.value || null, to.value || null));
+    update((state) => {
+      // An open end still showing the date it resolves to stays open, so the presets still match.
+      const shown = getPeriodInputs(report, state.view);
+      const read = (value: string, open: boolean, resolved: string) =>
+        value === '' || (open && value === resolved) ? null : value;
+      return withPeriod(
+        state,
+        report,
+        read(from.value, state.view.since === null, shown.from),
+        read(to.value, state.view.until === null, shown.to),
+      );
+    });
   };
   from.addEventListener('change', onDates);
   to.addEventListener('change', onDates);

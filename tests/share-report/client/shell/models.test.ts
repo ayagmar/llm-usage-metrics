@@ -380,10 +380,23 @@ describe('controls', () => {
       max: '2026-10-27',
     });
     expect(getPeriodInputs(report, { since: null, until: '2026-10-22' })).toMatchObject({
-      from: '',
+      from: '2025-12-29',
       to: '2026-10-22',
       toMin: '2025-12-29',
       max: '2026-10-26',
+    });
+  });
+
+  it('fills the "from" date of a file without a start (--all) with its first date of data', () => {
+    const all = loadFixtureReport((data) => {
+      data.meta.window = { since: null, until: null };
+    });
+    const firstDate = all.periods.map((period) => period.dateKey).sort()[0];
+
+    expect(getPeriodInputs(all, { since: null, until: null })).toMatchObject({
+      from: firstDate,
+      toMin: firstDate,
+      min: firstDate,
     });
   });
 
