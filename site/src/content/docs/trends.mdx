@@ -61,7 +61,7 @@ llm-usage trends --last 14 --share
 - Reuses the same pricing pipeline as usage reports.
 - Incomplete pricing is carried into the trend output.
 - Approximate totals and peaks use the existing `~` convention.
-- Marks spend spikes: days that cost at least $1 and at least 3 times the median daily cost of the 28 days before them, days without usage counting as $0. The terminal and Markdown output list them under the totals; JSON sets `spike: true` on those days in `totalSeries`. To check the first days of the chart, `trends` also reads the 28 days before it.
+- Marks spend spikes: days that cost at least $1 and at least 3 times the median cost of the active days among the 28 days before them. A day with fewer than 3 active days before it is never a spike. The terminal and Markdown output list them under the totals; JSON sets `spike: true` on those days in `totalSeries`. To check the first days of the chart, `trends` also reads the 28 days before it.
 
 ### `--metric tokens`
 

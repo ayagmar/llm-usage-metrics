@@ -228,11 +228,8 @@ type EscapeName = (name: string) => string;
 const keepName: EscapeName = (name) => name;
 
 function formatSpikeNote(spike: SummarySpendSpike, escapeName: EscapeName): string {
-  const median = formatUsd(spike.medianUsd);
-  const against =
-    spike.medianUsd > 0
-      ? `${(spike.costUsd / spike.medianUsd).toFixed(1)}× the ${SPIKE_BASELINE_DAYS}-day median of ${median}`
-      : `against a ${SPIKE_BASELINE_DAYS}-day median of ${median}`;
+  const multiple = (spike.costUsd / spike.medianActiveDayUsd).toFixed(1);
+  const against = `${multiple}× the median active day (${formatUsd(spike.medianActiveDayUsd)}) of the ${SPIKE_BASELINE_DAYS} days before`;
   const drivers = [
     ...(spike.project === undefined ? [] : [`top project ${escapeName(spike.project)}`]),
     ...(spike.model === undefined ? [] : [`top model ${escapeName(spike.model)}`]),

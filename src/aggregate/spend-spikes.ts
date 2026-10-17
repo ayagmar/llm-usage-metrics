@@ -4,7 +4,7 @@ import { getLocalDateKeyRange, shiftLocalDateKey } from '../utils/time-buckets.j
 import { addUsd } from '../utils/usd-math.js';
 import { toProjectKey } from './project-key.js';
 
-/** A spike costs at least this many times the median day before it. */
+/** A spike costs at least this many times the median active day before it. */
 export const SPIKE_MIN_MULTIPLE = 3;
 
 /** A day under this cost is never a spike, which keeps cents-a-day usage quiet. */
@@ -13,12 +13,18 @@ export const SPIKE_MIN_COST_USD = 1;
 /** How many days before a day its median covers. */
 export const SPIKE_BASELINE_DAYS = 28;
 
-/** A day whose cost is a spike against the median of the days before it. */
+/**
+ * Active days (cost above 0) those days need for a median; with fewer there is no usual
+ * spend to compare with, so no spike.
+ */
+export const SPIKE_MIN_ACTIVE_DAYS = 3;
+
+/** A day whose cost is a spike against the median active day before it. */
 export type SpendSpike = {
   date: string;
   costUsd: number;
-  /** Median daily cost of the 28 days before; days without usage count as 0. */
-  medianUsd: number;
+  /** Median cost of the active days among the 28 days before. */
+  medianActiveDayUsd: number;
 };
 
 /** The first day the spike check of days from `from` on needs a cost for. */
@@ -52,10 +58,18 @@ export function findSpendSpikes(
       continue;
     }
 
-    const medianUsd = median(costs.slice(index - SPIKE_BASELINE_DAYS, index));
+    const activeDayCosts = costs
+      .slice(index - SPIKE_BASELINE_DAYS, index)
+      .filter((cost) => cost > 0);
 
-    if (costUsd >= SPIKE_MIN_MULTIPLE * medianUsd) {
-      spikes.push({ date: dates[index], costUsd, medianUsd });
+    if (activeDayCosts.length < SPIKE_MIN_ACTIVE_DAYS) {
+      continue;
+    }
+
+    const medianActiveDayUsd = median(activeDayCosts);
+
+    if (costUsd >= SPIKE_MIN_MULTIPLE * medianActiveDayUsd) {
+      spikes.push({ date: dates[index], costUsd, medianActiveDayUsd });
     }
   }
 

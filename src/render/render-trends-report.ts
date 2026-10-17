@@ -189,7 +189,7 @@ function formatSpikeLine(
       `${formatDate(bucket.date)} ${formatMetricValue(bucket.value, 'cost', bucket.incomplete)}`,
   );
 
-  return `Spend spikes (${SPIKE_MIN_MULTIPLE}× the ${SPIKE_BASELINE_DAYS}-day median or more, ${usdFormatter.format(SPIKE_MIN_COST_USD)} minimum): ${days.join(', ')}`;
+  return `Spend spikes (${SPIKE_MIN_MULTIPLE}× or more the median active day of the ${SPIKE_BASELINE_DAYS} days before, ${usdFormatter.format(SPIKE_MIN_COST_USD)} minimum): ${days.join(', ')}`;
 }
 
 /** The totals line, then the spike legend when the chart has spikes. */

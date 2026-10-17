@@ -529,12 +529,12 @@ describe('buildSummaryData', () => {
     expect(result.spike).toEqual({
       date: '2026-03-08',
       costUsd: 4.5,
-      medianUsd: 1,
+      medianActiveDayUsd: 1,
       project: 'api',
       model: 'gpt-5',
     });
     expect(renderSummaryReport(result, 'terminal', { useColor: false })).toContain(
-      'Spend spike on 2026-03-08: $4.50, 4.5× the 28-day median of $1.00; top project api, top model gpt-5',
+      'Spend spike on 2026-03-08: $4.50, 4.5× the median active day ($1.00) of the 28 days before; top project api, top model gpt-5',
     );
     const json = JSON.parse(renderSummaryReport(result, 'json')) as { data: { spike?: unknown } };
     expect(json.data.spike).toEqual(result.spike);

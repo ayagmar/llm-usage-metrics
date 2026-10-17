@@ -548,12 +548,12 @@ describe('renderTrendsReport', () => {
       renderTrendsReport(data, 'terminal', { useColor: false, terminalWidth: 30 }),
     ]) {
       expect(output.split('\n').at(-1)).toBe(
-        'Spend spikes (3× the 28-day median or more, $1.00 minimum): Mar 06 ~$2.50',
+        'Spend spikes (3× or more the median active day of the 28 days before, $1.00 minimum): Mar 06 ~$2.50',
       );
     }
 
     expect(renderTrendsReport(data, 'markdown').split('\n').at(-1)).toBe(
-      'Spend spikes (3× the 28-day median or more, $1.00 minimum): 2026-03-06 ~$2.50',
+      'Spend spikes (3× or more the median active day of the 28 days before, $1.00 minimum): 2026-03-06 ~$2.50',
     );
     expect(renderTrendsReport(createTrendsDataResult(), 'terminal')).not.toContain('spike');
   });

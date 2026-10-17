@@ -458,7 +458,7 @@ describe('renderSummaryReport', () => {
         date: '2026-03-09',
         costUsd: 12,
         costIncomplete: true,
-        medianUsd: 0,
+        medianActiveDayUsd: 4,
         project: 'my_app',
         model: 'gpt-*',
       },
@@ -467,7 +467,7 @@ describe('renderSummaryReport', () => {
     const spikeIndex = terminalLines.findIndex((line) => line.startsWith('Spend spike'));
 
     expect(terminalLines[spikeIndex]).toBe(
-      'Spend spike on 2026-03-09: ~$12.00, against a 28-day median of $0.00; top project my_app, top model gpt-*',
+      'Spend spike on 2026-03-09: ~$12.00, 3.0× the median active day ($4.00) of the 28 days before; top project my_app, top model gpt-*',
     );
     expect(terminalLines[spikeIndex - 1]).toBe('');
     expect(terminalLines[spikeIndex + 1]).toMatch(/^On pace for/u);

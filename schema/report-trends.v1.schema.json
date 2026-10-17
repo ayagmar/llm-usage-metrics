@@ -66,7 +66,7 @@
           "type": "boolean"
         },
         "spike": {
-          "description": "Set on cost trends' combined series when the day is a spend spike: it cost at least $1 and at least 3 times the median daily cost of the 28 days before it (days without usage count as 0).",
+          "description": "Set on cost trends' combined series when the day is a spend spike: it cost at least $1 and at least 3 times the median cost of the active days (cost above 0) among the 28 days before it; with fewer than 3 active days in those 28, no day is one.",
           "const": true
         }
       },

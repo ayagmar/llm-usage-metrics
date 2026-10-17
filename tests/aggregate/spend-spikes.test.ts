@@ -4,6 +4,7 @@ import {
   findSpendSpikes,
   findSpikeDrivers,
   SPIKE_BASELINE_DAYS,
+  SPIKE_MIN_ACTIVE_DAYS,
   SPIKE_MIN_COST_USD,
   SPIKE_MIN_MULTIPLE,
 } from '../../src/aggregate/spend-spikes.js';
@@ -66,27 +67,44 @@ describe('findSpendSpikes', () => {
     }
   });
 
-  it('takes the median of the 28 days before, counting days without usage as 0', () => {
-    // Usage on 14 of the 28 days before Mar 1: the median is the mean of $0 and $2.
-    const costs = new Map(
-      ALL_DATES.slice(0, SPIKE_BASELINE_DAYS)
-        .filter((_, index) => index % 2 === 0)
-        .map((date) => [date, 2]),
-    );
-    costs.set(RANGE.from, SPIKE_MIN_MULTIPLE * 1);
+  it('takes the median of the active days among the 28 days before', () => {
+    // $1, $2 and $10 on three of the 28 days before Mar 1, nothing on the others: median $2.
+    const baseline = new Map([
+      [ALL_DATES[0], 1],
+      [ALL_DATES[10], 10],
+      [ALL_DATES[27], 2],
+    ]);
+    const on = (costUsd: number) =>
+      findSpendSpikes(new Map([...baseline, [RANGE.from, costUsd]]), {
+        from: RANGE.from,
+        to: RANGE.from,
+      });
 
-    expect(findSpendSpikes(costs, { from: RANGE.from, to: RANGE.from })).toEqual([
-      { date: RANGE.from, costUsd: 3, medianUsd: 1 },
+    expect(on(6)).toEqual([{ date: RANGE.from, costUsd: 6, medianActiveDayUsd: 2 }]);
+    expect(on(5.99)).toEqual([]);
+  });
+
+  it(`needs ${String(SPIKE_MIN_ACTIVE_DAYS)} active days before a day to call it a spike`, () => {
+    const day = { from: RANGE.from, to: RANGE.from };
+    const activeDays = (count: number) =>
+      new Map([...ALL_DATES.slice(0, count).map((date) => [date, 1] as const), [RANGE.from, 5]]);
+
+    // A sparse user: a $5 day after two $1 days is not a spike, after three it is.
+    expect(findSpendSpikes(activeDays(2), day)).toEqual([]);
+    expect(findSpendSpikes(activeDays(3), day)).toEqual([
+      { date: RANGE.from, costUsd: 5, medianActiveDayUsd: 1 },
     ]);
   });
 
   it(`never flags a day under $${String(SPIKE_MIN_COST_USD)} or under ${String(SPIKE_MIN_MULTIPLE)}x the median`, () => {
     const day = { from: RANGE.from, to: RANGE.from };
 
-    expect(findSpendSpikes(new Map([[RANGE.from, 0.99]]), day)).toEqual([]);
-    expect(findSpendSpikes(new Map([[RANGE.from, 1]]), day)).toEqual([
-      { date: RANGE.from, costUsd: 1, medianUsd: 0 },
-    ]);
+    expect(
+      findSpendSpikes(
+        costsOf((date) => (date === RANGE.from ? 0.99 : 0.1)),
+        day,
+      ),
+    ).toEqual([]);
     expect(
       findSpendSpikes(
         costsOf((date) => (date === RANGE.from ? 29.99 : 10)),
