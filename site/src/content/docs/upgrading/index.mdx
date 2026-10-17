@@ -27,10 +27,13 @@ These changes are on the main branch and not yet in a release.
 ### Reports and output
 
 - **`events` CSV** gains a `cacheWrite1hTokens` column, appended after `machine`. Scripts that read columns by position keep working; scripts that check the column count need one more.
-- **`session` table.** The `Repo` column is now `Project`, labelled as the [projects report](/llm-usage-metrics/projects/) labels it: folders with the same name stay apart, and sessions with no repository read `(unattributed)`.
+- **`session` table.** The `Repo` column is now `Project`, labelled as the [projects report](/llm-usage-metrics/projects/) labels it: folders with the same name stay apart, and sessions with no repository read `(unattributed)`. Labels come from every session in the window, so `--top` and `--id` no longer change them, and `--by-repo` merges directories that differ only by a trailing slash into one row, as `projects` does.
+- **`config show`** prints the effective setup in sections (config file, sources, event store, machines, pricing, defaults), each value with its origin: `flag`, `env var`, `config` or `default`. It no longer prints the `Config file:` line and the `Active config:` block. A script that needs only the config file path should use `llm-usage config path`; one that reads settings should use `config show --json` ([report-config.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-config.v1.schema.json)). See [Configuration](/llm-usage-metrics/configuration/#showing-the-effective-setup).
+- **`--no-cost`** on `hourly`, `daily`, `weekly`, `monthly` and `blocks` no longer loads or fetches prices. Models with the same token total are then ordered by logged cost only, so two tied models can swap places in a model list.
+- **Error messages.** `projects --top 0` and other invalid values now fail with `--top must be a positive integer`, as the other reports do, and `optimize --top` rejects leading zeros such as `01`.
 - **Terminal tables** align text left and numbers right in every report, including the stacked list on narrow terminals. `prune` summaries and the per-source lines of `doctor` say `1 file` and `2 files` instead of `file(s)`. `trends` uses whole token ticks on its axis and the tables' compact number style. Efficiency and optimize print the shared no-usage message instead of an all-zero table.
 
-New commands: `hourly`, `projects`, `blocks`, `value` and `pricing <model...>`. `daily`, `weekly`, `monthly`, `trends` and `compare` gain `--by-repo` (as does the new `hourly`), and `--repo` counts only some projects in `summary`, the usage reports, `projects`, `compare`, `trends`, `session`, `blocks`, `value`, `efficiency`, `optimize` and `events`. See [Choose a report](/llm-usage-metrics/reports/).
+New commands: `hourly`, `projects`, `blocks`, `value`, `pricing <model...>`, [`tools`](/llm-usage-metrics/tools/) and [`context`](/llm-usage-metrics/context/), and `session --id <id> --timeline` lists one session [request by request](/llm-usage-metrics/session/#timeline). `summary --json` gains `previous` on each period and `spike` for a [spend spike](/llm-usage-metrics/usage/) in the last 7 days; cost `trends --json` sets `spike: true` on spike days. `daily`, `weekly`, `monthly`, `trends` and `compare` gain `--by-repo` (as does the new `hourly`), and `--repo` counts only some projects in `summary`, the usage reports, `projects`, `compare`, `trends`, `session`, `blocks`, `value`, `efficiency`, `optimize` and `events`. See [Choose a report](/llm-usage-metrics/reports/).
 
 ### Multiple machines
 
@@ -39,6 +42,8 @@ New commands: `hourly`, `projects`, `blocks`, `value` and `pricing <model...>`. 
 ### Library
 
 The parsers now live in their own package, [`@ayagmar/agent-sessions`](/llm-usage-metrics/library/), versioned separately from the CLI. It is not published to npm yet. The CLI bundles it and its behaviour does not change.
+
+If you built the package from this repository before it reached a release: `since` and `until` now throw on a date-only bound that is not an ISO date (`'2026/06/01'`, `'June 1, 2026'`), which `Date.parse` reads as local midnight; pass `'2026-06-01'` or a full timestamp with an offset. `maxBusyRetries` on the opencode, goose and antigravity adapters throws when the adapter is created unless it is a non-negative integer.
 
 ## 0.11.0
 

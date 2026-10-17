@@ -83,6 +83,7 @@ for (const filePath of await codex.discoverFiles()) {
 - `collect(iterable)` turns any async iterable into an array.
 - Breaking out of a `for await` loop closes every file and database handle the read opened before `return()` resolves.
 - A read holds its file or database while you iterate. For the SQLite sources (opencode, goose, antigravity) that is an open read transaction: in WAL mode a snapshot the agent cannot checkpoint past, in rollback-journal mode a shared lock that blocks the agent's writes. Do not await slow work between events of a SQLite read.
+- A SQLite read that finds the database busy or locked is retried `maxBusyRetries` times (an adapter option, default 2; `0` turns retries off), waiting `busyRetryDelayMs` (default 50) times the attempt number before each retry. A `maxBusyRetries` that is not a non-negative integer throws when the adapter is created.
 
 A directory-backed adapter takes `{ dir, requireDir, context }`; opencode and goose take `{ dbPath, context }`. `dir` replaces the default location; `requireDir: true` makes a missing `dir` a discovery error instead of no files.
 

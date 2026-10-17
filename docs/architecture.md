@@ -17,9 +17,9 @@ This keeps source-specific parsing, pricing, aggregation, rendering, and command
 ### Report definitions
 
 - `src/cli/report-definitions/report-definitions.ts`
-  Owns the canonical registry for `summary` (the default command), `hourly`, `daily`, `weekly`, `monthly`, `projects`, `compare`, `efficiency`, `optimize`, `trends`, `session`, `blocks`, `value`, `wrapped`, `events`, `pricing`, `statusline`, `doctor`, and `prune`. (`config`, `schema`, `completion`, `machine`, and `sync` are registered directly in `create-cli.ts`; `create-completion-command.ts` generates the bash, zsh, and fish scripts from the live command tree.)
+  Owns the canonical registry for `summary` (the default command), `hourly`, `daily`, `weekly`, `monthly`, `projects`, `compare`, `efficiency`, `optimize`, `trends`, `session`, `tools`, `context`, `blocks`, `value`, `wrapped`, `events`, `pricing`, `statusline`, `doctor`, and `prune`. (`config`, `schema`, `completion`, `machine`, and `sync` are registered directly in `create-cli.ts`; `create-completion-command.ts` generates the bash, zsh, and fish scripts from the live command tree.)
 - `src/cli/report-definitions/shared-report-options.ts`
-  Registers the shared option surface by profile (`usage`, `hourly`, `rollup`, `pricing`, `summary`, `specialized`, `compare`, `trends`, `session`, `wrapped`, `events`, `statusline`, `doctor`).
+  Registers the shared option surface by profile (`usage`, `hourly`, `rollup`, `pricing`, `summary`, `specialized`, `compare`, `trends`, `session`, `tools`, `wrapped`, `events`, `statusline`, `doctor`, `config`).
 
 This metadata is reused by:
 
@@ -141,7 +141,7 @@ Each command has a `run*` entry point, and most have a `build*` that returns the
 1. `buildUsageEventDataset(...)`
 2. optional pricing load (cost mode only)
 3. `aggregateUsage(..., { granularity: 'daily', includeModelBreakdown: false })`
-4. `aggregateTrends(...)`
+4. `aggregateTrends(...)`; in cost mode the fetch starts 28 days before the chart so `findSpendSpikes(...)` can mark spike days with `spike: true`
 5. `renderTrendsReport(...)`
 6. shared report runtime emits diagnostics and stdout body
 
@@ -159,9 +159,30 @@ Each command has a `run*` entry point, and most have a `build*` that returns the
 `runSessionReport(options)`
 
 1. `buildSessionData(...)` reuses the usage dataset and pricing
-2. per-session grouping (or per-repository with `--by-repo`) with a top-N row limit (`src/session`)
-3. `renderSessionReport(...)`
-4. shared report runtime emits diagnostics and stdout body
+2. per-session grouping (or per-project with `--by-repo`) with a top-N row limit (`src/session`)
+3. with `--id <id> --timeline`: exactly one session must match; `readLiveSessionEvents(...)` reads its tool calls and messages from the files that hold its usage, `dedupeToolCalls` counts copied calls once, and `buildSessionTimeline(...)` interleaves them with the session's priced requests and a running cost
+4. `renderSessionReport(...)`
+5. shared report runtime emits diagnostics and stdout body
+
+### Tools
+
+`runToolsReport(options)`
+
+1. `buildToolsData(...)` resolves the window as `daily` does (last 7 days by default) and builds the local usage dataset without history, other machines or sync, since tool calls are only in files on disk; it loads no prices
+2. `readLiveSessionEvents(...)` (`src/cli/read-live-session-events.ts`) reads `tool_call` events from those files through core `readEvents`, and `dedupeToolCalls` counts a call copied into a resumed or forked session once
+3. `aggregateTools(...)` (`src/tools`): calls, errors, unknown results, sessions and top project per tool, split by source or project on request
+4. `renderToolsReport(...)`
+5. shared report runtime emits diagnostics, the live-read note, and stdout body
+
+### Context
+
+`runContextReport(options)`
+
+1. `buildContextData(...)` resolves the window as `daily` does and builds the usage dataset
+2. pricing is loaded whenever an event names a model, since the report needs tier rates and context limits (`getMaxInputTokens`), not event costs
+3. `aggregateContextPressure(...)` (`src/context`): per model or per session, peak prompt, requests above 200k tokens, the long-context tier extra from the cost engine's `estimateLongContextExtraUsd`, and requests above 80% of the context limit; sources without `capabilities.usagePerRequest` are listed as aggregated
+4. `renderContextReport(...)`
+5. shared report runtime emits diagnostics and stdout body
 
 ### Wrapped
 
@@ -180,17 +201,22 @@ Each command has a `run*` entry point, and most have a `build*` that returns the
 2. per-window totals for today, the last 7 days, and month to date, split by source, and by machine when other machines' events are present
 3. `resolveMonthEnd(...)` projects the month-end cost from the 3rd of the month on, and compares it with `monthlyBudgetUsd` unless `--source`, `--model`, or `--provider` narrows the run
 4. `estimateCacheSavingsUsd(...)` for month to date, and `aggregateDailyActivity(...)` for streaks and the heatmap
-5. shared report runtime emits diagnostics and stdout body
+5. `findSpendSpikes(...)` (`src/aggregate/spend-spikes.ts`) over the last 7 days, and `findSpikeDrivers(...)` for the costliest spike's top project and model
+6. shared report runtime emits diagnostics and stdout body
 
 ### Statusline
 
-`runStatusline` builds the summary data with offline pricing and machine sync off, so it never fetches prices or opens an ssh connection and skips the update check, and prints one line from it with the logger silenced unless `--verbose`. Under Claude Code it also reads the session JSON from stdin and puts the session cost and context use first.
+`runStatusline` builds the summary data with offline pricing and machine sync off, so it never fetches prices or opens an ssh connection and skips the update check, and prints one line from it with the logger silenced unless `--verbose`. Under Claude Code it also reads the session JSON from stdin and puts the session cost and context use first. With `parseWorkers` at `auto`, it parses on at most two worker threads, since a cold tick gained nothing from more and each worker adds its own heap.
 
 ### Machines and Sync
 
 `machine add` and `sync` run `syncMachine` (`src/machines/sync-machine.ts`): it runs `llm-usage machine export` on the other machine over ssh, sends the files its cache already holds so only changed files come back (`--full` asks for all of them), and applies the bundle to that machine's cache in one transaction. A failed sync leaves the cache as it was and records the error.
 
 Reports refresh caches themselves: `buildUsageEventDataset` calls `refreshDueMachines` alongside the local parse, which syncs each enabled machine whose last sync or attempt is at least 10 minutes old and waits at most 30 seconds before using what is cached. `--no-sync` and `statusline` skip the refresh.
+
+### Config show
+
+`config show` runs `buildConfigReport(...)` (`src/cli/build-config-report.ts`): it resolves each setting with its origin (flag, env var, config or default), `stat`s source paths, opens the event store read-only, reads the pricing cache without fetching, and lists machines from the config without ssh.
 
 ### Doctor and Prune
 
@@ -260,7 +286,7 @@ That keeps sorting and separator behavior deterministic without coupling the gen
 ## Module map
 
 - `src/cli`
-  Command creation, shared runtime, builders, diagnostics emission; the installed bin is `bin.ts` (built to `dist/bin.js`), a tiny loader that enables Node's compile cache and then imports the bundled CLI in `dist/index.js`, which parse workers also load; `parse-worker-pool.ts` holds the worker-thread parse pool; `parse/` groups the parse-pipeline concerns (`parse-fingerprint.ts` dependency fingerprinting, `event-store-parse-cache.ts` store read/write caching, `since-file-skip.ts` the `--since` mtime cutoff, `parse-budget.ts` the global parse semaphore, `usage-event-filters.ts` provider/date/model filtering) around the coordinator in `build-usage-data-parsing.ts`; `usage-window-summary.ts` sums date windows for `compare` and `summary`
+  Command creation, shared runtime, builders, diagnostics emission; the installed bin is `bin.ts` (built to `dist/bin.js`), a tiny loader that enables Node's compile cache and then imports the bundled CLI in `dist/index.js`, which parse workers also load; `parse-worker-pool.ts` holds the worker-thread parse pool; `parse/` groups the parse-pipeline concerns (`event-store-parse-cache.ts` store read/write caching, `since-file-skip.ts` the `--since` mtime cutoff, `parse-budget.ts` the global parse semaphore, `usage-event-filters.ts` provider/date/model filtering) around the coordinator in `build-usage-data-parsing.ts`, which takes dependency fingerprints from core's `getFileFingerprint`; `usage-window-summary.ts` sums date windows for `compare` and `summary`
 - `src/cli/report-definitions`
   Canonical report metadata and option profiles
 - `src/cli/report-runtime`
@@ -268,13 +294,13 @@ That keeps sorting and separator behavior deterministic without coupling the gen
 - `src/config`
   TOML config loading (`user-config.ts`) and flag/env/config/default resolution (`runtime-overrides.ts`)
 - `packages/core/src/sources`
-  Source adapters, discovery, parsing, in the `@ayagmar/agent-sessions` package; the CLI imports them through the package specifiers. Each adapter's `read(filePath, options)` yields a file's events as an async iterable; the CLI parse path, the parse worker and `doctor` read whole files through `collectFile`. `capabilities.kinds` lists the event kinds an adapter produces: claude, codex and pi also implement `readEvents(filePath, options)`, which yields usage records, messages, tool calls and session facts (`SessionEvent` in `packages/core/src/domain/session-event.ts`); every other adapter declares `['usage']`. The CLI uses only `read`, whose output `readEvents` leaves unchanged
+  Source adapters, discovery, parsing, in the `@ayagmar/agent-sessions` package; the CLI imports them through the package specifiers. Each adapter's `read(filePath, options)` yields a file's events as an async iterable; the CLI parse path, the parse worker and `doctor` read whole files through `collectFile`. `capabilities.kinds` lists the event kinds an adapter produces: claude, codex and pi also implement `readEvents(filePath, options)`, which yields usage records, messages, tool calls and session facts (`SessionEvent` in `packages/core/src/domain/session-event.ts`); every other adapter declares `['usage']`. The parse path uses `read`, whose output `readEvents` leaves unchanged; `tools` and `session --timeline` read tool calls and messages live through `readEvents` in `src/cli/read-live-session-events.ts`, since the event store holds usage only
 - `packages/core/src/stream`
-  `collect`/`collectFile` (an async iterable to an array, a file to its events and sorted skipped-row counts), `readEvents` (an adapter's `readEvents`, or its `read` events as usage records when it has none), the `kinds()`, `since()`, `until()` and `bySession()` stages, the JSONL read cursor (`cursor.ts`), and `pipe` with the `Stage` type that the dedup stage forms (`repeatedAcrossFiles`, `copiedSessions` in `packages/core/src/dedup`, which dedupe usage and pass other kinds through) plug into
+  `collect`/`collectFile` (an async iterable to an array, a file to its events and sorted skipped-row counts), `readEvents` (an adapter's `readEvents`, or its `read` events as usage records when it has none), the `kinds()`, `since()`, `until()` and `bySession()` stages, the JSONL read cursor (`cursor.ts`), and `pipe` with the `Stage` type that the dedup stage forms (`repeatedAcrossFiles`, `copiedSessions` in `packages/core/src/dedup`, which dedupe usage and pass other kinds through) plug into; `dedupeToolCalls` keeps one tool call per source and call id
 - `packages/core/src/registry`
   The adapter registry (`createDefaultAdapters`, `getDefaultSourceIds`) and `readSources`, which reads and dedupes whole sources for library users (the CLI does not use it), exported as `@ayagmar/agent-sessions/registry`; `src/sources/create-default-adapters.ts` re-exports it for the docs site
 - `src/domain`
-  Canonical usage contracts and normalization
+  The CLI's usage event and report row contracts
 - `src/pricing`
   LiteLLM pricing loader, cache, model matching, cost engine, long-context tiers, and `explain-model-pricing.ts` for the `pricing` command
 - `src/persistence`
@@ -282,7 +308,7 @@ That keeps sorting and separator behavior deterministic without coupling the gen
 - `src/machines`
   Multi-machine sync: the versioned `machine export` bundle format and its validating reader (`machine-export-bundle.ts`), the ssh transport and `command` detection (`machine-ssh.ts`), per-machine caches (`machine-cache.ts`, each an event store under `machines/<name>.db`), `sync` (`sync-machine.ts`), safe `config.toml` edits for `machine add/remove` (`machine-config-file.ts`), and the report-side read and cross-machine dedup (`load-machine-usage.ts`, `merge-machine-events.ts`)
 - `src/aggregate`
-  Period/source usage aggregation, split by project with `--by-repo`; `project-key.ts` holds the project keys and labels that every report naming projects, the share report and `--repo` use; `daily-activity.ts` holds the streak, best-day, and heatmap-level logic shared by `summary` and `wrapped`
+  Period/source usage aggregation, split by project with `--by-repo`; `project-key.ts` holds the project keys and labels that every report naming projects, the share report and `--repo` use; `daily-activity.ts` holds the streak, best-day, and heatmap-level logic shared by `summary` and `wrapped`; `spend-spikes.ts` finds the spend spike days that `summary` and `trends` note
 - `src/blocks`
   Estimated 5-hour usage blocks per source
 - `src/value`
@@ -294,7 +320,11 @@ That keeps sorting and separator behavior deterministic without coupling the gen
 - `src/trends`
   Trend series contracts and daily trend aggregation
 - `src/session`
-  Per-conversation and per-repository usage aggregation
+  Per-conversation and per-project usage aggregation, and the `--timeline` rows of one session
+- `src/tools`
+  Tool-call counts per tool for the `tools` report
+- `src/context`
+  Peak prompt sizes, long-context requests and requests near the context limit for the `context` report
 - `src/wrapped`
   Yearly recap aggregation
 - `src/render`

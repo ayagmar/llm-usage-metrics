@@ -9,6 +9,7 @@ Changes on `master` since 0.11.0 that are not in a release yet. [Upgrading](http
 - **`--share` writes an interactive HTML file** instead of a 1200×630 SVG card and an HTML page that exported a PNG. File names keep their stem and change extension: `usage-monthly-share.svg` becomes `usage-monthly-share.html`.
 - **`events` CSV** gains a `cacheWrite1hTokens` column after `machine`, the last column.
 - **`session` table**: the `Repo` column is now `Project`, labelled as the projects report labels it.
+- **`config show`** prints the effective setup by section (config file, sources, event store, machines, pricing, defaults), each value with where it came from, instead of the config file path and the `Active config:` block. It now has `--json`.
 
 ### Added
 
@@ -21,8 +22,14 @@ Changes on `master` since 0.11.0 that are not in a release yet. [Upgrading](http
 - `--repo` counts only the named projects in `summary`, the usage reports, `projects`, `compare`, `trends`, `session`, `blocks`, `value`, `efficiency`, `optimize` and `events`. A path matches that root and the roots under it; a name matches the end of a root.
 - `--cost-mode explicit|estimated|both` on every command with pricing options. The default, `both`, keeps the earlier behaviour, and stderr now counts events that logged `$0` with tokens and were estimated.
 - The interactive report from `--share`: period, source, model and project filters, hour to month grouping, sortable tables, a project to session drill-down, a 5-hour blocks chart, PNG and SVG chart export, and light and dark themes. It loads nothing from the network. `--redact` labels projects `project-N` and machines `machine-N`.
+- `tools`: tool calls per tool from claude, codex and pi session files on disk, with errors, error rate, calls with no result, sessions and the top project. `--by-source`, `--by-repo` and `--top`.
+- `context`: per model, or per session with `--by-session`, the peak prompt, requests above 200k tokens, what the long-context tier rates added, and requests above 80% of the model's context limit (LiteLLM's `max_input_tokens`, kept with the prices).
+- `session --id <id> --timeline`: one session request by request with the running cost, between them its tool calls and user and assistant turns read from the session file when it is still on disk.
+- Spend spikes: a day that cost at least $1 and at least 3 times the median of the active days among the 28 before it. `summary` names the costliest one of the last 7 days under the table (`spike` in `--json`), and `trends` with the cost metric (the default) lists spike days and sets `spike: true` on them in `totalSeries`.
+- `summary --json` gives each period a `previous` window: yesterday, the 7 days before, and the same days of last month for month to date. The share page sets each summary period against it.
+- `--help-all` works on every command and subcommand.
 - `machine export` records each source's parser version in the bundle header.
-- The parsers are a separate package, [`@ayagmar/agent-sessions`](https://ayagmar.github.io/llm-usage-metrics/library/), versioned on its own. It is not on npm yet; the CLI bundles it.
+- The parsers are a separate package, [`@ayagmar/agent-sessions`](https://ayagmar.github.io/llm-usage-metrics/library/), versioned on its own. It is not on npm yet; the CLI bundles it. It exports `dedupeToolCalls`, which counts a tool call that a resumed or forked transcript repeats once.
 
 ### Changed
 
@@ -32,7 +39,11 @@ Changes on `master` since 0.11.0 that are not in a release yet. [Upgrading](http
 - **`optimize`** prices its baseline at base rates, as it prices the candidates, so a tier premium never shows up as savings.
 - **Machines**: when two machines parse a shared session's source with different parser versions, sync matches their events by timestamp instead of by content hash and warns until both run the same release.
 - **Terminal output**: every table aligns text left and numbers right, including the stacked list on narrow terminals; `prune` summaries and `doctor`'s per-source lines say `1 file` and `2 files`; `trends` uses whole token ticks; `efficiency` and `optimize` print the shared no-usage message instead of an all-zero table.
-- **Speed**: Claude and pi files parse on the worker pool, as Codex files already did; `statusline` no longer builds the full summary; DeepSeek Harness zstd logs are read as a stream instead of whole.
+- **Speed**: Claude and pi files parse on the worker pool, as Codex files already did; `statusline` no longer builds the full summary; DeepSeek Harness zstd logs are read as a stream instead of whole; JSONL files are read one 1 MiB chunk of records at a time instead of one record at a time.
+- **`--no-cost`** on `hourly`, `daily`, `weekly`, `monthly` and `blocks` no longer loads prices, so a cold pricing cache with no network no longer fails these reports. Models tied on tokens are then ordered by logged cost only. `projects` and `value` still load prices to rank by cost.
+- **`statusline`** with `parseWorkers` at `auto` parses on at most 2 worker threads; more used memory without making a cold tick faster.
+- **Projects** are described as the working directory the tool recorded, not the repository root, in help, docs and schemas.
+- **Messages**: `projects --top` now says "must be a positive integer" and `optimize --top` rejects leading zeros, as the other reports do.
 
 ### Fixed
 
@@ -40,6 +51,12 @@ Changes on `master` since 0.11.0 that are not in a release yet. [Upgrading](http
 - `optimize` keeps its report when a provider's events carry a logged cost but no token counts, instead of printing the no-usage message.
 - `prune` groups thousands in its Events column and lists candidates as labelled values on narrow terminals.
 - `machine list` keeps its columns aligned when a name or ssh target has wide characters.
+- `session` labels each project from every row in the window, as `projects` does, so a label no longer depends on `--top` or `--id`, and `--by-repo` keys rows as `projects` does, so `/x/app` and `/x/app/` are one row.
+- The priority-rate note on `stderr` no longer counts an event whose priority-only bucket was billed at a long-context tier rate or the one-hour cache-write rate.
+- The history note, `doctor`, `machine export` and machine sync messages say `1 event` and `2 departed files` instead of `event(s)` and `file(s)`, and group thousands.
+- `trends` and `wrapped` fall back to UTC when the system reports no time zone, as the other reports do.
+- Share page: a report made with `--all` shows the first date with data as the period start instead of a blank date field; a long filter list in the header badge shows three names and counts the rest; wide summary tables shade the edge that has more columns and scroll with the keyboard.
+- Library: `since` and `until` throw on a date-only bound that is not an ISO date (`'June 1, 2026'`), which `Date.parse` would read as local midnight; `maxBusyRetries` on the SQLite adapters throws unless it is a non-negative integer; a failed `node:sqlite` load names the source.
 
 ## [0.11.0](https://github.com/ayagmar/llm-usage-metrics/compare/v0.10.2...v0.11.0) (2026-10-13)
 
