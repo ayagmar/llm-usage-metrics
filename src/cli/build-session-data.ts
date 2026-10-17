@@ -220,6 +220,12 @@ export async function buildSessionData(
       readLiveSessionEvents(dataset, {
         kinds: ['tool_call', 'message'],
         sessionKeys: new Set([sessionKey]),
+        // A session's events are in its own source's files only.
+        filePaths: new Set(
+          dataset.parsedFiles
+            .filter((file) => file.source === session.source)
+            .map((file) => file.filePath),
+        ),
       }),
     );
     // Counted once across copies, as `tools` counts them.
