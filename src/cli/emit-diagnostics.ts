@@ -1,4 +1,5 @@
 import type { UsageDiagnostics, UsagePricingOrigin } from './usage-data-contracts.js';
+import { formatInteger, pluralize } from '../render/format-number.js';
 import { logger } from '../utils/logger.js';
 
 export type DiagnosticsLogger = Pick<typeof logger, 'info' | 'warn' | 'dim' | 'debug'>;
@@ -30,16 +31,10 @@ const pricingLabels: Record<UsagePricingOrigin, string | undefined> = {
   none: undefined,
 };
 
-const integerFormatter = new Intl.NumberFormat('en-US');
-
-function pluralize(count: number, singular: string, plural = `${singular}s`): string {
-  return `${integerFormatter.format(count)} ${count === 1 ? singular : plural}`;
-}
-
 function formatReasonCounts(reasons: SkippedRowsStat['reasons']): string {
   return (reasons ?? [])
     .filter((reasonStat) => reasonStat.count > 0)
-    .map((reasonStat) => `${reasonStat.reason} ${integerFormatter.format(reasonStat.count)}`)
+    .map((reasonStat) => `${reasonStat.reason} ${formatInteger(reasonStat.count)}`)
     .join(', ');
 }
 
@@ -124,7 +119,7 @@ function formatSkippedEntries(split: SkippedRowsSplit): string {
   return split.entries
     .map((entry) => {
       const reasonSummary = formatReasonCounts(entry.reasons);
-      const count = integerFormatter.format(entry.count);
+      const count = formatInteger(entry.count);
       return reasonSummary
         ? `${entry.source} ${count} (${reasonSummary})`
         : `${entry.source} ${count}`;
@@ -139,7 +134,7 @@ function formatSummaryLine(diagnostics: UsageDiagnostics, totalFiles: number): s
   // Event counts depend on the date window and file skipping, so the line counts files;
   // `--verbose` lists events per source.
   const fileCounts = sourcesWithFiles
-    .map((session) => `${session.source} ${integerFormatter.format(session.filesFound)}`)
+    .map((session) => `${session.source} ${formatInteger(session.filesFound)}`)
     .join(', ');
   // Only other machines' usage: nothing was scanned here.
   const parts = [

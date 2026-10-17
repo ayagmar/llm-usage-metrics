@@ -585,11 +585,6 @@ export async function applyPricingToUsageEventDataset(
 
 const MAX_NAMED_UNPRICED_MODELS = 5;
 
-function formatEventCount(count: number): string {
-  const eventLabel = count === 1 ? 'event' : 'events';
-  return `${new Intl.NumberFormat('en-US').format(count)} ${eventLabel}`;
-}
-
 /**
  * Reports leave an event without a cost out of cost totals and mark those totals with `~`.
  * Returns the note explaining that marker for the events a report shows, if any lack a cost.
@@ -604,7 +599,7 @@ function describeUnpricedEvents(
     return undefined;
   }
 
-  const eventCount = formatEventCount(unpricedEvents.length);
+  const eventCount = pluralize(unpricedEvents.length, 'event');
 
   if (costMode === 'explicit') {
     return `~ marks costs that leave out ${eventCount} with no logged cost (--cost-mode explicit)`;
@@ -630,7 +625,7 @@ function describePriorityPricedEvents(
   const models = [...new Set(priorityEvents.map((event) => event.model ?? 'unknown'))].sort();
   const modelList = truncateNames(models, MAX_NAMED_UNPRICED_MODELS).join(', ');
 
-  return `${formatEventCount(priorityEvents.length)} priced at LiteLLM priority rates because no standard rate is listed (models: ${modelList})`;
+  return `${pluralize(priorityEvents.length, 'event')} priced at LiteLLM priority rates because no standard rate is listed (models: ${modelList})`;
 }
 
 /**
@@ -655,7 +650,7 @@ function describeReestimatedExplicitZero(
   const sources = [...new Set(reestimatedEvents.map((event) => event.source))].sort().join(', ');
   const verb = reestimatedEvents.length === 1 ? 'was' : 'were';
 
-  return `${formatEventCount(reestimatedEvents.length)} logged $0 by ${sources} ${verb} estimated from LiteLLM; use --cost-mode explicit to keep $0`;
+  return `${pluralize(reestimatedEvents.length, 'event')} logged $0 by ${sources} ${verb} estimated from LiteLLM; use --cost-mode explicit to keep $0`;
 }
 
 type PricingNotesInput = Pick<
