@@ -32,7 +32,7 @@ export function toProjectKey(repoRoot: string | undefined): string | undefined {
 }
 
 /** Path segments of a key, without a drive letter, which belongs to the root. */
-function splitKeySegments(key: string): string[] {
+export function splitKeySegments(key: string): string[] {
   return key
     .replace(DRIVE_PREFIX_PATTERN, '')
     .split(/[\\/]/u)

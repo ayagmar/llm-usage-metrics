@@ -1,5 +1,6 @@
 import {
   buildProjectLabels,
+  splitKeySegments,
   stripTrailingSeparators,
   UNATTRIBUTED_PROJECT_LABEL,
 } from '../aggregate/project-key.js';
@@ -60,13 +61,6 @@ export function toShareModelLabel(model: string | undefined): string {
     STANDARD_HOME_PATTERN.test(normalized)
     ? toPathName(normalized)
     : normalized;
-}
-
-function splitKeySegments(key: string): string[] {
-  return key
-    .replace(/^[A-Za-z]:/u, '')
-    .split(/[\\/]/u)
-    .filter((segment) => segment.length > 0);
 }
 
 /** Whether `buildProjectLabels` gave `key` a tail of its own segments rather than the full key. */
