@@ -205,7 +205,7 @@ describe('header', () => {
     expect(
       buildHeader(contextFor(edited)).badges.find((badge) => badge.text.startsWith('Generated')),
     ).toEqual({
-      text: 'Generated for source amp, claude, cline and 4 more; model a, b, c, d',
+      text: 'Generated for source amp, claude, cline, +4 more; model a, b, c, +1 more',
       tone: 'neutral',
       title: `Generated for source ${sources.join(', ')}; model a, b, c, d`,
     });

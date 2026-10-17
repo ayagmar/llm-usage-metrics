@@ -2,6 +2,7 @@
 // and the empty states. Pure; `render.ts` lays them out.
 
 import type { ShareCostMode, ShareReportMeta } from '../../../types.js';
+import { limitNamedModels } from '../../../../render/format-model-list.js';
 import { getReportTitle } from '../export/share-document.js';
 import {
   formatUsdOrNone,
@@ -55,14 +56,12 @@ export type HeaderView = {
   badges: Badge[];
 };
 
-// A longer list keeps its first names and counts the rest, so a long `--source` list does not
-// fill the header; the badge's title holds every name.
+// A longer list keeps its first names and counts the rest, as the terminal lists models, so a
+// long `--source` list does not fill the header; the badge's title holds every name.
 const LISTED_FILTER_VALUES = 3;
 
 function listValues(values: string[]): string {
-  return values.length > LISTED_FILTER_VALUES + 1
-    ? `${values.slice(0, LISTED_FILTER_VALUES).join(', ')} and ${String(values.length - LISTED_FILTER_VALUES)} more`
-    : values.join(', ');
+  return limitNamedModels(values, LISTED_FILTER_VALUES).join(', ');
 }
 
 /**
