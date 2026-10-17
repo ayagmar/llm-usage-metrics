@@ -7,6 +7,9 @@ export default defineConfig({
   site: 'https://ayagmar.github.io',
   base: '/llm-usage-metrics',
   prefetch: false,
+  redirects: {
+    '/migrating-to-0-8': '/llm-usage-metrics/upgrading/0-8/',
+  },
 
   integrations: [
     starlight({
