@@ -76,21 +76,6 @@ export function normalizeCandidateModels(candidateModel: string | string[] | und
   return parseCandidateModelsRaw(candidateModel);
 }
 
-export function parseTopOption(top: string | undefined): number | undefined {
-  if (top === undefined) {
-    return undefined;
-  }
-
-  const normalized = top.trim();
-  const parsed = Number.parseInt(normalized, 10);
-
-  if (!/^\d+$/u.test(normalized) || Number.isNaN(parsed) || parsed < 1) {
-    throw new Error('--top must be a positive integer');
-  }
-
-  return parsed;
-}
-
 function toBaselineRow(period: BaselinePeriodTotals, provider: string): OptimizeBaselineRow {
   return {
     rowType: 'baseline',

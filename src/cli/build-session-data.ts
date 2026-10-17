@@ -22,26 +22,10 @@ import type {
   SessionCommandOptions,
   SessionDataResult,
 } from './usage-data-contracts.js';
+import { limitRows, parseTopRowsOption, resolveTopRowLimit } from './top-option.js';
 
-const DEFAULT_SESSION_TOP = 20;
 const MAX_LISTED_TIMELINE_MATCHES = 10;
 const LIVE_TIMELINE_SUBJECT = 'Tool calls and turns';
-
-/** `--top N` where 0 shows every row; undefined when not passed. */
-export function parseTopRowsOption(top: string | undefined): number | undefined {
-  if (top === undefined) {
-    return undefined;
-  }
-
-  const normalized = top.trim();
-  const parsed = Number.parseInt(normalized, 10);
-
-  if (!/^\d+$/u.test(normalized) || Number.isNaN(parsed)) {
-    throw new Error('--top must be a non-negative integer (0 shows all rows)');
-  }
-
-  return parsed;
-}
 
 function normalizeSessionIdFilters(id: string[] | undefined): string[] | undefined {
   if (!id || id.length === 0) {
@@ -58,34 +42,6 @@ function normalizeSessionIdFilters(id: string[] | undefined): string[] | undefin
   }
 
   return [...new Set(normalizedIds)];
-}
-
-export function resolveSessionRowLimit(
-  top: number | undefined,
-  hasIdFilters: boolean,
-): number | undefined {
-  if (top !== undefined) {
-    return top === 0 ? undefined : top;
-  }
-
-  return hasIdFilters ? undefined : DEFAULT_SESSION_TOP;
-}
-
-/** The first `limit` rows, with the note naming what --top left out. */
-export function limitRows<Row>(
-  rows: Row[],
-  limit: number | undefined,
-  rowNoun: string,
-  rankedBy = 'cost',
-): { rows: Row[]; limitNote?: string } {
-  if (limit === undefined || rows.length <= limit) {
-    return { rows };
-  }
-
-  return {
-    rows: rows.slice(0, limit),
-    limitNote: `Showing top ${limit} of ${rows.length} ${rowNoun} by ${rankedBy}. Use --top 0 for all.`,
-  };
 }
 
 function validateTimelineOptions(options: SessionCommandOptions, hasIdFilters: boolean): void {
@@ -152,7 +108,7 @@ export async function buildSessionData(
   validateTimelineOptions(options, idFilters !== undefined);
 
   const top = parseTopRowsOption(options.top);
-  const limit = resolveSessionRowLimit(top, idFilters !== undefined);
+  const limit = resolveTopRowLimit(top, idFilters !== undefined);
   const dataset = await measureRuntimeProfileStage(
     deps.runtimeProfile,
     'session.dataset.total',

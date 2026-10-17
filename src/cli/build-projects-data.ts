@@ -27,6 +27,7 @@ import type {
   ProjectsCommandOptions,
   UsageDiagnostics,
 } from './usage-data-contracts.js';
+import { parsePositiveTopOption } from './top-option.js';
 
 const TOP_MODEL_COUNT = 3;
 
@@ -77,20 +78,6 @@ type ProjectAccumulator = {
   totals: UsageTotals;
   modelTotals: Map<string, UsageTotals>;
 };
-
-function parseTopOption(top: string | undefined): number | undefined {
-  if (top === undefined) {
-    return undefined;
-  }
-
-  const normalized = top.trim();
-
-  if (!/^[1-9]\d*$/u.test(normalized)) {
-    throw new Error('--top must be a positive whole number');
-  }
-
-  return Number.parseInt(normalized, 10);
-}
 
 /** Events and active days per project key, plus the window's active days, in one pass. */
 function collectProjectActivity(
@@ -237,7 +224,7 @@ export async function buildProjectsData(
   commandOptions: ProjectsCommandOptions,
   commandDeps: BuildUsageDataDeps = {},
 ): Promise<ProjectsDataResult> {
-  const top = parseTopOption(commandOptions.top);
+  const top = parsePositiveTopOption(commandOptions.top);
   // Monthly has no default window: full history unless --last N months or dates narrow it.
   const { options, deps } = await resolveUsageDataRequest('monthly', commandOptions, commandDeps);
   const dataset = await measureRuntimeProfileStage(

@@ -17,7 +17,7 @@ import { resolveUsageDataRequest } from './build-usage-data.js';
 import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import { buildUsageEventDataset } from './build-usage-event-dataset.js';
-import { limitRows, parseTopRowsOption } from './build-session-data.js';
+import { limitRows, parseTopRowsOption, resolveTopRowLimit } from './top-option.js';
 import {
   formatFailedLiveReads,
   formatLiveEventsNote,
@@ -30,8 +30,6 @@ import type {
   ToolsCommandOptions,
   UsageDiagnostics,
 } from './usage-data-contracts.js';
-
-const DEFAULT_TOOLS_TOP = 20;
 
 export const LIVE_TOOL_CALLS_NOTE = formatLiveEventsNote('Tool calls');
 
@@ -121,12 +119,7 @@ export async function buildToolsData(
     bySource: options.bySource,
     byRepo: options.byRepo,
   });
-  const limited = limitRows(
-    rows,
-    top === 0 ? undefined : (top ?? DEFAULT_TOOLS_TOP),
-    'tools',
-    'calls',
-  );
+  const limited = limitRows(rows, resolveTopRowLimit(top), 'tools', 'calls');
   const projectLabels = buildEventProjectLabels(dataset.filteredEvents);
   const toProjectLabel = (repoRoot: string | null) =>
     projectLabels.get(repoRoot ?? undefined) ?? UNATTRIBUTED_PROJECT_LABEL;

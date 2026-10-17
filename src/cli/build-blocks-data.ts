@@ -31,6 +31,7 @@ import type {
   ReportCommandOptions,
   UsageDiagnostics,
 } from './usage-data-contracts.js';
+import { parsePositiveTopOption } from './top-option.js';
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -67,20 +68,6 @@ export type BlocksDataResult = {
   /** Set when no window flag was given, for the default-window hint. */
   defaultWindowSince?: string;
 };
-
-function parseTopOption(top: string | undefined): number | undefined {
-  if (top === undefined) {
-    return undefined;
-  }
-
-  const normalized = top.trim();
-
-  if (!/^[1-9]\d*$/u.test(normalized)) {
-    throw new Error('--top must be a positive integer');
-  }
-
-  return Number.parseInt(normalized, 10);
-}
 
 /** The events counted in `blocks`: each lies in one block of its source, at most 5 h after its start. */
 function selectBlockEvents(events: readonly UsageEvent[], blocks: readonly UsageBlock[]) {
@@ -161,7 +148,7 @@ export async function buildBlocksData(
   options: BlocksCommandOptions,
   deps: BuildUsageDataDeps = {},
 ): Promise<BlocksDataResult> {
-  const top = parseTopOption(options.top);
+  const top = parsePositiveTopOption(options.top);
   // Without date flags, the last 7 days, as `daily` reports them.
   const windowRequest = await resolveUsageDataRequest('daily', options, deps);
   const userConfigResolution = await resolveUserConfigForOptions(

@@ -20,9 +20,9 @@ import type {
 import {
   buildCounterfactualRows,
   normalizeCandidateModels,
-  parseTopOption,
 } from '../optimize/aggregate-counterfactual.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
+import { parsePositiveTopOption } from './top-option.js';
 
 export type BuildOptimizeDataDeps = BuildUsageDataDeps;
 
@@ -86,7 +86,7 @@ export async function buildOptimizeData(
   deps: BuildOptimizeDataDeps = {},
 ): Promise<OptimizeDataResult> {
   const candidateModels = normalizeCandidateModels(options.candidateModel);
-  const top = parseTopOption(options.top);
+  const top = parsePositiveTopOption(options.top);
 
   const dataset = await measureRuntimeProfileStage(
     deps.runtimeProfile,

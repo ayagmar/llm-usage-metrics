@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import {
   buildCounterfactualRows,
   normalizeCandidateModels,
-  parseTopOption,
 } from '../../src/optimize/aggregate-counterfactual.js';
 import {
   createDefaultOpenAiPricingSource,
@@ -66,13 +65,6 @@ describe('aggregate-counterfactual', () => {
     expect(() => normalizeCandidateModels([' , ', '   '])).toThrow(
       '--candidate-model must contain at least one non-empty model name',
     );
-  });
-
-  it('parses --top and rejects invalid values', () => {
-    expect(parseTopOption(undefined)).toBeUndefined();
-    expect(parseTopOption('2')).toBe(2);
-    expect(() => parseTopOption('0')).toThrow('--top must be a positive integer');
-    expect(() => parseTopOption('abc')).toThrow('--top must be a positive integer');
   });
 
   it('matches cost-engine semantics for counterfactual costs', () => {

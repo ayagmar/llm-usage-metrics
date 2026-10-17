@@ -12,7 +12,7 @@ import {
   applyPricingToUsageEventDataset,
   buildUsageEventDataset,
 } from './build-usage-event-dataset.js';
-import { limitRows, parseTopRowsOption, resolveSessionRowLimit } from './build-session-data.js';
+import { limitRows, parseTopRowsOption, resolveTopRowLimit } from './top-option.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 import type {
   BuildUsageDataDeps,
@@ -64,7 +64,7 @@ export async function buildContextData(
     }),
   );
   const limited = commandOptions.bySession
-    ? limitRows(report.sessions, resolveSessionRowLimit(top, false), 'sessions', 'peak prompt')
+    ? limitRows(report.sessions, resolveTopRowLimit(top), 'sessions', 'peak prompt')
     : { rows: [] };
 
   return {
