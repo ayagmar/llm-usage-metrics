@@ -69,10 +69,6 @@ function fail(message) {
   process.exit(1);
 }
 
-function todayUtc() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 /** An environment with nothing from the user's: the temp HOME, a missing config, colour on. */
 function createCliEnv(home, configPath) {
   return {
@@ -254,12 +250,12 @@ async function main() {
   const home = path.join(scratch, 'home');
   const outDir = path.join(scratch, 'out');
   const configPath = path.join(scratch, 'missing-config.toml');
-  const endDate = todayUtc();
+  const now = Date.now();
 
   try {
     await mkdir(outDir, { recursive: true });
-    const { dirs, fileCount } = await writeDemoData({ home, endDate });
-    console.log(`Demo data: ${fileCount} files ending ${endDate}`);
+    const { dirs, fileCount } = await writeDemoData({ home, now });
+    console.log(`Demo data: ${fileCount} files up to ${new Date(now).toISOString()}`);
     const env = createCliEnv(home, configPath);
 
     const { browser, executablePath } = await launchChromium();

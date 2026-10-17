@@ -1,7 +1,8 @@
 // Synthetic agent logs for the docs screenshots and the demo report. Four sources in their
 // on-disk formats and default locations under a home directory (Claude Code, Codex, pi,
-// Gemini CLI), four projects under `<home>/code`, about 90 days ending on the run date. Same
-// seed and end date give the same files. Nothing here comes from real logs.
+// Gemini CLI), four projects under `<home>/code`, about 90 days ending at the run time, with
+// nothing later than it. Same seed and run time give the same files. Nothing here comes from
+// real logs.
 
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -142,6 +143,9 @@ function planSessions(random, source, starts) {
         MODELS[source].map((entry) => entry.weight),
       );
       sessions.push({
+        // Each session draws its tokens from its own generator, so cutting one short at the
+        // run time leaves every other session as the seed made it.
+        seed: random.int(0, 2_147_483_647),
         id: uuid(random),
         project: random.weighted(DEMO_PROJECTS, PROJECT_WEIGHTS[source]),
         model,
@@ -311,12 +315,12 @@ function geminiSession(random, session, projectName) {
 
 /**
  * Writes the demo logs under `home` (a temp directory used as HOME) and returns the directory
- * to pass for each source (`--source-dir <id>=<dir>`). `endDate` is the last day with data
- * (YYYY-MM-DD, UTC).
+ * to pass for each source (`--source-dir <id>=<dir>`). `now` (epoch ms) is the run time: the
+ * last day with data is its UTC date, and no event is later than it.
  */
-export async function writeDemoData({ home, seed = 20_261_017, endDate, days = DEMO_DAYS }) {
+export async function writeDemoData({ home, seed = 20_261_017, now, days = DEMO_DAYS }) {
   const random = createRandom(seed);
-  const starts = dayStarts(endDate, days);
+  const starts = dayStarts(toDateKey(now), days);
   const projectRoot = (name) => path.join(home, 'code', name);
   const dirs = {
     claude: path.join(home, '.claude', 'projects'),
@@ -331,12 +335,15 @@ export async function writeDemoData({ home, seed = 20_261_017, endDate, days = D
   }
 
   for (const source of DEMO_SOURCES) {
-    for (const session of planSessions(random, source, starts)) {
+    for (const planned of planSessions(random, source, starts)) {
+      const session = { ...planned, times: planned.times.filter((time) => time <= now) };
+      if (session.times.length === 0) continue;
+      const sessionRandom = createRandom(session.seed);
       const cwd = projectRoot(session.project);
       const day = toDateKey(session.times[0]);
       if (source === 'claude') {
         const file = path.join(dirs.claude, `-code-${session.project}`, `${session.id}.jsonl`);
-        files.set(file, claudeSession(random, session, cwd));
+        files.set(file, claudeSession(sessionRandom, session, cwd));
       } else if (source === 'codex') {
         const [year, month, date] = day.split('-');
         const stamp = new Date(session.times[0]).toISOString().slice(0, 19).replaceAll(':', '-');
@@ -347,14 +354,14 @@ export async function writeDemoData({ home, seed = 20_261_017, endDate, days = D
           date,
           `rollout-${stamp}-${session.id}.jsonl`,
         );
-        files.set(file, codexSession(random, session, cwd));
+        files.set(file, codexSession(sessionRandom, session, cwd));
       } else if (source === 'pi') {
         const file = path.join(
           dirs.pi,
           `--code-${session.project}--`,
           `${day}_${session.id}.jsonl`,
         );
-        files.set(file, piSession(random, session, cwd));
+        files.set(file, piSession(sessionRandom, session, cwd));
       } else {
         const file = path.join(
           dirs.gemini,
@@ -363,7 +370,7 @@ export async function writeDemoData({ home, seed = 20_261_017, endDate, days = D
           'chats',
           `session-${session.id}.json`,
         );
-        files.set(file, geminiSession(random, session, session.project));
+        files.set(file, geminiSession(sessionRandom, session, session.project));
       }
     }
   }
