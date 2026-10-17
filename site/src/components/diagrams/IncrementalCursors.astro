@@ -14,112 +14,138 @@ const barY = cursorTop + 66;
 ---
 
 <figure class="dg" style="--dg-max-width: 32rem">
-  <svg viewBox="0 0 440 500" role="img" aria-labelledby="dg-cursors-title dg-cursors-desc">
-    <title id="dg-cursors-title">Whole-file fingerprints and append-only cursors</title>
-    <desc id="dg-cursors-desc">
-      Two ways to avoid re-reading a file. The CLI's event store keeps a fingerprint per file: the
-      parser version plus the path, existence, size and modification time of the file and each file
-      it depends on. The same fingerprint serves the stored events; any change re-reads the whole
-      file and replaces its stored events. The library also offers a cursor for append-only JSONL
-      reads, which only the qwen adapter supports: it records the parser, the byte offset read so
-      far and SHA-256 hashes of the first and last 64 KiB before that offset. A resumed read starts
-      at the offset when the parser matches, the file is at least offset bytes long and both hashes
-      match; otherwise it reads from byte 0 and reports restarted, and the new events replace the
-      earlier ones.
-    </desc>
+  <div
+    class="dg-scroll"
+    tabindex="0"
+    role="region"
+    aria-label="Whole-file fingerprints and append-only cursors (scrolls sideways on narrow screens)"
+  >
+    <svg viewBox="0 0 440 500" role="img" aria-labelledby="dg-cursors-title dg-cursors-desc">
+      <title id="dg-cursors-title">Whole-file fingerprints and append-only cursors</title>
+      <desc id="dg-cursors-desc">
+        Two ways to avoid re-reading a file. The CLI's event store keeps a fingerprint per file: the
+        parser version plus the path, existence, size and modification time of the file and each
+        file it depends on. The same fingerprint serves the stored events; any change re-reads the
+        whole file and replaces its stored events. The library also offers a cursor for append-only
+        JSONL reads, which only the qwen adapter supports: it records the parser, the byte offset
+        read so far and SHA-256 hashes of the first and last 64 KiB before that offset. A resumed
+        read starts at the offset when the parser matches, the file is at least offset bytes long
+        and both hashes match; otherwise it reads from byte 0 and reports restarted, and the new
+        events replace the earlier ones.
+      </desc>
 
-    <text class="dg-t dg-t--label" x="12" y="18">
-      CLI event store: whole file
-    </text>
-    <rect class="dg-box dg-box--accent" x="12" y="30" width="416" height="96" rx="10"></rect>
-    <text class="dg-t dg-t--sm" x="28" y="54">
-      fingerprint
-    </text>
-    <text class="dg-t dg-t--mono" x="28" y="77" style="font-size: 13px">
-      parserVersion n2.p4
-    </text>
-    <text class="dg-t dg-t--mono" x="28" y="98" style="font-size: 13px">
-      file + dependencies: path, exists,
-    </text>
-    <text class="dg-t dg-t--mono" x="28" y="116" style="font-size: 13px">
-      size, mtimeMs
-    </text>
+      <text class="dg-t dg-t--label" x="12" y="18">
+        CLI event store: whole file
+      </text>
+      <rect class="dg-box dg-box--accent" x="12" y="30" width="416" height="96" rx="10"></rect>
+      <text class="dg-t dg-t--sm" x="28" y="54">
+        fingerprint
+      </text>
+      <text class="dg-t dg-t--mono" x="28" y="77" style="font-size: 13px">
+        parserVersion n2.p4
+      </text>
+      <text class="dg-t dg-t--mono" x="28" y="98" style="font-size: 13px">
+        file + dependencies: path, exists,
+      </text>
+      <text class="dg-t dg-t--mono" x="28" y="116" style="font-size: 13px">
+        size, mtimeMs
+      </text>
 
-    <rect class="dg-box dg-box--cyan" x="12" y="140" width="200" height="56" rx="8"></rect>
-    <text class="dg-t" x="26" y="163">
-      same string
-    </text>
-    <text class="dg-t dg-t--sm" x="26" y="183">
-      serve stored events
-    </text>
-    <rect class="dg-box dg-box--accent" x="228" y="140" width="200" height="56" rx="8"></rect>
-    <text class="dg-t" x="242" y="163">
-      any change
-    </text>
-    <text class="dg-t dg-t--sm" x="242" y="183">
-      re-read, replace events
-    </text>
+      <rect class="dg-box dg-box--cyan" x="12" y="140" width="200" height="56" rx="8"></rect>
+      <text class="dg-t" x="26" y="163">
+        same string
+      </text>
+      <text class="dg-t dg-t--sm" x="26" y="183">
+        serve stored events
+      </text>
+      <rect class="dg-box dg-box--accent" x="228" y="140" width="200" height="56" rx="8"></rect>
+      <text class="dg-t" x="242" y="163">
+        any change
+      </text>
+      <text class="dg-t dg-t--sm" x="242" y="183">
+        re-read, replace events
+      </text>
 
-    <line class="dg-rule" x1="12" y1="212" x2="428" y2="212"></line>
+      <line class="dg-rule" x1="12" y1="212" x2="428" y2="212"></line>
 
-    <text class="dg-t dg-t--label" x="12" y={cursorTop + 16}>
-      library cursor: append-only JSONL
-    </text>
-    <text class="dg-t dg-t--sm" x="12" y={cursorTop + 36}>
-      qwen only; the CLI does not use cursors
-    </text>
+      <text class="dg-t dg-t--label" x="12" y={cursorTop + 16}>
+        library cursor: append-only JSONL
+      </text>
+      <text class="dg-t dg-t--sm" x="12" y={cursorTop + 36}>
+        qwen only; the CLI does not use cursors
+      </text>
 
-    <rect class="dg-box dg-box--plain" x={barX} y={barY} width={barW} height="34" rx="4"></rect>
-    <rect class="dg-box dg-box--cyan" x={head.x} y={barY} width={head.w} height="34" rx="4"></rect>
-    <rect class="dg-box dg-box--cyan" x={tail.x} y={barY} width={tail.w} height="34" rx="4"></rect>
-    <rect
-      class="dg-box dg-box--accent"
-      x={offset}
-      y={barY}
-      width={fileEnd - offset}
-      height="34"
-      rx="4"
-    ></rect>
-    <text class="dg-t dg-t--sm" x={head.x + 8} y={barY + 22}>
-      64 KiB
-    </text>
-    <text class="dg-t dg-t--sm" x={tail.x + 8} y={barY + 22}>
-      64 KiB
-    </text>
-    <text class="dg-t dg-t--sm" x={offset + 10} y={barY + 22}>
-      new lines
-    </text>
-    <line
-      class="dg-line dg-line--accent"
-      x1={offset}
-      y1={barY - 10}
-      x2={offset}
-      y2={barY + 46}
-    ></line>
+      <rect class="dg-box dg-box--plain" x={barX} y={barY} width={barW} height="34" rx="4"></rect>
+      <rect
+        class="dg-box dg-box--cyan"
+        x={head.x}
+        y={barY}
+        width={head.w}
+        height="34"
+        rx="4"
+      ></rect>
+      <rect
+        class="dg-box dg-box--cyan"
+        x={tail.x}
+        y={barY}
+        width={tail.w}
+        height="34"
+        rx="4"
+      ></rect>
+      <rect
+        class="dg-box dg-box--accent"
+        x={offset}
+        y={barY}
+        width={fileEnd - offset}
+        height="34"
+        rx="4"
+      ></rect>
+      <text class="dg-t dg-t--sm" x={head.x + 8} y={barY + 22}>
+        64 KiB
+      </text>
+      <text class="dg-t dg-t--sm" x={tail.x + 8} y={barY + 22}>
+        64 KiB
+      </text>
+      <text class="dg-t dg-t--sm" x={offset + 10} y={barY + 22}>
+        new lines
+      </text>
+      <line
+        class="dg-line dg-line--accent"
+        x1={offset}
+        y1={barY - 10}
+        x2={offset}
+        y2={barY + 46}
+      ></line>
 
-    <text class="dg-t dg-t--mono dg-t--cyan" x={head.x} y={barY + 64} style="font-size: 13px">
-      headHash
-    </text>
-    <text class="dg-t dg-t--mono dg-t--cyan" x={tail.x} y={barY + 64} style="font-size: 13px">
-      tailHash
-    </text>
-    <text class="dg-t dg-t--mono dg-t--accent" x={offset + 6} y={barY + 64} style="font-size: 13px">
-      offset
-    </text>
+      <text class="dg-t dg-t--mono dg-t--cyan" x={head.x} y={barY + 64} style="font-size: 13px">
+        headHash
+      </text>
+      <text class="dg-t dg-t--mono dg-t--cyan" x={tail.x} y={barY + 64} style="font-size: 13px">
+        tailHash
+      </text>
+      <text
+        class="dg-t dg-t--mono dg-t--accent"
+        x={offset + 6}
+        y={barY + 64}
+        style="font-size: 13px"
+      >
+        offset
+      </text>
 
-    <rect class="dg-box dg-box--cyan" x="12" y="388" width="416" height="48" rx="8"></rect>
-    <text class="dg-t" x="26" y="408">
-      resume at offset
-    </text>
-    <text class="dg-t dg-t--sm" x="26" y="427">
-      same parser, size ≥ offset, both hashes match
-    </text>
-    <rect class="dg-box dg-box--accent" x="12" y="446" width="416" height="48" rx="8"></rect>
-    <text class="dg-t" x="26" y="466">
-      read from byte 0
-    </text>
-    <text class="dg-t dg-t--sm" x="26" y="485">
-      restarted: true, new events replace the old
-    </text>
-  </svg>
+      <rect class="dg-box dg-box--cyan" x="12" y="388" width="416" height="48" rx="8"></rect>
+      <text class="dg-t" x="26" y="408">
+        resume at offset
+      </text>
+      <text class="dg-t dg-t--sm" x="26" y="427">
+        same parser, size ≥ offset, both hashes match
+      </text>
+      <rect class="dg-box dg-box--accent" x="12" y="446" width="416" height="48" rx="8"></rect>
+      <text class="dg-t" x="26" y="466">
+        read from byte 0
+      </text>
+      <text class="dg-t dg-t--sm" x="26" y="485">
+        restarted: true, new events replace the old
+      </text>
+    </svg>
+  </div>
 </figure>

@@ -30,86 +30,93 @@ const gutter = boxX + boxW + 30;
 ---
 
 <figure class="dg" style="--dg-max-width: 32rem">
-  <svg
-    viewBox={`0 0 440 ${height}`}
-    role="img"
-    aria-labelledby="dg-event-flow-title dg-event-flow-desc"
+  <div
+    class="dg-scroll"
+    tabindex="0"
+    role="region"
+    aria-label="Event flow of a report run (scrolls sideways on narrow screens)"
   >
-    <title id="dg-event-flow-title">Event flow of a report run</title>
-    <desc id="dg-event-flow-desc">
-      A report run passes through eleven stages in order: discover each source's files; look each
-      file up in the event store, where an unchanged fingerprint is a hit that skips reading; read
-      the misses; store their fresh events; drop events repeated across one source's files; merge
-      history from departed files and events from other machines; drop events copied between
-      sessions; filter by date, provider, model and repo; price each event; aggregate per report;
-      render as terminal, JSON, Markdown or HTML output. Discover, read and both dedupe stages come
-      from the @ayagmar/agent-sessions core package; the other stages live in the CLI.
-    </desc>
-    <defs>
-      <marker
-        id="dg-event-flow-arrow"
-        viewBox="0 0 10 10"
-        refX="9"
-        refY="5"
-        markerWidth="7"
-        markerHeight="7"
-        orient="auto-start-reverse"
-      >
-        <path class="dg-arrowhead" d="M0 0 L10 5 L0 10 z"></path>
-      </marker>
-    </defs>
+    <svg
+      viewBox={`0 0 440 ${height}`}
+      role="img"
+      aria-labelledby="dg-event-flow-title dg-event-flow-desc"
+    >
+      <title id="dg-event-flow-title">Event flow of a report run</title>
+      <desc id="dg-event-flow-desc">
+        A report run passes through eleven stages in order: discover each source's files; look each
+        file up in the event store, where an unchanged fingerprint is a hit that skips reading; read
+        the misses; store their fresh events; drop events repeated across one source's files; merge
+        history from departed files and events from other machines; drop events copied between
+        sessions; filter by date, provider, model and repo; price each event; aggregate per report;
+        render as terminal, JSON, Markdown or HTML output. Discover, read and both dedupe stages
+        come from the @ayagmar/agent-sessions core package; the other stages live in the CLI.
+      </desc>
+      <defs>
+        <marker
+          id="dg-event-flow-arrow"
+          viewBox="0 0 10 10"
+          refX="9"
+          refY="5"
+          markerWidth="7"
+          markerHeight="7"
+          orient="auto-start-reverse"
+        >
+          <path class="dg-arrowhead" d="M0 0 L10 5 L0 10 z"></path>
+        </marker>
+      </defs>
 
-    <rect class="dg-box dg-box--cyan" x="20" y="10" width="14" height="14" rx="3"></rect>
-    <text class="dg-t dg-t--sm" x="42" y="22">
-      core package
-    </text>
-    <rect class="dg-box dg-box--accent" x="160" y="10" width="14" height="14" rx="3"></rect>
-    <text class="dg-t dg-t--sm" x="182" y="22">
-      CLI
-    </text>
+      <rect class="dg-box dg-box--cyan" x="20" y="10" width="14" height="14" rx="3"></rect>
+      <text class="dg-t dg-t--sm" x="42" y="22">
+        core package
+      </text>
+      <rect class="dg-box dg-box--accent" x="160" y="10" width="14" height="14" rx="3"></rect>
+      <text class="dg-t dg-t--sm" x="182" y="22">
+        CLI
+      </text>
 
-    {steps.map((step, index) => (
-      <g>
-        <rect
-          class:list={['dg-box', step.owner === 'core' ? 'dg-box--cyan' : 'dg-box--accent']}
-          x={boxX}
-          y={rowY(index)}
-          width={boxW}
-          height={boxH}
-          rx="8"
-        />
-        <text class="dg-t dg-t--sm dg-t--mono" x={boxX + 14} y={rowY(index) + 20}>
-          {String(index + 1).padStart(2, '0')}
-        </text>
-        <text class="dg-t dg-t--head" x={boxX + 44} y={rowY(index) + 20}>
-          {step.title}
-        </text>
-        <text class="dg-t dg-t--sm" x={boxX + 44} y={rowY(index) + 37}>
-          {step.detail}
-        </text>
-        {index < steps.length - 1 && (
-          <line
-            class="dg-line"
-            x1={boxX + 60}
-            y1={rowY(index) + boxH}
-            x2={boxX + 60}
-            y2={rowY(index + 1) - 2}
-            marker-end="url(#dg-event-flow-arrow)"
+      {steps.map((step, index) => (
+        <g>
+          <rect
+            class:list={['dg-box', step.owner === 'core' ? 'dg-box--cyan' : 'dg-box--accent']}
+            x={boxX}
+            y={rowY(index)}
+            width={boxW}
+            height={boxH}
+            rx="8"
           />
-        )}
-      </g>
-    ))}
+          <text class="dg-t dg-t--sm dg-t--mono" x={boxX + 14} y={rowY(index) + 20}>
+            {String(index + 1).padStart(2, '0')}
+          </text>
+          <text class="dg-t dg-t--head" x={boxX + 44} y={rowY(index) + 20}>
+            {step.title}
+          </text>
+          <text class="dg-t dg-t--sm" x={boxX + 44} y={rowY(index) + 37}>
+            {step.detail}
+          </text>
+          {index < steps.length - 1 && (
+            <line
+              class="dg-line"
+              x1={boxX + 60}
+              y1={rowY(index) + boxH}
+              x2={boxX + 60}
+              y2={rowY(index + 1) - 2}
+              marker-end="url(#dg-event-flow-arrow)"
+            />
+          )}
+        </g>
+      ))}
 
-    <text class="dg-t dg-t--sm" x={boxX + 72} y={rowY(1) + boxH + 12}>
-      miss
-    </text>
-    <path
-      class="dg-line dg-line--dashed"
-      d={`M${boxX + boxW} ${hitFrom} H${gutter} V${hitTo} H${boxX + boxW + 2}`}
-      marker-end="url(#dg-event-flow-arrow)"
-    ></path>
-    <text class="dg-t dg-t--sm" x={gutter + 6} y={(hitFrom + hitTo) / 2 + 4}>
-      hit
-    </text>
-  </svg>
+      <text class="dg-t dg-t--sm" x={boxX + 72} y={rowY(1) + boxH + 12}>
+        miss
+      </text>
+      <path
+        class="dg-line dg-line--dashed"
+        d={`M${boxX + boxW} ${hitFrom} H${gutter} V${hitTo} H${boxX + boxW + 2}`}
+        marker-end="url(#dg-event-flow-arrow)"
+      ></path>
+      <text class="dg-t dg-t--sm" x={gutter + 6} y={(hitFrom + hitTo) / 2 + 4}>
+        hit
+      </text>
+    </svg>
+  </div>
 </figure>

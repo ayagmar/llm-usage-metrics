@@ -22,135 +22,146 @@ const height = clientTop + 92;
 ---
 
 <figure class="dg" style="--dg-max-width: 32rem">
-  <svg
-    viewBox={`0 0 440 ${height}`}
-    role="img"
-    aria-labelledby="dg-share-flow-title dg-share-flow-desc"
+  <div
+    class="dg-scroll"
+    tabindex="0"
+    role="region"
+    aria-label="From --share to a self-contained HTML report (scrolls sideways on narrow screens)"
   >
-    <title id="dg-share-flow-title">From --share to a self-contained HTML report</title>
-    <desc id="dg-share-flow-desc">
-      A command run with --share first builds its normal report. It then reads the events a second
-      time, starting seven days earlier so 5-hour blocks can be placed and without syncing other
-      machines, and prices them in every cost mode. The payload holds a cube of token, event,
-      active-time and cost totals by period, source, model, project and machine; up to 200 newest
-      sessions per project; 5-hour blocks per source; and the command's own JSON output. Project
-      labels never hold a home path, and --redact numbers projects and machines. The payload and the
-      client script are inlined into one HTML file whose content security policy blocks all network
-      requests; it is written to the current directory and opened unless --no-open is passed. In the
-      browser the client rolls the cube up by hour, day, week or month and recomputes charts and
-      tables as filters change.
-    </desc>
-    <defs>
-      <marker
-        id="dg-share-flow-arrow"
-        viewBox="0 0 10 10"
-        refX="9"
-        refY="5"
-        markerWidth="7"
-        markerHeight="7"
-        orient="auto-start-reverse"
-      >
-        <path class="dg-arrowhead" d="M0 0 L10 5 L0 10 z"></path>
-      </marker>
-    </defs>
-
-    <rect class="dg-box dg-box--accent" x="12" y="4" width="416" height="62" rx="10"></rect>
-    <text class="dg-t dg-t--mono" x="28" y="30" style="font-size: 13px">
-      llm-usage daily --share
-    </text>
-    <text class="dg-t dg-t--sm" x="28" y="52">
-      builds the report as usual
-    </text>
-    <line class="dg-line" {...arrow(66, 90)} marker-end="url(#dg-share-flow-arrow)"></line>
-
-    <rect class="dg-box dg-box--accent" x="12" y="90" width="416" height="110" rx="10"></rect>
-    <text class="dg-t dg-t--label" x="28" y="114">
-      second read
-    </text>
-    <text class="dg-t" x="28" y="138" style="font-size: 14px">
-      Same options, since moved back 7 days
-    </text>
-    <text class="dg-t" x="28" y="160" style="font-size: 14px">
-      for blocks; no machine sync
-    </text>
-    <text class="dg-t dg-t--sm" x="28" y="184">
-      priced in every cost mode at once
-    </text>
-    <line class="dg-line" {...arrow(200, payloadTop)} marker-end="url(#dg-share-flow-arrow)"></line>
-
-    <rect
-      class="dg-box dg-box--cyan"
-      x="12"
-      y={payloadTop}
-      width="416"
-      height={payloadBottom - payloadTop}
-      rx="10"
-    ></rect>
-    <text class="dg-t dg-t--label" x="28" y={payloadTop + 26}>
-      payload
-    </text>
-    <text class="dg-t dg-t--sm" x="412" y={payloadTop + 26} text-anchor="end">
-      no home paths; --redact
-    </text>
-    {parts.map((part, index) => (
-      <g>
-        <rect
-          class="dg-box dg-box--plain"
-          x={chipX[index % 2]}
-          y={chipY(index)}
-          width={chipW}
-          height={chipH}
-          rx="7"
-        />
-        <text
-          class="dg-t dg-t--mono dg-t--cyan"
-          x={chipX[index % 2] + 12}
-          y={chipY(index) + 21}
-          style="font-size: 13px"
+    <svg
+      viewBox={`0 0 440 ${height}`}
+      role="img"
+      aria-labelledby="dg-share-flow-title dg-share-flow-desc"
+    >
+      <title id="dg-share-flow-title">From --share to a self-contained HTML report</title>
+      <desc id="dg-share-flow-desc">
+        A command run with --share first builds its normal report. It then reads the events a second
+        time, starting seven days earlier so 5-hour blocks can be placed and without syncing other
+        machines, and prices them in every cost mode. The payload holds a cube of token, event,
+        active-time and cost totals by period, source, model, project and machine; up to 200 newest
+        sessions per project; 5-hour blocks per source; and the command's own JSON output. Project
+        labels never hold a home path, and --redact numbers projects and machines. The payload and
+        the client script are inlined into one HTML file whose content security policy blocks all
+        network requests; it is written to the current directory and opened unless --no-open is
+        passed. In the browser the client rolls the cube up by hour, day, week or month and
+        recomputes charts and tables as filters change.
+      </desc>
+      <defs>
+        <marker
+          id="dg-share-flow-arrow"
+          viewBox="0 0 10 10"
+          refX="9"
+          refY="5"
+          markerWidth="7"
+          markerHeight="7"
+          orient="auto-start-reverse"
         >
-          {part.name}
-        </text>
-        <text
-          class="dg-t dg-t--sm"
-          x={chipX[index % 2] + 12}
-          y={chipY(index) + 40}
-          style="font-size: 12px"
-        >
-          {part.detail}
-        </text>
-      </g>
-    ))}
-    <line
-      class="dg-line"
-      {...arrow(payloadBottom, htmlTop)}
-      marker-end="url(#dg-share-flow-arrow)"
-    ></line>
+          <path class="dg-arrowhead" d="M0 0 L10 5 L0 10 z"></path>
+        </marker>
+      </defs>
 
-    <rect class="dg-box dg-box--accent" x="12" y={htmlTop} width="416" height="88" rx="10"></rect>
-    <text class="dg-t dg-t--label" x="28" y={htmlTop + 24}>
-      one HTML file
-    </text>
-    <text class="dg-t" x="28" y={htmlTop + 48} style="font-size: 14px">
-      inline payload + client; CSP blocks network
-    </text>
-    <text class="dg-t dg-t--sm" x="28" y={htmlTop + 72}>
-      written to ./, opened unless --no-open
-    </text>
-    <line
-      class="dg-line"
-      {...arrow(htmlTop + 88, clientTop)}
-      marker-end="url(#dg-share-flow-arrow)"
-    ></line>
+      <rect class="dg-box dg-box--accent" x="12" y="4" width="416" height="62" rx="10"></rect>
+      <text class="dg-t dg-t--mono" x="28" y="30" style="font-size: 13px">
+        llm-usage daily --share
+      </text>
+      <text class="dg-t dg-t--sm" x="28" y="52">
+        builds the report as usual
+      </text>
+      <line class="dg-line" {...arrow(66, 90)} marker-end="url(#dg-share-flow-arrow)"></line>
 
-    <rect class="dg-box dg-box--cyan" x="12" y={clientTop} width="416" height="88" rx="10"></rect>
-    <text class="dg-t dg-t--label" x="28" y={clientTop + 24}>
-      in the browser
-    </text>
-    <text class="dg-t" x="28" y={clientTop + 48} style="font-size: 14px">
-      roll up by hour, day, week or month
-    </text>
-    <text class="dg-t dg-t--sm" x="28" y={clientTop + 72}>
-      filters, charts, tables; view kept in the URL
-    </text>
-  </svg>
+      <rect class="dg-box dg-box--accent" x="12" y="90" width="416" height="110" rx="10"></rect>
+      <text class="dg-t dg-t--label" x="28" y="114">
+        second read
+      </text>
+      <text class="dg-t" x="28" y="138" style="font-size: 14px">
+        Same options, since moved back 7 days
+      </text>
+      <text class="dg-t" x="28" y="160" style="font-size: 14px">
+        for blocks; no machine sync
+      </text>
+      <text class="dg-t dg-t--sm" x="28" y="184">
+        priced in every cost mode at once
+      </text>
+      <line
+        class="dg-line"
+        {...arrow(200, payloadTop)}
+        marker-end="url(#dg-share-flow-arrow)"
+      ></line>
+
+      <rect
+        class="dg-box dg-box--cyan"
+        x="12"
+        y={payloadTop}
+        width="416"
+        height={payloadBottom - payloadTop}
+        rx="10"
+      ></rect>
+      <text class="dg-t dg-t--label" x="28" y={payloadTop + 26}>
+        payload
+      </text>
+      <text class="dg-t dg-t--sm" x="412" y={payloadTop + 26} text-anchor="end">
+        no home paths; --redact
+      </text>
+      {parts.map((part, index) => (
+        <g>
+          <rect
+            class="dg-box dg-box--plain"
+            x={chipX[index % 2]}
+            y={chipY(index)}
+            width={chipW}
+            height={chipH}
+            rx="7"
+          />
+          <text
+            class="dg-t dg-t--mono dg-t--cyan"
+            x={chipX[index % 2] + 12}
+            y={chipY(index) + 21}
+            style="font-size: 13px"
+          >
+            {part.name}
+          </text>
+          <text
+            class="dg-t dg-t--sm"
+            x={chipX[index % 2] + 12}
+            y={chipY(index) + 40}
+            style="font-size: 12px"
+          >
+            {part.detail}
+          </text>
+        </g>
+      ))}
+      <line
+        class="dg-line"
+        {...arrow(payloadBottom, htmlTop)}
+        marker-end="url(#dg-share-flow-arrow)"
+      ></line>
+
+      <rect class="dg-box dg-box--accent" x="12" y={htmlTop} width="416" height="88" rx="10"></rect>
+      <text class="dg-t dg-t--label" x="28" y={htmlTop + 24}>
+        one HTML file
+      </text>
+      <text class="dg-t" x="28" y={htmlTop + 48} style="font-size: 14px">
+        inline payload + client; CSP blocks network
+      </text>
+      <text class="dg-t dg-t--sm" x="28" y={htmlTop + 72}>
+        written to ./, opened unless --no-open
+      </text>
+      <line
+        class="dg-line"
+        {...arrow(htmlTop + 88, clientTop)}
+        marker-end="url(#dg-share-flow-arrow)"
+      ></line>
+
+      <rect class="dg-box dg-box--cyan" x="12" y={clientTop} width="416" height="88" rx="10"></rect>
+      <text class="dg-t dg-t--label" x="28" y={clientTop + 24}>
+        in the browser
+      </text>
+      <text class="dg-t" x="28" y={clientTop + 48} style="font-size: 14px">
+        roll up by hour, day, week or month
+      </text>
+      <text class="dg-t dg-t--sm" x="28" y={clientTop + 72}>
+        filters, charts, tables; view kept in the URL
+      </text>
+    </svg>
+  </div>
 </figure>

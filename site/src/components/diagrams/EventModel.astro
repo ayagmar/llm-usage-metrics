@@ -69,70 +69,77 @@ const height = cursor + 40;
 ---
 
 <figure class="dg" style="--dg-max-width: 32rem">
-  <svg
-    viewBox={`0 0 440 ${height}`}
-    role="img"
-    aria-labelledby="dg-event-model-title dg-event-model-desc"
+  <div
+    class="dg-scroll"
+    tabindex="0"
+    role="region"
+    aria-label="The event union (scrolls sideways on narrow screens)"
   >
-    <title id="dg-event-model-title">The event union</title>
-    <desc id="dg-event-model-desc">
-      Every event has source, sessionId and timestamp, plus raw when the read asks for it, and a
-      kind that is one of four. usage: inputTokens, outputTokens, reasoningTokens, cacheReadTokens,
-      cacheWriteTokens, cacheWrite1hTokens and totalTokens, with optional costUsd, model, provider,
-      repoRoot, rawProvider, messageId and requestId. message: role and textLength, with optional
-      text, model and messageId. tool_call: name and status, with optional toolCallId, completedAt,
-      durationMs and messageId. session_meta: all optional, cwd, title, gitBranch, agentVersion,
-      parentSessionId, model and rawProvider. read() yields usage events only; readEvents() also
-      yields the other three kinds for claude, codex and pi.
-    </desc>
+    <svg
+      viewBox={`0 0 440 ${height}`}
+      role="img"
+      aria-labelledby="dg-event-model-title dg-event-model-desc"
+    >
+      <title id="dg-event-model-title">The event union</title>
+      <desc id="dg-event-model-desc">
+        Every event has source, sessionId and timestamp, plus raw when the read asks for it, and a
+        kind that is one of four. usage: inputTokens, outputTokens, reasoningTokens,
+        cacheReadTokens, cacheWriteTokens, cacheWrite1hTokens and totalTokens, with optional
+        costUsd, model, provider, repoRoot, rawProvider, messageId and requestId. message: role and
+        textLength, with optional text, model and messageId. tool_call: name and status, with
+        optional toolCallId, completedAt, durationMs and messageId. session_meta: all optional, cwd,
+        title, gitBranch, agentVersion, parentSessionId, model and rawProvider. read() yields usage
+        events only; readEvents() also yields the other three kinds for claude, codex and pi.
+      </desc>
 
-    <rect class="dg-box dg-box--accent" x="12" y="4" width="416" height={sharedH} rx="10"></rect>
-    <text class="dg-t dg-t--label" x="28" y="28">
-      every kind
-    </text>
-    <text class="dg-t dg-t--mono" x="28" y="52" style="font-size: 13px">
-      {shared.join('  ')}
-    </text>
-    <text class="dg-t dg-t--mono dg-t--accent" x="28" y="74" style="font-size: 13px">
-      kind: usage | message | tool_call | session_meta
-    </text>
+      <rect class="dg-box dg-box--accent" x="12" y="4" width="416" height={sharedH} rx="10"></rect>
+      <text class="dg-t dg-t--label" x="28" y="28">
+        every kind
+      </text>
+      <text class="dg-t dg-t--mono" x="28" y="52" style="font-size: 13px">
+        {shared.join('  ')}
+      </text>
+      <text class="dg-t dg-t--mono dg-t--accent" x="28" y="74" style="font-size: 13px">
+        kind: usage | message | tool_call | session_meta
+      </text>
 
-    <line class="dg-line" x1="26" y1={sharedH + 4} x2="26" y2={last.y + 24}></line>
-    {placed.map((variant) => (
-      <g>
-        <line class="dg-line" x1="26" y1={variant.y + 24} x2={boxX} y2={variant.y + 24} />
-        <rect
-          class="dg-box dg-box--cyan"
-          x={boxX}
-          y={variant.y}
-          width={boxW}
-          height={variant.h}
-          rx="10"
-        />
-        <text class="dg-t dg-t--head dg-t--mono dg-t--cyan" x={boxX + 14} y={variant.y + 28}>
-          {variant.kind}
-        </text>
-        <text class="dg-t dg-t--sm" x={boxX + boxW - 14} y={variant.y + 28} text-anchor="end">
-          {variant.note}
-        </text>
-        {variant.fields.map((field, index) => (
-          <text
-            class:list={['dg-t', 'dg-t--mono', field.endsWith('?') && 'dg-t--sm']}
-            x={boxX + 14 + (index % 2) * 186}
-            y={variant.y + headH + 8 + Math.floor(index / 2) * rowH}
-            style="font-size: 13px"
-          >
-            {field}
+      <line class="dg-line" x1="26" y1={sharedH + 4} x2="26" y2={last.y + 24}></line>
+      {placed.map((variant) => (
+        <g>
+          <line class="dg-line" x1="26" y1={variant.y + 24} x2={boxX} y2={variant.y + 24} />
+          <rect
+            class="dg-box dg-box--cyan"
+            x={boxX}
+            y={variant.y}
+            width={boxW}
+            height={variant.h}
+            rx="10"
+          />
+          <text class="dg-t dg-t--head dg-t--mono dg-t--cyan" x={boxX + 14} y={variant.y + 28}>
+            {variant.kind}
           </text>
-        ))}
-      </g>
-    ))}
+          <text class="dg-t dg-t--sm" x={boxX + boxW - 14} y={variant.y + 28} text-anchor="end">
+            {variant.note}
+          </text>
+          {variant.fields.map((field, index) => (
+            <text
+              class:list={['dg-t', 'dg-t--mono', field.endsWith('?') && 'dg-t--sm']}
+              x={boxX + 14 + (index % 2) * 186}
+              y={variant.y + headH + 8 + Math.floor(index / 2) * rowH}
+              style="font-size: 13px"
+            >
+              {field}
+            </text>
+          ))}
+        </g>
+      ))}
 
-    <text class="dg-t dg-t--sm" x="12" y={cursor + 8}>
-      ? marks an optional field. read() yields usage only;
-    </text>
-    <text class="dg-t dg-t--sm" x="12" y={cursor + 27}>
-      readEvents() adds the other kinds for claude, codex, pi.
-    </text>
-  </svg>
+      <text class="dg-t dg-t--sm" x="12" y={cursor + 8}>
+        ? marks an optional field. read() yields usage only;
+      </text>
+      <text class="dg-t dg-t--sm" x="12" y={cursor + 27}>
+        readEvents() adds the other kinds for claude, codex, pi.
+      </text>
+    </svg>
+  </div>
 </figure>

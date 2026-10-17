@@ -120,3 +120,18 @@
   stroke: var(--border-default, rgba(241, 240, 233, 0.09));
   stroke-width: 1;
 }
+
+/* Below 440 px the diagram would shrink its 12 px text, so it scrolls instead. */
+.dg-scroll {
+  overflow-x: auto;
+  border-radius: var(--radius-md, 0.55rem);
+}
+
+.dg-scroll:focus-visible {
+  outline: 2px solid var(--border-focus, #df7b52);
+  outline-offset: 2px;
+}
+
+.dg-scroll svg {
+  min-width: 440px;
+}
