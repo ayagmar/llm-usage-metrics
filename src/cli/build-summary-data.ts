@@ -2,7 +2,11 @@ import { aggregateDailyActivity, resolveActivityStart } from '../aggregate/daily
 import { LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
 import { estimateCacheSavingsUsd } from '../pricing/cache-savings.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
-import { getCurrentLocalDateKey, shiftLocalDateKey } from '../utils/time-buckets.js';
+import {
+  getCurrentLocalDateKey,
+  getLocalDateKeyRange,
+  shiftLocalDateKey,
+} from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions, type UserConfigResolution } from './apply-user-config.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
@@ -50,6 +54,16 @@ export function resolveSummaryWindows(timezone: string, now: Date): SummaryWindo
     },
     { key: 'monthToDate', label: 'Month to date', since: `${today.slice(0, 8)}01`, until: today },
   ];
+}
+
+/** The same number of days immediately before the window. */
+export function resolvePreviousWindow(window: UsageDateWindow): UsageDateWindow {
+  const dayCount = getLocalDateKeyRange(window.since, window.until).length;
+
+  return {
+    since: shiftLocalDateKey(window.since, -dayCount),
+    until: shiftLocalDateKey(window.since, -1),
+  };
 }
 
 // Two days of usage are too few to scale to a month.
@@ -206,6 +220,8 @@ export async function buildSummaryData(
       const windowEvents = pricedEvents.filter(createWindowEventFilter(window, timezone));
       eventsByWindow.set(window.key, windowEvents);
       const summary = summarizeUsageWindow(windowEvents, timezone, sourceOrder);
+      const previousWindow = resolvePreviousWindow(window);
+      const previousEvents = pricedEvents.filter(createWindowEventFilter(previousWindow, timezone));
       const period: SummaryPeriod = {
         key: window.key,
         label: window.label,
@@ -215,6 +231,10 @@ export async function buildSummaryData(
         sources: [...summary.sources]
           .map(([source, totals]) => ({ source, ...totals }))
           .sort(compareSourcesByCost),
+        previous: {
+          ...previousWindow,
+          totals: summarizeUsageWindow(previousEvents, timezone, sourceOrder).totals,
+        },
       };
 
       if (countsOtherMachines) {
@@ -236,15 +256,15 @@ export async function buildSummaryData(
       ? estimateCacheSavingsUsd(monthToDateEvents, pricingSource, pricingResult.pricingPolicy)
       : undefined;
 
-  // The `~` marks only appear on the windows and on the best day's cost. Every window ends
-  // today, so together they span one range from the earliest window start.
+  // The `~` marks only appear on the windows, their previous windows and the best day's cost.
+  // Every window ends today and its previous window ends the day before it starts, so together
+  // they span one range from the earliest previous window's start.
   const bestDay = activity.bestDay?.costUsd === undefined ? undefined : activity.bestDay.date;
   const isInSomeWindow = createWindowEventFilter(
     {
-      since: windows.reduce(
-        (earliest, window) => (window.since < earliest ? window.since : earliest),
-        today,
-      ),
+      since: windows
+        .map((window) => resolvePreviousWindow(window).since)
+        .reduce((earliest, since) => (since < earliest ? since : earliest), today),
       until: today,
     },
     timezone,

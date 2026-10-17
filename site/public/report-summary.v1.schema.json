@@ -160,6 +160,25 @@
           "items": {
             "$ref": "#/$defs/machineTotals"
           }
+        },
+        "previous": {
+          "description": "The same number of days immediately before the period: yesterday for today, the 7 days before the last 7 days, and for month to date as many days as the month has had, ending on the last day of the previous month. Always emitted by current releases; optional so v1 reports from earlier releases stay valid.",
+          "type": "object",
+          "properties": {
+            "since": {
+              "description": "Previous period start (YYYY-MM-DD, inclusive).",
+              "type": "string"
+            },
+            "until": {
+              "description": "Previous period end (YYYY-MM-DD, inclusive): the day before the period starts.",
+              "type": "string"
+            },
+            "totals": {
+              "$ref": "#/$defs/windowTotals"
+            }
+          },
+          "required": ["since", "until", "totals"],
+          "additionalProperties": false
         }
       },
       "required": ["key", "label", "since", "until", "totals", "sources"],
