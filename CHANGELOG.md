@@ -41,7 +41,7 @@ Changes on `master` since 0.11.0 that are not in a release yet. [Upgrading](http
 - **Terminal output**: every table aligns text left and numbers right, including the stacked list on narrow terminals; `prune` summaries and `doctor`'s per-source lines say `1 file` and `2 files`; `trends` uses whole token ticks; `efficiency` and `optimize` print the shared no-usage message instead of an all-zero table.
 - **Speed**: Claude and pi files parse on the worker pool, as Codex files already did; `statusline` no longer builds the full summary; DeepSeek Harness zstd logs are read as a stream instead of whole; JSONL files are read one 1 MiB chunk of records at a time instead of one record at a time.
 - **`--no-cost`** on `hourly`, `daily`, `weekly`, `monthly` and `blocks` no longer loads prices, so a cold pricing cache with no network no longer fails these reports. Models tied on tokens are then ordered by logged cost only. `projects` and `value` still load prices to rank by cost.
-- **`statusline`** with `parseWorkers` at `auto` parses on at most 2 worker threads; more used memory without making a cold tick faster.
+- **`statusline`** with `parseWorkers` at `auto` parses on at most 4 worker threads; on large logs a cold tick peaks at about 40% less memory and takes about 16% longer.
 - **Projects** are described as the working directory the tool recorded, not the repository root, in help, docs and schemas.
 - **Messages**: `projects --top` now says "must be a positive integer" and `optimize --top` rejects leading zeros, as the other reports do.
 

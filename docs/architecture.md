@@ -206,7 +206,7 @@ Each command has a `run*` entry point, and most have a `build*` that returns the
 
 ### Statusline
 
-`runStatusline` builds the summary data with offline pricing and machine sync off, so it never fetches prices or opens an ssh connection and skips the update check, and prints one line from it with the logger silenced unless `--verbose`. Under Claude Code it also reads the session JSON from stdin and puts the session cost and context use first. With `parseWorkers` at `auto`, it parses on at most two worker threads, since a cold tick gained nothing from more and each worker adds its own heap.
+`runStatusline` builds the summary data with offline pricing and machine sync off, so it never fetches prices or opens an ssh connection and skips the update check, and prints one line from it with the logger silenced unless `--verbose`. Under Claude Code it also reads the session JSON from stdin and puts the session cost and context use first. With `parseWorkers` at `auto`, it parses on at most four worker threads: each worker adds its own heap, and on large logs four keep a cold tick's peak memory about 40% below eight for about 16% more time.
 
 ### Machines and Sync
 

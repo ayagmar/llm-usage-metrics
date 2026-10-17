@@ -174,7 +174,7 @@ Environment variables override the config file. Reports count them in the `stder
 | `LLM_USAGE_SKIP_UPDATE_CHECK`        | `update.skipCheck`    | unset (`false`)           | Truthy values: `1`, `true`, `yes`, `on`                                       |
 | `LLM_USAGE_UPDATE_CACHE_SCOPE`       | n/a                   | `global`                  | `session` isolates update-check cache by session                              |
 | `LLM_USAGE_UPDATE_CACHE_SESSION_KEY` | n/a                   | unset                     | Stable key for session-scoped update cache                                    |
-| `LLM_USAGE_PARSE_WORKERS`            | `parseWorkers`        | `auto`                    | `auto` (up to 8; 2 for `statusline`) or integer `0..64`; `0` disables workers |
+| `LLM_USAGE_PARSE_WORKERS`            | `parseWorkers`        | `auto`                    | `auto` (up to 8; 4 for `statusline`) or integer `0..64`; `0` disables workers |
 | `LLM_USAGE_PARSE_WORKER_MIN_BYTES`   | `parseWorkerMinBytes` | `268435456`               | Clamps to `0..9007199254740991`                                               |
 | `LLM_USAGE_EVENT_STORE`              | `eventStore.enabled`  | `1` (`true`)              | Set `0` to disable the store                                                  |
 | `LLM_USAGE_EVENT_STORE_PATH`         | `eventStore.path`     | platform data `events.db` | Use an isolated store for experiments or CI                                   |

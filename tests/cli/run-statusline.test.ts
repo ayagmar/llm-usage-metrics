@@ -242,7 +242,7 @@ describe('buildStatusline', () => {
     };
   }
 
-  it('caps an auto parse worker count at two, and keeps an explicit count', async () => {
+  it('caps an auto parse worker count at four, and keeps an explicit count', async () => {
     const parseWorkerLimit = async (parseWorkers: string): Promise<number | undefined> => {
       vi.stubEnv('LLM_USAGE_PARSE_WORKERS', parseWorkers);
       const runtimeProfile = new RuntimeProfileCollector();
@@ -262,7 +262,7 @@ describe('buildStatusline', () => {
 
     try {
       await expect(parseWorkerLimit('auto')).resolves.toBe(
-        Math.max(0, Math.min(2, availableParallelism() - 1)),
+        Math.max(0, Math.min(4, availableParallelism() - 1)),
       );
       await expect(parseWorkerLimit('6')).resolves.toBe(6);
     } finally {

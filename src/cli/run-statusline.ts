@@ -185,10 +185,10 @@ function collectActiveDays(events: readonly UsageEvent[], timezone: string): Set
  * priced event (`applyPricingToEvents`), so the line's totals do not change. Prices load
  * when the year's events need them, as for the summary, so a load failure does not change.
  */
-// A cold tick (empty event store) on large logs parses on the worker pool. Each worker
-// holds its own heap: on the bench corpus with the pool forced on, the tick took as long
-// with two workers as with eight, and peak RSS grew by about 60 MB per worker past two.
-const STATUSLINE_AUTO_PARSE_WORKERS = 2;
+// A cold tick (empty event store) on large logs parses on the worker pool, and each worker
+// holds its own heap. On real logs (M12 Q), four workers took about 16% longer than eight
+// and peaked about 40% lower (0.8 GB against 1.3 GB); two workers took about 50% longer.
+const STATUSLINE_AUTO_PARSE_WORKERS = 4;
 
 export async function buildStatuslineData(
   options: StatuslineCommandOptions,
