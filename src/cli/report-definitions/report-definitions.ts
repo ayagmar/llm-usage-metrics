@@ -811,7 +811,7 @@ const toolsReportDefinition: ReportRuntimeDefinition = {
     command
       .option('--top <n>', 'Show only the top N tools by calls (default 20; 0 shows all)')
       .option('--by-source', 'Split each tool row by source')
-      .option('--by-repo', 'Split each tool row by project (repository root)')
+      .option('--by-repo', `Split each tool row by ${PROJECT_DESCRIPTION}`)
       .option(
         '--last <n>',
         `Report the last N days, counting today (default ${String(DEFAULT_RECENT_DAYS)})`,

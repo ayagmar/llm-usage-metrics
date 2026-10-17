@@ -1257,8 +1257,8 @@ Options:
   --top <n>                      Show only the top N tools by calls (default 20;
                                  0 shows all)
   --by-source                    Split each tool row by source
-  --by-repo                      Split each tool row by project (repository
-                                 root)
+  --by-repo                      Split each tool row by project (the working
+                                 directory the tool recorded)
   --last <n>                     Report the last N days, counting today (default
                                  7)
   --all                          Report every tool call on disk instead of the
@@ -2204,7 +2204,7 @@ Search across root and command help. See Command help above to check which flags
 | `--antigravity-dir` | - | `<path>` | Path to Antigravity conversations directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
 | `--apply` | - | - | Delete selected departed files and vacuum the event store \(prune only\) |
 | `--by-machine` | - | - | Split each source row by the machine its usage came from \(usage reports only\) |
-| `--by-repo` | - | - | hourly, daily, weekly, monthly: Split each source row by project \(the working directory the tool recorded\); compare: Also compare each project \(the working directory the tool recorded\); trends: Render one sparkline row per project \(the working directory the tool recorded\); not with --by-source; session: Group usage by project \(the working directory the tool recorded\) instead of by session; tools: Split each tool row by project \(repository root\) |
+| `--by-repo` | - | - | hourly, daily, weekly, monthly: Split each source row by project \(the working directory the tool recorded\); compare: Also compare each project \(the working directory the tool recorded\); trends: Render one sparkline row per project \(the working directory the tool recorded\); not with --by-source; session: Group usage by project \(the working directory the tool recorded\) instead of by session; tools: Split each tool row by project \(the working directory the tool recorded\) |
 | `--by-session` | - | - | One row per session instead of per model, largest peak prompt first \(context only\) |
 | `--by-source` | - | - | efficiency: Include per-source usage rows under each period; trends: Render one sparkline row per source instead of a single combined chart; tools: Split each tool row by source |
 | `--candidate-model` | - | `<name>` | Candidate model for counterfactual pricing \(repeatable or comma-separated\) \(optimize only\) |
