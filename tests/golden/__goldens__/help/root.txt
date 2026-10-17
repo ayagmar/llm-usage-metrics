@@ -59,6 +59,9 @@ Commands:
   optimize [options] <granularity>    Show counterfactual pricing report for candidate model(s)
   trends [options]                    Show daily cost or token usage trends
   session [options]                   Show usage grouped by conversation session
+  context [options]                   Show peak prompt sizes per model or session, long-context
+                                      requests and what their tier rates added (last 7 days unless
+                                      --last, --since, --until, or --all)
   blocks [options]                    Show estimated 5-hour usage blocks per source, across
                                       machines, with the active block (last 7 days unless --last,
                                       --since, --until, or --all; only meaningful for subscription

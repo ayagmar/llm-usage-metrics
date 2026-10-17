@@ -3,9 +3,9 @@ Usage: llm-usage schema [options] [name]
 Print a bundled report JSON Schema
 
 Arguments:
-  name        Schema name: blocks, compare, config, doctor, efficiency, events-line, machine-export,
-              optimize, pricing, projects, prune, session, share, summary, trends, usage, value,
-              wrapped
+  name        Schema name: blocks, compare, config, context, doctor, efficiency, events-line,
+              machine-export, optimize, pricing, projects, prune, session, share, summary, trends,
+              usage, value, wrapped
 
 Options:
   --list      List available schema names
