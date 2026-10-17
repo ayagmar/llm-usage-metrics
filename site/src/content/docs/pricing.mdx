@@ -3,7 +3,7 @@ title: Pricing
 description: How pricing is loaded and how row costs are computed.
 ---
 
-`llm-usage-metrics` uses LiteLLM pricing data to estimate costs when events do not include explicit cost. For the design behind these knobs — the fallback ladder, model-name matching, and the cost engine — see the [Pricing Pipeline](/llm-usage-metrics/architecture/pricing-pipeline/) deep dive.
+`llm-usage-metrics` uses LiteLLM pricing data to estimate costs when events do not include explicit cost. For the design behind these knobs (the fallback ladder, model-name matching, and the cost engine), see the [Pricing Pipeline](/llm-usage-metrics/architecture/pricing-pipeline/) deep dive.
 
 ## Pricing source
 
@@ -22,7 +22,7 @@ When the bundled snapshot is used, `stderr` includes a warning with the snapshot
 date:
 
 ```text
-Pricing: using the bundled LiteLLM snapshot from 2026-10-06 (run online to refresh).
+Pricing: using the bundled LiteLLM snapshot from 2026-10-15 (run online to refresh).
 ```
 
 Online runs refresh a stale cache; omitting `--pricing-offline` can still use a fresh cache. A cache past its refresh interval is still used when the refresh fails or the run is offline, and `stderr` then names the cache date (and the fetch error, when a refresh was attempted):
@@ -40,6 +40,53 @@ config for that run (`LLM_USAGE_CONFIG_PATH=/nonexistent llm-usage monthly`) or
 edit the config.
 
 For cache lifecycle and tuning knobs, see [Caching](/llm-usage-metrics/caching/).
+
+## Explain a model's price
+
+`llm-usage pricing <model...>` shows how each model name you give resolves to the prices the cost engine applies. It never reads usage, so it works on a machine with no session logs. Pass names as they appear in your logs, or in a report's model column:
+
+```bash
+llm-usage pricing claude-sonnet-4-5 gemini-2.5-pro --pricing-offline
+```
+
+```text
+claude-sonnet-4-5
+  Normalized      claude-sonnet-4-5
+  Pricing key     claude-sonnet-4-5
+  Rule            direct
+  Override        none
+  Prices from     bundled LiteLLM snapshot from 2026-10-15 (https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json)
+  Input           $3.00 / 1M
+  Output          $15.00 / 1M
+  Cache read      $0.30 / 1M
+  Cache write     $3.75 / 1M
+  Cache write 1h  $6.00 / 1M
+  Reasoning       billed as output
+
+gemini-2.5-pro
+  ...
+  Above 200,000   input $2.50 / 1M, output $15.00 / 1M, cache read $0.25 / 1M, cache write $0.25 / 1M
+```
+
+For each name it prints:
+
+- **Normalized**: the name as the matcher sees it, trimmed and lowercased.
+- **Pricing key**: the LiteLLM key whose prices apply, or `unpriced` when nothing matched.
+- **Rule**: how the matcher reached the key. `direct` is an exact key, possibly after dropping a provider prefix (`anthropic/claude-sonnet-4-5` reads `direct (as claude-sonnet-4-5)`). The others are the model map's preferred key, `effort suffix dropped`, `provider-prefixed key`, `key plus a release suffix`, and `fuzzy` with its edit distance. A name the model map rewrites first reads `model map to <model>, then <rule>`.
+- **Override**: whether a `--pricing-overrides` entry applies, keyed on the name or on its pricing key.
+- **Prices from**: the bundled snapshot, the pricing cache or a fresh fetch, with its date and URL, or the overrides file. An unpriced name shows `Searched` instead, naming what was searched.
+- **Retired**: present when the prices come from models LiteLLM no longer lists.
+- **Rates** per 1M tokens for input, output, cache read, cache write and one-hour cache write. `not listed` means LiteLLM gives no rate for that bucket; `as cache write` means one-hour writes bill at the cache-write rate.
+- **Above N**: each long-context tier, highest threshold first. When any name has tiers, the report ends with a line naming the sources whose events they apply to.
+- **Priority rates**: the buckets priced at a priority rate because LiteLLM lists no standard one.
+
+The command takes `--pricing-offline`, `--pricing-url`, `--pricing-overrides`, `--quiet`, `--json` and `--markdown`. Exit status is 0 even for an unpriced name, so check `pricingKey` in the JSON. `--json` returns `{ models, perRequestSources }` under `data`; each model row has `model`, `normalizedModel`, `pricingKey`, `rule`, `canonicalModel`, `strippedModel`, `fuzzyDistance`, `override`, `origin`, `retired`, `rates`, `tiers` and `priorityFallback`, as described in [report-pricing.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-pricing.v1.schema.json).
+
+Use it when a report marks a model with `~` or `-`, when a cost looks off, or to check that an override file entry is picked up:
+
+```bash
+llm-usage pricing my-internal-model --pricing-overrides ./pricing-overrides.json
+```
 
 ## Cost modes
 

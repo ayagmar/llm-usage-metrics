@@ -9,7 +9,7 @@ This page publishes absolute runtimes for `llm-usage` and `ccusage` on stable sn
 
 These cells invoke the built `llm-usage` entry and ccusage's installed package executable directly. They include process startup and captured JSON output, but exclude shell package-manager launchers such as `npx`.
 
-### codex — `daily --json` (8 runs each)
+### codex: `daily --json` (8 runs each)
 
 | Tool                                               | Application state | Median (s) | Mean (s) | Min (s) | Max (s) |
 | -------------------------------------------------- | ----------------- | ---------: | -------: | ------: | ------: |
@@ -20,7 +20,7 @@ These cells invoke the built `llm-usage` entry and ccusage's installed package e
 
 From median runtime, ccusage was 3.19x faster in fresh application state and 2.83x faster in warmed application state.
 
-### claude — `daily --json` (8 runs each)
+### claude: `daily --json` (8 runs each)
 
 | Tool                                                | Application state | Median (s) | Mean (s) | Min (s) | Max (s) |
 | --------------------------------------------------- | ----------------- | ---------: | -------: | ------: | ------: |
