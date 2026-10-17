@@ -3,4 +3,68 @@ title: 'Machine merge'
 description: 'How usage from other machines is fetched and merged.'
 ---
 
-Stub created by the M11 orchestrator; the owning card replaces this page.
+import MachineMerge from '@components/diagrams/MachineMerge.astro';
+
+Reports can count usage from other computers you log into over ssh. Each machine keeps its own logs; this machine fetches what the other one counts, caches it locally, and merges it into reports. [Multiple machines](/llm-usage-metrics/machines/) covers setup and commands; this page covers the mechanism in `src/machines/`.
+
+<MachineMerge />
+
+## Configuration
+
+Each machine is a `[machines.<name>]` table in `config.toml` with `ssh` (the ssh destination, required), `command` (how to run llm-usage there, default `llm-usage`), and `enabled`. Names are lowercase letters, digits, and dashes, up to 32 characters, and cannot be `local`, which always means this machine.
+
+`machine add` and `machine remove` edit the file under a lock file next to it, write through a temporary file and rename, and re-parse the result before keeping it. `machine add` probes the remote login shell for a working command when `--command` is not given, runs a full first sync, and only writes the table once that sync succeeds.
+
+## Transport
+
+A sync runs one ssh command, with options that keep it non-interactive:
+
+```sh
+ssh -T -o BatchMode=yes -o ConnectTimeout=10 \
+  -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
+  -o Compression=yes \
+  -- <ssh> '<command> machine export --known - --quiet'
+```
+
+Options from your ssh config, such as `ControlMaster`, still apply. On stdin this machine sends the files it already holds for that machine, each as source, path, and revision; `sync --full` sends an empty list.
+
+## The export bundle
+
+`machine export` on the other machine builds its own dataset as a report would, from its event store, including history its reports serve, and without the machines it has configured. It prints NDJSON in three line types:
+
+- `header`: format `llm-usage-metrics.machine-export`, version 1, the CLI version, hostname, export time, and the parser version of each source.
+- `file`: one per file whose events changed since the listed revision, with the events. A revision is the first 16 hex characters of a SHA-256 over the file's events.
+- `end`: every file it counts with its revision, and the total event count.
+
+Files the other machine's history suppresses as moved are not sent, and events already counted from another file are left out. Copied claude sessions are sent as stored; the merge below counts them once. The reader rejects a bundle with another format version, a missing `end` line, or a sent file that `end` does not list at the same revision, and every event goes through `createUsageEvent` again.
+
+## The per-machine cache
+
+Each machine has its own SQLite store, `machines/<name>.db` next to the default `events.db` (under the data root, not under a custom `eventStore.path`). It uses the event store's schema, with each file's revision in place of a fingerprint.
+
+A bundle is applied in one transaction: files no longer listed are deleted, sent files replace their events, and the cache must then hold exactly the listed revisions and event count, or the transaction rolls back. A failed sync records the attempt and the error and keeps the previous data, so reports keep counting the last good sync.
+
+## When a sync runs
+
+- `sync [names...]` syncs every enabled machine, or the named ones, in parallel and without a timeout.
+- `machine add` runs a full sync.
+- A report that reads machines syncs each enabled one whose last sync or attempt is at least 10 minutes old. It starts alongside the local parse and waits at most 30 seconds; a machine that has not answered by then is counted from its cache, and the run notes it. One run claims the sync in the cache first, so concurrent reports do not sync the same machine twice. `--no-sync` skips this.
+
+A failed or timed-out sync is a note while the cache is recent, and a warning once the last successful sync is more than 24 hours old or the machine has never synced.
+
+## Merge
+
+`buildUsageEventDataset` merges after this machine's parse and history replay:
+
+1. **Select.** Without `--machine`, a report reads this machine and every configured machine; a custom source directory flag leaves machines out. `--machine` takes names, repeated or comma-separated, and `local`; an unknown name fails before parsing.
+2. **Read.** Each cache is read for the report's window, widened by a day before and two after so time zones cannot cut events, and only for sources this run reads. An unreadable cache is left out with a warning.
+3. **Merge.** Machines are taken in name order, each against everything served before it, starting with this machine. A session that nothing has served yet is kept whole. For a session already served, an event whose content hash was already served is dropped, one for one. When both sides recorded different parser versions for the source, the hash would differ for the same call, so events are matched by timestamp instead and the run warns about the skew.
+4. **Tag.** Merged events get `machine: <name>`. Reports show this machine as `local`.
+
+Copied-session dedup runs after the merge, then the usual filters, pricing, and aggregation. The report's `Machines:` note on stderr gives each machine's last sync and how many events were left out as already counted.
+
+## Related pages
+
+- [Multiple machines](/llm-usage-metrics/machines/): setup, commands, and troubleshooting.
+- [Dedup and cursors](/llm-usage-metrics/architecture/dedup-and-cursors/): the content hash.
+- [Event store](/llm-usage-metrics/architecture/event-store/): the store the export reads.
