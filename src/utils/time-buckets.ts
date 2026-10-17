@@ -305,7 +305,8 @@ function hasStableOffsetWindow(
   );
 }
 
-function resolveOffsetMs(timestampMs: number, timezone: string): number {
+/** How far `timezone`'s wall clock is ahead of UTC at `timestampMs`, to the whole second. */
+export function resolveOffsetMs(timestampMs: number, timezone: string): number {
   return getWallClockOffsetMs(
     timestampMs,
     resolveLocalDateTimeParts(timestampMs, timezone, new Date(timestampMs).toISOString()),
