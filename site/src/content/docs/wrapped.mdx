@@ -7,7 +7,7 @@ description: A yearly usage recap in the terminal and as an interactive share re
 
 ## Command structure
 
-```bash
+```text
 llm-usage wrapped [options]
 ```
 
@@ -25,9 +25,9 @@ llm-usage wrapped --year 2026 --share
 
 - `--year <YYYY>`: the year to recap (2020–2100; defaults to the current year in the report timezone)
 - `--provider <name>` / `--model <name>`: scope the recap the same way they scope the other reports
-- shared filters apply: `--source`, `--timezone`, source-path overrides, pricing flags, and `--history`
+- shared filters apply: `--source`, `--machine`, `--timezone`, source-path overrides, pricing flags, and `--no-history`
 
-`--year` owns the date range, so `--since` / `--until` are not available. `wrapped` supports terminal, `--json`, `--markdown`, and `--share` output. The markdown report carries the stat table and top lists; the monthly strip and heatmap stay in the terminal and the share report.
+`--year` owns the date range, so `--since` / `--until` are not available, and `wrapped` has no `--repo`. `wrapped` supports terminal, `--json`, `--markdown`, and `--share` output. The markdown report carries the stat table and top lists; the monthly strip and heatmap stay in the terminal and the share report.
 
 ## Terminal output
 
@@ -35,6 +35,7 @@ llm-usage wrapped --year 2026 --share
 ┌──────────────┐
 │ Wrapped 2026 │
 └──────────────┘
+
 2026-01-01 to 2026-12-31 (UTC)
 
 Tokens          48,200,000
@@ -68,7 +69,7 @@ The time stats read as follows. `Hours` estimates activity from event timing: pe
 
 ## Share report
 
-`--share` writes an interactive `llm-usage-wrapped-<year>.html` report to the current working directory (see [Share reports](/llm-usage-metrics/output-formats/#share-reports)). It opens on the year under a recap: the year's stats, the top models and sources, and a GitHub-style daily activity heatmap: one cell per day of the year, one row per weekday from Monday, shaded by quartile of your active days so a single outlier day does not flatten the rest.
+`--share` writes an interactive `llm-usage-wrapped-<year>.html` report to the current working directory (see [Interactive report](/llm-usage-metrics/share/)); `--redact` and `--no-open` work as on the other share reports. It opens on the year under a recap: the year's stats, the top models and sources, and a GitHub-style daily activity heatmap: one cell per day of the year, one row per weekday from Monday, shaded by quartile of your active days so a single outlier day does not flatten the rest.
 
 ## JSON shape
 

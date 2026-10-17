@@ -7,7 +7,7 @@ description: Per-conversation usage, cost, and repository attribution across sou
 
 ## Command structure
 
-```bash
+```text
 llm-usage session [options]
 ```
 
@@ -26,11 +26,12 @@ llm-usage session --markdown
 ## Options
 
 - `--top <n>`: how many rows to show, ranked by cost (default 20; `--top 0` shows all)
-- `--id <substring>`: keep only sessions whose id contains the substring (case-insensitive, repeatable); cannot be combined with `--by-repo`
-- `--by-repo`: aggregate sessions into one row per repository root
-- shared filters apply: `--source`, `--provider`, `--model`, `--since`, `--until`, `--timezone`, source-path overrides, pricing flags, and `--history`
+- `--id <session-id>`: keep only sessions whose id contains the value (case-insensitive; repeatable or comma-separated); cannot be combined with `--by-repo`
+- `--by-repo`: aggregate sessions into one row per [project](/llm-usage-metrics/projects/)
+- `--repo <project>`: count only some projects, as described on [Projects](/llm-usage-metrics/projects/#narrow-the-scope)
+- shared filters apply: `--source`, `--provider`, `--model`, `--machine`, `--since`, `--until`, `--timezone`, source-path overrides, pricing flags, and `--no-history`
 
-`session` supports terminal, `--json`, and `--markdown` output. It does not support `--share`.
+Without date flags, `session` covers your full history. It supports terminal, `--json`, and `--markdown` output, but not `--share`; the [interactive report](/llm-usage-metrics/share/) lists each project's sessions without their ids.
 
 ## Output
 
@@ -76,4 +77,6 @@ Default `--json` returns an array of session rows under `data`:
 
 `durationMs` is the raw span: `lastActivity` minus `firstActivity`; it over-counts idle time by design. `activeMs` estimates activity from event timing: the sum of inter-event gaps, each capped at 5 minutes, so a session left open overnight contributes at most 5 idle minutes per gap. Single-event sessions get `activeMs: 0`. This is an event-gap estimate, not a measurement of human working time.
 
-`--by-repo --json` returns an array of repo rows (`rowType: "repo"`, `repoRoot`, `sessionCount`, `firstActivity`, `sources`, and the same token/cost totals).
+`repoRoot` is omitted when the session has no project.
+
+`--by-repo --json` returns an array of repo rows (`rowType: "repo"`, `repoRoot`, `sessionCount`, `firstActivity`, `lastActivity`, `sources`, and the same token and cost totals). The `(unattributed)` row has no `repoRoot`. The full contract is [report-session.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-session.v1.schema.json).

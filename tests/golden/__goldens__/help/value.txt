@@ -37,8 +37,9 @@ Options:
   --no-sync                      Use other machines' cached usage without refreshing it over ssh
   --markdown                     Render output as markdown table
   --plan <id>                    Plan to compare with, over the sources it covers (repeatable;
-                                 default claude-max-20x). Two plans that cover the same source each
-                                 count its full cost (choices: "claude-pro", "claude-max-5x",
+                                 default claude-max-20x, or chatgpt-pro-200 when the source filter
+                                 leaves out claude). Two plans that cover the same source each count
+                                 its full cost (choices: "claude-pro", "claude-max-5x",
                                  "claude-max-20x", "chatgpt-go", "chatgpt-plus", "chatgpt-pro-100",
                                  "chatgpt-pro-200", "chatgpt-pro-500")
   --plan-price <usd>             Monthly plan price in USD to use instead of the plan's list price

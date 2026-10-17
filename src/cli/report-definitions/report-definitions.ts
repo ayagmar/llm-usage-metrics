@@ -845,7 +845,7 @@ const valueReportDefinition: ReportRuntimeDefinition = {
       .addOption(
         new Option(
           '--plan <id>',
-          `Plan to compare with, over the sources it covers (repeatable; default ${DEFAULT_PLAN_ID}). Two plans that cover the same source each count its full cost`,
+          `Plan to compare with, over the sources it covers (repeatable; default ${DEFAULT_PLAN_ID}, or chatgpt-pro-200 when the source filter leaves out claude). Two plans that cover the same source each count its full cost`,
         )
           .choices(PLAN_IDS)
           // Must stay after .choices(), which installs a parser that keeps only the last value.

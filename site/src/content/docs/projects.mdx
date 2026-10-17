@@ -3,4 +3,143 @@ title: 'Projects'
 description: 'Cost, tokens, and activity per repository.'
 ---
 
-Stub created by the M11 orchestrator; the owning card replaces this page.
+`llm-usage projects` lists every project in your usage, costliest first, with its share of the cost, tokens, events, active days, and top models.
+
+```bash
+llm-usage projects
+```
+
+```text
+╭────────────────┬─────────────────────┬───────┬────────┬────────┬────────┬─────────────╮
+│ Project        │ Models              │  Cost │  Share │ Tokens │ Events │ Active Days │
+├────────────────┼─────────────────────┼───────┼────────┼────────┼────────┼─────────────┤
+│ a/api          │ • claude-sonnet-4-5 │ $0.05 │  46.5% │ 17,900 │      3 │           2 │
+├────────────────┼─────────────────────┼───────┼────────┼────────┼────────┼─────────────┤
+│ b/api          │ • gpt-5             │ $0.03 │  31.5% │ 11,700 │      3 │           1 │
+│                │ • claude-sonnet-4-5 │       │        │        │        │             │
+├────────────────┼─────────────────────┼───────┼────────┼────────┼────────┼─────────────┤
+│ web            │ • gpt-5             │ $0.01 │   8.9% │  3,350 │      2 │           2 │
+├────────────────┼─────────────────────┼───────┼────────┼────────┼────────┼─────────────┤
+│ (unattributed) │ • gpt-5             │ $0.01 │   6.1% │  1,750 │      2 │           1 │
+│                │ • claude-sonnet-4-5 │       │        │        │        │             │
+├────────────────┼─────────────────────┼───────┼────────┼────────┼────────┼─────────────┤
+│ src            │ • claude-sonnet-4-5 │ $0.01 │   5.3% │  1,000 │      1 │           1 │
+├────────────────┼─────────────────────┼───────┼────────┼────────┼────────┼─────────────┤
+│ tools          │ • gpt-5             │ $0.00 │   1.8% │    790 │      1 │           1 │
+├────────────────┼─────────────────────┼───────┼────────┼────────┼────────┼─────────────┤
+│ TOTAL          │                     │ $0.10 │ 100.0% │ 36,490 │     12 │           3 │
+╰────────────────┴─────────────────────┴───────┴────────┴────────┴────────┴─────────────╯
+```
+
+## Where a project comes from
+
+A project is the working directory that the coding tool recorded for the session. The CLI calls it the repository root (`repoRoot`) and does not look for a `.git` folder, so a session started in a subfolder counts as its own project. Claude Code, Codex, Droid, dsh, Gemini, OpenClaw, OpenCode, and pi record a working directory. Usage from the other sources, and sessions where the tool recorded none, is listed as `(unattributed)`.
+
+The label is the last folder name of the path. When two projects end in the same folder name, both labels gain parent folders until they differ: `/work/a/api` and `/work/b/api` become `a/api` and `b/api`. A label stays the same across every period of one report. `session`, `value`, `trends --by-repo`, `compare --by-repo`, the `--by-repo` splits of the usage reports, and the interactive report label projects the same way.
+
+## Set the window
+
+Without date flags, `projects` covers your full history. `--last N` covers the last N months, counting the current one; `--since` and `--until` take inclusive dates in the reporting timezone.
+
+```bash
+llm-usage projects --last 3 --top 10
+llm-usage projects --since 2026-06-01 --until 2026-06-30
+```
+
+`--top N` keeps the N costliest projects. The `TOTAL` row and the JSON `totals` still count every project in the window, and a note on `stderr` says how many were left out.
+
+## Projects per period
+
+```bash
+llm-usage projects --granularity monthly
+```
+
+`--granularity daily`, `weekly`, or `monthly` adds a second table with one row per period and project (cost, tokens, and models), for the projects the first table lists. Rows are ordered by period, then by label, with `(unattributed)` last.
+
+## Narrow the scope
+
+The shared filters apply: `--source`, `--provider`, `--model`, `--machine`, `--timezone`, pricing flags, and `--no-history`. `--repo` keeps some projects only:
+
+```bash
+llm-usage projects --repo api
+llm-usage projects --repo ~/work --granularity weekly
+```
+
+A path (absolute, or starting with `./`, `../`, or `~/`) matches that directory and every project under it. A name or path tail such as `api` or `work/api` matches projects whose path ends with it. `(unattributed)` matches usage without a project. The same flag works on most reports; see each command's `--help`.
+
+## Output
+
+`projects` supports terminal, `--json`, and `--markdown` output, but not `--share`; the [interactive report](/llm-usage-metrics/share/) of any usage command has its own projects table with a drill-down into sessions. `--compact` abbreviates token counts and drops the Events and Active Days columns; `--no-cost` drops Cost and Share. Neither works with `--json`.
+
+```bash
+llm-usage projects --granularity monthly --json
+```
+
+```json
+{
+  "schemaVersion": 1,
+  "report": "projects",
+  "data": {
+    "totals": {
+      "inputTokens": 20000,
+      "outputTokens": 4490,
+      "reasoningTokens": 0,
+      "cacheReadTokens": 12000,
+      "cacheWriteTokens": 0,
+      "totalTokens": 36490,
+      "costUsd": 0.101325,
+      "projects": 6,
+      "events": 12,
+      "activeDays": 3
+    },
+    "projects": [
+      {
+        "repoRoot": "/work/a/api",
+        "project": "a/api",
+        "inputTokens": 6200,
+        "outputTokens": 1700,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 10000,
+        "cacheWriteTokens": 0,
+        "totalTokens": 17900,
+        "costUsd": 0.0471,
+        "costShare": 0.464841,
+        "events": 3,
+        "activeDays": 2,
+        "topModels": ["claude-sonnet-4-5"]
+      }
+    ],
+    "granularity": "monthly",
+    "periods": [
+      {
+        "rowType": "period_project",
+        "periodKey": "2026-05",
+        "repoRoot": "/work/a/api",
+        "project": "a/api",
+        "models": ["claude-sonnet-4-5"],
+        "modelBreakdown": [
+          {
+            "model": "claude-sonnet-4-5",
+            "inputTokens": 1200,
+            "outputTokens": 300,
+            "reasoningTokens": 0,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "totalTokens": 1500,
+            "costUsd": 0.0081
+          }
+        ],
+        "inputTokens": 1200,
+        "outputTokens": 300,
+        "reasoningTokens": 0,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 1500,
+        "costUsd": 0.0081
+      }
+    ]
+  }
+}
+```
+
+`repoRoot` is the full path without trailing separators, or `null` for `(unattributed)`. `costShare` runs from 0 to 1 and is `null` when the window has no cost or the project has no resolved cost. `topModels` holds at most three models, most tokens first. `granularity` and `periods` appear only with `--granularity`; each period row's `modelBreakdown` lists its models with their own totals. The full contract is [report-projects.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-projects.v1.schema.json).
