@@ -52,7 +52,7 @@ bunx --bun llm-usage-metrics@latest
 echo 'source <(llm-usage completion bash)' >> ~/.bashrc
 ```
 
-With no command, `llm-usage` prints cost and tokens for today, the last 7 days, and month to date, a month-end projection (checked against `monthlyBudgetUsd` when you set one), what prompt caching saved you this month, then your current and longest streak, best day, and a year-long activity heatmap. `llm-usage daily` breaks the last 7 days down by day and source, and `llm-usage weekly` covers the last 8 weeks; add `--since YYYY-MM-DD` or `--all` for older usage.
+With no command, `llm-usage` prints cost and tokens for today, the last 7 days, and month to date, a month-end projection (checked against `monthlyBudgetUsd` when you set one), what prompt caching saved you this month, a note when a day of the last 7 cost at least 3 times your median active day, then your current and longest streak, best day, and a year-long activity heatmap. `llm-usage daily` breaks the last 7 days down by day and source, and `llm-usage weekly` covers the last 8 weeks; add `--since YYYY-MM-DD` or `--all` for older usage.
 
 If the report is empty, check source discovery. `doctor` lists the paths each source searched and marks it found, not installed, or unparseable:
 
@@ -70,7 +70,9 @@ llm-usage doctor
 | How did one period change from another?                   | `llm-usage compare`                                    |
 | Which conversations or repositories used the most?        | `llm-usage session`                                    |
 | What did each project cost?                               | `llm-usage projects`                                   |
+| Why did one session cost what it did?                     | `llm-usage session --id <id> --timeline`               |
 | Which sessions send the largest prompts?                  | `llm-usage context --by-session`                       |
+| Which tools do my agents call, and which fail?            | `llm-usage tools`                                      |
 | Which estimated 5-hour plan windows did I use?            | `llm-usage blocks`                                     |
 | How does API-priced usage compare with my plan price?     | `llm-usage value`                                      |
 | Which price does a model name get, and why?               | `llm-usage pricing <model>`                            |
@@ -83,7 +85,7 @@ llm-usage doctor
 | How do I get the raw normalized events out?               | `llm-usage events`                                     |
 | Which sources and local stores are healthy?               | `llm-usage doctor`                                     |
 | Which departed files can leave the event ledger?          | `llm-usage prune --suppressed`                         |
-| What configuration is active, and which file is it from?  | `llm-usage config show`, `config path`                 |
+| Which settings apply, and where does each come from?      | `llm-usage config show`, `config path`                 |
 | Which JSON Schema does my installed version emit?         | `llm-usage schema usage`, `schema --list`              |
 
 Common examples:
@@ -100,6 +102,12 @@ llm-usage session --top 10
 
 # Usage grouped by project
 llm-usage session --by-repo
+
+# One session request by request, with its tool calls and running cost
+llm-usage session --id 486c3261 --timeline
+
+# Tool calls of the last 7 days, split by source
+llm-usage tools --by-source
 
 # Cost per project, and daily rows split by project
 llm-usage projects --top 10

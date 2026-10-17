@@ -168,17 +168,17 @@ LLM_USAGE_CONFIG_PATH=/nonexistent llm-usage monthly
 
 Environment variables override the config file. Reports count them in the `stderr` summary line, and `--verbose` lists them in an `Active environment overrides:` block.
 
-| Variable                             | Config key            | Default                    | Notes                                            |
-| ------------------------------------ | --------------------- | -------------------------- | ------------------------------------------------ |
-| `LLM_USAGE_CONFIG_PATH`              | n/a                   | platform config path       | Points at a config TOML file                     |
-| `LLM_USAGE_SKIP_UPDATE_CHECK`        | `update.skipCheck`    | unset (`false`)            | Truthy values: `1`, `true`, `yes`, `on`          |
-| `LLM_USAGE_UPDATE_CACHE_SCOPE`       | n/a                   | `global`                   | `session` isolates update-check cache by session |
-| `LLM_USAGE_UPDATE_CACHE_SESSION_KEY` | n/a                   | unset                      | Stable key for session-scoped update cache       |
-| `LLM_USAGE_PARSE_WORKERS`            | `parseWorkers`        | `auto`                     | `auto` or integer `0..64`; `0` disables workers  |
-| `LLM_USAGE_PARSE_WORKER_MIN_BYTES`   | `parseWorkerMinBytes` | `268435456`                | Clamps to `0..9007199254740991`                  |
-| `LLM_USAGE_EVENT_STORE`              | `eventStore.enabled`  | `1` (`true`)               | Set `0` to disable the store                     |
-| `LLM_USAGE_EVENT_STORE_PATH`         | `eventStore.path`     | platform data `events.db`  | Use an isolated store for experiments or CI      |
-| `LLM_USAGE_PROFILE_RUNTIME`          | n/a                   | unset (`false`)            | Emits runtime profiling diagnostics              |
+| Variable                             | Config key            | Default                   | Notes                                                                         |
+| ------------------------------------ | --------------------- | ------------------------- | ----------------------------------------------------------------------------- |
+| `LLM_USAGE_CONFIG_PATH`              | n/a                   | platform config path      | Points at a config TOML file                                                  |
+| `LLM_USAGE_SKIP_UPDATE_CHECK`        | `update.skipCheck`    | unset (`false`)           | Truthy values: `1`, `true`, `yes`, `on`                                       |
+| `LLM_USAGE_UPDATE_CACHE_SCOPE`       | n/a                   | `global`                  | `session` isolates update-check cache by session                              |
+| `LLM_USAGE_UPDATE_CACHE_SESSION_KEY` | n/a                   | unset                     | Stable key for session-scoped update cache                                    |
+| `LLM_USAGE_PARSE_WORKERS`            | `parseWorkers`        | `auto`                    | `auto` (up to 8; 2 for `statusline`) or integer `0..64`; `0` disables workers |
+| `LLM_USAGE_PARSE_WORKER_MIN_BYTES`   | `parseWorkerMinBytes` | `268435456`               | Clamps to `0..9007199254740991`                                               |
+| `LLM_USAGE_EVENT_STORE`              | `eventStore.enabled`  | `1` (`true`)              | Set `0` to disable the store                                                  |
+| `LLM_USAGE_EVENT_STORE_PATH`         | `eventStore.path`     | platform data `events.db` | Use an isolated store for experiments or CI                                   |
+| `LLM_USAGE_PROFILE_RUNTIME`          | n/a                   | unset (`false`)           | Emits runtime profiling diagnostics                                           |
 
 Retained history (on by default) needs the event store; with the store disabled, reports run without it and an explicit `--history` fails. Deleting `events.db` also deletes retained departed-file history.
 
