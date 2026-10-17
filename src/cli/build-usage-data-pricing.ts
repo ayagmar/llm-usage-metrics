@@ -143,14 +143,19 @@ export function shouldLoadPricingSource(
  * - `cache-savings`: as `auto`, and under `--cost-mode explicit` still when `both` would
  *   load, for the cache-savings estimate.
  * - `force`: whenever an event is priceable, for prices beyond event costs (optimize).
+ * - `none`: never, for a report that shows no cost (`--no-cost`).
  */
-export type PricingLoadMode = 'auto' | 'cache-savings' | 'force';
+export type PricingLoadMode = 'auto' | 'cache-savings' | 'force' | 'none';
 
 function shouldLoadPricingSourceForMode(
   events: UsageEvent[],
   pricingLoadMode: PricingLoadMode,
   costMode: PricingCostMode,
 ): boolean {
+  if (pricingLoadMode === 'none') {
+    return false;
+  }
+
   if (pricingLoadMode === 'force') {
     return events.some((event) => isPriceableEvent(event));
   }

@@ -232,7 +232,12 @@ export async function buildUsageData(
   const dataset = await measureRuntimeProfileStage(deps.runtimeProfile, 'usage.dataset.total', () =>
     buildUsageEventDataset(options, deps),
   );
-  const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'auto');
+  // --no-cost shows no cost, so prices are neither loaded nor fetched.
+  const pricingResult = await applyPricingToUsageEventDataset(
+    dataset,
+    deps,
+    options.cost === false ? 'none' : 'auto',
+  );
   const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
 
   const byRepo = options.byRepo === true;
