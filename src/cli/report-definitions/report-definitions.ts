@@ -519,6 +519,10 @@ const sessionReportDefinition: ReportRuntimeDefinition = {
         includeInCliReference: true,
       },
       {
+        command: 'llm-usage session --id 486c --timeline',
+        includeInCliReference: true,
+      },
+      {
         command: 'llm-usage session --by-repo --top 5',
         includeInCliReference: true,
       },
@@ -536,7 +540,11 @@ const sessionReportDefinition: ReportRuntimeDefinition = {
         'Show only sessions whose id contains the value (case-insensitive; repeatable or comma-separated)',
         collectRepeatedOption,
       )
-      .option('--by-repo', `Group usage by ${PROJECT_DESCRIPTION} instead of by session`);
+      .option('--by-repo', `Group usage by ${PROJECT_DESCRIPTION} instead of by session`)
+      .option(
+        '--timeline',
+        'With --id naming one session: list its requests in time order with a running cost, between its tool calls and turns',
+      );
     addRepoFilterOption(command).action((options: SessionCommandOptions) =>
       runSessionReport(options),
     );

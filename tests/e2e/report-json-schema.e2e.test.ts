@@ -275,6 +275,16 @@ describe('report json schema e2e', () => {
     expect(compactJson(output)).toContain('"rowType":"repo"');
   });
 
+  it('validates one session timeline', async () => {
+    const output = await buildSessionReport({
+      ...fixtureOptions,
+      id: ['codex-e2e-session'],
+      timeline: true,
+    });
+    validateReport('session', output);
+    expect(compactJson(output)).toContain('"kind":"usage"');
+  });
+
   it('validates efficiency output by source', async () => {
     const output = await buildEfficiencyReport('monthly', {
       ...fixtureOptions,

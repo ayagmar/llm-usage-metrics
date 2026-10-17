@@ -6,7 +6,6 @@ import {
   UNATTRIBUTED_PROJECT_LABEL,
 } from '../aggregate/project-key.js';
 import { LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
-import { pluralize } from '../render/format-number.js';
 import {
   aggregateTools,
   countToolCallsOnce,
@@ -20,7 +19,11 @@ import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import { buildUsageEventDataset } from './build-usage-event-dataset.js';
 import { limitRows, parseTopRowsOption } from './build-session-data.js';
-import { readLiveSessionEvents } from './read-live-session-events.js';
+import {
+  formatFailedLiveReads,
+  formatLiveEventsNote,
+  readLiveSessionEvents,
+} from './read-live-session-events.js';
 import { measureRuntimeProfileStage } from './runtime-profile.js';
 import type {
   BuildUsageDataDeps,
@@ -32,8 +35,7 @@ import type {
 export const TOOLS_DEFAULT_LAST_DAYS = 7;
 const DEFAULT_TOOLS_TOP = 20;
 
-export const LIVE_TOOL_CALLS_NOTE =
-  'Tool calls are read from session files on disk (claude, codex, pi): files that no longer exist and other machines are not counted.';
+export const LIVE_TOOL_CALLS_NOTE = formatLiveEventsNote('Tool calls');
 
 /** A tool row with its projects labelled as `projects` labels them. */
 export type ToolsReportRow = ToolRow & {
@@ -131,12 +133,7 @@ export async function buildToolsData(
   const projectLabels = buildEventProjectLabels(dataset.filteredEvents);
   const toProjectLabel = (repoRoot: string | null) =>
     projectLabels.get(repoRoot ?? undefined) ?? UNATTRIBUTED_PROJECT_LABEL;
-  const failedReads =
-    live.failedFilePaths.length === 0
-      ? []
-      : [
-          `Tool calls left out of ${pluralize(live.failedFilePaths.length, 'file')} that could not be read`,
-        ];
+  const failedReads = formatFailedLiveReads('Tool calls', live.failedFilePaths);
 
   return {
     data: {

@@ -403,3 +403,99 @@ describe('buildSessionData', () => {
     expect(result.diagnostics.pricingWarning).toContain('pricing unavailable');
   });
 });
+
+describe('buildSessionData --timeline', () => {
+  it('lists up to 10 matching ids with source and date when --id names several sessions', async () => {
+    const events = Array.from({ length: 12 }, (_, index) =>
+      createBaseEvent({
+        sessionId: `shared-${String(index).padStart(2, '0')}`,
+        timestamp: `2026-03-${String(index + 1).padStart(2, '0')}T10:00:00.000Z`,
+      }),
+    );
+
+    const error = await buildSessionData(
+      { id: ['shared'], timeline: true, timezone: 'UTC' },
+      runtimeDeps({ adapters: [createAdapter('pi', { '/tmp/pi.jsonl': events })] }),
+    ).then(
+      () => undefined,
+      (rejection: unknown) => rejection,
+    );
+    const lines = error instanceof Error ? error.message.split('\n') : [];
+
+    expect(lines[0]).toBe('--timeline needs exactly one session, but --id shared matches 12:');
+    // Equal cost, so the newest session comes first.
+    expect(lines.slice(1, 3)).toEqual([
+      '  pi  shared-11  2026-03-12',
+      '  pi  shared-10  2026-03-11',
+    ]);
+    expect(lines.filter((line) => line.includes('shared-'))).toHaveLength(10);
+    expect(lines.slice(-2)).toEqual(['  and 2 more', 'Pass more of the session id to --id.']);
+  });
+
+  it('names a way forward when --id matches no session', async () => {
+    await expect(
+      buildSessionData(
+        { id: ['missing'], timeline: true, timezone: 'UTC' },
+        runtimeDeps({
+          adapters: [createAdapter('pi', { '/tmp/pi.jsonl': [createBaseEvent()] })],
+        }),
+      ),
+    ).rejects.toThrow(
+      '--timeline found no session matching --id missing. Run `llm-usage session` to list session ids, or widen --since/--until.',
+    );
+  });
+
+  it.each([
+    [{}, '--timeline needs --id <session-id> naming one session'],
+    [
+      { id: ['session-1'], top: '5' },
+      '--timeline shows every request; it cannot be combined with --top',
+    ],
+  ])('rejects %o before parsing sources', async (options, message) => {
+    const discoverFiles = vi.fn(async () => ['/tmp/pi.jsonl']);
+
+    await expect(
+      buildSessionData(
+        { ...options, timeline: true, timezone: 'UTC' },
+        runtimeDeps({ adapters: [{ id: 'pi', discoverFiles, read: readFrom(async () => []) }] }),
+      ),
+    ).rejects.toThrow(message);
+    expect(discoverFiles).not.toHaveBeenCalled();
+  });
+
+  it("returns only the matched session's priced requests, in time order", async () => {
+    const result = await buildSessionData(
+      { id: ['session-1'], timeline: true, timezone: 'UTC' },
+      runtimeDeps({
+        adapters: [
+          createAdapter('pi', {
+            '/tmp/pi.jsonl': [
+              createBaseEvent({ timestamp: '2026-03-05T10:05:00.000Z' }),
+              createBaseEvent({ sessionId: 'other', timestamp: '2026-03-05T10:02:00.000Z' }),
+              createBaseEvent({ timestamp: '2026-03-05T10:00:00.000Z' }),
+            ],
+          }),
+        ],
+      }),
+    );
+
+    if (result.grouping !== 'timeline') {
+      throw new Error(`expected timeline grouping, got ${result.grouping}`);
+    }
+
+    expect(result.session.sessionId).toBe('session-1');
+    expect(result.diagnostics.notes).toContain(
+      'Tool calls and turns are read from session files on disk (claude, codex, pi): files that no longer exist and other machines are not counted.',
+    );
+    expect(result.rows.map((row) => row.timestamp)).toEqual([
+      '2026-03-05T10:00:00.000Z',
+      '2026-03-05T10:05:00.000Z',
+    ]);
+    const [first, second] = result.rows;
+    expect(first.kind === 'usage' && second.kind === 'usage').toBe(true);
+    if (first.kind === 'usage' && second.kind === 'usage') {
+      expect(first.costUsd).toBeGreaterThan(0);
+      expect(second.runningCostUsd).toBeCloseTo((first.costUsd ?? 0) + (second.costUsd ?? 0), 10);
+    }
+  });
+});
