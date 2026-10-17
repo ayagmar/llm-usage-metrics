@@ -1,0 +1,55 @@
+┌──────────────────┐
+│ Session Timeline │
+└──────────────────┘
+
+claude · evt-session · demo
+2026-07-01 10:00-10:00 (<1m) · 4 requests · $0.00
+
+10:00:00
+  Event        1 user turn · 1 assistant turn
+
+10:00:04
+  Event        claude-sonnet-4-5
+  Input           10
+  Cache Read       3
+  Cache Write      2
+  Output          40
+  Cost         $0.00
+  Running      $0.00
+
+10:00:04
+  Event        1 tool call: Bash ×1
+
+10:00:10
+  Event        claude-sonnet-4-5
+  Input           10
+  Cache Read       3
+  Cache Write      2
+  Output           4
+  Cost         $0.00
+  Running      $0.00
+
+10:00:10
+  Event        1 tool call: Read ×1, 1 error
+
+10:00:14
+  Event        claude-sonnet-4-5
+  Input           10
+  Cache Read       3
+  Cache Write      2
+  Output           4
+  Cost         $0.00
+  Running      $0.00
+
+10:00:14
+  Event        1 user turn · 1 tool call: Grep
+               ×1
+
+10:00:21
+  Event        claude-sonnet-4-5
+  Input           10
+  Cache Read       3
+  Cache Write      2
+  Output           4
+  Cost         $0.00
+  Running      $0.00
