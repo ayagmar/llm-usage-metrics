@@ -310,8 +310,8 @@ export async function buildSummaryData(
       ? estimateCacheSavingsUsd(monthToDateEvents, pricingSource, pricingResult.pricingPolicy)
       : undefined;
 
-  // The `~` marks only appear on the windows, their previous windows, and the best and spike
-  // days' costs.
+  // The `~` marks only appear on the windows (the spike day's among them), their previous
+  // windows and the best day's cost.
   // Every window ends today, so together they span one range from the earliest window start;
   // the month's previous window lies apart from it.
   const bestDay = activity.bestDay?.costUsd === undefined ? undefined : activity.bestDay.date;
@@ -327,11 +327,11 @@ export async function buildSummaryData(
   ].map((window) => createWindowEventFilter(window, timezone));
   const isInSomeWindow = (event: UsageEvent) =>
     shownWindowFilters.some((isInWindow) => isInWindow(event));
-  const shownDayFilters = [bestDay, spike?.date].flatMap((day) =>
-    day === undefined ? [] : [createWindowEventFilter({ since: day, until: day }, timezone)],
-  );
+  const isOnBestDay = bestDay
+    ? createWindowEventFilter({ since: bestDay, until: bestDay }, timezone)
+    : () => false;
   const shownCostEvents = pricedEvents.filter(
-    (event) => isInSomeWindow(event) || shownDayFilters.some((isOnDay) => isOnDay(event)),
+    (event) => isInSomeWindow(event) || isOnBestDay(event),
   );
 
   return {
