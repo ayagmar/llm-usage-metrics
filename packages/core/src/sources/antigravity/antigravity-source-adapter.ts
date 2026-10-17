@@ -14,7 +14,12 @@ import type {
 import { createSourceContext } from '../source-context.js';
 import { iterateRows } from '../sqlite/iterate-rows.js';
 import { loadNodeSqliteModule, type SqliteModule } from '../sqlite/node-sqlite-loader.js';
-import { runWithBusyRetries, toSqliteDbReadError, type SleepFn } from '../sqlite/retry-policy.js';
+import {
+  resolveMaxBusyRetries,
+  runWithBusyRetries,
+  toSqliteDbReadError,
+  type SleepFn,
+} from '../sqlite/retry-policy.js';
 import { getDefaultAntigravityConversationsDir } from './antigravity-path-resolver.js';
 import {
   parseAntigravityMetadataBlob,
@@ -122,7 +127,11 @@ export class AntigravitySourceAdapter implements SourceAdapter {
     this.pathIsDirectory = options.pathIsDirectory ?? pathIsDirectory;
     this.pathIsFile = options.pathIsFile ?? pathIsFile;
     this.loadSqliteModule = options.loadSqliteModule ?? loadNodeSqliteModule;
-    this.maxBusyRetries = Math.max(0, options.maxBusyRetries ?? DEFAULT_BUSY_RETRY_COUNT);
+    this.maxBusyRetries = resolveMaxBusyRetries(
+      'Antigravity',
+      options.maxBusyRetries,
+      DEFAULT_BUSY_RETRY_COUNT,
+    );
     this.busyRetryDelayMs = Math.max(1, options.busyRetryDelayMs ?? DEFAULT_BUSY_RETRY_DELAY_MS);
     this.sleep = options.sleep ?? sleep;
   }

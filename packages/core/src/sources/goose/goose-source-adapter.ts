@@ -10,7 +10,12 @@ import { createSourceContext, type SourceContext } from '../source-context.js';
 import { getDefaultGooseDbPathCandidates } from './goose-db-path-resolver.js';
 import { iterateRows } from '../sqlite/iterate-rows.js';
 import { loadNodeSqliteModule, type SqliteModule } from '../sqlite/node-sqlite-loader.js';
-import { runWithBusyRetries, toSqliteDbReadError, type SleepFn } from '../sqlite/retry-policy.js';
+import {
+  resolveMaxBusyRetries,
+  runWithBusyRetries,
+  toSqliteDbReadError,
+  type SleepFn,
+} from '../sqlite/retry-policy.js';
 
 const DEFAULT_BUSY_RETRY_COUNT = 2;
 const DEFAULT_BUSY_RETRY_DELAY_MS = 50;
@@ -208,7 +213,11 @@ export class GooseSourceAdapter implements SourceAdapter {
     this.pathReadable = options.pathReadable ?? pathReadable;
     this.pathIsFile = options.pathIsFile ?? pathIsFile;
     this.loadSqliteModule = options.loadSqliteModule ?? loadNodeSqliteModule;
-    this.maxBusyRetries = Math.max(0, options.maxBusyRetries ?? DEFAULT_BUSY_RETRY_COUNT);
+    this.maxBusyRetries = resolveMaxBusyRetries(
+      'Goose',
+      options.maxBusyRetries,
+      DEFAULT_BUSY_RETRY_COUNT,
+    );
     this.busyRetryDelayMs = Math.max(1, options.busyRetryDelayMs ?? DEFAULT_BUSY_RETRY_DELAY_MS);
     this.sleep = options.sleep ?? sleep;
   }
