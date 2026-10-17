@@ -69,6 +69,11 @@ export type ParsedSourceFile = DiscoveredSourceFile & {
    * `recordFileSessionIds`, since keeping them keeps the text they were read from.
    */
   sessionIds?: readonly string[];
+  /**
+   * Last modified before the `--since` window, so it holds no events in it: parsed only
+   * because the event store lacked it.
+   */
+  beforeWindow?: true;
 };
 
 type AdapterParseResultWithFiles = AdapterParseResult & {
@@ -233,6 +238,7 @@ export async function parseAdapterEvents(
   const parsedByFile: UsageEvent[][] = Array.from({ length: files.length }, () => []);
   const skippedRowsByFile: number[] = Array.from({ length: files.length }, () => 0);
   const parsedFileIndexes = new Set<number>();
+  const beforeWindowFileIndexes = new Set<number>();
   const failedFileIndexes = new Set<number>();
   const skippedRowReasons = new Map<string, number>();
   let pendingStoreWrites: ParsedFileStoreWrite[] = [];
@@ -267,6 +273,9 @@ export async function parseAdapterEvents(
 
     parsedByFile[params.fileIndex] = params.diagnostics.events;
     parsedFileIndexes.add(params.fileIndex);
+    if (params.fileFingerprint && isBeforeWindow(params.fileFingerprint)) {
+      beforeWindowFileIndexes.add(params.fileIndex);
+    }
     skippedRowsByFile[params.fileIndex] = skippedRows;
 
     for (const reasonStat of normalizedSkippedRowReasons) {
@@ -321,20 +330,23 @@ export async function parseAdapterEvents(
     await Promise.all(workers);
   }
 
+  /** A file last modified before the `--since` window holds no events in it. */
+  function isBeforeWindow(fileFingerprint: EventStoreFileFingerprint): boolean {
+    return (
+      skipCutoffMs !== undefined && getNewestFingerprintMtimeMs(fileFingerprint) < skipCutoffMs
+    );
+  }
+
   /**
-   * A file last modified before the `--since` window holds no events in it, so it is
-   * skipped. With the event store on, only a file the store already holds is skipped:
-   * a narrow run must still ingest older files, or the ledger would never retain them.
+   * A file before the window is skipped. With the event store on, only a file the store
+   * already holds is skipped: a narrow run must still ingest older files, or the ledger
+   * would never retain them.
    */
   function canSkipOutsideWindow(
     filePath: string,
     fileFingerprint: EventStoreFileFingerprint | undefined,
   ): boolean {
-    if (
-      skipCutoffMs === undefined ||
-      !fileFingerprint ||
-      getNewestFingerprintMtimeMs(fileFingerprint) >= skipCutoffMs
-    ) {
+    if (!fileFingerprint || !isBeforeWindow(fileFingerprint)) {
       return false;
     }
 
@@ -565,9 +577,11 @@ export async function parseAdapterEvents(
     parsedFiles: files.flatMap((filePath, fileIndex) =>
       parsedFileIndexes.has(fileIndex)
         ? [
-            recordFileSessionIds
-              ? { filePath, sessionIds: listSessionIds(parsedByFile[fileIndex]) }
-              : { filePath },
+            {
+              filePath,
+              ...(recordFileSessionIds && { sessionIds: listSessionIds(parsedByFile[fileIndex]) }),
+              ...(beforeWindowFileIndexes.has(fileIndex) && { beforeWindow: true as const }),
+            },
           ]
         : [],
     ),

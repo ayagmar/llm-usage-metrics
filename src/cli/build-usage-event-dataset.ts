@@ -167,7 +167,8 @@ export type UsageEventDataset = {
   filteredEvents: UsageEvent[];
   /**
    * The local files whose events this run counts: discovered, parsed or served from the
-   * store, and not skipped as last modified before the window.
+   * store, and not skipped as last modified before the window (those the store lacked are
+   * parsed and marked `beforeWindow`).
    */
   parsedFiles: ParsedSourceFile[];
   /**

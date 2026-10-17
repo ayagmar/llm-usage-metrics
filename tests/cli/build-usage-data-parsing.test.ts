@@ -1283,10 +1283,13 @@ describe('build-usage-data-parsing', () => {
       const parseCalls = { count: 0 };
       const adapter = createCountingJsonlAdapter('pi', [files.old], parseCalls);
 
-      await parseSelectedAdapters([withMtimeSkip(adapter)], 1, {});
-      await parseSelectedAdapters([adapter], 1, { since });
+      const withoutSince = await parseSelectedAdapters([withMtimeSkip(adapter)], 1, {});
+      const withoutCapability = await parseSelectedAdapters([adapter], 1, { since });
 
       expect(parseCalls.count).toBe(2);
+      for (const result of [withoutSince, withoutCapability]) {
+        expect(result.parsedFiles).toEqual([{ source: 'pi', filePath: files.old }]);
+      }
     });
 
     it('parses an old file whose parse dependency changed inside the window', async () => {
@@ -1314,8 +1317,12 @@ describe('build-usage-data-parsing', () => {
       const eventStorePath = path.join(tempDir, 'events.db');
       const options = { since, eventStore: { enabled: true as const, path: eventStorePath } };
 
-      await parseSelectedAdapters([adapter], 1, options);
+      const ingestRun = await parseSelectedAdapters([adapter], 1, options);
       expect(parseCalls.count).toBe(1);
+      // Counted for the ledger, but marked so live reads leave it out.
+      expect(ingestRun.parsedFiles).toEqual([
+        { source: 'pi', filePath: files.old, beforeWindow: true },
+      ]);
 
       const readFileEvents = vi.fn();
       const skippedRun = await parseSelectedAdapters([adapter], 1, {
