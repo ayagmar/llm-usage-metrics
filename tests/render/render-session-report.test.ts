@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import type { SessionDataResult } from '../../src/cli/usage-data-contracts.js';
 import { visibleWidth } from '../../src/render/table-text-layout.js';
 import { renderSessionReport } from '../../src/render/render-session-report.js';
+import type { SessionTimelineRow } from '../../src/session/session-timeline.js';
+import { overrideStdoutTty } from '../helpers/stdout.js';
 
 function createDiagnostics(timezone: string): SessionDataResult['diagnostics'] {
   return {
@@ -338,5 +340,101 @@ describe('renderSessionReport', () => {
     // Without filters, the message must not blame filters the user never passed.
     expect(output).toContain('No usage data found.');
     expect(filteredOutput).toContain('No usage data found for the selected filters.');
+  });
+});
+
+function createTimelineData(rows: SessionTimelineRow[]): SessionDataResult {
+  const sessionData = createSessionData();
+
+  if (sessionData.grouping !== 'session') {
+    throw new Error('expected session grouping');
+  }
+
+  return {
+    grouping: 'timeline',
+    session: sessionData.rows[0],
+    rows,
+    projectLabels: sessionData.projectLabels,
+    diagnostics: sessionData.diagnostics,
+  };
+}
+
+function usageRow(timestamp: string, costUsd: number, runningCostUsd: number): SessionTimelineRow {
+  return {
+    kind: 'usage',
+    timestamp,
+    model: 'gpt-5-codex',
+    inputTokens: 1_000,
+    outputTokens: 200,
+    reasoningTokens: 0,
+    cacheReadTokens: 3_000,
+    cacheWriteTokens: 0,
+    totalTokens: 4_200,
+    costUsd,
+    runningCostUsd,
+  };
+}
+
+function toolCallRow(name: string, status: 'ok' | 'error' = 'ok'): SessionTimelineRow {
+  return { kind: 'tool_call', timestamp: '2026-01-02T01:01:00.000Z', name, status };
+}
+
+describe('renderSessionReport --timeline', () => {
+  const rows: SessionTimelineRow[] = [
+    { kind: 'message', timestamp: '2026-01-02T00:59:00.000Z', role: 'user' },
+    usageRow('2026-01-02T01:00:00.000Z', 0.5, 0.5),
+    ...['Read', 'Bash', 'Bash', 'Read', 'Bash'].map((name) => toolCallRow(name)),
+    toolCallRow('Bash', 'error'),
+    { kind: 'message', timestamp: '2026-01-02T01:01:00.000Z', role: 'system' },
+    usageRow('2026-01-02T02:00:00.000Z', 0.25, 0.75),
+  ];
+
+  it('folds the tool calls between two requests into one line, most-called tool first', () => {
+    const output = renderSessionReport(createTimelineData(rows), 'markdown', { timezone: 'UTC' });
+    // Markdown pads cells; one space apart is enough to read the cells.
+    const lines = output
+      .split('\n')
+      .slice(2)
+      .map((line) => line.replaceAll(/ +/gu, ' '));
+
+    expect(lines).toHaveLength(4);
+    expect(lines[0]).toContain('| 2026-01-02 00:59 | 1 user turn |');
+    expect(lines[1]).toContain('| gpt-5-codex | 1,000 | 3,000 | 0 | 200 | $0.50 | $0.50 |');
+    expect(lines[2]).toContain('6 tool calls: Bash ×4, Read ×2, 1 error');
+    expect(lines[3]).toContain('$0.25 | $0.75 |');
+  });
+
+  it('heads the terminal table with the session, its span, requests and cost', () => {
+    const output = renderSessionReport(createTimelineData(rows), 'terminal', {
+      timezone: 'UTC',
+      useColor: false,
+    });
+
+    expect(output).toContain('Session Timeline');
+    expect(output).toContain('codex · session-abcdef123456 · project-alpha');
+    expect(output).toContain('2026-01-02 01:00-02:00 (1h 0m) · 2 requests · ~$1.23');
+  });
+
+  it('lists each row as label and value lines on a narrow terminal', () => {
+    const restoreStdout = overrideStdoutTty(60);
+
+    try {
+      const output = renderSessionReport(createTimelineData(rows), 'terminal', {
+        timezone: 'UTC',
+        useColor: false,
+      });
+
+      expect(output.split('\n').every((line) => visibleWidth(line) <= 60)).toBe(true);
+      expect(output).toContain('2026-01-02 01:01 · 6 tool calls: Bash ×4, Read ×2, 1 error');
+    } finally {
+      restoreStdout();
+    }
+  });
+
+  it('renders JSON with every row and its kind, unfolded', () => {
+    const output = renderSessionReport(createTimelineData(rows), 'json', { timezone: 'UTC' });
+    const data = (JSON.parse(output) as { data: { rows: { kind: string }[] } }).data;
+
+    expect(data.rows.map((row) => row.kind)).toEqual(rows.map((row) => row.kind));
   });
 });

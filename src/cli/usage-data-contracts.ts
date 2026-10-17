@@ -20,6 +20,7 @@ import type {
 } from '../persistence/event-store-history.js';
 import type { EventStore } from '../persistence/event-store.js';
 import type { SessionRepoRow, SessionRow } from '../session/session-row.js';
+import type { SessionTimelineRow } from '../session/session-timeline.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import type { TrendSeries, TrendsMetric } from '../trends/trends-series.js';
 import type { ReportGranularity } from '../utils/time-buckets.js';
@@ -244,6 +245,7 @@ export type SessionCommandOptions = SharedOptionsForProfile<'session'> &
     top?: string;
     id?: string[];
     byRepo?: boolean;
+    timeline?: boolean;
   };
 
 export type CompareCommandOptions = SharedOptionsForProfile<'compare'> &
@@ -374,6 +376,15 @@ export type SessionDataResult =
       rows: SessionRepoRow[];
       projectLabels: ReadonlyMap<string | undefined, string>;
       limitNote?: string;
+      diagnostics: UsageDiagnostics;
+    }
+  | {
+      /** `--timeline`: the one session `--id` matched, request by request. */
+      grouping: 'timeline';
+      session: SessionRow;
+      rows: SessionTimelineRow[];
+      projectLabels: ReadonlyMap<string | undefined, string>;
+      limitNote?: undefined;
       diagnostics: UsageDiagnostics;
     };
 

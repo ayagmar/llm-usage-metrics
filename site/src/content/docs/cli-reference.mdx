@@ -1171,6 +1171,9 @@ Options:
                                  comma-separated)
   --by-repo                      Group usage by repository root instead of by
                                  session
+  --timeline                     With --id naming one session: list its requests
+                                 in time order with a running cost, between its
+                                 tool calls and turns
   --repo <project>               Count only these projects (repeatable or
                                  comma-separated, so a value cannot contain a
                                  comma). A path (absolute, or ./, ../, ~/ on
@@ -2019,6 +2022,7 @@ Search across root and command help. See Command help above to check which flags
 | `--source` | - | `<name>` | Filter by source id \(repeatable or comma-separated, supported sources \(17\): pi, codex, gemini, droid, opencode, openclaw, claude, copilot, goose, amp, qwen, kimi, cline, roocode, kilocode, antigravity, dsh\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline, doctor, prune only\) |
 | `--source-dir` | - | `<source-id=path>` | Override source directory for directory-backed sources \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline, doctor, prune only\) |
 | `--suppressed` | - | - | Select departed files that --history already suppresses \(prune only\) |
+| `--timeline` | - | - | With --id naming one session: list its requests in time order with a running cost, between its tool calls and turns \(session only\) |
 | `--timezone` | - | `<iana>` | Timezone for bucketing \(default: system timezone\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline only\) |
 | `--top` | - | `<n>` | projects: Show only the top N projects by cost \(positive integer\); optimize: Show only the top N cheapest candidates \(positive integer\); session: Show only the top N rows by cost \(default 20; 0 shows all\); blocks: Show only the top N blocks across sources by cost, or by tokens when a cost is incomplete or with --no-cost \(positive integer\) |
 | `--until` | - | `<YYYY-MM-DD>` | Inclusive end date filter \(hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, events only\) |
@@ -2067,6 +2071,7 @@ llm-usage trends --by-source --json
 llm-usage session
 llm-usage session --top 5 --json
 llm-usage session --id 486c
+llm-usage session --id 486c --timeline
 llm-usage session --by-repo --top 5
 llm-usage session --markdown
 llm-usage blocks

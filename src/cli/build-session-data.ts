@@ -1,5 +1,8 @@
 import { buildEventProjectLabels, toProjectKey } from '../aggregate/project-key.js';
 import { aggregateSessions, aggregateSessionsByRepo } from '../session/aggregate-sessions.js';
+import type { SessionRow } from '../session/session-row.js';
+import { buildSessionTimeline } from '../session/session-timeline.js';
+import { getPeriodKey } from '../utils/time-buckets.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import { getEventSessionKey, type UsageEvent } from '../domain/usage-event.js';
 import {
@@ -15,6 +18,7 @@ import type {
 } from './usage-data-contracts.js';
 
 const DEFAULT_SESSION_TOP = 20;
+const MAX_LISTED_TIMELINE_MATCHES = 10;
 
 function parseSessionTopOption(top: string | undefined): number | undefined {
   if (top === undefined) {
@@ -74,6 +78,57 @@ function limitRows<Row>(
   };
 }
 
+function validateTimelineOptions(options: SessionCommandOptions, hasIdFilters: boolean): void {
+  if (!options.timeline) {
+    return;
+  }
+
+  if (!hasIdFilters) {
+    throw new Error('--timeline needs --id <session-id> naming one session');
+  }
+
+  if (options.top !== undefined) {
+    throw new Error('--timeline shows every request; it cannot be combined with --top');
+  }
+}
+
+/** The one session `--id` names, or an error listing what it matched instead. */
+function requireOneTimelineSession(
+  sessionRows: readonly SessionRow[],
+  idFilters: readonly string[],
+  timezone: string,
+): SessionRow {
+  const idText = idFilters.join(',');
+
+  if (sessionRows.length === 0) {
+    throw new Error(
+      `--timeline found no session matching --id ${idText}. Run \`llm-usage session\` to list session ids, or widen --since/--until.`,
+    );
+  }
+
+  if (sessionRows.length > 1) {
+    const listedRows = sessionRows.slice(0, MAX_LISTED_TIMELINE_MATCHES);
+    const sourceWidth = Math.max(...listedRows.map((row) => row.source.length));
+    const idWidth = Math.max(...listedRows.map((row) => row.sessionId.length));
+    const listed = listedRows.map(
+      (row) =>
+        `  ${row.source.padEnd(sourceWidth)}  ${row.sessionId.padEnd(idWidth)}  ${getPeriodKey(row.lastActivity, 'daily', timezone)}`,
+    );
+    const unlisted = sessionRows.length - listed.length;
+
+    throw new Error(
+      [
+        `--timeline needs exactly one session, but --id ${idText} matches ${sessionRows.length}:`,
+        ...listed,
+        ...(unlisted > 0 ? [`  and ${unlisted} more`] : []),
+        'Pass more of the session id to --id.',
+      ].join('\n'),
+    );
+  }
+
+  return sessionRows[0];
+}
+
 export async function buildSessionData(
   options: SessionCommandOptions,
   deps: BuildSessionDataDeps = {},
@@ -83,6 +138,8 @@ export async function buildSessionData(
   if (idFilters && options.byRepo) {
     throw new Error('--id cannot be combined with --by-repo');
   }
+
+  validateTimelineOptions(options, idFilters !== undefined);
 
   const top = parseSessionTopOption(options.top);
   const limit = resolveSessionRowLimit(top, idFilters !== undefined);
@@ -137,6 +194,25 @@ export async function buildSessionData(
   const sessionRows = measureRuntimeProfileStageSync(deps.runtimeProfile, 'session.aggregate', () =>
     aggregateSessions(pricedEvents, { ...aggregateOptions, ids: idFilters }),
   );
+
+  if (options.timeline && idFilters) {
+    const session = requireOneTimelineSession(
+      sessionRows,
+      idFilters,
+      dataset.normalizedInputs.timezone,
+    );
+    const sessionKey = getEventSessionKey(session);
+    const sessionEvents = pricedEvents.filter((event) => getEventSessionKey(event) === sessionKey);
+
+    return {
+      grouping: 'timeline',
+      session,
+      rows: buildSessionTimeline(sessionEvents, []),
+      projectLabels,
+      diagnostics: buildDiagnostics(sessionEvents),
+    };
+  }
+
   const limited = limitRows(sessionRows, limit, 'sessions');
   const shownSessions = new Set(limited.rows.map((row) => getEventSessionKey(row)));
 
