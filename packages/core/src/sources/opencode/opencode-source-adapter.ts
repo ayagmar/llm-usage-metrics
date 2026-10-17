@@ -36,7 +36,7 @@ export type OpenCodeSourceAdapterOptions = {
   /** Test seam: replaces the file system check. @internal */
   pathIsFile?: PathPredicate;
   /** Test seam: replaces the node:sqlite loader. @internal */
-  loadSqliteModule?: () => Promise<SqliteModule>;
+  loadSqliteModule?: (consumerLabel: string) => Promise<SqliteModule>;
   /** Retries of a read that finds the database busy or locked. */
   maxBusyRetries?: number;
   /** Delay between those retries. */
@@ -68,7 +68,7 @@ export class OpenCodeSourceAdapter implements SourceAdapter {
   private readonly pathExists: PathPredicate;
   private readonly pathReadable: PathPredicate;
   private readonly pathIsFile: PathPredicate;
-  private readonly loadSqliteModule: () => Promise<SqliteModule>;
+  private readonly loadSqliteModule: (consumerLabel: string) => Promise<SqliteModule>;
   private readonly maxBusyRetries: number;
   private readonly busyRetryDelayMs: number;
   private readonly sleep: SleepFn;
@@ -221,7 +221,7 @@ export class OpenCodeSourceAdapter implements SourceAdapter {
   }
 
   private async openMessageRows(dbPath: string): Promise<OpenCodeMessageRows> {
-    const sqlite = await this.loadSqliteModule();
+    const sqlite = await this.loadSqliteModule('OpenCode');
     const database = new sqlite.DatabaseSync(dbPath, { readOnly: true, timeout: 0 });
 
     try {
