@@ -130,6 +130,11 @@ export function createConfigCommand(): Command {
   const initCommand = new Command('init')
     .description('Write a commented config template')
     .option('--force', 'Overwrite an existing config file')
+    // Report commands take --help-all, so it prints the full help here too.
+    .option('--help-all', 'Display help for command')
+    .on('option:help-all', () => {
+      initCommand.help();
+    })
     .addHelpText(
       'after',
       formatHelpExamples(['llm-usage config init', 'llm-usage config init --force']),

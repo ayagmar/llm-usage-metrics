@@ -61,6 +61,32 @@ describe('createConfigCommand', () => {
     );
   });
 
+  it('prints the init help for --help-all without writing a config', async () => {
+    const configPath = await createTempConfigPath('config-init-help-all-');
+    process.env.LLM_USAGE_CONFIG_PATH = configPath;
+    const captureHelp = async (flag: string): Promise<string> => {
+      const configCommand = createConfigCommand();
+      const initCommand = configCommand.commands.find((command) => command.name() === 'init');
+      let output = '';
+      initCommand?.exitOverride().configureOutput({
+        writeOut: (text) => {
+          output += text;
+        },
+      });
+
+      await expect(configCommand.parseAsync(['init', flag], { from: 'user' })).rejects.toThrow(
+        '(outputHelp)',
+      );
+      return output;
+    };
+
+    const helpAll = await captureHelp('--help-all');
+
+    expect(helpAll).toContain('Usage: config init [options]');
+    expect(helpAll).toBe(await captureHelp('--help'));
+    await expect(readFile(configPath, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
   it('refuses to overwrite an existing config without --force', async () => {
     const configPath = await createTempConfigPath('config-init-existing-');
     process.env.LLM_USAGE_CONFIG_PATH = configPath;

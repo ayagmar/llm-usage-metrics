@@ -1800,6 +1800,7 @@ Write a commented config template
 
 Options:
   --force     Overwrite an existing config file
+  --help-all  Display help for command
   -h, --help  display help for command
 
 Usage: llm-usage config show [options]
@@ -1979,7 +1980,7 @@ Search across root and command help. See Command help above to check which flags
 | `--gemini-dir` | - | `<path>` | Path to .gemini directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline, doctor, prune only\) |
 | `--goose-db` | - | `<path>` | Path to Goose SQLite DB \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline, doctor, prune only\) |
 | `--granularity` | - | `<period>` | Add rows per period and project \(choices: "daily", "weekly", "monthly"\) \(projects only\) |
-| `--help-all` | - | - | Display help including the per-source path flags \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline, doctor, prune only\) |
+| `--help-all` | - | - | summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline, doctor, prune: Display help including the per-source path flags; config: Display help for command |
 | `--history` | - | - | Include usage from files that no longer exist on disk \(on by default; when passed, fails if the event store is unavailable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline only\) |
 | `--id` | - | `<session-id>` | Show only sessions whose id contains the value \(case-insensitive; repeatable or comma-separated\) \(session only\) |
 | `--ignore-pricing-failures` | - | - | Continue without estimated costs when pricing cannot be loaded \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, blocks, value, wrapped, events, statusline only\) |
