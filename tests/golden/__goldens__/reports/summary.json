@@ -380,18 +380,18 @@
           }
         ],
         "previous": {
-          "since": "2026-05-11",
-          "until": "2026-05-31",
+          "since": "2026-05-01",
+          "until": "2026-05-21",
           "totals": {
-            "inputTokens": 0,
-            "outputTokens": 0,
+            "inputTokens": 10,
+            "outputTokens": 5,
             "reasoningTokens": 0,
             "cacheReadTokens": 0,
             "cacheWriteTokens": 0,
-            "totalTokens": 0,
-            "events": 0,
-            "activeDays": 0,
-            "costUsd": 0
+            "totalTokens": 15,
+            "events": 1,
+            "activeDays": 1,
+            "costUsd": 0.001
           }
         }
       }

@@ -766,11 +766,11 @@ describe('summary lead', () => {
       'Top source',
     ]);
     // summary.json: today $0 against $0.00142425 the day before; the last 7 days $0.06142425
-    // against $0.001227; the month $0.0635 against $0 in the 21 days before it.
+    // against $0.001227; the month $0.063515625 against $0.001 on 1–21 May.
     expect(periods.rows.map(texts)).toEqual([
       ['Today', '$0.00', '$0.00', '−100.0%', '0', '—'],
       ['Last 7 days', '~$0.06', '$0.00', '+4,906.1%', '1,190', 'kilocode (~49%)'],
-      ['Month to date', '~$0.06', '$0.00', '—', '1,585', 'kilocode (~47%)'],
+      ['Month to date', '~$0.06', '$0.00', '+6,251.6%', '1,585', 'kilocode (~47%)'],
     ]);
     expect(periods.rows[1][3].note).toBe('Against 8 Jun 2026 – 14 Jun 2026');
     expect(view.tables).toHaveLength(1);

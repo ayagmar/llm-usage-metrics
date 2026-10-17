@@ -90,8 +90,8 @@
         },
         "sources": [],
         "previous": {
-          "since": "2026-05-11",
-          "until": "2026-05-31",
+          "since": "2026-05-01",
+          "until": "2026-05-21",
           "totals": {
             "inputTokens": 0,
             "outputTokens": 0,
