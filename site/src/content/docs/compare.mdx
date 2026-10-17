@@ -57,7 +57,15 @@ llm-usage compare --source codex --model codex
 llm-usage compare --provider anthropic --no-history
 ```
 
-Filters apply once to the combined dataset before the command separates events into the current and baseline windows. This keeps the scope consistent.
+Filters apply once to the combined dataset before the command separates events into the current and baseline windows. This keeps the scope consistent. `--repo` keeps some [projects](/llm-usage-metrics/projects/) only, and `--machine` some [machines](/llm-usage-metrics/machines/).
+
+## Compare each project
+
+```bash
+llm-usage compare --by-repo
+```
+
+`--by-repo` adds a **By project (cost)** table under the source table: each project's cost in both windows, the delta, and the percentage change, ordered by the size of the change. A project keeps one label in both windows. In `--json`, the rows are under `data.projects`, each with `repoRoot`, `project`, and `current`, `baseline`, `delta`, and `deltaRatio` totals.
 
 ## Export
 
@@ -66,4 +74,8 @@ llm-usage compare --json
 llm-usage compare --markdown
 ```
 
-Compare supports terminal, JSON, Markdown, and `--share` (an interactive `compare-share.html` report that holds both windows, opens on the current one, and shows the comparison as a panel). Diagnostics stay on `stderr` in every format.
+Compare supports terminal, JSON, Markdown, and `--share`. The [interactive report](/llm-usage-metrics/share/) `compare-share.html` holds both windows, opens on the current one, and shows the comparison as a panel. Diagnostics stay on `stderr` in every format.
+
+```bash
+llm-usage compare --share --no-open
+```

@@ -21,7 +21,7 @@ It is built for frequent refreshes:
 - the update check is skipped, and nothing is printed on `stderr`; errors still exit non-zero. Add `--verbose` to see the warnings it hides, and run `llm-usage doctor` if refreshes feel slow (an unusable event store means every run reparses all files)
 - parsed events come from the event store, so repeat runs only reparse changed files
 
-It accepts the source, provider, model, timezone, pricing-override, and history flags of the other reports, so a status line can show one tool only:
+It accepts the source, provider, model, machine, timezone, cost-mode, pricing-override, and history flags of the other reports, so a status line can show one tool only:
 
 ```bash
 llm-usage statusline --source claude
