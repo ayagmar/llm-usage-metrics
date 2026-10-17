@@ -10,12 +10,13 @@ import { LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
 import { estimateCacheSavingsUsd } from '../pricing/cache-savings.js';
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { getDaysInMonth } from '../utils/date-key.js';
-import { getCurrentLocalDateKey, shiftLocalDateKey } from '../utils/time-buckets.js';
+import { getCurrentLocalDateKey } from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions, type UserConfigResolution } from './apply-user-config.js';
 import {
   createPreviousMonthToDateWindow,
   createPreviousSameLengthWindow,
 } from './build-compare-data.js';
+import { resolvePeriodsSince } from './build-usage-data.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
 import {
@@ -58,10 +59,15 @@ export function resolveSummaryWindows(timezone: string, now: Date): SummaryWindo
     {
       key: 'last7Days',
       label: `Last ${SUMMARY_RECENT_DAYS} days`,
-      since: shiftLocalDateKey(today, -(SUMMARY_RECENT_DAYS - 1)),
+      since: resolvePeriodsSince('daily', today, SUMMARY_RECENT_DAYS),
       until: today,
     },
-    { key: 'monthToDate', label: 'Month to date', since: `${today.slice(0, 8)}01`, until: today },
+    {
+      key: 'monthToDate',
+      label: 'Month to date',
+      since: resolvePeriodsSince('monthly', today, 1),
+      until: today,
+    },
   ];
 }
 

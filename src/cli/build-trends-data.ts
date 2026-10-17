@@ -6,11 +6,11 @@ import { getEventSessionKey, type UsageEvent } from '../domain/usage-event.js';
 import type { ProjectUsageReportRow, UsageReportRow } from '../domain/usage-report-row.js';
 import { aggregateProjectTrends, aggregateTrends } from '../trends/aggregate-trends.js';
 import { createPricingRunStats, DEFAULT_PRICING_POLICY } from '../pricing/cost-engine.js';
-import { getCurrentLocalDateKey, getPeriodKey, shiftLocalDateKey } from '../utils/time-buckets.js';
+import { getCurrentLocalDateKey, getPeriodKey } from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import { resolveReportTimezone, validateDateInput } from './build-usage-data-inputs.js';
-import { parseLastOption } from './build-usage-data.js';
+import { parseLastOption, resolvePeriodsSince } from './build-usage-data.js';
 import {
   applyPricingToUsageEventDataset,
   withPricingNotes,
@@ -60,7 +60,7 @@ function resolveMetric(metric: string | undefined): TrendsMetric {
 
 function resolveTrailingDateRange(today: string, days: number): ResolvedDateRange {
   return {
-    from: shiftLocalDateKey(today, -(days - 1)),
+    from: resolvePeriodsSince('daily', today, days),
     to: today,
   };
 }
