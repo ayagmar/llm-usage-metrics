@@ -17,9 +17,9 @@ This keeps source-specific parsing, pricing, aggregation, rendering, and command
 ### Report definitions
 
 - `src/cli/report-definitions/report-definitions.ts`
-  Owns the canonical registry for `summary` (the default command), `daily`, `weekly`, `monthly`, `compare`, `efficiency`, `optimize`, `trends`, `session`, `wrapped`, `statusline`, `doctor`, `prune`, and `events`. (`config`, `schema`, `completion`, `machine`, and `sync` are registered directly in `create-cli.ts`; `create-completion-command.ts` generates the bash, zsh, and fish scripts from the live command tree.)
+  Owns the canonical registry for `summary` (the default command), `hourly`, `daily`, `weekly`, `monthly`, `projects`, `compare`, `efficiency`, `optimize`, `trends`, `session`, `blocks`, `value`, `wrapped`, `events`, `pricing`, `statusline`, `doctor`, and `prune`. (`config`, `schema`, `completion`, `machine`, and `sync` are registered directly in `create-cli.ts`; `create-completion-command.ts` generates the bash, zsh, and fish scripts from the live command tree.)
 - `src/cli/report-definitions/shared-report-options.ts`
-  Registers the shared option surface by profile (`usage`, `summary`, `specialized`, `compare`, `trends`, `session`, `wrapped`, `events`, `statusline`, `doctor`).
+  Registers the shared option surface by profile (`usage`, `hourly`, `rollup`, `pricing`, `summary`, `specialized`, `compare`, `trends`, `session`, `wrapped`, `events`, `statusline`, `doctor`).
 
 This metadata is reused by:
 
@@ -36,7 +36,7 @@ Commander help text remains the source of truth for option descriptions.
   - `--markdown` / `--json` validation
   - output-format resolution
   - report preparation
-  - share artifact handling: build the share payload (`cli/build-share-report-data.ts`), write the self-contained HTML report (`share-report/render-share-html.ts`), open it
+  - `--share`, `--no-open` and `--redact` validation, and the share artifact the report wrapper builds: `cli/share-report-artifact.ts` builds the payload (`cli/build-share-report-data.ts`) and the self-contained HTML (`share-report/render-share-html.ts`), and `cli/share-artifact.ts` writes the file and opens it
   - optional terminal overflow warnings
   - stderr hints after the output (from the data, or from the renderer, such as columns a narrow terminal hid)
   - final stdout emission
@@ -48,18 +48,24 @@ Each report wrapper owns its policy:
 - report-specific diagnostics
 - share eligibility rules
 
-The public entry points remain stable, one `build*`/`run*` pair per command:
+Each command has a `run*` entry point, and most have a `build*` that returns the output as a string for tests:
 
 - `buildSummaryReport`, `runSummaryReport`
-- `buildUsageReport`, `runUsageReport`
+- `buildUsageReport`, `runUsageReport` (daily, weekly, monthly and hourly; `runHourlyReport` calls `runUsageReport('hourly', …)`)
+- `buildProjectsReport`, `runProjectsReport`
 - `buildCompareReport`, `runCompareReport`
 - `buildEfficiencyReport`, `runEfficiencyReport`
 - `buildOptimizeReport`, `runOptimizeReport`
 - `buildTrendsReport`, `runTrendsReport`
 - `buildSessionReport`, `runSessionReport`
+- `buildBlocksReport`, `runBlocksReport`
+- `buildValueReportOutput`, `runValueReport`
 - `buildWrappedReport`, `runWrappedReport`
+- `buildPricingReport`, `runPricingReport`
+- `buildStatusline`, `runStatusline`
 - `buildDoctorResults`, `runDoctorReport`
 - `buildPruneReport`, `runPruneReport`
+- `runEventsReport`
 
 ## Runtime flows
 
@@ -71,6 +77,39 @@ The public entry points remain stable, one `build*`/`run*` pair per command:
 2. `aggregateUsage(..., { includeModelBreakdown: true })`
 3. `renderUsageReportWithNotes(...)`
 4. shared report runtime emits diagnostics, optional share report, and stdout body
+
+### Projects
+
+`runProjectsReport(options)`
+
+1. `buildUsageEventDataset(...)` and pricing
+2. `aggregateProjects(...)` (`src/cli/build-projects-data.ts`): per-project totals keyed by `toProjectKey` and labelled by `buildEventProjectLabels` (`src/aggregate/project-key.ts`), which keeps folders with the same name apart and labels events with no repository `(unattributed)`
+3. `renderProjectsReport(...)`
+4. shared report runtime emits diagnostics and stdout body
+
+### Blocks
+
+`runBlocksReport(options)`
+
+1. `buildUsageEventDataset(...)` and pricing, from a lookback before the window so a block that started earlier keeps its start
+2. `readWholeStreams(...)` when `--repo`, `--model`, `--provider` or `--machine` narrowed the events: each source's whole stream over the same dates, so blocks keep the account's 5-hour windows; `--machine` reads every machine's cached usage again for this
+3. `aggregateBlocks(...)` (`src/blocks`) places the windows on the whole stream and counts the narrowed events in them
+4. `renderBlocksReport(...)`, with the active block's burn rate
+5. shared report runtime emits diagnostics and stdout body
+
+### Value
+
+`runValueReport(options)`
+
+1. `selectPlans(...)` and `resolvePlanScopes(...)` (`src/value/plans.ts`) pick the plans and the sources each covers; the default plan falls back to one whose sources the `--source` filter keeps
+2. `buildUsageEventDataset(...)` over the plans' sources, and pricing
+3. `buildValueReport(...)` (`src/value/build-value-report.ts`): API-priced cost per month against each plan's price, split by project
+4. `renderValueReport(...)`
+5. shared report runtime emits diagnostics and stdout body
+
+### Pricing
+
+`runPricingReport(models, options)` loads the pricing source like a report does and runs `explainModelPricing(...)` (`src/pricing/explain-model-pricing.ts`) for each model name: the matched key and rule, overrides, where the prices came from, rates and tiers. It never reads usage.
 
 ### Efficiency
 
@@ -196,12 +235,16 @@ the date window, and `mergeMachineEvents` leaves out events already counted, by 
 hash, only for sessions present on both sides. The events then join the per-source
 results, so pricing and aggregation treat them like local ones.
 
+### Share reports
+
+With `--share`, the report wrapper's share builder runs after the report's own data. `buildShareReportData` (`src/cli/build-share-report-data.ts`) reads the events a second time over the command's window, starting earlier so 5-hour blocks are whole, and builds the payload in `src/share-report/build-share-payload.ts`: a cube of totals by date, hour, source, model, project and machine, the sessions, the blocks, and the command's own JSON envelope. `redact.ts` and `sanitize-envelope.ts` label projects and machines (`--redact`) and scrub home paths. `render-share-html.ts` writes one HTML file that inlines the payload and the client bundle (`src/share-report/client`, prebuilt into `client-bundle.generated.ts` by `scripts/build-share-client.mjs`) under a CSP that allows only those hashed inline bytes. The client computes every roll-up in the browser.
+
 ## Aggregation profiles
 
 `src/aggregate/aggregate-usage.ts` supports `includeModelBreakdown`.
 
 - usage reports keep model breakdowns
-- efficiency, optimize, and trends skip model breakdown computation
+- efficiency, optimize, trends, and the compare and summary windows skip model breakdown computation
 
 This removes unnecessary work and avoids leaking usage-table-specific model metadata into reports that do not need it.
 
@@ -233,13 +276,17 @@ That keeps sorting and separator behavior deterministic without coupling the gen
 - `src/domain`
   Canonical usage contracts and normalization
 - `src/pricing`
-  LiteLLM pricing loader, cache, model matching, cost engine
+  LiteLLM pricing loader, cache, model matching, cost engine, long-context tiers, and `explain-model-pricing.ts` for the `pricing` command
 - `src/persistence`
   SQLite event-store ledger, schema migrations, history suppression
 - `src/machines`
   Multi-machine sync: the versioned `machine export` bundle format and its validating reader (`machine-export-bundle.ts`), the ssh transport and `command` detection (`machine-ssh.ts`), per-machine caches (`machine-cache.ts`, each an event store under `machines/<name>.db`), `sync` (`sync-machine.ts`), safe `config.toml` edits for `machine add/remove` (`machine-config-file.ts`), and the report-side read and cross-machine dedup (`load-machine-usage.ts`, `merge-machine-events.ts`)
 - `src/aggregate`
-  Period/source usage aggregation; `daily-activity.ts` holds the streak, best-day, and heatmap-level logic shared by `summary` and `wrapped`
+  Period/source usage aggregation, split by project with `--by-repo`; `project-key.ts` holds the project keys and labels that every report naming projects, the share report and `--repo` use; `daily-activity.ts` holds the streak, best-day, and heatmap-level logic shared by `summary` and `wrapped`
+- `src/blocks`
+  Estimated 5-hour usage blocks per source
+- `src/value`
+  Subscription plan prices and the per-month value comparison
 - `src/efficiency`
   Repo attribution, Git outcomes, efficiency aggregation
 - `src/optimize`
@@ -280,6 +327,10 @@ The published site documents the core subsystems in depth; keep the deep detail 
 - [Event Store](https://ayagmar.github.io/llm-usage-metrics/architecture/event-store/)
 - [Parse Pipeline](https://ayagmar.github.io/llm-usage-metrics/architecture/parse-pipeline/)
 - [Pricing Pipeline](https://ayagmar.github.io/llm-usage-metrics/architecture/pricing-pipeline/)
+- [Event Model](https://ayagmar.github.io/llm-usage-metrics/architecture/event-model/)
+- [Dedup & Cursors](https://ayagmar.github.io/llm-usage-metrics/architecture/dedup-and-cursors/)
+- [Machine Merge](https://ayagmar.github.io/llm-usage-metrics/architecture/machine-merge/)
+- [Share Report](https://ayagmar.github.io/llm-usage-metrics/architecture/share-report/)
 - [Config & Logging](https://ayagmar.github.io/llm-usage-metrics/architecture/config-and-logging/)
 
 ## Core invariants

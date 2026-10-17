@@ -10,7 +10,12 @@ description: Discovery paths, overrides, and usage parsing for OpenCode.
 ## Path selection
 
 1. explicit `--opencode-db`
-2. deterministic OS-specific default candidates: per directory, `opencode.db` first, then `opencode-<channel>.db` variants sorted by name, then `db.sqlite`. OpenCode keeps one database per release channel, so every readable `opencode.db` and `opencode-<channel>.db` in the first directory that has one is read; `db.sqlite` is read only when neither exists there
+2. the default directories, in this order:
+   - Linux: `$XDG_DATA_HOME/opencode` (default `~/.local/share/opencode`), then `~/.opencode`
+   - macOS: `~/Library/Application Support/opencode`, then `~/.opencode`
+   - Windows: `%APPDATA%\opencode` (or under `%LOCALAPPDATA%`), then `~/.opencode`
+
+   Per directory, the adapter looks for `opencode.db` first, then `opencode-<channel>.db` variants sorted by name, then `db.sqlite`. OpenCode keeps one database per release channel, so every readable `opencode.db` and `opencode-<channel>.db` in the first directory that has one is read; `db.sqlite` is read only when neither exists there
 
 ```bash
 llm-usage daily --source opencode --opencode-db /path/to/opencode.db
@@ -21,5 +26,6 @@ llm-usage daily --source opencode --opencode-db /path/to/opencode.db
 - database is opened in read-only mode
 - assistant message rows are parsed into normalized events
 - `reasoningTokens` is a subset of `outputTokens`. OpenCode releases since April 2026 store `tokens.output` without reasoning while the SDK `tokens.total` includes it; the adapter adds `tokens.reasoning` back when the total shows reasoning outside the stored buckets, and leaves older rows (output already inclusive, or no total at all) unchanged. Gemini rows written before February 2026 stored thoughts outside `output`; they are corrected only when the stored output is smaller than the reasoning count. A positive `tokens.total` is kept as the event total; otherwise the buckets are summed.
+- a positive `cost` on a row is kept as its explicit cost; the provider comes from `providerID`, and `repoRoot` from the row's `path.root`, `path.cwd` or `cwd`
 - malformed rows are skipped and surfaced in diagnostics
 - busy/locked DB errors use bounded retry before failing with actionable guidance

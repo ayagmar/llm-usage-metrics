@@ -27,4 +27,4 @@ The adapter supports two Kimi wire formats:
 - Kimi CLI `StatusUpdate` rows with `payload.token_usage`; repeated `message_id` rows are progressive, so the largest-total row is kept.
 - Kimi Code `usage.record` rows with `usageScope: "turn"`; session-scope bookkeeping records are ignored.
 
-Kimi CLI rows do not include a model, so model is left unset for those events. Kimi Code model values strip a leading `kimi-code/` prefix.
+Kimi CLI rows carry no model. The adapter reads `model` from the `config.json` next to the `sessions` directory; without one it uses `kimi-k2.5` for events before 2026-04-20 and `kimi-k2.6` after, the date Kimi's managed coding endpoint switched models. The provider is always `moonshot`. Kimi Code model values strip a leading `kimi-code/` prefix.

@@ -10,7 +10,7 @@ Configuration answers "what settings apply to this run"; logging answers "what t
 Four layers resolve, highest first: **flags → env vars → config file → built-in defaults.**
 
 - Flags shadow config in `src/cli/apply-user-config.ts`: a config value is copied onto a command option only when that option was not set on the command line.
-- Env vars shadow config in `src/config/runtime-overrides.ts`: each runtime config reader (event store, parsing, pricing, update) checks its env var first, then the config key, then the exported default constant.
+- Env vars shadow config in `src/config/runtime-overrides.ts`: a runtime config reader checks its env var first, then the config key, then the exported default constant. Only some settings have an env var: the event store (`LLM_USAGE_EVENT_STORE`, `LLM_USAGE_EVENT_STORE_PATH`), the worker pool (`LLM_USAGE_PARSE_WORKERS`, `LLM_USAGE_PARSE_WORKER_MIN_BYTES`), and the update check (`LLM_USAGE_SKIP_UPDATE_CHECK`). The pricing cache TTL and fetch timeout, `parseMaxParallel`, and the update check's TTL and timeout come from config or the default only.
 - Consumers never read raw layers — they call the runtime-config readers and get final values.
 
 A worked example with the event-store path: `LLM_USAGE_EVENT_STORE_PATH=/tmp/scratch.db` wins over `eventStore.path = "/data/events.db"` in `config.toml`, which wins over the default `events.db` under the platform data root. Same shape for a flag-backed key: `--timezone Europe/Paris` wins over `timezone = "Africa/Casablanca"`.
@@ -35,6 +35,8 @@ Reports print what configuration actually applied, on `stderr`. The default summ
 - `Active environment overrides:` separately lists every recognized `LLM_USAGE_*` env var that is set, with its value.
 
 ## The template and the schema
+
+`config path` prints the resolved config file path, and `config show` prints the effective configuration with where each value comes from.
 
 `llm-usage config init` (`src/cli/create-config-command.ts`) writes a fully commented template at the active config path, creating parent directories as needed. It refuses to overwrite an existing file (`Config file already exists: <path> (use --force to overwrite)`); `--force` replaces it. The template is documentation that cannot drift: every key ships commented out with its real default interpolated from the exported constants — including the machine's absolute default event-store path — and covers all keys, including every supported `[sourceDirs]` entry.
 

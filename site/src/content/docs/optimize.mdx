@@ -5,7 +5,7 @@ description: Counterfactual pricing report for candidate models.
 
 `optimize` replays your observed token mix against one or more candidate model prices.
 
-```bash
+```text
 llm-usage optimize <daily|weekly|monthly> --candidate-model <model> [options]
 ```
 
@@ -41,7 +41,8 @@ llm-usage optimize monthly \
 - If multiple providers remain, narrow with `--provider`.
 - `--provider` matches canonical billing entities after provider normalization.
 - Provider aliases are normalized to billing roots first (for example, `openai-codex` is treated as `openai`).
-- Candidate ranking is deterministic and based on `ALL` period hypothetical cost.
+- Candidate ranking is deterministic and based on `ALL` period hypothetical cost; `--top N` keeps the N cheapest candidates.
+- Without date flags, the report covers your full history. The shared filters apply, including `--repo` to price only some [projects](/llm-usage-metrics/projects/).
 
 ## Missing pricing and incomplete baselines
 
@@ -55,5 +56,5 @@ llm-usage optimize monthly \
 - `--json` emits optimize rows under `data` in the versioned report envelope.
 - `--markdown` emits a Markdown table.
 - Default terminal output renders a titled table.
-- `--share` writes an interactive `optimize-<granularity>-share.html` report, with the candidate comparison as a panel, to the current working directory.
+- `--share` writes an [interactive report](/llm-usage-metrics/share/) `optimize-<granularity>-share.html`, with the candidate comparison as a panel, to the current working directory.
 - Diagnostics and warnings always go to `stderr`.

@@ -259,6 +259,15 @@ header.header {
   white-space: nowrap;
 }
 
+/* On phones, tighter cells let three-column tables such as the report chooser fit. */
+@media (max-width: 30rem) {
+  .sl-markdown-content th,
+  .sl-markdown-content td {
+    padding-inline: 0.6rem;
+    min-width: 6rem;
+  }
+}
+
 .sl-markdown-content td code {
   overflow-wrap: anywhere;
 }
@@ -316,4 +325,10 @@ header.header {
   --sl-color-bg: var(--color-bg);
   --sl-color-bg-nav: var(--color-bg);
   --sl-color-bg-sidebar: var(--color-bg);
+}
+
+/* Interactive-report screenshots share the page background, so they get a frame. */
+.sl-markdown-content .share-shot {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
 }

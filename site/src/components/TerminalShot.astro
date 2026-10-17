@@ -1,0 +1,56 @@
+---
+import type { ImageMetadata } from 'astro';
+import { Image } from 'astro:assets';
+
+interface Props {
+  src: ImageMetadata;
+  alt: string;
+  /** Names the scroll region for keyboard and screen-reader users, e.g. `llm-usage projects output`. */
+  label: string;
+  class?: string;
+  loading?: 'eager' | 'lazy';
+  fetchpriority?: 'high' | 'low' | 'auto';
+}
+
+const { src, alt, label, class: className, loading, fetchpriority } = Astro.props;
+
+// docs-screenshots.mjs renders terminal text at 14 px and 2x pixel density. Below 80 % of
+// that width the text drops under 11 px, so narrower columns scroll the image sideways.
+const naturalWidth = Math.round(src.width / 2);
+const minWidth = Math.round(naturalWidth * 0.8);
+---
+
+<div
+  class:list={['term-shot', className]}
+  tabindex="0"
+  role="region"
+  aria-label={`${label} (scrolls sideways on narrow screens)`}
+  style={`--term-shot-width: ${naturalWidth}px; --term-shot-min-width: ${minWidth}px`}
+>
+  <Image
+    src={src}
+    alt={alt}
+    widths={[naturalWidth, src.width]}
+    sizes={`${naturalWidth}px`}
+    loading={loading}
+    fetchpriority={fetchpriority}
+  />
+</div>
+
+<style>
+  .term-shot {
+    overflow-x: auto;
+    border-radius: var(--radius-md, 0.55rem);
+  }
+  .term-shot:focus-visible {
+    outline: 2px solid var(--border-focus, #df7b52);
+    outline-offset: 2px;
+  }
+  .term-shot :global(img) {
+    display: block;
+    width: 100%;
+    max-width: var(--term-shot-width);
+    min-width: var(--term-shot-min-width);
+    height: auto;
+  }
+</style>

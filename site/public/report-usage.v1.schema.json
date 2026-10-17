@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ayagmar.github.io/llm-usage-metrics/report-usage.v1.schema.json",
   "title": "llm-usage-metrics usage report output (v1)",
-  "description": "Envelope and payload for daily/weekly/monthly usage report --json output.",
+  "description": "Envelope and payload for hourly, daily, weekly, and monthly usage report --json output.",
   "type": "object",
   "allOf": [
     {

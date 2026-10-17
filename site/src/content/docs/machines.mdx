@@ -65,7 +65,7 @@ llm-usage monthly --machine laptop
 llm-usage monthly --machine local,vps
 ```
 
-Reports combine every machine into the same rows. To see each machine apart, `--by-machine` splits each source row of `daily`, `weekly` and `monthly` by machine, and `events` names the machine of each event from another machine:
+Reports combine every machine into the same rows. To see each machine apart, `--by-machine` splits each source row of `hourly`, `daily`, `weekly` and `monthly` by machine, and `events` names the machine of each event from another machine:
 
 ```bash
 llm-usage monthly --by-machine     # claude (local), claude (laptop), ...

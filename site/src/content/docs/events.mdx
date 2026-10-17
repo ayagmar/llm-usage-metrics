@@ -3,11 +3,11 @@ title: Events Export
 description: Stream normalized usage events as JSONL or CSV for jq, DuckDB, or warehouse workflows.
 ---
 
-`llm-usage events` streams the normalized usage events every report is built from — one record per model interaction, after source parsing, normalization, and pricing. It is the raw-data counterpart to the aggregated reports.
+`llm-usage events` streams the normalized usage events every report is built from: one record per [usage record the source logged](/llm-usage-metrics/library/contracts/#per-request-usage), after source parsing, normalization, and pricing. It is the raw-data counterpart to the aggregated reports.
 
 ## Command structure
 
-```bash
+```text
 llm-usage events [options]
 ```
 
@@ -22,7 +22,7 @@ llm-usage events --source codex --since 2026-06-01 | jq '.totalTokens'
 ## Options
 
 - `--format <name>`: `jsonl` (default) or `csv`
-- shared filters apply: `--source`, `--provider`, `--model`, `--since`, `--until`, `--timezone`, source-path overrides, pricing flags, and `--history`
+- shared filters apply: `--source`, `--provider`, `--model`, `--repo`, `--machine`, `--since`, `--until`, `--timezone`, source-path overrides, pricing flags, `--cost-mode`, and `--no-history`
 
 `events` is an export stream, not a report: it takes `--format jsonl` or `--format csv` instead of `--json`, and has no `--markdown` or `--share`. Diagnostics go to `stderr` as usual, so redirecting `stdout` produces a clean data file.
 
@@ -45,6 +45,7 @@ llm-usage events --source codex --since 2026-06-01 | jq '.totalTokens'
   "reasoningTokens": 20,
   "cacheReadTokens": 50,
   "cacheWriteTokens": 0,
+  "cacheWrite1hTokens": 0,
   "totalTokens": 300,
   "costUsd": 0.0017,
   "costMode": "estimated"

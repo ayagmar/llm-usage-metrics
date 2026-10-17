@@ -5,10 +5,14 @@ description: Discovery paths, overrides, and usage parsing for Goose.
 
 ## Default location
 
-- `$GOOSE_PATH_ROOT/data/sessions/sessions.db` when `GOOSE_PATH_ROOT` is set
-- `$XDG_DATA_HOME/goose/sessions/sessions.db` or `~/.local/share/goose/sessions/sessions.db`
-- macOS: `~/Library/Application Support/goose/sessions/sessions.db`
-- legacy: `~/.local/share/Block/goose/sessions/sessions.db`
+The adapter reads the first readable database in this order:
+
+1. `$GOOSE_PATH_ROOT/data/sessions/sessions.db` when `GOOSE_PATH_ROOT` is set
+2. the platform data directory:
+   - Linux: `$XDG_DATA_HOME/goose/sessions/sessions.db` (default `~/.local/share/goose/sessions/sessions.db`)
+   - macOS: `~/Library/Application Support/goose/sessions/sessions.db`
+   - Windows: `%APPDATA%\goose\sessions\sessions.db` (or under `%LOCALAPPDATA%`)
+3. legacy: `~/.local/share/Block/goose/sessions/sessions.db`
 
 ## Override
 
@@ -20,4 +24,4 @@ llm-usage daily --source goose --goose-db /path/to/goose/sessions.db
 
 ## Parsing notes
 
-The adapter reads whole-session aggregate rows from Goose's SQLite `sessions` table, prefers accumulated token columns when present, and infers reasoning tokens from `total - input - output`. Those reasoning tokens are counted inside output, and the database's `-wal` and `-journal` sidecars invalidate the parse cache.
+The adapter reads whole-session aggregate rows from Goose's SQLite `sessions` table, prefers accumulated token columns when present, and infers reasoning tokens from `total - input - output`. Those reasoning tokens are counted inside output, and the database's `-wal` and `-journal` sidecars invalidate the parse cache. Each session's totals are dated at its `created_at`, so a long session lands on the day it started. Goose stores no cache buckets, so cache reads are not split out of input.

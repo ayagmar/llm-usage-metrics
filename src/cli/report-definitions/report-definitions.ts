@@ -41,7 +41,7 @@ import { runPruneReport } from '../run-prune-report.js';
 import { runEventsReport } from '../run-events-report.js';
 import { runValueReport } from '../run-value-report.js';
 import { runWrappedReport } from '../run-wrapped-report.js';
-import { DEFAULT_PLAN_ID, PLAN_IDS } from '../../value/plans.js';
+import { DEFAULT_PLAN_ID, FALLBACK_PLAN_ID, PLAN_IDS } from '../../value/plans.js';
 import type { ReportGranularity } from '../../utils/time-buckets.js';
 import {
   collectRepeatedOption,
@@ -845,7 +845,7 @@ const valueReportDefinition: ReportRuntimeDefinition = {
       .addOption(
         new Option(
           '--plan <id>',
-          `Plan to compare with, over the sources it covers (repeatable; default ${DEFAULT_PLAN_ID}). Two plans that cover the same source each count its full cost`,
+          `Plan to compare with, over the sources it covers (repeatable; default ${DEFAULT_PLAN_ID}, or ${FALLBACK_PLAN_ID} when the source filter leaves out claude). Two plans that cover the same source each count its full cost`,
         )
           .choices(PLAN_IDS)
           // Must stay after .choices(), which installs a parser that keeps only the last value.

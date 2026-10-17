@@ -7,7 +7,7 @@ description: Join repo-attributed usage with local Git activity and interpret th
 
 ## Run the report
 
-```bash
+```text
 llm-usage efficiency <daily|weekly|monthly> [options]
 ```
 
@@ -25,14 +25,16 @@ llm-usage efficiency monthly --repo-dir /path/to/repo --by-source
 llm-usage efficiency monthly --repo-dir /path/to/repo --share
 ```
 
-`--share` writes an interactive `efficiency-<granularity>-share.html` report with the efficiency table as a panel; it works for every granularity and with `--by-source`.
+Without `--repo-dir`, the command uses the Git repository that contains the current directory. Without date flags, it covers your full history.
+
+`--share` writes an [interactive report](/llm-usage-metrics/share/) `efficiency-<granularity>-share.html` with the efficiency table as a panel; it works for every granularity and with `--by-source`.
 
 ## What the command joins
 
 The command builds two datasets for each period:
 
-1. Usage events mapped to the selected repository root through source metadata such as a working directory or file path.
-2. Commits and line changes from local Git history for your configured author.
+1. Usage events whose recorded working directory lies in the selected repository: the CLI walks up from that directory to the nearest folder with a `.git` entry and keeps the events whose folder is the repository's root.
+2. Commits and line changes from local Git history whose author email matches your Git identity (`user.email`, compared without case). Merge commits are left out unless you pass `--include-merge-commits`.
 
 Events without repository attribution stay out of the usage totals. Periods need at least one commit and attributed usage before the renderer emits a row.
 
@@ -80,7 +82,10 @@ Usage filters apply before aggregation:
 - `--source`
 - `--provider`
 - `--model`
+- `--repo` and `--machine`
 - source path overrides
+
+`--repo` narrows the usage events by [project](/llm-usage-metrics/projects/); `--repo-dir` picks the Git repository whose commits count. A `--repo` value outside that repository leaves no usage to report.
 
 These filters also constrain Git attribution. The command counts a commit day only when that day contains a matching repo-attributed usage event.
 

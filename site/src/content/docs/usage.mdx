@@ -1,25 +1,32 @@
 ---
 title: Usage Totals
-description: Review daily, weekly, and monthly tokens and cost across local coding tools.
+description: Review hourly, daily, weekly, and monthly tokens and cost across local coding tools.
 ---
 
-Use `daily`, `weekly`, and `monthly` to group matching usage by period and source. These commands differ in their time buckets; they share filters, pricing, and output formats.
+import TerminalShot from '../../components/TerminalShot.astro';
+import termDaily from '../../assets/screenshots/term-daily.webp';
+import termSummary from '../../assets/screenshots/term-summary.webp';
+
+Use `hourly`, `daily`, `weekly`, and `monthly` to group matching usage by period and source. These commands differ in their time buckets; they share filters, pricing, and output formats.
 
 ```bash
+llm-usage hourly
 llm-usage daily
 llm-usage weekly
 llm-usage monthly
 ```
 
-Run `llm-usage` with no command for a short summary: cost, tokens, and the top source for today, the last 7 days, and month to date. It accepts the same source, provider, model, timezone, pricing, and output flags.
+Run `llm-usage` with no command for a short summary: cost, tokens, and the top source for today, the last 7 days, and month to date. It accepts the same source, provider, model, project, timezone, pricing, and output flags, but no date flags: `llm-usage summary --since 2026-01-01` fails and points you to `daily`.
 
 Under the table, from the third day of the month, the summary projects the month: month-to-date cost divided by the days so far, times the days in the month ("On pace for $X this month"). Set `monthlyBudgetUsd` in the [config file](/llm-usage-metrics/configuration/) to compare against a budget: the summary says when you are within it, warns when the projection exceeds it, and warns when month-to-date spending already has. The budget covers all your usage, so a run narrowed with `--source`, `--provider`, or `--model` shows the projection without the budget; a `sources` list in the config file keeps it. It also estimates what prompt caching saved this month: cache-read tokens priced at each model's input rate minus its cache-read rate. `--json` carries these under `monthEnd` and `monthToDateCacheSavingsUsd`. When this month counts usage from more than one [machine](/llm-usage-metrics/machines/), it also splits the month's cost by machine (by tokens when the cost is unknown), and `--json` lists each period's machines under `machines`.
 
 Below that, the summary shows your activity over the past year: the current streak, the longest streak, the best day (most tokens), the number of active days, and a heatmap with one column per week and one row per weekday. A streak counts consecutive local days with usage in your reporting timezone; today without usage yet does not break it. The year starts on the Monday 52 weeks before the current week, and a narrow terminal keeps only the most recent weeks that fit. `--json` carries the same data under `activity`, including every day with its intensity level.
 
+<TerminalShot src={termSummary} label="llm-usage summary output" alt="Terminal output of llm-usage summary: cost, tokens, and top source for today, the last 7 days, and month to date, the month-end projection and caching savings, then the streaks and a year-long activity heatmap" />
+
 ## Set the reporting window
 
-Without date bounds, `daily` covers the last 7 days and `weekly` covers the last 8 weeks (from the Monday 7 weeks before the current week), both in your reporting timezone. Each prints a reminder on `stderr`; `--all` includes every period and cannot be combined with `--since` or `--until`. `monthly` includes all matching discovered history and does not limit the result to the current month.
+Without date bounds, `hourly` covers today, `daily` covers the last 7 days and `weekly` covers the last 8 weeks (from the Monday 7 weeks before the current week), both in your reporting timezone. Each prints a reminder on `stderr`; `--all` includes every period and cannot be combined with `--since` or `--until`. `monthly` includes all matching discovered history and does not limit the result to the current month.
 
 ```bash
 llm-usage daily --all
@@ -30,7 +37,7 @@ llm-usage weekly --all
 llm-usage monthly --since 2026-09-01 --until 2026-09-30
 ```
 
-`--last N` covers the last N days, weeks, or months, counting the current one: `daily --last 1` is today, `weekly --last 1` is this week, and `monthly --last 3` is this month and the two before it. The window ends today, so usage dated later (from a clock set ahead) is left out. It cannot be combined with `--since`, `--until`, or `--all`.
+`--last N` covers the last N days, weeks, or months, counting the current one: `daily --last 1` is today, `weekly --last 1` is this week, and `monthly --last 3` is this month and the two before it. For `hourly`, N counts days and goes up to 31. The window ends today, so usage dated later (from a clock set ahead) is left out. It cannot be combined with `--since`, `--until`, or `--all`.
 
 ```bash
 llm-usage weekly --last 1
@@ -42,6 +49,15 @@ llm-usage monthly --last 3
 ```bash
 llm-usage daily --timezone UTC --since 2026-09-01 --until 2026-09-07
 ```
+
+## Hour by hour
+
+```bash
+llm-usage hourly --last 3
+llm-usage hourly --since 2026-06-15 --until 2026-06-15 --by-repo
+```
+
+`hourly` labels each row with the local hour it starts (`2026-06-15 09:00`) in the reporting timezone and prints a reminder on `stderr` when it shows today by default. It has no `--all` and no `--share`. When the clocks go back at the end of daylight saving time, one local hour happens twice; its row covers both, a note on `stderr` names it, and the JSON row carries `repeatedHour: true`.
 
 Use [Compare](/llm-usage-metrics/compare/) when you want a current-versus-baseline comparison instead of a sequence of period totals.
 
@@ -62,11 +78,22 @@ Source and provider are different: a Codex event can have `source=codex` and `pr
 
 A filter that cannot match prints a warning on `stderr`, with a suggestion for a likely typo: a `--model` or `--provider` value that appears in no usage within the report's dates (`--model claude-opsu-5-5 matched no usage in this date range (did you mean claude-opus-5-5?)`), or a `--source` that has no files. A `sources` list in the config file never warns. An unknown `--source` id is an error that also suggests the closest id.
 
+`--repo` keeps the usage of some projects only. A path (absolute, or starting with `./`, `../`, or `~/`) matches that project and the projects under it; a name or path tail such as `api` or `work/api` matches the end of a project's path; `(unattributed)` matches usage without one. [Projects](/llm-usage-metrics/projects/) explains where a project comes from. `--machine` counts only the [machines](/llm-usage-metrics/machines/) you name (`local` is this one).
+
+```bash
+llm-usage monthly --repo work/api
+llm-usage daily --machine local
+```
+
 For custom session locations, use [source path overrides](/llm-usage-metrics/sources/#override-a-location). Save recurring defaults in [Configuration](/llm-usage-metrics/configuration/).
 
 ## Read the rows
 
 A period has a row for each contributing source. A `combined` row appears when multiple sources contribute to that period. The final `ALL` row totals the full filtered range.
+
+<TerminalShot src={termDaily} label="llm-usage daily --last 3 output" alt="Terminal output of llm-usage daily --last 3: a row per source per day with its models and the input, output, reasoning, cache read, cache write, total, and cost columns, a combined row for each day, and an ALL row" />
+
+`--by-repo` splits each source row by project (`claude · api`), and `--by-machine` by the machine the usage came from; the two can be combined. In `--json`, the split rows carry `repoRoot` and `machine`.
 
 Token columns preserve the normalized buckets provided by each adapter: input, output, reasoning, cache read, cache write, and total. Reasoning can be included in output for some sources, so adding every displayed bucket is not a reliable way to reconstruct total tokens. Check the [source guide](/llm-usage-metrics/sources/) for token semantics.
 
@@ -100,7 +127,7 @@ llm-usage monthly --markdown > usage.md
 llm-usage monthly --share
 ```
 
-JSON uses the `usage` report envelope. Share output writes an interactive `usage-monthly-share.html` report to the current directory, and still prints the normal report; daily and weekly write `usage-daily-share.html` and `usage-weekly-share.html`. `llm-usage summary --share` writes one that opens on the past year. See [Output formats](/llm-usage-metrics/output-formats/) for contracts and diagnostics.
+JSON uses the `usage` report envelope for all four granularities. `--share` writes an interactive `usage-monthly-share.html` report to the current directory, opens it in your browser, and still prints the normal report; daily and weekly write `usage-daily-share.html` and `usage-weekly-share.html`. `llm-usage summary --share` writes `summary-share.html`, which opens on the past 53 weeks. `hourly` has no `--share`; the share report has its own hour view. See [Interactive report](/llm-usage-metrics/share/) for what the page offers and [Output formats](/llm-usage-metrics/output-formats/) for contracts and diagnostics.
 
 ## Retained history
 

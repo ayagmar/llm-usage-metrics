@@ -4,7 +4,9 @@ Parsers for the session logs that local coding agents (Claude Code, Codex, Gemin
 
 The package is read-only: it makes no network calls, never writes to the agents' stores, and reads nothing (environment, home directory, files) at import. See [Security posture](#security-posture).
 
-The package is at 0.x: see [Versioning](#versioning) for what is stable.
+The package is at 0.x: see [Versioning](#versioning) for what is stable. It is not published to npm yet; the [library overview](https://ayagmar.github.io/llm-usage-metrics/library/) shows how to build and install it from a checkout.
+
+The site has a guided introduction: [Reading and composing](https://ayagmar.github.io/llm-usage-metrics/library/guide/) walks through `readSources`, adapters, event kinds and the dedup stages with examples that run, and [Versioning and cursors](https://ayagmar.github.io/llm-usage-metrics/library/contracts/) covers stale events and resuming a read. This README is the full reference.
 
 ## Contents
 
@@ -15,6 +17,14 @@ The package is at 0.x: see [Versioning](#versioning) for what is stable.
 - `@ayagmar/agent-sessions/internal`: helpers the CLI still uses (parsing and discovery utilities, the SQLite loader, fingerprint and hash-count helpers, provider normalization, terminal text helpers). Not a public API.
 
 Importing `.` or `./internal` loads no source module; `./registry` loads them all.
+
+The main entry also exports these helpers:
+
+- `computeActiveMs(timestampsMs)`: the sum of the gaps between consecutive timestamps (sorted first), each gap capped at `IDLE_GAP_CAP_MS` (5 minutes). Zero for fewer than two timestamps.
+- `normalizeTimestamp(value)`: a string or `Date` as an ISO 8601 UTC string; throws on an invalid date.
+- `normalizeSourceId(value)`: a source id with control characters stripped and whitespace trimmed, or `undefined` when the value is not a string or ends up empty.
+- `getEventSessionKey(event)`: a key for an event's session, its `source` and `sessionId` joined by a NUL character, so equal session ids from two sources stay apart.
+- `toParseDiagnostics(events, skippedRows, skippedRowReasons)`: packs a file's events and a reason-count map into the `SourceParseFileDiagnostics` shape `collectFile` returns, reasons sorted.
 
 ## Security posture
 

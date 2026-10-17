@@ -37,7 +37,7 @@
     "format:write": "prettier --write .",
     "verify": "pnpm run lint && pnpm run typecheck && pnpm run core:typecheck && pnpm run test && node .github/scripts/check-coverage-threshold.mjs && pnpm run core:test && node .github/scripts/check-coverage-threshold.mjs packages/core/coverage/coverage-summary.json && pnpm run format:check",
     "verify:full": "pnpm run build && pnpm run dist:size && pnpm run verify",
-    "verify:ci": "pnpm run verify && pnpm run docs:mermaid:validate && pnpm run build && pnpm run dist:size && pnpm run smoke:dist-opencode && pnpm run smoke:sqlite-warning && pnpm run pack:check && pnpm --filter llm-usage-metrics-site run format:check && pnpm run site:check && pnpm run site:docs:generate -- --rebuild && git diff --exit-code -- site/src/content/docs/cli-reference.mdx site/src/content/docs/security.mdx && pnpm run site:build",
+    "verify:ci": "pnpm run verify && pnpm run docs:mermaid:validate && pnpm run build && pnpm run dist:size && pnpm run smoke:dist-opencode && pnpm run smoke:sqlite-warning && pnpm run pack:check && pnpm --filter llm-usage-metrics-site run format:check && pnpm run site:check && pnpm run site:docs:generate -- --rebuild && git diff --exit-code -- site/src/content/docs/cli-reference.mdx site/src/content/docs/security.mdx && pnpm run site:build && pnpm run site:links",
     "pack:check": "npm pack",
     "dist:size": "node scripts/check-dist-size.mjs",
     "pricing:snapshot": "node scripts/generate-pricing-snapshot.mjs",
@@ -54,8 +54,10 @@
     "site:build": "pnpm --filter llm-usage-metrics-site build",
     "site:preview": "pnpm --filter llm-usage-metrics-site preview",
     "site:check": "pnpm --filter llm-usage-metrics-site check",
+    "site:links": "node site/scripts/check-links.mjs",
     "site:docs:generate": "node scripts/generate-cli-reference.mjs && node scripts/generate-site-security-doc.mjs",
     "docs:mermaid:validate": "node scripts/validate-mermaid.mjs",
+    "docs:screenshots": "node site/scripts/docs-screenshots.mjs",
     "bench:baseline": "node scripts/benchmark-baseline.mjs"
   },
   "keywords": [

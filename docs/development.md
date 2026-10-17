@@ -11,6 +11,16 @@
 pnpm install
 ```
 
+## Repository layout
+
+The repository is a pnpm workspace (`pnpm-workspace.yaml`) with three packages:
+
+- the root package, `llm-usage-metrics`: the CLI in `src/`, its tests in `tests/`, report JSON Schemas in `schema/`, and build, smoke, benchmark and docs scripts in `scripts/`
+- `packages/core`, `@ayagmar/agent-sessions`: the source adapters, event types, read stages and dedup that the CLI bundles; its tests and parser fixtures live in `packages/core/tests`
+- `site`, `llm-usage-metrics-site`: the Astro Starlight docs site, with its own scripts in `site/scripts/`
+
+Root scripts prefixed `core:` run the core package's scripts (`core:build`, `core:typecheck`, `core:lint`, `core:test`, `core:test:fast`, `core:test:memory`), and `core:pack:check` packs it (after `core:build`) and fails if the manifest gains a dependency, an `exports` target is missing from the tarball, or a subpath does not load on its own. Scripts prefixed `site:` run the site's.
+
 ## Local quality checks
 
 Minimum project checks:
@@ -45,6 +55,41 @@ Notes:
 - The main test job rebuilds `dist` before `pnpm run smoke:dist-opencode` and `pnpm run test`.
 - The Bun job builds `dist` with Node, then runs `pnpm run smoke:dist-bun` and the OpenCode smoke under Bun. The Bun smoke check fails unless `node:sqlite` works under Bun, Bun's report JSON matches Node's on a cold run whose Codex files parse in worker threads (no fallback) and on a warm run served from the event store, and `statusline` prints one line.
 - Site CI also regenerates `site/src/content/docs/cli-reference.mdx` and `site/src/content/docs/security.mdx` and fails if either generated file is out of date.
+- `verify:ci` also runs the site format check, `site:check`, `site:build` and `site:links`.
+
+## Share report client
+
+The `--share` HTML report inlines a browser client from `src/share-report/client`. The CLI build does not compile it: `scripts/build-share-client.mjs` bundles it with esbuild into `src/share-report/client-bundle.generated.ts`, together with the CSP hashes of those exact bytes. After any change under `src/share-report/client`, rebuild and commit the generated file:
+
+```bash
+node scripts/build-share-client.mjs
+```
+
+`tests/share-report/client-bundle.test.ts` fails while the committed file is stale, and `pnpm run typecheck` checks the client against its own `tsconfig.json`.
+
+## Docs site
+
+The site lives in `site/`. Pages are MDX under `site/src/content/docs/`; the sidebar is `site/src/sidebar.mjs`.
+
+```bash
+pnpm run site:dev              # local server
+pnpm run site:docs:generate    # regenerate cli-reference.mdx and security.mdx
+pnpm run site:check            # astro check
+pnpm run site:build            # build into site/dist
+pnpm run site:links            # check internal links and #fragments in site/dist
+pnpm run docs:mermaid:validate # Mermaid blocks in docs/*.md
+```
+
+`cli-reference.mdx` is generated from the CLI's report definitions and help by `scripts/generate-cli-reference.mjs`, and `security.mdx` from `docs/security.md`; never edit either by hand. `site:links` reads the built site, so run `site:build` first; it lists each broken internal link as `page → target` and exits 1.
+
+Screenshots and the landing page's demo report come from synthetic data:
+
+```bash
+pnpm run build
+pnpm run docs:screenshots
+```
+
+`site/scripts/docs-screenshots.mjs` writes demo logs for several sources into a temp directory (`site/scripts/demo-data.mjs`, seeded, about 90 days ending today), runs the built CLI against them with a temp HOME, offline pricing and `--no-sync`, and writes webp images to `site/src/assets/screenshots/` and the interactive report to `site/public/demo/report.html`. It drives headless Chromium through `playwright-core`: set `PLAYWRIGHT_CHROMIUM_EXECUTABLE` to a Chromium or chrome-headless-shell binary, or install the one `playwright-core` expects with `pnpm --filter llm-usage-metrics-site exec playwright-core install chromium`. Commit the regenerated images; they are not byte-identical between runs.
 
 ## Security and dependency hygiene
 
@@ -169,9 +214,11 @@ pnpm run pack:check
 
 ## Test layout
 
-- Unit tests: `tests/**`
-- Fixture-based parser tests: `tests/fixtures/**`
-- End-to-end report tests: `tests/e2e/**`
+- CLI unit tests: `tests/**`, by area (`tests/cli`, `tests/pricing`, `tests/render`, `tests/share-report`, …)
+- Source parser tests and their fixtures: `packages/core/tests/sources/**` and `packages/core/tests/fixtures/**`
+- End-to-end report tests: `tests/e2e/**`, over `tests/fixtures/e2e/<source>/`
+- Goldens: `tests/golden/**` (below)
+- Site script and docs contract tests: `tests/site/**`
 
 ## Goldens
 
@@ -226,6 +273,10 @@ Checks:
 - test + coverage (`pnpm run test`, Node 24)
 - coverage threshold gate (`node .github/scripts/check-coverage-threshold.mjs`)
 - test matrix: build, dist smoke and tests on Ubuntu, macOS and Windows with Node 22.16.0 and 24.21.0
+- Mermaid validation (`docs/*.md`)
+- Bun smoke (`pnpm run smoke:dist-bun`)
+- core package: build, pack check, lint, typecheck, tests with its own coverage threshold, and the memory tests
+- site: format check, `site:check`, generated docs up to date, `site:build`, `site:links`
 
 Runtime:
 

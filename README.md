@@ -23,7 +23,11 @@
   <a href="./CONTRIBUTING.md">Contributing</a>
 </p>
 
-`llm-usage-metrics` reads local session data from 17 AI coding tools, on this machine and on others you reach over ssh, and converts it into one normalized usage history. Use it to review tokens and estimated cost, compare periods, find expensive sessions, correlate usage with local Git activity, or export the result.
+`llm-usage-metrics` reads local session data from 17 AI coding tools, on this machine and on others you reach over ssh, and converts it into one normalized usage history. Use it to review tokens and estimated cost by day, hour, project or session, compare periods, check usage against 5-hour plan windows and subscription prices, correlate usage with local Git activity, explore it all in an interactive HTML report, or export the events.
+
+<p align="center">
+  <img src="./site/src/assets/screenshots/term-summary.webp" width="520" alt="llm-usage summary in a terminal: cost and tokens for today, the last 7 days and month to date, the month-end pace, prompt caching savings, streaks and a year-long activity heatmap">
+</p>
 
 The CLI parses session content on your machine. It discovers standard source locations and includes a bundled pricing snapshot, so the first report can run without configuration or network access.
 
@@ -58,27 +62,28 @@ llm-usage doctor
 
 ## Reports
 
-| Question                                                  | Command                                   |
-| --------------------------------------------------------- | ----------------------------------------- |
-| What did I spend today, this week, and this month?        | `llm-usage`                               |
-| How much did I use by day, week, or month?                | `llm-usage daily`, `weekly`, `monthly`    |
-| How did today go, hour by hour?                           | `llm-usage hourly`                        |
-| How did one period change from another?                   | `llm-usage compare`                       |
-| Which conversations or repositories used the most?        | `llm-usage session`                       |
-| What did each project cost?                               | `llm-usage projects`                      |
-| Which estimated 5-hour plan windows did I use?            | `llm-usage blocks`                        |
-| How does API-priced usage compare with my plan price?     | `llm-usage value`                         |
-| Which price does a model name get, and why?               | `llm-usage pricing <model>`               |
-| How is daily usage moving?                                | `llm-usage trends`                        |
-| How does repo-attributed usage line up with Git activity? | `llm-usage efficiency monthly`            |
-| What would the same token mix cost on another model?      | `llm-usage optimize monthly`              |
-| What did the year add up to?                              | `llm-usage wrapped`                       |
-| What can my status bar show?                              | `llm-usage statusline`                    |
-| How do I get the raw normalized events out?               | `llm-usage events`                        |
-| Which sources and local stores are healthy?               | `llm-usage doctor`                        |
-| Which departed files can leave the event ledger?          | `llm-usage prune`                         |
-| What configuration is active, and which file is it from?  | `llm-usage config show`, `config path`    |
-| Which JSON Schema does my installed version emit?         | `llm-usage schema usage`, `schema --list` |
+| Question                                                  | Command                                                |
+| --------------------------------------------------------- | ------------------------------------------------------ |
+| What did I spend today, this week, and this month?        | `llm-usage`                                            |
+| How much did I use by day, week, or month?                | `llm-usage daily`, `weekly`, `monthly`                 |
+| How did today go, hour by hour?                           | `llm-usage hourly`                                     |
+| How did one period change from another?                   | `llm-usage compare`                                    |
+| Which conversations or repositories used the most?        | `llm-usage session`                                    |
+| What did each project cost?                               | `llm-usage projects`                                   |
+| Which estimated 5-hour plan windows did I use?            | `llm-usage blocks`                                     |
+| How does API-priced usage compare with my plan price?     | `llm-usage value`                                      |
+| Which price does a model name get, and why?               | `llm-usage pricing <model>`                            |
+| How is daily usage moving?                                | `llm-usage trends`                                     |
+| How does repo-attributed usage line up with Git activity? | `llm-usage efficiency monthly`                         |
+| What would the same token mix cost on another model?      | `llm-usage optimize monthly --candidate-model <model>` |
+| What did the year add up to?                              | `llm-usage wrapped`                                    |
+| Can I explore the numbers in a browser?                   | `llm-usage monthly --share`                            |
+| What can my status bar show?                              | `llm-usage statusline`                                 |
+| How do I get the raw normalized events out?               | `llm-usage events`                                     |
+| Which sources and local stores are healthy?               | `llm-usage doctor`                                     |
+| Which departed files can leave the event ledger?          | `llm-usage prune --suppressed`                         |
+| What configuration is active, and which file is it from?  | `llm-usage config show`, `config path`                 |
+| Which JSON Schema does my installed version emit?         | `llm-usage schema usage`, `schema --list`              |
 
 Common examples:
 
@@ -235,9 +240,18 @@ llm-usage weekly --last 1 --no-cost
 
 Terminal tables fit the terminal width: on a narrow terminal, token counts are abbreviated and less-used columns are hidden, with a `stderr` note saying what was left out. When no table fits, as on a phone, each row is listed as labelled values instead. `--compact` asks for the short table directly. `--last N` covers the last N days, weeks, or months, counting the current one, and `--no-cost` leaves spend out of tables and share reports.
 
-Report data goes to `stdout`. Diagnostics go to `stderr` as one summary line plus any warnings, which keeps JSON and Markdown safe to redirect; `--quiet` keeps only warnings and `--verbose` adds per-source and skipped-row detail. JSON output is wrapped in a versioned envelope: `{ "schemaVersion": 1, "report": "usage", "data": ... }`. Scripts written against pre-0.8.0 JSON should follow the [migration guide](https://ayagmar.github.io/llm-usage-metrics/migrating-to-0-8/).
+Report data goes to `stdout`. Diagnostics go to `stderr` as one summary line plus any warnings, which keeps JSON and Markdown safe to redirect; `--quiet` keeps only warnings and `--verbose` adds per-source and skipped-row detail. JSON output is wrapped in a versioned envelope: `{ "schemaVersion": 1, "report": "usage", "data": ... }`. Scripts written against pre-0.8.0 JSON should follow the [migration guide](https://ayagmar.github.io/llm-usage-metrics/upgrading/0-8/).
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./site/src/assets/screenshots/share-daily-dark.webp">
+  <img src="./site/src/assets/screenshots/share-daily-light.webp" alt="The interactive report from llm-usage daily --share: period, grouping, source, model and project filters, totals for tokens, cost, events and active time, and a daily cost chart stacked by source">
+</picture>
 
 Terminal, JSON, and Markdown availability varies by report. Summary, usage, compare, trends, wrapped, efficiency, and optimize can write a share report with `--share`: one self-contained HTML file with charts, filters, sortable tables, and a drill-down from projects to sessions, that exports each chart as PNG or SVG in your browser and loads nothing from the network. `--redact` replaces project and machine names in the file, and `--share --no-open` writes it without opening it. The [output guide](https://ayagmar.github.io/llm-usage-metrics/output-formats/) contains the format matrix and file names.
+
+## Library
+
+The parsers behind the CLI are a separate package, `@ayagmar/agent-sessions`, for Node.js scripts and tools that want the same events without pricing, the ledger or reports. It reads all 17 sources into one event shape (token usage, and for Claude Code, codex and pi also messages, tool calls and session facts), has no runtime dependencies, and never touches the network. It is not on npm yet. See the [library docs](https://ayagmar.github.io/llm-usage-metrics/library/) for how to build it from this repository and use it.
 
 ## Performance
 
