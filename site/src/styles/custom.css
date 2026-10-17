@@ -259,6 +259,15 @@ header.header {
   white-space: nowrap;
 }
 
+/* On phones, tighter cells let three-column tables such as the report chooser fit. */
+@media (max-width: 30rem) {
+  .sl-markdown-content th,
+  .sl-markdown-content td {
+    padding-inline: 0.6rem;
+    min-width: 6rem;
+  }
+}
+
 .sl-markdown-content td code {
   overflow-wrap: anywhere;
 }
