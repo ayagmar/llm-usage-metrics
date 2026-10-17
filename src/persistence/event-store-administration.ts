@@ -10,16 +10,13 @@ import {
   type FileFingerprint as EventStoreFileFingerprint,
   compareByCodePoint,
   hasErrorCode,
+  takeUncountedEvents,
 } from '@ayagmar/agent-sessions/internal';
-import type { SourceSkippedRowReasonStat } from '@ayagmar/agent-sessions';
+import { computeEventContentHash, type SourceSkippedRowReasonStat } from '@ayagmar/agent-sessions';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
 import { getUserDataRootDir } from '../utils/data-root-dir.js';
 import { ensureDirectory, pathExists, pathStat } from '../utils/fs-helpers.js';
-import {
-  computeEventContentHash,
-  normalizeStoredEventTuple,
-  type StoredEventTuple,
-} from './event-store-codec.js';
+import { normalizeStoredEventTuple, type StoredEventTuple } from './event-store-codec.js';
 import {
   type EventStore,
   type EventStoreDatabase,
@@ -31,7 +28,6 @@ import {
   toNonNegativeNumber,
   toText,
 } from './event-store-database.js';
-import { takeUncountedEvents } from './event-store-history.js';
 import {
   assertSupportedSchemaVersion,
   EVENT_STORE_SCHEMA_VERSION,

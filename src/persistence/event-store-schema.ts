@@ -1,4 +1,6 @@
-import { computeEventContentHash, normalizeStoredEvent } from './event-store-codec.js';
+import { computeEventContentHash } from '@ayagmar/agent-sessions';
+
+import { normalizeStoredEvent } from './event-store-codec.js';
 import {
   type EventStoreDatabase,
   runTransaction,

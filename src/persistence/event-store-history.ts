@@ -9,8 +9,6 @@ import { normalizeSourceId } from '../domain/usage-event.js';
 import { normalizeStoredEvent } from './event-store-codec.js';
 import { toNonNegativeInteger, toText, type EventStore } from './event-store-database.js';
 
-export { takeUncountedEvents };
-
 export type EventStoreHistoryDiscoveredFile = {
   source: string;
   filePath: string;

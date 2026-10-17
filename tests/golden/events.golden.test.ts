@@ -9,7 +9,7 @@ import type {
   EventsCommandOptions,
 } from '../../src/cli/usage-data-contracts.js';
 import type { UsageEvent } from '../../src/domain/usage-event.js';
-import { computeEventContentHash } from '../../src/persistence/event-store-codec.js';
+import { computeEventContentHash } from '@ayagmar/agent-sessions';
 import { useIsolatedEnvironment } from '../helpers/isolated-env.js';
 import { useBundledPricingOnly } from '../helpers/offline-pricing.js';
 import {
