@@ -3,6 +3,9 @@ title: '5-hour blocks'
 description: 'Estimated 5-hour usage blocks per source, with the active block.'
 ---
 
+import TerminalShot from '../../components/TerminalShot.astro';
+import termBlocks from '../../assets/screenshots/term-blocks.webp';
+
 Subscription plans such as Claude Max and ChatGPT Pro meter usage in rolling windows of about five hours. `llm-usage blocks` estimates those windows from your logs, one chain per source, and shows how much each window used and how fast the current one is burning. On a pay-as-you-go API key the blocks mean nothing; use [Usage totals](/llm-usage-metrics/usage/) instead.
 
 ```bash
@@ -24,7 +27,7 @@ The table has one row per block, in time order: the block's start and end in the
 Active block (estimated), claude: ends 2026-06-21 15:00, 180 min left, burn rate $0.02/h, 13,100 tokens/h.
 ```
 
-![Terminal output of llm-usage blocks --last 2 --compact: estimated 5-hour blocks per source with models, events, tokens, and cost, two of them marked active, and a line for each active block with its end time, minutes left, and burn rate](../../assets/screenshots/term-blocks.webp)
+<TerminalShot src={termBlocks} label="llm-usage blocks --last 2 --compact output" alt="Terminal output of llm-usage blocks --last 2 --compact: estimated 5-hour blocks per source with models, events, tokens, and cost, two of them marked active, and a line for each active block with its end time, minutes left, and burn rate" />
 
 The burn rate is the block's usage so far divided by the time since it started (at least one minute). When some events in the block have no price, the cost rate is a lower bound.
 

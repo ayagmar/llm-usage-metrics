@@ -3,6 +3,9 @@ title: Compare Periods
 description: Compare tokens, cost, events, and active days between two date windows.
 ---
 
+import TerminalShot from '../../components/TerminalShot.astro';
+import termCompare from '../../assets/screenshots/term-compare.webp';
+
 `llm-usage compare` summarizes two windows with the same source, provider, model, timezone, history, and pricing settings. It reports the current value, baseline value, absolute delta, and percentage change for each metric.
 
 ## Default comparison
@@ -13,7 +16,7 @@ llm-usage compare
 
 With no date flags, the current window is the current local month to date and the baseline is the same days of the previous month (clamped to that month's last day), so a partial month is never compared against a full one. On 6 October the report compares 1–6 October with 1–6 September. The report timezone decides those boundaries.
 
-![Terminal output of llm-usage compare: month to date against the same days of last month, with current, baseline, delta, and percentage change for each token type, cost, events, and active days, then the cost by source](../../assets/screenshots/term-compare.webp)
+<TerminalShot src={termCompare} label="llm-usage compare output" alt="Terminal output of llm-usage compare: month to date against the same days of last month, with current, baseline, delta, and percentage change for each token type, cost, events, and active days, then the cost by source" />
 
 ## Compare a chosen range
 
