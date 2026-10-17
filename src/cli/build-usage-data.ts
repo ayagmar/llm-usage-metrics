@@ -120,16 +120,13 @@ function getDefaultWindowPeriods(granularity: UsageGranularity): number | undefi
 }
 
 /**
- * `--last N` covers the last N periods, counting the current one, in the report timezone
- * (days for `hourly`). Without dates, `hourly` and a granularity with a
- * DEFAULT_REPORT_WINDOWS entry cover that recent window; `--all` restores full history.
- * Explicit dates and other granularities are unchanged.
+ * `--last N` as a count of periods, once it is checked against --since, --until and --all;
+ * undefined without `--last`.
  */
-export async function resolveUsageDataRequest(
+export function parseWindowFlags(
+  options: Pick<ReportCommandOptions, 'last' | 'all' | 'since' | 'until'>,
   granularity: UsageGranularity,
-  options: ReportCommandOptions,
-  deps: BuildUsageDataDeps,
-): Promise<UsageDataRequest> {
+): number | undefined {
   const hasDates = options.since !== undefined || options.until !== undefined;
   const isHourly = granularity === 'hourly';
   const lastPeriods = parseLastOption(
@@ -150,6 +147,23 @@ export async function resolveUsageDataRequest(
     throw new Error('--all cannot be combined with --since or --until');
   }
 
+  return lastPeriods;
+}
+
+/**
+ * `--last N` covers the last N periods, counting the current one, in the report timezone
+ * (days for `hourly`). Without dates, `hourly` and a granularity with a
+ * DEFAULT_REPORT_WINDOWS entry cover that recent window; `--all` restores full history.
+ * Explicit dates and other granularities are unchanged.
+ */
+export async function resolveUsageDataRequest(
+  granularity: UsageGranularity,
+  options: ReportCommandOptions,
+  deps: BuildUsageDataDeps,
+): Promise<UsageDataRequest> {
+  const hasDates = options.since !== undefined || options.until !== undefined;
+  const isHourly = granularity === 'hourly';
+  const lastPeriods = parseWindowFlags(options, granularity);
   const periods =
     lastPeriods ?? (options.all || hasDates ? undefined : getDefaultWindowPeriods(granularity));
 
