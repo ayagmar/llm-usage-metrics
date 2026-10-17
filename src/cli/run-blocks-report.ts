@@ -5,6 +5,7 @@ import {
   prepareReport,
   runStandardPreparedReport,
   STANDARD_REPORT_FORMATS,
+  validateTableDisplayFlags,
 } from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
 import { getDefaultWindowHint } from './run-usage-report.js';
@@ -19,13 +20,7 @@ async function prepareBlocksReport(options: BlocksCommandOptions, deps: BuildUsa
     commandOptions: options,
     supportedFormats: blocksReportFormats,
     validate: () => {
-      if (options.compact && options.json) {
-        throw new Error('--compact applies to terminal and markdown tables; drop it with --json');
-      }
-
-      if (hideCost && options.json) {
-        throw new Error('--no-cost applies to terminal and markdown tables; drop it with --json');
-      }
+      validateTableDisplayFlags(options, 'terminal and markdown tables');
     },
     buildData: () => buildBlocksData(options, deps),
     getDiagnostics: (blocksData) => blocksData.diagnostics,

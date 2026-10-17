@@ -9,6 +9,7 @@ import {
   prepareReport,
   runStandardPreparedReport,
   STANDARD_REPORT_FORMATS,
+  validateTableDisplayFlags,
   type LimitedReportDiagnostics,
 } from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
@@ -24,13 +25,7 @@ async function prepareProjectsReport(
     commandOptions: options,
     supportedFormats: projectsReportFormats,
     validate: () => {
-      if (options.compact && options.json) {
-        throw new Error('--compact applies to terminal and markdown tables; drop it with --json');
-      }
-
-      if (options.cost === false && options.json) {
-        throw new Error('--no-cost applies to tables; drop it with --json');
-      }
+      validateTableDisplayFlags(options, 'tables');
     },
     buildData: () => buildProjectsData(options, deps),
     getDiagnostics: (projectsData): LimitedReportDiagnostics => ({

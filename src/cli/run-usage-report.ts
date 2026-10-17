@@ -8,6 +8,7 @@ import {
   prepareReport,
   runStandardPreparedReport,
   STANDARD_REPORT_FORMATS,
+  validateTableDisplayFlags,
 } from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
 import type {
@@ -125,13 +126,7 @@ async function prepareUsageReport(
             );
           },
     validate: () => {
-      if (options.compact && options.json) {
-        throw new Error('--compact applies to terminal and markdown tables; drop it with --json');
-      }
-
-      if (hideCost && options.json) {
-        throw new Error('--no-cost applies to tables and the share report; drop it with --json');
-      }
+      validateTableDisplayFlags(options, 'tables and the share report');
     },
     render: (usageData, format) => {
       const { output, notes } = renderUsageReportWithNotes(usageData, format, {

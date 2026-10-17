@@ -5,6 +5,7 @@ import {
   prepareReport,
   runStandardPreparedReport,
   STANDARD_REPORT_FORMATS,
+  validateTableDisplayFlags,
 } from './report-runtime/report-lifecycle.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
 import type { BuildUsageDataDeps, ValueCommandOptions } from './usage-data-contracts.js';
@@ -18,13 +19,7 @@ async function prepareValueReport(options: ValueCommandOptions, deps: BuildUsage
     commandOptions: options,
     supportedFormats: valueReportFormats,
     validate: () => {
-      if (options.compact && options.json) {
-        throw new Error('--compact applies to terminal and markdown tables; drop it with --json');
-      }
-
-      if (hideCost && options.json) {
-        throw new Error('--no-cost applies to tables; drop it with --json');
-      }
+      validateTableDisplayFlags(options, 'tables');
     },
     buildData: () => buildValueData(options, deps),
     getDiagnostics: (valueData) => valueData.diagnostics,
