@@ -66,7 +66,7 @@ llm-usage trends --last 14 --share
 ### `--metric active-hours`
 
 - Charts per-day active time: each day's events are grouped by session, gaps between consecutive events are capped at 5 minutes, and the per-session results are summed.
-- A session crossing midnight splits at the day boundary — each day counts only the gaps between that day's events.
+- A session crossing midnight splits at the day boundary: each day counts only the gaps between that day's events.
 - Terminal and Markdown output format durations (`2h 14m`); JSON `value`, `total`, `average`, and `peak.value` are **milliseconds**, matching session `activeMs`.
 - Skips pricing loads entirely, like `tokens`.
 
