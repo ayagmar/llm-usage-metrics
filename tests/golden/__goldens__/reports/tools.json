@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "report": "tools",
+  "data": {
+    "timezone": "UTC",
+    "since": "2026-06-15",
+    "until": null,
+    "bySource": false,
+    "byRepo": false,
+    "rowCount": 9,
+    "rows": [
+      {
+        "name": "Bash",
+        "calls": 4,
+        "errors": 1,
+        "unknown": 0,
+        "errorRate": 0.25,
+        "sessions": 2,
+        "topRepoRoot": "/w/a/api",
+        "topProject": "a/api"
+      },
+      {
+        "name": "exec_command",
+        "calls": 3,
+        "errors": 1,
+        "unknown": 0,
+        "errorRate": 0.3333333333333333,
+        "sessions": 1,
+        "topRepoRoot": "/w/c/tools",
+        "topProject": "tools"
+      },
+      {
+        "name": "Read",
+        "calls": 2,
+        "errors": 0,
+        "unknown": 0,
+        "errorRate": 0,
+        "sessions": 1,
+        "topRepoRoot": "/w/a/api",
+        "topProject": "a/api"
+      },
+      {
+        "name": "Edit",
+        "calls": 1,
+        "errors": 0,
+        "unknown": 1,
+        "errorRate": null,
+        "sessions": 1,
+        "topRepoRoot": "/w/a/api",
+        "topProject": "a/api"
+      },
+      {
+        "name": "Grep",
+        "calls": 1,
+        "errors": 1,
+        "unknown": 0,
+        "errorRate": 1,
+        "sessions": 1,
+        "topRepoRoot": "/w/b/api",
+        "topProject": "b/api"
+      },
+      {
+        "name": "apply_patch",
+        "calls": 1,
+        "errors": 0,
+        "unknown": 0,
+        "errorRate": 0,
+        "sessions": 1,
+        "topRepoRoot": "/w/c/tools",
+        "topProject": "tools"
+      },
+      {
+        "name": "bash",
+        "calls": 1,
+        "errors": 0,
+        "unknown": 0,
+        "errorRate": 0,
+        "sessions": 1,
+        "topRepoRoot": null,
+        "topProject": "(unattributed)"
+      },
+      {
+        "name": "read",
+        "calls": 1,
+        "errors": 1,
+        "unknown": 0,
+        "errorRate": 1,
+        "sessions": 1,
+        "topRepoRoot": null,
+        "topProject": "(unattributed)"
+      },
+      {
+        "name": "web_search",
+        "calls": 1,
+        "errors": 0,
+        "unknown": 1,
+        "errorRate": null,
+        "sessions": 1,
+        "topRepoRoot": "/w/c/tools",
+        "topProject": "tools"
+      }
+    ],
+    "totals": {
+      "calls": 15,
+      "errors": 4,
+      "unknown": 2,
+      "errorRate": 0.3076923076923077,
+      "sessions": 4,
+      "tools": 9
+    }
+  }
+}
