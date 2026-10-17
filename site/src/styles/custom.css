@@ -317,3 +317,9 @@ header.header {
   --sl-color-bg-nav: var(--color-bg);
   --sl-color-bg-sidebar: var(--color-bg);
 }
+
+/* Interactive-report screenshots share the page background, so they get a frame. */
+.sl-markdown-content .share-shot {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+}

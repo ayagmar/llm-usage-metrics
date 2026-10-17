@@ -24,6 +24,8 @@ The table has one row per block, in time order: the block's start and end in the
 Active block (estimated), claude: ends 2026-06-21 15:00, 180 min left, burn rate $0.02/h, 13,100 tokens/h.
 ```
 
+![Terminal output of llm-usage blocks --last 2 --compact: estimated 5-hour blocks per source with models, events, tokens, and cost, two of them marked active, and a line for each active block with its end time, minutes left, and burn rate](../../assets/screenshots/term-blocks.webp)
+
 The burn rate is the block's usage so far divided by the time since it started (at least one minute). When some events in the block have no price, the cost rate is a lower bound.
 
 On a narrow terminal each block is listed as labelled values instead of a table row, and `--compact` abbreviates token counts and leaves out minor columns.

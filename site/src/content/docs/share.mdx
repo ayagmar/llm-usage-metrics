@@ -3,6 +3,12 @@ title: 'Interactive report'
 description: 'Self-contained HTML reports you can filter, explore, and share.'
 ---
 
+import { Image } from 'astro:assets';
+import shareDailyDark from '../../assets/screenshots/share-daily-dark.webp';
+import shareDailyLight from '../../assets/screenshots/share-daily-light.webp';
+import shareProjectsDark from '../../assets/screenshots/share-projects-dark.webp';
+import shareProjectsLight from '../../assets/screenshots/share-projects-light.webp';
+
 Add `--share` to a report command and it writes one HTML file to the current directory: your usage by hour, source, model, project, and machine, with charts and tables you can filter in the browser. The command still prints its normal report to `stdout`.
 
 ```bash
@@ -11,6 +17,9 @@ llm-usage trends --last 14 --share --no-open
 ```
 
 The file opens in your default browser. `--no-open` only writes it, which suits ssh sessions and scripts. A `stderr` line gives its path, and a run replaces an older file of the same name. If the browser cannot be started, the CLI warns and keeps the file.
+
+<Image src={shareDailyLight} alt="The interactive report in a browser: period, grouping, filter, cost, and theme controls, a row of totals, and a daily cost chart stacked by source" class="share-shot dark:sl-hidden" />
+<Image src={shareDailyDark} alt="The interactive report in a browser: period, grouping, filter, cost, and theme controls, a row of totals, and a daily cost chart stacked by source" class="share-shot light:sl-hidden" />
 
 ## Which commands write one
 
@@ -51,6 +60,9 @@ Below the controls, a row of totals (tokens, cost, events, active time, cache hi
 - an hour-of-day by weekday heatmap
 - a 5-hour blocks chart, shaded by tokens (see [5-hour blocks](/llm-usage-metrics/blocks/))
 - a sortable projects table; select a project to list its sessions
+
+<Image src={shareProjectsLight} alt="The projects table of the interactive report: tokens, input, output, cache read, cache hit rate, events, active time, and cost for each project, sorted by cost" class="share-shot dark:sl-hidden" />
+<Image src={shareProjectsDark} alt="The projects table of the interactive report: tokens, input, output, cache read, cache hit rate, events, active time, and cost for each project, sorted by cost" class="share-shot light:sl-hidden" />
 
 Each chart has PNG and SVG downloads, a **Copy image** button, and a **Show as a table** view of its numbers. Copying an image needs a browser that allows image clipboard writes; the downloads work everywhere.
 
