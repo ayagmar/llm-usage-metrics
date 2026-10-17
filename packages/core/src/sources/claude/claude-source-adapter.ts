@@ -15,7 +15,10 @@ import { asRecord } from '../../utils/as-record.js';
 import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import { pathStat } from '../../utils/fs-helpers.js';
-import { readClassifiedJsonlObjects, readJsonlObjects } from '../../utils/read-jsonl-objects.js';
+import {
+  readClassifiedJsonlObjectBatches,
+  readJsonlObjectBatches,
+} from '../../utils/read-jsonl-objects.js';
 import {
   discoverFilesAcrossRoots,
   isPathWithinRoots,
@@ -462,13 +465,15 @@ export class ClaudeSourceAdapter implements SourceAdapter {
     const usageRows = new ClaudeUsageRows(filePath, parentMessageKeys, plan);
 
     if (!readsSessionEvents) {
-      for await (const line of readJsonlObjects(filePath, {
+      for await (const lines of readJsonlObjectBatches(filePath, {
         shouldParseLineBytes: shouldParseClaudeJsonlLineBytes,
         onMalformedLine: () => {
           recordSkippedRow(diagnostics, 'json_parse_error');
         },
       })) {
-        usageRows.add(line);
+        for (const line of lines) {
+          usageRows.add(line);
+        }
       }
 
       yield* usageRows.flush();
@@ -487,18 +492,20 @@ export class ClaudeSourceAdapter implements SourceAdapter {
       replayedMessageKeys: parentMessageKeys,
     });
 
-    for await (const { record, isUsageLine } of readClassifiedJsonlObjects(filePath, {
+    for await (const items of readClassifiedJsonlObjectBatches(filePath, {
       shouldParseLineBytes: shouldParseClaudeSessionLineBytes,
       isUsageLineBytes: shouldParseClaudeJsonlLineBytes,
       onMalformedLine: (lineBytes) => {
         recordMalformedLine(diagnostics, kinds, shouldParseClaudeJsonlLineBytes(lineBytes));
       },
     })) {
-      if (readsUsage && isUsageLine) {
-        usageRows.add(record);
-      }
+      for (const { record, isUsageLine } of items) {
+        if (readsUsage && isUsageLine) {
+          usageRows.add(record);
+        }
 
-      yield* sessionEvents.add(record);
+        yield* sessionEvents.add(record);
+      }
     }
 
     // Unanswered tool calls come before the usage, which is sorted at the end of the file.

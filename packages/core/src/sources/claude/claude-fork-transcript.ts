@@ -1,7 +1,7 @@
 import path from 'node:path';
 
 import { asRecord } from '../../utils/as-record.js';
-import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
+import { readJsonlObjectBatches } from '../../utils/read-jsonl-objects.js';
 import { asTrimmedText } from '../parsing-utils.js';
 import { readBoundedJsonFile } from '../read-json-file.js';
 
@@ -75,14 +75,16 @@ export async function readClaudeMessageKeys(filePath: string): Promise<Set<strin
   const messageKeys = new Set<string>();
 
   try {
-    for await (const line of readJsonlObjects(filePath, {
+    for await (const lines of readJsonlObjectBatches(filePath, {
       shouldParseLineBytes: (lineBytes) => lineBytes.includes(CLAUDE_ASSISTANT_BYTES),
     })) {
-      const message = asRecord(line.message);
-      const messageKey = message ? getClaudeMessageKey(line, message) : undefined;
+      for (const line of lines) {
+        const message = asRecord(line.message);
+        const messageKey = message ? getClaudeMessageKey(line, message) : undefined;
 
-      if (messageKey) {
-        messageKeys.add(messageKey);
+        if (messageKey) {
+          messageKeys.add(messageKey);
+        }
       }
     }
   } catch {
@@ -102,13 +104,15 @@ export async function readClaudeRowUuids(filePath: string): Promise<Set<string>>
   const rowUuids = new Set<string>();
 
   try {
-    for await (const line of readJsonlObjects(filePath, {
+    for await (const lines of readJsonlObjectBatches(filePath, {
       shouldParseLineBytes: (lineBytes) => lineBytes.includes(CLAUDE_UUID_BYTES),
     })) {
-      const uuid = asTrimmedText(line.uuid);
+      for (const line of lines) {
+        const uuid = asTrimmedText(line.uuid);
 
-      if (uuid) {
-        rowUuids.add(uuid);
+        if (uuid) {
+          rowUuids.add(uuid);
+        }
       }
     }
   } catch {

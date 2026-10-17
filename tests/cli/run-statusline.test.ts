@@ -1,11 +1,12 @@
 import { mkdtemp, rm } from 'node:fs/promises';
-import os from 'node:os';
+import os, { availableParallelism } from 'node:os';
 import path from 'node:path';
 import { PassThrough, Readable } from 'node:stream';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { buildSummaryData } from '../../src/cli/build-summary-data.js';
+import { RuntimeProfileCollector } from '../../src/cli/runtime-profile.js';
 import {
   buildStatusline,
   buildStatuslineData,
@@ -240,6 +241,34 @@ describe('buildStatusline', () => {
       ...overrides,
     };
   }
+
+  it('caps an auto parse worker count at two, and keeps an explicit count', async () => {
+    const parseWorkerLimit = async (parseWorkers: string): Promise<number | undefined> => {
+      vi.stubEnv('LLM_USAGE_PARSE_WORKERS', parseWorkers);
+      const runtimeProfile = new RuntimeProfileCollector();
+      const statusline = await buildStatuslineData(
+        { timezone: 'UTC' },
+        {
+          ...deps([codexAdapter([codexEvent('2026-03-10T09:00:00.000Z')])]),
+          getParsingRuntimeConfig: undefined,
+          runtimeProfile,
+        },
+      );
+
+      return statusline.diagnostics.runtimeProfile?.sourceStats.find(
+        (stats) => stats.source === 'codex',
+      )?.parseWorkerLimit;
+    };
+
+    try {
+      await expect(parseWorkerLimit('auto')).resolves.toBe(
+        Math.max(0, Math.min(2, availableParallelism() - 1)),
+      );
+      await expect(parseWorkerLimit('6')).resolves.toBe(6);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 
   it('counts only month-to-date events in the pricing notes, unlike the summary', async () => {
     // Mar 3: the summary's last 7 days reach back into February.

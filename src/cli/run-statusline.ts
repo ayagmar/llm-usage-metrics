@@ -1,4 +1,5 @@
 import { calculateCurrentStreak, type DailyActivity } from '../aggregate/daily-activity.js';
+import { getParsingRuntimeConfig } from '../config/runtime-overrides.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { formatApproxUsd, formatStatuslineCompact, formatUsd } from '../render/format-number.js';
 import { asRecord } from '../utils/as-record.js';
@@ -184,6 +185,11 @@ function collectActiveDays(events: readonly UsageEvent[], timezone: string): Set
  * priced event (`applyPricingToEvents`), so the line's totals do not change. Prices load
  * when the year's events need them, as for the summary, so a load failure does not change.
  */
+// A cold tick (empty event store) on large logs parses on the worker pool. Each worker
+// holds its own heap: on the bench corpus with the pool forced on, the tick took as long
+// with two workers as with eight, and peak RSS grew by about 60 MB per worker past two.
+const STATUSLINE_AUTO_PARSE_WORKERS = 2;
+
 export async function buildStatuslineData(
   options: StatuslineCommandOptions,
   deps: BuildSummaryDataDeps,
@@ -192,7 +198,12 @@ export async function buildStatuslineData(
   // usage only, never a network fetch or an ssh connection.
   const { userConfigResolution, timezone, windows, today, dataset } = await buildSummaryDataset(
     { ...options, pricingOffline: true, sync: false },
-    deps,
+    {
+      ...deps,
+      getParsingRuntimeConfig:
+        deps.getParsingRuntimeConfig ??
+        ((env, config) => getParsingRuntimeConfig(env, config, STATUSLINE_AUTO_PARSE_WORKERS)),
+    },
   );
   // Today, the last 7 days, then month to date (resolveSummaryWindows).
   const [todayWindow, , monthToDateWindow] = windows;

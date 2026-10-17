@@ -12,7 +12,10 @@ import { normalizeNonNegativeInteger } from '../../domain/normalization.js';
 import { asRecord } from '../../utils/as-record.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import { pathStat } from '../../utils/fs-helpers.js';
-import { readClassifiedJsonlObjects, readJsonlObjects } from '../../utils/read-jsonl-objects.js';
+import {
+  readClassifiedJsonlObjectBatches,
+  readJsonlObjectBatches,
+} from '../../utils/read-jsonl-objects.js';
 import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import {
   asTrimmedText,
@@ -659,48 +662,52 @@ export class CodexSourceAdapter implements SourceAdapter {
     };
 
     if (!kindReader) {
-      for await (const line of readJsonlObjects(filePath, {
+      for await (const lines of readJsonlObjectBatches(filePath, {
         shouldParseLineBytes: shouldParseCodexJsonlLineBytes,
         onMalformedLine: () => {
           recordSkippedRow(diagnostics, 'json_parse_error');
         },
       })) {
-        for (const record of takeUsageLine(line, state, options, diagnostics)) {
-          const event = toEvent(record);
+        for (const line of lines) {
+          for (const record of takeUsageLine(line, state, options, diagnostics)) {
+            const event = toEvent(record);
 
-          if (event !== undefined) {
-            yield event;
+            if (event !== undefined) {
+              yield event;
+            }
           }
         }
       }
     } else {
-      for await (const { record: line, isUsageLine } of readClassifiedJsonlObjects(filePath, {
+      for await (const items of readClassifiedJsonlObjectBatches(filePath, {
         shouldParseLineBytes: shouldParseCodexEventLineBytes,
         isUsageLineBytes: shouldParseCodexJsonlLineBytes,
         onMalformedLine: (lineBytes) => {
           recordMalformedLine(diagnostics, kinds, shouldParseCodexJsonlLineBytes(lineBytes));
         },
       })) {
-        const timestamp = normalizeTimestampCandidate(line.timestamp);
-        yield* kindReader.advance(timestamp);
+        for (const { record: line, isUsageLine } of items) {
+          const timestamp = normalizeTimestampCandidate(line.timestamp);
+          yield* kindReader.advance(timestamp);
 
-        const released = isUsageLine
-          ? takeUsageLine(line, state, options, usageDiagnostics)
-          : NO_USAGE;
+          const released = isUsageLine
+            ? takeUsageLine(line, state, options, usageDiagnostics)
+            : NO_USAGE;
 
-        for (const record of yieldsUsage ? released : NO_USAGE) {
-          const event = toEvent(record);
+          for (const record of yieldsUsage ? released : NO_USAGE) {
+            const event = toEvent(record);
 
-          if (event !== undefined) {
-            yield event;
+            if (event !== undefined) {
+              yield event;
+            }
           }
-        }
 
-        yield* kindReader.record(line, {
-          sessionId: state.sessionId,
-          model: state.model,
-          timestamp,
-        });
+          yield* kindReader.record(line, {
+            sessionId: state.sessionId,
+            model: state.model,
+            timestamp,
+          });
+        }
       }
 
       yield* kindReader.finish();

@@ -6,7 +6,7 @@ import { asRecord } from '../../utils/as-record.js';
 import { compareByCodePoint } from '../../utils/compare-by-code-point.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import { pathIsFile, pathReadable } from '../../utils/fs-helpers.js';
-import { readJsonlObjects } from '../../utils/read-jsonl-objects.js';
+import { readJsonlObjectBatches } from '../../utils/read-jsonl-objects.js';
 import { discoverFilesAcrossRoots } from '../multi-root-discovery.js';
 import { createReadDiagnostics, recordSkippedRow } from '../parse-diagnostics.js';
 import {
@@ -441,30 +441,32 @@ export class CopilotSourceAdapter implements SourceAdapter {
     const candidates: CopilotCandidate[] = [];
     let lineIndex = 0;
 
-    for await (const record of readJsonlObjects(filePath, {
+    for await (const lines of readJsonlObjectBatches(filePath, {
       shouldParseLine: shouldParseCopilotJsonlLine,
       onMalformedLine: () => {
         recordSkippedRow(diagnostics, 'json_parse_error');
       },
     })) {
-      const candidate = extractCandidate(record, filePath, lineIndex);
-      lineIndex++;
+      for (const record of lines) {
+        const candidate = extractCandidate(record, filePath, lineIndex);
+        lineIndex++;
 
-      if (!candidate) {
-        continue;
+        if (!candidate) {
+          continue;
+        }
+
+        if (!hasTokenUsage(candidate)) {
+          recordSkippedRow(diagnostics, 'no_token_usage');
+          continue;
+        }
+
+        if (!candidate.timestamp) {
+          recordSkippedRow(diagnostics, 'invalid_timestamp');
+          continue;
+        }
+
+        candidates.push(candidate);
       }
-
-      if (!hasTokenUsage(candidate)) {
-        recordSkippedRow(diagnostics, 'no_token_usage');
-        continue;
-      }
-
-      if (!candidate.timestamp) {
-        recordSkippedRow(diagnostics, 'invalid_timestamp');
-        continue;
-      }
-
-      candidates.push(candidate);
     }
 
     // A later higher-priority line cancels an earlier candidate, so events wait for EOF.
