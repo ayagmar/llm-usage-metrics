@@ -3,106 +3,111 @@ title: Architecture
 description: High-level runtime architecture and data flow.
 ---
 
-`llm-usage-metrics` is organized around a small report-command architecture:
+import EventFlow from '@components/diagrams/EventFlow.astro';
+import PackageLayers from '@components/diagrams/PackageLayers.astro';
 
-1. report definitions describe command identity, shared option profile, and examples
-2. builders parse and normalize local usage data
-3. feature aggregators reshape that data into report-specific totals or series
-4. renderers emit terminal, JSON, Markdown, or share artifacts
-5. a shared report runtime handles output-format resolution, diagnostics, and stdout/stderr behavior
+The repository holds two packages. `@ayagmar/agent-sessions` (`packages/core`) reads agent logs and turns them into normalized events. The `llm-usage-metrics` CLI (`src/`) stores, merges, prices, aggregates, and renders those events. The CLI imports the core package and its build bundles it, so `dist/index.js` carries both.
+
+<PackageLayers />
+
+## Core package
+
+`packages/core/src` only reads local files: it has no runtime dependencies and makes no network calls.
+
+| Directory   | What lives there                                                                                                                                                               |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `sources/`  | One directory per source (17), the adapter contract (`source-adapter.ts`), parse diagnostics, fingerprints, multi-root and multi-directory discovery, JSON and SQLite readers |
+| `registry/` | The adapter list in registry order, `createDefaultAdapters`, worker eligibility, and `readSources`                                                                            |
+| `stream/`   | Async-iterable stages: `readEvents`, `collect`/`collectFile`, `pipe`, `kinds`, `since`/`until`, `bySession`, and read cursors                                                |
+| `dedup/`    | The content hash and the repeated-across-files and copied-session stages                                                                                                      |
+| `domain/`   | The event types and constructors, timestamp and provider normalization, active time                                                                                          |
+| `utils/`    | File discovery, chunked reads, and the JSONL reader with byte and string prefilters                                                                                           |
+| `otel/`     | OpenTelemetry GenAI attributes for events (experimental)                                                                                                                       |
+| `internal/` | Helpers the CLI uses that are not part of the public API                                                                                                                       |
+
+The package's exports map publishes `.`, `./registry`, `./otel`, `./internal`, and `./sources/<id>` for each source. [Library](/llm-usage-metrics/library/) documents the public API.
+
+## CLI
+
+| Directory          | What lives there                                                                                                       |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| `src/cli`          | Commander wiring, report definitions, the report runtime, per-report builders and runners, parse orchestration         |
+| `src/config`       | `config.toml` loading, runtime overrides and defaults, the active-config and env-var displays                         |
+| `src/persistence`  | The SQLite event store: schema and migrations, ingest, history replay, prune                                          |
+| `src/machines`     | Machine config edits, ssh export and sync, per-machine caches, merge                                                  |
+| `src/pricing`      | LiteLLM loading and cache, model-name matching, the cost engine, overrides, retired prices, cache savings, `pricing` explain |
+| `src/aggregate`    | Usage totals by period, source, model, and project; daily activity; project keys                                       |
+| `src/blocks`, `src/value`, `src/session`, `src/trends`, `src/efficiency`, `src/optimize`, `src/wrapped` | Each report's own aggregation          |
+| `src/render`       | Terminal, Markdown, and JSON output for every report, and the table primitives                                        |
+| `src/share-report` | The interactive HTML report: payload, redaction, HTML, and the browser client                                         |
+| `src/domain`       | The CLI's event type (core's plus `costMode` and `machine`) and report row types                                      |
+| `src/sources`      | `create-default-adapters.ts`, which re-exports the core registry for the CLI and the site                             |
+| `src/update`       | The startup update notifier and its cache                                                                              |
+| `src/utils`        | The logger, time buckets, config, data, and cache root directories, USD math, and re-exports of core utilities         |
+
+## A report run
+
+<EventFlow />
+
+Every report that reads usage builds its events through `buildUsageEventDataset` (`src/cli/build-usage-event-dataset.ts`) and prices them through `applyPricingToUsageEventDataset`:
+
+1. **Discover.** Each selected adapter lists its files.
+2. **Look up.** Each file's fingerprint is compared with the event store. A match serves the stored events and skips steps 3 and 4.
+3. **Read.** The misses are parsed under one shared concurrency budget, on worker threads when a large claude, codex, or pi backlog justifies them.
+4. **Store.** Fresh parses replace their files' stored events.
+5. **Dedupe repeats.** For pi, an event repeated across files counts once.
+6. **Merge.** `--history` replays files that have left the disk, and other machines' cached events are merged in. A sync with other machines starts at the beginning of the run, alongside steps 1 to 5.
+7. **Dedupe copies.** For claude, an event copied between sessions counts once.
+8. **Filter.** Date window, provider, model, and repo.
+9. **Price, aggregate, render.** Each report's builder prices the events, aggregates them its own way, and hands the result to its renderer.
+
+[Parse pipeline](/llm-usage-metrics/architecture/parse-pipeline/) covers steps 1 to 5, [Event store](/llm-usage-metrics/architecture/event-store/) steps 2, 4, and history, [Dedup and cursors](/llm-usage-metrics/architecture/dedup-and-cursors/) steps 5 and 7, [Machine merge](/llm-usage-metrics/architecture/machine-merge/) step 6, and [Pricing pipeline](/llm-usage-metrics/architecture/pricing-pipeline/) step 9.
 
 ## Report definitions and runtime
 
-- `src/cli/report-definitions`
-  Canonical metadata for `summary` (the default command), `daily`, `weekly`, `monthly`, `compare`, `efficiency`, `optimize`, `trends`, `session`, `wrapped`, `statusline`, `doctor`, `prune`, and `events`. The `config`, `schema`, `completion`, `machine`, and `sync` commands are registered directly in `create-cli.ts`
-- `src/cli/report-runtime`
-  Shared prepare/run lifecycle for format validation, share handling, terminal overflow warnings, and stdout emission
+`src/cli/report-definitions/report-definitions.ts` defines every report command, in this order: `summary` (the default command), `hourly`, `daily`, `weekly`, `monthly`, `projects`, `compare`, `efficiency`, `optimize`, `trends`, `session`, `blocks`, `value`, `wrapped`, `events`, `pricing`, `statusline`, `doctor`, and `prune`. A definition names the command, its shared option profile (`shared-report-options.ts`), and its examples. The same metadata registers the Commander command, builds the root help examples, and generates the [CLI reference](/llm-usage-metrics/cli-reference/), so option descriptions are written once.
 
-This same metadata is reused for:
+`config` (`init`, `path`, `show`), `schema`, `completion`, `machine` (`add`, `list`, `remove`, `export`), and `sync` are registered directly in `src/cli/create-cli.ts`.
 
-- Commander command registration
-- generated CLI docs
-- root help examples
+`src/cli/report-runtime/report-lifecycle.ts` runs every report the same way: it validates the output format, builds the report data, builds the share file when `--share` is set, emits diagnostics on stderr, writes the share file, and prints the report on stdout.
 
-That keeps command/docs drift low without duplicating option descriptions outside Commander help.
+## Builders and renderers
 
-## Report flows
+| Command                                 | Builder                                         | Renderer                                       |
+| --------------------------------------- | ----------------------------------------------- | ---------------------------------------------- |
+| `summary`                               | `buildSummaryData`                              | `renderSummaryReport`                          |
+| `hourly`, `daily`, `weekly`, `monthly`  | `buildUsageData`                                | `renderUsageReportWithNotes`                   |
+| `projects`                              | `buildProjectsData`                             | `renderProjectsReport`                         |
+| `compare`                               | `buildCompareData`                              | `renderCompareReport`                          |
+| `efficiency`                            | `buildEfficiencyData`                           | `renderEfficiencyReportWithNotes`              |
+| `optimize`                              | `buildOptimizeData`                             | `renderOptimizeReport`                         |
+| `trends`                                | `buildTrendsData`                               | `renderTrendsReport`                           |
+| `session`                               | `buildSessionData`                              | `renderSessionReport`                          |
+| `blocks`                                | `buildBlocksData`                               | `renderBlocksReport`                           |
+| `value`                                 | `buildValueData`                                | `renderValueReport`                            |
+| `wrapped`                               | `buildWrappedData`                              | `renderWrappedReport`                          |
+| `pricing`                               | `run-pricing-report.ts` (reads no usage)        | `renderPricingReport`                          |
+| `doctor`, `prune`                       | `run-doctor-report.ts`, `run-prune-report.ts`   | `renderDoctorText`, `renderPruneReport`        |
 
-### Usage
+`events` and `statusline` have their own runners (`run-events-report.ts`, `run-statusline.ts`): `events` exports the priced events as JSONL or CSV, and `statusline` prints one line for a status bar. `--share` builds its own dataset; see [Share report](/llm-usage-metrics/architecture/share-report/).
 
-`buildUsageData(...)` parses source events, applies pricing, aggregates by period/source/model, then `renderUsageReportWithNotes(...)` formats the report.
-
-### Efficiency
-
-`buildEfficiencyData(...)` reuses usage parsing, attributes events to a repository root, joins them with local Git outcomes, then `renderEfficiencyReport(...)` formats the result.
-
-### Optimize
-
-`buildOptimizeData(...)` reuses usage parsing and pricing, aggregates baseline token totals, computes candidate-model counterfactual costs, then `renderOptimizeReport(...)` formats the result.
-
-### Trends
-
-`buildTrendsData(...)` reuses usage parsing, loads pricing only for cost mode, aggregates to daily totals, projects those totals into daily trend series, then `renderTrendsReport(...)` formats terminal charts or JSON.
-
-### Compare
-
-`buildCompareData(...)` resolves the two date windows, builds one priced dataset spanning both, then aggregates each window separately and computes the deltas between them.
-
-### Session
-
-`buildSessionData(...)` reuses usage parsing and pricing, then groups priced events per conversation session — or per repository root with `--by-repo` — with a top-N row limit.
-
-### Wrapped
-
-`buildWrappedData(...)` resolves the recap year in the report timezone, builds the priced dataset for that year's date range, then aggregates a yearly recap.
-
-### Doctor and prune
-
-`doctor` and `prune` are non-report commands with their own runners: `doctor` checks source discovery health and runtime configuration, and `prune` previews or deletes departed files from the event store.
-
-### Event store and history
-
-The `src/persistence/event-store-*.ts` modules own a local SQLite ledger (`event-store.ts` re-exports them): schema and migrations, per-file ingest on parse, and stored-event revalidation. Schema changes run as migrations, and an unknown newer schema disables the store rather than rebuilding tables.
-
-`src/persistence/event-store-history.ts` serves `--history`. It compares the current run's discovered `(source, file)` pairs against stored files, replays departed files for the selected sources, and suppresses moved or copied files by content hash. History events join the pipeline before the provider/model/date filters, pricing, and aggregation, so report shapes stay unchanged. `prune` uses the same classification to delete departed-file rows and vacuum the ledger.
-
-## Aggregation and rendering details
-
-- `aggregateUsage(...)` supports an `includeModelBreakdown` profile
-  Usage keeps per-model breakdowns; efficiency, optimize, and trends skip them.
-- `render/unicode-table.ts` is driven by explicit row metadata (`periodKey`, `rowKind`)
-  This keeps sorting and separators deterministic without coupling the generic table renderer to usage-row domain types.
-
-## Module boundaries
-
-- `src/cli`: command creation, report builders, diagnostics emission
-- `src/cli/report-definitions`: command metadata and shared option profiles
-- `src/cli/report-runtime`: shared report lifecycle
-- `src/config`: TOML user-config loading and runtime override/env-var resolution
-- `packages/core/src/sources` (`@ayagmar/agent-sessions`): adapter discovery and parsing, with the registry in `packages/core/src/registry` and dedup stages in `packages/core/src/dedup`
-- `src/domain`: CLI view of the normalized contracts (re-exports the core domain)
-- `src/pricing`: LiteLLM pricing loader/cache/cost engine
-- `src/persistence`: SQLite event-store ledger, schema migrations, history suppression
-- `src/aggregate`: period/source usage aggregation
-- `src/efficiency`: repo attribution and Git outcome joins
-- `src/optimize`: counterfactual pricing aggregation
-- `src/trends`: daily trend-series aggregation
-- `src/session`: per-conversation and per-repository usage aggregation
-- `src/wrapped`: yearly recap aggregation
-- `src/render`: output formatters
-- `src/utils`: shared fs, JSONL, time, and logging helpers
+`aggregateUsage` keeps per-model breakdowns by default; `trends`, `optimize`, and `efficiency` turn them off. `src/render/unicode-table.ts` lays out rows from explicit metadata (`periodKey`, and `rowKind`: `detail`, `combined`, or `total`), so sorting and separators stay deterministic without the table knowing report types.
 
 ## Invariants
 
-- deterministic ordering for periods, sources, candidates, and models
-- diagnostics on `stderr`, report body on `stdout`
-- JSON/Markdown stay data-only on `stdout`
-- provider identifiers are normalized at the domain boundary
-- incomplete pricing remains explicit in output (`~`, warnings, or incomplete flags)
+- Deterministic ordering for periods, sources, models, projects, and machines.
+- Report body on stdout, diagnostics on stderr; `--json` and `--markdown` output is data only.
+- Normalization happens once, in the core constructors; see [Event model](/llm-usage-metrics/architecture/event-model/).
+- An adapter's events depend only on its file, its declared dependencies, and its `parserVersion`, so stored events never go stale silently.
+- Incomplete pricing stays visible in output (`~`, `-`, warnings, or incomplete flags).
 
 ## Deep dives
 
-- [Event Store](/llm-usage-metrics/architecture/event-store/) — the SQLite usage-event ledger: ingest, fingerprints, history, and prune.
-- [Parse Pipeline](/llm-usage-metrics/architecture/parse-pipeline/) — how source files are discovered, filtered, parsed, and parallelized.
-- [Pricing Pipeline](/llm-usage-metrics/architecture/pricing-pipeline/) — how LiteLLM pricing is fetched, cached, matched to model names, and turned into costs.
-- [Config & Logging](/llm-usage-metrics/architecture/config-and-logging/) — how the TOML config resolves against flags and env vars, and how stderr logging is leveled.
+- [Parse pipeline](/llm-usage-metrics/architecture/parse-pipeline/): how source files are discovered, filtered, parsed, and parallelized.
+- [Event store](/llm-usage-metrics/architecture/event-store/): the SQLite ledger: ingest, fingerprints, history, and prune.
+- [Pricing pipeline](/llm-usage-metrics/architecture/pricing-pipeline/): how prices load, model names match, and costs are computed.
+- [Event model](/llm-usage-metrics/architecture/event-model/): the event union and its fields.
+- [Dedup and cursors](/llm-usage-metrics/architecture/dedup-and-cursors/): duplicate removal, fingerprints, and resumable reads.
+- [Machine merge](/llm-usage-metrics/architecture/machine-merge/): fetching and merging other machines' usage.
+- [Share report](/llm-usage-metrics/architecture/share-report/): how the interactive HTML report is built.
+- [Config and logging](/llm-usage-metrics/architecture/config-and-logging/): how settings resolve and how stderr is leveled.

@@ -3,4 +3,67 @@ title: 'Event model'
 description: 'The normalized event union: usage, message, tool call, and session metadata.'
 ---
 
-Stub created by the M11 orchestrator; the owning card replaces this page.
+import EventModel from '@components/diagrams/EventModel.astro';
+
+Every adapter turns its source's on-disk format into the same normalized events. The types live in the core package, `@ayagmar/agent-sessions` (`packages/core/src/domain/usage-event.ts` and `session-event.ts`); the CLI and library users see the same shapes.
+
+<EventModel />
+
+## Four kinds
+
+`SessionEvent` is a union on `kind` (`EVENT_KINDS`, in this order):
+
+- `usage`: one model call. Requires `inputTokens`, `outputTokens`, `reasoningTokens`, `cacheReadTokens`, `cacheWriteTokens`, `cacheWrite1hTokens`, and `totalTokens`.
+- `message`: a user, assistant, or system turn. Requires `role` (`user`, `assistant`, or `system`) and `textLength`.
+- `tool_call`: one tool call, yielded when its result is seen. Requires `name` and `status` (`ok`, `error`, or `unknown`).
+- `session_meta`: facts about the session. Every field is optional: `cwd`, `title`, `gitBranch`, `agentVersion`, `parentSessionId`, `model`, `rawProvider`.
+
+Every kind also carries `source`, `sessionId`, and `timestamp` (ISO 8601, UTC). `raw` holds the source record only when the read asks for it.
+
+Message text is optional: `text` is set only when the read asks for it, and is kept exactly as logged. `textLength` is always set. A tool call with no result by the end of the file is still yielded, with `status: 'unknown'`.
+
+## Two ways to read
+
+- `adapter.read(filePath)` yields plain `UsageEvent` objects: the usage fields without `kind`. This is what the CLI uses for every report.
+- `readEvents(adapter, filePath, options)` yields `SessionEvent` objects. The claude, codex, and pi adapters implement it and can yield all four kinds; for any other adapter it wraps `read()` and yields `kind: 'usage'` records. `capabilities.kinds` lists what an adapter can yield; unset means usage only.
+
+A `usage` record from `readEvents` can also carry `messageId`, `requestId`, and `rawProvider` (the provider as logged, unset when the adapter inferred it). The [library guide](/llm-usage-metrics/library/guide/) shows both reads.
+
+## Token semantics
+
+The usage fields follow one convention across all sources:
+
+- `inputTokens` is fresh input. It excludes cache reads and cache writes.
+- `outputTokens` includes reasoning. `reasoningTokens` is a breakdown of it, not an extra bucket.
+- `cacheWrite1hTokens` is the part of `cacheWriteTokens` cached for one hour; it is capped at `cacheWriteTokens`.
+- `totalTokens` is the total the source logged. When a source logs none, `createUsageEvent` sums input, output, reasoning, cache reads, and cache writes, so an adapter whose output includes reasoning passes `totalTokens` itself (claude does).
+- `costUsd` is a cost the source logged, in USD. It is unset when the source logged none; pricing fills in estimates later.
+
+## Normalization at the boundary
+
+The constructors (`createUsageEvent`, `createUsageRecord`, `createMessageEvent`, `createToolCallEvent`, `createSessionMetaEvent`) are the only way adapters build events, so normalization happens once:
+
+- An empty `source` or `sessionId`, or a timestamp that does not parse, throws.
+- Token counts become non-negative integers; a missing or non-finite count becomes 0.
+- `model` is trimmed, lowercased, and capped at 256 characters. Text fields lose control characters.
+- `provider` is normalized to the billing entity: `openai-codex` and any `openai-` or `openai/` prefix become `openai`, `github-copilot` becomes `github`. When a source logs no provider, adapters infer one from the model name (`gpt-`, `o1`/`o3`/`o4` → `openai`, `claude` → `anthropic`, `gemini` → `google`).
+- Keys whose value is undefined are dropped, so events compare and serialize the same way.
+
+`USAGE_EVENT_NORMALIZATION_VERSION` (currently 2) is part of every parser version. Changing normalization changes it, which re-reads every stored file; see [Dedup and cursors](/llm-usage-metrics/architecture/dedup-and-cursors/).
+
+## Projects
+
+No event has a `project` field. Usage events carry `repoRoot`, the repository root the source logged or the adapter resolved; session metadata carries `cwd`. Reports group by project on `repoRoot` without trailing separators; usage with no `repoRoot` is `(unattributed)`.
+
+## What the CLI adds
+
+The CLI's own `UsageEvent` (`src/domain/usage-event.ts`) extends the core type with two fields:
+
+- `costMode`: `explicit` when the event has a logged `costUsd`, else `estimated`. Pricing reads it to decide which events to estimate.
+- `machine`: the configured machine an event came from; unset for this machine. See [Machine merge](/llm-usage-metrics/architecture/machine-merge/).
+
+## Related pages
+
+- [Dedup and cursors](/llm-usage-metrics/architecture/dedup-and-cursors/): the content hash and the stages that remove duplicate events.
+- [Parse pipeline](/llm-usage-metrics/architecture/parse-pipeline/): how files become events.
+- [Library](/llm-usage-metrics/library/): reading events from your own code.
