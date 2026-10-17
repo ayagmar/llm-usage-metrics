@@ -18,7 +18,7 @@ Each adapter owns discovery and source-specific parsing. After parsing, every ad
 | [Claude Code](/llm-usage-metrics/sources/claude/)      | JSONL         | `~/.claude/projects` and `~/.claude/transcripts` (or under `$CLAUDE_CONFIG_DIR`) |
 | [Copilot CLI](/llm-usage-metrics/sources/copilot/)     | OTEL JSONL    | `~/.copilot/otel`                                          |
 | [Goose](/llm-usage-metrics/sources/goose/)             | SQLite        | platform Goose data directory                              |
-| [Amp](/llm-usage-metrics/sources/amp/)                 | JSON          | `~/.local/share/amp/threads`                               |
+| [Amp](/llm-usage-metrics/sources/amp/)                 | JSON          | `$XDG_DATA_HOME/amp/threads` (default `~/.local/share/amp/threads`) |
 | [Qwen CLI](/llm-usage-metrics/sources/qwen/)           | JSONL         | `~/.qwen/projects`                                         |
 | [Kimi](/llm-usage-metrics/sources/kimi/)               | wire JSONL    | `~/.kimi/sessions` and `~/.kimi-code/sessions`             |
 | [Cline](/llm-usage-metrics/sources/cline/)             | task JSON     | VS Code global storage for `saoudrizwan.claude-dev`        |
@@ -48,7 +48,7 @@ llm-usage monthly --source-dir codex=/path/to/codex/sessions
 llm-usage monthly --claude-dir /work/.claude/projects --claude-dir /home/me/.claude/projects
 ```
 
-The per-source flags (`--claude-dir`, `--codex-dir`, `--opencode-db`, and so on) are left out of `--help` to keep it short; `llm-usage <command> --help-all` lists them. `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, and `GEMINI_CLI_HOME` move the default locations the same way they do for each tool.
+The per-source flags (`--claude-dir`, `--codex-dir`, `--opencode-db`, and so on) are left out of `--help` to keep it short; `llm-usage <command> --help-all` lists them. `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, and `GEMINI_CLI_HOME` move the default locations the same way they do for each tool, as do `XDG_DATA_HOME` (amp, opencode, goose), `GOOSE_PATH_ROOT`, `DSH_HOME`, and `COPILOT_OTEL_FILE_EXPORTER_PATH`. On Windows, `%APPDATA%` decides where opencode, goose, and the VS Code extensions are found. Each source page lists its own.
 
 SQLite sources use their database flags:
 
