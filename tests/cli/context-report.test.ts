@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { buildContextData } from '../../src/cli/build-context-data.js';
-import { buildContextReport } from '../../src/cli/run-context-report.js';
+import { buildContextReport, runContextReport } from '../../src/cli/run-context-report.js';
 import { freezeDate } from '../golden/golden-harness.js';
 import { createContextFixtureAdapters } from '../golden/m12-context-fixture.js';
 import { useIsolatedEnvironment } from '../helpers/isolated-env.js';
@@ -49,6 +49,26 @@ describe('context report', () => {
 
     expect(data.sessions.map((row) => row.sessionId)).toEqual(['ctx-gemini-big']);
     expect(data.limitNote).toBe('Showing top 1 of 3 sessions by peak prompt. Use --top 0 for all.');
+  });
+
+  it('prints the report on stdout and the --top note on stderr', async () => {
+    const stdout = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const stderr = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    let printed: string;
+    let diagnostics: string;
+
+    try {
+      await runContextReport({ ...options, bySession: true, top: '1', json: true }, deps);
+      printed = stdout.mock.calls.map((call) => String(call[0])).join('\n');
+      diagnostics = stderr.mock.calls.map((call) => String(call[0])).join('\n');
+    } finally {
+      stdout.mockRestore();
+      stderr.mockRestore();
+    }
+
+    expect(JSON.parse(printed)).toMatchObject({ report: 'context', data: { grouping: 'session' } });
+    expect(diagnostics).toContain('Showing top 1 of 3 sessions by peak prompt.');
+    expect(printed).not.toContain('Showing top');
   });
 
   it('rejects --top without --by-session', async () => {

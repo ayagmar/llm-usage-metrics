@@ -59,9 +59,12 @@ export async function buildContextReport(
   return preparedReport.output;
 }
 
-export async function runContextReport(options: ContextCommandOptions): Promise<void> {
+export async function runContextReport(
+  options: ContextCommandOptions,
+  deps: BuildUsageDataDeps = {},
+): Promise<void> {
   const runtimeProfile = createRuntimeProfileCollector();
-  const preparedReport = await prepareContextReport(options, { runtimeProfile });
+  const preparedReport = await prepareContextReport(options, { ...deps, runtimeProfile });
 
   await runStandardPreparedReport({
     preparedReport,
