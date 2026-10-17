@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "report": "config",
+  "report": "config-show",
   "data": {
     "configFile": {
       "path": "<tmp>/config.toml",
