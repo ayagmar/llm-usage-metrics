@@ -477,7 +477,7 @@ describe('run-doctor-report', () => {
         format: 'sqlite',
         status: 'ok',
         itemsFound: 42,
-        detail: '42 event(s), 0 departed file(s), schema v4, 0 B',
+        detail: '42 events, 0 departed files, schema v4, 0 B',
       },
     ]);
   });
@@ -518,7 +518,7 @@ describe('run-doctor-report', () => {
       status: 'ok',
       itemsFound: 3,
     });
-    expect(eventStoreResult?.detail).toMatch(/^3 event\(s\), 1 departed file\(s\), schema v4, .+$/);
+    expect(eventStoreResult?.detail).toMatch(/^3 events, 1 departed file, schema v4, .+$/);
     await expect(readEventStoreSummary(eventStorePath)).resolves.toMatchObject({
       eventCount: 3,
       schemaVersion: '4',

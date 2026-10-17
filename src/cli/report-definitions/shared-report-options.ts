@@ -355,11 +355,8 @@ function registerSourcePathOptions(command: Command): void {
   }
 
   command
+    // createCli prints the help for it, with these flags revealed.
     .option('--help-all', 'Display help including the per-source path flags')
-    .on('option:help-all', () => {
-      revealHiddenOptions(command);
-      command.help();
-    })
     .addHelpText('after', () =>
       hasHiddenOptions(command)
         ? '\nPer-source path flags (--claude-dir, ...)\nare listed by --help-all.'

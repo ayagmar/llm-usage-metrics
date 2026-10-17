@@ -23,7 +23,7 @@
       "type": "string"
     },
     "repoRoot": {
-      "description": "Repository root attributed to the event; omitted when unknown.",
+      "description": "Working directory the tool recorded for the event; omitted when unknown.",
       "type": "string"
     },
     "provider": {

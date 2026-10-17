@@ -22,6 +22,7 @@ import { resolveUserConfigForOptions, type UserConfigResolutionDeps } from './ap
 import { emitUserConfigResolution } from './emit-active-config.js';
 import { createAdaptersFromOptions } from './source-cli-options.js';
 import { formatByteSize } from '../render/format-byte-size.js';
+import { pluralize } from '../render/format-number.js';
 import { renderDoctorText } from '../render/render-doctor-report.js';
 import { describeMachineStatus } from '../render/render-machines.js';
 import { getMachineCachePath, readMachineCacheStatus } from '../machines/machine-cache.js';
@@ -123,10 +124,6 @@ function describeMissingUsage(fileCount: number, probe: UsageProbeResult): strin
   const reason = probe.firstError ? ` (${probe.firstError})` : '';
 
   return `${scope}${reason}; the log format may have changed`;
-}
-
-function pluralize(count: number, noun: string): string {
-  return `${count} ${noun}${count === 1 ? '' : 's'}`;
 }
 
 async function buildSourceResult(
@@ -356,8 +353,8 @@ async function buildEventStoreDoctorResult(
       status: 'ok',
       itemsFound: summary.eventCount,
       detail: [
-        `${summary.eventCount} event(s)`,
-        `${departedFileCount} departed file(s)`,
+        pluralize(summary.eventCount, 'event'),
+        pluralize(departedFileCount, 'departed file'),
         `schema v${summary.schemaVersion ?? 'unknown'}`,
         formatByteSize(fileStats.size),
       ].join(', '),

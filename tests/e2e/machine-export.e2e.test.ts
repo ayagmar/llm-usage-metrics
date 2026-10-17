@@ -203,7 +203,7 @@ describe('machine export e2e', () => {
 
     expect(fileLines(lines).map((line) => line.source)).toEqual(['codex']);
     expect(stderr.mock.calls.flat().join('\n')).toMatch(
-      /machine export left out \d+ event\(s\) that reports count but the event store does not hold/,
+      /machine export left out \d+ events? that reports count but the event store does not hold/,
     );
   });
 
@@ -260,7 +260,7 @@ describe('machine export e2e', () => {
     });
 
     expect(stderr.mock.calls.flat().join('\n')).toMatch(
-      'machine export left out 1 event(s) that reports count but the event store does not hold',
+      'machine export left out 1 event that reports count but the event store does not hold',
     );
   });
 

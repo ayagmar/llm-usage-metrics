@@ -4,6 +4,7 @@ import { getParserVersion, type SourceAdapter } from '@ayagmar/agent-sessions';
 import { toTerminalLine } from '../domain/normalization.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
+import { pluralize } from '../render/format-number.js';
 import { readMachineCacheUsage, type MachineSyncState } from './machine-cache.js';
 import { mergeMachineEvents, type MergedMachineEvents } from './merge-machine-events.js';
 
@@ -84,7 +85,7 @@ function formatParserSkew(machine: MergedMachineEvents): string | undefined {
     ),
   );
 
-  return `${machine.name} parses with other parser versions (${skews.join('; ')}): left out ${machine.skewDroppedCount} event(s) of sessions already counted, matched by timestamp; update llm-usage on both machines`;
+  return `${machine.name} parses with other parser versions (${skews.join('; ')}): left out ${pluralize(machine.skewDroppedCount, 'event')} of sessions already counted, matched by timestamp; update llm-usage on both machines`;
 }
 
 /**

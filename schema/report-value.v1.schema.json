@@ -160,7 +160,7 @@
       "allOf": [{ "$ref": "#/$defs/costFlags" }],
       "properties": {
         "repoRoot": {
-          "description": "Project key (the repository root); null for usage without one.",
+          "description": "Project key (the recorded working directory); null for usage without one.",
           "type": ["string", "null"]
         },
         "project": { "description": "Display label of the project.", "type": "string" },
