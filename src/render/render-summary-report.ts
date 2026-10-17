@@ -1,6 +1,11 @@
 import { markdownTable } from 'markdown-table';
 
-import type { SummaryDataResult, SummaryPeriod } from '../cli/usage-data-contracts.js';
+import { SPIKE_BASELINE_DAYS } from '../aggregate/spend-spikes.js';
+import type {
+  SummaryDataResult,
+  SummaryPeriod,
+  SummarySpendSpike,
+} from '../cli/usage-data-contracts.js';
 import { renderActivityHeatmap } from './activity-heatmap.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
@@ -181,7 +186,7 @@ function renderTerminalActivity(
   ];
 }
 
-type MonthNote = { text: string; warning: boolean };
+type SummaryNote = { text: string; warning: boolean };
 
 function formatTokenShare(tokens: number, totalTokens: number): string {
   return `${String(Math.round((tokens / totalTokens) * 100))}%`;
@@ -218,13 +223,35 @@ function formatMachinesNote(monthToDate: SummaryPeriod | undefined): string | un
   return `This month by machine: ${parts.join(', ')}`;
 }
 
-/** Cost by machine, month-end projection, budget status, and cache savings, in that order. */
-function toMonthNotes(summaryData: SummaryDataResult): MonthNote[] {
+type EscapeName = (name: string) => string;
+
+const keepName: EscapeName = (name) => name;
+
+function formatSpikeNote(spike: SummarySpendSpike, escapeName: EscapeName): string {
+  const multiple = (spike.costUsd / spike.medianActiveDayUsd).toFixed(1);
+  const against = `${multiple}× the median active day (${formatUsd(spike.medianActiveDayUsd)}) of the ${SPIKE_BASELINE_DAYS} days before`;
+  const drivers = [
+    ...(spike.project === undefined ? [] : [`top project ${escapeName(spike.project)}`]),
+    ...(spike.model === undefined ? [] : [`top model ${escapeName(spike.model)}`]),
+  ];
+  const cost = formatApproxUsd(spike.costUsd, spike.costIncomplete);
+
+  return `Spend spike on ${spike.date}: ${cost}, ${against}${drivers.length > 0 ? `; ${drivers.join(', ')}` : ''}`;
+}
+
+/**
+ * The last 7 days' spend spike, then cost by machine, month-end projection, budget status,
+ * and cache savings, in that order. `escapeName` escapes the project and model names.
+ */
+function toSummaryNotes(summaryData: SummaryDataResult, escapeName: EscapeName): SummaryNote[] {
   const { monthEnd } = summaryData;
   const monthToDate = summaryData.periods.find((period) => period.key === 'monthToDate');
   const spentUsd = monthToDate?.totals.costUsd;
   const spent = formatApproxUsd(spentUsd, monthToDate?.totals.costIncomplete);
-  const notes: MonthNote[] = [];
+  const notes: SummaryNote[] =
+    summaryData.spike === undefined
+      ? []
+      : [{ text: formatSpikeNote(summaryData.spike, escapeName), warning: false }];
   const machinesNote = formatMachinesNote(monthToDate);
 
   if (machinesNote !== undefined) {
@@ -312,15 +339,12 @@ function renderTerminalSummaryReport(
     }),
   );
 
-  const monthNotes = toMonthNotes(summaryData);
+  const notes = toSummaryNotes(summaryData, keepName);
 
-  if (monthNotes.length > 0) {
+  if (notes.length > 0) {
     const palette = options.palette ?? defaultTerminalStylePalette;
     const warn = (text: string) => (useColor ? palette.yellow(text) : text);
-    lines.push(
-      '',
-      ...monthNotes.map((note) => (note.warning ? warn(`⚠ ${note.text}`) : note.text)),
-    );
+    lines.push('', ...notes.map((note) => (note.warning ? warn(`⚠ ${note.text}`) : note.text)));
   }
 
   if (summaryData.activity.activeDays > 0) {
@@ -349,8 +373,8 @@ function renderMarkdownSummaryReport(summaryData: SummaryDataResult): string {
       rows.map((row) => row.map((cell) => toMarkdownSafeCell(cell))),
       { align: ['l', 'l', 'r', 'r', 'l'] },
     ),
-    // Notes are plain sentences of dates and amounts, so they need no Markdown escaping.
-    ...toMonthNotes(summaryData).flatMap((note) => [
+    // Notes are plain sentences of dates and amounts; only the names in them need escaping.
+    ...toSummaryNotes(summaryData, toMarkdownSafeCell).flatMap((note) => [
       '',
       note.warning ? `⚠ ${note.text}` : note.text,
     ]),
@@ -379,6 +403,7 @@ export function renderSummaryReport(
         monthEnd: summaryData.monthEnd,
         monthToDateCacheSavingsUsd: summaryData.monthToDateCacheSavingsUsd,
         activity: summaryData.activity,
+        spike: summaryData.spike,
       });
     case 'markdown':
       return renderMarkdownSummaryReport(summaryData);

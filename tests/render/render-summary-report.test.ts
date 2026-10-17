@@ -449,4 +449,30 @@ describe('renderSummaryReport', () => {
     expect(parsed.data.activity).toMatchObject({ currentStreak: 2, longestStreak: 2 });
     expect(parsed.data.activity.days).toHaveLength(366);
   });
+
+  it('puts the spend spike note first under the table, escaping names in markdown', () => {
+    const data = {
+      ...createSummaryData(),
+      monthEnd: { daysElapsed: 10, daysInMonth: 31, projectedCostUsd: 40 },
+      spike: {
+        date: '2026-03-09',
+        costUsd: 12,
+        costIncomplete: true,
+        medianActiveDayUsd: 4,
+        project: 'my_app',
+        model: 'gpt-*',
+      },
+    };
+    const terminalLines = renderSummaryReport(data, 'terminal', { useColor: false }).split('\n');
+    const spikeIndex = terminalLines.findIndex((line) => line.startsWith('Spend spike'));
+
+    expect(terminalLines[spikeIndex]).toBe(
+      'Spend spike on 2026-03-09: ~$12.00, 3.0× the median active day ($4.00) of the 28 days before; top project my_app, top model gpt-*',
+    );
+    expect(terminalLines[spikeIndex - 1]).toBe('');
+    expect(terminalLines[spikeIndex + 1]).toMatch(/^On pace for/u);
+    expect(renderSummaryReport(data, 'markdown')).toContain(
+      'top project my\\_app, top model gpt-\\*',
+    );
+  });
 });

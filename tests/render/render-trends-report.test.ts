@@ -538,4 +538,23 @@ describe('renderTrendsReport', () => {
     expect(visibleWidth(lines[0])).toBe(visibleWidth(lines[1]));
     expect(lines.map((line) => visibleWidth(line.slice(0, line.indexOf('█') + 1)))).toEqual([8, 8]);
   });
+
+  it('lists spike days under the summary in terminal and markdown output, and narrow terminals', () => {
+    const data = createTrendsDataResult();
+    data.totalSeries.buckets[2] = { ...data.totalSeries.buckets[2], spike: true };
+
+    for (const output of [
+      renderTrendsReport(data, 'terminal', { useColor: false, terminalWidth: 80 }),
+      renderTrendsReport(data, 'terminal', { useColor: false, terminalWidth: 30 }),
+    ]) {
+      expect(output.split('\n').at(-1)).toBe(
+        'Spend spikes (3× or more the median active day of the 28 days before, $1.00 minimum): Mar 06 ~$2.50',
+      );
+    }
+
+    expect(renderTrendsReport(data, 'markdown').split('\n').at(-1)).toBe(
+      'Spend spikes (3× or more the median active day of the 28 days before, $1.00 minimum): 2026-03-06 ~$2.50',
+    );
+    expect(renderTrendsReport(createTrendsDataResult(), 'terminal')).not.toContain('spike');
+  });
 });

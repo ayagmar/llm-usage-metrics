@@ -164,11 +164,11 @@ export function resolveActivityStart(today: string): string {
   return shiftLocalDateKey(today, -(daysSinceMonday + (ACTIVITY_WEEKS - 1) * 7));
 }
 
-/** Streaks, best day, and heatmap levels for events from `from` to `to` (inclusive). */
-export function aggregateDailyActivity(
+/** Each local day's totals for events from `from` to `to` (inclusive); days without events are absent. */
+export function sumDailyTotals(
   events: readonly UsageEvent[],
   options: { from: string; to: string; timezone: string },
-): DailyActivity {
+): Map<string, DailyTotals> {
   const dailyTotals = new Map<string, DailyTotals>();
 
   for (const event of events) {
@@ -190,15 +190,31 @@ export function aggregateDailyActivity(
     dailyTotals.set(date, totals);
   }
 
+  return dailyTotals;
+}
+
+/** Streaks, best day, and heatmap levels from daily totals (see `sumDailyTotals`). */
+export function toDailyActivity(
+  dailyTotals: ReadonlyMap<string, DailyTotals>,
+  range: { from: string; to: string },
+): DailyActivity {
   const activeDateKeys = new Set(dailyTotals.keys());
 
   return {
-    from: options.from,
-    to: options.to,
+    from: range.from,
+    to: range.to,
     activeDays: activeDateKeys.size,
-    currentStreak: calculateCurrentStreak(activeDateKeys, options.to),
+    currentStreak: calculateCurrentStreak(activeDateKeys, range.to),
     longestStreak: calculateLongestStreak([...activeDateKeys].sort(compareByCodePoint)),
     bestDay: findBusiestDay(dailyTotals),
-    days: buildDailyIntensity(options, dailyTotals),
+    days: buildDailyIntensity(range, dailyTotals),
   };
+}
+
+/** Streaks, best day, and heatmap levels for events from `from` to `to` (inclusive). */
+export function aggregateDailyActivity(
+  events: readonly UsageEvent[],
+  options: { from: string; to: string; timezone: string },
+): DailyActivity {
+  return toDailyActivity(sumDailyTotals(events, options), options);
 }

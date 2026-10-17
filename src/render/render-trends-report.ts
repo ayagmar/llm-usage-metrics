@@ -1,6 +1,11 @@
 import { markdownTable } from 'markdown-table';
 import pc from 'picocolors';
 
+import {
+  SPIKE_BASELINE_DAYS,
+  SPIKE_MIN_COST_USD,
+  SPIKE_MIN_MULTIPLE,
+} from '../aggregate/spend-spikes.js';
 import type { TrendsReportData } from '../cli/build-trends-data.js';
 import type { TrendBucket, TrendSeries, TrendsMetric } from '../trends/trends-series.js';
 import { formatDuration } from './format-duration.js';
@@ -168,6 +173,35 @@ function renderSummary(series: TrendSeries, metric: TrendsMetric): string {
   return items.join('  |  ');
 }
 
+/** The legend of the chart's spend spikes, or undefined without any. */
+function formatSpikeLine(
+  series: TrendSeries,
+  formatDate: (date: string) => string,
+): string | undefined {
+  const spikes = series.buckets.filter((bucket) => bucket.spike === true);
+
+  if (spikes.length === 0) {
+    return undefined;
+  }
+
+  const days = spikes.map(
+    (bucket) =>
+      `${formatDate(bucket.date)} ${formatMetricValue(bucket.value, 'cost', bucket.incomplete)}`,
+  );
+
+  return `Spend spikes (${SPIKE_MIN_MULTIPLE}× or more the median active day of the ${SPIKE_BASELINE_DAYS} days before, ${usdFormatter.format(SPIKE_MIN_COST_USD)} minimum): ${days.join(', ')}`;
+}
+
+/** The totals line, then the spike legend when the chart has spikes. */
+function renderSummaryLines(trendsData: TrendsReportData): string[] {
+  const spikeLine = formatSpikeLine(trendsData.totalSeries, formatDateLabel);
+
+  return [
+    renderSummary(trendsData.totalSeries, trendsData.metric),
+    ...(spikeLine === undefined ? [] : [spikeLine]),
+  ];
+}
+
 function renderSummaryOnly(
   trendsData: TrendsReportData,
   options: { useColor: boolean; narrowNote: boolean },
@@ -197,7 +231,8 @@ function renderSummaryOnly(
     lines.push('');
   }
 
-  lines.push(renderSummary(trendsData.totalSeries, trendsData.metric));
+  lines.push(...renderSummaryLines(trendsData));
+
   return lines.join('\n');
 }
 
@@ -478,7 +513,7 @@ function renderTerminalTrendsReport(
   }
 
   lines.push('');
-  lines.push(renderSummary(trendsData.totalSeries, trendsData.metric));
+  lines.push(...renderSummaryLines(trendsData));
 
   return lines.join('\n');
 }
@@ -546,10 +581,14 @@ function renderMarkdownTrendsReport(trendsData: TrendsReportData): string {
     ...seriesColumns.map((series) => formatMarkdownSummaryTotal(series, trendsData.metric)),
   ];
 
-  return markdownTable(
+  const table = markdownTable(
     [headers, ...rows, totalRow].map((row) => row.map((cell) => toMarkdownSafeCell(cell))),
     { align: ['l', ...seriesColumns.map(() => 'r' as const)] },
   );
+  // Dates and amounts only, so the line needs no Markdown escaping.
+  const spikeLine = formatSpikeLine(trendsData.totalSeries, (date) => date);
+
+  return spikeLine === undefined ? table : `${table}\n\n${spikeLine}`;
 }
 
 export function renderTrendsReport(
