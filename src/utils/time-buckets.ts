@@ -178,7 +178,6 @@ function parseCanonicalTimestampMs(value: string): number | undefined {
   return Date.UTC(year, month - 1, day, hour, minute, second, millisecond);
 }
 
-/** The decimal value of `length` ASCII digits at `start`, or -1 if any is not a digit. */
 function parseLocalDateParts(timestampIso: string, timezone: string): KeyedLocalDate {
   const date = new Date(timestampIso);
   const timestampMs = date.getTime();
