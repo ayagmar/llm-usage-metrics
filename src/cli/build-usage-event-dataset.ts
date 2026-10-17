@@ -6,7 +6,7 @@ import {
   getPricingFetcherRuntimeConfig,
 } from '../config/runtime-overrides.js';
 import type { UsageEvent } from '../domain/usage-event.js';
-import { limitNamedModels } from '../render/format-model-list.js';
+import { truncateNames } from '../render/truncate-names.js';
 import { pluralize } from '../render/format-number.js';
 import {
   closeEventStore,
@@ -611,7 +611,7 @@ function describeUnpricedEvents(
   }
 
   const models = [...new Set(unpricedEvents.map((event) => event.model ?? 'unknown'))].sort();
-  const modelList = limitNamedModels(models, MAX_NAMED_UNPRICED_MODELS).join(', ');
+  const modelList = truncateNames(models, MAX_NAMED_UNPRICED_MODELS).join(', ');
 
   return `~ marks costs that leave out ${eventCount} with no known price (models: ${modelList})`;
 }
@@ -628,7 +628,7 @@ function describePriorityPricedEvents(
   }
 
   const models = [...new Set(priorityEvents.map((event) => event.model ?? 'unknown'))].sort();
-  const modelList = limitNamedModels(models, MAX_NAMED_UNPRICED_MODELS).join(', ');
+  const modelList = truncateNames(models, MAX_NAMED_UNPRICED_MODELS).join(', ');
 
   return `${formatEventCount(priorityEvents.length)} priced at LiteLLM priority rates because no standard rate is listed (models: ${modelList})`;
 }

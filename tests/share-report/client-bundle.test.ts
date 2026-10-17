@@ -64,7 +64,7 @@ describe('repo modules in the share client', () => {
 
     expect(outside).toEqual([
       'src/render/format-duration.ts',
-      'src/render/format-model-list.ts',
+      'src/render/truncate-names.ts',
       'src/utils/date-key.ts',
       'src/utils/delta-ratio.ts',
       'src/utils/usd-math.ts',
