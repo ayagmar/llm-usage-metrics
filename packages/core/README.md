@@ -18,6 +18,14 @@ The site has a guided introduction: [Reading and composing](https://ayagmar.gith
 
 Importing `.` or `./internal` loads no source module; `./registry` loads them all.
 
+The main entry also exports these helpers:
+
+- `computeActiveMs(timestampsMs)`: the sum of the gaps between consecutive timestamps (sorted first), each gap capped at `IDLE_GAP_CAP_MS` (5 minutes). Zero for fewer than two timestamps.
+- `normalizeTimestamp(value)`: a string or `Date` as an ISO 8601 UTC string; throws on an invalid date.
+- `normalizeSourceId(value)`: a source id with control characters stripped and whitespace trimmed, or `undefined` when the value is not a string or ends up empty.
+- `getEventSessionKey(event)`: a key for an event's session, its `source` and `sessionId` joined by a NUL character, so equal session ids from two sources stay apart.
+- `toParseDiagnostics(events, skippedRows, skippedRowReasons)`: packs a file's events and a reason-count map into the `SourceParseFileDiagnostics` shape `collectFile` returns, reasons sorted.
+
 ## Security posture
 
 - **Read-only.** Adapters open files and databases for reading only. SQLite databases are opened with `readOnly: true`; SQLite itself may still update a WAL database's `-shm` index, as any reader does. The core writes no data to an agent's store and no files of its own.
