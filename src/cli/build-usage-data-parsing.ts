@@ -62,17 +62,23 @@ export type DiscoveredSourceFile = {
   filePath: string;
 };
 
+/** A file whose events this run counts, with the sessions its usage events belong to. */
+export type ParsedSourceFile = DiscoveredSourceFile & {
+  /** Distinct session ids of the file's usage events, before any filter or dedupe. */
+  sessionIds: readonly string[];
+};
+
 type AdapterParseResultWithFiles = AdapterParseResult & {
   filePaths: string[];
   /** The discovered files whose events this run counts: neither failed nor skipped. */
-  parsedFilePaths: string[];
+  parsedFiles: Omit<ParsedSourceFile, 'source'>[];
   failedFilePaths: string[];
 };
 
 export type ParsedAdaptersResult = {
   successfulParseResults: AdapterParseResult[];
   discoveredFiles: DiscoveredSourceFile[];
-  parsedFiles: DiscoveredSourceFile[];
+  parsedFiles: ParsedSourceFile[];
   /** Discovered files that failed to parse: present, but not counted this run. */
   failedFiles: DiscoveredSourceFile[];
   eventStoreAvailable: boolean;
@@ -173,6 +179,19 @@ function getSafeWorkerMinBytes(minBytes: number): number {
   return Math.floor(minBytes);
 }
 
+/** The distinct session ids of a file's events; a file usually holds one session. */
+function listSessionIds(events: readonly UsageEvent[]): string[] {
+  const sessionIds: string[] = [];
+
+  for (const { sessionId } of events) {
+    if (sessionIds.at(-1) !== sessionId && !sessionIds.includes(sessionId)) {
+      sessionIds.push(sessionId);
+    }
+  }
+
+  return sessionIds;
+}
+
 export async function parseAdapterEvents(
   adapter: SourceAdapter,
   maxParallelFileParsing: number,
@@ -193,7 +212,7 @@ export async function parseAdapterEvents(
       source: adapter.id,
       events: [],
       filePaths: [],
-      parsedFilePaths: [],
+      parsedFiles: [],
       failedFilePaths: [],
       filesFound: 0,
       skippedRows: 0,
@@ -537,7 +556,11 @@ export async function parseAdapterEvents(
       ? dedupeRepeatedAcrossFiles(parsedByFile)
       : parsedByFile.flat(),
     filePaths: files,
-    parsedFilePaths: files.filter((_, fileIndex) => parsedFileIndexes.has(fileIndex)),
+    parsedFiles: files.flatMap((filePath, fileIndex) =>
+      parsedFileIndexes.has(fileIndex)
+        ? [{ filePath, sessionIds: listSessionIds(parsedByFile[fileIndex]) }]
+        : [],
+    ),
     failedFilePaths: files.filter((_, fileIndex) => failedFileIndexes.has(fileIndex)),
     filesFound: files.length,
     skippedRows: skippedRowsByFile.reduce((sum, skippedRowsCount) => sum + skippedRowsCount, 0),
@@ -647,18 +670,22 @@ export async function parseSelectedAdapters(
   const sourceFailures: UsageSourceFailure[] = [];
   const successfulParseResults: AdapterParseResult[] = [];
   const discoveredFiles: DiscoveredSourceFile[] = [];
-  const parsedFiles: DiscoveredSourceFile[] = [];
+  const parsedFiles: ParsedSourceFile[] = [];
   const failedFiles: DiscoveredSourceFile[] = [];
 
   for (const [index, parseResult] of parseResults.entries()) {
     const source = adaptersToParse[index].id;
 
     if (parseResult.status === 'fulfilled') {
-      const { filePaths, parsedFilePaths, failedFilePaths, ...parseResultWithoutFiles } =
-        parseResult.value;
+      const {
+        filePaths,
+        parsedFiles: sourceParsedFiles,
+        failedFilePaths,
+        ...parseResultWithoutFiles
+      } = parseResult.value;
       successfulParseResults.push(parseResultWithoutFiles);
       discoveredFiles.push(...filePaths.map((filePath) => ({ source, filePath })));
-      parsedFiles.push(...parsedFilePaths.map((filePath) => ({ source, filePath })));
+      parsedFiles.push(...sourceParsedFiles.map((file) => ({ source, ...file })));
       failedFiles.push(...failedFilePaths.map((filePath) => ({ source, filePath })));
       continue;
     }

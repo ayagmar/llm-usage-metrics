@@ -220,10 +220,13 @@ export async function buildSessionData(
       readLiveSessionEvents(dataset, {
         kinds: ['tool_call', 'message'],
         sessionKeys: new Set([sessionKey]),
-        // A session's events are in its own source's files only.
+        // A session's live events are in the files that hold its usage.
         filePaths: new Set(
           dataset.parsedFiles
-            .filter((file) => file.source === session.source)
+            .filter(
+              (file) =>
+                file.source === session.source && file.sessionIds.includes(session.sessionId),
+            )
             .map((file) => file.filePath),
         ),
       }),

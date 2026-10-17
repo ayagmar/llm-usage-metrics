@@ -37,7 +37,7 @@ import {
   parseSelectedAdapters,
   throwOnExplicitSourceFailures,
   type AdapterParseResult,
-  type DiscoveredSourceFile,
+  type ParsedSourceFile,
 } from './build-usage-data-parsing.js';
 import { filterParsedAdapterEvents } from './parse/usage-event-filters.js';
 import { applyRepoFilter } from './repo-filter.js';
@@ -168,7 +168,7 @@ export type UsageEventDataset = {
    * The local files whose events this run counts: discovered, parsed or served from the
    * store, and not skipped as last modified before the window.
    */
-  parsedFiles: DiscoveredSourceFile[];
+  parsedFiles: ParsedSourceFile[];
   /**
    * The event store and the stored files whose events this run counts: parsed files and
    * the departed files history served. Undefined when the event store was unavailable.
