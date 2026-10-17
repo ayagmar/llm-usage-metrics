@@ -1,8 +1,8 @@
 import { renderToolsReport, type ToolsReportFormat } from '../render/render-tools-report.js';
-import { logger } from '../utils/logger.js';
 import { buildToolsData } from './build-tools-data.js';
 import { hasCliFilters } from './filter-match-warnings.js';
 import {
+  emitLimitNote,
   prepareReport,
   runStandardPreparedReport,
   STANDARD_REPORT_FORMATS,
@@ -49,10 +49,6 @@ export async function runToolsReport(
 
   await runStandardPreparedReport({
     preparedReport,
-    emitReportDiagnostics: (diagnostics) => {
-      if (diagnostics.limitNote) {
-        logger.info(diagnostics.limitNote);
-      }
-    },
+    emitReportDiagnostics: emitLimitNote,
   });
 }

@@ -174,6 +174,16 @@ type EmitReportRunDiagnosticsOptions<Diagnostics> = {
   runtimeProfile?: RuntimeProfileCollector;
 };
 
+/** Diagnostics of a report whose --top can leave rows out. */
+export type LimitedReportDiagnostics = UsageDiagnostics & { limitNote?: string };
+
+/** Prints the note naming the rows --top left out, if any. */
+export function emitLimitNote(diagnostics: { limitNote?: string }): void {
+  if (diagnostics.limitNote) {
+    logger.info(diagnostics.limitNote);
+  }
+}
+
 // The one place that fixes the stderr diagnostics ordering shared by every
 // report command, including the streaming events export.
 export function emitReportRunDiagnostics<Diagnostics>(
