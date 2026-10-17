@@ -1,6 +1,7 @@
 // The parts every chart shares: type sizes, the caption line, the legend, the axes and how
 // periods and values read on them.
 
+import { MONTH_LABELS } from '../../../../render/month-labels.js';
 import type { ShareGranularity } from '../../../types.js';
 import { formatUsdOrNone } from '../../core/index.js';
 import { formatCompact, formatDay } from '../shell/format.js';
@@ -26,8 +27,6 @@ export const NARROW_WIDTH = 480;
 const LEGEND_ROW = 20;
 const SWATCH = 10;
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
 /** How a period key reads: `short` on an axis, `long` in tooltips and tables. */
 export function formatPeriod(
   key: string,
@@ -45,7 +44,7 @@ export function formatPeriod(
       // `2026-W43`
       return { short: key.slice(5), long: `Week ${Number(key.slice(6))}, ${key.slice(0, 4)}` };
     case 'month': {
-      const name = MONTHS[Number(key.slice(5, 7)) - 1] ?? key;
+      const name = MONTH_LABELS[Number(key.slice(5, 7)) - 1] ?? key;
       return { short: `${name} ${key.slice(2, 4)}`, long: `${name} ${key.slice(0, 4)}` };
     }
   }
