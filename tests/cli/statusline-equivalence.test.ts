@@ -438,7 +438,7 @@ describe('statusline equivalence', () => {
       // Local usage stops yesterday; the machines' turns today count.
       expect(line).toMatch(/^\$(?!0\.00 )[\d.]+ today · 41d streak · /u);
       expect(summary.diagnostics.warnings).toEqual(
-        expect.arrayContaining([expect.stringContaining('left out 1 event(s)')]),
+        expect.arrayContaining([expect.stringContaining('left out 1 event')]),
       );
       // Month to date, each machine keeps one turn: its copy of a local one is left out.
       const monthToDate = summary.periods.find((period) => period.key === 'monthToDate');

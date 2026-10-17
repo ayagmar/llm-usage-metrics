@@ -20,6 +20,7 @@ import {
 } from '../persistence/event-store.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { pathExists } from '../utils/fs-helpers.js';
+import { pluralize } from '../render/format-number.js';
 import {
   toFileKey,
   type MachineExportFileKey,
@@ -172,7 +173,7 @@ export function applyMachineExport(
 
     if (cachedRevisions.size !== bundle.files.length || eventCount !== bundle.eventCount) {
       throw new Error(
-        `the cache holds ${eventCount} event(s) after the sync, but the export counts ${bundle.eventCount}`,
+        `the cache holds ${pluralize(eventCount, 'event')} after the sync, but the export counts ${bundle.eventCount}`,
       );
     }
 
