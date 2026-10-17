@@ -1,0 +1,39 @@
+Config file
+  path  env var  <tmp>/config.toml
+
+Sources
+  pi      default  missing  ~/.pi/agent/sessions
+                   missing  ~/.omp/agent/sessions
+  codex   flag     found    <tmp>/codex
+  gemini  env var  missing  <tmp>/gemini
+  claude  config   found    <tmp>/claude
+
+Event store
+  enabled  default  yes
+  path     config   <tmp>/store/events.db
+  file              not yet created
+
+Machines
+  laptop       enabled
+  old-desktop  disabled
+
+Pricing
+  url        default  https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json
+  offline    default  no
+  refresh    default  every 24h 0m
+  cache               <tmp>/cache/llm-usage-metrics/litellm-pricing-cache.json
+                      fetched 2026-06-21 (3 h ago), fresh
+  prices              from the cache
+  overrides  flag     <tmp>/overrides.json (missing)
+
+Defaults
+  timezone            default  UTC
+  sources             config   claude, codex, gemini, pi
+  parse workers       config   2
+  parse max parallel  default  8
+  worker min size     default  256.0 MiB
+  history                      on (event store enabled)
+
+Active environment overrides:
+  LLM_USAGE_CONFIG_PATH=<tmp>/config.toml  (user config file path)
+  LLM_USAGE_SKIP_UPDATE_CHECK=1  (skip startup update check)
