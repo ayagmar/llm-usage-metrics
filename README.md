@@ -264,7 +264,7 @@ The parsers behind the CLI are a separate package, `@ayagmar/agent-sessions`, fo
 
 ## Performance
 
-The repository publishes direct-process and launcher-inclusive runtimes on stable snapshots of real local corpora. The current direct-process comparison shows `ccusage` ahead in every measured daily JSON cell; a separate monthly terminal check shows why timing `npx ccusage@...` can appear much slower than an installed `llm-usage` command. The benchmark records the machine, exact commands, application state, dataset size, and eight-run summary statistics.
+The repository publishes runtimes for `llm-usage` and `ccusage` on stable snapshots of real local logs. Since ccusage 20.0.0 moved to a native binary behind a small Node launcher, this compares Node against native code. In the October 2026 run, ccusage was faster on Codex `daily --json` and `llm-usage` was faster on Claude Code `daily --json`. A separate monthly terminal check shows how much `npx ccusage@...` adds at the shell. The page records the machine, versions, exact commands, application state, dataset size and run counts.
 
 Read and reproduce the [benchmark](https://ayagmar.github.io/llm-usage-metrics/benchmarks/) before applying its results to another workload.
 
