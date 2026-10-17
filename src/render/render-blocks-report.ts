@@ -2,6 +2,7 @@ import { markdownTable } from 'markdown-table';
 
 import type { BlockBurnRate } from '../blocks/aggregate-blocks.js';
 import type { BlockRow, BlocksReportData } from '../cli/build-blocks-data.js';
+import { formatLocalDateTime, formatLocalDateTimeSpan } from './format-local-date-time.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { renderReportJson } from './report-json.js';
@@ -47,30 +48,6 @@ const usdFormatter = new Intl.NumberFormat('en-US', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
-const dateTimeFormatters = new Map<string, Intl.DateTimeFormat>();
-
-function formatLocalDateTime(isoTimestamp: string, timezone: string): string {
-  let formatter = dateTimeFormatters.get(timezone);
-
-  if (!formatter) {
-    formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: timezone,
-      hourCycle: 'h23',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-    dateTimeFormatters.set(timezone, formatter);
-  }
-
-  const parts = Object.fromEntries(
-    formatter.formatToParts(new Date(isoTimestamp)).map((part) => [part.type, part.value]),
-  );
-
-  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
-}
 
 function formatCost(value: { costUsd?: number; costIncomplete?: boolean }): string {
   if (value.costUsd === undefined) {
@@ -90,11 +67,7 @@ function formatBlockSpan(row: BlockRow, timezone: string): string {
     row.startUncertain ? UNCERTAIN_MARK : '',
     row.active ? ` ${ACTIVE_MARK}` : '',
   ].join('');
-  const start = formatLocalDateTime(row.start, timezone);
-  const end = formatLocalDateTime(row.end, timezone);
-  const sameDay = start.slice(0, 10) === end.slice(0, 10);
-
-  return `${start}-${sameDay ? end.slice(11) : end}${marks}`;
+  return `${formatLocalDateTimeSpan(row.start, row.end, timezone)}${marks}`;
 }
 
 const blockColumns: readonly BlockColumn[] = [
