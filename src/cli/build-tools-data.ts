@@ -1,4 +1,4 @@
-import { getEventSessionKey } from '@ayagmar/agent-sessions';
+import { dedupeToolCalls, getEventSessionKey } from '@ayagmar/agent-sessions';
 
 import {
   buildEventProjectLabels,
@@ -6,19 +6,13 @@ import {
   UNATTRIBUTED_PROJECT_LABEL,
 } from '../aggregate/project-key.js';
 import { LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
-import {
-  aggregateTools,
-  countToolCallsOnce,
-  type ToolRow,
-  type ToolTotals,
-} from '../tools/aggregate-tools.js';
-import { getCurrentLocalDateKey } from '../utils/time-buckets.js';
+import { aggregateTools, type ToolRow, type ToolTotals } from '../tools/aggregate-tools.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
-import { resolveRecentDaysWindow } from './build-blocks-data.js';
+import { resolveUsageDataRequest } from './build-usage-data.js';
 import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import { buildUsageEventDataset } from './build-usage-event-dataset.js';
-import { limitRows, parseTopRowsOption } from './build-session-data.js';
+import { limitRows, parseTopRowsOption, resolveTopRowLimit } from './top-option.js';
 import {
   formatFailedLiveReads,
   formatLiveEventsNote,
@@ -31,9 +25,6 @@ import type {
   ToolsCommandOptions,
   UsageDiagnostics,
 } from './usage-data-contracts.js';
-
-export const TOOLS_DEFAULT_LAST_DAYS = 7;
-const DEFAULT_TOOLS_TOP = 20;
 
 export const LIVE_TOOL_CALLS_NOTE = formatLiveEventsNote('Tool calls');
 
@@ -87,19 +78,18 @@ export async function buildToolsData(
   deps: BuildUsageDataDeps = {},
 ): Promise<ToolsDataResult> {
   const top = parseTopRowsOption(options.top);
-  const userConfigResolution = await resolveUserConfigForOptions(options, deps);
+  // Without date flags, the last 7 days, as `daily` reports them.
+  const windowRequest = await resolveUsageDataRequest('daily', options, deps);
+  const userConfigResolution = await resolveUserConfigForOptions(
+    windowRequest.options,
+    windowRequest.deps,
+  );
   const configuredOptions = userConfigResolution.options;
+  const window = { since: configuredOptions.since, until: configuredOptions.until };
   // Validates the dates and the timezone before they are used here.
   const { timezone } = normalizeBuildUsageInputs(
     configuredOptions,
     userConfigResolution.cliOptions,
-  );
-  const today = getCurrentLocalDateKey(timezone, deps.now?.() ?? new Date());
-  const window = resolveRecentDaysWindow(
-    options,
-    configuredOptions,
-    today,
-    TOOLS_DEFAULT_LAST_DAYS,
   );
   // Tool calls are only in local files on disk: no history, no other machines, no sync.
   const datasetOptions: ReportCommandOptions = {
@@ -119,17 +109,12 @@ export async function buildToolsData(
   const live = await measureRuntimeProfileStage(deps.runtimeProfile, 'tools.read_live', () =>
     readLiveSessionEvents(dataset, { kinds: ['tool_call'] }),
   );
-  const { rows, totals } = aggregateTools(countToolCallsOnce(live.events), {
+  const { rows, totals } = aggregateTools(dedupeToolCalls(live.events), {
     sessionRepoRoots: mapSessionRepoRoots(dataset.filteredEvents),
     bySource: options.bySource,
     byRepo: options.byRepo,
   });
-  const limited = limitRows(
-    rows,
-    top === 0 ? undefined : (top ?? DEFAULT_TOOLS_TOP),
-    'tools',
-    'calls',
-  );
+  const limited = limitRows(rows, resolveTopRowLimit(top), 'tools', 'calls');
   const projectLabels = buildEventProjectLabels(dataset.filteredEvents);
   const toProjectLabel = (repoRoot: string | null) =>
     projectLabels.get(repoRoot ?? undefined) ?? UNATTRIBUTED_PROJECT_LABEL;
@@ -163,6 +148,8 @@ export async function buildToolsData(
       runtimeProfile: deps.runtimeProfile?.snapshot(),
     }),
     limitNote: limited.limitNote,
-    ...(window.isDefault && window.since !== undefined ? { defaultWindowSince: window.since } : {}),
+    ...(windowRequest.defaultWindowSince
+      ? { defaultWindowSince: windowRequest.defaultWindowSince }
+      : {}),
   };
 }

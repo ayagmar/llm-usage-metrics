@@ -1,4 +1,4 @@
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { getLocalDateKeyRange } from '../utils/time-buckets.js';
 import type {
   ProjectTrendSeries,

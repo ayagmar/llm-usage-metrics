@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { IDLE_GAP_CAP_MS } from '../../src/domain/active-time.js';
+import { IDLE_GAP_CAP_MS } from '@ayagmar/agent-sessions';
 import { createUsageEvent, type UsageEventInput } from '../../src/domain/usage-event.js';
 import {
   aggregateSessions,

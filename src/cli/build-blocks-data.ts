@@ -1,11 +1,12 @@
 import {
   aggregateBlocks,
-  BLOCK_DURATION_MS,
   BLOCK_HOURS,
   computeBurnRate,
+  findEventBlockKey,
   isBlockActive,
   resolveBlockRanking,
   selectTopBlocks,
+  toBlockKey,
   type BlockBurnRate,
   type BlockRanking,
   type UsageBlock,
@@ -14,7 +15,7 @@ import { getLocalDayStartMs } from '../blocks/local-day-start.js';
 import { LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
 import { getCurrentLocalDateKey, shiftLocalDateKey } from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions, type UserConfigResolution } from './apply-user-config.js';
-import { parseLastOption } from './build-usage-data.js';
+import { resolveUsageDataRequest } from './build-usage-data.js';
 import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import {
@@ -24,7 +25,6 @@ import {
   type UsageEventDataset,
 } from './build-usage-event-dataset.js';
 import { filterParsedAdapterEvents } from './parse/usage-event-filters.js';
-import { BLOCKS_DEFAULT_LAST_DAYS } from './report-definitions/report-definitions.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
 import type {
   BlocksCommandOptions,
@@ -32,8 +32,7 @@ import type {
   ReportCommandOptions,
   UsageDiagnostics,
 } from './usage-data-contracts.js';
-
-const HOUR_MS = 60 * 60 * 1000;
+import { parsePositiveTopOption } from './top-option.js';
 
 /** Days read before `since` to find where the chain of blocks running into it started. */
 export const BLOCKS_LOOKBACK_DAYS = 7;
@@ -69,80 +68,10 @@ export type BlocksDataResult = {
   defaultWindowSince?: string;
 };
 
-type RecentDaysWindowOptions = Pick<BlocksCommandOptions, 'since' | 'until' | 'last' | 'all'>;
-
-/** A report window in local days; `isDefault` when no window flag chose it. */
-export type RecentDaysWindow = {
-  since?: string;
-  until?: string;
-  isDefault: boolean;
-};
-
-function parseTopOption(top: string | undefined): number | undefined {
-  if (top === undefined) {
-    return undefined;
-  }
-
-  const normalized = top.trim();
-
-  if (!/^[1-9]\d*$/u.test(normalized)) {
-    throw new Error('--top must be a positive integer');
-  }
-
-  return Number.parseInt(normalized, 10);
-}
-
-/**
- * The window of a report that covers the last `defaultDays` days unless --last N (days),
- * --since/--until or --all says otherwise.
- */
-export function resolveRecentDaysWindow(
-  options: RecentDaysWindowOptions,
-  configuredOptions: RecentDaysWindowOptions,
-  today: string,
-  defaultDays: number,
-): RecentDaysWindow {
-  const hasDates = options.since !== undefined || options.until !== undefined;
-  const lastDays = parseLastOption(options.last);
-
-  if (lastDays !== undefined && (hasDates || options.all)) {
-    throw new Error('--last cannot be combined with --since, --until, or --all');
-  }
-
-  if (options.all && hasDates) {
-    throw new Error('--all cannot be combined with --since or --until');
-  }
-
-  if (lastDays !== undefined) {
-    return { since: shiftLocalDateKey(today, -(lastDays - 1)), until: today, isDefault: false };
-  }
-
-  if (options.all) {
-    return { isDefault: false };
-  }
-
-  if (hasDates) {
-    return { since: configuredOptions.since, until: configuredOptions.until, isDefault: false };
-  }
-
-  return { since: shiftLocalDateKey(today, -(defaultDays - 1)), isDefault: true };
-}
-
 /** The events counted in `blocks`: each lies in one block of its source, at most 5 h after its start. */
 function selectBlockEvents(events: readonly UsageEvent[], blocks: readonly UsageBlock[]) {
-  const blockKeys = new Set(blocks.map((block) => `${block.source}\0${Date.parse(block.start)}`));
-
-  return events.filter((event) => {
-    const hourMs = Math.floor(Date.parse(event.timestamp) / HOUR_MS) * HOUR_MS;
-
-    for (let startMs = hourMs; startMs > hourMs - BLOCK_DURATION_MS; startMs -= HOUR_MS) {
-      if (blockKeys.has(`${event.source}\0${startMs}`)) {
-        return true;
-      }
-    }
-
-    return false;
-  });
+  const blockKeys = new Set(blocks.map(toBlockKey));
+  return events.filter((event) => findEventBlockKey(event, blockKeys) !== undefined);
 }
 
 /**
@@ -207,9 +136,15 @@ export async function buildBlocksData(
   options: BlocksCommandOptions,
   deps: BuildUsageDataDeps = {},
 ): Promise<BlocksDataResult> {
-  const top = parseTopOption(options.top);
-  const userConfigResolution = await resolveUserConfigForOptions(options, deps);
+  const top = parsePositiveTopOption(options.top);
+  // Without date flags, the last 7 days, as `daily` reports them.
+  const windowRequest = await resolveUsageDataRequest('daily', options, deps);
+  const userConfigResolution = await resolveUserConfigForOptions(
+    windowRequest.options,
+    windowRequest.deps,
+  );
   const configuredOptions = userConfigResolution.options;
+  const window = { since: configuredOptions.since, until: configuredOptions.until };
   // Validates the dates and the timezone before they are used here.
   const { timezone } = normalizeBuildUsageInputs(
     configuredOptions,
@@ -217,12 +152,6 @@ export async function buildBlocksData(
   );
   const now = deps.now?.() ?? new Date();
   const today = getCurrentLocalDateKey(timezone, now);
-  const window = resolveRecentDaysWindow(
-    options,
-    configuredOptions,
-    today,
-    BLOCKS_DEFAULT_LAST_DAYS,
-  );
   // Read a week before the window, once, to find where the blocks running into it started.
   const lookbackSince =
     window.since === undefined ? undefined : shiftLocalDateKey(window.since, -BLOCKS_LOOKBACK_DAYS);
@@ -301,6 +230,8 @@ export async function buildBlocksData(
       activeBlocks: rows.filter((row) => row.active !== null),
     },
     diagnostics,
-    ...(window.isDefault && window.since !== undefined ? { defaultWindowSince: window.since } : {}),
+    ...(windowRequest.defaultWindowSince
+      ? { defaultWindowSince: windowRequest.defaultWindowSince }
+      : {}),
   };
 }

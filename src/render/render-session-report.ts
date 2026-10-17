@@ -6,7 +6,7 @@ import type { SessionRepoRow, SessionRow } from '../session/session-row.js';
 import { getPeriodKey } from '../utils/time-buckets.js';
 import { formatDuration } from './format-duration.js';
 import { formatApproxUsd, formatInteger } from './format-number.js';
-import { limitNamedModels } from './format-model-list.js';
+import { truncateNames } from './truncate-names.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
@@ -69,7 +69,7 @@ export function formatModels(models: readonly string[]): string {
     return '-';
   }
 
-  return limitNamedModels(models, MAX_NAMED_MODELS).join('\n');
+  return truncateNames(models, MAX_NAMED_MODELS).join('\n');
 }
 
 type ProjectLabels = ReadonlyMap<string | undefined, string>;

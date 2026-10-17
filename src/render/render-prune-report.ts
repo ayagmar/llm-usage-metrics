@@ -4,7 +4,7 @@ import type {
   PruneSummary,
   StoreSizeSnapshot,
 } from '../cli/run-prune-report.js';
-import { stripControlCharacters } from '../domain/normalization.js';
+import { stripControlCharacters } from '@ayagmar/agent-sessions/internal';
 import { formatByteSize } from './format-byte-size.js';
 import { formatInteger, pluralize } from './format-number.js';
 import { renderReportHeader } from './report-header.js';

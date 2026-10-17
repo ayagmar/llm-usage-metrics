@@ -1,8 +1,9 @@
 import { LOCAL_MACHINE_NAME, type MachineConfig } from '../config/user-config.js';
 import { getParserVersion, type SourceAdapter } from '@ayagmar/agent-sessions';
 
-import { toTerminalLine } from '../domain/normalization.js';
+import { toTerminalLine } from '@ayagmar/agent-sessions/internal';
 import type { UsageEvent } from '../domain/usage-event.js';
+import { getUtcMidnightIso } from '../utils/date-key.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
 import { pluralize } from '../render/format-number.js';
 import { readMachineCacheUsage, type MachineSyncState } from './machine-cache.js';
@@ -64,13 +65,7 @@ export type LoadedMachineUsage = {
 };
 
 function toTimestampBound(date: string | undefined, offsetDays: number): string | undefined {
-  if (date === undefined) {
-    return undefined;
-  }
-
-  const bound = new Date(`${date}T00:00:00.000Z`);
-  bound.setUTCDate(bound.getUTCDate() + offsetDays);
-  return bound.toISOString();
+  return date === undefined ? undefined : getUtcMidnightIso(date, offsetDays);
 }
 
 function formatParserSkew(machine: MergedMachineEvents): string | undefined {

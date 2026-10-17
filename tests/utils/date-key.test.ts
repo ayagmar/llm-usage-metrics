@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  countDateKeyDays,
+  getMonthEndDateKey,
   formatDateKey,
   getDateKeyPeriod,
   getDateKeyRange,
@@ -87,5 +89,14 @@ describe('date keys', () => {
       '2026-01',
       '2026-02',
     ]);
+  });
+
+  it('finds month ends and counts days across months and leap years', () => {
+    expect(getMonthEndDateKey('2024-02-10')).toBe('2024-02-29');
+    expect(getMonthEndDateKey('2026-02-01')).toBe('2026-02-28');
+    expect(getMonthEndDateKey('2026-12-31')).toBe('2026-12-31');
+    expect(countDateKeyDays('2026-02-27', '2026-03-02')).toBe(4);
+    expect(countDateKeyDays('2026-03-05', '2026-03-05')).toBe(1);
+    expect(() => countDateKeyDays('2026-02-30', '2026-03-01')).toThrow('Invalid local date key');
   });
 });

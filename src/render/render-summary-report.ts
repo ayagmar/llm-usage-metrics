@@ -14,6 +14,7 @@ import {
   formatApproxUsd,
   formatInteger,
   formatStatuslineCompact,
+  pluralize,
   formatUsd,
 } from './format-number.js';
 import { resolveTtyColumns } from './table-text-layout.js';
@@ -38,21 +39,9 @@ export type RenderSummaryReportOptions = {
 
 const summaryTableHeaders = ['Period', 'Cost', 'Tokens', 'Top source'] as const;
 
-const integerFormatter = new Intl.NumberFormat('en-US');
-const usdFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
 function formatCost(period: SummaryPeriod): string {
-  if (period.totals.costUsd === undefined) {
-    return '-';
-  }
-
   // A `~` marks totals that leave out events whose model has no known price.
-  return `${period.totals.costIncomplete ? '~' : ''}${usdFormatter.format(period.totals.costUsd)}`;
+  return formatApproxUsd(period.totals.costUsd, period.totals.costIncomplete);
 }
 
 /** A part's share of the period cost, or undefined when either cost is unknown or zero. */
@@ -81,7 +70,7 @@ function toTableRow(period: SummaryPeriod): string[] {
   return [
     period.label,
     formatCost(period),
-    integerFormatter.format(period.totals.totalTokens),
+    formatInteger(period.totals.totalTokens),
     formatTopSource(period),
   ];
 }
@@ -116,10 +105,6 @@ function getTitle(summaryData: SummaryDataResult): string {
   return `Usage summary for ${today} (${summaryData.timezone})`;
 }
 
-function formatDays(count: number): string {
-  return `${formatInteger(count)} day${count === 1 ? '' : 's'}`;
-}
-
 function formatBestDay(activity: SummaryDataResult['activity']): string {
   const bestDay = activity.bestDay;
 
@@ -136,8 +121,8 @@ function formatBestDay(activity: SummaryDataResult['activity']): string {
 
 function toActivityStats(activity: SummaryDataResult['activity']): [string, string][] {
   return [
-    ['Current streak', formatDays(activity.currentStreak)],
-    ['Longest streak', formatDays(activity.longestStreak)],
+    ['Current streak', pluralize(activity.currentStreak, 'day')],
+    ['Longest streak', pluralize(activity.longestStreak, 'day')],
     ['Best day', formatBestDay(activity)],
     ['Active days', formatInteger(activity.activeDays)],
   ];

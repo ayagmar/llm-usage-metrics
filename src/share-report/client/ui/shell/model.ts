@@ -2,7 +2,7 @@
 // and the empty states. Pure; `render.ts` lays them out.
 
 import type { ShareCostMode, ShareReportMeta } from '../../../types.js';
-import { limitNamedModels } from '../../../../render/format-model-list.js';
+import { truncateNames } from '../../../../render/truncate-names.js';
 import { getReportTitle } from '../export/share-document.js';
 import {
   formatUsdOrNone,
@@ -61,7 +61,7 @@ export type HeaderView = {
 const LISTED_FILTER_VALUES = 3;
 
 function listValues(values: string[]): string {
-  return limitNamedModels(values, LISTED_FILTER_VALUES).join(', ');
+  return truncateNames(values, LISTED_FILTER_VALUES).join(', ');
 }
 
 /**

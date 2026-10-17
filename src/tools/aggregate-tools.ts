@@ -1,6 +1,6 @@
 import { getEventSessionKey, type ToolCallEvent } from '@ayagmar/agent-sessions';
 
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 
 /** Call counts shared by a tool row and the totals. */
 export type ToolCallCounts = {
@@ -101,35 +101,6 @@ function compareRepoRoots(left: string | null, right: string | null): number {
   }
 
   return compareByCodePoint(left, right);
-}
-
-/**
- * Counts a call a session copied from another (a resumed or forked transcript repeats the
- * same tool call id) once: the first copy read, with the status of the first copy that
- * has a result.
- */
-export function countToolCallsOnce(calls: readonly ToolCallEvent[]): ToolCallEvent[] {
-  const byId = new Map<string, number>();
-  const counted: ToolCallEvent[] = [];
-
-  for (const call of calls) {
-    if (call.toolCallId === undefined) {
-      counted.push(call);
-      continue;
-    }
-
-    const key = `${call.source}\0${call.toolCallId}`;
-    const index = byId.get(key);
-
-    if (index === undefined) {
-      byId.set(key, counted.length);
-      counted.push(call);
-    } else if (counted[index].status === 'unknown' && call.status !== 'unknown') {
-      counted[index] = { ...counted[index], status: call.status };
-    }
-  }
-
-  return counted;
 }
 
 /**

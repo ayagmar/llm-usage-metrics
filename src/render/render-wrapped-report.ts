@@ -4,7 +4,7 @@ import type { WrappedRecap, WrappedTopItem } from '../wrapped/wrapped-recap.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { formatHours } from './format-duration.js';
-import { formatApproxUsd, formatInteger } from './format-number.js';
+import { formatApproxUsd, formatInteger, pluralize } from './format-number.js';
 import { resolveTtyColumns, visibleWidth } from './table-text-layout.js';
 import {
   defaultTerminalStylePalette,
@@ -67,7 +67,7 @@ function renderStatLines(recap: WrappedRecap, paint: Paint, palette: TerminalSty
     { label: 'Active days', value: formatInteger(recap.activeDays), styler: palette.white },
     {
       label: 'Longest streak',
-      value: `${formatInteger(recap.longestStreak)} day${recap.longestStreak === 1 ? '' : 's'}`,
+      value: pluralize(recap.longestStreak, 'day'),
       styler: bold(palette.yellow),
     },
     { label: 'Hours', value: formatHours(recap.activeMs), styler: bold(palette.cyan) },
@@ -220,10 +220,7 @@ function toMarkdownStatRows(recap: WrappedRecap): string[][] {
     ['Cost', formatApproxUsd(recap.costUsd, recap.costIncomplete)],
     ['Hours', formatHours(recap.activeMs)],
     ['Active days', formatInteger(recap.activeDays)],
-    [
-      'Longest streak',
-      `${formatInteger(recap.longestStreak)} day${recap.longestStreak === 1 ? '' : 's'}`,
-    ],
+    ['Longest streak', pluralize(recap.longestStreak, 'day')],
     ['Events', formatInteger(recap.eventCount)],
     ['Sessions', formatInteger(recap.sessionCount)],
     ['Peak hour', formatPeakHour(recap.peakHour)],
@@ -244,15 +241,7 @@ function toMarkdownStatRows(recap: WrappedRecap): string[][] {
 }
 
 function renderMarkdownTopTable(title: string, items: readonly WrappedTopItem[]): string {
-  const rows =
-    items.length === 0
-      ? [['-', '-', '-', '-']]
-      : items.map((item, index) => [
-          String(index + 1),
-          item.name,
-          formatInteger(item.totalTokens),
-          formatApproxUsd(item.costUsd, item.costIncomplete),
-        ]);
+  const rows = toTopItemRows(items);
 
   return [
     `### ${title}`,

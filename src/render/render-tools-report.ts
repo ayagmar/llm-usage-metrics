@@ -2,7 +2,7 @@ import { markdownTable } from 'markdown-table';
 
 import type { ToolsDataResult } from '../cli/build-tools-data.js';
 import type { ToolCallCounts } from '../tools/aggregate-tools.js';
-import { formatInteger } from './format-number.js';
+import { formatInteger, formatSharePercent } from './format-number.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { renderReportJson } from './report-json.js';
@@ -44,10 +44,6 @@ type Table = {
   titleColumnCount: number;
 };
 
-function formatErrorRate(errorRate: number | null): string {
-  return errorRate === null ? '-' : `${(errorRate * 100).toFixed(1)}%`;
-}
-
 function buildTable(result: ToolsDataResult): Table {
   const { data } = result;
   const titleColumns = [
@@ -59,7 +55,7 @@ function buildTable(result: ToolsDataResult): Table {
     ...titleColumns,
     { header: 'Calls', align: 'r', cell: (row) => formatInteger(row.calls) },
     { header: 'Errors', align: 'r', cell: (row) => formatInteger(row.errors) },
-    { header: 'Error Rate', align: 'r', cell: (row) => formatErrorRate(row.errorRate) },
+    { header: 'Error Rate', align: 'r', cell: (row) => formatSharePercent(row.errorRate) },
     { header: 'Unknown', align: 'r', cell: (row) => formatInteger(row.unknown) },
     { header: 'Sessions', align: 'r', cell: (row) => formatInteger(row.sessions) },
     // With --by-repo each row is one project already.

@@ -1,4 +1,9 @@
-import { splitCellLines, visibleWidth, wrapTableColumn } from './table-text-layout.js';
+import {
+  measureCellWidth,
+  splitCellLines,
+  visibleWidth,
+  wrapTableColumn,
+} from './table-text-layout.js';
 
 type TableAlignment = 'left' | 'right';
 type TableVerticalAlignment = 'top' | 'middle';
@@ -266,10 +271,6 @@ function measureBoxedTableWidth(widths: readonly number[]): number {
   return widths.reduce((total, width) => total + width + 3, 1);
 }
 
-function measureLinesWidth(cell: string): number {
-  return splitCellLines(cell).reduce((maxWidth, line) => Math.max(maxWidth, visibleWidth(line)), 0);
-}
-
 function joinCellLines(cell: string): string {
   return splitCellLines(cell).join(' ');
 }
@@ -327,7 +328,7 @@ function renderStackedRows(options: {
         valueColumnIndexes.reduce(
           (rowMax, columnIndex) =>
             options.columnKinds[columnIndex] === 'measure'
-              ? Math.max(rowMax, measureLinesWidth(row[columnIndex]))
+              ? Math.max(rowMax, measureCellWidth(row[columnIndex]))
               : rowMax,
           maxWidth,
         ),
@@ -344,7 +345,7 @@ function renderStackedRows(options: {
     const valueLines = valueColumnIndexes.flatMap((columnIndex) => {
       // A value too long for the line is wrapped from its uncolored text.
       const lines =
-        measureLinesWidth(row[columnIndex]) > availableValueWidth
+        measureCellWidth(row[columnIndex]) > availableValueWidth
           ? splitCellLines(options.measureBodyRows[rowIndex][columnIndex]).flatMap((line) =>
               wrapAtNameBreaks(line, availableValueWidth),
             )

@@ -6,7 +6,7 @@ import {
   getPricingFetcherRuntimeConfig,
 } from '../config/runtime-overrides.js';
 import type { UsageEvent } from '../domain/usage-event.js';
-import { limitNamedModels } from '../render/format-model-list.js';
+import { truncateNames } from '../render/truncate-names.js';
 import { pluralize } from '../render/format-number.js';
 import {
   closeEventStore,
@@ -37,7 +37,8 @@ import {
   parseSelectedAdapters,
   throwOnExplicitSourceFailures,
   type AdapterParseResult,
-  type DiscoveredSourceFile,
+  type ParsedSourceFile,
+  type ParseSelectedAdaptersOptions,
 } from './build-usage-data-parsing.js';
 import { filterParsedAdapterEvents } from './parse/usage-event-filters.js';
 import { applyRepoFilter } from './repo-filter.js';
@@ -168,7 +169,7 @@ export type UsageEventDataset = {
    * The local files whose events this run counts: discovered, parsed or served from the
    * store, and not skipped as last modified before the window.
    */
-  parsedFiles: DiscoveredSourceFile[];
+  parsedFiles: ParsedSourceFile[];
   /**
    * The event store and the stored files whose events this run counts: parsed files and
    * the departed files history served. Undefined when the event store was unavailable.
@@ -189,6 +190,7 @@ export type UsageEventDatasetPricingResult = PricedEventsResult;
 export async function buildUsageEventDataset(
   options: ReportCommandOptions,
   deps: BuildUsageDataDeps = {},
+  request: Pick<ParseSelectedAdaptersOptions, 'recordFileSessionIds'> = {},
 ): Promise<UsageEventDataset> {
   const userConfigResolution = await resolveUserConfigForOptions(options, deps);
   const configuredOptions = userConfigResolution.options;
@@ -314,6 +316,7 @@ export async function buildUsageEventDataset(
             minBytes: parsingRuntimeConfig.parseWorkerMinBytes,
           },
           runtimeProfile,
+          recordFileSessionIds: request.recordFileSessionIds,
         });
       },
     );
@@ -585,11 +588,6 @@ export async function applyPricingToUsageEventDataset(
 
 const MAX_NAMED_UNPRICED_MODELS = 5;
 
-function formatEventCount(count: number): string {
-  const eventLabel = count === 1 ? 'event' : 'events';
-  return `${new Intl.NumberFormat('en-US').format(count)} ${eventLabel}`;
-}
-
 /**
  * Reports leave an event without a cost out of cost totals and mark those totals with `~`.
  * Returns the note explaining that marker for the events a report shows, if any lack a cost.
@@ -604,14 +602,14 @@ function describeUnpricedEvents(
     return undefined;
   }
 
-  const eventCount = formatEventCount(unpricedEvents.length);
+  const eventCount = pluralize(unpricedEvents.length, 'event');
 
   if (costMode === 'explicit') {
     return `~ marks costs that leave out ${eventCount} with no logged cost (--cost-mode explicit)`;
   }
 
   const models = [...new Set(unpricedEvents.map((event) => event.model ?? 'unknown'))].sort();
-  const modelList = limitNamedModels(models, MAX_NAMED_UNPRICED_MODELS).join(', ');
+  const modelList = truncateNames(models, MAX_NAMED_UNPRICED_MODELS).join(', ');
 
   return `~ marks costs that leave out ${eventCount} with no known price (models: ${modelList})`;
 }
@@ -628,9 +626,9 @@ function describePriorityPricedEvents(
   }
 
   const models = [...new Set(priorityEvents.map((event) => event.model ?? 'unknown'))].sort();
-  const modelList = limitNamedModels(models, MAX_NAMED_UNPRICED_MODELS).join(', ');
+  const modelList = truncateNames(models, MAX_NAMED_UNPRICED_MODELS).join(', ');
 
-  return `${formatEventCount(priorityEvents.length)} priced at LiteLLM priority rates because no standard rate is listed (models: ${modelList})`;
+  return `${pluralize(priorityEvents.length, 'event')} priced at LiteLLM priority rates because no standard rate is listed (models: ${modelList})`;
 }
 
 /**
@@ -655,7 +653,7 @@ function describeReestimatedExplicitZero(
   const sources = [...new Set(reestimatedEvents.map((event) => event.source))].sort().join(', ');
   const verb = reestimatedEvents.length === 1 ? 'was' : 'were';
 
-  return `${formatEventCount(reestimatedEvents.length)} logged $0 by ${sources} ${verb} estimated from LiteLLM; use --cost-mode explicit to keep $0`;
+  return `${pluralize(reestimatedEvents.length, 'event')} logged $0 by ${sources} ${verb} estimated from LiteLLM; use --cost-mode explicit to keep $0`;
 }
 
 type PricingNotesInput = Pick<

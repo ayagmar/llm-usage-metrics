@@ -1,6 +1,7 @@
 // The wrapped recap: the year's figures, the daily calendar and the top lists, from the
 // embedded `wrapped --json` data. Fixed at generation: the page's filters do not change it.
 
+import { MONTH_LABELS } from '../../../../render/month-labels.js';
 import { formatHours } from '../../../../render/format-duration.js';
 import { getWindowEnd, NO_VALUE, type ShareReport } from '../../core/index.js';
 import {
@@ -10,7 +11,7 @@ import {
   formatPercent,
   pluralize,
 } from '../shell/format.js';
-import { buildCalendar, MONTH_NAMES, type CalendarView } from './calendar-model.js';
+import { buildCalendar, type CalendarView } from './calendar-model.js';
 import {
   formatEnvelopeCost,
   getEnvelopeData,
@@ -59,7 +60,7 @@ function buildMonths(months: Record<string, unknown>[]): PanelTable {
       const key = readString(month, 'month') ?? '';
       const index = Number(key.slice(5, 7)) - 1;
       return [
-        { text: MONTH_NAMES[index] ?? key },
+        { text: MONTH_LABELS[index] ?? key },
         { text: formatCount(readNumber(month, 'totalTokens') ?? 0) },
         formatEnvelopeCost(readNumber(month, 'costUsd'), month.costIncomplete === true),
       ];

@@ -34,3 +34,8 @@ export function formatApproxUsd(
   const formatted = formatUsd(value);
   return value !== undefined && approximate ? `~${formatted}` : formatted;
 }
+
+/** One-decimal percent of a 0..1 share, or `-` when the share is unknown. */
+export function formatSharePercent(share: number | null): string {
+  return share === null ? '-' : `${(share * 100).toFixed(1)}%`;
+}

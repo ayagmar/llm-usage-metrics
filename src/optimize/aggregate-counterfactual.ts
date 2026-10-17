@@ -6,7 +6,7 @@ import {
   hasUsedBucketWithUndefinedRate,
 } from '../pricing/cost-engine.js';
 import type { ModelPricing, PricingSource } from '../pricing/types.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import type { OptimizeBaselineRow, OptimizeCandidateRow, OptimizeRow } from './optimize-row.js';
 import { addUsd, roundUsd } from '../utils/usd-math.js';
 
@@ -74,21 +74,6 @@ function parseCandidateModelsRaw(candidateModel: string | string[] | undefined):
 
 export function normalizeCandidateModels(candidateModel: string | string[] | undefined): string[] {
   return parseCandidateModelsRaw(candidateModel);
-}
-
-export function parseTopOption(top: string | undefined): number | undefined {
-  if (top === undefined) {
-    return undefined;
-  }
-
-  const normalized = top.trim();
-  const parsed = Number.parseInt(normalized, 10);
-
-  if (!/^\d+$/u.test(normalized) || Number.isNaN(parsed) || parsed < 1) {
-    throw new Error('--top must be a positive integer');
-  }
-
-  return parsed;
 }
 
 function toBaselineRow(period: BaselinePeriodTotals, provider: string): OptimizeBaselineRow {

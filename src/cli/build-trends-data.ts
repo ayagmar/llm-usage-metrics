@@ -1,7 +1,7 @@
 import { aggregateUsage } from '../aggregate/aggregate-usage.js';
 import { buildEventProjectLabels, toProjectKey } from '../aggregate/project-key.js';
 import { findSpendSpikes, resolveSpikeBaselineStart } from '../aggregate/spend-spikes.js';
-import { computeActiveMs } from '../domain/active-time.js';
+import { computeActiveMs } from '@ayagmar/agent-sessions';
 import { getEventSessionKey, type UsageEvent } from '../domain/usage-event.js';
 import type { ProjectUsageReportRow, UsageReportRow } from '../domain/usage-report-row.js';
 import { aggregateProjectTrends, aggregateTrends } from '../trends/aggregate-trends.js';
@@ -9,7 +9,7 @@ import { createPricingRunStats, DEFAULT_PRICING_POLICY } from '../pricing/cost-e
 import { getCurrentLocalDateKey, getPeriodKey, shiftLocalDateKey } from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
-import { validateDateInput, validateTimezone } from './build-usage-data-inputs.js';
+import { resolveReportTimezone, validateDateInput } from './build-usage-data-inputs.js';
 import { parseLastOption } from './build-usage-data.js';
 import {
   applyPricingToUsageEventDataset,
@@ -101,40 +101,24 @@ function resolveFetchDateRange(
   return undefined;
 }
 
+/** The fetch range, or for --until alone, from the earliest observed date to --until. */
 function resolveOutputDateRange(
   options: TrendsCommandOptions,
   today: string,
   days: number | undefined,
   observedDates: readonly string[],
 ): ResolvedDateRange {
-  if (days !== undefined) {
-    return resolveTrailingDateRange(today, days);
+  const fetchDateRange = resolveFetchDateRange(options, today, days);
+
+  if (fetchDateRange) {
+    return fetchDateRange;
   }
 
-  if (!options.since && !options.until) {
-    return resolveTrailingDateRange(today, 30);
-  }
-
-  if (options.since && options.until) {
-    return {
-      from: options.since,
-      to: options.until,
-    };
-  }
-
-  if (options.since) {
-    return {
-      from: options.since,
-      to: options.since > today ? options.since : today,
-    };
-  }
-
-  const earliestObservedDate = observedDates.at(0);
   const { until } = options;
   assertUntilDefined(until);
 
   return {
-    from: earliestObservedDate ?? until,
+    from: observedDates.at(0) ?? until,
     to: until,
   };
 }
@@ -348,9 +332,7 @@ export async function buildTrendsData(
   const userConfigResolution = await resolveUserConfigForOptions(options, deps);
   const configuredOptions = userConfigResolution.options as TrendsCommandOptions;
   const now = deps.now?.() ?? new Date();
-  const timezone =
-    configuredOptions.timezone?.trim() ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
-  validateTimezone(timezone);
+  const timezone = resolveReportTimezone(configuredOptions.timezone);
   const resolved = resolveTrendsOptions(configuredOptions, timezone, now);
   // Spike days need the cost of the days before the chart.
   const fetchFrom =

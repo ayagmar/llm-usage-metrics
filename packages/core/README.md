@@ -10,7 +10,7 @@ The site has a guided introduction: [Reading and composing](https://ayagmar.gith
 
 ## Contents
 
-- `@ayagmar/agent-sessions`: the usage event model and its normalization, the `SourceAdapter` contract, `SourceContext`, `getParserVersion`, `collect` and `collectFile`, `pipe`, the event kinds with `readEvents`, `kinds` and `isUsageRecord`, the stages `since`, `until` and `bySession`, the dedup steps (`dedupeRepeatedAcrossFiles`, `dedupeCopiedSessions` and their stage forms, `computeEventContentHash`), and the read cursor types.
+- `@ayagmar/agent-sessions`: the usage event model and its normalization, the `SourceAdapter` contract, `SourceContext`, `getParserVersion`, `collect` and `collectFile`, `pipe`, the event kinds with `readEvents`, `kinds` and `isUsageRecord`, the stages `since`, `until` and `bySession`, the dedup steps (`dedupeRepeatedAcrossFiles`, `dedupeCopiedSessions` and their stage forms, `computeEventContentHash`, `dedupeToolCalls`), and the read cursor types.
 - `@ayagmar/agent-sessions/registry`: every source registered in a fixed order, with `createDefaultAdapters`, `getDefaultSourceIds`, `getSourceStorageFormat` and `readSources`.
 - `@ayagmar/agent-sessions/sources/<id>`: one adapter per entry (`pi`, `codex`, `gemini`, `droid`, `opencode`, `openclaw`, `claude`, `copilot`, `goose`, `amp`, `qwen`, `kimi`, `cline`, `roocode`, `kilocode`, `antigravity`, `dsh`). Importing one entry loads no other source's code, except that `roocode` and `kilocode` load `cline`, whose family adapter builds them.
 - `@ayagmar/agent-sessions/otel`: experimental OpenTelemetry GenAI attributes for events. See [OpenTelemetry attributes](#opentelemetry-attributes).
@@ -339,7 +339,9 @@ The codes `read` can record are the ones without a `message_`, `tool_call_`, `se
 
 ### Dedup
 
-`repeatedAcrossFiles()` and `copiedSessions()` dedupe usage only. Other kinds pass through unchanged, in their input order, and do not change which copy of a usage event is kept. `copiedSessions()` buffers its whole input, so with `text: true` it holds every message body until its input ends.
+`repeatedAcrossFiles()` and `copiedSessions()` dedupe usage only. Other kinds pass through unchanged, in their input order, and do not change which copy of a usage event is kept.
+
+`dedupeToolCalls()` takes tool calls and keeps one per source and call id, the first read, with the status of the first copy that has a result. A resumed or forked transcript repeats its parent's calls under the same id. Calls without an id are all kept. `copiedSessions()` buffers its whole input, so with `text: true` it holds every message body until its input ends.
 
 Forks:
 

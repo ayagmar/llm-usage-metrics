@@ -1,25 +1,18 @@
 import { renderContextReport, type ContextReportFormat } from '../render/render-context-report.js';
-import { logger } from '../utils/logger.js';
 import { buildContextData } from './build-context-data.js';
 import { hasCliFilters } from './filter-match-warnings.js';
 import {
+  emitLimitNote,
   prepareReport,
   runStandardPreparedReport,
   STANDARD_REPORT_FORMATS,
+  type LimitedReportDiagnostics,
 } from './report-runtime/report-lifecycle.js';
 import { getDefaultWindowHint } from './run-usage-report.js';
 import { createRuntimeProfileCollector } from './runtime-profile.js';
-import type {
-  BuildUsageDataDeps,
-  ContextCommandOptions,
-  UsageDiagnostics,
-} from './usage-data-contracts.js';
+import type { BuildUsageDataDeps, ContextCommandOptions } from './usage-data-contracts.js';
 
 const contextReportFormats = STANDARD_REPORT_FORMATS satisfies readonly ContextReportFormat[];
-
-type ContextPreparedDiagnostics = UsageDiagnostics & {
-  limitNote?: string;
-};
 
 async function prepareContextReport(options: ContextCommandOptions, deps: BuildUsageDataDeps = {}) {
   return prepareReport({
@@ -31,7 +24,7 @@ async function prepareContextReport(options: ContextCommandOptions, deps: BuildU
       }
     },
     buildData: () => buildContextData(options, deps),
-    getDiagnostics: (contextData): ContextPreparedDiagnostics => ({
+    getDiagnostics: (contextData): LimitedReportDiagnostics => ({
       ...contextData.diagnostics,
       limitNote: contextData.limitNote,
     }),
@@ -43,12 +36,6 @@ async function prepareContextReport(options: ContextCommandOptions, deps: BuildU
         ? getDefaultWindowHint('daily', contextData.defaultWindowSince)
         : [],
   });
-}
-
-function emitContextReportDiagnostics(diagnostics: ContextPreparedDiagnostics): void {
-  if (diagnostics.limitNote) {
-    logger.info(diagnostics.limitNote);
-  }
 }
 
 export async function buildContextReport(
@@ -68,6 +55,6 @@ export async function runContextReport(
 
   await runStandardPreparedReport({
     preparedReport,
-    emitReportDiagnostics: emitContextReportDiagnostics,
+    emitReportDiagnostics: emitLimitNote,
   });
 }

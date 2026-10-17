@@ -1,7 +1,7 @@
 import { toRankedModelUsage } from '../aggregate/aggregate-usage.js';
 import type { ModelUsageBreakdown, UsageTotals } from '../domain/usage-report-row.js';
 import type { UsageEvent } from '../domain/usage-event.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { addUsd, roundUsd } from '../utils/usd-math.js';
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -321,4 +321,31 @@ export function selectTopBlocks<Block extends UsageBlock>(
     )
     .slice(0, top)
     .map(({ block }) => block);
+}
+
+/** The key `findEventBlockKey` matches: a block's source and start. */
+export function toBlockKey(block: Pick<UsageBlock, 'source' | 'start'>): string {
+  return `${block.source}\0${String(Date.parse(block.start))}`;
+}
+
+/**
+ * The key of the block an event lies in, among `blockKeys` (from `toBlockKey`). Blocks of
+ * one source never overlap and start on an hour, so it is the one starting in the event's
+ * hour or the 4 before.
+ */
+export function findEventBlockKey(
+  event: Pick<UsageEvent, 'source' | 'timestamp'>,
+  blockKeys: { has(key: string): boolean },
+): string | undefined {
+  const hourMs = Math.floor(Date.parse(event.timestamp) / HOUR_MS) * HOUR_MS;
+
+  for (let startMs = hourMs; startMs > hourMs - BLOCK_DURATION_MS; startMs -= HOUR_MS) {
+    const key = `${event.source}\0${String(startMs)}`;
+
+    if (blockKeys.has(key)) {
+      return key;
+    }
+  }
+
+  return undefined;
 }

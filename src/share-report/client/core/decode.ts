@@ -93,7 +93,7 @@ function isIndexArray(value: unknown, length: number, dictionarySize: number): v
 }
 
 /** Parses a `YYYY-MM-DD` or `YYYY-MM-DD HH:00` period key. */
-export function parsePeriodKey(key: string): SharePeriod | undefined {
+function parsePeriodKey(key: string): SharePeriod | undefined {
   const dateKey = key.slice(0, 10);
   const parts = parseDateKey(dateKey);
 

@@ -53,3 +53,4 @@ export { bySession, type SessionGroup } from './stream/by-session.js';
 export * from './dedup/content-hash.js';
 export { dedupeRepeatedAcrossFiles, repeatedAcrossFiles } from './dedup/repeated-across-files.js';
 export * from './dedup/copied-session.js';
+export { dedupeToolCalls } from './dedup/tool-calls.js';

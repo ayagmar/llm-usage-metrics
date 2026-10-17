@@ -2,7 +2,7 @@ import { calculateCurrentStreak, type DailyActivity } from '../aggregate/daily-a
 import { getParsingRuntimeConfig } from '../config/runtime-overrides.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { formatApproxUsd, formatStatuslineCompact, formatUsd } from '../render/format-number.js';
-import { asRecord } from '../utils/as-record.js';
+import { asRecord } from '@ayagmar/agent-sessions/internal';
 import { setLogLevel } from '../utils/logger.js';
 import { getPeriodKey } from '../utils/time-buckets.js';
 import {

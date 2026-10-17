@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { setTimeout as sleepTimer } from 'node:timers/promises';
 
-import { asRecord } from '../utils/as-record.js';
+import { asRecord } from '@ayagmar/agent-sessions/internal';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
 import { ensureDirectory, readRegularTextFile, writeFileAtomic } from '../utils/fs-helpers.js';
 import { parseVersion } from './version-utils.js';

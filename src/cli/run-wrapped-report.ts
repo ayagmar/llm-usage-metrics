@@ -1,3 +1,4 @@
+import { getYearDateRange } from '../wrapped/aggregate-wrapped.js';
 import { renderWrappedReport, wrappedReportFormats } from '../render/render-wrapped-report.js';
 import { buildWrappedData, parseWrappedYearOption } from './build-wrapped-data.js';
 import { prepareReport, runStandardPreparedReport } from './report-runtime/report-lifecycle.js';
@@ -22,7 +23,8 @@ async function prepareWrappedReport(
     buildShare: async (wrappedData, { runtimeProfile }) => {
       const { year } = wrappedData.recap;
       // The file holds the year and opens on all of it.
-      const window = { since: `${year}-01-01`, until: `${year}-12-31` };
+      const { from: since, to: until } = getYearDateRange(year);
+      const window = { since, until };
 
       return buildShareReportArtifact(
         {

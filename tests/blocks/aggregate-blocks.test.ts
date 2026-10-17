@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  findEventBlockKey,
+  toBlockKey,
   aggregateBlocks,
   BLOCK_DURATION_MS,
   computeBurnRate,
@@ -473,5 +475,19 @@ describe('block properties', () => {
         );
       }
     }
+  });
+});
+
+describe('findEventBlockKey', () => {
+  const blockKeys = new Set([toBlockKey({ source: 'codex', start: '2026-03-05T10:00:00.000Z' })]);
+  const at = (timestamp: string, source = 'codex') =>
+    findEventBlockKey({ source, timestamp }, blockKeys);
+
+  it('finds the block an event lies in, up to its exclusive end', () => {
+    expect(at('2026-03-05T10:00:00.000Z')).toBeDefined();
+    expect(at('2026-03-05T14:59:59.999Z')).toBeDefined();
+    expect(at('2026-03-05T15:00:00.000Z')).toBeUndefined();
+    expect(at('2026-03-05T09:59:59.999Z')).toBeUndefined();
+    expect(at('2026-03-05T11:00:00.000Z', 'claude')).toBeUndefined();
   });
 });

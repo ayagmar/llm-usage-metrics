@@ -1,4 +1,4 @@
-import { toTerminalLine } from '../domain/normalization.js';
+import { toTerminalLine } from '@ayagmar/agent-sessions/internal';
 import { rm } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -53,7 +53,7 @@ export type MachineSyncResult = {
   eventCount: number;
 };
 
-export function getMachineCacheDirectory(): string {
+function getMachineCacheDirectory(): string {
   return path.join(path.dirname(getDefaultEventStorePath()), 'machines');
 }
 

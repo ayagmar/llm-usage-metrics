@@ -2,6 +2,7 @@
 // the same on every machine, and every date in the report's timezone, never the browser's.
 // Formatters are created on first use: the module does no work when it loads.
 
+import { MONTH_LABELS } from '../../../../render/month-labels.js';
 import { parseDateKey } from '../../../../utils/date-key.js';
 import { formatUsdOrNone, NO_VALUE, type ShareCostValue } from '../../core/index.js';
 
@@ -92,13 +93,11 @@ export function formatCost(value: ShareCostValue): CostText {
   }
 }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
 /** `20 Oct 2026` from `2026-10-20`; the key itself when it is not a date. */
 export function formatDay(dateKey: string): string {
   const parts = parseDateKey(dateKey);
 
-  return parts ? `${parts.day} ${MONTHS[parts.month - 1]} ${parts.year}` : dateKey;
+  return parts ? `${parts.day} ${MONTH_LABELS[parts.month - 1]} ${parts.year}` : dateKey;
 }
 
 /** `20 Oct 2026 – 26 Oct 2026`, one date when both ends match, open ends spelled out. */

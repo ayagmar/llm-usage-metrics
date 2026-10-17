@@ -1,9 +1,9 @@
 import { toProjectKey } from '../aggregate/project-key.js';
-import { computeActiveMs } from '../domain/active-time.js';
+import { computeActiveMs } from '@ayagmar/agent-sessions';
 import { getEventSessionKey, normalizeOptionalModel } from '../domain/usage-event.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import type { UsageTotals } from '../domain/usage-report-row.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { getPeriodKey } from '../utils/time-buckets.js';
 import type { SessionRepoRow, SessionRow } from './session-row.js';
 import { addUsd } from '../utils/usd-math.js';

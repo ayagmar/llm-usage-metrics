@@ -1,4 +1,4 @@
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 
 /** The label of usage without a repository root. */
 export const UNATTRIBUTED_PROJECT_LABEL = '(unattributed)';
@@ -32,7 +32,7 @@ export function toProjectKey(repoRoot: string | undefined): string | undefined {
 }
 
 /** Path segments of a key, without a drive letter, which belongs to the root. */
-function splitKeySegments(key: string): string[] {
+export function splitKeySegments(key: string): string[] {
   return key
     .replace(DRIVE_PREFIX_PATTERN, '')
     .split(/[\\/]/u)

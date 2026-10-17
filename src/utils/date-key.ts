@@ -28,7 +28,8 @@ function pad2(value: number): string {
   return String(value).padStart(2, '0');
 }
 
-function readDigits(value: string, start: number, length: number): number {
+/** The decimal number in `value[start, start + length)`, or -1 when a character is not a digit. */
+export function readDigits(value: string, start: number, length: number): number {
   let result = 0;
 
   for (let index = start; index < start + length; index += 1) {
@@ -77,6 +78,25 @@ export function formatDateKey(parts: DateParts): string {
   return `${String(parts.year).padStart(4, '0')}-${pad2(parts.month)}-${pad2(parts.day)}`;
 }
 
+const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const;
+
+/** Days in a calendar month (`month` from 1 to 12); no `Date`, for per-event checks. */
+export function getDaysInMonth(year: number, month: number): number {
+  const isLeapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  return month === 2 && isLeapYear ? 29 : DAYS_IN_MONTH[month - 1];
+}
+
+/** The last date key of a valid date key's month. */
+export function getMonthEndDateKey(dateKey: string): string {
+  const { year, month } = parseDateKeyOrThrow(dateKey);
+  return formatDateKey({ year, month, day: getDaysInMonth(year, month) });
+}
+
+/** Days from `since` to `until`, both inclusive; throws on an invalid key. */
+export function countDateKeyDays(since: string, until: string): number {
+  return toDayNumber(parseDateKeyOrThrow(until)) - toDayNumber(parseDateKeyOrThrow(since)) + 1;
+}
+
 /** ISO day of week: 1 = Monday … 7 = Sunday. */
 export function getIsoDayOfWeek(parts: DateParts): number {
   // 1970-01-01 was a Thursday (4).
@@ -110,6 +130,11 @@ export function getDateKeyPeriod(dateKey: string, granularity: DateKeyGranularit
 /** Shifts a date key by whole days; throws on an invalid key. */
 export function shiftDateKey(dateKey: string, days: number): string {
   return formatDateKey(fromDayNumber(toDayNumber(parseDateKeyOrThrow(dateKey)) + days));
+}
+
+/** UTC midnight `days` after a date key, as an ISO timestamp; throws on an invalid key. */
+export function getUtcMidnightIso(dateKey: string, days = 0): string {
+  return `${shiftDateKey(dateKey, days)}T00:00:00.000Z`;
 }
 
 /**

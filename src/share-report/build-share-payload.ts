@@ -1,7 +1,7 @@
-import { IDLE_GAP_CAP_MS } from '../domain/active-time.js';
+import { IDLE_GAP_CAP_MS } from '@ayagmar/agent-sessions';
 import { getEventSessionKey, LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
-import type { UsageBlock } from '../blocks/aggregate-blocks.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { findEventBlockKey, toBlockKey, type UsageBlock } from '../blocks/aggregate-blocks.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { getLocalHourBucket, getPeriodKey, shiftLocalDateKey } from '../utils/time-buckets.js';
 import { addUsd } from '../utils/usd-math.js';
 import { escapeJsonForScript } from './client/ui/export/share-document.js';
@@ -18,22 +18,20 @@ import type {
   ShareTokenBuckets,
 } from './types.js';
 
-const HOUR_MS = 60 * 60 * 1000;
-
 /** Every cost mode, in the order the file lists them. */
 export const SHARE_COST_MODES: readonly ShareCostMode[] = ['explicit', 'estimated', 'both'];
 
 /** The newest sessions embedded per project; older ones are counted in `sessions.omitted`. */
-export const SESSIONS_PER_PROJECT = 200;
+const SESSIONS_PER_PROJECT = 200;
 
 /** The HTML file should stay under this many bytes. */
-export const SHARE_HTML_TARGET_BYTES = 8_000_000;
+const SHARE_HTML_TARGET_BYTES = 8_000_000;
 
 /** What the page itself (script, style, markup) takes from the HTML target. */
 const PAGE_ALLOWANCE_BYTES = 500_000;
 
 /** Over the target, cells older than this many days before the window end become daily. */
-export const HOURLY_DETAIL_DAYS = 90;
+const HOURLY_DETAIL_DAYS = 90;
 
 /** Each event's cost per available mode, aligned with the events; undefined where it has none. */
 export type ShareEventCosts = Partial<Record<ShareCostMode, readonly (number | undefined)[]>>;
@@ -551,43 +549,35 @@ function buildBlocks(
   dictionaries: Dictionaries,
   modes: readonly ShareCostMode[],
 ): ShareBlocks {
-  const blockDurationMs = input.blockHours * HOUR_MS;
   const byBlock = new Map<string, BlockAccumulator>();
-  const blockKey = (source: string, startMs: number) => `${source}\0${String(startMs)}`;
 
   for (const block of input.blocks) {
-    byBlock.set(blockKey(block.source, Date.parse(block.start)), {
-      costs: createCosts(modes),
-      days: new Map(),
-    });
+    byBlock.set(toBlockKey(block), { costs: createCosts(modes), days: new Map() });
   }
 
   input.blockEvents.forEach((event, index) => {
-    const timeMs = Date.parse(event.timestamp);
-    const hourMs = Math.floor(timeMs / HOUR_MS) * HOUR_MS;
+    const key = findEventBlockKey(event, byBlock);
+    const accumulator = key === undefined ? undefined : byBlock.get(key);
 
-    for (let startMs = hourMs; startMs > timeMs - blockDurationMs; startMs -= HOUR_MS) {
-      const accumulator = byBlock.get(blockKey(event.source, startMs));
-
-      if (accumulator) {
-        const date = getPeriodKey(event.timestamp, 'daily', input.timezone);
-        let day = accumulator.days.get(date);
-
-        if (!day) {
-          day = { totalTokens: 0, costs: createCosts(modes) };
-          accumulator.days.set(date, day);
-        }
-
-        addCosts(accumulator.costs, input.blockCosts, index);
-        day.totalTokens += event.totalTokens;
-        addCosts(day.costs, input.blockCosts, index);
-        return;
-      }
+    if (!accumulator) {
+      return;
     }
+
+    const date = getPeriodKey(event.timestamp, 'daily', input.timezone);
+    let day = accumulator.days.get(date);
+
+    if (!day) {
+      day = { totalTokens: 0, costs: createCosts(modes) };
+      accumulator.days.set(date, day);
+    }
+
+    addCosts(accumulator.costs, input.blockCosts, index);
+    day.totalTokens += event.totalTokens;
+    addCosts(day.costs, input.blockCosts, index);
   });
 
   const rows: ShareBlock[] = input.blocks.map((block) => {
-    const accumulator = byBlock.get(blockKey(block.source, Date.parse(block.start)));
+    const accumulator = byBlock.get(toBlockKey(block));
     const days = [...(accumulator?.days ?? [])].sort(([left], [right]) =>
       compareByCodePoint(left, right),
     );

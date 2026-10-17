@@ -1,6 +1,7 @@
 // The daily calendar wrapped and summary lead with: one cell per day, Monday-first weeks, at
 // the heat levels the CLI's `--json` gives each day.
 
+import { MONTH_LABELS } from '../../../../render/month-labels.js';
 import { getIsoDayOfWeek, parseDateKey } from '../../../../utils/date-key.js';
 import { WEEKDAY_LABELS } from '../../core/index.js';
 import { formatCount, formatDay } from '../shell/format.js';
@@ -26,21 +27,6 @@ export type CalendarView = {
   /** The days with usage and their tokens: the calendar's table equivalent. */
   table: PanelTable;
 };
-
-export const MONTH_NAMES = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
 
 function clampLevel(level: number | undefined): number {
   return level === undefined ? 0 : Math.min(4, Math.max(0, Math.round(level)));
@@ -82,7 +68,7 @@ export function buildCalendar(
     }
 
     if (parts.day === 1) {
-      months.push({ label: MONTH_NAMES[parts.month - 1], week });
+      months.push({ label: MONTH_LABELS[parts.month - 1], week });
     }
 
     placed.push({

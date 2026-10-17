@@ -3,6 +3,7 @@ import pc from 'picocolors';
 
 import type { CompareProjectRow, CompareReportData } from '../cli/build-compare-data.js';
 import type { CompareMetricRow, CompareSourceRow } from '../cli/usage-data-contracts.js';
+import { formatInteger, formatUsd } from './format-number.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { resolveTtyColumns } from './table-text-layout.js';
@@ -18,13 +19,6 @@ export type RenderCompareReportOptions = {
   filtered?: boolean;
 };
 
-const integerFormatter = new Intl.NumberFormat('en-US');
-const usdFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
 const percentFormatter = new Intl.NumberFormat('en-US', {
   style: 'percent',
   minimumFractionDigits: 1,
@@ -35,20 +29,20 @@ const compareTableHeaders = ['Metric', 'Current', 'Baseline', 'Δ', 'Δ%'] as co
 const sourceTableHeaders = ['Source', 'Current', 'Baseline', 'Δ', 'Δ%'] as const;
 const projectTableHeaders = ['Project', 'Current', 'Baseline', 'Δ', 'Δ%'] as const;
 
-function formatInteger(value: number | undefined, options: { signed?: boolean } = {}): string {
+function formatDeltaInteger(value: number | undefined, options: { signed?: boolean } = {}): string {
   if (value === undefined) {
     return '-';
   }
 
   if (!options.signed || value === 0) {
-    return integerFormatter.format(value);
+    return formatInteger(value);
   }
 
   const sign = value > 0 ? '+' : '-';
-  return `${sign}${integerFormatter.format(Math.abs(value))}`;
+  return `${sign}${formatInteger(Math.abs(value))}`;
 }
 
-function formatUsd(
+function formatDeltaUsd(
   value: number | undefined,
   options: { approximate?: boolean; signed?: boolean } = {},
 ): string {
@@ -57,7 +51,7 @@ function formatUsd(
   }
 
   const sign = options.signed && value !== 0 ? (value > 0 ? '+' : '-') : '';
-  const formatted = usdFormatter.format(Math.abs(value));
+  const formatted = formatUsd(Math.abs(value));
   return `${options.approximate ? '~' : ''}${sign}${formatted}`;
 }
 
@@ -88,21 +82,21 @@ function formatMetricValue(
   approximate: boolean | undefined,
 ): string {
   if (row.valueType === 'usd') {
-    return formatUsd(value, { approximate });
+    return formatDeltaUsd(value, { approximate });
   }
 
-  return formatInteger(value);
+  return formatDeltaInteger(value);
 }
 
 function formatMetricDelta(row: CompareMetricRow): string {
   if (row.valueType === 'usd') {
-    return formatUsd(row.delta, {
+    return formatDeltaUsd(row.delta, {
       approximate: row.deltaCostIncomplete,
       signed: true,
     });
   }
 
-  return formatInteger(row.delta, { signed: true });
+  return formatDeltaInteger(row.delta, { signed: true });
 }
 
 function toMetricTableRow(row: CompareMetricRow, useColor: boolean): string[] {
@@ -131,7 +125,7 @@ function toCostTableRow(
   row: Omit<CompareSourceRow, 'source'>,
   useColor: boolean,
 ): string[] {
-  const delta = formatUsd(row.delta.costUsd, {
+  const delta = formatDeltaUsd(row.delta.costUsd, {
     approximate: row.delta.costIncomplete,
     signed: true,
   });
@@ -139,8 +133,8 @@ function toCostTableRow(
 
   return [
     name,
-    formatUsd(row.current.costUsd, { approximate: row.current.costIncomplete }),
-    formatUsd(row.baseline.costUsd, { approximate: row.baseline.costIncomplete }),
+    formatDeltaUsd(row.current.costUsd, { approximate: row.current.costIncomplete }),
+    formatDeltaUsd(row.baseline.costUsd, { approximate: row.baseline.costIncomplete }),
     colorizeDelta(delta, row.delta.costUsd, useColor),
     colorizeDelta(deltaRatio, row.deltaRatio.costUsd, useColor),
   ];

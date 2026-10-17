@@ -39,7 +39,7 @@ const MEASURES = [
   'activeMs',
 ] as const;
 
-export function createTotals(report: ShareReport): ShareTotals {
+function createTotals(report: ShareReport): ShareTotals {
   const costs: ShareCosts = {};
 
   for (const mode of COST_MODES) {
@@ -62,7 +62,7 @@ export function createTotals(report: ShareReport): ShareTotals {
 }
 
 /** Adds one cube cell; a cost stays null until a cell in the group has one. */
-export function addCell(totals: ShareTotals, report: ShareReport, cell: number): void {
+function addCell(totals: ShareTotals, report: ShareReport, cell: number): void {
   const { cube } = report.data;
 
   for (const measure of MEASURES) {

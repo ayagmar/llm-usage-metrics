@@ -4,7 +4,7 @@ import { createInterface } from 'node:readline';
 import { stripVTControlCharacters } from 'node:util';
 
 import type { MachineConfig } from '../config/user-config.js';
-import { stripControlCharacters, toTerminalLine } from '../domain/normalization.js';
+import { stripControlCharacters, toTerminalLine } from '@ayagmar/agent-sessions/internal';
 import { getErrorReason } from '../utils/get-error-reason.js';
 import { logger } from '../utils/logger.js';
 import {
@@ -14,7 +14,7 @@ import {
   type ParsedMachineExport,
 } from './machine-export-bundle.js';
 
-export const DEFAULT_MACHINE_COMMAND = 'llm-usage';
+const DEFAULT_MACHINE_COMMAND = 'llm-usage';
 /** Ends a timeout error, so callers can tell it from other failures. */
 export const MACHINE_EXPORT_TIMEOUT_MARK = 'timed out';
 
@@ -59,7 +59,7 @@ function buildSshArgs(target: string, remoteCommand: string): string[] {
   ];
 }
 
-export function buildSshExportArgs(machine: MachineConfig): string[] {
+function buildSshExportArgs(machine: MachineConfig): string[] {
   return buildSshArgs(
     machine.ssh,
     `${machine.command ?? DEFAULT_MACHINE_COMMAND} machine export --known - --quiet`,

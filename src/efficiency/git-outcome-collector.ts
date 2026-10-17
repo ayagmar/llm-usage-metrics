@@ -3,7 +3,7 @@ import { createInterface } from 'node:readline';
 import path from 'node:path';
 import { stat } from 'node:fs/promises';
 
-import { getPeriodKey, type ReportGranularity } from '../utils/time-buckets.js';
+import { getPeriodKey, shiftLocalDateKey, type ReportGranularity } from '../utils/time-buckets.js';
 import {
   createEmptyEfficiencyOutcomeTotals,
   type EfficiencyOutcomeTotals,
@@ -65,17 +65,6 @@ type GitCommandResult = {
 export type GitOutcomeCollectorDeps = {
   runGitCommand?: (repoDir: string, args: string[]) => Promise<GitCommandResult>;
 };
-
-function shiftDate(value: string, days: number): string {
-  const date = new Date(`${value}T00:00:00.000Z`);
-
-  if (Number.isNaN(date.getTime())) {
-    throw new Error(`Invalid date value: ${value}`);
-  }
-
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
 
 function escapeGitRegexLiteral(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
@@ -416,8 +405,8 @@ function filterEventsByDateRange(
   since: string | undefined,
   until: string | undefined,
 ): GitOutcomeEvent[] {
-  const normalizedSince = since ? shiftDate(since, 0) : undefined;
-  const normalizedUntil = until ? shiftDate(until, 0) : undefined;
+  const normalizedSince = since ? shiftLocalDateKey(since, 0) : undefined;
+  const normalizedUntil = until ? shiftLocalDateKey(until, 0) : undefined;
 
   return events.filter((event) => {
     const eventDate = getPeriodKey(event.timestamp, 'daily', timezone);
@@ -505,11 +494,11 @@ function buildGitLogArgs(options: {
   }
 
   if (options.since) {
-    args.push(`--since=${shiftDate(options.since, -1)}T00:00:00Z`);
+    args.push(`--since=${shiftLocalDateKey(options.since, -1)}T00:00:00Z`);
   }
 
   if (options.until) {
-    args.push(`--until=${shiftDate(options.until, 1)}T23:59:59Z`);
+    args.push(`--until=${shiftLocalDateKey(options.until, 1)}T23:59:59Z`);
   }
 
   return args;

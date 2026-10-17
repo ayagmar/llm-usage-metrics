@@ -4,7 +4,7 @@ import {
   writeEventStoreMeta,
   type EventStore,
 } from '../persistence/event-store.js';
-import { toTerminalLine } from '../domain/normalization.js';
+import { toTerminalLine } from '@ayagmar/agent-sessions/internal';
 import { getErrorReason } from '../utils/get-error-reason.js';
 import {
   applyMachineExport,

@@ -9,14 +9,14 @@ import {
 import type { TrendsReportData } from '../cli/build-trends-data.js';
 import type { TrendBucket, TrendSeries, TrendsMetric } from '../trends/trends-series.js';
 import { formatDuration } from './format-duration.js';
-import { pluralize } from './format-number.js';
+import { formatApproxUsd, formatInteger, formatUsd, pluralize } from './format-number.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import {
   padEndVisible,
   padStartVisible,
-  resolveTtyColumns,
+  resolveTerminalWidth,
   visibleWidth,
 } from './table-text-layout.js';
 import { renderReportJson } from './report-json.js';
@@ -36,27 +36,13 @@ export type RenderTrendsReportOptions = {
   terminalWidth?: number;
 };
 
-const usdFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
 const minimumCompressedEmptyEdgeDays = 7;
-
-function resolveTerminalWidth(override: number | undefined): number | undefined {
-  if (typeof override === 'number' && Number.isFinite(override) && override > 0) {
-    return Math.floor(override);
-  }
-
-  return resolveTtyColumns(process.stdout);
-}
+const NO_RESOLVED_COST_NOTE =
+  'No resolved cost data for the selected range; use pricing or switch to --metric tokens.';
 
 function formatMetricValue(value: number, metric: TrendsMetric, approximate = false): string {
   if (metric === 'cost') {
-    const formatted = usdFormatter.format(value);
-    return approximate ? `~${formatted}` : formatted;
+    return formatApproxUsd(value, approximate);
   }
 
   if (metric === 'active-hours') {
@@ -68,7 +54,7 @@ function formatMetricValue(value: number, metric: TrendsMetric, approximate = fa
 
 function formatAxisValue(value: number, metric: TrendsMetric): string {
   if (metric === 'cost') {
-    return usdFormatter.format(value);
+    return formatUsd(value);
   }
 
   if (metric === 'active-hours') {
@@ -189,7 +175,7 @@ function formatSpikeLine(
       `${formatDate(bucket.date)} ${formatMetricValue(bucket.value, 'cost', bucket.incomplete)}`,
   );
 
-  return `Spend spikes (${SPIKE_MIN_MULTIPLE}× or more the median active day of the ${SPIKE_BASELINE_DAYS} days before, ${usdFormatter.format(SPIKE_MIN_COST_USD)} minimum): ${days.join(', ')}`;
+  return `Spend spikes (${SPIKE_MIN_MULTIPLE}× or more the median active day of the ${SPIKE_BASELINE_DAYS} days before, ${formatUsd(SPIKE_MIN_COST_USD)} minimum): ${days.join(', ')}`;
 }
 
 /** The totals line, then the spike legend when the chart has spikes. */
@@ -225,9 +211,7 @@ function renderSummaryOnly(
   }
 
   if (shouldShowNoResolvedCostDataNote(trendsData)) {
-    lines.push(
-      'No resolved cost data for the selected range; use pricing or switch to --metric tokens.',
-    );
+    lines.push(NO_RESOLVED_COST_NOTE);
     lines.push('');
   }
 
@@ -490,9 +474,7 @@ function renderTerminalTrendsReport(
   ];
 
   if (shouldShowNoResolvedCostDataNote(trendsData)) {
-    lines.push(
-      'No resolved cost data for the selected range; use pricing or switch to --metric tokens.',
-    );
+    lines.push(NO_RESOLVED_COST_NOTE);
     lines.push('');
   }
 
@@ -518,23 +500,20 @@ function renderTerminalTrendsReport(
   return lines.join('\n');
 }
 
-const markdownIntegerFormatter = new Intl.NumberFormat('en-US');
-
 function formatMarkdownMetricValue(bucket: TrendBucket | undefined, metric: TrendsMetric): string {
   if (bucket === undefined) {
     return '-';
   }
 
   if (metric === 'cost') {
-    const formatted = usdFormatter.format(bucket.value);
-    return bucket.incomplete === true ? `~${formatted}` : formatted;
+    return formatApproxUsd(bucket.value, bucket.incomplete);
   }
 
   if (metric === 'active-hours') {
     return formatDuration(bucket.value);
   }
 
-  return markdownIntegerFormatter.format(bucket.value);
+  return formatInteger(bucket.value);
 }
 
 function formatMarkdownSummaryTotal(
@@ -542,15 +521,14 @@ function formatMarkdownSummaryTotal(
   metric: TrendsMetric,
 ): string {
   if (metric === 'cost') {
-    const formatted = usdFormatter.format(series.summary.total);
-    return series.summary.incomplete ? `~${formatted}` : formatted;
+    return formatApproxUsd(series.summary.total, series.summary.incomplete);
   }
 
   if (metric === 'active-hours') {
     return formatDuration(series.summary.total);
   }
 
-  return markdownIntegerFormatter.format(series.summary.total);
+  return formatInteger(series.summary.total);
 }
 
 function renderMarkdownTrendsReport(trendsData: TrendsReportData): string {

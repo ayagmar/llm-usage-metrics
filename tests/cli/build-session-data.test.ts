@@ -463,6 +463,29 @@ describe('buildSessionData --timeline', () => {
     expect(discoverFiles).not.toHaveBeenCalled();
   });
 
+  it("reads tool calls live from the session's own files only", async () => {
+    const usageByFile: Record<string, ReturnType<typeof createUsageEvent>[]> = {
+      '/tmp/pi-session-1.jsonl': [createBaseEvent()],
+      '/tmp/pi-other.jsonl': [createBaseEvent({ sessionId: 'other' })],
+    };
+    const liveReads: string[] = [];
+    const adapter: SourceAdapter = {
+      ...createAdapter('pi', usageByFile),
+      capabilities: { kinds: ['usage', 'tool_call', 'message'] },
+      async *readEvents(filePath) {
+        liveReads.push(filePath);
+        yield* [];
+      },
+    };
+
+    await buildSessionData(
+      { id: ['session-1'], timeline: true, timezone: 'UTC' },
+      runtimeDeps({ adapters: [adapter] }),
+    );
+
+    expect(liveReads).toEqual(['/tmp/pi-session-1.jsonl']);
+  });
+
   it("returns only the matched session's priced requests, in time order", async () => {
     const result = await buildSessionData(
       { id: ['session-1'], timeline: true, timezone: 'UTC' },
