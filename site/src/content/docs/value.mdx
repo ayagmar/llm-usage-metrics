@@ -12,18 +12,18 @@ llm-usage value --plan claude-max-5x --plan chatgpt-plus
 
 ## Choose the plan
 
-| Plan id           | List price per month | Sources it covers |
-| ----------------- | -------------------- | ----------------- |
-| `claude-pro`      | $20                  | `claude`          |
-| `claude-max-5x`   | $100                 | `claude`          |
-| `claude-max-20x`  | $200                 | `claude`          |
-| `chatgpt-go`      | $8                   | `codex`           |
-| `chatgpt-plus`    | $20                  | `codex`           |
-| `chatgpt-pro-100` | $100                 | `codex`           |
-| `chatgpt-pro-200` | $200                 | `codex`           |
-| `chatgpt-pro-500` | $500                 | `codex`           |
+| Plan id           | Price | Covers   |
+| ----------------- | ----- | -------- |
+| `claude-pro`      | $20   | `claude` |
+| `claude-max-5x`   | $100  | `claude` |
+| `claude-max-20x`  | $200  | `claude` |
+| `chatgpt-go`      | $8    | `codex`  |
+| `chatgpt-plus`    | $20   | `codex`  |
+| `chatgpt-pro-100` | $100  | `codex`  |
+| `chatgpt-pro-200` | $200  | `codex`  |
+| `chatgpt-pro-500` | $500  | `codex`  |
 
-The prices are USD excluding tax, as checked on the date the report prints under the tables. Check the vendor's pricing page before relying on them; the JSON lists those pages under `checkAt`.
+The prices are list prices in USD per month, excluding tax, as checked on the date the report prints under the tables. Check the vendor's pricing page before relying on them; the JSON lists those pages under `checkAt`.
 
 Without `--plan`, the report compares with `claude-max-20x`. When `--source` (or a `sources` list in the [config file](/llm-usage-metrics/configuration/)) leaves out `claude`, it falls back to `chatgpt-pro-200` and says so on `stderr`. When the filter keeps neither `claude` nor `codex`, there is no plan to compare with and the command fails.
 
