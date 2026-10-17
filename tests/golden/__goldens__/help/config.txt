@@ -7,8 +7,8 @@ Options:
 
 Commands:
   init [options]  Write a commented config template
-  show            Print the effective configuration and where each value comes from
-  path            Print the resolved config file path
+  show [options]  Print the effective configuration and where each value comes from
+  path [options]  Print the resolved config file path
   help [command]  display help for command
 
 Examples:

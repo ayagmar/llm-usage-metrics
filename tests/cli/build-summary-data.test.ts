@@ -463,6 +463,54 @@ describe('buildSummaryData', () => {
     ]);
   });
 
+  it('compares today and the last 7 days with the days just before, the month with last month', async () => {
+    const result = await buildSummaryData(
+      { timezone: 'Europe/Paris', pricingOffline: true },
+      runtimeDeps(
+        [
+          createAdapter('codex', [
+            // 00:30 on Mar 9 in Paris: yesterday.
+            createEvent('2026-03-08T23:30:00.000Z', { costUsd: 1 }),
+            // 00:30 on Mar 10 in Paris: today, so in no previous period.
+            createEvent('2026-03-09T23:30:00.000Z', { costUsd: 100 }),
+            createEvent('2026-03-03T09:00:00.000Z', { costUsd: 2 }),
+            createEvent('2026-02-25T09:00:00.000Z', { costUsd: 4 }),
+            // The same days of February as March so far: Feb 1 to 10.
+            createEvent('2026-02-01T09:00:00.000Z', { costUsd: 8 }),
+            createEvent('2026-02-10T09:00:00.000Z', { costUsd: 16 }),
+            createEvent('2026-02-11T09:00:00.000Z', { costUsd: 32 }),
+          ]),
+        ],
+        '2026-03-10T18:00:00.000Z',
+      ),
+    );
+
+    expect(
+      result.periods.map((period) => ({
+        key: period.key,
+        since: period.previous?.since,
+        until: period.previous?.until,
+        costUsd: period.previous?.totals.costUsd,
+      })),
+    ).toEqual([
+      { key: 'today', since: '2026-03-09', until: '2026-03-09', costUsd: 1 },
+      { key: 'last7Days', since: '2026-02-25', until: '2026-03-03', costUsd: 6 },
+      { key: 'monthToDate', since: '2026-02-01', until: '2026-02-10', costUsd: 24 },
+    ]);
+  });
+
+  it('clamps the month’s previous window to the end of a shorter month', async () => {
+    const result = await buildSummaryData(
+      { timezone: 'UTC', pricingOffline: true },
+      runtimeDeps([createAdapter('codex', [])], '2026-03-31T09:00:00.000Z'),
+    );
+
+    expect(result.periods.at(-1)?.previous).toMatchObject({
+      since: '2026-02-01',
+      until: '2026-02-28',
+    });
+  });
+
   it('breaks source cost ties by tokens, then by source id', async () => {
     const result = await buildSummaryData(
       { timezone: 'UTC', pricingOffline: true },

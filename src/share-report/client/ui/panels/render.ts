@@ -77,25 +77,30 @@ function renderTable(table: PanelTable): HTMLElement {
 
   return h('div', { class: 'panel-table' }, [
     h('h3', { text: table.title }),
-    h('div', { class: 'table-scroll' }, [
-      h('table', {}, [
-        h('thead', {}, [
-          h(
-            'tr',
-            {},
-            table.columns.map((column) =>
-              h('th', {
-                class: columnClass(column),
-                attrs: { scope: 'col' },
-                text: column.label,
-              }),
+    // Focusable, so a keyboard can scroll a table wider than the screen, as the explorer's.
+    h(
+      'div',
+      { class: 'table-scroll', attrs: { tabindex: 0, role: 'region', 'aria-label': table.title } },
+      [
+        h('table', {}, [
+          h('thead', {}, [
+            h(
+              'tr',
+              {},
+              table.columns.map((column) =>
+                h('th', {
+                  class: columnClass(column),
+                  attrs: { scope: 'col' },
+                  text: column.label,
+                }),
+              ),
             ),
-          ),
+          ]),
+          h('tbody', {}, table.rows.map(row)),
+          table.foot.length > 0 && h('tfoot', {}, table.foot.map(row)),
         ]),
-        h('tbody', {}, table.rows.map(row)),
-        table.foot.length > 0 && h('tfoot', {}, table.foot.map(row)),
-      ]),
-    ]),
+      ],
+    ),
   ]);
 }
 

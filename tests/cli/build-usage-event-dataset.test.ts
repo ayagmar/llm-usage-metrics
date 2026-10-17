@@ -299,7 +299,7 @@ describe('buildUsageEventDataset history', () => {
     expect(dataset.filteredEvents).toEqual([]);
     expect(dataset.warnings).toEqual([]);
     expect(dataset.notes).toEqual([
-      'History: included 0 event(s) from 0 departed file(s) (0 suppressed as moved or duplicated).',
+      'History: included 0 events from 0 departed files (0 suppressed as moved or duplicated).',
     ]);
   });
 
@@ -321,7 +321,7 @@ describe('buildUsageEventDataset history', () => {
     expect(dataset.filteredEvents).toEqual([]);
     expect(dataset.warnings).toEqual([]);
     expect(dataset.notes).toEqual([
-      'History: included 0 event(s) from 0 departed file(s) (0 suppressed as moved or duplicated).',
+      'History: included 0 events from 0 departed files (0 suppressed as moved or duplicated).',
     ]);
     expect(openEventStoreSpy).toHaveBeenCalledTimes(1);
     expect(openEventStoreSpy).toHaveBeenCalledWith(eventStorePath);
@@ -408,7 +408,7 @@ describe('buildUsageEventDataset history', () => {
     expect(dataset.filteredEvents).toEqual([]);
     expect(dataset.warnings).toEqual([]);
     expect(dataset.notes).toEqual([
-      'History: included 0 event(s) from 0 departed file(s) (0 suppressed as moved or duplicated).',
+      'History: included 0 events from 0 departed files (0 suppressed as moved or duplicated).',
     ]);
   });
 
@@ -450,7 +450,7 @@ describe('buildUsageEventDataset history', () => {
     expect(dataset.filteredEvents).toEqual([matchingEvent]);
     expect(dataset.warnings).toEqual([]);
     expect(dataset.notes).toEqual([
-      'History: included 3 event(s) from 1 departed file(s) (0 suppressed as moved or duplicated).',
+      'History: included 3 events from 1 departed file (0 suppressed as moved or duplicated).',
     ]);
   });
 
@@ -477,7 +477,7 @@ describe('buildUsageEventDataset history', () => {
     expect(dataset.filteredEvents).toEqual([departedEvent]);
     expect(dataset.warnings).toEqual([]);
     expect(dataset.notes).toEqual([
-      'History: included 1 event(s) from 1 departed file(s) (0 suppressed as moved or duplicated).',
+      'History: included 1 event from 1 departed file (0 suppressed as moved or duplicated).',
     ]);
   });
 
@@ -640,7 +640,7 @@ describe('buildUsageEventDataset history', () => {
     expect(dataset.filteredEvents).toEqual([departedEvent]);
     expect(dataset.warnings).toEqual([]);
     expect(dataset.notes).toEqual([
-      'History: included 1 event(s) from 1 departed file(s) (1 suppressed as moved or duplicated).',
+      'History: included 1 event from 1 departed file (1 suppressed as moved or duplicated).',
     ]);
   });
 });

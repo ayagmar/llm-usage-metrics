@@ -39,10 +39,11 @@ Options:
   --redact                       With --share, label projects project-N and machines machine-N
   --repo <project>               Count only these projects (repeatable or comma-separated, so a
                                  value cannot contain a comma). A path (absolute, or ./, ../, ~/ on
-                                 this machine) matches that repository root and the roots under it;
-                                 a name or path tail such as work/api matches the end of a root, not
-                                 the roots under it; (unattributed) matches usage without a root.
-                                 Applied after --model picks exact or substring matching
+                                 this machine) matches that project directory and the projects under
+                                 it; a name or path tail such as work/api matches the end of a
+                                 project directory, not the projects under it; (unattributed)
+                                 matches usage without a recorded directory. Applied after --model
+                                 picks exact or substring matching
   -h, --help                     display help for command
 
 Per-source path flags (--claude-dir, ...)

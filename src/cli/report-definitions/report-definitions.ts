@@ -18,6 +18,7 @@ import type {
   TrendsCommandOptions,
   ValueCommandOptions,
   WrappedCommandOptions,
+  ToolsCommandOptions,
 } from '../usage-data-contracts.js';
 import {
   DEFAULT_REPORT_WINDOWS,
@@ -32,6 +33,8 @@ import { runOptimizeReport } from '../run-optimize-report.js';
 import { runPricingReport } from '../run-pricing-report.js';
 import { runProjectsReport } from '../run-projects-report.js';
 import { runSessionReport } from '../run-session-report.js';
+import { runToolsReport } from '../run-tools-report.js';
+import { TOOLS_DEFAULT_LAST_DAYS } from '../build-tools-data.js';
 import { runSummaryReport } from '../run-summary-report.js';
 import { runStatusline } from '../run-statusline.js';
 import { runTrendsReport } from '../run-trends-report.js';
@@ -100,8 +103,12 @@ function addGranularityArgument(command: Command): Command {
   );
 }
 
-const REPO_FILTER_DESCRIPTION =
-  'Count only these projects (repeatable or comma-separated, so a value cannot contain a comma). A path (absolute, or ./, ../, ~/ on this machine) matches that repository root and the roots under it; a name or path tail such as work/api matches the end of a root, not the roots under it; (unattributed) matches usage without a root. Applied after --model picks exact or substring matching';
+/** What a project is: the CLI never looks for a `.git` folder (efficiency does). */
+const PROJECT_DESCRIPTION = 'project (the working directory the tool recorded)';
+
+const REPO_FILTER_MATCHING =
+  'Count only these projects (repeatable or comma-separated, so a value cannot contain a comma). A path (absolute, or ./, ../, ~/ on this machine) matches that project directory and the projects under it; a name or path tail such as work/api matches the end of a project directory, not the projects under it; (unattributed) matches usage without a recorded directory';
+const REPO_FILTER_DESCRIPTION = `${REPO_FILTER_MATCHING}. Applied after --model picks exact or substring matching`;
 
 function addRepoFilterOption(command: Command, note?: string): Command {
   return command.option(
@@ -132,7 +139,7 @@ function addTableDisplayOptions(
 }
 
 const BY_MACHINE_DESCRIPTION = 'Split each source row by the machine its usage came from';
-const BY_REPO_ROW_DESCRIPTION = 'Split each source row by project (repository root)';
+const BY_REPO_ROW_DESCRIPTION = `Split each source row by ${PROJECT_DESCRIPTION}`;
 
 const MAX_COMMAND_HELP_EXAMPLES = 4;
 
@@ -386,7 +393,7 @@ const compareReportDefinition: ReportRuntimeDefinition = {
     command
       .option('--vs-since <date>', 'Inclusive start date for the baseline comparison window')
       .option('--vs-until <date>', 'Inclusive end date for the baseline comparison window')
-      .option('--by-repo', 'Also compare each project (repository root)');
+      .option('--by-repo', `Also compare each ${PROJECT_DESCRIPTION}`);
     addRepoFilterOption(command).action((options: CompareCommandOptions) =>
       runCompareReport(options),
     );
@@ -470,7 +477,7 @@ const trendsReportDefinition: ReportRuntimeDefinition = {
       )
       .option(
         '--by-repo',
-        'Render one sparkline row per project (repository root); not with --by-source',
+        `Render one sparkline row per ${PROJECT_DESCRIPTION}; not with --by-source`,
       );
     addRepoFilterOption(command).action((options: TrendsCommandOptions) =>
       runTrendsReport(options),
@@ -523,7 +530,7 @@ const sessionReportDefinition: ReportRuntimeDefinition = {
         'Show only sessions whose id contains the value (case-insensitive; repeatable or comma-separated)',
         collectRepeatedOption,
       )
-      .option('--by-repo', 'Group usage by repository root instead of by session')
+      .option('--by-repo', `Group usage by ${PROJECT_DESCRIPTION} instead of by session`)
       .option(
         '--timeline',
         'With --id naming one session: list its requests in time order with a running cost, between its tool calls and turns',
@@ -722,13 +729,64 @@ const hourlyReportDefinition: ReportRuntimeDefinition = {
   },
 };
 
+const toolsReportDefinition: ReportRuntimeDefinition = {
+  meta: {
+    commandName: 'tools',
+    docsLabel: 'tools',
+    kind: 'specialized',
+    description: `Show tool calls per tool with errors, error rate and sessions, most calls first, read from claude, codex and pi session files on disk (last ${String(TOOLS_DEFAULT_LAST_DAYS)} days unless --last, --since, --until, or --all)`,
+    sharedOptionProfile: 'tools',
+    helpExamples: [
+      {
+        command: 'llm-usage tools',
+        includeInRootHelp: true,
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage tools --by-source --top 10',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage tools --last 30 --json',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage tools --by-repo --markdown',
+        includeInCliReference: true,
+      },
+    ],
+  },
+  register(command) {
+    command
+      .option('--top <n>', 'Show only the top N tools by calls (default 20; 0 shows all)')
+      .option('--by-source', 'Split each tool row by source')
+      .option('--by-repo', 'Split each tool row by project (repository root)')
+      .option(
+        '--last <n>',
+        `Report the last N days, counting today (default ${String(TOOLS_DEFAULT_LAST_DAYS)})`,
+      )
+      .option(
+        '--all',
+        `Report every tool call on disk instead of the last ${String(TOOLS_DEFAULT_LAST_DAYS)} days`,
+      );
+    command
+      .option(
+        '--repo <project>',
+        `${REPO_FILTER_MATCHING}. Keeps the tool calls of sessions whose usage is in these projects`,
+        collectRepeatedOption,
+      )
+      .action((options: ToolsCommandOptions) => runToolsReport(options));
+
+    return command;
+  },
+};
+
 const projectsReportDefinition: ReportRuntimeDefinition = {
   meta: {
     commandName: 'projects',
     docsLabel: 'projects',
     kind: 'specialized',
-    description:
-      'Show cost, tokens, events, active days and top models per project (repository root), costliest first (full history unless --last, --since, or --until)',
+    description: `Show cost, tokens, events, active days and top models per ${PROJECT_DESCRIPTION}, costliest first (full history unless --last, --since, or --until)`,
     sharedOptionProfile: 'rollup',
     helpExamples: [
       {
@@ -919,6 +977,7 @@ const reportDefinitions = [
   optimizeReportDefinition,
   trendsReportDefinition,
   sessionReportDefinition,
+  toolsReportDefinition,
   blocksReportDefinition,
   valueReportDefinition,
   wrappedReportDefinition,

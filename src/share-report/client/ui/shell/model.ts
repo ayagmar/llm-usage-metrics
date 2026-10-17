@@ -2,6 +2,7 @@
 // and the empty states. Pure; `render.ts` lays them out.
 
 import type { ShareCostMode, ShareReportMeta } from '../../../types.js';
+import { limitNamedModels } from '../../../../render/format-model-list.js';
 import { getReportTitle } from '../export/share-document.js';
 import {
   formatUsdOrNone,
@@ -40,7 +41,12 @@ export const COST_MODE_DETAILS: Record<ShareCostMode, string> = {
   both: 'Logged, else estimated',
 };
 
-export type Badge = { text: string; tone: 'neutral' | 'notice' };
+export type Badge = {
+  text: string;
+  tone: 'neutral' | 'notice';
+  /** The full text when `text` shortens it, shown as a tooltip. */
+  title?: string;
+};
 
 export type HeaderView = {
   title: string;
@@ -50,10 +56,22 @@ export type HeaderView = {
   badges: Badge[];
 };
 
-/** The command's own filters; machine names go through "Hide names" like every label. */
+// A longer list keeps its first names and counts the rest, as the terminal lists models, so a
+// long `--source` list does not fill the header; the badge's title holds every name.
+const LISTED_FILTER_VALUES = 3;
+
+function listValues(values: string[]): string {
+  return limitNamedModels(values, LISTED_FILTER_VALUES).join(', ');
+}
+
+/**
+ * The command's own filters, each list written by `list`; machine names go through "Hide names"
+ * like every label.
+ */
 function describeCommandFilters(
   filters: ShareReportMeta['filters'],
   labels: ShareLabels,
+  list: (values: string[]) => string,
 ): string | undefined {
   const lists: [string, string[]][] = [
     ['source', filters.sources],
@@ -62,7 +80,7 @@ function describeCommandFilters(
     ['machine', filters.machines.map(labels.machine)],
   ];
   const parts = lists.flatMap(([name, values]) =>
-    values.length === 0 ? [] : [`${name} ${values.join(', ')}`],
+    values.length === 0 ? [] : [`${name} ${list(values)}`],
   );
 
   if (filters.repo) {
@@ -92,10 +110,17 @@ export function buildHeader(context: ShareViewContext): HeaderView {
     badges.push({ text: 'Names hidden on screen', tone: 'neutral' });
   }
 
-  const commandFilters = describeCommandFilters(meta.filters, context.labels);
+  const commandFilters = describeCommandFilters(meta.filters, context.labels, listValues);
 
   if (commandFilters) {
-    badges.push({ text: commandFilters, tone: 'neutral' });
+    const full = describeCommandFilters(meta.filters, context.labels, (values) =>
+      values.join(', '),
+    );
+    badges.push({
+      text: commandFilters,
+      tone: 'neutral',
+      title: full === commandFilters ? undefined : full,
+    });
   }
 
   if (meta.costMode === null) {

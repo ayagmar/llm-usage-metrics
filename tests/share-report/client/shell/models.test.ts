@@ -190,6 +190,27 @@ describe('header', () => {
     ]);
   });
 
+  it('shortens a long filter list in the badge and keeps every name in its title', () => {
+    const sources = ['amp', 'claude', 'cline', 'codex', 'gemini', 'goose', 'pi'];
+    const edited = loadFixtureReport((data) => {
+      data.meta.filters = {
+        sources,
+        providers: [],
+        models: ['a', 'b', 'c', 'd'],
+        machines: [],
+        repo: false,
+      };
+    });
+
+    expect(
+      buildHeader(contextFor(edited)).badges.find((badge) => badge.text.startsWith('Generated')),
+    ).toEqual({
+      text: 'Generated for source amp, claude, cline, +4 more; model a, b, c, +1 more',
+      tone: 'neutral',
+      title: `Generated for source ${sources.join(', ')}; model a, b, c, d`,
+    });
+  });
+
   it('hides a machine name the command filtered on while names are hidden', () => {
     const edited = loadFixtureReport((data) => {
       data.meta.filters.machines = ['laptop'];
@@ -359,10 +380,23 @@ describe('controls', () => {
       max: '2026-10-27',
     });
     expect(getPeriodInputs(report, { since: null, until: '2026-10-22' })).toMatchObject({
-      from: '',
+      from: '2025-12-29',
       to: '2026-10-22',
       toMin: '2025-12-29',
       max: '2026-10-26',
+    });
+  });
+
+  it('fills the "from" date of a file without a start (--all) with its first date of data', () => {
+    const all = loadFixtureReport((data) => {
+      data.meta.window = { since: null, until: null };
+    });
+    const firstDate = all.periods.map((period) => period.dateKey).sort()[0];
+
+    expect(getPeriodInputs(all, { since: null, until: null })).toMatchObject({
+      from: firstDate,
+      toMin: firstDate,
+      min: firstDate,
     });
   });
 

@@ -205,6 +205,16 @@ export type BlocksCommandOptions = RollupCommandOptions & {
   top?: string;
 };
 
+export type ToolsCommandOptions = SharedOptionsForProfile<'tools'> &
+  RepoFilterOption &
+  ByRepoOption & {
+    /** `--last N`: the last N days, counting today. */
+    last?: string;
+    all?: boolean;
+    top?: string;
+    bySource?: boolean;
+  };
+
 export type ValueCommandOptions = RollupCommandOptions & {
   /** Plan ids from `src/value/plans.ts`; undefined when not passed. */
   plan?: string[];
@@ -265,6 +275,8 @@ export type EventsCommandOptions = SharedOptionsForProfile<'events'> &
   };
 
 export type DoctorCommandOptions = SharedOptionsForProfile<'doctor'>;
+
+export type ConfigShowCommandOptions = SharedOptionsForProfile<'config'>;
 
 export type PruneCommandOptions = DoctorCommandOptions & {
   suppressed?: boolean;
@@ -425,6 +437,17 @@ export type SummaryPeriod = {
    * when the report counts other machines' usage (after its filters) in the past year.
    */
   machines?: SummaryMachineTotals[];
+  /**
+   * The window the period is set against, as `compare` picks it; always set by
+   * `buildSummaryData`.
+   */
+  previous?: SummaryPreviousPeriod;
+};
+
+export type SummaryPreviousPeriod = {
+  since: string;
+  until: string;
+  totals: UsageWindowTotals;
 };
 
 /** Month-to-date run rate and the configured budget. */

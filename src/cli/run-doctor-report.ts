@@ -22,7 +22,8 @@ import { resolveUserConfigForOptions, type UserConfigResolutionDeps } from './ap
 import { emitUserConfigResolution } from './emit-active-config.js';
 import { createAdaptersFromOptions } from './source-cli-options.js';
 import { formatByteSize } from '../render/format-byte-size.js';
-import { renderDoctorText } from '../render/render-doctor-report.js';
+import { pluralize } from '../render/format-number.js';
+import { describeMissingEventStore, renderDoctorText } from '../render/render-doctor-report.js';
 import { describeMachineStatus } from '../render/render-machines.js';
 import { getMachineCachePath, readMachineCacheStatus } from '../machines/machine-cache.js';
 import type { MachineConfig } from '../config/user-config.js';
@@ -123,10 +124,6 @@ function describeMissingUsage(fileCount: number, probe: UsageProbeResult): strin
   const reason = probe.firstError ? ` (${probe.firstError})` : '';
 
   return `${scope}${reason}; the log format may have changed`;
-}
-
-function pluralize(count: number, noun: string): string {
-  return `${count} ${noun}${count === 1 ? '' : 's'}`;
 }
 
 async function buildSourceResult(
@@ -298,11 +295,22 @@ function countDepartedFiles(
   return departedFileCount;
 }
 
-async function buildEventStoreDoctorResult(
+export type EventStoreReadDeps = Pick<DoctorDeps, 'readEventStoreSummary'>;
+
+/**
+ * What the event store file holds, read without writing: `stat`, then a read-only summary
+ * query. Doctor and `config show` both report from it.
+ */
+export type EventStoreInspection =
+  | { state: 'missing'; legacyPath?: string }
+  | { state: 'unsupported'; sizeBytes: number; schemaVersion?: string; error: string }
+  | { state: 'ok'; sizeBytes: number; schemaVersion: string; eventCount: number }
+  | { state: 'error'; error: string };
+
+export async function inspectEventStore(
   filePath: string,
-  discoveredFilesBySource: DiscoveredFilesBySource,
-  deps: DoctorDeps,
-): Promise<DoctorSourceResult> {
+  deps: EventStoreReadDeps = {},
+): Promise<EventStoreInspection> {
   let fileStats: Awaited<ReturnType<typeof stat>>;
 
   try {
@@ -310,43 +318,62 @@ async function buildEventStoreDoctorResult(
   } catch (error) {
     if (hasErrorCode(error, 'ENOENT')) {
       const legacyPath = await findLegacyEventStore(filePath);
-
-      return {
-        id: 'event-store',
-        format: 'sqlite',
-        status: 'ok',
-        itemsFound: 0,
-        detail:
-          legacyPath === undefined
-            ? 'not yet created'
-            : `still at ${legacyPath}; the next report copies it here`,
-      };
+      return legacyPath === undefined ? { state: 'missing' } : { state: 'missing', legacyPath };
     }
 
-    return {
-      id: 'event-store',
-      format: 'sqlite',
-      status: 'error',
-      error: getErrorReason(error),
-    };
+    return { state: 'error', error: getErrorReason(error) };
   }
 
   const readEventStoreSummary = deps.readEventStoreSummary ?? readDefaultEventStoreSummary;
-  const readEventStoreStoredFiles =
-    deps.readEventStoreStoredFiles ?? readDefaultEventStoreStoredFiles;
 
   try {
     const summary = await readEventStoreSummary(filePath);
 
     if (summary.schemaVersion === undefined || !isSupportedSchemaVersion(summary.schemaVersion)) {
       return {
-        id: 'event-store',
-        format: 'sqlite',
-        status: 'error',
+        state: 'unsupported',
+        sizeBytes: fileStats.size,
+        ...(summary.schemaVersion === undefined ? {} : { schemaVersion: summary.schemaVersion }),
         error: getUnsupportedSchemaError(summary.schemaVersion),
       };
     }
 
+    return {
+      state: 'ok',
+      sizeBytes: fileStats.size,
+      schemaVersion: summary.schemaVersion,
+      eventCount: summary.eventCount,
+    };
+  } catch (error) {
+    return { state: 'error', error: getErrorReason(error) };
+  }
+}
+
+async function buildEventStoreDoctorResult(
+  filePath: string,
+  discoveredFilesBySource: DiscoveredFilesBySource,
+  deps: DoctorDeps,
+): Promise<DoctorSourceResult> {
+  const inspection = await inspectEventStore(filePath, deps);
+
+  if (inspection.state === 'missing') {
+    return {
+      id: 'event-store',
+      format: 'sqlite',
+      status: 'ok',
+      itemsFound: 0,
+      detail: describeMissingEventStore(inspection.legacyPath),
+    };
+  }
+
+  if (inspection.state !== 'ok') {
+    return { id: 'event-store', format: 'sqlite', status: 'error', error: inspection.error };
+  }
+
+  const readEventStoreStoredFiles =
+    deps.readEventStoreStoredFiles ?? readDefaultEventStoreStoredFiles;
+
+  try {
     const storedFiles = await readEventStoreStoredFiles(filePath);
     const departedFileCount = countDepartedFiles(storedFiles, discoveredFilesBySource);
 
@@ -354,12 +381,12 @@ async function buildEventStoreDoctorResult(
       id: 'event-store',
       format: 'sqlite',
       status: 'ok',
-      itemsFound: summary.eventCount,
+      itemsFound: inspection.eventCount,
       detail: [
-        `${summary.eventCount} event(s)`,
-        `${departedFileCount} departed file(s)`,
-        `schema v${summary.schemaVersion ?? 'unknown'}`,
-        formatByteSize(fileStats.size),
+        pluralize(inspection.eventCount, 'event'),
+        pluralize(departedFileCount, 'departed file'),
+        `schema v${inspection.schemaVersion}`,
+        formatByteSize(inspection.sizeBytes),
       ].join(', '),
     };
   } catch (error) {

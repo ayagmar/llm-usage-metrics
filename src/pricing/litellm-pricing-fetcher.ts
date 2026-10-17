@@ -492,7 +492,7 @@ function formatStaleCacheWarning(fetchedAt: number, fetchError: string | undefin
   return `Pricing: the LiteLLM refresh failed (${fetchError}); using cached pricing from ${fetchedDate}.`;
 }
 
-function getDefaultLiteLLMPricingCachePath(): string {
+export function getDefaultLiteLLMPricingCachePath(): string {
   return path.join(getUserCacheRootDir(), 'llm-usage-metrics', 'litellm-pricing-cache.json');
 }
 
@@ -599,8 +599,17 @@ export class LiteLLMPricingFetcher implements PricingSource {
     return this.loadOrigin;
   }
 
+  /**
+   * Set when a cache is past its refresh interval or the bundled snapshot loaded;
+   * undefined after a fresh cache or a network load.
+   */
   public getPricingWarning(): string | undefined {
     return this.pricingWarning;
+  }
+
+  /** Where the loaded prices came from and when they were fetched; undefined before a load. */
+  public getDataOrigin(): PricingDataOrigin | undefined {
+    return this.dataOrigin;
   }
 
   public explainModel(model: string): ModelPricingExplanation {

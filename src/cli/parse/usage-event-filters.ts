@@ -120,41 +120,54 @@ export function createDateWindowPrefilter(
   };
 }
 
+/**
+ * Whether a timestamp's local date (in `timezone`) lies in the `since`/`until` window, both
+ * YYYY-MM-DD and inclusive; true for every timestamp when neither is set. Only a timestamp
+ * near an edge is converted, once per distinct value.
+ */
+export function createTimestampWindowFilter(
+  options: Pick<UsageEventFilterOptions, 'timezone' | 'since' | 'until'>,
+): (timestamp: string) => boolean {
+  if (!options.since && !options.until) {
+    return () => true;
+  }
+
+  const prefilterDate = createDateWindowPrefilter(options.since, options.until);
+  const dateByTimestamp = new Map<string, string>();
+
+  return (timestamp) => {
+    const datePosition = prefilterDate(timestamp);
+
+    if (datePosition !== 'near-edge') {
+      return datePosition === 'inside';
+    }
+
+    let date = dateByTimestamp.get(timestamp);
+
+    if (!date) {
+      date = getPeriodKey(timestamp, 'daily', options.timezone);
+      dateByTimestamp.set(timestamp, date);
+    }
+
+    return isEventWithinDateRange(date, options.since, options.until);
+  };
+}
+
 function collectProviderAndDateFilteredEvents(
   eventGroups: Iterable<readonly UsageEvent[]>,
   options: UsageEventFilterOptions,
 ): UsageEvent[] {
   const filteredEvents: UsageEvent[] = [];
-  const hasDateRange = Boolean(options.since ?? options.until);
-  const prefilterDate = createDateWindowPrefilter(options.since, options.until);
-  const dateByTimestamp = new Map<string, string>();
+  const isInWindow = createTimestampWindowFilter(options);
 
   for (const events of eventGroups) {
     for (const event of events) {
-      if (!matchesCanonicalProviderFilter(event.provider, options.providerFilter)) {
-        continue;
+      if (
+        matchesCanonicalProviderFilter(event.provider, options.providerFilter) &&
+        isInWindow(event.timestamp)
+      ) {
+        filteredEvents.push(event);
       }
-
-      const datePosition = hasDateRange ? prefilterDate(event.timestamp) : 'inside';
-
-      if (datePosition === 'outside') {
-        continue;
-      }
-
-      if (datePosition === 'near-edge') {
-        let eventDate = dateByTimestamp.get(event.timestamp);
-
-        if (!eventDate) {
-          eventDate = getPeriodKey(event.timestamp, 'daily', options.timezone);
-          dateByTimestamp.set(event.timestamp, eventDate);
-        }
-
-        if (!isEventWithinDateRange(eventDate, options.since, options.until)) {
-          continue;
-        }
-      }
-
-      filteredEvents.push(event);
     }
   }
 

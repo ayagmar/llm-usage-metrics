@@ -7,6 +7,7 @@ import {
 } from '../config/runtime-overrides.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { limitNamedModels } from '../render/format-model-list.js';
+import { pluralize } from '../render/format-number.js';
 import {
   closeEventStore,
   openEventStore,
@@ -36,6 +37,7 @@ import {
   parseSelectedAdapters,
   throwOnExplicitSourceFailures,
   type AdapterParseResult,
+  type DiscoveredSourceFile,
 } from './build-usage-data-parsing.js';
 import { filterParsedAdapterEvents } from './parse/usage-event-filters.js';
 import { applyRepoFilter } from './repo-filter.js';
@@ -87,8 +89,8 @@ function withNormalizedPricingUrl(
 
 function formatHistoryNote(historyResult: EventStoreHistoryResult): string {
   return [
-    `History: included ${historyResult.servedEventCount} event(s)`,
-    `from ${historyResult.servedFileCount} departed file(s)`,
+    `History: included ${pluralize(historyResult.servedEventCount, 'event')}`,
+    `from ${pluralize(historyResult.servedFileCount, 'departed file')}`,
     `(${historyResult.suppressedFileCount} suppressed as moved or duplicated).`,
   ].join(' ');
 }
@@ -162,6 +164,11 @@ export type UsageEventDataset = {
   warnings: string[];
   notes: string[];
   filteredEvents: UsageEvent[];
+  /**
+   * The local files whose events this run counts: discovered, parsed or served from the
+   * store, and not skipped as last modified before the window.
+   */
+  parsedFiles: DiscoveredSourceFile[];
   /**
    * The event store and the stored files whose events this run counts: parsed files and
    * the departed files history served. Undefined when the event store was unavailable.
@@ -521,6 +528,7 @@ export async function buildUsageEventDataset(
       ],
       notes: [...historyNotes, ...machineNotes],
       filteredEvents,
+      parsedFiles,
       ledger,
       pricingRuntimeConfig,
       readEnvVarOverrides: deps.getActiveEnvVarOverrides ?? getActiveEnvVarOverrides,

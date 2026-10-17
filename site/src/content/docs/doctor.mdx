@@ -45,14 +45,14 @@ To decide between `found` and `unparseable`, doctor parses the newest files firs
 Illustrative output for `llm-usage doctor --source pi,codex,opencode` (counts depend on your local data):
 
 ```text
-✔ pi           jsonl   519 file(s)
+✔ pi           jsonl   519 files
     ~/.pi/agent/sessions
     ~/.omp/agent/sessions
 ○ codex        jsonl   not installed (no files found)
     ~/.codex/sessions
 ✖ opencode     sqlite  OpenCode DB path is missing or unreadable: /path/to/opencode.db
     /path/to/opencode.db
-✔ event-store  sqlite  159266 event(s), 3 departed file(s), schema v3, 78.4 MiB
+✔ event-store  sqlite  159,266 events, 3 departed files, schema v3, 78.4 MiB
 
 Sources: 1 found · 1 failed · 1 not installed
 ```
@@ -92,7 +92,7 @@ Each machine added with [`machine add`](/llm-usage-metrics/machines/) gets a `ma
         "format": "sqlite",
         "status": "ok",
         "itemsFound": 159266,
-        "detail": "159266 event(s), 3 departed file(s), schema v3, 78.4 MiB"
+        "detail": "159,266 events, 3 departed files, schema v3, 78.4 MiB"
       }
     ]
   }

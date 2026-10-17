@@ -754,21 +754,54 @@ describe('summary lead', () => {
     expect(ledeFigures(view)).toEqual(['~$0.06', '~$0.09']);
   });
 
-  it('lists the periods with their cost, tokens and top source', () => {
+  it('lists the periods with their cost against the days before, tokens and top source', () => {
     const [periods] = view.tables;
 
     expect(periods.columns.map((column) => column.label)).toEqual([
       'Period',
       'Cost',
+      'Previous',
+      'Change',
       'Tokens',
       'Top source',
     ]);
+    // summary.json: today $0 against $0.00142425 the day before; the last 7 days $0.06142425
+    // against $0.001227; the month $0.063515625 against $0.001 on 1–21 May.
     expect(periods.rows.map(texts)).toEqual([
-      ['Today', '$0.00', '0', '—'],
-      ['Last 7 days', '~$0.06', '1,190', 'kilocode (~49%)'],
-      ['Month to date', '~$0.06', '1,585', 'kilocode (~47%)'],
+      ['Today', '$0.00', '$0.00', '−100.0%', '0', '—'],
+      ['Last 7 days', '~$0.06', '$0.00', '+4,906.1%', '1,190', 'kilocode (~49%)'],
+      ['Month to date', '~$0.06', '$0.00', '+6,251.6%', '1,585', 'kilocode (~47%)'],
     ]);
+    expect(periods.rows[1][3].note).toBe('Against 8 Jun 2026 – 14 Jun 2026');
     expect(view.tables).toHaveLength(1);
+  });
+
+  it('keeps the table without the change for a file from before it or without cost', () => {
+    const labels = (report: ShareReport) =>
+      summaryOf(report).tables[0].columns.map((column) => column.label);
+    const withoutPrevious = withEnvelope('summary', {
+      ...record(readGolden('summary')),
+      periods: (record(readGolden('summary')).periods as Record<string, unknown>[]).map(
+        (period) => {
+          const copy = { ...period };
+          delete copy.previous;
+          return copy;
+        },
+      ),
+    });
+    const withoutCost = withEnvelope('summary', {
+      ...record(readGolden('summary')),
+      periods: (record(readGolden('summary')).periods as Record<string, unknown>[]).map(
+        (period) => {
+          const totals = { ...record(period.totals) };
+          delete totals.costUsd;
+          return { ...period, totals };
+        },
+      ),
+    });
+
+    expect(labels(withoutPrevious)).toEqual(['Period', 'Cost', 'Tokens', 'Top source']);
+    expect(labels(withoutCost)).toEqual(['Period', 'Cost', 'Tokens', 'Top source']);
   });
 
   it('states the cache savings and the past year’s streaks and best day', () => {
@@ -1016,7 +1049,7 @@ describe('lead tables on a narrow screen', () => {
 
     expect(kept(tableOf(compare, 'Totals'))).toEqual(['Metric', 'Current (2026-06)', 'Change']);
     expect(kept(tableOf(compare, 'By project (cost)'))).toEqual(['Project', 'Current', 'Change']);
-    expect(kept(summary.tables[0])).toEqual(['Period', 'Cost', 'Tokens']);
+    expect(kept(summary.tables[0])).toEqual(['Period', 'Cost', 'Change']);
     expect(kept(trends.tables[0])).toEqual(['Source', 'Total', 'Peak']);
     expect(kept(efficiency.tables[0])).toEqual(['Period', 'Commits', 'Cost', 'Per commit']);
     expect(kept(optimize.tables[0])).toEqual(['Period', 'Candidate', 'Savings']);

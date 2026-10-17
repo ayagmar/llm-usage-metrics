@@ -35,11 +35,11 @@ When `--history` classifies a departed file, it compares that file's multiset of
 2. Stored files for those sources that were **not** discovered this run and are also missing from disk are the departed set, classified oldest-ingested first with the move suppression above. A stored file that discovery skipped but that still exists (for example, outside a narrowed `--source-dir`) counts as live: it is neither replayed as history nor offered to `prune`. When a file's presence cannot be checked (for example, permission denied), history replays it so usage is never hidden, while `prune` keeps it so nothing is deleted without proof that the file is gone.
 3. Events from non-suppressed departed files, less any already counted, are replayed and appended to their source's parse results **before** the provider/model/date filters, pricing, and aggregation — so report shapes are unchanged and history events flow through the exact same pipeline.
 
-History reads never mutate the ledger: the classification writes only connection-local SQLite `TEMP` tables. Each history run reports its outcome as a diagnostic: `History: included N event(s) from M departed file(s) (K suppressed as moved or duplicated).`
+History reads never mutate the ledger: the classification writes only connection-local SQLite `TEMP` tables. Each history run reports its outcome as a diagnostic: `History: included N events from M departed files (K suppressed as moved or duplicated).`
 
 ## Prune
 
-`llm-usage prune` deletes departed-file rows from the ledger. It requires at least one selector and is a dry run by default — without `--apply` it prints the candidate table and `Would delete N file(s) / M event(s). Re-run with --apply.`
+`llm-usage prune` deletes departed-file rows from the ledger. It requires at least one selector and is a dry run by default — without `--apply` it prints the candidate table and `Would delete N files / M events. Re-run with --apply.`
 
 - `--suppressed` selects departed files that history already suppresses as moved or duplicated — applying it never changes report output.
 - `--departed-before YYYY-MM-DD` selects departed files whose newest event timestamp is strictly older than that UTC date.

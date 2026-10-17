@@ -23,6 +23,7 @@ import type {
   CompareWindowTotals,
 } from './usage-data-contracts.js';
 import { addUsd } from '../utils/usd-math.js';
+import { computeDeltaRatio } from '../utils/delta-ratio.js';
 import {
   createEmptyWindowTotals,
   isEventWithinWindow,
@@ -132,7 +133,9 @@ function createDefaultCurrentWindow(timezone: string, now: Date): CompareWindowR
  * current window (clamped to that month's last day), so a partial month is never
  * compared against a full one.
  */
-function createPreviousMonthToDateWindow(current: CompareWindowRange): CompareWindowRange {
+export function createPreviousMonthToDateWindow(
+  current: Pick<CompareWindowRange, 'since' | 'until'>,
+): CompareWindowRange {
   const previousMonth = getPreviousMonthRange(current.since);
   const { day } = parseDateKey(current.until);
   const { year, month } = parseDateKey(previousMonth.since);
@@ -142,7 +145,9 @@ function createPreviousMonthToDateWindow(current: CompareWindowRange): CompareWi
   return createRange(previousMonth.since, until);
 }
 
-function createPreviousSameLengthWindow(current: CompareWindowRange): CompareWindowRange {
+export function createPreviousSameLengthWindow(
+  current: Pick<CompareWindowRange, 'since' | 'until'>,
+): CompareWindowRange {
   const dayCount = countInclusiveDays(current.since, current.until);
   const until = shiftLocalDateKey(current.since, -1);
   const since = shiftLocalDateKey(current.since, -dayCount);
@@ -231,21 +236,6 @@ function subtractValues(
   }
 
   return current - baseline;
-}
-
-function computeDeltaRatio(
-  current: number | undefined,
-  baseline: number | undefined,
-): number | undefined {
-  if (current === undefined || baseline === undefined) {
-    return undefined;
-  }
-
-  if (baseline === 0) {
-    return current === 0 ? 0 : undefined;
-  }
-
-  return (current - baseline) / baseline;
 }
 
 function buildMetricRows(

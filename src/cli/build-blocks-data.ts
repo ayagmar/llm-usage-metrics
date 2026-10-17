@@ -69,7 +69,10 @@ export type BlocksDataResult = {
   defaultWindowSince?: string;
 };
 
-type BlocksWindow = {
+type RecentDaysWindowOptions = Pick<BlocksCommandOptions, 'since' | 'until' | 'last' | 'all'>;
+
+/** A report window in local days; `isDefault` when no window flag chose it. */
+export type RecentDaysWindow = {
   since?: string;
   until?: string;
   isDefault: boolean;
@@ -89,11 +92,16 @@ function parseTopOption(top: string | undefined): number | undefined {
   return Number.parseInt(normalized, 10);
 }
 
-function resolveBlocksWindow(
-  options: BlocksCommandOptions,
-  configuredOptions: BlocksCommandOptions,
+/**
+ * The window of a report that covers the last `defaultDays` days unless --last N (days),
+ * --since/--until or --all says otherwise.
+ */
+export function resolveRecentDaysWindow(
+  options: RecentDaysWindowOptions,
+  configuredOptions: RecentDaysWindowOptions,
   today: string,
-): BlocksWindow {
+  defaultDays: number,
+): RecentDaysWindow {
   const hasDates = options.since !== undefined || options.until !== undefined;
   const lastDays = parseLastOption(options.last);
 
@@ -117,7 +125,7 @@ function resolveBlocksWindow(
     return { since: configuredOptions.since, until: configuredOptions.until, isDefault: false };
   }
 
-  return { since: shiftLocalDateKey(today, -(BLOCKS_DEFAULT_LAST_DAYS - 1)), isDefault: true };
+  return { since: shiftLocalDateKey(today, -(defaultDays - 1)), isDefault: true };
 }
 
 /** The events counted in `blocks`: each lies in one block of its source, at most 5 h after its start. */
@@ -209,7 +217,12 @@ export async function buildBlocksData(
   );
   const now = deps.now?.() ?? new Date();
   const today = getCurrentLocalDateKey(timezone, now);
-  const window = resolveBlocksWindow(options, configuredOptions, today);
+  const window = resolveRecentDaysWindow(
+    options,
+    configuredOptions,
+    today,
+    BLOCKS_DEFAULT_LAST_DAYS,
+  );
   // Read a week before the window, once, to find where the blocks running into it started.
   const lookbackSince =
     window.since === undefined ? undefined : shiftLocalDateKey(window.since, -BLOCKS_LOOKBACK_DAYS);

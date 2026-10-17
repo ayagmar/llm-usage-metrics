@@ -20,7 +20,8 @@ import type {
 const DEFAULT_SESSION_TOP = 20;
 const MAX_LISTED_TIMELINE_MATCHES = 10;
 
-function parseSessionTopOption(top: string | undefined): number | undefined {
+/** `--top N` where 0 shows every row; undefined when not passed. */
+export function parseTopRowsOption(top: string | undefined): number | undefined {
   if (top === undefined) {
     return undefined;
   }
@@ -63,10 +64,12 @@ function resolveSessionRowLimit(
   return hasIdFilters ? undefined : DEFAULT_SESSION_TOP;
 }
 
-function limitRows<Row>(
+/** The first `limit` rows, with the note naming what --top left out. */
+export function limitRows<Row>(
   rows: Row[],
   limit: number | undefined,
-  rowNoun: 'sessions' | 'repos',
+  rowNoun: string,
+  rankedBy = 'cost',
 ): { rows: Row[]; limitNote?: string } {
   if (limit === undefined || rows.length <= limit) {
     return { rows };
@@ -74,7 +77,7 @@ function limitRows<Row>(
 
   return {
     rows: rows.slice(0, limit),
-    limitNote: `Showing top ${limit} of ${rows.length} ${rowNoun} by cost. Use --top 0 for all.`,
+    limitNote: `Showing top ${limit} of ${rows.length} ${rowNoun} by ${rankedBy}. Use --top 0 for all.`,
   };
 }
 
@@ -141,7 +144,7 @@ export async function buildSessionData(
 
   validateTimelineOptions(options, idFilters !== undefined);
 
-  const top = parseSessionTopOption(options.top);
+  const top = parseTopRowsOption(options.top);
   const limit = resolveSessionRowLimit(top, idFilters !== undefined);
   const dataset = await measureRuntimeProfileStage(
     deps.runtimeProfile,

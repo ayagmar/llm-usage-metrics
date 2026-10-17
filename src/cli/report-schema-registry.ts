@@ -3,6 +3,7 @@ import eventsLineSchema from '../../schema/events-line.v1.schema.json' with { ty
 import machineExportSchema from '../../schema/machine-export.v1.schema.json' with { type: 'json' };
 import blocksSchema from '../../schema/report-blocks.v1.schema.json' with { type: 'json' };
 import commonSchema from '../../schema/report-common.v1.schema.json' with { type: 'json' };
+import configReportSchema from '../../schema/report-config.v1.schema.json' with { type: 'json' };
 import compareSchema from '../../schema/report-compare.v1.schema.json' with { type: 'json' };
 import doctorSchema from '../../schema/report-doctor.v1.schema.json' with { type: 'json' };
 import efficiencySchema from '../../schema/report-efficiency.v1.schema.json' with { type: 'json' };
@@ -13,6 +14,7 @@ import pruneSchema from '../../schema/report-prune.v1.schema.json' with { type: 
 import sessionSchema from '../../schema/report-session.v1.schema.json' with { type: 'json' };
 import shareSchema from '../../schema/report-share.v1.schema.json' with { type: 'json' };
 import summarySchema from '../../schema/report-summary.v1.schema.json' with { type: 'json' };
+import toolsSchema from '../../schema/report-tools.v1.schema.json' with { type: 'json' };
 import trendsSchema from '../../schema/report-trends.v1.schema.json' with { type: 'json' };
 import usageSchema from '../../schema/report-usage.v1.schema.json' with { type: 'json' };
 import valueSchema from '../../schema/report-value.v1.schema.json' with { type: 'json' };
@@ -30,6 +32,7 @@ function bundleCommonDefinitions(schema: { [key: string]: unknown; $defs?: objec
 export const reportSchemas: Record<string, unknown> = {
   blocks: bundleCommonDefinitions(blocksSchema),
   compare: bundleCommonDefinitions(compareSchema),
+  config: bundleCommonDefinitions(configReportSchema),
   doctor: bundleCommonDefinitions(doctorSchema),
   efficiency: bundleCommonDefinitions(efficiencySchema),
   optimize: bundleCommonDefinitions(optimizeSchema),
@@ -39,14 +42,19 @@ export const reportSchemas: Record<string, unknown> = {
   session: bundleCommonDefinitions(sessionSchema),
   share: bundleCommonDefinitions(shareSchema),
   summary: bundleCommonDefinitions(summarySchema),
+  tools: bundleCommonDefinitions(toolsSchema),
   trends: bundleCommonDefinitions(trendsSchema),
   usage: bundleCommonDefinitions(usageSchema),
   value: bundleCommonDefinitions(valueSchema),
   wrapped: bundleCommonDefinitions(wrappedSchema),
 };
 
+// `config` names the config file's schema here, so the `config show` report's is `config-show`.
+const { config: configShowSchema, ...namedReportSchemas } = reportSchemas;
+
 export const schemaDocuments: Record<string, unknown> = {
-  ...reportSchemas,
+  ...namedReportSchemas,
+  'config-show': configShowSchema,
   'events-line': bundleCommonDefinitions(eventsLineSchema),
   // Its events are events-line objects, so both resources are embedded.
   'machine-export': {

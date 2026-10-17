@@ -79,6 +79,7 @@
             "usage",
             "summary",
             "session",
+            "tools",
             "trends",
             "compare",
             "efficiency",
@@ -90,7 +91,8 @@
             "blocks",
             "pricing",
             "value",
-            "share"
+            "share",
+            "config"
           ]
         },
         "data": {
