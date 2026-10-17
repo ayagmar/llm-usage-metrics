@@ -57,6 +57,7 @@
     "site:links": "node site/scripts/check-links.mjs",
     "site:docs:generate": "node scripts/generate-cli-reference.mjs && node scripts/generate-site-security-doc.mjs",
     "docs:mermaid:validate": "node scripts/validate-mermaid.mjs",
+    "docs:screenshots": "node site/scripts/docs-screenshots.mjs",
     "bench:baseline": "node scripts/benchmark-baseline.mjs"
   },
   "keywords": [
