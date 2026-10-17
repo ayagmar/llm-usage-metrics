@@ -1,10 +1,37 @@
 import type { APIRoute } from 'astro';
 import { SUMMARY, getSidebarSections, pageUrl } from '../llms/docs';
 
-function stripImports(body: string): string {
+const diagramSources = import.meta.glob<string>('../components/diagrams/*.astro', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+});
+
+function elementText(source: string, tag: string): string {
+  const open = source.indexOf(`<${tag}`);
+  const start = source.indexOf('>', open) + 1;
+  const end = source.indexOf(`</${tag}>`, start);
+  if (open === -1 || end === -1) throw new Error(`Diagram source has no <${tag}>`);
+  return source.slice(start, end).replace(/\s+/g, ' ').trim();
+}
+
+/** Diagram component name to its `<title>` and `<desc>`, the diagram in words. */
+const diagramTexts = new Map(
+  Object.entries(diagramSources).map(([path, source]) => [
+    path.slice(path.lastIndexOf('/') + 1, -'.astro'.length),
+    `Diagram: ${elementText(source, 'title')}. ${elementText(source, 'desc')}`,
+  ]),
+);
+
+function toText(body: string): string {
   return body
     .split('\n')
     .filter((line) => !line.startsWith('import '))
+    .map((line) => {
+      const tag = line.trim();
+      if (!tag.startsWith('<') || !tag.endsWith('/>')) return line;
+      return diagramTexts.get(tag.slice(1, -2).trim()) ?? line;
+    })
     .join('\n')
     .trim();
 }
@@ -23,7 +50,7 @@ export const GET: APIRoute = async () => {
         '',
         `Source: ${pageUrl(entry.id)}`,
         '',
-        stripImports(entry.body ?? ''),
+        toText(entry.body ?? ''),
       );
     }
   }
