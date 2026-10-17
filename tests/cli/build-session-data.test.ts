@@ -463,27 +463,37 @@ describe('buildSessionData --timeline', () => {
     expect(discoverFiles).not.toHaveBeenCalled();
   });
 
-  it("reads tool calls live from the session's own files only", async () => {
-    const usageByFile: Record<string, ReturnType<typeof createUsageEvent>[]> = {
-      '/tmp/pi-session-1.jsonl': [createBaseEvent()],
-      '/tmp/pi-other.jsonl': [createBaseEvent({ sessionId: 'other' })],
-    };
+  it("reads tool calls live from the session's source only, every file of it", async () => {
     const liveReads: string[] = [];
-    const adapter: SourceAdapter = {
-      ...createAdapter('pi', usageByFile),
+    const liveAdapter = (
+      id: SourceAdapter['id'],
+      usageByFile: Record<string, ReturnType<typeof createUsageEvent>[]>,
+    ): SourceAdapter => ({
+      ...createAdapter(id, usageByFile),
       capabilities: { kinds: ['usage', 'tool_call', 'message'] },
       async *readEvents(filePath) {
         liveReads.push(filePath);
         yield* [];
       },
-    };
+    });
 
     await buildSessionData(
       { id: ['session-1'], timeline: true, timezone: 'UTC' },
-      runtimeDeps({ adapters: [adapter] }),
+      runtimeDeps({
+        adapters: [
+          liveAdapter('pi', {
+            '/tmp/pi-session-1.jsonl': [createBaseEvent()],
+            '/tmp/pi-other.jsonl': [createBaseEvent({ sessionId: 'other' })],
+          }),
+          liveAdapter('codex', {
+            '/tmp/codex-other.jsonl': [createBaseEvent({ source: 'codex', sessionId: 'other' })],
+          }),
+        ],
+      }),
     );
 
-    expect(liveReads).toEqual(['/tmp/pi-session-1.jsonl']);
+    // The other pi files may hold the calls this session copied from its parent.
+    expect(liveReads.sort()).toEqual(['/tmp/pi-other.jsonl', '/tmp/pi-session-1.jsonl']);
   });
 
   it("returns only the matched session's priced requests, in time order", async () => {

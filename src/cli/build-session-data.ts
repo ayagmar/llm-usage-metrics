@@ -112,8 +112,7 @@ export async function buildSessionData(
   const dataset = await measureRuntimeProfileStage(
     deps.runtimeProfile,
     'session.dataset.total',
-    () =>
-      buildUsageEventDataset(options, deps, { recordFileSessionIds: options.timeline === true }),
+    () => buildUsageEventDataset(options, deps),
   );
   const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'auto');
   const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
@@ -173,25 +172,26 @@ export async function buildSessionData(
     );
     const sessionKey = getEventSessionKey(session);
     const sessionEvents = pricedEvents.filter((event) => getEventSessionKey(event) === sessionKey);
+    // Tool calls come from every file of the session's source, as `tools` reads them, so a
+    // call a resumed or forked transcript copied from its parent stays its parent's.
     const live = await measureRuntimeProfileStage(deps.runtimeProfile, 'session.read_live', () =>
       readLiveSessionEvents(dataset, {
         kinds: ['tool_call', 'message'],
-        sessionKeys: new Set([sessionKey]),
-        // A session's live events are in the files that hold its usage.
         filePaths: new Set(
           dataset.parsedFiles
-            .filter(
-              (file) =>
-                file.source === session.source &&
-                (file.sessionIds?.includes(session.sessionId) ?? true),
-            )
+            .filter((file) => file.source === session.source)
             .map((file) => file.filePath),
         ),
       }),
     );
-    // Counted once across copies, as `tools` counts them.
-    const toolCalls = dedupeToolCalls(live.events.filter((event) => event.kind === 'tool_call'));
-    const messages = live.events.filter((event) => event.kind === 'message');
+    const toolCalls = dedupeToolCalls(
+      live.events.filter((event) => event.kind === 'tool_call'),
+    ).filter((event) => getEventSessionKey(event) === sessionKey);
+    // Messages carry no id that holds across copies (user turns have none), so they are the
+    // session's messages, copied ones included.
+    const messages = live.events.filter(
+      (event) => event.kind === 'message' && getEventSessionKey(event) === sessionKey,
+    );
 
     return {
       grouping: 'timeline',

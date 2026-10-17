@@ -65,11 +65,6 @@ export type DiscoveredSourceFile = {
 /** A file whose events this run counts. */
 export type ParsedSourceFile = DiscoveredSourceFile & {
   /**
-   * Distinct session ids of the file's usage events, before any filter or dedupe; only with
-   * `recordFileSessionIds`, since keeping them keeps the text they were read from.
-   */
-  sessionIds?: readonly string[];
-  /**
    * Last modified before the `--since` window, so it holds no events in it: parsed only
    * because the event store lacked it.
    */
@@ -105,8 +100,6 @@ export type ParseSelectedAdaptersOptions = {
   now?: () => number;
   parseWorkers?: ParseWorkerRuntimeOptions;
   runtimeProfile?: RuntimeProfileCollector;
-  /** Record each parsed file's session ids (`ParsedSourceFile.sessionIds`). */
-  recordFileSessionIds?: boolean;
 };
 
 type ParseWorkerRuntimeOptions = {
@@ -189,19 +182,6 @@ function getSafeWorkerMinBytes(minBytes: number): number {
   return Math.floor(minBytes);
 }
 
-/** The distinct session ids of a file's events; a file usually holds one session. */
-function listSessionIds(events: readonly UsageEvent[]): string[] {
-  const sessionIds: string[] = [];
-
-  for (const { sessionId } of events) {
-    if (sessionIds.at(-1) !== sessionId && !sessionIds.includes(sessionId)) {
-      sessionIds.push(sessionId);
-    }
-  }
-
-  return sessionIds;
-}
-
 export async function parseAdapterEvents(
   adapter: SourceAdapter,
   maxParallelFileParsing: number,
@@ -211,7 +191,6 @@ export async function parseAdapterEvents(
   parseWorkerOptions?: ParseWorkerRuntimeOptions,
   since?: string,
   sharedPool?: SharedParseWorkerPool,
-  recordFileSessionIds = false,
 ): Promise<AdapterParseResultWithFiles> {
   const files = await adapter.discoverFiles();
   const skipCutoffMs = adapter.capabilities?.eventsPrecedeFileMtime
@@ -579,7 +558,6 @@ export async function parseAdapterEvents(
         ? [
             {
               filePath,
-              ...(recordFileSessionIds && { sessionIds: listSessionIds(parsedByFile[fileIndex]) }),
               ...(beforeWindowFileIndexes.has(fileIndex) && { beforeWindow: true as const }),
             },
           ]
@@ -649,7 +627,6 @@ export async function parseSelectedAdapters(
             options.parseWorkers,
             options.since,
             sharedPool,
-            options.recordFileSessionIds,
           );
 
         return options.runtimeProfile

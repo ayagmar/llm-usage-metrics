@@ -38,7 +38,6 @@ import {
   throwOnExplicitSourceFailures,
   type AdapterParseResult,
   type ParsedSourceFile,
-  type ParseSelectedAdaptersOptions,
 } from './build-usage-data-parsing.js';
 import { filterParsedAdapterEventsWithLookback } from './parse/usage-event-filters.js';
 import { applyRepoFilter } from './repo-filter.js';
@@ -196,7 +195,7 @@ export type UsageEventDatasetPricingResult = PricedEventsResult;
 export async function buildUsageEventDataset(
   options: ReportCommandOptions,
   deps: BuildUsageDataDeps = {},
-  request: Pick<ParseSelectedAdaptersOptions, 'recordFileSessionIds'> & {
+  request: {
     /** Also read from this date, before `since`, for context (`lookbackEvents`). */
     lookbackSince?: string;
   } = {},
@@ -325,7 +324,6 @@ export async function buildUsageEventDataset(
             minBytes: parsingRuntimeConfig.parseWorkerMinBytes,
           },
           runtimeProfile,
-          recordFileSessionIds: request.recordFileSessionIds,
         });
       },
     );
