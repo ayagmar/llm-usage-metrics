@@ -408,6 +408,31 @@ describe('buildUsageData', () => {
     });
   });
 
+  it('never loads pricing with --no-cost, even for events that need an estimate', async () => {
+    const pricingLoaderSpy = vi.fn(async (): Promise<PricingLoadResult> => {
+      throw new Error('pricing should not be loaded with --no-cost');
+    });
+    const deps = {
+      ...withDeterministicRuntimeDeps(),
+      createAdapters: () => [
+        createAdapter('pi', {
+          '/tmp/pi-unpriced.jsonl': [createEvent({ costMode: 'estimated', costUsd: undefined })],
+        }),
+      ],
+      resolvePricingSource: pricingLoaderSpy,
+    };
+
+    const result = await buildUsageData('daily', { all: true, timezone: 'UTC', cost: false }, deps);
+
+    expect(pricingLoaderSpy).not.toHaveBeenCalled();
+    expect(result.diagnostics.pricingOrigin).toBe('none');
+    expect(result.rows.at(-1)).toMatchObject({ totalTokens: 15 });
+    // The same run with cost shown needs the prices.
+    await expect(buildUsageData('daily', { all: true, timezone: 'UTC' }, deps)).rejects.toThrow(
+      'pricing should not be loaded with --no-cost',
+    );
+  });
+
   it('returns no-sessions diagnostics without loading pricing', async () => {
     const pricingLoaderSpy = vi.fn(async (): Promise<PricingLoadResult> => {
       throw new Error('pricing should not be loaded when there are no events');

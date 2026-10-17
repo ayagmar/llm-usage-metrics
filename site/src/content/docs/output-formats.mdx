@@ -47,7 +47,7 @@ llm-usage daily --no-cost
 llm-usage monthly --share --no-cost
 ```
 
-`--no-cost` leaves cost out of `hourly`, `daily`, `weekly`, `monthly`, `projects`, `blocks`, and `value` for a screenshot or a shared report that should not show spend: tables drop their cost columns, and the share report holds no cost at all. It works with terminal, Markdown, and `--share`, not JSON.
+`--no-cost` leaves cost out of `hourly`, `daily`, `weekly`, `monthly`, `projects`, `blocks`, and `value` for a screenshot or a shared report that should not show spend: tables drop their cost columns, and the share report holds no cost at all. It works with terminal, Markdown, and `--share`, not JSON. On `hourly`, `daily`, `weekly`, `monthly`, and `blocks` it also skips loading prices, so it never fetches them; `projects` and `value` still load prices because they rank projects by cost.
 
 ## JSON
 

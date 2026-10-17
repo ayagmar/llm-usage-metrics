@@ -219,12 +219,18 @@ export async function buildBlocksData(
     userConfigResolution: { ...userConfigResolution, options: datasetOptions },
   };
 
+  const hideCost = options.cost === false;
   const dataset = await measureRuntimeProfileStage(
     deps.runtimeProfile,
     'blocks.dataset.total',
     () => buildUsageEventDataset(datasetOptions, datasetDeps),
   );
-  const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'auto');
+  // --no-cost shows no cost, so prices are neither loaded nor fetched.
+  const pricingResult = await applyPricingToUsageEventDataset(
+    dataset,
+    deps,
+    hideCost ? 'none' : 'auto',
+  );
   const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
   const wholeStreams = await measureRuntimeProfileStage(
     deps.runtimeProfile,
@@ -250,7 +256,6 @@ export async function buildBlocksData(
     active: canBeActive && isBlockActive(block, nowMs) ? computeBurnRate(block, nowMs) : null,
   });
   const rows = blocks.map(toRow);
-  const hideCost = options.cost === false;
   const rankedBy = resolveBlockRanking(blocks, { hideCost });
   const shownRows = top === undefined ? rows : selectTopBlocks(rows, top, rankedBy);
 
