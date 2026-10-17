@@ -2,11 +2,11 @@ import {
   hasControlCharacters,
   normalizeProviderToBillingEntity,
 } from '@ayagmar/agent-sessions/internal';
+import { getDaysInMonth } from '../utils/date-key.js';
 import { createUsageEvent, type UsageEvent, type UsageEventInput } from '../domain/usage-event.js';
 import { toNonNegativeInteger, toNonNegativeNumber, toText } from './event-store-database.js';
 
 const NORMALIZED_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
-const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const;
 const FAST_PATH_REJECT = Symbol('fast path reject');
 
 type OptionalStoredText = string | undefined | typeof FAST_PATH_REJECT;
@@ -275,12 +275,7 @@ function isValidNormalizedTimestamp(value: string): boolean {
     return false;
   }
 
-  const maxDay = month === 2 && isLeapYear(year) ? 29 : DAYS_IN_MONTH[month - 1];
-  return day <= maxDay;
-}
-
-function isLeapYear(year: number): boolean {
-  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  return day <= getDaysInMonth(year, month);
 }
 
 function toStoredNonNegativeInteger(value: unknown): number | undefined {

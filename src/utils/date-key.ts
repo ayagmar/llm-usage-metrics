@@ -28,7 +28,8 @@ function pad2(value: number): string {
   return String(value).padStart(2, '0');
 }
 
-function readDigits(value: string, start: number, length: number): number {
+/** The decimal number in `value[start, start + length)`, or -1 when a character is not a digit. */
+export function readDigits(value: string, start: number, length: number): number {
   let result = 0;
 
   for (let index = start; index < start + length; index += 1) {
@@ -77,9 +78,12 @@ export function formatDateKey(parts: DateParts): string {
   return `${String(parts.year).padStart(4, '0')}-${pad2(parts.month)}-${pad2(parts.day)}`;
 }
 
-/** Days in a calendar month (`month` from 1 to 12). */
+const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const;
+
+/** Days in a calendar month (`month` from 1 to 12); no `Date`, for per-event checks. */
 export function getDaysInMonth(year: number, month: number): number {
-  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const isLeapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  return month === 2 && isLeapYear ? 29 : DAYS_IN_MONTH[month - 1];
 }
 
 /** The last date key of a valid date key's month. */

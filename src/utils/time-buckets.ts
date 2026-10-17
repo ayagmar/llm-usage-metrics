@@ -1,9 +1,11 @@
 import {
   getDateKeyRange,
+  getDaysInMonth,
   getIsoDayOfWeek,
   getIsoWeekKey,
   getPeriodKeyRange as getDateKeyPeriodRange,
   parseDateKey,
+  readDigits,
   shiftDateKey,
   type DateKeyGranularity,
 } from './date-key.js';
@@ -48,8 +50,6 @@ type LocalDateWindowCache = {
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 const SECOND_MS = 1000;
-const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const;
-
 const dateTimeFormatterCache = new Map<string, Intl.DateTimeFormat>();
 const localDateWindowCaches = new Map<string, LocalDateWindowCache>();
 
@@ -181,27 +181,6 @@ function parseCanonicalTimestampMs(value: string): number | undefined {
 }
 
 /** The decimal value of `length` ASCII digits at `start`, or -1 if any is not a digit. */
-function readDigits(value: string, start: number, length: number): number {
-  let result = 0;
-
-  for (let index = start; index < start + length; index += 1) {
-    const digit = value.charCodeAt(index) - 48;
-
-    if (digit < 0 || digit > 9) {
-      return -1;
-    }
-
-    result = result * 10 + digit;
-  }
-
-  return result;
-}
-
-function getDaysInMonth(year: number, month: number): number {
-  const isLeapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
-  return month === 2 && isLeapYear ? 29 : DAYS_IN_MONTH[month - 1];
-}
-
 function parseLocalDateParts(timestampIso: string, timezone: string): KeyedLocalDate {
   const date = new Date(timestampIso);
   const timestampMs = date.getTime();
@@ -374,6 +353,7 @@ function toLocalDateParts(localDateTime: LocalDateTimeParts): LocalDateParts {
   };
 }
 
+// Unlike `formatDateKey`, the year keeps its digits: years below 1000 stay unpadded.
 function formatLocalDateParts(localDate: LocalDateParts): string {
   return `${localDate.year}-${String(localDate.month).padStart(2, '0')}-${String(localDate.day).padStart(2, '0')}`;
 }
