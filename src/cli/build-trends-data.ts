@@ -334,32 +334,38 @@ export async function buildTrendsData(
   const now = deps.now?.() ?? new Date();
   const timezone = resolveReportTimezone(configuredOptions.timezone);
   const resolved = resolveTrendsOptions(configuredOptions, timezone, now);
-  // Spike days need the cost of the days before the chart.
-  const fetchFrom =
-    resolved.fetchDateRange && resolved.metric === 'cost'
-      ? resolveSpikeBaselineStart(resolved.fetchDateRange.from)
-      : resolved.fetchDateRange?.from;
   const datasetOptions = {
     ...configuredOptions,
     timezone,
-    since: fetchFrom ?? configuredOptions.since,
+    since: resolved.fetchDateRange?.from ?? configuredOptions.since,
     until: resolved.fetchDateRange?.to ?? configuredOptions.until,
   };
+  // Spike days need the cost of the days before the chart.
+  const lookbackSince =
+    resolved.fetchDateRange && resolved.metric === 'cost'
+      ? resolveSpikeBaselineStart(resolved.fetchDateRange.from)
+      : undefined;
   const dataset = await measureRuntimeProfileStage(
     deps.runtimeProfile,
     'trends.dataset.total',
     () =>
-      buildUsageEventDataset(datasetOptions, {
-        ...deps,
-        userConfigResolution: {
-          ...userConfigResolution,
-          options: datasetOptions,
+      buildUsageEventDataset(
+        datasetOptions,
+        {
+          ...deps,
+          userConfigResolution: {
+            ...userConfigResolution,
+            options: datasetOptions,
+          },
         },
-      }),
+        { lookbackSince },
+      ),
   );
   const pricingResult =
     resolved.metric === 'cost'
-      ? await applyPricingToUsageEventDataset(dataset, deps, 'auto')
+      ? await applyPricingToUsageEventDataset(dataset, deps, 'auto', {
+          events: [...dataset.filteredEvents, ...dataset.lookbackEvents],
+        })
       : {
           pricedEvents: dataset.filteredEvents,
           pricingOrigin: 'none' as const,
@@ -404,15 +410,9 @@ export async function buildTrendsData(
 
     return aggregated;
   });
-  // A cost dataset reaches back past the chart for the spike check; the rest of the report
+  // Priced cost events end with the spike check's lookback days; the rest of the report
   // reads the chart's days only.
-  const chartedEvents =
-    resolved.metric === 'cost'
-      ? pricingResult.pricedEvents.filter((event) => {
-          const day = getPeriodKey(event.timestamp, 'daily', dataset.normalizedInputs.timezone);
-          return day >= outputDateRange.from && day <= outputDateRange.to;
-        })
-      : dataset.filteredEvents;
+  const chartedEvents = pricingResult.pricedEvents.slice(0, dataset.filteredEvents.length);
   const projectSeries = options.byRepo
     ? measureRuntimeProfileStageSync(deps.runtimeProfile, 'trends.aggregate_projects', () => {
         // One label set over the whole range, so a project keeps its label on every day.

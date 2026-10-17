@@ -462,6 +462,47 @@ describe('buildTrendsData', () => {
     expect(result.projectSeries?.map((series) => series.project)).toEqual(['app']);
   });
 
+  it('picks the --model rule from the chart, not from the spike lookback days', async () => {
+    // The exact name appears only before the chart; inside it, only a dated variant does.
+    const adapters = [
+      createAdapter('pi', {
+        '/tmp/a.jsonl': [
+          createBaseEvent({
+            timestamp: '2026-10-01T10:00:00.000Z',
+            model: 'claude-opus-4-1',
+            costMode: 'explicit',
+            costUsd: 1,
+          }),
+          createBaseEvent({
+            timestamp: '2026-10-16T10:00:00.000Z',
+            model: 'claude-opus-4-1-20250805',
+            costMode: 'explicit',
+            costUsd: 2,
+          }),
+        ],
+      }),
+    ];
+    const now = () => new Date('2026-10-17T12:00:00.000Z');
+    const chart = async (metric: string) =>
+      (
+        await buildTrendsData(
+          { metric, last: '3', model: ['claude-opus-4-1'] },
+          runtimeDeps({ now, adapters }),
+        )
+      ).totalSeries.buckets.map((bucket) => [bucket.date, bucket.value]);
+
+    expect(await chart('cost')).toEqual([
+      ['2026-10-15', 0],
+      ['2026-10-16', 2],
+      ['2026-10-17', 0],
+    ]);
+    expect(await chart('tokens')).toEqual([
+      ['2026-10-15', 0],
+      ['2026-10-16', 15],
+      ['2026-10-17', 0],
+    ]);
+  });
+
   it('marks no spikes on token trends', async () => {
     const result = await buildTrendsData(
       { metric: 'tokens', last: '1' },

@@ -40,7 +40,7 @@ import {
   type ParsedSourceFile,
   type ParseSelectedAdaptersOptions,
 } from './build-usage-data-parsing.js';
-import { filterParsedAdapterEvents } from './parse/usage-event-filters.js';
+import { filterParsedAdapterEventsWithLookback } from './parse/usage-event-filters.js';
 import { applyRepoFilter } from './repo-filter.js';
 import { loadMachineUsage, selectMachines } from '../machines/load-machine-usage.js';
 import {
@@ -166,6 +166,11 @@ export type UsageEventDataset = {
   notes: string[];
   filteredEvents: UsageEvent[];
   /**
+   * With `lookbackSince`, the events from that date to the day before `since`, filtered with
+   * the rules the window resolved; empty otherwise.
+   */
+  lookbackEvents: UsageEvent[];
+  /**
    * The local files whose events this run counts: discovered, parsed or served from the
    * store, and not skipped as last modified before the window (those the store lacked are
    * parsed and marked `beforeWindow`).
@@ -191,7 +196,10 @@ export type UsageEventDatasetPricingResult = PricedEventsResult;
 export async function buildUsageEventDataset(
   options: ReportCommandOptions,
   deps: BuildUsageDataDeps = {},
-  request: Pick<ParseSelectedAdaptersOptions, 'recordFileSessionIds'> = {},
+  request: Pick<ParseSelectedAdaptersOptions, 'recordFileSessionIds'> & {
+    /** Also read from this date, before `since`, for context (`lookbackEvents`). */
+    lookbackSince?: string;
+  } = {},
 ): Promise<UsageEventDataset> {
   const userConfigResolution = await resolveUserConfigForOptions(options, deps);
   const configuredOptions = userConfigResolution.options;
@@ -311,7 +319,7 @@ export async function buildUsageEventDataset(
           eventStore: parseEventStoreRuntimeConfig,
           openedStore: openedEventStore,
           overrideSourceIds: cliDirectorySourceIds,
-          since: configuredOptions.since,
+          since: request.lookbackSince ?? configuredOptions.since,
           parseWorkers: {
             workerCount: parsingRuntimeConfig.parseWorkers,
             minBytes: parsingRuntimeConfig.parseWorkerMinBytes,
@@ -438,7 +446,7 @@ export async function buildUsageEventDataset(
             ),
             servedEvents: parseResultsForFiltering.flatMap((result) => result.events),
             adapters: adaptersToParse,
-            since: configuredOptions.since,
+            since: request.lookbackSince ?? configuredOptions.since,
             until: configuredOptions.until,
           }),
       );
@@ -488,21 +496,25 @@ export async function buildUsageEventDataset(
         }),
     );
 
-    const filteredEvents = measureRuntimeProfileStageSync(
+    const { filteredEvents, lookbackEvents } = measureRuntimeProfileStageSync(
       runtimeProfile,
       'usage.dataset.filter_events',
-      () =>
+      () => {
+        const filtered = filterParsedAdapterEventsWithLookback(parseResultsForFiltering, {
+          timezone: normalizedInputs.timezone,
+          since: configuredOptions.since,
+          until: configuredOptions.until,
+          providerFilter: normalizedInputs.providerFilter,
+          modelFilter: normalizedInputs.modelFilter,
+          lookbackSince: request.lookbackSince,
+        });
+
         // After the model filter, which picks exact or substring matching over all projects.
-        applyRepoFilter(
-          filterParsedAdapterEvents(parseResultsForFiltering, {
-            timezone: normalizedInputs.timezone,
-            since: configuredOptions.since,
-            until: configuredOptions.until,
-            providerFilter: normalizedInputs.providerFilter,
-            modelFilter: normalizedInputs.modelFilter,
-          }),
-          normalizedInputs.repoFilter,
-        ),
+        return {
+          filteredEvents: applyRepoFilter(filtered.events, normalizedInputs.repoFilter),
+          lookbackEvents: applyRepoFilter(filtered.lookbackEvents, normalizedInputs.repoFilter),
+        };
+      },
     );
 
     dataset = {
@@ -532,6 +544,7 @@ export async function buildUsageEventDataset(
       ],
       notes: [...historyNotes, ...machineNotes],
       filteredEvents,
+      lookbackEvents,
       parsedFiles,
       ledger,
       pricingRuntimeConfig,

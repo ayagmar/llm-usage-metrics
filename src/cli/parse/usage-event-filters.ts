@@ -1,7 +1,7 @@
 import { matchesCanonicalProviderFilter } from '@ayagmar/agent-sessions/internal';
 import type { UsageEvent } from '../../domain/usage-event.js';
 import { getUtcMidnightIso } from '../../utils/date-key.js';
-import { getPeriodKey } from '../../utils/time-buckets.js';
+import { getPeriodKey, shiftLocalDateKey } from '../../utils/time-buckets.js';
 import type { AdapterParseResult } from '../build-usage-data-parsing.js';
 
 function isEventWithinDateRange(
@@ -177,13 +177,37 @@ export function filterUsageEvents(
   return filterByModelRules(providerAndDateFilteredEvents, options.modelFilter);
 }
 
+/**
+ * The events in the window and, with `lookbackSince`, the events from that date to the day
+ * before `since`. The model rule (exact name or substring) is resolved over the window and
+ * applied to both, so days read only for context never change which events the window shows.
+ */
+export function filterParsedAdapterEventsWithLookback(
+  parseResults: AdapterParseResult[],
+  options: UsageEventFilterOptions & { lookbackSince?: string },
+): { events: UsageEvent[]; lookbackEvents: UsageEvent[] } {
+  const eventGroups = parseResults.map((result) => result.events);
+  const windowEvents = collectProviderAndDateFilteredEvents(eventGroups, options);
+  const modelRules = resolveModelFilterRules(windowEvents, options.modelFilter);
+  const matchesRules = (event: UsageEvent) => matchesModel(event.model, modelRules);
+  const lookbackEvents =
+    options.lookbackSince && options.since && options.lookbackSince < options.since
+      ? collectProviderAndDateFilteredEvents(eventGroups, {
+          ...options,
+          since: options.lookbackSince,
+          until: shiftLocalDateKey(options.since, -1),
+        })
+      : [];
+
+  return {
+    events: windowEvents.filter(matchesRules),
+    lookbackEvents: lookbackEvents.filter(matchesRules),
+  };
+}
+
 export function filterParsedAdapterEvents(
   parseResults: AdapterParseResult[],
   options: UsageEventFilterOptions,
 ): UsageEvent[] {
-  const providerAndDateFilteredEvents = collectProviderAndDateFilteredEvents(
-    parseResults.map((result) => result.events),
-    options,
-  );
-  return filterByModelRules(providerAndDateFilteredEvents, options.modelFilter);
+  return filterParsedAdapterEventsWithLookback(parseResults, options).events;
 }
