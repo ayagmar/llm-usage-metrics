@@ -175,6 +175,27 @@ describe('readLiveSessionEvents', () => {
     expect(new Set(byFile.events.map((event) => event.sessionId))).toEqual(new Set(['claude-b']));
   });
 
+  it('does not open a file parsed only for the event store as older than the window', async () => {
+    const opened: string[] = [];
+    const dataset = await buildUsageEventDataset(
+      { timezone: 'UTC' },
+      createDeps({ onLiveRead: (filePath) => opened.push(filePath) }),
+    );
+    const withStoreOnlyFile = {
+      ...dataset,
+      parsedFiles: dataset.parsedFiles.map((file) =>
+        file.filePath === '/tools-fixture/codex/old.jsonl'
+          ? { ...file, beforeWindow: true as const }
+          : file,
+      ),
+    };
+
+    const { fileCount } = await readLiveSessionEvents(withStoreOnlyFile, { kinds: ['tool_call'] });
+
+    expect(opened).not.toContain('/tools-fixture/codex/old.jsonl');
+    expect(fileCount).toBe(4);
+  });
+
   it('reads nothing when --machine leaves this machine out', async () => {
     const dataset = await buildUsageEventDataset({ timezone: 'UTC' }, createDeps());
     const otherMachineOnly = {

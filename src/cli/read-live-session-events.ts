@@ -55,10 +55,11 @@ export function formatFailedLiveReads(
 
 /**
  * Reads `kinds` events live from the dataset's local files: the files its usage parse counted
- * (so the same discovery, source selection and since-mtime skip), from the sources that
- * declare one of the kinds. Events are kept inside the dataset's date window and, when
- * `--repo` narrowed it, only for sessions with usage in it. Files that left the disk and
- * other machines have no such events, and `--machine` without `local` reads nothing.
+ * (so the same discovery, source selection and since-mtime skip, which here also drops the
+ * files parsed only for the event store), from the sources that declare one of the kinds.
+ * Events are kept inside the dataset's date window and, when `--repo` narrowed it, only for
+ * sessions with usage in it. Files that left the disk and other machines have no such
+ * events, and `--machine` without `local` reads nothing.
  */
 export async function readLiveSessionEvents<K extends LiveEventKind>(
   dataset: UsageEventDataset,
@@ -78,7 +79,7 @@ export async function readLiveSessionEvents<K extends LiveEventKind>(
   );
   const files = dataset.parsedFiles.flatMap((file) => {
     const adapter = adapters.get(file.source);
-    return adapter && (options.filePaths?.has(file.filePath) ?? true)
+    return adapter && !file.beforeWindow && (options.filePaths?.has(file.filePath) ?? true)
       ? [{ adapter, filePath: file.filePath }]
       : [];
   });
