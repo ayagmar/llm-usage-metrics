@@ -1,5 +1,46 @@
 # Changelog
 
+## Unreleased
+
+Changes on `master` since 0.11.0 that are not in a release yet. [Upgrading](https://ayagmar.github.io/llm-usage-metrics/upgrading/#unreleased) explains what to change in scripts for each breaking or behaviour change.
+
+### Breaking
+
+- **`--share` writes an interactive HTML file** instead of a 1200×630 SVG card and an HTML page that exported a PNG. File names keep their stem and change extension: `usage-monthly-share.svg` becomes `usage-monthly-share.html`.
+- **`events` CSV** gains a `cacheWrite1hTokens` column after `machine`, the last column.
+- **`session` table**: the `Repo` column is now `Project`, labelled as the projects report labels it.
+
+### Added
+
+- `hourly`: usage hour by hour, today unless `--last`, `--since` or `--until`. In `--json`, rows of the hour repeated when clocks go back carry `repeatedHour`.
+- `projects`: cost, tokens, events, active days and top models per project, costliest first.
+- `blocks`: estimated 5-hour usage blocks per source, with the active block and its burn rate.
+- `value`: the API-priced cost of each month against subscription plan prices, per plan and project.
+- `pricing <model...>`: how a model name resolves to a price: the matched pricing key and rule, overrides, where the prices came from, rates per 1M tokens and tiers. It never reads usage.
+- `--by-repo` on `daily`, `weekly`, `monthly`, `hourly`, `trends` and `compare` splits rows by project.
+- `--repo` counts only the named projects in `summary`, the usage reports, `projects`, `compare`, `trends`, `session`, `blocks`, `value`, `efficiency`, `optimize` and `events`. A path matches that root and the roots under it; a name matches the end of a root.
+- `--cost-mode explicit|estimated|both` on every command with pricing options. The default, `both`, keeps the earlier behaviour, and stderr now counts events that logged `$0` with tokens and were estimated.
+- The interactive report from `--share`: period, source, model and project filters, hour to month grouping, sortable tables, a project to session drill-down, a 5-hour blocks chart, PNG and SVG chart export, and light and dark themes. It loads nothing from the network. `--redact` labels projects `project-N` and machines `machine-N`.
+- `machine export` records each source's parser version in the bundle header.
+- The parsers are a separate package, [`@ayagmar/agent-sessions`](https://ayagmar.github.io/llm-usage-metrics/library/), versioned on its own. It is not on npm yet; the CLI bundles it.
+
+### Changed
+
+- **Long-context tiers**: a request whose prompt is over a model's LiteLLM threshold bills at the higher tier for the whole request (claude, gemini, pi, opencode and antigravity events). Pricing caches written before tiers existed are discarded once.
+- **Priority rates**: a model that LiteLLM lists only with a priority rate for a token bucket is priced at that rate instead of left unpriced, and stderr counts those events.
+- **Retired prices** are dropped when a live LiteLLM key prices the same name at the same rates, so a few model names resolve to a different key.
+- **`optimize`** prices its baseline at base rates, as it prices the candidates, so a tier premium never shows up as savings.
+- **Machines**: when two machines parse a shared session's source with different parser versions, sync matches their events by timestamp instead of by content hash and warns until both run the same release.
+- **Terminal output**: every table aligns text left and numbers right, including the stacked list on narrow terminals; counts say `1 file` and `2 files`; `trends` uses whole token ticks; `efficiency` and `optimize` print the shared no-usage message instead of an all-zero table.
+- **Speed**: Claude and pi files parse on the worker pool, as Codex files already did; `statusline` no longer builds the full summary; DeepSeek Harness zstd logs are read as a stream instead of whole.
+
+### Fixed
+
+- Goose and Antigravity retry a database that is busy when a read starts, instead of failing the source.
+- `optimize` keeps its report when a provider's events carry a logged cost but no token counts, instead of printing the no-usage message.
+- `prune` groups thousands in its Events column and lists candidates as labelled values on narrow terminals.
+- `machine list` keeps its columns aligned when a name or ssh target has wide characters.
+
 ## [0.11.0](https://github.com/ayagmar/llm-usage-metrics/compare/v0.10.2...v0.11.0) (2026-10-13)
 
 ### Bug Fixes
