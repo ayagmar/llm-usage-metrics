@@ -27,6 +27,23 @@ describe('extractLinks', () => {
       <a data-href="/nope/" href="/llm-usage-metrics/ok/">ok</a>`;
     expect(extractLinks(html)).toEqual(['/llm-usage-metrics/ok/']);
   });
+
+  it('reads attributes with whitespace around = and upper-case names', () => {
+    const html = `<a href = "/llm-usage-metrics/a/">A</a><a
+      HREF
+        =
+      '/llm-usage-metrics/b/'>B</a><img src =/llm-usage-metrics/c.webp alt=c>`;
+    expect(extractLinks(html)).toEqual([
+      '/llm-usage-metrics/a/',
+      '/llm-usage-metrics/b/',
+      '/llm-usage-metrics/c.webp',
+    ]);
+  });
+
+  it('does not read href= inside another attribute value', () => {
+    const html = `<a title="see href=/nope/" data-x='src = "/nope/"' href="/llm-usage-metrics/ok/">ok</a>`;
+    expect(extractLinks(html)).toEqual(['/llm-usage-metrics/ok/']);
+  });
 });
 
 describe('extractIds', () => {
