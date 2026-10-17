@@ -4,7 +4,7 @@ import {
   intersectCanonicalProviderRoots,
   normalizeProviderToBillingEntity,
   resolveExplicitProviderRoots,
-} from '../domain/provider-normalization.js';
+} from '@ayagmar/agent-sessions/internal';
 import { getDefaultSourceIds } from '@ayagmar/agent-sessions/registry';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { suggestClosest } from '../utils/suggest-closest.js';

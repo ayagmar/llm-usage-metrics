@@ -4,7 +4,7 @@ import { createInterface } from 'node:readline';
 import { stripVTControlCharacters } from 'node:util';
 
 import type { MachineConfig } from '../config/user-config.js';
-import { stripControlCharacters, toTerminalLine } from '../domain/normalization.js';
+import { stripControlCharacters, toTerminalLine } from '@ayagmar/agent-sessions/internal';
 import { getErrorReason } from '../utils/get-error-reason.js';
 import { logger } from '../utils/logger.js';
 import {

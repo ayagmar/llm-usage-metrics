@@ -1,7 +1,7 @@
 import { aggregateUsage } from '../aggregate/aggregate-usage.js';
 import { buildEventProjectLabels, toProjectKey } from '../aggregate/project-key.js';
 import { findSpendSpikes, resolveSpikeBaselineStart } from '../aggregate/spend-spikes.js';
-import { computeActiveMs } from '../domain/active-time.js';
+import { computeActiveMs } from '@ayagmar/agent-sessions';
 import { getEventSessionKey, type UsageEvent } from '../domain/usage-event.js';
 import type { ProjectUsageReportRow, UsageReportRow } from '../domain/usage-report-row.js';
 import { aggregateProjectTrends, aggregateTrends } from '../trends/aggregate-trends.js';

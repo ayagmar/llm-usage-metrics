@@ -1,4 +1,4 @@
-import { IDLE_GAP_CAP_MS } from '../domain/active-time.js';
+import { IDLE_GAP_CAP_MS } from '@ayagmar/agent-sessions';
 import { getEventSessionKey, LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
 import type { UsageBlock } from '../blocks/aggregate-blocks.js';
 import { compareByCodePoint } from '../utils/compare-by-code-point.js';

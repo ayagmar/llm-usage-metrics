@@ -1,5 +1,7 @@
-import { hasControlCharacters } from '../domain/normalization.js';
-import { normalizeProviderToBillingEntity } from '../domain/provider-normalization.js';
+import {
+  hasControlCharacters,
+  normalizeProviderToBillingEntity,
+} from '@ayagmar/agent-sessions/internal';
 import { createUsageEvent, type UsageEvent, type UsageEventInput } from '../domain/usage-event.js';
 import { toNonNegativeInteger, toNonNegativeNumber, toText } from './event-store-database.js';
 

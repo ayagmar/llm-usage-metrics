@@ -1,7 +1,7 @@
 import { asRecord } from '../utils/as-record.js';
 import { readRegularTextFile } from '../utils/fs-helpers.js';
 import { asTrimmedText, toNumberLike } from '@ayagmar/agent-sessions/internal';
-import type { NumberLike } from '../domain/normalization.js';
+import type { NumberLike } from '@ayagmar/agent-sessions';
 import { normalizeKey } from './litellm-model-matching.js';
 import type {
   ModelPricing,

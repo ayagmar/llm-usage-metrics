@@ -1,4 +1,4 @@
-import { matchesCanonicalProviderFilter } from '../../domain/provider-normalization.js';
+import { matchesCanonicalProviderFilter } from '@ayagmar/agent-sessions/internal';
 import type { UsageEvent } from '../../domain/usage-event.js';
 import { getPeriodKey } from '../../utils/time-buckets.js';
 import type { AdapterParseResult } from '../build-usage-data-parsing.js';

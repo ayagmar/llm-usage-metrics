@@ -1,7 +1,7 @@
 import { LOCAL_MACHINE_NAME, type MachineConfig } from '../config/user-config.js';
 import { getParserVersion, type SourceAdapter } from '@ayagmar/agent-sessions';
 
-import { toTerminalLine } from '../domain/normalization.js';
+import { toTerminalLine } from '@ayagmar/agent-sessions/internal';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
 import { pluralize } from '../render/format-number.js';

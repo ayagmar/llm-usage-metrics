@@ -6,7 +6,7 @@ import {
   collectCanonicalProviderRoots,
   inferCanonicalProviderRootsFromModels,
   matchesCanonicalProviderFilter,
-} from '../domain/provider-normalization.js';
+} from '@ayagmar/agent-sessions/internal';
 import {
   applyPricingToUsageEventDataset,
   withPricingNotes,

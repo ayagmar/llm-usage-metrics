@@ -23,7 +23,7 @@ import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 
 import { getEventStoreRuntimeConfig } from '../src/config/runtime-overrides.ts';
-import { normalizeProviderToBillingEntity } from '../src/domain/provider-normalization.ts';
+import { normalizeProviderToBillingEntity } from '@ayagmar/agent-sessions/internal';
 import { filterUsageEvents } from '../src/cli/parse/usage-event-filters.ts';
 import { buildUsageEventDataset } from '../src/cli/build-usage-event-dataset.ts';
 import { RuntimeProfileCollector } from '../src/cli/runtime-profile.ts';
