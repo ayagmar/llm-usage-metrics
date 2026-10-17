@@ -62,10 +62,13 @@ export type DiscoveredSourceFile = {
   filePath: string;
 };
 
-/** A file whose events this run counts, with the sessions its usage events belong to. */
+/** A file whose events this run counts. */
 export type ParsedSourceFile = DiscoveredSourceFile & {
-  /** Distinct session ids of the file's usage events, before any filter or dedupe. */
-  sessionIds: readonly string[];
+  /**
+   * Distinct session ids of the file's usage events, before any filter or dedupe; only with
+   * `recordFileSessionIds`, since keeping them keeps the text they were read from.
+   */
+  sessionIds?: readonly string[];
 };
 
 type AdapterParseResultWithFiles = AdapterParseResult & {
@@ -97,6 +100,8 @@ export type ParseSelectedAdaptersOptions = {
   now?: () => number;
   parseWorkers?: ParseWorkerRuntimeOptions;
   runtimeProfile?: RuntimeProfileCollector;
+  /** Record each parsed file's session ids (`ParsedSourceFile.sessionIds`). */
+  recordFileSessionIds?: boolean;
 };
 
 type ParseWorkerRuntimeOptions = {
@@ -201,6 +206,7 @@ export async function parseAdapterEvents(
   parseWorkerOptions?: ParseWorkerRuntimeOptions,
   since?: string,
   sharedPool?: SharedParseWorkerPool,
+  recordFileSessionIds = false,
 ): Promise<AdapterParseResultWithFiles> {
   const files = await adapter.discoverFiles();
   const skipCutoffMs = adapter.capabilities?.eventsPrecedeFileMtime
@@ -558,7 +564,11 @@ export async function parseAdapterEvents(
     filePaths: files,
     parsedFiles: files.flatMap((filePath, fileIndex) =>
       parsedFileIndexes.has(fileIndex)
-        ? [{ filePath, sessionIds: listSessionIds(parsedByFile[fileIndex]) }]
+        ? [
+            recordFileSessionIds
+              ? { filePath, sessionIds: listSessionIds(parsedByFile[fileIndex]) }
+              : { filePath },
+          ]
         : [],
     ),
     failedFilePaths: files.filter((_, fileIndex) => failedFileIndexes.has(fileIndex)),
@@ -614,31 +624,24 @@ export async function parseSelectedAdapters(
 
   try {
     parseResults = await Promise.allSettled(
-      adaptersToParse.map((adapter) =>
-        options.runtimeProfile
-          ? options.runtimeProfile.measure(`parse.adapter.${adapter.id}`, () =>
-              parseAdapterEvents(
-                adapter,
-                maxParallelFileParsing,
-                runWithParseBudget,
-                options.runtimeProfile,
-                eventStoreContext,
-                options.parseWorkers,
-                options.since,
-                sharedPool,
-              ),
-            )
-          : parseAdapterEvents(
-              adapter,
-              maxParallelFileParsing,
-              runWithParseBudget,
-              undefined,
-              eventStoreContext,
-              options.parseWorkers,
-              options.since,
-              sharedPool,
-            ),
-      ),
+      adaptersToParse.map((adapter) => {
+        const parse = () =>
+          parseAdapterEvents(
+            adapter,
+            maxParallelFileParsing,
+            runWithParseBudget,
+            options.runtimeProfile,
+            eventStoreContext,
+            options.parseWorkers,
+            options.since,
+            sharedPool,
+            options.recordFileSessionIds,
+          );
+
+        return options.runtimeProfile
+          ? options.runtimeProfile.measure(`parse.adapter.${adapter.id}`, parse)
+          : parse();
+      }),
     );
 
     if (eventStoreContext) {

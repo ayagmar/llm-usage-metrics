@@ -38,6 +38,7 @@ import {
   throwOnExplicitSourceFailures,
   type AdapterParseResult,
   type ParsedSourceFile,
+  type ParseSelectedAdaptersOptions,
 } from './build-usage-data-parsing.js';
 import { filterParsedAdapterEvents } from './parse/usage-event-filters.js';
 import { applyRepoFilter } from './repo-filter.js';
@@ -189,6 +190,7 @@ export type UsageEventDatasetPricingResult = PricedEventsResult;
 export async function buildUsageEventDataset(
   options: ReportCommandOptions,
   deps: BuildUsageDataDeps = {},
+  request: Pick<ParseSelectedAdaptersOptions, 'recordFileSessionIds'> = {},
 ): Promise<UsageEventDataset> {
   const userConfigResolution = await resolveUserConfigForOptions(options, deps);
   const configuredOptions = userConfigResolution.options;
@@ -314,6 +316,7 @@ export async function buildUsageEventDataset(
             minBytes: parsingRuntimeConfig.parseWorkerMinBytes,
           },
           runtimeProfile,
+          recordFileSessionIds: request.recordFileSessionIds,
         });
       },
     );

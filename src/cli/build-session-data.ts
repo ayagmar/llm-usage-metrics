@@ -112,7 +112,8 @@ export async function buildSessionData(
   const dataset = await measureRuntimeProfileStage(
     deps.runtimeProfile,
     'session.dataset.total',
-    () => buildUsageEventDataset(options, deps),
+    () =>
+      buildUsageEventDataset(options, deps, { recordFileSessionIds: options.timeline === true }),
   );
   const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'auto');
   const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
@@ -181,7 +182,8 @@ export async function buildSessionData(
           dataset.parsedFiles
             .filter(
               (file) =>
-                file.source === session.source && file.sessionIds.includes(session.sessionId),
+                file.source === session.source &&
+                (file.sessionIds?.includes(session.sessionId) ?? true),
             )
             .map((file) => file.filePath),
         ),
