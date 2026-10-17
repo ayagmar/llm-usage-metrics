@@ -6,6 +6,7 @@ export type ClassifiedLink =
 export function stripRawText(html: string): string;
 export function startTags(html: string): string[];
 export function extractAttributeValues(html: string, name: string): string[];
+export function splitSrcset(value: string): string[];
 export function extractLinks(html: string): string[];
 export function extractIds(html: string): Set<string>;
 export function classifyLink(value: string, pagePath: string): ClassifiedLink;

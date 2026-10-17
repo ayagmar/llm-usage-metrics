@@ -31,7 +31,7 @@ Changes on `master` since 0.11.0 that are not in a release yet. [Upgrading](http
 - **Retired prices** are dropped when a live LiteLLM key prices the same name at the same rates, so a few model names resolve to a different key.
 - **`optimize`** prices its baseline at base rates, as it prices the candidates, so a tier premium never shows up as savings.
 - **Machines**: when two machines parse a shared session's source with different parser versions, sync matches their events by timestamp instead of by content hash and warns until both run the same release.
-- **Terminal output**: every table aligns text left and numbers right, including the stacked list on narrow terminals; counts say `1 file` and `2 files`; `trends` uses whole token ticks; `efficiency` and `optimize` print the shared no-usage message instead of an all-zero table.
+- **Terminal output**: every table aligns text left and numbers right, including the stacked list on narrow terminals; `prune` summaries and `doctor`'s per-source lines say `1 file` and `2 files`; `trends` uses whole token ticks; `efficiency` and `optimize` print the shared no-usage message instead of an all-zero table.
 - **Speed**: Claude and pi files parse on the worker pool, as Codex files already did; `statusline` no longer builds the full summary; DeepSeek Harness zstd logs are read as a stream instead of whole.
 
 ### Fixed

@@ -56,7 +56,7 @@ Every report that reads usage builds its events through `buildUsageEventDataset`
 3. **Read.** The misses are parsed under one shared concurrency budget, on worker threads when a large claude, codex, or pi backlog justifies them.
 4. **Store.** Fresh parses replace their files' stored events.
 5. **Dedupe repeats.** For pi, an event repeated across files counts once.
-6. **Merge.** `--history` replays files that have left the disk, and other machines' cached events are merged in. A sync with other machines starts at the beginning of the run, alongside steps 1 to 5.
+6. **Merge.** History replays files that have left the disk (on unless `--no-history`), and other machines' cached events are merged in. A sync with other machines starts at the beginning of the run, alongside steps 1 to 5.
 7. **Dedupe copies.** For claude, an event copied between sessions counts once.
 8. **Filter.** Date window, provider, model, and repo.
 9. **Price, aggregate, render.** Each report's builder prices the events, aggregates them its own way, and hands the result to its renderer.

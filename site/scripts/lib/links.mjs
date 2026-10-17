@@ -156,10 +156,40 @@ export function extractAttributeValues(html, name) {
   return values;
 }
 
-/** The link targets of a page: every `href` and `src`, outside scripts and styles. */
+/**
+ * The URLs of a `srcset` value: the first non-whitespace run of each comma-separated
+ * candidate, without its width or density descriptor. A URL may hold commas; trailing
+ * commas end it.
+ */
+export function splitSrcset(value) {
+  const urls = [];
+  let position = 0;
+
+  while (position < value.length) {
+    while (isNameBoundary(value[position]) || value[position] === ',') position += 1;
+    if (position >= value.length) break;
+
+    const start = position;
+    while (position < value.length && !isNameBoundary(value[position])) position += 1;
+    let end = position;
+    while (end > start && value[end - 1] === ',') end -= 1;
+
+    if (end === position) {
+      while (position < value.length && value[position] !== ',') position += 1;
+    }
+    if (end > start) urls.push(value.slice(start, end));
+  }
+  return urls;
+}
+
+/** The link targets of a page: every `href`, `src` and `srcset` URL, outside scripts and styles. */
 export function extractLinks(html) {
   const markup = stripRawText(html);
-  return [...extractAttributeValues(markup, 'href'), ...extractAttributeValues(markup, 'src')];
+  return [
+    ...extractAttributeValues(markup, 'href'),
+    ...extractAttributeValues(markup, 'src'),
+    ...extractAttributeValues(markup, 'srcset').flatMap(splitSrcset),
+  ];
 }
 
 /** The fragment targets of a page: every `id`. */

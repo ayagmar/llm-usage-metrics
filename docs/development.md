@@ -276,7 +276,7 @@ Checks:
 - Mermaid validation (`docs/*.md`)
 - Bun smoke (`pnpm run smoke:dist-bun`)
 - core package: build, pack check, lint, typecheck, tests with its own coverage threshold, and the memory tests
-- site: format check, `site:check`, generated docs up to date, `site:build`
+- site: format check, `site:check`, generated docs up to date, `site:build`, `site:links`
 
 Runtime:
 
