@@ -4,7 +4,9 @@ Parsers for the session logs that local coding agents (Claude Code, Codex, Gemin
 
 The package is read-only: it makes no network calls, never writes to the agents' stores, and reads nothing (environment, home directory, files) at import. See [Security posture](#security-posture).
 
-The package is at 0.x: see [Versioning](#versioning) for what is stable.
+The package is at 0.x: see [Versioning](#versioning) for what is stable. It is not published to npm yet; the [library overview](https://ayagmar.github.io/llm-usage-metrics/library/) shows how to build and install it from a checkout.
+
+The site has a guided introduction: [Reading and composing](https://ayagmar.github.io/llm-usage-metrics/library/guide/) walks through `readSources`, adapters, event kinds and the dedup stages with examples that run, and [Versioning and cursors](https://ayagmar.github.io/llm-usage-metrics/library/contracts/) covers stale events and resuming a read. This README is the full reference.
 
 ## Contents
 

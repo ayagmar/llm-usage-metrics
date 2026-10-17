@@ -3,4 +3,91 @@ title: 'Versioning and cursors'
 description: 'Stability, versioning, and incremental cursor contracts of the library.'
 ---
 
-Stub created by the M11 orchestrator; the owning card replaces this page.
+This page covers what you can rely on across versions of `@ayagmar/agent-sessions`, how to tell when events you stored are stale, and how to resume a read where the last one stopped.
+
+## What semver covers
+
+The package follows semver over its public entry points: `@ayagmar/agent-sessions`, `@ayagmar/agent-sessions/registry` and `@ayagmar/agent-sessions/sources/<id>`. While it is at 0.x, a minor version may break them; a patch may not. Releases are versioned with changesets, separately from the CLI.
+
+Outside that promise:
+
+- `@ayagmar/agent-sessions/internal` holds helpers for the CLI and changes whenever the CLI needs it to.
+- `@ayagmar/agent-sessions/otel` is experimental. Its attribute names follow the OpenTelemetry GenAI conventions at the commit pinned in `SEMCONV_GENAI_REF`, and can change in any version when that pin moves.
+- Names tagged `@internal` on a public entry point: `canParseSourceOnWorker`, `createWorkerParseAdapter`, `getParseWorkerRoots` and `sourceSupportsDirectories` on `./registry`, `LEGACY_CODEX_MODEL_FALLBACK` on `./sources/codex`, and the test seams in the adapter options types (`defaultRootDirs`, `resolveDefaultDbPaths`, `pathExists`, `pathReadable`, `pathIsDirectory`, `pathIsFile`, `loadSqliteModule`, `sleep`).
+
+The package's own test suite pins the exact list of names each entry point exports, so a name is added or removed only on purpose.
+
+## When stored events go stale
+
+If you store events, key them so that a new parser or a changed file invalidates them. Two numbers tell you a parser changed:
+
+- `CORE_EVENT_VERSION` goes up when shared normalization (`createUsageEvent` and the other event constructors) would turn an unchanged file into different events.
+- An adapter's `parserVersion` goes up when that adapter would parse an unchanged file differently: token mapping, dedup, model resolution.
+
+`getParserVersion(adapter)` combines both into one string, `n<CORE_EVENT_VERSION>.p<parserVersion>`, for example `n2.p4`. Events stored under one string are stale under any other.
+
+An adapter's events for a file depend only on:
+
+- the file itself,
+- the files `adapter.getParseDependencies(filePath)` returns, such as a sidecar, a fork's parent transcript or a SQLite database's `-wal` and `-journal` files,
+- and `getParserVersion(adapter)`.
+
+So a cache key needs all three. The CLI's event store records the size and `mtimeMs` of the file and of each dependency (a dependency that does not exist is recorded as missing, so its appearance invalidates the entry), plus the parser version string, and re-parses the file when any of them differs.
+
+## Resuming a read
+
+An adapter whose `capabilities.incremental` is `true` can resume a JSONL file where an earlier read stopped. qwen is the only one so far. Any other adapter ignores `resume` and calls neither callback, so check the flag first.
+
+```ts
+import type { ReadCursor } from '@ayagmar/agent-sessions';
+
+let cursor: ReadCursor | undefined; // persisted between runs, per file
+
+for await (const event of qwen.read(filePath, {
+  resume: {
+    from: cursor,
+    onStart: ({ restarted }) => {
+      if (restarted) dropStoredEventsFor(filePath);
+    },
+    onCursor: (update) => {
+      cursor = update.cursor;
+    },
+  },
+})) {
+  store(event);
+}
+```
+
+- `onStart` fires once, before any event, even for an empty file. `restarted: true` means the read starts from byte 0, so its events replace what you stored for the file. Append only when it is `false`.
+- `onCursor` fires once, when the read completes. A read you break out of, or that throws, does not call it: keep the cursor you had.
+- `readEvents` forwards `resume` too, and honours it only when the read includes usage.
+
+A cursor is plain JSON, so it can be stored as it is:
+
+```json
+{
+  "format": "jsonl",
+  "version": 1,
+  "parser": "qwen@n2.p4",
+  "offset": 1029,
+  "headHash": "7cee8942…",
+  "tailHash": "7cee8942…"
+}
+```
+
+A cursor is valid when all of these hold; otherwise the read restarts from byte 0:
+
+- `parser` is `<source>@<getParserVersion(adapter)>` of the adapter reading it,
+- the file is at least `offset` bytes long,
+- `headHash` is the sha256 of the first `min(offset, 64 KiB)` bytes,
+- `tailHash` is the sha256 of the `min(offset, 64 KiB)` bytes ending at `offset`.
+
+`offset` is the end of the last line-feed-terminated line. A final line without a line feed is not parsed, yielded or counted under `resume`; the next read sees it once its line feed is written.
+
+The check assumes the file only grows. A rewrite that keeps the size and changes only bytes between the two hashed windows passes, and the resumed read misses that change. `state` is reserved for adapter-defined state; no adapter sets it yet.
+
+## Per-request usage
+
+An adapter whose `capabilities.usagePerRequest` is `true` yields usage events that each record one model request: claude, gemini, pi, opencode and antigravity. Prices that depend on one request's prompt size, such as [long-context tiers](/llm-usage-metrics/pricing/#long-context-tiers), can be applied to those events one by one. Other sources can sum several requests into one event: droid and goose report session totals, and a codex event is the change in running totals between two `token_count` rows.
+
+If you write an adapter, leave the flag unset unless every event it yields is a single request.
