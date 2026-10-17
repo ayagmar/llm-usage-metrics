@@ -116,6 +116,8 @@ Breaking out of a `for await` loop calls `return()` on the read. Every handle th
 
 A read holds its file or database while you iterate. For the SQLite sources (opencode, goose, antigravity) that is the read transaction, open until the read finishes or is returned: in WAL mode a snapshot the agent cannot checkpoint past, in rollback-journal mode a shared lock that blocks the agent's writes. Iterate to the end or `return()` promptly; do not await slow work between events of a SQLite read.
 
+A SQLite read that finds the database busy or locked is retried `maxBusyRetries` times (an adapter option, default 2; `0` turns retries off), waiting `busyRetryDelayMs` (default 50) times the attempt number before each retry. A `maxBusyRetries` that is not a non-negative integer throws when the adapter is created.
+
 ### Memory per source
 
 Most sources hold one line, frame, array element or row at a time. Some keep state that grows with the file:
