@@ -39,6 +39,8 @@ Options:
   --id <session-id>              Show only sessions whose id contains the value (case-insensitive;
                                  repeatable or comma-separated)
   --by-repo                      Group usage by repository root instead of by session
+  --timeline                     With --id naming one session: list its requests in time order with
+                                 a running cost, between its tool calls and turns
   --repo <project>               Count only these projects (repeatable or comma-separated, so a
                                  value cannot contain a comma). A path (absolute, or ./, ../, ~/ on
                                  this machine) matches that repository root and the roots under it;
