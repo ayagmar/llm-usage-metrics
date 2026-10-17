@@ -1,5 +1,6 @@
 import { aggregateUsage } from '../aggregate/aggregate-usage.js';
 import { buildEventProjectLabels, toProjectKey } from '../aggregate/project-key.js';
+import { findSpendSpikes, resolveSpikeBaselineStart } from '../aggregate/spend-spikes.js';
 import { computeActiveMs } from '../domain/active-time.js';
 import { getEventSessionKey, type UsageEvent } from '../domain/usage-event.js';
 import type { ProjectUsageReportRow, UsageReportRow } from '../domain/usage-report-row.js';
@@ -23,6 +24,7 @@ import type {
 import type {
   ProjectTrendSeries,
   ProjectTrendValueRow,
+  TrendSeries,
   TrendsMetric,
   TrendValueRow,
 } from '../trends/trends-series.js';
@@ -309,6 +311,36 @@ function toActiveTimeProjectValueRows(
   });
 }
 
+/**
+ * Sets `spike` on the series' spike days. `dailyValueRows` are cost rows reaching back
+ * `SPIKE_BASELINE_DAYS` before the series, which the spike check compares each day against.
+ */
+function markSpendSpikes(
+  series: TrendSeries,
+  dailyValueRows: TrendValueRow[],
+  dateRange: ResolvedDateRange,
+  sourceOrder: readonly string[],
+): void {
+  const baselineRange = { from: resolveSpikeBaselineStart(dateRange.from), to: dateRange.to };
+  const { totalSeries } = aggregateTrends(filterRowsToDateRange(dailyValueRows, baselineRange), {
+    dateRange: baselineRange,
+    bySource: false,
+    sourceOrder,
+  });
+  const spikeDates = new Set(
+    findSpendSpikes(
+      new Map(totalSeries.buckets.map((bucket) => [bucket.date, bucket.value])),
+      dateRange,
+    ).map((spike) => spike.date),
+  );
+
+  for (const bucket of series.buckets) {
+    if (spikeDates.has(bucket.date)) {
+      bucket.spike = true;
+    }
+  }
+}
+
 export async function buildTrendsData(
   options: TrendsCommandOptions,
   deps: BuildTrendsDataDeps = {},
@@ -320,10 +352,15 @@ export async function buildTrendsData(
     configuredOptions.timezone?.trim() ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   validateTimezone(timezone);
   const resolved = resolveTrendsOptions(configuredOptions, timezone, now);
+  // Spike days need the cost of the days before the chart.
+  const fetchFrom =
+    resolved.fetchDateRange && resolved.metric === 'cost'
+      ? resolveSpikeBaselineStart(resolved.fetchDateRange.from)
+      : resolved.fetchDateRange?.from;
   const datasetOptions = {
     ...configuredOptions,
     timezone,
-    since: resolved.fetchDateRange?.from ?? configuredOptions.since,
+    since: fetchFrom ?? configuredOptions.since,
     until: resolved.fetchDateRange?.to ?? configuredOptions.until,
   };
   const dataset = await measureRuntimeProfileStage(
@@ -371,26 +408,42 @@ export async function buildTrendsData(
   const outputDateRange = resolveOutputDateRange(options, resolved.today, resolved.days, [
     ...new Set(observedDates),
   ]);
-  const trends = measureRuntimeProfileStageSync(deps.runtimeProfile, 'trends.aggregate', () =>
-    aggregateTrends(filterRowsToDateRange(dailyValueRows, outputDateRange), {
+  const sourceOrder = dataset.adaptersToParse.map((adapter) => adapter.id);
+  const trends = measureRuntimeProfileStageSync(deps.runtimeProfile, 'trends.aggregate', () => {
+    const aggregated = aggregateTrends(filterRowsToDateRange(dailyValueRows, outputDateRange), {
       dateRange: outputDateRange,
       bySource: options.bySource === true,
-      sourceOrder: dataset.adaptersToParse.map((adapter) => adapter.id),
-    }),
-  );
+      sourceOrder,
+    });
+
+    if (resolved.metric === 'cost') {
+      markSpendSpikes(aggregated.totalSeries, dailyValueRows, outputDateRange, sourceOrder);
+    }
+
+    return aggregated;
+  });
+  // A cost dataset reaches back past the chart for the spike check; the rest of the report
+  // reads the chart's days only.
+  const chartedEvents =
+    resolved.metric === 'cost'
+      ? pricingResult.pricedEvents.filter((event) => {
+          const day = getPeriodKey(event.timestamp, 'daily', dataset.normalizedInputs.timezone);
+          return day >= outputDateRange.from && day <= outputDateRange.to;
+        })
+      : dataset.filteredEvents;
   const projectSeries = options.byRepo
     ? measureRuntimeProfileStageSync(deps.runtimeProfile, 'trends.aggregate_projects', () => {
         // One label set over the whole range, so a project keeps its label on every day.
-        const projectLabels = buildEventProjectLabels(dataset.filteredEvents);
+        const projectLabels = buildEventProjectLabels(chartedEvents);
         const projectRows =
           resolved.metric === 'active-hours'
             ? toActiveTimeProjectValueRows(
-                dataset.filteredEvents,
+                chartedEvents,
                 dataset.normalizedInputs.timezone,
                 projectLabels,
               )
             : toProjectTrendValueRows(
-                aggregateUsage(pricingResult.pricedEvents, {
+                aggregateUsage(chartedEvents, {
                   granularity: 'daily',
                   timezone: dataset.normalizedInputs.timezone,
                   includeModelBreakdown: false,
@@ -406,14 +459,6 @@ export async function buildTrendsData(
         );
       })
     : undefined;
-  // Only cost trends show `~`, and only for the days in the chart.
-  const chartedEvents =
-    resolved.metric === 'cost'
-      ? pricingResult.pricedEvents.filter((event) => {
-          const day = getPeriodKey(event.timestamp, 'daily', dataset.normalizedInputs.timezone);
-          return day >= outputDateRange.from && day <= outputDateRange.to;
-        })
-      : [];
   const diagnostics = buildUsageDiagnostics({
     adaptersToParse: dataset.adaptersToParse,
     successfulParseResults: dataset.successfulParseResults,
@@ -421,7 +466,12 @@ export async function buildTrendsData(
     pricingOrigin: pricingResult.pricingOrigin,
     pricingWarning: pricingResult.pricingWarning,
     warnings: dataset.warnings,
-    notes: withPricingNotes(dataset.notes, chartedEvents, pricingResult),
+    // Only cost trends show `~`, and only for the days in the chart.
+    notes: withPricingNotes(
+      dataset.notes,
+      resolved.metric === 'cost' ? chartedEvents : [],
+      pricingResult,
+    ),
     activeEnvOverrides: dataset.readEnvVarOverrides(),
     activeConfig: dataset.activeConfig,
     timezone: dataset.normalizedInputs.timezone,

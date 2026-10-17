@@ -17,6 +17,8 @@ export type TrendBucket = {
   value: number;
   observed: boolean;
   incomplete?: boolean;
+  /** A spend spike (see `findSpendSpikes`); set on the combined cost series only. */
+  spike?: true;
 };
 
 export type TrendSummary = {

@@ -5,6 +5,7 @@ import type { PricingLoadResult } from '../../src/cli/usage-data-contracts.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
 import { createDefaultOpenAiPricingSource } from '../helpers/static-pricing-source.js';
+import { shiftLocalDateKey } from '../../src/utils/time-buckets.js';
 import { readFrom } from '../helpers/fake-read.js';
 
 function createAdapter(
@@ -421,5 +422,65 @@ describe('buildTrendsData', () => {
     expect(result.sourceSeries?.map((series) => series.source)).toEqual(['pi', 'codex']);
     expect(result.sourceSeries?.[0]?.buckets.map((bucket) => bucket.value)).toEqual([0, 15]);
     expect(result.sourceSeries?.[1]?.buckets.map((bucket) => bucket.value)).toEqual([15, 0]);
+  });
+
+  it('marks cost spikes against the 28 days before the chart, which it does not show', async () => {
+    // $2 a day from Feb 6 (28 days before the chart) to Mar 5. In the chart, $5 is under 3x
+    // that median, $6 is not.
+    const costOn = (date: string, costUsd: number, repoRoot?: string) =>
+      createBaseEvent({
+        timestamp: `${date}T10:00:00.000Z`,
+        costMode: 'explicit',
+        costUsd,
+        repoRoot,
+      });
+    const result = await buildTrendsData(
+      { last: '2', byRepo: true },
+      runtimeDeps({
+        now: () => new Date('2026-03-07T12:00:00.000Z'),
+        adapters: [
+          createAdapter('pi', {
+            '/tmp/a.jsonl': [
+              ...Array.from({ length: 28 }, (_, index) =>
+                costOn(shiftLocalDateKey('2026-02-06', index), 2),
+              ),
+              // A project with the same folder name, before the chart only.
+              costOn('2026-02-10', 1, '/old/app'),
+              costOn('2026-03-06', 5, '/work/app'),
+              costOn('2026-03-07', 6, '/work/app'),
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(result.totalSeries.buckets.map((bucket) => [bucket.date, bucket.spike])).toEqual([
+      ['2026-03-06', undefined],
+      ['2026-03-07', true],
+    ]);
+    expect(result.totalSeries.summary.total).toBe(11);
+    expect(result.projectSeries?.map((series) => series.project)).toEqual(['app']);
+  });
+
+  it('marks no spikes on token trends', async () => {
+    const result = await buildTrendsData(
+      { metric: 'tokens', last: '1' },
+      runtimeDeps({
+        now: () => new Date('2026-03-07T12:00:00.000Z'),
+        adapters: [
+          createAdapter('pi', {
+            '/tmp/a.jsonl': [
+              createBaseEvent({
+                timestamp: '2026-03-07T10:00:00.000Z',
+                costMode: 'explicit',
+                costUsd: 50,
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(result.totalSeries.buckets[0]?.spike).toBeUndefined();
   });
 });

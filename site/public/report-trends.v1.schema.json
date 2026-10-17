@@ -64,6 +64,10 @@
         "incomplete": {
           "description": "True when the day's cost is missing pricing for some events.",
           "type": "boolean"
+        },
+        "spike": {
+          "description": "Set on cost trends' combined series when the day is a spend spike: it cost at least $1 and at least 3 times the median daily cost of the 28 days before it (days without usage count as 0).",
+          "const": true
         }
       },
       "required": ["date", "value", "observed"],
