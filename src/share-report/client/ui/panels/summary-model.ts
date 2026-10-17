@@ -4,12 +4,19 @@
 
 import { NO_VALUE, type ShareReport } from '../../core/index.js';
 import type { ShareLabels } from '../state/context.js';
-import { formatCompact, formatCount, formatDay, pluralize } from '../shell/format.js';
+import {
+  formatCompact,
+  formatCount,
+  formatDateRange,
+  formatDay,
+  pluralize,
+} from '../shell/format.js';
 import { buildCalendar, type CalendarView } from './calendar-model.js';
 import {
   figure,
   FIXED_NOTE,
   formatEnvelopeCost,
+  formatSignedRatio,
   getEnvelopeData,
   isRecord,
   readNumber,
@@ -38,7 +45,19 @@ type Period = {
   totals: Record<string, unknown>;
   sources: Record<string, unknown>[];
   machines: Record<string, unknown>[];
+  /** The same number of days just before; absent in files from releases before it. */
+  previous?: { since: string; until: string; totals: Record<string, unknown> };
 };
+
+function readPrevious(value: unknown): Period['previous'] {
+  if (!isRecord(value) || !isRecord(value.totals)) {
+    return undefined;
+  }
+
+  const since = readString(value, 'since');
+  const until = readString(value, 'until');
+  return since && until ? { since, until, totals: value.totals } : undefined;
+}
 
 function readPeriod(record: Record<string, unknown>): Period {
   return {
@@ -46,6 +65,7 @@ function readPeriod(record: Record<string, unknown>): Period {
     totals: isRecord(record.totals) ? record.totals : {},
     sources: readRecords(record.sources),
     machines: readRecords(record.machines),
+    previous: readPrevious(record.previous),
   };
 }
 
@@ -77,18 +97,52 @@ function topSource(period: Period): string {
   return share === undefined ? name : `${name} (${share})`;
 }
 
+/** The period's cost against the same number of days before it, as `compare` words a change. */
+function costChange(period: Period): PanelCell {
+  const { previous } = period;
+  const costUsd = readNumber(period.totals, 'costUsd');
+  const previousUsd = previous && readNumber(previous.totals, 'costUsd');
+  const ratio =
+    costUsd === undefined || previousUsd === undefined || previousUsd === 0
+      ? undefined
+      : (costUsd - previousUsd) / previousUsd;
+
+  return {
+    text: formatSignedRatio(ratio),
+    note: previous && `Against ${formatDateRange(previous.since, previous.until)}`,
+  };
+}
+
 function periodsTable(periods: Period[]): PanelTable {
+  // The change is in cost, so a file without cost, or from a release before `previous`, keeps
+  // the table it had. With the change, a phone keeps the cost and its change over the tokens.
+  const compared = periods.some(
+    (period) => period.previous !== undefined && readNumber(period.totals, 'costUsd') !== undefined,
+  );
+
   return {
     title: 'Recent periods',
     columns: [
       { label: 'Period', numeric: false },
       { label: 'Cost', numeric: true },
-      { label: 'Tokens', numeric: true },
+      ...(compared
+        ? [
+            { label: 'Previous', numeric: true, narrow: false },
+            { label: 'Change', numeric: true },
+          ]
+        : []),
+      { label: 'Tokens', numeric: true, narrow: !compared },
       { label: 'Top source', numeric: false, narrow: false },
     ],
     rows: periods.map((period) => [
       { text: period.label },
       costOf(period.totals),
+      ...(compared
+        ? [
+            period.previous ? costOf(period.previous.totals) : { text: NO_VALUE },
+            costChange(period),
+          ]
+        : []),
       { text: formatCount(readNumber(period.totals, 'totalTokens') ?? 0) },
       { text: topSource(period) },
     ]),
