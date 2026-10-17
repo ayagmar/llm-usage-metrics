@@ -840,7 +840,7 @@ describe('buildUsageData', () => {
     expect(result.diagnostics.sourceFailures).toEqual([
       {
         source: 'codex',
-        reason: 'All 1 file(s) failed to parse for source codex: codex parse failed',
+        reason: 'All 1 file failed to parse for source codex: codex parse failed',
       },
     ]);
     expect(result.diagnostics.skippedRows).toEqual([]);
@@ -931,7 +931,7 @@ describe('buildUsageData', () => {
         },
       ),
     ).rejects.toThrow(
-      'Failed to parse explicitly requested source(s): codex: All 1 file(s) failed to parse for source codex: codex parse failed',
+      'Failed to parse explicitly requested source(s): codex: All 1 file failed to parse for source codex: codex parse failed',
     );
   });
 
@@ -1025,7 +1025,7 @@ describe('buildUsageData', () => {
         },
       ),
     ).rejects.toThrow(
-      'Failed to parse explicitly requested source(s): codex: All 1 file(s) failed to parse for source codex: permission denied',
+      'Failed to parse explicitly requested source(s): codex: All 1 file failed to parse for source codex: permission denied',
     );
   });
 

@@ -683,7 +683,7 @@ describe('OpenCodeSourceAdapter', () => {
     });
 
     await expect(collect(adapter.read('/tmp/opencode.db'))).rejects.toThrow(
-      'OpenCode DB is busy/locked: /tmp/opencode.db. Retries exhausted after 3 attempt(s).',
+      'OpenCode DB is busy/locked: /tmp/opencode.db. Retries exhausted after 3 attempts.',
     );
   });
 
@@ -696,7 +696,7 @@ describe('OpenCodeSourceAdapter', () => {
       data_json: JSON.stringify({ role: 'assistant', tokens: { input: 1, output: 2 } }),
     });
     const busyMessage = (attempts: number): string =>
-      `OpenCode DB is busy/locked: ${dbPath}. Retries exhausted after ${attempts} attempt(s). Close active OpenCode processes and retry.`;
+      `OpenCode DB is busy/locked: ${dbPath}. Retries exhausted after ${attempts === 1 ? '1 attempt' : `${attempts} attempts`}. Close active OpenCode processes and retry.`;
     const ioError = (): Error =>
       Object.assign(new Error('disk I/O error'), { code: 'SQLITE_IOERR' });
     const ioMessage = `Could not read OpenCode DB at ${dbPath}: SQLITE_IOERR: disk I/O error`;

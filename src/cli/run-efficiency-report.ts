@@ -4,6 +4,7 @@ import {
 } from '../render/render-efficiency-report.js';
 import { attributeUsageEventsToRepo } from '../efficiency/repo-attribution.js';
 import { logger } from '../utils/logger.js';
+import { pluralize } from '../render/format-number.js';
 import { getPeriodKey, type ReportGranularity } from '../utils/time-buckets.js';
 import {
   buildEfficiencyData,
@@ -90,7 +91,7 @@ function emitEfficiencyReportDiagnostics(diagnostics: EfficiencyDiagnostics): vo
     : 'excluding merge commits';
 
   logger.info(
-    `Git outcomes (${mergeModeLabel}): ${diagnostics.gitCommitCount} commit(s), +${diagnostics.gitLinesAdded}/-${diagnostics.gitLinesDeleted} lines (${diagnostics.repoDir})`,
+    `Git outcomes (${mergeModeLabel}): ${pluralize(diagnostics.gitCommitCount, 'commit')}, +${diagnostics.gitLinesAdded}/-${diagnostics.gitLinesDeleted} lines (${diagnostics.repoDir})`,
   );
   logger.info(
     `Repo-attributed usage events: ${diagnostics.repoMatchedUsageEvents} matched, ${diagnostics.repoExcludedUsageEvents} excluded, ${diagnostics.repoUnattributedUsageEvents} unattributed`,

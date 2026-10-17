@@ -58,6 +58,13 @@ describe('update-notifier', () => {
     expect(shouldSkipUpdateCheckForArgv(['node', '/app/dist/index.js', 'machine', 'export'])).toBe(
       true,
     );
+    // `config show` says it contacts nothing; no `config` subcommand checks for updates.
+    expect(shouldSkipUpdateCheckForArgv(['node', '/app/dist/index.js', 'config', 'show'])).toBe(
+      true,
+    );
+    expect(shouldSkipUpdateCheckForArgv(['node', '/app/dist/index.js', 'config', 'init'])).toBe(
+      true,
+    );
     // A status line runs constantly: it never checks for updates.
     expect(shouldSkipUpdateCheckForArgv(['node', '/app/dist/index.js', 'statusline'])).toBe(true);
     expect(

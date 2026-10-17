@@ -75,7 +75,7 @@ describe('createSchemaCommand', () => {
 
     await expect(printSchemaId('config')).resolves.toMatch(/config-schema\.json$/u);
     await expect(printSchemaId('config-show')).resolves.toMatch(
-      /report-config\.v1\.schema\.json$/u,
+      /report-config-show\.v1\.schema\.json$/u,
     );
   });
 

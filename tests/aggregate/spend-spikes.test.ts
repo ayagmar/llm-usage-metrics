@@ -9,7 +9,7 @@ import {
   SPIKE_MIN_MULTIPLE,
 } from '../../src/aggregate/spend-spikes.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
-import { getLocalDateKeyRange, shiftLocalDateKey } from '../../src/utils/time-buckets.js';
+import { getDateKeyRange, shiftDateKey } from '../../src/utils/date-key.js';
 
 /** A small seeded generator, so a failing case can be replayed. */
 function createRandom(seed: number): () => number {
@@ -24,10 +24,7 @@ function createRandom(seed: number): () => number {
 }
 
 const RANGE = { from: '2026-03-01', to: '2026-03-31' };
-const ALL_DATES = getLocalDateKeyRange(
-  shiftLocalDateKey(RANGE.from, -SPIKE_BASELINE_DAYS),
-  RANGE.to,
-);
+const ALL_DATES = getDateKeyRange(shiftDateKey(RANGE.from, -SPIKE_BASELINE_DAYS), RANGE.to);
 
 function costsOf(costOf: (date: string, index: number) => number): Map<string, number> {
   return new Map(ALL_DATES.map((date, index) => [date, costOf(date, index)]));

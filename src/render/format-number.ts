@@ -18,10 +18,7 @@ export function formatInteger(n: number): string {
   return intFmt.format(n);
 }
 
-/** `1 file`, `2 files`, `1,250 events`. */
-export function pluralize(count: number, singular: string, plural = `${singular}s`): string {
-  return `${intFmt.format(count)} ${count === 1 ? singular : plural}`;
-}
+export { pluralize } from '@ayagmar/agent-sessions/internal';
 
 export function formatUsd(n: number | undefined): string {
   return n === undefined ? '-' : usdFmt.format(n);

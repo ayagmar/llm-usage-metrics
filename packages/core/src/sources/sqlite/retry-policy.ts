@@ -1,3 +1,4 @@
+import { pluralize } from '../../utils/pluralize.js';
 import { formatSqliteError, isBusyOrLockedSqliteError } from './sqlite-errors.js';
 
 export type SleepFn = (delayMs: number) => Promise<void>;
@@ -14,7 +15,7 @@ export function toSqliteDbReadError(
 ): Error {
   if (isBusyOrLockedSqliteError(error)) {
     return new Error(
-      `${source} DB is busy/locked: ${dbPath}. Retries exhausted after ${attempts} attempt(s). Close active ${source} processes and retry.`,
+      `${source} DB is busy/locked: ${dbPath}. Retries exhausted after ${pluralize(attempts, 'attempt')}. Close active ${source} processes and retry.`,
       { cause: error },
     );
   }

@@ -38,6 +38,8 @@ export type PanelTable = {
   rows: PanelCell[][];
   /** Total rows, under a rule. */
   foot: PanelCell[][];
+  /** One line under the title on how to read the table. */
+  caption?: string;
 };
 
 /** A sentence that leads a panel: figures and the words between them. */

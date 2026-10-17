@@ -42,6 +42,8 @@ export type SummaryView = {
 };
 
 type Period = {
+  /** `today`, `last7Days` or `monthToDate`. */
+  key?: string;
   label: string;
   totals: Record<string, unknown>;
   sources: Record<string, unknown>[];
@@ -62,6 +64,7 @@ function readPrevious(value: unknown): Period['previous'] {
 
 function readPeriod(record: Record<string, unknown>): Period {
   return {
+    key: readString(record, 'key'),
     label: readString(record, 'label') ?? readString(record, 'key') ?? NO_VALUE,
     totals: isRecord(record.totals) ? record.totals : {},
     sources: readRecords(record.sources),
@@ -98,6 +101,43 @@ function topSource(period: Period): string {
   return share === undefined ? name : `${name} (${share})`;
 }
 
+/** The window each period is set against, as `summary` picks it. */
+const PREVIOUS_WINDOW_NAMES: Readonly<Record<string, string>> = {
+  today: 'yesterday',
+  last7Days: 'the 7 days before',
+  monthToDate: 'the same days of last month',
+};
+
+/** `Against yesterday, Oct 16`: the window the period's change is measured against. */
+function previousWindowNote(period: Period): string | undefined {
+  const { previous } = period;
+
+  if (!previous) {
+    return undefined;
+  }
+
+  const name = period.key === undefined ? undefined : PREVIOUS_WINDOW_NAMES[period.key];
+  const range = formatDateRange(previous.since, previous.until);
+  return name === undefined ? `Against ${range}` : `Against ${name}, ${range}`;
+}
+
+/** The table's caption naming each row's previous window, or none for a file without them. */
+function previousWindowsCaption(periods: Period[]): string | undefined {
+  const named = periods.flatMap((period) => {
+    const name = period.key === undefined ? undefined : PREVIOUS_WINDOW_NAMES[period.key];
+    return period.previous && name !== undefined ? [`${period.label} against ${name}`] : [];
+  });
+
+  return named.length === 0 ? undefined : `${named.join('; ')}.`;
+}
+
+/** The previous window's cost, its tooltip naming the window before any lower-bound note. */
+function previousCost(period: Period, previous: NonNullable<Period['previous']>): PanelCell {
+  const cost = costOf(previous.totals);
+  const note = [previousWindowNote(period), cost.note].filter(Boolean).join('. ');
+  return { ...cost, note };
+}
+
 /** The period's cost against its previous window, as `compare` words a change. */
 function costChange(period: Period): PanelCell {
   const { previous } = period;
@@ -106,10 +146,7 @@ function costChange(period: Period): PanelCell {
     previous && readNumber(previous.totals, 'costUsd'),
   );
 
-  return {
-    text: formatSignedRatio(ratio),
-    note: previous && `Against ${formatDateRange(previous.since, previous.until)}`,
-  };
+  return { text: formatSignedRatio(ratio), note: previousWindowNote(period) };
 }
 
 function periodsTable(periods: Period[]): PanelTable {
@@ -138,7 +175,7 @@ function periodsTable(periods: Period[]): PanelTable {
       costOf(period.totals),
       ...(compared
         ? [
-            period.previous ? costOf(period.previous.totals) : { text: NO_VALUE },
+            period.previous ? previousCost(period, period.previous) : { text: NO_VALUE },
             costChange(period),
           ]
         : []),
@@ -146,6 +183,7 @@ function periodsTable(periods: Period[]): PanelTable {
       { text: topSource(period) },
     ]),
     foot: [],
+    caption: compared ? previousWindowsCaption(periods) : undefined,
   };
 }
 

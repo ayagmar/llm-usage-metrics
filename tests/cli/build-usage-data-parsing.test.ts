@@ -413,7 +413,7 @@ describe('build-usage-data-parsing', () => {
     expect(result.sourceFailures).toEqual([
       {
         source: 'pi',
-        reason: 'All 2 file(s) failed to parse for source pi: permission denied',
+        reason: 'All 2 files failed to parse for source pi: permission denied',
       },
     ]);
   });

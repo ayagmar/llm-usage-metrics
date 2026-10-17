@@ -54,16 +54,16 @@ Showing top 20 of 1653 sessions by cost. Use --top 0 for all.
 
 `--id <session-id> --timeline` shows one session in time order: each request with its time of day (the date heads the table, and a row on a later day shows its date), model, input, cache read, cache write and output tokens, its cost, and the running total of the session's cost so far. It answers "why did this session cost $12": the running total shows where the cost climbed, and the requests around it show what the model was doing.
 
-The `--id` value must match exactly one session in the window. When it matches several, the error lists up to 10 of them with their source and last-activity date, so you can pass more of the id:
+The `--id` value must match exactly one session in the window. When it matches several and one of them has exactly that id, the timeline shows that one. Otherwise the error lists up to 10 of them with their source and last-activity date, so you can pass more of the id or pick the source:
 
 ```text
 --timeline needs exactly one session, but --id 486c matches 2:
   codex   486c3261-d87e-4971-8813-904c9e5a9009  2026-03-05
   claude  486c77aa-0f12-4c55-9a1e-6b2d0e3f4a10  2026-02-11
-Pass more of the session id to --id.
+Pass more of the session id to --id, or narrow with --source.
 ```
 
-Requests come from the same data as every other report, history included. Between them, the timeline shows the session's tool calls and its user and assistant turns, read from the session file when it is still on disk (Claude Code, Codex and pi log them; other sources show requests only). A departed file or another machine's session has no tool calls or turns; a note on `stderr` says so. The terminal and Markdown tables fold everything between two requests into one line, such as `1 user turn · 12 tool calls: Bash ×7, Read ×5, 1 error`. No rows are cut: a long session prints every request.
+Requests come from the same data as every other report, history included. Between them, the timeline shows the session's tool calls and its user and assistant turns, read from the session file when it is still on disk (Claude Code, Codex and pi log them; other sources show requests only). A departed file or another machine's session has no tool calls or turns; a note on `stderr` says so. A resumed or forked session can copy its parent's history: copied tool calls stay with the parent, as [`tools`](/llm-usage-metrics/tools/) counts them, but copied turns carry no id to match them by, so they show in both sessions. To match those copies, the timeline reads every session file of the session's source in the window, which on large logs takes a few seconds. The terminal and Markdown tables fold everything between two requests into one line, such as `1 user turn · 12 tool calls: Bash ×7, Read ×5, 1 error`. No rows are cut: a long session prints every request.
 
 ## JSON shape
 

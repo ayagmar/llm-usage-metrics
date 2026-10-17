@@ -40,7 +40,8 @@ import type {
   ShareReportMeta,
 } from '../share-report/types.js';
 import { logger } from '../utils/logger.js';
-import { getCurrentLocalDateKey, getPeriodKey, shiftLocalDateKey } from '../utils/time-buckets.js';
+import { shiftDateKey } from '../utils/date-key.js';
+import { getCurrentLocalDateKey, getPeriodKey } from '../utils/time-buckets.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
 import { BLOCKS_LOOKBACK_DAYS, readWholeStreams } from './build-blocks-data.js';
@@ -202,8 +203,7 @@ export async function buildShareReportData(
   );
   const now = deps.now?.() ?? new Date();
   const { since, until } = request.window;
-  const lookbackSince =
-    since === null ? undefined : shiftLocalDateKey(since, -BLOCKS_LOOKBACK_DAYS);
+  const lookbackSince = since === null ? undefined : shiftDateKey(since, -BLOCKS_LOOKBACK_DAYS);
   const datasetOptions: ReportCommandOptions = {
     ...configuredOptions,
     since: lookbackSince,

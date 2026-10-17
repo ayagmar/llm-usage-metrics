@@ -14,7 +14,7 @@ import { createDateWindowPrefilter } from '../../src/cli/parse/usage-event-filte
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import { renderSummaryReport } from '../../src/render/render-summary-report.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
-import { shiftLocalDateKey } from '../../src/utils/time-buckets.js';
+import { shiftDateKey } from '../../src/utils/date-key.js';
 import { readFrom } from '../helpers/fake-read.js';
 
 function createAdapter(
@@ -503,7 +503,7 @@ describe('buildSummaryData', () => {
   it('notes the costliest spend spike of the last 7 days, with its top project and model', async () => {
     // $1 a day from Feb 1 to Mar 9; on Feb 20 (before the last 7 days) and on Mar 8, more.
     const steadyDays = Array.from({ length: 37 }, (_, index) =>
-      createEvent(`${shiftLocalDateKey('2026-02-01', index)}T09:00:00.000Z`, {
+      createEvent(`${shiftDateKey('2026-02-01', index)}T09:00:00.000Z`, {
         repoRoot: '/work/web',
       }),
     );
@@ -548,7 +548,7 @@ describe('buildSummaryData', () => {
           createAdapter(
             'codex',
             Array.from({ length: 38 }, (_, index) =>
-              createEvent(`${shiftLocalDateKey('2026-02-01', index)}T09:00:00.000Z`, {
+              createEvent(`${shiftDateKey('2026-02-01', index)}T09:00:00.000Z`, {
                 costUsd: 5,
               }),
             ),

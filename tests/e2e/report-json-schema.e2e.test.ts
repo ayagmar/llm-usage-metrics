@@ -15,7 +15,7 @@ import { buildUsageReport } from '../../src/cli/run-usage-report.js';
 import { buildWrappedReport } from '../../src/cli/run-wrapped-report.js';
 import { runDoctorReport } from '../../src/cli/run-doctor-report.js';
 import { runPruneReport } from '../../src/cli/run-prune-report.js';
-import { reportSchemas } from '../../src/cli/report-schema-registry.js';
+import { reportSchemas, schemaDocuments } from '../../src/cli/report-schema-registry.js';
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import {
   closeEventStore,
@@ -105,6 +105,15 @@ afterAll(async () => {
 describe('report json schema e2e', () => {
   it('registers every report schema file in the schema registry', () => {
     expect(reportNamesOnDisk.sort()).toEqual(Object.keys(reportSchemas).sort());
+  });
+
+  it('names each report as `llm-usage schema` takes it: the envelope and the printed schema agree', () => {
+    for (const [reportName, schema] of Object.entries(reportSchemas)) {
+      const { properties } = schema as { properties: { report: { const: string } } };
+
+      expect(properties.report.const).toBe(reportName);
+      expect(schemaDocuments[reportName]).toBe(schema);
+    }
   });
 
   it('validates usage output', async () => {

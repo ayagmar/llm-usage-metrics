@@ -1,5 +1,6 @@
 import { markdownTable } from 'markdown-table';
 
+import { toProjectLabel } from '../aggregate/project-key.js';
 import type { ContextDataResult } from '../cli/build-context-data.js';
 import {
   LONG_CONTEXT_PROMPT_TOKENS,
@@ -14,12 +15,7 @@ import { formatApproxUsd, formatInteger, pluralize } from './format-number.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { renderReportJson } from './report-json.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
-import {
-  formatModels,
-  MODELS_COLUMN_WIDTH,
-  toProjectLabel,
-  truncateSessionId,
-} from './render-session-report.js';
+import { formatModels, MODELS_COLUMN_WIDTH, truncateSessionId } from './render-session-report.js';
 import { resolveTtyColumns, wrapTableColumn } from './table-text-layout.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { columnKindsFromAlign, renderUnicodeTable } from './unicode-table.js';

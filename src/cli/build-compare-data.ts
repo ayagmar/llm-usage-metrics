@@ -1,7 +1,7 @@
 import { buildEventProjectLabels, toProjectKey } from '../aggregate/project-key.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
-import { getCurrentLocalDateKey, getPeriodKey, shiftLocalDateKey } from '../utils/time-buckets.js';
+import { getCurrentLocalDateKey, getPeriodKey } from '../utils/time-buckets.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import { normalizeBuildUsageInputs, validateDateInput } from './build-usage-data-inputs.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
@@ -23,7 +23,7 @@ import type {
   CompareWindowTotals,
 } from './usage-data-contracts.js';
 import { addUsd } from '../utils/usd-math.js';
-import { countDateKeyDays, getMonthEndDateKey } from '../utils/date-key.js';
+import { countDateKeyDays, getMonthEndDateKey, shiftDateKey } from '../utils/date-key.js';
 import { computeDeltaRatio } from '../utils/delta-ratio.js';
 import {
   createEmptyWindowTotals,
@@ -74,7 +74,7 @@ function getMonthStart(dateKey: string): string {
 }
 
 function getPreviousMonthRange(dateKey: string): CompareWindowRange {
-  const until = shiftLocalDateKey(getMonthStart(dateKey), -1);
+  const until = shiftDateKey(getMonthStart(dateKey), -1);
 
   return { since: getMonthStart(until), until, label: until.slice(0, 7) };
 }
@@ -117,8 +117,8 @@ export function createPreviousSameLengthWindow(
   current: Pick<CompareWindowRange, 'since' | 'until'>,
 ): CompareWindowRange {
   const dayCount = countDateKeyDays(current.since, current.until);
-  const until = shiftLocalDateKey(current.since, -1);
-  const since = shiftLocalDateKey(current.since, -dayCount);
+  const until = shiftDateKey(current.since, -1);
+  const since = shiftDateKey(current.since, -dayCount);
 
   return createRange(since, until);
 }

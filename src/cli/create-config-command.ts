@@ -127,7 +127,7 @@ export async function runConfigShow(
     buildData: async () => data,
     render: (reportData, format) =>
       format === 'json'
-        ? renderReportJson('config', reportData)
+        ? renderReportJson('config-show', reportData)
         : renderConfigReportText(reportData, { now: (deps.now ?? Date.now)() }),
     getDiagnostics: () => undefined,
   });

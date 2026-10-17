@@ -1,11 +1,8 @@
-import { dedupeToolCalls, getEventSessionKey } from '@ayagmar/agent-sessions';
+import { dedupeToolCalls } from '@ayagmar/agent-sessions';
 
-import {
-  buildEventProjectLabels,
-  toProjectKey,
-  UNATTRIBUTED_PROJECT_LABEL,
-} from '../aggregate/project-key.js';
-import { LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
+import { buildEventProjectLabels, toProjectLabel } from '../aggregate/project-key.js';
+import { LOCAL_MACHINE_NAME } from '../domain/usage-event.js';
+import { mapSessionRepoRoots } from '../session/aggregate-sessions.js';
 import { aggregateTools, type ToolRow, type ToolTotals } from '../tools/aggregate-tools.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
 import { resolveUsageDataRequest } from './build-usage-data.js';
@@ -58,21 +55,6 @@ export type ToolsDataResult = {
   defaultWindowSince?: string;
 };
 
-/** Each session's project key: the first repository root its usage logs. */
-function mapSessionRepoRoots(events: readonly UsageEvent[]): Map<string, string | undefined> {
-  const repoRoots = new Map<string, string | undefined>();
-
-  for (const event of events) {
-    const key = getEventSessionKey(event);
-
-    if (repoRoots.get(key) === undefined) {
-      repoRoots.set(key, toProjectKey(event.repoRoot));
-    }
-  }
-
-  return repoRoots;
-}
-
 export async function buildToolsData(
   options: ToolsCommandOptions,
   deps: BuildUsageDataDeps = {},
@@ -116,8 +98,6 @@ export async function buildToolsData(
   });
   const limited = limitRows(rows, resolveTopRowLimit(top), 'tools', 'calls');
   const projectLabels = buildEventProjectLabels(dataset.filteredEvents);
-  const toProjectLabel = (repoRoot: string | null) =>
-    projectLabels.get(repoRoot ?? undefined) ?? UNATTRIBUTED_PROJECT_LABEL;
   const failedReads = formatFailedLiveReads('Tool calls', live.failedFilePaths);
 
   return {
@@ -130,8 +110,10 @@ export async function buildToolsData(
       rowCount: rows.length,
       rows: limited.rows.map((row) => ({
         ...row,
-        ...(row.repoRoot === undefined ? {} : { project: toProjectLabel(row.repoRoot) }),
-        topProject: toProjectLabel(row.topRepoRoot),
+        ...(row.repoRoot === undefined
+          ? {}
+          : { project: toProjectLabel(row.repoRoot ?? undefined, projectLabels) }),
+        topProject: toProjectLabel(row.topRepoRoot ?? undefined, projectLabels),
       })),
       totals,
     },

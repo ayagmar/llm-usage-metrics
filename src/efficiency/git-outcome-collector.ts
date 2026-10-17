@@ -3,7 +3,8 @@ import { createInterface } from 'node:readline';
 import path from 'node:path';
 import { stat } from 'node:fs/promises';
 
-import { getPeriodKey, shiftLocalDateKey, type ReportGranularity } from '../utils/time-buckets.js';
+import { shiftDateKey } from '../utils/date-key.js';
+import { getPeriodKey, type ReportGranularity } from '../utils/time-buckets.js';
 import {
   createEmptyEfficiencyOutcomeTotals,
   type EfficiencyOutcomeTotals,
@@ -405,8 +406,8 @@ function filterEventsByDateRange(
   since: string | undefined,
   until: string | undefined,
 ): GitOutcomeEvent[] {
-  const normalizedSince = since ? shiftLocalDateKey(since, 0) : undefined;
-  const normalizedUntil = until ? shiftLocalDateKey(until, 0) : undefined;
+  const normalizedSince = since ? shiftDateKey(since, 0) : undefined;
+  const normalizedUntil = until ? shiftDateKey(until, 0) : undefined;
 
   return events.filter((event) => {
     const eventDate = getPeriodKey(event.timestamp, 'daily', timezone);
@@ -494,11 +495,11 @@ function buildGitLogArgs(options: {
   }
 
   if (options.since) {
-    args.push(`--since=${shiftLocalDateKey(options.since, -1)}T00:00:00Z`);
+    args.push(`--since=${shiftDateKey(options.since, -1)}T00:00:00Z`);
   }
 
   if (options.until) {
-    args.push(`--until=${shiftLocalDateKey(options.until, 1)}T23:59:59Z`);
+    args.push(`--until=${shiftDateKey(options.until, 1)}T23:59:59Z`);
   }
 
   return args;

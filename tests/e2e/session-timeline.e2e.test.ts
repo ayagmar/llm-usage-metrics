@@ -5,6 +5,7 @@ import type { ValidateFunction } from 'ajv';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { buildSessionReport } from '../../src/cli/run-session-report.js';
+import { buildToolsReport } from '../../src/cli/run-tools-report.js';
 import type { SessionCommandOptions } from '../../src/cli/usage-data-contracts.js';
 import { useIsolatedEnvironment } from '../helpers/isolated-env.js';
 import {
@@ -133,6 +134,72 @@ describe('session --timeline on real source logs', () => {
     expect(describeRows(report.data.rows)).toEqual(unwindowedRows);
   });
 
+  it('leaves the tool calls a resumed transcript copied to its parent, as tools does', async () => {
+    const claudeDir = path.join(environment.rootDir, 'resumed-claude');
+    await cp(path.join(FIXTURES, 'claude'), claudeDir, { recursive: true });
+    const copied = (
+      await readFile(path.join(FIXTURES, 'claude', 'demo', 'session.jsonl'), 'utf8')
+    ).replaceAll('evt-session', 'resumed-session');
+    const row = (fields: Record<string, unknown>) =>
+      JSON.stringify({
+        sessionId: 'resumed-session',
+        cwd: '/work/demo',
+        version: '2.1.0',
+        ...fields,
+      });
+    const newRequest = [
+      row({
+        type: 'assistant',
+        timestamp: '2026-07-01T11:00:00.000Z',
+        uuid: 'r-1',
+        requestId: 'req-new',
+        message: {
+          id: 'msg-new',
+          role: 'assistant',
+          model: 'claude-sonnet-4-5',
+          content: [{ type: 'tool_use', id: 'tool-new', name: 'Edit', input: {} }],
+          usage: { input_tokens: 7, output_tokens: 1 },
+        },
+      }),
+      row({
+        type: 'user',
+        timestamp: '2026-07-01T11:00:01.000Z',
+        uuid: 'r-2',
+        message: {
+          role: 'user',
+          content: [{ type: 'tool_result', tool_use_id: 'tool-new', content: 'ok' }],
+        },
+      }),
+    ];
+    await mkdir(path.join(claudeDir, 'resumed'));
+    await writeFile(
+      path.join(claudeDir, 'resumed', 'resumed.jsonl'),
+      `${copied.trimEnd()}\n${newRequest.join('\n')}\n`,
+    );
+    const options = { claudeDir, source: 'claude', timezone: 'UTC', all: true, json: true };
+
+    const timeline = validateReportOutput(
+      validators,
+      'session',
+      await buildSessionReport({ ...options, id: ['resumed-session'], timeline: true }),
+    ) as { data: { rows: TimelineRow[] } };
+    const tools = validateReportOutput(
+      validators,
+      'tools',
+      await buildToolsReport({ ...options, bySource: true }),
+    ) as { data: { rows: { name: string; calls: number; sessions: number }[] } };
+
+    expect(
+      timeline.data.rows.filter((entry) => entry.kind === 'tool_call').map((entry) => entry.name),
+    ).toEqual(['Edit']);
+    expect(tools.data.rows.map((entry) => [entry.name, entry.calls, entry.sessions])).toEqual([
+      ['Bash', 1, 1],
+      ['Edit', 1, 1],
+      ['Grep', 1, 1],
+      ['Read', 1, 1],
+    ]);
+  });
+
   it('refuses an id several sessions share, listing them', async () => {
     await expect(
       buildSessionReport({ ...SOURCE_OPTIONS, id: ['session'], timeline: true }),
@@ -141,7 +208,7 @@ describe('session --timeline on real source logs', () => {
         '--timeline needs exactly one session, but --id session matches 2:',
         '  claude  evt-session           2026-07-01',
         '  codex   codex-events-session  2026-10-01',
-        'Pass more of the session id to --id.',
+        'Pass more of the session id to --id, or narrow with --source.',
       ].join('\n'),
     );
   });

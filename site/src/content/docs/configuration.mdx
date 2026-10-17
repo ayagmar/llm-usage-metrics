@@ -56,7 +56,7 @@ A source marked `env var` was moved by its tool's variable (`CODEX_HOME`, `CLAUD
 
 `config show` changes nothing and contacts nothing. It only `stat`s source paths, opens the event store read-only, reads the pricing cache without fetching, and lists machines by name from the config without running ssh. To check whether a source's files hold readable usage, or when a machine last synced, run [`doctor`](/llm-usage-metrics/doctor/), which reads the files.
 
-`--json` emits the same data with each value's origin; the schema is [report-config.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-config.v1.schema.json) (`llm-usage schema config-show`).
+`--json` emits the same data with each value's origin; the schema is [report-config-show.v1.schema.json](https://ayagmar.github.io/llm-usage-metrics/report-config-show.v1.schema.json) (`llm-usage schema config-show`).
 
 TOML editors such as Taplo can validate the file through the `#:schema` directive. The schema is published at [config-schema.json](/llm-usage-metrics/config-schema.json):
 

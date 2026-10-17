@@ -4,23 +4,31 @@ import { getEventSessionKey, normalizeOptionalModel } from '../domain/usage-even
 import type { UsageEvent } from '../domain/usage-event.js';
 import type { UsageTotals } from '../domain/usage-report-row.js';
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
-import { getPeriodKey } from '../utils/time-buckets.js';
 import type { SessionRepoRow, SessionRow } from './session-row.js';
 import { addUsd } from '../utils/usd-math.js';
 
 export type AggregateSessionsOptions = {
-  timezone?: string;
-  since?: string;
-  until?: string;
   ids?: string[];
 };
 
-export type AggregateSessionsByRepoOptions = Omit<AggregateSessionsOptions, 'ids'>;
+/** Each session's repository root, as `getEventSessionKey` keys it: the first one its events record. */
+export function mapSessionRepoRoots(events: Iterable<UsageEvent>): Map<string, string | undefined> {
+  const repoRoots = new Map<string, string | undefined>();
+
+  for (const event of events) {
+    const key = getEventSessionKey(event);
+
+    if (repoRoots.get(key) === undefined) {
+      repoRoots.set(key, event.repoRoot);
+    }
+  }
+
+  return repoRoots;
+}
 
 type SessionAccumulator = UsageTotals & {
   source: string;
   sessionId: string;
-  repoRoot: string | undefined;
   firstActivity: string;
   lastActivity: string;
   timestampsMs: number[];
@@ -40,7 +48,6 @@ function createAccumulator(event: UsageEvent): SessionAccumulator {
   return {
     source: event.source,
     sessionId: event.sessionId,
-    repoRoot: undefined,
     firstActivity: event.timestamp,
     lastActivity: event.timestamp,
     timestampsMs: [],
@@ -75,8 +82,6 @@ function addEventToAccumulator(accumulator: SessionAccumulator, event: UsageEven
   addEventUsage(accumulator, event);
   accumulator.timestampsMs.push(Date.parse(event.timestamp));
 
-  accumulator.repoRoot ??= event.repoRoot;
-
   if (event.timestamp < accumulator.firstActivity) {
     accumulator.firstActivity = event.timestamp;
   }
@@ -90,27 +95,6 @@ function addEventToAccumulator(accumulator: SessionAccumulator, event: UsageEven
   if (model) {
     accumulator.models.add(model);
   }
-}
-
-function isEventWithinDateRange(
-  event: UsageEvent,
-  options: AggregateSessionsByRepoOptions,
-): boolean {
-  if (!options.since && !options.until) {
-    return true;
-  }
-
-  const eventDate = getPeriodKey(event.timestamp, 'daily', options.timezone ?? 'UTC');
-
-  if (options.since && eventDate < options.since) {
-    return false;
-  }
-
-  if (options.until && eventDate > options.until) {
-    return false;
-  }
-
-  return true;
 }
 
 function matchesSessionIdFilters(sessionId: string, idFilters: readonly string[]): boolean {
@@ -157,12 +141,12 @@ function compareRepoRows(left: SessionRepoRow, right: SessionRepoRow): number {
   return compareByCodePoint(left.repoRoot ?? '', right.repoRoot ?? '');
 }
 
-function toSessionRow(accumulator: SessionAccumulator): SessionRow {
+function toSessionRow(accumulator: SessionAccumulator, repoRoot: string | undefined): SessionRow {
   return {
     rowType: 'session',
     source: accumulator.source,
     sessionId: accumulator.sessionId,
-    repoRoot: accumulator.repoRoot,
+    repoRoot,
     firstActivity: accumulator.firstActivity,
     lastActivity: accumulator.lastActivity,
     durationMs: Date.parse(accumulator.lastActivity) - Date.parse(accumulator.firstActivity),
@@ -194,17 +178,17 @@ export function aggregateSessions(
       continue;
     }
 
-    if (!isEventWithinDateRange(event, options)) {
-      continue;
-    }
-
     const key = getEventSessionKey(event);
     const accumulator = sessions.get(key) ?? createAccumulator(event);
     addEventToAccumulator(accumulator, event);
     sessions.set(key, accumulator);
   }
 
-  return [...sessions.values()].map(toSessionRow).sort(compareSessionRows);
+  const repoRoots = mapSessionRepoRoots(events);
+
+  return [...sessions]
+    .map(([key, accumulator]) => toSessionRow(accumulator, repoRoots.get(key)))
+    .sort(compareSessionRows);
 }
 
 function createRepoAccumulator(repoRoot: string | undefined, event: UsageEvent): RepoAccumulator {
@@ -256,17 +240,10 @@ function toRepoRow(accumulator: RepoAccumulator): SessionRepoRow {
   };
 }
 
-export function aggregateSessionsByRepo(
-  events: readonly UsageEvent[],
-  options: AggregateSessionsByRepoOptions = {},
-): SessionRepoRow[] {
+export function aggregateSessionsByRepo(events: readonly UsageEvent[]): SessionRepoRow[] {
   const repos = new Map<string | undefined, RepoAccumulator>();
 
   for (const event of events) {
-    if (!isEventWithinDateRange(event, options)) {
-      continue;
-    }
-
     // Keyed like `projects`, so `/x/app` and `/x/app/` are one row.
     const key = toProjectKey(event.repoRoot);
     const accumulator = repos.get(key) ?? createRepoAccumulator(key, event);

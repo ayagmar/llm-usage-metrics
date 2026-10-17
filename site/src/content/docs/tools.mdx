@@ -16,6 +16,8 @@ Claude Code, Codex, and pi log tool calls; the other sources do not, so their se
 
 The event store keeps usage only, so tool calls are read from the session files on disk each run, inside the window. Files that no longer exist and [other machines](/llm-usage-metrics/machines/) are not counted, and the report says so in one line on `stderr`. For that reason `tools` takes no `--history`, `--machine`, or `--no-sync`, and it never loads prices.
 
+Every run reads all the session files in the window, even when the event store already holds their usage. On large logs that takes a few seconds, more than `daily` over the same window, until a later release stores tool calls too.
+
 A resumed or forked session can copy calls from the session it continued. A call with the same tool call id in two sessions of one source is counted once.
 
 ## Read the report

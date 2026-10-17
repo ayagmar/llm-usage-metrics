@@ -58,7 +58,10 @@ function validateTimelineOptions(options: SessionCommandOptions, hasIdFilters: b
   }
 }
 
-/** The one session `--id` names, or an error listing what it matched instead. */
+/**
+ * The one session `--id` names: the only match, or the only row whose id equals a filter
+ * when several match. Otherwise an error listing what it matched.
+ */
 function requireOneTimelineSession(
   sessionRows: readonly SessionRow[],
   idFilters: readonly string[],
@@ -72,7 +75,9 @@ function requireOneTimelineSession(
     );
   }
 
-  if (sessionRows.length > 1) {
+  const exactRows = sessionRows.filter((row) => idFilters.includes(row.sessionId.toLowerCase()));
+
+  if (sessionRows.length > 1 && exactRows.length !== 1) {
     const listedRows = sessionRows.slice(0, MAX_LISTED_TIMELINE_MATCHES);
     const sourceWidth = Math.max(...listedRows.map((row) => row.source.length));
     const idWidth = Math.max(...listedRows.map((row) => row.sessionId.length));
@@ -87,12 +92,12 @@ function requireOneTimelineSession(
         `--timeline needs exactly one session, but --id ${idText} matches ${sessionRows.length}:`,
         ...listed,
         ...(unlisted > 0 ? [`  and ${unlisted} more`] : []),
-        'Pass more of the session id to --id.',
+        'Pass more of the session id to --id, or narrow with --source.',
       ].join('\n'),
     );
   }
 
-  return sessionRows[0];
+  return sessionRows.length === 1 ? sessionRows[0] : exactRows[0];
 }
 
 export async function buildSessionData(
@@ -112,18 +117,12 @@ export async function buildSessionData(
   const dataset = await measureRuntimeProfileStage(
     deps.runtimeProfile,
     'session.dataset.total',
-    () =>
-      buildUsageEventDataset(options, deps, { recordFileSessionIds: options.timeline === true }),
+    () => buildUsageEventDataset(options, deps),
   );
   const pricingResult = await applyPricingToUsageEventDataset(dataset, deps, 'auto');
   const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
   // From every event, as `projects` labels them, so a label does not depend on --top or --id.
   const projectLabels = buildEventProjectLabels(pricedEvents);
-  const aggregateOptions = {
-    timezone: dataset.normalizedInputs.timezone,
-    since: options.since,
-    until: options.until,
-  };
   // Only the shown rows carry `~`, so only their events explain it.
   const buildDiagnostics = (
     shownEvents: UsageEvent[],
@@ -145,7 +144,7 @@ export async function buildSessionData(
 
   if (options.byRepo) {
     const repoRows = measureRuntimeProfileStageSync(deps.runtimeProfile, 'session.aggregate', () =>
-      aggregateSessionsByRepo(pricedEvents, aggregateOptions),
+      aggregateSessionsByRepo(pricedEvents),
     );
     const limited = limitRows(repoRows, limit, 'repos');
     const shownRepos = new Set(limited.rows.map((row) => row.repoRoot));
@@ -162,7 +161,7 @@ export async function buildSessionData(
   }
 
   const sessionRows = measureRuntimeProfileStageSync(deps.runtimeProfile, 'session.aggregate', () =>
-    aggregateSessions(pricedEvents, { ...aggregateOptions, ids: idFilters }),
+    aggregateSessions(pricedEvents, { ids: idFilters }),
   );
 
   if (options.timeline && idFilters) {
@@ -173,25 +172,26 @@ export async function buildSessionData(
     );
     const sessionKey = getEventSessionKey(session);
     const sessionEvents = pricedEvents.filter((event) => getEventSessionKey(event) === sessionKey);
+    // Tool calls come from every file of the session's source, as `tools` reads them, so a
+    // call a resumed or forked transcript copied from its parent stays its parent's.
     const live = await measureRuntimeProfileStage(deps.runtimeProfile, 'session.read_live', () =>
       readLiveSessionEvents(dataset, {
         kinds: ['tool_call', 'message'],
-        sessionKeys: new Set([sessionKey]),
-        // A session's live events are in the files that hold its usage.
         filePaths: new Set(
           dataset.parsedFiles
-            .filter(
-              (file) =>
-                file.source === session.source &&
-                (file.sessionIds?.includes(session.sessionId) ?? true),
-            )
+            .filter((file) => file.source === session.source)
             .map((file) => file.filePath),
         ),
       }),
     );
-    // Counted once across copies, as `tools` counts them.
-    const toolCalls = dedupeToolCalls(live.events.filter((event) => event.kind === 'tool_call'));
-    const messages = live.events.filter((event) => event.kind === 'message');
+    const toolCalls = dedupeToolCalls(
+      live.events.filter((event) => event.kind === 'tool_call'),
+    ).filter((event) => getEventSessionKey(event) === sessionKey);
+    // Messages carry no id that holds across copies (user turns have none), so they are the
+    // session's messages, copied ones included.
+    const messages = live.events.filter(
+      (event) => event.kind === 'message' && getEventSessionKey(event) === sessionKey,
+    );
 
     return {
       grouping: 'timeline',

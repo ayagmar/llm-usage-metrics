@@ -1,11 +1,7 @@
 import type { UsageEvent } from '../domain/usage-event.js';
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
-import {
-  getIsoDayOfWeekFromDateKey,
-  getLocalDateKeyRange,
-  getPeriodKey,
-  shiftLocalDateKey,
-} from '../utils/time-buckets.js';
+import { getDateKeyRange, shiftDateKey } from '../utils/date-key.js';
+import { getIsoDayOfWeekFromDateKey, getPeriodKey } from '../utils/time-buckets.js';
 import { addUsd } from '../utils/usd-math.js';
 
 /** Totals of one local day. */
@@ -36,7 +32,7 @@ export function calculateLongestStreak(sortedDateKeys: readonly string[]): numbe
   let currentStreak = 1;
 
   for (let index = 1; index < sortedDateKeys.length; index += 1) {
-    if (shiftLocalDateKey(sortedDateKeys[index - 1], 1) === sortedDateKeys[index]) {
+    if (shiftDateKey(sortedDateKeys[index - 1], 1) === sortedDateKeys[index]) {
       currentStreak += 1;
       longestStreak = Math.max(longestStreak, currentStreak);
       continue;
@@ -53,12 +49,12 @@ export function calculateLongestStreak(sortedDateKeys: readonly string[]): numbe
  * the streak until it is over, so an inactive today counts back from yesterday.
  */
 export function calculateCurrentStreak(activeDateKeys: ReadonlySet<string>, today: string): number {
-  let day = activeDateKeys.has(today) ? today : shiftLocalDateKey(today, -1);
+  let day = activeDateKeys.has(today) ? today : shiftDateKey(today, -1);
   let streak = 0;
 
   while (activeDateKeys.has(day)) {
     streak += 1;
-    day = shiftLocalDateKey(day, -1);
+    day = shiftDateKey(day, -1);
   }
 
   return streak;
@@ -135,7 +131,7 @@ export function buildDailyIntensity(
   range: { from: string; to: string },
   dailyTotals: ReadonlyMap<string, DailyTotals>,
 ): ActivityDay[] {
-  const dateKeys = getLocalDateKeyRange(range.from, range.to);
+  const dateKeys = getDateKeyRange(range.from, range.to);
   const tokens = dateKeys.map((dateKey) => dailyTotals.get(dateKey)?.totalTokens ?? 0);
   const levels = toActivityLevels(tokens);
 
@@ -161,7 +157,7 @@ const ACTIVITY_WEEKS = 53;
 /** First day of a GitHub-style grid: the Monday 52 weeks before the week of `today`. */
 export function resolveActivityStart(today: string): string {
   const daysSinceMonday = getIsoDayOfWeekFromDateKey(today) - 1;
-  return shiftLocalDateKey(today, -(daysSinceMonday + (ACTIVITY_WEEKS - 1) * 7));
+  return shiftDateKey(today, -(daysSinceMonday + (ACTIVITY_WEEKS - 1) * 7));
 }
 
 /** Each local day's totals for events from `from` to `to` (inclusive); days without events are absent. */

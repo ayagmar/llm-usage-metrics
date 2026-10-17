@@ -77,6 +77,7 @@ function renderTable(table: PanelTable): HTMLElement {
 
   return h('div', { class: 'panel-table' }, [
     h('h3', { text: table.title }),
+    table.caption !== undefined && h('p', { class: 'panel-note', text: table.caption }),
     // Focusable, so a keyboard can scroll a table wider than the screen, as the explorer's.
     h(
       'div',

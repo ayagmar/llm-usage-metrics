@@ -1,11 +1,7 @@
 import os from 'node:os';
 
-import type {
-  ConfigReportData,
-  ConfigReportEventStoreFile,
-  ConfigSetting,
-  SettingOrigin,
-} from '../cli/build-config-report.js';
+import type { ConfigReportData, ConfigSetting, SettingOrigin } from '../cli/build-config-report.js';
+import type { EventStoreInspection } from '../cli/run-doctor-report.js';
 import { formatEnvVarOverrides } from '../config/env-var-display.js';
 import { formatByteSize } from './format-byte-size.js';
 import { formatDuration } from './format-duration.js';
@@ -54,7 +50,7 @@ function settingRow<Value>(
 
 const formatYesNo = (value: boolean): string => (value ? 'yes' : 'no');
 
-function describeEventStoreFile(file: ConfigReportEventStoreFile): string {
+function describeEventStoreFile(file: EventStoreInspection): string {
   switch (file.state) {
     case 'missing':
       return describeMissingEventStore(file.legacyPath);

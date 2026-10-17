@@ -138,6 +138,7 @@ const EXPECTED_SURFACE: Record<string, readonly string[]> = {
     'pathIsFile',
     'pathReadable',
     'pathStat',
+    'pluralize',
     'readBoundedJsonFile',
     'readClassifiedJsonlObjectBatches',
     'readClassifiedJsonlObjects',
