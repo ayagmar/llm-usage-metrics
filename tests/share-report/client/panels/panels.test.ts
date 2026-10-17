@@ -772,7 +772,16 @@ describe('summary lead', () => {
       ['Last 7 days', '~$0.06', '$0.00', '+4,906.1%', '1,190', 'kilocode (~49%)'],
       ['Month to date', '~$0.06', '$0.00', '+6,251.6%', '1,585', 'kilocode (~47%)'],
     ]);
-    expect(periods.rows[1][3].note).toBe('Against 8 Jun 2026 – 14 Jun 2026');
+    // Each row names the window it is set against, in a tooltip and in the caption.
+    expect(periods.rows.map((row) => row[2].note)).toEqual([
+      'Against yesterday, 20 Jun 2026',
+      'Against the 7 days before, 8 Jun 2026 – 14 Jun 2026',
+      'Against the same days of last month, 1 May 2026 – 21 May 2026',
+    ]);
+    expect(periods.rows[1][3].note).toBe('Against the 7 days before, 8 Jun 2026 – 14 Jun 2026');
+    expect(periods.caption).toBe(
+      'Today against yesterday; Last 7 days against the 7 days before; Month to date against the same days of last month.',
+    );
     expect(view.tables).toHaveLength(1);
   });
 
