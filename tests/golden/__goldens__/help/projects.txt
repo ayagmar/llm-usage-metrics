@@ -1,7 +1,7 @@
 Usage: llm-usage projects [options]
 
-Show cost, tokens, events, active days and top models per project (repository root), costliest first
-(full history unless --last, --since, or --until)
+Show cost, tokens, events, active days and top models per project (the working directory the tool
+recorded), costliest first (full history unless --last, --since, or --until)
 
 Options:
   --help-all                     Display help including the per-source path flags

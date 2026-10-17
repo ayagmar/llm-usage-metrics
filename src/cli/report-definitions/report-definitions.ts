@@ -720,7 +720,7 @@ const projectsReportDefinition: ReportRuntimeDefinition = {
     docsLabel: 'projects',
     kind: 'specialized',
     description:
-      'Show cost, tokens, events, active days and top models per project (repository root), costliest first (full history unless --last, --since, or --until)',
+      'Show cost, tokens, events, active days and top models per project (the working directory the tool recorded), costliest first (full history unless --last, --since, or --until)',
     sharedOptionProfile: 'rollup',
     helpExamples: [
       {
