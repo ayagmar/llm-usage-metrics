@@ -1,0 +1,142 @@
+---
+import './diagrams.css';
+
+// In run order: the claude adapter, build-usage-data-parsing.ts, build-usage-event-dataset.ts.
+const stages = [
+  {
+    title: 'Retried claude calls',
+    scope: 'claude adapter, within one file',
+    key: 'message.id + requestId',
+    keeps: 'the last row for each key',
+    hashed: false,
+  },
+  {
+    title: 'Repeated across files',
+    scope: 'one source’s files (pi forks)',
+    key: 'content hash',
+    keeps: 'the first file in discovery order',
+    hashed: true,
+  },
+  {
+    title: 'History and machines',
+    scope: 'departed files, other machines',
+    key: 'content hash',
+    keeps: 'what this run already served',
+    hashed: true,
+  },
+  {
+    title: 'Copied sessions',
+    scope: 'one source’s sessions (claude)',
+    key: 'timestamp, model, token counts',
+    keeps: 'the session that started first',
+    hashed: false,
+  },
+];
+
+const hashH = 92;
+const top = hashH + 28;
+const boxX = 12;
+const boxW = 416;
+const boxH = 96;
+const pitch = boxH + 22;
+const rowY = (index: number) => top + index * pitch;
+const height = top + stages.length * pitch - 12;
+---
+
+<figure class="dg" style="--dg-max-width: 32rem">
+  <svg
+    viewBox={`0 0 440 ${height}`}
+    role="img"
+    aria-labelledby="dg-dedup-stages-title dg-dedup-stages-desc"
+  >
+    <title id="dg-dedup-stages-title">Dedup stages, in run order</title>
+    <desc id="dg-dedup-stages-desc">
+      The content hash is the first 16 hex characters of a SHA-256 over an event's source, session,
+      timestamp, model, provider, repo root, token counts and cost; it leaves out the file path.
+      Four stages remove duplicates, in this order. One: the claude adapter keeps the last row for
+      each message id and request id within a file, so retried calls count once. Two: for a source
+      whose files repeat each other's events, such as pi forks, an event held by several files
+      counts once, from the first file in discovery order, matched by content hash. Three: history
+      replay and other machines add only events whose content hash this run has not already served.
+      Four: for a source whose sessions copy each other's events, such as claude continued sessions,
+      an event with the same timestamp, model and token counts in several sessions counts once, in
+      the session that started first.
+    </desc>
+    <defs>
+      <marker
+        id="dg-dedup-stages-arrow"
+        viewBox="0 0 10 10"
+        refX="9"
+        refY="5"
+        markerWidth="7"
+        markerHeight="7"
+        orient="auto-start-reverse"
+      >
+        <path class="dg-arrowhead" d="M0 0 L10 5 L0 10 z"></path>
+      </marker>
+    </defs>
+
+    <rect class="dg-box dg-box--cyan" x={boxX} y="4" width={boxW} height={hashH} rx="10"></rect>
+    <text class="dg-t dg-t--label" x="28" y="28">
+      content hash
+    </text>
+    <text class="dg-t dg-t--mono" x="28" y="50" style="font-size: 13px">
+      sha256(fields).slice(0, 16)
+    </text>
+    <text class="dg-t dg-t--sm" x="28" y="70">
+      source, session, timestamp, model, provider,
+    </text>
+    <text class="dg-t dg-t--sm" x="28" y="87">
+      repo root, tokens, cost. Not the file path.
+    </text>
+
+    {stages.map((stage, index) => (
+      <g>
+        <rect
+          class:list={['dg-box', stage.hashed ? 'dg-box--cyan' : 'dg-box--accent']}
+          x={boxX}
+          y={rowY(index)}
+          width={boxW}
+          height={boxH}
+          rx="10"
+        />
+        <text class="dg-t dg-t--sm dg-t--mono" x={boxX + 16} y={rowY(index) + 26}>
+          {index + 1}
+        </text>
+        <text class="dg-t dg-t--head" x={boxX + 40} y={rowY(index) + 26}>
+          {stage.title}
+        </text>
+        <text class="dg-t dg-t--sm" x={boxX + 40} y={rowY(index) + 46}>
+          {stage.scope}
+        </text>
+        <text class="dg-t dg-t--sm" x={boxX + 40} y={rowY(index) + 66}>
+          key
+        </text>
+        <text
+          class:list={['dg-t', 'dg-t--mono', stage.hashed && 'dg-t--cyan']}
+          x={boxX + 100}
+          y={rowY(index) + 66}
+          style="font-size: 13px"
+        >
+          {stage.key}
+        </text>
+        <text class="dg-t dg-t--sm" x={boxX + 40} y={rowY(index) + 85}>
+          keeps
+        </text>
+        <text class="dg-t" x={boxX + 100} y={rowY(index) + 85} style="font-size: 13px">
+          {stage.keeps}
+        </text>
+        {index > 0 && (
+          <line
+            class="dg-line"
+            x1={boxX + 24}
+            y1={rowY(index - 1) + boxH}
+            x2={boxX + 24}
+            y2={rowY(index) - 2}
+            marker-end="url(#dg-dedup-stages-arrow)"
+          />
+        )}
+      </g>
+    ))}
+  </svg>
+</figure>

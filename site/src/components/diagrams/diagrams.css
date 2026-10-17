@@ -1,0 +1,122 @@
+/*
+ * Shared styles for the architecture diagrams. Every colour comes from tokens.css,
+ * which both the docs pages and the landing page load, so the diagrams follow the
+ * active theme without re-rendering. Hex values only appear as var() fallbacks.
+ */
+
+.dg {
+  margin: 1.5rem auto;
+  max-width: var(--dg-max-width, 34rem);
+}
+
+.dg svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  font-family: var(--font-sans, 'Geist', -apple-system, 'Segoe UI', sans-serif);
+}
+
+.dg-box {
+  fill: var(--color-bg-elevated, #191c17);
+  stroke: var(--border-strong, rgba(241, 240, 233, 0.18));
+  stroke-width: 1;
+}
+
+.dg-box--accent {
+  fill: var(--color-accent-subtle, rgba(223, 123, 82, 0.12));
+  stroke: var(--color-accent, #df7b52);
+}
+
+.dg-box--cyan {
+  fill: var(--color-bg-card, #151713);
+  stroke: var(--color-cyan, #65aeb8);
+}
+
+.dg-box--yellow {
+  fill: var(--color-bg-card, #151713);
+  stroke: var(--color-yellow, #d8ae66);
+}
+
+.dg-box--plain {
+  fill: var(--color-bg-card, #151713);
+  stroke: var(--border-default, rgba(241, 240, 233, 0.09));
+}
+
+.dg-box--dashed {
+  fill: none;
+  stroke: var(--border-strong, rgba(241, 240, 233, 0.18));
+  stroke-dasharray: 5 4;
+}
+
+.dg-t {
+  fill: var(--color-text, #f1f0e9);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.dg-t--head {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.dg-t--sm {
+  fill: var(--color-text-muted, #a1a49a);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.dg-t--mono {
+  font-family: var(--font-mono, 'Geist Mono', 'SFMono-Regular', 'Consolas', monospace);
+}
+
+.dg-t--accent {
+  fill: var(--color-accent, #df7b52);
+}
+
+.dg-t--cyan {
+  fill: var(--color-cyan, #65aeb8);
+}
+
+.dg-t--yellow {
+  fill: var(--color-yellow, #d8ae66);
+}
+
+.dg-t--label {
+  fill: var(--color-text-muted, #a1a49a);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.dg-line {
+  fill: none;
+  stroke: var(--color-text-dim, #74786d);
+  stroke-width: 1.5;
+}
+
+.dg-line--dashed {
+  stroke-dasharray: 4 4;
+}
+
+.dg-line--accent {
+  stroke: var(--color-accent, #df7b52);
+}
+
+.dg-arrowhead {
+  fill: var(--color-text-dim, #74786d);
+}
+
+.dg-arrowhead--accent {
+  fill: var(--color-accent, #df7b52);
+}
+
+.dg-dot {
+  fill: var(--color-accent, #df7b52);
+}
+
+.dg-rule {
+  stroke: var(--border-default, rgba(241, 240, 233, 0.09));
+  stroke-width: 1;
+}

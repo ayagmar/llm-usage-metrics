@@ -1,0 +1,159 @@
+---
+import './diagrams.css';
+
+// Directories under src/ (CLI) and packages/core/src (core), two per row.
+const cliModules = [
+  { path: 'src/cli', role: 'commands, runtime' },
+  { path: 'src/config', role: 'config.toml, env vars' },
+  { path: 'src/persistence', role: 'SQLite event store' },
+  { path: 'src/machines', role: 'other machines (ssh)' },
+  { path: 'src/pricing', role: 'LiteLLM rates, costs' },
+  { path: 'src/aggregate, …', role: 'per-report totals' },
+  { path: 'src/render', role: 'text, JSON, Markdown' },
+  { path: 'src/share-report', role: 'interactive HTML' },
+];
+const coreModules = [
+  { path: 'sources/', role: '17 source adapters' },
+  { path: 'registry/', role: 'adapters, readSources' },
+  { path: 'stream/', role: 'read, collect, cursors' },
+  { path: 'dedup/', role: 'hash, repeats, copies' },
+  { path: 'domain/', role: 'event types' },
+  { path: 'otel/', role: 'GenAI attributes' },
+];
+
+const chipW = 184;
+const chipH = 48;
+const colX = [28, 228];
+const chipY = (top: number, index: number) => top + Math.floor(index / 2) * (chipH + 10);
+const cliTop = 64;
+const cliBottom = chipY(cliTop, cliModules.length - 1) + chipH + 16;
+const coreBandTop = cliBottom + 58;
+const coreTop = coreBandTop + 54;
+const coreBottom = chipY(coreTop, coreModules.length - 1) + chipH + 16;
+const height = coreBottom + 10;
+---
+
+<figure class="dg" style="--dg-max-width: 32rem">
+  <svg
+    viewBox={`0 0 440 ${height}`}
+    role="img"
+    aria-labelledby="dg-package-layers-title dg-package-layers-desc"
+  >
+    <title id="dg-package-layers-title">Package layers: the CLI on top of the core package</title>
+    <desc id="dg-package-layers-desc">
+      Two layers. The llm-usage-metrics CLI on top owns commands and the report runtime (src/cli),
+      config and env vars (src/config), the SQLite event store (src/persistence), other machines
+      over ssh (src/machines), pricing (src/pricing), the per-report aggregation directories,
+      terminal, JSON and Markdown rendering (src/render) and the interactive HTML report
+      (src/share-report). It imports the core package @ayagmar/agent-sessions, which the CLI build
+      bundles. The core package owns the 17 source adapters (sources), the adapter registry and
+      readSources (registry), reading, collecting and cursors (stream), the dedup stages (dedup),
+      the event types and constructors (domain) and OpenTelemetry GenAI attributes (otel). It has no
+      runtime dependencies.
+    </desc>
+    <defs>
+      <marker
+        id="dg-package-layers-arrow"
+        viewBox="0 0 10 10"
+        refX="9"
+        refY="5"
+        markerWidth="7"
+        markerHeight="7"
+        orient="auto-start-reverse"
+      >
+        <path class="dg-arrowhead" d="M0 0 L10 5 L0 10 z"></path>
+      </marker>
+    </defs>
+
+    <rect
+      class="dg-box dg-box--accent"
+      x="12"
+      y="4"
+      width="416"
+      height={cliBottom - 4}
+      rx="12"
+    ></rect>
+    <text class="dg-t dg-t--head" x="28" y="30">
+      llm-usage-metrics
+    </text>
+    <text class="dg-t dg-t--sm" x="28" y="49">
+      CLI: reads, stores, prices, reports
+    </text>
+    {cliModules.map((module, index) => (
+      <g>
+        <rect
+          class="dg-box dg-box--plain"
+          x={colX[index % 2]}
+          y={chipY(cliTop, index)}
+          width={chipW}
+          height={chipH}
+          rx="7"
+        />
+        <text
+          class="dg-t dg-t--mono"
+          x={colX[index % 2] + 12}
+          y={chipY(cliTop, index) + 20}
+          style="font-size: 13px"
+        >
+          {module.path}
+        </text>
+        <text class="dg-t dg-t--sm" x={colX[index % 2] + 12} y={chipY(cliTop, index) + 38}>
+          {module.role}
+        </text>
+      </g>
+    ))}
+
+    <line
+      class="dg-line"
+      x1="220"
+      y1={cliBottom + 2}
+      x2="220"
+      y2={coreBandTop - 4}
+      marker-end="url(#dg-package-layers-arrow)"
+    ></line>
+    <text class="dg-t dg-t--sm" x="232" y={cliBottom + 26}>
+      imports; bundled into
+    </text>
+    <text class="dg-t dg-t--sm" x="232" y={cliBottom + 43}>
+      the CLI build
+    </text>
+
+    <rect
+      class="dg-box dg-box--cyan"
+      x="12"
+      y={coreBandTop}
+      width="416"
+      height={coreBottom - coreBandTop}
+      rx="12"
+    ></rect>
+    <text class="dg-t dg-t--head dg-t--mono" x="28" y={coreBandTop + 26}>
+      @ayagmar/agent-sessions
+    </text>
+    <text class="dg-t dg-t--sm" x="28" y={coreBandTop + 45}>
+      core: no runtime dependencies
+    </text>
+    {coreModules.map((module, index) => (
+      <g>
+        <rect
+          class="dg-box dg-box--plain"
+          x={colX[index % 2]}
+          y={chipY(coreTop, index)}
+          width={chipW}
+          height={chipH}
+          rx="7"
+        />
+        <text
+          class="dg-t dg-t--mono"
+          x={colX[index % 2] + 12}
+          y={chipY(coreTop, index) + 20}
+          style="font-size: 13px"
+        >
+          {module.path}
+        </text>
+        <text class="dg-t dg-t--sm" x={colX[index % 2] + 12} y={chipY(coreTop, index) + 38}>
+          {module.role}
+        </text>
+      </g>
+    ))}
+  </svg>
+</figure>
