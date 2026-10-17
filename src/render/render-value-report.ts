@@ -6,6 +6,7 @@ import type {
   ValuePlanReport,
   ValueReportData,
 } from '../value/build-value-report.js';
+import { formatApproxUsd, formatInteger, formatSharePercent, formatUsd } from './format-number.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { renderReportJson } from './report-json.js';
@@ -40,24 +41,8 @@ const COLUMN_HEADERS: Record<ValueColumn, string> = {
 
 const PARTIAL_MONTH_MARKER = '*';
 
-const usdFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-const integerFormatter = new Intl.NumberFormat('en-US');
-
-function formatUsd(value: number, incomplete = false): string {
-  return `${incomplete ? '~' : ''}${usdFormatter.format(value)}`;
-}
-
 function formatRatio(value: number | null, incomplete: boolean): string {
   return value === null ? '-' : `${incomplete ? '~' : ''}${value.toFixed(2)}x`;
-}
-
-function formatShare(value: number | null): string {
-  return value === null ? '-' : `${(value * 100).toFixed(1)}%`;
 }
 
 function resolveColumns(options: RenderValueReportOptions): ValueColumn[] {
@@ -78,7 +63,7 @@ function formatProjects(month: ValueMonthRow, options: RenderValueReportOptions)
     .map((project) =>
       options.hideCost
         ? `• ${project.project}`
-        : `• ${project.project} ${formatUsd(project.costUsd, project.costIncomplete)} (${formatShare(project.costShare)})`,
+        : `• ${project.project} ${formatApproxUsd(project.costUsd, project.costIncomplete)} (${formatSharePercent(project.costShare)})`,
     )
     .join('\n');
 }
@@ -92,9 +77,7 @@ function toTableRows(
   plan: ValuePlanReport,
   options: RenderValueReportOptions & { useColor: boolean },
 ): ValueTableRow[] {
-  const formatTokens = options.compact
-    ? formatAbbreviatedTokenCount
-    : (value: number) => integerFormatter.format(value);
+  const formatTokens = options.compact ? formatAbbreviatedTokenCount : formatInteger;
   const styleDifference = (value: number, formatted: string): string => {
     if (!options.useColor || value === 0) {
       return formatted;
@@ -109,12 +92,12 @@ function toTableRows(
       month: month.partial ? `${month.month}${PARTIAL_MONTH_MARKER}` : month.month,
       projects: formatProjects(month, options),
       tokens: formatTokens(month.totalTokens),
-      apiCost: formatUsd(month.apiCostUsd, month.costIncomplete),
+      apiCost: formatApproxUsd(month.apiCostUsd, month.costIncomplete),
       plan: formatUsd(month.planPriceUsd),
       ratio: formatRatio(month.ratio, month.costIncomplete),
       difference: styleDifference(
         month.differenceUsd,
-        formatUsd(month.differenceUsd, month.costIncomplete),
+        formatApproxUsd(month.differenceUsd, month.costIncomplete),
       ),
     },
   }));
@@ -129,12 +112,12 @@ function toTableRows(
         month: totalLabel,
         projects: 'TOTAL',
         tokens: formatTokens(total.totalTokens),
-        apiCost: formatUsd(total.apiCostUsd, total.costIncomplete),
+        apiCost: formatApproxUsd(total.apiCostUsd, total.costIncomplete),
         plan: formatUsd(total.planPriceUsd),
         ratio: formatRatio(total.ratio, total.costIncomplete),
         difference: styleDifference(
           total.differenceUsd,
-          formatUsd(total.differenceUsd, total.costIncomplete),
+          formatApproxUsd(total.differenceUsd, total.costIncomplete),
         ),
       },
     },

@@ -8,6 +8,7 @@ import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { efficiencyTableHeaders, toEfficiencyTableCells } from './efficiency-row-cells.js';
 import { resolveTtyColumns, splitCellLines, visibleWidth } from './table-text-layout.js';
+import { styleDeltaCell } from './terminal-style-policy.js';
 import { selectColumns, type UsageTokenFormat } from './row-cells.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
@@ -233,26 +234,6 @@ function fitTableCellsToTerminal(
   };
 }
 
-function styleDeltaCell(
-  value: number,
-  formattedValue: string,
-  options: { useColor: boolean },
-): string {
-  if (!options.useColor) {
-    return formattedValue;
-  }
-
-  if (value > 0) {
-    return pc.green(formattedValue);
-  }
-
-  if (value < 0) {
-    return pc.red(formattedValue);
-  }
-
-  return pc.dim(formattedValue);
-}
-
 function styleEfficiencyTerminalRows(
   rows: EfficiencyRow[],
   bodyRows: string[][],
@@ -284,17 +265,17 @@ function styleEfficiencyTerminalRows(
     styledCells[linesAddedColumnIndex] = styleDeltaCell(
       row.linesAdded,
       styledCells[linesAddedColumnIndex],
-      options,
+      options.useColor,
     );
     styledCells[linesDeletedColumnIndex] = styleDeltaCell(
       row.linesDeleted * -1,
       styledCells[linesDeletedColumnIndex],
-      options,
+      options.useColor,
     );
     styledCells[linesChangedColumnIndex] = styleDeltaCell(
       row.linesChanged,
       styledCells[linesChangedColumnIndex],
-      options,
+      options.useColor,
     );
 
     const costValue = row.costUsd;

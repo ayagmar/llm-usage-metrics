@@ -2,10 +2,11 @@ import { markdownTable } from 'markdown-table';
 
 import type { ProjectsData } from '../cli/build-projects-data.js';
 import type { PeriodProjectRow, UsageTotals } from '../domain/usage-report-row.js';
+import { formatApproxUsd, formatInteger, formatSharePercent } from './format-number.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { renderReportJson } from './report-json.js';
-import { formatAbbreviatedTokenCount } from './row-cells.js';
+import { formatBulletedList, formatAbbreviatedTokenCount } from './row-cells.js';
 import { resolveTtyColumns } from './table-text-layout.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { columnKindsFromAlign, renderUnicodeTable, type TableRowMeta } from './unicode-table.js';
@@ -38,15 +39,6 @@ type Table = {
   rowMetas: TableRowMeta[];
 };
 
-const integerFormatter = new Intl.NumberFormat('en-US');
-
-const usdFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
 const TOP_MODEL_COUNT = 3;
 
 const PERIOD_NAMES = { daily: 'Day', weekly: 'Week', monthly: 'Month' } as const;
@@ -55,24 +47,11 @@ const PERIOD_NAMES = { daily: 'Day', weekly: 'Week', monthly: 'Month' } as const
 const MODELS_HEADER = 'Models';
 
 function formatCost(totals: UsageTotals): string {
-  if (totals.costUsd === undefined) {
-    return '-';
-  }
-
-  const formatted = usdFormatter.format(totals.costUsd);
-  return totals.costIncomplete ? `~${formatted}` : formatted;
-}
-
-function formatShare(share: number | null): string {
-  return share === null ? '-' : `${(share * 100).toFixed(1)}%`;
-}
-
-function formatModels(models: readonly string[]): string {
-  return models.length === 0 ? '-' : models.map((model) => `• ${model}`).join('\n');
+  return formatApproxUsd(totals.costUsd, totals.costIncomplete);
 }
 
 function createTokenFormatter(compact: boolean): (value: number) => string {
-  return compact ? formatAbbreviatedTokenCount : (value) => integerFormatter.format(value);
+  return compact ? formatAbbreviatedTokenCount : formatInteger;
 }
 
 function selectColumns<Row>(
@@ -126,22 +105,22 @@ function buildProjectTable(data: ProjectsData, options: RenderProjectsReportOpti
     {
       header: MODELS_HEADER,
       align: 'l',
-      cell: (row) => (row.models.length === 0 ? '' : formatModels(row.models)),
+      cell: (row) => (row.models.length === 0 ? '' : formatBulletedList(row.models)),
     },
     { header: 'Cost', align: 'r', kind: 'cost', cell: formatCost },
-    { header: 'Share', align: 'r', kind: 'cost', cell: (row) => formatShare(row.costShare) },
+    { header: 'Share', align: 'r', kind: 'cost', cell: (row) => formatSharePercent(row.costShare) },
     { header: 'Tokens', align: 'r', cell: (row) => formatTokens(row.totalTokens) },
     {
       header: 'Events',
       align: 'r',
       kind: 'minor',
-      cell: (row) => integerFormatter.format(row.events),
+      cell: (row) => formatInteger(row.events),
     },
     {
       header: 'Active Days',
       align: 'r',
       kind: 'minor',
-      cell: (row) => integerFormatter.format(row.activeDays),
+      cell: (row) => formatInteger(row.activeDays),
     },
   ];
   const projectRows = data.projects.map((row) => ({
@@ -171,7 +150,7 @@ function buildPeriodTable(
     {
       header: MODELS_HEADER,
       align: 'l',
-      cell: (row) => formatModels(row.models.slice(0, TOP_MODEL_COUNT)),
+      cell: (row) => formatBulletedList(row.models.slice(0, TOP_MODEL_COUNT)),
     },
     { header: 'Cost', align: 'r', kind: 'cost', cell: formatCost },
     { header: 'Tokens', align: 'r', cell: (row) => formatTokens(row.totalTokens) },

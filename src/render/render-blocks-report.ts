@@ -3,10 +3,11 @@ import { markdownTable } from 'markdown-table';
 import type { BlockBurnRate } from '../blocks/aggregate-blocks.js';
 import type { BlockRow, BlocksReportData } from '../cli/build-blocks-data.js';
 import { formatLocalDateTime, formatLocalDateTimeSpan } from './format-local-date-time.js';
+import { formatApproxUsd, formatInteger } from './format-number.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { renderReportJson } from './report-json.js';
-import { formatAbbreviatedTokenCount } from './row-cells.js';
+import { formatAbbreviatedTokenCount, formatBulletedList } from './row-cells.js';
 import { resolveTtyColumns, wrapTableColumn } from './table-text-layout.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
 import { columnKindsFromAlign, renderUnicodeTable } from './unicode-table.js';
@@ -41,21 +42,8 @@ type CellContext = {
   formatTokens: (value: number) => string;
 };
 
-const integerFormatter = new Intl.NumberFormat('en-US');
-const usdFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
 function formatCost(value: { costUsd?: number; costIncomplete?: boolean }): string {
-  if (value.costUsd === undefined) {
-    return '-';
-  }
-
-  const formatted = usdFormatter.format(value.costUsd);
-  return value.costIncomplete ? `~${formatted}` : formatted;
+  return formatApproxUsd(value.costUsd, value.costIncomplete);
 }
 
 /**
@@ -75,9 +63,9 @@ const blockColumns: readonly BlockColumn[] = [
   { header: 'Source', cell: (row) => row.source },
   {
     header: 'Models',
-    cell: (row) => (row.models.length === 0 ? '-' : row.models.map((m) => `• ${m}`).join('\n')),
+    cell: (row) => formatBulletedList(row.models),
   },
-  { header: 'Events', cell: (row) => integerFormatter.format(row.eventCount) },
+  { header: 'Events', cell: (row) => formatInteger(row.eventCount) },
   { header: 'Input', cell: (row, { formatTokens }) => formatTokens(row.inputTokens) },
   { header: 'Output', cell: (row, { formatTokens }) => formatTokens(row.outputTokens) },
   {
@@ -105,9 +93,7 @@ function buildTable(data: BlocksReportData, options: RenderBlocksReportOptions) 
   const columns = selectVisibleColumns(options);
   const context: CellContext = {
     timezone: data.timezone,
-    formatTokens: options.compact
-      ? formatAbbreviatedTokenCount
-      : (value) => integerFormatter.format(value),
+    formatTokens: options.compact ? formatAbbreviatedTokenCount : (value) => formatInteger(value),
   };
 
   return {
@@ -117,7 +103,7 @@ function buildTable(data: BlocksReportData, options: RenderBlocksReportOptions) 
 }
 
 function formatBurnRate(active: BlockBurnRate, options: RenderBlocksReportOptions): string {
-  const rates = [`${integerFormatter.format(active.tokensPerHour)} tokens/h`];
+  const rates = [`${formatInteger(active.tokensPerHour)} tokens/h`];
 
   if (!options.hideCost && active.costUsdPerHour !== undefined) {
     rates.unshift(
