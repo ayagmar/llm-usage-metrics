@@ -35,7 +35,10 @@ export function resolveUntil(report: ShareReport, until: string | null): string 
   return end !== undefined && (until === null || until > end) ? end : until;
 }
 
-/** A range's start as the page shows it: an open start is the window's, else the first date with data. */
+/**
+ * A range's start as the page shows it: an open start is the window's, else the first date with
+ * data (a file made with `--all` has no window start).
+ */
 export function resolveSince(report: ShareReport, since: string | null): string | undefined {
   return (
     since ??
