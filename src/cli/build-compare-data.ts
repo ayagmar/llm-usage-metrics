@@ -23,6 +23,7 @@ import type {
   CompareWindowTotals,
 } from './usage-data-contracts.js';
 import { addUsd } from '../utils/usd-math.js';
+import { computeDeltaRatio } from '../utils/delta-ratio.js';
 import {
   createEmptyWindowTotals,
   isEventWithinWindow,
@@ -235,21 +236,6 @@ function subtractValues(
   }
 
   return current - baseline;
-}
-
-function computeDeltaRatio(
-  current: number | undefined,
-  baseline: number | undefined,
-): number | undefined {
-  if (current === undefined || baseline === undefined) {
-    return undefined;
-  }
-
-  if (baseline === 0) {
-    return current === 0 ? 0 : undefined;
-  }
-
-  return (current - baseline) / baseline;
 }
 
 function buildMetricRows(
