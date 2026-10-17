@@ -48,7 +48,13 @@ export function stripRawText(html) {
 }
 
 function isNameBoundary(character) {
-  return character === ' ' || character === '\t' || character === '\n' || character === '\r';
+  return (
+    character === ' ' ||
+    character === '\t' ||
+    character === '\n' ||
+    character === '\r' ||
+    character === '\f'
+  );
 }
 
 function isTagStart(character) {
@@ -94,17 +100,36 @@ export function startTags(html) {
   return tags;
 }
 
-/** The value of attribute `name` in one start tag (quoted or bare), entities decoded. */
+/**
+ * The values of attribute `name` in one start tag, entities decoded. Attributes are read in
+ * order as HTML tokenizes them: optional whitespace around `=`, quoted or bare values, and
+ * names case-insensitive, so `href = "…"` counts and `title="href=…"` does not.
+ */
 function readAttributes(tag, name, values) {
-  const lower = tag.toLowerCase();
-  const needle = `${name}=`;
-  let position = 0;
+  let position = 1;
+  while (position < tag.length && !isNameBoundary(tag[position]) && tag[position] !== '>') {
+    position += 1;
+  }
 
   for (;;) {
-    const at = lower.indexOf(needle, position);
-    if (at === -1) return;
-    position = at + needle.length;
-    if (!isNameBoundary(tag[at - 1])) continue;
+    while (isNameBoundary(tag[position]) || tag[position] === '/') position += 1;
+    if (position >= tag.length || tag[position] === '>') return;
+
+    const nameStart = position;
+    position += 1;
+    while (
+      position < tag.length &&
+      !isNameBoundary(tag[position]) &&
+      !'/>='.includes(tag[position])
+    ) {
+      position += 1;
+    }
+    const attribute = tag.slice(nameStart, position).toLowerCase();
+
+    while (isNameBoundary(tag[position])) position += 1;
+    if (tag[position] !== '=') continue;
+    position += 1;
+    while (isNameBoundary(tag[position])) position += 1;
 
     const quote = tag[position];
     let value;
@@ -114,12 +139,13 @@ function readAttributes(tag, name, values) {
       value = tag.slice(position + 1, end);
       position = end + 1;
     } else {
-      let end = position;
-      while (end < tag.length && !isNameBoundary(tag[end]) && tag[end] !== '>') end += 1;
-      value = tag.slice(position, end);
-      position = end;
+      const end = position;
+      while (position < tag.length && !isNameBoundary(tag[position]) && tag[position] !== '>') {
+        position += 1;
+      }
+      value = tag.slice(end, position);
     }
-    values.push(decodeEntities(value));
+    if (attribute === name) values.push(decodeEntities(value));
   }
 }
 

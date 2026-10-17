@@ -12,6 +12,10 @@ export const DEMO_PROJECTS = ['atlas-api', 'web-console', 'ingest-worker', 'docs
 export const DEMO_DAYS = 90;
 
 const DAY_MS = 86_400_000;
+// The latest session start (21:59) plus the longest gap before its first request fit in 23
+// hours, so squeezing the run date's schedule into the time elapsed since midnight keeps at
+// least one request at or before the run time.
+const SCHEDULE_MS = 23 * 3_600_000;
 
 // Relative weight of each project per source, in DEMO_PROJECTS order.
 const PROJECT_WEIGHTS = {
@@ -112,8 +116,12 @@ function dayStarts(endDate, days) {
   return Array.from({ length: days }, (_, index) => end - (days - 1 - index) * DAY_MS);
 }
 
-/** Sessions of one source: start time, project, model, request times. */
-function planSessions(random, source, starts) {
+/**
+ * Sessions of one source: start time, project, model, request times. On the run date the
+ * schedule is scaled into the time between midnight and `now`, so that day has usage at any
+ * run time.
+ */
+function planSessions(random, source, starts, now) {
   const sessions = [];
   const last = starts.length - 1;
 
@@ -124,19 +132,19 @@ function planSessions(random, source, starts) {
     const growth = 0.7 + (0.6 * dayIndex) / last;
     const mean = SESSIONS_PER_DAY[source] * growth * (weekend ? 0.33 : 1);
     const count = dayIndex === last ? Math.max(2, random.count(mean)) : random.count(mean);
+    const scale = dayIndex === last ? Math.min(1, (now - dayStart) / SCHEDULE_MS) : 1;
 
     for (let index = 0; index < count; index += 1) {
       const hour = random.weighted(
         [7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 19, 21],
         [1, 3, 4, 4, 3, 3, 4, 4, 3, 2, 1, 1],
       );
-      const start = dayStart + hour * 3_600_000 + random.int(0, 59) * 60_000;
+      let offset = (hour * 3_600_000 + random.int(0, 59) * 60_000) * scale;
       const requests = random.int(6, 36);
       const times = [];
-      let time = start;
       for (let request = 0; request < requests; request += 1) {
-        time += random.int(20, 240) * 1000;
-        times.push(time);
+        offset += random.int(20, 240) * 1000 * scale;
+        times.push(dayStart + Math.floor(offset));
       }
       const model = random.weighted(
         MODELS[source],
@@ -335,7 +343,7 @@ export async function writeDemoData({ home, seed = 20_261_017, now, days = DEMO_
   }
 
   for (const source of DEMO_SOURCES) {
-    for (const planned of planSessions(random, source, starts)) {
+    for (const planned of planSessions(random, source, starts, now)) {
       const session = { ...planned, times: planned.times.filter((time) => time <= now) };
       if (session.times.length === 0) continue;
       const sessionRandom = createRandom(session.seed);

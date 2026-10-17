@@ -13,7 +13,7 @@ Every adapter turns its source's on-disk format into the same normalized events.
 
 `SessionEvent` is a union on `kind` (`EVENT_KINDS`, in this order):
 
-- `usage`: one model call. Requires `inputTokens`, `outputTokens`, `reasoningTokens`, `cacheReadTokens`, `cacheWriteTokens`, `cacheWrite1hTokens`, and `totalTokens`.
+- `usage`: one usage record as the source logged it. For a source with `capabilities.usagePerRequest` that is one model request; other sources can log several requests as one record (see [per-request usage](/llm-usage-metrics/library/contracts/#per-request-usage)). Requires `inputTokens`, `outputTokens`, `reasoningTokens`, `cacheReadTokens`, `cacheWriteTokens`, `cacheWrite1hTokens`, and `totalTokens`.
 - `message`: a user, assistant, or system turn. Requires `role` (`user`, `assistant`, or `system`) and `textLength`.
 - `tool_call`: one tool call, yielded when its result is seen. Requires `name` and `status` (`ok`, `error`, or `unknown`).
 - `session_meta`: facts about the session. Every field is optional: `cwd`, `title`, `gitBranch`, `agentVersion`, `parentSessionId`, `model`, `rawProvider`.
@@ -47,7 +47,7 @@ The constructors (`createUsageEvent`, `createUsageRecord`, `createMessageEvent`,
 - Token counts become non-negative integers; a missing or non-finite count becomes 0.
 - `model` is trimmed, lowercased, and capped at 256 characters. Text fields lose control characters.
 - `provider` is normalized to the billing entity: `openai-codex` and any `openai-` or `openai/` prefix become `openai`, `github-copilot` becomes `github`. When a source logs no provider, adapters infer one from the model name (`gpt-`, `o1`/`o3`/`o4` → `openai`, `claude` → `anthropic`, `gemini` → `google`).
-- Keys whose value is undefined are dropped, so events compare and serialize the same way.
+- `createUsageEvent` always sets `repoRoot`, `provider`, `model`, and `costUsd`, to `undefined` when unknown, so `Object.hasOwn(event, 'costUsd')` can be true with no cost. The other constructors leave undefined keys out, as does `createUsageRecord` for the `messageId`, `requestId`, `rawProvider`, and `raw` it adds. `JSON.stringify` drops undefined values, so serialized events of every kind hold only the fields that are set.
 
 `USAGE_EVENT_NORMALIZATION_VERSION` (currently 2) is part of every parser version. Changing normalization changes it, which re-reads every stored file; see [Dedup and cursors](/llm-usage-metrics/architecture/dedup-and-cursors/).
 
