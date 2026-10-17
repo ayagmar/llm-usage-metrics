@@ -1,6 +1,6 @@
 import { getEventSessionKey, type ToolCallEvent } from '@ayagmar/agent-sessions';
 
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 
 /** Call counts shared by a tool row and the totals. */
 export type ToolCallCounts = {

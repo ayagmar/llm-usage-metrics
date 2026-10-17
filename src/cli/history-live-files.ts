@@ -5,7 +5,7 @@ import {
   readUndiscoveredStoredFiles,
   type LoadHistoryEventsInput,
 } from '../persistence/event-store-history.js';
-import { hasErrorCode } from '../utils/error-code.js';
+import { hasErrorCode } from '@ayagmar/agent-sessions/internal';
 
 type StatFile = (filePath: string) => Promise<unknown>;
 

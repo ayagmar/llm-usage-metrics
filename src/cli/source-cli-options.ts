@@ -5,7 +5,7 @@ import {
   sourceSupportsDirectories,
 } from '@ayagmar/agent-sessions/registry';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import {
   type SourceDirectoryValue,
   toSourceDirectoryList,

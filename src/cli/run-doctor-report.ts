@@ -12,7 +12,7 @@ import {
 } from '../persistence/event-store.js';
 import { getSourceStorageFormat, type SourceStorageFormat } from '@ayagmar/agent-sessions/registry';
 import { collectFile, type SourceAdapter } from '@ayagmar/agent-sessions';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { compareByCodePoint, hasErrorCode } from '@ayagmar/agent-sessions/internal';
 import { logger } from '../utils/logger.js';
 import {
   resolveExplicitSourceIds,
@@ -31,7 +31,6 @@ import { renderReportJson } from '../render/report-json.js';
 import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
 import type { DoctorCommandOptions } from './usage-data-contracts.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
-import { hasErrorCode } from '../utils/error-code.js';
 
 /**
  * found: files with readable usage. not_installed: no files in any searched path.

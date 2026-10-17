@@ -4,9 +4,9 @@ import {
   intersectCanonicalProviderRoots,
   normalizeProviderToBillingEntity,
   resolveExplicitProviderRoots,
+  compareByCodePoint,
 } from '@ayagmar/agent-sessions/internal';
 import { getDefaultSourceIds } from '@ayagmar/agent-sessions/registry';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { suggestClosest } from '../utils/suggest-closest.js';
 import { normalizeRepoFilter, type RepoFilter } from './repo-filter.js';
 import type { RuntimeProfileCollector } from './runtime-profile.js';

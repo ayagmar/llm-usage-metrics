@@ -1,4 +1,4 @@
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 
 /** The label of usage without a repository root. */
 export const UNATTRIBUTED_PROJECT_LABEL = '(unattributed)';

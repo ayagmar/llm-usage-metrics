@@ -12,7 +12,7 @@ import {
   type SourceAdapter,
   type SourceParseFileDiagnostics,
 } from '@ayagmar/agent-sessions';
-import { asRecord } from '../utils/as-record.js';
+import { asRecord } from '@ayagmar/agent-sessions/internal';
 import { getErrorReason } from '../utils/get-error-reason.js';
 
 export type ParseWorkerTask = {

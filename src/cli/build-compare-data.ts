@@ -1,6 +1,6 @@
 import { buildEventProjectLabels, toProjectKey } from '../aggregate/project-key.js';
 import type { UsageEvent } from '../domain/usage-event.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { getCurrentLocalDateKey, getPeriodKey, shiftLocalDateKey } from '../utils/time-buckets.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import { normalizeBuildUsageInputs, validateDateInput } from './build-usage-data-inputs.js';

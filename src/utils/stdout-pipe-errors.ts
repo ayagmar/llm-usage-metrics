@@ -1,4 +1,4 @@
-import { hasErrorCode } from './error-code.js';
+import { hasErrorCode } from '@ayagmar/agent-sessions/internal';
 
 type ErrorEmitter = {
   on(event: 'error', listener: (error: Error) => void): unknown;

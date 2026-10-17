@@ -7,7 +7,7 @@ import type {
   TimelineToolCallRow,
   TimelineUsageRow,
 } from '../session/session-timeline.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { formatDuration } from './format-duration.js';
 import { formatLocalDateTime, formatLocalDateTimeSpan } from './format-local-date-time.js';
 import { formatApproxUsd, formatInteger, formatUsd, pluralize } from './format-number.js';

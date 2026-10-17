@@ -4,7 +4,7 @@ import {
   UNATTRIBUTED_PROJECT_LABEL,
 } from '../aggregate/project-key.js';
 import { LOCAL_MACHINE_NAME } from '../domain/usage-event.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 
 /** The model label of usage that names no model. */
 export const UNKNOWN_MODEL_LABEL = '(unknown)';

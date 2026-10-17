@@ -16,7 +16,6 @@ import {
   type EventStore,
   type EventStoreFileFingerprint,
 } from '../persistence/event-store.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import type { SourceAdapter, SourceSkippedRowReasonStat } from '@ayagmar/agent-sessions';
 import { normalizeSkippedRowReasons } from './normalize-skipped-row-reasons.js';
 import {
@@ -32,11 +31,12 @@ import {
 } from './parse/event-store-parse-cache.js';
 import { createParseBudget, type RunWithParseBudget } from './parse/parse-budget.js';
 import {
+  compareByCodePoint,
   getFileByteSize,
   getNewestFingerprintMtimeMs,
   getFileFingerprint,
   getPrimaryFingerprintByteSize,
-} from './parse/parse-fingerprint.js';
+} from '@ayagmar/agent-sessions/internal';
 import { getSinceFileSkipCutoffMs } from './parse/since-file-skip.js';
 import type { RuntimeProfileCollector } from './runtime-profile.js';
 import {

@@ -1,5 +1,5 @@
 import type { UsageReportRow } from '../domain/usage-report-row.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import {
   createEmptyEfficiencyOutcomeTotals,
   createEmptyEfficiencyUsageTotals,

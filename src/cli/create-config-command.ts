@@ -25,7 +25,7 @@ import { formatHelpExamples } from './report-definitions/report-definitions.js';
 import { registerSharedReportOptions } from './report-definitions/shared-report-options.js';
 import { prepareReport, runPreparedReport } from './report-runtime/report-lifecycle.js';
 import type { ConfigShowCommandOptions } from './usage-data-contracts.js';
-import { hasErrorCode } from '../utils/error-code.js';
+import { hasErrorCode } from '@ayagmar/agent-sessions/internal';
 
 type ConfigInitOptions = {
   force?: boolean;

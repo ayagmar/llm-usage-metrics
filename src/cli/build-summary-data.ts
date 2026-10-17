@@ -8,7 +8,7 @@ import { buildEventProjectLabels } from '../aggregate/project-key.js';
 import { findSpendSpikes, findSpikeDrivers } from '../aggregate/spend-spikes.js';
 import { LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
 import { estimateCacheSavingsUsd } from '../pricing/cache-savings.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { getCurrentLocalDateKey, shiftLocalDateKey } from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions, type UserConfigResolution } from './apply-user-config.js';
 import {

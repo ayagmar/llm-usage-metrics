@@ -6,7 +6,7 @@ import {
   hasUsedBucketWithUndefinedRate,
 } from '../pricing/cost-engine.js';
 import type { ModelPricing, PricingSource } from '../pricing/types.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import type { OptimizeBaselineRow, OptimizeCandidateRow, OptimizeRow } from './optimize-row.js';
 import { addUsd, roundUsd } from '../utils/usd-math.js';
 

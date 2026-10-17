@@ -1,8 +1,11 @@
-import { addHashCount, takeUncountedEvents } from '@ayagmar/agent-sessions/internal';
+import {
+  addHashCount,
+  takeUncountedEvents,
+  compareByCodePoint,
+} from '@ayagmar/agent-sessions/internal';
 
 import type { UsageEvent } from '../domain/usage-event.js';
 import { normalizeSourceId } from '../domain/usage-event.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { normalizeStoredEvent } from './event-store-codec.js';
 import { toNonNegativeInteger, toText, type EventStore } from './event-store-database.js';
 

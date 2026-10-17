@@ -5,7 +5,7 @@ import {
   type UsageEvent,
 } from '../domain/usage-event.js';
 import type { TokenBuckets } from '../domain/usage-report-row.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { addUsd } from '../utils/usd-math.js';
 
 /** One priced request, with the session's cost up to and including it. */

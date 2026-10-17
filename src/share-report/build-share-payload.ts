@@ -1,7 +1,7 @@
 import { IDLE_GAP_CAP_MS } from '@ayagmar/agent-sessions';
 import { getEventSessionKey, LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
 import type { UsageBlock } from '../blocks/aggregate-blocks.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { getLocalHourBucket, getPeriodKey, shiftLocalDateKey } from '../utils/time-buckets.js';
 import { addUsd } from '../utils/usd-math.js';
 import { escapeJsonForScript } from './client/ui/export/share-document.js';

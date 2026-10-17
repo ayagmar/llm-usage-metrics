@@ -1,7 +1,7 @@
 import { aggregateUsage } from '../aggregate/aggregate-usage.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import type { PeriodProjectRow } from '../domain/usage-report-row.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { getPeriodKeyRange } from '../utils/time-buckets.js';
 import { addUsd } from '../utils/usd-math.js';
 import { PLANS_AS_OF, type SelectedPlan } from './plans.js';

@@ -1,5 +1,5 @@
 import type { UsageEvent } from '../domain/usage-event.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { getLocalDateKeyRange, shiftLocalDateKey } from '../utils/time-buckets.js';
 import { addUsd } from '../utils/usd-math.js';
 import { toProjectKey } from './project-key.js';

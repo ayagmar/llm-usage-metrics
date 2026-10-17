@@ -1,7 +1,7 @@
 import { toRankedModelUsage } from '../aggregate/aggregate-usage.js';
 import type { ModelUsageBreakdown, UsageTotals } from '../domain/usage-report-row.js';
 import type { UsageEvent } from '../domain/usage-event.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { addUsd, roundUsd } from '../utils/usd-math.js';
 
 const HOUR_MS = 60 * 60 * 1000;

@@ -1,7 +1,7 @@
 import { getEventSessionKey, type UsageEvent } from '../domain/usage-event.js';
 import { estimateLongContextExtraUsd, getPromptTokens } from '../pricing/cost-engine.js';
 import type { ModelPricing } from '../pricing/types.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { addUsd } from '../utils/usd-math.js';
 
 /** A request whose prompt is above this many tokens counts as long-context. */

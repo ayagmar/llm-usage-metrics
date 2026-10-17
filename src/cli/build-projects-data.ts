@@ -11,7 +11,7 @@ import type {
   ProjectUsageReportRow,
   UsageTotals,
 } from '../domain/usage-report-row.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
+import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 import { getPeriodKey, type ReportGranularity } from '../utils/time-buckets.js';
 import { roundRatio } from '../value/build-value-report.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';

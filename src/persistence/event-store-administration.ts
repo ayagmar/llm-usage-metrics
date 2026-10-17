@@ -8,10 +8,11 @@ import {
   loadNodeSqliteModule,
   type FileDependencyFingerprint as EventStoreDependencyFingerprint,
   type FileFingerprint as EventStoreFileFingerprint,
+  compareByCodePoint,
+  hasErrorCode,
 } from '@ayagmar/agent-sessions/internal';
 import type { SourceSkippedRowReasonStat } from '@ayagmar/agent-sessions';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
-import { compareByCodePoint } from '../utils/compare-by-code-point.js';
 import { getUserDataRootDir } from '../utils/data-root-dir.js';
 import { ensureDirectory, pathExists, pathStat } from '../utils/fs-helpers.js';
 import {
@@ -36,7 +37,6 @@ import {
   EVENT_STORE_SCHEMA_VERSION,
   initializeSchema,
 } from './event-store-schema.js';
-import { hasErrorCode } from '../utils/error-code.js';
 
 const EVENT_STORE_OPEN_TIMEOUT_MS = 2_000;
 
