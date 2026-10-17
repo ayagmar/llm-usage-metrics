@@ -41,7 +41,7 @@ What `readSources(context, ids, options)` does:
 - **Order.** Sources come out in registry order whatever order `ids` lists them in (pi, then codex, then claude above), files in discovery order, and each file's events in file order.
 - **Options.** `kinds`, `text` and `raw` as for `readEvents` below, plus `since`, `until`, `dedupe`, `diagnostics` and `roots`.
 - **Dedup.** `dedupe` is on by default and counts repeated usage once, as the CLI does: `repeatedAcrossFiles` for pi, then `copiedSessions` for claude. `since` and `until` apply after it. With `dedupe` on, each file's events are collected before they are yielded, and a claude source is held in full until its last file. `dedupe: false` streams.
-- **Failures.** Without `onDiagnostic`, a failed discovery or read throws. With it, the failure becomes a `warn` diagnostic: a failed discovery skips the source, and a failed read skips the file.
+- **Failures.** Without `onDiagnostic`, a failed discovery or read throws. With it, the failure becomes a `warn` diagnostic: a failed discovery skips the source, and a failed read moves on to the next file. With `dedupe` on, a file whose read fails yields none of its events, as in the CLI. With `dedupe: false`, the events it yielded before the failure are already out, so a retry of that file counts them again.
 - **Other locations.** `roots` maps a source id to the directories to read instead of its defaults, for example `new Map([['codex', ['/path/to/codex/sessions']]])`. An explicit root must exist. opencode and goose, which read one database, take exactly one path.
 
 An unknown id, a `roots` entry for a source not in `ids`, or an invalid `since` or `until` throws before anything is read.
@@ -99,7 +99,7 @@ A directory-backed adapter takes `{ dir, requireDir, context }`; opencode and go
 
 claude, codex and pi produce all four kinds. Every other source produces `usage` only; asking it for another kind yields nothing for that kind, not an error. `capabilities.kinds` on an adapter lists what it produces.
 
-`readEvents` options are `kinds` (default: every kind the adapter declares), `text` (message text and session titles, default off), `raw` (the parsed source record on each event, default off), `diagnostics` and `resume`. `kinds('usage', 'tool_call')` is the same filter as a stage, and narrows the type; `isUsageRecord(event)` narrows one event.
+`readEvents` options are `kinds` (default: every kind the adapter declares), `text` (message text and session titles, default off), `raw` (the parsed source record on each event, default off), `diagnostics` and `resume`. Only claude, codex and pi attach `raw`; other sources yield usage records without it, and without `messageId`, `requestId` or `rawProvider`, even with `raw: true`. `kinds('usage', 'tool_call')` is the same filter as a stage, and narrows the type; `isUsageRecord(event)` narrows one event.
 
 On usage events, `inputTokens` excludes cache reads and writes, `outputTokens` includes reasoning, and `reasoningTokens` is the reasoning part of it.
 
