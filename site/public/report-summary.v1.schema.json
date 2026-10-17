@@ -40,6 +40,10 @@
         "activity": {
           "description": "Daily activity and streaks. Always emitted by current releases; optional so v1 reports from earlier releases stay valid.",
           "$ref": "#/$defs/activity"
+        },
+        "spike": {
+          "description": "The costliest spend spike of the last 7 days: a day costing at least $1 and at least 3 times the median daily cost of the 28 days before it (days without usage count as 0). Absent when no day of the last 7 is one.",
+          "$ref": "#/$defs/spike"
         }
       },
       "required": ["timezone", "periods"],
@@ -47,6 +51,39 @@
     }
   },
   "$defs": {
+    "spike": {
+      "type": "object",
+      "properties": {
+        "date": {
+          "description": "Local date (YYYY-MM-DD).",
+          "type": "string"
+        },
+        "costUsd": {
+          "description": "Cost of the day.",
+          "type": "number",
+          "minimum": 0
+        },
+        "costIncomplete": {
+          "description": "True when some events of the day had no known price.",
+          "type": "boolean"
+        },
+        "medianUsd": {
+          "description": "Median daily cost of the 28 days before the spike.",
+          "type": "number",
+          "minimum": 0
+        },
+        "project": {
+          "description": "Label of the project with the largest share of the day's cost.",
+          "type": "string"
+        },
+        "model": {
+          "description": "The model with the largest share of the day's cost; absent when those events name no model.",
+          "type": "string"
+        }
+      },
+      "required": ["date", "costUsd", "medianUsd"],
+      "additionalProperties": false
+    },
     "windowTotals": {
       "type": "object",
       "description": "Usage totals for one period (non-negative).",

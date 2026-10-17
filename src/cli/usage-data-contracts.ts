@@ -1,5 +1,6 @@
 import type { SpawnSsh } from '../machines/machine-ssh.js';
 import type { DailyActivity } from '../aggregate/daily-activity.js';
+import type { SpendSpike } from '../aggregate/spend-spikes.js';
 import type { EnvVarOverride } from '../config/env-var-display.js';
 import type { ActiveConfig } from '../config/active-config-display.js';
 import type {
@@ -438,6 +439,15 @@ export type SummaryMonthEnd = {
   budgetUsd?: number;
 };
 
+/** The costliest spike day of the last 7 days, and what drove it. */
+export type SummarySpendSpike = SpendSpike & {
+  costIncomplete?: boolean;
+  /** Label of the project with the largest share of the day's cost. */
+  project?: string;
+  /** The model with the largest share of the day's cost. */
+  model?: string;
+};
+
 export type SummaryDataResult = {
   timezone: string;
   periods: SummaryPeriod[];
@@ -446,6 +456,8 @@ export type SummaryDataResult = {
   monthToDateCacheSavingsUsd?: number;
   /** Daily activity over the past 53 ISO weeks, ending today. */
   activity: DailyActivity;
+  /** Absent when no day of the last 7 is a spend spike. */
+  spike?: SummarySpendSpike;
   diagnostics: UsageDiagnostics;
 };
 
