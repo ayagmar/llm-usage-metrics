@@ -49,11 +49,14 @@ export const PLAN_IDS: readonly PlanId[] = SUBSCRIPTION_PLANS.map((plan) => plan
 
 export const DEFAULT_PLAN_ID: PlanId = 'claude-max-20x';
 
+/** The default plan when the source filter leaves out every source of `DEFAULT_PLAN_ID`. */
+export const FALLBACK_PLAN_ID: PlanId = 'chatgpt-pro-200';
+
 /**
  * The default plan without `--plan`, in order of preference: the first one whose sources
  * the source filter keeps, so a filter that leaves out claude still gets a report.
  */
-const DEFAULT_PLAN_IDS: readonly PlanId[] = [DEFAULT_PLAN_ID, 'chatgpt-pro-200'];
+const DEFAULT_PLAN_IDS: readonly PlanId[] = [DEFAULT_PLAN_ID, FALLBACK_PLAN_ID];
 
 /** A plan the report compares against, with the monthly price it uses. */
 export type SelectedPlan = {
