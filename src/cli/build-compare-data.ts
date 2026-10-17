@@ -23,6 +23,7 @@ import type {
   CompareWindowTotals,
 } from './usage-data-contracts.js';
 import { addUsd } from '../utils/usd-math.js';
+import { countDateKeyDays, getMonthEndDateKey } from '../utils/date-key.js';
 import { computeDeltaRatio } from '../utils/delta-ratio.js';
 import {
   createEmptyWindowTotals,
@@ -41,12 +42,6 @@ export type CompareProjectRow = Omit<CompareSourceRow, 'source'> & {
 /** Compare data, with one row per project under `--by-repo`. */
 export type CompareReportData = CompareDataResult & {
   projects?: CompareProjectRow[];
-};
-
-type DateParts = {
-  year: number;
-  month: number;
-  day: number;
 };
 
 type ResolvedCompareWindows = {
@@ -74,45 +69,20 @@ const metricDefinitions: Array<{
   { key: 'activeDays', label: 'Active days', valueType: 'integer' },
 ];
 
-function parseDateKey(value: string): DateParts {
-  const [year, month, day] = value.split('-').map((part) => Number.parseInt(part, 10));
-
-  return { year, month, day };
-}
-
-function formatDateKey(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
 function getMonthStart(dateKey: string): string {
-  const { year, month } = parseDateKey(dateKey);
-  return `${year}-${String(month).padStart(2, '0')}-01`;
-}
-
-function getMonthEnd(dateKey: string): string {
-  const { year, month } = parseDateKey(dateKey);
-  return formatDateKey(new Date(Date.UTC(year, month, 0)));
+  return `${dateKey.slice(0, 8)}01`;
 }
 
 function getPreviousMonthRange(dateKey: string): CompareWindowRange {
-  const { year, month } = parseDateKey(dateKey);
-  const previousMonthDay = formatDateKey(new Date(Date.UTC(year, month - 2, 1)));
+  const until = shiftLocalDateKey(getMonthStart(dateKey), -1);
 
-  return {
-    since: getMonthStart(previousMonthDay),
-    until: getMonthEnd(previousMonthDay),
-    label: previousMonthDay.slice(0, 7),
-  };
-}
-
-function countInclusiveDays(since: string, until: string): number {
-  const sinceMs = new Date(`${since}T00:00:00.000Z`).getTime();
-  const untilMs = new Date(`${until}T00:00:00.000Z`).getTime();
-  return Math.floor((untilMs - sinceMs) / (24 * 60 * 60 * 1000)) + 1;
+  return { since: getMonthStart(until), until, label: until.slice(0, 7) };
 }
 
 function isFullCalendarMonth(range: { since: string; until: string }): boolean {
-  return range.since === getMonthStart(range.since) && range.until === getMonthEnd(range.since);
+  return (
+    range.since === getMonthStart(range.since) && range.until === getMonthEndDateKey(range.since)
+  );
 }
 
 function createRange(since: string, until: string): CompareWindowRange {
@@ -137,9 +107,7 @@ export function createPreviousMonthToDateWindow(
   current: Pick<CompareWindowRange, 'since' | 'until'>,
 ): CompareWindowRange {
   const previousMonth = getPreviousMonthRange(current.since);
-  const { day } = parseDateKey(current.until);
-  const { year, month } = parseDateKey(previousMonth.since);
-  const sameDayKey = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const sameDayKey = `${previousMonth.since.slice(0, 8)}${current.until.slice(8, 10)}`;
   const until = sameDayKey < previousMonth.until ? sameDayKey : previousMonth.until;
 
   return createRange(previousMonth.since, until);
@@ -148,7 +116,7 @@ export function createPreviousMonthToDateWindow(
 export function createPreviousSameLengthWindow(
   current: Pick<CompareWindowRange, 'since' | 'until'>,
 ): CompareWindowRange {
-  const dayCount = countInclusiveDays(current.since, current.until);
+  const dayCount = countDateKeyDays(current.since, current.until);
   const until = shiftLocalDateKey(current.since, -1);
   const since = shiftLocalDateKey(current.since, -dayCount);
 

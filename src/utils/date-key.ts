@@ -77,6 +77,22 @@ export function formatDateKey(parts: DateParts): string {
   return `${String(parts.year).padStart(4, '0')}-${pad2(parts.month)}-${pad2(parts.day)}`;
 }
 
+/** Days in a calendar month (`month` from 1 to 12). */
+export function getDaysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+/** The last date key of a valid date key's month. */
+export function getMonthEndDateKey(dateKey: string): string {
+  const { year, month } = parseDateKeyOrThrow(dateKey);
+  return formatDateKey({ year, month, day: getDaysInMonth(year, month) });
+}
+
+/** Days from `since` to `until`, both inclusive; throws on an invalid key. */
+export function countDateKeyDays(since: string, until: string): number {
+  return toDayNumber(parseDateKeyOrThrow(until)) - toDayNumber(parseDateKeyOrThrow(since)) + 1;
+}
+
 /** ISO day of week: 1 = Monday … 7 = Sunday. */
 export function getIsoDayOfWeek(parts: DateParts): number {
   // 1970-01-01 was a Thursday (4).

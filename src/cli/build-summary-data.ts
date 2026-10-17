@@ -9,6 +9,7 @@ import { findSpendSpikes, findSpikeDrivers } from '../aggregate/spend-spikes.js'
 import { LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
 import { estimateCacheSavingsUsd } from '../pricing/cache-savings.js';
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
+import { getDaysInMonth } from '../utils/date-key.js';
 import { getCurrentLocalDateKey, shiftLocalDateKey } from '../utils/time-buckets.js';
 import { resolveUserConfigForOptions, type UserConfigResolution } from './apply-user-config.js';
 import {
@@ -86,9 +87,7 @@ export function resolveMonthEnd(
   budgetUsd: number | undefined,
 ): SummaryMonthEnd {
   const daysElapsed = Number(today.slice(8, 10));
-  const daysInMonth = new Date(
-    Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)), 0),
-  ).getUTCDate();
+  const daysInMonth = getDaysInMonth(Number(today.slice(0, 4)), Number(today.slice(5, 7)));
   const costUsd = monthToDate?.totals.costUsd;
   const monthEnd: SummaryMonthEnd = { daysElapsed, daysInMonth };
   const hasUsage = (monthToDate?.totals.events ?? 0) > 0;
