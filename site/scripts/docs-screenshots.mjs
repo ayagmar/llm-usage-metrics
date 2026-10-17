@@ -10,7 +10,7 @@ import { copyFile, mkdir, mkdtemp, readdir, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { promisify } from 'node:util';
+import { promisify, stripVTControlCharacters } from 'node:util';
 
 import sharp from 'sharp';
 
@@ -63,6 +63,9 @@ const TERMINAL_SHOTS = [
   { name: 'term-wrapped', args: ['wrapped'], flags: 'report' },
   { name: 'term-doctor', args: ['doctor'], flags: 'sources' },
 ];
+
+// What a report prints when the demo data has no usage for it; a shot showing one is wrong.
+const EMPTY_OUTPUT_MARKERS = ['No usage data found', '$0.00 today'];
 
 function fail(message) {
   console.error(message);
@@ -160,6 +163,10 @@ async function shootTerminals(browser, { env, cwd, dirs }) {
           ? sourceFlags(dirs)
           : [];
     const ansi = await runCli([...shot.args, ...added, ...(shot.extra ?? [])], { env, cwd });
+    const text = stripVTControlCharacters(ansi);
+    const marker = EMPTY_OUTPUT_MARKERS.find((value) => text.includes(value));
+    if (marker)
+      throw new Error(`llm-usage ${shot.args.join(' ')} printed "${marker}" for the demo data`);
     await page.setContent(terminalPage(`llm-usage ${shot.args.join(' ')}`, ansi));
     await page.evaluate(() => document.fonts.ready);
     const png = await page.locator('.terminal').screenshot({ omitBackground: true });
