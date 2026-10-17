@@ -1,0 +1,7 @@
+| Model             | Requests |    Peak | >200k | Tier extra |     Limit | >80% limit |
+| :---------------- | -------: | ------: | ----: | ---------: | --------: | ---------: |
+| gemini-2.5-pro    |        2 | 250,000 |     1 |      $0.31 | 1,048,576 |          0 |
+| claude-sonnet-4-5 |        2 | 175,000 |     0 |      $0.00 |   200,000 |          1 |
+| acme-internal-1   |        1 |   9,000 |     0 |          - |           |            |
+
+Aggregated, not per request: codex (1 record). Their records sum several requests, so they have no peak or tier counts.

@@ -802,6 +802,69 @@ describe('LiteLLMPricingFetcher', () => {
     ]);
   });
 
+  it('reads context limits for priced models and keeps them through the pricing cache', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-limit-cache-'));
+    tempDirs.push(rootDir);
+    const cacheFilePath = path.join(rootDir, 'cache.json');
+    const payload = {
+      'model-a': {
+        input_cost_per_token: 0.000001,
+        output_cost_per_token: 0.000005,
+        max_input_tokens: 128_000,
+      },
+      'model-b': {
+        input_cost_per_token: 0.000001,
+        output_cost_per_token: 0.000005,
+        max_input_tokens: 'n/a',
+      },
+      'embedding-only': { max_input_tokens: 8_192 },
+    };
+
+    const online = createFetcher({
+      cacheFilePath,
+      fetchImpl: vi.fn(async () => new Response(JSON.stringify(payload), { status: 200 })),
+    });
+    await online.load();
+    const offline = createFetcher({ cacheFilePath, offline: true });
+    await offline.load();
+
+    for (const fetcher of [online, offline]) {
+      expect(fetcher.getMaxInputTokens('model-a')).toBe(128_000);
+      expect(fetcher.getMaxInputTokens('MODEL-A')).toBe(128_000);
+      expect(fetcher.getMaxInputTokens('model-b')).toBeUndefined();
+      expect(fetcher.getMaxInputTokens('embedding-only')).toBeUndefined();
+      // A custom URL gets no bundled limits.
+      expect(fetcher.getMaxInputTokens('claude-sonnet-4-5')).toBeUndefined();
+    }
+  });
+
+  it('takes context limits from the bundled file for the snapshot and for caches without them', async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), 'litellm-pricing-bundled-limits-'));
+    tempDirs.push(rootDir);
+    const cacheFilePath = path.join(rootDir, 'cache.json');
+    const snapshotFetcher = new LiteLLMPricingFetcher({ cacheFilePath, offline: true });
+    await snapshotFetcher.load();
+
+    // A current-format default-URL cache written before the cache kept limits.
+    await writeFile(
+      cacheFilePath,
+      JSON.stringify({
+        formatVersion: 3,
+        fetchedAt: Date.now(),
+        sourceUrl: DEFAULT_LITELLM_PRICING_URL,
+        pricingByModel: { 'claude-sonnet-4-5': { inputPer1MUsd: 3, outputPer1MUsd: 15 } },
+      }),
+      'utf8',
+    );
+    const cacheFetcher = new LiteLLMPricingFetcher({ cacheFilePath, offline: true });
+    await cacheFetcher.load();
+
+    expect(snapshotFetcher.getLoadOrigin()).toBe('bundled-snapshot');
+    expect(cacheFetcher.getLoadOrigin()).toBe('cache');
+    expect(snapshotFetcher.getMaxInputTokens('claude-sonnet-4-5')).toBe(200_000);
+    expect(cacheFetcher.getMaxInputTokens('claude-sonnet-4-5')).toBe(200_000);
+  });
+
   it('drops malformed cached tiers and sorts the rest, highest threshold first', () => {
     const payload = normalizeLiteLLMCachePayload({
       fetchedAt: 1,

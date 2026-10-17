@@ -23,7 +23,7 @@ export type RenderSessionReportOptions = {
   filtered?: boolean;
 };
 
-const MODELS_COLUMN_WIDTH = 32;
+export const MODELS_COLUMN_WIDTH = 32;
 
 const sessionTableHeaders = [
   'Session',
@@ -56,7 +56,7 @@ const usdFormatter = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 2,
 });
 
-function truncateSessionId(sessionId: string): string {
+export function truncateSessionId(sessionId: string): string {
   if (sessionId.length <= 12) {
     return sessionId;
   }
@@ -77,7 +77,7 @@ function formatCost(row: { costUsd?: number; costIncomplete?: boolean }): string
   return row.costIncomplete ? `~${formatted}` : formatted;
 }
 
-function formatModels(models: readonly string[]): string {
+export function formatModels(models: readonly string[]): string {
   if (models.length === 0) {
     return '-';
   }
@@ -87,7 +87,7 @@ function formatModels(models: readonly string[]): string {
 
 type ProjectLabels = ReadonlyMap<string | undefined, string>;
 
-function toProjectLabel(repoRoot: string | undefined, projectLabels: ProjectLabels): string {
+export function toProjectLabel(repoRoot: string | undefined, projectLabels: ProjectLabels): string {
   return projectLabels.get(toProjectKey(repoRoot)) ?? UNATTRIBUTED_PROJECT_LABEL;
 }
 

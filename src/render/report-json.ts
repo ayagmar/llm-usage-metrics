@@ -5,6 +5,7 @@ export type ReportJsonName =
   | 'summary'
   | 'session'
   | 'tools'
+  | 'context'
   | 'trends'
   | 'compare'
   | 'efficiency'

@@ -5,6 +5,7 @@ import blocksSchema from '../../schema/report-blocks.v1.schema.json' with { type
 import commonSchema from '../../schema/report-common.v1.schema.json' with { type: 'json' };
 import configReportSchema from '../../schema/report-config.v1.schema.json' with { type: 'json' };
 import compareSchema from '../../schema/report-compare.v1.schema.json' with { type: 'json' };
+import contextSchema from '../../schema/report-context.v1.schema.json' with { type: 'json' };
 import doctorSchema from '../../schema/report-doctor.v1.schema.json' with { type: 'json' };
 import efficiencySchema from '../../schema/report-efficiency.v1.schema.json' with { type: 'json' };
 import optimizeSchema from '../../schema/report-optimize.v1.schema.json' with { type: 'json' };
@@ -33,6 +34,7 @@ export const reportSchemas: Record<string, unknown> = {
   blocks: bundleCommonDefinitions(blocksSchema),
   compare: bundleCommonDefinitions(compareSchema),
   config: bundleCommonDefinitions(configReportSchema),
+  context: bundleCommonDefinitions(contextSchema),
   doctor: bundleCommonDefinitions(doctorSchema),
   efficiency: bundleCommonDefinitions(efficiencySchema),
   optimize: bundleCommonDefinitions(optimizeSchema),

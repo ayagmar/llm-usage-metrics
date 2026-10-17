@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ayagmar.github.io/llm-usage-metrics/report-context.v1.schema.json",
+  "title": "llm-usage-metrics context report output (v1)",
+  "description": "Envelope and payload for context report --json output (model rows, or session rows with --by-session).",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "https://ayagmar.github.io/llm-usage-metrics/report-common.v1.schema.json#/$defs/envelope"
+    }
+  ],
+  "properties": {
+    "report": {
+      "const": "context"
+    },
+    "data": {
+      "type": "object",
+      "properties": {
+        "grouping": {
+          "description": "model, or session with --by-session.",
+          "enum": ["model", "session"]
+        },
+        "longContextPromptTokens": {
+          "description": "Prompt size above which a request counts as long-context.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "nearLimitShare": {
+          "description": "Share of the context limit above which a request counts as near it.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "rows": {
+          "description": "Rows ordered by peak prompt, largest first; with --by-session, the top sessions only.",
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/modelRow"
+              },
+              {
+                "$ref": "#/$defs/sessionRow"
+              }
+            ]
+          }
+        },
+        "aggregatedSources": {
+          "description": "Sources whose usage records sum several requests; they have no rows.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/aggregatedSource"
+          }
+        }
+      },
+      "required": [
+        "grouping",
+        "longContextPromptTokens",
+        "nearLimitShare",
+        "rows",
+        "aggregatedSources"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "pressure": {
+      "type": "object",
+      "description": "Prompt sizes over the row's requests.",
+      "properties": {
+        "requests": {
+          "description": "Usage records of the row; each records one request.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "peakPromptTokens": {
+          "description": "Largest prompt of one request: input, cache read and cache write tokens.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "longContextRequests": {
+          "description": "Requests whose prompt is above longContextPromptTokens.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "longContextExtraUsd": {
+          "description": "What long-context tier rates added to the estimated cost: cost at the tier rates minus cost at the base rates. null when no request was priced (unknown model, or --cost-mode explicit).",
+          "type": ["number", "null"]
+        },
+        "longContextExtraIncomplete": {
+          "description": "True when some request had no pricing, so longContextExtraUsd may be low.",
+          "type": "boolean"
+        },
+        "nearLimitRequests": {
+          "description": "Requests whose prompt is above nearLimitShare of their model's context limit; null when no request's limit is known.",
+          "type": ["integer", "null"],
+          "minimum": 0
+        }
+      },
+      "required": [
+        "requests",
+        "peakPromptTokens",
+        "longContextRequests",
+        "longContextExtraUsd",
+        "longContextExtraIncomplete",
+        "nearLimitRequests"
+      ]
+    },
+    "modelRow": {
+      "type": "object",
+      "description": "One model across the per-request sources.",
+      "allOf": [
+        {
+          "$ref": "#/$defs/pressure"
+        }
+      ],
+      "properties": {
+        "model": {
+          "description": "Model name as logged; null when the records name none.",
+          "type": ["string", "null"]
+        },
+        "contextLimit": {
+          "description": "LiteLLM max_input_tokens for the model; null when unknown.",
+          "type": ["integer", "null"],
+          "minimum": 0
+        }
+      },
+      "required": ["model", "contextLimit"],
+      "unevaluatedProperties": false
+    },
+    "sessionRow": {
+      "type": "object",
+      "description": "One session of a per-request source (--by-session).",
+      "allOf": [
+        {
+          "$ref": "#/$defs/pressure"
+        }
+      ],
+      "properties": {
+        "source": {
+          "description": "Source id the session came from.",
+          "type": "string"
+        },
+        "sessionId": {
+          "description": "Normalized session identifier.",
+          "type": "string"
+        },
+        "repoRoot": {
+          "description": "Working directory the tool recorded for the session; omitted when unknown.",
+          "type": "string"
+        },
+        "models": {
+          "description": "Models the session's requests name, sorted.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": ["source", "sessionId", "models"],
+      "unevaluatedProperties": false
+    },
+    "aggregatedSource": {
+      "type": "object",
+      "description": "A source without per-request usage.",
+      "properties": {
+        "source": {
+          "description": "Source id.",
+          "type": "string"
+        },
+        "records": {
+          "description": "Usage records in the window.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": ["source", "records"],
+      "additionalProperties": false
+    }
+  }
+}

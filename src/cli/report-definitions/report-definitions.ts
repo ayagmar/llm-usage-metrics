@@ -2,6 +2,7 @@ import { Argument, Command, InvalidArgumentError, Option } from 'commander';
 
 import type {
   BlocksCommandOptions,
+  ContextCommandOptions,
   EventsCommandOptions,
   CompareCommandOptions,
   DoctorCommandOptions,
@@ -27,6 +28,7 @@ import {
 } from '../build-usage-data.js';
 import { runBlocksReport } from '../run-blocks-report.js';
 import { runCompareReport } from '../run-compare-report.js';
+import { runContextReport } from '../run-context-report.js';
 import { runEfficiencyReport } from '../run-efficiency-report.js';
 import { runHourlyReport } from '../run-hourly-report.js';
 import { runOptimizeReport } from '../run-optimize-report.js';
@@ -115,6 +117,26 @@ function addRepoFilterOption(command: Command, note?: string): Command {
     '--repo <project>',
     note === undefined ? REPO_FILTER_DESCRIPTION : `${REPO_FILTER_DESCRIPTION}. ${note}`,
     collectRepeatedOption,
+  );
+}
+
+/** `--last N` periods, and `--all` when the granularity has a default recent window. */
+function addPeriodWindowOptions(command: Command, granularity: ReportGranularity): Command {
+  const defaultWindow = DEFAULT_REPORT_WINDOWS[granularity];
+
+  if (defaultWindow) {
+    const { period, periods } = defaultWindow;
+    command.option(
+      '--all',
+      `Report every ${period} instead of the last ${String(periods)} ${period}s`,
+    );
+  }
+
+  const period = getReportPeriodName(granularity);
+
+  return command.option(
+    '--last <n>',
+    `Report the last N ${period}s, counting the current ${period}`,
   );
 }
 
@@ -278,19 +300,7 @@ function createUsageReportDefinition(granularity: ReportGranularity): ReportRunt
       helpExamples: helpExamplesByGranularity[granularity],
     },
     register(command) {
-      const defaultWindow = DEFAULT_REPORT_WINDOWS[granularity];
-
-      if (defaultWindow) {
-        const { period, periods } = defaultWindow;
-        command.option(
-          '--all',
-          `Report every ${period} instead of the last ${String(periods)} ${period}s`,
-        );
-      }
-
-      const period = getReportPeriodName(granularity);
-
-      command.option('--last <n>', `Report the last N ${period}s, counting the current ${period}`);
+      addPeriodWindowOptions(command, granularity);
       addTableDisplayOptions(command, 'the table and share report')
         .option('--by-machine', BY_MACHINE_DESCRIPTION)
         .option('--by-repo', BY_REPO_ROW_DESCRIPTION);
@@ -529,6 +539,48 @@ const sessionReportDefinition: ReportRuntimeDefinition = {
       .option('--by-repo', `Group usage by ${PROJECT_DESCRIPTION} instead of by session`);
     addRepoFilterOption(command).action((options: SessionCommandOptions) =>
       runSessionReport(options),
+    );
+
+    return command;
+  },
+};
+
+const contextReportDefinition: ReportRuntimeDefinition = {
+  meta: {
+    commandName: 'context',
+    docsLabel: 'context',
+    kind: 'specialized',
+    description:
+      'Show peak prompt sizes per model or session, long-context requests and what their tier rates added (last 7 days unless --last, --since, --until, or --all)',
+    sharedOptionProfile: 'session',
+    helpExamples: [
+      {
+        command: 'llm-usage context',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage context --by-session --top 5',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage context --last 30 --json',
+        includeInCliReference: true,
+      },
+      {
+        command: 'llm-usage context --source claude --markdown',
+        includeInCliReference: true,
+      },
+    ],
+  },
+  register(command) {
+    addPeriodWindowOptions(command, 'daily')
+      .option('--by-session', 'One row per session instead of per model, largest peak prompt first')
+      .option(
+        '--top <n>',
+        'With --by-session, show only the top N sessions (default 20; 0 shows all)',
+      );
+    addRepoFilterOption(command).action((options: ContextCommandOptions) =>
+      runContextReport(options),
     );
 
     return command;
@@ -970,6 +1022,7 @@ const reportDefinitions = [
   trendsReportDefinition,
   sessionReportDefinition,
   toolsReportDefinition,
+  contextReportDefinition,
   blocksReportDefinition,
   valueReportDefinition,
   wrappedReportDefinition,

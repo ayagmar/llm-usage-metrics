@@ -49,7 +49,7 @@ function normalizeSessionIdFilters(id: string[] | undefined): string[] | undefin
   return [...new Set(normalizedIds)];
 }
 
-function resolveSessionRowLimit(
+export function resolveSessionRowLimit(
   top: number | undefined,
   hasIdFilters: boolean,
 ): number | undefined {

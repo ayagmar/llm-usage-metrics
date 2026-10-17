@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "report": "context",
+  "data": {
+    "grouping": "session",
+    "longContextPromptTokens": 200000,
+    "nearLimitShare": 0.8,
+    "rows": [
+      {
+        "source": "gemini",
+        "sessionId": "ctx-gemini-big",
+        "repoRoot": "/w/b/web",
+        "models": [
+          "gemini-2.5-pro"
+        ],
+        "requests": 2,
+        "peakPromptTokens": 250000,
+        "longContextRequests": 1,
+        "longContextExtraUsd": 0.31,
+        "longContextExtraIncomplete": false,
+        "nearLimitRequests": 0
+      },
+      {
+        "source": "claude",
+        "sessionId": "ctx-claude-long",
+        "repoRoot": "/w/a/api",
+        "models": [
+          "claude-sonnet-4-5"
+        ],
+        "requests": 2,
+        "peakPromptTokens": 175000,
+        "longContextRequests": 0,
+        "longContextExtraUsd": 0,
+        "longContextExtraIncomplete": false,
+        "nearLimitRequests": 1
+      },
+      {
+        "source": "claude",
+        "sessionId": "ctx-claude-unknown",
+        "models": [
+          "acme-internal-1"
+        ],
+        "requests": 1,
+        "peakPromptTokens": 9000,
+        "longContextRequests": 0,
+        "longContextExtraUsd": null,
+        "longContextExtraIncomplete": true,
+        "nearLimitRequests": null
+      }
+    ],
+    "aggregatedSources": [
+      {
+        "source": "codex",
+        "records": 1
+      }
+    ]
+  }
+}

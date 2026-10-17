@@ -64,6 +64,9 @@ Commands:
                                       most calls first, read from claude, codex and pi session files
                                       on disk (last 7 days unless --last, --since, --until, or
                                       --all)
+  context [options]                   Show peak prompt sizes per model or session, long-context
+                                      requests and what their tier rates added (last 7 days unless
+                                      --last, --since, --until, or --all)
   blocks [options]                    Show estimated 5-hour usage blocks per source, across
                                       machines, with the active block (last 7 days unless --last,
                                       --since, --until, or --all; only meaningful for subscription

@@ -11,6 +11,7 @@ import {
 } from './litellm-model-matching.js';
 import litellmPricingSnapshotPayload from './litellm-pricing-snapshot.json' with { type: 'json' };
 import litellmRetiredPricingPayload from './litellm-retired-pricing.json' with { type: 'json' };
+import litellmContextLimitsPayload from './litellm-context-limits.json' with { type: 'json' };
 import type {
   ModelPricing,
   ModelPricingExplanation,
@@ -40,6 +41,11 @@ export type LiteLLMCachePayload = {
   fetchedAt: number;
   sourceUrl: string;
   pricingByModel: Record<string, ModelPricing>;
+  /**
+   * LiteLLM's `max_input_tokens` per priced key, as written; read entry by entry through
+   * `readContextLimit`. Caches written before the limits were kept lack it.
+   */
+  maxInputTokensByModel?: Record<string, unknown>;
 };
 
 export type LiteLLMPricingLoadOrigin = 'cache' | 'network' | 'bundled-snapshot';
@@ -286,6 +292,25 @@ export function normalizeLitellmPricingPayload(payload: unknown): Map<string, Mo
   return normalizedPricing;
 }
 
+/** `max_input_tokens` for each key of `pricingByModel` that lists a positive one. */
+export function normalizeLitellmContextLimits(
+  payload: unknown,
+  pricingByModel: ReadonlyMap<string, ModelPricing>,
+): Map<string, number> {
+  const limits = new Map<string, number>();
+
+  for (const [modelName, rawModelPricing] of Object.entries(asRecord(payload) ?? {})) {
+    const key = normalizeKey(modelName);
+    const maxInputTokens = toNonNegativeNumber(asRecord(rawModelPricing)?.max_input_tokens);
+
+    if (pricingByModel.has(key) && maxInputTokens) {
+      limits.set(key, maxInputTokens);
+    }
+  }
+
+  return limits;
+}
+
 const TIER_RATE_FIELDS: readonly TierRateField[] = [
   'inputPer1MUsd',
   'outputPer1MUsd',
@@ -428,11 +453,28 @@ export function normalizeLiteLLMCachePayload(payload: unknown): LiteLLMCachePayl
     pricingByModel[modelName] = pricing;
   }
 
+  const maxInputTokensByModel = asRecord(payloadRecord.maxInputTokensByModel);
+
   return {
     fetchedAt,
     sourceUrl,
     pricingByModel,
+    ...(maxInputTokensByModel ? { maxInputTokensByModel } : {}),
   };
+}
+
+/**
+ * One key's positive limit from a record of limits keyed by normalized pricing key. Read one
+ * entry at a time, so loading pricing never walks the thousands of limits only the context
+ * report asks for.
+ */
+function readContextLimit(
+  limits: Readonly<Record<string, unknown>> | undefined,
+  key: string,
+): number | undefined {
+  const limit = limits && Object.hasOwn(limits, key) ? toNonNegativeNumber(limits[key]) : undefined;
+
+  return limit === 0 ? undefined : limit;
 }
 
 function getBundledLiteLLMPricingSnapshot(): LiteLLMCachePayload {
@@ -510,6 +552,7 @@ export class LiteLLMPricingFetcher implements PricingSource {
   private readonly sleep: (delayMs: number) => Promise<void>;
 
   private pricingByModel = new Map<string, ModelPricing>();
+  private maxInputTokensByModel: Readonly<Record<string, unknown>> | undefined;
   private resolvedAliasCache = new Map<string, string>();
   private loadOrigin: LiteLLMPricingLoadOrigin | undefined;
   private dataOrigin: PricingDataOrigin | undefined;
@@ -649,6 +692,21 @@ export class LiteLLMPricingFetcher implements PricingSource {
     return this.pricingByModel.get(resolvedModel);
   }
 
+  /**
+   * The limit the loaded pricing lists for the model's key. Default-source pricing falls back
+   * on the bundled limits, which cover the snapshot and caches written before limits were kept.
+   */
+  public getMaxInputTokens(model: string): number | undefined {
+    const key = this.resolveModelAlias(model);
+
+    return (
+      readContextLimit(this.maxInputTokensByModel, key) ??
+      (this.sourceUrl === DEFAULT_LITELLM_PRICING_URL
+        ? readContextLimit(litellmContextLimitsPayload.maxInputTokensByModel, key)
+        : undefined)
+    );
+  }
+
   private async fetchRemotePricingResponse(): Promise<Response> {
     const response = await this.fetchImpl(this.sourceUrl, {
       signal: AbortSignal.timeout(this.fetchTimeoutMs),
@@ -729,6 +787,9 @@ export class LiteLLMPricingFetcher implements PricingSource {
     const normalizedPricing = normalizeLitellmPricingPayload(payload);
 
     this.pricingByModel = normalizedPricing;
+    this.maxInputTokensByModel = Object.fromEntries(
+      normalizeLitellmContextLimits(payload, normalizedPricing),
+    );
     this.resolvedAliasCache.clear();
     this.loadOrigin = 'network';
     this.dataOrigin = { kind: 'network', fetchedAt: this.now(), url: this.sourceUrl };
@@ -780,6 +841,7 @@ export class LiteLLMPricingFetcher implements PricingSource {
         pricing,
       ]),
     );
+    this.maxInputTokensByModel = cacheFileContent.maxInputTokensByModel;
     this.resolvedAliasCache.clear();
 
     if (this.pricingByModel.size === 0) {
@@ -831,6 +893,7 @@ export class LiteLLMPricingFetcher implements PricingSource {
         pricing,
       ]),
     );
+    this.maxInputTokensByModel = undefined;
     this.resolvedAliasCache.clear();
 
     if (this.pricingByModel.size === 0) {
@@ -880,6 +943,7 @@ export class LiteLLMPricingFetcher implements PricingSource {
       fetchedAt: this.now(),
       sourceUrl: this.sourceUrl,
       pricingByModel: Object.fromEntries(this.pricingByModel.entries()),
+      maxInputTokensByModel: this.maxInputTokensByModel,
     };
 
     await writeFileAtomic(this.cacheFilePath, JSON.stringify(payload));

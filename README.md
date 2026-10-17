@@ -70,6 +70,7 @@ llm-usage doctor
 | How did one period change from another?                   | `llm-usage compare`                                    |
 | Which conversations or repositories used the most?        | `llm-usage session`                                    |
 | What did each project cost?                               | `llm-usage projects`                                   |
+| Which sessions send the largest prompts?                  | `llm-usage context --by-session`                       |
 | Which estimated 5-hour plan windows did I use?            | `llm-usage blocks`                                     |
 | How does API-priced usage compare with my plan price?     | `llm-usage value`                                      |
 | Which price does a model name get, and why?               | `llm-usage pricing <model>`                            |

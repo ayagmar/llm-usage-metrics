@@ -24,6 +24,7 @@ import { M9_VALUE_GOLDEN_NAMES } from './m9-value-names.js';
 import { M10_E2_GOLDEN_NAMES } from './m10-e2-names.js';
 import { M12_CONFIG_SHOW_GOLDEN_NAMES } from './m12-config-show-names.js';
 import { M12_TOOLS_GOLDEN_NAMES } from './m12-tools-names.js';
+import { M12_CONTEXT_GOLDEN_NAMES } from './m12-context-names.js';
 
 /** The day after the latest fixture event, so summary's windows hold June data. */
 export const FIXED_NOW = new Date('2026-06-21T12:00:00.000Z');
@@ -75,6 +76,7 @@ export const COMMAND_NAMES: readonly string[] = [
   'trends',
   'session',
   'tools',
+  'context',
   'blocks',
   'value',
   'wrapped',
@@ -512,5 +514,6 @@ export async function listExpectedGoldenNames(): Promise<string[]> {
     // M12 cards' goldens.
     ...M12_CONFIG_SHOW_GOLDEN_NAMES,
     ...M12_TOOLS_GOLDEN_NAMES,
+    ...M12_CONTEXT_GOLDEN_NAMES,
   ].sort();
 }

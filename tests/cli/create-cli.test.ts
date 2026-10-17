@@ -84,6 +84,7 @@ describe('createCli', () => {
       'trends',
       'session',
       'tools',
+      'context',
       'blocks',
       'value',
       'wrapped',
@@ -573,6 +574,7 @@ describe('createCli', () => {
       'trends',
       'session',
       'tools',
+      'context',
       'blocks',
       'value',
       'wrapped',
@@ -941,13 +943,21 @@ describe('createCli', () => {
     expect(output.text()).not.toContain('Did you mean');
   });
 
-  it('offers --all on daily, weekly, projects, tools, blocks and value only', () => {
+  it('offers --all on daily, weekly, projects, tools, context, blocks and value only', () => {
     const cli = createCli();
     const commandsWithAll = cli.commands
       .filter((command) => command.options.some((option) => option.long === '--all'))
       .map((command) => command.name());
 
-    expect(commandsWithAll).toEqual(['daily', 'weekly', 'projects', 'tools', 'blocks', 'value']);
+    expect(commandsWithAll).toEqual([
+      'daily',
+      'weekly',
+      'projects',
+      'tools',
+      'context',
+      'blocks',
+      'value',
+    ]);
   });
 
   it('rejects --quiet together with --verbose', async () => {

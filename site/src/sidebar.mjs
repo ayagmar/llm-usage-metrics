@@ -19,6 +19,7 @@ export const sidebar = [
       { label: 'Compare periods', slug: 'compare' },
       { label: 'Session usage', slug: 'session' },
       { label: 'Tool calls', slug: 'tools' },
+      { label: 'Context pressure', slug: 'context' },
       { label: 'Trends', slug: 'trends' },
       { label: '5-hour blocks', slug: 'blocks' },
       { label: 'Plan value', slug: 'value' },

@@ -35,6 +35,7 @@ The CLI preserves source-recorded cost and estimates other costs from available 
 | [Which projects cost the most?](/llm-usage-metrics/projects/)                      | `llm-usage projects`           | Full history   |
 | [Which conversations cost the most?](/llm-usage-metrics/session/)                  | `llm-usage session --top 10`   | Full history   |
 | [Which tools do my agents call, and which fail?](/llm-usage-metrics/tools/)        | `llm-usage tools`              | Last 7 days    |
+| [Which sessions push the context window?](/llm-usage-metrics/context/)             | `llm-usage context --by-session` | Last 7 days  |
 | [How does usage compare with commits in one repo?](/llm-usage-metrics/efficiency/) | `llm-usage efficiency monthly` | Full history   |
 
 Most reports also take `--repo` to count some projects only, and the usage reports split rows by project with `--by-repo`. Efficiency ratios depend on project attribution and Git history; they do not measure code quality or developer productivity.

@@ -15,6 +15,7 @@ const rootDir = join(__dirname, '..');
 const snapshotPath = join(rootDir, 'src', 'pricing', 'litellm-pricing-snapshot.json');
 const retiredPricingPath = join(rootDir, 'src', 'pricing', 'litellm-retired-pricing.json');
 const modelMapPath = join(rootDir, 'src', 'pricing', 'litellm-model-map.json');
+const contextLimitsPath = join(rootDir, 'src', 'pricing', 'litellm-context-limits.json');
 // Retired prices the live pricing already covers. They are not bundled, but each refresh
 // considers them again, and tests/pricing/retired-pricing-prune.test.ts checks that
 // dropping them changes no resolved price.
@@ -31,6 +32,7 @@ const {
   MAX_LITELLM_PRICING_RESPONSE_BYTES,
   isLiteLLMTierRateKey,
   normalizeLiteLLMCachePayload,
+  normalizeLitellmContextLimits,
   normalizeLitellmPricingPayload,
 } = await tsImport(join(rootDir, 'src', 'pricing', 'litellm-pricing-fetcher.ts'), import.meta.url);
 const { resolveCanonicalModelKey } = await tsImport(
@@ -332,10 +334,31 @@ function readFromOption() {
   return filePath;
 }
 
+// `max_input_tokens` for each priced key, which the `context` report compares prompts with.
+async function writeContextLimits(payload, pricingByModel, fetchedAt) {
+  const limits = [...normalizeLitellmContextLimits(payload, pricingByModel)].sort(
+    ([left], [right]) => compareByCodePoint(left, right),
+  );
+
+  await writeJsonFile(contextLimitsPath, {
+    fetchedAt,
+    maxInputTokensByModel: Object.fromEntries(limits),
+  });
+  console.log(`Wrote ${contextLimitsPath}: ${limits.length} model(s) with a context limit`);
+}
+
+function readUpstreamPayload(fromFilePath) {
+  return fromFilePath ? readUpstreamPayloadFromFile(fromFilePath) : fetchUpstreamPayload();
+}
+
+// `--limits-only` refreshes the context limits and leaves every price as it is.
+async function generateContextLimits(fromFilePath) {
+  const { payload, fetchedAt } = await readUpstreamPayload(fromFilePath);
+  await writeContextLimits(payload, normalizeLitellmPricingPayload(payload), fetchedAt);
+}
+
 async function generateSnapshot(fromFilePath) {
-  const { payload, fetchedAt: upstreamFetchedAt } = fromFilePath
-    ? await readUpstreamPayloadFromFile(fromFilePath)
-    : await fetchUpstreamPayload();
+  const { payload, fetchedAt: upstreamFetchedAt } = await readUpstreamPayload(fromFilePath);
   const pricingByModel = normalizeLitellmPricingPayload(payload);
   logUnusedThresholdKeys(payload);
   const snapshotPayload = {
@@ -348,6 +371,7 @@ async function generateSnapshot(fromFilePath) {
   await mkdir(dirname(snapshotPath), { recursive: true });
   const retiredCounts = await writeRetiredPricing(pricingByModel);
   await writeJsonFile(snapshotPath, snapshotPayload);
+  await writeContextLimits(payload, pricingByModel, fetchedAt);
 
   console.log(
     `Wrote ${snapshotPath}: ${modelCount} model(s), fetched ${new Date(fetchedAt).toISOString()}; ${retiredCounts.kept} retired model(s) kept, ${retiredCounts.pruned} already priced the same by live keys`,
@@ -356,6 +380,8 @@ async function generateSnapshot(fromFilePath) {
 
 if (process.argv.includes('--check')) {
   await checkSnapshot();
+} else if (process.argv.includes('--limits-only')) {
+  await generateContextLimits(readFromOption());
 } else {
   await generateSnapshot(readFromOption());
 }

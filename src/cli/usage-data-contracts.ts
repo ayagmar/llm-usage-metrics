@@ -257,6 +257,16 @@ export type SessionCommandOptions = SharedOptionsForProfile<'session'> &
     byRepo?: boolean;
   };
 
+export type ContextCommandOptions = SharedOptionsForProfile<'session'> &
+  RepoFilterOption & {
+    /** `--last N`: the last N days, counting today. */
+    last?: string;
+    /** Full history instead of the default recent window. */
+    all?: boolean;
+    top?: string;
+    bySession?: boolean;
+  };
+
 export type CompareCommandOptions = SharedOptionsForProfile<'compare'> &
   RepoFilterOption &
   ByRepoOption & {
