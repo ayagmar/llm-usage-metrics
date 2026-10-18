@@ -39,6 +39,19 @@ describe('createSchemaCommand', () => {
     }
   });
 
+  it('lists the schema names, as --list does, when no name is given', async () => {
+    const listOutput = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    await createSchemaCommand().parseAsync(['--list'], { from: 'user' });
+    const listed = listOutput.mock.calls.map((call) => String(call[0]));
+    listOutput.mockRestore();
+
+    const stdout = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    await createSchemaCommand().parseAsync([], { from: 'user' });
+
+    expect(stdout.mock.calls.map((call) => String(call[0]))).toEqual(listed);
+    expect(listed).toContain('usage');
+  });
+
   it('lists every report schema in schema/ with --list', async () => {
     const listOutput = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     await createSchemaCommand().parseAsync(['--list'], { from: 'user' });

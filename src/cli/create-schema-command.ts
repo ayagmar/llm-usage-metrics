@@ -9,7 +9,7 @@ export function createSchemaCommand(): Command {
   return new Command('schema')
     .description('Print a bundled report JSON Schema')
     .argument('[name]', `Schema name: ${schemaNames.join(', ')}`)
-    .option('--list', 'List available schema names')
+    .option('--list', 'List available schema names (the default without a name)')
     .addHelpText(
       'after',
       formatHelpExamples([
@@ -18,7 +18,7 @@ export function createSchemaCommand(): Command {
       ]),
     )
     .action((name: string | undefined, options: { list?: boolean }) => {
-      if (options.list) {
+      if (options.list || name === undefined) {
         for (const schemaName of schemaNames) {
           console.log(schemaName);
         }
@@ -26,11 +26,11 @@ export function createSchemaCommand(): Command {
         return;
       }
 
-      const schema = name === undefined ? undefined : schemaDocuments[name];
+      const schema = schemaDocuments[name];
 
       if (schema === undefined) {
         throw new Error(
-          `Unknown schema "${name ?? ''}"; valid names: ${schemaNames.join(', ')} (or --list)`,
+          `Unknown schema "${name}"; valid names: ${schemaNames.join(', ')} (or --list)`,
         );
       }
 
