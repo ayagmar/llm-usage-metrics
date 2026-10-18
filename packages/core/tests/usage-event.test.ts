@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   createUsageEvent,
@@ -71,6 +71,22 @@ describe('createUsageEvent', () => {
     );
     expect(() => createUsageEvent({ ...base, cacheReadTokens: '2e12' })).toThrow('cacheReadTokens');
     expect(() => createUsageEvent({ ...base, totalTokens: 1e13 })).toThrow('totalTokens');
+  });
+
+  it('reads a timestamp with no offset as UTC whatever the machine zone', () => {
+    vi.stubEnv('TZ', 'Asia/Tokyo');
+
+    try {
+      const event = createUsageEvent({
+        source: 'pi',
+        sessionId: 'session-zoneless',
+        timestamp: '2026-02-12T10:00:00',
+      });
+
+      expect(event.timestamp).toBe('2026-02-12T10:00:00.000Z');
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('throws on empty source or session id', () => {

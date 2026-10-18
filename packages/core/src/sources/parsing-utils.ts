@@ -1,4 +1,8 @@
-import { normalizeNonNegativeInteger, type NumberLike } from '../domain/normalization.js';
+import {
+  normalizeNonNegativeInteger,
+  parseTimestampText,
+  type NumberLike,
+} from '../domain/normalization.js';
 
 const MIN_PLAUSIBLE_UNIX_SECONDS_ABS = 100_000_000;
 const UNIX_SECONDS_ABS_CUTOFF = 10_000_000_000;
@@ -156,7 +160,7 @@ export function normalizeTimestampCandidate(candidate: unknown): string | undefi
     return undefined;
   }
 
-  const date = new Date(normalizedText);
+  const date = parseTimestampText(normalizedText);
 
   if (Number.isNaN(date.getTime())) {
     return undefined;

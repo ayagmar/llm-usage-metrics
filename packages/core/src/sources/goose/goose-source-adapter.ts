@@ -108,11 +108,6 @@ function resolveTokenValue(primary: unknown, fallback: unknown): number | undefi
 function normalizeGooseTimestamp(candidate: unknown): string | undefined {
   if (typeof candidate === 'string') {
     const normalized = candidate.trim();
-    const sqliteDateTimeMatch = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})$/u.exec(normalized);
-
-    if (sqliteDateTimeMatch) {
-      return normalizeTimestampCandidate(`${sqliteDateTimeMatch[1]}T${sqliteDateTimeMatch[2]}Z`);
-    }
 
     if (/^-?\d+(?:\.\d+)?$/u.test(normalized)) {
       return normalizeTimestampCandidate(Number(normalized));

@@ -21,7 +21,7 @@ Importing `.` or `./internal` loads no source module; `./registry` loads them al
 The main entry also exports these helpers:
 
 - `computeActiveMs(timestampsMs)`: the sum of the gaps between consecutive timestamps (sorted first), each gap capped at `IDLE_GAP_CAP_MS` (5 minutes). Zero for fewer than two timestamps.
-- `normalizeTimestamp(value)`: a string or `Date` as an ISO 8601 UTC string; throws on an invalid date.
+- `normalizeTimestamp(value)`: a string or `Date` as an ISO 8601 UTC string; text with no offset reads as UTC. Throws on an invalid date.
 - `normalizeSourceId(value)`: a source id with control characters stripped and whitespace trimmed, or `undefined` when the value is not a string or ends up empty.
 - `getEventSessionKey(event)`: a key for an event's session, its `source` and `sessionId` joined by a NUL character, so equal session ids from two sources stay apart.
 - `toParseDiagnostics(events, skippedRows, skippedRowReasons)`: packs a file's events and a reason-count map into the `SourceParseFileDiagnostics` shape `collectFile` returns, reasons sorted.
