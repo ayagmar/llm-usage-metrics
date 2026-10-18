@@ -21,7 +21,8 @@ Options:
   --pricing-url <url>            Override LiteLLM pricing source URL
   --pricing-overrides <path>     Path to a JSON file of per-model pricing overrides (takes
                                  precedence over LiteLLM)
-  --pricing-offline              Use cached LiteLLM pricing only (no network fetch)
+  --pricing-offline              Never fetch pricing: use the cached LiteLLM pricing, or the bundled
+                                 snapshot when there is no cache
   --ignore-pricing-failures      Continue without estimated costs when pricing cannot be loaded
   --cost-mode <mode>             Costs to report: explicit (logged by the source), estimated (from
                                  LiteLLM), or both (logged, else estimated; default) (choices:

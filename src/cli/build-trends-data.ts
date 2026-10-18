@@ -80,6 +80,10 @@ function resolveFetchDateRange(
     return resolveTrailingDateRange(today, days);
   }
 
+  if (options.all) {
+    return undefined;
+  }
+
   if (!options.since && !options.until) {
     return resolveTrailingDateRange(today, 30);
   }
@@ -101,7 +105,10 @@ function resolveFetchDateRange(
   return undefined;
 }
 
-/** The fetch range, or for --until alone, from the earliest observed date to --until. */
+/**
+ * The fetch range, or from the earliest observed date to --until alone, or to today with
+ * --all.
+ */
 function resolveOutputDateRange(
   options: TrendsCommandOptions,
   today: string,
@@ -114,7 +121,7 @@ function resolveOutputDateRange(
     return fetchDateRange;
   }
 
-  const { until } = options;
+  const until = options.all ? today : options.until;
   assertUntilDefined(until);
 
   return {
@@ -144,8 +151,12 @@ function resolveTrendsOptions(
   const daysFlag = options.days === undefined ? '--last' : '--days';
   const daysValue = options.last ?? options.days;
 
-  if (daysValue !== undefined && (options.since || options.until)) {
-    throw new Error(`${daysFlag} cannot be combined with --since or --until`);
+  if (daysValue !== undefined && (options.since || options.until || options.all)) {
+    throw new Error(`${daysFlag} cannot be combined with --since, --until, or --all`);
+  }
+
+  if (options.all && (options.since || options.until)) {
+    throw new Error('--all cannot be combined with --since or --until');
   }
 
   if (options.since) {

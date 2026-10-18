@@ -6,37 +6,6 @@ qwen, kimi, cline, roocode, kilocode, antigravity, dsh
 
 Run `llm-usage <command> --help` to see command options (e.g. --json, --source).
 
-Examples:
-  $ llm-usage
-  $ llm-usage hourly
-  $ llm-usage daily
-  $ llm-usage daily --help
-  $ llm-usage daily --source-dir pi=/tmp/pi-sessions --source-dir gemini=/tmp/.gemini --source-dir
-droid=/tmp/droid-sessions --source-dir openclaw=/tmp/openclaw-agents
-  $ llm-usage daily --pi-dir /tmp/pi-sessions --gemini-dir /tmp/.gemini --droid-dir
-/tmp/droid-sessions
-  $ llm-usage weekly --timezone Europe/Paris
-  $ llm-usage monthly --since 2026-01-01 --until 2026-01-31 --source pi,codex --json
-  $ llm-usage monthly --source opencode --opencode-db /path/to/opencode.db --json
-  $ llm-usage monthly --model claude --per-model-columns
-  $ llm-usage monthly --last 3
-  $ llm-usage projects
-  $ llm-usage compare
-  $ llm-usage efficiency weekly --repo-dir /path/to/repo --json
-  $ llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 --candidate-model
-gpt-5-codex --json
-  $ llm-usage trends
-  $ llm-usage session
-  $ llm-usage tools
-  $ llm-usage blocks
-  $ llm-usage value
-  $ llm-usage wrapped
-  $ llm-usage events --format jsonl > events.jsonl
-  $ llm-usage pricing claude-sonnet-4-5
-  $ llm-usage doctor
-  $ llm-usage prune --suppressed
-  $ npx --yes llm-usage-metrics@latest
-
 Options:
   -V, --version                       output the version number
   -h, --help                          display help for command
@@ -44,8 +13,8 @@ Options:
 Commands:
   summary [options]                   Show cost and tokens for today, the last 7 days, and month to
                                       date, plus activity streaks (default command)
-  hourly [options]                    Show hourly usage report (today unless --last, --since, or
-                                      --until)
+  hourly [options]                    Show hourly usage report (today unless --last, --since,
+                                      --until, or --all)
   daily [options]                     Show daily usage report (last 7 days unless --last, --since,
                                       --until, or --all)
   weekly [options]                    Show weekly usage report (week starts Monday; last 8 weeks
@@ -91,3 +60,34 @@ Commands:
   schema [options] [name]             Print a bundled report JSON Schema
   completion [options] <shell>        Print a shell completion script (bash, zsh, or fish)
   help [command]                      display help for command
+
+Examples:
+  $ llm-usage
+  $ llm-usage hourly
+  $ llm-usage daily
+  $ llm-usage daily --help
+  $ llm-usage daily --source-dir pi=/tmp/pi-sessions --source-dir gemini=/tmp/.gemini \
+      --source-dir droid=/tmp/droid-sessions --source-dir openclaw=/tmp/openclaw-agents
+  $ llm-usage daily --pi-dir /tmp/pi-sessions --gemini-dir /tmp/.gemini \
+      --droid-dir /tmp/droid-sessions
+  $ llm-usage weekly --timezone Europe/Paris
+  $ llm-usage monthly --since 2026-01-01 --until 2026-01-31 --source pi,codex --json
+  $ llm-usage monthly --source opencode --opencode-db /path/to/opencode.db --json
+  $ llm-usage monthly --model claude --per-model-columns
+  $ llm-usage monthly --last 3
+  $ llm-usage projects
+  $ llm-usage compare
+  $ llm-usage efficiency weekly --repo-dir /path/to/repo --json
+  $ llm-usage optimize monthly --provider openai --candidate-model gpt-4.1 \
+      --candidate-model gpt-5-codex --json
+  $ llm-usage trends
+  $ llm-usage session
+  $ llm-usage tools
+  $ llm-usage blocks
+  $ llm-usage value
+  $ llm-usage wrapped
+  $ llm-usage events --format jsonl > events.jsonl
+  $ llm-usage pricing claude-sonnet-4-5
+  $ llm-usage doctor
+  $ llm-usage prune --suppressed
+  $ npx --yes llm-usage-metrics@latest

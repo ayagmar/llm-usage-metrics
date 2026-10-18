@@ -1,4 +1,10 @@
-import { Argument, Command, InvalidArgumentError, Option } from 'commander';
+import {
+  type AddHelpTextContext,
+  Argument,
+  Command,
+  InvalidArgumentError,
+  Option,
+} from 'commander';
 
 import type {
   BlocksCommandOptions,
@@ -120,7 +126,19 @@ function addRepoFilterOption(command: Command, note?: string): Command {
   );
 }
 
-/** `--last N` periods, and `--all` when the granularity has a default recent window. */
+const FULL_HISTORY_DESCRIPTION = 'Report the full history (the default without date flags)';
+
+/**
+ * `--all` on a report that already covers the full history without date flags, so the
+ * flag works on every report.
+ */
+function addFullHistoryOption(command: Command): Command {
+  return command.addOption(
+    new Option('--all', FULL_HISTORY_DESCRIPTION).conflicts(['since', 'until']),
+  );
+}
+
+/** `--last N` periods and `--all`. */
 function addPeriodWindowOptions(command: Command, granularity: ReportGranularity): Command {
   const defaultWindow = DEFAULT_REPORT_WINDOWS[granularity];
 
@@ -130,6 +148,8 @@ function addPeriodWindowOptions(command: Command, granularity: ReportGranularity
       '--all',
       `Report every ${period} instead of the last ${String(periods)} ${period}s`,
     );
+  } else {
+    addFullHistoryOption(command);
   }
 
   const period = getReportPeriodName(granularity);
@@ -165,11 +185,94 @@ const BY_REPO_ROW_DESCRIPTION = `Split each source row by ${PROJECT_DESCRIPTION}
 
 const MAX_COMMAND_HELP_EXAMPLES = 4;
 
-/** An `Examples:` block for `--help`, or nothing when there are no examples. */
-export function formatHelpExamples(commands: readonly string[]): string {
-  return commands.length === 0
-    ? ''
-    : ['', 'Examples:', ...commands.map((command) => `  $ ${command}`)].join('\n');
+const DEFAULT_HELP_WIDTH = 80;
+const EXAMPLE_PREFIX = '  $ ';
+const EXAMPLE_CONTINUATION_INDENT = '      ';
+const LINE_CONTINUATION = ' \\';
+
+/**
+ * The example's words, with each `--flag value` and `> file` pair kept as one, and a
+ * trailing `# comment` kept on the last word's line.
+ */
+function splitHelpExampleWords(command: string): string[] {
+  const commentStart = command.indexOf(' #');
+  const code = commentStart === -1 ? command : command.slice(0, commentStart);
+  const words: string[] = [];
+
+  for (const word of code.split(' ')) {
+    const previous = words.at(-1);
+    const takesValue =
+      previous !== undefined &&
+      (/^-\S*$/.test(previous) || previous === '>') &&
+      !word.startsWith('-') &&
+      word !== '>';
+
+    if (takesValue) {
+      words[words.length - 1] = `${previous} ${word}`;
+    } else {
+      words.push(word);
+    }
+  }
+
+  if (commentStart !== -1) {
+    words[words.length - 1] += command.slice(commentStart);
+  }
+
+  return words;
+}
+
+/**
+ * One example on lines no wider than `width`, split before a flag with shell line
+ * continuations, so a long command still pastes as one. A word longer than a line
+ * overflows instead of breaking.
+ */
+function wrapHelpExample(command: string, width: number): string[] {
+  const words = splitHelpExampleWords(command);
+  const lines: string[] = [];
+  let line = `${EXAMPLE_PREFIX}${words[0]}`;
+
+  for (const [index, word] of words.slice(1).entries()) {
+    const isLastWord = index === words.length - 2;
+    const candidate = `${line} ${word}`;
+    const limit = isLastWord ? width : width - LINE_CONTINUATION.length;
+
+    if (candidate.length <= limit) {
+      line = candidate;
+    } else {
+      lines.push(`${line}${LINE_CONTINUATION}`);
+      line = `${EXAMPLE_CONTINUATION_INDENT}${word}`;
+    }
+  }
+
+  return [...lines, line];
+}
+
+/** The width commander wraps this help to: the terminal's, else 80 columns. */
+function getHelpWidth({ command, error }: AddHelpTextContext): number {
+  const output = command.configureOutput();
+  const width = error ? output.getErrHelpWidth?.() : output.getOutHelpWidth?.();
+  return width ?? DEFAULT_HELP_WIDTH;
+}
+
+/**
+ * An `Examples:` block for `addHelpText`, or nothing when there are no examples. Built at
+ * print time so long commands wrap to the terminal width.
+ */
+export function formatHelpExamples(
+  commands: readonly string[],
+): (context: AddHelpTextContext) => string {
+  return (context) => {
+    if (commands.length === 0) {
+      return '';
+    }
+
+    const width = getHelpWidth(context);
+    return [
+      '',
+      'Examples:',
+      ...commands.flatMap((command) => wrapHelpExample(command, width)),
+    ].join('\n');
+  };
 }
 
 function createCommand(definition: ReportRuntimeDefinition): Command {
@@ -336,6 +439,10 @@ const summaryReportDefinition: ReportRuntimeDefinition = {
     ],
   },
   register(command) {
+    command.option(
+      '--all',
+      'No effect: the summary always covers today, the last 7 days and month to date',
+    );
     addRepoFilterOption(command).action((options: SummaryCommandOptions) =>
       runSummaryReport(options),
     );
@@ -368,6 +475,7 @@ const efficiencyReportDefinition: ReportRuntimeDefinition = {
       .option('--repo-dir <path>', 'Path to repository for Git outcome metrics')
       .option('--include-merge-commits', 'Include merge commits in Git outcome metrics')
       .option('--by-source', 'Include per-source usage rows under each period');
+    addFullHistoryOption(command);
     addRepoFilterOption(
       command,
       'It filters usage events; --repo-dir picks the Git repository for outcomes',
@@ -403,7 +511,8 @@ const compareReportDefinition: ReportRuntimeDefinition = {
     command
       .option('--vs-since <date>', 'Inclusive start date for the baseline comparison window')
       .option('--vs-until <date>', 'Inclusive end date for the baseline comparison window')
-      .option('--by-repo', `Also compare each ${PROJECT_DESCRIPTION}`);
+      .option('--by-repo', `Also compare each ${PROJECT_DESCRIPTION}`)
+      .option('--all', 'No effect: compare reads its two windows from the date flags');
     addRepoFilterOption(command).action((options: CompareCommandOptions) =>
       runCompareReport(options),
     );
@@ -441,6 +550,7 @@ const optimizeReportDefinition: ReportRuntimeDefinition = {
         collectRepeatedOption,
       )
       .option('--top <n>', 'Show only the top N cheapest candidates (positive integer)');
+    addFullHistoryOption(command);
     addRepoFilterOption(command).action(
       (granularity: ReportGranularity, options: OptimizeCommandOptions) =>
         runOptimizeReport(granularity, options),
@@ -480,6 +590,7 @@ const trendsReportDefinition: ReportRuntimeDefinition = {
         'Chart the last N local calendar days, counting today; defaults to 30 when no date flags are provided',
       )
       .addOption(new Option('--days <n>', 'Alias of --last').hideHelp())
+      .option('--all', 'Chart every day since the first usage instead of the last 30 days')
       .option('--metric <name>', 'Trend metric: cost | tokens | active-hours', 'cost')
       .option(
         '--by-source',
@@ -545,6 +656,7 @@ const sessionReportDefinition: ReportRuntimeDefinition = {
         '--timeline',
         'With --id naming one session: list its requests in time order with a running cost, between its tool calls and turns',
       );
+    addFullHistoryOption(command);
     addRepoFilterOption(command).action((options: SessionCommandOptions) =>
       runSessionReport(options),
     );
@@ -728,6 +840,7 @@ const eventsReportDefinition: ReportRuntimeDefinition = {
         '--otlp-endpoint <url>',
         'With an OTLP format: POST to <url>/v1/traces or /v1/metrics instead of printing; headers from OTEL_EXPORTER_OTLP_HEADERS',
       );
+    addFullHistoryOption(command);
     addRepoFilterOption(command).action((options: EventsCommandOptions) =>
       runEventsReport(options),
     );
@@ -767,7 +880,7 @@ const hourlyReportDefinition: ReportRuntimeDefinition = {
     commandName: 'hourly',
     docsLabel: 'hourly',
     kind: 'usage-granularity',
-    description: 'Show hourly usage report (today unless --last, --since, or --until)',
+    description: 'Show hourly usage report (today unless --last, --since, --until, or --all)',
     sharedOptionProfile: 'hourly',
     helpExamples: [
       {
@@ -786,10 +899,12 @@ const hourlyReportDefinition: ReportRuntimeDefinition = {
     ],
   },
   register(command) {
-    command.option(
-      '--last <n>',
-      `Report the last N days hour by hour (1-${String(HOURLY_MAX_LAST_DAYS)}), counting today`,
-    );
+    command
+      .option(
+        '--last <n>',
+        `Report the last N days hour by hour (1-${String(HOURLY_MAX_LAST_DAYS)}), counting today`,
+      )
+      .option('--all', 'Report every hour instead of today');
     addTableDisplayOptions(command, 'the table')
       .option('--by-machine', BY_MACHINE_DESCRIPTION)
       .option('--by-repo', BY_REPO_ROW_DESCRIPTION);
@@ -884,8 +999,8 @@ const projectsReportDefinition: ReportRuntimeDefinition = {
         ),
       )
       .option('--top <n>', 'Show only the top N projects by cost (positive integer)')
-      .option('--last <n>', 'Report the last N months, counting the current month')
-      .option('--all', 'Report the full history (the default without date flags)');
+      .option('--last <n>', 'Report the last N months, counting the current month');
+    addFullHistoryOption(command);
     addTableDisplayOptions(command, 'the table', ROLLUP_COMPACT_DESCRIPTION);
     addRepoFilterOption(command).action((options: ProjectsCommandOptions) =>
       runProjectsReport(options),
@@ -1078,7 +1193,7 @@ function collectHelpExamples(
     .map((example) => example.command);
 }
 
-function getRootHelpExamples(): string[] {
+export function getRootHelpExamples(): string[] {
   return collectHelpExamples(
     (example) => example.includeInRootHelp === true,
     reportReferenceExamples,
@@ -1102,8 +1217,5 @@ export function createRootDescription(): string {
     `Supported sources (${supportedSourceIds.length}): ${allowedSourcesLabel}`,
     '',
     'Run `llm-usage <command> --help` to see command options (e.g. --json, --source).',
-    '',
-    'Examples:',
-    ...getRootHelpExamples().map((example) => `  $ ${example}`),
   ].join('\n');
 }

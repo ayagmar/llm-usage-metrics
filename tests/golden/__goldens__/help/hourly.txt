@@ -1,6 +1,6 @@
 Usage: llm-usage hourly [options]
 
-Show hourly usage report (today unless --last, --since, or --until)
+Show hourly usage report (today unless --last, --since, --until, or --all)
 
 Options:
   --help-all                     Display help including the per-source path flags
@@ -23,7 +23,8 @@ Options:
   --pricing-url <url>            Override LiteLLM pricing source URL
   --pricing-overrides <path>     Path to a JSON file of per-model pricing overrides (takes
                                  precedence over LiteLLM)
-  --pricing-offline              Use cached LiteLLM pricing only (no network fetch)
+  --pricing-offline              Never fetch pricing: use the cached LiteLLM pricing, or the bundled
+                                 snapshot when there is no cache
   --ignore-pricing-failures      Continue without estimated costs when pricing cannot be loaded
   --cost-mode <mode>             Costs to report: explicit (logged by the source), estimated (from
                                  LiteLLM), or both (logged, else estimated; default) (choices:
@@ -38,6 +39,7 @@ Options:
   --per-model-columns            Render per-model metrics as multiline aligned table columns
                                  (terminal/markdown)
   --last <n>                     Report the last N days hour by hour (1-31), counting today
+  --all                          Report every hour instead of today
   --compact                      Abbreviate token counts and hide the Reasoning and Cache Write
                                  columns (terminal/markdown)
   --no-cost                      Leave cost out of the table, e.g. for screenshots

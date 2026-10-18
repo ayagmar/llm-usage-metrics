@@ -496,7 +496,7 @@ export function registerSharedReportOptions(
     if (profileConfig.includePricingFetch) {
       configuredCommand.option(
         '--pricing-offline',
-        'Use cached LiteLLM pricing only (no network fetch)',
+        'Never fetch pricing: use the cached LiteLLM pricing, or the bundled snapshot when there is no cache',
       );
     }
 

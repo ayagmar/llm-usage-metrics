@@ -165,7 +165,7 @@ type TableDisplayOptions = {
 export type ReportCommandOptions = SharedOptionsForProfile<'usage'> &
   RepoFilterOption &
   ByRepoOption & {
-    /** `daily` and `weekly`: report full history instead of the default recent window. */
+    /** Full history instead of the default recent window (a no-op on `monthly`). */
     all?: boolean;
     /** `--last N`: the last N periods of the granularity, counting the current one. */
     last?: string;
@@ -183,6 +183,8 @@ export type HourlyCommandOptions = SharedOptionsForProfile<'hourly'> &
   TableDisplayOptions & {
     /** `--last N`: the last N days (1-31), hour by hour, counting today. */
     last?: string;
+    /** Every hour instead of today. */
+    all?: boolean;
     /** One row per source and machine instead of per source. */
     byMachine?: boolean;
   };
@@ -247,6 +249,8 @@ export type TrendsCommandOptions = SharedOptionsForProfile<'trends'> &
     last?: string;
     /** Hidden alias of `last`. */
     days?: string;
+    /** Every day since the first usage instead of the last 30. */
+    all?: boolean;
     metric?: string;
     bySource?: boolean;
   };
