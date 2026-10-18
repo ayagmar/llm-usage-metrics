@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.12.1](https://github.com/ayagmar/llm-usage-metrics/compare/v0.12.0...v0.12.1) (2026-10-18)
+
+### Features
+
+* **cli:** accept --last N days on events ([22a54bc](https://github.com/ayagmar/llm-usage-metrics/commit/22a54bc6e6075b339f949c39ab5f4d1da0ee50a1))
+
+### Bug Fixes
+
+* **aggregate:** count a directory inside node_modules as its project ([e450b82](https://github.com/ayagmar/llm-usage-metrics/commit/e450b829d74a1bf9b590bafbaea9256886f85eef))
+* **aggregate:** find node_modules past a directory that only starts with it ([47ac22c](https://github.com/ayagmar/llm-usage-metrics/commit/47ac22ca804d96d293391c677db7ecca71661073))
+* **aggregate:** keep the root of a node_modules directory at a filesystem root ([cf8993c](https://github.com/ayagmar/llm-usage-metrics/commit/cf8993c7d4d9d6ce7b28c3f8eaeea7f2eb013b6e))
+* **cli:** list schema names when schema gets no name ([6ca1a79](https://github.com/ayagmar/llm-usage-metrics/commit/6ca1a79a13ce66280a34e314aeb4e10f1c5a9aee))
+* **cli:** prefix command failures with error: like option errors ([11d266f](https://github.com/ayagmar/llm-usage-metrics/commit/11d266ff7182f4fe18348bcd085d583e472f1ad7))
+* **core:** fold vendor-reselling providers into their billing vendor ([78d52c6](https://github.com/ayagmar/llm-usage-metrics/commit/78d52c6701d3e79c0534560207f859484e23672f))
+* **efficiency:** fail early outside a git repository ([56dae55](https://github.com/ayagmar/llm-usage-metrics/commit/56dae5509c2ecc05018d1d520c76adbcae7cdd23))
+* **efficiency:** reject a bare repository as the repo directory ([43f2525](https://github.com/ayagmar/llm-usage-metrics/commit/43f252516255de5e7035afd350d74043a339f821))
+* **machines:** print a failed sync on stderr ([7f2d451](https://github.com/ayagmar/llm-usage-metrics/commit/7f2d4519cf68e290671d5052e09e60580b4a449f))
+* **machines:** skip the machines note when every machine was left out ([341219c](https://github.com/ayagmar/llm-usage-metrics/commit/341219cb97d25db2b14a36d93ae495c50a20eb93))
+* **render:** put the sign before the ~ mark on approximate compare deltas ([cea1c3f](https://github.com/ayagmar/llm-usage-metrics/commit/cea1c3fd7d6f6f88adeeaaefeb13061ec747889d))
+* **render:** reword the blocks note so the UTC hour start and local times don't read as contradictory ([776b85e](https://github.com/ayagmar/llm-usage-metrics/commit/776b85e97b279116f15948f202ea5ca8c3f3e51b))
+* **render:** show - for an unknown context limit instead of a blank cell ([aca8269](https://github.com/ayagmar/llm-usage-metrics/commit/aca8269604a4af259f66b7239dee1c446b289e86))
+* **store:** drop pre-release tool call and message tables when migrating to v5 ([d498f94](https://github.com/ayagmar/llm-usage-metrics/commit/d498f941c1b080563b99ebcd840fefc1217717a1))
+* **store:** migrate a v4-layout store a pre-release build stamped v5 ([edb8950](https://github.com/ayagmar/llm-usage-metrics/commit/edb895030c6e87b1a715f39ab6dcc4a96ffa8e8f))
+* **tools:** group tool names that differ only in case ([c264680](https://github.com/ayagmar/llm-usage-metrics/commit/c2646808e71300de2046df4bb6cfbdf94edb0a40))
+* **trends:** count parallel sessions once in active-hours, sharing the wrapped union helper ([4e7c6cc](https://github.com/ayagmar/llm-usage-metrics/commit/4e7c6cc6a06bcb48ac8e0c0b125363addcfd64e5))
+* **wrapped:** count overlapping session time once in Hours ([bdca3dd](https://github.com/ayagmar/llm-usage-metrics/commit/bdca3ddf391d3fada2b11c5b338c0d19f7c68631))
+
 ## [0.12.0](https://github.com/ayagmar/llm-usage-metrics/compare/v0.11.0...v0.12.0) (2026-10-18)
 
 ### ⚠ BREAKING CHANGES
