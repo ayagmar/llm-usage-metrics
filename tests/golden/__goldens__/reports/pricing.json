@@ -342,13 +342,6 @@
         ],
         "priorityFallback": []
       }
-    ],
-    "perRequestSources": [
-      "antigravity",
-      "claude",
-      "gemini",
-      "opencode",
-      "pi"
     ]
   }
 }
