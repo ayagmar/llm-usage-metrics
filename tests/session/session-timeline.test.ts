@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  createMessageEvent,
-  createToolCallEvent,
-  createUsageEvent,
-} from '../../src/domain/usage-event.js';
+import { createUsageEvent } from '../../src/domain/usage-event.js';
+import { createMessageEvent, createToolCallEvent } from '@ayagmar/agent-sessions';
 import { buildSessionTimeline } from '../../src/session/session-timeline.js';
 
 function request(timestamp: string, costUsd: number | undefined) {

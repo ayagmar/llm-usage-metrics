@@ -5,7 +5,7 @@ import {
 } from '@ayagmar/agent-sessions/internal';
 
 import type { UsageEvent } from '../domain/usage-event.js';
-import { normalizeSourceId } from '../domain/usage-event.js';
+import { normalizeSourceId } from '@ayagmar/agent-sessions';
 import { normalizeStoredEvent } from './event-store-codec.js';
 import { toNonNegativeInteger, toText, type EventStore } from './event-store-database.js';
 

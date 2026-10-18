@@ -1,4 +1,4 @@
-import type { SourceId } from './usage-event.js';
+import type { SourceId } from '@ayagmar/agent-sessions';
 
 export type TokenBuckets = {
   inputTokens: number;
