@@ -429,8 +429,10 @@ describe('createCli', () => {
 
   it('renders help output with command and npx examples', () => {
     const cli = createCli();
-    const help = cli.helpInformation();
-    const compactHelp = help.replace(/\s+/gu, ' ');
+    let help = '';
+    cli.configureOutput({ writeOut: (chunk) => (help += chunk) }).outputHelp();
+    // A wrapped example joins back into the command it was split from.
+    const compactHelp = help.replaceAll(' \\\n', ' ').replace(/\s+/gu, ' ');
     const dailyCommandHelp = cli.commands
       .find((command) => command.name() === 'daily')
       ?.helpInformation();
@@ -473,11 +475,17 @@ describe('createCli', () => {
           })
           .outputHelp();
 
-        // Example commands and the usage synopsis are meant to be copied whole, and one
-        // word cannot be split.
-        const overflowing = text
-          .split('\n')
-          .filter((line) => !line.trimStart().startsWith('$ ') && !line.startsWith('Usage: '))
+        // The usage synopsis is meant to be copied whole, and one word cannot be split.
+        // Examples wrap between flags, so one flag or redirect with its value can still
+        // overflow.
+        const lines = text.split('\n');
+        const overflowing = lines
+          .filter((line, index) => {
+            const isExample = line.startsWith('  $ ') || lines[index - 1]?.endsWith(' \\');
+            const words = line.replace(/ \\$/u, '').trim().split(' ');
+            const isOnePair = words.length === 2 && (words[0].startsWith('-') || words[0] === '>');
+            return !line.startsWith('Usage: ') && !(isExample && isOnePair);
+          })
           .filter((line) => line.length > columns && line.trim().includes(' '));
 
         expect(overflowing, `${command.name()} at ${String(columns)}`).toEqual([]);
@@ -519,6 +527,18 @@ describe('createCli', () => {
         expect(output).toContain('--claude-dir');
       }
     }
+  });
+
+  // Without its own --help-all the root passed the flag to the summary, the default command.
+  it('prints the root help for a bare --help-all', async () => {
+    const cli = createCli();
+    const output = captureOutput(cli);
+
+    await expect(cli.parseAsync(['--help-all'], { from: 'user' })).rejects.toMatchObject({
+      exitCode: 0,
+    });
+    expect(output.text()).toMatch(/^Usage: llm-usage \[options\] \[command\]\n/u);
+    expect(output.text()).toContain('Examples:\n  $ llm-usage\n');
   });
 
   it('does not leak empty-array defaults for repeatable options in command help', () => {

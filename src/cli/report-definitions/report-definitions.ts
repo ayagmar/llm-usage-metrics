@@ -1,4 +1,10 @@
-import { Argument, Command, InvalidArgumentError, Option } from 'commander';
+import {
+  type AddHelpTextContext,
+  Argument,
+  Command,
+  InvalidArgumentError,
+  Option,
+} from 'commander';
 
 import type {
   BlocksCommandOptions,
@@ -165,11 +171,94 @@ const BY_REPO_ROW_DESCRIPTION = `Split each source row by ${PROJECT_DESCRIPTION}
 
 const MAX_COMMAND_HELP_EXAMPLES = 4;
 
-/** An `Examples:` block for `--help`, or nothing when there are no examples. */
-export function formatHelpExamples(commands: readonly string[]): string {
-  return commands.length === 0
-    ? ''
-    : ['', 'Examples:', ...commands.map((command) => `  $ ${command}`)].join('\n');
+const DEFAULT_HELP_WIDTH = 80;
+const EXAMPLE_PREFIX = '  $ ';
+const EXAMPLE_CONTINUATION_INDENT = '      ';
+const LINE_CONTINUATION = ' \\';
+
+/**
+ * The example's words, with each `--flag value` and `> file` pair kept as one, and a
+ * trailing `# comment` kept on the last word's line.
+ */
+function splitHelpExampleWords(command: string): string[] {
+  const commentStart = command.indexOf(' #');
+  const code = commentStart === -1 ? command : command.slice(0, commentStart);
+  const words: string[] = [];
+
+  for (const word of code.split(' ')) {
+    const previous = words.at(-1);
+    const takesValue =
+      previous !== undefined &&
+      (/^-\S*$/.test(previous) || previous === '>') &&
+      !word.startsWith('-') &&
+      word !== '>';
+
+    if (takesValue) {
+      words[words.length - 1] = `${previous} ${word}`;
+    } else {
+      words.push(word);
+    }
+  }
+
+  if (commentStart !== -1) {
+    words[words.length - 1] += command.slice(commentStart);
+  }
+
+  return words;
+}
+
+/**
+ * One example on lines no wider than `width`, split before a flag with shell line
+ * continuations, so a long command still pastes as one. A word longer than a line
+ * overflows instead of breaking.
+ */
+function wrapHelpExample(command: string, width: number): string[] {
+  const words = splitHelpExampleWords(command);
+  const lines: string[] = [];
+  let line = `${EXAMPLE_PREFIX}${words[0]}`;
+
+  for (const [index, word] of words.slice(1).entries()) {
+    const isLastWord = index === words.length - 2;
+    const candidate = `${line} ${word}`;
+    const limit = isLastWord ? width : width - LINE_CONTINUATION.length;
+
+    if (candidate.length <= limit) {
+      line = candidate;
+    } else {
+      lines.push(`${line}${LINE_CONTINUATION}`);
+      line = `${EXAMPLE_CONTINUATION_INDENT}${word}`;
+    }
+  }
+
+  return [...lines, line];
+}
+
+/** The width commander wraps this help to: the terminal's, else 80 columns. */
+function getHelpWidth({ command, error }: AddHelpTextContext): number {
+  const output = command.configureOutput();
+  const width = error ? output.getErrHelpWidth?.() : output.getOutHelpWidth?.();
+  return width ?? DEFAULT_HELP_WIDTH;
+}
+
+/**
+ * An `Examples:` block for `addHelpText`, or nothing when there are no examples. Built at
+ * print time so long commands wrap to the terminal width.
+ */
+export function formatHelpExamples(
+  commands: readonly string[],
+): (context: AddHelpTextContext) => string {
+  return (context) => {
+    if (commands.length === 0) {
+      return '';
+    }
+
+    const width = getHelpWidth(context);
+    return [
+      '',
+      'Examples:',
+      ...commands.flatMap((command) => wrapHelpExample(command, width)),
+    ].join('\n');
+  };
 }
 
 function createCommand(definition: ReportRuntimeDefinition): Command {
@@ -1078,7 +1167,7 @@ function collectHelpExamples(
     .map((example) => example.command);
 }
 
-function getRootHelpExamples(): string[] {
+export function getRootHelpExamples(): string[] {
   return collectHelpExamples(
     (example) => example.includeInRootHelp === true,
     reportReferenceExamples,
@@ -1102,8 +1191,5 @@ export function createRootDescription(): string {
     `Supported sources (${supportedSourceIds.length}): ${allowedSourcesLabel}`,
     '',
     'Run `llm-usage <command> --help` to see command options (e.g. --json, --source).',
-    '',
-    'Examples:',
-    ...getRootHelpExamples().map((example) => `  $ ${example}`),
   ].join('\n');
 }
