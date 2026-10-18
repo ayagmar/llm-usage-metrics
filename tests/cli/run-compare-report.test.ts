@@ -54,7 +54,7 @@ vi.mock('../../src/cli/build-compare-data.js', () => ({
 }));
 
 vi.mock('../../src/cli/build-share-report-data.js', () => ({
-  buildShareReportData: vi.fn(),
+  buildShareReport: vi.fn(),
 }));
 
 vi.mock('../../src/cli/share-artifact.js', () => ({
@@ -65,7 +65,7 @@ vi.mock('../../src/cli/share-artifact.js', () => ({
 }));
 
 import { buildCompareData } from '../../src/cli/build-compare-data.js';
-import { buildShareReportData } from '../../src/cli/build-share-report-data.js';
+import { buildShareReport } from '../../src/cli/build-share-report-data.js';
 import { buildCompareReport, runCompareReport } from '../../src/cli/run-compare-report.js';
 import { writeShareFile } from '../../src/cli/share-artifact.js';
 import { readSharePayload } from '../helpers/share-html.js';
@@ -139,13 +139,13 @@ describe('run-compare-report', () => {
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
     const shareData = readFixturePayload().data;
-    vi.mocked(buildShareReportData).mockResolvedValue(shareData);
+    vi.mocked(buildShareReport).mockResolvedValue({ data: shareData });
 
     try {
       await runCompareReport({ share: true });
 
       // The file spans both windows, opens on the current one and embeds the --json report.
-      const [request] = vi.mocked(buildShareReportData).mock.calls[0] ?? [];
+      const [request] = vi.mocked(buildShareReport).mock.calls[0] ?? [];
       expect(request).toMatchObject({
         command: 'compare',
         window: { since: '2026-05-01', until: '2026-06-30' },

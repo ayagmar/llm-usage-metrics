@@ -1,24 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type * as ShareReportArtifactModule from '../../src/cli/share-report-artifact.js';
 import type { EfficiencyDataResult } from '../../src/cli/usage-data-contracts.js';
 
 vi.mock('../../src/cli/build-efficiency-data.js', () => ({
   buildEfficiencyData: vi.fn(),
-}));
-
-vi.mock('../../src/cli/share-report-artifact.js', async (importOriginal) => ({
-  ...(await importOriginal<typeof ShareReportArtifactModule>()),
-  buildShareReportArtifact: vi.fn(async () => ({
-    fileName: 'efficiency-monthly-share.html',
-    logLabel: 'efficiency',
-    render: () => '',
-  })),
-}));
-
-vi.mock('../../src/cli/share-artifact.js', () => ({
-  writeShareFile: vi.fn(async (fileName: string) => `/share/${fileName}`),
-  openShareFile: vi.fn(),
 }));
 
 import { buildEfficiencyData } from '../../src/cli/build-efficiency-data.js';
@@ -51,15 +36,12 @@ function efficiencyData(
   };
 }
 
-async function runStderr(
-  data: EfficiencyDataResult,
-  options: Parameters<typeof runEfficiencyReport>[1] = {},
-): Promise<string> {
+async function runStderr(data: EfficiencyDataResult): Promise<string> {
   vi.mocked(buildEfficiencyData).mockResolvedValue(data);
   vi.spyOn(console, 'log').mockImplementation(() => undefined);
   const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
-  await runEfficiencyReport('monthly', options);
+  await runEfficiencyReport('monthly', {});
 
   return errorSpy.mock.calls.map((call) => String(call[0])).join('\n');
 }
@@ -86,17 +68,5 @@ describe('runEfficiencyReport diagnostics', () => {
 
     expect(stderr).toContain(message);
     expect(stderr).toContain('Git outcomes (excluding merge commits)');
-  });
-
-  it('names the repository, except with --share --redact', async () => {
-    const data = efficiencyData({ repoDir: '/home/alice/acme-client' });
-
-    expect(await runStderr(data)).toContain('lines (/home/alice/acme-client)');
-    vi.restoreAllMocks();
-
-    const redacted = await runStderr(data, { share: true, open: false, redact: true });
-
-    expect(redacted).toContain('Git outcomes (excluding merge commits): 0 commits, +0/-0 lines');
-    expect(redacted).not.toContain('acme-client');
   });
 });

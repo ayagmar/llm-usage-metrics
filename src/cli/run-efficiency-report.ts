@@ -85,18 +85,13 @@ async function prepareEfficiencyReport(
   });
 }
 
-/** Prints the efficiency diagnostics; with --redact, without the repository path. */
-function emitEfficiencyReportDiagnostics(
-  diagnostics: EfficiencyDiagnostics,
-  redact: boolean,
-): void {
+function emitEfficiencyReportDiagnostics(diagnostics: EfficiencyDiagnostics): void {
   const mergeModeLabel = diagnostics.includeMergeCommits
     ? 'including merge commits'
     : 'excluding merge commits';
-  const repoDir = redact ? '' : ` (${diagnostics.repoDir})`;
 
   logger.info(
-    `Git outcomes (${mergeModeLabel}): ${pluralize(diagnostics.gitCommitCount, 'commit')}, +${diagnostics.gitLinesAdded}/-${diagnostics.gitLinesDeleted} lines${repoDir}`,
+    `Git outcomes (${mergeModeLabel}): ${pluralize(diagnostics.gitCommitCount, 'commit')}, +${diagnostics.gitLinesAdded}/-${diagnostics.gitLinesDeleted} lines (${diagnostics.repoDir})`,
   );
   logger.info(
     `Repo-attributed usage events: ${diagnostics.repoMatchedUsageEvents} matched, ${diagnostics.repoExcludedUsageEvents} excluded, ${diagnostics.repoUnattributedUsageEvents} unattributed`,
@@ -132,8 +127,6 @@ export async function runEfficiencyReport(
 
   await runStandardPreparedReport({
     preparedReport,
-    emitReportDiagnostics: (diagnostics) => {
-      emitEfficiencyReportDiagnostics(diagnostics, options.redact === true);
-    },
+    emitReportDiagnostics: emitEfficiencyReportDiagnostics,
   });
 }

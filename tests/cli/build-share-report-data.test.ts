@@ -4,6 +4,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  buildShareReport,
   buildShareReportData,
   type ShareReportRequest,
 } from '../../src/cli/build-share-report-data.js';
@@ -388,19 +389,52 @@ describe('buildShareReportData', () => {
       }
     });
 
-    it('with --redact, names every model model-N when prices do not load', async () => {
-      vi.spyOn(logger, 'warn').mockImplementation(() => undefined);
+    it('with --redact, hides in stderr lines what the file hides', async () => {
+      const events = [
+        usage({ model: 'acme-llama', repoRoot: '/srv/acme-app', machine: 'acme-box' }),
+      ];
+      const line =
+        '~ marks costs that leave out 1 event (models: acme-llama) in /srv/acme-app/src on acme-box; config /etc/acme.toml, ~/acme';
+
+      const plain = await buildShareReport(request(), deps(events));
+      const { scrubLog } = await buildShareReport(
+        request({ options: { timezone: 'UTC', pricingOffline: true, redact: true } }),
+        deps(events),
+      );
+
+      expect(plain.scrubLog).toBeUndefined();
+      expect(scrubLog?.(line)).toBe(
+        '~ marks costs that leave out 1 event (models: model-1) in project-1/src on machine-1; config <path>, <path>',
+      );
+      const slashModel = await buildShareReport(
+        request({ options: { timezone: 'UTC', pricingOffline: true, redact: true } }),
+        deps([usage({ model: 'acme</b>llama' })]),
+      );
+      expect(slashModel.scrubLog?.('(models: acme</b>llama)')).toBe('(models: model-1)');
+      const pathModel = await buildShareReport(
+        request({ options: { timezone: 'UTC', pricingOffline: true, redact: true } }),
+        deps([usage({ model: '/opt/alice/acme-llama' })]),
+      );
+      expect(pathModel.scrubLog?.('(models: /opt/alice/acme-llama)')).toBe('(models: model-1)');
+      expect(scrubLog?.('/srv/acme-x is not a git repository')).toBe(
+        '<path> is not a git repository',
+      );
+    });
+
+    it('with --redact, names every model model-N when prices do not load, and hides the path why', async () => {
+      const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
       const data = await buildShareReportData(
         request({ options: { timezone: 'UTC', pricingOffline: true, redact: true, cost: false } }),
         deps([usage({ model: 'claude-sonnet-4-5' })], {
-          resolvePricingSource: () => Promise.reject(new Error('offline and no cache')),
+          resolvePricingSource: () =>
+            Promise.reject(new Error('no cache at /srv/alice-cache/pricing.json')),
         }),
       );
 
       expect(data.dictionaries.models).toEqual(['model-1']);
-      expect(logger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('so it labels every model model-N'),
-      );
+      expect(error.mock.calls.map((call) => String(call[0]))).toEqual([
+        expect.stringContaining('so it labels every model model-N: no cache at <path>'),
+      ]);
     });
 
     it('labels the envelope’s models as the dictionary labels them', async () => {

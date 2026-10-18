@@ -7,7 +7,7 @@ import type {
 } from '../share-report/types.js';
 import { logger } from '../utils/logger.js';
 import type { ReportGranularity } from '../utils/time-buckets.js';
-import { buildShareReportData, type ShareReportRequest } from './build-share-report-data.js';
+import { buildShareReport, type ShareReportRequest } from './build-share-report-data.js';
 import type { ShareArtifact } from './share-artifact.js';
 import type { BuildUsageDataDeps } from './usage-data-contracts.js';
 
@@ -66,11 +66,12 @@ export async function buildShareReportArtifact(
   deps: BuildUsageDataDeps,
 ): Promise<ShareArtifact> {
   const { fileBaseName, logLabel, ...shareRequest } = request;
-  const data = await buildShareReportData(shareRequest, deps);
+  const { data, scrubLog } = await buildShareReport(shareRequest, deps);
 
   return {
     fileName: `${fileBaseName}.html`,
     logLabel,
+    scrubLog,
     // Warned as the file is written, after the command's own diagnostics.
     render: () => {
       const html = renderShareHtml({ data, fileBaseName });

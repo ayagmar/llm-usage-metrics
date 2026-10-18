@@ -258,13 +258,21 @@ export const KEPT_MODEL_LABELS: ReadonlySet<string> = new Set([UNKNOWN_MODEL_LAB
 const PATH_IN_TEXT_PATTERN =
   /(?:(?<=^|[\s"'`([{<=,;|>«])|(?<=:)(?!\/\/))(?:[a-z]:[\\/](?:[^\s"'`<>|?*:\\/](?:[^\r\n"'`<>|?*:\\/]*[^\s"'`<>|?*:\\/])?[\\/])*|file:|~[\w.-]*[\\/]|\\\\|\.{1,2}[\\/]|\/)[^\s"'`<>()[\]{},;|«»]*/giu;
 
+type PathScrubberOptions = {
+  /** What any other path becomes; its basename by default. */
+  otherPath?: (path: string) => string;
+  /** Values are lines of text (`~ marks…`), never one path as a whole. */
+  text?: boolean;
+};
+
 /**
  * Removes paths from free text: each known path (longest first) becomes its replacement, any
- * other standard home directory becomes `~`, and any other path becomes its basename (all of
- * the value, when it is a path as a whole).
+ * other standard home directory becomes `~`, and any other path becomes `otherPath` of it
+ * (all of the value, when it is a path as a whole).
  */
 export function createPathScrubber(
   replacements: ReadonlyMap<string, string>,
+  { otherPath = toPathName, text = false }: PathScrubberOptions = {},
 ): (value: string) => string {
   const ordered = [...replacements.entries()]
     .filter(([path]) => path.length > 0)
@@ -284,9 +292,9 @@ export function createPathScrubber(
       .replace(SPACED_PROFILE_IN_TEXT_PATTERN, '$1')
       .replace(STANDARD_HOME_IN_TEXT_PATTERN, '~');
 
-    return isPathLike(scrubbed)
-      ? toPathName(scrubbed)
-      : scrubbed.replace(PATH_IN_TEXT_PATTERN, (path) => toPathName(path));
+    return !text && isPathLike(scrubbed)
+      ? otherPath(scrubbed)
+      : scrubbed.replace(PATH_IN_TEXT_PATTERN, (path) => otherPath(path));
   };
 }
 

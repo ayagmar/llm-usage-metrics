@@ -42,7 +42,7 @@ Active time is the gaps between consecutive events in a session, each capped at 
 
 Project labels never hold a full home path, even without `--redact`: a home directory collapses to `~`, and labels that only a full path would tell apart get ` #2`, ` #3`. A model name that looks like a path keeps only its last part. The envelope drops path fields (`repoRoot`, `cwd`, `filePath` and others) and scrubs paths from other strings.
 
-`--redact` replaces project names with `project-N` and machine names with `machine-N`, numbered by total tokens. `(unattributed)` and `local` stay as they are. Models whose name holds a path or that LiteLLM does not list get `model-N`; to tell which, prices load even with `--no-cost`, and when they do not load every model gets `model-N`. The time zone and session start and end times stay. The page's own "hide names" switch only masks the display; the file still holds the names.
+`--redact` replaces project names with `project-N` and machine names with `machine-N`, numbered by total tokens. `(unattributed)` and `local` stay as they are. Models whose name holds a path or that LiteLLM does not list get `model-N`; to tell which, prices load even with `--no-cost`, and when they do not load every model gets `model-N`. The time zone and session start and end times stay. The same maps scrub the run's `stderr` lines (`ShareArtifact.scrubLog`, applied through the logger): names become their stand-ins and paths `<path>`, except the `Wrote … share report` line. The page's own "hide names" switch only masks the display; the file still holds the names.
 
 ## The HTML file
 
