@@ -68,7 +68,7 @@ describe('pushOtlp request size', () => {
   async function bodiesAt(otlpMaxBatchBytes: number, signalLines = lines): Promise<string[]> {
     const bodies: string[] = [];
     const fetchImpl: typeof fetch = (_input, init) => {
-      bodies.push(String(init?.body));
+      bodies.push(init?.body as string);
       return Promise.resolve(new Response('{}'));
     };
 
