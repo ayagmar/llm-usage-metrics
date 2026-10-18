@@ -229,6 +229,10 @@ function statusHint(status: number): string {
     return `check the credentials in ${OTLP_HEADERS_ENV_VAR}`;
   }
 
+  if (status >= 300 && status < 400) {
+    return 'the receiver redirects; pass the final receiver URL';
+  }
+
   if (status === 404) {
     return 'pass the receiver base URL; /v1/traces or /v1/metrics is appended';
   }
@@ -279,6 +283,9 @@ async function postBatch(
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: batch.body,
+        // Following would turn a 301-303 into a GET counted as success, and send the headers
+        // (and with 307/308 the payload) to wherever the receiver points.
+        redirect: 'manual',
         signal: AbortSignal.timeout(deps.otlpTimeoutMs),
       });
     } catch (error) {
