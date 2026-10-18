@@ -284,12 +284,13 @@ function migrateSchemaV3ToV4(database: EventStoreDatabase): void {
 // is left behind. Files stored before v5 have no tool call or message rows. The stored
 // fingerprint of a source that keeps them changed with v5, so its files on disk re-ingest
 // on the next run.
-export function migrateSchemaV4ToV5(database: EventStoreDatabase): void {
-  runTransaction(database, () => {
+/** Whether this call copied the tables; false when the store was not at v4. */
+export function migrateSchemaV4ToV5(database: EventStoreDatabase): boolean {
+  return runTransaction(database, () => {
     // Re-check under the write lock: another process may have migrated while
     // this one waited on BEGIN IMMEDIATE.
     if (readSchemaVersion(database) !== '4') {
-      return;
+      return false;
     }
 
     database.exec(`
@@ -319,6 +320,7 @@ DROP TABLE v4_events;
 DROP TABLE v4_files;
 `);
     database.prepare("UPDATE meta SET value = ? WHERE key = 'schemaVersion'").run('5');
+    return true;
   });
 }
 
@@ -353,11 +355,18 @@ export function assertSupportedSchemaVersion(database: EventStoreDatabase): void
 }
 
 export function initializeSchema(database: EventStoreDatabase): void {
-  createOrMigrateSchema(database);
+  const copiedTables = createOrMigrateSchema(database);
   ensureOverrideOnlyFilesTable(database);
+
+  // The dropped v4 tables leave their pages free, and the file would keep its v4 size
+  // plus the copy. SQLite requires VACUUM to run outside an explicit transaction.
+  if (copiedTables) {
+    database.exec('VACUUM');
+  }
 }
 
-function createOrMigrateSchema(database: EventStoreDatabase): void {
+/** Whether a migration copied the tables into a new layout. */
+function createOrMigrateSchema(database: EventStoreDatabase): boolean {
   if (listUserTableNames(database).length === 0) {
     const createdSchema = runTransaction(database, () => {
       // Re-check under the write lock: a concurrent first run may have created the
@@ -371,14 +380,14 @@ function createOrMigrateSchema(database: EventStoreDatabase): void {
     });
 
     if (createdSchema) {
-      return;
+      return false;
     }
   }
 
   const schemaVersion = readSchemaVersion(database);
 
   if (schemaVersion === EVENT_STORE_SCHEMA_VERSION) {
-    return;
+    return false;
   }
 
   if (schemaVersion === undefined || !OLDER_SCHEMA_VERSIONS.includes(schemaVersion)) {
@@ -390,5 +399,5 @@ function createOrMigrateSchema(database: EventStoreDatabase): void {
   migrateSchemaV1ToV2(database);
   migrateSchemaV2ToV3(database);
   migrateSchemaV3ToV4(database);
-  migrateSchemaV4ToV5(database);
+  return migrateSchemaV4ToV5(database);
 }

@@ -55,9 +55,10 @@ import {
 
 const EVENT_STORE_OPEN_TIMEOUT_MS = 2_000;
 
-// A WAL limit no run reaches in practice (about 400 MB of 4 KiB pages), so a run's
-// writes are checkpointed once, when it closes the store.
-const RUN_WAL_AUTOCHECKPOINT_PAGES = 100_000;
+// About 40 MB of 4 KiB pages. On synthetic Claude corpora a cold run is as fast as with
+// 100,000 pages, whose WAL reached 76 MB on 2 GiB and 345 MB on 5.9 GiB, and 10-20%
+// faster than with the default 1,000.
+const RUN_WAL_AUTOCHECKPOINT_PAGES = 10_000;
 
 const loadEventStoreSqliteModule: LoadEventStoreSqliteModule = () =>
   loadNodeSqliteModule('Event store');
@@ -413,8 +414,9 @@ export async function openEventStore(
     // In WAL mode NORMAL skips the fsync on every commit but keeps the database
     // consistent; a power loss can only drop the latest commits, which the next run
     // re-parses from the source files. A rollback journal keeps the safer default.
-    // The commits of a run stay in the WAL until closeEventStore checkpoints them once:
-    // checkpointing every 1,000 pages rewrote the same index pages many times over.
+    // A run's commits stay in the WAL until it holds RUN_WAL_AUTOCHECKPOINT_PAGES or
+    // closeEventStore checkpoints them: checkpointing every 1,000 pages rewrote the
+    // same index pages many times over.
     if (toText(database.prepare('PRAGMA journal_mode').get()?.journal_mode) === 'wal') {
       database.exec('PRAGMA synchronous=NORMAL');
       database.exec(`PRAGMA wal_autocheckpoint=${String(RUN_WAL_AUTOCHECKPOINT_PAGES)}`);
@@ -676,6 +678,10 @@ export async function readEventStoreEvents(
     timeout: EVENT_STORE_OPEN_TIMEOUT_MS,
   });
 
+  // One read transaction from the schema check to the last row: a migration another
+  // process commits meanwhile cannot change the tables the chosen query reads.
+  database.exec('BEGIN');
+
   try {
     assertSupportedSchemaVersion(database);
     const meta = readMetaValues(database);
@@ -703,6 +709,7 @@ export async function readEventStoreEvents(
 
     return { meta, events };
   } finally {
+    database.exec('COMMIT');
     database.close();
   }
 }
