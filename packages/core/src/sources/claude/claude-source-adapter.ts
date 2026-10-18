@@ -476,7 +476,10 @@ export class ClaudeSourceAdapter implements SourceAdapter {
         }
       }
 
-      yield* usageRows.flush();
+      for (const event of usageRows.flush()) {
+        yield event;
+      }
+
       return;
     }
 
@@ -504,15 +507,21 @@ export class ClaudeSourceAdapter implements SourceAdapter {
           usageRows.add(record);
         }
 
-        yield* sessionEvents.add(record);
+        for (const event of sessionEvents.add(record)) {
+          yield event;
+        }
       }
     }
 
     // Unanswered tool calls come before the usage, which is sorted at the end of the file.
-    yield* sessionEvents.finish();
+    for (const event of sessionEvents.finish()) {
+      yield event;
+    }
 
     if (readsUsage) {
-      yield* usageRows.flush();
+      for (const event of usageRows.flush()) {
+        yield event;
+      }
     }
   }
 }
