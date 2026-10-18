@@ -1,4 +1,13 @@
-import { appendFile, mkdir, mkdtemp, readFile, rm, utimes, writeFile } from 'node:fs/promises';
+import {
+  appendFile,
+  copyFile,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  utimes,
+  writeFile,
+} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -12,14 +21,17 @@ import {
   closeEventStore,
   getFileReadCursor,
   openEventStore,
+  type EventStore,
   replaceFilesEvents,
   type ReplaceFileEventsInput,
 } from '../../src/persistence/event-store.js';
 import { writeClaudeForkSession } from '../helpers/fork-fixtures.js';
 
 const tempDirs: string[] = [];
+const tempStores: EventStore[] = [];
 
 afterEach(async () => {
+  tempStores.splice(0).forEach(closeEventStore);
   await Promise.all(tempDirs.map((tempDir) => rm(tempDir, { recursive: true, force: true })));
   tempDirs.length = 0;
 });
@@ -164,7 +176,10 @@ async function readCursorOf(storePath: string, source: string, filePath: string)
 type Ingest = {
   storePath: string;
   writes: ReplaceFileEventsInput[];
-  run: () => Promise<void>;
+  /** The output tokens the run reports, and its warnings. */
+  run: (deps?: {
+    getFileReadCursor?: typeof getFileReadCursor;
+  }) => Promise<{ outputTokens: number; warnings: string[] }>;
 };
 
 function createIngest(adapter: SourceAdapter, storePath: string): Ingest {
@@ -177,11 +192,17 @@ function createIngest(adapter: SourceAdapter, storePath: string): Ingest {
   return {
     storePath,
     writes,
-    run: async () => {
-      await parseSelectedAdapters([adapter], 1, {
+    run: async (deps) => {
+      const result = await parseSelectedAdapters([adapter], 1, {
         eventStore: { enabled: true, path: storePath },
-        eventStoreDeps: { replaceFilesEvents: spy },
+        eventStoreDeps: { replaceFilesEvents: spy, ...deps },
       });
+      return {
+        outputTokens: result.successfulParseResults
+          .flatMap((parseResult) => parseResult.events)
+          .reduce((sum, event) => sum + event.outputTokens, 0),
+        warnings: result.warnings,
+      };
     },
   };
 }
@@ -191,6 +212,13 @@ async function dumpFreshStore(adapter: SourceAdapter, tempDir: string, name: str
   const fresh = createIngest(adapter, path.join(tempDir, `${name}.db`));
   await fresh.run();
   return dumpStore(fresh.storePath);
+}
+
+/** A second connection to the store, as another report running at the same time. */
+async function openOtherRun(storePath: string): Promise<EventStore> {
+  const store = await openEventStore(storePath);
+  tempStores.push(store);
+  return store;
 }
 
 async function setTime(filePath: string, seconds: number): Promise<void> {
@@ -345,6 +373,40 @@ describe('incremental ingest', () => {
     expect(ingest.writes.find((write) => write.filePath === forkPath)?.append).toBeUndefined();
     expect(await dumpStore(ingest.storePath)).toEqual(
       await dumpFreshStore(adapter, tempDir, 'fresh-fork'),
+    );
+  });
+  it('reports a grown file once when another run stores it during the lookup', async () => {
+    const tempDir = await createTempDir();
+    const projectsDir = path.join(tempDir, 'projects');
+    const filePath = path.join(projectsDir, 'project-a', 'session-1.jsonl');
+    const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
+    const lines = [1, 2, 3].map((index) =>
+      claudeAssistant(`a${String(index)}`, index, String(index), [], 10),
+    );
+    const ingest = await growLineByLine(adapter, tempDir, filePath, lines.slice(0, 2));
+    await appendFile(filePath, `${lines[2] ?? ''}\n`);
+    await setTime(filePath, 1_700_001_000);
+
+    // The other run reads the same grown file and stores the appended line.
+    const otherStorePath = path.join(tempDir, 'other.db');
+    await copyFile(ingest.storePath, otherStorePath);
+    const other = createIngest(adapter, otherStorePath);
+    await other.run();
+    expect(other.writes[0]?.append).toBeDefined();
+    const otherRun = await openOtherRun(ingest.storePath);
+
+    // It commits to this run's store just after this run read the stored cursor.
+    const reported = await ingest.run({
+      getFileReadCursor: (store, source, readPath) => {
+        const cursor = getFileReadCursor(store, source, readPath);
+        replaceFilesEvents(otherRun, other.writes);
+        return cursor;
+      },
+    });
+
+    expect(reported.outputTokens).toBe(30);
+    expect(await dumpStore(ingest.storePath)).toEqual(
+      await dumpFreshStore(adapter, tempDir, 'fresh-raced'),
     );
   });
 });

@@ -269,26 +269,35 @@ export function readFileGrowth(
   }
 
   try {
-    const storedEntry = context.getFileEntry(context.store, params.source, params.filePath);
+    // One read snapshot: a version another run commits meanwhile cannot pair this
+    // version's cursor with its events.
+    context.store.database.exec('BEGIN');
 
-    if (!storedEntry || !isOnlyFileChanged(storedEntry.fingerprint, params.fingerprint)) {
-      return undefined;
+    try {
+      const storedEntry = context.getFileEntry(context.store, params.source, params.filePath);
+
+      if (!storedEntry || !isOnlyFileChanged(storedEntry.fingerprint, params.fingerprint)) {
+        return undefined;
+      }
+
+      const cursor = context.getFileReadCursor(context.store, params.source, params.filePath);
+      const events =
+        cursor && context.readFileEvents(context.store, params.source, params.filePath);
+
+      return cursor && events
+        ? {
+            resumePoint: {
+              cursor,
+              storedFingerprint: storedEntry.fingerprint,
+              events,
+              skippedRows: storedEntry.skippedRows,
+              skippedRowReasons: storedEntry.skippedRowReasons,
+            },
+          }
+        : {};
+    } finally {
+      context.store.database.exec('COMMIT');
     }
-
-    const cursor = context.getFileReadCursor(context.store, params.source, params.filePath);
-    const events = cursor && context.readFileEvents(context.store, params.source, params.filePath);
-
-    return cursor && events
-      ? {
-          resumePoint: {
-            cursor,
-            storedFingerprint: storedEntry.fingerprint,
-            events,
-            skippedRows: storedEntry.skippedRows,
-            skippedRowReasons: storedEntry.skippedRowReasons,
-          },
-        }
-      : {};
   } catch (error) {
     recordEventStoreFailure(context.failureState, error);
     return undefined;
