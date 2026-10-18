@@ -26,6 +26,20 @@ describe('provider-normalization', () => {
     expect(normalizeProviderToBillingEntity(' github-copilot ')).toBe('github');
   });
 
+  it('folds pi providers that resell a vendor API into that vendor', () => {
+    expect(
+      collectCanonicalProviderRoots([
+        'anthropic',
+        'claude-bridge',
+        'google',
+        'google-gemini-cli',
+        'deepseek',
+        'deepseek-official',
+        'kimi-coding',
+      ]),
+    ).toEqual(['anthropic', 'deepseek', 'google', 'moonshot']);
+  });
+
   it('resolves explicit provider roots only for canonical roots', () => {
     expect(resolveExplicitProviderRoots(undefined)).toBeUndefined();
     expect(resolveExplicitProviderRoots(' openai ')).toEqual(['openai']);

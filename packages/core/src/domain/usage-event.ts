@@ -15,7 +15,7 @@ export type SourceId = string;
  * produced from unchanged source files. Like adapter parser versions, it is part of
  * the event-store cache key so stored events are re-parsed after the change.
  */
-export const USAGE_EVENT_NORMALIZATION_VERSION = 3;
+export const USAGE_EVENT_NORMALIZATION_VERSION = 4;
 
 /**
  * How a consumer marks an event's cost: `explicit` when the source logged `costUsd`,

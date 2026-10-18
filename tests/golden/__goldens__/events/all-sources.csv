@@ -21,6 +21,6 @@ roocode,task-roocode,2026-06-15T12:35:00.000Z,,openai,gpt-roocode-e2e,35,15,0,0,
 kilocode,task-kilocode,2026-06-15T12:40:00.000Z,,anthropic,claude-kilocode-e2e,25,20,0,0,0,45,0.03,explicit,,0
 claude,claude-e2e-session,2026-06-20T12:00:00.000Z,/tmp/claude-e2e,anthropic,claude-sonnet-4-5,80,40,0,5,10,135,0.000879,estimated,,0
 claude,claude-e2e-session,2026-06-20T12:05:00.000Z,/tmp/claude-e2e,anthropic,claude-sonnet-4-5,50,25,0,5,5,85,0.00054525,estimated,,0
-dsh,session-e2e-dsh-a,2026-09-11T14:30:46.495Z,/home/dev/projects/dsh-e2e,deepseek-official,deepseek-flash,600,150,20,450,0,1200,0.0003627,estimated,,0
-dsh,session-e2e-dsh-b,2026-09-11T14:30:46.995Z,/home/dev/projects/dsh-e2e,deepseek-official,deepseek-flash,200,80,10,160,0,440,0.00015696,estimated,,0
-dsh,session-e2e-dsh-a,2026-09-11T14:30:47.495Z,/home/dev/projects/dsh-e2e,deepseek-official,deepseek-flash,400,100,0,300,0,800,0.0002418,estimated,,0
+dsh,session-e2e-dsh-a,2026-09-11T14:30:46.495Z,/home/dev/projects/dsh-e2e,deepseek,deepseek-flash,600,150,20,450,0,1200,0.0003627,estimated,,0
+dsh,session-e2e-dsh-b,2026-09-11T14:30:46.995Z,/home/dev/projects/dsh-e2e,deepseek,deepseek-flash,200,80,10,160,0,440,0.00015696,estimated,,0
+dsh,session-e2e-dsh-a,2026-09-11T14:30:47.495Z,/home/dev/projects/dsh-e2e,deepseek,deepseek-flash,400,100,0,300,0,800,0.0002418,estimated,,0
