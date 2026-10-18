@@ -9,6 +9,7 @@ import {
   createToolCallEvent,
   type MessageEvent,
 } from '@ayagmar/agent-sessions';
+import { loadNodeSqliteModule } from '@ayagmar/agent-sessions/internal';
 import { afterEach, describe, expect, it } from 'vitest';
 import { pathToFileURL } from 'node:url';
 
@@ -18,6 +19,7 @@ import {
   deleteStoredFiles,
   EventStoreSchemaVersionError,
   getFileEntry,
+  migrateSchemaV4ToV5,
   openEventStore,
   readEventStoreEvents,
   readEventStoreSummary,
@@ -28,6 +30,10 @@ import {
   type EventStore,
   type StoredSessionEvent,
 } from '../../src/persistence/event-store.js';
+import type {
+  EventStoreSqliteModule,
+  EventStoreStatement,
+} from '../../src/persistence/event-store-database.js';
 import { writeV4Store } from '../helpers/event-store-v4.js';
 
 const tempDirs: string[] = [];
@@ -336,6 +342,50 @@ describe('schema v5 migration', () => {
     // A read-only reader reads the v4 layout as it reads the v5 one.
     expect(v4Read.events).toEqual(events);
     expect((await readEventStoreEvents(storePath)).events).toEqual(events);
+  });
+
+  it('reads a v4 store whole while another connection migrates it', async () => {
+    const storePath = await createStorePath();
+    const events = [usageEvent('a'), usageEvent('b')];
+    const fingerprint = serializeEventStoreFingerprint(FINGERPRINT);
+    await writeV4Store(storePath, [
+      { source: 'codex', filePath: '/logs/a.jsonl', fingerprint, events },
+    ]);
+    const sqlite = (await loadNodeSqliteModule('Test')) as unknown as EventStoreSqliteModule;
+    const migrator = new sqlite.DatabaseSync(storePath);
+    let migrated = false;
+
+    // The other connection commits the migration as soon as the reader has the version.
+    class MigratedAfterVersionRead extends sqlite.DatabaseSync {
+      override prepare = (sql: string): EventStoreStatement => {
+        const statement = super.prepare(sql);
+
+        if (sql === 'SELECT key, value FROM meta') {
+          const all = statement.all.bind(statement);
+          statement.all = (...parameters) => {
+            const rows = all(...parameters);
+            migrateSchemaV4ToV5(migrator);
+            migrated = true;
+            return rows;
+          };
+        }
+
+        return statement;
+      };
+    }
+
+    try {
+      const read = await readEventStoreEvents(storePath, {}, () =>
+        Promise.resolve({ DatabaseSync: MigratedAfterVersionRead }),
+      );
+
+      expect(migrated).toBe(true);
+      expect(read.meta.get('schemaVersion')).toBe('4');
+      expect(read.events).toEqual(events);
+      expect((await readEventStoreEvents(storePath)).meta.get('schemaVersion')).toBe('5');
+    } finally {
+      migrator.close();
+    }
   });
 
   it('opens a v4 store that another process migrates while this one waits', async () => {

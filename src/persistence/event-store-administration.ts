@@ -676,6 +676,10 @@ export async function readEventStoreEvents(
     timeout: EVENT_STORE_OPEN_TIMEOUT_MS,
   });
 
+  // One read transaction from the schema check to the last row: a migration another
+  // process commits meanwhile cannot change the tables the chosen query reads.
+  database.exec('BEGIN');
+
   try {
     assertSupportedSchemaVersion(database);
     const meta = readMetaValues(database);
@@ -703,6 +707,7 @@ export async function readEventStoreEvents(
 
     return { meta, events };
   } finally {
+    database.exec('COMMIT');
     database.close();
   }
 }
