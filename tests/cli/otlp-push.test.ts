@@ -20,7 +20,7 @@ const FIXTURE_OPTIONS = {
   pricingOffline: true,
 };
 const NOW = () => new Date('2026-07-01T00:00:00.000Z');
-const SECRET = 'Bearer s3cr3t token';
+const SECRET = 'Bearer s3cr3t-0123456789';
 // Captured before useBundledPricingOnly stubs `fetch`; the push may only reach 127.0.0.1.
 const realFetch = globalThis.fetch;
 const loopbackFetch: typeof fetch = (input, init) => {
@@ -343,6 +343,57 @@ describe('events --otlp-endpoint', () => {
     const output = await runEvents({ format: 'otlp-metrics', otlpEndpoint: partial.endpoint });
     expect(output.stderr).toContain('the receiver rejected 1 (token [redacted])');
     expect(output.stderr).not.toContain('s3cr3t');
+  });
+
+  it('withholds a receiver message or partial success that holds a short header value', async () => {
+    setHeadersEnv('api-key=abc123,x-tenant=t1');
+    const failing = await startReceiver((response) =>
+      response.writeHead(401).end('bad api-key: abc123'),
+    );
+    const partial = await startReceiver((response) =>
+      response.end(
+        JSON.stringify({
+          partialSuccess: { rejectedDataPoints: '1', errorMessage: 'tenant t1 over quota' },
+        }),
+      ),
+    );
+
+    const failure = runEvents({ format: 'otlp-metrics', otlpEndpoint: failing.endpoint });
+    await expect(failure).rejects.toThrow(
+      'HTTP 401 Unauthorized ([receiver message withheld: it may contain a header value]);',
+    );
+    await expect(failure).rejects.not.toThrow('abc123');
+    const output = await runEvents({ format: 'otlp-metrics', otlpEndpoint: partial.endpoint });
+    expect(output.stderr).toContain(
+      'the receiver rejected 1 ([receiver message withheld: it may contain a header value])',
+    );
+    expect(output.stderr).not.toContain('t1 over');
+  });
+
+  it('prints a receiver message that holds no header value unchanged', async () => {
+    setHeadersEnv('x-tenant=t1');
+    const receiver = await startReceiver((response) =>
+      response.writeHead(400).end('payload is not valid OTLP'),
+    );
+
+    await expect(
+      runEvents({ format: 'otlp-metrics', otlpEndpoint: receiver.endpoint }),
+    ).rejects.toThrow('HTTP 400 Bad Request (payload is not valid OTLP);');
+  });
+
+  it('keeps header values out of the HTTP status text', async () => {
+    setHeadersEnv('api-key=synthetic-long-test-token,x-short=abc123');
+    const long = await startReceiver((response) =>
+      response.writeHead(401, 'invalid synthetic-long-test-token').end(),
+    );
+    const short = await startReceiver((response) => response.writeHead(403, 'key abc123').end());
+
+    const longFailure = runEvents({ format: 'otlp-metrics', otlpEndpoint: long.endpoint });
+    await expect(longFailure).rejects.toThrow('HTTP 401 invalid [redacted];');
+    await expect(longFailure).rejects.not.toThrow('synthetic-long-test-token');
+    const shortFailure = runEvents({ format: 'otlp-metrics', otlpEndpoint: short.endpoint });
+    await expect(shortFailure).rejects.toThrow(/HTTP 403; check the credentials/u);
+    await expect(shortFailure).rejects.not.toThrow('abc123');
   });
 
   it('stops at a 4xx with the receiver message and a hint, never the header values', async () => {

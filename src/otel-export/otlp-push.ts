@@ -302,23 +302,43 @@ async function readBody(
   }
 }
 
-// Shorter header values and words are left in place: a value like `t1` would blank out
-// unrelated text, and a credential is longer.
+// Shorter header values and words are not replaced: a value like `t1` would blank out
+// unrelated text. Receiver text that holds one is withheld instead.
 const MIN_REDACTED_CHARS = 8;
+const WITHHELD_MESSAGE = '[receiver message withheld: it may contain a header value]';
+
+// Headers whose value is `<auth-scheme> <credentials>` (RFC 9110): the scheme names a
+// public method such as `Bearer`, not a secret.
+const CREDENTIAL_HEADERS: ReadonlySet<string> = new Set(['authorization', 'proxy-authorization']);
+
+/** The words of a header value that can be secret on their own. */
+function credentialWords(name: string, value: string): string[] {
+  const words = value.trim().split(/\s+/u);
+  return CREDENTIAL_HEADERS.has(name) && words.length > 1 ? words.slice(1) : words;
+}
 
 /**
- * `text` without the header values: each value, and each word in one, of 8 characters or
- * more becomes `[redacted]`, so a receiver or proxy that echoes `Authorization: Bearer
- * <token>` or the bare token does not print it.
+ * Receiver text safe to print, or `undefined` when it must be withheld. Each header value,
+ * and each word in one, of 8 characters or more becomes `[redacted]`, so a receiver or proxy
+ * that echoes `Authorization: Bearer <token>` or the bare token does not print it. Text that
+ * holds a shorter value or word is withheld whole.
  */
-function redactHeaderValues(text: string, headers: Record<string, string>): string {
-  const secrets = Object.values(headers)
-    .flatMap((value) => [value.trim(), ...value.split(/\s+/u)])
-    .filter((secret) => secret.length >= MIN_REDACTED_CHARS)
-    // Longest first, so a whole value goes before the words inside it.
-    .sort((left, right) => right.length - left.length);
+function sanitizeReceiverText(text: string, headers: Record<string, string>): string | undefined {
+  const secrets = Object.entries(headers)
+    .flatMap(([name, value]) => [value.trim(), ...credentialWords(name, value)])
+    .filter((secret) => secret !== '');
 
-  return secrets.reduce((redacted, secret) => redacted.replaceAll(secret, '[redacted]'), text);
+  if (secrets.some((secret) => secret.length < MIN_REDACTED_CHARS && text.includes(secret))) {
+    return undefined;
+  }
+
+  return (
+    secrets
+      .filter((secret) => secret.length >= MIN_REDACTED_CHARS)
+      // Longest first, so a whole value goes before the words inside it.
+      .sort((left, right) => right.length - left.length)
+      .reduce((redacted, secret) => redacted.replaceAll(secret, '[redacted]'), text)
+  );
 }
 
 /**
@@ -331,7 +351,9 @@ async function readErrorDetail(
 ): Promise<string> {
   const { text, json } = await readBody(response);
   const detail = typeof json?.message === 'string' ? json.message : text;
-  const oneLine = redactHeaderValues(detail, headers).replaceAll(/\s+/gu, ' ').trim();
+  const oneLine = (sanitizeReceiverText(detail, headers) ?? WITHHELD_MESSAGE)
+    .replaceAll(/\s+/gu, ' ')
+    .trim();
   return oneLine.length > ERROR_DETAIL_MAX_CHARS
     ? `${oneLine.slice(0, ERROR_DETAIL_MAX_CHARS)}…`
     : oneLine;
@@ -375,7 +397,7 @@ async function readPartialSuccess(
   );
   const message =
     typeof partial?.errorMessage === 'string' && partial.errorMessage !== ''
-      ? redactHeaderValues(partial.errorMessage, headers)
+      ? (sanitizeReceiverText(partial.errorMessage, headers) ?? WITHHELD_MESSAGE)
       : undefined;
 
   return { rejected: Number.isFinite(rejected) ? rejected : 0, message };
@@ -439,7 +461,9 @@ async function postBatch(
     }
 
     const detail = await readErrorDetail(response, headers);
-    const statusText = `HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ''}`;
+    // A reason phrase that holds a header value is left out.
+    const reason = sanitizeReceiverText(response.statusText, headers) ?? '';
+    const statusText = `HTTP ${response.status}${reason ? ` ${reason}` : ''}`;
     throw new OtlpPushError(
       `${statusText}${detail ? ` (${detail})` : ''}; ${statusHint(response.status)}`,
     );
