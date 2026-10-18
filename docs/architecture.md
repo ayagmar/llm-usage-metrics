@@ -160,7 +160,7 @@ Each command has a `run*` entry point, and most have a `build*` that returns the
 
 1. `buildSessionData(...)` reuses the usage dataset and pricing
 2. per-session grouping (or per-project with `--by-repo`) with a top-N row limit (`src/session`)
-3. with `--id <id> --timeline`: exactly one session must match; `readLiveSessionEvents(...)` reads its tool calls and messages from the files that hold its usage, `dedupeToolCalls` counts copied calls once, and `buildSessionTimeline(...)` interleaves them with the session's priced requests and a running cost
+3. with `--id <id> --timeline`: exactly one session must match; `readLiveSessionEvents(...)` reads its tool calls and messages for the files that hold its usage, departed files history served included, `dedupeToolCalls` counts copied calls once, and `buildSessionTimeline(...)` interleaves them with the session's priced requests and a running cost
 4. `renderSessionReport(...)`
 5. shared report runtime emits diagnostics and stdout body
 
@@ -168,11 +168,11 @@ Each command has a `run*` entry point, and most have a `build*` that returns the
 
 `runToolsReport(options)`
 
-1. `buildToolsData(...)` resolves the window as `daily` does (last 7 days by default) and builds the local usage dataset without history, other machines or sync, since tool calls are only in files on disk; it loads no prices
-2. `readLiveSessionEvents(...)` (`src/cli/read-live-session-events.ts`) reads `tool_call` events from those files through core `readEvents`, and `dedupeToolCalls` counts a call copied into a resumed or forked session once
+1. `buildToolsData(...)` resolves the window as `daily` does (last 7 days by default) and builds the local usage dataset with history and without other machines or sync; it loads no prices
+2. `readLiveSessionEvents(...)` (`src/cli/read-live-session-events.ts`) reads `tool_call` events of those files and of the departed files history served from the event store (`readStoredSessionEvents`), or from the files on disk through core `readEvents` with the store off or for a file it could not store, and `dedupeToolCalls` counts a call copied into a resumed or forked session once
 3. `aggregateTools(...)` (`src/tools`): calls, errors, unknown results, sessions and top project per tool, split by source or project on request
 4. `renderToolsReport(...)`
-5. shared report runtime emits diagnostics, the live-read note, and stdout body
+5. shared report runtime emits diagnostics, the note on where tool calls came from, and stdout body
 
 ### Context
 
@@ -294,7 +294,7 @@ That keeps sorting and separator behavior deterministic without coupling the gen
 - `src/config`
   TOML config loading (`user-config.ts`) and flag/env/config/default resolution (`runtime-overrides.ts`)
 - `packages/core/src/sources`
-  Source adapters, discovery, parsing, in the `@ayagmar/agent-sessions` package; the CLI imports them through the package specifiers. Each adapter's `read(filePath, options)` yields a file's events as an async iterable; the CLI parse path, the parse worker and `doctor` read whole files through `collectFile`. `capabilities.kinds` lists the event kinds an adapter produces: claude, codex and pi also implement `readEvents(filePath, options)`, which yields usage records, messages, tool calls and session facts (`SessionEvent` in `packages/core/src/domain/session-event.ts`); every other adapter declares `['usage']`. The parse path uses `read`, whose output `readEvents` leaves unchanged; `tools` and `session --timeline` read tool calls and messages live through `readEvents` in `src/cli/read-live-session-events.ts`, since the event store holds usage only
+  Source adapters, discovery, parsing, in the `@ayagmar/agent-sessions` package; the CLI imports them through the package specifiers. Each adapter's `read(filePath, options)` yields a file's events as an async iterable; the CLI parse path, the parse worker and `doctor` read whole files through `collectFile`, except that the parse reads a file it will store through `collectFileForEventStore` (`src/cli/parse/stored-session-events.ts`) when its adapter declares tool calls or messages. `capabilities.kinds` lists the event kinds an adapter produces: claude, codex and pi also implement `readEvents(filePath, options)`, which yields usage records, messages, tool calls and session facts (`SessionEvent` in `packages/core/src/domain/session-event.ts`); every other adapter declares `['usage']`. With the event store on, the parse path reads such a file once through `readEvents` for usage, tool calls and messages, and stores all three; its usage events and skipped rows are what `read` gives (the readEvents contract). `tools` and `session --timeline` read tool calls and messages from the store in `src/cli/read-live-session-events.ts`, and through `readEvents` from disk with the store off
 - `packages/core/src/stream`
   `collect`/`collectFile` (an async iterable to an array, a file to its events and sorted skipped-row counts), `readEvents` (an adapter's `readEvents`, or its `read` events as usage records when it has none), the `kinds()`, `since()`, `until()` and `bySession()` stages, the JSONL read cursor (`cursor.ts`), and `pipe` with the `Stage` type that the dedup stage forms (`repeatedAcrossFiles`, `copiedSessions` in `packages/core/src/dedup`, which dedupe usage and pass other kinds through) plug into; `dedupeToolCalls` keeps one tool call per source and call id
 - `packages/core/src/registry`
