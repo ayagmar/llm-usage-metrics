@@ -33,19 +33,31 @@ CREATE TABLE IF NOT EXISTS meta (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+${createFileTablesSql()}
+${createOverrideOnlyFilesSql()}
+`;
+}
+
+// A stored file and its rows. Usage events, tool calls and messages key the file by its
+// integer id, so a row does not repeat the file's source and path, and a file's rows sit
+// together in event_index order. Tool calls and messages hold timestamps as epoch
+// milliseconds, which read back as the ISO strings the events carry; their event_index is
+// the event's position in the file's tool calls and messages together, so the two tables
+// read back in the order the adapter yielded them. Message text is never stored.
+function createFileTablesSql(): string {
+  return `
 CREATE TABLE IF NOT EXISTS files (
+  id INTEGER PRIMARY KEY,
   source TEXT NOT NULL,
   file_path TEXT NOT NULL,
   fingerprint TEXT NOT NULL,
   skipped_rows INTEGER NOT NULL,
   skipped_row_reasons TEXT,
   ingested_at INTEGER NOT NULL,
-  PRIMARY KEY (source, file_path)
+  UNIQUE (source, file_path)
 );
 CREATE TABLE IF NOT EXISTS events (
-  id INTEGER PRIMARY KEY,
-  source TEXT NOT NULL,
-  file_path TEXT NOT NULL,
+  file_id INTEGER NOT NULL,
   event_index INTEGER NOT NULL,
   session_id TEXT NOT NULL,
   timestamp TEXT NOT NULL,
@@ -57,32 +69,14 @@ CREATE TABLE IF NOT EXISTS events (
   reasoning_tokens INTEGER NOT NULL,
   cache_read_tokens INTEGER NOT NULL,
   cache_write_tokens INTEGER NOT NULL,
-  cache_write_1h_tokens INTEGER NOT NULL DEFAULT 0,
+  cache_write_1h_tokens INTEGER NOT NULL,
   total_tokens INTEGER NOT NULL,
   content_hash TEXT,
   cost_usd REAL,
-  cost_mode TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS events_file ON events(source, file_path, event_index);
+  cost_mode TEXT NOT NULL,
+  PRIMARY KEY (file_id, event_index)
+) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS events_content_hash ON events(content_hash);
-${createSessionEventTablesSql()}
-${createOverrideOnlyFilesSql()}
-`;
-}
-
-// A file's tool calls and messages. Their rows key the file by an integer id, so a row does
-// not repeat the file's source and path, and hold timestamps as epoch milliseconds, which
-// read back as the ISO strings the events carry. Their event_index is the event's position in the
-// file's tool calls and messages together, so the two tables read back in the order the
-// adapter yielded them. Message text is never stored.
-function createSessionEventTablesSql(): string {
-  return `
-CREATE TABLE IF NOT EXISTS session_event_files (
-  id INTEGER PRIMARY KEY,
-  source TEXT NOT NULL,
-  file_path TEXT NOT NULL,
-  UNIQUE (source, file_path)
-);
 CREATE TABLE IF NOT EXISTS tool_calls (
   file_id INTEGER NOT NULL,
   event_index INTEGER NOT NULL,
@@ -285,8 +279,11 @@ function migrateSchemaV3ToV4(database: EventStoreDatabase): void {
   });
 }
 
-// Files stored before v5 have no tool call or message rows. The stored fingerprint of a
-// source that keeps them changed with v5, so its files on disk re-ingest on the next run.
+// v5 keys every file's rows by an integer file id: the v4 tables are copied into the v5
+// layout. An event row without a files row was never read by a report's file lookups; it
+// is left behind. Files stored before v5 have no tool call or message rows. The stored
+// fingerprint of a source that keeps them changed with v5, so its files on disk re-ingest
+// on the next run.
 export function migrateSchemaV4ToV5(database: EventStoreDatabase): void {
   runTransaction(database, () => {
     // Re-check under the write lock: another process may have migrated while
@@ -295,7 +292,32 @@ export function migrateSchemaV4ToV5(database: EventStoreDatabase): void {
       return;
     }
 
-    database.exec(createSessionEventTablesSql());
+    database.exec(`
+ALTER TABLE files RENAME TO v4_files;
+ALTER TABLE events RENAME TO v4_events;
+DROP INDEX IF EXISTS events_content_hash;
+${createFileTablesSql()}
+INSERT INTO files (source, file_path, fingerprint, skipped_rows, skipped_row_reasons, ingested_at)
+SELECT source, file_path, fingerprint, skipped_rows, skipped_row_reasons, ingested_at
+FROM v4_files
+ORDER BY source, file_path;
+INSERT OR IGNORE INTO events (
+  file_id, event_index, session_id, timestamp, model, provider, repo_root,
+  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,
+  cache_write_tokens, cache_write_1h_tokens, total_tokens, content_hash, cost_usd, cost_mode
+)
+SELECT files.id, v4_events.event_index, v4_events.session_id, v4_events.timestamp,
+  v4_events.model, v4_events.provider, v4_events.repo_root, v4_events.input_tokens,
+  v4_events.output_tokens, v4_events.reasoning_tokens, v4_events.cache_read_tokens,
+  v4_events.cache_write_tokens, v4_events.cache_write_1h_tokens, v4_events.total_tokens,
+  v4_events.content_hash, v4_events.cost_usd, v4_events.cost_mode
+FROM files
+CROSS JOIN v4_events
+WHERE v4_events.source = files.source AND v4_events.file_path = files.file_path
+ORDER BY files.id, v4_events.event_index;
+DROP TABLE v4_events;
+DROP TABLE v4_files;
+`);
     database.prepare("UPDATE meta SET value = ? WHERE key = 'schemaVersion'").run('5');
   });
 }
@@ -311,7 +333,8 @@ export function isSupportedSchemaVersion(schemaVersion: string): boolean {
 
 /**
  * Whether a supported store of this version has what `version` added: the one-hour cache
- * write column (4), the tool_calls and messages tables (5). A read-only open cannot migrate.
+ * write column (4), the tool_calls and messages tables and rows keyed by file id (5). A
+ * read-only open cannot migrate.
  */
 export function hasSchemaVersion(schemaVersion: string | undefined, version: number): boolean {
   return schemaVersion !== undefined && isSupportedSchemaVersion(schemaVersion)

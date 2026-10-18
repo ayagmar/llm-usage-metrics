@@ -2,6 +2,7 @@ export {
   claimOverrideOnlyFiles,
   closeEventStore,
   countEvents,
+  countFileEvents,
   deleteStoredFiles,
   getDefaultEventStorePath,
   findLegacyEventStore,

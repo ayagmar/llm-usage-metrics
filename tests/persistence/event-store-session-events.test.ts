@@ -1,21 +1,25 @@
 import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile as writeTextFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
 import {
+  computeEventContentHash,
   createMessageEvent,
   createToolCallEvent,
   type MessageEvent,
 } from '@ayagmar/agent-sessions';
 import { afterEach, describe, expect, it } from 'vitest';
+import { pathToFileURL } from 'node:url';
 
 import { createUsageEvent } from '../../src/domain/usage-event.js';
 import {
   closeEventStore,
   deleteStoredFiles,
   EventStoreSchemaVersionError,
+  getFileEntry,
   openEventStore,
+  readEventStoreEvents,
   readEventStoreSummary,
   readFileEvents,
   readStoredSessionEvents,
@@ -24,6 +28,7 @@ import {
   type EventStore,
   type StoredSessionEvent,
 } from '../../src/persistence/event-store.js';
+import { writeV4Store } from '../helpers/event-store-v4.js';
 
 const tempDirs: string[] = [];
 
@@ -35,6 +40,10 @@ async function createStorePath(): Promise<string> {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'event-store-session-events-'));
   tempDirs.push(dir);
   return path.join(dir, 'events.db');
+}
+
+function sourceUrl(fileName: string): string {
+  return pathToFileURL(path.resolve('src/persistence', fileName)).href;
 }
 
 const FINGERPRINT = {
@@ -94,35 +103,19 @@ function writeFile(
   ]);
 }
 
-function countRows(
-  store: EventStore,
-  table: 'tool_calls' | 'messages' | 'session_event_files',
-): number {
+function countRows(store: EventStore, table: 'tool_calls' | 'messages' | 'files'): number {
   return Number(store.database.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get()?.count);
 }
 
-/** A v4 store: the v5 schema without the tables v5 added. */
 async function createV4Store(filePath: string): Promise<void> {
-  const store = await openEventStore(filePath);
-
-  try {
-    replaceFilesEvents(store, [
-      {
-        source: 'codex',
-        filePath: '/logs/a.jsonl',
-        fingerprint: FINGERPRINT,
-        events: [usageEvent('a'), usageEvent('b')],
-        skippedRows: 0,
-        now: 1,
-      },
-    ]);
-    store.database.exec(
-      'DROP TABLE tool_calls; DROP TABLE messages; DROP TABLE session_event_files;',
-    );
-    store.database.prepare("UPDATE meta SET value = '4' WHERE key = 'schemaVersion'").run();
-  } finally {
-    closeEventStore(store);
-  }
+  await writeV4Store(filePath, [
+    {
+      source: 'codex',
+      filePath: '/logs/a.jsonl',
+      fingerprint: serializeEventStoreFingerprint(FINGERPRINT),
+      events: [usageEvent('a'), usageEvent('b')],
+    },
+  ]);
 }
 
 describe('stored tool calls and messages', () => {
@@ -180,8 +173,7 @@ describe('stored tool calls and messages', () => {
       writeFile(store, '/logs/c.jsonl', []);
 
       expect([countRows(store, 'tool_calls'), countRows(store, 'messages')]).toEqual([1, 1]);
-      // A file without tool calls or messages keeps no file key.
-      expect(countRows(store, 'session_event_files')).toBe(2);
+      expect(countRows(store, 'files')).toBe(3);
       expect(
         deleteStoredFiles(store, [
           { source: 'codex', filePath: '/logs/a.jsonl' },
@@ -189,7 +181,7 @@ describe('stored tool calls and messages', () => {
         ]),
       ).toEqual({ deletedFileCount: 2, deletedEventCount: 4 });
       expect([countRows(store, 'tool_calls'), countRows(store, 'messages')]).toEqual([0, 0]);
-      expect(countRows(store, 'session_event_files')).toBe(0);
+      expect(countRows(store, 'files')).toBe(1);
     } finally {
       closeEventStore(store);
     }
@@ -312,32 +304,64 @@ describe('schema v5 migration', () => {
     });
   });
 
+  it('copies every v4 file and its events, in order and with their hashes', async () => {
+    const storePath = await createStorePath();
+    const events = [usageEvent('c'), usageEvent('a'), usageEvent('b')];
+    const fingerprint = serializeEventStoreFingerprint(FINGERPRINT);
+    await writeV4Store(storePath, [
+      { source: 'codex', filePath: '/logs/b.jsonl', fingerprint, events },
+      // A departed file history still lists, with no usage rows.
+      { source: 'pi', filePath: '/logs/empty.jsonl', fingerprint, events: [], skippedRows: 2 },
+    ]);
+    const v4Read = await readEventStoreEvents(storePath);
+
+    const store = await openEventStore(storePath);
+
+    try {
+      expect(readFileEvents(store, 'codex', '/logs/b.jsonl')).toEqual(events);
+      expect(getFileEntry(store, 'pi', '/logs/empty.jsonl')).toMatchObject({ skippedRows: 2 });
+      // History matches moved copies through the stored hashes and their index.
+      expect(
+        store.database.prepare('SELECT content_hash FROM events ORDER BY event_index').all(),
+      ).toEqual(events.map((event) => ({ content_hash: computeEventContentHash(event) })));
+      expect(
+        store.database
+          .prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'events'")
+          .all(),
+      ).toEqual([{ name: 'events_content_hash' }]);
+    } finally {
+      closeEventStore(store);
+    }
+
+    // A read-only reader reads the v4 layout as it reads the v5 one.
+    expect(v4Read.events).toEqual(events);
+    expect((await readEventStoreEvents(storePath)).events).toEqual(events);
+  });
+
   it('opens a v4 store that another process migrates while this one waits', async () => {
     const storePath = await createStorePath();
     await createV4Store(storePath);
 
     // The other process takes the write lock, migrates, and commits after a pause.
-    const migrator = spawn(
-      process.execPath,
-      [
-        '-e',
-        `
-const { DatabaseSync } = require('node:sqlite');
-const db = new DatabaseSync(process.argv[1]);
-db.exec('BEGIN IMMEDIATE');
-db.exec("CREATE TABLE session_event_files (id INTEGER PRIMARY KEY, source TEXT NOT NULL, file_path TEXT NOT NULL, UNIQUE (source, file_path))");
-db.exec("CREATE TABLE tool_calls (file_id INTEGER NOT NULL, event_index INTEGER NOT NULL, session_id TEXT NOT NULL, timestamp TEXT NOT NULL, tool_call_id TEXT, name TEXT NOT NULL, status TEXT NOT NULL, completed_at TEXT, duration_ms INTEGER, message_id TEXT, PRIMARY KEY (file_id, event_index)) WITHOUT ROWID");
-db.exec("CREATE TABLE messages (file_id INTEGER NOT NULL, event_index INTEGER NOT NULL, session_id TEXT NOT NULL, timestamp TEXT NOT NULL, role TEXT NOT NULL, message_id TEXT, model TEXT, text_length INTEGER NOT NULL, PRIMARY KEY (file_id, event_index)) WITHOUT ROWID");
-db.exec("UPDATE meta SET value = '5' WHERE key = 'schemaVersion'");
-process.stdout.write('locked\\n');
-Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 400);
-db.exec('COMMIT');
+    const migratorPath = path.join(path.dirname(storePath), 'migrator.mts');
+    await writeTextFile(
+      migratorPath,
+      `
+import { DatabaseSync } from 'node:sqlite';
+import { runTransaction } from ${JSON.stringify(sourceUrl('event-store-database.ts'))};
+import { migrateSchemaV4ToV5 } from ${JSON.stringify(sourceUrl('event-store-schema.ts'))};
+const db = new DatabaseSync(process.argv[2]);
+runTransaction(db, () => {
+  migrateSchemaV4ToV5(db);
+  process.stdout.write('locked\\n');
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 400);
+});
 db.close();
 `,
-        storePath,
-      ],
-      { stdio: ['ignore', 'pipe', 'inherit'] },
     );
+    const migrator = spawn(process.execPath, ['--import', 'tsx', migratorPath, storePath], {
+      stdio: ['ignore', 'pipe', 'inherit'],
+    });
     const exited = new Promise((resolve) => {
       migrator.on('exit', resolve);
     });

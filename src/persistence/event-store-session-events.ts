@@ -18,9 +18,6 @@ export type StoredSessionEvent = ToolCallEvent | MessageEvent;
 export type StoredSessionEventKind = StoredSessionEvent['kind'];
 
 export type SessionEventStatements = {
-  selectFileId: EventStoreStatement;
-  insertFile: EventStoreStatement;
-  deleteFile: EventStoreStatement;
   deleteToolCalls: EventStoreStatement;
   deleteMessages: EventStoreStatement;
   insertToolCall: EventStoreStatement;
@@ -31,13 +28,6 @@ export function prepareSessionEventStatements(
   database: EventStoreDatabase,
 ): SessionEventStatements {
   return {
-    selectFileId: database.prepare(
-      'SELECT id FROM session_event_files WHERE source = ? AND file_path = ?',
-    ),
-    insertFile: database.prepare(
-      'INSERT INTO session_event_files (source, file_path) VALUES (?, ?)',
-    ),
-    deleteFile: database.prepare('DELETE FROM session_event_files WHERE id = ?'),
     deleteToolCalls: database.prepare('DELETE FROM tool_calls WHERE file_id = ?'),
     deleteMessages: database.prepare('DELETE FROM messages WHERE file_id = ?'),
     insertToolCall: database.prepare(
@@ -58,47 +48,21 @@ export function prepareSessionEventStatements(
   };
 }
 
-function selectFileId(
-  statements: SessionEventStatements,
-  source: string,
-  filePath: string,
-): number | undefined {
-  return toNonNegativeInteger(statements.selectFileId.get(source, filePath)?.id);
-}
-
 /** Deletes the file's stored tool calls and messages; call inside a write transaction. */
-export function deleteFileSessionEvents(
-  statements: SessionEventStatements,
-  source: string,
-  filePath: string,
-): void {
-  const fileId = selectFileId(statements, source, filePath);
-
-  if (fileId === undefined) {
-    return;
-  }
-
+export function deleteFileSessionEvents(statements: SessionEventStatements, fileId: number): void {
   statements.deleteToolCalls.run(fileId);
   statements.deleteMessages.run(fileId);
-  statements.deleteFile.run(fileId);
 }
 
-/** Replaces the file's stored tool calls and messages; call inside a write transaction. */
-export function writeFileSessionEvents(
+/**
+ * Writes the tool calls and messages of a file whose rows were just deleted; call inside
+ * a write transaction.
+ */
+export function insertFileSessionEvents(
   statements: SessionEventStatements,
-  source: string,
-  filePath: string,
+  fileId: number,
   events: readonly StoredSessionEvent[],
 ): void {
-  deleteFileSessionEvents(statements, source, filePath);
-
-  if (events.length === 0) {
-    return;
-  }
-
-  statements.insertFile.run(source, filePath);
-  const fileId = selectFileId(statements, source, filePath);
-
   events.forEach((event, eventIndex) => {
     if (event.kind === 'tool_call') {
       statements.insertToolCall.run(
@@ -130,7 +94,7 @@ export function writeFileSessionEvents(
 }
 
 /**
- * SQL for the tool call and message count of the `session_event_files` row aliased `alias`;
+ * SQL for the tool call and message count of the `files` row aliased `alias`;
  * the one definition both the delete counts and the history counts use.
  */
 export function sessionEventCountSql(alias: string): string {
@@ -140,36 +104,18 @@ export function sessionEventCountSql(alias: string): string {
   ].join(' ');
 }
 
-/** How many tool calls and messages the store holds for the file. */
-export function countFileSessionEvents(
-  database: EventStoreDatabase,
-  source: string,
-  filePath: string,
-): number {
-  const row = database
-    .prepare(
-      [
-        `SELECT ${sessionEventCountSql('file')} AS count`,
-        'FROM session_event_files AS file',
-        'WHERE file.source = ? AND file.file_path = ?',
-      ].join('\n'),
-    )
-    .get(source, filePath);
-  return toNonNegativeInteger(row?.count) ?? 0;
-}
-
 const SELECT_TOOL_CALLS = [
   "SELECT event_index, 'tool_call' AS kind, session_id, timestamp, tool_call_id, name, status,",
   '  completed_at, duration_ms, message_id, NULL AS role, NULL AS model, NULL AS text_length',
   'FROM tool_calls',
-  'WHERE file_id = (SELECT id FROM session_event_files WHERE source = ? AND file_path = ?)',
+  'WHERE file_id = (SELECT id FROM files WHERE source = ? AND file_path = ?)',
 ].join('\n');
 const SELECT_MESSAGES = [
   "SELECT event_index, 'message' AS kind, session_id, timestamp, NULL AS tool_call_id,",
   '  NULL AS name, NULL AS status, NULL AS completed_at, NULL AS duration_ms, message_id, role,',
   '  model, text_length',
   'FROM messages',
-  'WHERE file_id = (SELECT id FROM session_event_files WHERE source = ? AND file_path = ?)',
+  'WHERE file_id = (SELECT id FROM files WHERE source = ? AND file_path = ?)',
 ].join('\n');
 
 /** A statement that reads one file's events of `kinds` in the order they were stored. */
