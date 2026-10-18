@@ -26,7 +26,7 @@
 `llm-usage-metrics` reads local session data from 17 AI coding tools, on this machine and on others you reach over ssh, and converts it into one normalized usage history. Use it to review tokens and estimated cost by day, hour, project or session, compare periods, check usage against 5-hour plan windows and subscription prices, correlate usage with local Git activity, explore it all in an interactive HTML report, or export the events.
 
 <p align="center">
-  <img src="./site/src/assets/screenshots/term-summary.webp" width="520" alt="llm-usage summary in a terminal: cost and tokens for today, the last 7 days and month to date, the month-end pace, prompt caching savings, streaks and a year-long activity heatmap">
+  <img src="https://raw.githubusercontent.com/ayagmar/llm-usage-metrics/master/site/src/assets/screenshots/term-summary.webp" width="520" alt="llm-usage summary in a terminal: cost and tokens for today, the last 7 days and month to date, the month-end pace, prompt caching savings, streaks and a year-long activity heatmap">
 </p>
 
 The CLI parses session content on your machine. It discovers standard source locations and includes a bundled pricing snapshot, so the first report can run without configuration or network access.
@@ -52,7 +52,7 @@ bunx --bun llm-usage-metrics@latest
 echo 'source <(llm-usage completion bash)' >> ~/.bashrc
 ```
 
-With no command, `llm-usage` prints cost and tokens for today, the last 7 days, and month to date, a month-end projection (checked against `monthlyBudgetUsd` when you set one), what prompt caching saved you this month, a note when a day of the last 7 cost at least 3 times your median active day, then your current and longest streak, best day, and a year-long activity heatmap. `llm-usage daily` breaks the last 7 days down by day and source, and `llm-usage weekly` covers the last 8 weeks; add `--since YYYY-MM-DD` or `--all` for older usage.
+With no command, `llm-usage` prints cost and tokens for today, the last 7 days, and month to date, a month-end projection (checked against `monthlyBudgetUsd` when you set one), what prompt caching saved you this month, a note when a day of the last 7 cost at least $1 and at least 3 times your median active day, then your current and longest streak, best day, and a year-long activity heatmap. `llm-usage daily` breaks the last 7 days down by day and source, and `llm-usage weekly` covers the last 8 weeks; add `--since YYYY-MM-DD` or `--all` for older usage.
 
 If the report is empty, check source discovery. `doctor` lists the paths each source searched and marks it found, not installed, or unparseable:
 
@@ -252,8 +252,8 @@ Terminal tables fit the terminal width: on a narrow terminal, token counts are a
 Report data goes to `stdout`. Diagnostics go to `stderr` as one summary line plus any warnings, which keeps JSON and Markdown safe to redirect; `--quiet` keeps only warnings and `--verbose` adds per-source and skipped-row detail. JSON output is wrapped in a versioned envelope: `{ "schemaVersion": 1, "report": "usage", "data": ... }`. Scripts written against pre-0.8.0 JSON should follow the [migration guide](https://ayagmar.github.io/llm-usage-metrics/upgrading/0-8/).
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./site/src/assets/screenshots/share-daily-dark.webp">
-  <img src="./site/src/assets/screenshots/share-daily-light.webp" alt="The interactive report from llm-usage daily --share: period, grouping, source, model and project filters, totals for tokens, cost, events and active time, and a daily cost chart stacked by source">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/ayagmar/llm-usage-metrics/master/site/src/assets/screenshots/share-daily-dark.webp">
+  <img src="https://raw.githubusercontent.com/ayagmar/llm-usage-metrics/master/site/src/assets/screenshots/share-daily-light.webp" alt="The interactive report from llm-usage daily --share: period, grouping, source, model and project filters, totals for tokens, cost, events and active time, and a daily cost chart stacked by source">
 </picture>
 
 Terminal, JSON, and Markdown availability varies by report. Summary, usage, compare, trends, wrapped, efficiency, and optimize can write a share report with `--share`: one self-contained HTML file with charts, filters, sortable tables, and a drill-down from projects to sessions, that exports each chart as PNG or SVG in your browser and loads nothing from the network. `--redact` replaces project and machine names in the file, and `--share --no-open` writes it without opening it. The [output guide](https://ayagmar.github.io/llm-usage-metrics/output-formats/) contains the format matrix and file names.
