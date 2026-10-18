@@ -412,6 +412,9 @@ export function createModelPricingLookup(
   costMode: PricingCostMode,
 ): (event: UsageEvent) => ModelPricing | undefined {
   const pricingByModel = new Map<string, ModelPricing | undefined>();
+  // A run repeats a few model names, so each name's rates are kept too: most events skip
+  // the alias lookup.
+  const pricingByName = new Map<string, ModelPricing | undefined>();
 
   return (event) => {
     const model = event.model;
@@ -420,13 +423,19 @@ export function createModelPricingLookup(
       return undefined;
     }
 
+    if (pricingByName.has(model)) {
+      return pricingByName.get(model);
+    }
+
     const resolvedModel = pricingSource.resolveModelAlias(model);
 
     if (!pricingByModel.has(resolvedModel)) {
       pricingByModel.set(resolvedModel, pricingSource.getPricing(resolvedModel));
     }
 
-    return pricingByModel.get(resolvedModel);
+    const pricing = pricingByModel.get(resolvedModel);
+    pricingByName.set(model, pricing);
+    return pricing;
   };
 }
 
