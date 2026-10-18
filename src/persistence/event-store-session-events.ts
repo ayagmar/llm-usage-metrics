@@ -132,6 +132,20 @@ export function prepareSelectFileSessionEvents(
   };
 }
 
+/** One file's stored events, through a statement from `prepareSelectFileSessionEvents`. */
+export function selectFileSessionEvents(
+  select: { statement: EventStoreStatement; parameterCount: number },
+  source: string,
+  filePath: string,
+): StoredSessionEvent[] {
+  const parameters = Array.from({ length: select.parameterCount }, () => [source, filePath]).flat();
+
+  return select.statement
+    .all(...parameters)
+    .map((row) => decodeStoredSessionEvent(source, row))
+    .filter((event) => event !== undefined);
+}
+
 /** The stored row as the event it was; undefined for a row the constructors reject. */
 export function decodeStoredSessionEvent(
   source: string,

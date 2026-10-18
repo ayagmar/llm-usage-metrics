@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { cp, mkdir, mkdtemp, readFile, rm, utimes, writeFile } from 'node:fs/promises';
 import os from 'node:os';
@@ -17,7 +18,12 @@ import {
   readStoredFileSnapshots,
   replaceFileEvents,
 } from '../../src/persistence/event-store.js';
-import type { SourceAdapter } from '@ayagmar/agent-sessions';
+import {
+  createToolCallEvent,
+  type SourceAdapter,
+  type ToolCallEvent,
+  type ToolCallStatus,
+} from '@ayagmar/agent-sessions';
 import { canonicalTmpdir } from '../helpers/tmp.js';
 import type {
   MachineExportEndLine,
@@ -457,6 +463,59 @@ describe('machine export e2e', () => {
 
       expect(after.events).toHaveLength(2);
       expect(after.revision).not.toBe(before.revision);
+    } finally {
+      closeEventStore(store);
+    }
+  });
+
+  it('changes a revision when only tool calls change, and keeps the usage-only one without', async () => {
+    const store = await openEventStore(path.join(rootDir, 'tools.db'));
+    const fingerprint = { dependencies: [{ path: '/a.jsonl', exists: true, size: 1, mtimeMs: 1 }] };
+    const usage = createUsageEvent({
+      source: 'codex',
+      sessionId: 'a',
+      timestamp: '2026-10-01T10:00:00.000Z',
+      costMode: 'estimated',
+    });
+    const call = (status: ToolCallStatus) =>
+      createToolCallEvent({
+        source: 'codex',
+        sessionId: 'a',
+        timestamp: '2026-10-01T10:00:01.000Z',
+        name: 'exec_command',
+        status,
+      });
+    const snapshotWith = (sessionEvents: ToolCallEvent[]) => {
+      replaceFileEvents(store, {
+        source: 'codex',
+        filePath: '/a.jsonl',
+        fingerprint,
+        events: [usage],
+        sessionEvents,
+        skippedRows: 0,
+        now: 1,
+      });
+      const [snapshot] = readStoredFileSnapshots(store, [
+        { source: 'codex', filePath: '/a.jsonl' },
+      ]);
+      return snapshot;
+    };
+
+    try {
+      const usageOnly = snapshotWith([]);
+      const ok = snapshotWith([call('ok')]);
+      const failed = snapshotWith([call('error')]);
+
+      // The digest 0.11.0 gave every file: a reader holding a file without tool calls at
+      // it is not sent the file again after the upgrade.
+      expect(usageOnly.revision).toBe(
+        createHash('sha256')
+          .update(JSON.stringify([usage]))
+          .digest('hex')
+          .slice(0, 16),
+      );
+      expect(ok.sessionEvents).toEqual([call('ok')]);
+      expect(new Set([usageOnly.revision, ok.revision, failed.revision]).size).toBe(3);
     } finally {
       closeEventStore(store);
     }
