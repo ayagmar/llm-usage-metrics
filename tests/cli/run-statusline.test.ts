@@ -458,7 +458,11 @@ describe('runStatusline', () => {
       await runStatusline(options, { stdin: Readable.from([]) });
       await runStatusline(options, { stdin: Readable.from([]) });
 
-      expect(stderrSpy.mock.calls).toEqual([[`${STATUSLINE_EMPTY_STORE_HINT}\n`]]);
+      // Node 22 also warns on stderr the first time it loads node:sqlite.
+      const hints = stderrSpy.mock.calls.filter(([chunk]) =>
+        String(chunk).includes(STATUSLINE_EMPTY_STORE_HINT),
+      );
+      expect(hints).toEqual([[`${STATUSLINE_EMPTY_STORE_HINT}\n`]]);
       expect(logSpy).toHaveBeenCalledTimes(2);
     } finally {
       vi.unstubAllEnvs();
