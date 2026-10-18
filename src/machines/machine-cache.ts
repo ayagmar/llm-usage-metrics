@@ -38,6 +38,12 @@ import {
  */
 const REVISION_PREFIX = 'machine-export:';
 
+/**
+ * Set by every sync of a version that stores tool calls and messages. A cache without it
+ * may hold revisions whose tool calls an older version dropped, so it is not trusted.
+ */
+const SESSION_EVENTS_KEPT_KEY = 'sessionEventsKept';
+
 export type MachineSyncState = {
   hostname?: string;
   cliVersion?: string;
@@ -104,8 +110,8 @@ function readRevision(fingerprint: string): string | undefined {
   }
 }
 
-/** The files the cache holds, to send as `machine export --known`. */
-export function readCachedFiles(cache: EventStore): MachineExportFileKey[] {
+/** The files the cache holds and their revisions. */
+function readCachedFiles(cache: EventStore): MachineExportFileKey[] {
   const files: MachineExportFileKey[] = [];
 
   for (const file of listStoredFileFingerprints(cache)) {
@@ -117,6 +123,14 @@ export function readCachedFiles(cache: EventStore): MachineExportFileKey[] {
   }
 
   return files;
+}
+
+/**
+ * The files to send as `machine export --known`: none when an older version last synced
+ * the cache, so the next sync sends every file once with its tool calls and messages.
+ */
+export function readKnownFiles(cache: EventStore): MachineExportFileKey[] {
+  return readEventStoreMeta(cache, SESSION_EVENTS_KEPT_KEY) === '1' ? readCachedFiles(cache) : [];
 }
 
 function countCachedEvents(cache: EventStore, source: string, filePath: string): number {
@@ -192,6 +206,7 @@ export function applyMachineExport(
       syncedAt: String(now),
       attemptedAt: String(now),
       lastError: undefined,
+      [SESSION_EVENTS_KEPT_KEY]: '1',
     });
 
     return {
@@ -296,7 +311,8 @@ export async function readMachineCacheSessionEvents(
     const files = await readEventStoreStoredFiles(cachePath);
     return (await readStoredSessionEvents(cachePath, files, kinds)).flat();
   } catch (error) {
-    // A cache synced before v5 is migrated by its next sync; until then it has none.
+    // A cache synced before v5 is migrated by its next sync, which resends every file
+    // (readKnownFiles); until then it has none.
     if (
       error instanceof EventStoreSchemaVersionError &&
       error.schemaVersion !== undefined &&

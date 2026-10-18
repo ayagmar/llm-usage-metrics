@@ -10,7 +10,7 @@ import {
   applyMachineExport,
   getMachineCachePath,
   openMachineCache,
-  readCachedFiles,
+  readKnownFiles,
   readMachineSyncState,
   recordMachineSyncFailure,
   type MachineSyncResult,
@@ -78,7 +78,7 @@ export async function syncMachine(
 
     const { bundle, remoteWarnings } = await fetchMachineExport(
       machine,
-      options.full === true ? [] : readCachedFiles(cache),
+      options.full === true ? [] : readKnownFiles(cache),
       { spawnSsh: options.spawnSsh, timeoutMs: options.timeoutMs, signal: options.signal },
     );
     const result = applyMachineExport(cache, bundle, now());
