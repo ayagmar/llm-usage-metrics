@@ -28,11 +28,11 @@ const barY = cursorTop + 66;
         file it depends on. The same fingerprint serves the stored events; any change re-reads the
         whole file and replaces its stored events, except a claude or pi file that only grew, which
         resumes from its stored cursor. The cursor serves append-only JSONL reads, which the claude,
-        pi and qwen adapters support: it records the parser, the byte offset
-        read so far and SHA-256 hashes of the first and last 64 KiB before that offset. A resumed
-        read starts at the offset when the parser matches, the file is at least offset bytes long
-        and both hashes match; otherwise it reads from byte 0 and reports restarted, and the new
-        events replace the earlier ones.
+        pi and qwen adapters support: it records the parser, the byte offset read so far and SHA-256
+        hashes of the first and last 64 KiB before that offset. A resumed read starts at the offset
+        when the parser matches, the file is at least offset bytes long and both hashes match;
+        otherwise it reads from byte 0 and reports restarted, and the new events replace the earlier
+        ones.
       </desc>
 
       <text class="dg-t dg-t--label" x="12" y="18">
