@@ -24,7 +24,7 @@ The CLI keeps report data on `stdout` and diagnostics on `stderr`. Redirecting J
 | Pricing                  | Yes      | Yes  | Yes      | No           |
 | Doctor / prune           | Yes      | Yes  | No       | No           |
 
-[Events](/llm-usage-metrics/events/) exports JSONL or CSV using `--format`; it does not use the report-format flags. [Status line](/llm-usage-metrics/statusline/) prints one line of text. `schema` prints a JSON Schema document. The `config` subcommands print text, and `config show` also takes `--json`.
+[Events](/llm-usage-metrics/events/) exports JSONL, CSV, or OTLP traces or metrics using `--format`; it does not use the report-format flags. [Status line](/llm-usage-metrics/statusline/) prints one line of text. `schema` prints a JSON Schema document. The `config` subcommands print text, and `config show` also takes `--json`.
 
 ## Terminal
 

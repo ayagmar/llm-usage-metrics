@@ -1,6 +1,6 @@
 ---
 title: Events Export
-description: Stream normalized usage events as JSONL or CSV for jq, DuckDB, or warehouse workflows.
+description: Stream normalized usage events as JSONL or CSV for jq, DuckDB, or warehouse workflows, or export them as OpenTelemetry traces and metrics.
 ---
 
 `llm-usage events` streams the normalized usage events every report is built from: one record per [usage record the source logged](/llm-usage-metrics/library/contracts/#per-request-usage), after source parsing, normalization, and pricing. It is the raw-data counterpart to the aggregated reports.
@@ -21,7 +21,7 @@ llm-usage events --source codex --since 2026-06-01 | jq '.totalTokens'
 
 ## Options
 
-- `--format <name>`: `jsonl` (default), `csv`, or `otlp-traces` ([OpenTelemetry export](/llm-usage-metrics/otel/))
+- `--format <name>`: `jsonl` (default), `csv`, `otlp-traces`, or `otlp-metrics` ([OpenTelemetry export](/llm-usage-metrics/otel/))
 - `--otel-include-paths`: with `otlp-traces`, add repository paths to the spans
 - shared filters apply: `--source`, `--provider`, `--model`, `--repo`, `--machine`, `--since`, `--until`, `--timezone`, source-path overrides, pricing flags, `--cost-mode`, and `--no-history`
 
@@ -55,4 +55,4 @@ llm-usage events --source codex --since 2026-06-01 | jq '.totalTokens'
 
 ## OpenTelemetry
 
-`--format otlp-traces` exports sessions as OTLP/JSON traces instead of usage lines. [OpenTelemetry export](/llm-usage-metrics/otel/) describes the span tree, the attribute mapping onto the GenAI conventions, and a Collector config that replays the file into a backend.
+`--format otlp-traces` exports sessions as OTLP/JSON traces instead of usage lines, and `--format otlp-metrics` exports daily token and cost counters. [OpenTelemetry export](/llm-usage-metrics/otel/) describes the span tree, the metrics, the attribute mapping onto the GenAI conventions, and a Collector config that replays the file into a backend.

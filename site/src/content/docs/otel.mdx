@@ -1,12 +1,13 @@
 ---
 title: OpenTelemetry Export
-description: Export sessions as OTLP/JSON traces that follow the OpenTelemetry GenAI conventions, and replay them into any tracing backend.
+description: Export sessions as OTLP/JSON traces and daily token and cost metrics that follow the OpenTelemetry GenAI conventions, and replay them into any OTLP backend.
 ---
 
-`llm-usage events --format otlp-traces` turns your session history into OpenTelemetry traces: one trace per session, written to `stdout` as OTLP/JSON Lines. The output is the [OTLP file format](https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/protocol/file-exporter.md), so an OpenTelemetry Collector can read the file and send it to Jaeger, Tempo, Honeycomb or any other backend that takes OTLP. Nothing is sent over the network.
+`llm-usage events --format otlp-traces` turns your session history into OpenTelemetry traces: one trace per session, written to `stdout` as OTLP/JSON Lines. `--format otlp-metrics` writes daily token and cost counters instead ([Metrics](#metrics)). The output is the [OTLP file format](https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/protocol/file-exporter.md), so an OpenTelemetry Collector can read the file and send it to Jaeger, Tempo, Honeycomb or any other backend that takes OTLP. Nothing is sent over the network.
 
 ```bash
 llm-usage events --format otlp-traces --since 2026-06-01 > traces.jsonl
+llm-usage events --format otlp-metrics --since 2026-06-01 > metrics.jsonl
 ```
 
 The filters work as they do for `--format jsonl`: `--source`, `--provider`, `--model`, `--repo`, `--machine`, `--since`, `--until`, `--timezone`, pricing flags, `--cost-mode` and `--no-history`. See [Events export](/llm-usage-metrics/events/).
@@ -98,9 +99,37 @@ Deviations from the convention:
 - `gen_ai.response.model` is the model name lowercased, not the exact string the provider returned. `chat` spans do not set `gen_ai.request.model`, since the logs record only the model that answered, so the span name uses the response model.
 - `gen_ai.conversation.id` is set even where a source has no session id and the file name stands in for it (qwen, openclaw), which the convention discourages.
 
+## Metrics
+
+`--format otlp-metrics` writes one `MetricsData` object per agent and day, ordered by day and then by agent. A day is a calendar day in `--timezone`, the same buckets `daily` uses, so the points of one day add up to that day's rows in `daily --json` for the same filters. Resource and scope are the same as for traces.
+
+Each line holds monotonic Sums with DELTA temporality (`"aggregationTemporality": 1`). Every data point covers one day: `startTimeUnixNano` is local midnight and `timeUnixNano` the next local midnight, so a day with a DST change is 23 or 25 hours long.
+
+| metric | unit | value |
+| --- | --- | --- |
+| `gen_ai.client.inference.usage.input_tokens` | `{token}` | `inputTokens` + `cacheReadTokens` + `cacheWriteTokens` |
+| `gen_ai.client.inference.usage.output_tokens` | `{token}` | `outputTokens` (includes reasoning) |
+| `gen_ai.client.inference.usage.cache_read.input_tokens` | `{token}` | `cacheReadTokens` |
+| `gen_ai.client.inference.usage.cache_write.input_tokens` | `{token}` | `cacheWriteTokens` |
+| `gen_ai.client.inference.usage.reasoning.output_tokens` | `{token}` | `reasoningTokens` |
+| `llm_usage.cost_usd` | `USD` | `costUsd`, logged or estimated; no convention yet |
+
+A metric has one point per provider, model and machine that had usage that day. The points carry `gen_ai.operation.name` = `chat`, `gen_ai.provider.name` and `gen_ai.response.model` (mapped as for `chat` spans, and left out when unknown), `gen_ai.token.modality` = `unknown` (the logs do not split tokens by modality), and `llm_usage.machine` for usage from [other machines](/llm-usage-metrics/machines/). Token points are written even when the count is zero. Usage without a price adds nothing to `llm_usage.cost_usd`; when none of a point's usage has a price, that point has no cost value. Paths are never on metric points, so `--otel-include-paths` is rejected with `otlp-metrics`.
+
+Older instrumentations and backends use `gen_ai.client.token.usage` with a `gen_ai.token.type` attribute. The pinned conventions replaced it with the counters above, so the export does not write it.
+
+### Old timestamps
+
+Every point is stamped with its day, so most of a backfill is days or months old, and metric backends usually reject old samples by default:
+
+- Prometheus takes OTLP only with `--web.enable-otlp-receiver`, accepts out-of-order samples only within `storage.tsdb.out_of_order_time_window` (its guide suggests `30m`), and converts DELTA temporality only behind the experimental `otlp-deltatocumulative` feature. Weeks-old samples are rejected by default. See the [Prometheus OpenTelemetry guide](https://prometheus.io/docs/guides/opentelemetry/).
+- Datadog treats points more than an hour old as historical and drops them unless [Historical Metrics Ingestion](https://docs.datadoghq.com/metrics/custom_metrics/historical_metrics) is enabled for that metric.
+
+An export can succeed and still show nothing in such a backend. Trace backends generally accept old spans, which makes [traces](#span-tree) the safer backfill.
+
 ## Send it to a backend
 
-The Collector's [`otlpjsonfile` receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/otlpjsonfilereceiver) reads the file, and the `otlphttp` exporter forwards it. Both ship in the `otelcol-contrib` distribution.
+The Collector's [`otlpjsonfile` receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/otlpjsonfilereceiver) reads the file, and the `otlphttp` exporter forwards it. Both ship in the `otelcol-contrib` distribution. A file holds one signal, so traces and metrics go in separate files; for metrics, include `./metrics.jsonl` and name the pipeline `metrics`.
 
 ```yaml
 receivers:
