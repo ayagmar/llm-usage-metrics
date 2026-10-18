@@ -56,8 +56,8 @@ const REFERENCE_RESOLUTIONS: ReadonlyArray<[model: string, pricingKey: string | 
   ['qwen3-max', 'openrouter/qwen/qwen3-max'],
   ['qwen3-coder-plus', 'openrouter/qwen/qwen3-coder-plus'],
   ['glm-4.7', 'zai/glm-4.7'],
-  ['minimax-m2.1', 'openrouter/minimax/minimax-m2.1'],
-  ['minimax-m2.5', 'openrouter/minimax/minimax-m2.5'],
+  ['minimax-m2.1', 'minimax/minimax-m2.1'],
+  ['minimax-m2.5', 'minimax/minimax-m2.5'],
   ['grok-4', 'xai/grok-4'],
 ];
 
