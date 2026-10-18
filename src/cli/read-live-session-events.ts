@@ -58,8 +58,11 @@ export function formatLiveEventsNote(subject: string, dataset: UsageEventDataset
       ? ''
       : ` Other machines' ${subject.toLowerCase()} come from their last sync, once that machine runs this version too.`;
 
+  // History serves no departed files under --no-history, or when none departed.
+  const departed = dataset.ledger?.historyFiles.length ? ', departed files included' : '';
+
   return dataset.ledger
-    ? `${subject} come from the event store (claude, codex, pi), departed files included.${machines}`
+    ? `${subject} come from the event store (claude, codex, pi)${departed}.${machines}`
     : `${subject} are read from session files on disk (claude, codex, pi): with the event store off, files that no longer exist are not counted.${machines}`;
 }
 
