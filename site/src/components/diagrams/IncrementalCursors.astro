@@ -24,12 +24,12 @@ const barY = cursorTop + 66;
         Two ways to avoid re-reading a file. The CLI's event store keeps a fingerprint per file: the
         parser version plus the path, existence, size and modification time of the file and each
         file it depends on. The same fingerprint serves the stored events; any change re-reads the
-        whole file and replaces its stored events, except a claude, pi or qwen file that only grew, which
-        resumes from its stored cursor. The cursor serves append-only JSONL reads, which the claude,
-        pi and qwen adapters support: it records the parser, the byte offset read so far and the
-        SHA-256 hash of every byte before that offset. A resumed read starts at the offset when the
-        parser matches, the file is at least offset bytes long and the hash matches; otherwise it reads from byte 0 and reports restarted, and the new events replace the earlier
-        ones.
+        whole file and replaces its stored events, except a claude, pi or qwen file that only grew,
+        which resumes from its stored cursor. The cursor serves append-only JSONL reads, which the
+        claude, pi and qwen adapters support: it records the parser, the byte offset read so far and
+        the SHA-256 hash of every byte before that offset. A resumed read starts at the offset when
+        the parser matches, the file is at least offset bytes long and the hash matches; otherwise
+        it reads from byte 0 and reports restarted, and the new events replace the earlier ones.
       </desc>
 
       <text class="dg-t dg-t--label" x="12" y="18">
