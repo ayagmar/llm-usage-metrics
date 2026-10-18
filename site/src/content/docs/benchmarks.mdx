@@ -119,24 +119,25 @@ The store-off cold run is about 3% slower in 0.12.0, in both rounds. Peak RSS wa
 
 ## Real logs (maintainer's machine)
 
-The synthetic corpus above has dense usage lines. Real logs are mostly conversation text, so 0.11.0 and 0.12.0 (unreleased) were also compared on the maintainer's own logs, on a Linux machine with 32 logical CPUs and Node.js v24.21.0:
+The synthetic corpus above has dense usage lines. Real logs are mostly conversation text, so 0.11.0 and 0.12.0 (unreleased) were also compared on the maintainer's own logs on 2026-10-18, on the same machine (Node.js v24.21.0, load average 2.6–3.3 during the runs):
 
 - Each run uses a temp `HOME` that links to the log directories read-only, plus temp cache, data and config directories and `TZ=Europe/Paris`.
 - "Cold" is `statusline` on an empty event store. "Warm" runs reuse the store that cold run filled.
 - The two versions alternate over 3 rounds, each round with a fresh store. Each cell gives the range over the rounds.
 
-| Run                 |        0.11.0 | 0.12.0 (unreleased) |
-| ------------------- | ------------: | ------------------: |
-| Cold `statusline`   |   5.24–5.45 s |         2.75–2.79 s |
-| Cold peak RSS       |    657–677 MB |          912–944 MB |
-| Warm `statusline`   |    563–567 ms |          421–460 ms |
-| Warm `daily --json` |    446–463 ms |          428–443 ms |
-| Warm `tools --json` | not in 0.11.0 |         0.70–0.73 s |
-| Event store size    |         73 MB |               64 MB |
+| Run                   |        0.11.0 | 0.12.0 (unreleased) |
+| --------------------- | ------------: | ------------------: |
+| Cold `statusline`     |   5.75–5.83 s |         3.08–3.36 s |
+| Cold peak RSS         |    616–701 MB |          724–787 MB |
+| Warm `statusline`     |    533–728 ms |          448–497 ms |
+| Warm `summary --json` |    526–607 ms |          465–533 ms |
+| Warm `daily --json`   |    447–460 ms |          421–522 ms |
+| Warm `tools --json`   | not in 0.11.0 |         0.72–0.79 s |
+| Event store size      |         75 MB |               66 MB |
 
-A warm `daily --json` takes about the same time in both versions; one 0.12.0 round had a 592 ms outlier, left out of its range. The 0.12.0 store is smaller although it also holds tool calls and messages.
+A warm `daily --json` takes about the same time in both versions. The 0.12.0 store is smaller although it also holds tool calls and messages.
 
-Most of the cold gain comes from parsing Claude Code and pi files on the worker pool. The cost is memory, because a cold run keeps several parse workers busy at once. Cold runs happen only on the first run and after a parser update; a lower `parseWorkers` lowers the peak. Warm runs read unchanged files from the event store and parse only files that changed.
+Most of the cold gain comes from parsing Claude Code and pi files on the worker pool. The cost is memory, because a cold run keeps several parse workers busy at once. Cold runs happen only on the first run and after a parser update; a lower `parseWorkers` lowers the peak. Warm runs read unchanged files from the event store, parse only files that changed, and read only the appended lines of a claude, pi or qwen file that grew.
 
 ## Reproduce it
 
