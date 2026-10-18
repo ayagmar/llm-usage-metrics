@@ -140,25 +140,27 @@ llm-usage events --since 2026-06-01 | jq '.totalTokens'
 
 ## Supported sources
 
-| Source                 | Local format  |
-| ---------------------- | ------------- |
-| pi                     | JSONL         |
-| codex                  | JSONL         |
-| Gemini CLI             | JSON          |
-| Droid CLI              | settings JSON |
-| OpenCode               | SQLite        |
-| OpenClaw               | JSONL         |
-| Claude Code            | JSONL         |
-| GitHub Copilot CLI     | OTEL JSONL    |
-| Goose                  | SQLite        |
-| Amp                    | JSON          |
-| Qwen CLI               | JSONL         |
-| Kimi CLI and Kimi Code | wire JSONL    |
-| Cline                  | task JSON     |
-| RooCode                | task JSON     |
-| KiloCode               | task JSON     |
-| Antigravity            | SQLite        |
-| DeepSeek Harness       | JSONL + zstd  |
+| Source                 | Local format  | Real logs |
+| ---------------------- | ------------- | --------- |
+| pi                     | JSONL         | checked   |
+| codex                  | JSONL         | checked   |
+| Gemini CLI             | JSON          | checked   |
+| Droid CLI              | settings JSON | not yet   |
+| OpenCode               | SQLite        | checked   |
+| OpenClaw               | JSONL         | not yet   |
+| Claude Code            | JSONL         | checked   |
+| GitHub Copilot CLI     | OTEL JSONL    | not yet   |
+| Goose                  | SQLite        | not yet   |
+| Amp                    | JSON          | not yet   |
+| Qwen CLI               | JSONL         | not yet   |
+| Kimi CLI and Kimi Code | wire JSONL    | not yet   |
+| Cline                  | task JSON     | not yet   |
+| RooCode                | task JSON     | not yet   |
+| KiloCode               | task JSON     | not yet   |
+| Antigravity            | SQLite        | checked   |
+| DeepSeek Harness       | JSONL + zstd  | not yet   |
+
+In the Real logs column, _checked_ means the adapter was compared with real logs from that tool; _not yet_ means it is built from the tool's upstream code and synthetic fixtures. If a report disagrees with your tool, [open an issue](https://github.com/ayagmar/llm-usage-metrics/issues) with the `llm-usage doctor --source <source>` output; leave out log contents.
 
 Each source adapter owns discovery and source-specific token normalization. Reports operate on the same `UsageEvent` shape after parsing. The [source documentation](https://ayagmar.github.io/llm-usage-metrics/sources/) lists default paths, override flags, and adapter-specific semantics.
 

@@ -7,25 +7,27 @@ Each adapter owns discovery and source-specific parsing. After parsing, every ad
 
 ## Supported sources
 
-| Source                                                 | Local format  | Default location                                           |
-| ------------------------------------------------------ | ------------- | ---------------------------------------------------------- |
-| [pi](/llm-usage-metrics/sources/pi/)                   | JSONL         | `~/.pi/agent/sessions` and `~/.omp/agent/sessions`         |
-| [codex](/llm-usage-metrics/sources/codex/)             | JSONL         | `~/.codex/sessions` (or `$CODEX_HOME/sessions`)            |
-| [Gemini CLI](/llm-usage-metrics/sources/gemini/)       | JSON          | `~/.gemini/tmp/*/chats`                                    |
-| [Droid CLI](/llm-usage-metrics/sources/droid/)         | settings JSON | `~/.factory/sessions`                                      |
-| [OpenCode](/llm-usage-metrics/sources/opencode/)       | SQLite        | platform data directory, including `opencode-<channel>.db` |
-| [OpenClaw](/llm-usage-metrics/sources/openclaw/)       | JSONL         | `~/.openclaw/agents` and supported legacy homes            |
-| [Claude Code](/llm-usage-metrics/sources/claude/)      | JSONL         | `~/.claude/projects` and `~/.claude/transcripts` (or under `$CLAUDE_CONFIG_DIR`) |
-| [Copilot CLI](/llm-usage-metrics/sources/copilot/)     | OTEL JSONL    | `~/.copilot/otel`                                          |
-| [Goose](/llm-usage-metrics/sources/goose/)             | SQLite        | platform Goose data directory                              |
-| [Amp](/llm-usage-metrics/sources/amp/)                 | JSON          | `$XDG_DATA_HOME/amp/threads` (default `~/.local/share/amp/threads`) |
-| [Qwen CLI](/llm-usage-metrics/sources/qwen/)           | JSONL         | `~/.qwen/projects`                                         |
-| [Kimi](/llm-usage-metrics/sources/kimi/)               | wire JSONL    | `~/.kimi/sessions` and `~/.kimi-code/sessions`             |
-| [Cline](/llm-usage-metrics/sources/cline/)             | task JSON     | VS Code global storage for `saoudrizwan.claude-dev`        |
-| [RooCode](/llm-usage-metrics/sources/roocode/)         | task JSON     | VS Code global storage for `rooveterinaryinc.roo-cline`    |
-| [KiloCode](/llm-usage-metrics/sources/kilocode/)       | task JSON     | VS Code global storage for `kilocode.kilo-code`            |
-| [Antigravity](/llm-usage-metrics/sources/antigravity/) | SQLite        | `~/.gemini/antigravity-cli/conversations`                  |
-| [DeepSeek Harness](/llm-usage-metrics/sources/dsh/)    | JSONL + zstd  | `$DSH_HOME/sessions` or `~/.dsh/sessions`                  |
+| Source                                                 | Local format  | Default location                                           | Real logs |
+| ------------------------------------------------------ | ------------- | ---------------------------------------------------------- | --------- |
+| [pi](/llm-usage-metrics/sources/pi/)                   | JSONL         | `~/.pi/agent/sessions` and `~/.omp/agent/sessions`         | checked |
+| [codex](/llm-usage-metrics/sources/codex/)             | JSONL         | `~/.codex/sessions` (or `$CODEX_HOME/sessions`)            | checked |
+| [Gemini CLI](/llm-usage-metrics/sources/gemini/)       | JSON          | `~/.gemini/tmp/*/chats`                                    | checked |
+| [Droid CLI](/llm-usage-metrics/sources/droid/)         | settings JSON | `~/.factory/sessions`                                      | not yet |
+| [OpenCode](/llm-usage-metrics/sources/opencode/)       | SQLite        | platform data directory, including `opencode-<channel>.db` | checked |
+| [OpenClaw](/llm-usage-metrics/sources/openclaw/)       | JSONL         | `~/.openclaw/agents` and supported legacy homes            | not yet |
+| [Claude Code](/llm-usage-metrics/sources/claude/)      | JSONL         | `~/.claude/projects` and `~/.claude/transcripts` (or under `$CLAUDE_CONFIG_DIR`) | checked |
+| [Copilot CLI](/llm-usage-metrics/sources/copilot/)     | OTEL JSONL    | `~/.copilot/otel`                                          | not yet |
+| [Goose](/llm-usage-metrics/sources/goose/)             | SQLite        | platform Goose data directory                              | not yet |
+| [Amp](/llm-usage-metrics/sources/amp/)                 | JSON          | `$XDG_DATA_HOME/amp/threads` (default `~/.local/share/amp/threads`) | not yet |
+| [Qwen CLI](/llm-usage-metrics/sources/qwen/)           | JSONL         | `~/.qwen/projects`                                         | not yet |
+| [Kimi](/llm-usage-metrics/sources/kimi/)               | wire JSONL    | `~/.kimi/sessions` and `~/.kimi-code/sessions`             | not yet |
+| [Cline](/llm-usage-metrics/sources/cline/)             | task JSON     | VS Code global storage for `saoudrizwan.claude-dev`        | not yet |
+| [RooCode](/llm-usage-metrics/sources/roocode/)         | task JSON     | VS Code global storage for `rooveterinaryinc.roo-cline`    | not yet |
+| [KiloCode](/llm-usage-metrics/sources/kilocode/)       | task JSON     | VS Code global storage for `kilocode.kilo-code`            | not yet |
+| [Antigravity](/llm-usage-metrics/sources/antigravity/) | SQLite        | `~/.gemini/antigravity-cli/conversations`                  | checked |
+| [DeepSeek Harness](/llm-usage-metrics/sources/dsh/)    | JSONL + zstd  | `$DSH_HOME/sessions` or `~/.dsh/sessions`                  | not yet |
+
+In the Real logs column, _checked_ means the adapter was compared with real logs from that tool; _not yet_ means it is built from the tool's upstream code and synthetic fixtures. If a report disagrees with your tool, [open an issue](https://github.com/ayagmar/llm-usage-metrics/issues) with the `llm-usage doctor --source <source>` output; leave out log contents.
 
 SQLite-backed sources use the built-in `node:sqlite` module, available in every supported runtime (Node.js 22.16+ or 24+).
 
