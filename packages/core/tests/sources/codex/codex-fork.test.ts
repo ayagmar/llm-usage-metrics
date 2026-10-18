@@ -1,4 +1,14 @@
-import { appendFile, copyFile, mkdtemp, rm } from 'node:fs/promises';
+import {
+  appendFile,
+  chmod,
+  copyFile,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rename,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -201,5 +211,282 @@ describe('Codex forks written before the copied block had an end marker', () => 
       total: 3300,
       byDay: { '2026-01-02': 3300 },
     });
+  });
+
+  type Line = Record<string, unknown>;
+
+  async function readFixtureLines(fileName: string): Promise<Line[]> {
+    const text = await readFile(path.join(PARENT_DIR, fileName), 'utf8');
+    return text
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as Line);
+  }
+
+  async function writeLines(
+    dir: string,
+    fileName: string,
+    lines: readonly Line[],
+  ): Promise<string> {
+    const filePath = path.join(dir, fileName);
+    await writeFile(filePath, `${lines.map((line) => JSON.stringify(line)).join('\n')}\n`);
+    return filePath;
+  }
+
+  async function makeTempDir(): Promise<string> {
+    const dir = await mkdtemp(path.join(canonicalTmpdir(), 'codex-fork-parent-'));
+    tempDirs.push(dir);
+    return dir;
+  }
+
+  function usage(input: number, cached: number, output: number, reasoning: number): Line {
+    return {
+      input_tokens: input,
+      cached_input_tokens: cached,
+      output_tokens: output,
+      reasoning_output_tokens: reasoning,
+      total_tokens: input + output,
+    };
+  }
+
+  // The parent's totals after its first and second turns.
+  const FIRST_TOTAL = usage(1000, 200, 100, 40);
+  const SECOND_TOTAL = usage(2500, 1200, 260, 90);
+
+  function tokenCount(timestamp: string, total: Line, last: Line, rateLimits?: Line): Line {
+    return {
+      timestamp,
+      type: 'event_msg',
+      payload: {
+        type: 'token_count',
+        info: { total_token_usage: total, last_token_usage: last, model_context_window: 272000 },
+        rate_limits: rateLimits ?? null,
+      },
+    };
+  }
+
+  function message(timestamp: string, role: 'user' | 'assistant', text: string): Line {
+    const type = role === 'user' ? 'input_text' : 'output_text';
+    return {
+      timestamp,
+      type: 'response_item',
+      payload: { type: 'message', role, content: [{ type, text }] },
+    };
+  }
+
+  const RATE_LIMITS = { primary: { used_percent: 20, window_minutes: 300 }, secondary: null };
+
+  function insertAfter(lines: Line[], predicate: (line: Line) => boolean, added: Line): Line[] {
+    const index = lines.findIndex(predicate);
+    expect(index).toBeGreaterThan(-1);
+    return [...lines.slice(0, index + 1), added, ...lines.slice(index + 1)];
+  }
+
+  function isUserMessage(text: string): (line: Line) => boolean {
+    return (line) => JSON.stringify(line.payload).includes(`"text":"${text}"`);
+  }
+
+  it('keeps the fork’s own turn when it reaches a total the parent reached later', async () => {
+    const dir = await makeTempDir();
+    await copyFile(path.join(PARENT_DIR, PARENT_FILE), path.join(dir, PARENT_FILE));
+    const lines = await readFixtureLines(TRUNCATED_FILE);
+    // The fork's own turn uses as much as the parent's second turn did.
+    lines[lines.length - 1] = tokenCount(
+      '2026-01-03T08:00:04.000Z',
+      SECOND_TOTAL,
+      usage(1500, 1000, 160, 50),
+    );
+    const forkPath = await writeLines(dir, TRUNCATED_FILE, lines);
+
+    await expect(usageTotalsIn(new CodexSourceAdapter({ dir }), forkPath)).resolves.toEqual({
+      total: 1660,
+      byDay: { '2026-01-03': 1660 },
+    });
+  });
+
+  it('keeps the fork’s first user message when both branches open with a rate-limit refresh', async () => {
+    const dir = await makeTempDir();
+    const parentLines = insertAfter(
+      await readFixtureLines(PARENT_FILE),
+      isUserMessage('Read the first.'),
+      tokenCount('2026-01-01T11:00:02.500Z', FIRST_TOTAL, FIRST_TOTAL, RATE_LIMITS),
+    );
+    await writeLines(dir, PARENT_FILE, parentLines);
+    const forkLines = insertAfter(
+      await readFixtureLines(TRUNCATED_FILE),
+      isUserMessage('Try another way.'),
+      tokenCount('2026-01-03T08:00:02.500Z', FIRST_TOTAL, FIRST_TOTAL, RATE_LIMITS),
+    );
+    const forkPath = await writeLines(dir, TRUNCATED_FILE, forkLines);
+    const events = await collect(readEvents(new CodexSourceAdapter({ dir }), forkPath));
+
+    expect(events.filter((event) => event.kind !== 'session_meta')).toMatchObject([
+      { kind: 'message', role: 'user', timestamp: '2026-01-03T08:00:02.000Z' },
+      { kind: 'message', role: 'assistant', timestamp: '2026-01-03T08:00:03.000Z' },
+      { kind: 'usage', totalTokens: 600 },
+    ]);
+  });
+
+  it('keeps a full fork’s own turn when its parent went on after the fork', async () => {
+    const dir = await makeTempDir();
+    await writeLines(dir, PARENT_FILE, [
+      ...(await readFixtureLines(PARENT_FILE)),
+      message('2026-01-02T10:00:00.000Z', 'user', 'Then the third.'),
+      tokenCount('2026-01-02T10:00:00.500Z', SECOND_TOTAL, SECOND_TOTAL, RATE_LIMITS),
+      message('2026-01-02T10:00:01.000Z', 'assistant', 'Third done.'),
+      tokenCount('2026-01-02T10:00:02.000Z', usage(3200, 1300, 320, 100), usage(700, 100, 60, 10)),
+    ]);
+    await copyFile(path.join(PARENT_DIR, FULL_FILE), path.join(dir, FULL_FILE));
+    const events = await collect(
+      readEvents(new CodexSourceAdapter({ dir }), path.join(dir, FULL_FILE)),
+    );
+
+    expect(events.filter((event) => event.kind !== 'session_meta')).toMatchObject([
+      { kind: 'message', role: 'user', timestamp: '2026-01-02T09:00:02.000Z' },
+      { kind: 'tool_call', timestamp: '2026-01-02T09:00:03.000Z' },
+      { kind: 'message', role: 'assistant', timestamp: '2026-01-02T09:00:05.000Z' },
+      { kind: 'usage', totalTokens: 540 },
+    ]);
+  });
+
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'fails the fork’s read when its parent is there but cannot be read',
+    async () => {
+      const dir = await copyToTempDir([PARENT_FILE, TRUNCATED_FILE]);
+      const parentPath = path.join(dir, PARENT_FILE);
+      await chmod(parentPath, 0o000);
+
+      try {
+        await expect(
+          collect(new CodexSourceAdapter({ dir }).read(path.join(dir, TRUNCATED_FILE))),
+        ).rejects.toThrow();
+      } finally {
+        await chmod(parentPath, 0o600);
+      }
+    },
+  );
+
+  it('finds a parent Codex archived and depends on its new path', async () => {
+    const codexHome = await makeTempDir();
+    const sessionsDir = path.join(codexHome, 'sessions');
+    const archivedDir = path.join(codexHome, 'archived_sessions');
+    await mkdir(path.join(sessionsDir, '2026', '01', '02'), { recursive: true });
+    await mkdir(archivedDir);
+    const forkPath = path.join(sessionsDir, '2026', '01', '02', FULL_FILE);
+    await copyFile(path.join(PARENT_DIR, FULL_FILE), forkPath);
+    await copyFile(path.join(PARENT_DIR, PARENT_FILE), path.join(archivedDir, PARENT_FILE));
+    const dirAdapter = new CodexSourceAdapter({ dir: sessionsDir });
+
+    await expect(dirAdapter.discoverFiles()).resolves.toEqual([forkPath]);
+    await expect(dirAdapter.getParseDependencies(forkPath)).resolves.toEqual([
+      path.join(archivedDir, PARENT_FILE),
+    ]);
+    await expect(usageTotalsIn(dirAdapter, forkPath)).resolves.toEqual({
+      total: 540,
+      byDay: { '2026-01-02': 540 },
+    });
+  });
+
+  it('keeps finding a parent after Codex moves it to the archive', async () => {
+    const codexHome = await makeTempDir();
+    const sessionsDir = path.join(codexHome, 'sessions');
+    await mkdir(path.join(codexHome, 'archived_sessions'));
+    await mkdir(sessionsDir);
+    await copyFile(path.join(PARENT_DIR, FULL_FILE), path.join(sessionsDir, FULL_FILE));
+    await copyFile(path.join(PARENT_DIR, PARENT_FILE), path.join(sessionsDir, PARENT_FILE));
+    const forkPath = path.join(sessionsDir, FULL_FILE);
+    const before = await getFileFingerprint(new CodexSourceAdapter({ dir: sessionsDir }), forkPath);
+
+    await rename(
+      path.join(sessionsDir, PARENT_FILE),
+      path.join(codexHome, 'archived_sessions', PARENT_FILE),
+    );
+    // A new run builds a new adapter.
+    const afterAdapter = new CodexSourceAdapter({ dir: sessionsDir });
+    const after = await getFileFingerprint(afterAdapter, forkPath);
+
+    expect(after).not.toEqual(before);
+    await expect(usageTotalsIn(afterAdapter, forkPath)).resolves.toEqual({
+      total: 540,
+      byDay: { '2026-01-02': 540 },
+    });
+  });
+
+  // A subagent spawned with fork_turns by Codex 0.120 to 0.134 names its parent only in
+  // source.subagent.thread_spawn and starts with a copy of the parent's last turn.
+  function spawnMeta(timestamp: string, id: string): Line {
+    return {
+      timestamp,
+      type: 'session_meta',
+      payload: {
+        id,
+        timestamp,
+        cwd: '/work/demo',
+        originator: 'codex_cli_rs',
+        cli_version: '0.125.0',
+        source: {
+          subagent: {
+            thread_spawn: { parent_thread_id: '019a0000-0000-7000-8000-00000000000a', depth: 1 },
+          },
+        },
+        model_provider: 'openai',
+      },
+    };
+  }
+
+  const SPAWN_FILE = 'rollout-2026-01-04T08-00-00-019a0000-0000-7000-8000-00000000000d.jsonl';
+  const SPAWN_ID = '019a0000-0000-7000-8000-00000000000d';
+  const turnContext = (timestamp: string): Line => ({
+    timestamp,
+    type: 'turn_context',
+    payload: { cwd: '/work/demo', approval_policy: 'on-request', model: 'gpt-5-codex' },
+  });
+
+  it('counts only the own turn of a subagent spawned with a copy of its parent’s last turn', async () => {
+    const dir = await copyToTempDir([PARENT_FILE]);
+    const spawnPath = await writeLines(dir, SPAWN_FILE, [
+      spawnMeta('2026-01-04T08:00:00.000Z', SPAWN_ID),
+      message('2026-01-04T08:00:00.001Z', 'user', 'Read the first.'),
+      message('2026-01-04T08:00:00.002Z', 'assistant', 'Done.'),
+      tokenCount('2026-01-04T08:00:00.003Z', SECOND_TOTAL, usage(1500, 1000, 160, 50)),
+      turnContext('2026-01-04T08:00:01.000Z'),
+      message('2026-01-04T08:00:02.000Z', 'user', 'Check it.'),
+      message('2026-01-04T08:00:03.000Z', 'assistant', 'Checked.'),
+      tokenCount('2026-01-04T08:00:04.000Z', usage(2780, 1400, 280, 95), usage(280, 200, 20, 5)),
+    ]);
+    const dirAdapter = new CodexSourceAdapter({ dir });
+
+    await expect(usageTotalsIn(dirAdapter, spawnPath)).resolves.toEqual({
+      total: 300,
+      byDay: { '2026-01-04': 300 },
+    });
+    expect(
+      (await collect(readEvents(dirAdapter, spawnPath))).filter(
+        (event) => event.kind === 'message',
+      ),
+    ).toMatchObject([
+      { role: 'user', timestamp: '2026-01-04T08:00:02.000Z' },
+      { role: 'assistant', timestamp: '2026-01-04T08:00:03.000Z' },
+    ]);
+  });
+
+  it('reads a subagent spawned without a copy as before, parent or not', async () => {
+    const lines = [
+      spawnMeta('2026-01-04T08:00:00.000Z', SPAWN_ID),
+      turnContext('2026-01-04T08:00:01.000Z'),
+      message('2026-01-04T08:00:02.000Z', 'user', 'Check it.'),
+      message('2026-01-04T08:00:03.000Z', 'assistant', 'Checked.'),
+      tokenCount('2026-01-04T08:00:04.000Z', usage(280, 200, 20, 5), usage(280, 200, 20, 5)),
+    ];
+    const withParent = await copyToTempDir([PARENT_FILE]);
+    const withoutParent = await makeTempDir();
+    const read = async (dir: string): Promise<SessionEvent[]> =>
+      collect(
+        readEvents(new CodexSourceAdapter({ dir }), await writeLines(dir, SPAWN_FILE, lines)),
+      );
+
+    const events = await read(withParent);
+    expect(events).toEqual(await read(withoutParent));
+    expect(events.filter((event) => event.kind === 'usage')).toMatchObject([{ totalTokens: 300 }]);
   });
 });

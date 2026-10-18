@@ -12,6 +12,7 @@ import { normalizeNonNegativeInteger } from '../../domain/normalization.js';
 import { asRecord } from '../../utils/as-record.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import { pathStat } from '../../utils/fs-helpers.js';
+import { hasErrorCode } from '../../utils/error-code.js';
 import { readFirstLine } from '../../utils/read-first-line.js';
 import {
   readClassifiedJsonlObjectBatches,
@@ -101,6 +102,12 @@ type CodexSessionState = {
   forkPrefixOf?: string;
   /** Whether the fork's own `session_meta` names a Codex that logs every response's usage. */
   forkLogsUsageRecords?: boolean;
+  /**
+   * The own thread id of a subagent spawned by a Codex before 0.153, until the read has
+   * looked for a copy of its parent's turns: such a spawn can start with one without
+   * naming `forked_from_id`.
+   */
+  spawnCandidateOf?: string;
   /**
    * Set when such a fork's copied block ends without a running total. Codex still starts the fork
    * from the parent's totals, so a `token_count` written before the fork's first response
@@ -412,23 +419,36 @@ function endForkPrefix(state: CodexSessionState): void {
     state.forkLogsUsageRecords === true && state.previousTotalUsage === undefined;
 }
 
-/** The running total of a `token_count` line, as a key; undefined for any other line. */
-function readTotalUsageKey(line: Record<string, unknown>): string | undefined {
-  if (line.type !== 'event_msg') {
-    return undefined;
-  }
+const USER_ROLE_BYTES = Buffer.from('"role":"user"');
 
-  const payload = asRecord(line.payload);
-  const totalUsage =
-    payload?.type === 'token_count'
-      ? toUsage(asRecord(payload.info)?.total_token_usage)
-      : undefined;
-  return totalUsage && createUsageKey(totalUsage);
+/** The lines that tell a fork's copied block from its own: usage lines and user messages. */
+function shouldParseCopyLineBytes(lineBytes: Buffer): boolean {
+  return (
+    shouldParseCodexJsonlLineBytes(lineBytes) ||
+    (lineBytes.includes(RESPONSE_ITEM_BYTES) && lineBytes.includes(USER_ROLE_BYTES))
+  );
 }
 
-function isTokenCountWithInfo(line: Record<string, unknown>): boolean {
-  const payload = line.type === 'event_msg' ? asRecord(line.payload) : undefined;
-  return payload?.type === 'token_count' && asRecord(payload.info) !== undefined;
+/**
+ * What a copied line keeps from the parent's: a `token_count`'s running total, or a user
+ * message's content. Undefined for any other line. Copies carry new timestamps and are
+ * written again by the fork's Codex, so only these values are compared.
+ */
+function getCopySignature(line: Record<string, unknown>): string | undefined {
+  const payload = asRecord(line.payload);
+
+  if (line.type === 'response_item') {
+    return payload?.type === 'message' && payload.role === 'user'
+      ? `user:${JSON.stringify(payload.content)}`
+      : undefined;
+  }
+
+  const info =
+    line.type === 'event_msg' && payload?.type === 'token_count'
+      ? asRecord(payload.info)
+      : undefined;
+  const totalUsage = info && toUsage(info.total_token_usage);
+  return info && `total:${totalUsage ? createUsageKey(totalUsage) : ''}`;
 }
 
 /** Codex names a rollout `rollout-<time>-<thread id>.jsonl`; the id is a 36-character UUID. */
@@ -452,13 +472,24 @@ function indexRolloutsByThreadId(filePaths: readonly string[]): Map<string, stri
 }
 
 /**
- * The parent thread id of a fork written before Codex 0.153, from the file's first line.
- * Later forks end their copied block with a marker and never need the parent.
+ * The parent of a subagent's `session_meta` (`source.subagent.thread_spawn`). Codex 0.120
+ * to 0.134 spawn forked subagents (`fork_turns`) that copy their parent's last turns but
+ * name no `forked_from_id`.
+ */
+function getSpawnParentThreadId(payload: Record<string, unknown> | undefined): string | undefined {
+  const subagent = asRecord(asRecord(payload?.source)?.subagent);
+  return asTrimmedText(asRecord(subagent?.thread_spawn)?.parent_thread_id);
+}
+
+/**
+ * The parent thread id of a fork written before Codex 0.153, or of a subagent such a Codex
+ * spawned, from the file's first line. Later forks end their copied block with a marker
+ * and never need the parent.
  */
 async function readForkParentThreadId(filePath: string): Promise<string | undefined> {
   const firstLine = await readFirstLine(filePath);
 
-  if (!firstLine?.includes('"forked_from_id"')) {
+  if (!firstLine?.includes('"forked_from_id"') && !firstLine?.includes('"parent_thread_id"')) {
     return undefined;
   }
 
@@ -466,73 +497,88 @@ async function readForkParentThreadId(filePath: string): Promise<string | undefi
     const line = asRecord(JSON.parse(firstLine));
     const payload = line?.type === 'session_meta' ? asRecord(line.payload) : undefined;
     return payload && !logsUsageRecords(asTrimmedText(payload.cli_version))
-      ? asTrimmedText(payload.forked_from_id)
+      ? (asTrimmedText(payload.forked_from_id) ?? getSpawnParentThreadId(payload))
       : undefined;
   } catch {
     return undefined;
   }
 }
 
-/** The running totals of a rollout's `token_count` lines, in file order. */
-async function readTotalUsageKeys(filePath: string): Promise<string[]> {
-  const keys: string[] = [];
+/** The copy signatures of a rollout's lines, in file order. */
+async function readCopySignatures(filePath: string): Promise<string[]> {
+  const signatures: string[] = [];
 
   for await (const lines of readJsonlObjectBatches(filePath, {
-    shouldParseLineBytes: shouldParseCodexJsonlLineBytes,
+    shouldParseLineBytes: shouldParseCopyLineBytes,
   })) {
     for (const line of lines) {
-      const key = readTotalUsageKey(line);
+      const signature = getCopySignature(line);
 
-      if (key !== undefined) {
-        keys.push(key);
+      if (signature !== undefined) {
+        signatures.push(signature);
       }
     }
   }
 
-  return keys;
+  return signatures;
 }
 
 /**
- * Where a fork's copied block ends, given its parent's running totals: the index, among
+ * Where a fork's copied block ends, given its parent's copy signatures: the index, among
  * the lines the usage prefilter accepts, of the last `token_count` copied from the parent.
- * Codex copies the parent's lines in order (all of them, those before a chosen user message,
- * or a forked subagent's last turns), so the copies are the fork's first `token_count` lines
- * that match the parent's totals in order. Codex seeds the fork with the last copied total,
- * so the fork's own turns raise it and never match. Undefined when nothing matches, or when
- * the fork's own `thread_settings_applied` event marks the end instead.
+ * Codex copies one contiguous run of the parent's lines (all of them, those before a chosen
+ * user message, or a forked subagent's last turns), keeping every `token_count` and user
+ * message in it. So the copies are the fork's first signatures, matching a run of the
+ * parent's one for one, and the first fork line that breaks every such run is the fork's
+ * own. Its own turn opens with its own user message, which tells it from the parent's next
+ * turn even when both reach the same running total. Undefined when nothing matches, or
+ * when the fork's own `thread_settings_applied` event marks the end instead.
  */
 async function findCopiedPrefixEnd(
   filePath: string,
   forkId: string,
-  parentTotalKeys: readonly string[],
+  parentSignatures: readonly string[],
 ): Promise<number | undefined> {
-  let lineIndex = -1;
-  let parentIndex = 0;
+  let usageLineIndex = -1;
+  // Where each run of the parent's signatures that still matches expects the next one.
+  let nextParentIndexes: number[] | undefined;
   let copiedPrefixEnd: number | undefined;
 
-  for await (const lines of readJsonlObjectBatches(filePath, {
-    shouldParseLineBytes: shouldParseCodexJsonlLineBytes,
+  for await (const items of readClassifiedJsonlObjectBatches(filePath, {
+    shouldParseLineBytes: shouldParseCopyLineBytes,
+    isUsageLineBytes: shouldParseCodexJsonlLineBytes,
   })) {
-    for (const line of lines) {
-      lineIndex += 1;
+    for (const { record: line, isUsageLine } of items) {
+      if (isUsageLine) {
+        usageLineIndex += 1;
+      }
 
       if (isThreadSettingsApplied(line) && asRecord(line.payload)?.thread_id === forkId) {
         return undefined;
       }
 
-      if (!isTokenCountWithInfo(line)) {
+      const signature = getCopySignature(line);
+
+      if (signature === undefined) {
         continue;
       }
 
-      const key = readTotalUsageKey(line);
-      const matchIndex = key === undefined ? -1 : parentTotalKeys.indexOf(key, parentIndex);
+      nextParentIndexes =
+        nextParentIndexes === undefined
+          ? parentSignatures.flatMap((parentSignature, index) =>
+              parentSignature === signature ? [index + 1] : [],
+            )
+          : nextParentIndexes
+              .filter((index) => parentSignatures[index] === signature)
+              .map((index) => index + 1);
 
-      if (matchIndex === -1) {
+      if (nextParentIndexes.length === 0) {
         return copiedPrefixEnd;
       }
 
-      parentIndex = matchIndex + 1;
-      copiedPrefixEnd = lineIndex;
+      if (isUsageLine) {
+        copiedPrefixEnd = usageLineIndex;
+      }
     }
   }
 
@@ -563,6 +609,12 @@ function takeUsageLine(
     if (!state.sawSessionMeta && asTrimmedText(payload?.forked_from_id)) {
       state.forkPrefixOf = asTrimmedText(payload?.id);
       state.forkLogsUsageRecords = logsUsageRecords(asTrimmedText(payload?.cli_version));
+    } else if (
+      !state.sawSessionMeta &&
+      getSpawnParentThreadId(payload) &&
+      !logsUsageRecords(asTrimmedText(payload?.cli_version))
+    ) {
+      state.spawnCandidateOf = asTrimmedText(payload?.id);
     }
 
     state.sawSessionMeta = true;
@@ -747,7 +799,7 @@ export class CodexSourceAdapter implements SourceAdapter {
 
   private readonly sessionsDir: string;
   private readonly requireDir: boolean;
-  /** Rollouts under the sessions directory by thread id, from the last discovery. */
+  /** Rollouts by thread id, read once when a file first needs its parent. */
   private rolloutsByThreadId: Promise<Map<string, string>> | undefined;
 
   public constructor(options: CodexSourceAdapterOptions = {}) {
@@ -781,9 +833,7 @@ export class CodexSourceAdapter implements SourceAdapter {
       }
     }
 
-    const files = await discoverJsonlFiles(normalizedSessionsDir);
-    this.rolloutsByThreadId = Promise.resolve(indexRolloutsByThreadId(files));
-    return files;
+    return discoverJsonlFiles(normalizedSessionsDir);
   }
 
   public async getParseDependencies(filePath: string): Promise<string[]> {
@@ -793,7 +843,9 @@ export class CodexSourceAdapter implements SourceAdapter {
 
   /**
    * The parent rollout of a fork written before Codex 0.153, when it lies under the sessions
-   * directory. The parse reads it to find where the copied block ends.
+   * directory or, for a `sessions` directory in a Codex home, in the `archived_sessions`
+   * directory next to it, where Codex moves an archived thread. The parse reads it to find
+   * where the copied block ends.
    */
   private async resolveForkParentPath(filePath: string): Promise<string | undefined> {
     const parentThreadId = await readForkParentThreadId(filePath);
@@ -802,10 +854,21 @@ export class CodexSourceAdapter implements SourceAdapter {
       return undefined;
     }
 
-    this.rolloutsByThreadId ??= discoverJsonlFiles(this.sessionsDir.trim()).then(
-      indexRolloutsByThreadId,
-    );
+    this.rolloutsByThreadId ??= this.indexRollouts();
     return (await this.rolloutsByThreadId).get(parentThreadId);
+  }
+
+  private async indexRollouts(): Promise<Map<string, string>> {
+    const sessionsDir = this.sessionsDir.trim();
+    const files = await discoverJsonlFiles(sessionsDir);
+
+    if (path.basename(sessionsDir) === 'sessions') {
+      files.push(
+        ...(await discoverJsonlFiles(path.join(path.dirname(sessionsDir), 'archived_sessions'))),
+      );
+    }
+
+    return indexRolloutsByThreadId(files);
   }
 
   private async findForkPrefixEnd(
@@ -818,16 +881,21 @@ export class CodexSourceAdapter implements SourceAdapter {
       return undefined;
     }
 
-    let parentTotalKeys: string[];
+    let parentSignatures: string[];
 
     try {
-      parentTotalKeys = await readTotalUsageKeys(parentPath);
-    } catch {
-      // The parent went away or cannot be read since discovery: read the fork as if it had none.
-      return undefined;
+      parentSignatures = await readCopySignatures(parentPath);
+    } catch (error) {
+      // A parent removed since discovery reads as a missing one. Any other failure fails
+      // the fork's parse, so nothing is stored and the next run reads it again.
+      if (hasErrorCode(error, 'ENOENT')) {
+        return undefined;
+      }
+
+      throw error;
     }
 
-    return findCopiedPrefixEnd(filePath, forkId, parentTotalKeys);
+    return findCopiedPrefixEnd(filePath, forkId, parentSignatures);
   }
 
   public read(filePath: string, options: SourceReadOptions = {}): AsyncGenerator<UsageEvent> {
@@ -883,8 +951,10 @@ export class CodexSourceAdapter implements SourceAdapter {
   // Everything read between the two is held, with its own kind reader, and dropped at that
   // event. Forks written before Codex 0.153 may have no such event: their copied block ends
   // at the last token_count copied from the parent (see findCopiedPrefixEnd), so the parent
-  // must lie under the sessions directory. Without it, their held events are yielded at the
-  // end of the file, so they count the copied lines as they did before.
+  // must be found (see resolveForkParentPath). Without it, their held events are yielded at
+  // the end of the file, so they count the copied lines as they did before. A subagent such
+  // a Codex spawned may copy its parent's last turns without naming forked_from_id; it is
+  // held from its first line only when that copy is found.
   private async *readFile<Usage, Kind>(
     filePath: string,
     options: CodexReadOptions<Usage>,
@@ -944,7 +1014,8 @@ export class CodexSourceAdapter implements SourceAdapter {
     let copiedPrefixEnd: number | undefined;
 
     // Starts or ends the hold after a line has updated the usage state. Returns true when
-    // the hold starts, so the caller can look for the end of the copied block.
+    // the caller must look for a copied block: the hold starts, or a spawned subagent
+    // may start with a copy.
     const followForkPrefix = (): boolean => {
       if (state.forkPrefixOf !== undefined && usageLineIndex === copiedPrefixEnd) {
         endForkPrefix(state);
@@ -961,7 +1032,20 @@ export class CodexSourceAdapter implements SourceAdapter {
         heldKindReader = undefined;
       }
 
-      return false;
+      return state.spawnCandidateOf !== undefined;
+    };
+
+    // Finds where the copied block ends. A spawned subagent holds its lines only when its
+    // parent's copy is found at its top; otherwise it reads as any session.
+    const findCopiedBlock = async (): Promise<void> => {
+      const spawnId = state.spawnCandidateOf;
+      state.spawnCandidateOf = undefined;
+      copiedPrefixEnd = await this.findForkPrefixEnd(filePath, spawnId ?? state.forkPrefixOf);
+
+      if (spawnId !== undefined && copiedPrefixEnd !== undefined) {
+        state.forkPrefixOf = spawnId;
+        followForkPrefix();
+      }
     };
 
     if (!kindReader) {
@@ -989,7 +1073,7 @@ export class CodexSourceAdapter implements SourceAdapter {
           }
 
           if (followForkPrefix()) {
-            copiedPrefixEnd = await this.findForkPrefixEnd(filePath, state.forkPrefixOf);
+            await findCopiedBlock();
           }
         }
       }
@@ -1055,7 +1139,7 @@ export class CodexSourceAdapter implements SourceAdapter {
           }
 
           if (followForkPrefix()) {
-            copiedPrefixEnd = await this.findForkPrefixEnd(filePath, state.forkPrefixOf);
+            await findCopiedBlock();
           }
         }
       }
