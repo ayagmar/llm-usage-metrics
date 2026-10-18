@@ -22,6 +22,15 @@ describe('toProjectKey', () => {
     expect(toProjectKey('C:/')).toBe('C:/');
     expect(toProjectKey(undefined)).toBeUndefined();
   });
+
+  it('counts a directory inside node_modules as the project that holds it', () => {
+    expect(
+      toProjectKey('/w/app/node_modules/.pnpm/astro@7_x/node_modules/@astrojs/starlight/dist'),
+    ).toBe('/w/app');
+    expect(toProjectKey('/w/app/site/node_modules/')).toBe('/w/app/site');
+    expect(toProjectKey('C:\\src\\web\\node_modules\\pkg')).toBe('C:\\src\\web');
+    expect(toProjectKey('/w/node_modules_tools/src')).toBe('/w/node_modules_tools/src');
+  });
 });
 
 describe('buildProjectLabels', () => {
