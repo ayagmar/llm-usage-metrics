@@ -1,7 +1,12 @@
+import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import type { ConfigReportData } from '../../src/cli/build-config-report.js';
 import { renderConfigReportText } from '../../src/render/render-config-report.js';
+
+// Home is shortened with the platform separator.
+const HOME = path.join(path.sep, 'home', 'me');
 
 const NOW = Date.parse('2026-06-21T12:00:00.000Z');
 
@@ -36,7 +41,7 @@ function createData(overrides: Partial<ConfigReportData> = {}): ConfigReportData
 }
 
 function render(data: ConfigReportData): string {
-  return renderConfigReportText(data, { now: NOW, homeDir: '/home/me' });
+  return renderConfigReportText(data, { now: NOW, homeDir: HOME });
 }
 
 describe('renderConfigReportText', () => {
@@ -80,7 +85,7 @@ describe('renderConfigReportText', () => {
   it('prints the store error, a missing config file and history off', () => {
     const text = render(
       createData({
-        configFile: { path: '/home/me/.config/x.toml', origin: 'env', exists: false },
+        configFile: { path: path.join(HOME, '.config', 'x.toml'), origin: 'env', exists: false },
         eventStore: {
           enabled: { value: true, origin: 'env' },
           path: { value: '/data/events.db', origin: 'env' },
@@ -94,7 +99,7 @@ describe('renderConfigReportText', () => {
       }),
     );
 
-    expect(text).toContain('path  env var  ~/.config/x.toml (missing)');
+    expect(text).toContain(`path  env var  ${path.join('~', '.config', 'x.toml')} (missing)`);
     expect(text).toContain('Event store schema v9 is not supported');
     expect(text).toContain('off (event store disabled)');
   });
@@ -108,7 +113,7 @@ describe('renderConfigReportText', () => {
             format: 'jsonl',
             origin: 'config',
             paths: [
-              { path: '/home/me/a', exists: true },
+              { path: path.join(HOME, 'a'), exists: true },
               { path: '/b', exists: false },
             ],
           },
@@ -123,7 +128,9 @@ describe('renderConfigReportText', () => {
       }),
     );
 
-    expect(text).toContain('  claude    config   found    ~/a\n                     missing  /b');
+    expect(text).toContain(
+      `  claude    config   found    ${path.join('~', 'a')}\n                     missing  /b`,
+    );
     expect(text).toContain('  opencode  default           no path');
     expect(text).toContain('  laptop  enabled');
     expect(text).toContain('overrides  flag     /o.json\n');
