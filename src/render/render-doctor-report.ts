@@ -2,7 +2,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import type { DoctorSourceResult, DoctorSourceState } from '../cli/run-doctor-report.js';
-import { pluralize } from './format-number.js';
+import { pluralize } from '@ayagmar/agent-sessions/internal';
 
 const doctorStatusGlyphs = { ok: '✔', error: '✖' } as const;
 

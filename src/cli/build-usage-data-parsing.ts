@@ -33,9 +33,10 @@ import { createParseBudget, type RunWithParseBudget } from './parse/parse-budget
 import {
   compareByCodePoint,
   getFileByteSize,
-  getNewestFingerprintMtimeMs,
   getFileFingerprint,
+  getNewestFingerprintMtimeMs,
   getPrimaryFingerprintByteSize,
+  pluralize,
 } from '@ayagmar/agent-sessions/internal';
 import { getSinceFileSkipCutoffMs } from './parse/since-file-skip.js';
 import type { RuntimeProfileCollector } from './runtime-profile.js';
@@ -48,7 +49,6 @@ import {
 
 import type { UsageSourceFailure } from './usage-data-contracts.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
-import { pluralize } from '../render/format-number.js';
 
 export type AdapterParseResult = {
   source: string;

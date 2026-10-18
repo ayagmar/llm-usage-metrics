@@ -4,7 +4,7 @@
 import { MONTH_LABELS } from '../../../../render/month-labels.js';
 import type { ShareGranularity } from '../../../types.js';
 import { formatUsdOrNone } from '../../core/index.js';
-import { formatCompact, formatDay } from '../shell/format.js';
+import { formatDay } from '../shell/format.js';
 import {
   estimateTextWidth,
   fitText,
@@ -16,6 +16,7 @@ import {
 import { getSeriesPaint, paintedRect, type SeriesPaint } from './paint.js';
 import type { BandScale, LinearScale } from './scale.js';
 import { el, round, text, type SvgNode } from './svg.js';
+import { formatAbbreviatedTokenCount } from '../../../../render/format-number.js';
 
 /** Axis ticks and small print. */
 export const AXIS_SIZE = 11;
@@ -53,10 +54,10 @@ export function formatPeriod(
 /** `24.3K` tokens or `$1.23` on an axis and in a legend. */
 export function formatAxisValue(value: number, unit: 'tokens' | 'usd'): string {
   if (unit === 'tokens') {
-    return formatCompact(value);
+    return formatAbbreviatedTokenCount(value);
   }
 
-  return value >= 1000 ? `$${formatCompact(value)}` : formatUsdOrNone(value);
+  return value >= 1000 ? `$${formatAbbreviatedTokenCount(value)}` : formatUsdOrNone(value);
 }
 
 /** The decimals a step needs to be written exactly (a nice step has few). */
@@ -79,7 +80,7 @@ function stepDecimals(step: number): number {
  */
 export function usdTickFormat(step: number): (value: number) => string {
   if (step >= 1000) {
-    return (value) => `$${formatCompact(value)}`;
+    return (value) => `$${formatAbbreviatedTokenCount(value)}`;
   }
 
   const decimals = step >= 1 && Number.isInteger(step) ? 0 : Math.max(2, stepDecimals(step));

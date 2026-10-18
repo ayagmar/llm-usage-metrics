@@ -5,13 +5,7 @@
 import { computeDeltaRatio } from '../../../../utils/delta-ratio.js';
 import { NO_VALUE, type ShareReport } from '../../core/index.js';
 import type { ShareLabels } from '../state/context.js';
-import {
-  formatCompact,
-  formatCount,
-  formatDateRange,
-  formatDay,
-  pluralize,
-} from '../shell/format.js';
+import { formatDateRange, formatDay } from '../shell/format.js';
 import { buildCalendar, type CalendarView } from './calendar-model.js';
 import {
   figure,
@@ -29,6 +23,8 @@ import {
   type PanelFact,
   type PanelTable,
 } from './model.js';
+import { pluralize } from '../../../../../packages/core/src/utils/pluralize.js';
+import { formatAbbreviatedTokenCount, formatInteger } from '../../../../render/format-number.js';
 
 export type SummaryView = {
   lede: LedePart[];
@@ -179,7 +175,7 @@ function periodsTable(periods: Period[]): PanelTable {
             costChange(period),
           ]
         : []),
-      { text: formatCount(readNumber(period.totals, 'totalTokens') ?? 0) },
+      { text: formatInteger(readNumber(period.totals, 'totalTokens') ?? 0) },
       { text: topSource(period) },
     ]),
     foot: [],
@@ -218,7 +214,9 @@ function machinesTable(month: Period | undefined, labels: ShareLabels): PanelTab
 
       return [
         { text: labels.machine(readString(machine, 'machine') ?? NO_VALUE) },
-        byCost ? costOf(machine) : { text: formatCompact(tokens), note: formatCount(tokens) },
+        byCost
+          ? costOf(machine)
+          : { text: formatAbbreviatedTokenCount(tokens), note: formatInteger(tokens) },
         { text: share ?? NO_VALUE },
       ];
     }),
@@ -292,14 +290,14 @@ function activityFacts(activity: Record<string, unknown>): PanelFact[] {
       label: 'Best day',
       value: bestDate ? formatDay(bestDate) : NO_VALUE,
       detail: best
-        ? [bestCost, `${formatCount(readNumber(best, 'totalTokens') ?? 0)} tokens`]
+        ? [bestCost, `${formatInteger(readNumber(best, 'totalTokens') ?? 0)} tokens`]
             .filter((part) => part !== '')
             .join(' · ')
         : undefined,
     },
     {
       label: 'Active days',
-      value: formatCount(readNumber(activity, 'activeDays') ?? 0),
+      value: formatInteger(readNumber(activity, 'activeDays') ?? 0),
       detail: `Since ${formatDay(readString(activity, 'from') ?? '')}`,
     },
   ];
@@ -318,7 +316,7 @@ function buildLede(data: Record<string, unknown>, month: Period | undefined): Le
   const lede =
     costUsd === undefined
       ? [
-          figure(formatCompact(readNumber(month.totals, 'totalTokens') ?? 0)),
+          figure(formatAbbreviatedTokenCount(readNumber(month.totals, 'totalTokens') ?? 0)),
           words(' tokens this month so far'),
         ]
       : [figure(costOf(month.totals).text), words(' spent this month so far')];
@@ -370,7 +368,7 @@ export function buildSummaryView(
     calendar: buildCalendar(
       readRecords(activity.days),
       (active, count) =>
-        `Daily tokens since ${formatDay(from)}: usage on ${pluralize(active, 'day')} of ${formatCount(count)}.`,
+        `Daily tokens since ${formatDay(from)}: usage on ${pluralize(active, 'day')} of ${formatInteger(count)}.`,
     ),
     tables: [periodsTable(periods), ...(machines ? [machines] : [])],
     note: `From the summary command${today ? ` on ${formatDay(today)}` : ''}, in ${timezone}. ${FIXED_NOTE}`,

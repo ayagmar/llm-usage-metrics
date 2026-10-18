@@ -14,11 +14,19 @@ const usdFmt = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 2,
 });
 
+const abbreviatedIntegerFormatter = new Intl.NumberFormat('en-US', {
+  notation: 'compact',
+  maximumSignificantDigits: 3,
+});
+
 export function formatInteger(n: number): string {
   return intFmt.format(n);
 }
 
-export { pluralize } from '@ayagmar/agent-sessions/internal';
+/** `1.09M`, `616M`, `24.3K`: three significant digits. */
+export function formatAbbreviatedTokenCount(value: number | undefined): string {
+  return abbreviatedIntegerFormatter.format(value ?? 0);
+}
 
 export function formatUsd(n: number | undefined): string {
   return n === undefined ? '-' : usdFmt.format(n);

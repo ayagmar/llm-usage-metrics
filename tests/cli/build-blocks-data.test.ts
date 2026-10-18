@@ -76,6 +76,22 @@ describe('buildBlocksData', () => {
     ]);
   });
 
+  it('picks the --model rule from the window, not from the lookback week', async () => {
+    // The exact name appears only in the lookback; inside the window, only a dated variant does.
+    const result = await build(
+      [
+        event('2026-06-10T09:00:00.000Z', 'claude', 'claude-opus-4-1'),
+        event('2026-06-18T09:00:00.000Z', 'claude', 'claude-opus-4-1-20250805'),
+      ],
+      { model: ['claude-opus-4-1'] },
+    );
+
+    expect(result.data.blocks.map((block) => [block.start, block.eventCount])).toEqual([
+      ['2026-06-18T09:00:00.000Z', 1],
+    ]);
+    expect(result.diagnostics.warnings).toEqual([]);
+  });
+
   it('marks a block in progress at now active, with its burn rate', async () => {
     const result = await build([event('2026-06-21T10:15:00.000Z')]);
 

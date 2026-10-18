@@ -4,7 +4,6 @@
 
 import type { ShareViewContext } from '../state/context.js';
 import { h, s } from '../shell/dom.js';
-import { pluralize } from '../shell/format.js';
 import { buildCompareView } from './compare-model.js';
 import { buildEfficiencyView } from './efficiency-model.js';
 import type { CalendarView } from './calendar-model.js';
@@ -13,6 +12,7 @@ import { buildOptimizeView } from './optimize-model.js';
 import { buildSummaryView, type SummaryView } from './summary-model.js';
 import { buildTrendsView, type TrendChart, type TrendsView } from './trends-model.js';
 import { buildWrappedView, type TopList, type WrappedView } from './wrapped-model.js';
+import { pluralize } from '../../../../../packages/core/src/utils/pluralize.js';
 
 type Part = Node | false | undefined;
 

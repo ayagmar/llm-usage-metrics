@@ -10,11 +10,11 @@ import { renderActivityHeatmap } from './activity-heatmap.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { renderReportJson } from './report-json.js';
+import { pluralize } from '@ayagmar/agent-sessions/internal';
 import {
   formatApproxUsd,
   formatInteger,
   formatStatuslineCompact,
-  pluralize,
   formatUsd,
 } from './format-number.js';
 import { resolveTtyColumns } from './table-text-layout.js';

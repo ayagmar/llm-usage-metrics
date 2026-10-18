@@ -7,10 +7,10 @@ import type {
   TimelineToolCallRow,
   TimelineUsageRow,
 } from '../session/session-timeline.js';
-import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
+import { compareByCodePoint, pluralize } from '@ayagmar/agent-sessions/internal';
 import { formatDuration } from './format-duration.js';
 import { formatLocalDateTime, formatLocalDateTimeSpan } from './format-local-date-time.js';
-import { formatApproxUsd, formatInteger, formatUsd, pluralize } from './format-number.js';
+import { formatApproxUsd, formatInteger, formatUsd } from './format-number.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { renderReportHeader } from './report-header.js';
 import { resolveTtyColumns, wrapTableColumn } from './table-text-layout.js';

@@ -1,5 +1,5 @@
 import type { ModelUsageBreakdown, UsageReportRow } from '../domain/usage-report-row.js';
-import { formatApproxUsd, formatInteger } from './format-number.js';
+import { formatAbbreviatedTokenCount, formatApproxUsd, formatInteger } from './format-number.js';
 import type { TableColumnKind } from './unicode-table.js';
 
 export type UsageTableLayout = 'compact' | 'per_model_columns';
@@ -61,11 +61,6 @@ export function selectColumns<T>(cells: readonly T[], columnIndexes: readonly nu
   return columnIndexes.map((columnIndex) => cells[columnIndex]);
 }
 
-const abbreviatedIntegerFormatter = new Intl.NumberFormat('en-US', {
-  notation: 'compact',
-  maximumSignificantDigits: 3,
-});
-
 function formatSource(row: UsageReportRow): string {
   if (row.rowType === 'grand_total') {
     return 'TOTAL';
@@ -81,10 +76,6 @@ function formatSource(row: UsageReportRow): string {
 
 function formatFullTokenCount(value: number | undefined): string {
   return formatInteger(value ?? 0);
-}
-
-export function formatAbbreviatedTokenCount(value: number | undefined): string {
-  return abbreviatedIntegerFormatter.format(value ?? 0);
 }
 
 /** One `• item` line per entry, or `-` when empty. */

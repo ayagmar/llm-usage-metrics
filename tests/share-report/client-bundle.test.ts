@@ -63,7 +63,11 @@ describe('repo modules in the share client', () => {
       .sort();
 
     expect(outside).toEqual([
+      'packages/core/src/utils/compare-by-code-point.ts',
+      'packages/core/src/utils/pluralize.ts',
       'src/render/format-duration.ts',
+      'src/render/format-local-date-time.ts',
+      'src/render/format-number.ts',
       'src/render/month-labels.ts',
       'src/render/truncate-names.ts',
       'src/utils/date-key.ts',

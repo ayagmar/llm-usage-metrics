@@ -9,7 +9,13 @@ import {
 import type { TrendsReportData } from '../cli/build-trends-data.js';
 import type { TrendBucket, TrendSeries, TrendsMetric } from '../trends/trends-series.js';
 import { formatDuration } from './format-duration.js';
-import { formatApproxUsd, formatInteger, formatUsd, pluralize } from './format-number.js';
+import { pluralize } from '@ayagmar/agent-sessions/internal';
+import {
+  formatAbbreviatedTokenCount,
+  formatApproxUsd,
+  formatInteger,
+  formatUsd,
+} from './format-number.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';
 import { shouldUseColorByDefault } from './terminal-table.js';
@@ -20,7 +26,6 @@ import {
   visibleWidth,
 } from './table-text-layout.js';
 import { renderReportJson } from './report-json.js';
-import { formatAbbreviatedTokenCount } from './row-cells.js';
 import {
   downsamplePeaks,
   renderSparkline,

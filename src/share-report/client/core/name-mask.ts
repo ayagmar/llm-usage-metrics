@@ -1,5 +1,5 @@
 import type { ShareReport } from './decode.js';
-import { compareText } from './rollup.js';
+import { compareByCodePoint } from '../../../../packages/core/src/utils/compare-by-code-point.js';
 
 /** Labels that name no one, so "Hide names" keeps them. */
 const UNMASKED_LABELS = new Set(['local', '(unattributed)']);
@@ -24,7 +24,9 @@ function maskDictionary(
   const order = labels
     .map((label, index) => ({ label, index, tokens: tokens[index] }))
     .filter((entry) => !UNMASKED_LABELS.has(entry.label))
-    .sort((left, right) => right.tokens - left.tokens || compareText(left.label, right.label));
+    .sort(
+      (left, right) => right.tokens - left.tokens || compareByCodePoint(left.label, right.label),
+    );
 
   order.forEach((entry, rank) => {
     masked[entry.index] = `${prefix}-${rank + 1}`;

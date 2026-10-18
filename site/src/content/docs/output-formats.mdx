@@ -24,7 +24,7 @@ The CLI keeps report data on `stdout` and diagnostics on `stderr`. Redirecting J
 | Pricing                  | Yes      | Yes  | Yes      | No           |
 | Doctor / prune           | Yes      | Yes  | No       | No           |
 
-[Events](/llm-usage-metrics/events/) exports JSONL or CSV using `--format`; it does not use the report-format flags. [Status line](/llm-usage-metrics/statusline/) prints one line of text. `schema` prints a JSON Schema document, and `config` emits text.
+[Events](/llm-usage-metrics/events/) exports JSONL or CSV using `--format`; it does not use the report-format flags. [Status line](/llm-usage-metrics/statusline/) prints one line of text. `schema` prints a JSON Schema document. The `config` subcommands print text, and `config show` also takes `--json`.
 
 ## Terminal
 
@@ -65,7 +65,7 @@ Use JSON for scripts and pipelines. Without date bounds, `daily` and `weekly` co
 }
 ```
 
-`report` identifies the report family (`summary`, `usage`, `projects`, `compare`, `session`, `tools`, `context`, `trends`, `blocks`, `value`, `efficiency`, `optimize`, `wrapped`, `pricing`, `doctor`, `prune`, or `config` for `config show`; `hourly`, `daily`, `weekly`, and `monthly` all use `usage`) and `data` carries the report-specific payload documented on each report page. `schemaVersion` increments only on breaking JSON changes; additive fields inside `data` are safe and do not bump it. Diagnostics never enter the JSON body. The envelope arrived in 0.8.0; [Upgrading to 0.8](/llm-usage-metrics/upgrading/0-8/) maps the old field names to the new ones.
+`report` identifies the report family (`summary`, `usage`, `projects`, `compare`, `session`, `tools`, `context`, `trends`, `blocks`, `value`, `efficiency`, `optimize`, `wrapped`, `pricing`, `doctor`, `prune`, or `config-show` for `config show`; `hourly`, `daily`, `weekly`, and `monthly` all use `usage`) and `data` carries the report-specific payload documented on each report page. `schemaVersion` increments only on breaking JSON changes; additive fields inside `data` are safe and do not bump it. Diagnostics never enter the JSON body. The envelope arrived in 0.8.0; [Upgrading to 0.8](/llm-usage-metrics/upgrading/0-8/) maps the old field names to the new ones.
 
 Every payload has a published JSON Schema (draft 2020-12) validated in CI against real CLI output:
 

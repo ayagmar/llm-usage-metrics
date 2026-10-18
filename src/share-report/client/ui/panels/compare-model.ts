@@ -4,7 +4,7 @@
 
 import { NO_VALUE, type ShareReport } from '../../core/index.js';
 import type { ShareLabels } from '../state/context.js';
-import { formatCount, formatDateRange } from '../shell/format.js';
+import { formatDateRange } from '../shell/format.js';
 import {
   figure,
   FIXED_NOTE,
@@ -24,6 +24,7 @@ import {
   type PanelTable,
   type PanelView,
 } from './model.js';
+import { formatInteger } from '../../../../render/format-number.js';
 
 type Side = { title: string; range: string };
 
@@ -60,7 +61,7 @@ function metricCells(row: Record<string, unknown>): PanelCell[] {
 }
 
 function formatValue(value: number | undefined): string {
-  return value === undefined ? NO_VALUE : formatCount(value);
+  return value === undefined ? NO_VALUE : formatInteger(value);
 }
 
 type Breakdown = {

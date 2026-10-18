@@ -1,11 +1,10 @@
 import { LOCAL_MACHINE_NAME, type MachineConfig } from '../config/user-config.js';
 import { getParserVersion, type SourceAdapter } from '@ayagmar/agent-sessions';
 
-import { toTerminalLine } from '@ayagmar/agent-sessions/internal';
+import { pluralize, toTerminalLine } from '@ayagmar/agent-sessions/internal';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { getUtcMidnightIso } from '../utils/date-key.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
-import { pluralize } from '../render/format-number.js';
 import { readMachineCacheUsage, type MachineSyncState } from './machine-cache.js';
 import { mergeMachineEvents, type MergedMachineEvents } from './merge-machine-events.js';
 

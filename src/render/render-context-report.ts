@@ -11,7 +11,8 @@ import {
   type ContextSessionRow,
 } from '../context/context-pressure.js';
 import { UNKNOWN_MODEL_LABEL } from '../share-report/redact.js';
-import { formatApproxUsd, formatInteger, pluralize } from './format-number.js';
+import { pluralize } from '@ayagmar/agent-sessions/internal';
+import { formatApproxUsd, formatInteger } from './format-number.js';
 import { toMarkdownSafeCell } from './markdown-safe-cell.js';
 import { renderReportJson } from './report-json.js';
 import { formatNoUsageMessage, renderReportHeader } from './report-header.js';

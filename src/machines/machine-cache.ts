@@ -1,4 +1,4 @@
-import { toTerminalLine } from '@ayagmar/agent-sessions/internal';
+import { pluralize, toTerminalLine } from '@ayagmar/agent-sessions/internal';
 import { rm } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -20,7 +20,7 @@ import {
 } from '../persistence/event-store.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { pathExists } from '../utils/fs-helpers.js';
-import { formatInteger, pluralize } from '../render/format-number.js';
+import { formatInteger } from '../render/format-number.js';
 import {
   toFileKey,
   type MachineExportFileKey,

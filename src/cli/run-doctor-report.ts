@@ -12,7 +12,7 @@ import {
 } from '../persistence/event-store.js';
 import { getSourceStorageFormat, type SourceStorageFormat } from '@ayagmar/agent-sessions/registry';
 import { collectFile, type SourceAdapter } from '@ayagmar/agent-sessions';
-import { compareByCodePoint, hasErrorCode } from '@ayagmar/agent-sessions/internal';
+import { compareByCodePoint, hasErrorCode, pluralize } from '@ayagmar/agent-sessions/internal';
 import { logger } from '../utils/logger.js';
 import {
   resolveExplicitSourceIds,
@@ -22,7 +22,6 @@ import { resolveUserConfigForOptions, type UserConfigResolutionDeps } from './ap
 import { emitUserConfigResolution } from './emit-active-config.js';
 import { createAdaptersFromOptions } from './source-cli-options.js';
 import { formatByteSize } from '../render/format-byte-size.js';
-import { pluralize } from '../render/format-number.js';
 import { describeMissingEventStore, renderDoctorText } from '../render/render-doctor-report.js';
 import { describeMachineStatus } from '../render/render-machines.js';
 import { getMachineCachePath, readMachineCacheStatus } from '../machines/machine-cache.js';

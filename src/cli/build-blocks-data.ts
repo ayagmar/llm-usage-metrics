@@ -76,16 +76,17 @@ function selectBlockEvents(events: readonly UsageEvent[], blocks: readonly Usage
 }
 
 /**
- * Each source's whole stream over the dataset's dates when --repo, --model, --provider or
- * --machine narrowed the events, so blocks keep the account's windows; undefined when
- * nothing narrowed them. --machine leaves other machines out of the dataset, so it reads
- * the dataset again, from the machines' cached usage without refreshing them (with no
- * other machine configured, --machine can only name this one, which narrows nothing).
- * Its warnings the report's own read did not give come back too, such as a machine whose
- * cache cannot be read: the windows were placed without it.
+ * Each source's whole stream over the dataset's dates (the lookback week included) when
+ * --repo, --model, --provider or --machine narrowed the events, so blocks keep the
+ * account's windows; undefined when nothing narrowed them. --machine leaves other machines
+ * out of the dataset, so it reads the dataset again, from the machines' cached usage
+ * without refreshing them (with no other machine configured, --machine can only name this
+ * one, which narrows nothing). Its warnings the report's own read did not give come back
+ * too, such as a machine whose cache cannot be read: the windows were placed without it.
  */
-export async function readWholeStreams(
+async function readWholeStreams(
   dataset: UsageEventDataset,
+  lookbackSince: string | undefined,
   userConfigResolution: UserConfigResolution,
   deps: BuildUsageDataDeps,
 ): Promise<{ events?: UsageEvent[]; warnings: string[] }> {
@@ -105,14 +106,15 @@ export async function readWholeStreams(
       repo: undefined,
       sync: false,
     };
-    const whole = await buildUsageEventDataset(wholeOptions, {
-      ...deps,
-      userConfigResolution: { ...userConfigResolution, options: wholeOptions },
-    });
+    const whole = await buildUsageEventDataset(
+      wholeOptions,
+      { ...deps, userConfigResolution: { ...userConfigResolution, options: wholeOptions } },
+      { lookbackSince },
+    );
     const reported = new Set(dataset.warnings);
 
     return {
-      events: whole.filteredEvents,
+      events: [...whole.filteredEvents, ...whole.lookbackEvents],
       warnings: whole.warnings
         .filter((warning) => !reported.has(warning))
         .map((warning) => `Account window (blocks across every machine): ${warning}`),
@@ -126,10 +128,58 @@ export async function readWholeStreams(
   return {
     events: filterParsedAdapterEvents(dataset.successfulParseResults, {
       timezone,
-      since: datasetOptions.since,
+      since: lookbackSince ?? datasetOptions.since,
       until: datasetOptions.until,
     }),
     warnings: [],
+  };
+}
+
+export type BlocksDataset = {
+  dataset: UsageEventDataset;
+  /** The first day read, a week before the window; undefined for the full history. */
+  lookbackSince: string | undefined;
+  /** The window's events, then the lookback week's. */
+  events: UsageEvent[];
+  wholeStreams: { events?: UsageEvent[]; warnings: string[] };
+};
+
+/**
+ * The read behind blocks, for `blocks` and `--share`: the window's events, filtered with
+ * the rules the window resolves (an exact --model match only in the lookback does not
+ * count), plus the week before it to find where the blocks running into it started.
+ * `options` hold the window as `since`/`until`.
+ */
+export async function readBlocksDataset(
+  options: ReportCommandOptions,
+  userConfigResolution: UserConfigResolution,
+  deps: BuildUsageDataDeps,
+  stagePrefix: 'blocks' | 'share',
+): Promise<BlocksDataset> {
+  const lookbackSince =
+    options.since === undefined ? undefined : shiftDateKey(options.since, -BLOCKS_LOOKBACK_DAYS);
+  const datasetConfigResolution = { ...userConfigResolution, options };
+  const dataset = await measureRuntimeProfileStage(
+    deps.runtimeProfile,
+    `${stagePrefix}.dataset.total`,
+    () =>
+      buildUsageEventDataset(
+        options,
+        { ...deps, userConfigResolution: datasetConfigResolution },
+        { lookbackSince },
+      ),
+  );
+  const wholeStreams = await measureRuntimeProfileStage(
+    deps.runtimeProfile,
+    `${stagePrefix}.whole_streams`,
+    () => readWholeStreams(dataset, lookbackSince, datasetConfigResolution, deps),
+  );
+
+  return {
+    dataset,
+    lookbackSince,
+    events: [...dataset.filteredEvents, ...dataset.lookbackEvents],
+    wholeStreams,
   };
 }
 
@@ -153,33 +203,21 @@ export async function buildBlocksData(
   );
   const now = deps.now?.() ?? new Date();
   const today = getCurrentLocalDateKey(timezone, now);
-  // Read a week before the window, once, to find where the blocks running into it started.
-  const lookbackSince =
-    window.since === undefined ? undefined : shiftDateKey(window.since, -BLOCKS_LOOKBACK_DAYS);
-  const datasetOptions = { ...configuredOptions, since: lookbackSince, until: window.until };
-  const datasetDeps = {
-    ...deps,
-    userConfigResolution: { ...userConfigResolution, options: datasetOptions },
-  };
-
   const hideCost = options.cost === false;
-  const dataset = await measureRuntimeProfileStage(
-    deps.runtimeProfile,
-    'blocks.dataset.total',
-    () => buildUsageEventDataset(datasetOptions, datasetDeps),
+  const { dataset, lookbackSince, events, wholeStreams } = await readBlocksDataset(
+    configuredOptions,
+    userConfigResolution,
+    deps,
+    'blocks',
   );
   // --no-cost shows no cost, so prices are neither loaded nor fetched.
   const pricingResult = await applyPricingToUsageEventDataset(
     dataset,
     deps,
     hideCost ? 'none' : 'auto',
+    { events },
   );
   const { pricedEvents, pricingOrigin, pricingWarning } = pricingResult;
-  const wholeStreams = await measureRuntimeProfileStage(
-    deps.runtimeProfile,
-    'blocks.whole_streams',
-    () => readWholeStreams(dataset, datasetDeps.userConfigResolution, deps),
-  );
 
   const blocks = measureRuntimeProfileStageSync(deps.runtimeProfile, 'blocks.aggregate', () =>
     aggregateBlocks(pricedEvents, {

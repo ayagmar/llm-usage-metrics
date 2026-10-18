@@ -19,7 +19,7 @@ Changes on `master` since 0.11.0 that are not in a release yet. [Upgrading](http
 - `value`: the API-priced cost of each month against subscription plan prices, per plan and project.
 - `pricing <model...>`: how a model name resolves to a price: the matched pricing key and rule, overrides, where the prices came from, rates per 1M tokens and tiers. It never reads usage.
 - `--by-repo` on `daily`, `weekly`, `monthly`, `hourly`, `trends` and `compare` splits rows by project.
-- `--repo` counts only the named projects in `summary`, the usage reports, `projects`, `compare`, `trends`, `session`, `blocks`, `value`, `efficiency`, `optimize` and `events`. A path matches that root and the roots under it; a name matches the end of a root.
+- `--repo` counts only the named projects in `summary`, the usage reports, `projects`, `compare`, `trends`, `session`, `blocks`, `value`, `efficiency`, `optimize`, `tools`, `context` and `events`. A path matches that root and the roots under it; a name matches the end of a root.
 - `--cost-mode explicit|estimated|both` on every command with pricing options. The default, `both`, keeps the earlier behaviour, and stderr now counts events that logged `$0` with tokens and were estimated.
 - The interactive report from `--share`: period, source, model and project filters, hour to month grouping, sortable tables, a project to session drill-down, a 5-hour blocks chart, PNG and SVG chart export, and light and dark themes. It loads nothing from the network. `--redact` labels projects `project-N` and machines `machine-N`.
 - `tools`: tool calls per tool from claude, codex and pi session files on disk, with errors, error rate, calls with no result, sessions and the top project. `--by-source`, `--by-repo` and `--top`.
@@ -34,15 +34,17 @@ Changes on `master` since 0.11.0 that are not in a release yet. [Upgrading](http
 ### Changed
 
 - **Long-context tiers**: a request whose prompt is over a model's LiteLLM threshold bills at the higher tier for the whole request (claude, gemini, pi, opencode and antigravity events). Pricing caches written before tiers existed are discarded once.
-- **Priority rates**: a model that LiteLLM lists only with a priority rate for a token bucket is priced at that rate instead of left unpriced, and stderr counts those events.
+- **Priority rates**: stderr counts the events priced at a priority rate, for a model that LiteLLM lists only with a priority rate for a token bucket. Prices are unchanged.
 - **Retired prices** are dropped when a live LiteLLM key prices the same name at the same rates, so a few model names resolve to a different key.
 - **`optimize`** prices its baseline at base rates, as it prices the candidates, so a tier premium never shows up as savings.
 - **Machines**: when two machines parse a shared session's source with different parser versions, sync matches their events by timestamp instead of by content hash and warns until both run the same release.
-- **Terminal output**: every table aligns text left and numbers right, including the stacked list on narrow terminals; `prune` summaries and `doctor`'s per-source lines say `1 file` and `2 files`; `trends` uses whole token ticks; `efficiency` and `optimize` print the shared no-usage message instead of an all-zero table.
+- **Terminal output**: every table aligns text left and numbers right, including the stacked list on narrow terminals; `prune` summaries and `doctor`'s per-source lines say `1 file` and `2 files`; `trends` uses whole token ticks, and its token totals show three significant digits (`2.17K` instead of `2.2K`); `efficiency` and `optimize` print the shared no-usage message instead of an all-zero table.
 - **Speed**: Claude and pi files parse on the worker pool, as Codex files already did; `statusline` no longer builds the full summary; DeepSeek Harness zstd logs are read as a stream instead of whole; JSONL files are read one 1 MiB chunk of records at a time instead of one record at a time.
 - **`--no-cost`** on `hourly`, `daily`, `weekly`, `monthly` and `blocks` no longer loads prices, so a cold pricing cache with no network no longer fails these reports. Models tied on tokens are then ordered by logged cost only. `projects` and `value` still load prices to rank by cost.
-- **`statusline`** with `parseWorkers` at `auto` parses on at most 4 worker threads; on large logs a cold tick peaks at about 40% less memory and takes about 16% longer.
+- **Cold runs** (empty event store) are faster than in 0.11.0 and use more memory, because each parse worker holds its own heap. On the maintainer's logs (3.9 GiB), a cold `statusline` took 4.3 s at a 0.64–0.69 GB peak in 0.11.0 and takes 2.4 s at 0.79–0.84 GB now. `statusline` uses at most 4 workers when `parseWorkers` is `auto`; other commands use up to 8 and peak higher. A lower `parseWorkers` lowers the peak.
 - **Projects** are described as the working directory the tool recorded, not the repository root, in help, docs and schemas.
+- **`--version`** is read only before the command word: `llm-usage daily --version` fails with an unknown-option error, and `llm-usage --version` prints the version.
+- **Update check** is skipped for `config`, `completion`, `help` and `--help-all` too, as it already was for `statusline`, `machine export`, `--help` and `--version`.
 - **Messages**: `projects --top` now says "must be a positive integer" and `optimize --top` rejects leading zeros, as the other reports do.
 
 ### Fixed

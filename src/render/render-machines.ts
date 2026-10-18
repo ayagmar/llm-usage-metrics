@@ -3,7 +3,8 @@ import type { MachineSyncState } from '../machines/machine-cache.js';
 import type { MachineUsageSummary } from '../machines/load-machine-usage.js';
 import { MACHINE_EXPORT_TIMEOUT_MARK } from '../machines/machine-ssh.js';
 import type { MachineSyncOutcome } from '../machines/sync-machine.js';
-import { formatInteger, pluralize } from './format-number.js';
+import { pluralize } from '@ayagmar/agent-sessions/internal';
+import { formatInteger } from './format-number.js';
 import { padEndVisible, visibleWidth } from './table-text-layout.js';
 
 const MAX_REASON_LENGTH = 300;

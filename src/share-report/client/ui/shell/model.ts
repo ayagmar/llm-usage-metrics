@@ -17,15 +17,14 @@ import {
 import type { ShareLabels, ShareViewContext } from '../state/context.js';
 import { hasLabelFilters } from '../state/view.js';
 import {
-  formatCompact,
   formatCost,
-  formatCount,
   formatDateRange,
   formatDay,
-  formatDuration,
   formatPercent,
-  formatTimestamp,
+  formatTimeOrNone,
 } from './format.js';
+import { formatDuration } from '../../../../render/format-duration.js';
+import { formatAbbreviatedTokenCount, formatInteger } from '../../../../render/format-number.js';
 
 /** The `--cost-mode` names, as the CLI spells them. */
 export const COST_MODE_LABELS: Record<ShareCostMode, string> = {
@@ -97,7 +96,7 @@ export function buildHeader(context: ShareViewContext): HeaderView {
     // `All dates`, `Up to …` and `From …` continue the sentence in lower case.
     `File covers ${formatDateRange(meta.window.since, resolveUntil(context.report, meta.window.until)).replace(/^[AUF](?=[a-z])/u, (letter) => letter.toLowerCase())}`,
     `Times in ${meta.timezone}`,
-    `Generated ${formatTimestamp(meta.generatedAt, meta.timezone)}`,
+    `Generated ${formatTimeOrNone(meta.generatedAt, meta.timezone)}`,
     `llm-usage-metrics ${meta.toolVersion}`,
   ];
   const badges: Badge[] = [
@@ -160,8 +159,8 @@ export function buildSummary(context: ShareViewContext): SummaryFigure[] {
     {
       id: 'tokens',
       label: 'Tokens',
-      value: formatCompact(totals.totalTokens),
-      detail: `${formatCount(totals.totalTokens)} in total`,
+      value: formatAbbreviatedTokenCount(totals.totalTokens),
+      detail: `${formatInteger(totals.totalTokens)} in total`,
     },
   ];
 
@@ -179,8 +178,8 @@ export function buildSummary(context: ShareViewContext): SummaryFigure[] {
     {
       id: 'events',
       label: 'Events',
-      value: formatCompact(totals.eventCount),
-      detail: `${formatCount(totals.eventCount)} requests`,
+      value: formatAbbreviatedTokenCount(totals.eventCount),
+      detail: `${formatInteger(totals.eventCount)} requests`,
     },
     {
       id: 'active',

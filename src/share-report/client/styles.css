@@ -861,6 +861,8 @@ thead .num {
   background: none;
   font-weight: inherit;
   color: inherit;
+  /* The rotated caret would otherwise add 1px of scrollable overflow to the table. */
+  overflow: clip;
 }
 
 .sort:hover {

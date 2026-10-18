@@ -3,14 +3,7 @@
 // words, and every cell has a tooltip.
 
 import { buildBlockMatrix, buildHourWeekdayMatrix, WEEKDAY_LABELS } from '../../core/index.js';
-import {
-  formatCompact,
-  formatCost,
-  formatCount,
-  formatDateRange,
-  formatDay,
-  pluralize,
-} from '../shell/format.js';
+import { formatCost, formatDateRange, formatDay } from '../shell/format.js';
 import type { ShareCost } from '../../../types.js';
 import { COST_MODE_LABELS } from '../shell/model.js';
 import type { ShareViewContext } from '../state/context.js';
@@ -27,6 +20,8 @@ import {
   type ChartView,
   type SvgNode,
 } from './svg.js';
+import { pluralize } from '../../../../../packages/core/src/utils/pluralize.js';
+import { formatAbbreviatedTokenCount, formatInteger } from '../../../../render/format-number.js';
 
 function hourLabel(hour: number): string {
   return String(hour).padStart(2, '0');
@@ -196,8 +191,8 @@ export function buildHourWeekdayChart(context: ShareViewContext, width: number):
     ],
     rows: matrix.values.map((line, row) => [
       WEEKDAY_LABELS[row],
-      ...line.map((value) => (value === 0 ? '0' : formatCompact(value))),
-      formatCount(line.reduce((sum, value) => sum + value, 0)),
+      ...line.map((value) => (value === 0 ? '0' : formatAbbreviatedTokenCount(value))),
+      formatInteger(line.reduce((sum, value) => sum + value, 0)),
     ]),
   };
   const peak = findPeak(matrix.values);
@@ -210,14 +205,14 @@ export function buildHourWeekdayChart(context: ShareViewContext, width: number):
     `Tokens by hour and weekday · ${formatDateRange(span.first, span.last)}`,
     width,
   );
-  const peakText = `Busiest: ${WEEKDAY_LABELS[peak.row]} ${hourLabel(peak.column)}:00, ${formatCompact(peak.value)} tokens`;
+  const peakText = `Busiest: ${WEEKDAY_LABELS[peak.row]} ${hourLabel(peak.column)}:00, ${formatAbbreviatedTokenCount(peak.value)} tokens`;
   const grid = heatGrid(
     {
       rowLabels: WEEKDAY_LABELS,
       columnLabels: hours,
       values: matrix.values,
       describe: (row, column) =>
-        `${WEEKDAY_LABELS[row]} ${hourLabel(column)}:00: ${formatCount(matrix.values[row][column])} tokens`,
+        `${WEEKDAY_LABELS[row]} ${hourLabel(column)}:00: ${formatInteger(matrix.values[row][column])} tokens`,
       maxCell: 26,
     },
     width,
@@ -294,8 +289,8 @@ export function buildBlockChart(context: ShareViewContext, width: number): Chart
         : [
             [
               `${formatDay(day)} ${hourLabel(hour)}:00`,
-              formatCount(count),
-              formatCount(tokens.values[row][hour]),
+              formatInteger(count),
+              formatInteger(tokens.values[row][hour]),
               ...(costs ? [costText(costs.costs, row, hour)] : []),
             ],
           ],
@@ -324,7 +319,7 @@ export function buildBlockChart(context: ShareViewContext, width: number): Chart
     const count = tokens.counts[row][hour];
     return count === 0
       ? `${formatDay(tokens.days[row])} ${hourLabel(hour)}:00: no block starts`
-      : `${formatDay(tokens.days[row])} ${hourLabel(hour)}:00: ${pluralize(count, 'block')}, ${formatCount(tokens.values[row][hour])} tokens${costs ? `, ${costText(costs.costs, row, hour)}` : ''}`;
+      : `${formatDay(tokens.days[row])} ${hourLabel(hour)}:00: ${pluralize(count, 'block')}, ${formatInteger(tokens.values[row][hour])} tokens${costs ? `, ${costText(costs.costs, row, hour)}` : ''}`;
   };
   const dayLabel = (day: string) => formatDay(day).slice(0, -5);
   const hours = Array.from({ length: 24 }, (_, hour) => hourLabel(hour));
@@ -351,7 +346,7 @@ export function buildBlockChart(context: ShareViewContext, width: number): Chart
     heading.height,
   );
   // The peak comes from the day × hour matrix, whichever way the grid is drawn.
-  const peakText = `Largest: ${dayLabel(tokens.days[peak.row])} ${hourLabel(peak.column)}:00, ${formatCompact(peak.value)} tokens`;
+  const peakText = `Largest: ${dayLabel(tokens.days[peak.row])} ${hourLabel(peak.column)}:00, ${formatAbbreviatedTokenCount(peak.value)} tokens`;
   const scale = heatLegend(heading.height + grid.height + 12, peakText, width);
 
   return {
