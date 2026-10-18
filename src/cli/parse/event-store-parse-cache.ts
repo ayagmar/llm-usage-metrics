@@ -222,11 +222,12 @@ export type StoredResumePoint = ParseFileDiagnostics & {
 };
 
 /**
- * Whether only the file itself changed since the stored version: the same parser
- * version, stored kinds and dependencies. A changed dependency (a fork's parent) can
- * change how the lines before the cursor parse, so it needs a whole read.
+ * Whether only the file itself changed since the stored version, and only by growing: the
+ * same parser version, stored kinds and dependencies, and a larger file. A changed
+ * dependency (a fork's parent) can change how the lines before the cursor parse, and a
+ * file of the same size was rewritten, so either needs a whole read.
  */
-function isOnlyFileChanged(
+function isOnlyFileGrown(
   storedEntry: EventStoreFileEntry,
   fingerprint: EventStoreFileFingerprint,
 ): boolean {
@@ -241,6 +242,8 @@ function isOnlyFileChanged(
   return (
     size !== undefined &&
     mtimeMs !== undefined &&
+    file.size !== undefined &&
+    size < file.size &&
     serializeEventStoreFingerprint({
       ...fingerprint,
       dependencies: [{ ...file, size, mtimeMs }, ...dependencies],
@@ -275,7 +278,7 @@ export function readFileGrowth(
     try {
       const storedEntry = context.getFileEntry(context.store, params.source, params.filePath);
 
-      if (!storedEntry || !isOnlyFileChanged(storedEntry, params.fingerprint)) {
+      if (!storedEntry || !isOnlyFileGrown(storedEntry, params.fingerprint)) {
         return undefined;
       }
 

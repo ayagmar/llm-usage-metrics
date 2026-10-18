@@ -375,6 +375,40 @@ describe('incremental ingest', () => {
       await dumpFreshStore(adapter, tempDir, 'fresh-fork'),
     );
   });
+  it.each([
+    ['grows', true],
+    ['keeps its size', false],
+  ])(
+    'reads a file again in full when a line far from both ends of the read changes and it %s',
+    async (_label, grows) => {
+      const tempDir = await createTempDir();
+      const sessionsDir = path.join(tempDir, 'sessions');
+      const filePath = path.join(sessionsDir, 'work', 'session.jsonl');
+      const adapter = new PiSourceAdapter({ dir: sessionsDir });
+      const padding = JSON.stringify({ type: 'padding', data: 'x'.repeat(100_000) });
+      const ingest = await growLineByLine(adapter, tempDir, filePath, [
+        PI_LINES[0] ?? '',
+        padding,
+        piMessage(3, { role: 'assistant', usage: { input: 10, output: 1 } }),
+        padding,
+        piMessage(4, { role: 'assistant', usage: { input: 20, output: 1 } }),
+      ]);
+
+      const rewritten = (await readFile(filePath, 'utf8')).replace('"input":10', '"input":99');
+      const appended = grows
+        ? `${piMessage(5, { role: 'assistant', usage: { input: 30, output: 1 } })}\n`
+        : '';
+      await writeFile(filePath, `${rewritten}${appended}`);
+      await setTime(filePath, 1_700_001_000);
+      await ingest.run();
+
+      expect(ingest.writes.at(-1)?.append).toBeUndefined();
+      expect(await dumpStore(ingest.storePath)).toEqual(
+        await dumpFreshStore(adapter, tempDir, 'fresh-rewritten'),
+      );
+    },
+  );
+
   it('reports a grown file once when another run stores it during the lookup', async () => {
     const tempDir = await createTempDir();
     const projectsDir = path.join(tempDir, 'projects');

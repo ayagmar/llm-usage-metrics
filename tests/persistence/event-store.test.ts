@@ -372,11 +372,10 @@ function createFakeSqliteModule(
 
 const readCursor = {
   format: 'jsonl' as const,
-  version: 1 as const,
+  version: 2 as const,
   parser: 'codex@1',
   offset: 10,
-  headHash: 'a'.repeat(64),
-  tailHash: 'b'.repeat(64),
+  prefixHash: 'a'.repeat(64),
 };
 
 async function createTempStore(name: string): Promise<EventStore> {

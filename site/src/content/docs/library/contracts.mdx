@@ -70,11 +70,10 @@ A cursor is plain JSON, so it can be stored as it is:
 ```json
 {
   "format": "jsonl",
-  "version": 1,
+  "version": 2,
   "parser": "qwen@n2.p4",
   "offset": 1029,
-  "headHash": "7cee8942…",
-  "tailHash": "7cee8942…"
+  "prefixHash": "7cee8942…"
 }
 ```
 
@@ -82,12 +81,11 @@ A cursor is valid when all of these hold; otherwise the read restarts from byte 
 
 - `parser` is `<source>@<getParserVersion(adapter)>` of the adapter reading it,
 - the file is at least `offset` bytes long,
-- `headHash` is the sha256 of the first `min(offset, 64 KiB)` bytes,
-- `tailHash` is the sha256 of the `min(offset, 64 KiB)` bytes ending at `offset`.
+- `prefixHash` is the sha256 of the first `offset` bytes.
 
 `offset` is the end of the last line-feed-terminated line. A final line without a line feed is not parsed, yielded or counted under `resume`; the next read sees it once its line feed is written.
 
-The check assumes the file only grows. A rewrite that keeps the size and changes only bytes between the two hashed windows passes, and the resumed read misses that change. claude and pi keep what their parse needs for the lines after `offset` in `state`; treat it as opaque. It holds earlier ids as 32-bit hashes, and a read that meets an id whose hash it has seen restarts from byte 0, so a hash collision costs a full read, not a wrong event.
+Any change to the bytes before `offset` restarts the read. The check reads those bytes once without parsing them, and the resumed read extends the same hash for the next cursor. claude and pi keep what their parse needs for the lines after `offset` in `state`; treat it as opaque. After a read with `raw: true`, it holds the raw lines of the events and tool calls still open at `offset`, message text included. It holds earlier ids as 32-bit hashes, and a read that meets an id whose hash it has seen restarts from byte 0, so a hash collision costs a full read, not a wrong event.
 
 ## Per-request usage
 

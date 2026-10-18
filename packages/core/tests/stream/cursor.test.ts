@@ -24,7 +24,7 @@ import { LineLocalAdapter } from '../helpers/line-local-adapter.js';
 import { canCountOpenFds, countOpenFds, waitForOpenFdCount } from '../helpers/open-fds.js';
 import { mulberry32, pick, randomInt, type Random } from '../helpers/seeded-random.js';
 
-const WINDOW = 64 * 1024;
+const MIN_COVERED_BYTES = 128 * 1024;
 const SEEDS_PER_ADAPTER = 40;
 
 const tempDirs: string[] = [];
@@ -221,7 +221,7 @@ describe.each(adapters)('resuming a %s read', (_name, createAdapter) => {
 
     for (let seed = 1; seed <= SEEDS_PER_ADAPTER; seed += 1) {
       const random = mulberry32(seed);
-      // Most files span the head and tail windows; a few cross the reader's 1 MiB chunks.
+      // Most files fit in one of the reader's 1 MiB chunks; a few cross several.
       const content = generateContent(
         random,
         seed % 10 === 0 ? 2_200_000 : 2_000 + randomInt(random, 300_000),
@@ -242,7 +242,7 @@ describe.each(adapters)('resuming a %s read', (_name, createAdapter) => {
     }
   }, 120_000);
 
-  it('chains resumes that stay inside the head window', async () => {
+  it('chains several short resumes', async () => {
     const adapter = createAdapter();
     const content = generateContent(mulberry32(7), 300_000);
     const full = await readFull(adapter, await createSessionFile(content));
@@ -262,7 +262,7 @@ describe.each(adapters)('resuming a %s read', (_name, createAdapter) => {
 });
 
 describe('resuming across read chunks', () => {
-  it('rolls the tail window over several 1 MiB chunks', async () => {
+  it('hashes the prefix across several 1 MiB chunks', async () => {
     const adapter = new LineLocalAdapter();
     const content = generateContent(mulberry32(13), 3_000_000);
     const full = await readFull(adapter, await createSessionFile(content));
@@ -281,8 +281,8 @@ describe('cursor invalidation', () => {
     const first = await readWith(adapter, filePath);
     const cursor = first.cursor;
 
-    if (!cursor || cursor.offset <= 2 * WINDOW) {
-      throw new Error('the fixture must consume more than both windows');
+    if (!cursor || cursor.offset <= MIN_COVERED_BYTES) {
+      throw new Error('the fixture must consume more than 128 KiB');
     }
 
     return { filePath, cursor };
@@ -297,7 +297,7 @@ describe('cursor invalidation', () => {
     expect(resumed.events).toEqual(full.events);
   }
 
-  it('restarts when a byte inside the head window changes', async () => {
+  it('restarts when a byte near the start changes', async () => {
     const { filePath, cursor } = await readHalf();
     const rewritten = Buffer.from(content);
     rewritten[10] ^= 0x01;
@@ -307,10 +307,19 @@ describe('cursor invalidation', () => {
     await expectRestart(new LineLocalAdapter(), filePath, cursor);
   });
 
-  it('restarts when a byte inside the tail window changes', async () => {
+  it('restarts when a byte just before the offset changes', async () => {
     const { filePath, cursor } = await readHalf();
     const rewritten = Buffer.from(content);
     rewritten[cursor.offset - 100] ^= 0x01;
+    await writeFile(filePath, rewritten);
+
+    await expectRestart(new LineLocalAdapter(), filePath, cursor);
+  });
+
+  it('restarts when a byte far from both ends of the covered prefix changes', async () => {
+    const { filePath, cursor } = await readHalf();
+    const rewritten = Buffer.from(content);
+    rewritten[Math.floor(cursor.offset / 2)] ^= 0x01;
     await writeFile(filePath, rewritten);
 
     await expectRestart(new LineLocalAdapter(), filePath, cursor);
@@ -324,7 +333,7 @@ describe('cursor invalidation', () => {
     await expectRestart(new LineLocalAdapter(), filePath, cursor);
   });
 
-  it('rejects a cursor when the file shrinks between its size check and the window reads', async () => {
+  it('rejects a cursor when the file shrinks between its size check and the prefix read', async () => {
     const { filePath, cursor } = await readHalf();
     const parser = getCursorParser(new LineLocalAdapter());
     const handle = await open(filePath, 'r');
@@ -333,11 +342,10 @@ describe('cursor invalidation', () => {
       const statBeforeCut = await handle.stat();
       await expect(validateJsonlCursor(handle, cursor, parser)).resolves.toBeDefined();
 
-      // The size check passes, then the tail window comes up short: the head stays whole.
+      // The size check passes, then the prefix read comes up short.
       vi.spyOn(handle, 'stat').mockResolvedValue(statBeforeCut);
       await truncate(filePath, cursor.offset - 100);
 
-      expect(cursor.offset - 100).toBeGreaterThan(WINDOW);
       await expect(validateJsonlCursor(handle, cursor, parser)).resolves.toBeUndefined();
     } finally {
       await handle.close();
@@ -363,8 +371,8 @@ describe('cursor invalidation', () => {
     ['a negative offset', (cursor) => ({ ...cursor, offset: -1 })],
     ['a fractional offset', (cursor) => ({ ...cursor, offset: 1.5 })],
     ['another format', (cursor) => ({ ...cursor, format: 'sqlite' })],
-    ['another version', (cursor) => ({ ...cursor, version: 2 })],
-    ['a missing hash', (cursor) => ({ ...cursor, headHash: undefined })],
+    ['another version', (cursor) => ({ ...cursor, version: 1 })],
+    ['a missing hash', (cursor) => ({ ...cursor, prefixHash: undefined })],
   ])('restarts on a cursor that is %s', async (_label, corrupt) => {
     const { filePath, cursor } = await readHalf();
 
@@ -381,11 +389,10 @@ describe('resume callbacks', () => {
     expect(read.startCalls).toEqual([{ restarted: true }]);
     expect(read.cursor).toEqual({
       format: 'jsonl',
-      version: 1,
+      version: 2,
       parser: `qwen@${getParserVersion(adapter)}`,
       offset: 0,
-      headHash: createHash('sha256').digest('hex'),
-      tailHash: createHash('sha256').digest('hex'),
+      prefixHash: createHash('sha256').digest('hex'),
     });
   });
 

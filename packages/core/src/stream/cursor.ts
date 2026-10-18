@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, type Hash } from 'node:crypto';
 import { open, type FileHandle } from 'node:fs/promises';
 
 import type { EventKind } from '../domain/session-event.js';
@@ -9,24 +9,22 @@ import { asRecord } from '../utils/as-record.js';
 import type { JsonlReadPosition } from '../utils/read-jsonl-objects.js';
 
 /**
- * Where a read of a JSONL file stopped, so the next read can start there. Stores are
- * assumed append-only: the hashes cover the first and last 64 KiB before `offset`, so a
- * rewrite that keeps the size and changes only bytes between those windows still passes.
+ * Where a read of a JSONL file stopped, so the next read can start there. The hash covers
+ * every byte before `offset`, so any change to them makes the next read restart.
  */
 export type JsonlReadCursor = {
   format: 'jsonl';
-  version: 1;
+  version: 2;
   /** `${source}@${getParserVersion(adapter)}`; a cursor from another parser is invalid. */
   parser: string;
   /** Bytes consumed: the end of the last line-feed-terminated line read. */
   offset: number;
-  /** sha256 hex of the first `min(offset, 64 KiB)` bytes. */
-  headHash: string;
-  /** sha256 hex of the `min(offset, 64 KiB)` bytes ending at `offset`. */
-  tailHash: string;
+  /** sha256 hex of the first `offset` bytes. */
+  prefixHash: string;
   /**
    * Adapter-defined, JSON-serializable parser state at `offset`, for an adapter whose
-   * events depend on earlier lines (claude, pi). Treat it as opaque.
+   * events depend on earlier lines (claude, pi). Treat it as opaque. After a read with
+   * `raw: true`, it holds the raw lines of events and tool calls still open at `offset`.
    */
   state?: unknown;
 };
@@ -64,19 +62,10 @@ export type ReadResume = {
   onCursor(update: { cursor: ReadCursor; restarted: boolean; partialLine: boolean }): void;
 };
 
-/** The size of the head and tail windows a cursor hashes. */
-export const CURSOR_HASH_WINDOW_BYTES = 64 * 1024;
-
 /** The `parser` a cursor records for an adapter. */
 export function getCursorParser(adapter: Pick<SourceAdapter, 'id' | 'parserVersion'>): string {
   return `${adapter.id}@${getParserVersion(adapter)}`;
 }
-
-export function hashCursorWindow(bytes: Uint8Array): string {
-  return createHash('sha256').update(bytes).digest('hex');
-}
-
-type CursorWindows = { offset: number; head: Buffer; tail: Buffer };
 
 /** Whether the value has a JSONL cursor's shape; `validateJsonlCursor` checks the rest. */
 export function isJsonlReadCursor(value: unknown): value is JsonlReadCursor {
@@ -88,43 +77,30 @@ export function isJsonlReadCursor(value: unknown): value is JsonlReadCursor {
 
   return (
     cursor.format === 'jsonl' &&
-    cursor.version === 1 &&
+    cursor.version === 2 &&
     typeof cursor.parser === 'string' &&
     typeof cursor.offset === 'number' &&
     Number.isSafeInteger(cursor.offset) &&
     cursor.offset >= 0 &&
-    typeof cursor.headHash === 'string' &&
-    typeof cursor.tailHash === 'string'
+    typeof cursor.prefixHash === 'string'
   );
 }
 
-async function readWindow(handle: FileHandle, start: number, length: number): Promise<Buffer> {
-  const buffer = Buffer.alloc(length);
-  let filled = 0;
+const PREFIX_READ_BYTES = 1024 * 1024;
 
-  while (filled < length) {
-    const { bytesRead } = await handle.read(buffer, filled, length - filled, start + filled);
-
-    if (bytesRead === 0) {
-      return buffer.subarray(0, filled);
-    }
-
-    filled += bytesRead;
-  }
-
-  return buffer;
-}
+/** A running hash of a file's first `offset` bytes. */
+type HashedPrefix = { offset: number; hash: Hash };
 
 /**
  * Checks `cursor` against the file open on `handle`: same parser, a file at least
- * `offset` bytes long, and both windows hashing as recorded. Returns the windows it read
- * when the cursor is valid, so the resumed read can extend them without reading again.
+ * `offset` bytes long, and its first `offset` bytes hashing as recorded. Returns that
+ * hash when the cursor is valid, so the resumed read extends it without a second pass.
  */
 export async function validateJsonlCursor(
   handle: FileHandle,
   cursor: unknown,
   parser: string,
-): Promise<CursorWindows | undefined> {
+): Promise<HashedPrefix | undefined> {
   if (!isJsonlReadCursor(cursor) || cursor.parser !== parser) {
     return undefined;
   }
@@ -135,74 +111,70 @@ export async function validateJsonlCursor(
     return undefined;
   }
 
-  const windowLength = Math.min(offset, CURSOR_HASH_WINDOW_BYTES);
-  const head = await readWindow(handle, 0, windowLength);
+  const hash = createHash('sha256');
+  const buffer = Buffer.alloc(Math.min(offset, PREFIX_READ_BYTES));
+  let hashed = 0;
 
-  if (head.length < windowLength || hashCursorWindow(head) !== cursor.headHash) {
-    return undefined;
+  while (hashed < offset) {
+    const { bytesRead } = await handle.read(
+      buffer,
+      0,
+      Math.min(buffer.length, offset - hashed),
+      hashed,
+    );
+
+    if (bytesRead === 0) {
+      return undefined;
+    }
+
+    hash.update(buffer.subarray(0, bytesRead));
+    hashed += bytesRead;
   }
 
-  const tail =
-    offset === windowLength ? head : await readWindow(handle, offset - windowLength, windowLength);
-
-  if (tail.length < windowLength || hashCursorWindow(tail) !== cursor.tailHash) {
-    return undefined;
-  }
-
-  return { offset, head, tail };
+  return hash.copy().digest('hex') === cursor.prefixHash ? { offset, hash } : undefined;
 }
 
 /**
- * Keeps the bytes a cursor hashes while a read consumes the file: the head up to 64 KiB
- * and the bytes from 64 KiB before the last complete line onward, copied out of each
- * chunk once its lines are reported, since the reader reuses its chunk buffer.
+ * Hashes the bytes a read consumes up to its last complete line while the read runs, so
+ * the cursor costs no second pass. A chunk's bytes after that line are copied, since the
+ * reader reuses its chunk buffer, and hashed once a later line ends.
  */
-class CursorWindowTracker {
-  private readonly headChunks: Buffer[] = [];
-  private headLength: number;
-  private readonly tailChunks: Buffer[] = [];
-  // The file offset of tailChunks[0]'s first byte.
-  private tailStart: number;
+class CursorPrefixTracker {
+  private readonly hash: Hash;
+  // The bytes after `hashedTo` of the chunks read so far: the start of an unfinished line.
+  private pending: Buffer[] = [];
+  private hashedTo: number;
   // The file offset of the next chunk's first byte.
   private chunkStart: number;
   private lineEnd: number;
 
-  public constructor(windows: CursorWindows) {
-    this.headChunks.push(windows.head);
-    this.headLength = windows.head.length;
-    this.tailChunks.push(windows.tail);
-    this.tailStart = windows.offset - windows.tail.length;
-    this.chunkStart = windows.offset;
-    this.lineEnd = windows.offset;
+  public constructor({ offset, hash }: HashedPrefix) {
+    this.hash = hash;
+    this.hashedTo = offset;
+    this.chunkStart = offset;
+    this.lineEnd = offset;
   }
 
   /** Takes a chunk after its lines were reported, so `lineEnd` already covers them. */
   public addChunk(chunk: Buffer): void {
-    if (this.headLength < CURSOR_HASH_WINDOW_BYTES) {
-      const headPart = chunk.subarray(0, CURSOR_HASH_WINDOW_BYTES - this.headLength);
-      this.headChunks.push(Buffer.from(headPart));
-      this.headLength += headPart.length;
+    // Lines of earlier chunks were hashed with them, so a new line end is in this chunk.
+    if (this.lineEnd > this.hashedTo) {
+      for (const bytes of this.pending) {
+        this.hash.update(bytes);
+      }
+
+      this.pending = [];
+      this.hash.update(chunk.subarray(0, this.lineEnd - this.chunkStart));
+      this.hashedTo = this.lineEnd;
     }
 
-    // A later window ends at or after lineEnd, so it never needs a byte before this.
-    const windowStart = this.lineEnd - CURSOR_HASH_WINDOW_BYTES;
-    const keepFrom = Math.max(this.chunkStart, windowStart);
+    const chunkEnd = this.chunkStart + chunk.length;
 
-    if (keepFrom > this.chunkStart) {
-      this.tailChunks.length = 0;
-      this.tailStart = keepFrom;
+    if (chunkEnd > this.hashedTo) {
+      this.pending.push(Buffer.from(chunk.subarray(this.hashedTo - this.chunkStart)));
     }
 
-    this.tailChunks.push(Buffer.from(chunk.subarray(keepFrom - this.chunkStart)));
-    this.chunkStart += chunk.length;
-
-    while (
-      this.tailChunks.length > 1 &&
-      this.tailStart + this.tailChunks[0].length <= windowStart
-    ) {
-      this.tailStart += this.tailChunks[0].length;
-      this.tailChunks.shift();
-    }
+    this.chunkStart = chunkEnd;
   }
 
   public setLineEnd(lineEndOffset: number): void {
@@ -215,19 +187,12 @@ class CursorWindowTracker {
   }
 
   public toCursor(parser: string, state: unknown): JsonlReadCursor {
-    const offset = this.lineEnd;
-    const windowLength = Math.min(offset, CURSOR_HASH_WINDOW_BYTES);
-    const windowStart = offset - windowLength - this.tailStart;
-    const head = Buffer.concat(this.headChunks).subarray(0, windowLength);
-    const tail = Buffer.concat(this.tailChunks).subarray(windowStart, windowStart + windowLength);
-
     return {
       format: 'jsonl',
-      version: 1,
+      version: 2,
       parser,
-      offset,
-      headHash: hashCursorWindow(head),
-      tailHash: hashCursorWindow(tail),
+      offset: this.hashedTo,
+      prefixHash: this.hash.copy().digest('hex'),
       ...(state !== undefined && { state }),
     };
   }
@@ -246,7 +211,9 @@ class CursorWindowTracker {
   }
 }
 
-const EMPTY_WINDOWS: CursorWindows = { offset: 0, head: Buffer.alloc(0), tail: Buffer.alloc(0) };
+function startTracker(): CursorPrefixTracker {
+  return new CursorPrefixTracker({ offset: 0, hash: createHash('sha256') });
+}
 
 /**
  * Runs a JSONL read under `resume`: validates `resume.from` on a handle it opens, starts
@@ -264,9 +231,9 @@ export async function* readJsonlFromCursor<T>(
   const handle = await open(filePath, 'r');
 
   try {
-    const validWindows = await validateJsonlCursor(handle, resume.from, parser);
-    const restarted = validWindows === undefined;
-    const tracker = new CursorWindowTracker(validWindows ?? EMPTY_WINDOWS);
+    const prefix = await validateJsonlCursor(handle, resume.from, parser);
+    const restarted = prefix === undefined;
+    const tracker = prefix ? new CursorPrefixTracker(prefix) : startTracker();
 
     resume.onStart?.({ restarted });
     yield* read(tracker.position(handle));
@@ -339,11 +306,11 @@ export async function* readJsonlFromStatefulCursor<T>(
   const handle = await open(filePath, 'r');
 
   try {
-    const validWindows = await validateJsonlCursor(handle, resume.from, parser);
-    const restored = validWindows ? reader.restore(resume.from?.state) : undefined;
+    const prefix = await validateJsonlCursor(handle, resume.from, parser);
+    const restored = prefix ? reader.restore(resume.from?.state) : undefined;
 
-    if (validWindows && restored) {
-      const tracker = new CursorWindowTracker(validWindows);
+    if (prefix && restored) {
+      const tracker = new CursorPrefixTracker(prefix);
       const passDiagnostics = createReadDiagnostics();
       const pass = restored.resume(tracker.position(handle), passDiagnostics);
       const events = await collectUnlessConflict(pass.events);
@@ -361,7 +328,7 @@ export async function* readJsonlFromStatefulCursor<T>(
       }
     }
 
-    const tracker = new CursorWindowTracker(EMPTY_WINDOWS);
+    const tracker = startTracker();
     const pass = reader.start(tracker.position(handle), diagnostics);
 
     resume.onStart?.({ restarted: true });
