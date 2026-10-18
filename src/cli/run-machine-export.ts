@@ -5,6 +5,7 @@ import { text } from 'node:stream/consumers';
 
 import { LOCAL_MACHINE_NAME } from '../config/user-config.js';
 import { buildMachineExportLines, parseKnownFiles } from '../machines/machine-export-bundle.js';
+import { getParserVersions } from '../machines/merge-machine-events.js';
 import {
   closeEventStore,
   openEventStore,
@@ -16,7 +17,6 @@ import { emitDiagnostics } from './emit-diagnostics.js';
 import { loadPackageMetadataFromRuntime } from './package-metadata.js';
 import { emitReportRunDiagnostics } from './report-runtime/report-lifecycle.js';
 import { logger } from '../utils/logger.js';
-import { getParserVersion } from '@ayagmar/agent-sessions';
 import { getRepeatingSourceIds, pluralize } from '@ayagmar/agent-sessions/internal';
 import type { BuildUsageDataDeps } from './usage-data-contracts.js';
 
@@ -103,9 +103,7 @@ export async function runMachineExport(
       cliVersion: loadPackageMetadataFromRuntime().packageVersion,
       hostname: os.hostname(),
       exportedAt: (deps.now?.() ?? new Date()).toISOString(),
-      parserVersions: Object.fromEntries(
-        dataset.adaptersToParse.map((adapter) => [adapter.id, getParserVersion(adapter)]),
-      ),
+      parserVersions: getParserVersions(dataset.adaptersToParse),
     },
     snapshots,
     knownFiles,

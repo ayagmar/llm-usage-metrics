@@ -5,8 +5,10 @@ import { createUsageEvent, type UsageEvent } from '../../src/domain/usage-event.
 import { selectMachines } from '../../src/machines/load-machine-usage.js';
 import {
   mergeMachineEvents,
+  mergeMachineSessionEvents,
   type ParserVersions,
 } from '../../src/machines/merge-machine-events.js';
+import { createMessageEvent, createToolCallEvent } from '@ayagmar/agent-sessions';
 
 function event(sessionId: string, minute: number): UsageEvent {
   return createUsageEvent({
@@ -185,6 +187,46 @@ describe('mergeMachineEvents with parser versions', () => {
     expect(desk).toMatchObject({ events: [], duplicateCount: 1 });
     expect(laptop.events).toEqual([reparsed('s1', 1)]);
     expect(vps).toMatchObject({ events: [], duplicateCount: 2, skewDroppedCount: 0 });
+  });
+});
+
+describe('mergeMachineSessionEvents', () => {
+  const at = (minute: number) => new Date(Date.UTC(2026, 9, 1, 10, minute)).toISOString();
+  const turn = (minute: number, textLength = 5) =>
+    createMessageEvent({
+      source: 'claude',
+      sessionId: 's1',
+      timestamp: at(minute),
+      role: 'user',
+      textLength,
+    });
+  const call = (minute: number) =>
+    createToolCallEvent({
+      source: 'claude',
+      sessionId: 's1',
+      timestamp: at(minute),
+      name: 'Bash',
+      status: 'ok',
+    });
+
+  it('leaves out the turns and calls of a copied session, but keeps new ones', () => {
+    const [laptop] = mergeMachineSessionEvents(
+      [turn(0), call(1)],
+      [{ name: 'laptop', events: [turn(0), call(1), turn(2)] }],
+    );
+
+    expect(laptop.events).toEqual([turn(2)]);
+  });
+
+  it('under skew, matches each kind on timestamp, so a call at a turn time survives', () => {
+    const [laptop] = mergeMachineSessionEvents(
+      [turn(0)],
+      [{ name: 'laptop', events: [call(0), turn(0, 9)], parserVersions: { claude: 'old' } }],
+      { claude: 'new' },
+    );
+
+    expect(laptop.events).toEqual([call(0)]);
+    expect(laptop.skewDroppedCount).toBe(1);
   });
 });
 

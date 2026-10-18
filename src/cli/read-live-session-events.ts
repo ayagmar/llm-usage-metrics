@@ -9,6 +9,8 @@ import {
 
 import { LOCAL_MACHINE_NAME } from '../domain/usage-event.js';
 import { pluralize } from '@ayagmar/agent-sessions/internal';
+import { getMachineCachePath, readMachineCacheSessionEvents } from '../machines/machine-cache.js';
+import { getParserVersions, mergeMachineSessionEvents } from '../machines/merge-machine-events.js';
 import { readStoredSessionEvents } from '../persistence/event-store.js';
 import type { UsageEventDataset } from './build-usage-event-dataset.js';
 import { mapWithConcurrency } from './history-live-files.js';
@@ -23,19 +25,20 @@ export type ReadLiveSessionEventsOptions<K extends LiveEventKind> = {
   kinds: readonly K[];
   /** Only these sessions, as `getEventSessionKey` keys them. */
   sessionKeys?: ReadonlySet<string>;
-  /** Only these files, by path. */
+  /** Only these local files, by path; other machines' events are not narrowed by it. */
   filePaths?: ReadonlySet<string>;
 };
 
 export type LiveSessionEvents<K extends LiveEventKind> = {
   /**
    * The dataset's local files in its order (sources in the dataset's order, files in
-   * discovery order), then the departed files history served; each file's events as read.
+   * discovery order), then the departed files history served, each file's events as read;
+   * then the other machines' events, in the dataset's machine order.
    */
   events: Extract<LiveSessionEvent, { kind: K }>[];
-  /** Files read, failed ones included. */
+  /** Local files read, failed ones included. */
   fileCount: number;
-  /** Files whose read threw; their events are left out. */
+  /** Local files, and other machines' caches, whose read threw; their events are left out. */
   failedFilePaths: string[];
 };
 
@@ -50,9 +53,14 @@ const MAX_CONCURRENT_FILE_READS = 8;
 
 /** The stderr note of a report built on these reads, naming what they cannot see. */
 export function formatLiveEventsNote(subject: string, dataset: UsageEventDataset): string {
+  const machines =
+    dataset.machines === undefined
+      ? ''
+      : ` Other machines' ${subject.toLowerCase()} come from their last sync, once that machine runs this version too.`;
+
   return dataset.ledger
-    ? `${subject} come from the event store (claude, codex, pi), departed files included; other machines are not counted.`
-    : `${subject} are read from session files on disk (claude, codex, pi): with the event store off, files that no longer exist and other machines are not counted.`;
+    ? `${subject} come from the event store (claude, codex, pi), departed files included.${machines}`
+    : `${subject} are read from session files on disk (claude, codex, pi): with the event store off, files that no longer exist are not counted.${machines}`;
 }
 
 /** The warning for the live reads that threw, or none. */
@@ -65,6 +73,46 @@ export function formatFailedLiveReads(
     : [
         `${subject} left out of ${pluralize(failedFilePaths.length, 'file')} that could not be read`,
       ];
+}
+
+/**
+ * The other machines' cached events of `kinds` from the sources in `adapters`, merged with
+ * the local ones as their usage was (see `mergeMachineSessionEvents`).
+ */
+async function readMachineEvents(
+  dataset: UsageEventDataset,
+  localEvents: readonly LiveSessionEvent[],
+  kinds: ReadonlySet<LiveEventKind>,
+  adapters: ReadonlyMap<string, SourceAdapter>,
+): Promise<{ events: LiveSessionEvent[]; failedCachePaths: string[] }> {
+  const machines = dataset.machines ?? [];
+  const failedCachePaths: string[] = [];
+
+  if (machines.length === 0) {
+    return { events: [], failedCachePaths };
+  }
+  const reads = await Promise.all(
+    machines.map(async ({ name, state }) => {
+      try {
+        const events = await readMachineCacheSessionEvents(name, kinds);
+        return {
+          name,
+          events: events.filter((event) => adapters.has(event.source)),
+          parserVersions: state?.parserVersions,
+        };
+      } catch {
+        failedCachePaths.push(getMachineCachePath(name));
+        return { name, events: [], parserVersions: state?.parserVersions };
+      }
+    }),
+  );
+  const merged = mergeMachineSessionEvents(
+    localEvents,
+    reads,
+    getParserVersions(dataset.adaptersToParse),
+  );
+
+  return { events: merged.flatMap((machine) => machine.events), failedCachePaths };
 }
 
 async function readStoredFiles(
@@ -91,18 +139,16 @@ async function readStoredFiles(
  * event store, they come from it, as do those of the departed files history served; a file
  * parsed but not stored, and every file without the store, is read from disk. Events are
  * kept inside the dataset's date window and, when `--repo` narrowed it, only for sessions
- * with usage in it. Other machines have no such events, and `--machine` without `local`
- * reads nothing.
+ * with usage in it. The other machines the dataset read come from their caches, without
+ * the events this machine, or a machine before them, already counts; `--machine` without
+ * `local` reads no local file.
  */
 export async function readLiveSessionEvents<K extends LiveEventKind>(
   dataset: UsageEventDataset,
   options: ReadLiveSessionEventsOptions<K>,
 ): Promise<LiveSessionEvents<K>> {
   const { machineFilter, repoFilter, timezone } = dataset.normalizedInputs;
-
-  if (machineFilter && !machineFilter.has(LOCAL_MACHINE_NAME)) {
-    return { events: [], fileCount: 0, failedFilePaths: [] };
-  }
+  const includeLocal = !machineFilter || machineFilter.has(LOCAL_MACHINE_NAME);
 
   const requestedKinds: ReadonlySet<LiveEventKind> = new Set(options.kinds);
   const kinds: ReadonlySet<string> = requestedKinds;
@@ -121,12 +167,14 @@ export async function readLiveSessionEvents<K extends LiveEventKind>(
       ? [{ adapter, filePath: file.filePath, stored }]
       : [];
   };
-  const files = [
-    ...dataset.parsedFiles.flatMap((file) =>
-      file.beforeWindow ? [] : toFileToRead(file, ledger !== undefined && !file.unstored),
-    ),
-    ...(ledger?.historyFiles ?? []).flatMap((file) => toFileToRead(file, true)),
-  ];
+  const files = includeLocal
+    ? [
+        ...dataset.parsedFiles.flatMap((file) =>
+          file.beforeWindow ? [] : toFileToRead(file, ledger !== undefined && !file.unstored),
+        ),
+        ...(ledger?.historyFiles ?? []).flatMap((file) => toFileToRead(file, true)),
+      ]
+    : [];
   const repoSessions =
     repoFilter === undefined
       ? undefined
@@ -160,12 +208,16 @@ export async function readLiveSessionEvents<K extends LiveEventKind>(
   const reads = files.map((file) =>
     file.stored ? storedReads[storedIndex++] : diskReads[diskIndex++],
   );
-  const failedFilePaths = files
-    .filter((_, index) => reads[index].failed)
-    .map((file) => file.filePath);
-  const events = reads
+  const localEvents = reads
     .flatMap((read) => read.events)
-    .filter((event): event is Extract<LiveSessionEvent, { kind: K }> => {
+    .filter((event): event is LiveSessionEvent => kinds.has(event.kind));
+  const machineEvents = await readMachineEvents(dataset, localEvents, requestedKinds, adapters);
+  const failedFilePaths = [
+    ...files.filter((_, index) => reads[index].failed).map((file) => file.filePath),
+    ...machineEvents.failedCachePaths,
+  ];
+  const events = [...localEvents, ...machineEvents.events].filter(
+    (event): event is Extract<LiveSessionEvent, { kind: K }> => {
       if (!kinds.has(event.kind) || !isInWindow(event.timestamp)) {
         return false;
       }
@@ -174,7 +226,8 @@ export async function readLiveSessionEvents<K extends LiveEventKind>(
       return (
         (repoSessions?.has(sessionKey) ?? true) && (options.sessionKeys?.has(sessionKey) ?? true)
       );
-    });
+    },
+  );
 
   return { events, fileCount: files.length, failedFilePaths };
 }

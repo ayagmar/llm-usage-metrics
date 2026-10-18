@@ -1,7 +1,6 @@
 import { dedupeToolCalls } from '@ayagmar/agent-sessions';
 
 import { buildEventProjectLabels, toProjectLabel } from '../aggregate/project-key.js';
-import { LOCAL_MACHINE_NAME } from '../domain/usage-event.js';
 import { mapSessionRepoRoots } from '../session/aggregate-sessions.js';
 import { aggregateTools, type ToolRow, type ToolTotals } from '../tools/aggregate-tools.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
@@ -71,13 +70,10 @@ export async function buildToolsData(
     configuredOptions,
     userConfigResolution.cliOptions,
   );
-  // Tool calls are local only: no other machines, no sync.
   const datasetOptions: ReportCommandOptions = {
     ...configuredOptions,
     since: window.since,
     until: window.until,
-    machine: [LOCAL_MACHINE_NAME],
-    sync: false,
   };
   const dataset = await measureRuntimeProfileStage(deps.runtimeProfile, 'tools.dataset.total', () =>
     buildUsageEventDataset(datasetOptions, {

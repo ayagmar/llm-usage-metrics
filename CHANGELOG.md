@@ -33,6 +33,7 @@ Changes on `master` since 0.11.0 that are not in a release yet. [Upgrading](http
 - `events --otlp-endpoint <url>` sends the `otlp-traces` or `otlp-metrics` export to an OTLP/HTTP receiver instead of printing it, with headers from `OTEL_EXPORTER_OTLP_HEADERS`. Requests stay under 4 MiB, time out after 10 seconds, and are retried once on `429` or `503` with `Retry-After`. See [Push to a receiver](https://ayagmar.github.io/llm-usage-metrics/otel/#push-to-a-receiver).
 - `--help-all` works on every command and subcommand.
 - `machine export` records each source's parser version in the bundle header.
+- `machine export` sends each file's tool calls and turns (no text) in bundle format 1, which 0.11.0 still reads. `tools` and `session --timeline` include other machines, and `tools` takes `--machine`, `--no-sync` and `--history` like the other reports. A machine running 0.11.0 or older sends usage only; its tool calls appear once it is updated and synced again.
 - The parsers are a separate package, [`@ayagmar/agent-sessions`](https://ayagmar.github.io/llm-usage-metrics/library/), versioned on its own. It is not on npm yet; the CLI bundles it. It exports `dedupeToolCalls`, which counts a tool call that a resumed or forked transcript repeats once.
 
 ### Changed

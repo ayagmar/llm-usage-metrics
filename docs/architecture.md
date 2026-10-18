@@ -168,8 +168,8 @@ Each command has a `run*` entry point, and most have a `build*` that returns the
 
 `runToolsReport(options)`
 
-1. `buildToolsData(...)` resolves the window as `daily` does (last 7 days by default) and builds the local usage dataset with history and without other machines or sync; it loads no prices
-2. `readLiveSessionEvents(...)` (`src/cli/read-live-session-events.ts`) reads `tool_call` events of those files and of the departed files history served from the event store (`readStoredSessionEvents`), or from the files on disk through core `readEvents` with the store off or for a file it could not store, and `dedupeToolCalls` counts a call copied into a resumed or forked session once
+1. `buildToolsData(...)` resolves the window as `daily` does (last 7 days by default) and builds the usage dataset as reports do, history and other machines included; it loads no prices
+2. `readLiveSessionEvents(...)` (`src/cli/read-live-session-events.ts`) reads `tool_call` events of those files and of the departed files history served from the event store (`readStoredSessionEvents`), or from the files on disk through core `readEvents` with the store off or for a file it could not store, then reads the other machines' calls from their caches and drops those this machine or an earlier machine already counts (`mergeMachineSessionEvents`, the same per-session merge as usage), and `dedupeToolCalls` counts a call copied into a resumed or forked session once
 3. `aggregateTools(...)` (`src/tools`): calls, errors, unknown results, sessions and top project per tool, split by source or project on request
 4. `renderToolsReport(...)`
 5. shared report runtime emits diagnostics, the note on where tool calls came from, and stdout body
@@ -248,8 +248,8 @@ report shapes stay unchanged.
 
 `machine export` reuses that run: the dataset reports the stored files it counted
 (successfully parsed files plus served history), and `readStoredFileSnapshots` reads
-them back in one read transaction with a revision per file (a digest of its events),
-so another machine can sync only the files that changed. History files are read after
+them back in one read transaction with a revision per file (a digest of its events, and
+of its tool calls and messages when it has any), so another machine can sync only the files that changed. History files are read after
 the parsed files and, as in history, without the events those files already hold, as
 are the files of a source whose files repeat events (`eventsRepeatAcrossFiles`, pi);
 deciding that on the same read transaction keeps a concurrent run from skewing it.

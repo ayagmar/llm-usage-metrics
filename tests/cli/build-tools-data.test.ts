@@ -127,7 +127,7 @@ describe('buildToolsData', () => {
     const { diagnostics } = await build();
 
     expect(diagnostics.notes).toContain(
-      'Tool calls are read from session files on disk (claude, codex, pi): with the event store off, files that no longer exist and other machines are not counted.',
+      'Tool calls are read from session files on disk (claude, codex, pi): with the event store off, files that no longer exist are not counted.',
     );
     expect(diagnostics.pricingOrigin).toBe('none');
   });
@@ -159,7 +159,7 @@ describe('buildToolsData', () => {
     expect(storeOn.data).toEqual(storeOff.data);
     expect(storeOn.data.totals.calls).toBeGreaterThan(0);
     expect(storeOn.diagnostics.notes).toContain(
-      'Tool calls come from the event store (claude, codex, pi), departed files included; other machines are not counted.',
+      'Tool calls come from the event store (claude, codex, pi), departed files included.',
     );
   });
 

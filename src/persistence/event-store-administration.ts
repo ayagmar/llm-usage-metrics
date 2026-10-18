@@ -35,10 +35,10 @@ import {
   initializeSchema,
 } from './event-store-schema.js';
 import {
-  decodeStoredSessionEvent,
   deleteFileSessionEvents,
   prepareSelectFileSessionEvents,
   prepareSessionEventStatements,
+  selectFileSessionEvents,
   writeFileSessionEvents,
   type StoredSessionEvent,
   type StoredSessionEventKind,
@@ -107,9 +107,11 @@ export type EventStoreStoredFile = {
 };
 
 export type EventStoreFileSnapshot = EventStoreStoredFile & {
-  /** A digest of `events`: it changes exactly when they do. */
+  /** A digest of `events` and `sessionEvents`: it changes exactly when they do. */
   revision: string;
   events: UsageEvent[];
+  /** The file's tool calls and messages; empty for a file without usage events. */
+  sessionEvents: StoredSessionEvent[];
 };
 
 function normalizeStoreSource(source: string): string {
@@ -705,18 +707,13 @@ export async function readStoredSessionEvents(
     database.exec('BEGIN');
 
     try {
-      return files.map((file) => {
-        const source = normalizeStoreSource(file.source);
-        const parameters = Array.from({ length: select.parameterCount }, () => [
-          source,
+      return files.map((file) =>
+        selectFileSessionEvents(
+          select,
+          normalizeStoreSource(file.source),
           normalizeStoreFilePath(file.filePath),
-        ]).flat();
-
-        return select.statement
-          .all(...parameters)
-          .map((row) => decodeStoredSessionEvent(source, row))
-          .filter((event) => event !== undefined);
-      });
+        ),
+      );
     } finally {
       database.exec('COMMIT');
     }
@@ -843,9 +840,9 @@ export function readDepartedFileEvents(
  * transaction, so a concurrent run that rewrites a file cannot be seen half-written. As
  * reports do, a history file, or a file of a source in `repeatingSources` (see
  * `eventsRepeatAcrossFiles`), is read without the events the files before it already
- * hold, decided on this same snapshot. A file's revision is a digest of the events read,
- * so it changes exactly when they do. Invalid rows are skipped, as for history; a file
- * the store does not hold has no events.
+ * hold, decided on this same snapshot. A file's revision is a digest of the events read
+ * and of its tool calls and messages, so it changes exactly when they do. Invalid rows are
+ * skipped, as for history; a file the store does not hold has no events.
  */
 export function readStoredFileSnapshots(
   store: EventStore,
@@ -859,6 +856,10 @@ export function readStoredFileSnapshots(
   const repeatingSources = options.repeatingSources ?? new Set<string>();
   const snapshots: EventStoreFileSnapshot[] = [];
   const countedHashes = new Map<string, number>();
+  const selectSessionEvents = prepareSelectFileSessionEvents(
+    store.database,
+    new Set(['tool_call', 'message']),
+  );
   const readSnapshot = (
     file: EventStoreStoredFile,
     selectEvents: (events: UsageEvent[]) => UsageEvent[],
@@ -866,12 +867,24 @@ export function readStoredFileSnapshots(
     const source = normalizeStoreSource(file.source);
     const filePath = normalizeStoreFilePath(file.filePath);
     const events = selectEvents(readDepartedFileEvents(store, source, filePath));
+    // A file without usage is not exported, so neither are its tool calls and messages.
+    const sessionEvents =
+      selectSessionEvents && events.length > 0
+        ? selectFileSessionEvents(selectSessionEvents, source, filePath)
+        : [];
+    const revision = createHash('sha256').update(JSON.stringify(events));
+
+    // Only when present: a file without them keeps the revision older versions gave it.
+    if (sessionEvents.length > 0) {
+      revision.update(JSON.stringify(sessionEvents));
+    }
 
     snapshots.push({
       source,
       filePath,
-      revision: createHash('sha256').update(JSON.stringify(events)).digest('hex').slice(0, 16),
+      revision: revision.digest('hex').slice(0, 16),
       events,
+      sessionEvents,
     });
   };
 

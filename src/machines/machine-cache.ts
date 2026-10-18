@@ -12,11 +12,16 @@ import {
   readEventStoreMetaValues,
   readEventStoreStoredFiles,
   readEventStoreSummary,
+  readStoredSessionEvents,
   replaceFilesEvents,
   runTransaction,
   writeEventStoreMeta,
+  EventStoreSchemaVersionError,
+  isSupportedSchemaVersion,
   type EventStore,
   type EventStoreFileFingerprint,
+  type StoredSessionEvent,
+  type StoredSessionEventKind,
 } from '../persistence/event-store.js';
 import type { UsageEvent } from '../domain/usage-event.js';
 import { pathExists } from '../utils/fs-helpers.js';
@@ -150,6 +155,7 @@ export function applyMachineExport(
         filePath: file.filePath,
         fingerprint: toRevisionFingerprint(file.filePath, file.revision),
         events: file.events,
+        sessionEvents: file.sessionEvents,
         skippedRows: 0,
         now,
       })),
@@ -269,6 +275,38 @@ export async function readMachineCacheUsage(
 
   const { meta, events } = await readEventStoreEvents(cachePath, window);
   return { state: toSyncState((key) => meta.get(key)), events };
+}
+
+/**
+ * A machine's cached tool calls and messages of `kinds`, file by file in key order, read
+ * without locking the cache. None when the machine was never synced, or its cache was last
+ * synced by a version that kept none.
+ */
+export async function readMachineCacheSessionEvents(
+  name: string,
+  kinds: ReadonlySet<StoredSessionEventKind>,
+): Promise<StoredSessionEvent[]> {
+  const cachePath = getMachineCachePath(name);
+
+  if (!(await pathExists(cachePath))) {
+    return [];
+  }
+
+  try {
+    const files = await readEventStoreStoredFiles(cachePath);
+    return (await readStoredSessionEvents(cachePath, files, kinds)).flat();
+  } catch (error) {
+    // A cache synced before v5 is migrated by its next sync; until then it has none.
+    if (
+      error instanceof EventStoreSchemaVersionError &&
+      error.schemaVersion !== undefined &&
+      isSupportedSchemaVersion(error.schemaVersion)
+    ) {
+      return [];
+    }
+
+    throw error;
+  }
 }
 
 export type MachineCacheStatus = {

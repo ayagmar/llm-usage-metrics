@@ -555,7 +555,7 @@ describe('buildSessionData --timeline', () => {
 
     expect(result.session.sessionId).toBe('session-1');
     expect(result.diagnostics.notes).toContain(
-      'Tool calls and turns are read from session files on disk (claude, codex, pi): with the event store off, files that no longer exist and other machines are not counted.',
+      'Tool calls and turns are read from session files on disk (claude, codex, pi): with the event store off, files that no longer exist are not counted.',
     );
     expect(result.rows.map((row) => row.timestamp)).toEqual([
       '2026-03-05T10:00:00.000Z',

@@ -1,5 +1,12 @@
+import {
+  createMessageEvent,
+  createToolCallEvent,
+  type MessageEvent,
+  type ToolCallStatus,
+} from '@ayagmar/agent-sessions';
+
 import { createUsageEvent, type UsageEvent, type UsageEventInput } from '../domain/usage-event.js';
-import type { EventStoreFileSnapshot } from '../persistence/event-store.js';
+import type { EventStoreFileSnapshot, StoredSessionEvent } from '../persistence/event-store.js';
 import { asRecord } from '@ayagmar/agent-sessions/internal';
 import { getErrorReason } from '../utils/get-error-reason.js';
 
@@ -7,6 +14,10 @@ import { getErrorReason } from '../utils/get-error-reason.js';
  * A machine export is NDJSON: one header line, a `file` line for each counted file the
  * reader does not already hold at the same revision, and an `end` line that lists every
  * counted file. A stream without its `end` line is incomplete and must be discarded.
+ *
+ * A file line's `sessionEvents` (tool calls and messages, never their text) were added to
+ * version 1 without a version bump: readers that predate them ignore the key, and the
+ * end line's `eventCount` still counts usage events only.
  */
 export const MACHINE_EXPORT_FORMAT = 'llm-usage-metrics.machine-export';
 export const MACHINE_EXPORT_VERSION = 1;
@@ -34,6 +45,8 @@ export type MachineExportFileLine = {
   filePath: string;
   revision: string;
   events: UsageEvent[];
+  /** Left out when the file has none, and by exports that predate them. */
+  sessionEvents?: StoredSessionEvent[];
 };
 
 export type MachineExportEndLine = {
@@ -128,6 +141,7 @@ export function buildMachineExportLines(
       filePath: snapshot.filePath,
       revision: snapshot.revision,
       events: snapshot.events,
+      ...(snapshot.sessionEvents.length > 0 ? { sessionEvents: snapshot.sessionEvents } : {}),
     });
   }
 
@@ -252,40 +266,108 @@ function toUsageEventInput(value: unknown): UsageEventInput {
   };
 }
 
+/**
+ * Tool calls and messages as the store keeps them; only their typed fields are read, so a
+ * bundle's `text` is never stored. Undefined for a kind this version does not keep.
+ */
+function toStoredSessionEvent(value: unknown): StoredSessionEvent | undefined {
+  const record = asRecord(value);
+
+  if (!record) {
+    throw new Error('not an object');
+  }
+
+  const base = {
+    source: optionalText(record, 'source') ?? '',
+    sessionId: optionalText(record, 'sessionId') ?? '',
+    timestamp: optionalText(record, 'timestamp') ?? '',
+    messageId: optionalText(record, 'messageId'),
+  };
+
+  if (record.kind === 'tool_call') {
+    return createToolCallEvent({
+      ...base,
+      toolCallId: optionalText(record, 'toolCallId'),
+      name: optionalText(record, 'name') ?? '',
+      // The constructor rejects a status outside ToolCallStatus.
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+      status: (optionalText(record, 'status') ?? '') as ToolCallStatus,
+      completedAt: optionalText(record, 'completedAt'),
+      durationMs: optionalCount(record, 'durationMs'),
+    });
+  }
+
+  if (record.kind === 'message') {
+    return createMessageEvent({
+      ...base,
+      // The constructor rejects a role outside MessageEvent['role'].
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+      role: (optionalText(record, 'role') ?? '') as MessageEvent['role'],
+      model: optionalText(record, 'model'),
+      textLength: optionalCount(record, 'textLength') ?? 0,
+    });
+  }
+
+  return undefined;
+}
+
+/** Each event's source must be the file's. */
+function readFileEvents<E extends { source: string }>(
+  values: readonly unknown[],
+  source: string,
+  lineNumber: number,
+  label: string,
+  toEvent: (value: unknown) => E | undefined,
+): E[] {
+  return values.flatMap((value, index) => {
+    try {
+      const event = toEvent(value);
+
+      if (event && event.source !== source) {
+        throw new Error(`its source is ${event.source}, not ${source}`);
+      }
+
+      return event ? [event] : [];
+    } catch (error) {
+      throw new Error(
+        `line ${lineNumber} has an invalid ${label} at index ${index}: ${getErrorReason(error)}`,
+        { cause: error },
+      );
+    }
+  });
+}
+
 function readFileLine(record: Record<string, unknown>, lineNumber: number): MachineExportFileLine {
-  const { source, filePath, revision, events } = record;
+  const { source, filePath, revision, events, sessionEvents } = record;
 
   if (
     !isNonEmptyText(source) ||
     !isNonEmptyText(filePath) ||
     !isNonEmptyText(revision) ||
     !Array.isArray(events) ||
-    events.length === 0
+    events.length === 0 ||
+    (sessionEvents !== undefined && !Array.isArray(sessionEvents))
   ) {
     throw new Error(`line ${lineNumber} is not a valid file line`);
   }
+
+  const fileSessionEvents = readFileEvents(
+    sessionEvents ?? [],
+    source,
+    lineNumber,
+    'session event',
+    toStoredSessionEvent,
+  );
 
   return {
     type: 'file',
     source,
     filePath,
     revision,
-    events: events.map((event: unknown, index) => {
-      try {
-        const usageEvent = createUsageEvent(toUsageEventInput(event));
-
-        if (usageEvent.source !== source) {
-          throw new Error(`its source is ${usageEvent.source}, not ${source}`);
-        }
-
-        return usageEvent;
-      } catch (error) {
-        throw new Error(
-          `line ${lineNumber} has an invalid event at index ${index}: ${getErrorReason(error)}`,
-          { cause: error },
-        );
-      }
-    }),
+    events: readFileEvents(events, source, lineNumber, 'event', (event) =>
+      createUsageEvent(toUsageEventInput(event)),
+    ),
+    ...(fileSessionEvents.length > 0 ? { sessionEvents: fileSessionEvents } : {}),
   };
 }
 

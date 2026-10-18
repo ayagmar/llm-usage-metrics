@@ -170,7 +170,7 @@ export const sharedOptionProfileConfig = {
     includeShare: false,
     includeTimezone: true,
   },
-  // tools: no prices and this machine's events only, so no --history, machine or sync flags.
+  // tools: no prices.
   tools: {
     includeSources: true,
     includeVerbose: true,
@@ -183,8 +183,8 @@ export const sharedOptionProfileConfig = {
     includeCostOptions: false,
     includePricingFetch: false,
     includeProviderModelFilters: false,
-    includeHistory: false,
-    includeSync: false,
+    includeHistory: true,
+    includeSync: true,
     includeShare: false,
     includeTimezone: true,
   },
