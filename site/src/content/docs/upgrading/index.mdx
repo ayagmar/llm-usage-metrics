@@ -54,7 +54,7 @@ Bundles also carry each file's tool calls and turns, without text, still as vers
 
 ### Library
 
-The parsers now live in their own package, [`@ayagmar/agent-sessions`](/llm-usage-metrics/library/), versioned separately from the CLI. It is not published to npm yet. The CLI bundles it and its behaviour does not change.
+The parsers now live in their own package, [`@ayagmar/agent-sessions`](/llm-usage-metrics/library/), versioned separately from the CLI. Install it with `npm install @ayagmar/agent-sessions` to use the parsers in your own tools. The CLI bundles it and its behaviour does not change.
 
 If you built the package from this repository before it reached a release: `since` and `until` now throw on a date-only bound that is not an ISO date (`'2026/06/01'`, `'June 1, 2026'`), which `Date.parse` reads as local midnight; pass `'2026-06-01'` or a full timestamp with an offset. `maxBusyRetries` on the opencode, goose and antigravity adapters throws when the adapter is created unless it is a non-negative integer.
 
