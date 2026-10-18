@@ -297,7 +297,9 @@ export async function parseAdapterEvents(
         skippedRows,
         skippedRowReasons: normalizedSkippedRowReasons,
       });
-      pendingStoreEventCount += params.diagnostics.events.length;
+      // Tool calls and messages are rows to write and memory held until the flush too.
+      pendingStoreEventCount +=
+        params.diagnostics.events.length + (params.diagnostics.sessionEvents?.length ?? 0);
 
       if (pendingStoreEventCount >= STORE_WRITE_BATCH_EVENTS) {
         flushPendingStoreWrites();
