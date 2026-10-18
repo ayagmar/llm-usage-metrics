@@ -252,11 +252,22 @@ describe('machine add, sync, list and remove', () => {
       },
     });
     printed = [];
+    const errors: string[] = [];
 
-    await runSync([], {}, { spawnSsh: failing.spawnSsh, print, now: () => NOW + 60 * 60_000 });
+    await runSync(
+      [],
+      {},
+      {
+        spawnSsh: failing.spawnSsh,
+        print,
+        printError: (line) => errors.push(line),
+        now: () => NOW + 60 * 60_000,
+      },
+    );
 
     expect(process.exitCode).toBe(1);
-    expect(printed).toEqual([
+    expect(printed).toEqual([]);
+    expect(errors).toEqual([
       '✗ laptop: ssh failed: ssh: connect to host laptop port 22: Connection timed out (reports keep its usage from 1 h ago)',
     ]);
     expect(await readMachineCacheStatus('laptop')).toMatchObject({
