@@ -67,6 +67,7 @@ export function shouldSkipUpdateCheckForArgv(argv: string[]): boolean {
     'statusline',
     'machine',
     'config',
+    'completion',
     'help',
     'version',
   ]);
@@ -75,20 +76,23 @@ export function shouldSkipUpdateCheckForArgv(argv: string[]): boolean {
     return false;
   }
 
-  if (executableArgs.some((arg) => ['-h', '--help', '-V', '--version'].includes(arg))) {
+  if (
+    executableArgs.some((arg) => ['-h', '--help', '--help-all', '-V', '--version'].includes(arg))
+  ) {
     return true;
   }
 
   const firstRecognizedCommand = executableArgs.find((arg) => commandNames.has(arg));
 
   // A status line runs constantly and must never print or wait on an update hint, a
-  // machine export runs over ssh for another machine's report, and `config` only reads
-  // and writes the local setup.
+  // machine export runs over ssh for another machine's report, `config` only reads
+  // and writes the local setup, and `completion` runs at every shell start.
   return (
     firstRecognizedCommand === 'help' ||
     firstRecognizedCommand === 'version' ||
     firstRecognizedCommand === 'statusline' ||
     firstRecognizedCommand === 'config' ||
+    firstRecognizedCommand === 'completion' ||
     (firstRecognizedCommand === 'machine' &&
       executableArgs[executableArgs.indexOf('machine') + 1] === 'export')
   );
