@@ -77,6 +77,8 @@ export type OtlpMetricsInput = {
   toolCalls: readonly ToolCallEvent[];
   /** The report timezone; a bucket is one local day in it. */
   timezone: string;
+  /** The run time in epoch milliseconds: the points of the day holding it end there. */
+  nowMs: number;
 };
 
 type TokenMetric = {
@@ -321,9 +323,13 @@ function withoutModality(attributes: OtelAttributes): OtelAttributes {
   );
 }
 
-function bucketMetrics(bucket: Bucket, timezone: string): OtlpMetricsData {
-  const startTimeUnixNano = toUnixNanos(getLocalDayStartMs(bucket.dateKey, timezone));
-  const timeUnixNano = toUnixNanos(getLocalDayStartMs(shiftDateKey(bucket.dateKey, 1), timezone));
+function bucketMetrics(bucket: Bucket, timezone: string, nowMs: number): OtlpMetricsData {
+  const startMs = getLocalDayStartMs(bucket.dateKey, timezone);
+  const nextDayStartMs = getLocalDayStartMs(shiftDateKey(bucket.dateKey, 1), timezone);
+  // The day still open at run time ends now, not at a midnight still to come.
+  const endMs = startMs <= nowMs && nowMs < nextDayStartMs ? nowMs : nextDayStartMs;
+  const startTimeUnixNano = toUnixNanos(startMs);
+  const timeUnixNano = toUnixNanos(endMs);
   const byKey = (left: { key: string }, right: { key: string }) =>
     compareByCodePoint(left.key, right.key);
   const groups = [...bucket.points.values()].sort(byKey);
@@ -430,8 +436,9 @@ function bucketMetrics(bucket: Bucket, timezone: string): OtlpMetricsData {
  * `gen_ai.client.inference.usage.*` token counters and of `llm_usage.cost_usd`, and DELTA
  * histograms of the per-inference token counts, one point per provider, model and machine;
  * then a DELTA histogram of tool call durations, one point per tool name and outcome. Points
- * carry the day's bounds in `timezone`; a tool call counts in the day it started.
+ * carry the day's bounds in `timezone`, the day holding `nowMs` ending at `nowMs`; a tool
+ * call counts in the day it started.
  */
 export function buildOtlpMetrics(input: OtlpMetricsInput): OtlpMetricsData[] {
-  return collectBuckets(input).map((bucket) => bucketMetrics(bucket, input.timezone));
+  return collectBuckets(input).map((bucket) => bucketMetrics(bucket, input.timezone, input.nowMs));
 }

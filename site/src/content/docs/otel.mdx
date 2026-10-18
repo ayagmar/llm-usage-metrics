@@ -28,7 +28,7 @@ invoke_agent {agent}            INTERNAL  earliest to latest event of the sessio
 └── execute_tool {tool name}    INTERNAL  one per tool call
 ```
 
-- `invoke_agent` carries `gen_ai.operation.name`, `gen_ai.agent.name` (the same value as `service.name`), `gen_ai.conversation.id`, and the session's sums of `gen_ai.usage.input_tokens` and `gen_ai.usage.output_tokens`. It has no cache attributes: the convention asks consumers to sum those from the `chat` spans.
+- `invoke_agent` carries `gen_ai.operation.name`, `gen_ai.agent.name` (the same value as `service.name`), `gen_ai.conversation.id`, and the session's sums of `gen_ai.usage.input_tokens` and `gen_ai.usage.output_tokens`, as the convention recommends for agent spans. It has no cache attributes: the convention asks consumers to sum those from the `chat` spans. Because the root repeats the sums of its `chat` spans, a span-metrics connector or query that adds `gen_ai.usage.*` over every span counts each token twice; filter on `gen_ai.operation.name` = `chat` before summing.
 - `chat` spans carry the usage attributes in the [mapping table](#mapping). The span is named `chat` when the model is unknown.
 - `execute_tool` spans carry the tool attributes in the [mapping table](#mapping), plus `gen_ai.agent.name`. They come from the tool calls the [`tools` report](/llm-usage-metrics/tools/) counts (Claude Code, codex and pi), deduplicated the same way. They run from the call to its result, or for the logged duration when the source records one instead. A call with no result in the log is zero-length.
 - A session appears when it has usage in the export. Its tool calls come with it; tool calls of sessions the filters leave out do not.
@@ -54,7 +54,7 @@ A tool call whose result is an error sets the span status to `ERROR` (code 2) an
 
 - Message text, prompts, tool arguments, tool output and session titles are never exported.
 - Repository paths are left out by default. `--otel-include-paths` adds `llm_usage.repo_root` to `chat` spans. The export has no working directory or git branch attributes.
-- Session ids, model names, tool names and token counts are always included.
+- Session ids, model names, tool names and token counts are always included. A session id that holds a path is written as `sha256:` and a hash of it unless `--otel-include-paths` is given. Qwen names a chat without a session id after its project directory, which is the working directory with every character other than a letter or digit turned into `-` (`-home-me-project-<file>`); an id with a `/` or `\` gets the same treatment. The trace id comes from the original id either way, so the two exports share trace ids.
 
 ## Mapping
 
@@ -97,13 +97,13 @@ Deviations from the convention:
 - `gen_ai.provider.name` is required, but it is left out when the provider is unknown rather than guessed.
 - A provider with no well-known value (`github`, for example) is passed through as a custom value. For `google` the helpers pick `gcp.gemini`; the source logs do not say which Google endpoint served the call. Other Google and Azure ids (`google-gemini-cli` or a custom `azure-east`, for example) pass through too, since they do not name a well-known endpoint.
 - `gen_ai.response.model` is the model name lowercased, not the exact string the provider returned. `chat` spans do not set `gen_ai.request.model`, since the logs record only the model that answered, so the span name uses the response model.
-- `gen_ai.conversation.id` is set even where a source has no session id and the file name stands in for it (qwen, openclaw), which the convention discourages.
+- `gen_ai.conversation.id` is set even where a source has no session id and the file name stands in for it (qwen, openclaw), which the convention discourages. A qwen id built from the project directory is hashed ([Privacy](#privacy)).
 
 ## Metrics
 
 `--format otlp-metrics` writes one `MetricsData` object per agent and day, ordered by day and then by agent. A day is a calendar day in `--timezone`, the same buckets `daily` uses, so the points of one day add up to that day's rows in `daily --json` for the same filters. Resource and scope are the same as for traces.
 
-Each line holds monotonic Sums and histograms, all with DELTA temporality (`"aggregationTemporality": 1`). Every data point covers one day: `startTimeUnixNano` is local midnight and `timeUnixNano` the next local midnight, so a day with a DST change is 23 or 25 hours long.
+Each line holds monotonic Sums and histograms, all with DELTA temporality (`"aggregationTemporality": 1`). Every data point covers one day: `startTimeUnixNano` is local midnight and `timeUnixNano` the next local midnight, so a day with a DST change is 23 or 25 hours long. The day that is still going when you run the export ends at the run time instead, so no point is stamped in the future.
 
 | metric | unit | value |
 | --- | --- | --- |
@@ -137,6 +137,19 @@ Every point is stamped with its day, so most of a backfill is days or months old
 - Datadog treats points more than an hour old as historical and drops them unless [Historical Metrics Ingestion](https://docs.datadoghq.com/metrics/custom_metrics/historical_metrics) is enabled for that metric.
 
 An export can succeed and still show nothing in such a backend. Trace backends generally accept old spans, which makes [traces](#span-tree) the safer backfill.
+
+### Sending metrics twice
+
+A DELTA point says "this much happened between these two times", and a backend that stores sums adds every point it receives. Sending the same day twice counts it twice: a re-run of the same range, a cron job whose windows overlap, or a push of today followed by a later push of today (both points start at midnight, and the second one includes the first). Traces do not have this problem, since their ids are stable.
+
+Send each finished day once. A daily job that pushes only yesterday does that:
+
+```bash
+day=$(date -d yesterday +%F)   # on macOS: date -v-1d +%F
+llm-usage events --format otlp-metrics --since "$day" --until "$day" --otlp-endpoint https://otlp.example.com
+```
+
+If a push fails partway, the error says how many batches went through. Those were stored, so sending the whole range again counts them twice.
 
 ## Send it to a backend
 
@@ -174,15 +187,15 @@ Trace backends generally accept spans with old timestamps, but some only make th
 llm-usage events --format otlp-traces --since 2026-06-01 --otlp-endpoint http://127.0.0.1:4318
 ```
 
-- The URL is the receiver's base: `/v1/traces` or `/v1/metrics` is appended, as with `OTEL_EXPORTER_OTLP_ENDPOINT`. It must start with `http:` or `https:` and must not hold a user name or password. A query string is sent but left out of the summary line and errors.
-- The request bodies hold the same resources the file export holds, in the same order. Whole lines are grouped into requests of up to 4 MiB; a single line larger than that goes alone.
-- Each request waits 10 seconds for an answer. A `429` or `503` with `Retry-After` is retried once, after that delay, if it is at most 60 seconds. Redirects are not followed: a `3xx` answer is a failure, so pass the URL the receiver redirects to. Any other failure stops the push and exits with status 1; the error names the HTTP status, the receiver's message, and how many batches went through before it.
+- The URL is the receiver's base: `/v1/traces` or `/v1/metrics` is appended, as with `OTEL_EXPORTER_OTLP_ENDPOINT`. A URL whose path already ends with that suffix is used as is. It must start with `http:` or `https:` and must not hold a user name or password. A query string is sent but left out of the summary line and errors.
+- The request bodies hold the same resources the file export holds, in the same order. Whole lines are grouped into requests of up to 4 MiB. A session larger than that is split across requests: each piece holds some of its spans under the same resource, the root span goes in the first, and every span keeps its ids, so the backend puts the trace back together. A single metrics line (one agent and day) is never split.
+- Each request waits 10 seconds for an answer. A `429`, `502`, `503` or `504` is retried, as the OTLP/HTTP spec asks: after the `Retry-After` delay when the receiver sends one and it is at most 60 seconds, otherwise after 1, 2, then 4 seconds, for at most 4 attempts. Redirects are not followed: a `3xx` answer is a failure, so pass the URL the receiver redirects to. Any other failure stops the push and exits with status 1; the error names the HTTP status, the receiver's message, and how many batches went through before it.
 - `stdout` stays empty. `stderr` gets one line with the spans or points sent, the number of requests, and any items the receiver reported as rejected in a partial success.
-- Headers come from `OTEL_EXPORTER_OTLP_HEADERS` in the OpenTelemetry format, `key=value` pairs separated by commas with percent-encoded values. They are never taken from the command line and never printed.
+- Headers come from `OTEL_EXPORTER_OTLP_HEADERS` in the OpenTelemetry format, `key=value` pairs separated by commas with percent-encoded values. Names are case-insensitive: of two entries that differ only in case, the later one wins, and a `content-type` entry is replaced by `application/json`. Headers are never taken from the command line and never printed. If the receiver's message or partial-success text repeats a header value or a word in one, of 8 characters or more, it is printed as `[redacted]`.
 
 ```bash
 export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer%20<token>"
 llm-usage events --format otlp-metrics --otlp-endpoint https://otlp.example.com
 ```
 
-The [Old timestamps](#old-timestamps) limits apply to a push the same way.
+The [Old timestamps](#old-timestamps) limits apply to a push the same way, and so does [Sending metrics twice](#sending-metrics-twice).
