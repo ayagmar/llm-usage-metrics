@@ -178,6 +178,7 @@ describe('cost engine', () => {
       timestamp: '2026-02-16T10:00:00Z',
       outputTokens: 50,
       costMode: 'estimated' as const,
+      singleRequest: true,
     };
     const tiered = { ...baseEvent, model: 'priority-tiered' };
     const events = [
@@ -200,7 +201,7 @@ describe('cost engine', () => {
     const stats = createPricingRunStats();
 
     const pricedEvents = applyPricingToEvents(events, source, {
-      policy: { costMode: 'estimated', perRequestSourceIds: new Set(['claude']) },
+      policy: { costMode: 'estimated', perRequestRates: true },
       stats,
     });
 
@@ -655,6 +656,7 @@ describe('cost engine', () => {
         cacheWriteTokens: tokens.cacheWrite ?? 0,
         outputTokens: 1_000,
         costMode: 'estimated',
+        singleRequest: true,
       });
     }
 
@@ -698,20 +700,27 @@ describe('cost engine', () => {
       expect(second).toBe(first);
     });
 
-    it('prices per-request sources at tier rates and other sources flat', () => {
+    it('prices single-request events at tier rates and the others flat', () => {
       const source = new StaticPricingSource({ pricingByModel: { 'tiered-model': tieredPricing } });
       const claudeEvent = promptOf({ input: 50_000, cacheRead: 100_000, cacheWrite: 10_000 });
-      const droidEvent = { ...claudeEvent, source: 'droid' };
+      const droidEvent = { ...claudeEvent, source: 'droid', singleRequest: undefined };
+      const tieredCost = 0.1 + 0.02 + 0.025 + 0.01;
+      const flatCost = 0.05 + 0.01 + 0.0125 + 0.005;
 
       const [claudePriced, droidPriced] = applyPricingToEvents([claudeEvent, droidEvent], source, {
-        policy: { costMode: 'both', perRequestSourceIds: new Set(['claude']) },
+        policy: { costMode: 'both', perRequestRates: true },
+        stats: createPricingRunStats(),
+      });
+      const [claudeUnderFlatPolicy] = applyPricingToEvents([claudeEvent], source, {
+        policy: { costMode: 'both', perRequestRates: false },
         stats: createPricingRunStats(),
       });
 
       // 160k prompt > 100k: 50k*$2 + 100k*$0.20 + 10k*$2.50 + 1k*$10, per 1M.
-      expect(claudePriced.costUsd).toBeCloseTo(0.1 + 0.02 + 0.025 + 0.01, 10);
+      expect(claudePriced.costUsd).toBeCloseTo(tieredCost, 10);
       // Flat: 50k*$1 + 100k*$0.10 + 10k*$1.25 + 1k*$5, per 1M.
-      expect(droidPriced.costUsd).toBeCloseTo(0.05 + 0.01 + 0.0125 + 0.005, 10);
+      expect(droidPriced.costUsd).toBeCloseTo(flatCost, 10);
+      expect(claudeUnderFlatPolicy.costUsd).toBeCloseTo(flatCost, 10);
     });
 
     it('bills one-hour cache writes at the tier one-hour rate', () => {
@@ -726,10 +735,11 @@ describe('cost engine', () => {
         cacheWrite1hTokens: 4_000,
         outputTokens: 0,
         costMode: 'estimated',
+        singleRequest: true,
       });
 
       const [priced] = applyPricingToEvents([event], source, {
-        policy: { costMode: 'both', perRequestSourceIds: new Set(['claude']) },
+        policy: { costMode: 'both', perRequestRates: true },
         stats: createPricingRunStats(),
       });
 

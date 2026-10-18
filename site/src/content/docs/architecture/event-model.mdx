@@ -13,7 +13,7 @@ Every adapter turns its source's on-disk format into the same normalized events.
 
 `SessionEvent` is a union on `kind` (`EVENT_KINDS`, in this order):
 
-- `usage`: one usage record as the source logged it. For a source with `capabilities.usagePerRequest` that is one model request; other sources can log several requests as one record (see [per-request usage](/llm-usage-metrics/library/contracts/#per-request-usage)). Requires `inputTokens`, `outputTokens`, `reasoningTokens`, `cacheReadTokens`, `cacheWriteTokens`, `cacheWrite1hTokens`, and `totalTokens`.
+- `usage`: one usage record as the source logged it. An event with `singleRequest: true` is one model request; other records can sum several requests (see [per-request usage](/llm-usage-metrics/library/contracts/#per-request-usage)). Requires `inputTokens`, `outputTokens`, `reasoningTokens`, `cacheReadTokens`, `cacheWriteTokens`, `cacheWrite1hTokens`, and `totalTokens`.
 - `message`: a user, assistant, or system turn. Requires `role` (`user`, `assistant`, or `system`) and `textLength`.
 - `tool_call`: one tool call, yielded when its result is seen. Requires `name` and `status` (`ok`, `error`, or `unknown`).
 - `session_meta`: facts about the session. Every field is optional: `cwd`, `title`, `gitBranch`, `agentVersion`, `parentSessionId`, `model`, `rawProvider`.

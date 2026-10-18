@@ -228,7 +228,7 @@ The cursor is plain JSON, so it can be stored as is. `JsonlReadCursor` reserves 
 
 ## Per-request usage
 
-An adapter whose `capabilities.usagePerRequest` is true yields usage events that each record a single model request: claude, gemini, pi, opencode and antigravity. Prices that depend on one request's prompt size, such as long-context tiers, can be applied to those events one by one. Other sources can sum several requests into one event: droid and goose report session totals, and a codex event is the change in running totals between two `token_count` rows, which can span more than one request. Leave the flag unset on an adapter unless every event it yields is a single request.
+A usage event with `singleRequest: true` records exactly one model request, so prices that depend on one request's prompt size, such as long-context tiers, can be applied to it. claude, gemini, pi, opencode (one event per step) and antigravity set it on every event. codex sets it on a per-response `token_usage_record` (Codex 0.153 and later) and on a `token_count` delta equal to that row's `last_token_usage`; a delta that spans several responses has no flag. droid and goose report session totals and never set it. An adapter passes `singleRequest: true` to `createUsageEvent` only for a record it knows covers one request.
 
 ## OpenTelemetry attributes
 

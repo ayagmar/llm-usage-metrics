@@ -189,4 +189,4 @@
 | Reasoning      | billed as output                                                                                                                              |
 | Above 272,000  | input $10.00 / 1M, output $45.00 / 1M, cache read $1.00 / 1M                                                                                  |
 
-"Above N" rates apply per request when its prompt (input, cache read and cache write tokens) is above N, and only to events from: antigravity, claude, gemini, opencode, pi.
+"Above N" rates apply per request when its prompt (input, cache read and cache write tokens) is above N, and only to events that record one request. Events that sum several requests, such as session totals, stay at base rates.

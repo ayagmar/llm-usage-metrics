@@ -51,13 +51,6 @@ export type SourceCapabilities = {
    * Check this before passing `resume`; any other adapter ignores it.
    */
   incremental?: boolean;
-  /**
-   * Each usage event records a single model request, never a sum of several. Prices that
-   * depend on one request's prompt size (long-context tiers) can then apply per event.
-   * Leave it unset when an event can total several requests (a session or a cumulative
-   * delta).
-   */
-  usagePerRequest?: boolean;
 };
 
 /** Constructor options shared by the directory-backed adapters. */

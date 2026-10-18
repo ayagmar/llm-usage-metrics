@@ -1,5 +1,3 @@
-import type { SourceAdapter } from '@ayagmar/agent-sessions';
-
 import type { UsageEvent } from '../domain/usage-event.js';
 import { isPriceableEvent } from '@ayagmar/agent-sessions/internal';
 import {
@@ -23,15 +21,6 @@ import type {
   ReportCommandOptions,
   UsagePricingOrigin,
 } from './usage-data-contracts.js';
-
-/** Sources whose usage events each record one request, so per-request rates apply. */
-export function getPerRequestSourceIds(adapters: readonly SourceAdapter[]): ReadonlySet<string> {
-  return new Set(
-    adapters
-      .filter((adapter) => adapter.capabilities?.usagePerRequest)
-      .map((adapter) => adapter.id),
-  );
-}
 
 function wrapWithPricingOverrides(
   overrides: Map<string, ModelPricing> | undefined,
@@ -175,16 +164,16 @@ const NO_PRICING_SOURCE: PricingSource = {
 };
 
 /**
- * The policy for the report options: `--cost-mode`, `both` when it is not passed, and the
- * sources whose events get per-request rates.
+ * The policy for the report options: `--cost-mode`, `both` when it is not passed, and
+ * whether single-request events get per-request rates.
  */
 export function resolvePricingPolicy(
   options: ReportCommandOptions,
-  perRequestSourceIds: ReadonlySet<string> = DEFAULT_PRICING_POLICY.perRequestSourceIds,
+  perRequestRates = DEFAULT_PRICING_POLICY.perRequestRates,
 ): PricingPolicy {
   return {
     costMode: options.costMode ?? DEFAULT_PRICING_POLICY.costMode,
-    perRequestSourceIds,
+    perRequestRates,
   };
 }
 

@@ -5,7 +5,12 @@ import {
   type ToolCallStatus,
 } from '@ayagmar/agent-sessions';
 
-import { createUsageEvent, type UsageEvent, type UsageEventInput } from '../domain/usage-event.js';
+import {
+  createUsageEvent,
+  SINGLE_REQUEST_SOURCES_BEFORE_FLAG,
+  type UsageEvent,
+  type UsageEventInput,
+} from '../domain/usage-event.js';
 import type { EventStoreFileSnapshot, StoredSessionEvent } from '../persistence/event-store.js';
 import { asRecord } from '@ayagmar/agent-sessions/internal';
 import { getErrorReason } from '../utils/get-error-reason.js';
@@ -37,6 +42,11 @@ export type MachineExportHeaderLine = {
    * exports leave it out; readers ignore it if they predate it.
    */
   parserVersions?: Record<string, string>;
+  /**
+   * Set when events carry `singleRequest`. Older exports leave it out, and their events take
+   * the flag from `SINGLE_REQUEST_SOURCES_BEFORE_FLAG`.
+   */
+  singleRequestFlag?: true;
 };
 
 export type MachineExportFileLine = {
@@ -113,12 +123,18 @@ export function parseKnownFiles(text: string): Map<string, string> {
  * holds at the same revision. Files without events are not counted, so they are omitted.
  */
 export function buildMachineExportLines(
-  header: Omit<MachineExportHeaderLine, 'type' | 'format' | 'version'>,
+  header: Omit<MachineExportHeaderLine, 'type' | 'format' | 'version' | 'singleRequestFlag'>,
   snapshots: readonly EventStoreFileSnapshot[],
   knownFiles: ReadonlyMap<string, string> = new Map(),
 ): MachineExportLine[] {
   const lines: MachineExportLine[] = [
-    { type: 'header', format: MACHINE_EXPORT_FORMAT, version: MACHINE_EXPORT_VERSION, ...header },
+    {
+      type: 'header',
+      format: MACHINE_EXPORT_FORMAT,
+      version: MACHINE_EXPORT_VERSION,
+      ...header,
+      singleRequestFlag: true,
+    },
   ];
   const files: MachineExportFileKey[] = [];
   let eventCount = 0;
@@ -219,6 +235,7 @@ function readHeader(record: Record<string, unknown>): MachineExportHeaderLine {
     hostname: typeof record.hostname === 'string' ? record.hostname : '',
     exportedAt: typeof record.exportedAt === 'string' ? record.exportedAt : '',
     parserVersions: readParserVersions(record.parserVersions),
+    ...(record.singleRequestFlag === true ? { singleRequestFlag: true } : {}),
   };
 }
 
@@ -242,8 +259,11 @@ function optionalCount(record: Record<string, unknown>, key: string): number | u
   return value;
 }
 
-/** Events are the same objects `events --format jsonl` prints; wrong types are rejected. */
-function toUsageEventInput(value: unknown): UsageEventInput {
+/**
+ * Events are the same objects `events --format jsonl` prints; wrong types are rejected. An
+ * export without `singleRequestFlag` predates the flag: its events take it from their source.
+ */
+function toUsageEventInput(value: unknown, singleRequestFlag: boolean): UsageEventInput {
   const record = asRecord(value);
 
   if (!record) {
@@ -256,8 +276,16 @@ function toUsageEventInput(value: unknown): UsageEventInput {
     throw new Error('costMode is not explicit or estimated');
   }
 
+  const singleRequest = record.singleRequest;
+
+  if (singleRequest !== undefined && typeof singleRequest !== 'boolean') {
+    throw new Error('singleRequest is not a boolean');
+  }
+
+  const source = optionalText(record, 'source') ?? '';
+
   return {
-    source: optionalText(record, 'source') ?? '',
+    source,
     sessionId: optionalText(record, 'sessionId') ?? '',
     timestamp: optionalText(record, 'timestamp') ?? '',
     repoRoot: optionalText(record, 'repoRoot'),
@@ -272,6 +300,9 @@ function toUsageEventInput(value: unknown): UsageEventInput {
     totalTokens: optionalCount(record, 'totalTokens'),
     costUsd: optionalCount(record, 'costUsd'),
     costMode,
+    singleRequest: singleRequestFlag
+      ? singleRequest
+      : SINGLE_REQUEST_SOURCES_BEFORE_FLAG.includes(source),
   };
 }
 
@@ -361,7 +392,11 @@ function readFileEvents<E extends { source: string }>(
   });
 }
 
-function readFileLine(record: Record<string, unknown>, lineNumber: number): MachineExportFileLine {
+function readFileLine(
+  record: Record<string, unknown>,
+  lineNumber: number,
+  header: MachineExportHeaderLine,
+): MachineExportFileLine {
   const { source, filePath, revision, events, sessionEvents } = record;
 
   if (
@@ -389,7 +424,7 @@ function readFileLine(record: Record<string, unknown>, lineNumber: number): Mach
     filePath,
     revision,
     events: readFileEvents(events, source, lineNumber, 'event', (event) =>
-      createUsageEvent(toUsageEventInput(event)),
+      createUsageEvent(toUsageEventInput(event, header.singleRequestFlag === true)),
     ),
     ...(fileSessionEvents.length > 0 ? { sessionEvents: fileSessionEvents } : {}),
   };
@@ -466,7 +501,7 @@ export async function readMachineExport(
     const record = parseBundleLine(line, lineNumber);
 
     if (record.type === 'file') {
-      sentFiles.push(readFileLine(record, lineNumber));
+      sentFiles.push(readFileLine(record, lineNumber, header));
     } else if (record.type === 'end') {
       end = readEndLine(record, lineNumber);
     } else {

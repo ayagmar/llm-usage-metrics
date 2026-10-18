@@ -52,6 +52,7 @@ const USAGE_EVENT_FIELDS = [
   'cacheWrite1hTokens',
   'totalTokens',
   'costUsd',
+  'singleRequest',
 ] as const satisfies readonly (keyof UsageEvent)[];
 
 function toUsageFields(event: UsageEvent): Partial<UsageEvent> {

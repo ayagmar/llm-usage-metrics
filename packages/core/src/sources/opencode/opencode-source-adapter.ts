@@ -65,7 +65,7 @@ function getOpenCodeParseDependencies(dbPath: string): string[] {
  */
 export class OpenCodeSourceAdapter implements SourceAdapter {
   public readonly id = 'opencode' as const;
-  public readonly capabilities = { kinds: ['usage'], usagePerRequest: true } as const;
+  public readonly capabilities = { kinds: ['usage'] } as const;
   public readonly parserVersion = 4;
 
   private readonly explicitDbPath?: string;

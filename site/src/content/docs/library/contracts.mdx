@@ -88,6 +88,6 @@ The check assumes the file only grows. A rewrite that keeps the size and changes
 
 ## Per-request usage
 
-An adapter whose `capabilities.usagePerRequest` is `true` yields usage events that each record one model request: claude, gemini, pi, opencode and antigravity. Prices that depend on one request's prompt size, such as [long-context tiers](/llm-usage-metrics/pricing/#long-context-tiers), can be applied to those events one by one. Other sources can sum several requests into one event: droid and goose report session totals, and a codex event is the change in running totals between two `token_count` rows.
+A usage event with `singleRequest: true` records exactly one model request. Prices that depend on one request's prompt size, such as [long-context tiers](/llm-usage-metrics/pricing/#long-context-tiers), apply only to those events. claude, gemini, pi, opencode (one event per step) and antigravity set it on every event. codex sets it on a per-response `token_usage_record` (Codex 0.153 and later) and on a `token_count` delta equal to that row's `last_token_usage`; a delta that spans several responses has no flag. droid and goose report session totals and never set it.
 
-If you write an adapter, leave the flag unset unless every event it yields is a single request.
+If you write an adapter, pass `singleRequest: true` to `createUsageEvent` only for a record you know covers one request.

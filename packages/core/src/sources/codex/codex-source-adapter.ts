@@ -79,6 +79,8 @@ type PendingUsageRecord = {
   messageId?: string;
   /** The record whose tokens this is, kept only when the read asks for raw. */
   raw?: Record<string, unknown>;
+  /** Whether the tokens are one response's: a usage record, or a delta equal to `last_token_usage`. */
+  singleRequest: boolean;
 };
 
 type CodexSessionState = {
@@ -275,7 +277,31 @@ function hasUsageRollback(current: CodexUsage, previous: CodexUsage): boolean {
   );
 }
 
+/**
+ * A `token_count` row's new usage. `last_token_usage` is the latest response's usage, so
+ * new usage equal to it covers that one response; a delta of running totals that differs
+ * from it spans several responses (rows Codex did not write, or wrote without info).
+ */
 function deriveDeltaUsage(
+  info: Record<string, unknown>,
+  previousTotalUsage: CodexUsage | undefined,
+): {
+  deltaUsage?: CodexUsage;
+  latestTotalUsage?: CodexUsage;
+  fromLastUsageOnly?: boolean;
+  singleRequest: boolean;
+} {
+  const derived = deriveDeltaFromTotals(info, previousTotalUsage);
+  const lastUsage = toUsage(info.last_token_usage);
+  const singleRequest =
+    derived.deltaUsage !== undefined &&
+    lastUsage !== undefined &&
+    createUsageKey(derived.deltaUsage) === createUsageKey(lastUsage);
+
+  return { ...derived, singleRequest };
+}
+
+function deriveDeltaFromTotals(
   info: Record<string, unknown>,
   previousTotalUsage: CodexUsage | undefined,
 ): {
@@ -385,6 +411,7 @@ function parseUsageRecord(
     usage,
     repoRoot: state.repoRoot,
     model: state.model,
+    singleRequest: true,
   };
 
   if (capture.ids && responseId) {
@@ -682,7 +709,7 @@ function takeUsageLine(
     }
   }
 
-  const { deltaUsage, latestTotalUsage, fromLastUsageOnly } = deriveDeltaUsage(
+  const { deltaUsage, latestTotalUsage, fromLastUsageOnly, singleRequest } = deriveDeltaUsage(
     info,
     state.previousTotalUsage,
   );
@@ -733,6 +760,7 @@ function takeUsageLine(
       usage: deltaUsage,
       repoRoot: state.repoRoot,
       model: state.model,
+      singleRequest,
     };
 
     if (capture.raw) {
@@ -790,7 +818,7 @@ const USAGE_ONLY: ReadonlySet<EventKind> = new Set(['usage']);
 /** Codex CLI rollouts (JSONL), from `$CODEX_HOME/sessions` (default `~/.codex/sessions`). Yields every event kind. */
 export class CodexSourceAdapter implements SourceAdapter {
   public readonly id = 'codex' as const;
-  public readonly parserVersion = 4;
+  public readonly parserVersion = 5;
   public readonly capabilities = {
     fixedProviderRoots: ['openai'],
     eventsPrecedeFileMtime: true,
@@ -997,6 +1025,7 @@ export class CodexSourceAdapter implements SourceAdapter {
             cacheReadTokens: record.usage.cacheReadTokens,
             cacheWriteTokens: record.usage.cacheWriteTokens,
             totalTokens: record.usage.totalTokens,
+            singleRequest: record.singleRequest,
           },
           record,
           state,

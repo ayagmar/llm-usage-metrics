@@ -1,6 +1,6 @@
 import { computeEventContentHash } from '@ayagmar/agent-sessions';
 
-import { normalizeStoredEvent } from './event-store-codec.js';
+import { normalizeStoredEvent, selectSingleRequestBeforeFlagSql } from './event-store-codec.js';
 import {
   type EventStoreDatabase,
   runTransaction,
@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS events (
   content_hash TEXT,
   cost_usd REAL,
   cost_mode TEXT NOT NULL,
+  single_request INTEGER NOT NULL,
   PRIMARY KEY (file_id, event_index)
 ) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS events_content_hash ON events(content_hash);
@@ -283,7 +284,8 @@ function migrateSchemaV3ToV4(database: EventStoreDatabase): void {
 // layout. An event row without a files row was never read by a report's file lookups; it
 // is left behind. Files stored before v5 have no tool call or message rows. The stored
 // fingerprint of a source that keeps them changed with v5, so its files on disk re-ingest
-// on the next run.
+// on the next run. v4 rows have no single-request flag; it is set for the sources whose
+// every event was one request then.
 /** Whether this call copied the tables; false when the store was not at v4. */
 export function migrateSchemaV4ToV5(database: EventStoreDatabase): boolean {
   return runTransaction(database, () => {
@@ -305,13 +307,15 @@ ORDER BY source, file_path;
 INSERT OR IGNORE INTO events (
   file_id, event_index, session_id, timestamp, model, provider, repo_root,
   input_tokens, output_tokens, reasoning_tokens, cache_read_tokens,
-  cache_write_tokens, cache_write_1h_tokens, total_tokens, content_hash, cost_usd, cost_mode
+  cache_write_tokens, cache_write_1h_tokens, total_tokens, content_hash, cost_usd, cost_mode,
+  single_request
 )
 SELECT files.id, v4_events.event_index, v4_events.session_id, v4_events.timestamp,
   v4_events.model, v4_events.provider, v4_events.repo_root, v4_events.input_tokens,
   v4_events.output_tokens, v4_events.reasoning_tokens, v4_events.cache_read_tokens,
   v4_events.cache_write_tokens, v4_events.cache_write_1h_tokens, v4_events.total_tokens,
-  v4_events.content_hash, v4_events.cost_usd, v4_events.cost_mode
+  v4_events.content_hash, v4_events.cost_usd, v4_events.cost_mode,
+  ${selectSingleRequestBeforeFlagSql('files.source')}
 FROM files
 CROSS JOIN v4_events
 WHERE v4_events.source = files.source AND v4_events.file_path = files.file_path

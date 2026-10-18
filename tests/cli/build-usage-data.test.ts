@@ -1272,7 +1272,7 @@ describe('buildUsageData', () => {
     );
   });
 
-  it('applies long-context tier rates only to sources that report usage per request', async () => {
+  it('applies long-context tier rates only to events that record one request', async () => {
     const pricingLoaderSpy = vi.fn(async (): Promise<PricingLoadResult> => ({
       source: new StaticPricingSource({
         pricingByModel: {
@@ -1299,11 +1299,11 @@ describe('buildUsageData', () => {
       {
         ...withDeterministicRuntimeDeps(),
         createAdapters: () => [
-          createAdapter(
-            'pi',
-            { '/tmp/pi-tier.jsonl': [createEvent({ ...longPrompt, source: 'pi' })] },
-            { usagePerRequest: true },
-          ),
+          createAdapter('pi', {
+            '/tmp/pi-tier.jsonl': [
+              createEvent({ ...longPrompt, source: 'pi', singleRequest: true }),
+            ],
+          }),
           createAdapter('droid', {
             '/tmp/droid-tier.jsonl': [createEvent({ ...longPrompt, source: 'droid' })],
           }),
@@ -1342,15 +1342,16 @@ describe('buildUsageData', () => {
       {
         ...withDeterministicRuntimeDeps(),
         createAdapters: () => [
-          createAdapter(
-            'pi',
-            {
-              '/tmp/pi-tier-mode.jsonl': [
-                createEvent({ inputTokens: 300_000, outputTokens: 0, totalTokens: 300_000 }),
-              ],
-            },
-            { usagePerRequest: true },
-          ),
+          createAdapter('pi', {
+            '/tmp/pi-tier-mode.jsonl': [
+              createEvent({
+                inputTokens: 300_000,
+                outputTokens: 0,
+                totalTokens: 300_000,
+                singleRequest: true,
+              }),
+            ],
+          }),
         ],
         resolvePricingSource: pricingLoaderSpy,
       },

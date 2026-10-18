@@ -50,8 +50,6 @@ export type ExplainedModelPricing = {
 
 export type PricingReportData = {
   models: ExplainedModelPricing[];
-  /** Sources whose events each record one request: the only ones tiers apply to. */
-  perRequestSources: string[];
 };
 
 function toRates(pricing: ModelPricing): ExplainedRates {

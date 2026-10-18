@@ -33,7 +33,7 @@ Without date flags, `context` covers the last 7 days and says so on `stderr`. It
 
 ## What counts
 
-A prompt is a request's input, cache read and cache write tokens. Prompt sizes only mean something for sources that log one usage record per model request: claude, gemini, pi, opencode and antigravity. The other sources log records that can sum several requests, so they get no rows. The report lists them on one line under the table with their record counts:
+A prompt is a request's input, cache read and cache write tokens. Prompt sizes only mean something for usage records that cover one model request: every record from claude, gemini, pi, opencode and antigravity, and codex records written per response (Codex 0.153 and later) or equal to the row's `last_token_usage`. Records that can sum several requests get no rows. The report lists their sources on one line under the table with their record counts:
 
 ```text
 Aggregated, not per request: codex (1,204 records). Their records sum several requests, so they have no peak or tier counts.

@@ -1834,6 +1834,7 @@ END;
       repoRoot: '/workspace/repo',
       provider: 'OpenAI-Codex',
       model: ' GPT-4.1 ',
+      singleRequest: true,
       costUsd: 0.12,
       costMode: 'explicit',
     });
@@ -1846,6 +1847,7 @@ END;
           repoRoot: '/workspace/repo',
           provider: 'openai',
           model: 'gpt-4.1',
+          singleRequest: true,
           costUsd: 0.12,
           costMode: 'explicit',
         }),

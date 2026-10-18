@@ -53,7 +53,6 @@ import {
 import { refreshDueMachines } from '../machines/refresh-machines.js';
 import { loadPackageMetadataFromRuntime } from './package-metadata.js';
 import {
-  getPerRequestSourceIds,
   resolveAndApplyPricingToEvents,
   resolvePricingPolicy,
   resolvePricingSource,
@@ -603,10 +602,7 @@ export async function applyPricingToUsageEventDataset(
       loadPricingSource,
       pricingLoadMode,
       loadDecisionEvents: dataset.filteredEvents,
-      policy: resolvePricingPolicy(
-        pricingOptions,
-        perRequestRates ? getPerRequestSourceIds(dataset.adaptersToParse) : new Set(),
-      ),
+      policy: resolvePricingPolicy(pricingOptions, perRequestRates),
     }),
   );
 }

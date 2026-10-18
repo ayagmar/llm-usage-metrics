@@ -124,6 +124,7 @@ describe.runIf(loadDatabaseSync())('OpenCode multi-step messages', () => {
         reasoningTokens: 50,
         cacheReadTokens: 4_000,
         totalTokens: 154_250,
+        singleRequest: true,
         costUsd: 0.02,
       }),
       expect.objectContaining({
@@ -133,6 +134,7 @@ describe.runIf(loadDatabaseSync())('OpenCode multi-step messages', () => {
         reasoningTokens: 30,
         cacheReadTokens: 5_000,
         totalTokens: 155_450,
+        singleRequest: true,
         costUsd: 0.01,
       }),
     ]);

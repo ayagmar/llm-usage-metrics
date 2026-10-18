@@ -12,6 +12,8 @@ First release. The parsers behind the `llm-usage-metrics` CLI, published on thei
   events. Message text and session titles are left out unless `text: true`.
 - Stream stages `kinds`, `since`, `until` and `bySession`. `since` and `until` reject
   date-only bounds that are not ISO dates.
+- Usage events carry `singleRequest: true` when they record exactly one model request, so
+  prices that depend on one request's prompt size can apply per event.
 - Dedup steps for events repeated across files, copied sessions and repeated tool calls.
 - A resumable JSONL read cursor, file fingerprints and parser versions, so a caller can
   cache parsed files and tell when they go stale.

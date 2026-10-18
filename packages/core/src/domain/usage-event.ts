@@ -50,6 +50,12 @@ export type UsageEvent = {
   cacheWrite1hTokens: number;
   /** The total the source logged, or the sum of the token fields when it logged none. */
   totalTokens: number;
+  /**
+   * True when the event records exactly one model request, so prices that depend on one
+   * request's prompt size (long-context tiers) can apply to it. Undefined when the event can
+   * sum several requests, such as a session total or a delta between running totals.
+   */
+  singleRequest?: true;
 
   /** The cost the source recorded, in USD. Undefined when it recorded none. */
   costUsd?: number;
@@ -80,6 +86,8 @@ export type UsageEventInput = {
   cacheWriteTokens?: NumberLike;
   cacheWrite1hTokens?: NumberLike;
   totalTokens?: NumberLike;
+  /** Set only when the record covers exactly one model request. */
+  singleRequest?: boolean;
 
   costUsd?: NumberLike;
 };
@@ -197,6 +205,7 @@ export function createUsageEvent(input: UsageEventInput): UsageEvent {
     cacheWriteTokens,
     cacheWrite1hTokens,
     totalTokens,
+    singleRequest: input.singleRequest === true ? true : undefined,
     costUsd,
   };
 }

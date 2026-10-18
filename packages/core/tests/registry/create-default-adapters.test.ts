@@ -51,18 +51,7 @@ describe('createDefaultAdapters', () => {
     expect(getCapabilitiesBesidesKinds('gemini')).toEqual({
       fixedProviderRoots: ['google'],
       eventsPrecedeFileMtime: true,
-      usagePerRequest: true,
     });
-  });
-
-  // Long-context prices apply per request; a session or cumulative total must not cross a
-  // threshold. Codex is left out: a delta of its running totals can span several requests.
-  it('marks only sources whose usage events each record one request', () => {
-    const perRequest = createDefaultAdapters({})
-      .filter((adapter) => adapter.capabilities?.usagePerRequest)
-      .map((adapter) => adapter.id);
-
-    expect(perRequest.sort()).toEqual(['antigravity', 'claude', 'gemini', 'opencode', 'pi']);
   });
 
   it('declares the event kinds of every source, usage included', () => {
@@ -78,11 +67,9 @@ describe('createDefaultAdapters', () => {
     }
   });
 
-  it('gives the SQLite sources no capability but kinds and per-request usage, so none skips files by mtime', () => {
-    expect(getCapabilitiesBesidesKinds('goose')).toEqual({});
-
-    for (const sourceId of ['opencode', 'antigravity']) {
-      expect(getCapabilitiesBesidesKinds(sourceId), sourceId).toEqual({ usagePerRequest: true });
+  it('gives the SQLite sources no capability but kinds, so none skips files by mtime', () => {
+    for (const sourceId of ['goose', 'opencode', 'antigravity']) {
+      expect(getCapabilitiesBesidesKinds(sourceId), sourceId).toEqual({});
     }
   });
 

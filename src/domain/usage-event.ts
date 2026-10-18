@@ -4,6 +4,18 @@ import { normalizeUsdCost } from '@ayagmar/agent-sessions/internal';
 /** How reports and `--machine` name this machine, next to the configured ones. */
 export const LOCAL_MACHINE_NAME = 'local';
 
+/**
+ * The sources whose every usage event recorded one model request before events carried
+ * `singleRequest`. Events stored or exported without the flag take it from this list.
+ */
+export const SINGLE_REQUEST_SOURCES_BEFORE_FLAG: readonly string[] = [
+  'antigravity',
+  'claude',
+  'gemini',
+  'opencode',
+  'pi',
+];
+
 export type UsageEvent = core.UsageEvent & {
   costMode: core.CostMode;
 

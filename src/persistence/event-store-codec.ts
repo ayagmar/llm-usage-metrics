@@ -3,7 +3,12 @@ import {
   normalizeProviderToBillingEntity,
 } from '@ayagmar/agent-sessions/internal';
 import { parseCanonicalTimestampMs } from '../utils/time-buckets.js';
-import { createUsageEvent, type UsageEvent, type UsageEventInput } from '../domain/usage-event.js';
+import {
+  createUsageEvent,
+  SINGLE_REQUEST_SOURCES_BEFORE_FLAG,
+  type UsageEvent,
+  type UsageEventInput,
+} from '../domain/usage-event.js';
 import { toNonNegativeInteger, toNonNegativeNumber, toText } from './event-store-database.js';
 
 const FAST_PATH_REJECT = Symbol('fast path reject');
@@ -30,8 +35,14 @@ export const STORED_EVENT_COLUMNS = [
   'files.source, events.session_id, events.timestamp, events.model, events.provider,',
   '  events.repo_root, events.input_tokens, events.output_tokens, events.reasoning_tokens,',
   '  events.cache_read_tokens, events.cache_write_tokens, events.cache_write_1h_tokens,',
-  '  events.total_tokens, events.cost_usd, events.cost_mode',
+  '  events.total_tokens, events.cost_usd, events.cost_mode, events.single_request',
 ].join('\n');
+
+/** The `single_request` value of a row stored before the flag, from its source column. */
+export function selectSingleRequestBeforeFlagSql(sourceColumn: string): string {
+  const sources = SINGLE_REQUEST_SOURCES_BEFORE_FLAG.map((source) => `'${source}'`).join(', ');
+  return `CASE WHEN ${sourceColumn} IN (${sources}) THEN 1 ELSE 0 END`;
+}
 
 export type StoredEventTuple = [
   source: unknown,
@@ -49,6 +60,7 @@ export type StoredEventTuple = [
   total_tokens: unknown,
   cost_usd: unknown,
   cost_mode: unknown,
+  single_request: unknown,
 ];
 
 export function normalizeStoredEvent(row: Record<string, unknown>): UsageEvent | undefined {
@@ -78,6 +90,7 @@ function slowNormalizeStoredEvent(row: Record<string, unknown>): UsageEvent | un
     cacheWrite1hTokens: toNonNegativeInteger(row.cache_write_1h_tokens),
     totalTokens: toNonNegativeInteger(row.total_tokens),
     costUsd: toNonNegativeNumber(row.cost_usd),
+    singleRequest: row.single_request === 1,
     costMode,
   };
 
@@ -105,6 +118,7 @@ function fastMaterializeStoredEvent(row: Record<string, unknown>): UsageEvent | 
     row.total_tokens,
     row.cost_usd,
     row.cost_mode,
+    row.single_request,
   );
 }
 
@@ -131,6 +145,7 @@ export function normalizeStoredEventTuple(row: StoredEventTuple): UsageEvent | u
     total_tokens: row[12],
     cost_usd: row[13],
     cost_mode: row[14],
+    single_request: row[15],
   });
 }
 
@@ -150,6 +165,7 @@ function materializeStoredEvent(
   totalTokensValue: unknown,
   costUsdValue: unknown,
   costModeValue: unknown,
+  singleRequestValue: unknown,
 ): UsageEvent | undefined {
   const costMode =
     costModeValue === 'explicit' || costModeValue === 'estimated' ? costModeValue : undefined;
@@ -188,7 +204,8 @@ function materializeStoredEvent(
     cacheWrite1hTokens === undefined ||
     cacheWrite1hTokens > cacheWriteTokens ||
     totalTokens === undefined ||
-    costUsd === FAST_PATH_REJECT
+    costUsd === FAST_PATH_REJECT ||
+    (singleRequestValue !== 0 && singleRequestValue !== 1)
   ) {
     return undefined;
   }
@@ -207,6 +224,7 @@ function materializeStoredEvent(
     cacheWriteTokens,
     cacheWrite1hTokens,
     totalTokens,
+    singleRequest: singleRequestValue === 1 ? true : undefined,
     costUsd,
     costMode,
   };
