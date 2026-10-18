@@ -691,7 +691,7 @@ const eventsReportDefinition: ReportRuntimeDefinition = {
     commandName: 'events',
     docsLabel: 'events',
     kind: 'specialized',
-    description: 'Export normalized usage events as JSONL or CSV',
+    description: 'Export usage events as JSONL, CSV, or OTLP traces or metrics',
     sharedOptionProfile: 'events',
     helpExamples: [
       {
@@ -707,11 +707,15 @@ const eventsReportDefinition: ReportRuntimeDefinition = {
         command: 'llm-usage events --format otlp-traces --since 2026-06-01 > traces.jsonl',
         includeInCliReference: true,
       },
+      {
+        command: 'llm-usage events --format otlp-metrics --since 2026-06-01 > metrics.jsonl',
+        includeInCliReference: true,
+      },
     ],
   },
   register(command) {
     command
-      .option('--format <name>', 'Export format: jsonl | csv | otlp-traces', 'jsonl')
+      .option('--format <name>', 'Export format: jsonl | csv | otlp-traces | otlp-metrics', 'jsonl')
       .option(
         '--otel-include-paths',
         'With otlp-traces: add repository paths to spans (left out by default)',
