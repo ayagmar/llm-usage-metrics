@@ -3,7 +3,17 @@ import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
 
 import type { UsageEvent } from '../domain/usage-event.js';
 import { buildOtlpMetrics } from '../otel-export/otlp-metrics.js';
+import {
+  formatOtlpPushSummary,
+  OTLP_HEADERS_ENV_VAR,
+  parseOtlpEndpoint,
+  parseOtlpHeaders,
+  pushOtlp,
+  type OtlpPushDeps,
+  type OtlpPushSignal,
+} from '../otel-export/otlp-push.js';
 import { buildOtlpTraces } from '../otel-export/otlp-traces.js';
+import { logger } from '../utils/logger.js';
 import { LIVE_TOOL_CALLS_NOTE } from './build-tools-data.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import {
@@ -35,7 +45,45 @@ function resolveEventsFormat(options: EventsCommandOptions): EventsExportFormat 
     throw new Error('--otel-include-paths needs --format otlp-traces');
   }
 
+  if (
+    options.otlpEndpoint !== undefined &&
+    resolved !== 'otlp-traces' &&
+    resolved !== 'otlp-metrics'
+  ) {
+    throw new Error('--otlp-endpoint needs --format otlp-traces or --format otlp-metrics');
+  }
+
   return resolved;
+}
+
+type OtlpPushTarget = { endpoint: URL; headers: Record<string, string> };
+
+function resolveOtlpPushTarget(options: EventsCommandOptions): OtlpPushTarget | undefined {
+  if (options.otlpEndpoint === undefined) {
+    return undefined;
+  }
+
+  return {
+    endpoint: parseOtlpEndpoint(options.otlpEndpoint),
+    headers: parseOtlpHeaders(process.env[OTLP_HEADERS_ENV_VAR]),
+  };
+}
+
+/** Prints the export lines, or with `--otlp-endpoint` pushes them and prints one stderr line. */
+async function writeOtlp(
+  signal: OtlpPushSignal,
+  pushTarget: OtlpPushTarget | undefined,
+  deps: OtlpPushDeps,
+): Promise<void> {
+  if (pushTarget) {
+    const result = await pushOtlp(pushTarget.endpoint, signal, pushTarget.headers, deps);
+    logger.info(formatOtlpPushSummary(result));
+    return;
+  }
+
+  for (const data of signal.lines) {
+    process.stdout.write(`${JSON.stringify(data)}\n`);
+  }
 }
 
 function sortEventsForExport(events: readonly UsageEvent[]): UsageEvent[] {
@@ -88,9 +136,10 @@ function toCsvLine(event: UsageEvent): string {
 
 export async function runEventsReport(
   options: EventsCommandOptions,
-  deps: BuildUsageDataDeps = {},
+  deps: BuildUsageDataDeps & OtlpPushDeps = {},
 ): Promise<void> {
   const format = resolveEventsFormat(options);
+  const pushTarget = resolveOtlpPushTarget(options);
   const dataset = await buildUsageEventDataset(options, deps);
   const { pricedEvents, pricingOrigin, pricingWarning } = await applyPricingToUsageEventDataset(
     dataset,
@@ -128,29 +177,21 @@ export async function runEventsReport(
   });
 
   if (format === 'otlp-metrics') {
-    const metrics = buildOtlpMetrics({
+    const lines = buildOtlpMetrics({
       usageEvents: sortedEvents,
       timezone: dataset.normalizedInputs.timezone,
     });
-
-    for (const data of metrics) {
-      process.stdout.write(`${JSON.stringify(data)}\n`);
-    }
-
+    await writeOtlp({ kind: 'metrics', lines }, pushTarget, deps);
     return;
   }
 
   if (toolCalls) {
-    const traces = buildOtlpTraces({
+    const lines = buildOtlpTraces({
       usageEvents: sortedEvents,
       toolCalls: dedupeToolCalls(toolCalls.events),
       includePaths: options.otelIncludePaths,
     });
-
-    for (const data of traces) {
-      process.stdout.write(`${JSON.stringify(data)}\n`);
-    }
-
+    await writeOtlp({ kind: 'traces', lines }, pushTarget, deps);
     return;
   }
 
