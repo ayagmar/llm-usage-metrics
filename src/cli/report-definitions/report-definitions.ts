@@ -806,7 +806,7 @@ const toolsReportDefinition: ReportRuntimeDefinition = {
     commandName: 'tools',
     docsLabel: 'tools',
     kind: 'specialized',
-    description: `Show tool calls per tool with errors, error rate and sessions, most calls first, read from claude, codex and pi session files on disk (last ${String(DEFAULT_RECENT_DAYS)} days unless --last, --since, --until, or --all)`,
+    description: `Show tool calls per tool with errors, error rate and sessions, most calls first, from claude, codex and pi sessions (last ${String(DEFAULT_RECENT_DAYS)} days unless --last, --since, --until, or --all)`,
     sharedOptionProfile: 'tools',
     helpExamples: [
       {

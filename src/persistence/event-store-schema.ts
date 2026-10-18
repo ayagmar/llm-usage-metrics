@@ -8,7 +8,7 @@ import {
   toText,
 } from './event-store-database.js';
 
-export const EVENT_STORE_SCHEMA_VERSION = '4';
+export const EVENT_STORE_SCHEMA_VERSION = '5';
 
 // Migration rehash pages through events with keyset pagination so a large
 // store never materializes every row in memory at once.
@@ -65,8 +65,42 @@ CREATE TABLE IF NOT EXISTS events (
 );
 CREATE INDEX IF NOT EXISTS events_file ON events(source, file_path, event_index);
 CREATE INDEX IF NOT EXISTS events_content_hash ON events(content_hash);
+${createSessionEventTablesSql()}
 ${createOverrideOnlyFilesSql()}
 `;
+}
+
+// A file's tool calls and messages, keyed like its usage events. Their event_index is the
+// event's position in the file's tool calls and messages together, so the two tables read
+// back in the order the adapter yielded them. Message text is never stored.
+function createSessionEventTablesSql(): string {
+  return `
+CREATE TABLE IF NOT EXISTS tool_calls (
+  source TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  event_index INTEGER NOT NULL,
+  session_id TEXT NOT NULL,
+  timestamp TEXT NOT NULL,
+  tool_call_id TEXT,
+  name TEXT NOT NULL,
+  status TEXT NOT NULL,
+  completed_at TEXT,
+  duration_ms INTEGER,
+  message_id TEXT,
+  PRIMARY KEY (source, file_path, event_index)
+) WITHOUT ROWID;
+CREATE TABLE IF NOT EXISTS messages (
+  source TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  event_index INTEGER NOT NULL,
+  session_id TEXT NOT NULL,
+  timestamp TEXT NOT NULL,
+  role TEXT NOT NULL,
+  message_id TEXT,
+  model TEXT,
+  text_length INTEGER NOT NULL,
+  PRIMARY KEY (source, file_path, event_index)
+) WITHOUT ROWID;`;
 }
 
 // Stored files that only a run with a custom directory (--claude-dir, --source-dir...)
@@ -245,14 +279,38 @@ function migrateSchemaV3ToV4(database: EventStoreDatabase): void {
   });
 }
 
+// Files stored before v5 have no tool call or message rows. The stored fingerprint of a
+// source that keeps them changed with v5, so its files on disk re-ingest on the next run.
+export function migrateSchemaV4ToV5(database: EventStoreDatabase): void {
+  runTransaction(database, () => {
+    // Re-check under the write lock: another process may have migrated while
+    // this one waited on BEGIN IMMEDIATE.
+    if (readSchemaVersion(database) !== '4') {
+      return;
+    }
+
+    database.exec(createSessionEventTablesSql());
+    database.prepare("UPDATE meta SET value = ? WHERE key = 'schemaVersion'").run('5');
+  });
+}
+
+const OLDER_SCHEMA_VERSIONS: readonly string[] = ['1', '2', '3', '4'];
+
 /** Versions this build reads directly or migrates on open. */
 export function isSupportedSchemaVersion(schemaVersion: string): boolean {
   return (
-    schemaVersion === EVENT_STORE_SCHEMA_VERSION ||
-    schemaVersion === '1' ||
-    schemaVersion === '2' ||
-    schemaVersion === '3'
+    schemaVersion === EVENT_STORE_SCHEMA_VERSION || OLDER_SCHEMA_VERSIONS.includes(schemaVersion)
   );
+}
+
+/**
+ * Whether a supported store of this version has what `version` added: the one-hour cache
+ * write column (4), the tool_calls and messages tables (5). A read-only open cannot migrate.
+ */
+export function hasSchemaVersion(schemaVersion: string | undefined, version: number): boolean {
+  return schemaVersion !== undefined && isSupportedSchemaVersion(schemaVersion)
+    ? Number(schemaVersion) >= version
+    : false;
 }
 
 // Runs before the WAL pragma so an unsupported store is rejected without
@@ -294,23 +352,14 @@ function createOrMigrateSchema(database: EventStoreDatabase): void {
     return;
   }
 
-  if (schemaVersion === '1') {
-    migrateSchemaV1ToV2(database);
-    migrateSchemaV2ToV3(database);
-    migrateSchemaV3ToV4(database);
-    return;
+  if (schemaVersion === undefined || !OLDER_SCHEMA_VERSIONS.includes(schemaVersion)) {
+    throw new EventStoreSchemaVersionError(schemaVersion);
   }
 
-  if (schemaVersion === '2') {
-    migrateSchemaV2ToV3(database);
-    migrateSchemaV3ToV4(database);
-    return;
-  }
-
-  if (schemaVersion === '3') {
-    migrateSchemaV3ToV4(database);
-    return;
-  }
-
-  throw new EventStoreSchemaVersionError(schemaVersion);
+  // Each step re-checks the version under its own lock, so the chain starts where the
+  // store is and skips what a concurrent run already migrated.
+  migrateSchemaV1ToV2(database);
+  migrateSchemaV2ToV3(database);
+  migrateSchemaV3ToV4(database);
+  migrateSchemaV4ToV5(database);
 }

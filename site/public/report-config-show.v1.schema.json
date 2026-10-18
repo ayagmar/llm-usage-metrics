@@ -409,7 +409,7 @@
           "type": "string"
         },
         "eventCount": {
-          "description": "Stored usage events; ok only.",
+          "description": "Stored events: usage events, tool calls and messages; ok only.",
           "type": "integer",
           "minimum": 0
         },

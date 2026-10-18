@@ -18,6 +18,7 @@ import {
   loadHistoryEvents,
 } from '../../src/persistence/event-store-history.js';
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
+import { createToolCallEvent } from '@ayagmar/agent-sessions';
 
 const tempDirs: string[] = [];
 
@@ -956,6 +957,75 @@ describe('event-store history', () => {
         suppressedFileCount: 1,
         servedEventCount: 1,
       });
+    } finally {
+      closeEventStore(store);
+    }
+  });
+});
+
+describe('departed files with tool calls and messages', () => {
+  function writeWithToolCalls(
+    store: EventStore,
+    filePath: string,
+    events: UsageEvent[],
+    toolCallCount: number,
+  ): void {
+    replaceFileEvents(store, {
+      source: 'codex',
+      filePath,
+      fingerprint: createFingerprint(filePath),
+      events,
+      sessionEvents: Array.from({ length: toolCallCount }, (_, index) =>
+        createToolCallEvent({
+          source: 'codex',
+          sessionId: 'session-1',
+          timestamp: '2026-02-14T10:00:01.000Z',
+          name: 'exec_command',
+          status: 'ok',
+          toolCallId: `call-${index}`,
+        }),
+      ),
+      skippedRows: 0,
+      now: 1_000,
+    });
+  }
+
+  it('serves a departed file and its tool calls by its usage, suppresses one with no usage', async () => {
+    const store = await createTempStore();
+
+    try {
+      writeWithToolCalls(store, '/logs/live.jsonl', [createEvent()], 1);
+      writeWithToolCalls(store, '/logs/moved.jsonl', [createEvent()], 1);
+      writeWithToolCalls(
+        store,
+        '/logs/departed.jsonl',
+        [createEvent({ sessionId: 'departed' })],
+        2,
+      );
+      writeWithToolCalls(store, '/logs/tools-only.jsonl', [], 3);
+      const input = {
+        selectedSources: ['codex'],
+        discoveredFiles: [{ source: 'codex', filePath: '/logs/live.jsonl' }],
+      };
+
+      const history = loadHistoryEvents(store, input);
+
+      // The served files are the ones whose tool calls a report reads; the moved copy and
+      // the file with tool calls but no usage are suppressed, so theirs are not.
+      expect(history.servedFiles).toEqual([{ source: 'codex', filePath: '/logs/departed.jsonl' }]);
+      expect(history.suppressedFileCount).toBe(2);
+      // Prune counts every stored row of a departed file.
+      expect(
+        classifyDepartedFiles(store, input).map((file) => [
+          file.filePath,
+          file.eventCount,
+          file.suppressed,
+        ]),
+      ).toEqual([
+        ['/logs/departed.jsonl', 3, false],
+        ['/logs/moved.jsonl', 2, true],
+        ['/logs/tools-only.jsonl', 3, true],
+      ]);
     } finally {
       closeEventStore(store);
     }

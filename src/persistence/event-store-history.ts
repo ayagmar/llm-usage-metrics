@@ -50,6 +50,7 @@ type DepartedFile = {
 export type ClassifiedDepartedFile = {
   source: string;
   filePath: string;
+  /** Stored rows: usage events, tool calls and messages. */
   eventCount: number;
   newestTimestamp?: string;
   suppressed: boolean;
@@ -314,7 +315,14 @@ function readDepartedFiles(store: EventStore): DepartedFile[] {
     .prepare(
       [
         'SELECT files.source, files.file_path, files.ingested_at,',
-        '  COUNT(events.id) AS event_count, MAX(events.timestamp) AS newest_timestamp',
+        '  COUNT(events.id) + (',
+        '    SELECT COUNT(*) FROM tool_calls',
+        '    WHERE tool_calls.source = files.source AND tool_calls.file_path = files.file_path',
+        '  ) + (',
+        '    SELECT COUNT(*) FROM messages',
+        '    WHERE messages.source = files.source AND messages.file_path = files.file_path',
+        '  ) AS event_count,',
+        '  MAX(events.timestamp) AS newest_timestamp',
         'FROM files',
         'JOIN history_selected_sources AS selected',
         '  ON files.source = selected.source',

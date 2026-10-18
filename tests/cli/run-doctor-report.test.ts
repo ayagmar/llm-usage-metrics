@@ -442,7 +442,7 @@ describe('run-doctor-report', () => {
     }
   });
 
-  it('counts events for an existing enabled event store', async () => {
+  it('counts usage events, tool calls and messages for an existing enabled event store', async () => {
     const options = await createDoctorFixtureOptions();
     const rootDir = await mkdtemp(path.join(canonicalTmpdir(), 'doctor-event-store-'));
     tempDirs.push(rootDir);
@@ -450,7 +450,12 @@ describe('run-doctor-report', () => {
     const eventStorePath = path.join(rootDir, 'events.db');
     await writeFile(eventStorePath, '', 'utf8');
 
-    const readEventStoreSummarySpy = vi.fn(async () => ({ eventCount: 42, schemaVersion: '4' }));
+    const readEventStoreSummarySpy = vi.fn(async () => ({
+      eventCount: 30,
+      toolCallCount: 8,
+      messageCount: 4,
+      schemaVersion: '5',
+    }));
     const readEventStoreStoredFilesSpy = vi.fn(async () => []);
 
     const results = await buildDoctorResults(
@@ -477,7 +482,7 @@ describe('run-doctor-report', () => {
         format: 'sqlite',
         status: 'ok',
         itemsFound: 42,
-        detail: '42 events, 0 departed files, schema v4, 0 B',
+        detail: '42 events, 0 departed files, schema v5, 0 B',
       },
     ]);
   });
@@ -518,10 +523,10 @@ describe('run-doctor-report', () => {
       status: 'ok',
       itemsFound: 3,
     });
-    expect(eventStoreResult?.detail).toMatch(/^3 events, 1 departed file, schema v4, .+$/);
+    expect(eventStoreResult?.detail).toMatch(/^3 events, 1 departed file, schema v5, .+$/);
     await expect(readEventStoreSummary(eventStorePath)).resolves.toMatchObject({
       eventCount: 3,
-      schemaVersion: '4',
+      schemaVersion: '5',
     });
   });
 
@@ -573,12 +578,14 @@ describe('run-doctor-report', () => {
         format: 'sqlite',
         status: 'error',
         error:
-          'Event store schema v999 is not supported by this llm-usage-metrics version (supports v4); upgrade llm-usage-metrics or set LLM_USAGE_EVENT_STORE=0',
+          'Event store schema v999 is not supported by this llm-usage-metrics version (supports v5); upgrade llm-usage-metrics or set LLM_USAGE_EVENT_STORE=0',
       },
     ]);
     // The doctor check must be read-only: the newer version survives it.
     await expect(readEventStoreSummary(eventStorePath)).resolves.toEqual({
       eventCount: 0,
+      toolCallCount: 0,
+      messageCount: 0,
       schemaVersion: '999',
     });
   });

@@ -23,8 +23,6 @@ import type {
   UsageDiagnostics,
 } from './usage-data-contracts.js';
 
-export const LIVE_TOOL_CALLS_NOTE = formatLiveEventsNote('Tool calls');
-
 /** A tool row with its projects labelled as `projects` labels them. */
 export type ToolsReportRow = ToolRow & {
   /** With --by-repo. */
@@ -73,12 +71,11 @@ export async function buildToolsData(
     configuredOptions,
     userConfigResolution.cliOptions,
   );
-  // Tool calls are only in local files on disk: no history, no other machines, no sync.
+  // Tool calls are local only: no other machines, no sync.
   const datasetOptions: ReportCommandOptions = {
     ...configuredOptions,
     since: window.since,
     until: window.until,
-    history: false,
     machine: [LOCAL_MACHINE_NAME],
     sync: false,
   };
@@ -123,7 +120,7 @@ export async function buildToolsData(
       sourceFailures: dataset.sourceFailures,
       pricingOrigin: 'none',
       warnings: [...dataset.warnings, ...failedReads],
-      notes: [...dataset.notes, LIVE_TOOL_CALLS_NOTE],
+      notes: [...dataset.notes, formatLiveEventsNote('Tool calls', dataset)],
       activeEnvOverrides: dataset.readEnvVarOverrides(),
       activeConfig: dataset.activeConfig,
       timezone,

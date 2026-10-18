@@ -178,7 +178,7 @@ export async function buildSessionData(
       readLiveSessionEvents(dataset, {
         kinds: ['tool_call', 'message'],
         filePaths: new Set(
-          dataset.parsedFiles
+          [...dataset.parsedFiles, ...(dataset.ledger?.historyFiles ?? [])]
             .filter((file) => file.source === session.source)
             .map((file) => file.filePath),
         ),
@@ -200,7 +200,7 @@ export async function buildSessionData(
       projectLabels,
       diagnostics: buildDiagnostics(sessionEvents, {
         warnings: formatFailedLiveReads(LIVE_TIMELINE_SUBJECT, live.failedFilePaths),
-        notes: [formatLiveEventsNote(LIVE_TIMELINE_SUBJECT)],
+        notes: [formatLiveEventsNote(LIVE_TIMELINE_SUBJECT, dataset)],
       }),
     };
   }

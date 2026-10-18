@@ -23,11 +23,8 @@ import {
 } from '../persistence/event-store-history.js';
 import { createAdaptersFromOptions } from './source-cli-options.js';
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
-import {
-  getFileFingerprint,
-  getRepeatingSourceIds,
-  hasErrorCode,
-} from '@ayagmar/agent-sessions/internal';
+import { getRepeatingSourceIds, hasErrorCode } from '@ayagmar/agent-sessions/internal';
+import { getEventStoreFileFingerprint } from './parse/stored-session-events.js';
 import { renderPruneReport } from '../render/render-prune-report.js';
 import { validateDateInput, selectAdaptersBySourceFilter } from './build-usage-data-inputs.js';
 import { resolveUserConfigForOptions, type UserConfigResolutionDeps } from './apply-user-config.js';
@@ -154,7 +151,7 @@ async function readParseFingerprint(
   file: DiscoveredLiveFile,
 ): Promise<EventStoreFileFingerprint | undefined> {
   try {
-    return await getFileFingerprint(file.adapter, file.filePath);
+    return await getEventStoreFileFingerprint(file.adapter, file.filePath);
   } catch {
     return undefined;
   }
