@@ -18,6 +18,9 @@ export type StoredSessionEvent = ToolCallEvent | MessageEvent;
 export type StoredSessionEventKind = StoredSessionEvent['kind'];
 
 export type SessionEventStatements = {
+  selectFileId: EventStoreStatement;
+  insertFile: EventStoreStatement;
+  deleteFile: EventStoreStatement;
   deleteToolCalls: EventStoreStatement;
   deleteMessages: EventStoreStatement;
   insertToolCall: EventStoreStatement;
@@ -28,25 +31,39 @@ export function prepareSessionEventStatements(
   database: EventStoreDatabase,
 ): SessionEventStatements {
   return {
-    deleteToolCalls: database.prepare('DELETE FROM tool_calls WHERE source = ? AND file_path = ?'),
-    deleteMessages: database.prepare('DELETE FROM messages WHERE source = ? AND file_path = ?'),
+    selectFileId: database.prepare(
+      'SELECT id FROM session_event_files WHERE source = ? AND file_path = ?',
+    ),
+    insertFile: database.prepare(
+      'INSERT INTO session_event_files (source, file_path) VALUES (?, ?)',
+    ),
+    deleteFile: database.prepare('DELETE FROM session_event_files WHERE id = ?'),
+    deleteToolCalls: database.prepare('DELETE FROM tool_calls WHERE file_id = ?'),
+    deleteMessages: database.prepare('DELETE FROM messages WHERE file_id = ?'),
     insertToolCall: database.prepare(
       [
         'INSERT INTO tool_calls (',
-        '  source, file_path, event_index, session_id, timestamp, tool_call_id, name, status,',
+        '  file_id, event_index, session_id, timestamp, tool_call_id, name, status,',
         '  completed_at, duration_ms, message_id',
-        ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       ].join('\n'),
     ),
     insertMessage: database.prepare(
       [
         'INSERT INTO messages (',
-        '  source, file_path, event_index, session_id, timestamp, role, message_id, model,',
-        '  text_length',
-        ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        '  file_id, event_index, session_id, timestamp, role, message_id, model, text_length',
+        ') VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
       ].join('\n'),
     ),
   };
+}
+
+function selectFileId(
+  statements: SessionEventStatements,
+  source: string,
+  filePath: string,
+): number | undefined {
+  return toNonNegativeInteger(statements.selectFileId.get(source, filePath)?.id);
 }
 
 /** Deletes the file's stored tool calls and messages; call inside a write transaction. */
@@ -55,8 +72,15 @@ export function deleteFileSessionEvents(
   source: string,
   filePath: string,
 ): void {
-  statements.deleteToolCalls.run(source, filePath);
-  statements.deleteMessages.run(source, filePath);
+  const fileId = selectFileId(statements, source, filePath);
+
+  if (fileId === undefined) {
+    return;
+  }
+
+  statements.deleteToolCalls.run(fileId);
+  statements.deleteMessages.run(fileId);
+  statements.deleteFile.run(fileId);
 }
 
 /** Replaces the file's stored tool calls and messages; call inside a write transaction. */
@@ -68,18 +92,24 @@ export function writeFileSessionEvents(
 ): void {
   deleteFileSessionEvents(statements, source, filePath);
 
+  if (events.length === 0) {
+    return;
+  }
+
+  statements.insertFile.run(source, filePath);
+  const fileId = selectFileId(statements, source, filePath);
+
   events.forEach((event, eventIndex) => {
     if (event.kind === 'tool_call') {
       statements.insertToolCall.run(
-        source,
-        filePath,
+        fileId,
         eventIndex,
         event.sessionId,
-        event.timestamp,
+        Date.parse(event.timestamp),
         event.toolCallId ?? null,
         event.name,
         event.status,
-        event.completedAt ?? null,
+        event.completedAt === undefined ? null : Date.parse(event.completedAt),
         event.durationMs ?? null,
         event.messageId ?? null,
       );
@@ -87,11 +117,10 @@ export function writeFileSessionEvents(
     }
 
     statements.insertMessage.run(
-      source,
-      filePath,
+      fileId,
       eventIndex,
       event.sessionId,
-      event.timestamp,
+      Date.parse(event.timestamp),
       event.role,
       event.messageId ?? null,
       event.model ?? null,
@@ -100,16 +129,37 @@ export function writeFileSessionEvents(
   });
 }
 
+/** How many tool calls and messages the store holds for the file. */
+export function countFileSessionEvents(
+  database: EventStoreDatabase,
+  source: string,
+  filePath: string,
+): number {
+  const row = database
+    .prepare(
+      [
+        'SELECT (SELECT COUNT(*) FROM tool_calls WHERE file_id = file.id)',
+        '  + (SELECT COUNT(*) FROM messages WHERE file_id = file.id) AS count',
+        'FROM session_event_files AS file',
+        'WHERE file.source = ? AND file.file_path = ?',
+      ].join('\n'),
+    )
+    .get(source, filePath);
+  return toNonNegativeInteger(row?.count) ?? 0;
+}
+
 const SELECT_TOOL_CALLS = [
   "SELECT event_index, 'tool_call' AS kind, session_id, timestamp, tool_call_id, name, status,",
   '  completed_at, duration_ms, message_id, NULL AS role, NULL AS model, NULL AS text_length',
-  'FROM tool_calls WHERE source = ? AND file_path = ?',
+  'FROM tool_calls',
+  'WHERE file_id = (SELECT id FROM session_event_files WHERE source = ? AND file_path = ?)',
 ].join('\n');
 const SELECT_MESSAGES = [
   "SELECT event_index, 'message' AS kind, session_id, timestamp, NULL AS tool_call_id,",
   '  NULL AS name, NULL AS status, NULL AS completed_at, NULL AS duration_ms, message_id, role,',
   '  model, text_length',
-  'FROM messages WHERE source = ? AND file_path = ?',
+  'FROM messages',
+  'WHERE file_id = (SELECT id FROM session_event_files WHERE source = ? AND file_path = ?)',
 ].join('\n');
 
 /** A statement that reads one file's events of `kinds` in the order they were stored. */
@@ -154,7 +204,7 @@ export function decodeStoredSessionEvent(
   const base = {
     source,
     sessionId: toText(row.session_id) ?? '',
-    timestamp: toText(row.timestamp) ?? '',
+    timestamp: decodeTimestamp(row.timestamp) ?? '',
   };
 
   try {
@@ -169,7 +219,7 @@ export function decodeStoredSessionEvent(
         // The constructor rejects a status outside ToolCallStatus.
         // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
         status: status as ToolCallEvent['status'],
-        completedAt: toText(row.completed_at),
+        completedAt: decodeTimestamp(row.completed_at),
         durationMs,
         messageId: toText(row.message_id),
       });
@@ -189,4 +239,17 @@ export function decodeStoredSessionEvent(
   } catch {
     return undefined;
   }
+}
+
+// The largest epoch milliseconds a Date holds.
+const MAX_DATE_MILLISECONDS = 8.64e15;
+
+// The ISO string a stored timestamp was written from; undefined for any other value, which
+// the constructors then reject.
+function decodeTimestamp(value: unknown): string | undefined {
+  return typeof value === 'number' &&
+    Number.isInteger(value) &&
+    Math.abs(value) <= MAX_DATE_MILLISECONDS
+    ? new Date(value).toISOString()
+    : undefined;
 }
