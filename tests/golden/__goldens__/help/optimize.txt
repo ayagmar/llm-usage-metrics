@@ -41,7 +41,8 @@ Options:
   --markdown                     Render output as markdown table
   --share                        Write an interactive HTML report to the current directory
   --no-open                      With --share, write the report without opening it
-  --redact                       With --share, label projects project-N and machines machine-N
+  --redact                       With --share, label projects project-N, machines machine-N and
+                                 local or path-shaped models model-N
   --candidate-model <name>       Candidate model for counterfactual pricing (repeatable or
                                  comma-separated)
   --top <n>                      Show only the top N cheapest candidates (positive integer)
