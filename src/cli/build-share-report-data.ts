@@ -1,4 +1,5 @@
 import os from 'node:os';
+import path from 'node:path';
 
 import {
   buildProjectLabels,
@@ -24,6 +25,7 @@ import {
   buildShareProjectLabels,
   createNameReplacer,
   createPathScrubber,
+  isPathLike,
   isPathShapedModel,
   KEPT_MACHINE_LABELS,
   KEPT_MODEL_LABELS,
@@ -45,6 +47,7 @@ import type {
 import { logger, withLogScrubber } from '../utils/logger.js';
 import { getCurrentLocalDateKey, getPeriodKey } from '../utils/time-buckets.js';
 import { getErrorReason } from '../utils/get-error-reason.js';
+import { getActiveEnvVarOverrides } from '../config/env-var-display.js';
 import { resolveUserConfigForOptions } from './apply-user-config.js';
 import { readBlocksDataset } from './build-blocks-data.js';
 import { normalizeBuildUsageInputs } from './build-usage-data-inputs.js';
@@ -56,6 +59,7 @@ import {
 } from './build-usage-data-pricing.js';
 import { loadPackageMetadataFromRuntime } from './package-metadata.js';
 import { measureRuntimeProfileStage, measureRuntimeProfileStageSync } from './runtime-profile.js';
+import { getSourceOverrideOptions } from './source-cli-options.js';
 import type { BuildUsageDataDeps, ReportCommandOptions } from './usage-data-contracts.js';
 
 /** What a command passes to build its share report. */
@@ -70,6 +74,8 @@ export type ShareReportRequest = {
   envelope?: Pick<ShareEmbeddedEnvelope, 'report' | 'data'>;
   /** Payload bytes above which older cells roll up to days; the default keeps the HTML under 8 MB. */
   targetBytes?: number;
+  /** Paths the command takes beyond the shared options (efficiency's repository). */
+  inputPaths?: readonly string[];
   /**
    * The events the command reports out of those its filters select, when it narrows them
    * further (efficiency: its repository, in periods with commits). Blocks still place
@@ -177,6 +183,34 @@ function sumTokensBy(
   }
 
   return tokens;
+}
+
+/**
+ * The paths a run was given, as typed and resolved: source directories, `--source-dir`
+ * entries, the config file, path env overrides, and the command's own (`--repo-dir`). Its
+ * stderr may print one whole, spaces and all, where the generic path matcher stops at a space.
+ * A bare root is left out, since it would match every separator.
+ */
+function listInputPaths(
+  options: ReportCommandOptions,
+  configPath: string,
+  commandPaths: readonly string[],
+): string[] {
+  const values = [
+    ...getSourceOverrideOptions().flatMap(({ optionKey }) => options[optionKey] ?? []),
+    ...(options.sourceDir ?? []).map((entry) => entry.slice(entry.indexOf('=') + 1)),
+    configPath,
+    ...getActiveEnvVarOverrides()
+      .filter(({ name }) => name.endsWith('_PATH'))
+      .map(({ value }) => value),
+    ...commandPaths,
+  ];
+
+  return values
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0)
+    .flatMap((value) => [value, path.resolve(value)])
+    .filter((value) => path.parse(value).root !== value && isPathLike(value));
 }
 
 /** Looks a label up in a redaction map; a name it lacks gets the next stand-in. */
@@ -507,10 +541,19 @@ export async function buildShareReport(
         ]),
       ),
     );
-    const scrubPaths = createPathScrubber(pathReplacements, {
-      otherPath: () => '<path>',
-      text: true,
-    });
+    // Known repository roots keep their labels; any other input path is `<path>` whole.
+    const inputPaths = listInputPaths(
+      configuredOptions,
+      userConfigResolution.loadedConfig.path,
+      request.inputPaths ?? [],
+    );
+    const scrubPaths = createPathScrubber(
+      new Map([...inputPaths.map((input) => [input, '<path>'] as const), ...pathReplacements]),
+      {
+        otherPath: () => '<path>',
+        text: true,
+      },
+    );
     const replaceNames = createNameReplacer(listNames());
 
     return (message) => replaceNames(scrubPaths(replaceModels(message)));

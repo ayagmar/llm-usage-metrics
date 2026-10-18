@@ -570,7 +570,7 @@ describe.skipIf(process.platform === 'win32')(`share report e2e (${WINDOWS_SKIP_
   });
 
   it('--share --redact keeps paths and local names out of stderr, except the file written', async () => {
-    const notRepoDir = path.join(environment.rootDir, 'acme-not-a-repo');
+    const notRepoDir = path.join(environment.rootDir, 'public acme-not-a-repo');
     await mkdir(notRepoDir);
     const runs: [string[], string?][] = [
       [

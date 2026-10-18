@@ -53,6 +53,7 @@ async function prepareEfficiencyReport(
           ),
           fileBaseName: `efficiency-${granularity}-share`,
           logLabel: 'efficiency',
+          inputPaths: [options.repoDir?.trim() ?? process.cwd()],
           // The report counts its repository's usage in periods with commits; so does the file.
           scopeEvents: async (events, timezone) => {
             const reportedPeriods = new Set(
