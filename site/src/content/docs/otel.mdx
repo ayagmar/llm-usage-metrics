@@ -1,0 +1,127 @@
+---
+title: OpenTelemetry Export
+description: Export sessions as OTLP/JSON traces that follow the OpenTelemetry GenAI conventions, and replay them into any tracing backend.
+---
+
+`llm-usage events --format otlp-traces` turns your session history into OpenTelemetry traces: one trace per session, written to `stdout` as OTLP/JSON Lines. The output is the [OTLP file format](https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/protocol/file-exporter.md), so an OpenTelemetry Collector can read the file and send it to Jaeger, Tempo, Honeycomb or any other backend that takes OTLP. Nothing is sent over the network.
+
+```bash
+llm-usage events --format otlp-traces --since 2026-06-01 > traces.jsonl
+```
+
+The filters work as they do for `--format jsonl`: `--source`, `--provider`, `--model`, `--repo`, `--machine`, `--since`, `--until`, `--timezone`, pricing flags, `--cost-mode` and `--no-history`. See [Events export](/llm-usage-metrics/events/).
+
+## Output
+
+Each line is one `TracesData` object holding one session. The encoding follows the OTLP JSON rules: trace and span ids are hex strings, timestamps and integer attributes are decimal strings (`"startTimeUnixNano": "1790845203500000000"`, `{"intValue": "1200"}`), and span kinds and status codes are integers.
+
+- The resource has `service.name`: `claude-code` for Claude Code, the source id for the others (`codex`, `pi`, …). Claude Code reports `claude-code` from its own telemetry, so a backfill groups with its live data.
+- The scope is `llm-usage-metrics`. Its `llm_usage.semconv_genai.commit` attribute names the [semantic-conventions-genai](https://github.com/open-telemetry/semantic-conventions-genai) commit the attribute names were checked against, and `schemaUrl` is the schema URL that commit declares.
+- Lines follow the order of each session's first usage event, the order `--format jsonl` prints them in.
+
+## Span tree
+
+```text
+invoke_agent {agent}            INTERNAL  earliest to latest event of the session
+├── chat {model}                CLIENT    one per usage event, zero-length
+└── execute_tool {tool name}    INTERNAL  one per tool call
+```
+
+- `invoke_agent` carries `gen_ai.operation.name`, `gen_ai.agent.name` (the same value as `service.name`), `gen_ai.conversation.id`, and the session's sums of `gen_ai.usage.input_tokens` and `gen_ai.usage.output_tokens`. It has no cache attributes: the convention asks consumers to sum those from the `chat` spans.
+- `chat` spans carry the usage attributes in the [mapping table](#mapping). The span is named `chat` when the model is unknown.
+- `execute_tool` spans come from the tool calls the [`tools` report](/llm-usage-metrics/tools/) counts (Claude Code, codex and pi), deduplicated the same way. They run from the call to its result, or for the logged duration when the source records one instead. A call with no result in the log is zero-length.
+- A session appears when it has usage in the export. Its tool calls come with it; tool calls of sessions the filters leave out do not.
+
+### Zero-length spans
+
+Session logs record when a response arrived, not how long the request took. Every `chat` span therefore starts and ends at the event's timestamp. Latency views, duration histograms and span-metrics generated from these traces show zero for inference. The export emits no `gen_ai.client.inference.duration`.
+
+### Stable ids
+
+Ids are derived from the data, not generated:
+
+- `traceId`: the first 16 bytes of SHA-256 over the source and session id.
+- `spanId`: the first 8 bytes of SHA-256 over the trace id, the span kind and a key: the tool call id when the call has one, else the span's position among the session's usage events or tool calls, in timestamp order.
+
+The same input gives the same bytes. A backend that deduplicates by trace and span id keeps one copy when you send the same export twice. A session that gains events later keeps its trace id, but the spans keyed by position can shift.
+
+### Errors
+
+A tool call whose result is an error sets the span status to `ERROR` (code 2) and `error.type` to `_OTHER`, the value the convention reserves for errors with no finer class: the logs say a call failed, not why. A call without a recognised result keeps status unset and gets `llm_usage.tool.status` = `unknown`.
+
+## Privacy
+
+- Message text, prompts, tool arguments, tool output and session titles are never exported.
+- Repository paths are left out by default. `--otel-include-paths` adds `llm_usage.repo_root` to `chat` spans. The export has no working directory or git branch attributes.
+- Session ids, model names, tool names and token counts are always included.
+
+## Mapping
+
+Names follow commit [`f3c6d0c`](https://github.com/open-telemetry/semantic-conventions-genai/tree/f3c6d0c9bb66ebd474668a3a0be25c61226f02c2/model/gen-ai) of `open-telemetry/semantic-conventions-genai` (schema URL `https://opentelemetry.io/schemas/gen-ai-dev/1.42.0-dev`). The conventions have no release, so names can change when the pin moves. The experimental `@ayagmar/agent-sessions/otel` helpers implement these tables.
+
+Usage event → `chat` span:
+
+| export field | OTel mapping |
+| --- | --- |
+| (every event) | `gen_ai.operation.name` = `chat` |
+| `provider` | `gen_ai.provider.name`; `google` → `gcp.gemini`, `moonshot` → `moonshot_ai`, `xai` → `x_ai`, `amazon-bedrock*` → `aws.bedrock`, `google-vertex*` → `gcp.vertex_ai`, `azure-openai*` → `azure.ai.openai`, others unchanged; omitted when unknown |
+| `model` | `gen_ai.response.model`, and the span name `chat {model}` |
+| `sessionId` | `gen_ai.conversation.id` |
+| `inputTokens` + `cacheReadTokens` + `cacheWriteTokens` | `gen_ai.usage.input_tokens` (the convention counts cached tokens as input) |
+| `outputTokens` | `gen_ai.usage.output_tokens` (already includes reasoning) |
+| `reasoningTokens` | `gen_ai.usage.reasoning.output_tokens` |
+| `cacheReadTokens` | `gen_ai.usage.cache_read.input_tokens` |
+| `cacheWriteTokens` | `gen_ai.usage.cache_write.input_tokens` |
+| `costUsd`, `costMode` | no convention yet; `llm_usage.cost_usd` (always a double), `llm_usage.cost_mode` |
+| `source` | `llm_usage.source` |
+| `machine` | `llm_usage.machine`, for events from [other machines](/llm-usage-metrics/machines/) |
+| `repoRoot` | `llm_usage.repo_root`, only with `--otel-include-paths` |
+| `timestamp` | `startTimeUnixNano` = `endTimeUnixNano` |
+
+Tool call → `execute_tool` span:
+
+| tool call field | OTel mapping |
+| --- | --- |
+| (every call) | `gen_ai.operation.name` = `execute_tool` |
+| `name` | `gen_ai.tool.name`, and the span name `execute_tool {name}` |
+| `toolCallId` | `gen_ai.tool.call.id` |
+| `sessionId` | `gen_ai.conversation.id` |
+| `status` | `error`: status `ERROR` and `error.type` = `_OTHER`; `unknown`: `llm_usage.tool.status` = `unknown`; `ok`: status unset |
+| `messageId` | `llm_usage.message_id`, the assistant message that made the call |
+| `timestamp`, `completedAt`, `durationMs` | start at `timestamp`; end at `completedAt`, else `timestamp` + `durationMs`, else zero-length |
+| `source` | `llm_usage.source` |
+
+Deviations from the convention:
+
+- `gen_ai.provider.name` is required, but it is left out when the provider is unknown rather than guessed.
+- A provider with no well-known value (`github`, for example) is passed through as a custom value. For `google` the helpers pick `gcp.gemini`; the source logs do not say which Google endpoint served the call. Other Google and Azure ids (`google-gemini-cli` or a custom `azure-east`, for example) pass through too, since they do not name a well-known endpoint.
+- `gen_ai.response.model` is the model name lowercased, not the exact string the provider returned. `chat` spans do not set `gen_ai.request.model`, since the logs record only the model that answered, so the span name uses the response model.
+- `gen_ai.conversation.id` is set even where a source has no session id and the file name stands in for it (qwen, openclaw), which the convention discourages.
+
+## Send it to a backend
+
+The Collector's [`otlpjsonfile` receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/otlpjsonfilereceiver) reads the file, and the `otlphttp` exporter forwards it. Both ship in the `otelcol-contrib` distribution.
+
+```yaml
+receivers:
+  otlpjsonfile:
+    include:
+      - ./traces.jsonl
+    start_at: beginning
+
+exporters:
+  otlphttp:
+    endpoint: http://localhost:4318
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlpjsonfile]
+      exporters: [otlphttp]
+```
+
+```bash
+otelcol-contrib --config collector.yaml
+```
+
+Trace backends generally accept spans with old timestamps, but some only make them searchable within a retention or block window. Check your backend's limits before backfilling months of history. If an agent also sends its own live telemetry to the same backend, the same request can show up twice: pick one source per request.

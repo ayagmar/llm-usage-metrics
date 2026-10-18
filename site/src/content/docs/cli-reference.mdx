@@ -1752,7 +1752,10 @@ Options:
                                  all)
   --no-sync                      Use other machines' cached usage without
                                  refreshing it over ssh
-  --format <name>                Export format: jsonl | csv (default: "jsonl")
+  --format <name>                Export format: jsonl | csv | otlp-traces
+                                 (default: "jsonl")
+  --otel-include-paths           With otlp-traces: add repository paths to spans
+                                 (left out by default)
   --repo <project>               Count only these projects (repeatable or
                                  comma-separated, so a value cannot contain a
                                  comma). A path (absolute, or ./, ../, ~/ on
@@ -2220,7 +2223,7 @@ Search across root and command help. See Command help above to check which flags
 | `--droid-dir` | - | `<path>` | Path to Droid sessions directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
 | `--dsh-dir` | - | `<path>` | Path to DeepSeek Harness sessions directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
 | `--force` | - | - | Overwrite an existing config file \(config only\) |
-| `--format` | - | `<name>` | Export format: jsonl \| csv \(default: "jsonl"\) \(events only\) |
+| `--format` | - | `<name>` | Export format: jsonl \| csv \| otlp-traces \(default: "jsonl"\) \(events only\) |
 | `--full` | - | - | Fetch every file again instead of only the changed ones \(sync only\) |
 | `--gemini-dir` | - | `<path>` | Path to .gemini directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
 | `--goose-db` | - | `<path>` | Path to Goose SQLite DB \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
@@ -2246,6 +2249,7 @@ Search across root and command help. See Command help above to check which flags
 | `--no-sync` | - | - | Use other machines' cached usage without refreshing it over ssh \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, context, blocks, value, wrapped, events only\) |
 | `--openclaw-dir` | - | `<path>` | Path to OpenClaw agents directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
 | `--opencode-db` | - | `<path>` | Path to OpenCode SQLite DB \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
+| `--otel-include-paths` | - | - | With otlp-traces: add repository paths to spans \(left out by default\) \(events only\) |
 | `--per-model-columns` | - | - | Render per-model metrics as multiline aligned table columns \(terminal/Markdown\) \(usage reports only\) |
 | `--pi-dir` | - | `<path>` | Path to .pi sessions directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
 | `--plan` | - | `<id>` | Plan to compare with, over the sources it covers \(repeatable; default claude-max-20x, or chatgpt-pro-200 when the source filter leaves out claude\). Two plans that cover the same source each count its full cost \(choices: "claude-pro", "claude-max-5x", "claude-max-20x", "chatgpt-go", "chatgpt-plus", "chatgpt-pro-100", "chatgpt-pro-200", "chatgpt-pro-500"\) \(value only\) |
@@ -2336,6 +2340,7 @@ llm-usage wrapped --year 2026 --share
 llm-usage wrapped --year 2026 --json
 llm-usage events --format jsonl > events.jsonl
 llm-usage events --format csv --since 2026-01-01
+llm-usage events --format otlp-traces --since 2026-06-01 > traces.jsonl
 llm-usage pricing claude-sonnet-4-5
 llm-usage pricing gpt-5 gpt-5-codex --json
 llm-usage pricing my-model --pricing-overrides ./overrides.json
