@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { computeActiveMs, IDLE_GAP_CAP_MS } from '../src/domain/active-time.js';
+import {
+  computeActiveMs,
+  computeUnionActiveMs,
+  IDLE_GAP_CAP_MS,
+} from '../src/domain/active-time.js';
 
 const MINUTE_MS = 60_000;
 
@@ -30,5 +34,30 @@ describe('computeActiveMs', () => {
     const timestamps = [0, 2 * MINUTE_MS, 92 * MINUTE_MS, 93 * MINUTE_MS];
 
     expect(computeActiveMs(timestamps)).toBe(2 * MINUTE_MS + IDLE_GAP_CAP_MS + MINUTE_MS);
+  });
+});
+
+describe('computeUnionActiveMs', () => {
+  it('counts time two sessions share once', () => {
+    // 0-10 and 5-15 MINUTE_MSs, in one-MINUTE_MS steps: 15 MINUTE_MSs of wall clock.
+    const steps = (from: number, to: number) =>
+      Array.from({ length: to - from + 1 }, (_, index) => (from + index) * MINUTE_MS);
+
+    expect(computeUnionActiveMs([steps(0, 10), steps(5, 15)])).toBe(15 * MINUTE_MS);
+  });
+
+  it('adds sessions that do not overlap', () => {
+    expect(
+      computeUnionActiveMs([
+        [0, 2 * MINUTE_MS],
+        [10 * MINUTE_MS, 13 * MINUTE_MS],
+      ]),
+    ).toBe(5 * MINUTE_MS);
+  });
+
+  it('equals computeActiveMs for one session, idle gaps capped', () => {
+    const timestamps = [0, MINUTE_MS, 30 * MINUTE_MS, 31 * MINUTE_MS, 31 * MINUTE_MS];
+
+    expect(computeUnionActiveMs([timestamps])).toBe(computeActiveMs(timestamps));
   });
 });
