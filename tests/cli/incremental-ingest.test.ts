@@ -409,4 +409,54 @@ describe('incremental ingest', () => {
       await dumpFreshStore(adapter, tempDir, 'fresh-raced'),
     );
   });
+
+  it('skips a resumed append when another run stored the same version past its cursor', async () => {
+    const tempDir = await createTempDir();
+    const projectsDir = path.join(tempDir, 'projects');
+    const filePath = path.join(projectsDir, 'project-a', 'session-1.jsonl');
+    const adapter = new ClaudeSourceAdapter({ dir: projectsDir });
+    const lines = [1, 2, 3, 4, 5].map((index) =>
+      claudeAssistant(`a${String(index)}`, index, String(index), [], 10),
+    );
+    // Two runs: the first keeps no cursor, the second keeps one at two lines.
+    const ingest = await growLineByLine(adapter, tempDir, filePath, lines.slice(0, 2));
+    const atTwoLines = ingest.writes.at(-1);
+    expect(atTwoLines?.readCursor).toBeDefined();
+
+    // Another run took the file's stat at two lines, but its read reached the third: it
+    // stores three lines' rows under the two-line fingerprint, with no cursor.
+    await appendFile(filePath, `${lines[2] ?? ''}\n`);
+    const threeLines = createIngest(adapter, path.join(tempDir, 'three.db'));
+    await threeLines.run();
+    const threeLinesWrite = threeLines.writes.at(0);
+
+    if (!atTwoLines || !threeLinesWrite) {
+      throw new Error('both runs must store the file');
+    }
+
+    const staleWrite: ReplaceFileEventsInput = {
+      ...threeLinesWrite,
+      fingerprint: atTwoLines.fingerprint,
+      readCursor: undefined,
+    };
+    const otherRun = await openOtherRun(ingest.storePath);
+
+    // This run resumes from the two-line cursor; the other run commits meanwhile.
+    await appendFile(filePath, `${lines[3] ?? ''}\n`);
+    await setTime(filePath, 1_700_001_000);
+    await ingest.run({
+      getFileReadCursor: (store, source, readPath) => {
+        const cursor = getFileReadCursor(store, source, readPath);
+        replaceFilesEvents(otherRun, [staleWrite]);
+        return cursor;
+      },
+    });
+
+    await appendFile(filePath, `${lines[4] ?? ''}\n`);
+    await setTime(filePath, 1_700_002_000);
+    await ingest.run();
+    expect(await dumpStore(ingest.storePath)).toEqual(
+      await dumpFreshStore(adapter, tempDir, 'fresh-raced'),
+    );
+  });
 });
