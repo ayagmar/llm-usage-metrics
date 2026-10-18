@@ -1,7 +1,7 @@
 import { parentPort, Worker } from 'node:worker_threads';
 import type { WorkerOptions } from 'node:worker_threads';
 
-import type { SourceId } from '../domain/usage-event.js';
+import type { SourceId } from '@ayagmar/agent-sessions';
 import {
   canParseSourceOnWorker,
   createWorkerParseAdapter,

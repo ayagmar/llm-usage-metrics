@@ -1,6 +1,7 @@
-import { getEventSessionKey, LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
+import { LOCAL_MACHINE_NAME, type UsageEvent } from '../domain/usage-event.js';
 import {
   computeEventContentHash,
+  getEventSessionKey,
   getParserVersion,
   type SourceAdapter,
 } from '@ayagmar/agent-sessions';

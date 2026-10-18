@@ -3,7 +3,7 @@ import { chmod, link, open, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { normalizeSkippedRowReasons } from '../cli/normalize-skipped-row-reasons.js';
-import { createUsageEvent, normalizeSourceId, type UsageEvent } from '../domain/usage-event.js';
+import { createUsageEvent, type UsageEvent } from '../domain/usage-event.js';
 import {
   loadNodeSqliteModule,
   type FileDependencyFingerprint as EventStoreDependencyFingerprint,
@@ -12,7 +12,11 @@ import {
   hasErrorCode,
   takeUncountedEvents,
 } from '@ayagmar/agent-sessions/internal';
-import { computeEventContentHash, type SourceSkippedRowReasonStat } from '@ayagmar/agent-sessions';
+import {
+  computeEventContentHash,
+  normalizeSourceId,
+  type SourceSkippedRowReasonStat,
+} from '@ayagmar/agent-sessions';
 import { getUserCacheRootDir } from '../utils/cache-root-dir.js';
 import { getUserDataRootDir } from '../utils/data-root-dir.js';
 import { ensureDirectory, pathExists, pathStat } from '../utils/fs-helpers.js';

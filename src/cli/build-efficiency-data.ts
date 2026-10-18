@@ -6,7 +6,8 @@ import {
   resolveRepoRootFromPathHint,
   type RepoRootResolver,
 } from '../efficiency/repo-attribution.js';
-import { hasBillableTokenBuckets, type UsageEvent } from '../domain/usage-event.js';
+import type { UsageEvent } from '../domain/usage-event.js';
+import { hasBillableTokenBuckets } from '@ayagmar/agent-sessions/internal';
 import { getPeriodKey, type ReportGranularity } from '../utils/time-buckets.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
 import {

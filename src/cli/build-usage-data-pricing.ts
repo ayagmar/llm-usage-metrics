@@ -1,6 +1,7 @@
 import type { SourceAdapter } from '@ayagmar/agent-sessions';
 
-import { isPriceableEvent, type UsageEvent } from '../domain/usage-event.js';
+import type { UsageEvent } from '../domain/usage-event.js';
+import { isPriceableEvent } from '@ayagmar/agent-sessions/internal';
 import {
   getPricingFetcherRuntimeConfig,
   type PricingFetcherRuntimeConfig,

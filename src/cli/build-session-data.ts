@@ -2,10 +2,10 @@ import { buildEventProjectLabels, toProjectKey } from '../aggregate/project-key.
 import { aggregateSessions, aggregateSessionsByRepo } from '../session/aggregate-sessions.js';
 import type { SessionRow } from '../session/session-row.js';
 import { buildSessionTimeline } from '../session/session-timeline.js';
-import { dedupeToolCalls } from '@ayagmar/agent-sessions';
+import { dedupeToolCalls, getEventSessionKey } from '@ayagmar/agent-sessions';
 import { getPeriodKey } from '../utils/time-buckets.js';
 import { buildUsageDiagnostics } from './build-usage-data-diagnostics.js';
-import { getEventSessionKey, type UsageEvent } from '../domain/usage-event.js';
+import type { UsageEvent } from '../domain/usage-event.js';
 import {
   applyPricingToUsageEventDataset,
   buildUsageEventDataset,

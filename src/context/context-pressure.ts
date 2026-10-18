@@ -1,4 +1,5 @@
-import { getEventSessionKey, type UsageEvent } from '../domain/usage-event.js';
+import type { UsageEvent } from '../domain/usage-event.js';
+import { getEventSessionKey } from '@ayagmar/agent-sessions';
 import { estimateLongContextExtraUsd, getPromptTokens } from '../pricing/cost-engine.js';
 import type { ModelPricing } from '../pricing/types.js';
 import { compareByCodePoint } from '@ayagmar/agent-sessions/internal';
