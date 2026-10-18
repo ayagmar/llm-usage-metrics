@@ -370,14 +370,9 @@ describe('parse-worker-pool', () => {
       ),
     ).resolves.toEqual(createDiagnostics(3));
 
-    expect(worker.postedMessages).toEqual([
-      {
-        taskId: 1,
-        sourceId: 'codex',
-        filePath: '/tmp/a.jsonl',
-        roots: ['/tmp'],
-        forEventStore: false,
-      },
+    expect(worker.postedMessages.map((message) => message.filePath)).toEqual([
+      '/tmp/a.jsonl',
+      '/tmp/b.jsonl',
     ]);
     expect(firstInlineParse).toHaveBeenCalledTimes(1);
     expect(secondInlineParse).toHaveBeenCalledTimes(1);
@@ -483,7 +478,7 @@ describe('parse-worker-pool', () => {
     expect(workers[0].postedMessages.map((message) => message.sourceId)).toEqual(['claude', 'pi']);
   });
 
-  it('queues tasks beyond the pool size until a worker frees up', async () => {
+  it('posts each worker its next task before the answer, and queues the rest', async () => {
     const workers: FakeWorker[] = [];
     const pool = createParseWorkerPool({
       entryUrl,
@@ -495,7 +490,7 @@ describe('parse-worker-pool', () => {
       },
     });
 
-    const results = ['a', 'b', 'c'].map((name) =>
+    const results = ['a', 'b', 'c', 'd', 'e'].map((name) =>
       pool.parse(
         {
           sourceId: 'codex',
@@ -506,15 +501,47 @@ describe('parse-worker-pool', () => {
         async () => createDiagnostics(99),
       ),
     );
+    const postedTaskIds = () => workers.map((worker) => worker.postedMessages.map((m) => m.taskId));
 
-    expect(workers).toHaveLength(2);
+    // Two tasks per worker; the fifth waits for an answer.
+    expect(postedTaskIds()).toEqual([
+      [1, 3],
+      [2, 4],
+    ]);
     workers[1].emitMessage({ taskId: 2, ok: true, diagnostics: createDiagnostics(2) });
-    expect(workers).toHaveLength(2);
-    expect(workers[1].postedMessages.map((message) => message.taskId)).toEqual([2, 3]);
+    expect(postedTaskIds()).toEqual([
+      [1, 3],
+      [2, 4, 5],
+    ]);
     workers[0].emitMessage({ taskId: 1, ok: true, diagnostics: createDiagnostics(1) });
-    workers[1].emitMessage({ taskId: 3, ok: true, diagnostics: createDiagnostics(3) });
+    workers[0].emitMessage({ taskId: 3, ok: true, diagnostics: createDiagnostics(3) });
+    workers[1].emitMessage({ taskId: 4, ok: true, diagnostics: createDiagnostics(4) });
+    workers[1].emitMessage({ taskId: 5, ok: true, diagnostics: createDiagnostics(5) });
 
-    await expect(Promise.all(results)).resolves.toEqual([1, 2, 3].map(createDiagnostics));
+    await expect(Promise.all(results)).resolves.toEqual([1, 2, 3, 4, 5].map(createDiagnostics));
+    expect(workers).toHaveLength(2);
+    expect(pool.status()).toBe('ready');
+  });
+
+  it('falls back inline when a worker answers its second task first', async () => {
+    const worker = new FakeWorker();
+    const pool = createParseWorkerPool({ entryUrl, workerCount: 1, spawnWorker: () => worker });
+    const results = ['a', 'b'].map((name, index) =>
+      pool.parse(
+        {
+          sourceId: 'codex',
+          filePath: `/tmp/${name}.jsonl`,
+          roots: ['/tmp'],
+          forEventStore: false,
+        },
+        async () => createDiagnostics(index + 10),
+      ),
+    );
+
+    worker.emitMessage({ taskId: 2, ok: true, diagnostics: createDiagnostics(2) });
+
+    await expect(Promise.all(results)).resolves.toEqual([10, 11].map(createDiagnostics));
+    expect(pool.status()).toBe('fallback');
   });
 
   it('falls back queued work when terminated before completion', async () => {
