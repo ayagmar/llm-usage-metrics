@@ -26,7 +26,8 @@ Options:
   --pricing-url <url>            Override LiteLLM pricing source URL
   --pricing-overrides <path>     Path to a JSON file of per-model pricing overrides (takes
                                  precedence over LiteLLM)
-  --pricing-offline              Use cached LiteLLM pricing only (no network fetch)
+  --pricing-offline              Never fetch pricing: use the cached LiteLLM pricing, or the bundled
+                                 snapshot when there is no cache
   --ignore-pricing-failures      Continue without estimated costs when pricing cannot be loaded
   --cost-mode <mode>             Costs to report: explicit (logged by the source), estimated (from
                                  LiteLLM), or both (logged, else estimated; default) (choices:
@@ -44,6 +45,7 @@ Options:
   --repo-dir <path>              Path to repository for Git outcome metrics
   --include-merge-commits        Include merge commits in Git outcome metrics
   --by-source                    Include per-source usage rows under each period
+  --all                          Report the full history (the default without date flags)
   --repo <project>               Count only these projects (repeatable or comma-separated, so a
                                  value cannot contain a comma). A path (absolute, or ./, ../, ~/ on
                                  this machine) matches that project directory and the projects under
