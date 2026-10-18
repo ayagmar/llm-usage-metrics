@@ -1648,6 +1648,34 @@ describe('event-store', () => {
     closeEventStore(store);
   });
 
+  it('checkpoints a run’s writes when it closes the store while another connection has it open', async () => {
+    const store = await createTempStore('event-store-close-checkpoint-');
+    const reader = await openTestDatabase(store.filePath);
+
+    try {
+      // An open connection keeps the closing one from checkpointing as the last connection.
+      reader.prepare('SELECT COUNT(*) AS count FROM files').get();
+      replaceFilesEvents(
+        store,
+        Array.from({ length: 50 }, (_, index) => ({
+          source: 'codex',
+          filePath: `/tmp/${String(index)}.jsonl`,
+          fingerprint: createFingerprint(),
+          events: Array.from({ length: 20 }, () => createEvent()),
+          skippedRows: 0,
+          now: 1_000,
+        })),
+      );
+      const sizeBeforeClose = (await stat(store.filePath)).size;
+      closeEventStore(store);
+
+      // The rows reached the database file, not only the WAL.
+      expect((await stat(store.filePath)).size).toBeGreaterThan(sizeBeforeClose + 50_000);
+    } finally {
+      reader.close();
+    }
+  });
+
   it('writes several files in one transaction', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'event-store-batch-transaction-'));
     tempDirs.push(tempDir);
