@@ -28,16 +28,22 @@ export function stripTrailingSeparators(value: string): string {
 
 /** The directory above the first `node_modules` segment, or `value` without one. */
 function stripDependencyPath(value: string): string {
-  for (const separator of ['/', '\\']) {
-    const index = value.indexOf(`${separator}node_modules`);
-    const end = index + separator.length + 'node_modules'.length;
+  let cut = value.length;
 
-    if (index > 0 && (end === value.length || isSeparator(value[end]))) {
-      return value.slice(0, index);
+  for (const separator of ['/', '\\']) {
+    const needle = `${separator}node_modules`;
+
+    for (let index = value.indexOf(needle); index > 0; index = value.indexOf(needle, index + 1)) {
+      const end = index + needle.length;
+
+      if (end === value.length || isSeparator(value[end])) {
+        cut = Math.min(cut, index);
+        break;
+      }
     }
   }
 
-  return value;
+  return value.slice(0, cut);
 }
 
 /**
