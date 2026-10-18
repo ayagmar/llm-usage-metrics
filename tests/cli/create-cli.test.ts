@@ -1001,28 +1001,20 @@ describe('createCli', () => {
   // `daily --all` works, so `monthly --all` and the rest must too.
   it('offers --all on every report that reads usage', () => {
     const cli = createCli();
-    const commandsWithAll = cli.commands
-      .filter((command) => command.options.some((option) => option.long === '--all'))
-      .map((command) => command.name());
+    const hasOption = (command: Command, long: string) =>
+      command.options.some((option) => option.long === long);
+    // A command reads usage when it takes --no-history. statusline is a status bar line
+    // with a fixed window, not a report.
+    const usageReports = getReportDefinitionMetas()
+      .map((meta) => cli.commands.find((command) => command.name() === meta.commandName))
+      .filter((command): command is Command => command !== undefined)
+      .filter((command) => hasOption(command, '--no-history'))
+      .filter((command) => command.name() !== 'statusline');
 
-    expect(commandsWithAll).toEqual([
-      'summary',
-      'hourly',
-      'daily',
-      'weekly',
-      'monthly',
-      'projects',
-      'compare',
-      'efficiency',
-      'optimize',
-      'trends',
-      'session',
-      'tools',
-      'context',
-      'blocks',
-      'value',
-      'events',
-    ]);
+    expect(usageReports.map((command) => command.name())).toContain('wrapped');
+    expect(
+      usageReports.filter((command) => !hasOption(command, '--all')).map((c) => c.name()),
+    ).toEqual([]);
   });
 
   it('rejects --quiet together with --verbose', async () => {

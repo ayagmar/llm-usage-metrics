@@ -732,6 +732,7 @@ const wrappedReportDefinition: ReportRuntimeDefinition = {
   register(command) {
     command
       .option('--year <YYYY>', 'Year to recap (2020-2100; defaults to current local year)')
+      .option('--all', 'No effect: wrapped always recaps one year, chosen with --year')
       .action((options: WrappedCommandOptions) => runWrappedReport(options));
 
     return command;

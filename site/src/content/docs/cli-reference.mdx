@@ -1713,6 +1713,8 @@ Options:
                                  machines machine-N
   --year <YYYY>                  Year to recap (2020-2100; defaults to current
                                  local year)
+  --all                          No effect: wrapped always recaps one year,
+                                 chosen with --year
   -h, --help                     display help for command
 ```
 
@@ -2251,7 +2253,7 @@ Search across root and command help. See Command help above to check which flags
 
 | Option | Short | Argument | Description |
 | --- | --- | --- | --- |
-| `--all` | - | - | summary: No effect: the summary always covers today, the last 7 days and month to date; hourly: Report every hour instead of today; daily, context: Report every day instead of the last 7 days; weekly: Report every week instead of the last 8 weeks; monthly, projects, efficiency, optimize, session, events: Report the full history \(the default without date flags\); compare: No effect: compare reads its two windows from the date flags; trends: Chart every day since the first usage instead of the last 30 days; tools: Report every tool call on disk instead of the last 7 days; blocks: Report every block instead of the last 7 days; value: Report every month since the first usage \(the default without date flags\) |
+| `--all` | - | - | summary: No effect: the summary always covers today, the last 7 days and month to date; hourly: Report every hour instead of today; daily, context: Report every day instead of the last 7 days; weekly: Report every week instead of the last 8 weeks; monthly, projects, efficiency, optimize, session, events: Report the full history \(the default without date flags\); compare: No effect: compare reads its two windows from the date flags; trends: Chart every day since the first usage instead of the last 30 days; tools: Report every tool call on disk instead of the last 7 days; blocks: Report every block instead of the last 7 days; value: Report every month since the first usage \(the default without date flags\); wrapped: No effect: wrapped always recaps one year, chosen with --year |
 | `--amp-dir` | - | `<path>` | Path to Amp threads directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
 | `--antigravity-dir` | - | `<path>` | Path to Antigravity conversations directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
 | `--apply` | - | - | Delete selected departed files and vacuum the event store \(prune only\) |
