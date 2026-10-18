@@ -113,7 +113,7 @@ describe('formatMachinesNote', () => {
     [
       'records no parser versions',
       undefined,
-      'shared sessions may count twice until it is synced after updating llm-usage',
+      'shared sessions are matched by timestamp until it is synced after updating llm-usage',
     ],
     [
       'records its parser versions',

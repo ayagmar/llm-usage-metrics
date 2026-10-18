@@ -132,24 +132,24 @@ describe('machine bundle from an older parser version', () => {
     ]);
   });
 
-  it('keeps the hash merge, with a note, for an export that records no parser versions', async () => {
+  it('matches by timestamp, with a note, for an export that records no parser versions', async () => {
     // A sync that recorded versions first, so the older export must clear them.
     await syncAndReport(() => bundleText);
     const usageData = await syncAndReport(() =>
       bundleText.replace(',"parserVersions":{"codex":"n2.p1"}', ''),
     );
-    const machines = usageData.events.map((event) => event.machine ?? 'local');
 
-    // The bundle's events hash differently (cache reads folded into input), so without
-    // versions to compare the merge keeps both copies of each request.
-    expect(usageData.events).toHaveLength(4);
-    expect(machines.sort()).toEqual(['laptop', 'laptop', 'local', 'local']);
-    expect(usageData.events.every((event) => event.sessionId === 'codex-e2e-session')).toBe(true);
+    // The bundle's events hash differently (cache reads folded into input); with no
+    // version to compare, its parser may differ, so the copies counted here win.
+    expect(usageData.events).toHaveLength(2);
+    expect(usageData.events.map((event) => event.machine ?? 'local')).toEqual(['local', 'local']);
     expect(usageData.diagnostics.notes).toContain(
       'sync laptop after updating llm-usage on it to record its parser versions',
     );
-    expect(usageData.diagnostics.warnings ?? []).not.toEqual(
-      expect.arrayContaining([expect.stringContaining('parser versions')]),
+    expect(usageData.diagnostics.warnings).toContainEqual(
+      expect.stringMatching(
+        /^laptop parses with other parser versions \(codex unrecorded there, n\d+\.p\d+ on this machine\): left out 2 events /,
+      ),
     );
   });
 

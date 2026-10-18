@@ -136,12 +136,12 @@ function describeIncludedMachine(
   const details = [`synced ${formatAge(now - state.syncedAt)}`];
 
   // Parsers change between versions, so a session copied to both machines may not match
-  // exactly. With the machine's parser versions recorded, the merge detects that.
+  // exactly. The merge matches them by timestamp when the versions differ or are unrecorded.
   if (state.cliVersion && state.cliVersion !== localVersion) {
     details.push(
       state.parserVersions
         ? `llm-usage-metrics ${state.cliVersion} there; sessions it parses with other parser versions are matched by timestamp`
-        : `llm-usage-metrics ${state.cliVersion} there; shared sessions may count twice until it is synced after updating llm-usage`,
+        : `llm-usage-metrics ${state.cliVersion} there; shared sessions are matched by timestamp until it is synced after updating llm-usage`,
     );
   }
 
