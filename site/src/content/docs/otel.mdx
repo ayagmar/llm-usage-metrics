@@ -3,7 +3,7 @@ title: OpenTelemetry Export
 description: Export sessions as OTLP/JSON traces and daily token and cost metrics that follow the OpenTelemetry GenAI conventions, and replay them into any OTLP backend.
 ---
 
-`llm-usage events --format otlp-traces` turns your session history into OpenTelemetry traces: one trace per session, written to `stdout` as OTLP/JSON Lines. `--format otlp-metrics` writes daily token and cost counters instead ([Metrics](#metrics)). The output is the [OTLP file format](https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/protocol/file-exporter.md), so an OpenTelemetry Collector can read the file and send it to Jaeger, Tempo, Honeycomb or any other backend that takes OTLP. Nothing is sent over the network.
+`llm-usage events --format otlp-traces` turns your session history into OpenTelemetry traces: one trace per session, written to `stdout` as OTLP/JSON Lines. `--format otlp-metrics` writes daily token and cost counters instead ([Metrics](#metrics)). The output is the [OTLP file format](https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/protocol/file-exporter.md), so an OpenTelemetry Collector can read the file and send it to Jaeger, Tempo, Honeycomb or any other backend that takes OTLP. Nothing is sent over the network unless you pass `--otlp-endpoint` ([Push to a receiver](#push-to-a-receiver)).
 
 ```bash
 llm-usage events --format otlp-traces --since 2026-06-01 > traces.jsonl
@@ -154,3 +154,24 @@ otelcol-contrib --config collector.yaml
 ```
 
 Trace backends generally accept spans with old timestamps, but some only make them searchable within a retention or block window. Check your backend's limits before backfilling months of history. If an agent also sends its own live telemetry to the same backend, the same request can show up twice: pick one source per request.
+
+## Push to a receiver
+
+`--otlp-endpoint <url>` sends the export to an OTLP/HTTP receiver instead of printing it: a Collector, Jaeger, or a backend that takes OTLP over HTTP with JSON bodies.
+
+```bash
+llm-usage events --format otlp-traces --since 2026-06-01 --otlp-endpoint http://127.0.0.1:4318
+```
+
+- The URL is the receiver's base: `/v1/traces` or `/v1/metrics` is appended, as with `OTEL_EXPORTER_OTLP_ENDPOINT`. It must start with `http:` or `https:` and must not hold a user name or password.
+- The request bodies hold the same resources the file export holds, in the same order. Whole lines are grouped into requests of up to 4 MiB; a single line larger than that goes alone.
+- Each request waits 10 seconds for an answer. A `429` or `503` with `Retry-After` is retried once, after that delay, if it is at most 60 seconds. Any other failure stops the push and exits with status 1; the error names the HTTP status, the receiver's message, and how many batches went through before it.
+- `stdout` stays empty. `stderr` gets one line with the spans or points sent, the number of requests, and any items the receiver reported as rejected in a partial success.
+- Headers come from `OTEL_EXPORTER_OTLP_HEADERS` in the OpenTelemetry format, `key=value` pairs separated by commas with percent-encoded values. They are never taken from the command line and never printed.
+
+```bash
+export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer%20<token>"
+llm-usage events --format otlp-metrics --otlp-endpoint https://otlp.example.com
+```
+
+The [Old timestamps](#old-timestamps) limits apply to a push the same way.
