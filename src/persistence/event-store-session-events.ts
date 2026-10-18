@@ -129,6 +129,17 @@ export function writeFileSessionEvents(
   });
 }
 
+/**
+ * SQL for the tool call and message count of the `session_event_files` row aliased `alias`;
+ * the one definition both the delete counts and the history counts use.
+ */
+export function sessionEventCountSql(alias: string): string {
+  return [
+    `(SELECT COUNT(*) FROM tool_calls WHERE file_id = ${alias}.id)`,
+    `+ (SELECT COUNT(*) FROM messages WHERE file_id = ${alias}.id)`,
+  ].join(' ');
+}
+
 /** How many tool calls and messages the store holds for the file. */
 export function countFileSessionEvents(
   database: EventStoreDatabase,
@@ -138,8 +149,7 @@ export function countFileSessionEvents(
   const row = database
     .prepare(
       [
-        'SELECT (SELECT COUNT(*) FROM tool_calls WHERE file_id = file.id)',
-        '  + (SELECT COUNT(*) FROM messages WHERE file_id = file.id) AS count',
+        `SELECT ${sessionEventCountSql('file')} AS count`,
         'FROM session_event_files AS file',
         'WHERE file.source = ? AND file.file_path = ?',
       ].join('\n'),
