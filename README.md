@@ -256,7 +256,7 @@ Report data goes to `stdout`. Diagnostics go to `stderr` as one summary line plu
   <img src="https://raw.githubusercontent.com/ayagmar/llm-usage-metrics/master/site/src/assets/screenshots/share-daily-light.webp" alt="The interactive report from llm-usage daily --share: period, grouping, source, model and project filters, totals for tokens, cost, events and active time, and a daily cost chart stacked by source">
 </picture>
 
-Terminal, JSON, and Markdown availability varies by report. Summary, usage, compare, trends, wrapped, efficiency, and optimize can write a share report with `--share`: one self-contained HTML file with charts, filters, sortable tables, and a drill-down from projects to sessions, that exports each chart as PNG or SVG in your browser and loads nothing from the network. `--redact` replaces project and machine names in the file, and `--share --no-open` writes it without opening it. The [output guide](https://ayagmar.github.io/llm-usage-metrics/output-formats/) contains the format matrix and file names.
+Terminal, JSON, and Markdown availability varies by report. Summary, usage, compare, trends, wrapped, efficiency, and optimize can write a share report with `--share`: one self-contained HTML file with charts, filters, sortable tables, and a drill-down from projects to sessions, that exports each chart as PNG or SVG in your browser and loads nothing from the network. `--redact` replaces project, machine and local model names in the file, and `--share --no-open` writes it without opening it. The [output guide](https://ayagmar.github.io/llm-usage-metrics/output-formats/) contains the format matrix and file names.
 
 ## Library
 

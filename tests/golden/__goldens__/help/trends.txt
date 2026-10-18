@@ -38,7 +38,8 @@ Options:
   --markdown                     Render output as markdown table
   --share                        Write an interactive HTML report to the current directory
   --no-open                      With --share, write the report without opening it
-  --redact                       With --share, label projects project-N and machines machine-N
+  --redact                       With --share, label projects project-N, machines machine-N and
+                                 local or path-shaped models model-N
   --last <n>                     Chart the last N local calendar days, counting today; defaults to
                                  30 when no date flags are provided
   --all                          Chart every day since the first usage instead of the last 30 days

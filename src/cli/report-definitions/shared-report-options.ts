@@ -552,7 +552,10 @@ export function registerSharedReportOptions(
     configuredCommand
       .option('--share', 'Write an interactive HTML report to the current directory')
       .option('--no-open', 'With --share, write the report without opening it')
-      .option('--redact', 'With --share, label projects project-N and machines machine-N');
+      .option(
+        '--redact',
+        'With --share, label projects project-N, machines machine-N and local or path-shaped models model-N',
+      );
   }
 
   return configuredCommand;

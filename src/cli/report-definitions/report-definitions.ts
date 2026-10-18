@@ -835,11 +835,11 @@ const eventsReportDefinition: ReportRuntimeDefinition = {
       .option('--format <name>', 'Export format: jsonl | csv | otlp-traces | otlp-metrics', 'jsonl')
       .option(
         '--otel-include-paths',
-        'With otlp-traces: add repository paths to spans (left out by default)',
+        'With otlp-traces: add repository paths and path-shaped session ids to spans (left out or hashed by default)',
       )
       .option(
         '--otlp-endpoint <url>',
-        'With an OTLP format: POST to <url>/v1/traces or /v1/metrics instead of printing; headers from OTEL_EXPORTER_OTLP_HEADERS',
+        'With an OTLP format: POST to <url>/v1/traces or /v1/metrics (unless <url> already ends with it) instead of printing; headers from OTEL_EXPORTER_OTLP_HEADERS',
       );
     addFullHistoryOption(command);
     addRepoFilterOption(command).action((options: EventsCommandOptions) =>

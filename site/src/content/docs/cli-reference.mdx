@@ -127,8 +127,9 @@ Options:
                                  directory
   --no-open                      With --share, write the report without opening
                                  it
-  --redact                       With --share, label projects project-N and
-                                 machines machine-N
+  --redact                       With --share, label projects project-N,
+                                 machines machine-N and local or path-shaped
+                                 models model-N
   --all                          No effect: the summary always covers today, the
                                  last 7 days and month to date
   --repo <project>               Count only these projects (repeatable or
@@ -334,8 +335,9 @@ Options:
                                  directory
   --no-open                      With --share, write the report without opening
                                  it
-  --redact                       With --share, label projects project-N and
-                                 machines machine-N
+  --redact                       With --share, label projects project-N,
+                                 machines machine-N and local or path-shaped
+                                 models model-N
   --all                          Report every day instead of the last 7 days
   --last <n>                     Report the last N days, counting the current
                                  day
@@ -446,8 +448,9 @@ Options:
                                  directory
   --no-open                      With --share, write the report without opening
                                  it
-  --redact                       With --share, label projects project-N and
-                                 machines machine-N
+  --redact                       With --share, label projects project-N,
+                                 machines machine-N and local or path-shaped
+                                 models model-N
   --all                          Report every week instead of the last 8 weeks
   --last <n>                     Report the last N weeks, counting the current
                                  week
@@ -557,8 +560,9 @@ Options:
                                  directory
   --no-open                      With --share, write the report without opening
                                  it
-  --redact                       With --share, label projects project-N and
-                                 machines machine-N
+  --redact                       With --share, label projects project-N,
+                                 machines machine-N and local or path-shaped
+                                 models model-N
   --all                          Report the full history (the default without
                                  date flags)
   --last <n>                     Report the last N months, counting the current
@@ -773,8 +777,9 @@ Options:
                                  directory
   --no-open                      With --share, write the report without opening
                                  it
-  --redact                       With --share, label projects project-N and
-                                 machines machine-N
+  --redact                       With --share, label projects project-N,
+                                 machines machine-N and local or path-shaped
+                                 models model-N
   --vs-since <date>              Inclusive start date for the baseline
                                  comparison window
   --vs-until <date>              Inclusive end date for the baseline comparison
@@ -883,8 +888,9 @@ Options:
                                  directory
   --no-open                      With --share, write the report without opening
                                  it
-  --redact                       With --share, label projects project-N and
-                                 machines machine-N
+  --redact                       With --share, label projects project-N,
+                                 machines machine-N and local or path-shaped
+                                 models model-N
   --repo-dir <path>              Path to repository for Git outcome metrics
   --include-merge-commits        Include merge commits in Git outcome metrics
   --by-source                    Include per-source usage rows under each period
@@ -992,8 +998,9 @@ Options:
                                  directory
   --no-open                      With --share, write the report without opening
                                  it
-  --redact                       With --share, label projects project-N and
-                                 machines machine-N
+  --redact                       With --share, label projects project-N,
+                                 machines machine-N and local or path-shaped
+                                 models model-N
   --candidate-model <name>       Candidate model for counterfactual pricing
                                  (repeatable or comma-separated)
   --top <n>                      Show only the top N cheapest candidates
@@ -1096,8 +1103,9 @@ Options:
                                  directory
   --no-open                      With --share, write the report without opening
                                  it
-  --redact                       With --share, label projects project-N and
-                                 machines machine-N
+  --redact                       With --share, label projects project-N,
+                                 machines machine-N and local or path-shaped
+                                 models model-N
   --last <n>                     Chart the last N local calendar days, counting
                                  today; defaults to 30 when no date flags are
                                  provided
@@ -1709,8 +1717,9 @@ Options:
                                  directory
   --no-open                      With --share, write the report without opening
                                  it
-  --redact                       With --share, label projects project-N and
-                                 machines machine-N
+  --redact                       With --share, label projects project-N,
+                                 machines machine-N and local or path-shaped
+                                 models model-N
   --year <YYYY>                  Year to recap (2020-2100; defaults to current
                                  local year)
   --all                          No effect: wrapped always recaps one year,
@@ -1797,10 +1806,12 @@ Options:
                                  refreshing it over ssh
   --format <name>                Export format: jsonl | csv | otlp-traces |
                                  otlp-metrics (default: "jsonl")
-  --otel-include-paths           With otlp-traces: add repository paths to spans
-                                 (left out by default)
+  --otel-include-paths           With otlp-traces: add repository paths and
+                                 path-shaped session ids to spans (left out or
+                                 hashed by default)
   --otlp-endpoint <url>          With an OTLP format: POST to <url>/v1/traces or
-                                 /v1/metrics instead of printing; headers from
+                                 /v1/metrics (unless <url> already ends with it)
+                                 instead of printing; headers from
                                  OTEL_EXPORTER_OTLP_HEADERS
   --all                          Report the full history (the default without
                                  date flags)
@@ -2300,8 +2311,8 @@ Search across root and command help. See Command help above to check which flags
 | `--no-sync` | - | - | Use other machines' cached usage without refreshing it over ssh \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events only\) |
 | `--openclaw-dir` | - | `<path>` | Path to OpenClaw agents directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
 | `--opencode-db` | - | `<path>` | Path to OpenCode SQLite DB \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
-| `--otel-include-paths` | - | - | With otlp-traces: add repository paths to spans \(left out by default\) \(events only\) |
-| `--otlp-endpoint` | - | `<url>` | With an OTLP format: POST to &lt;url&gt;/v1/traces or /v1/metrics instead of printing; headers from OTEL\_EXPORTER\_OTLP\_HEADERS \(events only\) |
+| `--otel-include-paths` | - | - | With otlp-traces: add repository paths and path-shaped session ids to spans \(left out or hashed by default\) \(events only\) |
+| `--otlp-endpoint` | - | `<url>` | With an OTLP format: POST to &lt;url&gt;/v1/traces or /v1/metrics \(unless &lt;url&gt; already ends with it\) instead of printing; headers from OTEL\_EXPORTER\_OTLP\_HEADERS \(events only\) |
 | `--per-model-columns` | - | - | Render per-model metrics as multiline aligned table columns \(terminal/Markdown\) \(usage reports only\) |
 | `--pi-dir` | - | `<path>` | Path to .pi sessions directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
 | `--plan` | - | `<id>` | Plan to compare with, over the sources it covers \(repeatable; default claude-max-20x, or chatgpt-pro-200 when the source filter leaves out claude\). Two plans that cover the same source each count its full cost \(choices: "claude-pro", "claude-max-5x", "claude-max-20x", "chatgpt-go", "chatgpt-plus", "chatgpt-pro-100", "chatgpt-pro-200", "chatgpt-pro-500"\) \(value only\) |
@@ -2312,7 +2323,7 @@ Search across root and command help. See Command help above to check which flags
 | `--provider` | - | `<name>` | Billing-provider filter \(normalized to billing entity; e.g. openai, anthropic, google, moonshot\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, context, blocks, value, wrapped, events, statusline only\) |
 | `--quiet` | - | - | Suppress informational stderr output \(warnings still print\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, pricing, doctor, prune, machine only\) |
 | `--qwen-dir` | - | `<path>` | Path to Qwen projects directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |
-| `--redact` | - | - | With --share, label projects project-N and machines machine-N \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, wrapped only\) |
+| `--redact` | - | - | With --share, label projects project-N, machines machine-N and local or path-shaped models model-N \(summary, daily, weekly, monthly, compare, efficiency, optimize, trends, wrapped only\) |
 | `--repo` | - | `<project>` | summary, hourly, daily, weekly, monthly, projects, compare, optimize, trends, session, context, blocks, value, events: Count only these projects \(repeatable or comma-separated, so a value cannot contain a comma\). A path \(absolute, or ./, ../, \~/ on this machine\) matches that project directory and the projects under it; a name or path tail such as work/api matches the end of a project directory, not the projects under it; \(unattributed\) matches usage without a recorded directory. Applied after --model picks exact or substring matching; efficiency: Count only these projects \(repeatable or comma-separated, so a value cannot contain a comma\). A path \(absolute, or ./, ../, \~/ on this machine\) matches that project directory and the projects under it; a name or path tail such as work/api matches the end of a project directory, not the projects under it; \(unattributed\) matches usage without a recorded directory. Applied after --model picks exact or substring matching. It filters usage events; --repo-dir picks the Git repository for outcomes; tools: Count only these projects \(repeatable or comma-separated, so a value cannot contain a comma\). A path \(absolute, or ./, ../, \~/ on this machine\) matches that project directory and the projects under it; a name or path tail such as work/api matches the end of a project directory, not the projects under it; \(unattributed\) matches usage without a recorded directory. Keeps the tool calls of sessions whose usage is in these projects |
 | `--repo-dir` | - | `<path>` | Path to repository for Git outcome metrics \(efficiency only\) |
 | `--roocode-dir` | - | `<path>` | Path to RooCode tasks directory \(repeatable\) \(summary, hourly, daily, weekly, monthly, projects, compare, efficiency, optimize, trends, session, tools, context, blocks, value, wrapped, events, statusline, doctor, prune, config only\) |

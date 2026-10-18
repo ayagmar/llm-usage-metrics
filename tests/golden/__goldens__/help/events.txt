@@ -36,10 +36,11 @@ Options:
   --no-sync                      Use other machines' cached usage without refreshing it over ssh
   --format <name>                Export format: jsonl | csv | otlp-traces | otlp-metrics (default:
                                  "jsonl")
-  --otel-include-paths           With otlp-traces: add repository paths to spans (left out by
-                                 default)
-  --otlp-endpoint <url>          With an OTLP format: POST to <url>/v1/traces or /v1/metrics instead
-                                 of printing; headers from OTEL_EXPORTER_OTLP_HEADERS
+  --otel-include-paths           With otlp-traces: add repository paths and path-shaped session ids
+                                 to spans (left out or hashed by default)
+  --otlp-endpoint <url>          With an OTLP format: POST to <url>/v1/traces or /v1/metrics (unless
+                                 <url> already ends with it) instead of printing; headers from
+                                 OTEL_EXPORTER_OTLP_HEADERS
   --all                          Report the full history (the default without date flags)
   --repo <project>               Count only these projects (repeatable or comma-separated, so a
                                  value cannot contain a comma). A path (absolute, or ./, ../, ~/ on
