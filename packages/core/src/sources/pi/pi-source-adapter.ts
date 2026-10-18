@@ -18,9 +18,9 @@ import {
   readJsonlFromStatefulCursor,
   ResumeConflict,
   type ReadResume,
-  type StatefulJsonlPass,
+  type ResumablePass,
 } from '../../stream/cursor.js';
-import { isOptionalString } from '../../stream/cursor-state.js';
+import { getReadPlanKey } from '../../stream/cursor-state.js';
 import { asRecord } from '../../utils/as-record.js';
 import { discoverJsonlFiles } from '../../utils/discover-jsonl-files.js';
 import { pathExists } from '../../utils/fs-helpers.js';
@@ -28,7 +28,6 @@ import { readFirstLine } from '../../utils/read-first-line.js';
 import {
   readClassifiedJsonlObjectBatches,
   readJsonlObjectBatches,
-  type JsonlReadPosition,
 } from '../../utils/read-jsonl-objects.js';
 import {
   discoverFilesAcrossRoots,
@@ -54,6 +53,9 @@ import {
   TimestampCarry,
   TOOL_CALL_REASONS,
   ToolCallPairing,
+  finishResumableSessionEvents,
+  toPendingToolCall,
+  type PendingToolCall,
 } from '../session-event-helpers.js';
 import type {
   ReadEventsOptions,
@@ -300,63 +302,14 @@ type PiEventRequest = {
 
 /** The read's options as a cursor state records them; `read` has no request. */
 function getPiReadPlanKey(request: PiEventRequest | undefined): string {
-  return request ? JSON.stringify([[...request.kinds].sort(), request.text, request.raw]) : 'read';
+  return request ? getReadPlanKey(request.kinds, request.text, request.raw) : 'read';
 }
-
-/** A read under a cursor: where it starts, and the state it resumes from. */
-type PiResumablePass = {
-  position: JsonlReadPosition;
-  from?: PiCursorState;
-  /** Receives the state to resume from next, or undefined when the next read restarts. */
-  end: (state: PiCursorState | undefined) => void;
-};
 
 function hasNonUsageKind(kinds: ReadonlySet<EventKind>): boolean {
   return kinds.size > (kinds.has('usage') ? 1 : 0);
 }
 
 const PI_TEXT_BLOCK_TYPES: ReadonlySet<string> = new Set(['text']);
-
-type PiPendingToolCall = {
-  sessionId: string;
-  timestamp: string;
-  toolCallId: string;
-  name: string;
-  messageId?: string;
-  /** The call's record, only when the read asked for `raw`. */
-  line?: Record<string, unknown>;
-};
-
-function toPendingToolCall(
-  value: unknown,
-): { callId: string; call: PiPendingToolCall } | undefined {
-  const call = asRecord(value);
-  const line = asRecord(call?.line);
-
-  if (
-    !call ||
-    typeof call.sessionId !== 'string' ||
-    typeof call.timestamp !== 'string' ||
-    typeof call.toolCallId !== 'string' ||
-    typeof call.name !== 'string' ||
-    !isOptionalString(call.messageId) ||
-    (call.line !== undefined && !line)
-  ) {
-    return undefined;
-  }
-
-  return {
-    callId: call.toolCallId,
-    call: {
-      sessionId: call.sessionId,
-      timestamp: call.timestamp,
-      toolCallId: call.toolCallId,
-      name: call.name,
-      messageId: call.messageId,
-      line,
-    },
-  };
-}
 
 type PiToolResult = {
   status: ToolCallStatus;
@@ -379,7 +332,7 @@ function toToolCallStatus(isError: unknown): ToolCallStatus {
  */
 class PiSessionEvents {
   private readonly kinds: ReadonlySet<EventKind>;
-  private readonly pairing: ToolCallPairing<PiPendingToolCall>;
+  private readonly pairing: ToolCallPairing<PendingToolCall>;
   private readonly carry = new TimestampCarry<Record<string, unknown>>();
   // A fork of an uncounted parent states the parent's facts under the parent's id and its
   // own under its id.
@@ -615,7 +568,7 @@ class PiSessionEvents {
         toolCallId,
         name,
         messageId,
-        line: this.request.raw ? line : undefined,
+        raw: this.request.raw ? line : undefined,
       });
     }
   }
@@ -644,7 +597,7 @@ class PiSessionEvents {
       : undefined;
   }
 
-  private createToolCall(call: PiPendingToolCall, result?: PiToolResult): SessionEvent | undefined {
+  private createToolCall(call: PendingToolCall, result?: PiToolResult): SessionEvent | undefined {
     return createKindEvent(this.diagnostics, this.kinds, 'tool_call', () =>
       createToolCallEvent({
         source: this.source,
@@ -657,7 +610,7 @@ class PiSessionEvents {
         durationMs: result?.durationMs,
         messageId: call.messageId,
         raw: this.request.raw
-          ? { call: call.line, ...(result && { result: result.line }) }
+          ? { call: call.raw, ...(result && { result: result.line }) }
           : undefined,
       }),
     );
@@ -803,35 +756,10 @@ export class PiSourceAdapter implements SourceAdapter {
     resume: ReadResume,
   ): AsyncGenerator<UsageEvent | SessionEvent> {
     const planKey = getPiReadPlanKey(request);
-    const pass = (
-      position: JsonlReadPosition,
-      passDiagnostics: SourceReadDiagnostics,
-      from?: PiCursorState,
-    ): StatefulJsonlPass<UsageEvent | SessionEvent> => {
-      let endState: PiCursorState | undefined;
-      const events = this.parse(filePath, passDiagnostics, request, {
-        position,
-        from,
-        end: (state) => {
-          endState = state;
-        },
-      });
-
-      return { events, state: () => endState };
-    };
 
     return readJsonlFromStatefulCursor(this, filePath, resume, diagnostics, {
-      start: (position, passDiagnostics) => pass(position, passDiagnostics),
-      restore: (value) => {
-        const from = parsePiCursorState(value, planKey);
-
-        return from
-          ? {
-              replaced: from.replaced,
-              resume: (position, passDiagnostics) => pass(position, passDiagnostics, from),
-            }
-          : undefined;
-      },
+      parseState: (value) => parsePiCursorState(value, planKey),
+      parse: (pass, passDiagnostics) => this.parse(filePath, passDiagnostics, request, pass),
     });
   }
 
@@ -850,13 +778,13 @@ export class PiSourceAdapter implements SourceAdapter {
     filePath: string,
     diagnostics: SourceReadDiagnostics,
     request: PiEventRequest | undefined,
-    resumable: PiResumablePass,
+    resumable: ResumablePass<PiCursorState>,
   ): AsyncGenerator<UsageEvent | SessionEvent>;
   private async *parse(
     filePath: string,
     diagnostics: SourceReadDiagnostics,
     request?: PiEventRequest,
-    resumable?: PiResumablePass,
+    resumable?: ResumablePass<PiCursorState>,
   ): AsyncGenerator<UsageEvent | SessionEvent> {
     if (request?.kinds.size === 0) {
       return;
@@ -944,26 +872,14 @@ export class PiSourceAdapter implements SourceAdapter {
       }
     }
 
-    // Taken before `finish`, which yields the calls still waiting and then forgets them.
-    const eventsState = resumable ? events.toState() : undefined;
-    const skippedBeforeFinish = diagnostics.skippedRows;
-    let unansweredCalls = 0;
-
-    for (const event of events.finish()) {
-      unansweredCalls += 1;
-      yield event;
-    }
-
-    // A record counted at the end would be counted again by the next read.
+    const end = yield* finishResumableSessionEvents(events, diagnostics, resumable !== undefined);
     resumable?.end(
-      eventsState && diagnostics.skippedRows === skippedBeforeFinish
-        ? {
-            plan: getPiReadPlanKey(request),
-            replaced: unansweredCalls > 0 ? { tool_call: unansweredCalls } : {},
-            session: state,
-            events: eventsState,
-          }
-        : undefined,
+      end && {
+        plan: getPiReadPlanKey(request),
+        replaced: end.replaced,
+        session: state,
+        events: end.state,
+      },
     );
   }
 

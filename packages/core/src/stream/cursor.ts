@@ -259,35 +259,51 @@ export class ResumeConflict extends Error {
   }
 }
 
-/** One pass of a stateful read over a file, from byte 0 or from a cursor. */
-export type StatefulJsonlPass<T> = {
-  events: AsyncIterable<T>;
+/** One pass of a stateful adapter's parse, from byte 0 or from a cursor's state. */
+export type ResumablePass<State> = {
+  position: JsonlReadPosition;
+  /** The state to resume from; unset for a pass from byte 0. */
+  from?: State;
   /**
-   * Once `events` is done: the state to store in the next cursor, or undefined when the
-   * next read cannot resume from where this one ended and must restart.
+   * Called once the pass is done, with the state to store in the next cursor, or
+   * undefined when the next read cannot resume from where this one ended and must restart.
    */
-  state(): unknown;
+  end: (state: State | undefined) => void;
 };
 
 /** How a stateful adapter starts and resumes a read. */
-export type StatefulJsonlReader<T> = {
-  /** A pass from byte 0 that records skipped rows in `diagnostics`. */
-  start(position: JsonlReadPosition, diagnostics: SourceReadDiagnostics): StatefulJsonlPass<T>;
+export type StatefulJsonlReader<T, State extends { replaced: ReplacedEventCounts }> = {
   /**
-   * Checks a cursor's state. Undefined restarts the read. Otherwise `replaced` is what the
-   * resumed pass replaces of the previous read's events, and `resume` starts that pass
-   * from the state. The pass may throw `ResumeConflict`.
+   * Checks a cursor's state; undefined restarts the read. `replaced` is what the resumed
+   * pass replaces of the previous read's events.
    */
-  restore(state: unknown):
-    | {
-        replaced: ReplacedEventCounts;
-        resume: (
-          position: JsonlReadPosition,
-          diagnostics: SourceReadDiagnostics,
-        ) => StatefulJsonlPass<T>;
-      }
-    | undefined;
+  parseState(value: unknown): State | undefined;
+  /** A pass that records skipped rows in `diagnostics`. A resumed pass may throw `ResumeConflict`. */
+  parse(pass: ResumablePass<State>, diagnostics: SourceReadDiagnostics): AsyncIterable<T>;
 };
+
+type StatefulJsonlPass<T> = { events: AsyncIterable<T>; state: () => unknown };
+
+function startPass<T, State extends { replaced: ReplacedEventCounts }>(
+  reader: StatefulJsonlReader<T, State>,
+  position: JsonlReadPosition,
+  diagnostics: SourceReadDiagnostics,
+  from?: State,
+): StatefulJsonlPass<T> {
+  let endState: State | undefined;
+  const events = reader.parse(
+    {
+      position,
+      from,
+      end: (state) => {
+        endState = state;
+      },
+    },
+    diagnostics,
+  );
+
+  return { events, state: () => endState };
+}
 
 /**
  * `readJsonlFromCursor` for an adapter whose events depend on earlier lines. The cursor
@@ -295,29 +311,32 @@ export type StatefulJsonlReader<T> = {
  * or counted, so a pass that throws `ResumeConflict` leaves no trace and the read
  * restarts from byte 0, as it does for an invalid cursor or state.
  */
-export async function* readJsonlFromStatefulCursor<T>(
+export async function* readJsonlFromStatefulCursor<
+  T,
+  State extends { replaced: ReplacedEventCounts },
+>(
   adapter: Pick<SourceAdapter, 'id' | 'parserVersion'>,
   filePath: string,
   resume: ReadResume,
   diagnostics: SourceReadDiagnostics,
-  reader: StatefulJsonlReader<T>,
+  reader: StatefulJsonlReader<T, State>,
 ): AsyncGenerator<T, void, undefined> {
   const parser = getCursorParser(adapter);
   const handle = await open(filePath, 'r');
 
   try {
     const prefix = await validateJsonlCursor(handle, resume.from, parser);
-    const restored = prefix ? reader.restore(resume.from?.state) : undefined;
+    const from = prefix ? reader.parseState(resume.from?.state) : undefined;
 
-    if (prefix && restored) {
+    if (prefix && from) {
       const tracker = new CursorPrefixTracker(prefix);
       const passDiagnostics = createReadDiagnostics();
-      const pass = restored.resume(tracker.position(handle), passDiagnostics);
+      const pass = startPass(reader, tracker.position(handle), passDiagnostics, from);
       const events = await collectUnlessConflict(pass.events);
 
       if (events) {
         recordSkippedRows(diagnostics, passDiagnostics);
-        resume.onStart?.({ restarted: false, replaced: restored.replaced });
+        resume.onStart?.({ restarted: false, replaced: from.replaced });
         yield* events;
         resume.onCursor({
           cursor: tracker.toCursor(parser, pass.state()),
@@ -329,7 +348,7 @@ export async function* readJsonlFromStatefulCursor<T>(
     }
 
     const tracker = startTracker();
-    const pass = reader.start(tracker.position(handle), diagnostics);
+    const pass = startPass(reader, tracker.position(handle), diagnostics);
 
     resume.onStart?.({ restarted: true });
     yield* pass.events;
