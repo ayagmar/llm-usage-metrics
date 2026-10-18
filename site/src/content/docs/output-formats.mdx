@@ -126,7 +126,7 @@ Usage and session output keep the same ordering and row limits as the terminal r
 
 ## Share reports
 
-`--share` writes one self-contained HTML report to the current directory and still prints the normal report to `stdout`. It works with `summary`, `daily`, `weekly`, `monthly`, `compare`, `trends`, `efficiency`, `optimize`, and `wrapped`. The page charts and filters the command's usage by hour, source, model, project, and machine, loads nothing from the network, and opens in your browser unless you pass `--no-open`. `--redact` replaces project and machine names in the file.
+`--share` writes one self-contained HTML report to the current directory and still prints the normal report to `stdout`. It works with `summary`, `daily`, `weekly`, `monthly`, `compare`, `trends`, `efficiency`, `optimize`, and `wrapped`. The page charts and filters the command's usage by hour, source, model, project, and machine, loads nothing from the network, and opens in your browser unless you pass `--no-open`. `--redact` replaces project and machine names, and local or path-shaped model names, in the file.
 
 ```bash
 llm-usage monthly --share --no-open
